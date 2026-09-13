@@ -84,7 +84,7 @@ public class Comprobante {
     }
 
     public void rechazarPorFault(String codigo, String descripcion) {
-        if (estado == EstadoDocumento.FIRMADO || estado == EstadoDocumento.ERROR_ENVIO) estado = EstadoDocumento.ENVIADO;
+        if (estado.esEnviable()) transitar(EstadoDocumento.ENVIADO);
         transitar(EstadoDocumento.RECHAZADO);
         this.cdr = new Cdr(codigo, descripcion, List.of());
     }

@@ -82,6 +82,13 @@ class ComprobanteTest {
         assertThat(c.cdr().codigo()).isEqualTo("2324");
     }
 
+    @Test void faultDefinitivoDesdeErrorEnvioRechaza() {
+        Comprobante c = firmado();
+        c.marcarErrorEnvio("x");
+        c.rechazarPorFault("2324", "dup");
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.RECHAZADO);
+    }
+
     @Test void transicionInvalidaLanza() {
         Comprobante c = firmado();
         assertThatThrownBy(() -> c.aplicarCdr(new Cdr("0", "x", List.of()), "k"))
