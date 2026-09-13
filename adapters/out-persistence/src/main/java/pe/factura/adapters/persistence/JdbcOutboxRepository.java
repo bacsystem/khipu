@@ -19,6 +19,8 @@ public class JdbcOutboxRepository implements OutboxRepository {
     }
     /** Debe ejecutarse dentro de una transacción (UnitOfWork) para que FOR UPDATE SKIP LOCKED tenga efecto. */
     @Override public List<OutboxItem> tomarVencidas(int limite, Duration lock) {
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("tomarVencidas debe ejecutarse dentro de una transacción (UnitOfWork)");
         List<OutboxItem> items = jdbc.query("""
             SELECT id, tenant_id, agregado_id, accion, intentos FROM outbox
             WHERE siguiente_intento <= now() AND (locked_until IS NULL OR locked_until < now())

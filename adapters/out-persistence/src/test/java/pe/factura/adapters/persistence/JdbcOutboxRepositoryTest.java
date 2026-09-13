@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JdbcOutboxRepositoryTest extends PersistenciaTestBase {
     JdbcOutboxRepository repo = new JdbcOutboxRepository(jdbc);
@@ -32,5 +33,12 @@ class JdbcOutboxRepositoryTest extends PersistenciaTestBase {
         assertThat(otraVez.intentos()).isEqualTo(1);
         repo.completar(otraVez.id());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox", Integer.class)).isZero();
+    }
+
+    @Test void tomarVencidasFueraDeTransaccionLanza() {
+        UUID t = tenantDePrueba();
+        repo.programar(t, "ENVIAR", UUID.randomUUID(), Instant.now().minusSeconds(5));
+        assertThatThrownBy(() -> repo.tomarVencidas(10, Duration.ofMinutes(2)))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

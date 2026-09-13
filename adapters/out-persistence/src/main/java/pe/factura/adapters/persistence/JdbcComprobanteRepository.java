@@ -75,13 +75,72 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     /** JSON mínimo para una lista de strings (sin dependencia de Jackson en este módulo). */
     static String aJson(List<String> l) {
         StringBuilder sb = new StringBuilder("[");
-        for (int k = 0; k < l.size(); k++) { if (k > 0) sb.append(','); sb.append('"').append(l.get(k).replace("\\", "\\\\").replace("\"", "\\\"")).append('"'); }
+        for (int k = 0; k < l.size(); k++) {
+            if (k > 0) sb.append(',');
+            sb.append('"');
+            escapar(l.get(k), sb);
+            sb.append('"');
+        }
         return sb.append(']').toString();
     }
+
+    private static void escapar(String s, StringBuilder sb) {
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\' -> sb.append("\\\\");
+                case '"' -> sb.append("\\\"");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                case '\b' -> sb.append("\\b");
+                case '\f' -> sb.append("\\f");
+                default -> {
+                    if (c < 0x20) sb.append(String.format("\\u%04x", (int) c));
+                    else sb.append(c);
+                }
+            }
+        }
+    }
+
+    /** Parser mínimo (máquina de estados) de un arreglo JSON de strings, sin dependencia de Jackson. */
     static List<String> deJson(String json) {
         if (json == null || json.length() <= 2) return List.of();
         List<String> out = new ArrayList<>();
-        for (String s : json.substring(1, json.length() - 1).split("\",\"")) out.add(s.replaceAll("^\"|\"$", "").replace("\\\"", "\"").replace("\\\\", "\\"));
+        int i = 1;
+        int n = json.length() - 1; // excluye ']'
+        while (i < n) {
+            while (i < n && json.charAt(i) != '"') i++;
+            if (i >= n) break;
+            i++; // salta comilla de apertura
+            StringBuilder sb = new StringBuilder();
+            while (i < n && json.charAt(i) != '"') {
+                char c = json.charAt(i);
+                if (c == '\\' && i + 1 < n) {
+                    char next = json.charAt(i + 1);
+                    switch (next) {
+                        case '\\' -> { sb.append('\\'); i += 2; }
+                        case '"' -> { sb.append('"'); i += 2; }
+                        case 'n' -> { sb.append('\n'); i += 2; }
+                        case 'r' -> { sb.append('\r'); i += 2; }
+                        case 't' -> { sb.append('\t'); i += 2; }
+                        case 'b' -> { sb.append('\b'); i += 2; }
+                        case 'f' -> { sb.append('\f'); i += 2; }
+                        case 'u' -> {
+                            String hex = json.substring(i + 2, i + 6);
+                            sb.append((char) Integer.parseInt(hex, 16));
+                            i += 6;
+                        }
+                        default -> { sb.append(next); i += 2; }
+                    }
+                } else {
+                    sb.append(c);
+                    i++;
+                }
+            }
+            i++; // salta comilla de cierre
+            out.add(sb.toString());
+        }
         return out;
     }
 }

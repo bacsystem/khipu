@@ -60,4 +60,17 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.listar(t1, null, 1, 10)).hasSize(1);
         assertThat(repo.listar(t2, null, 1, 10)).isEmpty();
     }
+
+    @Test void observacionesConSaltosDeLineaSobrevivenAlRoundTrip() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 7);
+        c.firmar("h", "k");
+        repo.guardar(c);
+        c.marcarEnviado();
+        c.aplicarCdr(new Cdr("0", "aceptada", List.of("4252 - obs\ncon salto", "otra\tcon tab")), "k/cdr.zip");
+        repo.guardar(c);
+
+        Comprobante r = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(r.cdr().observaciones()).containsExactly("4252 - obs\ncon salto", "otra\tcon tab");
+    }
 }
