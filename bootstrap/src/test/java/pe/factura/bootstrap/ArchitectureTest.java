@@ -4,6 +4,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
@@ -24,7 +25,7 @@ class ArchitectureTest {
             .allowEmptyShould(true);
 
     @ArchTest
-    static final ArchRule adaptadoresNoSeConocen = noClasses().that().resideInAPackage("pe.factura.adapters.(*)..")
-            .should().dependOnClassesThat().resideInAPackage("pe.factura.adapters.(*)..")
+    static final ArchRule adaptadoresNoSeConocen = SlicesRuleDefinition.slices()
+            .matching("pe.factura.adapters.(*)..").should().notDependOnEachOther()
             .allowEmptyShould(true);
 }

@@ -22,7 +22,7 @@ management:
 app:
   mode: ${APP_MODE:multi}
   master-key: ${MASTER_KEY:}
-  api-key-pepper: ${API_KEY_PEPPER:cambiar-en-produccion}
+  api-key-pepper: ${API_KEY_PEPPER:}
   platform-admin-key: ${PLATFORM_ADMIN_KEY:}
   storage:
     type: ${STORAGE_TYPE:fs}
