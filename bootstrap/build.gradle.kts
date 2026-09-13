@@ -1,0 +1,27 @@
+plugins {
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
+}
+dependencies {
+    implementation(project(":application"))
+    implementation(project(":adapters:in-rest"))
+    implementation(project(":adapters:in-scheduler"))
+    implementation(project(":adapters:out-ubl"))
+    implementation(project(":adapters:out-signing"))
+    implementation(project(":adapters:out-sunat-soap"))
+    implementation(project(":adapters:out-storage"))
+    implementation(project(":adapters:out-persistence"))
+    implementation(project(":adapters:out-crypto"))
+    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.flyway.core)
+    runtimeOnly(libs.flyway.postgres)
+    runtimeOnly(libs.postgres)
+    testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.spring.boot.testcontainers)
+    testImplementation(libs.testcontainers.postgres)
+    testImplementation(libs.testcontainers.junit)
+    testImplementation(libs.wiremock)
+    testImplementation(libs.archunit)
+}

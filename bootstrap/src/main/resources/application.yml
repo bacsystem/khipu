@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: factura
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/factura}
+    username: ${DB_USER:factura}
+    password: ${DB_PASSWORD:factura}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+server:
+  port: 8080
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+app:
+  mode: ${APP_MODE:multi}
+  master-key: ${MASTER_KEY:}
+  api-key-pepper: ${API_KEY_PEPPER:cambiar-en-produccion}
+  platform-admin-key: ${PLATFORM_ADMIN_KEY:}
+  storage:
+    type: ${STORAGE_TYPE:fs}
+    fs-root: ${STORAGE_FS_ROOT:./storage}
+  sunat:
+    timeout-seconds: ${SUNAT_TIMEOUT_SECONDS:15}
+    beta-url: https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService
+    prod-url: https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService
+  outbox:
+    intervalo-ms: ${OUTBOX_INTERVALO_MS:10000}
+    max-intentos: ${OUTBOX_MAX_INTENTOS:20}
+  zona-horaria: America/Lima
