@@ -99,4 +99,60 @@ class FacturaControllerTest {
         mvc.perform(post("/v1/facturas/{id}/enviar", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.datos.estado_documento").value("ACEPTADO"));
     }
+
+    @Test void listarDevuelveLista() throws Exception {
+        when(consultar.listar(eq(tenant), isNull(), eq(1), eq(20))).thenReturn(List.of(aceptado(tenant)));
+        mvc.perform(get("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos[0].serie").value("F001"));
+    }
+
+    @Test void listarAcotaPorPagina() throws Exception {
+        when(consultar.listar(eq(tenant), isNull(), eq(1), eq(100))).thenReturn(List.of());
+        mvc.perform(get("/v1/facturas?pagina=0&por_pagina=500").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(consultar).listar(tenant, null, 1, 100);
+    }
+
+    @Test void obtenerPorId() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        mvc.perform(get("/v1/facturas/{id}", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.id").value(c.id().toString()))
+                .andExpect(jsonPath("$.datos.estado_documento").value("ACEPTADO"));
+    }
+
+    @Test void obtenerInexistenteEs404() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(consultar.obtener(tenant, id)).thenThrow(new DomainException("NO_ENCONTRADO", "x"));
+        mvc.perform(get("/v1/facturas/{id}", id).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+    }
+
+    @Test void descargaCdr() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        when(consultar.cdr(tenant, c.id())).thenReturn(new byte[]{1, 2, 3});
+        mvc.perform(get("/v1/facturas/{id}/cdr", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"R-20100066603-01-F001-601.zip\""))
+                .andExpect(content().contentTypeCompatibleWith("application/zip"))
+                .andExpect(content().bytes(new byte[]{1, 2, 3}));
+    }
+
+    @Test void jsonMalformadoEs400() throws Exception {
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("JSON_INVALIDO"));
+    }
+
+    @Test void errorInternoEs500SinDetalle() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any())).thenThrow(new IllegalStateException("detalle secreto"));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.codigo").value("INTERNO"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("detalle secreto"))));
+    }
 }

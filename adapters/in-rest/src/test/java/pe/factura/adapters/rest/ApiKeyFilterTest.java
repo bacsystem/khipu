@@ -16,10 +16,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ApiKeyFilterTest {
     UUID tenant = UUID.randomUUID();
     String key = "fk_valida";
+    String keyInactiva = "fk_inactiva";
     ApiKeyRepository repo = new ApiKeyRepository() {
         public void guardar(ApiKey k) {}
         public Optional<ApiKey> buscarPorHash(String h) {
-            return h.equals(ApiKeyGenerator.hash(key, "pep")) ? Optional.of(new ApiKey(UUID.randomUUID(), tenant, h, "fk_valida", true)) : Optional.empty();
+            if (h.equals(ApiKeyGenerator.hash(key, "pep"))) return Optional.of(new ApiKey(UUID.randomUUID(), tenant, h, "fk_valida", true));
+            if (h.equals(ApiKeyGenerator.hash(keyInactiva, "pep"))) return Optional.of(new ApiKey(UUID.randomUUID(), tenant, h, "fk_inactiva", false));
+            return Optional.empty();
         }
     };
     ApiKeyFilter filter = new ApiKeyFilter(repo, "pep");
@@ -48,6 +51,21 @@ class ApiKeyFilterTest {
         MockHttpServletResponse res = new MockHttpServletResponse();
         filter.doFilter(req, res, new MockFilterChain());
         assertThat(res.getStatus()).isEqualTo(401);
+    }
+
+    @Test void keyInactivaResponde401() throws Exception {
+        MockHttpServletRequest reqInvalida = new MockHttpServletRequest("GET", "/v1/facturas");
+        reqInvalida.addHeader("X-Api-Key", "fk_otra");
+        MockHttpServletResponse resInvalida = new MockHttpServletResponse();
+        filter.doFilter(reqInvalida, resInvalida, new MockFilterChain());
+
+        MockHttpServletRequest reqInactiva = new MockHttpServletRequest("GET", "/v1/facturas");
+        reqInactiva.addHeader("X-Api-Key", keyInactiva);
+        MockHttpServletResponse resInactiva = new MockHttpServletResponse();
+        filter.doFilter(reqInactiva, resInactiva, new MockFilterChain());
+
+        assertThat(resInactiva.getStatus()).isEqualTo(401);
+        assertThat(resInactiva.getContentAsString()).isEqualTo(resInvalida.getContentAsString());
     }
 
     @Test void rutasAdminYHealthNoRequierenApiKey() throws Exception {
