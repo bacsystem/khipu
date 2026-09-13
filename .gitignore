@@ -5,6 +5,6 @@ adapters/*/build/
 .idea/
 *.iml
 .DS_Store
-storage/
+/storage/
 .env
 .superpowers/
