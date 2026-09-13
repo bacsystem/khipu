@@ -72,7 +72,7 @@ public class XmlDsigSigner implements XmlSigner {
             String hash = Base64.getEncoder().encodeToString(ref.getDigestValue());
             return new FirmaResultado(serializar(doc), hash);
         } catch (DomainException e) { throw e;
-        } catch (Exception e) { throw new DomainException("FIRMA_FALLIDA", "No se pudo firmar el XML: " + e.getMessage()); }
+        } catch (Exception e) { throw new DomainException("FIRMA_FALLIDA", "No se pudo firmar el XML: " + e.getMessage(), e); }
     }
 
     private static String serializar(Document doc) throws Exception {

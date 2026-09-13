@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 import pe.factura.application.port.out.FirmaResultado;
+import pe.factura.domain.DomainException;
 import pe.factura.domain.tenant.CertificadoDigital;
 
 import javax.xml.crypto.dsig.XMLSignature;
@@ -16,6 +17,7 @@ import java.security.KeyStore;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class XmlDsigSignerTest {
     static final String XML = """
@@ -60,5 +62,13 @@ class XmlDsigSignerTest {
         KeyStore ks = KeyStore.getInstance("PKCS12"); ks.load(new ByteArrayInputStream(cert().pkcs12()), "test1234".toCharArray());
         DOMValidateContext ctx = new DOMValidateContext(ks.getCertificate(ks.aliases().nextElement()).getPublicKey(), nl.item(0));
         assertThat(XMLSignatureFactory.getInstance("DOM").unmarshalXMLSignature(ctx).validate(ctx)).isFalse();
+    }
+
+    @Test void passwordIncorrectaLanzaConCausaOriginal() throws Exception {
+        CertificadoDigital certConMalaClave = new CertificadoDigital(cert().pkcs12(), "mala", LocalDate.of(2036, 1, 1));
+        assertThatThrownBy(() -> new XmlDsigSigner().firmar(XML, certConMalaClave))
+                .isInstanceOf(DomainException.class)
+                .satisfies(e -> assertThat(((DomainException) e).codigo()).isEqualTo("FIRMA_FALLIDA"))
+                .satisfies(e -> assertThat(e.getCause()).isNotNull());
     }
 }

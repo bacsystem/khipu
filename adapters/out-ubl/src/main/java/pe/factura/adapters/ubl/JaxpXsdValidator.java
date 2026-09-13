@@ -42,9 +42,9 @@ public class JaxpXsdValidator implements XsdValidator {
             v.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
             v.validate(new StreamSource(new StringReader(xml)));
         } catch (SAXParseException e) {
-            throw new DomainException("XSD_INVALIDO", "XML inválido (línea " + e.getLineNumber() + "): " + e.getMessage());
+            throw new DomainException("XSD_INVALIDO", "XML inválido (línea " + e.getLineNumber() + "): " + e.getMessage(), e);
         } catch (Exception e) {
-            throw new DomainException("XSD_INVALIDO", "XML inválido: " + e.getMessage());
+            throw new DomainException("XSD_INVALIDO", "XML inválido: " + e.getMessage(), e);
         }
     }
 }

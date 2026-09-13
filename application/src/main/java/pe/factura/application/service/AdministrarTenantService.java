@@ -55,7 +55,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
             if (!ouContieneRuc(subject, t.ruc())) throw new DomainException("CERTIFICADO_INVALIDO", "El RUC " + t.ruc() + " no figura en el campo OU del certificado");
             vigencia = cert.getNotAfter().toInstant().atZone(ZoneId.of("America/Lima")).toLocalDate();
         } catch (DomainException e) { throw e;
-        } catch (Exception e) { throw new DomainException("CERTIFICADO_INVALIDO", "No se pudo abrir el PKCS#12: " + e.getMessage()); }
+        } catch (Exception e) { throw new DomainException("CERTIFICADO_INVALIDO", "No se pudo abrir el PKCS#12: " + e.getMessage(), e); }
         if (vigencia.isBefore(LocalDate.now(clock))) throw new DomainException("CERTIFICADO_VENCIDO", "El certificado venció el " + vigencia);
         uow.ejecutar(() -> tenants.guardar(t.conCertificado(new CertificadoDigital(pkcs12, clave, vigencia))));
     }
