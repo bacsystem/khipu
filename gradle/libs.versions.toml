@@ -1,5 +1,7 @@
 [versions]
 springBoot = "3.3.4"
+springFramework = "6.1.13"
+slf4j = "2.0.16"
 freemarker = "2.3.33"
 testcontainers = "1.20.1"
 wiremock = "3.9.1"
@@ -15,8 +17,9 @@ spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-star
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator", version.ref = "springBoot" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers", version.ref = "springBoot" }
-spring-tx = { module = "org.springframework:spring-tx" }
-spring-context = { module = "org.springframework:spring-context" }
+spring-tx = { module = "org.springframework:spring-tx", version.ref = "springFramework" }
+spring-context = { module = "org.springframework:spring-context", version.ref = "springFramework" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgres = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 postgres = { module = "org.postgresql:postgresql", version.ref = "postgres" }
