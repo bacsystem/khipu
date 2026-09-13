@@ -8,3 +8,4 @@ adapters/*/build/
 /storage/
 .env
 .superpowers/
+/docs/

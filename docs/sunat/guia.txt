@@ -1,4 +1,0 @@
-https://cpe.sunat.gob.pe/tipos_de_comprobantes/guiaderemision
-
-# Manual del programador 
-https://cpe.sunat.gob.pe/sites/default/files/inline-files/manual_programador%20%281%29.pdf
