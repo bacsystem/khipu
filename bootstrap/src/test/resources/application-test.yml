@@ -1,0 +1,9 @@
+app:
+  master-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  api-key-pepper: pepper-test
+  platform-admin-key: plataforma-test
+  storage:
+    fs-root: ${java.io.tmpdir}/factura-e2e
+  outbox:
+    intervalo-ms: 600000
+    max-intentos: 20

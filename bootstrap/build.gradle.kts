@@ -24,4 +24,16 @@ dependencies {
     testImplementation(libs.testcontainers.junit)
     testImplementation(libs.wiremock)
     testImplementation(libs.archunit)
+    // El SimpleClientHttpRequestFactory basado en HttpURLConnection lanza HttpRetryException
+    // ("cannot retry due to server authentication, in streaming mode") cuando un POST con
+    // cuerpo recibe un 401 en modo streaming. Con Apache HttpClient5 en el classpath de test,
+    // Spring Boot construye el TestRestTemplate con HttpComponentsClientHttpRequestFactory,
+    // que no tiene ese problema.
+    testImplementation(libs.httpclient5)
+}
+
+// Ver adapters/out-persistence/build.gradle.kts: Testcontainers 1.20.1 no negocia con el
+// Docker Engine local si no se fija esta versión de API.
+tasks.test {
+    systemProperty("api.version", "1.41")
 }

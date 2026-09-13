@@ -6,6 +6,7 @@ freemarker = "2.3.33"
 testcontainers = "1.20.1"
 wiremock = "3.9.1"
 archunit = "1.3.0"
+httpclient5 = "5.3.1"
 postgres = "42.7.4"
 flyway = "10.17.3"
 
@@ -28,6 +29,7 @@ testcontainers-postgres = { module = "org.testcontainers:postgresql", version.re
 testcontainers-junit = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
 wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
 archunit = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "httpclient5" }
 junit-bom = { module = "org.junit:junit-bom", version = "5.10.3" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 assertj = { module = "org.assertj:assertj-core", version = "3.26.3" }
