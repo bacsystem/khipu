@@ -48,4 +48,10 @@ class AdministrarTenantServiceTest {
         assertThatThrownBy(() -> service.cargarCertificado(id, new byte[]{1, 2, 3}, "x"))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CERTIFICADO_INVALIDO");
     }
+
+    @Test void ouDebeCoincidirExactamente() {
+        assertThat(AdministrarTenantService.ouContieneRuc("CN=X,OU=20100066603,O=Y", "20100066603")).isTrue();
+        assertThat(AdministrarTenantService.ouContieneRuc("CN=X,OU=201000666035,O=Y", "20100066603")).isFalse();
+        assertThat(AdministrarTenantService.ouContieneRuc("CN=20100066603,OU=Otro,O=Y", "20100066603")).isFalse();
+    }
 }

@@ -6,6 +6,8 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.*;
 
+import javax.naming.ldap.LdapName;
+import javax.naming.ldap.Rdn;
 import java.io.ByteArrayInputStream;
 import java.security.KeyStore;
 import java.security.cert.X509Certificate;
@@ -50,7 +52,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
             X509Certificate cert = (X509Certificate) ks.getCertificate(alias);
             if (ks.getKey(alias, clave.toCharArray()) == null) throw new IllegalStateException("sin clave privada");
             String subject = cert.getSubjectX500Principal().getName();
-            if (!subject.contains("OU=" + t.ruc())) throw new DomainException("CERTIFICADO_INVALIDO", "El RUC " + t.ruc() + " no figura en el campo OU del certificado");
+            if (!ouContieneRuc(subject, t.ruc())) throw new DomainException("CERTIFICADO_INVALIDO", "El RUC " + t.ruc() + " no figura en el campo OU del certificado");
             vigencia = cert.getNotAfter().toInstant().atZone(ZoneId.of("America/Lima")).toLocalDate();
         } catch (DomainException e) { throw e;
         } catch (Exception e) { throw new DomainException("CERTIFICADO_INVALIDO", "No se pudo abrir el PKCS#12: " + e.getMessage()); }
@@ -77,5 +79,17 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         String key = ApiKeyGenerator.generar();
         uow.ejecutar(() -> apiKeys.guardar(new ApiKey(UUID.randomUUID(), tenantId, ApiKeyGenerator.hash(key, pepper), ApiKeyGenerator.prefijo(key), true)));
         return key;
+    }
+
+    static boolean ouContieneRuc(String subjectDn, String ruc) {
+        try {
+            LdapName dn = new LdapName(subjectDn);
+            for (Rdn rdn : dn.getRdns()) {
+                if (rdn.getType().equalsIgnoreCase("OU") && String.valueOf(rdn.getValue()).trim().equals(ruc)) return true;
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

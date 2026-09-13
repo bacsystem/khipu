@@ -32,8 +32,8 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
         Tenant tenant = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
         tenant.exigirCredencialesSol();
 
-        byte[] xml = storage.leer(c.xmlKey());
         try {
+            byte[] xml = storage.leer(c.xmlKey());
             byte[] cdrZip = gateway.sendBill(tenant, c.nombreArchivo(), xml);
             Cdr cdr = cdrParser.parsear(cdrZip);
             String cdrKey = c.xmlKey().substring(0, c.xmlKey().lastIndexOf('/') + 1) + "R-" + c.nombreArchivo() + ".zip";
@@ -44,6 +44,8 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
             c.marcarErrorEnvio(e.codigo() + " - " + e.getMessage());
         } catch (SunatRechazoException e) {
             c.rechazarPorFault(e.codigo(), e.descripcion());
+        } catch (IllegalStateException e) {   // storage, ZIP o CDR ilegible: infraestructura, reintentable
+            c.marcarErrorEnvio("INFRA - " + e.getMessage());
         }
         uow.ejecutar(() -> comprobantes.guardar(c));
         return c;

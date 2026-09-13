@@ -81,4 +81,13 @@ class EnviarDocumentoServiceTest {
         assertThatThrownBy(() -> service.enviar(UUID.randomUUID(), c.id()))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("NO_ENCONTRADO");
     }
+
+    @Test void falloDeStorageDejaErrorEnvio() {
+        storage.datos.remove(c.xmlKey());
+        Comprobante r = service.enviar(tenantId, c.id());
+        assertThat(r.estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(r.intentos()).isEqualTo(1);
+        assertThat(r.ultimoError()).startsWith("INFRA");
+        assertThat(comprobantes.datos.get(c.id()).estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+    }
 }
