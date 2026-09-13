@@ -1,0 +1,106 @@
+package pe.factura.application.service;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import pe.factura.application.port.in.EmitirFacturaCommand;
+import pe.factura.application.port.out.*;
+import pe.factura.domain.DomainException;
+import pe.factura.domain.documento.*;
+import pe.factura.domain.tenant.Serie;
+import pe.factura.domain.tenant.Tenant;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.*;
+
+class EmitirComprobanteServiceTest {
+    UUID tenantId = UUID.randomUUID();
+    Fakes.Comprobantes comprobantes = new Fakes.Comprobantes();
+    Fakes.Series series = new Fakes.Series();
+    Fakes.Tenants tenants = new Fakes.Tenants();
+    Fakes.Storage storage = new Fakes.Storage();
+    Fakes.Outbox outbox = new Fakes.Outbox();
+    Fakes.Gateway gateway = new Fakes.Gateway();
+    Fakes.Cdrs cdrs = new Fakes.Cdrs();
+    UblGenerator ubl = (c, t) -> "<Invoice>" + c.nombreArchivo() + "</Invoice>";
+    XsdValidator xsd = (xml, tipo) -> {};
+    XmlSigner signer = (xml, cert) -> new FirmaResultado(xml.replace("<Invoice>", "<Invoice><ds:Signature/>"), "HASH" + xml.length());
+    EmitirComprobanteService service;
+
+    @BeforeEach void setUp() {
+        tenants.guardar(Fakes.tenantListo(tenantId));
+        series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, Fakes.UOW);
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, outbox, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK);
+    }
+
+    private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
+        return new EmitirFacturaCommand("F001", correlativo, LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), enviar);
+    }
+
+    @Test void asignaNumeroFirmaGuardaYEnvia() {
+        Comprobante c = service.emitirFactura(tenantId, cmd(null, true));
+        assertThat(c.numero()).isEqualTo(1L);
+        assertThat(c.hash()).startsWith("HASH");
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(c.xmlKey()).isEqualTo(tenantId + "/2026/09/20100066603-01-F001-1.xml");
+        assertThat(new String(storage.leer(c.xmlKey()))).contains("<ds:Signature/>");
+        assertThat(comprobantes.datos).containsKey(c.id());
+        assertThat(outbox.filas).isEmpty();
+    }
+
+    @Test void numeracionCorrelativa() {
+        service.emitirFactura(tenantId, cmd(null, false));
+        Comprobante segundo = service.emitirFactura(tenantId, cmd(null, false));
+        assertThat(segundo.numero()).isEqualTo(2L);
+        assertThat(segundo.estado()).isEqualTo(EstadoDocumento.FIRMADO);
+    }
+
+    @Test void correlativoExplicitoSeRespetaYNoSeDuplica() {
+        Comprobante c = service.emitirFactura(tenantId, cmd(50L, false));
+        assertThat(c.numero()).isEqualTo(50L);
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, cmd(50L, false)))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("DUPLICADO");
+    }
+
+    @Test void sinEnvioAutomaticoQuedaFirmado() {
+        Comprobante c = service.emitirFactura(tenantId, cmd(null, false));
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.FIRMADO);
+        assertThat(gateway.ultimoNombre).isNull();
+    }
+
+    @Test void falloTransitorioProgramaOutbox() {
+        gateway.falla = new SunatTransientException("0109", "timeout");
+        Comprobante c = service.emitirFactura(tenantId, cmd(null, true));
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(outbox.filas).hasSize(1);
+        assertThat(outbox.filas.get(0).accion()).isEqualTo("ENVIAR");
+        assertThat(outbox.filas.get(0).cuando()).isEqualTo(Backoff.siguiente(1, Fakes.CLOCK.instant()));
+    }
+
+    @Test void xsdInvalidoNoConsumeNumeroNiGuarda() {
+        XsdValidator malo = (xml, tipo) -> { throw new DomainException("XSD_INVALIDO", "línea 3"); };
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, Fakes.UOW);
+        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, outbox, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK);
+        assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).extracting("codigo").isEqualTo("XSD_INVALIDO");
+        assertThat(comprobantes.datos).isEmpty();
+    }
+
+    @Test void tenantSinCertificadoFalla() {
+        Tenant sinCert = new Tenant(tenantId, "20100066603", "EMPRESA SAC", pe.factura.domain.tenant.Entorno.BETA, null, null);
+        tenants.guardar(sinCert);
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, cmd(null, false))).extracting("codigo").isEqualTo("CERTIFICADO_NO_CARGADO");
+    }
+
+    @Test void serieNoConfiguradaFalla() {
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F999", null, LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), false)))
+                .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
+    }
+}
