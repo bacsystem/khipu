@@ -1,0 +1,38 @@
+sequenceDiagram
+  autonumber
+  participant C as Sistema emisor
+  participant R as REST adapter
+  participant U as EmitirComprobante
+  participant D as domain
+  participant P as persistence
+  participant X as ubl+xsd+signing
+  participant S as sunat-soap
+  participant ST as storage
+
+  C->>R: POST /v1/facturas (X-Api-Key, JSON)
+  R->>R: resolver tenant, validar DTO
+  R->>U: emitir(tenant, comando)
+  U->>P: BEGIN · lock SERIE · asignar numero
+  U->>D: construir Comprobante · validar reglas
+  D-->>U: OK (RECIBIDO)
+  U->>X: generar UBL → validar XSD → firmar
+  X-->>U: xml firmado + hash
+  U->>ST: guardar XML
+  U->>P: guardar Comprobante (FIRMADO) · COMMIT
+  alt enviar_automatico (default)
+    U->>S: sendBill(nombre.zip, zip)
+    alt CDR recibido
+      S-->>U: zip CDR
+      U->>ST: guardar CDR
+      U->>D: aplicarCdr → ACEPTADO / ACEPTADO_CON_OBS / RECHAZADO
+    else SOAPFault 0100-1999 / timeout
+      S-->>U: excepción
+      U->>D: marcarErrorEnvio
+      U->>P: outbox(ENVIAR, backoff)
+    end
+    U->>P: actualizar estado
+  else enviar_automatico=false
+    Note over U,P: sin outbox — queda FIRMADO hasta POST /enviar
+  end
+  U-->>R: DocumentoResult
+  R-->>C: 201 {id, estado, serie, numero, hash, cdr?, enlaces xml/cdr/pdf}

@@ -1,0 +1,10 @@
+.gradle/
+build/
+*/build/
+adapters/*/build/
+.idea/
+*.iml
+.DS_Store
+storage/
+.env
+.superpowers/

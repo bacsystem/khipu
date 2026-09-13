@@ -1,0 +1,20 @@
+sequenceDiagram
+  autonumber
+  participant W as OutboxWorker
+  participant P as persistence
+  participant E as EnviarDocumento / ConsultarEstado
+  participant S as SUNAT
+
+  loop cada 10 s
+    W->>P: SELECT outbox WHERE siguiente_intento <= now AND locked_until IS NULL FOR UPDATE SKIP LOCKED LIMIT 50
+    W->>P: locked_until = now + 2 min
+    W->>E: ejecutar(accion, agregadoId)
+    E->>S: sendBill / getStatus / GET envios
+    alt éxito
+      E->>P: actualizar estado · DELETE outbox
+    else fallo transitorio
+      E->>P: intentos+1 · siguiente_intento = now + min(2^intentos min, 6 h) · unlock
+    else intentos > máx (configurable, 20)
+      E->>P: estado ERROR_ENVIO definitivo · DELETE outbox · evento
+    end
+  end

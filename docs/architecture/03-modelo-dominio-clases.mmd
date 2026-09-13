@@ -1,0 +1,111 @@
+classDiagram
+  class DocumentoElectronico {
+    <<abstract>>
+    UUID id
+    UUID tenantId
+    TipoDocumento tipo
+    String serie
+    long numero
+    LocalDate fechaEmision
+    EstadoDocumento estado
+    String hash
+    String nombreArchivo
+    ModoEnvio modoEnvio
+    String ticket
+    int intentos
+    String ultimoError
+    Cdr cdr
+    ArchivosRef archivos
+    +firmar(hash)
+    +marcarEnviado(ticket)
+    +aplicarCdr(Cdr)
+    +marcarErrorEnvio(msg)
+    +anular()
+  }
+  class Comprobante {
+    TipoOperacion tipoOperacion
+    Moneda moneda
+    FormaPago formaPago
+    Receptor receptor
+    List~Item~ items
+    Totales totales
+    Referencia referencia
+    Detraccion detraccion
+    List~Cuota~ cuotas
+  }
+  class RetencionPercepcion {
+    Regimen regimen
+    BigDecimal tasa
+    Parte contraparte
+    List~DocumentoRelacionado~ documentos
+  }
+  class GuiaRemision {
+    Parte destinatario
+    Parte transportista
+    MotivoTraslado motivo
+    ModalidadTraslado modalidad
+    LocalDate fechaTraslado
+    Peso pesoTotal
+    Ubicacion partida
+    Ubicacion llegada
+    List~Vehiculo~ vehiculos
+    List~Conductor~ conductores
+    List~Bulto~ bultos
+  }
+  class ResumenDiario {
+    UUID id
+    UUID tenantId
+    LocalDate fechaReferencia
+    LocalDate fechaGeneracion
+    int correlativo
+    EstadoDocumento estado
+    String ticket
+    List~LineaResumen~ lineas
+  }
+  class LineaResumen {
+    UUID documentoId
+    CondicionLinea condicion
+  }
+  class ComunicacionBaja {
+    UUID id
+    UUID tenantId
+    LocalDate fechaGeneracion
+    int correlativo
+    EstadoDocumento estado
+    String ticket
+    List~LineaBaja~ lineas
+  }
+  class Tenant {
+    UUID id
+    String ruc
+    String razonSocial
+    Entorno entorno
+    Destino destino
+    CredencialesSol sol
+    CertificadoDigital certificado
+    CredencialesGre gre
+    List~Serie~ series
+  }
+  class Serie {
+    TipoDocumento tipo
+    String codigo
+    long ultimoNumero
+    boolean activa
+  }
+  class ApiKey {
+    UUID id
+    UUID tenantId
+    String hash
+    boolean activa
+  }
+
+  DocumentoElectronico <|-- Comprobante
+  DocumentoElectronico <|-- RetencionPercepcion
+  DocumentoElectronico <|-- GuiaRemision
+  ResumenDiario "1" o-- "1..500" LineaResumen
+  ComunicacionBaja "1" o-- "1..*" LineaBaja
+  LineaResumen ..> Comprobante : boleta / nota B
+  LineaBaja ..> DocumentoElectronico : factura / nota F
+  Tenant "1" *-- "*" Serie
+  Tenant "1" *-- "*" ApiKey
+  Comprobante ..> Comprobante : referencia (notas)

@@ -1,0 +1,25 @@
+flowchart TB
+  subgraph EDGE["Borde"]
+    LB["Reverse proxy / LB<br/>TLS · rate limit básico"]
+  end
+  subgraph APPS["Aplicación (contenedores, N réplicas)"]
+    A1["factura-api :8080<br/>REST + scheduler"]
+    A2["factura-api :8080<br/>REST + scheduler"]
+  end
+  subgraph DATA["Datos"]
+    PG[("PostgreSQL 16<br/>+ backups")]
+    OBJ[("Object storage<br/>S3 / MinIO / disco")]
+  end
+  subgraph EXT["SUNAT"]
+    SO["e-factura / e-beta<br/>SOAP"]
+    SR["api-seguridad · api-cpe<br/>REST"]
+  end
+  subgraph OBS["Observabilidad"]
+    MET["Prometheus / OTel"]
+    LOG["Logs JSON"]
+  end
+  LB --> A1 & A2
+  A1 & A2 --> PG
+  A1 & A2 --> OBJ
+  A1 & A2 --> SO & SR
+  A1 & A2 -.-> MET & LOG
