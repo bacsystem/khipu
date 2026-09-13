@@ -23,9 +23,11 @@ import java.io.ByteArrayInputStream;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
+import java.util.Enumeration;
 import java.util.List;
 
 public class XmlDsigSigner implements XmlSigner {
@@ -40,7 +42,7 @@ public class XmlDsigSigner implements XmlSigner {
         try {
             KeyStore ks = KeyStore.getInstance("PKCS12");
             ks.load(new ByteArrayInputStream(cert.pkcs12()), cert.clave().toCharArray());
-            String alias = ks.aliases().nextElement();
+            String alias = aliasConClavePrivada(ks);
             PrivateKey key = (PrivateKey) ks.getKey(alias, cert.clave().toCharArray());
             X509Certificate x509 = (X509Certificate) ks.getCertificate(alias);
 
@@ -73,6 +75,15 @@ public class XmlDsigSigner implements XmlSigner {
             return new FirmaResultado(serializar(doc), hash);
         } catch (DomainException e) { throw e;
         } catch (Exception e) { throw new DomainException("FIRMA_FALLIDA", "No se pudo firmar el XML: " + e.getMessage(), e); }
+    }
+
+    /** Un PKCS#12 puede traer entradas de solo certificado (CA) antes de la clave; se elige la primera con clave privada. */
+    private static String aliasConClavePrivada(KeyStore ks) throws KeyStoreException {
+        for (Enumeration<String> aliases = ks.aliases(); aliases.hasMoreElements(); ) {
+            String alias = aliases.nextElement();
+            if (ks.isKeyEntry(alias)) return alias;
+        }
+        throw new DomainException("CERTIFICADO_INVALIDO", "El PKCS#12 no contiene una clave privada");
     }
 
     private static String serializar(Document doc) throws Exception {

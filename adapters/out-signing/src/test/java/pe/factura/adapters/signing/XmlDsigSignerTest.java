@@ -71,4 +71,94 @@ class XmlDsigSignerTest {
                 .satisfies(e -> assertThat(((DomainException) e).codigo()).isEqualTo("FIRMA_FALLIDA"))
                 .satisfies(e -> assertThat(e.getCause()).isNotNull());
     }
+
+    /**
+     * PKCS#12 con una entrada de solo certificado (confiable) ANTES de la entrada con clave privada.
+     * <p>
+     * El proveedor PKCS12 del JDK siempre escribe las bolsas de claves antes que las de certificados, así que
+     * un store/load con la API KeyStore devuelve la clave primero. Para reproducir el orden que producen otras
+     * herramientas (OpenSSL, exportaciones de Windows) se intercambian los dos ContentInfo del AuthenticatedSafe
+     * y se descarta el MacData (opcional para el JDK). El resultado se carga con KeyStore sin errores.
+     */
+    static CertificadoDigital certConEntradaDeCaPrimero() throws Exception {
+        KeyStore origen = KeyStore.getInstance("PKCS12");
+        origen.load(new ByteArrayInputStream(cert().pkcs12()), "test1234".toCharArray());
+        String alias = origen.aliases().nextElement();
+        java.security.Key key = origen.getKey(alias, "test1234".toCharArray());
+        java.security.cert.Certificate[] chain = origen.getCertificateChain(alias);
+
+        KeyStore nuevo = KeyStore.getInstance("PKCS12");
+        nuevo.load(null, null);
+        nuevo.setCertificateEntry("ca", chain[0]);
+        nuevo.setKeyEntry("factura", key, "test1234".toCharArray(), chain);
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        nuevo.store(out, "test1234".toCharArray());
+        return new CertificadoDigital(Der.certificadosPrimero(out.toByteArray()), "test1234", LocalDate.of(2036, 1, 1));
+    }
+
+    /** Lector/escritor DER mínimo para reordenar el AuthenticatedSafe de un PFX. */
+    static final class Der {
+        /** PFX ::= SEQUENCE { version, authSafe ContentInfo { OID, [0] OCTET STRING { SEQUENCE OF ContentInfo } }, macData OPTIONAL }. */
+        static byte[] certificadosPrimero(byte[] pfx) {
+            java.util.List<byte[]> pfxHijos = hijos(pfx);                       // [version, authSafe, macData]
+            java.util.List<byte[]> authSafe = hijos(pfxHijos.get(1));           // [OID, [0]]
+            byte[] octet = hijos(authSafe.get(1)).get(0);                       // OCTET STRING
+            java.util.List<byte[]> contentInfos = hijos(contenido(octet));      // [claves, certificados] según el JDK
+            if (contentInfos.size() != 2) throw new IllegalStateException("se esperaban 2 ContentInfo, hay " + contentInfos.size());
+            byte[] reordenado = tlv(0x30, concat(contentInfos.get(1), contentInfos.get(0)));
+            byte[] nuevoAuthSafe = tlv(0x30, concat(authSafe.get(0), tlv(0xA0, tlv(0x04, reordenado))));
+            return tlv(0x30, concat(pfxHijos.get(0), nuevoAuthSafe));         // sin MacData
+        }
+        static java.util.List<byte[]> hijos(byte[] der) {
+            byte[] c = contenido(der);
+            java.util.List<byte[]> out = new java.util.ArrayList<>();
+            int i = 0;
+            while (i < c.length) { int fin = finDe(c, i); out.add(java.util.Arrays.copyOfRange(c, i, fin)); i = fin; }
+            return out;
+        }
+        static byte[] contenido(byte[] der) { int[] h = cabecera(der, 0); return java.util.Arrays.copyOfRange(der, h[0], h[0] + h[1]); }
+        static int finDe(byte[] b, int desde) { int[] h = cabecera(b, desde); return h[0] + h[1]; }
+        /** Devuelve {offset del contenido, longitud del contenido}. */
+        static int[] cabecera(byte[] b, int desde) {
+            int i = desde + 1;
+            int l = b[i++] & 0xFF;
+            if (l >= 0x80) { int n = l & 0x7F; l = 0; for (int k = 0; k < n; k++) l = (l << 8) | (b[i++] & 0xFF); }
+            return new int[]{i, l};
+        }
+        static byte[] tlv(int tag, byte[] contenido) {
+            java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream();
+            o.write(tag);
+            int l = contenido.length;
+            if (l < 0x80) o.write(l);
+            else { byte[] lb = java.math.BigInteger.valueOf(l).toByteArray(); if (lb[0] == 0) lb = java.util.Arrays.copyOfRange(lb, 1, lb.length); o.write(0x80 | lb.length); o.writeBytes(lb); }
+            o.writeBytes(contenido);
+            return o.toByteArray();
+        }
+        static byte[] concat(byte[] a, byte[] b) { byte[] r = java.util.Arrays.copyOf(a, a.length + b.length); System.arraycopy(b, 0, r, a.length, b.length); return r; }
+    }
+
+    @Test void eligeElAliasConClavePrivadaAunqueNoSeaElPrimero() throws Exception {
+        CertificadoDigital c = certConEntradaDeCaPrimero();
+        KeyStore ks = KeyStore.getInstance("PKCS12"); ks.load(new ByteArrayInputStream(c.pkcs12()), "test1234".toCharArray());
+        String primero = ks.aliases().nextElement();
+        assertThat(ks.isKeyEntry(primero)).as("el primer alias (" + primero + ") debe ser de solo certificado para que la prueba sea significativa").isFalse();
+        assertThat(ks.isKeyEntry("factura")).isTrue();
+
+        FirmaResultado r = new XmlDsigSigner().firmar(XML, c);
+        assertThat(r.xmlFirmado()).contains("<ds:Signature").contains("<ds:X509Certificate>");
+        assertThat(r.hash()).isNotBlank();
+    }
+
+    @Test void pkcs12SinClavePrivadaLanzaCertificadoInvalido() throws Exception {
+        KeyStore origen = KeyStore.getInstance("PKCS12");
+        origen.load(new ByteArrayInputStream(cert().pkcs12()), "test1234".toCharArray());
+        KeyStore soloCert = KeyStore.getInstance("PKCS12");
+        soloCert.load(null, null);
+        soloCert.setCertificateEntry("ca", origen.getCertificate(origen.aliases().nextElement()));
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        soloCert.store(out, "test1234".toCharArray());
+
+        assertThatThrownBy(() -> new XmlDsigSigner().firmar(XML, new CertificadoDigital(out.toByteArray(), "test1234", LocalDate.of(2036, 1, 1))))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CERTIFICADO_INVALIDO");
+    }
 }

@@ -48,7 +48,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         try {
             KeyStore ks = KeyStore.getInstance("PKCS12");
             ks.load(new ByteArrayInputStream(pkcs12), clave.toCharArray());
-            String alias = ks.aliases().nextElement();
+            String alias = aliasConClavePrivada(ks);
             X509Certificate cert = (X509Certificate) ks.getCertificate(alias);
             if (ks.getKey(alias, clave.toCharArray()) == null) throw new IllegalStateException("sin clave privada");
             String subject = cert.getSubjectX500Principal().getName();
@@ -58,6 +58,15 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         } catch (Exception e) { throw new DomainException("CERTIFICADO_INVALIDO", "No se pudo abrir el PKCS#12: " + e.getMessage(), e); }
         if (vigencia.isBefore(LocalDate.now(clock))) throw new DomainException("CERTIFICADO_VENCIDO", "El certificado venció el " + vigencia);
         uow.ejecutar(() -> tenants.guardar(t.conCertificado(new CertificadoDigital(pkcs12, clave, vigencia))));
+    }
+
+    /** Un PKCS#12 puede traer entradas de solo certificado (CA) antes de la clave; se elige la primera con clave privada. */
+    private static String aliasConClavePrivada(KeyStore ks) throws java.security.KeyStoreException {
+        for (java.util.Enumeration<String> aliases = ks.aliases(); aliases.hasMoreElements(); ) {
+            String alias = aliases.nextElement();
+            if (ks.isKeyEntry(alias)) return alias;
+        }
+        throw new DomainException("CERTIFICADO_INVALIDO", "El PKCS#12 no contiene una clave privada");
     }
 
     public void cargarCredencialesSol(UUID tenantId, String usuario, String clave) {
