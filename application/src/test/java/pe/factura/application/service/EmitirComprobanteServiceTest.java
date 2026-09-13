@@ -26,7 +26,8 @@ class EmitirComprobanteServiceTest {
     Fakes.Gateway gateway = new Fakes.Gateway();
     Fakes.Cdrs cdrs = new Fakes.Cdrs();
     UblGenerator ubl = (c, t) -> "<Invoice>" + c.nombreArchivo() + "</Invoice>";
-    XsdValidator xsd = (xml, tipo) -> {};
+    String[] recibido = new String[1];
+    XsdValidator xsd = (xml, tipo) -> recibido[0] = xml;
     XmlSigner signer = (xml, cert) -> new FirmaResultado(xml.replace("<Invoice>", "<Invoice><ds:Signature/>"), "HASH" + xml.length());
     EmitirComprobanteService service;
 
@@ -52,6 +53,8 @@ class EmitirComprobanteServiceTest {
         assertThat(new String(storage.leer(c.xmlKey()))).contains("<ds:Signature/>");
         assertThat(comprobantes.datos).containsKey(c.id());
         assertThat(outbox.filas).isEmpty();
+        // El validador XSD debe recibir el XML ya firmado, no el XML sin firmar generado por ubl.generar(...).
+        assertThat(recibido[0]).contains("<ds:Signature/>");
     }
 
     @Test void numeracionCorrelativa() {

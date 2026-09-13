@@ -45,13 +45,21 @@ class FreemarkerUblGeneratorTest {
                 .contains("<cbc:TaxableAmount currencyID=\"PEN\">100.00</cbc:TaxableAmount>")
                 .contains("<cbc:ID>9997</cbc:ID>")
                 .contains("<cbc:PayableAmount currencyID=\"PEN\">2460.00</cbc:PayableAmount>")
-                .contains("<ext:ExtensionContent><fx:PendienteFirma xmlns:fx=\"urn:pe:factura:internal\"/></ext:ExtensionContent>")
+                .contains("<ext:ExtensionContent/>")
                 .contains("<cac:InvoiceLine>");
         assertThat(xml.split("<cac:InvoiceLine>")).hasSize(3);
     }
 
     @Test void esValidoContraXsd() {
         String xml = new FreemarkerUblGenerator().generar(factura(), tenant());
-        new JaxpXsdValidator().validar(xml, TipoDocumento.FACTURA);   // no lanza
+        // El ExtensionContent va vacío hasta que XmlDsigSigner (adapters:out-signing) coloca el
+        // ds:Signature real dentro; el XSD oficial exige contenido no vacío en ese elemento
+        // (xsd:any minOccurs="1"), así que en el pipeline real la validación XSD corre sobre el
+        // XML YA FIRMADO, no sobre este XML sin firmar. Aquí simulamos ese relleno con un
+        // placeholder de una única etiqueta en un namespace ajeno al esquema (out-ubl no puede
+        // depender de out-signing) solo para poder ejercitar el validador en este módulo.
+        String xmlConSlotRelleno = xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>");
+        new JaxpXsdValidator().validar(xmlConSlotRelleno, TipoDocumento.FACTURA);   // no lanza
     }
 }

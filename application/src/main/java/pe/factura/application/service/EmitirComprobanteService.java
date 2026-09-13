@@ -58,8 +58,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             c.asignarNumero(numero, tenant.ruc());
 
             String xml = ubl.generar(c, tenant);
-            xsd.validar(xml, TipoDocumento.FACTURA);
             FirmaResultado firma = signer.firmar(xml, tenant.certificado());
+            xsd.validar(firma.xmlFirmado(), TipoDocumento.FACTURA);
 
             String key = tenantId + "/" + c.fechaEmision().getYear() + "/" + String.format("%02d", c.fechaEmision().getMonthValue())
                     + "/" + c.nombreArchivo() + ".xml";
