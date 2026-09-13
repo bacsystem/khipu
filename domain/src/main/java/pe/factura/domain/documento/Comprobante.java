@@ -1,5 +1,6 @@
 package pe.factura.domain.documento;
 
+import lombok.Getter;
 import pe.factura.domain.DomainException;
 
 import java.time.Clock;
@@ -7,6 +8,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+@Getter
 public class Comprobante {
     private final UUID id;
     private final UUID tenantId;
@@ -95,23 +97,4 @@ public class Comprobante {
         estado = destino;
     }
 
-    public UUID id() { return id; }
-    public UUID tenantId() { return tenantId; }
-    public TipoDocumento tipo() { return tipo; }
-    public String serie() { return serie; }
-    public Long numero() { return numero; }
-    public LocalDate fechaEmision() { return fechaEmision; }
-    public String moneda() { return moneda; }
-    public String tipoOperacion() { return tipoOperacion; }
-    public Receptor receptor() { return receptor; }
-    public List<Item> items() { return items; }
-    public Totales totales() { return totales; }
-    public EstadoDocumento estado() { return estado; }
-    public String hash() { return hash; }
-    public String nombreArchivo() { return nombreArchivo; }
-    public String xmlKey() { return xmlKey; }
-    public String cdrKey() { return cdrKey; }
-    public Cdr cdr() { return cdr; }
-    public int intentos() { return intentos; }
-    public String ultimoError() { return ultimoError; }
 }

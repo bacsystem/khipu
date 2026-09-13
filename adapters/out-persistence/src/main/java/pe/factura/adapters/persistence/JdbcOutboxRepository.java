@@ -1,5 +1,6 @@
 package pe.factura.adapters.persistence;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import pe.factura.application.port.out.OutboxItem;
 import pe.factura.application.port.out.OutboxRepository;
@@ -10,9 +11,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 public class JdbcOutboxRepository implements OutboxRepository {
     private final JdbcTemplate jdbc;
-    public JdbcOutboxRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     /** Idempotente: ux_outbox_agregado_accion garantiza una sola fila por (agregado_id, accion). */
     @Override public void programar(UUID tenantId, String accion, UUID agregadoId, Instant cuando) {

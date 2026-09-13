@@ -1,5 +1,6 @@
 package pe.factura.adapters.persistence;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import pe.factura.application.port.out.SecretCipher;
 import pe.factura.application.port.out.TenantRepository;
@@ -12,11 +13,11 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 public class JdbcTenantRepository implements TenantRepository {
     private static final String COLS = "id, ruc, razon_social, entorno, sol_usuario_enc, sol_clave_enc, cert_pkcs12_enc, cert_clave_enc, cert_vigencia_hasta";
     private final JdbcTemplate jdbc;
     private final SecretCipher cipher;
-    public JdbcTenantRepository(JdbcTemplate jdbc, SecretCipher cipher) { this.jdbc = jdbc; this.cipher = cipher; }
 
     @Override public void guardar(Tenant t) {
         byte[] su = t.sol() == null ? null : cipher.cifrar(t.sol().usuario().getBytes(StandardCharsets.UTF_8));

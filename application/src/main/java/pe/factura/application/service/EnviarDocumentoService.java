@@ -1,5 +1,6 @@
 package pe.factura.application.service;
 
+import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
@@ -11,6 +12,7 @@ import pe.factura.domain.tenant.Tenant;
 import java.time.Clock;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 public class EnviarDocumentoService implements EnviarDocumentoUseCase {
     public static final String ACCION_ENVIAR = "ENVIAR";
 
@@ -23,12 +25,6 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
     private final UnitOfWork uow;
     private final Clock clock;
 
-    public EnviarDocumentoService(ComprobanteRepository comprobantes, TenantRepository tenants, DocumentStorage storage,
-                                  SunatBillingGateway gateway, CdrParser cdrParser, OutboxRepository outbox,
-                                  UnitOfWork uow, Clock clock) {
-        this.comprobantes = comprobantes; this.tenants = tenants; this.storage = storage;
-        this.gateway = gateway; this.cdrParser = cdrParser; this.outbox = outbox; this.uow = uow; this.clock = clock;
-    }
 
     @Override
     public Comprobante enviar(UUID tenantId, UUID comprobanteId) {

@@ -1,5 +1,6 @@
 package pe.factura.adapters.persistence;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import pe.factura.application.port.out.SerieRepository;
 import pe.factura.domain.DomainException;
@@ -9,9 +10,9 @@ import pe.factura.domain.tenant.Serie;
 import java.util.List;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 public class JdbcSerieRepository implements SerieRepository {
     private final JdbcTemplate jdbc;
-    public JdbcSerieRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     @Override public long siguienteNumero(UUID tenantId, TipoDocumento tipo, String serie) {
         List<Long> actual = jdbc.queryForList(

@@ -1,5 +1,6 @@
 package pe.factura.adapters.rest;
 
+import lombok.RequiredArgsConstructor;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,9 +12,9 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/v1/admin")
+@RequiredArgsConstructor
 public class AdminTenantController {
     private final AdministrarTenantUseCase admin;
-    public AdminTenantController(AdministrarTenantUseCase admin) { this.admin = admin; }
 
     @PostMapping("/tenants")
     public ResponseEntity<ApiResponse<Map<String, Object>>> crear(@Valid @RequestBody CrearTenantRequest body) {

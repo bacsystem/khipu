@@ -1,5 +1,6 @@
 package pe.factura.adapters.sunat;
 
+import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.out.SunatBillingGateway;
 import pe.factura.application.port.out.SunatRechazoException;
 import pe.factura.application.port.out.SunatTransientException;
@@ -14,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 
+@RequiredArgsConstructor
 public class SoapBillingGateway implements SunatBillingGateway {
     private final SunatUrls urls;
     private final Duration timeout;
@@ -22,7 +24,6 @@ public class SoapBillingGateway implements SunatBillingGateway {
     public SoapBillingGateway(SunatUrls urls, Duration timeout) {
         this(urls, timeout, HttpClient.newBuilder().connectTimeout(timeout).build());
     }
-    public SoapBillingGateway(SunatUrls urls, Duration timeout, HttpClient http) { this.urls = urls; this.timeout = timeout; this.http = http; }
 
     @Override public byte[] sendBill(Tenant tenant, String nombreArchivo, byte[] xmlFirmado) {
         byte[] zip = ZipUtil.comprimir(nombreArchivo + ".xml", xmlFirmado);

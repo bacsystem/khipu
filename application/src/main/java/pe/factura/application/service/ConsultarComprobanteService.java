@@ -1,5 +1,6 @@
 package pe.factura.application.service;
 
+import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.application.port.out.DocumentStorage;
@@ -10,10 +11,10 @@ import pe.factura.domain.documento.EstadoDocumento;
 import java.util.List;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 public class ConsultarComprobanteService implements ConsultarComprobanteUseCase {
     private final ComprobanteRepository comprobantes;
     private final DocumentStorage storage;
-    public ConsultarComprobanteService(ComprobanteRepository comprobantes, DocumentStorage storage) { this.comprobantes = comprobantes; this.storage = storage; }
 
     public Comprobante obtener(UUID tenantId, UUID id) {
         return comprobantes.buscar(tenantId, id).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));

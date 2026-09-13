@@ -1,5 +1,6 @@
 package pe.factura.adapters.rest;
 
+import lombok.RequiredArgsConstructor;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,10 +13,10 @@ import pe.factura.domain.tenant.ApiKey;
 import java.io.IOException;
 import java.util.Optional;
 
+@RequiredArgsConstructor
 public class ApiKeyFilter extends OncePerRequestFilter {
     private final ApiKeyRepository apiKeys;
     private final String pepper;
-    public ApiKeyFilter(ApiKeyRepository apiKeys, String pepper) { this.apiKeys = apiKeys; this.pepper = pepper; }
 
     /** Decide sobre la ruta normalizada (ver {@link RutaRequest}); las rutas de administración las protege {@link PlatformKeyFilter}. */
     @Override protected boolean shouldNotFilter(HttpServletRequest req) {

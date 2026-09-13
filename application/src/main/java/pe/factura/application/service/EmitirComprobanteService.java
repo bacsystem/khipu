@@ -1,5 +1,6 @@
 package pe.factura.application.service;
 
+import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
@@ -14,6 +15,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     private final ComprobanteRepository comprobantes;
     private final SerieRepository series;
@@ -26,13 +28,6 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     private final UnitOfWork uow;
     private final Clock clock;
 
-    public EmitirComprobanteService(ComprobanteRepository comprobantes, SerieRepository series, TenantRepository tenants,
-                                    DocumentStorage storage, UblGenerator ubl, XsdValidator xsd,
-                                    XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork uow, Clock clock) {
-        this.comprobantes = comprobantes; this.series = series; this.tenants = tenants; this.storage = storage;
-        this.ubl = ubl; this.xsd = xsd; this.signer = signer; this.enviar = enviar;
-        this.uow = uow; this.clock = clock;
-    }
 
     @Override
     public Comprobante emitirFactura(UUID tenantId, EmitirFacturaCommand cmd) {

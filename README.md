@@ -45,3 +45,10 @@ Documentación de diseño: `docs/superpowers/specs/README.md`. Plan: `docs/super
 
 ## Pruebas
 `./gradlew test` (requiere Docker para Testcontainers).
+
+## Convenciones de código
+
+- **Lombok** en todos los módulos (`compileOnly` + `annotationProcessor`; solo compilación, no llega al runtime).
+  `lombok.config` fija `lombok.accessors.fluent = true`: los getters generados se llaman como el campo (`comprobante.serie()`), igual que los `record`.
+- Objetos de valor y DTOs son `record` (sin Lombok). Lombok se usa en: `@Getter` (entidades/enums/excepciones con estado), `@RequiredArgsConstructor` (servicios, repositorios, controllers, filtros con inyección por constructor) y `@Slf4j` (loggers).
+- Constructores con lógica (validación, derivación de campos) se escriben a mano.

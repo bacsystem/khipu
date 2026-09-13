@@ -1,5 +1,6 @@
 package pe.factura.adapters.persistence;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.domain.DomainException;
@@ -10,9 +11,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 
+@RequiredArgsConstructor
 public class JdbcComprobanteRepository implements ComprobanteRepository {
     private final JdbcTemplate jdbc;
-    public JdbcComprobanteRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     /** Estados desde los que un envío en curso puede escribir ERROR_ENVIO o ENVIADO sin pisar un estado terminal. */
     private static final String ESTADOS_DE_ENVIO = "('FIRMADO','ERROR_ENVIO','ENVIADO')";

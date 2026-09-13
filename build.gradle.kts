@@ -15,6 +15,10 @@ subprojects {
     java { toolchain { languageVersion.set(JavaLanguageVersion.of(21)) } }
     tasks.withType<JavaCompile> { options.encoding = "UTF-8"; options.compilerArgs.add("-parameters") }
     dependencies {
+        "compileOnly"(rootProject.libs.lombok)
+        "annotationProcessor"(rootProject.libs.lombok)
+        "testCompileOnly"(rootProject.libs.lombok)
+        "testAnnotationProcessor"(rootProject.libs.lombok)
         "testImplementation"(platform(rootProject.libs.junit.bom))
         "testImplementation"(rootProject.libs.junit.jupiter)
         "testImplementation"(rootProject.libs.assertj)

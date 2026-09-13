@@ -1,5 +1,6 @@
 package pe.factura.adapters.rest;
 
+import lombok.RequiredArgsConstructor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -20,15 +21,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/facturas")
+@RequiredArgsConstructor
 public class FacturaController {
     private static final String BASE = "/v1/facturas";
     private final EmitirComprobanteUseCase emitir;
     private final EnviarDocumentoUseCase enviar;
     private final ConsultarComprobanteUseCase consultar;
 
-    public FacturaController(EmitirComprobanteUseCase emitir, EnviarDocumentoUseCase enviar, ConsultarComprobanteUseCase consultar) {
-        this.emitir = emitir; this.enviar = enviar; this.consultar = consultar;
-    }
 
     @PostMapping
     public ResponseEntity<ApiResponse<ComprobanteResponse>> crear(HttpServletRequest req, @Valid @RequestBody FacturaRequest body) {

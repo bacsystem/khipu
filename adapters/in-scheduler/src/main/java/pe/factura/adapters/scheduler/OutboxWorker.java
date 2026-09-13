@@ -1,7 +1,7 @@
 package pe.factura.adapters.scheduler;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.out.OutboxItem;
@@ -16,8 +16,9 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 
+@Slf4j
+@RequiredArgsConstructor
 public class OutboxWorker {
-    private static final Logger log = LoggerFactory.getLogger(OutboxWorker.class);
     private static final int LOTE = 50;
     /**
      * El lote se procesa en serie y cada envío puede tardar hasta el timeout HTTP (15 s): 50 × 15 s = 12,5 min.
@@ -31,9 +32,6 @@ public class OutboxWorker {
     private final Clock clock;
     private final int maxIntentos;
 
-    public OutboxWorker(OutboxRepository outbox, UnitOfWork uow, EnviarDocumentoUseCase enviar, Clock clock, int maxIntentos) {
-        this.outbox = outbox; this.uow = uow; this.enviar = enviar; this.clock = clock; this.maxIntentos = maxIntentos;
-    }
 
     @Scheduled(fixedDelayString = "${app.outbox.intervalo-ms:10000}")
     public void tick() {

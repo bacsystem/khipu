@@ -1,5 +1,6 @@
 package pe.factura.application.service;
 
+import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.AdministrarTenantUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
@@ -17,6 +18,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 public class AdministrarTenantService implements AdministrarTenantUseCase {
     private final TenantRepository tenants;
     private final SerieRepository series;
@@ -25,9 +27,6 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     private final String pepper;
     private final Clock clock;
 
-    public AdministrarTenantService(TenantRepository tenants, SerieRepository series, ApiKeyRepository apiKeys, UnitOfWork uow, String pepper, Clock clock) {
-        this.tenants = tenants; this.series = series; this.apiKeys = apiKeys; this.uow = uow; this.pepper = pepper; this.clock = clock;
-    }
 
     public TenantCreado crearTenant(String ruc, String razonSocial, Entorno entorno) {
         if (tenants.buscarPorRuc(ruc).isPresent()) throw new DomainException("DUPLICADO", "Ya existe un tenant con RUC " + ruc);
