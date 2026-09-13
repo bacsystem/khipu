@@ -1,0 +1,20 @@
+package pe.factura.application.port.in;
+
+import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.tenant.Entorno;
+import pe.factura.domain.tenant.Serie;
+import pe.factura.domain.tenant.Tenant;
+
+import java.util.List;
+import java.util.UUID;
+
+public interface AdministrarTenantUseCase {
+    record TenantCreado(Tenant tenant, String apiKeyEnClaro) {}
+    TenantCreado crearTenant(String ruc, String razonSocial, Entorno entorno);
+    Tenant obtener(UUID tenantId);
+    void cargarCertificado(UUID tenantId, byte[] pkcs12, String clave);   // valida abriendo el KeyStore (RUC en OU y vigencia)
+    void cargarCredencialesSol(UUID tenantId, String usuario, String clave);
+    void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial);
+    List<Serie> listarSeries(UUID tenantId);
+    String crearApiKey(UUID tenantId);                                   // devuelve la key en claro una sola vez
+}
