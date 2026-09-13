@@ -57,8 +57,8 @@ spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-star
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator", version.ref = "springBoot" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers", version.ref = "springBoot" }
-spring-tx = { module = "org.springframework:spring-tx" }
-spring-context = { module = "org.springframework:spring-context" }
+spring-tx = { module = "org.springframework:spring-tx", version = "6.1.13" }
+spring-context = { module = "org.springframework:spring-context", version = "6.1.13" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgres = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 postgres = { module = "org.postgresql:postgresql", version.ref = "postgres" }
@@ -108,11 +108,12 @@ subprojects {
     apply(plugin = "java")
     java { toolchain { languageVersion.set(JavaLanguageVersion.of(21)) } }
     tasks.withType<JavaCompile> { options.encoding = "UTF-8"; options.compilerArgs.add("-parameters") }
+    val catalog = rootProject.extensions.getByType<VersionCatalogsExtension>().named("libs")
     dependencies {
-        "testImplementation"(platform(rootProject.libs.junit.bom))
-        "testImplementation"(rootProject.libs.junit.jupiter)
-        "testImplementation"(rootProject.libs.assertj)
-        "testImplementation"(rootProject.libs.mockito)
+        "testImplementation"(platform(catalog.findLibrary("junit-bom").get()))
+        "testImplementation"(catalog.findLibrary("junit-jupiter").get())
+        "testImplementation"(catalog.findLibrary("assertj").get())
+        "testImplementation"(catalog.findLibrary("mockito").get())
         "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
     }
     tasks.withType<Test> { useJUnitPlatform(); testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL } }
@@ -294,6 +295,8 @@ import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
+import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition;
+
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 @AnalyzeClasses(packages = "pe.factura", importOptions = ImportOption.DoNotIncludeTests.class)
@@ -311,13 +314,13 @@ class ArchitectureTest {
                     "pe.factura.adapters..", "pe.factura.bootstrap..", "org.springframework..", "java.sql..", "freemarker..");
 
     @ArchTest
-    static final ArchRule adaptadoresNoSeConocen = noClasses().that().resideInAPackage("pe.factura.adapters.(*)..")
-            .should().dependOnClassesThat().resideInAPackage("pe.factura.adapters.(*)..")
+    static final ArchRule adaptadoresNoSeConocen = SlicesRuleDefinition.slices()
+            .matching("pe.factura.adapters.(*)..").should().notDependOnEachOther()
             .allowEmptyShould(true);
 }
 ```
 
-Nota: la tercera regla usa la sintaxis de "slices" implícita de ArchUnit: una clase en `pe.factura.adapters.rest..` no puede depender de `pe.factura.adapters.persistence..`. Cada adaptador usa su propio subpaquete: `pe.factura.adapters.rest`, `.scheduler`, `.ubl`, `.signing`, `.sunat`, `.storage`, `.persistence`, `.crypto`.
+Nota: la tercera regla usa la API de *slices* de ArchUnit (`SlicesRuleDefinition`): una clase en `pe.factura.adapters.rest..` no puede depender de `pe.factura.adapters.persistence..`. Cada adaptador usa su propio subpaquete: `pe.factura.adapters.rest`, `.scheduler`, `.ubl`, `.signing`, `.sunat`, `.storage`, `.persistence`, `.crypto`.
 
 - [ ] **Step 7: Compilar y arrancar sin BD**
 

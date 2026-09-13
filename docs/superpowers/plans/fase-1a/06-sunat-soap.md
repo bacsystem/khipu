@@ -290,7 +290,7 @@ class SoapBillingGatewayTest {
     }
 
     @Test void faultCodeSinPrefijoTambienSeParsea(WireMockRuntimeInfo wm) {
-        String f = fault("x", "y").replace("soap-env:Client.x", "1033").replace("y", "ya fue registrado");
+        String f = fault("1033", "ya fue registrado").replace("soap-env:Client.1033", "1033");
         stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(f)));
         assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0])).extracting("codigo").isEqualTo("1033");
     }

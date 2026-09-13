@@ -66,7 +66,7 @@ class FreemarkerUblGeneratorTest {
                 .contains("<cbc:ID>F001-1</cbc:ID>")
                 .contains("<cbc:IssueDate>2026-09-13</cbc:IssueDate>")
                 .contains("<cbc:InvoiceTypeCode listID=\"0101\"")
-                .contains("<cbc:Note languageLocaleID=\"1000\">DOS MIL CIENTO CON 00/100 SOLES</cbc:Note>")
+                .contains("<cbc:Note languageLocaleID=\"1000\">DOS MIL CUATROCIENTOS SESENTA CON 00/100 SOLES</cbc:Note>")
                 .contains("<cbc:ID schemeID=\"6\">20100066603</cbc:ID>")
                 .contains("<cbc:ID schemeID=\"6\">20601234567</cbc:ID>")
                 .contains("CLIENTE &amp; CIA S.A.C.")
