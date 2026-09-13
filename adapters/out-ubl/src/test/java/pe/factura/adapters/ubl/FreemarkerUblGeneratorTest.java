@@ -1,0 +1,57 @@
+package pe.factura.adapters.ubl;
+
+import org.junit.jupiter.api.Test;
+import pe.factura.domain.documento.*;
+import pe.factura.domain.tenant.*;
+
+import java.math.BigDecimal;
+import java.time.*;
+import java.util.List;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class FreemarkerUblGeneratorTest {
+    static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
+
+    static Tenant tenant() {
+        return new Tenant(UUID.randomUUID(), "20100066603", "EMPRESA DE PRUEBA S.A.C.", Entorno.BETA, null,
+                new CertificadoDigital(new byte[0], "", LocalDate.of(2030, 1, 1)));
+    }
+    static Comprobante factura() {
+        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE & CIA S.A.C.", "AV. LIMA 123"),
+                List.of(new Item("P001", "Laptop <15\">", "NIU", BigDecimal.ONE, new BigDecimal("2360.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("P002", "Libro", "NIU", new BigDecimal("2"), new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)), CLOCK);
+        c.asignarNumero(1, "20100066603");
+        return c;
+    }
+
+    @Test void generaInvoiceConDatosClave() {
+        String xml = new FreemarkerUblGenerator().generar(factura(), tenant());
+        assertThat(xml).startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"");
+        assertThat(xml).contains("<cbc:UBLVersionID>2.1</cbc:UBLVersionID>")
+                .contains("<cbc:CustomizationID>2.0</cbc:CustomizationID>")
+                .contains("<cbc:ID>F001-1</cbc:ID>")
+                .contains("<cbc:IssueDate>2026-09-13</cbc:IssueDate>")
+                .contains("<cbc:InvoiceTypeCode listID=\"0101\"")
+                .contains("<cbc:Note languageLocaleID=\"1000\">DOS MIL CUATROCIENTOS SESENTA CON 00/100 SOLES</cbc:Note>")
+                .contains("<cbc:ID schemeID=\"6\">20100066603</cbc:ID>")
+                .contains("<cbc:ID schemeID=\"6\">20601234567</cbc:ID>")
+                .contains("CLIENTE &amp; CIA S.A.C.")
+                .contains("Laptop &lt;15&quot;&gt;")
+                .contains("<cbc:TaxableAmount currencyID=\"PEN\">2000.00</cbc:TaxableAmount>")
+                .contains("<cbc:TaxAmount currencyID=\"PEN\">360.00</cbc:TaxAmount>")
+                .contains("<cbc:TaxableAmount currencyID=\"PEN\">100.00</cbc:TaxableAmount>")
+                .contains("<cbc:ID>9997</cbc:ID>")
+                .contains("<cbc:PayableAmount currencyID=\"PEN\">2460.00</cbc:PayableAmount>")
+                .contains("<ext:ExtensionContent><fx:PendienteFirma xmlns:fx=\"urn:pe:factura:internal\"/></ext:ExtensionContent>")
+                .contains("<cac:InvoiceLine>");
+        assertThat(xml.split("<cac:InvoiceLine>")).hasSize(3);
+    }
+
+    @Test void esValidoContraXsd() {
+        String xml = new FreemarkerUblGenerator().generar(factura(), tenant());
+        new JaxpXsdValidator().validar(xml, TipoDocumento.FACTURA);   // no lanza
+    }
+}
