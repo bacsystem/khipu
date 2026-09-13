@@ -19,7 +19,7 @@ final class SoapEnvelope {
 
     /** Extrae el texto del primer elemento con ese nombre local (sin importar prefijo). Devuelve null si no existe. */
     static String textoDe(String xml, String nombreLocal) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("<(?:[\\w-]+:)?" + nombreLocal + "[^>]*>(.*?)</(?:[\\w-]+:)?" + nombreLocal + ">", java.util.regex.Pattern.DOTALL).matcher(xml);
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("<(?:[\\w-]+:)?" + nombreLocal + "(?:\\s[^>]*)?>(.*?)</(?:[\\w-]+:)?" + nombreLocal + ">", java.util.regex.Pattern.DOTALL).matcher(xml);
         return m.find() ? m.group(1).trim() : null;
     }
 
