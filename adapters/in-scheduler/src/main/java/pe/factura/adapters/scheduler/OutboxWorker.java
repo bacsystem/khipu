@@ -58,10 +58,15 @@ public class OutboxWorker {
                 outbox.completar(fila.id());
             }
         } catch (DomainException e) {
-            log.info("Outbox {} descartada: {} {}", fila.id(), e.codigo(), e.getMessage());
-            outbox.completar(fila.id());
+            if ("ESTADO_NO_ENVIABLE".equals(e.codigo()) || "NO_ENCONTRADO".equals(e.codigo())) {
+                log.info("Outbox {} descartada: {} {}", fila.id(), e.codigo(), e.getMessage());
+                outbox.completar(fila.id());
+            } else {
+                log.warn("Outbox {} con error de dominio {}, se reprograma: {}", fila.id(), e.codigo(), e.getMessage());
+                outbox.reprogramar(fila.id(), Backoff.siguiente(fila.intentos() + 1, clock.instant()), e.codigo() + " - " + e.getMessage());
+            }
         } catch (Exception e) {
-            log.warn("Outbox {} falló, se reprograma: {}", fila.id(), e.toString());
+            log.warn("Outbox {} falló, se reprograma", fila.id(), e);
             outbox.reprogramar(fila.id(), Backoff.siguiente(fila.intentos() + 1, clock.instant()), e.toString());
         }
     }

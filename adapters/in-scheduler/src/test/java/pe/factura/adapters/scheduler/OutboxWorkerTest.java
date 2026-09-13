@@ -64,6 +64,14 @@ class OutboxWorkerTest {
         verify(outbox).completar(fila);
     }
 
+    @Test void domainExceptionDeConfiguracionReprograma() {
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 0)));
+        when(enviar.enviar(tenant, doc)).thenThrow(new DomainException("CREDENCIALES_SOL_NO_CARGADAS", "sin credenciales"));
+        worker.procesar();
+        verify(outbox).reprogramar(fila, clock.instant().plus(Duration.ofMinutes(2)), "CREDENCIALES_SOL_NO_CARGADAS - sin credenciales");
+        verify(outbox, never()).completar(any());
+    }
+
     @Test void excepcionInesperadaReprograma() {
         when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 0)));
         when(enviar.enviar(tenant, doc)).thenThrow(new IllegalStateException("storage caído"));
