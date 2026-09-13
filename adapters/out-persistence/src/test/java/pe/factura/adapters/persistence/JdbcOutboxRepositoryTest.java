@@ -41,4 +41,25 @@ class JdbcOutboxRepositoryTest extends PersistenciaTestBase {
         assertThatThrownBy(() -> repo.tomarVencidas(10, Duration.ofMinutes(2)))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    @Test void programarEsIdempotentePorAgregadoYAccion() {
+        UUID t = tenantDePrueba(), doc = UUID.randomUUID();
+        Instant primero = Instant.now().minusSeconds(5);
+        repo.programar(t, "ENVIAR", doc, primero);
+        repo.programar(t, "ENVIAR", doc, Instant.now().plusSeconds(3600));   // no-op: conserva la fila original
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox WHERE agregado_id = ?", Integer.class, doc)).isEqualTo(1);
+        assertThat(uow.ejecutar(() -> repo.tomarVencidas(10, Duration.ofMinutes(2)))).hasSize(1);
+        // Otra acción sobre el mismo agregado sí crea su propia fila
+        repo.programar(t, "OTRA", doc, primero);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox WHERE agregado_id = ?", Integer.class, doc)).isEqualTo(2);
+    }
+
+    @Test void programarTrasCompletarVuelveACrearLaFila() {
+        UUID t = tenantDePrueba(), doc = UUID.randomUUID();
+        repo.programar(t, "ENVIAR", doc, Instant.now().minusSeconds(5));
+        OutboxItem item = uow.ejecutar(() -> repo.tomarVencidas(10, Duration.ofMinutes(2))).get(0);
+        repo.completar(item.id());
+        repo.programar(t, "ENVIAR", doc, Instant.now().minusSeconds(5));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox WHERE agregado_id = ?", Integer.class, doc)).isEqualTo(1);
+    }
 }

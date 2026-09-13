@@ -2,6 +2,7 @@ package pe.factura.adapters.persistence;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import pe.factura.application.port.out.ComprobanteRepository;
+import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
 
 import java.sql.Date;
@@ -13,14 +14,22 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     private final JdbcTemplate jdbc;
     public JdbcComprobanteRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
+    /** Estados desde los que un envío en curso puede escribir ERROR_ENVIO o ENVIADO sin pisar un estado terminal. */
+    private static final String ESTADOS_DE_ENVIO = "('FIRMADO','ERROR_ENVIO','ENVIADO')";
+
     @Override public void guardar(Comprobante c) {
+        // Un envío tardío (p. ej. el worker y una llamada manual en paralelo) no debe sobreescribir un
+        // ACEPTADO/RECHAZADO ya persistido: al guardar ERROR_ENVIO o ENVIADO la actualización es condicional.
+        boolean condicional = c.estado() == EstadoDocumento.ERROR_ENVIO || c.estado() == EstadoDocumento.ENVIADO;
         int filas = jdbc.update("""
             UPDATE documento SET estado = ?, hash = ?, ticket = NULL, intentos = ?, ultimo_error = ?, cdr_codigo = ?, cdr_descripcion = ?,
               cdr_observaciones = ?::jsonb, xml_key = ?, cdr_key = ?, updated_at = now() WHERE id = ? AND tenant_id = ?
-            """, c.estado().name(), c.hash(), c.intentos(), c.ultimoError(),
+            """ + (condicional ? " AND estado IN " + ESTADOS_DE_ENVIO : ""),
+                c.estado().name(), c.hash(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : c.cdr().codigo(), c.cdr() == null ? null : c.cdr().descripcion(),
                 c.cdr() == null ? null : aJson(c.cdr().observaciones()), c.xmlKey(), c.cdrKey(), c.id(), c.tenantId());
         if (filas > 0) return;
+        if (condicional) throw new DomainException("ESTADO_CONFLICTO", "El comprobante cambió de estado en otra transacción");
         jdbc.update("""
             INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, hash, nombre_archivo, intentos, ultimo_error, xml_key, cdr_key)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

@@ -26,6 +26,11 @@ final class Fakes {
             if (!ultimo.containsKey(k)) throw new DomainException("SERIE_NO_CONFIGURADA", "Serie no configurada: " + serie);
             return ultimo.merge(k, 1L, Long::sum);
         }
+        public void avanzarHasta(UUID t, TipoDocumento tipo, String serie, long numero) {
+            String k = t + tipo.codigo() + serie;
+            if (!ultimo.containsKey(k)) throw new DomainException("SERIE_NO_CONFIGURADA", "Serie no configurada: " + serie);
+            ultimo.merge(k, numero, Math::max);
+        }
         public void crear(Serie s) { ultimo.put(s.tenantId() + s.tipo().codigo() + s.codigo(), s.ultimoNumero()); }
         public List<Serie> listar(UUID t) { return List.of(); }
     }
@@ -43,7 +48,11 @@ final class Fakes {
     static final class Outbox implements OutboxRepository {
         record Fila(UUID tenantId, String accion, UUID agregadoId, Instant cuando) {}
         final List<Fila> filas = new ArrayList<>();
-        public void programar(UUID t, String accion, UUID id, Instant cuando) { filas.add(new Fila(t, accion, id, cuando)); }
+        /** Imita el ON CONFLICT (agregado_id, accion) DO NOTHING del adaptador JDBC. */
+        public void programar(UUID t, String accion, UUID id, Instant cuando) {
+            if (filas.stream().anyMatch(f -> f.agregadoId().equals(id) && f.accion().equals(accion))) return;
+            filas.add(new Fila(t, accion, id, cuando));
+        }
         public List<OutboxItem> tomarVencidas(int l, Duration d) { return List.of(); }
         public void reprogramar(UUID id, Instant c, String e) {}
         public void completar(UUID id) {}

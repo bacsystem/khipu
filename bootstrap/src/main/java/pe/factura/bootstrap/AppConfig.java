@@ -61,12 +61,13 @@ public class AppConfig {
         return new SoapBillingGateway(new SunatUrls(p.sunat().betaUrl(), p.sunat().prodUrl()), Duration.ofSeconds(p.sunat().timeoutSeconds()));
     }
 
-    @Bean EnviarDocumentoUseCase enviarDocumento(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatBillingGateway g, CdrParser p, UnitOfWork u) {
-        return new EnviarDocumentoService(c, t, s, g, p, u);
+    @Bean EnviarDocumentoUseCase enviarDocumento(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatBillingGateway g, CdrParser p,
+                                                OutboxRepository o, UnitOfWork u, Clock clock) {
+        return new EnviarDocumentoService(c, t, s, g, p, o, u, clock);
     }
-    @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s, OutboxRepository o,
+    @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
                                                     UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock) {
-        return new EmitirComprobanteService(c, se, t, s, o, ubl, xsd, signer, enviar, u, clock);
+        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock);
     }
     @Bean ConsultarComprobanteUseCase consultarComprobante(ComprobanteRepository c, DocumentStorage s) { return new ConsultarComprobanteService(c, s); }
     @Bean AdministrarTenantUseCase administrarTenant(TenantRepository t, SerieRepository s, ApiKeyRepository k, UnitOfWork u, AppProperties p, Clock clock) {

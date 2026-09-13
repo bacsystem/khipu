@@ -2,6 +2,7 @@ package pe.factura.adapters.rest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -24,6 +25,12 @@ public class GlobalExceptionHandler {
             default -> HttpStatus.UNPROCESSABLE_ENTITY;
         };
         return ResponseEntity.status(st).body(ApiResponse.error(e.codigo(), e.getMessage()));
+    }
+
+    /** Carrera entre dos emisiones con el mismo (serie, número): la UNIQUE de documento es la última barrera. */
+    @ExceptionHandler(DuplicateKeyException.class)
+    public ResponseEntity<ApiResponse<Void>> duplicado(DuplicateKeyException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error("DUPLICADO", "Ya existe un documento con esa serie y número"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

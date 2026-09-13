@@ -38,4 +38,20 @@ class JdbcSerieRepositoryTest extends PersistenciaTestBase {
         ex.shutdown();
         assertThat(numeros).hasSize(40).contains(1L, 40L);
     }
+
+    @Test void avanzarHastaElevaYNuncaReduce() {
+        UUID t = tenantDePrueba();
+        repo.crear(new Serie(t, TipoDocumento.FACTURA, "F001", 10, true));
+        uow.ejecutar(() -> repo.avanzarHasta(t, TipoDocumento.FACTURA, "F001", 50));
+        assertThat(jdbc.queryForObject("SELECT ultimo_numero FROM serie WHERE tenant_id = ? AND codigo = 'F001'", Long.class, t)).isEqualTo(50L);
+        uow.ejecutar(() -> repo.avanzarHasta(t, TipoDocumento.FACTURA, "F001", 20));
+        assertThat(jdbc.queryForObject("SELECT ultimo_numero FROM serie WHERE tenant_id = ? AND codigo = 'F001'", Long.class, t)).isEqualTo(50L);
+        assertThat(uow.ejecutar(() -> repo.siguienteNumero(t, TipoDocumento.FACTURA, "F001"))).isEqualTo(51);
+    }
+
+    @Test void avanzarHastaEnSerieNoConfiguradaLanza() {
+        UUID t = tenantDePrueba();
+        assertThatThrownBy(() -> uow.ejecutar(() -> repo.avanzarHasta(t, TipoDocumento.FACTURA, "F009", 5)))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
+    }
 }

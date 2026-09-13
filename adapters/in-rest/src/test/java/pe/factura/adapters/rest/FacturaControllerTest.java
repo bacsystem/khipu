@@ -148,6 +148,15 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.codigo").value("JSON_INVALIDO"));
     }
 
+    @Test void claveDuplicadaEnBaseDeDatosEs409() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any())).thenThrow(new org.springframework.dao.DuplicateKeyException("ux documento (tenant_id, tipo, serie, numero)"));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.estado").value("error"))
+                .andExpect(jsonPath("$.codigo").value("DUPLICADO"))
+                .andExpect(jsonPath("$.mensaje").value("Ya existe un documento con esa serie y número"));
+    }
+
     @Test void errorInternoEs500SinDetalle() throws Exception {
         when(emitir.emitirFactura(eq(tenant), any())).thenThrow(new IllegalStateException("detalle secreto"));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))

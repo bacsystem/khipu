@@ -73,4 +73,43 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         Comprobante r = repo.buscar(t, c.id()).orElseThrow();
         assertThat(r.cdr().observaciones()).containsExactly("4252 - obs\ncon salto", "otra\tcon tab");
     }
+
+    @Test void unEnvioTardioNoPisaUnEstadoTerminal() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 9);
+        c.firmar("h", "k");
+        repo.guardar(c);
+        c.marcarEnviado();
+        c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "k/cdr.zip");
+        repo.guardar(c);
+
+        // Copia rehidratada "vieja" (leída antes de que otra transacción persistiera ACEPTADO) que falla al enviar
+        Comprobante tardio = Comprobante.rehidratar(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), "PEN", "0101",
+                c.receptor(), c.items(), EstadoDocumento.ERROR_ENVIO, "h", c.nombreArchivo(), "k", null, null, 1, "0109 - timeout");
+        assertThatThrownBy(() -> repo.guardar(tardio))
+                .isInstanceOf(pe.factura.domain.DomainException.class).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM documento WHERE id = ?", Integer.class, c.id())).isEqualTo(1);
+
+        Comprobante enviadoTardio = Comprobante.rehidratar(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), "PEN", "0101",
+                c.receptor(), c.items(), EstadoDocumento.ENVIADO, "h", c.nombreArchivo(), "k", null, null, 1, null);
+        assertThatThrownBy(() -> repo.guardar(enviadoTardio)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+    }
+
+    @Test void errorEnvioSobreFirmadoOErrorEnvioSiSeGuarda() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 11);
+        c.firmar("h", "k");
+        repo.guardar(c);
+        c.marcarErrorEnvio("0109 - timeout");
+        repo.guardar(c);
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        c.marcarErrorEnvio("0109 - timeout otra vez");
+        repo.guardar(c);
+        assertThat(repo.buscar(t, c.id()).orElseThrow().intentos()).isEqualTo(2);
+        c.marcarEnviado();
+        repo.guardar(c);
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ENVIADO);
+    }
 }

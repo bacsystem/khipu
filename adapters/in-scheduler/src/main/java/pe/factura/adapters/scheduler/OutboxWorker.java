@@ -19,7 +19,11 @@ import java.util.List;
 public class OutboxWorker {
     private static final Logger log = LoggerFactory.getLogger(OutboxWorker.class);
     private static final int LOTE = 50;
-    private static final Duration LOCK = Duration.ofMinutes(2);
+    /**
+     * El lote se procesa en serie y cada envío puede tardar hasta el timeout HTTP (15 s): 50 × 15 s = 12,5 min.
+     * El lock debe superar ese peor caso para que otra instancia no retome una fila que este worker aún procesa.
+     */
+    private static final Duration LOCK = Duration.ofMinutes(20);
 
     private final OutboxRepository outbox;
     private final UnitOfWork uow;

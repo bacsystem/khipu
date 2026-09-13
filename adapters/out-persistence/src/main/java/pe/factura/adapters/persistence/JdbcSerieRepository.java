@@ -22,6 +22,14 @@ public class JdbcSerieRepository implements SerieRepository {
         jdbc.update("UPDATE serie SET ultimo_numero = ? WHERE tenant_id = ? AND tipo = ? AND codigo = ?", siguiente, tenantId, tipo.codigo(), serie);
         return siguiente;
     }
+    @Override public void avanzarHasta(UUID tenantId, TipoDocumento tipo, String serie, long numero) {
+        List<Long> actual = jdbc.queryForList(
+                "SELECT ultimo_numero FROM serie WHERE tenant_id = ? AND tipo = ? AND codigo = ? AND activa FOR UPDATE",
+                Long.class, tenantId, tipo.codigo(), serie);
+        if (actual.isEmpty()) throw new DomainException("SERIE_NO_CONFIGURADA", "Serie no configurada o inactiva: " + serie);
+        jdbc.update("UPDATE serie SET ultimo_numero = GREATEST(ultimo_numero, ?) WHERE tenant_id = ? AND tipo = ? AND codigo = ? AND activa",
+                numero, tenantId, tipo.codigo(), serie);
+    }
     @Override public void crear(Serie s) {
         jdbc.update("INSERT INTO serie (tenant_id, tipo, codigo, ultimo_numero, activa) VALUES (?, ?, ?, ?, ?)",
                 s.tenantId(), s.tipo().codigo(), s.codigo(), s.ultimoNumero(), s.activa());

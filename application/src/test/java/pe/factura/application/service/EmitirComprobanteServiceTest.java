@@ -34,8 +34,8 @@ class EmitirComprobanteServiceTest {
     @BeforeEach void setUp() {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
-        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, Fakes.UOW);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, outbox, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK);
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK);
     }
 
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
@@ -71,6 +71,44 @@ class EmitirComprobanteServiceTest {
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("DUPLICADO");
     }
 
+    @Test void correlativoExplicitoAvanzaLaSerie() {
+        service.emitirFactura(tenantId, cmd(50L, false));
+        assertThat(service.emitirFactura(tenantId, cmd(null, false)).numero()).isEqualTo(51L);
+        // Un correlativo explícito menor al último no retrocede la serie
+        service.emitirFactura(tenantId, cmd(10L, false));
+        assertThat(service.emitirFactura(tenantId, cmd(null, false)).numero()).isEqualTo(52L);
+    }
+
+    @Test void correlativoExplicitoEnSerieNoConfiguradaFalla() {
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F999", 7L, LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), false)))
+                .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
+        assertThat(comprobantes.datos).isEmpty();
+    }
+
+    @Test void sinCredencialesSolYEnvioAutomaticoFallaAntesDeConsumirNumero() {
+        Tenant sinSol = new Tenant(tenantId, "20100066603", "EMPRESA SAC", pe.factura.domain.tenant.Entorno.BETA, null,
+                new pe.factura.domain.tenant.CertificadoDigital(new byte[]{1}, "clave", LocalDate.of(2030, 1, 1)));
+        tenants.guardar(sinSol);
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, cmd(null, true)))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CREDENCIALES_SOL_NO_CARGADAS");
+        assertThat(comprobantes.datos).isEmpty();
+        assertThat(storage.datos).isEmpty();
+        assertThat(outbox.filas).isEmpty();
+        // La serie no consumió ningún número
+        assertThat(service.emitirFactura(tenantId, cmd(null, false)).numero()).isEqualTo(1L);
+    }
+
+    @Test void sinCredencialesSolYSinEnvioAutomaticoQuedaFirmado() {
+        Tenant sinSol = new Tenant(tenantId, "20100066603", "EMPRESA SAC", pe.factura.domain.tenant.Entorno.BETA, null,
+                new pe.factura.domain.tenant.CertificadoDigital(new byte[]{1}, "clave", LocalDate.of(2030, 1, 1)));
+        tenants.guardar(sinSol);
+        Comprobante c = service.emitirFactura(tenantId, cmd(null, false));
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.FIRMADO);
+        assertThat(comprobantes.datos).containsKey(c.id());
+    }
+
     @Test void sinEnvioAutomaticoQuedaFirmado() {
         Comprobante c = service.emitirFactura(tenantId, cmd(null, false));
         assertThat(c.estado()).isEqualTo(EstadoDocumento.FIRMADO);
@@ -88,8 +126,8 @@ class EmitirComprobanteServiceTest {
 
     @Test void xsdInvalidoNoConsumeNumeroNiGuarda() {
         XsdValidator malo = (xml, tipo) -> { throw new DomainException("XSD_INVALIDO", "línea 3"); };
-        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, Fakes.UOW);
-        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, outbox, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK);
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
+        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK);
         assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).extracting("codigo").isEqualTo("XSD_INVALIDO");
         assertThat(comprobantes.datos).isEmpty();
     }

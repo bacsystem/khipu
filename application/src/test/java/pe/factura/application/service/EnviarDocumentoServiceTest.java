@@ -21,6 +21,7 @@ class EnviarDocumentoServiceTest {
     Fakes.Storage storage = new Fakes.Storage();
     Fakes.Gateway gateway = new Fakes.Gateway();
     Fakes.Cdrs cdrs = new Fakes.Cdrs();
+    Fakes.Outbox outbox = new Fakes.Outbox();
     EnviarDocumentoService service;
     Comprobante c;
 
@@ -28,7 +29,7 @@ class EnviarDocumentoServiceTest {
         tenants.guardar(Fakes.tenantListo(tenantId));
         c = Fakes.facturaFirmada(tenantId, storage);
         comprobantes.guardar(c);
-        service = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, Fakes.UOW);
+        service = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
     }
 
     @Test void aceptadoGuardaCdrYEstado() {
@@ -55,6 +56,31 @@ class EnviarDocumentoServiceTest {
         assertThat(r.estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
         assertThat(r.intentos()).isEqualTo(1);
         assertThat(r.ultimoError()).contains("0109");
+        assertThat(comprobantes.datos.get(c.id()).estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(outbox.filas).hasSize(1);
+        assertThat(outbox.filas.get(0).accion()).isEqualTo("ENVIAR");
+        assertThat(outbox.filas.get(0).agregadoId()).isEqualTo(c.id());
+        assertThat(outbox.filas.get(0).tenantId()).isEqualTo(tenantId);
+        assertThat(outbox.filas.get(0).cuando()).isEqualTo(Backoff.siguiente(1, Fakes.CLOCK.instant()));
+    }
+
+    @Test void aceptadoNoProgramaOutbox() {
+        service.enviar(tenantId, c.id());
+        assertThat(outbox.filas).isEmpty();
+    }
+
+    @Test void rechazoNoProgramaOutbox() {
+        gateway.falla = new SunatRechazoException("2324", "registrado previamente");
+        service.enviar(tenantId, c.id());
+        assertThat(outbox.filas).isEmpty();
+    }
+
+    @Test void segundoFalloTransitorioNoDuplicaLaFilaDelOutbox() {
+        gateway.falla = new SunatTransientException("0109", "timeout");
+        service.enviar(tenantId, c.id());
+        service.enviar(tenantId, c.id());
+        assertThat(comprobantes.datos.get(c.id()).intentos()).isEqualTo(2);
+        assertThat(outbox.filas).hasSize(1);
     }
 
     @Test void faultDefinitivoRechaza() {
@@ -89,5 +115,6 @@ class EnviarDocumentoServiceTest {
         assertThat(r.intentos()).isEqualTo(1);
         assertThat(r.ultimoError()).startsWith("INFRA");
         assertThat(comprobantes.datos.get(c.id()).estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(outbox.filas).hasSize(1);
     }
 }

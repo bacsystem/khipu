@@ -14,8 +14,10 @@ public class JdbcOutboxRepository implements OutboxRepository {
     private final JdbcTemplate jdbc;
     public JdbcOutboxRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
+    /** Idempotente: ux_outbox_agregado_accion garantiza una sola fila por (agregado_id, accion). */
     @Override public void programar(UUID tenantId, String accion, UUID agregadoId, Instant cuando) {
-        jdbc.update("INSERT INTO outbox (tenant_id, agregado_id, accion, siguiente_intento) VALUES (?, ?, ?, ?)", tenantId, agregadoId, accion, Timestamp.from(cuando));
+        jdbc.update("INSERT INTO outbox (tenant_id, agregado_id, accion, siguiente_intento) VALUES (?, ?, ?, ?) ON CONFLICT (agregado_id, accion) DO NOTHING",
+                tenantId, agregadoId, accion, Timestamp.from(cuando));
     }
     /** Debe ejecutarse dentro de una transacción (UnitOfWork) para que FOR UPDATE SKIP LOCKED tenga efecto. */
     @Override public List<OutboxItem> tomarVencidas(int limite, Duration lock) {
