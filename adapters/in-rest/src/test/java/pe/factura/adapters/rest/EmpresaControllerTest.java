@@ -1,0 +1,77 @@
+package pe.factura.adapters.rest;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.MockMvc;
+import pe.factura.application.port.in.AdministrarTenantUseCase;
+import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.tenant.*;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(controllers = {EmpresaController.class, AdminTenantController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@Import(GlobalExceptionHandler.class)
+class EmpresaControllerTest {
+    @Autowired MockMvc mvc;
+    @MockBean AdministrarTenantUseCase admin;
+    UUID tenant = UUID.randomUUID();
+
+    @Test void verEmpresaSinSecretos() throws Exception {
+        when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA,
+                new CredencialesSol("MODDATOS", "moddatos"), new CertificadoDigital(new byte[]{1}, "clave", LocalDate.of(2030, 1, 1))));
+        mvc.perform(get("/v1/empresa").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.ruc").value("20100066603"))
+                .andExpect(jsonPath("$.datos.tiene_credenciales_sol").value(true))
+                .andExpect(jsonPath("$.datos.certificado_vigencia_hasta").value("2030-01-01"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("moddatos"))));
+    }
+
+    @Test void subirCertificado() throws Exception {
+        mvc.perform(multipart("/v1/empresa/certificado").file(new MockMultipartFile("archivo", "c.pfx", "application/x-pkcs12", new byte[]{1, 2}))
+                        .param("clave", "test1234").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isNoContent());
+        verify(admin).cargarCertificado(eq(tenant), eq(new byte[]{1, 2}), eq("test1234"));
+    }
+
+    @Test void credencialesSol() throws Exception {
+        mvc.perform(put("/v1/empresa/credenciales-sol").contentType("application/json").content("{\"usuario\":\"MODDATOS\",\"clave\":\"moddatos\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isNoContent());
+        verify(admin).cargarCredencialesSol(tenant, "MODDATOS", "moddatos");
+    }
+
+    @Test void crearSerieYListar() throws Exception {
+        when(admin.listarSeries(tenant)).thenReturn(List.of(new Serie(tenant, TipoDocumento.FACTURA, "F001", 0, true)));
+        mvc.perform(post("/v1/series").contentType("application/json").content("{\"tipo\":\"01\",\"serie\":\"F001\",\"correlativo_inicial\":0}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isCreated());
+        verify(admin).crearSerie(tenant, TipoDocumento.FACTURA, "F001", 0);
+        mvc.perform(get("/v1/series").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.datos[0].serie").value("F001")).andExpect(jsonPath("$.datos[0].tipo").value("01"));
+    }
+
+    @Test void crearApiKey() throws Exception {
+        when(admin.crearApiKey(tenant)).thenReturn("fk_nueva");
+        mvc.perform(post("/v1/empresa/api-keys").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.datos.api_key").value("fk_nueva"));
+    }
+
+    @Test void adminCreaTenant() throws Exception {
+        Tenant t = new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null);
+        when(admin.crearTenant("20100066603", "EMPRESA SAC", Entorno.BETA)).thenReturn(new AdministrarTenantUseCase.TenantCreado(t, "fk_primera"));
+        mvc.perform(post("/v1/admin/tenants").contentType("application/json").content("{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA SAC\",\"entorno\":\"BETA\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.tenant_id").value(tenant.toString()))
+                .andExpect(jsonPath("$.datos.api_key").value("fk_primera"));
+    }
+}
