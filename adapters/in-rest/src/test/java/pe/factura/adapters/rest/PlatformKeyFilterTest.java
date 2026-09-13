@@ -29,4 +29,24 @@ class PlatformKeyFilterTest {
         new PlatformKeyFilter("secreta").doFilter(req, new MockHttpServletResponse(), chain);
         assertThat(chain.getRequest()).isNotNull();
     }
+
+    /** MockHttpServletRequest no decodifica ni limpia la URI: es el filtro (vía UrlPathHelper) quien debe hacerlo. */
+    @Test void rutaAdminDisfrazadaSinClaveEs401() throws Exception {
+        for (String uri : new String[]{"/v1;x/admin/tenants", "/v1/%61dmin/tenants", "/v1//admin/tenants", "/v1/admin", "/v1/facturas/../admin/tenants"}) {
+            var req = new MockHttpServletRequest("POST", uri);
+            var res = new MockHttpServletResponse();
+            var chain = new MockFilterChain();
+            new PlatformKeyFilter("secreta").doFilter(req, res, chain);
+            assertThat(chain.getRequest()).as(uri).isNull();
+            assertThat(res.getStatus()).as(uri).isEqualTo(401);
+        }
+    }
+    @Test void rutaNoAdminConParametroDeSegmentoNoSeFiltra() throws Exception {
+        for (String uri : new String[]{"/v1;x/facturas", "/v1/admin-x/tenants", "/v1/administracion"}) {
+            var req = new MockHttpServletRequest("GET", uri);
+            var chain = new MockFilterChain();
+            new PlatformKeyFilter("secreta").doFilter(req, new MockHttpServletResponse(), chain);
+            assertThat(chain.getRequest()).as(uri).isNotNull();
+        }
+    }
 }

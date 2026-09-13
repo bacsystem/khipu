@@ -78,4 +78,27 @@ class ApiKeyFilterTest {
             assertThat(res.getStatus()).isEqualTo(200);
         }
     }
+
+    /** MockHttpServletRequest no decodifica ni limpia la URI: es el filtro (vía UrlPathHelper) quien debe hacerlo. */
+    @Test void rutaAdminDisfrazadaSeTrataComoAdminYNoExigeApiKey() throws Exception {
+        for (String uri : new String[]{"/v1;x/admin/tenants", "/v1/%61dmin/tenants", "/v1//admin/tenants", "/v1/facturas/../admin/tenants"}) {
+            MockHttpServletRequest req = new MockHttpServletRequest("POST", uri);
+            MockHttpServletResponse res = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+            filter.doFilter(req, res, chain);
+            assertThat(chain.getRequest()).as(uri).isNotNull();
+            assertThat(res.getStatus()).as(uri).isEqualTo(200);
+        }
+    }
+
+    @Test void rutaApiConParametroDeSegmentoSigueExigiendoApiKey() throws Exception {
+        for (String uri : new String[]{"/v1;x/facturas", "/v1/%66acturas", "/v1", "/v1/admin/../facturas"}) {
+            MockHttpServletRequest req = new MockHttpServletRequest("GET", uri);
+            MockHttpServletResponse res = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+            filter.doFilter(req, res, chain);
+            assertThat(chain.getRequest()).as(uri).isNull();
+            assertThat(res.getStatus()).as(uri).isEqualTo(401);
+        }
+    }
 }

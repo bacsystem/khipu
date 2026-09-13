@@ -17,9 +17,10 @@ public class ApiKeyFilter extends OncePerRequestFilter {
     private final String pepper;
     public ApiKeyFilter(ApiKeyRepository apiKeys, String pepper) { this.apiKeys = apiKeys; this.pepper = pepper; }
 
+    /** Decide sobre la ruta normalizada (ver {@link RutaRequest}); las rutas de administración las protege {@link PlatformKeyFilter}. */
     @Override protected boolean shouldNotFilter(HttpServletRequest req) {
-        String uri = req.getRequestURI();
-        return !uri.startsWith("/v1/") || uri.startsWith("/v1/admin/");
+        String ruta = RutaRequest.rutaNormalizada(req);
+        return !RutaRequest.esApiV1(ruta) || RutaRequest.esAdmin(ruta);
     }
 
     @Override protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {

@@ -20,6 +20,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.factura.adapters.scheduler.OutboxWorker;
 import pe.factura.adapters.sunat.ZipUtil;
 
+import java.net.URI;
 import java.util.Base64;
 import java.util.Map;
 
@@ -148,6 +149,32 @@ class FacturaE2ETest {
         ResponseEntity<String> conClaveErronea = http.postForEntity("/v1/admin/tenants",
                 new HttpEntity<>("{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA DE PRUEBA S.A.C.\",\"entorno\":\"BETA\"}", claveErronea), String.class);
         assertThat(conClaveErronea.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * Tomcat decodifica %xx, descarta ";param" y resuelve ".." antes de enrutar; los filtros deben decidir
+     * sobre esa misma ruta y no sobre la URI cruda. Se usa URI.create para que el cliente no codifique nada.
+     */
+    @Test void bypassDeRutasNoFunciona() throws Exception {
+        String cuerpoTenant = "{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA DE PRUEBA S.A.C.\",\"entorno\":\"BETA\"}";
+        HttpHeaders sinClave = new HttpHeaders(); sinClave.setContentType(MediaType.APPLICATION_JSON);
+        for (String ruta : new String[]{"/v1;x/admin/tenants", "/v1/%61dmin/tenants", "/v1//admin/tenants", "/v1/facturas/../admin/tenants"}) {
+            ResponseEntity<String> r = http.exchange(URI.create(ruta), HttpMethod.POST, new HttpEntity<>(cuerpoTenant, sinClave), String.class);
+            assertThat(r.getStatusCode()).as(ruta + " sin clave de plataforma").isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        String apiKey = provisionarTenant();
+        HttpHeaders conApiKey = new HttpHeaders(); conApiKey.set("X-Api-Key", apiKey); conApiKey.setContentType(MediaType.APPLICATION_JSON);
+        for (String ruta : new String[]{"/v1/%61dmin/tenants", "/v1;x/admin/tenants", "/v1/facturas/../admin/tenants"}) {
+            ResponseEntity<String> r = http.exchange(URI.create(ruta), HttpMethod.POST, new HttpEntity<>(cuerpoTenant, conApiKey), String.class);
+            assertThat(r.getStatusCode()).as(ruta + " con API key de tenant pero sin clave de plataforma").isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM tenant", Integer.class)).isEqualTo(1);
+
+        for (String ruta : new String[]{"/v1;x/facturas", "/v1/%66acturas", "/v1/admin/../facturas"}) {
+            ResponseEntity<String> r = http.exchange(URI.create(ruta), HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
+            assertThat(r.getStatusCode()).as(ruta + " sin API key").isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
     }
 
     @org.junit.jupiter.api.BeforeEach void limpiar() {

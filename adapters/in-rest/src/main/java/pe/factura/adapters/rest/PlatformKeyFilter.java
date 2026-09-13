@@ -14,7 +14,8 @@ public class PlatformKeyFilter extends OncePerRequestFilter {
     private final String platformKey;
     public PlatformKeyFilter(String platformKey) { this.platformKey = platformKey == null ? "" : platformKey; }
 
-    @Override protected boolean shouldNotFilter(HttpServletRequest req) { return !req.getRequestURI().startsWith("/v1/admin/"); }
+    /** Decide sobre la ruta normalizada (ver {@link RutaRequest}), nunca sobre la URI cruda. */
+    @Override protected boolean shouldNotFilter(HttpServletRequest req) { return !RutaRequest.esAdmin(RutaRequest.rutaNormalizada(req)); }
 
     @Override protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
         if (platformKey.isBlank()) { res.setStatus(404); return; }

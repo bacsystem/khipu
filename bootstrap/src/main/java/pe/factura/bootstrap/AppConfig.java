@@ -77,11 +77,15 @@ public class AppConfig {
         return new OutboxWorker(o, u, e, clock, p.outbox().maxIntentos());
     }
 
+    // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
+    // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.
     @Bean FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(ApiKeyRepository k, AppProperties p) {
         exigirSecretosDePlataforma(p);
-        var f = new FilterRegistrationBean<>(new ApiKeyFilter(k, p.apiKeyPepper())); f.setOrder(10); return f;
+        var f = new FilterRegistrationBean<>(new ApiKeyFilter(k, p.apiKeyPepper()));
+        f.addUrlPatterns("/v1/*"); f.setOrder(10); return f;
     }
     @Bean FilterRegistrationBean<PlatformKeyFilter> platformKeyFilter(AppProperties p) {
-        var f = new FilterRegistrationBean<>(new PlatformKeyFilter(p.platformAdminKey())); f.setOrder(5); return f;
+        var f = new FilterRegistrationBean<>(new PlatformKeyFilter(p.platformAdminKey()));
+        f.addUrlPatterns("/v1/*"); f.setOrder(5); return f;
     }
 }
