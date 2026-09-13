@@ -31,15 +31,22 @@ import java.time.ZoneId;
 @EnableConfigurationProperties(AppProperties.class)
 public class AppConfig {
 
+    private static final String PLACEHOLDER = "cambiar-en-produccion";
+
     /**
      * Ruling de seguridad: MASTER_KEY y API_KEY_PEPPER no tienen valor por defecto.
-     * Si alguno falta al arrancar la aplicación, se aborta con un mensaje explícito
-     * en lugar de dejar que un cifrado o hash silenciosamente inseguro llegue a producción.
+     * Si alguno falta al arrancar la aplicación, o conserva el placeholder histórico
+     * "cambiar-en-produccion", se aborta con un mensaje explícito en lugar de dejar que
+     * un cifrado o hash silenciosamente inseguro llegue a producción.
      */
-    private static void exigirSecretosDePlataforma(AppProperties p) {
-        if (p.masterKey() == null || p.masterKey().isBlank() || p.apiKeyPepper() == null || p.apiKeyPepper().isBlank()) {
-            throw new IllegalStateException("MASTER_KEY y API_KEY_PEPPER son obligatorios");
+    static void exigirSecretosDePlataforma(AppProperties p) {
+        if (esInvalido(p.masterKey()) || esInvalido(p.apiKeyPepper())) {
+            throw new IllegalStateException("MASTER_KEY y API_KEY_PEPPER son obligatorios y no pueden ser '" + PLACEHOLDER + "'");
         }
+    }
+
+    private static boolean esInvalido(String secreto) {
+        return secreto == null || secreto.isBlank() || secreto.trim().equalsIgnoreCase(PLACEHOLDER);
     }
 
     @Bean Clock clock(AppProperties p) { return Clock.system(ZoneId.of(p.zonaHoraria())); }

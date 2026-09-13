@@ -20,10 +20,18 @@ En otros sistemas, exporta `JAVA_HOME` a la ruta de tu instalación de JDK 21 an
 ## Arranque local
 ```bash
 docker compose up -d
-cp .env.example .env && export $(grep -v '^#' .env | xargs)   # o usar un gestor de .env
-export MASTER_KEY=$(openssl rand -base64 32)
+cp .env.example .env
+# Genera los secretos UNA sola vez y guárdalos en .env (la app no arranca con valores vacíos ni con el placeholder):
+#   MASTER_KEY=$(openssl rand -base64 32)
+#   API_KEY_PEPPER=$(openssl rand -base64 32)
+#   PLATFORM_ADMIN_KEY=$(openssl rand -base64 32)
+set -a; source .env; set +a
 ./gradlew :bootstrap:bootRun
 ```
+
+**No rotes `MASTER_KEY`.** Cifra los certificados PKCS#12 y las claves SOL almacenados en la base de datos;
+si cambia, esos secretos dejan de poder descifrarse y cada tenant tendría que volver a cargarlos.
+Respáldala junto con la base de datos. Lo mismo aplica a `API_KEY_PEPPER`: rotarlo invalida todas las API keys emitidas.
 
 ## Flujo mínimo
 1. `POST /v1/admin/tenants` con header `X-Platform-Key` → devuelve `api_key`.
