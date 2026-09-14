@@ -41,6 +41,21 @@ afterEach(() => {
 });
 
 describe("proxy /api/proxy/[...path]", () => {
+  it("rechaza un segmento .. sin llegar a hacer fetch", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const req = requestWithSession("http://localhost/api/proxy/empresas", {
+      method: "GET",
+      access: "a1",
+    });
+
+    const res = await GET(req, ctx(["empresas", "..", "admin", "tenants"]));
+
+    expect(res.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("reenvía con Authorization y X-Empresa al backend", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);

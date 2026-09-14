@@ -10,6 +10,7 @@ import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import { postJson } from "@/lib/api/browser";
 import { mensajeError, messages } from "@/lib/messages";
+import { rutaSegura } from "@/lib/ruta-segura";
 import { emailSchema } from "@/lib/validacion";
 
 const schema = z.object({
@@ -33,7 +34,7 @@ export function LoginForm() {
     setError(null);
     const res = await postJson<{ usuario: unknown }>("/api/auth/login", values);
     if (res.estado === "exito") {
-      router.push(params.get("next") ?? "/comprobantes");
+      router.push(rutaSegura(params.get("next")));
       router.refresh();
       return;
     }
