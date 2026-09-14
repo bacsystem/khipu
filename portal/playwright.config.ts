@@ -16,5 +16,6 @@ export default defineConfig({
     url: "http://localhost:3100",
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
+    env: { API_MOCKING: "enabled" },
   },
 });
