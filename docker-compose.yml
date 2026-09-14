@@ -12,5 +12,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  portal:
+    build: ./portal
+    environment:
+      API_BASE_URL: ${PORTAL_API_BASE_URL:-http://host.docker.internal:8080}
+    ports: ["3000:3000"]
 volumes:
   pgdata:
