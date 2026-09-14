@@ -84,4 +84,19 @@ describe("POST /api/auth/login", () => {
 
     expect(res.cookies.get(COOKIE_EMPRESA)?.value).toBe("e2");
   });
+
+  it("limpia una cookie de empresa ajena cuando la cuenta no tiene ninguna propia", async () => {
+    vi.mocked(login).mockResolvedValue({
+      access: "a1",
+      refresh: "r1",
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+    });
+    vi.mocked(listarEmpresas).mockResolvedValue([]);
+
+    const res = await POST(
+      postRequest({ email: "a@b.com", password: "secreto" }, `${COOKIE_EMPRESA}=empresa-de-otra-cuenta`),
+    );
+
+    expect(res.cookies.get(COOKIE_EMPRESA)?.value).toBe("");
+  });
 });

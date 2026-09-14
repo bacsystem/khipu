@@ -37,6 +37,10 @@ export function writeEmpresaActiva(res: NextResponse, empresaId: string): void {
   res.cookies.set(COOKIE_EMPRESA, empresaId, { ...baseCookie, maxAge: REFRESH_MAX_AGE });
 }
 
+export function clearEmpresaActiva(res: NextResponse): void {
+  res.cookies.set(COOKIE_EMPRESA, "", { ...baseCookie, maxAge: 0 });
+}
+
 export function clearSession(res: NextResponse): void {
   res.cookies.set(COOKIE_ACCESS, "", { ...baseCookie, maxAge: 0 });
   res.cookies.set(COOKIE_REFRESH, "", { ...baseCookie, maxAge: 0 });
