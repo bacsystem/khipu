@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Public_Sans, Source_Serif_4 } from "next/font/google";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const sans = Public_Sans({
@@ -30,7 +31,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${sans.variable} ${serif.variable} ${mono.variable}`}>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
