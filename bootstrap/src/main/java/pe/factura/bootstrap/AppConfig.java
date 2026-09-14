@@ -1,5 +1,7 @@
 package pe.factura.bootstrap;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.core.jackson.ModelResolver;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -55,6 +57,15 @@ public class AppConfig {
     private static boolean esInvalido(String secreto) {
         return secreto == null || secreto.isBlank() || secreto.trim().equalsIgnoreCase(PLACEHOLDER);
     }
+
+    /**
+     * springdoc/swagger-core resuelven los schemas con su propio ObjectMapper por defecto
+     * (io.swagger.v3.core.util.Json.mapper()), ajeno a spring.jackson.property-naming-strategy:
+     * sin este bean, /openapi.json documenta los campos en camelCase aunque el runtime
+     * serialice en snake_case. Al registrar un ModelResolver con el ObjectMapper de Spring,
+     * springdoc lo detecta por tipo y reemplaza al que trae por defecto (ModelConverterRegistrar).
+     */
+    @Bean ModelResolver modelResolver(ObjectMapper objectMapper) { return new ModelResolver(objectMapper); }
 
     @Bean Clock clock(AppProperties p) { return Clock.system(ZoneId.of(p.zonaHoraria())); }
     @Bean SecretCipher secretCipher(AppProperties p) { exigirSecretosDePlataforma(p); return new AesGcmSecretCipher(p.masterKey()); }
