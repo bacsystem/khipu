@@ -7,14 +7,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import pe.factura.adapters.rest.dto.ApiKeyResponse;
 import pe.factura.adapters.rest.dto.CredencialesSolRequest;
+import pe.factura.adapters.rest.dto.EmpresaResponse;
 import pe.factura.adapters.rest.dto.SerieRequest;
+import pe.factura.adapters.rest.dto.SerieResponse;
 import pe.factura.application.port.in.AdministrarTenantUseCase;
 import pe.factura.domain.documento.TipoDocumento;
-import pe.factura.domain.tenant.Tenant;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/v1")
@@ -23,13 +25,8 @@ public class EmpresaController {
     private final AdministrarTenantUseCase admin;
 
     @GetMapping("/empresa")
-    public ApiResponse<Map<String, Object>> ver(HttpServletRequest req) {
-        Tenant t = admin.obtener(TenantActual.id(req));
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("id", t.id()); m.put("ruc", t.ruc()); m.put("razon_social", t.razonSocial()); m.put("entorno", t.entorno());
-        m.put("tiene_credenciales_sol", t.sol() != null);
-        m.put("certificado_vigencia_hasta", t.certificado() == null ? null : t.certificado().vigenciaHasta());
-        return ApiResponse.ok(m);
+    public ApiResponse<EmpresaResponse> ver(HttpServletRequest req) {
+        return ApiResponse.ok(EmpresaResponse.de(admin.obtener(TenantActual.id(req))));
     }
 
     @PostMapping(value = "/empresa/certificado", consumes = "multipart/form-data")
@@ -45,8 +42,8 @@ public class EmpresaController {
     }
 
     @PostMapping("/empresa/api-keys")
-    public ResponseEntity<ApiResponse<Map<String, String>>> apiKey(HttpServletRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(Map.of("api_key", admin.crearApiKey(TenantActual.id(req)))));
+    public ResponseEntity<ApiResponse<ApiKeyResponse>> apiKey(HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(new ApiKeyResponse(admin.crearApiKey(TenantActual.id(req)))));
     }
 
     @PostMapping("/series")
@@ -56,8 +53,9 @@ public class EmpresaController {
     }
 
     @GetMapping("/series")
-    public ApiResponse<List<Map<String, Object>>> series(HttpServletRequest req) {
-        return ApiResponse.ok(admin.listarSeries(TenantActual.id(req)).stream().<Map<String, Object>>map(s -> Map.of(
-                "tipo", s.tipo().codigo(), "serie", s.codigo(), "ultimo_numero", s.ultimoNumero(), "activa", s.activa())).toList());
+    public ApiResponse<List<SerieResponse>> series(HttpServletRequest req) {
+        return ApiResponse.ok(admin.listarSeries(TenantActual.id(req)).stream()
+                .map(s -> new SerieResponse(s.tipo().codigo(), s.codigo(), s.ultimoNumero(), s.activa()))
+                .toList());
     }
 }
