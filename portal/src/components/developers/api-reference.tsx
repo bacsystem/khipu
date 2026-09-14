@@ -82,6 +82,7 @@ export function ApiReference({
     showDeveloperTools: "never",
     mcp: { disabled: true },
     agent: { disabled: true },
+    hideClientButton: true,
     authentication: apiKey ? { securitySchemes: { ApiKey: { value: apiKey } } } : undefined,
   };
 
