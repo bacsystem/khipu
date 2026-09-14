@@ -46,7 +46,11 @@ class FreemarkerUblGeneratorTest {
                 .contains("<cbc:ID>9997</cbc:ID>")
                 .contains("<cbc:PayableAmount currencyID=\"PEN\">2460.00</cbc:PayableAmount>")
                 .contains("<ext:ExtensionContent/>")
-                .contains("<cac:InvoiceLine>");
+                .contains("<cac:InvoiceLine>")
+                .contains("<cbc:ID>1</cbc:ID>")
+                .contains("<cbc:ID>2</cbc:ID>")
+                .doesNotContain("<cbc:ID>1.00</cbc:ID>")
+                .doesNotContain("<cbc:ID>2.00</cbc:ID>");
         assertThat(xml.split("<cac:InvoiceLine>")).hasSize(3);
     }
 

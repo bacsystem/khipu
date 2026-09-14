@@ -84,7 +84,7 @@
   </cac:LegalMonetaryTotal>
   <#list tot.items() as it>
   <cac:InvoiceLine>
-    <cbc:ID>${it?index + 1}</cbc:ID>
+    <cbc:ID>${(it?index + 1)?c}</cbc:ID>
     <cbc:InvoicedQuantity unitCode="${it.item().unidad()}" unitCodeListID="UN/ECE rec 20" unitCodeListAgencyName="United Nations Economic Commission for Europe">${it.item().cantidad()?string["0.####"]}</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:LineExtensionAmount>
     <cac:PricingReference>
