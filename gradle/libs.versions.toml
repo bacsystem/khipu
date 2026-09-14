@@ -10,6 +10,9 @@ httpclient5 = "5.3.1"
 postgres = "42.7.4"
 flyway = "10.17.3"
 lombok = "1.18.34"
+springSecurityCrypto = "6.3.3"
+javaJwt = "4.4.0"
+springdoc = "2.6.0"
 
 [libraries]
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter", version.ref = "springBoot" }
@@ -37,6 +40,11 @@ assertj = { module = "org.assertj:assertj-core", version = "3.26.3" }
 mockito = { module = "org.mockito:mockito-core", version = "5.12.0" }
 
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+
+spring-security-crypto = { module = "org.springframework.security:spring-security-crypto", version.ref = "springSecurityCrypto" }
+java-jwt = { module = "com.auth0:java-jwt", version.ref = "javaJwt" }
+spring-boot-starter-mail = { module = "org.springframework.boot:spring-boot-starter-mail", version.ref = "springBoot" }
+springdoc-openapi = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }

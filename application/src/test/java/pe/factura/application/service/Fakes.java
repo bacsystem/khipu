@@ -39,6 +39,10 @@ final class Fakes {
         public void guardar(Tenant t) { datos.put(t.id(), t); }
         public Optional<Tenant> buscar(UUID id) { return Optional.ofNullable(datos.get(id)); }
         public Optional<Tenant> buscarPorRuc(String ruc) { return datos.values().stream().filter(t -> t.ruc().equals(ruc)).findFirst(); }
+        final Map<UUID, UUID> cuentas = new HashMap<>();
+        public List<Tenant> listarPorCuenta(UUID c) { return datos.values().stream().filter(t -> c.equals(cuentas.get(t.id()))).toList(); }
+        public void asignarCuenta(UUID t, UUID c) { cuentas.put(t, c); }
+        public Optional<UUID> cuentaDe(UUID t) { return Optional.ofNullable(cuentas.get(t)); }
     }
     static final class Storage implements DocumentStorage {
         final Map<String, byte[]> datos = new HashMap<>();
