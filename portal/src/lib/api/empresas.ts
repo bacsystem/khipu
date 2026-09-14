@@ -1,4 +1,5 @@
 import { backendFetch } from "./client";
+import { tenantHeaders } from "./tenant";
 
 export type Entorno = "BETA" | "PRODUCCION";
 
@@ -11,6 +12,15 @@ export type Empresa = {
   tiene_credenciales_sol: boolean;
 };
 
+export type EmpresaDetalle = {
+  id: string;
+  ruc: string;
+  razon_social: string;
+  entorno: Entorno;
+  tiene_credenciales_sol: boolean;
+  certificado_vigencia_hasta: string | null;
+};
+
 export function listarEmpresas(access: string) {
   return backendFetch<Empresa[]>("/v1/empresas", { headers: { Authorization: `Bearer ${access}` } });
 }
@@ -21,4 +31,8 @@ export function crearEmpresa(access: string, body: { ruc: string; razon_social: 
     body,
     headers: { Authorization: `Bearer ${access}` },
   });
+}
+
+export function obtenerEmpresaActual(access: string, empresaId: string) {
+  return backendFetch<EmpresaDetalle>("/v1/empresa", { headers: tenantHeaders(access, empresaId) });
 }

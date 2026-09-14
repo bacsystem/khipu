@@ -1,14 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readSession } from "@/lib/session";
+import { refrescar } from "@/lib/api/auth";
+import { accesoExpirado } from "@/lib/jwt";
+import { clearSession, readSession, writeTokens } from "@/lib/session";
 
-export function middleware(req: NextRequest) {
-  const { refresh } = readSession(req);
-  if (!refresh) {
-    const login = new URL("/login", req.url);
-    login.searchParams.set("next", req.nextUrl.pathname);
-    return NextResponse.redirect(login);
+function redirigirALogin(req: NextRequest) {
+  const login = new URL("/login", req.url);
+  login.searchParams.set("next", req.nextUrl.pathname);
+  return NextResponse.redirect(login);
+}
+
+export async function middleware(req: NextRequest) {
+  const { access, refresh } = readSession(req);
+  if (!refresh) return redirigirALogin(req);
+  if (access && !accesoExpirado(access)) return NextResponse.next();
+
+  try {
+    const tokens = await refrescar(refresh);
+    const res = NextResponse.next();
+    writeTokens(res, tokens);
+    return res;
+  } catch {
+    const res = redirigirALogin(req);
+    clearSession(res);
+    return res;
   }
-  return NextResponse.next();
 }
 
 export const config = {

@@ -1,4 +1,5 @@
 import { backendFetch } from "./client";
+import { tenantHeaders } from "./tenant";
 
 export const ESTADOS_FINALES = ["ACEPTADO", "ACEPTADO_CON_OBS", "RECHAZADO", "ANULADO", "INVALIDO"] as const;
 
@@ -29,10 +30,6 @@ export type Comprobante = {
   totales: { gravado: number; exonerado: number; inafecto: number; igv: number; total: number };
   enlaces: { xml: string; cdr: string };
 };
-
-function tenantHeaders(access: string, empresaId: string) {
-  return { Authorization: `Bearer ${access}`, "X-Empresa": empresaId };
-}
 
 export function esEstadoFinal(estado: EstadoDocumento): boolean {
   return (ESTADOS_FINALES as readonly string[]).includes(estado);

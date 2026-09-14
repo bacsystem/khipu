@@ -104,6 +104,30 @@ describe("proxy /api/proxy/[...path]", () => {
     expect(res.cookies.get(COOKIE_ACCESS)?.value).toBe("");
   });
 
+  it("ante 401 concurrentes con el mismo refresh, solo llama a refrescar una vez", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 401 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 401 }))
+      .mockResolvedValueOnce(new Response('{"estado":"exito","datos":[]}', { status: 200 }))
+      .mockResolvedValueOnce(new Response('{"estado":"exito","datos":[]}', { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(refrescar).mockResolvedValue({
+      access: "a2",
+      refresh: "r2",
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+    });
+
+    const req1 = requestWithSession("http://localhost/api/proxy/empresas", { method: "GET", access: "a1", refresh: "r1" });
+    const req2 = requestWithSession("http://localhost/api/proxy/facturas", { method: "GET", access: "a1", refresh: "r1" });
+
+    const [res1, res2] = await Promise.all([GET(req1, ctx(["empresas"])), GET(req2, ctx(["facturas"]))]);
+
+    expect(refrescar).toHaveBeenCalledTimes(1);
+    expect(res1.status).toBe(200);
+    expect(res2.status).toBe(200);
+  });
+
   it("reenvía el body en POST", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
