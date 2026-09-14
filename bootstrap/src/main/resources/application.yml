@@ -19,6 +19,11 @@ management:
       base-path: /
       exposure:
         include: health
+springdoc:
+  api-docs:
+    path: /openapi.json
+  swagger-ui:
+    path: /swagger-ui
 app:
   mode: ${APP_MODE:multi}
   master-key: ${MASTER_KEY:}
