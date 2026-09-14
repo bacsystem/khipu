@@ -15,9 +15,19 @@ export async function backendFetch<T>(path: string, init: BackendRequestInit = {
   }
 
   const res = await fetch(`${apiBaseUrl()}${path}`, { ...init, headers, body, cache: "no-store" });
-  if (res.status === 204) return undefined as T;
+  const texto = await res.text();
+  if (!texto) {
+    if (res.ok) return undefined as T;
+    throw new ApiError(res.status, null, "Error de comunicación con la API", null);
+  }
 
-  const json = (await res.json().catch(() => null)) as ApiEnvelope<T> | null;
+  const json = (() => {
+    try {
+      return JSON.parse(texto) as ApiEnvelope<T>;
+    } catch {
+      return null;
+    }
+  })();
   if (!res.ok || !json || json.estado === "error") {
     throw new ApiError(
       res.status,

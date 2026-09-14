@@ -54,4 +54,10 @@ describe("backendFetch", () => {
 
     await expect(backendFetch("/v1/auth/logout", { method: "POST" })).resolves.toBeUndefined();
   });
+
+  it("devuelve undefined en cualquier 2xx con body vacío (p. ej. 202)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 202 })));
+
+    await expect(backendFetch("/v1/auth/recuperar", { method: "POST" })).resolves.toBeUndefined();
+  });
 });
