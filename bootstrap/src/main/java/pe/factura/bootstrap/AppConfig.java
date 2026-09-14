@@ -2,14 +2,22 @@ package pe.factura.bootstrap;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.core.jackson.ModelResolver;
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 import pe.factura.adapters.crypto.AesGcmSecretCipher;
 import pe.factura.adapters.crypto.BcryptPasswordHasher;
 import pe.factura.adapters.crypto.JwtTokenEmisor;
@@ -35,6 +43,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
+import java.util.List;
 
 @Configuration
 @EnableConfigurationProperties(AppProperties.class)
@@ -66,6 +75,43 @@ public class AppConfig {
      * springdoc lo detecta por tipo y reemplaza al que trae por defecto (ModelConverterRegistrar).
      */
     @Bean ModelResolver modelResolver(ObjectMapper objectMapper) { return new ModelResolver(objectMapper); }
+
+    /**
+     * /v1/empresas (plural) es cuenta-scoped vía JWT (CuentaActual) — una X-Api-Key no llega a
+     * setear eso, así que NO se marca ahí aunque el prefijo se parezca. Solo las rutas realmente
+     * scoped a tenant (ApiKeyFilter → TenantActual) aceptan X-Api-Key.
+     */
+    @Bean GlobalOpenApiCustomizer apiKeySecurityCustomizer() {
+        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas");
+        return openApi -> {
+            if (openApi.getComponents() == null) openApi.setComponents(new Components());
+            openApi.getComponents().addSecuritySchemes("ApiKey",
+                    new SecurityScheme().type(SecurityScheme.Type.APIKEY).in(SecurityScheme.In.HEADER).name("X-Api-Key"));
+            SecurityRequirement requerimiento = new SecurityRequirement().addList("ApiKey");
+            openApi.getPaths().forEach((ruta, item) -> {
+                boolean aplica = conApiKey.stream().anyMatch(p -> ruta.equals(p) || ruta.startsWith(p + "/"));
+                if (aplica) item.readOperations().forEach(op -> op.addSecurityItem(requerimiento));
+            });
+        };
+    }
+
+    /**
+     * Debe correr ANTES que PlatformKeyFilter/JwtFilter/ApiKeyFilter (órdenes 5/8/10): CorsFilter
+     * responde el preflight OPTIONS directo (sin seguir la cadena) cuando corresponde, así que si
+     * corriera después, ApiKeyFilter rechazaría el preflight con 401 antes de que CORS actúe.
+     */
+    @Bean FilterRegistrationBean<CorsFilter> corsFilter(AppProperties p) {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(p.portalUrl()));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Content-Type", "X-Api-Key", "Authorization", "X-Empresa"));
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/v1/**", config);
+        var f = new FilterRegistrationBean<>(new CorsFilter(source));
+        f.addUrlPatterns("/v1/*");
+        f.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return f;
+    }
 
     @Bean Clock clock(AppProperties p) { return Clock.system(ZoneId.of(p.zonaHoraria())); }
     @Bean SecretCipher secretCipher(AppProperties p) { exigirSecretosDePlataforma(p); return new AesGcmSecretCipher(p.masterKey()); }
