@@ -74,20 +74,27 @@ export function ComprobantesTable({
     },
   });
 
+  function conPagina(next: URLSearchParams, p: number) {
+    if (p > 1) next.set("pagina", String(p));
+    else next.delete("pagina");
+  }
+
   function irA(nuevaPagina: number, nuevoEstado?: string) {
     const next = new URLSearchParams(params.toString());
-    next.set("pagina", String(nuevaPagina));
+    conPagina(next, nuevaPagina);
     if (nuevoEstado !== undefined) {
       if (nuevoEstado) next.set("estado", nuevoEstado);
       else next.delete("estado");
     }
-    router.push(`/comprobantes?${next.toString()}`);
+    const qs = next.toString();
+    router.push(qs ? `/comprobantes?${qs}` : "/comprobantes");
   }
 
   function hrefPagina(p: number) {
     const next = new URLSearchParams(params.toString());
-    next.set("pagina", String(p));
-    return `/comprobantes?${next.toString()}`;
+    conPagina(next, p);
+    const qs = next.toString();
+    return qs ? `/comprobantes?${qs}` : "/comprobantes";
   }
 
   const hayAnterior = pagina > 1;
