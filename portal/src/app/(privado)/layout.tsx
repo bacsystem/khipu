@@ -12,6 +12,7 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
   if (!access) redirect("/login");
 
   const [usuario, empresas] = await Promise.all([me(access), listarEmpresas(access)]);
+  if (empresas.length === 0) redirect("/onboarding");
   const activa = empresas.find((empresa) => empresa.id === empresaId) ?? empresas[0];
 
   return (
