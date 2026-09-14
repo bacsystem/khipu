@@ -16,6 +16,10 @@ import org.springframework.web.util.UrlPathHelper;
 final class RutaRequest {
     private RutaRequest() {}
 
+    /** Rutas de autenticación que no exigen ni API key ni JWT (el cliente aún no tiene ninguno). */
+    private static final java.util.Set<String> AUTH_PUBLICA = java.util.Set.of(
+            "/v1/auth/registro", "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/recuperar", "/v1/auth/restablecer");
+
     static String rutaNormalizada(HttpServletRequest req) {
         String ruta = UrlPathHelper.defaultInstance.getPathWithinApplication(req);
         return StringUtils.cleanPath(ruta);
@@ -24,4 +28,6 @@ final class RutaRequest {
     static boolean esAdmin(String ruta) { return ruta.equals("/v1/admin") || ruta.startsWith("/v1/admin/"); }
 
     static boolean esApiV1(String ruta) { return ruta.equals("/v1") || ruta.startsWith("/v1/"); }
+
+    static boolean esAuthPublica(String ruta) { return AUTH_PUBLICA.contains(ruta); }
 }

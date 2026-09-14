@@ -91,6 +91,24 @@ class ApiKeyFilterTest {
         }
     }
 
+    @Test void rutasPublicasDeAuthNoExigenApiKey() throws Exception {
+        for (String uri : new String[]{"/v1/auth/registro", "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/recuperar", "/v1/auth/restablecer"}) {
+            MockHttpServletRequest req = new MockHttpServletRequest("POST", uri);
+            MockHttpServletResponse res = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+            filter.doFilter(req, res, chain);
+            assertThat(chain.getRequest()).as(uri).isNotNull();
+        }
+    }
+
+    @Test void peticionYaAutenticadaPorJwtNoExigeApiKey() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
+        req.setAttribute(CuentaActual.ATRIBUTO, UUID.randomUUID());
+        MockFilterChain chain = new MockFilterChain();
+        filter.doFilter(req, new MockHttpServletResponse(), chain);
+        assertThat(chain.getRequest()).isNotNull();
+    }
+
     @Test void rutaApiConParametroDeSegmentoSigueExigiendoApiKey() throws Exception {
         for (String uri : new String[]{"/v1;x/facturas", "/v1/%66acturas", "/v1", "/v1/admin/../facturas"}) {
             MockHttpServletRequest req = new MockHttpServletRequest("GET", uri);

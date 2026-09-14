@@ -18,10 +18,16 @@ public class ApiKeyFilter extends OncePerRequestFilter {
     private final ApiKeyRepository apiKeys;
     private final String pepper;
 
-    /** Decide sobre la ruta normalizada (ver {@link RutaRequest}); las rutas de administración las protege {@link PlatformKeyFilter}. */
+    /**
+     * Decide sobre la ruta normalizada (ver {@link RutaRequest}). Las rutas de administración las
+     * protege {@link PlatformKeyFilter}; las públicas de autenticación no exigen ningún credencial;
+     * y una petición ya autenticada por JWT ({@link JwtFilter}, que se ejecuta antes) no vuelve a
+     * exigir API key.
+     */
     @Override protected boolean shouldNotFilter(HttpServletRequest req) {
         String ruta = RutaRequest.rutaNormalizada(req);
-        return !RutaRequest.esApiV1(ruta) || RutaRequest.esAdmin(ruta);
+        if (!RutaRequest.esApiV1(ruta) || RutaRequest.esAdmin(ruta) || RutaRequest.esAuthPublica(ruta)) return true;
+        return req.getAttribute(CuentaActual.ATRIBUTO) != null;
     }
 
     @Override protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
