@@ -178,6 +178,6 @@ class FacturaE2ETest {
     }
 
     @org.junit.jupiter.api.BeforeEach void limpiar() {
-        jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant CASCADE");
+        jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, sesion, usuario, cuenta CASCADE");
     }
 }

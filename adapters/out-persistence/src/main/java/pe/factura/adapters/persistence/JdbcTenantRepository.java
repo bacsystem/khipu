@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,6 +37,15 @@ public class JdbcTenantRepository implements TenantRepository {
     }
     @Override public Optional<Tenant> buscar(UUID id) {
         return jdbc.query("SELECT " + COLS + " FROM tenant WHERE id = ?", this::mapear, id).stream().findFirst();
+    }
+    @Override public List<Tenant> listarPorCuenta(UUID cuentaId) {
+        return jdbc.query("SELECT " + COLS + " FROM tenant WHERE cuenta_id = ? ORDER BY created_at", this::mapear, cuentaId);
+    }
+    @Override public void asignarCuenta(UUID tenantId, UUID cuentaId) {
+        jdbc.update("UPDATE tenant SET cuenta_id = ?, updated_at = now() WHERE id = ?", cuentaId, tenantId);
+    }
+    @Override public Optional<UUID> cuentaDe(UUID tenantId) {
+        return jdbc.queryForList("SELECT cuenta_id FROM tenant WHERE id = ? AND cuenta_id IS NOT NULL", UUID.class, tenantId).stream().findFirst();
     }
     @Override public Optional<Tenant> buscarPorRuc(String ruc) {
         return jdbc.query("SELECT " + COLS + " FROM tenant WHERE ruc = ?", this::mapear, ruc).stream().findFirst();
