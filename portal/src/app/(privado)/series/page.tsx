@@ -29,7 +29,7 @@ export default async function SeriesPage() {
       <h1 className="font-heading text-2xl">Series</h1>
       <p className="mt-1 text-sm text-muted-foreground">Series de facturación para tus comprobantes.</p>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-border">
+      <div className="mt-6 overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-muted-foreground">
             <tr>
@@ -61,7 +61,7 @@ export default async function SeriesPage() {
         </table>
       </div>
 
-      <div className="mt-8 max-w-2xl rounded-lg border border-border p-6">
+      <div className="mt-8 max-w-2xl rounded-xl bg-card p-6 ring-1 ring-foreground/10">
         <h2 className="text-sm font-medium text-muted-foreground">Nueva serie</h2>
         <div className="mt-4">
           <NuevaSerieForm />

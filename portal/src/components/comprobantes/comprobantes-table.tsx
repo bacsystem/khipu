@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { esEstadoFinal, type Comprobante, type EstadoDocumento } from "@/lib/api/facturas";
-import { EstadoBadge } from "./estado-badge";
+import { ETIQUETAS_ESTADO, EstadoBadge } from "./estado-badge";
 
 const ESTADOS: EstadoDocumento[] = [
   "RECIBIDO",
@@ -67,18 +67,18 @@ export function ComprobantesTable({
         <select
           value={estado ?? ""}
           onChange={(e) => irA(1, e.target.value)}
-          className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <option value="">Todos los estados</option>
           {ESTADOS.map((e) => (
             <option key={e} value={e}>
-              {e}
+              {ETIQUETAS_ESTADO[e]}
             </option>
           ))}
         </select>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-muted-foreground">
             <tr>
@@ -96,7 +96,7 @@ export function ComprobantesTable({
                   {c.serie}-{String(c.numero).padStart(8, "0")}
                 </td>
                 <td className="px-4 py-2">{c.fecha_emision}</td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 font-mono">
                   {c.moneda} {Number(c.totales.total).toFixed(2)}
                 </td>
                 <td className="px-4 py-2">

@@ -13,7 +13,7 @@ export default async function EmpresaPage() {
       <div>
         <h1 className="font-heading text-2xl">Empresa</h1>
         <p className="mt-4 text-sm text-muted-foreground">Aún no tienes una empresa configurada.</p>
-        <div className="mt-6 max-w-2xl rounded-lg border border-border p-6">
+        <div className="mt-6 max-w-2xl rounded-xl bg-card p-6 ring-1 ring-foreground/10">
           <h2 className="text-sm font-medium text-muted-foreground">Agregar empresa</h2>
           <div className="mt-3">
             <NuevaEmpresaForm />
@@ -40,7 +40,7 @@ export default async function EmpresaPage() {
       </p>
 
       <div className="mt-8 grid gap-6">
-        <section className="rounded-lg border border-border p-6">
+        <section className="rounded-xl bg-card p-6 ring-1 ring-foreground/10">
           <h2 className="text-sm font-medium text-muted-foreground">Certificado digital</h2>
           <p className="mt-1 text-sm">
             {empresa.certificado_vigencia_hasta
@@ -52,7 +52,7 @@ export default async function EmpresaPage() {
           </div>
         </section>
 
-        <section className="rounded-lg border border-border p-6">
+        <section className="rounded-xl bg-card p-6 ring-1 ring-foreground/10">
           <h2 className="text-sm font-medium text-muted-foreground">Credenciales SOL</h2>
           <p className="mt-1 text-sm">
             {empresa.tiene_credenciales_sol ? "Configuradas." : "Aún no configuradas."}
@@ -62,7 +62,7 @@ export default async function EmpresaPage() {
           </div>
         </section>
 
-        <section className="rounded-lg border border-border p-6">
+        <section className="rounded-xl bg-card p-6 ring-1 ring-foreground/10">
           <h2 className="text-sm font-medium text-muted-foreground">Agregar otra empresa</h2>
           <div className="mt-4">
             <NuevaEmpresaForm />

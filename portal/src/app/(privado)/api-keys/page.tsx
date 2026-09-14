@@ -8,7 +8,7 @@ export default function ApiKeysPage() {
         Llaves para integrar tus sistemas con la API de facturación.
       </p>
 
-      <div className="mt-6 max-w-2xl rounded-lg border border-border p-6">
+      <div className="mt-6 max-w-2xl rounded-xl bg-card p-6 ring-1 ring-foreground/10">
         <CrearApiKey />
       </div>
     </div>

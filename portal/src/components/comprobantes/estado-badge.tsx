@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import type { EstadoDocumento } from "@/lib/api/facturas";
 import { cn } from "@/lib/utils";
 
-const ETIQUETAS: Record<EstadoDocumento, string> = {
+export const ETIQUETAS_ESTADO: Record<EstadoDocumento, string> = {
   RECIBIDO: "Recibido",
   INVALIDO: "Inválido",
   FIRMADO: "Firmado",
@@ -29,5 +29,5 @@ const ESTILOS: Record<EstadoDocumento, string> = {
 };
 
 export function EstadoBadge({ estado }: { estado: EstadoDocumento }) {
-  return <Badge className={cn("border-transparent", ESTILOS[estado])}>{ETIQUETAS[estado]}</Badge>;
+  return <Badge className={cn("border-transparent", ESTILOS[estado])}>{ETIQUETAS_ESTADO[estado]}</Badge>;
 }
