@@ -2,6 +2,8 @@ app:
   master-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
   api-key-pepper: pepper-test
   platform-admin-key: plataforma-test
+  jwt-secret: QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=
+  portal-url: http://localhost:3000
   storage:
     fs-root: ${java.io.tmpdir}/factura-e2e
   outbox:

@@ -24,6 +24,8 @@ app:
   master-key: ${MASTER_KEY:}
   api-key-pepper: ${API_KEY_PEPPER:}
   platform-admin-key: ${PLATFORM_ADMIN_KEY:}
+  jwt-secret: ${JWT_SECRET:}
+  portal-url: ${PORTAL_URL:http://localhost:3000}
   storage:
     type: ${STORAGE_TYPE:fs}
     fs-root: ${STORAGE_FS_ROOT:./storage}
@@ -34,4 +36,14 @@ app:
   outbox:
     intervalo-ms: ${OUTBOX_INTERVALO_MS:10000}
     max-intentos: ${OUTBOX_MAX_INTENTOS:20}
+  mail:
+    habilitado: ${MAIL_HABILITADO:false}
+    remitente: ${MAIL_REMITENTE:no-responder@factura.pe}
   zona-horaria: America/Lima
+spring.mail:
+  host: ${MAIL_HOST:}
+  port: ${MAIL_PORT:587}
+  username: ${MAIL_USERNAME:}
+  password: ${MAIL_PASSWORD:}
+  properties.mail.smtp.auth: true
+  properties.mail.smtp.starttls.enable: true

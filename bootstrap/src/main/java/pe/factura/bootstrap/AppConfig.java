@@ -1,14 +1,21 @@
 package pe.factura.bootstrap;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.transaction.PlatformTransactionManager;
 import pe.factura.adapters.crypto.AesGcmSecretCipher;
+import pe.factura.adapters.crypto.BcryptPasswordHasher;
+import pe.factura.adapters.crypto.JwtTokenEmisor;
+import pe.factura.adapters.mail.LogCorreoSender;
+import pe.factura.adapters.mail.SmtpCorreoSender;
 import pe.factura.adapters.persistence.*;
 import pe.factura.adapters.rest.ApiKeyFilter;
+import pe.factura.adapters.rest.JwtFilter;
 import pe.factura.adapters.rest.PlatformKeyFilter;
 import pe.factura.adapters.scheduler.OutboxWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
@@ -58,6 +65,9 @@ public class AppConfig {
     @Bean SerieRepository serieRepository(JdbcTemplate jdbc) { return new JdbcSerieRepository(jdbc); }
     @Bean ComprobanteRepository comprobanteRepository(JdbcTemplate jdbc) { return new JdbcComprobanteRepository(jdbc); }
     @Bean OutboxRepository outboxRepository(JdbcTemplate jdbc) { return new JdbcOutboxRepository(jdbc); }
+    @Bean CuentaRepository cuentaRepository(JdbcTemplate jdbc) { return new JdbcCuentaRepository(jdbc); }
+    @Bean UsuarioRepository usuarioRepository(JdbcTemplate jdbc) { return new JdbcUsuarioRepository(jdbc); }
+    @Bean SesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) { return new FileSystemDocumentStorage(Path.of(p.storage().fsRoot())); }
     @Bean UblGenerator ublGenerator() { return new FreemarkerUblGenerator(); }
@@ -81,6 +91,24 @@ public class AppConfig {
         return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock);
     }
 
+    @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }
+    @Bean TokenEmisor tokenEmisor(AppProperties p) { return new JwtTokenEmisor(p.jwtSecret()); }
+    /** Sin app.mail.habilitado=true (MAIL_HABILITADO), los correos se escriben en el log en lugar de enviarse. */
+    @Bean CorreoSender correoSender(AppProperties p, ObjectProvider<JavaMailSender> mailSenderProvider) {
+        if (!p.mail().habilitado()) return new LogCorreoSender();
+        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+        if (mailSender == null) throw new IllegalStateException("app.mail.habilitado=true pero no hay JavaMailSender configurado (revisa MAIL_HOST)");
+        return new SmtpCorreoSender(mailSender, p.mail().remitente());
+    }
+
+    @Bean AutenticarUsuarioUseCase autenticarUsuario(CuentaRepository cu, UsuarioRepository us, SesionRepository se, PasswordHasher h,
+                                                    TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock) {
+        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock);
+    }
+    @Bean GestionarEmpresasUseCase gestionarEmpresas(TenantRepository t, CuentaRepository cu, UnitOfWork u) {
+        return new GestionarEmpresasService(t, cu, u);
+    }
+
     @Bean OutboxWorker outboxWorker(OutboxRepository o, UnitOfWork u, EnviarDocumentoUseCase e, Clock clock, AppProperties p) {
         return new OutboxWorker(o, u, e, clock, p.outbox().maxIntentos());
     }
@@ -95,5 +123,9 @@ public class AppConfig {
     @Bean FilterRegistrationBean<PlatformKeyFilter> platformKeyFilter(AppProperties p) {
         var f = new FilterRegistrationBean<>(new PlatformKeyFilter(p.platformAdminKey()));
         f.addUrlPatterns("/v1/*"); f.setOrder(5); return f;
+    }
+    @Bean FilterRegistrationBean<JwtFilter> jwtFilter(TokenEmisor te, TenantRepository t) {
+        var f = new FilterRegistrationBean<>(new JwtFilter(te, t));
+        f.addUrlPatterns("/v1/*"); f.setOrder(8); return f;
     }
 }
