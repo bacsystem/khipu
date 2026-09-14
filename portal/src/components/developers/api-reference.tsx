@@ -2,7 +2,15 @@
 
 import { ApiReferenceReact } from "@scalar/api-reference-react";
 import "@scalar/api-reference-react/style.css";
-import { useEffect } from "react";
+import { type ComponentProps, useEffect } from "react";
+
+// "agent" (botón "Ask AI") no está en los tipos de @scalar/types@0.19.0, pero @scalar/api-reference@1.68.0
+// (la versión real que trae api-reference-react@0.9.67) sí lo lee en tiempo de ejecución: revisamos el
+// bundle instalado y `agent?.disabled` apaga el botón incluso en localhost, antes que cualquier otra
+// condición. Se extiende el tipo público en vez de castear todo el objeto a `any`.
+type ScalarConfiguration = ComponentProps<typeof ApiReferenceReact>["configuration"] & {
+  agent?: { disabled?: boolean };
+};
 
 const CUSTOM_CSS = `
 :root {
@@ -66,16 +74,16 @@ export function ApiReference({
     };
   }, []);
 
-  return (
-    <ApiReferenceReact
-      configuration={{
-        content: spec,
-        theme: "default",
-        customCss: CUSTOM_CSS,
-        baseServerURL,
-        showDeveloperTools: "never",
-        authentication: apiKey ? { securitySchemes: { ApiKey: { value: apiKey } } } : undefined,
-      }}
-    />
-  );
+  const configuration: ScalarConfiguration = {
+    content: spec,
+    theme: "default",
+    customCss: CUSTOM_CSS,
+    baseServerURL,
+    showDeveloperTools: "never",
+    mcp: { disabled: true },
+    agent: { disabled: true },
+    authentication: apiKey ? { securitySchemes: { ApiKey: { value: apiKey } } } : undefined,
+  };
+
+  return <ApiReferenceReact configuration={configuration} />;
 }
