@@ -1,19 +1,15 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Public_Sans, Source_Serif_4 } from "next/font/google";
+import { Roboto, Roboto_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const sans = Public_Sans({
+const sans = Roboto({
   variable: "--font-sans",
+  weight: ["400", "500", "700"],
   subsets: ["latin"],
 });
 
-const serif = Source_Serif_4({
-  variable: "--font-serif",
-  subsets: ["latin"],
-});
-
-const mono = IBM_Plex_Mono({
+const mono = Roboto_Mono({
   variable: "--font-mono",
   weight: ["400", "500"],
   subsets: ["latin"],
@@ -30,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${sans.variable} ${serif.variable} ${mono.variable}`}>
+    <html lang="es" className={`${sans.variable} ${mono.variable}`}>
       <body className="antialiased">
         <Providers>{children}</Providers>
       </body>

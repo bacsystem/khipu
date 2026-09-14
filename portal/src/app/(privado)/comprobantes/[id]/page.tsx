@@ -50,7 +50,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         Emitido el {comprobante.fecha_emision} · {comprobante.moneda}
       </p>
 
-      <div className="mt-8 grid gap-6 rounded-xl bg-card p-6 ring-1 ring-foreground/10">
+      <div className="mt-8 grid gap-6 rounded-lg border border-border bg-card p-6">
         <div>
           <h2 className="text-sm font-medium text-muted-foreground">Totales</h2>
           <dl className="mt-2 grid grid-cols-2 gap-y-2 text-sm sm:grid-cols-4">
