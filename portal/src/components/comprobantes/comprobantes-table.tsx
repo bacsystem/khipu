@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRightIcon, InboxIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 import {
   Pagination,
   PaginationContent,
@@ -54,15 +54,14 @@ function esClickSimple(e: MouseEvent) {
 
 export function ComprobantesTable({
   inicial,
-  estado,
   pagina,
 }: {
   inicial: Comprobante[];
-  estado?: EstadoDocumento;
   pagina: number;
 }) {
   const router = useRouter();
   const params = useSearchParams();
+  const [estado, setEstado] = useState<EstadoDocumento | undefined>(undefined);
 
   const { data, isFetching } = useQuery({
     queryKey: ["facturas", estado ?? null, pagina],
@@ -79,15 +78,16 @@ export function ComprobantesTable({
     else next.delete("pagina");
   }
 
-  function irA(nuevaPagina: number, nuevoEstado?: string) {
+  function irA(nuevaPagina: number) {
     const next = new URLSearchParams(params.toString());
     conPagina(next, nuevaPagina);
-    if (nuevoEstado !== undefined) {
-      if (nuevoEstado) next.set("estado", nuevoEstado);
-      else next.delete("estado");
-    }
     const qs = next.toString();
     router.push(qs ? `/comprobantes?${qs}` : "/comprobantes");
+  }
+
+  function cambiarEstado(value: string | null) {
+    setEstado(!value || value === TODOS_LOS_ESTADOS ? undefined : (value as EstadoDocumento));
+    irA(1);
   }
 
   function hrefPagina(p: number) {
@@ -103,11 +103,7 @@ export function ComprobantesTable({
   return (
     <div>
       <div className="mb-4 flex items-center gap-3">
-        <Select
-          items={ITEMS_ESTADO}
-          value={estado ?? TODOS_LOS_ESTADOS}
-          onValueChange={(value) => irA(1, !value || value === TODOS_LOS_ESTADOS ? "" : value)}
-        >
+        <Select items={ITEMS_ESTADO} value={estado ?? TODOS_LOS_ESTADOS} onValueChange={cambiarEstado}>
           <SelectTrigger className="w-56">
             <SelectValue />
           </SelectTrigger>
