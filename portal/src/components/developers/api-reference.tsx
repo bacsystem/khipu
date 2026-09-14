@@ -38,6 +38,13 @@ const CUSTOM_CSS = `
   --scalar-button-1-color: #0f1620;
   --scalar-link-color: #7fa6d1;
 }
+/* Scalar no tiene una opción de config para ocultar su atribución "Powered by Scalar":
+   es contenido por defecto del slot "description" de ScalarSidebarFooter, un <a> normal
+   apuntando a https://www.scalar.com. Se apunta por href porque es estable entre versiones
+   (las clases de Tailwind del bundle no lo son). */
+a[href="https://www.scalar.com"] {
+  display: none;
+}
 `;
 
 export function ApiReference({
@@ -66,6 +73,7 @@ export function ApiReference({
         theme: "default",
         customCss: CUSTOM_CSS,
         baseServerURL,
+        showDeveloperTools: "never",
         authentication: apiKey ? { securitySchemes: { ApiKey: { value: apiKey } } } : undefined,
       }}
     />
