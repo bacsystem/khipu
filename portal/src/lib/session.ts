@@ -4,10 +4,10 @@ export const COOKIE_ACCESS = "factura_access";
 export const COOKIE_REFRESH = "factura_refresh";
 export const COOKIE_EMPRESA = "factura_empresa";
 
-const ACCESS_MAX_AGE = 15 * 60;
-const REFRESH_MAX_AGE = 30 * 24 * 60 * 60;
+export const ACCESS_MAX_AGE = 15 * 60;
+export const REFRESH_MAX_AGE = 30 * 24 * 60 * 60;
 
-const baseCookie = {
+export const baseCookie = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,

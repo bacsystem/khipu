@@ -25,6 +25,10 @@ export function refrescar(refresh: string) {
   return backendFetch<Tokens>("/v1/auth/refresh", { method: "POST", body: { refresh } });
 }
 
+export function me(access: string) {
+  return backendFetch<Usuario>("/v1/auth/me", { headers: { Authorization: `Bearer ${access}` } });
+}
+
 export function logout(access: string, refresh: string) {
   return backendFetch<void>("/v1/auth/logout", {
     method: "POST",
