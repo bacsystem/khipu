@@ -16,7 +16,7 @@ export function AuthShell({
   return (
     <div className="grid min-h-screen md:grid-cols-2">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar px-12 py-12 text-sidebar-foreground md:flex">
-        <Link href="/" className="font-heading text-lg hover:underline">
+        <Link href="/" className="font-heading text-lg">
           {messages.app.nombre}
         </Link>
         <div className="max-w-sm">
@@ -30,7 +30,7 @@ export function AuthShell({
       <div className="flex flex-col items-center justify-center px-6 py-16">
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center md:hidden">
-            <Link href="/" className="font-heading text-lg hover:underline">
+            <Link href="/" className="font-heading text-lg">
               {messages.app.nombre}
             </Link>
           </div>
