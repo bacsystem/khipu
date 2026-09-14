@@ -84,35 +84,41 @@ export function ComprobantesTable({
             <tr>
               <th className="px-4 py-2 font-medium">Serie - número</th>
               <th className="px-4 py-2 font-medium">Fecha</th>
-              <th className="px-4 py-2 font-medium">Total</th>
+              <th className="px-4 py-2 text-right font-medium">Total</th>
               <th className="px-4 py-2 font-medium">Estado</th>
               <th className="px-4 py-2 font-medium" />
             </tr>
           </thead>
           <tbody>
             {data.map((c) => (
-              <tr key={c.id} className="border-t border-border">
+              <tr key={c.id} className="group relative border-t border-border transition-colors hover:bg-muted/40">
                 <td className="px-4 py-2 font-mono">
-                  {c.serie}-{String(c.numero).padStart(8, "0")}
+                  <Link
+                    href={`/comprobantes/${c.id}`}
+                    aria-label={`Ver comprobante ${c.serie}-${String(c.numero).padStart(8, "0")}, estado ${ETIQUETAS_ESTADO[c.estado_documento]}`}
+                    className="before:absolute before:inset-0"
+                  >
+                    {c.serie}-{String(c.numero).padStart(8, "0")}
+                  </Link>
                 </td>
-                <td className="px-4 py-2">{c.fecha_emision}</td>
-                <td className="px-4 py-2 font-mono">
+                <td className="px-4 py-2 text-muted-foreground">{c.fecha_emision}</td>
+                <td className="px-4 py-2 text-right font-mono">
                   {c.moneda} {Number(c.totales.total).toFixed(2)}
                 </td>
                 <td className="px-4 py-2">
                   <EstadoBadge estado={c.estado_documento} />
                 </td>
-                <td className="px-4 py-2 text-right">
-                  <Link href={`/comprobantes/${c.id}`} className="text-sm text-primary hover:underline">
-                    Ver
-                  </Link>
+                <td className="px-4 py-2 text-right text-muted-foreground transition-colors group-hover:text-foreground">
+                  →
                 </td>
               </tr>
             ))}
             {data.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  No hay comprobantes.
+                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                  {estado
+                    ? `No hay comprobantes en estado "${ETIQUETAS_ESTADO[estado]}".`
+                    : "Todavía no emitiste ningún comprobante."}
                 </td>
               </tr>
             ) : null}
@@ -120,10 +126,11 @@ export function ComprobantesTable({
         </table>
       </div>
 
-      <div className="mt-4 flex justify-end gap-2">
+      <div className="mt-4 flex items-center justify-end gap-3">
         <Button variant="outline" size="sm" disabled={pagina <= 1} onClick={() => irA(pagina - 1)}>
           Anterior
         </Button>
+        <span className="text-sm text-muted-foreground">Página {pagina}</span>
         <Button variant="outline" size="sm" disabled={data.length < 20} onClick={() => irA(pagina + 1)}>
           Siguiente
         </Button>
