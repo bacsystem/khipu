@@ -7,7 +7,9 @@ export default function Home() {
       <p className="text-muted-foreground">
         Autoservicio en construcción (etapa 1).
       </p>
-      <Button render={<a href="/login" />}>Iniciar sesión</Button>
+      <Button render={<a href="/login" />} nativeButton={false}>
+        Iniciar sesión
+      </Button>
     </div>
   );
 }

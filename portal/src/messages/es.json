@@ -1,0 +1,76 @@
+{
+  "app": {
+    "nombre": "Portal de facturación electrónica"
+  },
+  "comun": {
+    "cargando": "Cargando…",
+    "guardar": "Guardar",
+    "cancelar": "Cancelar",
+    "cerrarSesion": "Cerrar sesión"
+  },
+  "auth": {
+    "marca": {
+      "titulo": "Emite comprobantes electrónicos sin fricción.",
+      "subtitulo": "Factura, boleta, notas de crédito y débito, homologadas sobre el estándar SUNAT.",
+      "pie": "Homologado sobre el estándar SUNAT"
+    },
+    "login": {
+      "titulo": "Inicia sesión",
+      "subtitulo": "Ingresa a tu cuenta para continuar.",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "enviar": "Iniciar sesión",
+      "enviando": "Ingresando…",
+      "olvidaste": "¿Olvidaste tu contraseña?",
+      "sinCuenta": "¿No tienes cuenta?",
+      "crearCuenta": "Crea una"
+    },
+    "registro": {
+      "titulo": "Crea tu cuenta",
+      "subtitulo": "Empieza a emitir comprobantes en minutos.",
+      "nombre": "Nombre de la cuenta",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "ayudaPassword": "Mínimo 8 caracteres, con una letra y un número.",
+      "enviar": "Crear cuenta",
+      "enviando": "Creando…",
+      "yaTienesCuenta": "¿Ya tienes cuenta?",
+      "iniciarSesion": "Inicia sesión"
+    },
+    "recuperar": {
+      "titulo": "Recupera tu contraseña",
+      "subtitulo": "Te enviaremos un enlace para restablecerla.",
+      "email": "Correo electrónico",
+      "enviar": "Enviar enlace",
+      "enviando": "Enviando…",
+      "confirmacion": "Si el correo está registrado, te enviamos un enlace para restablecer tu contraseña.",
+      "volver": "Volver a iniciar sesión"
+    },
+    "restablecer": {
+      "titulo": "Elige una nueva contraseña",
+      "subtitulo": "Ingresa tu nueva contraseña para continuar.",
+      "password": "Nueva contraseña",
+      "ayudaPassword": "Mínimo 8 caracteres, con una letra y un número.",
+      "enviar": "Restablecer contraseña",
+      "enviando": "Restableciendo…",
+      "exito": "Tu contraseña se actualizó. Ya puedes iniciar sesión.",
+      "irALogin": "Ir a iniciar sesión"
+    }
+  },
+  "errores": {
+    "generico": "Ocurrió un error. Intenta de nuevo.",
+    "DUPLICADO": "Ya existe una cuenta con ese correo.",
+    "CREDENCIALES_INVALIDAS": "Correo o contraseña incorrectos.",
+    "PASSWORD_DEBIL": "La contraseña debe tener al menos 8 caracteres, una letra y un dígito.",
+    "TOKEN_INVALIDO": "El enlace de recuperación es inválido o venció. Solicita uno nuevo.",
+    "SESION_INVALIDA": "Tu sesión expiró. Inicia sesión de nuevo.",
+    "NO_AUTORIZADO": "No autorizado.",
+    "VALIDACION": "Revisa los campos marcados.",
+    "JSON_INVALIDO": "Petición inválida.",
+    "INTERNO": "Error interno. Intenta de nuevo en unos minutos.",
+    "CERTIFICADO_INVALIDO": "El certificado digital no es válido.",
+    "SERIE_INVALIDA": "La serie indicada no es válida.",
+    "LIMITE_PLAN": "Alcanzaste el límite de tu plan.",
+    "EMPRESA_AJENA": "Esa empresa no pertenece a tu cuenta."
+  }
+}
