@@ -2,6 +2,7 @@
 
 import { ApiReferenceReact } from "@scalar/api-reference-react";
 import "@scalar/api-reference-react/style.css";
+import { useEffect } from "react";
 
 const CUSTOM_CSS = `
 :root {
@@ -48,6 +49,16 @@ export function ApiReference({
   baseServerURL: string;
   apiKey?: string;
 }) {
+  // Scalar aplica "light-mode"/"dark-mode" a document.body (no a un contenedor propio) y su
+  // CSS global (import de arriba) estiliza el body directo con esas clases. Sin este cleanup,
+  // la clase queda pegada en el body al navegar a otra ruta con el router de Next (sin recarga
+  // completa) y el fondo negro de Scalar se filtra al resto del portal.
+  useEffect(() => {
+    return () => {
+      document.body.classList.remove("light-mode", "dark-mode");
+    };
+  }, []);
+
   return (
     <ApiReferenceReact
       configuration={{
