@@ -167,4 +167,21 @@ export const handlers = [
 
   http.get(`${BASE}/v1/facturas/:id/xml`, () => new HttpResponse("<xml>mock</xml>", { headers: { "content-type": "application/xml" } })),
   http.get(`${BASE}/v1/facturas/:id/cdr`, () => new HttpResponse(new Uint8Array([80, 75]), { headers: { "content-type": "application/zip" } })),
+
+  http.get(`${BASE}/openapi.json`, () =>
+    HttpResponse.json({
+      openapi: "3.0.1",
+      info: { title: "factura (mock)", version: "v0" },
+      servers: [{ url: BASE }],
+      paths: {
+        "/v1/facturas": {
+          get: { tags: ["factura-controller"], operationId: "listar", responses: { "200": { description: "OK" } } },
+        },
+        "/v1/empresa": {
+          get: { tags: ["empresa-controller"], operationId: "ver", responses: { "200": { description: "OK" } } },
+        },
+      },
+      components: { securitySchemes: { ApiKey: { type: "apiKey", in: "header", name: "X-Api-Key" } } },
+    }),
+  ),
 ];
