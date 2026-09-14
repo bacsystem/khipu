@@ -118,7 +118,7 @@ export function ComprobantesTable({
         </Select>
       </div>
 
-      <div className={cn("rounded-lg border border-border bg-card transition-opacity", isFetching && "opacity-60")}>
+      <div className={cn("rounded-xl bg-card ring-1 ring-foreground/10 transition-opacity", isFetching && "opacity-60")}>
         <Table>
           <TableHeader>
             <TableRow className="bg-muted hover:bg-muted">

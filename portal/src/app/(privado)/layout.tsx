@@ -17,7 +17,7 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
 
   return (
     <div className="grid min-h-screen md:grid-cols-[240px_1fr]">
-      <aside className="hidden border-r border-sidebar-border bg-sidebar px-4 py-6 text-sidebar-foreground md:block">
+      <aside className="hidden bg-sidebar px-4 py-6 text-sidebar-foreground md:block">
         <SidebarContent usuario={usuario} empresas={empresas} activaId={activa?.id} />
       </aside>
 
