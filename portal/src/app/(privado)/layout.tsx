@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { SidebarContent } from "@/components/nav/sidebar-content";
 import { TopBar } from "@/components/nav/top-bar";
 import { me } from "@/lib/api/auth";
-import { apiBaseUrl } from "@/lib/api/client";
+import { apiPublicUrl } from "@/lib/api/client";
 import { listarEmpresas } from "@/lib/api/empresas";
 import { getServerSession } from "@/lib/session-server";
 
@@ -22,7 +22,7 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar entorno={activa.entorno} usuario={usuario} empresas={empresas} activaId={activa?.id} apiBaseUrl={apiBaseUrl()} />
+        <TopBar entorno={activa.entorno} usuario={usuario} empresas={empresas} activaId={activa?.id} apiBaseUrl={apiPublicUrl()} />
         <main className="min-w-0 flex-1 overflow-x-auto p-4 md:p-6">{children}</main>
       </div>
     </div>

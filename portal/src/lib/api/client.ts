@@ -1,7 +1,16 @@
 import { ApiError, type ApiEnvelope } from "./types";
 
+/** URL con la que el servidor Next (BFF, Server Components) habla con la API; puede ser interna (Docker, red privada). */
 export function apiBaseUrl(): string {
   return process.env.API_BASE_URL ?? "http://localhost:8080";
+}
+
+/**
+ * URL de la API que se muestra al usuario (snippets de integración, "Try it" de la referencia):
+ * la que alcanza desde su navegador, no la interna del BFF. Sin `API_PUBLIC_URL` se asume que coinciden.
+ */
+export function apiPublicUrl(): string {
+  return process.env.API_PUBLIC_URL ?? apiBaseUrl();
 }
 
 export type BackendRequestInit = Omit<RequestInit, "body"> & { body?: unknown };
