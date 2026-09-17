@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
 }
+// El BOM de Spring Boot fija Testcontainers en 1.19.8; out-persistence (sin BOM) usa la del catálogo.
+// Se alinean para que un classpath unido (p. ej. "todos los tests" en IntelliJ) no mezcle dos versiones de docker-java.
+extra["testcontainers.version"] = libs.versions.testcontainers.get()
 dependencies {
     implementation(project(":application"))
     implementation(project(":adapters:in-rest"))
