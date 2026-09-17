@@ -1,6 +1,10 @@
-# factura — API de Facturación Electrónica SUNAT
+# khipu — Facturación Electrónica SUNAT
 
-Fase 1A: factura electrónica (01) extremo a extremo con SUNAT beta.
+Plataforma multi-tenant de facturación electrónica para Perú: **API** Java/Spring Boot (UBL 2.1, firma XML-DSig, validación XSD, envío SOAP a SUNAT, outbox con reintentos) y **portal** Next.js de autoservicio (`portal/`) para que cada empresa se dé de alta, cargue su certificado y credenciales SOL, administre series y API keys y consulte sus comprobantes.
+
+Estado: fase 1A (factura electrónica 01 extremo a extremo con SUNAT beta) + etapa 1 del portal. Design system: [bacsystem/khipu-design-system](https://github.com/bacsystem/khipu-design-system).
+
+> Nomenclatura: el proyecto se llama **khipu**; por historia, el paquete Java es `pe.factura`, el `rootProject` de Gradle y la base de datos se llaman `factura`, y las cookies del portal son `factura_*`. Son identificadores técnicos; renombrarlos implica migración de datos/sesiones y queda como tarea aparte.
 
 ## Requisitos
 Java 21, Docker.
@@ -44,7 +48,7 @@ Respáldala junto con la base de datos. Lo mismo aplica a `API_KEY_PEPPER`: rota
 Documentación de diseño: `docs/superpowers/specs/README.md`. Plan: `docs/superpowers/plans/fase-1a/README.md`.
 
 ## Pruebas
-`./gradlew test` (requiere Docker para Testcontainers).
+`./gradlew test` (requiere Docker para Testcontainers). Portal: `cd portal && npm run test && npm run e2e` (ver `portal/README.md`).
 
 ## Convenciones de código
 

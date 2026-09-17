@@ -1,14 +1,15 @@
 import { DevelopersView } from "@/components/developers/developers-view";
-import { apiBaseUrl } from "@/lib/api/client";
+import { apiBaseUrl, apiPublicUrl } from "@/lib/api/client";
 import { messages } from "@/lib/messages";
 import { getServerSession } from "@/lib/session-server";
 
 export const metadata = { title: `Desarrolladores · ${messages.app.nombre}` };
 
 export default async function DevelopersPage() {
-  const baseServerURL = apiBaseUrl();
+  // El spec se lee por la URL interna; a Scalar se le da la pública, que es la que el navegador puede llamar.
+  const baseServerURL = apiPublicUrl();
   const [spec, { access, empresaId }] = await Promise.all([
-    fetch(`${baseServerURL}/openapi.json`, { cache: "no-store" }).then((r) => r.json()),
+    fetch(`${apiBaseUrl()}/openapi.json`, { cache: "no-store" }).then((r) => r.json()),
     getServerSession(),
   ]);
 

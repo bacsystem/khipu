@@ -9,3 +9,6 @@ adapters/*/build/
 .env
 .superpowers/
 /docs/
+
+# Salida de build de Eclipse/VS Code Java (Gradle usa build/)
+**/bin/

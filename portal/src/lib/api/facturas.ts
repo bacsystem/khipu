@@ -1,7 +1,14 @@
-import { backendFetch } from "./client";
+import { backendFetch, backendFetchConHeaders } from "./client";
 import { tenantHeaders } from "./tenant";
 
 export const ESTADOS_FINALES = ["ACEPTADO", "ACEPTADO_CON_OBS", "RECHAZADO", "ANULADO", "INVALIDO"] as const;
+
+export const ETIQUETAS_TIPO: Record<string, string> = {
+  "01": "Factura",
+  "03": "Boleta",
+  "07": "Nota de crédito",
+  "08": "Nota de débito",
+};
 
 export type EstadoDocumento =
   | "RECIBIDO"
@@ -15,6 +22,36 @@ export type EstadoDocumento =
   | "RECHAZADO"
   | "ANULADO";
 
+export type Receptor = {
+  tipo_doc: string;
+  num_doc: string;
+  razon_social: string;
+  direccion: string | null;
+};
+
+export type ItemComprobante = {
+  codigo: string | null;
+  descripcion: string;
+  unidad: string;
+  cantidad: number;
+  precio_unitario: number;
+  tipo_afectacion_igv: string;
+};
+
+export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
+  "1": "DNI",
+  "4": "Carné de extranjería",
+  "6": "RUC",
+  "7": "Pasaporte",
+  "0": "Sin documento",
+};
+
+export const ETIQUETAS_AFECTACION: Record<string, string> = {
+  "10": "Gravado · Op. onerosa",
+  "20": "Exonerado · Op. onerosa",
+  "30": "Inafecto · Op. onerosa",
+};
+
 export type Comprobante = {
   id: string;
   tipo: string;
@@ -22,8 +59,12 @@ export type Comprobante = {
   numero: number;
   fecha_emision: string;
   moneda: string;
+  tipo_operacion: string | null;
+  receptor: Receptor | null;
+  items: ItemComprobante[];
   estado_documento: EstadoDocumento;
   hash: string;
+  nombre_archivo: string | null;
   intentos: number;
   ultimo_error: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
@@ -35,18 +76,43 @@ export function esEstadoFinal(estado: EstadoDocumento): boolean {
   return (ESTADOS_FINALES as readonly string[]).includes(estado);
 }
 
-export function listarFacturas(
+// Un backend anterior a la exposición de receptor/items responde sin esos campos.
+export function normalizarComprobante(c: Partial<Comprobante> & Pick<Comprobante, "id">): Comprobante {
+  return {
+    ...(c as Comprobante),
+    tipo_operacion: c.tipo_operacion ?? null,
+    receptor: c.receptor ?? null,
+    items: c.items ?? [],
+    nombre_archivo: c.nombre_archivo ?? null,
+    cdr: c.cdr ? { ...c.cdr, observaciones: c.cdr.observaciones ?? [] } : null,
+  };
+}
+
+export const TOTAL_HEADER = "x-total-count";
+
+export type PaginaComprobantes = { datos: Comprobante[]; total: number };
+
+export function totalDesdeHeaders(headers: Headers, fallback: number): number {
+  const total = Number(headers.get(TOTAL_HEADER));
+  return Number.isFinite(total) && headers.has(TOTAL_HEADER) ? total : fallback;
+}
+
+export async function listarFacturas(
   access: string,
   empresaId: string,
   params: { estado?: EstadoDocumento; pagina?: number; porPagina?: number } = {},
-) {
+): Promise<PaginaComprobantes> {
   const qs = new URLSearchParams();
   if (params.estado) qs.set("estado", params.estado);
   qs.set("pagina", String(params.pagina ?? 1));
-  qs.set("por_pagina", String(params.porPagina ?? 20));
-  return backendFetch<Comprobante[]>(`/v1/facturas?${qs}`, { headers: tenantHeaders(access, empresaId) });
+  qs.set("por_pagina", String(params.porPagina ?? 10));
+  const { datos, headers } = await backendFetchConHeaders<Comprobante[]>(`/v1/facturas?${qs}`, {
+    headers: tenantHeaders(access, empresaId),
+  });
+  return { datos: datos.map(normalizarComprobante), total: totalDesdeHeaders(headers, datos.length) };
 }
 
-export function obtenerFactura(access: string, empresaId: string, id: string) {
-  return backendFetch<Comprobante>(`/v1/facturas/${id}`, { headers: tenantHeaders(access, empresaId) });
+export async function obtenerFactura(access: string, empresaId: string, id: string) {
+  const c = await backendFetch<Comprobante>(`/v1/facturas/${id}`, { headers: tenantHeaders(access, empresaId) });
+  return normalizarComprobante(c);
 }

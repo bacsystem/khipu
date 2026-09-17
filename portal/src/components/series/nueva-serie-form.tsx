@@ -1,17 +1,25 @@
 "use client";
 
+import { ChevronDownIcon, SaveIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/api/browser";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
+import { cn } from "@/lib/utils";
 
-export function NuevaSerieForm() {
+const TIPOS = [
+  { codigo: "01", etiqueta: "01 · Factura electrónica (F###)" },
+  { codigo: "03", etiqueta: "03 · Boleta de venta electrónica (B###)" },
+  { codigo: "07", etiqueta: "07 · Nota de crédito (FC## / BC##)" },
+  { codigo: "08", etiqueta: "08 · Nota de débito (FD## / BD##)" },
+];
+
+export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => void; onCancelar?: () => void }) {
   const router = useRouter();
   const [tipo, setTipo] = useState("01");
   const [serie, setSerie] = useState("");
+  const [correlativo, setCorrelativo] = useState("0");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,41 +27,103 @@ export function NuevaSerieForm() {
     e.preventDefault();
     setEnviando(true);
     setError(null);
-    const res = await apiRequest("/api/proxy/series", { method: "POST", body: { tipo, serie } });
+    const res = await apiRequest("/api/proxy/series", {
+      method: "POST",
+      body: { tipo, serie: serie.toUpperCase(), correlativo_inicial: Number(correlativo) || 0 },
+    });
     setEnviando(false);
     if (res.estado !== "exito") {
       setError(mensajeError(res.codigo));
       return;
     }
     setSerie("");
+    setCorrelativo("0");
     router.refresh();
+    onGuardado?.();
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-3">
-      <div className="grid gap-1.5">
-        <Label htmlFor="tipo-serie">Tipo de comprobante</Label>
-        <select
-          id="tipo-serie"
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value)}
-          className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="tipo-serie" className={ETIQUETA_CAMPO}>
+          Tipo de comprobante
+        </label>
+        <div className="relative">
+          <select id="tipo-serie" value={tipo} onChange={(e) => setTipo(e.target.value)} className={cn(CAMPO, "appearance-none pr-8")}>
+            {TIPOS.map((t) => (
+              <option key={t.codigo} value={t.codigo}>
+                {t.etiqueta}
+              </option>
+            ))}
+          </select>
+          <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
+        </div>
+        <span className={AYUDA_CAMPO}>Catálogo SUNAT N.º 01</span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="serie" className={ETIQUETA_CAMPO}>
+            Código de serie
+          </label>
+          <input
+            id="serie"
+            value={serie}
+            onChange={(e) => setSerie(e.target.value.toUpperCase())}
+            placeholder="Ej. F002"
+            maxLength={4}
+            required
+            autoFocus
+            className={cn(CAMPO, "font-mono uppercase")}
+          />
+          <span className={AYUDA_CAMPO}>4 caracteres alfanuméricos</span>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="correlativo" className={ETIQUETA_CAMPO}>
+            Último número
+          </label>
+          <input
+            id="correlativo"
+            type="number"
+            min={0}
+            value={correlativo}
+            onChange={(e) => setCorrelativo(e.target.value)}
+            className={cn(CAMPO, "font-mono")}
+          />
+          <span className={AYUDA_CAMPO}>Base inicial (0 = nueva)</span>
+        </div>
+      </div>
+
+      <label
+        className="inline-flex cursor-not-allowed items-center gap-2 self-start select-none"
+        title="Las series nuevas se crean activas; activar/desactivar: próximamente"
+      >
+        <input type="checkbox" checked disabled readOnly className="size-4 rounded border-input" />
+        <span className={ETIQUETA_CAMPO}>Activa</span>
+      </label>
+
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+      <div className="mt-1 flex items-center justify-end gap-2 border-t border-border/60 pt-4">
+        {onCancelar ? (
+          <button
+            type="button"
+            onClick={onCancelar}
+            className={BOTON_SECUNDARIO}
+          >
+            Cancelar
+          </button>
+        ) : null}
+        <button
+          type="submit"
+          disabled={enviando}
+          className={BOTON_PRIMARIO}
         >
-          <option value="01">Factura</option>
-          <option value="03">Boleta</option>
-          <option value="07">Nota de crédito</option>
-          <option value="08">Nota de débito</option>
-        </select>
+          <SaveIcon className="size-4" />
+          {enviando ? "Guardando…" : "Guardar serie"}
+        </button>
       </div>
-      <div className="grid gap-1.5">
-        <Label htmlFor="serie">Serie</Label>
-        <Input id="serie" value={serie} onChange={(e) => setSerie(e.target.value)} placeholder="F001" />
-        <p className="text-sm text-muted-foreground">Por ejemplo F001 para facturas o B001 para boletas.</p>
-      </div>
-      {error ? <p className="text-sm text-destructive sm:col-span-3">{error}</p> : null}
-      <Button type="submit" size="sm" disabled={enviando} className="w-fit self-end">
-        {enviando ? "Creando…" : "Crear serie"}
-      </Button>
     </form>
   );
 }

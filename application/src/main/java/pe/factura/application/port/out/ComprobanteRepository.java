@@ -13,4 +13,5 @@ public interface ComprobanteRepository {
     Optional<Comprobante> buscar(UUID tenantId, UUID id);
     boolean existe(UUID tenantId, TipoDocumento tipo, String serie, long numero);
     List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina);
+    long contar(UUID tenantId, EstadoDocumento estado);
 }

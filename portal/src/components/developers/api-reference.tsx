@@ -2,6 +2,7 @@
 
 import { ApiReferenceReact } from "@scalar/api-reference-react";
 import "@scalar/api-reference-react/style.css";
+import { useTheme } from "next-themes";
 import { type ComponentProps, useEffect } from "react";
 
 // "agent" (botón "Ask AI") no está en los tipos de @scalar/types@0.19.0, pero @scalar/api-reference@1.68.0
@@ -18,33 +19,22 @@ const CUSTOM_CSS = `
   --scalar-font-code: var(--font-mono);
   --scalar-radius: 8px;
 }
-.light-mode {
-  --scalar-background-1: #ffffff;
-  --scalar-background-2: #f5f6f8;
-  --scalar-background-3: #ececef;
-  --scalar-color-1: #151a21;
-  --scalar-color-2: #5b6472;
-  --scalar-color-3: #5b6472;
-  --scalar-color-accent: #1e3a5f;
-  --scalar-border-color: #dde1e6;
-  --scalar-button-1: #1e3a5f;
-  --scalar-button-1-hover: #16293f;
-  --scalar-button-1-color: #f5f6f8;
-  --scalar-link-color: #1e3a5f;
-}
+/* Scalar pinta con sus propias variables; se mapean a los tokens del tema (globals.css)
+   para que la referencia siga el mismo design system y el modo oscuro del portal. */
+.light-mode,
 .dark-mode {
-  --scalar-background-1: #171e27;
-  --scalar-background-2: #10151c;
-  --scalar-background-3: #1b2029;
-  --scalar-color-1: #e7eaee;
-  --scalar-color-2: #98a2af;
-  --scalar-color-3: #98a2af;
-  --scalar-color-accent: #7fa6d1;
-  --scalar-border-color: rgba(255, 255, 255, 0.12);
-  --scalar-button-1: #7fa6d1;
-  --scalar-button-1-hover: #6a92bd;
-  --scalar-button-1-color: #0f1620;
-  --scalar-link-color: #7fa6d1;
+  --scalar-background-1: var(--card);
+  --scalar-background-2: var(--muted);
+  --scalar-background-3: var(--secondary);
+  --scalar-color-1: var(--foreground);
+  --scalar-color-2: var(--muted-foreground);
+  --scalar-color-3: var(--muted-foreground);
+  --scalar-color-accent: var(--primary);
+  --scalar-border-color: var(--border);
+  --scalar-button-1: var(--primary);
+  --scalar-button-1-hover: var(--primary-light);
+  --scalar-button-1-color: var(--primary-foreground);
+  --scalar-link-color: var(--primary);
 }
 /* Scalar no tiene una opción de config para ocultar su atribución "Powered by Scalar":
    es contenido por defecto del slot "description" de ScalarSidebarFooter, un <a> normal
@@ -55,15 +45,7 @@ a[href="https://www.scalar.com"] {
 }
 `;
 
-export function ApiReference({
-  spec,
-  baseServerURL,
-  apiKey,
-}: {
-  spec: Record<string, unknown>;
-  baseServerURL: string;
-  apiKey?: string;
-}) {
+export function ApiReference({ spec, baseServerURL, apiKey }: { spec: Record<string, unknown>; baseServerURL: string; apiKey?: string }) {
   // Scalar aplica "light-mode"/"dark-mode" a document.body (no a un contenedor propio) y su
   // CSS global (import de arriba) estiliza el body directo con esas clases. Sin este cleanup,
   // la clase queda pegada en el body al navegar a otra ruta con el router de Next (sin recarga
@@ -74,9 +56,14 @@ export function ApiReference({
     };
   }, []);
 
+  // Scalar tiene su propio modo oscuro; se sincroniza con el tema del portal y se oculta su toggle.
+  const { resolvedTheme } = useTheme();
+
   const configuration: ScalarConfiguration = {
     content: spec,
     theme: "default",
+    forceDarkModeState: resolvedTheme === "dark" ? "dark" : "light",
+    hideDarkModeToggle: true,
     customCss: CUSTOM_CSS,
     baseServerURL,
     showDeveloperTools: "never",

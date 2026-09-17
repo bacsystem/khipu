@@ -1,72 +1,119 @@
-import { NuevaSerieForm } from "@/components/series/nueva-serie-form";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { SeriesTable } from "@/components/series/series-table";
+import { ETIQUETAS_TIPO, listarFacturas } from "@/lib/api/facturas";
 import { listarSeries } from "@/lib/api/series";
+import { formatearFecha } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
+import { cn } from "@/lib/utils";
+import { Metrica } from "@/components/ui/metrica";
 
-const NOMBRES_TIPO: Record<string, string> = {
-  "01": "Factura",
-  "03": "Boleta",
-  "07": "Nota de crédito",
-  "08": "Nota de débito",
-};
+const TIPOS_SOPORTADOS = ["01", "03", "07", "08"] as const;
+
+const ABREV_TIPO: Record<string, string> = { "01": "FAC", "03": "BOL", "07": "NC", "08": "ND" };
+
+function numero(n: number): string {
+  return String(n).padStart(8, "0");
+}
 
 export default async function SeriesPage() {
   const { access, empresaId } = await getServerSession();
 
   if (!access || !empresaId) {
     return (
-      <div>
-        <h1 className="font-heading text-2xl">Series</h1>
-        <p className="mt-4 text-sm text-muted-foreground">Configura primero una empresa para crear series.</p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Configura primero una empresa para crear series.{" "}
+        <Link href="/onboarding" className="text-primary hover:underline">
+          Configurar empresa
+        </Link>
+      </p>
     );
   }
 
-  const series = await listarSeries(access, empresaId);
+  const [series, ultimos] = await Promise.all([
+    listarSeries(access, empresaId),
+    listarFacturas(access, empresaId, { pagina: 1, porPagina: 1 }).catch(() => ({ datos: [], total: 0 })),
+  ]);
+  const ultimo = ultimos.datos[0];
+  const activas = series.filter((s) => s.activa).length;
+  const tiposConfigurados = new Set(series.map((s) => s.tipo));
+  const cubiertos = TIPOS_SOPORTADOS.filter((t) => tiposConfigurados.has(t));
+  const sinSerie = TIPOS_SOPORTADOS.filter((t) => !tiposConfigurados.has(t));
+  const porcentaje = series.length === 0 ? 0 : Math.round((activas / series.length) * 100);
 
   return (
-    <div>
-      <h1 className="font-heading text-2xl">Series</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Series de facturación para tus comprobantes.</p>
+    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
+      <section className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-xl border border-border bg-card px-5 py-3 shadow-xs lg:grid-cols-4 lg:divide-x lg:divide-border lg:[&>*:not(:first-child)]:pl-5">
+        <Metrica
+          etiqueta="Series habilitadas"
+          ayuda={
+            <span className={cn("flex items-center gap-1", porcentaje === 100 ? "text-success-foreground" : "text-warning-foreground")}>
+              <span className={cn("size-1.5 shrink-0 rounded-full", porcentaje === 100 ? "bg-success-solid" : "bg-warning-solid")} />
+              {porcentaje}% operativas
+            </span>
+          }
+        >
+          {activas}
+          <span className="text-[12px] font-normal text-muted-foreground">/ {series.length} configuradas</span>
+        </Metrica>
 
-      <div className="mt-6 overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
-        <table className="w-full text-sm">
-          <thead className="bg-muted text-left text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2 font-medium">Tipo</th>
-              <th className="px-4 py-2 font-medium">Serie</th>
-              <th className="px-4 py-2 font-medium">Último número</th>
-              <th className="px-4 py-2 font-medium">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {series.map((s) => (
-              <tr key={`${s.tipo}-${s.serie}`} className="border-t border-border">
-                <td className="px-4 py-2">{NOMBRES_TIPO[s.tipo] ?? s.tipo}</td>
-                <td className="px-4 py-2 font-mono">{s.serie}</td>
-                <td className="px-4 py-2 font-mono">{s.ultimo_numero}</td>
-                <td className="px-4 py-2">
-                  <Badge variant={s.activa ? "default" : "outline"}>{s.activa ? "Activa" : "Inactiva"}</Badge>
-                </td>
-              </tr>
-            ))}
-            {series.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                  Todavía no tienes series.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+        <Metrica
+          etiqueta="Último correlativo emitido"
+          ayuda={
+            ultimo ? (
+              <>
+                <span className="truncate">{ETIQUETAS_TIPO[ultimo.tipo] ?? ultimo.tipo} electrónica</span>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="shrink-0 font-mono">{formatearFecha(ultimo.fecha_emision)}</span>
+              </>
+            ) : (
+              "Sin emisiones todavía"
+            )
+          }
+        >
+          {ultimo ? (
+            <>
+              <span className="text-primary">{ultimo.serie}</span>
+              <span>#{numero(ultimo.numero)}</span>
+            </>
+          ) : (
+            <span className="text-muted-foreground/60">—</span>
+          )}
+        </Metrica>
 
-      <div className="mt-8 max-w-2xl rounded-xl bg-card p-6 ring-1 ring-foreground/10">
-        <h2 className="text-sm font-medium text-muted-foreground">Nueva serie</h2>
-        <div className="mt-4">
-          <NuevaSerieForm />
-        </div>
-      </div>
+        <Metrica
+          etiqueta="Cobertura de comprobantes"
+          ayuda={
+            <>
+              <span className="truncate">
+                {cubiertos.length === 0 ? "Sin series configuradas" : cubiertos.map((t) => `${t} ${ABREV_TIPO[t]}`).join(", ")}
+              </span>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="shrink-0 text-primary">UBL 2.1</span>
+            </>
+          }
+        >
+          {cubiertos.length}
+          <span className="text-[12px] font-normal text-muted-foreground">/ {TIPOS_SOPORTADOS.length} tipos</span>
+        </Metrica>
+
+        <Metrica
+          etiqueta="Tipos sin serie"
+          ayuda={
+            sinSerie.length > 0 ? (
+              <span className="flex min-w-0 items-center gap-1 text-destructive">
+                <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
+                <span className="truncate">{sinSerie.map((t) => `${t} ${ABREV_TIPO[t]}`).join(", ")}</span>
+              </span>
+            ) : (
+              <span className="text-success-foreground">Todos los tipos cubiertos</span>
+            )
+          }
+        >
+          <span className={cn(sinSerie.length > 0 && "text-destructive")}>{sinSerie.length}</span>
+        </Metrica>
+      </section>
+
+      <SeriesTable series={series} />
     </div>
   );
 }

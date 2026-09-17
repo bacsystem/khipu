@@ -1,6 +1,7 @@
 package pe.factura.application.port.in;
 
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.tenant.ApiKey;
 import pe.factura.domain.tenant.Entorno;
 import pe.factura.domain.tenant.Serie;
 import pe.factura.domain.tenant.Tenant;
@@ -17,4 +18,6 @@ public interface AdministrarTenantUseCase {
     void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial);
     List<Serie> listarSeries(UUID tenantId);
     String crearApiKey(UUID tenantId);                                   // devuelve la key en claro una sola vez
+    List<ApiKey> listarApiKeys(UUID tenantId);                           // nunca el secreto: solo prefijo, estado y fechas
+    void revocarApiKey(UUID tenantId, UUID apiKeyId);                    // NO_ENCONTRADO si no existe o es de otro tenant
 }

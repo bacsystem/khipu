@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import pe.factura.adapters.rest.dto.ApiKeyResponse;
+import pe.factura.adapters.rest.dto.ApiKeyResumenResponse;
 import pe.factura.adapters.rest.dto.CredencialesSolRequest;
 import pe.factura.adapters.rest.dto.EmpresaResponse;
 import pe.factura.adapters.rest.dto.SerieRequest;
@@ -17,6 +18,7 @@ import pe.factura.domain.documento.TipoDocumento;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1")
@@ -41,9 +43,24 @@ public class EmpresaController {
         return ResponseEntity.noContent().build();
     }
 
+    // La gestión de API keys exige sesión del portal: una key filtrada no debe poder crear otras ni revocar las del tenant.
     @PostMapping("/empresa/api-keys")
     public ResponseEntity<ApiResponse<ApiKeyResponse>> apiKey(HttpServletRequest req) {
+        CuentaActual.exigirSesion(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(new ApiKeyResponse(admin.crearApiKey(TenantActual.id(req)))));
+    }
+
+    @GetMapping("/empresa/api-keys")
+    public ApiResponse<List<ApiKeyResumenResponse>> apiKeys(HttpServletRequest req) {
+        CuentaActual.exigirSesion(req);
+        return ApiResponse.ok(admin.listarApiKeys(TenantActual.id(req)).stream().map(ApiKeyResumenResponse::de).toList());
+    }
+
+    @DeleteMapping("/empresa/api-keys/{id}")
+    public ResponseEntity<Void> revocarApiKey(HttpServletRequest req, @PathVariable UUID id) {
+        CuentaActual.exigirSesion(req);
+        admin.revocarApiKey(TenantActual.id(req), id);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/series")

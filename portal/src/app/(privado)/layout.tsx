@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { MobileNav } from "@/components/nav/mobile-nav";
 import { SidebarContent } from "@/components/nav/sidebar-content";
+import { TopBar } from "@/components/nav/top-bar";
 import { me } from "@/lib/api/auth";
+import { apiPublicUrl } from "@/lib/api/client";
 import { listarEmpresas } from "@/lib/api/empresas";
-import { messages } from "@/lib/messages";
 import { getServerSession } from "@/lib/session-server";
 
 export default async function PrivadoLayout({ children }: { children: ReactNode }) {
@@ -16,24 +16,14 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
   const activa = empresas.find((empresa) => empresa.id === empresaId) ?? empresas[0];
 
   return (
-    <div className="grid min-h-screen md:grid-cols-[240px_1fr]">
-      <aside className="hidden bg-sidebar px-4 py-6 text-sidebar-foreground md:block">
+    <div className="flex min-h-screen">
+      <aside className="hidden w-60 shrink-0 overflow-x-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:block md:h-screen md:overflow-y-auto">
         <SidebarContent usuario={usuario} empresas={empresas} activaId={activa?.id} />
       </aside>
 
-      <div className="flex flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-card px-4 py-3 md:hidden">
-          <span className="font-heading text-lg">{messages.app.nombre}</span>
-          <MobileNav usuario={usuario} empresas={empresas} activaId={activa?.id} />
-        </header>
-
-        {activa?.entorno === "BETA" ? (
-          <div className="border-b border-warning bg-warning px-4 py-2 text-center text-sm text-warning-foreground md:px-8">
-            Entorno BETA de SUNAT: los comprobantes emitidos aquí no tienen validez tributaria.
-          </div>
-        ) : null}
-
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-10">{children}</main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar entorno={activa.entorno} usuario={usuario} empresas={empresas} activaId={activa?.id} apiBaseUrl={apiPublicUrl()} />
+        <main className="min-w-0 flex-1 overflow-x-auto p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

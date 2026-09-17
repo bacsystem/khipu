@@ -19,6 +19,8 @@ class AdministrarTenantServiceTest {
     ApiKeyRepository apiKeys = new ApiKeyRepository() {
         public void guardar(ApiKey k) { keys.put(k.hash(), k); }
         public Optional<ApiKey> buscarPorHash(String h) { return Optional.ofNullable(keys.get(h)); }
+        public Optional<ApiKey> buscar(UUID id) { return keys.values().stream().filter(k -> k.id().equals(id)).findFirst(); }
+        public List<ApiKey> listarPorTenant(UUID tenantId) { return keys.values().stream().filter(k -> k.tenantId().equals(tenantId)).toList(); }
     };
     AdministrarTenantService service = new AdministrarTenantService(tenants, series, apiKeys, Fakes.UOW, "pepper", Fakes.CLOCK);
 
@@ -47,6 +49,34 @@ class AdministrarTenantServiceTest {
         UUID id = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
         assertThatThrownBy(() -> service.cargarCertificado(id, new byte[]{1, 2, 3}, "x"))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CERTIFICADO_INVALIDO");
+    }
+
+    @Test void listaYRevocaApiKeys() {
+        UUID id = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
+        String segunda = service.crearApiKey(id);
+        List<ApiKey> lista = service.listarApiKeys(id);
+        assertThat(lista).hasSize(2).allSatisfy(k -> {
+            assertThat(k.activa()).isTrue();
+            assertThat(k.creadaEn()).isEqualTo(Fakes.CLOCK.instant());
+            assertThat(k.revocadaEn()).isNull();
+        });
+        ApiKey k2 = keys.get(ApiKeyGenerator.hash(segunda, "pepper"));
+        assertThat(k2.prefijo()).isEqualTo(segunda.substring(0, 10));
+
+        service.revocarApiKey(id, k2.id());
+        ApiKey revocada = keys.get(k2.hash());
+        assertThat(revocada.activa()).isFalse();
+        assertThat(revocada.revocadaEn()).isEqualTo(Fakes.CLOCK.instant());
+        assertThat(service.listarApiKeys(id)).filteredOn(ApiKey::activa).hasSize(1);
+    }
+
+    @Test void revocarApiKeyDeOtroTenantEsNoEncontrado() {
+        UUID a = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
+        UUID b = service.crearTenant("20100066604", "B", Entorno.BETA).tenant().id();
+        UUID keyDeB = service.listarApiKeys(b).get(0).id();
+        assertThatThrownBy(() -> service.revocarApiKey(a, keyDeB)).extracting("codigo").isEqualTo("NO_ENCONTRADO");
+        assertThatThrownBy(() -> service.revocarApiKey(a, UUID.randomUUID())).extracting("codigo").isEqualTo("NO_ENCONTRADO");
+        assertThat(keys.get(service.listarApiKeys(b).get(0).hash()).activa()).isTrue();
     }
 
     @Test void ouDebeCoincidirExactamente() {

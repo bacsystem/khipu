@@ -1,6 +1,8 @@
 {
   "app": {
-    "nombre": "Portal de facturación electrónica"
+    "nombre": "Portal de facturación electrónica",
+    "marca": "khipu",
+    "dominio": ".pe"
   },
   "comun": {
     "cargando": "Cargando…",

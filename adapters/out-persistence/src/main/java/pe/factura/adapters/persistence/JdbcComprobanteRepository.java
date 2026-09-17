@@ -62,6 +62,13 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         return jdbc.query(sql, this::mapear, args);
     }
 
+    @Override public long contar(UUID tenantId, EstadoDocumento estado) {
+        String sql = "SELECT count(*) FROM documento d WHERE d.tenant_id = ?" + (estado == null ? "" : " AND d.estado = ?");
+        Object[] args = estado == null ? new Object[]{tenantId} : new Object[]{tenantId, estado.name()};
+        Long total = jdbc.queryForObject(sql, Long.class, args);
+        return total == null ? 0 : total;
+    }
+
     private static final String SELECT = """
         SELECT d.id, d.tenant_id, d.tipo, d.serie, d.numero, d.fecha_emision, d.estado, d.hash, d.nombre_archivo, d.intentos, d.ultimo_error,
                d.cdr_codigo, d.cdr_descripcion, d.cdr_observaciones::text AS cdr_obs, d.xml_key, d.cdr_key,
