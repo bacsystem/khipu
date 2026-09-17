@@ -29,6 +29,7 @@ class EmpresaControllerTest {
     @Autowired MockMvc mvc;
     @MockBean AdministrarTenantUseCase admin;
     UUID tenant = UUID.randomUUID();
+    UUID cuenta = UUID.randomUUID();
 
     @Test void verEmpresaSinSecretos() throws Exception {
         when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA,
@@ -65,7 +66,7 @@ class EmpresaControllerTest {
 
     @Test void crearApiKey() throws Exception {
         when(admin.crearApiKey(tenant)).thenReturn("fk_nueva");
-        mvc.perform(post("/v1/empresa/api-keys").requestAttr(TenantActual.ATRIBUTO, tenant))
+        mvc.perform(post("/v1/empresa/api-keys").requestAttr(TenantActual.ATRIBUTO, tenant).requestAttr(CuentaActual.ATRIBUTO, cuenta))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.datos.api_key").value("fk_nueva"));
     }
 
@@ -75,7 +76,7 @@ class EmpresaControllerTest {
         when(admin.listarApiKeys(tenant)).thenReturn(List.of(
                 new ApiKey(id, tenant, "hash-secreto", "fk_abcdefg", true, creada, null),
                 new ApiKey(UUID.randomUUID(), tenant, "otro-hash", "fk_hijklmn", false, creada, Instant.parse("2026-09-15T12:00:00Z"))));
-        mvc.perform(get("/v1/empresa/api-keys").requestAttr(TenantActual.ATRIBUTO, tenant))
+        mvc.perform(get("/v1/empresa/api-keys").requestAttr(TenantActual.ATRIBUTO, tenant).requestAttr(CuentaActual.ATRIBUTO, cuenta))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.datos[0].id").value(id.toString()))
                 .andExpect(jsonPath("$.datos[0].prefijo").value("fk_abcdefg"))
@@ -89,15 +90,29 @@ class EmpresaControllerTest {
 
     @Test void revocarApiKey() throws Exception {
         UUID id = UUID.randomUUID();
-        mvc.perform(delete("/v1/empresa/api-keys/" + id).requestAttr(TenantActual.ATRIBUTO, tenant))
+        mvc.perform(delete("/v1/empresa/api-keys/" + id).requestAttr(TenantActual.ATRIBUTO, tenant).requestAttr(CuentaActual.ATRIBUTO, cuenta))
                 .andExpect(status().isNoContent());
         verify(admin).revocarApiKey(tenant, id);
+    }
+
+    /** Con solo API key (tenant sin cuenta) la gestión de keys se rechaza: una key filtrada no puede crear otras ni revocar las del tenant. */
+    @Test void gestionDeApiKeysConApiKeyEs403() throws Exception {
+        UUID id = UUID.randomUUID();
+        mvc.perform(post("/v1/empresa/api-keys").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.codigo").value("REQUIERE_SESION"));
+        mvc.perform(get("/v1/empresa/api-keys").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.codigo").value("REQUIERE_SESION"));
+        mvc.perform(delete("/v1/empresa/api-keys/" + id).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.codigo").value("REQUIERE_SESION"));
+        verify(admin, never()).crearApiKey(any());
+        verify(admin, never()).listarApiKeys(any());
+        verify(admin, never()).revocarApiKey(any(), any());
     }
 
     @Test void revocarApiKeyAjenaEs404() throws Exception {
         UUID id = UUID.randomUUID();
         doThrow(new DomainException("NO_ENCONTRADO", "API key no encontrada")).when(admin).revocarApiKey(tenant, id);
-        mvc.perform(delete("/v1/empresa/api-keys/" + id).requestAttr(TenantActual.ATRIBUTO, tenant))
+        mvc.perform(delete("/v1/empresa/api-keys/" + id).requestAttr(TenantActual.ATRIBUTO, tenant).requestAttr(CuentaActual.ATRIBUTO, cuenta))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
     }

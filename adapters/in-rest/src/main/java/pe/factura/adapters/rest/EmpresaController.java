@@ -43,18 +43,22 @@ public class EmpresaController {
         return ResponseEntity.noContent().build();
     }
 
+    // La gestión de API keys exige sesión del portal: una key filtrada no debe poder crear otras ni revocar las del tenant.
     @PostMapping("/empresa/api-keys")
     public ResponseEntity<ApiResponse<ApiKeyResponse>> apiKey(HttpServletRequest req) {
+        CuentaActual.exigirSesion(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(new ApiKeyResponse(admin.crearApiKey(TenantActual.id(req)))));
     }
 
     @GetMapping("/empresa/api-keys")
     public ApiResponse<List<ApiKeyResumenResponse>> apiKeys(HttpServletRequest req) {
+        CuentaActual.exigirSesion(req);
         return ApiResponse.ok(admin.listarApiKeys(TenantActual.id(req)).stream().map(ApiKeyResumenResponse::de).toList());
     }
 
     @DeleteMapping("/empresa/api-keys/{id}")
     public ResponseEntity<Void> revocarApiKey(HttpServletRequest req, @PathVariable UUID id) {
+        CuentaActual.exigirSesion(req);
         admin.revocarApiKey(TenantActual.id(req), id);
         return ResponseEntity.noContent().build();
     }

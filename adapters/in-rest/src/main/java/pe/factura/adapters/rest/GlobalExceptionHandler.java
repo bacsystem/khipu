@@ -25,7 +25,7 @@ public class GlobalExceptionHandler {
             case "NO_ENCONTRADO", "SIN_CDR" -> HttpStatus.NOT_FOUND;
             case "DUPLICADO", "ESTADO_NO_ENVIABLE" -> HttpStatus.CONFLICT;
             case "NO_AUTORIZADO", "CREDENCIALES_INVALIDAS", "SESION_INVALIDA" -> HttpStatus.UNAUTHORIZED;
-            case "EMPRESA_AJENA" -> HttpStatus.FORBIDDEN;
+            case "EMPRESA_AJENA", "REQUIERE_SESION" -> HttpStatus.FORBIDDEN;
             default -> HttpStatus.UNPROCESSABLE_ENTITY;
         };
         return ResponseEntity.status(st).body(ApiResponse.error(e.codigo(), e.getMessage()));
