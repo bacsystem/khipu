@@ -8,6 +8,9 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import pe.factura.domain.DomainException;
 
 import java.util.*;
@@ -44,6 +47,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> jsonInvalido(HttpMessageNotReadableException e) {
         return ResponseEntity.badRequest().body(ApiResponse.error("JSON_INVALIDO", "El cuerpo de la petición no es JSON válido"));
+    }
+
+    /** Path/query param con tipo inválido (p. ej. un id que no es UUID): es error del cliente, no del servidor. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> parametroInvalido(MethodArgumentTypeMismatchException e) {
+        return ResponseEntity.badRequest().body(ApiResponse.error("PARAMETRO_INVALIDO", "El parámetro '" + e.getName() + "' no tiene un formato válido"));
+    }
+
+    /** Ruta inexistente: sin esto caería en el catch-all y respondería 500 "Error interno" (p. ej. un portal más nuevo que el backend). */
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ApiResponse<Void>> rutaInexistente(Exception e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("RUTA_INEXISTENTE", "La ruta no existe en esta versión de la API"));
     }
 
     @ExceptionHandler(Exception.class)

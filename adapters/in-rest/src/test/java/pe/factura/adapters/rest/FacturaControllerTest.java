@@ -100,10 +100,12 @@ class FacturaControllerTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.datos.estado_documento").value("ACEPTADO"));
     }
 
-    @Test void listarDevuelveLista() throws Exception {
+    @Test void listarDevuelveListaYTotalEnHeader() throws Exception {
         when(consultar.listar(eq(tenant), isNull(), eq(1), eq(20))).thenReturn(List.of(aceptado(tenant)));
+        when(consultar.contar(tenant, null)).thenReturn(126L);
         mvc.perform(get("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isOk())
+                .andExpect(header().string(FacturaController.TOTAL_HEADER, "126"))
                 .andExpect(jsonPath("$.datos[0].serie").value("F001"));
     }
 
@@ -142,6 +144,17 @@ class FacturaControllerTest {
                 .andExpect(content().bytes(new byte[]{1, 2, 3}));
     }
 
+    @Test void descargaCdrComoXmlExtraido() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        when(consultar.cdrXml(tenant, c.id())).thenReturn("<ar/>".getBytes());
+        mvc.perform(get("/v1/facturas/{id}/cdr?formato=xml", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "inline; filename=\"R-20100066603-01-F001-601.xml\""))
+                .andExpect(content().contentTypeCompatibleWith("application/xml"))
+                .andExpect(content().string("<ar/>"));
+    }
+
     @Test void jsonMalformadoEs400() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":"))
                 .andExpect(status().isBadRequest())
@@ -155,6 +168,18 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.estado").value("error"))
                 .andExpect(jsonPath("$.codigo").value("DUPLICADO"))
                 .andExpect(jsonPath("$.mensaje").value("Ya existe un documento con esa serie y número"));
+    }
+
+    @Test void idQueNoEsUuidEs400YNo500() throws Exception {
+        mvc.perform(get("/v1/facturas/f-error").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+    }
+
+    @Test void rutaInexistenteEs404YNo500() throws Exception {
+        mvc.perform(get("/v1/no-existe").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("RUTA_INEXISTENTE"));
     }
 
     @Test void errorInternoEs500SinDetalle() throws Exception {
