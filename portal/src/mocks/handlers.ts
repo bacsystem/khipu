@@ -1,7 +1,8 @@
 import { http, HttpResponse } from "msw";
 import { db, fakeJwt, type Empresa, type Usuario } from "./data";
 
-const BASE = "http://localhost:8080";
+// Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
+const BASE = process.env.API_BASE_URL ?? "http://localhost:8080";
 
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
@@ -124,7 +125,28 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.post(`${BASE}/v1/empresa/api-keys`, () => ok({ api_key: `fk_${nuevoId("mock")}` }, 201)),
+  http.get(`${BASE}/v1/empresa/api-keys`, ({ request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    return ok(db.apiKeysPorEmpresa.get(empresaId) ?? []);
+  }),
+
+  http.post(`${BASE}/v1/empresa/api-keys`, ({ request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const apiKey = `fk_${nuevoId("mock")}`;
+    const lista = db.apiKeysPorEmpresa.get(empresaId) ?? [];
+    lista.unshift({ id: nuevoId("k"), prefijo: apiKey.slice(0, 10), activa: true, creada_en: new Date().toISOString() });
+    db.apiKeysPorEmpresa.set(empresaId, lista);
+    return ok({ api_key: apiKey }, 201);
+  }),
+
+  http.delete(`${BASE}/v1/empresa/api-keys/:id`, ({ request, params }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const key = (db.apiKeysPorEmpresa.get(empresaId) ?? []).find((k) => k.id === params.id);
+    if (!key) return fail(404, "NO_ENCONTRADO", "API key no encontrada");
+    key.activa = false;
+    key.revocada_en = new Date().toISOString();
+    return new HttpResponse(null, { status: 204 });
+  }),
 
   http.get(`${BASE}/v1/series`, ({ request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
@@ -133,9 +155,9 @@ export const handlers = [
 
   http.post(`${BASE}/v1/series`, async ({ request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
-    const body = (await request.json()) as { tipo: string; serie: string };
+    const body = (await request.json()) as { tipo: string; serie: string; correlativo_inicial?: number };
     const lista = db.seriesPorEmpresa.get(empresaId) ?? [];
-    lista.push({ tipo: body.tipo, serie: body.serie, ultimo_numero: 0, activa: true });
+    lista.push({ tipo: body.tipo, serie: body.serie, ultimo_numero: body.correlativo_inicial ?? 0, activa: true });
     db.seriesPorEmpresa.set(empresaId, lista);
     return new HttpResponse(null, { status: 201 });
   }),
@@ -146,7 +168,14 @@ export const handlers = [
     const estado = url.searchParams.get("estado");
     let lista = db.facturasPorEmpresa.get(empresaId) ?? [];
     if (estado) lista = lista.filter((f) => f.estado_documento === estado);
-    return ok(lista);
+    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1));
+    const porPagina = Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20));
+    const total = lista.length;
+    const datos = lista.slice((pagina - 1) * porPagina, pagina * porPagina);
+    return HttpResponse.json(
+      { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
+      { headers: { "x-total-count": String(total) } },
+    );
   }),
 
   http.get(`${BASE}/v1/facturas/:id`, ({ params, request }) => {
@@ -165,8 +194,23 @@ export const handlers = [
     return ok(factura);
   }),
 
-  http.get(`${BASE}/v1/facturas/:id/xml`, () => new HttpResponse("<xml>mock</xml>", { headers: { "content-type": "application/xml" } })),
-  http.get(`${BASE}/v1/facturas/:id/cdr`, () => new HttpResponse(new Uint8Array([80, 75]), { headers: { "content-type": "application/zip" } })),
+  http.get(
+    `${BASE}/v1/facturas/:id/xml`,
+    () =>
+      new HttpResponse(
+        `<?xml version="1.0" encoding="UTF-8"?><Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"><cbc:ID>F001-1</cbc:ID><cac:AccountingSupplierParty><cbc:CustomerAssignedAccountID>20123456789</cbc:CustomerAssignedAccountID></cac:AccountingSupplierParty></Invoice>`,
+        { headers: { "content-type": "application/xml" } },
+      ),
+  ),
+  http.get(`${BASE}/v1/facturas/:id/cdr`, ({ request }) => {
+    if (new URL(request.url).searchParams.get("formato") === "xml") {
+      return new HttpResponse(
+        `<?xml version="1.0" encoding="UTF-8"?><ar:ApplicationResponse xmlns:ar="urn:oasis:names:specification:ubl:schema:xsd:ApplicationResponse-2"><cbc:ID>0</cbc:ID><cac:DocumentResponse><cac:Response><cbc:ResponseCode>0</cbc:ResponseCode><cbc:Description>La Factura numero F001-1, ha sido aceptada</cbc:Description></cac:Response></cac:DocumentResponse></ar:ApplicationResponse>`,
+        { headers: { "content-type": "application/xml" } },
+      );
+    }
+    return new HttpResponse(new Uint8Array([80, 75]), { headers: { "content-type": "application/zip" } });
+  }),
 
   http.get(`${BASE}/openapi.json`, () =>
     HttpResponse.json({
