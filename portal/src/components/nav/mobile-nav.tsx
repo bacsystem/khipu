@@ -31,7 +31,7 @@ export function MobileNav({
         <Menu className="size-5" />
         <span className="sr-only">Abrir menú</span>
       </SheetTrigger>
-      <SheetContent side="left" showCloseButton={false} className="bg-sidebar px-4 py-6 text-sidebar-foreground">
+      <SheetContent side="left" showCloseButton={false} className="w-60 bg-sidebar p-0 text-sidebar-foreground">
         <SidebarContent usuario={usuario} empresas={empresas} activaId={activaId} />
       </SheetContent>
     </Sheet>

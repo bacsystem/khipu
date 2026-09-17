@@ -7,7 +7,8 @@ test("inicia sesión y llega a comprobantes", async ({ page }) => {
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
 
   await expect(page).toHaveURL(/\/comprobantes/);
-  await expect(page.locator("select").first()).toHaveValue("e-demo");
+  // El selector de empresa muestra la empresa activa (razón social + RUC del mock).
+  await expect(page.getByRole("combobox", { name: "Cambiar de empresa" })).toContainText("Demo SAC");
 });
 
 test("credenciales inválidas muestran el error sin salir del login", async ({ page }) => {

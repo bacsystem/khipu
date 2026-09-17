@@ -7,6 +7,14 @@ export function apiBaseUrl(): string {
 export type BackendRequestInit = Omit<RequestInit, "body"> & { body?: unknown };
 
 export async function backendFetch<T>(path: string, init: BackendRequestInit = {}): Promise<T> {
+  const { datos } = await backendFetchConHeaders<T>(path, init);
+  return datos;
+}
+
+export async function backendFetchConHeaders<T>(
+  path: string,
+  init: BackendRequestInit = {},
+): Promise<{ datos: T; headers: Headers }> {
   const headers = new Headers(init.headers);
   let body: BodyInit | undefined;
   if (init.body !== undefined) {
@@ -17,7 +25,7 @@ export async function backendFetch<T>(path: string, init: BackendRequestInit = {
   const res = await fetch(`${apiBaseUrl()}${path}`, { ...init, headers, body, cache: "no-store" });
   const texto = await res.text();
   if (!texto) {
-    if (res.ok) return undefined as T;
+    if (res.ok) return { datos: undefined as T, headers: res.headers };
     throw new ApiError(res.status, null, "Error de comunicación con la API", null);
   }
 
@@ -36,5 +44,5 @@ export async function backendFetch<T>(path: string, init: BackendRequestInit = {
       json?.errores ?? null,
     );
   }
-  return json.datos as T;
+  return { datos: json.datos as T, headers: res.headers };
 }
