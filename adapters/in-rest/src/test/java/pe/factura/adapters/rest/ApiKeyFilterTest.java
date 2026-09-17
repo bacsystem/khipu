@@ -8,6 +8,7 @@ import pe.factura.application.port.out.ApiKeyRepository;
 import pe.factura.application.service.ApiKeyGenerator;
 import pe.factura.domain.tenant.ApiKey;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,10 +21,12 @@ class ApiKeyFilterTest {
     ApiKeyRepository repo = new ApiKeyRepository() {
         public void guardar(ApiKey k) {}
         public Optional<ApiKey> buscarPorHash(String h) {
-            if (h.equals(ApiKeyGenerator.hash(key, "pep"))) return Optional.of(new ApiKey(UUID.randomUUID(), tenant, h, "fk_valida", true));
-            if (h.equals(ApiKeyGenerator.hash(keyInactiva, "pep"))) return Optional.of(new ApiKey(UUID.randomUUID(), tenant, h, "fk_inactiva", false));
+            if (h.equals(ApiKeyGenerator.hash(key, "pep"))) return Optional.of(new ApiKey(UUID.randomUUID(), tenant, h, "fk_valida", true, null, null));
+            if (h.equals(ApiKeyGenerator.hash(keyInactiva, "pep"))) return Optional.of(new ApiKey(UUID.randomUUID(), tenant, h, "fk_inactiva", false, null, null));
             return Optional.empty();
         }
+        public Optional<ApiKey> buscar(UUID id) { return Optional.empty(); }
+        public List<ApiKey> listarPorTenant(UUID tenantId) { return List.of(); }
     };
     ApiKeyFilter filter = new ApiKeyFilter(repo, "pep");
 

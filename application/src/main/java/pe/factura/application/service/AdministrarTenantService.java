@@ -13,6 +13,7 @@ import java.io.ByteArrayInputStream;
 import java.security.KeyStore;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -34,7 +35,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         String key = ApiKeyGenerator.generar();
         uow.ejecutar(() -> {
             tenants.guardar(t);
-            apiKeys.guardar(new ApiKey(UUID.randomUUID(), t.id(), ApiKeyGenerator.hash(key, pepper), ApiKeyGenerator.prefijo(key), true));
+            apiKeys.guardar(nuevaApiKey(t.id(), key));
         });
         return new TenantCreado(t, key);
     }
@@ -85,8 +86,21 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     public String crearApiKey(UUID tenantId) {
         obtener(tenantId);
         String key = ApiKeyGenerator.generar();
-        uow.ejecutar(() -> apiKeys.guardar(new ApiKey(UUID.randomUUID(), tenantId, ApiKeyGenerator.hash(key, pepper), ApiKeyGenerator.prefijo(key), true)));
+        uow.ejecutar(() -> apiKeys.guardar(nuevaApiKey(tenantId, key)));
         return key;
+    }
+
+    public List<ApiKey> listarApiKeys(UUID tenantId) { return apiKeys.listarPorTenant(tenantId); }
+
+    public void revocarApiKey(UUID tenantId, UUID apiKeyId) {
+        ApiKey k = apiKeys.buscar(apiKeyId).filter(x -> x.tenantId().equals(tenantId))
+                .orElseThrow(() -> new DomainException("NO_ENCONTRADO", "API key no encontrada"));
+        if (!k.activa()) return;
+        uow.ejecutar(() -> apiKeys.guardar(k.revocar(Instant.now(clock))));
+    }
+
+    private ApiKey nuevaApiKey(UUID tenantId, String key) {
+        return new ApiKey(UUID.randomUUID(), tenantId, ApiKeyGenerator.hash(key, pepper), ApiKeyGenerator.prefijo(key), true, Instant.now(clock), null);
     }
 
     static boolean ouContieneRuc(String subjectDn, String ruc) {
