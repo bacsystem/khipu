@@ -12,7 +12,23 @@ npm run e2e          # Playwright (levanta el server de dev automáticamente)
 npm run build
 ```
 
-## Docker
+## Acceso desde otro equipo de la red local
+
+Los servers de dev escuchan en todas las interfaces, así que basta con entrar por la IP de esta máquina
+(`ipconfig getifaddr en0`), p. ej. `http://192.168.18.134:3000`. Para que Next acepte ese origen y para que
+`/developers` (Scalar corre en el navegador) y los ejemplos de integración apunten a una API alcanzable desde
+el otro equipo:
+
+```bash
+# backend (raíz del repo): CORS y enlaces de recuperación con la URL por la que entra el navegador
+PORTAL_URL=http://192.168.18.134:3000 ./gradlew :bootstrap:bootRun
+
+# portal
+PORTAL_DEV_ORIGINS=192.168.18.134 API_BASE_URL=http://192.168.18.134:8080 npm run dev
+```
+
+Las cookies de sesión solo llevan `secure` en producción (`next start` / Docker), donde hace falta HTTPS;
+en dev funcionan por HTTP plano.
 
 ```bash
 docker build -t portal .
