@@ -13,6 +13,7 @@ import pe.factura.adapters.rest.dto.FacturaRequest;
 import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
+import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
 
@@ -68,6 +69,9 @@ public class FacturaController {
     public ResponseEntity<byte[]> cdr(HttpServletRequest req, @PathVariable UUID id,
                                       @RequestParam(required = false) String formato) {
         UUID t = TenantActual.id(req);
+        if (formato != null && !formato.equalsIgnoreCase("zip") && !formato.equalsIgnoreCase("xml")) {
+            throw new DomainException("PARAMETRO_INVALIDO", "formato debe ser 'zip' (por defecto) o 'xml'");
+        }
         Comprobante c = consultar.obtener(t, id);
         if ("xml".equalsIgnoreCase(formato)) {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_XML)

@@ -38,7 +38,7 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
                 if (!e.isDirectory() && e.getName().toLowerCase().endsWith(".xml")) return in.readAllBytes();
             }
         } catch (IOException e) {
-            throw new DomainException("CDR_CORRUPTO", "No se pudo leer el ZIP del CDR");
+            throw new DomainException("CDR_CORRUPTO", "No se pudo leer el ZIP del CDR", e);
         }
         throw new DomainException("CDR_CORRUPTO", "El ZIP del CDR no contiene un XML");
     }

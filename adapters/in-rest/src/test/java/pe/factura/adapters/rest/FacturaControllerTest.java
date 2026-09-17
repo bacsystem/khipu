@@ -19,7 +19,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -153,6 +153,23 @@ class FacturaControllerTest {
                 .andExpect(header().string("Content-Disposition", "inline; filename=\"R-20100066603-01-F001-601.xml\""))
                 .andExpect(content().contentTypeCompatibleWith("application/xml"))
                 .andExpect(content().string("<ar/>"));
+    }
+
+    @Test void formatoDesconocidoDeCdrEs400() throws Exception {
+        Comprobante c = aceptado(tenant);
+        mvc.perform(get("/v1/facturas/{id}/cdr?formato=pdf", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        verify(consultar, never()).cdr(any(), any());
+    }
+
+    @Test void cdrCorruptoEs500YNo422() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        when(consultar.cdrXml(tenant, c.id())).thenThrow(new pe.factura.domain.DomainException("CDR_CORRUPTO", "El ZIP del CDR no contiene un XML"));
+        mvc.perform(get("/v1/facturas/{id}/cdr?formato=xml", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.codigo").value("CDR_CORRUPTO"));
     }
 
     @Test void jsonMalformadoEs400() throws Exception {
