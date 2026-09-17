@@ -24,6 +24,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class FacturaController {
     private static final String BASE = "/v1/facturas";
+    public static final String TOTAL_HEADER = "X-Total-Count";
     private final EmitirComprobanteUseCase emitir;
     private final EnviarDocumentoUseCase enviar;
     private final ConsultarComprobanteUseCase consultar;
@@ -36,10 +37,12 @@ public class FacturaController {
     }
 
     @GetMapping
-    public ApiResponse<List<ComprobanteResponse>> listar(HttpServletRequest req, @RequestParam(required = false) EstadoDocumento estado,
-                                                        @RequestParam(defaultValue = "1") int pagina, @RequestParam(name = "por_pagina", defaultValue = "20") int porPagina) {
-        return ApiResponse.ok(consultar.listar(TenantActual.id(req), estado, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
-                .stream().map(c -> ComprobanteResponse.de(c, BASE)).toList());
+    public ResponseEntity<ApiResponse<List<ComprobanteResponse>>> listar(HttpServletRequest req, @RequestParam(required = false) EstadoDocumento estado,
+                                                                        @RequestParam(defaultValue = "1") int pagina, @RequestParam(name = "por_pagina", defaultValue = "20") int porPagina) {
+        UUID t = TenantActual.id(req);
+        List<ComprobanteResponse> datos = consultar.listar(t, estado, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
+                .stream().map(c -> ComprobanteResponse.de(c, BASE)).toList();
+        return ResponseEntity.ok().header(TOTAL_HEADER, String.valueOf(consultar.contar(t, estado))).body(ApiResponse.ok(datos));
     }
 
     @GetMapping("/{id}")
@@ -62,9 +65,15 @@ public class FacturaController {
     }
 
     @GetMapping("/{id}/cdr")
-    public ResponseEntity<byte[]> cdr(HttpServletRequest req, @PathVariable UUID id) {
+    public ResponseEntity<byte[]> cdr(HttpServletRequest req, @PathVariable UUID id,
+                                      @RequestParam(required = false) String formato) {
         UUID t = TenantActual.id(req);
         Comprobante c = consultar.obtener(t, id);
+        if ("xml".equalsIgnoreCase(formato)) {
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_XML)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"R-" + c.nombreArchivo() + ".xml\"")
+                    .body(consultar.cdrXml(t, id));
+        }
         return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"R-" + c.nombreArchivo() + ".zip\"")
                 .body(consultar.cdr(t, id));

@@ -18,6 +18,7 @@ final class Fakes {
             return datos.values().stream().anyMatch(c -> c.tenantId().equals(t) && c.tipo() == tipo && c.serie().equals(serie) && Long.valueOf(numero).equals(c.numero()));
         }
         public List<Comprobante> listar(UUID t, EstadoDocumento e, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
+        public long contar(UUID t, EstadoDocumento e) { return listar(t, e, 1, Integer.MAX_VALUE).size(); }
     }
     static final class Series implements SerieRepository {
         final Map<String, Long> ultimo = new HashMap<>();
