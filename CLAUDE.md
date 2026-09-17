@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`factura` is a multi-tenant SUNAT electronic invoicing (facturación electrónica) system for Peru: a Java/Spring Boot API that builds, signs (XML-DSig), validates (XSD) and submits UBL 2.1 invoices to SUNAT over SOAP, plus a Next.js self-service portal (`portal/`) for tenants to onboard and manage their own account. Two ways to authenticate against the API: `X-Api-Key` (integrators) or JWT (the portal, via `Authorization: Bearer` + `X-Empresa`) — both are accepted on the same endpoints, see `JwtFilter`/`ApiKeyFilter`.
+`khipu` (repo `bacsystem/khipu`; Java package `pe.factura`, Gradle root project and Postgres database still named `factura` for historical reasons) is a multi-tenant SUNAT electronic invoicing (facturación electrónica) system for Peru: a Java/Spring Boot API that builds, signs (XML-DSig), validates (XSD) and submits UBL 2.1 invoices to SUNAT over SOAP, plus a Next.js self-service portal (`portal/`) for tenants to onboard and manage their own account. Two ways to authenticate against the API: `X-Api-Key` (integrators) or JWT (the portal, via `Authorization: Bearer` + `X-Empresa`) — both are accepted on the same endpoints, see `JwtFilter`/`ApiKeyFilter`.
 
 Design docs live in `docs/` (gitignored, local-only): `docs/spec/spec.md` (architecture + prioritized roadmap), `docs/plan/plan.md` (pricing/business plan), `docs/pending.md` (running status/pending-work report), `docs/superpowers/specs/` and `docs/superpowers/plans/` (per-phase specs and plans, e.g. `10-portal.md` for the portal). Read these for anything beyond what's below — this file intentionally doesn't restate them.
 

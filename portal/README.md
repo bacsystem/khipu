@@ -1,4 +1,4 @@
-# Portal
+# khipu · Portal
 
 Portal web de autoservicio (Next.js 15 + React 19 + TypeScript). Etapa 1: registro/login, empresas, API keys, comprobantes. Ver `docs/superpowers/specs/10-portal.md`.
 
