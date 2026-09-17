@@ -37,7 +37,7 @@ export default async function ComprobantesPage({
         <Metrica etiqueta="Total facturado" ayuda="requiere endpoint de resumen" pendiente />
         <Metrica etiqueta="Emitidos en el período" ayuda="requiere endpoint de resumen" pendiente />
         <Metrica etiqueta="Aceptados con CDR" ayuda="requiere endpoint de resumen" pendiente />
-        <Metrica etiqueta="Atención requerida" ayuda="requiere endpoint de resumen" />
+        <Metrica etiqueta="Atención requerida" ayuda="requiere endpoint de resumen" pendiente />
       </section>
 
       <ComprobantesTable inicial={{ datos, total }} pagina={paginaNum} porPagina={porPagina} />

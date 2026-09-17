@@ -13,7 +13,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { esClickSimple, PieTabla } from "@/components/ui/pie-tabla";
+import { PieTabla } from "@/components/ui/pie-tabla";
+import { esClickSimple } from "@/lib/navegacion";
 import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {

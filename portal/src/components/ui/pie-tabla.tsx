@@ -2,8 +2,8 @@
 
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
-import type { MouseEvent } from "react";
 import { SelectorPorPagina } from "@/components/ui/selector-por-pagina";
+import { esClickSimple } from "@/lib/navegacion";
 import { paginasVisibles } from "@/lib/paginacion";
 import { cn } from "@/lib/utils";
 
@@ -11,11 +11,6 @@ const BOTON_PAGINA =
   "inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2.5 text-[11px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted";
 const BOTON_PAGINA_INACTIVO = "pointer-events-none text-muted-foreground/60";
 const NUMERO_PAGINA = "flex size-7 items-center justify-center rounded-md font-mono text-[11px] text-foreground/80 transition-colors hover:bg-secondary";
-
-/** Clic izquierdo sin modificadores: se navega en cliente; con ⌘/Ctrl se deja al navegador abrir el href en otra pestaña. */
-export function esClickSimple(e: MouseEvent) {
-  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
-}
 
 /** Un salto de página: enlace (estado en la URL) o botón (estado local), según haya `hrefPagina`. */
 function Salto({
