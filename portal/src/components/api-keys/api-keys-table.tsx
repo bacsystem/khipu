@@ -1,17 +1,17 @@
 "use client";
 
-import { BanIcon, ChevronLeftIcon, ChevronRightIcon, KeyRoundIcon, RefreshCwIcon } from "lucide-react";
+import { BanIcon, KeyRoundIcon, RefreshCwIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { BotonCopiar } from "@/components/comprobantes/boton-copiar";
+import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SelectorPorPagina } from "@/components/ui/selector-por-pagina";
+import { PieTabla } from "@/components/ui/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ApiKeyResumen } from "@/lib/api/api-keys";
 import { apiRequest } from "@/lib/api/browser";
 import { formatearFechaHora } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
-import { paginasVisibles, POR_PAGINA_DEFECTO } from "@/lib/paginacion";
+import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
 import { cn } from "@/lib/utils";
 
 const TODAS = "todas";
@@ -131,9 +131,6 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
   const desde = data.length === 0 ? 0 : (paginaActual - 1) * porPagina + 1;
   const hasta = (paginaActual - 1) * porPagina + data.length;
 
-  const botonPagina =
-    "inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2.5 text-[11px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted disabled:pointer-events-none disabled:text-muted-foreground/60";
-
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -237,61 +234,21 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
           </TableBody>
         </Table>
 
-        <div className="flex flex-col items-center justify-between gap-3 border-t border-border/60 bg-muted px-4 py-2 text-[12px] text-muted-foreground sm:flex-row">
-          <div className="flex flex-wrap items-center gap-2">
-            <span>
-              Mostrando{" "}
-              <span className="font-mono font-semibold text-foreground">
-                {desde}–{hasta}
-              </span>{" "}
-              de <span className="font-mono font-semibold text-foreground">{total}</span> llaves
-            </span>
-            <span className="text-muted-foreground/40">·</span>
-            <SelectorPorPagina
-              valor={porPagina}
-              onCambio={(n) => {
-                setPorPagina(n);
-                setPagina(1);
-              }}
-            />
-            <span className="hidden text-muted-foreground/40 xl:inline">·</span>
-            <span className="hidden text-[11px] text-muted-foreground/80 xl:inline">Revocar es irreversible: la llave deja de autenticar al instante</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button type="button" disabled={paginaActual <= 1} onClick={() => setPagina(paginaActual - 1)} className={botonPagina}>
-              <ChevronLeftIcon className="size-3.5" /> Anterior
-            </button>
-            <div className="mx-1 flex items-center gap-0.5">
-              {paginasVisibles(paginaActual, ultimaPagina).map((p, i) =>
-                p === "…" ? (
-                  <span key={`sep-${i}`} className="px-1 text-[11px] text-muted-foreground/60">
-                    …
-                  </span>
-                ) : p === paginaActual ? (
-                  <span
-                    key={p}
-                    aria-current="page"
-                    className="flex size-7 items-center justify-center rounded-md bg-foreground font-mono text-[11px] font-medium text-background shadow-2xs"
-                  >
-                    {p}
-                  </span>
-                ) : (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPagina(p)}
-                    className="flex size-7 items-center justify-center rounded-md font-mono text-[11px] text-foreground/80 transition-colors hover:bg-secondary"
-                  >
-                    {p}
-                  </button>
-                ),
-              )}
-            </div>
-            <button type="button" disabled={paginaActual >= ultimaPagina} onClick={() => setPagina(paginaActual + 1)} className={botonPagina}>
-              Siguiente <ChevronRightIcon className="size-3.5" />
-            </button>
-          </div>
-        </div>
+        <PieTabla
+          desde={desde}
+          hasta={hasta}
+          total={total}
+          unidad="llaves"
+          porPagina={porPagina}
+          onPorPagina={(n) => {
+            setPorPagina(n);
+            setPagina(1);
+          }}
+          nota="Revocar es irreversible: la llave deja de autenticar al instante"
+          pagina={paginaActual}
+          ultimaPagina={ultimaPagina}
+          onPagina={setPagina}
+        />
       </div>
     </div>
   );

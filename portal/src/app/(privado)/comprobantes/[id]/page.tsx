@@ -1,7 +1,7 @@
 import { ArrowLeftIcon, FileTextIcon, IdCardIcon, MoreHorizontalIcon, Rows3Icon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BotonCopiar } from "@/components/comprobantes/boton-copiar";
+import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";

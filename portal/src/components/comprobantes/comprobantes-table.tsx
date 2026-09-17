@@ -4,8 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   CalendarIcon,
   ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   FileCheck2Icon,
   InboxIcon,
   MoreHorizontalIcon,
@@ -13,10 +11,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type MouseEvent } from "react";
+import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SelectorPorPagina } from "@/components/ui/selector-por-pagina";
-import { paginasVisibles, POR_PAGINA_DEFECTO } from "@/lib/paginacion";
+import { esClickSimple, PieTabla } from "@/components/ui/pie-tabla";
+import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   esEstadoFinal,
@@ -30,7 +28,7 @@ import {
 } from "@/lib/api/facturas";
 import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
-import { BotonCopiar } from "./boton-copiar";
+import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "./estado-badge";
 
 const ESTADOS: EstadoDocumento[] = [
@@ -69,10 +67,6 @@ async function fetchComprobantes(estado: string | undefined, pagina: number, por
   return { datos, total: totalDesdeHeaders(res.headers, datos.length) };
 }
 
-
-function esClickSimple(e: MouseEvent) {
-  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
-}
 
 function etiquetaEstado(c: Comprobante): string | undefined {
   if (c.estado_documento === "ACEPTADO" && c.cdr) return "Aceptado con CDR";
@@ -132,8 +126,6 @@ export function ComprobantesTable({
   }
 
   const ultimaPagina = Math.max(1, Math.ceil(total / porPagina));
-  const hayAnterior = pagina > 1;
-  const haySiguiente = pagina < ultimaPagina;
   const desde = data.length === 0 ? 0 : (pagina - 1) * porPagina + 1;
   const hasta = (pagina - 1) * porPagina + data.length;
 
@@ -353,85 +345,19 @@ export function ComprobantesTable({
           </TableBody>
         </Table>
 
-        <div className="flex flex-col items-center justify-between gap-3 border-t border-border/60 bg-muted px-4 py-2 text-[12px] text-muted-foreground sm:flex-row">
-          <div className="flex flex-wrap items-center gap-2">
-            <span>
-              Mostrando{" "}
-              <span className="font-mono font-semibold text-foreground">
-                {desde}–{hasta}
-              </span>{" "}
-              de <span className="font-mono font-semibold text-foreground">{total}</span> comprobantes
-            </span>
-            <span className="text-muted-foreground/40">·</span>
-            <SelectorPorPagina valor={porPagina} onCambio={(n) => irA(1, n)} />
-            <span className="hidden text-muted-foreground/40 xl:inline">·</span>
-            <span className="hidden text-[11px] text-muted-foreground/80 xl:inline">Plazo máx. envío SUNAT: 3 días calendario</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Link
-              href={hrefPagina(pagina - 1)}
-              aria-disabled={!hayAnterior}
-              tabIndex={hayAnterior ? undefined : -1}
-              onClick={(e) => {
-                if (!hayAnterior || !esClickSimple(e)) return;
-                e.preventDefault();
-                irA(pagina - 1);
-              }}
-              className={cn(
-                "inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2.5 text-[11px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted",
-                !hayAnterior && "pointer-events-none text-muted-foreground/60",
-              )}
-            >
-              <ChevronLeftIcon className="size-3.5" /> Anterior
-            </Link>
-            <div className="mx-1 flex items-center gap-0.5">
-              {paginasVisibles(pagina, ultimaPagina).map((p, i) =>
-                p === "…" ? (
-                  <span key={`sep-${i}`} className="px-1 text-[11px] text-muted-foreground/60">
-                    …
-                  </span>
-                ) : p === pagina ? (
-                  <span
-                    key={p}
-                    aria-current="page"
-                    className="flex size-7 items-center justify-center rounded-md bg-foreground font-mono text-[11px] font-medium text-background shadow-2xs"
-                  >
-                    {p}
-                  </span>
-                ) : (
-                  <Link
-                    key={p}
-                    href={hrefPagina(p)}
-                    onClick={(e) => {
-                      if (!esClickSimple(e)) return;
-                      e.preventDefault();
-                      irA(p);
-                    }}
-                    className="flex size-7 items-center justify-center rounded-md font-mono text-[11px] text-foreground/80 transition-colors hover:bg-secondary"
-                  >
-                    {p}
-                  </Link>
-                ),
-              )}
-            </div>
-            <Link
-              href={hrefPagina(pagina + 1)}
-              aria-disabled={!haySiguiente}
-              tabIndex={haySiguiente ? undefined : -1}
-              onClick={(e) => {
-                if (!haySiguiente || !esClickSimple(e)) return;
-                e.preventDefault();
-                irA(pagina + 1);
-              }}
-              className={cn(
-                "inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2.5 text-[11px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted",
-                !haySiguiente && "pointer-events-none text-muted-foreground/60",
-              )}
-            >
-              Siguiente <ChevronRightIcon className="size-3.5" />
-            </Link>
-          </div>
-        </div>
+        <PieTabla
+          desde={desde}
+          hasta={hasta}
+          total={total}
+          unidad="comprobantes"
+          porPagina={porPagina}
+          onPorPagina={(n) => irA(1, n)}
+          nota="Plazo máx. envío SUNAT: 3 días calendario"
+          pagina={pagina}
+          ultimaPagina={ultimaPagina}
+          onPagina={irA}
+          hrefPagina={hrefPagina}
+        />
       </div>
     </div>
   );

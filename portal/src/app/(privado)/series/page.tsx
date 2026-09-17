@@ -5,6 +5,7 @@ import { listarSeries } from "@/lib/api/series";
 import { formatearFecha } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
+import { Metrica } from "@/components/ui/metrica";
 
 const TIPOS_SOPORTADOS = ["01", "03", "07", "08"] as const;
 
@@ -12,16 +13,6 @@ const ABREV_TIPO: Record<string, string> = { "01": "FAC", "03": "BOL", "07": "NC
 
 function numero(n: number): string {
   return String(n).padStart(8, "0");
-}
-
-function Metrica({ etiqueta, children, ayuda }: { etiqueta: string; children: React.ReactNode; ayuda: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="truncate text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{etiqueta}</span>
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-mono text-lg font-semibold tracking-tight text-foreground">{children}</div>
-      <div className="flex min-w-0 items-center gap-1 truncate text-[11px] text-muted-foreground">{ayuda}</div>
-    </div>
-  );
 }
 
 export default async function SeriesPage() {

@@ -1,7 +1,8 @@
 "use client";
 
-import { BadgeCheckIcon, CheckIcon, CopyIcon, DownloadIcon, FileCodeIcon, Loader2Icon } from "lucide-react";
+import { BadgeCheckIcon, DownloadIcon, FileCodeIcon, Loader2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { formatearXml } from "@/lib/xml";
@@ -15,28 +16,6 @@ const BOTON = "inline-flex h-8 items-center gap-1.5 rounded-md border border-bor
 function urlDe(id: string, doc: Documento, descarga: boolean): string {
   if (doc === "xml") return `/api/proxy/facturas/${id}/xml`;
   return descarga ? `/api/proxy/facturas/${id}/cdr` : `/api/proxy/facturas/${id}/cdr?formato=xml`;
-}
-
-function BotonCopiarTexto({ texto }: { texto: string }) {
-  const [copiado, setCopiado] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(texto);
-          setCopiado(true);
-          setTimeout(() => setCopiado(false), 1500);
-        } catch {
-          // el navegador puede denegar el acceso al portapapeles; no hay nada más que hacer
-        }
-      }}
-      className={BOTON}
-    >
-      {copiado ? <CheckIcon className="size-3.5 text-success-foreground" /> : <CopyIcon className="size-3.5" />}
-      {copiado ? "Copiado" : "Copiar"}
-    </button>
-  );
 }
 
 export function VistaPrevia({
@@ -115,7 +94,7 @@ export function VistaPrevia({
                 ))}
             </div>
             <div className="flex items-center gap-2">
-              {contenido?.estado === "ok" ? <BotonCopiarTexto texto={contenido.texto} /> : null}
+              {contenido?.estado === "ok" ? <BotonCopiar texto={contenido.texto} etiqueta className={BOTON} /> : null}
               {activo ? (
                 <a href={urlDe(id, activo, true)} className={cn(BOTON, "bg-foreground text-background hover:bg-foreground/90 hover:text-background")}>
                   <DownloadIcon className="size-3.5" />

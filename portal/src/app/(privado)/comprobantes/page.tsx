@@ -3,16 +3,7 @@ import { ComprobantesTable } from "@/components/comprobantes/comprobantes-table"
 import { porPaginaValido } from "@/lib/paginacion";
 import { listarFacturas } from "@/lib/api/facturas";
 import { getServerSession } from "@/lib/session-server";
-
-function Metrica({ etiqueta, ayuda }: { etiqueta: string; ayuda: string }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5 opacity-60">
-      <span className="truncate text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{etiqueta}</span>
-      <span className="font-mono text-lg font-semibold tracking-tight text-foreground">—</span>
-      <span className="truncate text-[11px] text-muted-foreground">{ayuda}</span>
-    </div>
-  );
-}
+import { Metrica } from "@/components/ui/metrica";
 
 export default async function ComprobantesPage({
   searchParams,
@@ -43,9 +34,9 @@ export default async function ComprobantesPage({
         title="Métricas agregadas: próximamente (requieren un endpoint de resumen en la API)"
         className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-xl border border-border bg-card px-5 py-3 shadow-xs lg:grid-cols-4 lg:divide-x lg:divide-border lg:[&>*:not(:first-child)]:pl-5"
       >
-        <Metrica etiqueta="Total facturado" ayuda="requiere endpoint de resumen" />
-        <Metrica etiqueta="Emitidos en el período" ayuda="requiere endpoint de resumen" />
-        <Metrica etiqueta="Aceptados con CDR" ayuda="requiere endpoint de resumen" />
+        <Metrica etiqueta="Total facturado" ayuda="requiere endpoint de resumen" pendiente />
+        <Metrica etiqueta="Emitidos en el período" ayuda="requiere endpoint de resumen" pendiente />
+        <Metrica etiqueta="Aceptados con CDR" ayuda="requiere endpoint de resumen" pendiente />
         <Metrica etiqueta="Atención requerida" ayuda="requiere endpoint de resumen" />
       </section>
 

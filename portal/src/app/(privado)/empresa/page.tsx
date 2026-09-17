@@ -18,6 +18,7 @@ import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
+import { Metrica } from "@/components/ui/metrica";
 
 const DIA_MS = 86_400_000;
 
@@ -25,16 +26,6 @@ const DIA_MS = 86_400_000;
 function diasHasta(iso: string): number {
   const hoy = new Date(new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }));
   return Math.round((new Date(iso).getTime() - hoy.getTime()) / DIA_MS);
-}
-
-function Metrica({ etiqueta, children, ayuda }: { etiqueta: string; children: React.ReactNode; ayuda: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="truncate text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{etiqueta}</span>
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-mono text-lg font-semibold tracking-tight text-foreground">{children}</div>
-      <div className="flex min-w-0 items-center gap-1 truncate text-[11px] text-muted-foreground">{ayuda}</div>
-    </div>
-  );
 }
 
 function Punto({ tono }: { tono: "ok" | "aviso" | "error" | "neutro" }) {

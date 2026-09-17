@@ -3,8 +3,6 @@
 import {
   CalendarIcon,
   ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   InboxIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -13,10 +11,10 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { BotonCopiar } from "@/components/comprobantes/boton-copiar";
+import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SelectorPorPagina } from "@/components/ui/selector-por-pagina";
-import { paginasVisibles, POR_PAGINA_DEFECTO } from "@/lib/paginacion";
+import { PieTabla } from "@/components/ui/pie-tabla";
+import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ETIQUETAS_TIPO } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
@@ -83,8 +81,6 @@ export function SeriesTable({ series }: { series: Serie[] }) {
   const ultimaPagina = Math.max(1, Math.ceil(total / porPagina));
   const paginaActual = Math.min(pagina, ultimaPagina);
   const data = filtradas.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
-  const hayAnterior = paginaActual > 1;
-  const haySiguiente = paginaActual < ultimaPagina;
   const desde = data.length === 0 ? 0 : (paginaActual - 1) * porPagina + 1;
   const hasta = (paginaActual - 1) * porPagina + data.length;
 
@@ -97,9 +93,6 @@ export function SeriesTable({ series }: { series: Serie[] }) {
     setTipo(value ?? TODOS);
     setPagina(1);
   }
-
-  const botonPagina =
-    "inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2.5 text-[11px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted disabled:pointer-events-none disabled:text-muted-foreground/60";
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
@@ -275,61 +268,21 @@ export function SeriesTable({ series }: { series: Serie[] }) {
           </TableBody>
         </Table>
 
-        <div className="flex flex-col items-center justify-between gap-3 border-t border-border/60 bg-muted px-4 py-2 text-[12px] text-muted-foreground sm:flex-row">
-          <div className="flex flex-wrap items-center gap-2">
-            <span>
-              Mostrando{" "}
-              <span className="font-mono font-semibold text-foreground">
-                {desde}–{hasta}
-              </span>{" "}
-              de <span className="font-mono font-semibold text-foreground">{total}</span> series
-            </span>
-            <span className="text-muted-foreground/40">·</span>
-            <SelectorPorPagina
-              valor={porPagina}
-              onCambio={(n) => {
-                setPorPagina(n);
-                setPagina(1);
-              }}
-            />
-            <span className="hidden text-muted-foreground/40 xl:inline">·</span>
-            <span className="hidden text-[11px] text-muted-foreground/80 xl:inline">Los correlativos se asignan de forma atómica y secuencial por cada emisión</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button type="button" disabled={!hayAnterior} onClick={() => setPagina(paginaActual - 1)} className={botonPagina}>
-              <ChevronLeftIcon className="size-3.5" /> Anterior
-            </button>
-            <div className="mx-1 flex items-center gap-0.5">
-              {paginasVisibles(paginaActual, ultimaPagina).map((p, i) =>
-                p === "…" ? (
-                  <span key={`sep-${i}`} className="px-1 text-[11px] text-muted-foreground/60">
-                    …
-                  </span>
-                ) : p === paginaActual ? (
-                  <span
-                    key={p}
-                    aria-current="page"
-                    className="flex size-7 items-center justify-center rounded-md bg-foreground font-mono text-[11px] font-medium text-background shadow-2xs"
-                  >
-                    {p}
-                  </span>
-                ) : (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPagina(p)}
-                    className="flex size-7 items-center justify-center rounded-md font-mono text-[11px] text-foreground/80 transition-colors hover:bg-secondary"
-                  >
-                    {p}
-                  </button>
-                ),
-              )}
-            </div>
-            <button type="button" disabled={!haySiguiente} onClick={() => setPagina(paginaActual + 1)} className={botonPagina}>
-              Siguiente <ChevronRightIcon className="size-3.5" />
-            </button>
-          </div>
-        </div>
+        <PieTabla
+          desde={desde}
+          hasta={hasta}
+          total={total}
+          unidad="series"
+          porPagina={porPagina}
+          onPorPagina={(n) => {
+            setPorPagina(n);
+            setPagina(1);
+          }}
+          nota="Los correlativos se asignan de forma atómica y secuencial por cada emisión"
+          pagina={paginaActual}
+          ultimaPagina={ultimaPagina}
+          onPagina={setPagina}
+        />
       </div>
     </div>
   );

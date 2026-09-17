@@ -52,6 +52,8 @@
   --color-accent-border: var(--accent-border);
   --color-primary-light: var(--primary-light);
   --color-overlay: var(--overlay);
+  --color-code: var(--code);
+  --color-code-foreground: var(--code-foreground);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -95,6 +97,9 @@
   --accent-border: rgba(199, 210, 254, 0.7);
   --primary-light: #6366f1;
   --overlay: rgba(15, 23, 42, 0.2);
+  /* Bloques de código: siempre oscuros, también en modo claro (contraste con el fondo de la tarjeta). */
+  --code: oklch(0.18 0.02 265);
+  --code-foreground: oklch(0.9 0.01 265);
   --brand: #4f46e5;
   --brand-foreground: #ffffff;
   --chart-1: #4f46e5;
@@ -145,6 +150,8 @@
   --accent-border: rgba(195, 192, 255, 0.3);
   --primary-light: #a29dff;
   --overlay: rgba(0, 0, 0, 0.5);
+  --code: oklch(0.14 0.02 265);
+  --code-foreground: oklch(0.9 0.01 265);
   --brand: #8b83ff;
   --brand-foreground: #0a0e1a;
   /* Marcas de gráfico en oscuro: pasos más saturados y menos claros que los semánticos (validados para CVD y contraste sobre #111827). */

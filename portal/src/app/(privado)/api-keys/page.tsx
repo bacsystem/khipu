@@ -4,16 +4,7 @@ import { listarApiKeys } from "@/lib/api/api-keys";
 import { formatearFechaHora } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
-
-function Metrica({ etiqueta, children, ayuda }: { etiqueta: string; children: React.ReactNode; ayuda: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="truncate text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{etiqueta}</span>
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-mono text-lg font-semibold tracking-tight text-foreground">{children}</div>
-      <div className="flex min-w-0 items-center gap-1 truncate text-[11px] text-muted-foreground">{ayuda}</div>
-    </div>
-  );
-}
+import { Metrica } from "@/components/ui/metrica";
 
 export default async function ApiKeysPage() {
   const { access, empresaId } = await getServerSession();

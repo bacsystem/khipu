@@ -1,8 +1,9 @@
 "use client";
 
-import { BookOpenIcon, CheckIcon, CopyIcon, TerminalSquareIcon } from "lucide-react";
+import { BookOpenIcon, TerminalSquareIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TARJETA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
@@ -88,28 +89,6 @@ print(datos["serie"], datos["numero"], datos["estado_documento"])  # F001 126 AC
   }
 }
 
-function BotonCopiarBloque({ texto }: { texto: string }) {
-  const [copiado, setCopiado] = useState(false);
-  return (
-    <button
-      type="button"
-      title="Copiar"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(texto);
-          setCopiado(true);
-          setTimeout(() => setCopiado(false), 1500);
-        } catch {
-          // el navegador puede denegar el portapapeles; el bloque sigue seleccionable
-        }
-      }}
-      className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-    >
-      {copiado ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
-    </button>
-  );
-}
-
 /** Ejemplo de emisión por API en varios lenguajes con la respuesta real del endpoint, como referencia en un modal. */
 export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: string; className?: string }) {
   const [abierto, setAbierto] = useState(false);
@@ -162,10 +141,10 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
                     </button>
                   ))}
                 </div>
-                <BotonCopiarBloque texto={codigo} />
+                <BotonCopiar texto={codigo} etiqueta className="h-7 px-2 text-[11px] font-medium" />
               </div>
 
-              <pre className="max-h-[52vh] overflow-auto bg-[oklch(0.18_0.02_265)] p-4 font-mono text-[12px] leading-relaxed text-[oklch(0.9_0.01_265)]">
+              <pre className="max-h-[52vh] overflow-auto bg-code p-4 font-mono text-[12px] leading-relaxed text-code-foreground">
                 <code>{codigo}</code>
               </pre>
 
