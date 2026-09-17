@@ -4,6 +4,7 @@ import { ChevronDownIcon, SaveIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -13,10 +14,6 @@ const TIPOS = [
   { codigo: "07", etiqueta: "07 · Nota de crédito (FC## / BC##)" },
   { codigo: "08", etiqueta: "08 · Nota de débito (FD## / BD##)" },
 ];
-
-const CAMPO = "h-10 w-full rounded-lg border border-border bg-muted px-3 text-sm text-foreground transition-colors outline-none focus:border-ring focus:bg-card focus:ring-3 focus:ring-ring/30";
-const ETIQUETA = "text-[12px] font-medium text-foreground";
-const AYUDA = "font-mono text-[11px] text-muted-foreground";
 
 export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => void; onCancelar?: () => void }) {
   const router = useRouter();
@@ -48,7 +45,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="tipo-serie" className={ETIQUETA}>
+        <label htmlFor="tipo-serie" className={ETIQUETA_CAMPO}>
           Tipo de comprobante
         </label>
         <div className="relative">
@@ -61,12 +58,12 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
           </select>
           <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
         </div>
-        <span className={AYUDA}>Catálogo SUNAT N.º 01</span>
+        <span className={AYUDA_CAMPO}>Catálogo SUNAT N.º 01</span>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="serie" className={ETIQUETA}>
+          <label htmlFor="serie" className={ETIQUETA_CAMPO}>
             Código de serie
           </label>
           <input
@@ -79,11 +76,11 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
             autoFocus
             className={cn(CAMPO, "font-mono uppercase")}
           />
-          <span className={AYUDA}>4 caracteres alfanuméricos</span>
+          <span className={AYUDA_CAMPO}>4 caracteres alfanuméricos</span>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="correlativo" className={ETIQUETA}>
+          <label htmlFor="correlativo" className={ETIQUETA_CAMPO}>
             Último número
           </label>
           <input
@@ -94,7 +91,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
             onChange={(e) => setCorrelativo(e.target.value)}
             className={cn(CAMPO, "font-mono")}
           />
-          <span className={AYUDA}>Base inicial (0 = nueva)</span>
+          <span className={AYUDA_CAMPO}>Base inicial (0 = nueva)</span>
         </div>
       </div>
 
@@ -103,7 +100,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
         title="Las series nuevas se crean activas; activar/desactivar: próximamente"
       >
         <input type="checkbox" checked disabled readOnly className="size-4 rounded border-input" />
-        <span className={ETIQUETA}>Activa</span>
+        <span className={ETIQUETA_CAMPO}>Activa</span>
       </label>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -113,7 +110,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
           <button
             type="button"
             onClick={onCancelar}
-            className="inline-flex h-10 items-center rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"
+            className={BOTON_SECUNDARIO}
           >
             Cancelar
           </button>
@@ -121,7 +118,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
         <button
           type="submit"
           disabled={enviando}
-          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-xs transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-60"
+          className={BOTON_PRIMARIO}
         >
           <SaveIcon className="size-4" />
           {enviando ? "Guardando…" : "Guardar serie"}
