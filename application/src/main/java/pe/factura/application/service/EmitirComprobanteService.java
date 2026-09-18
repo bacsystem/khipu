@@ -53,12 +53,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     @Override
     public Comprobante emitirNota(UUID tenantId, EmitirNotaCommand cmd) {
         Tenant tenant = tenantListo(tenantId, cmd.enviarAutomatico());
-        Comprobante factura = comprobantes.buscarPorNumero(tenantId, TipoDocumento.FACTURA, cmd.serieAfectada(), cmd.numeroAfectado())
-                .orElseThrow(() -> new DomainException("NOTA_INVALIDA", "2119 - La factura " + cmd.serieAfectada() + "-" + cmd.numeroAfectado() + " no existe en esta empresa"));
-        if (factura.estado() == EstadoDocumento.ANULADO)
-            throw new DomainException("NOTA_INVALIDA", "2120 - La factura " + factura.serie() + "-" + factura.numero() + " está anulada");
-        if (factura.estado() != EstadoDocumento.ACEPTADO && factura.estado() != EstadoDocumento.ACEPTADO_CON_OBS)
-            throw new DomainException("NOTA_INVALIDA", "2119 - La factura " + factura.serie() + "-" + factura.numero() + " no está aceptada por SUNAT (estado " + factura.estado() + ")");
+        Comprobante factura = facturaModificable(tenantId, cmd.serieAfectada(), cmd.numeroAfectado(), false);
         if (cmd.fechaEmision().isBefore(factura.fechaEmision()))
             throw new DomainException("NOTA_INVALIDA", "2885 - La fecha de la nota no puede ser anterior a la de la factura que modifica (" + factura.fechaEmision() + ")");
 
@@ -68,6 +63,9 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             if (!factura.formaPago().esCredito())
                 throw new DomainException("NOTA_INVALIDA", "3260 - El motivo 13 solo aplica a facturas al crédito y " + nota.documentoAfectado() + " es al contado");
             if (cmd.formaPago() != null) cmd.formaPago().validarComoCorreccionDe(factura.totales().total(), factura.fechaEmision());
+        } else if (cmd.formaPago() != null) {
+            // Fuera de la NC 13 nada valida la forma de pago contra la factura (3320/3321): aceptarla sacaría PaymentTerms sin control.
+            throw new DomainException("NOTA_INVALIDA", "forma_pago solo se admite en una nota de crédito con motivo 13 (corrección de cuotas)");
         }
         // Nota total: los mismos ítems, descuento y cargos de la factura; así SUNAT ve exactamente los importes que anula (3286 y afines).
         boolean copia = cmd.copiaLaFactura() && !nc13;
@@ -84,7 +82,19 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         Comprobante c = Comprobante.crearNota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), factura.moneda(), factura.tipoOperacion(), factura.receptor(),
                 copia ? factura.items() : cmd.items(), cmd.formaPago(), copia ? factura.descuentoGlobal() : cmd.descuentoGlobal(), copia ? factura.cargos() : cmd.cargos(), nota, clock);
         if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereALaFactura(c.totales(), factura);
-        return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> {});
+        // Con la factura bloqueada dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota.
+        return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> facturaModificable(tenantId, factura.serie(), factura.numero(), true));
+    }
+
+    /** Factura de la empresa aceptada por SUNAT y no anulada (2119/2120); {@code bloquear} la lee con lock de fila (solo dentro de una transacción). */
+    private Comprobante facturaModificable(UUID tenantId, String serie, long numero, boolean bloquear) {
+        Comprobante factura = (bloquear ? comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, serie, numero) : comprobantes.buscarPorNumero(tenantId, TipoDocumento.FACTURA, serie, numero))
+                .orElseThrow(() -> new DomainException("NOTA_INVALIDA", "2119 - La factura " + serie + "-" + numero + " no existe en esta empresa"));
+        if (factura.estado() == EstadoDocumento.ANULADO)
+            throw new DomainException("NOTA_INVALIDA", "2120 - La factura " + serie + "-" + numero + " está anulada");
+        if (factura.estado() != EstadoDocumento.ACEPTADO && factura.estado() != EstadoDocumento.ACEPTADO_CON_OBS)
+            throw new DomainException("NOTA_INVALIDA", "2119 - La factura " + serie + "-" + numero + " no está aceptada por SUNAT (estado " + factura.estado() + ")");
+        return factura;
     }
 
     private Tenant tenantListo(UUID tenantId, boolean enviarAutomatico) {

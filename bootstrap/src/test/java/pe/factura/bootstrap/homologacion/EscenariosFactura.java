@@ -28,7 +28,6 @@ final class EscenariosFactura {
      */
     static List<Escenario> todos(String serie, LocalDate fecha) {
         String cab = "\"serie\":\"" + serie + "\",\"fecha_emision\":\"" + fecha + "\"";
-        String notaCab = "\"serie\":\"" + serie + "\",\"fecha_emision\":\"" + fecha + "\"";
         return List.of(
             new Escenario("01-gravada", "Venta interna gravada al contado",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
@@ -97,18 +96,18 @@ final class EscenariosFactura {
                 "{\"descripcion\":\"Obra completa\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":3540.00,\"tipo_afectacion_igv\":\"10\"}]," +
                 "\"anticipos\":[{\"serie\":\"" + serie + "\",\"numero\":${ANTICIPO},\"monto\":1000.00}]}"),
             new Escenario("18-nc-total", "Nota de crédito total (01) sobre la factura gravada", NOTAS,
-                "{\"tipo\":\"07\"," + notaCab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${GRAVADA}}," +
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${GRAVADA}}," +
                 "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación por error en el pedido\"}"),
             new Escenario("19-nc-parcial", "Nota de crédito parcial (07, devolución por ítem) sobre la factura mixta", NOTAS,
-                "{\"tipo\":\"07\"," + notaCab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${MIXTA}}," +
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${MIXTA}}," +
                 "\"motivo\":\"07\",\"descripcion\":\"Devolución de una laptop\",\"items\":[" +
                 "{\"descripcion\":\"Laptop\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":2360.00,\"tipo_afectacion_igv\":\"10\"}]}"),
             new Escenario("20-nc-cuotas", "Nota de crédito 13 que reprograma las cuotas de la factura al crédito", NOTAS,
-                "{\"tipo\":\"07\"," + notaCab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${CREDITO}}," +
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${CREDITO}}," +
                 "\"motivo\":\"13\",\"descripcion\":\"Reprogramación de cuotas\"," +
                 "\"forma_pago\":{\"tipo\":\"credito\",\"monto_pendiente\":1180.00,\"cuotas\":[{\"monto\":1180.00,\"vencimiento\":\"" + fecha.plusDays(90) + "\"}]}}"),
             new Escenario("21-nd-interes", "Nota de débito por intereses de mora (01) sobre la factura gravada", NOTAS,
-                "{\"tipo\":\"08\"," + notaCab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${GRAVADA}}," +
+                "{\"tipo\":\"08\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${GRAVADA}}," +
                 "\"motivo\":\"01\",\"descripcion\":\"Intereses por mora de 30 días\",\"items\":[" +
                 "{\"descripcion\":\"Intereses por mora\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}")
         );

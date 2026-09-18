@@ -39,7 +39,8 @@ public class NotaController {
             por ítem `07`, descuento `04`/`05`, disminución `09`…): envíe los `items` que cubre, con el mismo formato que en la factura.
 
             **Nota de crédito 13** (corrección de cuotas): solo sobre facturas al crédito; envíe `forma_pago` al crédito con el
-            neto pendiente y las cuotas corregidas (reglas 3257, 3260, 3320, 3321); la nota sale con importe 0 (regla 3315).
+            neto pendiente y las cuotas corregidas (reglas 3257, 3260, 3320, 3321); la nota sale con importe 0 (regla 3315). En cualquier
+            otra nota `forma_pago` se rechaza.
 
             **Límites** (notas de crédito): el total y las bases por tributo no pueden superar los de la factura (reglas 3286, 3503).
 

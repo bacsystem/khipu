@@ -258,17 +258,17 @@ export const handlers = [
       ? [{ codigo: null, descripcion: body.descripcion, unidad: "ZZ", cantidad: 1, precio_unitario: 0, tipo_afectacion_igv: "10" }]
       : body.items?.length ? body.items.map((i) => ({ codigo: null, ...i })) : factura.items;
     const total = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0);
+    const id = nuevoId("n");
     const nota: Comprobante = {
-      id: nuevoId("n"), tipo: body.tipo, serie: body.serie, numero: serie.ultimo_numero, fecha_emision: body.fecha_emision, moneda: factura.moneda,
+      id, tipo: body.tipo, serie: body.serie, numero: serie.ultimo_numero, fecha_emision: body.fecha_emision, moneda: factura.moneda,
       tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items, estado_documento: "ACEPTADO", hash: "hashnota==",
       nombre_archivo: `20123456789-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
       totales: { gravado: Number((total / 1.18).toFixed(2)), exonerado: 0, inafecto: 0, igv: Number((total - total / 1.18).toFixed(2)), total: Number(total.toFixed(2)) },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       nota: { tipo_afectado: "01", documento_afectado: `${factura.serie}-${factura.numero}`, motivo: body.motivo, motivo_descripcion: motivos[body.motivo] ?? "Otros", descripcion: body.descripcion },
-      enlaces: { xml: `/v1/facturas/x/xml`, cdr: `/v1/facturas/x/cdr` },
+      enlaces: { xml: `/v1/facturas/${id}/xml`, cdr: `/v1/facturas/${id}/cdr` },
     };
-    nota.enlaces = { xml: `/v1/facturas/${nota.id}/xml`, cdr: `/v1/facturas/${nota.id}/cdr` };
     lista.unshift(nota);
     return ok(nota, 201);
   }),

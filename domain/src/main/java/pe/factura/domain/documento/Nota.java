@@ -29,17 +29,19 @@ public record Nota(TipoDocumento tipoAfectado, String serieAfectada, long numero
     /** Serie-número del comprobante modificado, tal como va en cbc:ReferenceID y cac:BillingReference. */
     public String documentoAfectado() { return serieAfectada + "-" + numeroAfectado; }
 
+    /** Catálogo SUNAT del motivo según el tipo de nota: 09 para la nota de crédito, 10 para la de débito. */
+    public static String catalogoMotivo(TipoDocumento tipoNota) { return tipoNota == TipoDocumento.NOTA_CREDITO ? "09" : "10"; }
+
     /** Regla 2172: el motivo debe existir en el catálogo 09 (NC) o 10 (ND) según el tipo de nota. */
     void validarMotivoPara(TipoDocumento tipoNota) {
-        String catalogo = tipoNota == TipoDocumento.NOTA_CREDITO ? "09" : "10";
+        String catalogo = catalogoMotivo(tipoNota);
         if (CatalogoSunat.porId(catalogo).flatMap(c -> c.entrada(motivo)).isEmpty())
             throw new DomainException("NOTA_INVALIDA", "2172 - El motivo " + motivo + " no existe en el catálogo " + catalogo + " (" + tipoNota + ")");
     }
 
     /** Descripción oficial del motivo (catálogo 09/10) para respuestas y representación impresa. */
     public String descripcionMotivo(TipoDocumento tipoNota) {
-        String catalogo = tipoNota == TipoDocumento.NOTA_CREDITO ? "09" : "10";
-        return CatalogoSunat.porId(catalogo).flatMap(c -> c.entrada(motivo)).map(CatalogoSunat.Entrada::descripcion).orElse(motivo);
+        return CatalogoSunat.porId(catalogoMotivo(tipoNota)).flatMap(c -> c.entrada(motivo)).map(CatalogoSunat.Entrada::descripcion).orElse(motivo);
     }
 
     /** Solo la nota de crédito 13 corrige cuotas; en la nota de débito el 13 es "Penalidades" (catálogo 10) y lleva ítems como cualquier otra. */

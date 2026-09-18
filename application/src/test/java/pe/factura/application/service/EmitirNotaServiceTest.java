@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.in.EmitirNotaCommand;
 import pe.factura.application.port.out.FirmaResultado;
+import pe.factura.application.port.out.UnitOfWork;
 import pe.factura.application.port.out.UblGenerator;
 import pe.factura.application.port.out.XmlSigner;
 import pe.factura.application.port.out.XsdValidator;
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -162,6 +164,38 @@ class EmitirNotaServiceTest {
                 null, Descuento.monto(new BigDecimal("5.00"), true), List.of(), null, false))).hasMessageContaining("descuento_global y cargos solo se admiten junto con items");
         assertThatThrownBy(() -> service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "x",
                 null, null, List.of(Cargo.global(false, null, Cargo.Tipo.MONTO, new BigDecimal("5.00"))), null, false))).hasMessageContaining("solo se admiten junto con items");
+    }
+
+    @Test void laFormaDePagoSoloSeAdmiteEnLaNotaDeCredito13() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        FormaPago credito = FormaPago.credito(new BigDecimal("100.00"), List.of(new FormaPago.Cuota(new BigDecimal("100.00"), LocalDate.of(2026, 12, 10))));
+        // NC 01 con forma_pago: se rechaza en vez de salir con PaymentTerms Credito sin validar contra la factura.
+        assertThatThrownBy(() -> service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "x",
+                null, null, List.of(), credito, false))).extracting("codigo").isEqualTo("NOTA_INVALIDA");
+        // ND con forma_pago: ídem.
+        assertThatThrownBy(() -> service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_DEBITO, "FD01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "x",
+                List.of(new Item("I", "Interés", "ZZ", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)), null, List.of(), credito, false)))
+                .hasMessageContaining("forma_pago solo se admite");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
+    }
+
+    @Test void laFacturaAnuladaEntreLaLecturaYLaTransaccionNoRecibeNota() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        // Simula una baja concurrente: la factura pasa a ANULADO justo antes de abrir la transacción de emisión.
+        UnitOfWork uowConBaja = new UnitOfWork() {
+            public <T> T ejecutar(Supplier<T> w) { anular(f); return w.get(); }
+            public void ejecutar(Runnable w) { w.run(); }
+        };
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
+        EmitirComprobanteService conCarrera = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uowConBaja, Fakes.CLOCK);
+        assertThatThrownBy(() -> conCarrera.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("2120");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
+    }
+
+    private void anular(Comprobante f) {
+        comprobantes.guardar(Comprobante.rehidratar(f.id(), tenantId, f.tipo(), f.serie(), f.numero(), f.fechaEmision(), f.horaEmision(), f.fechaVencimiento(), f.moneda(), f.tipoOperacion(),
+                f.receptor(), f.items(), f.formaPago(), f.descuentoGlobal(), f.cargos(), f.detraccion(), f.retencion(), f.percepcion(), f.anticipos(), f.referencias(), null, f.nota(),
+                EstadoDocumento.ANULADO, f.hash(), f.nombreArchivo(), f.xmlKey(), f.cdrKey(), f.cdr(), f.intentos(), f.ultimoError()));
     }
 
     @Test void sinSerieDeNotaConfigurada() {

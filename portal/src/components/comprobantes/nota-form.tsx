@@ -9,7 +9,7 @@ import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { formatearMonto, formatearNumero } from "@/lib/formato";
+import { formatearMonto, formatearNumero, hoyLima } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -82,7 +82,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     const body: Record<string, unknown> = {
       tipo,
       serie,
-      fecha_emision: new Date().toLocaleDateString("sv-SE", { timeZone: "America/Lima" }),
+      fecha_emision: hoyLima(),
       documento_afectado: { serie: factura.serie, numero: factura.numero },
       motivo,
       descripcion: descripcion.trim(),

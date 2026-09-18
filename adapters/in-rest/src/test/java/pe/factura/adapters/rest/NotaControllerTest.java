@@ -82,13 +82,14 @@ class NotaControllerTest {
         when(emitir.emitirNota(eq(tenant), any())).thenReturn(notaAceptada(tenant));
         String parcial = CUERPO.replace("\"motivo\":\"01\"", "\"motivo\":\"07\"").replace("}\n", ",\"items\":[{\"descripcion\":\"Devuelto\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}\n");
         mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(parcial)).andExpect(status().isCreated());
-        String debito = CUERPO.replace("\"tipo\":\"07\"", "\"tipo\":\"08\"").replace("\"serie\":\"FC01\"", "\"serie\":\"FD01\"").replace("\"enviar_automatico\":true", "");
+        String debito = CUERPO.replace("\"tipo\":\"07\"", "\"tipo\":\"08\"").replace("\"serie\":\"FC01\"", "\"serie\":\"FD01\"");
         mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(debito)).andExpect(status().isCreated());
         ArgumentCaptor<EmitirNotaCommand> cap = ArgumentCaptor.forClass(EmitirNotaCommand.class);
         verify(emitir, org.mockito.Mockito.times(2)).emitirNota(eq(tenant), cap.capture());
         assertThat(cap.getAllValues().get(0).copiaLaFactura()).isFalse();
         assertThat(cap.getAllValues().get(0).items()).hasSize(1);
         assertThat(cap.getAllValues().get(1).tipo()).isEqualTo(TipoDocumento.NOTA_DEBITO);
+        assertThat(cap.getAllValues().get(1).enviarAutomatico()).as("sin enviar_automatico en el cuerpo se envía por defecto").isTrue();
     }
 
     @Test void reglaDeNegocioEs422ConCodigoSunat() throws Exception {
