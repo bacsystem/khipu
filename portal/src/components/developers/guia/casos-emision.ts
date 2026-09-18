@@ -205,18 +205,25 @@ X-Api-Key: fk_TU_API_KEY`,
   {
     id: "gratuitas",
     titulo: "Bonificaciones y muestras (operaciones gratuitas)",
-    cuando: "Entrega bienes o servicios sin cobrar: bonificación por volumen, muestras, publicidad, retiro para trabajadores.",
+    cuando: "Entrega bienes o servicios sin cobrar: bonificación por volumen, muestras, publicidad, retiro para trabajadores. SUNAT exige informarlas con su valor referencial y, si son gravadas, con el IGV que habrían generado.",
     request: `{
-  "...": "campos habituales",
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  ${CLIENTE},
   "items": [
-    { "descripcion": "Producto bonificado", "unidad": "NIU", "cantidad": 5, "precio_unitario": 59.00, "tipo_afectacion_igv": "15" }
+    { "descripcion": "Caja de 12 unidades", "unidad": "NIU", "cantidad": 10, "precio_unitario": 59.00, "tipo_afectacion_igv": "10" },
+    { "descripcion": "Caja de 12 unidades – bonificación 10+1", "unidad": "NIU", "cantidad": 1, "precio_unitario": 50.00, "tipo_afectacion_igv": "15" },
+    { "descripcion": "Muestra médica", "unidad": "NIU", "cantidad": 3, "precio_unitario": 8.00, "tipo_afectacion_igv": "33" }
   ]
 }`,
     notas: [
-      "Afectaciones gratuitas del catálogo 07: `11`–`17` (gravadas), `21` (exonerada), `31`–`37` (inafectas). El `precio_unitario` es el **valor referencial** (`PriceTypeCode 02`); no suma al total a pagar.",
-      "khipu añade la leyenda 1002 obligatoria y el IGV de gratuitas (tributo 9996) fuera del total.",
+      "Afectaciones gratuitas del catálogo 07: `11`–`16` (gravadas: retiro por premio, donación, retiro, publicidad, bonificación, entrega a trabajadores), `21` (exonerada) y `31`–`37` (inafectas). En estas líneas `precio_unitario` es el **valor referencial sin IGV**, no un precio de venta.",
+      "La línea no suma al importe a pagar: la respuesta trae `gratuita: true`, `precio_venta: 0.00` y, en gravadas, el `igv` informativo. En `totales`, `gratuito` e `igv_gratuitas` van aparte de `total`.",
+      "En el XML: `PriceTypeCode 02` (valor referencial), `Price/PriceAmount 0`, tributo `9996` (GRA) por línea y en un subtotal global propio, y la leyenda `1002` obligatoria. Reglas 2640, 3110, 3111, 3224, 3234, 3276, 3302.",
+      "Una factura solo con gratuitas tiene `total` 0.00. No se soportan `17` (IVAP, arroz pilado) ni `40` (exportación).",
     ],
-    disponible: false,
+    disponible: true,
   },
   {
     id: "detraccion",

@@ -37,8 +37,8 @@ class TotalesTest {
         Totales t = Totales.calcular(List.of(
                 item("100.00", "1", TipoAfectacionIgv.INAFECTO),
                 item("118.00", "2", TipoAfectacionIgv.GRAVADO)));
-        assertThat(t.subtotales()).extracting(Totales.SubtotalTributo::afectacion)
-                .containsExactly(TipoAfectacionIgv.GRAVADO, TipoAfectacionIgv.INAFECTO);   // orden de catálogo, sin exonerado
+        assertThat(t.subtotales()).extracting(Totales.SubtotalTributo::tributo)
+                .containsExactly(Tributo.IGV, Tributo.INA);   // orden de catálogo, sin exonerado
         assertThat(t.subtotales().get(0).base()).isEqualByComparingTo(t.gravado());
         assertThat(t.subtotales().get(0).impuesto()).isEqualByComparingTo(t.igv());
         assertThat(t.subtotales().get(1).base()).isEqualByComparingTo(t.inafecto());

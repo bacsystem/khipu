@@ -2,13 +2,13 @@
 <#setting number_format="0.00">
 <#setting locale="en_US">
 <#-- Categoría (catálogo 05, UN/ECE 5305) y tributo (UN/ECE 5153) de una afectación: mismo bloque en los subtotales globales y en cada línea. -->
-<#macro categoriaTributo af>
-<cbc:ID schemeID="UN/ECE 5305" schemeName="Tax Category Identifier" schemeAgencyName="United Nations Economic Commission for Europe">${af.categoria()}</cbc:ID>
+<#macro categoriaTributo tr>
+<cbc:ID schemeID="UN/ECE 5305" schemeName="Tax Category Identifier" schemeAgencyName="United Nations Economic Commission for Europe">${tr.categoria()}</cbc:ID>
 <#nested>
 <cac:TaxScheme>
-  <cbc:ID schemeID="UN/ECE 5153" schemeName="Tax Scheme Identifier" schemeAgencyName="United Nations Economic Commission for Europe">${af.tributoId()}</cbc:ID>
-  <cbc:Name>${af.tributoNombre()}</cbc:Name>
-  <cbc:TaxTypeCode>${af.tributoTipo()}</cbc:TaxTypeCode>
+  <cbc:ID schemeID="UN/ECE 5153" schemeName="Tax Scheme Identifier" schemeAgencyName="United Nations Economic Commission for Europe">${tr.codigo()}</cbc:ID>
+  <cbc:Name>${tr.nombre()}</cbc:Name>
+  <cbc:TaxTypeCode>${tr.tipoInternacional()}</cbc:TaxTypeCode>
 </cac:TaxScheme>
 </#macro>
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -28,6 +28,9 @@
   <cbc:IssueDate>${fechaEmision}</cbc:IssueDate>
   <cbc:InvoiceTypeCode listID="${c.tipoOperacion()}" listAgencyName="PE:SUNAT" listName="Tipo de Documento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01">${c.tipo().codigo()}</cbc:InvoiceTypeCode>
   <cbc:Note languageLocaleID="1000">${montoEnLetras}</cbc:Note>
+  <#if tot.tieneGratuitas()>
+  <cbc:Note languageLocaleID="1002">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</cbc:Note>
+  </#if>
   <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">${c.moneda()}</cbc:DocumentCurrencyCode>
   <cac:Signature>
     <cbc:ID>signatureFACTURA</cbc:ID>
@@ -97,7 +100,7 @@
       <cbc:TaxableAmount currencyID="${c.moneda()}">${st.base()}</cbc:TaxableAmount>
       <cbc:TaxAmount currencyID="${c.moneda()}">${st.impuesto()}</cbc:TaxAmount>
       <cac:TaxCategory>
-        <@categoriaTributo af=st.afectacion()/>
+        <@categoriaTributo tr=st.tributo()/>
       </cac:TaxCategory>
     </cac:TaxSubtotal>
     </#list>
@@ -118,7 +121,7 @@
     <cac:PricingReference>
       <cac:AlternativeConditionPrice>
         <cbc:PriceAmount currencyID="${c.moneda()}">${it.precioVentaUnitario()?string["0.0000000000"]}</cbc:PriceAmount>
-        <cbc:PriceTypeCode listName="Tipo de Precio" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16">01</cbc:PriceTypeCode>
+        <cbc:PriceTypeCode listName="Tipo de Precio" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16">${it.tipoPrecio()}</cbc:PriceTypeCode>
       </cac:AlternativeConditionPrice>
     </cac:PricingReference>
     <#if it.item().tieneDescuento()>
@@ -136,7 +139,7 @@
         <cbc:TaxableAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:TaxableAmount>
         <cbc:TaxAmount currencyID="${c.moneda()}">${it.igv()}</cbc:TaxAmount>
         <cac:TaxCategory>
-          <@categoriaTributo af=it.item().afectacion()>
+          <@categoriaTributo tr=it.tributo()>
           <cbc:Percent>${it.porcentajeIgv()}</cbc:Percent>
           <cbc:TaxExemptionReasonCode listAgencyName="PE:SUNAT" listName="Afectacion del IGV" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo07">${it.item().afectacion().codigo()}</cbc:TaxExemptionReasonCode>
           </@categoriaTributo>

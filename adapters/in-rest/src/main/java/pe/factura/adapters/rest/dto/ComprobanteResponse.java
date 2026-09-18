@@ -66,10 +66,11 @@ public record ComprobanteResponse(
             @Schema(example = "ZZ") String unidad,
             @Schema(example = "1.00") BigDecimal cantidad,
             @Schema(example = "2000.00") BigDecimal precioUnitario,
-            @Schema(example = "10", description = "Catálogo 07 SUNAT: 10=gravado, 20=exonerado, 30=inafecto") String tipoAfectacionIgv,
-            @Schema(example = "1000.00", description = "Valor de venta de la línea sin IGV, neto de descuento que afecta la base") BigDecimal valorVenta,
-            @Schema(example = "180.00") BigDecimal igv,
-            @Schema(example = "1180.00", description = "Precio de venta de la línea: valor de venta + IGV − descuento que no afecta la base (01)") BigDecimal precioVenta,
+            @Schema(example = "10", description = "Afectación del IGV, catálogo 07: `10` gravado, `20` exonerado, `30` inafecto; gratuitas `11`–`16` (gravadas), `21` (exonerada), `31`–`37` (inafectas)") String tipoAfectacionIgv,
+            @Schema(example = "1000.00", description = "Valor de venta de la línea sin IGV, neto de descuento que afecta la base (en gratuitas, el valor referencial)") BigDecimal valorVenta,
+            @Schema(example = "180.00", description = "IGV de la línea; en gratuitas gravadas se informa pero no se cobra") BigDecimal igv,
+            @Schema(example = "1180.00", description = "Lo que paga el cliente por la línea (0.00 en gratuitas)") BigDecimal precioVenta,
+            @Schema(example = "false", description = "true si la afectación es gratuita (11–16, 21, 31–37)") boolean gratuita,
             DescuentoDto descuento) {}
 
     public record CdrDto(
@@ -82,7 +83,9 @@ public record ComprobanteResponse(
             @Schema(example = "0.00") BigDecimal exonerado,
             @Schema(example = "0.00") BigDecimal inafecto,
             @Schema(example = "180.00") BigDecimal igv,
-            @Schema(example = "1000.00", description = "Total valor de venta (suma de bases, LineExtensionAmount)") BigDecimal totalValorVenta,
+            @Schema(example = "0.00", description = "Base de las operaciones gratuitas (tributo 9996): no se cobra") BigDecimal gratuito,
+            @Schema(example = "0.00", description = "IGV de las operaciones gratuitas gravadas: solo informativo, no se cobra") BigDecimal igvGratuitas,
+            @Schema(example = "1000.00", description = "Total valor de venta onerosa (suma de bases, LineExtensionAmount)") BigDecimal totalValorVenta,
             @Schema(example = "1180.00", description = "Total precio de venta = valor de venta + tributos (TaxInclusiveAmount)") BigDecimal totalPrecioVenta,
             @Schema(example = "0.00", description = "Descuentos que no afectan la base (línea 01 + global 03), AllowanceTotalAmount") BigDecimal totalDescuentos,
             @Schema(example = "1180.00", description = "Importe a pagar (PayableAmount)") BigDecimal total,
@@ -95,7 +98,7 @@ public record ComprobanteResponse(
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),
                 new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(),
-                        c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().total(),
+                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().total(),
                         c.totales().descuentoGlobal() == null ? null : new DescuentoDto(c.totales().descuentoGlobal().descuento().tipo().name(),
                                 c.totales().descuentoGlobal().descuento().valor(), c.totales().descuentoGlobal().monto(),
                                 c.totales().descuentoGlobal().afectaBase(), c.totales().descuentoGlobal().codigo())),
@@ -117,6 +120,6 @@ public record ComprobanteResponse(
         DescuentoDto d = i.tieneDescuento()
                 ? new DescuentoDto(i.descuento().tipo().name(), i.descuento().valor(), ic.descuento(), i.descuento().afectaBaseIgv(), i.descuento().codigoSunat(false))
                 : null;
-        return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), d);
+        return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), ic.gratuita(), d);
     }
 }

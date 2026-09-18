@@ -42,8 +42,9 @@ export type ItemComprobante = {
   /** Valor de venta sin IGV neto de descuento que afecta la base; ausente en backends anteriores. */
   valor_venta?: number;
   igv?: number;
-  /** valor_venta + igv − descuento que no afecta la base (01). */
+  /** Lo que paga el cliente por la línea (0 en gratuitas). */
   precio_venta?: number;
+  gratuita?: boolean;
   descuento?: DescuentoAplicado | null;
 };
 
@@ -55,10 +56,25 @@ export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
   "0": "Sin documento",
 };
 
+/** Catálogo 07 (afectación del IGV) con las etiquetas cortas que muestra el portal; los códigos gratuitos no se cobran. */
 export const ETIQUETAS_AFECTACION: Record<string, string> = {
   "10": "Gravado · Op. onerosa",
+  "11": "Gravado · Retiro por premio (gratuita)",
+  "12": "Gravado · Retiro por donación (gratuita)",
+  "13": "Gravado · Retiro (gratuita)",
+  "14": "Gravado · Retiro por publicidad (gratuita)",
+  "15": "Gravado · Bonificación (gratuita)",
+  "16": "Gravado · Retiro a trabajadores (gratuita)",
   "20": "Exonerado · Op. onerosa",
+  "21": "Exonerado · Transferencia gratuita",
   "30": "Inafecto · Op. onerosa",
+  "31": "Inafecto · Retiro por bonificación (gratuita)",
+  "32": "Inafecto · Retiro (gratuita)",
+  "33": "Inafecto · Muestras médicas (gratuita)",
+  "34": "Inafecto · Convenio colectivo (gratuita)",
+  "35": "Inafecto · Retiro por premio (gratuita)",
+  "36": "Inafecto · Retiro por publicidad (gratuita)",
+  "37": "Inafecto · Transferencia gratuita",
 };
 
 /** Forma de pago (RS 193-2020): al contado, o al crédito con el neto pendiente y sus cuotas (`id` = Cuota001…). */
@@ -95,6 +111,8 @@ export type Comprobante = {
     total_valor_venta?: number;
     total_precio_venta?: number;
     total_descuentos?: number;
+    gratuito?: number;
+    igv_gratuitas?: number;
     descuento_global?: DescuentoAplicado | null;
   };
   forma_pago: FormaPago;
