@@ -25,6 +25,16 @@ class CatalogoControllerTest {
                 .andExpect(jsonPath("$.datos.entradas[0].extra['Codigo de tributo']").value("1000"));
     }
 
+    @Test void indiceCompletoTraeLasEntradasEnUnaLlamada() throws Exception {
+        mvc.perform(get("/v1/catalogos"))
+                .andExpect(jsonPath("$.datos[?(@.id=='07')].entradas").value(19))
+                .andExpect(jsonPath("$.datos[?(@.id=='07')].columnas").doesNotExist());
+        mvc.perform(get("/v1/catalogos").param("completo", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos[?(@.id=='07')].columnas[2]").value("Codigo de tributo"))
+                .andExpect(jsonPath("$.datos[?(@.id=='07')].entradas[0].codigo").value("10"));
+    }
+
     @Test void catalogoInexistenteEs404() throws Exception {
         mvc.perform(get("/v1/catalogos/99"))
                 .andExpect(status().isNotFound())
