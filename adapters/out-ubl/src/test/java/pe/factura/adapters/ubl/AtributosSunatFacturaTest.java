@@ -134,7 +134,7 @@ class AtributosSunatFacturaTest {
         assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeAgencyName")).isEqualTo(UNECE);
     }
 
-    /** Solo aparecen los subtotales con base > 0, en el orden del catálogo, y el impuesto global es la suma de las líneas gravadas. */
+    /** La plantilla pinta un TaxSubtotal por cada Totales.subtotales() (la regla de qué subtotales existen se prueba en el dominio). */
     @Test void subtotalesGlobalesSoloConBase() throws Exception {
         Document d = documento();
         assertThat(valor(d, "count(/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal)")).isEqualTo("3");
@@ -143,13 +143,6 @@ class AtributosSunatFacturaTest {
         assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[1]/cbc:TaxAmount")).isEqualTo("18.00");
         assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[2]/cbc:TaxAmount")).isEqualTo("0.00");
         assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("18.00");
-
-        Comprobante soloGravado = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FreemarkerUblGeneratorTest.CLOCK);
-        soloGravado.asignarNumero(8, "20100066603");
-        assertThat(soloGravado.totales().subtotales()).extracting(t -> t.afectacion()).containsExactly(TipoAfectacionIgv.GRAVADO);
     }
 
     @Test void sigueValidandoContraElXsdOficial() {
