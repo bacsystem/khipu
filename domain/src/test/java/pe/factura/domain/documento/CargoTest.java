@@ -121,6 +121,8 @@ class CargoTest {
         assertThat(recargo.motivo()).contains(Cargo.Motivo.RECARGO_CONSUMO);
         assertThat(recargo.afectaBaseIgv()).isFalse();
         assertThat(Cargo.monto("50", BigDecimal.ONE).motivo()).isEmpty();
+        assertThat(Cargo.Motivo.porNombre("recargo_consumo")).isEqualTo(Cargo.Motivo.RECARGO_CONSUMO);
+        assertThat(Cargo.Motivo.RECARGO_CONSUMO.nombre()).isEqualTo("recargo_consumo");
     }
 
     /** Cada regla SUNAT que rechaza un cargo, con el código que debe llevar el mensaje. */
@@ -147,6 +149,7 @@ class CargoTest {
                 Arguments.of("código de línea en global", "4291", (ThrowingCallable) () -> Totales.calcular(List.of(gravado), null, List.of(Cargo.monto("47", BigDecimal.ONE)), List.of(), BigDecimal.ZERO)),
                 Arguments.of("49 sin ítems gravados", "gravados", (ThrowingCallable) () -> Totales.calcular(List.of(exonerado), null, List.of(Cargo.monto("49", BigDecimal.ONE)), List.of(), BigDecimal.ZERO)),
                 Arguments.of("recargo al consumo que afecta la base", "no afecta la base", (ThrowingCallable) () -> Cargo.global(true, Cargo.Motivo.RECARGO_CONSUMO, Cargo.Tipo.MONTO, BigDecimal.ONE)),
+                Arguments.of("motivo desconocido", "admitidos: recargo_consumo", (ThrowingCallable) () -> Cargo.Motivo.porNombre("fise")),
                 Arguments.of("cargo en una gratuita", "gratuita", (ThrowingCallable) () -> ItemCalculado.de(new Item("G", "Gratis", "NIU", BigDecimal.ONE, new BigDecimal("50.00"),
                         TipoAfectacionIgv.porCodigo("11"), null, null, false, List.of(Cargo.monto("48", BigDecimal.ONE))))));
     }
