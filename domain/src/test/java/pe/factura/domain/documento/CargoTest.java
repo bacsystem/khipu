@@ -1,10 +1,15 @@
 package pe.factura.domain.documento;
 
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import pe.factura.domain.DomainException;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -106,23 +111,30 @@ class CargoTest {
         assertThat(t.total()).isEqualByComparingTo("69.00");
     }
 
-    @Test void validaciones() {
-        assertThatThrownBy(() -> Cargo.monto("45", BigDecimal.ONE)).isInstanceOf(DomainException.class).hasMessageContaining("2954");   // FISE no soportado
-        assertThatThrownBy(() -> Cargo.monto("00", BigDecimal.ONE)).hasMessageContaining("2954");
-        assertThatThrownBy(() -> Cargo.monto("47", BigDecimal.ZERO)).hasMessageContaining("2955");
-        assertThatThrownBy(() -> Cargo.monto("47", new BigDecimal("1.005"))).hasMessageContaining("2955");
-        assertThatThrownBy(() -> Cargo.porcentaje("47", new BigDecimal("1000"))).hasMessageContaining("3052");
-        assertThatThrownBy(() -> Cargo.porcentaje("47", new BigDecimal("0.000001"))).hasMessageContaining("2955");
-        // Un cargo de porcentaje ínfimo sobre una base pequeña redondea a 0.00: SUNAT rechaza Amount = 0.
-        assertThatThrownBy(() -> ItemCalculado.de(gravado("1.18", "1", Cargo.porcentaje("48", new BigDecimal("0.1"))))).hasMessageContaining("2955");
-        // Nivel equivocado (4268 / 4291).
-        assertThatThrownBy(() -> gravado("118.00", "1", Cargo.monto("50", BigDecimal.ONE))).extracting("codigo").isEqualTo("CARGO_INVALIDO");
-        assertThatThrownBy(() -> Totales.calcular(List.of(gravado("118.00", "1")), null, List.of(Cargo.monto("47", BigDecimal.ONE)), List.of(), BigDecimal.ZERO))
-                .hasMessageContaining("4291");
-        // 49 exige base gravada; una gratuita no admite cargos.
-        assertThatThrownBy(() -> Totales.calcular(List.of(new Item("E", "Exo", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)),
-                null, List.of(Cargo.monto("49", BigDecimal.ONE)), List.of(), BigDecimal.ZERO)).hasMessageContaining("gravados");
-        assertThatThrownBy(() -> ItemCalculado.de(new Item("G", "Gratis", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.porCodigo("11"), null, null, false,
-                List.of(Cargo.monto("48", BigDecimal.ONE))))).hasMessageContaining("gratuita");
+    /** Cada regla SUNAT que rechaza un cargo, con el código que debe llevar el mensaje. */
+    @ParameterizedTest(name = "{0} → {1}")
+    @MethodSource("cargosInvalidos")
+    void validaciones(String caso, String reglaEsperada, ThrowingCallable accion) {
+        assertThatThrownBy(accion).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CARGO_INVALIDO");
+        assertThatThrownBy(accion).hasMessageContaining(reglaEsperada);
+    }
+
+    static Stream<Arguments> cargosInvalidos() {
+        Item gravado = gravado("118.00", "1");
+        Item exonerado = new Item("E", "Exo", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO);
+        return Stream.of(
+                Arguments.of("FISE (45) no soportado", "2954", (ThrowingCallable) () -> Cargo.monto("45", BigDecimal.ONE)),
+                Arguments.of("código de descuento", "2954", (ThrowingCallable) () -> Cargo.monto("00", BigDecimal.ONE)),
+                Arguments.of("monto cero", "2955", (ThrowingCallable) () -> Cargo.monto("47", BigDecimal.ZERO)),
+                Arguments.of("monto con 3 decimales", "2955", (ThrowingCallable) () -> Cargo.monto("47", new BigDecimal("1.005"))),
+                Arguments.of("porcentaje de 4 enteros", "3052", (ThrowingCallable) () -> Cargo.porcentaje("47", new BigDecimal("1000"))),
+                Arguments.of("porcentaje con 6 decimales", "2955", (ThrowingCallable) () -> Cargo.porcentaje("47", new BigDecimal("0.000001"))),
+                // Un porcentaje ínfimo sobre una base pequeña redondea a 0.00: SUNAT rechaza Amount = 0.
+                Arguments.of("porcentaje que redondea a 0.00", "2955", (ThrowingCallable) () -> ItemCalculado.de(gravado("1.18", "1", Cargo.porcentaje("48", new BigDecimal("0.1"))))),
+                Arguments.of("código global en una línea", "4268", (ThrowingCallable) () -> gravado("118.00", "1", Cargo.monto("50", BigDecimal.ONE))),
+                Arguments.of("código de línea en global", "4291", (ThrowingCallable) () -> Totales.calcular(List.of(gravado), null, List.of(Cargo.monto("47", BigDecimal.ONE)), List.of(), BigDecimal.ZERO)),
+                Arguments.of("49 sin ítems gravados", "gravados", (ThrowingCallable) () -> Totales.calcular(List.of(exonerado), null, List.of(Cargo.monto("49", BigDecimal.ONE)), List.of(), BigDecimal.ZERO)),
+                Arguments.of("cargo en una gratuita", "gratuita", (ThrowingCallable) () -> ItemCalculado.de(new Item("G", "Gratis", "NIU", BigDecimal.ONE, new BigDecimal("50.00"),
+                        TipoAfectacionIgv.porCodigo("11"), null, null, false, List.of(Cargo.monto("48", BigDecimal.ONE))))));
     }
 }
