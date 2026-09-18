@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { ApiReference } from "./api-reference";
-import { DevelopersHeader } from "./developers-header";
 import { GenerarKeyPrueba } from "./generar-key-prueba";
 
 export function DevelopersView({
@@ -18,7 +17,6 @@ export function DevelopersView({
 
   return (
     <div>
-      <DevelopersHeader autenticado={mostrarGenerarKey} />
       {mostrarGenerarKey ? (
         <div className="mx-auto max-w-2xl px-6 pt-6">
           <GenerarKeyPrueba onGenerada={setApiKey} />

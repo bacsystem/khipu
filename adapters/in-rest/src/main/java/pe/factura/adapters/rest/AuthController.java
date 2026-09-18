@@ -1,5 +1,7 @@
 package pe.factura.adapters.rest;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +14,9 @@ import pe.factura.application.port.in.AutenticarUsuarioUseCase;
 /** Endpoints de autenticación del portal (JWT). Los de registro/login/refresh/recuperar/restablecer son públicos. */
 @RestController
 @RequestMapping("/v1/auth")
+@Tag(name = "Autenticación (portal)", description = """
+        Flujo de sesión del portal web: registro, login con tokens JWT (acceso corto + refresh rotativo), recuperación de
+        contraseña por correo. **Los integradores no usan estas rutas**: autentican cada petición con `X-Api-Key`.""")
 public class AuthController {
     private final AutenticarUsuarioUseCase auth;
     private final String portalUrl;
@@ -22,40 +27,47 @@ public class AuthController {
     }
 
     @PostMapping("/registro")
+    @Operation(summary = "Registrar una cuenta", description = "Crea la cuenta del portal y devuelve los tokens de sesión.")
     public ResponseEntity<ApiResponse<TokensResponse>> registrar(@Valid @RequestBody RegistroRequest body) {
         var tokens = auth.registrar(body.nombre(), body.email(), body.password());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(TokensResponse.de(tokens)));
     }
 
     @PostMapping("/login")
+    @Operation(summary = "Iniciar sesión", description = "Devuelve `access_token` (corta duración) y `refresh_token` (rotativo: cada refresh invalida el anterior).")
     public ApiResponse<TokensResponse> login(@Valid @RequestBody LoginRequest body) {
         return ApiResponse.ok(TokensResponse.de(auth.login(body.email(), body.password())));
     }
 
     @PostMapping("/refresh")
+    @Operation(summary = "Renovar la sesión", description = "Entrega un nuevo par de tokens a cambio del refresh vigente; el usado queda invalidado (`401 SESION_INVALIDA` si se reutiliza).")
     public ApiResponse<TokensResponse> refrescar(@Valid @RequestBody RefreshRequest body) {
         return ApiResponse.ok(TokensResponse.de(auth.refrescar(body.refresh())));
     }
 
     @PostMapping("/logout")
+    @Operation(summary = "Cerrar sesión", description = "Invalida el refresh token.")
     public ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest body) {
         auth.logout(body.refresh());
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")
+    @Operation(summary = "Usuario de la sesión", description = "Correo, rol y cuenta del usuario autenticado por JWT.")
     public ApiResponse<UsuarioResponse> me(HttpServletRequest req) {
         return ApiResponse.ok(UsuarioResponse.de(auth.me(UsuarioActual.id(req))));
     }
 
     /** Siempre 202, exista o no la cuenta: no revela si un correo está registrado. */
     @PostMapping("/recuperar")
+    @Operation(summary = "Solicitar restablecimiento de contraseña", description = "Envía un enlace de un solo uso al correo si la cuenta existe; responde `204` siempre para no revelar cuentas.")
     public ResponseEntity<Void> recuperar(@Valid @RequestBody RecuperarRequest body) {
         auth.solicitarRecuperacion(body.email(), portalUrl);
         return ResponseEntity.accepted().build();
     }
 
     @PostMapping("/restablecer")
+    @Operation(summary = "Restablecer la contraseña", description = "Fija una contraseña nueva con el token recibido por correo.")
     public ResponseEntity<Void> restablecer(@Valid @RequestBody RestablecerRequest body) {
         auth.restablecer(body.token(), body.password());
         return ResponseEntity.noContent().build();

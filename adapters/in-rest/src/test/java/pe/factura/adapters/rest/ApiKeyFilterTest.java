@@ -104,6 +104,17 @@ class ApiKeyFilterTest {
         }
     }
 
+    /** Los catálogos SUNAT son referencia pública: un integrador los consulta antes de tener API key. */
+    @Test void catalogosSonPublicos() throws Exception {
+        for (String uri : new String[]{"/v1/catalogos", "/v1/catalogos/07"}) {
+            MockHttpServletRequest req = new MockHttpServletRequest("GET", uri);
+            MockHttpServletResponse res = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+            filter.doFilter(req, res, chain);
+            assertThat(chain.getRequest()).as(uri).isNotNull();
+        }
+    }
+
     @Test void peticionYaAutenticadaPorJwtNoExigeApiKey() throws Exception {
         MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
         req.setAttribute(CuentaActual.ATRIBUTO, UUID.randomUUID());

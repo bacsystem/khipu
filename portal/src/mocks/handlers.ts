@@ -213,6 +213,27 @@ export const handlers = [
     return new HttpResponse(new Uint8Array([80, 75]), { headers: { "content-type": "application/zip" } });
   }),
 
+  // Catálogos SUNAT públicos: un subconjunto suficiente para la página /developers/catalogos.
+  http.get(`${BASE}/v1/catalogos`, () =>
+    ok([
+      { id: "06", nombre: "Código de tipo de documento de identidad", entradas: 2 },
+      { id: "07", nombre: "Código de tipo de afectación del IGV", entradas: 3 },
+    ]),
+  ),
+  http.get(`${BASE}/v1/catalogos/:id`, ({ params }) => {
+    if (params.id === "06")
+      return ok({ id: "06", nombre: "Código de tipo de documento de identidad", columnas: ["Código", "Descripción"],
+        entradas: [{ codigo: "1", descripcion: "DNI", extra: {} }, { codigo: "6", descripcion: "RUC", extra: {} }] });
+    if (params.id === "07")
+      return ok({ id: "07", nombre: "Código de tipo de afectación del IGV", columnas: ["Código", "Descripción", "Codigo de tributo"],
+        entradas: [
+          { codigo: "10", descripcion: "Gravado - Operación Onerosa", extra: { "Codigo de tributo": "1000" } },
+          { codigo: "20", descripcion: "Exonerado - Operación Onerosa", extra: { "Codigo de tributo": "9997" } },
+          { codigo: "30", descripcion: "Inafecto - Operación Onerosa", extra: { "Codigo de tributo": "9998" } },
+        ] });
+    return fail(404, "NO_ENCONTRADO", "No existe el catálogo SUNAT " + params.id);
+  }),
+
   http.get(`${BASE}/openapi.json`, () =>
     HttpResponse.json({
       openapi: "3.0.1",

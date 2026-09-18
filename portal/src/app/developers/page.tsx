@@ -13,9 +13,5 @@ export default async function DevelopersPage() {
     getServerSession(),
   ]);
 
-  return (
-    <div className="min-h-screen">
-      <DevelopersView spec={spec} baseServerURL={baseServerURL} mostrarGenerarKey={Boolean(access && empresaId)} />
-    </div>
-  );
+  return <DevelopersView spec={spec} baseServerURL={baseServerURL} mostrarGenerarKey={Boolean(access && empresaId)} />;
 }
