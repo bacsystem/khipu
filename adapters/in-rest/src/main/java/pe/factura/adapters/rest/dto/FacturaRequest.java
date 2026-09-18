@@ -102,8 +102,7 @@ public record FacturaRequest(
 
     /**
      * Un cargo se expresa como porcentaje **o** como monto (sobre el valor de venta sin IGV), nunca ambos, y decide si afecta la
-     * base del IGV igual que un descuento. El código del catálogo 53 lo deriva khipu del nivel (línea/global), de
-     * `afecta_base_igv` y del `motivo`: línea 47/48; global 49/50, o 46 para `recargo_consumo` (que nunca afecta la base).
+     * base del IGV igual que un descuento. El código del catálogo 53 lo deriva el dominio ({@link Cargo#deLinea}, {@link Cargo#global}).
      */
     public record CargoDto(
             @Schema(example = "10", description = "Porcentaje sobre el valor de venta sin IGV (hasta 5 decimales, menor que 1000)") BigDecimal porcentaje,
@@ -114,17 +113,14 @@ public record FacturaRequest(
         Cargo aDominio(boolean global) {
             if ((porcentaje == null) == (monto == null))
                 throw new DomainException("CARGO_INVALIDO", "Indique porcentaje o monto del cargo, no ambos");
-            // Por defecto afecta la base (como los descuentos), salvo el recargo al consumo, que por ley nunca la afecta.
-            boolean afecta = afectaBaseIgv == null ? motivo == null : afectaBaseIgv;
-            String codigo;
-            if (motivo != null) {
-                if (!global) throw new DomainException("CARGO_INVALIDO", "4268 - El recargo al consumo (46) es un cargo global, no de línea");
-                if (afecta) throw new DomainException("CARGO_INVALIDO", "El recargo al consumo (46) no afecta la base del IGV: no indique afecta_base_igv: true");
-                codigo = "46";
-            } else {
-                codigo = global ? (afecta ? "49" : "50") : (afecta ? "47" : "48");
-            }
-            return porcentaje != null ? Cargo.porcentaje(codigo, porcentaje) : Cargo.monto(codigo, monto);
+            Cargo.Motivo m = motivo == null ? null : Cargo.Motivo.valueOf(motivo.toUpperCase());
+            if (m != null && !global)
+                throw new DomainException("CARGO_INVALIDO", "4268 - El recargo al consumo (46) es un cargo global, no de línea");
+            // Por defecto afecta la base (como los descuentos), salvo cuando hay motivo: el recargo al consumo nunca la afecta.
+            boolean afecta = afectaBaseIgv == null ? m == null : afectaBaseIgv;
+            Cargo.Tipo tipo = porcentaje != null ? Cargo.Tipo.PORCENTAJE : Cargo.Tipo.MONTO;
+            BigDecimal valor = porcentaje != null ? porcentaje : monto;
+            return global ? Cargo.global(afecta, m, tipo, valor) : Cargo.deLinea(afecta, tipo, valor);
         }
     }
 
