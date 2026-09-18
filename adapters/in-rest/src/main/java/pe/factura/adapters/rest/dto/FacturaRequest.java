@@ -7,6 +7,7 @@ import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Anticipo;
 import pe.factura.domain.documento.Cargo;
+import pe.factura.domain.documento.CodigoProductoSunat;
 import pe.factura.domain.documento.Descuento;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.Percepcion;
@@ -196,7 +197,7 @@ public record FacturaRequest(
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
                 items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
                         i.descuento() == null ? null : i.descuento().aDominio(), i.isc() == null ? null : i.isc().aDominio(), Boolean.TRUE.equals(i.icbper()),
-                        cargos(i.cargos(), false), i.codigoSunat(), i.gtin() == null ? null : i.gtin().aDominio())).toList(),
+                        cargos(i.cargos(), false), CodigoProductoSunat.de(i.codigoSunat()), i.gtin() == null ? null : i.gtin().aDominio())).toList(),
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
                 descuentoGlobal == null ? null : descuentoGlobal.aDominio(),
                 cargos(cargos, true),

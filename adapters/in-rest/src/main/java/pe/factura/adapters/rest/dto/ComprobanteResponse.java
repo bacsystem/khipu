@@ -216,6 +216,6 @@ public record ComprobanteResponse(
                 : null;
         IscDto isc = ic.tieneIsc() ? new IscDto(i.isc().sistema(), ic.iscPorcentaje(), ic.isc()) : null;
         return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), ic.gratuita(), d, CargoDto.de(ic.cargos()), isc, ic.icbper(),
-                i.codigoSunat(), i.gtin() == null ? null : new GtinDto(i.gtin().tipo(), i.gtin().codigo()));
+                i.tieneCodigoSunat() ? i.codigoSunat().codigo() : null, i.gtin() == null ? null : new GtinDto(i.gtin().tipo(), i.gtin().codigo()));
     }
 }

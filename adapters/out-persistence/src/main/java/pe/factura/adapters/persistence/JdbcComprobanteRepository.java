@@ -91,7 +91,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                     c.id(), orden++, i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(),
                     tipo(i.descuento()), valor(i.descuento()), afectaBase(i.descuento()),
                     i.isc() == null ? null : i.isc().sistema(), i.isc() == null ? null : i.isc().tasa(), i.isc() == null ? null : i.isc().montoUnitario(), i.icbper(),
-                    i.codigoSunat(), i.gtin() == null ? null : i.gtin().tipo(), i.gtin() == null ? null : i.gtin().codigo());
+                    i.tieneCodigoSunat() ? i.codigoSunat().codigo() : null, i.gtin() == null ? null : i.gtin().tipo(), i.gtin() == null ? null : i.gtin().codigo());
         }
     }
 
@@ -149,7 +149,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                         r.getString("isc_sistema") == null ? null : new Isc(r.getString("isc_sistema"), r.getBigDecimal("isc_tasa") == null ? null : sinCeros(r.getBigDecimal("isc_tasa")),
                                 r.getBigDecimal("isc_monto_unitario") == null ? null : sinCeros(r.getBigDecimal("isc_monto_unitario"))),
                         r.getBoolean("icbper"), cargos.getOrDefault(r.getInt("orden"), List.of()),
-                        r.getString("codigo_sunat"), r.getString("gtin_tipo") == null ? null : new Gtin(r.getString("gtin_tipo"), r.getString("gtin"))), id);
+                        CodigoProductoSunat.de(r.getString("codigo_sunat")), r.getString("gtin_tipo") == null ? null : new Gtin(r.getString("gtin_tipo"), r.getString("gtin"))), id);
         List<Anticipo> anticipos = jdbc.query("SELECT serie, numero, monto, afectacion, fecha_pago FROM comprobante_anticipo WHERE comprobante_id = ? ORDER BY orden",
                 (r, k) -> new Anticipo(r.getString("serie"), r.getLong("numero"), r.getBigDecimal("monto"), Anticipo.Afectacion.valueOf(r.getString("afectacion")),
                         r.getDate("fecha_pago") == null ? null : r.getDate("fecha_pago").toLocalDate()), id);

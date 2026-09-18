@@ -12,11 +12,10 @@ import java.util.List;
  */
 public record Item(String codigo, String descripcion, String unidad, BigDecimal cantidad,
                    BigDecimal precioUnitario, TipoAfectacionIgv afectacion, Descuento descuento, Isc isc, boolean icbper, List<Cargo> cargos,
-                   String codigoSunat, Gtin gtin) {
+                   CodigoProductoSunat codigoSunat, Gtin gtin) {
 
     public Item {
         cargos = cargos == null ? List.of() : List.copyOf(cargos);
-        codigoSunat = CodigoProductoSunat.validar(codigoSunat);
         if (cargos.stream().anyMatch(Cargo::global))
             throw new DomainException("CARGO_INVALIDO", "4268 - Un cargo de línea debe usar los códigos 47 o 48 del catálogo 53");
     }

@@ -113,7 +113,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "0101",
                 new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), "15101505", new Gtin("GTIN-13", "7750182000123")),
+                List.of(new Item("P1", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123")),
                         new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), clock);
         c.asignarNumero(9, "20100066603");
@@ -122,7 +122,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
 
         Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
         assertThat(leido.fechaVencimiento()).isEqualTo(LocalDate.of(2026, 10, 13));
-        assertThat(leido.items().get(0).codigoSunat()).isEqualTo("15101505");
+        assertThat(leido.items().get(0).codigoSunat()).isEqualTo(new CodigoProductoSunat("15101505"));
         assertThat(leido.items().get(0).gtin()).isEqualTo(new Gtin("GTIN-13", "7750182000123"));
         assertThat(leido.items().get(1).codigoSunat()).isNull();
         assertThat(leido.items().get(1).gtin()).isNull();

@@ -315,7 +315,7 @@
       <#if it.item().codigo()??><cac:SellersItemIdentification><cbc:ID>${it.item().codigo()}</cbc:ID></cac:SellersItemIdentification></#if>
       <#-- GTIN (campo 29, reglas 4333–4335) y código de producto SUNAT (campo 28, catálogo 25 UNSPSC; reglas 3496, 4331). -->
       <#if it.item().tieneGtin()><cac:StandardItemIdentification><cbc:ID schemeID="${it.item().gtin().tipo()}">${it.item().gtin().codigo()}</cbc:ID></cac:StandardItemIdentification></#if>
-      <#if it.item().tieneCodigoSunat()><cac:CommodityClassification><cbc:ItemClassificationCode listID="UNSPSC" listAgencyName="GS1 US" listName="Item Classification">${it.item().codigoSunat()}</cbc:ItemClassificationCode></cac:CommodityClassification></#if>
+      <#if it.item().tieneCodigoSunat()><cac:CommodityClassification><cbc:ItemClassificationCode listID="UNSPSC" listAgencyName="GS1 US" listName="Item Classification">${it.item().codigoSunat().codigo()}</cbc:ItemClassificationCode></cac:CommodityClassification></#if>
     </cac:Item>
     <cac:Price><cbc:PriceAmount currencyID="${c.moneda()}">${it.valorUnitario()?string["0.0000000000"]}</cbc:PriceAmount></cac:Price>
   </cac:InvoiceLine>

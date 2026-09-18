@@ -19,7 +19,7 @@ class CamposOpcionalesTest {
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-18T15:00:00Z"), ZoneId.of("America/Lima"));
 
     private static Item gravado(String precio, String codigoSunat, Gtin gtin) {
-        return new Item("P", "Prod", "NIU", BigDecimal.ONE, new BigDecimal(precio), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), codigoSunat, gtin);
+        return new Item("P", "Prod", "NIU", BigDecimal.ONE, new BigDecimal(precio), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), CodigoProductoSunat.de(codigoSunat), gtin);
     }
 
     private static Comprobante factura(LocalDate vencimiento, BigDecimal redondeo, Item... items) {
@@ -29,7 +29,7 @@ class CamposOpcionalesTest {
 
     @Test void gtinYCodigoSunat() {
         Item i = gravado("118.00", "15101505", new Gtin("GTIN-13", "7750182000123"));
-        assertThat(i.codigoSunat()).isEqualTo("15101505");
+        assertThat(i.codigoSunat().codigo()).isEqualTo("15101505");
         assertThat(i.gtin().tipo()).isEqualTo("GTIN-13");
         assertThat(gravado("118.00", null, null).tieneCodigoSunat()).isFalse();
         assertThatThrownBy(() -> new Gtin("GTIN-13", "775018200012")).isInstanceOf(DomainException.class).hasMessageContaining("4334");

@@ -579,7 +579,7 @@ class AtributosSunatFacturaTest {
     @Test void camposOpcionalesEnElXml() throws Exception {
         Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "0101",
                 new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), "15101505", new Gtin("GTIN-13", "7750182000123"))),
+                List.of(new Item("A", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123"))),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(13, "20100066603");
         Tenant t = FreemarkerUblGeneratorTest.tenant().conDatosFiscales(null, null, "Andina Store");

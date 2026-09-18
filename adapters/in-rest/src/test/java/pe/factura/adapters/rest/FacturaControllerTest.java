@@ -384,7 +384,7 @@ class FacturaControllerTest {
                 .replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"fecha_vencimiento\":\"2026-10-13\",\"redondeo\":-0.37,");
         Comprobante c = aceptado(tenant);
         when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "0101", c.receptor(),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), "15101505", new Gtin("GTIN-13", "7750182000123"))),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123"))),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(con))
                 .andExpect(status().isCreated())
