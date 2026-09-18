@@ -42,9 +42,9 @@ public class Comprobante {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
         this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
-        this.detraccion = detraccion;
         this.totales = Totales.calcular(this.items, descuentoGlobal, Icbper.tasaVigente(fechaEmision));
-        // Retención y percepción se completan contra el importe total ya calculado (montos por defecto y tolerancias SUNAT).
+        // Detracción, retención y percepción se completan contra el importe total ya calculado (montos por defecto, 3208 y tolerancias SUNAT).
+        this.detraccion = detraccion == null ? null : detraccion.completarContra(moneda, this.totales.total());
         this.retencion = retencion == null ? null : retencion.completarContra(this.totales.total());
         this.percepcion = percepcion == null ? null : percepcion.completarContra(tipoOperacion, formaPago, moneda, this.totales.total());
         this.estado = estado;
