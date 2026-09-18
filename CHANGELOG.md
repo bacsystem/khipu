@@ -2,6 +2,12 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.7] - 2026-09-17
+
+### Added
+- API: operaciones gratuitas en la factura (#50). `tipo_afectacion_igv` acepta `11`–`16` (gravadas gratuitas), `21` (exonerada gratuita) y `31`–`37` (inafectas gratuitas): el `precio_unitario` es el valor referencial sin IGV, la línea no suma al importe a pagar y su IGV solo se informa (tributo 9996, categoría Z). Respuesta con `gratuita`, `precio_venta` por ítem y `gratuito` / `igv_gratuitas` en totales. XML con `PriceTypeCode 02`, `Price 0`, subtotal 9996 y leyenda 1002 (reglas 2640, 3110, 3111, 3224, 3234, 3276, 3302, 54). Los subtotales globales se agrupan por tributo (`Tributo`: IGV, EXO, INA, GRA).
+- Portal: etiquetas del catálogo 07 completo, líneas gratuitas marcadas y bloque "operaciones gratuitas" en la liquidación; la guía documenta el caso.
+
 ## [0.1.6] - 2026-09-17
 
 ### Added

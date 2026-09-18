@@ -322,7 +322,13 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     )}
                   </td>
                   <td className="px-4 py-3 text-right font-mono font-medium text-foreground tabular-nums">
-                    {formatearNumero(item.valor_venta != null && item.igv != null ? Number(item.valor_venta) + Number(item.igv) : Number(item.cantidad) * Number(item.precio_unitario))}
+                    {item.gratuita ? (
+                      <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground" title="Operación gratuita: no se cobra">
+                        Gratuita
+                      </span>
+                    ) : (
+                      formatearNumero(item.precio_venta ?? (item.valor_venta != null && item.igv != null ? Number(item.valor_venta) + Number(item.igv) : Number(item.cantidad) * Number(item.precio_unitario)))
+                    )}
                   </td>
                 </tr>
               ))}
@@ -386,6 +392,12 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               />
             ) : null}
             <Importe etiqueta="Total IGV" moneda={c.moneda} valor={c.totales.igv} />
+            {c.totales.gratuito ? (
+              <>
+                <Importe etiqueta="Operaciones gratuitas (no se cobran)" moneda={c.moneda} valor={c.totales.gratuito} />
+                <Importe etiqueta="IGV de gratuitas (informativo)" moneda={c.moneda} valor={c.totales.igv_gratuitas ?? 0} />
+              </>
+            ) : null}
             {c.totales.total_descuentos ? (
               <>
                 <Importe etiqueta="Precio de venta" moneda={c.moneda} valor={c.totales.total_precio_venta ?? c.totales.total} />

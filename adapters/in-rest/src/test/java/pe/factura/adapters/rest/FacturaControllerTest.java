@@ -278,6 +278,32 @@ class FacturaControllerTest {
         org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
     }
 
+    @Test void lineaGratuitaAceptadaYMarcadaEnLaRespuesta() throws Exception {
+        String conBonificacion = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\"},{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
+                List.of(c.items().get(0), new Item(null, "Bonificación", "NIU", new BigDecimal("2"), new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION)),
+                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conBonificacion))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.items[1].gratuita").value(true))
+                .andExpect(jsonPath("$.datos.items[1].precio_venta").value(0.00))
+                .andExpect(jsonPath("$.datos.items[1].igv").value(3.60))
+                .andExpect(jsonPath("$.datos.totales.gratuito").value(20.00))
+                .andExpect(jsonPath("$.datos.totales.igv_gratuitas").value(3.60))
+                .andExpect(jsonPath("$.datos.totales.total").value(118.00));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().items().get(1).afectacion()).isEqualTo(TipoAfectacionIgv.GRAVADO_BONIFICACION);
+    }
+
+    @Test void afectacionNoSoportadaEs422DeValidacion() throws Exception {
+        String ivap = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"", "\"tipo_afectacion_igv\":\"17\"");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(ivap))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"));
+    }
+
     @Test void jsonMalformadoEs400() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":"))
                 .andExpect(status().isBadRequest())
