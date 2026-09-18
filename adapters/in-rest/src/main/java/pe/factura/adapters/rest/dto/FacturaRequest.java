@@ -58,10 +58,10 @@ public record FacturaRequest(
             @Valid @Schema(description = "Impuesto Selectivo al Consumo del ítem (bebidas alcohólicas, combustibles, vehículos…). Opcional; el `precio_unitario` lo incluye.") IscDto isc,
             @Schema(example = "false", description = "`true` si el ítem son bolsas de plástico afectas al ICBPER: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año incluido en `precio_unitario`") Boolean icbper) {}
 
-    /** ISC: sistema del catálogo 08; `tasa` (%) para 01 al valor y 03 precio de venta al público, `monto_unitario` para 02 monto fijo. */
+    /** ISC: sistema del catálogo 08; `tasa` (%) para 01 al valor, `monto_unitario` para 02 monto fijo. El 03 (precio de venta al público) no está soportado. */
     public record IscDto(
-            @NotBlank @Pattern(regexp = "0[123]") @Schema(example = "01", description = "`01` al valor, `02` monto fijo por unidad, `03` precio de venta al público (catálogo 08)") String sistema,
-            @Schema(example = "35", description = "Tasa sobre el valor de venta (sistemas 01 y 03), hasta 5 decimales") BigDecimal tasa,
+            @NotBlank @Pattern(regexp = "0[12]", message = "sistema de ISC no soportado: use 01 (al valor) o 02 (monto fijo); el 03 (precio de venta al público) requiere una base PVP que la API aún no recibe") @Schema(example = "01", description = "`01` al valor, `02` monto fijo por unidad (catálogo 08). `03` precio de venta al público **no soportado**: su base es el PVP sugerido, no el valor de venta") String sistema,
+            @Schema(example = "35", description = "Tasa sobre el valor de venta (sistema 01), hasta 5 decimales") BigDecimal tasa,
             @Schema(example = "2.25", description = "Importe por unidad (sistema 02), hasta 5 decimales") BigDecimal montoUnitario) {
         Isc aDominio() { return new Isc(sistema, tasa, montoUnitario); }
     }

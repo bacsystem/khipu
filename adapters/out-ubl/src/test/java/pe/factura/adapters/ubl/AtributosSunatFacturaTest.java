@@ -369,6 +369,8 @@ class AtributosSunatFacturaTest {
 
         String g = "/inv:Invoice/cac:TaxTotal";
         assertThat(valor(d, g + "/cbc:TaxAmount")).isEqualTo("60.85");                                                             // 3294: 24.35 + 35 + 1.50
+        assertThat(valor(d, g + "/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='1000']/cbc:TaxableAmount")).isEqualTo("100.30");   // 3277: sin ISC
+        assertThat(valor(d, g + "/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='1000']/cbc:TaxAmount")).isEqualTo("24.35");       // 3291: con ISC
         assertThat(valor(d, g + "/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='2000']/cbc:TaxableAmount")).isEqualTo("100.00");
         assertThat(valor(d, "count(" + g + "/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='7152']/cbc:TaxableAmount)")).isEqualTo("0");
         assertThat(valor(d, g + "/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='7152']/cbc:TaxAmount")).isEqualTo("1.50");

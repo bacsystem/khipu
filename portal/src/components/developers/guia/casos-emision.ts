@@ -354,7 +354,7 @@ X-Api-Key: fk_TU_API_KEY`,
   ]
 }`,
     notas: [
-      "`isc.sistema` del catálogo 08: `01` al valor y `03` precio de venta al público llevan `tasa` (%); `02` monto fijo lleva `monto_unitario`. El `precio_unitario` incluye ISC e IGV: khipu separa valor, ISC e IGV (ejemplo: 159.30 = 100 × 1.35 × 1.18).",
+      "`isc.sistema` del catálogo 08: `01` al valor lleva `tasa` (%) sobre el valor de venta; `02` monto fijo lleva `monto_unitario`. El `precio_unitario` incluye ISC e IGV: khipu separa valor, ISC e IGV (ejemplo: 159.30 = 100 × 1.35 × 1.18). `03` (precio de venta al público) **no está soportado**: su base es el PVP sugerido, que la API aún no recibe; se responde `422`.",
       "El ISC forma parte de la base del IGV (regla 204) y se informa en un `TaxSubtotal` 2000 por línea (con `TierRange` = sistema) y global (reglas 3108, 2373, 3210).",
       "`icbper: true` marca bolsas de plástico: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año (S/ 0.50 desde 2023, Ley 30884) incluido en el precio; se informa como tributo 7152 sin base ni tasa (reglas 3236–3238).",
       "La respuesta trae por ítem `isc {sistema, tasa, monto}` e `icbper`, y en `totales` `isc` e `icbper`; `total_precio_venta` los incluye (regla 55).",

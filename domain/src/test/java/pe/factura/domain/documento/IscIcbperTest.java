@@ -62,15 +62,28 @@ class IscIcbperTest {
         assertThat(t.isc()).isEqualByComparingTo("35.00");
         assertThat(t.icbper()).isEqualByComparingTo("1.50");
         assertThat(t.igv()).isEqualByComparingTo("42.35");               // 24.30 + 0.05 + 18.00
-        assertThat(t.subtotales().get(0).base()).isEqualByComparingTo("235.30");   // base del IGV incluye el ISC
+        assertThat(t.subtotales().get(0).base()).isEqualByComparingTo("200.30");   // regla 3277: suma de LineExtensionAmount, sin ISC
+        assertThat(t.subtotales().get(0).impuesto()).isEqualByComparingTo("42.35"); // regla 3291: sobre las bases de línea con ISC
         assertThat(t.subtotales().get(1).base()).isEqualByComparingTo("100.00");
         assertThat(t.totalValorVenta()).isEqualByComparingTo("200.30");
         assertThat(t.totalPrecioVenta()).isEqualByComparingTo("279.15"); // 200.30 + 35 + 1.50 + 42.35 (regla 55)
         assertThat(t.total()).isEqualByComparingTo("279.15");
     }
 
+    /** Descuento global 02 con ISC: la base neta va sin ISC (3277) y el IGV se recalcula sobre base neta + ISC (3291). */
+    @Test void descuentoGlobal02ConIsc() {
+        Totales t = Totales.calcular(List.of(item("159.30", "1", new Isc("01", new BigDecimal("35"), null), false)),
+                Descuento.porcentaje(BigDecimal.TEN, true), new BigDecimal("0.50"));
+        assertThat(t.descuentoGlobal().base()).isEqualByComparingTo("100.00");
+        assertThat(t.gravado()).isEqualByComparingTo("90.00");
+        assertThat(t.subtotales().get(0).base()).isEqualByComparingTo("90.00");
+        assertThat(t.igv()).isEqualByComparingTo("22.50");                 // (90 + 35) × 18 %
+        assertThat(t.totalPrecioVenta()).isEqualByComparingTo("147.50");   // 90 + 35 + 22.50
+    }
+
     @Test void iscInvalido() {
         assertThatThrownBy(() -> new Isc("04", BigDecimal.TEN, null)).isInstanceOf(DomainException.class).hasMessageContaining("2041");
+        assertThatThrownBy(() -> new Isc("03", BigDecimal.TEN, null)).hasMessageContaining("03").hasMessageContaining("no está soportado");
         assertThatThrownBy(() -> new Isc("01", null, null)).hasMessageContaining("3104");
         assertThatThrownBy(() -> new Isc("02", BigDecimal.TEN, BigDecimal.ONE)).hasMessageContaining("no lleva tasa");
     }

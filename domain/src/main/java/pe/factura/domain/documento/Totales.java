@@ -57,11 +57,12 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
 
     public static Totales calcular(List<Item> items, Descuento descuentoGlobal, List<Anticipo> anticipos, BigDecimal tasaIcbper) {
         List<ItemCalculado> calculados = items.stream().map(i -> ItemCalculado.de(i, tasaIcbper)).toList();
-        // Un subtotal por tributo: la base del IGV incluye el ISC (regla 204); ISC e ICBPER son subtotales propios (reglas 48, 49-A).
+        // Un subtotal por tributo. Para el IGV, SUNAT pide la base global SIN ISC (suma de LineExtensionAmount, regla 3277) aunque el
+        // impuesto se calcule sobre las bases de línea CON ISC (reglas 204 y 3291); ISC e ICBPER son subtotales propios (reglas 48, 49-A).
         List<SubtotalTributo> brutos = new ArrayList<>();
         for (Tributo tr : Tributo.values()) {
             SubtotalTributo st = switch (tr) {
-                case IGV -> new SubtotalTributo(tr, suma(calculados, tr, ItemCalculado::baseIgv), suma(calculados, tr, ItemCalculado::igv));
+                case IGV -> new SubtotalTributo(tr, suma(calculados, tr, ItemCalculado::valorVenta), suma(calculados, tr, ItemCalculado::igv));
                 case ISC -> new SubtotalTributo(tr, sumaSi(calculados, ItemCalculado::tieneIsc, ItemCalculado::valorVenta), sumaSi(calculados, ItemCalculado::tieneIsc, ItemCalculado::isc));
                 case ICBPER -> new SubtotalTributo(tr, z(), sumaSi(calculados, ItemCalculado::tieneIcbper, ItemCalculado::icbper));
                 default -> new SubtotalTributo(tr, suma(calculados, tr, ItemCalculado::valorVenta), suma(calculados, tr, ItemCalculado::igv));
@@ -69,35 +70,33 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
             if (st.base().signum() > 0 || st.impuesto().signum() > 0) brutos.add(st);
         }
 
+        BigDecimal isc = impuesto(brutos, Tributo.ISC);
+        BigDecimal icbper = impuesto(brutos, Tributo.ICBPER);
         DescuentoGlobalCalculado global = null;
         List<SubtotalTributo> subtotales = new ArrayList<>(brutos);
         if (descuentoGlobal != null) {
             if (descuentoGlobal.afectaBaseIgv()) {
                 // Código 02: SUNAT lo resta de la base gravada (reglas 46/47), así que exige líneas gravadas onerosas.
-                BigDecimal baseGravada = suma(calculados, Tributo.IGV, ItemCalculado::valorVenta);   // sin ISC (regla 46)
+                BigDecimal baseGravada = base(brutos, Tributo.IGV);
                 if (baseGravada.signum() == 0)
                     throw new DomainException("DESCUENTO_INVALIDO", "Un descuento global que afecta la base del IGV requiere ítems gravados");
                 BigDecimal monto = descuentoGlobal.montoSobre(baseGravada);
                 global = new DescuentoGlobalCalculado(descuentoGlobal, baseGravada, monto);
-                BigDecimal baseNeta = base(brutos, Tributo.IGV).subtract(monto);   // la base del IGV conserva el ISC (regla 47)
-                subtotales.replaceAll(st -> st.tributo() == Tributo.IGV
-                        ? new SubtotalTributo(st.tributo(), baseNeta, baseNeta.multiply(ItemCalculado.TASA_IGV).setScale(2, RoundingMode.HALF_UP))
-                        : st);
+                BigDecimal baseNeta = baseGravada.subtract(monto);
+                subtotales.replaceAll(st -> st.tributo() == Tributo.IGV ? new SubtotalTributo(st.tributo(), baseNeta, igvSobre(baseNeta, isc)) : st);
             } else {
-                BigDecimal baseOnerosa = suma(calculados, Tributo.IGV, ItemCalculado::valorVenta).add(base(brutos, Tributo.EXO)).add(base(brutos, Tributo.INA));
+                BigDecimal baseOnerosa = base(brutos, Tributo.IGV).add(base(brutos, Tributo.EXO)).add(base(brutos, Tributo.INA));
                 global = new DescuentoGlobalCalculado(descuentoGlobal, baseOnerosa, descuentoGlobal.montoSobre(baseOnerosa));
             }
         }
 
-        BigDecimal isc = impuesto(subtotales, Tributo.ISC);
-        BigDecimal icbper = impuesto(subtotales, Tributo.ICBPER);
         // Totales brutos (reglas 3278, 3279): los anticipos no los reducen, solo a las bases por tributo y al importe a pagar.
-        BigDecimal totalValorVenta = base(subtotales, Tributo.IGV).subtract(isc).add(base(subtotales, Tributo.EXO)).add(base(subtotales, Tributo.INA));
+        BigDecimal totalValorVenta = base(subtotales, Tributo.IGV).add(base(subtotales, Tributo.EXO)).add(base(subtotales, Tributo.INA));
         BigDecimal totalPrecioVenta = totalValorVenta.add(isc).add(icbper).add(impuesto(subtotales, Tributo.IGV));   // regla 55
 
-        List<AnticipoCalculado> aplicados = aplicarAnticipos(subtotales, anticipos == null ? List.of() : anticipos);
+        List<AnticipoCalculado> aplicados = aplicarAnticipos(subtotales, anticipos == null ? List.of() : anticipos, isc);
 
-        BigDecimal gravado = base(subtotales, Tributo.IGV).subtract(isc);   // valor de venta gravado, sin el ISC que SUNAT suma a la base del IGV
+        BigDecimal gravado = base(subtotales, Tributo.IGV);
         BigDecimal exonerado = base(subtotales, Tributo.EXO);
         BigDecimal inafecto = base(subtotales, Tributo.INA);
         BigDecimal gratuito = base(subtotales, Tributo.GRA);
@@ -115,7 +114,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
      * Resta cada anticipo de la base del tributo de su afectación (04 → 1000, 05 → 9997, 06 → 9998) y recalcula el IGV sobre
      * la base neta (reglas 3277, 3291). Un anticipo no puede superar lo facturado en esa afectación: la base quedaría negativa.
      */
-    private static List<AnticipoCalculado> aplicarAnticipos(List<SubtotalTributo> subtotales, List<Anticipo> anticipos) {
+    private static List<AnticipoCalculado> aplicarAnticipos(List<SubtotalTributo> subtotales, List<Anticipo> anticipos, BigDecimal isc) {
         List<AnticipoCalculado> aplicados = new ArrayList<>();
         List<SubtotalTributo> brutos = List.copyOf(subtotales);
         for (Anticipo a : anticipos) {
@@ -125,7 +124,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
                 throw new DomainException("ANTICIPO_INVALIDO", "El anticipo " + a.comprobante() + " (" + a.monto() + ") supera el valor de venta "
                         + a.afectacion().name().toLowerCase() + " pendiente de esta factura (" + pendiente + ")");
             BigDecimal baseNeta = pendiente.subtract(a.monto());
-            BigDecimal impuesto = tr == Tributo.IGV ? baseNeta.multiply(ItemCalculado.TASA_IGV).setScale(2, RoundingMode.HALF_UP) : z();
+            BigDecimal impuesto = tr == Tributo.IGV ? igvSobre(baseNeta, isc) : z();
             subtotales.replaceAll(st -> st.tributo() == tr ? new SubtotalTributo(tr, baseNeta, impuesto) : st);
             aplicados.add(new AnticipoCalculado(a, base(brutos, tr)));
         }
@@ -135,6 +134,11 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     public boolean tieneAnticipos() { return !anticipos.isEmpty(); }
 
     public boolean tieneGratuitas() { return gratuito.signum() > 0; }
+
+    /** IGV global (regla 3291): (bases de línea con ISC − descuentos que afectan la base) × tasa = (base sin ISC + ISC) × 18 %. */
+    private static BigDecimal igvSobre(BigDecimal baseSinIsc, BigDecimal isc) {
+        return baseSinIsc.add(isc).multiply(ItemCalculado.TASA_IGV).setScale(2, RoundingMode.HALF_UP);
+    }
 
     private static BigDecimal suma(List<ItemCalculado> items, Tributo tr, Function<ItemCalculado, BigDecimal> monto) {
         return items.stream().filter(i -> i.tributo() == tr).map(monto).reduce(z(), BigDecimal::add);
