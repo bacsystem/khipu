@@ -62,9 +62,10 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         }
         int orden = 1;
         for (Item i : c.items()) {
-            jdbc.update("INSERT INTO comprobante_item (comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            jdbc.update("INSERT INTO comprobante_item (comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, icbper) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     c.id(), orden++, i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(),
-                    tipo(i.descuento()), valor(i.descuento()), afectaBase(i.descuento()));
+                    tipo(i.descuento()), valor(i.descuento()), afectaBase(i.descuento()),
+                    i.isc() == null ? null : i.isc().sistema(), i.isc() == null ? null : i.isc().tasa(), i.isc() == null ? null : i.isc().montoUnitario(), i.icbper());
         }
     }
 
@@ -100,10 +101,13 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
 
     private Comprobante mapear(ResultSet rs, int i) throws SQLException {
         UUID id = rs.getObject("id", UUID.class);
-        List<Item> items = jdbc.query("SELECT codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base FROM comprobante_item WHERE comprobante_id = ? ORDER BY orden",
+        List<Item> items = jdbc.query("SELECT codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, icbper FROM comprobante_item WHERE comprobante_id = ? ORDER BY orden",
                 (r, k) -> new Item(r.getString("codigo"), r.getString("descripcion"), r.getString("unidad"), r.getBigDecimal("cantidad"),
                         r.getBigDecimal("precio_unitario"), TipoAfectacionIgv.porCodigo(r.getString("tipo_afectacion_igv")),
-                        descuento(r.getString("descuento_tipo"), r.getBigDecimal("descuento_valor"), r.getObject("descuento_afecta_base", Boolean.class))), id);
+                        descuento(r.getString("descuento_tipo"), r.getBigDecimal("descuento_valor"), r.getObject("descuento_afecta_base", Boolean.class)),
+                        r.getString("isc_sistema") == null ? null : new Isc(r.getString("isc_sistema"), r.getBigDecimal("isc_tasa") == null ? null : sinCeros(r.getBigDecimal("isc_tasa")),
+                                r.getBigDecimal("isc_monto_unitario") == null ? null : sinCeros(r.getBigDecimal("isc_monto_unitario"))),
+                        r.getBoolean("icbper")), id);
         Cdr cdr = rs.getString("cdr_codigo") == null ? null : new Cdr(rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), deJson(rs.getString("cdr_obs")));
         return Comprobante.rehidratar(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"),
                 rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), rs.getString("moneda"), rs.getString("tipo_operacion"),

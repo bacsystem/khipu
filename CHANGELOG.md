@@ -2,6 +2,13 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.10] - 2026-09-17
+
+### Added
+- API: ISC por ítem (#52): `items[].isc { sistema (catálogo 08), tasa | monto_unitario }`; el `precio_unitario` incluye ISC e IGV y khipu los separa; el ISC entra en la base del IGV (regla 204) y se informa como tributo 2000 por línea (con `TierRange`) y global (reglas 3108, 2373, 3210). Respuesta con `isc` por ítem y en totales.
+- API: ICBPER por ítem (#53): `items[].icbper: true` (una bolsa por unidad, monto vigente por año según la Ley 30884 — S/ 0.50 desde 2023) como tributo 7152 con `BaseUnitMeasure` y `PerUnitAmount`, sin base ni tasa (reglas 3236–3238, 4318). Respuesta con `icbper` por ítem y en totales; `total_precio_venta` los incluye (regla 55). Migración V8.
+- Portal: insignias ISC/ICBPER por línea y totales en la liquidación; la guía documenta el caso.
+
 ## [0.1.9] - 2026-09-17
 
 ### Added

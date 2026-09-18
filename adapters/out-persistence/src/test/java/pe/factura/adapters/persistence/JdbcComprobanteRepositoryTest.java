@@ -94,6 +94,23 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.percepcion()).isEqualTo(new Percepcion("52", new BigDecimal("1"), new BigDecimal("1180.00"), new BigDecimal("11.80")));
     }
 
+    @Test void guardaYRehidrataIscEIcbper() {
+        UUID t = tenantDePrueba();
+        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                List.of(new Item("C", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("02", null, new BigDecimal("2.25")), false),
+                        new Item("B", "Bolsa", "NIU", new BigDecimal("3"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true)), clock);
+        c.asignarNumero(8, "20100066603");
+        c.firmar("H", "k.xml");
+        repo.guardar(c);
+        Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(leido.items().get(0).isc()).isEqualTo(new Isc("02", null, new BigDecimal("2.25")));
+        assertThat(leido.items().get(0).icbper()).isFalse();
+        assertThat(leido.items().get(1).isc()).isNull();
+        assertThat(leido.items().get(1).icbper()).isTrue();
+        assertThat(leido.totales().total()).isEqualByComparingTo(c.totales().total());
+    }
+
     @Test void guardaYRehidrataCompleto() {
         UUID t = tenantDePrueba();
         Comprobante c = factura(t, 1);
