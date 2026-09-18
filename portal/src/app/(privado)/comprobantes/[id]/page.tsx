@@ -5,7 +5,7 @@ import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { ETIQUETAS_AFECTACION, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { ETIQUETAS_AFECTACION, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -34,6 +34,37 @@ const BOTON =
   "inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground";
 const ETIQUETA = "block text-[11px] font-medium tracking-wider text-muted-foreground/80 uppercase";
 const TITULO_SECCION = "flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase";
+
+/** Forma de pago (RS 193-2020): contado, o crédito con el neto pendiente y el calendario de cuotas. */
+function FormaPagoDetalle({ formaPago, moneda }: { formaPago: FormaPago; moneda: string }) {
+  const credito = formaPago.tipo === "credito";
+  return (
+    <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="forma-pago">
+      <div className="flex items-center justify-between">
+        <span className={ETIQUETA}>Forma de pago</span>
+        <span className={cn("rounded border px-2 py-0.5 text-[11px] font-medium", credito ? "border-warning-border bg-warning text-warning-foreground" : "border-border bg-secondary text-secondary-foreground")}>
+          {credito ? "Crédito" : "Contado"}
+        </span>
+      </div>
+      {credito ? (
+        <div className="mt-2 space-y-1.5">
+          <div className="flex items-baseline justify-between">
+            <span className="text-muted-foreground">Neto pendiente de pago</span>
+            <span className="font-mono font-semibold text-foreground tabular-nums">{formatearMonto(moneda, formaPago.monto_pendiente ?? 0)}</span>
+          </div>
+          {formaPago.cuotas.map((q) => (
+            <div key={q.id} className="flex items-baseline justify-between text-muted-foreground">
+              <span>
+                <span className="font-mono text-foreground/80">{q.id}</span> · vence {formatearFecha(q.vencimiento)}
+              </span>
+              <span className="font-mono tabular-nums">{formatearMonto(moneda, q.monto)}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function Campo({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
@@ -344,6 +375,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               <span className="font-mono text-xl font-bold tracking-tight text-foreground tabular-nums">{formatearMonto(c.moneda, c.totales.total)}</span>
             </div>
           </div>
+          <FormaPagoDetalle formaPago={c.forma_pago} moneda={c.moneda} />
         </section>
       </div>
     </div>

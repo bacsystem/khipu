@@ -25,6 +25,7 @@ describe("normalizarComprobante", () => {
     expect(c.tipo_operacion).toBeNull();
     expect(c.nombre_archivo).toBeNull();
     expect(c.cdr?.observaciones).toEqual([]);
+    expect(c.forma_pago).toEqual({ tipo: "contado", monto_pendiente: null, cuotas: [] });
   });
 
   it("conserva los campos cuando vienen", () => {
