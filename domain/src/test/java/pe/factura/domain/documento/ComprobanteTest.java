@@ -34,6 +34,16 @@ class ComprobanteTest {
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SERIE_INVALIDA");
     }
 
+    /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar a facturas. */
+    @Test void tipoDeOperacionContraElCatalogo51() {
+        assertThat(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", null, empresa, items, clock).tipoOperacion()).isEqualTo("0101");
+        assertThatThrownBy(() -> Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "9999", empresa, items, clock))
+                .isInstanceOf(DomainException.class).hasMessageStartingWith("3206").extracting("codigo").isEqualTo("TIPO_OPERACION_INVALIDO");
+        // 0113 (Venta interna - NRUS) solo aplica a boletas
+        assertThatThrownBy(() -> Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0113", empresa, items, clock))
+                .hasMessageContaining("no aplica a facturas");
+    }
+
     @Test void fechaNoPuedeSerFutura() {
         assertThatThrownBy(() -> Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 14), "PEN", "0101", empresa, items, clock))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("FECHA_INVALIDA");

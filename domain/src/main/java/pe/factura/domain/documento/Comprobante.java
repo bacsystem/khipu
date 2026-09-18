@@ -2,6 +2,7 @@ package pe.factura.domain.documento;
 
 import lombok.Getter;
 import pe.factura.domain.DomainException;
+import pe.factura.domain.catalogo.CatalogoSunat;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -61,10 +62,21 @@ public class Comprobante {
         if (receptor == null || !receptor.esRuc()) throw new DomainException("RECEPTOR_INVALIDO", "La factura requiere un receptor con RUC válido");
         if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
         if (formaPago == null) throw new DomainException("FORMA_PAGO_INVALIDA", "3244 - Debe consignar la forma de pago (contado o crédito)");
+        String operacion = tipoOperacion == null ? "0101" : tipoOperacion;
+        validarTipoOperacion(operacion);
         Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision,
-                moneda, tipoOperacion == null ? "0101" : tipoOperacion, receptor, items, formaPago, descuentoGlobal, EstadoDocumento.RECIBIDO);
+                moneda, operacion, receptor, items, formaPago, descuentoGlobal, EstadoDocumento.RECIBIDO);
         formaPago.validarContra(c.totales.total(), fechaEmision);
         return c;
+    }
+
+    /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar a facturas (columna "Tipo de Comprobante asociado"). */
+    private static void validarTipoOperacion(String operacion) {
+        CatalogoSunat.Entrada e = CatalogoSunat.porId("51").flatMap(c -> c.entrada(operacion))
+                .orElseThrow(() -> new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " no existe en el catálogo 51"));
+        String aplicaA = e.extra().getOrDefault("Tipo de Comprobante asociado", "");
+        if (!aplicaA.toLowerCase().contains("factura"))
+            throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " (" + e.descripcion() + ") no aplica a facturas: " + aplicaA);
     }
 
     /** Solo para persistencia: reconstruye sin validar reglas de creación. */

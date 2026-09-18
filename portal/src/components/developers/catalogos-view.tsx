@@ -4,28 +4,29 @@ import { SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import { cn } from "@/lib/utils";
+import { Rico } from "./guia/rico";
 
-/** Qué campo de la API usa cada catálogo, para que el lector sepa dónde aplicarlo. */
+/** Qué campo de la API usa cada catálogo, para que el lector sepa dónde aplicarlo (la disponibilidad de cada caso la indica la guía). */
 const USO: Record<string, string> = {
-  "01": "Tipo de comprobante (`tipo` en las respuestas). khipu emite 01 factura; 03/07/08 en desarrollo.",
+  "01": "Tipo de comprobante (`tipo` en las respuestas).",
   "02": "`moneda` del comprobante.",
-  "03": "`items[].unidad`. Lista de las unidades más usadas (UN/ECE rec 20); la API acepta cualquier código de la lista completa de la UNECE.",
+  "03": "`items[].unidad`. Lista de las unidades más usadas (UN/ECE rec 20); la API acepta cualquier código de la lista completa de la UNECE y SUNAT rechaza los inexistentes.",
   "05": "Tributos que khipu escribe en el XML según la afectación de cada ítem; no se envía en la API.",
   "06": "`cliente.tipo_doc`. En factura solo `6` (RUC).",
   "07": "`items[].tipo_afectacion_igv`. Columna adicional: código de tributo que genera.",
-  "08": "`items[].isc.sistema` (en desarrollo).",
-  "09": "Motivo de una nota de crédito (en desarrollo).",
-  "10": "Motivo de una nota de débito (en desarrollo).",
-  "12": "Documentos relacionados (anticipos, guías) — en desarrollo.",
+  "08": "`items[].isc.sistema`.",
+  "09": "Motivo de una nota de crédito.",
+  "10": "Motivo de una nota de débito.",
+  "12": "Tipo de documento relacionado (facturas de anticipo, guías).",
   "16": "Tipo de precio de la línea: `01` precio de venta, `02` valor referencial en gratuitas. Lo asigna khipu.",
-  "22": "`percepcion.regimen` (en desarrollo).",
-  "23": "Régimen de retención (en desarrollo).",
-  "51": "`tipo_operacion`. Columna adicional: comprobantes en los que aplica.",
+  "22": "`percepcion.regimen`.",
+  "23": "Régimen de retención.",
+  "51": "`tipo_operacion`. Columna adicional: comprobantes en los que aplica; un código fuera del catálogo responde `422`.",
   "52": "Leyendas que khipu añade al XML (monto en letras 1000, gratuitas 1002, detracción 2006…). No se envían en la API.",
-  "53": "Códigos de cargos y descuentos (descuentos, retención 62, percepción 51–53, anticipos 04) — en desarrollo. Columna adicional: nivel (línea o global).",
-  "54": "`detraccion.codigo_bien_servicio` (en desarrollo).",
-  "59": "`detraccion.medio_pago` (en desarrollo).",
-  "60": "Tipo de dirección (dirección del emisor, 29b — en desarrollo).",
+  "53": "Códigos de cargos y descuentos (descuentos, retención 62, percepción 51–53, anticipos 04–06). Columna adicional: nivel (línea o global).",
+  "54": "`detraccion.codigo_bien_servicio`.",
+  "59": "`detraccion.medio_pago`.",
+  "60": "Tipo de dirección del emisor.",
 };
 
 export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
@@ -84,7 +85,11 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
                 <h2 className="text-[15px] font-semibold text-foreground">{c.nombre}</h2>
                 <span className="font-mono text-[11px] text-muted-foreground">{c.entradas.length} códigos</span>
               </div>
-              {USO[c.id] ? <p className="mt-1 text-[12px] text-muted-foreground">{USO[c.id].replace(/`/g, "")}</p> : null}
+              {USO[c.id] ? (
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  <Rico texto={USO[c.id]} />
+                </p>
+              ) : null}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
