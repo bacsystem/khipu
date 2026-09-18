@@ -88,7 +88,7 @@ export default function GuiaPage() {
             ["correlativo", "Número dentro de la serie. Opcional.", "Omítalo para que khipu asigne el siguiente; envíelo si su sistema lleva la numeración."],
             ["fecha_emision", "Fecha del comprobante.", <><Codigo>YYYY-MM-DD</Codigo>, no futura. SUNAT debe recibirla en 3 días calendario.</>],
             ["moneda", "Moneda de todo el comprobante.", <><Codigo>PEN</Codigo>, <Codigo>USD</Codigo>, <Codigo>EUR</Codigo> — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-02">catálogo 02</Link>.</>],
-            ["tipo_operacion", "Naturaleza de la operación.", <><Codigo>0101</Codigo> venta interna (por defecto), <Codigo>0200</Codigo> exportación, <Codigo>1001</Codigo> sujeta a detracción — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-51">catálogo 51</Link>.</>],
+            ["tipo_operacion", "Naturaleza de la operación.", <><Codigo>0101</Codigo> venta interna (por defecto), <Codigo>1001</Codigo> sujeta a detracción (exportación <Codigo>0200</Codigo> aún no soportada) — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-51">catálogo 51</Link>.</>],
             ["cliente.tipo_doc", "Tipo de documento del adquirente.", <>En factura siempre <Codigo>6</Codigo> (RUC) — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-06">catálogo 06</Link>.</>],
             ["cliente.num_doc", "RUC del adquirente.", "11 dígitos."],
             ["items[].unidad", "Unidad de medida.", <><Codigo>NIU</Codigo> unidad (bienes), <Codigo>ZZ</Codigo> unidad (servicios), <Codigo>KGM</Codigo>, <Codigo>HUR</Codigo>… — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-03">catálogo 03</Link>.</>],
@@ -103,8 +103,9 @@ export default function GuiaPage() {
           <Link href="/developers/catalogos" className="font-medium underline">
             Catálogos SUNAT
           </Link>{" "}
-          o por API (<Codigo>GET /v1/catalogos/07</Codigo>, sin credenciales). Un código fuera de catálogo responde <Codigo>422</Codigo> antes de
-          consumir numeración.
+          o por API (<Codigo>GET /v1/catalogos/07</Codigo>, sin credenciales). Un <Codigo>tipo_operacion</Codigo>, <Codigo>tipo_afectacion_igv</Codigo>,{" "}
+          <Codigo>tipo_doc</Codigo> o <Codigo>moneda</Codigo> fuera de catálogo responde <Codigo>422</Codigo> antes de consumir numeración; la{" "}
+          <Codigo>unidad</Codigo> no se valida localmente (la lista UN/ECE completa excede el catálogo) y un código inexistente lo rechaza SUNAT.
         </Aviso>
       </Seccion>
 

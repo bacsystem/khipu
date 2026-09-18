@@ -46,6 +46,19 @@ const UBIGEOS = [
   { codigo: "040101", descripcion: "AREQUIPA / AREQUIPA / AREQUIPA", extra: { Departamento: "AREQUIPA", Provincia: "AREQUIPA", Distrito: "AREQUIPA" } },
 ];
 
+/** Subconjunto de los catálogos SUNAT, suficiente para la página /developers/catalogos y el formulario de domicilio. */
+const CATALOGOS = [
+  { id: "06", nombre: "Código de tipo de documento de identidad", columnas: ["Código", "Descripción"],
+    entradas: [{ codigo: "1", descripcion: "DNI", extra: {} }, { codigo: "6", descripcion: "RUC", extra: {} }] },
+  { id: "07", nombre: "Código de tipo de afectación del IGV", columnas: ["Código", "Descripción", "Codigo de tributo"],
+    entradas: [
+      { codigo: "10", descripcion: "Gravado - Operación Onerosa", extra: { "Codigo de tributo": "1000" } },
+      { codigo: "20", descripcion: "Exonerado - Operación Onerosa", extra: { "Codigo de tributo": "9997" } },
+      { codigo: "30", descripcion: "Inafecto - Operación Onerosa", extra: { "Codigo de tributo": "9998" } },
+    ] },
+  { id: "13", nombre: "Código de ubicación geográfica (UBIGEO, INEI)", columnas: ["Código", "Descripción", "Departamento", "Provincia", "Distrito"], entradas: UBIGEOS },
+];
+
 export const handlers = [
   http.post(`${BASE}/v1/auth/registro`, async ({ request }) => {
     const body = (await request.json()) as { nombre: string; email: string; password: string };
@@ -239,26 +252,13 @@ export const handlers = [
   }),
 
   // Catálogos SUNAT públicos: un subconjunto suficiente para la página /developers/catalogos.
-  http.get(`${BASE}/v1/catalogos`, () =>
-    ok([
-      { id: "06", nombre: "Código de tipo de documento de identidad", entradas: 2 },
-      { id: "07", nombre: "Código de tipo de afectación del IGV", entradas: 3 },
-    ]),
-  ),
+  http.get(`${BASE}/v1/catalogos`, ({ request }) => {
+    const completo = new URL(request.url).searchParams.get("completo") === "true";
+    return ok(completo ? CATALOGOS : CATALOGOS.map((c) => ({ id: c.id, nombre: c.nombre, entradas: c.entradas.length })));
+  }),
   http.get(`${BASE}/v1/catalogos/:id`, ({ params }) => {
-    if (params.id === "13")
-      return ok({ id: "13", nombre: "Código de ubicación geográfica (UBIGEO, INEI)", columnas: ["Código", "Descripción", "Departamento", "Provincia", "Distrito"], entradas: UBIGEOS });
-    if (params.id === "06")
-      return ok({ id: "06", nombre: "Código de tipo de documento de identidad", columnas: ["Código", "Descripción"],
-        entradas: [{ codigo: "1", descripcion: "DNI", extra: {} }, { codigo: "6", descripcion: "RUC", extra: {} }] });
-    if (params.id === "07")
-      return ok({ id: "07", nombre: "Código de tipo de afectación del IGV", columnas: ["Código", "Descripción", "Codigo de tributo"],
-        entradas: [
-          { codigo: "10", descripcion: "Gravado - Operación Onerosa", extra: { "Codigo de tributo": "1000" } },
-          { codigo: "20", descripcion: "Exonerado - Operación Onerosa", extra: { "Codigo de tributo": "9997" } },
-          { codigo: "30", descripcion: "Inafecto - Operación Onerosa", extra: { "Codigo de tributo": "9998" } },
-        ] });
-    return fail(404, "NO_ENCONTRADO", "No existe el catálogo SUNAT " + params.id);
+    const c = CATALOGOS.find((x) => x.id === params.id);
+    return c ? ok(c) : fail(404, "NO_ENCONTRADO", "No existe el catálogo SUNAT " + params.id);
   }),
 
   http.get(`${BASE}/openapi.json`, () =>

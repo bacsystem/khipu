@@ -43,6 +43,7 @@ const CODIGOS: Array<[string, string, string, string]> = [
   ["NUMERO_YA_ASIGNADO", "422", "Se intentó asignar número a un comprobante que ya lo tiene.", "No debería ocurrir vía API; contacte soporte."],
   ["FECHA_INVALIDA", "422", "fecha_emision futura.", "Use la fecha de hoy o anterior."],
   ["MONEDA_INVALIDA", "422", "Moneda distinta de PEN/USD/EUR.", "Vea el catálogo 02."],
+  ["TIPO_OPERACION_INVALIDO", "422", "tipo_operacion no existe en el catálogo 51 o no aplica a facturas (regla 3206).", "Use un código del catálogo 51 cuya columna de comprobante incluya Factura."],
   ["RECEPTOR_INVALIDO", "422", "En factura el adquirente debe tener RUC válido (tipo_doc 6, 11 dígitos).", "Corrija cliente.tipo_doc / num_doc."],
   ["SIN_ITEMS", "422", "La factura no tiene ítems.", "Envíe al menos un ítem."],
   ["FORMA_PAGO_INVALIDA", "422", "Regla de forma de pago incumplida; el mensaje empieza por el código SUNAT (3244–3267, 3319).", "Ajuste cuotas, monto pendiente o fechas según el mensaje."],
