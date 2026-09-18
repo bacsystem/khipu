@@ -104,6 +104,9 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         sin.firmar("H", "k.xml");
         repo.guardar(sin);
         assertThat(repo.buscar(t, sin.id()).orElseThrow().referencias().vacias()).isTrue();
+        // La clase solo puede ser GUIA u OTRO: una fila con otra clase no puede ni escribirse (CHECK) ni, si existiera, rehidratarse en silencio.
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO comprobante_documento_relacionado (comprobante_id, orden, clase, tipo, numero) VALUES (?, 9, 'X', '09', 'T001-1')", c.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
     @Test void guardaYRehidrataDetraccion() {
