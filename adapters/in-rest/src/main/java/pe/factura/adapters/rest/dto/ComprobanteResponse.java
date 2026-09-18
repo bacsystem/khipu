@@ -2,12 +2,15 @@ package pe.factura.adapters.rest.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import pe.factura.domain.documento.Comprobante;
+import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,7 +30,21 @@ public record ComprobanteResponse(
         @Schema(example = "1") Integer intentos,
         @Schema(example = "null") String ultimoError,
         CdrDto cdr, TotalesDto totales,
+        FormaPagoDto formaPago,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
+    public record FormaPagoDto(
+            @Schema(example = "credito", description = "contado | credito") String tipo,
+            @Schema(example = "1180.00", description = "Solo al crédito") BigDecimal montoPendiente,
+            @Schema(description = "Solo al crédito; el identificador SUNAT es Cuota001, Cuota002…") List<CuotaDto> cuotas) {
+        public record CuotaDto(@Schema(example = "Cuota001") String id, @Schema(example = "590.00") BigDecimal monto, @Schema(example = "2026-10-15") LocalDate vencimiento) {}
+
+        static FormaPagoDto de(FormaPago f) {
+            List<CuotaDto> cs = new ArrayList<>();
+            for (int k = 0; k < f.cuotas().size(); k++) cs.add(new CuotaDto(FormaPago.idCuota(k + 1), f.cuotas().get(k).monto(), f.cuotas().get(k).vencimiento()));
+            return new FormaPagoDto(f.tipo().name().toLowerCase(Locale.ROOT), f.montoPendiente(), cs);
+        }
+    }
+
     public record ReceptorDto(
             @Schema(example = "6", description = "Catálogo 06 SUNAT: 6=RUC, 1=DNI") String tipoDoc,
             @Schema(example = "20554198211") String numDoc,
@@ -61,6 +78,7 @@ public record ComprobanteResponse(
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),
                 new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(), c.totales().total()),
+                FormaPagoDto.de(c.formaPago()),
                 enlaces(c, p));
     }
 

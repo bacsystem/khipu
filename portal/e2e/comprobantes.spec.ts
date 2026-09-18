@@ -18,6 +18,11 @@ test("lista comprobantes con su estado y permite ver el detalle", async ({ page 
 
   await page.getByRole("link", { name: /Ver comprobante F001-00000001/ }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-aceptada/);
+  // Forma de pago al crédito (RS 193-2020): neto pendiente y calendario de cuotas en la liquidación.
+  const formaPago = page.getByTestId("forma-pago");
+  await expect(formaPago.getByText("Crédito")).toBeVisible();
+  await expect(formaPago.getByText("Cuota001")).toBeVisible();
+  await expect(formaPago.getByText("Cuota002")).toBeVisible();
   // El detalle abre el XML firmado en una vista previa con su botón de descarga.
   await page.getByRole("button", { name: "Ver XML" }).click();
   await expect(page.getByText("Descargar XML")).toBeVisible();

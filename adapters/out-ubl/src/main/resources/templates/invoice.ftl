@@ -59,10 +59,27 @@
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
+  <#-- Forma de pago (reglas 3244–3267, 3319): un PaymentTerms por indicador; al crédito, el neto pendiente y una cuota por PaymentTerms. -->
+  <#if c.formaPago().esCredito()>
+  <cac:PaymentTerms>
+    <cbc:ID>FormaPago</cbc:ID>
+    <cbc:PaymentMeansID>Credito</cbc:PaymentMeansID>
+    <cbc:Amount currencyID="${c.moneda()}">${c.formaPago().montoPendiente()}</cbc:Amount>
+  </cac:PaymentTerms>
+  <#list c.formaPago().cuotas() as q>
+  <cac:PaymentTerms>
+    <cbc:ID>FormaPago</cbc:ID>
+    <cbc:PaymentMeansID>Cuota${(q?index + 1)?string["000"]}</cbc:PaymentMeansID>
+    <cbc:Amount currencyID="${c.moneda()}">${q.monto()}</cbc:Amount>
+    <cbc:PaymentDueDate>${q.vencimiento().toString()}</cbc:PaymentDueDate>
+  </cac:PaymentTerms>
+  </#list>
+  <#else>
   <cac:PaymentTerms>
     <cbc:ID>FormaPago</cbc:ID>
     <cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>
   </cac:PaymentTerms>
+  </#if>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv()}</cbc:TaxAmount>
     <#list tot.subtotales() as st>

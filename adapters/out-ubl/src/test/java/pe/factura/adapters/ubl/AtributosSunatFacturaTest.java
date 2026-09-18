@@ -145,6 +145,41 @@ class AtributosSunatFacturaTest {
         assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("18.00");
     }
 
+    /** Al crédito: un PaymentTerms 'Credito' con el neto pendiente y uno por cuota (Cuota001…, monto, vencimiento); reglas 3244–3267, 3319. */
+    @Test void formaPagoAlCreditoConCuotas() throws Exception {
+        LocalDate emision = LocalDate.of(2026, 9, 13);
+        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", emision, "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
+                List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.credito(new BigDecimal("100.00"), List.of(
+                        new FormaPago.Cuota(new BigDecimal("60.00"), emision.plusDays(30)),
+                        new FormaPago.Cuota(new BigDecimal("40.00"), emision.plusDays(60)))),
+                FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(9, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        assertThat(valor(d, "count(/inv:Invoice/cac:PaymentTerms)")).isEqualTo("3");
+        assertThat(valor(d, "count(/inv:Invoice/cac:PaymentTerms[cbc:ID='FormaPago'])")).isEqualTo("3");   // 3244: todos con el indicador
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[1]/cbc:PaymentMeansID")).isEqualTo("Credito");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[1]/cbc:Amount")).isEqualTo("100.00");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[1]/cbc:Amount/@currencyID")).isEqualTo("PEN");       // 2071
+        assertThat(valor(d, "count(/inv:Invoice/cac:PaymentTerms[1]/cbc:PaymentDueDate)")).isEqualTo("0");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[2]/cbc:PaymentMeansID")).isEqualTo("Cuota001");     // 3246
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[2]/cbc:Amount")).isEqualTo("60.00");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[2]/cbc:PaymentDueDate")).isEqualTo("2026-10-13");   // 3255
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[3]/cbc:PaymentMeansID")).isEqualTo("Cuota002");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[3]/cbc:Amount")).isEqualTo("40.00");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[3]/cbc:PaymentDueDate")).isEqualTo("2026-11-12");
+        assertThat(valor(d, "count(//cac:PaymentTerms[cbc:PaymentMeansID='Contado'])")).isEqualTo("0");        // 3247
+        assertThat(valor(d, "count(/inv:Invoice/cac:PaymentTerms[2]/cbc:PaymentMeansID)")).isEqualTo("1");     // 3461: uno por PaymentTerms
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     @Test void sigueValidandoContraElXsdOficial() {
         Tenant t = FreemarkerUblGeneratorTest.tenant();
         String xml = new FreemarkerUblGenerator().generar(facturaConTresAfectaciones(), t)

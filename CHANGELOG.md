@@ -2,6 +2,12 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.4] - 2026-09-17
+
+### Added
+- API: forma de pago de la factura (RS 193-2020, #30). `POST /v1/facturas` acepta `forma_pago` (`contado` por defecto, o `credito` con `monto_pendiente` y `cuotas[]` de `monto` + `vencimiento`); `ComprobanteResponse.forma_pago` la devuelve con los identificadores SUNAT (`Cuota001…`). El XML lleva un `cac:PaymentTerms` por indicador (`Credito` con el neto pendiente y uno por cuota con `PaymentDueDate`). Las reglas de la hoja Factura2_0 se validan antes de consumir numeración y responden `422 FORMA_PAGO_INVALIDA` con el código SUNAT en el mensaje (3244, 3249–3253, 3256, 3265, 3267, 3319). Migración V4 (`comprobante.forma_pago`, `monto_pendiente`, tabla `comprobante_cuota`).
+- Portal: el detalle del comprobante muestra la forma de pago y, al crédito, el neto pendiente y el calendario de cuotas.
+
 ## [0.1.3] - 2026-09-17
 
 ### Changed

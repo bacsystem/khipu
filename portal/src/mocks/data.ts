@@ -42,6 +42,7 @@ export type Comprobante = {
   ultimo_error: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   totales: { gravado: number; exonerado: number; inafecto: number; igv: number; total: number };
+  forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
   enlaces: { xml: string; cdr?: string };
 };
 
@@ -107,6 +108,14 @@ export function resetDb() {
       ultimo_error: null,
       cdr: { codigo: "0", descripcion: "La Factura numero F001-1, ha sido aceptada", observaciones: [] },
       totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
+      forma_pago: {
+        tipo: "credito",
+        monto_pendiente: 118,
+        cuotas: [
+          { id: "Cuota001", monto: 59, vencimiento: "2026-10-01" },
+          { id: "Cuota002", monto: 59, vencimiento: "2026-11-01" },
+        ],
+      },
       enlaces: { xml: "/v1/facturas/f-aceptada/xml", cdr: "/v1/facturas/f-aceptada/cdr" },
     },
     {
@@ -128,6 +137,7 @@ export function resetDb() {
       ultimo_error: "SUNAT no respondió a tiempo",
       cdr: null,
       totales: { gravado: 50, exonerado: 0, inafecto: 0, igv: 9, total: 59 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-error/xml" },
     },
   ]);

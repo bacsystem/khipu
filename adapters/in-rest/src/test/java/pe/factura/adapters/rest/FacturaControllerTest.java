@@ -196,6 +196,55 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.codigo").value("CDR_CORRUPTO"));
     }
 
+    @Test void facturaAlCreditoEntraYSaleConCuotas() throws Exception {
+        String conCredito = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"forma_pago\":{\"tipo\":\"credito\",\"monto_pendiente\":118.00,"
+                + "\"cuotas\":[{\"monto\":59.00,\"vencimiento\":\"2026-10-13\"},{\"monto\":59.00,\"vencimiento\":\"2026-11-13\"}]},");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
+                c.receptor(), c.items(), FormaPago.credito(new BigDecimal("118.00"), List.of(
+                        new FormaPago.Cuota(new BigDecimal("59.00"), LocalDate.of(2026, 10, 13)), new FormaPago.Cuota(new BigDecimal("59.00"), LocalDate.of(2026, 11, 13)))),
+                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conCredito))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.forma_pago.tipo").value("credito"))
+                .andExpect(jsonPath("$.datos.forma_pago.monto_pendiente").value(118.00))
+                .andExpect(jsonPath("$.datos.forma_pago.cuotas[0].id").value("Cuota001"))
+                .andExpect(jsonPath("$.datos.forma_pago.cuotas[1].vencimiento").value("2026-11-13"));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().formaPago().esCredito()).isTrue();
+        assertThat(cap.getValue().formaPago().cuotas()).hasSize(2);
+    }
+
+    @Test void sinFormaPagoEsContado() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(aceptado(tenant));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.forma_pago.tipo").value("contado"))
+                .andExpect(jsonPath("$.datos.forma_pago.cuotas").isEmpty());
+    }
+
+    /** Las cuotas que no cuadran se rechazan al construir el comando (antes del caso de uso) con el código SUNAT en el mensaje. */
+    @Test void cuotasQueNoSumanElPendienteEs422ConCodigoSunat() throws Exception {
+        String malCuadrado = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"forma_pago\":{\"tipo\":\"credito\",\"monto_pendiente\":118.00,"
+                + "\"cuotas\":[{\"monto\":50.00,\"vencimiento\":\"2026-10-13\"}]},");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(malCuadrado))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("FORMA_PAGO_INVALIDA"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("3319")));
+        org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
+    }
+
+    /** Sin Bean Validation en forma_pago: el formato también lo responde el dominio con el código SUNAT, un solo contrato de error. */
+    @Test void cuotaConMontoNegativoRespondeCodigoSunat3253() throws Exception {
+        String negativa = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"forma_pago\":{\"tipo\":\"credito\",\"monto_pendiente\":118.00,"
+                + "\"cuotas\":[{\"monto\":-1.00,\"vencimiento\":\"2026-10-13\"}]},");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(negativa))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("FORMA_PAGO_INVALIDA"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("3253")));
+    }
+
     @Test void jsonMalformadoEs400() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":"))
                 .andExpect(status().isBadRequest())

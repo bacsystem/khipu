@@ -52,6 +52,15 @@ export const ETIQUETAS_AFECTACION: Record<string, string> = {
   "30": "Inafecto · Op. onerosa",
 };
 
+/** Forma de pago (RS 193-2020): al contado, o al crédito con el neto pendiente y sus cuotas (`id` = Cuota001…). */
+export type FormaPago = {
+  tipo: "contado" | "credito";
+  monto_pendiente: number | null;
+  cuotas: Array<{ id: string; monto: number; vencimiento: string }>;
+};
+
+export const FORMA_PAGO_CONTADO: FormaPago = { tipo: "contado", monto_pendiente: null, cuotas: [] };
+
 export type Comprobante = {
   id: string;
   tipo: string;
@@ -69,6 +78,7 @@ export type Comprobante = {
   ultimo_error: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   totales: { gravado: number; exonerado: number; inafecto: number; igv: number; total: number };
+  forma_pago: FormaPago;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; cdr?: string };
 };
@@ -85,6 +95,7 @@ export function normalizarComprobante(c: Partial<Comprobante> & Pick<Comprobante
     receptor: c.receptor ?? null,
     items: c.items ?? [],
     nombre_archivo: c.nombre_archivo ?? null,
+    forma_pago: c.forma_pago ?? FORMA_PAGO_CONTADO,
     cdr: c.cdr ? { ...c.cdr, observaciones: c.cdr.observaciones ?? [] } : null,
   };
 }

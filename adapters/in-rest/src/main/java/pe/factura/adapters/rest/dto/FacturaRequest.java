@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import pe.factura.application.port.in.EmitirFacturaCommand;
+import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.TipoAfectacionIgv;
@@ -20,6 +21,7 @@ public record FacturaRequest(
         @NotBlank @Pattern(regexp = "PEN|USD|EUR") @Schema(example = "PEN") String moneda,
         @NotNull @Valid ClienteDto cliente,
         @NotEmpty @Valid List<ItemDto> items,
+        @Valid @Schema(description = "Forma de pago (RS 193-2020). Si se omite, al contado.") FormaPagoDto formaPago,
         @Schema(example = "true", description = "Si es false, queda RECIBIDO/FIRMADO sin enviarse a SUNAT") Boolean enviarAutomatico) {
 
     public record ClienteDto(
@@ -36,10 +38,26 @@ public record FacturaRequest(
             @NotNull @PositiveOrZero @Schema(example = "1000.00") BigDecimal precioUnitario,
             @NotBlank @Pattern(regexp = "10|20|30") @Schema(example = "10", description = "10=gravado, 20=exonerado, 30=inafecto") String tipoAfectacionIgv) {}
 
+    public record FormaPagoDto(
+            @NotBlank @Pattern(regexp = "contado|credito") @Schema(example = "credito") String tipo,
+            @Schema(example = "1180.00", description = "Monto neto pendiente de pago; obligatorio al crédito. Formato e importes los valida el dominio con el código SUNAT (3250, 3265, 3319)") BigDecimal montoPendiente,
+            @Valid @Schema(description = "Cuotas; obligatorias al crédito y deben sumar el monto pendiente") List<CuotaDto> cuotas) {
+
+        public record CuotaDto(
+                @Schema(example = "590.00", description = "Positivo, hasta 2 decimales (SUNAT 3253)") BigDecimal monto,
+                @Schema(example = "2026-10-15", description = "Posterior a la fecha de emisión (SUNAT 3256, 3267)") LocalDate vencimiento) {}
+
+        FormaPago aDominio() {
+            List<FormaPago.Cuota> cs = cuotas == null ? List.of() : cuotas.stream().map(q -> new FormaPago.Cuota(q.monto(), q.vencimiento())).toList();
+            return "credito".equals(tipo) ? FormaPago.credito(montoPendiente, cs) : new FormaPago(FormaPago.Tipo.CONTADO, montoPendiente, cs);
+        }
+    }
+
     public EmitirFacturaCommand aComando() {
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
                 items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()))).toList(),
+                formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
                 enviarAutomatico == null || enviarAutomatico);
     }
 }

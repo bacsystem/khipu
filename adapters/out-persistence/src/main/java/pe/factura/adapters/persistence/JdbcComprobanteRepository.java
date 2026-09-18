@@ -39,9 +39,15 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         Totales t = c.totales();
         jdbc.update("""
             INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, receptor_direccion,
-              total_gravado, total_exonerado, total_inafecto, total_igv, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              total_gravado, total_exonerado, total_inafecto, total_igv, total, forma_pago, monto_pendiente) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, c.id(), c.tipoOperacion(), c.moneda(), c.receptor().tipoDoc(), c.receptor().numDoc(), c.receptor().razonSocial(),
-                c.receptor().direccion(), t.gravado(), t.exonerado(), t.inafecto(), t.igv(), t.total());
+                c.receptor().direccion(), t.gravado(), t.exonerado(), t.inafecto(), t.igv(), t.total(),
+                c.formaPago().tipo().name(), c.formaPago().montoPendiente());
+        int nCuota = 1;
+        for (FormaPago.Cuota q : c.formaPago().cuotas()) {
+            jdbc.update("INSERT INTO comprobante_cuota (comprobante_id, orden, monto, vencimiento) VALUES (?, ?, ?, ?)",
+                    c.id(), nCuota++, q.monto(), Date.valueOf(q.vencimiento()));
+        }
         int orden = 1;
         for (Item i : c.items()) {
             jdbc.update("INSERT INTO comprobante_item (comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -72,7 +78,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     private static final String SELECT = """
         SELECT d.id, d.tenant_id, d.tipo, d.serie, d.numero, d.fecha_emision, d.estado, d.hash, d.nombre_archivo, d.intentos, d.ultimo_error,
                d.cdr_codigo, d.cdr_descripcion, d.cdr_observaciones::text AS cdr_obs, d.xml_key, d.cdr_key,
-               c.tipo_operacion, c.moneda, c.receptor_tipo_doc, c.receptor_num_doc, c.receptor_nombre, c.receptor_direccion
+               c.tipo_operacion, c.moneda, c.receptor_tipo_doc, c.receptor_num_doc, c.receptor_nombre, c.receptor_direccion,
+               c.forma_pago, c.monto_pendiente
         FROM documento d JOIN comprobante c ON c.documento_id = d.id
         """;
 
@@ -85,8 +92,16 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         return Comprobante.rehidratar(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"),
                 rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), rs.getString("moneda"), rs.getString("tipo_operacion"),
                 new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion")),
-                items, EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
+                items, formaPago(rs, id), EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
                 rs.getString("xml_key"), rs.getString("cdr_key"), cdr, rs.getInt("intentos"), rs.getString("ultimo_error"));
+    }
+
+    private FormaPago formaPago(ResultSet rs, UUID id) throws SQLException {
+        FormaPago.Tipo tipo = FormaPago.Tipo.valueOf(rs.getString("forma_pago"));
+        if (tipo == FormaPago.Tipo.CONTADO) return FormaPago.contado();
+        List<FormaPago.Cuota> cuotas = jdbc.query("SELECT monto, vencimiento FROM comprobante_cuota WHERE comprobante_id = ? ORDER BY orden",
+                (r, k) -> new FormaPago.Cuota(r.getBigDecimal("monto"), r.getDate("vencimiento").toLocalDate()), id);
+        return FormaPago.credito(rs.getBigDecimal("monto_pendiente"), cuotas);
     }
 
     /** JSON mínimo para una lista de strings (sin dependencia de Jackson en este módulo). */
