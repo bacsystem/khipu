@@ -27,7 +27,7 @@ public record ComprobanteResponse(
         @Schema(example = "1") Integer intentos,
         @Schema(example = "null") String ultimoError,
         CdrDto cdr, TotalesDto totales,
-        @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}") Map<String, String> enlaces) {
+        @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     public record ReceptorDto(
             @Schema(example = "6", description = "Catálogo 06 SUNAT: 6=RUC, 1=DNI") String tipoDoc,
             @Schema(example = "20554198211") String numDoc,
@@ -61,7 +61,12 @@ public record ComprobanteResponse(
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),
                 new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(), c.totales().total()),
-                Map.of("xml", p + "/xml", "cdr", p + "/cdr"));
+                enlaces(c, p));
+    }
+
+    /** `cdr` solo cuando existe la constancia: un rechazo por SOAPFault trae código y descripción pero SUNAT no emitió CDR. */
+    private static Map<String, String> enlaces(Comprobante c, String p) {
+        return c.cdrKey() == null ? Map.of("xml", p + "/xml") : Map.of("xml", p + "/xml", "cdr", p + "/cdr");
     }
 
     private static ReceptorDto de(Receptor r) {

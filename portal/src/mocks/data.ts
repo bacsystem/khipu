@@ -42,7 +42,7 @@ export type Comprobante = {
   ultimo_error: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   totales: { gravado: number; exonerado: number; inafecto: number; igv: number; total: number };
-  enlaces: { xml: string; cdr: string };
+  enlaces: { xml: string; cdr?: string };
 };
 
 type Sesion = { usuario: Usuario };
@@ -128,7 +128,7 @@ export function resetDb() {
       ultimo_error: "SUNAT no respondió a tiempo",
       cdr: null,
       totales: { gravado: 50, exonerado: 0, inafecto: 0, igv: 9, total: 59 },
-      enlaces: { xml: "/v1/facturas/f-error/xml", cdr: "/v1/facturas/f-error/cdr" },
+      enlaces: { xml: "/v1/facturas/f-error/xml" },
     },
   ]);
 }

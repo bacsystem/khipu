@@ -5,7 +5,7 @@ import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { ETIQUETAS_AFECTACION, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, obtenerFactura } from "@/lib/api/facturas";
+import { ETIQUETAS_AFECTACION, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -136,7 +136,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
         <div className="flex flex-wrap items-center gap-2">
           {c.estado_documento === "ERROR_ENVIO" ? <ReenviarButton id={c.id} /> : null}
-          <VistaPrevia id={c.id} numero={numero} nombreArchivo={c.nombre_archivo} tieneCdr={Boolean(c.cdr)} />
+          <VistaPrevia id={c.id} numero={numero} nombreArchivo={c.nombre_archivo} tieneCdr={tieneConstanciaCdr(c)} />
           <button
             disabled
             title="Representación impresa (PDF): próximamente"
@@ -171,8 +171,11 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           <div className="flex shrink-0 items-center gap-2">
             <EstadoBadge estado={c.estado_documento} />
             {c.cdr ? (
-              <span className="rounded border border-border bg-secondary px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
-                CDR Código: {c.cdr.codigo}
+              <span
+                title={tieneConstanciaCdr(c) ? "Código de la constancia de recepción (CDR)" : "Código de respuesta de SUNAT; no se emitió constancia (CDR)"}
+                className="rounded border border-border bg-secondary px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground"
+              >
+                {tieneConstanciaCdr(c) ? "CDR" : "Código SUNAT"}: {c.cdr.codigo}
               </span>
             ) : null}
           </div>

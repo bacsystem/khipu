@@ -191,6 +191,7 @@ export const handlers = [
     if (!factura) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
     factura.estado_documento = "ACEPTADO";
     factura.cdr = { codigo: "0", descripcion: "Aceptado", observaciones: [] };
+    factura.enlaces = { ...factura.enlaces, cdr: `/v1/facturas/${factura.id}/cdr` };
     return ok(factura);
   }),
 
