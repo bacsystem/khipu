@@ -23,12 +23,12 @@ public class SoapBillingGateway implements SunatBillingGateway {
     private final Supplier<HttpClient> clientes;
 
     /**
-     * Un {@link HttpClient} nuevo por envío, cerrado al terminar. El frontal de SUNAT (e-beta y producción comparten
-     * configuración) responde {@code 401 Authorization Required} a cualquier petición que reutilice una conexión
-     * keep-alive: solo la primera petición de cada conexión TCP se autentica. Comprobado en la homologación (#32):
-     * con un pool, los envíos alternos fallaban con 401. El cliente del JDK no permite enviar {@code Connection: close},
-     * así que se descarta el pool entero en cada llamada; el coste (un handshake TLS por comprobante) es despreciable
-     * frente a la validación de SUNAT.
+     * Un {@link HttpClient} nuevo por envío, cerrado al terminar. El frontal de SUNAT responde {@code 401 Authorization
+     * Required} a <em>todas</em> las peticiones que reutilizan una conexión keep-alive después de la primera (comprobado
+     * en la homologación #32: sobre una misma conexión, 200 y luego 401 en cada envío siguiente). El cliente del JDK no
+     * permite enviar {@code Connection: close}, así que se descarta el pool entero en cada llamada; el coste (un handshake
+     * TLS por comprobante) es despreciable frente a la validación de SUNAT. Los 401 que aparecen aun con conexiones nuevas
+     * son otro fenómeno (el balanceador) y los cubre {@link #INTENTOS_401}.
      */
     public SoapBillingGateway(SunatUrls urls, Duration timeout) {
         this(urls, timeout, () -> HttpClient.newBuilder().connectTimeout(timeout).build());

@@ -40,8 +40,11 @@ dependencies {
 
 // Ver adapters/out-persistence/build.gradle.kts: Testcontainers 1.20.1 no negocia con el
 // Docker Engine local si no se fija esta versión de API.
-tasks.test {
+tasks.withType<Test>().configureEach {
     systemProperty("api.version", "1.41")
+}
+
+tasks.test {
     useJUnitPlatform { excludeTags("homologacion") }
 }
 
@@ -52,7 +55,6 @@ tasks.register<Test>("homologacion") {
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
     useJUnitPlatform { includeTags("homologacion") }
-    systemProperty("api.version", "1.41")
     val salida = layout.buildDirectory.dir("homologacion").get().asFile
     systemProperty("homologacion.salida", salida.absolutePath)
     doFirst { salida.deleteRecursively() }   // evidencia solo de esta ejecución

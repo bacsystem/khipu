@@ -5,11 +5,9 @@ name: Homologación e-beta
 on:
   schedule:
     - cron: "0 6 * * *"   # 01:00 Lima
+  # Bajo demanda. Emite con el certificado de prueba del repo (OU = 20100066603); para otro RUC hay que definir los
+  # secretos HOMOLOGACION_RUC, HOMOLOGACION_CERT_B64 (PKCS#12 en base64 con OU = ese RUC) y HOMOLOGACION_CERT_CLAVE.
   workflow_dispatch:
-    inputs:
-      ruc:
-        description: "RUC emisor (por defecto el del certificado de prueba)"
-        required: false
 
 jobs:
   homologacion:
@@ -22,9 +20,14 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Certificado propio (solo si hay secretos)
+        if: ${{ secrets.HOMOLOGACION_CERT_B64 != '' }}
+        run: echo "${{ secrets.HOMOLOGACION_CERT_B64 }}" | base64 -d > "$RUNNER_TEMP/homologacion.p12"
       - name: Emitir escenarios contra e-beta
         env:
-          HOMOLOGACION_RUC: ${{ inputs.ruc }}
+          HOMOLOGACION_RUC: ${{ secrets.HOMOLOGACION_RUC }}
+          HOMOLOGACION_CERT: ${{ secrets.HOMOLOGACION_CERT_B64 != '' && format('{0}/homologacion.p12', runner.temp) || '' }}
+          HOMOLOGACION_CERT_CLAVE: ${{ secrets.HOMOLOGACION_CERT_CLAVE }}
         run: ./gradlew :bootstrap:homologacion --no-daemon
       - name: Resumen
         if: always()

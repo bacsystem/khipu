@@ -14,7 +14,10 @@ final class EscenariosFactura {
     static final String CLIENTE = """
         "cliente":{"tipo_doc":"6","num_doc":"20131312955","razon_social":"SUPERINTENDENCIA NACIONAL DE ADUANAS Y DE ADMINISTRACION TRIBUTARIA","direccion":"AV. GARCILASO DE LA VEGA 1472, LIMA"}""";
 
-    record Escenario(String id, String descripcion, String cuerpo) {}
+    record Escenario(String id, String descripcion, String cuerpo) {
+        /** Nombre del caso en los informes de JUnit/Gradle: sin el JSON del cuerpo, que ya queda en la evidencia. */
+        @Override public String toString() { return id + " — " + descripcion; }
+    }
 
     /** {@code serie} y {@code fecha} se inyectan por ejecución; {@code anticipoNumero} lo rellena el test tras aceptar el anticipo. */
     static List<Escenario> todos(String serie, LocalDate fecha) {
