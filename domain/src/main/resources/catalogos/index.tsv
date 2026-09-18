@@ -1,0 +1,20 @@
+Id	Nombre	Entradas
+01	Código de tipo de documento	41
+02	Código de tipo de monedas (ISO 4217; las que acepta la API)	3
+03	Código de tipo de unidad de medida comercial (UN/ECE rec 20; las más usadas — la lista completa la publica la UNECE)	48
+05	Código de tipos de tributos y otros conceptos	10
+06	Código de tipo de documento de identidad	13
+07	Código de tipo de afectación del IGV	19
+08	Código de tipos de sistema de cálculo del ISC	3
+09	Códigos de tipo de nota de crédito electrónica	13
+10	Códigos de tipo de nota de débito electrónica	6
+12	Código de documentos relacionados tributarios	11
+16	Código de tipo de precio de venta unitario	3
+22	Código de regimen de percepciones	3
+23	Código de regimen de retenciones	2
+51	Código de tipo de operación	31
+52	Códigos de leyendas	15
+53	Códigos de cargos, descuentos y otras deducciones	22
+54	Códigos de bienes y servicios sujetos a detracciones	44
+59	Medios de Pago	22
+60	Código de tipo de dirección	5

@@ -31,7 +31,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
     @Override protected boolean shouldNotFilter(HttpServletRequest req) {
         String ruta = RutaRequest.rutaNormalizada(req);
-        if (!RutaRequest.esApiV1(ruta) || RutaRequest.esAdmin(ruta) || RutaRequest.esAuthPublica(ruta)) return true;
+        if (!RutaRequest.esApiV1(ruta) || RutaRequest.esAdmin(ruta) || RutaRequest.esPublica(ruta)) return true;
         String apiKey = req.getHeader("X-Api-Key");
         if (apiKey != null && !apiKey.isBlank()) return true;
         String auth = req.getHeader("Authorization");

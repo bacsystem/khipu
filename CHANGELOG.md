@@ -2,6 +2,13 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.5] - 2026-09-17
+
+### Added
+- API: `GET /v1/catalogos` y `GET /v1/catalogos/{id}` (públicos, sin credenciales) con los catálogos oficiales de SUNAT (Anexo 8 de las reglas de validación 2026-08-26: 01, 02, 03, 05, 06, 07, 08, 09, 10, 12, 16, 22, 23, 51, 52, 53, 54, 59, 60) cargados desde recursos del dominio (`CatalogoSunat`), base para validar códigos antes de firmar y para documentarlos.
+- OpenAPI: introducción de la API (autenticación, entornos, sobre de respuesta, estados del comprobante, códigos HTTP, plazos), etiquetas y descripción de cada endpoint, y descripción de cada campo con su catálogo y su significado. Se ve en `/developers` y en `/openapi.json`.
+- Developer portal: nuevas secciones **Guía de emisión** (inicio rápido, anatomía de la factura, casos de emisión con JSON completo —contado, mixta, dólares, crédito con cuotas, emitir sin enviar, correlativo propio— y los casos en desarrollo con su contrato previsto, lectura de la respuesta, buenas prácticas), **Catálogos SUNAT** (todos los catálogos con buscador, leídos de la API) y **Errores y estados** (estados, códigos HTTP, códigos de khipu con qué hacer, rangos de SUNAT).
+
 ## [0.1.4] - 2026-09-17
 
 ### Added

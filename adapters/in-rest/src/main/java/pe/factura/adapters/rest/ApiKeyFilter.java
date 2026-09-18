@@ -26,7 +26,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
      */
     @Override protected boolean shouldNotFilter(HttpServletRequest req) {
         String ruta = RutaRequest.rutaNormalizada(req);
-        if (!RutaRequest.esApiV1(ruta) || RutaRequest.esAdmin(ruta) || RutaRequest.esAuthPublica(ruta)) return true;
+        if (!RutaRequest.esApiV1(ruta) || RutaRequest.esAdmin(ruta) || RutaRequest.esPublica(ruta)) return true;
         return req.getAttribute(CuentaActual.ATRIBUTO) != null;
     }
 

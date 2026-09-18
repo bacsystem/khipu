@@ -24,11 +24,11 @@ public record ComprobanteResponse(
         @Schema(example = "0101", description = "Catálogo 51 SUNAT") String tipoOperacion,
         ReceptorDto receptor,
         List<ItemDto> items,
-        @Schema(example = "ACEPTADO") String estadoDocumento,
-        @Schema(example = "a1b2c3d4e5f6...") String hash,
-        @Schema(example = "20614798093-01-F001-00000125") String nombreArchivo,
-        @Schema(example = "1") Integer intentos,
-        @Schema(example = "null") String ultimoError,
+        @Schema(example = "ACEPTADO", description = "Estado del comprobante: `RECIBIDO` → `FIRMADO` → `ENVIADO` → `ACEPTADO` / `ACEPTADO_CON_OBS` / `RECHAZADO`; `ERROR_ENVIO` (SUNAT no disponible, se reintenta), `INVALIDO` (XML no válido), `ANULADO` (comunicación de baja aceptada)") String estadoDocumento,
+        @Schema(example = "a1b2c3d4e5f6...", description = "Resumen (digest) de la firma XML-DSig; se imprime en la representación impresa y en el código QR") String hash,
+        @Schema(example = "20614798093-01-F001-00000125", description = "Nombre oficial del archivo: `RUC-TIPO-SERIE-NUMERO`") String nombreArchivo,
+        @Schema(example = "1", description = "Intentos de envío a SUNAT realizados") Integer intentos,
+        @Schema(example = "null", description = "Último error de envío (`código SUNAT - mensaje`), o `null`") String ultimoError,
         CdrDto cdr, TotalesDto totales,
         FormaPagoDto formaPago,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
@@ -60,8 +60,8 @@ public record ComprobanteResponse(
             @Schema(example = "10", description = "Catálogo 07 SUNAT: 10=gravado, 20=exonerado, 30=inafecto") String tipoAfectacionIgv) {}
 
     public record CdrDto(
-            @Schema(example = "0") String codigo,
-            @Schema(example = "La Factura numero F001-125, ha sido aceptada") String descripcion,
+            @Schema(example = "0", description = "Código de respuesta SUNAT: `0` aceptado; 2000–3999 rechazado (corregir y reemitir); 4000+ aceptado con observaciones; 1000–1999 error del emisor (fault, sin CDR)") String codigo,
+            @Schema(example = "La Factura numero F001-125, ha sido aceptada", description = "Descripción oficial de SUNAT") String descripcion,
             List<String> observaciones) {}
 
     public record TotalesDto(

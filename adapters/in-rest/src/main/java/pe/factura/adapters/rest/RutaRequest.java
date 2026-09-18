@@ -29,5 +29,6 @@ final class RutaRequest {
 
     static boolean esApiV1(String ruta) { return ruta.equals("/v1") || ruta.startsWith("/v1/"); }
 
-    static boolean esAuthPublica(String ruta) { return AUTH_PUBLICA.contains(ruta); }
+    /** Sin credenciales: rutas de autenticación (el cliente aún no tiene ninguna) y los catálogos SUNAT (información pública de referencia). */
+    static boolean esPublica(String ruta) { return AUTH_PUBLICA.contains(ruta) || ruta.equals("/v1/catalogos") || ruta.startsWith("/v1/catalogos/"); }
 }

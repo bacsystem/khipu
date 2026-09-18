@@ -14,32 +14,32 @@ import java.time.LocalDate;
 import java.util.List;
 
 public record FacturaRequest(
-        @NotBlank @Pattern(regexp = "F[A-Z0-9]{3}", message = "serie de factura inválida") @Schema(example = "F001") String serie,
-        @Positive @Schema(example = "125") Long correlativo,
-        @NotNull @Schema(example = "2026-09-14") LocalDate fechaEmision,
-        @Pattern(regexp = "\\d{4}") @Schema(example = "0101", description = "Código de tipo de operación SUNAT") String tipoOperacion,
-        @NotBlank @Pattern(regexp = "PEN|USD|EUR") @Schema(example = "PEN") String moneda,
+        @NotBlank @Pattern(regexp = "F[A-Z0-9]{3}", message = "serie de factura inválida") @Schema(example = "F001", description = "Serie de factura: `F` + 3 alfanuméricos, registrada previamente en `POST /v1/series`") String serie,
+        @Positive @Schema(example = "125", description = "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`") Long correlativo,
+        @NotNull @Schema(example = "2026-09-14", description = "Fecha de emisión (`YYYY-MM-DD`), no futura. SUNAT exige recibir la factura dentro de los 3 días calendario siguientes") LocalDate fechaEmision,
+        @Pattern(regexp = "\\d{4}") @Schema(example = "0101", description = "Tipo de operación, catálogo 51 (`GET /v1/catalogos/51`); un código fuera del catálogo responde `422 TIPO_OPERACION_INVALIDO` (regla 3206). `0101` venta interna (por defecto), `1001` operación sujeta a detracción. Exportación (`0200`) aún no soportada") String tipoOperacion,
+        @NotBlank @Pattern(regexp = "PEN|USD|EUR") @Schema(example = "PEN", description = "Moneda ISO 4217 de todo el comprobante: `PEN`, `USD` o `EUR` (catálogo 02)") String moneda,
         @NotNull @Valid ClienteDto cliente,
         @NotEmpty @Valid List<ItemDto> items,
         @Valid @Schema(description = "Forma de pago (RS 193-2020). Si se omite, al contado.") FormaPagoDto formaPago,
-        @Schema(example = "true", description = "Si es false, queda RECIBIDO/FIRMADO sin enviarse a SUNAT") Boolean enviarAutomatico) {
+        @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja el comprobante `FIRMADO` para enviarlo luego con `POST /v1/facturas/{id}/enviar` (p. ej. para emitir en lote y enviar después)") Boolean enviarAutomatico) {
 
     public record ClienteDto(
-            @NotBlank @Schema(example = "6", description = "Catálogo 06 SUNAT: 1=DNI, 6=RUC") String tipoDoc,
-            @NotBlank @Schema(example = "20123456789") String numDoc,
-            @NotBlank @Schema(example = "Comercial Andina SAC") String razonSocial,
-            @Schema(example = "Av. Javier Prado Este 123, San Isidro") String direccion) {}
+            @NotBlank @Schema(example = "6", description = "Tipo de documento de identidad, catálogo 06. En factura debe ser `6` (RUC); `1` DNI, `4` carné de extranjería y `7` pasaporte se usan en boletas") String tipoDoc,
+            @NotBlank @Schema(example = "20123456789", description = "RUC de 11 dígitos del adquirente") String numDoc,
+            @NotBlank @Schema(example = "Comercial Andina SAC", description = "Razón social tal como figura en la ficha RUC del adquirente") String razonSocial,
+            @Schema(example = "Av. Javier Prado Este 123, San Isidro", description = "Dirección del adquirente (opcional; se imprime en el XML)") String direccion) {}
 
     public record ItemDto(
-            @Schema(example = "SKU-001") String codigo,
-            @NotBlank @Schema(example = "Servicio de consultoría") String descripcion,
-            @NotBlank @Schema(example = "NIU", description = "Catálogo 03 SUNAT (unidad de medida), NIU = unidad") String unidad,
-            @NotNull @Positive @Schema(example = "2") BigDecimal cantidad,
-            @NotNull @PositiveOrZero @Schema(example = "1000.00") BigDecimal precioUnitario,
-            @NotBlank @Pattern(regexp = "10|20|30") @Schema(example = "10", description = "10=gravado, 20=exonerado, 30=inafecto") String tipoAfectacionIgv) {}
+            @Schema(example = "SKU-001", description = "Código interno del producto o servicio (opcional)") String codigo,
+            @NotBlank @Schema(example = "Servicio de consultoría", description = "Descripción detallada del bien o servicio") String descripcion,
+            @NotBlank @Schema(example = "NIU", description = "Unidad de medida UN/ECE rec 20 (catálogo 03, `GET /v1/catalogos/03`, lista las más usadas): `NIU` unidad (bienes), `ZZ` unidad (servicios), `KGM` kilogramo, `HUR` hora… khipu no la valida contra el catálogo: un código inexistente lo rechaza SUNAT") String unidad,
+            @NotNull @Positive @Schema(example = "2", description = "Cantidad, hasta 10 decimales") BigDecimal cantidad,
+            @NotNull @PositiveOrZero @Schema(example = "1000.00", description = "Precio de venta unitario **con IGV incluido** (gravados); khipu calcula el valor unitario sin IGV") BigDecimal precioUnitario,
+            @NotBlank @Pattern(regexp = "10|20|30") @Schema(example = "10", description = "Afectación del IGV, catálogo 07: `10` gravado (IGV 18 %), `20` exonerado (sin IGV por ley: Apéndice I), `30` inafecto (fuera del ámbito del IGV). Las gratuitas (11–17, 21, 31–37) están en desarrollo") String tipoAfectacionIgv) {}
 
     public record FormaPagoDto(
-            @NotBlank @Pattern(regexp = "contado|credito") @Schema(example = "credito") String tipo,
+            @NotBlank @Pattern(regexp = "contado|credito") @Schema(example = "credito", description = "`contado`: pago único al emitir. `credito`: pago diferido; exige `monto_pendiente` y al menos una cuota (RS 193-2020)") String tipo,
             @Schema(example = "1180.00", description = "Monto neto pendiente de pago; obligatorio al crédito. Formato e importes los valida el dominio con el código SUNAT (3250, 3265, 3319)") BigDecimal montoPendiente,
             @Valid @Schema(description = "Cuotas; obligatorias al crédito y deben sumar el monto pendiente") List<CuotaDto> cuotas) {
 

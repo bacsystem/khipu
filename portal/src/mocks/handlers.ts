@@ -37,6 +37,18 @@ function nuevoId(prefijo: string) {
   return `${prefijo}-${contador}`;
 }
 
+/** Subconjunto de los catálogos SUNAT, suficiente para la página /developers/catalogos. */
+const CATALOGOS = [
+  { id: "06", nombre: "Código de tipo de documento de identidad", columnas: ["Código", "Descripción"],
+    entradas: [{ codigo: "1", descripcion: "DNI", extra: {} }, { codigo: "6", descripcion: "RUC", extra: {} }] },
+  { id: "07", nombre: "Código de tipo de afectación del IGV", columnas: ["Código", "Descripción", "Codigo de tributo"],
+    entradas: [
+      { codigo: "10", descripcion: "Gravado - Operación Onerosa", extra: { "Codigo de tributo": "1000" } },
+      { codigo: "20", descripcion: "Exonerado - Operación Onerosa", extra: { "Codigo de tributo": "9997" } },
+      { codigo: "30", descripcion: "Inafecto - Operación Onerosa", extra: { "Codigo de tributo": "9998" } },
+    ] },
+];
+
 export const handlers = [
   http.post(`${BASE}/v1/auth/registro`, async ({ request }) => {
     const body = (await request.json()) as { nombre: string; email: string; password: string };
@@ -211,6 +223,16 @@ export const handlers = [
       );
     }
     return new HttpResponse(new Uint8Array([80, 75]), { headers: { "content-type": "application/zip" } });
+  }),
+
+  // Catálogos SUNAT públicos: un subconjunto suficiente para la página /developers/catalogos.
+  http.get(`${BASE}/v1/catalogos`, ({ request }) => {
+    const completo = new URL(request.url).searchParams.get("completo") === "true";
+    return ok(completo ? CATALOGOS : CATALOGOS.map((c) => ({ id: c.id, nombre: c.nombre, entradas: c.entradas.length })));
+  }),
+  http.get(`${BASE}/v1/catalogos/:id`, ({ params }) => {
+    const c = CATALOGOS.find((x) => x.id === params.id);
+    return c ? ok(c) : fail(404, "NO_ENCONTRADO", "No existe el catálogo SUNAT " + params.id);
   }),
 
   http.get(`${BASE}/openapi.json`, () =>

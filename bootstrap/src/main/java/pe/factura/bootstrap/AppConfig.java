@@ -5,6 +5,9 @@ import io.swagger.v3.core.jackson.ModelResolver;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.Info;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -75,6 +78,59 @@ public class AppConfig {
      * springdoc lo detecta por tipo y reemplaza al que trae por defecto (ModelConverterRegistrar).
      */
     @Bean ModelResolver modelResolver(ObjectMapper objectMapper) { return new ModelResolver(objectMapper); }
+
+    /**
+     * Introducción de la referencia (/developers y /openapi.json): lo que un integrador necesita saber antes de leer
+     * cada endpoint — autenticación, sobre de respuesta, estados del comprobante, errores y plazos. Se mantiene aquí y
+     * no en el portal para que cualquier cliente OpenAPI (Postman, generadores) la reciba también.
+     */
+    @Bean OpenAPI openApiInfo(AppProperties p) {
+        return new OpenAPI().info(new Info()
+                .title("khipu API")
+                .version("v1")
+                .contact(new Contact().name("khipu").url(p.portalUrl()))
+                .description("""
+                        API de facturación electrónica SUNAT (Perú) para integradores: emite, firma, envía y consulta comprobantes
+                        electrónicos UBL 2.1 sin implementar el estándar ni el protocolo SOAP de SUNAT.
+
+                        ## Autenticación
+                        Cada petición de integración lleva la cabecera `X-Api-Key: fk_…` de la empresa emisora (se crea en el portal,
+                        sección *API keys*; el secreto se muestra una sola vez). Una llave pertenece a una única empresa (RUC), por lo
+                        que no hace falta indicar el RUC en las llamadas. Las rutas de *Autenticación (portal)* y *Cuenta y empresas*
+                        son exclusivas del portal web (sesión JWT). Los *Catálogos SUNAT* son públicos.
+
+                        ## Entornos
+                        Cada empresa está en `BETA` (homologación de SUNAT: los comprobantes **no tienen validez tributaria**, ideal para
+                        integrar) o en `PRODUCCION`. La URL de la API es la misma; el entorno lo decide la configuración de la empresa.
+
+                        ## Sobre de respuesta
+                        Todas las respuestas JSON tienen la forma `{"estado": "exito" | "error", "datos": …, "codigo": …, "mensaje": …, "errores": …}`.
+                        En éxito, `datos` trae el recurso; en error, `codigo` es un identificador estable (p. ej. `VALIDACION`, `NO_ENCONTRADO`,
+                        `DUPLICADO`, `FORMA_PAGO_INVALIDA`), `mensaje` es legible y, cuando la regla viene de SUNAT, empieza por su código
+                        (`3319 - La suma de las cuotas…`). `errores` detalla los campos inválidos en `VALIDACION`. Los nombres de campo van en
+                        `snake_case`.
+
+                        ## Estados del comprobante
+                        `RECIBIDO` (validado y numerado) → `FIRMADO` (XML firmado; se envía en la misma llamada salvo `enviar_automatico: false`) →
+                        `ENVIADO` → `ACEPTADO` (CDR con código 0) · `ACEPTADO_CON_OBS` (aceptado, observaciones 4xxx: revíselas) ·
+                        `RECHAZADO` (SUNAT lo rechazó: corrija y vuelva a emitir; el número puede reutilizarse).
+                        `ERROR_ENVIO`: SUNAT no estuvo disponible; khipu reintenta con espera creciente hasta %d veces (~6 h entre intentos al final)
+                        y puede forzarse con `POST /v1/facturas/{id}/enviar`. `INVALIDO`: el XML no pasó la validación local. `ANULADO`: baja aceptada.
+
+                        ## Códigos HTTP
+                        `201` creado · `200` ok · `204` sin contenido · `400` parámetro o JSON mal formado · `401` sin credenciales válidas ·
+                        `403` operación reservada al portal · `404` no existe (o es de otra empresa) · `409` conflicto (duplicado, estado no enviable) ·
+                        `422` datos inválidos o regla de negocio · `500` error interno (incluye `trace_id`).
+
+                        ## Plazos SUNAT
+                        Una factura debe llegar a SUNAT dentro de los **3 días calendario** siguientes a su emisión. Emita el mismo día y vigile
+                        los `ERROR_ENVIO`.
+
+                        ## Códigos y catálogos
+                        Los valores de `tipo_afectacion_igv`, `unidad`, `tipo_operacion`, `tipo_doc`, etc. son códigos oficiales de SUNAT:
+                        consúltelos con `GET /v1/catalogos` (públicos) o en la sección *Catálogos* del developer portal.
+                        """.formatted(p.outbox().maxIntentos())));
+    }
 
     /**
      * /v1/empresas (plural) es cuenta-scoped vía JWT (CuentaActual) — una X-Api-Key no llega a

@@ -1,5 +1,7 @@
 package pe.factura.adapters.rest;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -22,22 +24,32 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1")
+@Tag(name = "Empresa", description = """
+        Configuración de la empresa emisora autenticada: datos fiscales, certificado digital, credenciales SOL, series y
+        API keys. `X-Api-Key` identifica a la empresa; desde el portal se usa la sesión más la cabecera `X-Empresa`.
+        Los secretos (clave SOL, contraseña del certificado) se cifran en reposo y nunca vuelven por la API.""")
 @RequiredArgsConstructor
 public class EmpresaController {
     private final AdministrarTenantUseCase admin;
 
     @GetMapping("/empresa")
+    @Operation(summary = "Ver la empresa", description = "RUC, razón social, entorno SUNAT (`BETA` u homologación / `PRODUCCION`), si tiene credenciales SOL y la vigencia del certificado. Nunca devuelve secretos.")
     public ApiResponse<EmpresaResponse> ver(HttpServletRequest req) {
         return ApiResponse.ok(EmpresaResponse.de(admin.obtener(TenantActual.id(req))));
     }
 
     @PostMapping(value = "/empresa/certificado", consumes = "multipart/form-data")
+    @Operation(summary = "Cargar el certificado digital", description = """
+            Sube el certificado PKCS#12 (`.p12`/`.pfx`) con el que se firmarán los XML y su contraseña (`multipart/form-data`,
+            campos `archivo` y `clave`). El RUC de la empresa debe figurar en el campo `OU` del certificado; si no,
+            `422 CERTIFICADO_INVALIDO`. Reemplaza el certificado anterior.""")
     public ResponseEntity<Void> certificado(HttpServletRequest req, @RequestParam("archivo") MultipartFile archivo, @RequestParam("clave") String clave) throws IOException {
         admin.cargarCertificado(TenantActual.id(req), archivo.getBytes(), clave);
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/empresa/credenciales-sol")
+    @Operation(summary = "Guardar las credenciales SOL", description = "Usuario secundario SOL (sin el RUC; khipu antepone `RUC+usuario` al enviar) y su clave. Obligatorias antes de enviar comprobantes a SUNAT.")
     public ResponseEntity<Void> credencialesSol(HttpServletRequest req, @Valid @RequestBody CredencialesSolRequest body) {
         admin.cargarCredencialesSol(TenantActual.id(req), body.usuario(), body.clave());
         return ResponseEntity.noContent().build();
@@ -45,18 +57,21 @@ public class EmpresaController {
 
     // La gestión de API keys exige sesión del portal: una key filtrada no debe poder crear otras ni revocar las del tenant.
     @PostMapping("/empresa/api-keys")
+    @Operation(summary = "Crear una API key", description = "Genera una llave `fk_…` para integraciones. **El secreto se muestra una sola vez** en esta respuesta; después solo se ve el prefijo. Requiere sesión del portal (no se puede crear con otra API key).")
     public ResponseEntity<ApiResponse<ApiKeyResponse>> apiKey(HttpServletRequest req) {
         CuentaActual.exigirSesion(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(new ApiKeyResponse(admin.crearApiKey(TenantActual.id(req)))));
     }
 
     @GetMapping("/empresa/api-keys")
+    @Operation(summary = "Listar API keys", description = "Prefijo, estado y fechas de cada llave; nunca el secreto. Requiere sesión del portal.")
     public ApiResponse<List<ApiKeyResumenResponse>> apiKeys(HttpServletRequest req) {
         CuentaActual.exigirSesion(req);
         return ApiResponse.ok(admin.listarApiKeys(TenantActual.id(req)).stream().map(ApiKeyResumenResponse::de).toList());
     }
 
     @DeleteMapping("/empresa/api-keys/{id}")
+    @Operation(summary = "Revocar una API key", description = "La llave deja de autenticar al instante y sin período de gracia; es idempotente. `404 NO_ENCONTRADO` si no pertenece a la empresa. Requiere sesión del portal.")
     public ResponseEntity<Void> revocarApiKey(HttpServletRequest req, @PathVariable UUID id) {
         CuentaActual.exigirSesion(req);
         admin.revocarApiKey(TenantActual.id(req), id);
@@ -64,12 +79,17 @@ public class EmpresaController {
     }
 
     @PostMapping("/series")
+    @Operation(summary = "Crear una serie", description = """
+            Registra una serie de numeración. El prefijo indica el tipo: `F###` factura, `B###` boleta, `FC##`/`BC##` nota de
+            crédito, `FD##`/`BD##` nota de débito (3 alfanuméricos tras el prefijo). `correlativo_inicial` es el último
+            número ya usado en otro sistema (0 si es nueva): khipu emitirá desde el siguiente. `409 DUPLICADO` si ya existe.""")
     public ResponseEntity<Void> crearSerie(HttpServletRequest req, @Valid @RequestBody SerieRequest body) {
         admin.crearSerie(TenantActual.id(req), TipoDocumento.porCodigo(body.tipo()), body.serie(), body.correlativoInicial() == null ? 0 : body.correlativoInicial());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @GetMapping("/series")
+    @Operation(summary = "Listar series", description = "Series de la empresa con su tipo, último número asignado y si acepta emisiones.")
     public ApiResponse<List<SerieResponse>> series(HttpServletRequest req) {
         return ApiResponse.ok(admin.listarSeries(TenantActual.id(req)).stream()
                 .map(s -> new SerieResponse(s.tipo().codigo(), s.codigo(), s.ultimoNumero(), s.activa()))
