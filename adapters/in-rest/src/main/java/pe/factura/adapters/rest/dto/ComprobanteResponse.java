@@ -69,6 +69,7 @@ public record ComprobanteResponse(
             @Schema(example = "10", description = "Catálogo 07 SUNAT: 10=gravado, 20=exonerado, 30=inafecto") String tipoAfectacionIgv,
             @Schema(example = "1000.00", description = "Valor de venta de la línea sin IGV, neto de descuento que afecta la base") BigDecimal valorVenta,
             @Schema(example = "180.00") BigDecimal igv,
+            @Schema(example = "1180.00", description = "Precio de venta de la línea: valor de venta + IGV − descuento que no afecta la base (01)") BigDecimal precioVenta,
             DescuentoDto descuento) {}
 
     public record CdrDto(
@@ -116,6 +117,6 @@ public record ComprobanteResponse(
         DescuentoDto d = i.tieneDescuento()
                 ? new DescuentoDto(i.descuento().tipo().name(), i.descuento().valor(), ic.descuento(), i.descuento().afectaBaseIgv(), i.descuento().codigoSunat(false))
                 : null;
-        return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), d);
+        return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), d);
     }
 }

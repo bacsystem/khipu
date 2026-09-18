@@ -106,7 +106,13 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     private static Boolean afectaBase(Descuento d) { return d == null ? null : d.afectaBaseIgv(); }
 
     private static Descuento descuento(String tipo, java.math.BigDecimal valor, Boolean afectaBase) {
-        return tipo == null ? null : new Descuento(Descuento.Tipo.valueOf(tipo), valor.stripTrailingZeros().scale() < 0 ? valor.setScale(0) : valor.stripTrailingZeros(), Boolean.TRUE.equals(afectaBase));
+        return tipo == null ? null : new Descuento(Descuento.Tipo.valueOf(tipo), sinCeros(valor), Boolean.TRUE.equals(afectaBase));
+    }
+
+    /** NUMERIC devuelve la escala de la columna (12.50000); los objetos de valor comparan escala, así que se normaliza. */
+    private static java.math.BigDecimal sinCeros(java.math.BigDecimal v) {
+        java.math.BigDecimal s = v.stripTrailingZeros();
+        return s.scale() < 0 ? s.setScale(0) : s;
     }
 
     private FormaPago formaPago(ResultSet rs, UUID id) throws SQLException {

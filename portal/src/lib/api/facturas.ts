@@ -42,6 +42,8 @@ export type ItemComprobante = {
   /** Valor de venta sin IGV neto de descuento que afecta la base; ausente en backends anteriores. */
   valor_venta?: number;
   igv?: number;
+  /** valor_venta + igv − descuento que no afecta la base (01). */
+  precio_venta?: number;
   descuento?: DescuentoAplicado | null;
 };
 

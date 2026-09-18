@@ -322,7 +322,9 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     )}
                   </td>
                   <td className="px-4 py-3 text-right font-mono font-medium text-foreground tabular-nums">
-                    {formatearNumero(item.valor_venta != null && item.igv != null ? Number(item.valor_venta) + Number(item.igv) : Number(item.cantidad) * Number(item.precio_unitario))}
+                    {formatearNumero(
+                      item.precio_venta ?? (item.valor_venta != null && item.igv != null ? Number(item.valor_venta) + Number(item.igv) : Number(item.cantidad) * Number(item.precio_unitario)),
+                    )}
                   </td>
                 </tr>
               ))}
