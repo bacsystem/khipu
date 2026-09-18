@@ -281,29 +281,39 @@ class FacturaControllerTest {
 
     @Test void cargosEntranYSalenConCodigoSunat() throws Exception {
         String conCargos = cuerpo
-                .replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"monto\":5.00,\"afecta_base_igv\":false}]}")
-                .replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"cargos\":[{\"porcentaje\":10,\"motivo\":\"recargo_consumo\"}],");
+                .replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"monto\":10.00},{\"monto\":5.00,\"afecta_base_igv\":false}]}")
+                .replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"cargos\":[{\"monto\":20.00},{\"porcentaje\":10,\"motivo\":\"recargo_consumo\"}],");
         Comprobante c = aceptado(tenant);
+        // Sin afecta_base_igv el cargo afecta la base: 47 en línea, 49 global; con motivo, 46.
         Comprobante conCargo = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(Cargo.monto("48", new BigDecimal("5.00"))))),
-                FormaPago.contado(), null, List.of(Cargo.porcentaje("46", BigDecimal.TEN)), null, null, null, List.of(), Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
+                        List.of(Cargo.monto("47", new BigDecimal("10.00")), Cargo.monto("48", new BigDecimal("5.00"))))),
+                FormaPago.contado(), null, List.of(Cargo.monto("49", new BigDecimal("20.00")), Cargo.porcentaje("46", BigDecimal.TEN)), null, null, null, List.of(),
+                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
         when(emitir.emitirFactura(eq(tenant), any())).thenReturn(conCargo);
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conCargos))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.datos.items[0].cargos[0].codigo").value("48"))
-                .andExpect(jsonPath("$.datos.items[0].cargos[0].monto").value(5.00))
-                .andExpect(jsonPath("$.datos.items[0].cargos[0].afecta_base_igv").value(false))
-                .andExpect(jsonPath("$.datos.items[0].precio_venta").value(123.00))
-                .andExpect(jsonPath("$.datos.totales.cargos[0].codigo").value("46"))
-                .andExpect(jsonPath("$.datos.totales.cargos[0].motivo").value("recargo_consumo"))
-                .andExpect(jsonPath("$.datos.totales.cargos[0].monto").value(10.00))
-                .andExpect(jsonPath("$.datos.totales.total_cargos").value(15.00))
-                .andExpect(jsonPath("$.datos.totales.total_precio_venta").value(118.00))
-                .andExpect(jsonPath("$.datos.totales.total").value(133.00));
+                .andExpect(jsonPath("$.datos.items[0].cargos[0].codigo").value("47"))
+                .andExpect(jsonPath("$.datos.items[0].cargos[0].afecta_base_igv").value(true))
+                .andExpect(jsonPath("$.datos.items[0].cargos[0].motivo").doesNotExist())
+                .andExpect(jsonPath("$.datos.items[0].cargos[1].codigo").value("48"))
+                .andExpect(jsonPath("$.datos.items[0].cargos[1].monto").value(5.00))
+                .andExpect(jsonPath("$.datos.items[0].cargos[1].afecta_base_igv").value(false))
+                .andExpect(jsonPath("$.datos.items[0].valor_venta").value(110.00))
+                .andExpect(jsonPath("$.datos.items[0].precio_venta").value(134.80))               // 110 + 19.80 + 5
+                .andExpect(jsonPath("$.datos.totales.cargos[0].codigo").value("49"))
+                .andExpect(jsonPath("$.datos.totales.cargos[0].afecta_base_igv").value(true))
+                .andExpect(jsonPath("$.datos.totales.cargos[1].codigo").value("46"))
+                .andExpect(jsonPath("$.datos.totales.cargos[1].motivo").value("recargo_consumo"))
+                .andExpect(jsonPath("$.datos.totales.cargos[1].monto").value(11.00))            // 10 % de la base onerosa bruta 110
+                .andExpect(jsonPath("$.datos.totales.gravado").value(130.00))                    // 110 + 20
+                .andExpect(jsonPath("$.datos.totales.total_cargos").value(16.00))                // 5 + 11
+                .andExpect(jsonPath("$.datos.totales.total_precio_venta").value(153.40))         // 130 + 23.40
+                .andExpect(jsonPath("$.datos.totales.total").value(169.40));
         ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
         org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
-        assertThat(cap.getValue().items().get(0).cargos()).containsExactly(Cargo.monto("48", new BigDecimal("5.00")));
-        assertThat(cap.getValue().cargos()).containsExactly(Cargo.porcentaje("46", BigDecimal.TEN));
+        assertThat(cap.getValue().items().get(0).cargos()).containsExactly(Cargo.monto("47", new BigDecimal("10.00")), Cargo.monto("48", new BigDecimal("5.00")));
+        assertThat(cap.getValue().cargos()).containsExactly(Cargo.monto("49", new BigDecimal("20.00")), Cargo.porcentaje("46", BigDecimal.TEN));
     }
 
     @Test void cargoAmbiguoOConMotivoMalUbicadoEs422() throws Exception {

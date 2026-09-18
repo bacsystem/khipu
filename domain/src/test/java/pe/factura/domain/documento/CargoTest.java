@@ -111,12 +111,24 @@ class CargoTest {
         assertThat(t.total()).isEqualByComparingTo("69.00");
     }
 
+    @Test void elCodigoLoDerivaElDominio() {
+        assertThat(Cargo.deLinea(true, Cargo.Tipo.MONTO, BigDecimal.ONE).codigo()).isEqualTo("47");
+        assertThat(Cargo.deLinea(false, Cargo.Tipo.MONTO, BigDecimal.ONE).codigo()).isEqualTo("48");
+        assertThat(Cargo.global(true, null, Cargo.Tipo.MONTO, BigDecimal.ONE).codigo()).isEqualTo("49");
+        assertThat(Cargo.global(false, null, Cargo.Tipo.MONTO, BigDecimal.ONE).codigo()).isEqualTo("50");
+        Cargo recargo = Cargo.global(false, Cargo.Motivo.RECARGO_CONSUMO, Cargo.Tipo.PORCENTAJE, BigDecimal.TEN);
+        assertThat(recargo.codigo()).isEqualTo("46");
+        assertThat(recargo.motivo()).contains(Cargo.Motivo.RECARGO_CONSUMO);
+        assertThat(recargo.afectaBaseIgv()).isFalse();
+        assertThat(Cargo.monto("50", BigDecimal.ONE).motivo()).isEmpty();
+    }
+
     /** Cada regla SUNAT que rechaza un cargo, con el código que debe llevar el mensaje. */
     @ParameterizedTest(name = "{0} → {1}")
     @MethodSource("cargosInvalidos")
     void validaciones(String caso, String reglaEsperada, ThrowingCallable accion) {
-        assertThatThrownBy(accion).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CARGO_INVALIDO");
-        assertThatThrownBy(accion).hasMessageContaining(reglaEsperada);
+        assertThatThrownBy(accion).isInstanceOf(DomainException.class).hasMessageContaining(reglaEsperada)
+                .extracting("codigo").isEqualTo("CARGO_INVALIDO");
     }
 
     static Stream<Arguments> cargosInvalidos() {
@@ -134,6 +146,7 @@ class CargoTest {
                 Arguments.of("código global en una línea", "4268", (ThrowingCallable) () -> gravado("118.00", "1", Cargo.monto("50", BigDecimal.ONE))),
                 Arguments.of("código de línea en global", "4291", (ThrowingCallable) () -> Totales.calcular(List.of(gravado), null, List.of(Cargo.monto("47", BigDecimal.ONE)), List.of(), BigDecimal.ZERO)),
                 Arguments.of("49 sin ítems gravados", "gravados", (ThrowingCallable) () -> Totales.calcular(List.of(exonerado), null, List.of(Cargo.monto("49", BigDecimal.ONE)), List.of(), BigDecimal.ZERO)),
+                Arguments.of("recargo al consumo que afecta la base", "no afecta la base", (ThrowingCallable) () -> Cargo.global(true, Cargo.Motivo.RECARGO_CONSUMO, Cargo.Tipo.MONTO, BigDecimal.ONE)),
                 Arguments.of("cargo en una gratuita", "gratuita", (ThrowingCallable) () -> ItemCalculado.de(new Item("G", "Gratis", "NIU", BigDecimal.ONE, new BigDecimal("50.00"),
                         TipoAfectacionIgv.porCodigo("11"), null, null, false, List.of(Cargo.monto("48", BigDecimal.ONE))))));
     }
