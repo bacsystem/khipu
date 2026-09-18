@@ -27,6 +27,7 @@ public class Comprobante {
     private final List<Item> items;
     private final FormaPago formaPago;
     private final Descuento descuentoGlobal;
+    private final List<Cargo> cargos;
     private final Detraccion detraccion;
     private final RetencionIgv retencion;
     private final Percepcion percepcion;
@@ -43,12 +44,13 @@ public class Comprobante {
 
     private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
-                        Descuento descuentoGlobal, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, EstadoDocumento estado) {
+                        Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, EstadoDocumento estado) {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
         this.fechaEmision = fechaEmision; this.horaEmision = horaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
+        this.cargos = cargos == null ? List.of() : List.copyOf(cargos);
         this.anticipos = anticipos == null ? List.of() : List.copyOf(anticipos);
-        this.totales = Totales.calcular(this.items, descuentoGlobal, this.anticipos, Icbper.tasaVigente(fechaEmision));
+        this.totales = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision));
         // Detracción, retención y percepción se completan contra el importe total ya calculado (montos por defecto, 3208 y tolerancias SUNAT).
         this.detraccion = detraccion == null ? null : detraccion.completarContra(moneda, this.totales.total());
         this.retencion = retencion == null ? null : retencion.completarContra(this.totales.total());
@@ -86,6 +88,12 @@ public class Comprobante {
     public static Comprobante crearFactura(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion,
                                            Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, Detraccion detraccion,
                                            RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Clock clock) {
+        return crearFactura(tenantId, serie, fechaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, List.of(), detraccion, retencion, percepcion, anticipos, clock);
+    }
+
+    public static Comprobante crearFactura(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion,
+                                           Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion,
+                                           RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Clock clock) {
         if (!TipoDocumento.FACTURA.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de factura inválida: " + serie);
         if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
         if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
@@ -102,7 +110,7 @@ public class Comprobante {
         if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
             throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
         Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS),
-                moneda, operacion, receptor, items, formaPago, descuentoGlobal, detraccion, retencion, percepcion, anticipos, EstadoDocumento.RECIBIDO);
+                moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, EstadoDocumento.RECIBIDO);
         formaPago.validarContra(c.totales.total(), fechaEmision);
         return c;
     }
@@ -119,10 +127,10 @@ public class Comprobante {
     /** Solo para persistencia: reconstruye sin validar reglas de creación. */
     public static Comprobante rehidratar(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero,
                                          LocalDate fechaEmision, LocalTime horaEmision, String moneda, String tipoOperacion, Receptor receptor,
-                                         List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, Detraccion detraccion,
+                                         List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion,
                                          RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, EstadoDocumento estado,
                                          String hash, String nombreArchivo, String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
-        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, detraccion, retencion, percepcion, anticipos, estado);
+        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, estado);
         c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
         c.intentos = intentos; c.ultimoError = ultimoError;
         return c;

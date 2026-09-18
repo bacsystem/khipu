@@ -172,6 +172,16 @@
     <cbc:BaseAmount currencyID="${c.moneda()}">${tot.descuentoGlobal().base()}</cbc:BaseAmount>
   </cac:AllowanceCharge>
   </#if>
+  <#-- Cargos globales (catálogo 53: 49 afecta la base del IGV, 46/50 no). Reglas 3114, 3072, 3025, 2968, 3016, 3307. -->
+  <#list tot.cargosGlobales() as cg>
+  <cac:AllowanceCharge>
+    <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
+    <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${cg.codigo()}</cbc:AllowanceChargeReasonCode>
+    <#if cg.factor().isPresent()><cbc:MultiplierFactorNumeric>${cg.factor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
+    <cbc:Amount currencyID="${c.moneda()}">${cg.monto()}</cbc:Amount>
+    <cbc:BaseAmount currencyID="${c.moneda()}">${cg.base()}</cbc:BaseAmount>
+  </cac:AllowanceCharge>
+  </#list>
   <#-- Descuento global por anticipo (catálogo 53: 04 gravado, 05 exonerado, 06 inafecto) por el valor sin IGV; reduce la base del tributo (3277, 3291) y exige PrepaidAmount (3282, 3287). -->
   <#list tot.anticipos() as ac>
   <cac:AllowanceCharge>
@@ -199,6 +209,9 @@
     <#if (tot.totalDescuentos() > 0)>
     <cbc:AllowanceTotalAmount currencyID="${c.moneda()}">${tot.totalDescuentos()}</cbc:AllowanceTotalAmount>
     </#if>
+    <#if (tot.totalCargos() > 0)>
+    <cbc:ChargeTotalAmount currencyID="${c.moneda()}">${tot.totalCargos()}</cbc:ChargeTotalAmount>
+    </#if>
     <#if tot.tieneAnticipos()>
     <cbc:PrepaidAmount currencyID="${c.moneda()}">${tot.totalAnticipos()}</cbc:PrepaidAmount>
     </#if>
@@ -224,6 +237,16 @@
       <cbc:BaseAmount currencyID="${c.moneda()}">${it.baseBruta()}</cbc:BaseAmount>
     </cac:AllowanceCharge>
     </#if>
+    <#-- Cargos de línea (catálogo 53: 47 afecta la base del IGV, 48 no). Reglas 3114, 3073, 3052, 2955, 3053, 3290. -->
+    <#list it.cargos() as cg>
+    <cac:AllowanceCharge>
+      <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
+      <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${cg.codigo()}</cbc:AllowanceChargeReasonCode>
+      <#if cg.factor().isPresent()><cbc:MultiplierFactorNumeric>${cg.factor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
+      <cbc:Amount currencyID="${c.moneda()}">${cg.monto()}</cbc:Amount>
+      <cbc:BaseAmount currencyID="${c.moneda()}">${cg.base()}</cbc:BaseAmount>
+    </cac:AllowanceCharge>
+    </#list>
     <cac:TaxTotal>
       <cbc:TaxAmount currencyID="${c.moneda()}">${it.totalTributos()}</cbc:TaxAmount>
       <#-- ISC (2000): base = valor de venta, TierRange = sistema (catálogo 08); reglas 3108, 2373. -->

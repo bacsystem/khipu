@@ -2,6 +2,7 @@ package pe.factura.adapters.rest.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import pe.factura.domain.documento.Anticipo;
+import pe.factura.domain.documento.CargoCalculado;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.FormaPago;
@@ -97,6 +98,21 @@ public record ComprobanteResponse(
             @Schema(example = "true") boolean afectaBaseIgv,
             @Schema(example = "00", description = "Catálogo 53: 00/01 por línea, 02/03 global") String codigo) {}
 
+    /** Cargo tal como se aplicó: lo enviado (tipo/valor), el monto resultante y el código SUNAT del catálogo 53. */
+    public record CargoDto(
+            @Schema(example = "50", description = "Catálogo 53: 47/48 por línea, 46/49/50 global") String codigo,
+            @Schema(example = "MONTO", description = "PORCENTAJE | MONTO") String tipo,
+            @Schema(example = "25.00") BigDecimal valor,
+            @Schema(example = "25.00", description = "Monto del cargo sin IGV") BigDecimal monto,
+            @Schema(example = "false", description = "`true` si se suma a la base del IGV (47/49)") boolean afectaBaseIgv) {
+        static CargoDto de(CargoCalculado cc) {
+            return new CargoDto(cc.codigo(), cc.cargo().tipo().name(), cc.cargo().valor(), cc.monto(), cc.afectaBase());
+        }
+        static List<CargoDto> de(List<CargoCalculado> cargos) {
+            return cargos.isEmpty() ? null : cargos.stream().map(CargoDto::de).toList();
+        }
+    }
+
     public record ItemDto(
             @Schema(example = "SRV-001") String codigo,
             @Schema(example = "Servicio de consultoría") String descripcion,
@@ -104,11 +120,12 @@ public record ComprobanteResponse(
             @Schema(example = "1.00") BigDecimal cantidad,
             @Schema(example = "2000.00") BigDecimal precioUnitario,
             @Schema(example = "10", description = "Afectación del IGV, catálogo 07: `10` gravado, `20` exonerado, `30` inafecto; gratuitas `11`–`16` (gravadas), `21` (exonerada), `31`–`37` (inafectas)") String tipoAfectacionIgv,
-            @Schema(example = "1000.00", description = "Valor de venta de la línea sin IGV, neto de descuento que afecta la base (en gratuitas, el valor referencial)") BigDecimal valorVenta,
+            @Schema(example = "1000.00", description = "Valor de venta de la línea sin IGV, neto de descuento que afecta la base y con los cargos 47 (en gratuitas, el valor referencial)") BigDecimal valorVenta,
             @Schema(example = "180.00", description = "IGV de la línea; en gratuitas gravadas se informa pero no se cobra") BigDecimal igv,
-            @Schema(example = "1180.00", description = "Lo que paga el cliente por la línea (0.00 en gratuitas)") BigDecimal precioVenta,
+            @Schema(example = "1180.00", description = "Lo que paga el cliente por la línea, con cargos 48 (0.00 en gratuitas)") BigDecimal precioVenta,
             @Schema(example = "false", description = "true si la afectación es gratuita (11–16, 21, 31–37)") boolean gratuita,
             DescuentoDto descuento,
+            @Schema(description = "Cargos de la línea aplicados, si los hubo") List<CargoDto> cargos,
             @Schema(description = "ISC de la línea, si lo tiene") IscDto isc,
             @Schema(example = "0.00", description = "ICBPER de la línea (bolsas × monto vigente)") BigDecimal icbper) {}
 
@@ -131,9 +148,11 @@ public record ComprobanteResponse(
             @Schema(example = "1000.00", description = "Total valor de venta onerosa (suma de bases, LineExtensionAmount)") BigDecimal totalValorVenta,
             @Schema(example = "1180.00", description = "Total precio de venta = valor de venta + tributos (TaxInclusiveAmount)") BigDecimal totalPrecioVenta,
             @Schema(example = "0.00", description = "Descuentos que no afectan la base (línea 01 + global 03), AllowanceTotalAmount") BigDecimal totalDescuentos,
+            @Schema(example = "0.00", description = "Cargos que no afectan la base (línea 48 + globales 46/50), ChargeTotalAmount") BigDecimal totalCargos,
             @Schema(example = "0.00", description = "Suma de los importes ya pagados con facturas de anticipo, IGV incluido (PrepaidAmount)") BigDecimal totalAnticipos,
-            @Schema(example = "1180.00", description = "Importe a pagar (PayableAmount) = precio de venta − descuentos que no afectan la base − anticipos") BigDecimal total,
-            @Schema(description = "Descuento global aplicado, si lo hubo") DescuentoDto descuentoGlobal) {}
+            @Schema(example = "1180.00", description = "Importe a pagar (PayableAmount) = precio de venta + cargos − descuentos que no afectan la base − anticipos") BigDecimal total,
+            @Schema(description = "Descuento global aplicado, si lo hubo") DescuentoDto descuentoGlobal,
+            @Schema(description = "Cargos globales aplicados, si los hubo") List<CargoDto> cargos) {}
 
     public static ComprobanteResponse de(Comprobante c, String base) {
         String p = base + "/" + c.id();
@@ -142,10 +161,11 @@ public record ComprobanteResponse(
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),
                 new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(),
-                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().isc(), c.totales().icbper(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().totalAnticipos(), c.totales().total(),
+                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().isc(), c.totales().icbper(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().totalCargos(), c.totales().totalAnticipos(), c.totales().total(),
                         c.totales().descuentoGlobal() == null ? null : new DescuentoDto(c.totales().descuentoGlobal().descuento().tipo().name(),
                                 c.totales().descuentoGlobal().descuento().valor(), c.totales().descuentoGlobal().monto(),
-                                c.totales().descuentoGlobal().afectaBase(), c.totales().descuentoGlobal().codigo())),
+                                c.totales().descuentoGlobal().afectaBase(), c.totales().descuentoGlobal().codigo()),
+                        CargoDto.de(c.totales().cargosGlobales())),
                 FormaPagoDto.de(c.formaPago()),
                 DetraccionDto.de(c.detraccion()),
                 c.retencion() == null ? null : new RetencionDto(c.retencion().porcentaje(), c.retencion().monto(), c.totales().total().subtract(c.retencion().monto())),
@@ -170,6 +190,6 @@ public record ComprobanteResponse(
                 ? new DescuentoDto(i.descuento().tipo().name(), i.descuento().valor(), ic.descuento(), i.descuento().afectaBaseIgv(), i.descuento().codigoSunat(false))
                 : null;
         IscDto isc = ic.tieneIsc() ? new IscDto(i.isc().sistema(), ic.iscPorcentaje(), ic.isc()) : null;
-        return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), ic.gratuita(), d, isc, ic.icbper());
+        return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), ic.gratuita(), d, CargoDto.de(ic.cargos()), isc, ic.icbper());
     }
 }

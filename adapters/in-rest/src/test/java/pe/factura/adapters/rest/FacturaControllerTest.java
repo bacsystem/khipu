@@ -279,6 +279,49 @@ class FacturaControllerTest {
         org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
     }
 
+    @Test void cargosEntranYSalenConCodigoSunat() throws Exception {
+        String conCargos = cuerpo
+                .replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"codigo\":\"48\",\"monto\":5.00}]}")
+                .replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"cargos\":[{\"codigo\":\"46\",\"porcentaje\":10}],");
+        Comprobante c = aceptado(tenant);
+        Comprobante conCargo = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(Cargo.monto("48", new BigDecimal("5.00"))))),
+                FormaPago.contado(), null, List.of(Cargo.porcentaje("46", BigDecimal.TEN)), null, null, null, List.of(), Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(conCargo);
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conCargos))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.items[0].cargos[0].codigo").value("48"))
+                .andExpect(jsonPath("$.datos.items[0].cargos[0].monto").value(5.00))
+                .andExpect(jsonPath("$.datos.items[0].cargos[0].afecta_base_igv").value(false))
+                .andExpect(jsonPath("$.datos.items[0].precio_venta").value(123.00))
+                .andExpect(jsonPath("$.datos.totales.cargos[0].codigo").value("46"))
+                .andExpect(jsonPath("$.datos.totales.cargos[0].monto").value(10.00))
+                .andExpect(jsonPath("$.datos.totales.total_cargos").value(15.00))
+                .andExpect(jsonPath("$.datos.totales.total_precio_venta").value(118.00))
+                .andExpect(jsonPath("$.datos.totales.total").value(133.00));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().items().get(0).cargos()).containsExactly(Cargo.monto("48", new BigDecimal("5.00")));
+        assertThat(cap.getValue().cargos()).containsExactly(Cargo.porcentaje("46", BigDecimal.TEN));
+    }
+
+    @Test void cargoConCodigoFueraDelCatalogoOAmbiguoEs422() throws Exception {
+        String fise = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"cargos\":[{\"codigo\":\"45\",\"monto\":5}],");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(fise))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errores['cargos[0].codigo'][0]").value(org.hamcrest.Matchers.containsString("catálogo 53")));
+        String ambiguo = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"codigo\":\"47\",\"porcentaje\":10,\"monto\":5}]}");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(ambiguo))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("CARGO_INVALIDO"));
+        String globalEnLinea = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"codigo\":\"50\",\"monto\":5}]}");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(globalEnLinea))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("CARGO_INVALIDO"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("4268")));
+        org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
+    }
+
     @Test void lineaGratuitaAceptadaYMarcadaEnLaRespuesta() throws Exception {
         String conBonificacion = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\"},{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}");
         Comprobante c = aceptado(tenant);

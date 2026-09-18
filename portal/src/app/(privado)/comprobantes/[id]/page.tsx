@@ -315,6 +315,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 <th className="w-48 px-4 py-2.5 text-center font-medium">Afectación IGV</th>
                 <th className="w-28 px-4 py-2.5 text-right font-medium">P. unitario</th>
                 <th className="w-28 px-4 py-2.5 text-right font-medium">Descuento</th>
+                <th className="w-28 px-4 py-2.5 text-right font-medium">Cargos</th>
                 <th className="w-28 px-4 py-2.5 text-right font-medium">Subtotal</th>
               </tr>
             </thead>
@@ -351,6 +352,16 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                         <span className="ml-1 text-[10px] text-muted-foreground">
                           {item.descuento.tipo === "PORCENTAJE" ? `${item.descuento.valor}%` : item.descuento.codigo}
                         </span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/50">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-foreground/80 tabular-nums">
+                    {item.cargos?.length ? (
+                      <span title={item.cargos.map((cg) => `Código SUNAT ${cg.codigo} · ${cg.afecta_base_igv ? "afecta la base del IGV" : "no afecta la base del IGV"}`).join(" / ")}>
+                        +{formatearNumero(item.cargos.reduce((acc, cg) => acc + Number(cg.monto), 0))}
+                        <span className="ml-1 text-[10px] text-muted-foreground">{item.cargos.map((cg) => cg.codigo).join("+")}</span>
                       </span>
                     ) : (
                       <span className="text-muted-foreground/50">—</span>
@@ -426,6 +437,9 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 valor={-c.totales.descuento_global.monto}
               />
             ) : null}
+            {c.totales.cargos?.filter((cg) => cg.afecta_base_igv).map((cg, i) => (
+              <Importe key={`cg-base-${i}`} etiqueta={`Cargo global (${cg.codigo}, afecta la base)`} moneda={c.moneda} valor={cg.monto} />
+            ))}
             {c.totales.isc ? <Importe etiqueta="Total ISC" moneda={c.moneda} valor={c.totales.isc} /> : null}
             {c.totales.icbper ? <Importe etiqueta="Total ICBPER (bolsas)" moneda={c.moneda} valor={c.totales.icbper} /> : null}
             <Importe etiqueta="Total IGV" moneda={c.moneda} valor={c.totales.igv} />
@@ -435,8 +449,15 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 <Importe etiqueta="IGV de gratuitas (informativo)" moneda={c.moneda} valor={c.totales.igv_gratuitas ?? 0} />
               </>
             ) : null}
-            {c.totales.total_descuentos || c.totales.total_anticipos ? (
+            {c.totales.total_descuentos || c.totales.total_cargos || c.totales.total_anticipos ? (
               <Importe etiqueta="Precio de venta" moneda={c.moneda} valor={c.totales.total_precio_venta ?? c.totales.total} />
+            ) : null}
+            {c.totales.total_cargos ? (
+              <Importe
+                etiqueta={`Otros cargos sin IGV${c.totales.cargos?.some((cg) => !cg.afecta_base_igv) ? ` (${c.totales.cargos.filter((cg) => !cg.afecta_base_igv).map((cg) => cg.codigo).join(", ")})` : ""}`}
+                moneda={c.moneda}
+                valor={c.totales.total_cargos}
+              />
             ) : null}
             {c.totales.total_descuentos ? (
               <Importe etiqueta="Descuentos que no afectan el IGV" moneda={c.moneda} valor={-c.totales.total_descuentos} />

@@ -2,6 +2,7 @@ package pe.factura.adapters.persistence;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
@@ -66,8 +67,17 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
             jdbc.update("INSERT INTO comprobante_anticipo (comprobante_id, orden, serie, numero, monto, afectacion, fecha_pago) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     c.id(), nAnticipo++, a.serie(), a.numero(), a.monto(), a.afectacion().name(), a.fechaPago() == null ? null : Date.valueOf(a.fechaPago()));
         }
+        int nCargo = 1;
+        for (Cargo cg : c.cargos()) {
+            jdbc.update("INSERT INTO comprobante_cargo (comprobante_id, item_orden, orden, codigo, tipo, valor) VALUES (?, NULL, ?, ?, ?, ?)",
+                    c.id(), nCargo++, cg.codigo(), cg.tipo().name(), cg.valor());
+        }
         int orden = 1;
         for (Item i : c.items()) {
+            for (Cargo cg : i.cargos()) {
+                jdbc.update("INSERT INTO comprobante_cargo (comprobante_id, item_orden, orden, codigo, tipo, valor) VALUES (?, ?, ?, ?, ?, ?)",
+                        c.id(), orden, nCargo++, cg.codigo(), cg.tipo().name(), cg.valor());
+            }
             jdbc.update("INSERT INTO comprobante_item (comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, icbper) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     c.id(), orden++, i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(),
                     tipo(i.descuento()), valor(i.descuento()), afectaBase(i.descuento()),
@@ -117,13 +127,18 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
 
     private Comprobante mapear(ResultSet rs, int i) throws SQLException {
         UUID id = rs.getObject("id", UUID.class);
-        List<Item> items = jdbc.query("SELECT codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, icbper FROM comprobante_item WHERE comprobante_id = ? ORDER BY orden",
+        // Cargos por nivel: clave null = globales, n = línea n (orden del ítem).
+        Map<Integer, List<Cargo>> cargos = new HashMap<>();
+        jdbc.query("SELECT item_orden, codigo, tipo, valor FROM comprobante_cargo WHERE comprobante_id = ? ORDER BY orden",
+                (RowCallbackHandler) r -> { cargos.computeIfAbsent(r.getObject("item_orden", Integer.class), k -> new ArrayList<>())
+                        .add(new Cargo(r.getString("codigo"), Cargo.Tipo.valueOf(r.getString("tipo")), sinCeros(r.getBigDecimal("valor")))); }, id);
+        List<Item> items = jdbc.query("SELECT orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, icbper FROM comprobante_item WHERE comprobante_id = ? ORDER BY orden",
                 (r, k) -> new Item(r.getString("codigo"), r.getString("descripcion"), r.getString("unidad"), r.getBigDecimal("cantidad"),
                         r.getBigDecimal("precio_unitario"), TipoAfectacionIgv.porCodigo(r.getString("tipo_afectacion_igv")),
                         descuento(r.getString("descuento_tipo"), r.getBigDecimal("descuento_valor"), r.getObject("descuento_afecta_base", Boolean.class)),
                         r.getString("isc_sistema") == null ? null : new Isc(r.getString("isc_sistema"), r.getBigDecimal("isc_tasa") == null ? null : sinCeros(r.getBigDecimal("isc_tasa")),
                                 r.getBigDecimal("isc_monto_unitario") == null ? null : sinCeros(r.getBigDecimal("isc_monto_unitario"))),
-                        r.getBoolean("icbper")), id);
+                        r.getBoolean("icbper"), cargos.getOrDefault(r.getInt("orden"), List.of())), id);
         List<Anticipo> anticipos = jdbc.query("SELECT serie, numero, monto, afectacion, fecha_pago FROM comprobante_anticipo WHERE comprobante_id = ? ORDER BY orden",
                 (r, k) -> new Anticipo(r.getString("serie"), r.getLong("numero"), r.getBigDecimal("monto"), Anticipo.Afectacion.valueOf(r.getString("afectacion")),
                         r.getDate("fecha_pago") == null ? null : r.getDate("fecha_pago").toLocalDate()), id);
@@ -132,7 +147,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), rs.getTime("hora_emision") == null ? null : rs.getTime("hora_emision").toLocalTime(), rs.getString("moneda"), rs.getString("tipo_operacion"),
                 new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion")),
                 items, formaPago(rs, id), descuento(rs.getString("descuento_global_tipo"), rs.getBigDecimal("descuento_global_valor"), rs.getObject("descuento_global_afecta_base", Boolean.class)),
-                detraccion(rs), retencion(rs), percepcion(rs), anticipos, EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
+                cargos.getOrDefault(null, List.of()), detraccion(rs), retencion(rs), percepcion(rs), anticipos, EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
                 rs.getString("xml_key"), rs.getString("cdr_key"), cdr, rs.getInt("intentos"), rs.getString("ultimo_error"));
     }
 
