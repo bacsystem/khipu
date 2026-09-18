@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -53,7 +54,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     @Override
     public Comprobante emitirNota(UUID tenantId, EmitirNotaCommand cmd) {
         Tenant tenant = tenantListo(tenantId, cmd.enviarAutomatico());
-        Comprobante factura = facturaModificable(tenantId, cmd.serieAfectada(), cmd.numeroAfectado(), false);
+        Comprobante factura = exigirModificable(comprobantes.buscarPorNumero(tenantId, TipoDocumento.FACTURA, cmd.serieAfectada(), cmd.numeroAfectado()), cmd.serieAfectada(), cmd.numeroAfectado());
         if (cmd.fechaEmision().isBefore(factura.fechaEmision()))
             throw new DomainException("NOTA_INVALIDA", "2885 - La fecha de la nota no puede ser anterior a la de la factura que modifica (" + factura.fechaEmision() + ")");
 
@@ -82,14 +83,14 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         Comprobante c = Comprobante.crearNota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), factura.moneda(), factura.tipoOperacion(), factura.receptor(),
                 copia ? factura.items() : cmd.items(), cmd.formaPago(), copia ? factura.descuentoGlobal() : cmd.descuentoGlobal(), copia ? factura.cargos() : cmd.cargos(), nota, clock);
         if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereALaFactura(c.totales(), factura);
-        // Con la factura bloqueada dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota.
-        return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> facturaModificable(tenantId, factura.serie(), factura.numero(), true));
+        // Releída con lock de fila dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota.
+        return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(),
+                () -> exigirModificable(comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, factura.serie(), factura.numero()), factura.serie(), factura.numero()));
     }
 
-    /** Factura de la empresa aceptada por SUNAT y no anulada (2119/2120); {@code bloquear} la lee con lock de fila (solo dentro de una transacción). */
-    private Comprobante facturaModificable(UUID tenantId, String serie, long numero, boolean bloquear) {
-        Comprobante factura = (bloquear ? comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, serie, numero) : comprobantes.buscarPorNumero(tenantId, TipoDocumento.FACTURA, serie, numero))
-                .orElseThrow(() -> new DomainException("NOTA_INVALIDA", "2119 - La factura " + serie + "-" + numero + " no existe en esta empresa"));
+    /** La factura serie-número debe existir en la empresa, estar aceptada por SUNAT y no anulada (2119/2120). */
+    private static Comprobante exigirModificable(Optional<Comprobante> buscada, String serie, long numero) {
+        Comprobante factura = buscada.orElseThrow(() -> new DomainException("NOTA_INVALIDA", "2119 - La factura " + serie + "-" + numero + " no existe en esta empresa"));
         if (factura.estado() == EstadoDocumento.ANULADO)
             throw new DomainException("NOTA_INVALIDA", "2120 - La factura " + serie + "-" + numero + " está anulada");
         if (factura.estado() != EstadoDocumento.ACEPTADO && factura.estado() != EstadoDocumento.ACEPTADO_CON_OBS)
