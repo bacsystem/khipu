@@ -26,6 +26,7 @@
   <cbc:CustomizationID>2.0</cbc:CustomizationID>
   <cbc:ID>${c.serie()}-${c.numero()?c}</cbc:ID>
   <cbc:IssueDate>${fechaEmision}</cbc:IssueDate>
+  <#if horaEmision??><cbc:IssueTime>${horaEmision}</cbc:IssueTime></#if>
   <cbc:InvoiceTypeCode listID="${c.tipoOperacion()}" listAgencyName="PE:SUNAT" listName="Tipo de Documento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01">${c.tipo().codigo()}</cbc:InvoiceTypeCode>
   <cbc:Note languageLocaleID="1000">${montoEnLetras}</cbc:Note>
   <#if tot.tieneGratuitas()>
@@ -64,7 +65,21 @@
       <cac:PartyIdentification><cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${t.ruc()}</cbc:ID></cac:PartyIdentification>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${t.razonSocial()}</cbc:RegistrationName>
-        <cac:RegistrationAddress><cbc:AddressTypeCode>0000</cbc:AddressTypeCode></cac:RegistrationAddress>
+        <#-- Domicilio fiscal (reglas 4093–4098, 4041; establecimiento anexo 3030): ubigeo del catálogo 13 y dirección en una línea. -->
+        <#if t.domicilio()??>
+        <cac:RegistrationAddress>
+          <cbc:ID schemeName="Ubigeos" schemeAgencyName="PE:INEI">${t.domicilio().ubigeo()}</cbc:ID>
+          <cbc:AddressTypeCode listAgencyName="PE:SUNAT" listName="Establecimientos anexos">${t.domicilio().codigoEstablecimiento()}</cbc:AddressTypeCode>
+          <#if t.domicilio().urbanizacion()??><cbc:CitySubdivisionName>${t.domicilio().urbanizacion()}</cbc:CitySubdivisionName></#if>
+          <#if t.domicilio().provincia()??><cbc:CityName>${t.domicilio().provincia()}</cbc:CityName></#if>
+          <#if t.domicilio().departamento()??><cbc:CountrySubentity>${t.domicilio().departamento()}</cbc:CountrySubentity></#if>
+          <#if t.domicilio().distrito()??><cbc:District>${t.domicilio().distrito()}</cbc:District></#if>
+          <cac:AddressLine><cbc:Line>${t.domicilio().direccion()}</cbc:Line></cac:AddressLine>
+          <cac:Country><cbc:IdentificationCode listID="ISO 3166-1" listAgencyName="United Nations Economic Commission for Europe" listName="Country">${statics["pe.factura.domain.tenant.Domicilio"].PAIS}</cbc:IdentificationCode></cac:Country>
+        </cac:RegistrationAddress>
+        <#else>
+        <cac:RegistrationAddress><cbc:AddressTypeCode listAgencyName="PE:SUNAT" listName="Establecimientos anexos">0000</cbc:AddressTypeCode></cac:RegistrationAddress>
+        </#if>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingSupplierParty>

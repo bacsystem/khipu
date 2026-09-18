@@ -6,6 +6,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
 import pe.factura.domain.documento.*;
+import pe.factura.domain.tenant.Domicilio;
 import pe.factura.domain.tenant.Tenant;
 
 import javax.xml.XMLConstants;
@@ -438,6 +439,35 @@ class AtributosSunatFacturaTest {
         assertThat(valor(d, tot + "/cbc:PrepaidAmount")).isEqualTo("354.00");                                          // 2509
         assertThat(valor(d, tot + "/cbc:PayableAmount")).isEqualTo("826.00");                                          // 3280
         assertThat(valor(d, "count(" + tot + "/cbc:AllowanceTotalAmount)")).isEqualTo("0");                            // 04 no entra en 3300
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
+    /** Domicilio fiscal del emisor (reglas 4093–4098, 4041, 3030) y hora de emisión (IssueTime, sin validación). */
+    @Test void domicilioDelEmisorYHoraDeEmisionEnElXml() throws Exception {
+        Tenant t = FreemarkerUblGeneratorTest.tenant().conDatosFiscales(
+                new Domicilio("150122", "Av. Larco 345 Of. 12", "Urb. Aurora", null, null, null, null), "00-000-123456");
+        String xml = new FreemarkerUblGenerator().generar(facturaConTresAfectaciones(), t);
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        assertThat(valor(d, "/inv:Invoice/cbc:IssueTime")).isEqualTo("10:00:00");   // 15:00Z del reloj fijo en America/Lima
+        String dir = "/inv:Invoice/cac:AccountingSupplierParty/cac:Party/cac:PartyLegalEntity/cac:RegistrationAddress";
+        assertThat(valor(d, dir + "/cbc:ID")).isEqualTo("150122");                          // 4093
+        assertThat(valor(d, dir + "/cbc:AddressTypeCode")).isEqualTo("0000");               // 3030
+        assertThat(valor(d, dir + "/cbc:CitySubdivisionName")).isEqualTo("Urb. Aurora");   // 4095
+        assertThat(valor(d, dir + "/cbc:CityName")).isEqualTo("LIMA");                      // 4096 provincia
+        assertThat(valor(d, dir + "/cbc:CountrySubentity")).isEqualTo("LIMA");              // 4097 departamento
+        assertThat(valor(d, dir + "/cbc:District")).isEqualTo("MIRAFLORES");                // 4098
+        assertThat(valor(d, dir + "/cac:AddressLine/cbc:Line")).isEqualTo("Av. Larco 345 Of. 12");   // 4094
+        assertThat(valor(d, dir + "/cac:Country/cbc:IdentificationCode")).isEqualTo("PE"); // 4041
+
+        // Sin domicilio configurado solo va el establecimiento (obligatorio, 3030).
+        Document sin = documento();
+        assertThat(valor(sin, dir + "/cbc:AddressTypeCode")).isEqualTo("0000");
+        assertThat(valor(sin, "count(" + dir + "/cbc:ID)")).isEqualTo("0");
 
         new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);

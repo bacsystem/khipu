@@ -2,6 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.12] - 2026-09-17
+
+### Added
+- API: datos fiscales de la empresa (#29b): `PUT /v1/empresa/datos-fiscales { domicilio { ubigeo (catálogo 13), direccion, urbanizacion, distrito, provincia, departamento, codigo_establecimiento }, cuenta_detracciones }`; `GET /v1/empresa` los devuelve y `GET /v1/empresas` trae `tiene_domicilio`. El domicilio va en el XML como `RegistrationAddress` completa del emisor (ubigeo, establecimiento anexo, urbanización, provincia, departamento, distrito, dirección y país; reglas 4093–4098, 4041, 3030). Nuevos errores `DOMICILIO_INVALIDO` y `CUENTA_DETRACCIONES_INVALIDA`.
+- API: catálogo 13 (ubigeo INEI, 1892 distritos con departamento/provincia/distrito) en `GET /v1/catalogos/13`.
+- API: `detraccion.cuenta_banco_nacion` es opcional si la empresa tiene cuenta de detracciones configurada (regla 3034 si no hay ninguna).
+- XML: `cbc:IssueTime` con la hora local de emisión (se guarda en `documento.hora_emision`). Migración V10.
+- Portal: formulario de domicilio fiscal (departamento → provincia → distrito en cascada) y cuenta de detracciones en la página Empresa; la guía y la página de errores lo documentan.
+
 ## [0.1.11] - 2026-09-17
 
 ### Added

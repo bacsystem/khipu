@@ -125,6 +125,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         repo.guardar(c);
         Comprobante leido = repo.buscarPorNumero(t, TipoDocumento.FACTURA, "F001", 9).orElseThrow();
         assertThat(leido.id()).isEqualTo(c.id());
+        assertThat(leido.horaEmision()).isEqualTo(java.time.LocalTime.of(10, 0));   // 15:00Z en America/Lima
         assertThat(leido.anticipos()).containsExactly(
                 new Anticipo("F001", 3, new BigDecimal("300.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1)),
                 new Anticipo("F002", 4, new BigDecimal("50.00"), Anticipo.Afectacion.EXONERADO, null));
@@ -202,14 +203,14 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         repo.guardar(c);
 
         // Copia rehidratada "vieja" (leída antes de que otra transacción persistiera ACEPTADO) que falla al enviar
-        Comprobante tardio = Comprobante.rehidratar(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), "PEN", "0101",
+        Comprobante tardio = Comprobante.rehidratar(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), c.horaEmision(), "PEN", "0101",
                 c.receptor(), c.items(), FormaPago.contado(), null, null, null, null, List.of(), EstadoDocumento.ERROR_ENVIO, "h", c.nombreArchivo(), "k", null, null, 1, "0109 - timeout");
         assertThatThrownBy(() -> repo.guardar(tardio))
                 .isInstanceOf(pe.factura.domain.DomainException.class).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
         assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM documento WHERE id = ?", Integer.class, c.id())).isEqualTo(1);
 
-        Comprobante enviadoTardio = Comprobante.rehidratar(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), "PEN", "0101",
+        Comprobante enviadoTardio = Comprobante.rehidratar(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), c.horaEmision(), "PEN", "0101",
                 c.receptor(), c.items(), FormaPago.contado(), null, null, null, null, List.of(), EstadoDocumento.ENVIADO, "h", c.nombreArchivo(), "k", null, null, 1, null);
         assertThatThrownBy(() -> repo.guardar(enviadoTardio)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
         assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);

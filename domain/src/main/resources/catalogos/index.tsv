@@ -9,6 +9,7 @@ Id	Nombre	Entradas
 09	Códigos de tipo de nota de crédito electrónica	13
 10	Códigos de tipo de nota de débito electrónica	6
 12	Código de documentos relacionados tributarios	11
+13	Código de ubicación geográfica (UBIGEO, INEI): departamento / provincia / distrito	1892
 16	Código de tipo de precio de venta unitario	3
 22	Código de regimen de percepciones	3
 23	Código de regimen de retenciones	2

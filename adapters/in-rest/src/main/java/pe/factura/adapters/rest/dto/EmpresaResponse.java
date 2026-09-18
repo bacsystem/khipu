@@ -12,10 +12,12 @@ public record EmpresaResponse(
         @Schema(example = "Comercial Andina SAC") String razonSocial,
         @Schema(example = "BETA") String entorno,
         @Schema(example = "true") boolean tieneCredencialesSol,
-        @Schema(example = "2027-12-31") LocalDate certificadoVigenciaHasta) {
+        @Schema(example = "2027-12-31") LocalDate certificadoVigenciaHasta,
+        @Schema(description = "Domicilio fiscal, o `null` si aún no se configuró") DomicilioResponse domicilio,
+        @Schema(example = "00-000-123456", description = "Cuenta de detracciones por defecto, o `null`") String cuentaDetracciones) {
 
     public static EmpresaResponse de(Tenant t) {
         return new EmpresaResponse(t.id(), t.ruc(), t.razonSocial(), t.entorno().name(), t.sol() != null,
-                t.certificado() == null ? null : t.certificado().vigenciaHasta());
+                t.certificado() == null ? null : t.certificado().vigenciaHasta(), DomicilioResponse.de(t.domicilio()), t.cuentaDetracciones());
     }
 }

@@ -64,7 +64,13 @@ class DetraccionTest {
     }
 
     @Test void sinCuenta_3034() {
-        rechaza(() -> new Detraccion("022", BigDecimal.TEN, BigDecimal.TEN, " ", null), "3034");
+        // La cuenta puede omitirse para completarla con la de la empresa; sin ninguna, la factura se rechaza.
+        Detraccion sinCuenta = new Detraccion("022", new BigDecimal("12"), new BigDecimal("1416.00"), " ", null);
+        assertThat(sinCuenta.sinCuenta()).isTrue();
+        rechaza(() -> factura("1001", sinCuenta), "3034");
+        rechaza(() -> sinCuenta.conCuenta(null), "3034");
+        assertThat(sinCuenta.conCuenta("00-000-123456").cuentaBancoNacion()).isEqualTo("00-000-123456");
+        assertThat(factura("1001", sinCuenta.conCuenta("00-000-123456")).detraccion().sinCuenta()).isFalse();
     }
 
     @Test void montoNoPositivo_3037() {

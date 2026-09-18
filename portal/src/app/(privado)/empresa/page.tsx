@@ -12,6 +12,7 @@ import {
 import { redirect } from "next/navigation";
 import { CertificadoForm } from "@/components/empresa/certificado-form";
 import { CredencialesSolForm } from "@/components/empresa/credenciales-sol-form";
+import { DatosFiscalesForm } from "@/components/empresa/datos-fiscales-form";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { listarEmpresas, obtenerEmpresaActual } from "@/lib/api/empresas";
 import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
@@ -83,6 +84,7 @@ export default async function EmpresaPage() {
   const [empresa, empresas] = await Promise.all([obtenerEmpresaActual(access, empresaId), listarEmpresas(access)]);
 
   const beta = empresa.entorno === "BETA";
+  const domicilio = empresa.domicilio ?? null;
   const vigencia = empresa.certificado_vigencia_hasta;
   const dias = vigencia ? diasHasta(vigencia) : null;
   const estadoCert: {
@@ -192,16 +194,32 @@ export default async function EmpresaPage() {
                 <Dato etiqueta="Razón social">{empresa.razon_social}</Dato>
               </div>
               <div className="sm:col-span-2">
-                <Dato etiqueta="Domicilio fiscal registrado" pendiente="Domicilio fiscal: próximamente (requiere consulta RUC)" />
+                {domicilio ? (
+                  <Dato etiqueta="Domicilio fiscal registrado">
+                    <span className="truncate font-sans" data-testid="domicilio-actual">
+                      {domicilio.direccion}
+                      {domicilio.urbanizacion ? `, ${domicilio.urbanizacion}` : ""} · {domicilio.distrito}, {domicilio.provincia}, {domicilio.departamento} ({domicilio.ubigeo})
+                    </span>
+                  </Dato>
+                ) : (
+                  <Dato etiqueta="Domicilio fiscal registrado" pendiente="Complete el domicilio fiscal abajo para que aparezca en el XML" />
+                )}
               </div>
+            </div>
+            <div className="mt-4 border-t border-border/60 pt-4">
+              <p className="mb-3 text-[12px] leading-relaxed text-muted-foreground">
+                El domicilio fiscal va en cada XML como dirección del emisor (ubigeo del catálogo 13, regla 4093). Sin él SUNAT no observa la factura,
+                pero la representación impresa y los clientes lo necesitan.
+              </p>
+              <DatosFiscalesForm domicilio={domicilio} cuentaDetracciones={empresa.cuenta_detracciones ?? null} />
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 font-mono text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5 opacity-60" title="Envío directo a SUNAT; integración con OSE: próximamente">
                 <CloudIcon className="size-3.5" />
                 OSE asignado: — (envío directo a SUNAT)
               </span>
-              <span className="opacity-60" title="Código de establecimiento anexo: próximamente">
-                Cód. local domicilio: —
+              <span title="Código de establecimiento anexo declarado en el RUC (0000 = domicilio fiscal)">
+                Cód. local domicilio: {domicilio?.codigo_establecimiento ?? "—"}
               </span>
             </div>
           </section>

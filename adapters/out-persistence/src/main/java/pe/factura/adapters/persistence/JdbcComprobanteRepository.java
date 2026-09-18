@@ -33,9 +33,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         if (filas > 0) return;
         if (condicional) throw new DomainException("ESTADO_CONFLICTO", "El comprobante cambió de estado en otra transacción");
         jdbc.update("""
-            INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, hash, nombre_archivo, intentos, ultimo_error, xml_key, cdr_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, c.id(), c.tenantId(), c.tipo().codigo(), c.serie(), c.numero(), Date.valueOf(c.fechaEmision()), c.estado().name(),
+            INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, hora_emision, estado, hash, nombre_archivo, intentos, ultimo_error, xml_key, cdr_key)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, c.id(), c.tenantId(), c.tipo().codigo(), c.serie(), c.numero(), Date.valueOf(c.fechaEmision()), c.horaEmision() == null ? null : java.sql.Time.valueOf(c.horaEmision()), c.estado().name(),
                 c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(), c.xmlKey(), c.cdrKey());
         Totales t = c.totales();
         Detraccion d = c.detraccion();
@@ -106,7 +106,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     }
 
     private static final String SELECT = """
-        SELECT d.id, d.tenant_id, d.tipo, d.serie, d.numero, d.fecha_emision, d.estado, d.hash, d.nombre_archivo, d.intentos, d.ultimo_error,
+        SELECT d.id, d.tenant_id, d.tipo, d.serie, d.numero, d.fecha_emision, d.hora_emision, d.estado, d.hash, d.nombre_archivo, d.intentos, d.ultimo_error,
                d.cdr_codigo, d.cdr_descripcion, d.cdr_observaciones::text AS cdr_obs, d.xml_key, d.cdr_key,
                c.tipo_operacion, c.moneda, c.receptor_tipo_doc, c.receptor_num_doc, c.receptor_nombre, c.receptor_direccion,
                c.forma_pago, c.monto_pendiente, c.descuento_global_tipo, c.descuento_global_valor, c.descuento_global_afecta_base,
@@ -129,7 +129,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                         r.getDate("fecha_pago") == null ? null : r.getDate("fecha_pago").toLocalDate()), id);
         Cdr cdr = rs.getString("cdr_codigo") == null ? null : new Cdr(rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), deJson(rs.getString("cdr_obs")));
         return Comprobante.rehidratar(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"),
-                rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), rs.getString("moneda"), rs.getString("tipo_operacion"),
+                rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), rs.getTime("hora_emision") == null ? null : rs.getTime("hora_emision").toLocalTime(), rs.getString("moneda"), rs.getString("tipo_operacion"),
                 new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion")),
                 items, formaPago(rs, id), descuento(rs.getString("descuento_global_tipo"), rs.getBigDecimal("descuento_global_valor"), rs.getObject("descuento_global_afecta_base", Boolean.class)),
                 detraccion(rs), retencion(rs), percepcion(rs), anticipos, EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),

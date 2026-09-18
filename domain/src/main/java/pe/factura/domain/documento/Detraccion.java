@@ -23,8 +23,6 @@ public record Detraccion(String codigoBienServicio, BigDecimal porcentaje, BigDe
     public Detraccion {
         if (codigoBienServicio == null || !CatalogoSunat.porId("54").orElseThrow().contiene(codigoBienServicio))
             throw new DomainException("DETRACCION_INVALIDA", "3033 - El código de bien o servicio sujeto a detracción no existe en el catálogo 54: " + codigoBienServicio);
-        if (cuentaBancoNacion == null || cuentaBancoNacion.isBlank())
-            throw new DomainException("DETRACCION_INVALIDA", "3034 - Debe indicar el número de cuenta de detracciones en el Banco de la Nación");
         if (porcentaje == null || porcentaje.signum() <= 0 || porcentaje.compareTo(new BigDecimal("100")) >= 0 || porcentaje.scale() > 5)
             throw new DomainException("DETRACCION_INVALIDA", "El porcentaje de detracción debe ser mayor que 0 y menor que 100, con hasta 5 decimales");
         // El monto puede venir vacío: el comprobante lo completa con importe total × % (completarContra) si la factura es en soles.
@@ -33,7 +31,17 @@ public record Detraccion(String codigoBienServicio, BigDecimal porcentaje, BigDe
         medioPago = medioPago == null || medioPago.isBlank() ? MEDIO_PAGO_DEPOSITO : medioPago;
         if (!CatalogoSunat.porId("59").orElseThrow().contiene(medioPago))
             throw new DomainException("DETRACCION_INVALIDA", "3174 - El medio de pago no está en el catálogo 59: " + medioPago);
-        cuentaBancoNacion = cuentaBancoNacion.trim();
+        // La cuenta puede venir vacía y completarse con la configurada en la empresa (conCuenta); sin ninguna, validarContra la exige.
+        cuentaBancoNacion = cuentaBancoNacion == null || cuentaBancoNacion.isBlank() ? null : cuentaBancoNacion.trim();
+    }
+
+    public boolean sinCuenta() { return cuentaBancoNacion == null; }
+
+    /** Completa la cuenta del Banco de la Nación con la de la empresa cuando la factura no la indica (regla 3034). */
+    public Detraccion conCuenta(String cuentaEmpresa) {
+        if (cuentaEmpresa == null || cuentaEmpresa.isBlank())
+            throw new DomainException("DETRACCION_INVALIDA", "3034 - Indique cuenta_banco_nacion o configure la cuenta de detracciones de la empresa");
+        return new Detraccion(codigoBienServicio, porcentaje, monto, cuentaEmpresa, medioPago);
     }
 
     /**
@@ -57,6 +65,8 @@ public record Detraccion(String codigoBienServicio, BigDecimal porcentaje, BigDe
 
     /** Coherencia con el tipo de operación: 3127 (1001–1004 exigen detracción), 3128 (otros la prohíben) y 3129 (código fijo por operación). */
     void validarContra(String tipoOperacion) {
+        if (sinCuenta())
+            throw new DomainException("DETRACCION_INVALIDA", "3034 - Debe indicar el número de cuenta de detracciones en el Banco de la Nación");
         if (!TIPOS_OPERACION.contains(tipoOperacion))
             throw new DomainException("DETRACCION_INVALIDA", "3128 - Una factura con detracción debe usar tipo de operación 1001, 1002, 1003 o 1004 (catálogo 51), no " + tipoOperacion);
         String fijo = CODIGO_POR_OPERACION.get(tipoOperacion);

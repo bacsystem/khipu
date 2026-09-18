@@ -145,6 +145,18 @@ class EmitirComprobanteServiceTest {
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
     }
 
+    @Test void detraccionSinCuentaUsaLaDeLaEmpresa() {
+        Detraccion sinCuenta = new Detraccion("022", new BigDecimal("12"), new BigDecimal("14.00"), null, null);
+        EmitirFacturaCommand cmd = new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), "PEN", "1001",
+                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, sinCuenta, null, null, List.of(), false);
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, cmd)).isInstanceOf(DomainException.class).hasMessageContaining("3034");
+
+        tenants.guardar(Fakes.tenantListo(tenantId).conDatosFiscales(null, "00-000-987654"));
+        assertThat(service.emitirFactura(tenantId, cmd).detraccion().cuentaBancoNacion()).isEqualTo("00-000-987654");
+    }
+
     private EmitirFacturaCommand conAnticipo(Anticipo a) {
         return new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), "PEN", "0101",
                 new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),

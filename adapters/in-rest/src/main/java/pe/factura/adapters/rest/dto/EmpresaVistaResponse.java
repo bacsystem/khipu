@@ -11,10 +11,11 @@ public record EmpresaVistaResponse(
         @Schema(example = "Comercial Andina SAC") String razonSocial,
         @Schema(example = "BETA") String entorno,
         @Schema(example = "true") boolean tieneCertificado,
-        @Schema(example = "true") boolean tieneCredencialesSol) {
+        @Schema(example = "true") boolean tieneCredencialesSol,
+        @Schema(example = "true", description = "Si el domicilio fiscal ya está configurado (va en el XML del emisor)") boolean tieneDomicilio) {
 
     public static EmpresaVistaResponse de(Tenant t) {
         return new EmpresaVistaResponse(t.id(), t.ruc(), t.razonSocial(), t.entorno().name(),
-                t.certificado() != null, t.sol() != null);
+                t.certificado() != null, t.sol() != null, t.domicilio() != null);
     }
 }

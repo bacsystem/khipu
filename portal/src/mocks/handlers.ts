@@ -37,7 +37,16 @@ function nuevoId(prefijo: string) {
   return `${prefijo}-${contador}`;
 }
 
-/** Subconjunto de los catálogos SUNAT, suficiente para la página /developers/catalogos. */
+/** Subconjunto del catálogo 13 (ubigeo INEI) para el formulario de domicilio fiscal. */
+const UBIGEOS = [
+  { codigo: "150101", descripcion: "LIMA / LIMA / LIMA", extra: { Departamento: "LIMA", Provincia: "LIMA", Distrito: "LIMA" } },
+  { codigo: "150122", descripcion: "LIMA / LIMA / MIRAFLORES", extra: { Departamento: "LIMA", Provincia: "LIMA", Distrito: "MIRAFLORES" } },
+  { codigo: "150131", descripcion: "LIMA / LIMA / SAN ISIDRO", extra: { Departamento: "LIMA", Provincia: "LIMA", Distrito: "SAN ISIDRO" } },
+  { codigo: "070101", descripcion: "CALLAO / CALLAO / CALLAO", extra: { Departamento: "CALLAO", Provincia: "CALLAO", Distrito: "CALLAO" } },
+  { codigo: "040101", descripcion: "AREQUIPA / AREQUIPA / AREQUIPA", extra: { Departamento: "AREQUIPA", Provincia: "AREQUIPA", Distrito: "AREQUIPA" } },
+];
+
+/** Subconjunto de los catálogos SUNAT, suficiente para la página /developers/catalogos y el formulario de domicilio. */
 const CATALOGOS = [
   { id: "06", nombre: "Código de tipo de documento de identidad", columnas: ["Código", "Descripción"],
     entradas: [{ codigo: "1", descripcion: "DNI", extra: {} }, { codigo: "6", descripcion: "RUC", extra: {} }] },
@@ -47,6 +56,7 @@ const CATALOGOS = [
       { codigo: "20", descripcion: "Exonerado - Operación Onerosa", extra: { "Codigo de tributo": "9997" } },
       { codigo: "30", descripcion: "Inafecto - Operación Onerosa", extra: { "Codigo de tributo": "9998" } },
     ] },
+  { id: "13", nombre: "Código de ubicación geográfica (UBIGEO, INEI)", columnas: ["Código", "Descripción", "Departamento", "Provincia", "Distrito"], entradas: UBIGEOS },
 ];
 
 export const handlers = [
@@ -135,6 +145,22 @@ export const handlers = [
     if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
     empresa.tiene_credenciales_sol = true;
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.put(`${BASE}/v1/empresa/datos-fiscales`, async ({ request }) => {
+    const empresaId = request.headers.get("x-empresa");
+    const empresa = [...db.empresasPorCuenta.values()].flat().find((e) => e.id === empresaId);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    const body = (await request.json()) as { domicilio?: { ubigeo: string; direccion: string; urbanizacion?: string; codigo_establecimiento?: string } | null; cuenta_detracciones?: string | null };
+    if (body.domicilio) {
+      const u = UBIGEOS.find((x) => x.codigo === body.domicilio?.ubigeo);
+      if (!u) return fail(422, "DOMICILIO_INVALIDO", "4093 - El ubigeo debe ser un código de 6 dígitos del catálogo 13 (INEI)");
+      empresa.domicilio = { ubigeo: u.codigo, direccion: body.domicilio.direccion, urbanizacion: body.domicilio.urbanizacion ?? null,
+        distrito: u.extra.Distrito, provincia: u.extra.Provincia, departamento: u.extra.Departamento, codigo_establecimiento: body.domicilio.codigo_establecimiento || "0000" };
+    } else empresa.domicilio = null;
+    empresa.tiene_domicilio = Boolean(empresa.domicilio);
+    empresa.cuenta_detracciones = body.cuenta_detracciones ?? null;
+    return ok(empresa);
   }),
 
   http.get(`${BASE}/v1/empresa/api-keys`, ({ request }) => {
