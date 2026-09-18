@@ -192,7 +192,7 @@ class EmitirComprobanteServiceTest {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", firmado.numero(), new BigDecimal("100.00"), null, null))))
                 .hasMessageContaining("3218").hasMessageContaining("FIRMADO");
 
-        Comprobante aceptado = service.emitirFactura(tenantId, cmd(null, true));   // F001-2 ACEPTADO por 100.00 gravado
+        Comprobante aceptado = service.emitirFactura(tenantId, cmd(null, true));   // ACEPTADO por 100.00 gravado
         assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", aceptado.numero(), new BigDecimal("100.01"), null, null))))
                 .hasMessageContaining("supera el valor de venta gravado de esa factura");
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), "USD", "0101",
