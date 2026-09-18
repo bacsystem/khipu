@@ -29,6 +29,9 @@ export type Receptor = {
   direccion: string | null;
 };
 
+/** Descuento aplicado (catálogo 53): lo enviado, el monto resultante y el código SUNAT. */
+export type DescuentoAplicado = { tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; codigo: string };
+
 export type ItemComprobante = {
   codigo: string | null;
   descripcion: string;
@@ -36,6 +39,12 @@ export type ItemComprobante = {
   cantidad: number;
   precio_unitario: number;
   tipo_afectacion_igv: string;
+  /** Valor de venta sin IGV neto de descuento que afecta la base; ausente en backends anteriores. */
+  valor_venta?: number;
+  igv?: number;
+  /** valor_venta + igv − descuento que no afecta la base (01). */
+  precio_venta?: number;
+  descuento?: DescuentoAplicado | null;
 };
 
 export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
@@ -77,7 +86,17 @@ export type Comprobante = {
   intentos: number;
   ultimo_error: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
-  totales: { gravado: number; exonerado: number; inafecto: number; igv: number; total: number };
+  totales: {
+    gravado: number;
+    exonerado: number;
+    inafecto: number;
+    igv: number;
+    total: number;
+    total_valor_venta?: number;
+    total_precio_venta?: number;
+    total_descuentos?: number;
+    descuento_global?: DescuentoAplicado | null;
+  };
   forma_pago: FormaPago;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; cdr?: string };

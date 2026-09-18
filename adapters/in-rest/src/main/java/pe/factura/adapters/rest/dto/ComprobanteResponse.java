@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
+import pe.factura.domain.documento.ItemCalculado;
 import pe.factura.domain.documento.Receptor;
 
 import java.math.BigDecimal;
@@ -51,13 +52,25 @@ public record ComprobanteResponse(
             @Schema(example = "CORPORACION GRAFICA ANDINA S.A.C.") String razonSocial,
             @Schema(example = "Av. Argentina 2450, Lima") String direccion) {}
 
+    /** Descuento tal como se aplicó: lo enviado (tipo/valor), el monto resultante y el código SUNAT del catálogo 53. */
+    public record DescuentoDto(
+            @Schema(example = "PORCENTAJE", description = "PORCENTAJE | MONTO") String tipo,
+            @Schema(example = "10") BigDecimal valor,
+            @Schema(example = "100.00", description = "Monto del descuento sin IGV") BigDecimal monto,
+            @Schema(example = "true") boolean afectaBaseIgv,
+            @Schema(example = "00", description = "Catálogo 53: 00/01 por línea, 02/03 global") String codigo) {}
+
     public record ItemDto(
             @Schema(example = "SRV-001") String codigo,
             @Schema(example = "Servicio de consultoría") String descripcion,
             @Schema(example = "ZZ") String unidad,
             @Schema(example = "1.00") BigDecimal cantidad,
             @Schema(example = "2000.00") BigDecimal precioUnitario,
-            @Schema(example = "10", description = "Catálogo 07 SUNAT: 10=gravado, 20=exonerado, 30=inafecto") String tipoAfectacionIgv) {}
+            @Schema(example = "10", description = "Catálogo 07 SUNAT: 10=gravado, 20=exonerado, 30=inafecto") String tipoAfectacionIgv,
+            @Schema(example = "1000.00", description = "Valor de venta de la línea sin IGV, neto de descuento que afecta la base") BigDecimal valorVenta,
+            @Schema(example = "180.00") BigDecimal igv,
+            @Schema(example = "1180.00", description = "Precio de venta de la línea: valor de venta + IGV − descuento que no afecta la base (01)") BigDecimal precioVenta,
+            DescuentoDto descuento) {}
 
     public record CdrDto(
             @Schema(example = "0", description = "Código de respuesta SUNAT: `0` aceptado; 2000–3999 rechazado (corregir y reemitir); 4000+ aceptado con observaciones; 1000–1999 error del emisor (fault, sin CDR)") String codigo,
@@ -69,15 +82,23 @@ public record ComprobanteResponse(
             @Schema(example = "0.00") BigDecimal exonerado,
             @Schema(example = "0.00") BigDecimal inafecto,
             @Schema(example = "180.00") BigDecimal igv,
-            @Schema(example = "1180.00") BigDecimal total) {}
+            @Schema(example = "1000.00", description = "Total valor de venta (suma de bases, LineExtensionAmount)") BigDecimal totalValorVenta,
+            @Schema(example = "1180.00", description = "Total precio de venta = valor de venta + tributos (TaxInclusiveAmount)") BigDecimal totalPrecioVenta,
+            @Schema(example = "0.00", description = "Descuentos que no afectan la base (línea 01 + global 03), AllowanceTotalAmount") BigDecimal totalDescuentos,
+            @Schema(example = "1180.00", description = "Importe a pagar (PayableAmount)") BigDecimal total,
+            @Schema(description = "Descuento global aplicado, si lo hubo") DescuentoDto descuentoGlobal) {}
 
     public static ComprobanteResponse de(Comprobante c, String base) {
         String p = base + "/" + c.id();
         return new ComprobanteResponse(c.id(), c.tipo().codigo(), c.serie(), c.numero(), c.fechaEmision(), c.moneda(), c.tipoOperacion(),
-                de(c.receptor()), c.items().stream().map(ComprobanteResponse::de).toList(),
+                de(c.receptor()), c.totales().items().stream().map(ComprobanteResponse::de).toList(),
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),
-                new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(), c.totales().total()),
+                new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(),
+                        c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().total(),
+                        c.totales().descuentoGlobal() == null ? null : new DescuentoDto(c.totales().descuentoGlobal().descuento().tipo().name(),
+                                c.totales().descuentoGlobal().descuento().valor(), c.totales().descuentoGlobal().monto(),
+                                c.totales().descuentoGlobal().afectaBase(), c.totales().descuentoGlobal().codigo())),
                 FormaPagoDto.de(c.formaPago()),
                 enlaces(c, p));
     }
@@ -91,7 +112,11 @@ public record ComprobanteResponse(
         return r == null ? null : new ReceptorDto(r.tipoDoc(), r.numDoc(), r.razonSocial(), r.direccion());
     }
 
-    private static ItemDto de(Item i) {
-        return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo());
+    private static ItemDto de(ItemCalculado ic) {
+        Item i = ic.item();
+        DescuentoDto d = i.tieneDescuento()
+                ? new DescuentoDto(i.descuento().tipo().name(), i.descuento().valor(), ic.descuento(), i.descuento().afectaBaseIgv(), i.descuento().codigoSunat(false))
+                : null;
+        return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), d);
     }
 }

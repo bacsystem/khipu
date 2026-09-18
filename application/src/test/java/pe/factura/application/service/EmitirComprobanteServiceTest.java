@@ -41,7 +41,7 @@ class EmitirComprobanteServiceTest {
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
         return new EmitirFacturaCommand("F001", correlativo, LocalDate.of(2026, 9, 13), "PEN", "0101",
                 new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), enviar);
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, enviar);
     }
 
     @Test void asignaNumeroFirmaGuardaYEnvia() {
@@ -82,7 +82,7 @@ class EmitirComprobanteServiceTest {
     @Test void correlativoExplicitoEnSerieNoConfiguradaFalla() {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F999", 7L, LocalDate.of(2026, 9, 13), "PEN", "0101",
                 new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), false)))
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, false)))
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
         assertThat(comprobantes.datos).isEmpty();
     }
@@ -141,7 +141,7 @@ class EmitirComprobanteServiceTest {
     @Test void serieNoConfiguradaFalla() {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F999", null, LocalDate.of(2026, 9, 13), "PEN", "0101",
                 new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), false)))
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, false)))
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
     }
 }

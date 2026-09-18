@@ -245,6 +245,40 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("3253")));
     }
 
+    @Test void descuentosEntranYSalenConCodigoSunat() throws Exception {
+        String conDescuentos = cuerpo
+                .replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"descuento\":{\"porcentaje\":10}}")
+                .replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"descuento_global\":{\"monto\":5.00,\"afecta_base_igv\":false},");
+        Comprobante c = aceptado(tenant);
+        Comprobante conDesc = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(BigDecimal.TEN, true))),
+                FormaPago.contado(), Descuento.monto(new BigDecimal("5.00"), false), Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(conDesc);
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conDescuentos))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.items[0].descuento.codigo").value("00"))
+                .andExpect(jsonPath("$.datos.items[0].descuento.monto").value(10.00))
+                .andExpect(jsonPath("$.datos.items[0].valor_venta").value(90.00))
+                .andExpect(jsonPath("$.datos.items[0].igv").value(16.20))
+                .andExpect(jsonPath("$.datos.items[0].precio_venta").value(106.20))
+                .andExpect(jsonPath("$.datos.totales.descuento_global.codigo").value("03"))
+                .andExpect(jsonPath("$.datos.totales.total_descuentos").value(5.00))
+                .andExpect(jsonPath("$.datos.totales.total_precio_venta").value(106.20))
+                .andExpect(jsonPath("$.datos.totales.total").value(101.20));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().items().get(0).descuento().valor()).isEqualByComparingTo("10");
+        assertThat(cap.getValue().descuentoGlobal().afectaBaseIgv()).isFalse();
+    }
+
+    @Test void descuentoConPorcentajeYMontoEs422() throws Exception {
+        String ambiguo = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"descuento\":{\"porcentaje\":10,\"monto\":5}}");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(ambiguo))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("DESCUENTO_INVALIDO"));
+        org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
+    }
+
     @Test void jsonMalformadoEs400() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":"))
                 .andExpect(status().isBadRequest())

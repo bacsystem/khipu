@@ -289,6 +289,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 <th className="w-24 px-3 py-2.5 text-center font-medium">Unidad</th>
                 <th className="w-48 px-4 py-2.5 text-center font-medium">Afectación IGV</th>
                 <th className="w-28 px-4 py-2.5 text-right font-medium">P. unitario</th>
+                <th className="w-28 px-4 py-2.5 text-right font-medium">Descuento</th>
                 <th className="w-28 px-4 py-2.5 text-right font-medium">Subtotal</th>
               </tr>
             </thead>
@@ -308,14 +309,28 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-foreground/80 tabular-nums">{formatearNumero(item.precio_unitario)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-foreground/80 tabular-nums">
+                    {item.descuento ? (
+                      <span title={`Código SUNAT ${item.descuento.codigo} · ${item.descuento.afecta_base_igv ? "afecta la base del IGV" : "no afecta la base del IGV"}`}>
+                        −{formatearNumero(item.descuento.monto)}
+                        <span className="ml-1 text-[10px] text-muted-foreground">
+                          {item.descuento.tipo === "PORCENTAJE" ? `${item.descuento.valor}%` : item.descuento.codigo}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/50">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right font-mono font-medium text-foreground tabular-nums">
-                    {formatearNumero(Number(item.cantidad) * Number(item.precio_unitario))}
+                    {formatearNumero(
+                      item.precio_venta ?? (item.valor_venta != null && item.igv != null ? Number(item.valor_venta) + Number(item.igv) : Number(item.cantidad) * Number(item.precio_unitario)),
+                    )}
                   </td>
                 </tr>
               ))}
               {c.items.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
                     Este comprobante no tiene ítems.
                   </td>
                 </tr>
@@ -365,7 +380,20 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <Importe etiqueta="Total gravado" moneda={c.moneda} valor={c.totales.gravado} />
             <Importe etiqueta="Total exonerado" moneda={c.moneda} valor={c.totales.exonerado} />
             <Importe etiqueta="Total inafecto" moneda={c.moneda} valor={c.totales.inafecto} />
+            {c.totales.descuento_global ? (
+              <Importe
+                etiqueta={`Descuento global (${c.totales.descuento_global.codigo}${c.totales.descuento_global.afecta_base_igv ? ", afecta la base" : ""})`}
+                moneda={c.moneda}
+                valor={-c.totales.descuento_global.monto}
+              />
+            ) : null}
             <Importe etiqueta="Total IGV" moneda={c.moneda} valor={c.totales.igv} />
+            {c.totales.total_descuentos ? (
+              <>
+                <Importe etiqueta="Precio de venta" moneda={c.moneda} valor={c.totales.total_precio_venta ?? c.totales.total} />
+                <Importe etiqueta="Descuentos que no afectan el IGV" moneda={c.moneda} valor={-c.totales.total_descuentos} />
+              </>
+            ) : null}
             <div className="my-2 h-px bg-border" />
             <div className="flex items-baseline justify-between pt-1">
               <div>

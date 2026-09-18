@@ -80,6 +80,16 @@
     <cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>
   </cac:PaymentTerms>
   </#if>
+  <#-- Descuento global (catálogo 53: 02 afecta la base del IGV, 03 no). Reglas 3072, 3025, 2968, 3016. -->
+  <#if tot.descuentoGlobal()??>
+  <cac:AllowanceCharge>
+    <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
+    <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${tot.descuentoGlobal().codigo()}</cbc:AllowanceChargeReasonCode>
+    <#if tot.descuentoGlobal().factor().isPresent()><cbc:MultiplierFactorNumeric>${tot.descuentoGlobal().factor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
+    <cbc:Amount currencyID="${c.moneda()}">${tot.descuentoGlobal().monto()}</cbc:Amount>
+    <cbc:BaseAmount currencyID="${c.moneda()}">${tot.descuentoGlobal().base()}</cbc:BaseAmount>
+  </cac:AllowanceCharge>
+  </#if>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv()}</cbc:TaxAmount>
     <#list tot.subtotales() as st>
@@ -93,8 +103,11 @@
     </#list>
   </cac:TaxTotal>
   <cac:LegalMonetaryTotal>
-    <cbc:LineExtensionAmount currencyID="${c.moneda()}">${tot.gravado() + tot.exonerado() + tot.inafecto()}</cbc:LineExtensionAmount>
-    <cbc:TaxInclusiveAmount currencyID="${c.moneda()}">${tot.total()}</cbc:TaxInclusiveAmount>
+    <cbc:LineExtensionAmount currencyID="${c.moneda()}">${tot.totalValorVenta()}</cbc:LineExtensionAmount>
+    <cbc:TaxInclusiveAmount currencyID="${c.moneda()}">${tot.totalPrecioVenta()}</cbc:TaxInclusiveAmount>
+    <#if (tot.totalDescuentos() > 0)>
+    <cbc:AllowanceTotalAmount currencyID="${c.moneda()}">${tot.totalDescuentos()}</cbc:AllowanceTotalAmount>
+    </#if>
     <cbc:PayableAmount currencyID="${c.moneda()}">${tot.total()}</cbc:PayableAmount>
   </cac:LegalMonetaryTotal>
   <#list tot.items() as it>
@@ -104,10 +117,19 @@
     <cbc:LineExtensionAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:LineExtensionAmount>
     <cac:PricingReference>
       <cac:AlternativeConditionPrice>
-        <cbc:PriceAmount currencyID="${c.moneda()}">${it.item().precioUnitario()}</cbc:PriceAmount>
+        <cbc:PriceAmount currencyID="${c.moneda()}">${it.precioVentaUnitario()?string["0.0000000000"]}</cbc:PriceAmount>
         <cbc:PriceTypeCode listName="Tipo de Precio" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16">01</cbc:PriceTypeCode>
       </cac:AlternativeConditionPrice>
     </cac:PricingReference>
+    <#if it.item().tieneDescuento()>
+    <cac:AllowanceCharge>
+      <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
+      <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${it.item().descuento().codigoSunat(false)}</cbc:AllowanceChargeReasonCode>
+      <#if it.descuentoFactor().isPresent()><cbc:MultiplierFactorNumeric>${it.descuentoFactor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
+      <cbc:Amount currencyID="${c.moneda()}">${it.descuento()}</cbc:Amount>
+      <cbc:BaseAmount currencyID="${c.moneda()}">${it.baseBruta()}</cbc:BaseAmount>
+    </cac:AllowanceCharge>
+    </#if>
     <cac:TaxTotal>
       <cbc:TaxAmount currencyID="${c.moneda()}">${it.igv()}</cbc:TaxAmount>
       <cac:TaxSubtotal>
