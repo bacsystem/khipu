@@ -23,11 +23,12 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Contrato con la hoja "Factura2_0" de las reglas de validación de SUNAT (docs/sunat/ref/reglas_validacion_2026-08-26.xlsx):
- * todos los atributos son opcionales, pero si van deben llevar exactamente estos valores o SUNAT observa el comprobante
- * (4251 @listAgencyName, 4252 @listName, 4253 @listURI, 4254 @listID, 4255 @schemeName, 4256 @schemeAgencyName,
- * 4257 @schemeURI, 4258 @unitCodeListID, 4259 @unitCodeListAgencyName). Cambiar un literal aquí sin cambiar la hoja
- * es una regresión, no un ajuste.
+ * Contrato con la hoja "Factura2_0" de las reglas de validación de SUNAT (docs/sunat/ref/reglas_validacion_2026-08-26.xlsx).
+ * Salvo InvoiceTypeCode/@listID (tipo de operación, obligatorio: ERROR 3205), los atributos son opcionales, pero si van
+ * deben llevar exactamente estos valores o SUNAT observa el comprobante (4251 @listAgencyName, 4252 @listName,
+ * 4253 @listURI, 4254 @listID, 4255 @schemeName, 4256 @schemeAgencyName, 4257 @schemeURI, 4258 @unitCodeListID,
+ * 4259 @unitCodeListAgencyName). Los de UN/ECE 5305/5153 no se validan; siguen la guía UBL 2.1 y son iguales en
+ * subtotales globales y líneas. Cambiar un literal aquí sin cambiar la hoja es una regresión, no un ajuste.
  */
 class AtributosSunatFacturaTest {
     private static final String CAT06 = "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06";
@@ -129,7 +130,26 @@ class AtributosSunatFacturaTest {
         assertThat(valor(d, global + "/cbc:ID")).isEqualTo(categoria);
         assertThat(valor(d, global + "/cbc:ID/@schemeID")).isEqualTo("UN/ECE 5305");
         assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeID")).isEqualTo("UN/ECE 5153");
-        assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeAgencyID")).isEqualTo("6");
+        assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeName")).isEqualTo("Tax Scheme Identifier");
+        assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeAgencyName")).isEqualTo(UNECE);
+    }
+
+    /** Solo aparecen los subtotales con base > 0, en el orden del catálogo, y el impuesto global es la suma de las líneas gravadas. */
+    @Test void subtotalesGlobalesSoloConBase() throws Exception {
+        Document d = documento();
+        assertThat(valor(d, "count(/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal)")).isEqualTo("3");
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[1]/cac:TaxCategory/cac:TaxScheme/cbc:ID")).isEqualTo("1000");
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[1]/cbc:TaxableAmount")).isEqualTo("100.00");
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[1]/cbc:TaxAmount")).isEqualTo("18.00");
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[2]/cbc:TaxAmount")).isEqualTo("0.00");
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("18.00");
+
+        Comprobante soloGravado = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
+                List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FreemarkerUblGeneratorTest.CLOCK);
+        soloGravado.asignarNumero(8, "20100066603");
+        assertThat(soloGravado.totales().subtotales()).extracting(t -> t.afectacion()).containsExactly(TipoAfectacionIgv.GRAVADO);
     }
 
     @Test void sigueValidandoContraElXsdOficial() {

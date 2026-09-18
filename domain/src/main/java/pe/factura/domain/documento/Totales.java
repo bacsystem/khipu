@@ -20,5 +20,17 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         BigDecimal total = gravado.add(exonerado).add(inafecto).add(igv);
         return new Totales(gravado, exonerado, inafecto, igv, total, calculados);
     }
+    /** Un subtotal de tributo por afectación con base > 0, en el orden del catálogo (gravado, exonerado, inafecto): lo que el UBL lista en cac:TaxTotal. */
+    public List<SubtotalTributo> subtotales() {
+        return java.util.Arrays.stream(TipoAfectacionIgv.values())
+                .map(af -> new SubtotalTributo(af,
+                        items.stream().filter(i -> i.item().afectacion() == af).map(ItemCalculado::valorVenta).reduce(z(), BigDecimal::add),
+                        items.stream().filter(i -> i.item().afectacion() == af).map(ItemCalculado::igv).reduce(z(), BigDecimal::add)))
+                .filter(st -> st.base().signum() > 0)
+                .toList();
+    }
+
+    public record SubtotalTributo(TipoAfectacionIgv afectacion, BigDecimal base, BigDecimal impuesto) {}
+
     private static BigDecimal z() { return BigDecimal.ZERO.setScale(2); }
 }
