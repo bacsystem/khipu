@@ -40,8 +40,8 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         return new ItemCalculado(item, valorUnitario, baseBruta, descuento, afectaBase, valorVenta, igv, precioVenta, precioVentaUnitario, pct);
     }
 
-    /** Factor SUNAT del descuento de línea (MultiplierFactorNumeric): monto / base bruta. */
-    public BigDecimal descuentoFactor() { return Descuento.factor(descuento, baseBruta); }
+    /** Factor SUNAT del descuento de línea (MultiplierFactorNumeric): monto / base bruta; vacío si no reproduce el monto (regla 3290). */
+    public java.util.Optional<BigDecimal> descuentoFactor() { return Descuento.factor(descuento, baseBruta); }
 
     /** Monto que reduce lo que se paga sin tocar el IGV (código 01): entra en AllowanceTotalAmount. */
     public BigDecimal descuentoNoAfectaBase() { return item.tieneDescuento() && !descuentoAfectaBase ? descuento : BigDecimal.ZERO.setScale(2); }

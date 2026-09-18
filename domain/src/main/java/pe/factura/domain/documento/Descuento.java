@@ -4,6 +4,7 @@ import pe.factura.domain.DomainException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Optional;
 
 /**
  * Descuento comercial sobre una línea o sobre el comprobante (catálogo 53). Se expresa como porcentaje sobre la base
@@ -37,9 +38,16 @@ public record Descuento(Tipo tipo, BigDecimal valor, boolean afectaBaseIgv) {
         return monto;
     }
 
-    /** Factor SUNAT (MultiplierFactorNumeric, 5 decimales): monto / base. */
-    public static BigDecimal factor(BigDecimal monto, BigDecimal base) {
-        return base.signum() == 0 ? BigDecimal.ZERO.setScale(5) : monto.divide(base, 5, RoundingMode.HALF_UP);
+    /**
+     * Factor SUNAT (MultiplierFactorNumeric, hasta 5 decimales): monto / base. Es opcional en el XML y, si va, SUNAT exige
+     * {@code base × factor = monto ± 1} (reglas 3290 por línea, 3307 global); con bases grandes el redondeo a 5 decimales
+     * rompe esa tolerancia (1 700 000 × 0.00059 = 1 003 frente a 1 000), así que solo se informa cuando la reproduce.
+     */
+    public static Optional<BigDecimal> factor(BigDecimal monto, BigDecimal base) {
+        if (base.signum() == 0) return Optional.empty();
+        BigDecimal factor = monto.divide(base, 5, RoundingMode.HALF_UP);
+        boolean reproduceElMonto = base.multiply(factor).subtract(monto).abs().compareTo(BigDecimal.ONE) <= 0;
+        return factor.signum() > 0 && reproduceElMonto ? Optional.of(factor) : Optional.empty();
     }
 
     /** Código del catálogo 53 según nivel y si afecta la base del IGV. */

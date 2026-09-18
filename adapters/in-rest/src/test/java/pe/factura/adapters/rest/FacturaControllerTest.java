@@ -260,6 +260,7 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.datos.items[0].descuento.monto").value(10.00))
                 .andExpect(jsonPath("$.datos.items[0].valor_venta").value(90.00))
                 .andExpect(jsonPath("$.datos.items[0].igv").value(16.20))
+                .andExpect(jsonPath("$.datos.items[0].precio_venta").value(106.20))
                 .andExpect(jsonPath("$.datos.totales.descuento_global.codigo").value("03"))
                 .andExpect(jsonPath("$.datos.totales.total_descuentos").value(5.00))
                 .andExpect(jsonPath("$.datos.totales.total_precio_venta").value(106.20))
