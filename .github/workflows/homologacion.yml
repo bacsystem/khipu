@@ -1,0 +1,45 @@
+# Suite de homologación contra e-beta (#32): cada noche y bajo demanda. Emite los escenarios de factura con el flujo
+# completo (API → firma → XSD → SOAP) y exige CDR 0 sin observaciones; XML y CDR quedan como artifact (evidencia SUNAT).
+name: Homologación e-beta
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 01:00 Lima
+  workflow_dispatch:
+    inputs:
+      ruc:
+        description: "RUC emisor (por defecto el del certificado de prueba)"
+        required: false
+
+jobs:
+  homologacion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Emitir escenarios contra e-beta
+        env:
+          HOMOLOGACION_RUC: ${{ inputs.ruc }}
+        run: ./gradlew :bootstrap:homologacion --no-daemon
+      - name: Resumen
+        if: always()
+        run: |
+          if [ -f bootstrap/build/homologacion/RESUMEN.md ]; then
+            cat bootstrap/build/homologacion/RESUMEN.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "La suite no llegó a emitir (ver log)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Evidencia (XML + CDR por escenario)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: homologacion-${{ github.run_id }}
+          path: |
+            bootstrap/build/homologacion/
+            bootstrap/build/test-results/homologacion/
+          retention-days: 90

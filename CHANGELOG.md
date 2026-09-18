@@ -2,6 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.16] - 2026-09-18
+
+### Added
+- Suite de homologación contra e-beta (#32): `./gradlew :bootstrap:homologacion` emite 17 escenarios de factura (gravada, exonerada, inafecta, mixta, gratuita, descuentos, cargos, USD, crédito, detracción, retención, percepción, ISC/ICBPER, referencias y campos opcionales, 50 ítems, anticipo y su regularización) con el flujo completo y exige CDR `0` sin observaciones; guarda XML y CDR por escenario y un `RESUMEN.md`. Workflow nocturno `homologacion.yml` con la evidencia como artifact. Primera ejecución: **17/17 aceptados sin observaciones**.
+
+### Fixed
+- XML: `cac:TaxScheme/cbc:ID` lleva los atributos del catálogo 05 (`Codigo de tributos`, `PE:SUNAT`, `catalogo05`) en lugar de los de UN/ECE 5153; e-beta observaba (4255/4256) todas las facturas.
+- SUNAT: el gateway usa una conexión nueva por envío y reintenta hasta 3 veces el `HTTP 401` intermitente del balanceador de SUNAT (una de cada dos peticiones, y toda conexión keep-alive reutilizada); antes el comprobante quedaba en `ERROR_ENVIO` hasta el reintento del outbox.
+
 ## [0.1.15] - 2026-09-18
 
 ### Added

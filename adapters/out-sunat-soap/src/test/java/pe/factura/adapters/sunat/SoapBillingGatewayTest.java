@@ -90,6 +90,23 @@ class SoapBillingGatewayTest {
         assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0])).isInstanceOf(SunatTransientException.class);
     }
 
+    /** El balanceador de SUNAT devuelve 401 intermitentes con credenciales válidas: se reintenta en el acto sin pasar por el outbox. */
+    @Test void un401AisladoSeReintentaYProspera(WireMockRuntimeInfo wm) {
+        byte[] cdr = ZipUtil.comprimir("R-n.xml", "<ApplicationResponse/>".getBytes());
+        stubFor(post("/billService").inScenario("401").whenScenarioStateIs("Started").willReturn(aResponse().withStatus(401)).willSetStateTo("ok"));
+        stubFor(post("/billService").inScenario("401").whenScenarioStateIs("ok").willReturn(okXml(respuestaOk(cdr))));
+        assertThat(gateway(wm).sendBill(tenant, "n", new byte[0])).isEqualTo(cdr);
+        verify(2, postRequestedFor(urlEqualTo("/billService")));
+    }
+
+    /** Tres 401 seguidos ya no son el balanceador: credenciales o URL. Sigue siendo transitorio (el outbox reintenta) pero con el mensaje claro. */
+    @Test void tres401SeguidosSonTransitorioConMensajeDeCredenciales(WireMockRuntimeInfo wm) {
+        stubFor(post("/billService").willReturn(aResponse().withStatus(401)));
+        assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))
+                .isInstanceOf(SunatTransientException.class).hasMessageContaining("401 en 3 intentos").hasMessageContaining("credenciales");
+        verify(3, postRequestedFor(urlEqualTo("/billService")));
+    }
+
     @Test void http503EsTransitorio(WireMockRuntimeInfo wm) {
         stubFor(post("/billService").willReturn(aResponse().withStatus(503)));
         assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0])).isInstanceOf(SunatTransientException.class);

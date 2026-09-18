@@ -43,7 +43,7 @@ class FreemarkerUblGeneratorTest {
                 .contains("<cbc:TaxableAmount currencyID=\"PEN\">2000.00</cbc:TaxableAmount>")
                 .contains("<cbc:TaxAmount currencyID=\"PEN\">360.00</cbc:TaxAmount>")
                 .contains("<cbc:TaxableAmount currencyID=\"PEN\">100.00</cbc:TaxableAmount>")
-                .contains("schemeAgencyName=\"United Nations Economic Commission for Europe\">9997</cbc:ID>")
+                .contains("schemeURI=\"urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05\">9997</cbc:ID>")
                 .contains("<cbc:PayableAmount currencyID=\"PEN\">2460.00</cbc:PayableAmount>")
                 .contains("<ext:ExtensionContent/>")
                 .contains("<cac:InvoiceLine>")

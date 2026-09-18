@@ -50,6 +50,13 @@ Documentación de diseño: `docs/superpowers/specs/README.md`. Plan: `docs/super
 ## Pruebas
 `./gradlew test` (requiere Docker para Testcontainers). Portal: `cd portal && npm run test && npm run e2e` (ver `portal/README.md`).
 
+### Homologación contra e-beta
+`./gradlew :bootstrap:homologacion` emite los escenarios de factura (`bootstrap/src/test/.../homologacion/EscenariosFactura.java`)
+contra `e-beta.sunat.gob.pe` con el flujo completo y exige CDR `0` sin observaciones. Deja XML y CDR por escenario en
+`bootstrap/build/homologacion/` más un `RESUMEN.md` (evidencia para el trámite de SUNAT). Necesita Docker y salida a Internet;
+`test` la excluye. El workflow `homologacion.yml` la corre cada noche y publica la evidencia como artifact. Variables opcionales:
+`HOMOLOGACION_RUC`, `HOMOLOGACION_CERT` / `HOMOLOGACION_CERT_CLAVE` (PKCS#12 con `OU` = RUC), `HOMOLOGACION_SERIE`.
+
 ## Convenciones de código
 
 - **Lombok** en todos los módulos (`compileOnly` + `annotationProcessor`; solo compilación, no llega al runtime).
