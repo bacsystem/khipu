@@ -80,7 +80,7 @@ public record ComprobanteResponse(
             @Schema(example = "ZZ") String unidad,
             @Schema(example = "1.00") BigDecimal cantidad,
             @Schema(example = "2000.00") BigDecimal precioUnitario,
-            @Schema(example = "10", description = "Catálogo 07 SUNAT: 10=gravado, 20=exonerado, 30=inafecto") String tipoAfectacionIgv,
+            @Schema(example = "10", description = "Afectación del IGV, catálogo 07: `10` gravado, `20` exonerado, `30` inafecto; gratuitas `11`–`16` (gravadas), `21` (exonerada), `31`–`37` (inafectas)") String tipoAfectacionIgv,
             @Schema(example = "1000.00", description = "Valor de venta de la línea sin IGV, neto de descuento que afecta la base (en gratuitas, el valor referencial)") BigDecimal valorVenta,
             @Schema(example = "180.00", description = "IGV de la línea; en gratuitas gravadas se informa pero no se cobra") BigDecimal igv,
             @Schema(example = "1180.00", description = "Lo que paga el cliente por la línea (0.00 en gratuitas)") BigDecimal precioVenta,
