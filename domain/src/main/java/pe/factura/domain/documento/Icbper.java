@@ -15,6 +15,6 @@ public final class Icbper {
         int anio = fecha.getYear();
         if (anio <= 2019) return new BigDecimal("0.10");
         if (anio >= 2023) return new BigDecimal("0.50");
-        return new BigDecimal("0." + (anio - 2018) + "0");
+        return BigDecimal.valueOf(anio - 2018L, 1);   // 2020 → 0.2, 2021 → 0.3, 2022 → 0.4
     }
 }
