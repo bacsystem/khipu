@@ -22,6 +22,7 @@ import {
   ETIQUETAS_TIPO,
   ETIQUETAS_TIPO_DOC,
   normalizarComprobante,
+  tieneConstanciaCdr,
   totalDesdeHeaders,
   type Comprobante,
   type EstadoDocumento,
@@ -70,7 +71,7 @@ async function fetchComprobantes(estado: string | undefined, pagina: number, por
 
 
 function etiquetaEstado(c: Comprobante): string | undefined {
-  if (c.estado_documento === "ACEPTADO" && c.cdr) return "Aceptado con CDR";
+  if (c.estado_documento === "ACEPTADO" && tieneConstanciaCdr(c)) return "Aceptado con CDR";
   if (c.estado_documento === "RECHAZADO" && c.cdr?.codigo) return `Rechazado (${c.cdr.codigo})`;
   return undefined;
 }
@@ -308,7 +309,7 @@ export function ComprobantesTable({
                       >
                         XML
                       </a>
-                      {c.cdr ? (
+                      {tieneConstanciaCdr(c) ? (
                         <a
                           href={`/api/proxy/facturas/${c.id}/cdr`}
                           title="Descargar constancia CDR"

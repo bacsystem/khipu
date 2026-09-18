@@ -90,6 +90,17 @@ class EnviarDocumentoServiceTest {
         assertThat(r.cdr().codigo()).isEqualTo("2324");
     }
 
+    /** Un fault 1xxx llega como rechazo (lo clasifica el gateway): un solo intento, sin fila en el outbox. */
+    @Test void faultDelContribuyenteEsTerminalYNoReintenta() {
+        gateway.falla = new SunatRechazoException("1033", "El comprobante fue registrado previamente con otros datos");
+        Comprobante r = service.enviar(tenantId, c.id());
+        assertThat(r.estado()).isEqualTo(EstadoDocumento.RECHAZADO);
+        assertThat(r.cdr().codigo()).isEqualTo("1033");
+        assertThat(r.intentos()).isZero();
+        assertThat(outbox.filas).isEmpty();
+        assertThatThrownBy(() -> service.enviar(tenantId, c.id())).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("ESTADO_NO_ENVIABLE");
+    }
+
     @Test void reintentoDesdeErrorEnvioFunciona() {
         gateway.falla = new SunatTransientException("0109", "timeout");
         service.enviar(tenantId, c.id());

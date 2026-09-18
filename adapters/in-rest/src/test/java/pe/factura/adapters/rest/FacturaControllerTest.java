@@ -44,6 +44,30 @@ class FacturaControllerTest {
         return c;
     }
 
+    /** Rechazado por SOAPFault: tiene código y descripción de SUNAT pero ninguna constancia que descargar. */
+    static Comprobante rechazadoPorFault(UUID tenant) {
+        Comprobante c = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        c.asignarNumero(602, "20100066603"); c.firmar("HASH", "k.xml");
+        c.rechazarPorFault("1033", "El comprobante fue registrado previamente con otros datos");
+        return c;
+    }
+
+    @Test void enlaceCdrSoloCuandoHayConstancia() throws Exception {
+        Comprobante conCdr = aceptado(tenant), sinCdr = rechazadoPorFault(tenant);
+        when(consultar.obtener(tenant, conCdr.id())).thenReturn(conCdr);
+        when(consultar.obtener(tenant, sinCdr.id())).thenReturn(sinCdr);
+        mvc.perform(get("/v1/facturas/{id}", conCdr.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.enlaces.cdr").value("/v1/facturas/" + conCdr.id() + "/cdr"));
+        mvc.perform(get("/v1/facturas/{id}", sinCdr.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.estado_documento").value("RECHAZADO"))
+                .andExpect(jsonPath("$.datos.cdr.codigo").value("1033"))
+                .andExpect(jsonPath("$.datos.enlaces.xml").exists())
+                .andExpect(jsonPath("$.datos.enlaces.cdr").doesNotExist());
+    }
+
     String cuerpo = """
         {"serie":"F001","fecha_emision":"2026-09-13","tipo_operacion":"0101","moneda":"PEN",
          "cliente":{"tipo_doc":"6","num_doc":"20601234567","razon_social":"CLIENTE SAC","direccion":"AV 1"},

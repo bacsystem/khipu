@@ -69,7 +69,8 @@ export type Comprobante = {
   ultimo_error: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   totales: { gravado: number; exonerado: number; inafecto: number; igv: number; total: number };
-  enlaces: { xml: string; cdr: string };
+  /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
+  enlaces: { xml: string; cdr?: string };
 };
 
 export function esEstadoFinal(estado: EstadoDocumento): boolean {
@@ -86,6 +87,11 @@ export function normalizarComprobante(c: Partial<Comprobante> & Pick<Comprobante
     nombre_archivo: c.nombre_archivo ?? null,
     cdr: c.cdr ? { ...c.cdr, observaciones: c.cdr.observaciones ?? [] } : null,
   };
+}
+
+/** Hay constancia descargable (ZIP/XML del CDR), no solo un código de respuesta. */
+export function tieneConstanciaCdr(c: Pick<Comprobante, "enlaces">): boolean {
+  return Boolean(c.enlaces?.cdr);
 }
 
 export const TOTAL_HEADER = "x-total-count";

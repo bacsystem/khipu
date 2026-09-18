@@ -25,6 +25,17 @@ public class SoapBillingGateway implements SunatBillingGateway {
         this(urls, timeout, HttpClient.newBuilder().connectTimeout(timeout).build());
     }
 
+    /**
+     * Hoja "CódigosRetorno" de las reglas de validación de SUNAT: 0100–0999 son fallos del servicio o de
+     * autenticación (reintentar); 1000–1999 son errores del contenido o del emisor (1001 formato de serie,
+     * 1033 "registrado previamente con otros datos", 1034–1036 nombre de archivo ≠ XML, 1059 sin firma,
+     * 1078 emisor no autorizado en el SEE) y 2000–3999 rechazos de validación. Ni los 1xxx ni los 2xxx
+     * cambian por reintentar: el comprobante queda rechazado y hay que corregirlo y volver a emitir.
+     */
+    static boolean esFaultDefinitivo(String codigo) {
+        return Integer.parseInt(codigo) >= 1000;
+    }
+
     @Override public byte[] sendBill(Tenant tenant, String nombreArchivo, byte[] xmlFirmado) {
         byte[] zip = ZipUtil.comprimir(nombreArchivo + ".xml", xmlFirmado);
         String nombreZip = nombreArchivo + ".zip";
@@ -51,7 +62,7 @@ public class SoapBillingGateway implements SunatBillingGateway {
         if (faultcode != null) {
             String codigo = SoapEnvelope.codigoDeFault(faultcode);
             String msg = SoapEnvelope.textoDe(body, "faultstring");
-            if (Integer.parseInt(codigo) >= 2000) throw new SunatRechazoException(codigo, msg == null ? "" : msg);
+            if (esFaultDefinitivo(codigo)) throw new SunatRechazoException(codigo, msg == null ? "" : msg);
             throw new SunatTransientException(codigo, msg == null ? "SOAPFault " + faultcode : msg);
         }
         if (resp.statusCode() >= 500) throw new SunatTransientException("0000", "SUNAT respondió HTTP " + resp.statusCode());
