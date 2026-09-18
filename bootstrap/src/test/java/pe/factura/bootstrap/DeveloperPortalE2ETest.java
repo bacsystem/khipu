@@ -36,6 +36,9 @@ class DeveloperPortalE2ETest {
         assertThat(apiKeyScheme.get("name")).isEqualTo("X-Api-Key");
 
         Map<String, Object> paths = (Map<String, Object>) r.getBody().get("paths");
+        // Los catálogos llevan operationId explícito: sin él springdoc desambigua "listar" como "listar_2" y los clientes generados heredan ese nombre.
+        assertThat(((Map<String, Object>) ((Map<String, Object>) paths.get("/v1/catalogos")).get("get")).get("operationId")).isEqualTo("listarCatalogos");
+        assertThat(((Map<String, Object>) ((Map<String, Object>) paths.get("/v1/catalogos/{id}")).get("get")).get("operationId")).isEqualTo("obtenerCatalogo");
         assertThat(tieneSecurityEnGet(paths, "/v1/facturas")).isTrue();
         assertThat(tieneSecurityEnGet(paths, "/v1/series")).isTrue();
         assertThat(tieneSecurityEnGet(paths, "/v1/empresa")).isTrue();
