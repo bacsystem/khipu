@@ -39,8 +39,6 @@ public enum TipoAfectacionIgv {
     private final boolean gratuita;
 
     public boolean gravado() { return gravada; }
-    public String tributoId() { return tributo.codigo(); }
-    public String categoria() { return tributo.categoria(); }
 
     public static TipoAfectacionIgv porCodigo(String c) {
         for (TipoAfectacionIgv t : values()) if (t.codigo.equals(c)) return t;
