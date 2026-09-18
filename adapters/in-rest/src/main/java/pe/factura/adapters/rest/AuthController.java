@@ -60,7 +60,7 @@ public class AuthController {
 
     /** Siempre 202, exista o no la cuenta: no revela si un correo está registrado. */
     @PostMapping("/recuperar")
-    @Operation(summary = "Solicitar restablecimiento de contraseña", description = "Envía un enlace de un solo uso al correo si la cuenta existe; responde `204` siempre para no revelar cuentas.")
+    @Operation(summary = "Solicitar restablecimiento de contraseña", description = "Envía un enlace de un solo uso al correo si la cuenta existe; responde `202` siempre para no revelar cuentas.")
     public ResponseEntity<Void> recuperar(@Valid @RequestBody RecuperarRequest body) {
         auth.solicitarRecuperacion(body.email(), portalUrl);
         return ResponseEntity.accepted().build();
