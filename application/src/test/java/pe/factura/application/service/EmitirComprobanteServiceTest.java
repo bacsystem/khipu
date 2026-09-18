@@ -187,8 +187,9 @@ class EmitirComprobanteServiceTest {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", 99, new BigDecimal("100.00"), null, null))))
                 .isInstanceOf(DomainException.class).hasMessageContaining("3218").hasMessageContaining("no existe");
 
-        service.emitirFactura(tenantId, cmd(null, false));   // F001-1 queda FIRMADO
-        assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", 1, new BigDecimal("100.00"), null, null))))
+        // El UnitOfWork de prueba no revierte el contador de la serie, así que se usa el número que devuelve cada emisión.
+        Comprobante firmado = service.emitirFactura(tenantId, cmd(null, false));   // queda FIRMADO
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", firmado.numero(), new BigDecimal("100.00"), null, null))))
                 .hasMessageContaining("3218").hasMessageContaining("FIRMADO");
 
         Comprobante aceptado = service.emitirFactura(tenantId, cmd(null, true));   // F001-2 ACEPTADO por 100.00 gravado

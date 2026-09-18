@@ -13,6 +13,8 @@ public interface ComprobanteRepository {
     void guardar(Comprobante c); // insert o update por id
     Optional<Comprobante> buscar(UUID tenantId, UUID id);
     Optional<Comprobante> buscarPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero);
+    /** Como buscarPorNumero, pero deja la fila bloqueada hasta el fin de la transacción (serializa a quienes dependen de ese comprobante). */
+    Optional<Comprobante> bloquearPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero);
     /** Suma de los montos ya regularizados de una factura de anticipo en facturas finales no rechazadas ni inválidas. */
     BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo);
     List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina);
