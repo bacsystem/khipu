@@ -56,6 +56,23 @@ class SoapBillingGatewayTest {
                 .extracting("codigo").isEqualTo("0109");
     }
 
+    /** Un 1xxx (error del contribuyente) no cambia por reintentar: antes se reintentaba 20 veces con backoff. */
+    @Test void faultEntre1000Y1999EsRechazoDefinitivo(WireMockRuntimeInfo wm) {
+        stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault("1033", "El comprobante fue registrado previamente con otros datos"))));
+        assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))
+                .isInstanceOf(SunatRechazoException.class)
+                .hasMessageContaining("registrado previamente")
+                .extracting("codigo").isEqualTo("1033");
+    }
+
+    @Test void limitesDeLaClasificacionDeFaults() {
+        assertThat(SoapBillingGateway.esFaultDefinitivo("0999")).isFalse();
+        assertThat(SoapBillingGateway.esFaultDefinitivo("1000")).isTrue();
+        assertThat(SoapBillingGateway.esFaultDefinitivo("1999")).isTrue();
+        assertThat(SoapBillingGateway.esFaultDefinitivo("2000")).isTrue();
+        assertThat(SoapBillingGateway.esFaultDefinitivo("0000")).isFalse();
+    }
+
     @Test void faultMayorOIgualA2000EsRechazo(WireMockRuntimeInfo wm) {
         stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault("2324", "registrado previamente"))));
         assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))

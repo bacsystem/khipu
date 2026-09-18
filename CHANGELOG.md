@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.2] - 2026-09-17
+
+### Fixed
+- API: los faults SUNAT 1000–1999 (errores del contenido o del contribuyente: XML vacío, nombre de archivo, RUC no habilitado, comprobante ya registrado con otros datos…) dejan el comprobante en `RECHAZADO` con el código y la descripción del fault, en un solo intento. Antes se trataban como transitorios y el outbox los reintentaba 20 veces con backoff hasta 6 h, ocultando el error real (#33). Solo 0100–0999 (servicio no disponible, timeout, credenciales) siguen siendo reintentables.
+
 ## [0.1.1] - 2026-09-17
 
 ### Changed
