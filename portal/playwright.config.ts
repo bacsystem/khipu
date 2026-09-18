@@ -9,6 +9,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
+  // La primera carga de cada ruta compila bajo demanda (el detalle de comprobante ya supera los 5 s por defecto
+  // con 4 workers en paralelo): el margen cubre esa compilación, no un fallo funcional.
+  expect: { timeout: 15_000 },
   use: {
     baseURL: "http://localhost:3100",
     trace: "on-first-retry",
