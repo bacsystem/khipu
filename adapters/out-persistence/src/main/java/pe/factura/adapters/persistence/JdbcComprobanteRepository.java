@@ -6,6 +6,7 @@ import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -77,9 +78,13 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public Optional<Comprobante> buscar(UUID tenantId, UUID id) {
         return jdbc.query(SELECT + " WHERE d.id = ? AND d.tenant_id = ?", this::mapear, id, tenantId).stream().findFirst();
     }
-    @Override public boolean existe(UUID tenantId, TipoDocumento tipo, String serie, long numero) {
-        Integer n = jdbc.queryForObject("SELECT count(*) FROM documento WHERE tenant_id = ? AND tipo = ? AND serie = ? AND numero = ?", Integer.class, tenantId, tipo.codigo(), serie, numero);
-        return n != null && n > 0;
+    @Override public BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo) {
+        // Un final RECHAZADO o INVALIDO no regularizó nada: su anticipo vuelve a estar disponible.
+        BigDecimal suma = jdbc.queryForObject("""
+            SELECT coalesce(sum(a.monto), 0) FROM comprobante_anticipo a JOIN documento d ON d.id = a.comprobante_id
+            WHERE d.tenant_id = ? AND a.serie = ? AND a.numero = ? AND d.estado NOT IN ('RECHAZADO', 'INVALIDO')
+            """, BigDecimal.class, tenantId, serieAnticipo, numeroAnticipo);
+        return suma == null ? BigDecimal.ZERO : suma;
     }
     @Override public Optional<Comprobante> buscarPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero) {
         return jdbc.query(SELECT + " WHERE d.tenant_id = ? AND d.tipo = ? AND d.serie = ? AND d.numero = ?", this::mapear, tenantId, tipo.codigo(), serie, numero).stream().findFirst();

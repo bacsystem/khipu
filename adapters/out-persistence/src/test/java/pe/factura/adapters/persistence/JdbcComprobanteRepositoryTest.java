@@ -131,6 +131,13 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.totales().totalAnticipos()).isEqualByComparingTo("404.00");
         assertThat(leido.totales().total()).isEqualByComparingTo("976.00");   // 1380 − 404
         assertThat(repo.buscarPorNumero(t, TipoDocumento.FACTURA, "F001", 99)).isEmpty();
+        // Lo regularizado del anticipo F001-3 suma solo lo de finales no rechazadas
+        assertThat(repo.montoRegularizado(t, "F001", 3)).isEqualByComparingTo("300.00");
+        assertThat(repo.montoRegularizado(t, "F002", 4)).isEqualByComparingTo("50.00");
+        assertThat(repo.montoRegularizado(t, "F001", 99)).isEqualByComparingTo("0");
+        c.marcarEnviado(); c.rechazarPorFault("2335", "rechazado");
+        repo.guardar(c);
+        assertThat(repo.montoRegularizado(t, "F001", 3)).isEqualByComparingTo("0");
     }
 
     @Test void guardaYRehidrataCompleto() {
@@ -157,8 +164,8 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
     @Test void existeYUnicidad() {
         UUID t = tenantDePrueba();
         Comprobante c = factura(t, 5); c.firmar("h", "k"); repo.guardar(c);
-        assertThat(repo.existe(t, TipoDocumento.FACTURA, "F001", 5)).isTrue();
-        assertThat(repo.existe(t, TipoDocumento.FACTURA, "F001", 6)).isFalse();
+        assertThat(repo.buscarPorNumero(t, TipoDocumento.FACTURA, "F001", 5)).isPresent();
+        assertThat(repo.buscarPorNumero(t, TipoDocumento.FACTURA, "F001", 6)).isEmpty();
         Comprobante dup = factura(t, 5); dup.firmar("h", "k");
         assertThatThrownBy(() -> repo.guardar(dup)).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
     }
