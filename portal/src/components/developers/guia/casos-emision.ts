@@ -299,15 +299,42 @@ X-Api-Key: fk_TU_API_KEY`,
   {
     id: "anticipos",
     titulo: "Anticipos (factura de adelanto y factura final)",
-    cuando: "Cobra un adelanto con una factura y luego emite la factura final descontándolo.",
-    request: `{
-  "...": "campos habituales de la factura final",
+    cuando: "El cliente paga por adelantado (total o parcialmente) antes de la entrega: primero se emite una factura por el anticipo y, al entregar, la factura final por la operación completa descontando lo ya pagado.",
+    request: `1) Factura de anticipo: una factura normal cuyo ítem describe el adelanto
+{
+  "serie": "F001",
+  "fecha_emision": "2026-09-01",
+  "moneda": "PEN",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Anticipo 30 % – fabricación de mobiliario (contrato 2026-045)", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 3540.00, "tipo_afectacion_igv": "10" }
+  ]
+}
+→ F001-120: valor 3000.00 + IGV 540.00 = 3540.00 (debe quedar ACEPTADO)
+
+2) Factura final: los ítems describen la operación completa y anticipos[] lo ya facturado
+{
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Fabricación de mobiliario (contrato 2026-045)", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 11800.00, "tipo_afectacion_igv": "10" }
+  ],
   "anticipos": [
-    { "serie": "F001", "numero": 120, "monto": 5900.00 }
+    { "serie": "F001", "numero": 120, "monto": 3000.00, "fecha_pago": "2026-09-01" }
   ]
 }`,
-    notas: ["La factura de anticipo debe existir y estar aceptada; el total de anticipos se descuenta con el código `04` y `PrepaidAmount`."],
-    disponible: false,
+    notas: [
+      "`anticipos[].serie` y `numero` identifican la factura de anticipo: debe ser de esta misma empresa, al mismo cliente, en la misma moneda y estar `ACEPTADO` o `ACEPTADO_CON_OBS` (SUNAT la busca en su registro: regla 3218). Si no cumple, `422 ANTICIPO_INVALIDO`.",
+      "`monto` es el **valor sin IGV** que se regulariza (en el ejemplo 3000.00). khipu calcula el importe pagado con IGV (3540.00), no puede superar lo facturado en el anticipo ni lo facturado en esta factura para la misma afectación.",
+      "`afectacion` (opcional): `gravado` (código 04, por defecto), `exonerado` (05) o `inafecto` (06). Decide de qué base se descuenta: un anticipo gravado reduce la base del IGV (reglas 3277, 3291); uno exonerado/inafecto reduce esa base sin IGV.",
+      "Cálculo del ejemplo: operación 10000.00 + IGV 1800.00 = 11800.00; anticipo 3000.00 → base gravada 7000.00, IGV 1260.00; `total_anticipos` 3540.00; `total` a pagar 11800.00 − 3540.00 = 8260.00. `total_valor_venta` y `total_precio_venta` siguen siendo los brutos (10000.00 y 11800.00, reglas 3278/3279).",
+      "En el XML cada anticipo va como `AdditionalDocumentReference` (tipo 02, RUC del emisor, identificador de pago), `PrepaidPayment` (importe con IGV) y `AllowanceCharge` 04/05/06; los totales llevan `PrepaidAmount` (reglas 2503, 2509, 3211–3220, 3282, 3287).",
+      "Un anticipo por el 100 % deja base, IGV y total en 0.00: la factura final sigue siendo obligatoria para documentar la entrega. Con forma de pago al crédito, `monto_pendiente` y las cuotas se validan contra el saldo tras anticipos.",
+      "La respuesta devuelve `anticipos[]` con `comprobante`, `monto`, `importe_pagado`, `afectacion`, `codigo_sunat` y `fecha_pago`, y en `totales` el campo `total_anticipos`.",
+    ],
+    disponible: true,
   },
   {
     id: "isc-icbper",

@@ -380,6 +380,67 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /**
+     * Factura final con anticipo (reglas 65–66): documento referenciado con identificador de pago, PrepaidPayment con el importe
+     * pagado (IGV incluido), descuento global 04 por el valor sin IGV que reduce la base del IGV (3277, 3291) y PrepaidAmount
+     * restado del importe a pagar (3280); total valor/precio de venta siguen brutos (3278, 3279).
+     */
+    @Test void anticipoEnElXml() throws Exception {
+        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
+                List.of(new Item("OBRA", "Obra completa", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, null, null, null,
+                List.of(new Anticipo("F001", 10, new BigDecimal("300.00"), null, LocalDate.of(2026, 9, 1))), FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(12, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        String ref = "/inv:Invoice/cac:AdditionalDocumentReference";
+        assertThat(valor(d, ref + "/cbc:ID")).isEqualTo("F001-10");                                                   // 2521
+        assertThat(valor(d, ref + "/cbc:DocumentTypeCode")).isEqualTo("02");                                          // 2505
+        assertThat(valor(d, ref + "/cbc:DocumentTypeCode/@listName")).isEqualTo("Documento Relacionado");            // 4252
+        assertThat(valor(d, ref + "/cbc:DocumentTypeCode/@listURI")).isEqualTo("urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo12");
+        assertThat(valor(d, ref + "/cbc:DocumentStatusCode")).isEqualTo("1");                                         // 3216
+        assertThat(valor(d, ref + "/cbc:DocumentStatusCode/@listName")).isEqualTo("Anticipo");
+        assertThat(valor(d, ref + "/cac:IssuerParty/cac:PartyIdentification/cbc:ID")).isEqualTo("20100066603");     // 3217
+        assertThat(valor(d, ref + "/cac:IssuerParty/cac:PartyIdentification/cbc:ID/@schemeID")).isEqualTo("6");       // 2520
+
+        String pago = "/inv:Invoice/cac:PrepaidPayment";
+        assertThat(valor(d, pago + "/cbc:ID")).isEqualTo("1");                                                        // 3211/3213
+        assertThat(valor(d, pago + "/cbc:ID/@schemeName")).isEqualTo("Anticipo");                                     // 4255
+        assertThat(valor(d, pago + "/cbc:ID/@schemeAgencyName")).isEqualTo("PE:SUNAT");                               // 4256
+        assertThat(valor(d, pago + "/cbc:PaidAmount")).isEqualTo("354.00");                                           // 2503: 300 + IGV
+        assertThat(valor(d, pago + "/cbc:PaidAmount/@currencyID")).isEqualTo("PEN");                                  // 2071
+        assertThat(valor(d, pago + "/cbc:PaidDate")).isEqualTo("2026-09-01");
+
+        String desc = "/inv:Invoice/cac:AllowanceCharge";
+        assertThat(valor(d, "count(" + desc + ")")).isEqualTo("1");
+        assertThat(valor(d, desc + "/cbc:ChargeIndicator")).isEqualTo("false");                                        // 3114
+        assertThat(valor(d, desc + "/cbc:AllowanceChargeReasonCode")).isEqualTo("04");
+        assertThat(valor(d, desc + "/cbc:Amount")).isEqualTo("300.00");
+        assertThat(valor(d, desc + "/cbc:BaseAmount")).isEqualTo("1000.00");
+        assertThat(valor(d, "count(" + desc + "/cbc:MultiplierFactorNumeric)")).isEqualTo("0");
+
+        String igv = "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='1000']";
+        assertThat(valor(d, igv + "/cbc:TaxableAmount")).isEqualTo("700.00");                                          // 3277
+        assertThat(valor(d, igv + "/cbc:TaxAmount")).isEqualTo("126.00");                                              // 3291
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("126.00");
+        assertThat(valor(d, "/inv:Invoice/cac:InvoiceLine[1]/cbc:LineExtensionAmount")).isEqualTo("1000.00");        // la línea no cambia
+        assertThat(valor(d, "/inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("180.00");
+
+        String tot = "/inv:Invoice/cac:LegalMonetaryTotal";
+        assertThat(valor(d, tot + "/cbc:LineExtensionAmount")).isEqualTo("1000.00");                                   // 3278
+        assertThat(valor(d, tot + "/cbc:TaxInclusiveAmount")).isEqualTo("1180.00");                                    // 3279
+        assertThat(valor(d, tot + "/cbc:PrepaidAmount")).isEqualTo("354.00");                                          // 2509
+        assertThat(valor(d, tot + "/cbc:PayableAmount")).isEqualTo("826.00");                                          // 3280
+        assertThat(valor(d, "count(" + tot + "/cbc:AllowanceTotalAmount)")).isEqualTo("0");                            // 04 no entra en 3300
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     @Test void sigueValidandoContraElXsdOficial() {
         Tenant t = FreemarkerUblGeneratorTest.tenant();
         String xml = new FreemarkerUblGenerator().generar(facturaConTresAfectaciones(), t)

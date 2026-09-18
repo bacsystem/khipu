@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.domain.DomainException;
+import pe.factura.domain.documento.Anticipo;
 import pe.factura.domain.documento.Descuento;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.Percepcion;
@@ -34,6 +35,7 @@ public record FacturaRequest(
         @Valid @Schema(description = "Detracción (SPOT). Obligatoria cuando `tipo_operacion` es 1001–1004 y prohibida en los demás casos.") DetraccionDto detraccion,
         @Valid @Schema(description = "Retención del IGV que aplicará el cliente por ser agente de retención (catálogo 53: 62). Informativa; no cambia los totales.") RetencionDto retencionIgv,
         @Valid @Schema(description = "Percepción del IGV que cobra la empresa por ser agente de percepción (catálogo 53: 51/52/53). Solo con `tipo_operacion` 2001, al contado y en PEN.") PercepcionDto percepcion,
+        @Valid @Schema(description = "Facturas de anticipo que se regularizan en esta factura. Los ítems describen la operación completa y khipu descuenta cada anticipo de la base (código 04/05/06) y del importe a pagar.") List<AnticipoDto> anticipos,
         @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja el comprobante `FIRMADO` para enviarlo luego con `POST /v1/facturas/{id}/enviar` (p. ej. para emitir en lote y enviar después)") Boolean enviarAutomatico) {
 
     public record ClienteDto(
@@ -128,18 +130,35 @@ public record FacturaRequest(
         Percepcion aDominio() { return new Percepcion(regimen, porcentaje, base, monto); }
     }
 
+    /**
+     * Anticipo ya facturado (y aceptado por SUNAT) por esta misma empresa al mismo cliente. `monto` es el valor sin IGV; khipu
+     * calcula el importe pagado (con IGV) y lo resta del total.
+     */
+    public record AnticipoDto(
+            @NotBlank @Pattern(regexp = "F[A-Z0-9]{3}", message = "serie de la factura de anticipo inválida") @Schema(example = "F001", description = "Serie de la factura de anticipo") String serie,
+            @NotNull @Positive @Schema(example = "120", description = "Número de la factura de anticipo, emitida por esta empresa y ACEPTADA por SUNAT") Long numero,
+            @NotNull @Schema(example = "1000.00", description = "Valor sin IGV que se regulariza; no puede superar lo facturado en el anticipo ni lo facturado en esta factura para la misma afectación") BigDecimal monto,
+            @Pattern(regexp = "gravado|exonerado|inafecto") @Schema(example = "gravado", description = "Afectación del anticipo (catálogo 53): `gravado` (04, por defecto), `exonerado` (05) o `inafecto` (06). Decide de qué base se descuenta") String afectacion,
+            @Schema(example = "2026-09-01", description = "Fecha en que se pagó el anticipo (opcional, informativa)") LocalDate fechaPago) {
+        Anticipo aDominio() {
+            return new Anticipo(serie, numero, monto, afectacion == null ? null : Anticipo.Afectacion.valueOf(afectacion.toUpperCase()), fechaPago);
+        }
+    }
+
     public EmitirFacturaCommand aComando() {
         List<Item> itemsDominio = items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
                 i.descuento() == null ? null : i.descuento().aDominio(), i.isc() == null ? null : i.isc().aDominio(), Boolean.TRUE.equals(i.icbper()))).toList();
         Descuento global = descuentoGlobal == null ? null : descuentoGlobal.aDominio();
+        List<Anticipo> anticiposDominio = anticipos == null ? List.of() : anticipos.stream().map(AnticipoDto::aDominio).toList();
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
                 itemsDominio,
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
                 global,
-                detraccion == null ? null : detraccion.aDominio(moneda, () -> Totales.calcular(itemsDominio, global, Icbper.tasaVigente(fechaEmision)).total()),
+                detraccion == null ? null : detraccion.aDominio(moneda, () -> Totales.calcular(itemsDominio, global, anticiposDominio, Icbper.tasaVigente(fechaEmision)).total()),
                 retencionIgv == null ? null : retencionIgv.aDominio(),
                 percepcion == null ? null : percepcion.aDominio(),
+                anticiposDominio,
                 enviarAutomatico == null || enviarAutomatico);
     }
 }

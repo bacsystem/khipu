@@ -46,6 +46,8 @@ const CODIGOS: Array<[string, string, string, string]> = [
   ["RECEPTOR_INVALIDO", "422", "En factura el adquirente debe tener RUC válido (tipo_doc 6, 11 dígitos).", "Corrija cliente.tipo_doc / num_doc."],
   ["SIN_ITEMS", "422", "La factura no tiene ítems.", "Envíe al menos un ítem."],
   ["FORMA_PAGO_INVALIDA", "422", "Regla de forma de pago incumplida; el mensaje empieza por el código SUNAT (3244–3267, 3319).", "Ajuste cuotas, monto pendiente o fechas según el mensaje."],
+  ["DESCUENTO_INVALIDO / DETRACCION_INVALIDA / RETENCION_INVALIDA / PERCEPCION_INVALIDA", "422", "Regla SUNAT de descuentos, detracción, retención o percepción incumplida; el mensaje empieza por el código SUNAT (p. ej. 3127, 3263, 3308).", "Corrija el dato indicado; vea el caso correspondiente en la guía."],
+  ["ANTICIPO_INVALIDO", "422", "La factura de anticipo no existe en la empresa, no está aceptada por SUNAT (3218), es de otro cliente o moneda (2071), se repite (3215) o el monto supera lo facturado.", "Emita y espere la aceptación de la factura de anticipo; use su serie-número y el valor sin IGV."],
   ["CREDENCIALES_SOL_NO_CARGADAS", "422", "La empresa no tiene usuario/clave SOL y se pidió enviar a SUNAT.", "Cárguelas en el portal o emita con enviar_automatico: false."],
   ["CERTIFICADO_NO_CARGADO / CERTIFICADO_VENCIDO / CERTIFICADO_INVALIDO", "422", "Sin certificado, vencido, o su OU no contiene el RUC.", "Cargue un certificado vigente de la empresa."],
   ["XSD_INVALIDO / FIRMA_FALLIDA", "422", "El XML generado no validó o no pudo firmarse.", "Contacte soporte con el id; suele ser un dato fuera de catálogo."],

@@ -378,6 +378,42 @@ class FacturaControllerTest {
         assertThat(cap.getValue().items().get(1).icbper()).isTrue();
     }
 
+    @Test void anticiposEntranYSalen() throws Exception {
+        String conAnticipo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"F001\",\"numero\":10,\"monto\":30.00,\"fecha_pago\":\"2026-09-01\"}],");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), c.items(),
+                FormaPago.contado(), null, null, null, null, List.of(new Anticipo("F001", 10, new BigDecimal("30.00"), null, LocalDate.of(2026, 9, 1))),
+                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conAnticipo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.anticipos[0].comprobante").value("F001-10"))
+                .andExpect(jsonPath("$.datos.anticipos[0].monto").value(30.00))
+                .andExpect(jsonPath("$.datos.anticipos[0].importe_pagado").value(35.40))
+                .andExpect(jsonPath("$.datos.anticipos[0].afectacion").value("gravado"))
+                .andExpect(jsonPath("$.datos.anticipos[0].codigo_sunat").value("04"))
+                .andExpect(jsonPath("$.datos.anticipos[0].fecha_pago").value("2026-09-01"))
+                .andExpect(jsonPath("$.datos.totales.gravado").value(70.00))
+                .andExpect(jsonPath("$.datos.totales.igv").value(12.60))
+                .andExpect(jsonPath("$.datos.totales.total_precio_venta").value(118.00))
+                .andExpect(jsonPath("$.datos.totales.total_anticipos").value(35.40))
+                .andExpect(jsonPath("$.datos.totales.total").value(82.60));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().anticipos()).singleElement().satisfies(a -> {
+            assertThat(a.comprobante()).isEqualTo("F001-10");
+            assertThat(a.afectacion()).isEqualTo(Anticipo.Afectacion.GRAVADO);
+            assertThat(a.fechaPago()).isEqualTo(LocalDate.of(2026, 9, 1));
+        });
+    }
+
+    @Test void anticipoConSerieInvalidaEs422DeValidacion() throws Exception {
+        String mal = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"B001\",\"numero\":10,\"monto\":30.00}],");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(mal))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores['anticipos[0].serie']").exists());
+    }
+
     @Test void jsonMalformadoEs400() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":"))
                 .andExpect(status().isBadRequest())

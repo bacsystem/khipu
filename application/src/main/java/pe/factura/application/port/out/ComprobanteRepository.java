@@ -12,6 +12,7 @@ public interface ComprobanteRepository {
     void guardar(Comprobante c); // insert o update por id
     Optional<Comprobante> buscar(UUID tenantId, UUID id);
     boolean existe(UUID tenantId, TipoDocumento tipo, String serie, long numero);
+    Optional<Comprobante> buscarPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero);
     List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina);
     long contar(UUID tenantId, EstadoDocumento estado);
 }

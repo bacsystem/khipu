@@ -25,6 +25,7 @@ public class Comprobante {
     private final Detraccion detraccion;
     private final RetencionIgv retencion;
     private final Percepcion percepcion;
+    private final List<Anticipo> anticipos;
     private final Totales totales;
     private EstadoDocumento estado;
     private String hash;
@@ -37,12 +38,13 @@ public class Comprobante {
 
     private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
-                        Descuento descuentoGlobal, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, EstadoDocumento estado) {
+                        Descuento descuentoGlobal, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, EstadoDocumento estado) {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
         this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
         this.detraccion = detraccion;
-        this.totales = Totales.calcular(this.items, descuentoGlobal, Icbper.tasaVigente(fechaEmision));
+        this.anticipos = anticipos == null ? List.of() : List.copyOf(anticipos);
+        this.totales = Totales.calcular(this.items, descuentoGlobal, this.anticipos, Icbper.tasaVigente(fechaEmision));
         // Retención y percepción se completan contra el importe total ya calculado (montos por defecto y tolerancias SUNAT).
         this.retencion = retencion == null ? null : retencion.completarContra(this.totales.total());
         this.percepcion = percepcion == null ? null : percepcion.completarContra(tipoOperacion, formaPago, moneda, this.totales.total());
@@ -73,6 +75,12 @@ public class Comprobante {
     public static Comprobante crearFactura(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion,
                                            Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, Detraccion detraccion,
                                            RetencionIgv retencion, Percepcion percepcion, Clock clock) {
+        return crearFactura(tenantId, serie, fechaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, detraccion, retencion, percepcion, List.of(), clock);
+    }
+
+    public static Comprobante crearFactura(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion,
+                                           Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, Detraccion detraccion,
+                                           RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Clock clock) {
         if (!TipoDocumento.FACTURA.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de factura inválida: " + serie);
         if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
         if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
@@ -85,8 +93,10 @@ public class Comprobante {
         if (detraccion != null) detraccion.validarContra(operacion);
         if (percepcion == null && Percepcion.TIPO_OPERACION.equals(operacion) && !formaPago.esCredito())
             throw new DomainException("PERCEPCION_INVALIDA", "3093 - Una operación sujeta a percepción (2001) al contado debe informar la percepción");
+        if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
+            throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
         Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision,
-                moneda, operacion, receptor, items, formaPago, descuentoGlobal, detraccion, retencion, percepcion, EstadoDocumento.RECIBIDO);
+                moneda, operacion, receptor, items, formaPago, descuentoGlobal, detraccion, retencion, percepcion, anticipos, EstadoDocumento.RECIBIDO);
         formaPago.validarContra(c.totales.total(), fechaEmision);
         return c;
     }
@@ -95,9 +105,9 @@ public class Comprobante {
     public static Comprobante rehidratar(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero,
                                          LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor receptor,
                                          List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, Detraccion detraccion,
-                                         RetencionIgv retencion, Percepcion percepcion, EstadoDocumento estado,
+                                         RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, EstadoDocumento estado,
                                          String hash, String nombreArchivo, String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
-        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, detraccion, retencion, percepcion, estado);
+        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, detraccion, retencion, percepcion, anticipos, estado);
         c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
         c.intentos = intentos; c.ultimoError = ultimoError;
         return c;

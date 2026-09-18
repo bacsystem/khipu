@@ -41,9 +41,10 @@ export type Comprobante = {
   intentos: number;
   ultimo_error: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
-  totales: { gravado: number; exonerado: number; inafecto: number; igv: number; total: number };
+  totales: { gravado: number; exonerado: number; inafecto: number; igv: number; total: number; total_precio_venta?: number; total_anticipos?: number };
   forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
   detraccion?: { codigo_bien_servicio: string; descripcion: string; porcentaje: number; monto: number; cuenta_banco_nacion: string; medio_pago: string } | null;
+  anticipos?: Array<{ comprobante: string; serie: string; numero: number; monto: number; importe_pagado: number; afectacion: string; codigo_sunat: string; fecha_pago: string | null }>;
   enlaces: { xml: string; cdr?: string };
 };
 
@@ -100,7 +101,7 @@ export function resetDb() {
       tipo_operacion: "0101",
       receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: "Av. Argentina 2450, Lima" },
       items: [
-        { codigo: "SRV-001", descripcion: "Servicio de desarrollo de software", unidad: "ZZ", cantidad: 1, precio_unitario: 100, tipo_afectacion_igv: "10" },
+        { codigo: "SRV-001", descripcion: "Servicio de desarrollo de software", unidad: "ZZ", cantidad: 1, precio_unitario: 141.6, tipo_afectacion_igv: "10" },
       ],
       estado_documento: "ACEPTADO",
       hash: "y4M8+jW8Xp278K1aM02q19KjvO3k=",
@@ -108,7 +109,9 @@ export function resetDb() {
       intentos: 1,
       ultimo_error: null,
       cdr: { codigo: "0", descripcion: "La Factura numero F001-1, ha sido aceptada", observaciones: [] },
-      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
+      // Operación de 120 + IGV con un anticipo de 20 (pagó 23.60): base neta 100, IGV 18, a pagar 141.60 − 23.60 = 118.
+      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118, total_precio_venta: 141.6, total_anticipos: 23.6 },
+      anticipos: [{ comprobante: "F001-90", serie: "F001", numero: 90, monto: 20, importe_pagado: 23.6, afectacion: "gravado", codigo_sunat: "04", fecha_pago: "2026-08-20" }],
       forma_pago: {
         tipo: "credito",
         monto_pendiente: 118,

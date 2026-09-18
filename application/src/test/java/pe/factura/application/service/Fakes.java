@@ -14,8 +14,9 @@ final class Fakes {
         final Map<UUID, Comprobante> datos = new HashMap<>();
         public void guardar(Comprobante c) { datos.put(c.id(), c); }
         public Optional<Comprobante> buscar(UUID t, UUID id) { return Optional.ofNullable(datos.get(id)).filter(c -> c.tenantId().equals(t)); }
-        public boolean existe(UUID t, TipoDocumento tipo, String serie, long numero) {
-            return datos.values().stream().anyMatch(c -> c.tenantId().equals(t) && c.tipo() == tipo && c.serie().equals(serie) && Long.valueOf(numero).equals(c.numero()));
+        public boolean existe(UUID t, TipoDocumento tipo, String serie, long numero) { return buscarPorNumero(t, tipo, serie, numero).isPresent(); }
+        public Optional<Comprobante> buscarPorNumero(UUID t, TipoDocumento tipo, String serie, long numero) {
+            return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.tipo() == tipo && c.serie().equals(serie) && Long.valueOf(numero).equals(c.numero())).findFirst();
         }
         public List<Comprobante> listar(UUID t, EstadoDocumento e, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
         public long contar(UUID t, EstadoDocumento e) { return listar(t, e, 1, Integer.MAX_VALUE).size(); }

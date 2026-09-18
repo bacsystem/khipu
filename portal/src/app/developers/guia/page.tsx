@@ -105,9 +105,15 @@ export default function GuiaPage() {
 
       <Seccion id="casos" titulo="Casos de emisión">
         <P>
-          Cada caso muestra el JSON exacto para <Codigo>POST /v1/facturas</Codigo> y las reglas que aplican. Los casos marcados{" "}
-          <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 text-[11px] font-medium text-warning-foreground">en desarrollo</span>{" "}
-          describen el contrato previsto para que planifique su integración; la API los rechazará hasta que estén disponibles.
+          Cada caso muestra el JSON exacto para <Codigo>POST /v1/facturas</Codigo> y las reglas que aplican.
+          {CASOS.some((c) => !c.disponible) ? (
+            <>
+              {" "}
+              Los casos marcados{" "}
+              <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 text-[11px] font-medium text-warning-foreground">en desarrollo</span>{" "}
+              describen el contrato previsto para que planifique su integración; la API los rechazará hasta que estén disponibles.
+            </>
+          ) : null}
         </P>
         <div className="space-y-8">
           {CASOS.map((c) => (
