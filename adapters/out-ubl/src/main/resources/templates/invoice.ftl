@@ -75,7 +75,7 @@
   <cac:PaymentTerms>
     <cbc:ID>Detraccion</cbc:ID>
     <cbc:PaymentMeansID schemeName="Codigo de detraccion" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo54">${c.detraccion().codigoBienServicio()}</cbc:PaymentMeansID>
-    <cbc:PaymentPercent>${c.detraccion().porcentaje()?string["0.##"]}</cbc:PaymentPercent>
+    <cbc:PaymentPercent>${c.detraccion().porcentaje()?string["0.#####"]}</cbc:PaymentPercent>
     <cbc:Amount currencyID="PEN">${c.detraccion().monto()}</cbc:Amount>
   </cac:PaymentTerms>
   </#if>

@@ -7,7 +7,6 @@ import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Descuento;
 import pe.factura.domain.documento.Detraccion;
-import pe.factura.domain.documento.Totales;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
@@ -79,7 +78,7 @@ public record FacturaRequest(
         }
     }
 
-    /** Datos del SPOT: el monto se deposita siempre en soles; para facturas en PEN puede omitirse y khipu lo calcula (total × %, redondeado al sol). */
+    /** Datos del SPOT: el monto se deposita siempre en soles; para facturas en PEN puede omitirse y el dominio lo calcula (total × %, redondeado al sol). */
     public record DetraccionDto(
             @NotBlank @Schema(example = "022", description = "Bien o servicio sujeto a detracción, catálogo 54 (`GET /v1/catalogos/54`). Con tipo de operación 1002/1003/1004 debe ser 004/028/027") String codigoBienServicio,
             @NotNull @Schema(example = "12", description = "Porcentaje de detracción que corresponde al bien/servicio (hasta 5 decimales)") BigDecimal porcentaje,
@@ -87,27 +86,17 @@ public record FacturaRequest(
             @NotBlank @Schema(example = "00-000-123456", description = "Número de cuenta de detracciones del emisor en el Banco de la Nación") String cuentaBancoNacion,
             @Schema(example = "001", description = "Medio de pago, catálogo 59; por defecto `001` depósito en cuenta") String medioPago) {
 
-        Detraccion aDominio(String moneda, java.util.function.Supplier<BigDecimal> totalEnPen) {
-            BigDecimal montoFinal = monto;
-            if (montoFinal == null) {
-                if (!"PEN".equals(moneda))
-                    throw new DomainException("DETRACCION_INVALIDA", "3208 - En facturas en " + moneda + " debe indicar el monto de la detracción en soles");
-                montoFinal = Detraccion.montoSobre(totalEnPen.get(), porcentaje);
-            }
-            return new Detraccion(codigoBienServicio, porcentaje, montoFinal, cuentaBancoNacion, medioPago);
-        }
+        Detraccion aDominio() { return new Detraccion(codigoBienServicio, porcentaje, monto, cuentaBancoNacion, medioPago); }
     }
 
     public EmitirFacturaCommand aComando() {
-        List<Item> itemsDominio = items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
-                i.descuento() == null ? null : i.descuento().aDominio())).toList();
-        Descuento global = descuentoGlobal == null ? null : descuentoGlobal.aDominio();
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
-                itemsDominio,
+                items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
+                        i.descuento() == null ? null : i.descuento().aDominio())).toList(),
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
-                global,
-                detraccion == null ? null : detraccion.aDominio(moneda, () -> Totales.calcular(itemsDominio, global).total()),
+                descuentoGlobal == null ? null : descuentoGlobal.aDominio(),
+                detraccion == null ? null : detraccion.aDominio(),
                 enviarAutomatico == null || enviarAutomatico);
     }
 }

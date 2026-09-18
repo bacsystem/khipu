@@ -123,7 +123,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
 
     private static Detraccion detraccion(ResultSet rs) throws SQLException {
         if (rs.getString("detraccion_codigo") == null) return null;
-        return new Detraccion(rs.getString("detraccion_codigo"), rs.getBigDecimal("detraccion_porcentaje").stripTrailingZeros().setScale(Math.max(0, rs.getBigDecimal("detraccion_porcentaje").stripTrailingZeros().scale())),
+        return new Detraccion(rs.getString("detraccion_codigo"), sinCeros(rs.getBigDecimal("detraccion_porcentaje")),
                 rs.getBigDecimal("detraccion_monto"), rs.getString("detraccion_cuenta"), rs.getString("detraccion_medio_pago"));
     }
 

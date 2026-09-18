@@ -40,8 +40,9 @@ public class Comprobante {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
         this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
-        this.detraccion = detraccion;
         this.totales = Totales.calcular(this.items, descuentoGlobal);
+        // El depósito SPOT se completa contra el importe total ya calculado, para que no exista un segundo cálculo del total fuera del agregado.
+        this.detraccion = detraccion == null ? null : detraccion.completarContra(moneda, this.totales.total());
         this.estado = estado;
     }
 
