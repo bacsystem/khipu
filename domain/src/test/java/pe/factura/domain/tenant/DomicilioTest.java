@@ -35,6 +35,9 @@ class DomicilioTest {
         assertThatThrownBy(() -> Domicilio.de("15012", "Av. Larco 345")).hasMessageStartingWith("4093");
         assertThatThrownBy(() -> Domicilio.de("150122", "Av")).hasMessageStartingWith("4094");
         assertThatThrownBy(() -> Domicilio.de("150122", "Av. Larco\n345")).hasMessageStartingWith("4094");
+        assertThatThrownBy(() -> Domicilio.de("150122", "Av. Larco\n345\nOf. 2")).hasMessageStartingWith("4094");   // dos saltos: '.' no cruza líneas en una regex
+        assertThatThrownBy(() -> Domicilio.de("150122", "Av. Larco\r\n345")).hasMessageStartingWith("4094");
+        assertThatThrownBy(() -> new Domicilio("150122", "Av. Larco 345", "Urb.\tA\tB", null, null, null, null)).hasMessageStartingWith("4095");
         assertThatThrownBy(() -> Domicilio.de("150122", "A".repeat(201))).hasMessageStartingWith("4094");
         assertThatThrownBy(() -> new Domicilio("150122", "Av. Larco 345", "U".repeat(26), null, null, null, null)).hasMessageStartingWith("4095");
         assertThatThrownBy(() -> new Domicilio("150122", "Av. Larco 345", null, "D".repeat(31), null, null, null)).hasMessageStartingWith("4098");

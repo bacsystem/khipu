@@ -18,7 +18,7 @@ public record Domicilio(String ubigeo, String direccion, String urbanizacion, St
     public Domicilio {
         if (ubigeo == null || !ubigeo.matches("\\d{6}") || !CatalogoSunat.porId("13").map(c -> c.contiene(ubigeo)).orElse(false))
             throw new DomainException("DOMICILIO_INVALIDO", "4093 - El ubigeo debe ser un código de 6 dígitos del catálogo 13 (INEI)");
-        if (direccion == null || direccion.strip().length() < 3 || direccion.strip().length() > 200 || direccion.matches(".*[\\r\\n\\t].*"))
+        if (direccion == null || direccion.strip().length() < 3 || direccion.strip().length() > 200 || conSaltos(direccion))
             throw new DomainException("DOMICILIO_INVALIDO", "4094 - La dirección debe tener de 3 a 200 caracteres en una sola línea");
         direccion = direccion.strip();
         urbanizacion = limpiar(urbanizacion, 25, "4095 - La urbanización admite hasta 25 caracteres");
@@ -36,7 +36,10 @@ public record Domicilio(String ubigeo, String direccion, String urbanizacion, St
     private static String limpiar(String v, int max, String error) {
         if (v == null || v.isBlank()) return null;
         String s = v.strip();
-        if (s.length() > max || s.matches(".*[\\r\\n\\t].*")) throw new DomainException("DOMICILIO_INVALIDO", error);
+        if (s.length() > max || conSaltos(s)) throw new DomainException("DOMICILIO_INVALIDO", error);
         return s;
     }
+
+    /** SUNAT admite cualquier carácter salvo saltos de línea, tabuladores y demás caracteres de control (reglas 4094–4098). */
+    private static boolean conSaltos(String v) { return v.chars().anyMatch(Character::isISOControl); }
 }
