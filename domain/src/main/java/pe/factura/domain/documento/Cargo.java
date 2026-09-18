@@ -4,6 +4,7 @@ import pe.factura.domain.DomainException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -16,10 +17,25 @@ import java.util.Set;
  *       la afecta (Ley 25988: el recargo no forma parte de la base imponible).</li>
  * </ul>
  * Los cargos que no afectan la base suman al importe a pagar a través de {@code ChargeTotalAmount} (reglas 3301, 3280).
+ * Quien construye un cargo no elige el código: lo derivan {@link #deLinea} y {@link #global} del nivel, de si afecta la
+ * base y del {@link Motivo}, igual que {@link Descuento#codigoSunat(boolean)} para los descuentos.
  */
 public record Cargo(String codigo, Tipo tipo, BigDecimal valor) {
 
     public enum Tipo { PORCENTAJE, MONTO }
+
+    /** Motivos con código propio en el catálogo 53; los cargos "genéricos" (47–50) no llevan motivo. */
+    public enum Motivo {
+        /** Recargo al consumo y/o propinas (46): por la Ley 25988 nunca forma parte de la base imponible. Solo global. */
+        RECARGO_CONSUMO("46");
+        private final String codigo;
+        Motivo(String codigo) { this.codigo = codigo; }
+        public String codigo() { return codigo; }
+        static Optional<Motivo> porCodigo(String codigo) {
+            for (Motivo m : values()) if (m.codigo.equals(codigo)) return Optional.of(m);
+            return Optional.empty();
+        }
+    }
 
     public static final Set<String> CODIGOS_LINEA = Set.of("47", "48");
     public static final Set<String> CODIGOS_GLOBALES = Set.of("46", "49", "50");
@@ -39,8 +55,26 @@ public record Cargo(String codigo, Tipo tipo, BigDecimal valor) {
     public static Cargo porcentaje(String codigo, BigDecimal pct) { return new Cargo(codigo, Tipo.PORCENTAJE, pct); }
     public static Cargo monto(String codigo, BigDecimal monto) { return new Cargo(codigo, Tipo.MONTO, monto); }
 
+    /** Cargo de línea: 47 si afecta la base del IGV (se suma al valor de venta), 48 si se cobra sin IGV. */
+    public static Cargo deLinea(boolean afectaBaseIgv, Tipo tipo, BigDecimal valor) {
+        return new Cargo(afectaBaseIgv ? "47" : "48", tipo, valor);
+    }
+
+    /**
+     * Cargo global: 49 si afecta la base gravada, 50 si no; con {@code motivo} el código es el del motivo y
+     * {@code afectaBaseIgv} debe ser falso (el recargo al consumo no paga IGV).
+     */
+    public static Cargo global(boolean afectaBaseIgv, Motivo motivo, Tipo tipo, BigDecimal valor) {
+        if (motivo == null) return new Cargo(afectaBaseIgv ? "49" : "50", tipo, valor);
+        if (afectaBaseIgv)
+            throw new DomainException("CARGO_INVALIDO", "El recargo al consumo (46) no afecta la base del IGV: no indique afecta_base_igv: true");
+        return new Cargo(motivo.codigo(), tipo, valor);
+    }
+
     public boolean global() { return CODIGOS_GLOBALES.contains(codigo); }
     public boolean afectaBaseIgv() { return AFECTAN_BASE.contains(codigo); }
+    /** Motivo con código propio (hoy solo el recargo al consumo), vacío para los cargos genéricos 47–50. */
+    public Optional<Motivo> motivo() { return Motivo.porCodigo(codigo); }
 
     /** Monto del cargo sobre una base (valor de venta sin IGV), a 2 decimales; SUNAT exige que sea distinto de cero (2955/2968). */
     public BigDecimal montoSobre(BigDecimal base) {

@@ -107,7 +107,8 @@ public record ComprobanteResponse(
             @Schema(example = "recargo_consumo", description = "`recargo_consumo` cuando es el 46; `null` en los demás") String motivo,
             @Schema(example = "50", description = "Código SUNAT derivado (catálogo 53): 47/48 por línea, 46/49/50 global") String codigo) {
         static CargoDto de(CargoCalculado cc) {
-            return new CargoDto(cc.cargo().tipo().name(), cc.cargo().valor(), cc.monto(), cc.afectaBase(), "46".equals(cc.codigo()) ? "recargo_consumo" : null, cc.codigo());
+            return new CargoDto(cc.cargo().tipo().name(), cc.cargo().valor(), cc.monto(), cc.afectaBase(),
+                    cc.cargo().motivo().map(m -> m.name().toLowerCase()).orElse(null), cc.codigo());
         }
         static List<CargoDto> de(List<CargoCalculado> cargos) {
             return cargos.isEmpty() ? null : cargos.stream().map(CargoDto::de).toList();
