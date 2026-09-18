@@ -215,6 +215,9 @@ public class Comprobante {
         this.intentos++; this.ultimoError = motivo;
     }
 
+    /** SUNAT aceptó la comunicación de baja que lo incluye: el número queda consumido y el comprobante deja de ser válido. */
+    public void anular() { transitar(EstadoDocumento.ANULADO); }
+
     public void rechazarPorFault(String codigo, String descripcion) {
         if (estado.esEnviable()) transitar(EstadoDocumento.ENVIADO);
         transitar(EstadoDocumento.RECHAZADO);

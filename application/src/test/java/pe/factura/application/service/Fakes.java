@@ -15,6 +15,7 @@ final class Fakes {
         final Map<UUID, Comprobante> datos = new HashMap<>();
         public void guardar(Comprobante c) { datos.put(c.id(), c); }
         public Optional<Comprobante> buscar(UUID t, UUID id) { return Optional.ofNullable(datos.get(id)).filter(c -> c.tenantId().equals(t)); }
+        public Optional<Comprobante> bloquear(UUID t, UUID id) { return buscar(t, id); }
         public BigDecimal montoRegularizado(UUID t, String serie, long numero) {
             return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.estado() != EstadoDocumento.RECHAZADO && c.estado() != EstadoDocumento.INVALIDO)
                     .flatMap(c -> c.anticipos().stream()).filter(a -> a.serie().equals(serie) && a.numero() == numero)
@@ -74,7 +75,23 @@ final class Fakes {
     }
     static final class Gateway implements SunatBillingGateway {
         RuntimeException falla; byte[] respuesta = "cdr".getBytes(); String ultimoNombre;
+        /** sendSummary/getStatus: ticket fijo y estado configurable (por defecto procesado con el mismo ZIP de respuesta). */
+        RuntimeException fallaResumen; RuntimeException fallaStatus; String ticket = "T-1"; String statusCode = "0"; int consultas;
         public byte[] sendBill(Tenant t, String nombre, byte[] xml) { ultimoNombre = nombre; if (falla != null) throw falla; return respuesta; }
+        public String sendSummary(Tenant t, String nombre, byte[] xml) { ultimoNombre = nombre; if (fallaResumen != null) throw fallaResumen; return ticket; }
+        public EstadoTicket getStatus(Tenant t, String tk) { consultas++; if (fallaStatus != null) throw fallaStatus; return new EstadoTicket(statusCode, "98".equals(statusCode) ? null : respuesta); }
+    }
+    static final class Bajas implements BajaRepository {
+        final Map<UUID, ComunicacionBaja> datos = new LinkedHashMap<>();
+        public void guardar(ComunicacionBaja b) { datos.put(b.id(), b); }
+        public Optional<ComunicacionBaja> buscar(UUID t, UUID id) { return Optional.ofNullable(datos.get(id)).filter(b -> b.tenantId().equals(t)); }
+        public List<ComunicacionBaja> deComprobante(UUID t, UUID c) { return datos.values().stream().filter(b -> b.tenantId().equals(t) && b.comprobanteId().equals(c)).toList(); }
+        public int siguienteCorrelativo(UUID t, LocalDate f) { return (int) datos.values().stream().filter(b -> b.tenantId().equals(t) && b.fechaGeneracion().equals(f)).count() + 1; }
+    }
+    /** UblGenerator de prueba: devuelve un XML mínimo con la raíz según el tipo. */
+    static final class Ubl implements UblGenerator {
+        public String generar(Comprobante c, Tenant t) { return "<" + c.tipo() + ">" + c.nombreArchivo() + "</" + c.tipo() + ">"; }
+        public String generarBaja(ComunicacionBaja b, Tenant t) { return "<VoidedDocuments>" + b.identificador() + "</VoidedDocuments>"; }
     }
     static final class Cdrs implements CdrParser {
         Cdr cdr = new Cdr("0", "aceptada", List.of());

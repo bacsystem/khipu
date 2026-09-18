@@ -1,11 +1,12 @@
-import { ArrowLeftIcon, FileMinusIcon, FileTextIcon, IdCardIcon, LinkIcon, MoreHorizontalIcon, Rows3Icon } from "lucide-react";
+import { ArrowLeftIcon, BanIcon, FileMinusIcon, FileTextIcon, IdCardIcon, LinkIcon, MoreHorizontalIcon, Rows3Icon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
+import { BajaButton } from "@/components/comprobantes/baja-button";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { admiteNotas, type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { admiteBaja, admiteNotas, type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -198,6 +199,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               Emitir nota
             </Link>
           ) : null}
+          {admiteBaja(c) ? <BajaButton id={c.id} numero={numero} /> : null}
           <VistaPrevia id={c.id} numero={numero} nombreArchivo={c.nombre_archivo} tieneCdr={tieneConstanciaCdr(c)} />
           <button
             disabled
@@ -209,7 +211,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           </button>
           <button
             disabled
-            title="Más acciones (reenviar por correo, comunicación de baja): próximamente"
+            title="Más acciones (reenviar por correo): próximamente"
             className="flex size-8 cursor-not-allowed items-center justify-center rounded-md border border-border bg-card text-muted-foreground/60 shadow-2xs"
           >
             <MoreHorizontalIcon className="size-4" />
@@ -299,6 +301,34 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           <p className="text-xs text-muted-foreground/60">Sin datos de receptor.</p>
         )}
       </section>
+
+      {c.baja ? (
+        <section
+          className={cn("rounded-xl border p-5 shadow-2xs", c.baja.estado === "ACEPTADA" ? "border-destructive/40 bg-destructive/5" : c.baja.estado === "RECHAZADA" ? "border-warning-border bg-warning/40" : "border-border bg-card")}
+          data-testid="baja"
+        >
+          <div className={cn(TITULO_SECCION, "mb-3")}>
+            <BanIcon className="size-4" />
+            Comunicación de baja {c.baja.identificador}
+          </div>
+          <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-4">
+            <Campo etiqueta="Estado">
+              <span className="font-semibold text-foreground">
+                {{ GENERADA: "Generada, pendiente de envío", ENVIADA: "Enviada: SUNAT la está procesando", ERROR_ENVIO: "Error de envío: se reintentará", ACEPTADA: "Aceptada: comprobante anulado", RECHAZADA: "Rechazada por SUNAT" }[c.baja.estado]}
+              </span>
+            </Campo>
+            <Campo etiqueta="Motivo">
+              <p className="leading-snug text-foreground/80">{c.baja.motivo}</p>
+            </Campo>
+            <Campo etiqueta="Ticket SUNAT">
+              <span className="font-mono text-foreground/80">{c.baja.ticket ?? "—"}</span>
+            </Campo>
+            <Campo etiqueta={c.baja.cdr ? "CDR" : "Último intento"}>
+              <span className="font-mono text-foreground/80">{c.baja.cdr ? `${c.baja.cdr.codigo} · ${c.baja.cdr.descripcion}` : (c.baja.ultimo_error ?? "—")}</span>
+            </Campo>
+          </div>
+        </section>
+      ) : null}
 
       {c.nota ? (
         <section className="rounded-xl border border-accent-border bg-accent/40 p-5 shadow-2xs" data-testid="nota">

@@ -138,7 +138,7 @@ public class AppConfig {
      * scoped a tenant (ApiKeyFilter → TenantActual) aceptan X-Api-Key.
      */
     @Bean GlobalOpenApiCustomizer apiKeySecurityCustomizer() {
-        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas", "/v1/notas");
+        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas", "/v1/notas", "/v1/bajas");
         return openApi -> {
             if (openApi.getComponents() == null) openApi.setComponents(new Components());
             openApi.getComponents().addSecuritySchemes("ApiKey",
@@ -177,6 +177,7 @@ public class AppConfig {
     @Bean ApiKeyRepository apiKeyRepository(JdbcTemplate jdbc) { return new JdbcApiKeyRepository(jdbc); }
     @Bean SerieRepository serieRepository(JdbcTemplate jdbc) { return new JdbcSerieRepository(jdbc); }
     @Bean ComprobanteRepository comprobanteRepository(JdbcTemplate jdbc) { return new JdbcComprobanteRepository(jdbc); }
+    @Bean BajaRepository bajaRepository(JdbcTemplate jdbc) { return new JdbcBajaRepository(jdbc); }
     @Bean OutboxRepository outboxRepository(JdbcTemplate jdbc) { return new JdbcOutboxRepository(jdbc); }
     @Bean CuentaRepository cuentaRepository(JdbcTemplate jdbc) { return new JdbcCuentaRepository(jdbc); }
     @Bean UsuarioRepository usuarioRepository(JdbcTemplate jdbc) { return new JdbcUsuarioRepository(jdbc); }
@@ -222,8 +223,12 @@ public class AppConfig {
         return new GestionarEmpresasService(t, cu, u);
     }
 
-    @Bean OutboxWorker outboxWorker(OutboxRepository o, UnitOfWork u, EnviarDocumentoUseCase e, Clock clock, AppProperties p) {
-        return new OutboxWorker(o, u, e, clock, p.outbox().maxIntentos());
+    @Bean DarDeBajaUseCase darDeBaja(BajaRepository b, ComprobanteRepository c, TenantRepository t, DocumentStorage s, UblGenerator ubl, XsdValidator xsd, XmlSigner signer,
+                                     SunatBillingGateway g, CdrParser p, OutboxRepository o, UnitOfWork u, Clock clock) {
+        return new DarDeBajaService(b, c, t, s, ubl, xsd, signer, g, p, o, u, clock);
+    }
+    @Bean OutboxWorker outboxWorker(OutboxRepository o, UnitOfWork u, EnviarDocumentoUseCase e, DarDeBajaUseCase b, Clock clock, AppProperties p) {
+        return new OutboxWorker(o, u, e, b, clock, p.outbox().maxIntentos());
     }
 
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y

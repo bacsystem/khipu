@@ -1,10 +1,13 @@
 package pe.factura.adapters.scheduler;
 
 import org.junit.jupiter.api.Test;
+import pe.factura.application.port.in.DarDeBajaUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.out.OutboxItem;
 import pe.factura.application.port.out.OutboxRepository;
 import pe.factura.application.port.out.UnitOfWork;
+import pe.factura.application.service.Backoff;
+import pe.factura.application.service.DarDeBajaService;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
 
@@ -25,7 +28,8 @@ class OutboxWorkerTest {
     };
     OutboxRepository outbox = mock(OutboxRepository.class);
     EnviarDocumentoUseCase enviar = mock(EnviarDocumentoUseCase.class);
-    OutboxWorker worker = new OutboxWorker(outbox, uow, enviar, clock, 20);
+    DarDeBajaUseCase bajas = mock(DarDeBajaUseCase.class);
+    OutboxWorker worker = new OutboxWorker(outbox, uow, enviar, bajas, clock, 20);
     UUID tenant = UUID.randomUUID(), doc = UUID.randomUUID(), fila = UUID.randomUUID();
 
     private Comprobante conEstado(EstadoDocumento e, int intentos) {
@@ -49,7 +53,7 @@ class OutboxWorkerTest {
     }
 
     @Test void superaMaximoYCompleta() {
-        OutboxWorker w = new OutboxWorker(outbox, uow, enviar, clock, 3);
+        OutboxWorker w = new OutboxWorker(outbox, uow, enviar, bajas, clock, 3);
         when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 2)));
         when(enviar.enviar(tenant, doc)).thenReturn(conEstado(EstadoDocumento.ERROR_ENVIO, 3));
         w.procesar();
@@ -83,5 +87,26 @@ class OutboxWorkerTest {
         when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of());
         assertThat(worker.procesar()).isZero();
         verifyNoInteractions(enviar);
+    }
+
+    private ComunicacionBaja baja(ComunicacionBaja.EstadoBaja estado) {
+        return ComunicacionBaja.rehidratar(doc, tenant, LocalDate.of(2026, 9, 13), 1, UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 1, LocalDate.of(2026, 9, 13), "Error",
+                estado, estado == ComunicacionBaja.EstadoBaja.GENERADA ? null : "T-1", "k.xml", null, null, 1, estado == ComunicacionBaja.EstadoBaja.ENVIADA ? "98 - en proceso" : "timeout");
+    }
+
+    @Test void bajaAceptadaCompletaYEnviadaSeReconsultaPronto() {
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "BAJA", 0)));
+        when(bajas.continuar(tenant, doc)).thenReturn(baja(ComunicacionBaja.EstadoBaja.ACEPTADA));
+        worker.procesar();
+        verify(outbox).completar(fila);
+
+        when(bajas.continuar(tenant, doc)).thenReturn(baja(ComunicacionBaja.EstadoBaja.ENVIADA));
+        worker.procesar();
+        verify(outbox).reprogramar(fila, clock.instant().plus(DarDeBajaService.REINTENTO_CONSULTA), "98 - en proceso");
+
+        // Sin ticket (ERROR_ENVIO) sigue el backoff de los envíos, no los 30 s de la consulta.
+        when(bajas.continuar(tenant, doc)).thenReturn(baja(ComunicacionBaja.EstadoBaja.ERROR_ENVIO));
+        worker.procesar();
+        verify(outbox).reprogramar(fila, Backoff.siguiente(1, clock.instant()), "timeout");
     }
 }

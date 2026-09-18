@@ -100,6 +100,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public Optional<Comprobante> buscar(UUID tenantId, UUID id) {
         return jdbc.query(SELECT + " WHERE d.id = ? AND d.tenant_id = ?", this::mapear, id, tenantId).stream().findFirst();
     }
+    @Override public Optional<Comprobante> bloquear(UUID tenantId, UUID id) {
+        return jdbc.query(SELECT + " WHERE d.id = ? AND d.tenant_id = ? FOR UPDATE OF d", this::mapear, id, tenantId).stream().findFirst();
+    }
     @Override public BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo) {
         // Un final RECHAZADO o INVALIDO no regularizó nada: su anticipo vuelve a estar disponible.
         BigDecimal suma = jdbc.queryForObject("""

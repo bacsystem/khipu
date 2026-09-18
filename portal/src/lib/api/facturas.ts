@@ -84,6 +84,37 @@ export type NotaResumen = {
   total: number;
 };
 
+export type EstadoBaja = "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA";
+
+/** Comunicación de baja (RA-yyyymmdd-N) de un comprobante. */
+export type Baja = {
+  id: string;
+  identificador: string;
+  comprobante: string;
+  tipo_comprobante: string;
+  fecha_generacion: string;
+  motivo: string;
+  estado: EstadoBaja;
+  ticket: string | null;
+  cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
+  intentos: number;
+  ultimo_error: string | null;
+};
+
+/** Plazo legal para la comunicación de baja: 7 días calendario desde la emisión (regla 2957). */
+export const PLAZO_BAJA_DIAS = 7;
+
+/** Un comprobante aceptado (factura o nota), emitido hace 7 días o menos y sin baja en curso, puede darse de baja. */
+export function admiteBaja(c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_emision" | "baja">, hoy: Date = new Date()): boolean {
+  if (c.tipo === "03") return false;
+  if (c.estado_documento !== "ACEPTADO" && c.estado_documento !== "ACEPTADO_CON_OBS") return false;
+  if (c.baja && (c.baja.estado === "ENVIADA" || c.baja.estado === "GENERADA" || c.baja.estado === "ERROR_ENVIO")) return false;
+  const [a, m, d] = c.fecha_emision.split("-").map(Number);
+  const emision = Date.UTC(a, m - 1, d);
+  const hoyUtc = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  return (hoyUtc - emision) / 86_400_000 <= PLAZO_BAJA_DIAS;
+}
+
 /** Una factura aceptada por SUNAT (con o sin observaciones) admite notas de crédito/débito. */
 export function admiteNotas(c: Pick<Comprobante, "tipo" | "estado_documento">): boolean {
   return c.tipo === "01" && (c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS");
@@ -209,6 +240,8 @@ export type Comprobante = {
   nota?: { tipo_afectado: string; documento_afectado: string; motivo: string; motivo_descripcion: string; descripcion: string } | null;
   /** Solo al consultar una factura: notas emitidas sobre ella, con su estado. */
   notas?: NotaResumen[] | null;
+  /** Solo al consultar: la comunicación de baja más reciente (en curso, aceptada o rechazada). */
+  baja?: Baja | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; cdr?: string };
 };

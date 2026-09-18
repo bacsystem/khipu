@@ -31,6 +31,7 @@ class FacturaControllerTest {
     @MockBean EmitirComprobanteUseCase emitir;
     @MockBean EnviarDocumentoUseCase enviar;
     @MockBean ConsultarComprobanteUseCase consultar;
+    @MockBean pe.factura.application.port.in.DarDeBajaUseCase bajas;
 
     UUID tenant = UUID.randomUUID();
 

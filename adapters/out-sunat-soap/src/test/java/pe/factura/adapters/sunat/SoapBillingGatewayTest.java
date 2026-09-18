@@ -4,6 +4,7 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.out.SunatRechazoException;
+import pe.factura.application.port.out.SunatBillingGateway;
 import pe.factura.application.port.out.SunatTransientException;
 import pe.factura.domain.tenant.*;
 
@@ -105,6 +106,28 @@ class SoapBillingGatewayTest {
         assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))
                 .isInstanceOf(SunatTransientException.class).hasMessageContaining("401 en 3 intentos").hasMessageContaining("credenciales");
         verify(3, postRequestedFor(urlEqualTo("/billService")));
+    }
+
+    /** sendSummary devuelve un ticket y getStatus lo traduce: 0/99 con el ZIP del CDR en content, 98 sin contenido. */
+    @Test void sendSummaryYGetStatus(WireMockRuntimeInfo wm) {
+        stubFor(post("/billService").withHeader("SOAPAction", equalTo("urn:sendSummary")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:sendSummaryResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><ticket>1789768174685</ticket></ns2:sendSummaryResponse></soap-env:Body></soap-env:Envelope>")));
+        assertThat(gateway(wm).sendSummary(tenant, "20100066603-RA-20260918-1", "<VoidedDocuments/>".getBytes())).isEqualTo("1789768174685");
+        verify(postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("<fileName>20100066603-RA-20260918-1.zip</fileName>")));
+
+        byte[] cdr = ZipUtil.comprimir("R-20100066603-RA-20260918-1.xml", "<ApplicationResponse/>".getBytes());
+        stubFor(post("/billService").withHeader("SOAPAction", equalTo("urn:getStatus")).inScenario("ticket").whenScenarioStateIs("Started").willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>98</statusCode></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")).willSetStateTo("listo"));
+        stubFor(post("/billService").withHeader("SOAPAction", equalTo("urn:getStatus")).inScenario("ticket").whenScenarioStateIs("listo").willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>0</statusCode><content>"
+                        + Base64.getEncoder().encodeToString(cdr) + "</content></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")));
+        SunatBillingGateway.EstadoTicket enProceso = gateway(wm).getStatus(tenant, "1789768174685");
+        assertThat(enProceso.enProceso()).isTrue();
+        assertThat(enProceso.cdrZip()).isNull();
+        SunatBillingGateway.EstadoTicket listo = gateway(wm).getStatus(tenant, "1789768174685");
+        assertThat(listo.procesado()).isTrue();
+        assertThat(listo.cdrZip()).isEqualTo(cdr);
+        verify(postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("<ticket>1789768174685</ticket>")));
     }
 
     @Test void http503EsTransitorio(WireMockRuntimeInfo wm) {

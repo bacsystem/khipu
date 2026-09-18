@@ -22,7 +22,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Certificado propio (solo si hay secretos)
         if: ${{ secrets.HOMOLOGACION_CERT_B64 != '' }}
-        run: echo "${{ secrets.HOMOLOGACION_CERT_B64 }}" | base64 -d > "$RUNNER_TEMP/homologacion.p12"
+        env:
+          HOMOLOGACION_CERT_B64: ${{ secrets.HOMOLOGACION_CERT_B64 }}
+        run: echo "$HOMOLOGACION_CERT_B64" | base64 -d > "$RUNNER_TEMP/homologacion.p12"
       - name: Emitir escenarios contra e-beta
         env:
           HOMOLOGACION_RUC: ${{ secrets.HOMOLOGACION_RUC }}

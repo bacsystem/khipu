@@ -2,6 +2,16 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.18] - 2026-09-18
+
+### Added
+- API: comunicación de baja (#31): `POST /v1/facturas/{id}/baja { motivo }` anula ante SUNAT una factura o nota aceptada (2398), emitida hace 7 días o menos (2957), con motivo de 3–100 caracteres (2315); boletas no (2308). Genera `VoidedDocuments` (UBL 2.0, `RA-yyyymmdd-N` con correlativo por día y empresa), lo firma, lo valida contra el XSD de SUNAT, lo envía con `sendSummary` y consulta el ticket con `getStatus`: si SUNAT ya respondió, la baja queda `ACEPTADA`/`RECHAZADA` en la misma llamada y el comprobante pasa a `ANULADO`; si sigue en proceso queda `ENVIADA` y el outbox la reconsulta a los 30 s (acción `BAJA`). `GET /v1/bajas/{id}` (reconsulta el ticket), `GET /v1/facturas/{id}/bajas`, y `GET /v1/facturas/{id}` incluye la última en `baja`. Nuevo error `BAJA_INVALIDA`. Migración V15. Homologado en e-beta (22/22 escenarios).
+- Portal: botón "Dar de baja" en comprobantes aceptados dentro del plazo, con motivo y confirmación en la propia página; el detalle muestra la comunicación (estado, motivo, ticket, CDR). Guía y errores documentados.
+
+### Changed
+- `SunatBillingGateway` expone `sendSummary`/`getStatus` (mismo cliente HTTP nuevo por llamada y reintento del 401 que `sendBill`); `XsdValidator` y `UblGenerator` ganan `validarBaja`/`generarBaja`.
+- Workflow de homologación: el certificado en base64 se pasa por `env:` en vez de interpolarlo en el `run`.
+
 ## [0.1.17] - 2026-09-18
 
 ### Added

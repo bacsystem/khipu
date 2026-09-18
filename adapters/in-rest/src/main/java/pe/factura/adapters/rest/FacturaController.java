@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import pe.factura.adapters.rest.dto.ComprobanteResponse;
 import pe.factura.adapters.rest.dto.FacturaRequest;
 import pe.factura.application.port.in.ConsultarComprobanteUseCase;
+import pe.factura.application.port.in.DarDeBajaUseCase;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.domain.DomainException;
@@ -41,6 +42,7 @@ public class FacturaController {
     private final EmitirComprobanteUseCase emitir;
     private final EnviarDocumentoUseCase enviar;
     private final ConsultarComprobanteUseCase consultar;
+    private final DarDeBajaUseCase bajas;
 
 
     @PostMapping
@@ -94,7 +96,7 @@ public class FacturaController {
     public ApiResponse<ComprobanteResponse> obtener(HttpServletRequest req, @PathVariable UUID id) {
         UUID t = TenantActual.id(req);
         Comprobante c = consultar.obtener(t, id);
-        return ApiResponse.ok(ComprobanteResponse.de(c, BASE, consultar.notasDe(t, c)));
+        return ApiResponse.ok(ComprobanteResponse.de(c, BASE, consultar.notasDe(t, c), bajas.deComprobante(t, id).stream().findFirst().orElse(null)));
     }
 
     @PostMapping("/{id}/enviar")
