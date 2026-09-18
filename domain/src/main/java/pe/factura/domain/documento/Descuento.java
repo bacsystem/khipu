@@ -4,7 +4,6 @@ import pe.factura.domain.DomainException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Optional;
 
 /**
  * Descuento comercial sobre una línea o sobre el comprobante (catálogo 53). Se expresa como porcentaje sobre la base
@@ -37,9 +36,6 @@ public record Descuento(Tipo tipo, BigDecimal valor, boolean afectaBaseIgv) {
             throw new DomainException("DESCUENTO_INVALIDO", "El descuento (" + monto + ") debe ser menor que la base (" + base + ")");
         return monto;
     }
-
-    /** Factor para el XML (MultiplierFactorNumeric): monto / base, vacío cuando no reproduce el monto (reglas 3290/3307). */
-    public static Optional<BigDecimal> factor(BigDecimal monto, BigDecimal base) { return FactorSunat.de(monto, base); }
 
     /** Código del catálogo 53 según nivel y si afecta la base del IGV. */
     public String codigoSunat(boolean global) {

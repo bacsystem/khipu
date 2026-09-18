@@ -100,13 +100,14 @@ public record ComprobanteResponse(
 
     /** Cargo tal como se aplicó: lo enviado (tipo/valor), el monto resultante y el código SUNAT del catálogo 53. */
     public record CargoDto(
-            @Schema(example = "50", description = "Catálogo 53: 47/48 por línea, 46/49/50 global") String codigo,
             @Schema(example = "MONTO", description = "PORCENTAJE | MONTO") String tipo,
             @Schema(example = "25.00") BigDecimal valor,
             @Schema(example = "25.00", description = "Monto del cargo sin IGV") BigDecimal monto,
-            @Schema(example = "false", description = "`true` si se suma a la base del IGV (47/49)") boolean afectaBaseIgv) {
+            @Schema(example = "false", description = "`true` si se suma a la base del IGV (47/49)") boolean afectaBaseIgv,
+            @Schema(example = "recargo_consumo", description = "`recargo_consumo` cuando es el 46; `null` en los demás") String motivo,
+            @Schema(example = "50", description = "Código SUNAT derivado (catálogo 53): 47/48 por línea, 46/49/50 global") String codigo) {
         static CargoDto de(CargoCalculado cc) {
-            return new CargoDto(cc.codigo(), cc.cargo().tipo().name(), cc.cargo().valor(), cc.monto(), cc.afectaBase());
+            return new CargoDto(cc.cargo().tipo().name(), cc.cargo().valor(), cc.monto(), cc.afectaBase(), "46".equals(cc.codigo()) ? "recargo_consumo" : null, cc.codigo());
         }
         static List<CargoDto> de(List<CargoCalculado> cargos) {
             return cargos.isEmpty() ? null : cargos.stream().map(CargoDto::de).toList();

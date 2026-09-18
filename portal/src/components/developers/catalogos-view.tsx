@@ -23,7 +23,7 @@ const USO: Record<string, string> = {
   "23": "Régimen de retención.",
   "51": "`tipo_operacion`. Columna adicional: comprobantes en los que aplica; un código fuera del catálogo responde `422`.",
   "52": "Leyendas que khipu añade al XML (monto en letras 1000, gratuitas 1002, detracción 2006…). No se envían en la API.",
-  "53": "`descuento`/`descuento_global` (00–03, los asigna khipu), `items[].cargos[].codigo` (47/48) y `cargos[].codigo` (46/49/50); retención 62, percepción 51–53 y anticipos 04–06 los escribe khipu. Columna adicional: nivel (línea o global).",
+  "53": "Los asigna khipu: descuentos 00–03 y cargos 46–50 según `afecta_base_igv` y `motivo` (46 = `recargo_consumo`), retención 62, percepción 51–53 y anticipos 04–06; la respuesta devuelve el `codigo` derivado. Columna adicional: nivel (línea o global).",
   "54": "`detraccion.codigo_bien_servicio`.",
   "59": "`detraccion.medio_pago`.",
   "60": "Tipo de dirección del emisor.",
