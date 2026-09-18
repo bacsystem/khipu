@@ -11,7 +11,7 @@ import java.util.function.Function;
 
 /**
  * Totales del comprobante (LegalMonetaryTotal y TaxTotal del UBL), calculados una sola vez a partir de los subtotales
- * por tributo y del descuento global.
+ * por tributo, del descuento global y de los cargos globales.
  * <ul>
  *   <li>{@code gravado/exonerado/inafecto}: bases onerosas por tributo (1000/9997/9998), netas de descuentos de línea 00
  *       y del global 02. {@code gratuito}: base de las operaciones gratuitas (9996), que no se cobra.</li>
@@ -19,8 +19,9 @@ import java.util.function.Function;
  *   <li>{@code totalValorVenta}: suma de bases onerosas (LineExtensionAmount global, regla 54).</li>
  *   <li>{@code totalPrecioVenta}: valor de venta + IGV (TaxInclusiveAmount).</li>
  *   <li>{@code totalDescuentos}: descuentos que no afectan la base (línea 01 + global 03) — AllowanceTotalAmount.</li>
+ *   <li>{@code totalCargos}: cargos que no afectan la base (línea 48 + globales 46/50) — ChargeTotalAmount (regla 3301).</li>
  *   <li>{@code totalAnticipos}: importes ya pagados con facturas de anticipo, IGV incluido (PrepaidAmount, regla 66).</li>
- *   <li>{@code total}: importe a pagar (PayableAmount) = precio de venta − descuentos que no afectan la base − anticipos (regla 3280).</li>
+ *   <li>{@code total}: importe a pagar (PayableAmount) = precio de venta + cargos − descuentos que no afectan la base − anticipos (regla 3280).</li>
  * </ul>
  * Con anticipos, SUNAT resta su valor sin IGV de la base del tributo que corresponda (04 gravado, 05 exonerado, 06 inafecto:
  * reglas 3277, 3291) pero no del total valor/precio de venta (3278, 3279): por eso {@code gravado/exonerado/inafecto} y el
@@ -28,8 +29,9 @@ import java.util.function.Function;
  */
 public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito, BigDecimal igv, BigDecimal igvGratuitas,
                       BigDecimal isc, BigDecimal icbper,
-                      BigDecimal totalValorVenta, BigDecimal totalPrecioVenta, BigDecimal totalDescuentos, BigDecimal totalAnticipos, BigDecimal total,
-                      List<ItemCalculado> items, List<SubtotalTributo> subtotales, DescuentoGlobalCalculado descuentoGlobal, List<AnticipoCalculado> anticipos) {
+                      BigDecimal totalValorVenta, BigDecimal totalPrecioVenta, BigDecimal totalDescuentos, BigDecimal totalCargos, BigDecimal totalAnticipos, BigDecimal total,
+                      List<ItemCalculado> items, List<SubtotalTributo> subtotales, DescuentoGlobalCalculado descuentoGlobal, List<CargoCalculado> cargosGlobales,
+                      List<AnticipoCalculado> anticipos) {
 
     /** Base imponible e impuesto acumulados de los ítems de un mismo tributo (catálogo 05). */
     public record SubtotalTributo(Tributo tributo, BigDecimal base, BigDecimal impuesto) {}
@@ -37,7 +39,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     /** Descuento global aplicado: monto, base sobre la que se calculó y factor SUNAT (catálogo 53: 02 afecta base, 03 no). */
     public record DescuentoGlobalCalculado(Descuento descuento, BigDecimal base, BigDecimal monto) {
         /** Factor para el XML, vacío cuando el redondeo a 5 decimales no reproduce el monto (regla 3307). */
-        public java.util.Optional<BigDecimal> factor() { return Descuento.factor(monto, base); }
+        public java.util.Optional<BigDecimal> factor() { return FactorSunat.de(monto, base); }
         public String codigo() { return descuento.codigoSunat(true); }
         public boolean afectaBase() { return descuento.afectaBaseIgv(); }
     }
@@ -56,6 +58,10 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     public static Totales calcular(List<Item> items, Descuento descuentoGlobal, BigDecimal tasaIcbper) { return calcular(items, descuentoGlobal, List.of(), tasaIcbper); }
 
     public static Totales calcular(List<Item> items, Descuento descuentoGlobal, List<Anticipo> anticipos, BigDecimal tasaIcbper) {
+        return calcular(items, descuentoGlobal, List.of(), anticipos, tasaIcbper);
+    }
+
+    public static Totales calcular(List<Item> items, Descuento descuentoGlobal, List<Cargo> cargosGlobales, List<Anticipo> anticipos, BigDecimal tasaIcbper) {
         List<ItemCalculado> calculados = items.stream().map(i -> ItemCalculado.de(i, tasaIcbper)).toList();
         // Un subtotal por tributo. Para el IGV, SUNAT pide la base global SIN ISC (suma de LineExtensionAmount, regla 3277) aunque el
         // impuesto se calcule sobre las bases de línea CON ISC (reglas 204 y 3291); ISC e ICBPER son subtotales propios (reglas 48, 49-A).
@@ -74,20 +80,33 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         BigDecimal icbper = impuesto(brutos, Tributo.ICBPER);
         DescuentoGlobalCalculado global = null;
         List<SubtotalTributo> subtotales = new ArrayList<>(brutos);
+        BigDecimal baseGravada = base(brutos, Tributo.IGV);
+        BigDecimal baseOnerosa = baseGravada.add(base(brutos, Tributo.EXO)).add(base(brutos, Tributo.INA));
+        // Descuento 02 y cargos 49 se calculan sobre la base gravada bruta y la ajustan (reglas 3277, 3278, 3291); exigen líneas gravadas onerosas.
+        BigDecimal ajusteBaseGravada = z();
         if (descuentoGlobal != null) {
             if (descuentoGlobal.afectaBaseIgv()) {
-                // Código 02: SUNAT lo resta de la base gravada (reglas 46/47), así que exige líneas gravadas onerosas.
-                BigDecimal baseGravada = base(brutos, Tributo.IGV);
                 if (baseGravada.signum() == 0)
                     throw new DomainException("DESCUENTO_INVALIDO", "Un descuento global que afecta la base del IGV requiere ítems gravados");
-                BigDecimal monto = descuentoGlobal.montoSobre(baseGravada);
-                global = new DescuentoGlobalCalculado(descuentoGlobal, baseGravada, monto);
-                BigDecimal baseNeta = baseGravada.subtract(monto);
-                subtotales.replaceAll(st -> st.tributo() == Tributo.IGV ? new SubtotalTributo(st.tributo(), baseNeta, igvSobre(baseNeta, isc)) : st);
+                global = new DescuentoGlobalCalculado(descuentoGlobal, baseGravada, descuentoGlobal.montoSobre(baseGravada));
+                ajusteBaseGravada = ajusteBaseGravada.subtract(global.monto());
             } else {
-                BigDecimal baseOnerosa = base(brutos, Tributo.IGV).add(base(brutos, Tributo.EXO)).add(base(brutos, Tributo.INA));
                 global = new DescuentoGlobalCalculado(descuentoGlobal, baseOnerosa, descuentoGlobal.montoSobre(baseOnerosa));
             }
+        }
+        List<CargoCalculado> cargos = new ArrayList<>();
+        for (Cargo cg : cargosGlobales == null ? List.<Cargo>of() : cargosGlobales) {
+            if (!cg.global())
+                throw new DomainException("CARGO_INVALIDO", "4291 - Un cargo global debe usar los códigos 46, 49 o 50 del catálogo 53");
+            if (cg.afectaBaseIgv() && baseGravada.signum() == 0)
+                throw new DomainException("CARGO_INVALIDO", "Un cargo global que afecta la base del IGV (49) requiere ítems gravados");
+            CargoCalculado calculado = CargoCalculado.de(cg, cg.afectaBaseIgv() ? baseGravada : baseOnerosa);
+            if (calculado.afectaBase()) ajusteBaseGravada = ajusteBaseGravada.add(calculado.monto());
+            cargos.add(calculado);
+        }
+        if (ajusteBaseGravada.signum() != 0) {
+            BigDecimal baseNeta = baseGravada.add(ajusteBaseGravada);
+            subtotales.replaceAll(st -> st.tributo() == Tributo.IGV ? new SubtotalTributo(st.tributo(), baseNeta, igvSobre(baseNeta, isc)) : st);
         }
 
         // Totales brutos (reglas 3278, 3279): los anticipos no los reducen, solo a las bases por tributo y al importe a pagar.
@@ -104,10 +123,12 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         BigDecimal igvGratuitas = impuesto(subtotales, Tributo.GRA);
         BigDecimal totalDescuentos = calculados.stream().map(ItemCalculado::descuentoNoAfectaBase).reduce(z(), BigDecimal::add)
                 .add(global != null && !global.afectaBase() ? global.monto() : z());
+        BigDecimal totalCargos = calculados.stream().map(ItemCalculado::cargoNoAfectaBase).reduce(z(), BigDecimal::add)
+                .add(cargos.stream().filter(cg -> !cg.afectaBase()).map(CargoCalculado::monto).reduce(z(), BigDecimal::add));
         BigDecimal totalAnticipos = aplicados.stream().map(AnticipoCalculado::importePagado).reduce(z(), BigDecimal::add);
-        BigDecimal total = totalPrecioVenta.subtract(totalDescuentos).subtract(totalAnticipos);
-        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, isc, icbper, totalValorVenta, totalPrecioVenta, totalDescuentos, totalAnticipos, total,
-                calculados, List.copyOf(subtotales), global, aplicados);
+        BigDecimal total = totalPrecioVenta.add(totalCargos).subtract(totalDescuentos).subtract(totalAnticipos);
+        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, isc, icbper, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, total,
+                calculados, List.copyOf(subtotales), global, List.copyOf(cargos), aplicados);
     }
 
     /**
@@ -132,6 +153,8 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     }
 
     public boolean tieneAnticipos() { return !anticipos.isEmpty(); }
+
+    public boolean tieneCargosGlobales() { return !cargosGlobales.isEmpty(); }
 
     public boolean tieneGratuitas() { return gratuito.signum() > 0; }
 

@@ -279,6 +279,65 @@ class FacturaControllerTest {
         org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
     }
 
+    @Test void cargosEntranYSalenConCodigoSunat() throws Exception {
+        String conCargos = cuerpo
+                .replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"monto\":10.00},{\"monto\":5.00,\"afecta_base_igv\":false}]}")
+                .replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"cargos\":[{\"monto\":20.00},{\"porcentaje\":10,\"motivo\":\"recargo_consumo\"}],");
+        Comprobante c = aceptado(tenant);
+        // Sin afecta_base_igv el cargo afecta la base: 47 en línea, 49 global; con motivo, 46.
+        Comprobante conCargo = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
+                        List.of(Cargo.monto("47", new BigDecimal("10.00")), Cargo.monto("48", new BigDecimal("5.00"))))),
+                FormaPago.contado(), null, List.of(Cargo.monto("49", new BigDecimal("20.00")), Cargo.porcentaje("46", BigDecimal.TEN)), null, null, null, List.of(),
+                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(conCargo);
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conCargos))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.items[0].cargos[0].codigo").value("47"))
+                .andExpect(jsonPath("$.datos.items[0].cargos[0].afecta_base_igv").value(true))
+                .andExpect(jsonPath("$.datos.items[0].cargos[0].motivo").doesNotExist())
+                .andExpect(jsonPath("$.datos.items[0].cargos[1].codigo").value("48"))
+                .andExpect(jsonPath("$.datos.items[0].cargos[1].monto").value(5.00))
+                .andExpect(jsonPath("$.datos.items[0].cargos[1].afecta_base_igv").value(false))
+                .andExpect(jsonPath("$.datos.items[0].valor_venta").value(110.00))
+                .andExpect(jsonPath("$.datos.items[0].precio_venta").value(134.80))               // 110 + 19.80 + 5
+                .andExpect(jsonPath("$.datos.totales.cargos[0].codigo").value("49"))
+                .andExpect(jsonPath("$.datos.totales.cargos[0].afecta_base_igv").value(true))
+                .andExpect(jsonPath("$.datos.totales.cargos[1].codigo").value("46"))
+                .andExpect(jsonPath("$.datos.totales.cargos[1].motivo").value("recargo_consumo"))
+                .andExpect(jsonPath("$.datos.totales.cargos[1].monto").value(11.00))            // 10 % de la base onerosa bruta 110
+                .andExpect(jsonPath("$.datos.totales.gravado").value(130.00))                    // 110 + 20
+                .andExpect(jsonPath("$.datos.totales.total_cargos").value(16.00))                // 5 + 11
+                .andExpect(jsonPath("$.datos.totales.total_precio_venta").value(153.40))         // 130 + 23.40
+                .andExpect(jsonPath("$.datos.totales.total").value(169.40));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().items().get(0).cargos()).containsExactly(Cargo.monto("47", new BigDecimal("10.00")), Cargo.monto("48", new BigDecimal("5.00")));
+        assertThat(cap.getValue().cargos()).containsExactly(Cargo.monto("49", new BigDecimal("20.00")), Cargo.porcentaje("46", BigDecimal.TEN));
+    }
+
+    @Test void cargoAmbiguoOConMotivoMalUbicadoEs422() throws Exception {
+        String ambiguo = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"porcentaje\":10,\"monto\":5}]}");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(ambiguo))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("CARGO_INVALIDO"));
+        String recargoEnLinea = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"monto\":5,\"motivo\":\"recargo_consumo\"}]}");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(recargoEnLinea))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("CARGO_INVALIDO"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("4268")));
+        String recargoConIgv = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"cargos\":[{\"monto\":5,\"motivo\":\"recargo_consumo\",\"afecta_base_igv\":true}],");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(recargoConIgv))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("CARGO_INVALIDO"));
+        String motivoDesconocido = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"cargos\":[{\"monto\":5,\"motivo\":\"fise\"}],");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(motivoDesconocido))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("CARGO_INVALIDO"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("recargo_consumo")));
+        org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
+    }
+
     @Test void lineaGratuitaAceptadaYMarcadaEnLaRespuesta() throws Exception {
         String conBonificacion = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\"},{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}");
         Comprobante c = aceptado(tenant);

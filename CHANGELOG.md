@@ -2,6 +2,12 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.13] - 2026-09-18
+
+### Added
+- API: cargos por ítem y globales (#62): `items[].cargos[] { porcentaje | monto, afecta_base_igv }` y `cargos[] { porcentaje | monto, afecta_base_igv, motivo? }`, con el mismo formato que los descuentos; khipu deriva el código del catálogo 53 (línea 47/48, global 49/50, `motivo: recargo_consumo` → 46) y lo devuelve en la respuesta. Los 47/49 se suman a la base del IGV (reglas 38, 3277, 3278, 3291); 48, 46 (recargo al consumo y propinas) y 50 se cobran sin IGV y van a `ChargeTotalAmount` (3301) sumando al importe a pagar (3280); el precio de venta unitario los incluye (3270). En el XML: `cac:AllowanceCharge` con `ChargeIndicator true`, factor (solo si reproduce el monto, 3290/3307), monto y base. Respuesta con `cargos[]` por ítem y en totales, y `totales.total_cargos`. Nuevo error `CARGO_INVALIDO` (2954, 2955, 3052, 4268, 4291). FISE (45) y los cargos de línea 07/54 quedan fuera. Migración V11.
+- Portal: columna de cargos por línea, "Cargo global (49)" y "Otros cargos sin IGV" en la liquidación; la guía documenta el caso y la página de errores el código.
+
 ## [0.1.12] - 2026-09-17
 
 ### Added

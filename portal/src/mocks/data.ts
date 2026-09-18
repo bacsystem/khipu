@@ -44,7 +44,10 @@ export type Comprobante = {
   intentos: number;
   ultimo_error: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
-  totales: { gravado: number; exonerado: number; inafecto: number; igv: number; total: number; total_precio_venta?: number; total_anticipos?: number };
+  totales: {
+    gravado: number; exonerado: number; inafecto: number; igv: number; total: number; total_precio_venta?: number; total_anticipos?: number;
+    total_cargos?: number; cargos?: Array<{ tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string }>;
+  };
   forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
   detraccion?: { codigo_bien_servicio: string; descripcion: string; porcentaje: number; monto: number; cuenta_banco_nacion: string; medio_pago: string } | null;
   anticipos?: Array<{ comprobante: string; serie: string; numero: number; monto: number; importe_pagado: number; afectacion: string; codigo_sunat: string; fecha_pago: string | null }>;
@@ -112,18 +115,22 @@ export function resetDb() {
       intentos: 1,
       ultimo_error: null,
       cdr: { codigo: "0", descripcion: "La Factura numero F001-1, ha sido aceptada", observaciones: [] },
-      // Operación de 120 + IGV con un anticipo de 20 (pagó 23.60): base neta 100, IGV 18, a pagar 141.60 − 23.60 = 118.
-      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118, total_precio_venta: 141.6, total_anticipos: 23.6 },
+      // Operación de 120 + IGV con un anticipo de 20 (pagó 23.60) y recargo al consumo 5 % (46, sin IGV): base neta 100, IGV 18,
+      // a pagar 141.60 + 5.00 − 23.60 = 123.
+      totales: {
+        gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 123, total_precio_venta: 141.6, total_anticipos: 23.6,
+        total_cargos: 5, cargos: [{ tipo: "PORCENTAJE", valor: 5, monto: 5, afecta_base_igv: false, motivo: "recargo_consumo", codigo: "46" }],
+      },
       anticipos: [{ comprobante: "F001-90", serie: "F001", numero: 90, monto: 20, importe_pagado: 23.6, afectacion: "gravado", codigo_sunat: "04", fecha_pago: "2026-08-20" }],
       forma_pago: {
         tipo: "credito",
-        monto_pendiente: 118,
+        monto_pendiente: 123,
         cuotas: [
-          { id: "Cuota001", monto: 59, vencimiento: "2026-10-01" },
-          { id: "Cuota002", monto: 59, vencimiento: "2026-11-01" },
+          { id: "Cuota001", monto: 61.5, vencimiento: "2026-10-01" },
+          { id: "Cuota002", monto: 61.5, vencimiento: "2026-11-01" },
         ],
       },
-      detraccion: { codigo_bien_servicio: "022", descripcion: "Otros servicios empresariales", porcentaje: 12, monto: 14, cuenta_banco_nacion: "00-000-123456", medio_pago: "001" },
+      detraccion: { codigo_bien_servicio: "022", descripcion: "Otros servicios empresariales", porcentaje: 12, monto: 15, cuenta_banco_nacion: "00-000-123456", medio_pago: "001" },
       enlaces: { xml: "/v1/facturas/f-aceptada/xml", cdr: "/v1/facturas/f-aceptada/cdr" },
     },
     {

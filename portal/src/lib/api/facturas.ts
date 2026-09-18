@@ -32,6 +32,9 @@ export type Receptor = {
 /** Descuento aplicado (catálogo 53): lo enviado, el monto resultante y el código SUNAT. */
 export type DescuentoAplicado = { tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; codigo: string };
 
+/** Cargo aplicado: lo enviado, el monto resultante, si suma a la base del IGV, el motivo (`recargo_consumo` = 46) y el código SUNAT derivado (47/48 línea, 46/49/50 global). */
+export type CargoAplicado = { tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string };
+
 export type ItemComprobante = {
   codigo: string | null;
   descripcion: string;
@@ -46,6 +49,8 @@ export type ItemComprobante = {
   precio_venta?: number;
   gratuita?: boolean;
   descuento?: DescuentoAplicado | null;
+  /** Cargos de la línea (47 suma al valor de venta y paga IGV; 48 se cobra sin IGV). */
+  cargos?: CargoAplicado[] | null;
   /** ISC de la línea (sistema del catálogo 08, tasa aplicada y monto). */
   isc?: { sistema: string; tasa: number; monto: number } | null;
   /** ICBPER de la línea (bolsas × monto vigente). */
@@ -142,12 +147,16 @@ export type Comprobante = {
     total_valor_venta?: number;
     total_precio_venta?: number;
     total_descuentos?: number;
+    /** Cargos que no afectan la base del IGV (línea 48 + globales 46/50): ChargeTotalAmount. */
+    total_cargos?: number;
     total_anticipos?: number;
     gratuito?: number;
     igv_gratuitas?: number;
     isc?: number;
     icbper?: number;
     descuento_global?: DescuentoAplicado | null;
+    /** Cargos globales aplicados (49 afecta la base del IGV; 46/50 no). */
+    cargos?: CargoAplicado[] | null;
   };
   forma_pago: FormaPago;
   detraccion?: Detraccion | null;

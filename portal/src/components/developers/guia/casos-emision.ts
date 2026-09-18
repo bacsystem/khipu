@@ -203,6 +203,29 @@ X-Api-Key: fk_TU_API_KEY`,
     disponible: true,
   },
   {
+    id: "cargos",
+    titulo: "Cargos por ítem y globales",
+    cuando: "Conceptos que se cobran además del precio: flete, embalaje, gastos administrativos, recargo al consumo o propinas. Cada cargo es un porcentaje o un monto (sobre el valor sin IGV) y su código del catálogo 53 decide si paga IGV.",
+    request: `{
+  "serie": "F001",
+  "fecha_emision": "2026-09-18",
+  "moneda": "PEN",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Refrigeradora 300 L", "unidad": "NIU", "cantidad": 1, "precio_unitario": 1770.00, "tipo_afectacion_igv": "10",
+      "cargos": [ { "monto": 50.00 }, { "monto": 20.00, "afecta_base_igv": false } ] }
+  ],
+  "cargos": [ { "porcentaje": 10, "motivo": "recargo_consumo" } ]
+}`,
+    notas: [
+      "`items[].cargos[]`: mismo formato que `descuento` — `porcentaje` **o** `monto` (nunca ambos) sobre el valor de venta sin IGV de la línea. `afecta_base_igv` (por defecto `true`) → código **47**: se suma al valor de venta y paga IGV (flete gravado); `false` → **48**: se cobra sin IGV (reembolso de gastos). No se admiten en líneas gratuitas.",
+      "`cargos[]` globales: `afecta_base_igv: true` → **49**, se suma a la base gravada y al IGV (requiere ítems gravados); `false` → **50**, sin IGV; `motivo: \"recargo_consumo\"` → **46**, recargo al consumo y/o propinas, que por la Ley 25988 nunca afecta la base (no admite `afecta_base_igv: true`). El porcentaje se aplica sobre la base gravada (49) o sobre toda la base onerosa (46/50).",
+      "La respuesta devuelve por ítem `cargos[]` con `monto`, `afecta_base_igv`, `motivo` y el `codigo` SUNAT derivado, y en `totales`: `cargos[]` globales, `total_cargos` (los que no afectan la base: 48 + 46/50) y `total` = precio de venta + `total_cargos` − descuentos − anticipos. En el ejemplo: valor de venta 1 550.00, IGV 279.00, cargos sin IGV 20.00 + 155.00 → total 2 004.00.",
+      "En el XML: `cac:AllowanceCharge` con `ChargeIndicator true`, factor, monto y base (reglas 3114, 3052, 2955, 3290 por línea; 3025, 2968, 3016, 3307 global), la base del IGV incluye 47/49 (3277, 3291) y `ChargeTotalAmount` en los totales (3301, 3280). FISE (45) no está soportado.",
+    ],
+    disponible: true,
+  },
+  {
     id: "gratuitas",
     titulo: "Bonificaciones y muestras (operaciones gratuitas)",
     cuando: "Entrega bienes o servicios sin cobrar: bonificación por volumen, muestras, publicidad, retiro para trabajadores. SUNAT exige informarlas con su valor referencial y, si son gravadas, con el IGV que habrían generado.",

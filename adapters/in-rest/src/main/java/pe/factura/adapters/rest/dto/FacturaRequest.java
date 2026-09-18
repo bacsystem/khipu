@@ -6,6 +6,7 @@ import jakarta.validation.constraints.*;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Anticipo;
+import pe.factura.domain.documento.Cargo;
 import pe.factura.domain.documento.Descuento;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.Percepcion;
@@ -30,6 +31,7 @@ public record FacturaRequest(
         @NotEmpty @Valid List<ItemDto> items,
         @Valid @Schema(description = "Forma de pago (RS 193-2020). Si se omite, al contado.") FormaPagoDto formaPago,
         @Valid @Schema(description = "Descuento sobre el total (catálogo 53: `02` si afecta la base del IGV —requiere ítems gravados—, `03` si no). Opcional.") DescuentoDto descuentoGlobal,
+        @Valid @Schema(description = "Cargos sobre el total (catálogo 53): `afecta_base_igv: true` → `49` (se suma a la base gravada; requiere ítems gravados), `false` → `50`, `motivo: recargo_consumo` → `46`. Los que no afectan la base suman al importe a pagar (`ChargeTotalAmount`). Opcional.") List<CargoDto> cargos,
         @Valid @Schema(description = "Detracción (SPOT). Obligatoria cuando `tipo_operacion` es 1001–1004 y prohibida en los demás casos.") DetraccionDto detraccion,
         @Valid @Schema(description = "Retención del IGV que aplicará el cliente por ser agente de retención (catálogo 53: 62). Informativa; no cambia los totales.") RetencionDto retencionIgv,
         @Valid @Schema(description = "Percepción del IGV que cobra la empresa por ser agente de percepción (catálogo 53: 51/52/53). Solo con `tipo_operacion` 2001, al contado y en PEN.") PercepcionDto percepcion,
@@ -55,6 +57,7 @@ public record FacturaRequest(
                     retiros): `11`–`16` gravadas, `21` exonerada, `31`–`37` inafectas — el `precio_unitario` es el **valor referencial sin
                     IGV**, la línea no suma al importe a pagar y su IGV solo se informa (tributo 9996). No soportadas: `17` (IVAP) y `40` (exportación).""") String tipoAfectacionIgv,
             @Valid @Schema(description = "Descuento de la línea (catálogo 53: `00` si afecta la base del IGV, `01` si no). Opcional.") DescuentoDto descuento,
+            @Valid @Schema(description = "Cargos de la línea (catálogo 53): `afecta_base_igv: true` → `47` (se suma al valor de venta y paga IGV), `false` → `48` (se cobra sin IGV). No admitidos en gratuitas. Opcional.") List<CargoDto> cargos,
             @Valid @Schema(description = "Impuesto Selectivo al Consumo del ítem (bebidas alcohólicas, combustibles, vehículos…). Opcional; el `precio_unitario` lo incluye.") IscDto isc,
             @Schema(example = "false", description = "`true` si el ítem son bolsas de plástico afectas al ICBPER: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año incluido en `precio_unitario`") Boolean icbper) {}
 
@@ -77,6 +80,30 @@ public record FacturaRequest(
                 throw new DomainException("DESCUENTO_INVALIDO", "Indique porcentaje o monto del descuento, no ambos");
             boolean afecta = afectaBaseIgv == null || afectaBaseIgv;
             return porcentaje != null ? Descuento.porcentaje(porcentaje, afecta) : Descuento.monto(monto, afecta);
+        }
+    }
+
+    /**
+     * Un cargo se expresa como porcentaje **o** como monto (sobre el valor de venta sin IGV), nunca ambos, y decide si afecta la
+     * base del IGV igual que un descuento. El código del catálogo 53 lo deriva el dominio ({@link Cargo#deLinea}, {@link Cargo#global}).
+     */
+    public record CargoDto(
+            @Schema(example = "10", description = "Porcentaje sobre el valor de venta sin IGV (hasta 5 decimales, menor que 1000)") BigDecimal porcentaje,
+            @Schema(example = "25.00", description = "Monto fijo sin IGV (hasta 2 decimales)") BigDecimal monto,
+            @Schema(example = "true", description = "`true` (por defecto): se suma a la base imponible y paga IGV (flete, embalaje) → código 47 por línea, 49 global. `false`: se cobra sin IGV (reembolso de gastos) → 48 por línea, 50 global") Boolean afectaBaseIgv,
+            @Schema(example = "recargo_consumo", description = "Solo global: `recargo_consumo` para el recargo al consumo y/o propinas (código 46, sin IGV por la Ley 25988); no admite `afecta_base_igv: true`. Un motivo desconocido responde `422 CARGO_INVALIDO`") String motivo) {
+
+        Cargo aDominio(boolean global) {
+            if ((porcentaje == null) == (monto == null))
+                throw new DomainException("CARGO_INVALIDO", "Indique porcentaje o monto del cargo, no ambos");
+            Cargo.Motivo m = motivo == null ? null : Cargo.Motivo.porNombre(motivo);
+            if (m != null && !global)
+                throw new DomainException("CARGO_INVALIDO", "4268 - El recargo al consumo (46) es un cargo global, no de línea");
+            // Por defecto afecta la base (como los descuentos), salvo cuando hay motivo: el recargo al consumo nunca la afecta.
+            boolean afecta = afectaBaseIgv == null ? m == null : afectaBaseIgv;
+            Cargo.Tipo tipo = porcentaje != null ? Cargo.Tipo.PORCENTAJE : Cargo.Tipo.MONTO;
+            BigDecimal valor = porcentaje != null ? porcentaje : monto;
+            return global ? Cargo.global(afecta, m, tipo, valor) : Cargo.deLinea(afecta, tipo, valor);
         }
     }
 
@@ -139,13 +166,19 @@ public record FacturaRequest(
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
                 items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
-                        i.descuento() == null ? null : i.descuento().aDominio(), i.isc() == null ? null : i.isc().aDominio(), Boolean.TRUE.equals(i.icbper()))).toList(),
+                        i.descuento() == null ? null : i.descuento().aDominio(), i.isc() == null ? null : i.isc().aDominio(), Boolean.TRUE.equals(i.icbper()),
+                        cargos(i.cargos(), false))).toList(),
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
                 descuentoGlobal == null ? null : descuentoGlobal.aDominio(),
+                cargos(cargos, true),
                 detraccion == null ? null : detraccion.aDominio(),
                 retencionIgv == null ? null : retencionIgv.aDominio(),
                 percepcion == null ? null : percepcion.aDominio(),
                 anticipos == null ? List.of() : anticipos.stream().map(AnticipoDto::aDominio).toList(),
                 enviarAutomatico == null || enviarAutomatico);
+    }
+
+    private static List<Cargo> cargos(List<CargoDto> dtos, boolean globales) {
+        return dtos == null ? List.of() : dtos.stream().map(d -> d.aDominio(globales)).toList();
     }
 }
