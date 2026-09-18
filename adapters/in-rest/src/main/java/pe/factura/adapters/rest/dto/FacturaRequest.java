@@ -102,7 +102,7 @@ public record FacturaRequest(
             @NotBlank @Schema(example = "022", description = "Bien o servicio sujeto a detracción, catálogo 54 (`GET /v1/catalogos/54`). Con tipo de operación 1002/1003/1004 debe ser 004/028/027") String codigoBienServicio,
             @NotNull @Schema(example = "12", description = "Porcentaje de detracción que corresponde al bien/servicio (hasta 5 decimales)") BigDecimal porcentaje,
             @Schema(example = "1416.00", description = "Monto a depositar **en soles**. Opcional en facturas en PEN (khipu lo calcula); obligatorio en otras monedas") BigDecimal monto,
-            @NotBlank @Schema(example = "00-000-123456", description = "Número de cuenta de detracciones del emisor en el Banco de la Nación") String cuentaBancoNacion,
+            @Schema(example = "00-000-123456", description = "Número de cuenta de detracciones del emisor en el Banco de la Nación. Opcional si la empresa la tiene configurada (`PUT /v1/empresa/datos-fiscales`)") String cuentaBancoNacion,
             @Schema(example = "001", description = "Medio de pago, catálogo 59; por defecto `001` depósito en cuenta") String medioPago) {
 
         Detraccion aDominio(String moneda, java.util.function.Supplier<BigDecimal> totalEnPen) {

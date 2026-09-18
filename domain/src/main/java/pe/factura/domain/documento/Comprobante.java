@@ -5,6 +5,8 @@ import pe.factura.domain.DomainException;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,6 +18,8 @@ public class Comprobante {
     private final String serie;
     private Long numero;
     private final LocalDate fechaEmision;
+    /** Hora local (zona del reloj de la aplicación) en que se creó el comprobante: cbc:IssueTime, informativa para SUNAT. */
+    private final LocalTime horaEmision;
     private final String moneda;
     private final String tipoOperacion;
     private final Receptor receptor;
@@ -36,11 +40,11 @@ public class Comprobante {
     private int intentos;
     private String ultimoError;
 
-    private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision,
+    private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
                         Descuento descuentoGlobal, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, EstadoDocumento estado) {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
-        this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
+        this.fechaEmision = fechaEmision; this.horaEmision = horaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
         this.detraccion = detraccion;
         this.anticipos = anticipos == null ? List.of() : List.copyOf(anticipos);
@@ -95,7 +99,7 @@ public class Comprobante {
             throw new DomainException("PERCEPCION_INVALIDA", "3093 - Una operación sujeta a percepción (2001) al contado debe informar la percepción");
         if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
             throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
-        Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision,
+        Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS),
                 moneda, operacion, receptor, items, formaPago, descuentoGlobal, detraccion, retencion, percepcion, anticipos, EstadoDocumento.RECIBIDO);
         formaPago.validarContra(c.totales.total(), fechaEmision);
         return c;
@@ -103,11 +107,11 @@ public class Comprobante {
 
     /** Solo para persistencia: reconstruye sin validar reglas de creación. */
     public static Comprobante rehidratar(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero,
-                                         LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor receptor,
+                                         LocalDate fechaEmision, LocalTime horaEmision, String moneda, String tipoOperacion, Receptor receptor,
                                          List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, Detraccion detraccion,
                                          RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, EstadoDocumento estado,
                                          String hash, String nombreArchivo, String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
-        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, detraccion, retencion, percepcion, anticipos, estado);
+        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, detraccion, retencion, percepcion, anticipos, estado);
         c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
         c.intentos = intentos; c.ultimoError = ultimoError;
         return c;

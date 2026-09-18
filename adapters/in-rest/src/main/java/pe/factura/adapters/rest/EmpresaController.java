@@ -12,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 import pe.factura.adapters.rest.dto.ApiKeyResponse;
 import pe.factura.adapters.rest.dto.ApiKeyResumenResponse;
 import pe.factura.adapters.rest.dto.CredencialesSolRequest;
+import pe.factura.adapters.rest.dto.DatosFiscalesRequest;
 import pe.factura.adapters.rest.dto.EmpresaResponse;
 import pe.factura.adapters.rest.dto.SerieRequest;
 import pe.factura.adapters.rest.dto.SerieResponse;
@@ -33,7 +34,7 @@ public class EmpresaController {
     private final AdministrarTenantUseCase admin;
 
     @GetMapping("/empresa")
-    @Operation(summary = "Ver la empresa", description = "RUC, razón social, entorno SUNAT (`BETA` u homologación / `PRODUCCION`), si tiene credenciales SOL y la vigencia del certificado. Nunca devuelve secretos.")
+    @Operation(summary = "Ver la empresa", description = "RUC, razón social, entorno SUNAT (`BETA` u homologación / `PRODUCCION`), si tiene credenciales SOL, la vigencia del certificado, el domicilio fiscal y la cuenta de detracciones. Nunca devuelve secretos.")
     public ApiResponse<EmpresaResponse> ver(HttpServletRequest req) {
         return ApiResponse.ok(EmpresaResponse.de(admin.obtener(TenantActual.id(req))));
     }
@@ -46,6 +47,18 @@ public class EmpresaController {
     public ResponseEntity<Void> certificado(HttpServletRequest req, @RequestParam("archivo") MultipartFile archivo, @RequestParam("clave") String clave) throws IOException {
         admin.cargarCertificado(TenantActual.id(req), archivo.getBytes(), clave);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/empresa/datos-fiscales")
+    @Operation(summary = "Guardar domicilio fiscal y cuenta de detracciones", description = """
+            Domicilio fiscal del emisor (ubigeo del catálogo 13, dirección, urbanización, establecimiento anexo) que khipu escribe en
+            `cac:RegistrationAddress` de cada XML, y la cuenta de detracciones del Banco de la Nación que se usa cuando una factura
+            sujeta a detracción no indica la suya. Reemplaza ambos valores: envíe `null` en el que quiera borrar.
+            Errores: `422 DOMICILIO_INVALIDO` (mensaje con la regla SUNAT: 4093 ubigeo, 4094 dirección, 3030 establecimiento) o
+            `422 CUENTA_DETRACCIONES_INVALIDA`.""")
+    public ApiResponse<EmpresaResponse> datosFiscales(HttpServletRequest req, @Valid @RequestBody DatosFiscalesRequest body) {
+        return ApiResponse.ok(EmpresaResponse.de(admin.actualizarDatosFiscales(TenantActual.id(req),
+                body.domicilio() == null ? null : body.domicilio().aDominio(), body.cuentaDetracciones())));
     }
 
     @PutMapping("/empresa/credenciales-sol")

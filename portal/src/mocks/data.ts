@@ -15,6 +15,9 @@ export type Empresa = {
   tiene_certificado: boolean;
   tiene_credenciales_sol: boolean;
   certificado_vigencia_hasta: string | null;
+  tiene_domicilio?: boolean;
+  domicilio?: { ubigeo: string; direccion: string; urbanizacion: string | null; distrito: string | null; provincia: string | null; departamento: string | null; codigo_establecimiento: string } | null;
+  cuenta_detracciones?: string | null;
 };
 export type Serie = { tipo: string; serie: string; ultimo_numero: number; activa: boolean };
 export type ApiKey = { id: string; prefijo: string; activa: boolean; creada_en: string; revocada_en?: string };

@@ -39,6 +39,11 @@ export default function GuiaPage() {
             (usuario <Codigo>MODDATOS</Codigo>).
           </li>
           <li>
+            <strong className="text-foreground">Complete los datos fiscales</strong> en <em>Empresa</em> (o con <Codigo>PUT /v1/empresa/datos-fiscales</Codigo>):
+            domicilio fiscal con ubigeo del catálogo 13, que va en cada XML como dirección del emisor, y la cuenta de detracciones si emitirá facturas
+            sujetas a SPOT.
+          </li>
+          <li>
             <strong className="text-foreground">Cree una serie</strong> de factura (<Codigo>F001</Codigo>) en <em>Series</em>.
           </li>
           <li>

@@ -10,6 +10,18 @@ export type Empresa = {
   entorno: Entorno;
   tiene_certificado: boolean;
   tiene_credenciales_sol: boolean;
+  tiene_domicilio?: boolean;
+};
+
+/** Domicilio fiscal del emisor (RegistrationAddress del XML): ubigeo del catálogo 13 y dirección en una línea. */
+export type Domicilio = {
+  ubigeo: string;
+  direccion: string;
+  urbanizacion: string | null;
+  distrito: string | null;
+  provincia: string | null;
+  departamento: string | null;
+  codigo_establecimiento: string;
 };
 
 export type EmpresaDetalle = {
@@ -19,6 +31,8 @@ export type EmpresaDetalle = {
   entorno: Entorno;
   tiene_credenciales_sol: boolean;
   certificado_vigencia_hasta: string | null;
+  domicilio?: Domicilio | null;
+  cuenta_detracciones?: string | null;
 };
 
 export function listarEmpresas(access: string) {

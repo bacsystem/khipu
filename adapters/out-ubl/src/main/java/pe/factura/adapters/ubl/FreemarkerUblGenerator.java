@@ -32,6 +32,7 @@ public class FreemarkerUblGenerator implements UblGenerator {
             modelo.put("t", t);
             modelo.put("tot", c.totales());
             modelo.put("fechaEmision", c.fechaEmision().toString());
+            modelo.put("horaEmision", c.horaEmision() == null ? null : c.horaEmision().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")));
             modelo.put("montoEnLetras", MontoEnLetras.de(c.totales().total(), c.moneda()));
             // Enums del dominio (Tributo.ISC/ICBPER) accesibles desde la plantilla para los subtotales de línea.
             modelo.put("statics", ((freemarker.ext.beans.BeansWrapper) cfg.getObjectWrapper()).getStaticModels());

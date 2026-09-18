@@ -8,6 +8,7 @@ import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Anticipo;
 import pe.factura.domain.documento.Comprobante;
+import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.Tenant;
@@ -42,9 +43,11 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         if (cmd.enviarAutomatico()) tenant.exigirCredencialesSol();
         List<Anticipo> anticipos = cmd.anticipos() == null ? List.of() : cmd.anticipos();
         anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a));
+        // La cuenta de detracciones puede omitirse en la factura si la empresa la tiene configurada.
+        Detraccion detraccion = cmd.detraccion() != null && cmd.detraccion().sinCuenta() ? cmd.detraccion().conCuenta(tenant.cuentaDetracciones()) : cmd.detraccion();
 
         Comprobante c = Comprobante.crearFactura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(),
-                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.detraccion(), cmd.retencionIgv(), cmd.percepcion(), anticipos, clock);
+                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), detraccion, cmd.retencionIgv(), cmd.percepcion(), anticipos, clock);
 
         Comprobante firmado = uow.ejecutar(() -> {
             long numero;
