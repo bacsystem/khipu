@@ -26,7 +26,11 @@ public class FreemarkerUblGenerator implements UblGenerator {
 
     @Override public String generar(Comprobante c, Tenant t) {
         try {
-            Template tpl = cfg.getTemplate("invoice.ftl");
+            Template tpl = cfg.getTemplate(switch (c.tipo()) {
+                case NOTA_CREDITO -> "credit-note.ftl";
+                case NOTA_DEBITO -> "debit-note.ftl";
+                default -> "invoice.ftl";
+            });
             Map<String, Object> modelo = new HashMap<>();
             modelo.put("c", c);
             modelo.put("t", t);

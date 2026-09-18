@@ -1,11 +1,11 @@
-import { ArrowLeftIcon, FileTextIcon, IdCardIcon, LinkIcon, MoreHorizontalIcon, Rows3Icon } from "lucide-react";
+import { ArrowLeftIcon, FileMinusIcon, FileTextIcon, IdCardIcon, LinkIcon, MoreHorizontalIcon, Rows3Icon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { admiteNotas, type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -192,6 +192,12 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
         <div className="flex flex-wrap items-center gap-2">
           {c.estado_documento === "ERROR_ENVIO" ? <ReenviarButton id={c.id} /> : null}
+          {admiteNotas(c) ? (
+            <Link href={`/comprobantes/${c.id}/nota`} className={cn(BOTON, "h-8")} data-testid="emitir-nota">
+              <FileMinusIcon className="size-4" />
+              Emitir nota
+            </Link>
+          ) : null}
           <VistaPrevia id={c.id} numero={numero} nombreArchivo={c.nombre_archivo} tieneCdr={tieneConstanciaCdr(c)} />
           <button
             disabled
@@ -293,6 +299,55 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           <p className="text-xs text-muted-foreground/60">Sin datos de receptor.</p>
         )}
       </section>
+
+      {c.nota ? (
+        <section className="rounded-xl border border-accent-border bg-accent/40 p-5 shadow-2xs" data-testid="nota">
+          <div className={cn(TITULO_SECCION, "mb-3")}>
+            <FileMinusIcon className="size-4" />
+            {c.tipo === "07" ? "Nota de crédito sobre" : "Nota de débito sobre"}
+          </div>
+          <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-3">
+            <Campo etiqueta="Factura modificada">
+              <span className="font-mono text-sm font-semibold text-foreground">{c.nota.documento_afectado}</span>
+            </Campo>
+            <Campo etiqueta="Motivo">
+              <span className="text-foreground">
+                <span className="mr-1.5 rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{c.nota.motivo}</span>
+                {c.nota.motivo_descripcion}
+              </span>
+            </Campo>
+            <Campo etiqueta="Sustento">
+              <p className="leading-snug text-foreground/80">{c.nota.descripcion}</p>
+            </Campo>
+          </div>
+        </section>
+      ) : null}
+
+      {c.notas?.length ? (
+        <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="notas">
+          <div className={cn(TITULO_SECCION, "mb-3")}>
+            <FileMinusIcon className="size-4" />
+            Notas emitidas sobre esta factura
+          </div>
+          <ul className="divide-y divide-border/60 text-xs">
+            {c.notas.map((n) => (
+              <li key={n.id} className="flex flex-wrap items-center gap-3 py-2">
+                <Link href={`/comprobantes/${n.id}`} className="font-mono font-semibold text-primary hover:underline">
+                  {n.comprobante}
+                </Link>
+                <span className="text-muted-foreground">{n.tipo === "07" ? "Nota de crédito" : "Nota de débito"}</span>
+                <span className="text-muted-foreground">{formatearFecha(n.fecha_emision)}</span>
+                <span className="text-foreground/80">
+                  <span className="mr-1 font-mono text-[11px] text-muted-foreground">{n.motivo}</span>
+                  {n.motivo_descripcion}
+                </span>
+                <span className="ml-auto font-mono tabular-nums text-foreground">{formatearMonto(c.moneda, n.total)}</span>
+                <EstadoBadge estado={n.estado_documento} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {c.referencias ? (
         <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="referencias">

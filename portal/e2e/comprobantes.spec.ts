@@ -51,3 +51,48 @@ test("reenvía un comprobante en error y queda aceptado", async ({ page }) => {
 
   await expect(page.getByText("Aceptado", { exact: true }).first()).toBeVisible();
 });
+
+test("emite una nota de crédito parcial desde la factura y la factura la lista", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada");
+  await page.getByTestId("emitir-nota").click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-aceptada\/nota/);
+  const form = page.getByTestId("nota-form");
+  await expect(form.getByLabel("Serie")).toHaveValue("FC01");
+  // Nota parcial (07): la tabla de ítems de la factura con la cantidad a devolver.
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await expect(form.getByRole("table")).toBeVisible();
+  await form.getByLabel("Sustento").fill("Devolución parcial del servicio");
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+
+  // Aterriza en el detalle de la nota con el bloque "Nota de crédito sobre" y vuelve a la factura, que ya la lista.
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+  const nota = page.getByTestId("nota");
+  await expect(nota.getByText("F001-1")).toBeVisible();
+  await expect(nota.getByText("Devolución por ítem")).toBeVisible();
+  await expect(page.getByText("Nota de crédito electrónica")).toBeVisible();
+  await page.goto("/comprobantes/f-aceptada");
+  const notas = page.getByTestId("notas");
+  await expect(notas.getByText("FC01-1")).toBeVisible();
+  await expect(notas.getByText("Devolución por ítem")).toBeVisible();
+});
+
+test("una nota de crédito 13 sale sin importe y una nota de débito con su concepto", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("13");
+  await expect(form.getByText(/importe 0/)).toBeVisible();
+  await form.getByLabel("Sustento").fill("Reprogramación de cuotas");
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  await expect(page.getByTestId("nota").getByText(/Corrección o modificación/)).toBeVisible();
+
+  await page.goto("/comprobantes/f-aceptada/nota");
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  await expect(form.getByLabel("Serie")).toHaveValue("FD01");
+  await form.getByLabel(/Motivo/).selectOption("01");
+  await form.getByLabel("Sustento").fill("Intereses por mora de 30 días");
+  await form.getByLabel("Concepto").fill("Intereses por mora");
+  await form.getByLabel(/Importe con IGV/).fill("59");
+  await form.getByRole("button", { name: "Emitir nota de débito" }).click();
+  await expect(page.getByText("Nota de débito electrónica")).toBeVisible();
+  await expect(page.getByTestId("nota").getByText(/Intereses por mora de 30 días/)).toBeVisible();
+});

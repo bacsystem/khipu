@@ -9,6 +9,7 @@ import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.ItemCalculado;
+import pe.factura.domain.documento.Nota;
 import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.Referencias;
 
@@ -43,6 +44,8 @@ public record ComprobanteResponse(
         @Schema(description = "Percepción cobrada (51/52/53); el cliente paga total + monto") PercepcionDto percepcion,
         @Schema(description = "Facturas de anticipo regularizadas en esta factura; sus importes ya pagados se restan del total") List<AnticipoDto> anticipos,
         @Schema(description = "Orden de compra, guías de remisión y otros documentos relacionados; `null` si no hay ninguno") ReferenciasDto referencias,
+        @Schema(description = "Solo en notas de crédito/débito: factura que modifica y motivo") NotaDto nota,
+        @Schema(description = "Solo al consultar una factura: notas de crédito/débito emitidas sobre ella (todas, con su estado); `null` en listados y en la emisión") List<NotaResumenDto> notas,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     public record FormaPagoDto(
             @Schema(example = "credito", description = "contado | credito") String tipo,
@@ -98,6 +101,35 @@ public record ComprobanteResponse(
             return r.vacias() ? null : new ReferenciasDto(r.ordenCompra(),
                     r.guias().isEmpty() ? null : r.guias().stream().map(g -> new DocumentoDto(g.tipo(), g.numero())).toList(),
                     r.otros().isEmpty() ? null : r.otros().stream().map(d -> new DocumentoDto(d.tipo(), d.numero())).toList());
+        }
+    }
+
+    /** Datos propios de una nota: el comprobante que modifica (cac:BillingReference) y el motivo (cac:DiscrepancyResponse). */
+    public record NotaDto(
+            @Schema(example = "01", description = "Tipo del documento modificado (catálogo 01); hoy siempre `01` factura") String tipoAfectado,
+            @Schema(example = "F001-123", description = "Serie-número de la factura modificada") String documentoAfectado,
+            @Schema(example = "01", description = "Motivo: catálogo 09 en notas de crédito, 10 en notas de débito") String motivo,
+            @Schema(example = "Anulación de la operación", description = "Descripción oficial del motivo") String motivoDescripcion,
+            @Schema(example = "El cliente devolvió la mercadería", description = "Sustento indicado al emitir") String descripcion) {
+        static NotaDto de(Comprobante c) {
+            Nota n = c.nota();
+            return n == null ? null : new NotaDto(n.tipoAfectado().codigo(), n.documentoAfectado(), n.motivo(), n.descripcionMotivo(c.tipo()), n.descripcion());
+        }
+    }
+
+    /** Nota emitida sobre una factura, tal como aparece al consultar la factura. */
+    public record NotaResumenDto(
+            @Schema(example = "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f") UUID id,
+            @Schema(example = "07", description = "`07` nota de crédito, `08` nota de débito") String tipo,
+            @Schema(example = "FC01-4") String comprobante,
+            @Schema(example = "2026-09-18") LocalDate fechaEmision,
+            @Schema(example = "01") String motivo,
+            @Schema(example = "Anulación de la operación") String motivoDescripcion,
+            @Schema(example = "ACEPTADO") String estadoDocumento,
+            @Schema(example = "1180.00", description = "Importe total de la nota") BigDecimal total) {
+        static NotaResumenDto de(Comprobante n) {
+            return new NotaResumenDto(n.id(), n.tipo().codigo(), n.serie() + "-" + n.numero(), n.fechaEmision(), n.nota().motivo(),
+                    n.nota().descripcionMotivo(n.tipo()), n.estado().name(), n.totales().total());
         }
     }
 
@@ -178,7 +210,10 @@ public record ComprobanteResponse(
             @Schema(description = "Descuento global aplicado, si lo hubo") DescuentoDto descuentoGlobal,
             @Schema(description = "Cargos globales aplicados, si los hubo") List<CargoDto> cargos) {}
 
-    public static ComprobanteResponse de(Comprobante c, String base) {
+    public static ComprobanteResponse de(Comprobante c, String base) { return de(c, base, null); }
+
+    /** Con {@code notas} (las emitidas sobre esta factura) solo al consultar una factura concreta. */
+    public static ComprobanteResponse de(Comprobante c, String base, List<Comprobante> notas) {
         String p = base + "/" + c.id();
         return new ComprobanteResponse(c.id(), c.tipo().codigo(), c.serie(), c.numero(), c.fechaEmision(), c.fechaVencimiento(), c.moneda(), c.tipoOperacion(),
                 de(c.receptor()), c.totales().items().stream().map(ComprobanteResponse::de).toList(),
@@ -197,6 +232,8 @@ public record ComprobanteResponse(
                         c.percepcion().base(), c.percepcion().monto(), c.percepcion().totalConPercepcion(c.totales().total())),
                 c.anticipos().isEmpty() ? null : c.anticipos().stream().map(AnticipoDto::de).toList(),
                 ReferenciasDto.de(c.referencias()),
+                NotaDto.de(c),
+                notas == null ? null : notas.stream().map(NotaResumenDto::de).toList(),
                 enlaces(c, p));
     }
 

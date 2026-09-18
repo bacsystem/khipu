@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -62,7 +63,8 @@ class HomologacionBetaTest {
     @Autowired TestRestTemplate http;
     HttpHeaders api;
     final List<String[]> resumen = new ArrayList<>();
-    long numeroAnticipo;
+    /** Números aceptados por SUNAT que reutilizan escenarios posteriores (anticipo → final, facturas → notas). */
+    final Map<String, Long> numeros = new HashMap<>();
 
     /** Variable de entorno o valor por defecto; GitHub Actions pasa los inputs vacíos como "" y no como ausentes. */
     static String env(String nombre, String porDefecto) {
@@ -88,7 +90,8 @@ class HomologacionBetaTest {
         assertThat(http.exchange("/v1/empresa/credenciales-sol", HttpMethod.PUT, new HttpEntity<>("{\"usuario\":\"MODDATOS\",\"clave\":\"moddatos\"}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(http.exchange("/v1/empresa/datos-fiscales", HttpMethod.PUT, new HttpEntity<>(
                 "{\"domicilio\":{\"ubigeo\":\"150101\",\"direccion\":\"AV. LIMA 123\"},\"cuenta_detracciones\":\"00-000-123456\",\"nombre_comercial\":\"KHIPU PRUEBAS\"}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"01\",\"serie\":\"" + SERIE + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        for (String tipo : List.of("01", "07", "08"))   // la misma serie F### vale para factura, NC y ND (regla 1001); cada tipo numera aparte
+            assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"" + tipo + "\",\"serie\":\"" + SERIE + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
         String certPath = env("HOMOLOGACION_CERT", null);
         byte[] p12 = certPath == null ? getClass().getResourceAsStream("/test-cert.p12").readAllBytes() : Files.readAllBytes(Path.of(certPath));
@@ -107,8 +110,9 @@ class HomologacionBetaTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("escenarios")
     void escenario(EscenariosFactura.Escenario e) throws IOException {
-        String cuerpo = e.cuerpo().replace("${ANTICIPO}", Long.toString(numeroAnticipo));
-        ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(cuerpo, api), Map.class);
+        String cuerpo = e.cuerpo();
+        for (Map.Entry<String, Long> n : numeros.entrySet()) cuerpo = cuerpo.replace("${" + n.getKey() + "}", Long.toString(n.getValue()));
+        ResponseEntity<Map> r = http.postForEntity(e.endpoint(), new HttpEntity<>(cuerpo, api), Map.class);
         Map<?, ?> datos = r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of());
         String estado = String.valueOf(datos.get("estado_documento"));
         Map<?, ?> cdr = datos.get("cdr") instanceof Map<?, ?> m ? m : Map.of();
@@ -120,7 +124,12 @@ class HomologacionBetaTest {
         resumen.add(new String[]{e.id(), e.descripcion(), estado, detalle});
 
         if (datos.get("id") != null) guardarEvidencia(e.id(), (String) datos.get("id"), (String) datos.get("nombre_archivo"), estado, detalle);
-        if (e.id().startsWith("16-")) numeroAnticipo = ((Number) datos.get("numero")).longValue();
+        if (datos.get("numero") instanceof Number num) {
+            if (e.id().startsWith("01-")) numeros.put("GRAVADA", num.longValue());
+            if (e.id().startsWith("04-")) numeros.put("MIXTA", num.longValue());
+            if (e.id().startsWith("09-")) numeros.put("CREDITO", num.longValue());
+            if (e.id().startsWith("16-")) numeros.put("ANTICIPO", num.longValue());
+        }
 
         assertThat(r.getStatusCode()).as(e.id() + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
         assertThat(estado).as(e.id() + ": " + detalle).isEqualTo("ACEPTADO");
@@ -139,7 +148,7 @@ class HomologacionBetaTest {
     }
 
     @AfterAll void escribirResumen() throws IOException {
-        StringBuilder md = new StringBuilder("# Homologación e-beta — factura\n\n")
+        StringBuilder md = new StringBuilder("# Homologación e-beta — factura y notas\n\n")
                 .append("RUC emisor `").append(RUC).append("`, serie `").append(SERIE).append("`, ").append(LocalDate.now(ZoneId.of("America/Lima"))).append("\n\n")
                 .append("| Escenario | Caso | Estado | CDR |\n|---|---|---|---|\n");
         for (String[] f : resumen) md.append("| ").append(f[0]).append(" | ").append(f[1]).append(" | ").append(f[2]).append(" | ").append(f[3].replace("|", "\\|")).append(" |\n");

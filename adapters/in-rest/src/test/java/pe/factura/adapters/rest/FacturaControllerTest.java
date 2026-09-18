@@ -55,6 +55,20 @@ class FacturaControllerTest {
         return c;
     }
 
+    @Test void laFacturaListaSusNotas() throws Exception {
+        Comprobante f = aceptado(tenant);
+        Comprobante nc = NotaControllerTest.notaAceptada(tenant);
+        when(consultar.obtener(tenant, f.id())).thenReturn(f);
+        when(consultar.notasDe(tenant, f)).thenReturn(List.of(nc));
+        mvc.perform(get("/v1/facturas/{id}", f.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.nota").doesNotExist())
+                .andExpect(jsonPath("$.datos.notas[0].tipo").value("07"))
+                .andExpect(jsonPath("$.datos.notas[0].comprobante").value("FC01-4"))
+                .andExpect(jsonPath("$.datos.notas[0].motivo_descripcion").value("Anulación de la operación"))
+                .andExpect(jsonPath("$.datos.notas[0].estado_documento").value("ACEPTADO"))
+                .andExpect(jsonPath("$.datos.notas[0].total").value(118.00));
+    }
+
     @Test void enlaceCdrSoloCuandoHayConstancia() throws Exception {
         Comprobante conCdr = aceptado(tenant), sinCdr = rechazadoPorFault(tenant);
         when(consultar.obtener(tenant, conCdr.id())).thenReturn(conCdr);

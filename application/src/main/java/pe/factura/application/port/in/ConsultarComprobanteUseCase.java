@@ -8,6 +8,8 @@ import java.util.UUID;
 
 public interface ConsultarComprobanteUseCase {
     Comprobante obtener(UUID tenantId, UUID id);                       // DomainException("NO_ENCONTRADO")
+    /** Notas de crédito/débito emitidas sobre una factura de la empresa, en orden de emisión (vacío si no es factura o no tiene). */
+    List<Comprobante> notasDe(UUID tenantId, Comprobante factura);
     List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina);
     long contar(UUID tenantId, EstadoDocumento estado);
     byte[] xml(UUID tenantId, UUID id);                                // bytes del XML firmado

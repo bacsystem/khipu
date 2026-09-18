@@ -130,6 +130,29 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.totales().total()).isEqualByComparingTo("177.00");
     }
 
+    @Test void guardaYRehidrataNotasYLasListaPorFactura() {
+        UUID t = tenantDePrueba();
+        Comprobante f = factura(t, 20);
+        f.firmar("H", "k.xml");
+        repo.guardar(f);
+        Nota nota = new Nota(TipoDocumento.FACTURA, "F001", 20, "07", "Devolución de una laptop");
+        Comprobante nc = Comprobante.crearNota(t, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), "PEN", "0101", f.receptor(),
+                List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), null, null, List.of(), nota, clock);
+        nc.asignarNumero(1, "20100066603");
+        nc.firmar("H", "nc.xml");
+        repo.guardar(nc);
+
+        Comprobante leida = repo.buscar(t, nc.id()).orElseThrow();
+        assertThat(leida.tipo()).isEqualTo(TipoDocumento.NOTA_CREDITO);
+        assertThat(leida.nota()).isEqualTo(nota);
+        assertThat(leida.nombreArchivo()).isEqualTo("20100066603-07-FC01-1");
+        assertThat(repo.buscar(t, f.id()).orElseThrow().nota()).isNull();
+        assertThat(repo.notasDe(t, "F001", 20)).extracting(Comprobante::id).containsExactly(nc.id());
+        assertThat(repo.notasDe(t, "F001", 21)).isEmpty();
+        assertThat(repo.buscarPorNumero(t, TipoDocumento.NOTA_CREDITO, "FC01", 1)).isPresent();
+        assertThat(repo.buscarPorNumero(t, TipoDocumento.FACTURA, "FC01", 1)).isEmpty();
+    }
+
     @Test void guardaYRehidrataDetraccion() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "1001",
@@ -268,14 +291,14 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
 
         // Copia rehidratada "vieja" (leída antes de que otra transacción persistiera ACEPTADO) que falla al enviar
         Comprobante tardio = Comprobante.rehidratar(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), c.horaEmision(), null, "PEN", "0101",
-                c.receptor(), c.items(), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, EstadoDocumento.ERROR_ENVIO, "h", c.nombreArchivo(), "k", null, null, 1, "0109 - timeout");
+                c.receptor(), c.items(), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, null, EstadoDocumento.ERROR_ENVIO, "h", c.nombreArchivo(), "k", null, null, 1, "0109 - timeout");
         assertThatThrownBy(() -> repo.guardar(tardio))
                 .isInstanceOf(pe.factura.domain.DomainException.class).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
         assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM documento WHERE id = ?", Integer.class, c.id())).isEqualTo(1);
 
         Comprobante enviadoTardio = Comprobante.rehidratar(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), c.horaEmision(), null, "PEN", "0101",
-                c.receptor(), c.items(), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, EstadoDocumento.ENVIADO, "h", c.nombreArchivo(), "k", null, null, 1, null);
+                c.receptor(), c.items(), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, null, EstadoDocumento.ENVIADO, "h", c.nombreArchivo(), "k", null, null, 1, null);
         assertThatThrownBy(() -> repo.guardar(enviadoTardio)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
         assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
     }

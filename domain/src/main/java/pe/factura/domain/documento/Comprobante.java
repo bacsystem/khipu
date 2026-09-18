@@ -37,6 +37,8 @@ public class Comprobante {
     private final List<Anticipo> anticipos;
     /** Orden de compra, guías de remisión y otros documentos relacionados; nunca nulo. */
     private final Referencias referencias;
+    /** Solo en notas de crédito/débito: comprobante que modifican y motivo; {@code null} en facturas. */
+    private final Nota nota;
     private final Totales totales;
     private EstadoDocumento estado;
     private String hash;
@@ -50,13 +52,14 @@ public class Comprobante {
     private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
                         Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos,
-                        Referencias referencias, BigDecimal redondeo, EstadoDocumento estado) {
+                        Referencias referencias, BigDecimal redondeo, Nota nota, EstadoDocumento estado) {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
         this.fechaEmision = fechaEmision; this.horaEmision = horaEmision; this.fechaVencimiento = fechaVencimiento; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
         this.cargos = cargos == null ? List.of() : List.copyOf(cargos);
         this.anticipos = anticipos == null ? List.of() : List.copyOf(anticipos);
         this.referencias = referencias == null ? Referencias.ninguna() : referencias;
+        this.nota = nota;
         this.totales = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision), redondeo);
         // Detracción, retención y percepción se completan contra el importe total ya calculado (montos por defecto, 3208 y tolerancias SUNAT).
         this.detraccion = detraccion == null ? null : detraccion.completarContra(moneda, this.totales.total());
@@ -131,10 +134,40 @@ public class Comprobante {
         if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
             throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
         Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
-                moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, EstadoDocumento.RECIBIDO);
+                moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, EstadoDocumento.RECIBIDO);
         formaPago.validarContra(c.totales.total(), fechaEmision);
         return c;
     }
+
+    /**
+     * Nota de crédito (07) o de débito (08) sobre una factura. Comparte con la factura receptor, ítems, descuentos, cargos y
+     * totales; añade el documento modificado y el motivo. La serie debe empezar como la del documento que modifica (regla
+     * 1001/2117: F… para facturas). Los límites frente a la factura modificada (3286 y afines) los aplica el servicio, que es
+     * quien la tiene a mano.
+     */
+    public static Comprobante crearNota(UUID tenantId, TipoDocumento tipo, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion,
+                                        Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Nota nota, Clock clock) {
+        if (tipo != TipoDocumento.NOTA_CREDITO && tipo != TipoDocumento.NOTA_DEBITO)
+            throw new DomainException("NOTA_INVALIDA", "El tipo de nota debe ser 07 (crédito) u 08 (débito)");
+        if (nota == null) throw new DomainException("NOTA_INVALIDA", "2524 - La nota debe indicar el documento que modifica y el motivo");
+        if (!tipo.serieValida(serie) || serie.charAt(0) != nota.serieAfectada().charAt(0))
+            throw new DomainException("SERIE_INVALIDA", "1001 - La serie de una nota sobre " + nota.documentoAfectado() + " debe ser " + nota.serieAfectada().charAt(0) + "### : " + serie);
+        if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
+        if ((items == null || items.isEmpty()) && !nota.corrigeCuotas()) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
+        if (receptor == null || !receptor.esRuc()) throw new DomainException("RECEPTOR_INVALIDO", "La nota sobre una factura requiere un receptor con RUC válido");
+        if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
+        nota.validarMotivoPara(tipo);
+        boolean nc13 = tipo == TipoDocumento.NOTA_CREDITO && nota.corrigeCuotas();
+        if (nc13 && (formaPago == null || !formaPago.esCredito()))
+            throw new DomainException("NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
+        // La NC 13 no mueve importes: una sola línea de valor 0 (regla 3315). La forma de pago de una nota solo tiene sentido
+        // en la NC 13 y se valida contra la factura modificada (3320/3321), no contra la nota.
+        return new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
+                moneda, tipoOperacion == null ? "0101" : tipoOperacion, receptor, nc13 ? List.of(nota.lineaSinImporte()) : items, formaPago == null ? FormaPago.contado() : formaPago,
+                nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, null, nota, EstadoDocumento.RECIBIDO);
+    }
+
+    public boolean esNota() { return nota != null; }
 
     /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar a facturas (columna "Tipo de Comprobante asociado"). */
     private static void validarTipoOperacion(String operacion) {
@@ -149,9 +182,9 @@ public class Comprobante {
     public static Comprobante rehidratar(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero,
                                          LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento, String moneda, String tipoOperacion, Receptor receptor,
                                          List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion,
-                                         RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, EstadoDocumento estado,
+                                         RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, Nota nota, EstadoDocumento estado,
                                          String hash, String nombreArchivo, String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
-        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, estado);
+        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, estado);
         c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
         c.intentos = intentos; c.ultimoError = ultimoError;
         return c;

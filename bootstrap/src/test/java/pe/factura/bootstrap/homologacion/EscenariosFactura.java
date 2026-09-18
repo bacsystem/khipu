@@ -4,9 +4,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Casos de emisión de factura contra e-beta: uno por bloque funcional implementado (los mismos que documenta la guía del
- * portal). El receptor es un RUC real y activo (SUNAT, 20131312955) porque e-beta valida el padrón (regla 1083).
- * Notas de crédito/débito, resumen diario y comunicación de baja se añadirán con #28, #20 y #31.
+ * Casos de emisión contra e-beta: uno por bloque funcional implementado (los mismos que documenta la guía del portal), más
+ * las notas de crédito/débito sobre facturas ya aceptadas en la misma corrida. El receptor es un RUC real y activo (SUNAT,
+ * 20131312955) porque e-beta valida el padrón (regla 1083). Resumen diario y comunicación de baja se añadirán con #20 y #31.
  */
 final class EscenariosFactura {
     private EscenariosFactura() {}
@@ -14,14 +14,21 @@ final class EscenariosFactura {
     static final String CLIENTE = """
         "cliente":{"tipo_doc":"6","num_doc":"20131312955","razon_social":"SUPERINTENDENCIA NACIONAL DE ADUANAS Y DE ADMINISTRACION TRIBUTARIA","direccion":"AV. GARCILASO DE LA VEGA 1472, LIMA"}""";
 
-    record Escenario(String id, String descripcion, String cuerpo) {
+    record Escenario(String id, String descripcion, String endpoint, String cuerpo) {
+        Escenario(String id, String descripcion, String cuerpo) { this(id, descripcion, "/v1/facturas", cuerpo); }
         /** Nombre del caso en los informes de JUnit/Gradle: sin el JSON del cuerpo, que ya queda en la evidencia. */
         @Override public String toString() { return id + " — " + descripcion; }
     }
 
-    /** {@code serie} y {@code fecha} se inyectan por ejecución; {@code anticipoNumero} lo rellena el test tras aceptar el anticipo. */
+    static final String NOTAS = "/v1/notas";
+
+    /**
+     * {@code serie} y {@code fecha} se inyectan por ejecución. Los marcadores {@code ${ANTICIPO}}, {@code ${GRAVADA}}, {@code ${MIXTA}}
+     * y {@code ${CREDITO}} los rellena el test con los números que SUNAT ya aceptó en los escenarios 16, 01, 04 y 09.
+     */
     static List<Escenario> todos(String serie, LocalDate fecha) {
         String cab = "\"serie\":\"" + serie + "\",\"fecha_emision\":\"" + fecha + "\"";
+        String notaCab = "\"serie\":\"" + serie + "\",\"fecha_emision\":\"" + fecha + "\"";
         return List.of(
             new Escenario("01-gravada", "Venta interna gravada al contado",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
@@ -88,7 +95,22 @@ final class EscenariosFactura {
             new Escenario("17-anticipo-final", "Factura final que regulariza el anticipo (paso 2 de 2)",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
                 "{\"descripcion\":\"Obra completa\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":3540.00,\"tipo_afectacion_igv\":\"10\"}]," +
-                "\"anticipos\":[{\"serie\":\"" + serie + "\",\"numero\":${ANTICIPO},\"monto\":1000.00}]}")
+                "\"anticipos\":[{\"serie\":\"" + serie + "\",\"numero\":${ANTICIPO},\"monto\":1000.00}]}"),
+            new Escenario("18-nc-total", "Nota de crédito total (01) sobre la factura gravada", NOTAS,
+                "{\"tipo\":\"07\"," + notaCab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${GRAVADA}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación por error en el pedido\"}"),
+            new Escenario("19-nc-parcial", "Nota de crédito parcial (07, devolución por ítem) sobre la factura mixta", NOTAS,
+                "{\"tipo\":\"07\"," + notaCab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${MIXTA}}," +
+                "\"motivo\":\"07\",\"descripcion\":\"Devolución de una laptop\",\"items\":[" +
+                "{\"descripcion\":\"Laptop\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":2360.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            new Escenario("20-nc-cuotas", "Nota de crédito 13 que reprograma las cuotas de la factura al crédito", NOTAS,
+                "{\"tipo\":\"07\"," + notaCab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${CREDITO}}," +
+                "\"motivo\":\"13\",\"descripcion\":\"Reprogramación de cuotas\"," +
+                "\"forma_pago\":{\"tipo\":\"credito\",\"monto_pendiente\":1180.00,\"cuotas\":[{\"monto\":1180.00,\"vencimiento\":\"" + fecha.plusDays(90) + "\"}]}}"),
+            new Escenario("21-nd-interes", "Nota de débito por intereses de mora (01) sobre la factura gravada", NOTAS,
+                "{\"tipo\":\"08\"," + notaCab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${GRAVADA}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Intereses por mora de 30 días\",\"items\":[" +
+                "{\"descripcion\":\"Intereses por mora\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}")
         );
     }
 

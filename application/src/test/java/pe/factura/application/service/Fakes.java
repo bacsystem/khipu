@@ -24,6 +24,9 @@ final class Fakes {
         public Optional<Comprobante> buscarPorNumero(UUID t, TipoDocumento tipo, String serie, long numero) {
             return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.tipo() == tipo && c.serie().equals(serie) && Long.valueOf(numero).equals(c.numero())).findFirst();
         }
+        public List<Comprobante> notasDe(UUID t, String serie, long numero) {
+            return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.esNota() && c.nota().serieAfectada().equals(serie) && c.nota().numeroAfectado() == numero).toList();
+        }
         public List<Comprobante> listar(UUID t, EstadoDocumento e, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
         public long contar(UUID t, EstadoDocumento e) { return listar(t, e, 1, Integer.MAX_VALUE).size(); }
     }

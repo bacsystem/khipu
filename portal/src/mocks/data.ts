@@ -54,6 +54,8 @@ export type Comprobante = {
   detraccion?: { codigo_bien_servicio: string; descripcion: string; porcentaje: number; monto: number; cuenta_banco_nacion: string; medio_pago: string } | null;
   anticipos?: Array<{ comprobante: string; serie: string; numero: number; monto: number; importe_pagado: number; afectacion: string; codigo_sunat: string; fecha_pago: string | null }>;
   referencias?: { orden_compra?: string | null; guias?: Array<{ tipo: string; numero: string }> | null; documentos_relacionados?: Array<{ tipo: string; numero: string }> | null } | null;
+  nota?: { tipo_afectado: string; documento_afectado: string; motivo: string; motivo_descripcion: string; descripcion: string } | null;
+  notas?: Array<{ id: string; tipo: string; comprobante: string; fecha_emision: string; motivo: string; motivo_descripcion: string; estado_documento: string; total: number }> | null;
   enlaces: { xml: string; cdr?: string };
 };
 
@@ -94,7 +96,11 @@ export function resetDb() {
     certificado_vigencia_hasta: "2036-01-01",
   };
   db.empresasPorCuenta.set(usuario.cuenta_id, [empresa]);
-  db.seriesPorEmpresa.set(empresa.id, [{ tipo: "01", serie: "F001", ultimo_numero: 2, activa: true }]);
+  db.seriesPorEmpresa.set(empresa.id, [
+    { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true },
+    { tipo: "07", serie: "FC01", ultimo_numero: 0, activa: true },
+    { tipo: "08", serie: "FD01", ultimo_numero: 0, activa: true },
+  ]);
   db.apiKeysPorEmpresa.set(empresa.id, [
     { id: "k-activa", prefijo: "fk_demo001", activa: true, creada_en: "2026-09-01T15:00:00Z" },
     { id: "k-revocada", prefijo: "fk_demo000", activa: false, creada_en: "2026-08-01T15:00:00Z", revocada_en: "2026-08-20T12:00:00Z" },
