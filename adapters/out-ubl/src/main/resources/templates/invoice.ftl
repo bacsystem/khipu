@@ -1,12 +1,13 @@
 <#ftl output_format="XML" strip_whitespace=true>
 <#setting number_format="0.00">
 <#setting locale="en_US">
-<#-- Categoría (catálogo 05, UN/ECE 5305) y tributo (UN/ECE 5153) de una afectación: mismo bloque en los subtotales globales y en cada línea. -->
+<#-- Categoría (UN/ECE 5305, sin validación SUNAT) y tributo (catálogo 05) de una afectación: mismo bloque en los subtotales globales y en cada línea.
+     El ID del tributo lleva los atributos del catálogo 05 (reglas 4255–4257); e-beta observa los de UN/ECE 5153 que trae la guía UBL genérica. -->
 <#macro categoriaTributo tr>
 <cbc:ID schemeID="UN/ECE 5305" schemeName="Tax Category Identifier" schemeAgencyName="United Nations Economic Commission for Europe">${tr.categoria()}</cbc:ID>
 <#nested>
 <cac:TaxScheme>
-  <cbc:ID schemeID="UN/ECE 5153" schemeName="Tax Scheme Identifier" schemeAgencyName="United Nations Economic Commission for Europe">${tr.codigo()}</cbc:ID>
+  <cbc:ID schemeName="Codigo de tributos" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05">${tr.codigo()}</cbc:ID>
   <cbc:Name>${tr.nombre()}</cbc:Name>
   <cbc:TaxTypeCode>${tr.tipoInternacional()}</cbc:TaxTypeCode>
 </cac:TaxScheme>

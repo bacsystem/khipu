@@ -28,8 +28,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Salvo InvoiceTypeCode/@listID (tipo de operación, obligatorio: ERROR 3205), los atributos son opcionales, pero si van
  * deben llevar exactamente estos valores o SUNAT observa el comprobante (4251 @listAgencyName, 4252 @listName,
  * 4253 @listURI, 4254 @listID, 4255 @schemeName, 4256 @schemeAgencyName, 4257 @schemeURI, 4258 @unitCodeListID,
- * 4259 @unitCodeListAgencyName). Los de UN/ECE 5305/5153 no se validan; siguen la guía UBL 2.1 y son iguales en
- * subtotales globales y líneas. Cambiar un literal aquí sin cambiar la hoja es una regresión, no un ajuste.
+ * 4259 @unitCodeListAgencyName). El ID de la categoría (UN/ECE 5305) no se valida y sigue la guía UBL 2.1; el ID del
+ * tributo (TaxScheme) sí: lleva los del catálogo 05, y e-beta observa (4255/4256) los de UN/ECE 5153 de la guía genérica —
+ * comprobado en la homologación (#32). Cambiar un literal aquí sin cambiar la hoja es una regresión, no un ajuste.
  */
 class AtributosSunatFacturaTest {
     private static final String CAT06 = "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06";
@@ -106,9 +107,9 @@ class AtributosSunatFacturaTest {
         /inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReasonCode/@listName       | Afectacion del IGV
         /inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReasonCode/@listAgencyName | PE:SUNAT
         /inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReasonCode/@listURI        | urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo07
-        /inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID/@schemeID            | UN/ECE 5153
-        /inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID/@schemeName          | Tax Scheme Identifier
-        /inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID/@schemeAgencyName    | United Nations Economic Commission for Europe
+        /inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID/@schemeName          | Codigo de tributos
+        /inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID/@schemeAgencyName    | PE:SUNAT
+        /inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID/@schemeURI           | urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05
         """)
     void atributoConElValorQueExigeSunat(String expr, String esperado) throws Exception {
         assertThat(valor(documento(), expr.trim())).isEqualTo(esperado.trim());
@@ -130,9 +131,10 @@ class AtributosSunatFacturaTest {
         String global = "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='" + tributo + "']/cac:TaxCategory";
         assertThat(valor(d, global + "/cbc:ID")).isEqualTo(categoria);
         assertThat(valor(d, global + "/cbc:ID/@schemeID")).isEqualTo("UN/ECE 5305");
-        assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeID")).isEqualTo("UN/ECE 5153");
-        assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeName")).isEqualTo("Tax Scheme Identifier");
-        assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeAgencyName")).isEqualTo(UNECE);
+        assertThat(valor(d, "count(" + global + "/cac:TaxScheme/cbc:ID/@schemeID)")).isEqualTo("0");
+        assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeName")).isEqualTo("Codigo de tributos");                                   // 4255
+        assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeAgencyName")).isEqualTo("PE:SUNAT");                                       // 4256
+        assertThat(valor(d, global + "/cac:TaxScheme/cbc:ID/@schemeURI")).isEqualTo("urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05");   // 4257
     }
 
     /** La plantilla pinta un TaxSubtotal por cada Totales.subtotales() (la regla de qué subtotales existen se prueba en el dominio). */

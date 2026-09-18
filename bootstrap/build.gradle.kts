@@ -40,6 +40,24 @@ dependencies {
 
 // Ver adapters/out-persistence/build.gradle.kts: Testcontainers 1.20.1 no negocia con el
 // Docker Engine local si no se fija esta versión de API.
-tasks.test {
+tasks.withType<Test>().configureEach {
     systemProperty("api.version", "1.41")
+}
+
+tasks.test {
+    useJUnitPlatform { excludeTags("homologacion") }
+}
+
+// Suite de homologación contra e-beta (#32): red + Docker; no forma parte de `test`. Evidencia en build/homologacion/.
+tasks.register<Test>("homologacion") {
+    description = "Emite los escenarios de factura contra e-beta de SUNAT y guarda XML/CDR como evidencia"
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform { includeTags("homologacion") }
+    val salida = layout.buildDirectory.dir("homologacion").get().asFile
+    systemProperty("homologacion.salida", salida.absolutePath)
+    doFirst { salida.deleteRecursively() }   // evidencia solo de esta ejecución
+    outputs.upToDateWhen { false }
+    testLogging { events("passed", "failed"); showStandardStreams = false; exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }
