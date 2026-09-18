@@ -52,7 +52,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         Comprobante firmado = uow.ejecutar(() -> {
             long numero;
             if (cmd.correlativo() != null) {
-                if (comprobantes.existe(tenantId, TipoDocumento.FACTURA, cmd.serie(), cmd.correlativo()))
+                if (comprobantes.buscarPorNumero(tenantId, TipoDocumento.FACTURA, cmd.serie(), cmd.correlativo()).isPresent())
                     throw new DomainException("DUPLICADO", "Ya existe " + cmd.serie() + "-" + cmd.correlativo());
                 // La serie avanza hasta el correlativo explícito para que la siguiente emisión automática no lo reutilice.
                 series.avanzarHasta(tenantId, TipoDocumento.FACTURA, cmd.serie(), cmd.correlativo());
@@ -82,7 +82,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
 
     /**
      * La factura de anticipo debe ser de esta empresa y estar aceptada por SUNAT (regla 3218), al mismo cliente y en la misma
-     * moneda (2071), y el monto que se regulariza no puede superar lo que aquella facturó en esa afectación.
+     * moneda (2071), y el monto que se regulariza —sumado a lo ya regularizado en otras facturas finales— no puede superar lo
+     * que aquella facturó en esa afectación: SUNAT no cruza anticipos entre comprobantes, así que un doble descuento pasaría inadvertido.
      */
     private void validarFacturaDeAnticipo(UUID tenantId, EmitirFacturaCommand cmd, Anticipo a) {
         Comprobante origen = comprobantes.buscarPorNumero(tenantId, TipoDocumento.FACTURA, a.serie(), a.numero())
@@ -98,8 +99,10 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             case EXONERADO -> origen.totales().exonerado();
             case INAFECTO -> origen.totales().inafecto();
         };
-        if (a.monto().compareTo(facturado) > 0)
+        BigDecimal yaRegularizado = comprobantes.montoRegularizado(tenantId, a.serie(), a.numero());
+        if (yaRegularizado.add(a.monto()).compareTo(facturado) > 0)
             throw new DomainException("ANTICIPO_INVALIDO", "El anticipo " + a.comprobante() + " (" + a.monto() + ") supera el valor de venta "
-                    + a.afectacion().name().toLowerCase() + " de esa factura (" + facturado + ")");
+                    + a.afectacion().name().toLowerCase() + " de esa factura (" + facturado + ")"
+                    + (yaRegularizado.signum() > 0 ? ": ya se regularizaron " + yaRegularizado + " en otras facturas" : ""));
     }
 }

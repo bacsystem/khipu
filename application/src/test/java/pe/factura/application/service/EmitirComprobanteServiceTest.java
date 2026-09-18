@@ -173,6 +173,16 @@ class EmitirComprobanteServiceTest {
         assertThat(fin.totales().total()).isEqualByComparingTo("1062.00");
     }
 
+    @Test void unAnticipoNoSeRegularizaDosVeces() {
+        Comprobante anticipo = service.emitirFactura(tenantId, cmd(null, true));   // F001-1: 100.00 gravado, ACEPTADO
+        service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", anticipo.numero(), new BigDecimal("60.00"), null, null)));
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", anticipo.numero(), new BigDecimal("40.01"), null, null))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("ya se regularizaron 60.00");
+        // El resto (40.00) sí puede regularizarse en otra factura final
+        assertThat(service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", anticipo.numero(), new BigDecimal("40.00"), null, null))).totales().totalAnticipos())
+                .isEqualByComparingTo("47.20");
+    }
+
     @Test void anticipoRechazaFacturaInexistenteNoAceptadaOAjena() {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", 99, new BigDecimal("100.00"), null, null))))
                 .isInstanceOf(DomainException.class).hasMessageContaining("3218").hasMessageContaining("no existe");

@@ -5,6 +5,7 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
 import pe.factura.domain.tenant.*;
 
+import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
 import java.util.function.Supplier;
@@ -14,7 +15,11 @@ final class Fakes {
         final Map<UUID, Comprobante> datos = new HashMap<>();
         public void guardar(Comprobante c) { datos.put(c.id(), c); }
         public Optional<Comprobante> buscar(UUID t, UUID id) { return Optional.ofNullable(datos.get(id)).filter(c -> c.tenantId().equals(t)); }
-        public boolean existe(UUID t, TipoDocumento tipo, String serie, long numero) { return buscarPorNumero(t, tipo, serie, numero).isPresent(); }
+        public BigDecimal montoRegularizado(UUID t, String serie, long numero) {
+            return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.estado() != EstadoDocumento.RECHAZADO && c.estado() != EstadoDocumento.INVALIDO)
+                    .flatMap(c -> c.anticipos().stream()).filter(a -> a.serie().equals(serie) && a.numero() == numero)
+                    .map(Anticipo::monto).reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
         public Optional<Comprobante> buscarPorNumero(UUID t, TipoDocumento tipo, String serie, long numero) {
             return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.tipo() == tipo && c.serie().equals(serie) && Long.valueOf(numero).equals(c.numero())).findFirst();
         }
