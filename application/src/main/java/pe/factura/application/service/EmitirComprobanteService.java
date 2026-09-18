@@ -6,13 +6,17 @@ import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
+import pe.factura.domain.documento.Anticipo;
 import pe.factura.domain.documento.Comprobante;
+import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.Tenant;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -36,14 +40,15 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         // Si se va a enviar de inmediato, las credenciales SOL deben existir antes de consumir un número
         // o persistir el documento: de lo contrario quedaría un FIRMADO huérfano con numeración gastada.
         if (cmd.enviarAutomatico()) tenant.exigirCredencialesSol();
+        List<Anticipo> anticipos = cmd.anticipos() == null ? List.of() : cmd.anticipos();
 
         Comprobante c = Comprobante.crearFactura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(),
-                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.detraccion(), cmd.retencionIgv(), cmd.percepcion(), clock);
+                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.detraccion(), cmd.retencionIgv(), cmd.percepcion(), anticipos, clock);
 
         Comprobante firmado = uow.ejecutar(() -> {
             long numero;
             if (cmd.correlativo() != null) {
-                if (comprobantes.existe(tenantId, TipoDocumento.FACTURA, cmd.serie(), cmd.correlativo()))
+                if (comprobantes.buscarPorNumero(tenantId, TipoDocumento.FACTURA, cmd.serie(), cmd.correlativo()).isPresent())
                     throw new DomainException("DUPLICADO", "Ya existe " + cmd.serie() + "-" + cmd.correlativo());
                 // La serie avanza hasta el correlativo explícito para que la siguiente emisión automática no lo reutilice.
                 series.avanzarHasta(tenantId, TipoDocumento.FACTURA, cmd.serie(), cmd.correlativo());
@@ -52,6 +57,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 numero = series.siguienteNumero(tenantId, TipoDocumento.FACTURA, cmd.serie());
             }
             c.asignarNumero(numero, tenant.ruc());
+            // Dentro de la transacción y con la factura de anticipo bloqueada: dos finales concurrentes no pueden regularizar el mismo anticipo dos veces.
+            anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a));
 
             String xml = ubl.generar(c, tenant);
             FirmaResultado firma = signer.firmar(xml, tenant.certificado());
@@ -69,5 +76,31 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         // EnviarDocumentoService persiste el resultado y, si queda en ERROR_ENVIO, programa el reintento
         // en el outbox dentro de la misma transacción.
         return enviar.enviar(tenantId, firmado.id());
+    }
+
+    /**
+     * La factura de anticipo debe ser de esta empresa y estar aceptada por SUNAT (regla 3218), al mismo cliente y en la misma
+     * moneda (2071), y el monto que se regulariza —sumado a lo ya regularizado en otras facturas finales— no puede superar lo
+     * que aquella facturó en esa afectación: SUNAT no cruza anticipos entre comprobantes, así que un doble descuento pasaría inadvertido.
+     */
+    private void validarFacturaDeAnticipo(UUID tenantId, EmitirFacturaCommand cmd, Anticipo a) {
+        Comprobante origen = comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, a.serie(), a.numero())
+                .orElseThrow(() -> new DomainException("ANTICIPO_INVALIDO", "3218 - La factura de anticipo " + a.comprobante() + " no existe en esta empresa"));
+        if (origen.estado() != EstadoDocumento.ACEPTADO && origen.estado() != EstadoDocumento.ACEPTADO_CON_OBS)
+            throw new DomainException("ANTICIPO_INVALIDO", "3218 - La factura de anticipo " + a.comprobante() + " no está aceptada por SUNAT (estado " + origen.estado() + ")");
+        if (!origen.moneda().equals(cmd.moneda()))
+            throw new DomainException("ANTICIPO_INVALIDO", "2071 - La factura de anticipo " + a.comprobante() + " es en " + origen.moneda() + " y esta factura en " + cmd.moneda());
+        if (!origen.receptor().numDoc().equals(cmd.receptor().numDoc()))
+            throw new DomainException("ANTICIPO_INVALIDO", "La factura de anticipo " + a.comprobante() + " fue emitida a otro cliente (RUC " + origen.receptor().numDoc() + ")");
+        BigDecimal facturado = switch (a.afectacion()) {
+            case GRAVADO -> origen.totales().gravado();
+            case EXONERADO -> origen.totales().exonerado();
+            case INAFECTO -> origen.totales().inafecto();
+        };
+        BigDecimal yaRegularizado = comprobantes.montoRegularizado(tenantId, a.serie(), a.numero());
+        if (yaRegularizado.add(a.monto()).compareTo(facturado) > 0)
+            throw new DomainException("ANTICIPO_INVALIDO", "El anticipo " + a.comprobante() + " (" + a.monto() + ") supera el valor de venta "
+                    + a.afectacion().name().toLowerCase() + " de esa factura (" + facturado + ")"
+                    + (yaRegularizado.signum() > 0 ? ": ya se regularizaron " + yaRegularizado + " en otras facturas" : ""));
     }
 }

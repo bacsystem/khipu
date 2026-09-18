@@ -6,6 +6,7 @@ import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -60,6 +61,11 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
             jdbc.update("INSERT INTO comprobante_cuota (comprobante_id, orden, monto, vencimiento) VALUES (?, ?, ?, ?)",
                     c.id(), nCuota++, q.monto(), Date.valueOf(q.vencimiento()));
         }
+        int nAnticipo = 1;
+        for (Anticipo a : c.anticipos()) {
+            jdbc.update("INSERT INTO comprobante_anticipo (comprobante_id, orden, serie, numero, monto, afectacion, fecha_pago) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    c.id(), nAnticipo++, a.serie(), a.numero(), a.monto(), a.afectacion().name(), a.fechaPago() == null ? null : Date.valueOf(a.fechaPago()));
+        }
         int orden = 1;
         for (Item i : c.items()) {
             jdbc.update("INSERT INTO comprobante_item (comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, icbper) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -72,9 +78,19 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public Optional<Comprobante> buscar(UUID tenantId, UUID id) {
         return jdbc.query(SELECT + " WHERE d.id = ? AND d.tenant_id = ?", this::mapear, id, tenantId).stream().findFirst();
     }
-    @Override public boolean existe(UUID tenantId, TipoDocumento tipo, String serie, long numero) {
-        Integer n = jdbc.queryForObject("SELECT count(*) FROM documento WHERE tenant_id = ? AND tipo = ? AND serie = ? AND numero = ?", Integer.class, tenantId, tipo.codigo(), serie, numero);
-        return n != null && n > 0;
+    @Override public BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo) {
+        // Un final RECHAZADO o INVALIDO no regularizó nada: su anticipo vuelve a estar disponible.
+        BigDecimal suma = jdbc.queryForObject("""
+            SELECT coalesce(sum(a.monto), 0) FROM comprobante_anticipo a JOIN documento d ON d.id = a.comprobante_id
+            WHERE d.tenant_id = ? AND a.serie = ? AND a.numero = ? AND d.estado NOT IN ('RECHAZADO', 'INVALIDO')
+            """, BigDecimal.class, tenantId, serieAnticipo, numeroAnticipo);
+        return suma == null ? BigDecimal.ZERO : suma;
+    }
+    @Override public Optional<Comprobante> buscarPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero) {
+        return jdbc.query(SELECT + " WHERE d.tenant_id = ? AND d.tipo = ? AND d.serie = ? AND d.numero = ?", this::mapear, tenantId, tipo.codigo(), serie, numero).stream().findFirst();
+    }
+    @Override public Optional<Comprobante> bloquearPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero) {
+        return jdbc.query(SELECT + " WHERE d.tenant_id = ? AND d.tipo = ? AND d.serie = ? AND d.numero = ? FOR UPDATE OF d", this::mapear, tenantId, tipo.codigo(), serie, numero).stream().findFirst();
     }
     @Override public List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina) {
         String sql = SELECT + " WHERE d.tenant_id = ?" + (estado == null ? "" : " AND d.estado = ?") + " ORDER BY d.created_at DESC LIMIT ? OFFSET ?";
@@ -108,12 +124,15 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                         r.getString("isc_sistema") == null ? null : new Isc(r.getString("isc_sistema"), r.getBigDecimal("isc_tasa") == null ? null : sinCeros(r.getBigDecimal("isc_tasa")),
                                 r.getBigDecimal("isc_monto_unitario") == null ? null : sinCeros(r.getBigDecimal("isc_monto_unitario"))),
                         r.getBoolean("icbper")), id);
+        List<Anticipo> anticipos = jdbc.query("SELECT serie, numero, monto, afectacion, fecha_pago FROM comprobante_anticipo WHERE comprobante_id = ? ORDER BY orden",
+                (r, k) -> new Anticipo(r.getString("serie"), r.getLong("numero"), r.getBigDecimal("monto"), Anticipo.Afectacion.valueOf(r.getString("afectacion")),
+                        r.getDate("fecha_pago") == null ? null : r.getDate("fecha_pago").toLocalDate()), id);
         Cdr cdr = rs.getString("cdr_codigo") == null ? null : new Cdr(rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), deJson(rs.getString("cdr_obs")));
         return Comprobante.rehidratar(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"),
                 rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), rs.getString("moneda"), rs.getString("tipo_operacion"),
                 new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion")),
                 items, formaPago(rs, id), descuento(rs.getString("descuento_global_tipo"), rs.getBigDecimal("descuento_global_valor"), rs.getObject("descuento_global_afecta_base", Boolean.class)),
-                detraccion(rs), retencion(rs), percepcion(rs), EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
+                detraccion(rs), retencion(rs), percepcion(rs), anticipos, EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
                 rs.getString("xml_key"), rs.getString("cdr_key"), cdr, rs.getInt("intentos"), rs.getString("ultimo_error"));
     }
 

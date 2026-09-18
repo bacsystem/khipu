@@ -103,6 +103,18 @@ export type RetencionIgv = { porcentaje: number; monto: number; neto_cobrar: num
 /** Percepción cobrada (51/52/53): el cliente paga total + monto. */
 export type Percepcion = { regimen: string; descripcion: string; porcentaje: number; base: number; monto: number; total_con_percepcion: number };
 
+/** Factura de anticipo regularizada: `monto` sin IGV reduce la base (código 04/05/06); `importe_pagado` (con IGV) se resta del total. */
+export type Anticipo = {
+  comprobante: string;
+  serie: string;
+  numero: number;
+  monto: number;
+  importe_pagado: number;
+  afectacion: "gravado" | "exonerado" | "inafecto";
+  codigo_sunat: string;
+  fecha_pago: string | null;
+};
+
 export const FORMA_PAGO_CONTADO: FormaPago = { tipo: "contado", monto_pendiente: null, cuotas: [] };
 
 export type Comprobante = {
@@ -130,6 +142,7 @@ export type Comprobante = {
     total_valor_venta?: number;
     total_precio_venta?: number;
     total_descuentos?: number;
+    total_anticipos?: number;
     gratuito?: number;
     igv_gratuitas?: number;
     isc?: number;
@@ -140,6 +153,7 @@ export type Comprobante = {
   detraccion?: Detraccion | null;
   retencion_igv?: RetencionIgv | null;
   percepcion?: Percepcion | null;
+  anticipos?: Anticipo[] | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; cdr?: string };
 };

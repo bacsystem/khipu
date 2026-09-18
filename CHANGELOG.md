@@ -2,6 +2,12 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.11] - 2026-09-17
+
+### Added
+- API: anticipos regularizados en la factura final (#51): `anticipos[] { serie, numero, monto (sin IGV), afectacion gravado|exonerado|inafecto, fecha_pago }`. La factura de anticipo debe ser de la misma empresa, al mismo cliente, en la misma moneda y estar aceptada por SUNAT (3218); el monto no puede superar lo facturado en ella ni lo facturado en la final para esa afectación. En el XML: `AdditionalDocumentReference` (02, RUC emisor, identificador de pago), `PrepaidPayment` (importe con IGV) y `AllowanceCharge` 04/05/06 que reduce la base del tributo (3277, 3291); `PrepaidAmount` restado del importe a pagar (2503, 2509, 3211–3220, 3280, 3282, 3287); total valor/precio de venta siguen brutos (3278, 3279). Respuesta con `anticipos[]` (`comprobante`, `monto`, `importe_pagado`, `codigo_sunat`…) y `totales.total_anticipos`. Nuevo error `ANTICIPO_INVALIDO`. Migración V9.
+- Portal: bloque de anticipos regularizados y la línea "Anticipos ya pagados" en la liquidación; la guía documenta el flujo completo (factura de anticipo → factura final) y la página de errores los códigos `*_INVALIDO`.
+
 ## [0.1.10] - 2026-09-17
 
 ### Added

@@ -27,6 +27,10 @@ test("lista comprobantes con su estado y permite ver el detalle", async ({ page 
   const detraccion = page.getByTestId("detraccion");
   await expect(detraccion.getByText("Otros servicios empresariales")).toBeVisible();
   await expect(detraccion.getByText("00-000-123456")).toBeVisible();
+  // Anticipo regularizado: la factura de anticipo y el importe pagado que se resta del total.
+  const anticipos = page.getByTestId("anticipos");
+  await expect(anticipos.getByText("F001-90")).toBeVisible();
+  await expect(anticipos.getByText(/gravado \(04\)/)).toBeVisible();
   // El detalle abre el XML firmado en una vista previa con su botón de descarga.
   await page.getByRole("button", { name: "Ver XML" }).click();
   await expect(page.getByText("Descargar XML")).toBeVisible();

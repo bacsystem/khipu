@@ -38,6 +38,17 @@
   <cbc:Note languageLocaleID="2000">COMPROBANTE DE PERCEPCIÓN</cbc:Note>
   </#if>
   <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">${c.moneda()}</cbc:DocumentCurrencyCode>
+  <#-- Facturas de anticipo que se regularizan (reglas 2505, 2520, 2521, 3214–3218): el identificador de pago enlaza con cac:PrepaidPayment. -->
+  <#list tot.anticipos() as ac>
+  <cac:AdditionalDocumentReference>
+    <cbc:ID>${ac.anticipo().comprobante()}</cbc:ID>
+    <cbc:DocumentTypeCode listName="Documento Relacionado" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo12">${statics["pe.factura.domain.documento.Anticipo"].TIPO_COMPROBANTE}</cbc:DocumentTypeCode>
+    <cbc:DocumentStatusCode listName="Anticipo" listAgencyName="PE:SUNAT">${(ac?index + 1)?c}</cbc:DocumentStatusCode>
+    <cac:IssuerParty>
+      <cac:PartyIdentification><cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${t.ruc()}</cbc:ID></cac:PartyIdentification>
+    </cac:IssuerParty>
+  </cac:AdditionalDocumentReference>
+  </#list>
   <cac:Signature>
     <cbc:ID>signatureFACTURA</cbc:ID>
     <cac:SignatoryParty>
@@ -109,6 +120,14 @@
     <cbc:Amount currencyID="PEN">${c.percepcion().totalConPercepcion(tot.total())}</cbc:Amount>
   </cac:PaymentTerms>
   </#if>
+  <#-- Importe pagado con cada anticipo, IGV incluido (reglas 2503, 3211–3213, 3220); el ID es el mismo identificador de pago del documento referenciado. -->
+  <#list tot.anticipos() as ac>
+  <cac:PrepaidPayment>
+    <cbc:ID schemeName="Anticipo" schemeAgencyName="PE:SUNAT">${(ac?index + 1)?c}</cbc:ID>
+    <cbc:PaidAmount currencyID="${c.moneda()}">${ac.importePagado()}</cbc:PaidAmount>
+    <#if ac.anticipo().fechaPago()??><cbc:PaidDate>${ac.anticipo().fechaPago().toString()}</cbc:PaidDate></#if>
+  </cac:PrepaidPayment>
+  </#list>
   <#-- Retención del IGV (62, reglas 3262–3264) y percepción (51/52/53, reglas 2788–2798, 3233): AllowanceCharge globales informativos. -->
   <#if c.retencion()??>
   <cac:AllowanceCharge>
@@ -138,6 +157,15 @@
     <cbc:BaseAmount currencyID="${c.moneda()}">${tot.descuentoGlobal().base()}</cbc:BaseAmount>
   </cac:AllowanceCharge>
   </#if>
+  <#-- Descuento global por anticipo (catálogo 53: 04 gravado, 05 exonerado, 06 inafecto) por el valor sin IGV; reduce la base del tributo (3277, 3291) y exige PrepaidAmount (3282, 3287). -->
+  <#list tot.anticipos() as ac>
+  <cac:AllowanceCharge>
+    <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
+    <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${ac.codigo()}</cbc:AllowanceChargeReasonCode>
+    <cbc:Amount currencyID="${c.moneda()}">${ac.monto()}</cbc:Amount>
+    <cbc:BaseAmount currencyID="${c.moneda()}">${ac.base()}</cbc:BaseAmount>
+  </cac:AllowanceCharge>
+  </#list>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv() + tot.isc() + tot.icbper()}</cbc:TaxAmount>
     <#list tot.subtotales() as st>
@@ -155,6 +183,9 @@
     <cbc:TaxInclusiveAmount currencyID="${c.moneda()}">${tot.totalPrecioVenta()}</cbc:TaxInclusiveAmount>
     <#if (tot.totalDescuentos() > 0)>
     <cbc:AllowanceTotalAmount currencyID="${c.moneda()}">${tot.totalDescuentos()}</cbc:AllowanceTotalAmount>
+    </#if>
+    <#if tot.tieneAnticipos()>
+    <cbc:PrepaidAmount currencyID="${c.moneda()}">${tot.totalAnticipos()}</cbc:PrepaidAmount>
     </#if>
     <cbc:PayableAmount currencyID="${c.moneda()}">${tot.total()}</cbc:PayableAmount>
   </cac:LegalMonetaryTotal>

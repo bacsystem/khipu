@@ -1,6 +1,7 @@
 package pe.factura.adapters.rest.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import pe.factura.domain.documento.Anticipo;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.FormaPago;
@@ -36,6 +37,7 @@ public record ComprobanteResponse(
         @Schema(description = "Detracción (SPOT), solo en operaciones 1001–1004") DetraccionDto detraccion,
         @Schema(description = "Retención del IGV informada (código 62); el cliente paga total − monto") RetencionDto retencionIgv,
         @Schema(description = "Percepción cobrada (51/52/53); el cliente paga total + monto") PercepcionDto percepcion,
+        @Schema(description = "Facturas de anticipo regularizadas en esta factura; sus importes ya pagados se restan del total") List<AnticipoDto> anticipos,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     public record FormaPagoDto(
             @Schema(example = "credito", description = "contado | credito") String tipo,
@@ -68,6 +70,18 @@ public record ComprobanteResponse(
     public record PercepcionDto(@Schema(example = "51") String regimen, @Schema(example = "Percepción venta interna") String descripcion,
                                 @Schema(example = "2") BigDecimal porcentaje, @Schema(example = "1180.00") BigDecimal base, @Schema(example = "23.60") BigDecimal monto,
                                 @Schema(example = "1203.60", description = "Importe total más la percepción: lo que paga el cliente") BigDecimal totalConPercepcion) {}
+
+    public record AnticipoDto(@Schema(example = "F001-120", description = "Factura de anticipo (serie-número)") String comprobante,
+                              @Schema(example = "F001") String serie, @Schema(example = "120") Long numero,
+                              @Schema(example = "1000.00", description = "Valor sin IGV que se descuenta de la base") BigDecimal monto,
+                              @Schema(example = "1180.00", description = "Importe que el cliente pagó con el anticipo (IGV incluido)") BigDecimal importePagado,
+                              @Schema(example = "gravado", description = "`gravado`, `exonerado` o `inafecto`") String afectacion,
+                              @Schema(example = "04", description = "Código SUNAT del descuento global por anticipo (catálogo 53: 04/05/06)") String codigoSunat,
+                              @Schema(example = "2026-09-01") LocalDate fechaPago) {
+        static AnticipoDto de(Anticipo a) {
+            return new AnticipoDto(a.comprobante(), a.serie(), a.numero(), a.monto(), a.importePagado(), a.afectacion().name().toLowerCase(), a.codigoSunat(), a.fechaPago());
+        }
+    }
 
     public record ReceptorDto(
             @Schema(example = "6", description = "Catálogo 06 SUNAT: 6=RUC, 1=DNI") String tipoDoc,
@@ -117,7 +131,8 @@ public record ComprobanteResponse(
             @Schema(example = "1000.00", description = "Total valor de venta onerosa (suma de bases, LineExtensionAmount)") BigDecimal totalValorVenta,
             @Schema(example = "1180.00", description = "Total precio de venta = valor de venta + tributos (TaxInclusiveAmount)") BigDecimal totalPrecioVenta,
             @Schema(example = "0.00", description = "Descuentos que no afectan la base (línea 01 + global 03), AllowanceTotalAmount") BigDecimal totalDescuentos,
-            @Schema(example = "1180.00", description = "Importe a pagar (PayableAmount)") BigDecimal total,
+            @Schema(example = "0.00", description = "Suma de los importes ya pagados con facturas de anticipo, IGV incluido (PrepaidAmount)") BigDecimal totalAnticipos,
+            @Schema(example = "1180.00", description = "Importe a pagar (PayableAmount) = precio de venta − descuentos que no afectan la base − anticipos") BigDecimal total,
             @Schema(description = "Descuento global aplicado, si lo hubo") DescuentoDto descuentoGlobal) {}
 
     public static ComprobanteResponse de(Comprobante c, String base) {
@@ -127,7 +142,7 @@ public record ComprobanteResponse(
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),
                 new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(),
-                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().isc(), c.totales().icbper(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().total(),
+                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().isc(), c.totales().icbper(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().totalAnticipos(), c.totales().total(),
                         c.totales().descuentoGlobal() == null ? null : new DescuentoDto(c.totales().descuentoGlobal().descuento().tipo().name(),
                                 c.totales().descuentoGlobal().descuento().valor(), c.totales().descuentoGlobal().monto(),
                                 c.totales().descuentoGlobal().afectaBase(), c.totales().descuentoGlobal().codigo())),
@@ -136,6 +151,7 @@ public record ComprobanteResponse(
                 c.retencion() == null ? null : new RetencionDto(c.retencion().porcentaje(), c.retencion().monto(), c.totales().total().subtract(c.retencion().monto())),
                 c.percepcion() == null ? null : new PercepcionDto(c.percepcion().regimen(), c.percepcion().descripcionRegimen(), c.percepcion().porcentaje(),
                         c.percepcion().base(), c.percepcion().monto(), c.percepcion().totalConPercepcion(c.totales().total())),
+                c.anticipos().isEmpty() ? null : c.anticipos().stream().map(AnticipoDto::de).toList(),
                 enlaces(c, p));
     }
 

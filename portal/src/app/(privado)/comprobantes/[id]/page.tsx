@@ -435,11 +435,14 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 <Importe etiqueta="IGV de gratuitas (informativo)" moneda={c.moneda} valor={c.totales.igv_gratuitas ?? 0} />
               </>
             ) : null}
+            {c.totales.total_descuentos || c.totales.total_anticipos ? (
+              <Importe etiqueta="Precio de venta" moneda={c.moneda} valor={c.totales.total_precio_venta ?? c.totales.total} />
+            ) : null}
             {c.totales.total_descuentos ? (
-              <>
-                <Importe etiqueta="Precio de venta" moneda={c.moneda} valor={c.totales.total_precio_venta ?? c.totales.total} />
-                <Importe etiqueta="Descuentos que no afectan el IGV" moneda={c.moneda} valor={-c.totales.total_descuentos} />
-              </>
+              <Importe etiqueta="Descuentos que no afectan el IGV" moneda={c.moneda} valor={-c.totales.total_descuentos} />
+            ) : null}
+            {c.totales.total_anticipos ? (
+              <Importe etiqueta="Anticipos ya pagados (con IGV)" moneda={c.moneda} valor={-c.totales.total_anticipos} />
             ) : null}
             <div className="my-2 h-px bg-border" />
             <div className="flex items-baseline justify-between pt-1">
@@ -452,6 +455,25 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           </div>
           <FormaPagoDetalle formaPago={c.forma_pago} moneda={c.moneda} />
           {c.detraccion ? <DetraccionDetalle detraccion={c.detraccion} /> : null}
+          {c.anticipos?.length ? (
+            <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="anticipos">
+              <span className={ETIQUETA}>Anticipos regularizados</span>
+              <ul className="mt-1 space-y-1">
+                {c.anticipos.map((a) => (
+                  <li key={a.comprobante} className="flex items-baseline justify-between gap-3">
+                    <span className="text-muted-foreground">
+                      <span className="font-mono text-foreground">{a.comprobante}</span> · {a.afectacion} ({a.codigo_sunat})
+                      {a.fecha_pago ? ` · pagado el ${a.fecha_pago}` : ""}
+                    </span>
+                    <span className="font-mono tabular-nums text-foreground/80">
+                      −{formatearMonto(c.moneda, a.importe_pagado)}
+                      <span className="text-[11px] text-muted-foreground/80"> ({formatearMonto(c.moneda, a.monto)} sin IGV)</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {c.retencion_igv ? (
             <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="retencion">
               <div className="flex items-center justify-between">

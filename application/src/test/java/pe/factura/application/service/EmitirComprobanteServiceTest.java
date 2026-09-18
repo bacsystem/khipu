@@ -41,7 +41,7 @@ class EmitirComprobanteServiceTest {
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
         return new EmitirFacturaCommand("F001", correlativo, LocalDate.of(2026, 9, 13), "PEN", "0101",
                 new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, null, null, null, enviar);
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, null, null, null, List.of(), enviar);
     }
 
     @Test void asignaNumeroFirmaGuardaYEnvia() {
@@ -82,7 +82,7 @@ class EmitirComprobanteServiceTest {
     @Test void correlativoExplicitoEnSerieNoConfiguradaFalla() {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F999", 7L, LocalDate.of(2026, 9, 13), "PEN", "0101",
                 new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, null, null, null, false)))
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, null, null, null, List.of(), false)))
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
         assertThat(comprobantes.datos).isEmpty();
     }
@@ -141,7 +141,57 @@ class EmitirComprobanteServiceTest {
     @Test void serieNoConfiguradaFalla() {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F999", null, LocalDate.of(2026, 9, 13), "PEN", "0101",
                 new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, null, null, null, false)))
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, null, null, null, List.of(), false)))
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
+    }
+
+    private EmitirFacturaCommand conAnticipo(Anticipo a) {
+        return new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Obra completa", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, null, null, null, List.of(a), false);
+    }
+
+    @Test void anticipoDescuentaUnaFacturaAceptadaDeLaMismaEmpresa() {
+        Comprobante anticipo = service.emitirFactura(tenantId, cmd(null, true));   // F001-1 por 118.00, ACEPTADO por el gateway fake
+        assertThat(anticipo.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+
+        Comprobante fin = service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", 1, new BigDecimal("100.00"), null, null)));
+        assertThat(fin.totales().totalAnticipos()).isEqualByComparingTo("118.00");
+        assertThat(fin.totales().total()).isEqualByComparingTo("1062.00");
+    }
+
+    @Test void unAnticipoNoSeRegularizaDosVeces() {
+        Comprobante anticipo = service.emitirFactura(tenantId, cmd(null, true));   // F001-1: 100.00 gravado, ACEPTADO
+        service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", anticipo.numero(), new BigDecimal("60.00"), null, null)));
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", anticipo.numero(), new BigDecimal("40.01"), null, null))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("ya se regularizaron 60.00");
+        // El resto (40.00) sí puede regularizarse en otra factura final
+        assertThat(service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", anticipo.numero(), new BigDecimal("40.00"), null, null))).totales().totalAnticipos())
+                .isEqualByComparingTo("47.20");
+    }
+
+    @Test void anticipoRechazaFacturaInexistenteNoAceptadaOAjena() {
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", 99, new BigDecimal("100.00"), null, null))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3218").hasMessageContaining("no existe");
+
+        // El UnitOfWork de prueba no revierte el contador de la serie, así que se usa el número que devuelve cada emisión.
+        Comprobante firmado = service.emitirFactura(tenantId, cmd(null, false));   // queda FIRMADO
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", firmado.numero(), new BigDecimal("100.00"), null, null))))
+                .hasMessageContaining("3218").hasMessageContaining("FIRMADO");
+
+        Comprobante aceptado = service.emitirFactura(tenantId, cmd(null, true));   // ACEPTADO por 100.00 gravado
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", aceptado.numero(), new BigDecimal("100.01"), null, null))))
+                .hasMessageContaining("supera el valor de venta gravado de esa factura");
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), "USD", "0101",
+                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, null, null, null, List.of(new Anticipo("F001", aceptado.numero(), new BigDecimal("50.00"), null, null)), false)))
+                .hasMessageContaining("2071");
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20609999999", "OTRO SAC", null),
+                List.of(new Item("P1", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, null, null, null, List.of(new Anticipo("F001", aceptado.numero(), new BigDecimal("50.00"), null, null)), false)))
+                .hasMessageContaining("otro cliente");
     }
 }
