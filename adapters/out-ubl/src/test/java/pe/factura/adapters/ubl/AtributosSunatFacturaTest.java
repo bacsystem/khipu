@@ -531,6 +531,50 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /** Orden de compra (59), guías (22, catálogo 01 con atributos) y otros documentos (23, catálogo 12) en su sitio del XSD, antes de Signature. */
+    @Test void documentosRelacionadosEnElXml() throws Exception {
+        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
+                List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(),
+                new Referencias("OC-2026-0457", List.of(new GuiaRelacionada("09", "T001-123"), new GuiaRelacionada("31", "V001-7")),
+                        List.of(new DocumentoRelacionado("05", "SCOP-8841203"), new DocumentoRelacionado("99", "CONTRATO-12"))),
+                FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(12, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        assertThat(valor(d, "/inv:Invoice/cac:OrderReference/cbc:ID")).isEqualTo("OC-2026-0457");
+        assertThat(valor(d, "count(/inv:Invoice/cac:DespatchDocumentReference)")).isEqualTo("2");
+        assertThat(valor(d, "/inv:Invoice/cac:DespatchDocumentReference[1]/cbc:ID")).isEqualTo("T001-123");
+        assertThat(valor(d, "/inv:Invoice/cac:DespatchDocumentReference[1]/cbc:DocumentTypeCode")).isEqualTo("09");
+        assertThat(valor(d, "/inv:Invoice/cac:DespatchDocumentReference[1]/cbc:DocumentTypeCode/@listAgencyName")).isEqualTo("PE:SUNAT");      // 4251
+        assertThat(valor(d, "/inv:Invoice/cac:DespatchDocumentReference[1]/cbc:DocumentTypeCode/@listName")).isEqualTo("Tipo de Documento");   // 4252
+        assertThat(valor(d, "/inv:Invoice/cac:DespatchDocumentReference[1]/cbc:DocumentTypeCode/@listURI")).isEqualTo("urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01");   // 4253
+        assertThat(valor(d, "/inv:Invoice/cac:DespatchDocumentReference[2]/cbc:DocumentTypeCode")).isEqualTo("31");
+        assertThat(valor(d, "count(/inv:Invoice/cac:AdditionalDocumentReference)")).isEqualTo("2");
+        assertThat(valor(d, "/inv:Invoice/cac:AdditionalDocumentReference[1]/cbc:ID")).isEqualTo("SCOP-8841203");
+        assertThat(valor(d, "/inv:Invoice/cac:AdditionalDocumentReference[1]/cbc:DocumentTypeCode")).isEqualTo("05");
+        assertThat(valor(d, "/inv:Invoice/cac:AdditionalDocumentReference[1]/cbc:DocumentTypeCode/@listURI")).isEqualTo("urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo12");
+        assertThat(valor(d, "count(/inv:Invoice/cac:AdditionalDocumentReference[1]/cbc:DocumentTypeCode/@listName)")).isEqualTo("0");   // ambiguo en la hoja: se omite
+        assertThat(valor(d, "/inv:Invoice/cac:AdditionalDocumentReference[2]/cbc:DocumentTypeCode")).isEqualTo("99");
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
+    /** Sin referencias no se emite ningún bloque (una factura sin orden de compra ni guías sigue igual que antes). */
+    @Test void sinReferenciasNoHayBloques() throws Exception {
+        Comprobante c = facturaConTresAfectaciones();
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+        assertThat(valor(d, "count(/inv:Invoice/cac:OrderReference | /inv:Invoice/cac:DespatchDocumentReference | /inv:Invoice/cac:AdditionalDocumentReference)")).isEqualTo("0");
+    }
+
     /** Regla 3290: con una base grande y descuento fijo el factor de 5 decimales no reproduce el monto, así que no se emite. */
     @Test void descuentoSinFactorCuandoNoReproduceElMonto() throws Exception {
         Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",

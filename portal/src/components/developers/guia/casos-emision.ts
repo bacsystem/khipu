@@ -226,6 +226,30 @@ X-Api-Key: fk_TU_API_KEY`,
     disponible: true,
   },
   {
+    id: "documentos-relacionados",
+    titulo: "Orden de compra, guías de remisión y otros documentos",
+    cuando: "La factura acompaña un traslado con guía de remisión, responde a una orden de compra del cliente o sustenta un trámite (código SCOP, ticket ENAPU, declaración de importación…). Son datos informativos: no cambian importes.",
+    request: `{
+  "serie": "F001",
+  "fecha_emision": "2026-09-18",
+  "moneda": "PEN",
+  ${CLIENTE},
+  "orden_compra": "OC-2026-0457",
+  "guias": [ { "tipo": "09", "numero": "T001-123" } ],
+  "documentos_relacionados": [ { "tipo": "05", "numero": "SCOP-8841203" } ],
+  "items": [
+    { "descripcion": "Combustible diésel B5", "unidad": "GLL", "cantidad": 500, "precio_unitario": 15.90, "tipo_afectacion_igv": "10" }
+  ]
+}`,
+    notas: [
+      "`orden_compra`: 1–20 caracteres (admite espacios, no saltos de línea) → `cac:OrderReference` (regla 4233).",
+      "`guias[]`: `tipo` **09** (guía de remisión remitente) o **31** (transportista), `numero` serie-número con el formato que exige SUNAT: electrónica `T001-123` / `V001-45`, física `0001-123`, `EG01-45`… (reglas 4005, 4006); no se admiten repetidas (2364) → `cac:DespatchDocumentReference`.",
+      "`documentos_relacionados[]`: `tipo` del catálogo 12 —**04** ticket ENAPU, **05** código SCOP, **06** factura electrónica remitente, **07** guía remitente, **08** salida de depósito franco, **09** declaración simplificada de importación, **99** otros— y `numero` de hasta 30 caracteres sin espacios (reglas 4009, 4010, 2365) → `cac:AdditionalDocumentReference`. Las facturas de anticipo (02) van en `anticipos`, no aquí.",
+      "La respuesta devuelve el bloque `referencias { orden_compra, guias[], documentos_relacionados[] }` solo cuando se envió alguno; el detalle del portal lo muestra como \"Documentos relacionados\". Error `DOCUMENTO_RELACIONADO_INVALIDO` (422) con la regla SUNAT en el mensaje.",
+    ],
+    disponible: true,
+  },
+  {
     id: "gratuitas",
     titulo: "Bonificaciones y muestras (operaciones gratuitas)",
     cuando: "Entrega bienes o servicios sin cobrar: bonificación por volumen, muestras, publicidad, retiro para trabajadores. SUNAT exige informarlas con su valor referencial y, si son gravadas, con el IGV que habrían generado.",

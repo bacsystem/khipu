@@ -10,6 +10,7 @@ import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.ItemCalculado;
 import pe.factura.domain.documento.Receptor;
+import pe.factura.domain.documento.Referencias;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -40,6 +41,7 @@ public record ComprobanteResponse(
         @Schema(description = "Retención del IGV informada (código 62); el cliente paga total − monto") RetencionDto retencionIgv,
         @Schema(description = "Percepción cobrada (51/52/53); el cliente paga total + monto") PercepcionDto percepcion,
         @Schema(description = "Facturas de anticipo regularizadas en esta factura; sus importes ya pagados se restan del total") List<AnticipoDto> anticipos,
+        @Schema(description = "Orden de compra, guías de remisión y otros documentos relacionados; `null` si no hay ninguno") ReferenciasDto referencias,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     public record FormaPagoDto(
             @Schema(example = "credito", description = "contado | credito") String tipo,
@@ -82,6 +84,19 @@ public record ComprobanteResponse(
                               @Schema(example = "2026-09-01") LocalDate fechaPago) {
         static AnticipoDto de(Anticipo a) {
             return new AnticipoDto(a.comprobante(), a.serie(), a.numero(), a.monto(), a.importePagado(), a.afectacion().name().toLowerCase(), a.codigoSunat(), a.fechaPago());
+        }
+    }
+
+    /** Orden de compra, guías y otros documentos relacionados tal como se enviaron; `null` cuando la factura no referencia ninguno. */
+    public record ReferenciasDto(
+            @Schema(example = "OC-2026-0457") String ordenCompra,
+            @Schema(description = "Guías de remisión (catálogo 01: 09 remitente, 31 transportista)") List<DocumentoDto> guias,
+            @Schema(description = "Otros documentos (catálogo 12: 04–09, 99)") List<DocumentoDto> documentosRelacionados) {
+        public record DocumentoDto(@Schema(example = "09") String tipo, @Schema(example = "T001-123") String numero) {}
+        static ReferenciasDto de(Referencias r) {
+            return r.vacias() ? null : new ReferenciasDto(r.ordenCompra(),
+                    r.guias().isEmpty() ? null : r.guias().stream().map(g -> new DocumentoDto(g.tipo(), g.numero())).toList(),
+                    r.otros().isEmpty() ? null : r.otros().stream().map(d -> new DocumentoDto(d.tipo(), d.numero())).toList());
         }
     }
 
@@ -175,6 +190,7 @@ public record ComprobanteResponse(
                 c.percepcion() == null ? null : new PercepcionDto(c.percepcion().regimen(), c.percepcion().descripcionRegimen(), c.percepcion().porcentaje(),
                         c.percepcion().base(), c.percepcion().monto(), c.percepcion().totalConPercepcion(c.totales().total())),
                 c.anticipos().isEmpty() ? null : c.anticipos().stream().map(AnticipoDto::de).toList(),
+                ReferenciasDto.de(c.referencias()),
                 enlaces(c, p));
     }
 

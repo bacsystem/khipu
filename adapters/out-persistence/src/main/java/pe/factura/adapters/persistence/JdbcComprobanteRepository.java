@@ -47,8 +47,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
               total_gravado, total_exonerado, total_inafecto, total_igv, total, forma_pago, monto_pendiente,
               descuento_global_tipo, descuento_global_valor, descuento_global_afecta_base,
               detraccion_codigo, detraccion_porcentaje, detraccion_monto, detraccion_cuenta, detraccion_medio_pago,
-              retencion_porcentaje, retencion_monto, percepcion_regimen, percepcion_porcentaje, percepcion_base, percepcion_monto)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              retencion_porcentaje, retencion_monto, percepcion_regimen, percepcion_porcentaje, percepcion_base, percepcion_monto, orden_compra)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, c.id(), c.tipoOperacion(), c.moneda(), c.receptor().tipoDoc(), c.receptor().numDoc(), c.receptor().razonSocial(),
                 c.receptor().direccion(), t.gravado(), t.exonerado(), t.inafecto(), t.igv(), t.total(),
                 c.formaPago().tipo().name(), c.formaPago().montoPendiente(),
@@ -56,7 +56,15 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 d == null ? null : d.codigoBienServicio(), d == null ? null : d.porcentaje(), d == null ? null : d.monto(),
                 d == null ? null : d.cuentaBancoNacion(), d == null ? null : d.medioPago(),
                 r == null ? null : r.porcentaje(), r == null ? null : r.monto(),
-                pc == null ? null : pc.regimen(), pc == null ? null : pc.porcentaje(), pc == null ? null : pc.base(), pc == null ? null : pc.monto());
+                pc == null ? null : pc.regimen(), pc == null ? null : pc.porcentaje(), pc == null ? null : pc.base(), pc == null ? null : pc.monto(),
+                c.referencias().ordenCompra());
+        int nDoc = 1;
+        for (GuiaRelacionada g : c.referencias().guias()) {
+            jdbc.update("INSERT INTO comprobante_documento_relacionado (comprobante_id, orden, clase, tipo, numero) VALUES (?, ?, 'GUIA', ?, ?)", c.id(), nDoc++, g.tipo(), g.numero());
+        }
+        for (DocumentoRelacionado dr : c.referencias().otros()) {
+            jdbc.update("INSERT INTO comprobante_documento_relacionado (comprobante_id, orden, clase, tipo, numero) VALUES (?, ?, 'OTRO', ?, ?)", c.id(), nDoc++, dr.tipo(), dr.numero());
+        }
         int nCuota = 1;
         for (FormaPago.Cuota q : c.formaPago().cuotas()) {
             jdbc.update("INSERT INTO comprobante_cuota (comprobante_id, orden, monto, vencimiento) VALUES (?, ?, ?, ?)",
@@ -121,7 +129,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                c.tipo_operacion, c.moneda, c.receptor_tipo_doc, c.receptor_num_doc, c.receptor_nombre, c.receptor_direccion,
                c.forma_pago, c.monto_pendiente, c.descuento_global_tipo, c.descuento_global_valor, c.descuento_global_afecta_base,
                c.detraccion_codigo, c.detraccion_porcentaje, c.detraccion_monto, c.detraccion_cuenta, c.detraccion_medio_pago,
-               c.retencion_porcentaje, c.retencion_monto, c.percepcion_regimen, c.percepcion_porcentaje, c.percepcion_base, c.percepcion_monto
+               c.retencion_porcentaje, c.retencion_monto, c.percepcion_regimen, c.percepcion_porcentaje, c.percepcion_base, c.percepcion_monto, c.orden_compra
         FROM documento d JOIN comprobante c ON c.documento_id = d.id
         """;
 
@@ -142,12 +150,22 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         List<Anticipo> anticipos = jdbc.query("SELECT serie, numero, monto, afectacion, fecha_pago FROM comprobante_anticipo WHERE comprobante_id = ? ORDER BY orden",
                 (r, k) -> new Anticipo(r.getString("serie"), r.getLong("numero"), r.getBigDecimal("monto"), Anticipo.Afectacion.valueOf(r.getString("afectacion")),
                         r.getDate("fecha_pago") == null ? null : r.getDate("fecha_pago").toLocalDate()), id);
+        List<GuiaRelacionada> guias = new ArrayList<>();
+        List<DocumentoRelacionado> otros = new ArrayList<>();
+        jdbc.query("SELECT clase, tipo, numero FROM comprobante_documento_relacionado WHERE comprobante_id = ? ORDER BY orden", (RowCallbackHandler) r -> {
+            switch (r.getString("clase")) {
+                case "GUIA" -> guias.add(new GuiaRelacionada(r.getString("tipo"), r.getString("numero")));
+                case "OTRO" -> otros.add(new DocumentoRelacionado(r.getString("tipo"), r.getString("numero")));
+                default -> throw new IllegalStateException("Clase de documento relacionado desconocida en comprobante " + id + ": " + r.getString("clase"));
+            }
+        }, id);
+        Referencias referencias = new Referencias(rs.getString("orden_compra"), guias, otros);
         Cdr cdr = rs.getString("cdr_codigo") == null ? null : new Cdr(rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), deJson(rs.getString("cdr_obs")));
         return Comprobante.rehidratar(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"),
                 rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), rs.getTime("hora_emision") == null ? null : rs.getTime("hora_emision").toLocalTime(), rs.getString("moneda"), rs.getString("tipo_operacion"),
                 new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion")),
                 items, formaPago(rs, id), descuento(rs.getString("descuento_global_tipo"), rs.getBigDecimal("descuento_global_valor"), rs.getObject("descuento_global_afecta_base", Boolean.class)),
-                cargos.getOrDefault(null, List.of()), detraccion(rs), retencion(rs), percepcion(rs), anticipos, EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
+                cargos.getOrDefault(null, List.of()), detraccion(rs), retencion(rs), percepcion(rs), anticipos, referencias, EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
                 rs.getString("xml_key"), rs.getString("cdr_key"), cdr, rs.getInt("intentos"), rs.getString("ultimo_error"));
     }
 

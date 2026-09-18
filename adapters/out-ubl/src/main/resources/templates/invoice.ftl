@@ -39,6 +39,25 @@
   <cbc:Note languageLocaleID="2000">COMPROBANTE DE PERCEPCIÓN</cbc:Note>
   </#if>
   <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">${c.moneda()}</cbc:DocumentCurrencyCode>
+  <#-- Documentos relacionados (campos 59, 22 y 23): orden de compra, guías de remisión (catálogo 01: 09/31) y otros (catálogo 12). Reglas 4233, 4005, 4006, 4009, 4010. -->
+  <#if c.referencias().ordenCompra()??>
+  <cac:OrderReference>
+    <cbc:ID>${c.referencias().ordenCompra()}</cbc:ID>
+  </cac:OrderReference>
+  </#if>
+  <#list c.referencias().guias() as g>
+  <cac:DespatchDocumentReference>
+    <cbc:ID>${g.numero()}</cbc:ID>
+    <cbc:DocumentTypeCode listAgencyName="PE:SUNAT" listName="Tipo de Documento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01">${g.tipo()}</cbc:DocumentTypeCode>
+  </cac:DespatchDocumentReference>
+  </#list>
+  <#-- Sin listName: la hoja SUNAT lo documenta como "Documento Relacionado" pero la regla 4252 exige "Tipo de Documento"; al ser opcional, se omite. -->
+  <#list c.referencias().otros() as d>
+  <cac:AdditionalDocumentReference>
+    <cbc:ID>${d.numero()}</cbc:ID>
+    <cbc:DocumentTypeCode listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo12">${d.tipo()}</cbc:DocumentTypeCode>
+  </cac:AdditionalDocumentReference>
+  </#list>
   <#-- Facturas de anticipo que se regularizan (reglas 2505, 2520, 2521, 3214–3218): el identificador de pago enlaza con cac:PrepaidPayment. -->
   <#list tot.anticipos() as ac>
   <cac:AdditionalDocumentReference>

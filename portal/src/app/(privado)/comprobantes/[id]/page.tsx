@@ -1,11 +1,11 @@
-import { ArrowLeftIcon, FileTextIcon, IdCardIcon, MoreHorizontalIcon, Rows3Icon } from "lucide-react";
+import { ArrowLeftIcon, FileTextIcon, IdCardIcon, LinkIcon, MoreHorizontalIcon, Rows3Icon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -292,6 +292,46 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           <p className="text-xs text-muted-foreground/60">Sin datos de receptor.</p>
         )}
       </section>
+
+      {c.referencias ? (
+        <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="referencias">
+          <div className={cn(TITULO_SECCION, "mb-3")}>
+            <LinkIcon className="size-4" />
+            Documentos relacionados
+          </div>
+          <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-3">
+            <Campo etiqueta="Orden de compra">
+              {c.referencias.orden_compra ? <span className="font-mono font-medium text-foreground">{c.referencias.orden_compra}</span> : <span className="text-muted-foreground/60">—</span>}
+            </Campo>
+            <Campo etiqueta="Guías de remisión">
+              {c.referencias.guias?.length ? (
+                <ul className="space-y-0.5">
+                  {c.referencias.guias.map((g) => (
+                    <li key={`${g.tipo}-${g.numero}`} className="font-mono text-foreground">
+                      {g.numero} <span className="text-[10px] text-muted-foreground">{g.tipo} · {ETIQUETAS_GUIA[g.tipo] ?? "Guía"}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="text-muted-foreground/60">—</span>
+              )}
+            </Campo>
+            <Campo etiqueta="Otros documentos">
+              {c.referencias.documentos_relacionados?.length ? (
+                <ul className="space-y-0.5">
+                  {c.referencias.documentos_relacionados.map((d) => (
+                    <li key={`${d.tipo}-${d.numero}`} className="font-mono text-foreground">
+                      {d.numero} <span className="text-[10px] text-muted-foreground">{d.tipo} · {ETIQUETAS_DOC_RELACIONADO[d.tipo] ?? "Documento"}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="text-muted-foreground/60">—</span>
+              )}
+            </Campo>
+          </div>
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">

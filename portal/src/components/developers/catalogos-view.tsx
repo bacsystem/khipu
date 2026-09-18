@@ -8,7 +8,7 @@ import { Rico } from "./guia/rico";
 
 /** Qué campo de la API usa cada catálogo, para que el lector sepa dónde aplicarlo (la disponibilidad de cada caso la indica la guía). */
 const USO: Record<string, string> = {
-  "01": "Tipo de comprobante (`tipo` en las respuestas).",
+  "01": "Tipo de comprobante (`tipo` en las respuestas) y `guias[].tipo` (solo `09` y `31`).",
   "02": "`moneda` del comprobante.",
   "03": "`items[].unidad`. Lista de las unidades más usadas (UN/ECE rec 20); la API acepta cualquier código de la lista completa de la UNECE y SUNAT rechaza los inexistentes.",
   "05": "Tributos que khipu escribe en el XML según la afectación de cada ítem; no se envía en la API.",
@@ -17,7 +17,7 @@ const USO: Record<string, string> = {
   "08": "`items[].isc.sistema`.",
   "09": "Motivo de una nota de crédito.",
   "10": "Motivo de una nota de débito.",
-  "12": "Tipo de documento relacionado (facturas de anticipo, guías).",
+  "12": "`documentos_relacionados[].tipo` (`04`–`09`, `99`); `02` lo escribe khipu para las facturas de anticipo (`anticipos`).",
   "16": "Tipo de precio de la línea: `01` precio de venta, `02` valor referencial en gratuitas. Lo asigna khipu.",
   "22": "`percepcion.regimen`.",
   "23": "Régimen de retención.",

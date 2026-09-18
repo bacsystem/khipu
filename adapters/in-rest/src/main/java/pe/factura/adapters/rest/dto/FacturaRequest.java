@@ -15,6 +15,9 @@ import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Isc;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
+import pe.factura.domain.documento.Referencias;
+import pe.factura.domain.documento.GuiaRelacionada;
+import pe.factura.domain.documento.DocumentoRelacionado;
 import pe.factura.domain.documento.TipoAfectacionIgv;
 
 import java.math.BigDecimal;
@@ -36,6 +39,9 @@ public record FacturaRequest(
         @Valid @Schema(description = "Retención del IGV que aplicará el cliente por ser agente de retención (catálogo 53: 62). Informativa; no cambia los totales.") RetencionDto retencionIgv,
         @Valid @Schema(description = "Percepción del IGV que cobra la empresa por ser agente de percepción (catálogo 53: 51/52/53). Solo con `tipo_operacion` 2001, al contado y en PEN.") PercepcionDto percepcion,
         @Valid @Schema(description = "Facturas de anticipo que se regularizan en esta factura. Los ítems describen la operación completa y khipu descuenta cada anticipo de la base (código 04/05/06) y del importe a pagar.") List<AnticipoDto> anticipos,
+        @Size(min = 1, max = 20) @Schema(example = "OC-2026-0457", description = "Número de la orden de compra o de servicio del cliente (1–20 caracteres, sin saltos de línea): `cac:OrderReference`. Opcional, informativo (regla 4233)") String ordenCompra,
+        @Valid @Schema(description = "Guías de remisión que sustentan el traslado (`cac:DespatchDocumentReference`). Opcional.") List<GuiaDto> guias,
+        @Valid @Schema(description = "Otros documentos relacionados con la operación (`cac:AdditionalDocumentReference`, catálogo 12). Opcional; las facturas de anticipo van en `anticipos`.") List<DocumentoRelacionadoDto> documentosRelacionados,
         @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja el comprobante `FIRMADO` para enviarlo luego con `POST /v1/facturas/{id}/enviar` (p. ej. para emitir en lote y enviar después)") Boolean enviarAutomatico) {
 
     public record ClienteDto(
@@ -162,6 +168,18 @@ public record FacturaRequest(
         }
     }
 
+    public record GuiaDto(
+            @NotBlank @Pattern(regexp = "09|31", message = "tipo de guía no válido: 09 (remitente) o 31 (transportista)") @Schema(example = "09", description = "`09` guía de remisión remitente, `31` guía de remisión transportista (catálogo 01)") String tipo,
+            @NotBlank @Schema(example = "T001-123", description = "Serie-número de la guía: electrónica `T001-123`/`V001-45`, física `0001-123` o `EG01-45` (regla 4006)") String numero) {
+        GuiaRelacionada aDominio() { return new GuiaRelacionada(tipo, numero); }
+    }
+
+    public record DocumentoRelacionadoDto(
+            @NotBlank @Pattern(regexp = "0[4-9]|99", message = "tipo de documento relacionado no válido: 04–09 o 99 (catálogo 12)") @Schema(example = "05", description = "Catálogo 12: `04` ticket de salida ENAPU, `05` código SCOP, `06` factura electrónica remitente, `07` guía de remisión remitente, `08` declaración de salida del depósito franco, `09` declaración simplificada de importación, `99` otros") String tipo,
+            @NotBlank @Size(max = 30) @Schema(example = "SCOP-8841203", description = "Número del documento, hasta 30 caracteres sin espacios (regla 4010)") String numero) {
+        DocumentoRelacionado aDominio() { return new DocumentoRelacionado(tipo, numero); }
+    }
+
     public EmitirFacturaCommand aComando() {
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
@@ -175,6 +193,8 @@ public record FacturaRequest(
                 retencionIgv == null ? null : retencionIgv.aDominio(),
                 percepcion == null ? null : percepcion.aDominio(),
                 anticipos == null ? List.of() : anticipos.stream().map(AnticipoDto::aDominio).toList(),
+                new Referencias(ordenCompra, guias == null ? List.of() : guias.stream().map(GuiaDto::aDominio).toList(),
+                        documentosRelacionados == null ? List.of() : documentosRelacionados.stream().map(DocumentoRelacionadoDto::aDominio).toList()),
                 enviarAutomatico == null || enviarAutomatico);
     }
 
