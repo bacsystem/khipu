@@ -42,7 +42,7 @@ public class Comprobante {
         this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
         this.detraccion = detraccion;
-        this.totales = Totales.calcular(this.items, descuentoGlobal);
+        this.totales = Totales.calcular(this.items, descuentoGlobal, Icbper.tasaVigente(fechaEmision));
         // Retención y percepción se completan contra el importe total ya calculado (montos por defecto y tolerancias SUNAT).
         this.retencion = retencion == null ? null : retencion.completarContra(this.totales.total());
         this.percepcion = percepcion == null ? null : percepcion.completarContra(tipoOperacion, formaPago, moneda, this.totales.total());

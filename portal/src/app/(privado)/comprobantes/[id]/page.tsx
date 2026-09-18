@@ -332,6 +332,16 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     <span className="inline-flex rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground/80">
                       {item.tipo_afectacion_igv} · {ETIQUETAS_AFECTACION[item.tipo_afectacion_igv] ?? "Otra afectación"}
                     </span>
+                    {item.isc ? (
+                      <span className="ml-1 inline-flex rounded-full bg-warning px-2 py-0.5 text-[11px] font-medium text-warning-foreground" title={`ISC sistema ${item.isc.sistema}: ${formatearNumero(item.isc.monto)}`}>
+                        ISC {item.isc.tasa}%
+                      </span>
+                    ) : null}
+                    {item.icbper ? (
+                      <span className="ml-1 inline-flex rounded-full bg-warning px-2 py-0.5 text-[11px] font-medium text-warning-foreground" title="Impuesto a las bolsas de plástico">
+                        ICBPER {formatearNumero(item.icbper)}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-foreground/80 tabular-nums">{formatearNumero(item.precio_unitario)}</td>
                   <td className="px-4 py-3 text-right font-mono text-foreground/80 tabular-nums">
@@ -416,6 +426,8 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 valor={-c.totales.descuento_global.monto}
               />
             ) : null}
+            {c.totales.isc ? <Importe etiqueta="Total ISC" moneda={c.moneda} valor={c.totales.isc} /> : null}
+            {c.totales.icbper ? <Importe etiqueta="Total ICBPER (bolsas)" moneda={c.moneda} valor={c.totales.icbper} /> : null}
             <Importe etiqueta="Total IGV" moneda={c.moneda} valor={c.totales.igv} />
             {c.totales.gratuito ? (
               <>

@@ -358,6 +358,26 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("3308")));
     }
 
+    @Test void iscEIcbperEntranYSalen() throws Exception {
+        String conTributos = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"isc\":{\"sistema\":\"01\",\"tasa\":35}},{\"descripcion\":\"Bolsa\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":0.618,\"tipo_afectacion_igv\":\"10\",\"icbper\":true}");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("01", new BigDecimal("35"), null), false),
+                        new Item(null, "Bolsa", "NIU", new BigDecimal("2"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true)),
+                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conTributos))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.items[0].isc.sistema").value("01"))
+                .andExpect(jsonPath("$.datos.items[0].isc.monto").value(35.00))
+                .andExpect(jsonPath("$.datos.items[1].icbper").value(1.00))
+                .andExpect(jsonPath("$.datos.totales.isc").value(35.00))
+                .andExpect(jsonPath("$.datos.totales.icbper").value(1.00));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().items().get(0).isc().tasa()).isEqualByComparingTo("35");
+        assertThat(cap.getValue().items().get(1).icbper()).isTrue();
+    }
+
     @Test void jsonMalformadoEs400() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":"))
                 .andExpect(status().isBadRequest())

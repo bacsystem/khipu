@@ -11,6 +11,8 @@ import pe.factura.domain.documento.Percepcion;
 import pe.factura.domain.documento.RetencionIgv;
 import pe.factura.domain.documento.Totales;
 import pe.factura.domain.documento.FormaPago;
+import pe.factura.domain.documento.Icbper;
+import pe.factura.domain.documento.Isc;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.TipoAfectacionIgv;
@@ -52,7 +54,17 @@ public record FacturaRequest(
                     `20` exonerado (Apéndice I de la Ley del IGV), `30` inafecto (fuera del ámbito). Gratuitas (bonificaciones, muestras,
                     retiros): `11`–`16` gravadas, `21` exonerada, `31`–`37` inafectas — el `precio_unitario` es el **valor referencial sin
                     IGV**, la línea no suma al importe a pagar y su IGV solo se informa (tributo 9996). No soportadas: `17` (IVAP) y `40` (exportación).""") String tipoAfectacionIgv,
-            @Valid @Schema(description = "Descuento de la línea (catálogo 53: `00` si afecta la base del IGV, `01` si no). Opcional.") DescuentoDto descuento) {}
+            @Valid @Schema(description = "Descuento de la línea (catálogo 53: `00` si afecta la base del IGV, `01` si no). Opcional.") DescuentoDto descuento,
+            @Valid @Schema(description = "Impuesto Selectivo al Consumo del ítem (bebidas alcohólicas, combustibles, vehículos…). Opcional; el `precio_unitario` lo incluye.") IscDto isc,
+            @Schema(example = "false", description = "`true` si el ítem son bolsas de plástico afectas al ICBPER: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año incluido en `precio_unitario`") Boolean icbper) {}
+
+    /** ISC: sistema del catálogo 08; `tasa` (%) para 01 al valor y 03 precio de venta al público, `monto_unitario` para 02 monto fijo. */
+    public record IscDto(
+            @NotBlank @Pattern(regexp = "0[123]") @Schema(example = "01", description = "`01` al valor, `02` monto fijo por unidad, `03` precio de venta al público (catálogo 08)") String sistema,
+            @Schema(example = "35", description = "Tasa sobre el valor de venta (sistemas 01 y 03), hasta 5 decimales") BigDecimal tasa,
+            @Schema(example = "2.25", description = "Importe por unidad (sistema 02), hasta 5 decimales") BigDecimal montoUnitario) {
+        Isc aDominio() { return new Isc(sistema, tasa, montoUnitario); }
+    }
 
     /** Un descuento se expresa como porcentaje **o** como monto (sobre el valor de venta sin IGV), nunca ambos. */
     public record DescuentoDto(
@@ -118,14 +130,14 @@ public record FacturaRequest(
 
     public EmitirFacturaCommand aComando() {
         List<Item> itemsDominio = items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
-                i.descuento() == null ? null : i.descuento().aDominio())).toList();
+                i.descuento() == null ? null : i.descuento().aDominio(), i.isc() == null ? null : i.isc().aDominio(), Boolean.TRUE.equals(i.icbper()))).toList();
         Descuento global = descuentoGlobal == null ? null : descuentoGlobal.aDominio();
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
                 itemsDominio,
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
                 global,
-                detraccion == null ? null : detraccion.aDominio(moneda, () -> Totales.calcular(itemsDominio, global).total()),
+                detraccion == null ? null : detraccion.aDominio(moneda, () -> Totales.calcular(itemsDominio, global, Icbper.tasaVigente(fechaEmision)).total()),
                 retencionIgv == null ? null : retencionIgv.aDominio(),
                 percepcion == null ? null : percepcion.aDominio(),
                 enviarAutomatico == null || enviarAutomatico);

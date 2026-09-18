@@ -312,17 +312,27 @@ X-Api-Key: fk_TU_API_KEY`,
   {
     id: "isc-icbper",
     titulo: "ISC e ICBPER",
-    cuando: "Bienes afectos al Impuesto Selectivo al Consumo (bebidas alcohólicas, combustibles…) o bolsas de plástico (ICBPER, monto fijo por bolsa).",
+    cuando: "Bienes afectos al Impuesto Selectivo al Consumo (bebidas alcohólicas, gaseosas, combustibles, vehículos, cigarrillos…) o bolsas de plástico (ICBPER, monto fijo por bolsa según el año).",
     request: `{
-  "...": "campos habituales",
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  ${CLIENTE},
   "items": [
-    { "descripcion": "Cerveza 620 ml", "unidad": "NIU", "cantidad": 24, "precio_unitario": 6.50, "tipo_afectacion_igv": "10",
-      "isc": { "sistema": "01", "porcentaje": 35 } },
-    { "descripcion": "Bolsa plástica", "unidad": "NIU", "cantidad": 3, "precio_unitario": 0.10, "tipo_afectacion_igv": "10", "icbper": true }
+    { "descripcion": "Cerveza 620 ml (caja x 12)", "unidad": "NIU", "cantidad": 10, "precio_unitario": 159.30, "tipo_afectacion_igv": "10",
+      "isc": { "sistema": "01", "tasa": 35 } },
+    { "descripcion": "Pisco 750 ml", "unidad": "NIU", "cantidad": 6, "precio_unitario": 8.555, "tipo_afectacion_igv": "10",
+      "isc": { "sistema": "02", "monto_unitario": 2.25 } },
+    { "descripcion": "Bolsa plástica", "unidad": "NIU", "cantidad": 3, "precio_unitario": 0.618, "tipo_afectacion_igv": "10", "icbper": true }
   ]
 }`,
-    notas: ["Sistemas de ISC del catálogo 08 (`01` al valor, `02` específico, `03` precio de venta al público). El ISC forma parte de la base del IGV."],
-    disponible: false,
+    notas: [
+      "`isc.sistema` del catálogo 08: `01` al valor y `03` precio de venta al público llevan `tasa` (%); `02` monto fijo lleva `monto_unitario`. El `precio_unitario` incluye ISC e IGV: khipu separa valor, ISC e IGV (ejemplo: 159.30 = 100 × 1.35 × 1.18).",
+      "El ISC forma parte de la base del IGV (regla 204) y se informa en un `TaxSubtotal` 2000 por línea (con `TierRange` = sistema) y global (reglas 3108, 2373, 3210).",
+      "`icbper: true` marca bolsas de plástico: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año (S/ 0.50 desde 2023, Ley 30884) incluido en el precio; se informa como tributo 7152 sin base ni tasa (reglas 3236–3238).",
+      "La respuesta trae por ítem `isc {sistema, tasa, monto}` e `icbper`, y en `totales` `isc` e `icbper`; `total_precio_venta` los incluye (regla 55).",
+    ],
+    disponible: true,
   },
 ];
 

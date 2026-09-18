@@ -94,7 +94,11 @@ public record ComprobanteResponse(
             @Schema(example = "180.00", description = "IGV de la línea; en gratuitas gravadas se informa pero no se cobra") BigDecimal igv,
             @Schema(example = "1180.00", description = "Lo que paga el cliente por la línea (0.00 en gratuitas)") BigDecimal precioVenta,
             @Schema(example = "false", description = "true si la afectación es gratuita (11–16, 21, 31–37)") boolean gratuita,
-            DescuentoDto descuento) {}
+            DescuentoDto descuento,
+            @Schema(description = "ISC de la línea, si lo tiene") IscDto isc,
+            @Schema(example = "0.00", description = "ICBPER de la línea (bolsas × monto vigente)") BigDecimal icbper) {}
+
+    public record IscDto(@Schema(example = "01") String sistema, @Schema(example = "35") BigDecimal tasa, @Schema(example = "350.00") BigDecimal monto) {}
 
     public record CdrDto(
             @Schema(example = "0", description = "Código de respuesta SUNAT: `0` aceptado; 2000–3999 rechazado (corregir y reemitir); 4000+ aceptado con observaciones; 1000–1999 error del emisor (fault, sin CDR)") String codigo,
@@ -108,6 +112,8 @@ public record ComprobanteResponse(
             @Schema(example = "180.00") BigDecimal igv,
             @Schema(example = "0.00", description = "Base de las operaciones gratuitas (tributo 9996): no se cobra") BigDecimal gratuito,
             @Schema(example = "0.00", description = "IGV de las operaciones gratuitas gravadas: solo informativo, no se cobra") BigDecimal igvGratuitas,
+            @Schema(example = "0.00", description = "Total ISC (se suma al precio de venta y a la base del IGV)") BigDecimal isc,
+            @Schema(example = "0.00", description = "Total ICBPER (bolsas de plástico)") BigDecimal icbper,
             @Schema(example = "1000.00", description = "Total valor de venta onerosa (suma de bases, LineExtensionAmount)") BigDecimal totalValorVenta,
             @Schema(example = "1180.00", description = "Total precio de venta = valor de venta + tributos (TaxInclusiveAmount)") BigDecimal totalPrecioVenta,
             @Schema(example = "0.00", description = "Descuentos que no afectan la base (línea 01 + global 03), AllowanceTotalAmount") BigDecimal totalDescuentos,
@@ -121,7 +127,7 @@ public record ComprobanteResponse(
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),
                 new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(),
-                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().total(),
+                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().isc(), c.totales().icbper(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().total(),
                         c.totales().descuentoGlobal() == null ? null : new DescuentoDto(c.totales().descuentoGlobal().descuento().tipo().name(),
                                 c.totales().descuentoGlobal().descuento().valor(), c.totales().descuentoGlobal().monto(),
                                 c.totales().descuentoGlobal().afectaBase(), c.totales().descuentoGlobal().codigo())),
@@ -147,6 +153,7 @@ public record ComprobanteResponse(
         DescuentoDto d = i.tieneDescuento()
                 ? new DescuentoDto(i.descuento().tipo().name(), i.descuento().valor(), ic.descuento(), i.descuento().afectaBaseIgv(), i.descuento().codigoSunat(false))
                 : null;
-        return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), ic.gratuita(), d);
+        IscDto isc = ic.tieneIsc() ? new IscDto(i.isc().sistema(), ic.iscPorcentaje(), ic.isc()) : null;
+        return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), ic.gratuita(), d, isc, ic.icbper());
     }
 }

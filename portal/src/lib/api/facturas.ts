@@ -46,6 +46,10 @@ export type ItemComprobante = {
   precio_venta?: number;
   gratuita?: boolean;
   descuento?: DescuentoAplicado | null;
+  /** ISC de la línea (sistema del catálogo 08, tasa aplicada y monto). */
+  isc?: { sistema: string; tasa: number; monto: number } | null;
+  /** ICBPER de la línea (bolsas × monto vigente). */
+  icbper?: number;
 };
 
 export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
@@ -128,6 +132,8 @@ export type Comprobante = {
     total_descuentos?: number;
     gratuito?: number;
     igv_gratuitas?: number;
+    isc?: number;
+    icbper?: number;
     descuento_global?: DescuentoAplicado | null;
   };
   forma_pago: FormaPago;

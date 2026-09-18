@@ -139,10 +139,10 @@
   </cac:AllowanceCharge>
   </#if>
   <cac:TaxTotal>
-    <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv()}</cbc:TaxAmount>
+    <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv() + tot.isc() + tot.icbper()}</cbc:TaxAmount>
     <#list tot.subtotales() as st>
     <cac:TaxSubtotal>
-      <cbc:TaxableAmount currencyID="${c.moneda()}">${st.base()}</cbc:TaxableAmount>
+      <#if st.tributo().codigo() != "7152"><cbc:TaxableAmount currencyID="${c.moneda()}">${st.base()}</cbc:TaxableAmount></#if>
       <cbc:TaxAmount currencyID="${c.moneda()}">${st.impuesto()}</cbc:TaxAmount>
       <cac:TaxCategory>
         <@categoriaTributo tr=st.tributo()/>
@@ -179,9 +179,34 @@
     </cac:AllowanceCharge>
     </#if>
     <cac:TaxTotal>
-      <cbc:TaxAmount currencyID="${c.moneda()}">${it.igv()}</cbc:TaxAmount>
+      <cbc:TaxAmount currencyID="${c.moneda()}">${it.totalTributos()}</cbc:TaxAmount>
+      <#-- ISC (2000): base = valor de venta, TierRange = sistema (catálogo 08); reglas 3108, 2373. -->
+      <#if it.tieneIsc()>
       <cac:TaxSubtotal>
         <cbc:TaxableAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="${c.moneda()}">${it.isc()}</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].ISC>
+          <cbc:Percent>${it.iscPorcentaje()?string["0.00###"]}</cbc:Percent>
+          <cbc:TierRange>${it.item().isc().sistema()}</cbc:TierRange>
+          </@categoriaTributo>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+      </#if>
+      <#-- ICBPER (7152): sin base ni tasa; bolsas = cantidad del ítem y monto unitario vigente (reglas 3236–3238). -->
+      <#if it.tieneIcbper()>
+      <cac:TaxSubtotal>
+        <cbc:TaxAmount currencyID="${c.moneda()}">${it.icbper()}</cbc:TaxAmount>
+        <cbc:BaseUnitMeasure unitCode="NIU">${it.item().cantidad()?string["0"]}</cbc:BaseUnitMeasure>
+        <cac:TaxCategory>
+          <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].ICBPER>
+          <cbc:PerUnitAmount currencyID="${c.moneda()}">${it.icbperUnitario()}</cbc:PerUnitAmount>
+          </@categoriaTributo>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+      </#if>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="${c.moneda()}">${it.baseIgv()}</cbc:TaxableAmount>
         <cbc:TaxAmount currencyID="${c.moneda()}">${it.igv()}</cbc:TaxAmount>
         <cac:TaxCategory>
           <@categoriaTributo tr=it.tributo()>
