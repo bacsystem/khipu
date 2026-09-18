@@ -131,6 +131,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.totales().totalAnticipos()).isEqualByComparingTo("404.00");
         assertThat(leido.totales().total()).isEqualByComparingTo("976.00");   // 1380 − 404
         assertThat(repo.buscarPorNumero(t, TipoDocumento.FACTURA, "F001", 99)).isEmpty();
+        assertThat(repo.bloquearPorNumero(t, TipoDocumento.FACTURA, "F001", 9)).map(Comprobante::id).hasValue(c.id());
         // Lo regularizado del anticipo F001-3 suma solo lo de finales no rechazadas
         assertThat(repo.montoRegularizado(t, "F001", 3)).isEqualByComparingTo("300.00");
         assertThat(repo.montoRegularizado(t, "F002", 4)).isEqualByComparingTo("50.00");

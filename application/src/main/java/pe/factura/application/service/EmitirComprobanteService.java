@@ -41,7 +41,6 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         // o persistir el documento: de lo contrario quedaría un FIRMADO huérfano con numeración gastada.
         if (cmd.enviarAutomatico()) tenant.exigirCredencialesSol();
         List<Anticipo> anticipos = cmd.anticipos() == null ? List.of() : cmd.anticipos();
-        anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a));
 
         Comprobante c = Comprobante.crearFactura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(),
                 cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.detraccion(), cmd.retencionIgv(), cmd.percepcion(), anticipos, clock);
@@ -58,6 +57,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 numero = series.siguienteNumero(tenantId, TipoDocumento.FACTURA, cmd.serie());
             }
             c.asignarNumero(numero, tenant.ruc());
+            // Dentro de la transacción y con la factura de anticipo bloqueada: dos finales concurrentes no pueden regularizar el mismo anticipo dos veces.
+            anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a));
 
             String xml = ubl.generar(c, tenant);
             FirmaResultado firma = signer.firmar(xml, tenant.certificado());
@@ -83,7 +84,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
      * que aquella facturó en esa afectación: SUNAT no cruza anticipos entre comprobantes, así que un doble descuento pasaría inadvertido.
      */
     private void validarFacturaDeAnticipo(UUID tenantId, EmitirFacturaCommand cmd, Anticipo a) {
-        Comprobante origen = comprobantes.buscarPorNumero(tenantId, TipoDocumento.FACTURA, a.serie(), a.numero())
+        Comprobante origen = comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, a.serie(), a.numero())
                 .orElseThrow(() -> new DomainException("ANTICIPO_INVALIDO", "3218 - La factura de anticipo " + a.comprobante() + " no existe en esta empresa"));
         if (origen.estado() != EstadoDocumento.ACEPTADO && origen.estado() != EstadoDocumento.ACEPTADO_CON_OBS)
             throw new DomainException("ANTICIPO_INVALIDO", "3218 - La factura de anticipo " + a.comprobante() + " no está aceptada por SUNAT (estado " + origen.estado() + ")");
