@@ -9,8 +9,6 @@ export type CatalogoSunat = {
   entradas: Array<{ codigo: string; descripcion: string; extra: Record<string, string> }>;
 };
 
-export type CatalogoResumen = { id: string; nombre: string; entradas: number };
-
 async function publico<T>(path: string): Promise<T> {
   const res = await fetch(`${apiBaseUrl()}${path}`, { next: { revalidate: 3600 } });
   // Un proxy caído responde HTML: comprobar el estado antes de parsear para que el error diga el HTTP y no "Unexpected token <".
@@ -20,7 +18,5 @@ async function publico<T>(path: string): Promise<T> {
   return json.datos as T;
 }
 
-export function listarCatalogos() { return publico<CatalogoResumen[]>("/v1/catalogos"); }
 /** Todos los catálogos con sus entradas en una sola llamada (`completo=true`). */
 export function listarCatalogosCompletos() { return publico<CatalogoSunat[]>("/v1/catalogos?completo=true"); }
-export function obtenerCatalogo(id: string) { return publico<CatalogoSunat>(`/v1/catalogos/${id}`); }
