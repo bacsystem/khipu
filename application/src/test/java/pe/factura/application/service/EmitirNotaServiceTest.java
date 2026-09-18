@@ -142,6 +142,28 @@ class EmitirNotaServiceTest {
                 null, null, List.of(), excesiva, false))).hasMessageContaining("3320");
     }
 
+    @Test void laNotaTotalNoAplicaSobreFacturasConAnticiposNiAdmiteDescuentosPropios() {
+        // Factura de anticipo aceptada y factura final que la regulariza por completo: total neto 0.
+        Comprobante anticipo = facturaAceptada(FormaPago.contado());
+        Comprobante finalConAnticipo = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", anticipo.numero(), new BigDecimal("200.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1))), null, null, true));
+        assertThat(finalConAnticipo.totales().total()).isEqualByComparingTo("0.00");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(finalConAnticipo.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("regularizó anticipos").hasMessageContaining("0.00");
+        // Con ítems por el neto sí procede.
+        Comprobante nc = service.emitirNota(tenantId, nc(finalConAnticipo.numero(), "01", List.of(new Item("A", "Anulación", "ZZ", BigDecimal.ONE, BigDecimal.ZERO.setScale(2), TipoAfectacionIgv.GRAVADO))));
+        assertThat(nc.totales().total()).isEqualByComparingTo("0.00");
+
+        // Sin ítems, un descuento o cargo propio no se ignora en silencio.
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        assertThatThrownBy(() -> service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "x",
+                null, Descuento.monto(new BigDecimal("5.00"), true), List.of(), null, false))).hasMessageContaining("descuento_global y cargos solo se admiten junto con items");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "x",
+                null, null, List.of(Cargo.global(false, null, Cargo.Tipo.MONTO, new BigDecimal("5.00"))), null, false))).hasMessageContaining("solo se admiten junto con items");
+    }
+
     @Test void sinSerieDeNotaConfigurada() {
         Comprobante f = facturaAceptada(FormaPago.contado());
         assertThatThrownBy(() -> service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC02", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "x", null, null, List.of(), null, false)))

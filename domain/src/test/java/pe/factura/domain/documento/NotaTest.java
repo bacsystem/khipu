@@ -50,6 +50,9 @@ class NotaTest {
         // 13 existe en ambos catálogos con sentidos distintos: en la ND es "Penalidades", no corrige cuotas.
         Comprobante penalidad = nota(TipoDocumento.NOTA_DEBITO, "FD01", new Nota(TipoDocumento.FACTURA, "F001", 12, "13", "Penalidad"), null);
         assertThat(penalidad.nota().descripcionMotivo(TipoDocumento.NOTA_DEBITO)).isEqualTo("Penalidades");
+        assertThat(penalidad.nota().corrigeCuotas(TipoDocumento.NOTA_DEBITO)).isFalse();
+        assertThat(penalidad.items()).isEqualTo(ITEMS);
+        assertThat(penalidad.totales().total()).isEqualByComparingTo("118.00");
     }
 
     @Test void laNotaDeCredito13NoMueveImportes() {
@@ -90,6 +93,7 @@ class NotaTest {
                 Arguments.of("tipo factura en crearNota", "07 (crédito) u 08", (ThrowingCallable) () -> nota(TipoDocumento.FACTURA, "F001", NC_ANULACION, null)),
                 Arguments.of("serie B para una nota sobre factura", "1001", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "BC01", NC_ANULACION, null)),
                 Arguments.of("serie que no es de nota", "1001", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "X001", NC_ANULACION, null)),
+                Arguments.of("ND 13 (penalidad) sin ítems: no es la NC 13, exige ítems", "al menos un ítem", (ThrowingCallable) () -> Comprobante.crearNota(UUID.randomUUID(), TipoDocumento.NOTA_DEBITO, "FD01", LocalDate.of(2026, 9, 18), "PEN", "0101", RECEPTOR, null, null, null, List.of(), new Nota(TipoDocumento.FACTURA, "F001", 1, "13", "Penalidad"), CLOCK)),
                 Arguments.of("NC 13 sin forma de pago al crédito", "3257", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "FC01", new Nota(TipoDocumento.FACTURA, "F001", 1, "13", "x"), null)),
                 Arguments.of("NC 13 al contado", "3257", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "FC01", new Nota(TipoDocumento.FACTURA, "F001", 1, "13", "x"), FormaPago.contado())),
                 Arguments.of("sin nota", "2524", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "FC01", null, null)),

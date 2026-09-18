@@ -63,13 +63,24 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             throw new DomainException("NOTA_INVALIDA", "2885 - La fecha de la nota no puede ser anterior a la de la factura que modifica (" + factura.fechaEmision() + ")");
 
         Nota nota = new Nota(TipoDocumento.FACTURA, factura.serie(), factura.numero(), cmd.motivo(), cmd.descripcion());
-        if (cmd.tipo() == TipoDocumento.NOTA_CREDITO && nota.corrigeCuotas()) {
+        boolean nc13 = nota.corrigeCuotas(cmd.tipo());
+        if (nc13) {
             if (!factura.formaPago().esCredito())
                 throw new DomainException("NOTA_INVALIDA", "3260 - El motivo 13 solo aplica a facturas al crédito y " + nota.documentoAfectado() + " es al contado");
             if (cmd.formaPago() != null) cmd.formaPago().validarComoCorreccionDe(factura.totales().total(), factura.fechaEmision());
         }
         // Nota total: los mismos ítems, descuento y cargos de la factura; así SUNAT ve exactamente los importes que anula (3286 y afines).
-        boolean copia = cmd.copiaLaFactura() && !nota.corrigeCuotas();
+        boolean copia = cmd.copiaLaFactura() && !nc13;
+        if (copia) {
+            // Los anticipos no viajan en una nota (el CreditNote UBL no tiene PrepaidPayment): copiar los ítems daría el bruto y
+            // SUNAT compara contra el neto de la factura (3286). El emisor debe indicar los ítems por el importe que anula.
+            if (!factura.anticipos().isEmpty())
+                throw new DomainException("NOTA_INVALIDA", "La factura " + nota.documentoAfectado() + " regularizó anticipos: indique los items de la nota por el importe neto ("
+                        + factura.totales().total() + ") en vez de omitirlos");
+            // Sin ítems se copian descuento y cargos de la factura; aceptar otros en silencio daría una nota distinta de la pedida.
+            if (cmd.descuentoGlobal() != null || (cmd.cargos() != null && !cmd.cargos().isEmpty()))
+                throw new DomainException("NOTA_INVALIDA", "descuento_global y cargos solo se admiten junto con items; sin items la nota copia los de la factura");
+        }
         Comprobante c = Comprobante.crearNota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), factura.moneda(), factura.tipoOperacion(), factura.receptor(),
                 copia ? factura.items() : cmd.items(), cmd.formaPago(), copia ? factura.descuentoGlobal() : cmd.descuentoGlobal(), copia ? factura.cargos() : cmd.cargos(), nota, clock);
         if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereALaFactura(c.totales(), factura);

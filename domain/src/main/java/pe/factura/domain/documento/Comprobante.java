@@ -153,11 +153,11 @@ public class Comprobante {
         if (!tipo.serieValida(serie) || serie.charAt(0) != nota.serieAfectada().charAt(0))
             throw new DomainException("SERIE_INVALIDA", "1001 - La serie de una nota sobre " + nota.documentoAfectado() + " debe ser " + nota.serieAfectada().charAt(0) + "### : " + serie);
         if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
-        if ((items == null || items.isEmpty()) && !nota.corrigeCuotas()) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
+        boolean nc13 = nota.corrigeCuotas(tipo);
+        if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
         if (receptor == null || !receptor.esRuc()) throw new DomainException("RECEPTOR_INVALIDO", "La nota sobre una factura requiere un receptor con RUC válido");
         if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
         nota.validarMotivoPara(tipo);
-        boolean nc13 = tipo == TipoDocumento.NOTA_CREDITO && nota.corrigeCuotas();
         if (nc13 && (formaPago == null || !formaPago.esCredito()))
             throw new DomainException("NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
         // La NC 13 no mueve importes: una sola línea de valor 0 (regla 3315). La forma de pago de una nota solo tiene sentido

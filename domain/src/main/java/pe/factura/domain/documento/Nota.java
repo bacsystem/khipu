@@ -42,7 +42,8 @@ public record Nota(TipoDocumento tipoAfectado, String serieAfectada, long numero
         return CatalogoSunat.porId(catalogo).flatMap(c -> c.entrada(motivo)).map(CatalogoSunat.Entrada::descripcion).orElse(motivo);
     }
 
-    public boolean corrigeCuotas() { return MOTIVO_NC_CUOTAS.equals(motivo); }
+    /** Solo la nota de crédito 13 corrige cuotas; en la nota de débito el 13 es "Penalidades" (catálogo 10) y lleva ítems como cualquier otra. */
+    public boolean corrigeCuotas(TipoDocumento tipoNota) { return tipoNota == TipoDocumento.NOTA_CREDITO && MOTIVO_NC_CUOTAS.equals(motivo); }
 
     /**
      * Única línea de una NC 13: SUNAT exige importe total cero (regla 3315) y acepta una línea gravada de valor 0 con la

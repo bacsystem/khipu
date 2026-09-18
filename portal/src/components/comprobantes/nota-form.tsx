@@ -56,7 +56,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   }, [seriesDelTipo]);
 
   const esNc = tipo === "07";
-  const esTotal = esNc && MOTIVOS_NC_TOTAL.has(motivo);
+  // Con anticipos regularizados la nota "total" no puede copiar la factura (iría por el bruto, SUNAT compara con el neto): se pide por ítems.
+  const conAnticipos = (factura.anticipos?.length ?? 0) > 0;
+  const esTotal = esNc && MOTIVOS_NC_TOTAL.has(motivo) && !conAnticipos;
   const esCuotas = esNc && motivo === "13";
   const esParcial = esNc && motivo !== "" && !esTotal && !esCuotas;
   const itemsParciales = factura.items
@@ -181,7 +183,10 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
               ))}
             </tbody>
           </table>
-          <p className={cn(AYUDA_CAMPO, "border-t border-border/60 px-3 py-2")}>Ponga 0 en los ítems que no entran en la nota. El descuento de línea solo se conserva si la cantidad es la facturada.</p>
+          <p className={cn(AYUDA_CAMPO, "border-t border-border/60 px-3 py-2")}>
+            {conAnticipos && MOTIVOS_NC_TOTAL.has(motivo) ? `La factura regularizó anticipos (neto ${formatearMonto(factura.moneda, factura.totales.total)}): ajuste las cantidades para que la nota no supere ese importe. ` : ""}
+            Ponga 0 en los ítems que no entran en la nota. El descuento de línea solo se conserva si la cantidad es la facturada.
+          </p>
         </div>
       ) : null}
 
