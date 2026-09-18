@@ -152,7 +152,7 @@
   <cac:AllowanceCharge>
     <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
     <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${tot.descuentoGlobal().codigo()}</cbc:AllowanceChargeReasonCode>
-    <cbc:MultiplierFactorNumeric>${tot.descuentoGlobal().factor()?string["0.00000"]}</cbc:MultiplierFactorNumeric>
+    <#if tot.descuentoGlobal().factor().isPresent()><cbc:MultiplierFactorNumeric>${tot.descuentoGlobal().factor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
     <cbc:Amount currencyID="${c.moneda()}">${tot.descuentoGlobal().monto()}</cbc:Amount>
     <cbc:BaseAmount currencyID="${c.moneda()}">${tot.descuentoGlobal().base()}</cbc:BaseAmount>
   </cac:AllowanceCharge>
@@ -204,7 +204,7 @@
     <cac:AllowanceCharge>
       <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
       <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${it.item().descuento().codigoSunat(false)}</cbc:AllowanceChargeReasonCode>
-      <cbc:MultiplierFactorNumeric>${it.descuentoFactor()?string["0.00000"]}</cbc:MultiplierFactorNumeric>
+      <#if it.descuentoFactor().isPresent()><cbc:MultiplierFactorNumeric>${it.descuentoFactor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
       <cbc:Amount currencyID="${c.moneda()}">${it.descuento()}</cbc:Amount>
       <cbc:BaseAmount currencyID="${c.moneda()}">${it.baseBruta()}</cbc:BaseAmount>
     </cac:AllowanceCharge>

@@ -441,6 +441,25 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /** Regla 3290: con una base grande y descuento fijo el factor de 5 decimales no reproduce el monto, así que no se emite. */
+    @Test void descuentoSinFactorCuandoNoReproduceElMonto() throws Exception {
+        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
+                List.of(new Item("A", "Maquinaria", "NIU", BigDecimal.ONE, new BigDecimal("2006000.00"), TipoAfectacionIgv.GRAVADO, Descuento.monto(new BigDecimal("1000.00"), true))),
+                FormaPago.contado(), Descuento.monto(new BigDecimal("1000.00"), false), FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(11, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+        assertThat(valor(d, "count(/inv:Invoice/cac:InvoiceLine[1]/cac:AllowanceCharge/cbc:MultiplierFactorNumeric)")).isEqualTo("0");
+        assertThat(valor(d, "/inv:Invoice/cac:InvoiceLine[1]/cac:AllowanceCharge/cbc:Amount")).isEqualTo("1000.00");
+        assertThat(valor(d, "count(/inv:Invoice/cac:AllowanceCharge/cbc:MultiplierFactorNumeric)")).isEqualTo("0");
+        assertThat(valor(d, "/inv:Invoice/cac:AllowanceCharge/cbc:Amount")).isEqualTo("1000.00");
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     @Test void sigueValidandoContraElXsdOficial() {
         Tenant t = FreemarkerUblGeneratorTest.tenant();
         String xml = new FreemarkerUblGenerator().generar(facturaConTresAfectaciones(), t)

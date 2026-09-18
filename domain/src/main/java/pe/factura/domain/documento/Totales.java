@@ -36,7 +36,8 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
 
     /** Descuento global aplicado: monto, base sobre la que se calculó y factor SUNAT (catálogo 53: 02 afecta base, 03 no). */
     public record DescuentoGlobalCalculado(Descuento descuento, BigDecimal base, BigDecimal monto) {
-        public BigDecimal factor() { return Descuento.factor(monto, base); }
+        /** Factor para el XML, vacío cuando el redondeo a 5 decimales no reproduce el monto (regla 3307). */
+        public java.util.Optional<BigDecimal> factor() { return Descuento.factor(monto, base); }
         public String codigo() { return descuento.codigoSunat(true); }
         public boolean afectaBase() { return descuento.afectaBaseIgv(); }
     }
