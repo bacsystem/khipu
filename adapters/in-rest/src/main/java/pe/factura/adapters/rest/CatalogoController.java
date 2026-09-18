@@ -6,7 +6,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pe.factura.adapters.rest.dto.CatalogoIndice;
 import pe.factura.adapters.rest.dto.CatalogoResponse;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.catalogo.CatalogoSunat;
@@ -19,14 +21,16 @@ import java.util.List;
 @Tag(name = "Catálogos SUNAT", description = """
         Códigos oficiales que usan los campos de la API (tipo de documento, afectación del IGV, unidades de medida, tipo de
         operación, motivos de nota, cargos y descuentos, detracciones, medios de pago…). Son públicos: no requieren API key.
-        La fuente es el Anexo 8 de las reglas de validación de SUNAT (versión 2026-08-26); la API rechaza con `422` cualquier
-        código que no esté en el catálogo correspondiente.""")
+        La fuente es el Anexo 8 de las reglas de validación de SUNAT (versión 2026-08-26). La API valida contra ellos los códigos
+        que decide el emisor (tipo de operación, afectación del IGV, tipo de documento, moneda) y responde `422` antes de consumir
+        numeración; la unidad de medida no se valida (la lista UN/ECE completa excede el catálogo) y la rechaza SUNAT.""")
 public class CatalogoController {
 
     @GetMapping
-    @Operation(summary = "Listar catálogos", description = "Índice de los catálogos disponibles con su número, nombre y cantidad de entradas.")
-    public ApiResponse<List<CatalogoResponse.ResumenDto>> listar() {
-        return ApiResponse.ok(CatalogoSunat.todos().stream().map(CatalogoResponse::resumen).toList());
+    @Operation(summary = "Listar catálogos", description = "Índice de los catálogos disponibles con su número, nombre y cantidad de entradas. Con `completo=true` devuelve además las entradas de cada uno (una sola llamada para cachear toda la referencia).")
+    public ApiResponse<List<CatalogoIndice>> listar(
+            @Parameter(description = "`true` para incluir las entradas de cada catálogo") @RequestParam(defaultValue = "false") boolean completo) {
+        return ApiResponse.ok(CatalogoSunat.todos().stream().<CatalogoIndice>map(completo ? CatalogoResponse::de : CatalogoResponse::resumen).toList());
     }
 
     @GetMapping("/{id}")
