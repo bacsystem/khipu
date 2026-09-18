@@ -256,24 +256,45 @@ X-Api-Key: fk_TU_API_KEY`,
   {
     id: "retencion",
     titulo: "Con retención del IGV (cliente agente de retención)",
-    cuando: "Su cliente es agente de retención designado por SUNAT y le retendrá el 3 % del total.",
+    cuando: "Su cliente es agente de retención designado por SUNAT: le retiene el 3 % del importe total y lo entera a SUNAT por usted. Se informa en la factura; no cambia los totales.",
     request: `{
-  "...": "campos habituales",
-  "retencion_igv": { "porcentaje": 3, "monto": 354.00 }
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Servicio de consultoría", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 11800.00, "tipo_afectacion_igv": "10" }
+  ],
+  "retencion_igv": {}
 }`,
-    notas: ["Se declara como cargo/descuento `62` (catálogo 53); el neto pendiente de pago de la forma de pago debe descontarla."],
-    disponible: false,
+    notas: [
+      "`retencion_igv: {}` basta: khipu aplica la tasa legal del 3 % sobre el importe total (`porcentaje` y `monto` son opcionales; si envía `monto`, debe coincidir ±1 con base × %, regla 3263).",
+      "La respuesta trae `retencion_igv.monto` y `neto_cobrar` (total − retención). Si la factura es al crédito, ponga `monto_pendiente` = neto a cobrar.",
+      "XML: `cac:AllowanceCharge` global con `ChargeIndicator false`, código **62**, factor 0.03, monto y base = importe total (reglas 3114, 3262–3264). SUNAT verifica además que el cliente esté en el padrón de agentes de retención y usted no (3262/3269): eso no se puede validar localmente.",
+    ],
+    disponible: true,
   },
   {
     id: "percepcion",
     titulo: "Con percepción del IGV (usted es agente de percepción)",
-    cuando: "Su empresa está designada agente de percepción (venta interna 2 %, combustibles 1 %, agente 0,5 %).",
+    cuando: "Su empresa está designada agente de percepción (venta interna de bienes del anexo, combustibles) y cobra la percepción además del importe de la factura.",
     request: `{
-  "...": "campos habituales",
-  "percepcion": { "regimen": "51", "porcentaje": 2, "monto": 236.00 }
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  "tipo_operacion": "2001",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Bebidas gaseosas (caja x 12)", "unidad": "NIU", "cantidad": 100, "precio_unitario": 35.40, "tipo_afectacion_igv": "10" }
+  ],
+  "percepcion": { "regimen": "51" }
 }`,
-    notas: ["Códigos 51/52/53 del catálogo 53; la percepción se suma al importe a pagar (`PayableAmount`) y lleva la leyenda 2000."],
-    disponible: false,
+    notas: [
+      "Exige `tipo_operacion` **2001**, forma de pago al **contado** y moneda **PEN** (reglas 3308, 3330, 2788); con 2001 al contado la percepción es obligatoria (3093).",
+      "`regimen` del catálogo 53: `51` venta interna (2 %), `52` combustible (1 %), `53` agente con tasa especial (0,5 %). La tasa la fija el régimen (catálogo 22); `base` (por defecto el importe total) y `monto` son opcionales y se validan con tolerancia ±1 (2797, 2798).",
+      "El importe a pagar del comprobante (`totales.total`) **no** incluye la percepción; la respuesta trae `percepcion.total_con_percepcion`, que es lo que cobra al cliente, y el XML lleva el `AllowanceCharge` 51/52/53 (`ChargeIndicator true`), un `PaymentTerms` con indicador `Percepcion` y la leyenda 2000.",
+    ],
+    disponible: true,
   },
   {
     id: "anticipos",

@@ -298,6 +298,38 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /** Retención (62, ChargeIndicator false) y percepción (51, true + PaymentTerms 'Percepcion' + leyenda 2000) como AllowanceCharge globales. */
+    @Test void retencionYPercepcionEnElXml() throws Exception {
+        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "2001",
+                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
+                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, null, new RetencionIgv(null, null), new Percepcion("51", null, null, null), FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(13, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        String ret = "/inv:Invoice/cac:AllowanceCharge[cbc:AllowanceChargeReasonCode='62']";
+        assertThat(valor(d, ret + "/cbc:ChargeIndicator")).isEqualTo("false");                    // 3114
+        assertThat(valor(d, ret + "/cbc:MultiplierFactorNumeric")).isEqualTo("0.03000");
+        assertThat(valor(d, ret + "/cbc:Amount")).isEqualTo("35.40");                             // 3263
+        assertThat(valor(d, ret + "/cbc:BaseAmount")).isEqualTo("1180.00");                       // 3264
+        String per = "/inv:Invoice/cac:AllowanceCharge[cbc:AllowanceChargeReasonCode='51']";
+        assertThat(valor(d, per + "/cbc:ChargeIndicator")).isEqualTo("true");                     // 3114
+        assertThat(valor(d, per + "/cbc:MultiplierFactorNumeric")).isEqualTo("0.02000");
+        assertThat(valor(d, per + "/cbc:Amount")).isEqualTo("23.60");                             // 2798
+        assertThat(valor(d, per + "/cbc:Amount/@currencyID")).isEqualTo("PEN");                   // 2792
+        assertThat(valor(d, per + "/cbc:BaseAmount")).isEqualTo("1180.00");                       // 3233
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[cbc:ID='Percepcion']/cbc:Amount")).isEqualTo("1203.60");   // 3309/3310
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='2000']")).isEqualTo("COMPROBANTE DE PERCEPCIÓN");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("1180.00");
+        assertThat(valor(d, "count(/inv:Invoice/cac:AllowanceCharge)")).isEqualTo("2");
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     @Test void sigueValidandoContraElXsdOficial() {
         Tenant t = FreemarkerUblGeneratorTest.tenant();
         String xml = new FreemarkerUblGenerator().generar(facturaConTresAfectaciones(), t)

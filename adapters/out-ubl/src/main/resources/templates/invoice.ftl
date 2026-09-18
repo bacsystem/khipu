@@ -34,6 +34,9 @@
   <#if c.detraccion()??>
   <cbc:Note languageLocaleID="2006">OPERACIÓN SUJETA AL SISTEMA DE PAGO DE OBLIGACIONES TRIBUTARIAS - SPOT</cbc:Note>
   </#if>
+  <#if c.percepcion()??>
+  <cbc:Note languageLocaleID="2000">COMPROBANTE DE PERCEPCIÓN</cbc:Note>
+  </#if>
   <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">${c.moneda()}</cbc:DocumentCurrencyCode>
   <cac:Signature>
     <cbc:ID>signatureFACTURA</cbc:ID>
@@ -99,6 +102,31 @@
     <cbc:ID>FormaPago</cbc:ID>
     <cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>
   </cac:PaymentTerms>
+  </#if>
+  <#if c.percepcion()??>
+  <cac:PaymentTerms>
+    <cbc:ID>Percepcion</cbc:ID>
+    <cbc:Amount currencyID="PEN">${c.percepcion().totalConPercepcion(tot.total())}</cbc:Amount>
+  </cac:PaymentTerms>
+  </#if>
+  <#-- Retención del IGV (62, reglas 3262–3264) y percepción (51/52/53, reglas 2788–2798, 3233): AllowanceCharge globales informativos. -->
+  <#if c.retencion()??>
+  <cac:AllowanceCharge>
+    <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
+    <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">62</cbc:AllowanceChargeReasonCode>
+    <cbc:MultiplierFactorNumeric>${c.retencion().factor()?string["0.00000"]}</cbc:MultiplierFactorNumeric>
+    <cbc:Amount currencyID="${c.moneda()}">${c.retencion().monto()}</cbc:Amount>
+    <cbc:BaseAmount currencyID="${c.moneda()}">${tot.total()}</cbc:BaseAmount>
+  </cac:AllowanceCharge>
+  </#if>
+  <#if c.percepcion()??>
+  <cac:AllowanceCharge>
+    <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
+    <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${c.percepcion().regimen()}</cbc:AllowanceChargeReasonCode>
+    <cbc:MultiplierFactorNumeric>${c.percepcion().factor()?string["0.00000"]}</cbc:MultiplierFactorNumeric>
+    <cbc:Amount currencyID="PEN">${c.percepcion().monto()}</cbc:Amount>
+    <cbc:BaseAmount currencyID="PEN">${c.percepcion().base()}</cbc:BaseAmount>
+  </cac:AllowanceCharge>
   </#if>
   <#-- Descuento global (catálogo 53: 02 afecta la base del IGV, 03 no). Reglas 3072, 3025, 2968, 3016. -->
   <#if tot.descuentoGlobal()??>

@@ -94,6 +94,11 @@ export type Detraccion = {
   medio_pago: string;
 };
 
+/** Retención del IGV informada (código 62): el cliente paga total − monto. */
+export type RetencionIgv = { porcentaje: number; monto: number; neto_cobrar: number };
+/** Percepción cobrada (51/52/53): el cliente paga total + monto. */
+export type Percepcion = { regimen: string; descripcion: string; porcentaje: number; base: number; monto: number; total_con_percepcion: number };
+
 export const FORMA_PAGO_CONTADO: FormaPago = { tipo: "contado", monto_pendiente: null, cuotas: [] };
 
 export type Comprobante = {
@@ -127,6 +132,8 @@ export type Comprobante = {
   };
   forma_pago: FormaPago;
   detraccion?: Detraccion | null;
+  retencion_igv?: RetencionIgv | null;
+  percepcion?: Percepcion | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; cdr?: string };
 };

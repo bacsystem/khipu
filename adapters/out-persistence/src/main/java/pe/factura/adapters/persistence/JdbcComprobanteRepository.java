@@ -38,18 +38,23 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(), c.xmlKey(), c.cdrKey());
         Totales t = c.totales();
         Detraccion d = c.detraccion();
+        RetencionIgv r = c.retencion();
+        Percepcion pc = c.percepcion();
         jdbc.update("""
             INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, receptor_direccion,
               total_gravado, total_exonerado, total_inafecto, total_igv, total, forma_pago, monto_pendiente,
               descuento_global_tipo, descuento_global_valor, descuento_global_afecta_base,
-              detraccion_codigo, detraccion_porcentaje, detraccion_monto, detraccion_cuenta, detraccion_medio_pago)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              detraccion_codigo, detraccion_porcentaje, detraccion_monto, detraccion_cuenta, detraccion_medio_pago,
+              retencion_porcentaje, retencion_monto, percepcion_regimen, percepcion_porcentaje, percepcion_base, percepcion_monto)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, c.id(), c.tipoOperacion(), c.moneda(), c.receptor().tipoDoc(), c.receptor().numDoc(), c.receptor().razonSocial(),
                 c.receptor().direccion(), t.gravado(), t.exonerado(), t.inafecto(), t.igv(), t.total(),
                 c.formaPago().tipo().name(), c.formaPago().montoPendiente(),
                 tipo(c.descuentoGlobal()), valor(c.descuentoGlobal()), afectaBase(c.descuentoGlobal()),
                 d == null ? null : d.codigoBienServicio(), d == null ? null : d.porcentaje(), d == null ? null : d.monto(),
-                d == null ? null : d.cuentaBancoNacion(), d == null ? null : d.medioPago());
+                d == null ? null : d.cuentaBancoNacion(), d == null ? null : d.medioPago(),
+                r == null ? null : r.porcentaje(), r == null ? null : r.monto(),
+                pc == null ? null : pc.regimen(), pc == null ? null : pc.porcentaje(), pc == null ? null : pc.base(), pc == null ? null : pc.monto());
         int nCuota = 1;
         for (FormaPago.Cuota q : c.formaPago().cuotas()) {
             jdbc.update("INSERT INTO comprobante_cuota (comprobante_id, orden, monto, vencimiento) VALUES (?, ?, ?, ?)",
@@ -88,7 +93,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                d.cdr_codigo, d.cdr_descripcion, d.cdr_observaciones::text AS cdr_obs, d.xml_key, d.cdr_key,
                c.tipo_operacion, c.moneda, c.receptor_tipo_doc, c.receptor_num_doc, c.receptor_nombre, c.receptor_direccion,
                c.forma_pago, c.monto_pendiente, c.descuento_global_tipo, c.descuento_global_valor, c.descuento_global_afecta_base,
-               c.detraccion_codigo, c.detraccion_porcentaje, c.detraccion_monto, c.detraccion_cuenta, c.detraccion_medio_pago
+               c.detraccion_codigo, c.detraccion_porcentaje, c.detraccion_monto, c.detraccion_cuenta, c.detraccion_medio_pago,
+               c.retencion_porcentaje, c.retencion_monto, c.percepcion_regimen, c.percepcion_porcentaje, c.percepcion_base, c.percepcion_monto
         FROM documento d JOIN comprobante c ON c.documento_id = d.id
         """;
 
@@ -103,7 +109,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), rs.getString("moneda"), rs.getString("tipo_operacion"),
                 new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion")),
                 items, formaPago(rs, id), descuento(rs.getString("descuento_global_tipo"), rs.getBigDecimal("descuento_global_valor"), rs.getObject("descuento_global_afecta_base", Boolean.class)),
-                detraccion(rs), EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
+                detraccion(rs), retencion(rs), percepcion(rs), EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
                 rs.getString("xml_key"), rs.getString("cdr_key"), cdr, rs.getInt("intentos"), rs.getString("ultimo_error"));
     }
 
@@ -112,12 +118,27 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     private static Boolean afectaBase(Descuento d) { return d == null ? null : d.afectaBaseIgv(); }
 
     private static Descuento descuento(String tipo, java.math.BigDecimal valor, Boolean afectaBase) {
-        return tipo == null ? null : new Descuento(Descuento.Tipo.valueOf(tipo), valor.stripTrailingZeros().scale() < 0 ? valor.setScale(0) : valor.stripTrailingZeros(), Boolean.TRUE.equals(afectaBase));
+        return tipo == null ? null : new Descuento(Descuento.Tipo.valueOf(tipo), sinCeros(valor), Boolean.TRUE.equals(afectaBase));
+    }
+
+    private static RetencionIgv retencion(ResultSet rs) throws SQLException {
+        return rs.getBigDecimal("retencion_monto") == null ? null : new RetencionIgv(sinCeros(rs.getBigDecimal("retencion_porcentaje")), rs.getBigDecimal("retencion_monto"));
+    }
+
+    private static Percepcion percepcion(ResultSet rs) throws SQLException {
+        return rs.getString("percepcion_regimen") == null ? null
+                : new Percepcion(rs.getString("percepcion_regimen"), sinCeros(rs.getBigDecimal("percepcion_porcentaje")), rs.getBigDecimal("percepcion_base"), rs.getBigDecimal("percepcion_monto"));
+    }
+
+    /** NUMERIC devuelve la escala de la columna (12.50000); los objetos de valor comparan escala, así que se normaliza. */
+    private static java.math.BigDecimal sinCeros(java.math.BigDecimal v) {
+        java.math.BigDecimal s = v.stripTrailingZeros();
+        return s.scale() < 0 ? s.setScale(0) : s;
     }
 
     private static Detraccion detraccion(ResultSet rs) throws SQLException {
         if (rs.getString("detraccion_codigo") == null) return null;
-        return new Detraccion(rs.getString("detraccion_codigo"), rs.getBigDecimal("detraccion_porcentaje").stripTrailingZeros().setScale(Math.max(0, rs.getBigDecimal("detraccion_porcentaje").stripTrailingZeros().scale())),
+        return new Detraccion(rs.getString("detraccion_codigo"), sinCeros(rs.getBigDecimal("detraccion_porcentaje")),
                 rs.getBigDecimal("detraccion_monto"), rs.getString("detraccion_cuenta"), rs.getString("detraccion_medio_pago"));
     }
 
