@@ -1,0 +1,74 @@
+package pe.factura.domain.documento;
+
+import org.junit.jupiter.api.Test;
+import pe.factura.domain.DomainException;
+
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/** Detracción (SPOT): reglas 3033, 3034, 3037, 3127, 3128, 3129, 3174 de la hoja Factura2_0 y redondeo del depósito al sol. */
+class DetraccionTest {
+    static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
+
+    static Comprobante factura(String tipoOperacion, Detraccion d) {
+        return Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", tipoOperacion,
+                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("11800.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, d, CLOCK);
+    }
+
+    static void rechaza(Runnable r, String codigoSunat) {
+        assertThatThrownBy(r::run).isInstanceOf(DomainException.class).hasMessageStartingWith(codigoSunat + " -").extracting("codigo").isEqualTo("DETRACCION_INVALIDA");
+    }
+
+    @Test void detraccionValidaEnOperacion1001() {
+        Comprobante c = factura("1001", new Detraccion("022", new BigDecimal("12"), new BigDecimal("1416.00"), " 00-000-123456 ", null));
+        assertThat(c.detraccion().medioPago()).isEqualTo("001");
+        assertThat(c.detraccion().cuentaBancoNacion()).isEqualTo("00-000-123456");
+        assertThat(c.detraccion().descripcionBienServicio()).containsIgnoringCase("servicios");
+        assertThat(c.totales().total()).isEqualByComparingTo("11800.00");   // no altera los totales
+    }
+
+    @Test void montoRedondeadoAlSol() {
+        assertThat(Detraccion.montoSobre(new BigDecimal("11800.00"), new BigDecimal("12"))).isEqualByComparingTo("1416.00");
+        assertThat(Detraccion.montoSobre(new BigDecimal("1234.56"), new BigDecimal("10"))).isEqualByComparingTo("123.00");
+        assertThat(Detraccion.montoSobre(new BigDecimal("1235.00"), new BigDecimal("10"))).isEqualByComparingTo("124.00");
+    }
+
+    @Test void codigoFueraDelCatalogo54_3033() {
+        rechaza(() -> new Detraccion("999", BigDecimal.TEN, BigDecimal.TEN, "cta", null), "3033");
+    }
+
+    @Test void sinCuenta_3034() {
+        rechaza(() -> new Detraccion("022", BigDecimal.TEN, BigDecimal.TEN, " ", null), "3034");
+    }
+
+    @Test void montoNoPositivo_3037() {
+        rechaza(() -> new Detraccion("022", BigDecimal.TEN, BigDecimal.ZERO, "cta", null), "3037");
+    }
+
+    @Test void medioDePagoFueraDelCatalogo59_3174() {
+        rechaza(() -> new Detraccion("022", BigDecimal.TEN, BigDecimal.TEN, "cta", "ZZZ"), "3174");
+    }
+
+    @Test void operacion1001SinDetraccion_3127() {
+        rechaza(() -> factura("1001", null), "3127");
+    }
+
+    @Test void detraccionConOperacion0101_3128() {
+        rechaza(() -> factura("0101", new Detraccion("022", BigDecimal.TEN, BigDecimal.TEN, "cta", null)), "3128");
+    }
+
+    @Test void transporteDeCargaExigeCodigo027_3129() {
+        rechaza(() -> factura("1004", new Detraccion("022", BigDecimal.TEN, BigDecimal.TEN, "cta", null)), "3129");
+        factura("1004", new Detraccion("027", new BigDecimal("4"), new BigDecimal("472.00"), "cta", null));
+    }
+}

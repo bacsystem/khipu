@@ -6,6 +6,8 @@ import jakarta.validation.constraints.*;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Descuento;
+import pe.factura.domain.documento.Detraccion;
+import pe.factura.domain.documento.Totales;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
@@ -25,6 +27,7 @@ public record FacturaRequest(
         @NotEmpty @Valid List<ItemDto> items,
         @Valid @Schema(description = "Forma de pago (RS 193-2020). Si se omite, al contado.") FormaPagoDto formaPago,
         @Valid @Schema(description = "Descuento sobre el total (catálogo 53: `02` si afecta la base del IGV —requiere ítems gravados—, `03` si no). Opcional.") DescuentoDto descuentoGlobal,
+        @Valid @Schema(description = "Detracción (SPOT). Obligatoria cuando `tipo_operacion` es 1001–1004 y prohibida en los demás casos.") DetraccionDto detraccion,
         @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja el comprobante `FIRMADO` para enviarlo luego con `POST /v1/facturas/{id}/enviar` (p. ej. para emitir en lote y enviar después)") Boolean enviarAutomatico) {
 
     public record ClienteDto(
@@ -76,13 +79,35 @@ public record FacturaRequest(
         }
     }
 
+    /** Datos del SPOT: el monto se deposita siempre en soles; para facturas en PEN puede omitirse y khipu lo calcula (total × %, redondeado al sol). */
+    public record DetraccionDto(
+            @NotBlank @Schema(example = "022", description = "Bien o servicio sujeto a detracción, catálogo 54 (`GET /v1/catalogos/54`). Con tipo de operación 1002/1003/1004 debe ser 004/028/027") String codigoBienServicio,
+            @NotNull @Schema(example = "12", description = "Porcentaje de detracción que corresponde al bien/servicio (hasta 5 decimales)") BigDecimal porcentaje,
+            @Schema(example = "1416.00", description = "Monto a depositar **en soles**. Opcional en facturas en PEN (khipu lo calcula); obligatorio en otras monedas") BigDecimal monto,
+            @NotBlank @Schema(example = "00-000-123456", description = "Número de cuenta de detracciones del emisor en el Banco de la Nación") String cuentaBancoNacion,
+            @Schema(example = "001", description = "Medio de pago, catálogo 59; por defecto `001` depósito en cuenta") String medioPago) {
+
+        Detraccion aDominio(String moneda, java.util.function.Supplier<BigDecimal> totalEnPen) {
+            BigDecimal montoFinal = monto;
+            if (montoFinal == null) {
+                if (!"PEN".equals(moneda))
+                    throw new DomainException("DETRACCION_INVALIDA", "3208 - En facturas en " + moneda + " debe indicar el monto de la detracción en soles");
+                montoFinal = Detraccion.montoSobre(totalEnPen.get(), porcentaje);
+            }
+            return new Detraccion(codigoBienServicio, porcentaje, montoFinal, cuentaBancoNacion, medioPago);
+        }
+    }
+
     public EmitirFacturaCommand aComando() {
+        List<Item> itemsDominio = items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
+                i.descuento() == null ? null : i.descuento().aDominio())).toList();
+        Descuento global = descuentoGlobal == null ? null : descuentoGlobal.aDominio();
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
-                items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
-                        i.descuento() == null ? null : i.descuento().aDominio())).toList(),
+                itemsDominio,
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
-                descuentoGlobal == null ? null : descuentoGlobal.aDominio(),
+                global,
+                detraccion == null ? null : detraccion.aDominio(moneda, () -> Totales.calcular(itemsDominio, global).total()),
                 enviarAutomatico == null || enviarAutomatico);
     }
 }

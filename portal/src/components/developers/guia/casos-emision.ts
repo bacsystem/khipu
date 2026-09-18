@@ -228,20 +228,30 @@ X-Api-Key: fk_TU_API_KEY`,
   {
     id: "detraccion",
     titulo: "Operación sujeta a detracción (SPOT)",
-    cuando: "Servicios y bienes del anexo de detracciones (transporte de carga, construcción, servicios empresariales…) por más de S/ 700: el cliente deposita el porcentaje en su cuenta del Banco de la Nación.",
+    cuando: "Servicios y bienes del anexo de detracciones (transporte de carga, construcción, servicios empresariales, arrendamiento…) por más de S/ 700: el cliente deposita el porcentaje en su cuenta del Banco de la Nación y le paga el resto.",
     request: `{
-  "...": "campos habituales",
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
   "tipo_operacion": "1001",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Servicio de consultoría empresarial", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 11800.00, "tipo_afectacion_igv": "10" }
+  ],
   "detraccion": {
     "codigo_bien_servicio": "022",
     "porcentaje": 12,
-    "monto": 1416.00,
-    "cuenta_banco_nacion": "00-000-123456",
-    "medio_pago": "001"
+    "cuenta_banco_nacion": "00-000-123456"
   }
 }`,
-    notas: ["Códigos del catálogo 54 (bien o servicio) y 59 (medio de pago). El monto de la detracción siempre va en soles. khipu añade la leyenda 2006."],
-    disponible: false,
+    notas: [
+      "`tipo_operacion` **1001** (sujeta a detracción; 1002 recursos hidrobiológicos, 1003 transporte de pasajeros, 1004 transporte de carga, que fijan el código 004/028/027). Con 1001–1004 la detracción es obligatoria (3127) y con cualquier otro tipo está prohibida (3128).",
+      "`codigo_bien_servicio` del catálogo 54 y `porcentaje` según la tabla vigente del SPOT para ese bien/servicio (khipu no la impone: consulte la RS 183-2004 y sus modificatorias).",
+      "`monto` siempre en **soles**: en facturas en PEN puede omitirlo y khipu lo calcula (total × %, redondeado al sol, como exige el SPOT); en USD/EUR debe enviarlo convertido al tipo de cambio del día.",
+      "`cuenta_banco_nacion` es la cuenta de detracciones del emisor; `medio_pago` del catálogo 59 (por defecto `001` depósito en cuenta).",
+      "La detracción no cambia los totales: la respuesta trae `detraccion` con la descripción del catálogo y el monto; el XML lleva `PaymentMeans`/`PaymentTerms` con indicador `Detraccion` y la leyenda 2006.",
+    ],
+    disponible: true,
   },
   {
     id: "retencion",

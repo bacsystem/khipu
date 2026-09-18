@@ -261,6 +261,43 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /** Detracción: PaymentMeans con la cuenta BN, PaymentTerms 'Detraccion' con catálogo 54, % y monto en PEN, y leyenda 2006. */
+    @Test void detraccionEnElXml() throws Exception {
+        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "1001",
+                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
+                List.of(new Item("S", "Servicio empresarial", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, new Detraccion("022", new BigDecimal("12"), new BigDecimal("531.00"), "00-000-123456", "001"),
+                FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(12, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        assertThat(valor(d, "/inv:Invoice/cbc:InvoiceTypeCode/@listID")).isEqualTo("1001");
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='2006']")).contains("SPOT");
+        String pm = "/inv:Invoice/cac:PaymentMeans[cbc:ID='Detraccion']";
+        assertThat(valor(d, "count(" + pm + ")")).isEqualTo("1");                                                            // 3034
+        assertThat(valor(d, pm + "/cbc:PaymentMeansCode")).isEqualTo("001");
+        assertThat(valor(d, pm + "/cbc:PaymentMeansCode/@listName")).isEqualTo("Medio de pago");                               // 4252
+        assertThat(valor(d, pm + "/cbc:PaymentMeansCode/@listURI")).isEqualTo("urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo59");
+        assertThat(valor(d, pm + "/cac:PayeeFinancialAccount/cbc:ID")).isEqualTo("00-000-123456");
+        String pt = "/inv:Invoice/cac:PaymentTerms[cbc:ID='Detraccion']";
+        assertThat(valor(d, "count(" + pt + ")")).isEqualTo("1");                                                            // 3127
+        assertThat(valor(d, pt + "/cbc:PaymentMeansID")).isEqualTo("022");
+        assertThat(valor(d, pt + "/cbc:PaymentMeansID/@schemeName")).isEqualTo("Codigo de detraccion");                        // 4255
+        assertThat(valor(d, pt + "/cbc:PaymentMeansID/@schemeURI")).isEqualTo("urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo54");
+        assertThat(valor(d, pt + "/cbc:PaymentPercent")).isEqualTo("12");
+        assertThat(valor(d, pt + "/cbc:Amount")).isEqualTo("531.00");
+        assertThat(valor(d, pt + "/cbc:Amount/@currencyID")).isEqualTo("PEN");                                                 // 3208 aunque la factura sea en USD
+        // El PaymentMeans va antes de los PaymentTerms y la forma de pago sigue presente.
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[cbc:ID='FormaPago']/cbc:PaymentMeansID")).isEqualTo("Contado");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("1180.00");
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     @Test void sigueValidandoContraElXsdOficial() {
         Tenant t = FreemarkerUblGeneratorTest.tenant();
         String xml = new FreemarkerUblGenerator().generar(facturaConTresAfectaciones(), t)

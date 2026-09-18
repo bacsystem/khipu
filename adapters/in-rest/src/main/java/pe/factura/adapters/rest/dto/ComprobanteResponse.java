@@ -2,6 +2,7 @@ package pe.factura.adapters.rest.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import pe.factura.domain.documento.Comprobante;
+import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.ItemCalculado;
@@ -32,6 +33,7 @@ public record ComprobanteResponse(
         @Schema(example = "null", description = "Último error de envío (`código SUNAT - mensaje`), o `null`") String ultimoError,
         CdrDto cdr, TotalesDto totales,
         FormaPagoDto formaPago,
+        @Schema(description = "Detracción (SPOT), solo en operaciones 1001–1004") DetraccionDto detraccion,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     public record FormaPagoDto(
             @Schema(example = "credito", description = "contado | credito") String tipo,
@@ -43,6 +45,18 @@ public record ComprobanteResponse(
             List<CuotaDto> cs = new ArrayList<>();
             for (int k = 0; k < f.cuotas().size(); k++) cs.add(new CuotaDto(FormaPago.idCuota(k + 1), f.cuotas().get(k).monto(), f.cuotas().get(k).vencimiento()));
             return new FormaPagoDto(f.tipo().name().toLowerCase(Locale.ROOT), f.montoPendiente(), cs);
+        }
+    }
+
+    public record DetraccionDto(
+            @Schema(example = "022") String codigoBienServicio,
+            @Schema(example = "Otros servicios empresariales", description = "Descripción del catálogo 54") String descripcion,
+            @Schema(example = "12") BigDecimal porcentaje,
+            @Schema(example = "1416.00", description = "Monto a depositar, siempre en PEN") BigDecimal monto,
+            @Schema(example = "00-000-123456") String cuentaBancoNacion,
+            @Schema(example = "001", description = "Catálogo 59") String medioPago) {
+        static DetraccionDto de(Detraccion d) {
+            return d == null ? null : new DetraccionDto(d.codigoBienServicio(), d.descripcionBienServicio(), d.porcentaje(), d.monto(), d.cuentaBancoNacion(), d.medioPago());
         }
     }
 
@@ -103,6 +117,7 @@ public record ComprobanteResponse(
                                 c.totales().descuentoGlobal().descuento().valor(), c.totales().descuentoGlobal().monto(),
                                 c.totales().descuentoGlobal().afectaBase(), c.totales().descuentoGlobal().codigo())),
                 FormaPagoDto.de(c.formaPago()),
+                DetraccionDto.de(c.detraccion()),
                 enlaces(c, p));
     }
 

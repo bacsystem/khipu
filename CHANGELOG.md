@@ -2,6 +2,12 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.8] - 2026-09-17
+
+### Added
+- API: detracción (SPOT) en la factura (#46). `detraccion { codigo_bien_servicio (catálogo 54), porcentaje, monto (PEN, opcional en facturas en soles: se calcula redondeado al sol), cuenta_banco_nacion, medio_pago (catálogo 59, por defecto 001) }`, obligatoria con `tipo_operacion` 1001–1004 y prohibida en los demás (reglas 3033, 3034, 3037, 3127–3129, 3174, 3208). XML con `cac:PaymentMeans` (cuenta BN) y `cac:PaymentTerms` `Detraccion` (bien/servicio, %, monto en PEN) y leyenda 2006. Respuesta con `detraccion` y la descripción del catálogo. Migración V6.
+- Portal: bloque "Detracción (SPOT)" en la liquidación del comprobante; la guía documenta el caso.
+
 ## [0.1.7] - 2026-09-17
 
 ### Added

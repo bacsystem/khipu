@@ -304,6 +304,32 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"));
     }
 
+    @Test void detraccionEnPenCalculaElMontoYLoDevuelve() throws Exception {
+        String conDetraccion = cuerpo.replace("\"tipo_operacion\":\"0101\"", "\"tipo_operacion\":\"1001\",\"detraccion\":{\"codigo_bien_servicio\":\"022\",\"porcentaje\":12,\"cuenta_banco_nacion\":\"00-000-123456\"}");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "1001", c.receptor(), c.items(),
+                FormaPago.contado(), null, new Detraccion("022", new BigDecimal("12"), new BigDecimal("14.00"), "00-000-123456", null),
+                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conDetraccion))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.detraccion.codigo_bien_servicio").value("022"))
+                .andExpect(jsonPath("$.datos.detraccion.monto").value(14.00))
+                .andExpect(jsonPath("$.datos.detraccion.medio_pago").value("001"))
+                .andExpect(jsonPath("$.datos.detraccion.descripcion").isNotEmpty());
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().detraccion().monto()).isEqualByComparingTo("14.00");   // 118.00 × 12 % = 14.16 → 14 soles
+    }
+
+    @Test void detraccionEnDolaresSinMontoEs422() throws Exception {
+        String usd = cuerpo.replace("\"moneda\":\"PEN\"", "\"moneda\":\"USD\"")
+                .replace("\"tipo_operacion\":\"0101\"", "\"tipo_operacion\":\"1001\",\"detraccion\":{\"codigo_bien_servicio\":\"022\",\"porcentaje\":12,\"cuenta_banco_nacion\":\"00-000-123456\"}");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(usd))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("DETRACCION_INVALIDA"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("3208")));
+    }
+
     @Test void jsonMalformadoEs400() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":"))
                 .andExpect(status().isBadRequest())

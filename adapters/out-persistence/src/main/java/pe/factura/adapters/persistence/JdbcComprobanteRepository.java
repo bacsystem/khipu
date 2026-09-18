@@ -37,14 +37,19 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
             """, c.id(), c.tenantId(), c.tipo().codigo(), c.serie(), c.numero(), Date.valueOf(c.fechaEmision()), c.estado().name(),
                 c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(), c.xmlKey(), c.cdrKey());
         Totales t = c.totales();
+        Detraccion d = c.detraccion();
         jdbc.update("""
             INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, receptor_direccion,
               total_gravado, total_exonerado, total_inafecto, total_igv, total, forma_pago, monto_pendiente,
-              descuento_global_tipo, descuento_global_valor, descuento_global_afecta_base) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              descuento_global_tipo, descuento_global_valor, descuento_global_afecta_base,
+              detraccion_codigo, detraccion_porcentaje, detraccion_monto, detraccion_cuenta, detraccion_medio_pago)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, c.id(), c.tipoOperacion(), c.moneda(), c.receptor().tipoDoc(), c.receptor().numDoc(), c.receptor().razonSocial(),
                 c.receptor().direccion(), t.gravado(), t.exonerado(), t.inafecto(), t.igv(), t.total(),
                 c.formaPago().tipo().name(), c.formaPago().montoPendiente(),
-                tipo(c.descuentoGlobal()), valor(c.descuentoGlobal()), afectaBase(c.descuentoGlobal()));
+                tipo(c.descuentoGlobal()), valor(c.descuentoGlobal()), afectaBase(c.descuentoGlobal()),
+                d == null ? null : d.codigoBienServicio(), d == null ? null : d.porcentaje(), d == null ? null : d.monto(),
+                d == null ? null : d.cuentaBancoNacion(), d == null ? null : d.medioPago());
         int nCuota = 1;
         for (FormaPago.Cuota q : c.formaPago().cuotas()) {
             jdbc.update("INSERT INTO comprobante_cuota (comprobante_id, orden, monto, vencimiento) VALUES (?, ?, ?, ?)",
@@ -82,7 +87,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         SELECT d.id, d.tenant_id, d.tipo, d.serie, d.numero, d.fecha_emision, d.estado, d.hash, d.nombre_archivo, d.intentos, d.ultimo_error,
                d.cdr_codigo, d.cdr_descripcion, d.cdr_observaciones::text AS cdr_obs, d.xml_key, d.cdr_key,
                c.tipo_operacion, c.moneda, c.receptor_tipo_doc, c.receptor_num_doc, c.receptor_nombre, c.receptor_direccion,
-               c.forma_pago, c.monto_pendiente, c.descuento_global_tipo, c.descuento_global_valor, c.descuento_global_afecta_base
+               c.forma_pago, c.monto_pendiente, c.descuento_global_tipo, c.descuento_global_valor, c.descuento_global_afecta_base,
+               c.detraccion_codigo, c.detraccion_porcentaje, c.detraccion_monto, c.detraccion_cuenta, c.detraccion_medio_pago
         FROM documento d JOIN comprobante c ON c.documento_id = d.id
         """;
 
@@ -97,7 +103,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), rs.getString("moneda"), rs.getString("tipo_operacion"),
                 new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion")),
                 items, formaPago(rs, id), descuento(rs.getString("descuento_global_tipo"), rs.getBigDecimal("descuento_global_valor"), rs.getObject("descuento_global_afecta_base", Boolean.class)),
-                EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
+                detraccion(rs), EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
                 rs.getString("xml_key"), rs.getString("cdr_key"), cdr, rs.getInt("intentos"), rs.getString("ultimo_error"));
     }
 
@@ -107,6 +113,12 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
 
     private static Descuento descuento(String tipo, java.math.BigDecimal valor, Boolean afectaBase) {
         return tipo == null ? null : new Descuento(Descuento.Tipo.valueOf(tipo), valor.stripTrailingZeros().scale() < 0 ? valor.setScale(0) : valor.stripTrailingZeros(), Boolean.TRUE.equals(afectaBase));
+    }
+
+    private static Detraccion detraccion(ResultSet rs) throws SQLException {
+        if (rs.getString("detraccion_codigo") == null) return null;
+        return new Detraccion(rs.getString("detraccion_codigo"), rs.getBigDecimal("detraccion_porcentaje").stripTrailingZeros().setScale(Math.max(0, rs.getBigDecimal("detraccion_porcentaje").stripTrailingZeros().scale())),
+                rs.getBigDecimal("detraccion_monto"), rs.getString("detraccion_cuenta"), rs.getString("detraccion_medio_pago"));
     }
 
     private FormaPago formaPago(ResultSet rs, UUID id) throws SQLException {

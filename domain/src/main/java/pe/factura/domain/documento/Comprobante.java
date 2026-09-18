@@ -22,6 +22,7 @@ public class Comprobante {
     private final List<Item> items;
     private final FormaPago formaPago;
     private final Descuento descuentoGlobal;
+    private final Detraccion detraccion;
     private final Totales totales;
     private EstadoDocumento estado;
     private String hash;
@@ -34,10 +35,11 @@ public class Comprobante {
 
     private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
-                        Descuento descuentoGlobal, EstadoDocumento estado) {
+                        Descuento descuentoGlobal, Detraccion detraccion, EstadoDocumento estado) {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
         this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
+        this.detraccion = detraccion;
         this.totales = Totales.calcular(this.items, descuentoGlobal);
         this.estado = estado;
     }
@@ -55,14 +57,23 @@ public class Comprobante {
 
     public static Comprobante crearFactura(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion,
                                            Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, Clock clock) {
+        return crearFactura(tenantId, serie, fechaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, null, clock);
+    }
+
+    public static Comprobante crearFactura(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion,
+                                           Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, Detraccion detraccion, Clock clock) {
         if (!TipoDocumento.FACTURA.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de factura inválida: " + serie);
         if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
         if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
         if (receptor == null || !receptor.esRuc()) throw new DomainException("RECEPTOR_INVALIDO", "La factura requiere un receptor con RUC válido");
         if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
         if (formaPago == null) throw new DomainException("FORMA_PAGO_INVALIDA", "3244 - Debe consignar la forma de pago (contado o crédito)");
+        String operacion = tipoOperacion == null ? "0101" : tipoOperacion;
+        if (detraccion == null && Detraccion.TIPOS_OPERACION.contains(operacion))
+            throw new DomainException("DETRACCION_INVALIDA", "3127 - El tipo de operación " + operacion + " exige los datos de la detracción (bien/servicio, porcentaje, monto y cuenta)");
+        if (detraccion != null) detraccion.validarContra(operacion);
         Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision,
-                moneda, tipoOperacion == null ? "0101" : tipoOperacion, receptor, items, formaPago, descuentoGlobal, EstadoDocumento.RECIBIDO);
+                moneda, operacion, receptor, items, formaPago, descuentoGlobal, detraccion, EstadoDocumento.RECIBIDO);
         formaPago.validarContra(c.totales.total(), fechaEmision);
         return c;
     }
@@ -70,9 +81,9 @@ public class Comprobante {
     /** Solo para persistencia: reconstruye sin validar reglas de creación. */
     public static Comprobante rehidratar(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero,
                                          LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor receptor,
-                                         List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, EstadoDocumento estado, String hash,
-                                         String nombreArchivo, String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
-        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, estado);
+                                         List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, Detraccion detraccion, EstadoDocumento estado,
+                                         String hash, String nombreArchivo, String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
+        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, detraccion, estado);
         c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
         c.intentos = intentos; c.ultimoError = ultimoError;
         return c;

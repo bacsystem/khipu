@@ -23,6 +23,10 @@ test("lista comprobantes con su estado y permite ver el detalle", async ({ page 
   await expect(formaPago.getByText("Crédito")).toBeVisible();
   await expect(formaPago.getByText("Cuota001")).toBeVisible();
   await expect(formaPago.getByText("Cuota002")).toBeVisible();
+  // Detracción (SPOT): bien/servicio del catálogo 54, porcentaje y cuenta del Banco de la Nación.
+  const detraccion = page.getByTestId("detraccion");
+  await expect(detraccion.getByText("Otros servicios empresariales")).toBeVisible();
+  await expect(detraccion.getByText("00-000-123456")).toBeVisible();
   // El detalle abre el XML firmado en una vista previa con su botón de descarga.
   await page.getByRole("button", { name: "Ver XML" }).click();
   await expect(page.getByText("Descargar XML")).toBeVisible();

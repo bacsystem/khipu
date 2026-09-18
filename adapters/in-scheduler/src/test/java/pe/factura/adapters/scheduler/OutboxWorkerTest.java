@@ -30,7 +30,7 @@ class OutboxWorkerTest {
 
     private Comprobante conEstado(EstadoDocumento e, int intentos) {
         return Comprobante.rehidratar(doc, tenant, TipoDocumento.FACTURA, "F001", 1L, LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "X", null), List.of(new Item("P", "d", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null,
+                new Receptor("6", "20601234567", "X", null), List.of(new Item("P", "d", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, null,
                 e, "h", "20100066603-01-F001-1", "k", null, null, intentos, e == EstadoDocumento.ERROR_ENVIO ? "timeout" : null);
     }
 
