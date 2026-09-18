@@ -156,8 +156,11 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         List<GuiaRelacionada> guias = new ArrayList<>();
         List<DocumentoRelacionado> otros = new ArrayList<>();
         jdbc.query("SELECT clase, tipo, numero FROM comprobante_documento_relacionado WHERE comprobante_id = ? ORDER BY orden", (RowCallbackHandler) r -> {
-            if ("GUIA".equals(r.getString("clase"))) guias.add(new GuiaRelacionada(r.getString("tipo"), r.getString("numero")));
-            else otros.add(new DocumentoRelacionado(r.getString("tipo"), r.getString("numero")));
+            switch (r.getString("clase")) {
+                case "GUIA" -> guias.add(new GuiaRelacionada(r.getString("tipo"), r.getString("numero")));
+                case "OTRO" -> otros.add(new DocumentoRelacionado(r.getString("tipo"), r.getString("numero")));
+                default -> throw new IllegalStateException("Clase de documento relacionado desconocida en comprobante " + id + ": " + r.getString("clase"));
+            }
         }, id);
         Referencias referencias = new Referencias(rs.getString("orden_compra"), guias, otros);
         Cdr cdr = rs.getString("cdr_codigo") == null ? null : new Cdr(rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), deJson(rs.getString("cdr_obs")));
