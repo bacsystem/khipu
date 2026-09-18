@@ -40,12 +40,12 @@ public record FacturaRequest(
 
     public record FormaPagoDto(
             @NotBlank @Pattern(regexp = "contado|credito") @Schema(example = "credito") String tipo,
-            @PositiveOrZero @Schema(example = "1180.00", description = "Monto neto pendiente de pago; obligatorio al crédito") BigDecimal montoPendiente,
+            @Schema(example = "1180.00", description = "Monto neto pendiente de pago; obligatorio al crédito. Formato e importes los valida el dominio con el código SUNAT (3250, 3265, 3319)") BigDecimal montoPendiente,
             @Valid @Schema(description = "Cuotas; obligatorias al crédito y deben sumar el monto pendiente") List<CuotaDto> cuotas) {
 
         public record CuotaDto(
-                @NotNull @Positive @Schema(example = "590.00") BigDecimal monto,
-                @NotNull @Schema(example = "2026-10-15", description = "Posterior a la fecha de emisión") LocalDate vencimiento) {}
+                @Schema(example = "590.00", description = "Positivo, hasta 2 decimales (SUNAT 3253)") BigDecimal monto,
+                @Schema(example = "2026-10-15", description = "Posterior a la fecha de emisión (SUNAT 3256, 3267)") LocalDate vencimiento) {}
 
         FormaPago aDominio() {
             List<FormaPago.Cuota> cs = cuotas == null ? List.of() : cuotas.stream().map(q -> new FormaPago.Cuota(q.monto(), q.vencimiento())).toList();

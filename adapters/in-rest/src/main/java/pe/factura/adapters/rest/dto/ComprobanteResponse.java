@@ -8,7 +8,9 @@ import pe.factura.domain.documento.Receptor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -37,9 +39,9 @@ public record ComprobanteResponse(
         public record CuotaDto(@Schema(example = "Cuota001") String id, @Schema(example = "590.00") BigDecimal monto, @Schema(example = "2026-10-15") LocalDate vencimiento) {}
 
         static FormaPagoDto de(FormaPago f) {
-            List<CuotaDto> cs = new java.util.ArrayList<>();
+            List<CuotaDto> cs = new ArrayList<>();
             for (int k = 0; k < f.cuotas().size(); k++) cs.add(new CuotaDto(FormaPago.idCuota(k + 1), f.cuotas().get(k).monto(), f.cuotas().get(k).vencimiento()));
-            return new FormaPagoDto(f.tipo().name().toLowerCase(), f.montoPendiente(), cs);
+            return new FormaPagoDto(f.tipo().name().toLowerCase(Locale.ROOT), f.montoPendiente(), cs);
         }
     }
 

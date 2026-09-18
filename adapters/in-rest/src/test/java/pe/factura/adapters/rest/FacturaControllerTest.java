@@ -235,6 +235,16 @@ class FacturaControllerTest {
         org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
     }
 
+    /** Sin Bean Validation en forma_pago: el formato también lo responde el dominio con el código SUNAT, un solo contrato de error. */
+    @Test void cuotaConMontoNegativoRespondeCodigoSunat3253() throws Exception {
+        String negativa = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"forma_pago\":{\"tipo\":\"credito\",\"monto_pendiente\":118.00,"
+                + "\"cuotas\":[{\"monto\":-1.00,\"vencimiento\":\"2026-10-13\"}]},");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(negativa))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("FORMA_PAGO_INVALIDA"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("3253")));
+    }
+
     @Test void jsonMalformadoEs400() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":"))
                 .andExpect(status().isBadRequest())
