@@ -21,7 +21,8 @@ import java.util.function.Function;
  *   <li>{@code totalDescuentos}: descuentos que no afectan la base (línea 01 + global 03) — AllowanceTotalAmount.</li>
  *   <li>{@code totalCargos}: cargos que no afectan la base (línea 48 + globales 46/50) — ChargeTotalAmount (regla 3301).</li>
  *   <li>{@code totalAnticipos}: importes ya pagados con facturas de anticipo, IGV incluido (PrepaidAmount, regla 66).</li>
- *   <li>{@code total}: importe a pagar (PayableAmount) = precio de venta + cargos − descuentos que no afectan la base − anticipos (regla 3280).</li>
+ *   <li>{@code redondeo}: ajuste del importe total, |x| ≤ 1 (PayableRoundingAmount, regla 3303), para cobrar en efectivo sin céntimos.</li>
+ *   <li>{@code total}: importe a pagar (PayableAmount) = precio de venta + cargos − descuentos que no afectan la base − anticipos + redondeo (regla 3280).</li>
  * </ul>
  * Con anticipos, SUNAT resta su valor sin IGV de la base del tributo que corresponda (04 gravado, 05 exonerado, 06 inafecto:
  * reglas 3277, 3291) pero no del total valor/precio de venta (3278, 3279): por eso {@code gravado/exonerado/inafecto} y el
@@ -29,7 +30,7 @@ import java.util.function.Function;
  */
 public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito, BigDecimal igv, BigDecimal igvGratuitas,
                       BigDecimal isc, BigDecimal icbper,
-                      BigDecimal totalValorVenta, BigDecimal totalPrecioVenta, BigDecimal totalDescuentos, BigDecimal totalCargos, BigDecimal totalAnticipos, BigDecimal total,
+                      BigDecimal totalValorVenta, BigDecimal totalPrecioVenta, BigDecimal totalDescuentos, BigDecimal totalCargos, BigDecimal totalAnticipos, BigDecimal redondeo, BigDecimal total,
                       List<ItemCalculado> items, List<SubtotalTributo> subtotales, DescuentoGlobalCalculado descuentoGlobal, List<CargoCalculado> cargosGlobales,
                       List<AnticipoCalculado> anticipos) {
 
@@ -62,6 +63,13 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     }
 
     public static Totales calcular(List<Item> items, Descuento descuentoGlobal, List<Cargo> cargosGlobales, List<Anticipo> anticipos, BigDecimal tasaIcbper) {
+        return calcular(items, descuentoGlobal, cargosGlobales, anticipos, tasaIcbper, null);
+    }
+
+    public static Totales calcular(List<Item> items, Descuento descuentoGlobal, List<Cargo> cargosGlobales, List<Anticipo> anticipos, BigDecimal tasaIcbper, BigDecimal redondeo) {
+        if (redondeo != null && (redondeo.scale() > 2 || redondeo.abs().compareTo(BigDecimal.ONE) > 0))
+            throw new DomainException("REDONDEO_INVALIDO", "3303 - El redondeo del importe total admite 2 decimales y no puede superar 1.00 en valor absoluto");
+        BigDecimal ajuste = redondeo == null ? z() : redondeo.setScale(2, RoundingMode.HALF_UP);
         List<ItemCalculado> calculados = items.stream().map(i -> ItemCalculado.de(i, tasaIcbper)).toList();
         // Un subtotal por tributo. Para el IGV, SUNAT pide la base global SIN ISC (suma de LineExtensionAmount, regla 3277) aunque el
         // impuesto se calcule sobre las bases de línea CON ISC (reglas 204 y 3291); ISC e ICBPER son subtotales propios (reglas 48, 49-A).
@@ -126,8 +134,10 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         BigDecimal totalCargos = calculados.stream().map(ItemCalculado::cargoNoAfectaBase).reduce(z(), BigDecimal::add)
                 .add(cargos.stream().filter(cg -> !cg.afectaBase()).map(CargoCalculado::monto).reduce(z(), BigDecimal::add));
         BigDecimal totalAnticipos = aplicados.stream().map(AnticipoCalculado::importePagado).reduce(z(), BigDecimal::add);
-        BigDecimal total = totalPrecioVenta.add(totalCargos).subtract(totalDescuentos).subtract(totalAnticipos);
-        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, isc, icbper, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, total,
+        BigDecimal total = totalPrecioVenta.add(totalCargos).subtract(totalDescuentos).subtract(totalAnticipos).add(ajuste);
+        if (total.signum() < 0)
+            throw new DomainException("REDONDEO_INVALIDO", "3303 - El redondeo deja el importe total en negativo (" + total + ")");
+        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, isc, icbper, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, ajuste, total,
                 calculados, List.copyOf(subtotales), global, List.copyOf(cargos), aplicados);
     }
 
@@ -155,6 +165,8 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     public boolean tieneAnticipos() { return !anticipos.isEmpty(); }
 
     public boolean tieneCargosGlobales() { return !cargosGlobales.isEmpty(); }
+
+    public boolean tieneRedondeo() { return redondeo.signum() != 0; }
 
     public boolean tieneGratuitas() { return gratuito.signum() > 0; }
 

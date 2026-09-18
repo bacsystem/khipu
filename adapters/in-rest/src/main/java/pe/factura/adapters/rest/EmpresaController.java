@@ -50,15 +50,15 @@ public class EmpresaController {
     }
 
     @PutMapping("/empresa/datos-fiscales")
-    @Operation(summary = "Guardar domicilio fiscal y cuenta de detracciones", description = """
+    @Operation(summary = "Guardar domicilio fiscal, cuenta de detracciones y nombre comercial", description = """
             Domicilio fiscal del emisor (ubigeo del catálogo 13, dirección, urbanización, establecimiento anexo) que khipu escribe en
-            `cac:RegistrationAddress` de cada XML, y la cuenta de detracciones del Banco de la Nación que se usa cuando una factura
-            sujeta a detracción no indica la suya. Reemplaza ambos valores: envíe `null` en el que quiera borrar.
-            Errores: `422 DOMICILIO_INVALIDO` (mensaje con la regla SUNAT: 4093 ubigeo, 4094 dirección, 3030 establecimiento) o
-            `422 CUENTA_DETRACCIONES_INVALIDA`.""")
+            `cac:RegistrationAddress` de cada XML, la cuenta de detracciones del Banco de la Nación que se usa cuando una factura
+            sujeta a detracción no indica la suya, y el nombre comercial (`cac:PartyName`). Reemplaza los tres valores: envíe `null`
+            en el que quiera borrar. Errores: `422 DOMICILIO_INVALIDO` (mensaje con la regla SUNAT: 4093 ubigeo, 4094 dirección,
+            3030 establecimiento), `422 CUENTA_DETRACCIONES_INVALIDA` o `422 NOMBRE_COMERCIAL_INVALIDO` (4092).""")
     public ApiResponse<EmpresaResponse> datosFiscales(HttpServletRequest req, @Valid @RequestBody DatosFiscalesRequest body) {
         return ApiResponse.ok(EmpresaResponse.de(admin.actualizarDatosFiscales(TenantActual.id(req),
-                body.domicilio() == null ? null : body.domicilio().aDominio(), body.cuentaDetracciones())));
+                body.domicilio() == null ? null : body.domicilio().aDominio(), body.cuentaDetracciones(), body.nombreComercial())));
     }
 
     @PutMapping("/empresa/credenciales-sol")

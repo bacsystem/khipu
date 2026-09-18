@@ -33,6 +33,8 @@ export type EmpresaDetalle = {
   certificado_vigencia_hasta: string | null;
   domicilio?: Domicilio | null;
   cuenta_detracciones?: string | null;
+  /** Nombre comercial del emisor (cac:PartyName); null si no lo configuró. */
+  nombre_comercial?: string | null;
 };
 
 export function listarEmpresas(access: string) {

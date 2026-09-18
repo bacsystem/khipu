@@ -19,9 +19,12 @@ test("guarda el domicilio fiscal eligiendo el ubigeo en cascada y la cuenta de d
   await expect(form.getByText("Ubigeo 150122 (catálogo 13)")).toBeVisible();
   await form.getByLabel("Dirección").fill("Av. Larco 345 Of. 12");
   await form.getByLabel(/Cuenta de detracciones/).fill("00-000-123456");
+  await form.getByLabel(/Nombre comercial/).fill("Andina Store");
   await form.getByRole("button", { name: "Guardar datos fiscales" }).click();
 
   await expect(form.getByText("Datos fiscales actualizados", { exact: false })).toBeVisible();
   await expect(page.getByTestId("domicilio-actual")).toContainText("Av. Larco 345 Of. 12 · MIRAFLORES, LIMA, LIMA (150122)");
   await expect(page.getByText("Cód. local domicilio: 0000")).toBeVisible();
+  // El nombre comercial guardado vuelve al formulario tras el refresh.
+  await expect(page.getByLabel(/Nombre comercial/)).toHaveValue("Andina Store");
 });

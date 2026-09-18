@@ -50,6 +50,11 @@ class DomicilioTest {
         assertThat(t.domicilio().distrito()).isEqualTo("MIRAFLORES");
         assertThat(t.conDatosFiscales(null, "").domicilio()).isNull();
         assertThat(t.conDatosFiscales(null, "").cuentaDetracciones()).isNull();
+        assertThat(t.conDatosFiscales(null, null, "  Andina Store ").nombreComercial()).isEqualTo("Andina Store");
+        assertThat(t.conDatosFiscales(null, null, "  ").nombreComercial()).isNull();
+        assertThat(t.conDatosFiscales(null, null, "X").conDatosFiscales(null, null).nombreComercial()).isEqualTo("X");   // la sobrecarga de 2 args lo conserva
+        assertThatThrownBy(() -> t.conDatosFiscales(null, null, "Con\nsalto")).extracting("codigo").isEqualTo("NOMBRE_COMERCIAL_INVALIDO");
+        assertThatThrownBy(() -> t.conDatosFiscales(null, null, "A".repeat(1501))).extracting("codigo").isEqualTo("NOMBRE_COMERCIAL_INVALIDO");
         assertThatThrownBy(() -> t.conDatosFiscales(null, "cuenta"))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CUENTA_DETRACCIONES_INVALIDA");
     }

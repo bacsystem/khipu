@@ -55,6 +55,9 @@ export type ItemComprobante = {
   isc?: { sistema: string; tasa: number; monto: number } | null;
   /** ICBPER de la línea (bolsas × monto vigente). */
   icbper?: number;
+  /** Código de producto SUNAT (catálogo 25, UNSPSC) y GTIN, si el emisor los informó. */
+  codigo_sunat?: string | null;
+  gtin?: { tipo: string; codigo: string } | null;
 };
 
 export const ETIQUETAS_GUIA: Record<string, string> = { "09": "Guía de remisión remitente", "31": "Guía de remisión transportista" };
@@ -141,6 +144,8 @@ export type Comprobante = {
   serie: string;
   numero: number;
   fecha_emision: string;
+  /** Fecha de vencimiento informada (cbc:DueDate), o ausente. */
+  fecha_vencimiento?: string | null;
   moneda: string;
   tipo_operacion: string | null;
   receptor: Receptor | null;
@@ -163,6 +168,8 @@ export type Comprobante = {
     /** Cargos que no afectan la base del IGV (línea 48 + globales 46/50): ChargeTotalAmount. */
     total_cargos?: number;
     total_anticipos?: number;
+    /** Redondeo del importe total (PayableRoundingAmount), entre −1 y 1. */
+    redondeo?: number;
     gratuito?: number;
     igv_gratuitas?: number;
     isc?: number;

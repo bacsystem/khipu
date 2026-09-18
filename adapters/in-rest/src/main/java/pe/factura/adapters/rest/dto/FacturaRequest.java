@@ -7,11 +7,13 @@ import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Anticipo;
 import pe.factura.domain.documento.Cargo;
+import pe.factura.domain.documento.CodigoProductoSunat;
 import pe.factura.domain.documento.Descuento;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.Percepcion;
 import pe.factura.domain.documento.RetencionIgv;
 import pe.factura.domain.documento.FormaPago;
+import pe.factura.domain.documento.Gtin;
 import pe.factura.domain.documento.Isc;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
@@ -28,6 +30,7 @@ public record FacturaRequest(
         @NotBlank @Pattern(regexp = "F[A-Z0-9]{3}", message = "serie de factura inválida") @Schema(example = "F001", description = "Serie de factura: `F` + 3 alfanuméricos, registrada previamente en `POST /v1/series`") String serie,
         @Positive @Schema(example = "125", description = "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`") Long correlativo,
         @NotNull @Schema(example = "2026-09-14", description = "Fecha de emisión (`YYYY-MM-DD`), no futura. SUNAT exige recibir la factura dentro de los 3 días calendario siguientes") LocalDate fechaEmision,
+        @Schema(example = "2026-10-14", description = "Fecha de vencimiento del pago (`cbc:DueDate`), no anterior a la de emisión. Informativa: al crédito las cuotas de `forma_pago` siguen siendo obligatorias. Opcional") LocalDate fechaVencimiento,
         @Pattern(regexp = "\\d{4}") @Schema(example = "0101", description = "Tipo de operación, catálogo 51 (`GET /v1/catalogos/51`); un código fuera del catálogo responde `422 TIPO_OPERACION_INVALIDO` (regla 3206). `0101` venta interna (por defecto), `1001` operación sujeta a detracción. Exportación (`0200`) aún no soportada") String tipoOperacion,
         @NotBlank @Pattern(regexp = "PEN|USD|EUR") @Schema(example = "PEN", description = "Moneda ISO 4217 de todo el comprobante: `PEN`, `USD` o `EUR` (catálogo 02)") String moneda,
         @NotNull @Valid ClienteDto cliente,
@@ -42,6 +45,7 @@ public record FacturaRequest(
         @Size(min = 1, max = 20) @Schema(example = "OC-2026-0457", description = "Número de la orden de compra o de servicio del cliente (1–20 caracteres, sin saltos de línea): `cac:OrderReference`. Opcional, informativo (regla 4233)") String ordenCompra,
         @Valid @Schema(description = "Guías de remisión que sustentan el traslado (`cac:DespatchDocumentReference`). Opcional.") List<GuiaDto> guias,
         @Valid @Schema(description = "Otros documentos relacionados con la operación (`cac:AdditionalDocumentReference`, catálogo 12). Opcional; las facturas de anticipo van en `anticipos`.") List<DocumentoRelacionadoDto> documentosRelacionados,
+        @Schema(example = "-0.40", description = "Redondeo del importe total (`PayableRoundingAmount`): se suma al total a pagar; entre −1.00 y 1.00 con 2 decimales (regla 3303). Útil para cobrar en efectivo sin céntimos. Opcional") BigDecimal redondeo,
         @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja el comprobante `FIRMADO` para enviarlo luego con `POST /v1/facturas/{id}/enviar` (p. ej. para emitir en lote y enviar después)") Boolean enviarAutomatico) {
 
     public record ClienteDto(
@@ -65,7 +69,15 @@ public record FacturaRequest(
             @Valid @Schema(description = "Descuento de la línea (catálogo 53: `00` si afecta la base del IGV, `01` si no). Opcional.") DescuentoDto descuento,
             @Valid @Schema(description = "Cargos de la línea (catálogo 53): `afecta_base_igv: true` → `47` (se suma al valor de venta y paga IGV), `false` → `48` (se cobra sin IGV). No admitidos en gratuitas. Opcional.") List<CargoDto> cargos,
             @Valid @Schema(description = "Impuesto Selectivo al Consumo del ítem (bebidas alcohólicas, combustibles, vehículos…). Opcional; el `precio_unitario` lo incluye.") IscDto isc,
-            @Schema(example = "false", description = "`true` si el ítem son bolsas de plástico afectas al ICBPER: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año incluido en `precio_unitario`") Boolean icbper) {}
+            @Schema(example = "false", description = "`true` si el ítem son bolsas de plástico afectas al ICBPER: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año incluido en `precio_unitario`") Boolean icbper,
+            @Pattern(regexp = "[0-9]{8}", message = "código de producto SUNAT de 8 dígitos (UNSPSC, catálogo 25)") @Schema(example = "15101505", description = "Código de producto SUNAT (catálogo 25, UNSPSC de 8 dígitos; `GET /v1/catalogos/25` lista los que SUNAT exige a los padrones obligados, detracciones y percepciones). Opcional; obligatorio para los emisores del padrón (regla 4331). SUNAT observa los que no llegan al tercer nivel (terminados en 0000, regla 4337)") String codigoSunat,
+            @Valid @Schema(description = "Código GTIN (GS1) del producto. Opcional") GtinDto gtin) {}
+
+    public record GtinDto(
+            @NotBlank @Pattern(regexp = "GTIN-(8|12|13|14)", message = "tipo de GTIN: GTIN-8, GTIN-12, GTIN-13 o GTIN-14") @Schema(example = "GTIN-13", description = "Estructura GS1: `GTIN-8`, `GTIN-12`, `GTIN-13` o `GTIN-14` (regla 4335)") String tipo,
+            @NotBlank @Schema(example = "7750182000123", description = "Dígitos del código; la longitud debe coincidir con el tipo (regla 4334)") String codigo) {
+        Gtin aDominio() { return new Gtin(tipo, codigo); }
+    }
 
     /** ISC: sistema del catálogo 08; `tasa` (%) para 01 al valor, `monto_unitario` para 02 monto fijo. El 03 (precio de venta al público) no está soportado. */
     public record IscDto(
@@ -181,11 +193,11 @@ public record FacturaRequest(
     }
 
     public EmitirFacturaCommand aComando() {
-        return new EmitirFacturaCommand(serie, correlativo, fechaEmision, moneda, tipoOperacion,
+        return new EmitirFacturaCommand(serie, correlativo, fechaEmision, fechaVencimiento, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
                 items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
                         i.descuento() == null ? null : i.descuento().aDominio(), i.isc() == null ? null : i.isc().aDominio(), Boolean.TRUE.equals(i.icbper()),
-                        cargos(i.cargos(), false))).toList(),
+                        cargos(i.cargos(), false), CodigoProductoSunat.de(i.codigoSunat()), i.gtin() == null ? null : i.gtin().aDominio())).toList(),
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
                 descuentoGlobal == null ? null : descuentoGlobal.aDominio(),
                 cargos(cargos, true),
@@ -195,6 +207,7 @@ public record FacturaRequest(
                 anticipos == null ? List.of() : anticipos.stream().map(AnticipoDto::aDominio).toList(),
                 new Referencias(ordenCompra, guias == null ? List.of() : guias.stream().map(GuiaDto::aDominio).toList(),
                         documentosRelacionados == null ? List.of() : documentosRelacionados.stream().map(DocumentoRelacionadoDto::aDominio).toList()),
+                redondeo,
                 enviarAutomatico == null || enviarAutomatico);
     }
 

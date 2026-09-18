@@ -13,6 +13,7 @@ Id	Nombre	Entradas
 16	Código de tipo de precio de venta unitario	3
 22	Código de regimen de percepciones	3
 23	Código de regimen de retenciones	2
+25	Código de producto SUNAT (UNSPSC; solo los listados 25.1 padrón obligado, 25.2 detracciones y 25.3 percepciones — el catálogo completo lo publica SUNAT)	89
 51	Código de tipo de operación	31
 52	Códigos de leyendas	15
 53	Códigos de cargos, descuentos y otras deducciones	22

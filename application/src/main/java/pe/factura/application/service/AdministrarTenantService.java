@@ -42,8 +42,8 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
 
     public Tenant obtener(UUID tenantId) { return tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado")); }
 
-    public Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones) {
-        Tenant t = obtener(tenantId).conDatosFiscales(domicilio, cuentaDetracciones);
+    public Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial) {
+        Tenant t = obtener(tenantId).conDatosFiscales(domicilio, cuentaDetracciones, nombreComercial);
         uow.ejecutar(() -> tenants.guardar(t));
         return t;
     }

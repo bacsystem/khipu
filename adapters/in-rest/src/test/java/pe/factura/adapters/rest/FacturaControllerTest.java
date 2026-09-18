@@ -378,6 +378,42 @@ class FacturaControllerTest {
         org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
     }
 
+    @Test void camposOpcionalesEntranYSalen() throws Exception {
+        String con = cuerpo
+                .replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"codigo_sunat\":\"15101505\",\"gtin\":{\"tipo\":\"GTIN-13\",\"codigo\":\"7750182000123\"}}")
+                .replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"fecha_vencimiento\":\"2026-10-13\",\"redondeo\":-0.37,");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "0101", c.receptor(),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123"))),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(con))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.fecha_vencimiento").value("2026-10-13"))
+                .andExpect(jsonPath("$.datos.items[0].codigo_sunat").value("15101505"))
+                .andExpect(jsonPath("$.datos.items[0].gtin.tipo").value("GTIN-13"))
+                .andExpect(jsonPath("$.datos.totales.redondeo").value(-0.37))
+                .andExpect(jsonPath("$.datos.totales.total").value(118.00));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().fechaVencimiento()).isEqualTo(LocalDate.of(2026, 10, 13));
+        assertThat(cap.getValue().redondeo()).isEqualByComparingTo("-0.37");
+        assertThat(cap.getValue().items().get(0).gtin()).isEqualTo(new Gtin("GTIN-13", "7750182000123"));
+    }
+
+    @Test void camposOpcionalesInvalidosSon422() throws Exception {
+        String gtinCorto = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"gtin\":{\"tipo\":\"GTIN-13\",\"codigo\":\"775018\"}}");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(gtinCorto))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("ITEM_INVALIDO"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("4334")));
+        String codigoSunatMal = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"codigo_sunat\":\"1510\"}");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(codigoSunatMal))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errores['items[0].codigoSunat']").exists());
+        // fecha_vencimiento anterior a la emisión y redondeo fuera de ±1 los rechaza el dominio (FECHA_INVALIDA, REDONDEO_INVALIDO): ver CamposOpcionalesTest.
+        org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
+    }
+
     @Test void lineaGratuitaAceptadaYMarcadaEnLaRespuesta() throws Exception {
         String conBonificacion = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\"},{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}");
         Comprobante c = aceptado(tenant);

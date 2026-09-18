@@ -31,13 +31,14 @@ class JdbcTenantRepositoryTest extends PersistenciaTestBase {
 
     @Test void guardaDomicilioFiscalYCuentaDeDetracciones() {
         Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, null, null)
-                .conDatosFiscales(new Domicilio("150122", "Av. Larco 345 Of. 12", "Urb. Aurora", null, null, null, "0002"), "00-000-123456");
+                .conDatosFiscales(new Domicilio("150122", "Av. Larco 345 Of. 12", "Urb. Aurora", null, null, null, "0002"), "00-000-123456", "Andina Store");
         repo.guardar(t);
         Tenant r = repo.buscar(t.id()).orElseThrow();
         assertThat(r.domicilio()).isEqualTo(t.domicilio());
         assertThat(r.domicilio().distrito()).isEqualTo("MIRAFLORES");
         assertThat(r.cuentaDetracciones()).isEqualTo("00-000-123456");
-        repo.guardar(r.conDatosFiscales(null, null));
+        assertThat(r.nombreComercial()).isEqualTo("Andina Store");
+        repo.guardar(r.conDatosFiscales(null, null, null));
         Tenant sin = repo.buscar(t.id()).orElseThrow();
         assertThat(sin.domicilio()).isNull();
         assertThat(sin.cuentaDetracciones()).isNull();

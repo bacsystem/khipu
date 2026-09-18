@@ -27,6 +27,7 @@
   <cbc:ID>${c.serie()}-${c.numero()?c}</cbc:ID>
   <cbc:IssueDate>${fechaEmision}</cbc:IssueDate>
   <#if horaEmision??><cbc:IssueTime>${horaEmision}</cbc:IssueTime></#if>
+  <#if c.fechaVencimiento()??><cbc:DueDate>${c.fechaVencimiento().toString()}</cbc:DueDate></#if>
   <cbc:InvoiceTypeCode listID="${c.tipoOperacion()}" listAgencyName="PE:SUNAT" listName="Tipo de Documento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01">${c.tipo().codigo()}</cbc:InvoiceTypeCode>
   <cbc:Note languageLocaleID="1000">${montoEnLetras}</cbc:Note>
   <#if tot.tieneGratuitas()>
@@ -82,6 +83,8 @@
   <cac:AccountingSupplierParty>
     <cac:Party>
       <cac:PartyIdentification><cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${t.ruc()}</cbc:ID></cac:PartyIdentification>
+      <#-- Nombre comercial (campo 11, regla 4092): opcional; solo cuando la empresa lo configuró. -->
+      <#if t.nombreComercial()??><cac:PartyName><cbc:Name>${t.nombreComercial()}</cbc:Name></cac:PartyName></#if>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${t.razonSocial()}</cbc:RegistrationName>
         <#-- Domicilio fiscal (reglas 4093–4098, 4041; establecimiento anexo 3030): ubigeo del catálogo 13 y dirección en una línea. -->
@@ -234,6 +237,9 @@
     <#if tot.tieneAnticipos()>
     <cbc:PrepaidAmount currencyID="${c.moneda()}">${tot.totalAnticipos()}</cbc:PrepaidAmount>
     </#if>
+    <#if tot.tieneRedondeo()>
+    <cbc:PayableRoundingAmount currencyID="${c.moneda()}">${tot.redondeo()}</cbc:PayableRoundingAmount>
+    </#if>
     <cbc:PayableAmount currencyID="${c.moneda()}">${tot.total()}</cbc:PayableAmount>
   </cac:LegalMonetaryTotal>
   <#list tot.items() as it>
@@ -307,6 +313,9 @@
     <cac:Item>
       <cbc:Description>${it.item().descripcion()}</cbc:Description>
       <#if it.item().codigo()??><cac:SellersItemIdentification><cbc:ID>${it.item().codigo()}</cbc:ID></cac:SellersItemIdentification></#if>
+      <#-- GTIN (campo 29, reglas 4333–4335) y código de producto SUNAT (campo 28, catálogo 25 UNSPSC; reglas 3496, 4331). -->
+      <#if it.item().tieneGtin()><cac:StandardItemIdentification><cbc:ID schemeID="${it.item().gtin().tipo()}">${it.item().gtin().codigo()}</cbc:ID></cac:StandardItemIdentification></#if>
+      <#if it.item().tieneCodigoSunat()><cac:CommodityClassification><cbc:ItemClassificationCode listID="UNSPSC" listAgencyName="GS1 US" listName="Item Classification">${it.item().codigoSunat().codigo()}</cbc:ItemClassificationCode></cac:CommodityClassification></#if>
     </cac:Item>
     <cac:Price><cbc:PriceAmount currencyID="${c.moneda()}">${it.valorUnitario()?string["0.0000000000"]}</cbc:PriceAmount></cac:Price>
   </cac:InvoiceLine>

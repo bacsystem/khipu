@@ -31,6 +31,7 @@ test("lista comprobantes con su estado y permite ver el detalle", async ({ page 
   const anticipos = page.getByTestId("anticipos");
   await expect(anticipos.getByText("F001-90")).toBeVisible();
   await expect(anticipos.getByText(/gravado \(04\)/)).toBeVisible();
+  await expect(page.getByText(/^Vence 1 Nov 2026/)).toBeVisible();
   // Documentos relacionados: orden de compra y guía de remisión con su tipo del catálogo 01.
   const referencias = page.getByTestId("referencias");
   await expect(referencias.getByText("OC-2026-0457")).toBeVisible();
