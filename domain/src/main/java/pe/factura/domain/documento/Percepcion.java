@@ -5,6 +5,7 @@ import pe.factura.domain.catalogo.CatalogoSunat;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Map;
 
 /**
  * Percepción del IGV cobrada por un agente de percepción (catálogo 53: 51 venta interna 2 %, 52 combustible 1 %,
@@ -14,11 +15,14 @@ import java.math.RoundingMode;
 public record Percepcion(String regimen, BigDecimal porcentaje, BigDecimal base, BigDecimal monto) {
 
     public static final String TIPO_OPERACION = "2001";
+    /** Régimen del catálogo 53 (código de cargo en el XML) → fila del catálogo 22 que publica su tasa. */
+    private static final Map<String, String> TASA_POR_REGIMEN = Map.of("51", "01", "52", "02", "53", "03");
 
     public Percepcion {
-        if (regimen == null || !regimen.matches("5[123]"))
+        if (regimen == null || !TASA_POR_REGIMEN.containsKey(regimen))
             throw new DomainException("PERCEPCION_INVALIDA", "3071 - El régimen de percepción debe ser 51, 52 o 53 (catálogo 53)");
-        BigDecimal tasaCatalogo = new BigDecimal(CatalogoSunat.porId("22").orElseThrow().entrada("0" + regimen.charAt(1)).orElseThrow().extra().get("Porcentaje %"));
+        BigDecimal tasaCatalogo = CatalogoSunat.porId("22").flatMap(c -> c.entrada(TASA_POR_REGIMEN.get(regimen))).map(e -> new BigDecimal(e.extra().get("Porcentaje %")))
+                .orElseThrow(() -> new DomainException("PERCEPCION_INVALIDA", "El catálogo 22 no publica la tasa del régimen " + regimen));
         porcentaje = porcentaje == null ? tasaCatalogo : porcentaje;
         if (porcentaje.compareTo(tasaCatalogo) != 0)
             throw new DomainException("PERCEPCION_INVALIDA", "La tasa del régimen " + regimen + " es " + tasaCatalogo + " % (catálogo 22), no " + porcentaje + " %");
