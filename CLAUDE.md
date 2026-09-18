@@ -47,7 +47,7 @@ Module dependency direction (`settings.gradle.kts`), one-way only:
 ```
 domain  ←  application  ←  adapters/{in-rest, in-scheduler, out-ubl, out-signing,
                                       out-sunat-soap, out-storage, out-persistence,
-                                      out-crypto, out-mail}  ←  bootstrap
+                                      out-crypto, out-mail, out-pdf}  ←  bootstrap
 ```
 
 `bootstrap/src/test/.../ArchitectureTest.java` enforces this at build time: `domain` cannot depend on `application`/`adapters`/Spring/SQL; `application` cannot depend on `adapters`; adapter packages cannot depend on each other. `domain` has three packages: `tenant`, `cuenta`, `documento`. `application` has `port.in` (use cases), `port.out` (repository/gateway interfaces), `service` (implementations). Each adapter implements one or more `port.out` interfaces or exposes a `port.in` use case (REST, scheduler). `bootstrap` is the only module allowed to know about all of them — it's where Spring wiring, `application.yml`, and Flyway migrations (`bootstrap/src/main/resources/db/migration`) live.

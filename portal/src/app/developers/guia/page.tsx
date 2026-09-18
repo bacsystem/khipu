@@ -161,7 +161,7 @@ export default function GuiaPage() {
             ["ultimo_error", <>Solo en <Codigo>ERROR_ENVIO</Codigo>: código y mensaje del fallo de comunicación con SUNAT; khipu reintenta solo.</>],
             ["totales", "Lo que khipu calculó: úselo para conciliar con su sistema (tolerancia SUNAT ±1)."],
             ["hash", "Resumen de la firma: se imprime en la representación impresa y en el QR."],
-            ["enlaces.xml / enlaces.cdr", <>Descargas. <Codigo>cdr</Codigo> solo aparece cuando SUNAT emitió la constancia.</>],
+            ["enlaces.xml / enlaces.pdf / enlaces.cdr", <>Descargas: XML firmado, representación impresa (PDF con QR y hash, disponible desde <Codigo>FIRMADO</Codigo>) y CDR. <Codigo>cdr</Codigo> solo aparece cuando SUNAT emitió la constancia.</>],
           ]}
         />
       </Seccion>
@@ -189,7 +189,12 @@ export default function GuiaPage() {
           </li>
           <li>
             <strong className="text-foreground">Guarde el <Codigo>id</Codigo></strong> que devuelve khipu junto a su documento interno; con él consulta el estado y
-            descarga XML y CDR.
+            descarga XML, PDF y CDR.
+          </li>
+          <li>
+            <strong className="text-foreground">Entregue el comprobante al cliente</strong> con <Codigo>POST /v1/facturas/{"{id}"}/correo</Codigo>{" "}
+            <Codigo>{"{ email, mensaje? }"}</Codigo>: khipu adjunta PDF, XML y CDR. Solo comprobantes aceptados (<Codigo>409 NO_ACEPTADO</Codigo>); el
+            QR del PDF codifica <Codigo>RUC|tipo|serie|número|IGV|total|fecha|tipo y nº de documento del cliente|hash</Codigo>.
           </li>
           <li>
             <strong className="text-foreground">No trate <Codigo>ERROR_ENVIO</Codigo> como fallo definitivo:</strong> es SUNAT no disponible; consulte el estado más

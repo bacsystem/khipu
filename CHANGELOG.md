@@ -2,6 +2,17 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.19] - 2026-09-18
+
+### Added
+- API: representación impresa (#23): `GET /v1/facturas/{id}/pdf` devuelve el PDF del comprobante (emisor, adquirente, ítems, totales, cuotas, detracción/retención/percepción, anticipos, monto en letras, QR y hash) generado con una plantilla por tipo (factura, boleta, nota de crédito, nota de débito); se genera la primera vez y se guarda junto al XML (`.pdf`), disponible desde `FIRMADO` (`422 SIN_FIRMA` antes). El QR codifica `RUC|tipo|serie|número|IGV|total|fecha|tipo doc adquirente|nº doc adquirente|hash|` (`CodigoQr` en el dominio, con test). `enlaces.pdf` en las respuestas.
+- API: `POST /v1/facturas/{id}/correo { email, mensaje? }` envía al adquirente el PDF, el XML firmado y el CDR adjuntos (202); solo comprobantes aceptados (`409 NO_ACEPTADO`). `CorreoSender` admite adjuntos (SMTP multipart; en modo log lista los archivos).
+- Portal: "Ver PDF" en el detalle y en la tabla; "Enviar por correo" con formulario inline (correo del cliente y mensaje) en comprobantes aceptados. Guía y errores documentados.
+- Nuevo adaptador `adapters/out-pdf` (Flying Saucer + OpenPDF, ZXing para el QR, plantillas Freemarker XHTML en `pdf/`).
+
+### Changed
+- `DocumentStorage.existe(key)`; `ConsultarComprobanteService` recibe `TenantRepository` y `PdfGenerator`.
+
 ## [0.1.18] - 2026-09-18
 
 ### Added

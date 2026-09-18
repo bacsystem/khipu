@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":adapters:in-rest"))
     implementation(project(":adapters:in-scheduler"))
     implementation(project(":adapters:out-ubl"))
+    implementation(project(":adapters:out-pdf"))
     implementation(project(":adapters:out-signing"))
     implementation(project(":adapters:out-sunat-soap"))
     implementation(project(":adapters:out-storage"))

@@ -14,6 +14,8 @@ springSecurityCrypto = "6.3.3"
 javaJwt = "4.4.0"
 springdoc = "2.6.0"
 swagger = "2.2.22"
+flyingSaucer = "9.13.0"
+zxing = "3.5.3"
 
 [libraries]
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter", version.ref = "springBoot" }
@@ -30,6 +32,9 @@ flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgres = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 postgres = { module = "org.postgresql:postgresql", version.ref = "postgres" }
 freemarker = { module = "org.freemarker:freemarker", version.ref = "freemarker" }
+flying-saucer-pdf = { module = "org.xhtmlrenderer:flying-saucer-pdf", version.ref = "flyingSaucer" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+zxing-javase = { module = "com.google.zxing:javase", version.ref = "zxing" }
 testcontainers-postgres = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 testcontainers-junit = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
 wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }

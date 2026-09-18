@@ -43,7 +43,8 @@ Respáldala junto con la base de datos. Lo mismo aplica a `API_KEY_PEPPER`: rota
 3. `POST /v1/empresa/certificado` (multipart PFX + clave).
 4. `POST /v1/series` `{"tipo":"01","serie":"F001","correlativo_inicial":0}`.
 5. `POST /v1/facturas` → `201` con estado y CDR.
-6. `GET /v1/facturas/{id}/xml` · `/cdr`.
+6. `GET /v1/facturas/{id}/xml` · `/pdf` · `/cdr`; `POST /v1/facturas/{id}/correo` envía los tres al cliente.
+7. `POST /v1/notas` (crédito/débito) y `POST /v1/facturas/{id}/baja` (anulación dentro de 7 días).
 
 Documentación de diseño: `docs/superpowers/specs/README.md`. Plan: `docs/superpowers/plans/fase-1a/README.md`.
 

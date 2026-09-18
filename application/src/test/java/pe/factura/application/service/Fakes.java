@@ -60,6 +60,7 @@ final class Fakes {
         final Map<String, byte[]> datos = new HashMap<>();
         public void guardar(String k, byte[] c) { datos.put(k, c); }
         public byte[] leer(String k) { byte[] b = datos.get(k); if (b == null) throw new IllegalStateException("no existe " + k); return b; }
+        public boolean existe(String k) { return datos.containsKey(k); }
     }
     static final class Outbox implements OutboxRepository {
         record Fila(UUID tenantId, String accion, UUID agregadoId, Instant cuando) {}

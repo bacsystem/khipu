@@ -32,6 +32,7 @@ class FacturaControllerTest {
     @MockBean EnviarDocumentoUseCase enviar;
     @MockBean ConsultarComprobanteUseCase consultar;
     @MockBean pe.factura.application.port.in.DarDeBajaUseCase bajas;
+    @MockBean CompartirComprobanteUseCase compartir;
 
     UUID tenant = UUID.randomUUID();
 
@@ -68,6 +69,41 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.datos.notas[0].motivo_descripcion").value("Anulación de la operación"))
                 .andExpect(jsonPath("$.datos.notas[0].estado_documento").value("ACEPTADO"))
                 .andExpect(jsonPath("$.datos.notas[0].total").value(118.00));
+    }
+
+    @Test void elPdfSeDescargaInlineConSuNombreYElEnlaceApareceEnElDetalle() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        when(consultar.pdf(tenant, c.id())).thenReturn("%PDF-1.4".getBytes());
+        mvc.perform(get("/v1/facturas/{id}/pdf", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/pdf"))
+                .andExpect(header().string("Content-Disposition", "inline; filename=\"20100066603-01-F001-601.pdf\""))
+                .andExpect(content().bytes("%PDF-1.4".getBytes()));
+        mvc.perform(get("/v1/facturas/{id}", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.enlaces.pdf").value("/v1/facturas/" + c.id() + "/pdf"));
+    }
+
+    @Test void enviarPorCorreoValidaElEmailYResponde202() throws Exception {
+        UUID id = UUID.randomUUID();
+        mvc.perform(post("/v1/facturas/{id}/correo", id).requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                        .content("{\"email\":\" Compras@Cliente.pe \",\"mensaje\":\"Gracias por su compra.\"}"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.estado").value("exito"));
+        verify(compartir).enviarPorCorreo(tenant, id, "compras@cliente.pe", "Gracias por su compra.");
+
+        mvc.perform(post("/v1/facturas/{id}/correo", id).requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                        .content("{\"email\":\"no-es-un-correo\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores.email").exists());
+
+        doThrow(new DomainException("NO_ACEPTADO", "Solo se envían comprobantes aceptados por SUNAT; F001-1 está FIRMADO"))
+                .when(compartir).enviarPorCorreo(eq(tenant), eq(id), eq("x@y.pe"), isNull());
+        mvc.perform(post("/v1/facturas/{id}/correo", id).requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                        .content("{\"email\":\"x@y.pe\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("NO_ACEPTADO"));
     }
 
     @Test void enlaceCdrSoloCuandoHayConstancia() throws Exception {

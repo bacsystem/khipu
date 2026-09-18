@@ -116,6 +116,11 @@ export function admiteBaja(c: Pick<Comprobante, "tipo" | "estado_documento" | "f
   return diasEntre(c.fecha_emision, hoy) <= PLAZO_BAJA_DIAS;
 }
 
+/** Solo lo que SUNAT ya aceptó se envía al cliente por correo (PDF + XML + CDR). */
+export function admiteCorreo(c: Pick<Comprobante, "estado_documento">): boolean {
+  return c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS";
+}
+
 /** Una factura aceptada por SUNAT (con o sin observaciones) admite notas de crédito/débito. */
 export function admiteNotas(c: Pick<Comprobante, "tipo" | "estado_documento">): boolean {
   return c.tipo === "01" && (c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS");
@@ -244,7 +249,7 @@ export type Comprobante = {
   /** Solo al consultar: la comunicación de baja más reciente (en curso, aceptada o rechazada). */
   baja?: Baja | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
-  enlaces: { xml: string; cdr?: string };
+  enlaces: { xml: string; pdf?: string; cdr?: string };
 };
 
 export function esEstadoFinal(estado: EstadoDocumento): boolean {

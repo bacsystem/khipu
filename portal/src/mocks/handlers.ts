@@ -268,7 +268,7 @@ export const handlers = [
       totales: { gravado: Number((total / 1.18).toFixed(2)), exonerado: 0, inafecto: 0, igv: Number((total - total / 1.18).toFixed(2)), total: Number(total.toFixed(2)) },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       nota: { tipo_afectado: "01", documento_afectado: `${factura.serie}-${factura.numero}`, motivo: body.motivo, motivo_descripcion: motivos[body.motivo] ?? "Otros", descripcion: body.descripcion },
-      enlaces: { xml: `/v1/facturas/${id}/xml`, cdr: `/v1/facturas/${id}/cdr` },
+      enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },
     };
     lista.unshift(nota);
     return ok(nota, 201);
@@ -306,6 +306,26 @@ export const handlers = [
     factura.cdr = { codigo: "0", descripcion: "Aceptado", observaciones: [] };
     factura.enlaces = { ...factura.enlaces, cdr: `/v1/facturas/${factura.id}/cdr` };
     return ok(factura);
+  }),
+
+  // Representación impresa: un PDF mínimo válido (lo que importa en el portal es el enlace y el tipo de contenido).
+  http.get(`${BASE}/v1/facturas/:id/pdf`, () =>
+    new HttpResponse("%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF", {
+      headers: { "content-type": "application/pdf", "content-disposition": 'inline; filename="20123456789-01-F001-00000001.pdf"' },
+    }),
+  ),
+  // Envío por correo al adquirente: solo comprobantes aceptados; el backend valida el email (422 VALIDACION).
+  http.post(`${BASE}/v1/facturas/:id/correo`, async ({ params, request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const factura = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === params.id);
+    if (!factura) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
+    const body = (await request.json()) as { email: string; mensaje?: string | null };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email ?? "")) {
+      return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: { email: ["debe ser una dirección de correo electrónico con formato correcto"] } }, { status: 422 });
+    }
+    if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(409, "NO_ACEPTADO", `Solo se envían comprobantes aceptados por SUNAT; ${factura.serie}-${factura.numero} está ${factura.estado_documento}`);
+    db.correos.push({ comprobante: factura.id, email: body.email, mensaje: body.mensaje ?? null });
+    return ok(null, 202);
   }),
 
   http.get(

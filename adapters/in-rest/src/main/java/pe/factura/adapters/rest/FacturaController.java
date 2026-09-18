@@ -13,7 +13,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pe.factura.adapters.rest.dto.ComprobanteResponse;
+import pe.factura.adapters.rest.dto.CorreoRequest;
 import pe.factura.adapters.rest.dto.FacturaRequest;
+import pe.factura.application.port.in.CompartirComprobanteUseCase;
 import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.in.DarDeBajaUseCase;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
@@ -43,6 +45,7 @@ public class FacturaController {
     private final EnviarDocumentoUseCase enviar;
     private final ConsultarComprobanteUseCase consultar;
     private final DarDeBajaUseCase bajas;
+    private final CompartirComprobanteUseCase compartir;
 
 
     @PostMapping
@@ -115,6 +118,30 @@ public class FacturaController {
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_XML)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + c.nombreArchivo() + ".xml\"")
                 .body(consultar.xml(t, id));
+    }
+
+    @GetMapping("/{id}/pdf")
+    @Operation(summary = "Descargar la representación impresa (PDF)", description = """
+            PDF con los datos del emisor y del adquirente, ítems, totales, el código QR (RUC|tipo|serie|número|IGV|total|fecha|
+            tipo y número de documento del adquirente|hash) y el valor resumen (hash de la firma). Se genera la primera vez que se
+            pide y se guarda junto al XML. Disponible desde que el comprobante está `FIRMADO`; `422 SIN_FIRMA` antes.""")
+    public ResponseEntity<byte[]> pdf(HttpServletRequest req, @PathVariable UUID id) {
+        UUID t = TenantActual.id(req);
+        Comprobante c = consultar.obtener(t, id);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + c.nombreArchivo() + ".pdf\"")
+                .body(consultar.pdf(t, id));
+    }
+
+    @PostMapping("/{id}/correo")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(summary = "Enviar el comprobante por correo al adquirente", description = """
+            Envía al correo indicado la representación impresa (PDF), el XML firmado y la constancia de recepción (CDR) como
+            adjuntos, con un mensaje opcional del emisor. Solo comprobantes `ACEPTADO` o `ACEPTADO_CON_OBS`: `409 NO_ACEPTADO`
+            en cualquier otro estado.""")
+    public ApiResponse<Void> correo(HttpServletRequest req, @PathVariable UUID id, @Valid @RequestBody CorreoRequest body) {
+        compartir.enviarPorCorreo(TenantActual.id(req), id, body.email(), body.mensaje());
+        return ApiResponse.ok(null);
     }
 
     @GetMapping("/{id}/cdr")
