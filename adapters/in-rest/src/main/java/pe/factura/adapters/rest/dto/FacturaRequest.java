@@ -7,6 +7,8 @@ import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Descuento;
 import pe.factura.domain.documento.Detraccion;
+import pe.factura.domain.documento.Percepcion;
+import pe.factura.domain.documento.RetencionIgv;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
@@ -27,6 +29,8 @@ public record FacturaRequest(
         @Valid @Schema(description = "Forma de pago (RS 193-2020). Si se omite, al contado.") FormaPagoDto formaPago,
         @Valid @Schema(description = "Descuento sobre el total (catálogo 53: `02` si afecta la base del IGV —requiere ítems gravados—, `03` si no). Opcional.") DescuentoDto descuentoGlobal,
         @Valid @Schema(description = "Detracción (SPOT). Obligatoria cuando `tipo_operacion` es 1001–1004 y prohibida en los demás casos.") DetraccionDto detraccion,
+        @Valid @Schema(description = "Retención del IGV que aplicará el cliente por ser agente de retención (catálogo 53: 62). Informativa; no cambia los totales.") RetencionDto retencionIgv,
+        @Valid @Schema(description = "Percepción del IGV que cobra la empresa por ser agente de percepción (catálogo 53: 51/52/53). Solo con `tipo_operacion` 2001, al contado y en PEN.") PercepcionDto percepcion,
         @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja el comprobante `FIRMADO` para enviarlo luego con `POST /v1/facturas/{id}/enviar` (p. ej. para emitir en lote y enviar después)") Boolean enviarAutomatico) {
 
     public record ClienteDto(
@@ -89,6 +93,20 @@ public record FacturaRequest(
         Detraccion aDominio() { return new Detraccion(codigoBienServicio, porcentaje, monto, cuentaBancoNacion, medioPago); }
     }
 
+    public record RetencionDto(
+            @Schema(example = "3", description = "Porcentaje de retención; por defecto la tasa legal 3 %") BigDecimal porcentaje,
+            @Schema(example = "354.00", description = "Importe retenido; opcional: khipu lo calcula sobre el importe total (tolerancia SUNAT ±1)") BigDecimal monto) {
+        RetencionIgv aDominio() { return new RetencionIgv(porcentaje, monto); }
+    }
+
+    public record PercepcionDto(
+            @NotBlank @Pattern(regexp = "5[123]") @Schema(example = "51", description = "Régimen (catálogo 53): `51` venta interna 2 %, `52` combustible 1 %, `53` tasa especial 0,5 %") String regimen,
+            @Schema(example = "2", description = "Tasa; opcional, la fija el régimen (catálogo 22)") BigDecimal porcentaje,
+            @Schema(example = "1180.00", description = "Base de la percepción; por defecto el importe total") BigDecimal base,
+            @Schema(example = "23.60", description = "Monto; opcional: khipu lo calcula (base × tasa, tolerancia ±1)") BigDecimal monto) {
+        Percepcion aDominio() { return new Percepcion(regimen, porcentaje, base, monto); }
+    }
+
     public EmitirFacturaCommand aComando() {
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
@@ -97,6 +115,8 @@ public record FacturaRequest(
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
                 descuentoGlobal == null ? null : descuentoGlobal.aDominio(),
                 detraccion == null ? null : detraccion.aDominio(),
+                retencionIgv == null ? null : retencionIgv.aDominio(),
+                percepcion == null ? null : percepcion.aDominio(),
                 enviarAutomatico == null || enviarAutomatico);
     }
 }

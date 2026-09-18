@@ -2,6 +2,13 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.9] - 2026-09-17
+
+### Added
+- API: retención del IGV informada en la factura (#47): `retencion_igv { porcentaje (3 % por defecto), monto (opcional, calculado sobre el importe total, tolerancia ±1) }` → `cac:AllowanceCharge` 62 (reglas 3114, 3262–3264); respuesta con `neto_cobrar`.
+- API: percepción del IGV (#48): `percepcion { regimen 51/52/53, porcentaje (lo fija el catálogo 22), base (por defecto el total), monto (opcional) }`, solo con `tipo_operacion` 2001, al contado y en PEN (2788, 2797, 2798, 3093, 3308, 3330) → `cac:AllowanceCharge` 51/52/53 con `ChargeIndicator true`, `PaymentTerms` `Percepcion` con el total más percepción (3309/3310) y leyenda 2000; respuesta con `total_con_percepcion`. Migración V7.
+- Portal: bloques de retención y percepción en la liquidación; la guía documenta ambos casos.
+
 ## [0.1.8] - 2026-09-17
 
 ### Added

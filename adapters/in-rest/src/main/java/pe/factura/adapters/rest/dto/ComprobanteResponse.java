@@ -34,6 +34,8 @@ public record ComprobanteResponse(
         CdrDto cdr, TotalesDto totales,
         FormaPagoDto formaPago,
         @Schema(description = "Detracción (SPOT), solo en operaciones 1001–1004") DetraccionDto detraccion,
+        @Schema(description = "Retención del IGV informada (código 62); el cliente paga total − monto") RetencionDto retencionIgv,
+        @Schema(description = "Percepción cobrada (51/52/53); el cliente paga total + monto") PercepcionDto percepcion,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     public record FormaPagoDto(
             @Schema(example = "credito", description = "contado | credito") String tipo,
@@ -59,6 +61,13 @@ public record ComprobanteResponse(
             return d == null ? null : new DetraccionDto(d.codigoBienServicio(), d.descripcionBienServicio(), d.porcentaje(), d.monto(), d.cuentaBancoNacion(), d.medioPago());
         }
     }
+
+    public record RetencionDto(@Schema(example = "3") BigDecimal porcentaje, @Schema(example = "35.40") BigDecimal monto,
+                               @Schema(example = "1144.60", description = "Importe total menos la retención") BigDecimal netoCobrar) {}
+
+    public record PercepcionDto(@Schema(example = "51") String regimen, @Schema(example = "Percepción venta interna") String descripcion,
+                                @Schema(example = "2") BigDecimal porcentaje, @Schema(example = "1180.00") BigDecimal base, @Schema(example = "23.60") BigDecimal monto,
+                                @Schema(example = "1203.60", description = "Importe total más la percepción: lo que paga el cliente") BigDecimal totalConPercepcion) {}
 
     public record ReceptorDto(
             @Schema(example = "6", description = "Catálogo 06 SUNAT: 6=RUC, 1=DNI") String tipoDoc,
@@ -118,6 +127,9 @@ public record ComprobanteResponse(
                                 c.totales().descuentoGlobal().afectaBase(), c.totales().descuentoGlobal().codigo())),
                 FormaPagoDto.de(c.formaPago()),
                 DetraccionDto.de(c.detraccion()),
+                c.retencion() == null ? null : new RetencionDto(c.retencion().porcentaje(), c.retencion().monto(), c.totales().total().subtract(c.retencion().monto())),
+                c.percepcion() == null ? null : new PercepcionDto(c.percepcion().regimen(), c.percepcion().descripcionRegimen(), c.percepcion().porcentaje(),
+                        c.percepcion().base(), c.percepcion().monto(), c.percepcion().totalConPercepcion(c.totales().total())),
                 enlaces(c, p));
     }
 

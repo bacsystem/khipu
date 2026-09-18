@@ -332,6 +332,34 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("3208")));
     }
 
+    @Test void retencionYPercepcionEntranYSalen() throws Exception {
+        String conAmbas = cuerpo.replace("\"tipo_operacion\":\"0101\"", "\"tipo_operacion\":\"2001\",\"retencion_igv\":{},\"percepcion\":{\"regimen\":\"51\"}");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "2001", c.receptor(), c.items(),
+                FormaPago.contado(), null, null, new RetencionIgv(null, null), new Percepcion("51", null, null, null),
+                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conAmbas))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.retencion_igv.monto").value(3.54))
+                .andExpect(jsonPath("$.datos.retencion_igv.neto_cobrar").value(114.46))
+                .andExpect(jsonPath("$.datos.percepcion.regimen").value("51"))
+                .andExpect(jsonPath("$.datos.percepcion.monto").value(2.36))
+                .andExpect(jsonPath("$.datos.percepcion.total_con_percepcion").value(120.36));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().retencionIgv().porcentaje()).isEqualByComparingTo("3");
+        assertThat(cap.getValue().percepcion().regimen()).isEqualTo("51");
+    }
+
+    @Test void percepcionSinOperacion2001Es422ConCodigoSunat() throws Exception {
+        String mal = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"percepcion\":{\"regimen\":\"51\"},");
+        when(emitir.emitirFactura(eq(tenant), any())).thenThrow(new DomainException("PERCEPCION_INVALIDA", "3308 - Solo se informa percepción con tipo de operación 2001, no 0101"));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(mal))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("PERCEPCION_INVALIDA"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("3308")));
+    }
+
     @Test void jsonMalformadoEs400() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":"))
                 .andExpect(status().isBadRequest())

@@ -440,6 +440,31 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           </div>
           <FormaPagoDetalle formaPago={c.forma_pago} moneda={c.moneda} />
           {c.detraccion ? <DetraccionDetalle detraccion={c.detraccion} /> : null}
+          {c.retencion_igv ? (
+            <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="retencion">
+              <div className="flex items-center justify-between">
+                <span className={ETIQUETA}>Retención del IGV ({c.retencion_igv.porcentaje}%)</span>
+                <span className="font-mono tabular-nums text-foreground/80">−{formatearMonto(c.moneda, c.retencion_igv.monto)}</span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between text-muted-foreground">
+                <span>Neto a cobrar (el cliente entera la retención a SUNAT)</span>
+                <span className="font-mono font-semibold text-foreground tabular-nums">{formatearMonto(c.moneda, c.retencion_igv.neto_cobrar)}</span>
+              </div>
+            </div>
+          ) : null}
+          {c.percepcion ? (
+            <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="percepcion">
+              <div className="flex items-center justify-between">
+                <span className={ETIQUETA}>Percepción {c.percepcion.regimen} ({c.percepcion.porcentaje}%)</span>
+                <span className="font-mono tabular-nums text-foreground/80">+{formatearMonto("PEN", c.percepcion.monto)}</span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between text-muted-foreground">
+                <span>Total con percepción (lo que paga el cliente)</span>
+                <span className="font-mono font-semibold text-foreground tabular-nums">{formatearMonto("PEN", c.percepcion.total_con_percepcion)}</span>
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground/80">{c.percepcion.descripcion}</p>
+            </div>
+          ) : null}
         </section>
       </div>
     </div>
