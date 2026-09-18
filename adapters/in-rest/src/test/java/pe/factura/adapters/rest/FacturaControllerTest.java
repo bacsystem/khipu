@@ -322,6 +322,46 @@ class FacturaControllerTest {
         org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
     }
 
+    @Test void documentosRelacionadosEntranYSalen() throws Exception {
+        String conRefs = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"orden_compra\":\"OC-2026-0457\","
+                + "\"guias\":[{\"tipo\":\"09\",\"numero\":\"T001-123\"}],\"documentos_relacionados\":[{\"tipo\":\"05\",\"numero\":\"SCOP-8841203\"}],");
+        Comprobante c = aceptado(tenant);
+        Referencias refs = new Referencias("OC-2026-0457", List.of(new GuiaRelacionada("09", "T001-123")), List.of(new DocumentoRelacionado("05", "SCOP-8841203")));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
+                c.items(), FormaPago.contado(), null, List.of(), null, null, null, List.of(), refs, Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conRefs))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.referencias.orden_compra").value("OC-2026-0457"))
+                .andExpect(jsonPath("$.datos.referencias.guias[0].tipo").value("09"))
+                .andExpect(jsonPath("$.datos.referencias.guias[0].numero").value("T001-123"))
+                .andExpect(jsonPath("$.datos.referencias.documentos_relacionados[0].tipo").value("05"));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().referencias()).isEqualTo(refs);
+        // Sin referencias, el bloque no aparece en la respuesta.
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        mvc.perform(get("/v1/facturas/" + c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.referencias").doesNotExist());
+    }
+
+    @Test void documentoRelacionadoInvalidoEs422() throws Exception {
+        String guiaMal = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"guias\":[{\"tipo\":\"09\",\"numero\":\"F001-123\"}],");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(guiaMal))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("DOCUMENTO_RELACIONADO_INVALIDO"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("4006")));
+        String anticipoComoOtro = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"documentos_relacionados\":[{\"tipo\":\"02\",\"numero\":\"F001-1\"}],");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(anticipoComoOtro))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errores['documentosRelacionados[0].tipo']").exists());
+        String ordenLarga = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"orden_compra\":\"" + "X".repeat(21) + "\",");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(ordenLarga))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errores['ordenCompra']").exists());
+        org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
+    }
+
     @Test void lineaGratuitaAceptadaYMarcadaEnLaRespuesta() throws Exception {
         String conBonificacion = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\"},{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}");
         Comprobante c = aceptado(tenant);

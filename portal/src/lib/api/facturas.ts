@@ -57,6 +57,19 @@ export type ItemComprobante = {
   icbper?: number;
 };
 
+export const ETIQUETAS_GUIA: Record<string, string> = { "09": "Guía de remisión remitente", "31": "Guía de remisión transportista" };
+
+/** Catálogo 12 (tipos admitidos como "otro documento relacionado"). */
+export const ETIQUETAS_DOC_RELACIONADO: Record<string, string> = {
+  "04": "Ticket de salida ENAPU",
+  "05": "Código SCOP",
+  "06": "Factura electrónica remitente",
+  "07": "Guía de remisión remitente",
+  "08": "Declaración de salida del depósito franco",
+  "09": "Declaración simplificada de importación",
+  "99": "Otros",
+};
+
 export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
   "1": "DNI",
   "4": "Carné de extranjería",
@@ -163,6 +176,12 @@ export type Comprobante = {
   retencion_igv?: RetencionIgv | null;
   percepcion?: Percepcion | null;
   anticipos?: Anticipo[] | null;
+  /** Orden de compra, guías de remisión (catálogo 01: 09/31) y otros documentos (catálogo 12); ausente si no hay ninguno. */
+  referencias?: {
+    orden_compra?: string | null;
+    guias?: Array<{ tipo: string; numero: string }> | null;
+    documentos_relacionados?: Array<{ tipo: string; numero: string }> | null;
+  } | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; cdr?: string };
 };

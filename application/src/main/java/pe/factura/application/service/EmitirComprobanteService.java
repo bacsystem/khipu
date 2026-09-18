@@ -46,7 +46,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         Detraccion detraccion = cmd.detraccion() != null && cmd.detraccion().sinCuenta() ? cmd.detraccion().conCuenta(tenant.cuentaDetracciones()) : cmd.detraccion();
 
         Comprobante c = Comprobante.crearFactura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(),
-                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.cargos(), detraccion, cmd.retencionIgv(), cmd.percepcion(), anticipos, clock);
+                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.cargos(), detraccion, cmd.retencionIgv(), cmd.percepcion(), anticipos, cmd.referencias(), clock);
 
         Comprobante firmado = uow.ejecutar(() -> {
             long numero;

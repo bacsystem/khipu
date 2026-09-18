@@ -31,6 +31,10 @@ test("lista comprobantes con su estado y permite ver el detalle", async ({ page 
   const anticipos = page.getByTestId("anticipos");
   await expect(anticipos.getByText("F001-90")).toBeVisible();
   await expect(anticipos.getByText(/gravado \(04\)/)).toBeVisible();
+  // Documentos relacionados: orden de compra y guía de remisión con su tipo del catálogo 01.
+  const referencias = page.getByTestId("referencias");
+  await expect(referencias.getByText("OC-2026-0457")).toBeVisible();
+  await expect(referencias.getByText(/Guía de remisión remitente/)).toBeVisible();
   // Cargo global sin IGV (46, recargo al consumo): aparece como "Otros cargos" y suma al total a pagar.
   await expect(page.getByText(/Otros cargos sin IGV \(46\)/)).toBeVisible();
   // El detalle abre el XML firmado en una vista previa con su botón de descarga.

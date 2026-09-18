@@ -2,6 +2,12 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.14] - 2026-09-18
+
+### Added
+- API: documentos relacionados en la factura (#63): `orden_compra` (1–20 caracteres → `cac:OrderReference`, regla 4233), `guias[] { tipo 09|31, numero }` (→ `cac:DespatchDocumentReference` con formato serie-número de SUNAT, reglas 4005, 4006, 2364) y `documentos_relacionados[] { tipo 04–09|99, numero }` (→ `cac:AdditionalDocumentReference`, catálogo 12, reglas 4009, 4010, 2365). Respuesta con el bloque `referencias` cuando hay alguno. Nuevo error `DOCUMENTO_RELACIONADO_INVALIDO`. Migración V12 (`comprobante.orden_compra`, tabla `comprobante_documento_relacionado`).
+- Portal: sección "Documentos relacionados" en el detalle; caso en la guía, código en errores y uso de los catálogos 01 y 12.
+
 ## [0.1.13] - 2026-09-18
 
 ### Added
