@@ -250,6 +250,31 @@ X-Api-Key: fk_TU_API_KEY`,
     disponible: true,
   },
   {
+    id: "campos-opcionales",
+    titulo: "Fecha de vencimiento, código de producto, GTIN y redondeo",
+    cuando: "Datos que el cliente o SUNAT pueden esperar sin cambiar el cálculo: la fecha límite de pago, el código de producto SUNAT (obligatorio para los emisores del padrón: mineras, combustibles, explosivos…), el GTIN del producto y el redondeo para cobrar en efectivo sin céntimos.",
+    request: `{
+  "serie": "F001",
+  "fecha_emision": "2026-09-18",
+  "fecha_vencimiento": "2026-10-18",
+  "moneda": "PEN",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Combustible diésel B5", "unidad": "GLL", "cantidad": 7, "precio_unitario": 16.91, "tipo_afectacion_igv": "10",
+      "codigo_sunat": "15101505", "gtin": { "tipo": "GTIN-13", "codigo": "7750182000123" } }
+  ],
+  "redondeo": -0.37
+}`,
+    notas: [
+      "`fecha_vencimiento` → `cbc:DueDate`; no puede ser anterior a `fecha_emision` (`FECHA_INVALIDA`). Es informativa: al crédito las cuotas de `forma_pago` siguen mandando.",
+      "`items[].codigo_sunat`: 8 dígitos UNSPSC (catálogo 25) → `cac:CommodityClassification`. khipu valida el formato (regla 3496); SUNAT observa —no rechaza— los que no están en su listado (4332) o no llegan al tercer nivel (terminados en 0000, 4337). `GET /v1/catalogos/25` trae los listados 25.1 (padrón obligado), 25.2 (detracciones) y 25.3 (percepciones); el catálogo completo lo publica SUNAT.",
+      "`items[].gtin { tipo, codigo }`: `GTIN-8`, `GTIN-12`, `GTIN-13` o `GTIN-14` con la longitud que corresponde (reglas 4333–4335) → `cac:StandardItemIdentification/cbc:ID@schemeID`.",
+      "`redondeo`: entre −1.00 y 1.00, se suma al total a pagar (`PayableRoundingAmount`, regla 3303; `total` = precio de venta + cargos − descuentos − anticipos + redondeo, regla 3280); el monto en letras usa el total redondeado. En el ejemplo: 7 × 16.91 = 118.37 → total 118.00. Error `REDONDEO_INVALIDO`.",
+      "El nombre comercial del emisor no va en cada factura: se configura una vez en `PUT /v1/empresa/datos-fiscales` (`nombre_comercial`) o en la página Empresa del portal y khipu lo escribe en `cac:PartyName` (regla 4092).",
+    ],
+    disponible: true,
+  },
+  {
     id: "gratuitas",
     titulo: "Bonificaciones y muestras (operaciones gratuitas)",
     cuando: "Entrega bienes o servicios sin cobrar: bonificación por volumen, muestras, publicidad, retiro para trabajadores. SUNAT exige informarlas con su valor referencial y, si son gravadas, con el IGV que habrían generado.",

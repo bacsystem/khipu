@@ -575,6 +575,48 @@ class AtributosSunatFacturaTest {
         assertThat(valor(d, "count(/inv:Invoice/cac:OrderReference | /inv:Invoice/cac:DespatchDocumentReference | /inv:Invoice/cac:AdditionalDocumentReference)")).isEqualTo("0");
     }
 
+    /** Campos opcionales: DueDate (8), nombre comercial (11), GTIN (29) y código de producto SUNAT (28) por ítem, PayableRoundingAmount (56) y monto en letras del total redondeado. */
+    @Test void camposOpcionalesEnElXml() throws Exception {
+        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
+                List.of(new Item("A", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), "15101505", new Gtin("GTIN-13", "7750182000123"))),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(13, "20100066603");
+        Tenant t = FreemarkerUblGeneratorTest.tenant().conDatosFiscales(null, null, "Andina Store");
+        String xml = new FreemarkerUblGenerator().generar(c, t);
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        assertThat(valor(d, "/inv:Invoice/cbc:DueDate")).isEqualTo("2026-10-13");
+        assertThat(valor(d, "/inv:Invoice/cac:AccountingSupplierParty/cac:Party/cac:PartyName/cbc:Name")).isEqualTo("Andina Store");
+        assertThat(valor(d, "/inv:Invoice/cac:AccountingSupplierParty/cac:Party/cac:PartyLegalEntity/cbc:RegistrationName")).isEqualTo(t.razonSocial());
+        String item = "/inv:Invoice/cac:InvoiceLine[1]/cac:Item";
+        assertThat(valor(d, item + "/cac:StandardItemIdentification/cbc:ID")).isEqualTo("7750182000123");
+        assertThat(valor(d, item + "/cac:StandardItemIdentification/cbc:ID/@schemeID")).isEqualTo("GTIN-13");                // 4333, 4335
+        assertThat(valor(d, item + "/cac:CommodityClassification/cbc:ItemClassificationCode")).isEqualTo("15101505");
+        assertThat(valor(d, item + "/cac:CommodityClassification/cbc:ItemClassificationCode/@listID")).isEqualTo("UNSPSC");     // 4254
+        assertThat(valor(d, item + "/cac:CommodityClassification/cbc:ItemClassificationCode/@listAgencyName")).isEqualTo("GS1 US");
+        assertThat(valor(d, item + "/cac:CommodityClassification/cbc:ItemClassificationCode/@listName")).isEqualTo("Item Classification");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount")).isEqualTo("118.37");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableRoundingAmount")).isEqualTo("-0.37");             // 3303
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("118.00");                     // 3280
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='1000']")).startsWith("CIENTO DIECIOCHO CON 00/100");
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
+    /** Sin los opcionales no aparecen sus tags (ni PartyName del emisor, que SUNAT observaría vacío: 4092). */
+    @Test void sinCamposOpcionalesNoHayTags() throws Exception {
+        String xml = new FreemarkerUblGenerator().generar(facturaConTresAfectaciones(), FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+        assertThat(valor(d, "count(/inv:Invoice/cbc:DueDate | /inv:Invoice/cac:AccountingSupplierParty/cac:Party/cac:PartyName"
+                + " | /inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableRoundingAmount | //cac:Item/cac:StandardItemIdentification | //cac:Item/cac:CommodityClassification)")).isEqualTo("0");
+    }
+
     /** Regla 3290: con una base grande y descuento fijo el factor de 5 decimales no reproduce el monto, así que no se emite. */
     @Test void descuentoSinFactorCuandoNoReproduceElMonto() throws Exception {
         Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",

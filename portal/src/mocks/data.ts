@@ -18,6 +18,7 @@ export type Empresa = {
   tiene_domicilio?: boolean;
   domicilio?: { ubigeo: string; direccion: string; urbanizacion: string | null; distrito: string | null; provincia: string | null; departamento: string | null; codigo_establecimiento: string } | null;
   cuenta_detracciones?: string | null;
+  nombre_comercial?: string | null;
 };
 export type Serie = { tipo: string; serie: string; ultimo_numero: number; activa: boolean };
 export type ApiKey = { id: string; prefijo: string; activa: boolean; creada_en: string; revocada_en?: string };
@@ -44,9 +45,10 @@ export type Comprobante = {
   intentos: number;
   ultimo_error: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
+  fecha_vencimiento?: string | null;
   totales: {
     gravado: number; exonerado: number; inafecto: number; igv: number; total: number; total_precio_venta?: number; total_anticipos?: number;
-    total_cargos?: number; cargos?: Array<{ codigo: string; tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean }>;
+    total_cargos?: number; redondeo?: number; cargos?: Array<{ codigo: string; tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean }>;
   };
   forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
   detraccion?: { codigo_bien_servicio: string; descripcion: string; porcentaje: number; monto: number; cuenta_banco_nacion: string; medio_pago: string } | null;
@@ -124,6 +126,7 @@ export function resetDb() {
       },
       anticipos: [{ comprobante: "F001-90", serie: "F001", numero: 90, monto: 20, importe_pagado: 23.6, afectacion: "gravado", codigo_sunat: "04", fecha_pago: "2026-08-20" }],
       referencias: { orden_compra: "OC-2026-0457", guias: [{ tipo: "09", numero: "T001-123" }], documentos_relacionados: null },
+      fecha_vencimiento: "2026-11-01",
       forma_pago: {
         tipo: "credito",
         monto_pendiente: 123,

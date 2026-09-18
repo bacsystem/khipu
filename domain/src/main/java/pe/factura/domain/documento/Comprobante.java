@@ -4,6 +4,7 @@ import lombok.Getter;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.catalogo.CatalogoSunat;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -21,6 +22,8 @@ public class Comprobante {
     private final LocalDate fechaEmision;
     /** Hora local (zona del reloj de la aplicación) en que se creó el comprobante: cbc:IssueTime, informativa para SUNAT. */
     private final LocalTime horaEmision;
+    /** Fecha de vencimiento del pago (cbc:DueDate, campo 8): informativa, sin validación SUNAT; nunca anterior a la emisión. */
+    private final LocalDate fechaVencimiento;
     private final String moneda;
     private final String tipoOperacion;
     private final Receptor receptor;
@@ -44,17 +47,17 @@ public class Comprobante {
     private int intentos;
     private String ultimoError;
 
-    private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision,
+    private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
                         Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos,
-                        Referencias referencias, EstadoDocumento estado) {
+                        Referencias referencias, BigDecimal redondeo, EstadoDocumento estado) {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
-        this.fechaEmision = fechaEmision; this.horaEmision = horaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
+        this.fechaEmision = fechaEmision; this.horaEmision = horaEmision; this.fechaVencimiento = fechaVencimiento; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
         this.cargos = cargos == null ? List.of() : List.copyOf(cargos);
         this.anticipos = anticipos == null ? List.of() : List.copyOf(anticipos);
         this.referencias = referencias == null ? Referencias.ninguna() : referencias;
-        this.totales = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision));
+        this.totales = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision), redondeo);
         // Detracción, retención y percepción se completan contra el importe total ya calculado (montos por defecto, 3208 y tolerancias SUNAT).
         this.detraccion = detraccion == null ? null : detraccion.completarContra(moneda, this.totales.total());
         this.retencion = retencion == null ? null : retencion.completarContra(this.totales.total());
@@ -104,8 +107,16 @@ public class Comprobante {
     public static Comprobante crearFactura(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion,
                                            Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion,
                                            RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, Clock clock) {
+        return crearFactura(tenantId, serie, fechaEmision, null, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, null, clock);
+    }
+
+    public static Comprobante crearFactura(UUID tenantId, String serie, LocalDate fechaEmision, LocalDate fechaVencimiento, String moneda, String tipoOperacion,
+                                           Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion,
+                                           RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, Clock clock) {
         if (!TipoDocumento.FACTURA.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de factura inválida: " + serie);
         if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
+        if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
+            throw new DomainException("FECHA_INVALIDA", "La fecha de vencimiento no puede ser anterior a la de emisión");
         if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
         if (receptor == null || !receptor.esRuc()) throw new DomainException("RECEPTOR_INVALIDO", "La factura requiere un receptor con RUC válido");
         if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
@@ -119,8 +130,8 @@ public class Comprobante {
             throw new DomainException("PERCEPCION_INVALIDA", "3093 - Una operación sujeta a percepción (2001) al contado debe informar la percepción");
         if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
             throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
-        Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS),
-                moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, EstadoDocumento.RECIBIDO);
+        Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
+                moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, EstadoDocumento.RECIBIDO);
         formaPago.validarContra(c.totales.total(), fechaEmision);
         return c;
     }
@@ -136,11 +147,11 @@ public class Comprobante {
 
     /** Solo para persistencia: reconstruye sin validar reglas de creación. */
     public static Comprobante rehidratar(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero,
-                                         LocalDate fechaEmision, LocalTime horaEmision, String moneda, String tipoOperacion, Receptor receptor,
+                                         LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento, String moneda, String tipoOperacion, Receptor receptor,
                                          List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion,
-                                         RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, EstadoDocumento estado,
+                                         RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, EstadoDocumento estado,
                                          String hash, String nombreArchivo, String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
-        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, estado);
+        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, estado);
         c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
         c.intentos = intentos; c.ultimoError = ultimoError;
         return c;

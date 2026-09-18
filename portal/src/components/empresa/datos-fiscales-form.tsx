@@ -16,7 +16,7 @@ type Ubigeo = { codigo: string; departamento: string; provincia: string; distrit
  * Domicilio fiscal (RegistrationAddress del emisor en cada XML) y cuenta de detracciones por defecto. El ubigeo se elige en
  * cascada departamento → provincia → distrito sobre el catálogo 13 (INEI), que se carga al abrir el formulario.
  */
-export function DatosFiscalesForm({ domicilio, cuentaDetracciones }: { domicilio: Domicilio | null; cuentaDetracciones: string | null }) {
+export function DatosFiscalesForm({ domicilio, cuentaDetracciones, nombreComercial }: { domicilio: Domicilio | null; cuentaDetracciones: string | null; nombreComercial: string | null }) {
   const router = useRouter();
   const [ubigeos, setUbigeos] = useState<Ubigeo[] | null>(null);
   const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
@@ -28,6 +28,7 @@ export function DatosFiscalesForm({ domicilio, cuentaDetracciones }: { domicilio
   const [urbanizacion, setUrbanizacion] = useState(domicilio?.urbanizacion ?? "");
   const [establecimiento, setEstablecimiento] = useState(domicilio?.codigo_establecimiento ?? "0000");
   const [cuenta, setCuenta] = useState(cuentaDetracciones ?? "");
+  const [nombre, setNombre] = useState(nombreComercial ?? "");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -79,6 +80,7 @@ export function DatosFiscalesForm({ domicilio, cuentaDetracciones }: { domicilio
       body: {
         domicilio: ubigeo ? { ubigeo, direccion, urbanizacion: urbanizacion || null, codigo_establecimiento: establecimiento || "0000" } : null,
         cuenta_detracciones: cuenta || null,
+        nombre_comercial: nombre.trim() || null,
       },
     });
     setEnviando(false);
@@ -220,6 +222,13 @@ export function DatosFiscalesForm({ domicilio, cuentaDetracciones }: { domicilio
             className={cn(CAMPO, "font-mono")}
           />
           <span className={AYUDA_CAMPO}>Se usa cuando una factura con detracción no indica la cuenta</span>
+        </div>
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <label htmlFor="nombre-comercial" className={ETIQUETA_CAMPO}>
+            Nombre comercial <span className="font-normal text-muted-foreground">(opcional)</span>
+          </label>
+          <input id="nombre-comercial" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Andina Store" maxLength={1500} className={CAMPO} />
+          <span className={AYUDA_CAMPO}>Va en el XML junto a la razón social (regla 4092); déjelo vacío si no usa uno</span>
         </div>
       </div>
 

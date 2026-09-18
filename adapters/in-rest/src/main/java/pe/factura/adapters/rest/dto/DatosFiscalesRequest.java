@@ -6,10 +6,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import pe.factura.domain.tenant.Domicilio;
 
-/** Domicilio fiscal y cuenta de detracciones de la empresa: se pueden actualizar por separado enviando `null` en el otro. */
+/** Domicilio fiscal, cuenta de detracciones y nombre comercial de la empresa: cada `PUT` reemplaza los tres (`null` borra). */
 public record DatosFiscalesRequest(
         @Valid @Schema(description = "Domicilio fiscal tal como figura en la ficha RUC; va en el XML como `RegistrationAddress` del emisor. `null` lo borra (el XML solo llevará el establecimiento 0000).") DomicilioDto domicilio,
-        @Schema(example = "00-000-123456", description = "Cuenta de detracciones en el Banco de la Nación; se usa cuando una factura sujeta a detracción no indica `cuenta_banco_nacion`. `null` la borra") String cuentaDetracciones) {
+        @Schema(example = "00-000-123456", description = "Cuenta de detracciones en el Banco de la Nación; se usa cuando una factura sujeta a detracción no indica `cuenta_banco_nacion`. `null` la borra") String cuentaDetracciones,
+        @Schema(example = "Andina Store", description = "Nombre comercial (hasta 1500 caracteres, sin saltos de línea; regla 4092); va en el XML como `cac:PartyName` del emisor. `null` lo borra") String nombreComercial) {
 
     public record DomicilioDto(
             @NotBlank @Pattern(regexp = "\\d{6}", message = "ubigeo de 6 dígitos (catálogo 13)") @Schema(example = "150122", description = "Ubigeo INEI del distrito, catálogo 13 (`GET /v1/catalogos/13`); khipu completa distrito, provincia y departamento a partir de él") String ubigeo,

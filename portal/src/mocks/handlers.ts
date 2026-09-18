@@ -57,6 +57,8 @@ const CATALOGOS = [
       { codigo: "30", descripcion: "Inafecto - Operación Onerosa", extra: { "Codigo de tributo": "9998" } },
     ] },
   { id: "13", nombre: "Código de ubicación geográfica (UBIGEO, INEI)", columnas: ["Código", "Descripción", "Departamento", "Provincia", "Distrito"], entradas: UBIGEOS },
+  { id: "25", nombre: "Código de producto SUNAT (UNSPSC; listados 25.1–25.3)", columnas: ["Código", "Descripción", "Listado", "Partidas arancelarias"],
+    entradas: [{ codigo: "15101505", descripcion: "Combustible diésel", extra: { Listado: "25.1 Padrón obligado: Combustible" } }] },
 ];
 
 export const handlers = [
@@ -151,7 +153,7 @@ export const handlers = [
     const empresaId = request.headers.get("x-empresa");
     const empresa = [...db.empresasPorCuenta.values()].flat().find((e) => e.id === empresaId);
     if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
-    const body = (await request.json()) as { domicilio?: { ubigeo: string; direccion: string; urbanizacion?: string; codigo_establecimiento?: string } | null; cuenta_detracciones?: string | null };
+    const body = (await request.json()) as { domicilio?: { ubigeo: string; direccion: string; urbanizacion?: string; codigo_establecimiento?: string } | null; cuenta_detracciones?: string | null; nombre_comercial?: string | null };
     if (body.domicilio) {
       const u = UBIGEOS.find((x) => x.codigo === body.domicilio?.ubigeo);
       if (!u) return fail(422, "DOMICILIO_INVALIDO", "4093 - El ubigeo debe ser un código de 6 dígitos del catálogo 13 (INEI)");
@@ -160,6 +162,7 @@ export const handlers = [
     } else empresa.domicilio = null;
     empresa.tiene_domicilio = Boolean(empresa.domicilio);
     empresa.cuenta_detracciones = body.cuenta_detracciones ?? null;
+    empresa.nombre_comercial = body.nombre_comercial ?? null;
     return ok(empresa);
   }),
 

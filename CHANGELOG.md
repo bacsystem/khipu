@@ -2,6 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.15] - 2026-09-18
+
+### Added
+- API: campos opcionales de la factura (#64): `fecha_vencimiento` (→ `cbc:DueDate`, no anterior a la emisión), `items[].codigo_sunat` (8 dígitos UNSPSC, catálogo 25 → `cac:CommodityClassification`, regla 3496), `items[].gtin { tipo GTIN-8|12|13|14, codigo }` (→ `cac:StandardItemIdentification`, reglas 4333–4335) y `redondeo` (→ `PayableRoundingAmount`, entre −1.00 y 1.00, regla 3303; el total y el monto en letras lo incluyen, regla 3280). Respuesta con `fecha_vencimiento`, `codigo_sunat`, `gtin` y `totales.redondeo`. Nuevos errores `ITEM_INVALIDO`, `REDONDEO_INVALIDO`.
+- API: nombre comercial de la empresa en `PUT /v1/empresa/datos-fiscales { nombre_comercial }` (→ `cac:PartyName` del emisor, regla 4092; error `NOMBRE_COMERCIAL_INVALIDO`); `GET /v1/empresa` lo devuelve.
+- API: catálogo 25 (`GET /v1/catalogos/25`) con los listados 25.1 (padrón obligado a código de producto), 25.2 (detracciones) y 25.3 (percepciones) y sus partidas arancelarias; el UNSPSC completo lo publica SUNAT y no se valida contra él.
+- Persistencia: migración V13 (`tenant.nombre_comercial`, `comprobante.fecha_vencimiento/redondeo`, `comprobante_item.codigo_sunat/gtin_tipo/gtin`).
+- Portal: nombre comercial en el formulario de datos fiscales; vencimiento, códigos de producto y redondeo en el detalle; caso en la guía; errores y catálogo 25 documentados.
+
 ## [0.1.14] - 2026-09-18
 
 ### Added

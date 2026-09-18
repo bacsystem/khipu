@@ -240,6 +240,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         <div className="grid grid-cols-2 gap-6 pt-5 sm:grid-cols-4">
           <Campo etiqueta="Fecha de emisión">
             <span className="font-mono text-xs font-medium text-foreground">{formatearFecha(c.fecha_emision)}</span>
+            {c.fecha_vencimiento ? <span className="block text-[11px] text-muted-foreground">Vence {formatearFecha(c.fecha_vencimiento)}</span> : null}
           </Campo>
           <Campo etiqueta="Moneda">
             <span className="text-xs font-semibold text-foreground">{MONEDAS[c.moneda] ?? c.moneda}</span>
@@ -364,7 +365,16 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 <tr key={i} className="transition-colors hover:bg-muted/60">
                   <td className="px-4 py-3 text-center font-mono text-muted-foreground/70">{i + 1}</td>
                   <td className="px-3 py-3 font-mono font-medium text-muted-foreground">{item.codigo ?? "—"}</td>
-                  <td className="px-4 py-3 font-medium text-foreground">{item.descripcion}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    {item.descripcion}
+                    {item.codigo_sunat || item.gtin ? (
+                      <span className="mt-0.5 block font-mono text-[10px] font-normal text-muted-foreground">
+                        {item.codigo_sunat ? `SUNAT ${item.codigo_sunat}` : null}
+                        {item.codigo_sunat && item.gtin ? " · " : null}
+                        {item.gtin ? `${item.gtin.tipo} ${item.gtin.codigo}` : null}
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-3 text-right font-mono text-foreground/90 tabular-nums">{formatearNumero(item.cantidad)}</td>
                   <td className="px-3 py-3 text-center font-mono">
                     <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">{item.unidad}</span>
@@ -505,6 +515,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             {c.totales.total_anticipos ? (
               <Importe etiqueta="Anticipos ya pagados (con IGV)" moneda={c.moneda} valor={-c.totales.total_anticipos} />
             ) : null}
+            {c.totales.redondeo ? <Importe etiqueta="Redondeo" moneda={c.moneda} valor={c.totales.redondeo} /> : null}
             <div className="my-2 h-px bg-border" />
             <div className="flex items-baseline justify-between pt-1">
               <div>
