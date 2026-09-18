@@ -35,6 +35,14 @@ public record Cargo(String codigo, Tipo tipo, BigDecimal valor) {
             for (Motivo m : values()) if (m.codigo.equals(codigo)) return Optional.of(m);
             return Optional.empty();
         }
+        /** Nombre público del motivo en la API (minúsculas: {@code recargo_consumo}). */
+        public String nombre() { return name().toLowerCase(); }
+        /** Resuelve el nombre de la API; un nombre desconocido es {@code CARGO_INVALIDO} con la lista admitida. */
+        public static Motivo porNombre(String nombre) {
+            for (Motivo m : values()) if (m.nombre().equals(nombre)) return m;
+            throw new DomainException("CARGO_INVALIDO", "Motivo de cargo desconocido: " + nombre + "; admitidos: "
+                    + java.util.Arrays.stream(values()).map(Motivo::nombre).collect(java.util.stream.Collectors.joining(", ")));
+        }
     }
 
     public static final Set<String> CODIGOS_LINEA = Set.of("47", "48");

@@ -333,7 +333,8 @@ class FacturaControllerTest {
         String motivoDesconocido = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"cargos\":[{\"monto\":5,\"motivo\":\"fise\"}],");
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(motivoDesconocido))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.errores['cargos[0].motivo']").exists());
+                .andExpect(jsonPath("$.codigo").value("CARGO_INVALIDO"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("recargo_consumo")));
         org.mockito.Mockito.verify(emitir, never()).emitirFactura(any(), any());
     }
 

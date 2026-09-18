@@ -97,12 +97,12 @@ public record FacturaRequest(
             @Schema(example = "10", description = "Porcentaje sobre el valor de venta sin IGV (hasta 5 decimales, menor que 1000)") BigDecimal porcentaje,
             @Schema(example = "25.00", description = "Monto fijo sin IGV (hasta 2 decimales)") BigDecimal monto,
             @Schema(example = "true", description = "`true` (por defecto): se suma a la base imponible y paga IGV (flete, embalaje) → código 47 por línea, 49 global. `false`: se cobra sin IGV (reembolso de gastos) → 48 por línea, 50 global") Boolean afectaBaseIgv,
-            @Pattern(regexp = "recargo_consumo") @Schema(example = "recargo_consumo", description = "Solo global: `recargo_consumo` para el recargo al consumo y/o propinas (código 46, sin IGV por la Ley 25988); no admite `afecta_base_igv: true`") String motivo) {
+            @Schema(example = "recargo_consumo", description = "Solo global: `recargo_consumo` para el recargo al consumo y/o propinas (código 46, sin IGV por la Ley 25988); no admite `afecta_base_igv: true`. Un motivo desconocido responde `422 CARGO_INVALIDO`") String motivo) {
 
         Cargo aDominio(boolean global) {
             if ((porcentaje == null) == (monto == null))
                 throw new DomainException("CARGO_INVALIDO", "Indique porcentaje o monto del cargo, no ambos");
-            Cargo.Motivo m = motivo == null ? null : Cargo.Motivo.valueOf(motivo.toUpperCase());
+            Cargo.Motivo m = motivo == null ? null : Cargo.Motivo.porNombre(motivo);
             if (m != null && !global)
                 throw new DomainException("CARGO_INVALIDO", "4268 - El recargo al consumo (46) es un cargo global, no de línea");
             // Por defecto afecta la base (como los descuentos), salvo cuando hay motivo: el recargo al consumo nunca la afecta.

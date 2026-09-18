@@ -2,6 +2,7 @@ package pe.factura.adapters.rest.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import pe.factura.domain.documento.Anticipo;
+import pe.factura.domain.documento.Cargo;
 import pe.factura.domain.documento.CargoCalculado;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Detraccion;
@@ -123,7 +124,7 @@ public record ComprobanteResponse(
             @Schema(example = "50", description = "Código SUNAT derivado (catálogo 53): 47/48 por línea, 46/49/50 global") String codigo) {
         static CargoDto de(CargoCalculado cc) {
             return new CargoDto(cc.cargo().tipo().name(), cc.cargo().valor(), cc.monto(), cc.afectaBase(),
-                    cc.cargo().motivo().map(m -> m.name().toLowerCase()).orElse(null), cc.codigo());
+                    cc.cargo().motivo().map(Cargo.Motivo::nombre).orElse(null), cc.codigo());
         }
         static List<CargoDto> de(List<CargoCalculado> cargos) {
             return cargos.isEmpty() ? null : cargos.stream().map(CargoDto::de).toList();
