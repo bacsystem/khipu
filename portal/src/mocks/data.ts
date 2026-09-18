@@ -46,7 +46,7 @@ export type Comprobante = {
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   totales: {
     gravado: number; exonerado: number; inafecto: number; igv: number; total: number; total_precio_venta?: number; total_anticipos?: number;
-    total_cargos?: number; cargos?: Array<{ codigo: string; tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean }>;
+    total_cargos?: number; cargos?: Array<{ tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string }>;
   };
   forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
   detraccion?: { codigo_bien_servicio: string; descripcion: string; porcentaje: number; monto: number; cuenta_banco_nacion: string; medio_pago: string } | null;
@@ -120,7 +120,7 @@ export function resetDb() {
       // a pagar 141.60 + 5.00 − 23.60 = 123.
       totales: {
         gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 123, total_precio_venta: 141.6, total_anticipos: 23.6,
-        total_cargos: 5, cargos: [{ codigo: "46", tipo: "PORCENTAJE", valor: 5, monto: 5, afecta_base_igv: false }],
+        total_cargos: 5, cargos: [{ tipo: "PORCENTAJE", valor: 5, monto: 5, afecta_base_igv: false, motivo: "recargo_consumo", codigo: "46" }],
       },
       anticipos: [{ comprobante: "F001-90", serie: "F001", numero: 90, monto: 20, importe_pagado: 23.6, afectacion: "gravado", codigo_sunat: "04", fecha_pago: "2026-08-20" }],
       referencias: { orden_compra: "OC-2026-0457", guias: [{ tipo: "09", numero: "T001-123" }], documentos_relacionados: null },

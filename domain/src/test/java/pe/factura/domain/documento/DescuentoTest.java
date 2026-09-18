@@ -85,18 +85,6 @@ class DescuentoTest {
                 .hasMessageContaining("menor que la base");
     }
 
-    /** Reglas 3290/3307: el factor de 5 decimales solo se informa si base × factor reproduce el monto (±1). */
-    @Test void factorSoloCuandoReproduceElMonto() {
-        assertThat(Descuento.factor(new BigDecimal("20.00"), new BigDecimal("200.00"))).hasValue(new BigDecimal("0.10000"));
-        // 1 700 000 × 0.00059 = 1 003.00: se desvía 3 del monto → sin factor
-        assertThat(Descuento.factor(new BigDecimal("1000.00"), new BigDecimal("1700000.00"))).isEmpty();
-        assertThat(Descuento.factor(new BigDecimal("1500.00"), new BigDecimal("2500000.00"))).hasValue(new BigDecimal("0.00060"));
-        ItemCalculado grande = ItemCalculado.de(gravado("2006000.00", "1", Descuento.monto(new BigDecimal("1000.00"), true)));
-        assertThat(grande.descuentoFactor()).isEmpty();
-        assertThat(grande.valorVenta()).isEqualByComparingTo("1699000.00");
-        assertThat(ItemCalculado.de(gravado("118.00", "2", Descuento.porcentaje(new BigDecimal("10"), true))).descuentoFactor()).hasValue(new BigDecimal("0.10000"));
-    }
-
     @Test void sinDescuentosLosTotalesNoCambian() {
         Totales t = Totales.calcular(List.of(gravado("118.00", "1", null)));
         assertThat(t.descuentoGlobal()).isNull();

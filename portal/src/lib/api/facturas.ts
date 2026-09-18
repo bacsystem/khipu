@@ -32,8 +32,8 @@ export type Receptor = {
 /** Descuento aplicado (catálogo 53): lo enviado, el monto resultante y el código SUNAT. */
 export type DescuentoAplicado = { tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; codigo: string };
 
-/** Cargo aplicado (catálogo 53: 47/48 por línea, 46/49/50 global): lo enviado, el monto resultante y si suma a la base del IGV. */
-export type CargoAplicado = { codigo: string; tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean };
+/** Cargo aplicado: lo enviado, el monto resultante, si suma a la base del IGV, el motivo (`recargo_consumo` = 46) y el código SUNAT derivado (47/48 línea, 46/49/50 global). */
+export type CargoAplicado = { tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string };
 
 export type ItemComprobante = {
   codigo: string | null;

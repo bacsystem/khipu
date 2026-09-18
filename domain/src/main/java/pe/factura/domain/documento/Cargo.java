@@ -4,7 +4,6 @@ import pe.factura.domain.DomainException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -52,7 +51,4 @@ public record Cargo(String codigo, Tipo tipo, BigDecimal valor) {
             throw new DomainException("CARGO_INVALIDO", "2955 - El cargo " + codigo + " resulta en 0.00 sobre la base " + base);
         return monto;
     }
-
-    /** Factor para el XML (MultiplierFactorNumeric): monto / base, vacío cuando no reproduce el monto (reglas 3290/3307). */
-    public static Optional<BigDecimal> factor(BigDecimal monto, BigDecimal base) { return FactorSunat.de(monto, base); }
 }
