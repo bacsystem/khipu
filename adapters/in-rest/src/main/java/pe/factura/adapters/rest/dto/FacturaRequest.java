@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import pe.factura.application.port.in.EmitirFacturaCommand;
+import pe.factura.domain.DomainException;
+import pe.factura.domain.documento.Descuento;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
@@ -22,6 +24,7 @@ public record FacturaRequest(
         @NotNull @Valid ClienteDto cliente,
         @NotEmpty @Valid List<ItemDto> items,
         @Valid @Schema(description = "Forma de pago (RS 193-2020). Si se omite, al contado.") FormaPagoDto formaPago,
+        @Valid @Schema(description = "Descuento sobre el total (catálogo 53: `02` si afecta la base del IGV —requiere ítems gravados—, `03` si no). Opcional.") DescuentoDto descuentoGlobal,
         @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja el comprobante `FIRMADO` para enviarlo luego con `POST /v1/facturas/{id}/enviar` (p. ej. para emitir en lote y enviar después)") Boolean enviarAutomatico) {
 
     public record ClienteDto(
@@ -36,7 +39,22 @@ public record FacturaRequest(
             @NotBlank @Schema(example = "NIU", description = "Unidad de medida, catálogo 03 (`GET /v1/catalogos/03`): `NIU` unidad (bienes), `ZZ` unidad (servicios), `KGM` kilogramo, `HUR` hora…") String unidad,
             @NotNull @Positive @Schema(example = "2", description = "Cantidad, hasta 10 decimales") BigDecimal cantidad,
             @NotNull @PositiveOrZero @Schema(example = "1000.00", description = "Precio de venta unitario **con IGV incluido** (gravados); khipu calcula el valor unitario sin IGV") BigDecimal precioUnitario,
-            @NotBlank @Pattern(regexp = "10|20|30") @Schema(example = "10", description = "Afectación del IGV, catálogo 07: `10` gravado (IGV 18 %), `20` exonerado (sin IGV por ley: Apéndice I), `30` inafecto (fuera del ámbito del IGV). Las gratuitas (11–17, 21, 31–37) están en desarrollo") String tipoAfectacionIgv) {}
+            @NotBlank @Pattern(regexp = "10|20|30") @Schema(example = "10", description = "Afectación del IGV, catálogo 07: `10` gravado (IGV 18 %), `20` exonerado (sin IGV por ley: Apéndice I), `30` inafecto (fuera del ámbito del IGV). Las gratuitas (11–17, 21, 31–37) están en desarrollo") String tipoAfectacionIgv,
+            @Valid @Schema(description = "Descuento de la línea (catálogo 53: `00` si afecta la base del IGV, `01` si no). Opcional.") DescuentoDto descuento) {}
+
+    /** Un descuento se expresa como porcentaje **o** como monto (sobre el valor de venta sin IGV), nunca ambos. */
+    public record DescuentoDto(
+            @Schema(example = "10", description = "Porcentaje sobre el valor de venta sin IGV (hasta 5 decimales, menor que 100)") BigDecimal porcentaje,
+            @Schema(example = "50.00", description = "Monto fijo sin IGV (hasta 2 decimales, menor que la base)") BigDecimal monto,
+            @Schema(example = "true", description = "`true` (por defecto): reduce la base imponible y por tanto el IGV. `false`: reduce solo lo que se paga (descuento financiero)") Boolean afectaBaseIgv) {
+
+        Descuento aDominio() {
+            if ((porcentaje == null) == (monto == null))
+                throw new DomainException("DESCUENTO_INVALIDO", "Indique porcentaje o monto del descuento, no ambos");
+            boolean afecta = afectaBaseIgv == null || afectaBaseIgv;
+            return porcentaje != null ? Descuento.porcentaje(porcentaje, afecta) : Descuento.monto(monto, afecta);
+        }
+    }
 
     public record FormaPagoDto(
             @NotBlank @Pattern(regexp = "contado|credito") @Schema(example = "credito", description = "`contado`: pago único al emitir. `credito`: pago diferido; exige `monto_pendiente` y al menos una cuota (RS 193-2020)") String tipo,
@@ -56,8 +74,10 @@ public record FacturaRequest(
     public EmitirFacturaCommand aComando() {
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
-                items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()))).toList(),
+                items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
+                        i.descuento() == null ? null : i.descuento().aDominio())).toList(),
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
+                descuentoGlobal == null ? null : descuentoGlobal.aDominio(),
                 enviarAutomatico == null || enviarAutomatico);
     }
 }

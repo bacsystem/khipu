@@ -180,6 +180,48 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /** Descuento de línea (00) y global (02): AllowanceCharge en su sitio del XSD, factor/monto/base, y totales netos (reglas 38, 46/47, 54). */
+    @Test void descuentosDeLineaYGlobalEnElXml() throws Exception {
+        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
+                List.of(new Item("A", "Con descuento", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(new BigDecimal("10"), true)),
+                        new Item("B", "Sin descuento", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), Descuento.monto(new BigDecimal("20.00"), false), FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(10, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        String linea = "/inv:Invoice/cac:InvoiceLine[1]";
+        assertThat(valor(d, linea + "/cbc:LineExtensionAmount")).isEqualTo("180.00");                       // 200 − 20 (regla 38)
+        assertThat(valor(d, linea + "/cac:AllowanceCharge/cbc:ChargeIndicator")).isEqualTo("false");
+        assertThat(valor(d, linea + "/cac:AllowanceCharge/cbc:AllowanceChargeReasonCode")).isEqualTo("00");
+        assertThat(valor(d, linea + "/cac:AllowanceCharge/cbc:AllowanceChargeReasonCode/@listName")).isEqualTo("Cargo/descuento");   // 4252
+        assertThat(valor(d, linea + "/cac:AllowanceCharge/cbc:AllowanceChargeReasonCode/@listURI")).isEqualTo("urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53");
+        assertThat(valor(d, linea + "/cac:AllowanceCharge/cbc:MultiplierFactorNumeric")).isEqualTo("0.10000");
+        assertThat(valor(d, linea + "/cac:AllowanceCharge/cbc:Amount")).isEqualTo("20.00");
+        assertThat(valor(d, linea + "/cac:AllowanceCharge/cbc:BaseAmount")).isEqualTo("200.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("32.40");
+        assertThat(valor(d, linea + "/cac:PricingReference/cac:AlternativeConditionPrice/cbc:PriceAmount")).isEqualTo("106.2000000000");   // regla 33
+        assertThat(valor(d, linea + "/cac:Price/cbc:PriceAmount")).isEqualTo("100.0000000000");
+        assertThat(valor(d, "count(/inv:Invoice/cac:InvoiceLine[2]/cac:AllowanceCharge)")).isEqualTo("0");
+
+        String global = "/inv:Invoice/cac:AllowanceCharge";
+        assertThat(valor(d, "count(" + global + ")")).isEqualTo("1");
+        assertThat(valor(d, global + "/cbc:AllowanceChargeReasonCode")).isEqualTo("03");
+        assertThat(valor(d, global + "/cbc:Amount")).isEqualTo("20.00");
+        assertThat(valor(d, global + "/cbc:BaseAmount")).isEqualTo("280.00");                                 // 180 + 100
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("50.40");                   // 32.40 + 18.00
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:LineExtensionAmount")).isEqualTo("280.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount")).isEqualTo("330.40");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:AllowanceTotalAmount")).isEqualTo("20.00");   // regla 51
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("310.40");        // regla 53
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     @Test void sigueValidandoContraElXsdOficial() {
         Tenant t = FreemarkerUblGeneratorTest.tenant();
         String xml = new FreemarkerUblGenerator().generar(facturaConTresAfectaciones(), t)

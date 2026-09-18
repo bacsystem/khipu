@@ -2,6 +2,12 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.6] - 2026-09-17
+
+### Added
+- API: descuentos en la factura (#49). Por ítem `descuento: { porcentaje | monto, afecta_base_igv }` (catálogo 53: `00` afecta la base del IGV, `01` no) y global `descuento_global` (`02` sobre la base gravada, `03` sobre el importe a pagar). khipu calcula monto, factor y bases; la respuesta devuelve por ítem `valor_venta`, `igv` y `descuento`, y en `totales` `total_valor_venta`, `total_precio_venta`, `total_descuentos` y `descuento_global`. XML con `cac:AllowanceCharge` por línea y global y `AllowanceTotalAmount` (reglas 33, 38, 46/47, 51, 53/54, 3052, 3290, 3300). Migración V5.
+- Portal: el detalle muestra el descuento por línea y el descuento global / descuentos que no afectan el IGV en la liquidación; la guía documenta el caso.
+
 ## [0.1.5] - 2026-09-17
 
 ### Added

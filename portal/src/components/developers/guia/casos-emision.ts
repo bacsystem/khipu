@@ -180,17 +180,27 @@ X-Api-Key: fk_TU_API_KEY`,
   {
     id: "descuentos",
     titulo: "Descuentos por ítem y globales",
-    cuando: "Promociones o negociaciones que rebajan una línea o el total sin manipular el precio unitario.",
+    cuando: "Promociones o negociaciones que rebajan una línea o el total sin manipular el precio unitario. Cada descuento es un porcentaje o un monto (sobre el valor sin IGV) y decide si afecta la base del IGV.",
     request: `{
-  "...": "campos habituales",
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  ${CLIENTE},
   "items": [
     { "descripcion": "Monitor 27\\"", "unidad": "NIU", "cantidad": 2, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10",
-      "descuento": { "porcentaje": 10 } }
+      "descuento": { "porcentaje": 10 } },
+    { "descripcion": "Cable HDMI", "unidad": "NIU", "cantidad": 1, "precio_unitario": 59.00, "tipo_afectacion_igv": "10",
+      "descuento": { "monto": 5.00, "afecta_base_igv": false } }
   ],
-  "descuento_global": { "monto": 100.00 }
+  "descuento_global": { "porcentaje": 2 }
 }`,
-    notas: ["Códigos del catálogo 53: `00` descuento por ítem que afecta la base del IGV, `02` descuento global que afecta la base, `03` que no la afecta."],
-    disponible: false,
+    notas: [
+      "`descuento` por ítem: `porcentaje` **o** `monto` (nunca ambos), sobre el valor de venta sin IGV de la línea. `afecta_base_igv` (por defecto `true`) → código **00**: el IGV se calcula sobre la base rebajada; `false` → código **01**: descuento financiero, el IGV no cambia y solo baja lo que se paga.",
+      "`descuento_global`: mismo formato. `afecta_base_igv: true` → código **02**, se aplica sobre la base gravada (requiere ítems gravados); `false` → **03**, se resta del importe a pagar.",
+      "La respuesta devuelve por ítem `valor_venta`, `igv` y `descuento.monto`, y en `totales`: `total_valor_venta`, `total_precio_venta`, `total_descuentos` (los que no afectan la base) y `total` (a pagar).",
+      "En el XML: `cac:AllowanceCharge` con factor, monto y base (reglas 3052, 2955, 3290 por línea; 3025, 2968, 3016 global) y `AllowanceTotalAmount` en los totales (3300).",
+    ],
+    disponible: true,
   },
   {
     id: "gratuitas",
