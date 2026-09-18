@@ -84,6 +84,16 @@ export type FormaPago = {
   cuotas: Array<{ id: string; monto: number; vencimiento: string }>;
 };
 
+/** Detracción (SPOT), solo en operaciones 1001–1004; el monto se deposita en soles. */
+export type Detraccion = {
+  codigo_bien_servicio: string;
+  descripcion: string;
+  porcentaje: number;
+  monto: number;
+  cuenta_banco_nacion: string;
+  medio_pago: string;
+};
+
 export const FORMA_PAGO_CONTADO: FormaPago = { tipo: "contado", monto_pendiente: null, cuotas: [] };
 
 export type Comprobante = {
@@ -116,6 +126,7 @@ export type Comprobante = {
     descuento_global?: DescuentoAplicado | null;
   };
   forma_pago: FormaPago;
+  detraccion?: Detraccion | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; cdr?: string };
 };

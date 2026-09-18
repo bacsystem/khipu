@@ -31,6 +31,9 @@
   <#if tot.tieneGratuitas()>
   <cbc:Note languageLocaleID="1002">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</cbc:Note>
   </#if>
+  <#if c.detraccion()??>
+  <cbc:Note languageLocaleID="2006">OPERACIÓN SUJETA AL SISTEMA DE PAGO DE OBLIGACIONES TRIBUTARIAS - SPOT</cbc:Note>
+  </#if>
   <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">${c.moneda()}</cbc:DocumentCurrencyCode>
   <cac:Signature>
     <cbc:ID>signatureFACTURA</cbc:ID>
@@ -62,6 +65,20 @@
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
+  <#-- Detracción (SPOT, reglas 3033–3037, 3127–3129, 3174, 3208): cuenta BN en PaymentMeans y bien/servicio, % y monto en PEN en PaymentTerms. -->
+  <#if c.detraccion()??>
+  <cac:PaymentMeans>
+    <cbc:ID>Detraccion</cbc:ID>
+    <cbc:PaymentMeansCode listName="Medio de pago" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo59">${c.detraccion().medioPago()}</cbc:PaymentMeansCode>
+    <cac:PayeeFinancialAccount><cbc:ID>${c.detraccion().cuentaBancoNacion()}</cbc:ID></cac:PayeeFinancialAccount>
+  </cac:PaymentMeans>
+  <cac:PaymentTerms>
+    <cbc:ID>Detraccion</cbc:ID>
+    <cbc:PaymentMeansID schemeName="Codigo de detraccion" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo54">${c.detraccion().codigoBienServicio()}</cbc:PaymentMeansID>
+    <cbc:PaymentPercent>${c.detraccion().porcentaje()?string["0.#####"]}</cbc:PaymentPercent>
+    <cbc:Amount currencyID="PEN">${c.detraccion().monto()}</cbc:Amount>
+  </cac:PaymentTerms>
+  </#if>
   <#-- Forma de pago (reglas 3244–3267, 3319): un PaymentTerms por indicador; al crédito, el neto pendiente y una cuota por PaymentTerms. -->
   <#if c.formaPago().esCredito()>
   <cac:PaymentTerms>

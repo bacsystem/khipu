@@ -43,6 +43,7 @@ export type Comprobante = {
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   totales: { gravado: number; exonerado: number; inafecto: number; igv: number; total: number };
   forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
+  detraccion?: { codigo_bien_servicio: string; descripcion: string; porcentaje: number; monto: number; cuenta_banco_nacion: string; medio_pago: string } | null;
   enlaces: { xml: string; cdr?: string };
 };
 
@@ -116,6 +117,7 @@ export function resetDb() {
           { id: "Cuota002", monto: 59, vencimiento: "2026-11-01" },
         ],
       },
+      detraccion: { codigo_bien_servicio: "022", descripcion: "Otros servicios empresariales", porcentaje: 12, monto: 14, cuenta_banco_nacion: "00-000-123456", medio_pago: "001" },
       enlaces: { xml: "/v1/facturas/f-aceptada/xml", cdr: "/v1/facturas/f-aceptada/cdr" },
     },
     {

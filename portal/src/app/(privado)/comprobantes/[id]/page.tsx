@@ -5,7 +5,7 @@ import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { ETIQUETAS_AFECTACION, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -62,6 +62,31 @@ function FormaPagoDetalle({ formaPago, moneda }: { formaPago: FormaPago; moneda:
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** Detracción (SPOT): lo que el adquirente deposita en la cuenta del Banco de la Nación del emisor, siempre en soles. */
+function DetraccionDetalle({ detraccion }: { detraccion: Detraccion }) {
+  return (
+    <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="detraccion">
+      <div className="flex items-center justify-between">
+        <span className={ETIQUETA}>Detracción (SPOT)</span>
+        <span className="rounded border border-warning-border bg-warning px-2 py-0.5 text-[11px] font-medium text-warning-foreground">{detraccion.porcentaje}%</span>
+      </div>
+      <div className="mt-2 space-y-1.5 text-muted-foreground">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="min-w-0 truncate">
+            <span className="font-mono text-foreground/80">{detraccion.codigo_bien_servicio}</span> · {detraccion.descripcion}
+          </span>
+          <span className="shrink-0 font-mono font-semibold text-foreground tabular-nums">{formatearMonto("PEN", detraccion.monto)}</span>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <span>Cuenta Banco de la Nación</span>
+          <span className="font-mono text-foreground/80">{detraccion.cuenta_banco_nacion}</span>
+        </div>
+        <p className="text-[11px] text-muted-foreground/80">El adquirente deposita este monto en soles y paga el resto al emisor (medio de pago {detraccion.medio_pago}).</p>
+      </div>
     </div>
   );
 }
@@ -414,6 +439,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             </div>
           </div>
           <FormaPagoDetalle formaPago={c.forma_pago} moneda={c.moneda} />
+          {c.detraccion ? <DetraccionDetalle detraccion={c.detraccion} /> : null}
         </section>
       </div>
     </div>

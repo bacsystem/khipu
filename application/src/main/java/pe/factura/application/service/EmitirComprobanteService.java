@@ -38,7 +38,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         if (cmd.enviarAutomatico()) tenant.exigirCredencialesSol();
 
         Comprobante c = Comprobante.crearFactura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(),
-                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), clock);
+                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.detraccion(), clock);
 
         Comprobante firmado = uow.ejecutar(() -> {
             long numero;
