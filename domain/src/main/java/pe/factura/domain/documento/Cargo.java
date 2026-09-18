@@ -4,8 +4,11 @@ import pe.factura.domain.DomainException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Arrays;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Cargo adicional sobre una línea o sobre el comprobante (catálogo 53, {@code ChargeIndicator true}): flete, embalaje,
@@ -36,12 +39,12 @@ public record Cargo(String codigo, Tipo tipo, BigDecimal valor) {
             return Optional.empty();
         }
         /** Nombre público del motivo en la API (minúsculas: {@code recargo_consumo}). */
-        public String nombre() { return name().toLowerCase(); }
+        public String nombre() { return name().toLowerCase(Locale.ROOT); }
         /** Resuelve el nombre de la API; un nombre desconocido es {@code CARGO_INVALIDO} con la lista admitida. */
         public static Motivo porNombre(String nombre) {
             for (Motivo m : values()) if (m.nombre().equals(nombre)) return m;
             throw new DomainException("CARGO_INVALIDO", "Motivo de cargo desconocido: " + nombre + "; admitidos: "
-                    + java.util.Arrays.stream(values()).map(Motivo::nombre).collect(java.util.stream.Collectors.joining(", ")));
+                    + Arrays.stream(values()).map(Motivo::nombre).collect(Collectors.joining(", ")));
         }
     }
 
