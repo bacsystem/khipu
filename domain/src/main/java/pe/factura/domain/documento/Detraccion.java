@@ -25,7 +25,8 @@ public record Detraccion(String codigoBienServicio, BigDecimal porcentaje, BigDe
             throw new DomainException("DETRACCION_INVALIDA", "3033 - El código de bien o servicio sujeto a detracción no existe en el catálogo 54: " + codigoBienServicio);
         if (porcentaje == null || porcentaje.signum() <= 0 || porcentaje.compareTo(new BigDecimal("100")) >= 0 || porcentaje.scale() > 5)
             throw new DomainException("DETRACCION_INVALIDA", "El porcentaje de detracción debe ser mayor que 0 y menor que 100, con hasta 5 decimales");
-        if (monto == null || monto.signum() <= 0 || monto.scale() > 2)
+        // El monto puede venir vacío: el comprobante lo completa con importe total × % (completarContra) si la factura es en soles.
+        if (monto != null && (monto.signum() <= 0 || monto.scale() > 2))
             throw new DomainException("DETRACCION_INVALIDA", "3037 - El monto de la detracción debe ser positivo con hasta 2 decimales");
         medioPago = medioPago == null || medioPago.isBlank() ? MEDIO_PAGO_DEPOSITO : medioPago;
         if (!CatalogoSunat.porId("59").orElseThrow().contiene(medioPago))
@@ -51,7 +52,18 @@ public record Detraccion(String codigoBienServicio, BigDecimal porcentaje, BigDe
         return total.multiply(porcentaje).divide(new BigDecimal("100"), 0, RoundingMode.HALF_UP).setScale(2);
     }
 
-    /** Coherencia con el tipo de operación (3127/3128/3129) y con la moneda (el monto es en PEN: si la factura no es en soles, tiene que venir). */
+    /**
+     * Completa el monto del depósito con el importe total del comprobante (total × %, al sol). El depósito es siempre en
+     * soles (3208): si la factura está en otra moneda el emisor debe indicarlo al tipo de cambio que corresponda.
+     */
+    Detraccion completarContra(String moneda, BigDecimal importeTotal) {
+        if (monto != null) return this;
+        if (!"PEN".equals(moneda))
+            throw new DomainException("DETRACCION_INVALIDA", "3208 - En facturas en " + moneda + " debe indicar el monto de la detracción en soles");
+        return new Detraccion(codigoBienServicio, porcentaje, montoSobre(importeTotal, porcentaje), cuentaBancoNacion, medioPago);
+    }
+
+    /** Coherencia con el tipo de operación: 3127 (1001–1004 exigen detracción), 3128 (otros la prohíben) y 3129 (código fijo por operación). */
     void validarContra(String tipoOperacion) {
         if (sinCuenta())
             throw new DomainException("DETRACCION_INVALIDA", "3034 - Debe indicar el número de cuenta de detracciones en el Banco de la Nación");

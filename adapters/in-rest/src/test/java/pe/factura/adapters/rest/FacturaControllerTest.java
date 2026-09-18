@@ -319,12 +319,13 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.datos.detraccion.descripcion").isNotEmpty());
         ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
         org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
-        assertThat(cap.getValue().detraccion().monto()).isEqualByComparingTo("14.00");   // 118.00 × 12 % = 14.16 → 14 soles
+        assertThat(cap.getValue().detraccion().monto()).isNull();   // lo completa el dominio contra el importe total
     }
 
     @Test void detraccionEnDolaresSinMontoEs422() throws Exception {
         String usd = cuerpo.replace("\"moneda\":\"PEN\"", "\"moneda\":\"USD\"")
                 .replace("\"tipo_operacion\":\"0101\"", "\"tipo_operacion\":\"1001\",\"detraccion\":{\"codigo_bien_servicio\":\"022\",\"porcentaje\":12,\"cuenta_banco_nacion\":\"00-000-123456\"}");
+        when(emitir.emitirFactura(eq(tenant), any())).thenThrow(new DomainException("DETRACCION_INVALIDA", "3208 - En facturas en USD debe indicar el monto de la detracción en soles"));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(usd))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.codigo").value("DETRACCION_INVALIDA"))
