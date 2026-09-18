@@ -1,6 +1,16 @@
 <#ftl output_format="XML" strip_whitespace=true>
 <#setting number_format="0.00">
 <#setting locale="en_US">
+<#-- Categoría (catálogo 05, UN/ECE 5305) y tributo (UN/ECE 5153) de una afectación: mismo bloque en los subtotales globales y en cada línea. -->
+<#macro categoriaTributo af>
+<cbc:ID schemeID="UN/ECE 5305" schemeName="Tax Category Identifier" schemeAgencyName="United Nations Economic Commission for Europe">${af.categoria()}</cbc:ID>
+<#nested>
+<cac:TaxScheme>
+  <cbc:ID schemeID="UN/ECE 5153" schemeName="Tax Scheme Identifier" schemeAgencyName="United Nations Economic Commission for Europe">${af.tributoId()}</cbc:ID>
+  <cbc:Name>${af.tributoNombre()}</cbc:Name>
+  <cbc:TaxTypeCode>${af.tributoTipo()}</cbc:TaxTypeCode>
+</cac:TaxScheme>
+</#macro>
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
          xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
@@ -31,7 +41,7 @@
   </cac:Signature>
   <cac:AccountingSupplierParty>
     <cac:Party>
-      <cac:PartyIdentification><cbc:ID schemeID="6">${t.ruc()}</cbc:ID></cac:PartyIdentification>
+      <cac:PartyIdentification><cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${t.ruc()}</cbc:ID></cac:PartyIdentification>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${t.razonSocial()}</cbc:RegistrationName>
         <cac:RegistrationAddress><cbc:AddressTypeCode>0000</cbc:AddressTypeCode></cac:RegistrationAddress>
@@ -40,7 +50,7 @@
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
     <cac:Party>
-      <cac:PartyIdentification><cbc:ID schemeID="${c.receptor().tipoDoc()}">${c.receptor().numDoc()}</cbc:ID></cac:PartyIdentification>
+      <cac:PartyIdentification><cbc:ID schemeID="${c.receptor().tipoDoc()}" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${c.receptor().numDoc()}</cbc:ID></cac:PartyIdentification>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${c.receptor().razonSocial()}</cbc:RegistrationName>
         <#if c.receptor().direccion()??>
@@ -55,27 +65,15 @@
   </cac:PaymentTerms>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv()}</cbc:TaxAmount>
-    <#if (tot.gravado() > 0)>
+    <#list tot.subtotales() as st>
     <cac:TaxSubtotal>
-      <cbc:TaxableAmount currencyID="${c.moneda()}">${tot.gravado()}</cbc:TaxableAmount>
-      <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv()}</cbc:TaxAmount>
-      <cac:TaxCategory><cac:TaxScheme><cbc:ID>1000</cbc:ID><cbc:Name>IGV</cbc:Name><cbc:TaxTypeCode>VAT</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory>
+      <cbc:TaxableAmount currencyID="${c.moneda()}">${st.base()}</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="${c.moneda()}">${st.impuesto()}</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <@categoriaTributo af=st.afectacion()/>
+      </cac:TaxCategory>
     </cac:TaxSubtotal>
-    </#if>
-    <#if (tot.exonerado() > 0)>
-    <cac:TaxSubtotal>
-      <cbc:TaxableAmount currencyID="${c.moneda()}">${tot.exonerado()}</cbc:TaxableAmount>
-      <cbc:TaxAmount currencyID="${c.moneda()}">0.00</cbc:TaxAmount>
-      <cac:TaxCategory><cac:TaxScheme><cbc:ID>9997</cbc:ID><cbc:Name>EXO</cbc:Name><cbc:TaxTypeCode>VAT</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory>
-    </cac:TaxSubtotal>
-    </#if>
-    <#if (tot.inafecto() > 0)>
-    <cac:TaxSubtotal>
-      <cbc:TaxableAmount currencyID="${c.moneda()}">${tot.inafecto()}</cbc:TaxableAmount>
-      <cbc:TaxAmount currencyID="${c.moneda()}">0.00</cbc:TaxAmount>
-      <cac:TaxCategory><cac:TaxScheme><cbc:ID>9998</cbc:ID><cbc:Name>INA</cbc:Name><cbc:TaxTypeCode>FRE</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory>
-    </cac:TaxSubtotal>
-    </#if>
+    </#list>
   </cac:TaxTotal>
   <cac:LegalMonetaryTotal>
     <cbc:LineExtensionAmount currencyID="${c.moneda()}">${tot.gravado() + tot.exonerado() + tot.inafecto()}</cbc:LineExtensionAmount>
@@ -99,13 +97,10 @@
         <cbc:TaxableAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:TaxableAmount>
         <cbc:TaxAmount currencyID="${c.moneda()}">${it.igv()}</cbc:TaxAmount>
         <cac:TaxCategory>
+          <@categoriaTributo af=it.item().afectacion()>
           <cbc:Percent>${it.porcentajeIgv()}</cbc:Percent>
           <cbc:TaxExemptionReasonCode listAgencyName="PE:SUNAT" listName="Afectacion del IGV" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo07">${it.item().afectacion().codigo()}</cbc:TaxExemptionReasonCode>
-          <cac:TaxScheme>
-            <cbc:ID schemeID="UN/ECE 5153" schemeAgencyID="6">${it.item().afectacion().tributoId()}</cbc:ID>
-            <cbc:Name>${it.item().afectacion().tributoNombre()}</cbc:Name>
-            <cbc:TaxTypeCode>${it.item().afectacion().tributoTipo()}</cbc:TaxTypeCode>
-          </cac:TaxScheme>
+          </@categoriaTributo>
         </cac:TaxCategory>
       </cac:TaxSubtotal>
     </cac:TaxTotal>

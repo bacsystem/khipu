@@ -32,6 +32,22 @@ class TotalesTest {
         assertThat(t.total()).isEqualByComparingTo("436.00");
     }
 
+    /** Los subtotales son la fuente de gravado/exonerado/inafecto/igv: solo aparecen los que tienen base, en orden de catálogo, y suman lo mismo. */
+    @Test void subtotalesPorAfectacionSonLaFuenteDeLosTotales() {
+        Totales t = Totales.calcular(List.of(
+                item("100.00", "1", TipoAfectacionIgv.INAFECTO),
+                item("118.00", "2", TipoAfectacionIgv.GRAVADO)));
+        assertThat(t.subtotales()).extracting(Totales.SubtotalTributo::afectacion)
+                .containsExactly(TipoAfectacionIgv.GRAVADO, TipoAfectacionIgv.INAFECTO);   // orden de catálogo, sin exonerado
+        assertThat(t.subtotales().get(0).base()).isEqualByComparingTo(t.gravado());
+        assertThat(t.subtotales().get(0).impuesto()).isEqualByComparingTo(t.igv());
+        assertThat(t.subtotales().get(1).base()).isEqualByComparingTo(t.inafecto());
+        assertThat(t.subtotales().get(1).impuesto()).isEqualByComparingTo("0.00");
+        assertThat(t.exonerado()).isEqualByComparingTo("0.00");
+        assertThat(t.subtotales().stream().map(Totales.SubtotalTributo::base).reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualByComparingTo(t.gravado().add(t.exonerado()).add(t.inafecto()));
+    }
+
     @Test void redondeoADosDecimales() {
         Totales t = Totales.calcular(List.of(item("10.00", "3", TipoAfectacionIgv.GRAVADO)));
         assertThat(t.gravado()).isEqualByComparingTo("25.42");
