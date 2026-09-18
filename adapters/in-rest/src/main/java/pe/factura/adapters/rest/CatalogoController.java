@@ -27,14 +27,14 @@ import java.util.List;
 public class CatalogoController {
 
     @GetMapping
-    @Operation(summary = "Listar catálogos", description = "Índice de los catálogos disponibles con su número, nombre y cantidad de entradas. Con `completo=true` devuelve además las entradas de cada uno (una sola llamada para cachear toda la referencia).")
+    @Operation(operationId = "listarCatalogos", summary = "Listar catálogos", description = "Índice de los catálogos disponibles con su número, nombre y cantidad de entradas. Con `completo=true` devuelve además las entradas de cada uno (una sola llamada para cachear toda la referencia).")
     public ApiResponse<List<CatalogoIndice>> listar(
             @Parameter(description = "`true` para incluir las entradas de cada catálogo") @RequestParam(defaultValue = "false") boolean completo) {
         return ApiResponse.ok(CatalogoSunat.todos().stream().<CatalogoIndice>map(completo ? CatalogoResponse::de : CatalogoResponse::resumen).toList());
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Consultar un catálogo", description = """
+    @Operation(operationId = "obtenerCatalogo", summary = "Consultar un catálogo", description = """
             Devuelve todas las entradas del catálogo con su código, descripción y columnas adicionales (por ejemplo, el
             catálogo 07 indica el código de tributo de cada afectación y el 53 el nivel —línea o global— de cada
             cargo/descuento). Responde `404 NO_ENCONTRADO` si el número no existe.""")
