@@ -7,6 +7,7 @@ import pe.factura.application.port.out.DocumentStorage;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
+import pe.factura.domain.documento.TipoDocumento;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -22,6 +23,9 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
 
     public Comprobante obtener(UUID tenantId, UUID id) {
         return comprobantes.buscar(tenantId, id).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
+    }
+    public List<Comprobante> notasDe(UUID tenantId, Comprobante factura) {
+        return factura.tipo() == TipoDocumento.FACTURA && factura.numero() != null ? comprobantes.notasDe(tenantId, factura.serie(), factura.numero()) : List.of();
     }
     public List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina) { return comprobantes.listar(tenantId, estado, pagina, porPagina); }
     public long contar(UUID tenantId, EstadoDocumento estado) { return comprobantes.contar(tenantId, estado); }

@@ -6,6 +6,8 @@ import freemarker.template.TemplateExceptionHandler;
 import pe.factura.application.port.out.UblGenerator;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.MontoEnLetras;
+import pe.factura.domain.documento.Nota;
+import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.Tenant;
 
 import java.io.StringWriter;
@@ -26,8 +28,13 @@ public class FreemarkerUblGenerator implements UblGenerator {
 
     @Override public String generar(Comprobante c, Tenant t) {
         try {
-            Template tpl = cfg.getTemplate("invoice.ftl");
+            Template tpl = cfg.getTemplate(c.esNota() ? "nota.ftl" : "invoice.ftl");
             Map<String, Object> modelo = new HashMap<>();
+            // Lo único que distingue el CreditNote del DebitNote: raíz, catálogo del motivo y los nombres de total, línea y cantidad.
+            if (c.tipo() == TipoDocumento.NOTA_CREDITO)
+                modelo.put("n", Map.of("raiz", "CreditNote", "catalogo", Nota.catalogoMotivo(c.tipo()), "listName", "Tipo de nota de credito", "total", "LegalMonetaryTotal", "linea", "CreditNoteLine", "cantidad", "CreditedQuantity"));
+            else if (c.tipo() == TipoDocumento.NOTA_DEBITO)
+                modelo.put("n", Map.of("raiz", "DebitNote", "catalogo", Nota.catalogoMotivo(c.tipo()), "listName", "Tipo de nota de debito", "total", "RequestedMonetaryTotal", "linea", "DebitNoteLine", "cantidad", "DebitedQuantity"));
             modelo.put("c", c);
             modelo.put("t", t);
             modelo.put("tot", c.totales());

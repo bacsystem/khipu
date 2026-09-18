@@ -59,6 +59,20 @@ public record FormaPago(Tipo tipo, BigDecimal montoPendiente, List<Cuota> cuotas
         }
     }
 
+    /**
+     * En una nota de crédito con motivo 13 las cuotas corrigen las de la factura: el pendiente no supera el total de la
+     * factura (3320) y cada cuota vence después de la emisión de la factura, no de la nota (3321).
+     */
+    public void validarComoCorreccionDe(BigDecimal totalFactura, LocalDate fechaEmisionFactura) {
+        if (!esCredito()) return;
+        if (montoPendiente.compareTo(totalFactura) > 0)
+            throw new DomainException("FORMA_PAGO_INVALIDA", "3320 - El monto neto pendiente de pago (" + montoPendiente + ") no puede superar el importe total de la factura que modifica (" + totalFactura + ")");
+        for (Cuota q : cuotas) {
+            if (!q.vencimiento().isAfter(fechaEmisionFactura))
+                throw new DomainException("FORMA_PAGO_INVALIDA", "3321 - La fecha de la cuota (" + q.vencimiento() + ") debe ser posterior a la emisión de la factura que modifica (" + fechaEmisionFactura + ")");
+        }
+    }
+
     /** Identificador SUNAT de la cuota en la posición dada (base 1): Cuota001, Cuota002… */
     public static String idCuota(int posicion) { return String.format("Cuota%03d", posicion); }
 }

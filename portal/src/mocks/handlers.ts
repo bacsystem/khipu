@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import { db, fakeJwt, type Empresa, type Usuario } from "./data";
+import { db, fakeJwt, type Comprobante, type Empresa, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8080";
@@ -50,6 +50,14 @@ const UBIGEOS = [
 const CATALOGOS = [
   { id: "06", nombre: "Código de tipo de documento de identidad", columnas: ["Código", "Descripción"],
     entradas: [{ codigo: "1", descripcion: "DNI", extra: {} }, { codigo: "6", descripcion: "RUC", extra: {} }] },
+  { id: "09", nombre: "Códigos de tipo de nota de crédito electrónica", columnas: ["Código", "Descripción"],
+    entradas: [
+      { codigo: "01", descripcion: "Anulación de la operación", extra: {} },
+      { codigo: "07", descripcion: "Devolución por ítem", extra: {} },
+      { codigo: "13", descripcion: "Corrección o modificación del monto neto pendiente de pago y/o la(s) fechas(s) de vencimiento", extra: {} },
+    ] },
+  { id: "10", nombre: "Códigos de tipo de nota de débito electrónica", columnas: ["Código", "Descripción"],
+    entradas: [{ codigo: "01", descripcion: "Intereses por mora", extra: {} }, { codigo: "13", descripcion: "Penalidades", extra: {} }] },
   { id: "07", nombre: "Código de tipo de afectación del IGV", columnas: ["Código", "Descripción", "Codigo de tributo"],
     entradas: [
       { codigo: "10", descripcion: "Gravado - Operación Onerosa", extra: { "Codigo de tributo": "1000" } },
@@ -221,9 +229,48 @@ export const handlers = [
 
   http.get(`${BASE}/v1/facturas/:id`, ({ params, request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
-    const factura = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === params.id);
+    const lista = db.facturasPorEmpresa.get(empresaId) ?? [];
+    const factura = lista.find((f) => f.id === params.id);
     if (!factura) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
-    return ok(factura);
+    // Como el backend: una factura lista las notas emitidas sobre ella.
+    const notas = factura.tipo === "01"
+      ? lista.filter((n) => n.nota?.documento_afectado === `${factura.serie}-${factura.numero}`).map((n) => ({
+          id: n.id, tipo: n.tipo, comprobante: `${n.serie}-${n.numero}`, fecha_emision: n.fecha_emision, motivo: n.nota!.motivo,
+          motivo_descripcion: n.nota!.motivo_descripcion, estado_documento: n.estado_documento, total: n.totales.total,
+        }))
+      : [];
+    return ok({ ...factura, notas: notas.length ? notas : null });
+  }),
+
+  // Notas de crédito/débito: la factura debe existir y estar aceptada; la nota copia cliente y moneda y se acepta al instante.
+  http.post(`${BASE}/v1/notas`, async ({ request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const body = (await request.json()) as { tipo: "07" | "08"; serie: string; fecha_emision: string; documento_afectado: { serie: string; numero: number }; motivo: string; descripcion: string; items?: Array<{ descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }> };
+    const lista = db.facturasPorEmpresa.get(empresaId) ?? [];
+    const factura = lista.find((f) => f.tipo === "01" && f.serie === body.documento_afectado.serie && f.numero === body.documento_afectado.numero);
+    if (!factura) return fail(422, "NOTA_INVALIDA", `2119 - La factura ${body.documento_afectado.serie}-${body.documento_afectado.numero} no existe en esta empresa`);
+    if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(422, "NOTA_INVALIDA", `2119 - La factura no está aceptada por SUNAT (estado ${factura.estado_documento})`);
+    const serie = (db.seriesPorEmpresa.get(empresaId) ?? []).find((s) => s.tipo === body.tipo && s.serie === body.serie);
+    if (!serie) return fail(422, "SERIE_NO_CONFIGURADA", `Serie no configurada: ${body.serie}`);
+    serie.ultimo_numero += 1;
+    const motivos: Record<string, string> = { "01": body.tipo === "07" ? "Anulación de la operación" : "Intereses por mora", "07": "Devolución por ítem", "13": body.tipo === "07" ? "Corrección o modificación del monto neto pendiente de pago" : "Penalidades" };
+    const items = body.motivo === "13" && body.tipo === "07"
+      ? [{ codigo: null, descripcion: body.descripcion, unidad: "ZZ", cantidad: 1, precio_unitario: 0, tipo_afectacion_igv: "10" }]
+      : body.items?.length ? body.items.map((i) => ({ codigo: null, ...i })) : factura.items;
+    const total = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0);
+    const id = nuevoId("n");
+    const nota: Comprobante = {
+      id, tipo: body.tipo, serie: body.serie, numero: serie.ultimo_numero, fecha_emision: body.fecha_emision, moneda: factura.moneda,
+      tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items, estado_documento: "ACEPTADO", hash: "hashnota==",
+      nombre_archivo: `20123456789-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
+      cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
+      totales: { gravado: Number((total / 1.18).toFixed(2)), exonerado: 0, inafecto: 0, igv: Number((total - total / 1.18).toFixed(2)), total: Number(total.toFixed(2)) },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      nota: { tipo_afectado: "01", documento_afectado: `${factura.serie}-${factura.numero}`, motivo: body.motivo, motivo_descripcion: motivos[body.motivo] ?? "Otros", descripcion: body.descripcion },
+      enlaces: { xml: `/v1/facturas/${id}/xml`, cdr: `/v1/facturas/${id}/cdr` },
+    };
+    lista.unshift(nota);
+    return ok(nota, 201);
   }),
 
   http.post(`${BASE}/v1/facturas/:id/enviar`, ({ params, request }) => {

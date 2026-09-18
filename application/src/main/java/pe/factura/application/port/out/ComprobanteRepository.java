@@ -17,6 +17,8 @@ public interface ComprobanteRepository {
     Optional<Comprobante> bloquearPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero);
     /** Suma de los montos ya regularizados de una factura de anticipo en facturas finales no rechazadas ni inválidas. */
     BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo);
+    /** Notas de crédito/débito emitidas sobre la factura serie-número (cualquier estado), en orden de emisión. */
+    List<Comprobante> notasDe(UUID tenantId, String serieFactura, long numeroFactura);
     List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina);
     long contar(UUID tenantId, EstadoDocumento estado);
 }

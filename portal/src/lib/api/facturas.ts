@@ -73,6 +73,22 @@ export const ETIQUETAS_DOC_RELACIONADO: Record<string, string> = {
   "99": "Otros",
 };
 
+export type NotaResumen = {
+  id: string;
+  tipo: "07" | "08";
+  comprobante: string;
+  fecha_emision: string;
+  motivo: string;
+  motivo_descripcion: string;
+  estado_documento: EstadoDocumento;
+  total: number;
+};
+
+/** Una factura aceptada por SUNAT (con o sin observaciones) admite notas de crédito/débito. */
+export function admiteNotas(c: Pick<Comprobante, "tipo" | "estado_documento">): boolean {
+  return c.tipo === "01" && (c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS");
+}
+
 export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
   "1": "DNI",
   "4": "Carné de extranjería",
@@ -189,6 +205,10 @@ export type Comprobante = {
     guias?: Array<{ tipo: string; numero: string }> | null;
     documentos_relacionados?: Array<{ tipo: string; numero: string }> | null;
   } | null;
+  /** Solo en notas de crédito/débito (tipo 07/08): factura que modifican y motivo (catálogo 09/10). */
+  nota?: { tipo_afectado: string; documento_afectado: string; motivo: string; motivo_descripcion: string; descripcion: string } | null;
+  /** Solo al consultar una factura: notas emitidas sobre ella, con su estado. */
+  notas?: NotaResumen[] | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; cdr?: string };
 };

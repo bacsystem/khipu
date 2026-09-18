@@ -10,6 +10,8 @@ export type CasoEmision = {
   request: string;
   notas: string[];
   disponible: boolean;
+  /** Endpoint del request; por defecto `POST /v1/facturas`. */
+  endpoint?: string;
 };
 
 const CLIENTE = `"cliente": {
@@ -430,6 +432,28 @@ X-Api-Key: fk_TU_API_KEY`,
       "El ISC forma parte de la base del IGV (regla 204) y se informa en un `TaxSubtotal` 2000 por línea (con `TierRange` = sistema) y global (reglas 3108, 2373, 3210).",
       "`icbper: true` marca bolsas de plástico: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año (S/ 0.50 desde 2023, Ley 30884) incluido en el precio; se informa como tributo 7152 sin base ni tasa (reglas 3236–3238).",
       "La respuesta trae por ítem `isc {sistema, tasa, monto}` e `icbper`, y en `totales` `isc` e `icbper`; `total_precio_venta` los incluye (regla 55).",
+    ],
+    disponible: true,
+  },
+  {
+    id: "notas",
+    titulo: "Notas de crédito y débito",
+    endpoint: "/v1/notas",
+    cuando: "Corregir o anular una factura ya aceptada: devoluciones (total o por ítem), descuentos posteriores, anulación por error, reprogramación de cuotas (nota de crédito); intereses por mora, penalidades o aumentos de valor (nota de débito).",
+    request: `{
+  "tipo": "07",
+  "serie": "FC01",
+  "fecha_emision": "2026-09-18",
+  "documento_afectado": { "serie": "F001", "numero": 125 },
+  "motivo": "01",
+  "descripcion": "Anulación de la operación por error en el pedido"
+}`,
+    notas: [
+      "`tipo` **07** nota de crédito / **08** nota de débito; `serie` registrada con ese tipo y que empiece por `F` (p. ej. `FC01`, `FD01`; regla 1001). `documento_afectado` debe ser una factura de la empresa **aceptada** por SUNAT y no anulada (reglas 2119, 2120); la nota toma su cliente, moneda y tipo de operación, y su fecha no puede ser anterior (2885).",
+      "`motivo` del catálogo **09** (NC: `01` anulación, `02` error en el RUC, `04`/`05` descuentos, `06`/`07` devoluciones, `09` disminución, `13` corrección de cuotas…) o **10** (ND: `01` intereses por mora, `02` aumento en el valor, `03` penalidades…); `descripcion` es el sustento (1–500 caracteres, regla 2135).",
+      "**Nota total**: sin `items`, khipu copia ítems, descuento global y cargos de la factura (no envíe `descuento_global` ni `cargos` propios: se rechazan). Si la factura regularizó anticipos, envíe `items` por el importe neto: los anticipos no viajan en una nota. **Nota parcial**: envíe `items` con el mismo formato que en la factura (p. ej. una laptop de las dos facturadas). Una nota de crédito nunca supera los importes de la factura, ni en total (3286) ni por tributo (3503); una nota de débito no tiene tope.",
+      "**NC 13** (reprogramar cuotas de una factura al crédito): envíe `forma_pago` al crédito con las cuotas corregidas; la nota sale con importe 0 (regla 3315; `items` se ignora) y las cuotas se validan contra la factura (3320, 3321). En cualquier otra nota `forma_pago` se rechaza.",
+      "La respuesta es el mismo comprobante que en facturas más el bloque `nota { tipo_afectado, documento_afectado, motivo, motivo_descripcion, descripcion }`; consulta, XML, CDR y reenvío van por `GET /v1/facturas/{id}`…, y la factura lista sus notas en `notas[]`. En el XML: `CreditNote`/`DebitNote` con `cac:DiscrepancyResponse` y `cac:BillingReference`. Error `NOTA_INVALIDA` (422) con la regla SUNAT en el mensaje. Homologado en e-beta: NC total, parcial, 13 y ND.",
     ],
     disponible: true,
   },

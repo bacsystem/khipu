@@ -71,7 +71,14 @@ public record FacturaRequest(
             @Valid @Schema(description = "Impuesto Selectivo al Consumo del ítem (bebidas alcohólicas, combustibles, vehículos…). Opcional; el `precio_unitario` lo incluye.") IscDto isc,
             @Schema(example = "false", description = "`true` si el ítem son bolsas de plástico afectas al ICBPER: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año incluido en `precio_unitario`") Boolean icbper,
             @Pattern(regexp = "[0-9]{8}", message = "código de producto SUNAT de 8 dígitos (UNSPSC, catálogo 25)") @Schema(example = "15101505", description = "Código de producto SUNAT (catálogo 25, UNSPSC de 8 dígitos; `GET /v1/catalogos/25` lista los que SUNAT exige a los padrones obligados, detracciones y percepciones). Opcional; obligatorio para los emisores del padrón (regla 4331). SUNAT observa los que no llegan al tercer nivel (terminados en 0000, regla 4337)") String codigoSunat,
-            @Valid @Schema(description = "Código GTIN (GS1) del producto. Opcional") GtinDto gtin) {}
+            @Valid @Schema(description = "Código GTIN (GS1) del producto. Opcional") GtinDto gtin) {
+
+        Item aDominio() {
+            return new Item(codigo, descripcion, unidad, cantidad, precioUnitario, TipoAfectacionIgv.porCodigo(tipoAfectacionIgv),
+                    descuento == null ? null : descuento.aDominio(), isc == null ? null : isc.aDominio(), Boolean.TRUE.equals(icbper),
+                    FacturaRequest.cargos(this.cargos, false), CodigoProductoSunat.de(codigoSunat), gtin == null ? null : gtin.aDominio());
+        }
+    }
 
     public record GtinDto(
             @NotBlank @Pattern(regexp = "GTIN-(8|12|13|14)", message = "tipo de GTIN: GTIN-8, GTIN-12, GTIN-13 o GTIN-14") @Schema(example = "GTIN-13", description = "Estructura GS1: `GTIN-8`, `GTIN-12`, `GTIN-13` o `GTIN-14` (regla 4335)") String tipo,
@@ -195,9 +202,7 @@ public record FacturaRequest(
     public EmitirFacturaCommand aComando() {
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, fechaVencimiento, moneda, tipoOperacion,
                 new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
-                items.stream().map(i -> new Item(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), TipoAfectacionIgv.porCodigo(i.tipoAfectacionIgv()),
-                        i.descuento() == null ? null : i.descuento().aDominio(), i.isc() == null ? null : i.isc().aDominio(), Boolean.TRUE.equals(i.icbper()),
-                        cargos(i.cargos(), false), CodigoProductoSunat.de(i.codigoSunat()), i.gtin() == null ? null : i.gtin().aDominio())).toList(),
+                items.stream().map(ItemDto::aDominio).toList(),
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
                 descuentoGlobal == null ? null : descuentoGlobal.aDominio(),
                 cargos(cargos, true),
@@ -211,7 +216,7 @@ public record FacturaRequest(
                 enviarAutomatico == null || enviarAutomatico);
     }
 
-    private static List<Cargo> cargos(List<CargoDto> dtos, boolean globales) {
+    static List<Cargo> cargos(List<CargoDto> dtos, boolean globales) {
         return dtos == null ? List.of() : dtos.stream().map(d -> d.aDominio(globales)).toList();
     }
 }

@@ -15,6 +15,11 @@ export function formatearMonto(moneda: string, valor: number): string {
   return `${simbolo} ${formatearNumero(valor)}`;
 }
 
+/** Fecha de hoy en Lima como `YYYY-MM-DD` (la zona del emisor, no la del navegador). */
+export function hoyLima(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+}
+
 export function formatearFecha(iso: string): string {
   const [anio, mes, dia] = iso.split("-").map(Number);
   if (!anio || !mes || !dia) return iso;

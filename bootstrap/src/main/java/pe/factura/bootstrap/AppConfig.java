@@ -138,7 +138,7 @@ public class AppConfig {
      * scoped a tenant (ApiKeyFilter → TenantActual) aceptan X-Api-Key.
      */
     @Bean GlobalOpenApiCustomizer apiKeySecurityCustomizer() {
-        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas");
+        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas", "/v1/notas");
         return openApi -> {
             if (openApi.getComponents() == null) openApi.setComponents(new Components());
             openApi.getComponents().addSecuritySchemes("ApiKey",

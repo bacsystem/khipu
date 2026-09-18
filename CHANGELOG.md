@@ -2,6 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.17] - 2026-09-18
+
+### Added
+- API: notas de crédito y débito sobre facturas (#28): `POST /v1/notas { tipo 07|08, serie, fecha_emision, documento_afectado { serie, numero }, motivo (catálogo 09/10), descripcion, items?, descuento_global?, cargos?, forma_pago? }`. Sin `items` la nota es total (copia ítems, descuento y cargos de la factura); con `items`, parcial. La factura debe estar aceptada y no anulada (2119/2120), la fecha no puede ser anterior (2885), el motivo debe existir en el catálogo (2172) y una NC no supera los importes de la factura ni en total (3286) ni por tributo (3503). NC 13 (corrección de cuotas): `forma_pago` al crédito validada contra la factura (3257, 3260, 3320, 3321) y nota con importe 0 (3315). XML `CreditNote`/`DebitNote` con `DiscrepancyResponse` y `BillingReference`, validado contra XSD. Respuesta con el bloque `nota`; `GET /v1/facturas/{id}` de una factura incluye `notas[]`. Nuevo error `NOTA_INVALIDA`. Migración V14. Homologado en e-beta: NC total, NC parcial, NC 13 y ND (21/21 escenarios).
+- Portal: botón "Emitir nota" en facturas aceptadas con formulario (tipo, serie 07/08, motivo de catálogo, sustento; nota total, parcial por cantidades, NC 13 con cuotas, ND con concepto e importe); el detalle de una nota muestra la factura modificada y el motivo, y la factura lista sus notas. Guía, errores y catálogos 09/10 documentados.
+
+### Changed
+- UBL: la plantilla de factura se descompuso en macros compartidas (`comun.ftl`) que reutilizan las notas; el XML de la factura no cambia.
+
 ## [0.1.16] - 2026-09-18
 
 ### Added

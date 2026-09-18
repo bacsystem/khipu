@@ -133,7 +133,7 @@ export default function GuiaPage() {
               <P>
                 <strong className="font-medium text-foreground">Cuándo:</strong> {c.cuando}
               </P>
-              <BloqueCodigo titulo={c.disponible ? "request" : "request (contrato previsto)"} codigo={c.request} />
+              <BloqueCodigo titulo={`${c.disponible ? "request" : "request (contrato previsto)"} · POST ${c.endpoint ?? "/v1/facturas"}`} codigo={c.request} />
               <ul className="list-disc space-y-1 pl-5 text-[13px] leading-relaxed text-muted-foreground">
                 {c.notas.map((n, i) => (
                   <li key={i}>
