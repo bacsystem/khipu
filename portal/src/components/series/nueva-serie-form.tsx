@@ -2,8 +2,9 @@
 
 import { ChevronDownIcon, SaveIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
+import type { Establecimiento } from "@/lib/api/establecimientos";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -20,8 +21,25 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
   const [tipo, setTipo] = useState("01");
   const [serie, setSerie] = useState("");
   const [correlativo, setCorrelativo] = useState("0");
+  const [establecimiento, setEstablecimiento] = useState("0000");
+  const [establecimientos, setEstablecimientos] = useState<Establecimiento[] | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Puntos de emisión de la empresa (#80): el 0000 siempre existe; los anexos dados de baja no se ofrecen.
+  useEffect(() => {
+    let vigente = true;
+    apiRequest<Establecimiento[]>("/api/proxy/empresa/establecimientos", { method: "GET" })
+      .then((res) => {
+        if (vigente) setEstablecimientos(res.estado === "exito" && res.datos ? res.datos.filter((e) => e.activo) : []);
+      })
+      .catch(() => {
+        if (vigente) setEstablecimientos([]);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -29,7 +47,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
     setError(null);
     const res = await apiRequest("/api/proxy/series", {
       method: "POST",
-      body: { tipo, serie: serie.toUpperCase(), correlativo_inicial: Number(correlativo) || 0 },
+      body: { tipo, serie: serie.toUpperCase(), correlativo_inicial: Number(correlativo) || 0, establecimiento },
     });
     setEnviando(false);
     if (res.estado !== "exito") {
@@ -93,6 +111,32 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
           />
           <span className={AYUDA_CAMPO}>Base inicial (0 = nueva)</span>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="serie-establecimiento" className={ETIQUETA_CAMPO}>
+          Establecimiento
+        </label>
+        <div className="relative">
+          <select
+            id="serie-establecimiento"
+            value={establecimiento}
+            onChange={(e) => setEstablecimiento(e.target.value)}
+            className={cn(CAMPO, "appearance-none pr-8")}
+            data-testid="serie-establecimiento"
+          >
+            <option value="0000">0000 · Domicilio fiscal</option>
+            {(establecimientos ?? [])
+              .filter((e) => !e.principal)
+              .map((e) => (
+                <option key={e.codigo} value={e.codigo}>
+                  {e.codigo} · {e.nombre}
+                </option>
+              ))}
+          </select>
+          <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
+        </div>
+        <span className={AYUDA_CAMPO}>Los comprobantes de la serie salen con la dirección de este punto (AddressTypeCode, regla 3030)</span>
       </div>
 
       <label

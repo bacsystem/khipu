@@ -58,6 +58,8 @@ class HomologacionBetaTest {
 
     static final String RUC = env("HOMOLOGACION_RUC", "20100066603");
     static final String SERIE = env("HOMOLOGACION_SERIE", serieUnica());
+    /** Serie del anexo 0002 (escenario 24): misma base que SERIE con la segunda letra cambiada, única por ejecución. */
+    static final String SERIE_ANEXO = "FA" + SERIE.substring(2);
     static final Path SALIDA = Path.of(System.getProperty("homologacion.salida", "build/homologacion"));
 
     @Autowired TestRestTemplate http;
@@ -94,6 +96,10 @@ class HomologacionBetaTest {
                 "{\"domicilio\":{\"ubigeo\":\"150101\",\"direccion\":\"AV. LIMA 123\"},\"cuenta_detracciones\":\"00-000-123456\",\"nombre_comercial\":\"KHIPU PRUEBAS\"}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
         for (String tipo : List.of("01", "07", "08"))   // la misma serie F### vale para factura, NC y ND (regla 1001); cada tipo numera aparte
             assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"" + tipo + "\",\"serie\":\"" + SERIE + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        // Establecimiento anexo 0002 con su propia serie de factura (#80).
+        assertThat(http.postForEntity("/v1/empresa/establecimientos", new HttpEntity<>(
+                "{\"codigo\":\"0002\",\"nombre\":\"Tienda Miraflores\",\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"AV. LARCO 345\"}}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"01\",\"serie\":\"" + SERIE_ANEXO + "\",\"correlativo_inicial\":0,\"establecimiento\":\"0002\"}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
         String certPath = env("HOMOLOGACION_CERT", null);
         byte[] p12 = certPath == null ? getClass().getResourceAsStream("/test-cert.p12").readAllBytes() : Files.readAllBytes(Path.of(certPath));
@@ -106,7 +112,7 @@ class HomologacionBetaTest {
     }
 
     Stream<EscenariosFactura.Escenario> escenarios() {
-        return EscenariosFactura.todos(SERIE, LocalDate.now(ZoneId.of("America/Lima"))).stream();
+        return EscenariosFactura.todos(SERIE, SERIE_ANEXO, LocalDate.now(ZoneId.of("America/Lima"))).stream();
     }
 
     @ParameterizedTest(name = "{0}")

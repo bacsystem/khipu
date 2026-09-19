@@ -2,15 +2,13 @@
 
 import { MapPinIcon, SaveIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
-import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Domicilio, EmpresaDetalle } from "@/lib/api/empresas";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-
-type Ubigeo = { codigo: string; departamento: string; provincia: string; distrito: string };
+import { UbigeoSelector } from "./ubigeo-selector";
 
 /**
  * Domicilio fiscal (RegistrationAddress del emisor en cada XML) y cuenta de detracciones por defecto. El ubigeo se elige en
@@ -28,11 +26,6 @@ export function DatosFiscalesForm({
   padronTasaEspecialIgv: boolean;
 }) {
   const router = useRouter();
-  const [ubigeos, setUbigeos] = useState<Ubigeo[] | null>(null);
-  const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
-  const [intento, setIntento] = useState(0);
-  const [departamento, setDepartamento] = useState(domicilio?.departamento ?? "");
-  const [provincia, setProvincia] = useState(domicilio?.provincia ?? "");
   const [ubigeo, setUbigeo] = useState(domicilio?.ubigeo ?? "");
   const [direccion, setDireccion] = useState(domicilio?.direccion ?? "");
   const [urbanizacion, setUrbanizacion] = useState(domicilio?.urbanizacion ?? "");
@@ -43,43 +36,6 @@ export function DatosFiscalesForm({
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
-
-  useEffect(() => {
-    let vigente = true;
-    setErrorCatalogo(null);
-    apiRequest<CatalogoSunat>("/api/proxy/catalogos/13", { method: "GET" })
-      .then((res) => {
-        if (!vigente) return;
-        if (res.estado !== "exito" || !res.datos) {
-          setErrorCatalogo("No se pudo cargar el catálogo de ubigeos.");
-          return;
-        }
-        setUbigeos(
-          res.datos.entradas.map((e) => ({
-            codigo: e.codigo,
-            departamento: e.extra.Departamento ?? "",
-            provincia: e.extra.Provincia ?? "",
-            distrito: e.extra.Distrito ?? "",
-          })),
-        );
-      })
-      .catch(() => {
-        if (vigente) setErrorCatalogo("No se pudo cargar el catálogo de ubigeos.");
-      });
-    return () => {
-      vigente = false;
-    };
-  }, [intento]);
-
-  const departamentos = useMemo(() => [...new Set((ubigeos ?? []).map((u) => u.departamento))].sort(), [ubigeos]);
-  const provincias = useMemo(
-    () => [...new Set((ubigeos ?? []).filter((u) => u.departamento === departamento).map((u) => u.provincia))].sort(),
-    [ubigeos, departamento],
-  );
-  const distritos = useMemo(
-    () => (ubigeos ?? []).filter((u) => u.departamento === departamento && u.provincia === provincia).sort((a, b) => a.distrito.localeCompare(b.distrito)),
-    [ubigeos, departamento, provincia],
-  );
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -104,78 +60,10 @@ export function DatosFiscalesForm({
     router.refresh();
   }
 
-  const cargando = ubigeos === null && errorCatalogo === null;
-
   return (
     <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4" data-testid="datos-fiscales">
-      {errorCatalogo ? (
-        <p className="text-sm text-destructive">
-          {errorCatalogo}{" "}
-          <button type="button" onClick={() => setIntento((n) => n + 1)} className="font-medium underline">
-            Reintentar
-          </button>
-        </p>
-      ) : null}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="dom-departamento" className={ETIQUETA_CAMPO}>
-            Departamento
-          </label>
-          <select
-            id="dom-departamento"
-            value={departamento}
-            disabled={ubigeos === null}
-            onChange={(e) => {
-              setDepartamento(e.target.value);
-              setProvincia("");
-              setUbigeo("");
-            }}
-            className={cn(CAMPO, "cursor-pointer")}
-          >
-            <option value="">{cargando ? "Cargando ubigeos…" : errorCatalogo ? "Catálogo no disponible" : "Seleccione"}</option>
-            {departamentos.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="dom-provincia" className={ETIQUETA_CAMPO}>
-            Provincia
-          </label>
-          <select
-            id="dom-provincia"
-            value={provincia}
-            disabled={!departamento}
-            onChange={(e) => {
-              setProvincia(e.target.value);
-              setUbigeo("");
-            }}
-            className={cn(CAMPO, "cursor-pointer")}
-          >
-            <option value="">Seleccione</option>
-            {provincias.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="dom-distrito" className={ETIQUETA_CAMPO}>
-            Distrito
-          </label>
-          <select id="dom-distrito" value={ubigeo} disabled={!provincia} onChange={(e) => setUbigeo(e.target.value)} className={cn(CAMPO, "cursor-pointer")}>
-            <option value="">Seleccione</option>
-            {distritos.map((d) => (
-              <option key={d.codigo} value={d.codigo}>
-                {d.distrito}
-              </option>
-            ))}
-          </select>
-          <span className={AYUDA_CAMPO}>{ubigeo ? `Ubigeo ${ubigeo} (catálogo 13)` : "Ubigeo INEI, catálogo 13 de SUNAT"}</span>
-        </div>
+        <UbigeoSelector value={ubigeo} onChange={setUbigeo} inicial={domicilio} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-6">
@@ -264,7 +152,7 @@ export function DatosFiscalesForm({
       {ok ? <p className="text-sm text-success-foreground">Datos fiscales actualizados: el domicilio irá en el XML de las próximas facturas.</p> : null}
 
       <div className="flex justify-end border-t border-border/60 pt-4">
-        <button type="submit" disabled={enviando || ubigeos === null} className={cn(BOTON_PRIMARIO, "h-9 text-[12px]")}>
+        <button type="submit" disabled={enviando} className={cn(BOTON_PRIMARIO, "h-9 text-[12px]")}>
           <SaveIcon className="size-4" />
           {enviando ? "Guardando…" : "Guardar datos fiscales"}
         </button>
