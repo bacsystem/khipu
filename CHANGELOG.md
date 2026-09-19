@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.30] - 2026-09-19
+
+### Added
+- ISC sistema 03, al valor según precio de venta al público (#68): `items[].isc { sistema: "03", tasa, base_pvp }`. La base del ISC de la línea (`cbc:TaxableAmount` del subtotal 2000, regla 3108) es `base_pvp × cantidad` —el PVP sugerido unitario— y no el valor de venta; el ISC = base × tasa; el IGV sigue sobre valor de venta + ISC (regla 204); `TierRange 03` y `Percent` en el XML (2373, 3210). `base_pvp` es obligatoria en 03, no se admite en 01/02 y no puede ser menor que el valor unitario (`422 ISC_INVALIDO`). El subtotal global de ISC suma esas bases. Migración V20 (`comprobante_item.isc_base_pvp`); la respuesta expone por ítem `isc.base` y `isc.base_pvp`; guía y OpenAPI actualizados. Se retira el rechazo anterior del sistema 03.
+
 ## [0.1.29] - 2026-09-19
 
 ### Added

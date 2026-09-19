@@ -83,7 +83,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         for (Tributo tr : Tributo.values()) {
             SubtotalTributo st = switch (tr) {
                 case IGV -> new SubtotalTributo(tr, suma(calculados, tr, ItemCalculado::valorVenta), suma(calculados, tr, ItemCalculado::igv));
-                case ISC -> new SubtotalTributo(tr, sumaSi(calculados, ItemCalculado::tieneIsc, ItemCalculado::valorVenta), sumaSi(calculados, ItemCalculado::tieneIsc, ItemCalculado::isc));
+                case ISC -> new SubtotalTributo(tr, sumaSi(calculados, ItemCalculado::tieneIsc, ItemCalculado::iscBase), sumaSi(calculados, ItemCalculado::tieneIsc, ItemCalculado::isc));
                 case ICBPER -> new SubtotalTributo(tr, z(), sumaSi(calculados, ItemCalculado::tieneIcbper, ItemCalculado::icbper));
                 default -> new SubtotalTributo(tr, suma(calculados, tr, ItemCalculado::valorVenta), suma(calculados, tr, ItemCalculado::igv));
             };

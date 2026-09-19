@@ -21,7 +21,7 @@ import java.util.List;
  * </ul>
  */
 public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal baseBruta, BigDecimal descuento, boolean descuentoAfectaBase,
-                            BigDecimal valorVenta, BigDecimal isc, BigDecimal iscPorcentaje, BigDecimal icbper, BigDecimal icbperUnitario,
+                            BigDecimal valorVenta, BigDecimal isc, BigDecimal iscPorcentaje, BigDecimal iscBase, BigDecimal icbper, BigDecimal icbperUnitario,
                             BigDecimal igv, BigDecimal precioVenta, BigDecimal precioVentaUnitario, BigDecimal porcentajeIgv, List<CargoCalculado> cargos) {
 
     /** Factor de la tasa general (18 %); los cálculos reales usan la tasa del comprobante ({@link TasaIgv}). */
@@ -46,7 +46,7 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         // Precio con IGV e ISC → valor sin tributos: precio = valor × (1 + isc%) × (1 + igv) (sistemas 01/03) o (valor + iscFijo) × (1 + igv) (02).
         BigDecimal valorReferencial;
         if (!onerosaGravada) valorReferencial = precioSinIcbper.setScale(10, RoundingMode.HALF_UP);
-        else if (item.tieneIsc() && "02".equals(item.isc().sistema())) valorReferencial = precioSinIcbper.divide(unoMasIgv, 10, RoundingMode.HALF_UP).subtract(item.isc().montoUnitario());
+        else if (item.tieneIsc() && !"01".equals(item.isc().sistema())) valorReferencial = precioSinIcbper.divide(unoMasIgv, 10, RoundingMode.HALF_UP).subtract(item.isc().montoUnitarioEfectivo());
         else if (item.tieneIsc()) valorReferencial = precioSinIcbper.divide(unoMasIgv, 10, RoundingMode.HALF_UP).divide(BigDecimal.ONE.add(item.isc().tasa().divide(CIEN, 10, RoundingMode.HALF_UP)), 10, RoundingMode.HALF_UP);
         else valorReferencial = precioSinIcbper.divide(unoMasIgv, 10, RoundingMode.HALF_UP);
         BigDecimal baseBruta = valorReferencial.multiply(cantidad).setScale(2, RoundingMode.HALF_UP);
@@ -58,14 +58,17 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         BigDecimal cargosAfectanBase = sumaCargos(cargos, true);
         BigDecimal valorVenta = (afectaBase ? baseBruta.subtract(descuento) : baseBruta).add(cargosAfectanBase);
         BigDecimal isc = item.tieneIsc() && !af.gratuita() ? item.isc().montoSobre(valorVenta, cantidad) : BigDecimal.ZERO.setScale(2);
-        BigDecimal iscPorcentaje = item.tieneIsc() && !af.gratuita() ? item.isc().porcentajeSobre(valorVenta, isc) : BigDecimal.ZERO;
+        BigDecimal iscBase = item.tieneIsc() && !af.gratuita() ? item.isc().baseSobre(valorVenta, cantidad) : BigDecimal.ZERO.setScale(2);
+        if (item.tieneIsc() && "03".equals(item.isc().sistema()) && !af.gratuita() && valorReferencial.compareTo(item.isc().basePvp()) > 0)
+            throw new DomainException("ISC_INVALIDO", "El PVP sugerido (base_pvp " + item.isc().basePvp() + ") no puede ser menor que el valor unitario sin tributos (" + valorReferencial.setScale(2, RoundingMode.HALF_UP) + ")");
+        BigDecimal iscPorcentaje = item.tieneIsc() && !af.gratuita() ? item.isc().porcentajeSobre(iscBase, isc) : BigDecimal.ZERO;
         BigDecimal igv = af.gravado() ? valorVenta.add(isc).multiply(factorIgv).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
         BigDecimal descuentoNoAfecta = item.tieneDescuento() && !afectaBase ? descuento : BigDecimal.ZERO;
         BigDecimal precioVenta = af.gratuita() ? BigDecimal.ZERO.setScale(2) : valorVenta.add(isc).add(igv).add(icbper).subtract(descuentoNoAfecta).add(sumaCargos(cargos, false));
         BigDecimal valorUnitario = af.gratuita() ? BigDecimal.ZERO.setScale(10) : valorReferencial;
         BigDecimal precioVentaUnitario = af.gratuita() ? valorReferencial : precioVenta.divide(cantidad, 10, RoundingMode.HALF_UP);
         BigDecimal pct = af.gravado() ? tasaIgv : new BigDecimal("0.00");
-        return new ItemCalculado(item, valorUnitario, baseBruta, descuento, afectaBase, valorVenta, isc, iscPorcentaje, icbper, icbperUnitario,
+        return new ItemCalculado(item, valorUnitario, baseBruta, descuento, afectaBase, valorVenta, isc, iscPorcentaje, iscBase, icbper, icbperUnitario,
                 igv, precioVenta, precioVentaUnitario, pct, cargos);
     }
 

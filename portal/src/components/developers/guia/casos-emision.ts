@@ -426,14 +426,16 @@ X-Api-Key: fk_TU_API_KEY`,
       "isc": { "sistema": "01", "tasa": 35 } },
     { "descripcion": "Pisco 750 ml", "unidad": "NIU", "cantidad": 6, "precio_unitario": 8.555, "tipo_afectacion_igv": "10",
       "isc": { "sistema": "02", "monto_unitario": 2.25 } },
+    { "descripcion": "Cerveza 620 ml (botella)", "unidad": "NIU", "cantidad": 10, "precio_unitario": 3.599, "tipo_afectacion_igv": "10",
+      "isc": { "sistema": "03", "tasa": 30, "base_pvp": 3.50 } },
     { "descripcion": "Bolsa plástica", "unidad": "NIU", "cantidad": 3, "precio_unitario": 0.618, "tipo_afectacion_igv": "10", "icbper": true }
   ]
 }`,
     notas: [
-      "`isc.sistema` del catálogo 08: `01` al valor lleva `tasa` (%) sobre el valor de venta; `02` monto fijo lleva `monto_unitario`. El `precio_unitario` incluye ISC e IGV: khipu separa valor, ISC e IGV (ejemplo: 159.30 = 100 × 1.35 × 1.18). `03` (precio de venta al público) **no está soportado**: su base es el PVP sugerido, que la API aún no recibe; se responde `422`.",
+      "`isc.sistema` del catálogo 08: `01` al valor lleva `tasa` (%) sobre el valor de venta; `02` monto fijo lleva `monto_unitario`; `03` al valor según precio de venta al público lleva `tasa` y `base_pvp` (PVP sugerido unitario sin IGV: cervezas, cigarrillos, gaseosas), y la base del ISC en el XML es `base_pvp × cantidad`, no el valor de venta (regla 3108). El `precio_unitario` siempre incluye ISC e IGV: khipu separa valor, ISC e IGV (159.30 = 100 × 1.35 × 1.18; 3.599 = (2.00 + 3.50 × 30 %) × 1.18). `base_pvp` no puede ser menor que el valor unitario.",
       "El ISC forma parte de la base del IGV (regla 204) y se informa en un `TaxSubtotal` 2000 por línea (con `TierRange` = sistema) y global (reglas 3108, 2373, 3210).",
       "`icbper: true` marca bolsas de plástico: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año (S/ 0.50 desde 2023, Ley 30884) incluido en el precio; se informa como tributo 7152 sin base ni tasa (reglas 3236–3238).",
-      "La respuesta trae por ítem `isc {sistema, tasa, monto}` e `icbper`, y en `totales` `isc` e `icbper`; `total_precio_venta` los incluye (regla 55).",
+      "La respuesta trae por ítem `isc {sistema, tasa, monto, base, base_pvp}` e `icbper`, y en `totales` `isc` e `icbper`; `total_precio_venta` los incluye (regla 55).",
     ],
     disponible: true,
   },
