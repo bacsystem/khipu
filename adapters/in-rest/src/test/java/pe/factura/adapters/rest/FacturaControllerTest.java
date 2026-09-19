@@ -353,9 +353,45 @@ class FacturaControllerTest {
         assertThat(cap.getValue().items().get(0).afectacion()).isEqualTo(TipoAfectacionIgv.IVAP);
     }
 
-    /** La exportación (40) sigue sin soportarse: se rechaza en la validación del DTO, antes de llegar al dominio. */
+    /** Exportación (#65): cliente del exterior con país, afectación 40 e Incoterm entran al comando y vuelven en la respuesta con `totales.exportacion`. */
+    @Test void exportacionEntraYSale() throws Exception {
+        String conExportacion = """
+            {"serie":"F001","fecha_emision":"2026-09-13","tipo_operacion":"0200","moneda":"USD",
+             "cliente":{"tipo_doc":"0","num_doc":"US123456789","razon_social":"ACME IMPORTS LLC","direccion":"1200 Main St","pais":"us"},
+             "items":[{"codigo":"CAF","descripcion":"Café verde","unidad":"KGM","cantidad":1000,"precio_unitario":4.50,"tipo_afectacion_igv":"40"}],
+             "exportacion":{"incoterm":"fob"}}
+            """;
+        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "USD", "0200", new Receptor("0", "US123456789", "ACME IMPORTS LLC", "1200 Main St", "US"),
+                List.of(new Item("CAF", "Café verde", "KGM", new BigDecimal("1000"), new BigDecimal("4.50"), TipoAfectacionIgv.EXPORTACION)))
+                .exportacion(new Exportacion("FOB", null)).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(c);
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conExportacion))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.tipo_operacion").value("0200"))
+                .andExpect(jsonPath("$.datos.receptor.tipo_doc").value("0"))
+                .andExpect(jsonPath("$.datos.receptor.pais").value("US"))
+                .andExpect(jsonPath("$.datos.items[0].tipo_afectacion_igv").value("40"))
+                .andExpect(jsonPath("$.datos.items[0].igv").value(0.00))
+                .andExpect(jsonPath("$.datos.totales.exportacion").value(4500.00))
+                .andExpect(jsonPath("$.datos.totales.gravado").value(0.00))
+                .andExpect(jsonPath("$.datos.totales.total").value(4500.00))
+                .andExpect(jsonPath("$.datos.exportacion.incoterm").value("FOB"))
+                .andExpect(jsonPath("$.datos.exportacion.pais_uso").doesNotExist());
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().receptor().pais()).isEqualTo("US");
+        assertThat(cap.getValue().exportacion().incoterm()).isEqualTo("FOB");
+        assertThat(cap.getValue().items().get(0).afectacion()).isEqualTo(TipoAfectacionIgv.EXPORTACION);
+        // Una venta interna sigue sin `exportacion` en la respuesta
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(aceptado(tenant));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))
+                .andExpect(jsonPath("$.datos.exportacion").doesNotExist())
+                .andExpect(jsonPath("$.datos.receptor.pais").doesNotExist());
+    }
+
+    /** Fuera del catálogo 07 se rechaza en la validación del DTO, antes de llegar al dominio. */
     @Test void afectacionNoSoportadaEs422DeValidacion() throws Exception {
-        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo.replace("\"tipo_afectacion_igv\":\"10\"", "\"tipo_afectacion_igv\":\"40\"")))
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo.replace("\"tipo_afectacion_igv\":\"10\"", "\"tipo_afectacion_igv\":\"50\"")))
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
     }
 

@@ -202,6 +202,27 @@ class EmitirNotaServiceTest {
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("ya acreditado");
     }
 
+    /** Exportación (#65): la nota hereda tipo de operación, datos de exportación y receptor del exterior; se limita por la base 9995 (3503). */
+    @Test void laNotaSobreUnaExportacionHeredaSusDatos() {
+        Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "USD", "0200",
+                new Receptor("0", "US123456789", "ACME IMPORTS LLC", "1200 Main St", "US"),
+                List.of(new Item("CAF", "Café verde", "KGM", new BigDecimal("1000"), new BigDecimal("4.50"), TipoAfectacionIgv.EXPORTACION)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true, null, List.of(), new Exportacion("FOB", null)));
+        assertThat(f.totales().exportacion()).isEqualByComparingTo("4500.00");
+        assertThat(f.exportacion().incoterm()).isEqualTo("FOB");
+        Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "07",
+                List.of(new Item("CAF", "Café verde", "KGM", new BigDecimal("100"), new BigDecimal("4.50"), TipoAfectacionIgv.EXPORTACION))));
+        assertThat(nc.tipoOperacion()).isEqualTo("0200");
+        assertThat(nc.moneda()).isEqualTo("USD");
+        assertThat(nc.exportacion()).isEqualTo(f.exportacion());
+        assertThat(nc.receptor().pais()).isEqualTo("US");
+        assertThat(nc.totales().exportacion()).isEqualByComparingTo("450.00");
+        // El acumulado (450 + 4500) supera la factura: 3286 por el total (y el mismo exceso en la base 9995, 3503)
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "07",
+                List.of(new Item("CAF", "Café verde", "KGM", new BigDecimal("1000"), new BigDecimal("4.50"), TipoAfectacionIgv.EXPORTACION)))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3286").hasMessageContaining("ya acreditado 450.00");
+    }
+
     @Test void laNotaDeDebitoPuedeSuperarALaFactura() {
         Comprobante f = facturaAceptada(FormaPago.contado());
         Comprobante nd = service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_DEBITO, "FD01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "Intereses",

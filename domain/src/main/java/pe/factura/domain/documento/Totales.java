@@ -29,7 +29,7 @@ import java.util.function.Function;
  * {@code igv} son netos de anticipos mientras {@code totalValorVenta} y {@code totalPrecioVenta} son brutos.
  */
 public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito, BigDecimal igv, BigDecimal igvGratuitas,
-                      BigDecimal ivap, BigDecimal isc, BigDecimal icbper,
+                      BigDecimal ivap, BigDecimal exportacion, BigDecimal isc, BigDecimal icbper,
                       BigDecimal totalValorVenta, BigDecimal totalPrecioVenta, BigDecimal totalDescuentos, BigDecimal totalCargos, BigDecimal totalAnticipos, BigDecimal redondeo, BigDecimal total,
                       List<ItemCalculado> items, List<SubtotalTributo> subtotales, DescuentoGlobalCalculado descuentoGlobal, List<CargoCalculado> cargosGlobales,
                       List<AnticipoCalculado> anticipos, BigDecimal tasaIgv) {
@@ -81,6 +81,10 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         boolean hayIvap = calculados.stream().anyMatch(i -> i.item().afectacion().ivap());
         if (hayIvap && calculados.stream().anyMatch(i -> !i.item().afectacion().ivap()))
             throw new DomainException("AFECTACION_INVALIDA", "Un comprobante afecto al IVAP (17) no admite ítems con otra afectación (10, 20, 30 ni gratuitas)");
+        // Exportación (afectación 40, tributo 9995): todas las líneas o ninguna (2642, 3107); descuentos y cargos globales van sobre su base (3273).
+        boolean hayExportacion = calculados.stream().anyMatch(i -> i.item().afectacion().exportacion());
+        if (hayExportacion && calculados.stream().anyMatch(i -> !i.item().afectacion().exportacion()))
+            throw new DomainException("AFECTACION_INVALIDA", "3107 - Una factura de exportación (afectación 40) no admite ítems con otra afectación (10, 17, 20, 30 ni gratuitas)");
         Tributo gravadoCon = hayIvap ? Tributo.IVAP : Tributo.IGV;
         BigDecimal tasaGravado = hayIvap ? TasaIgv.IVAP : tasaIgv;
         BigDecimal factorIgv = TasaIgv.factor(tasaGravado);
@@ -102,7 +106,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         DescuentoGlobalCalculado global = null;
         List<SubtotalTributo> subtotales = new ArrayList<>(brutos);
         BigDecimal baseGravada = base(brutos, gravadoCon);
-        BigDecimal baseOnerosa = baseGravada.add(base(brutos, Tributo.EXO)).add(base(brutos, Tributo.INA));
+        BigDecimal baseOnerosa = baseGravada.add(base(brutos, Tributo.EXO)).add(base(brutos, Tributo.INA)).add(base(brutos, Tributo.EXP));
         // Descuento 02 y cargos 49 se calculan sobre la base gravada bruta y la ajustan (reglas 3277, 3278, 3291); exigen líneas gravadas onerosas.
         BigDecimal ajusteBaseGravada = z();
         if (descuentoGlobal != null) {
@@ -131,7 +135,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         }
 
         // Totales brutos (reglas 3278, 3279): los anticipos no los reducen, solo a las bases por tributo y al importe a pagar.
-        BigDecimal totalValorVenta = base(subtotales, gravadoCon).add(base(subtotales, Tributo.EXO)).add(base(subtotales, Tributo.INA));
+        BigDecimal totalValorVenta = base(subtotales, gravadoCon).add(base(subtotales, Tributo.EXO)).add(base(subtotales, Tributo.INA)).add(base(subtotales, Tributo.EXP));
         BigDecimal totalPrecioVenta = totalValorVenta.add(isc).add(icbper).add(impuesto(subtotales, gravadoCon));   // regla 55 (IGV o IVAP)
 
         List<AnticipoCalculado> aplicados = aplicarAnticipos(subtotales, anticipos == null ? List.of() : anticipos, isc, tasaGravado, factorIgv, gravadoCon);
@@ -142,6 +146,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         BigDecimal gratuito = base(subtotales, Tributo.GRA);
         BigDecimal igv = impuesto(subtotales, Tributo.IGV);
         BigDecimal ivap = impuesto(subtotales, Tributo.IVAP);
+        BigDecimal exportacion = base(subtotales, Tributo.EXP);
         BigDecimal igvGratuitas = impuesto(subtotales, Tributo.GRA);
         BigDecimal totalDescuentos = calculados.stream().map(ItemCalculado::descuentoNoAfectaBase).reduce(z(), BigDecimal::add)
                 .add(global != null && !global.afectaBase() ? global.monto() : z());
@@ -151,7 +156,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         BigDecimal total = totalPrecioVenta.add(totalCargos).subtract(totalDescuentos).subtract(totalAnticipos).add(ajuste);
         if (total.signum() < 0)
             throw new DomainException("REDONDEO_INVALIDO", "3303 - El redondeo deja el importe total en negativo (" + total + ")");
-        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, isc, icbper, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, ajuste, total,
+        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, exportacion, isc, icbper, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, ajuste, total,
                 calculados, List.copyOf(subtotales), global, List.copyOf(cargos), aplicados, tasaIgv);
     }
 
@@ -183,6 +188,8 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     public boolean tieneRedondeo() { return redondeo.signum() != 0; }
 
     public boolean tieneGratuitas() { return gratuito.signum() > 0; }
+
+    public boolean esExportacion() { return exportacion.signum() > 0; }
 
     /** Comprobante afecto al IVAP: lleva la leyenda 2007 y su total precio de venta no incluye IGV (campo 55). */
     public boolean tieneIvap() { return ivap.signum() > 0 || subtotales.stream().anyMatch(st -> st.tributo() == Tributo.IVAP); }

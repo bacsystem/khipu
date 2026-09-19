@@ -81,12 +81,35 @@
       <cac:PartyIdentification><cbc:ID schemeID="${c.receptor().tipoDoc()}" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${c.receptor().numDoc()}</cbc:ID></cac:PartyIdentification>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${c.receptor().razonSocial()}</cbc:RegistrationName>
-        <#if c.receptor().direccion()??>
-        <cac:RegistrationAddress><cac:AddressLine><cbc:Line>${c.receptor().direccion()}</cbc:Line></cac:AddressLine></cac:RegistrationAddress>
+        <#-- Dirección y país (catálogo 04, sin validación SUNAT) del receptor: el país identifica al cliente del exterior en una exportación. -->
+        <#if c.receptor().direccion()?? || c.receptor().pais()??>
+        <cac:RegistrationAddress>
+          <#if c.receptor().direccion()??><cac:AddressLine><cbc:Line>${c.receptor().direccion()}</cbc:Line></cac:AddressLine></#if>
+          <#if c.receptor().pais()??><cac:Country><cbc:IdentificationCode listID="ISO 3166-1" listAgencyName="United Nations Economic Commission for Europe" listName="Country">${c.receptor().pais()}</cbc:IdentificationCode></cac:Country></#if>
+        </cac:RegistrationAddress>
         </#if>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
+</#macro>
+<#-- Exportación (#65): país de uso del servicio en 0201/0208 (cac:Delivery, reglas 3098/3099) e Incoterm (cac:DeliveryTerms, sin validación SUNAT). -->
+<#macro exportacion>
+  <#if c.exportacion()??>
+  <#if c.exportacion().paisUso()??>
+  <cac:Delivery>
+    <cac:DeliveryLocation>
+      <cac:Address>
+        <cac:Country><cbc:IdentificationCode listID="ISO 3166-1" listAgencyName="United Nations Economic Commission for Europe" listName="Country">${c.exportacion().paisUso()}</cbc:IdentificationCode></cac:Country>
+      </cac:Address>
+    </cac:DeliveryLocation>
+  </cac:Delivery>
+  </#if>
+  <#if c.exportacion().incoterm()??>
+  <cac:DeliveryTerms>
+    <cbc:ID schemeAgencyName="International Chamber of Commerce" schemeName="Incoterms 2020">${c.exportacion().incoterm()}</cbc:ID>
+  </cac:DeliveryTerms>
+  </#if>
+  </#if>
 </#macro>
 <#-- Detracción, forma de pago, percepción y anticipos pagados (PaymentMeans/PaymentTerms/PrepaidPayment).
      contado=false en las notas: su PaymentTerms FormaPago solo admite Credito/Cuota (regla 3246) y solo va en la NC 13. -->

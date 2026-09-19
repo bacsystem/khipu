@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.32] - 2026-09-19
+
+### Added
+- Factura de exportación (#65): `tipo_operacion` `0200`–`0208` del catálogo 51 con ítems de afectación `40` → tributo `9995`/EXP/FRE, categoría G, IGV 0 (3110), subtotal global 9995 = Σ valor de venta (3273) y sin otros tributos globales (3107); `totales.exportacion` en la respuesta. El comprobante entero es exportación: ítems `40` fuera de esos tipos o de otra afectación dentro de ellos, e ISC/ICBPER en una línea `40`, responden `422 AFECTACION_INVALIDA` (2642, 3107, 3223). Cliente del exterior: `cliente.tipo_doc` del catálogo 06 (`0`, `1`, `4`, `7`, `A`–`G`; `6` no se admite en 0200/0201/0204 salvo leyenda 2008, regla 2800), formato del número (2801/2802) y `cliente.pais` obligatorio (ISO 3166-1, catálogo 04) → `cac:RegistrationAddress/cac:Country`; en ventas internas `pais` es opcional. Nuevo bloque `exportacion { incoterm, pais_uso }`: el Incoterm 2020 va en `cac:DeliveryTerms/cbc:ID`; `pais_uso` es obligatorio en 0201/0208 (3098, distinto de PE: 3099) → `cac:Delivery/cac:DeliveryLocation/cac:Address/cac:Country`, y no se admite en los demás (`422 EXPORTACION_INVALIDA`). `0202`/`0205` (hospedaje y paquete turístico a no domiciliados) siguen sin soportarse: exigen los datos del huésped por línea (`422 TIPO_OPERACION_INVALIDO`). Las notas de crédito/débito heredan tipo de operación, Incoterm, país de uso y receptor, y la NC se limita también por la base 9995 (3503). Migración V21 (`comprobante.receptor_pais`, `incoterm`, `pais_uso`). PDF con la fila «Exportación (sin IGV)»; portal: país del receptor, bloque «Exportación» (Incoterm, país de uso), «Total exportación», tipos de operación 0200–0208 con nombre, guía con el caso «Exportación de bienes o servicios», catálogos 06/07 y errores actualizados. Homologación: escenario 26-exportacion aceptado por e-beta sin observaciones (26/26).
+
 ## [0.1.31] - 2026-09-19
 
 ### Added

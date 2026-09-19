@@ -51,6 +51,7 @@
   </cac:AdditionalDocumentReference>
   </#list>
 <@u.firmaYPartes/>
+<@u.exportacion/>
 <@u.pagos/>
 <@u.cargosYDescuentosGlobales/>
 <@u.impuestos/>

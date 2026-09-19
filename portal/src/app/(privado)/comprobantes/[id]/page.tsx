@@ -7,7 +7,7 @@ import { BajaButton } from "@/components/comprobantes/baja-button";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { admiteBaja, admiteCorreo, admiteNotas, type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { admiteBaja, admiteCorreo, admiteNotas, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -17,6 +17,20 @@ const TIPOS_OPERACION: Record<string, string> = {
   "0101": "Venta interna",
   "0200": "Exportación de bienes",
   "0201": "Exportación de servicios",
+  "0202": "Exportación · Hospedaje a no domiciliados",
+  "0203": "Exportación · Transporte de navieras",
+  "0204": "Exportación · Servicios a naves y aeronaves",
+  "0205": "Exportación · Paquete turístico",
+  "0206": "Exportación · Servicios complementarios al transporte de carga",
+  "0207": "Exportación · Suministro de energía a ZED",
+  "0208": "Exportación · Servicios prestados parcialmente en el extranjero",
+  "1001": "Operación sujeta a detracción",
+  "2001": "Operación sujeta a percepción",
+};
+
+const INCOTERMS: Record<string, string> = {
+  EXW: "Ex Works", FCA: "Free Carrier", FAS: "Free Alongside Ship", FOB: "Free On Board", CFR: "Cost and Freight", CIF: "Cost, Insurance and Freight",
+  CPT: "Carriage Paid To", CIP: "Carriage and Insurance Paid To", DAP: "Delivered At Place", DPU: "Delivered at Place Unloaded", DDP: "Delivered Duty Paid",
 };
 
 const MONEDAS: Record<string, string> = {
@@ -64,6 +78,28 @@ function FormaPagoDetalle({ formaPago, moneda }: { formaPago: FormaPago; moneda:
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** Exportación (0200–0208): Incoterm de la venta y, en servicios, el país donde se usa. */
+function ExportacionDetalle({ exportacion }: { exportacion: Exportacion }) {
+  return (
+    <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="exportacion">
+      <span className={ETIQUETA}>Exportación</span>
+      <div className="mt-2 space-y-1.5 text-muted-foreground">
+        <div className="flex items-baseline justify-between gap-3">
+          <span>Incoterm</span>
+          <span className="font-mono text-foreground/80">{exportacion.incoterm ? `${exportacion.incoterm} · ${INCOTERMS[exportacion.incoterm] ?? ""}`.trim() : "—"}</span>
+        </div>
+        {exportacion.pais_uso ? (
+          <div className="flex items-baseline justify-between gap-3">
+            <span>País de uso del servicio</span>
+            <span className="font-mono text-foreground/80">{exportacion.pais_uso}</span>
+          </div>
+        ) : null}
+        <p className="text-[11px] text-muted-foreground/80">Sin IGV (tributo 9995): la factura sustenta la exportación ante SUNAT y Aduanas.</p>
+      </div>
     </div>
   );
 }
@@ -312,6 +348,11 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <Campo etiqueta="Dirección declarada">
               <p className="leading-snug text-foreground/80">{c.receptor.direccion ?? "—"}</p>
             </Campo>
+            {c.receptor.pais ? (
+              <Campo etiqueta="País">
+                <p className="font-mono text-foreground/80" data-testid="receptor-pais">{c.receptor.pais}</p>
+              </Campo>
+            ) : null}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground/60">Sin datos de receptor.</p>
@@ -585,7 +626,11 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <span className="font-mono text-[11px] text-muted-foreground/70">{MONEDAS[c.moneda] ?? c.moneda}</span>
           </div>
           <div className="space-y-2 text-xs">
-            <Importe etiqueta={c.totales.ivap ? "Total sujeto al IVAP" : "Total gravado"} moneda={c.moneda} valor={c.totales.gravado} />
+            {c.totales.exportacion ? (
+              <Importe etiqueta="Total exportación (sin IGV)" moneda={c.moneda} valor={c.totales.exportacion} />
+            ) : (
+              <Importe etiqueta={c.totales.ivap ? "Total sujeto al IVAP" : "Total gravado"} moneda={c.moneda} valor={c.totales.gravado} />
+            )}
             <Importe etiqueta="Total exonerado" moneda={c.moneda} valor={c.totales.exonerado} />
             <Importe etiqueta="Total inafecto" moneda={c.moneda} valor={c.totales.inafecto} />
             {c.totales.descuento_global ? (
@@ -639,6 +684,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           </div>
           <FormaPagoDetalle formaPago={c.forma_pago} moneda={c.moneda} />
           {c.detraccion ? <DetraccionDetalle detraccion={c.detraccion} /> : null}
+          {c.exportacion ? <ExportacionDetalle exportacion={c.exportacion} /> : null}
           {c.anticipos?.length ? (
             <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="anticipos">
               <span className={ETIQUETA}>Anticipos regularizados</span>
