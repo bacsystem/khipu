@@ -33,7 +33,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 c.estado().name(), c.hash(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : c.cdr().codigo(), c.cdr() == null ? null : c.cdr().descripcion(),
                 c.cdr() == null ? null : aJson(c.cdr().observaciones()), c.xmlKey(), c.cdrKey(), c.id(), c.tenantId());
-        if (filas > 0) return;
+        if (filas > 0) { registrarEventos(c); return; }
         if (condicional) throw new DomainException("ESTADO_CONFLICTO", "El comprobante cambió de estado en otra transacción");
         jdbc.update("""
             INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, hora_emision, estado, hash, nombre_archivo, intentos, ultimo_error, xml_key, cdr_key)
@@ -101,6 +101,24 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                     i.tieneCodigoSunat() ? i.codigoSunat().codigo() : null, i.gtin() == null ? null : i.gtin().tipo(), i.gtin() == null ? null : i.gtin().codigo(),
                     i.isc() == null ? null : i.isc().basePvp(), DatosSectorialesJson.aJson(i.hidrobiologico()), DatosSectorialesJson.aJson(i.transporte()));
         }
+        registrarEventos(c);
+    }
+
+    /** Historial de intentos (#4): cada cambio de estado ocurrido en memoria se guarda con la hora del servidor, en orden. */
+    private void registrarEventos(Comprobante c) {
+        for (EventoDocumento e : c.eventosPendientes()) {
+            jdbc.update("INSERT INTO evento_documento (documento_id, estado_anterior, estado_nuevo, detalle, ocurrido_en) VALUES (?, ?, ?, ?, clock_timestamp())",
+                    c.id(), e.estadoAnterior() == null ? null : e.estadoAnterior().name(), e.estadoNuevo().name(), e.detalle());
+        }
+        c.eventosGuardados();
+    }
+
+    @Override public List<EventoDocumento> eventosDe(UUID tenantId, UUID comprobanteId) {
+        return jdbc.query("""
+            SELECT e.estado_anterior, e.estado_nuevo, e.detalle, e.ocurrido_en FROM evento_documento e JOIN documento d ON d.id = e.documento_id
+            WHERE d.id = ? AND d.tenant_id = ? ORDER BY e.ocurrido_en, e.id
+            """, (r, k) -> new EventoDocumento(r.getString("estado_anterior") == null ? null : EstadoDocumento.valueOf(r.getString("estado_anterior")),
+                        EstadoDocumento.valueOf(r.getString("estado_nuevo")), r.getString("detalle"), r.getTimestamp("ocurrido_en").toInstant()), comprobanteId, tenantId);
     }
 
     @Override public Optional<Comprobante> buscar(UUID tenantId, UUID id) {

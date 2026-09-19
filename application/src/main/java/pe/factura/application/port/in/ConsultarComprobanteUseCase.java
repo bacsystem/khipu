@@ -10,6 +10,8 @@ public interface ConsultarComprobanteUseCase {
     Comprobante obtener(UUID tenantId, UUID id);                       // DomainException("NO_ENCONTRADO")
     /** Notas de crédito/débito emitidas sobre una factura de la empresa, en orden de emisión (vacío si no es factura o no tiene). */
     List<Comprobante> notasDe(UUID tenantId, Comprobante factura);
+    /** Historial de intentos y cambios de estado del comprobante (#4), del más antiguo al más reciente; vacío si no hay. */
+    List<pe.factura.domain.documento.EventoDocumento> eventos(UUID tenantId, Comprobante comprobante);
     List<Comprobante> listar(UUID tenantId, Filtro filtro, int pagina, int porPagina);
     long contar(UUID tenantId, Filtro filtro);
 

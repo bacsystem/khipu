@@ -23,6 +23,38 @@ class ComprobanteTest {
         assertThat(c.numero()).isNull();
     }
 
+    /** Historial de intentos (#4): cada transición deja un evento con su motivo, en orden; guardar los vacía; rehidratar no crea ninguno. */
+    @Test void cadaCambioDeEstadoDejaUnEventoPendienteConSuMotivo() {
+        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items).crear(clock);
+        assertThat(c.eventosPendientes()).isEmpty();
+        c.asignarNumero(1, "20100066603");
+        c.firmar("HASH", "k.xml");
+        c.marcarEnviado();
+        c.marcarErrorEnvio("SUNAT no disponible (timeout)");
+        c.marcarEnviado();
+        c.aplicarCdr(new Cdr("0", "La Factura numero F001-1, ha sido aceptada", List.of("4252 - atributo")), "R.zip");
+        assertThat(c.eventosPendientes()).extracting(EventoDocumento::estadoAnterior, EventoDocumento::estadoNuevo, EventoDocumento::detalle).containsExactly(
+                tuple(EstadoDocumento.RECIBIDO, EstadoDocumento.FIRMADO, "Firmado; resumen HASH"),
+                tuple(EstadoDocumento.FIRMADO, EstadoDocumento.ENVIADO, "Enviado a SUNAT (intento 1)"),
+                tuple(EstadoDocumento.ENVIADO, EstadoDocumento.ERROR_ENVIO, "SUNAT no disponible (timeout)"),
+                tuple(EstadoDocumento.ERROR_ENVIO, EstadoDocumento.ENVIADO, "Enviado a SUNAT (intento 2)"),
+                tuple(EstadoDocumento.ENVIADO, EstadoDocumento.ACEPTADO_CON_OBS, "0 - La Factura numero F001-1, ha sido aceptada (4252 - atributo)"));
+        assertThat(c.eventosPendientes()).allSatisfy(e -> assertThat(e.ocurridoEn()).isNull());
+        c.eventosGuardados();
+        assertThat(c.eventosPendientes()).isEmpty();
+        c.anular();
+        assertThat(c.eventosPendientes()).singleElement().extracting(EventoDocumento::detalle).isEqualTo("Comunicación de baja aceptada por SUNAT");
+        // Rehidratar desde la base no reproduce el historial en memoria
+        Comprobante leido = Comprobante.persistido(c.id(), tenant, TipoDocumento.FACTURA, "F001", 1L, LocalDate.of(2026, 9, 13), EstadoDocumento.ANULADO, empresa, items).rehidratar();
+        assertThat(leido.eventosPendientes()).isEmpty();
+        // Un fault de SUNAT desde FIRMADO registra el envío y el rechazo con su código
+        Comprobante otro = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items).crear(clock);
+        otro.asignarNumero(2, "20100066603"); otro.firmar("H", "k"); otro.eventosGuardados();
+        otro.rechazarPorFault("2335", "El documento electrónico ingresado ha sido alterado");
+        assertThat(otro.eventosPendientes()).extracting(EventoDocumento::estadoNuevo, EventoDocumento::detalle)
+                .containsExactly(tuple(EstadoDocumento.ENVIADO, "Enviado a SUNAT (intento 1)"), tuple(EstadoDocumento.RECHAZADO, "2335 - El documento electrónico ingresado ha sido alterado"));
+    }
+
     @Test void facturaExigeRucDelReceptor() {
         Receptor dni = new Receptor("1", "12345678", "JUAN PEREZ", null);
         assertThatThrownBy(() -> Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", dni, items).crear(clock))
