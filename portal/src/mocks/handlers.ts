@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import { hoyLima } from "../lib/formato";
+import { hoyLima } from "@/lib/formato";
 import { db, fakeJwt, type Baja, type Comprobante, type Empresa, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.

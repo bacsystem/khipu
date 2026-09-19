@@ -1,4 +1,4 @@
-import { hoyLima } from "@/lib/formato";
+import { diasEntre, hoyLima } from "@/lib/formato";
 import { backendFetch, backendFetchConHeaders } from "./client";
 import { tenantHeaders } from "./tenant";
 
@@ -104,13 +104,6 @@ export type Baja = {
 
 /** Plazo legal para la comunicación de baja: 7 días calendario desde la emisión (regla 2957). */
 export const PLAZO_BAJA_DIAS = 7;
-
-/** Días transcurridos entre dos fechas `YYYY-MM-DD`, sin zona horaria de por medio. */
-function diasEntre(desde: string, hasta: string): number {
-  const [a1, m1, d1] = desde.split("-").map(Number);
-  const [a2, m2, d2] = hasta.split("-").map(Number);
-  return (Date.UTC(a2, m2 - 1, d2) - Date.UTC(a1, m1 - 1, d1)) / 86_400_000;
-}
 
 /**
  * Un comprobante aceptado (factura o nota), emitido hace 7 días o menos y sin baja en curso, puede darse de baja.

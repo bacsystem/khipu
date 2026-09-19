@@ -16,17 +16,14 @@ import { DatosFiscalesForm } from "@/components/empresa/datos-fiscales-form";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { listarEmpresas, obtenerEmpresaActual } from "@/lib/api/empresas";
 import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
-import { formatearFecha, hoyLima } from "@/lib/formato";
+import { diasEntre, formatearFecha, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { Metrica } from "@/components/ui/metrica";
 
-const DIA_MS = 86_400_000;
-
-/** Días entre hoy (Lima) y una fecha ISO; negativo si ya pasó. */
+/** Días entre hoy (Lima) y una fecha `YYYY-MM-DD`; negativo si ya pasó. */
 function diasHasta(iso: string): number {
-  const hoy = new Date(hoyLima());
-  return Math.round((new Date(iso).getTime() - hoy.getTime()) / DIA_MS);
+  return diasEntre(hoyLima(), iso);
 }
 
 function Punto({ tono }: { tono: "ok" | "aviso" | "error" | "neutro" }) {

@@ -1,4 +1,4 @@
-import { hoyLima } from "../lib/formato";
+import { hoyLima } from "@/lib/formato";
 
 function base64url(obj: unknown): string {
   return btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -75,7 +75,6 @@ export type Baja = {
   intentos: number;
   ultimo_error: string | null;
 };
-
 
 type Sesion = { usuario: Usuario };
 
