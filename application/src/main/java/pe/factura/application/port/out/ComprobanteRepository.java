@@ -1,5 +1,7 @@
 package pe.factura.application.port.out;
 
+import pe.factura.application.port.in.ConsultarComprobanteUseCase;
+
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.documento.TipoDocumento;
@@ -27,6 +29,6 @@ public interface ComprobanteRepository {
     List<Comprobante> pendientesDeCdr();
     /** Comprobantes ya firmados (con XML en el storage) de cualquier empresa emitidos entre las dos fechas inclusive, para verificar la integridad del storage. */
     List<Comprobante> firmadosEmitidosEntre(java.time.LocalDate desde, java.time.LocalDate hasta);
-    List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina);
-    long contar(UUID tenantId, EstadoDocumento estado);
+    List<Comprobante> listar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, int pagina, int porPagina);
+    long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro);
 }
