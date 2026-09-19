@@ -11,5 +11,8 @@ export const ETIQUETA_DATO = "block text-[11px] font-medium tracking-wider text-
 
 export const BOTON_PRIMARIO =
   "inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-xs transition-all hover:opacity-95 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
+/** Acción irreversible (dar de baja, revocar): mismo trazo que el primario en `destructive`. */
+export const BOTON_DESTRUCTIVO =
+  "inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-destructive px-3.5 text-sm font-semibold text-destructive-foreground shadow-xs transition-all hover:opacity-95 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
 export const BOTON_SECUNDARIO =
   "inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60";
