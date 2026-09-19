@@ -225,6 +225,19 @@ class FacturaControllerTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
     }
 
+    /** Filtro por serie (#3): exacta, normalizada a mayúsculas, combinable con estado y fechas; formato inválido → 400. */
+    @Test void listarFiltraPorSerie() throws Exception {
+        var filtro = new ConsultarComprobanteUseCase.Filtro(EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, 1), null, "F001");
+        when(consultar.listar(eq(tenant), eq(filtro), eq(1), eq(20))).thenReturn(List.of(aceptado(tenant)));
+        when(consultar.contar(tenant, filtro)).thenReturn(1L);
+        mvc.perform(get("/v1/facturas?estado=ACEPTADO&desde=2026-09-01&serie=f001").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string(FacturaController.TOTAL_HEADER, "1"))
+                .andExpect(jsonPath("$.datos[0].serie").value("F001"));
+        mvc.perform(get("/v1/facturas?serie=F0001").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+    }
+
     @Test void obtenerPorId() throws Exception {
         Comprobante c = aceptado(tenant);
         when(consultar.obtener(tenant, c.id())).thenReturn(c);

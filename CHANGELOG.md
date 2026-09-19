@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.36] - 2026-09-19
+
+### Added
+- Filtro por serie en `GET /v1/facturas` (#3): `serie=F001` (exacta, se normaliza a mayúsculas) combinable con `estado`, `desde`/`hasta` y la paginación; una serie con formato inválido responde `400 PARAMETRO_INVALIDO`, una inexistente devuelve lista vacía con `X-Total-Count: 0`.
+
 ## [0.1.35] - 2026-09-19
 
 ### Added
