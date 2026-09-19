@@ -43,9 +43,12 @@ public class NotaController {
             otra nota `forma_pago` se rechaza.
 
             **Límites** (notas de crédito): el total y las bases por tributo no pueden superar los de la factura (reglas 3286, 3503).
+            khipu descuenta además lo ya acreditado por las notas de crédito anteriores sobre la misma factura (las rechazadas no
+            cuentan): varias notas parciales pueden sumar la factura, pero una segunda nota total —o cualquiera que exceda el saldo—
+            se rechaza aunque SUNAT, que compara nota por nota, la aceptaría.
 
             **Errores**: `422 NOTA_INVALIDA` (factura inexistente, no aceptada o anulada —2119/2120—, fecha anterior a la factura
-            —2885—, motivo fuera del catálogo —2172—, importes mayores que la factura —3286/3503—), `422 SERIE_INVALIDA`,
+            —2885—, motivo fuera del catálogo —2172—, importes mayores que la factura o que su saldo tras otras notas —3286/3503—), `422 SERIE_INVALIDA`,
             `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`.""")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Nota creada; `estado_documento` indica si SUNAT ya la aceptó y `nota` trae la factura modificada y el motivo"),
