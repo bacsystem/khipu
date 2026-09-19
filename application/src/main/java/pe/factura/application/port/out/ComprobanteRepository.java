@@ -21,6 +21,8 @@ public interface ComprobanteRepository {
     BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo);
     /** Notas de crédito/débito emitidas sobre la factura serie-número (cualquier estado), en orden de emisión. */
     List<Comprobante> notasDe(UUID tenantId, String serieFactura, long numeroFactura);
+    /** Comprobantes de cualquier empresa aún no enviados (FIRMADO o ERROR_ENVIO) emitidos hasta {@code fechaEmisionMaxima} inclusive, para el control del plazo. */
+    List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fechaEmisionMaxima);
     List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina);
     long contar(UUID tenantId, EstadoDocumento estado);
 }

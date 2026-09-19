@@ -67,7 +67,7 @@ public class OutboxWorker {
                 default -> { log.warn("Acción desconocida {} en outbox {}", fila.accion(), fila.id()); outbox.completar(fila.id()); }
             }
         } catch (DomainException e) {
-            if ("ESTADO_NO_ENVIABLE".equals(e.codigo()) || "NO_ENCONTRADO".equals(e.codigo())) {
+            if ("ESTADO_NO_ENVIABLE".equals(e.codigo()) || "NO_ENCONTRADO".equals(e.codigo()) || "FUERA_DE_PLAZO".equals(e.codigo())) {
                 log.info("Outbox {} descartada: {} {}", fila.id(), e.codigo(), e.getMessage());
                 outbox.completar(fila.id());
             } else {

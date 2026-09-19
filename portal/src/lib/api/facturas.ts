@@ -21,7 +21,8 @@ export type EstadoDocumento =
   | "ACEPTADO"
   | "ACEPTADO_CON_OBS"
   | "RECHAZADO"
-  | "ANULADO";
+  | "ANULADO"
+  | "FUERA_DE_PLAZO";
 
 export type Receptor = {
   tipo_doc: string;
@@ -199,6 +200,8 @@ export type Comprobante = {
   fecha_emision: string;
   /** Fecha de vencimiento informada (cbc:DueDate), o ausente. */
   fecha_vencimiento?: string | null;
+  /** Último día en que SUNAT acepta recibirlo (3 días calendario desde la emisión); ausente en backends anteriores. */
+  fecha_limite_envio?: string;
   moneda: string;
   tipo_operacion: string | null;
   receptor: Receptor | null;
