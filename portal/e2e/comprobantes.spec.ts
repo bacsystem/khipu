@@ -69,9 +69,26 @@ test("filtra por serie y fechas desde la URL y desde los controles (#6)", async 
   await expect(tabla.getByText("F001-00000001")).toBeVisible();
 });
 
+test("el detalle muestra el historial de intentos en hora de Lima (#7)", async ({ page }) => {
+  await page.goto("/comprobantes/f-error");
+  const historial = page.getByTestId("historial");
+  await expect(historial.getByText("Historial")).toBeVisible();
+  const filas = historial.locator("li");
+  await expect(filas).toHaveCount(4);
+  // 15:00:05Z es 10:00 en Lima; primero el más antiguo.
+  await expect(filas.nth(0)).toContainText("2 Set 2026, 10:00");
+  await expect(filas.nth(1)).toContainText("Error de envío");
+  await expect(filas.nth(1)).toContainText("SUNAT no disponible (timeout)");
+  await expect(filas.nth(2)).toContainText("Enviado a SUNAT (intento 2)");
+  await expect(filas.nth(3)).toContainText("SUNAT no respondió a tiempo");
+  // Un comprobante sin historial (backend anterior o sin eventos) no rompe la página.
+  await page.goto("/comprobantes/f-aceptada");
+  await expect(page.getByTestId("historial").getByText("Sin historial.")).toBeVisible();
+});
+
 test("reenvía un comprobante en error y queda aceptado", async ({ page }) => {
   await page.goto("/comprobantes/f-error");
-  await expect(page.getByText("Error de envío")).toBeVisible();
+  await expect(page.getByText("Error de envío").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Reenviar", exact: true }).click();
 

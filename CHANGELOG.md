@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.39] - 2026-09-19
+
+### Added
+- Portal: sección «Historial» en el detalle del comprobante (#7), bajo la respuesta de SUNAT: una línea de tiempo con cada intento y cambio de estado (fecha y hora de Lima, estado resultante, estado previo y motivo), del más antiguo al más reciente. Si el backend no envía `eventos` (versión anterior) o no hay ninguno, muestra «Sin historial» sin fallar. Los mocks devuelven el historial al consultar por id y el e2e cubre un comprobante con dos intentos.
+
 ## [0.1.38] - 2026-09-19
 
 ### Added
