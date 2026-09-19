@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,7 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -81,16 +83,20 @@ public class FacturaController {
     @GetMapping
     @Operation(summary = "Listar facturas", description = """
             Facturas de la empresa, de la más reciente a la más antigua, paginadas. El total de resultados va en la cabecera
-            `X-Total-Count`. Filtre por `estado` para trabajar una cola (p. ej. `ERROR_ENVIO` para reintentar, `RECHAZADO`
-            para corregir y reemitir).""")
+            `X-Total-Count` y refleja los filtros. Filtre por `estado` para trabajar una cola (p. ej. `ERROR_ENVIO` para reintentar,
+            `RECHAZADO` para corregir y reemitir) y por fecha de emisión con `desde`/`hasta` (inclusive, rango abierto si falta uno;
+            `desde > hasta` responde `400 RANGO_INVALIDO`, una fecha mal formada `400 PARAMETRO_INVALIDO`).""")
     public ResponseEntity<ApiResponse<List<ComprobanteResponse>>> listar(HttpServletRequest req,
                                                                         @Parameter(description = "Estado del comprobante (ver *Estados del comprobante*)") @RequestParam(required = false) EstadoDocumento estado,
+                                                                        @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-09-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+                                                                        @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)", example = "2026-09-30") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
                                                                         @Parameter(description = "Página, desde 1") @RequestParam(defaultValue = "1") int pagina,
                                                                         @Parameter(description = "Resultados por página, 1–100") @RequestParam(name = "por_pagina", defaultValue = "20") int porPagina) {
         UUID t = TenantActual.id(req);
-        List<ComprobanteResponse> datos = consultar.listar(t, estado, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
+        var filtro = new ConsultarComprobanteUseCase.Filtro(estado, desde, hasta);
+        List<ComprobanteResponse> datos = consultar.listar(t, filtro, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
                 .stream().map(c -> ComprobanteResponse.de(c, BASE)).toList();
-        return ResponseEntity.ok().header(TOTAL_HEADER, String.valueOf(consultar.contar(t, estado))).body(ApiResponse.ok(datos));
+        return ResponseEntity.ok().header(TOTAL_HEADER, String.valueOf(consultar.contar(t, filtro))).body(ApiResponse.ok(datos));
     }
 
     @GetMapping("/{id}")
