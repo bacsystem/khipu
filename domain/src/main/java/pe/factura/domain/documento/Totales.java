@@ -32,7 +32,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
                       BigDecimal isc, BigDecimal icbper,
                       BigDecimal totalValorVenta, BigDecimal totalPrecioVenta, BigDecimal totalDescuentos, BigDecimal totalCargos, BigDecimal totalAnticipos, BigDecimal redondeo, BigDecimal total,
                       List<ItemCalculado> items, List<SubtotalTributo> subtotales, DescuentoGlobalCalculado descuentoGlobal, List<CargoCalculado> cargosGlobales,
-                      List<AnticipoCalculado> anticipos) {
+                      List<AnticipoCalculado> anticipos, BigDecimal tasaIgv) {
 
     /** Base imponible e impuesto acumulados de los ítems de un mismo tributo (catálogo 05). */
     public record SubtotalTributo(Tributo tributo, BigDecimal base, BigDecimal impuesto) {}
@@ -46,10 +46,10 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     }
 
     /** Anticipo aplicado: base bruta del tributo sobre la que se descuenta su valor sin IGV (cbc:BaseAmount del AllowanceCharge 04/05/06). */
-    public record AnticipoCalculado(Anticipo anticipo, BigDecimal base) {
+    public record AnticipoCalculado(Anticipo anticipo, BigDecimal base, BigDecimal tasaIgv) {
         public String codigo() { return anticipo.codigoSunat(); }
         public BigDecimal monto() { return anticipo.monto(); }
-        public BigDecimal importePagado() { return anticipo.importePagado(); }
+        public BigDecimal importePagado() { return anticipo.importePagado(tasaIgv); }
     }
 
     public static Totales calcular(List<Item> items) { return calcular(items, null); }
@@ -67,10 +67,16 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     }
 
     public static Totales calcular(List<Item> items, Descuento descuentoGlobal, List<Cargo> cargosGlobales, List<Anticipo> anticipos, BigDecimal tasaIcbper, BigDecimal redondeo) {
+        return calcular(items, descuentoGlobal, cargosGlobales, anticipos, tasaIcbper, redondeo, TasaIgv.GENERAL);
+    }
+
+    /** {@code tasaIgv} en porcentaje ({@link TasaIgv}): la misma para todas las líneas gravadas del comprobante (regla 3462). */
+    public static Totales calcular(List<Item> items, Descuento descuentoGlobal, List<Cargo> cargosGlobales, List<Anticipo> anticipos, BigDecimal tasaIcbper, BigDecimal redondeo, BigDecimal tasaIgv) {
+        BigDecimal factorIgv = TasaIgv.factor(tasaIgv);
         if (redondeo != null && (redondeo.scale() > 2 || redondeo.abs().compareTo(BigDecimal.ONE) > 0))
             throw new DomainException("REDONDEO_INVALIDO", "3303 - El redondeo del importe total admite 2 decimales y no puede superar 1.00 en valor absoluto");
         BigDecimal ajuste = redondeo == null ? z() : redondeo.setScale(2, RoundingMode.HALF_UP);
-        List<ItemCalculado> calculados = items.stream().map(i -> ItemCalculado.de(i, tasaIcbper)).toList();
+        List<ItemCalculado> calculados = items.stream().map(i -> ItemCalculado.de(i, tasaIcbper, tasaIgv)).toList();
         // Un subtotal por tributo. Para el IGV, SUNAT pide la base global SIN ISC (suma de LineExtensionAmount, regla 3277) aunque el
         // impuesto se calcule sobre las bases de línea CON ISC (reglas 204 y 3291); ISC e ICBPER son subtotales propios (reglas 48, 49-A).
         List<SubtotalTributo> brutos = new ArrayList<>();
@@ -114,14 +120,14 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         }
         if (ajusteBaseGravada.signum() != 0) {
             BigDecimal baseNeta = baseGravada.add(ajusteBaseGravada);
-            subtotales.replaceAll(st -> st.tributo() == Tributo.IGV ? new SubtotalTributo(st.tributo(), baseNeta, igvSobre(baseNeta, isc)) : st);
+            subtotales.replaceAll(st -> st.tributo() == Tributo.IGV ? new SubtotalTributo(st.tributo(), baseNeta, igvSobre(baseNeta, isc, factorIgv)) : st);
         }
 
         // Totales brutos (reglas 3278, 3279): los anticipos no los reducen, solo a las bases por tributo y al importe a pagar.
         BigDecimal totalValorVenta = base(subtotales, Tributo.IGV).add(base(subtotales, Tributo.EXO)).add(base(subtotales, Tributo.INA));
         BigDecimal totalPrecioVenta = totalValorVenta.add(isc).add(icbper).add(impuesto(subtotales, Tributo.IGV));   // regla 55
 
-        List<AnticipoCalculado> aplicados = aplicarAnticipos(subtotales, anticipos == null ? List.of() : anticipos, isc);
+        List<AnticipoCalculado> aplicados = aplicarAnticipos(subtotales, anticipos == null ? List.of() : anticipos, isc, tasaIgv, factorIgv);
 
         BigDecimal gravado = base(subtotales, Tributo.IGV);
         BigDecimal exonerado = base(subtotales, Tributo.EXO);
@@ -138,14 +144,14 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         if (total.signum() < 0)
             throw new DomainException("REDONDEO_INVALIDO", "3303 - El redondeo deja el importe total en negativo (" + total + ")");
         return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, isc, icbper, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, ajuste, total,
-                calculados, List.copyOf(subtotales), global, List.copyOf(cargos), aplicados);
+                calculados, List.copyOf(subtotales), global, List.copyOf(cargos), aplicados, tasaIgv);
     }
 
     /**
      * Resta cada anticipo de la base del tributo de su afectación (04 → 1000, 05 → 9997, 06 → 9998) y recalcula el IGV sobre
      * la base neta (reglas 3277, 3291). Un anticipo no puede superar lo facturado en esa afectación: la base quedaría negativa.
      */
-    private static List<AnticipoCalculado> aplicarAnticipos(List<SubtotalTributo> subtotales, List<Anticipo> anticipos, BigDecimal isc) {
+    private static List<AnticipoCalculado> aplicarAnticipos(List<SubtotalTributo> subtotales, List<Anticipo> anticipos, BigDecimal isc, BigDecimal tasaIgv, BigDecimal factorIgv) {
         List<AnticipoCalculado> aplicados = new ArrayList<>();
         List<SubtotalTributo> brutos = List.copyOf(subtotales);
         for (Anticipo a : anticipos) {
@@ -155,9 +161,9 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
                 throw new DomainException("ANTICIPO_INVALIDO", "El anticipo " + a.comprobante() + " (" + a.monto() + ") supera el valor de venta "
                         + a.afectacion().name().toLowerCase() + " pendiente de esta factura (" + pendiente + ")");
             BigDecimal baseNeta = pendiente.subtract(a.monto());
-            BigDecimal impuesto = tr == Tributo.IGV ? igvSobre(baseNeta, isc) : z();
+            BigDecimal impuesto = tr == Tributo.IGV ? igvSobre(baseNeta, isc, factorIgv) : z();
             subtotales.replaceAll(st -> st.tributo() == tr ? new SubtotalTributo(tr, baseNeta, impuesto) : st);
-            aplicados.add(new AnticipoCalculado(a, base(brutos, tr)));
+            aplicados.add(new AnticipoCalculado(a, base(brutos, tr), tasaIgv));
         }
         return List.copyOf(aplicados);
     }
@@ -170,9 +176,9 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
 
     public boolean tieneGratuitas() { return gratuito.signum() > 0; }
 
-    /** IGV global (regla 3291): (bases de línea con ISC − descuentos que afectan la base) × tasa = (base sin ISC + ISC) × 18 %. */
-    private static BigDecimal igvSobre(BigDecimal baseSinIsc, BigDecimal isc) {
-        return baseSinIsc.add(isc).multiply(ItemCalculado.TASA_IGV).setScale(2, RoundingMode.HALF_UP);
+    /** IGV global (regla 3291): (bases de línea con ISC − descuentos que afectan la base) × tasa = (base sin ISC + ISC) × tasa del comprobante. */
+    private static BigDecimal igvSobre(BigDecimal baseSinIsc, BigDecimal isc, BigDecimal factorIgv) {
+        return baseSinIsc.add(isc).multiply(factorIgv).setScale(2, RoundingMode.HALF_UP);
     }
 
     private static BigDecimal suma(List<ItemCalculado> items, Tributo tr, Function<ItemCalculado, BigDecimal> monto) {

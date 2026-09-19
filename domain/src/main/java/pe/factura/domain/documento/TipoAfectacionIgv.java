@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * Afectación del IGV por ítem (catálogo 07) y el tributo del catálogo 05 que genera.
  * <ul>
- *   <li>{@code gravada}: se calcula IGV al 18 % sobre la base (10 y las gratuitas gravadas 11–16).</li>
+ *   <li>{@code gravada}: se calcula IGV sobre la base (10 y las gratuitas gravadas 11–16) a la tasa del comprobante ({@link TasaIgv}: 18 % o la reducida del padrón).</li>
  *   <li>{@code gratuita}: transferencia sin contraprestación (11–16, 21, 31–37): el precio enviado es el valor
  *       referencial (catálogo 16, código 02), la línea no suma al importe a pagar y su IGV se informa aparte (9996).</li>
  * </ul>

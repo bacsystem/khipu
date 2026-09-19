@@ -44,17 +44,18 @@ class EmpresaControllerTest {
 
     @Test void datosFiscalesEntranYSalen() throws Exception {
         Tenant con = new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null)
-                .conDatosFiscales(new Domicilio("150122", "Av. Larco 345 Of. 12", null, null, null, null, null), "00-000-123456", "Andina Store");
-        when(admin.actualizarDatosFiscales(eq(tenant), any(), eq("00-000-123456"), eq("Andina Store"))).thenReturn(con);
+                .conDatosFiscales(new Domicilio("150122", "Av. Larco 345 Of. 12", null, null, null, null, null), "00-000-123456", "Andina Store", true);
+        when(admin.actualizarDatosFiscales(eq(tenant), any(), eq("00-000-123456"), eq("Andina Store"), eq(true))).thenReturn(con);
         mvc.perform(put("/v1/empresa/datos-fiscales").contentType("application/json").requestAttr(TenantActual.ATRIBUTO, tenant)
-                        .content("{\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"Av. Larco 345 Of. 12\"},\"cuenta_detracciones\":\"00-000-123456\",\"nombre_comercial\":\"Andina Store\"}"))
+                        .content("{\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"Av. Larco 345 Of. 12\"},\"cuenta_detracciones\":\"00-000-123456\",\"nombre_comercial\":\"Andina Store\",\"padron_tasa_especial_igv\":true}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.datos.nombre_comercial").value("Andina Store"))
+                .andExpect(jsonPath("$.datos.padron_tasa_especial_igv").value(true))
                 .andExpect(jsonPath("$.datos.domicilio.ubigeo").value("150122"))
                 .andExpect(jsonPath("$.datos.domicilio.distrito").value("MIRAFLORES"))
                 .andExpect(jsonPath("$.datos.domicilio.codigo_establecimiento").value("0000"))
                 .andExpect(jsonPath("$.datos.cuenta_detracciones").value("00-000-123456"));
-        verify(admin).actualizarDatosFiscales(eq(tenant), argThat(d -> d.ubigeo().equals("150122") && d.provincia().equals("LIMA")), eq("00-000-123456"), eq("Andina Store"));
+        verify(admin).actualizarDatosFiscales(eq(tenant), argThat(d -> d.ubigeo().equals("150122") && d.provincia().equals("LIMA")), eq("00-000-123456"), eq("Andina Store"), eq(true));
     }
 
     @Test void datosFiscalesConUbigeoInexistenteEs422() throws Exception {
@@ -64,12 +65,14 @@ class EmpresaControllerTest {
                 .andExpect(jsonPath("$.codigo").value("DOMICILIO_INVALIDO"))
                 .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.startsWith("4093")));
         // Solo la cuenta (domicilio null): el DTO no exige el bloque.
-        when(admin.actualizarDatosFiscales(eq(tenant), isNull(), eq("00-000-1"), isNull())).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null, null, "00-000-1"));
+        // Sin padron_tasa_especial_igv en el body → false (tasa general).
+        when(admin.actualizarDatosFiscales(eq(tenant), isNull(), eq("00-000-1"), isNull(), eq(false))).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null, null, "00-000-1"));
         mvc.perform(put("/v1/empresa/datos-fiscales").contentType("application/json").requestAttr(TenantActual.ATRIBUTO, tenant)
                         .content("{\"cuenta_detracciones\":\"00-000-1\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.datos.domicilio").doesNotExist())
-                .andExpect(jsonPath("$.datos.cuenta_detracciones").value("00-000-1"));
+                .andExpect(jsonPath("$.datos.cuenta_detracciones").value("00-000-1"))
+                .andExpect(jsonPath("$.datos.padron_tasa_especial_igv").value(false));
     }
 
     @Test void subirCertificado() throws Exception {

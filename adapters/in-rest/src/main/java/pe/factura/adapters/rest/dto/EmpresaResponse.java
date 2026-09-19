@@ -15,10 +15,11 @@ public record EmpresaResponse(
         @Schema(example = "2027-12-31") LocalDate certificadoVigenciaHasta,
         @Schema(description = "Domicilio fiscal, o `null` si aún no se configuró") DomicilioResponse domicilio,
         @Schema(example = "00-000-123456", description = "Cuenta de detracciones por defecto, o `null`") String cuentaDetracciones,
-        @Schema(example = "Andina Store", description = "Nombre comercial que va en el XML (`cac:PartyName`), o `null`") String nombreComercial) {
+        @Schema(example = "Andina Store", description = "Nombre comercial que va en el XML (`cac:PartyName`), o `null`") String nombreComercial,
+        @Schema(example = "false", description = "Inscrita en el Padrón de Tasa Especial del IGV (restaurantes y hoteles): emite con la tasa reducida") boolean padronTasaEspecialIgv) {
 
     public static EmpresaResponse de(Tenant t) {
         return new EmpresaResponse(t.id(), t.ruc(), t.razonSocial(), t.entorno().name(), t.sol() != null,
-                t.certificado() == null ? null : t.certificado().vigenciaHasta(), DomicilioResponse.de(t.domicilio()), t.cuentaDetracciones(), t.nombreComercial());
+                t.certificado() == null ? null : t.certificado().vigenciaHasta(), DomicilioResponse.de(t.domicilio()), t.cuentaDetracciones(), t.nombreComercial(), t.padronTasaEspecialIgv());
     }
 }

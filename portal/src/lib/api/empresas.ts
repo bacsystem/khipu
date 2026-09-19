@@ -35,6 +35,8 @@ export type EmpresaDetalle = {
   cuenta_detracciones?: string | null;
   /** Nombre comercial del emisor (cac:PartyName); null si no lo configuró. */
   nombre_comercial?: string | null;
+  /** Inscrita en el Padrón de Tasa Especial del IGV (restaurantes y hoteles, Ley 31556): emite con la tasa reducida. */
+  padron_tasa_especial_igv?: boolean;
 };
 
 export function listarEmpresas(access: string) {

@@ -15,7 +15,7 @@ public interface AdministrarTenantUseCase {
     TenantCreado crearTenant(String ruc, String razonSocial, Entorno entorno);
     Tenant obtener(UUID tenantId);
     /** Domicilio fiscal (RegistrationAddress del XML) y cuenta de detracciones por defecto; cualquiera puede ir en null para borrarlo. */
-    Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial);
+    Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv);
     void cargarCertificado(UUID tenantId, byte[] pkcs12, String clave);   // valida abriendo el KeyStore (RUC en OU y vigencia)
     void cargarCredencialesSol(UUID tenantId, String usuario, String clave);
     void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial);

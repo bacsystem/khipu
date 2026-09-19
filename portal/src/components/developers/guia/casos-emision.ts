@@ -55,7 +55,7 @@ Content-Type: application/json
   ]
 }`,
     notas: [
-      "`precio_unitario` es el precio **con IGV**: khipu calcula el valor unitario (1 000.00), el IGV (18 %) y los totales; no envíe importes sin IGV.",
+      "`precio_unitario` es el precio **con IGV**: khipu calcula el valor unitario (1 000.00), el IGV (18 %, o 10.5 % si la empresa está en el Padrón de Tasa Especial de restaurantes y hoteles — se activa en `PUT /v1/empresa/datos-fiscales`) y los totales; `totales.tasa_igv` indica la tasa aplicada. No envíe importes sin IGV.",
       "`correlativo` omitido: khipu asigna el siguiente número de la serie F001 de forma atómica (sin huecos ni duplicados aunque emita en paralelo).",
       "`tipo_operacion` omitido = `0101` (venta interna). `forma_pago` omitida = contado.",
       "Unidades: `ZZ` para servicios, `NIU` para bienes contables; otras en el catálogo 03.",

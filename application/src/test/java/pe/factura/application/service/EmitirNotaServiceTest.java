@@ -156,6 +156,26 @@ class EmitirNotaServiceTest {
         assertThat(service.emitirNota(tenantId, nc(g.numero(), "01", null)).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
     }
 
+    /** Empresa del padrón de tasa especial: la factura sale al 10.5 % y la nota hereda esa tasa aunque la empresa ya no esté en el padrón (#84). */
+    @Test void laNotaHeredaLaTasaDeIgvDeLaFactura() {
+        tenants.guardar(Fakes.tenantListo(tenantId).conDatosFiscales(null, null, null, true));
+        Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Menú", "NIU", BigDecimal.ONE, new BigDecimal("110.50"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+        assertThat(f.tasaIgv()).isEqualByComparingTo("10.50");
+        assertThat(f.totales().igv()).isEqualByComparingTo("10.50");
+        assertThat(f.totales().items().get(0).porcentajeIgv()).isEqualByComparingTo("10.50");
+
+        tenants.guardar(Fakes.tenantListo(tenantId));   // sale del padrón
+        Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "01", null));
+        assertThat(nc.tasaIgv()).isEqualByComparingTo("10.50");
+        assertThat(nc.totales().igv()).isEqualByComparingTo("10.50");
+        assertThat(nc.totales().total()).isEqualByComparingTo("110.50");
+        // Una factura nueva de la misma empresa, ya fuera del padrón, vuelve al 18 %.
+        assertThat(facturaAceptada(FormaPago.contado()).tasaIgv()).isEqualByComparingTo("18.00");
+    }
+
     @Test void laNotaDeDebitoPuedeSuperarALaFactura() {
         Comprobante f = facturaAceptada(FormaPago.contado());
         Comprobante nd = service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_DEBITO, "FD01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "Intereses",
