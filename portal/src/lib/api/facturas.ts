@@ -200,6 +200,8 @@ export type Comprobante = {
   fecha_emision: string;
   /** Fecha de vencimiento informada (cbc:DueDate), o ausente. */
   fecha_vencimiento?: string | null;
+  /** Leyendas del catálogo 52 declaradas por el emisor (2001–2005, 2008…), con el texto que va al XML. */
+  leyendas?: Array<{ codigo: string; texto: string }>;
   /** Último día en que SUNAT acepta recibirlo (3 días calendario desde la emisión); ausente en backends anteriores. */
   fecha_limite_envio?: string;
   moneda: string;

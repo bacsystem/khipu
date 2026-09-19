@@ -274,6 +274,16 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 </span>
                 <BotonCopiar texto={c.hash} titulo="Copiar hash de la firma" />
               </div>
+        {c.leyendas && c.leyendas.length > 0 ? (
+          <div className="mt-4 flex flex-col gap-1 border-t border-border/60 pt-4" data-testid="leyendas">
+            <span className="text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Leyendas (catálogo 52)</span>
+            {c.leyendas.map((l) => (
+              <p key={l.codigo} className="text-xs text-foreground/90">
+                <span className="font-mono text-muted-foreground">{l.codigo}</span> · {l.texto}
+              </p>
+            ))}
+          </div>
+        ) : null}
             ) : (
               <span className="text-xs text-muted-foreground/60">Sin firmar</span>
             )}
