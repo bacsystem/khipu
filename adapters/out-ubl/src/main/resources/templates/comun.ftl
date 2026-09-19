@@ -195,7 +195,7 @@
 <#-- Totales por tributo (TaxTotal global). -->
 <#macro impuestos>
   <cac:TaxTotal>
-    <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv() + tot.isc() + tot.icbper()}</cbc:TaxAmount>
+    <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv() + tot.ivap() + tot.isc() + tot.icbper()}</cbc:TaxAmount>
     <#list tot.subtotales() as st>
     <cac:TaxSubtotal>
       <#if st.tributo().codigo() != "7152"><cbc:TaxableAmount currencyID="${c.moneda()}">${st.base()}</cbc:TaxableAmount></#if>

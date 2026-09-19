@@ -585,7 +585,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <span className="font-mono text-[11px] text-muted-foreground/70">{MONEDAS[c.moneda] ?? c.moneda}</span>
           </div>
           <div className="space-y-2 text-xs">
-            <Importe etiqueta="Total gravado" moneda={c.moneda} valor={c.totales.gravado} />
+            <Importe etiqueta={c.totales.ivap ? "Total sujeto al IVAP" : "Total gravado"} moneda={c.moneda} valor={c.totales.gravado} />
             <Importe etiqueta="Total exonerado" moneda={c.moneda} valor={c.totales.exonerado} />
             <Importe etiqueta="Total inafecto" moneda={c.moneda} valor={c.totales.inafecto} />
             {c.totales.descuento_global ? (
@@ -600,7 +600,11 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             ))}
             {c.totales.isc ? <Importe etiqueta="Total ISC" moneda={c.moneda} valor={c.totales.isc} /> : null}
             {c.totales.icbper ? <Importe etiqueta="Total ICBPER (bolsas)" moneda={c.moneda} valor={c.totales.icbper} /> : null}
-            <Importe etiqueta={c.totales.tasa_igv != null ? `Total IGV (${formatearNumero(c.totales.tasa_igv)} %)` : "Total IGV"} moneda={c.moneda} valor={c.totales.igv} />
+            {c.totales.ivap ? (
+              <Importe etiqueta="Total IVAP (4 %)" moneda={c.moneda} valor={c.totales.ivap} />
+            ) : (
+              <Importe etiqueta={c.totales.tasa_igv != null ? `Total IGV (${formatearNumero(c.totales.tasa_igv)} %)` : "Total IGV"} moneda={c.moneda} valor={c.totales.igv} />
+            )}
             {c.totales.gratuito ? (
               <>
                 <Importe etiqueta="Operaciones gratuitas (no se cobran)" moneda={c.moneda} valor={c.totales.gratuito} />

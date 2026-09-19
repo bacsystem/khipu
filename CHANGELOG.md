@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.31] - 2026-09-19
+
+### Added
+- IVAP, Impuesto a la Venta de Arroz Pilado (#67): afectación `17` del catálogo 07 en `items[].tipo_afectacion_igv`, tributo `1016` (IVAP/VAT) al 4 % (Ley 28211) en lugar del IGV. Por línea el `precio_unitario` incluye el IVAP; el XML lleva `Percent 4.00`, `TaxExemptionReasonCode 17`, subtotal global `1016`, `TaxTotal` con el IVAP, `TaxInclusiveAmount` sin IGV (campo 55, variante IVAP de la regla 3279) y la leyenda automática `2007` («OPERACIÓN SUJETA AL IVAP»). Descuentos globales, cargos y anticipos gravados recalculan sobre la base IVAP con el factor 1.04. El comprobante entero es IVAP: mezclar `17` con `10`/`20`/`30` o gratuitas, o poner ISC/ICBPER en una línea `17`, responde `422 AFECTACION_INVALIDA` (2650, 3223); la tasa reducida del padrón no lo altera. Notas de crédito sobre facturas IVAP limitadas también por el IVAP (3503, 1016) y la nota total hereda las líneas `17`. Respuesta y portal: `totales.ivap`, etiqueta «Total sujeto al IVAP / Total IVAP (4 %)» en el detalle, PDF con fila IVAP; guía de emisión con el caso «Arroz pilado (IVAP)», catálogo de errores y OpenAPI actualizados. Homologación: escenario 25-ivap aceptado por e-beta sin observaciones (25/25).
+
 ## [0.1.30] - 2026-09-19
 
 ### Added

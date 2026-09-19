@@ -333,6 +333,32 @@ class FacturaControllerTest {
         assertThat(cap.getValue().descuentoGlobal().afectaBaseIgv()).isFalse();
     }
 
+    /** IVAP (#67): la afectación 17 pasa la validación del DTO, llega al comando y la respuesta trae `ivap` en los totales con `igv` en cero. */
+    @Test void ivapEntraYSaleEnLosTotales() throws Exception {
+        String conIvap = cuerpo.replace("\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"", "\"precio_unitario\":3.12,\"cantidad\":100,\"tipo_afectacion_igv\":\"17\"")
+                .replace("\"cantidad\":1,", "");
+        Comprobante c = aceptado(tenant);
+        Comprobante arroz = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), List.of(new Item("P1", "Arroz", "KGM", new BigDecimal("100"), new BigDecimal("3.12"), TipoAfectacionIgv.IVAP))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(arroz);
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conIvap))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.items[0].tipo_afectacion_igv").value("17"))
+                .andExpect(jsonPath("$.datos.items[0].igv").value(12.00))
+                .andExpect(jsonPath("$.datos.totales.gravado").value(300.00))
+                .andExpect(jsonPath("$.datos.totales.igv").value(0.00))
+                .andExpect(jsonPath("$.datos.totales.ivap").value(12.00))
+                .andExpect(jsonPath("$.datos.totales.total").value(312.00));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().items().get(0).afectacion()).isEqualTo(TipoAfectacionIgv.IVAP);
+    }
+
+    /** La exportación (40) sigue sin soportarse: se rechaza en la validación del DTO, antes de llegar al dominio. */
+    @Test void afectacionNoSoportadaEs422DeValidacion() throws Exception {
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo.replace("\"tipo_afectacion_igv\":\"10\"", "\"tipo_afectacion_igv\":\"40\"")))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+    }
+
     @Test void descuentoConPorcentajeYMontoEs422() throws Exception {
         String ambiguo = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"descuento\":{\"porcentaje\":10,\"monto\":5}}");
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(ambiguo))
@@ -485,13 +511,6 @@ class FacturaControllerTest {
         ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
         org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
         assertThat(cap.getValue().items().get(1).afectacion()).isEqualTo(TipoAfectacionIgv.GRAVADO_BONIFICACION);
-    }
-
-    @Test void afectacionNoSoportadaEs422DeValidacion() throws Exception {
-        String ivap = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"", "\"tipo_afectacion_igv\":\"17\"");
-        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(ivap))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"));
     }
 
     @Test void detraccionEnPenCalculaElMontoYLoDevuelve() throws Exception {

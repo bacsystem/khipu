@@ -24,6 +24,9 @@
   <#if tot.tieneGratuitas()>
   <cbc:Note languageLocaleID="1002">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</cbc:Note>
   </#if>
+  <#if tot.tieneIvap()>
+  <cbc:Note languageLocaleID="2007">OPERACIÓN SUJETA AL IVAP</cbc:Note>
+  </#if>
   <#if c.detraccion()??>
   <cbc:Note languageLocaleID="2006">OPERACIÓN SUJETA AL SISTEMA DE PAGO DE OBLIGACIONES TRIBUTARIAS - SPOT</cbc:Note>
   </#if>

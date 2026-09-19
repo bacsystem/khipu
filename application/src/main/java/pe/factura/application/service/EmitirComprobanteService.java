@@ -129,10 +129,10 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     }
 
     /** Importes ya acreditados por NC vigentes sobre una factura, en los conceptos que SUNAT limita (3286, 3503). */
-    private record Acreditado(BigDecimal total, BigDecimal gravado, BigDecimal igv, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito) {
-        static final Acreditado CERO = new Acreditado(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+    private record Acreditado(BigDecimal total, BigDecimal gravado, BigDecimal igv, BigDecimal ivap, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito) {
+        static final Acreditado CERO = new Acreditado(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
         Acreditado mas(Totales t) {
-            return new Acreditado(total.add(t.total()), gravado.add(t.gravado()), igv.add(t.igv()), exonerado.add(t.exonerado()), inafecto.add(t.inafecto()), gratuito.add(t.gratuito()));
+            return new Acreditado(total.add(t.total()), gravado.add(t.gravado()), igv.add(t.igv()), ivap.add(t.ivap()), exonerado.add(t.exonerado()), inafecto.add(t.inafecto()), gratuito.add(t.gratuito()));
         }
     }
 
@@ -167,6 +167,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         for (Limite l : List.of(new Limite("importe total", "3286", nc.total(), f.total(), previo.total()),
                 new Limite("valor de venta gravado", "3503", nc.gravado(), f.gravado(), previo.gravado()),
                 new Limite("IGV", "3503", nc.igv(), f.igv(), previo.igv()),
+                new Limite("IVAP", "3503", nc.ivap(), f.ivap(), previo.ivap()),
                 new Limite("valor de venta exonerado", "3503", nc.exonerado(), f.exonerado(), previo.exonerado()),
                 new Limite("valor de venta inafecto", "3503", nc.inafecto(), f.inafecto(), previo.inafecto()),
                 new Limite("valor de las operaciones gratuitas", "3503", nc.gratuito(), f.gratuito(), previo.gratuito()))) {

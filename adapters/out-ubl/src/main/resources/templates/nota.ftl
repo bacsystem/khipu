@@ -24,6 +24,9 @@
   <#if tot.tieneGratuitas()>
   <cbc:Note languageLocaleID="1002">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</cbc:Note>
   </#if>
+  <#if tot.tieneIvap()>
+  <cbc:Note languageLocaleID="2007">OPERACIÓN SUJETA AL IVAP</cbc:Note>
+  </#if>
   <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">${c.moneda()}</cbc:DocumentCurrencyCode>
   <#-- Motivo (catálogo 09/10; reglas 2128, 2172, 2135) y comprobante que se modifica (cac:BillingReference; reglas 2524, 2117, 2116). -->
   <cac:DiscrepancyResponse>
