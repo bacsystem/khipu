@@ -712,6 +712,75 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /** Detracción 1002 (#69): conceptos 3001–3006 del catálogo 55 como AdditionalItemProperty (3063, 3130–3135; fecha en UsabilityPeriod, cantidad en TNE: 3115). */
+    @Test void recursosHidrobiologicosEnElXml() throws Exception {
+        Hidrobiologico h = new Hidrobiologico("CO-12345-PM", "DON JOSÉ II", "Anchoveta (Engraulis ringens)", "Muelle de Chimbote", LocalDate.of(2026, 9, 10), new BigDecimal("12.5"));
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "1002", new Receptor("6", "20601234565", "PESQUERA SAC", null),
+                List.of(new Item("ANCH", "Anchoveta fresca", "TNE", new BigDecimal("12.5"), new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, h, null)))
+                .detraccion(new Detraccion("004", new BigDecimal("4"), null, "00-000-123456", null)).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(15, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+        String prop = "/inv:Invoice/cac:InvoiceLine[1]/cac:Item/cac:AdditionalItemProperty";
+        assertThat(valor(d, "count(" + prop + ")")).isEqualTo("6");
+        assertThat(valor(d, prop + "[cbc:NameCode='3001']/cbc:Value")).isEqualTo("CO-12345-PM");
+        assertThat(valor(d, prop + "[cbc:NameCode='3001']/cbc:Name")).isEqualTo("Matrícula de la embarcación pesquera");
+        assertThat(valor(d, prop + "[cbc:NameCode='3001']/cbc:NameCode/@listURI")).isEqualTo("urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo55");
+        assertThat(valor(d, prop + "[cbc:NameCode='3002']/cbc:Value")).isEqualTo("DON JOSÉ II");
+        assertThat(valor(d, prop + "[cbc:NameCode='3003']/cbc:Value")).isEqualTo("Anchoveta (Engraulis ringens)");
+        assertThat(valor(d, prop + "[cbc:NameCode='3004']/cbc:Value")).isEqualTo("Muelle de Chimbote");
+        assertThat(valor(d, prop + "[cbc:NameCode='3005']/cac:UsabilityPeriod/cbc:StartDate")).isEqualTo("2026-09-10");
+        assertThat(valor(d, prop + "[cbc:NameCode='3006']/cbc:ValueQuantity")).isEqualTo("12.50");
+        assertThat(valor(d, prop + "[cbc:NameCode='3006']/cbc:ValueQuantity/@unitCode")).isEqualTo("TNE");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[cbc:ID='Detraccion']/cbc:PaymentMeansID")).isEqualTo("004");    // 3129
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='2006']")).isNotEmpty();                                 // 4265
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
+    /** Detracción 1004 (#69): cac:Delivery por línea con destino, origen y detalle (3116–3120), los tres DeliveryTerms en PEN (3122–3126, 3208) y tramos/vehículos. */
+    @Test void transporteDeCargaEnElXml() throws Exception {
+        TransporteCarga t = new TransporteCarga(new TransporteCarga.Punto("021801", "Av. Los Pescadores 450, Chimbote"), new TransporteCarga.Punto("150101", "Jr. de la Unión 100, Lima"),
+                "Traslado de 20 t de harina de pescado", new TransporteCarga.ValorReferencial(new BigDecimal("2500"), new BigDecimal("2400"), new BigDecimal("2600")),
+                List.of(new TransporteCarga.Tramo("021801", "150101", "Chimbote – Lima", new BigDecimal("2400"), new BigDecimal("2600"),
+                        List.of(new TransporteCarga.Vehiculo("T3S3", new BigDecimal("30"), new BigDecimal("20"))))));
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "1004", new Receptor("6", "20601234565", "PESQUERA SAC", null),
+                List.of(new Item("FLT", "Flete Chimbote – Lima", "ZZ", BigDecimal.ONE, new BigDecimal("2950.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, t)))
+                .detraccion(new Detraccion("027", new BigDecimal("4"), null, "00-000-123456", null)).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(16, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+        String del = "/inv:Invoice/cac:InvoiceLine[1]/cac:Delivery";
+        assertThat(valor(d, "count(" + del + ")")).isEqualTo("1");
+        assertThat(valor(d, del + "/cac:DeliveryLocation/cac:Address/cbc:ID")).isEqualTo("150101");
+        assertThat(valor(d, del + "/cac:DeliveryLocation/cac:Address/cac:AddressLine/cbc:Line")).isEqualTo("Jr. de la Unión 100, Lima");
+        assertThat(valor(d, del + "/cac:Despatch/cbc:Instructions")).isEqualTo("Traslado de 20 t de harina de pescado");
+        assertThat(valor(d, del + "/cac:Despatch/cac:DespatchAddress/cbc:ID")).isEqualTo("021801");
+        assertThat(valor(d, del + "/cac:Despatch/cac:DespatchAddress/cac:AddressLine/cbc:Line")).isEqualTo("Av. Los Pescadores 450, Chimbote");
+        assertThat(valor(d, "count(" + del + "/cac:DeliveryTerms)")).isEqualTo("3");
+        assertThat(valor(d, del + "/cac:DeliveryTerms[cbc:ID='01']/cbc:Amount")).isEqualTo("2500.00");
+        assertThat(valor(d, del + "/cac:DeliveryTerms[cbc:ID='02']/cbc:Amount")).isEqualTo("2400.00");
+        assertThat(valor(d, del + "/cac:DeliveryTerms[cbc:ID='03']/cbc:Amount")).isEqualTo("2600.00");
+        assertThat(valor(d, del + "/cac:DeliveryTerms[cbc:ID='03']/cbc:Amount/@currencyID")).isEqualTo("PEN");
+        String cons = del + "/cac:Shipment/cac:Consignment[1]";
+        assertThat(valor(d, cons + "/cbc:ID")).isEqualTo("1");
+        assertThat(valor(d, cons + "/cbc:DeclaredForCarriageValueAmount")).isEqualTo("2600.00");
+        assertThat(valor(d, cons + "/cbc:CarrierServiceInstructions")).isEqualTo("Chimbote – Lima");
+        assertThat(valor(d, cons + "/cac:PlannedPickupTransportEvent/cac:Location/cbc:ID")).isEqualTo("021801");
+        assertThat(valor(d, cons + "/cac:PlannedDeliveryTransportEvent/cac:Location/cbc:ID")).isEqualTo("150101");
+        assertThat(valor(d, cons + "/cac:DeliveryTerms/cbc:Amount")).isEqualTo("2400.00");
+        assertThat(valor(d, cons + "/cac:TransportHandlingUnit/cac:TransportEquipment/cbc:SizeTypeCode")).isEqualTo("T3S3");
+        assertThat(valor(d, cons + "/cac:TransportHandlingUnit/cac:MeasurementDimension[cbc:AttributeID='01']/cbc:Measure")).isEqualTo("30.00");
+        assertThat(valor(d, cons + "/cac:TransportHandlingUnit/cac:MeasurementDimension[cbc:AttributeID='02']/cbc:Measure/@unitCode")).isEqualTo("TNE");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[cbc:ID='Detraccion']/cbc:PaymentMeansID")).isEqualTo("027");
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     /** Leyendas del catálogo 52 declaradas por el emisor (#66): cbc:Note con el código en languageLocaleID y el texto oficial. */
     @Test void leyendasDeclaradasEnElXml() throws Exception {
         Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),

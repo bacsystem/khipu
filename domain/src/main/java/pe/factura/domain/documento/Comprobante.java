@@ -140,6 +140,7 @@ public class Comprobante {
         if (detraccion == null && Detraccion.TIPOS_OPERACION.contains(operacion))
             throw new DomainException("DETRACCION_INVALIDA", "3127 - El tipo de operación " + operacion + " exige los datos de la detracción (bien/servicio, porcentaje, monto y cuenta)");
         if (detraccion != null) detraccion.validarContra(operacion);
+        Detraccion.validarDatosSectoriales(operacion, items);
         if (percepcion == null && Percepcion.TIPO_OPERACION.equals(operacion) && !formaPago.esCredito())
             throw new DomainException("PERCEPCION_INVALIDA", "3093 - Una operación sujeta a percepción (2001) al contado debe informar la percepción");
         if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())

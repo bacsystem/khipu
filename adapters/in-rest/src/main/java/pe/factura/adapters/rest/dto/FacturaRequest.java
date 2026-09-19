@@ -21,7 +21,9 @@ import pe.factura.domain.documento.Referencias;
 import pe.factura.domain.documento.GuiaRelacionada;
 import pe.factura.domain.documento.DocumentoRelacionado;
 import pe.factura.domain.documento.Exportacion;
+import pe.factura.domain.documento.Hidrobiologico;
 import pe.factura.domain.documento.TipoAfectacionIgv;
+import pe.factura.domain.documento.TransporteCarga;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,7 +41,7 @@ public record FacturaRequest(
         @Valid @Schema(description = "Forma de pago (RS 193-2020). Si se omite, al contado.") FormaPagoDto formaPago,
         @Valid @Schema(description = "Descuento sobre el total (catálogo 53: `02` si afecta la base del IGV —requiere ítems gravados—, `03` si no). Opcional.") DescuentoDto descuentoGlobal,
         @Valid @Schema(description = "Cargos sobre el total (catálogo 53): `afecta_base_igv: true` → `49` (se suma a la base gravada; requiere ítems gravados), `false` → `50`, `motivo: recargo_consumo` → `46`. Los que no afectan la base suman al importe a pagar (`ChargeTotalAmount`). Opcional.") List<CargoDto> cargos,
-        @Valid @Schema(description = "Detracción (SPOT). Obligatoria cuando `tipo_operacion` es 1001–1004 y prohibida en los demás casos.") DetraccionDto detraccion,
+        @Valid @Schema(description = "Detracción (SPOT). Obligatoria cuando `tipo_operacion` es 1001–1004 y prohibida en los demás casos. Con `1002` cada ítem lleva además `hidrobiologico`; con `1004`, `transporte`.") DetraccionDto detraccion,
         @Valid @Schema(description = "Retención del IGV que aplicará el cliente por ser agente de retención (catálogo 53: 62). Informativa; no cambia los totales.") RetencionDto retencionIgv,
         @Valid @Schema(description = "Percepción del IGV que cobra la empresa por ser agente de percepción (catálogo 53: 51/52/53). Solo con `tipo_operacion` 2001, al contado y en PEN.") PercepcionDto percepcion,
         @Valid @Schema(description = "Facturas de anticipo que se regularizan en esta factura. Los ítems describen la operación completa y khipu descuenta cada anticipo de la base (código 04/05/06) y del importe a pagar.") List<AnticipoDto> anticipos,
@@ -85,13 +87,73 @@ public record FacturaRequest(
             @Valid @Schema(description = "Impuesto Selectivo al Consumo del ítem (bebidas alcohólicas, combustibles, vehículos…). Opcional; el `precio_unitario` lo incluye.") IscDto isc,
             @Schema(example = "false", description = "`true` si el ítem son bolsas de plástico afectas al ICBPER: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año incluido en `precio_unitario`") Boolean icbper,
             @Pattern(regexp = "[0-9]{8}", message = "código de producto SUNAT de 8 dígitos (UNSPSC, catálogo 25)") @Schema(example = "15101505", description = "Código de producto SUNAT (catálogo 25, UNSPSC de 8 dígitos; `GET /v1/catalogos/25` lista los que SUNAT exige a los padrones obligados, detracciones y percepciones). Opcional; obligatorio para los emisores del padrón (regla 4331). SUNAT observa los que no llegan al tercer nivel (terminados en 0000, regla 4337)") String codigoSunat,
-            @Valid @Schema(description = "Código GTIN (GS1) del producto. Opcional") GtinDto gtin) {
+            @Valid @Schema(description = "Código GTIN (GS1) del producto. Opcional") GtinDto gtin,
+            @Valid @Schema(description = "Recursos hidrobiológicos con detracción: obligatorio en cada ítem cuando `tipo_operacion` es `1002` (campos 107–112, catálogo 55) y no admitido en otras operaciones") HidrobiologicoDto hidrobiologico,
+            @Valid @Schema(description = "Servicio de transporte de carga con detracción: obligatorio en cada ítem cuando `tipo_operacion` es `1004` (campos 113–127) y no admitido en otras operaciones") TransporteDto transporte) {
 
         Item aDominio() {
             return new Item(codigo, descripcion, unidad, cantidad, precioUnitario, TipoAfectacionIgv.porCodigo(tipoAfectacionIgv),
                     descuento == null ? null : descuento.aDominio(), isc == null ? null : isc.aDominio(), Boolean.TRUE.equals(icbper),
-                    FacturaRequest.cargos(this.cargos, false), CodigoProductoSunat.de(codigoSunat), gtin == null ? null : gtin.aDominio());
+                    FacturaRequest.cargos(this.cargos, false), CodigoProductoSunat.de(codigoSunat), gtin == null ? null : gtin.aDominio(),
+                    hidrobiologico == null ? null : hidrobiologico.aDominio(), transporte == null ? null : transporte.aDominio());
         }
+    }
+
+    /** Campos 107–112 de la hoja Factura2_0: conceptos 3001–3006 del catálogo 55 (reglas 3063, 3130–3135). */
+    public record HidrobiologicoDto(
+            @NotBlank @Size(max = 15) @Schema(example = "CO-12345-PM", description = "Matrícula de la embarcación pesquera (1–15 caracteres, concepto 3001)") String matricula,
+            @NotBlank @Size(max = 100) @Schema(example = "DON JOSÉ II", description = "Nombre de la embarcación pesquera (concepto 3002)") String nombreEmbarcacion,
+            @NotBlank @Size(max = 150) @Schema(example = "Anchoveta (Engraulis ringens)", description = "Descripción del tipo de la especie vendida (concepto 3003)") String especie,
+            @NotBlank @Size(max = 100) @Schema(example = "Muelle de Chimbote", description = "Lugar de descarga (concepto 3004)") String lugarDescarga,
+            @NotNull @Schema(example = "2026-09-15", description = "Fecha de descarga, `YYYY-MM-DD` (concepto 3005)") LocalDate fechaDescarga,
+            @NotNull @Positive @Schema(example = "12.50", description = "Cantidad de la especie vendida en toneladas métricas (TNE), hasta 2 decimales (concepto 3006)") BigDecimal cantidad) {
+        Hidrobiologico aDominio() { return new Hidrobiologico(matricula, nombreEmbarcacion, especie, lugarDescarga, fechaDescarga, cantidad); }
+    }
+
+    /** Campos 113–127 de la hoja Factura2_0 (reglas 3116–3126, 3208; tramos y vehículos 4200, 4270–4278). */
+    public record TransporteDto(
+            @NotNull @Valid @Schema(description = "Punto de origen del viaje") PuntoDto origen,
+            @NotNull @Valid @Schema(description = "Punto de destino del viaje") PuntoDto destino,
+            @NotBlank @Size(min = 3, max = 500) @Schema(example = "Traslado de 20 t de harina de pescado en camión furgón, ruta Chimbote–Lima", description = "Detalle del viaje (3–500 caracteres)") String detalleViaje,
+            @NotNull @Valid @Schema(description = "Valores referenciales del D.S. 010-2006-MTC, en soles: los tres son obligatorios") ValorReferencialDto valorReferencial,
+            @Valid @Schema(description = "Tramos del viaje con sus vehículos. Opcional") List<TramoDto> tramos) {
+        TransporteCarga aDominio() {
+            return new TransporteCarga(origen.aDominio(), destino.aDominio(), detalleViaje, valorReferencial.aDominio(),
+                    tramos == null ? List.of() : tramos.stream().map(TramoDto::aDominio).toList());
+        }
+    }
+
+    public record PuntoDto(
+            @NotBlank @Pattern(regexp = "[0-9]{6}") @Schema(example = "021801", description = "Ubigeo INEI de 6 dígitos (catálogo 13)") String ubigeo,
+            @NotBlank @Size(min = 3, max = 200) @Schema(example = "Av. Los Pescadores 450, Chimbote", description = "Dirección detallada (3–200 caracteres)") String direccion) {
+        TransporteCarga.Punto aDominio() { return new TransporteCarga.Punto(ubigeo, direccion); }
+    }
+
+    public record ValorReferencialDto(
+            @NotNull @Positive @Schema(example = "2500.00", description = "Valor referencial del servicio de transporte (tipo 01), en soles") BigDecimal servicio,
+            @NotNull @Positive @Schema(example = "2400.00", description = "Valor referencial sobre la carga efectiva (tipo 02), en soles") BigDecimal cargaEfectiva,
+            @NotNull @Positive @Schema(example = "2600.00", description = "Valor referencial sobre la carga útil nominal (tipo 03), en soles") BigDecimal cargaUtilNominal) {
+        TransporteCarga.ValorReferencial aDominio() { return new TransporteCarga.ValorReferencial(servicio, cargaEfectiva, cargaUtilNominal); }
+    }
+
+    public record TramoDto(
+            @Pattern(regexp = "[0-9]{6}") @Schema(example = "021801", description = "Ubigeo de origen del tramo (catálogo 13). Opcional") String origenUbigeo,
+            @Pattern(regexp = "[0-9]{6}") @Schema(example = "150101", description = "Ubigeo de destino del tramo (catálogo 13). Opcional") String destinoUbigeo,
+            @Size(min = 3, max = 100) @Schema(example = "Chimbote – Lima por Panamericana Norte", description = "Descripción del tramo (3–100 caracteres). Opcional") String descripcion,
+            @Positive @Schema(example = "2400.00", description = "Valor preliminar referencial sobre la carga efectiva del tramo, en soles. Opcional") BigDecimal valorCargaEfectiva,
+            @Positive @Schema(example = "2600.00", description = "Valor preliminar referencial por carga útil nominal del tramo (con más de un vehículo), en soles. Opcional") BigDecimal valorCargaUtilNominal,
+            @Valid @Schema(description = "Vehículos del tramo. Opcional") List<VehiculoDto> vehiculos) {
+        TransporteCarga.Tramo aDominio() {
+            return new TransporteCarga.Tramo(origenUbigeo, destinoUbigeo, descripcion, valorCargaEfectiva, valorCargaUtilNominal,
+                    vehiculos == null ? List.of() : vehiculos.stream().map(VehiculoDto::aDominio).toList());
+        }
+    }
+
+    public record VehiculoDto(
+            @Size(min = 1, max = 15) @Schema(example = "T3S3", description = "Configuración vehicular (D.S. 058-2003-MTC), 1–15 caracteres sin espacios. Opcional") String configuracion,
+            @Positive @Schema(example = "30.00", description = "Carga útil en toneladas métricas. Opcional") BigDecimal cargaUtilTm,
+            @Positive @Schema(example = "20.00", description = "Carga efectiva en toneladas métricas. Opcional") BigDecimal cargaEfectivaTm) {
+        TransporteCarga.Vehiculo aDominio() { return new TransporteCarga.Vehiculo(configuracion, cargaUtilTm, cargaEfectivaTm); }
     }
 
     public record GtinDto(

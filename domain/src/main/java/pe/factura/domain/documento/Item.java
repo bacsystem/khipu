@@ -8,11 +8,12 @@ import java.util.List;
 /**
  * Línea del comprobante tal como la envía el emisor. Opcionales: {@code descuento} (catálogo 53, nivel línea),
  * {@code cargos} (catálogo 53: 47 afecta la base del IGV, 48 no), {@code isc} (tributo 2000), {@code icbper}
- * (tributo 7152, una bolsa por unidad), {@code codigoSunat} (catálogo 25) y {@code gtin} (GS1).
+ * (tributo 7152, una bolsa por unidad), {@code codigoSunat} (catálogo 25), {@code gtin} (GS1) y los datos sectoriales de la
+ * detracción: {@code hidrobiologico} (tipo de operación 1002) y {@code transporte} (1004), que el comprobante exige o prohíbe según la operación.
  */
 public record Item(String codigo, String descripcion, String unidad, BigDecimal cantidad,
                    BigDecimal precioUnitario, TipoAfectacionIgv afectacion, Descuento descuento, Isc isc, boolean icbper, List<Cargo> cargos,
-                   CodigoProductoSunat codigoSunat, Gtin gtin) {
+                   CodigoProductoSunat codigoSunat, Gtin gtin, Hidrobiologico hidrobiologico, TransporteCarga transporte) {
 
     /** Reglas de la línea que SUNAT rechaza (2024–2027, 2883, 2936) y que conviene atajar antes de consumir número (#35). */
     public Item {
@@ -56,9 +57,16 @@ public record Item(String codigo, String descripcion, String unidad, BigDecimal 
         this(codigo, descripcion, unidad, cantidad, precioUnitario, afectacion, descuento, isc, icbper, cargos, null, null);
     }
 
+    public Item(String codigo, String descripcion, String unidad, BigDecimal cantidad, BigDecimal precioUnitario, TipoAfectacionIgv afectacion,
+                Descuento descuento, Isc isc, boolean icbper, List<Cargo> cargos, CodigoProductoSunat codigoSunat, Gtin gtin) {
+        this(codigo, descripcion, unidad, cantidad, precioUnitario, afectacion, descuento, isc, icbper, cargos, codigoSunat, gtin, null, null);
+    }
+
     public boolean tieneDescuento() { return descuento != null; }
     public boolean tieneIsc() { return isc != null; }
     public boolean tieneCargos() { return !cargos.isEmpty(); }
     public boolean tieneCodigoSunat() { return codigoSunat != null; }
     public boolean tieneGtin() { return gtin != null; }
+    public boolean tieneHidrobiologico() { return hidrobiologico != null; }
+    public boolean tieneTransporte() { return transporte != null; }
 }

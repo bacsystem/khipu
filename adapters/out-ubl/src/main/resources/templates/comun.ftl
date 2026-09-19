@@ -14,6 +14,14 @@
   <cbc:TaxTypeCode>${tr.tipoInternacional()}</cbc:TaxTypeCode>
 </cac:TaxScheme>
 </#macro>
+<#-- Propiedad del ítem (catálogo 55): nombre, código y valor. Atributos del código según 4251–4253. -->
+<#macro propiedadItem codigo nombre valor>
+<cac:AdditionalItemProperty>
+  <cbc:Name>${nombre}</cbc:Name>
+  <cbc:NameCode listName="Propiedad del item" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo55">${codigo}</cbc:NameCode>
+  <cbc:Value>${valor}</cbc:Value>
+</cac:AdditionalItemProperty>
+</#macro>
 <#-- Orden de compra (campo 59, regla 4233). -->
 <#macro ordenCompra>
   <#-- Documentos relacionados (campos 59, 22 y 23): orden de compra, guías de remisión (catálogo 01: 09/31) y otros (catálogo 12). Reglas 4233, 4005, 4006, 4009, 4010. -->
@@ -263,6 +271,51 @@
         <cbc:PriceTypeCode listName="Tipo de Precio" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16">${it.tipoPrecio()}</cbc:PriceTypeCode>
       </cac:AlternativeConditionPrice>
     </cac:PricingReference>
+    <#-- Transporte de carga con detracción (1004, campos 113–127): destino (DeliveryLocation), origen y detalle del viaje (Despatch), los tres valores
+         referenciales en PEN (DeliveryTerms 01/02/03: reglas 3116–3126, 3208) y, si los hay, tramos y vehículos (Shipment/Consignment, 4200, 4270–4278). -->
+    <#if it.item().tieneTransporte()>
+    <#assign tr = it.item().transporte()>
+    <cac:Delivery>
+      <cac:DeliveryLocation>
+        <cac:Address>
+          <cbc:ID schemeAgencyName="PE:INEI" schemeName="Ubigeos">${tr.destino().ubigeo()}</cbc:ID>
+          <cac:AddressLine><cbc:Line>${tr.destino().direccion()}</cbc:Line></cac:AddressLine>
+        </cac:Address>
+      </cac:DeliveryLocation>
+      <cac:Despatch>
+        <cbc:Instructions>${tr.detalleViaje()}</cbc:Instructions>
+        <cac:DespatchAddress>
+          <cbc:ID schemeAgencyName="PE:INEI" schemeName="Ubigeos">${tr.origen().ubigeo()}</cbc:ID>
+          <cac:AddressLine><cbc:Line>${tr.origen().direccion()}</cbc:Line></cac:AddressLine>
+        </cac:DespatchAddress>
+      </cac:Despatch>
+      <cac:DeliveryTerms><cbc:ID>01</cbc:ID><cbc:Amount currencyID="PEN">${tr.valorReferencial().servicio()}</cbc:Amount></cac:DeliveryTerms>
+      <cac:DeliveryTerms><cbc:ID>02</cbc:ID><cbc:Amount currencyID="PEN">${tr.valorReferencial().cargaEfectiva()}</cbc:Amount></cac:DeliveryTerms>
+      <cac:DeliveryTerms><cbc:ID>03</cbc:ID><cbc:Amount currencyID="PEN">${tr.valorReferencial().cargaUtilNominal()}</cbc:Amount></cac:DeliveryTerms>
+      <#if tr.tramos()?has_content>
+      <cac:Shipment>
+        <cbc:ID>${(it?index + 1)?c}</cbc:ID>
+        <#list tr.tramos() as tm>
+        <cac:Consignment>
+          <cbc:ID>${(tm?index + 1)?c}</cbc:ID>
+          <#if tm.descripcion()??><cbc:CarrierServiceInstructions>${tm.descripcion()}</cbc:CarrierServiceInstructions></#if>
+          <#if tm.valorCargaUtilNominal()??><cbc:DeclaredForCarriageValueAmount currencyID="PEN">${tm.valorCargaUtilNominal()}</cbc:DeclaredForCarriageValueAmount></#if>
+          <#if tm.origenUbigeo()??><cac:PlannedPickupTransportEvent><cac:Location><cbc:ID schemeAgencyName="PE:INEI" schemeName="Ubigeos">${tm.origenUbigeo()}</cbc:ID></cac:Location></cac:PlannedPickupTransportEvent></#if>
+          <#if tm.destinoUbigeo()??><cac:PlannedDeliveryTransportEvent><cac:Location><cbc:ID schemeAgencyName="PE:INEI" schemeName="Ubigeos">${tm.destinoUbigeo()}</cbc:ID></cac:Location></cac:PlannedDeliveryTransportEvent></#if>
+          <#if tm.valorCargaEfectiva()??><cac:DeliveryTerms><cbc:Amount currencyID="PEN">${tm.valorCargaEfectiva()}</cbc:Amount></cac:DeliveryTerms></#if>
+          <#list tm.vehiculos() as v>
+          <cac:TransportHandlingUnit>
+            <#if v.configuracion()??><cac:TransportEquipment><cbc:SizeTypeCode>${v.configuracion()}</cbc:SizeTypeCode></cac:TransportEquipment></#if>
+            <#if v.cargaUtilTm()??><cac:MeasurementDimension><cbc:AttributeID>01</cbc:AttributeID><cbc:Measure unitCode="TNE">${v.cargaUtilTm()}</cbc:Measure></cac:MeasurementDimension></#if>
+            <#if v.cargaEfectivaTm()??><cac:MeasurementDimension><cbc:AttributeID>02</cbc:AttributeID><cbc:Measure unitCode="TNE">${v.cargaEfectivaTm()}</cbc:Measure></cac:MeasurementDimension></#if>
+          </cac:TransportHandlingUnit>
+          </#list>
+        </cac:Consignment>
+        </#list>
+      </cac:Shipment>
+      </#if>
+    </cac:Delivery>
+    </#if>
     <#if it.item().tieneDescuento()>
     <cac:AllowanceCharge>
       <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
@@ -326,6 +379,24 @@
       <#-- GTIN (campo 29, reglas 4333–4335) y código de producto SUNAT (campo 28, catálogo 25 UNSPSC; reglas 3496, 4331). -->
       <#if it.item().tieneGtin()><cac:StandardItemIdentification><cbc:ID schemeID="${it.item().gtin().tipo()}">${it.item().gtin().codigo()}</cbc:ID></cac:StandardItemIdentification></#if>
       <#if it.item().tieneCodigoSunat()><cac:CommodityClassification><cbc:ItemClassificationCode listID="UNSPSC" listAgencyName="GS1 US" listName="Item Classification">${it.item().codigoSunat().codigo()}</cbc:ItemClassificationCode></cac:CommodityClassification></#if>
+      <#-- Recursos hidrobiológicos con detracción (1002, campos 107–112): conceptos 3001–3006 del catálogo 55 (reglas 3063, 3130–3135). -->
+      <#if it.item().tieneHidrobiologico()>
+      <#assign h = it.item().hidrobiologico()>
+      <@propiedadItem codigo="3001" nombre="Matrícula de la embarcación pesquera" valor=h.matricula()/>
+      <@propiedadItem codigo="3002" nombre="Nombre de la embarcación pesquera" valor=h.nombreEmbarcacion()/>
+      <@propiedadItem codigo="3003" nombre="Descripción del tipo de la especie vendida" valor=h.especie()/>
+      <@propiedadItem codigo="3004" nombre="Lugar de descarga" valor=h.lugarDescarga()/>
+      <cac:AdditionalItemProperty>
+        <cbc:Name>Fecha de descarga</cbc:Name>
+        <cbc:NameCode listName="Propiedad del item" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo55">3005</cbc:NameCode>
+        <cac:UsabilityPeriod><cbc:StartDate>${h.fechaDescarga().toString()}</cbc:StartDate></cac:UsabilityPeriod>
+      </cac:AdditionalItemProperty>
+      <cac:AdditionalItemProperty>
+        <cbc:Name>Cantidad de la especie vendida</cbc:Name>
+        <cbc:NameCode listName="Propiedad del item" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo55">3006</cbc:NameCode>
+        <cbc:ValueQuantity unitCode="TNE">${h.cantidad()}</cbc:ValueQuantity>
+      </cac:AdditionalItemProperty>
+      </#if>
     </cac:Item>
     <cac:Price><cbc:PriceAmount currencyID="${c.moneda()}">${it.valorUnitario()?string["0.0000000000"]}</cbc:PriceAmount></cac:Price>
   </cac:${elemento}>

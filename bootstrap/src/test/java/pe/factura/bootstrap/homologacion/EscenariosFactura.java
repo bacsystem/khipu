@@ -138,7 +138,21 @@ final class EscenariosFactura {
                 "{" + cab + ",\"tipo_operacion\":\"0200\",\"moneda\":\"USD\"," +
                 "\"cliente\":{\"tipo_doc\":\"0\",\"num_doc\":\"US123456789\",\"razon_social\":\"ACME IMPORTS LLC\",\"direccion\":\"1200 Main St, Miami FL\",\"pais\":\"US\"}," +
                 "\"items\":[{\"codigo\":\"CAF-01\",\"descripcion\":\"Café verde en grano\",\"unidad\":\"KGM\",\"cantidad\":1000,\"precio_unitario\":4.50,\"tipo_afectacion_igv\":\"40\"}]," +
-                "\"exportacion\":{\"incoterm\":\"FOB\"}}")
+                "\"exportacion\":{\"incoterm\":\"FOB\"}}"),
+            // Detracción 1002 (#69): recursos hidrobiológicos con los conceptos 3001–3006 del catálogo 55 por ítem (3063, 3130–3135) y código 004 (3129).
+            new Escenario("27-hidrobiologicos", "Venta de recursos hidrobiológicos con detracción (1002) y datos de la embarcación por ítem",
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1002\"," + CLIENTE + ",\"items\":[" +
+                "{\"codigo\":\"ANCH\",\"descripcion\":\"Anchoveta fresca\",\"unidad\":\"TNE\",\"cantidad\":12.5,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"," +
+                "\"hidrobiologico\":{\"matricula\":\"CO-12345-PM\",\"nombre_embarcacion\":\"DON JOSE II\",\"especie\":\"Anchoveta (Engraulis ringens)\",\"lugar_descarga\":\"Muelle de Chimbote\",\"fecha_descarga\":\"" + fecha + "\",\"cantidad\":12.5}}]," +
+                "\"detraccion\":{\"codigo_bien_servicio\":\"004\",\"porcentaje\":4,\"cuenta_banco_nacion\":\"00-000-123456\"}}"),
+            // Detracción 1004 (#69): transporte de carga con origen/destino, detalle del viaje, los tres valores referenciales (3116–3126) y un tramo con vehículo.
+            new Escenario("28-transporte-carga", "Servicio de transporte de carga con detracción (1004): origen, destino, valores referenciales y tramo",
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1004\"," + CLIENTE + ",\"items\":[" +
+                "{\"codigo\":\"FLT\",\"descripcion\":\"Flete Chimbote - Lima\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":2950.00,\"tipo_afectacion_igv\":\"10\"," +
+                "\"transporte\":{\"origen\":{\"ubigeo\":\"021801\",\"direccion\":\"Av. Los Pescadores 450, Chimbote\"},\"destino\":{\"ubigeo\":\"150101\",\"direccion\":\"Jr. de la Union 100, Lima\"}," +
+                "\"detalle_viaje\":\"Traslado de 20 t de harina de pescado en camion furgon\",\"valor_referencial\":{\"servicio\":2500,\"carga_efectiva\":2400,\"carga_util_nominal\":2600}," +
+                "\"tramos\":[{\"origen_ubigeo\":\"021801\",\"destino_ubigeo\":\"150101\",\"descripcion\":\"Chimbote - Lima por Panamericana Norte\",\"valor_carga_efectiva\":2400,\"vehiculos\":[{\"configuracion\":\"T3S3\",\"carga_util_tm\":30,\"carga_efectiva_tm\":20}]}]}}]," +
+                "\"detraccion\":{\"codigo_bien_servicio\":\"027\",\"porcentaje\":4,\"cuenta_banco_nacion\":\"00-000-123456\"}}")
         );
     }
 

@@ -2,6 +2,14 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.33] - 2026-09-19
+
+### Added
+- Datos sectoriales de la detracción 1002 y 1004 (#69). Con `tipo_operacion` `1002` (recursos hidrobiológicos, código 004) cada ítem lleva `hidrobiologico { matricula, nombre_embarcacion, especie, lugar_descarga, fecha_descarga, cantidad }` → `cac:AdditionalItemProperty` con los conceptos 3001–3006 del catálogo 55 (fecha en `UsabilityPeriod/StartDate`, cantidad en `ValueQuantity` TNE; reglas 3063, 3130–3135, 3115, 4280/4281). Con `1004` (transporte de carga, código 027) cada ítem lleva `transporte { origen {ubigeo, direccion}, destino {ubigeo, direccion}, detalle_viaje, valor_referencial {servicio, carga_efectiva, carga_util_nominal}, tramos[]? }` → `cac:Delivery` por línea con `DeliveryLocation`, `Despatch` y los tres `DeliveryTerms` 01/02/03 en PEN (3116–3126, 3208), y `Shipment/Consignment` por tramo con `TransportHandlingUnit` por vehículo (4200, 4270–4278). Hasta ahora 1002/1004 se aceptaban sin esos datos y SUNAT los rechazaba: pasan a exigirse (`422 DETRACCION_INVALIDA` con la regla) y no se admiten fuera de su operación. Migración V22 (`comprobante_item.hidrobiologico`, `transporte` JSONB). Respuesta con los datos por ítem; portal: detalle del ítem con embarcación/viaje, guía con los casos «Detracción 1002» y «Detracción 1004», errores actualizados. Homologación: escenarios 27-hidrobiologicos y 28-transporte-carga aceptados por e-beta sin observaciones (28/28).
+
+### Changed
+- Las notas de crédito/débito sobre facturas 1002/1004 copian los datos sectoriales de los ítems al XML (mismas líneas que la factura).
+
 ## [0.1.32] - 2026-09-19
 
 ### Added
