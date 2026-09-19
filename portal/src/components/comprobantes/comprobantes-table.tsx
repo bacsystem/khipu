@@ -3,7 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   CalendarIcon,
-  ChevronDownIcon,
   FileCheck2Icon,
   InboxIcon,
   MoreHorizontalIcon,
@@ -11,7 +10,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PieTabla } from "@/components/ui/pie-tabla";
 import { esClickSimple } from "@/lib/navegacion";
@@ -21,7 +19,9 @@ import {
   esEstadoFinal,
   ETIQUETAS_TIPO,
   ETIQUETAS_TIPO_DOC,
+  type FiltrosComprobantes,
   normalizarComprobante,
+  paramsDeFiltros,
   tieneConstanciaCdr,
   totalDesdeHeaders,
   type Comprobante,
@@ -57,12 +57,11 @@ const ITEMS_ESTADO: Record<string, string> = {
 const TABS_DESHABILITADOS = ["Facturas", "Boletas", "Notas de crédito"];
 
 const CONTROL = "h-9 rounded-lg border border-border bg-card text-[12px] font-medium text-foreground shadow-2xs";
-const CONTROL_DESHABILITADO = "cursor-not-allowed text-muted-foreground opacity-70";
+const TODAS_LAS_SERIES = "todas";
 const ACCION = "flex h-6 items-center justify-center rounded border border-border font-mono text-[10px] font-semibold shadow-2xs transition-colors";
 
-async function fetchComprobantes(estado: string | undefined, pagina: number, porPagina: number): Promise<PaginaComprobantes> {
-  const qs = new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) });
-  if (estado) qs.set("estado", estado);
+async function fetchComprobantes(filtros: FiltrosComprobantes, pagina: number, porPagina: number): Promise<PaginaComprobantes> {
+  const qs = paramsDeFiltros(filtros, new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) }));
   const res = await fetch(`/api/proxy/facturas?${qs}`);
   const json = await res.json();
   if (json.estado !== "exito") throw new Error(json.mensaje ?? "Error al listar comprobantes");
@@ -81,18 +80,24 @@ export function ComprobantesTable({
   inicial,
   pagina,
   porPagina,
+  filtros,
+  series,
 }: {
   inicial: PaginaComprobantes;
   pagina: number;
   porPagina: number;
+  /** Filtros activos, leídos de la URL por la página (#6). */
+  filtros: FiltrosComprobantes;
+  /** Series de la empresa para el selector; vacío si no se pudieron cargar. */
+  series: string[];
 }) {
   const router = useRouter();
   const params = useSearchParams();
-  const [estado, setEstado] = useState<EstadoDocumento | undefined>(undefined);
+  const { estado, desde, hasta, serie } = filtros;
 
   const { data: paginaActual, isFetching, refetch } = useQuery({
-    queryKey: ["facturas", estado ?? null, pagina, porPagina],
-    queryFn: () => fetchComprobantes(estado, pagina, porPagina),
+    queryKey: ["facturas", estado ?? null, desde ?? null, hasta ?? null, serie ?? null, pagina, porPagina],
+    queryFn: () => fetchComprobantes(filtros, pagina, porPagina),
     initialData: inicial,
     refetchInterval: (query) => {
       const rows = query.state.data?.datos ?? [];
@@ -116,10 +121,22 @@ export function ComprobantesTable({
     router.push(qs ? `/comprobantes?${qs}` : "/comprobantes");
   }
 
-  function cambiarEstado(value: string | null) {
-    setEstado(!value || value === TODOS_LOS_ESTADOS ? undefined : (value as EstadoDocumento));
-    irA(1);
+  /** Cambia un filtro en la URL (compartible) y vuelve a la página 1; un valor vacío lo quita. */
+  function cambiarFiltro(nombre: "estado" | "desde" | "hasta" | "serie", valor: string | null | undefined) {
+    const next = new URLSearchParams(params.toString());
+    if (valor) next.set(nombre, valor);
+    else next.delete(nombre);
+    conPagina(next, 1);
+    const qs = next.toString();
+    router.push(qs ? `/comprobantes?${qs}` : "/comprobantes");
   }
+
+  function cambiarEstado(value: string | null) {
+    cambiarFiltro("estado", !value || value === TODOS_LOS_ESTADOS ? null : (value as EstadoDocumento));
+  }
+
+  const opcionesSerie = serie && !series.includes(serie) ? [serie, ...series] : series;
+  const itemsSerie: Record<string, string> = { [TODAS_LAS_SERIES]: "Serie: Todas", ...Object.fromEntries(opcionesSerie.map((s) => [s, `Serie: ${s}`])) };
 
   function hrefPagina(p: number) {
     const next = new URLSearchParams(params.toString());
@@ -129,8 +146,8 @@ export function ComprobantesTable({
   }
 
   const ultimaPagina = Math.max(1, Math.ceil(total / porPagina));
-  const desde = data.length === 0 ? 0 : (pagina - 1) * porPagina + 1;
-  const hasta = (pagina - 1) * porPagina + data.length;
+  const primerResultado = data.length === 0 ? 0 : (pagina - 1) * porPagina + 1;
+  const ultimoResultado = (pagina - 1) * porPagina + data.length;
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
@@ -167,26 +184,42 @@ export function ComprobantesTable({
             </SelectContent>
           </Select>
 
-          <button
-            type="button"
-            disabled
-            title="Filtro por serie: próximamente"
-            className={cn(CONTROL, CONTROL_DESHABILITADO, "inline-flex items-center gap-1.5 pr-2.5 pl-3")}
-          >
-            Serie: Todas
-            <ChevronDownIcon className="size-4 text-muted-foreground/70" />
-          </button>
+          <Select items={itemsSerie} value={serie ?? TODAS_LAS_SERIES} onValueChange={(v) => cambiarFiltro("serie", !v || v === TODAS_LAS_SERIES ? null : v)}>
+            <SelectTrigger className={cn(CONTROL, "w-auto min-w-36 pl-3")} aria-label="Serie">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODAS_LAS_SERIES}>Serie: Todas</SelectItem>
+              {opcionesSerie.map((s) => (
+                <SelectItem key={s} value={s}>
+                  Serie: {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          <button
-            type="button"
-            disabled
-            title="Filtro por período: próximamente"
-            className={cn(CONTROL, CONTROL_DESHABILITADO, "inline-flex items-center gap-1.5 px-3")}
-          >
+          <div className={cn(CONTROL, "inline-flex items-center gap-1.5 px-3")} title="Fecha de emisión (inclusive)">
             <CalendarIcon className="size-4 text-muted-foreground/70" />
-            Período: Todos
-            <ChevronDownIcon className="size-4 text-muted-foreground/70" />
-          </button>
+            <label className="sr-only" htmlFor="filtro-desde">Desde</label>
+            <input
+              id="filtro-desde"
+              type="date"
+              value={desde ?? ""}
+              max={hasta}
+              onChange={(e) => cambiarFiltro("desde", e.target.value)}
+              className="bg-transparent text-[12px] text-foreground outline-none"
+            />
+            <span className="text-muted-foreground/70">–</span>
+            <label className="sr-only" htmlFor="filtro-hasta">Hasta</label>
+            <input
+              id="filtro-hasta"
+              type="date"
+              value={hasta ?? ""}
+              min={desde}
+              onChange={(e) => cambiarFiltro("hasta", e.target.value)}
+              className="bg-transparent text-[12px] text-foreground outline-none"
+            />
+          </div>
 
           <button
             type="button"
@@ -345,10 +378,15 @@ export function ComprobantesTable({
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <InboxIcon className="size-6" />
                     <p className="text-sm">
-                      {estado
-                        ? `No hay comprobantes en estado "${ETIQUETAS_ESTADO[estado]}".`
+                      {estado || desde || hasta || serie
+                        ? "No hay comprobantes con esos filtros."
                         : "Todavía no emitiste ningún comprobante."}
                     </p>
+                    {estado || desde || hasta || serie ? (
+                      <Link href="/comprobantes" className="text-xs text-primary hover:underline">
+                        Quitar filtros
+                      </Link>
+                    ) : null}
                   </div>
                 </TableCell>
               </TableRow>
@@ -357,8 +395,8 @@ export function ComprobantesTable({
         </Table>
 
         <PieTabla
-          desde={desde}
-          hasta={hasta}
+          desde={primerResultado}
+          hasta={ultimoResultado}
           total={total}
           unidad="comprobantes"
           porPagina={porPagina}

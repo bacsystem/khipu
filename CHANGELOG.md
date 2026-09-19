@@ -2,6 +2,14 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.37] - 2026-09-19
+
+### Added
+- Portal: filtros de serie y período en la tabla de comprobantes (#6). Selector de serie (las de la empresa) y dos fechas (`desde`/`hasta`, inclusive) junto al filtro de estado; los cuatro filtros viven en la URL (`/comprobantes?estado=&desde=&hasta=&serie=`), así una vista filtrada se comparte y al recargar la tabla llega ya filtrada desde el servidor (los parámetros inválidos se descartan en vez de provocar un 400). Estado vacío con «Quitar filtros». Los mocks MSW filtran por esos parámetros y el e2e lo cubre.
+
+### Changed
+- Portal: el filtro de estado pasa de estado local a la URL (antes se perdía al recargar o compartir el enlace).
+
 ## [0.1.36] - 2026-09-19
 
 ### Added

@@ -11,18 +11,21 @@ export const ETIQUETAS_TIPO: Record<string, string> = {
   "08": "Nota de débito",
 };
 
-export type EstadoDocumento =
-  | "RECIBIDO"
-  | "INVALIDO"
-  | "FIRMADO"
-  | "ERROR_ENVIO"
-  | "PENDIENTE_AGRUPACION"
-  | "ENVIADO"
-  | "ACEPTADO"
-  | "ACEPTADO_CON_OBS"
-  | "RECHAZADO"
-  | "ANULADO"
-  | "FUERA_DE_PLAZO";
+export const ESTADOS_DOCUMENTO = [
+  "RECIBIDO",
+  "INVALIDO",
+  "FIRMADO",
+  "ERROR_ENVIO",
+  "PENDIENTE_AGRUPACION",
+  "ENVIADO",
+  "ACEPTADO",
+  "ACEPTADO_CON_OBS",
+  "RECHAZADO",
+  "ANULADO",
+  "FUERA_DE_PLAZO",
+] as const;
+
+export type EstadoDocumento = (typeof ESTADOS_DOCUMENTO)[number];
 
 export type Receptor = {
   tipo_doc: string;
@@ -332,13 +335,39 @@ export function totalDesdeHeaders(headers: Headers, fallback: number): number {
   return Number.isFinite(total) && headers.has(TOTAL_HEADER) ? total : fallback;
 }
 
+/** Filtros del listado (#6): estado SUNAT, rango de fecha de emisión (inclusive) y serie exacta; todos opcionales y viajan en la URL. */
+export type FiltrosComprobantes = { estado?: EstadoDocumento; desde?: string; hasta?: string; serie?: string };
+
+const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+const SERIE = /^[A-Z][A-Z0-9]{3}$/;
+
+/** Sanea los filtros que llegan por query string: descarta lo que el backend rechazaría (400) y normaliza la serie. */
+export function filtrosDesdeParams(p: { estado?: string; desde?: string; hasta?: string; serie?: string }): FiltrosComprobantes {
+  const f: FiltrosComprobantes = {};
+  if (p.estado && (ESTADOS_DOCUMENTO as readonly string[]).includes(p.estado)) f.estado = p.estado as EstadoDocumento;
+  if (p.desde && FECHA_ISO.test(p.desde)) f.desde = p.desde;
+  if (p.hasta && FECHA_ISO.test(p.hasta)) f.hasta = p.hasta;
+  if (f.desde && f.hasta && f.desde > f.hasta) delete f.hasta;
+  const serie = p.serie?.trim().toUpperCase();
+  if (serie && SERIE.test(serie)) f.serie = serie;
+  return f;
+}
+
+/** Los filtros como query string, en el orden en que la API los documenta; vacío si no hay ninguno. */
+export function paramsDeFiltros(f: FiltrosComprobantes, qs = new URLSearchParams()) {
+  if (f.estado) qs.set("estado", f.estado);
+  if (f.desde) qs.set("desde", f.desde);
+  if (f.hasta) qs.set("hasta", f.hasta);
+  if (f.serie) qs.set("serie", f.serie);
+  return qs;
+}
+
 export async function listarFacturas(
   access: string,
   empresaId: string,
-  params: { estado?: EstadoDocumento; pagina?: number; porPagina?: number } = {},
+  params: FiltrosComprobantes & { pagina?: number; porPagina?: number } = {},
 ): Promise<PaginaComprobantes> {
-  const qs = new URLSearchParams();
-  if (params.estado) qs.set("estado", params.estado);
+  const qs = paramsDeFiltros(params);
   qs.set("pagina", String(params.pagina ?? 1));
   qs.set("por_pagina", String(params.porPagina ?? 10));
   const { datos, headers } = await backendFetchConHeaders<Comprobante[]>(`/v1/facturas?${qs}`, {
