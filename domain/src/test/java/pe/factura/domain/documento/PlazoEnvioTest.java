@@ -34,7 +34,7 @@ class PlazoEnvioTest {
     @Test void elComprobanteConoceSuLimiteYSoloSeMarcaVencidoCuandoLoEsta() {
         Clock reloj = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
         Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 10), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), reloj);
         c.asignarNumero(1, "20100066603");
         c.firmar("H", "k.xml");
@@ -50,7 +50,7 @@ class PlazoEnvioTest {
 
     @Test void noSeEmiteConUnaFechaCuyoPlazoYaVencio() {
         Clock reloj = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
-        Receptor r = new Receptor("6", "20601234567", "CLIENTE SAC", null);
+        Receptor r = new Receptor("6", "20601234565", "CLIENTE SAC", null);
         List<Item> items = List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
         assertThat(Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 10), "PEN", "0101", r, items, reloj).fechaEmision()).isEqualTo(LocalDate.of(2026, 9, 10));
         assertThatThrownBy(() -> Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 9), "PEN", "0101", r, items, reloj))

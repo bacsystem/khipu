@@ -44,7 +44,7 @@ class NotaControllerTest {
 
     static Comprobante notaAceptada(UUID tenant) {
         Comprobante c = Comprobante.crearNota(tenant, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 null, null, List.of(), new Nota(TipoDocumento.FACTURA, "F001", 601, "01", "Anulación por error en el pedido"),
                 Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));

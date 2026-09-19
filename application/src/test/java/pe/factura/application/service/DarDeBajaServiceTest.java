@@ -55,7 +55,7 @@ class DarDeBajaServiceTest {
 
     private Comprobante facturaAceptada() {
         return emitir.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
     }
@@ -152,7 +152,7 @@ class DarDeBajaServiceTest {
         DarDeBajaService tardio = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, tarde);
         assertThatThrownBy(() -> tardio.solicitar(tenantId, f.id(), "Error")).hasMessageContaining("2957");
         Comprobante firmado = emitir.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false));
         assertThatThrownBy(() -> service.solicitar(tenantId, firmado.id(), "Error")).hasMessageContaining("2398").hasMessageContaining("FIRMADO");
         assertThatThrownBy(() -> service.solicitar(tenantId, f.id(), "ab")).hasMessageContaining("2315");

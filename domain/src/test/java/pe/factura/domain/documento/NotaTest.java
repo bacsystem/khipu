@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Notas de crédito/débito sobre facturas: documento modificado, motivo (catálogos 09/10) y serie (hojas NotaCredito2_0 / NotaDebito2_0). */
 class NotaTest {
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-18T15:00:00Z"), ZoneId.of("America/Lima"));
-    static final Receptor RECEPTOR = new Receptor("6", "20601234567", "CLIENTE SAC", null);
+    static final Receptor RECEPTOR = new Receptor("6", "20601234565", "CLIENTE SAC", null);
     static final List<Item> ITEMS = List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
     static final Nota NC_ANULACION = new Nota(TipoDocumento.FACTURA, "F001", 12, "01", "Anulación de la operación");
 

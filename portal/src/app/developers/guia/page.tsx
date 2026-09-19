@@ -67,7 +67,7 @@ export default function GuiaPage() {
     "serie": "F001",
     "fecha_emision": "2026-09-17",
     "moneda": "PEN",
-    "cliente": { "tipo_doc": "6", "num_doc": "20601234567", "razon_social": "COMERCIAL ANDINA S.A.C." },
+    "cliente": { "tipo_doc": "6", "num_doc": "20601234565", "razon_social": "COMERCIAL ANDINA S.A.C." },
     "items": [
       { "descripcion": "Servicio de consultoría", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10" }
     ]
