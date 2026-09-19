@@ -21,7 +21,18 @@ export type Empresa = {
   domicilio?: { ubigeo: string; direccion: string; urbanizacion: string | null; distrito: string | null; provincia: string | null; departamento: string | null; codigo_establecimiento: string } | null;
   cuenta_detracciones?: string | null;
   nombre_comercial?: string | null;
+  personalizacion_pdf?: PersonalizacionPdf;
 };
+
+export type PersonalizacionPdf = {
+  plantilla: "clasico" | "moderno" | "sutil" | "corporativo" | "gris";
+  color_primario: string;
+  tiene_logo: boolean;
+  pie_de_pagina: string | null;
+  observaciones_por_defecto: string | null;
+};
+
+export const PERSONALIZACION_POR_DEFECTO: PersonalizacionPdf = { plantilla: "clasico", color_primario: "#1E1E24", tiene_logo: false, pie_de_pagina: null, observaciones_por_defecto: null };
 export type Serie = { tipo: string; serie: string; ultimo_numero: number; activa: boolean };
 export type ApiKey = { id: string; prefijo: string; activa: boolean; creada_en: string; revocada_en?: string };
 export type Comprobante = {

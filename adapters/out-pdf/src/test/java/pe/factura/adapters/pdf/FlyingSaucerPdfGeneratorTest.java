@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import pe.factura.domain.documento.*;
 import pe.factura.domain.tenant.Domicilio;
 import pe.factura.domain.tenant.Entorno;
+import pe.factura.domain.tenant.PersonalizacionPdf;
+import pe.factura.domain.tenant.PlantillaPdf;
 import pe.factura.domain.tenant.Tenant;
 
 import javax.imageio.ImageIO;
@@ -19,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Base64;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,7 +54,7 @@ class FlyingSaucerPdfGeneratorTest {
     }
 
     @Test void laFacturaLlevaEmisorReceptorLineasTotalesCuotasDetraccionYHash() {
-        String html = generador.xhtml(factura(), TENANT, "qr");
+        String html = generador.xhtml(factura(), TENANT, "qr", null);
         assertThat(html).startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
                 .contains("FACTURA ELECTRÓNICA", "R.U.C. 20100066603", "F001-125", "EMPRESA DE PRUEBA S.A.C.", "Andina Store", "Av. Javier Prado Este 123, San Borja Norte")
                 .contains("CLIENTE S.A.C.", "20601234567", "13/09/2026", "13/10/2026", "Laptop Lenovo ThinkPad", "Libro técnico")
@@ -62,13 +65,13 @@ class FlyingSaucerPdfGeneratorTest {
     }
 
     @Test void laNotaDeCreditoIndicaElComprobanteQueModificaYElMotivo() {
-        String html = generador.xhtml(notaCredito(), TENANT, "qr");
+        String html = generador.xhtml(notaCredito(), TENANT, "qr", null);
         assertThat(html).contains("NOTA DE CRÉDITO ELECTRÓNICA", "FC01-7", "Documento que modifica", "Factura F001-125", "07 - Devolución por ítem", "Devolución de una laptop", "hashnota==");
     }
 
     @Test void generaUnPdfConElQrLegible() throws Exception {
         String contenido = "20100066603|01|F001|125|360.00|2410.00|2026-09-13|6|20601234567|y4M8+jW8Xp278K1aM02q19KjvO3k=|";
-        byte[] pdf = generador.generar(factura(), TENANT, contenido);
+        byte[] pdf = generador.generar(factura(), TENANT, contenido, null);
         assertThat(new String(pdf, 0, 5)).isEqualTo("%PDF-");
         // Flying Saucer no falla si no resuelve el data: URI de la imagen: comprobamos que el XObject del QR (220 px) quedó dentro del PDF.
         assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).contains("/Subtype/Image").contains("/Width " + FlyingSaucerPdfGenerator.QR_PX);
@@ -79,7 +82,7 @@ class FlyingSaucerPdfGeneratorTest {
     }
 
     @Test void cadaTipoTieneSuPlantilla() {
-        assertThat(generador.xhtml(notaDebito(), TENANT, "qr")).contains("NOTA DE DÉBITO ELECTRÓNICA", "01 - Intereses por mora");
+        assertThat(generador.xhtml(notaDebito(), TENANT, "qr", null)).contains("NOTA DE DÉBITO ELECTRÓNICA", "01 - Intereses por mora");
     }
 
     static Comprobante notaDebito() {
@@ -89,5 +92,45 @@ class FlyingSaucerPdfGeneratorTest {
         c.asignarNumero(3, "20100066603");
         c.firmar("hashnd==", "k");
         return c;
+    }
+
+    static final byte[] PNG_1PX = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==");
+
+    @Test void laClasicaNoImprimeObservacionesNiPieSiNoHay() {
+        String html = generador.xhtml(factura(), TENANT, "qr", null);
+        assertThat(html).contains("<body class=\"clasico\">").doesNotContain("Observaciones").doesNotContain("class=\"logo\"");
+    }
+
+    @Test void cadaPlantillaCambiaLaClaseYElColorEntraDondeCorresponde() {
+        for (PlantillaPdf pl : PlantillaPdf.values()) {
+            Tenant t = TENANT.conPersonalizacionPdf(new PersonalizacionPdf(pl, "#C8552B", null, null, null));
+            String html = generador.xhtml(factura(), t, "qr", null);
+            assertThat(html).contains("<body class=\"" + pl.nombre() + "\">");
+            assertThat(html).contains(".corporativo .recuadro { border-color: #C8552B; background: #C8552B;");
+        }
+        // La gris no usa el color: sus reglas son fijas.
+        assertThat(generador.xhtml(factura(), TENANT.conPersonalizacionPdf(new PersonalizacionPdf(PlantillaPdf.GRIS, "#C8552B", null, null, null)), "qr", null))
+                .contains(".gris .recuadro { border-color: #3a3a3a;");
+    }
+
+    @Test void logoPieYObservacionesDeLaEmpresaVanAlPdfYLasDelComprobanteMandan() {
+        Tenant t = TENANT.conPersonalizacionPdf(new PersonalizacionPdf(PlantillaPdf.MODERNO, "#1F5F4A", "k/logo.png", "Gracias por su preferencia", "Obs por defecto"));
+        String html = generador.xhtml(factura(), t, "qr", PNG_1PX);
+        assertThat(html).contains("<img class=\"logo\" src=\"data:image/png;base64,iVBOR")
+                .contains("<p class=\"leyenda\">Gracias por su preferencia</p>").doesNotContain("a través de khipu")
+                .contains("<h2>Observaciones</h2>").contains("<p>Obs por defecto</p>");
+
+        Comprobante conObs = factura();
+        conObs.anotar("Entrega en almacén.\nHorario 9-18.");
+        assertThat(generador.xhtml(conObs, t, "qr", PNG_1PX)).contains("<p>Entrega en almacén.\nHorario 9-18.</p>").doesNotContain("Obs por defecto");
+
+        // El QR (220 px) y el logo (1 px) quedan incrustados: Flying Saucer omite el logo si no lleva tamaño explícito, ver tamañoLogo.
+        byte[] pdf = generador.generar(conObs, t, "20100066603|01|F001|125|360.00|2410.00|2026-09-13|6|20601234567|hash|", PNG_1PX);
+        assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).contains("/Width " + FlyingSaucerPdfGenerator.QR_PX).contains("/Width 1/");
+    }
+
+    @Test void elLogoSeEscalaAlRecuadroConservandoLaProporcion() {
+        assertThat(FlyingSaucerPdfGenerator.tamañoLogo(PNG_1PX)).isEqualTo("width: 18.0mm; height: 18.0mm;");
+        assertThat(generador.xhtml(factura(), TENANT.conPersonalizacionPdf(PersonalizacionPdf.porDefecto().conLogo("k")), "qr", PNG_1PX)).contains("style=\"width: 18.0mm; height: 18.0mm;\"");
     }
 }

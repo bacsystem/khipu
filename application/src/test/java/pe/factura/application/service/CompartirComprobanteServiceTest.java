@@ -25,7 +25,7 @@ class CompartirComprobanteServiceTest {
         public void enviar(String para, String asunto, String cuerpo) { enviar(para, asunto, cuerpo, List.of()); }
         public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) { enviados.add(new Correo(para, asunto, cuerpo, adjuntos)); }
     };
-    private final ConsultarComprobanteService consultar = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr) -> "%PDF".getBytes());
+    private final ConsultarComprobanteService consultar = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr, logo) -> "%PDF".getBytes());
     private final CompartirComprobanteService service = new CompartirComprobanteService(consultar, tenants, correo);
     private final UUID tenant = UUID.randomUUID();
 

@@ -7,6 +7,7 @@ import {
   FileKey2Icon,
   HelpCircleIcon,
   KeyRoundIcon,
+  PaletteIcon,
   ShieldAlertIcon,
 } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -14,7 +15,8 @@ import { CertificadoForm } from "@/components/empresa/certificado-form";
 import { CredencialesSolForm } from "@/components/empresa/credenciales-sol-form";
 import { DatosFiscalesForm } from "@/components/empresa/datos-fiscales-form";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
-import { listarEmpresas, obtenerEmpresaActual } from "@/lib/api/empresas";
+import { PersonalizacionPdfForm } from "@/components/empresa/personalizacion-pdf-form";
+import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf } from "@/lib/api/empresas";
 import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { diasEntre, formatearFecha, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -78,7 +80,7 @@ export default async function EmpresaPage() {
   if (!access) redirect("/login");
   if (!empresaId) redirect("/onboarding");
 
-  const [empresa, empresas] = await Promise.all([obtenerEmpresaActual(access, empresaId), listarEmpresas(access)]);
+  const [empresa, empresas, personalizacion] = await Promise.all([obtenerEmpresaActual(access, empresaId), listarEmpresas(access), obtenerPersonalizacionPdf(access, empresaId)]);
 
   const beta = empresa.entorno === "BETA";
   const domicilio = empresa.domicilio ?? null;
@@ -363,6 +365,19 @@ export default async function EmpresaPage() {
           </section>
         </div>
       </div>
+
+      <section className={cn(TARJETA, "p-5")} id="personalizacion">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+          <div className={TITULO_SECCION}>
+            <PaletteIcon className="size-4" />
+            Personalización del PDF (A4)
+          </div>
+          <span className="text-[12px] text-muted-foreground">Solo cambia la representación impresa; no afecta a lo que se envía a SUNAT.</span>
+        </div>
+        <div className="mt-4">
+          <PersonalizacionPdfForm inicial={personalizacion} />
+        </div>
+      </section>
     </div>
   );
 }

@@ -5,5 +5,6 @@
   <@u.lineas />
   <@u.totales />
   <@u.condiciones />
+  <@u.observaciones />
   <@u.pie tipoNombre="boleta de venta" />
 </@u.pagina>

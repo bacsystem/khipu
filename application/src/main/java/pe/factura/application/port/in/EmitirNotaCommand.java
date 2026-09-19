@@ -17,6 +17,12 @@ import java.util.List;
 public record EmitirNotaCommand(TipoDocumento tipo, String serie, Long correlativo, LocalDate fechaEmision,
                                 String serieAfectada, long numeroAfectado, String motivo, String descripcion,
                                 List<Item> items, Descuento descuentoGlobal, List<Cargo> cargos, FormaPago formaPago,
-                                boolean enviarAutomatico) {
+                                boolean enviarAutomatico, String observaciones) {
+    /** Sin observaciones (texto libre que solo va al PDF). */
+    public EmitirNotaCommand(TipoDocumento tipo, String serie, Long correlativo, LocalDate fechaEmision,
+                             String serieAfectada, long numeroAfectado, String motivo, String descripcion,
+                             List<Item> items, Descuento descuentoGlobal, List<Cargo> cargos, FormaPago formaPago, boolean enviarAutomatico) {
+        this(tipo, serie, correlativo, fechaEmision, serieAfectada, numeroAfectado, motivo, descripcion, items, descuentoGlobal, cargos, formaPago, enviarAutomatico, null);
+    }
     public boolean copiaLaFactura() { return items == null || items.isEmpty(); }
 }

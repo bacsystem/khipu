@@ -54,6 +54,16 @@ class ComprobanteTest {
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SIN_ITEMS");
     }
 
+    @Test void lasObservacionesSoloAdmitenSaltosDeLinea() {
+        Comprobante c = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items, clock);
+        c.anotar("  Entrega en almacén central.\nHorario: 9 a 18 h.  ");
+        assertThat(c.observaciones()).isEqualTo("Entrega en almacén central.\nHorario: 9 a 18 h.");
+        c.anotar(" ");
+        assertThat(c.observaciones()).isNull();
+        assertThatThrownBy(() -> c.anotar("con\ttab")).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("OBSERVACIONES_INVALIDAS");
+        assertThatThrownBy(() -> c.anotar("x".repeat(1001))).hasMessageContaining("1000");
+    }
+
     @Test void cicloDeVidaHastaAceptado() {
         Comprobante c = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items, clock);
         c.asignarNumero(7, "20100066603");

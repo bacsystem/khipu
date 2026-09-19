@@ -44,6 +44,16 @@ class JdbcTenantRepositoryTest extends PersistenciaTestBase {
         assertThat(sin.cuentaDetracciones()).isNull();
     }
 
+    @Test void guardaLaPersonalizacionDelPdfYPorDefectoEsLaClasica() {
+        Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, null, null);
+        repo.guardar(t);
+        assertThat(repo.buscar(t.id()).orElseThrow().personalizacionPdf()).isEqualTo(PersonalizacionPdf.porDefecto());
+
+        PersonalizacionPdf p = new PersonalizacionPdf(PlantillaPdf.CORPORATIVO, "#1f5f4a", t.id() + "/logo.png", "Gracias por su preferencia", "Entrega en 48 h\nSin devoluciones");
+        repo.guardar(t.conPersonalizacionPdf(p));
+        assertThat(repo.buscar(t.id()).orElseThrow().personalizacionPdf()).isEqualTo(p);
+    }
+
     @Test void actualizaYPermiteNulos() {
         Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, null, null);
         repo.guardar(t);

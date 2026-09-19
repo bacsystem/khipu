@@ -45,6 +45,7 @@ Respáldala junto con la base de datos. Lo mismo aplica a `API_KEY_PEPPER`: rota
 5. `POST /v1/facturas` → `201` con estado y CDR.
 6. `GET /v1/facturas/{id}/xml` · `/pdf` · `/cdr`; `POST /v1/facturas/{id}/correo` envía los tres al cliente.
 7. `POST /v1/notas` (crédito/débito) y `POST /v1/facturas/{id}/baja` (anulación dentro de 7 días).
+8. `PUT /v1/empresa/personalizacion-pdf` y `PUT /v1/empresa/logo`: diseño de la representación impresa (plantilla, color, logo, textos).
 
 Documentación de diseño: `docs/superpowers/specs/README.md`. Plan: `docs/superpowers/plans/fase-1a/README.md`.
 

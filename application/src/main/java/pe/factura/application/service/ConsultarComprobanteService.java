@@ -48,14 +48,17 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
      */
     static final int VERSION_PDF = 1;
 
-    /** El PDF vive junto al XML firmado (misma clave, sufijo {@code -v<versión>.pdf}); si falta —o nunca se pidió— se genera y se guarda. */
+    /**
+     * El PDF vive junto al XML firmado (misma clave, sufijo {@code -v<versión>-<huella del diseño>.pdf}); si falta —o nunca se pidió—
+     * se genera y se guarda. La huella hace que un cambio de plantilla, color, logo o textos regenere el siguiente PDF sin tocar los ya emitidos.
+     */
     public byte[] pdf(UUID tenantId, UUID id) {
         Comprobante c = obtener(tenantId, id);
         if (c.xmlKey() == null) throw new DomainException("SIN_FIRMA", "El comprobante aún no está firmado: no tiene representación impresa");
-        String key = c.xmlKey().replaceFirst("\\.xml$", "-v" + VERSION_PDF + ".pdf");
-        if (storage.existe(key)) return storage.leer(key);
         Tenant t = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
-        byte[] bytes = pdf.generar(c, t, CodigoQr.contenido(c, t.ruc()));
+        String key = c.xmlKey().replaceFirst("\\.xml$", "-v" + VERSION_PDF + "-" + t.personalizacionPdf().huella() + ".pdf");
+        if (storage.existe(key)) return storage.leer(key);
+        byte[] bytes = pdf.generar(c, t, CodigoQr.contenido(c, t.ruc()), PersonalizarPdfService.logoDe(storage, t.personalizacionPdf()));
         storage.guardar(key, bytes);
         return bytes;
     }

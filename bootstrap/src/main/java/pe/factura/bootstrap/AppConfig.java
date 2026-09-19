@@ -202,6 +202,7 @@ public class AppConfig {
         return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock);
     }
     @Bean PdfGenerator pdfGenerator() { return new FlyingSaucerPdfGenerator(); }
+    @Bean PersonalizarPdfUseCase personalizarPdf(TenantRepository t, DocumentStorage s, PdfGenerator pdf, Clock clock) { return new PersonalizarPdfService(t, s, pdf, clock); }
     @Bean ConsultarComprobanteUseCase consultarComprobante(ComprobanteRepository c, TenantRepository t, DocumentStorage s, PdfGenerator pdf) {
         return new ConsultarComprobanteService(c, t, s, pdf);
     }

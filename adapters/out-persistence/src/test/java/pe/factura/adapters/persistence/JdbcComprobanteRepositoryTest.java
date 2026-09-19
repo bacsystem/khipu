@@ -118,9 +118,11 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), clock);
         c.asignarNumero(9, "20100066603");
         c.firmar("H", "k.xml");
+        c.anotar("Entrega en almacén central.\nHorario: 9 a 18 h.");
         repo.guardar(c);
 
         Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(leido.observaciones()).isEqualTo("Entrega en almacén central.\nHorario: 9 a 18 h.");
         assertThat(leido.fechaVencimiento()).isEqualTo(LocalDate.of(2026, 10, 13));
         assertThat(leido.items().get(0).codigoSunat()).isEqualTo(new CodigoProductoSunat("15101505"));
         assertThat(leido.items().get(0).gtin()).isEqualTo(new Gtin("GTIN-13", "7750182000123"));

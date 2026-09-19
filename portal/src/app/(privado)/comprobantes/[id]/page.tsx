@@ -330,6 +330,13 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         </section>
       ) : null}
 
+      {c.observaciones ? (
+        <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="observaciones">
+          <div className={cn(TITULO_SECCION, "mb-2")}>Observaciones (solo PDF)</div>
+          <p className="text-[13px] leading-relaxed whitespace-pre-line text-foreground/90">{c.observaciones}</p>
+        </section>
+      ) : null}
+
       {c.nota ? (
         <section className="rounded-xl border border-accent-border bg-accent/40 p-5 shadow-2xs" data-testid="nota">
           <div className={cn(TITULO_SECCION, "mb-3")}>

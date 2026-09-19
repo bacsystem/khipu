@@ -265,7 +265,8 @@ X-Api-Key: fk_TU_API_KEY`,
     { "descripcion": "Combustible diésel B5", "unidad": "GLL", "cantidad": 7, "precio_unitario": 16.91, "tipo_afectacion_igv": "10",
       "codigo_sunat": "15101505", "gtin": { "tipo": "GTIN-13", "codigo": "7750182000123" } }
   ],
-  "redondeo": -0.37
+  "redondeo": -0.37,
+  "observaciones": "Entrega en almacén central. Horario: 9 a 18 h."
 }`,
     notas: [
       "`fecha_vencimiento` → `cbc:DueDate`; no puede ser anterior a `fecha_emision` (`FECHA_INVALIDA`). Es informativa: al crédito las cuotas de `forma_pago` siguen mandando.",
@@ -273,6 +274,7 @@ X-Api-Key: fk_TU_API_KEY`,
       "`items[].gtin { tipo, codigo }`: `GTIN-8`, `GTIN-12`, `GTIN-13` o `GTIN-14` con la longitud que corresponde (reglas 4333–4335) → `cac:StandardItemIdentification/cbc:ID@schemeID`.",
       "`redondeo`: entre −1.00 y 1.00, se suma al total a pagar (`PayableRoundingAmount`, regla 3303; `total` = precio de venta + cargos − descuentos − anticipos + redondeo, regla 3280); el monto en letras usa el total redondeado. En el ejemplo: 7 × 16.91 = 118.37 → total 118.00. Error `REDONDEO_INVALIDO`.",
       "El nombre comercial del emisor no va en cada factura: se configura una vez en `PUT /v1/empresa/datos-fiscales` (`nombre_comercial`) o en la página Empresa del portal y khipu lo escribe en `cac:PartyName` (regla 4092).",
+      "`observaciones` (hasta 1000 caracteres, admite saltos de línea) se imprime en el bloque «Observaciones» del PDF y **no** va al XML ni a SUNAT. Si se omite, se imprimen las observaciones por defecto de la empresa (`PUT /v1/empresa/personalizacion-pdf`), que también define plantilla, color, logo y pie de página del PDF. Error `OBSERVACIONES_INVALIDAS`.",
     ],
     disponible: true,
   },

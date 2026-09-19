@@ -52,3 +52,26 @@ export function crearEmpresa(access: string, body: { ruc: string; razon_social: 
 export function obtenerEmpresaActual(access: string, empresaId: string) {
   return backendFetch<EmpresaDetalle>("/v1/empresa", { headers: tenantHeaders(access, empresaId) });
 }
+
+export type PlantillaPdf = "clasico" | "moderno" | "sutil" | "corporativo" | "gris";
+
+/** Diseño de la representación impresa (`GET/PUT /v1/empresa/personalizacion-pdf`); el logo va por `/v1/empresa/logo`. */
+export type PersonalizacionPdf = {
+  plantilla: PlantillaPdf;
+  color_primario: string;
+  tiene_logo: boolean;
+  pie_de_pagina: string | null;
+  observaciones_por_defecto: string | null;
+};
+
+export const PLANTILLAS_PDF: Array<{ id: PlantillaPdf; nombre: string; descripcion: string }> = [
+  { id: "clasico", nombre: "Clásico", descripcion: "Formal, bordes definidos" },
+  { id: "moderno", nombre: "Moderno", descripcion: "Aireado, con acento de color" },
+  { id: "sutil", nombre: "Sutil", descripcion: "Minimalista, líneas finas" },
+  { id: "corporativo", nombre: "Corporativo", descripcion: "Cabecera y tabla en color" },
+  { id: "gris", nombre: "Gris", descripcion: "Monocromo, sin color" },
+];
+
+export function obtenerPersonalizacionPdf(access: string, empresaId: string) {
+  return backendFetch<PersonalizacionPdf>("/v1/empresa/personalizacion-pdf", { headers: tenantHeaders(access, empresaId) });
+}

@@ -1,6 +1,7 @@
 <#ftl output_format="XHTML" strip_whitespace=true>
 <#-- Bloques de la representación impresa comunes a factura, boleta y notas. El modelo trae c (Comprobante), t (Tenant),
-     tot (Totales), fechaEmision/fechaVencimiento (dd/MM/yyyy), montoEnLetras, qr (data URI PNG) y statics (catálogos). -->
+     tot (Totales), fechaEmision/fechaVencimiento (dd/MM/yyyy), montoEnLetras, qr (data URI PNG), statics (catálogos) y el diseño de la
+     empresa: p (PersonalizacionPdf), plantilla (clase CSS: clasico, moderno, sutil, corporativo, gris) y logo (data URI, opcional). -->
 <#assign cat = statics["pe.factura.domain.catalogo.CatalogoSunat"]>
 <#function m n><#return n?string("#,##0.00")></#function>
 <#function desc catalogo codigo><#local d = cat.descripcion(catalogo, codigo)><#return d.isPresent()?then(d.get(), codigo)></#function>
@@ -43,12 +44,36 @@
     .hash { font-family: Courier, monospace; font-size: 7.5pt; word-break: break-all; }
     .leyenda { color: #444; font-size: 8pt; margin: 0.5mm 0; }
     .obs { color: #444; font-size: 8pt; }
+    .logo { margin-bottom: 1.5mm; }
+    .observaciones p { margin: 0; white-space: pre-line; }
+    <#-- Plantillas: cada una solo redefine lo que la distingue de la clásica (bordes definidos). El color primario de la empresa
+         entra como acento donde la plantilla lo admite; la gris lo ignora a propósito. -->
+    <#assign color = p.colorPrimario()>
+    .moderno .recuadro { border: none; background: #f4f4f4; }
+    .moderno .recuadro .titulo, .moderno .recuadro .numero, .moderno .emisor .razon, .moderno .bloque h2 { color: ${color}; }
+    .moderno .bloque { border: none; background: #f7f7f7; }
+    .moderno .lineas th { background: none; border-top: none; border-bottom: 1.2pt solid ${color}; color: ${color}; }
+    .moderno .totales tr.total td { border-top-color: ${color}; color: ${color}; }
+    .sutil .recuadro { border: 0.6pt solid #9a9a9a; }
+    .sutil .recuadro .ruc, .sutil .recuadro .titulo { font-weight: normal; color: #444; }
+    .sutil .bloque { border: none; border-bottom: 0.4pt solid #cfcfcf; border-radius: 0; padding-left: 0; padding-right: 0; }
+    .sutil .lineas th { background: none; border-top: none; border-bottom: 0.6pt solid #9a9a9a; color: #555; font-weight: normal; }
+    .sutil .totales tr.total td { border-top: 0.6pt solid #9a9a9a; }
+    .corporativo .recuadro { border-color: ${color}; background: ${color}; color: #ffffff; }
+    .corporativo .emisor .razon, .corporativo .bloque h2, .corporativo .totales tr.total td { color: ${color}; }
+    .corporativo .bloque { border-color: ${color}; }
+    .corporativo .lineas th { background: ${color}; color: #ffffff; border-top-color: ${color}; border-bottom-color: ${color}; }
+    .corporativo .totales tr.total td { border-top-color: ${color}; }
+    .gris .recuadro { border-color: #3a3a3a; background: #3a3a3a; color: #ffffff; }
+    .gris .lineas th { background: #3a3a3a; color: #ffffff; border-top-color: #3a3a3a; border-bottom-color: #3a3a3a; }
+    .gris .bloque { border-color: #bdbdbd; background: #fafafa; }
   </style>
 </head>
-<body>
+<body class="${plantilla}">
   <table class="cabecera">
     <tr>
       <td class="emisor">
+        <#if logo??><div><img class="logo" src="${logo}" style="${logoEstilo}" alt="" /></div></#if>
         <div class="razon">${t.razonSocial()}</div>
         <#if t.nombreComercial()??><div class="comercial">${t.nombreComercial()}</div></#if>
         <#if t.domicilio()??>
@@ -195,13 +220,28 @@
   </#if>
 </#macro>
 
-<#-- QR, hash y la leyenda de representación impresa. -->
+<#-- Observaciones del comprobante o, si no trae, las que la empresa imprime por defecto. -->
+<#macro observaciones>
+  <#assign texto = c.observaciones()!p.observacionesPorDefecto()!"">
+  <#if texto?has_content>
+  <div class="bloque observaciones">
+    <h2>Observaciones</h2>
+    <p>${texto}</p>
+  </div>
+  </#if>
+</#macro>
+
+<#-- QR, hash y la leyenda de representación impresa (el pie configurado por la empresa reemplaza la primera línea). -->
 <#macro pie tipoNombre>
   <table class="pie">
     <tr>
       <td class="qr" style="width: 36mm;"><img src="${qr}" alt="QR" /></td>
       <td>
+        <#if p.pieDePagina()??>
+        <p class="leyenda">${p.pieDePagina()}</p>
+        <#else>
         <p class="leyenda">Representación impresa de la ${tipoNombre?upper_case} ELECTRÓNICA emitida por ${t.razonSocial()} (RUC ${t.ruc()}) a través de khipu.</p>
+        </#if>
         <p class="leyenda">Consulte el documento en el portal de SUNAT (www.sunat.gob.pe) con el RUC del emisor, tipo, serie y número.</p>
         <p class="leyenda">Valor resumen (hash): <span class="hash">${c.hash()}</span></p>
       </td>

@@ -28,3 +28,25 @@ test("guarda el domicilio fiscal eligiendo el ubigeo en cascada y la cuenta de d
   // El nombre comercial guardado vuelve al formulario tras el refresh.
   await expect(page.getByLabel(/Nombre comercial/)).toHaveValue("Andina Store");
 });
+
+test("personaliza el PDF: elige plantilla, ve la vista previa con esa plantilla y guarda", async ({ page }) => {
+  await page.goto("/empresa");
+  const panel = page.getByTestId("personalizacion-pdf");
+  await expect(panel.getByTestId("plantilla-clasico")).toHaveAttribute("aria-checked", "true");
+
+  await panel.getByTestId("plantilla-corporativo").click();
+  await expect(panel.getByTestId("plantilla-corporativo")).toHaveAttribute("aria-checked", "true");
+  await panel.getByLabel("Color primario en hexadecimal").fill("#C8552B");
+  await panel.getByLabel("Pie de página").fill("Gracias por su preferencia");
+  await expect(panel.getByTestId("vista-previa")).toHaveAttribute("src", /plantilla=corporativo.*color_primario=%23C8552B/);
+  // La vista previa es el PDF real del backend con esos parámetros (aquí el mock los refleja).
+  const res = await page.request.get("/api/proxy/empresa/personalizacion-pdf/vista-previa?plantilla=corporativo&color_primario=%23C8552B");
+  expect(res.headers()["content-type"]).toContain("application/pdf");
+  expect((await res.text())).toContain("plantilla=corporativo color=#C8552B");
+
+  await panel.getByRole("button", { name: "Guardar diseño" }).click();
+  await expect(panel.getByTestId("diseno-guardado")).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("plantilla-corporativo")).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByLabel("Pie de página")).toHaveValue("Gracias por su preferencia");
+});

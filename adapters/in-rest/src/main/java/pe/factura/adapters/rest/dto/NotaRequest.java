@@ -26,7 +26,8 @@ public record NotaRequest(
         @Valid @Schema(description = "Descuento global de la nota. Solo con `items`: sin ellos se rechaza (`NOTA_INVALIDA`) porque la nota total copia el de la factura") FacturaRequest.DescuentoDto descuentoGlobal,
         @Valid @Schema(description = "Cargos globales de la nota. Solo con `items`: sin ellos se rechaza (`NOTA_INVALIDA`) porque la nota total copia los de la factura") List<FacturaRequest.CargoDto> cargos,
         @Valid @Schema(description = "Solo en una nota de crédito con motivo `13` (en cualquier otra nota se rechaza con `NOTA_INVALIDA`): la forma de pago al crédito con el neto pendiente y las cuotas corregidas de la factura (reglas 3257, 3320, 3321). Esta nota no mueve importes: khipu genera una única línea de valor 0 (regla 3315) e ignora `items`") FacturaRequest.FormaPagoDto formaPago,
-        @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja la nota `FIRMADO` para enviarla con `POST /v1/facturas/{id}/enviar`") Boolean enviarAutomatico) {
+        @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja la nota `FIRMADO` para enviarla con `POST /v1/facturas/{id}/enviar`") Boolean enviarAutomatico,
+        @Size(max = 1000) @Schema(example = "Devolución recibida en tienda.", description = "Texto libre para el bloque «Observaciones» del PDF (hasta 1000 caracteres); no va al XML") String observaciones) {
 
     public record DocumentoAfectadoDto(
             @NotBlank @Pattern(regexp = "F[A-Z0-9]{3}", message = "serie de factura inválida") @Schema(example = "F001") String serie,
@@ -37,6 +38,6 @@ public record NotaRequest(
         return new EmitirNotaCommand(TipoDocumento.porCodigo(tipo), serie, correlativo, fechaEmision, documentoAfectado.serie(), documentoAfectado.numero(), motivo, descripcion,
                 its, descuentoGlobal == null ? null : descuentoGlobal.aDominio(),
                 FacturaRequest.cargos(cargos, true),
-                formaPago == null ? null : formaPago.aDominio(), enviarAutomatico == null || enviarAutomatico);
+                formaPago == null ? null : formaPago.aDominio(), enviarAutomatico == null || enviarAutomatico, observaciones);
     }
 }

@@ -248,6 +248,8 @@ export type Comprobante = {
   notas?: NotaResumen[] | null;
   /** Solo al consultar: la comunicación de baja más reciente (en curso, aceptada o rechazada). */
   baja?: Baja | null;
+  /** Observaciones propias del comprobante, impresas en el PDF (no van al XML). */
+  observaciones?: string | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; pdf?: string; cdr?: string };
 };
