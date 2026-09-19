@@ -41,11 +41,18 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
         if (c.cdrKey() == null) throw new DomainException("SIN_CDR", "El comprobante aún no tiene CDR");
         return storage.leer(c.cdrKey());
     }
-    /** El PDF vive junto al XML firmado (misma clave con extensión .pdf); si falta —o nunca se pidió— se genera y se guarda. */
+    /**
+     * Versión del diseño de la representación impresa, parte de la clave del PDF en storage. Súbala cuando cambie una plantilla
+     * de {@code adapters/out-pdf}: los PDF ya generados quedan con la versión anterior y el siguiente {@link #pdf} regenera con la nueva
+     * sin tocar storage a mano. Los datos impresos no cambian nunca (el comprobante es inmutable), solo su presentación.
+     */
+    static final int VERSION_PDF = 1;
+
+    /** El PDF vive junto al XML firmado (misma clave, sufijo {@code -v<versión>.pdf}); si falta —o nunca se pidió— se genera y se guarda. */
     public byte[] pdf(UUID tenantId, UUID id) {
         Comprobante c = obtener(tenantId, id);
         if (c.xmlKey() == null) throw new DomainException("SIN_FIRMA", "El comprobante aún no está firmado: no tiene representación impresa");
-        String key = c.xmlKey().replaceFirst("\\.xml$", ".pdf");
+        String key = c.xmlKey().replaceFirst("\\.xml$", "-v" + VERSION_PDF + ".pdf");
         if (storage.existe(key)) return storage.leer(key);
         Tenant t = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
         byte[] bytes = pdf.generar(c, t, CodigoQr.contenido(c, t.ruc()));

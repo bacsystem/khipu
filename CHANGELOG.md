@@ -11,7 +11,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); vers
 - Nuevo adaptador `adapters/out-pdf` (Flying Saucer + OpenPDF, ZXing para el QR, plantillas Freemarker XHTML en `pdf/`).
 
 ### Changed
-- `DocumentStorage.existe(key)`; `ConsultarComprobanteService` recibe `TenantRepository` y `PdfGenerator`.
+- `DocumentStorage.existe(key)`; `ConsultarComprobanteService` recibe `TenantRepository` y `PdfGenerator`. La clave del PDF lleva la versión del diseño (`-v1.pdf`) para poder regenerar tras cambiar una plantilla. Un fallo del servidor de correo al enviar un comprobante responde `502 CORREO_NO_ENVIADO` en vez de `500`.
 
 ## [0.1.18] - 2026-09-18
 

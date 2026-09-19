@@ -59,6 +59,7 @@ const CODIGOS: Array<[string, string, string, string]> = [
   ["CERTIFICADO_NO_CARGADO / CERTIFICADO_VENCIDO / CERTIFICADO_INVALIDO", "422", "Sin certificado, vencido, o su OU no contiene el RUC.", "Cargue un certificado vigente de la empresa."],
   ["XSD_INVALIDO / FIRMA_FALLIDA", "422", "El XML generado no validó o no pudo firmarse.", "Contacte soporte con el id; suele ser un dato fuera de catálogo."],
   ["NO_ACEPTADO", "409", "Se pidió enviar por correo un comprobante que SUNAT aún no aceptó (FIRMADO, ERROR_ENVIO, RECHAZADO o ANULADO).", "Espere la aceptación; el PDF sí se puede descargar desde FIRMADO."],
+  ["CORREO_NO_ENVIADO", "502", "El servidor de correo rechazó o no aceptó el envío al adquirente (SMTP caído, buzón inválido).", "Reintente más tarde; el comprobante no cambia de estado."],
   ["SIN_FIRMA", "422", "Se pidió el PDF de un comprobante que aún no está numerado y firmado.", "Solo ocurre con comprobantes INVALIDO; corrija y vuelva a emitir."],
   ["ESTADO_NO_ENVIABLE", "409", "Se intentó enviar un comprobante ACEPTADO, RECHAZADO o ANULADO.", "Solo FIRMADO y ERROR_ENVIO se envían."],
   ["ESTADO_CONFLICTO", "409", "Dos operaciones cambiaron el estado a la vez.", "Vuelva a consultar el comprobante."],

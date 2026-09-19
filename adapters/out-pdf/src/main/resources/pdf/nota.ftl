@@ -1,6 +1,7 @@
 <#ftl output_format="XHTML" strip_whitespace=true>
 <#import "comun.ftl" as u>
-<@u.pagina titulo="NOTA DE DÉBITO ELECTRÓNICA">
+<#-- Nota de crédito y de débito: misma representación; el generador pone en `n` el título y el nombre del tipo. -->
+<@u.pagina titulo=n.titulo>
   <@u.partes />
   <div class="bloque">
     <h2>Documento que modifica</h2>
@@ -13,5 +14,5 @@
   <@u.lineas />
   <@u.totales />
   <@u.condiciones />
-  <@u.pie tipoNombre="nota de débito" />
+  <@u.pie tipoNombre=n.nombre />
 </@u.pagina>

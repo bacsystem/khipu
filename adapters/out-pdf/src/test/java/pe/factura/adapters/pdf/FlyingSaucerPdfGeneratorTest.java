@@ -13,6 +13,7 @@ import pe.factura.domain.tenant.Tenant;
 import javax.imageio.ImageIO;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -69,7 +70,8 @@ class FlyingSaucerPdfGeneratorTest {
         String contenido = "20100066603|01|F001|125|360.00|2410.00|2026-09-13|6|20601234567|y4M8+jW8Xp278K1aM02q19KjvO3k=|";
         byte[] pdf = generador.generar(factura(), TENANT, contenido);
         assertThat(new String(pdf, 0, 5)).isEqualTo("%PDF-");
-        assertThat(pdf.length).isGreaterThan(5_000);
+        // Flying Saucer no falla si no resuelve el data: URI de la imagen: comprobamos que el XObject del QR (220 px) quedó dentro del PDF.
+        assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).contains("/Subtype/Image").contains("/Width " + FlyingSaucerPdfGenerator.QR_PX);
 
         var imagen = ImageIO.read(new ByteArrayInputStream(FlyingSaucerPdfGenerator.qrPng(contenido)));
         var leido = new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(new BufferedImageLuminanceSource(imagen))));

@@ -104,6 +104,13 @@ class FacturaControllerTest {
                         .content("{\"email\":\"x@y.pe\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.codigo").value("NO_ACEPTADO"));
+
+        doThrow(new DomainException("CORREO_NO_ENVIADO", "No se pudo enviar el correo a z@y.pe: SMTP caído"))
+                .when(compartir).enviarPorCorreo(eq(tenant), eq(id), eq("z@y.pe"), isNull());
+        mvc.perform(post("/v1/facturas/{id}/correo", id).requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                        .content("{\"email\":\"z@y.pe\"}"))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.codigo").value("CORREO_NO_ENVIADO"));
     }
 
     @Test void enlaceCdrSoloCuandoHayConstancia() throws Exception {

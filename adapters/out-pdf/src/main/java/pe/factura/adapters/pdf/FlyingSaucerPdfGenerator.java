@@ -12,6 +12,7 @@ import org.xhtmlrenderer.pdf.ITextRenderer;
 import pe.factura.application.port.out.PdfGenerator;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.MontoEnLetras;
+import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.Tenant;
 
 import java.io.ByteArrayOutputStream;
@@ -65,12 +66,14 @@ public class FlyingSaucerPdfGenerator implements PdfGenerator {
             modelo.put("montoEnLetras", MontoEnLetras.de(c.totales().total(), c.moneda()));
             modelo.put("qr", "data:image/png;base64," + Base64.getEncoder().encodeToString(qrPng(contenidoQr)));
             modelo.put("statics", ((freemarker.ext.beans.BeansWrapper) cfg.getObjectWrapper()).getStaticModels());
+            // Las dos notas comparten plantilla; solo cambian el título del recuadro y el nombre en la leyenda del pie.
+            if (c.tipo() == TipoDocumento.NOTA_CREDITO) modelo.put("n", Map.of("titulo", "NOTA DE CRÉDITO ELECTRÓNICA", "nombre", "nota de crédito"));
+            if (c.tipo() == TipoDocumento.NOTA_DEBITO) modelo.put("n", Map.of("titulo", "NOTA DE DÉBITO ELECTRÓNICA", "nombre", "nota de débito"));
             StringWriter out = new StringWriter();
             cfg.getTemplate(switch (c.tipo()) {
                 case FACTURA -> "factura.ftl";
                 case BOLETA -> "boleta.ftl";
-                case NOTA_CREDITO -> "nota-credito.ftl";
-                case NOTA_DEBITO -> "nota-debito.ftl";
+                case NOTA_CREDITO, NOTA_DEBITO -> "nota.ftl";
             }).process(modelo, out);
             // El parser XML de Flying Saucer exige la declaración <?xml?> en el primer byte.
             return out.toString().strip();

@@ -54,6 +54,17 @@ class CompartirComprobanteServiceTest {
         assertThat(new String(e.adjuntos().get(0).contenido())).isEqualTo("%PDF");
     }
 
+    @Test void unFalloDelCorreoSeReportaComoEntregaFallida() {
+        Comprobante c = aceptada();
+        CorreoSender roto = new CorreoSender() {
+            public void enviar(String para, String asunto, String cuerpo) { throw new IllegalStateException("SMTP caído"); }
+            public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) { throw new IllegalStateException("SMTP caído"); }
+        };
+        assertThatThrownBy(() -> new CompartirComprobanteService(consultar, tenants, roto).enviarPorCorreo(tenant, c.id(), "cliente@example.com", null))
+                .isInstanceOf(DomainException.class).hasMessageContaining("cliente@example.com").hasMessageContaining("SMTP caído")
+                .extracting("codigo").isEqualTo("CORREO_NO_ENVIADO");
+    }
+
     @Test void soloSeEnvianComprobantesAceptados() {
         tenants.guardar(Fakes.tenantListo(tenant));
         Comprobante c = Fakes.facturaFirmada(tenant, storage);

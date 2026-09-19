@@ -42,7 +42,13 @@ public class CompartirComprobanteService implements CompartirComprobanteUseCase 
         adjuntos.add(new Adjunto(c.nombreArchivo() + ".pdf", "application/pdf", consultar.pdf(tenantId, id)));
         adjuntos.add(new Adjunto(c.nombreArchivo() + ".xml", "application/xml", consultar.xml(tenantId, id)));
         if (c.cdrKey() != null) adjuntos.add(new Adjunto("R-" + c.nombreArchivo() + ".zip", "application/zip", consultar.cdr(tenantId, id)));
-        correo.enviar(email, asunto, cuerpo.toString(), adjuntos);
+        try {
+            correo.enviar(email, asunto, cuerpo.toString(), adjuntos);
+        } catch (RuntimeException e) {
+            // El adaptador de correo lanza sus propias excepciones (SMTP caído, buzón rechazado); para quien pulsó "enviar" es un
+            // fallo de entrega, no un error interno. Solo aquí: en la recuperación de contraseña un código específico revelaría si el correo existe.
+            throw new DomainException("CORREO_NO_ENVIADO", "No se pudo enviar el correo a " + email + ": " + e.getMessage(), e);
+        }
     }
 
     private static String nombre(Comprobante c) {

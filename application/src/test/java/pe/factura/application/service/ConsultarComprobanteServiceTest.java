@@ -71,7 +71,7 @@ class ConsultarComprobanteServiceTest {
         assertThat(new String(primero)).startsWith("%PDF 20100066603|01|F001|" + c.numero() + "|").endsWith("|" + c.hash() + "|");
         assertThat(segundo).isEqualTo(primero);
         assertThat(qrs).hasSize(1);
-        assertThat(storage.datos).containsKey(c.xmlKey().replace(".xml", ".pdf"));
+        assertThat(storage.datos).containsKey(c.xmlKey().replace(".xml", "-v" + ConsultarComprobanteService.VERSION_PDF + ".pdf"));
     }
 
     @Test void sinFirmaNoHayPdf() {

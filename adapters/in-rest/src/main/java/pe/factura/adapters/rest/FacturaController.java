@@ -138,7 +138,7 @@ public class FacturaController {
     @Operation(summary = "Enviar el comprobante por correo al adquirente", description = """
             Envía al correo indicado la representación impresa (PDF), el XML firmado y la constancia de recepción (CDR) como
             adjuntos, con un mensaje opcional del emisor. Solo comprobantes `ACEPTADO` o `ACEPTADO_CON_OBS`: `409 NO_ACEPTADO`
-            en cualquier otro estado.""")
+            en cualquier otro estado. Si el servidor de correo rechaza el envío, `502 CORREO_NO_ENVIADO` (reintente más tarde).""")
     public ApiResponse<Void> correo(HttpServletRequest req, @PathVariable UUID id, @Valid @RequestBody CorreoRequest body) {
         compartir.enviarPorCorreo(TenantActual.id(req), id, body.email(), body.mensaje());
         return ApiResponse.ok(null);
