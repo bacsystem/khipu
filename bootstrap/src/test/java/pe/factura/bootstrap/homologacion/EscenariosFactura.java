@@ -132,7 +132,13 @@ final class EscenariosFactura {
             // IVAP (#67): afectación 17, tributo 1016 al 4 %, leyenda 2007, TaxInclusiveAmount sin IGV (campo 55).
             new Escenario("25-ivap", "Venta de arroz pilado sujeta al IVAP (afectación 17, 4 %)",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
-                "{\"codigo\":\"ARZ-01\",\"descripcion\":\"Arroz pilado superior\",\"unidad\":\"KGM\",\"cantidad\":500,\"precio_unitario\":3.12,\"tipo_afectacion_igv\":\"17\"}]}")
+                "{\"codigo\":\"ARZ-01\",\"descripcion\":\"Arroz pilado superior\",\"unidad\":\"KGM\",\"cantidad\":500,\"precio_unitario\":3.12,\"tipo_afectacion_igv\":\"17\"}]}"),
+            // Exportación de bienes (#65): 0200 en USD a un cliente del exterior (tipo 0, país US), afectación 40 / tributo 9995 sin IGV, Incoterm FOB.
+            new Escenario("26-exportacion", "Exportación de bienes (0200) a un cliente del exterior, afectación 40 e Incoterm FOB",
+                "{" + cab + ",\"tipo_operacion\":\"0200\",\"moneda\":\"USD\"," +
+                "\"cliente\":{\"tipo_doc\":\"0\",\"num_doc\":\"US123456789\",\"razon_social\":\"ACME IMPORTS LLC\",\"direccion\":\"1200 Main St, Miami FL\",\"pais\":\"US\"}," +
+                "\"items\":[{\"codigo\":\"CAF-01\",\"descripcion\":\"Café verde en grano\",\"unidad\":\"KGM\",\"cantidad\":1000,\"precio_unitario\":4.50,\"tipo_afectacion_igv\":\"40\"}]," +
+                "\"exportacion\":{\"incoterm\":\"FOB\"}}")
         );
     }
 

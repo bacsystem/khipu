@@ -41,6 +41,8 @@ public class Comprobante {
     private final Nota nota;
     /** Leyendas del catálogo 52 declaradas por el emisor (2001–2005, 2008…); nunca nula. Las automáticas las decide la plantilla. */
     private final List<String> leyendas;
+    /** Incoterm y país de uso de una factura de exportación (0200–0208); {@code null} en las demás. Una nota hereda los de su factura. */
+    private final Exportacion exportacion;
     /** Tasa del IGV aplicada a las líneas gravadas, en porcentaje ({@link TasaIgv}); una nota hereda la de la factura que modifica. */
     private final BigDecimal tasaIgv;
     private final Totales totales;
@@ -58,7 +60,7 @@ public class Comprobante {
     private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
                         Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos,
-                        Referencias referencias, BigDecimal redondeo, Nota nota, BigDecimal tasaIgv, List<String> leyendas, EstadoDocumento estado) {
+                        Referencias referencias, BigDecimal redondeo, Nota nota, BigDecimal tasaIgv, List<String> leyendas, Exportacion exportacion, EstadoDocumento estado) {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
         this.fechaEmision = fechaEmision; this.horaEmision = horaEmision; this.fechaVencimiento = fechaVencimiento; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
@@ -67,6 +69,7 @@ public class Comprobante {
         this.referencias = referencias == null ? Referencias.ninguna() : referencias;
         this.nota = nota;
         this.leyendas = leyendas == null ? List.of() : List.copyOf(leyendas);
+        this.exportacion = exportacion;
         this.tasaIgv = TasaIgv.normalizar(tasaIgv);
         this.totales = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision), redondeo, this.tasaIgv);
         // Detracción, retención y percepción se completan contra el importe total ya calculado (montos por defecto, 3208 y tolerancias SUNAT).
@@ -90,6 +93,7 @@ public class Comprobante {
         private LocalDate fechaVencimiento; private FormaPago formaPago = FormaPago.contado(); private Descuento descuentoGlobal; private List<Cargo> cargos = List.of();
         private Detraccion detraccion; private RetencionIgv retencion; private Percepcion percepcion; private List<Anticipo> anticipos = List.of();
         private Referencias referencias; private BigDecimal redondeo; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<String> leyendas = List.of();
+        private Exportacion exportacion;
 
         private FacturaBuilder(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor receptor, List<Item> items) {
             this.tenantId = tenantId; this.serie = serie; this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion; this.receptor = receptor; this.items = items;
@@ -112,6 +116,8 @@ public class Comprobante {
         public FacturaBuilder tasaIgv(BigDecimal t) { this.tasaIgv = t == null ? TasaIgv.GENERAL : t; return this; }
         /** Códigos del catálogo 52 que declara el emisor ({@link Leyenda#validar}). */
         public FacturaBuilder leyendas(List<String> l) { this.leyendas = Leyenda.validar(l); return this; }
+        /** Incoterm y país de uso ({@link Exportacion}); solo en los tipos de operación 0200–0208. */
+        public FacturaBuilder exportacion(Exportacion e) { this.exportacion = e; return this; }
 
         public Comprobante crear(Clock clock) {
             FormaPago formaPago = this.formaPago;
@@ -124,11 +130,13 @@ public class Comprobante {
         if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
             throw new DomainException("FECHA_INVALIDA", "La fecha de vencimiento no puede ser anterior a la de emisión");
         if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
-        if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor con RUC");
-        receptor.exigirValidoParaFactura();
-        if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
         String operacion = tipoOperacion == null ? "0101" : tipoOperacion;
         validarTipoOperacion(operacion);
+        if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor" + (Exportacion.es(operacion) ? "" : " con RUC"));
+        receptor.exigirValidoParaFactura(operacion, leyendas.contains("2008"));
+        if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
+        Exportacion.validar(exportacion, operacion);
+        exigirAfectacionSegunOperacion(operacion, items);
         if (detraccion == null && Detraccion.TIPOS_OPERACION.contains(operacion))
             throw new DomainException("DETRACCION_INVALIDA", "3127 - El tipo de operación " + operacion + " exige los datos de la detracción (bien/servicio, porcentaje, monto y cuenta)");
         if (detraccion != null) detraccion.validarContra(operacion);
@@ -137,7 +145,7 @@ public class Comprobante {
         if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
             throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
-                    moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, tasaIgv, leyendas, EstadoDocumento.RECIBIDO);
+                    moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, tasaIgv, leyendas, exportacion, EstadoDocumento.RECIBIDO);
             formaPago.validarContra(c.totales.total(), fechaEmision);
             for (String l : leyendas)
                 if (Leyenda.EXIGEN_EXONERADO.contains(l) && c.totales.exonerado().signum() <= 0)
@@ -160,7 +168,7 @@ public class Comprobante {
         private final UUID tenantId; private final TipoDocumento tipo; private final String serie; private final LocalDate fechaEmision; private final Nota nota;
         private final Receptor receptor; private final List<Item> items;
         private String moneda = "PEN"; private String tipoOperacion = "0101"; private FormaPago formaPago; private Descuento descuentoGlobal; private List<Cargo> cargos = List.of();
-        private BigDecimal tasaIgv = TasaIgv.GENERAL;
+        private BigDecimal tasaIgv = TasaIgv.GENERAL; private Exportacion exportacion;
 
         private NotaBuilder(UUID tenantId, TipoDocumento tipo, String serie, LocalDate fechaEmision, Nota nota, Receptor receptor, List<Item> items) {
             this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.fechaEmision = fechaEmision; this.nota = nota; this.receptor = receptor; this.items = items;
@@ -173,6 +181,8 @@ public class Comprobante {
         public NotaBuilder cargos(List<Cargo> c) { this.cargos = c == null ? List.of() : c; return this; }
         /** La de la factura que modifica ({@link TasaIgv}); nulo = general. */
         public NotaBuilder tasaIgv(BigDecimal t) { this.tasaIgv = t == null ? TasaIgv.GENERAL : t; return this; }
+        /** Los de la factura que modifica; nulo si no es exportación. */
+        public NotaBuilder exportacion(Exportacion e) { this.exportacion = e; return this; }
 
         public Comprobante crear(Clock clock) {
         if (tipo != TipoDocumento.NOTA_CREDITO && tipo != TipoDocumento.NOTA_DEBITO)
@@ -184,17 +194,18 @@ public class Comprobante {
         exigirDentroDelPlazoDeEnvio(tipo, fechaEmision, clock);
         boolean nc13 = nota.corrigeCuotas(tipo);
         if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
-        if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La nota sobre una factura requiere un receptor con RUC");
-        receptor.exigirValidoParaFactura();
+        if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La nota sobre una factura requiere un receptor" + (Exportacion.es(tipoOperacion) ? "" : " con RUC"));
+        receptor.exigirValidoParaFactura(tipoOperacion, false);
         if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
         nota.validarMotivoPara(tipo);
+        if (!nc13) exigirAfectacionSegunOperacion(tipoOperacion, items);
         if (nc13 && (formaPago == null || !formaPago.esCredito()))
             throw new DomainException("NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
         // La NC 13 no mueve importes: una sola línea de valor 0 (regla 3315). La forma de pago de una nota solo tiene sentido
         // en la NC 13 y se valida contra la factura modificada (3320/3321), no contra la nota.
             return new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
                     moneda, tipoOperacion, receptor, nc13 ? List.of(nota.lineaSinImporte()) : items, formaPago == null ? FormaPago.contado() : formaPago,
-                    nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, null, nota, tasaIgv, List.of(), EstadoDocumento.RECIBIDO);
+                    nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, null, nota, tasaIgv, List.of(), exportacion, EstadoDocumento.RECIBIDO);
         }
     }
 
@@ -227,6 +238,15 @@ public class Comprobante {
             throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " (" + e.descripcion() + ") no aplica a facturas: " + aplicaA);
     }
 
+    /** Regla 2642: una operación de exportación (0200–0208) lleva todas sus líneas con afectación 40; fuera de ella, ninguna (3107). */
+    private static void exigirAfectacionSegunOperacion(String operacion, List<Item> items) {
+        boolean exportacion = Exportacion.es(operacion);
+        if (exportacion && items.stream().anyMatch(i -> !i.afectacion().exportacion()))
+            throw new DomainException("AFECTACION_INVALIDA", "2642 - En una exportación (" + operacion + ") todos los ítems llevan tipo_afectacion_igv 40");
+        if (!exportacion && items.stream().anyMatch(i -> i.afectacion().exportacion()))
+            throw new DomainException("AFECTACION_INVALIDA", "3107 - La afectación 40 (exportación) exige un tipo de operación 0200–0208; recibido " + operacion);
+    }
+
     /**
      * Solo para persistencia: reconstruye sin validar reglas de creación. Único punto de entrada (#74): identidad y datos
      * de cabecera aquí, el resto en el {@link Persistido} builder, y {@link Persistido#rehidratar()} arma el objeto.
@@ -241,6 +261,7 @@ public class Comprobante {
         private LocalTime horaEmision; private LocalDate fechaVencimiento; private String moneda = "PEN"; private String tipoOperacion = "0101";
         private FormaPago formaPago = FormaPago.contado(); private Descuento descuentoGlobal; private List<Cargo> cargos = List.of(); private Detraccion detraccion; private RetencionIgv retencion; private Percepcion percepcion;
         private List<Anticipo> anticipos = List.of(); private Referencias referencias; private BigDecimal redondeo; private Nota nota; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<String> leyendas = List.of();
+        private Exportacion exportacion;
         private String hash, nombreArchivo, xmlKey, cdrKey, ultimoError, observaciones; private Cdr cdr; private int intentos;
 
         private Persistido(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, EstadoDocumento estado, Receptor receptor, List<Item> items) {
@@ -262,13 +283,14 @@ public class Comprobante {
         public Persistido nota(Nota n) { this.nota = n; return this; }
         public Persistido tasaIgv(BigDecimal t) { this.tasaIgv = t; return this; }
         public Persistido leyendas(List<String> l) { this.leyendas = l == null ? List.of() : l; return this; }
+        public Persistido exportacion(Exportacion e) { this.exportacion = e; return this; }
         public Persistido firma(String hash, String nombreArchivo, String xmlKey) { this.hash = hash; this.nombreArchivo = nombreArchivo; this.xmlKey = xmlKey; return this; }
         public Persistido cdr(Cdr cdr, String cdrKey) { this.cdr = cdr; this.cdrKey = cdrKey; return this; }
         public Persistido envio(int intentos, String ultimoError) { this.intentos = intentos; this.ultimoError = ultimoError; return this; }
         public Persistido observaciones(String o) { this.observaciones = o; return this; }
 
         public Comprobante rehidratar() {
-            Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, tasaIgv, leyendas, estado);
+            Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, tasaIgv, leyendas, exportacion, estado);
             c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
             c.intentos = intentos; c.ultimoError = ultimoError; c.observaciones = observaciones;
             return c;

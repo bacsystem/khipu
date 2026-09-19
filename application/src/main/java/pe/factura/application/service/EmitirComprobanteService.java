@@ -60,6 +60,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 .redondeo(cmd.redondeo())
                 .tasaIgv(TasaIgv.vigente(cmd.fechaEmision(), tenant.padronTasaEspecialIgv()))
                 .leyendas(cmd.leyendas())
+                .exportacion(cmd.exportacion())
                 .crear(clock);
         c.anotar(cmd.observaciones());
         // Dentro de la transacción y con la factura de anticipo bloqueada: dos finales concurrentes no pueden regularizar el mismo anticipo dos veces.
@@ -103,6 +104,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 .descuentoGlobal(copia ? factura.descuentoGlobal() : cmd.descuentoGlobal())
                 .cargos(copia ? factura.cargos() : cmd.cargos())
                 .tasaIgv(factura.tasaIgv())
+                .exportacion(factura.exportacion())
                 .crear(clock);
         c.anotar(cmd.observaciones());
         // Releída con lock de fila dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota,
@@ -129,10 +131,10 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     }
 
     /** Importes ya acreditados por NC vigentes sobre una factura, en los conceptos que SUNAT limita (3286, 3503). */
-    private record Acreditado(BigDecimal total, BigDecimal gravado, BigDecimal igv, BigDecimal ivap, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito) {
-        static final Acreditado CERO = new Acreditado(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+    private record Acreditado(BigDecimal total, BigDecimal gravado, BigDecimal igv, BigDecimal ivap, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito, BigDecimal exportacion) {
+        static final Acreditado CERO = new Acreditado(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
         Acreditado mas(Totales t) {
-            return new Acreditado(total.add(t.total()), gravado.add(t.gravado()), igv.add(t.igv()), ivap.add(t.ivap()), exonerado.add(t.exonerado()), inafecto.add(t.inafecto()), gratuito.add(t.gratuito()));
+            return new Acreditado(total.add(t.total()), gravado.add(t.gravado()), igv.add(t.igv()), ivap.add(t.ivap()), exonerado.add(t.exonerado()), inafecto.add(t.inafecto()), gratuito.add(t.gratuito()), exportacion.add(t.exportacion()));
         }
     }
 
@@ -170,7 +172,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 new Limite("IVAP", "3503", nc.ivap(), f.ivap(), previo.ivap()),
                 new Limite("valor de venta exonerado", "3503", nc.exonerado(), f.exonerado(), previo.exonerado()),
                 new Limite("valor de venta inafecto", "3503", nc.inafecto(), f.inafecto(), previo.inafecto()),
-                new Limite("valor de las operaciones gratuitas", "3503", nc.gratuito(), f.gratuito(), previo.gratuito()))) {
+                new Limite("valor de las operaciones gratuitas", "3503", nc.gratuito(), f.gratuito(), previo.gratuito()),
+                new Limite("valor de venta de exportación", "3503", nc.exportacion(), f.exportacion(), previo.exportacion()))) {
             if (l.nota().add(l.acreditado()).subtract(l.factura()).compareTo(tol) > 0)
                 throw new DomainException("NOTA_INVALIDA", l.regla() + " - El " + l.concepto() + " de la nota (" + l.nota() + ") supera el de la factura "
                         + factura.serie() + "-" + factura.numero() + " (" + l.factura() + ")"

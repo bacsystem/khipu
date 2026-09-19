@@ -17,6 +17,8 @@ public enum Tributo {
     ISC("2000", "ISC", "EXC", "S"),
     /** Impuesto a las bolsas de plástico: monto fijo por unidad, sin tasa. */
     ICBPER("7152", "ICBPER", "OTH", "S"),
+    /** Exportación de bienes o servicios (afectación 40, tipos de operación 0200–0208): sin IGV, categoría G (free export). */
+    EXP("9995", "EXP", "FRE", "G"),
     EXO("9997", "EXO", "VAT", "E"),
     INA("9998", "INA", "FRE", "O"),
     /** Operaciones gratuitas: su IGV se informa pero no se cobra ni entra en los totales a pagar. */

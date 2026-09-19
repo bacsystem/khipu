@@ -29,7 +29,12 @@ export type Receptor = {
   num_doc: string;
   razon_social: string;
   direccion: string | null;
+  /** País (ISO 3166-1, catálogo 04): obligatorio en exportaciones, ausente en el resto. */
+  pais?: string | null;
 };
+
+/** Datos de una factura de exportación (0200–0208): Incoterm y, en servicios 0201/0208, país de uso. */
+export type Exportacion = { incoterm: string | null; pais_uso: string | null };
 
 /** Descuento aplicado (catálogo 53): lo enviado, el monto resultante y el código SUNAT. */
 export type DescuentoAplicado = { tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; codigo: string };
@@ -132,12 +137,19 @@ export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
   "4": "Carné de extranjería",
   "6": "RUC",
   "7": "Pasaporte",
-  "0": "Sin documento",
+  "0": "Doc. tributario no domiciliado",
+  A: "Cédula diplomática",
+  B: "Doc. identidad país de residencia",
+  C: "TIN (persona natural)",
+  D: "IN (persona jurídica)",
+  E: "Tarjeta Andina de Migración",
+  G: "Salvoconducto",
 };
 
 /** Catálogo 07 (afectación del IGV) con las etiquetas cortas que muestra el portal; los códigos gratuitos no se cobran. */
 export const ETIQUETAS_AFECTACION: Record<string, string> = {
   "10": "Gravado · Op. onerosa",
+  "17": "Gravado · IVAP",
   "11": "Gravado · Retiro por premio (gratuita)",
   "12": "Gravado · Retiro por donación (gratuita)",
   "13": "Gravado · Retiro (gratuita)",
@@ -154,6 +166,7 @@ export const ETIQUETAS_AFECTACION: Record<string, string> = {
   "35": "Inafecto · Retiro por premio (gratuita)",
   "36": "Inafecto · Retiro por publicidad (gratuita)",
   "37": "Inafecto · Transferencia gratuita",
+  "40": "Exportación",
 };
 
 /** Forma de pago (RS 193-2020): al contado, o al crédito con el neto pendiente y sus cuotas (`id` = Cuota001…). */
@@ -202,6 +215,8 @@ export type Comprobante = {
   fecha_vencimiento?: string | null;
   /** Leyendas del catálogo 52 declaradas por el emisor (2001–2005, 2008…), con el texto que va al XML. */
   leyendas?: Array<{ codigo: string; texto: string }>;
+  /** Solo en exportaciones (0200–0208). */
+  exportacion?: Exportacion | null;
   /** Último día en que SUNAT acepta recibirlo (3 días calendario desde la emisión); ausente en backends anteriores. */
   fecha_limite_envio?: string;
   moneda: string;
@@ -234,6 +249,8 @@ export type Comprobante = {
     igv_gratuitas?: number;
     /** IVAP (tributo 1016, 4 % en vez del IGV): solo en comprobantes con afectación 17. */
     ivap?: number;
+    /** Valor de venta de exportación (tributo 9995, sin IGV): solo en facturas 0200–0208. */
+    exportacion?: number;
     isc?: number;
     icbper?: number;
     descuento_global?: DescuentoAplicado | null;

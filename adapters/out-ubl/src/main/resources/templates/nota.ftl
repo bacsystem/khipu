@@ -43,6 +43,7 @@
   </cac:BillingReference>
 <@u.guiasYOtrosDocumentos/>
 <@u.firmaYPartes/>
+<@u.exportacion/>
 <@u.pagos contado=false/>
 <@u.cargosYDescuentosGlobales/>
 <@u.impuestos/>

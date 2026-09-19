@@ -138,6 +138,27 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscar(t, general.id()).orElseThrow().tasaIgv()).isEqualByComparingTo("18.00");
     }
 
+    /** Exportación (#65): país del receptor, Incoterm y país de uso sobreviven al round-trip; sin ellos vuelve null. */
+    @Test void guardaYRehidrataExportacion() {
+        UUID t = tenantDePrueba();
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "USD", "0201", new Receptor("0", "DE811", "BERLIN SOFT GMBH", null, "DE"),
+                List.of(new Item("SRV", "Desarrollo de software", "ZZ", BigDecimal.ONE, new BigDecimal("5000.00"), TipoAfectacionIgv.EXPORTACION)))
+                .exportacion(new Exportacion("DAP", "DE")).crear(clock);
+        c.asignarNumero(13, "20100066603");
+        repo.guardar(c);
+        Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(leido.receptor().pais()).isEqualTo("DE");
+        assertThat(leido.receptor().tipoDoc()).isEqualTo("0");
+        assertThat(leido.exportacion()).isEqualTo(new Exportacion("DAP", "DE"));
+        assertThat(leido.totales().exportacion()).isEqualByComparingTo("5000.00");
+        assertThat(leido.totales().igv()).isEqualByComparingTo("0.00");
+        assertThat(leido.items().get(0).afectacion()).isEqualTo(TipoAfectacionIgv.EXPORTACION);
+        Comprobante interna = factura(t, 14);
+        repo.guardar(interna);
+        assertThat(repo.buscar(t, interna.id()).orElseThrow().exportacion()).isNull();
+        assertThat(repo.buscar(t, interna.id()).orElseThrow().receptor().pais()).isNull();
+    }
+
     /** Control del plazo (#37): solo FIRMADO y ERROR_ENVIO con fecha de emisión hasta el corte, de cualquier empresa. */
     @Test void listaLosPendientesDeEnvioEmitidosHastaUnaFecha() {
         UUID t = tenantDePrueba();
