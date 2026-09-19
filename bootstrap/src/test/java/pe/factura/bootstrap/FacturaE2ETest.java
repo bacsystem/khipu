@@ -128,7 +128,14 @@ class FacturaE2ETest {
         assertThat(worker.procesar()).isEqualTo(1);
 
         ResponseEntity<Map> despues = http.exchange("/v1/facturas/" + datos.get("id"), HttpMethod.GET, new HttpEntity<>(h), Map.class);
-        assertThat(((Map<?, ?>) despues.getBody().get("datos")).get("estado_documento")).isEqualTo("ACEPTADO");
+        Map<?, ?> d = (Map<?, ?>) despues.getBody().get("datos");
+        assertThat(d.get("estado_documento")).isEqualTo("ACEPTADO");
+        // Historial de intentos (#4): el error y la aceptación posterior, con su motivo, en orden.
+        java.util.List<Map<?, ?>> eventos = (java.util.List<Map<?, ?>>) d.get("eventos");
+        assertThat(eventos.stream().map(e -> (String) e.get("estado_resultante")).toList()).containsExactly("FIRMADO", "ERROR_ENVIO", "ENVIADO", "ACEPTADO");
+        assertThat((String) eventos.get(1).get("mensaje")).isNotBlank();
+        assertThat((String) eventos.get(2).get("mensaje")).isEqualTo("Enviado a SUNAT (intento 2)");
+        assertThat((String) eventos.get(3).get("mensaje")).contains("ha sido aceptada");
     }
 
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;

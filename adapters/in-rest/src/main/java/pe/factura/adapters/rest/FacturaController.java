@@ -105,11 +105,12 @@ public class FacturaController {
     @Operation(summary = "Consultar un comprobante", description = """
             Estado actual, respuesta de SUNAT (`cdr`), totales, forma de pago y enlaces de descarga. Úselo para hacer seguimiento
             de un comprobante que quedó en `ERROR_ENVIO` o `ENVIADO`. Sirve también para las notas de crédito/débito emitidas con
-            `POST /v1/notas` (traen el bloque `nota`); una factura incluye en `notas` las notas emitidas sobre ella.""")
+            `POST /v1/notas` (traen el bloque `nota`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el
+            historial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente.""")
     public ApiResponse<ComprobanteResponse> obtener(HttpServletRequest req, @PathVariable UUID id) {
         UUID t = TenantActual.id(req);
         Comprobante c = consultar.obtener(t, id);
-        return ApiResponse.ok(ComprobanteResponse.de(c, BASE, consultar.notasDe(t, c), bajas.deComprobante(t, id).stream().findFirst().orElse(null)));
+        return ApiResponse.ok(ComprobanteResponse.de(c, BASE, consultar.notasDe(t, c), bajas.deComprobante(t, id).stream().findFirst().orElse(null), consultar.eventos(t, c)));
     }
 
     @PostMapping("/{id}/enviar")

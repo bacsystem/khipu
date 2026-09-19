@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.38] - 2026-09-19
+
+### Added
+- Historial de intentos y cambios de estado de un comprobante (#4): `GET /v1/facturas/{id}` trae `eventos[{fecha, estado_anterior, estado_resultante, mensaje}]` del más antiguo al más reciente (vacío si no hay; no viaja en el listado). Cada transición del comprobante —firma, envío (con el número de intento), error de envío con su motivo, CDR con código y descripción, rechazo por fault, baja aceptada, fuera de plazo— queda registrada en `evento_documento` con la hora del servidor al guardar; la tabla existía desde V1 pero nadie escribía en ella. Un comprobante que pasó por `ERROR_ENVIO` y luego `ACEPTADO` muestra ambos eventos (cubierto en el e2e del outbox).
+
 ## [0.1.37] - 2026-09-19
 
 ### Added
