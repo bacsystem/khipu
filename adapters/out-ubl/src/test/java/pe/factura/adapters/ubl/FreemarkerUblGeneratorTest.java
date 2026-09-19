@@ -19,10 +19,8 @@ class FreemarkerUblGeneratorTest {
                 new CertificadoDigital(new byte[0], "", LocalDate.of(2030, 1, 1)));
     }
     static Comprobante factura() {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE & CIA S.A.C.", "AV. LIMA 123"),
-                List.of(new Item("P001", "Laptop <15\">", "NIU", BigDecimal.ONE, new BigDecimal("2360.00"), TipoAfectacionIgv.GRAVADO),
-                        new Item("P002", "Libro", "NIU", new BigDecimal("2"), new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)), CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE & CIA S.A.C.", "AV. LIMA 123"), List.of(new Item("P001", "Laptop <15\">", "NIU", BigDecimal.ONE, new BigDecimal("2360.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("P002", "Libro", "NIU", new BigDecimal("2"), new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).crear(CLOCK);
         c.asignarNumero(1, "20100066603");
         return c;
     }

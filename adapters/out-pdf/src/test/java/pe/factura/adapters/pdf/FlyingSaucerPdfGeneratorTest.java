@@ -34,20 +34,15 @@ class FlyingSaucerPdfGeneratorTest {
     final FlyingSaucerPdfGenerator generador = new FlyingSaucerPdfGenerator();
 
     static Comprobante factura() {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "1001", RECEPTOR,
-                List.of(new Item("A", "Laptop Lenovo ThinkPad", "NIU", new BigDecimal("2"), new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),
-                        new Item("B", "Libro técnico", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)),
-                FormaPago.credito(new BigDecimal("2410.00"), List.of(new FormaPago.Cuota(new BigDecimal("2410.00"), LocalDate.of(2026, 10, 13)))),
-                null, List.of(), new Detraccion("022", new BigDecimal("12"), new BigDecimal("289.00"), "00-000-123456", "001"), null, null, List.of(), Referencias.ninguna(), null, CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "1001", RECEPTOR, List.of(new Item("A", "Laptop Lenovo ThinkPad", "NIU", new BigDecimal("2"), new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("B", "Libro técnico", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).fechaVencimiento(LocalDate.of(2026, 10, 13)).formaPago(FormaPago.credito(new BigDecimal("2410.00"), List.of(new FormaPago.Cuota(new BigDecimal("2410.00"), LocalDate.of(2026, 10, 13))))).detraccion(new Detraccion("022", new BigDecimal("12"), new BigDecimal("289.00"), "00-000-123456", "001")).referencias(Referencias.ninguna()).crear(CLOCK);
         c.asignarNumero(125, "20100066603");
         c.firmar("y4M8+jW8Xp278K1aM02q19KjvO3k=", "k");
         return c;
     }
 
     static Comprobante notaCredito() {
-        Comprobante c = Comprobante.crearNota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), "PEN", "0101", RECEPTOR,
-                List.of(new Item("A", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, List.of(), new Nota(TipoDocumento.FACTURA, "F001", 125, "07", "Devolución de una laptop"), CLOCK);
+        Comprobante c = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.FACTURA, "F001", 125, "07", "Devolución de una laptop"), RECEPTOR, List.of(new Item("A", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
         c.asignarNumero(7, "20100066603");
         c.firmar("hashnota==", "k");
         return c;
@@ -86,9 +81,7 @@ class FlyingSaucerPdfGeneratorTest {
     }
 
     static Comprobante notaDebito() {
-        Comprobante c = Comprobante.crearNota(UUID.randomUUID(), TipoDocumento.NOTA_DEBITO, "FD01", LocalDate.of(2026, 9, 13), "PEN", "0101", RECEPTOR,
-                List.of(new Item("I", "Intereses", "ZZ", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, List.of(), new Nota(TipoDocumento.FACTURA, "F001", 125, "01", "Intereses por mora de 30 días"), CLOCK);
+        Comprobante c = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_DEBITO, "FD01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.FACTURA, "F001", 125, "01", "Intereses por mora de 30 días"), RECEPTOR, List.of(new Item("I", "Intereses", "ZZ", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
         c.asignarNumero(3, "20100066603");
         c.firmar("hashnd==", "k");
         return c;

@@ -17,7 +17,7 @@ class ComprobanteTest {
     private final List<Item> items = List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
 
     @Test void facturaValidaNaceRecibidaConTotales() {
-        Comprobante c = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items, clock);
+        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items).crear(clock);
         assertThat(c.estado()).isEqualTo(EstadoDocumento.RECIBIDO);
         assertThat(c.totales().total()).isEqualByComparingTo("118.00");
         assertThat(c.numero()).isNull();
@@ -25,37 +25,37 @@ class ComprobanteTest {
 
     @Test void facturaExigeRucDelReceptor() {
         Receptor dni = new Receptor("1", "12345678", "JUAN PEREZ", null);
-        assertThatThrownBy(() -> Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", dni, items, clock))
+        assertThatThrownBy(() -> Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", dni, items).crear(clock))
                 .isInstanceOf(DomainException.class).hasMessageContaining("RUC");
     }
 
     @Test void serieDebeCorresponderAlTipo() {
-        assertThatThrownBy(() -> Comprobante.crearFactura(tenant, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items, clock))
+        assertThatThrownBy(() -> Comprobante.factura(tenant, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items).crear(clock))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SERIE_INVALIDA");
     }
 
     /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar a facturas. */
     @Test void tipoDeOperacionContraElCatalogo51() {
-        assertThat(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", null, empresa, items, clock).tipoOperacion()).isEqualTo("0101");
-        assertThatThrownBy(() -> Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "9999", empresa, items, clock))
+        assertThat(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", null, empresa, items).crear(clock).tipoOperacion()).isEqualTo("0101");
+        assertThatThrownBy(() -> Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "9999", empresa, items).crear(clock))
                 .isInstanceOf(DomainException.class).hasMessageStartingWith("3206").extracting("codigo").isEqualTo("TIPO_OPERACION_INVALIDO");
         // 0113 (Venta interna - NRUS) solo aplica a boletas
-        assertThatThrownBy(() -> Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0113", empresa, items, clock))
+        assertThatThrownBy(() -> Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0113", empresa, items).crear(clock))
                 .hasMessageContaining("no aplica a facturas");
     }
 
     @Test void fechaNoPuedeSerFutura() {
-        assertThatThrownBy(() -> Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 14), "PEN", "0101", empresa, items, clock))
+        assertThatThrownBy(() -> Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 14), "PEN", "0101", empresa, items).crear(clock))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("FECHA_INVALIDA");
     }
 
     @Test void sinItemsFalla() {
-        assertThatThrownBy(() -> Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, List.of(), clock))
+        assertThatThrownBy(() -> Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, List.of()).crear(clock))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SIN_ITEMS");
     }
 
     @Test void lasObservacionesSoloAdmitenSaltosDeLinea() {
-        Comprobante c = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items, clock);
+        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items).crear(clock);
         c.anotar("  Entrega en almacén central.\nHorario: 9 a 18 h.  ");
         assertThat(c.observaciones()).isEqualTo("Entrega en almacén central.\nHorario: 9 a 18 h.");
         c.anotar(" ");
@@ -65,7 +65,7 @@ class ComprobanteTest {
     }
 
     @Test void cicloDeVidaHastaAceptado() {
-        Comprobante c = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items, clock);
+        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items).crear(clock);
         c.asignarNumero(7, "20100066603");
         assertThat(c.nombreArchivo()).isEqualTo("20100066603-01-F001-7");
         c.firmar("abc123", "t/2026/09/20100066603-01-F001-7.xml");
@@ -116,7 +116,7 @@ class ComprobanteTest {
     }
 
     private Comprobante firmado() {
-        Comprobante c = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items, clock);
+        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, items).crear(clock);
         c.asignarNumero(1, "20100066603");
         c.firmar("h", "k");
         return c;
@@ -141,18 +141,16 @@ class ComprobanteTest {
     @Test void elReceptorDeLaFacturaSeValidaAlEmitir() {
         java.time.Clock reloj = java.time.Clock.fixed(java.time.Instant.parse("2026-09-13T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
         List<Item> items = List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
-        assertThatThrownBy(() -> Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234567", "CLIENTE SAC", null), items, reloj))
+        assertThatThrownBy(() -> Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234567", "CLIENTE SAC", null), items).crear(reloj))
                 .extracting("codigo").isEqualTo("RECEPTOR_INVALIDO");
-        assertThatThrownBy(() -> Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234567", "CLIENTE SAC", null), items, reloj))
+        assertThatThrownBy(() -> Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234567", "CLIENTE SAC", null), items).crear(reloj))
                 .hasMessageContaining("2017").hasMessageContaining("dígito verificador");
-        assertThatThrownBy(() -> Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null), items, reloj))
+        assertThatThrownBy(() -> Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null), items).crear(reloj))
                 .hasMessageContaining("2017");
-        assertThatThrownBy(() -> Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "AB", null), items, reloj))
+        assertThatThrownBy(() -> Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "AB", null), items).crear(reloj))
                 .hasMessageContaining("2022");
-        assertThat(Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), items, reloj).receptor().numDoc()).isEqualTo("20601234565");
+        assertThat(Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), items).crear(reloj).receptor().numDoc()).isEqualTo("20601234565");
         // Rehidratar no valida: un comprobante viejo con un RUC mal tipeado sigue leyéndose.
-        assertThat(Comprobante.rehidratar(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 1L, LocalDate.of(2026, 9, 13), null, null, "PEN", "0101",
-                new Receptor("6", "20601234567", "X", null), items, FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, null,
-                EstadoDocumento.ACEPTADO, "h", "n", "k", null, null, 0, null).receptor().numDoc()).isEqualTo("20601234567");
+        assertThat(Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 1L, LocalDate.of(2026, 9, 13), EstadoDocumento.ACEPTADO, new Receptor("6", "20601234567", "X", null), items).firma("h", "n", "k").rehidratar().receptor().numDoc()).isEqualTo("20601234567");
     }
 }

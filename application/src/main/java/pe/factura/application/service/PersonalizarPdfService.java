@@ -95,9 +95,12 @@ public class PersonalizarPdfService implements PersonalizarPdfUseCase {
         BigDecimal total = new BigDecimal("3118.00");
         FormaPago credito = FormaPago.credito(total, List.of(new FormaPago.Cuota(new BigDecimal("1559.00"), hoy.plusDays(30)), new FormaPago.Cuota(new BigDecimal("1559.00"), hoy.plusDays(60))));
         Detraccion detraccion = new Detraccion("022", new BigDecimal("12"), null, t.cuentaDetracciones() == null ? "00-000-123456" : t.cuentaDetracciones(), "001");
-        Comprobante c = Comprobante.crearFactura(t.id(), "F001", hoy, hoy.plusDays(60), "PEN", "1001",
-                new Receptor("6", "20100070970", "EMPRESA DEMO S.A.C.", "Av. Javier Prado Este 123, San Isidro, Lima"),
-                items, credito, null, List.of(), detraccion, null, null, List.of(), new Referencias("OC-2026-0457", List.of(), List.of()), null, clock);
+        Comprobante c = Comprobante.factura(t.id(), "F001", hoy, "PEN", "1001", new Receptor("6", "20100070970", "EMPRESA DEMO S.A.C.", "Av. Javier Prado Este 123, San Isidro, Lima"), items)
+                .fechaVencimiento(hoy.plusDays(60))
+                .formaPago(credito)
+                .detraccion(detraccion)
+                .referencias(new Referencias("OC-2026-0457", List.of(), List.of()))
+                .crear(clock);
         c.asignarNumero(123, t.ruc());
         c.firmar("EjEmPlO0000000000000000000000000000=", "vista-previa");
         c.anotar("Servicio prestado según orden de compra del cliente.");
