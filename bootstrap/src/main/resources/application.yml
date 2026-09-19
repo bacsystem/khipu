@@ -38,6 +38,11 @@ app:
     timeout-seconds: ${SUNAT_TIMEOUT_SECONDS:15}
     beta-url: https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService
     prod-url: https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService
+    # Consultas (#36): billConsultService (estado y CDR) y billValidService (validez); solo existen en producción.
+    consulta-url: https://e-factura.sunat.gob.pe/ol-it-wsconscpegem/billConsultService
+    consulta-beta-url: ${SUNAT_CONSULTA_BETA_URL:}
+    validez-url: https://e-factura.sunat.gob.pe/ol-it-wsconsvalidcpe/billValidService
+    validez-beta-url: ${SUNAT_VALIDEZ_BETA_URL:}
   outbox:
     intervalo-ms: ${OUTBOX_INTERVALO_MS:10000}
     max-intentos: ${OUTBOX_MAX_INTENTOS:20}

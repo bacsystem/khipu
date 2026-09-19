@@ -20,6 +20,7 @@ import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.in.DarDeBajaUseCase;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
+import pe.factura.application.port.in.RecuperarCdrUseCase;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
@@ -46,6 +47,7 @@ public class FacturaController {
     private final ConsultarComprobanteUseCase consultar;
     private final DarDeBajaUseCase bajas;
     private final CompartirComprobanteUseCase compartir;
+    private final RecuperarCdrUseCase cdrs;
 
 
     @PostMapping
@@ -164,5 +166,16 @@ public class FacturaController {
         return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"R-" + c.nombreArchivo() + ".zip\"")
                 .body(consultar.cdr(t, id));
+    }
+
+    @PostMapping("/{id}/cdr/recuperar")
+    @Operation(summary = "Recuperar el CDR desde SUNAT", description = """
+            `getStatusCdr` de `billConsultService`: pide a SUNAT la constancia de un comprobante propio que quedó `ENVIADO` o en
+            `ERROR_ENVIO` (por ejemplo, la conexión se cortó después de que SUNAT lo aceptara) o que ya está resuelto pero perdió
+            su CDR en el storage. Si SUNAT lo tiene, lo guarda y aplica el resultado (`ACEPTADO`/`RECHAZADO`) sin reenviar;
+            si no, devuelve el comprobante sin cambios. Un barrido horario hace lo mismo para todas las empresas en producción.
+            Errores: `404 NO_ENCONTRADO`, `422 SIN_FIRMA`, `409 CDR_YA_DISPONIBLE`, `422 NO_DISPONIBLE_EN_BETA`, `422 CREDENCIALES_SOL_NO_CARGADAS`.""")
+    public ApiResponse<ComprobanteResponse> recuperarCdr(HttpServletRequest req, @PathVariable UUID id) {
+        return ApiResponse.ok(ComprobanteResponse.de(cdrs.recuperar(TenantActual.id(req), id), BASE));
     }
 }

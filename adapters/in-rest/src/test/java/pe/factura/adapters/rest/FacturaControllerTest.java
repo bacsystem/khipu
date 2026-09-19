@@ -33,6 +33,7 @@ class FacturaControllerTest {
     @MockBean ConsultarComprobanteUseCase consultar;
     @MockBean pe.factura.application.port.in.DarDeBajaUseCase bajas;
     @MockBean CompartirComprobanteUseCase compartir;
+    @MockBean pe.factura.application.port.in.RecuperarCdrUseCase cdrs;
 
     UUID tenant = UUID.randomUUID();
 
@@ -655,5 +656,15 @@ class FacturaControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.codigo").value("INTERNO"))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("detalle secreto"))));
+    }
+
+    @Test void recuperarCdrDesdeSunat() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(cdrs.recuperar(eq(tenant), eq(c.id()))).thenReturn(c);
+        mvc.perform(post("/v1/facturas/" + c.id() + "/cdr/recuperar").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.datos.id").value(c.id().toString()));
+        when(cdrs.recuperar(eq(tenant), any())).thenThrow(new DomainException("CDR_YA_DISPONIBLE", "ya tiene su CDR"));
+        mvc.perform(post("/v1/facturas/" + UUID.randomUUID() + "/cdr/recuperar").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("CDR_YA_DISPONIBLE"));
     }
 }
