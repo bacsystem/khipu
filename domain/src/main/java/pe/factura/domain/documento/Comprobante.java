@@ -260,6 +260,13 @@ public class Comprobante {
         this.cdr = cdr; this.cdrKey = cdrKey; this.ultimoError = null;
     }
 
+    /** CDR recuperado de SUNAT para un comprobante que ya tenía estado final pero perdió su constancia en el storage. */
+    public void restaurarCdr(Cdr cdr, String cdrKey) {
+        if (!estado.esFinalAceptado() && estado != EstadoDocumento.RECHAZADO && estado != EstadoDocumento.ANULADO)
+            throw new DomainException("TRANSICION_INVALIDA", "Solo se restaura el CDR de un comprobante ya resuelto por SUNAT; este está " + estado);
+        this.cdr = cdr; this.cdrKey = cdrKey;
+    }
+
     public void marcarErrorEnvio(String motivo) {
         transitar(EstadoDocumento.ERROR_ENVIO);
         this.intentos++; this.ultimoError = motivo;

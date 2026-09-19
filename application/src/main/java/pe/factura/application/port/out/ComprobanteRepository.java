@@ -23,6 +23,8 @@ public interface ComprobanteRepository {
     List<Comprobante> notasDe(UUID tenantId, String serieFactura, long numeroFactura);
     /** Comprobantes de cualquier empresa aún no enviados (FIRMADO o ERROR_ENVIO) emitidos hasta {@code fechaEmisionMaxima} inclusive, para el control del plazo. */
     List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fechaEmisionMaxima);
+    /** Comprobantes firmados de cualquier empresa sin CDR en el storage: ENVIADO, ERROR_ENVIO, o aceptados/rechazados que lo perdieron. */
+    List<Comprobante> pendientesDeCdr();
     List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina);
     long contar(UUID tenantId, EstadoDocumento estado);
 }
