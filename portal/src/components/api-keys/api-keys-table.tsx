@@ -69,7 +69,7 @@ function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
         {confirmando ? (
           <>
             <span className="mr-1 text-[11px] text-muted-foreground">¿Revocar de forma permanente?</span>
-            <button type="button" disabled={revocando} onClick={revocar} className={cn(ACCION, "bg-destructive text-white shadow-xs hover:bg-destructive/90")}>
+            <button type="button" disabled={revocando} onClick={revocar} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
               {revocando ? <RefreshCwIcon className="size-3.5 animate-spin" /> : <BanIcon className="size-3.5" />}
               Sí, revocar
             </button>
