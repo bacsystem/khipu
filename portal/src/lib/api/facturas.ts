@@ -214,6 +214,8 @@ export type Comprobante = {
     exonerado: number;
     inafecto: number;
     igv: number;
+    /** Tasa del IGV del comprobante en porcentaje (18.00 o la reducida del padrón de tasa especial); ausente en backends anteriores. */
+    tasa_igv?: number;
     total: number;
     total_valor_venta?: number;
     total_precio_venta?: number;

@@ -38,10 +38,12 @@ class JdbcTenantRepositoryTest extends PersistenciaTestBase {
         assertThat(r.domicilio().distrito()).isEqualTo("MIRAFLORES");
         assertThat(r.cuentaDetracciones()).isEqualTo("00-000-123456");
         assertThat(r.nombreComercial()).isEqualTo("Andina Store");
-        repo.guardar(r.conDatosFiscales(null, null, null));
+        assertThat(r.padronTasaEspecialIgv()).isFalse();
+        repo.guardar(r.conDatosFiscales(null, null, null, true));
         Tenant sin = repo.buscar(t.id()).orElseThrow();
         assertThat(sin.domicilio()).isNull();
         assertThat(sin.cuentaDetracciones()).isNull();
+        assertThat(sin.padronTasaEspecialIgv()).isTrue();
     }
 
     @Test void guardaLaPersonalizacionDelPdfYPorDefectoEsLaClasica() {

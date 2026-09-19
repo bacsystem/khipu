@@ -132,6 +132,25 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.totales().total()).isEqualByComparingTo("177.00");
     }
 
+    /** La tasa del IGV se guarda por comprobante: una factura al 10.5 % sigue al 10.5 % aunque la empresa salga del padrón (#84). */
+    @Test void guardaYRehidrataLaTasaDelIgv() {
+        UUID t = tenantDePrueba();
+        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Menú", "NIU", BigDecimal.ONE, new BigDecimal("110.50"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, new BigDecimal("10.50"), clock);
+        c.asignarNumero(11, "20100066603");
+        repo.guardar(c);
+        Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(leido.tasaIgv()).isEqualByComparingTo("10.50");
+        assertThat(leido.totales().igv()).isEqualByComparingTo("10.50");
+        assertThat(leido.totales().total()).isEqualByComparingTo("110.50");
+        // Las existentes (sin tasa explícita) quedan al 18 %.
+        Comprobante general = factura(t, 12);
+        repo.guardar(general);
+        assertThat(repo.buscar(t, general.id()).orElseThrow().tasaIgv()).isEqualByComparingTo("18.00");
+    }
+
     @Test void guardaYRehidrataNotasYLasListaPorFactura() {
         UUID t = tenantDePrueba();
         Comprobante f = factura(t, 20);

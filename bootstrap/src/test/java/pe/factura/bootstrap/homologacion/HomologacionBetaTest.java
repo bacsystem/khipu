@@ -112,6 +112,10 @@ class HomologacionBetaTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("escenarios")
     void escenario(EscenariosFactura.Escenario e) throws IOException {
+        // Los datos fiscales se reescriben por escenario para activar/desactivar la tasa especial del IGV (#84).
+        assertThat(http.exchange("/v1/empresa/datos-fiscales", HttpMethod.PUT, new HttpEntity<>(
+                "{\"domicilio\":{\"ubigeo\":\"150101\",\"direccion\":\"AV. LIMA 123\"},\"cuenta_detracciones\":\"00-000-123456\",\"nombre_comercial\":\"KHIPU PRUEBAS\",\"padron_tasa_especial_igv\":"
+                + e.tasaEspecial() + "}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
         String cuerpo = e.cuerpo();
         for (Map.Entry<String, Long> n : numeros.entrySet()) cuerpo = cuerpo.replace("${" + n.getKey() + "}", Long.toString(n.getValue()));
         ResponseEntity<Map> r = http.postForEntity(e.endpoint(), new HttpEntity<>(cuerpo, api), Map.class);
@@ -135,9 +139,17 @@ class HomologacionBetaTest {
         }
 
         assertThat(r.getStatusCode()).as(e.id() + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
-        assertThat(estado).as(e.id() + ": " + detalle).isEqualTo("ACEPTADO");
         assertThat(codigo).as(e.id() + ": código CDR").isEqualTo("0");
-        assertThat(observaciones).as(e.id() + ": observaciones SUNAT").isEmpty();
+        if (e.observacionEsperada() == null) {
+            assertThat(estado).as(e.id() + ": " + detalle).isEqualTo("ACEPTADO");
+            assertThat(observaciones).as(e.id() + ": observaciones SUNAT").isEmpty();
+        } else {
+            // e-beta no cruza el padrón (2026-09-19: aceptó al 10.5 % sin 4439); producción sí lo haría. Ambos resultados valen:
+            // lo que se comprueba es que el XML con la tasa reducida pasa las reglas de cálculo (3279, 3291, 3462).
+            assertThat(estado).as(e.id() + ": " + detalle).isIn("ACEPTADO", "ACEPTADO_CON_OBS");
+            assertThat(observaciones).as(e.id() + ": solo la observación esperada " + e.observacionEsperada())
+                    .allSatisfy(o -> assertThat(o).startsWith(e.observacionEsperada()));
+        }
     }
 
     private void guardarEvidencia(String escenario, String id, String nombreArchivo, String estado, String detalle) throws IOException {
@@ -186,7 +198,10 @@ class HomologacionBetaTest {
                 .append("| Escenario | Caso | Estado | CDR |\n|---|---|---|---|\n");
         for (String[] f : resumen) md.append("| ").append(f[0]).append(" | ").append(f[1]).append(" | ").append(f[2]).append(" | ").append(f[3].replace("|", "\\|")).append(" |\n");
         long ok = resumen.stream().filter(f -> ("ACEPTADO".equals(f[2]) || "ACEPTADA".equals(f[2])) && f[3].startsWith("0 -") && !f[3].contains("obs:")).count();
-        md.append("\n**").append(ok).append("/").append(resumen.size()).append(" escenarios con CDR 0 sin observaciones.**\n");
+        long conObsEsperada = resumen.stream().filter(f -> "ACEPTADO_CON_OBS".equals(f[2]) && f[3].contains("obs: [4439")).count();
+        md.append("\n**").append(ok).append("/").append(resumen.size()).append(" escenarios con CDR 0 sin observaciones");
+        if (conObsEsperada > 0) md.append("; ").append(conObsEsperada).append(" con la observación 4439 esperada (tasa reducida sin padrón)");
+        md.append(".**\n");
         Files.writeString(SALIDA.resolve("RESUMEN.md"), md.toString(), StandardCharsets.UTF_8);
     }
 }

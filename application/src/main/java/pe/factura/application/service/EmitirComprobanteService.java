@@ -12,6 +12,7 @@ import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.documento.Nota;
+import pe.factura.domain.documento.TasaIgv;
 import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.documento.Totales;
 import pe.factura.domain.tenant.Tenant;
@@ -46,7 +47,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         Detraccion detraccion = cmd.detraccion() != null && cmd.detraccion().sinCuenta() ? cmd.detraccion().conCuenta(tenant.cuentaDetracciones()) : cmd.detraccion();
 
         Comprobante c = Comprobante.crearFactura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.fechaVencimiento(), cmd.moneda(),
-                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.cargos(), detraccion, cmd.retencionIgv(), cmd.percepcion(), anticipos, cmd.referencias(), cmd.redondeo(), clock);
+                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.cargos(), detraccion, cmd.retencionIgv(), cmd.percepcion(), anticipos, cmd.referencias(), cmd.redondeo(),
+                TasaIgv.vigente(cmd.fechaEmision(), tenant.padronTasaEspecialIgv()), clock);
         c.anotar(cmd.observaciones());
         // Dentro de la transacción y con la factura de anticipo bloqueada: dos finales concurrentes no pueden regularizar el mismo anticipo dos veces.
         return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a)));
@@ -81,8 +83,9 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             if (cmd.descuentoGlobal() != null || (cmd.cargos() != null && !cmd.cargos().isEmpty()))
                 throw new DomainException("NOTA_INVALIDA", "descuento_global y cargos solo se admiten junto con items; sin items la nota copia los de la factura");
         }
+        // La nota hereda la tasa de IGV de la factura: si el emisor entró o salió del padrón después, la factura no cambia de tasa.
         Comprobante c = Comprobante.crearNota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), factura.moneda(), factura.tipoOperacion(), factura.receptor(),
-                copia ? factura.items() : cmd.items(), cmd.formaPago(), copia ? factura.descuentoGlobal() : cmd.descuentoGlobal(), copia ? factura.cargos() : cmd.cargos(), nota, clock);
+                copia ? factura.items() : cmd.items(), cmd.formaPago(), copia ? factura.descuentoGlobal() : cmd.descuentoGlobal(), copia ? factura.cargos() : cmd.cargos(), nota, factura.tasaIgv(), clock);
         c.anotar(cmd.observaciones());
         // Releída con lock de fila dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota,
         // y el acumulado de NC se lee con la factura bloqueada, así que dos NC concurrentes no pueden acreditarla dos veces.

@@ -9,10 +9,15 @@ import java.util.UUID;
  * establecimiento (SUNAT no observa su ausencia, sí un formato inválido); la cuenta de detracciones del Banco de la Nación se
  * usa cuando una factura sujeta a detracción no la indica. {@code nombreComercial} (campo 11 de la hoja Factura2_0) va en el XML
  * como {@code cac:PartyName/cbc:Name} del emisor cuando existe. {@code personalizacionPdf} solo afecta a la representación impresa;
- * nunca es nula (por defecto, la plantilla clásica).
+ * nunca es nula (por defecto, la plantilla clásica). {@code padronTasaEspecialIgv}: inscrito en el Padrón de Tasa Especial del IGV
+ * (MYPE de restaurantes y hoteles, Ley 31556): sus comprobantes gravados llevan la tasa reducida ({@link pe.factura.domain.documento.TasaIgv}).
  */
 public record Tenant(UUID id, String ruc, String razonSocial, Entorno entorno, CredencialesSol sol, CertificadoDigital certificado,
-                     Domicilio domicilio, String cuentaDetracciones, String nombreComercial, PersonalizacionPdf personalizacionPdf) {
+                     Domicilio domicilio, String cuentaDetracciones, String nombreComercial, PersonalizacionPdf personalizacionPdf, boolean padronTasaEspecialIgv) {
+    public Tenant(UUID id, String ruc, String razonSocial, Entorno entorno, CredencialesSol sol, CertificadoDigital certificado,
+                  Domicilio domicilio, String cuentaDetracciones, String nombreComercial, PersonalizacionPdf personalizacionPdf) {
+        this(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, false);
+    }
     public Tenant {
         personalizacionPdf = personalizacionPdf == null ? PersonalizacionPdf.porDefecto() : personalizacionPdf;
         if (ruc == null || !ruc.matches("\\d{11}")) throw new DomainException("RUC_INVALIDO", "RUC inválido: " + ruc);
@@ -43,9 +48,10 @@ public record Tenant(UUID id, String ruc, String razonSocial, Entorno entorno, C
     public void exigirCredencialesSol() {
         if (sol == null) throw new DomainException("CREDENCIALES_SOL_NO_CARGADAS", "El tenant no tiene credenciales SOL");
     }
-    public Tenant conCertificado(CertificadoDigital c) { return new Tenant(id, ruc, razonSocial, entorno, sol, c, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf); }
-    public Tenant conCredencialesSol(CredencialesSol s) { return new Tenant(id, ruc, razonSocial, entorno, s, certificado, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf); }
+    public Tenant conCertificado(CertificadoDigital c) { return new Tenant(id, ruc, razonSocial, entorno, sol, c, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv); }
+    public Tenant conCredencialesSol(CredencialesSol s) { return new Tenant(id, ruc, razonSocial, entorno, s, certificado, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv); }
     public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones) { return conDatosFiscales(d, cuentaDetracciones, nombreComercial); }
-    public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones, String nombreComercial) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, d, cuentaDetracciones, nombreComercial, personalizacionPdf); }
-    public Tenant conPersonalizacionPdf(PersonalizacionPdf p) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, p); }
+    public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones, String nombreComercial) { return conDatosFiscales(d, cuentaDetracciones, nombreComercial, padronTasaEspecialIgv); }
+    public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, d, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv); }
+    public Tenant conPersonalizacionPdf(PersonalizacionPdf p) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, p, padronTasaEspecialIgv); }
 }

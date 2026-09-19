@@ -39,6 +39,8 @@ public class Comprobante {
     private final Referencias referencias;
     /** Solo en notas de crédito/débito: comprobante que modifican y motivo; {@code null} en facturas. */
     private final Nota nota;
+    /** Tasa del IGV aplicada a las líneas gravadas, en porcentaje ({@link TasaIgv}); una nota hereda la de la factura que modifica. */
+    private final BigDecimal tasaIgv;
     private final Totales totales;
     private EstadoDocumento estado;
     private String hash;
@@ -54,7 +56,7 @@ public class Comprobante {
     private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
                         Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos,
-                        Referencias referencias, BigDecimal redondeo, Nota nota, EstadoDocumento estado) {
+                        Referencias referencias, BigDecimal redondeo, Nota nota, BigDecimal tasaIgv, EstadoDocumento estado) {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
         this.fechaEmision = fechaEmision; this.horaEmision = horaEmision; this.fechaVencimiento = fechaVencimiento; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
@@ -62,7 +64,8 @@ public class Comprobante {
         this.anticipos = anticipos == null ? List.of() : List.copyOf(anticipos);
         this.referencias = referencias == null ? Referencias.ninguna() : referencias;
         this.nota = nota;
-        this.totales = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision), redondeo);
+        this.tasaIgv = TasaIgv.normalizar(tasaIgv);
+        this.totales = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision), redondeo, this.tasaIgv);
         // Detracción, retención y percepción se completan contra el importe total ya calculado (montos por defecto, 3208 y tolerancias SUNAT).
         this.detraccion = detraccion == null ? null : detraccion.completarContra(moneda, this.totales.total());
         this.retencion = retencion == null ? null : retencion.completarContra(this.totales.total());
@@ -118,6 +121,13 @@ public class Comprobante {
     public static Comprobante crearFactura(UUID tenantId, String serie, LocalDate fechaEmision, LocalDate fechaVencimiento, String moneda, String tipoOperacion,
                                            Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion,
                                            RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, Clock clock) {
+        return crearFactura(tenantId, serie, fechaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, TasaIgv.GENERAL, clock);
+    }
+
+    /** {@code tasaIgv}: la vigente para el emisor a la fecha de emisión ({@link TasaIgv#vigente}); nula → general. */
+    public static Comprobante crearFactura(UUID tenantId, String serie, LocalDate fechaEmision, LocalDate fechaVencimiento, String moneda, String tipoOperacion,
+                                           Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion,
+                                           RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, BigDecimal tasaIgv, Clock clock) {
         if (!TipoDocumento.FACTURA.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de factura inválida: " + serie);
         if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
         if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
@@ -136,7 +146,7 @@ public class Comprobante {
         if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
             throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
         Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
-                moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, EstadoDocumento.RECIBIDO);
+                moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, tasaIgv, EstadoDocumento.RECIBIDO);
         formaPago.validarContra(c.totales.total(), fechaEmision);
         return c;
     }
@@ -149,6 +159,12 @@ public class Comprobante {
      */
     public static Comprobante crearNota(UUID tenantId, TipoDocumento tipo, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion,
                                         Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Nota nota, Clock clock) {
+        return crearNota(tenantId, tipo, serie, fechaEmision, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, nota, TasaIgv.GENERAL, clock);
+    }
+
+    /** {@code tasaIgv}: la de la factura que se modifica (una nota no cambia la tasa con la que se facturó). */
+    public static Comprobante crearNota(UUID tenantId, TipoDocumento tipo, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion,
+                                        Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Nota nota, BigDecimal tasaIgv, Clock clock) {
         if (tipo != TipoDocumento.NOTA_CREDITO && tipo != TipoDocumento.NOTA_DEBITO)
             throw new DomainException("NOTA_INVALIDA", "El tipo de nota debe ser 07 (crédito) u 08 (débito)");
         if (nota == null) throw new DomainException("NOTA_INVALIDA", "2524 - La nota debe indicar el documento que modifica y el motivo");
@@ -166,7 +182,7 @@ public class Comprobante {
         // en la NC 13 y se valida contra la factura modificada (3320/3321), no contra la nota.
         return new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
                 moneda, tipoOperacion == null ? "0101" : tipoOperacion, receptor, nc13 ? List.of(nota.lineaSinImporte()) : items, formaPago == null ? FormaPago.contado() : formaPago,
-                nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, null, nota, EstadoDocumento.RECIBIDO);
+                nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, null, nota, tasaIgv, EstadoDocumento.RECIBIDO);
     }
 
     public boolean esNota() { return nota != null; }
@@ -197,7 +213,17 @@ public class Comprobante {
                                          List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion,
                                          RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, Nota nota, EstadoDocumento estado,
                                          String hash, String nombreArchivo, String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
-        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, estado);
+        return rehidratar(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos,
+                detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, TasaIgv.GENERAL, estado, hash, nombreArchivo, xmlKey, cdrKey, cdr, intentos, ultimoError);
+    }
+
+    /** Solo para persistencia: reconstruye sin validar reglas de creación, con la tasa de IGV guardada. */
+    public static Comprobante rehidratar(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero,
+                                         LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento, String moneda, String tipoOperacion, Receptor receptor,
+                                         List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion,
+                                         RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, Nota nota, BigDecimal tasaIgv, EstadoDocumento estado,
+                                         String hash, String nombreArchivo, String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
+        Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, tasaIgv, estado);
         c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
         c.intentos = intentos; c.ultimoError = ultimoError;
         return c;
