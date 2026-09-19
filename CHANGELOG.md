@@ -5,7 +5,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); vers
 ## [0.1.21] - 2026-09-18
 
 ### Changed
-- Portal: la comunicación de baja se confirma en un modal (`Dialog`, el mismo de API keys y empresas) en vez de un panel inline bajo las acciones del comprobante: cabecera con el comprobante, aviso de que es irreversible, motivo con ayuda (2315) y botones Cancelar / Confirmar; no se cierra mientras SUNAT responde.
+- Portal: la comunicación de baja se confirma en un modal (`Dialog`, el mismo de API keys y empresas) en vez de un panel inline bajo las acciones del comprobante: cabecera con el comprobante, aviso de que es irreversible, motivo con ayuda (2315) y botones Cancelar / Confirmar; no se cierra mientras SUNAT responde. Nuevo token `BOTON_DESTRUCTIVO` en `estilos.ts`.
+
+### Fixed
+- Portal: los botones destructivos (dar de baja, revocar API key) usan `text-destructive-foreground`; en modo oscuro el texto blanco sobre `destructive` daba 2.69:1, por debajo de AA.
 
 ## [0.1.20] - 2026-09-18
 
