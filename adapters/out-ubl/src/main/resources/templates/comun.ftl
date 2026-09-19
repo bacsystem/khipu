@@ -261,10 +261,10 @@
     </#list>
     <cac:TaxTotal>
       <cbc:TaxAmount currencyID="${c.moneda()}">${it.totalTributos()}</cbc:TaxAmount>
-      <#-- ISC (2000): base = valor de venta, TierRange = sistema (catálogo 08); reglas 3108, 2373. -->
+      <#-- ISC (2000): base = valor de venta (01/02) o PVP sugerido × cantidad (03), TierRange = sistema (catálogo 08); reglas 3108, 2373. -->
       <#if it.tieneIsc()>
       <cac:TaxSubtotal>
-        <cbc:TaxableAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:TaxableAmount>
+        <cbc:TaxableAmount currencyID="${c.moneda()}">${it.iscBase()}</cbc:TaxableAmount>
         <cbc:TaxAmount currencyID="${c.moneda()}">${it.isc()}</cbc:TaxAmount>
         <cac:TaxCategory>
           <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].ISC>
