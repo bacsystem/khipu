@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import type { Baja } from "@/lib/api/facturas";
-import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -94,12 +94,7 @@ export function BajaButton({ id, numero }: { id: string; numero: string }) {
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
             Cancelar
           </button>
-          <button
-            type="button"
-            disabled={motivo.trim().length < 3 || enviando}
-            onClick={confirmar}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-destructive px-3.5 text-[13px] font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <button type="button" disabled={motivo.trim().length < 3 || enviando} onClick={confirmar} className={cn(BOTON_DESTRUCTIVO, "h-9 px-3.5 text-[13px]")}>
             <BanIcon className="size-4" />
             {enviando ? "Enviando a SUNAT…" : "Confirmar la baja"}
           </button>
