@@ -130,6 +130,7 @@ public class Comprobante {
                                            RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, BigDecimal tasaIgv, Clock clock) {
         if (!TipoDocumento.FACTURA.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de factura inválida: " + serie);
         if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
+        exigirDentroDelPlazoDeEnvio(TipoDocumento.FACTURA, fechaEmision, clock);
         if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
             throw new DomainException("FECHA_INVALIDA", "La fecha de vencimiento no puede ser anterior a la de emisión");
         if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
@@ -171,6 +172,7 @@ public class Comprobante {
         if (!tipo.serieValida(serie) || serie.charAt(0) != nota.serieAfectada().charAt(0))
             throw new DomainException("SERIE_INVALIDA", "1001 - La serie de una nota sobre " + nota.documentoAfectado() + " debe ser " + nota.serieAfectada().charAt(0) + "### : " + serie);
         if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
+        exigirDentroDelPlazoDeEnvio(tipo, fechaEmision, clock);
         boolean nc13 = nota.corrigeCuotas(tipo);
         if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
         if (receptor == null || !receptor.esRuc()) throw new DomainException("RECEPTOR_INVALIDO", "La nota sobre una factura requiere un receptor con RUC válido");
@@ -196,6 +198,13 @@ public class Comprobante {
         if (s.length() > MAX_OBSERVACIONES || s.chars().anyMatch(ch -> Character.isISOControl(ch) && ch != '\n' && ch != '\r'))
             throw new DomainException("OBSERVACIONES_INVALIDAS", "Las observaciones admiten hasta " + MAX_OBSERVACIONES + " caracteres, solo con saltos de línea como caracteres especiales");
         this.observaciones = s;
+    }
+
+    /** Una fecha de emisión cuyo plazo de envío ya venció daría un comprobante que SUNAT rechaza (2108) con el número consumido. */
+    private static void exigirDentroDelPlazoDeEnvio(TipoDocumento tipo, LocalDate fechaEmision, Clock clock) {
+        if (PlazoEnvio.vencido(tipo, fechaEmision, LocalDate.now(clock)))
+            throw new DomainException("FECHA_INVALIDA", "2108 - Con fecha de emisión " + fechaEmision + " el plazo de envío a SUNAT venció el "
+                    + PlazoEnvio.fechaLimite(tipo, fechaEmision) + " (" + PlazoEnvio.dias(tipo) + " días calendario)");
     }
 
     /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar a facturas (columna "Tipo de Comprobante asociado"). */
@@ -256,6 +265,18 @@ public class Comprobante {
 
     /** SUNAT aceptó la comunicación de baja que lo incluye: el número queda consumido y el comprobante deja de ser válido. */
     public void anular() { transitar(EstadoDocumento.ANULADO); }
+
+    /** Último día en que SUNAT acepta recibirlo ({@link PlazoEnvio}). */
+    public LocalDate fechaLimiteEnvio() { return PlazoEnvio.fechaLimite(tipo, fechaEmision); }
+
+    public boolean fueraDePlazo(LocalDate hoy) { return PlazoEnvio.vencido(tipo, fechaEmision, hoy); }
+
+    /** Venció el plazo sin llegar a SUNAT: terminal, el número queda consumido y hay que emitir de nuevo (2108). */
+    public void marcarFueraDePlazo(LocalDate hoy) {
+        if (!fueraDePlazo(hoy)) throw new DomainException("TRANSICION_INVALIDA", "El plazo de envío vence el " + fechaLimiteEnvio() + ": todavía se puede enviar");
+        transitar(EstadoDocumento.FUERA_DE_PLAZO);
+        this.ultimoError = "2108 - Presentación fuera de fecha: el plazo venció el " + fechaLimiteEnvio();
+    }
 
     public void rechazarPorFault(String codigo, String descripcion) {
         if (estado.esEnviable()) transitar(EstadoDocumento.ENVIADO);

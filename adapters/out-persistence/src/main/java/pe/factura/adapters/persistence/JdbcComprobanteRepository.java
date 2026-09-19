@@ -121,6 +121,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public List<Comprobante> notasDe(UUID tenantId, String serie, long numero) {
         return jdbc.query(SELECT + " WHERE d.tenant_id = ? AND c.nota_serie_afectada = ? AND c.nota_numero_afectado = ? ORDER BY d.created_at", this::mapear, tenantId, serie, numero);
     }
+    @Override public List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fechaEmisionMaxima) {
+        return jdbc.query(SELECT + " WHERE d.estado IN ('FIRMADO', 'ERROR_ENVIO') AND d.fecha_emision <= ? ORDER BY d.fecha_emision", this::mapear, Date.valueOf(fechaEmisionMaxima));
+    }
     @Override public List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina) {
         String sql = SELECT + " WHERE d.tenant_id = ?" + (estado == null ? "" : " AND d.estado = ?") + " ORDER BY d.created_at DESC LIMIT ? OFFSET ?";
         Object[] args = estado == null ? new Object[]{tenantId, porPagina, (pagina - 1) * porPagina} : new Object[]{tenantId, estado.name(), porPagina, (pagina - 1) * porPagina};

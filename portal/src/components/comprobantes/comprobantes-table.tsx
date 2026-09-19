@@ -43,6 +43,7 @@ const ESTADOS: EstadoDocumento[] = [
   "ACEPTADO_CON_OBS",
   "RECHAZADO",
   "ANULADO",
+  "FUERA_DE_PLAZO",
   "INVALIDO",
 ];
 

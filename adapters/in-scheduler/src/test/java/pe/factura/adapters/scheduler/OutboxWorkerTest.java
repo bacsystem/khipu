@@ -68,6 +68,15 @@ class OutboxWorkerTest {
         verify(outbox).completar(fila);
     }
 
+    /** El plazo venció mientras reintentaba (#37): el envío lo cierra como FUERA_DE_PLAZO y la fila se completa, no se reprograma. */
+    @Test void fueraDePlazoCompleta() {
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 5)));
+        when(enviar.enviar(tenant, doc)).thenThrow(new DomainException("FUERA_DE_PLAZO", "2108 - venció el 2026-09-12"));
+        worker.procesar();
+        verify(outbox).completar(fila);
+        verify(outbox, never()).reprogramar(any(), any(), any());
+    }
+
     @Test void domainExceptionDeConfiguracionReprograma() {
         when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 0)));
         when(enviar.enviar(tenant, doc)).thenThrow(new DomainException("CREDENCIALES_SOL_NO_CARGADAS", "sin credenciales"));
