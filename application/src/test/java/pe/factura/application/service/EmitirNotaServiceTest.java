@@ -32,9 +32,12 @@ class EmitirNotaServiceTest {
     Fakes.Outbox outbox = new Fakes.Outbox();
     Fakes.Gateway gateway = new Fakes.Gateway();
     Fakes.Cdrs cdrs = new Fakes.Cdrs();
-    UblGenerator ubl = (c, t) -> "<" + c.tipo() + ">" + c.nombreArchivo() + "</" + c.tipo() + ">";
+    UblGenerator ubl = new Fakes.Ubl();
     TipoDocumento[] validado = new TipoDocumento[1];
-    XsdValidator xsd = (xml, tipo) -> validado[0] = tipo;
+    XsdValidator xsd = new XsdValidator() {
+        public void validar(String xml, TipoDocumento tipo) { validado[0] = tipo; }
+        public void validarBaja(String xml) {}
+    };
     XmlSigner signer = (xml, cert) -> new FirmaResultado(xml, "HASH");
     EmitirComprobanteService service;
 

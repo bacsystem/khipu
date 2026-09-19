@@ -4,6 +4,7 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateExceptionHandler;
 import pe.factura.application.port.out.UblGenerator;
+import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.MontoEnLetras;
 import pe.factura.domain.documento.Nota;
@@ -24,6 +25,17 @@ public class FreemarkerUblGenerator implements UblGenerator {
         cfg.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
         cfg.setLogTemplateExceptions(false);
         cfg.setWrapUncheckedExceptions(true);
+    }
+
+    @Override public String generarBaja(ComunicacionBaja b, Tenant t) {
+        try {
+            Map<String, Object> modelo = new HashMap<>();
+            modelo.put("b", b);
+            modelo.put("t", t);
+            StringWriter out = new StringWriter();
+            cfg.getTemplate("voided-documents.ftl").process(modelo, out);
+            return out.toString();
+        } catch (Exception e) { throw new IllegalStateException("Error generando VoidedDocuments", e); }
     }
 
     @Override public String generar(Comprobante c, Tenant t) {

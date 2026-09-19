@@ -20,6 +20,13 @@ export function hoyLima(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
 }
 
+/** Días transcurridos entre dos fechas `YYYY-MM-DD` (negativo si `hasta` es anterior), sin zona horaria de por medio. */
+export function diasEntre(desde: string, hasta: string): number {
+  const [a1, m1, d1] = desde.split("-").map(Number);
+  const [a2, m2, d2] = hasta.split("-").map(Number);
+  return (Date.UTC(a2, m2 - 1, d2) - Date.UTC(a1, m1 - 1, d1)) / 86_400_000;
+}
+
 export function formatearFecha(iso: string): string {
   const [anio, mes, dia] = iso.split("-").map(Number);
   if (!anio || !mes || !dia) return iso;

@@ -54,13 +54,32 @@ public class SoapBillingGateway implements SunatBillingGateway {
 
     @Override public byte[] sendBill(Tenant tenant, String nombreArchivo, byte[] xmlFirmado) {
         byte[] zip = ZipUtil.comprimir(nombreArchivo + ".xml", xmlFirmado);
-        String nombreZip = nombreArchivo + ".zip";
-        String cuerpo = SoapEnvelope.sendBill(tenant.sol().usernameToken(tenant.ruc()), tenant.sol().clave(), nombreZip, zip);
+        String body = llamar(tenant, "sendBill", SoapEnvelope.sendBill(tenant.sol().usernameToken(tenant.ruc()), tenant.sol().clave(), nombreArchivo + ".zip", zip));
+        return base64(body, "applicationResponse");
+    }
 
+    @Override public String sendSummary(Tenant tenant, String nombreArchivo, byte[] xmlFirmado) {
+        byte[] zip = ZipUtil.comprimir(nombreArchivo + ".xml", xmlFirmado);
+        String body = llamar(tenant, "sendSummary", SoapEnvelope.sendSummary(tenant.sol().usernameToken(tenant.ruc()), tenant.sol().clave(), nombreArchivo + ".zip", zip));
+        String ticket = SoapEnvelope.textoDe(body, "ticket");
+        if (ticket == null || ticket.isBlank()) throw new SunatTransientException("0000", "Respuesta inesperada de SUNAT sin ticket");
+        return ticket;
+    }
+
+    @Override public EstadoTicket getStatus(Tenant tenant, String ticket) {
+        String body = llamar(tenant, "getStatus", SoapEnvelope.getStatus(tenant.sol().usernameToken(tenant.ruc()), tenant.sol().clave(), ticket));
+        String statusCode = SoapEnvelope.textoDe(body, "statusCode");
+        if (statusCode == null || statusCode.isBlank()) throw new SunatTransientException("0000", "Respuesta inesperada de SUNAT sin statusCode para el ticket " + ticket);
+        String content = SoapEnvelope.textoDe(body, "content");
+        return new EstadoTicket(statusCode.trim(), content == null || content.isBlank() ? null : Base64.getDecoder().decode(content.replaceAll("\\s", "")));
+    }
+
+    /** Envía el sobre SOAP (reintentando el 401 intermitente) y traduce los SOAPFault y los HTTP de error; devuelve el cuerpo XML. */
+    private String llamar(Tenant tenant, String operacion, String cuerpo) {
         HttpRequest req = HttpRequest.newBuilder(URI.create(urls.para(tenant.entorno())))
                 .timeout(timeout)
                 .header("Content-Type", "text/xml; charset=utf-8")
-                .header("SOAPAction", "urn:sendBill")
+                .header("SOAPAction", "urn:" + operacion)
                 .POST(HttpRequest.BodyPublishers.ofString(cuerpo, StandardCharsets.UTF_8))
                 .build();
         HttpResponse<String> resp = enviar(req);
@@ -77,9 +96,12 @@ public class SoapBillingGateway implements SunatBillingGateway {
         if (resp.statusCode() == 401) throw new SunatTransientException("0000", "SUNAT respondió HTTP 401 en " + INTENTOS_401 + " intentos (revisar credenciales SOL/URL)");
         if (resp.statusCode() >= 500) throw new SunatTransientException("0000", "SUNAT respondió HTTP " + resp.statusCode());
         if (resp.statusCode() >= 400) throw new SunatTransientException("0000", "SUNAT respondió HTTP " + resp.statusCode() + " (revisar credenciales/URL)");
+        return body;
+    }
 
-        String b64 = SoapEnvelope.textoDe(body, "applicationResponse");
-        if (b64 == null || b64.isBlank()) throw new SunatTransientException("0000", "Respuesta inesperada de SUNAT sin applicationResponse");
+    private static byte[] base64(String body, String elemento) {
+        String b64 = SoapEnvelope.textoDe(body, elemento);
+        if (b64 == null || b64.isBlank()) throw new SunatTransientException("0000", "Respuesta inesperada de SUNAT sin " + elemento);
         return Base64.getDecoder().decode(b64.replaceAll("\\s", ""));
     }
 

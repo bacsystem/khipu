@@ -65,6 +65,8 @@ class HomologacionBetaTest {
     final List<String[]> resumen = new ArrayList<>();
     /** Números aceptados por SUNAT que reutilizan escenarios posteriores (anticipo → final, facturas → notas). */
     final Map<String, Long> numeros = new HashMap<>();
+    /** Ids de comprobantes de la corrida que usan pasos posteriores (baja). */
+    final Map<String, String> ids = new HashMap<>();
 
     /** Variable de entorno o valor por defecto; GitHub Actions pasa los inputs vacíos como "" y no como ausentes. */
     static String env(String nombre, String porDefecto) {
@@ -126,6 +128,7 @@ class HomologacionBetaTest {
         if (datos.get("id") != null) guardarEvidencia(e.id(), (String) datos.get("id"), (String) datos.get("nombre_archivo"), estado, detalle);
         if (datos.get("numero") instanceof Number num) {
             if (e.id().startsWith("01-")) numeros.put("GRAVADA", num.longValue());
+            if (e.id().startsWith("02-")) ids.put("EXONERADA", String.valueOf(datos.get("id")));
             if (e.id().startsWith("04-")) numeros.put("MIXTA", num.longValue());
             if (e.id().startsWith("09-")) numeros.put("CREDITO", num.longValue());
             if (e.id().startsWith("16-")) numeros.put("ANTICIPO", num.longValue());
@@ -147,12 +150,42 @@ class HomologacionBetaTest {
         Files.writeString(dir.resolve("resultado.txt"), estado + "\n" + detalle + "\n", StandardCharsets.UTF_8);
     }
 
+    /**
+     * Comunicación de baja del escenario 02 (exonerada): sendSummary + getStatus contra e-beta. Va al final (orden por nombre)
+     * porque necesita la factura ya aceptada; si SUNAT sigue procesando (98), se reconsulta unas veces antes de dar por fallido.
+     */
+    @org.junit.jupiter.api.Test void zzComunicacionDeBaja() throws Exception {
+        String id = ids.get("EXONERADA");
+        assertThat(id).as("la factura exonerada (02) debe haberse emitido").isNotNull();
+        ResponseEntity<Map> r = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Homologación: baja de prueba\"}", api), Map.class);
+        Map<?, ?> datos = r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of());
+        String bajaId = String.valueOf(datos.get("id"));
+        for (int i = 0; i < 6 && "ENVIADA".equals(datos.get("estado")); i++) {
+            Thread.sleep(5_000);
+            ResponseEntity<Map> again = http.exchange("/v1/bajas/" + bajaId, HttpMethod.GET, new HttpEntity<>(api), Map.class);
+            datos = again.getBody() == null ? Map.of() : (Map<?, ?>) again.getBody().getOrDefault("datos", Map.of());
+        }
+        Map<?, ?> cdr = datos.get("cdr") instanceof Map<?, ?> m ? m : Map.of();
+        String detalle = r.getStatusCode().is2xxSuccessful() ? cdr.get("codigo") + " - " + cdr.get("descripcion") + (datos.get("ultimo_error") == null ? "" : " | " + datos.get("ultimo_error"))
+                : "HTTP " + r.getStatusCode().value() + " " + r.getBody();
+        resumen.add(new String[]{"22-baja", "Comunicación de baja (RA) de la factura exonerada", String.valueOf(datos.get("estado")), detalle});
+        Path dir = SALIDA.resolve("22-baja");
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("resultado.txt"), datos.get("estado") + "\n" + detalle + "\n", StandardCharsets.UTF_8);
+
+        assertThat(r.getStatusCode()).as("22-baja: " + r.getBody()).isEqualTo(HttpStatus.CREATED);
+        assertThat(datos.get("estado")).as("22-baja: " + detalle).isEqualTo("ACEPTADA");
+        assertThat(String.valueOf(cdr.get("codigo"))).isEqualTo("0");
+        ResponseEntity<Map> factura = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
+        assertThat(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento")).as("la factura queda ANULADA").isEqualTo("ANULADO");
+    }
+
     @AfterAll void escribirResumen() throws IOException {
         StringBuilder md = new StringBuilder("# Homologación e-beta — factura y notas\n\n")
                 .append("RUC emisor `").append(RUC).append("`, serie `").append(SERIE).append("`, ").append(LocalDate.now(ZoneId.of("America/Lima"))).append("\n\n")
                 .append("| Escenario | Caso | Estado | CDR |\n|---|---|---|---|\n");
         for (String[] f : resumen) md.append("| ").append(f[0]).append(" | ").append(f[1]).append(" | ").append(f[2]).append(" | ").append(f[3].replace("|", "\\|")).append(" |\n");
-        long ok = resumen.stream().filter(f -> "ACEPTADO".equals(f[2]) && f[3].startsWith("0 -") && !f[3].contains("obs:")).count();
+        long ok = resumen.stream().filter(f -> ("ACEPTADO".equals(f[2]) || "ACEPTADA".equals(f[2])) && f[3].startsWith("0 -") && !f[3].contains("obs:")).count();
         md.append("\n**").append(ok).append("/").append(resumen.size()).append(" escenarios con CDR 0 sin observaciones.**\n");
         Files.writeString(SALIDA.resolve("RESUMEN.md"), md.toString(), StandardCharsets.UTF_8);
     }

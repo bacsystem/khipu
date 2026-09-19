@@ -12,6 +12,8 @@ import java.util.UUID;
 public interface ComprobanteRepository {
     void guardar(Comprobante c); // insert o update por id
     Optional<Comprobante> buscar(UUID tenantId, UUID id);
+    /** Como buscar, pero deja la fila bloqueada hasta el fin de la transacción (p. ej. para dar de baja sin carreras). */
+    Optional<Comprobante> bloquear(UUID tenantId, UUID id);
     Optional<Comprobante> buscarPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero);
     /** Como buscarPorNumero, pero deja la fila bloqueada hasta el fin de la transacción (serializa a quienes dependen de ese comprobante). */
     Optional<Comprobante> bloquearPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero);

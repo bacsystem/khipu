@@ -1,3 +1,5 @@
+import { hoyLima } from "@/lib/formato";
+
 function base64url(obj: unknown): string {
   return btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
@@ -56,7 +58,22 @@ export type Comprobante = {
   referencias?: { orden_compra?: string | null; guias?: Array<{ tipo: string; numero: string }> | null; documentos_relacionados?: Array<{ tipo: string; numero: string }> | null } | null;
   nota?: { tipo_afectado: string; documento_afectado: string; motivo: string; motivo_descripcion: string; descripcion: string } | null;
   notas?: Array<{ id: string; tipo: string; comprobante: string; fecha_emision: string; motivo: string; motivo_descripcion: string; estado_documento: string; total: number }> | null;
+  baja?: Baja | null;
   enlaces: { xml: string; cdr?: string };
+};
+
+export type Baja = {
+  id: string;
+  identificador: string;
+  comprobante: string;
+  tipo_comprobante: string;
+  fecha_generacion: string;
+  motivo: string;
+  estado: "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA";
+  ticket: string | null;
+  cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
+  intentos: number;
+  ultimo_error: string | null;
 };
 
 type Sesion = { usuario: Usuario };
@@ -67,6 +84,7 @@ export const db = {
   seriesPorEmpresa: new Map<string, Serie[]>(),
   apiKeysPorEmpresa: new Map<string, ApiKey[]>(),
   facturasPorEmpresa: new Map<string, Comprobante[]>(),
+  bajas: new Map<string, Baja>(),
   sesionesPorToken: new Map<string, Sesion>(),
 };
 
@@ -76,6 +94,7 @@ export function resetDb() {
   db.seriesPorEmpresa.clear();
   db.apiKeysPorEmpresa.clear();
   db.facturasPorEmpresa.clear();
+  db.bajas.clear();
   db.sesionesPorToken.clear();
 
   const usuario: Usuario = {
@@ -143,6 +162,26 @@ export function resetDb() {
       },
       detraccion: { codigo_bien_servicio: "022", descripcion: "Otros servicios empresariales", porcentaje: 12, monto: 15, cuenta_banco_nacion: "00-000-123456", medio_pago: "001" },
       enlaces: { xml: "/v1/facturas/f-aceptada/xml", cdr: "/v1/facturas/f-aceptada/cdr" },
+    },
+    {
+      id: "f-obs",
+      tipo: "01",
+      serie: "F001",
+      numero: 3,
+      fecha_emision: hoyLima(),
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: "Av. Argentina 2450, Lima" },
+      items: [{ codigo: null, descripcion: "Consultoría", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10" }],
+      estado_documento: "ACEPTADO_CON_OBS",
+      hash: "obs8+jW8Xp278K1aM02q19KjvO3k=",
+      nombre_archivo: "20123456789-01-F001-00000003",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-3, ha sido aceptada", observaciones: ["4252 - El dato ingresado como atributo @listName es incorrecto."] },
+      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-obs/xml", cdr: "/v1/facturas/f-obs/cdr" },
     },
     {
       id: "f-error",

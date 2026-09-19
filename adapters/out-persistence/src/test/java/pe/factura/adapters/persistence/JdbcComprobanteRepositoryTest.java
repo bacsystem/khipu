@@ -153,6 +153,39 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscarPorNumero(t, TipoDocumento.FACTURA, "FC01", 1)).isEmpty();
     }
 
+    @Test void comunicacionDeBaja_guardaRehidrataYNumeraPorDia() {
+        UUID t = tenantDePrueba();
+        Comprobante f = factura(t, 30);
+        f.firmar("H", "k.xml"); f.marcarEnviado(); f.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr.zip");
+        repo.guardar(f);
+        JdbcBajaRepository bajas = new JdbcBajaRepository(jdbc);
+        Clock hoy = Clock.fixed(Instant.parse("2026-09-15T15:00:00Z"), ZoneId.of("America/Lima"));
+        assertThat(bajas.siguienteCorrelativo(t, LocalDate.of(2026, 9, 15))).isEqualTo(1);
+        ComunicacionBaja b = ComunicacionBaja.crear(f, 1, "Error en el RUC del cliente", hoy);
+        b.firmar("ra.xml");
+        bajas.guardar(b);
+        assertThat(bajas.siguienteCorrelativo(t, LocalDate.of(2026, 9, 15))).isEqualTo(2);
+        assertThat(bajas.siguienteCorrelativo(t, LocalDate.of(2026, 9, 16))).isEqualTo(1);
+
+        b.marcarEnviada("1789768174685");
+        b.aplicarCdr(new Cdr("0", "La Comunicacion de baja RA-20260915-1, ha sido aceptada", List.of()), "r.zip");
+        bajas.guardar(b);
+        ComunicacionBaja leida = bajas.buscar(t, b.id()).orElseThrow();
+        assertThat(leida.identificador()).isEqualTo("RA-20260915-1");
+        assertThat(leida.estado()).isEqualTo(ComunicacionBaja.EstadoBaja.ACEPTADA);
+        assertThat(leida.ticket()).isEqualTo("1789768174685");
+        assertThat(leida.cdr().codigo()).isEqualTo("0");
+        assertThat(leida.comprobanteId()).isEqualTo(f.id());
+        assertThat(leida.fechaReferencia()).isEqualTo(f.fechaEmision());
+        assertThat(bajas.deComprobante(t, f.id())).extracting(ComunicacionBaja::id).containsExactly(b.id());
+        assertThat(bajas.buscar(UUID.randomUUID(), b.id())).isEmpty();
+        // El comprobante puede bloquearse por id y pasar a ANULADO.
+        Comprobante bloqueado = repo.bloquear(t, f.id()).orElseThrow();
+        bloqueado.anular();
+        repo.guardar(bloqueado);
+        assertThat(repo.buscar(t, f.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ANULADO);
+    }
+
     @Test void guardaYRehidrataDetraccion() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "1001",

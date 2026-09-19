@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } from "./formato";
+import { diasEntre, formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } from "./formato";
 
 describe("formatearNumero", () => {
   it("usa separador de miles y siempre 2 decimales", () => {
@@ -43,5 +43,17 @@ describe("formatearFechaHora", () => {
 
   it("devuelve el texto tal cual si no es una fecha válida", () => {
     expect(formatearFechaHora("no-es-fecha")).toBe("no-es-fecha");
+  });
+});
+
+describe("diasEntre", () => {
+  it("cuenta días calendario entre dos fechas ISO, sin zona horaria", () => {
+    expect(diasEntre("2026-09-11", "2026-09-18")).toBe(7);
+    expect(diasEntre("2026-09-18", "2026-09-18")).toBe(0);
+    expect(diasEntre("2026-12-31", "2027-01-01")).toBe(1);
+  });
+
+  it("es negativo cuando la segunda fecha es anterior", () => {
+    expect(diasEntre("2026-09-18", "2026-09-15")).toBe(-3);
   });
 });

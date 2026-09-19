@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import pe.factura.domain.documento.Anticipo;
 import pe.factura.domain.documento.Cargo;
 import pe.factura.domain.documento.CargoCalculado;
+import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.FormaPago;
@@ -46,6 +47,7 @@ public record ComprobanteResponse(
         @Schema(description = "Orden de compra, guías de remisión y otros documentos relacionados; `null` si no hay ninguno") ReferenciasDto referencias,
         @Schema(description = "Solo en notas de crédito/débito: factura que modifica y motivo") NotaDto nota,
         @Schema(description = "Solo al consultar una factura: notas de crédito/débito emitidas sobre ella (todas, con su estado); `null` en listados y en la emisión") List<NotaResumenDto> notas,
+        @Schema(description = "Solo al consultar: la comunicación de baja más reciente del comprobante (en curso, aceptada o rechazada), o `null`") BajaResponse baja,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     public record FormaPagoDto(
             @Schema(example = "credito", description = "contado | credito") String tipo,
@@ -210,10 +212,10 @@ public record ComprobanteResponse(
             @Schema(description = "Descuento global aplicado, si lo hubo") DescuentoDto descuentoGlobal,
             @Schema(description = "Cargos globales aplicados, si los hubo") List<CargoDto> cargos) {}
 
-    public static ComprobanteResponse de(Comprobante c, String base) { return de(c, base, null); }
+    public static ComprobanteResponse de(Comprobante c, String base) { return de(c, base, null, null); }
 
-    /** Con {@code notas} (las emitidas sobre esta factura) solo al consultar una factura concreta. */
-    public static ComprobanteResponse de(Comprobante c, String base, List<Comprobante> notas) {
+    /** Con {@code notas} (las emitidas sobre esta factura) y {@code baja} (la última comunicación de baja) solo al consultar un comprobante concreto. */
+    public static ComprobanteResponse de(Comprobante c, String base, List<Comprobante> notas, ComunicacionBaja baja) {
         String p = base + "/" + c.id();
         return new ComprobanteResponse(c.id(), c.tipo().codigo(), c.serie(), c.numero(), c.fechaEmision(), c.fechaVencimiento(), c.moneda(), c.tipoOperacion(),
                 de(c.receptor()), c.totales().items().stream().map(ComprobanteResponse::de).toList(),
@@ -234,6 +236,7 @@ public record ComprobanteResponse(
                 ReferenciasDto.de(c.referencias()),
                 NotaDto.de(c),
                 notas == null ? null : notas.stream().map(NotaResumenDto::de).toList(),
+                baja == null ? null : BajaResponse.de(baja),
                 enlaces(c, p));
     }
 

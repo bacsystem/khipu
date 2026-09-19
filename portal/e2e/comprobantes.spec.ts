@@ -96,3 +96,18 @@ test("una nota de crédito 13 sale sin importe y una nota de débito con su conc
   await expect(page.getByText("Nota de débito electrónica")).toBeVisible();
   await expect(page.getByTestId("nota").getByText(/Intereses por mora de 30 días/)).toBeVisible();
 });
+
+test("da de baja una factura aceptada tras confirmar el motivo y queda anulada", async ({ page }) => {
+  await page.goto("/comprobantes/f-obs");
+  await page.getByTestId("dar-de-baja").click();
+  const confirmacion = page.getByTestId("baja-confirmacion");
+  // Sin motivo (mínimo 3 caracteres) no se puede confirmar: la baja es irreversible ante SUNAT.
+  await expect(confirmacion.getByRole("button", { name: "Confirmar la baja" })).toBeDisabled();
+  await confirmacion.getByLabel(/Motivo/).fill("Error en el RUC del cliente");
+  await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
+
+  await expect(page.getByTestId("baja")).toContainText("Aceptada: comprobante anulado");
+  await expect(page.getByTestId("baja")).toContainText("Error en el RUC del cliente");
+  await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId("dar-de-baja")).toHaveCount(0);
+});

@@ -1,3 +1,4 @@
+import { diasEntre, hoyLima } from "@/lib/formato";
 import { backendFetch, backendFetchConHeaders } from "./client";
 import { tenantHeaders } from "./tenant";
 
@@ -83,6 +84,37 @@ export type NotaResumen = {
   estado_documento: EstadoDocumento;
   total: number;
 };
+
+export type EstadoBaja = "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA";
+
+/** Comunicación de baja (RA-yyyymmdd-N) de un comprobante. */
+export type Baja = {
+  id: string;
+  identificador: string;
+  comprobante: string;
+  tipo_comprobante: string;
+  fecha_generacion: string;
+  motivo: string;
+  estado: EstadoBaja;
+  ticket: string | null;
+  cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
+  intentos: number;
+  ultimo_error: string | null;
+};
+
+/** Plazo legal para la comunicación de baja: 7 días calendario desde la emisión (regla 2957). */
+export const PLAZO_BAJA_DIAS = 7;
+
+/**
+ * Un comprobante aceptado (factura o nota), emitido hace 7 días o menos y sin baja en curso, puede darse de baja.
+ * `hoy` es la fecha de Lima (la misma zona con la que el backend aplica la regla 2957), no la del servidor del portal.
+ */
+export function admiteBaja(c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_emision" | "baja">, hoy: string = hoyLima()): boolean {
+  if (c.tipo === "03") return false;
+  if (c.estado_documento !== "ACEPTADO" && c.estado_documento !== "ACEPTADO_CON_OBS") return false;
+  if (c.baja && (c.baja.estado === "ENVIADA" || c.baja.estado === "GENERADA" || c.baja.estado === "ERROR_ENVIO")) return false;
+  return diasEntre(c.fecha_emision, hoy) <= PLAZO_BAJA_DIAS;
+}
 
 /** Una factura aceptada por SUNAT (con o sin observaciones) admite notas de crédito/débito. */
 export function admiteNotas(c: Pick<Comprobante, "tipo" | "estado_documento">): boolean {
@@ -209,6 +241,8 @@ export type Comprobante = {
   nota?: { tipo_afectado: string; documento_afectado: string; motivo: string; motivo_descripcion: string; descripcion: string } | null;
   /** Solo al consultar una factura: notas emitidas sobre ella, con su estado. */
   notas?: NotaResumen[] | null;
+  /** Solo al consultar: la comunicación de baja más reciente (en curso, aceptada o rechazada). */
+  baja?: Baja | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; cdr?: string };
 };

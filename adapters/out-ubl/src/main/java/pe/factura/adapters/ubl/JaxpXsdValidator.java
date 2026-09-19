@@ -17,8 +17,10 @@ import java.util.Map;
 
 public class JaxpXsdValidator implements XsdValidator {
     private final Map<TipoDocumento, Schema> esquemas = new EnumMap<>(TipoDocumento.class);
+    private final Schema baja;
 
     public JaxpXsdValidator() {
+        baja = cargar("xsd/2.0/maindoc/UBLPE-VoidedDocuments-1.0.xsd");
         esquemas.put(TipoDocumento.FACTURA, cargar("xsd/2.1/maindoc/UBL-Invoice-2.1.xsd"));
         esquemas.put(TipoDocumento.BOLETA, esquemas.get(TipoDocumento.FACTURA));
         esquemas.put(TipoDocumento.NOTA_CREDITO, cargar("xsd/2.1/maindoc/UBL-CreditNote-2.1.xsd"));
@@ -38,6 +40,12 @@ public class JaxpXsdValidator implements XsdValidator {
     @Override public void validar(String xml, TipoDocumento tipo) {
         Schema s = esquemas.get(tipo);
         if (s == null) throw new IllegalArgumentException("Sin XSD para " + tipo);
+        validar(xml, s);
+    }
+
+    @Override public void validarBaja(String xml) { validar(xml, baja); }
+
+    private static void validar(String xml, Schema s) {
         try {
             Validator v = s.newValidator();
             v.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");

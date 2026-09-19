@@ -13,6 +13,22 @@ final class SoapEnvelope {
             </soapenv:Envelope>""".formatted(esc(usuario), esc(clave), esc(nombreZip), Base64.getEncoder().encodeToString(zip));
     }
 
+    static String sendSummary(String usuario, String clave, String nombreZip, byte[] zip) {
+        return """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://service.sunat.gob.pe" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+            <soapenv:Header><wsse:Security><wsse:UsernameToken><wsse:Username>%s</wsse:Username><wsse:Password>%s</wsse:Password></wsse:UsernameToken></wsse:Security></soapenv:Header>
+            <soapenv:Body><ser:sendSummary><fileName>%s</fileName><contentFile>%s</contentFile></ser:sendSummary></soapenv:Body>
+            </soapenv:Envelope>""".formatted(esc(usuario), esc(clave), esc(nombreZip), Base64.getEncoder().encodeToString(zip));
+    }
+
+    static String getStatus(String usuario, String clave, String ticket) {
+        return """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://service.sunat.gob.pe" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+            <soapenv:Header><wsse:Security><wsse:UsernameToken><wsse:Username>%s</wsse:Username><wsse:Password>%s</wsse:Password></wsse:UsernameToken></wsse:Security></soapenv:Header>
+            <soapenv:Body><ser:getStatus><ticket>%s</ticket></ser:getStatus></soapenv:Body>
+            </soapenv:Envelope>""".formatted(esc(usuario), esc(clave), esc(ticket));
+    }
+
     static String esc(String s) {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }

@@ -457,6 +457,22 @@ X-Api-Key: fk_TU_API_KEY`,
     ],
     disponible: true,
   },
+  {
+    id: "baja",
+    titulo: "Comunicación de baja (anular un comprobante)",
+    endpoint: "/v1/facturas/{id}/baja",
+    cuando: "Anular ante SUNAT una factura o nota ya aceptada que se emitió por error (cliente, importes, duplicado) dentro de los 7 días calendario siguientes a su emisión. Pasado el plazo, o si el comprobante ya se entregó, corresponde una nota de crédito.",
+    request: `{
+  "motivo": "Error en el RUC del cliente"
+}`,
+    notas: [
+      "`{id}` es el comprobante a anular (factura o nota, no boletas: regla 2308), que debe estar **ACEPTADO** o **ACEPTADO_CON_OBS** (2398) y haberse emitido hace **7 días o menos** (2957). `motivo` de 3 a 100 caracteres (2315). Responde **201** con la comunicación `{ id, identificador \"RA-20260918-1\", estado, ticket, cdr }`.",
+      "SUNAT procesa las bajas de forma asíncrona: khipu envía el resumen (`sendSummary`), recibe un **ticket** y lo consulta (`getStatus`). Si SUNAT ya respondió, la baja vuelve `ACEPTADA` (o `RECHAZADA`) en la misma llamada; si sigue en proceso queda `ENVIADA` y el worker la reconsulta a los 30 s. Consulte `GET /v1/bajas/{id}` (también reconsulta el ticket) o `GET /v1/facturas/{id}`, que trae la última baja en `baja`.",
+      "Cuando SUNAT acepta la comunicación, el comprobante pasa a **ANULADO** y ya no admite notas ni reenvíos. Solo puede haber una baja en curso por comprobante; si SUNAT la rechaza, se puede volver a solicitar. Error `BAJA_INVALIDA` (422) con la regla SUNAT en el mensaje.",
+      "En el XML: `VoidedDocuments` (UBL 2.0, `RA-yyyymmdd-N`) firmado como los comprobantes; se guarda junto con su CDR. Homologado en e-beta.",
+    ],
+    disponible: true,
+  },
 ];
 
 export const RESPUESTA_EJEMPLO = `{
