@@ -177,6 +177,31 @@ class EmitirNotaServiceTest {
         assertThat(facturaAceptada(FormaPago.contado()).tasaIgv()).isEqualByComparingTo("18.00");
     }
 
+    /** IVAP (#67): la NC sobre una factura IVAP se limita por base e IVAP (3503, tributo 1016) y no admite mezclar con líneas IGV. */
+    @Test void laNotaDeCreditoSobreUnaFacturaIvapSeLimitaPorElIvap() {
+        Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "MOLINO SAC", "AV 1"),
+                List.of(new Item("ARZ", "Arroz pilado", "KGM", new BigDecimal("100"), new BigDecimal("3.12"), TipoAfectacionIgv.IVAP)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+        assertThat(f.totales().ivap()).isEqualByComparingTo("12.00");
+        assertThat(f.totales().igv()).isEqualByComparingTo("0.00");
+        assertThat(f.totales().total()).isEqualByComparingTo("312.00");
+        // Misma base pero declarada como IGV: el IGV (18) supera al de la factura (0) → 3503
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09",
+                List.of(new Item("ARZ", "Arroz", "KGM", new BigDecimal("50"), new BigDecimal("3.12"), TipoAfectacionIgv.GRAVADO)))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3503").hasMessageContaining("IGV");
+        // Más IVAP que la factura → 3503 IVAP
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09",
+                List.of(new Item("ARZ", "Arroz", "KGM", new BigDecimal("150"), new BigDecimal("3.12"), TipoAfectacionIgv.IVAP)))))
+                .hasMessageContaining("3286");
+        Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "09",
+                List.of(new Item("ARZ", "Arroz", "KGM", new BigDecimal("50"), new BigDecimal("3.12"), TipoAfectacionIgv.IVAP))));
+        assertThat(nc.totales().ivap()).isEqualByComparingTo("6.00");
+        assertThat(nc.totales().total()).isEqualByComparingTo("156.00");
+        // Nota total: hereda las líneas IVAP de la factura y descuenta lo ya acreditado (#83)
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("ya acreditado");
+    }
+
     @Test void laNotaDeDebitoPuedeSuperarALaFactura() {
         Comprobante f = facturaAceptada(FormaPago.contado());
         Comprobante nd = service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_DEBITO, "FD01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "Intereses",

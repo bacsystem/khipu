@@ -62,12 +62,14 @@ public record FacturaRequest(
             @NotBlank @Schema(example = "NIU", description = "Unidad de medida UN/ECE rec 20 (catálogo 03, `GET /v1/catalogos/03`, lista las más usadas): `NIU` unidad (bienes), `ZZ` unidad (servicios), `KGM` kilogramo, `HUR` hora… khipu no la valida contra el catálogo: un código inexistente lo rechaza SUNAT") String unidad,
             @NotNull @Positive @Schema(example = "2", description = "Cantidad, hasta 10 decimales") BigDecimal cantidad,
             @NotNull @PositiveOrZero @Schema(example = "1000.00", description = "Precio de venta unitario **con IGV incluido** (gravados); khipu calcula el valor unitario sin IGV") BigDecimal precioUnitario,
-            @NotBlank @Pattern(regexp = "1[0-6]|2[01]|3[0-7]", message = "afectación IGV no soportada: use 10–16, 20, 21 o 30–37 (catálogo 07)")
+            @NotBlank @Pattern(regexp = "1[0-7]|2[01]|3[0-7]", message = "afectación IGV no soportada: use 10–17, 20, 21 o 30–37 (catálogo 07)")
             @Schema(example = "10", description = """
                     Afectación del IGV, catálogo 07 (`GET /v1/catalogos/07`). Onerosas: `10` gravado (IGV 18 %, o la tasa reducida del padrón de restaurantes y hoteles si la empresa la activó; precio con IGV),
                     `20` exonerado (Apéndice I de la Ley del IGV), `30` inafecto (fuera del ámbito). Gratuitas (bonificaciones, muestras,
                     retiros): `11`–`16` gravadas, `21` exonerada, `31`–`37` inafectas — el `precio_unitario` es el **valor referencial sin
-                    IGV**, la línea no suma al importe a pagar y su IGV solo se informa (tributo 9996). No soportadas: `17` (IVAP) y `40` (exportación).""") String tipoAfectacionIgv,
+                    IGV**, la línea no suma al importe a pagar y su IGV solo se informa (tributo 9996). `17` IVAP (arroz pilado, Ley 28211): 4 % en
+                    lugar del IGV (tributo 1016), precio con IVAP incluido; el comprobante entero debe ser IVAP (no se mezcla con 10/20/30 ni
+                    gratuitas) y la línea no admite ISC ni ICBPER. No soportada: `40` (exportación).""") String tipoAfectacionIgv,
             @Valid @Schema(description = "Descuento de la línea (catálogo 53: `00` si afecta la base del IGV, `01` si no). Opcional.") DescuentoDto descuento,
             @Valid @Schema(description = "Cargos de la línea (catálogo 53): `afecta_base_igv: true` → `47` (se suma al valor de venta y paga IGV), `false` → `48` (se cobra sin IGV). No admitidos en gratuitas. Opcional.") List<CargoDto> cargos,
             @Valid @Schema(description = "Impuesto Selectivo al Consumo del ítem (bebidas alcohólicas, combustibles, vehículos…). Opcional; el `precio_unitario` lo incluye.") IscDto isc,

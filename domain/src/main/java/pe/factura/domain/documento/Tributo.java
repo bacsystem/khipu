@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum Tributo {
     IGV("1000", "IGV", "VAT", "S"),
+    /** Impuesto a la Venta de Arroz Pilado (Ley 28211): 4 % en lugar del IGV; afectación 17 del catálogo 07. */
+    IVAP("1016", "IVAP", "VAT", "S"),
     /** Impuesto Selectivo al Consumo: forma parte de la base del IGV. */
     ISC("2000", "ISC", "EXC", "S"),
     /** Impuesto a las bolsas de plástico: monto fijo por unidad, sin tasa. */

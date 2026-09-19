@@ -15,6 +15,8 @@ public final class TasaIgv {
     private TasaIgv() {}
 
     public static final BigDecimal GENERAL = new BigDecimal("18.00");
+    /** IVAP (Ley 28211, parámetro 024 de SUNAT): 4 % sobre la venta de arroz pilado, en lugar del IGV. */
+    public static final BigDecimal IVAP = new BigDecimal("4.00");
     private static final BigDecimal REDUCIDA_INICIAL = new BigDecimal("10.00");
     private static final BigDecimal REDUCIDA = new BigDecimal("10.50");
     private static final LocalDate INICIO_REDUCIDA = LocalDate.of(2023, 1, 1);
