@@ -30,6 +30,9 @@
   <#if c.percepcion()??>
   <cbc:Note languageLocaleID="2000">COMPROBANTE DE PERCEPCIÓN</cbc:Note>
   </#if>
+  <#list c.leyendas() as ley>
+  <cbc:Note languageLocaleID="${ley}">${statics["pe.factura.domain.documento.Leyenda"].texto(ley)}</cbc:Note>
+  </#list>
   <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">${c.moneda()}</cbc:DocumentCurrencyCode>
 <@u.ordenCompra/>
 <@u.guiasYOtrosDocumentos/>

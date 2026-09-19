@@ -612,4 +612,17 @@ class AtributosSunatFacturaTest {
         new JaxpXsdValidator().validar(xml, TipoDocumento.FACTURA);   // no lanza
         assertThat(xml).contains(CAT06);
     }
+
+    /** Leyendas del catálogo 52 declaradas por el emisor (#66): cbc:Note con el código en languageLocaleID y el texto oficial. */
+    @Test void leyendasDeclaradasEnElXml() throws Exception {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).leyendas(List.of("2001", "2005")).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(7, "20100066603");
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant()))));
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='2001']")).isEqualTo("BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA");
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='2005']")).isEqualTo("Venta realizada por emisor itinerante");
+        assertThat(valor(d, "count(/inv:Invoice/cbc:Note)")).isEqualTo("3");   // + 1000 monto en letras
+    }
 }

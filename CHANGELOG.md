@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.29] - 2026-09-19
+
+### Added
+- Leyendas por zona o régimen (#66): `leyendas[]` en `POST /v1/facturas` con códigos del catálogo 52 que declara el emisor (2001–2003 Amazonía, 2004 paquete turístico, 2005 venta itinerante, 2008/2009 zona comercial de Tacna, 2010–2012); van al XML como `cbc:Note@languageLocaleID` con el texto oficial del catálogo (sin el prefijo «Leyenda» ni comillas) y vuelven en la respuesta (`leyendas[{codigo, texto}]`) y en el detalle del portal. Validaciones: código del catálogo (3027), las automáticas (1000, 1002, 2000, 2006, 2007) no se aceptan, y 2001/2002/2003/2008 exigen total exonerado mayor a 0 (3283–3285, 3289). Migración V19. Nota: en el catálogo 52 vigente el 2008 es la leyenda de la zona comercial de Tacna, no de exportación de servicios.
+
 ## [0.1.28] - 2026-09-19
 
 ### Changed
