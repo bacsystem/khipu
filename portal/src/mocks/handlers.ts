@@ -357,7 +357,8 @@ export const handlers = [
           motivo_descripcion: n.nota!.motivo_descripcion, estado_documento: n.estado_documento, total: n.totales.total,
         }))
       : [];
-    return ok({ ...factura, notas: notas.length ? notas : null });
+    // Como el backend (#4): el historial viaja solo al consultar por id; un comprobante sin eventos devuelve [].
+    return ok({ ...factura, notas: notas.length ? notas : null, eventos: factura.eventos ?? [] });
   }),
 
   // Notas de crédito/débito: la factura debe existir y estar aceptada; la nota copia cliente y moneda y se acepta al instante.
