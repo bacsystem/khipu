@@ -1,3 +1,4 @@
+import { hoyLima } from "@/lib/formato";
 import { backendFetch, backendFetchConHeaders } from "./client";
 import { tenantHeaders } from "./tenant";
 
@@ -104,15 +105,22 @@ export type Baja = {
 /** Plazo legal para la comunicación de baja: 7 días calendario desde la emisión (regla 2957). */
 export const PLAZO_BAJA_DIAS = 7;
 
-/** Un comprobante aceptado (factura o nota), emitido hace 7 días o menos y sin baja en curso, puede darse de baja. */
-export function admiteBaja(c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_emision" | "baja">, hoy: Date = new Date()): boolean {
+/** Días transcurridos entre dos fechas `YYYY-MM-DD`, sin zona horaria de por medio. */
+function diasEntre(desde: string, hasta: string): number {
+  const [a1, m1, d1] = desde.split("-").map(Number);
+  const [a2, m2, d2] = hasta.split("-").map(Number);
+  return (Date.UTC(a2, m2 - 1, d2) - Date.UTC(a1, m1 - 1, d1)) / 86_400_000;
+}
+
+/**
+ * Un comprobante aceptado (factura o nota), emitido hace 7 días o menos y sin baja en curso, puede darse de baja.
+ * `hoy` es la fecha de Lima (la misma zona con la que el backend aplica la regla 2957), no la del servidor del portal.
+ */
+export function admiteBaja(c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_emision" | "baja">, hoy: string = hoyLima()): boolean {
   if (c.tipo === "03") return false;
   if (c.estado_documento !== "ACEPTADO" && c.estado_documento !== "ACEPTADO_CON_OBS") return false;
   if (c.baja && (c.baja.estado === "ENVIADA" || c.baja.estado === "GENERADA" || c.baja.estado === "ERROR_ENVIO")) return false;
-  const [a, m, d] = c.fecha_emision.split("-").map(Number);
-  const emision = Date.UTC(a, m - 1, d);
-  const hoyUtc = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  return (hoyUtc - emision) / 86_400_000 <= PLAZO_BAJA_DIAS;
+  return diasEntre(c.fecha_emision, hoy) <= PLAZO_BAJA_DIAS;
 }
 
 /** Una factura aceptada por SUNAT (con o sin observaciones) admite notas de crédito/débito. */

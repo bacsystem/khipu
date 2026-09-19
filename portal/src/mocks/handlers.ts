@@ -1,5 +1,6 @@
 import { http, HttpResponse } from "msw";
-import { db, fakeJwt, hoyIso, type Baja, type Comprobante, type Empresa, type Usuario } from "./data";
+import { hoyLima } from "../lib/formato";
+import { db, fakeJwt, type Baja, type Comprobante, type Empresa, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8080";
@@ -280,10 +281,10 @@ export const handlers = [
     if (!factura) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
     const body = (await request.json()) as { motivo: string };
     if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(422, "BAJA_INVALIDA", `El comprobante no está aceptado por SUNAT (estado ${factura.estado_documento})`);
-    if (factura.baja && factura.baja.estado !== "RECHAZADA") return fail(409, "BAJA_INVALIDA", `Ya existe la comunicación de baja ${factura.baja.identificador}`);
-    const hoy = hoyIso().replace(/-/g, "");
+    if (factura.baja && factura.baja.estado !== "RECHAZADA") return fail(422, "BAJA_INVALIDA", `Ya hay una comunicación de baja en curso para ${factura.serie}-${factura.numero}`);
+    const hoy = hoyLima().replace(/-/g, "");
     const baja: Baja = {
-      id: nuevoId("b"), identificador: `RA-${hoy}-1`, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyIso(),
+      id: nuevoId("b"), identificador: `RA-${hoy}-1`, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(),
       motivo: body.motivo, estado: "ACEPTADA", ticket: "1758200000123", cdr: { codigo: "0", descripcion: `La Comunicacion de baja RA-${hoy}-1, ha sido aceptada`, observaciones: [] },
       intentos: 1, ultimo_error: null,
     };

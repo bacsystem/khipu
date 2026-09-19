@@ -97,6 +97,25 @@ class DarDeBajaServiceTest {
         assertThat(comprobantes.buscar(tenantId, f.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ANULADO);
     }
 
+    @Test void dosContinuarConcurrentesSobreLaMismaBajaNoFallanAlAnular() {
+        Comprobante f = facturaAceptada();
+        gateway.statusCode = "98";
+        ComunicacionBaja enviada = service.solicitar(tenantId, f.id(), "Error en el RUC");
+        assertThat(enviada.estado()).isEqualTo(EstadoBaja.ENVIADA);
+        // Dos copias de la misma baja ENVIADA (el GET del usuario y el outbox) obtienen el CDR 0 a la vez: la segunda no debe
+        // romper con TRANSICION_INVALIDA porque el comprobante ya quedó ANULADO por la primera.
+        ComunicacionBaja copiaDelWorker = ComunicacionBaja.rehidratar(enviada.id(), tenantId, enviada.fechaGeneracion(), enviada.correlativo(), enviada.comprobanteId(), enviada.tipoComprobante(),
+                enviada.serie(), enviada.numero(), enviada.fechaReferencia(), enviada.motivo(), EstadoBaja.ENVIADA, enviada.ticket(), enviada.xmlKey(), null, null, enviada.intentos(), enviada.ultimoError());
+        gateway.statusCode = "0";
+        ComunicacionBaja primera = service.continuar(tenantId, enviada.id());
+        assertThat(primera.estado()).isEqualTo(EstadoBaja.ACEPTADA);
+        assertThat(comprobantes.buscar(tenantId, f.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ANULADO);
+        bajas.guardar(copiaDelWorker);   // el worker sigue viendo la baja ENVIADA que leyó antes
+        ComunicacionBaja segunda = service.continuar(tenantId, enviada.id());
+        assertThat(segunda.estado()).isEqualTo(EstadoBaja.ACEPTADA);
+        assertThat(comprobantes.buscar(tenantId, f.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ANULADO);
+    }
+
     @Test void rechazoDeSunatDejaRechazadaYElComprobanteSigueAceptado() {
         Comprobante f = facturaAceptada();
         gateway.statusCode = "99";

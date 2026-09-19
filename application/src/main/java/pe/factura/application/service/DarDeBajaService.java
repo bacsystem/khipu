@@ -8,6 +8,7 @@ import pe.factura.domain.documento.Cdr;
 import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.documento.ComunicacionBaja.EstadoBaja;
 import pe.factura.domain.documento.Comprobante;
+import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.tenant.Tenant;
 
 import java.nio.charset.StandardCharsets;
@@ -97,9 +98,12 @@ public class DarDeBajaService implements DarDeBajaUseCase {
         uow.ejecutar(() -> {
             bajas.guardar(b);
             if (b.estado() == EstadoBaja.ACEPTADA) {
-                Comprobante c = comprobantes.buscar(b.tenantId(), b.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
-                c.anular();
-                comprobantes.guardar(c);
+                // Con lock de fila: el GET del usuario y el outbox pueden recoger el mismo CDR a la vez, y el segundo se encuentra el comprobante ya ANULADO.
+                Comprobante c = comprobantes.bloquear(b.tenantId(), b.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
+                if (c.estado() != EstadoDocumento.ANULADO) {
+                    c.anular();
+                    comprobantes.guardar(c);
+                }
             }
             if (b.estado() == EstadoBaja.ENVIADA) outbox.programar(b.tenantId(), ACCION_BAJA, b.id(), clock.instant().plus(REINTENTO_CONSULTA));
             if (b.estado() == EstadoBaja.ERROR_ENVIO) outbox.programar(b.tenantId(), ACCION_BAJA, b.id(), Backoff.siguiente(b.intentos(), clock.instant()));

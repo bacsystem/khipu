@@ -1,3 +1,5 @@
+import { hoyLima } from "../lib/formato";
+
 function base64url(obj: unknown): string {
   return btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
@@ -74,11 +76,6 @@ export type Baja = {
   ultimo_error: string | null;
 };
 
-/** Fecha local de hoy en ISO: la factura con observaciones se emite "hoy" para que siga dentro del plazo de baja (7 días). */
-export function hoyIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 type Sesion = { usuario: Usuario };
 
@@ -172,7 +169,7 @@ export function resetDb() {
       tipo: "01",
       serie: "F001",
       numero: 3,
-      fecha_emision: hoyIso(),
+      fecha_emision: hoyLima(),
       moneda: "PEN",
       tipo_operacion: "0101",
       receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: "Av. Argentina 2450, Lima" },

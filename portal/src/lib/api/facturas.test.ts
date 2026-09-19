@@ -47,7 +47,7 @@ describe("totalDesdeHeaders", () => {
 });
 
 describe("admiteBaja", () => {
-  const hoy = new Date(2026, 8, 18); // 18/09/2026, hora local
+  const hoy = "2026-09-18";
   const aceptada: Parameters<typeof admiteBaja>[0] = { tipo: "01", estado_documento: "ACEPTADO", fecha_emision: "2026-09-15", baja: null };
   const bajaEn = (estado: Baja["estado"]): Baja => ({ id: "b", identificador: "RA-20260918-1", comprobante: "F001-1", tipo_comprobante: "01", fecha_generacion: "2026-09-18", motivo: "m", estado, ticket: null, cdr: null, intentos: 1, ultimo_error: null });
 
