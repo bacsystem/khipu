@@ -159,6 +159,34 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscar(t, interna.id()).orElseThrow().receptor().pais()).isNull();
     }
 
+    /** Detracción sectorial (#69): hidrobiológico y transporte (con tramos y vehículos) sobreviven al round-trip como JSON; sin ellos vuelven null. */
+    @Test void guardaYRehidrataDatosSectoriales() {
+        UUID t = tenantDePrueba();
+        Hidrobiologico h = new Hidrobiologico("CO-12345-PM", "DON JOSÉ II", "Anchoveta", "Muelle de Chimbote", LocalDate.of(2026, 9, 10), new BigDecimal("12.50"));
+        Comprobante pesca = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "1002", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("ANCH", "Anchoveta", "TNE", new BigDecimal("12.5"), new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, h, null)))
+                .detraccion(new Detraccion("004", new BigDecimal("4"), null, "00-000-123456", null)).crear(clock);
+        pesca.asignarNumero(15, "20100066603");
+        repo.guardar(pesca);
+        Item leido = repo.buscar(t, pesca.id()).orElseThrow().items().get(0);
+        assertThat(leido.hidrobiologico()).isEqualTo(h);
+        assertThat(leido.transporte()).isNull();
+
+        TransporteCarga tr = new TransporteCarga(new TransporteCarga.Punto("021801", "Av. Los Pescadores 450"), new TransporteCarga.Punto("150101", "Jr. de la Unión 100"),
+                "Traslado de carga", new TransporteCarga.ValorReferencial(new BigDecimal("2500"), new BigDecimal("2400"), new BigDecimal("2600")),
+                List.of(new TransporteCarga.Tramo("021801", "150101", "Chimbote – Lima", new BigDecimal("2400"), null, List.of(new TransporteCarga.Vehiculo("T3S3", new BigDecimal("30"), null)))));
+        Comprobante flete = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "1004", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("FLT", "Flete", "ZZ", BigDecimal.ONE, new BigDecimal("2950.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, tr)))
+                .detraccion(new Detraccion("027", new BigDecimal("4"), null, "00-000-123456", null)).crear(clock);
+        flete.asignarNumero(16, "20100066603");
+        repo.guardar(flete);
+        Item leidoFlete = repo.buscar(t, flete.id()).orElseThrow().items().get(0);
+        assertThat(leidoFlete.transporte()).isEqualTo(tr);
+        assertThat(leidoFlete.transporte().tramos().get(0).vehiculos().get(0).configuracion()).isEqualTo("T3S3");
+        assertThat(leidoFlete.hidrobiologico()).isNull();
+        assertThat(repo.buscar(t, factura(t, 17).id()).isEmpty()).isTrue();
+    }
+
     /** Control del plazo (#37): solo FIRMADO y ERROR_ENVIO con fecha de emisión hasta el corte, de cualquier empresa. */
     @Test void listaLosPendientesDeEnvioEmitidosHastaUnaFecha() {
         UUID t = tenantDePrueba();

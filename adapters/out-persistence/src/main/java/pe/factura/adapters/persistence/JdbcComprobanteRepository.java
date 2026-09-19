@@ -92,12 +92,12 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 jdbc.update("INSERT INTO comprobante_cargo (comprobante_id, item_orden, orden, codigo, tipo, valor) VALUES (?, ?, ?, ?, ?, ?)",
                         c.id(), orden, nCargo++, cg.codigo(), cg.tipo().name(), cg.valor());
             }
-            jdbc.update("INSERT INTO comprobante_item (comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, icbper, codigo_sunat, gtin_tipo, gtin, isc_base_pvp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            jdbc.update("INSERT INTO comprobante_item (comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, icbper, codigo_sunat, gtin_tipo, gtin, isc_base_pvp, hidrobiologico, transporte) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb)",
                     c.id(), orden++, i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(),
                     tipo(i.descuento()), valor(i.descuento()), afectaBase(i.descuento()),
                     i.isc() == null ? null : i.isc().sistema(), i.isc() == null ? null : i.isc().tasa(), i.isc() == null ? null : i.isc().montoUnitario(), i.icbper(),
                     i.tieneCodigoSunat() ? i.codigoSunat().codigo() : null, i.gtin() == null ? null : i.gtin().tipo(), i.gtin() == null ? null : i.gtin().codigo(),
-                    i.isc() == null ? null : i.isc().basePvp());
+                    i.isc() == null ? null : i.isc().basePvp(), DatosSectorialesJson.aJson(i.hidrobiologico()), DatosSectorialesJson.aJson(i.transporte()));
         }
     }
 
@@ -162,7 +162,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         jdbc.query("SELECT item_orden, codigo, tipo, valor FROM comprobante_cargo WHERE comprobante_id = ? ORDER BY orden",
                 (RowCallbackHandler) r -> { cargos.computeIfAbsent(r.getObject("item_orden", Integer.class), k -> new ArrayList<>())
                         .add(new Cargo(r.getString("codigo"), Cargo.Tipo.valueOf(r.getString("tipo")), sinCeros(r.getBigDecimal("valor")))); }, id);
-        List<Item> items = jdbc.query("SELECT orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, isc_base_pvp, icbper, codigo_sunat, gtin_tipo, gtin FROM comprobante_item WHERE comprobante_id = ? ORDER BY orden",
+        List<Item> items = jdbc.query("SELECT orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, isc_base_pvp, icbper, codigo_sunat, gtin_tipo, gtin, hidrobiologico::text AS hidrobiologico, transporte::text AS transporte FROM comprobante_item WHERE comprobante_id = ? ORDER BY orden",
                 (r, k) -> new Item(r.getString("codigo"), r.getString("descripcion"), r.getString("unidad"), r.getBigDecimal("cantidad"),
                         r.getBigDecimal("precio_unitario"), TipoAfectacionIgv.porCodigo(r.getString("tipo_afectacion_igv")),
                         descuento(r.getString("descuento_tipo"), r.getBigDecimal("descuento_valor"), r.getObject("descuento_afecta_base", Boolean.class)),
@@ -170,7 +170,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                                 r.getBigDecimal("isc_monto_unitario") == null ? null : sinCeros(r.getBigDecimal("isc_monto_unitario")),
                                 r.getBigDecimal("isc_base_pvp") == null ? null : sinCeros(r.getBigDecimal("isc_base_pvp"))),
                         r.getBoolean("icbper"), cargos.getOrDefault(r.getInt("orden"), List.of()),
-                        CodigoProductoSunat.de(r.getString("codigo_sunat")), r.getString("gtin_tipo") == null ? null : new Gtin(r.getString("gtin_tipo"), r.getString("gtin"))), id);
+                        CodigoProductoSunat.de(r.getString("codigo_sunat")), r.getString("gtin_tipo") == null ? null : new Gtin(r.getString("gtin_tipo"), r.getString("gtin")),
+                        DatosSectorialesJson.deJson(r.getString("hidrobiologico"), Hidrobiologico.class), DatosSectorialesJson.deJson(r.getString("transporte"), TransporteCarga.class)), id);
         List<Anticipo> anticipos = jdbc.query("SELECT serie, numero, monto, afectacion, fecha_pago FROM comprobante_anticipo WHERE comprobante_id = ? ORDER BY orden",
                 (r, k) -> new Anticipo(r.getString("serie"), r.getLong("numero"), r.getBigDecimal("monto"), Anticipo.Afectacion.valueOf(r.getString("afectacion")),
                         r.getDate("fecha_pago") == null ? null : r.getDate("fecha_pago").toLocalDate()), id);

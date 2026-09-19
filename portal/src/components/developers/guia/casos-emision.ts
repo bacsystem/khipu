@@ -326,6 +326,65 @@ X-Api-Key: fk_TU_API_KEY`,
       "`monto` siempre en **soles**: en facturas en PEN puede omitirlo y khipu lo calcula (total × %, redondeado al sol, como exige el SPOT); en USD/EUR debe enviarlo convertido al tipo de cambio del día.",
       "`cuenta_banco_nacion` es la cuenta de detracciones del emisor; puede omitirse si la empresa la tiene configurada (`PUT /v1/empresa/datos-fiscales` o página Empresa del portal), si no `422 DETRACCION_INVALIDA` (3034). `medio_pago` del catálogo 59 (por defecto `001` depósito en cuenta).",
       "La detracción no cambia los totales: la respuesta trae `detraccion` con la descripción del catálogo y el monto; el XML lleva `PaymentMeans`/`PaymentTerms` con indicador `Detraccion` y la leyenda 2006.",
+      "**1002 recursos hidrobiológicos** y **1004 transporte de carga** exigen además datos sectoriales en cada ítem: ver los dos casos siguientes.",
+    ],
+    disponible: true,
+  },
+  {
+    id: "hidrobiologicos",
+    titulo: "Detracción 1002: venta de recursos hidrobiológicos",
+    cuando: "Vende pescado u otros recursos hidrobiológicos con detracción (código 004): SUNAT exige en cada ítem la embarcación, la especie, el lugar y la fecha de descarga y la cantidad (campos 107–112).",
+    request: `{
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  "tipo_operacion": "1002",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Anchoveta fresca", "unidad": "TNE", "cantidad": 12.5, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10",
+      "hidrobiologico": {
+        "matricula": "CO-12345-PM", "nombre_embarcacion": "DON JOSÉ II", "especie": "Anchoveta (Engraulis ringens)",
+        "lugar_descarga": "Muelle de Chimbote", "fecha_descarga": "2026-09-15", "cantidad": 12.5
+      } }
+  ],
+  "detraccion": { "codigo_bien_servicio": "004", "porcentaje": 4, "cuenta_banco_nacion": "00-000-123456" }
+}`,
+    notas: [
+      "Con `tipo_operacion` 1002 el `codigo_bien_servicio` debe ser `004` (regla 3129) y **cada ítem** lleva `hidrobiologico` completo: `matricula` (1–15 caracteres), `nombre_embarcacion` (≤100), `especie` (≤150), `lugar_descarga` (≤100), `fecha_descarga` (`YYYY-MM-DD`) y `cantidad` en toneladas (hasta 2 decimales). Si falta alguno, `422 DETRACCION_INVALIDA` con la regla (3063, 3130–3135).",
+      "En el XML van como `cac:AdditionalItemProperty` con los conceptos `3001`–`3006` del catálogo 55: la fecha en `UsabilityPeriod/StartDate` y la cantidad en `ValueQuantity` con `unitCode=\"TNE\"` (regla 3115). La leyenda 2006 se agrega sola (4265).",
+      "`hidrobiologico` no se admite en otros tipos de operación. La respuesta y el detalle del portal muestran los datos de la embarcación por ítem.",
+    ],
+    disponible: true,
+  },
+  {
+    id: "transporte-carga",
+    titulo: "Detracción 1004: servicio de transporte de carga",
+    cuando: "Presta transporte de carga por carretera con detracción (código 027): SUNAT exige en cada ítem el origen y destino con ubigeo, el detalle del viaje y los tres valores referenciales del D.S. 010-2006-MTC (campos 113–118); los tramos y vehículos son opcionales (119–127).",
+    request: `{
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  "tipo_operacion": "1004",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Flete Chimbote – Lima", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 2950.00, "tipo_afectacion_igv": "10",
+      "transporte": {
+        "origen":  { "ubigeo": "021801", "direccion": "Av. Los Pescadores 450, Chimbote" },
+        "destino": { "ubigeo": "150101", "direccion": "Jr. de la Unión 100, Lima" },
+        "detalle_viaje": "Traslado de 20 t de harina de pescado en camión furgón",
+        "valor_referencial": { "servicio": 2500.00, "carga_efectiva": 2400.00, "carga_util_nominal": 2600.00 },
+        "tramos": [
+          { "origen_ubigeo": "021801", "destino_ubigeo": "150101", "descripcion": "Chimbote – Lima por Panamericana Norte", "valor_carga_efectiva": 2400.00,
+            "vehiculos": [ { "configuracion": "T3S3", "carga_util_tm": 30, "carga_efectiva_tm": 20 } ] }
+        ]
+      } }
+  ],
+  "detraccion": { "codigo_bien_servicio": "027", "porcentaje": 4, "cuenta_banco_nacion": "00-000-123456" }
+}`,
+    notas: [
+      "Con `tipo_operacion` 1004 el `codigo_bien_servicio` debe ser `027` (3129) y **cada ítem** lleva `transporte` con `origen` y `destino` (`ubigeo` del catálogo 13 y `direccion` de 3–200 caracteres: 3116–3119), `detalle_viaje` (3–500: 3120) y `valor_referencial` con los tres montos en soles —`servicio` (01), `carga_efectiva` (02) y `carga_util_nominal` (03)—, que SUNAT exige exactamente una vez cada uno (3122–3126, 3208). Si falta alguno, `422 DETRACCION_INVALIDA` con la regla.",
+      "`tramos[]` y sus `vehiculos[]` son opcionales (solo observaciones 4200, 4270–4278): ubigeos de origen/destino del tramo, `descripcion` (3–100), `valor_carga_efectiva`, `valor_carga_util_nominal` (con más de un vehículo), y por vehículo `configuracion` (D.S. 058-2003-MTC, sin espacios), `carga_util_tm` y `carga_efectiva_tm`.",
+      "En el XML: `cac:Delivery` por línea con `DeliveryLocation` (destino), `Despatch` (detalle y origen), tres `DeliveryTerms` (01/02/03 en PEN) y `Shipment/Consignment` por tramo con `TransportHandlingUnit` por vehículo. `transporte` no se admite en otros tipos de operación.",
     ],
     disponible: true,
   },

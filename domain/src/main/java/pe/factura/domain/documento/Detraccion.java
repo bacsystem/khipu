@@ -5,6 +5,7 @@ import pe.factura.domain.catalogo.CatalogoSunat;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -72,6 +73,24 @@ public record Detraccion(String codigoBienServicio, BigDecimal porcentaje, BigDe
         String fijo = CODIGO_POR_OPERACION.get(tipoOperacion);
         if (fijo != null && !fijo.equals(codigoBienServicio))
             throw new DomainException("DETRACCION_INVALIDA", "3129 - El tipo de operación " + tipoOperacion + " exige el código de bien/servicio " + fijo);
+    }
+
+    /**
+     * Datos sectoriales por ítem (#69): 1002 exige {@code hidrobiologico} en cada línea (3063, 3130–3135) y 1004 {@code transporte}
+     * (3116–3126); fuera de esas operaciones no se admiten, porque SUNAT los valida solo ahí y sobrarían en el XML.
+     */
+    static void validarDatosSectoriales(String tipoOperacion, List<Item> items) {
+        boolean hidro = "1002".equals(tipoOperacion), transporte = "1004".equals(tipoOperacion);
+        for (Item i : items) {
+            if (hidro && !i.tieneHidrobiologico())
+                throw new DomainException("DETRACCION_INVALIDA", "3063 - La operación 1002 (recursos hidrobiológicos) exige en cada ítem hidrobiologico {matricula, nombre_embarcacion, especie, lugar_descarga, fecha_descarga, cantidad}; falta en «" + i.descripcion() + "»");
+            if (transporte && !i.tieneTransporte())
+                throw new DomainException("DETRACCION_INVALIDA", "3116 - La operación 1004 (transporte de carga) exige en cada ítem transporte {origen, destino, detalle_viaje, valor_referencial}; falta en «" + i.descripcion() + "»");
+            if (!hidro && i.tieneHidrobiologico())
+                throw new DomainException("DETRACCION_INVALIDA", "Los datos de recursos hidrobiológicos (hidrobiologico) solo aplican al tipo de operación 1002; recibido " + tipoOperacion);
+            if (!transporte && i.tieneTransporte())
+                throw new DomainException("DETRACCION_INVALIDA", "Los datos de transporte de carga (transporte) solo aplican al tipo de operación 1004; recibido " + tipoOperacion);
+        }
     }
 
     public String descripcionBienServicio() { return CatalogoSunat.descripcion("54", codigoBienServicio).orElse(""); }

@@ -82,6 +82,12 @@ class DetraccionTest {
 
     @Test void transporteDeCargaExigeCodigo027_3129() {
         rechaza(() -> factura("1004", new Detraccion("022", BigDecimal.TEN, BigDecimal.TEN, "cta", null)), "3129");
-        factura("1004", new Detraccion("027", new BigDecimal("4"), new BigDecimal("472.00"), "cta", null));
+        // Con el código correcto, la 1004 exige además los datos del transporte en cada ítem (#69, regla 3116)
+        rechaza(() -> factura("1004", new Detraccion("027", new BigDecimal("4"), new BigDecimal("472.00"), "cta", null)), "3116");
+        TransporteCarga flete = new TransporteCarga(new TransporteCarga.Punto("021801", "Av. Los Pescadores 450"), new TransporteCarga.Punto("150101", "Jr. de la Unión 100"),
+                "Traslado de carga", new TransporteCarga.ValorReferencial(new BigDecimal("2500"), new BigDecimal("2400"), new BigDecimal("2600")), null);
+        Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "1004", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("S", "Flete", "ZZ", BigDecimal.ONE, new BigDecimal("11800.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, flete)))
+                .detraccion(new Detraccion("027", new BigDecimal("4"), new BigDecimal("472.00"), "cta", null)).crear(CLOCK);
     }
 }

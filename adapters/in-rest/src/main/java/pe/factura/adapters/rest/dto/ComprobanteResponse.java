@@ -3,6 +3,8 @@ package pe.factura.adapters.rest.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import pe.factura.domain.documento.Anticipo;
 import pe.factura.domain.documento.Cargo;
+import pe.factura.domain.documento.Hidrobiologico;
+import pe.factura.domain.documento.TransporteCarga;
 import pe.factura.domain.documento.CargoCalculado;
 import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.documento.Comprobante;
@@ -193,7 +195,9 @@ public record ComprobanteResponse(
             @Schema(description = "ISC de la línea, si lo tiene") IscDto isc,
             @Schema(example = "0.00", description = "ICBPER de la línea (bolsas × monto vigente)") BigDecimal icbper,
             @Schema(example = "15101505", description = "Código de producto SUNAT (catálogo 25), o `null`") String codigoSunat,
-            @Schema(description = "GTIN del producto, o `null`") GtinDto gtin) {}
+            @Schema(description = "GTIN del producto, o `null`") GtinDto gtin,
+            @Schema(description = "Datos de recursos hidrobiológicos (solo con tipo de operación 1002), o `null`") Hidrobiologico hidrobiologico,
+            @Schema(description = "Datos del servicio de transporte de carga (solo con tipo de operación 1004), o `null`") TransporteCarga transporte) {}
 
     public record GtinDto(@Schema(example = "GTIN-13") String tipo, @Schema(example = "7750182000123") String codigo) {}
 
@@ -277,6 +281,7 @@ public record ComprobanteResponse(
                 : null;
         IscDto isc = ic.tieneIsc() ? new IscDto(i.isc().sistema(), ic.iscPorcentaje(), ic.isc(), ic.iscBase(), i.isc().basePvp()) : null;
         return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), ic.gratuita(), d, CargoDto.de(ic.cargos()), isc, ic.icbper(),
-                i.tieneCodigoSunat() ? i.codigoSunat().codigo() : null, i.gtin() == null ? null : new GtinDto(i.gtin().tipo(), i.gtin().codigo()));
+                i.tieneCodigoSunat() ? i.codigoSunat().codigo() : null, i.gtin() == null ? null : new GtinDto(i.gtin().tipo(), i.gtin().codigo()),
+                i.hidrobiologico(), i.transporte());
     }
 }
