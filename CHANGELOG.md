@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.24] - 2026-09-19
+
+### Added
+- Establecimientos anexos y serie por establecimiento (#80). `GET/POST/PUT/DELETE /v1/empresa/establecimientos`: sucursales, tiendas y almacenes declarados en la ficha RUC (código de 4 dígitos —regla 3030—, nombre y domicilio con las reglas 4093–4098; baja lógica, `409 ESTABLECIMIENTO_EN_USO` si tiene series activas). El domicilio fiscal sigue siendo el `0000` de datos fiscales y aparece en la lista como `principal`. `POST /v1/series` acepta `establecimiento` (por defecto `0000`; un anexo inexistente o dado de baja responde `422 ESTABLECIMIENTO_INVALIDO`) y `GET /v1/series` lo devuelve. Cada comprobante sale con el `cac:RegistrationAddress` y `AddressTypeCode` del establecimiento de su serie (también en el PDF); si el anexo está dado de baja la emisión se rechaza antes de consumir número. Migración V18. Portal: página **Establecimientos** (Configuración) con tabla, alta, edición y baja, selector de establecimiento al crear una serie y columna en la tabla de series; el selector de ubigeo en cascada pasa a un componente compartido. Homologación: escenario 24 (factura desde una serie del anexo 0002) aceptado por e-beta (24/24).
+
 ## [0.1.23] - 2026-09-19
 
 ### Added

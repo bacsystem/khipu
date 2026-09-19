@@ -4,6 +4,7 @@ import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.Serie;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface SerieRepository {
@@ -11,5 +12,6 @@ public interface SerieRepository {
     /** Eleva ultimo_numero hasta {@code numero} si es mayor (nunca lo reduce); bloqueo de fila; DomainException("SERIE_NO_CONFIGURADA"). */
     void avanzarHasta(UUID tenantId, TipoDocumento tipo, String serie, long numero);
     void crear(Serie s);
+    Optional<Serie> buscar(UUID tenantId, TipoDocumento tipo, String serie);
     List<Serie> listar(UUID tenantId);
 }

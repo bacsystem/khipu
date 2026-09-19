@@ -6,7 +6,10 @@ import pe.factura.application.port.out.ApiKeyRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.ApiKey;
+import pe.factura.domain.tenant.Domicilio;
 import pe.factura.domain.tenant.Entorno;
+import pe.factura.domain.tenant.Establecimiento;
+import pe.factura.domain.tenant.Serie;
 
 import java.util.*;
 
@@ -15,6 +18,7 @@ import static org.assertj.core.api.Assertions.*;
 class AdministrarTenantServiceTest {
     Fakes.Tenants tenants = new Fakes.Tenants();
     Fakes.Series series = new Fakes.Series();
+    Fakes.Establecimientos establecimientos = new Fakes.Establecimientos();
     Map<String, ApiKey> keys = new HashMap<>();
     ApiKeyRepository apiKeys = new ApiKeyRepository() {
         public void guardar(ApiKey k) { keys.put(k.hash(), k); }
@@ -22,7 +26,7 @@ class AdministrarTenantServiceTest {
         public Optional<ApiKey> buscar(UUID id) { return keys.values().stream().filter(k -> k.id().equals(id)).findFirst(); }
         public List<ApiKey> listarPorTenant(UUID tenantId) { return keys.values().stream().filter(k -> k.tenantId().equals(tenantId)).toList(); }
     };
-    AdministrarTenantService service = new AdministrarTenantService(tenants, series, apiKeys, Fakes.UOW, "pepper", Fakes.CLOCK);
+    AdministrarTenantService service = new AdministrarTenantService(tenants, series, apiKeys, Fakes.UOW, "pepper", Fakes.CLOCK, establecimientos);
 
     @Test void crearTenantDevuelveApiKeyUnaVez() {
         TenantCreado r = service.crearTenant("20100066603", "EMPRESA SAC", Entorno.BETA);
@@ -43,6 +47,29 @@ class AdministrarTenantServiceTest {
         service.crearSerie(id, TipoDocumento.FACTURA, "F001", 10);
         assertThat(series.siguienteNumero(id, TipoDocumento.FACTURA, "F001")).isEqualTo(11);
         assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.FACTURA, "B001", 0)).extracting("codigo").isEqualTo("SERIE_INVALIDA");
+    }
+
+    @Test void establecimientosAnexosYSeriesPorEstablecimiento() {
+        UUID id = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
+        Domicilio dom = Domicilio.de("150122", "Av. Larco 345");
+        // Serie en un anexo que no existe: se rechaza antes de crearla.
+        assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.FACTURA, "F002", 0, "0002")).extracting("codigo").isEqualTo("ESTABLECIMIENTO_INVALIDO");
+        Establecimiento e = service.guardarEstablecimiento(id, "0002", "Tienda Miraflores", dom);
+        assertThat(e.activo()).isTrue();
+        assertThat(service.listarEstablecimientos(id)).extracting(Establecimiento::codigo).containsExactly("0002");
+        service.crearSerie(id, TipoDocumento.FACTURA, "F002", 0, "0002");
+        service.crearSerie(id, TipoDocumento.FACTURA, "F001", 0, null);
+        assertThat(service.listarSeries(id)).extracting(Serie::codigo, Serie::establecimiento).containsExactlyInAnyOrder(tuple("F002", "0002"), tuple("F001", "0000"));
+        // El 0000 no se registra como anexo.
+        assertThatThrownBy(() -> service.guardarEstablecimiento(id, "0000", "Principal", dom)).hasMessageContaining("domicilio fiscal");
+        // Con una serie activa no se puede dar de baja; editar conserva el estado.
+        assertThatThrownBy(() -> service.desactivarEstablecimiento(id, "0002")).extracting("codigo").isEqualTo("ESTABLECIMIENTO_EN_USO");
+        assertThat(service.guardarEstablecimiento(id, "0002", "Tienda Larco", dom).nombre()).isEqualTo("Tienda Larco");
+        Establecimiento otro = service.guardarEstablecimiento(id, "0003", "Almacén", dom);
+        assertThat(service.desactivarEstablecimiento(id, "0003").activo()).isFalse();
+        assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.FACTURA, "F003", 0, "0003")).hasMessageContaining("dado de baja");
+        assertThatThrownBy(() -> service.desactivarEstablecimiento(id, "0009")).extracting("codigo").isEqualTo("NO_ENCONTRADO");
+        assertThat(otro.codigo()).isEqualTo("0003");
     }
 
     @Test void certificadoInvalidoFalla() {

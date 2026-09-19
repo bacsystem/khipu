@@ -6,6 +6,8 @@ export type Serie = {
   serie: string;
   ultimo_numero: number;
   activa: boolean;
+  /** Código del establecimiento desde el que emite (`0000` = domicilio fiscal); ausente en backends anteriores. */
+  establecimiento?: string;
 };
 
 export function listarSeries(access: string, empresaId: string) {

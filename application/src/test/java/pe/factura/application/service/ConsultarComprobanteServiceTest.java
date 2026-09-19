@@ -22,7 +22,7 @@ class ConsultarComprobanteServiceTest {
     private final Fakes.Storage storage = new Fakes.Storage();
     private final Fakes.Tenants tenants = new Fakes.Tenants();
     private final List<String> qrs = new ArrayList<>();
-    private final ConsultarComprobanteService service = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr, logo) -> { qrs.add(qr); return ("%PDF " + qr + (logo == null ? "" : " logo=" + logo.length)).getBytes(); });
+    private final ConsultarComprobanteService service = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr, logo) -> { qrs.add(qr); return ("%PDF " + qr + (logo == null ? "" : " logo=" + logo.length)).getBytes(); }, new Fakes.Series(), new Fakes.Establecimientos());
     private final UUID tenant = UUID.randomUUID();
 
     private static byte[] zip(String nombre, String contenido) throws Exception {

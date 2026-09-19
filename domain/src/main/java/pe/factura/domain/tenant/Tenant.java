@@ -53,5 +53,7 @@ public record Tenant(UUID id, String ruc, String razonSocial, Entorno entorno, C
     public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones) { return conDatosFiscales(d, cuentaDetracciones, nombreComercial); }
     public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones, String nombreComercial) { return conDatosFiscales(d, cuentaDetracciones, nombreComercial, padronTasaEspecialIgv); }
     public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, d, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv); }
+    /** Vista del emisor con el domicilio de un establecimiento anexo: lo que va en el XML y el PDF de una serie asignada a él. */
+    public Tenant conDomicilio(Domicilio d) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, d, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv); }
     public Tenant conPersonalizacionPdf(PersonalizacionPdf p) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, p, padronTasaEspecialIgv); }
 }

@@ -43,8 +43,16 @@ final class Fakes {
             if (!ultimo.containsKey(k)) throw new DomainException("SERIE_NO_CONFIGURADA", "Serie no configurada: " + serie);
             ultimo.merge(k, numero, Math::max);
         }
-        public void crear(Serie s) { ultimo.put(s.tenantId() + s.tipo().codigo() + s.codigo(), s.ultimoNumero()); }
-        public List<Serie> listar(UUID t) { return List.of(); }
+        final Map<String, Serie> series = new HashMap<>();
+        public void crear(Serie s) { ultimo.put(s.tenantId() + s.tipo().codigo() + s.codigo(), s.ultimoNumero()); series.put(s.tenantId() + s.tipo().codigo() + s.codigo(), s); }
+        public java.util.Optional<Serie> buscar(UUID t, TipoDocumento tipo, String serie) { return java.util.Optional.ofNullable(series.get(t + tipo.codigo() + serie)); }
+        public List<Serie> listar(UUID t) { return series.values().stream().filter(s -> s.tenantId().equals(t)).toList(); }
+    }
+    static final class Establecimientos implements pe.factura.application.port.out.EstablecimientoRepository {
+        final Map<String, pe.factura.domain.tenant.Establecimiento> datos = new HashMap<>();
+        public void guardar(pe.factura.domain.tenant.Establecimiento e) { datos.put(e.tenantId() + e.codigo(), e); }
+        public java.util.Optional<pe.factura.domain.tenant.Establecimiento> buscar(UUID t, String codigo) { return java.util.Optional.ofNullable(datos.get(t + codigo)); }
+        public List<pe.factura.domain.tenant.Establecimiento> listar(UUID t) { return datos.values().stream().filter(e -> e.tenantId().equals(t)).sorted(java.util.Comparator.comparing(pe.factura.domain.tenant.Establecimiento::codigo)).toList(); }
     }
     static final class Tenants implements TenantRepository {
         final Map<UUID, Tenant> datos = new HashMap<>();
@@ -92,7 +100,9 @@ final class Fakes {
     }
     /** UblGenerator de prueba: devuelve un XML mínimo con la raíz según el tipo. */
     static final class Ubl implements UblGenerator {
-        public String generar(Comprobante c, Tenant t) { return "<" + c.tipo() + ">" + c.nombreArchivo() + "</" + c.tipo() + ">"; }
+        /** Emisor con el que se generó el último XML: permite comprobar el domicilio del establecimiento de la serie (#80). */
+        Tenant ultimoEmisor;
+        public String generar(Comprobante c, Tenant t) { ultimoEmisor = t; return "<" + c.tipo() + ">" + c.nombreArchivo() + "</" + c.tipo() + ">"; }
         public String generarBaja(ComunicacionBaja b, Tenant t) { return "<VoidedDocuments>" + b.identificador() + "</VoidedDocuments>"; }
     }
     static final class Cdrs implements CdrParser {
