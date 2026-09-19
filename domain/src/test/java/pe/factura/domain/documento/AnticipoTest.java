@@ -108,7 +108,7 @@ class AnticipoTest {
         assertThat(new Anticipo("F001", 1, new BigDecimal("100.00"), Anticipo.Afectacion.EXONERADO, null).importePagado()).isEqualByComparingTo("100.00");
 
         assertThatThrownBy(() -> Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 15), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null), List.of(item("1180.00", TipoAfectacionIgv.GRAVADO)),
+                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(item("1180.00", TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, null, null, null, List.of(gravado("100.00"), gravado("200.00")), CLOCK))
                 .isInstanceOf(DomainException.class).hasMessageContaining("3215");
     }
@@ -116,7 +116,7 @@ class AnticipoTest {
     @Test void laFormaDePagoAlCreditoSeValidaContraElSaldoTrasAnticipos() {
         // 1180 − 354 = 826 pendiente: las cuotas deben sumar el saldo, no el precio de venta bruto
         Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 15), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null), List.of(item("1180.00", TipoAfectacionIgv.GRAVADO)),
+                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(item("1180.00", TipoAfectacionIgv.GRAVADO)),
                 FormaPago.credito(new BigDecimal("826.00"), List.of(new FormaPago.Cuota(new BigDecimal("826.00"), LocalDate.of(2026, 10, 15)))),
                 null, null, null, null, List.of(gravado("300.00")), CLOCK);
         assertThat(c.totales().total()).isEqualByComparingTo("826.00");

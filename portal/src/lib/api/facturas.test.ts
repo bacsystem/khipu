@@ -32,10 +32,10 @@ describe("normalizarComprobante", () => {
     const c = normalizarComprobante({
       ...base,
       items: [{ codigo: "A", descripcion: "d", unidad: "ZZ", cantidad: 1, precio_unitario: 2, tipo_afectacion_igv: "10" }],
-      receptor: { tipo_doc: "6", num_doc: "20123456789", razon_social: "X", direccion: null },
+      receptor: { tipo_doc: "6", num_doc: "20123456786", razon_social: "X", direccion: null },
     });
     expect(c.items).toHaveLength(1);
-    expect(c.receptor?.num_doc).toBe("20123456789");
+    expect(c.receptor?.num_doc).toBe("20123456786");
   });
 });
 

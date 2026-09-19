@@ -30,7 +30,7 @@ class FlyingSaucerPdfGeneratorTest {
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
     static final Tenant TENANT = new Tenant(UUID.randomUUID(), "20100066603", "EMPRESA DE PRUEBA S.A.C.", Entorno.BETA, null, null,
             new Domicilio("150101", "Av. Javier Prado Este 123", "San Borja Norte", null, null, null, null), null, "Andina Store");
-    static final Receptor RECEPTOR = new Receptor("6", "20601234567", "CLIENTE S.A.C.", "AV. LIMA 1");
+    static final Receptor RECEPTOR = new Receptor("6", "20601234565", "CLIENTE S.A.C.", "AV. LIMA 1");
     final FlyingSaucerPdfGenerator generador = new FlyingSaucerPdfGenerator();
 
     static Comprobante factura() {
@@ -57,7 +57,7 @@ class FlyingSaucerPdfGeneratorTest {
         String html = generador.xhtml(factura(), TENANT, "qr", null);
         assertThat(html).startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
                 .contains("FACTURA ELECTRÓNICA", "R.U.C. 20100066603", "F001-125", "EMPRESA DE PRUEBA S.A.C.", "Andina Store", "Av. Javier Prado Este 123, San Borja Norte")
-                .contains("CLIENTE S.A.C.", "20601234567", "13/09/2026", "13/10/2026", "Laptop Lenovo ThinkPad", "Libro técnico")
+                .contains("CLIENTE S.A.C.", "20601234565", "13/09/2026", "13/10/2026", "Laptop Lenovo ThinkPad", "Libro técnico")
                 .contains("Op. gravadas", "PEN 2,000.00", "Op. exoneradas", "PEN 50.00", "IGV (18%)", "PEN 360.00", "Importe total", "PEN 2,410.00")
                 .contains("DOS MIL CUATROCIENTOS DIEZ CON 00/100 SOLES", "Crédito (pendiente PEN 2,410.00)", "Cuota 1", "detracción", "00-000-123456")
                 .contains("y4M8+jW8Xp278K1aM02q19KjvO3k=", "Representación impresa de la FACTURA ELECTRÓNICA")
@@ -70,7 +70,7 @@ class FlyingSaucerPdfGeneratorTest {
     }
 
     @Test void generaUnPdfConElQrLegible() throws Exception {
-        String contenido = "20100066603|01|F001|125|360.00|2410.00|2026-09-13|6|20601234567|y4M8+jW8Xp278K1aM02q19KjvO3k=|";
+        String contenido = "20100066603|01|F001|125|360.00|2410.00|2026-09-13|6|20601234565|y4M8+jW8Xp278K1aM02q19KjvO3k=|";
         byte[] pdf = generador.generar(factura(), TENANT, contenido, null);
         assertThat(new String(pdf, 0, 5)).isEqualTo("%PDF-");
         // Flying Saucer no falla si no resuelve el data: URI de la imagen: comprobamos que el XObject del QR (220 px) quedó dentro del PDF.
@@ -125,7 +125,7 @@ class FlyingSaucerPdfGeneratorTest {
         assertThat(generador.xhtml(conObs, t, "qr", PNG_1PX)).contains("<p>Entrega en almacén.\nHorario 9-18.</p>").doesNotContain("Obs por defecto");
 
         // El QR (220 px) y el logo (1 px) quedan incrustados: Flying Saucer omite el logo si no lleva tamaño explícito, ver tamañoLogo.
-        byte[] pdf = generador.generar(conObs, t, "20100066603|01|F001|125|360.00|2410.00|2026-09-13|6|20601234567|hash|", PNG_1PX);
+        byte[] pdf = generador.generar(conObs, t, "20100066603|01|F001|125|360.00|2410.00|2026-09-13|6|20601234565|hash|", PNG_1PX);
         assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).contains("/Width " + FlyingSaucerPdfGenerator.QR_PX).contains("/Width 1/");
     }
 

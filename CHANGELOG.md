@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.26] - 2026-09-19
+
+### Added
+- Validaciones SUNAT locales antes de numerar (#35). Lo que SUNAT rechazaría con el número ya consumido se ataja en `422` con el código SUNAT: RUC del receptor con dígito verificador y prefijo 10/15/16/17/20 (2017) y razón social de 3 a 1500 caracteres (2021/2022) en facturas y notas; por ítem, descripción obligatoria de hasta 500 caracteres (2026/2027), unidad con formato del catálogo 03 (2883), cantidad mayor que cero con hasta 12 enteros y 10 decimales (2024/2025), precio no negativo y código interno de hasta 30 caracteres. El RUC de la empresa se comprueba con dígito verificador al crearla (`422 RUC_INVALIDO`, API y portal). Los comprobantes ya emitidos no se revalidan al leerse. Los catálogos 01–60 ya venían como recurso versionado (`domain/resources/catalogos`); la unidad de medida se valida por formato porque el catálogo 03 remite a UN/ECE rec 20 completo. `k6/preparar-tenant.sh` genera RUC con dígito válido; los RUC de ejemplo de tests, mocks y guía pasan a ser válidos (20601234565, 20123456786).
+
 ## [0.1.25] - 2026-09-19
 
 ### Added

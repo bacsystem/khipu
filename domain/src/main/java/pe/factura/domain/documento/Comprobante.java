@@ -134,7 +134,8 @@ public class Comprobante {
         if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
             throw new DomainException("FECHA_INVALIDA", "La fecha de vencimiento no puede ser anterior a la de emisión");
         if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
-        if (receptor == null || !receptor.esRuc()) throw new DomainException("RECEPTOR_INVALIDO", "La factura requiere un receptor con RUC válido");
+        if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor con RUC");
+        receptor.exigirValidoParaFactura();
         if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
         if (formaPago == null) throw new DomainException("FORMA_PAGO_INVALIDA", "3244 - Debe consignar la forma de pago (contado o crédito)");
         String operacion = tipoOperacion == null ? "0101" : tipoOperacion;
@@ -175,7 +176,8 @@ public class Comprobante {
         exigirDentroDelPlazoDeEnvio(tipo, fechaEmision, clock);
         boolean nc13 = nota.corrigeCuotas(tipo);
         if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
-        if (receptor == null || !receptor.esRuc()) throw new DomainException("RECEPTOR_INVALIDO", "La nota sobre una factura requiere un receptor con RUC válido");
+        if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La nota sobre una factura requiere un receptor con RUC");
+        receptor.exigirValidoParaFactura();
         if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
         nota.validarMotivoPara(tipo);
         if (nc13 && (formaPago == null || !formaPago.esCredito()))

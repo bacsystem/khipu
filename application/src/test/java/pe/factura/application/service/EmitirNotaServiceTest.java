@@ -54,7 +54,7 @@ class EmitirNotaServiceTest {
     /** Factura de 2 laptops (200 + 36) y un libro exonerado (50), descuento global 03 de 10: total 276.00. */
     private Comprobante facturaAceptada(FormaPago fp) {
         return service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
                         new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)),
                 fp, Descuento.monto(new BigDecimal("10.00"), false), List.of(), null, null, null, List.of(), null, null, true));
@@ -161,7 +161,7 @@ class EmitirNotaServiceTest {
     @Test void laNotaHeredaLaTasaDeIgvDeLaFactura() {
         tenants.guardar(Fakes.tenantListo(tenantId).conDatosFiscales(null, null, null, true));
         Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Menú", "NIU", BigDecimal.ONE, new BigDecimal("110.50"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
         assertThat(f.tasaIgv()).isEqualByComparingTo("10.50");
@@ -221,7 +221,7 @@ class EmitirNotaServiceTest {
         // Factura de anticipo aceptada y factura final que la regulariza por completo: total neto 0.
         Comprobante anticipo = facturaAceptada(FormaPago.contado());
         Comprobante finalConAnticipo = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", anticipo.numero(), new BigDecimal("200.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1))), null, null, true));
         assertThat(finalConAnticipo.totales().total()).isEqualByComparingTo("0.00");

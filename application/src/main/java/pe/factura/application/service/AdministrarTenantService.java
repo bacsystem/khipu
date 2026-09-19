@@ -31,6 +31,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
 
 
     public TenantCreado crearTenant(String ruc, String razonSocial, Entorno entorno) {
+        Ruc.exigirValido(ruc, "RUC_INVALIDO", "Empresa");
         if (tenants.buscarPorRuc(ruc).isPresent()) throw new DomainException("DUPLICADO", "Ya existe un tenant con RUC " + ruc);
         Tenant t = new Tenant(UUID.randomUUID(), ruc, razonSocial, entorno, null, null);
         String key = ApiKeyGenerator.generar();

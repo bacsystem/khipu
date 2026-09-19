@@ -20,7 +20,7 @@ class FreemarkerUblGeneratorTest {
     }
     static Comprobante factura() {
         Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE & CIA S.A.C.", "AV. LIMA 123"),
+                new Receptor("6", "20601234565", "CLIENTE & CIA S.A.C.", "AV. LIMA 123"),
                 List.of(new Item("P001", "Laptop <15\">", "NIU", BigDecimal.ONE, new BigDecimal("2360.00"), TipoAfectacionIgv.GRAVADO),
                         new Item("P002", "Libro", "NIU", new BigDecimal("2"), new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)), CLOCK);
         c.asignarNumero(1, "20100066603");
@@ -37,7 +37,7 @@ class FreemarkerUblGeneratorTest {
                 .contains("<cbc:InvoiceTypeCode listID=\"0101\"")
                 .contains("<cbc:Note languageLocaleID=\"1000\">DOS MIL CUATROCIENTOS SESENTA CON 00/100 SOLES</cbc:Note>")
                 .contains("schemeURI=\"urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06\">20100066603</cbc:ID>")
-                .contains("schemeURI=\"urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06\">20601234567</cbc:ID>")
+                .contains("schemeURI=\"urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06\">20601234565</cbc:ID>")
                 .contains("CLIENTE &amp; CIA S.A.C.")
                 .contains("Laptop &lt;15&quot;&gt;")
                 .contains("<cbc:TaxableAmount currencyID=\"PEN\">2000.00</cbc:TaxableAmount>")

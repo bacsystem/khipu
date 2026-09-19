@@ -24,7 +24,7 @@ class FormaPagoTest {
     /** Factura de 118.00 (100 + IGV) con la forma de pago dada. */
     static Comprobante factura(FormaPago fp) {
         return Comprobante.crearFactura(UUID.randomUUID(), "F001", EMISION, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), fp, CLOCK);
     }
 
@@ -36,7 +36,7 @@ class FormaPagoTest {
 
     @Test void contadoPorDefecto() {
         Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", EMISION, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), CLOCK);
         assertThat(c.formaPago()).isEqualTo(FormaPago.contado());
         assertThat(c.formaPago().esCredito()).isFalse();
