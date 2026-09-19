@@ -92,9 +92,56 @@ class EmpresaControllerTest {
         when(admin.listarSeries(tenant)).thenReturn(List.of(new Serie(tenant, TipoDocumento.FACTURA, "F001", 0, true)));
         mvc.perform(post("/v1/series").contentType("application/json").content("{\"tipo\":\"01\",\"serie\":\"F001\",\"correlativo_inicial\":0}").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isCreated());
-        verify(admin).crearSerie(tenant, TipoDocumento.FACTURA, "F001", 0);
+        verify(admin).crearSerie(tenant, TipoDocumento.FACTURA, "F001", 0, null);
         mvc.perform(get("/v1/series").requestAttr(TenantActual.ATRIBUTO, tenant))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.datos[0].serie").value("F001")).andExpect(jsonPath("$.datos[0].tipo").value("01"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.datos[0].serie").value("F001")).andExpect(jsonPath("$.datos[0].tipo").value("01"))
+                .andExpect(jsonPath("$.datos[0].establecimiento").value("0000"));
+        // Serie asignada a un anexo (#80).
+        mvc.perform(post("/v1/series").contentType("application/json").content("{\"tipo\":\"01\",\"serie\":\"F002\",\"establecimiento\":\"0002\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isCreated());
+        verify(admin).crearSerie(tenant, TipoDocumento.FACTURA, "F002", 0, "0002");
+    }
+
+    @Test void establecimientosAnexos() throws Exception {
+        Domicilio fiscal = Domicilio.de("150101", "Av. Lima 123");
+        Domicilio larco = Domicilio.de("150122", "Av. Larco 345");
+        Establecimiento tienda = new Establecimiento(tenant, "0002", "Tienda Miraflores", larco, true);
+        when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null).conDatosFiscales(fiscal, null, null));
+        when(admin.listarEstablecimientos(tenant)).thenReturn(List.of(tienda, tienda.desactivar().con("Cerrada", larco, false)));
+        // La lista arranca con el 0000 (domicilio fiscal, principal) y sigue con los anexos.
+        mvc.perform(get("/v1/empresa/establecimientos").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos[0].codigo").value("0000")).andExpect(jsonPath("$.datos[0].principal").value(true))
+                .andExpect(jsonPath("$.datos[0].domicilio.direccion").value("Av. Lima 123"))
+                .andExpect(jsonPath("$.datos[1].codigo").value("0002")).andExpect(jsonPath("$.datos[1].nombre").value("Tienda Miraflores"))
+                .andExpect(jsonPath("$.datos[1].domicilio.distrito").value("MIRAFLORES")).andExpect(jsonPath("$.datos[1].activo").value(true))
+                .andExpect(jsonPath("$.datos[2].activo").value(false));
+
+        when(admin.guardarEstablecimiento(eq(tenant), eq("0002"), eq("Tienda Miraflores"), any())).thenReturn(tienda);
+        mvc.perform(post("/v1/empresa/establecimientos").contentType("application/json").requestAttr(TenantActual.ATRIBUTO, tenant)
+                        .content("{\"codigo\":\"0002\",\"nombre\":\"Tienda Miraflores\",\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"Av. Larco 345\"}}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.datos.codigo").value("0002")).andExpect(jsonPath("$.datos.principal").value(false));
+        verify(admin).guardarEstablecimiento(eq(tenant), eq("0002"), eq("Tienda Miraflores"), argThat(d -> d.ubigeo().equals("150122")));
+
+        // Código de 4 dígitos (3030) y domicilio obligatorios.
+        mvc.perform(post("/v1/empresa/establecimientos").contentType("application/json").requestAttr(TenantActual.ATRIBUTO, tenant)
+                        .content("{\"codigo\":\"2\",\"nombre\":\"X\",\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"Av. Larco 345\"}}"))
+                .andExpect(status().isUnprocessableEntity());
+        mvc.perform(post("/v1/empresa/establecimientos").contentType("application/json").requestAttr(TenantActual.ATRIBUTO, tenant)
+                        .content("{\"codigo\":\"0003\",\"nombre\":\"X\"}"))
+                .andExpect(status().isUnprocessableEntity());
+
+        // PUT: el código de la ruta manda; baja lógica con 204; el 0000 no se toca; en uso → 409.
+        mvc.perform(put("/v1/empresa/establecimientos/0002").contentType("application/json").requestAttr(TenantActual.ATRIBUTO, tenant)
+                        .content("{\"codigo\":\"0009\",\"nombre\":\"X\",\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"Av. Larco 345\"}}"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("ESTABLECIMIENTO_INVALIDO"));
+        when(admin.desactivarEstablecimiento(tenant, "0002")).thenReturn(tienda.desactivar());
+        mvc.perform(delete("/v1/empresa/establecimientos/0002").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isNoContent());
+        mvc.perform(delete("/v1/empresa/establecimientos/0000").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("domicilio fiscal")));
+        when(admin.desactivarEstablecimiento(tenant, "0003")).thenThrow(new DomainException("ESTABLECIMIENTO_EN_USO", "tiene series activas (F003)"));
+        mvc.perform(delete("/v1/empresa/establecimientos/0003").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("ESTABLECIMIENTO_EN_USO"));
     }
 
     @Test void crearApiKey() throws Exception {
