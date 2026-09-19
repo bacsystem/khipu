@@ -177,6 +177,7 @@ public class AppConfig {
     @Bean TenantRepository tenantRepository(JdbcTemplate jdbc, SecretCipher c) { return new JdbcTenantRepository(jdbc, c); }
     @Bean ApiKeyRepository apiKeyRepository(JdbcTemplate jdbc) { return new JdbcApiKeyRepository(jdbc); }
     @Bean SerieRepository serieRepository(JdbcTemplate jdbc) { return new JdbcSerieRepository(jdbc); }
+    @Bean EstablecimientoRepository establecimientoRepository(JdbcTemplate jdbc) { return new JdbcEstablecimientoRepository(jdbc); }
     @Bean ComprobanteRepository comprobanteRepository(JdbcTemplate jdbc) { return new JdbcComprobanteRepository(jdbc); }
     @Bean BajaRepository bajaRepository(JdbcTemplate jdbc) { return new JdbcBajaRepository(jdbc); }
     @Bean OutboxRepository outboxRepository(JdbcTemplate jdbc) { return new JdbcOutboxRepository(jdbc); }
@@ -198,19 +199,19 @@ public class AppConfig {
         return new EnviarDocumentoService(c, t, s, g, p, o, u, clock);
     }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
-                                                    UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock) {
-        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock);
+                                                    UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock, EstablecimientoRepository est) {
+        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, est);
     }
     @Bean PdfGenerator pdfGenerator() { return new FlyingSaucerPdfGenerator(); }
     @Bean PersonalizarPdfUseCase personalizarPdf(TenantRepository t, DocumentStorage s, PdfGenerator pdf, Clock clock) { return new PersonalizarPdfService(t, s, pdf, clock); }
-    @Bean ConsultarComprobanteUseCase consultarComprobante(ComprobanteRepository c, TenantRepository t, DocumentStorage s, PdfGenerator pdf) {
-        return new ConsultarComprobanteService(c, t, s, pdf);
+    @Bean ConsultarComprobanteUseCase consultarComprobante(ComprobanteRepository c, TenantRepository t, DocumentStorage s, PdfGenerator pdf, SerieRepository se, EstablecimientoRepository est) {
+        return new ConsultarComprobanteService(c, t, s, pdf, se, est);
     }
     @Bean CompartirComprobanteUseCase compartirComprobante(ConsultarComprobanteUseCase consultar, TenantRepository t, CorreoSender correo) {
         return new CompartirComprobanteService(consultar, t, correo);
     }
-    @Bean AdministrarTenantUseCase administrarTenant(TenantRepository t, SerieRepository s, ApiKeyRepository k, UnitOfWork u, AppProperties p, Clock clock) {
-        return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock);
+    @Bean AdministrarTenantUseCase administrarTenant(TenantRepository t, SerieRepository s, ApiKeyRepository k, UnitOfWork u, AppProperties p, Clock clock, EstablecimientoRepository est) {
+        return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock, est);
     }
 
     @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }

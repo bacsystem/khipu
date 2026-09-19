@@ -468,6 +468,13 @@ class AtributosSunatFacturaTest {
         assertThat(valor(d, dir + "/cac:AddressLine/cbc:Line")).isEqualTo("Av. Larco 345 Of. 12");   // 4094
         assertThat(valor(d, dir + "/cac:Country/cbc:IdentificationCode")).isEqualTo("PE"); // 4041
 
+        // Serie asignada a un anexo (#80): el servicio pasa el emisor con el domicilio del establecimiento y el XML lleva su código.
+        Tenant anexo = t.conDomicilio(new Domicilio("150131", "Av. Angamos 500", null, null, null, null, "0002"));
+        Document da = f.newDocumentBuilder().parse(new InputSource(new StringReader(new FreemarkerUblGenerator().generar(facturaConTresAfectaciones(), anexo))));
+        assertThat(valor(da, dir + "/cbc:AddressTypeCode")).isEqualTo("0002");
+        assertThat(valor(da, dir + "/cbc:ID")).isEqualTo("150131");
+        assertThat(valor(da, dir + "/cac:AddressLine/cbc:Line")).isEqualTo("Av. Angamos 500");
+
         // Sin domicilio configurado solo va el establecimiento (obligatorio, 3030).
         Document sin = documento();
         assertThat(valor(sin, dir + "/cbc:AddressTypeCode")).isEqualTo("0000");
