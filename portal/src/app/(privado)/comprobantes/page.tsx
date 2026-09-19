@@ -1,19 +1,22 @@
 import Link from "next/link";
 import { ComprobantesTable } from "@/components/comprobantes/comprobantes-table";
 import { porPaginaValido } from "@/lib/paginacion";
-import { listarFacturas } from "@/lib/api/facturas";
+import { filtrosDesdeParams, listarFacturas } from "@/lib/api/facturas";
+import { listarSeries } from "@/lib/api/series";
 import { getServerSession } from "@/lib/session-server";
 import { Metrica } from "@/components/ui/metrica";
 
 export default async function ComprobantesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pagina?: string; por_pagina?: string }>;
+  searchParams: Promise<{ pagina?: string; por_pagina?: string; estado?: string; desde?: string; hasta?: string; serie?: string }>;
 }) {
-  const { pagina, por_pagina } = await searchParams;
+  const { pagina, por_pagina, ...resto } = await searchParams;
   const { access, empresaId } = await getServerSession();
   const paginaNum = Number(pagina ?? 1) || 1;
   const porPagina = porPaginaValido(por_pagina);
+  // Los filtros viven en la URL (compartible) y se aplican ya en el render del servidor (#6).
+  const filtros = filtrosDesdeParams(resto);
 
   if (!access || !empresaId) {
     return (
@@ -26,7 +29,10 @@ export default async function ComprobantesPage({
     );
   }
 
-  const { datos, total } = await listarFacturas(access, empresaId, { pagina: paginaNum, porPagina });
+  const [{ datos, total }, series] = await Promise.all([
+    listarFacturas(access, empresaId, { ...filtros, pagina: paginaNum, porPagina }),
+    listarSeries(access, empresaId).catch(() => []),
+  ]);
 
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
@@ -40,7 +46,7 @@ export default async function ComprobantesPage({
         <Metrica etiqueta="Atención requerida" ayuda="requiere endpoint de resumen" pendiente />
       </section>
 
-      <ComprobantesTable inicial={{ datos, total }} pagina={paginaNum} porPagina={porPagina} />
+      <ComprobantesTable inicial={{ datos, total }} pagina={paginaNum} porPagina={porPagina} filtros={filtros} series={series.map((s) => s.serie)} />
     </div>
   );
 }

@@ -68,3 +68,27 @@ describe("admiteBaja", () => {
     expect(admiteBaja({ ...aceptada, baja: bajaEn("RECHAZADA") }, hoy)).toBe(true);
   });
 });
+
+describe("filtros del listado (#6)", async () => {
+  const { filtrosDesdeParams, paramsDeFiltros } = await import("./facturas");
+
+  it("acepta solo lo que la API aceptaría y normaliza la serie", () => {
+    expect(filtrosDesdeParams({ estado: "ACEPTADO", desde: "2026-09-01", hasta: "2026-09-13", serie: "f001" })).toEqual({
+      estado: "ACEPTADO",
+      desde: "2026-09-01",
+      hasta: "2026-09-13",
+      serie: "F001",
+    });
+    expect(filtrosDesdeParams({ estado: "OTRO", desde: "13/09/2026", hasta: "", serie: "F0001" })).toEqual({});
+    expect(filtrosDesdeParams({})).toEqual({});
+  });
+
+  it("descarta hasta si es anterior a desde para no pedir un rango inválido", () => {
+    expect(filtrosDesdeParams({ desde: "2026-09-13", hasta: "2026-09-01" })).toEqual({ desde: "2026-09-13" });
+  });
+
+  it("serializa los filtros como query string de la API", () => {
+    expect(paramsDeFiltros({ estado: "ERROR_ENVIO", serie: "F001" }).toString()).toBe("estado=ERROR_ENVIO&serie=F001");
+    expect(paramsDeFiltros({}).toString()).toBe("");
+  });
+});

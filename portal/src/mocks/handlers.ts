@@ -326,8 +326,15 @@ export const handlers = [
     const empresaId = request.headers.get("x-empresa") ?? "";
     const url = new URL(request.url);
     const estado = url.searchParams.get("estado");
+    const desde = url.searchParams.get("desde");
+    const hasta = url.searchParams.get("hasta");
+    const serie = url.searchParams.get("serie")?.toUpperCase();
+    if (desde && hasta && desde > hasta) return fail(400, "RANGO_INVALIDO", `desde (${desde}) no puede ser posterior a hasta (${hasta})`);
     let lista = db.facturasPorEmpresa.get(empresaId) ?? [];
     if (estado) lista = lista.filter((f) => f.estado_documento === estado);
+    if (desde) lista = lista.filter((f) => f.fecha_emision >= desde);
+    if (hasta) lista = lista.filter((f) => f.fecha_emision <= hasta);
+    if (serie) lista = lista.filter((f) => f.serie === serie);
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1));
     const porPagina = Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20));
     const total = lista.length;
