@@ -32,6 +32,16 @@ class FileSystemDocumentStorageTest {
     @Test void leerInexistenteLanza() {
         assertThatThrownBy(() -> new FileSystemDocumentStorage(dir).leer("no/existe")).isInstanceOf(IllegalStateException.class);
     }
+    /** Escritura atómica (#38): tras guardar no queda ningún temporal en el directorio y el contenido se reemplaza entero. */
+    @Test void escribeDeFormaAtomicaSinDejarTemporales() throws Exception {
+        var s = new FileSystemDocumentStorage(dir);
+        s.guardar("t1/2026/09/a.xml", "<a/>".getBytes());
+        s.guardar("t1/2026/09/a.xml", "<aa/>".getBytes());
+        assertThat(new String(s.leer("t1/2026/09/a.xml"))).isEqualTo("<aa/>");
+        try (var files = Files.list(dir.resolve("t1/2026/09"))) {
+            assertThat(files.map(p -> p.getFileName().toString())).containsExactly("a.xml");
+        }
+    }
     @Test void rechazaPathTraversal() {
         var s = new FileSystemDocumentStorage(dir);
         assertThatThrownBy(() -> s.guardar("../fuera.xml", new byte[0])).isInstanceOf(IllegalArgumentException.class);

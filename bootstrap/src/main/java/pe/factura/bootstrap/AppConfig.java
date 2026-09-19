@@ -34,6 +34,8 @@ import pe.factura.adapters.scheduler.OutboxWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
 import pe.factura.adapters.storage.FileSystemDocumentStorage;
+import pe.factura.adapters.storage.S3DocumentStorage;
+import pe.factura.adapters.scheduler.IntegridadWorker;
 import pe.factura.adapters.sunat.SoapBillingGateway;
 import pe.factura.adapters.sunat.SunatUrls;
 import pe.factura.adapters.sunat.SoapConsultaGateway;
@@ -188,7 +190,17 @@ public class AppConfig {
     @Bean UsuarioRepository usuarioRepository(JdbcTemplate jdbc) { return new JdbcUsuarioRepository(jdbc); }
     @Bean SesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
 
-    @Bean DocumentStorage documentStorage(AppProperties p) { return new FileSystemDocumentStorage(Path.of(p.storage().fsRoot())); }
+    @Bean DocumentStorage documentStorage(AppProperties p) {
+        AppProperties.Storage st = p.storage();
+        if ("s3".equalsIgnoreCase(st.type())) {
+            AppProperties.Storage.S3 s3 = st.s3();
+            return S3DocumentStorage.crear(s3.endpoint(), s3.region(), s3.accessKey(), s3.secretKey(), s3.bucket(), s3.pathStyle());
+        }
+        if (!"fs".equalsIgnoreCase(st.type())) throw new IllegalStateException("STORAGE_TYPE debe ser fs o s3, no " + st.type());
+        return new FileSystemDocumentStorage(Path.of(st.fsRoot()));
+    }
+    @Bean VerificarIntegridadUseCase verificarIntegridad(ComprobanteRepository c, DocumentStorage s) { return new VerificarIntegridadService(c, s); }
+    @Bean IntegridadWorker integridadWorker(VerificarIntegridadUseCase v, Clock clock, AppProperties p) { return new IntegridadWorker(v, clock, p.integridad() == null ? 7 : p.integridad().dias()); }
     @Bean UblGenerator ublGenerator() { return new FreemarkerUblGenerator(); }
     @Bean XsdValidator xsdValidator() { return new JaxpXsdValidator(); }
     @Bean XmlSigner xmlSigner() { return new XmlDsigSigner(); }

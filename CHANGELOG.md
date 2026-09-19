@@ -2,6 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.34] - 2026-09-19
+
+### Added
+- Storage durable para XML y CDR (#38): `STORAGE_TYPE=s3` con `S3DocumentStorage` (AWS SDK v2) para S3 o compatibles —MinIO, Backblaze B2, Cloudflare R2— configurado con `STORAGE_S3_BUCKET`, `STORAGE_S3_REGION`, `STORAGE_S3_ENDPOINT`, `STORAGE_S3_ACCESS_KEY`/`SECRET_KEY` y `STORAGE_S3_PATH_STYLE`; cada objeto se sube con checksum SHA-256 verificado por el servidor y las claves son las mismas que en disco (`{tenant}/{yyyy}/{MM}/{nombre}`), así migrar es copiar el árbol. Verificación periódica de integridad: `IntegridadWorker` diario (`INTEGRIDAD_INTERVALO_MS`, ventana `INTEGRIDAD_DIAS`=7) y `POST /v1/admin/integridad?desde&hasta` (`X-Platform-Key`) comprueban que cada comprobante firmado tenga su XML con el `DigestValue` con el que se firmó y su CDR si SUNAT lo emitió, e informan `XML_FALTANTE`/`XML_CORRUPTO`/`CDR_FALTANTE`/`STORAGE_INACCESIBLE` (solo lectura). README §Storage con la política de retención recomendada (versionado + Object Lock ≥ 5 años + réplica) y la guía de migración desde disco; `docker compose --profile s3` levanta MinIO con el bucket `khipu` versionado. Tests: contrato del adaptador S3 contra MinIO (Testcontainers) y el e2e completo de emisión/descarga (`FacturaS3E2ETest`) corriendo sobre S3 además de disco.
+
+### Changed
+- `FileSystemDocumentStorage` escribe de forma atómica (temporal + rename): un corte a mitad de escritura no deja un XML truncado con el nombre definitivo.
+- Un query param obligatorio ausente responde `400 PARAMETRO_INVALIDO` en vez de `500`.
+
 ## [0.1.33] - 2026-09-19
 
 ### Added

@@ -31,6 +31,7 @@ final class Fakes {
         public List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fecha) {
             return datos.values().stream().filter(c -> c.estado().esEnviable() && !c.fechaEmision().isAfter(fecha)).toList();
         }
+        public List<Comprobante> firmadosEmitidosEntre(java.time.LocalDate desde, java.time.LocalDate hasta) { return datos.values().stream().filter(c -> c.xmlKey() != null && !c.fechaEmision().isBefore(desde) && !c.fechaEmision().isAfter(hasta)).toList(); }
         public List<Comprobante> pendientesDeCdr() { return datos.values().stream().filter(c -> c.xmlKey() != null && c.cdrKey() == null && c.estado() != EstadoDocumento.FIRMADO && c.estado() != EstadoDocumento.FUERA_DE_PLAZO && c.estado() != EstadoDocumento.INVALIDO && c.estado() != EstadoDocumento.RECIBIDO).toList(); }
         public List<Comprobante> listar(UUID t, EstadoDocumento e, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
         public long contar(UUID t, EstadoDocumento e) { return listar(t, e, 1, Integer.MAX_VALUE).size(); }
@@ -68,7 +69,7 @@ final class Fakes {
         public void asignarCuenta(UUID t, UUID c) { cuentas.put(t, c); }
         public Optional<UUID> cuentaDe(UUID t) { return Optional.ofNullable(cuentas.get(t)); }
     }
-    static final class Storage implements DocumentStorage {
+    static class Storage implements DocumentStorage {
         final Map<String, byte[]> datos = new HashMap<>();
         public void guardar(String k, byte[] c) { datos.put(k, c); }
         public byte[] leer(String k) { byte[] b = datos.get(k); if (b == null) throw new IllegalStateException("no existe " + k); return b; }

@@ -37,6 +37,45 @@ set -a; source .env; set +a
 si cambia, esos secretos dejan de poder descifrarse y cada tenant tendría que volver a cargarlos.
 Respáldala junto con la base de datos. Lo mismo aplica a `API_KEY_PEPPER`: rotarlo invalida todas las API keys emitidas.
 
+## Storage de XML y CDR (conservación)
+
+SUNAT obliga a conservar los XML firmados y sus CDR durante el plazo de prescripción y a entregarlos al adquirente cuando
+los pida. `STORAGE_TYPE` elige dónde viven:
+
+| `STORAGE_TYPE` | Uso | Variables |
+|---|---|---|
+| `fs` (por defecto) | Desarrollo y una sola máquina. Escritura atómica (temporal + rename); la durabilidad depende del volumen. | `STORAGE_FS_ROOT` (`./storage`) |
+| `s3` | Producción: S3 o compatible (MinIO, Backblaze B2, Cloudflare R2). Cada objeto se sube con checksum SHA-256 que el servidor verifica. | `STORAGE_S3_BUCKET` (obligatorio), `STORAGE_S3_REGION`, `STORAGE_S3_ENDPOINT` (vacío = AWS), `STORAGE_S3_ACCESS_KEY`/`STORAGE_S3_SECRET_KEY` (vacíos = cadena de credenciales de AWS), `STORAGE_S3_PATH_STYLE` (`true` con MinIO) |
+
+**Política de retención (producción, `s3`).** Configúrala en el bucket, no en khipu:
+- **Versionado activado**: una sobreescritura o un borrado accidental deja la versión anterior recuperable.
+- **Object Lock / retención en modo *compliance* ≥ 5 años** (o la regla de ciclo de vida equivalente en B2/R2): ni el operador
+  puede borrar un XML antes del plazo. El plazo de prescripción tributaria es de 4 años desde el 1 de enero siguiente a la
+  presentación de la declaración (6 si no se presentó); 5 años cubre el caso general con margen — ajusta si tu asesor indica más.
+- **Replicación o backup a otra región/proveedor** para el bucket, con la misma retención.
+- Las claves son `{tenant_id}/{yyyy}/{MM}/{RUC-TIPO-SERIE-NUMERO}.xml` (XML firmado), `R-….zip` (CDR) y `….pdf`
+  (representación impresa): un prefijo por empresa y mes, así un auditor localiza un periodo sin recorrer el bucket.
+
+**Verificación de integridad.** Una vez al día (`INTEGRIDAD_INTERVALO_MS`, 24 h) khipu recorre los comprobantes de los últimos
+`INTEGRIDAD_DIAS` (7) y comprueba que cada XML exista con el `DigestValue` con el que se firmó y que el CDR exista si SUNAT lo
+emitió; cada falta sale en el log como `ERROR Integridad del storage: XML_FALTANTE|XML_CORRUPTO|CDR_FALTANTE|STORAGE_INACCESIBLE …`.
+Para un periodo cualquiera: `POST /v1/admin/integridad?desde=2026-01-01&hasta=2026-01-31` con `X-Platform-Key` devuelve el
+informe. Solo lee: reparar es restaurar la versión/backup del objeto, o `POST /v1/facturas/{id}/cdr/recuperar` si lo que falta es
+el CDR y la empresa está en producción.
+
+**Migrar de disco local a S3.** Las claves son las mismas en ambos backends, así que basta copiar el árbol:
+```bash
+# 1. Con la app detenida (o con emisión pausada), sube el árbol completo conservando las rutas relativas:
+aws s3 sync ./storage s3://mi-bucket/ --exact-timestamps          # AWS / B2 / R2 (con --endpoint-url)
+mc mirror ./storage minio/mi-bucket                                 # MinIO
+# 2. Cambia el entorno y arranca:
+STORAGE_TYPE=s3 STORAGE_S3_BUCKET=mi-bucket STORAGE_S3_ENDPOINT=https://… STORAGE_S3_PATH_STYLE=true ./gradlew :bootstrap:bootRun
+# 3. Verifica el periodo migrado antes de retirar el disco:
+curl -X POST -H "X-Platform-Key: $PLATFORM_ADMIN_KEY" "http://localhost:8080/v1/admin/integridad?desde=2024-01-01&hasta=$(date +%F)"
+```
+Para probar en local, `docker compose --profile s3 up -d minio` levanta MinIO en `http://localhost:9000` (consola en `:9001`,
+usuario/clave `khipu`/`khipu-minio`) con el bucket `khipu` creado; `.env.example` trae las variables comentadas.
+
 ## Flujo mínimo
 1. `POST /v1/admin/tenants` con header `X-Platform-Key` → devuelve `api_key`.
 2. `PUT /v1/empresa/credenciales-sol` (beta: `MODDATOS` / `moddatos`).
