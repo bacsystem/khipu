@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { hoyLima } from "@/lib/formato";
-import { db, fakeJwt, type Baja, type Comprobante, type Empresa, type Usuario } from "./data";
+import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, type Baja, type Comprobante, type Empresa, type PersonalizacionPdf, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8080";
@@ -33,6 +33,11 @@ function emitirTokens(usuario: Usuario) {
 }
 
 let contador = 0;
+function empresaDe(request: Request): Empresa | undefined {
+  const empresaId = request.headers.get("x-empresa");
+  return [...db.empresasPorCuenta.values()].flat().find((e) => e.id === empresaId);
+}
+
 function nuevoId(prefijo: string) {
   contador += 1;
   return `${prefijo}-${contador}`;
@@ -139,6 +144,49 @@ export const handlers = [
     const empresa = [...db.empresasPorCuenta.values()].flat().find((e) => e.id === empresaId);
     if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
     return ok(empresa);
+  }),
+
+  // Personalización del PDF: se guarda en la empresa; la vista previa devuelve un PDF mínimo con los parámetros en un comentario.
+  http.get(`${BASE}/v1/empresa/personalizacion-pdf`, ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    return ok(empresa.personalizacion_pdf ?? PERSONALIZACION_POR_DEFECTO);
+  }),
+  http.put(`${BASE}/v1/empresa/personalizacion-pdf`, async ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    const body = (await request.json()) as Partial<PersonalizacionPdf>;
+    if (body.color_primario && !/^#[0-9a-fA-F]{6}$/.test(body.color_primario)) {
+      return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: { colorPrimario: ["color_primario: hexadecimal de 6 dígitos"] } }, { status: 422 });
+    }
+    const actual = empresa.personalizacion_pdf ?? PERSONALIZACION_POR_DEFECTO;
+    empresa.personalizacion_pdf = { ...actual, plantilla: body.plantilla ?? "clasico", color_primario: (body.color_primario ?? "#1E1E24").toUpperCase(), pie_de_pagina: body.pie_de_pagina || null, observaciones_por_defecto: body.observaciones_por_defecto || null };
+    return ok(empresa.personalizacion_pdf);
+  }),
+  http.get(`${BASE}/v1/empresa/personalizacion-pdf/vista-previa`, ({ request }) => {
+    const q = new URL(request.url).searchParams;
+    return new HttpResponse(`%PDF-1.4\n%plantilla=${q.get("plantilla") ?? ""} color=${q.get("color_primario") ?? ""}\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF`, {
+      headers: { "content-type": "application/pdf", "cache-control": "no-store" },
+    });
+  }),
+  http.put(`${BASE}/v1/empresa/logo`, async ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    const archivo = (await request.formData()).get("archivo");
+    if (!(archivo instanceof File) || !["image/png", "image/jpeg"].includes(archivo.type)) return fail(422, "LOGO_INVALIDO", "El logo debe ser PNG o JPEG");
+    empresa.personalizacion_pdf = { ...(empresa.personalizacion_pdf ?? PERSONALIZACION_POR_DEFECTO), tiene_logo: true };
+    return ok(empresa.personalizacion_pdf);
+  }),
+  http.get(`${BASE}/v1/empresa/logo`, ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa?.personalizacion_pdf?.tiene_logo) return fail(404, "NO_ENCONTRADO", "La empresa no tiene logo");
+    return new HttpResponse(Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), { headers: { "content-type": "image/png" } });
+  }),
+  http.delete(`${BASE}/v1/empresa/logo`, ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    empresa.personalizacion_pdf = { ...(empresa.personalizacion_pdf ?? PERSONALIZACION_POR_DEFECTO), tiene_logo: false };
+    return ok(empresa.personalizacion_pdf);
   }),
 
   http.post(`${BASE}/v1/empresa/certificado`, ({ request }) => {

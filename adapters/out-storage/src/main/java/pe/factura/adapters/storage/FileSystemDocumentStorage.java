@@ -21,6 +21,9 @@ public class FileSystemDocumentStorage implements DocumentStorage {
         try { return Files.readAllBytes(p); } catch (IOException e) { throw new IllegalStateException("No se pudo leer " + key, e); }
     }
     @Override public boolean existe(String key) { return Files.isRegularFile(resolver(key)); }
+    @Override public void borrar(String key) {
+        try { Files.deleteIfExists(resolver(key)); } catch (IOException e) { throw new IllegalStateException("No se pudo borrar " + key, e); }
+    }
     private Path resolver(String key) {
         if (key == null || key.startsWith("/") || key.contains("..")) throw new IllegalArgumentException("Clave inválida: " + key);
         Path p = raiz.resolve(key).normalize();

@@ -48,6 +48,8 @@ public class Comprobante {
     private Cdr cdr;
     private int intentos;
     private String ultimoError;
+    /** Texto libre que solo va a la representación impresa (bloque "Observaciones"); no forma parte del XML firmado. */
+    private String observaciones;
 
     private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
@@ -168,6 +170,17 @@ public class Comprobante {
     }
 
     public boolean esNota() { return nota != null; }
+
+    public static final int MAX_OBSERVACIONES = 1000;
+
+    /** Observaciones del PDF; en blanco las borra. Se admiten saltos de línea, no otros caracteres de control. */
+    public void anotar(String observaciones) {
+        if (observaciones == null || observaciones.isBlank()) { this.observaciones = null; return; }
+        String s = observaciones.strip();
+        if (s.length() > MAX_OBSERVACIONES || s.chars().anyMatch(ch -> Character.isISOControl(ch) && ch != '\n' && ch != '\r'))
+            throw new DomainException("OBSERVACIONES_INVALIDAS", "Las observaciones admiten hasta " + MAX_OBSERVACIONES + " caracteres, solo con saltos de línea como caracteres especiales");
+        this.observaciones = s;
+    }
 
     /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar a facturas (columna "Tipo de Comprobante asociado"). */
     private static void validarTipoOperacion(String operacion) {

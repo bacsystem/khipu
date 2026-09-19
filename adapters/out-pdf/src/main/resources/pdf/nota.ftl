@@ -14,5 +14,6 @@
   <@u.lineas />
   <@u.totales />
   <@u.condiciones />
+  <@u.observaciones />
   <@u.pie tipoNombre=n.nombre />
 </@u.pagina>

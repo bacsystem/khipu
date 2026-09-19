@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Cdr;
 import pe.factura.domain.documento.Comprobante;
+import pe.factura.domain.tenant.PersonalizacionPdf;
+import pe.factura.domain.tenant.PlantillaPdf;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
@@ -20,7 +22,7 @@ class ConsultarComprobanteServiceTest {
     private final Fakes.Storage storage = new Fakes.Storage();
     private final Fakes.Tenants tenants = new Fakes.Tenants();
     private final List<String> qrs = new ArrayList<>();
-    private final ConsultarComprobanteService service = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr) -> { qrs.add(qr); return ("%PDF " + qr).getBytes(); });
+    private final ConsultarComprobanteService service = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr, logo) -> { qrs.add(qr); return ("%PDF " + qr + (logo == null ? "" : " logo=" + logo.length)).getBytes(); });
     private final UUID tenant = UUID.randomUUID();
 
     private static byte[] zip(String nombre, String contenido) throws Exception {
@@ -71,7 +73,23 @@ class ConsultarComprobanteServiceTest {
         assertThat(new String(primero)).startsWith("%PDF 20100066603|01|F001|" + c.numero() + "|").endsWith("|" + c.hash() + "|");
         assertThat(segundo).isEqualTo(primero);
         assertThat(qrs).hasSize(1);
-        assertThat(storage.datos).containsKey(c.xmlKey().replace(".xml", "-v" + ConsultarComprobanteService.VERSION_PDF + ".pdf"));
+        assertThat(storage.datos).containsKey(c.xmlKey().replace(".xml", "-v" + ConsultarComprobanteService.VERSION_PDF + "-" + Fakes.tenantListo(tenant).personalizacionPdf().huella() + ".pdf"));
+    }
+
+    @Test void cambiarElDiseñoRegeneraElPdfConElLogoSinPisarElAnterior() {
+        tenants.guardar(Fakes.tenantListo(tenant));
+        Comprobante c = Fakes.facturaFirmada(tenant, storage);
+        repo.guardar(c);
+        byte[] clasico = service.pdf(tenant, c.id());
+
+        storage.guardar(tenant + "/logo.png", new byte[]{1, 2, 3});
+        tenants.guardar(Fakes.tenantListo(tenant).conPersonalizacionPdf(new PersonalizacionPdf(PlantillaPdf.CORPORATIVO, "#1F5F4A", tenant + "/logo.png", null, null)));
+        byte[] corporativo = service.pdf(tenant, c.id());
+
+        assertThat(new String(corporativo)).endsWith("logo=3");
+        assertThat(corporativo).isNotEqualTo(clasico);
+        assertThat(qrs).hasSize(2);
+        assertThat(storage.datos.keySet().stream().filter(k -> k.endsWith(".pdf"))).hasSize(2);
     }
 
     @Test void sinFirmaNoHayPdf() {

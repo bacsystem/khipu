@@ -17,7 +17,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class JdbcTenantRepository implements TenantRepository {
     private static final String COLS = "id, ruc, razon_social, entorno, sol_usuario_enc, sol_clave_enc, cert_pkcs12_enc, cert_clave_enc, cert_vigencia_hasta, "
-            + "dom_ubigeo, dom_direccion, dom_urbanizacion, dom_distrito, dom_provincia, dom_departamento, dom_establecimiento, cuenta_detracciones, nombre_comercial";
+            + "dom_ubigeo, dom_direccion, dom_urbanizacion, dom_distrito, dom_provincia, dom_departamento, dom_establecimiento, cuenta_detracciones, nombre_comercial, "
+            + "pdf_plantilla, pdf_color, pdf_logo_key, pdf_pie, pdf_observaciones";
     private final JdbcTemplate jdbc;
     private final SecretCipher cipher;
 
@@ -28,20 +29,25 @@ public class JdbcTenantRepository implements TenantRepository {
         byte[] cc = t.certificado() == null ? null : cipher.cifrar(t.certificado().clave().getBytes(StandardCharsets.UTF_8));
         Date cv = t.certificado() == null || t.certificado().vigenciaHasta() == null ? null : Date.valueOf(t.certificado().vigenciaHasta());
         Domicilio d = t.domicilio();
+        PersonalizacionPdf p = t.personalizacionPdf();
         jdbc.update("""
             INSERT INTO tenant (id, ruc, razon_social, entorno, sol_usuario_enc, sol_clave_enc, cert_pkcs12_enc, cert_clave_enc, cert_vigencia_hasta,
-              dom_ubigeo, dom_direccion, dom_urbanizacion, dom_distrito, dom_provincia, dom_departamento, dom_establecimiento, cuenta_detracciones, nombre_comercial)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              dom_ubigeo, dom_direccion, dom_urbanizacion, dom_distrito, dom_provincia, dom_departamento, dom_establecimiento, cuenta_detracciones, nombre_comercial,
+              pdf_plantilla, pdf_color, pdf_logo_key, pdf_pie, pdf_observaciones)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET razon_social = EXCLUDED.razon_social, entorno = EXCLUDED.entorno,
               sol_usuario_enc = EXCLUDED.sol_usuario_enc, sol_clave_enc = EXCLUDED.sol_clave_enc,
               cert_pkcs12_enc = EXCLUDED.cert_pkcs12_enc, cert_clave_enc = EXCLUDED.cert_clave_enc,
               cert_vigencia_hasta = EXCLUDED.cert_vigencia_hasta,
               dom_ubigeo = EXCLUDED.dom_ubigeo, dom_direccion = EXCLUDED.dom_direccion, dom_urbanizacion = EXCLUDED.dom_urbanizacion,
               dom_distrito = EXCLUDED.dom_distrito, dom_provincia = EXCLUDED.dom_provincia, dom_departamento = EXCLUDED.dom_departamento,
-              dom_establecimiento = EXCLUDED.dom_establecimiento, cuenta_detracciones = EXCLUDED.cuenta_detracciones, nombre_comercial = EXCLUDED.nombre_comercial, updated_at = now()
+              dom_establecimiento = EXCLUDED.dom_establecimiento, cuenta_detracciones = EXCLUDED.cuenta_detracciones, nombre_comercial = EXCLUDED.nombre_comercial,
+              pdf_plantilla = EXCLUDED.pdf_plantilla, pdf_color = EXCLUDED.pdf_color, pdf_logo_key = EXCLUDED.pdf_logo_key, pdf_pie = EXCLUDED.pdf_pie,
+              pdf_observaciones = EXCLUDED.pdf_observaciones, updated_at = now()
             """, t.id(), t.ruc(), t.razonSocial(), t.entorno().name(), su, sc, cp, cc, cv,
                 d == null ? null : d.ubigeo(), d == null ? null : d.direccion(), d == null ? null : d.urbanizacion(), d == null ? null : d.distrito(),
-                d == null ? null : d.provincia(), d == null ? null : d.departamento(), d == null ? null : d.codigoEstablecimiento(), t.cuentaDetracciones(), t.nombreComercial());
+                d == null ? null : d.provincia(), d == null ? null : d.departamento(), d == null ? null : d.codigoEstablecimiento(), t.cuentaDetracciones(), t.nombreComercial(),
+                p.plantilla().name(), p.colorPrimario(), p.logoKey(), p.pieDePagina(), p.observacionesPorDefecto());
     }
     @Override public Optional<Tenant> buscar(UUID id) {
         return jdbc.query("SELECT " + COLS + " FROM tenant WHERE id = ?", this::mapear, id).stream().findFirst();
@@ -67,8 +73,10 @@ public class JdbcTenantRepository implements TenantRepository {
         Domicilio dom = rs.getString("dom_ubigeo") == null ? null
                 : new Domicilio(rs.getString("dom_ubigeo"), rs.getString("dom_direccion"), rs.getString("dom_urbanizacion"), rs.getString("dom_distrito"),
                         rs.getString("dom_provincia"), rs.getString("dom_departamento"), rs.getString("dom_establecimiento"));
+        PersonalizacionPdf pdf = new PersonalizacionPdf(PlantillaPdf.valueOf(rs.getString("pdf_plantilla")), rs.getString("pdf_color"), rs.getString("pdf_logo_key"),
+                rs.getString("pdf_pie"), rs.getString("pdf_observaciones"));
         return new Tenant(rs.getObject("id", UUID.class), rs.getString("ruc"), rs.getString("razon_social"),
-                Entorno.valueOf(rs.getString("entorno")), sol, cert, dom, rs.getString("cuenta_detracciones"), rs.getString("nombre_comercial"));
+                Entorno.valueOf(rs.getString("entorno")), sol, cert, dom, rs.getString("cuenta_detracciones"), rs.getString("nombre_comercial"), pdf);
     }
     private String txt(byte[] enc) { return new String(cipher.descifrar(enc), StandardCharsets.UTF_8); }
 }

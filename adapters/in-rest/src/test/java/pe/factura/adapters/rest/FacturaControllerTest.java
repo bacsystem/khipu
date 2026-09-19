@@ -113,6 +113,19 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.codigo").value("CORREO_NO_ENVIADO"));
     }
 
+    @Test void lasObservacionesLleganAlComandoYVuelvenEnLaRespuesta() throws Exception {
+        Comprobante c = aceptado(tenant);
+        c.anotar("Entrega en almacén.");
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(c);
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                        .content(cuerpo.replace("}\n", ",\"observaciones\":\"Entrega en almacén.\"}\n")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.observaciones").value("Entrega en almacén."));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().observaciones()).isEqualTo("Entrega en almacén.");
+    }
+
     @Test void enlaceCdrSoloCuandoHayConstancia() throws Exception {
         Comprobante conCdr = aceptado(tenant), sinCdr = rechazadoPorFault(tenant);
         when(consultar.obtener(tenant, conCdr.id())).thenReturn(conCdr);

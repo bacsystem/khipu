@@ -2,6 +2,16 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.20] - 2026-09-18
+
+### Added
+- Personalización del PDF por empresa (#79): `GET/PUT /v1/empresa/personalizacion-pdf { plantilla, color_primario, pie_de_pagina, observaciones_por_defecto }`, `PUT/GET/DELETE /v1/empresa/logo` (PNG/JPEG ≤ 200 KB, reconocido por sus bytes) y `GET /v1/empresa/personalizacion-pdf/vista-previa?plantilla=&color_primario=&…` (PDF de una factura de ejemplo con ese diseño, sin guardar). Cinco plantillas: **clasico** (la actual), **moderno**, **sutil**, **corporativo** y **gris**; el color primario tiñe títulos, número y cabecera de tabla según la plantilla; el logo se imprime en la cabecera escalado a 55×18 mm. Migración V16. Nuevos errores `PERSONALIZACION_INVALIDA`, `LOGO_INVALIDO`.
+- `observaciones` (≤ 1000 caracteres, solo PDF, no va al XML) en `POST /v1/facturas` y `POST /v1/notas`, persistidas y devueltas; si el comprobante no trae, se imprimen las observaciones por defecto de la empresa. Error `OBSERVACIONES_INVALIDAS`.
+- Portal: bloque «Personalización del PDF (A4)» en Empresa con tarjetas de plantilla, color, logo, pie y observaciones, y vista previa en vivo (el PDF real del backend); el detalle del comprobante muestra sus observaciones.
+
+### Changed
+- La clave del PDF en storage incluye una huella del diseño (`-v1-<huella>.pdf`): al cambiar la personalización se regenera el siguiente PDF sin tocar los ya emitidos. `PdfGenerator.generar` recibe además los bytes del logo.
+
 ## [0.1.19] - 2026-09-18
 
 ### Added
