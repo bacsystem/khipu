@@ -36,10 +36,12 @@ public record PersonalizacionPdf(PlantillaPdf plantilla, String colorPrimario, S
 
     /**
      * Huella corta y estable del diseño, parte de la clave del PDF en storage: al cambiar cualquier campo el siguiente PDF se
-     * regenera y los ya generados con el diseño anterior no se sobrescriben.
+     * regenera y los ya generados con el diseño anterior no se sobrescriben. Estable entre arranques (usa el nombre del enum,
+     * no {@code Enum.hashCode()}); la clave del logo lleva el hash de su contenido ({@link LogoPdf#clave}), así que reemplazar el
+     * logo también cambia la huella.
      */
     public String huella() {
-        int h = Objects.hash(plantilla, colorPrimario, logoKey, pieDePagina, observacionesPorDefecto);
+        int h = Objects.hash(plantilla.name(), colorPrimario, logoKey, pieDePagina, observacionesPorDefecto);
         return HexFormat.of().toHexDigits(h);
     }
 

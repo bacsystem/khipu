@@ -42,6 +42,17 @@ class PersonalizacionPdfTest {
         assertThat(nueva.huella()).isNotEqualTo(conLogo.huella()).hasSize(8);
         assertThat(nueva.huella()).isEqualTo(nueva.conDiseñoDe(nueva).huella());
         assertThat(conLogo.sinLogo().tieneLogo()).isFalse();
+        // Estable entre ejecuciones: no depende de Enum.hashCode (identidad), sino del nombre.
+        assertThat(new PersonalizacionPdf(PlantillaPdf.GRIS, "#333333", null, null, null).huella()).isEqualTo("c95e0191");
+    }
+
+    @Test void laClaveDelLogoLlevaElHashDelContenido() {
+        java.util.UUID t = java.util.UUID.randomUUID();
+        byte[] png1 = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, 0, 0, 0, 1};
+        byte[] png2 = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, 0, 0, 0, 2};
+        assertThat(LogoPdf.clave(t, png1)).startsWith(t + "/logo-").endsWith(".png").isEqualTo(LogoPdf.clave(t, png1));
+        assertThat(LogoPdf.clave(t, png2)).isNotEqualTo(LogoPdf.clave(t, png1));
+        assertThat(PersonalizacionPdf.porDefecto().conLogo(LogoPdf.clave(t, png1)).huella()).isNotEqualTo(PersonalizacionPdf.porDefecto().conLogo(LogoPdf.clave(t, png2)).huella());
     }
 
     @Test void elLogoSeReconocePorSusBytesYTieneTope() {

@@ -2,7 +2,7 @@
 
 import { CheckIcon, ImageIcon, PaletteIcon, RefreshCcwIcon, Trash2Icon, UploadCloudIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useId, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import { PLANTILLAS_PDF, type PersonalizacionPdf, type PlantillaPdf } from "@/lib/api/empresas";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -10,6 +10,17 @@ import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
 const LOGO_MAX_BYTES = 200 * 1024;
+/** Cada cambio de la vista previa es un PDF renderizado en el servidor: los textos esperan a que el usuario deje de escribir. */
+const RETARDO_VISTA_PREVIA_MS = 500;
+
+function useRetardado<T>(valor: T, ms: number): T {
+  const [retardado, setRetardado] = useState(valor);
+  useEffect(() => {
+    const t = setTimeout(() => setRetardado(valor), ms);
+    return () => clearTimeout(t);
+  }, [valor, ms]);
+  return retardado;
+}
 
 /**
  * Diseño del PDF de la empresa: plantilla, color, logo y textos, con la vista previa del backend
@@ -29,13 +40,17 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
 
+  const colorValido = /^#[0-9a-fA-F]{6}$/.test(color);
+  // Plantilla y color refrescan al instante (un clic = un render); los textos y el hex a medio escribir, con retardo.
+  const pieRetardado = useRetardado(pie, RETARDO_VISTA_PREVIA_MS);
+  const observacionesRetardadas = useRetardado(observaciones, RETARDO_VISTA_PREVIA_MS);
+  const colorRetardado = useRetardado(colorValido ? color : null, RETARDO_VISTA_PREVIA_MS);
+
   // La vista previa es el PDF real del backend con los valores del formulario; el logo cambia la URL para que el iframe recargue.
   const urlVistaPrevia = useMemo(() => {
-    const q = new URLSearchParams({ plantilla, color_primario: color, pie_de_pagina: pie, observaciones_por_defecto: observaciones, v: String(logoVersion) });
+    const q = new URLSearchParams({ plantilla, color_primario: colorRetardado ?? inicial.color_primario, pie_de_pagina: pieRetardado, observaciones_por_defecto: observacionesRetardadas, v: String(logoVersion) });
     return `/api/proxy/empresa/personalizacion-pdf/vista-previa?${q.toString()}`;
-  }, [plantilla, color, pie, observaciones, logoVersion]);
-
-  const colorValido = /^#[0-9a-fA-F]{6}$/.test(color);
+  }, [plantilla, colorRetardado, pieRetardado, observacionesRetardadas, logoVersion, inicial.color_primario]);
 
   async function guardar(e: FormEvent) {
     e.preventDefault();

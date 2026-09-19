@@ -42,18 +42,29 @@ public class PersonalizarPdfService implements PersonalizarPdfUseCase {
 
     @Override public PersonalizacionPdf cargarLogo(UUID tenantId, byte[] logo) {
         Tenant t = tenant(tenantId);
-        // La extensión va en la clave para que un PNG que reemplaza a un JPG no deje el archivo viejo como "actual".
-        String key = tenantId + "/logo." + LogoPdf.extension(logo);
+        String key = LogoPdf.clave(tenantId, logo);   // valida cabecera y tamaño
+        // La cabecera no garantiza que la imagen decodifique: un PNG truncado pasaría y rompería todos los PDF de la empresa hasta
+        // que alguien lo borre. Se renderiza una vista previa con el candidato antes de guardarlo.
+        try {
+            Comprobante ejemplo = ejemplo(t, LocalDate.now(clock));
+            pdf.generar(ejemplo, t, CodigoQr.contenido(ejemplo, t.ruc()), logo);
+        } catch (RuntimeException e) {
+            throw new DomainException("LOGO_INVALIDO", "El logo no se pudo decodificar como imagen: " + e.getMessage(), e);
+        }
+        String anterior = t.personalizacionPdf().logoKey();
         storage.guardar(key, logo);
         Tenant nuevo = t.conPersonalizacionPdf(t.personalizacionPdf().conLogo(key));
         tenants.guardar(nuevo);
+        if (anterior != null && !anterior.equals(key)) storage.borrar(anterior);
         return nuevo.personalizacionPdf();
     }
 
     @Override public PersonalizacionPdf borrarLogo(UUID tenantId) {
         Tenant t = tenant(tenantId);
+        String anterior = t.personalizacionPdf().logoKey();
         Tenant nuevo = t.conPersonalizacionPdf(t.personalizacionPdf().sinLogo());
         tenants.guardar(nuevo);
+        if (anterior != null) storage.borrar(anterior);
         return nuevo.personalizacionPdf();
     }
 

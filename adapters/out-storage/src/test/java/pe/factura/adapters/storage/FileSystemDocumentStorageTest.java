@@ -22,6 +22,13 @@ class FileSystemDocumentStorageTest {
         assertThat(s.existe("t1/2026/09")).isFalse();
         assertThat(s.existe("t1/2026/09/20100066603-01-F001-2.pdf")).isFalse();
     }
+    @Test void borrarEliminaYEsIdempotente() {
+        var s = new FileSystemDocumentStorage(dir);
+        s.guardar("t1/logo-abc.png", new byte[]{1});
+        s.borrar("t1/logo-abc.png");
+        assertThat(s.existe("t1/logo-abc.png")).isFalse();
+        s.borrar("t1/logo-abc.png");
+    }
     @Test void leerInexistenteLanza() {
         assertThatThrownBy(() -> new FileSystemDocumentStorage(dir).leer("no/existe")).isInstanceOf(IllegalStateException.class);
     }

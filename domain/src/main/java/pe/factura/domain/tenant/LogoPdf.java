@@ -2,6 +2,11 @@ package pe.factura.domain.tenant;
 
 import pe.factura.domain.DomainException;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.UUID;
+
 /** Logo de la representación impresa: PNG o JPEG de hasta 200 KB, reconocido por sus bytes de cabecera y no por la extensión. */
 public final class LogoPdf {
     private LogoPdf() {}
@@ -18,4 +23,15 @@ public final class LogoPdf {
     }
 
     public static String tipoContenido(String extension) { return "png".equals(extension) ? "image/png" : "image/jpeg"; }
+
+    /**
+     * Clave en storage del logo de una empresa: lleva el hash de su contenido para que un logo nuevo tenga clave nueva (y con ella
+     * cambie la huella del diseño) y para no dejar el anterior como "actual" si solo cambió el contenido.
+     */
+    public static String clave(UUID tenantId, byte[] logo) {
+        try {
+            byte[] sha = MessageDigest.getInstance("SHA-256").digest(logo);
+            return tenantId + "/logo-" + HexFormat.of().formatHex(sha, 0, 8) + "." + extension(logo);
+        } catch (NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+    }
 }
