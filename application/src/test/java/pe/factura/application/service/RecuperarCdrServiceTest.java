@@ -71,7 +71,7 @@ class RecuperarCdrServiceTest {
         Comprobante r = service.recuperar(tenantId, c.id());
         assertThat(r.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         assertThat(r.cdrKey()).isNotNull();
-        Comprobante sinFirma = Comprobante.crearFactura(tenantId, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), c.items(), Fakes.CLOCK);
+        Comprobante sinFirma = Comprobante.factura(tenantId, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), c.items()).crear(Fakes.CLOCK);
         comprobantes.guardar(sinFirma);
         assertThatThrownBy(() -> service.recuperar(tenantId, sinFirma.id())).extracting("codigo").isEqualTo("SIN_FIRMA");
     }

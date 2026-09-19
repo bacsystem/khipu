@@ -47,9 +47,19 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         // La cuenta de detracciones puede omitirse en la factura si la empresa la tiene configurada.
         Detraccion detraccion = cmd.detraccion() != null && cmd.detraccion().sinCuenta() ? cmd.detraccion().conCuenta(tenant.cuentaDetracciones()) : cmd.detraccion();
 
-        Comprobante c = Comprobante.crearFactura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.fechaVencimiento(), cmd.moneda(),
-                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.cargos(), detraccion, cmd.retencionIgv(), cmd.percepcion(), anticipos, cmd.referencias(), cmd.redondeo(),
-                TasaIgv.vigente(cmd.fechaEmision(), tenant.padronTasaEspecialIgv()), clock);
+        Comprobante c = Comprobante.factura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.receptor(), cmd.items())
+                .fechaVencimiento(cmd.fechaVencimiento())
+                .formaPago(cmd.formaPago())
+                .descuentoGlobal(cmd.descuentoGlobal())
+                .cargos(cmd.cargos())
+                .detraccion(detraccion)
+                .retencion(cmd.retencionIgv())
+                .percepcion(cmd.percepcion())
+                .anticipos(anticipos)
+                .referencias(cmd.referencias())
+                .redondeo(cmd.redondeo())
+                .tasaIgv(TasaIgv.vigente(cmd.fechaEmision(), tenant.padronTasaEspecialIgv()))
+                .crear(clock);
         c.anotar(cmd.observaciones());
         // Dentro de la transacción y con la factura de anticipo bloqueada: dos finales concurrentes no pueden regularizar el mismo anticipo dos veces.
         return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a)));
@@ -85,8 +95,14 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 throw new DomainException("NOTA_INVALIDA", "descuento_global y cargos solo se admiten junto con items; sin items la nota copia los de la factura");
         }
         // La nota hereda la tasa de IGV de la factura: si el emisor entró o salió del padrón después, la factura no cambia de tasa.
-        Comprobante c = Comprobante.crearNota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), factura.moneda(), factura.tipoOperacion(), factura.receptor(),
-                copia ? factura.items() : cmd.items(), cmd.formaPago(), copia ? factura.descuentoGlobal() : cmd.descuentoGlobal(), copia ? factura.cargos() : cmd.cargos(), nota, factura.tasaIgv(), clock);
+        Comprobante c = Comprobante.nota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), nota, factura.receptor(), copia ? factura.items() : cmd.items())
+                .moneda(factura.moneda())
+                .tipoOperacion(factura.tipoOperacion())
+                .formaPago(cmd.formaPago())
+                .descuentoGlobal(copia ? factura.descuentoGlobal() : cmd.descuentoGlobal())
+                .cargos(copia ? factura.cargos() : cmd.cargos())
+                .tasaIgv(factura.tasaIgv())
+                .crear(clock);
         c.anotar(cmd.observaciones());
         // Releída con lock de fila dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota,
         // y el acumulado de NC se lee con la factura bloqueada, así que dos NC concurrentes no pueden acreditarla dos veces.

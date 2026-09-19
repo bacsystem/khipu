@@ -131,9 +131,7 @@ final class Fakes {
                 new CertificadoDigital(new byte[]{1}, "clave", LocalDate.of(2030, 1, 1)));
     }
     static Comprobante facturaFirmada(UUID tenantId, Storage storage) {
-        Comprobante c = Comprobante.crearFactura(tenantId, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), CLOCK);
+        Comprobante c = Comprobante.factura(tenantId, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
         c.asignarNumero(1, "20100066603");
         String key = "k/" + c.nombreArchivo() + ".xml";
         storage.guardar(key, "<xml/>".getBytes());

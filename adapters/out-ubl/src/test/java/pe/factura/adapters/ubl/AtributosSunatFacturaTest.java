@@ -37,12 +37,9 @@ class AtributosSunatFacturaTest {
     private static final String UNECE = "United Nations Economic Commission for Europe";
 
     static Comprobante facturaConTresAfectaciones() {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
                         new Item("E", "Exonerado", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO),
-                        new Item("I", "Inafecto", "NIU", BigDecimal.ONE, new BigDecimal("30.00"), TipoAfectacionIgv.INAFECTO)),
-                FreemarkerUblGeneratorTest.CLOCK);
+                        new Item("I", "Inafecto", "NIU", BigDecimal.ONE, new BigDecimal("30.00"), TipoAfectacionIgv.INAFECTO))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(7, "20100066603");
         return c;
     }
@@ -153,13 +150,9 @@ class AtributosSunatFacturaTest {
     /** Al crédito: un PaymentTerms 'Credito' con el neto pendiente y uno por cuota (Cuota001…, monto, vencimiento); reglas 3244–3267, 3319. */
     @Test void formaPagoAlCreditoConCuotas() throws Exception {
         LocalDate emision = LocalDate.of(2026, 9, 13);
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", emision, "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.credito(new BigDecimal("100.00"), List.of(
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", emision, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).formaPago(FormaPago.credito(new BigDecimal("100.00"), List.of(
                         new FormaPago.Cuota(new BigDecimal("60.00"), emision.plusDays(30)),
-                        new FormaPago.Cuota(new BigDecimal("40.00"), emision.plusDays(60)))),
-                FreemarkerUblGeneratorTest.CLOCK);
+                        new FormaPago.Cuota(new BigDecimal("40.00"), emision.plusDays(60))))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(9, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -187,11 +180,8 @@ class AtributosSunatFacturaTest {
 
     /** Descuento de línea (00) y global (02): AllowanceCharge en su sitio del XSD, factor/monto/base, y totales netos (reglas 38, 46/47, 54). */
     @Test void descuentosDeLineaYGlobalEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Con descuento", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(new BigDecimal("10"), true)),
-                        new Item("B", "Sin descuento", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), Descuento.monto(new BigDecimal("20.00"), false), FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Con descuento", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(new BigDecimal("10"), true)),
+                        new Item("B", "Sin descuento", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).descuentoGlobal(Descuento.monto(new BigDecimal("20.00"), false)).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(10, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -229,11 +219,8 @@ class AtributosSunatFacturaTest {
 
     /** Línea gratuita: PriceTypeCode 02 con el valor referencial, Price 0, subtotal 9996 fuera de los totales y leyenda 1002. */
     @Test void operacionGratuitaEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Vendido", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
-                        new Item("B", "Bonificación", "NIU", new BigDecimal("5"), new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION)),
-                FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Vendido", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("B", "Bonificación", "NIU", new BigDecimal("5"), new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(11, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -268,11 +255,7 @@ class AtributosSunatFacturaTest {
 
     /** Detracción: PaymentMeans con la cuenta BN, PaymentTerms 'Detraccion' con catálogo 54, % y monto en PEN, y leyenda 2006. */
     @Test void detraccionEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "1001",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("S", "Servicio empresarial", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, new Detraccion("022", new BigDecimal("12"), new BigDecimal("531.00"), "00-000-123456", "001"),
-                FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "1001", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("S", "Servicio empresarial", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).detraccion(new Detraccion("022", new BigDecimal("12"), new BigDecimal("531.00"), "00-000-123456", "001")).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(12, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -305,10 +288,7 @@ class AtributosSunatFacturaTest {
 
     /** Retención (62, ChargeIndicator false) y percepción (51, true + PaymentTerms 'Percepcion' + leyenda 2000) como AllowanceCharge globales. */
     @Test void retencionYPercepcionEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "2001",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, null, new RetencionIgv(null, null), new Percepcion("51", null, null, null), FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "2001", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).retencion(new RetencionIgv(null, null)).percepcion(new Percepcion("51", null, null, null)).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(13, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -337,11 +317,8 @@ class AtributosSunatFacturaTest {
 
     /** ISC (2000 con TierRange, base del IGV = valor + ISC) e ICBPER (7152 con BaseUnitMeasure y PerUnitAmount, sin base) por línea y globales. */
     @Test void iscEIcbperEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("C", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("01", new BigDecimal("35"), null), false),
-                        new Item("B", "Bolsa", "NIU", new BigDecimal("3"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true)),
-                FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("C", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("01", new BigDecimal("35"), null), false),
+                        new Item("B", "Bolsa", "NIU", new BigDecimal("3"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(14, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -393,11 +370,7 @@ class AtributosSunatFacturaTest {
      * restado del importe a pagar (3280); total valor/precio de venta siguen brutos (3278, 3279).
      */
     @Test void anticipoEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("OBRA", "Obra completa", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, null, null, null,
-                List.of(new Anticipo("F001", 10, new BigDecimal("300.00"), null, LocalDate.of(2026, 9, 1))), FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("OBRA", "Obra completa", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).anticipos(List.of(new Anticipo("F001", 10, new BigDecimal("300.00"), null, LocalDate.of(2026, 9, 1)))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(12, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -489,13 +462,9 @@ class AtributosSunatFacturaTest {
      * efecto en LineExtensionAmount (38), base del IGV (3277/3291), ChargeTotalAmount (3301) y PayableAmount (3280).
      */
     @Test void cargosDeLineaYGlobalesEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Con flete gravado", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Con flete gravado", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
                                 List.of(Cargo.porcentaje("47", new BigDecimal("10")), Cargo.monto("48", new BigDecimal("5.00")))),
-                        new Item("B", "Sin cargos", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, List.of(Cargo.monto("49", new BigDecimal("30.00")), Cargo.porcentaje("46", new BigDecimal("10")), Cargo.monto("50", new BigDecimal("7.00"))),
-                null, null, null, List.of(), FreemarkerUblGeneratorTest.CLOCK);
+                        new Item("B", "Sin cargos", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).cargos(List.of(Cargo.monto("49", new BigDecimal("30.00")), Cargo.porcentaje("46", new BigDecimal("10")), Cargo.monto("50", new BigDecimal("7.00")))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(11, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -544,13 +513,8 @@ class AtributosSunatFacturaTest {
 
     /** Orden de compra (59), guías (22, catálogo 01 con atributos) y otros documentos (23, catálogo 12) en su sitio del XSD, antes de Signature. */
     @Test void documentosRelacionadosEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, List.of(), null, null, null, List.of(),
-                new Referencias("OC-2026-0457", List.of(new GuiaRelacionada("09", "T001-123"), new GuiaRelacionada("31", "V001-7")),
-                        List.of(new DocumentoRelacionado("05", "SCOP-8841203"), new DocumentoRelacionado("99", "CONTRATO-12"))),
-                FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).referencias(new Referencias("OC-2026-0457", List.of(new GuiaRelacionada("09", "T001-123"), new GuiaRelacionada("31", "V001-7")),
+                        List.of(new DocumentoRelacionado("05", "SCOP-8841203"), new DocumentoRelacionado("99", "CONTRATO-12")))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(12, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -588,10 +552,7 @@ class AtributosSunatFacturaTest {
 
     /** Campos opcionales: DueDate (8), nombre comercial (11), GTIN (29) y código de producto SUNAT (28) por ítem, PayableRoundingAmount (56) y monto en letras del total redondeado. */
     @Test void camposOpcionalesEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123"))),
-                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123")))).fechaVencimiento(LocalDate.of(2026, 10, 13)).redondeo(new BigDecimal("-0.37")).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(13, "20100066603");
         Tenant t = FreemarkerUblGeneratorTest.tenant().conDatosFiscales(null, null, "Andina Store");
         String xml = new FreemarkerUblGenerator().generar(c, t);
@@ -630,10 +591,7 @@ class AtributosSunatFacturaTest {
 
     /** Regla 3290: con una base grande y descuento fijo el factor de 5 decimales no reproduce el monto, así que no se emite. */
     @Test void descuentoSinFactorCuandoNoReproduceElMonto() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Maquinaria", "NIU", BigDecimal.ONE, new BigDecimal("2006000.00"), TipoAfectacionIgv.GRAVADO, Descuento.monto(new BigDecimal("1000.00"), true))),
-                FormaPago.contado(), Descuento.monto(new BigDecimal("1000.00"), false), FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Maquinaria", "NIU", BigDecimal.ONE, new BigDecimal("2006000.00"), TipoAfectacionIgv.GRAVADO, Descuento.monto(new BigDecimal("1000.00"), true)))).descuentoGlobal(Descuento.monto(new BigDecimal("1000.00"), false)).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(11, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();

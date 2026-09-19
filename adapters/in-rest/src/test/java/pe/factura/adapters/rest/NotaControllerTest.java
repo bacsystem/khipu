@@ -43,11 +43,7 @@ class NotaControllerTest {
         """;
 
     static Comprobante notaAceptada(UUID tenant) {
-        Comprobante c = Comprobante.crearNota(tenant, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                null, null, List.of(), new Nota(TipoDocumento.FACTURA, "F001", 601, "01", "Anulación por error en el pedido"),
-                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        Comprobante c = Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.FACTURA, "F001", 601, "01", "Anulación por error en el pedido"), new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
         c.asignarNumero(4, "20100066603"); c.firmar("HASH", "k.xml"); c.marcarEnviado();
         c.aplicarCdr(new Cdr("0", "La Nota de Credito numero FC01-4, ha sido aceptada", List.of()), "k.zip");
         return c;

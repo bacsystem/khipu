@@ -23,11 +23,8 @@ class NotaUblTest {
     static final Nota NOTA = new Nota(TipoDocumento.FACTURA, "F001", 123, "01", "Anulación de la operación por error en el pedido");
 
     static Comprobante nota(TipoDocumento tipo, Nota nota, FormaPago formaPago) {
-        Comprobante c = Comprobante.crearNota(UUID.randomUUID(), tipo, "FC01", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE S.A.C.", "AV. LIMA 1"),
-                List.of(new Item("A", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),
-                        new Item("B", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)),
-                formaPago, null, List.of(), nota, FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.nota(UUID.randomUUID(), tipo, "FC01", LocalDate.of(2026, 9, 13), nota, new Receptor("6", "20601234565", "CLIENTE S.A.C.", "AV. LIMA 1"), List.of(new Item("A", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("B", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).formaPago(formaPago).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(7, "20100066603");
         return c;
     }

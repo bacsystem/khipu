@@ -38,10 +38,7 @@ class FacturaControllerTest {
     UUID tenant = UUID.randomUUID();
 
     static Comprobante aceptado(UUID tenant) {
-        Comprobante c = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
         c.asignarNumero(601, "20100066603"); c.firmar("HASH", "k.xml"); c.marcarEnviado();
         c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "k.zip");
         return c;
@@ -49,10 +46,7 @@ class FacturaControllerTest {
 
     /** Rechazado por SOAPFault: tiene código y descripción de SUNAT pero ninguna constancia que descargar. */
     static Comprobante rechazadoPorFault(UUID tenant) {
-        Comprobante c = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
         c.asignarNumero(602, "20100066603"); c.firmar("HASH", "k.xml");
         c.rechazarPorFault("1033", "El comprobante fue registrado previamente con otros datos");
         return c;
@@ -272,10 +266,8 @@ class FacturaControllerTest {
         String conCredito = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"forma_pago\":{\"tipo\":\"credito\",\"monto_pendiente\":118.00,"
                 + "\"cuotas\":[{\"monto\":59.00,\"vencimiento\":\"2026-10-13\"},{\"monto\":59.00,\"vencimiento\":\"2026-11-13\"}]},");
         Comprobante c = aceptado(tenant);
-        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                c.receptor(), c.items(), FormaPago.credito(new BigDecimal("118.00"), List.of(
-                        new FormaPago.Cuota(new BigDecimal("59.00"), LocalDate.of(2026, 10, 13)), new FormaPago.Cuota(new BigDecimal("59.00"), LocalDate.of(2026, 11, 13)))),
-                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), c.items()).formaPago(FormaPago.credito(new BigDecimal("118.00"), List.of(
+                        new FormaPago.Cuota(new BigDecimal("59.00"), LocalDate.of(2026, 10, 13)), new FormaPago.Cuota(new BigDecimal("59.00"), LocalDate.of(2026, 11, 13))))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conCredito))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.forma_pago.tipo").value("credito"))
@@ -322,9 +314,7 @@ class FacturaControllerTest {
                 .replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"descuento\":{\"porcentaje\":10}}")
                 .replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"descuento_global\":{\"monto\":5.00,\"afecta_base_igv\":false},");
         Comprobante c = aceptado(tenant);
-        Comprobante conDesc = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(BigDecimal.TEN, true))),
-                FormaPago.contado(), Descuento.monto(new BigDecimal("5.00"), false), Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        Comprobante conDesc = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(BigDecimal.TEN, true)))).descuentoGlobal(Descuento.monto(new BigDecimal("5.00"), false)).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
         when(emitir.emitirFactura(eq(tenant), any())).thenReturn(conDesc);
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conDescuentos))
                 .andExpect(status().isCreated())
@@ -357,11 +347,8 @@ class FacturaControllerTest {
                 .replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"cargos\":[{\"monto\":20.00},{\"porcentaje\":10,\"motivo\":\"recargo_consumo\"}],");
         Comprobante c = aceptado(tenant);
         // Sin afecta_base_igv el cargo afecta la base: 47 en línea, 49 global; con motivo, 46.
-        Comprobante conCargo = Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
-                        List.of(Cargo.monto("47", new BigDecimal("10.00")), Cargo.monto("48", new BigDecimal("5.00"))))),
-                FormaPago.contado(), null, List.of(Cargo.monto("49", new BigDecimal("20.00")), Cargo.porcentaje("46", BigDecimal.TEN)), null, null, null, List.of(),
-                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        Comprobante conCargo = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
+                        List.of(Cargo.monto("47", new BigDecimal("10.00")), Cargo.monto("48", new BigDecimal("5.00")))))).cargos(List.of(Cargo.monto("49", new BigDecimal("20.00")), Cargo.porcentaje("46", BigDecimal.TEN))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
         when(emitir.emitirFactura(eq(tenant), any())).thenReturn(conCargo);
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conCargos))
                 .andExpect(status().isCreated())
@@ -415,8 +402,7 @@ class FacturaControllerTest {
                 + "\"guias\":[{\"tipo\":\"09\",\"numero\":\"T001-123\"}],\"documentos_relacionados\":[{\"tipo\":\"05\",\"numero\":\"SCOP-8841203\"}],");
         Comprobante c = aceptado(tenant);
         Referencias refs = new Referencias("OC-2026-0457", List.of(new GuiaRelacionada("09", "T001-123")), List.of(new DocumentoRelacionado("05", "SCOP-8841203")));
-        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
-                c.items(), FormaPago.contado(), null, List.of(), null, null, null, List.of(), refs, Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), c.items()).referencias(refs).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conRefs))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.referencias.orden_compra").value("OC-2026-0457"))
@@ -455,9 +441,7 @@ class FacturaControllerTest {
                 .replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"codigo_sunat\":\"15101505\",\"gtin\":{\"tipo\":\"GTIN-13\",\"codigo\":\"7750182000123\"}}")
                 .replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"fecha_vencimiento\":\"2026-10-13\",\"redondeo\":-0.37,");
         Comprobante c = aceptado(tenant);
-        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "0101", c.receptor(),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123"))),
-                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123")))).fechaVencimiento(LocalDate.of(2026, 10, 13)).redondeo(new BigDecimal("-0.37")).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(con))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.fecha_vencimiento").value("2026-10-13"))
@@ -489,9 +473,7 @@ class FacturaControllerTest {
     @Test void lineaGratuitaAceptadaYMarcadaEnLaRespuesta() throws Exception {
         String conBonificacion = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\"},{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}");
         Comprobante c = aceptado(tenant);
-        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
-                List.of(c.items().get(0), new Item(null, "Bonificación", "NIU", new BigDecimal("2"), new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION)),
-                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), List.of(c.items().get(0), new Item(null, "Bonificación", "NIU", new BigDecimal("2"), new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conBonificacion))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.items[1].gratuita").value(true))
@@ -515,9 +497,7 @@ class FacturaControllerTest {
     @Test void detraccionEnPenCalculaElMontoYLoDevuelve() throws Exception {
         String conDetraccion = cuerpo.replace("\"tipo_operacion\":\"0101\"", "\"tipo_operacion\":\"1001\",\"detraccion\":{\"codigo_bien_servicio\":\"022\",\"porcentaje\":12,\"cuenta_banco_nacion\":\"00-000-123456\"}");
         Comprobante c = aceptado(tenant);
-        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "1001", c.receptor(), c.items(),
-                FormaPago.contado(), null, new Detraccion("022", new BigDecimal("12"), new BigDecimal("14.00"), "00-000-123456", null),
-                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "1001", c.receptor(), c.items()).detraccion(new Detraccion("022", new BigDecimal("12"), new BigDecimal("14.00"), "00-000-123456", null)).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conDetraccion))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.detraccion.codigo_bien_servicio").value("022"))
@@ -542,9 +522,7 @@ class FacturaControllerTest {
     @Test void retencionYPercepcionEntranYSalen() throws Exception {
         String conAmbas = cuerpo.replace("\"tipo_operacion\":\"0101\"", "\"tipo_operacion\":\"2001\",\"retencion_igv\":{},\"percepcion\":{\"regimen\":\"51\"}");
         Comprobante c = aceptado(tenant);
-        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "2001", c.receptor(), c.items(),
-                FormaPago.contado(), null, null, new RetencionIgv(null, null), new Percepcion("51", null, null, null),
-                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "2001", c.receptor(), c.items()).retencion(new RetencionIgv(null, null)).percepcion(new Percepcion("51", null, null, null)).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conAmbas))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.retencion_igv.monto").value(3.54))
@@ -570,10 +548,8 @@ class FacturaControllerTest {
     @Test void iscEIcbperEntranYSalen() throws Exception {
         String conTributos = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"isc\":{\"sistema\":\"01\",\"tasa\":35}},{\"descripcion\":\"Bolsa\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":0.618,\"tipo_afectacion_igv\":\"10\",\"icbper\":true}");
         Comprobante c = aceptado(tenant);
-        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("01", new BigDecimal("35"), null), false),
-                        new Item(null, "Bolsa", "NIU", new BigDecimal("2"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true)),
-                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("01", new BigDecimal("35"), null), false),
+                        new Item(null, "Bolsa", "NIU", new BigDecimal("2"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conTributos))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.items[0].isc.sistema").value("01"))
@@ -590,9 +566,7 @@ class FacturaControllerTest {
     @Test void anticiposEntranYSalen() throws Exception {
         String conAnticipo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"F001\",\"numero\":10,\"monto\":30.00,\"fecha_pago\":\"2026-09-01\"}],");
         Comprobante c = aceptado(tenant);
-        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.crearFactura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), c.items(),
-                FormaPago.contado(), null, null, null, null, List.of(new Anticipo("F001", 10, new BigDecimal("30.00"), null, LocalDate.of(2026, 9, 1))),
-                Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), c.items()).anticipos(List.of(new Anticipo("F001", 10, new BigDecimal("30.00"), null, LocalDate.of(2026, 9, 1)))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conAnticipo))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.anticipos[0].comprobante").value("F001-10"))
