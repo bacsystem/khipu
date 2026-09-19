@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.21] - 2026-09-18
+
+### Changed
+- Portal: la comunicación de baja se confirma en un modal (`Dialog`, el mismo de API keys y empresas) en vez de un panel inline bajo las acciones del comprobante: cabecera con el comprobante, aviso de que es irreversible, motivo con ayuda (2315) y botones Cancelar / Confirmar; no se cierra mientras SUNAT responde.
+
 ## [0.1.20] - 2026-09-18
 
 ### Added
