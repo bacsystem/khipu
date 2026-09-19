@@ -111,3 +111,25 @@ test("da de baja una factura aceptada tras confirmar el motivo y queda anulada",
   await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("dar-de-baja")).toHaveCount(0);
 });
+
+test("el PDF se abre desde el detalle y el comprobante aceptado se envía por correo al cliente", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada");
+  const pdf = page.getByTestId("ver-pdf");
+  await expect(pdf).toHaveAttribute("href", "/api/proxy/facturas/f-aceptada/pdf");
+  const res = await page.request.get("/api/proxy/facturas/f-aceptada/pdf");
+  expect(res.headers()["content-type"]).toContain("application/pdf");
+  expect((await res.body()).subarray(0, 5).toString()).toBe("%PDF-");
+
+  await page.getByTestId("enviar-correo").click();
+  const form = page.getByTestId("correo-form");
+  await form.getByLabel("Correo del cliente").fill("compras@cliente.pe");
+  await form.getByLabel(/Mensaje/).fill("Gracias por su compra.");
+  await form.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(page.getByTestId("correo-enviado")).toHaveText("Enviado a compras@cliente.pe");
+});
+
+test("un comprobante firmado sin respuesta de SUNAT no ofrece envío por correo pero sí su PDF", async ({ page }) => {
+  await page.goto("/comprobantes/f-firmada");
+  await expect(page.getByTestId("ver-pdf")).toBeVisible();
+  await expect(page.getByTestId("enviar-correo")).toHaveCount(0);
+});

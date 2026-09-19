@@ -51,7 +51,10 @@ class AutenticarUsuarioServiceTest {
         public Optional<Claims> verificar(String t) { return Optional.empty(); }
     };
     List<String> correos = new ArrayList<>();
-    CorreoSender correo = (para, asunto, cuerpo) -> correos.add(para + "|" + cuerpo);
+    CorreoSender correo = new CorreoSender() {
+        public void enviar(String para, String asunto, String cuerpo) { correos.add(para + "|" + cuerpo); }
+        public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) { enviar(para, asunto, cuerpo); }
+    };
     Clock clock = Clock.fixed(java.time.Instant.parse("2026-09-14T12:00:00Z"), ZoneId.of("America/Lima"));
     AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock);
 

@@ -15,6 +15,13 @@ class FileSystemDocumentStorageTest {
         assertThat(Files.exists(dir.resolve("t1/2026/09/20100066603-01-F001-1.xml"))).isTrue();
         assertThat(new String(s.leer("t1/2026/09/20100066603-01-F001-1.xml"))).isEqualTo("<x/>");
     }
+    @Test void existeDistingueArchivosDeDirectoriosYAusentes() {
+        var s = new FileSystemDocumentStorage(dir);
+        s.guardar("t1/2026/09/20100066603-01-F001-1.pdf", "%PDF".getBytes());
+        assertThat(s.existe("t1/2026/09/20100066603-01-F001-1.pdf")).isTrue();
+        assertThat(s.existe("t1/2026/09")).isFalse();
+        assertThat(s.existe("t1/2026/09/20100066603-01-F001-2.pdf")).isFalse();
+    }
     @Test void leerInexistenteLanza() {
         assertThatThrownBy(() -> new FileSystemDocumentStorage(dir).leer("no/existe")).isInstanceOf(IllegalStateException.class);
     }

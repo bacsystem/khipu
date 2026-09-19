@@ -295,13 +295,21 @@ export function ComprobantesTable({
                   </TableCell>
                   <TableCell className="py-2 pr-4 pl-2" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1 opacity-80 transition-opacity group-hover:opacity-100">
-                      <button
-                        disabled
-                        title="Descargar PDF: próximamente"
-                        className={cn(ACCION, "cursor-not-allowed px-1.5 text-muted-foreground/60")}
-                      >
-                        PDF
-                      </button>
+                      {c.enlaces?.pdf ? (
+                        <a
+                          href={`/api/proxy/facturas/${c.id}/pdf`}
+                          target="_blank"
+                          rel="noopener"
+                          title="Ver representación impresa (PDF)"
+                          className={cn(ACCION, "px-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground")}
+                        >
+                          PDF
+                        </a>
+                      ) : (
+                        <button disabled title="El PDF existe desde que el comprobante está firmado" className={cn(ACCION, "cursor-not-allowed px-1.5 text-muted-foreground/60")}>
+                          PDF
+                        </button>
+                      )}
                       <a
                         href={`/api/proxy/facturas/${c.id}/xml`}
                         title="Descargar XML firmado"

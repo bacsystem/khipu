@@ -48,7 +48,7 @@ public record ComprobanteResponse(
         @Schema(description = "Solo en notas de crédito/débito: factura que modifica y motivo") NotaDto nota,
         @Schema(description = "Solo al consultar una factura: notas de crédito/débito emitidas sobre ella (todas, con su estado); `null` en listados y en la emisión") List<NotaResumenDto> notas,
         @Schema(description = "Solo al consultar: la comunicación de baja más reciente del comprobante (en curso, aceptada o rechazada), o `null`") BajaResponse baja,
-        @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
+        @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"pdf\": \"/v1/facturas/{id}/pdf\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     public record FormaPagoDto(
             @Schema(example = "credito", description = "contado | credito") String tipo,
             @Schema(example = "1180.00", description = "Solo al crédito") BigDecimal montoPendiente,
@@ -242,7 +242,7 @@ public record ComprobanteResponse(
 
     /** `cdr` solo cuando existe la constancia: un rechazo por SOAPFault trae código y descripción pero SUNAT no emitió CDR. */
     private static Map<String, String> enlaces(Comprobante c, String p) {
-        return c.cdrKey() == null ? Map.of("xml", p + "/xml") : Map.of("xml", p + "/xml", "cdr", p + "/cdr");
+        return c.cdrKey() == null ? Map.of("xml", p + "/xml", "pdf", p + "/pdf") : Map.of("xml", p + "/xml", "pdf", p + "/pdf", "cdr", p + "/cdr");
     }
 
     private static ReceptorDto de(Receptor r) {

@@ -59,7 +59,7 @@ export type Comprobante = {
   nota?: { tipo_afectado: string; documento_afectado: string; motivo: string; motivo_descripcion: string; descripcion: string } | null;
   notas?: Array<{ id: string; tipo: string; comprobante: string; fecha_emision: string; motivo: string; motivo_descripcion: string; estado_documento: string; total: number }> | null;
   baja?: Baja | null;
-  enlaces: { xml: string; cdr?: string };
+  enlaces: { xml: string; pdf?: string; cdr?: string };
 };
 
 export type Baja = {
@@ -85,6 +85,7 @@ export const db = {
   apiKeysPorEmpresa: new Map<string, ApiKey[]>(),
   facturasPorEmpresa: new Map<string, Comprobante[]>(),
   bajas: new Map<string, Baja>(),
+  correos: [] as Array<{ comprobante: string; email: string; mensaje: string | null }>,
   sesionesPorToken: new Map<string, Sesion>(),
 };
 
@@ -95,6 +96,7 @@ export function resetDb() {
   db.apiKeysPorEmpresa.clear();
   db.facturasPorEmpresa.clear();
   db.bajas.clear();
+  db.correos.length = 0;
   db.sesionesPorToken.clear();
 
   const usuario: Usuario = {
@@ -161,7 +163,7 @@ export function resetDb() {
         ],
       },
       detraccion: { codigo_bien_servicio: "022", descripcion: "Otros servicios empresariales", porcentaje: 12, monto: 15, cuenta_banco_nacion: "00-000-123456", medio_pago: "001" },
-      enlaces: { xml: "/v1/facturas/f-aceptada/xml", cdr: "/v1/facturas/f-aceptada/cdr" },
+      enlaces: { xml: "/v1/facturas/f-aceptada/xml", pdf: "/v1/facturas/f-aceptada/pdf", cdr: "/v1/facturas/f-aceptada/cdr" },
     },
     {
       id: "f-obs",
@@ -181,7 +183,27 @@ export function resetDb() {
       cdr: { codigo: "0", descripcion: "La Factura numero F001-3, ha sido aceptada", observaciones: ["4252 - El dato ingresado como atributo @listName es incorrecto."] },
       totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
-      enlaces: { xml: "/v1/facturas/f-obs/xml", cdr: "/v1/facturas/f-obs/cdr" },
+      enlaces: { xml: "/v1/facturas/f-obs/xml", pdf: "/v1/facturas/f-obs/pdf", cdr: "/v1/facturas/f-obs/cdr" },
+    },
+    {
+      id: "f-firmada",
+      tipo: "01",
+      serie: "F001",
+      numero: 4,
+      fecha_emision: "2026-09-02",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null },
+      items: [{ codigo: null, descripcion: "Soporte mensual", unidad: "ZZ", cantidad: 1, precio_unitario: 236, tipo_afectacion_igv: "10" }],
+      estado_documento: "FIRMADO",
+      hash: "firm8+jW8Xp278K1aM02q19KjvO3k=",
+      nombre_archivo: "20123456789-01-F001-00000004",
+      intentos: 0,
+      ultimo_error: null,
+      cdr: null,
+      totales: { gravado: 200, exonerado: 0, inafecto: 0, igv: 36, total: 236 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-firmada/xml", pdf: "/v1/facturas/f-firmada/pdf" },
     },
     {
       id: "f-error",
@@ -203,7 +225,7 @@ export function resetDb() {
       cdr: null,
       totales: { gravado: 50, exonerado: 0, inafecto: 0, igv: 9, total: 59 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
-      enlaces: { xml: "/v1/facturas/f-error/xml" },
+      enlaces: { xml: "/v1/facturas/f-error/xml", pdf: "/v1/facturas/f-error/pdf" },
     },
   ]);
 }

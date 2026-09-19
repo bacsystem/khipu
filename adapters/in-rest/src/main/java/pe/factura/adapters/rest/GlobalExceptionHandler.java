@@ -23,10 +23,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> dominio(DomainException e) {
         HttpStatus st = switch (e.codigo()) {
             case "NO_ENCONTRADO", "SIN_CDR" -> HttpStatus.NOT_FOUND;
-            case "DUPLICADO", "ESTADO_NO_ENVIABLE" -> HttpStatus.CONFLICT;
+            case "DUPLICADO", "ESTADO_NO_ENVIABLE", "NO_ACEPTADO" -> HttpStatus.CONFLICT;
             case "NO_AUTORIZADO", "CREDENCIALES_INVALIDAS", "SESION_INVALIDA" -> HttpStatus.UNAUTHORIZED;
             case "EMPRESA_AJENA", "REQUIERE_SESION" -> HttpStatus.FORBIDDEN;
             case "PARAMETRO_INVALIDO" -> HttpStatus.BAD_REQUEST;
+            // El correo saliente es un servicio externo: su fallo no es culpa del cliente ni un bug del servidor.
+            case "CORREO_NO_ENVIADO" -> HttpStatus.BAD_GATEWAY;
             // Un CDR guardado que no se puede leer es un fallo del servidor, no de la petición.
             case "CDR_CORRUPTO" -> HttpStatus.INTERNAL_SERVER_ERROR;
             default -> HttpStatus.UNPROCESSABLE_ENTITY;

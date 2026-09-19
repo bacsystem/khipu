@@ -497,7 +497,7 @@ export const RESPUESTA_EJEMPLO = `{
     "cdr": { "codigo": "0", "descripcion": "La Factura numero F001-125, ha sido aceptada", "observaciones": [] },
     "totales": { "gravado": 1000.00, "exonerado": 0.00, "inafecto": 0.00, "igv": 180.00, "total": 1180.00 },
     "forma_pago": { "tipo": "contado", "monto_pendiente": null, "cuotas": [] },
-    "enlaces": { "xml": "/v1/facturas/5f2c…/xml", "cdr": "/v1/facturas/5f2c…/cdr" }
+    "enlaces": { "xml": "/v1/facturas/5f2c…/xml", "pdf": "/v1/facturas/5f2c…/pdf", "cdr": "/v1/facturas/5f2c…/cdr" }
   }
 }`;
 

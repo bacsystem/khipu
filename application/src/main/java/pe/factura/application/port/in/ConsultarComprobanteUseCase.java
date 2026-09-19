@@ -15,4 +15,6 @@ public interface ConsultarComprobanteUseCase {
     byte[] xml(UUID tenantId, UUID id);                                // bytes del XML firmado
     byte[] cdr(UUID tenantId, UUID id);                                // ZIP del CDR; DomainException("SIN_CDR")
     byte[] cdrXml(UUID tenantId, UUID id);                             // XML dentro del ZIP del CDR
+    /** Representación impresa (PDF con QR y hash) de un comprobante ya firmado; se genera una vez y se guarda junto al XML. */
+    byte[] pdf(UUID tenantId, UUID id);
 }

@@ -1,12 +1,13 @@
-import { ArrowLeftIcon, BanIcon, FileMinusIcon, FileTextIcon, IdCardIcon, LinkIcon, MoreHorizontalIcon, Rows3Icon } from "lucide-react";
+import { ArrowLeftIcon, BanIcon, FileMinusIcon, FileTextIcon, IdCardIcon, LinkIcon, Rows3Icon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { BajaButton } from "@/components/comprobantes/baja-button";
+import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { admiteBaja, admiteNotas, type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { admiteBaja, admiteCorreo, admiteNotas, type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -201,21 +202,20 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           ) : null}
           {admiteBaja(c) ? <BajaButton id={c.id} numero={numero} /> : null}
           <VistaPrevia id={c.id} numero={numero} nombreArchivo={c.nombre_archivo} tieneCdr={tieneConstanciaCdr(c)} />
-          <button
-            disabled
-            title="Representación impresa (PDF): próximamente"
-            className="inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground opacity-60 shadow-2xs"
-          >
-            <FileTextIcon className="size-4" />
-            Ver PDF
-          </button>
-          <button
-            disabled
-            title="Más acciones (reenviar por correo): próximamente"
-            className="flex size-8 cursor-not-allowed items-center justify-center rounded-md border border-border bg-card text-muted-foreground/60 shadow-2xs"
-          >
-            <MoreHorizontalIcon className="size-4" />
-          </button>
+          {c.enlaces?.pdf ? (
+            <a
+              href={`/api/proxy/facturas/${c.id}/pdf`}
+              target="_blank"
+              rel="noopener"
+              title="Representación impresa con QR y hash"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90"
+              data-testid="ver-pdf"
+            >
+              <FileTextIcon className="size-4" />
+              Ver PDF
+            </a>
+          ) : null}
+          {admiteCorreo(c) ? <CorreoButton id={c.id} numero={numero} /> : null}
         </div>
       </div>
 

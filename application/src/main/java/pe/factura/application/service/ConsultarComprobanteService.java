@@ -4,10 +4,14 @@ import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.application.port.out.DocumentStorage;
+import pe.factura.application.port.out.PdfGenerator;
+import pe.factura.application.port.out.TenantRepository;
 import pe.factura.domain.DomainException;
+import pe.factura.domain.documento.CodigoQr;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.tenant.Tenant;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -19,7 +23,9 @@ import java.util.zip.ZipInputStream;
 @RequiredArgsConstructor
 public class ConsultarComprobanteService implements ConsultarComprobanteUseCase {
     private final ComprobanteRepository comprobantes;
+    private final TenantRepository tenants;
     private final DocumentStorage storage;
+    private final PdfGenerator pdf;
 
     public Comprobante obtener(UUID tenantId, UUID id) {
         return comprobantes.buscar(tenantId, id).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
@@ -34,6 +40,24 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
         Comprobante c = obtener(tenantId, id);
         if (c.cdrKey() == null) throw new DomainException("SIN_CDR", "El comprobante aún no tiene CDR");
         return storage.leer(c.cdrKey());
+    }
+    /**
+     * Versión del diseño de la representación impresa, parte de la clave del PDF en storage. Súbala cuando cambie una plantilla
+     * de {@code adapters/out-pdf}: los PDF ya generados quedan con la versión anterior y el siguiente {@link #pdf} regenera con la nueva
+     * sin tocar storage a mano. Los datos impresos no cambian nunca (el comprobante es inmutable), solo su presentación.
+     */
+    static final int VERSION_PDF = 1;
+
+    /** El PDF vive junto al XML firmado (misma clave, sufijo {@code -v<versión>.pdf}); si falta —o nunca se pidió— se genera y se guarda. */
+    public byte[] pdf(UUID tenantId, UUID id) {
+        Comprobante c = obtener(tenantId, id);
+        if (c.xmlKey() == null) throw new DomainException("SIN_FIRMA", "El comprobante aún no está firmado: no tiene representación impresa");
+        String key = c.xmlKey().replaceFirst("\\.xml$", "-v" + VERSION_PDF + ".pdf");
+        if (storage.existe(key)) return storage.leer(key);
+        Tenant t = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
+        byte[] bytes = pdf.generar(c, t, CodigoQr.contenido(c, t.ruc()));
+        storage.guardar(key, bytes);
+        return bytes;
     }
     public byte[] cdrXml(UUID tenantId, UUID id) {
         try (ZipInputStream in = new ZipInputStream(new ByteArrayInputStream(cdr(tenantId, id)))) {

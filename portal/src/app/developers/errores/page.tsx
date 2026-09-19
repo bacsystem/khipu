@@ -30,7 +30,7 @@ const HTTP: Array<[string, string]> = [
   ["401", "Sin credenciales válidas: falta o es inválida la X-Api-Key (NO_AUTORIZADO), o la sesión del portal expiró."],
   ["403", "Operación reservada al portal (REQUIERE_SESION: gestión de API keys) o empresa de otra cuenta (EMPRESA_AJENA)."],
   ["404", "No existe o pertenece a otra empresa (NO_ENCONTRADO); constancia aún no disponible (SIN_CDR); ruta inexistente (RUTA_INEXISTENTE)."],
-  ["409", "Conflicto: correlativo repetido (DUPLICADO) o comprobante que no admite envío (ESTADO_NO_ENVIABLE)."],
+  ["409", "Conflicto: correlativo repetido (DUPLICADO), comprobante que no admite envío (ESTADO_NO_ENVIABLE) o que aún no está aceptado para enviarlo por correo (NO_ACEPTADO)."],
   ["422", "Datos válidos en forma pero no en fondo: validación de campos (VALIDACION, detalle en errores) o regla de negocio (el codigo dice cuál)."],
   ["500", "Error interno; el mensaje incluye un trace_id para soporte."],
 ];
@@ -58,6 +58,9 @@ const CODIGOS: Array<[string, string, string, string]> = [
   ["CREDENCIALES_SOL_NO_CARGADAS", "422", "La empresa no tiene usuario/clave SOL y se pidió enviar a SUNAT.", "Cárguelas en el portal o emita con enviar_automatico: false."],
   ["CERTIFICADO_NO_CARGADO / CERTIFICADO_VENCIDO / CERTIFICADO_INVALIDO", "422", "Sin certificado, vencido, o su OU no contiene el RUC.", "Cargue un certificado vigente de la empresa."],
   ["XSD_INVALIDO / FIRMA_FALLIDA", "422", "El XML generado no validó o no pudo firmarse.", "Contacte soporte con el id; suele ser un dato fuera de catálogo."],
+  ["NO_ACEPTADO", "409", "Se pidió enviar por correo un comprobante que SUNAT aún no aceptó (FIRMADO, ERROR_ENVIO, RECHAZADO o ANULADO).", "Espere la aceptación; el PDF sí se puede descargar desde FIRMADO."],
+  ["CORREO_NO_ENVIADO", "502", "El servidor de correo rechazó o no aceptó el envío al adquirente (SMTP caído, buzón inválido).", "Reintente más tarde; el comprobante no cambia de estado."],
+  ["SIN_FIRMA", "422", "Se pidió el PDF de un comprobante que aún no está numerado y firmado.", "Solo ocurre con comprobantes INVALIDO; corrija y vuelva a emitir."],
   ["ESTADO_NO_ENVIABLE", "409", "Se intentó enviar un comprobante ACEPTADO, RECHAZADO o ANULADO.", "Solo FIRMADO y ERROR_ENVIO se envían."],
   ["ESTADO_CONFLICTO", "409", "Dos operaciones cambiaron el estado a la vez.", "Vuelva a consultar el comprobante."],
   ["SIN_CDR", "404", "SUNAT aún no emitió la constancia.", "Espere a ACEPTADO/RECHAZADO."],

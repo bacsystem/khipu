@@ -36,6 +36,7 @@ import pe.factura.adapters.storage.FileSystemDocumentStorage;
 import pe.factura.adapters.sunat.SoapBillingGateway;
 import pe.factura.adapters.sunat.SunatUrls;
 import pe.factura.adapters.sunat.XmlCdrParser;
+import pe.factura.adapters.pdf.FlyingSaucerPdfGenerator;
 import pe.factura.adapters.ubl.FreemarkerUblGenerator;
 import pe.factura.adapters.ubl.JaxpXsdValidator;
 import pe.factura.application.port.in.*;
@@ -200,7 +201,13 @@ public class AppConfig {
                                                     UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock) {
         return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock);
     }
-    @Bean ConsultarComprobanteUseCase consultarComprobante(ComprobanteRepository c, DocumentStorage s) { return new ConsultarComprobanteService(c, s); }
+    @Bean PdfGenerator pdfGenerator() { return new FlyingSaucerPdfGenerator(); }
+    @Bean ConsultarComprobanteUseCase consultarComprobante(ComprobanteRepository c, TenantRepository t, DocumentStorage s, PdfGenerator pdf) {
+        return new ConsultarComprobanteService(c, t, s, pdf);
+    }
+    @Bean CompartirComprobanteUseCase compartirComprobante(ConsultarComprobanteUseCase consultar, TenantRepository t, CorreoSender correo) {
+        return new CompartirComprobanteService(consultar, t, correo);
+    }
     @Bean AdministrarTenantUseCase administrarTenant(TenantRepository t, SerieRepository s, ApiKeyRepository k, UnitOfWork u, AppProperties p, Clock clock) {
         return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock);
     }

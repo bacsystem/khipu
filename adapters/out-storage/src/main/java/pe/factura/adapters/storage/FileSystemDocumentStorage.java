@@ -20,6 +20,7 @@ public class FileSystemDocumentStorage implements DocumentStorage {
         if (!Files.exists(p)) throw new IllegalStateException("No existe " + key);
         try { return Files.readAllBytes(p); } catch (IOException e) { throw new IllegalStateException("No se pudo leer " + key, e); }
     }
+    @Override public boolean existe(String key) { return Files.isRegularFile(resolver(key)); }
     private Path resolver(String key) {
         if (key == null || key.startsWith("/") || key.contains("..")) throw new IllegalArgumentException("Clave inválida: " + key);
         Path p = raiz.resolve(key).normalize();
