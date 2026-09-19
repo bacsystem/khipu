@@ -51,7 +51,7 @@ export function BajaButton({ id, numero }: { id: string; numero: string }) {
         <BanIcon className="size-4" />
         Dar de baja
       </DialogTrigger>
-      <DialogContent className="gap-0 p-0" data-testid="baja-confirmacion">
+      <DialogContent className="gap-0 p-0" data-testid="baja-confirmacion" showCloseButton={!enviando}>
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
