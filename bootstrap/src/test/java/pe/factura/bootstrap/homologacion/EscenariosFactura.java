@@ -31,8 +31,12 @@ final class EscenariosFactura {
      * {@code serie} y {@code fecha} se inyectan por ejecución. Los marcadores {@code ${ANTICIPO}}, {@code ${GRAVADA}}, {@code ${MIXTA}}
      * y {@code ${CREDITO}} los rellena el test con los números que SUNAT ya aceptó en los escenarios 16, 01, 04 y 09.
      */
-    static List<Escenario> todos(String serie, LocalDate fecha) {
+    static List<Escenario> todos(String serie, LocalDate fecha) { return todos(serie, serie, fecha); }
+
+    /** {@code serieAnexo}: serie de factura asignada al establecimiento anexo 0002 (escenario 24). */
+    static List<Escenario> todos(String serie, String serieAnexo, LocalDate fecha) {
         String cab = "\"serie\":\"" + serie + "\",\"fecha_emision\":\"" + fecha + "\"";
+        String cabAnexo = "\"serie\":\"" + serieAnexo + "\",\"fecha_emision\":\"" + fecha + "\"";
         return List.of(
             new Escenario("01-gravada", "Venta interna gravada al contado",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
@@ -120,7 +124,11 @@ final class EscenariosFactura {
             new Escenario("23-tasa-reducida", "Venta gravada al 10.5 % (padrón de tasa especial del IGV, Ley 31556)", "/v1/facturas",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
                 "{\"codigo\":\"MENU-01\",\"descripcion\":\"Menú ejecutivo\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":33.15,\"tipo_afectacion_igv\":\"10\"}]}",
-                true, "4439")
+                true, "4439"),
+            // Serie asignada a un establecimiento anexo (#80): RegistrationAddress con AddressTypeCode 0002 y la dirección del anexo.
+            new Escenario("24-anexo", "Factura desde una serie asignada al establecimiento anexo 0002",
+                "{" + cabAnexo + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Venta en tienda Miraflores\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":236.00,\"tipo_afectacion_igv\":\"10\"}]}")
         );
     }
 

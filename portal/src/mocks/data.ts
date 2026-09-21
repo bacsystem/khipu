@@ -33,7 +33,8 @@ export type PersonalizacionPdf = {
 };
 
 export const PERSONALIZACION_POR_DEFECTO: PersonalizacionPdf = { plantilla: "clasico", color_primario: "#1E1E24", tiene_logo: false, pie_de_pagina: null, observaciones_por_defecto: null };
-export type Serie = { tipo: string; serie: string; ultimo_numero: number; activa: boolean };
+export type Serie = { tipo: string; serie: string; ultimo_numero: number; activa: boolean; establecimiento: string };
+export type Establecimiento = { codigo: string; nombre: string; domicilio: NonNullable<Empresa["domicilio"]>; activo: boolean };
 export type ApiKey = { id: string; prefijo: string; activa: boolean; creada_en: string; revocada_en?: string };
 export type Comprobante = {
   id: string;
@@ -93,6 +94,7 @@ export const db = {
   usuariosPorEmail: new Map<string, { usuario: Usuario; password: string }>(),
   empresasPorCuenta: new Map<string, Empresa[]>(),
   seriesPorEmpresa: new Map<string, Serie[]>(),
+  establecimientosPorEmpresa: new Map<string, Establecimiento[]>(),
   apiKeysPorEmpresa: new Map<string, ApiKey[]>(),
   facturasPorEmpresa: new Map<string, Comprobante[]>(),
   bajas: new Map<string, Baja>(),
@@ -104,6 +106,7 @@ export function resetDb() {
   db.usuariosPorEmail.clear();
   db.empresasPorCuenta.clear();
   db.seriesPorEmpresa.clear();
+  db.establecimientosPorEmpresa.clear();
   db.apiKeysPorEmpresa.clear();
   db.facturasPorEmpresa.clear();
   db.bajas.clear();
@@ -129,9 +132,12 @@ export function resetDb() {
   };
   db.empresasPorCuenta.set(usuario.cuenta_id, [empresa]);
   db.seriesPorEmpresa.set(empresa.id, [
-    { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true },
-    { tipo: "07", serie: "FC01", ultimo_numero: 0, activa: true },
-    { tipo: "08", serie: "FD01", ultimo_numero: 0, activa: true },
+    { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" },
+    { tipo: "07", serie: "FC01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
+    { tipo: "08", serie: "FD01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
+  ]);
+  db.establecimientosPorEmpresa.set(empresa.id, [
+    { codigo: "0002", nombre: "Tienda Miraflores", domicilio: { ubigeo: "150122", direccion: "Av. Larco 345", urbanizacion: null, distrito: "MIRAFLORES", provincia: "LIMA", departamento: "LIMA", codigo_establecimiento: "0002" }, activo: true },
   ]);
   db.apiKeysPorEmpresa.set(empresa.id, [
     { id: "k-activa", prefijo: "fk_demo001", activa: true, creada_en: "2026-09-01T15:00:00Z" },

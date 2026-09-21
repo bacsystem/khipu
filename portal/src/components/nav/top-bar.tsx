@@ -26,6 +26,7 @@ const MIGAS: Array<{ prefijo: string; seccion: string; pagina: string }> = [
     seccion: "Configuración",
     pagina: "Fiscal & certificado",
   },
+  { prefijo: "/establecimientos", seccion: "Configuración", pagina: "Establecimientos" },
   { prefijo: "/api-keys", seccion: "Configuración", pagina: "API keys & integración" },
   { prefijo: "/developers", seccion: "Configuración", pagina: "Developers" },
 ];

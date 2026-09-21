@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { hoyLima } from "@/lib/formato";
-import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, type Baja, type Comprobante, type Empresa, type PersonalizacionPdf, type Usuario } from "./data";
+import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8080";
@@ -36,6 +36,26 @@ let contador = 0;
 function empresaDe(request: Request): Empresa | undefined {
   const empresaId = request.headers.get("x-empresa");
   return [...db.empresasPorCuenta.values()].flat().find((e) => e.id === empresaId);
+}
+
+async function guardarEstablecimiento(request: Request, codigoRuta: string | null) {
+  const empresa = empresaDe(request);
+  if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+  const body = (await request.json()) as { codigo: string; nombre: string; domicilio: { ubigeo: string; direccion: string; urbanizacion?: string | null } };
+  if (codigoRuta && codigoRuta !== body.codigo) return fail(422, "ESTABLECIMIENTO_INVALIDO", `El código de la ruta (${codigoRuta}) y del cuerpo (${body.codigo}) no coinciden`);
+  if (!/^\d{4}$/.test(body.codigo)) return fail(422, "ESTABLECIMIENTO_INVALIDO", "3030 - El código del establecimiento anexo son 4 dígitos, tal como figura en la ficha RUC");
+  if (body.codigo === "0000") return fail(422, "ESTABLECIMIENTO_INVALIDO", "El 0000 es el domicilio fiscal: se configura en los datos fiscales de la empresa, no como anexo");
+  const u = UBIGEOS.find((x) => x.codigo === body.domicilio?.ubigeo);
+  if (!u) return fail(422, "DOMICILIO_INVALIDO", "4093 - El ubigeo debe ser un código de 6 dígitos del catálogo 13 (INEI)");
+  const lista = db.establecimientosPorEmpresa.get(empresa.id) ?? [];
+  const existente = lista.find((x) => x.codigo === body.codigo);
+  const e: Establecimiento = {
+    codigo: body.codigo, nombre: body.nombre, activo: existente?.activo ?? true,
+    domicilio: { ubigeo: u.codigo, direccion: body.domicilio.direccion, urbanizacion: body.domicilio.urbanizacion ?? null, distrito: u.extra.Distrito, provincia: u.extra.Provincia, departamento: u.extra.Departamento, codigo_establecimiento: body.codigo },
+  };
+  if (existente) Object.assign(existente, e); else lista.push(e);
+  db.establecimientosPorEmpresa.set(empresa.id, lista);
+  return ok({ ...e, principal: false }, existente ? 200 : 201);
 }
 
 function nuevoId(prefijo: string) {
@@ -253,11 +273,40 @@ export const handlers = [
 
   http.post(`${BASE}/v1/series`, async ({ request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
-    const body = (await request.json()) as { tipo: string; serie: string; correlativo_inicial?: number };
+    const body = (await request.json()) as { tipo: string; serie: string; correlativo_inicial?: number; establecimiento?: string | null };
+    const establecimiento = body.establecimiento || "0000";
+    if (establecimiento !== "0000") {
+      const e = (db.establecimientosPorEmpresa.get(empresaId) ?? []).find((x) => x.codigo === establecimiento);
+      if (!e) return fail(422, "ESTABLECIMIENTO_INVALIDO", `El establecimiento ${establecimiento} no existe en la empresa: regístrelo antes de asignarle una serie`);
+      if (!e.activo) return fail(422, "ESTABLECIMIENTO_INVALIDO", `El establecimiento ${establecimiento} (${e.nombre}) está dado de baja`);
+    }
     const lista = db.seriesPorEmpresa.get(empresaId) ?? [];
-    lista.push({ tipo: body.tipo, serie: body.serie, ultimo_numero: body.correlativo_inicial ?? 0, activa: true });
+    lista.push({ tipo: body.tipo, serie: body.serie, ultimo_numero: body.correlativo_inicial ?? 0, activa: true, establecimiento });
     db.seriesPorEmpresa.set(empresaId, lista);
     return new HttpResponse(null, { status: 201 });
+  }),
+
+  // Establecimientos anexos (#80): el 0000 es el domicilio fiscal de la empresa y se lista como principal.
+  http.get(`${BASE}/v1/empresa/establecimientos`, ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    const anexos = (db.establecimientosPorEmpresa.get(empresa.id) ?? []).map((e) => ({ ...e, principal: false }));
+    const principal = empresa.domicilio ? [{ codigo: "0000", nombre: "Domicilio fiscal", domicilio: empresa.domicilio, activo: true, principal: true }] : [];
+    return ok([...principal, ...anexos]);
+  }),
+  http.post(`${BASE}/v1/empresa/establecimientos`, async ({ request }) => guardarEstablecimiento(request, null)),
+  http.put(`${BASE}/v1/empresa/establecimientos/:codigo`, async ({ request, params }) => guardarEstablecimiento(request, String(params.codigo))),
+  http.delete(`${BASE}/v1/empresa/establecimientos/:codigo`, ({ request, params }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    const codigo = String(params.codigo);
+    if (codigo === "0000") return fail(422, "ESTABLECIMIENTO_INVALIDO", "El 0000 es el domicilio fiscal: no se da de baja, se edita en datos fiscales");
+    const e = (db.establecimientosPorEmpresa.get(empresa.id) ?? []).find((x) => x.codigo === codigo);
+    if (!e) return fail(404, "NO_ENCONTRADO", `Establecimiento ${codigo} no encontrado`);
+    const enUso = (db.seriesPorEmpresa.get(empresa.id) ?? []).filter((s) => s.activa && s.establecimiento === codigo).map((s) => s.serie);
+    if (enUso.length) return fail(409, "ESTABLECIMIENTO_EN_USO", `El establecimiento ${codigo} tiene series activas (${enUso.join(", ")}): reasígnelas antes de darlo de baja`);
+    e.activo = false;
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get(`${BASE}/v1/facturas`, ({ request }) => {

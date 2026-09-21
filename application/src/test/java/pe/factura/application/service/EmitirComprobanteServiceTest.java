@@ -20,13 +20,15 @@ class EmitirComprobanteServiceTest {
     UUID tenantId = UUID.randomUUID();
     Fakes.Comprobantes comprobantes = new Fakes.Comprobantes();
     Fakes.Series series = new Fakes.Series();
+    Fakes.Establecimientos establecimientos = new Fakes.Establecimientos(series);
     Fakes.Tenants tenants = new Fakes.Tenants();
     Fakes.Storage storage = new Fakes.Storage();
     Fakes.Outbox outbox = new Fakes.Outbox();
     Fakes.Gateway gateway = new Fakes.Gateway();
     Fakes.Cdrs cdrs = new Fakes.Cdrs();
+    Tenant[] emisor = new Tenant[1];
     UblGenerator ubl = new UblGenerator() {
-        public String generar(Comprobante c, pe.factura.domain.tenant.Tenant t) { return "<Invoice>" + c.nombreArchivo() + "</Invoice>"; }
+        public String generar(Comprobante c, pe.factura.domain.tenant.Tenant t) { emisor[0] = t; return "<Invoice>" + c.nombreArchivo() + "</Invoice>"; }
         public String generarBaja(pe.factura.domain.documento.ComunicacionBaja b, pe.factura.domain.tenant.Tenant t) { return ""; }
     };
     String[] recibido = new String[1];
@@ -41,7 +43,7 @@ class EmitirComprobanteServiceTest {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK);
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos);
     }
 
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
@@ -136,7 +138,7 @@ class EmitirComprobanteServiceTest {
             public void validarBaja(String xml) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK);
+        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos);
         assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).extracting("codigo").isEqualTo("XSD_INVALIDO");
         assertThat(comprobantes.datos).isEmpty();
     }
@@ -214,5 +216,33 @@ class EmitirComprobanteServiceTest {
                 List.of(new Item("P1", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", aceptado.numero(), new BigDecimal("50.00"), null, null)), null, null, false)))
                 .hasMessageContaining("otro cliente");
+    }
+
+    /** La serie de un anexo emite con el domicilio del anexo (RegistrationAddress del XML); la del 0000, con el fiscal (#80). */
+    @Test void laSerieDeUnEstablecimientoAnexoEmiteConSuDomicilio() {
+        pe.factura.domain.tenant.Domicilio fiscal = pe.factura.domain.tenant.Domicilio.de("150101", "Av. Lima 123");
+        pe.factura.domain.tenant.Domicilio tienda = pe.factura.domain.tenant.Domicilio.de("150122", "Av. Larco 345");
+        tenants.guardar(Fakes.tenantListo(tenantId).conDatosFiscales(fiscal, null, null));
+        establecimientos.guardar(new pe.factura.domain.tenant.Establecimiento(tenantId, "0002", "Tienda", tienda, true));
+        series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F002", 0, true, "0002"));
+        service.emitirFactura(tenantId, comando("F002"));
+        assertThat(emisor[0].domicilio().codigoEstablecimiento()).isEqualTo("0002");
+        assertThat(emisor[0].domicilio().direccion()).isEqualTo("Av. Larco 345");
+        assertThat(emisor[0].ruc()).isEqualTo("20100066603");
+
+        service.emitirFactura(tenantId, comando("F001"));
+        assertThat(emisor[0].domicilio().codigoEstablecimiento()).isEqualTo("0000");
+        assertThat(emisor[0].domicilio().direccion()).isEqualTo("Av. Lima 123");
+
+        // Anexo dado de baja: se rechaza y no consume número.
+        establecimientos.guardar(new pe.factura.domain.tenant.Establecimiento(tenantId, "0002", "Tienda", tienda, false));
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, comando("F002"))).extracting("codigo").isEqualTo("ESTABLECIMIENTO_INVALIDO");
+        assertThat(comprobantes.listar(tenantId, null, 1, 10)).hasSize(2);
+    }
+
+    private EmitirFacturaCommand comando(String serie) {
+        return new EmitirFacturaCommand(serie, null, LocalDate.of(2026, 9, 13), null, "PEN", "0101", new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true);
     }
 }

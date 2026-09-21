@@ -37,6 +37,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     private final EnviarDocumentoUseCase enviar;
     private final UnitOfWork uow;
     private final Clock clock;
+    private final EmisorDeSerieRepository emisorDeSerie;
 
 
     @Override
@@ -176,7 +177,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             c.asignarNumero(numero, tenant.ruc());
             enTransaccion.run();
 
-            String xml = ubl.generar(c, tenant);
+            // El XML lleva el domicilio del establecimiento de la serie (#80); con la serie en 0000, el fiscal del tenant.
+            String xml = ubl.generar(c, EmisorDeSerie.paraEmitir(emisorDeSerie, tenant, c));
             FirmaResultado firma = signer.firmar(xml, tenant.certificado());
             xsd.validar(firma.xmlFirmado(), c.tipo());
 

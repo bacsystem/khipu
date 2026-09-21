@@ -30,6 +30,7 @@ class DarDeBajaServiceTest {
     Fakes.Comprobantes comprobantes = new Fakes.Comprobantes();
     Fakes.Bajas bajas = new Fakes.Bajas();
     Fakes.Series series = new Fakes.Series();
+    Fakes.Establecimientos establecimientos = new Fakes.Establecimientos(series);
     Fakes.Tenants tenants = new Fakes.Tenants();
     Fakes.Storage storage = new Fakes.Storage();
     Fakes.Outbox outbox = new Fakes.Outbox();
@@ -48,7 +49,7 @@ class DarDeBajaServiceTest {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        emitir = new EmitirComprobanteService(comprobantes, series, tenants, storage, new Fakes.Ubl(), xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK);
+        emitir = new EmitirComprobanteService(comprobantes, series, tenants, storage, new Fakes.Ubl(), xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos);
         service = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
     }
 
