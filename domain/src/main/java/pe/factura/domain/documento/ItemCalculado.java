@@ -24,8 +24,6 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
                             BigDecimal valorVenta, BigDecimal isc, BigDecimal iscPorcentaje, BigDecimal icbper, BigDecimal icbperUnitario,
                             BigDecimal igv, BigDecimal precioVenta, BigDecimal precioVentaUnitario, BigDecimal porcentajeIgv, List<CargoCalculado> cargos) {
 
-    /** Factor de la tasa general (18 %); los cálculos reales usan la tasa del comprobante ({@link TasaIgv}). */
-    public static final BigDecimal TASA_IGV = TasaIgv.factor(TasaIgv.GENERAL);
     private static final BigDecimal CIEN = new BigDecimal("100");
 
     public static ItemCalculado de(Item item) { return de(item, Icbper.tasaVigente(java.time.LocalDate.of(2023, 1, 1))); }
