@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.*;
 class AdministrarTenantServiceTest {
     Fakes.Tenants tenants = new Fakes.Tenants();
     Fakes.Series series = new Fakes.Series();
-    Fakes.Establecimientos establecimientos = new Fakes.Establecimientos();
+    Fakes.Establecimientos establecimientos = new Fakes.Establecimientos(series);
     Map<String, ApiKey> keys = new HashMap<>();
     ApiKeyRepository apiKeys = new ApiKeyRepository() {
         public void guardar(ApiKey k) { keys.put(k.hash(), k); }

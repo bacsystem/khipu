@@ -30,7 +30,7 @@ class DarDeBajaServiceTest {
     Fakes.Comprobantes comprobantes = new Fakes.Comprobantes();
     Fakes.Bajas bajas = new Fakes.Bajas();
     Fakes.Series series = new Fakes.Series();
-    Fakes.Establecimientos establecimientos = new Fakes.Establecimientos();
+    Fakes.Establecimientos establecimientos = new Fakes.Establecimientos(series);
     Fakes.Tenants tenants = new Fakes.Tenants();
     Fakes.Storage storage = new Fakes.Storage();
     Fakes.Outbox outbox = new Fakes.Outbox();
