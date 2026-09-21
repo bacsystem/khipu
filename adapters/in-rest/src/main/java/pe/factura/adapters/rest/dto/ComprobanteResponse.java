@@ -30,6 +30,7 @@ public record ComprobanteResponse(
         @Schema(example = "125") Long numero,
         @Schema(example = "2026-09-14") LocalDate fechaEmision,
         @Schema(example = "2026-10-14", description = "Fecha de vencimiento informada, o `null`") LocalDate fechaVencimiento,
+        @Schema(example = "2026-09-17", description = "Último día en que SUNAT acepta recibirlo (RS 193-2020: 3 días calendario desde la emisión). Pasado ese día, un comprobante FIRMADO o en ERROR_ENVIO pasa a FUERA_DE_PLAZO y hay que emitir uno nuevo") LocalDate fechaLimiteEnvio,
         @Schema(example = "PEN") String moneda,
         @Schema(example = "0101", description = "Catálogo 51 SUNAT") String tipoOperacion,
         ReceptorDto receptor,
@@ -224,7 +225,7 @@ public record ComprobanteResponse(
     /** Con {@code notas} (las emitidas sobre esta factura) y {@code baja} (la última comunicación de baja) solo al consultar un comprobante concreto. */
     public static ComprobanteResponse de(Comprobante c, String base, List<Comprobante> notas, ComunicacionBaja baja) {
         String p = base + "/" + c.id();
-        return new ComprobanteResponse(c.id(), c.tipo().codigo(), c.serie(), c.numero(), c.fechaEmision(), c.fechaVencimiento(), c.moneda(), c.tipoOperacion(),
+        return new ComprobanteResponse(c.id(), c.tipo().codigo(), c.serie(), c.numero(), c.fechaEmision(), c.fechaVencimiento(), c.fechaLimiteEnvio(), c.moneda(), c.tipoOperacion(),
                 de(c.receptor()), c.totales().items().stream().map(ComprobanteResponse::de).toList(),
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),

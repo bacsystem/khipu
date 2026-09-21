@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.25] - 2026-09-19
+
+### Added
+- Control del plazo de envío a SUNAT (#37). Cada comprobante expone `fecha_limite_envio` (RS 193-2020: 3 días calendario desde la emisión; feriados cuentan) y el estado terminal **`FUERA_DE_PLAZO`**: un `FIRMADO` o `ERROR_ENVIO` que no llegó a SUNAT a tiempo se cierra con `2108 - Presentación fuera de fecha` en vez de seguir reintentando 6 h × 20 veces para un rechazo seguro. Se marca al intentar enviarlo (`POST /v1/facturas/{id}/enviar` responde `409 FUERA_DE_PLAZO`; el outbox descarta la fila) y en un barrido horario (`PlazoEnvioWorker`, `app.plazo-envio.intervalo-ms`) para lo que nadie intenta enviar. Emitir con una `fecha_emision` cuyo plazo ya venció responde `422 FECHA_INVALIDA` antes de consumir número. El outbox prioriza los comprobantes más antiguos (más cerca de vencer). Portal: badge «Fuera de plazo», filtro, y en el detalle la fecha límite («Enviar a SUNAT hasta el …») o el vencimiento.
+
 ## [0.1.24] - 2026-09-19
 
 ### Added

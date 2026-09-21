@@ -31,6 +31,7 @@ import pe.factura.adapters.rest.ApiKeyFilter;
 import pe.factura.adapters.rest.JwtFilter;
 import pe.factura.adapters.rest.PlatformKeyFilter;
 import pe.factura.adapters.scheduler.OutboxWorker;
+import pe.factura.adapters.scheduler.PlazoEnvioWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
 import pe.factura.adapters.storage.FileSystemDocumentStorage;
 import pe.factura.adapters.sunat.SoapBillingGateway;
@@ -240,6 +241,8 @@ public class AppConfig {
     @Bean OutboxWorker outboxWorker(OutboxRepository o, UnitOfWork u, EnviarDocumentoUseCase e, DarDeBajaUseCase b, Clock clock, AppProperties p) {
         return new OutboxWorker(o, u, e, b, clock, p.outbox().maxIntentos());
     }
+    @Bean ControlarPlazoEnvioUseCase controlarPlazoEnvio(ComprobanteRepository c, UnitOfWork u, Clock clock) { return new ControlarPlazoEnvioService(c, u, clock); }
+    @Bean PlazoEnvioWorker plazoEnvioWorker(ControlarPlazoEnvioUseCase plazos) { return new PlazoEnvioWorker(plazos); }
 
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
     // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.

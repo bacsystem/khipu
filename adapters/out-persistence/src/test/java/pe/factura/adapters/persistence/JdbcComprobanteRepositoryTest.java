@@ -151,6 +151,27 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscar(t, general.id()).orElseThrow().tasaIgv()).isEqualByComparingTo("18.00");
     }
 
+    /** Control del plazo (#37): solo FIRMADO y ERROR_ENVIO con fecha de emisión hasta el corte, de cualquier empresa. */
+    @Test void listaLosPendientesDeEnvioEmitidosHastaUnaFecha() {
+        UUID t = tenantDePrueba();
+        UUID otra = tenantDePrueba();
+        Comprobante firmada = factura(t, 1); firmada.firmar("H", "k1.xml"); repo.guardar(firmada);
+        Comprobante enError = factura(t, 2); enError.firmar("H", "k2.xml"); repo.guardar(enError);
+        enError.marcarErrorEnvio("timeout"); repo.guardar(enError);   // ERROR_ENVIO se guarda condicional: primero debe existir como FIRMADO
+        Comprobante aceptada = factura(t, 3); aceptada.firmar("H", "k3.xml"); repo.guardar(aceptada);
+        aceptada.marcarEnviado(); aceptada.aplicarCdr(new pe.factura.domain.documento.Cdr("0", "ok", List.of()), "c3"); repo.guardar(aceptada);
+        Comprobante ajena = factura(otra, 1); ajena.firmar("H", "k4.xml"); repo.guardar(ajena);
+        Comprobante recibida = factura(t, 4); repo.guardar(recibida);   // RECIBIDO: sin firmar, no entra
+
+        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id)
+                .containsExactlyInAnyOrder(firmada.id(), enError.id(), ajena.id());
+        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 12))).isEmpty();
+        firmada.marcarFueraDePlazo(LocalDate.of(2026, 9, 17));
+        repo.guardar(firmada);
+        assertThat(repo.buscar(t, firmada.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
+        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactlyInAnyOrder(enError.id(), ajena.id());
+    }
+
     @Test void guardaYRehidrataNotasYLasListaPorFactura() {
         UUID t = tenantDePrueba();
         Comprobante f = factura(t, 20);

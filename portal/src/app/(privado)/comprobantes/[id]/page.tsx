@@ -249,6 +249,12 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           <Campo etiqueta="Fecha de emisión">
             <span className="font-mono text-xs font-medium text-foreground">{formatearFecha(c.fecha_emision)}</span>
             {c.fecha_vencimiento ? <span className="block text-[11px] text-muted-foreground">Vence {formatearFecha(c.fecha_vencimiento)}</span> : null}
+            {c.fecha_limite_envio && (c.estado_documento === "FIRMADO" || c.estado_documento === "ERROR_ENVIO") ? (
+              <span className="block text-[11px] text-warning-foreground">Enviar a SUNAT hasta el {formatearFecha(c.fecha_limite_envio)}</span>
+            ) : null}
+            {c.fecha_limite_envio && c.estado_documento === "FUERA_DE_PLAZO" ? (
+              <span className="block text-[11px] text-destructive">Plazo de envío vencido el {formatearFecha(c.fecha_limite_envio)}: emita un comprobante nuevo</span>
+            ) : null}
           </Campo>
           <Campo etiqueta="Moneda">
             <span className="text-xs font-semibold text-foreground">{MONEDAS[c.moneda] ?? c.moneda}</span>

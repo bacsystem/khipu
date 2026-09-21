@@ -245,4 +245,39 @@ class EmitirComprobanteServiceTest {
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true);
     }
+
+    /** Emitida sin enviar el día 13 y enviada el 17: el plazo (13 + 3 = 16) venció; se cierra sin llamar a SUNAT (#37). */
+    @Test void enviarFueraDePlazoCierraElComprobanteSinLlamarASunat() {
+        Comprobante c = service.emitirFactura(tenantId, cmd(null, false));
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.FIRMADO);
+        assertThat(c.fechaLimiteEnvio()).isEqualTo(LocalDate.of(2026, 9, 16));
+        java.time.Clock dia17 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-17T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+        EnviarDocumentoService tarde = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, dia17);
+        assertThatThrownBy(() -> tarde.enviar(tenantId, c.id())).extracting("codigo").isEqualTo("FUERA_DE_PLAZO");
+        Comprobante cerrado = comprobantes.buscar(tenantId, c.id()).orElseThrow();
+        assertThat(cerrado.estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
+        assertThat(cerrado.ultimoError()).contains("2108").contains("2026-09-16");
+        assertThat(gateway.ultimoNombre).isNull();
+        // Terminal: un nuevo intento de envío ya no llega ni a la comprobación del plazo.
+        assertThatThrownBy(() -> tarde.enviar(tenantId, c.id())).extracting("codigo").isEqualTo("ESTADO_NO_ENVIABLE");
+    }
+
+    /** El barrido marca lo que nadie intentó enviar; lo que sigue dentro del plazo no se toca. */
+    @Test void elBarridoMarcaLosVencidosYRespetaLosVigentes() {
+        Comprobante vieja = service.emitirFactura(tenantId, cmd(null, false));   // 13/09, vence 16/09
+        java.time.Clock dia17 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-17T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+        gateway.falla = new SunatTransientException("0000", "caído");
+        Comprobante enError = service.emitirFactura(tenantId, cmd(null, true));   // ERROR_ENVIO del 13/09, también vence
+        gateway.falla = null;
+        ControlarPlazoEnvioService barrido = new ControlarPlazoEnvioService(comprobantes, Fakes.UOW, dia17);
+        assertThat(barrido.marcarVencidos()).extracting(Comprobante::id).containsExactlyInAnyOrder(vieja.id(), enError.id());
+        assertThat(comprobantes.buscar(tenantId, vieja.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
+        assertThat(comprobantes.buscar(tenantId, enError.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
+        // Segunda pasada: nada nuevo. Y el día 16 (último día válido) no marca nada.
+        assertThat(barrido.marcarVencidos()).isEmpty();
+        Comprobante otra = service.emitirFactura(tenantId, cmd(null, false));
+        java.time.Clock dia16 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-16T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+        assertThat(new ControlarPlazoEnvioService(comprobantes, Fakes.UOW, dia16).marcarVencidos()).isEmpty();
+        assertThat(comprobantes.buscar(tenantId, otra.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FIRMADO);
+    }
 }

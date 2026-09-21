@@ -21,7 +21,8 @@ const ESTADOS: Array<[string, string, string]> = [
   ["RECHAZADO", "SUNAT rechazó (2000–3999) o un error del emisor impidió recibirlo (1000–1999).", "Corrija lo que indica cdr.descripcion y emita de nuevo; puede reutilizar el número."],
   ["ERROR_ENVIO", "SUNAT no estuvo disponible o falló la comunicación.", "No es un rechazo. khipu reintenta solo con espera creciente (hasta 20 intentos); puede forzarlo con POST /v1/facturas/{id}/enviar."],
   ["INVALIDO", "El XML no pasó la validación local (esquema).", "Contacte soporte con el id: no debería ocurrir con datos que la API aceptó."],
-  ["ANULADO", "Comunicación de baja aceptada por SUNAT.", "Terminal (en desarrollo)."],
+  ["ANULADO", "Comunicación de baja aceptada por SUNAT.", "Terminal: el número queda consumido."],
+  ["FUERA_DE_PLAZO", "No llegó a SUNAT dentro del plazo de envío (fecha_limite_envio: 3 días calendario desde la emisión, RS 193-2020). Se marca al intentar enviarlo o en el barrido horario.", "Terminal: emita un comprobante nuevo con fecha vigente; el número queda consumido. Un envío manual responde 409 FUERA_DE_PLAZO."],
 ];
 
 const HTTP: Array<[string, string]> = [
@@ -30,7 +31,7 @@ const HTTP: Array<[string, string]> = [
   ["401", "Sin credenciales válidas: falta o es inválida la X-Api-Key (NO_AUTORIZADO), o la sesión del portal expiró."],
   ["403", "Operación reservada al portal (REQUIERE_SESION: gestión de API keys) o empresa de otra cuenta (EMPRESA_AJENA)."],
   ["404", "No existe o pertenece a otra empresa (NO_ENCONTRADO); constancia aún no disponible (SIN_CDR); ruta inexistente (RUTA_INEXISTENTE)."],
-  ["409", "Conflicto: correlativo repetido (DUPLICADO), comprobante que no admite envío (ESTADO_NO_ENVIABLE) o que aún no está aceptado para enviarlo por correo (NO_ACEPTADO)."],
+  ["409", "Conflicto: correlativo repetido (DUPLICADO), comprobante que no admite envío (ESTADO_NO_ENVIABLE), fuera del plazo de envío (FUERA_DE_PLAZO), aún no aceptado para enviarlo por correo (NO_ACEPTADO) o establecimiento con series activas (ESTABLECIMIENTO_EN_USO)."],
   ["422", "Datos válidos en forma pero no en fondo: validación de campos (VALIDACION, detalle en errores) o regla de negocio (el codigo dice cuál)."],
   ["500", "Error interno; el mensaje incluye un trace_id para soporte."],
 ];
@@ -41,7 +42,7 @@ const CODIGOS: Array<[string, string, string, string]> = [
   ["SERIE_NO_CONFIGURADA", "422", "La serie no está registrada en la empresa.", "Créela en POST /v1/series o en el portal."],
   ["DUPLICADO", "409", "Ya existe un comprobante con esa serie y correlativo (o la serie ya existe).", "Reintento seguro: no se emitió nada nuevo."],
   ["NUMERO_YA_ASIGNADO", "422", "Se intentó asignar número a un comprobante que ya lo tiene.", "No debería ocurrir vía API; contacte soporte."],
-  ["FECHA_INVALIDA", "422", "fecha_emision futura o fecha_vencimiento anterior a la emisión.", "Use una fecha de emisión de hoy o anterior y un vencimiento igual o posterior."],
+  ["FECHA_INVALIDA", "422", "fecha_emision futura, con el plazo de envío ya vencido (2108: más de 3 días calendario atrás), o fecha_vencimiento anterior a la emisión.", "Use una fecha de emisión de hoy o de los 3 días anteriores y un vencimiento igual o posterior."],
   ["MONEDA_INVALIDA", "422", "Moneda distinta de PEN/USD/EUR.", "Vea el catálogo 02."],
   ["TIPO_OPERACION_INVALIDO", "422", "tipo_operacion no existe en el catálogo 51 o no aplica a facturas (regla 3206).", "Use un código del catálogo 51 cuya columna de comprobante incluya Factura."],
   ["RECEPTOR_INVALIDO", "422", "En factura el adquirente debe tener RUC válido (tipo_doc 6, 11 dígitos).", "Corrija cliente.tipo_doc / num_doc."],
