@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 const PASOS = [
   { titulo: "Valida los datos", detalle: "reglas de negocio" },
   { titulo: "Genera el XML UBL", detalle: "UBL 2.1" },
@@ -70,6 +72,16 @@ export function ComprobantePreview() {
             return (
               <g key={paso.titulo}>
                 <rect x={0} y={boxY} width={SVG_W} height={BOX_H} rx={10} fill="var(--sidebar-accent)" />
+                <circle
+                  cx={ICON_CX}
+                  cy={cy}
+                  r={ICON_R}
+                  className="khipu-onda"
+                  style={{ "--khipu-retraso": `${i * 0.96}s` } as CSSProperties}
+                  fill="none"
+                  stroke={i >= 3 ? "var(--success-foreground)" : "var(--sidebar-primary)"}
+                  strokeWidth={1.5}
+                />
                 <circle cx={ICON_CX} cy={cy} r={ICON_R} fill={destacado ? "var(--success)" : "rgba(192,138,46,0.16)"} />
                 <g
                   transform={`translate(${ICON_CX - 9} ${cy - 9})`}
