@@ -5,7 +5,7 @@ import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.application.port.out.DocumentStorage;
 import pe.factura.application.port.out.PdfGenerator;
-import pe.factura.application.port.out.EstablecimientoRepository;
+import pe.factura.application.port.out.EmisorDeSerieRepository;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.CodigoQr;
@@ -27,7 +27,7 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
     private final TenantRepository tenants;
     private final DocumentStorage storage;
     private final PdfGenerator pdf;
-    private final EstablecimientoRepository establecimientos;
+    private final EmisorDeSerieRepository emisorDeSerie;
 
     public Comprobante obtener(UUID tenantId, UUID id) {
         return comprobantes.buscar(tenantId, id).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
@@ -60,7 +60,7 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
         Tenant t = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
         String key = c.xmlKey().replaceFirst("\\.xml$", "-v" + VERSION_PDF + "-" + t.personalizacionPdf().huella() + ".pdf");
         if (storage.existe(key)) return storage.leer(key);
-        Tenant emisor = EmisorDeSerie.paraImprimir(establecimientos, t, c);
+        Tenant emisor = EmisorDeSerie.paraImprimir(emisorDeSerie, t, c);
         byte[] bytes = pdf.generar(c, emisor, CodigoQr.contenido(c, t.ruc()), PersonalizarPdfService.logoDe(storage, t.personalizacionPdf()));
         storage.guardar(key, bytes);
         return bytes;
