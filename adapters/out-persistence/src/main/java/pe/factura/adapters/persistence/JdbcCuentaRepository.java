@@ -12,14 +12,21 @@ import java.util.UUID;
 public class JdbcCuentaRepository implements CuentaRepository {
     private final JdbcTemplate jdbc;
 
+    private static final String SELECT = "SELECT id, nombre, email, telefono FROM cuenta";
+
     @Override public void guardar(Cuenta c) {
-        jdbc.update("INSERT INTO cuenta (id, nombre, email) VALUES (?, ?, ?) ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, email = EXCLUDED.email",
-                c.id(), c.nombre(), c.email());
+        jdbc.update("""
+            INSERT INTO cuenta (id, nombre, email, telefono) VALUES (?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, email = EXCLUDED.email, telefono = EXCLUDED.telefono
+            """, c.id(), c.nombre(), c.email(), c.telefono());
     }
     @Override public Optional<Cuenta> buscar(UUID id) {
-        return jdbc.query("SELECT id, nombre, email FROM cuenta WHERE id = ?", (rs, i) -> new Cuenta(rs.getObject("id", UUID.class), rs.getString("nombre"), rs.getString("email")), id).stream().findFirst();
+        return jdbc.query(SELECT + " WHERE id = ?", this::mapear, id).stream().findFirst();
     }
     @Override public Optional<Cuenta> buscarPorEmail(String email) {
-        return jdbc.query("SELECT id, nombre, email FROM cuenta WHERE email = ?", (rs, i) -> new Cuenta(rs.getObject("id", UUID.class), rs.getString("nombre"), rs.getString("email")), email).stream().findFirst();
+        return jdbc.query(SELECT + " WHERE email = ?", this::mapear, email).stream().findFirst();
+    }
+    private Cuenta mapear(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
+        return new Cuenta(rs.getObject("id", UUID.class), rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"));
     }
 }

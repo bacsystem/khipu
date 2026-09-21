@@ -5,6 +5,7 @@ test("registro completa el onboarding de 3 pasos y llega a comprobantes", async 
 
   await page.goto("/registro");
   await page.getByLabel("Nombre de la cuenta").fill("Mi Empresa de Prueba");
+  await page.getByLabel("Celular (Perú)").fill("987654321");
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Crear cuenta" }).click();

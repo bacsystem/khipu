@@ -29,9 +29,9 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     private final Clock clock;
 
     @Override
-    public Tokens registrar(String nombreCuenta, String email, String password) {
+    public Tokens registrar(String nombreCuenta, String email, String password, String telefono) {
         Usuario.validarPassword(password);
-        Cuenta cuenta = new Cuenta(UUID.randomUUID(), nombreCuenta, email);
+        Cuenta cuenta = new Cuenta(UUID.randomUUID(), nombreCuenta, email, telefono);
         if (cuentas.buscarPorEmail(cuenta.email()).isPresent() || usuarios.buscarPorEmail(cuenta.email()).isPresent())
             throw new DomainException("DUPLICADO", "Ya existe una cuenta con ese correo");
         Usuario usuario = new Usuario(UUID.randomUUID(), cuenta.id(), email, hasher.hash(password), Rol.ADMIN, true);

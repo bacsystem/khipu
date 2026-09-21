@@ -31,19 +31,20 @@ class AuthControllerTest {
     AutenticarUsuarioUseCase.Tokens tokens = new AutenticarUsuarioUseCase.Tokens("access-token", "refresh-token", usuario);
 
     @Test void registroDevuelve201ConTokens() throws Exception {
-        when(auth.registrar("Mi negocio", "ana@negocio.pe", "Segura123")).thenReturn(tokens);
+        when(auth.registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321")).thenReturn(tokens);
         mvc.perform(post("/v1/auth/registro").contentType("application/json")
-                        .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\"}"))
+                        .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.access").value("access-token"))
                 .andExpect(jsonPath("$.datos.refresh").value("refresh-token"))
                 .andExpect(jsonPath("$.datos.usuario.email").value("ana@negocio.pe"))
                 .andExpect(jsonPath("$.datos.usuario.rol").value("ADMIN"));
+        verify(auth).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321");
     }
 
     @Test void registroConDatosInvalidosEs422() throws Exception {
         mvc.perform(post("/v1/auth/registro").contentType("application/json")
-                        .content("{\"nombre\":\"\",\"email\":\"\",\"password\":\"\"}"))
+                        .content("{\"nombre\":\"\",\"email\":\"\",\"password\":\"\",\"telefono\":\"\"}"))
                 .andExpect(status().isUnprocessableEntity());
     }
 

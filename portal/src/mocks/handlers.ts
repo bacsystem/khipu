@@ -77,7 +77,9 @@ const CATALOGOS = [
 
 export const handlers = [
   http.post(`${BASE}/v1/auth/registro`, async ({ request }) => {
-    const body = (await request.json()) as { nombre: string; email: string; password: string };
+    const body = (await request.json()) as { nombre: string; email: string; password: string; telefono?: string };
+    const telefonoLimpio = (body.telefono ?? "").replace(/[\s-]/g, "");
+    if (!/^(\+?51)?9\d{8}$/.test(telefonoLimpio)) return fail(422, "TELEFONO_INVALIDO", "El celular debe tener 9 dígitos y empezar con 9 (Perú)");
     if (db.usuariosPorEmail.has(body.email)) return fail(409, "DUPLICADO", "Ya existe una cuenta con ese correo");
     const usuario: Usuario = { id: nuevoId("u"), cuenta_id: nuevoId("c"), email: body.email, rol: "ADMIN" };
     db.usuariosPorEmail.set(body.email, { usuario, password: body.password });
