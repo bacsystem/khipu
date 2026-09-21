@@ -6,8 +6,6 @@ import pe.factura.application.port.out.EstablecimientoRepository;
 import pe.factura.domain.tenant.Domicilio;
 import pe.factura.domain.tenant.Establecimiento;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,17 +26,12 @@ public class JdbcEstablecimientoRepository implements EstablecimientoRepository 
             """, e.tenantId(), e.codigo(), e.nombre(), d.ubigeo(), d.direccion(), d.urbanizacion(), d.distrito(), d.provincia(), d.departamento(), e.activo());
     }
     @Override public Optional<Establecimiento> buscar(UUID tenantId, String codigo) {
-        return jdbc.query(SELECT + " WHERE tenant_id = ? AND codigo = ?", this::mapear, tenantId, codigo).stream().findFirst();
+        return jdbc.query(SELECT + " WHERE tenant_id = ? AND codigo = ?", (rs, i) -> EstablecimientoRowMapper.mapear(rs), tenantId, codigo).stream().findFirst();
     }
     @Override public Optional<Establecimiento> buscarConBloqueo(UUID tenantId, String codigo) {
-        return jdbc.query(SELECT + " WHERE tenant_id = ? AND codigo = ? FOR UPDATE", this::mapear, tenantId, codigo).stream().findFirst();
+        return jdbc.query(SELECT + " WHERE tenant_id = ? AND codigo = ? FOR UPDATE", (rs, i) -> EstablecimientoRowMapper.mapear(rs), tenantId, codigo).stream().findFirst();
     }
     @Override public List<Establecimiento> listar(UUID tenantId) {
-        return jdbc.query(SELECT + " WHERE tenant_id = ? ORDER BY codigo", this::mapear, tenantId);
-    }
-    private Establecimiento mapear(ResultSet rs, int i) throws SQLException {
-        Domicilio d = new Domicilio(rs.getString("dom_ubigeo"), rs.getString("dom_direccion"), rs.getString("dom_urbanizacion"), rs.getString("dom_distrito"),
-                rs.getString("dom_provincia"), rs.getString("dom_departamento"), rs.getString("codigo"));
-        return new Establecimiento(rs.getObject("tenant_id", UUID.class), rs.getString("codigo"), rs.getString("nombre"), d, rs.getBoolean("activo"));
+        return jdbc.query(SELECT + " WHERE tenant_id = ? ORDER BY codigo", (rs, i) -> EstablecimientoRowMapper.mapear(rs), tenantId);
     }
 }

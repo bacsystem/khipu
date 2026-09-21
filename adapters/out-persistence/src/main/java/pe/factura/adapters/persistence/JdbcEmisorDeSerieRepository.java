@@ -20,6 +20,7 @@ public class JdbcEmisorDeSerieRepository implements EmisorDeSerieRepository {
 
     // LEFT JOIN: si la serie está en 0000 o no existe, "asignado" sale null (el caller lo trata como "sin asignación");
     // si está asignada a un código sin fila en establecimiento, "codigo" (del establecimiento) sale null.
+    // Las columnas de "est" son las mismas que EstablecimientoRowMapper espera (comparte el mapeo con JdbcEstablecimientoRepository).
     private static final String SELECT_ASIGNACION = """
         SELECT s.establecimiento AS asignado, est.tenant_id, est.codigo, est.nombre, est.dom_ubigeo, est.dom_direccion,
                est.dom_urbanizacion, est.dom_distrito, est.dom_provincia, est.dom_departamento, est.activo
@@ -35,13 +36,7 @@ public class JdbcEmisorDeSerieRepository implements EmisorDeSerieRepository {
     private Asignacion mapearAsignacion(ResultSet rs) throws SQLException {
         String asignado = rs.getString("asignado");
         if (asignado == null || Domicilio.ESTABLECIMIENTO_PRINCIPAL.equals(asignado)) return null;
-        Establecimiento e = rs.getString("codigo") == null ? null : mapear(rs);
+        Establecimiento e = rs.getString("codigo") == null ? null : EstablecimientoRowMapper.mapear(rs);
         return new Asignacion(asignado, e);
-    }
-
-    private Establecimiento mapear(ResultSet rs) throws SQLException {
-        Domicilio d = new Domicilio(rs.getString("dom_ubigeo"), rs.getString("dom_direccion"), rs.getString("dom_urbanizacion"), rs.getString("dom_distrito"),
-                rs.getString("dom_provincia"), rs.getString("dom_departamento"), rs.getString("codigo"));
-        return new Establecimiento(rs.getObject("tenant_id", UUID.class), rs.getString("codigo"), rs.getString("nombre"), d, rs.getBoolean("activo"));
     }
 }
