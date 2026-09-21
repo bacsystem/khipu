@@ -107,6 +107,55 @@ class EmitirNotaServiceTest {
                 List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("51.00"), TipoAfectacionIgv.EXONERADO)))).totales().total()).isEqualByComparingTo("51.00");
     }
 
+    /**
+     * SUNAT compara cada NC contra la factura (3286/3503), nunca el acumulado: dos NC totales sobre la misma factura pasan
+     * en e-beta (reproducido el 2026-09-19, #83). khipu sí lleva la cuenta para que el cliente no acredite dos veces.
+     */
+    @Test void elAcumuladoDeNotasDeCreditoNoPuedeSuperarALaFactura() {
+        Comprobante f = facturaAceptada(FormaPago.contado());   // 276.00: 200 gravado + 36 IGV + 50 exonerado − 10
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "01", null)).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        // Segunda NC total: la factura ya está acreditada por completo.
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3286").hasMessageContaining("ya acreditado 276.00");
+        // Ni siquiera una parcial chica: ya no queda saldo.
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "07",
+                List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("11.80"), TipoAfectacionIgv.GRAVADO)))))
+                .hasMessageContaining("3286").hasMessageContaining("(11.80)").hasMessageContaining("ya acreditado 276.00");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).hasSize(1);
+    }
+
+    @Test void variasNotasParcialesPuedenSumarLaFacturaPeroNoSuperarla() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        Item unaLaptop = new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO);
+        service.emitirNota(tenantId, nc(f.numero(), "07", List.of(unaLaptop)));   // gravado 100 de 200
+        service.emitirNota(tenantId, nc(f.numero(), "07", List.of(unaLaptop)));   // gravado 200 de 200
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "07", List.of(unaLaptop))))
+                .hasMessageContaining("3286").hasMessageContaining("ya acreditado 236.00");
+        // El exonerado sigue disponible (40 de 50 acreditando 236 + 40 = 276), pero 50 ya excede el total.
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "07",
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("40.00"), TipoAfectacionIgv.EXONERADO)))).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "07",
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("5.00"), TipoAfectacionIgv.EXONERADO)))))
+                .hasMessageContaining("3286").hasMessageContaining("ya acreditado 276.00");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).hasSize(3);
+    }
+
+    @Test void lasNotasRechazadasNoCuentanComoAcreditadoPeroLasPendientesSi() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        gateway.falla = new pe.factura.application.port.out.SunatRechazoException("2324", "rechazada");
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "01", null)).estado()).isEqualTo(EstadoDocumento.RECHAZADO);
+        gateway.falla = new pe.factura.application.port.out.SunatTransientException("0000", "caído");
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "01", null)).estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        gateway.falla = null;
+        // La rechazada no acreditó nada; la que está en reintento sí cuenta (SUNAT la aceptará), así que no cabe otra total.
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("ya acreditado 276.00");
+        // Una ND no consume el saldo de crédito.
+        Comprobante g = facturaAceptada(FormaPago.contado());
+        service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_DEBITO, "FD01", null, LocalDate.of(2026, 9, 13), "F001", g.numero(), "01", "Intereses",
+                List.of(new Item("I", "Interés", "ZZ", BigDecimal.ONE, new BigDecimal("590.00"), TipoAfectacionIgv.GRAVADO)), null, List.of(), null, true));
+        assertThat(service.emitirNota(tenantId, nc(g.numero(), "01", null)).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+    }
+
     @Test void laNotaDeDebitoPuedeSuperarALaFactura() {
         Comprobante f = facturaAceptada(FormaPago.contado());
         Comprobante nd = service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_DEBITO, "FD01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "Intereses",
