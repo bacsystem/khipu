@@ -23,6 +23,21 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         return c;
     }
 
+    /**
+     * Un ítem persistido antes de una regla nueva (unidad, descripción, etc., #35) se sigue leyendo: la validación de
+     * Item corre al emitir (Comprobante.crearFactura/crearNota), no en el constructor del record, así que releer una fila
+     * vieja no la revalida. Reproduce el bug real: antes de este fix, repo.buscar lanzaba ITEM_INVALIDO al releer esto.
+     */
+    @Test void unItemConUnaReglaNuevaIncumplidaSeSigueLeyendo() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 50);
+        repo.guardar(c);
+        // Simula un dato persistido antes de la validación de unidad (catálogo 03, [A-Z0-9]{2,3}): la columna admite hasta 3 caracteres.
+        jdbc.update("UPDATE comprobante_item SET unidad = 'und' WHERE comprobante_id = ?", c.id());
+        Comprobante releido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(releido.totales().items()).extracting(ic -> ic.item().unidad()).contains("und");
+    }
+
     @Test void guardaYRehidrataFormaPagoAlCredito() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",

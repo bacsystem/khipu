@@ -134,6 +134,7 @@ public class Comprobante {
         if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
             throw new DomainException("FECHA_INVALIDA", "La fecha de vencimiento no puede ser anterior a la de emisión");
         if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
+        items.forEach(Item::exigirValidoParaFactura);
         if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor con RUC");
         receptor.exigirValidoParaFactura();
         if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
@@ -176,6 +177,7 @@ public class Comprobante {
         exigirDentroDelPlazoDeEnvio(tipo, fechaEmision, clock);
         boolean nc13 = nota.corrigeCuotas(tipo);
         if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
+        if (items != null) items.forEach(Item::exigirValidoParaFactura);
         if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La nota sobre una factura requiere un receptor con RUC");
         receptor.exigirValidoParaFactura();
         if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
