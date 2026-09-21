@@ -30,6 +30,9 @@ public class JdbcEstablecimientoRepository implements EstablecimientoRepository 
     @Override public Optional<Establecimiento> buscar(UUID tenantId, String codigo) {
         return jdbc.query(SELECT + " WHERE tenant_id = ? AND codigo = ?", this::mapear, tenantId, codigo).stream().findFirst();
     }
+    @Override public Optional<Establecimiento> buscarConBloqueo(UUID tenantId, String codigo) {
+        return jdbc.query(SELECT + " WHERE tenant_id = ? AND codigo = ? FOR UPDATE", this::mapear, tenantId, codigo).stream().findFirst();
+    }
     @Override public List<Establecimiento> listar(UUID tenantId) {
         return jdbc.query(SELECT + " WHERE tenant_id = ? ORDER BY codigo", this::mapear, tenantId);
     }

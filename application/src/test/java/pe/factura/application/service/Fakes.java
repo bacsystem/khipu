@@ -52,6 +52,7 @@ final class Fakes {
         final Map<String, pe.factura.domain.tenant.Establecimiento> datos = new HashMap<>();
         public void guardar(pe.factura.domain.tenant.Establecimiento e) { datos.put(e.tenantId() + e.codigo(), e); }
         public java.util.Optional<pe.factura.domain.tenant.Establecimiento> buscar(UUID t, String codigo) { return java.util.Optional.ofNullable(datos.get(t + codigo)); }
+        public java.util.Optional<pe.factura.domain.tenant.Establecimiento> buscarConBloqueo(UUID t, String codigo) { return buscar(t, codigo); }
         public List<pe.factura.domain.tenant.Establecimiento> listar(UUID t) { return datos.values().stream().filter(e -> e.tenantId().equals(t)).sorted(java.util.Comparator.comparing(pe.factura.domain.tenant.Establecimiento::codigo)).toList(); }
     }
     static final class Tenants implements TenantRepository {

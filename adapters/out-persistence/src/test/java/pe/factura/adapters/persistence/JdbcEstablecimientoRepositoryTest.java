@@ -32,4 +32,13 @@ class JdbcEstablecimientoRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.listar(t)).hasSize(2);
         assertThat(repo.buscar(otra, "0002")).isEmpty();
     }
+
+    /** buscarConBloqueo es lo que serializa crearSerie con desactivarEstablecimiento (fila bloqueada dentro de la transacción). */
+    @Test void buscarConBloqueoDevuelveLoMismoQueBuscar() {
+        UUID t = tenantDePrueba();
+        repo.guardar(new Establecimiento(t, "0002", "Tienda Miraflores", Domicilio.de("150122", "Av. Larco 345"), true));
+        Establecimiento e = uow.ejecutar(() -> repo.buscarConBloqueo(t, "0002")).orElseThrow();
+        assertThat(e.nombre()).isEqualTo("Tienda Miraflores");
+        assertThat(uow.ejecutar(() -> repo.buscarConBloqueo(t, "0009"))).isEmpty();
+    }
 }
