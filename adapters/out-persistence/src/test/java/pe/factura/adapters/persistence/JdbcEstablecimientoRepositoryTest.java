@@ -4,7 +4,13 @@ import org.junit.jupiter.api.Test;
 import pe.factura.domain.tenant.Domicilio;
 import pe.factura.domain.tenant.Establecimiento;
 
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,12 +39,34 @@ class JdbcEstablecimientoRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscar(otra, "0002")).isEmpty();
     }
 
-    /** buscarConBloqueo es lo que serializa crearSerie con desactivarEstablecimiento (fila bloqueada dentro de la transacción). */
     @Test void buscarConBloqueoDevuelveLoMismoQueBuscar() {
         UUID t = tenantDePrueba();
         repo.guardar(new Establecimiento(t, "0002", "Tienda Miraflores", Domicilio.de("150122", "Av. Larco 345"), true));
         Establecimiento e = uow.ejecutar(() -> repo.buscarConBloqueo(t, "0002")).orElseThrow();
         assertThat(e.nombre()).isEqualTo("Tienda Miraflores");
         assertThat(uow.ejecutar(() -> repo.buscarConBloqueo(t, "0009"))).isEmpty();
+    }
+
+    /**
+     * Prueba el lock en sí (no solo que lea bien): dos transacciones que hacen buscarConBloqueo sobre el mismo
+     * establecimiento nunca están dentro de su sección crítica al mismo tiempo — así crearSerie y
+     * desactivarEstablecimiento se serializan de verdad. Mismo patrón que JdbcSerieRepositoryTest.concurrenciaNoDuplicaNumeros.
+     */
+    @Test void buscarConBloqueoSerializaTransaccionesConcurrentesSobreLaMismaFila() throws Exception {
+        UUID t = tenantDePrueba();
+        repo.guardar(new Establecimiento(t, "0002", "Tienda Miraflores", Domicilio.de("150122", "Av. Larco 345"), true));
+        AtomicInteger dentro = new AtomicInteger(0);
+        AtomicBoolean solapado = new AtomicBoolean(false);
+        Runnable tarea = () -> uow.ejecutar(() -> {
+            Establecimiento e = repo.buscarConBloqueo(t, "0002").orElseThrow();
+            if (dentro.incrementAndGet() > 1) solapado.set(true);
+            try { Thread.sleep(100); } catch (InterruptedException ignored) { } finally { dentro.decrementAndGet(); }
+            repo.guardar(e);
+        });
+        ExecutorService ex = Executors.newFixedThreadPool(2);
+        List<Future<?>> futuros = List.of(ex.submit(tarea), ex.submit(tarea));
+        for (Future<?> f : futuros) f.get();
+        ex.shutdown();
+        assertThat(solapado).isFalse();
     }
 }
