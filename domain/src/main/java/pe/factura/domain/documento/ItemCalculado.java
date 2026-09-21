@@ -24,13 +24,16 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
                             BigDecimal valorVenta, BigDecimal isc, BigDecimal iscPorcentaje, BigDecimal icbper, BigDecimal icbperUnitario,
                             BigDecimal igv, BigDecimal precioVenta, BigDecimal precioVentaUnitario, BigDecimal porcentajeIgv, List<CargoCalculado> cargos) {
 
-    public static final BigDecimal TASA_IGV = new BigDecimal("0.18");
-    private static final BigDecimal UNO_MAS_IGV = BigDecimal.ONE.add(TASA_IGV);
     private static final BigDecimal CIEN = new BigDecimal("100");
 
     public static ItemCalculado de(Item item) { return de(item, Icbper.tasaVigente(java.time.LocalDate.of(2023, 1, 1))); }
 
-    public static ItemCalculado de(Item item, BigDecimal tasaIcbper) {
+    public static ItemCalculado de(Item item, BigDecimal tasaIcbper) { return de(item, tasaIcbper, TasaIgv.GENERAL); }
+
+    /** {@code tasaIgv} en porcentaje (18.00 o la reducida del padrón): decide el IGV de la línea y el cbc:Percent del XML. */
+    public static ItemCalculado de(Item item, BigDecimal tasaIcbper, BigDecimal tasaIgv) {
+        BigDecimal factorIgv = TasaIgv.factor(tasaIgv);
+        BigDecimal unoMasIgv = BigDecimal.ONE.add(factorIgv);
         TipoAfectacionIgv af = item.afectacion();
         boolean onerosaGravada = af.gravado() && !af.gratuita();
         BigDecimal cantidad = item.cantidad();
@@ -38,12 +41,12 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         BigDecimal icbperUnitario = item.icbper() ? tasaIcbper : BigDecimal.ZERO.setScale(2);
         BigDecimal icbper = item.icbper() ? tasaIcbper.multiply(cantidad).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
         BigDecimal precioSinIcbper = item.precioUnitario().subtract(icbperUnitario);
-        // Precio con IGV e ISC → valor sin tributos: precio = valor × (1 + isc%) × 1.18 (sistemas 01/03) o (valor + iscFijo) × 1.18 (02).
+        // Precio con IGV e ISC → valor sin tributos: precio = valor × (1 + isc%) × (1 + igv) (sistemas 01/03) o (valor + iscFijo) × (1 + igv) (02).
         BigDecimal valorReferencial;
         if (!onerosaGravada) valorReferencial = precioSinIcbper.setScale(10, RoundingMode.HALF_UP);
-        else if (item.tieneIsc() && "02".equals(item.isc().sistema())) valorReferencial = precioSinIcbper.divide(UNO_MAS_IGV, 10, RoundingMode.HALF_UP).subtract(item.isc().montoUnitario());
-        else if (item.tieneIsc()) valorReferencial = precioSinIcbper.divide(UNO_MAS_IGV, 10, RoundingMode.HALF_UP).divide(BigDecimal.ONE.add(item.isc().tasa().divide(CIEN, 10, RoundingMode.HALF_UP)), 10, RoundingMode.HALF_UP);
-        else valorReferencial = precioSinIcbper.divide(UNO_MAS_IGV, 10, RoundingMode.HALF_UP);
+        else if (item.tieneIsc() && "02".equals(item.isc().sistema())) valorReferencial = precioSinIcbper.divide(unoMasIgv, 10, RoundingMode.HALF_UP).subtract(item.isc().montoUnitario());
+        else if (item.tieneIsc()) valorReferencial = precioSinIcbper.divide(unoMasIgv, 10, RoundingMode.HALF_UP).divide(BigDecimal.ONE.add(item.isc().tasa().divide(CIEN, 10, RoundingMode.HALF_UP)), 10, RoundingMode.HALF_UP);
+        else valorReferencial = precioSinIcbper.divide(unoMasIgv, 10, RoundingMode.HALF_UP);
         BigDecimal baseBruta = valorReferencial.multiply(cantidad).setScale(2, RoundingMode.HALF_UP);
         BigDecimal descuento = item.tieneDescuento() ? item.descuento().montoSobre(baseBruta) : BigDecimal.ZERO.setScale(2);
         boolean afectaBase = item.tieneDescuento() && item.descuento().afectaBaseIgv();
@@ -54,12 +57,12 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         BigDecimal valorVenta = (afectaBase ? baseBruta.subtract(descuento) : baseBruta).add(cargosAfectanBase);
         BigDecimal isc = item.tieneIsc() && !af.gratuita() ? item.isc().montoSobre(valorVenta, cantidad) : BigDecimal.ZERO.setScale(2);
         BigDecimal iscPorcentaje = item.tieneIsc() && !af.gratuita() ? item.isc().porcentajeSobre(valorVenta, isc) : BigDecimal.ZERO;
-        BigDecimal igv = af.gravado() ? valorVenta.add(isc).multiply(TASA_IGV).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
+        BigDecimal igv = af.gravado() ? valorVenta.add(isc).multiply(factorIgv).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
         BigDecimal descuentoNoAfecta = item.tieneDescuento() && !afectaBase ? descuento : BigDecimal.ZERO;
         BigDecimal precioVenta = af.gratuita() ? BigDecimal.ZERO.setScale(2) : valorVenta.add(isc).add(igv).add(icbper).subtract(descuentoNoAfecta).add(sumaCargos(cargos, false));
         BigDecimal valorUnitario = af.gratuita() ? BigDecimal.ZERO.setScale(10) : valorReferencial;
         BigDecimal precioVentaUnitario = af.gratuita() ? valorReferencial : precioVenta.divide(cantidad, 10, RoundingMode.HALF_UP);
-        BigDecimal pct = af.gravado() ? new BigDecimal("18.00") : new BigDecimal("0.00");
+        BigDecimal pct = af.gravado() ? tasaIgv : new BigDecimal("0.00");
         return new ItemCalculado(item, valorUnitario, baseBruta, descuento, afectaBase, valorVenta, isc, iscPorcentaje, icbper, icbperUnitario,
                 igv, precioVenta, precioVentaUnitario, pct, cargos);
     }

@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.23] - 2026-09-19
+
+### Added
+- Tasa reducida del IGV para el Padrón de Tasa Especial (MYPE de restaurantes y hoteles, Ley 31556) (#84). `PUT /v1/empresa/datos-fiscales { padron_tasa_especial_igv }` (y la casilla en Empresa del portal) hace que facturas y notas gravadas se calculen y declaren a la tasa vigente a la fecha de emisión —10 % del 2023-01-01 al 2026-02-12, **10.5 % desde el 2026-02-13** (control de cambios de SUNAT)— en vez del 18 %: `cbc:Percent` de cada línea, IGV de línea y global (3279, 3291), anticipos gravados y la misma tasa en todas las líneas (3462). Nuevo `TasaIgv` en el dominio; la tasa se guarda por comprobante (`comprobante.tasa_igv`, migración V17) y **una nota hereda la de la factura que modifica** aunque la empresa haya entrado o salido del padrón después. La respuesta expone `totales.tasa_igv`; el PDF imprime «IGV (10.5%)»; el portal la muestra en el detalle. Homologación: escenario 23 al 10.5 % aceptado por e-beta con CDR 0 (23/23).
+
 ## [0.1.22] - 2026-09-19
 
 ### Fixed

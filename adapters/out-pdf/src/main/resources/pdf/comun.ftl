@@ -177,7 +177,7 @@
     <#if tot.totalDescuentos() gt 0><tr><td class="k">Descuentos</td><td class="n">- ${c.moneda()} ${m(tot.totalDescuentos())}</td></tr></#if>
     <#if tot.totalCargos() gt 0><tr><td class="k">Cargos</td><td class="n">${c.moneda()} ${m(tot.totalCargos())}</td></tr></#if>
     <#if tot.isc() gt 0><tr><td class="k">ISC</td><td class="n">${c.moneda()} ${m(tot.isc())}</td></tr></#if>
-    <tr><td class="k">IGV (18%)</td><td class="n">${c.moneda()} ${m(tot.igv())}</td></tr>
+    <tr><td class="k">IGV (${tot.tasaIgv()?string["0.##"]}%)</td><td class="n">${c.moneda()} ${m(tot.igv())}</td></tr>
     <#if tot.icbper() gt 0><tr><td class="k">ICBPER</td><td class="n">${c.moneda()} ${m(tot.icbper())}</td></tr></#if>
     <#if tot.tieneAnticipos()><tr><td class="k">Anticipos</td><td class="n">- ${c.moneda()} ${m(tot.totalAnticipos())}</td></tr></#if>
     <#if tot.tieneRedondeo()><tr><td class="k">Redondeo</td><td class="n">${c.moneda()} ${m(tot.redondeo())}</td></tr></#if>
@@ -215,7 +215,7 @@
   <#if tot.tieneAnticipos()>
   <div class="bloque">
     <h2>Anticipos regularizados</h2>
-    <table class="datos"><#list c.anticipos() as a><tr><td class="k">${a.comprobante()}</td><td>${c.moneda()} ${m(a.monto())} (pagado ${m(a.importePagado())}<#if a.fechaPago()??> el ${a.fechaPago().format(statics["java.time.format.DateTimeFormatter"].ofPattern("dd/MM/yyyy"))}</#if>)</td></tr></#list></table>
+    <table class="datos"><#list tot.anticipos() as ac><#assign a = ac.anticipo()><tr><td class="k">${a.comprobante()}</td><td>${c.moneda()} ${m(a.monto())} (pagado ${m(ac.importePagado())}<#if a.fechaPago()??> el ${a.fechaPago().format(statics["java.time.format.DateTimeFormatter"].ofPattern("dd/MM/yyyy"))}</#if>)</td></tr></#list></table>
   </div>
   </#if>
 </#macro>

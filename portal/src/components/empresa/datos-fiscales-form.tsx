@@ -16,7 +16,17 @@ type Ubigeo = { codigo: string; departamento: string; provincia: string; distrit
  * Domicilio fiscal (RegistrationAddress del emisor en cada XML) y cuenta de detracciones por defecto. El ubigeo se elige en
  * cascada departamento → provincia → distrito sobre el catálogo 13 (INEI), que se carga al abrir el formulario.
  */
-export function DatosFiscalesForm({ domicilio, cuentaDetracciones, nombreComercial }: { domicilio: Domicilio | null; cuentaDetracciones: string | null; nombreComercial: string | null }) {
+export function DatosFiscalesForm({
+  domicilio,
+  cuentaDetracciones,
+  nombreComercial,
+  padronTasaEspecialIgv,
+}: {
+  domicilio: Domicilio | null;
+  cuentaDetracciones: string | null;
+  nombreComercial: string | null;
+  padronTasaEspecialIgv: boolean;
+}) {
   const router = useRouter();
   const [ubigeos, setUbigeos] = useState<Ubigeo[] | null>(null);
   const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
@@ -29,6 +39,7 @@ export function DatosFiscalesForm({ domicilio, cuentaDetracciones, nombreComerci
   const [establecimiento, setEstablecimiento] = useState(domicilio?.codigo_establecimiento ?? "0000");
   const [cuenta, setCuenta] = useState(cuentaDetracciones ?? "");
   const [nombre, setNombre] = useState(nombreComercial ?? "");
+  const [tasaEspecial, setTasaEspecial] = useState(padronTasaEspecialIgv);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -81,6 +92,7 @@ export function DatosFiscalesForm({ domicilio, cuentaDetracciones, nombreComerci
         domicilio: ubigeo ? { ubigeo, direccion, urbanizacion: urbanizacion || null, codigo_establecimiento: establecimiento || "0000" } : null,
         cuenta_detracciones: cuenta || null,
         nombre_comercial: nombre.trim() || null,
+        padron_tasa_especial_igv: tasaEspecial,
       },
     });
     setEnviando(false);
@@ -229,6 +241,22 @@ export function DatosFiscalesForm({ domicilio, cuentaDetracciones, nombreComerci
           </label>
           <input id="nombre-comercial" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Andina Store" maxLength={1500} className={CAMPO} />
           <span className={AYUDA_CAMPO}>Va en el XML junto a la razón social (regla 4092); déjelo vacío si no usa uno</span>
+        </div>
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <label htmlFor="padron-tasa-especial" className="inline-flex cursor-pointer items-center gap-2 self-start select-none">
+            <input
+              id="padron-tasa-especial"
+              type="checkbox"
+              checked={tasaEspecial}
+              onChange={(e) => setTasaEspecial(e.target.checked)}
+              className="size-4 rounded border-input"
+              data-testid="padron-tasa-especial"
+            />
+            <span className={ETIQUETA_CAMPO}>Inscrita en el Padrón de Tasa Especial del IGV (restaurantes y hoteles)</span>
+          </label>
+          <span className={AYUDA_CAMPO}>
+            Ley 31556: los comprobantes gravados salen con la tasa reducida vigente (10.5 %) en vez del 18 %. Márquelo solo si SUNAT lo incluyó en el padrón; si no, observará cada comprobante (4439)
+          </span>
         </div>
       </div>
 

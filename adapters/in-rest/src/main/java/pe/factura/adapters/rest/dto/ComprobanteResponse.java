@@ -13,6 +13,7 @@ import pe.factura.domain.documento.ItemCalculado;
 import pe.factura.domain.documento.Nota;
 import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.Referencias;
+import pe.factura.domain.documento.Totales;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -89,8 +90,12 @@ public record ComprobanteResponse(
                               @Schema(example = "gravado", description = "`gravado`, `exonerado` o `inafecto`") String afectacion,
                               @Schema(example = "04", description = "Código SUNAT del descuento global por anticipo (catálogo 53: 04/05/06)") String codigoSunat,
                               @Schema(example = "2026-09-01") LocalDate fechaPago) {
-        static AnticipoDto de(Anticipo a) {
-            return new AnticipoDto(a.comprobante(), a.serie(), a.numero(), a.monto(), a.importePagado(), a.afectacion().name().toLowerCase(), a.codigoSunat(), a.fechaPago());
+        // AnticipoCalculado, no Anticipo a secas: importePagado() debe calcularse con la tasa de IGV real del comprobante
+        // (Totales.tasaIgv), no con la general fija — si no, una empresa del padrón (10 %/10.5 %) recibiría un importe
+        // pagado incorrecto en la respuesta.
+        static AnticipoDto de(Totales.AnticipoCalculado ac) {
+            Anticipo a = ac.anticipo();
+            return new AnticipoDto(a.comprobante(), a.serie(), a.numero(), a.monto(), ac.importePagado(), a.afectacion().name().toLowerCase(), a.codigoSunat(), a.fechaPago());
         }
     }
 
@@ -199,6 +204,7 @@ public record ComprobanteResponse(
             @Schema(example = "0.00") BigDecimal exonerado,
             @Schema(example = "0.00") BigDecimal inafecto,
             @Schema(example = "180.00") BigDecimal igv,
+            @Schema(example = "18.00", description = "Tasa del IGV aplicada a las líneas gravadas, en porcentaje: 18.00, o la reducida del Padrón de Tasa Especial (restaurantes y hoteles) si la empresa la tiene activa; una nota usa la de su factura") BigDecimal tasaIgv,
             @Schema(example = "0.00", description = "Base de las operaciones gratuitas (tributo 9996): no se cobra") BigDecimal gratuito,
             @Schema(example = "0.00", description = "IGV de las operaciones gratuitas gravadas: solo informativo, no se cobra") BigDecimal igvGratuitas,
             @Schema(example = "0.00", description = "Total ISC (se suma al precio de venta y a la base del IGV)") BigDecimal isc,
@@ -222,7 +228,7 @@ public record ComprobanteResponse(
                 de(c.receptor()), c.totales().items().stream().map(ComprobanteResponse::de).toList(),
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),
-                new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(),
+                new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(), c.tasaIgv(),
                         c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().isc(), c.totales().icbper(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().totalCargos(), c.totales().totalAnticipos(), c.totales().redondeo(), c.totales().total(),
                         c.totales().descuentoGlobal() == null ? null : new DescuentoDto(c.totales().descuentoGlobal().descuento().tipo().name(),
                                 c.totales().descuentoGlobal().descuento().valor(), c.totales().descuentoGlobal().monto(),
@@ -233,7 +239,7 @@ public record ComprobanteResponse(
                 c.retencion() == null ? null : new RetencionDto(c.retencion().porcentaje(), c.retencion().monto(), c.totales().total().subtract(c.retencion().monto())),
                 c.percepcion() == null ? null : new PercepcionDto(c.percepcion().regimen(), c.percepcion().descripcionRegimen(), c.percepcion().porcentaje(),
                         c.percepcion().base(), c.percepcion().monto(), c.percepcion().totalConPercepcion(c.totales().total())),
-                c.anticipos().isEmpty() ? null : c.anticipos().stream().map(AnticipoDto::de).toList(),
+                c.anticipos().isEmpty() ? null : c.totales().anticipos().stream().map(AnticipoDto::de).toList(),
                 ReferenciasDto.de(c.referencias()),
                 NotaDto.de(c),
                 notas == null ? null : notas.stream().map(NotaResumenDto::de).toList(),

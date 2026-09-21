@@ -584,7 +584,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             ))}
             {c.totales.isc ? <Importe etiqueta="Total ISC" moneda={c.moneda} valor={c.totales.isc} /> : null}
             {c.totales.icbper ? <Importe etiqueta="Total ICBPER (bolsas)" moneda={c.moneda} valor={c.totales.icbper} /> : null}
-            <Importe etiqueta="Total IGV" moneda={c.moneda} valor={c.totales.igv} />
+            <Importe etiqueta={c.totales.tasa_igv != null ? `Total IGV (${formatearNumero(c.totales.tasa_igv)} %)` : "Total IGV"} moneda={c.moneda} valor={c.totales.igv} />
             {c.totales.gratuito ? (
               <>
                 <Importe etiqueta="Operaciones gratuitas (no se cobran)" moneda={c.moneda} valor={c.totales.gratuito} />
