@@ -30,7 +30,14 @@ export function StepperNumerico({
   onCambio: (v: number | null) => void;
   min?: number;
   max?: number;
-  paso?: number;
+  /**
+   * Paso de las flechas ±. **Ojo:** también es el `step` del `<input type="number">` oculto que base-ui usa para la
+   * validación nativa del `<form>`. Con `paso={1}` (el default) y `min` definido, cualquier valor no entero cae en
+   * `stepMismatch` y el navegador aborta el submit en silencio, anclando la burbuja de error a un input de 1×1 px:
+   * el botón parece muerto. Para cantidades con decimales (kilos, horas, metros) pasá `paso="any"`: las flechas
+   * siguen sumando de a 1 y la validación de paso se desactiva.
+   */
+  paso?: number | "any";
   disabled?: boolean;
   variante?: "filtro" | "campo";
   className?: string;
