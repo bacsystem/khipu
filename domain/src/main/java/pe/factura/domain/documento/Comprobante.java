@@ -140,6 +140,7 @@ public class Comprobante {
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
                     moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, tasaIgv, leyendas, EstadoDocumento.RECIBIDO);
             formaPago.validarContra(c.totales.total(), fechaEmision);
+            c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
             for (String l : leyendas) {
                 String regla = Leyenda.EXIGEN_EXONERADO.get(l);
                 if (regla != null && c.totales.exonerado().signum() <= 0)
@@ -196,9 +197,11 @@ public class Comprobante {
                 throw new DomainException("NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
             // La NC 13 no mueve importes: una sola línea de valor 0 (regla 3315). La forma de pago de una nota solo tiene sentido
             // en la NC 13 y se valida contra la factura modificada (3320/3321), no contra la nota.
-            return new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
+            Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
                     moneda, tipoOperacion, receptor, nc13 ? List.of(nota.lineaSinImporte()) : items, formaPago == null ? FormaPago.contado() : formaPago,
                     nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, null, nota, tasaIgv, List.of(), EstadoDocumento.RECIBIDO);
+            c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
+            return c;
         }
     }
 

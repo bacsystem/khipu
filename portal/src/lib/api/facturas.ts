@@ -54,7 +54,7 @@ export type ItemComprobante = {
   /** Cargos de la línea (47 suma al valor de venta y paga IGV; 48 se cobra sin IGV). */
   cargos?: CargoAplicado[] | null;
   /** ISC de la línea (sistema del catálogo 08, tasa aplicada y monto). */
-  isc?: { sistema: string; tasa: number; monto: number } | null;
+  isc?: { sistema: string; tasa: number; monto: number; base?: number; base_pvp?: number | null } | null;
   /** ICBPER de la línea (bolsas × monto vigente). */
   icbper?: number;
   /** Código de producto SUNAT (catálogo 25, UNSPSC) y GTIN, si el emisor los informó. */

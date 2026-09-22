@@ -195,7 +195,9 @@ public record ComprobanteResponse(
 
     public record GtinDto(@Schema(example = "GTIN-13") String tipo, @Schema(example = "7750182000123") String codigo) {}
 
-    public record IscDto(@Schema(example = "01") String sistema, @Schema(example = "35") BigDecimal tasa, @Schema(example = "350.00") BigDecimal monto) {}
+    public record IscDto(@Schema(example = "01") String sistema, @Schema(example = "35") BigDecimal tasa, @Schema(example = "350.00") BigDecimal monto,
+                         @Schema(example = "1000.00", description = "Base del ISC de la línea (valor de venta, o PVP sugerido × cantidad en el sistema 03)") BigDecimal base,
+                         @Schema(example = "3.50", description = "Solo sistema 03: PVP sugerido unitario") BigDecimal basePvp) {}
 
     public record CdrDto(
             @Schema(example = "0", description = "Código de respuesta SUNAT: `0` aceptado; 2000–3999 rechazado (corregir y reemitir); 4000+ aceptado con observaciones; 1000–1999 error del emisor (fault, sin CDR)") String codigo,
@@ -268,7 +270,7 @@ public record ComprobanteResponse(
         DescuentoDto d = i.tieneDescuento()
                 ? new DescuentoDto(i.descuento().tipo().name(), i.descuento().valor(), ic.descuento(), i.descuento().afectaBaseIgv(), i.descuento().codigoSunat(false))
                 : null;
-        IscDto isc = ic.tieneIsc() ? new IscDto(i.isc().sistema(), ic.iscPorcentaje(), ic.isc()) : null;
+        IscDto isc = ic.tieneIsc() ? new IscDto(i.isc().sistema(), ic.iscPorcentaje(), ic.isc(), ic.iscBase(), i.isc().basePvp()) : null;
         return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), ic.gratuita(), d, CargoDto.de(ic.cargos()), isc, ic.icbper(),
                 i.tieneCodigoSunat() ? i.codigoSunat().codigo() : null, i.gtin() == null ? null : new GtinDto(i.gtin().tipo(), i.gtin().codigo()));
     }

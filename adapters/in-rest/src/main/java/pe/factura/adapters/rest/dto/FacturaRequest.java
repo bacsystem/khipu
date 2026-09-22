@@ -88,12 +88,13 @@ public record FacturaRequest(
         Gtin aDominio() { return new Gtin(tipo, codigo); }
     }
 
-    /** ISC: sistema del catálogo 08; `tasa` (%) para 01 al valor, `monto_unitario` para 02 monto fijo. El 03 (precio de venta al público) no está soportado. */
+    /** ISC: sistema del catálogo 08; `tasa` (%) para 01 al valor y 03 al PVP (con `base_pvp`), `monto_unitario` para 02 monto fijo. */
     public record IscDto(
-            @NotBlank @Pattern(regexp = "0[12]", message = "sistema de ISC no soportado: use 01 (al valor) o 02 (monto fijo); el 03 (precio de venta al público) requiere una base PVP que la API aún no recibe") @Schema(example = "01", description = "`01` al valor, `02` monto fijo por unidad (catálogo 08). `03` precio de venta al público **no soportado**: su base es el PVP sugerido, no el valor de venta") String sistema,
-            @Schema(example = "35", description = "Tasa sobre el valor de venta (sistema 01), hasta 5 decimales") BigDecimal tasa,
-            @Schema(example = "2.25", description = "Importe por unidad (sistema 02), hasta 5 decimales") BigDecimal montoUnitario) {
-        Isc aDominio() { return new Isc(sistema, tasa, montoUnitario); }
+            @NotBlank @Pattern(regexp = "0[123]", message = "sistema de ISC: 01 (al valor), 02 (monto fijo) o 03 (precio de venta al público)") @Schema(example = "01", description = "`01` al valor (tasa sobre el valor de venta), `02` monto fijo por unidad, `03` al valor según precio de venta al público (tasa sobre `base_pvp`, el PVP sugerido unitario; cervezas, cigarrillos, gaseosas) — catálogo 08") String sistema,
+            @Schema(example = "35", description = "Tasa en %, hasta 5 decimales (sistemas 01 y 03)") BigDecimal tasa,
+            @Schema(example = "2.25", description = "Importe por unidad (sistema 02), hasta 5 decimales") BigDecimal montoUnitario,
+            @Schema(example = "3.50", description = "Solo sistema 03: precio de venta al público sugerido por unidad, sin IGV (base del ISC en el XML, regla 3108); no puede ser menor que el valor unitario. Hasta 5 decimales") BigDecimal basePvp) {
+        Isc aDominio() { return new Isc(sistema, tasa, montoUnitario, basePvp); }
     }
 
     /** Un descuento se expresa como porcentaje **o** como monto (sobre el valor de venta sin IGV), nunca ambos. */
