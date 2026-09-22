@@ -26,16 +26,17 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   useEffect(() => {
     if (!abierto || series !== null) return;
     let vigente = true;
-    Promise.all([
-      apiRequest<Serie[]>("/api/proxy/series", { method: "GET" }),
-      apiRequest<EmpresaDetalle>("/api/proxy/empresa", { method: "GET" }),
-    ])
-      .then(([s, e]) => {
-        if (!vigente) return;
-        setSeries(s.estado === "exito" && s.datos ? s.datos : []);
-        if (e.estado === "exito" && e.datos) setEmpresa(e.datos);
-      })
+    // Cada llamada se resuelve por su cuenta: si fallara la de empresa, juntarlas en un Promise.all dejaría
+    // `series` vacío y el diálogo diría "no tienes series" mandando al usuario a arreglar algo que no está roto.
+    // La empresa solo aporta la tasa de IGV y el ambiente, y ambos tienen un default razonable.
+    apiRequest<Serie[]>("/api/proxy/series", { method: "GET" })
+      .then((r) => vigente && setSeries(r.estado === "exito" && r.datos ? r.datos : []))
       .catch(() => vigente && setSeries([]));
+    apiRequest<EmpresaDetalle>("/api/proxy/empresa", { method: "GET" })
+      .then((r) => {
+        if (vigente && r.estado === "exito" && r.datos) setEmpresa(r.datos);
+      })
+      .catch(() => {});
     return () => {
       vigente = false;
     };

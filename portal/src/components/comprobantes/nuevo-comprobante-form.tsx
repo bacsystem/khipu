@@ -89,12 +89,23 @@ export function NuevoComprobanteForm({
     };
   }, [detalle, unidades]);
 
-  const paraTotales: ItemParaTotales[] = lineas.map((l) => ({
+  // Una sola definición de "línea que cuenta", para previsualizar y para enviar: si difieren, el total que el
+  // usuario revisa no es el del comprobante que se emite.
+  const lineasCompletas = lineas.filter((l) => l.descripcion.trim() && (l.cantidad ?? 0) > 0);
+  const paraTotales: ItemParaTotales[] = lineasCompletas.map((l) => ({
     cantidad: l.cantidad ?? 0,
     precioUnitario: l.precioUnitario ?? 0,
     tipoAfectacionIgv: l.tipoAfectacionIgv,
   }));
   const totales = calcularTotales(paraTotales, tasaIgv);
+  // Una línea a medio cargar no se descarta en silencio: se avisa, porque su importe no está en el total de arriba.
+  const lineasIncompletas = lineas.length - lineasCompletas.length;
+
+  /** `detalle` guarda un índice: al borrar una fila hay que reubicarlo o el panel queda abierto sobre otro ítem. */
+  function quitarLinea(i: number) {
+    setLineas((p) => (p.length === 1 ? p : p.filter((_, n) => n !== i)));
+    setDetalle((abierto) => (abierto === null || abierto === i ? null : abierto > i ? abierto - 1 : abierto));
+  }
 
   function actualizar(i: number, cambio: Partial<Linea>) {
     setLineas((prev) => prev.map((l, n) => (n === i ? { ...l, ...cambio } : l)));
@@ -103,15 +114,13 @@ export function NuevoComprobanteForm({
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    const items = lineas
-      .filter((l) => l.descripcion.trim() && (l.cantidad ?? 0) > 0)
-      .map((l) => ({
-        descripcion: l.descripcion.trim(),
-        unidad: l.unidad,
-        cantidad: l.cantidad,
-        precio_unitario: l.precioUnitario ?? 0,
-        tipo_afectacion_igv: l.tipoAfectacionIgv,
-      }));
+    const items = lineasCompletas.map((l) => ({
+      descripcion: l.descripcion.trim(),
+      unidad: l.unidad,
+      cantidad: l.cantidad,
+      precio_unitario: l.precioUnitario ?? 0,
+      tipo_afectacion_igv: l.tipoAfectacionIgv,
+    }));
     if (items.length === 0) {
       setError("Agrega al menos un ítem con descripción y cantidad.");
       return;
@@ -272,7 +281,7 @@ export function NuevoComprobanteForm({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setLineas((p) => (p.length === 1 ? p : p.filter((_, n) => n !== i)))}
+                    onClick={() => quitarLinea(i)}
                     disabled={lineas.length === 1}
                     title={lineas.length === 1 ? "Un comprobante necesita al menos un ítem" : "Quitar ítem"}
                     aria-label={`Quitar ítem ${i + 1}`}
@@ -339,6 +348,11 @@ export function NuevoComprobanteForm({
                 </Fragment>
               ))}
           </dl>
+          {lineasIncompletas > 0 ? (
+            <span className={cn(AYUDA_CAMPO, "text-warning-foreground")}>
+              {lineasIncompletas === 1 ? "1 ítem sin descripción no se emitirá" : `${lineasIncompletas} ítems sin descripción no se emitirán`}
+            </span>
+          ) : null}
           <div className="flex items-baseline gap-2">
             <span className={cn(ETIQUETA_CAMPO, "text-muted-foreground")}>Total a pagar</span>
             <span className="font-mono text-lg font-semibold tabular-nums" data-testid="total-a-pagar">
