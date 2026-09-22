@@ -137,6 +137,9 @@ export function resetDb() {
   db.empresasPorCuenta.set(usuario.cuenta_id, [empresa]);
   db.seriesPorEmpresa.set(empresa.id, [
     { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" },
+    // Serie de uso exclusivo del e2e del correlativo: los specs corren en paralelo contra este mismo mock, y sobre
+    // F001 el número avanza por debajo de los pies; sobre F002 solo emite ese test, así que puede afirmar `===`.
+    { tipo: "01", serie: "F002", ultimo_numero: 0, activa: true, establecimiento: "0000" },
     { tipo: "07", serie: "FC01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
     { tipo: "08", serie: "FD01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
   ]);

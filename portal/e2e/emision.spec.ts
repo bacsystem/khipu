@@ -51,15 +51,19 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
 });
 
 test("tras emitir, el diálogo anuncia el correlativo siguiente, no el que acaba de usar (#17)", async ({ page }) => {
+  // La opción SELECCIONADA, no el texto del select entero (que concatena todas las opciones).
   const numeroAnunciado = async () => {
-    const texto = await page.getByRole("dialog").getByLabel("Serie").innerText();
+    const texto = await page.getByRole("dialog").getByLabel("Serie").locator("option:checked").innerText();
     return Number(texto.match(/siguiente N\.º (\d+)/)?.[1]);
   };
 
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
-  const antes = await numeroAnunciado();
-
   const dialogo = page.getByRole("dialog");
+  // Serie de uso exclusivo de este test: sobre F001 emiten los demás specs en paralelo y el número avanza por
+  // debajo de los pies, con lo que un `>=` toleraba anunciar el correlativo ya consumido. Sobre F002 solo emite
+  // este test y se puede afirmar el valor exacto.
+  await dialogo.getByLabel("Serie").selectOption("F002");
+  const antes = await numeroAnunciado();
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
@@ -68,15 +72,15 @@ test("tras emitir, el diálogo anuncia el correlativo siguiente, no el que acaba
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
 
   // El número que se acaba de emitir, leído de la ficha: la fuente de verdad contra la que se compara el anuncio.
-  const emitido = Number((await page.getByText(/F001-\d{8}/).first().innerText()).match(/F001-(\d{8})/)?.[1]);
-  expect(emitido).toBeGreaterThanOrEqual(antes);
+  const emitido = Number((await page.getByText(/F002-\d{8}/).first().innerText()).match(/F002-(\d{8})/)?.[1]);
+  expect(emitido).toBe(antes);
 
   // El diálogo vive en el top bar y sobrevive a esta navegación: si cacheara las series, seguiría ofreciendo el
-  // número que la emisión acaba de consumir. Se compara con `>=` y no con `===` porque otros specs emiten en
-  // paralelo sobre el mismo mock, pero NUNCA puede anunciar el que ya se usó: la cota inferior es `emitido + 1`.
-  // (Con `> antes` a secas, anunciar `ultimo_numero` sin el `+1` pasaba igual.)
+  // número que la emisión acaba de consumir; y si anunciara `ultimo_numero` sin el `+1`, ofrecería el ya usado.
+  // Con serie propia, el valor es exacto: la recertificación demostró que `>=` no discriminaba bajo `npm run e2e`.
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
-  expect(await numeroAnunciado()).toBeGreaterThanOrEqual(emitido + 1);
+  await page.getByRole("dialog").getByLabel("Serie").selectOption("F002");
+  expect(await numeroAnunciado()).toBe(emitido + 1);
 });
 
 test("una línea sin precio no se emite como S/ 0.00, y vaciar la fecha no manda un comprobante sin fecha (#17)", async ({ page }) => {
@@ -178,11 +182,15 @@ test("Enter en un campo de texto no emite: la factura solo sale desde el botón"
   const posts = contarEmisiones(page);
 
   // Antes: el envío implícito del navegador convertía «Enter para pasar al siguiente campo» en una factura real.
-  for (const campo of ["RUC", "Razón social", "Descripción", "Precio unit. (con IGV)"]) {
+  // Los selects también: la primera versión los exceptuaba y Chromium emite desde un select cerrado igual —Serie es
+  // el primer control del diálogo y Moneda está justo antes del RUC—. La recertificación lo reprodujo.
+  await dialogo.getByRole("button", { name: "Más opciones del ítem 1" }).click();
+  for (const campo of ["Serie", "Fecha de emisión", "Moneda", "RUC", "Razón social", "Descripción", "Cantidad", "Precio unit. (con IGV)", "Unidad de medida", "Afectación del IGV"]) {
     await dialogo.getByLabel(campo).focus();
+    await page.waitForTimeout(120);
     await page.keyboard.press("Enter");
   }
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(400);
   expect(posts).toEqual([]);
   await expect(dialogo).toBeVisible();
 
@@ -212,6 +220,10 @@ test("RUC corto y razón social corta se frenan en el cliente, sin viaje al back
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(dialogo.getByLabel("Razón social")).toHaveJSProperty("validity.valid", false);
   expect(posts).toEqual([]);
+
+  // Descripción: `Item` admite hasta 500 (regla 2027); el `maxLength` corta antes de que el backend rechace.
+  await dialogo.getByLabel("Descripción").fill("x".repeat(501));
+  await expect(dialogo.getByLabel("Descripción")).toHaveValue("x".repeat(500));
 });
 
 test("el aviso de ítems incompletos es una región viva y el botón de emitir lo referencia", async ({ page }) => {
@@ -287,7 +299,9 @@ test("cancelar cierra el diálogo sin emitir nada (#17)", async ({ page }) => {
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
   // Con el formulario LLENO: cancelar uno vacío no prueba nada, porque los `required` ya bloquean el submit solos.
-  // Si «Cancelar» perdiera su `type="button"` pasaría a ser el submit del form —y emitiría—: esto lo detecta.
+  // Honestidad sobre el alcance: si «Cancelar» perdiera su `type="button"`, este test NO lo detecta —React
+  // desmonta el diálogo durante el clic, antes de la acción por defecto del navegador, así que no llega a haber
+  // POST—. Esa regresión es inocua en la práctica; lo que este test sí protege es que cancelar no emita.
   await completarMinimo(dialogo);
 
   // Se observa la petición y no el estado compartido: otros specs emiten contra el mismo mock en paralelo, así que

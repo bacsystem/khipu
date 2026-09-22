@@ -95,14 +95,17 @@ export function NuevoComprobanteForm({
   }, [error]);
 
   /**
-   * Enter en un campo de texto NO emite. El envío implícito del navegador convierte el reflejo de «Enter para pasar
-   * al siguiente campo» en una factura real con correlativo consumido —medido: Enter en el RUC emitía—. Se emite
-   * solo desde el botón (clic, o Enter/Espacio con el foco en él). Los selects y botones conservan su Enter.
+   * Enter NO emite salvo con el foco en un botón. El envío implícito del navegador convierte el reflejo de «Enter
+   * para pasar al siguiente campo» en una factura real con correlativo consumido —medido: Enter en el RUC emitía—.
+   *
+   * Cubre TODO lo que no sea botón, no solo los inputs: la primera versión exceptuaba los `<select>` creyendo que
+   * Enter «les pertenecía», y Chromium hace envío implícito también desde un select cerrado. Como Serie es el
+   * primer control del diálogo y Moneda está justo antes del RUC, «Shift+Tab para corregir la moneda y Enter»
+   * emitía. La recertificación lo reprodujo. El popup de un select abierto consume sus propias teclas, así que
+   * elegir con teclado no se ve afectado.
    */
   function sinEnvioImplicito(e: KeyboardEvent<HTMLFormElement>) {
-    if (e.key !== "Enter") return;
-    const t = e.target as HTMLElement;
-    if (t.tagName === "INPUT" && (t as HTMLInputElement).type !== "submit") e.preventDefault();
+    if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "BUTTON") e.preventDefault();
   }
 
   // Unidades de medida del catálogo 03, servido por el backend: no se hardcodean porque la lista cambia con SUNAT.
@@ -150,9 +153,9 @@ export function NuevoComprobanteForm({
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    // `EntradaMonto` muestra el texto crudo mientras tiene el foco y recién al perderlo pinta el valor redondeado
-    // que es el que se envía. Soltar el foco antes de emitir hace que lo que el usuario está mirando en ese
-    // instante sea exactamente lo que viaja.
+    // `EntradaMonto` redondea en cada pulsación (el valor enviado ya está fijado) pero muestra el texto crudo
+    // mientras tiene el foco. Soltarlo acá repinta el valor redondeado; en el camino feliz se navega antes de
+    // verlo, así que solo importa si la emisión falla y el formulario sigue en pantalla. Cosmético, no de datos.
     (document.activeElement as HTMLElement | null)?.blur();
     setError(null);
     const items = lineasCompletas.map((l) => ({
