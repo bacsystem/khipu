@@ -14,10 +14,15 @@ import pe.factura.adapters.rest.dto.ApiKeyResumenResponse;
 import pe.factura.adapters.rest.dto.CredencialesSolRequest;
 import pe.factura.adapters.rest.dto.DatosFiscalesRequest;
 import pe.factura.adapters.rest.dto.EmpresaResponse;
+import pe.factura.adapters.rest.dto.EstablecimientoRequest;
+import pe.factura.adapters.rest.dto.EstablecimientoResponse;
 import pe.factura.adapters.rest.dto.SerieRequest;
 import pe.factura.adapters.rest.dto.SerieResponse;
 import pe.factura.application.port.in.AdministrarTenantUseCase;
+import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.tenant.Domicilio;
+import pe.factura.domain.tenant.Tenant;
 
 import java.io.IOException;
 import java.util.List;
@@ -55,10 +60,11 @@ public class EmpresaController {
             `cac:RegistrationAddress` de cada XML, la cuenta de detracciones del Banco de la Nación que se usa cuando una factura
             sujeta a detracción no indica la suya, y el nombre comercial (`cac:PartyName`). Reemplaza los tres valores: envíe `null`
             en el que quiera borrar. Errores: `422 DOMICILIO_INVALIDO` (mensaje con la regla SUNAT: 4093 ubigeo, 4094 dirección,
-            3030 establecimiento), `422 CUENTA_DETRACCIONES_INVALIDA` o `422 NOMBRE_COMERCIAL_INVALIDO` (4092).""")
+            3030 establecimiento), `422 CUENTA_DETRACCIONES_INVALIDA` o `422 NOMBRE_COMERCIAL_INVALIDO` (4092). `padron_tasa_especial_igv`
+            activa la tasa reducida del IGV (padrón de restaurantes y hoteles) para los comprobantes que se emitan desde entonces.""")
     public ApiResponse<EmpresaResponse> datosFiscales(HttpServletRequest req, @Valid @RequestBody DatosFiscalesRequest body) {
         return ApiResponse.ok(EmpresaResponse.de(admin.actualizarDatosFiscales(TenantActual.id(req),
-                body.domicilio() == null ? null : body.domicilio().aDominio(), body.cuentaDetracciones(), body.nombreComercial())));
+                body.domicilio() == null ? null : body.domicilio().aDominio(), body.cuentaDetracciones(), body.nombreComercial(), body.tasaEspecial())));
     }
 
     @PutMapping("/empresa/credenciales-sol")
@@ -97,7 +103,7 @@ public class EmpresaController {
             crédito, `FD##`/`BD##` nota de débito (3 alfanuméricos tras el prefijo). `correlativo_inicial` es el último
             número ya usado en otro sistema (0 si es nueva): khipu emitirá desde el siguiente. `409 DUPLICADO` si ya existe.""")
     public ResponseEntity<Void> crearSerie(HttpServletRequest req, @Valid @RequestBody SerieRequest body) {
-        admin.crearSerie(TenantActual.id(req), TipoDocumento.porCodigo(body.tipo()), body.serie(), body.correlativoInicial() == null ? 0 : body.correlativoInicial());
+        admin.crearSerie(TenantActual.id(req), TipoDocumento.porCodigo(body.tipo()), body.serie(), body.correlativoInicial() == null ? 0 : body.correlativoInicial(), body.establecimiento());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -105,7 +111,48 @@ public class EmpresaController {
     @Operation(summary = "Listar series", description = "Series de la empresa con su tipo, último número asignado y si acepta emisiones.")
     public ApiResponse<List<SerieResponse>> series(HttpServletRequest req) {
         return ApiResponse.ok(admin.listarSeries(TenantActual.id(req)).stream()
-                .map(s -> new SerieResponse(s.tipo().codigo(), s.codigo(), s.ultimoNumero(), s.activa()))
+                .map(s -> new SerieResponse(s.tipo().codigo(), s.codigo(), s.ultimoNumero(), s.activa(), s.establecimiento()))
                 .toList());
+    }
+
+    @GetMapping("/empresa/establecimientos")
+    @Operation(summary = "Listar establecimientos", description = """
+            Puntos desde los que emite la empresa: el domicilio fiscal como `0000` (`principal: true`, si está configurado en
+            datos fiscales) más los establecimientos anexos registrados, activos y dados de baja. Cada serie se asigna a uno
+            (`POST /v1/series`) y sus comprobantes salen con ese `cac:RegistrationAddress` y `AddressTypeCode` (regla 3030).""")
+    public ApiResponse<List<EstablecimientoResponse>> establecimientos(HttpServletRequest req) {
+        UUID tenantId = TenantActual.id(req);
+        Tenant t = admin.obtener(tenantId);
+        List<EstablecimientoResponse> lista = new java.util.ArrayList<>();
+        if (t.domicilio() != null) lista.add(EstablecimientoResponse.principal(t.domicilio()));
+        admin.listarEstablecimientos(tenantId).stream().map(EstablecimientoResponse::de).forEach(lista::add);
+        return ApiResponse.ok(lista);
+    }
+
+    @PostMapping("/empresa/establecimientos")
+    @Operation(summary = "Registrar un establecimiento anexo", description = """
+            Alta de un anexo con el código de su ficha RUC (4 dígitos, distinto de `0000`), un nombre y su domicilio (mismas
+            reglas que el fiscal: 4093 ubigeo, 4094 dirección). Si el código ya existe se actualiza (mismo efecto que `PUT`).
+            `422 ESTABLECIMIENTO_INVALIDO` o `422 DOMICILIO_INVALIDO`.""")
+    public ResponseEntity<ApiResponse<EstablecimientoResponse>> crearEstablecimiento(HttpServletRequest req, @Valid @RequestBody EstablecimientoRequest body) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(EstablecimientoResponse.de(
+                admin.guardarEstablecimiento(TenantActual.id(req), body.codigo(), body.nombre(), body.domicilio().aDominio()))));
+    }
+
+    @PutMapping("/empresa/establecimientos/{codigo}")
+    @Operation(summary = "Editar un establecimiento anexo", description = "Reemplaza nombre y domicilio; conserva el estado. El `0000` se edita en `PUT /v1/empresa/datos-fiscales`.")
+    public ApiResponse<EstablecimientoResponse> editarEstablecimiento(HttpServletRequest req, @PathVariable String codigo, @Valid @RequestBody EstablecimientoRequest body) {
+        if (!codigo.equals(body.codigo())) throw new DomainException("ESTABLECIMIENTO_INVALIDO", "El código de la ruta (" + codigo + ") y del cuerpo (" + body.codigo() + ") no coinciden");
+        return ApiResponse.ok(EstablecimientoResponse.de(admin.guardarEstablecimiento(TenantActual.id(req), codigo, body.nombre(), body.domicilio().aDominio())));
+    }
+
+    @DeleteMapping("/empresa/establecimientos/{codigo}")
+    @Operation(summary = "Dar de baja un establecimiento anexo", description = """
+            Baja lógica: deja de admitir series nuevas y emisiones; los comprobantes ya emitidos conservan su domicilio.
+            `409 ESTABLECIMIENTO_EN_USO` si tiene series activas; `404 NO_ENCONTRADO`; el `0000` no se puede dar de baja.""")
+    public ResponseEntity<Void> darDeBajaEstablecimiento(HttpServletRequest req, @PathVariable String codigo) {
+        if (Domicilio.ESTABLECIMIENTO_PRINCIPAL.equals(codigo)) throw new DomainException("ESTABLECIMIENTO_INVALIDO", "El 0000 es el domicilio fiscal: no se da de baja, se edita en datos fiscales");
+        admin.desactivarEstablecimiento(TenantActual.id(req), codigo);
+        return ResponseEntity.noContent().build();
     }
 }

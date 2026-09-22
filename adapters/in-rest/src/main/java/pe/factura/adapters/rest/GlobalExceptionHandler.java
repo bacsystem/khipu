@@ -8,6 +8,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -23,10 +24,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> dominio(DomainException e) {
         HttpStatus st = switch (e.codigo()) {
             case "NO_ENCONTRADO", "SIN_CDR" -> HttpStatus.NOT_FOUND;
-            case "DUPLICADO", "ESTADO_NO_ENVIABLE", "NO_ACEPTADO" -> HttpStatus.CONFLICT;
+            case "DUPLICADO", "ESTADO_NO_ENVIABLE", "NO_ACEPTADO", "ESTABLECIMIENTO_EN_USO", "FUERA_DE_PLAZO", "CDR_YA_DISPONIBLE" -> HttpStatus.CONFLICT;
             case "NO_AUTORIZADO", "CREDENCIALES_INVALIDAS", "SESION_INVALIDA" -> HttpStatus.UNAUTHORIZED;
             case "EMPRESA_AJENA", "REQUIERE_SESION" -> HttpStatus.FORBIDDEN;
-            case "PARAMETRO_INVALIDO" -> HttpStatus.BAD_REQUEST;
+            case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;
             // El correo saliente es un servicio externo: su fallo no es culpa del cliente ni un bug del servidor.
             case "CORREO_NO_ENVIADO" -> HttpStatus.BAD_GATEWAY;
             // Un CDR guardado que no se puede leer es un fallo del servidor, no de la petición.
@@ -58,6 +59,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Void>> parametroInvalido(MethodArgumentTypeMismatchException e) {
         return ResponseEntity.badRequest().body(ApiResponse.error("PARAMETRO_INVALIDO", "El parámetro '" + e.getName() + "' no tiene un formato válido"));
+    }
+
+    /** Query param obligatorio ausente (p. ej. `desde`/`hasta` de la verificación de integridad): error del cliente. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> parametroAusente(MissingServletRequestParameterException e) {
+        return ResponseEntity.badRequest().body(ApiResponse.error("PARAMETRO_INVALIDO", "Falta el parámetro '" + e.getParameterName() + "'"));
     }
 
     /** Ruta inexistente: sin esto caería en el catch-all y respondería 500 "Error interno" (p. ej. un portal más nuevo que el backend). */

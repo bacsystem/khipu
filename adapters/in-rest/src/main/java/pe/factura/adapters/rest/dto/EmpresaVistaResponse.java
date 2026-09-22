@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public record EmpresaVistaResponse(
         @Schema(example = "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f") UUID id,
-        @Schema(example = "20123456789") String ruc,
+        @Schema(example = "20123456786") String ruc,
         @Schema(example = "Comercial Andina SAC") String razonSocial,
         @Schema(example = "BETA") String entorno,
         @Schema(example = "true") boolean tieneCertificado,

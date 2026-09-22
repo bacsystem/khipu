@@ -11,24 +11,33 @@ export const ETIQUETAS_TIPO: Record<string, string> = {
   "08": "Nota de débito",
 };
 
-export type EstadoDocumento =
-  | "RECIBIDO"
-  | "INVALIDO"
-  | "FIRMADO"
-  | "ERROR_ENVIO"
-  | "PENDIENTE_AGRUPACION"
-  | "ENVIADO"
-  | "ACEPTADO"
-  | "ACEPTADO_CON_OBS"
-  | "RECHAZADO"
-  | "ANULADO";
+export const ESTADOS_DOCUMENTO = [
+  "RECIBIDO",
+  "INVALIDO",
+  "FIRMADO",
+  "ERROR_ENVIO",
+  "PENDIENTE_AGRUPACION",
+  "ENVIADO",
+  "ACEPTADO",
+  "ACEPTADO_CON_OBS",
+  "RECHAZADO",
+  "ANULADO",
+  "FUERA_DE_PLAZO",
+] as const;
+
+export type EstadoDocumento = (typeof ESTADOS_DOCUMENTO)[number];
 
 export type Receptor = {
   tipo_doc: string;
   num_doc: string;
   razon_social: string;
   direccion: string | null;
+  /** País (ISO 3166-1, catálogo 04): obligatorio en exportaciones, ausente en el resto. */
+  pais?: string | null;
 };
+
+/** Datos de una factura de exportación (0200–0208): Incoterm y, en servicios 0201/0208, país de uso. */
+export type Exportacion = { incoterm: string | null; pais_uso: string | null };
 
 /** Descuento aplicado (catálogo 53): lo enviado, el monto resultante y el código SUNAT. */
 export type DescuentoAplicado = { tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; codigo: string };
@@ -53,12 +62,33 @@ export type ItemComprobante = {
   /** Cargos de la línea (47 suma al valor de venta y paga IGV; 48 se cobra sin IGV). */
   cargos?: CargoAplicado[] | null;
   /** ISC de la línea (sistema del catálogo 08, tasa aplicada y monto). */
-  isc?: { sistema: string; tasa: number; monto: number } | null;
+  isc?: { sistema: string; tasa: number; monto: number; base?: number; base_pvp?: number | null } | null;
   /** ICBPER de la línea (bolsas × monto vigente). */
   icbper?: number;
   /** Código de producto SUNAT (catálogo 25, UNSPSC) y GTIN, si el emisor los informó. */
   codigo_sunat?: string | null;
   gtin?: { tipo: string; codigo: string } | null;
+  /** Detracción 1002: datos de la embarcación y la especie (catálogo 55, conceptos 3001–3006). */
+  hidrobiologico?: Hidrobiologico | null;
+  /** Detracción 1004: origen, destino, detalle del viaje y valores referenciales del transporte de carga. */
+  transporte?: TransporteCarga | null;
+};
+
+export type Hidrobiologico = { matricula: string; nombre_embarcacion: string; especie: string; lugar_descarga: string; fecha_descarga: string; cantidad: number };
+
+export type TransporteCarga = {
+  origen: { ubigeo: string; direccion: string };
+  destino: { ubigeo: string; direccion: string };
+  detalle_viaje: string;
+  valor_referencial: { servicio: number; carga_efectiva: number; carga_util_nominal: number };
+  tramos?: Array<{
+    origen_ubigeo?: string | null;
+    destino_ubigeo?: string | null;
+    descripcion?: string | null;
+    valor_carga_efectiva?: number | null;
+    valor_carga_util_nominal?: number | null;
+    vehiculos?: Array<{ configuracion?: string | null; carga_util_tm?: number | null; carga_efectiva_tm?: number | null }>;
+  }>;
 };
 
 export const ETIQUETAS_GUIA: Record<string, string> = { "09": "Guía de remisión remitente", "31": "Guía de remisión transportista" };
@@ -131,12 +161,19 @@ export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
   "4": "Carné de extranjería",
   "6": "RUC",
   "7": "Pasaporte",
-  "0": "Sin documento",
+  "0": "Doc. tributario no domiciliado",
+  A: "Cédula diplomática",
+  B: "Doc. identidad país de residencia",
+  C: "TIN (persona natural)",
+  D: "IN (persona jurídica)",
+  E: "Tarjeta Andina de Migración",
+  G: "Salvoconducto",
 };
 
 /** Catálogo 07 (afectación del IGV) con las etiquetas cortas que muestra el portal; los códigos gratuitos no se cobran. */
 export const ETIQUETAS_AFECTACION: Record<string, string> = {
   "10": "Gravado · Op. onerosa",
+  "17": "Gravado · IVAP",
   "11": "Gravado · Retiro por premio (gratuita)",
   "12": "Gravado · Retiro por donación (gratuita)",
   "13": "Gravado · Retiro (gratuita)",
@@ -153,6 +190,7 @@ export const ETIQUETAS_AFECTACION: Record<string, string> = {
   "35": "Inafecto · Retiro por premio (gratuita)",
   "36": "Inafecto · Retiro por publicidad (gratuita)",
   "37": "Inafecto · Transferencia gratuita",
+  "40": "Exportación",
 };
 
 /** Forma de pago (RS 193-2020): al contado, o al crédito con el neto pendiente y sus cuotas (`id` = Cuota001…). */
@@ -199,6 +237,12 @@ export type Comprobante = {
   fecha_emision: string;
   /** Fecha de vencimiento informada (cbc:DueDate), o ausente. */
   fecha_vencimiento?: string | null;
+  /** Leyendas del catálogo 52 declaradas por el emisor (2001–2005, 2008…), con el texto que va al XML. */
+  leyendas?: Array<{ codigo: string; texto: string }>;
+  /** Solo en exportaciones (0200–0208). */
+  exportacion?: Exportacion | null;
+  /** Último día en que SUNAT acepta recibirlo (3 días calendario desde la emisión); ausente en backends anteriores. */
+  fecha_limite_envio?: string;
   moneda: string;
   tipo_operacion: string | null;
   receptor: Receptor | null;
@@ -214,6 +258,8 @@ export type Comprobante = {
     exonerado: number;
     inafecto: number;
     igv: number;
+    /** Tasa del IGV del comprobante en porcentaje (18.00 o la reducida del padrón de tasa especial); ausente en backends anteriores. */
+    tasa_igv?: number;
     total: number;
     total_valor_venta?: number;
     total_precio_venta?: number;
@@ -225,6 +271,10 @@ export type Comprobante = {
     redondeo?: number;
     gratuito?: number;
     igv_gratuitas?: number;
+    /** IVAP (tributo 1016, 4 % en vez del IGV): solo en comprobantes con afectación 17. */
+    ivap?: number;
+    /** Valor de venta de exportación (tributo 9995, sin IGV): solo en facturas 0200–0208. */
+    exportacion?: number;
     isc?: number;
     icbper?: number;
     descuento_global?: DescuentoAplicado | null;
@@ -246,6 +296,8 @@ export type Comprobante = {
   nota?: { tipo_afectado: string; documento_afectado: string; motivo: string; motivo_descripcion: string; descripcion: string } | null;
   /** Solo al consultar una factura: notas emitidas sobre ella, con su estado. */
   notas?: NotaResumen[] | null;
+  /** Historial de intentos y cambios de estado (#7), del más antiguo al más reciente; solo al consultar por id y ausente en backends anteriores. */
+  eventos?: EventoComprobante[] | null;
   /** Solo al consultar: la comunicación de baja más reciente (en curso, aceptada o rechazada). */
   baja?: Baja | null;
   /** Observaciones propias del comprobante, impresas en el PDF (no van al XML). */
@@ -258,10 +310,13 @@ export function esEstadoFinal(estado: EstadoDocumento): boolean {
   return (ESTADOS_FINALES as readonly string[]).includes(estado);
 }
 
+export type EventoComprobante = { fecha: string; estado_anterior: EstadoDocumento | null; estado_resultante: EstadoDocumento; mensaje: string | null };
+
 // Un backend anterior a la exposición de receptor/items responde sin esos campos.
 export function normalizarComprobante(c: Partial<Comprobante> & Pick<Comprobante, "id">): Comprobante {
   return {
     ...(c as Comprobante),
+    eventos: c.eventos ?? null,
     tipo_operacion: c.tipo_operacion ?? null,
     receptor: c.receptor ?? null,
     items: c.items ?? [],
@@ -285,13 +340,39 @@ export function totalDesdeHeaders(headers: Headers, fallback: number): number {
   return Number.isFinite(total) && headers.has(TOTAL_HEADER) ? total : fallback;
 }
 
+/** Filtros del listado (#6): estado SUNAT, rango de fecha de emisión (inclusive) y serie exacta; todos opcionales y viajan en la URL. */
+export type FiltrosComprobantes = { estado?: EstadoDocumento; desde?: string; hasta?: string; serie?: string };
+
+const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+const SERIE = /^[A-Z][A-Z0-9]{3}$/;
+
+/** Sanea los filtros que llegan por query string: descarta lo que el backend rechazaría (400) y normaliza la serie. */
+export function filtrosDesdeParams(p: { estado?: string; desde?: string; hasta?: string; serie?: string }): FiltrosComprobantes {
+  const f: FiltrosComprobantes = {};
+  if (p.estado && (ESTADOS_DOCUMENTO as readonly string[]).includes(p.estado)) f.estado = p.estado as EstadoDocumento;
+  if (p.desde && FECHA_ISO.test(p.desde)) f.desde = p.desde;
+  if (p.hasta && FECHA_ISO.test(p.hasta)) f.hasta = p.hasta;
+  if (f.desde && f.hasta && f.desde > f.hasta) delete f.hasta;
+  const serie = p.serie?.trim().toUpperCase();
+  if (serie && SERIE.test(serie)) f.serie = serie;
+  return f;
+}
+
+/** Los filtros como query string, en el orden en que la API los documenta; vacío si no hay ninguno. */
+export function paramsDeFiltros(f: FiltrosComprobantes, qs = new URLSearchParams()) {
+  if (f.estado) qs.set("estado", f.estado);
+  if (f.desde) qs.set("desde", f.desde);
+  if (f.hasta) qs.set("hasta", f.hasta);
+  if (f.serie) qs.set("serie", f.serie);
+  return qs;
+}
+
 export async function listarFacturas(
   access: string,
   empresaId: string,
-  params: { estado?: EstadoDocumento; pagina?: number; porPagina?: number } = {},
+  params: FiltrosComprobantes & { pagina?: number; porPagina?: number } = {},
 ): Promise<PaginaComprobantes> {
-  const qs = new URLSearchParams();
-  if (params.estado) qs.set("estado", params.estado);
+  const qs = paramsDeFiltros(params);
   qs.set("pagina", String(params.pagina ?? 1));
   qs.set("por_pagina", String(params.porPagina ?? 10));
   const { datos, headers } = await backendFetchConHeaders<Comprobante[]>(`/v1/facturas?${qs}`, {

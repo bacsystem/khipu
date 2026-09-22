@@ -16,7 +16,7 @@ export type CasoEmision = {
 
 const CLIENTE = `"cliente": {
     "tipo_doc": "6",
-    "num_doc": "20601234567",
+    "num_doc": "20601234565",
     "razon_social": "COMERCIAL ANDINA S.A.C.",
     "direccion": "Av. Javier Prado Este 123, San Isidro, Lima"
   }`;
@@ -55,7 +55,7 @@ Content-Type: application/json
   ]
 }`,
     notas: [
-      "`precio_unitario` es el precio **con IGV**: khipu calcula el valor unitario (1 000.00), el IGV (18 %) y los totales; no envíe importes sin IGV.",
+      "`precio_unitario` es el precio **con IGV**: khipu calcula el valor unitario (1 000.00), el IGV (18 %, o 10.5 % si la empresa está en el Padrón de Tasa Especial de restaurantes y hoteles — se activa en `PUT /v1/empresa/datos-fiscales`) y los totales; `totales.tasa_igv` indica la tasa aplicada. No envíe importes sin IGV.",
       "`correlativo` omitido: khipu asigna el siguiente número de la serie F001 de forma atómica (sin huecos ni duplicados aunque emita en paralelo).",
       "`tipo_operacion` omitido = `0101` (venta interna). `forma_pago` omitida = contado.",
       "Unidades: `ZZ` para servicios, `NIU` para bienes contables; otras en el catálogo 03.",
@@ -297,7 +297,7 @@ X-Api-Key: fk_TU_API_KEY`,
       "Afectaciones gratuitas del catálogo 07: `11`–`16` (gravadas: retiro por premio, donación, retiro, publicidad, bonificación, entrega a trabajadores), `21` (exonerada) y `31`–`37` (inafectas). En estas líneas `precio_unitario` es el **valor referencial sin IGV**, no un precio de venta.",
       "La línea no suma al importe a pagar: la respuesta trae `gratuita: true`, `precio_venta: 0.00` y, en gravadas, el `igv` informativo. En `totales`, `gratuito` e `igv_gratuitas` van aparte de `total`.",
       "En el XML: `PriceTypeCode 02` (valor referencial), `Price/PriceAmount 0`, tributo `9996` (GRA) por línea y en un subtotal global propio, y la leyenda `1002` obligatoria. Reglas 2640, 3110, 3111, 3224, 3234, 3276, 3302.",
-      "Una factura solo con gratuitas tiene `total` 0.00. No se soportan `17` (IVAP, arroz pilado) ni `40` (exportación).",
+      "Una factura solo con gratuitas tiene `total` 0.00. Las gratuitas no se mezclan con el IVAP (`17`) ni con la exportación (`40`): ver sus casos.",
     ],
     disponible: true,
   },
@@ -326,6 +326,65 @@ X-Api-Key: fk_TU_API_KEY`,
       "`monto` siempre en **soles**: en facturas en PEN puede omitirlo y khipu lo calcula (total × %, redondeado al sol, como exige el SPOT); en USD/EUR debe enviarlo convertido al tipo de cambio del día.",
       "`cuenta_banco_nacion` es la cuenta de detracciones del emisor; puede omitirse si la empresa la tiene configurada (`PUT /v1/empresa/datos-fiscales` o página Empresa del portal), si no `422 DETRACCION_INVALIDA` (3034). `medio_pago` del catálogo 59 (por defecto `001` depósito en cuenta).",
       "La detracción no cambia los totales: la respuesta trae `detraccion` con la descripción del catálogo y el monto; el XML lleva `PaymentMeans`/`PaymentTerms` con indicador `Detraccion` y la leyenda 2006.",
+      "**1002 recursos hidrobiológicos** y **1004 transporte de carga** exigen además datos sectoriales en cada ítem: ver los dos casos siguientes.",
+    ],
+    disponible: true,
+  },
+  {
+    id: "hidrobiologicos",
+    titulo: "Detracción 1002: venta de recursos hidrobiológicos",
+    cuando: "Vende pescado u otros recursos hidrobiológicos con detracción (código 004): SUNAT exige en cada ítem la embarcación, la especie, el lugar y la fecha de descarga y la cantidad (campos 107–112).",
+    request: `{
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  "tipo_operacion": "1002",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Anchoveta fresca", "unidad": "TNE", "cantidad": 12.5, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10",
+      "hidrobiologico": {
+        "matricula": "CO-12345-PM", "nombre_embarcacion": "DON JOSÉ II", "especie": "Anchoveta (Engraulis ringens)",
+        "lugar_descarga": "Muelle de Chimbote", "fecha_descarga": "2026-09-15", "cantidad": 12.5
+      } }
+  ],
+  "detraccion": { "codigo_bien_servicio": "004", "porcentaje": 4, "cuenta_banco_nacion": "00-000-123456" }
+}`,
+    notas: [
+      "Con `tipo_operacion` 1002 el `codigo_bien_servicio` debe ser `004` (regla 3129) y **cada ítem** lleva `hidrobiologico` completo: `matricula` (1–15 caracteres), `nombre_embarcacion` (≤100), `especie` (≤150), `lugar_descarga` (≤100), `fecha_descarga` (`YYYY-MM-DD`) y `cantidad` en toneladas (hasta 2 decimales). Si falta alguno, `422 DETRACCION_INVALIDA` con la regla (3063, 3130–3135).",
+      "En el XML van como `cac:AdditionalItemProperty` con los conceptos `3001`–`3006` del catálogo 55: la fecha en `UsabilityPeriod/StartDate` y la cantidad en `ValueQuantity` con `unitCode=\"TNE\"` (regla 3115). La leyenda 2006 se agrega sola (4265).",
+      "`hidrobiologico` no se admite en otros tipos de operación. La respuesta y el detalle del portal muestran los datos de la embarcación por ítem.",
+    ],
+    disponible: true,
+  },
+  {
+    id: "transporte-carga",
+    titulo: "Detracción 1004: servicio de transporte de carga",
+    cuando: "Presta transporte de carga por carretera con detracción (código 027): SUNAT exige en cada ítem el origen y destino con ubigeo, el detalle del viaje y los tres valores referenciales del D.S. 010-2006-MTC (campos 113–118); los tramos y vehículos son opcionales (119–127).",
+    request: `{
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  "tipo_operacion": "1004",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Flete Chimbote – Lima", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 2950.00, "tipo_afectacion_igv": "10",
+      "transporte": {
+        "origen":  { "ubigeo": "021801", "direccion": "Av. Los Pescadores 450, Chimbote" },
+        "destino": { "ubigeo": "150101", "direccion": "Jr. de la Unión 100, Lima" },
+        "detalle_viaje": "Traslado de 20 t de harina de pescado en camión furgón",
+        "valor_referencial": { "servicio": 2500.00, "carga_efectiva": 2400.00, "carga_util_nominal": 2600.00 },
+        "tramos": [
+          { "origen_ubigeo": "021801", "destino_ubigeo": "150101", "descripcion": "Chimbote – Lima por Panamericana Norte", "valor_carga_efectiva": 2400.00,
+            "vehiculos": [ { "configuracion": "T3S3", "carga_util_tm": 30, "carga_efectiva_tm": 20 } ] }
+        ]
+      } }
+  ],
+  "detraccion": { "codigo_bien_servicio": "027", "porcentaje": 4, "cuenta_banco_nacion": "00-000-123456" }
+}`,
+    notas: [
+      "Con `tipo_operacion` 1004 el `codigo_bien_servicio` debe ser `027` (3129) y **cada ítem** lleva `transporte` con `origen` y `destino` (`ubigeo` del catálogo 13 y `direccion` de 3–200 caracteres: 3116–3119), `detalle_viaje` (3–500: 3120) y `valor_referencial` con los tres montos en soles —`servicio` (01), `carga_efectiva` (02) y `carga_util_nominal` (03)—, que SUNAT exige exactamente una vez cada uno (3122–3126, 3208). Si falta alguno, `422 DETRACCION_INVALIDA` con la regla.",
+      "`tramos[]` y sus `vehiculos[]` son opcionales (solo observaciones 4200, 4270–4278): ubigeos de origen/destino del tramo, `descripcion` (3–100), `valor_carga_efectiva`, `valor_carga_util_nominal` (con más de un vehículo), y por vehículo `configuracion` (D.S. 058-2003-MTC, sin espacios), `carga_util_tm` y `carga_efectiva_tm`.",
+      "En el XML: `cac:Delivery` por línea con `DeliveryLocation` (destino), `Despatch` (detalle y origen), tres `DeliveryTerms` (01/02/03 en PEN) y `Shipment/Consignment` por tramo con `TransportHandlingUnit` por vehículo. `transporte` no se admite en otros tipos de operación.",
     ],
     disponible: true,
   },
@@ -426,14 +485,61 @@ X-Api-Key: fk_TU_API_KEY`,
       "isc": { "sistema": "01", "tasa": 35 } },
     { "descripcion": "Pisco 750 ml", "unidad": "NIU", "cantidad": 6, "precio_unitario": 8.555, "tipo_afectacion_igv": "10",
       "isc": { "sistema": "02", "monto_unitario": 2.25 } },
+    { "descripcion": "Cerveza 620 ml (botella)", "unidad": "NIU", "cantidad": 10, "precio_unitario": 3.599, "tipo_afectacion_igv": "10",
+      "isc": { "sistema": "03", "tasa": 30, "base_pvp": 3.50 } },
     { "descripcion": "Bolsa plástica", "unidad": "NIU", "cantidad": 3, "precio_unitario": 0.618, "tipo_afectacion_igv": "10", "icbper": true }
   ]
 }`,
     notas: [
-      "`isc.sistema` del catálogo 08: `01` al valor lleva `tasa` (%) sobre el valor de venta; `02` monto fijo lleva `monto_unitario`. El `precio_unitario` incluye ISC e IGV: khipu separa valor, ISC e IGV (ejemplo: 159.30 = 100 × 1.35 × 1.18). `03` (precio de venta al público) **no está soportado**: su base es el PVP sugerido, que la API aún no recibe; se responde `422`.",
+      "`isc.sistema` del catálogo 08: `01` al valor lleva `tasa` (%) sobre el valor de venta; `02` monto fijo lleva `monto_unitario`; `03` al valor según precio de venta al público lleva `tasa` y `base_pvp` (PVP sugerido unitario sin IGV: cervezas, cigarrillos, gaseosas), y la base del ISC en el XML es `base_pvp × cantidad`, no el valor de venta (regla 3108). El `precio_unitario` siempre incluye ISC e IGV: khipu separa valor, ISC e IGV (159.30 = 100 × 1.35 × 1.18; 3.599 = (2.00 + 3.50 × 30 %) × 1.18). `base_pvp` no puede ser menor que el valor unitario.",
       "El ISC forma parte de la base del IGV (regla 204) y se informa en un `TaxSubtotal` 2000 por línea (con `TierRange` = sistema) y global (reglas 3108, 2373, 3210).",
       "`icbper: true` marca bolsas de plástico: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año (S/ 0.50 desde 2023, Ley 30884) incluido en el precio; se informa como tributo 7152 sin base ni tasa (reglas 3236–3238).",
-      "La respuesta trae por ítem `isc {sistema, tasa, monto}` e `icbper`, y en `totales` `isc` e `icbper`; `total_precio_venta` los incluye (regla 55).",
+      "La respuesta trae por ítem `isc {sistema, tasa, monto, base, base_pvp}` e `icbper`, y en `totales` `isc` e `icbper`; `total_precio_venta` los incluye (regla 55).",
+    ],
+    disponible: true,
+  },
+  {
+    id: "ivap",
+    titulo: "Arroz pilado (IVAP)",
+    cuando: "Vende arroz pilado: la primera venta en el país está sujeta al Impuesto a la Venta de Arroz Pilado (Ley 28211), 4 % en lugar del IGV. Molinos, comercializadores y cualquier emisor que venda arroz pilado.",
+    request: `{
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Arroz pilado superior", "unidad": "KGM", "cantidad": 500, "precio_unitario": 3.12, "tipo_afectacion_igv": "17" }
+  ]
+}`,
+    notas: [
+      "`tipo_afectacion_igv: \"17\"` (catálogo 07): el `precio_unitario` incluye el IVAP (3.12 = 3.00 + 4 %). khipu calcula el tributo `1016` al 4 % por línea y en un subtotal global propio, y agrega la leyenda `2007` (Operación sujeta al IVAP).",
+      "El comprobante entero es IVAP: SUNAT calcula su precio de venta **sin IGV** (campo 55), así que no admite ítems `10`, `20`, `30` ni gratuitas en la misma factura (`422 AFECTACION_INVALIDA`); las demás ventas van en otro comprobante. Tampoco admite `isc` ni `icbper` en la línea (reglas 2650, 3223).",
+      "La tasa reducida del padrón de restaurantes y hoteles no aplica al IVAP: la línea siempre lleva `Percent 4.00`.",
+      "La respuesta trae en `totales` `gravado` (base IVAP), `ivap` y `igv` en 0.00; `total_precio_venta` = base + IVAP. Las notas de crédito sobre una factura IVAP se limitan por su base e IVAP (regla 3503, tributo 1016).",
+    ],
+    disponible: true,
+  },
+  {
+    id: "exportacion",
+    titulo: "Exportación de bienes o servicios",
+    cuando: "Vende a un cliente del exterior: bienes que salen del país (DAM) o servicios usados fuera del Perú. Sin IGV (tributo 9995) y en la moneda pactada; la factura sustenta la exportación ante SUNAT y Aduanas.",
+    request: `{
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "tipo_operacion": "0200",
+  "moneda": "USD",
+  "cliente": { "tipo_doc": "0", "num_doc": "US123456789", "razon_social": "ACME IMPORTS LLC", "direccion": "1200 Main St, Miami FL", "pais": "US" },
+  "items": [
+    { "descripcion": "Café verde en grano", "unidad": "KGM", "cantidad": 1000, "precio_unitario": 4.50, "tipo_afectacion_igv": "40" }
+  ],
+  "exportacion": { "incoterm": "FOB" }
+}`,
+    notas: [
+      "`tipo_operacion` del catálogo 51: `0200` bienes, `0201` servicios prestados íntegramente en el país (SUNAT exige estar en el Registro de exportadores de servicios, regla 3097), `0203`/`0204`/`0206`/`0207` servicios a navieras, naves, carga y ZED, `0208` servicios prestados parcialmente en el extranjero. `0202` (hospedaje) y `0205` (paquete turístico) exigen los datos del huésped y aún no se soportan.",
+      "Todos los ítems llevan `tipo_afectacion_igv: \"40\"` (regla 2642) y el `precio_unitario` es el valor de venta, sin IGV; no se mezclan con `10`/`20`/`30`/`17` ni gratuitas ni llevan `isc`/`icbper` (3107, 3223): `422 AFECTACION_INVALIDA`. La respuesta trae `totales.exportacion` y `igv` 0.00.",
+      "`cliente`: documento del catálogo 06 del cliente del exterior —`0` documento tributario no domiciliado sin RUC, `1` DNI, `4` carné de extranjería, `7` pasaporte, `A`…`G`— y `pais` (ISO 3166-1, catálogo 04) obligatorio. Un RUC (`6`) no se admite en `0200`/`0201`/`0204` (regla 2800): `422 RECEPTOR_INVALIDO`.",
+      "`exportacion.incoterm` (EXW, FCA, FAS, FOB, CFR, CIF, CPT, CIP, DAP, DPU, DDP) va en `cac:DeliveryTerms`: SUNAT no lo valida, Aduanas sí lo pide. En `0201`/`0208` es obligatorio `exportacion.pais_uso` (país donde se usa el servicio, distinto de PE, reglas 3098/3099); en los demás tipos no se admite.",
+      "Forma de pago al crédito, descuentos que no afectan la base (`03`) y cargos `46`/`50` funcionan igual; descuento `02` y cargo `49` no (no hay base gravada). Sin detracción ni percepción (no aplican a exportaciones). Las notas de crédito heredan tipo de operación, moneda, Incoterm y receptor de la factura.",
     ],
     disponible: true,
   },
@@ -453,7 +559,7 @@ X-Api-Key: fk_TU_API_KEY`,
     notas: [
       "`tipo` **07** nota de crédito / **08** nota de débito; `serie` registrada con ese tipo y que empiece por `F` (p. ej. `FC01`, `FD01`; regla 1001). `documento_afectado` debe ser una factura de la empresa **aceptada** por SUNAT y no anulada (reglas 2119, 2120); la nota toma su cliente, moneda y tipo de operación, y su fecha no puede ser anterior (2885).",
       "`motivo` del catálogo **09** (NC: `01` anulación, `02` error en el RUC, `04`/`05` descuentos, `06`/`07` devoluciones, `09` disminución, `13` corrección de cuotas…) o **10** (ND: `01` intereses por mora, `02` aumento en el valor, `03` penalidades…); `descripcion` es el sustento (1–500 caracteres, regla 2135).",
-      "**Nota total**: sin `items`, khipu copia ítems, descuento global y cargos de la factura (no envíe `descuento_global` ni `cargos` propios: se rechazan). Si la factura regularizó anticipos, envíe `items` por el importe neto: los anticipos no viajan en una nota. **Nota parcial**: envíe `items` con el mismo formato que en la factura (p. ej. una laptop de las dos facturadas). Una nota de crédito nunca supera los importes de la factura, ni en total (3286) ni por tributo (3503); una nota de débito no tiene tope.",
+      "**Nota total**: sin `items`, khipu copia ítems, descuento global y cargos de la factura (no envíe `descuento_global` ni `cargos` propios: se rechazan). Si la factura regularizó anticipos, envíe `items` por el importe neto: los anticipos no viajan en una nota. **Nota parcial**: envíe `items` con el mismo formato que en la factura (p. ej. una laptop de las dos facturadas). Una nota de crédito nunca supera los importes de la factura, ni en total (3286) ni por tributo (3503), y khipu descuenta lo ya acreditado por las notas de crédito anteriores: varias parciales pueden sumar la factura, pero una segunda nota total se rechaza (SUNAT la aceptaría, porque compara nota por nota). Una nota de débito no tiene tope.",
       "**NC 13** (reprogramar cuotas de una factura al crédito): envíe `forma_pago` al crédito con las cuotas corregidas; la nota sale con importe 0 (regla 3315; `items` se ignora) y las cuotas se validan contra la factura (3320, 3321). En cualquier otra nota `forma_pago` se rechaza.",
       "La respuesta es el mismo comprobante que en facturas más el bloque `nota { tipo_afectado, documento_afectado, motivo, motivo_descripcion, descripcion }`; consulta, XML, CDR y reenvío van por `GET /v1/facturas/{id}`…, y la factura lista sus notas en `notas[]`. En el XML: `CreditNote`/`DebitNote` con `cac:DiscrepancyResponse` y `cac:BillingReference`. Error `NOTA_INVALIDA` (422) con la regla SUNAT en el mensaje. Homologado en e-beta: NC total, parcial, 13 y ND.",
     ],
@@ -487,13 +593,13 @@ export const RESPUESTA_EJEMPLO = `{
     "fecha_emision": "2026-09-17",
     "moneda": "PEN",
     "tipo_operacion": "0101",
-    "receptor": { "tipo_doc": "6", "num_doc": "20601234567", "razon_social": "COMERCIAL ANDINA S.A.C.", "direccion": "Av. Javier Prado Este 123, San Isidro, Lima" },
+    "receptor": { "tipo_doc": "6", "num_doc": "20601234565", "razon_social": "COMERCIAL ANDINA S.A.C.", "direccion": "Av. Javier Prado Este 123, San Isidro, Lima" },
     "items": [
       { "codigo": "SRV-001", "descripcion": "Servicio de consultoría – setiembre 2026", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10" }
     ],
     "estado_documento": "ACEPTADO",
     "hash": "y4M8+jW8Xp278K1aM02q19KjvO3k=",
-    "nombre_archivo": "20123456789-01-F001-00000125",
+    "nombre_archivo": "20123456786-01-F001-00000125",
     "intentos": 1,
     "ultimo_error": null,
     "cdr": { "codigo": "0", "descripcion": "La Factura numero F001-125, ha sido aceptada", "observaciones": [] },

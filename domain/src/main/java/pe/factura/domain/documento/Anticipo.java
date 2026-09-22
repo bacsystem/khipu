@@ -46,10 +46,13 @@ public record Anticipo(String serie, long numero, BigDecimal monto, Afectacion a
     public String comprobante() { return serie + "-" + numero; }
     public String codigoSunat() { return afectacion.codigo(); }
 
-    /** Importe realmente pagado con el anticipo (cbc:PaidAmount): valor + IGV si es gravado. */
-    public BigDecimal importePagado() {
+    /** Importe realmente pagado con el anticipo (cbc:PaidAmount): valor + IGV a la tasa general si es gravado. */
+    public BigDecimal importePagado() { return importePagado(TasaIgv.GENERAL); }
+
+    /** Importe pagado con el IGV a la tasa del comprobante que lo regulariza ({@code tasaIgv} en porcentaje). */
+    public BigDecimal importePagado(BigDecimal tasaIgv) {
         return afectacion == Afectacion.GRAVADO
-                ? monto.multiply(BigDecimal.ONE.add(ItemCalculado.TASA_IGV)).setScale(2, RoundingMode.HALF_UP)
+                ? monto.multiply(BigDecimal.ONE.add(TasaIgv.factor(tasaIgv))).setScale(2, RoundingMode.HALF_UP)
                 : monto.setScale(2, RoundingMode.HALF_UP);
     }
 }

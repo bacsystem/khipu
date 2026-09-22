@@ -67,7 +67,7 @@ export default function GuiaPage() {
     "serie": "F001",
     "fecha_emision": "2026-09-17",
     "moneda": "PEN",
-    "cliente": { "tipo_doc": "6", "num_doc": "20601234567", "razon_social": "COMERCIAL ANDINA S.A.C." },
+    "cliente": { "tipo_doc": "6", "num_doc": "20601234565", "razon_social": "COMERCIAL ANDINA S.A.C." },
     "items": [
       { "descripcion": "Servicio de consultoría", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10" }
     ]
@@ -88,7 +88,7 @@ export default function GuiaPage() {
             ["correlativo", "Número dentro de la serie. Opcional.", "Omítalo para que khipu asigne el siguiente; envíelo si su sistema lleva la numeración."],
             ["fecha_emision", "Fecha del comprobante.", <><Codigo>YYYY-MM-DD</Codigo>, no futura. SUNAT debe recibirla en 3 días calendario.</>],
             ["moneda", "Moneda de todo el comprobante.", <><Codigo>PEN</Codigo>, <Codigo>USD</Codigo>, <Codigo>EUR</Codigo> — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-02">catálogo 02</Link>.</>],
-            ["tipo_operacion", "Naturaleza de la operación.", <><Codigo>0101</Codigo> venta interna (por defecto), <Codigo>1001</Codigo> sujeta a detracción (exportación <Codigo>0200</Codigo> aún no soportada) — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-51">catálogo 51</Link>.</>],
+            ["tipo_operacion", "Naturaleza de la operación.", <><Codigo>0101</Codigo> venta interna (por defecto), <Codigo>1001</Codigo> sujeta a detracción, <Codigo>0200</Codigo>–<Codigo>0208</Codigo> exportación (ítems <Codigo>40</Codigo>, cliente del exterior con <Codigo>pais</Codigo>) — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-51">catálogo 51</Link>.</>],
             ["cliente.tipo_doc", "Tipo de documento del adquirente.", <>En factura siempre <Codigo>6</Codigo> (RUC) — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-06">catálogo 06</Link>.</>],
             ["cliente.num_doc", "RUC del adquirente.", "11 dígitos."],
             ["items[].unidad", "Unidad de medida.", <><Codigo>NIU</Codigo> unidad (bienes), <Codigo>ZZ</Codigo> unidad (servicios), <Codigo>KGM</Codigo>, <Codigo>HUR</Codigo>… — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-03">catálogo 03</Link>.</>],

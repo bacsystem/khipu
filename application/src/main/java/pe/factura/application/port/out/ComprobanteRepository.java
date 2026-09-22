@@ -1,5 +1,7 @@
 package pe.factura.application.port.out;
 
+import pe.factura.application.port.in.ConsultarComprobanteUseCase;
+
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.documento.TipoDocumento;
@@ -21,6 +23,14 @@ public interface ComprobanteRepository {
     BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo);
     /** Notas de crédito/débito emitidas sobre la factura serie-número (cualquier estado), en orden de emisión. */
     List<Comprobante> notasDe(UUID tenantId, String serieFactura, long numeroFactura);
-    List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina);
-    long contar(UUID tenantId, EstadoDocumento estado);
+    /** Comprobantes de cualquier empresa aún no enviados (FIRMADO o ERROR_ENVIO) emitidos hasta {@code fechaEmisionMaxima} inclusive, para el control del plazo. */
+    List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fechaEmisionMaxima);
+    /** Comprobantes firmados de cualquier empresa sin CDR en el storage: ENVIADO, ERROR_ENVIO, o aceptados/rechazados que lo perdieron. */
+    List<Comprobante> pendientesDeCdr();
+    /** Historial de cambios de estado del comprobante (#4), en orden cronológico; vacío si no tiene. */
+    List<pe.factura.domain.documento.EventoDocumento> eventosDe(UUID tenantId, UUID comprobanteId);
+    /** Comprobantes ya firmados (con XML en el storage) de cualquier empresa emitidos entre las dos fechas inclusive, para verificar la integridad del storage. */
+    List<Comprobante> firmadosEmitidosEntre(java.time.LocalDate desde, java.time.LocalDate hasta);
+    List<Comprobante> listar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, int pagina, int porPagina);
+    long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro);
 }

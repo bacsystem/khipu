@@ -20,13 +20,15 @@ class EmitirComprobanteServiceTest {
     UUID tenantId = UUID.randomUUID();
     Fakes.Comprobantes comprobantes = new Fakes.Comprobantes();
     Fakes.Series series = new Fakes.Series();
+    Fakes.Establecimientos establecimientos = new Fakes.Establecimientos(series);
     Fakes.Tenants tenants = new Fakes.Tenants();
     Fakes.Storage storage = new Fakes.Storage();
     Fakes.Outbox outbox = new Fakes.Outbox();
     Fakes.Gateway gateway = new Fakes.Gateway();
     Fakes.Cdrs cdrs = new Fakes.Cdrs();
+    Tenant[] emisor = new Tenant[1];
     UblGenerator ubl = new UblGenerator() {
-        public String generar(Comprobante c, pe.factura.domain.tenant.Tenant t) { return "<Invoice>" + c.nombreArchivo() + "</Invoice>"; }
+        public String generar(Comprobante c, pe.factura.domain.tenant.Tenant t) { emisor[0] = t; return "<Invoice>" + c.nombreArchivo() + "</Invoice>"; }
         public String generarBaja(pe.factura.domain.documento.ComunicacionBaja b, pe.factura.domain.tenant.Tenant t) { return ""; }
     };
     String[] recibido = new String[1];
@@ -41,12 +43,12 @@ class EmitirComprobanteServiceTest {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK);
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos);
     }
 
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
         return new EmitirFacturaCommand("F001", correlativo, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, enviar);
     }
 
@@ -87,7 +89,7 @@ class EmitirComprobanteServiceTest {
 
     @Test void correlativoExplicitoEnSerieNoConfiguradaFalla() {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F999", 7L, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false)))
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
         assertThat(comprobantes.datos).isEmpty();
@@ -136,7 +138,7 @@ class EmitirComprobanteServiceTest {
             public void validarBaja(String xml) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK);
+        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos);
         assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).extracting("codigo").isEqualTo("XSD_INVALIDO");
         assertThat(comprobantes.datos).isEmpty();
     }
@@ -149,7 +151,7 @@ class EmitirComprobanteServiceTest {
 
     @Test void serieNoConfiguradaFalla() {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F999", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false)))
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
     }
@@ -157,7 +159,7 @@ class EmitirComprobanteServiceTest {
     @Test void detraccionSinCuentaUsaLaDeLaEmpresa() {
         Detraccion sinCuenta = new Detraccion("022", new BigDecimal("12"), new BigDecimal("14.00"), null, null);
         EmitirFacturaCommand cmd = new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "1001",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), sinCuenta, null, null, List.of(), null, null, false);
         assertThatThrownBy(() -> service.emitirFactura(tenantId, cmd)).isInstanceOf(DomainException.class).hasMessageContaining("3034");
@@ -168,7 +170,7 @@ class EmitirComprobanteServiceTest {
 
     private EmitirFacturaCommand conAnticipo(Anticipo a) {
         return new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Obra completa", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(a), null, null, false);
     }
@@ -205,14 +207,77 @@ class EmitirComprobanteServiceTest {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", aceptado.numero(), new BigDecimal("100.01"), null, null))))
                 .hasMessageContaining("supera el valor de venta gravado de esa factura");
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "USD", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", aceptado.numero(), new BigDecimal("50.00"), null, null)), null, null, false)))
                 .hasMessageContaining("2071");
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20609999999", "OTRO SAC", null),
+                new Receptor("6", "20609999994", "OTRO SAC", null),
                 List.of(new Item("P1", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", aceptado.numero(), new BigDecimal("50.00"), null, null)), null, null, false)))
                 .hasMessageContaining("otro cliente");
+    }
+
+    /** La serie de un anexo emite con el domicilio del anexo (RegistrationAddress del XML); la del 0000, con el fiscal (#80). */
+    @Test void laSerieDeUnEstablecimientoAnexoEmiteConSuDomicilio() {
+        pe.factura.domain.tenant.Domicilio fiscal = pe.factura.domain.tenant.Domicilio.de("150101", "Av. Lima 123");
+        pe.factura.domain.tenant.Domicilio tienda = pe.factura.domain.tenant.Domicilio.de("150122", "Av. Larco 345");
+        tenants.guardar(Fakes.tenantListo(tenantId).conDatosFiscales(fiscal, null, null));
+        establecimientos.guardar(new pe.factura.domain.tenant.Establecimiento(tenantId, "0002", "Tienda", tienda, true));
+        series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F002", 0, true, "0002"));
+        service.emitirFactura(tenantId, comando("F002"));
+        assertThat(emisor[0].domicilio().codigoEstablecimiento()).isEqualTo("0002");
+        assertThat(emisor[0].domicilio().direccion()).isEqualTo("Av. Larco 345");
+        assertThat(emisor[0].ruc()).isEqualTo("20100066603");
+
+        service.emitirFactura(tenantId, comando("F001"));
+        assertThat(emisor[0].domicilio().codigoEstablecimiento()).isEqualTo("0000");
+        assertThat(emisor[0].domicilio().direccion()).isEqualTo("Av. Lima 123");
+
+        // Anexo dado de baja: se rechaza y no consume número.
+        establecimientos.guardar(new pe.factura.domain.tenant.Establecimiento(tenantId, "0002", "Tienda", tienda, false));
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, comando("F002"))).extracting("codigo").isEqualTo("ESTABLECIMIENTO_INVALIDO");
+        assertThat(comprobantes.listar(tenantId, null, 1, 10)).hasSize(2);
+    }
+
+    private EmitirFacturaCommand comando(String serie) {
+        return new EmitirFacturaCommand(serie, null, LocalDate.of(2026, 9, 13), null, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true);
+    }
+
+    /** Emitida sin enviar el día 13 y enviada el 17: el plazo (13 + 3 = 16) venció; se cierra sin llamar a SUNAT (#37). */
+    @Test void enviarFueraDePlazoCierraElComprobanteSinLlamarASunat() {
+        Comprobante c = service.emitirFactura(tenantId, cmd(null, false));
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.FIRMADO);
+        assertThat(c.fechaLimiteEnvio()).isEqualTo(LocalDate.of(2026, 9, 16));
+        java.time.Clock dia17 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-17T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+        EnviarDocumentoService tarde = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, dia17);
+        assertThatThrownBy(() -> tarde.enviar(tenantId, c.id())).extracting("codigo").isEqualTo("FUERA_DE_PLAZO");
+        Comprobante cerrado = comprobantes.buscar(tenantId, c.id()).orElseThrow();
+        assertThat(cerrado.estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
+        assertThat(cerrado.ultimoError()).contains("2108").contains("2026-09-16");
+        assertThat(gateway.ultimoNombre).isNull();
+        // Terminal: un nuevo intento de envío ya no llega ni a la comprobación del plazo.
+        assertThatThrownBy(() -> tarde.enviar(tenantId, c.id())).extracting("codigo").isEqualTo("ESTADO_NO_ENVIABLE");
+    }
+
+    /** El barrido marca lo que nadie intentó enviar; lo que sigue dentro del plazo no se toca. */
+    @Test void elBarridoMarcaLosVencidosYRespetaLosVigentes() {
+        Comprobante vieja = service.emitirFactura(tenantId, cmd(null, false));   // 13/09, vence 16/09
+        java.time.Clock dia17 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-17T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+        gateway.falla = new SunatTransientException("0000", "caído");
+        Comprobante enError = service.emitirFactura(tenantId, cmd(null, true));   // ERROR_ENVIO del 13/09, también vence
+        gateway.falla = null;
+        ControlarPlazoEnvioService barrido = new ControlarPlazoEnvioService(comprobantes, Fakes.UOW, dia17);
+        assertThat(barrido.marcarVencidos()).extracting(Comprobante::id).containsExactlyInAnyOrder(vieja.id(), enError.id());
+        assertThat(comprobantes.buscar(tenantId, vieja.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
+        assertThat(comprobantes.buscar(tenantId, enError.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
+        // Segunda pasada: nada nuevo. Y el día 16 (último día válido) no marca nada.
+        assertThat(barrido.marcarVencidos()).isEmpty();
+        Comprobante otra = service.emitirFactura(tenantId, cmd(null, false));
+        java.time.Clock dia16 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-16T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+        assertThat(new ControlarPlazoEnvioService(comprobantes, Fakes.UOW, dia16).marcarVencidos()).isEmpty();
+        assertThat(comprobantes.buscar(tenantId, otra.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FIRMADO);
     }
 }

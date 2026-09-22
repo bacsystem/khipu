@@ -14,8 +14,13 @@ final class EscenariosFactura {
     static final String CLIENTE = """
         "cliente":{"tipo_doc":"6","num_doc":"20131312955","razon_social":"SUPERINTENDENCIA NACIONAL DE ADUANAS Y DE ADMINISTRACION TRIBUTARIA","direccion":"AV. GARCILASO DE LA VEGA 1472, LIMA"}""";
 
-    record Escenario(String id, String descripcion, String endpoint, String cuerpo) {
-        Escenario(String id, String descripcion, String cuerpo) { this(id, descripcion, "/v1/facturas", cuerpo); }
+    /**
+     * {@code tasaEspecial}: el tenant se marca en el padrón de tasa especial del IGV antes de emitir. {@code observacionEsperada}:
+     * único código 4xxx tolerado aunque el XML sea válido (el RUC de prueba no está en el padrón → 4439); nulo = sin observaciones.
+     */
+    record Escenario(String id, String descripcion, String endpoint, String cuerpo, boolean tasaEspecial, String observacionEsperada) {
+        Escenario(String id, String descripcion, String cuerpo) { this(id, descripcion, "/v1/facturas", cuerpo, false, null); }
+        Escenario(String id, String descripcion, String endpoint, String cuerpo) { this(id, descripcion, endpoint, cuerpo, false, null); }
         /** Nombre del caso en los informes de JUnit/Gradle: sin el JSON del cuerpo, que ya queda en la evidencia. */
         @Override public String toString() { return id + " — " + descripcion; }
     }
@@ -26,8 +31,12 @@ final class EscenariosFactura {
      * {@code serie} y {@code fecha} se inyectan por ejecución. Los marcadores {@code ${ANTICIPO}}, {@code ${GRAVADA}}, {@code ${MIXTA}}
      * y {@code ${CREDITO}} los rellena el test con los números que SUNAT ya aceptó en los escenarios 16, 01, 04 y 09.
      */
-    static List<Escenario> todos(String serie, LocalDate fecha) {
+    static List<Escenario> todos(String serie, LocalDate fecha) { return todos(serie, serie, fecha); }
+
+    /** {@code serieAnexo}: serie de factura asignada al establecimiento anexo 0002 (escenario 24). */
+    static List<Escenario> todos(String serie, String serieAnexo, LocalDate fecha) {
         String cab = "\"serie\":\"" + serie + "\",\"fecha_emision\":\"" + fecha + "\"";
+        String cabAnexo = "\"serie\":\"" + serieAnexo + "\",\"fecha_emision\":\"" + fecha + "\"";
         return List.of(
             new Escenario("01-gravada", "Venta interna gravada al contado",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
@@ -109,7 +118,41 @@ final class EscenariosFactura {
             new Escenario("21-nd-interes", "Nota de débito por intereses de mora (01) sobre la factura gravada", NOTAS,
                 "{\"tipo\":\"08\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${GRAVADA}}," +
                 "\"motivo\":\"01\",\"descripcion\":\"Intereses por mora de 30 días\",\"items\":[" +
-                "{\"descripcion\":\"Intereses por mora\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}")
+                "{\"descripcion\":\"Intereses por mora\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            // Tasa reducida del padrón de restaurantes y hoteles (#84): el XML debe pasar 3279/3291/3462 con cbc:Percent 10.5.
+            // El RUC de prueba no está en el padrón: producción observaría 4439; e-beta no cruza el padrón y acepta limpio (2026-09-19).
+            new Escenario("23-tasa-reducida", "Venta gravada al 10.5 % (padrón de tasa especial del IGV, Ley 31556)", "/v1/facturas",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"codigo\":\"MENU-01\",\"descripcion\":\"Menú ejecutivo\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":33.15,\"tipo_afectacion_igv\":\"10\"}]}",
+                true, "4439"),
+            // Serie asignada a un establecimiento anexo (#80): RegistrationAddress con AddressTypeCode 0002 y la dirección del anexo.
+            new Escenario("24-anexo", "Factura desde una serie asignada al establecimiento anexo 0002",
+                "{" + cabAnexo + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Venta en tienda Miraflores\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":236.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            // IVAP (#67): afectación 17, tributo 1016 al 4 %, leyenda 2007, TaxInclusiveAmount sin IGV (campo 55).
+            new Escenario("25-ivap", "Venta de arroz pilado sujeta al IVAP (afectación 17, 4 %)",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"codigo\":\"ARZ-01\",\"descripcion\":\"Arroz pilado superior\",\"unidad\":\"KGM\",\"cantidad\":500,\"precio_unitario\":3.12,\"tipo_afectacion_igv\":\"17\"}]}"),
+            // Exportación de bienes (#65): 0200 en USD a un cliente del exterior (tipo 0, país US), afectación 40 / tributo 9995 sin IGV, Incoterm FOB.
+            new Escenario("26-exportacion", "Exportación de bienes (0200) a un cliente del exterior, afectación 40 e Incoterm FOB",
+                "{" + cab + ",\"tipo_operacion\":\"0200\",\"moneda\":\"USD\"," +
+                "\"cliente\":{\"tipo_doc\":\"0\",\"num_doc\":\"US123456789\",\"razon_social\":\"ACME IMPORTS LLC\",\"direccion\":\"1200 Main St, Miami FL\",\"pais\":\"US\"}," +
+                "\"items\":[{\"codigo\":\"CAF-01\",\"descripcion\":\"Café verde en grano\",\"unidad\":\"KGM\",\"cantidad\":1000,\"precio_unitario\":4.50,\"tipo_afectacion_igv\":\"40\"}]," +
+                "\"exportacion\":{\"incoterm\":\"FOB\"}}"),
+            // Detracción 1002 (#69): recursos hidrobiológicos con los conceptos 3001–3006 del catálogo 55 por ítem (3063, 3130–3135) y código 004 (3129).
+            new Escenario("27-hidrobiologicos", "Venta de recursos hidrobiológicos con detracción (1002) y datos de la embarcación por ítem",
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1002\"," + CLIENTE + ",\"items\":[" +
+                "{\"codigo\":\"ANCH\",\"descripcion\":\"Anchoveta fresca\",\"unidad\":\"TNE\",\"cantidad\":12.5,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"," +
+                "\"hidrobiologico\":{\"matricula\":\"CO-12345-PM\",\"nombre_embarcacion\":\"DON JOSE II\",\"especie\":\"Anchoveta (Engraulis ringens)\",\"lugar_descarga\":\"Muelle de Chimbote\",\"fecha_descarga\":\"" + fecha + "\",\"cantidad\":12.5}}]," +
+                "\"detraccion\":{\"codigo_bien_servicio\":\"004\",\"porcentaje\":4,\"cuenta_banco_nacion\":\"00-000-123456\"}}"),
+            // Detracción 1004 (#69): transporte de carga con origen/destino, detalle del viaje, los tres valores referenciales (3116–3126) y un tramo con vehículo.
+            new Escenario("28-transporte-carga", "Servicio de transporte de carga con detracción (1004): origen, destino, valores referenciales y tramo",
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1004\"," + CLIENTE + ",\"items\":[" +
+                "{\"codigo\":\"FLT\",\"descripcion\":\"Flete Chimbote - Lima\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":2950.00,\"tipo_afectacion_igv\":\"10\"," +
+                "\"transporte\":{\"origen\":{\"ubigeo\":\"021801\",\"direccion\":\"Av. Los Pescadores 450, Chimbote\"},\"destino\":{\"ubigeo\":\"150101\",\"direccion\":\"Jr. de la Union 100, Lima\"}," +
+                "\"detalle_viaje\":\"Traslado de 20 t de harina de pescado en camion furgon\",\"valor_referencial\":{\"servicio\":2500,\"carga_efectiva\":2400,\"carga_util_nominal\":2600}," +
+                "\"tramos\":[{\"origen_ubigeo\":\"021801\",\"destino_ubigeo\":\"150101\",\"descripcion\":\"Chimbote - Lima por Panamericana Norte\",\"valor_carga_efectiva\":2400,\"vehiculos\":[{\"configuracion\":\"T3S3\",\"carga_util_tm\":30,\"carga_efectiva_tm\":20}]}]}}]," +
+                "\"detraccion\":{\"codigo_bien_servicio\":\"027\",\"porcentaje\":4,\"cuenta_banco_nacion\":\"00-000-123456\"}}")
         );
     }
 

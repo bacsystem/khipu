@@ -37,12 +37,9 @@ class AtributosSunatFacturaTest {
     private static final String UNECE = "United Nations Economic Commission for Europe";
 
     static Comprobante facturaConTresAfectaciones() {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
                         new Item("E", "Exonerado", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO),
-                        new Item("I", "Inafecto", "NIU", BigDecimal.ONE, new BigDecimal("30.00"), TipoAfectacionIgv.INAFECTO)),
-                FreemarkerUblGeneratorTest.CLOCK);
+                        new Item("I", "Inafecto", "NIU", BigDecimal.ONE, new BigDecimal("30.00"), TipoAfectacionIgv.INAFECTO))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(7, "20100066603");
         return c;
     }
@@ -153,13 +150,9 @@ class AtributosSunatFacturaTest {
     /** Al crédito: un PaymentTerms 'Credito' con el neto pendiente y uno por cuota (Cuota001…, monto, vencimiento); reglas 3244–3267, 3319. */
     @Test void formaPagoAlCreditoConCuotas() throws Exception {
         LocalDate emision = LocalDate.of(2026, 9, 13);
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", emision, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.credito(new BigDecimal("100.00"), List.of(
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", emision, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("G", "Gravado", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).formaPago(FormaPago.credito(new BigDecimal("100.00"), List.of(
                         new FormaPago.Cuota(new BigDecimal("60.00"), emision.plusDays(30)),
-                        new FormaPago.Cuota(new BigDecimal("40.00"), emision.plusDays(60)))),
-                FreemarkerUblGeneratorTest.CLOCK);
+                        new FormaPago.Cuota(new BigDecimal("40.00"), emision.plusDays(60))))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(9, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -187,11 +180,8 @@ class AtributosSunatFacturaTest {
 
     /** Descuento de línea (00) y global (02): AllowanceCharge en su sitio del XSD, factor/monto/base, y totales netos (reglas 38, 46/47, 54). */
     @Test void descuentosDeLineaYGlobalEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Con descuento", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(new BigDecimal("10"), true)),
-                        new Item("B", "Sin descuento", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), Descuento.monto(new BigDecimal("20.00"), false), FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Con descuento", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(new BigDecimal("10"), true)),
+                        new Item("B", "Sin descuento", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).descuentoGlobal(Descuento.monto(new BigDecimal("20.00"), false)).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(10, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -229,11 +219,8 @@ class AtributosSunatFacturaTest {
 
     /** Línea gratuita: PriceTypeCode 02 con el valor referencial, Price 0, subtotal 9996 fuera de los totales y leyenda 1002. */
     @Test void operacionGratuitaEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Vendido", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
-                        new Item("B", "Bonificación", "NIU", new BigDecimal("5"), new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION)),
-                FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Vendido", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("B", "Bonificación", "NIU", new BigDecimal("5"), new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(11, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -268,11 +255,7 @@ class AtributosSunatFacturaTest {
 
     /** Detracción: PaymentMeans con la cuenta BN, PaymentTerms 'Detraccion' con catálogo 54, % y monto en PEN, y leyenda 2006. */
     @Test void detraccionEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "1001",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("S", "Servicio empresarial", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, new Detraccion("022", new BigDecimal("12"), new BigDecimal("531.00"), "00-000-123456", "001"),
-                FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "1001", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("S", "Servicio empresarial", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).detraccion(new Detraccion("022", new BigDecimal("12"), new BigDecimal("531.00"), "00-000-123456", "001")).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(12, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -305,10 +288,7 @@ class AtributosSunatFacturaTest {
 
     /** Retención (62, ChargeIndicator false) y percepción (51, true + PaymentTerms 'Percepcion' + leyenda 2000) como AllowanceCharge globales. */
     @Test void retencionYPercepcionEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "2001",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, null, new RetencionIgv(null, null), new Percepcion("51", null, null, null), FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "2001", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).retencion(new RetencionIgv(null, null)).percepcion(new Percepcion("51", null, null, null)).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(13, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -337,11 +317,8 @@ class AtributosSunatFacturaTest {
 
     /** ISC (2000 con TierRange, base del IGV = valor + ISC) e ICBPER (7152 con BaseUnitMeasure y PerUnitAmount, sin base) por línea y globales. */
     @Test void iscEIcbperEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("C", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("01", new BigDecimal("35"), null), false),
-                        new Item("B", "Bolsa", "NIU", new BigDecimal("3"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true)),
-                FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("C", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("01", new BigDecimal("35"), null), false),
+                        new Item("B", "Bolsa", "NIU", new BigDecimal("3"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(14, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -387,17 +364,34 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /** ISC sistema 03 (#68, regla 3108): la base en el XML es el PVP sugerido × cantidad, no el valor de venta. */
+    @Test void iscSistema03BaseEsElPvpSugeridoEnElXml() throws Exception {
+        Isc isc = new Isc("03", new BigDecimal("30"), null, new BigDecimal("3.50"));
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
+                List.of(new Item("C", "Cerveza 620 ml", "NIU", new BigDecimal("10"), new BigDecimal("3.599"), TipoAfectacionIgv.GRAVADO, null, isc, false))).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(15, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        String isc03 = "/inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='2000']";
+        assertThat(valor(d, isc03 + "/cbc:TaxableAmount")).isEqualTo("35.00");     // 3.50 × 10, no el valor de venta (20.00)
+        assertThat(valor(d, isc03 + "/cbc:TaxAmount")).isEqualTo("10.50");         // 3108: 35.00 × 30 %
+        assertThat(valor(d, isc03 + "/cac:TaxCategory/cbc:Percent")).isEqualTo("30.00");
+        assertThat(valor(d, isc03 + "/cac:TaxCategory/cbc:TierRange")).isEqualTo("03");   // 2373
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     /**
      * Factura final con anticipo (reglas 65–66): documento referenciado con identificador de pago, PrepaidPayment con el importe
      * pagado (IGV incluido), descuento global 04 por el valor sin IGV que reduce la base del IGV (3277, 3291) y PrepaidAmount
      * restado del importe a pagar (3280); total valor/precio de venta siguen brutos (3278, 3279).
      */
     @Test void anticipoEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("OBRA", "Obra completa", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, null, null, null,
-                List.of(new Anticipo("F001", 10, new BigDecimal("300.00"), null, LocalDate.of(2026, 9, 1))), FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("OBRA", "Obra completa", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).anticipos(List.of(new Anticipo("F001", 10, new BigDecimal("300.00"), null, LocalDate.of(2026, 9, 1)))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(12, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -468,6 +462,13 @@ class AtributosSunatFacturaTest {
         assertThat(valor(d, dir + "/cac:AddressLine/cbc:Line")).isEqualTo("Av. Larco 345 Of. 12");   // 4094
         assertThat(valor(d, dir + "/cac:Country/cbc:IdentificationCode")).isEqualTo("PE"); // 4041
 
+        // Serie asignada a un anexo (#80): el servicio pasa el emisor con el domicilio del establecimiento y el XML lleva su código.
+        Tenant anexo = t.conDomicilio(new Domicilio("150131", "Av. Angamos 500", null, null, null, null, "0002"));
+        Document da = f.newDocumentBuilder().parse(new InputSource(new StringReader(new FreemarkerUblGenerator().generar(facturaConTresAfectaciones(), anexo))));
+        assertThat(valor(da, dir + "/cbc:AddressTypeCode")).isEqualTo("0002");
+        assertThat(valor(da, dir + "/cbc:ID")).isEqualTo("150131");
+        assertThat(valor(da, dir + "/cac:AddressLine/cbc:Line")).isEqualTo("Av. Angamos 500");
+
         // Sin domicilio configurado solo va el establecimiento (obligatorio, 3030).
         Document sin = documento();
         assertThat(valor(sin, dir + "/cbc:AddressTypeCode")).isEqualTo("0000");
@@ -482,13 +483,9 @@ class AtributosSunatFacturaTest {
      * efecto en LineExtensionAmount (38), base del IGV (3277/3291), ChargeTotalAmount (3301) y PayableAmount (3280).
      */
     @Test void cargosDeLineaYGlobalesEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Con flete gravado", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Con flete gravado", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
                                 List.of(Cargo.porcentaje("47", new BigDecimal("10")), Cargo.monto("48", new BigDecimal("5.00")))),
-                        new Item("B", "Sin cargos", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, List.of(Cargo.monto("49", new BigDecimal("30.00")), Cargo.porcentaje("46", new BigDecimal("10")), Cargo.monto("50", new BigDecimal("7.00"))),
-                null, null, null, List.of(), FreemarkerUblGeneratorTest.CLOCK);
+                        new Item("B", "Sin cargos", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).cargos(List.of(Cargo.monto("49", new BigDecimal("30.00")), Cargo.porcentaje("46", new BigDecimal("10")), Cargo.monto("50", new BigDecimal("7.00")))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(11, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -537,13 +534,8 @@ class AtributosSunatFacturaTest {
 
     /** Orden de compra (59), guías (22, catálogo 01 con atributos) y otros documentos (23, catálogo 12) en su sitio del XSD, antes de Signature. */
     @Test void documentosRelacionadosEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, List.of(), null, null, null, List.of(),
-                new Referencias("OC-2026-0457", List.of(new GuiaRelacionada("09", "T001-123"), new GuiaRelacionada("31", "V001-7")),
-                        List.of(new DocumentoRelacionado("05", "SCOP-8841203"), new DocumentoRelacionado("99", "CONTRATO-12"))),
-                FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).referencias(new Referencias("OC-2026-0457", List.of(new GuiaRelacionada("09", "T001-123"), new GuiaRelacionada("31", "V001-7")),
+                        List.of(new DocumentoRelacionado("05", "SCOP-8841203"), new DocumentoRelacionado("99", "CONTRATO-12")))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(12, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -581,10 +573,7 @@ class AtributosSunatFacturaTest {
 
     /** Campos opcionales: DueDate (8), nombre comercial (11), GTIN (29) y código de producto SUNAT (28) por ítem, PayableRoundingAmount (56) y monto en letras del total redondeado. */
     @Test void camposOpcionalesEnElXml() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123"))),
-                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123")))).fechaVencimiento(LocalDate.of(2026, 10, 13)).redondeo(new BigDecimal("-0.37")).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(13, "20100066603");
         Tenant t = FreemarkerUblGeneratorTest.tenant().conDatosFiscales(null, null, "Andina Store");
         String xml = new FreemarkerUblGenerator().generar(c, t);
@@ -623,10 +612,7 @@ class AtributosSunatFacturaTest {
 
     /** Regla 3290: con una base grande y descuento fijo el factor de 5 decimales no reproduce el monto, así que no se emite. */
     @Test void descuentoSinFactorCuandoNoReproduceElMonto() throws Exception {
-        Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
-                List.of(new Item("A", "Maquinaria", "NIU", BigDecimal.ONE, new BigDecimal("2006000.00"), TipoAfectacionIgv.GRAVADO, Descuento.monto(new BigDecimal("1000.00"), true))),
-                FormaPago.contado(), Descuento.monto(new BigDecimal("1000.00"), false), FreemarkerUblGeneratorTest.CLOCK);
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Maquinaria", "NIU", BigDecimal.ONE, new BigDecimal("2006000.00"), TipoAfectacionIgv.GRAVADO, Descuento.monto(new BigDecimal("1000.00"), true)))).descuentoGlobal(Descuento.monto(new BigDecimal("1000.00"), false)).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(11, "20100066603");
         String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
@@ -646,5 +632,186 @@ class AtributosSunatFacturaTest {
                 .replace("<ext:ExtensionContent/>", "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>");
         new JaxpXsdValidator().validar(xml, TipoDocumento.FACTURA);   // no lanza
         assertThat(xml).contains(CAT06);
+    }
+
+    /** IVAP (#67): línea con afectación 17, tributo 1016 al 4 %, subtotal global 1016 en lugar de 1000, TaxTotal con el IVAP y leyenda 2007. */
+    @Test void ivapEnElXml() throws Exception {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "MOLINO SAC", null),
+                List.of(new Item("ARZ", "Arroz pilado", "KGM", new BigDecimal("100"), new BigDecimal("3.12"), TipoAfectacionIgv.IVAP))).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(12, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='2007']")).isEqualTo("OPERACIÓN SUJETA AL IVAP");
+        String linea = "/inv:Invoice/cac:InvoiceLine[1]";
+        assertThat(valor(d, linea + "/cbc:LineExtensionAmount")).isEqualTo("300.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("12.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cbc:TaxableAmount")).isEqualTo("300.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:Percent")).isEqualTo("4.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReasonCode")).isEqualTo("17");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID")).isEqualTo("1016");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:Name")).isEqualTo("IVAP");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode")).isEqualTo("VAT");
+
+        assertThat(valor(d, "count(/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal)")).isEqualTo("1");
+        String ivap = "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='1016']";
+        assertThat(valor(d, ivap + "/cbc:TaxableAmount")).isEqualTo("300.00");
+        assertThat(valor(d, ivap + "/cbc:TaxAmount")).isEqualTo("12.00");
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("12.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:LineExtensionAmount")).isEqualTo("300.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount")).isEqualTo("312.00");   // campo 55 sin IGV
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("312.00");
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
+    /** Exportación (#65): receptor del exterior con país, DeliveryTerms con el Incoterm, línea 40 con tributo 9995 sin IGV y subtotal global 9995 (3273, 3000). */
+    @Test void exportacionDeBienesEnElXml() throws Exception {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "0200", new Receptor("0", "US123456789", "ACME IMPORTS LLC", "1200 Main St, Miami", "US"),
+                List.of(new Item("CAF", "Café verde en grano", "KGM", new BigDecimal("1000"), new BigDecimal("4.50"), TipoAfectacionIgv.EXPORTACION)))
+                .exportacion(new Exportacion("FOB", null)).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(13, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        assertThat(valor(d, "/inv:Invoice/cbc:InvoiceTypeCode/@listID")).isEqualTo("0200");
+        String cli = "/inv:Invoice/cac:AccountingCustomerParty/cac:Party";
+        assertThat(valor(d, cli + "/cac:PartyIdentification/cbc:ID/@schemeID")).isEqualTo("0");
+        assertThat(valor(d, cli + "/cac:PartyIdentification/cbc:ID")).isEqualTo("US123456789");
+        assertThat(valor(d, cli + "/cac:PartyLegalEntity/cac:RegistrationAddress/cac:AddressLine/cbc:Line")).isEqualTo("1200 Main St, Miami");
+        assertThat(valor(d, cli + "/cac:PartyLegalEntity/cac:RegistrationAddress/cac:Country/cbc:IdentificationCode")).isEqualTo("US");
+        assertThat(valor(d, "/inv:Invoice/cac:DeliveryTerms/cbc:ID")).isEqualTo("FOB");
+        assertThat(valor(d, "count(/inv:Invoice/cac:Delivery)")).isEqualTo("0");
+
+        String linea = "/inv:Invoice/cac:InvoiceLine[1]";
+        assertThat(valor(d, linea + "/cbc:LineExtensionAmount")).isEqualTo("4500.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("0.00");                                              // 3110
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cbc:TaxableAmount")).isEqualTo("4500.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:ID")).isEqualTo("G");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:Percent")).isEqualTo("0.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReasonCode")).isEqualTo("40");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID")).isEqualTo("9995");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:Name")).isEqualTo("EXP");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode")).isEqualTo("FRE");
+        assertThat(valor(d, linea + "/cac:Price/cbc:PriceAmount")).isEqualTo("4.5000000000");
+
+        assertThat(valor(d, "count(/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal)")).isEqualTo("1");                                     // 3107
+        String exp = "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='9995']";
+        assertThat(valor(d, exp + "/cbc:TaxableAmount")).isEqualTo("4500.00");                                                        // 3273
+        assertThat(valor(d, exp + "/cbc:TaxAmount")).isEqualTo("0.00");                                                               // 3000
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("0.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:LineExtensionAmount")).isEqualTo("4500.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount")).isEqualTo("4500.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("4500.00");
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
+    /** Exportación de servicios 0201: el país de uso va en cac:Delivery (3098) antes de DeliveryTerms y de los pagos (orden del XSD). */
+    @Test void exportacionDeServiciosConPaisDeUsoEnElXml() throws Exception {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "0201", new Receptor("0", "DE811", "BERLIN SOFT GMBH", null, "DE"),
+                List.of(new Item("SRV", "Desarrollo de software", "ZZ", BigDecimal.ONE, new BigDecimal("5000.00"), TipoAfectacionIgv.EXPORTACION)))
+                .exportacion(new Exportacion(null, "DE")).formaPago(FormaPago.credito(new BigDecimal("5000.00"), List.of(new FormaPago.Cuota(new BigDecimal("5000.00"), LocalDate.of(2026, 10, 13)))))
+                .crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(14, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+        assertThat(valor(d, "/inv:Invoice/cac:Delivery/cac:DeliveryLocation/cac:Address/cac:Country/cbc:IdentificationCode")).isEqualTo("DE");
+        assertThat(valor(d, "count(/inv:Invoice/cac:DeliveryTerms)")).isEqualTo("0");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[cbc:ID='FormaPago'][1]/cbc:PaymentMeansID")).isEqualTo("Credito");
+        assertThat(valor(d, "count(/inv:Invoice/cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity/cac:RegistrationAddress/cac:AddressLine)")).isEqualTo("0");
+        assertThat(valor(d, "/inv:Invoice/cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity/cac:RegistrationAddress/cac:Country/cbc:IdentificationCode")).isEqualTo("DE");
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
+    /** Detracción 1002 (#69): conceptos 3001–3006 del catálogo 55 como AdditionalItemProperty (3063, 3130–3135; fecha en UsabilityPeriod, cantidad en TNE: 3115). */
+    @Test void recursosHidrobiologicosEnElXml() throws Exception {
+        Hidrobiologico h = new Hidrobiologico("CO-12345-PM", "DON JOSÉ II", "Anchoveta (Engraulis ringens)", "Muelle de Chimbote", LocalDate.of(2026, 9, 10), new BigDecimal("12.5"));
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "1002", new Receptor("6", "20601234565", "PESQUERA SAC", null),
+                List.of(new Item("ANCH", "Anchoveta fresca", "TNE", new BigDecimal("12.5"), new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, h, null)))
+                .detraccion(new Detraccion("004", new BigDecimal("4"), null, "00-000-123456", null)).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(15, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+        String prop = "/inv:Invoice/cac:InvoiceLine[1]/cac:Item/cac:AdditionalItemProperty";
+        assertThat(valor(d, "count(" + prop + ")")).isEqualTo("6");
+        assertThat(valor(d, prop + "[cbc:NameCode='3001']/cbc:Value")).isEqualTo("CO-12345-PM");
+        assertThat(valor(d, prop + "[cbc:NameCode='3001']/cbc:Name")).isEqualTo("Matrícula de la embarcación pesquera");
+        assertThat(valor(d, prop + "[cbc:NameCode='3001']/cbc:NameCode/@listURI")).isEqualTo("urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo55");
+        assertThat(valor(d, prop + "[cbc:NameCode='3002']/cbc:Value")).isEqualTo("DON JOSÉ II");
+        assertThat(valor(d, prop + "[cbc:NameCode='3003']/cbc:Value")).isEqualTo("Anchoveta (Engraulis ringens)");
+        assertThat(valor(d, prop + "[cbc:NameCode='3004']/cbc:Value")).isEqualTo("Muelle de Chimbote");
+        assertThat(valor(d, prop + "[cbc:NameCode='3005']/cac:UsabilityPeriod/cbc:StartDate")).isEqualTo("2026-09-10");
+        assertThat(valor(d, prop + "[cbc:NameCode='3006']/cbc:ValueQuantity")).isEqualTo("12.50");
+        assertThat(valor(d, prop + "[cbc:NameCode='3006']/cbc:ValueQuantity/@unitCode")).isEqualTo("TNE");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[cbc:ID='Detraccion']/cbc:PaymentMeansID")).isEqualTo("004");    // 3129
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='2006']")).isNotEmpty();                                 // 4265
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
+    /** Detracción 1004 (#69): cac:Delivery por línea con destino, origen y detalle (3116–3120), los tres DeliveryTerms en PEN (3122–3126, 3208) y tramos/vehículos. */
+    @Test void transporteDeCargaEnElXml() throws Exception {
+        TransporteCarga t = new TransporteCarga(new TransporteCarga.Punto("021801", "Av. Los Pescadores 450, Chimbote"), new TransporteCarga.Punto("150101", "Jr. de la Unión 100, Lima"),
+                "Traslado de 20 t de harina de pescado", new TransporteCarga.ValorReferencial(new BigDecimal("2500"), new BigDecimal("2400"), new BigDecimal("2600")),
+                List.of(new TransporteCarga.Tramo("021801", "150101", "Chimbote – Lima", new BigDecimal("2400"), new BigDecimal("2600"),
+                        List.of(new TransporteCarga.Vehiculo("T3S3", new BigDecimal("30"), new BigDecimal("20"))))));
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "1004", new Receptor("6", "20601234565", "PESQUERA SAC", null),
+                List.of(new Item("FLT", "Flete Chimbote – Lima", "ZZ", BigDecimal.ONE, new BigDecimal("2950.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, t)))
+                .detraccion(new Detraccion("027", new BigDecimal("4"), null, "00-000-123456", null)).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(16, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+        String del = "/inv:Invoice/cac:InvoiceLine[1]/cac:Delivery";
+        assertThat(valor(d, "count(" + del + ")")).isEqualTo("1");
+        assertThat(valor(d, del + "/cac:DeliveryLocation/cac:Address/cbc:ID")).isEqualTo("150101");
+        assertThat(valor(d, del + "/cac:DeliveryLocation/cac:Address/cac:AddressLine/cbc:Line")).isEqualTo("Jr. de la Unión 100, Lima");
+        assertThat(valor(d, del + "/cac:Despatch/cbc:Instructions")).isEqualTo("Traslado de 20 t de harina de pescado");
+        assertThat(valor(d, del + "/cac:Despatch/cac:DespatchAddress/cbc:ID")).isEqualTo("021801");
+        assertThat(valor(d, del + "/cac:Despatch/cac:DespatchAddress/cac:AddressLine/cbc:Line")).isEqualTo("Av. Los Pescadores 450, Chimbote");
+        assertThat(valor(d, "count(" + del + "/cac:DeliveryTerms)")).isEqualTo("3");
+        assertThat(valor(d, del + "/cac:DeliveryTerms[cbc:ID='01']/cbc:Amount")).isEqualTo("2500.00");
+        assertThat(valor(d, del + "/cac:DeliveryTerms[cbc:ID='02']/cbc:Amount")).isEqualTo("2400.00");
+        assertThat(valor(d, del + "/cac:DeliveryTerms[cbc:ID='03']/cbc:Amount")).isEqualTo("2600.00");
+        assertThat(valor(d, del + "/cac:DeliveryTerms[cbc:ID='03']/cbc:Amount/@currencyID")).isEqualTo("PEN");
+        String cons = del + "/cac:Shipment/cac:Consignment[1]";
+        assertThat(valor(d, cons + "/cbc:ID")).isEqualTo("1");
+        assertThat(valor(d, cons + "/cbc:DeclaredForCarriageValueAmount")).isEqualTo("2600.00");
+        assertThat(valor(d, cons + "/cbc:CarrierServiceInstructions")).isEqualTo("Chimbote – Lima");
+        assertThat(valor(d, cons + "/cac:PlannedPickupTransportEvent/cac:Location/cbc:ID")).isEqualTo("021801");
+        assertThat(valor(d, cons + "/cac:PlannedDeliveryTransportEvent/cac:Location/cbc:ID")).isEqualTo("150101");
+        assertThat(valor(d, cons + "/cac:DeliveryTerms/cbc:Amount")).isEqualTo("2400.00");
+        assertThat(valor(d, cons + "/cac:TransportHandlingUnit/cac:TransportEquipment/cbc:SizeTypeCode")).isEqualTo("T3S3");
+        assertThat(valor(d, cons + "/cac:TransportHandlingUnit/cac:MeasurementDimension[cbc:AttributeID='01']/cbc:Measure")).isEqualTo("30.00");
+        assertThat(valor(d, cons + "/cac:TransportHandlingUnit/cac:MeasurementDimension[cbc:AttributeID='02']/cbc:Measure/@unitCode")).isEqualTo("TNE");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[cbc:ID='Detraccion']/cbc:PaymentMeansID")).isEqualTo("027");
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
+    /** Leyendas del catálogo 52 declaradas por el emisor (#66): cbc:Note con el código en languageLocaleID y el texto oficial. */
+    @Test void leyendasDeclaradasEnElXml() throws Exception {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).leyendas(List.of("2001", "2005")).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(7, "20100066603");
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant()))));
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='2001']")).isEqualTo("BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA");
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='2005']")).isEqualTo("Venta realizada por emisor itinerante");
+        assertThat(valor(d, "count(/inv:Invoice/cbc:Note)")).isEqualTo("3");   // + 1000 monto en letras
     }
 }

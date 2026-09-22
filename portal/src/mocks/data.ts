@@ -33,7 +33,8 @@ export type PersonalizacionPdf = {
 };
 
 export const PERSONALIZACION_POR_DEFECTO: PersonalizacionPdf = { plantilla: "clasico", color_primario: "#1E1E24", tiene_logo: false, pie_de_pagina: null, observaciones_por_defecto: null };
-export type Serie = { tipo: string; serie: string; ultimo_numero: number; activa: boolean };
+export type Serie = { tipo: string; serie: string; ultimo_numero: number; activa: boolean; establecimiento: string };
+export type Establecimiento = { codigo: string; nombre: string; domicilio: NonNullable<Empresa["domicilio"]>; activo: boolean };
 export type ApiKey = { id: string; prefijo: string; activa: boolean; creada_en: string; revocada_en?: string };
 export type Comprobante = {
   id: string;
@@ -69,6 +70,8 @@ export type Comprobante = {
   referencias?: { orden_compra?: string | null; guias?: Array<{ tipo: string; numero: string }> | null; documentos_relacionados?: Array<{ tipo: string; numero: string }> | null } | null;
   nota?: { tipo_afectado: string; documento_afectado: string; motivo: string; motivo_descripcion: string; descripcion: string } | null;
   notas?: Array<{ id: string; tipo: string; comprobante: string; fecha_emision: string; motivo: string; motivo_descripcion: string; estado_documento: string; total: number }> | null;
+  /** Historial de intentos (#7): solo lo devuelve GET por id. */
+  eventos?: Array<{ fecha: string; estado_anterior: string | null; estado_resultante: string; mensaje: string | null }> | null;
   baja?: Baja | null;
   enlaces: { xml: string; pdf?: string; cdr?: string };
 };
@@ -93,6 +96,7 @@ export const db = {
   usuariosPorEmail: new Map<string, { usuario: Usuario; password: string }>(),
   empresasPorCuenta: new Map<string, Empresa[]>(),
   seriesPorEmpresa: new Map<string, Serie[]>(),
+  establecimientosPorEmpresa: new Map<string, Establecimiento[]>(),
   apiKeysPorEmpresa: new Map<string, ApiKey[]>(),
   facturasPorEmpresa: new Map<string, Comprobante[]>(),
   bajas: new Map<string, Baja>(),
@@ -104,6 +108,7 @@ export function resetDb() {
   db.usuariosPorEmail.clear();
   db.empresasPorCuenta.clear();
   db.seriesPorEmpresa.clear();
+  db.establecimientosPorEmpresa.clear();
   db.apiKeysPorEmpresa.clear();
   db.facturasPorEmpresa.clear();
   db.bajas.clear();
@@ -120,7 +125,7 @@ export function resetDb() {
 
   const empresa: Empresa = {
     id: "e-demo",
-    ruc: "20123456789",
+    ruc: "20123456786",
     razon_social: "Demo SAC",
     entorno: "BETA",
     tiene_certificado: true,
@@ -129,9 +134,12 @@ export function resetDb() {
   };
   db.empresasPorCuenta.set(usuario.cuenta_id, [empresa]);
   db.seriesPorEmpresa.set(empresa.id, [
-    { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true },
-    { tipo: "07", serie: "FC01", ultimo_numero: 0, activa: true },
-    { tipo: "08", serie: "FD01", ultimo_numero: 0, activa: true },
+    { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" },
+    { tipo: "07", serie: "FC01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
+    { tipo: "08", serie: "FD01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
+  ]);
+  db.establecimientosPorEmpresa.set(empresa.id, [
+    { codigo: "0002", nombre: "Tienda Miraflores", domicilio: { ubigeo: "150122", direccion: "Av. Larco 345", urbanizacion: null, distrito: "MIRAFLORES", provincia: "LIMA", departamento: "LIMA", codigo_establecimiento: "0002" }, activo: true },
   ]);
   db.apiKeysPorEmpresa.set(empresa.id, [
     { id: "k-activa", prefijo: "fk_demo001", activa: true, creada_en: "2026-09-01T15:00:00Z" },
@@ -152,7 +160,7 @@ export function resetDb() {
       ],
       estado_documento: "ACEPTADO",
       hash: "y4M8+jW8Xp278K1aM02q19KjvO3k=",
-      nombre_archivo: "20123456789-01-F001-00000001",
+      nombre_archivo: "20123456786-01-F001-00000001",
       intentos: 1,
       ultimo_error: null,
       cdr: { codigo: "0", descripcion: "La Factura numero F001-1, ha sido aceptada", observaciones: [] },
@@ -188,7 +196,7 @@ export function resetDb() {
       items: [{ codigo: null, descripcion: "Consultoría", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10" }],
       estado_documento: "ACEPTADO_CON_OBS",
       hash: "obs8+jW8Xp278K1aM02q19KjvO3k=",
-      nombre_archivo: "20123456789-01-F001-00000003",
+      nombre_archivo: "20123456786-01-F001-00000003",
       intentos: 1,
       ultimo_error: null,
       cdr: { codigo: "0", descripcion: "La Factura numero F001-3, ha sido aceptada", observaciones: ["4252 - El dato ingresado como atributo @listName es incorrecto."] },
@@ -208,7 +216,7 @@ export function resetDb() {
       items: [{ codigo: null, descripcion: "Soporte mensual", unidad: "ZZ", cantidad: 1, precio_unitario: 236, tipo_afectacion_igv: "10" }],
       estado_documento: "FIRMADO",
       hash: "firm8+jW8Xp278K1aM02q19KjvO3k=",
-      nombre_archivo: "20123456789-01-F001-00000004",
+      nombre_archivo: "20123456786-01-F001-00000004",
       intentos: 0,
       ultimo_error: null,
       cdr: null,
@@ -230,9 +238,15 @@ export function resetDb() {
       ],
       estado_documento: "ERROR_ENVIO",
       hash: "hash-2",
-      nombre_archivo: "20123456789-01-F001-00000002",
+      nombre_archivo: "20123456786-01-F001-00000002",
       intentos: 2,
       ultimo_error: "SUNAT no respondió a tiempo",
+      eventos: [
+        { fecha: "2026-09-02T15:00:01Z", estado_anterior: "RECIBIDO", estado_resultante: "FIRMADO", mensaje: "Firmado; resumen k9Qx…" },
+        { fecha: "2026-09-02T15:00:05Z", estado_anterior: "FIRMADO", estado_resultante: "ERROR_ENVIO", mensaje: "SUNAT no disponible (timeout)" },
+        { fecha: "2026-09-02T15:02:10Z", estado_anterior: "ERROR_ENVIO", estado_resultante: "ENVIADO", mensaje: "Enviado a SUNAT (intento 2)" },
+        { fecha: "2026-09-02T15:02:40Z", estado_anterior: "ENVIADO", estado_resultante: "ERROR_ENVIO", mensaje: "SUNAT no respondió a tiempo" },
+      ],
       cdr: null,
       totales: { gravado: 50, exonerado: 0, inafecto: 0, igv: 9, total: 59 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },

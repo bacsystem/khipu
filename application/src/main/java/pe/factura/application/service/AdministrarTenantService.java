@@ -27,9 +27,11 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     private final UnitOfWork uow;
     private final String pepper;
     private final Clock clock;
+    private final EstablecimientoRepository establecimientos;
 
 
     public TenantCreado crearTenant(String ruc, String razonSocial, Entorno entorno) {
+        Ruc.exigirValido(ruc, "RUC_INVALIDO", "Empresa");
         if (tenants.buscarPorRuc(ruc).isPresent()) throw new DomainException("DUPLICADO", "Ya existe un tenant con RUC " + ruc);
         Tenant t = new Tenant(UUID.randomUUID(), ruc, razonSocial, entorno, null, null);
         String key = ApiKeyGenerator.generar();
@@ -42,8 +44,8 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
 
     public Tenant obtener(UUID tenantId) { return tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado")); }
 
-    public Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial) {
-        Tenant t = obtener(tenantId).conDatosFiscales(domicilio, cuentaDetracciones, nombreComercial);
+    public Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv) {
+        Tenant t = obtener(tenantId).conDatosFiscales(domicilio, cuentaDetracciones, nombreComercial, padronTasaEspecialIgv);
         uow.ejecutar(() -> tenants.guardar(t));
         return t;
     }
@@ -82,12 +84,49 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     }
 
     public void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial) {
+        crearSerie(tenantId, tipo, codigo, correlativoInicial, null);
+    }
+
+    public void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial, String establecimiento) {
         obtener(tenantId);
         if (!tipo.serieValida(codigo)) throw new DomainException("SERIE_INVALIDA", "Serie " + codigo + " no válida para " + tipo);
-        uow.ejecutar(() -> series.crear(new Serie(tenantId, tipo, codigo, correlativoInicial, true)));
+        Serie s = new Serie(tenantId, tipo, codigo, correlativoInicial, true, establecimiento);
+        uow.ejecutar(() -> {
+            // Bloquea la fila del anexo para que no se pueda dar de baja entre este chequeo y el INSERT (desactivarEstablecimiento hace el mismo bloqueo).
+            if (!s.enDomicilioFiscal()) {
+                Establecimiento e = establecimientos.buscarConBloqueo(tenantId, s.establecimiento())
+                        .orElseThrow(() -> new DomainException("ESTABLECIMIENTO_INVALIDO", "El establecimiento " + s.establecimiento() + " no existe en la empresa: regístrelo antes de asignarle una serie"));
+                if (!e.activo()) throw new DomainException("ESTABLECIMIENTO_INVALIDO", "El establecimiento " + s.establecimiento() + " (" + e.nombre() + ") está dado de baja");
+            }
+            series.crear(s);
+        });
     }
 
     public List<Serie> listarSeries(UUID tenantId) { return series.listar(tenantId); }
+
+    public List<Establecimiento> listarEstablecimientos(UUID tenantId) { obtener(tenantId); return establecimientos.listar(tenantId); }
+
+    public Establecimiento guardarEstablecimiento(UUID tenantId, String codigo, String nombre, Domicilio domicilio) {
+        obtener(tenantId);
+        boolean activo = establecimientos.buscar(tenantId, codigo == null ? "" : codigo.strip()).map(Establecimiento::activo).orElse(true);
+        Establecimiento e = new Establecimiento(tenantId, codigo, nombre, domicilio, activo);
+        uow.ejecutar(() -> establecimientos.guardar(e));
+        return e;
+    }
+
+    public Establecimiento desactivarEstablecimiento(UUID tenantId, String codigo) {
+        obtener(tenantId);
+        // Mismo bloqueo de fila que crearSerie: si una serie se está creando contra este anexo, esta baja espera a que termine esa transacción.
+        return uow.ejecutar(() -> {
+            Establecimiento e = establecimientos.buscarConBloqueo(tenantId, codigo).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Establecimiento " + codigo + " no encontrado"));
+            List<String> enUso = series.listar(tenantId).stream().filter(s -> s.activa() && s.establecimiento().equals(e.codigo())).map(Serie::codigo).toList();
+            if (!enUso.isEmpty())
+                throw new DomainException("ESTABLECIMIENTO_EN_USO", "El establecimiento " + codigo + " tiene series activas (" + String.join(", ", enUso) + "): reasígnelas antes de darlo de baja");
+            Establecimiento baja = e.desactivar();
+            establecimientos.guardar(baja);
+            return baja;
+        });
+    }
 
     public String crearApiKey(UUID tenantId) {
         obtener(tenantId);

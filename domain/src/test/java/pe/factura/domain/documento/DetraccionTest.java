@@ -19,10 +19,7 @@ class DetraccionTest {
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
 
     static Comprobante factura(String tipoOperacion, Detraccion d) {
-        return Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", tipoOperacion,
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("11800.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, d, CLOCK);
+        return Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", tipoOperacion, new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("11800.00"), TipoAfectacionIgv.GRAVADO))).detraccion(d).crear(CLOCK);
     }
 
     static void rechaza(Runnable r, String codigoSunat) {
@@ -41,15 +38,9 @@ class DetraccionTest {
     @Test void montoSeCompletaContraElTotalDelComprobante() {
         Comprobante c = factura("1001", new Detraccion("022", new BigDecimal("12"), null, "cta", null));
         assertThat(c.detraccion().monto()).isEqualByComparingTo("1416.00");   // 11 800 × 12 %
-        Comprobante conDescuento = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "1001",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("11800.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), Descuento.monto(new BigDecimal("1000.00"), false), new Detraccion("022", new BigDecimal("12"), null, "cta", null), CLOCK);
+        Comprobante conDescuento = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "1001", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("11800.00"), TipoAfectacionIgv.GRAVADO))).descuentoGlobal(Descuento.monto(new BigDecimal("1000.00"), false)).detraccion(new Detraccion("022", new BigDecimal("12"), null, "cta", null)).crear(CLOCK);
         assertThat(conDescuento.detraccion().monto()).isEqualByComparingTo("1296.00");   // sobre el importe a pagar (10 800), no sobre el precio de venta
-        rechaza(() -> Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "1001",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, new Detraccion("022", new BigDecimal("12"), null, "cta", null), CLOCK), "3208");
+        rechaza(() -> Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "1001", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).detraccion(new Detraccion("022", new BigDecimal("12"), null, "cta", null)).crear(CLOCK), "3208");
         assertThat(factura("1001", new Detraccion("022", new BigDecimal("12"), new BigDecimal("1400.00"), "cta", null)).detraccion().monto()).isEqualByComparingTo("1400.00");
     }
 
@@ -91,6 +82,12 @@ class DetraccionTest {
 
     @Test void transporteDeCargaExigeCodigo027_3129() {
         rechaza(() -> factura("1004", new Detraccion("022", BigDecimal.TEN, BigDecimal.TEN, "cta", null)), "3129");
-        factura("1004", new Detraccion("027", new BigDecimal("4"), new BigDecimal("472.00"), "cta", null));
+        // Con el código correcto, la 1004 exige además los datos del transporte en cada ítem (#69, regla 3116)
+        rechaza(() -> factura("1004", new Detraccion("027", new BigDecimal("4"), new BigDecimal("472.00"), "cta", null)), "3116");
+        TransporteCarga flete = new TransporteCarga(new TransporteCarga.Punto("021801", "Av. Los Pescadores 450"), new TransporteCarga.Punto("150101", "Jr. de la Unión 100"),
+                "Traslado de carga", new TransporteCarga.ValorReferencial(new BigDecimal("2500"), new BigDecimal("2400"), new BigDecimal("2600")), null);
+        Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "1004", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("S", "Flete", "ZZ", BigDecimal.ONE, new BigDecimal("11800.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, flete)))
+                .detraccion(new Detraccion("027", new BigDecimal("4"), new BigDecimal("472.00"), "cta", null)).crear(CLOCK);
     }
 }

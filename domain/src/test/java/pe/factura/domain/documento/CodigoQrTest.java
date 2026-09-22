@@ -18,9 +18,7 @@ class CodigoQrTest {
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
 
     static Comprobante factura() {
-        return Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), CLOCK);
+        return Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
     }
 
     @Test void diezCamposSeparadosPorBarraConHashAlFinal() {
@@ -28,7 +26,7 @@ class CodigoQrTest {
         c.asignarNumero(125, "20100066603");
         c.firmar("y4M8+jW8Xp278K1aM02q19KjvO3k=", "k");
         assertThat(CodigoQr.contenido(c, "20100066603"))
-                .isEqualTo("20100066603|01|F001|125|18.00|118.00|2026-09-13|6|20601234567|y4M8+jW8Xp278K1aM02q19KjvO3k=|");
+                .isEqualTo("20100066603|01|F001|125|18.00|118.00|2026-09-13|6|20601234565|y4M8+jW8Xp278K1aM02q19KjvO3k=|");
     }
 
     @Test void sinNumeroNiFirmaNoHayQr() {

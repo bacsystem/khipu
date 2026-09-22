@@ -22,7 +22,7 @@ class ConsultarComprobanteServiceTest {
     private final Fakes.Storage storage = new Fakes.Storage();
     private final Fakes.Tenants tenants = new Fakes.Tenants();
     private final List<String> qrs = new ArrayList<>();
-    private final ConsultarComprobanteService service = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr, logo) -> { qrs.add(qr); return ("%PDF " + qr + (logo == null ? "" : " logo=" + logo.length)).getBytes(); });
+    private final ConsultarComprobanteService service = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr, logo) -> { qrs.add(qr); return ("%PDF " + qr + (logo == null ? "" : " logo=" + logo.length)).getBytes(); }, new Fakes.Establecimientos(new Fakes.Series()));
     private final UUID tenant = UUID.randomUUID();
 
     private static byte[] zip(String nombre, String contenido) throws Exception {
@@ -93,10 +93,7 @@ class ConsultarComprobanteServiceTest {
     }
 
     @Test void sinFirmaNoHayPdf() {
-        Comprobante c = Comprobante.crearFactura(tenant, "F001", java.time.LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new pe.factura.domain.documento.Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new pe.factura.domain.documento.Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), pe.factura.domain.documento.TipoAfectacionIgv.GRAVADO)),
-                java.time.Clock.fixed(java.time.Instant.parse("2026-09-13T15:00:00Z"), java.time.ZoneId.of("America/Lima")));
+        Comprobante c = Comprobante.factura(tenant, "F001", java.time.LocalDate.of(2026, 9, 13), "PEN", "0101", new pe.factura.domain.documento.Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new pe.factura.domain.documento.Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), pe.factura.domain.documento.TipoAfectacionIgv.GRAVADO))).crear(java.time.Clock.fixed(java.time.Instant.parse("2026-09-13T15:00:00Z"), java.time.ZoneId.of("America/Lima")));
         repo.guardar(c);
         assertThatThrownBy(() -> service.pdf(tenant, c.id())).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SIN_FIRMA");
     }

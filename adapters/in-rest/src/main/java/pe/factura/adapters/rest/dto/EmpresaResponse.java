@@ -8,17 +8,18 @@ import java.util.UUID;
 
 public record EmpresaResponse(
         @Schema(example = "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f") UUID id,
-        @Schema(example = "20123456789") String ruc,
+        @Schema(example = "20123456786") String ruc,
         @Schema(example = "Comercial Andina SAC") String razonSocial,
         @Schema(example = "BETA") String entorno,
         @Schema(example = "true") boolean tieneCredencialesSol,
         @Schema(example = "2027-12-31") LocalDate certificadoVigenciaHasta,
         @Schema(description = "Domicilio fiscal, o `null` si aún no se configuró") DomicilioResponse domicilio,
         @Schema(example = "00-000-123456", description = "Cuenta de detracciones por defecto, o `null`") String cuentaDetracciones,
-        @Schema(example = "Andina Store", description = "Nombre comercial que va en el XML (`cac:PartyName`), o `null`") String nombreComercial) {
+        @Schema(example = "Andina Store", description = "Nombre comercial que va en el XML (`cac:PartyName`), o `null`") String nombreComercial,
+        @Schema(example = "false", description = "Inscrita en el Padrón de Tasa Especial del IGV (restaurantes y hoteles): emite con la tasa reducida") boolean padronTasaEspecialIgv) {
 
     public static EmpresaResponse de(Tenant t) {
         return new EmpresaResponse(t.id(), t.ruc(), t.razonSocial(), t.entorno().name(), t.sol() != null,
-                t.certificado() == null ? null : t.certificado().vigenciaHasta(), DomicilioResponse.de(t.domicilio()), t.cuentaDetracciones(), t.nombreComercial());
+                t.certificado() == null ? null : t.certificado().vigenciaHasta(), DomicilioResponse.de(t.domicilio()), t.cuentaDetracciones(), t.nombreComercial(), t.padronTasaEspecialIgv());
     }
 }

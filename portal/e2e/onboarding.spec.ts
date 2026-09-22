@@ -13,7 +13,7 @@ test("registro completa el onboarding de 3 pasos y llega a comprobantes", async 
   await expect(page).toHaveURL(/\/onboarding/);
 
   // Paso 1: empresa
-  await page.getByLabel("RUC").fill("20999999999");
+  await page.getByLabel("RUC").fill("20999999990");
   await page.getByLabel("Razón social").fill("Mi Empresa de Prueba SAC");
   await page.getByRole("button", { name: "Continuar" }).click();
 

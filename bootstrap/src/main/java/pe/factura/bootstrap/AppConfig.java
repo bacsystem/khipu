@@ -31,10 +31,15 @@ import pe.factura.adapters.rest.ApiKeyFilter;
 import pe.factura.adapters.rest.JwtFilter;
 import pe.factura.adapters.rest.PlatformKeyFilter;
 import pe.factura.adapters.scheduler.OutboxWorker;
+import pe.factura.adapters.scheduler.PlazoEnvioWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
 import pe.factura.adapters.storage.FileSystemDocumentStorage;
+import pe.factura.adapters.storage.S3DocumentStorage;
+import pe.factura.adapters.scheduler.IntegridadWorker;
 import pe.factura.adapters.sunat.SoapBillingGateway;
 import pe.factura.adapters.sunat.SunatUrls;
+import pe.factura.adapters.sunat.SoapConsultaGateway;
+import pe.factura.adapters.scheduler.RecuperarCdrWorker;
 import pe.factura.adapters.sunat.XmlCdrParser;
 import pe.factura.adapters.pdf.FlyingSaucerPdfGenerator;
 import pe.factura.adapters.ubl.FreemarkerUblGenerator;
@@ -177,6 +182,8 @@ public class AppConfig {
     @Bean TenantRepository tenantRepository(JdbcTemplate jdbc, SecretCipher c) { return new JdbcTenantRepository(jdbc, c); }
     @Bean ApiKeyRepository apiKeyRepository(JdbcTemplate jdbc) { return new JdbcApiKeyRepository(jdbc); }
     @Bean SerieRepository serieRepository(JdbcTemplate jdbc) { return new JdbcSerieRepository(jdbc); }
+    @Bean EstablecimientoRepository establecimientoRepository(JdbcTemplate jdbc) { return new JdbcEstablecimientoRepository(jdbc); }
+    @Bean EmisorDeSerieRepository emisorDeSerieRepository(JdbcTemplate jdbc) { return new JdbcEmisorDeSerieRepository(jdbc); }
     @Bean ComprobanteRepository comprobanteRepository(JdbcTemplate jdbc) { return new JdbcComprobanteRepository(jdbc); }
     @Bean BajaRepository bajaRepository(JdbcTemplate jdbc) { return new JdbcBajaRepository(jdbc); }
     @Bean OutboxRepository outboxRepository(JdbcTemplate jdbc) { return new JdbcOutboxRepository(jdbc); }
@@ -184,7 +191,17 @@ public class AppConfig {
     @Bean UsuarioRepository usuarioRepository(JdbcTemplate jdbc) { return new JdbcUsuarioRepository(jdbc); }
     @Bean SesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
 
-    @Bean DocumentStorage documentStorage(AppProperties p) { return new FileSystemDocumentStorage(Path.of(p.storage().fsRoot())); }
+    @Bean DocumentStorage documentStorage(AppProperties p) {
+        AppProperties.Storage st = p.storage();
+        if ("s3".equalsIgnoreCase(st.type())) {
+            AppProperties.Storage.S3 s3 = st.s3();
+            return S3DocumentStorage.crear(s3.endpoint(), s3.region(), s3.accessKey(), s3.secretKey(), s3.bucket(), s3.pathStyle());
+        }
+        if (!"fs".equalsIgnoreCase(st.type())) throw new IllegalStateException("STORAGE_TYPE debe ser fs o s3, no " + st.type());
+        return new FileSystemDocumentStorage(Path.of(st.fsRoot()));
+    }
+    @Bean VerificarIntegridadUseCase verificarIntegridad(ComprobanteRepository c, DocumentStorage s) { return new VerificarIntegridadService(c, s); }
+    @Bean IntegridadWorker integridadWorker(VerificarIntegridadUseCase v, Clock clock, AppProperties p) { return new IntegridadWorker(v, clock, p.integridad() == null ? 7 : p.integridad().dias()); }
     @Bean UblGenerator ublGenerator() { return new FreemarkerUblGenerator(); }
     @Bean XsdValidator xsdValidator() { return new JaxpXsdValidator(); }
     @Bean XmlSigner xmlSigner() { return new XmlDsigSigner(); }
@@ -192,25 +209,33 @@ public class AppConfig {
     @Bean SunatBillingGateway sunatBillingGateway(AppProperties p) {
         return new SoapBillingGateway(new SunatUrls(p.sunat().betaUrl(), p.sunat().prodUrl()), Duration.ofSeconds(p.sunat().timeoutSeconds()));
     }
+    @Bean SunatConsultaGateway sunatConsultaGateway(AppProperties p) {
+        return new SoapConsultaGateway(p.sunat().consultaUrl(), p.sunat().consultaBetaUrl(), p.sunat().validezUrl(), p.sunat().validezBetaUrl(), Duration.ofSeconds(p.sunat().timeoutSeconds()));
+    }
+    @Bean RecuperarCdrUseCase recuperarCdr(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatConsultaGateway g, CdrParser cdr, UnitOfWork u) {
+        return new RecuperarCdrService(c, t, s, g, cdr, u);
+    }
+    @Bean ConsultarValidezUseCase consultarValidez(TenantRepository t, SunatConsultaGateway g) { return new ConsultarValidezService(t, g); }
+    @Bean RecuperarCdrWorker recuperarCdrWorker(RecuperarCdrUseCase cdrs) { return new RecuperarCdrWorker(cdrs); }
 
     @Bean EnviarDocumentoUseCase enviarDocumento(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatBillingGateway g, CdrParser p,
                                                 OutboxRepository o, UnitOfWork u, Clock clock) {
         return new EnviarDocumentoService(c, t, s, g, p, o, u, clock);
     }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
-                                                    UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock) {
-        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock);
+                                                    UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock, EmisorDeSerieRepository emisor) {
+        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor);
     }
     @Bean PdfGenerator pdfGenerator() { return new FlyingSaucerPdfGenerator(); }
     @Bean PersonalizarPdfUseCase personalizarPdf(TenantRepository t, DocumentStorage s, PdfGenerator pdf, Clock clock) { return new PersonalizarPdfService(t, s, pdf, clock); }
-    @Bean ConsultarComprobanteUseCase consultarComprobante(ComprobanteRepository c, TenantRepository t, DocumentStorage s, PdfGenerator pdf) {
-        return new ConsultarComprobanteService(c, t, s, pdf);
+    @Bean ConsultarComprobanteUseCase consultarComprobante(ComprobanteRepository c, TenantRepository t, DocumentStorage s, PdfGenerator pdf, EmisorDeSerieRepository emisor) {
+        return new ConsultarComprobanteService(c, t, s, pdf, emisor);
     }
     @Bean CompartirComprobanteUseCase compartirComprobante(ConsultarComprobanteUseCase consultar, TenantRepository t, CorreoSender correo) {
         return new CompartirComprobanteService(consultar, t, correo);
     }
-    @Bean AdministrarTenantUseCase administrarTenant(TenantRepository t, SerieRepository s, ApiKeyRepository k, UnitOfWork u, AppProperties p, Clock clock) {
-        return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock);
+    @Bean AdministrarTenantUseCase administrarTenant(TenantRepository t, SerieRepository s, ApiKeyRepository k, UnitOfWork u, AppProperties p, Clock clock, EstablecimientoRepository est) {
+        return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock, est);
     }
 
     @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }
@@ -238,6 +263,8 @@ public class AppConfig {
     @Bean OutboxWorker outboxWorker(OutboxRepository o, UnitOfWork u, EnviarDocumentoUseCase e, DarDeBajaUseCase b, Clock clock, AppProperties p) {
         return new OutboxWorker(o, u, e, b, clock, p.outbox().maxIntentos());
     }
+    @Bean ControlarPlazoEnvioUseCase controlarPlazoEnvio(ComprobanteRepository c, UnitOfWork u, Clock clock) { return new ControlarPlazoEnvioService(c, u, clock); }
+    @Bean PlazoEnvioWorker plazoEnvioWorker(ControlarPlazoEnvioUseCase plazos) { return new PlazoEnvioWorker(plazos); }
 
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
     // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.

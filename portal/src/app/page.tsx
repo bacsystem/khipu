@@ -1,18 +1,15 @@
-import { CheckCircle2, CircleDashed, ShieldCheck } from "lucide-react";
+import { Building2, Code2, Users } from "lucide-react";
 import Link from "next/link";
+import { ComoFunciona } from "@/components/landing/como-funciona";
 import { ComprobantePreview } from "@/components/landing/comprobante-preview";
+import { Faq } from "@/components/landing/faq";
 import { SiteHeader } from "@/components/landing/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { messages } from "@/lib/messages";
 
-const CONFIANZA = [
-  "Firma XML-DSig (RSA-SHA256)",
-  "UBL 2.1 sobre el estándar SUNAT",
-  "Reintentos automáticos si SUNAT no responde",
-  "API REST con referencia interactiva",
-];
+const CONFIANZA = ["Firma XML-DSig (RSA-SHA256)", "UBL 2.1 sobre el estándar SUNAT", "Reintentos automáticos", "API REST documentada"];
 
 const BENEFICIOS = [
   {
@@ -39,14 +36,17 @@ const BENEFICIOS = [
 
 const AUDIENCIA = [
   {
+    icono: Building2,
     titulo: "PYMES y comercios",
     descripcion: "Emití, controlá tus series y llevá el historial de tu empresa desde un panel simple.",
   },
   {
+    icono: Users,
     titulo: "Contadores y estudios",
     descripcion: "Administrá varias empresas (RUC) desde una sola cuenta y descargá XML y CDR cuando los necesites.",
   },
   {
+    icono: Code2,
     titulo: "Integradores y SaaS",
     descripcion: "Sumá la emisión a tu producto con una API REST documentada, sandbox y referencia interactiva.",
   },
@@ -75,9 +75,9 @@ export default function Home() {
     <div>
       <SiteHeader />
 
-      <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 md:grid-cols-2 md:py-28">
+      <section className="mx-auto grid max-w-6xl items-center gap-12 overflow-x-clip px-6 py-20 md:grid-cols-2 md:py-28">
         <div>
-          <h1 className="font-heading text-4xl leading-tight text-balance md:text-5xl">
+          <h1 className="font-heading text-4xl leading-[1.08] tracking-tight text-balance md:text-5xl">
             Comprobantes que SUNAT acepta a la primera.
           </h1>
           <p className="mt-5 max-w-md text-lg text-muted-foreground">
@@ -99,120 +99,134 @@ export default function Home() {
           </div>
           <p className="mt-4 text-sm text-muted-foreground">Sin tarjeta · Plan gratis permanente, no un trial.</p>
         </div>
-        <ComprobantePreview />
+        <div className="relative">
+          <div
+            aria-hidden
+            className="absolute -inset-x-10 -inset-y-12 -z-10 bg-[radial-gradient(closest-side,var(--primary),transparent)] opacity-[0.07]"
+          />
+          <ComprobantePreview />
+        </div>
       </section>
 
       <section className="border-y border-border bg-card">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-8 text-sm text-muted-foreground md:grid-cols-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-y-3 px-6 py-6 text-center text-sm text-muted-foreground sm:divide-x sm:divide-border">
           {CONFIANZA.map((item) => (
-            <div key={item} className="flex items-start gap-2">
-              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
-              <span>{item}</span>
-            </div>
+            <span key={item} className="px-6 first:pl-0 last:pr-0">
+              {item}
+            </span>
           ))}
         </div>
       </section>
 
+      <ComoFunciona />
+
+      <section className="bg-card">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <h2 className="font-heading text-3xl">Menos trámite, más control</h2>
+          <div className="mt-8 grid gap-x-10 gap-y-8 border-t border-border pt-8 sm:grid-cols-2">
+            {BENEFICIOS.map((b) => (
+              <div key={b.titulo}>
+                <h3 className="font-heading text-lg">{b.titulo}</h3>
+                <p className="mt-2 max-w-sm text-sm text-muted-foreground">{b.descripcion}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="mx-auto max-w-6xl px-6 py-20">
-        <h2 className="font-heading text-3xl">Menos trámite, más control</h2>
-        <div className="mt-10 grid gap-6 sm:grid-cols-2">
-          {BENEFICIOS.map((b) => (
-            <Card key={b.titulo} className="p-6">
-              <h3 className="font-heading text-lg">{b.titulo}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{b.descripcion}</p>
-            </Card>
+        <h2 className="font-heading text-3xl">Hecho para tu tipo de negocio</h2>
+        <div className="mt-10 grid gap-x-10 gap-y-8 md:grid-cols-3 md:divide-x md:divide-border">
+          {AUDIENCIA.map((a) => (
+            <div key={a.titulo} className="md:px-8 md:first:pl-0 md:last:pr-0">
+              <a.icono className="size-5 text-primary" />
+              <h3 className="font-heading mt-3 text-lg">{a.titulo}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{a.descripcion}</p>
+            </div>
           ))}
         </div>
       </section>
 
       <section className="bg-card">
         <div className="mx-auto max-w-6xl px-6 py-20">
-          <h2 className="font-heading text-3xl">Hecho para tu tipo de negocio</h2>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            {AUDIENCIA.map((a) => (
-              <div key={a.titulo}>
-                <h3 className="font-heading text-lg">{a.titulo}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{a.descripcion}</p>
+          <h2 className="font-heading text-3xl">Comprobantes electrónicos</h2>
+          <p className="mt-2 max-w-2xl text-muted-foreground">
+            Empezamos por factura electrónica. El resto del catálogo SUNAT está en camino — lo marcamos tal cual
+            para que sepas con qué contar hoy.
+          </p>
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {COMPROBANTES.map((c) => (
+              <div key={c.codigo} className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted font-mono text-xs text-muted-foreground">
+                  {c.codigo}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{c.nombre}</p>
+                  {c.disponible ? (
+                    <Badge className="mt-1 border-transparent bg-success text-success-foreground">Disponible</Badge>
+                  ) : (
+                    <Badge variant="outline" className="mt-1">
+                      En construcción
+                    </Badge>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <h2 className="font-heading text-3xl">Comprobantes electrónicos</h2>
+      <section id="precios" className="mx-auto max-w-6xl px-6 py-20">
+        <h2 className="font-heading text-3xl">Planes claros, gratis para empezar</h2>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          Empezamos por factura electrónica. El resto del catálogo SUNAT está en camino — lo marcamos tal cual para
-          que sepas con qué contar hoy.
+          El plan Gratis no vence — no es un trial. Subís de plan cuando tu volumen lo pida.
         </p>
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {COMPROBANTES.map((c) => (
-            <div key={c.codigo} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted font-mono text-xs text-muted-foreground">
-                {c.codigo}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{c.nombre}</p>
-                {c.disponible ? (
-                  <Badge className="mt-1 border-transparent bg-success text-success-foreground">
-                    <CheckCircle2 className="size-3" /> Disponible
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="mt-1">
-                    <CircleDashed className="size-3" /> En construcción
-                  </Badge>
-                )}
-              </div>
-            </div>
+        <div className="mt-10 grid gap-6 md:grid-cols-4">
+          {PLANES.map((p) => (
+            <Card
+              key={p.nombre}
+              className={p.destacado ? "p-6 ring-2 ring-primary md:-translate-y-3 md:shadow-lg" : "p-6"}
+            >
+              {p.destacado ? (
+                <Badge className="w-fit border-transparent bg-brand text-brand-foreground">Más usado</Badge>
+              ) : null}
+              <h3 className="mt-2 font-heading text-lg">{p.nombre}</h3>
+              <p className="mt-1">
+                <span className="font-heading text-3xl">{p.precio}</span>{" "}
+                <span className="text-sm text-muted-foreground">{p.periodo}</span>
+              </p>
+              <ul className="mt-4 grid gap-1.5 text-sm text-muted-foreground">
+                <li>{p.docs}</li>
+                <li>{p.rucs}</li>
+              </ul>
+            </Card>
           ))}
         </div>
-      </section>
-
-      <section id="precios" className="bg-card">
-        <div className="mx-auto max-w-6xl px-6 py-20">
-          <h2 className="font-heading text-3xl">Planes claros, gratis para empezar</h2>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            El plan Gratis no vence — no es un trial. Subís de plan cuando tu volumen lo pida.
-          </p>
-          <div className="mt-10 grid gap-6 md:grid-cols-4">
-            {PLANES.map((p) => (
-              <Card
-                key={p.nombre}
-                className={p.destacado ? "border-2 border-primary p-6" : "p-6"}
-              >
-                {p.destacado ? (
-                  <Badge className="w-fit border-transparent bg-brand text-brand-foreground">Más usado</Badge>
-                ) : null}
-                <h3 className="mt-2 font-heading text-lg">{p.nombre}</h3>
-                <p className="mt-1">
-                  <span className="font-heading text-3xl">{p.precio}</span>{" "}
-                  <span className="text-sm text-muted-foreground">{p.periodo}</span>
-                </p>
-                <ul className="mt-4 grid gap-1.5 text-sm text-muted-foreground">
-                  <li>{p.docs}</li>
-                  <li>{p.rucs}</li>
-                </ul>
-              </Card>
-            ))}
-          </div>
-          <p className="mt-6 text-sm text-muted-foreground">
-            ¿Necesitás on-premise o un plan a medida?{" "}
-            <a href="mailto:hola@factura.pe" className="text-primary hover:underline">
-              Escribinos
-            </a>
-            .
-          </p>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-6 py-20 text-center">
-        <h2 className="font-heading text-3xl">Emití tu primera factura hoy</h2>
-        <p className="mx-auto mt-2 max-w-md text-muted-foreground">
-          Creá tu cuenta, configurá tu empresa y verificá que SUNAT acepta tus comprobantes — sin pagar un sol.
+        <p className="mt-6 text-sm text-muted-foreground">
+          ¿Necesitás on-premise o un plan a medida?{" "}
+          <a href="mailto:hola@factura.pe" className="text-primary hover:underline">
+            Escribinos
+          </a>
+          .
         </p>
-        <Button render={<Link href="/registro" />} nativeButton={false} className="mt-6 h-11 px-6 text-base">
-          Crear cuenta gratis
-        </Button>
+      </section>
+
+      <Faq />
+
+      <section className="bg-foreground text-background">
+        <div className="mx-auto max-w-6xl px-6 py-20 text-center">
+          <h2 className="font-heading text-3xl">Emití tu primera factura hoy</h2>
+          <p className="mx-auto mt-2 max-w-md text-background/70">
+            Creá tu cuenta, configurá tu empresa y verificá que SUNAT acepta tus comprobantes — sin pagar un sol.
+          </p>
+          <Button
+            render={<Link href="/registro" />}
+            nativeButton={false}
+            className="mt-6 h-11 bg-background px-6 text-base text-foreground hover:bg-background/85"
+          >
+            Crear cuenta gratis
+          </Button>
+        </div>
       </section>
 
       <footer className="border-t border-border">

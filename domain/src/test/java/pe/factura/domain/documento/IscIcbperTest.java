@@ -6,6 +6,7 @@ import pe.factura.domain.DomainException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -83,8 +84,51 @@ class IscIcbperTest {
 
     @Test void iscInvalido() {
         assertThatThrownBy(() -> new Isc("04", BigDecimal.TEN, null)).isInstanceOf(DomainException.class).hasMessageContaining("2041");
-        assertThatThrownBy(() -> new Isc("03", BigDecimal.TEN, null)).hasMessageContaining("03").hasMessageContaining("no está soportado");
+        assertThatThrownBy(() -> new Isc("03", BigDecimal.TEN, null)).hasMessageContaining("03").hasMessageContaining("base_pvp");
         assertThatThrownBy(() -> new Isc("01", null, null)).hasMessageContaining("3104");
         assertThatThrownBy(() -> new Isc("02", BigDecimal.TEN, BigDecimal.ONE)).hasMessageContaining("no lleva tasa");
+    }
+
+    /** Sistema 03 (#68): la base del ISC es el PVP sugerido × cantidad, el ISC = base × tasa, y el IGV va sobre valor de venta + ISC (regla 204). */
+    @Test void iscAlValorSegunPrecioDeVentaAlPublico() {
+        // PVP sugerido 3.50, tasa 30 % → ISC 1.05 por unidad; precio con IGV e ISC = (2.00 + 1.05) × 1.18 = 3.599 → 3.60
+        Isc isc = new Isc("03", new BigDecimal("30"), null, new BigDecimal("3.50"));
+        assertThat(isc.montoUnitarioEfectivo()).isEqualByComparingTo("1.05");
+        Item cerveza = new Item("C1", "Cerveza 620 ml", "NIU", new BigDecimal("10"), new BigDecimal("3.599"), TipoAfectacionIgv.GRAVADO, null, isc, false);
+        ItemCalculado ic = ItemCalculado.de(cerveza);
+        assertThat(ic.valorVenta()).isEqualByComparingTo("20.00");
+        assertThat(ic.iscBase()).isEqualByComparingTo("35.00");     // 3.50 × 10, no el valor de venta
+        assertThat(ic.isc()).isEqualByComparingTo("10.50");         // 35 × 30 %
+        assertThat(ic.iscPorcentaje()).isEqualByComparingTo("30");
+        assertThat(ic.igv()).isEqualByComparingTo("5.49");          // (20 + 10.50) × 18 %
+        assertThat(ic.precioVenta()).isEqualByComparingTo("35.99");
+        Totales t = Totales.calcular(List.of(cerveza));
+        assertThat(t.subtotales()).filteredOn(st -> st.tributo() == Tributo.ISC).first().satisfies(st -> {
+            assertThat(st.base()).isEqualByComparingTo("35.00");
+            assertThat(st.impuesto()).isEqualByComparingTo("10.50");
+        });
+        assertThat(t.igv()).isEqualByComparingTo("5.49");
+        // Validaciones: base_pvp obligatoria y no menor que el valor unitario; los otros sistemas no la llevan.
+        assertThatThrownBy(() -> new Isc("03", new BigDecimal("30"), null, null)).isInstanceOf(DomainException.class).hasMessageContaining("base_pvp");
+        assertThatThrownBy(() -> new Isc("01", new BigDecimal("30"), null, new BigDecimal("3.50"))).hasMessageContaining("no lleva base_pvp");
+    }
+
+    /**
+     * La regla del PVP sugerido (#68, 3108) se exige solo al emitir ({@link Comprobante.FacturaBuilder#crear}), no dentro de
+     * {@link ItemCalculado#de}: así una factura ya emitida y persistida se puede seguir leyendo aunque la regla cambie después (#89).
+     */
+    @Test void elPvpSugeridoMenorQueElValorUnitarioSeExigeSoloAlEmitir() {
+        Item cervezaPvpBajo = new Item("C1", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("11.80"), TipoAfectacionIgv.GRAVADO, null, new Isc("03", new BigDecimal("30"), null, new BigDecimal("1.00")), false);
+        ItemCalculado ic = ItemCalculado.de(cervezaPvpBajo);   // no lanza: la validación de negocio no vive aquí
+        assertThatThrownBy(ic::exigirBasePvpValida).hasMessageContaining("PVP sugerido").hasMessageContaining("no puede ser menor");
+
+        Receptor receptor = new Receptor("6", "20601234565", "CLIENTE SAC", null);
+        java.time.Clock reloj = java.time.Clock.fixed(java.time.Instant.parse("2026-09-13T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+        assertThatThrownBy(() -> Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", receptor, List.of(cervezaPvpBajo)).crear(reloj))
+                .isInstanceOf(DomainException.class).hasMessageContaining("PVP sugerido");
+
+        Comprobante rehidratado = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 1L, LocalDate.of(2026, 9, 13), EstadoDocumento.ACEPTADO, receptor, List.of(cervezaPvpBajo))
+                .firma("h", "n", "k").rehidratar();   // no lanza: rehidratar no revalida
+        assertThat(rehidratado.totales().items().get(0).item().isc().basePvp()).isEqualByComparingTo("1.00");
     }
 }

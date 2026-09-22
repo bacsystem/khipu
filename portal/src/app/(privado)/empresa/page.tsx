@@ -210,7 +210,12 @@ export default async function EmpresaPage() {
                 El domicilio fiscal va en cada XML como dirección del emisor (ubigeo del catálogo 13, regla 4093). Sin él SUNAT no observa la factura,
                 pero la representación impresa y los clientes lo necesitan.
               </p>
-              <DatosFiscalesForm domicilio={domicilio} cuentaDetracciones={empresa.cuenta_detracciones ?? null} nombreComercial={empresa.nombre_comercial ?? null} />
+              <DatosFiscalesForm
+                domicilio={domicilio}
+                cuentaDetracciones={empresa.cuenta_detracciones ?? null}
+                nombreComercial={empresa.nombre_comercial ?? null}
+                padronTasaEspecialIgv={empresa.padron_tasa_especial_igv ?? false}
+              />
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 font-mono text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5 opacity-60" title="Envío directo a SUNAT; integración con OSE: próximamente">

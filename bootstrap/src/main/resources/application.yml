@@ -34,10 +34,26 @@ app:
   storage:
     type: ${STORAGE_TYPE:fs}
     fs-root: ${STORAGE_FS_ROOT:./storage}
+    # STORAGE_TYPE=s3 (#38): S3 o compatible (MinIO, Backblaze B2, Cloudflare R2). Sin endpoint → AWS; sin access-key → cadena de credenciales por defecto.
+    s3:
+      bucket: ${STORAGE_S3_BUCKET:}
+      region: ${STORAGE_S3_REGION:us-east-1}
+      endpoint: ${STORAGE_S3_ENDPOINT:}
+      access-key: ${STORAGE_S3_ACCESS_KEY:}
+      secret-key: ${STORAGE_S3_SECRET_KEY:}
+      path-style: ${STORAGE_S3_PATH_STYLE:false}
+  integridad:
+    dias: ${INTEGRIDAD_DIAS:7}
+    intervalo-ms: ${INTEGRIDAD_INTERVALO_MS:86400000}
   sunat:
     timeout-seconds: ${SUNAT_TIMEOUT_SECONDS:15}
     beta-url: https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService
     prod-url: https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService
+    # Consultas (#36): billConsultService (estado y CDR) y billValidService (validez); solo existen en producción.
+    consulta-url: https://e-factura.sunat.gob.pe/ol-it-wsconscpegem/billConsultService
+    consulta-beta-url: ${SUNAT_CONSULTA_BETA_URL:}
+    validez-url: https://e-factura.sunat.gob.pe/ol-it-wsconsvalidcpe/billValidService
+    validez-beta-url: ${SUNAT_VALIDEZ_BETA_URL:}
   outbox:
     intervalo-ms: ${OUTBOX_INTERVALO_MS:10000}
     max-intentos: ${OUTBOX_MAX_INTENTOS:20}

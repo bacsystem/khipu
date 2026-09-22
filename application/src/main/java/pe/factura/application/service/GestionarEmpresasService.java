@@ -23,6 +23,7 @@ public class GestionarEmpresasService implements GestionarEmpresasUseCase {
     @Override
     public Tenant crear(UUID cuentaId, String ruc, String razonSocial, Entorno entorno) {
         cuentas.buscar(cuentaId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Cuenta no encontrada"));
+        pe.factura.domain.tenant.Ruc.exigirValido(ruc, "RUC_INVALIDO", "Empresa");
         if (tenants.buscarPorRuc(ruc).isPresent()) throw new DomainException("DUPLICADO", "Ya existe una empresa con RUC " + ruc);
         Tenant t = new Tenant(UUID.randomUUID(), ruc, razonSocial, entorno == null ? Entorno.BETA : entorno, null, null);
         uow.ejecutar(() -> { tenants.guardar(t); tenants.asignarCuenta(t.id(), cuentaId); });

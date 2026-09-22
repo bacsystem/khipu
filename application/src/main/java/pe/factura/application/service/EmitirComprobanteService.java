@@ -12,6 +12,7 @@ import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.documento.Nota;
+import pe.factura.domain.documento.TasaIgv;
 import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.documento.Totales;
 import pe.factura.domain.tenant.Tenant;
@@ -36,6 +37,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     private final EnviarDocumentoUseCase enviar;
     private final UnitOfWork uow;
     private final Clock clock;
+    private final EmisorDeSerieRepository emisorDeSerie;
 
 
     @Override
@@ -45,8 +47,21 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         // La cuenta de detracciones puede omitirse en la factura si la empresa la tiene configurada.
         Detraccion detraccion = cmd.detraccion() != null && cmd.detraccion().sinCuenta() ? cmd.detraccion().conCuenta(tenant.cuentaDetracciones()) : cmd.detraccion();
 
-        Comprobante c = Comprobante.crearFactura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.fechaVencimiento(), cmd.moneda(),
-                cmd.tipoOperacion(), cmd.receptor(), cmd.items(), cmd.formaPago(), cmd.descuentoGlobal(), cmd.cargos(), detraccion, cmd.retencionIgv(), cmd.percepcion(), anticipos, cmd.referencias(), cmd.redondeo(), clock);
+        Comprobante c = Comprobante.factura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.receptor(), cmd.items())
+                .fechaVencimiento(cmd.fechaVencimiento())
+                .formaPago(cmd.formaPago())
+                .descuentoGlobal(cmd.descuentoGlobal())
+                .cargos(cmd.cargos())
+                .detraccion(detraccion)
+                .retencion(cmd.retencionIgv())
+                .percepcion(cmd.percepcion())
+                .anticipos(anticipos)
+                .referencias(cmd.referencias())
+                .redondeo(cmd.redondeo())
+                .tasaIgv(TasaIgv.vigente(cmd.fechaEmision(), tenant.padronTasaEspecialIgv()))
+                .leyendas(cmd.leyendas())
+                .exportacion(cmd.exportacion())
+                .crear(clock);
         c.anotar(cmd.observaciones());
         // Dentro de la transacción y con la factura de anticipo bloqueada: dos finales concurrentes no pueden regularizar el mismo anticipo dos veces.
         return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a)));
@@ -81,13 +96,46 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             if (cmd.descuentoGlobal() != null || (cmd.cargos() != null && !cmd.cargos().isEmpty()))
                 throw new DomainException("NOTA_INVALIDA", "descuento_global y cargos solo se admiten junto con items; sin items la nota copia los de la factura");
         }
-        Comprobante c = Comprobante.crearNota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), factura.moneda(), factura.tipoOperacion(), factura.receptor(),
-                copia ? factura.items() : cmd.items(), cmd.formaPago(), copia ? factura.descuentoGlobal() : cmd.descuentoGlobal(), copia ? factura.cargos() : cmd.cargos(), nota, clock);
+        // La nota hereda la tasa de IGV de la factura: si el emisor entró o salió del padrón después, la factura no cambia de tasa.
+        Comprobante c = Comprobante.nota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), nota, factura.receptor(), copia ? factura.items() : cmd.items())
+                .moneda(factura.moneda())
+                .tipoOperacion(factura.tipoOperacion())
+                .formaPago(cmd.formaPago())
+                .descuentoGlobal(copia ? factura.descuentoGlobal() : cmd.descuentoGlobal())
+                .cargos(copia ? factura.cargos() : cmd.cargos())
+                .tasaIgv(factura.tasaIgv())
+                .exportacion(factura.exportacion())
+                .crear(clock);
         c.anotar(cmd.observaciones());
-        if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereALaFactura(c.totales(), factura);
-        // Releída con lock de fila dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota.
-        return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(),
-                () -> exigirModificable(comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, factura.serie(), factura.numero()), factura.serie(), factura.numero()));
+        // Releída con lock de fila dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota,
+        // y el acumulado de NC se lee con la factura bloqueada, así que dos NC concurrentes no pueden acreditarla dos veces.
+        return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> {
+            Comprobante bloqueada = exigirModificable(comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, factura.serie(), factura.numero()), factura.serie(), factura.numero());
+            if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereALaFactura(c.totales(), bloqueada, acreditadoPorNotas(tenantId, bloqueada));
+        });
+    }
+
+    /**
+     * Suma de las notas de crédito ya emitidas sobre la factura que siguen vigentes: SUNAT no cruza una NC con las anteriores
+     * (3286/3503 comparan nota por nota), así que sin esto una segunda NC total pasa y el cliente acredita dos veces (#83).
+     * Una NC RECHAZADO o INVALIDO no acreditó nada; una pendiente de envío o en reintento cuenta, igual que en {@link #validarFacturaDeAnticipo}.
+     */
+    private Acreditado acreditadoPorNotas(UUID tenantId, Comprobante factura) {
+        Acreditado suma = Acreditado.CERO;
+        for (Comprobante n : comprobantes.notasDe(tenantId, factura.serie(), factura.numero())) {
+            if (n.tipo() != TipoDocumento.NOTA_CREDITO) continue;
+            if (n.estado() == EstadoDocumento.RECHAZADO || n.estado() == EstadoDocumento.INVALIDO || n.estado() == EstadoDocumento.ANULADO) continue;
+            suma = suma.mas(n.totales());
+        }
+        return suma;
+    }
+
+    /** Importes ya acreditados por NC vigentes sobre una factura, en los conceptos que SUNAT limita (3286, 3503). */
+    private record Acreditado(BigDecimal total, BigDecimal gravado, BigDecimal igv, BigDecimal ivap, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito, BigDecimal exportacion) {
+        static final Acreditado CERO = new Acreditado(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        Acreditado mas(Totales t) {
+            return new Acreditado(total.add(t.total()), gravado.add(t.gravado()), igv.add(t.igv()), ivap.add(t.ivap()), exonerado.add(t.exonerado()), inafecto.add(t.inafecto()), gratuito.add(t.gratuito()), exportacion.add(t.exportacion()));
+        }
     }
 
     /** La factura serie-número debe existir en la empresa, estar aceptada por SUNAT y no anulada (2119/2120). */
@@ -111,18 +159,25 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
 
     /**
      * Reglas 3286 (importe total) y 3503 (base e impuesto por tributo) de la hoja NotaCredito2_0: la NC no puede superar
-     * (tolerancia ±1) los importes de la factura que modifica. SUNAT lo comprueba nota por nota, no acumulado.
+     * (tolerancia ±1) los importes de la factura que modifica. SUNAT lo comprueba nota por nota; khipu descuenta además lo
+     * ya acreditado por las NC anteriores, para que varias notas no sumen más que la factura (#83).
      */
-    private static void exigirQueNoSupereALaFactura(Totales nc, Comprobante factura) {
+    private static void exigirQueNoSupereALaFactura(Totales nc, Comprobante factura, Acreditado previo) {
         Totales f = factura.totales();
         BigDecimal tol = BigDecimal.ONE;
-        record Limite(String concepto, String regla, BigDecimal nota, BigDecimal factura) {}
-        for (Limite l : List.of(new Limite("importe total", "3286", nc.total(), f.total()), new Limite("valor de venta gravado", "3503", nc.gravado(), f.gravado()),
-                new Limite("IGV", "3503", nc.igv(), f.igv()), new Limite("valor de venta exonerado", "3503", nc.exonerado(), f.exonerado()),
-                new Limite("valor de venta inafecto", "3503", nc.inafecto(), f.inafecto()), new Limite("valor de las operaciones gratuitas", "3503", nc.gratuito(), f.gratuito()))) {
-            if (l.nota().subtract(l.factura()).compareTo(tol) > 0)
+        record Limite(String concepto, String regla, BigDecimal nota, BigDecimal factura, BigDecimal acreditado) {}
+        for (Limite l : List.of(new Limite("importe total", "3286", nc.total(), f.total(), previo.total()),
+                new Limite("valor de venta gravado", "3503", nc.gravado(), f.gravado(), previo.gravado()),
+                new Limite("IGV", "3503", nc.igv(), f.igv(), previo.igv()),
+                new Limite("IVAP", "3503", nc.ivap(), f.ivap(), previo.ivap()),
+                new Limite("valor de venta exonerado", "3503", nc.exonerado(), f.exonerado(), previo.exonerado()),
+                new Limite("valor de venta inafecto", "3503", nc.inafecto(), f.inafecto(), previo.inafecto()),
+                new Limite("valor de las operaciones gratuitas", "3503", nc.gratuito(), f.gratuito(), previo.gratuito()),
+                new Limite("valor de venta de exportación", "3503", nc.exportacion(), f.exportacion(), previo.exportacion()))) {
+            if (l.nota().add(l.acreditado()).subtract(l.factura()).compareTo(tol) > 0)
                 throw new DomainException("NOTA_INVALIDA", l.regla() + " - El " + l.concepto() + " de la nota (" + l.nota() + ") supera el de la factura "
-                        + factura.serie() + "-" + factura.numero() + " (" + l.factura() + ")");
+                        + factura.serie() + "-" + factura.numero() + " (" + l.factura() + ")"
+                        + (l.acreditado().signum() > 0 ? ": ya acreditado " + l.acreditado() + " en otras notas de crédito" : ""));
         }
     }
 
@@ -143,7 +198,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             c.asignarNumero(numero, tenant.ruc());
             enTransaccion.run();
 
-            String xml = ubl.generar(c, tenant);
+            // El XML lleva el domicilio del establecimiento de la serie (#80); con la serie en 0000, el fiscal del tenant.
+            String xml = ubl.generar(c, EmisorDeSerie.paraEmitir(emisorDeSerie, tenant, c));
             FirmaResultado firma = signer.firmar(xml, tenant.certificado());
             xsd.validar(firma.xmlFirmado(), c.tipo());
 
