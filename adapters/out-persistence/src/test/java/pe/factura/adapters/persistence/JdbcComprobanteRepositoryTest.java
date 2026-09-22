@@ -268,6 +268,13 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.contar(t, new Filtro(EstadoDocumento.FIRMADO, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30)))).isEqualTo(1);
         assertThat(repo.contar(t, new Filtro(EstadoDocumento.FIRMADO, LocalDate.of(2026, 9, 11), null))).isZero();
         assertThat(repo.contar(t, Filtro.NINGUNO)).isEqualTo(3);
+        // Serie (#3): exacta; inexistente → vacío y 0
+        Comprobante otraSerie = Comprobante.factura(t, "F002", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(clock);
+        otraSerie.asignarNumero(1, "20100066603"); repo.guardar(otraSerie);
+        assertThat(repo.listar(t, new Filtro(null, null, null, "F002"), 1, 10)).extracting(Comprobante::id).containsExactly(otraSerie.id());
+        assertThat(repo.contar(t, new Filtro(null, LocalDate.of(2026, 9, 13), LocalDate.of(2026, 9, 13), "F001"))).isEqualTo(1);
+        assertThat(repo.contar(t, new Filtro(null, null, null, "F999"))).isZero();
     }
 
     @Test void guardaYRehidrataNotasYLasListaPorFactura() {

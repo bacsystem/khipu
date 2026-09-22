@@ -148,13 +148,14 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         return total == null ? 0 : total;
     }
 
-    /** Filtros del listado (#2): estado y rango de fecha de emisión, inclusive; el WHERE y sus argumentos se comparten con el conteo. */
+    /** Filtros del listado (#2, #3): estado, rango de fecha de emisión (inclusive) y serie; el WHERE y sus argumentos se comparten con el conteo. */
     private static String where(UUID tenantId, ConsultarComprobanteUseCase.Filtro f, List<Object> args) {
         StringBuilder w = new StringBuilder(" WHERE d.tenant_id = ?");
         args.add(tenantId);
         if (f.estado() != null) { w.append(" AND d.estado = ?"); args.add(f.estado().name()); }
         if (f.desde() != null) { w.append(" AND d.fecha_emision >= ?"); args.add(Date.valueOf(f.desde())); }
         if (f.hasta() != null) { w.append(" AND d.fecha_emision <= ?"); args.add(Date.valueOf(f.hasta())); }
+        if (f.serie() != null) { w.append(" AND d.serie = ?"); args.add(f.serie()); }
         return w.toString();
     }
 
