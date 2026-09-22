@@ -357,7 +357,7 @@ public class Comprobante {
     }
 
     public void rechazarPorFault(String codigo, String descripcion) {
-        if (estado.esEnviable()) transitar(EstadoDocumento.ENVIADO, "Enviado a SUNAT (intento " + (intentos + 1) + ")");
+        if (estado.esEnviable()) marcarEnviado();
         transitar(EstadoDocumento.RECHAZADO, codigo + " - " + descripcion);
         this.cdr = new Cdr(codigo, descripcion, List.of());
     }
