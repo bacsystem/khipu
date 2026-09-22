@@ -25,6 +25,12 @@ class PlazoEnvioTest {
         assertThat(PlazoEnvio.vencido(TipoDocumento.NOTA_CREDITO, emision, LocalDate.of(2026, 9, 13))).isFalse();
     }
 
+    /** El corte grueso de ControlarPlazoEnvioService usa este mínimo: debe seguir siendo válido si algún tipo cambia su plazo. */
+    @Test void diasMinimoEsElMenorEntreTodosLosTipos() {
+        assertThat(PlazoEnvio.diasMinimo()).isEqualTo(3);
+        for (TipoDocumento t : TipoDocumento.values()) assertThat(PlazoEnvio.diasMinimo()).isLessThanOrEqualTo(PlazoEnvio.dias(t));
+    }
+
     @Test void finDeMesYAnioBisiesto() {
         assertThat(PlazoEnvio.fechaLimite(TipoDocumento.FACTURA, LocalDate.of(2026, 1, 30))).isEqualTo(LocalDate.of(2026, 2, 2));
         assertThat(PlazoEnvio.fechaLimite(TipoDocumento.FACTURA, LocalDate.of(2028, 2, 27))).isEqualTo(LocalDate.of(2028, 3, 1));   // 29 de febrero cuenta

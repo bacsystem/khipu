@@ -97,7 +97,7 @@ class ExportacionTest {
     }
 
     @Test void receptorDelExterior_2800() {
-        // RUC en 0200 sin leyenda 2008
+        // RUC en 0200
         assertThatThrownBy(() -> factura("0200", new Receptor("6", "20601234565", "CLIENTE SAC", null, "PE"), List.of(cafe("1"))).crear(CLOCK))
                 .isInstanceOf(DomainException.class).hasMessageContaining("2800").extracting("codigo").isEqualTo("RECEPTOR_INVALIDO");
         // RUC en 0206 (servicios complementarios al transporte de carga) sí se admite

@@ -156,17 +156,27 @@ class ComprobanteTest {
 
     /** Validaciones locales de la línea (#35): lo que SUNAT rechazaría con 2024–2027/2883 se ataja antes de consumir número. */
     @Test void laLineaSeValidaAntesDeNumerar() {
-        java.util.function.Function<Item, Item> ok = it -> it;
-        assertThatThrownBy(() -> new Item("P", " ", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)).hasMessageContaining("2026");
-        assertThatThrownBy(() -> new Item("P", "x".repeat(501), "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)).hasMessageContaining("2027");
-        assertThatThrownBy(() -> new Item("P", "Prod", "unidad", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)).hasMessageContaining("2883");
-        assertThatThrownBy(() -> new Item("P", "Prod", "NIU", BigDecimal.ZERO, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)).hasMessageContaining("2024");
-        assertThatThrownBy(() -> new Item("P", "Prod", "NIU", new BigDecimal("1.00000000001"), BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)).hasMessageContaining("2025");
-        assertThatThrownBy(() -> new Item("P", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("-1"), TipoAfectacionIgv.GRAVADO)).hasMessageContaining("negativo");
-        assertThatThrownBy(() -> new Item("x".repeat(31), "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)).hasMessageContaining("30 caracteres");
-        Item bien = ok.apply(new Item("SKU-1", "  Menú del día  ", "NIU", new BigDecimal("2.5"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        assertThatThrownBy(() -> new Item("P", " ", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2026");
+        assertThatThrownBy(() -> new Item("P", "x".repeat(501), "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2027");
+        assertThatThrownBy(() -> new Item("P", "Prod", "unidad", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2883");
+        assertThatThrownBy(() -> new Item("P", "Prod", "NIU", BigDecimal.ZERO, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2024");
+        assertThatThrownBy(() -> new Item("P", "Prod", "NIU", new BigDecimal("1.00000000001"), BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2025");
+        assertThatThrownBy(() -> new Item("P", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("-1"), TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("negativo");
+        assertThatThrownBy(() -> new Item("x".repeat(31), "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("30 caracteres");
+        Item bien = new Item("SKU-1", "  Menú del día  ", "NIU", new BigDecimal("2.5"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO);
+        bien.exigirValidoParaFactura();
         assertThat(bien.descripcion()).isEqualTo("Menú del día");
-        assertThat(new Item(null, "Gratis", "ZZ", BigDecimal.ONE, BigDecimal.ZERO, TipoAfectacionIgv.GRAVADO_BONIFICACION).precioUnitario()).isEqualByComparingTo("0");
+        Item gratis = new Item(null, "Gratis", "ZZ", BigDecimal.ONE, BigDecimal.ZERO, TipoAfectacionIgv.GRAVADO_BONIFICACION);
+        gratis.exigirValidoParaFactura();
+        assertThat(gratis.precioUnitario()).isEqualByComparingTo("0");
+    }
+
+    /** Como con el receptor: un ítem ya emitido con un valor que una regla añadida después rechazaría se sigue leyendo tal cual. */
+    @Test void rehidratarNoValidaLosItems() {
+        Item unidadInvalida = new Item("P1", "Prod", "und", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO);
+        Comprobante c = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 1L, LocalDate.of(2026, 9, 13), EstadoDocumento.ACEPTADO, empresa, List.of(unidadInvalida))
+                .firma("h", "n", "k").rehidratar();
+        assertThat(c.totales().items().get(0).item().unidad()).isEqualTo("und");
     }
 
     /** El receptor de una factura lleva RUC con dígito verificador (2017) y razón social de 3 a 1500 caracteres (2022). */

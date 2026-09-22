@@ -21,7 +21,6 @@ public interface ConsultarComprobanteUseCase {
      */
     record Filtro(EstadoDocumento estado, java.time.LocalDate desde, java.time.LocalDate hasta, String serie) {
         public static final Filtro NINGUNO = new Filtro(null, null, null, null);
-        public static Filtro porEstado(EstadoDocumento estado) { return new Filtro(estado, null, null, null); }
         public Filtro(EstadoDocumento estado, java.time.LocalDate desde, java.time.LocalDate hasta) { this(estado, desde, hasta, null); }
         public Filtro {
             if (desde != null && hasta != null && desde.isAfter(hasta))

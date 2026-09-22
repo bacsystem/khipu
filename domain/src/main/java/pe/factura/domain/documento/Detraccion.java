@@ -84,8 +84,10 @@ public record Detraccion(String codigoBienServicio, BigDecimal porcentaje, BigDe
         for (Item i : items) {
             if (hidro && !i.tieneHidrobiologico())
                 throw new DomainException("DETRACCION_INVALIDA", "3063 - La operación 1002 (recursos hidrobiológicos) exige en cada ítem hidrobiologico {matricula, nombre_embarcacion, especie, lugar_descarga, fecha_descarga, cantidad}; falta en «" + i.descripcion() + "»");
+            if (hidro) i.hidrobiologico().exigirValido();
             if (transporte && !i.tieneTransporte())
                 throw new DomainException("DETRACCION_INVALIDA", "3116 - La operación 1004 (transporte de carga) exige en cada ítem transporte {origen, destino, detalle_viaje, valor_referencial}; falta en «" + i.descripcion() + "»");
+            if (transporte) i.transporte().exigirValido();
             if (!hidro && i.tieneHidrobiologico())
                 throw new DomainException("DETRACCION_INVALIDA", "Los datos de recursos hidrobiológicos (hidrobiologico) solo aplican al tipo de operación 1002; recibido " + tipoOperacion);
             if (!transporte && i.tieneTransporte())

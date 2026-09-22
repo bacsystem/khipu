@@ -6,6 +6,7 @@ import pe.factura.domain.DomainException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -110,7 +111,24 @@ class IscIcbperTest {
         // Validaciones: base_pvp obligatoria y no menor que el valor unitario; los otros sistemas no la llevan.
         assertThatThrownBy(() -> new Isc("03", new BigDecimal("30"), null, null)).isInstanceOf(DomainException.class).hasMessageContaining("base_pvp");
         assertThatThrownBy(() -> new Isc("01", new BigDecimal("30"), null, new BigDecimal("3.50"))).hasMessageContaining("no lleva base_pvp");
-        assertThatThrownBy(() -> ItemCalculado.de(new Item("C1", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("11.80"), TipoAfectacionIgv.GRAVADO, null, new Isc("03", new BigDecimal("30"), null, new BigDecimal("1.00")), false)))
-                .hasMessageContaining("PVP sugerido").hasMessageContaining("no puede ser menor");
+    }
+
+    /**
+     * La regla del PVP sugerido (#68, 3108) se exige solo al emitir ({@link Comprobante.FacturaBuilder#crear}), no dentro de
+     * {@link ItemCalculado#de}: así una factura ya emitida y persistida se puede seguir leyendo aunque la regla cambie después (#89).
+     */
+    @Test void elPvpSugeridoMenorQueElValorUnitarioSeExigeSoloAlEmitir() {
+        Item cervezaPvpBajo = new Item("C1", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("11.80"), TipoAfectacionIgv.GRAVADO, null, new Isc("03", new BigDecimal("30"), null, new BigDecimal("1.00")), false);
+        ItemCalculado ic = ItemCalculado.de(cervezaPvpBajo);   // no lanza: la validación de negocio no vive aquí
+        assertThatThrownBy(ic::exigirBasePvpValida).hasMessageContaining("PVP sugerido").hasMessageContaining("no puede ser menor");
+
+        Receptor receptor = new Receptor("6", "20601234565", "CLIENTE SAC", null);
+        java.time.Clock reloj = java.time.Clock.fixed(java.time.Instant.parse("2026-09-13T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+        assertThatThrownBy(() -> Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", receptor, List.of(cervezaPvpBajo)).crear(reloj))
+                .isInstanceOf(DomainException.class).hasMessageContaining("PVP sugerido");
+
+        Comprobante rehidratado = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 1L, LocalDate.of(2026, 9, 13), EstadoDocumento.ACEPTADO, receptor, List.of(cervezaPvpBajo))
+                .firma("h", "n", "k").rehidratar();   // no lanza: rehidratar no revalida
+        assertThat(rehidratado.totales().items().get(0).item().isc().basePvp()).isEqualByComparingTo("1.00");
     }
 }
