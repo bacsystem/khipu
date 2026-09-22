@@ -4,9 +4,9 @@ import { errorResponse } from "@/lib/api/http";
 import { clearEmpresaActiva, writeTokens } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
-  const { nombre, email, password } = await req.json();
+  const { nombre, email, password, telefono } = await req.json();
   try {
-    const tokens = await registrar(nombre, email, password);
+    const tokens = await registrar(nombre, email, password, telefono);
     const res = NextResponse.json(
       { estado: "exito", datos: { usuario: tokens.usuario }, mensaje: null, codigo: null, errores: null },
       { status: 201 },

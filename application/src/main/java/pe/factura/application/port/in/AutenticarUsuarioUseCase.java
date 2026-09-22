@@ -8,7 +8,7 @@ public interface AutenticarUsuarioUseCase {
     /** access: JWT de corta vida; refresh: token opaco de larga vida (solo se guarda su hash). */
     record Tokens(String access, String refresh, Usuario usuario) {}
 
-    Tokens registrar(String nombreCuenta, String email, String password);
+    Tokens registrar(String nombreCuenta, String email, String password, String telefono);
     Tokens login(String email, String password);
     Tokens refrescar(String refresh);
     void logout(String refresh);

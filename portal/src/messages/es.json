@@ -31,6 +31,8 @@
       "titulo": "Crea tu cuenta",
       "subtitulo": "Empieza a emitir comprobantes en minutos.",
       "nombre": "Nombre de la cuenta",
+      "telefono": "Celular (Perú)",
+      "ayudaTelefono": "Te contactamos si hay algún problema con tu cuenta. 9 dígitos, empieza con 9.",
       "email": "Correo electrónico",
       "password": "Contraseña",
       "ayudaPassword": "Mínimo 8 caracteres, con una letra y un número.",

@@ -42,7 +42,7 @@ class AuthE2ETest {
     private Cuenta registrar(String nombre, String email) {
         HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
         ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro",
-                new HttpEntity<>("{\"nombre\":\"%s\",\"email\":\"%s\",\"password\":\"Segura123\"}".formatted(nombre, email), h), Map.class);
+                new HttpEntity<>("{\"nombre\":\"%s\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}".formatted(nombre, email), h), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         Map<?, ?> datos = (Map<?, ?>) r.getBody().get("datos");
         Map<?, ?> usuario = (Map<?, ?>) datos.get("usuario");

@@ -9,10 +9,11 @@ import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import { postJson } from "@/lib/api/browser";
 import { mensajeError, messages } from "@/lib/messages";
-import { emailSchema, passwordSchema } from "@/lib/validacion";
+import { emailSchema, passwordSchema, telefonoSchema } from "@/lib/validacion";
 
 const schema = z.object({
   nombre: z.string().min(1, "Ingresa el nombre de tu cuenta").max(150),
+  telefono: telefonoSchema,
   email: emailSchema,
   password: passwordSchema,
 });
@@ -47,6 +48,17 @@ export function RegistroForm() {
         autoComplete="organization"
         register={register("nombre")}
         error={errors.nombre?.message}
+      />
+      <FormField
+        id="telefono"
+        label={messages.auth.registro.telefono}
+        type="tel"
+        autoComplete="tel-national"
+        inputMode="numeric"
+        placeholder="987654321"
+        register={register("telefono")}
+        error={errors.telefono?.message}
+        hint={messages.auth.registro.ayudaTelefono}
       />
       <FormField
         id="email"

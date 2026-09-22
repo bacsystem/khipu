@@ -24,11 +24,16 @@ class JdbcAuthRepositoriesTest extends PersistenciaTestBase {
 
     @Test void cuentaUsuarioYEmpresasDeLaCuenta() {
         jdbc.update("TRUNCATE token_recuperacion, sesion, usuario, cuenta CASCADE");
-        Cuenta c = new Cuenta(UUID.randomUUID(), "Mi negocio", "ana@negocio.pe");
+        Cuenta c = new Cuenta(UUID.randomUUID(), "Mi negocio", "ana@negocio.pe", "987654321");
         cuentas.guardar(c);
         Usuario u = new Usuario(UUID.randomUUID(), c.id(), "ana@negocio.pe", "hash", Rol.ADMIN, true);
         usuarios.guardar(u);
         assertThat(cuentas.buscarPorEmail("ana@negocio.pe")).contains(c);
+        assertThat(cuentas.buscar(c.id()).orElseThrow().telefono()).isEqualTo("987654321");
+        // Cuentas creadas antes de este campo (o sin celular): vuelve null, no falla.
+        Cuenta sinTelefono = new Cuenta(UUID.randomUUID(), "Sin celular", "sin-telefono@negocio.pe");
+        cuentas.guardar(sinTelefono);
+        assertThat(cuentas.buscar(sinTelefono.id()).orElseThrow().telefono()).isNull();
         assertThat(usuarios.buscarPorEmail("ana@negocio.pe")).contains(u);
         usuarios.guardar(u.conPasswordHash("hash2"));
         assertThat(usuarios.buscar(u.id()).orElseThrow().passwordHash()).isEqualTo("hash2");

@@ -13,8 +13,8 @@ export type Tokens = {
   usuario: Usuario;
 };
 
-export function registrar(nombre: string, email: string, password: string) {
-  return backendFetch<Tokens>("/v1/auth/registro", { method: "POST", body: { nombre, email, password } });
+export function registrar(nombre: string, email: string, password: string, telefono: string) {
+  return backendFetch<Tokens>("/v1/auth/registro", { method: "POST", body: { nombre, email, password, telefono } });
 }
 
 export function login(email: string, password: string) {

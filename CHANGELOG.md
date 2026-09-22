@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.41] - 2026-09-21
+
+### Added
+- Registro: se pide el celular de contacto en Perú (`telefono`, 9 dígitos que empiezan con 9; admite `+51`/`51` y espacios o guiones, se normaliza sin ellos). Validado en el dominio (`Cuenta.normalizarTelefono`, `422 TELEFONO_INVALIDO`) y exigido en `POST /v1/auth/registro`; se guarda en `cuenta.telefono` (migración V23, columna nula para las cuentas creadas antes de este campo — no se revalida al leerlas). Portal: nuevo campo "Celular (Perú)" en el formulario de registro.
+
 ## [0.1.40] - 2026-09-21
 
 ### Changed

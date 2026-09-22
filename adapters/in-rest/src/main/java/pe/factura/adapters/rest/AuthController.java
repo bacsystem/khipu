@@ -29,7 +29,7 @@ public class AuthController {
     @PostMapping("/registro")
     @Operation(summary = "Registrar una cuenta", description = "Crea la cuenta del portal y devuelve los tokens de sesión.")
     public ResponseEntity<ApiResponse<TokensResponse>> registrar(@Valid @RequestBody RegistroRequest body) {
-        var tokens = auth.registrar(body.nombre(), body.email(), body.password());
+        var tokens = auth.registrar(body.nombre(), body.email(), body.password(), body.telefono());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(TokensResponse.de(tokens)));
     }
 
