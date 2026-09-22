@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.40] - 2026-09-21
+
+### Changed
+- Portal: rediseño del landing público (`/`) — más comercial y con un momento de movimiento deliberado (el panel "en vivo" del hero anima el pulso de cada paso del pipeline de emisión, respetando `prefers-reduced-motion`). Nueva sección "Cómo funciona" (4 pasos reales del flujo de alta) y "Preguntas frecuentes" (5 preguntas honestas, sin datos inventados); beneficios y audiencias pasan de tarjetas repetidas a listas/columnas con líneas divisorias; franja de confianza y catálogo de comprobantes más quietos; cierre con una franja de alto contraste. El encabezado usa el logo real de la marca (`LogoMarca`, ahora con `href` configurable) en vez de texto genérico. Sin cambios de precios, backend ni dependencias nuevas.
+
 ## [0.1.39] - 2026-09-19
 
 ### Added
