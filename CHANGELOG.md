@@ -106,7 +106,6 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); vers
 
 ### Fixed
 - API: una nota de crédito ya no puede acreditar más de lo que le queda a la factura (#83). `POST /v1/notas` descuenta lo acreditado por las NC anteriores vigentes sobre la misma factura (las `RECHAZADO`/`INVALIDO`/`ANULADO` no cuentan; las pendientes de envío sí) antes de aplicar los límites 3286 (total) y 3503 (bases e IGV por tributo): varias parciales pueden sumar la factura, pero una segunda nota total —o cualquiera que exceda el saldo— responde `422 NOTA_INVALIDA` indicando cuánto ya está acreditado. SUNAT compara nota por nota y acepta la duplicada (reproducido en e-beta el 2026-09-19); la comprobación corre con la factura bloqueada por fila, igual que la de anticipos. Documentado en `/developers` (guía y errores).
->>>>>>> origin/main
 
 ## [0.1.21] - 2026-09-18
 
