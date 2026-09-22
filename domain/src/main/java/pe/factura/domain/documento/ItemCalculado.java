@@ -57,8 +57,6 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         BigDecimal valorVenta = (afectaBase ? baseBruta.subtract(descuento) : baseBruta).add(cargosAfectanBase);
         BigDecimal isc = item.tieneIsc() && !af.gratuita() ? item.isc().montoSobre(valorVenta, cantidad) : BigDecimal.ZERO.setScale(2);
         BigDecimal iscBase = item.tieneIsc() && !af.gratuita() ? item.isc().baseSobre(valorVenta, cantidad) : BigDecimal.ZERO.setScale(2);
-        if (item.tieneIsc() && "03".equals(item.isc().sistema()) && !af.gratuita() && valorReferencial.compareTo(item.isc().basePvp()) > 0)
-            throw new DomainException("ISC_INVALIDO", "El PVP sugerido (base_pvp " + item.isc().basePvp() + ") no puede ser menor que el valor unitario sin tributos (" + valorReferencial.setScale(2, RoundingMode.HALF_UP) + ")");
         BigDecimal iscPorcentaje = item.tieneIsc() && !af.gratuita() ? item.isc().porcentajeSobre(iscBase, isc) : BigDecimal.ZERO;
         BigDecimal igv = af.gravado() ? valorVenta.add(isc).multiply(factorIgv).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
         BigDecimal descuentoNoAfecta = item.tieneDescuento() && !afectaBase ? descuento : BigDecimal.ZERO;
@@ -92,4 +90,14 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
     public BigDecimal totalTributos() { return igv.add(isc).add(icbper); }
     /** Código de tipo de precio (catálogo 16): 01 precio de venta, 02 valor referencial en gratuitas. */
     public String tipoPrecio() { return gratuita() ? "02" : "01"; }
+
+    /**
+     * Sistema 03 (#68, regla 3108): el PVP sugerido no puede ser menor que el valor unitario sin tributos. Se exige
+     * solo al emitir ({@link Comprobante.FacturaBuilder#crear}/{@link Comprobante.NotaBuilder#crear}); nunca al
+     * rehidratar un comprobante ya persistido, para no revalidar contra una regla que pudo cambiar después (#89).
+     */
+    public void exigirBasePvpValida() {
+        if (item.tieneIsc() && "03".equals(item.isc().sistema()) && valorUnitario.compareTo(item.isc().basePvp()) > 0)
+            throw new DomainException("ISC_INVALIDO", "El PVP sugerido (base_pvp " + item.isc().basePvp() + ") no puede ser menor que el valor unitario sin tributos (" + valorUnitario.setScale(2, RoundingMode.HALF_UP) + ")");
+    }
 }
