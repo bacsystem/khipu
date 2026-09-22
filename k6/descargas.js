@@ -3,11 +3,11 @@
 // de uno al azar (simula el patrón real: pocas emisiones, muchas descargas).
 //
 // Uso:
-//   API_BASE_URL=http://localhost:8080 API_KEY=fk_... k6 run k6/descargas.js
+//   API_BASE_URL=http://localhost:8001 API_KEY=fk_... k6 run k6/descargas.js
 import http from "k6/http";
 import { check } from "k6";
 
-const BASE_URL = __ENV.API_BASE_URL || "http://localhost:8080";
+const BASE_URL = __ENV.API_BASE_URL || "http://localhost:8001";
 const API_KEY = __ENV.API_KEY;
 const SERIE = __ENV.SERIE || "F001";
 const SEMILLA = Number(__ENV.SEMILLA || 50);

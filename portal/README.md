@@ -24,7 +24,7 @@ el otro equipo:
 PORTAL_URL=http://192.168.18.134:3000 ./gradlew :bootstrap:bootRun
 
 # portal
-PORTAL_DEV_ORIGINS=192.168.18.134 API_BASE_URL=http://192.168.18.134:8080 npm run dev
+PORTAL_DEV_ORIGINS=192.168.18.134 API_BASE_URL=http://192.168.18.134:8001 npm run dev
 ```
 
 Las cookies de sesión solo llevan `secure` en producción (`next start` / Docker), donde hace falta HTTPS;
@@ -32,7 +32,7 @@ en dev funcionan por HTTP plano.
 
 ```bash
 docker build -t portal .
-docker run -p 3000:3000 -e API_BASE_URL=http://host.docker.internal:8080 -e API_PUBLIC_URL=http://localhost:8080 portal
+docker run -p 3000:3000 -e API_BASE_URL=http://host.docker.internal:8001 -e API_PUBLIC_URL=http://localhost:8001 portal
 ```
 
 `API_BASE_URL` es la URL con la que el contenedor habla con la API; `API_PUBLIC_URL` la que se muestra al usuario

@@ -1,0 +1,19 @@
+# Build context del backend (deploy/backend/Dockerfile) tiene raíz en "."; el resto no lo necesita para bootJar.
+portal/
+docs/
+k6/
+storage/
+.git/
+.github/
+.idea/
+.vscode/
+.gradle/
+build/
+*/build/
+adapters/*/build/
+.superpowers/
+*.iml
+.DS_Store
+.env
+CHANGELOG.md
+README.md

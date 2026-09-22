@@ -71,7 +71,7 @@ mc mirror ./storage minio/mi-bucket                                 # MinIO
 # 2. Cambia el entorno y arranca:
 STORAGE_TYPE=s3 STORAGE_S3_BUCKET=mi-bucket STORAGE_S3_ENDPOINT=https://… STORAGE_S3_PATH_STYLE=true ./gradlew :bootstrap:bootRun
 # 3. Verifica el periodo migrado antes de retirar el disco:
-curl -X POST -H "X-Platform-Key: $PLATFORM_ADMIN_KEY" "http://localhost:8080/v1/admin/integridad?desde=2024-01-01&hasta=$(date +%F)"
+curl -X POST -H "X-Platform-Key: $PLATFORM_ADMIN_KEY" "http://localhost:8001/v1/admin/integridad?desde=2024-01-01&hasta=$(date +%F)"
 ```
 Para probar en local, `docker compose --profile s3 up -d minio` levanta MinIO en `http://localhost:9000` (consola en `:9001`,
 usuario/clave `khipu`/`khipu-minio`) con el bucket `khipu` creado; `.env.example` trae las variables comentadas.

@@ -4,10 +4,10 @@
 # tenants reales. Imprime la API key al final (úsala como $API_KEY con los
 # scripts de k6).
 #
-# Uso: API_BASE_URL=http://localhost:8080 ./k6/preparar-tenant.sh
+# Uso: API_BASE_URL=http://localhost:8001 ./k6/preparar-tenant.sh
 set -euo pipefail
 
-BASE_URL="${API_BASE_URL:-http://localhost:8080}"
+BASE_URL="${API_BASE_URL:-http://localhost:8001}"
 SUFIJO="$(date +%s)"
 EMAIL="carga-k6-${SUFIJO}@example.com"
 PASSWORD="Passw0rd1"

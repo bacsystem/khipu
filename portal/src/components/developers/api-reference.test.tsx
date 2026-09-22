@@ -12,7 +12,7 @@ describe("ApiReference", () => {
   it("limpia light-mode/dark-mode de document.body al desmontar", () => {
     document.body.classList.add("dark-mode");
 
-    const { unmount } = render(<ApiReference spec={{}} baseServerURL="http://localhost:8080" />);
+    const { unmount } = render(<ApiReference spec={{}} baseServerURL="http://localhost:8001" />);
     expect(document.body.classList.contains("dark-mode")).toBe(true);
 
     unmount();

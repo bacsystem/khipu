@@ -15,15 +15,15 @@ autofirmado (con el RUC en el `OU`, que es lo único que valida el backend) + se
 `F001` + API key, todo aislado.
 
 ```bash
-API_BASE_URL=http://localhost:8080 ./k6/preparar-tenant.sh
+API_BASE_URL=http://localhost:8001 ./k6/preparar-tenant.sh
 # imprime la API key en stdout (los pasos intermedios van a stderr)
 ```
 
 ## Correr los escenarios
 
 ```bash
-API_BASE_URL=http://localhost:8080 API_KEY=fk_... k6 run k6/emision.js
-API_BASE_URL=http://localhost:8080 API_KEY=fk_... k6 run k6/descargas.js
+API_BASE_URL=http://localhost:8001 API_KEY=fk_... k6 run k6/emision.js
+API_BASE_URL=http://localhost:8001 API_KEY=fk_... k6 run k6/descargas.js
 ```
 
 ## Hallazgo: la emisión no llega a 50 doc/s en una sola serie

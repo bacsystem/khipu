@@ -12,13 +12,18 @@ spring:
     property-naming-strategy: SNAKE_CASE
     default-property-inclusion: non_null
 server:
-  port: 8080
+  port: ${PORT:8001}
 management:
   endpoints:
     web:
       base-path: /
       exposure:
         include: health
+  health:
+    # El correo es opcional (MAIL_HABILITADO=false por defecto, con LogCorreoSender de fallback); sin SMTP
+    # configurado su indicador deja /health en DOWN y un healthcheck de plataforma nunca pasaría.
+    mail:
+      enabled: false
 springdoc:
   api-docs:
     path: /openapi.json
