@@ -16,7 +16,6 @@ public interface ConsultarComprobanteUseCase {
     /** Filtros del listado (#2): todos opcionales y combinables; {@code desde}/{@code hasta} acotan la fecha de emisión, inclusive. */
     record Filtro(EstadoDocumento estado, java.time.LocalDate desde, java.time.LocalDate hasta) {
         public static final Filtro NINGUNO = new Filtro(null, null, null);
-        public static Filtro porEstado(EstadoDocumento estado) { return new Filtro(estado, null, null); }
         public Filtro {
             if (desde != null && hasta != null && desde.isAfter(hasta))
                 throw new pe.factura.domain.DomainException("RANGO_INVALIDO", "desde (" + desde + ") no puede ser posterior a hasta (" + hasta + ")");
