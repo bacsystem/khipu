@@ -51,13 +51,13 @@ class FacturaE2ETest {
           <cac:DocumentResponse><cac:Response><cbc:ResponseCode>0</cbc:ResponseCode><cbc:Description>La Factura numero F001-1, ha sido aceptada</cbc:Description></cac:Response></cac:DocumentResponse>
         </ar:ApplicationResponse>""";
 
-    private static String soapOk(String nombre) {
+    static String soapOk(String nombre) {
         byte[] zip = ZipUtil.comprimir("R-" + nombre + ".xml", CDR_OK.getBytes());
         return "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:sendBillResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><applicationResponse>"
                 + Base64.getEncoder().encodeToString(zip) + "</applicationResponse></ns2:sendBillResponse></soap-env:Body></soap-env:Envelope>";
     }
 
-    private String provisionarTenant() throws Exception {
+    String provisionarTenant() throws Exception {
         HttpHeaders admin = new HttpHeaders(); admin.set("X-Platform-Key", "plataforma-test"); admin.setContentType(MediaType.APPLICATION_JSON);
         ResponseEntity<Map> creado = http.postForEntity("/v1/admin/tenants",
                 new HttpEntity<>("{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA DE PRUEBA S.A.C.\",\"entorno\":\"BETA\"}", admin), Map.class);
@@ -79,7 +79,7 @@ class FacturaE2ETest {
 
     static final String FACTURA = """
         {"serie":"F001","fecha_emision":"%s","tipo_operacion":"0101","moneda":"PEN",
-         "cliente":{"tipo_doc":"6","num_doc":"20601234567","razon_social":"CLIENTE SAC","direccion":"AV. LIMA 1"},
+         "cliente":{"tipo_doc":"6","num_doc":"20601234565","razon_social":"CLIENTE SAC","direccion":"AV. LIMA 1"},
          "items":[{"codigo":"P001","descripcion":"Laptop","unidad":"NIU","cantidad":1,"precio_unitario":2360.00,"tipo_afectacion_igv":"10"}]}
         """.formatted(java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")));
 
@@ -128,7 +128,14 @@ class FacturaE2ETest {
         assertThat(worker.procesar()).isEqualTo(1);
 
         ResponseEntity<Map> despues = http.exchange("/v1/facturas/" + datos.get("id"), HttpMethod.GET, new HttpEntity<>(h), Map.class);
-        assertThat(((Map<?, ?>) despues.getBody().get("datos")).get("estado_documento")).isEqualTo("ACEPTADO");
+        Map<?, ?> d = (Map<?, ?>) despues.getBody().get("datos");
+        assertThat(d.get("estado_documento")).isEqualTo("ACEPTADO");
+        // Historial de intentos (#4): el error y la aceptación posterior, con su motivo, en orden.
+        java.util.List<Map<?, ?>> eventos = (java.util.List<Map<?, ?>>) d.get("eventos");
+        assertThat(eventos.stream().map(e -> (String) e.get("estado_resultante")).toList()).containsExactly("FIRMADO", "ERROR_ENVIO", "ENVIADO", "ACEPTADO");
+        assertThat((String) eventos.get(1).get("mensaje")).isNotBlank();
+        assertThat((String) eventos.get(2).get("mensaje")).isEqualTo("Enviado a SUNAT (intento 2)");
+        assertThat((String) eventos.get(3).get("mensaje")).contains("ha sido aceptada");
     }
 
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;

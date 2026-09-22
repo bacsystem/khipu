@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,10 +21,12 @@ import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.in.DarDeBajaUseCase;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
+import pe.factura.application.port.in.RecuperarCdrUseCase;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,6 +49,7 @@ public class FacturaController {
     private final ConsultarComprobanteUseCase consultar;
     private final DarDeBajaUseCase bajas;
     private final CompartirComprobanteUseCase compartir;
+    private final RecuperarCdrUseCase cdrs;
 
 
     @PostMapping
@@ -79,27 +83,34 @@ public class FacturaController {
     @GetMapping
     @Operation(summary = "Listar facturas", description = """
             Facturas de la empresa, de la más reciente a la más antigua, paginadas. El total de resultados va en la cabecera
-            `X-Total-Count`. Filtre por `estado` para trabajar una cola (p. ej. `ERROR_ENVIO` para reintentar, `RECHAZADO`
-            para corregir y reemitir).""")
+            `X-Total-Count` y refleja los filtros. Filtre por `estado` para trabajar una cola (p. ej. `ERROR_ENVIO` para reintentar,
+            `RECHAZADO` para corregir y reemitir) y por fecha de emisión con `desde`/`hasta` (inclusive, rango abierto si falta uno;
+            `desde > hasta` responde `400 RANGO_INVALIDO`, una fecha mal formada `400 PARAMETRO_INVALIDO`) y por `serie` exacta
+            (F001, FC01…; con formato inválido `400 PARAMETRO_INVALIDO`, inexistente → lista vacía).""")
     public ResponseEntity<ApiResponse<List<ComprobanteResponse>>> listar(HttpServletRequest req,
                                                                         @Parameter(description = "Estado del comprobante (ver *Estados del comprobante*)") @RequestParam(required = false) EstadoDocumento estado,
+                                                                        @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-09-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+                                                                        @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)", example = "2026-09-30") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+                                                                        @Parameter(description = "Serie exacta del comprobante (4 caracteres: F001, FC01, FD01…)", example = "F001") @RequestParam(required = false) String serie,
                                                                         @Parameter(description = "Página, desde 1") @RequestParam(defaultValue = "1") int pagina,
                                                                         @Parameter(description = "Resultados por página, 1–100") @RequestParam(name = "por_pagina", defaultValue = "20") int porPagina) {
         UUID t = TenantActual.id(req);
-        List<ComprobanteResponse> datos = consultar.listar(t, estado, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
+        var filtro = new ConsultarComprobanteUseCase.Filtro(estado, desde, hasta, serie);
+        List<ComprobanteResponse> datos = consultar.listar(t, filtro, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
                 .stream().map(c -> ComprobanteResponse.de(c, BASE)).toList();
-        return ResponseEntity.ok().header(TOTAL_HEADER, String.valueOf(consultar.contar(t, estado))).body(ApiResponse.ok(datos));
+        return ResponseEntity.ok().header(TOTAL_HEADER, String.valueOf(consultar.contar(t, filtro))).body(ApiResponse.ok(datos));
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Consultar un comprobante", description = """
             Estado actual, respuesta de SUNAT (`cdr`), totales, forma de pago y enlaces de descarga. Úselo para hacer seguimiento
             de un comprobante que quedó en `ERROR_ENVIO` o `ENVIADO`. Sirve también para las notas de crédito/débito emitidas con
-            `POST /v1/notas` (traen el bloque `nota`); una factura incluye en `notas` las notas emitidas sobre ella.""")
+            `POST /v1/notas` (traen el bloque `nota`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el
+            historial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente.""")
     public ApiResponse<ComprobanteResponse> obtener(HttpServletRequest req, @PathVariable UUID id) {
         UUID t = TenantActual.id(req);
         Comprobante c = consultar.obtener(t, id);
-        return ApiResponse.ok(ComprobanteResponse.de(c, BASE, consultar.notasDe(t, c), bajas.deComprobante(t, id).stream().findFirst().orElse(null)));
+        return ApiResponse.ok(ComprobanteResponse.de(c, BASE, consultar.notasDe(t, c), bajas.deComprobante(t, id).stream().findFirst().orElse(null), consultar.eventos(t, c)));
     }
 
     @PostMapping("/{id}/enviar")
@@ -164,5 +175,16 @@ public class FacturaController {
         return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"R-" + c.nombreArchivo() + ".zip\"")
                 .body(consultar.cdr(t, id));
+    }
+
+    @PostMapping("/{id}/cdr/recuperar")
+    @Operation(summary = "Recuperar el CDR desde SUNAT", description = """
+            `getStatusCdr` de `billConsultService`: pide a SUNAT la constancia de un comprobante propio que quedó `ENVIADO` o en
+            `ERROR_ENVIO` (por ejemplo, la conexión se cortó después de que SUNAT lo aceptara) o que ya está resuelto pero perdió
+            su CDR en el storage. Si SUNAT lo tiene, lo guarda y aplica el resultado (`ACEPTADO`/`RECHAZADO`) sin reenviar;
+            si no, devuelve el comprobante sin cambios. Un barrido horario hace lo mismo para todas las empresas en producción.
+            Errores: `404 NO_ENCONTRADO`, `422 SIN_FIRMA`, `409 CDR_YA_DISPONIBLE`, `422 NO_DISPONIBLE_EN_BETA`, `422 CREDENCIALES_SOL_NO_CARGADAS`.""")
+    public ApiResponse<ComprobanteResponse> recuperarCdr(HttpServletRequest req, @PathVariable UUID id) {
+        return ApiResponse.ok(ComprobanteResponse.de(cdrs.recuperar(TenantActual.id(req), id), BASE));
     }
 }

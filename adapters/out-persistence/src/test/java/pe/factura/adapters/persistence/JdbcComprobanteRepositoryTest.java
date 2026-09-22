@@ -1,6 +1,7 @@
 package pe.factura.adapters.persistence;
 
 import org.junit.jupiter.api.Test;
+import pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro;
 import pe.factura.domain.documento.*;
 
 import java.math.BigDecimal;
@@ -15,22 +16,32 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
     Clock clock = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
 
     private Comprobante factura(UUID t, long numero) {
-        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
-                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
-                        new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)), clock);
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).crear(clock);
         c.asignarNumero(numero, "20100066603");
         return c;
     }
 
+    /**
+     * Un ítem persistido antes de una regla nueva (unidad, descripción, etc., #35) se sigue leyendo: la validación de
+     * Item corre al emitir (Comprobante.crearFactura/crearNota), no en el constructor del record, así que releer una fila
+     * vieja no la revalida. Reproduce el bug real: antes de este fix, repo.buscar lanzaba ITEM_INVALIDO al releer esto.
+     */
+    @Test void unItemConUnaReglaNuevaIncumplidaSeSigueLeyendo() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 50);
+        repo.guardar(c);
+        // Simula un dato persistido antes de la validación de unidad (catálogo 03, [A-Z0-9]{2,3}): la columna admite hasta 3 caracteres.
+        jdbc.update("UPDATE comprobante_item SET unidad = 'und' WHERE comprobante_id = ?", c.id());
+        Comprobante releido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(releido.totales().items()).extracting(ic -> ic.item().unidad()).contains("und");
+    }
+
     @Test void guardaYRehidrataFormaPagoAlCredito() {
         UUID t = tenantDePrueba();
-        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.credito(new BigDecimal("100.00"), List.of(
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).formaPago(FormaPago.credito(new BigDecimal("100.00"), List.of(
                         new FormaPago.Cuota(new BigDecimal("60.00"), LocalDate.of(2026, 10, 13)),
-                        new FormaPago.Cuota(new BigDecimal("40.00"), LocalDate.of(2026, 11, 13)))), clock);
+                        new FormaPago.Cuota(new BigDecimal("40.00"), LocalDate.of(2026, 11, 13))))).crear(clock);
         c.asignarNumero(3, "20100066603");
         c.firmar("H", "k.xml");
         repo.guardar(c);
@@ -50,11 +61,8 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
 
     @Test void guardaYRehidrataDescuentos() {
         UUID t = tenantDePrueba();
-        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(new BigDecimal("12.5"), true)),
-                        new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO, Descuento.monto(new BigDecimal("5.00"), false))),
-                FormaPago.contado(), Descuento.porcentaje(new BigDecimal("2"), true), clock);
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(new BigDecimal("12.5"), true)),
+                        new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO, Descuento.monto(new BigDecimal("5.00"), false)))).descuentoGlobal(Descuento.porcentaje(new BigDecimal("2"), true)).crear(clock);
         c.asignarNumero(5, "20100066603");
         c.firmar("H", "k.xml");
         repo.guardar(c);
@@ -68,12 +76,9 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
 
     @Test void guardaYRehidrataCargos() {
         UUID t = tenantDePrueba();
-        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
                                 List.of(Cargo.porcentaje("47", new BigDecimal("2.5")), Cargo.monto("48", new BigDecimal("5.00")))),
-                        new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, List.of(Cargo.monto("49", new BigDecimal("10.00")), Cargo.porcentaje("46", new BigDecimal("10"))), null, null, null, List.of(), clock);
+                        new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO))).cargos(List.of(Cargo.monto("49", new BigDecimal("10.00")), Cargo.porcentaje("46", new BigDecimal("10")))).crear(clock);
         c.asignarNumero(6, "20100066603");
         c.firmar("H", "k.xml");
         repo.guardar(c);
@@ -90,10 +95,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         UUID t = tenantDePrueba();
         Referencias refs = new Referencias("OC-2026-0457", List.of(new GuiaRelacionada("09", "T001-123"), new GuiaRelacionada("31", "V001-7")),
                 List.of(new DocumentoRelacionado("05", "SCOP-8841203")));
-        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, List.of(), null, null, null, List.of(), refs, clock);
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).referencias(refs).crear(clock);
         c.asignarNumero(7, "20100066603");
         c.firmar("H", "k.xml");
         repo.guardar(c);
@@ -111,11 +113,8 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
 
     @Test void guardaYRehidrataCamposOpcionales() {
         UUID t = tenantDePrueba();
-        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123")),
-                        new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), clock);
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123")),
+                        new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO))).fechaVencimiento(LocalDate.of(2026, 10, 13)).redondeo(new BigDecimal("-0.37")).crear(clock);
         c.asignarNumero(9, "20100066603");
         c.firmar("H", "k.xml");
         c.anotar("Entrega en almacén central.\nHorario: 9 a 18 h.");
@@ -130,6 +129,178 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.items().get(1).gtin()).isNull();
         assertThat(leido.totales().redondeo()).isEqualByComparingTo("-0.37");
         assertThat(leido.totales().total()).isEqualByComparingTo("177.00");
+        assertThat(leido.leyendas()).isEmpty();
+        // Leyendas declaradas (#66): se guardan y vuelven en orden.
+        Comprobante conLeyendas = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).leyendas(List.of("2001", "2005")).crear(clock);
+        conLeyendas.asignarNumero(10, "20100066603");
+        repo.guardar(conLeyendas);
+        assertThat(repo.buscar(t, conLeyendas.id()).orElseThrow().leyendas()).containsExactly("2001", "2005");
+    }
+
+    /** La tasa del IGV se guarda por comprobante: una factura al 10.5 % sigue al 10.5 % aunque la empresa salga del padrón (#84). */
+    @Test void guardaYRehidrataLaTasaDelIgv() {
+        UUID t = tenantDePrueba();
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Menú", "NIU", BigDecimal.ONE, new BigDecimal("110.50"), TipoAfectacionIgv.GRAVADO))).tasaIgv(new BigDecimal("10.50")).crear(clock);
+        c.asignarNumero(11, "20100066603");
+        repo.guardar(c);
+        Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(leido.tasaIgv()).isEqualByComparingTo("10.50");
+        assertThat(leido.totales().igv()).isEqualByComparingTo("10.50");
+        assertThat(leido.totales().total()).isEqualByComparingTo("110.50");
+        // Las existentes (sin tasa explícita) quedan al 18 %.
+        Comprobante general = factura(t, 12);
+        repo.guardar(general);
+        assertThat(repo.buscar(t, general.id()).orElseThrow().tasaIgv()).isEqualByComparingTo("18.00");
+    }
+
+    /** Exportación (#65): país del receptor, Incoterm y país de uso sobreviven al round-trip; sin ellos vuelve null. */
+    @Test void guardaYRehidrataExportacion() {
+        UUID t = tenantDePrueba();
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "USD", "0201", new Receptor("0", "DE811", "BERLIN SOFT GMBH", null, "DE"),
+                List.of(new Item("SRV", "Desarrollo de software", "ZZ", BigDecimal.ONE, new BigDecimal("5000.00"), TipoAfectacionIgv.EXPORTACION)))
+                .exportacion(new Exportacion("DAP", "DE")).crear(clock);
+        c.asignarNumero(13, "20100066603");
+        repo.guardar(c);
+        Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(leido.receptor().pais()).isEqualTo("DE");
+        assertThat(leido.receptor().tipoDoc()).isEqualTo("0");
+        assertThat(leido.exportacion()).isEqualTo(new Exportacion("DAP", "DE"));
+        assertThat(leido.totales().exportacion()).isEqualByComparingTo("5000.00");
+        assertThat(leido.totales().igv()).isEqualByComparingTo("0.00");
+        assertThat(leido.items().get(0).afectacion()).isEqualTo(TipoAfectacionIgv.EXPORTACION);
+        Comprobante interna = factura(t, 14);
+        repo.guardar(interna);
+        assertThat(repo.buscar(t, interna.id()).orElseThrow().exportacion()).isNull();
+        assertThat(repo.buscar(t, interna.id()).orElseThrow().receptor().pais()).isNull();
+    }
+
+    /** Detracción sectorial (#69): hidrobiológico y transporte (con tramos y vehículos) sobreviven al round-trip como JSON; sin ellos vuelven null. */
+    @Test void guardaYRehidrataDatosSectoriales() {
+        UUID t = tenantDePrueba();
+        Hidrobiologico h = new Hidrobiologico("CO-12345-PM", "DON JOSÉ II", "Anchoveta", "Muelle de Chimbote", LocalDate.of(2026, 9, 10), new BigDecimal("12.50"));
+        Comprobante pesca = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "1002", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("ANCH", "Anchoveta", "TNE", new BigDecimal("12.5"), new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, h, null)))
+                .detraccion(new Detraccion("004", new BigDecimal("4"), null, "00-000-123456", null)).crear(clock);
+        pesca.asignarNumero(15, "20100066603");
+        repo.guardar(pesca);
+        Item leido = repo.buscar(t, pesca.id()).orElseThrow().items().get(0);
+        assertThat(leido.hidrobiologico()).isEqualTo(h);
+        assertThat(leido.transporte()).isNull();
+
+        TransporteCarga tr = new TransporteCarga(new TransporteCarga.Punto("021801", "Av. Los Pescadores 450"), new TransporteCarga.Punto("150101", "Jr. de la Unión 100"),
+                "Traslado de carga", new TransporteCarga.ValorReferencial(new BigDecimal("2500"), new BigDecimal("2400"), new BigDecimal("2600")),
+                List.of(new TransporteCarga.Tramo("021801", "150101", "Chimbote – Lima", new BigDecimal("2400"), null, List.of(new TransporteCarga.Vehiculo("T3S3", new BigDecimal("30"), null)))));
+        Comprobante flete = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "1004", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("FLT", "Flete", "ZZ", BigDecimal.ONE, new BigDecimal("2950.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, tr)))
+                .detraccion(new Detraccion("027", new BigDecimal("4"), null, "00-000-123456", null)).crear(clock);
+        flete.asignarNumero(16, "20100066603");
+        repo.guardar(flete);
+        Item leidoFlete = repo.buscar(t, flete.id()).orElseThrow().items().get(0);
+        assertThat(leidoFlete.transporte()).isEqualTo(tr);
+        assertThat(leidoFlete.transporte().tramos().get(0).vehiculos().get(0).configuracion()).isEqualTo("T3S3");
+        assertThat(leidoFlete.hidrobiologico()).isNull();
+        assertThat(repo.buscar(t, factura(t, 17).id()).isEmpty()).isTrue();
+    }
+
+    /** Control del plazo (#37): solo FIRMADO y ERROR_ENVIO con fecha de emisión hasta el corte, de cualquier empresa. */
+    @Test void listaLosPendientesDeEnvioEmitidosHastaUnaFecha() {
+        UUID t = tenantDePrueba();
+        UUID otra = tenantDePrueba();
+        Comprobante firmada = factura(t, 1); firmada.firmar("H", "k1.xml"); repo.guardar(firmada);
+        Comprobante enError = factura(t, 2); enError.firmar("H", "k2.xml"); repo.guardar(enError);
+        enError.marcarErrorEnvio("timeout"); repo.guardar(enError);   // ERROR_ENVIO se guarda condicional: primero debe existir como FIRMADO
+        Comprobante aceptada = factura(t, 3); aceptada.firmar("H", "k3.xml"); repo.guardar(aceptada);
+        aceptada.marcarEnviado(); aceptada.aplicarCdr(new pe.factura.domain.documento.Cdr("0", "ok", List.of()), "c3"); repo.guardar(aceptada);
+        Comprobante ajena = factura(otra, 1); ajena.firmar("H", "k4.xml"); repo.guardar(ajena);
+        Comprobante recibida = factura(t, 4); repo.guardar(recibida);   // RECIBIDO: sin firmar, no entra
+
+        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id)
+                .containsExactlyInAnyOrder(firmada.id(), enError.id(), ajena.id());
+        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 12))).isEmpty();
+        firmada.marcarFueraDePlazo(LocalDate.of(2026, 9, 17));
+        repo.guardar(firmada);
+        assertThat(repo.buscar(t, firmada.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
+        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactlyInAnyOrder(enError.id(), ajena.id());
+    }
+
+    /** Recuperación de CDR (#36): firmados sin cdr_key en estados donde SUNAT pudo haberlo recibido. */
+    @Test void listaLosPendientesDeCdr() {
+        UUID t = tenantDePrueba();
+        Comprobante firmada = factura(t, 1); firmada.firmar("H", "k1.xml"); repo.guardar(firmada);   // FIRMADO: nunca se envió, no entra
+        Comprobante enviada = factura(t, 2); enviada.firmar("H", "k2.xml"); repo.guardar(enviada); enviada.marcarEnviado(); repo.guardar(enviada);
+        Comprobante aceptadaSinCdr = factura(t, 3); aceptadaSinCdr.firmar("H", "k3.xml"); repo.guardar(aceptadaSinCdr);
+        aceptadaSinCdr.marcarEnviado(); aceptadaSinCdr.aplicarCdr(new pe.factura.domain.documento.Cdr("0", "ok", List.of()), null); repo.guardar(aceptadaSinCdr);
+        Comprobante conCdr = factura(t, 4); conCdr.firmar("H", "k4.xml"); repo.guardar(conCdr);
+        conCdr.marcarEnviado(); conCdr.aplicarCdr(new pe.factura.domain.documento.Cdr("0", "ok", List.of()), "R-4.zip"); repo.guardar(conCdr);
+        assertThat(repo.pendientesDeCdr()).extracting(Comprobante::id).containsExactlyInAnyOrder(enviada.id(), aceptadaSinCdr.id());
+    }
+
+    /** Integridad del storage (#38): solo los firmados (con xml_key) del rango, de cualquier empresa. */
+    @Test void listaLosFirmadosEmitidosEntreDosFechas() {
+        UUID t = tenantDePrueba(), otro = tenantDePrueba();
+        Comprobante sinFirma = factura(t, 1); repo.guardar(sinFirma);
+        Comprobante firmada = factura(t, 2); firmada.firmar("H", "k2.xml"); repo.guardar(firmada);
+        Comprobante deOtro = factura(otro, 1); deOtro.firmar("H", "k3.xml"); repo.guardar(deOtro);
+        Comprobante antigua = Comprobante.factura(t, "F001", LocalDate.of(2026, 8, 31), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(java.time.Clock.fixed(java.time.Instant.parse("2026-08-31T15:00:00Z"), java.time.ZoneId.of("America/Lima")));
+        antigua.asignarNumero(3, "20100066603"); antigua.firmar("H", "k4.xml"); repo.guardar(antigua);
+        assertThat(repo.firmadosEmitidosEntre(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30))).extracting(Comprobante::id).containsExactlyInAnyOrder(firmada.id(), deOtro.id());
+        assertThat(repo.firmadosEmitidosEntre(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31))).extracting(Comprobante::id).containsExactly(antigua.id());
+    }
+
+    /** Filtro por rango de fechas (#2): bordes inclusive, rango abierto, combinado con estado; el conteo usa el mismo filtro. */
+    @Test void listaYCuentaPorRangoDeFechasYEstado() {
+        UUID t = tenantDePrueba();
+        var lima = java.time.ZoneId.of("America/Lima");
+        for (String dia : List.of("2026-09-01", "2026-09-10", "2026-09-13")) {
+            Comprobante c = Comprobante.factura(t, "F001", LocalDate.parse(dia), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                    List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)))
+                    .crear(java.time.Clock.fixed(LocalDate.parse(dia).atTime(15, 0).atZone(lima).toInstant(), lima));
+            c.asignarNumero(Long.parseLong(dia.substring(8)), "20100066603");
+            if (dia.equals("2026-09-10")) { c.firmar("H", "k.xml"); }
+            repo.guardar(c);
+        }
+        assertThat(repo.listar(t, new Filtro(null, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 10)), 1, 10)).extracting(Comprobante::numero).containsExactlyInAnyOrder(1L, 10L);
+        assertThat(repo.contar(t, new Filtro(null, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 10)))).isEqualTo(2);
+        assertThat(repo.listar(t, new Filtro(null, LocalDate.of(2026, 9, 11), null), 1, 10)).extracting(Comprobante::numero).containsExactly(13L);
+        assertThat(repo.listar(t, new Filtro(null, null, LocalDate.of(2026, 9, 9)), 1, 10)).extracting(Comprobante::numero).containsExactly(1L);
+        assertThat(repo.contar(t, new Filtro(EstadoDocumento.FIRMADO, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30)))).isEqualTo(1);
+        assertThat(repo.contar(t, new Filtro(EstadoDocumento.FIRMADO, LocalDate.of(2026, 9, 11), null))).isZero();
+        assertThat(repo.contar(t, Filtro.NINGUNO)).isEqualTo(3);
+        // Serie (#3): exacta; inexistente → vacío y 0
+        Comprobante otraSerie = Comprobante.factura(t, "F002", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(clock);
+        otraSerie.asignarNumero(1, "20100066603"); repo.guardar(otraSerie);
+        assertThat(repo.listar(t, new Filtro(null, null, null, "F002"), 1, 10)).extracting(Comprobante::id).containsExactly(otraSerie.id());
+        assertThat(repo.contar(t, new Filtro(null, LocalDate.of(2026, 9, 13), LocalDate.of(2026, 9, 13), "F001"))).isEqualTo(1);
+        assertThat(repo.contar(t, new Filtro(null, null, null, "F999"))).isZero();
+    }
+
+    /** Historial de intentos (#4): los eventos se persisten en cada guardar con hora del servidor y vuelven en orden; sin eventos, lista vacía. */
+    @Test void guardaElHistorialDeEventosEnOrden() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 1);
+        c.firmar("H", "k1.xml"); repo.guardar(c);
+        assertThat(c.eventosPendientes()).isEmpty();
+        c.marcarEnviado(); c.marcarErrorEnvio("SUNAT no disponible"); repo.guardar(c);
+        c.marcarEnviado(); repo.guardar(c);
+        Comprobante copiaTardia = repo.buscar(t, c.id()).orElseThrow();   // otro hilo leyó ENVIADO antes del CDR
+        c.aplicarCdr(new Cdr("0", "ok", List.of()), "R-1.zip"); repo.guardar(c);
+        List<EventoDocumento> eventos = repo.eventosDe(t, c.id());
+        assertThat(eventos).extracting(EventoDocumento::estadoNuevo).containsExactly(EstadoDocumento.FIRMADO, EstadoDocumento.ENVIADO, EstadoDocumento.ERROR_ENVIO, EstadoDocumento.ENVIADO, EstadoDocumento.ACEPTADO);
+        assertThat(eventos.get(2).detalle()).isEqualTo("SUNAT no disponible");
+        assertThat(eventos.get(0).estadoAnterior()).isEqualTo(EstadoDocumento.RECIBIDO);
+        assertThat(eventos).allSatisfy(e -> assertThat(e.ocurridoEn()).isNotNull());
+        assertThat(eventos).isSortedAccordingTo(java.util.Comparator.comparing(EventoDocumento::ocurridoEn));
+        // Otro tenant no ve el historial; un comprobante sin eventos devuelve lista vacía
+        assertThat(repo.eventosDe(tenantDePrueba(), c.id())).isEmpty();
+        Comprobante sinEventos = factura(t, 2); repo.guardar(sinEventos);
+        assertThat(repo.eventosDe(t, sinEventos.id())).isEmpty();
+        // Un guardado condicional rechazado (ESTADO_CONFLICTO: el ENVIADO tardío no pisa al ACEPTADO) no deja eventos huérfanos
+        copiaTardia.marcarErrorEnvio("tarde");
+        assertThatThrownBy(() -> repo.guardar(copiaTardia)).isInstanceOf(pe.factura.domain.DomainException.class).hasMessageContaining("otra transacción");
+        assertThat(repo.eventosDe(t, c.id())).hasSize(5);
     }
 
     @Test void guardaYRehidrataNotasYLasListaPorFactura() {
@@ -138,8 +309,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         f.firmar("H", "k.xml");
         repo.guardar(f);
         Nota nota = new Nota(TipoDocumento.FACTURA, "F001", 20, "07", "Devolución de una laptop");
-        Comprobante nc = Comprobante.crearNota(t, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), "PEN", "0101", f.receptor(),
-                List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), null, null, List.of(), nota, clock);
+        Comprobante nc = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), nota, f.receptor(), List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(clock);
         nc.asignarNumero(1, "20100066603");
         nc.firmar("H", "nc.xml");
         repo.guardar(nc);
@@ -190,10 +360,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
 
     @Test void guardaYRehidrataDetraccion() {
         UUID t = tenantDePrueba();
-        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "1001",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, new Detraccion("022", new BigDecimal("12.5"), new BigDecimal("148.00"), "00-000-123456", "003"), clock);
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "1001", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).detraccion(new Detraccion("022", new BigDecimal("12.5"), new BigDecimal("148.00"), "00-000-123456", "003")).crear(clock);
         c.asignarNumero(6, "20100066603");
         c.firmar("H", "k.xml");
         repo.guardar(c);
@@ -204,10 +371,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
 
     @Test void guardaYRehidrataRetencionYPercepcion() {
         UUID t = tenantDePrueba();
-        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "2001",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                FormaPago.contado(), null, null, new RetencionIgv(new BigDecimal("3"), null), new Percepcion("52", null, null, null), clock);
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "2001", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).retencion(new RetencionIgv(new BigDecimal("3"), null)).percepcion(new Percepcion("52", null, null, null)).crear(clock);
         c.asignarNumero(7, "20100066603");
         c.firmar("H", "k.xml");
         repo.guardar(c);
@@ -218,10 +382,8 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
 
     @Test void guardaYRehidrataIscEIcbper() {
         UUID t = tenantDePrueba();
-        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("C", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("02", null, new BigDecimal("2.25")), false),
-                        new Item("B", "Bolsa", "NIU", new BigDecimal("3"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true)), clock);
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("C", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("02", null, new BigDecimal("2.25")), false),
+                        new Item("B", "Bolsa", "NIU", new BigDecimal("3"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true))).crear(clock);
         c.asignarNumero(8, "20100066603");
         c.firmar("H", "k.xml");
         repo.guardar(c);
@@ -235,13 +397,9 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
 
     @Test void guardaYRehidrataAnticiposYBuscaPorNumero() {
         UUID t = tenantDePrueba();
-        Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("O", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),
-                        new Item("E", "Exonerado", "NIU", BigDecimal.ONE, new BigDecimal("200.00"), TipoAfectacionIgv.EXONERADO)),
-                FormaPago.contado(), null, null, null, null,
-                List.of(new Anticipo("F001", 3, new BigDecimal("300.00"), null, LocalDate.of(2026, 9, 1)),
-                        new Anticipo("F002", 4, new BigDecimal("50.00"), Anticipo.Afectacion.EXONERADO, null)), clock);
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("O", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("E", "Exonerado", "NIU", BigDecimal.ONE, new BigDecimal("200.00"), TipoAfectacionIgv.EXONERADO))).anticipos(List.of(new Anticipo("F001", 3, new BigDecimal("300.00"), null, LocalDate.of(2026, 9, 1)),
+                        new Anticipo("F002", 4, new BigDecimal("50.00"), Anticipo.Afectacion.EXONERADO, null))).crear(clock);
         c.asignarNumero(9, "20100066603");
         c.firmar("H", "k.xml");
         repo.guardar(c);
@@ -298,8 +456,8 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         UUID t1 = tenantDePrueba(), t2 = tenantDePrueba();
         Comprobante c = factura(t1, 1); c.firmar("h", "k"); repo.guardar(c);
         assertThat(repo.buscar(t2, c.id())).isEmpty();
-        assertThat(repo.listar(t1, null, 1, 10)).hasSize(1);
-        assertThat(repo.listar(t2, null, 1, 10)).isEmpty();
+        assertThat(repo.listar(t1, Filtro.NINGUNO, 1, 10)).hasSize(1);
+        assertThat(repo.listar(t2, Filtro.NINGUNO, 1, 10)).isEmpty();
     }
 
     @Test void observacionesConSaltosDeLineaSobrevivenAlRoundTrip() {
@@ -325,15 +483,13 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         repo.guardar(c);
 
         // Copia rehidratada "vieja" (leída antes de que otra transacción persistiera ACEPTADO) que falla al enviar
-        Comprobante tardio = Comprobante.rehidratar(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), c.horaEmision(), null, "PEN", "0101",
-                c.receptor(), c.items(), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, null, EstadoDocumento.ERROR_ENVIO, "h", c.nombreArchivo(), "k", null, null, 1, "0109 - timeout");
+        Comprobante tardio = Comprobante.persistido(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), EstadoDocumento.ERROR_ENVIO, c.receptor(), c.items()).horaEmision(c.horaEmision()).firma("h", c.nombreArchivo(), "k").envio(1, "0109 - timeout").rehidratar();
         assertThatThrownBy(() -> repo.guardar(tardio))
                 .isInstanceOf(pe.factura.domain.DomainException.class).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
         assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM documento WHERE id = ?", Integer.class, c.id())).isEqualTo(1);
 
-        Comprobante enviadoTardio = Comprobante.rehidratar(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), c.horaEmision(), null, "PEN", "0101",
-                c.receptor(), c.items(), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, null, EstadoDocumento.ENVIADO, "h", c.nombreArchivo(), "k", null, null, 1, null);
+        Comprobante enviadoTardio = Comprobante.persistido(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), EstadoDocumento.ENVIADO, c.receptor(), c.items()).horaEmision(c.horaEmision()).firma("h", c.nombreArchivo(), "k").envio(1, null).rehidratar();
         assertThatThrownBy(() -> repo.guardar(enviadoTardio)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
         assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
     }

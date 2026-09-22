@@ -43,9 +43,52 @@ test("lista comprobantes con su estado y permite ver el detalle", async ({ page 
   await expect(page.getByText("Descargar XML")).toBeVisible();
 });
 
+test("filtra por serie y fechas desde la URL y desde los controles (#6)", async ({ page }) => {
+  const tabla = page.locator("table");
+  // Con los filtros en la URL la tabla llega ya filtrada desde el servidor: solo los emitidos el 2 de setiembre.
+  await page.goto("/comprobantes?desde=2026-09-02&hasta=2026-09-02&serie=F001");
+  await expect(tabla.getByText("F001-00000004")).toBeVisible();
+  await expect(tabla.getByText("F001-00000001")).toHaveCount(0);
+  await expect(page.getByLabel("Serie")).toContainText("Serie: F001");
+  await expect(page.getByLabel("Desde")).toHaveValue("2026-09-02");
+
+  // Cambiar el filtro por los controles actualiza la URL (compartible) y la lista.
+  await page.getByLabel("Hasta").fill("2026-09-01");
+  await expect(page).toHaveURL(/hasta=2026-09-01/);
+  await page.getByLabel("Desde").fill("2026-09-01");
+  await expect(page).toHaveURL(/desde=2026-09-01/);
+  await expect(tabla.getByText("F001-00000001")).toBeVisible();
+  await expect(tabla.getByText("F001-00000004")).toHaveCount(0);
+
+  await page.getByLabel("Serie").click();
+  await page.getByRole("option", { name: "Serie: FC01" }).click();
+  await expect(page).toHaveURL(/serie=FC01/);
+  await expect(page.getByText("No hay comprobantes con esos filtros.")).toBeVisible();
+  await page.getByRole("link", { name: "Quitar filtros" }).click();
+  await expect(page).toHaveURL(/\/comprobantes$/);
+  await expect(tabla.getByText("F001-00000001")).toBeVisible();
+});
+
+test("el detalle muestra el historial de intentos en hora de Lima (#7)", async ({ page }) => {
+  await page.goto("/comprobantes/f-error");
+  const historial = page.getByTestId("historial");
+  await expect(historial.getByText("Historial")).toBeVisible();
+  const filas = historial.locator("li");
+  await expect(filas).toHaveCount(4);
+  // 15:00:01Z es 10:00 en Lima; primero el más antiguo.
+  await expect(filas.nth(0)).toContainText("2 Set 2026, 10:00");
+  await expect(filas.nth(1)).toContainText("Error de envío");
+  await expect(filas.nth(1)).toContainText("SUNAT no disponible (timeout)");
+  await expect(filas.nth(2)).toContainText("Enviado a SUNAT (intento 2)");
+  await expect(filas.nth(3)).toContainText("SUNAT no respondió a tiempo");
+  // Un comprobante sin historial (backend anterior o sin eventos) no rompe la página.
+  await page.goto("/comprobantes/f-aceptada");
+  await expect(page.getByTestId("historial").getByText("Sin historial.")).toBeVisible();
+});
+
 test("reenvía un comprobante en error y queda aceptado", async ({ page }) => {
   await page.goto("/comprobantes/f-error");
-  await expect(page.getByText("Error de envío")).toBeVisible();
+  await expect(page.getByText("Error de envío").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Reenviar", exact: true }).click();
 

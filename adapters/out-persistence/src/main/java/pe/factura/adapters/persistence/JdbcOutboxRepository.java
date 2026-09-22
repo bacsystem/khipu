@@ -25,9 +25,10 @@ public class JdbcOutboxRepository implements OutboxRepository {
         if (!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
             throw new IllegalStateException("tomarVencidas debe ejecutarse dentro de una transacción (UnitOfWork)");
         List<OutboxItem> items = jdbc.query("""
-            SELECT id, tenant_id, agregado_id, accion, intentos FROM outbox
-            WHERE siguiente_intento <= now() AND (locked_until IS NULL OR locked_until < now())
-            ORDER BY siguiente_intento FOR UPDATE SKIP LOCKED LIMIT ?
+            SELECT o.id, o.tenant_id, o.agregado_id, o.accion, o.intentos FROM outbox o
+            LEFT JOIN documento d ON d.id = o.agregado_id
+            WHERE o.siguiente_intento <= now() AND (o.locked_until IS NULL OR o.locked_until < now())
+            ORDER BY d.fecha_emision NULLS LAST, o.siguiente_intento FOR UPDATE OF o SKIP LOCKED LIMIT ?
             """, (rs, i) -> new OutboxItem(rs.getObject("id", UUID.class), rs.getObject("tenant_id", UUID.class),
                 rs.getObject("agregado_id", UUID.class), rs.getString("accion"), rs.getInt("intentos")), limite);
         for (OutboxItem it : items)

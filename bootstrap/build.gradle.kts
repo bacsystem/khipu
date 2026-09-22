@@ -29,6 +29,8 @@ dependencies {
     testImplementation(libs.spring.boot.testcontainers)
     testImplementation(libs.testcontainers.postgres)
     testImplementation(libs.testcontainers.junit)
+    testImplementation(libs.testcontainers.minio)
+    testImplementation(libs.aws.s3)
     testImplementation(libs.wiremock)
     testImplementation(libs.archunit)
     // El SimpleClientHttpRequestFactory basado en HttpURLConnection lanza HttpRetryException

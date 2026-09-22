@@ -24,12 +24,18 @@
   <#if tot.tieneGratuitas()>
   <cbc:Note languageLocaleID="1002">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</cbc:Note>
   </#if>
+  <#if tot.tieneIvap()>
+  <cbc:Note languageLocaleID="2007">OPERACIÓN SUJETA AL IVAP</cbc:Note>
+  </#if>
   <#if c.detraccion()??>
   <cbc:Note languageLocaleID="2006">OPERACIÓN SUJETA AL SISTEMA DE PAGO DE OBLIGACIONES TRIBUTARIAS - SPOT</cbc:Note>
   </#if>
   <#if c.percepcion()??>
   <cbc:Note languageLocaleID="2000">COMPROBANTE DE PERCEPCIÓN</cbc:Note>
   </#if>
+  <#list c.leyendas() as ley>
+  <cbc:Note languageLocaleID="${ley}">${statics["pe.factura.domain.documento.Leyenda"].texto(ley)}</cbc:Note>
+  </#list>
   <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">${c.moneda()}</cbc:DocumentCurrencyCode>
 <@u.ordenCompra/>
 <@u.guiasYOtrosDocumentos/>
@@ -45,6 +51,7 @@
   </cac:AdditionalDocumentReference>
   </#list>
 <@u.firmaYPartes/>
+<@u.exportacion/>
 <@u.pagos/>
 <@u.cargosYDescuentosGlobales/>
 <@u.impuestos/>

@@ -13,7 +13,11 @@ import java.util.function.Supplier;
 final class Fakes {
     static final class Comprobantes implements ComprobanteRepository {
         final Map<UUID, Comprobante> datos = new HashMap<>();
-        public void guardar(Comprobante c) { datos.put(c.id(), c); }
+        public void guardar(Comprobante c) {
+            datos.put(c.id(), c);
+            for (EventoDocumento e : c.eventosPendientes()) eventos.computeIfAbsent(c.id(), k -> new ArrayList<>()).add(new EventoDocumento(e.estadoAnterior(), e.estadoNuevo(), e.detalle(), Instant.now()));
+            c.eventosGuardados();
+        }
         public Optional<Comprobante> buscar(UUID t, UUID id) { return Optional.ofNullable(datos.get(id)).filter(c -> c.tenantId().equals(t)); }
         public Optional<Comprobante> bloquear(UUID t, UUID id) { return buscar(t, id); }
         public BigDecimal montoRegularizado(UUID t, String serie, long numero) {
@@ -28,8 +32,15 @@ final class Fakes {
         public List<Comprobante> notasDe(UUID t, String serie, long numero) {
             return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.esNota() && c.nota().serieAfectada().equals(serie) && c.nota().numeroAfectado() == numero).toList();
         }
-        public List<Comprobante> listar(UUID t, EstadoDocumento e, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
-        public long contar(UUID t, EstadoDocumento e) { return listar(t, e, 1, Integer.MAX_VALUE).size(); }
+        public List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fecha) {
+            return datos.values().stream().filter(c -> c.estado().esEnviable() && !c.fechaEmision().isAfter(fecha)).toList();
+        }
+        final Map<UUID, List<EventoDocumento>> eventos = new HashMap<>();
+        public List<EventoDocumento> eventosDe(UUID t, UUID id) { return eventos.getOrDefault(id, List.of()); }
+        public List<Comprobante> firmadosEmitidosEntre(java.time.LocalDate desde, java.time.LocalDate hasta) { return datos.values().stream().filter(c -> c.xmlKey() != null && !c.fechaEmision().isBefore(desde) && !c.fechaEmision().isAfter(hasta)).toList(); }
+        public List<Comprobante> pendientesDeCdr() { return datos.values().stream().filter(c -> c.xmlKey() != null && c.cdrKey() == null && c.estado() != EstadoDocumento.FIRMADO && c.estado() != EstadoDocumento.FUERA_DE_PLAZO && c.estado() != EstadoDocumento.INVALIDO && c.estado() != EstadoDocumento.RECIBIDO).toList(); }
+        public List<Comprobante> listar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
+        public long contar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f) { return listar(t, f, 1, Integer.MAX_VALUE).size(); }
     }
     static final class Series implements SerieRepository {
         final Map<String, Long> ultimo = new HashMap<>();
@@ -43,8 +54,24 @@ final class Fakes {
             if (!ultimo.containsKey(k)) throw new DomainException("SERIE_NO_CONFIGURADA", "Serie no configurada: " + serie);
             ultimo.merge(k, numero, Math::max);
         }
-        public void crear(Serie s) { ultimo.put(s.tenantId() + s.tipo().codigo() + s.codigo(), s.ultimoNumero()); }
-        public List<Serie> listar(UUID t) { return List.of(); }
+        final Map<String, Serie> series = new HashMap<>();
+        public void crear(Serie s) { ultimo.put(s.tenantId() + s.tipo().codigo() + s.codigo(), s.ultimoNumero()); series.put(s.tenantId() + s.tipo().codigo() + s.codigo(), s); }
+        public java.util.Optional<Serie> buscar(UUID t, TipoDocumento tipo, String serie) { return java.util.Optional.ofNullable(series.get(t + tipo.codigo() + serie)); }
+        public List<Serie> listar(UUID t) { return series.values().stream().filter(s -> s.tenantId().equals(t)).toList(); }
+    }
+    /** {@code series}: de dónde sale el establecimiento asignado a una serie (mismo JOIN que hace la consulta real en Postgres). */
+    static final class Establecimientos implements EstablecimientoRepository, EmisorDeSerieRepository {
+        final Map<String, pe.factura.domain.tenant.Establecimiento> datos = new HashMap<>();
+        private final Series series;
+        Establecimientos(Series series) { this.series = series; }
+        public void guardar(pe.factura.domain.tenant.Establecimiento e) { datos.put(e.tenantId() + e.codigo(), e); }
+        public java.util.Optional<pe.factura.domain.tenant.Establecimiento> buscar(UUID t, String codigo) { return java.util.Optional.ofNullable(datos.get(t + codigo)); }
+        public java.util.Optional<pe.factura.domain.tenant.Establecimiento> buscarConBloqueo(UUID t, String codigo) { return buscar(t, codigo); }
+        public List<pe.factura.domain.tenant.Establecimiento> listar(UUID t) { return datos.values().stream().filter(e -> e.tenantId().equals(t)).sorted(java.util.Comparator.comparing(pe.factura.domain.tenant.Establecimiento::codigo)).toList(); }
+        public java.util.Optional<Asignacion> buscarAsignacionDeSerie(UUID t, TipoDocumento tipo, String serie) {
+            return series.buscar(t, tipo, serie).filter(s -> !s.enDomicilioFiscal())
+                    .map(s -> new Asignacion(s.establecimiento(), datos.get(t + s.establecimiento())));
+        }
     }
     static final class Tenants implements TenantRepository {
         final Map<UUID, Tenant> datos = new HashMap<>();
@@ -56,7 +83,7 @@ final class Fakes {
         public void asignarCuenta(UUID t, UUID c) { cuentas.put(t, c); }
         public Optional<UUID> cuentaDe(UUID t) { return Optional.ofNullable(cuentas.get(t)); }
     }
-    static final class Storage implements DocumentStorage {
+    static class Storage implements DocumentStorage {
         final Map<String, byte[]> datos = new HashMap<>();
         public void guardar(String k, byte[] c) { datos.put(k, c); }
         public byte[] leer(String k) { byte[] b = datos.get(k); if (b == null) throw new IllegalStateException("no existe " + k); return b; }
@@ -92,8 +119,17 @@ final class Fakes {
     }
     /** UblGenerator de prueba: devuelve un XML mínimo con la raíz según el tipo. */
     static final class Ubl implements UblGenerator {
-        public String generar(Comprobante c, Tenant t) { return "<" + c.tipo() + ">" + c.nombreArchivo() + "</" + c.tipo() + ">"; }
+        /** Emisor con el que se generó el último XML: permite comprobar el domicilio del establecimiento de la serie (#80). */
+        Tenant ultimoEmisor;
+        public String generar(Comprobante c, Tenant t) { ultimoEmisor = t; return "<" + c.tipo() + ">" + c.nombreArchivo() + "</" + c.tipo() + ">"; }
         public String generarBaja(ComunicacionBaja b, Tenant t) { return "<VoidedDocuments>" + b.identificador() + "</VoidedDocuments>"; }
+    }
+    static final class Consultas implements pe.factura.application.port.out.SunatConsultaGateway {
+        Consulta respuesta = new Consulta("0001", "El comprobante existe y está aceptado.", "cdr".getBytes());
+        RuntimeException falla; int llamadas; String ultimaOperacion; Object[] ultimosCriterios;
+        public Consulta getStatusCdr(Tenant t, String ruc, String tipo, String serie, long numero) { llamadas++; ultimaOperacion = "getStatusCdr"; ultimosCriterios = new Object[]{ruc, tipo, serie, numero}; if (falla != null) throw falla; return respuesta; }
+        public Consulta getStatus(Tenant t, String ruc, String tipo, String serie, long numero) { llamadas++; ultimaOperacion = "getStatus"; if (falla != null) throw falla; return respuesta; }
+        public Consulta validar(Tenant t, String ruc, String tipo, String serie, long numero, String td, String nd, java.time.LocalDate f, java.math.BigDecimal m) { llamadas++; ultimaOperacion = "validar"; ultimosCriterios = new Object[]{ruc, tipo, serie, numero, td, nd, f, m}; if (falla != null) throw falla; return respuesta; }
     }
     static final class Cdrs implements CdrParser {
         Cdr cdr = new Cdr("0", "aceptada", List.of());
@@ -110,9 +146,7 @@ final class Fakes {
                 new CertificadoDigital(new byte[]{1}, "clave", LocalDate.of(2030, 1, 1)));
     }
     static Comprobante facturaFirmada(UUID tenantId, Storage storage) {
-        Comprobante c = Comprobante.crearFactura(tenantId, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), CLOCK);
+        Comprobante c = Comprobante.factura(tenantId, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
         c.asignarNumero(1, "20100066603");
         String key = "k/" + c.nombreArchivo() + ".xml";
         storage.guardar(key, "<xml/>".getBytes());

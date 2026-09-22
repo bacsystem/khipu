@@ -2,10 +2,111 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
-## [0.1.22] - 2026-09-21
+## [0.1.40] - 2026-09-21
 
 ### Changed
 - Portal: rediseño del landing público (`/`) — más comercial y con un momento de movimiento deliberado (el panel "en vivo" del hero anima el pulso de cada paso del pipeline de emisión, respetando `prefers-reduced-motion`). Nueva sección "Cómo funciona" (4 pasos reales del flujo de alta) y "Preguntas frecuentes" (5 preguntas honestas, sin datos inventados); beneficios y audiencias pasan de tarjetas repetidas a listas/columnas con líneas divisorias; franja de confianza y catálogo de comprobantes más quietos; cierre con una franja de alto contraste. El encabezado usa el logo real de la marca (`LogoMarca`, ahora con `href` configurable) en vez de texto genérico. Sin cambios de precios, backend ni dependencias nuevas.
+
+## [0.1.39] - 2026-09-19
+
+### Added
+- Portal: sección «Historial» en el detalle del comprobante (#7), bajo la respuesta de SUNAT: una línea de tiempo con cada intento y cambio de estado (fecha y hora de Lima, estado resultante, estado previo y motivo), del más antiguo al más reciente. Si el backend no envía `eventos` (versión anterior) o no hay ninguno, muestra «Sin historial» sin fallar. Los mocks devuelven el historial al consultar por id y el e2e cubre un comprobante con dos intentos.
+
+## [0.1.38] - 2026-09-19
+
+### Added
+- Historial de intentos y cambios de estado de un comprobante (#4): `GET /v1/facturas/{id}` trae `eventos[{fecha, estado_anterior, estado_resultante, mensaje}]` del más antiguo al más reciente (vacío si no hay; no viaja en el listado). Cada transición del comprobante —firma, envío (con el número de intento), error de envío con su motivo, CDR con código y descripción, rechazo por fault, baja aceptada, fuera de plazo— queda registrada en `evento_documento` con la hora del servidor al guardar; la tabla existía desde V1 pero nadie escribía en ella. Un comprobante que pasó por `ERROR_ENVIO` y luego `ACEPTADO` muestra ambos eventos (cubierto en el e2e del outbox).
+
+## [0.1.37] - 2026-09-19
+
+### Added
+- Portal: filtros de serie y período en la tabla de comprobantes (#6). Selector de serie (las de la empresa) y dos fechas (`desde`/`hasta`, inclusive) junto al filtro de estado; los cuatro filtros viven en la URL (`/comprobantes?estado=&desde=&hasta=&serie=`), así una vista filtrada se comparte y al recargar la tabla llega ya filtrada desde el servidor (los parámetros inválidos se descartan en vez de provocar un 400). Estado vacío con «Quitar filtros». Los mocks MSW filtran por esos parámetros y el e2e lo cubre.
+
+### Changed
+- Portal: el filtro de estado pasa de estado local a la URL (antes se perdía al recargar o compartir el enlace).
+
+## [0.1.36] - 2026-09-19
+
+### Added
+- Filtro por serie en `GET /v1/facturas` (#3): `serie=F001` (exacta, se normaliza a mayúsculas) combinable con `estado`, `desde`/`hasta` y la paginación; una serie con formato inválido responde `400 PARAMETRO_INVALIDO`, una inexistente devuelve lista vacía con `X-Total-Count: 0`.
+
+## [0.1.35] - 2026-09-19
+
+### Added
+- Filtro por rango de fecha de emisión en `GET /v1/facturas` (#2): `desde` y `hasta` (`YYYY-MM-DD`, inclusive, rango abierto si falta uno), combinables con `estado`, `pagina` y `por_pagina`; `X-Total-Count` refleja el filtro. `desde > hasta` responde `400 RANGO_INVALIDO` y una fecha mal formada `400 PARAMETRO_INVALIDO`. Internamente el listado y el conteo comparten un `Filtro` (estado, desde, hasta) en el caso de uso y el repositorio.
+
+## [0.1.34] - 2026-09-19
+
+### Added
+- Storage durable para XML y CDR (#38): `STORAGE_TYPE=s3` con `S3DocumentStorage` (AWS SDK v2) para S3 o compatibles —MinIO, Backblaze B2, Cloudflare R2— configurado con `STORAGE_S3_BUCKET`, `STORAGE_S3_REGION`, `STORAGE_S3_ENDPOINT`, `STORAGE_S3_ACCESS_KEY`/`SECRET_KEY` y `STORAGE_S3_PATH_STYLE`; cada objeto se sube con checksum SHA-256 verificado por el servidor y las claves son las mismas que en disco (`{tenant}/{yyyy}/{MM}/{nombre}`), así migrar es copiar el árbol. Verificación periódica de integridad: `IntegridadWorker` diario (`INTEGRIDAD_INTERVALO_MS`, ventana `INTEGRIDAD_DIAS`=7) y `POST /v1/admin/integridad?desde&hasta` (`X-Platform-Key`) comprueban que cada comprobante firmado tenga su XML con el `DigestValue` con el que se firmó y su CDR si SUNAT lo emitió, e informan `XML_FALTANTE`/`XML_CORRUPTO`/`CDR_FALTANTE`/`STORAGE_INACCESIBLE` (solo lectura). README §Storage con la política de retención recomendada (versionado + Object Lock ≥ 5 años + réplica) y la guía de migración desde disco; `docker compose --profile s3` levanta MinIO con el bucket `khipu` versionado. Tests: contrato del adaptador S3 contra MinIO (Testcontainers) y el e2e completo de emisión/descarga (`FacturaS3E2ETest`) corriendo sobre S3 además de disco.
+
+### Changed
+- `FileSystemDocumentStorage` escribe de forma atómica (temporal + rename): un corte a mitad de escritura no deja un XML truncado con el nombre definitivo.
+- Un query param obligatorio ausente responde `400 PARAMETRO_INVALIDO` en vez de `500`.
+
+## [0.1.33] - 2026-09-19
+
+### Added
+- Datos sectoriales de la detracción 1002 y 1004 (#69). Con `tipo_operacion` `1002` (recursos hidrobiológicos, código 004) cada ítem lleva `hidrobiologico { matricula, nombre_embarcacion, especie, lugar_descarga, fecha_descarga, cantidad }` → `cac:AdditionalItemProperty` con los conceptos 3001–3006 del catálogo 55 (fecha en `UsabilityPeriod/StartDate`, cantidad en `ValueQuantity` TNE; reglas 3063, 3130–3135, 3115, 4280/4281). Con `1004` (transporte de carga, código 027) cada ítem lleva `transporte { origen {ubigeo, direccion}, destino {ubigeo, direccion}, detalle_viaje, valor_referencial {servicio, carga_efectiva, carga_util_nominal}, tramos[]? }` → `cac:Delivery` por línea con `DeliveryLocation`, `Despatch` y los tres `DeliveryTerms` 01/02/03 en PEN (3116–3126, 3208), y `Shipment/Consignment` por tramo con `TransportHandlingUnit` por vehículo (4200, 4270–4278). Hasta ahora 1002/1004 se aceptaban sin esos datos y SUNAT los rechazaba: pasan a exigirse (`422 DETRACCION_INVALIDA` con la regla) y no se admiten fuera de su operación. Migración V22 (`comprobante_item.hidrobiologico`, `transporte` JSONB). Respuesta con los datos por ítem; portal: detalle del ítem con embarcación/viaje, guía con los casos «Detracción 1002» y «Detracción 1004», errores actualizados. Homologación: escenarios 27-hidrobiologicos y 28-transporte-carga aceptados por e-beta sin observaciones (28/28).
+
+### Changed
+- Las notas de crédito/débito sobre facturas 1002/1004 copian los datos sectoriales de los ítems al XML (mismas líneas que la factura).
+
+## [0.1.32] - 2026-09-19
+
+### Added
+- Factura de exportación (#65): `tipo_operacion` `0200`–`0208` del catálogo 51 con ítems de afectación `40` → tributo `9995`/EXP/FRE, categoría G, IGV 0 (3110), subtotal global 9995 = Σ valor de venta (3273) y sin otros tributos globales (3107); `totales.exportacion` en la respuesta. El comprobante entero es exportación: ítems `40` fuera de esos tipos o de otra afectación dentro de ellos, e ISC/ICBPER en una línea `40`, responden `422 AFECTACION_INVALIDA` (2642, 3107, 3223). Cliente del exterior: `cliente.tipo_doc` del catálogo 06 (`0`, `1`, `4`, `7`, `A`–`G`; `6` no se admite en 0200/0201/0204, regla 2800), formato del número (2801/2802) y `cliente.pais` obligatorio (ISO 3166-1, catálogo 04) → `cac:RegistrationAddress/cac:Country`; en ventas internas `pais` es opcional. Nuevo bloque `exportacion { incoterm, pais_uso }`: el Incoterm 2020 va en `cac:DeliveryTerms/cbc:ID`; `pais_uso` es obligatorio en 0201/0208 (3098, distinto de PE: 3099) → `cac:Delivery/cac:DeliveryLocation/cac:Address/cac:Country`, y no se admite en los demás (`422 EXPORTACION_INVALIDA`). `0202`/`0205` (hospedaje y paquete turístico a no domiciliados) siguen sin soportarse: exigen los datos del huésped por línea (`422 TIPO_OPERACION_INVALIDO`). Las notas de crédito/débito heredan tipo de operación, Incoterm, país de uso y receptor, y la NC se limita también por la base 9995 (3503). Migración V21 (`comprobante.receptor_pais`, `incoterm`, `pais_uso`). PDF con la fila «Exportación (sin IGV)»; portal: país del receptor, bloque «Exportación» (Incoterm, país de uso), «Total exportación», tipos de operación 0200–0208 con nombre, guía con el caso «Exportación de bienes o servicios», catálogos 06/07 y errores actualizados. Homologación: escenario 26-exportacion aceptado por e-beta sin observaciones (26/26).
+
+## [0.1.31] - 2026-09-19
+
+### Added
+- IVAP, Impuesto a la Venta de Arroz Pilado (#67): afectación `17` del catálogo 07 en `items[].tipo_afectacion_igv`, tributo `1016` (IVAP/VAT) al 4 % (Ley 28211) en lugar del IGV. Por línea el `precio_unitario` incluye el IVAP; el XML lleva `Percent 4.00`, `TaxExemptionReasonCode 17`, subtotal global `1016`, `TaxTotal` con el IVAP, `TaxInclusiveAmount` sin IGV (campo 55, variante IVAP de la regla 3279) y la leyenda automática `2007` («OPERACIÓN SUJETA AL IVAP»). Descuentos globales, cargos y anticipos gravados recalculan sobre la base IVAP con el factor 1.04. El comprobante entero es IVAP: mezclar `17` con `10`/`20`/`30` o gratuitas, o poner ISC/ICBPER en una línea `17`, responde `422 AFECTACION_INVALIDA` (2650, 3223); la tasa reducida del padrón no lo altera. Notas de crédito sobre facturas IVAP limitadas también por el IVAP (3503, 1016) y la nota total hereda las líneas `17`. Respuesta y portal: `totales.ivap`, etiqueta «Total sujeto al IVAP / Total IVAP (4 %)» en el detalle, PDF con fila IVAP; guía de emisión con el caso «Arroz pilado (IVAP)», catálogo de errores y OpenAPI actualizados. Homologación: escenario 25-ivap aceptado por e-beta sin observaciones (25/25).
+
+## [0.1.30] - 2026-09-19
+
+### Added
+- ISC sistema 03, al valor según precio de venta al público (#68): `items[].isc { sistema: "03", tasa, base_pvp }`. La base del ISC de la línea (`cbc:TaxableAmount` del subtotal 2000, regla 3108) es `base_pvp × cantidad` —el PVP sugerido unitario— y no el valor de venta; el ISC = base × tasa; el IGV sigue sobre valor de venta + ISC (regla 204); `TierRange 03` y `Percent` en el XML (2373, 3210). `base_pvp` es obligatoria en 03, no se admite en 01/02 y no puede ser menor que el valor unitario (`422 ISC_INVALIDO`). El subtotal global de ISC suma esas bases. Migración V20 (`comprobante_item.isc_base_pvp`); la respuesta expone por ítem `isc.base` y `isc.base_pvp`; guía y OpenAPI actualizados. Se retira el rechazo anterior del sistema 03.
+
+## [0.1.29] - 2026-09-19
+
+### Added
+- Leyendas por zona o régimen (#66): `leyendas[]` en `POST /v1/facturas` con códigos del catálogo 52 que declara el emisor (2001–2003 Amazonía, 2004 paquete turístico, 2005 venta itinerante, 2008/2009 zona comercial de Tacna, 2010–2012); van al XML como `cbc:Note@languageLocaleID` con el texto oficial del catálogo (sin el prefijo «Leyenda» ni comillas) y vuelven en la respuesta (`leyendas[{codigo, texto}]`) y en el detalle del portal. Validaciones: código del catálogo (3027), las automáticas (1000, 1002, 2000, 2006, 2007) no se aceptan, y 2001/2002/2003/2008 exigen total exonerado mayor a 0 (3283–3285, 3289). Migración V19. Nota: en el catálogo 52 vigente el 2008 es la leyenda de la zona comercial de Tacna, no de exportación de servicios.
+
+## [0.1.28] - 2026-09-19
+
+### Changed
+- `Comprobante` se construye con builders en vez de sobrecargas posicionales (#74): `Comprobante.factura(tenantId, serie, fechaEmision, moneda, tipoOperacion, receptor, items).formaPago(…).cargos(…)….crear(clock)`, `Comprobante.nota(…).crear(clock)` y `Comprobante.persistido(…).firma(…).cdr(…).rehidratar()` reemplazan a las 10 sobrecargas de `crearFactura`, 2 de `crearNota` y 2 de `rehidratar`. Refactor puro: mismas reglas de emisión (incluida 3244 al pasar `forma_pago` nulo), mismo XML, misma persistencia y misma API; los 591 tests migrados siguen en verde. Añadir un campo opcional ya no toca ocho firmas ni los tests que solo pasaban `null`.
+
+## [0.1.27] - 2026-09-19
+
+### Added
+- Consulta de validez y recuperación de CDR (#36), con los contratos de los WSDL de SUNAT (`billConsultService`, `billValidService`). `POST /v1/facturas/{id}/cdr/recuperar` pide a SUNAT (`getStatusCdr`) la constancia de un comprobante `ENVIADO`/`ERROR_ENVIO` —la conexión se cortó después de que SUNAT lo aceptara— o de uno resuelto que perdió el CDR en el storage; si SUNAT lo tiene, lo guarda y aplica el resultado sin reenviar. Barrido horario (`RecuperarCdrWorker`, `app.cdr.intervalo-ms`) para las empresas en producción. `GET /v1/consultas/validez?ruc&tipo&serie&numero[&tipo_doc_receptor&num_doc_receptor&fecha&monto]` (`validaCDPcriterios`) devuelve `ACEPTADO`/`RECHAZADO`/`DE_BAJA`/`NO_EXISTE`/`AJENO` con el código y mensaje de SUNAT, para verificar lo que un tercero factura. Ambos servicios solo existen en producción: en BETA responden `422 NO_DISPONIBLE_EN_BETA` salvo que se configuren `SUNAT_CONSULTA_BETA_URL`/`SUNAT_VALIDEZ_BETA_URL`. La llamada SOAP (cliente nuevo por petición, reintento del 401, faults) pasa a `SoapCliente`, compartido con el envío. Pantalla del portal: fase posterior.
+
+## [0.1.26] - 2026-09-19
+
+### Added
+- Validaciones SUNAT locales antes de numerar (#35). Lo que SUNAT rechazaría con el número ya consumido se ataja en `422` con el código SUNAT: RUC del receptor con dígito verificador y prefijo 10/15/16/17/20 (2017) y razón social de 3 a 1500 caracteres (2021/2022) en facturas y notas; por ítem, descripción obligatoria de hasta 500 caracteres (2026/2027), unidad con formato del catálogo 03 (2883), cantidad mayor que cero con hasta 12 enteros y 10 decimales (2024/2025), precio no negativo y código interno de hasta 30 caracteres. El RUC de la empresa se comprueba con dígito verificador al crearla (`422 RUC_INVALIDO`, API y portal). Los comprobantes ya emitidos no se revalidan al leerse. Los catálogos 01–60 ya venían como recurso versionado (`domain/resources/catalogos`); la unidad de medida se valida por formato porque el catálogo 03 remite a UN/ECE rec 20 completo. `k6/preparar-tenant.sh` genera RUC con dígito válido; los RUC de ejemplo de tests, mocks y guía pasan a ser válidos (20601234565, 20123456786).
+
+## [0.1.25] - 2026-09-19
+
+### Added
+- Control del plazo de envío a SUNAT (#37). Cada comprobante expone `fecha_limite_envio` (RS 193-2020: 3 días calendario desde la emisión; feriados cuentan) y el estado terminal **`FUERA_DE_PLAZO`**: un `FIRMADO` o `ERROR_ENVIO` que no llegó a SUNAT a tiempo se cierra con `2108 - Presentación fuera de fecha` en vez de seguir reintentando 6 h × 20 veces para un rechazo seguro. Se marca al intentar enviarlo (`POST /v1/facturas/{id}/enviar` responde `409 FUERA_DE_PLAZO`; el outbox descarta la fila) y en un barrido horario (`PlazoEnvioWorker`, `app.plazo-envio.intervalo-ms`) para lo que nadie intenta enviar. Emitir con una `fecha_emision` cuyo plazo ya venció responde `422 FECHA_INVALIDA` antes de consumir número. El outbox prioriza los comprobantes más antiguos (más cerca de vencer). Portal: badge «Fuera de plazo», filtro, y en el detalle la fecha límite («Enviar a SUNAT hasta el …») o el vencimiento.
+
+## [0.1.24] - 2026-09-19
+
+### Added
+- Establecimientos anexos y serie por establecimiento (#80). `GET/POST/PUT/DELETE /v1/empresa/establecimientos`: sucursales, tiendas y almacenes declarados en la ficha RUC (código de 4 dígitos —regla 3030—, nombre y domicilio con las reglas 4093–4098; baja lógica, `409 ESTABLECIMIENTO_EN_USO` si tiene series activas). El domicilio fiscal sigue siendo el `0000` de datos fiscales y aparece en la lista como `principal`. `POST /v1/series` acepta `establecimiento` (por defecto `0000`; un anexo inexistente o dado de baja responde `422 ESTABLECIMIENTO_INVALIDO`) y `GET /v1/series` lo devuelve. Cada comprobante sale con el `cac:RegistrationAddress` y `AddressTypeCode` del establecimiento de su serie (también en el PDF); si el anexo está dado de baja la emisión se rechaza antes de consumir número. Migración V18. Portal: página **Establecimientos** (Configuración) con tabla, alta, edición y baja, selector de establecimiento al crear una serie y columna en la tabla de series; el selector de ubigeo en cascada pasa a un componente compartido. Homologación: escenario 24 (factura desde una serie del anexo 0002) aceptado por e-beta (24/24).
+
+## [0.1.23] - 2026-09-19
+
+### Added
+- Tasa reducida del IGV para el Padrón de Tasa Especial (MYPE de restaurantes y hoteles, Ley 31556) (#84). `PUT /v1/empresa/datos-fiscales { padron_tasa_especial_igv }` (y la casilla en Empresa del portal) hace que facturas y notas gravadas se calculen y declaren a la tasa vigente a la fecha de emisión —10 % del 2023-01-01 al 2026-02-12, **10.5 % desde el 2026-02-13** (control de cambios de SUNAT)— en vez del 18 %: `cbc:Percent` de cada línea, IGV de línea y global (3279, 3291), anticipos gravados y la misma tasa en todas las líneas (3462). Nuevo `TasaIgv` en el dominio; la tasa se guarda por comprobante (`comprobante.tasa_igv`, migración V17) y **una nota hereda la de la factura que modifica** aunque la empresa haya entrado o salido del padrón después. La respuesta expone `totales.tasa_igv`; el PDF imprime «IGV (10.5%)»; el portal la muestra en el detalle. Homologación: escenario 23 al 10.5 % aceptado por e-beta con CDR 0 (23/23).
+
+## [0.1.22] - 2026-09-19
+
+### Fixed
+- API: una nota de crédito ya no puede acreditar más de lo que le queda a la factura (#83). `POST /v1/notas` descuenta lo acreditado por las NC anteriores vigentes sobre la misma factura (las `RECHAZADO`/`INVALIDO`/`ANULADO` no cuentan; las pendientes de envío sí) antes de aplicar los límites 3286 (total) y 3503 (bases e IGV por tributo): varias parciales pueden sumar la factura, pero una segunda nota total —o cualquiera que exceda el saldo— responde `422 NOTA_INVALIDA` indicando cuánto ya está acreditado. SUNAT compara nota por nota y acepta la duplicada (reproducido en e-beta el 2026-09-19); la comprobación corre con la factura bloqueada por fila, igual que la de anticipos. Documentado en `/developers` (guía y errores).
+>>>>>>> origin/main
 
 ## [0.1.21] - 2026-09-18
 

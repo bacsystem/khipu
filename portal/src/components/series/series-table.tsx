@@ -171,6 +171,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
               <TableHead className={CABECERA}>Tipo de comprobante</TableHead>
               <TableHead className={CABECERA}>Código serie</TableHead>
               <TableHead className={cn(CABECERA, "px-4 text-right")}>Último número (correlativo)</TableHead>
+              <TableHead className={CABECERA}>Establecimiento</TableHead>
               <TableHead className={CABECERA}>Formato / longitud</TableHead>
               <TableHead className={cn(CABECERA, "px-4")}>Estado</TableHead>
               <TableHead className={cn(CABECERA, "pr-4 pl-2 text-right")}>Acciones</TableHead>
@@ -219,6 +220,11 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                     {s.ultimo_numero === 0 ? "Sin emisiones previas" : `Siguiente: #${numero(s.ultimo_numero + 1)}`}
                   </div>
                 </TableCell>
+                <TableCell className="px-3 py-2 font-mono text-[12px] whitespace-nowrap">
+                  <span className={cn("rounded px-1.5 py-0.5 font-medium", (s.establecimiento ?? "0000") === "0000" ? "bg-muted text-muted-foreground" : "bg-secondary text-primary")}>
+                    {s.establecimiento ?? "0000"}
+                  </span>
+                </TableCell>
                 <TableCell className="px-3 py-2 font-mono text-[11px] whitespace-nowrap text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">{mascara(s.serie)}</span>
@@ -255,7 +261,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
             ))}
             {data.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={7} className="py-14 text-center">
+                <TableCell colSpan={8} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <InboxIcon className="size-6" />
                     <p className="text-sm">

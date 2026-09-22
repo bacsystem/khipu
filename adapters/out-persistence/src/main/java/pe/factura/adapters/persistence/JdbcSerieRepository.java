@@ -7,6 +7,8 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.Serie;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,12 +34,17 @@ public class JdbcSerieRepository implements SerieRepository {
                 numero, tenantId, tipo.codigo(), serie);
     }
     @Override public void crear(Serie s) {
-        jdbc.update("INSERT INTO serie (tenant_id, tipo, codigo, ultimo_numero, activa) VALUES (?, ?, ?, ?, ?)",
-                s.tenantId(), s.tipo().codigo(), s.codigo(), s.ultimoNumero(), s.activa());
+        jdbc.update("INSERT INTO serie (tenant_id, tipo, codigo, ultimo_numero, activa, establecimiento) VALUES (?, ?, ?, ?, ?, ?)",
+                s.tenantId(), s.tipo().codigo(), s.codigo(), s.ultimoNumero(), s.activa(), s.establecimiento());
     }
     @Override public List<Serie> listar(UUID tenantId) {
-        return jdbc.query("SELECT tenant_id, tipo, codigo, ultimo_numero, activa FROM serie WHERE tenant_id = ? ORDER BY tipo, codigo",
-                (rs, i) -> new Serie(rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")),
-                        rs.getString("codigo"), rs.getLong("ultimo_numero"), rs.getBoolean("activa")), tenantId);
+        return jdbc.query(SELECT + " WHERE tenant_id = ? ORDER BY tipo, codigo", this::mapear, tenantId);
+    }
+
+    private static final String SELECT = "SELECT tenant_id, tipo, codigo, ultimo_numero, activa, establecimiento FROM serie";
+
+    private Serie mapear(ResultSet rs, int i) throws SQLException {
+        return new Serie(rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")),
+                rs.getString("codigo"), rs.getLong("ultimo_numero"), rs.getBoolean("activa"), rs.getString("establecimiento"));
     }
 }

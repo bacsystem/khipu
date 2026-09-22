@@ -29,6 +29,33 @@ final class SoapEnvelope {
             </soapenv:Envelope>""".formatted(esc(usuario), esc(clave), esc(ticket));
     }
 
+    /** {@code getStatus} / {@code getStatusCdr} de billConsultService (mismo cuerpo, distinta operación). */
+    static String consulta(String operacion, String usuario, String clave, String ruc, String tipo, String serie, long numero) {
+        return """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://service.sunat.gob.pe" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+            <soapenv:Header><wsse:Security><wsse:UsernameToken><wsse:Username>%s</wsse:Username><wsse:Password>%s</wsse:Password></wsse:UsernameToken></wsse:Security></soapenv:Header>
+            <soapenv:Body><ser:%s><rucComprobante>%s</rucComprobante><tipoComprobante>%s</tipoComprobante><serieComprobante>%s</serieComprobante><numeroComprobante>%d</numeroComprobante></ser:%s></soapenv:Body>
+            </soapenv:Envelope>""".formatted(esc(usuario), esc(clave), operacion, esc(ruc), esc(tipo), esc(serie), numero, operacion);
+    }
+
+    /** {@code validaCDPcriterios} de billValidService: los campos opcionales se omiten cuando son nulos. */
+    static String validaCdp(String usuario, String clave, String rucEmisor, String tipo, String serie, long numero, String tipoDocReceptor, String numDocReceptor, String fechaEmision, java.math.BigDecimal importeTotal) {
+        StringBuilder campos = new StringBuilder()
+                .append("<rucEmisor>").append(esc(rucEmisor)).append("</rucEmisor>")
+                .append("<tipoCDP>").append(esc(tipo)).append("</tipoCDP>")
+                .append("<serieCDP>").append(esc(serie)).append("</serieCDP>")
+                .append("<numeroCDP>").append(numero).append("</numeroCDP>");
+        if (tipoDocReceptor != null) campos.append("<tipoDocIdReceptor>").append(esc(tipoDocReceptor)).append("</tipoDocIdReceptor>");
+        if (numDocReceptor != null) campos.append("<numeroDocIdReceptor>").append(esc(numDocReceptor)).append("</numeroDocIdReceptor>");
+        if (fechaEmision != null) campos.append("<fechaEmision>").append(esc(fechaEmision)).append("</fechaEmision>");
+        if (importeTotal != null) campos.append("<importeTotal>").append(importeTotal.toPlainString()).append("</importeTotal>");
+        return """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://service.sunat.gob.pe" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+            <soapenv:Header><wsse:Security><wsse:UsernameToken><wsse:Username>%s</wsse:Username><wsse:Password>%s</wsse:Password></wsse:UsernameToken></wsse:Security></soapenv:Header>
+            <soapenv:Body><ser:validaCDPcriterios>%s</ser:validaCDPcriterios></soapenv:Body>
+            </soapenv:Envelope>""".formatted(esc(usuario), esc(clave), campos);
+    }
+
     static String esc(String s) {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }

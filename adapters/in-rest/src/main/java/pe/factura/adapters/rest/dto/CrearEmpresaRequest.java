@@ -7,6 +7,6 @@ import jakarta.validation.constraints.Pattern;
 import pe.factura.domain.tenant.Entorno;
 
 public record CrearEmpresaRequest(
-        @NotBlank @Pattern(regexp = "\\d{11}") @Schema(example = "20123456789") String ruc,
+        @NotBlank @Pattern(regexp = "\\d{11}") @Schema(example = "20123456786") String ruc,
         @NotBlank @Schema(example = "Comercial Andina SAC") String razonSocial,
         @NotNull @Schema(example = "BETA") Entorno entorno) {}

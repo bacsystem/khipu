@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { hoyLima } from "@/lib/formato";
-import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, type Baja, type Comprobante, type Empresa, type PersonalizacionPdf, type Usuario } from "./data";
+import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8080";
@@ -38,6 +38,36 @@ function empresaDe(request: Request): Empresa | undefined {
   return [...db.empresasPorCuenta.values()].flat().find((e) => e.id === empresaId);
 }
 
+async function guardarEstablecimiento(request: Request, codigoRuta: string | null) {
+  const empresa = empresaDe(request);
+  if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+  const body = (await request.json()) as { codigo: string; nombre: string; domicilio: { ubigeo: string; direccion: string; urbanizacion?: string | null } };
+  if (codigoRuta && codigoRuta !== body.codigo) return fail(422, "ESTABLECIMIENTO_INVALIDO", `El código de la ruta (${codigoRuta}) y del cuerpo (${body.codigo}) no coinciden`);
+  if (!/^\d{4}$/.test(body.codigo)) return fail(422, "ESTABLECIMIENTO_INVALIDO", "3030 - El código del establecimiento anexo son 4 dígitos, tal como figura en la ficha RUC");
+  if (body.codigo === "0000") return fail(422, "ESTABLECIMIENTO_INVALIDO", "El 0000 es el domicilio fiscal: se configura en los datos fiscales de la empresa, no como anexo");
+  const u = UBIGEOS.find((x) => x.codigo === body.domicilio?.ubigeo);
+  if (!u) return fail(422, "DOMICILIO_INVALIDO", "4093 - El ubigeo debe ser un código de 6 dígitos del catálogo 13 (INEI)");
+  const lista = db.establecimientosPorEmpresa.get(empresa.id) ?? [];
+  const existente = lista.find((x) => x.codigo === body.codigo);
+  const e: Establecimiento = {
+    codigo: body.codigo, nombre: body.nombre, activo: existente?.activo ?? true,
+    domicilio: { ubigeo: u.codigo, direccion: body.domicilio.direccion, urbanizacion: body.domicilio.urbanizacion ?? null, distrito: u.extra.Distrito, provincia: u.extra.Provincia, departamento: u.extra.Departamento, codigo_establecimiento: body.codigo },
+  };
+  if (existente) Object.assign(existente, e); else lista.push(e);
+  db.establecimientosPorEmpresa.set(empresa.id, lista);
+  return ok({ ...e, principal: false }, existente ? 200 : 201);
+}
+
+/** Mismo módulo 11 que el backend (pesos 5-4-3-2-7-6-5-4-3-2). */
+function rucValido(ruc: string): boolean {
+  if (!/^(10|15|16|17|20)\d{9}$/.test(ruc)) return false;
+  const pesos = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const suma = pesos.reduce((acc, p, i) => acc + Number(ruc[i]) * p, 0);
+  const resto = 11 - (suma % 11);
+  const digito = resto === 10 ? 0 : resto === 11 ? 1 : resto;
+  return Number(ruc[10]) === digito;
+}
+
 function nuevoId(prefijo: string) {
   contador += 1;
   return `${prefijo}-${contador}`;
@@ -67,8 +97,10 @@ const CATALOGOS = [
   { id: "07", nombre: "Código de tipo de afectación del IGV", columnas: ["Código", "Descripción", "Codigo de tributo"],
     entradas: [
       { codigo: "10", descripcion: "Gravado - Operación Onerosa", extra: { "Codigo de tributo": "1000" } },
+      { codigo: "17", descripcion: "Gravado - IVAP", extra: { "Codigo de tributo": "1016 o 9996" } },
       { codigo: "20", descripcion: "Exonerado - Operación Onerosa", extra: { "Codigo de tributo": "9997" } },
       { codigo: "30", descripcion: "Inafecto - Operación Onerosa", extra: { "Codigo de tributo": "9998" } },
+      { codigo: "40", descripcion: "Exportación de Bienes o Servicios", extra: { "Codigo de tributo": "9995" } },
     ] },
   { id: "13", nombre: "Código de ubicación geográfica (UBIGEO, INEI)", columnas: ["Código", "Descripción", "Departamento", "Provincia", "Distrito"], entradas: UBIGEOS },
   { id: "25", nombre: "Código de producto SUNAT (UNSPSC; listados 25.1–25.3)", columnas: ["Código", "Descripción", "Listado", "Partidas arancelarias"],
@@ -122,6 +154,7 @@ export const handlers = [
     const c = claims(request);
     if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");
     const body = (await request.json()) as { ruc: string; razon_social: string; entorno: "BETA" | "PRODUCCION" };
+    if (!rucValido(body.ruc)) return fail(422, "RUC_INVALIDO", `Empresa: el dígito verificador del RUC ${body.ruc} no es válido; revise el número`);
     const empresa: Empresa = {
       id: nuevoId("e"),
       ruc: body.ruc,
@@ -253,23 +286,64 @@ export const handlers = [
 
   http.post(`${BASE}/v1/series`, async ({ request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
-    const body = (await request.json()) as { tipo: string; serie: string; correlativo_inicial?: number };
+    const body = (await request.json()) as { tipo: string; serie: string; correlativo_inicial?: number; establecimiento?: string | null };
+    const establecimiento = body.establecimiento || "0000";
+    if (establecimiento !== "0000") {
+      const e = (db.establecimientosPorEmpresa.get(empresaId) ?? []).find((x) => x.codigo === establecimiento);
+      if (!e) return fail(422, "ESTABLECIMIENTO_INVALIDO", `El establecimiento ${establecimiento} no existe en la empresa: regístrelo antes de asignarle una serie`);
+      if (!e.activo) return fail(422, "ESTABLECIMIENTO_INVALIDO", `El establecimiento ${establecimiento} (${e.nombre}) está dado de baja`);
+    }
     const lista = db.seriesPorEmpresa.get(empresaId) ?? [];
-    lista.push({ tipo: body.tipo, serie: body.serie, ultimo_numero: body.correlativo_inicial ?? 0, activa: true });
+    lista.push({ tipo: body.tipo, serie: body.serie, ultimo_numero: body.correlativo_inicial ?? 0, activa: true, establecimiento });
     db.seriesPorEmpresa.set(empresaId, lista);
     return new HttpResponse(null, { status: 201 });
+  }),
+
+  // Establecimientos anexos (#80): el 0000 es el domicilio fiscal de la empresa y se lista como principal.
+  http.get(`${BASE}/v1/empresa/establecimientos`, ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    const anexos = (db.establecimientosPorEmpresa.get(empresa.id) ?? []).map((e) => ({ ...e, principal: false }));
+    const principal = empresa.domicilio ? [{ codigo: "0000", nombre: "Domicilio fiscal", domicilio: empresa.domicilio, activo: true, principal: true }] : [];
+    return ok([...principal, ...anexos]);
+  }),
+  http.post(`${BASE}/v1/empresa/establecimientos`, async ({ request }) => guardarEstablecimiento(request, null)),
+  http.put(`${BASE}/v1/empresa/establecimientos/:codigo`, async ({ request, params }) => guardarEstablecimiento(request, String(params.codigo))),
+  http.delete(`${BASE}/v1/empresa/establecimientos/:codigo`, ({ request, params }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    const codigo = String(params.codigo);
+    if (codigo === "0000") return fail(422, "ESTABLECIMIENTO_INVALIDO", "El 0000 es el domicilio fiscal: no se da de baja, se edita en datos fiscales");
+    const e = (db.establecimientosPorEmpresa.get(empresa.id) ?? []).find((x) => x.codigo === codigo);
+    if (!e) return fail(404, "NO_ENCONTRADO", `Establecimiento ${codigo} no encontrado`);
+    const enUso = (db.seriesPorEmpresa.get(empresa.id) ?? []).filter((s) => s.activa && s.establecimiento === codigo).map((s) => s.serie);
+    if (enUso.length) return fail(409, "ESTABLECIMIENTO_EN_USO", `El establecimiento ${codigo} tiene series activas (${enUso.join(", ")}): reasígnelas antes de darlo de baja`);
+    e.activo = false;
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get(`${BASE}/v1/facturas`, ({ request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
     const url = new URL(request.url);
     const estado = url.searchParams.get("estado");
+    const desde = url.searchParams.get("desde");
+    const hasta = url.searchParams.get("hasta");
+    const serie = url.searchParams.get("serie")?.toUpperCase();
+    if (desde && hasta && desde > hasta) return fail(400, "RANGO_INVALIDO", `desde (${desde}) no puede ser posterior a hasta (${hasta})`);
     let lista = db.facturasPorEmpresa.get(empresaId) ?? [];
     if (estado) lista = lista.filter((f) => f.estado_documento === estado);
+    if (desde) lista = lista.filter((f) => f.fecha_emision >= desde);
+    if (hasta) lista = lista.filter((f) => f.fecha_emision <= hasta);
+    if (serie) lista = lista.filter((f) => f.serie === serie);
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1));
     const porPagina = Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20));
     const total = lista.length;
-    const datos = lista.slice((pagina - 1) * porPagina, pagina * porPagina);
+    // Como el backend: el historial de intentos solo viaja al consultar por id, nunca en el listado.
+    const datos = lista.slice((pagina - 1) * porPagina, pagina * porPagina).map((f) => {
+      const copia: Partial<typeof f> = { ...f };
+      delete copia.eventos;
+      return copia;
+    });
     return HttpResponse.json(
       { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
       { headers: { "x-total-count": String(total) } },
@@ -288,7 +362,8 @@ export const handlers = [
           motivo_descripcion: n.nota!.motivo_descripcion, estado_documento: n.estado_documento, total: n.totales.total,
         }))
       : [];
-    return ok({ ...factura, notas: notas.length ? notas : null });
+    // Como el backend (#4): el historial viaja solo al consultar por id; un comprobante sin eventos devuelve [].
+    return ok({ ...factura, notas: notas.length ? notas : null, eventos: factura.eventos ?? [] });
   }),
 
   // Notas de crédito/débito: la factura debe existir y estar aceptada; la nota copia cliente y moneda y se acepta al instante.
@@ -311,7 +386,7 @@ export const handlers = [
     const nota: Comprobante = {
       id, tipo: body.tipo, serie: body.serie, numero: serie.ultimo_numero, fecha_emision: body.fecha_emision, moneda: factura.moneda,
       tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items, estado_documento: "ACEPTADO", hash: "hashnota==",
-      nombre_archivo: `20123456789-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
+      nombre_archivo: `20123456786-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
       totales: { gravado: Number((total / 1.18).toFixed(2)), exonerado: 0, inafecto: 0, igv: Number((total - total / 1.18).toFixed(2)), total: Number(total.toFixed(2)) },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
@@ -359,7 +434,7 @@ export const handlers = [
   // Representación impresa: un PDF mínimo válido (lo que importa en el portal es el enlace y el tipo de contenido).
   http.get(`${BASE}/v1/facturas/:id/pdf`, () =>
     new HttpResponse("%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF", {
-      headers: { "content-type": "application/pdf", "content-disposition": 'inline; filename="20123456789-01-F001-00000001.pdf"' },
+      headers: { "content-type": "application/pdf", "content-disposition": 'inline; filename="20123456786-01-F001-00000001.pdf"' },
     }),
   ),
   // Envío por correo al adquirente: solo comprobantes aceptados; el backend valida el email (422 VALIDACION).
@@ -380,7 +455,7 @@ export const handlers = [
     `${BASE}/v1/facturas/:id/xml`,
     () =>
       new HttpResponse(
-        `<?xml version="1.0" encoding="UTF-8"?><Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"><cbc:ID>F001-1</cbc:ID><cac:AccountingSupplierParty><cbc:CustomerAssignedAccountID>20123456789</cbc:CustomerAssignedAccountID></cac:AccountingSupplierParty></Invoice>`,
+        `<?xml version="1.0" encoding="UTF-8"?><Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"><cbc:ID>F001-1</cbc:ID><cac:AccountingSupplierParty><cbc:CustomerAssignedAccountID>20123456786</cbc:CustomerAssignedAccountID></cac:AccountingSupplierParty></Invoice>`,
         { headers: { "content-type": "application/xml" } },
       ),
   ),

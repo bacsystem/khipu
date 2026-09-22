@@ -1,15 +1,15 @@
-import { ArrowLeftIcon, BanIcon, FileMinusIcon, FileTextIcon, IdCardIcon, LinkIcon, Rows3Icon } from "lucide-react";
+import { ArrowLeftIcon, BanIcon, FileMinusIcon, FileTextIcon, HistoryIcon, IdCardIcon, LinkIcon, Rows3Icon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { EstadoBadge } from "@/components/comprobantes/estado-badge";
+import { EstadoBadge, ETIQUETAS_ESTADO, PUNTOS } from "@/components/comprobantes/estado-badge";
 import { BajaButton } from "@/components/comprobantes/baja-button";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { admiteBaja, admiteCorreo, admiteNotas, type Detraccion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { admiteBaja, admiteCorreo, admiteNotas, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
-import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
+import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,20 @@ const TIPOS_OPERACION: Record<string, string> = {
   "0101": "Venta interna",
   "0200": "Exportación de bienes",
   "0201": "Exportación de servicios",
+  "0202": "Exportación · Hospedaje a no domiciliados",
+  "0203": "Exportación · Transporte de navieras",
+  "0204": "Exportación · Servicios a naves y aeronaves",
+  "0205": "Exportación · Paquete turístico",
+  "0206": "Exportación · Servicios complementarios al transporte de carga",
+  "0207": "Exportación · Suministro de energía a ZED",
+  "0208": "Exportación · Servicios prestados parcialmente en el extranjero",
+  "1001": "Operación sujeta a detracción",
+  "2001": "Operación sujeta a percepción",
+};
+
+const INCOTERMS: Record<string, string> = {
+  EXW: "Ex Works", FCA: "Free Carrier", FAS: "Free Alongside Ship", FOB: "Free On Board", CFR: "Cost and Freight", CIF: "Cost, Insurance and Freight",
+  CPT: "Carriage Paid To", CIP: "Carriage and Insurance Paid To", DAP: "Delivered At Place", DPU: "Delivered at Place Unloaded", DDP: "Delivered Duty Paid",
 };
 
 const MONEDAS: Record<string, string> = {
@@ -64,6 +78,28 @@ function FormaPagoDetalle({ formaPago, moneda }: { formaPago: FormaPago; moneda:
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** Exportación (0200–0208): Incoterm de la venta y, en servicios, el país donde se usa. */
+function ExportacionDetalle({ exportacion }: { exportacion: Exportacion }) {
+  return (
+    <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="exportacion">
+      <span className={ETIQUETA}>Exportación</span>
+      <div className="mt-2 space-y-1.5 text-muted-foreground">
+        <div className="flex items-baseline justify-between gap-3">
+          <span>Incoterm</span>
+          <span className="font-mono text-foreground/80">{exportacion.incoterm ? `${exportacion.incoterm} · ${INCOTERMS[exportacion.incoterm] ?? ""}`.trim() : "—"}</span>
+        </div>
+        {exportacion.pais_uso ? (
+          <div className="flex items-baseline justify-between gap-3">
+            <span>País de uso del servicio</span>
+            <span className="font-mono text-foreground/80">{exportacion.pais_uso}</span>
+          </div>
+        ) : null}
+        <p className="text-[11px] text-muted-foreground/80">Sin IGV (tributo 9995): la factura sustenta la exportación ante SUNAT y Aduanas.</p>
+      </div>
     </div>
   );
 }
@@ -159,6 +195,35 @@ function CajaRespuesta({ comprobante }: { comprobante: Comprobante }) {
   );
 }
 
+/** Historial de intentos (#7): un punto por cambio de estado, en hora de Lima, con el motivo; «Sin historial» si el backend no lo envía. */
+function Historial({ eventos }: { eventos: Comprobante["eventos"] }) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="historial">
+      <div className={cn(TITULO_SECCION, "mb-3")}>
+        <HistoryIcon className="size-4" />
+        Historial
+      </div>
+      {eventos && eventos.length > 0 ? (
+        <ol className="relative ml-1.5 space-y-3 border-l border-border pl-4">
+          {eventos.map((e, i) => (
+            <li key={i} className="relative text-xs">
+              <span className={cn("absolute top-1.5 -left-[21px] size-2.5 rounded-full ring-2 ring-card", PUNTOS[e.estado_resultante] ?? "bg-muted-foreground/60")} />
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{formatearFechaHora(e.fecha)}</span>
+                <span className="font-semibold text-foreground">{ETIQUETAS_ESTADO[e.estado_resultante] ?? e.estado_resultante}</span>
+                {e.estado_anterior ? <span className="text-[11px] text-muted-foreground/70">desde {ETIQUETAS_ESTADO[e.estado_anterior] ?? e.estado_anterior}</span> : null}
+              </div>
+              {e.mensaje ? <p className="mt-0.5 font-mono text-[11px] leading-snug text-foreground/80">{e.mensaje}</p> : null}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-xs text-muted-foreground/70">Sin historial.</p>
+      )}
+    </section>
+  );
+}
+
 export default async function ComprobanteDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { access, empresaId } = await getServerSession();
@@ -249,6 +314,12 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           <Campo etiqueta="Fecha de emisión">
             <span className="font-mono text-xs font-medium text-foreground">{formatearFecha(c.fecha_emision)}</span>
             {c.fecha_vencimiento ? <span className="block text-[11px] text-muted-foreground">Vence {formatearFecha(c.fecha_vencimiento)}</span> : null}
+            {c.fecha_limite_envio && (c.estado_documento === "FIRMADO" || c.estado_documento === "ERROR_ENVIO") ? (
+              <span className="block text-[11px] text-warning-foreground">Enviar a SUNAT hasta el {formatearFecha(c.fecha_limite_envio)}</span>
+            ) : null}
+            {c.fecha_limite_envio && c.estado_documento === "FUERA_DE_PLAZO" ? (
+              <span className="block text-[11px] text-destructive">Plazo de envío vencido el {formatearFecha(c.fecha_limite_envio)}: emita un comprobante nuevo</span>
+            ) : null}
           </Campo>
           <Campo etiqueta="Moneda">
             <span className="text-xs font-semibold text-foreground">{MONEDAS[c.moneda] ?? c.moneda}</span>
@@ -273,6 +344,16 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             )}
           </Campo>
         </div>
+        {c.leyendas && c.leyendas.length > 0 ? (
+          <div className="mt-4 flex flex-col gap-1 border-t border-border/60 pt-4" data-testid="leyendas">
+            <span className="text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Leyendas (catálogo 52)</span>
+            {c.leyendas.map((l) => (
+              <p key={l.codigo} className="text-xs text-foreground/90">
+                <span className="font-mono text-muted-foreground">{l.codigo}</span> · {l.texto}
+              </p>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5 shadow-2xs">
@@ -296,11 +377,18 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <Campo etiqueta="Dirección declarada">
               <p className="leading-snug text-foreground/80">{c.receptor.direccion ?? "—"}</p>
             </Campo>
+            {c.receptor.pais ? (
+              <Campo etiqueta="País">
+                <p className="font-mono text-foreground/80" data-testid="receptor-pais">{c.receptor.pais}</p>
+              </Campo>
+            ) : null}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground/60">Sin datos de receptor.</p>
         )}
       </section>
+
+      <Historial eventos={c.eventos} />
 
       {c.baja ? (
         <section
@@ -466,6 +554,22 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                         {item.gtin ? `${item.gtin.tipo} ${item.gtin.codigo}` : null}
                       </span>
                     ) : null}
+                    {item.hidrobiologico ? (
+                      <span className="mt-1 block text-[11px] font-normal leading-snug text-muted-foreground" data-testid="hidrobiologico">
+                        Embarcación {item.hidrobiologico.nombre_embarcacion} (matrícula {item.hidrobiologico.matricula}) · {item.hidrobiologico.especie} ·{" "}
+                        {formatearNumero(item.hidrobiologico.cantidad)} t descargadas en {item.hidrobiologico.lugar_descarga} el {formatearFecha(item.hidrobiologico.fecha_descarga)}
+                      </span>
+                    ) : null}
+                    {item.transporte ? (
+                      <span className="mt-1 block text-[11px] font-normal leading-snug text-muted-foreground" data-testid="transporte">
+                        {item.transporte.origen.direccion} ({item.transporte.origen.ubigeo}) → {item.transporte.destino.direccion} ({item.transporte.destino.ubigeo}) · {item.transporte.detalle_viaje}
+                        <span className="block font-mono">
+                          Valores referenciales: servicio {formatearMonto("PEN", item.transporte.valor_referencial.servicio)} · carga efectiva{" "}
+                          {formatearMonto("PEN", item.transporte.valor_referencial.carga_efectiva)} · carga útil {formatearMonto("PEN", item.transporte.valor_referencial.carga_util_nominal)}
+                          {item.transporte.tramos?.length ? ` · ${item.transporte.tramos.length} tramo${item.transporte.tramos.length === 1 ? "" : "s"}` : ""}
+                        </span>
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3 text-right font-mono text-foreground/90 tabular-nums">{formatearNumero(item.cantidad)}</td>
                   <td className="px-3 py-3 text-center font-mono">
@@ -569,7 +673,11 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <span className="font-mono text-[11px] text-muted-foreground/70">{MONEDAS[c.moneda] ?? c.moneda}</span>
           </div>
           <div className="space-y-2 text-xs">
-            <Importe etiqueta="Total gravado" moneda={c.moneda} valor={c.totales.gravado} />
+            {c.totales.exportacion ? (
+              <Importe etiqueta="Total exportación (sin IGV)" moneda={c.moneda} valor={c.totales.exportacion} />
+            ) : (
+              <Importe etiqueta={c.totales.ivap ? "Total sujeto al IVAP" : "Total gravado"} moneda={c.moneda} valor={c.totales.gravado} />
+            )}
             <Importe etiqueta="Total exonerado" moneda={c.moneda} valor={c.totales.exonerado} />
             <Importe etiqueta="Total inafecto" moneda={c.moneda} valor={c.totales.inafecto} />
             {c.totales.descuento_global ? (
@@ -584,7 +692,11 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             ))}
             {c.totales.isc ? <Importe etiqueta="Total ISC" moneda={c.moneda} valor={c.totales.isc} /> : null}
             {c.totales.icbper ? <Importe etiqueta="Total ICBPER (bolsas)" moneda={c.moneda} valor={c.totales.icbper} /> : null}
-            <Importe etiqueta="Total IGV" moneda={c.moneda} valor={c.totales.igv} />
+            {c.totales.ivap ? (
+              <Importe etiqueta="Total IVAP (4 %)" moneda={c.moneda} valor={c.totales.ivap} />
+            ) : (
+              <Importe etiqueta={c.totales.tasa_igv != null ? `Total IGV (${formatearNumero(c.totales.tasa_igv)} %)` : "Total IGV"} moneda={c.moneda} valor={c.totales.igv} />
+            )}
             {c.totales.gratuito ? (
               <>
                 <Importe etiqueta="Operaciones gratuitas (no se cobran)" moneda={c.moneda} valor={c.totales.gratuito} />
@@ -619,6 +731,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           </div>
           <FormaPagoDetalle formaPago={c.forma_pago} moneda={c.moneda} />
           {c.detraccion ? <DetraccionDetalle detraccion={c.detraccion} /> : null}
+          {c.exportacion ? <ExportacionDetalle exportacion={c.exportacion} /> : null}
           {c.anticipos?.length ? (
             <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="anticipos">
               <span className={ETIQUETA}>Anticipos regularizados</span>

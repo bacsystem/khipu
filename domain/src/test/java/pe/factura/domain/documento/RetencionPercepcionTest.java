@@ -19,10 +19,7 @@ class RetencionPercepcionTest {
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
 
     static Comprobante factura(String moneda, String op, FormaPago fp, RetencionIgv r, Percepcion p) {
-        return Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), moneda, op,
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
-                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
-                fp, null, null, r, p, CLOCK);
+        return Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), moneda, op, new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).formaPago(fp).retencion(r).percepcion(p).crear(CLOCK);
     }
 
     static void rechaza(Runnable r, String codigo, String sunat) {

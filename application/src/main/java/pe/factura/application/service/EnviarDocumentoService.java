@@ -10,6 +10,7 @@ import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.tenant.Tenant;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -32,6 +33,12 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
                 .orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
         if (!c.estado().esEnviable())
             throw new DomainException("ESTADO_NO_ENVIABLE", "El comprobante está en estado " + c.estado());
+        // Pasado el plazo SUNAT rechaza con 2108 y el número ya está consumido: se cierra aquí, sin gastar el envío (#37).
+        if (c.fueraDePlazo(LocalDate.now(clock))) {
+            c.marcarFueraDePlazo(LocalDate.now(clock));
+            uow.ejecutar(() -> comprobantes.guardar(c));
+            throw new DomainException("FUERA_DE_PLAZO", "2108 - " + c.nombreArchivo() + " no se envió dentro del plazo (venció el " + c.fechaLimiteEnvio() + "): emita un comprobante nuevo");
+        }
         Tenant tenant = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
         tenant.exigirCredencialesSol();
 
