@@ -25,10 +25,8 @@ class JdbcSerieRepositoryTest extends PersistenciaTestBase {
         UUID t = tenantDePrueba();
         repo.crear(new Serie(t, TipoDocumento.FACTURA, "F001", 0, true));
         repo.crear(new Serie(t, TipoDocumento.FACTURA, "F002", 5, true, "0002"));
-        assertThat(repo.buscar(t, TipoDocumento.FACTURA, "F002")).get().extracting(Serie::establecimiento, Serie::ultimoNumero).containsExactly("0002", 5L);
-        assertThat(repo.buscar(t, TipoDocumento.FACTURA, "F001")).get().extracting(Serie::establecimiento).isEqualTo("0000");
-        assertThat(repo.buscar(t, TipoDocumento.FACTURA, "F009")).isEmpty();
-        assertThat(repo.listar(t)).extracting(Serie::codigo, Serie::establecimiento).containsExactly(tuple("F001", "0000"), tuple("F002", "0002"));
+        assertThat(repo.listar(t)).extracting(Serie::codigo, Serie::establecimiento, Serie::ultimoNumero)
+                .containsExactly(tuple("F001", "0000", 0L), tuple("F002", "0002", 5L));
     }
 
     @Test void serieNoConfigurada() {

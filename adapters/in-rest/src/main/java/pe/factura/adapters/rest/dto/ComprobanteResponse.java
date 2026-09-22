@@ -12,9 +12,11 @@ import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.ItemCalculado;
+import pe.factura.domain.documento.Leyenda;
 import pe.factura.domain.documento.Nota;
 import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.Referencias;
+import pe.factura.domain.documento.Totales;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -94,8 +96,12 @@ public record ComprobanteResponse(
                               @Schema(example = "gravado", description = "`gravado`, `exonerado` o `inafecto`") String afectacion,
                               @Schema(example = "04", description = "Código SUNAT del descuento global por anticipo (catálogo 53: 04/05/06)") String codigoSunat,
                               @Schema(example = "2026-09-01") LocalDate fechaPago) {
-        static AnticipoDto de(Anticipo a) {
-            return new AnticipoDto(a.comprobante(), a.serie(), a.numero(), a.monto(), a.importePagado(), a.afectacion().name().toLowerCase(), a.codigoSunat(), a.fechaPago());
+        // AnticipoCalculado, no Anticipo a secas: importePagado() debe calcularse con la tasa de IGV real del comprobante
+        // (Totales.tasaIgv), no con la general fija — si no, una empresa del padrón (10 %/10.5 %) recibiría un importe
+        // pagado incorrecto en la respuesta.
+        static AnticipoDto de(Totales.AnticipoCalculado ac) {
+            Anticipo a = ac.anticipo();
+            return new AnticipoDto(a.comprobante(), a.serie(), a.numero(), a.monto(), ac.importePagado(), a.afectacion().name().toLowerCase(), a.codigoSunat(), a.fechaPago());
         }
     }
 
@@ -187,7 +193,7 @@ public record ComprobanteResponse(
             @Schema(example = "2000.00") BigDecimal precioUnitario,
             @Schema(example = "10", description = "Afectación del IGV, catálogo 07: `10` gravado, `17` IVAP, `20` exonerado, `30` inafecto, `40` exportación; gratuitas `11`–`16` (gravadas), `21` (exonerada), `31`–`37` (inafectas)") String tipoAfectacionIgv,
             @Schema(example = "1000.00", description = "Valor de venta de la línea sin IGV, neto de descuento que afecta la base y con los cargos 47 (en gratuitas, el valor referencial)") BigDecimal valorVenta,
-            @Schema(example = "180.00", description = "IGV de la línea; en gratuitas gravadas se informa pero no se cobra") BigDecimal igv,
+            @Schema(example = "180.00", description = "IGV de la línea; en gratuitas gravadas se informa pero no se cobra. En una línea IVAP (afectación 17) este campo trae el IVAP (4 %), no el IGV") BigDecimal igv,
             @Schema(example = "1180.00", description = "Lo que paga el cliente por la línea, con cargos 48 (0.00 en gratuitas)") BigDecimal precioVenta,
             @Schema(example = "false", description = "true si la afectación es gratuita (11–16, 21, 31–37)") boolean gratuita,
             DescuentoDto descuento,
@@ -217,7 +223,7 @@ public record ComprobanteResponse(
             @Schema(example = "0.00") BigDecimal exonerado,
             @Schema(example = "0.00") BigDecimal inafecto,
             @Schema(example = "180.00") BigDecimal igv,
-            @Schema(example = "18.00", description = "Tasa del IGV aplicada a las líneas gravadas, en porcentaje: 18.00, o la reducida del Padrón de Tasa Especial (restaurantes y hoteles) si la empresa la tiene activa; una nota usa la de su factura") BigDecimal tasaIgv,
+            @Schema(example = "18.00", description = "Tasa del IGV aplicada a las líneas gravadas, en porcentaje: 18.00, o la reducida del Padrón de Tasa Especial (restaurantes y hoteles) si la empresa la tiene activa; una nota usa la de su factura. En un comprobante IVAP (afectación 17) no se aplica: no hay líneas al IGV y la tasa del IVAP (4 %, fija) va en `ivap`") BigDecimal tasaIgv,
             @Schema(example = "0.00", description = "Base de las operaciones gratuitas (tributo 9996): no se cobra") BigDecimal gratuito,
             @Schema(example = "0.00", description = "IGV de las operaciones gratuitas gravadas: solo informativo, no se cobra") BigDecimal igvGratuitas,
             @Schema(example = "0.00", description = "Total IVAP (tributo 1016, 4 % sobre la venta de arroz pilado, afectación 17): sustituye al IGV en el comprobante") BigDecimal ivap,
@@ -254,13 +260,13 @@ public record ComprobanteResponse(
                 c.retencion() == null ? null : new RetencionDto(c.retencion().porcentaje(), c.retencion().monto(), c.totales().total().subtract(c.retencion().monto())),
                 c.percepcion() == null ? null : new PercepcionDto(c.percepcion().regimen(), c.percepcion().descripcionRegimen(), c.percepcion().porcentaje(),
                         c.percepcion().base(), c.percepcion().monto(), c.percepcion().totalConPercepcion(c.totales().total())),
-                c.anticipos().isEmpty() ? null : c.anticipos().stream().map(AnticipoDto::de).toList(),
+                c.anticipos().isEmpty() ? null : c.totales().anticipos().stream().map(AnticipoDto::de).toList(),
                 ReferenciasDto.de(c.referencias()),
                 NotaDto.de(c),
                 notas == null ? null : notas.stream().map(NotaResumenDto::de).toList(),
                 baja == null ? null : BajaResponse.de(baja),
                 c.observaciones(),
-                c.leyendas().stream().map(l -> new LeyendaDto(l, pe.factura.domain.documento.Leyenda.texto(l))).toList(),
+                c.leyendas().stream().map(l -> new LeyendaDto(l, Leyenda.texto(l))).toList(),
                 ExportacionDto.de(c.exportacion()),
                 enlaces(c, p));
     }

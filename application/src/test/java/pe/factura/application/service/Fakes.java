@@ -52,11 +52,19 @@ final class Fakes {
         public java.util.Optional<Serie> buscar(UUID t, TipoDocumento tipo, String serie) { return java.util.Optional.ofNullable(series.get(t + tipo.codigo() + serie)); }
         public List<Serie> listar(UUID t) { return series.values().stream().filter(s -> s.tenantId().equals(t)).toList(); }
     }
-    static final class Establecimientos implements pe.factura.application.port.out.EstablecimientoRepository {
+    /** {@code series}: de dónde sale el establecimiento asignado a una serie (mismo JOIN que hace la consulta real en Postgres). */
+    static final class Establecimientos implements EstablecimientoRepository, EmisorDeSerieRepository {
         final Map<String, pe.factura.domain.tenant.Establecimiento> datos = new HashMap<>();
+        private final Series series;
+        Establecimientos(Series series) { this.series = series; }
         public void guardar(pe.factura.domain.tenant.Establecimiento e) { datos.put(e.tenantId() + e.codigo(), e); }
         public java.util.Optional<pe.factura.domain.tenant.Establecimiento> buscar(UUID t, String codigo) { return java.util.Optional.ofNullable(datos.get(t + codigo)); }
+        public java.util.Optional<pe.factura.domain.tenant.Establecimiento> buscarConBloqueo(UUID t, String codigo) { return buscar(t, codigo); }
         public List<pe.factura.domain.tenant.Establecimiento> listar(UUID t) { return datos.values().stream().filter(e -> e.tenantId().equals(t)).sorted(java.util.Comparator.comparing(pe.factura.domain.tenant.Establecimiento::codigo)).toList(); }
+        public java.util.Optional<Asignacion> buscarAsignacionDeSerie(UUID t, TipoDocumento tipo, String serie) {
+            return series.buscar(t, tipo, serie).filter(s -> !s.enDomicilioFiscal())
+                    .map(s -> new Asignacion(s.establecimiento(), datos.get(t + s.establecimiento())));
+        }
     }
     static final class Tenants implements TenantRepository {
         final Map<UUID, Tenant> datos = new HashMap<>();
