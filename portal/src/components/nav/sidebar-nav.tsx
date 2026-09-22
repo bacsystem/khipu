@@ -1,6 +1,6 @@
 "use client";
 
-import { ListOrderedIcon, PackageIcon, PlusCircleIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon } from "lucide-react";
+import { ListOrderedIcon, PackageIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,6 @@ const GRUPOS: Grupo[] = [
     titulo: "Emisión & SUNAT",
     items: [
       { href: "/comprobantes", label: "Comprobantes", icon: ReceiptTextIcon },
-      { label: "Emitir comprobante", icon: PlusCircleIcon },
       { href: "/series", label: "Series correlativas", icon: ListOrderedIcon },
       { label: "Catálogo", icon: PackageIcon },
     ],

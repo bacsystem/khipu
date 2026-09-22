@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadIcon, PlusIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
+import { DownloadIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { Usuario } from "@/lib/api/auth";
 import type { Empresa, Entorno } from "@/lib/api/empresas";
@@ -9,6 +9,7 @@ import { NuevaApiKeyDialog } from "@/components/api-keys/nueva-api-key-dialog";
 import { ReferenciaApiKeysDialog } from "@/components/api-keys/referencia-api-keys";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { ReferenciaEmpresaDialog } from "@/components/empresa/referencia-empresa";
+import { NuevoComprobanteDialog } from "@/components/comprobantes/nuevo-comprobante-dialog";
 import { NuevaSerieDialog } from "@/components/series/nueva-serie-dialog";
 import { ReferenciaSeriesDialog } from "@/components/series/referencia-series";
 import { cn } from "@/lib/utils";
@@ -134,14 +135,7 @@ export function TopBar({
             <NuevaEmpresaDialog className={cn(ACCION_PRINCIPAL, "transition-colors hover:bg-foreground/90")} />
           </>
         ) : (
-          <button
-            disabled
-            title="Los comprobantes se emiten por integración con la API, no desde el portal todavía"
-            className={cn(ACCION_PRINCIPAL, "disabled:cursor-not-allowed")}
-          >
-            <PlusIcon className="size-4" />
-            Nueva factura
-          </button>
+          <NuevoComprobanteDialog className={cn(ACCION_PRINCIPAL, "transition-colors hover:bg-foreground/90")} />
         )}
       </div>
     </header>

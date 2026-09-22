@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Aviso, Codigo, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
+import { Codigo, NotaProsa, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
 import { messages } from "@/lib/messages";
 
 export const metadata = { title: `Errores y estados · ${messages.app.nombre}` };
@@ -97,10 +97,10 @@ export default function ErroresPage() {
           estados son desvíos con una acción concreta:
         </P>
         <Tabla cabeceras={["Estado", "Significado", "Qué hacer"]} filas={ESTADOS.map(([e, s, q]) => [e, s, q])} />
-        <Aviso tono="aviso">
+        <NotaProsa tono="aviso">
           <Codigo>ERROR_ENVIO</Codigo> no significa que SUNAT rechazó nada: el comprobante ya tiene número y firma, y khipu lo entregará. Solo{" "}
           <Codigo>RECHAZADO</Codigo> exige corregir y volver a emitir.
-        </Aviso>
+        </NotaProsa>
       </Seccion>
 
       <Seccion id="http" titulo="Códigos HTTP">

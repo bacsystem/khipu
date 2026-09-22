@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { hoyLima } from "@/lib/formato";
 import { telefonoSchema } from "@/lib/validacion";
+import { calcularTotales } from "@/lib/comprobantes/totales";
 import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
@@ -322,6 +323,57 @@ export const handlers = [
     if (enUso.length) return fail(409, "ESTABLECIMIENTO_EN_USO", `El establecimiento ${codigo} tiene series activas (${enUso.join(", ")}): reasígnelas antes de darlo de baja`);
     e.activo = false;
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  // Emisión manual desde el portal (#17). Los totales salen del mismo helper que previsualiza el formulario, así el
+  // mock no puede "confirmar" un cálculo distinto del que ve el usuario.
+  http.post(`${BASE}/v1/facturas`, async ({ request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const body = (await request.json()) as {
+      serie: string;
+      fecha_emision: string;
+      moneda: string;
+      cliente: { tipo_doc: string; num_doc: string; razon_social: string; direccion?: string };
+      items: Array<{ descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }>;
+    };
+
+    const series = db.seriesPorEmpresa.get(empresaId) ?? [];
+    const serie = series.find((s) => s.serie === body.serie && s.tipo === "01" && s.activa);
+    if (!serie) return fail(422, "SERIE_NO_CONFIGURADA", `La serie ${body.serie} no está registrada como serie de factura activa`);
+    if (!/^\d{11}$/.test(body.cliente?.num_doc ?? "")) return fail(422, "RECEPTOR_INVALIDO", "2017 - El RUC del adquirente debe tener 11 dígitos");
+    if (!body.items?.length) return fail(422, "ITEMS_REQUERIDOS", "Un comprobante necesita al menos un ítem");
+
+    serie.ultimo_numero += 1;
+    // La tasa sale de la empresa, igual que en el diálogo: si el fixture entra al padrón de tasa especial, mock y
+    // formulario siguen de acuerdo en vez de romper el e2e con un descuadre que parecería un bug del helper.
+    const tasaIgv = empresaDe(request)?.padron_tasa_especial_igv ? 10.5 : 18;
+    const t = calcularTotales(
+      body.items.map((i) => ({ cantidad: i.cantidad, precioUnitario: i.precio_unitario, tipoAfectacionIgv: i.tipo_afectacion_igv })),
+      tasaIgv,
+    );
+    const id = nuevoId("f");
+    const comprobante: Comprobante = {
+      id,
+      tipo: "01",
+      serie: body.serie,
+      numero: serie.ultimo_numero,
+      fecha_emision: body.fecha_emision,
+      moneda: body.moneda,
+      tipo_operacion: "0101",
+      receptor: { ...body.cliente, direccion: body.cliente.direccion ?? null },
+      items: body.items.map((i) => ({ codigo: null, ...i })),
+      estado_documento: "ACEPTADO",
+      hash: `hash-${id}`,
+      nombre_archivo: `20123456786-01-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`,
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: `La Factura numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
+      totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, total: t.total },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },
+    };
+    db.facturasPorEmpresa.set(empresaId, [comprobante, ...(db.facturasPorEmpresa.get(empresaId) ?? [])]);
+    return ok(comprobante, 201);
   }),
 
   http.get(`${BASE}/v1/facturas`, ({ request }) => {

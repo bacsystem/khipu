@@ -18,8 +18,14 @@ export function Codigo({ children }: { children: ReactNode }) {
   return <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[12px] text-foreground">{children}</code>;
 }
 
-/** Aviso destacado (advertencia SUNAT, nota importante). */
-export function Aviso({ tono = "info", children }: { tono?: "info" | "aviso"; children: ReactNode }) {
+/**
+ * Aviso destacado dentro de la prosa de la guía (advertencia SUNAT, nota importante).
+ *
+ * Se llama `NotaProsa` y no `Aviso` para no chocar con el `Aviso` del design system (`patrones/cabecera-dialogo`),
+ * que es el de diálogos y formularios y tiene otra API (exige `icon`, `tono: "aviso" | "ok"`). Renombrar este —que
+ * es propio del portal— en vez de aquel evita bifurcar un archivo vendorizado que hoy es idéntico al de upstream.
+ */
+export function NotaProsa({ tono = "info", children }: { tono?: "info" | "aviso"; children: ReactNode }) {
   return (
     <div
       className={cn(

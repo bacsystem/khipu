@@ -1,4 +1,12 @@
-const SIMBOLOS: Record<string, string> = { PEN: "S/", USD: "$" };
+/**
+ * Las tres monedas que acepta `FacturaRequest` (`@Pattern("PEN|USD|EUR")`). Tiene que cubrirlas a todas: lo que
+ * falte cae al código ISO, y el formulario de emisión mostraba «€ 2,500.01» en el campo de precio y «EUR 2,500.01»
+ * en el pie de totales para el mismo importe.
+ *
+ * `EntradaMonto` mantiene su propia copia a propósito: es un componente vendorizado del design system y no debe
+ * depender del `lib/` de esta app. Si aparece una moneda nueva, hay que tocar las dos.
+ */
+const SIMBOLOS: Record<string, string> = { PEN: "S/", USD: "$", EUR: "€" };
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"];
 
@@ -25,6 +33,17 @@ export function diasEntre(desde: string, hasta: string): number {
   const [a1, m1, d1] = desde.split("-").map(Number);
   const [a2, m2, d2] = hasta.split("-").map(Number);
   return (Date.UTC(a2, m2 - 1, d2) - Date.UTC(a1, m1 - 1, d1)) / 86_400_000;
+}
+
+/**
+ * Suma (o resta, con negativo) días calendario a una fecha `YYYY-MM-DD`, sin zona horaria de por medio.
+ * Con una fecha ilegible devuelve la entrada, como `formatearFecha`: sin la guarda, `toISOString()` lanza
+ * `RangeError` y tumba el render, que es peor que mostrar el valor crudo.
+ */
+export function sumarDias(iso: string, dias: number): string {
+  const [anio, mes, dia] = iso.split("-").map(Number);
+  if (!anio || !mes || !dia) return iso;
+  return new Date(Date.UTC(anio, mes - 1, dia + dias)).toISOString().slice(0, 10);
 }
 
 export function formatearFecha(iso: string): string {
