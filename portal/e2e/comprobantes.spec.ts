@@ -112,7 +112,17 @@ test("emite una nota de crédito parcial desde la factura y la factura la lista"
   // misma factura del mock y cada NC emitida baja el tope de las siguientes; la suma de todas queda lejos de 123.
   await form.getByLabel(/Cantidad de .* en la nota/).fill("0.1");
   await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 14.16");
+  // Se afirma sobre lo que el portal ENVÍA, no solo sobre la pantalla que el mock devuelve: antes una nota con
+  // fecha 2020, sin ítems o por 10× la factura pasaba igual.
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
   await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  const cuerpo = (await peticion).postDataJSON();
+  expect(cuerpo).toMatchObject({ tipo: "07", serie: "FC01", motivo: "07", documento_afectado: { serie: "F001", numero: 1 } });
+  expect(cuerpo.fecha_emision).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(cuerpo.fecha_emision >= "2026-09-01").toBe(true);
+  expect(cuerpo.items).toHaveLength(1);
+  expect(cuerpo.items[0]).toMatchObject({ cantidad: 0.1, precio_unitario: 141.6, tipo_afectacion_igv: "10" });
+  expect(cuerpo.forma_pago).toBeUndefined();
 
   // Aterriza en el detalle de la nota con el bloque "Nota de crédito sobre" y vuelve a la factura, que ya la lista.
   await expect(page).toHaveURL(/\/comprobantes\/n-/);
@@ -132,7 +142,14 @@ test("una nota de crédito 13 sale sin importe y una nota de débito con su conc
   await form.getByLabel(/Motivo/).selectOption("13");
   await expect(form.getByText(/importe 0/)).toBeVisible();
   await form.getByLabel("Sustento").fill("Reprogramación de cuotas");
+  // La NC 13 sin `forma_pago` es un 422 (3257) en el backend real; antes el mock la sintetizaba y este test pasaba
+  // aunque el portal no la enviara.
+  const peticion13 = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
   await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  const cuerpo13 = (await peticion13).postDataJSON();
+  expect(cuerpo13.forma_pago).toMatchObject({ tipo: "credito", monto_pendiente: 123 });
+  expect(cuerpo13.forma_pago.cuotas).toHaveLength(2);
+  expect(cuerpo13.items).toBeUndefined();
   await expect(page.getByTestId("nota").getByText(/Corrección o modificación/)).toBeVisible();
 
   await page.goto("/comprobantes/f-aceptada/nota");
@@ -322,6 +339,25 @@ test("nota: si los catálogos no cargan por red, avisa y se puede reintentar", a
   await form.getByRole("button", { name: "Reintentar" }).click();
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
   await expect(form.getByRole("alert")).toHaveCount(0);
+});
+
+test("nota: una factura anulada no ofrece «Emitir nota» y /nota redirige a la ficha (2120)", async ({ page }) => {
+  // `admiteNotas` es la única puerta al flujo; la auditoría la mutó a `return true` y 40/40 e2e siguieron verdes,
+  // porque el mock no tenía ninguna factura ANULADO.
+  await page.goto("/comprobantes/f-anulada");
+  await expect(page.getByText("F001-00000006").first()).toBeVisible();
+  await expect(page.getByText(/Anulad/i).first()).toBeVisible();
+  await expect(page.getByTestId("emitir-nota")).toHaveCount(0);
+  await page.goto("/comprobantes/f-anulada/nota");
+  await expect(page).toHaveURL(/\/comprobantes\/f-anulada$/);
+  await expect(page.getByTestId("nota-form")).toHaveCount(0);
+});
+
+test("nota: el sustento se corta a 500 caracteres en el cliente (2135)", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel("Sustento").fill("x".repeat(501));
+  await expect(form.getByLabel("Sustento")).toHaveValue("x".repeat(500));
 });
 
 test("da de baja una factura aceptada tras confirmar el motivo y queda anulada", async ({ page }) => {
