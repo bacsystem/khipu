@@ -16,7 +16,7 @@ export type CasoEmision = {
 
 const CLIENTE = `"cliente": {
     "tipo_doc": "6",
-    "num_doc": "20601234567",
+    "num_doc": "20601234565",
     "razon_social": "COMERCIAL ANDINA S.A.C.",
     "direccion": "Av. Javier Prado Este 123, San Isidro, Lima"
   }`;
@@ -487,13 +487,13 @@ export const RESPUESTA_EJEMPLO = `{
     "fecha_emision": "2026-09-17",
     "moneda": "PEN",
     "tipo_operacion": "0101",
-    "receptor": { "tipo_doc": "6", "num_doc": "20601234567", "razon_social": "COMERCIAL ANDINA S.A.C.", "direccion": "Av. Javier Prado Este 123, San Isidro, Lima" },
+    "receptor": { "tipo_doc": "6", "num_doc": "20601234565", "razon_social": "COMERCIAL ANDINA S.A.C.", "direccion": "Av. Javier Prado Este 123, San Isidro, Lima" },
     "items": [
       { "codigo": "SRV-001", "descripcion": "Servicio de consultoría – setiembre 2026", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10" }
     ],
     "estado_documento": "ACEPTADO",
     "hash": "y4M8+jW8Xp278K1aM02q19KjvO3k=",
-    "nombre_archivo": "20123456789-01-F001-00000125",
+    "nombre_archivo": "20123456786-01-F001-00000125",
     "intentos": 1,
     "ultimo_error": null,
     "cdr": { "codigo": "0", "descripcion": "La Factura numero F001-125, ha sido aceptada", "observaciones": [] },

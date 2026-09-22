@@ -16,17 +16,32 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
 
     private Comprobante factura(UUID t, long numero) {
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
                         new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)), clock);
         c.asignarNumero(numero, "20100066603");
         return c;
     }
 
+    /**
+     * Un ítem persistido antes de una regla nueva (unidad, descripción, etc., #35) se sigue leyendo: la validación de
+     * Item corre al emitir (Comprobante.crearFactura/crearNota), no en el constructor del record, así que releer una fila
+     * vieja no la revalida. Reproduce el bug real: antes de este fix, repo.buscar lanzaba ITEM_INVALIDO al releer esto.
+     */
+    @Test void unItemConUnaReglaNuevaIncumplidaSeSigueLeyendo() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 50);
+        repo.guardar(c);
+        // Simula un dato persistido antes de la validación de unidad (catálogo 03, [A-Z0-9]{2,3}): la columna admite hasta 3 caracteres.
+        jdbc.update("UPDATE comprobante_item SET unidad = 'und' WHERE comprobante_id = ?", c.id());
+        Comprobante releido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(releido.totales().items()).extracting(ic -> ic.item().unidad()).contains("und");
+    }
+
     @Test void guardaYRehidrataFormaPagoAlCredito() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.credito(new BigDecimal("100.00"), List.of(
                         new FormaPago.Cuota(new BigDecimal("60.00"), LocalDate.of(2026, 10, 13)),
@@ -51,7 +66,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
     @Test void guardaYRehidrataDescuentos() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(new BigDecimal("12.5"), true)),
                         new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO, Descuento.monto(new BigDecimal("5.00"), false))),
                 FormaPago.contado(), Descuento.porcentaje(new BigDecimal("2"), true), clock);
@@ -69,7 +84,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
     @Test void guardaYRehidrataCargos() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
                                 List.of(Cargo.porcentaje("47", new BigDecimal("2.5")), Cargo.monto("48", new BigDecimal("5.00")))),
                         new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
@@ -91,7 +106,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         Referencias refs = new Referencias("OC-2026-0457", List.of(new GuiaRelacionada("09", "T001-123"), new GuiaRelacionada("31", "V001-7")),
                 List.of(new DocumentoRelacionado("05", "SCOP-8841203")));
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), refs, clock);
         c.asignarNumero(7, "20100066603");
@@ -112,7 +127,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
     @Test void guardaYRehidrataCamposOpcionales() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), LocalDate.of(2026, 10, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Diésel", "GLL", BigDecimal.ONE, new BigDecimal("118.37"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), new CodigoProductoSunat("15101505"), new Gtin("GTIN-13", "7750182000123")),
                         new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), clock);
@@ -136,7 +151,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
     @Test void guardaYRehidrataLaTasaDelIgv() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Menú", "NIU", BigDecimal.ONE, new BigDecimal("110.50"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, new BigDecimal("10.50"), clock);
         c.asignarNumero(11, "20100066603");
@@ -231,7 +246,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
     @Test void guardaYRehidrataDetraccion() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "1001",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, new Detraccion("022", new BigDecimal("12.5"), new BigDecimal("148.00"), "00-000-123456", "003"), clock);
         c.asignarNumero(6, "20100066603");
@@ -245,7 +260,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
     @Test void guardaYRehidrataRetencionYPercepcion() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "2001",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, null, new RetencionIgv(new BigDecimal("3"), null), new Percepcion("52", null, null, null), clock);
         c.asignarNumero(7, "20100066603");
@@ -259,7 +274,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
     @Test void guardaYRehidrataIscEIcbper() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("C", "Cerveza", "NIU", BigDecimal.ONE, new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("02", null, new BigDecimal("2.25")), false),
                         new Item("B", "Bolsa", "NIU", new BigDecimal("3"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true)), clock);
         c.asignarNumero(8, "20100066603");
@@ -276,7 +291,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
     @Test void guardaYRehidrataAnticiposYBuscaPorNumero() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.crearFactura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("O", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),
                         new Item("E", "Exonerado", "NIU", BigDecimal.ONE, new BigDecimal("200.00"), TipoAfectacionIgv.EXONERADO)),
                 FormaPago.contado(), null, null, null, null,

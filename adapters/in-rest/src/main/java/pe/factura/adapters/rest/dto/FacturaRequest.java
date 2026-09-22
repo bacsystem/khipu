@@ -51,7 +51,7 @@ public record FacturaRequest(
 
     public record ClienteDto(
             @NotBlank @Schema(example = "6", description = "Tipo de documento de identidad, catálogo 06. En factura debe ser `6` (RUC); `1` DNI, `4` carné de extranjería y `7` pasaporte se usan en boletas") String tipoDoc,
-            @NotBlank @Schema(example = "20123456789", description = "RUC de 11 dígitos del adquirente") String numDoc,
+            @NotBlank @Schema(example = "20123456786", description = "RUC de 11 dígitos del adquirente") String numDoc,
             @NotBlank @Schema(example = "Comercial Andina SAC", description = "Razón social tal como figura en la ficha RUC del adquirente") String razonSocial,
             @Schema(example = "Av. Javier Prado Este 123, San Isidro", description = "Dirección del adquirente (opcional; se imprime en el XML)") String direccion) {}
 

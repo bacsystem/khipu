@@ -79,7 +79,7 @@ class FacturaE2ETest {
 
     static final String FACTURA = """
         {"serie":"F001","fecha_emision":"%s","tipo_operacion":"0101","moneda":"PEN",
-         "cliente":{"tipo_doc":"6","num_doc":"20601234567","razon_social":"CLIENTE SAC","direccion":"AV. LIMA 1"},
+         "cliente":{"tipo_doc":"6","num_doc":"20601234565","razon_social":"CLIENTE SAC","direccion":"AV. LIMA 1"},
          "items":[{"codigo":"P001","descripcion":"Laptop","unidad":"NIU","cantidad":1,"precio_unitario":2360.00,"tipo_afectacion_igv":"10"}]}
         """.formatted(java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")));
 

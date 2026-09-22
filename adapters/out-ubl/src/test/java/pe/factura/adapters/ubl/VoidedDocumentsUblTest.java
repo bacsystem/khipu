@@ -28,7 +28,7 @@ class VoidedDocumentsUblTest {
 
     static ComunicacionBaja baja() {
         Comprobante c = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE S.A.C.", null),
+                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
                 List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(45, "20100066603"); c.firmar("H", "k"); c.marcarEnviado(); c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
         return ComunicacionBaja.crear(c, 3, "Error en el RUC del cliente", HOY);

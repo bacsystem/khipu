@@ -132,7 +132,7 @@ final class Fakes {
     }
     static Comprobante facturaFirmada(UUID tenantId, Storage storage) {
         Comprobante c = Comprobante.crearFactura(tenantId, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), CLOCK);
         c.asignarNumero(1, "20100066603");
         String key = "k/" + c.nombreArchivo() + ".xml";

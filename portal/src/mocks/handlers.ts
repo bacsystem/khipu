@@ -58,6 +58,16 @@ async function guardarEstablecimiento(request: Request, codigoRuta: string | nul
   return ok({ ...e, principal: false }, existente ? 200 : 201);
 }
 
+/** Mismo módulo 11 que el backend (pesos 5-4-3-2-7-6-5-4-3-2). */
+function rucValido(ruc: string): boolean {
+  if (!/^(10|15|16|17|20)\d{9}$/.test(ruc)) return false;
+  const pesos = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const suma = pesos.reduce((acc, p, i) => acc + Number(ruc[i]) * p, 0);
+  const resto = 11 - (suma % 11);
+  const digito = resto === 10 ? 0 : resto === 11 ? 1 : resto;
+  return Number(ruc[10]) === digito;
+}
+
 function nuevoId(prefijo: string) {
   contador += 1;
   return `${prefijo}-${contador}`;
@@ -142,6 +152,7 @@ export const handlers = [
     const c = claims(request);
     if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");
     const body = (await request.json()) as { ruc: string; razon_social: string; entorno: "BETA" | "PRODUCCION" };
+    if (!rucValido(body.ruc)) return fail(422, "RUC_INVALIDO", `Empresa: el dígito verificador del RUC ${body.ruc} no es válido; revise el número`);
     const empresa: Empresa = {
       id: nuevoId("e"),
       ruc: body.ruc,
@@ -360,7 +371,7 @@ export const handlers = [
     const nota: Comprobante = {
       id, tipo: body.tipo, serie: body.serie, numero: serie.ultimo_numero, fecha_emision: body.fecha_emision, moneda: factura.moneda,
       tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items, estado_documento: "ACEPTADO", hash: "hashnota==",
-      nombre_archivo: `20123456789-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
+      nombre_archivo: `20123456786-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
       totales: { gravado: Number((total / 1.18).toFixed(2)), exonerado: 0, inafecto: 0, igv: Number((total - total / 1.18).toFixed(2)), total: Number(total.toFixed(2)) },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
@@ -408,7 +419,7 @@ export const handlers = [
   // Representación impresa: un PDF mínimo válido (lo que importa en el portal es el enlace y el tipo de contenido).
   http.get(`${BASE}/v1/facturas/:id/pdf`, () =>
     new HttpResponse("%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF", {
-      headers: { "content-type": "application/pdf", "content-disposition": 'inline; filename="20123456789-01-F001-00000001.pdf"' },
+      headers: { "content-type": "application/pdf", "content-disposition": 'inline; filename="20123456786-01-F001-00000001.pdf"' },
     }),
   ),
   // Envío por correo al adquirente: solo comprobantes aceptados; el backend valida el email (422 VALIDACION).
@@ -429,7 +440,7 @@ export const handlers = [
     `${BASE}/v1/facturas/:id/xml`,
     () =>
       new HttpResponse(
-        `<?xml version="1.0" encoding="UTF-8"?><Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"><cbc:ID>F001-1</cbc:ID><cac:AccountingSupplierParty><cbc:CustomerAssignedAccountID>20123456789</cbc:CustomerAssignedAccountID></cac:AccountingSupplierParty></Invoice>`,
+        `<?xml version="1.0" encoding="UTF-8"?><Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"><cbc:ID>F001-1</cbc:ID><cac:AccountingSupplierParty><cbc:CustomerAssignedAccountID>20123456786</cbc:CustomerAssignedAccountID></cac:AccountingSupplierParty></Invoice>`,
         { headers: { "content-type": "application/xml" } },
       ),
   ),

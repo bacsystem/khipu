@@ -99,7 +99,7 @@ class AdministrarTenantServiceTest {
 
     @Test void revocarApiKeyDeOtroTenantEsNoEncontrado() {
         UUID a = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
-        UUID b = service.crearTenant("20100066604", "B", Entorno.BETA).tenant().id();
+        UUID b = service.crearTenant("20100066611", "B", Entorno.BETA).tenant().id();
         UUID keyDeB = service.listarApiKeys(b).get(0).id();
         assertThatThrownBy(() -> service.revocarApiKey(a, keyDeB)).extracting("codigo").isEqualTo("NO_ENCONTRADO");
         assertThatThrownBy(() -> service.revocarApiKey(a, UUID.randomUUID())).extracting("codigo").isEqualTo("NO_ENCONTRADO");

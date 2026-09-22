@@ -20,7 +20,7 @@ class RetencionPercepcionTest {
 
     static Comprobante factura(String moneda, String op, FormaPago fp, RetencionIgv r, Percepcion p) {
         return Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), moneda, op,
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
                 fp, null, null, r, p, CLOCK);
     }

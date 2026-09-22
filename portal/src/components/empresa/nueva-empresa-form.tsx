@@ -53,7 +53,7 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
             onChange={(e) => setRuc(e.target.value.replace(/\D/g, "").slice(0, 11))}
             inputMode="numeric"
             pattern="[0-9]{11}"
-            placeholder="20123456789"
+            placeholder="20123456786"
             required
             autoFocus
             className={cn(CAMPO, "font-mono")}

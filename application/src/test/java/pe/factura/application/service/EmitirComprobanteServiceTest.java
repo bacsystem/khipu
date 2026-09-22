@@ -48,7 +48,7 @@ class EmitirComprobanteServiceTest {
 
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
         return new EmitirFacturaCommand("F001", correlativo, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, enviar);
     }
 
@@ -89,7 +89,7 @@ class EmitirComprobanteServiceTest {
 
     @Test void correlativoExplicitoEnSerieNoConfiguradaFalla() {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F999", 7L, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false)))
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
         assertThat(comprobantes.datos).isEmpty();
@@ -151,7 +151,7 @@ class EmitirComprobanteServiceTest {
 
     @Test void serieNoConfiguradaFalla() {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F999", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", null),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false)))
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
     }
@@ -159,7 +159,7 @@ class EmitirComprobanteServiceTest {
     @Test void detraccionSinCuentaUsaLaDeLaEmpresa() {
         Detraccion sinCuenta = new Detraccion("022", new BigDecimal("12"), new BigDecimal("14.00"), null, null);
         EmitirFacturaCommand cmd = new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "1001",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), sinCuenta, null, null, List.of(), null, null, false);
         assertThatThrownBy(() -> service.emitirFactura(tenantId, cmd)).isInstanceOf(DomainException.class).hasMessageContaining("3034");
@@ -170,7 +170,7 @@ class EmitirComprobanteServiceTest {
 
     private EmitirFacturaCommand conAnticipo(Anticipo a) {
         return new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Obra completa", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(a), null, null, false);
     }
@@ -207,12 +207,12 @@ class EmitirComprobanteServiceTest {
         assertThatThrownBy(() -> service.emitirFactura(tenantId, conAnticipo(new Anticipo("F001", aceptado.numero(), new BigDecimal("100.01"), null, null))))
                 .hasMessageContaining("supera el valor de venta gravado de esa factura");
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "USD", "0101",
-                new Receptor("6", "20601234567", "CLIENTE SAC", "AV 1"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", aceptado.numero(), new BigDecimal("50.00"), null, null)), null, null, false)))
                 .hasMessageContaining("2071");
         assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
-                new Receptor("6", "20609999999", "OTRO SAC", null),
+                new Receptor("6", "20609999994", "OTRO SAC", null),
                 List.of(new Item("P1", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", aceptado.numero(), new BigDecimal("50.00"), null, null)), null, null, false)))
                 .hasMessageContaining("otro cliente");
@@ -241,7 +241,7 @@ class EmitirComprobanteServiceTest {
     }
 
     private EmitirFacturaCommand comando(String serie) {
-        return new EmitirFacturaCommand(serie, null, LocalDate.of(2026, 9, 13), null, "PEN", "0101", new Receptor("6", "20601234567", "CLIENTE SAC", null),
+        return new EmitirFacturaCommand(serie, null, LocalDate.of(2026, 9, 13), null, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true);
     }

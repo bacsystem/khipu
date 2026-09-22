@@ -11,7 +11,10 @@ BASE_URL="${API_BASE_URL:-http://localhost:8080}"
 SUFIJO="$(date +%s)"
 EMAIL="carga-k6-${SUFIJO}@example.com"
 PASSWORD="Passw0rd1"
-RUC="20$(printf '%09d' $(( (RANDOM * 46341 + RANDOM) % 1000000000 )))"
+# RUC con dígito verificador válido (módulo 11, pesos 5-4-3-2-7-6-5-4-3-2): la API lo comprueba al crear la empresa.
+BASE="20$(printf '%08d' $(( (RANDOM * 46341 + RANDOM) % 100000000 )))"
+RUC="$(python3 -c "
+b='$BASE'; w=[5,4,3,2,7,6,5,4,3,2]; s=sum(int(c)*x for c,x in zip(b,w)); r=11-s%11; d={10:0,11:1}.get(r,r); print(b+str(d))")"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
