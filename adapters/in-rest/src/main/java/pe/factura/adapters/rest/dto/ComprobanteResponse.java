@@ -10,6 +10,7 @@ import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.ItemCalculado;
+import pe.factura.domain.documento.Leyenda;
 import pe.factura.domain.documento.Nota;
 import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.Referencias;
@@ -244,7 +245,7 @@ public record ComprobanteResponse(
                 notas == null ? null : notas.stream().map(NotaResumenDto::de).toList(),
                 baja == null ? null : BajaResponse.de(baja),
                 c.observaciones(),
-                c.leyendas().stream().map(l -> new LeyendaDto(l, pe.factura.domain.documento.Leyenda.texto(l))).toList(),
+                c.leyendas().stream().map(l -> new LeyendaDto(l, Leyenda.texto(l))).toList(),
                 enlaces(c, p));
     }
 

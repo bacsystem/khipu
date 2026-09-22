@@ -139,9 +139,11 @@ public class Comprobante {
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
                     moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, tasaIgv, leyendas, EstadoDocumento.RECIBIDO);
             formaPago.validarContra(c.totales.total(), fechaEmision);
-            for (String l : leyendas)
-                if (Leyenda.EXIGEN_EXONERADO.contains(l) && c.totales.exonerado().signum() <= 0)
-                    throw new DomainException("LEYENDA_INVALIDA", "La leyenda " + l + " exige un total exonerado mayor a 0.00 (regla " + switch (l) { case "2001" -> "3283"; case "2002" -> "3284"; case "2003" -> "3285"; default -> "3289"; } + ")");
+            for (String l : leyendas) {
+                String regla = Leyenda.EXIGEN_EXONERADO.get(l);
+                if (regla != null && c.totales.exonerado().signum() <= 0)
+                    throw new DomainException("LEYENDA_INVALIDA", "La leyenda " + l + " exige un total exonerado mayor a 0.00 (regla " + regla + ")");
+            }
             return c;
         }
     }
