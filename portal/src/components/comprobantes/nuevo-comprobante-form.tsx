@@ -2,7 +2,7 @@
 
 import { PlusIcon, Settings2Icon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Fragment, type FormEvent, useEffect, useState } from "react";
+import { Fragment, type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Alerta } from "@/components/feedback/alerta";
 import { Campo } from "@/components/formularios/campo";
 import { EntradaFecha } from "@/components/formularios/entrada-fecha";
@@ -87,6 +87,24 @@ export function NuevoComprobanteForm({
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Tras un error el botón estuvo `disabled` y el navegador soltó el foco a `<body>`: un usuario de teclado perdía
+  // su posición. Llevarlo a la alerta lo reubica y, de paso, garantiza que se lea.
+  const alertaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) alertaRef.current?.focus();
+  }, [error]);
+
+  /**
+   * Enter en un campo de texto NO emite. El envío implícito del navegador convierte el reflejo de «Enter para pasar
+   * al siguiente campo» en una factura real con correlativo consumido —medido: Enter en el RUC emitía—. Se emite
+   * solo desde el botón (clic, o Enter/Espacio con el foco en él). Los selects y botones conservan su Enter.
+   */
+  function sinEnvioImplicito(e: KeyboardEvent<HTMLFormElement>) {
+    if (e.key !== "Enter") return;
+    const t = e.target as HTMLElement;
+    if (t.tagName === "INPUT" && (t as HTMLInputElement).type !== "submit") e.preventDefault();
+  }
+
   // Unidades de medida del catálogo 03, servido por el backend: no se hardcodean porque la lista cambia con SUNAT.
   useEffect(() => {
     if (detalle === null || unidades !== null) return;
@@ -132,6 +150,10 @@ export function NuevoComprobanteForm({
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    // `EntradaMonto` muestra el texto crudo mientras tiene el foco y recién al perderlo pinta el valor redondeado
+    // que es el que se envía. Soltar el foco antes de emitir hace que lo que el usuario está mirando en ese
+    // instante sea exactamente lo que viaja.
+    (document.activeElement as HTMLElement | null)?.blur();
     setError(null);
     const items = lineasCompletas.map((l) => ({
       descripcion: l.descripcion.trim(),
@@ -196,7 +218,7 @@ export function NuevoComprobanteForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col" data-testid="form-nuevo-comprobante">
+    <form onSubmit={onSubmit} onKeyDown={sinEnvioImplicito} className="flex min-h-0 flex-1 flex-col" data-testid="form-nuevo-comprobante">
       {/* El scroll vive solo en la lista de ítems: así la serie, la fecha y el cliente quedan siempre a la vista
           por largo que sea el comprobante. */}
       <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 py-4">
@@ -241,6 +263,11 @@ export function NuevoComprobanteForm({
               inputMode="numeric"
               placeholder="20123456786"
               required
+              // Lo que exige `Receptor.esRuc` (`\d{11}`): antes solo se recortaba a 11 y un RUC de 5 dígitos
+              // viajaba al backend para volver como 422 «2017».
+              minLength={11}
+              pattern="[0-9]{11}"
+              title="RUC de 11 dígitos"
               className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
             />
           </Campo>
@@ -251,6 +278,9 @@ export function NuevoComprobanteForm({
               onChange={(e) => setRazonSocial(e.target.value)}
               placeholder="Comercial Andina SAC"
               required
+              // `Receptor` exige de 3 a 1500 caracteres (regla 2022).
+              minLength={3}
+              maxLength={1500}
               className={CAMPO_DENSO}
             />
           </Campo>
@@ -293,6 +323,7 @@ export function NuevoComprobanteForm({
                     value={linea.descripcion}
                     onChange={(e) => actualizar(i, { descripcion: e.target.value })}
                     placeholder="Ej. Servicio de consultoría"
+                    maxLength={500}
                     className={CAMPO_DENSO}
                   />
                 </Campo>
@@ -365,7 +396,11 @@ export function NuevoComprobanteForm({
         </div>
       </section>
 
-        {error ? <Alerta tono="error">{error}</Alerta> : null}
+        {error ? (
+          <div ref={alertaRef} tabIndex={-1} className="outline-none">
+            <Alerta tono="error">{error}</Alerta>
+          </div>
+        ) : null}
       </div>
 
       {/* Los totales viven en el pie fijo: con muchos ítems el importe a emitir no debe perderse al scrollear. */}
@@ -389,8 +424,11 @@ export function NuevoComprobanteForm({
                 </Fragment>
               ))}
           </dl>
+          {/* `role="status"` (región viva): sin él, un usuario con lector de pantalla cargaba tres ítems, dejaba
+              uno sin precio y emitía dos líneas creyendo que iban tres. El botón de emitir lo referencia con
+              `aria-describedby` para que se lea justo antes de confirmar. */}
           {lineasIncompletas > 0 ? (
-            <span className={cn(AYUDA_CAMPO, "text-warning-foreground")}>
+            <span id="nc-aviso-incompletos" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")}>
               {lineasIncompletas === 1 ? "1 ítem incompleto no se emitirá" : `${lineasIncompletas} ítems incompletos no se emitirán`}
             </span>
           ) : null}
@@ -407,7 +445,13 @@ export function NuevoComprobanteForm({
             Cancelar
           </button>
         ) : null}
-          <BotonAsync type="submit" pendiente={enviando} className={BOTON_PRIMARIO} textoPendiente="Emitiendo…">
+          <BotonAsync
+            type="submit"
+            pendiente={enviando}
+            className={BOTON_PRIMARIO}
+            textoPendiente="Emitiendo…"
+            aria-describedby={lineasIncompletas > 0 ? "nc-aviso-incompletos" : undefined}
+          >
             Emitir factura
           </BotonAsync>
         </div>
