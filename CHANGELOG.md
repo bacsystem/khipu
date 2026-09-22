@@ -2,6 +2,17 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.2.1] - 2026-09-22
+
+### Added
+- Portal: emisión manual de facturas desde el diálogo «Nuevo comprobante» (#17), disparado desde la acción principal del top bar. Serie (con el siguiente correlativo que asignará el backend), fecha, moneda, cliente e ítems con cantidad y precio unitario con IGV; unidad de medida (catálogo 03) y afectación del IGV por ítem detrás de «más opciones». Los totales se previsualizan en vivo con la tasa de IGV real de la empresa —10.5 % si está en el padrón, 18 % si no— y la cabecera indica el ambiente (Homologación o Producción). Al emitir se redirige al detalle del comprobante.
+- `lib/comprobantes/totales.ts`: previsualización de totales que replica los puntos de redondeo de `ItemCalculado` del dominio (valor referencial a 10 decimales, base e IGV a 2, HALF_UP). Contrastado contra `POST /v1/facturas` del backend real: una factura mixta con gravado, exonerado y gratuita devuelve exactamente los mismos seis importes, y ese caso quedó fijado como test.
+- Componentes del design system incorporados al portal con su CLI (avanza #16, sin dependencias npm nuevas): `campo`, `entrada-monto`, `entrada-fecha`, `stepper-numerico`, `grupo-botones`, `cabecera-dialogo`, `cabecera-seccion`, `boton-async`, `alerta`, `estado-vacio`, `spinner`.
+
+### Changed
+- Portal: el botón principal del top bar en Comprobantes deja de estar deshabilitado y pasa a llamarse «Nuevo comprobante». Se quita el ítem «Emitir comprobante» del sidebar: la acción vive en un solo lugar.
+- Boleta aparece deshabilitada en el selector de tipo: el backend acepta series `03` pero `POST /v1/facturas` solo admite series `F###`, así que no hay por dónde emitirla hasta #20. Se muestra deshabilitada en vez de ocultarla, como pide el design system.
+
 ## [0.2.0] - 2026-09-22
 
 ### Added
