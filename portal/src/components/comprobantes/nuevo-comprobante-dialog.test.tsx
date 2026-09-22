@@ -56,14 +56,41 @@ describe("NuevoComprobanteDialog", () => {
     await waitFor(() => expect(screen.getByText("No tienes series de factura")).toBeInTheDocument());
   });
 
-  it("no afirma el ambiente si no se pudo leer la empresa", async () => {
+  it("no afirma el ambiente si no se pudo leer la empresa, y avisa que la tasa previsualizada puede no ser la suya", async () => {
     stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre(null, 500)));
 
     render(<NuevoComprobanteDialog />);
     fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
 
     // Decir "Homologación" cuando el tenant está en producción invita a emitir de verdad creyendo que es una prueba.
-    await waitFor(() => expect(screen.getByText(/No se pudo leer el ambiente/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("No se pudo leer la configuración de la empresa")).toBeInTheDocument());
     expect(screen.queryByText(/Homologación/)).not.toBeInTheDocument();
+    // Sin empresa la previsualización cae al 18 %: un tenant del padrón (10.5 %) vería totales que no son los que
+    // va a emitir, así que el aviso tiene que nombrar la tasa, no solo el ambiente.
+    expect(screen.getByText(/los totales se previsualizan con IGV 18 %/)).toBeInTheDocument();
+    // El formulario sigue disponible: la empresa no bloquea la emisión.
+    expect(screen.getByLabelText("Serie")).toBeInTheDocument();
+  });
+
+  it("la empresa se reintenta sola, sin arrastrar a las series ni volver a pedirlas", async () => {
+    let fallarEmpresa = true;
+    const fetch = stubFetch((url) => {
+      if (url.includes("/series")) return sobre(SERIES);
+      return fallarEmpresa ? sobre(null, 500) : sobre({ id: "e-1", entorno: "PRODUCCION", padron_tasa_especial_igv: true });
+    });
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+    await waitFor(() => expect(screen.getByText("No se pudo leer la configuración de la empresa")).toBeInTheDocument());
+
+    const seriesAntes = fetch.mock.calls.filter(([url]) => String(url).includes("/series")).length;
+    fallarEmpresa = false;
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+
+    // Al llegar la empresa, el ambiente se afirma y la tasa pasa a ser la del padrón.
+    await waitFor(() => expect(screen.getByText(/Producción/)).toBeInTheDocument());
+    expect(screen.getByText("IGV (10.5 %)")).toBeInTheDocument();
+    // Cada recurso tiene su efecto: reintentar la empresa no vuelve a pedir las series, que ya estaban cargadas.
+    expect(fetch.mock.calls.filter(([url]) => String(url).includes("/series")).length).toBe(seriesAntes);
   });
 });
