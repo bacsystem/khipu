@@ -2,7 +2,7 @@
 
 import { PlusIcon, Settings2Icon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Fragment, type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { Fragment, type FormEvent, useEffect, useRef, useState } from "react";
 import { Alerta } from "@/components/feedback/alerta";
 import { Campo } from "@/components/formularios/campo";
 import { EntradaFecha } from "@/components/formularios/entrada-fecha";
@@ -14,6 +14,7 @@ import type { Serie } from "@/lib/api/series";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, hoyLima, sumarDias } from "@/lib/formato";
+import { sinEnvioImplicito } from "@/lib/formularios";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -94,19 +95,8 @@ export function NuevoComprobanteForm({
     if (error) alertaRef.current?.focus();
   }, [error]);
 
-  /**
-   * Enter NO emite salvo con el foco en un botón. El envío implícito del navegador convierte el reflejo de «Enter
-   * para pasar al siguiente campo» en una factura real con correlativo consumido —medido: Enter en el RUC emitía—.
-   *
-   * Cubre TODO lo que no sea botón, no solo los inputs: la primera versión exceptuaba los `<select>` creyendo que
-   * Enter «les pertenecía», y Chromium hace envío implícito también desde un select cerrado. Como Serie es el
-   * primer control del diálogo y Moneda está justo antes del RUC, «Shift+Tab para corregir la moneda y Enter»
-   * emitía. La recertificación lo reprodujo. El popup de un select abierto consume sus propias teclas, así que
-   * elegir con teclado no se ve afectado.
-   */
-  function sinEnvioImplicito(e: KeyboardEvent<HTMLFormElement>) {
-    if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "BUTTON") e.preventDefault();
-  }
+  // La guarda contra el envío implícito (Enter solo emite desde un botón) vive en `lib/formularios`: la comparten
+  // este formulario y el de notas, que la había heredado sin ella.
 
   // Unidades de medida del catálogo 03, servido por el backend: no se hardcodean porque la lista cambia con SUNAT.
   useEffect(() => {

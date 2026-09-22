@@ -105,6 +105,13 @@ test("emite una nota de crédito parcial desde la factura y la factura la lista"
   await form.getByLabel(/Motivo/).selectOption("07");
   await expect(form.getByRole("table")).toBeVisible();
   await form.getByLabel("Sustento").fill("Devolución parcial del servicio");
+  // Las cantidades arrancan en 0 (antes venían al 100 % de la factura, y sobre esta —con anticipos— el 100 % de
+  // los ítems supera el total): el usuario elige qué acredita, y el formulario muestra el importe contra su tope.
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
+  // 0.1 × 141.60 = 14.16. Cantidades chicas a propósito: los tests de este archivo corren en paralelo sobre la
+  // misma factura del mock y cada NC emitida baja el tope de las siguientes; la suma de todas queda lejos de 123.
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("0.1");
+  await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 14.16");
   await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
 
   // Aterriza en el detalle de la nota con el bloque "Nota de crédito sobre" y vuelve a la factura, que ya la lista.
@@ -138,6 +145,112 @@ test("una nota de crédito 13 sale sin importe y una nota de débito con su conc
   await form.getByRole("button", { name: "Emitir nota de débito" }).click();
   await expect(page.getByText("Nota de débito electrónica")).toBeVisible();
   await expect(page.getByTestId("nota").getByText(/Intereses por mora de 30 días/)).toBeVisible();
+});
+
+/** Nota parcial lista para emitir, con el contador de POSTs a `/api/proxy/notas` armado. */
+async function notaLista(page: import("@playwright/test").Page) {
+  await page.goto("/comprobantes/f-aceptada/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución parcial");
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("0.1");
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
+  const posts: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().includes("/api/proxy/notas")) posts.push(r.url());
+  });
+  return { form, posts };
+}
+
+test("nota: Enter en cualquier control no emite; solo el botón", async ({ page }) => {
+  const { form, posts } = await notaLista(page);
+  // Cinco controles, cinco notas reales en la auditoría. Los `<select>` incluidos: Chromium emite desde uno cerrado.
+  for (const campo of ["Tipo de nota", "Serie", /Motivo/, "Sustento", /Cantidad de .* en la nota/]) {
+    await form.getByLabel(campo).focus();
+    await page.waitForTimeout(120);
+    await page.keyboard.press("Enter");
+  }
+  await page.waitForTimeout(400);
+  expect(posts).toEqual([]);
+  await expect(page).toHaveURL(/\/nota$/);
+
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+  expect(posts).toHaveLength(1);
+});
+
+test("nota: si la red se corta, avisa y no deja el botón muerto", async ({ page }) => {
+  const { form } = await notaLista(page);
+  await page.route("**/api/proxy/notas", (r) => r.abort("connectionreset"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  const alerta = form.getByRole("alert");
+  await expect(alerta).toContainText("Se cortó la conexión");
+  await expect(alerta).toContainText("pudo haberse emitido");
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
+});
+
+test("nota: un segundo clic tras el éxito no emite otra", async ({ page }) => {
+  const { form, posts } = await notaLista(page);
+  // Respuesta lenta: antes el botón se rehabilitaba en cuanto llegaba y, mientras se navegaba, un re-clic emitía
+  // otra nota (medido: 3 notas con 3 clics). Ahora queda deshabilitado hasta desmontarse con la navegación.
+  await page.route("**/api/proxy/notas", async (r) => {
+    await new Promise((f) => setTimeout(f, 500));
+    await r.continue();
+  });
+  // La ventana real incluye la navegación al detalle (RSC + SUNAT en producción). Con el mock, el detalle carga en
+  // milisegundos y el formulario se desmonta antes de que llegue el re-clic: se retrasa también esa carga para
+  // que el segundo clic caiga con el formulario todavía montado, que es donde el defecto emitía la nota duplicada.
+  await page.route("**/comprobantes/n-*", async (r) => {
+    await new Promise((f) => setTimeout(f, 1500));
+    await r.continue();
+  });
+  // Por `type=submit` y no por nombre: al enviar, el texto pasa a «Emitiendo y enviando a SUNAT…».
+  const boton = form.locator("button[type=submit]");
+  await boton.click();
+  await expect(boton).toBeDisabled();
+  await page.waitForTimeout(800);
+  // Ya respondió el POST y la navegación está en vuelo: acá el botón tiene que seguir deshabilitado.
+  await expect(boton).toBeDisabled();
+  await boton.click({ force: true }).catch(() => {});
+  await boton.click({ force: true }).catch(() => {});
+  await expect(page).toHaveURL(/\/comprobantes\/n-/, { timeout: 10_000 });
+  expect(posts).toHaveLength(1);
+});
+
+test("nota parcial: muestra el importe contra el tope y bloquea si lo supera (3286)", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada/nota");
+  const form = page.getByTestId("nota-form");
+  // 07 y no 09: el catálogo 09 del mock solo trae 01/07/13. Para el tope da igual: cualquier motivo parcial.
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución por ítem");
+  // f-aceptada: un ítem de 141.60 con anticipo regularizado → total 123.00. El 100 % del ítem supera el tope.
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
+  const importe = form.getByTestId("nota-importe");
+  await expect(importe).toContainText("Importe de la nota: S/ 141.60");
+  // El tope exacto depende de cuántas NC emitieron en paralelo los otros tests sobre esta factura; lo que es
+  // invariante es que 141.60 lo supera (el máximo posible es 123.00) y que 14.16 no.
+  await expect(importe).toContainText("Tope: S/");
+  await expect(importe.getByRole("alert")).toContainText("Supera el tope");
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("0.1");
+  await expect(importe).toContainText("Importe de la nota: S/ 14.16");
+  await expect(importe.getByRole("alert")).toHaveCount(0);
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
+});
+
+test("nota parcial: las cantidades arrancan en 0 aunque el 100 % quepa en el tope", async ({ page }) => {
+  // f-obs: sin anticipos ni descuentos, total 118.00 = el ítem completo. Sobre f-aceptada este caso no discrimina
+  // porque el 100 % supera el tope y el botón queda deshabilitado por eso; acá solo lo deshabilita el 0 inicial.
+  await page.goto("/comprobantes/f-obs/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución por ítem");
+  await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 0.00");
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
+  await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 118.00");
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
 });
 
 test("da de baja una factura aceptada tras confirmar el motivo y queda anulada", async ({ page }) => {
