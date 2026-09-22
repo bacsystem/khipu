@@ -10,6 +10,7 @@ import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.ItemCalculado;
+import pe.factura.domain.documento.Leyenda;
 import pe.factura.domain.documento.Nota;
 import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.Referencias;
@@ -51,6 +52,7 @@ public record ComprobanteResponse(
         @Schema(description = "Solo al consultar una factura: notas de crédito/débito emitidas sobre ella (todas, con su estado); `null` en listados y en la emisión") List<NotaResumenDto> notas,
         @Schema(description = "Solo al consultar: la comunicación de baja más reciente del comprobante (en curso, aceptada o rechazada), o `null`") BajaResponse baja,
         @Schema(example = "Entrega en almacén central.", description = "Observaciones impresas en el PDF (solo las propias del comprobante), o `null`") String observaciones,
+        @Schema(description = "Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML") List<LeyendaDto> leyendas,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"pdf\": \"/v1/facturas/{id}/pdf\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     public record FormaPagoDto(
             @Schema(example = "credito", description = "contado | credito") String tipo,
@@ -200,6 +202,8 @@ public record ComprobanteResponse(
             @Schema(example = "La Factura numero F001-125, ha sido aceptada", description = "Descripción oficial de SUNAT") String descripcion,
             List<String> observaciones) {}
 
+    public record LeyendaDto(@Schema(example = "2001") String codigo, @Schema(example = "BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA") String texto) {}
+
     public record TotalesDto(
             @Schema(example = "1000.00") BigDecimal gravado,
             @Schema(example = "0.00") BigDecimal exonerado,
@@ -246,6 +250,7 @@ public record ComprobanteResponse(
                 notas == null ? null : notas.stream().map(NotaResumenDto::de).toList(),
                 baja == null ? null : BajaResponse.de(baja),
                 c.observaciones(),
+                c.leyendas().stream().map(l -> new LeyendaDto(l, Leyenda.texto(l))).toList(),
                 enlaces(c, p));
     }
 

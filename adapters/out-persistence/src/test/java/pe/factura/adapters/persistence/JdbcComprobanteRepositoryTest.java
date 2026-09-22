@@ -128,6 +128,13 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.items().get(1).gtin()).isNull();
         assertThat(leido.totales().redondeo()).isEqualByComparingTo("-0.37");
         assertThat(leido.totales().total()).isEqualByComparingTo("177.00");
+        assertThat(leido.leyendas()).isEmpty();
+        // Leyendas declaradas (#66): se guardan y vuelven en orden.
+        Comprobante conLeyendas = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).leyendas(List.of("2001", "2005")).crear(clock);
+        conLeyendas.asignarNumero(10, "20100066603");
+        repo.guardar(conLeyendas);
+        assertThat(repo.buscar(t, conLeyendas.id()).orElseThrow().leyendas()).containsExactly("2001", "2005");
     }
 
     /** La tasa del IGV se guarda por comprobante: una factura al 10.5 % sigue al 10.5 % aunque la empresa salga del padrón (#84). */

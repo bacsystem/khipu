@@ -47,7 +47,8 @@ public record FacturaRequest(
         @Valid @Schema(description = "Otros documentos relacionados con la operación (`cac:AdditionalDocumentReference`, catálogo 12). Opcional; las facturas de anticipo van en `anticipos`.") List<DocumentoRelacionadoDto> documentosRelacionados,
         @Schema(example = "-0.40", description = "Redondeo del importe total (`PayableRoundingAmount`): se suma al total a pagar; entre −1.00 y 1.00 con 2 decimales (regla 3303). Útil para cobrar en efectivo sin céntimos. Opcional") BigDecimal redondeo,
         @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja el comprobante `FIRMADO` para enviarlo luego con `POST /v1/facturas/{id}/enviar` (p. ej. para emitir en lote y enviar después)") Boolean enviarAutomatico,
-        @Size(max = 1000) @Schema(example = "Entrega en almacén central. Horario: 9 a 18 h.", description = "Texto libre que se imprime en el bloque «Observaciones» del PDF (hasta 1000 caracteres, admite saltos de línea). No va al XML ni a SUNAT. Si se omite, se imprimen las observaciones por defecto de la empresa") String observaciones) {
+        @Size(max = 1000) @Schema(example = "Entrega en almacén central. Horario: 9 a 18 h.", description = "Texto libre que se imprime en el bloque «Observaciones» del PDF (hasta 1000 caracteres, admite saltos de línea). No va al XML ni a SUNAT. Si se omite, se imprimen las observaciones por defecto de la empresa") String observaciones,
+        @Schema(example = "[\"2001\"]", description = "Leyendas del catálogo 52 que declara el emisor (`GET /v1/catalogos/52`): `2001` bienes en Amazonía, `2002` servicios en Amazonía, `2003` contratos de construcción en Amazonía, `2004` paquete turístico, `2005` venta itinerante, `2008`/`2009` zona comercial de Tacna… Van al XML como `cbc:Note`. 2001/2002/2003/2008 exigen total exonerado mayor a 0 (3283–3285, 3289). Las automáticas (monto en letras, gratuitas, detracción, percepción, IVAP) las pone khipu: `422 LEYENDA_INVALIDA` si se envían. Opcional") List<String> leyendas) {
 
     public record ClienteDto(
             @NotBlank @Schema(example = "6", description = "Tipo de documento de identidad, catálogo 06. En factura debe ser `6` (RUC); `1` DNI, `4` carné de extranjería y `7` pasaporte se usan en boletas") String tipoDoc,
@@ -214,7 +215,7 @@ public record FacturaRequest(
                 new Referencias(ordenCompra, guias == null ? List.of() : guias.stream().map(GuiaDto::aDominio).toList(),
                         documentosRelacionados == null ? List.of() : documentosRelacionados.stream().map(DocumentoRelacionadoDto::aDominio).toList()),
                 redondeo,
-                enviarAutomatico == null || enviarAutomatico, observaciones);
+                enviarAutomatico == null || enviarAutomatico, observaciones, leyendas == null ? List.of() : leyendas);
     }
 
     static List<Cargo> cargos(List<CargoDto> dtos, boolean globales) {
