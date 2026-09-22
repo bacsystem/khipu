@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.42] - 2026-09-22
+
+### Changed
+- Emisión: la clave privada y el certificado extraídos del PKCS#12 se cachean en `XmlDsigSigner` (Caffeine, por hash de archivo + clave, expiran a los 10 min sin uso), en vez de abrir el PKCS#12 (PBKDF2, 10 000 iteraciones) en cada firma dentro del lock de la serie (#9). k6 `emision.js` a 50 doc/s sobre una sola serie: p95 4.3 s → **29 ms**, sin iteraciones descartadas, numeración 1…8047 sin huecos; la garantía de numeración correlativa no cambia. Techo estimado ~60 doc/s por serie (detalle y opciones en `k6/README.md`).
+
 ## [0.1.41] - 2026-09-21
 
 ### Added
