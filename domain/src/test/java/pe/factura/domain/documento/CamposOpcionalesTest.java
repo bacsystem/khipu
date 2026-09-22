@@ -23,8 +23,7 @@ class CamposOpcionalesTest {
     }
 
     private static Comprobante factura(LocalDate vencimiento, BigDecimal redondeo, Item... items) {
-        return Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 18), vencimiento, "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(items), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, redondeo, CLOCK);
+        return Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 18), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(items)).fechaVencimiento(vencimiento).redondeo(redondeo).crear(CLOCK);
     }
 
     @Test void gtinYCodigoSunat() {
@@ -65,10 +64,7 @@ class CamposOpcionalesTest {
         // El redondeo no puede dejar el total en negativo (un total de 0.50 con −1.00).
         assertThatThrownBy(() -> factura(null, new BigDecimal("-1"), gravado("0.50", null, null))).extracting("codigo").isEqualTo("REDONDEO_INVALIDO");
         // Las cuotas al crédito se validan contra el total ya redondeado.
-        Comprobante credito = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 18), null, "PEN", "0101",
-                new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(gravado("118.37", null, null)),
-                FormaPago.credito(new BigDecimal("118.00"), List.of(new FormaPago.Cuota(new BigDecimal("118.00"), LocalDate.of(2026, 10, 18)))),
-                null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.37"), CLOCK);
+        Comprobante credito = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 18), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(gravado("118.37", null, null))).formaPago(FormaPago.credito(new BigDecimal("118.00"), List.of(new FormaPago.Cuota(new BigDecimal("118.00"), LocalDate.of(2026, 10, 18))))).redondeo(new BigDecimal("-0.37")).crear(CLOCK);
         assertThat(credito.totales().total()).isEqualByComparingTo("118.00");
     }
 }

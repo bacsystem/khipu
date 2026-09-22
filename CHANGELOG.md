@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.28] - 2026-09-19
+
+### Changed
+- `Comprobante` se construye con builders en vez de sobrecargas posicionales (#74): `Comprobante.factura(tenantId, serie, fechaEmision, moneda, tipoOperacion, receptor, items).formaPago(…).cargos(…)….crear(clock)`, `Comprobante.nota(…).crear(clock)` y `Comprobante.persistido(…).firma(…).cdr(…).rehidratar()` reemplazan a las 10 sobrecargas de `crearFactura`, 2 de `crearNota` y 2 de `rehidratar`. Refactor puro: mismas reglas de emisión (incluida 3244 al pasar `forma_pago` nulo), mismo XML, misma persistencia y misma API; los 591 tests migrados siguen en verde. Añadir un campo opcional ya no toca ocho firmas ni los tests que solo pasaban `null`.
+
 ## [0.1.27] - 2026-09-19
 
 ### Added

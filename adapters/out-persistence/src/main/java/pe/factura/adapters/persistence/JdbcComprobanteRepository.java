@@ -180,13 +180,26 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         }, id);
         Referencias referencias = new Referencias(rs.getString("orden_compra"), guias, otros);
         Cdr cdr = rs.getString("cdr_codigo") == null ? null : new Cdr(rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), deJson(rs.getString("cdr_obs")));
-        Comprobante c = Comprobante.rehidratar(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"),
-                rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), rs.getTime("hora_emision") == null ? null : rs.getTime("hora_emision").toLocalTime(),
-                rs.getDate("fecha_vencimiento") == null ? null : rs.getDate("fecha_vencimiento").toLocalDate(), rs.getString("moneda"), rs.getString("tipo_operacion"),
-                new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion")),
-                items, formaPago(rs, id), descuento(rs.getString("descuento_global_tipo"), rs.getBigDecimal("descuento_global_valor"), rs.getObject("descuento_global_afecta_base", Boolean.class)),
-                cargos.getOrDefault(null, List.of()), detraccion(rs), retencion(rs), percepcion(rs), anticipos, referencias, rs.getBigDecimal("redondeo"), nota(rs), rs.getBigDecimal("tasa_igv"), EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("hash"), rs.getString("nombre_archivo"),
-                rs.getString("xml_key"), rs.getString("cdr_key"), cdr, rs.getInt("intentos"), rs.getString("ultimo_error"));
+        Comprobante c = Comprobante.persistido(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"), rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), EstadoDocumento.valueOf(rs.getString("estado")), new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion")), items)
+                .horaEmision(rs.getTime("hora_emision") == null ? null : rs.getTime("hora_emision").toLocalTime())
+                .fechaVencimiento(rs.getDate("fecha_vencimiento") == null ? null : rs.getDate("fecha_vencimiento").toLocalDate())
+                .moneda(rs.getString("moneda"))
+                .tipoOperacion(rs.getString("tipo_operacion"))
+                .formaPago(formaPago(rs, id))
+                .descuentoGlobal(descuento(rs.getString("descuento_global_tipo"), rs.getBigDecimal("descuento_global_valor"), rs.getObject("descuento_global_afecta_base", Boolean.class)))
+                .cargos(cargos.getOrDefault(null, List.of()))
+                .detraccion(detraccion(rs))
+                .retencion(retencion(rs))
+                .percepcion(percepcion(rs))
+                .anticipos(anticipos)
+                .referencias(referencias)
+                .redondeo(rs.getBigDecimal("redondeo"))
+                .nota(nota(rs))
+                .tasaIgv(rs.getBigDecimal("tasa_igv"))
+                .firma(rs.getString("hash"), rs.getString("nombre_archivo"), rs.getString("xml_key"))
+                .cdr(cdr, rs.getString("cdr_key"))
+                .envio(rs.getInt("intentos"), rs.getString("ultimo_error"))
+                .rehidratar();
         c.anotar(rs.getString("observaciones"));
         return c;
     }

@@ -266,9 +266,7 @@ class EmitirNotaServiceTest {
     }
 
     private void anular(Comprobante f) {
-        comprobantes.guardar(Comprobante.rehidratar(f.id(), tenantId, f.tipo(), f.serie(), f.numero(), f.fechaEmision(), f.horaEmision(), f.fechaVencimiento(), f.moneda(), f.tipoOperacion(),
-                f.receptor(), f.items(), f.formaPago(), f.descuentoGlobal(), f.cargos(), f.detraccion(), f.retencion(), f.percepcion(), f.anticipos(), f.referencias(), null, f.nota(),
-                EstadoDocumento.ANULADO, f.hash(), f.nombreArchivo(), f.xmlKey(), f.cdrKey(), f.cdr(), f.intentos(), f.ultimoError()));
+        comprobantes.guardar(Comprobante.persistido(f.id(), tenantId, f.tipo(), f.serie(), f.numero(), f.fechaEmision(), EstadoDocumento.ANULADO, f.receptor(), f.items()).horaEmision(f.horaEmision()).fechaVencimiento(f.fechaVencimiento()).moneda(f.moneda()).tipoOperacion(f.tipoOperacion()).formaPago(f.formaPago()).descuentoGlobal(f.descuentoGlobal()).cargos(f.cargos()).detraccion(f.detraccion()).retencion(f.retencion()).percepcion(f.percepcion()).anticipos(f.anticipos()).referencias(f.referencias()).nota(f.nota()).firma(f.hash(), f.nombreArchivo(), f.xmlKey()).cdr(f.cdr(), f.cdrKey()).envio(f.intentos(), f.ultimoError()).rehidratar());
     }
 
     @Test void sinSerieDeNotaConfigurada() {

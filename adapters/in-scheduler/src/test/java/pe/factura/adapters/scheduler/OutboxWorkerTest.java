@@ -33,9 +33,7 @@ class OutboxWorkerTest {
     UUID tenant = UUID.randomUUID(), doc = UUID.randomUUID(), fila = UUID.randomUUID();
 
     private Comprobante conEstado(EstadoDocumento e, int intentos) {
-        return Comprobante.rehidratar(doc, tenant, TipoDocumento.FACTURA, "F001", 1L, LocalDate.of(2026, 9, 13), null, null, "PEN", "0101",
-                new Receptor("6", "20601234565", "X", null), List.of(new Item("P", "d", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, null,
-                e, "h", "20100066603-01-F001-1", "k", null, null, intentos, e == EstadoDocumento.ERROR_ENVIO ? "timeout" : null);
+        return Comprobante.persistido(doc, tenant, TipoDocumento.FACTURA, "F001", 1L, LocalDate.of(2026, 9, 13), e, new Receptor("6", "20601234565", "X", null), List.of(new Item("P", "d", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).firma("h", "20100066603-01-F001-1", "k").envio(intentos, e == EstadoDocumento.ERROR_ENVIO ? "timeout" : null).rehidratar();
     }
 
     @Test void aceptadoCompleta() {

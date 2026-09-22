@@ -27,7 +27,7 @@ class NotaTest {
     static final Nota NC_ANULACION = new Nota(TipoDocumento.FACTURA, "F001", 12, "01", "Anulación de la operación");
 
     static Comprobante nota(TipoDocumento tipo, String serie, Nota nota, FormaPago fp) {
-        return Comprobante.crearNota(UUID.randomUUID(), tipo, serie, LocalDate.of(2026, 9, 18), "PEN", "0101", RECEPTOR, ITEMS, fp, null, List.of(), nota, CLOCK);
+        return Comprobante.nota(UUID.randomUUID(), tipo, serie, LocalDate.of(2026, 9, 18), nota, RECEPTOR, ITEMS).formaPago(fp).crear(CLOCK);
     }
 
     @Test void notaDeCreditoSobreFactura() {
@@ -67,7 +67,7 @@ class NotaTest {
     }
 
     @Test void laFacturaNoEsNota() {
-        Comprobante f = Comprobante.crearFactura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 18), "PEN", "0101", RECEPTOR, ITEMS, CLOCK);
+        Comprobante f = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 18), "PEN", "0101", RECEPTOR, ITEMS).crear(CLOCK);
         assertThat(f.esNota()).isFalse();
         assertThat(f.nota()).isNull();
     }
@@ -93,7 +93,7 @@ class NotaTest {
                 Arguments.of("tipo factura en crearNota", "07 (crédito) u 08", (ThrowingCallable) () -> nota(TipoDocumento.FACTURA, "F001", NC_ANULACION, null)),
                 Arguments.of("serie B para una nota sobre factura", "1001", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "BC01", NC_ANULACION, null)),
                 Arguments.of("serie que no es de nota", "1001", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "X001", NC_ANULACION, null)),
-                Arguments.of("ND 13 (penalidad) sin ítems: no es la NC 13, exige ítems", "al menos un ítem", (ThrowingCallable) () -> Comprobante.crearNota(UUID.randomUUID(), TipoDocumento.NOTA_DEBITO, "FD01", LocalDate.of(2026, 9, 18), "PEN", "0101", RECEPTOR, null, null, null, List.of(), new Nota(TipoDocumento.FACTURA, "F001", 1, "13", "Penalidad"), CLOCK)),
+                Arguments.of("ND 13 (penalidad) sin ítems: no es la NC 13, exige ítems", "al menos un ítem", (ThrowingCallable) () -> Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_DEBITO, "FD01", LocalDate.of(2026, 9, 18), new Nota(TipoDocumento.FACTURA, "F001", 1, "13", "Penalidad"), RECEPTOR, null).crear(CLOCK)),
                 Arguments.of("NC 13 sin forma de pago al crédito", "3257", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "FC01", new Nota(TipoDocumento.FACTURA, "F001", 1, "13", "x"), null)),
                 Arguments.of("NC 13 al contado", "3257", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "FC01", new Nota(TipoDocumento.FACTURA, "F001", 1, "13", "x"), FormaPago.contado())),
                 Arguments.of("sin nota", "2524", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "FC01", null, null)),
