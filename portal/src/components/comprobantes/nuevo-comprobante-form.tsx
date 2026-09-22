@@ -98,7 +98,8 @@ export function NuevoComprobanteForm({
     tipoAfectacionIgv: l.tipoAfectacionIgv,
   }));
   const totales = calcularTotales(paraTotales, tasaIgv);
-  // Una línea a medio cargar no se descarta en silencio: se avisa, porque su importe no está en el total de arriba.
+  // Una línea a medio cargar no se descarta en silencio: se avisa, porque su importe no está en el total de
+  // arriba. El texto no nombra la causa: `lineasCompletas` excluye tanto por descripción vacía como por cantidad 0.
   const lineasIncompletas = lineas.length - lineasCompletas.length;
 
   /** `detalle` guarda un índice: al borrar una fila hay que reubicarlo o el panel queda abierto sobre otro ítem. */
@@ -350,7 +351,7 @@ export function NuevoComprobanteForm({
           </dl>
           {lineasIncompletas > 0 ? (
             <span className={cn(AYUDA_CAMPO, "text-warning-foreground")}>
-              {lineasIncompletas === 1 ? "1 ítem sin descripción no se emitirá" : `${lineasIncompletas} ítems sin descripción no se emitirán`}
+              {lineasIncompletas === 1 ? "1 ítem incompleto no se emitirá" : `${lineasIncompletas} ítems incompletos no se emitirán`}
             </span>
           ) : null}
           <div className="flex items-baseline gap-2">

@@ -71,7 +71,13 @@ test("una línea sin descripción no entra en el total ni se emite en silencio (
   await dialogo.getByLabel("Precio unit. (con IGV)").nth(1).fill("500");
 
   await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 2,000.01");
-  await expect(dialogo.getByText("1 ítem sin descripción no se emitirá")).toBeVisible();
+  await expect(dialogo.getByText("1 ítem incompleto no se emitirá")).toBeVisible();
+
+  // Una línea con descripción pero cantidad 0 también queda fuera: el aviso no debe atribuirlo a la descripción.
+  await dialogo.getByLabel("Descripción").nth(1).fill("Licencia");
+  await dialogo.getByLabel("Cantidad").nth(1).fill("0");
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 2,000.01");
+  await expect(dialogo.getByText("1 ítem incompleto no se emitirá")).toBeVisible();
 
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-/);

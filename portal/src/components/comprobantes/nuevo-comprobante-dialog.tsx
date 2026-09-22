@@ -21,7 +21,9 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   const [abierto, setAbierto] = useState(false);
 
   const [series, setSeries] = useState<Serie[] | null>(null);
-  const [empresa, setEmpresa] = useState<EmpresaDetalle | null>(null);
+  // `null` = todavía no llegó; `"error"` = no se pudo leer. No se colapsan: sin empresa no se puede afirmar
+  // el ambiente, y decir "Homologación" cuando el tenant está en producción invita a emitir sin cuidado.
+  const [empresa, setEmpresa] = useState<EmpresaDetalle | "error" | null>(null);
 
   useEffect(() => {
     if (!abierto || series !== null) return;
@@ -33,17 +35,25 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
       .then((r) => vigente && setSeries(r.estado === "exito" && r.datos ? r.datos : []))
       .catch(() => vigente && setSeries([]));
     apiRequest<EmpresaDetalle>("/api/proxy/empresa", { method: "GET" })
-      .then((r) => {
-        if (vigente && r.estado === "exito" && r.datos) setEmpresa(r.datos);
-      })
-      .catch(() => {});
+      .then((r) => vigente && setEmpresa(r.estado === "exito" && r.datos ? r.datos : "error"))
+      .catch(() => vigente && setEmpresa("error"));
     return () => {
       vigente = false;
     };
   }, [abierto, series]);
 
+  const datosEmpresa = empresa === "error" ? null : empresa;
   // La tasa de la empresa decide el IGV que se previsualiza: 10.5 % en el padrón de tasa especial, 18 % si no (#84).
-  const tasaIgv = empresa?.padron_tasa_especial_igv ? 10.5 : 18;
+  const tasaIgv = datosEmpresa?.padron_tasa_especial_igv ? 10.5 : 18;
+
+  const ambiente =
+    empresa === "error"
+      ? "No se pudo leer el ambiente de la empresa — se emitirá igual contra el que tenga configurado"
+      : datosEmpresa?.entorno === "PRODUCCION"
+        ? "Ambiente: Producción — se emite ante SUNAT"
+        : datosEmpresa
+          ? "Ambiente: Homologación (beta de SUNAT)"
+          : "Cargando ambiente…";
 
   return (
     // Sin cierre al hacer clic fuera: el formulario tiene datos escritos y un clic al pasar no debe perderlos.
@@ -56,9 +66,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
         <CabeceraDialogo
           icon={FileTextIcon}
           titulo="Nuevo comprobante"
-          descripcion={
-            empresa?.entorno === "PRODUCCION" ? "Ambiente: Producción — se emite ante SUNAT" : "Ambiente: Homologación (beta de SUNAT)"
-          }
+          descripcion={ambiente}
         />
         <div className="shrink-0 px-5 pt-4">
           <GrupoBotones
