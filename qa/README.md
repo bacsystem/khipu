@@ -18,6 +18,12 @@ Una ficha por flujo. Certificado = **0 bloqueantes, 0 importantes** tras auditor
 | 12 | Personalización PDF | ⬜ | — |
 | 13 | Developers | ⬜ | — |
 
+## Transversales
+
+| Tema | Estado | Ficha |
+|---|---|---|
+| Validación de entradas (SQL, endpoints, frontend) | ⚠️ 1 hueco: el portal descarta los errores por campo del 422 | [validaciones.md](validaciones.md) |
+
 ## Método (fijo)
 
 1. Matriz de contrato: cada control vs. DTO + dominio Java **vs. fuente SUNAT** (`docs/sunat/ref/reglas_validacion_*.xlsx`, guías UBL, XSD, catálogos). El backend puede citar mal una regla.
