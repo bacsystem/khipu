@@ -8,8 +8,10 @@ import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
+import { calcularTotales, redondear } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima } from "@/lib/formato";
+import { sinEnvioImplicito } from "@/lib/formularios";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +30,10 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const [serie, setSerie] = useState("");
   const [motivo, setMotivo] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [cantidades, setCantidades] = useState<number[]>(factura.items.map((i) => Number(i.cantidad)));
+  // En 0, no en lo facturado: con las cantidades precargadas al total, elegir «09 Disminución en el valor», escribir
+  // el sustento y un clic emitía una NC por el 100 % de la factura. Y sobre una factura con descuento global,
+  // cargos o anticipos, el 100 % de los ítems supera el total (3286): el usuario elige qué acredita.
+  const [cantidades, setCantidades] = useState<number[]>(factura.items.map(() => 0));
   const [nd, setNd] = useState({ descripcion: "", importe: "" });
   const [cuotas, setCuotas] = useState<Array<{ monto: string; vencimiento: string }>>(
     (factura.forma_pago.cuotas ?? []).map((q) => ({ monto: String(q.monto), vencimiento: q.vencimiento })),
@@ -93,20 +98,52 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     }
     if (!esNc) body.items = [{ descripcion: nd.descripcion.trim(), unidad: "ZZ", cantidad: 1, precio_unitario: Number(nd.importe), tipo_afectacion_igv: "10" }];
     setEnviando(true);
-    const res = await apiRequest<Comprobante>("/api/proxy/notas", { method: "POST", body });
-    setEnviando(false);
+    let res: Awaited<ReturnType<typeof apiRequest<Comprobante>>>;
+    try {
+      res = await apiRequest<Comprobante>("/api/proxy/notas", { method: "POST", body });
+    } catch {
+      // `fetch` RECHAZA ante un corte de conexión: sin este catch el botón quedaba en «Emitiendo…» para siempre,
+      // sin alerta, y el POST pudo haber llegado y consumido correlativo. Reintentar a ciegas duplica la nota.
+      setEnviando(false);
+      setError(
+        `Se cortó la conexión mientras se emitía. La nota pudo haberse emitido igual: revisá las notas de la factura ${factura.serie}-${factura.numero} antes de volver a intentarlo, para no duplicarla.`,
+      );
+      return;
+    }
     if (res.estado !== "exito" || !res.datos) {
+      setEnviando(false);
       setError(res.mensaje ?? mensajeError(res.codigo));
       return;
     }
+    // A propósito NO se rehabilita el botón en el camino feliz: se desmonta con la navegación. Rehabilitarlo antes
+    // de `router.push` dejaba una ventana en la que un segundo clic emitía otra nota (medido: 3 notas con 3 clics).
     router.push(`/comprobantes/${res.datos.id}`);
   }
 
   const motivos = catalogos[tipo]?.entradas ?? [];
-  const listo = serie !== "" && motivo !== "" && descripcion.trim() !== "" && (!esParcial || itemsParciales.length > 0) && (esNc || (nd.descripcion.trim() !== "" && Number(nd.importe) > 0)) && (!esCuotas || cuotas.length > 0);
+
+  // Importe de la nota parcial y su tope. El tope es lo que SUNAT compara (3286): el total de la factura, menos lo
+  // que ya acreditaron otras NC vigentes (el backend lo suma con lock de fila; acá se anticipa para no gastar un
+  // viaje ni consumir número). La tasa se deduce de la propia factura: la nota hereda la de la factura, no la
+  // vigente de la empresa.
+  const tasaFactura = factura.totales.gravado > 0 ? redondear((factura.totales.igv / factura.totales.gravado) * 100, 1) : 18;
+  const importeNota = esParcial ? calcularTotales(itemsParciales.map((i) => ({ cantidad: i.cantidad, precioUnitario: i.precio_unitario, tipoAfectacionIgv: i.tipo_afectacion_igv })), tasaFactura).total : 0;
+  const acreditado = (factura.notas ?? [])
+    .filter((n) => n.tipo === "07" && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO")
+    .reduce((s, n) => s + n.total, 0);
+  const tope = redondear(factura.totales.total - acreditado, 2);
+  const superaTope = esParcial && importeNota > tope;
+
+  const listo =
+    serie !== "" &&
+    motivo !== "" &&
+    descripcion.trim() !== "" &&
+    (!esParcial || (itemsParciales.length > 0 && !superaTope)) &&
+    (esNc || (nd.descripcion.trim() !== "" && Number(nd.importe) > 0)) &&
+    (!esCuotas || cuotas.length > 0);
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5" data-testid="nota-form">
+    <form onSubmit={onSubmit} onKeyDown={sinEnvioImplicito} className="space-y-5" data-testid="nota-form">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="nota-tipo" className={ETIQUETA_CAMPO}>Tipo de nota</label>
@@ -187,6 +224,22 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             {conAnticipos && MOTIVOS_NC_TOTAL.has(motivo) ? `La factura regularizó anticipos (neto ${formatearMonto(factura.moneda, factura.totales.total)}): ajuste las cantidades para que la nota no supere ese importe. ` : ""}
             Ponga 0 en los ítems que no entran en la nota. El descuento de línea solo se conserva si la cantidad es la facturada.
           </p>
+          {/* El importe que va a salir, contra lo que SUNAT compara. Antes el formulario no mostraba ninguna cifra
+              de la nota y el usuario descubría el 3286 después de emitir. */}
+          <div className={cn("flex flex-wrap items-baseline justify-between gap-2 border-t border-border/60 px-3 py-2 text-[12px]", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
+            <span>
+              Importe de la nota: <strong className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</strong>
+            </span>
+            <span>
+              Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>
+              {acreditado > 0 ? ` (factura ${formatearMonto(factura.moneda, factura.totales.total)} menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}
+            </span>
+            {superaTope ? (
+              <span role="alert" className="basis-full">
+                Supera el tope: SUNAT la rechazaría (3286). Bajá cantidades, o para anular o devolver todo elegí el motivo 01 o 06.
+              </span>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
