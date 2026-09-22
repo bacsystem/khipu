@@ -94,6 +94,13 @@ describe("calcularTotales", () => {
     expect(esGratuita("10")).toBe(false);
   });
 
+  it("el IGV se redondea por línea a 2 decimales, no al final: dos medios céntimos suman uno, no cero", () => {
+    // 0.295 / 1.18 = 0.25 exacto → IGV 0.045 → HALF_UP a 2 = 0.05 por línea. Dos líneas: 0.10.
+    // Acumulando el IGV sin redondear (0.045 + 0.045 = 0.09) daría un céntimo menos que el comprobante real.
+    // Ningún test anterior acumulaba medio céntimo, así que redondear el IGV a 10 decimales pasaba igual.
+    expect(calcularTotales([gravado(1, 0.295), gravado(1, 0.295)], 18)).toMatchObject({ gravado: 0.5, igv: 0.1, total: 0.6 });
+  });
+
   it("ignora líneas incompletas mientras se escribe el formulario", () => {
     const items = [gravado(0, 100), gravado(1, 0), { cantidad: Number.NaN, precioUnitario: 10, tipoAfectacionIgv: "10" }];
     expect(calcularTotales(items, 18)).toMatchObject({ gravado: 0, igv: 0, total: 0 });

@@ -67,10 +67,16 @@ test("tras emitir, el diálogo anuncia el correlativo siguiente, no el que acaba
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
 
+  // El número que se acaba de emitir, leído de la ficha: la fuente de verdad contra la que se compara el anuncio.
+  const emitido = Number((await page.getByText(/F001-\d{8}/).first().innerText()).match(/F001-(\d{8})/)?.[1]);
+  expect(emitido).toBeGreaterThanOrEqual(antes);
+
   // El diálogo vive en el top bar y sobrevive a esta navegación: si cacheara las series, seguiría ofreciendo el
-  // número que la emisión acaba de consumir. Se compara con `>` porque otros specs emiten sobre el mismo mock.
+  // número que la emisión acaba de consumir. Se compara con `>=` y no con `===` porque otros specs emiten en
+  // paralelo sobre el mismo mock, pero NUNCA puede anunciar el que ya se usó: la cota inferior es `emitido + 1`.
+  // (Con `> antes` a secas, anunciar `ultimo_numero` sin el `+1` pasaba igual.)
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
-  expect(await numeroAnunciado()).toBeGreaterThan(antes);
+  expect(await numeroAnunciado()).toBeGreaterThanOrEqual(emitido + 1);
 });
 
 test("una línea sin precio no se emite como S/ 0.00, y vaciar la fecha no manda un comprobante sin fecha (#17)", async ({ page }) => {
@@ -238,17 +244,55 @@ test("tras un error del servidor el foco queda en la alerta, no en <body>", asyn
   expect(activo).toBe(true);
 });
 
+test("la fecha y la moneda elegidas son las que viajan, y la fecha por defecto es hoy", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+  await completarMinimo(dialogo);
+
+  // Por defecto, hoy: el `max` del calendario es hoy en Lima, y el valor inicial tiene que coincidir con él.
+  const fecha = dialogo.getByLabel("Fecha de emisión");
+  const hoy = await fecha.getAttribute("max");
+  await expect(fecha).toHaveValue(hoy!);
+  const ayer = new Date(Date.parse(`${hoy}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  await fecha.fill(ayer);
+  await dialogo.getByLabel("Moneda").selectOption("USD");
+  await dialogo.getByLabel("Cantidad").fill("2.5");
+
+  // Ningún test miraba el cuerpo del POST: `fecha_emision: hoy` y `moneda: "PEN"` hardcodeados pasaban igual.
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/facturas"));
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  const cuerpo = (await peticion).postDataJSON();
+  expect(cuerpo).toMatchObject({ fecha_emision: ayer, moneda: "USD" });
+  expect(cuerpo.items[0]).toMatchObject({ cantidad: 2.5, precio_unitario: 100, tipo_afectacion_igv: "10" });
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+});
+
+test("sin ningún ítem completo no se emite: avisa en vez de mandar un comprobante vacío", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  // Cliente completo, ítem con cantidad pero sin descripción ni precio: los `required` no lo frenan, la guarda sí.
+  const posts = contarEmisiones(page);
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(dialogo.getByRole("alert")).toContainText("Agrega al menos un ítem");
+  expect(posts).toEqual([]);
+  await expect(dialogo).toBeVisible();
+});
+
 test("cancelar cierra el diálogo sin emitir nada (#17)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
+  // Con el formulario LLENO: cancelar uno vacío no prueba nada, porque los `required` ya bloquean el submit solos.
+  // Si «Cancelar» perdiera su `type="button"` pasaría a ser el submit del form —y emitiría—: esto lo detecta.
+  await completarMinimo(dialogo);
 
   // Se observa la petición y no el estado compartido: otros specs emiten contra el mismo mock en paralelo, así que
   // ni el conteo de filas ni el correlativo ofrecido sirven para afirmar que *este* cancelar no emitió.
-  const emisiones: string[] = [];
-  page.on("request", (r) => {
-    if (r.method() === "POST" && r.url().includes("/api/proxy/facturas")) emisiones.push(r.url());
-  });
+  const emisiones = contarEmisiones(page);
 
   await dialogo.getByRole("button", { name: "Cancelar" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
