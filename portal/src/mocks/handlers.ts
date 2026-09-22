@@ -92,10 +92,18 @@ const CATALOGOS = [
     entradas: [
       { codigo: "01", descripcion: "Anulación de la operación", extra: {} },
       { codigo: "07", descripcion: "Devolución por ítem", extra: {} },
+      // 11 y 12 están para probar que el formulario los oculta cuando la factura no es de exportación / IVAP.
+      { codigo: "11", descripcion: "Ajustes de operaciones de exportación", extra: {} },
+      { codigo: "12", descripcion: "Ajustes afectos al IVAP", extra: {} },
       { codigo: "13", descripcion: "Corrección o modificación del monto neto pendiente de pago y/o la(s) fechas(s) de vencimiento", extra: {} },
     ] },
   { id: "10", nombre: "Códigos de tipo de nota de débito electrónica", columnas: ["Código", "Descripción"],
-    entradas: [{ codigo: "01", descripcion: "Intereses por mora", extra: {} }, { codigo: "13", descripcion: "Penalidades", extra: {} }] },
+    entradas: [
+      { codigo: "01", descripcion: "Intereses por mora", extra: {} },
+      { codigo: "11", descripcion: "Ajustes de operaciones de exportación", extra: {} },
+      { codigo: "12", descripcion: "Ajustes afectos al IVAP", extra: {} },
+      { codigo: "13", descripcion: "Penalidades", extra: {} },
+    ] },
   { id: "07", nombre: "Código de tipo de afectación del IGV", columnas: ["Código", "Descripción", "Codigo de tributo"],
     entradas: [
       { codigo: "10", descripcion: "Gravado - Operación Onerosa", extra: { "Codigo de tributo": "1000" } },

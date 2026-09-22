@@ -190,6 +190,29 @@ export function resetDb() {
       enlaces: { xml: "/v1/facturas/f-aceptada/xml", pdf: "/v1/facturas/f-aceptada/pdf", cdr: "/v1/facturas/f-aceptada/cdr" },
     },
     {
+      // Exportación de servicios (0201 sería sin RUC; 0200 admite RUC): para probar que las notas siguen la afectación 40
+      // de la factura (2642) y que el motivo 11 solo se ofrece acá.
+      id: "f-export",
+      tipo: "01",
+      serie: "F001",
+      // Número y fecha propios: F001-4 ya es f-firmada, y el e2e de filtros cuenta qué cae el 1 y el 2 de setiembre.
+      numero: 5,
+      fecha_emision: "2026-08-25",
+      moneda: "USD",
+      tipo_operacion: "0200",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null },
+      items: [{ codigo: null, descripcion: "Servicio de diseño para el exterior", unidad: "ZZ", cantidad: 1, precio_unitario: 100, tipo_afectacion_igv: "40" }],
+      estado_documento: "ACEPTADO",
+      hash: "exp==",
+      nombre_archivo: "20123456786-01-F001-00000005",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-5, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 0, exonerado: 0, inafecto: 0, igv: 0, total: 100 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-export/xml" },
+    },
+    {
       id: "f-obs",
       tipo: "01",
       serie: "F001",

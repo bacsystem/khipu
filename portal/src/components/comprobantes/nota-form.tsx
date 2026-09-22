@@ -10,7 +10,7 @@ import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { calcularTotales, redondear } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { formatearMonto, formatearNumero, hoyLima } from "@/lib/formato";
+import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -42,17 +42,23 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
+  const [intentoCatalogos, setIntentoCatalogos] = useState(0);
   useEffect(() => {
     let vigente = true;
-    Promise.all([apiRequest<CatalogoSunat>("/api/proxy/catalogos/09", { method: "GET" }), apiRequest<CatalogoSunat>("/api/proxy/catalogos/10", { method: "GET" })]).then(([nc, ndc]) => {
-      if (!vigente) return;
-      setCatalogos({ "07": nc.datos, "08": ndc.datos });
-      if (!nc.datos || !ndc.datos) setError("No se pudieron cargar los motivos (catálogos 09/10). Reintente.");
-    });
+    const sinMotivos = () => setError("No se pudieron cargar los motivos (catálogos 09/10). Reintente.");
+    Promise.all([apiRequest<CatalogoSunat>("/api/proxy/catalogos/09", { method: "GET" }), apiRequest<CatalogoSunat>("/api/proxy/catalogos/10", { method: "GET" })])
+      .then(([nc, ndc]) => {
+        if (!vigente) return;
+        setCatalogos({ "07": nc.datos, "08": ndc.datos });
+        if (!nc.datos || !ndc.datos) sinMotivos();
+      })
+      // Un 500 ya caía en la rama de arriba; un `fetch` RECHAZADO (red caída) no: el motivo quedaba en
+      // «Cargando…» deshabilitado para siempre y la página no decía nada.
+      .catch(() => vigente && sinMotivos());
     return () => {
       vigente = false;
     };
-  }, []);
+  }, [intentoCatalogos]);
 
   const seriesDelTipo = useMemo(() => series.filter((s) => s.tipo === tipo && s.activa && s.serie.startsWith("F")), [series, tipo]);
   useEffect(() => {
@@ -96,7 +102,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     if (esCuotas) {
       body.forma_pago = { tipo: "credito", monto_pendiente: cuotas.reduce((acc, q) => acc + Number(q.monto || 0), 0), cuotas: cuotas.map((q) => ({ monto: Number(q.monto), vencimiento: q.vencimiento })) };
     }
-    if (!esNc) body.items = [{ descripcion: nd.descripcion.trim(), unidad: "ZZ", cantidad: 1, precio_unitario: Number(nd.importe), tipo_afectacion_igv: "10" }];
+    // La afectación de la línea de la ND sigue a la factura, no un «10» fijo: sobre una exportación el dominio
+    // exige 40 (2642) —con el 10 fijo no se podía emitir ninguna ND sobre exportaciones— y sobre IVAP, 17.
+    if (!esNc) body.items = [{ descripcion: nd.descripcion.trim(), unidad: "ZZ", cantidad: 1, precio_unitario: Number(nd.importe), tipo_afectacion_igv: afectacionNd }];
     setEnviando(true);
     let res: Awaited<ReturnType<typeof apiRequest<Comprobante>>>;
     try {
@@ -120,7 +128,26 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     router.push(`/comprobantes/${res.datos.id}`);
   }
 
-  const motivos = catalogos[tipo]?.entradas ?? [];
+  // Los motivos que dependen de cómo es la factura no se ofrecen si no aplican. Con el catálogo completo, «11
+  // Ajustes de exportación» o «12 Ajustes IVAP» sobre una factura interna salían numeradas y SUNAT las rechazaba
+  // (2642/3107) con el correlativo consumido; y «13 corrección de cuotas» sobre una factura al contado viola 3260.
+  const esExportacion = /^020[0-8]$/.test(factura.tipo_operacion ?? "");
+  const esIvap = factura.items.some((i) => i.tipo_afectacion_igv === "17");
+  const alCredito = factura.forma_pago.tipo === "credito";
+  const afectacionNd = esExportacion ? "40" : esIvap ? "17" : "10";
+
+  // NC 13: lo que exige SUNAT (3253 monto > 0, 3321 vencimiento posterior a la factura, 3320 neto ≤ total) antes
+  // «listo» solo pedía que hubiera al menos una cuota, y una cuota en blanco viajaba como monto 0 y fecha vacía.
+  const cuotasValidas =
+    cuotas.length > 0 &&
+    cuotas.every((q) => Number(q.monto) > 0 && q.vencimiento !== "" && q.vencimiento > factura.fecha_emision) &&
+    redondear(cuotas.reduce((acc, q) => acc + Number(q.monto), 0), 2) <= factura.totales.total;
+  const motivos = (catalogos[tipo]?.entradas ?? []).filter((m) => {
+    if (m.codigo === "11") return esExportacion;
+    if (m.codigo === "12") return esIvap;
+    if (m.codigo === "13" && esNc) return alCredito;
+    return true;
+  });
 
   // Importe de la nota parcial y su tope. El tope es lo que SUNAT compara (3286): el total de la factura, menos lo
   // que ya acreditaron otras NC vigentes (el backend lo suma con lock de fila; acá se anticipa para no gastar un
@@ -140,7 +167,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     descripcion.trim() !== "" &&
     (!esParcial || (itemsParciales.length > 0 && !superaTope)) &&
     (esNc || (nd.descripcion.trim() !== "" && Number(nd.importe) > 0)) &&
-    (!esCuotas || cuotas.length > 0);
+    (!esCuotas || cuotasValidas);
 
   return (
     <form onSubmit={onSubmit} onKeyDown={sinEnvioImplicito} className="space-y-5" data-testid="nota-form">
@@ -250,7 +277,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             <div key={i} className="flex flex-wrap items-center gap-2">
               <span className="w-20 font-mono text-[11px] text-muted-foreground">Cuota{String(i + 1).padStart(3, "0")}</span>
               <input type="number" min={0.01} step="0.01" value={q.monto} aria-label={`Monto de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, monto: e.target.value } : c)))} className={cn(CAMPO, "h-8 w-32 font-mono")} />
-              <input type="date" value={q.vencimiento} aria-label={`Vencimiento de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: e.target.value } : c)))} className={cn(CAMPO, "h-8 w-40 font-mono")} />
+              <input type="date" value={q.vencimiento} min={sumarDias(factura.fecha_emision, 1)} aria-label={`Vencimiento de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: e.target.value } : c)))} className={cn(CAMPO, "h-8 w-40 font-mono")} />
               <button type="button" onClick={() => setCuotas((cs) => cs.filter((_, j) => j !== i))} className="text-[12px] text-muted-foreground hover:text-destructive">Quitar</button>
             </div>
           ))}
@@ -271,7 +298,16 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         </div>
       ) : null}
 
-      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+      {error ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-destructive" role="alert">{error}</p>
+          {!catalogos[tipo] ? (
+            <button type="button" onClick={() => { setError(null); setIntentoCatalogos((n) => n + 1); }} className={cn(BOTON_SECUNDARIO, "h-8 text-xs")}>
+              Reintentar
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="submit" disabled={!listo || enviando} className={BOTON_PRIMARIO}>
