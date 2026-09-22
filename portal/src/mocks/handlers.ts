@@ -344,9 +344,12 @@ export const handlers = [
     if (!body.items?.length) return fail(422, "ITEMS_REQUERIDOS", "Un comprobante necesita al menos un ítem");
 
     serie.ultimo_numero += 1;
+    // La tasa sale de la empresa, igual que en el diálogo: si el fixture entra al padrón de tasa especial, mock y
+    // formulario siguen de acuerdo en vez de romper el e2e con un descuadre que parecería un bug del helper.
+    const tasaIgv = empresaDe(request)?.padron_tasa_especial_igv ? 10.5 : 18;
     const t = calcularTotales(
       body.items.map((i) => ({ cantidad: i.cantidad, precioUnitario: i.precio_unitario, tipoAfectacionIgv: i.tipo_afectacion_igv })),
-      18,
+      tasaIgv,
     );
     const id = nuevoId("f");
     const comprobante: Comprobante = {

@@ -1,0 +1,69 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { NuevoComprobanteDialog } from "./nuevo-comprobante-dialog";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+
+const SERIES = [{ tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" }];
+
+function sobre(datos: unknown, status = 200) {
+  return new Response(JSON.stringify({ estado: status < 400 ? "exito" : "error", datos, mensaje: null, codigo: null, errores: null }), { status });
+}
+
+/** Respondedor por ruta: cada test define qué devuelve `/series` y `/empresa` en cada llamada. */
+function stubFetch(porRuta: (url: string) => Response) {
+  const fetch = vi.fn((url: string) => Promise.resolve(porRuta(url)));
+  vi.stubGlobal("fetch", fetch);
+  return fetch;
+}
+
+afterEach(() => {
+  // La config de vitest no usa `globals`, así que testing-library no registra su limpieza automática: sin esto
+  // el diálogo de un test sigue montado en el siguiente y las consultas encuentran elementos duplicados.
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+describe("NuevoComprobanteDialog", () => {
+  it("un fallo al leer las series no se muestra como 'no tienes series' y se puede reintentar", async () => {
+    let fallar = true;
+    stubFetch((url) => {
+      if (url.includes("/series")) return fallar ? sobre(null, 502) : sobre(SERIES);
+      return sobre({ id: "e-1", entorno: "BETA" });
+    });
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    // Sin esta distinción, un 502 pasajero deja `series` en `[]` y el diálogo manda al usuario a crear series
+    // que ya tiene —y el estado sobrevive a cerrar y reabrir, así que la emisión queda muerta hasta recargar.
+    await waitFor(() => expect(screen.getByText("No se pudieron cargar tus series")).toBeInTheDocument());
+    expect(screen.queryByText("No tienes series de factura")).not.toBeInTheDocument();
+
+    fallar = false;
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Serie")).toBeInTheDocument());
+    expect(screen.queryByText("No se pudieron cargar tus series")).not.toBeInTheDocument();
+  });
+
+  it("una lista vacía sí es 'no tienes series': son dos situaciones distintas", async () => {
+    stubFetch((url) => (url.includes("/series") ? sobre([]) : sobre({ id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByText("No tienes series de factura")).toBeInTheDocument());
+  });
+
+  it("no afirma el ambiente si no se pudo leer la empresa", async () => {
+    stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre(null, 500)));
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    // Decir "Homologación" cuando el tenant está en producción invita a emitir de verdad creyendo que es una prueba.
+    await waitFor(() => expect(screen.getByText(/No se pudo leer el ambiente/)).toBeInTheDocument());
+    expect(screen.queryByText(/Homologación/)).not.toBeInTheDocument();
+  });
+});

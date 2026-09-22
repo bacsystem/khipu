@@ -21,6 +21,8 @@ export type Empresa = {
   domicilio?: { ubigeo: string; direccion: string; urbanizacion: string | null; distrito: string | null; provincia: string | null; departamento: string | null; codigo_establecimiento: string } | null;
   cuenta_detracciones?: string | null;
   nombre_comercial?: string | null;
+  /** Padrón de tasa especial del IGV (#84): 10.5 % en vez de 18 %. Lo lee el diálogo de emisión para previsualizar. */
+  padron_tasa_especial_igv?: boolean;
   personalizacion_pdf?: PersonalizacionPdf;
 };
 
