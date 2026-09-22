@@ -589,6 +589,27 @@ class FacturaControllerTest {
         });
     }
 
+    /**
+     * El importe pagado de un anticipo debe calcularse con la tasa de IGV real del comprobante (padrón de tasa especial,
+     * #84), no con la general fija a 18 % — si no, la respuesta reporta un monto que no cuadra con {@code totales.total}.
+     */
+    @Test void anticiposConTasaReducidaCalculanElImportePagadoConEsaTasa() throws Exception {
+        String conAnticipo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"F001\",\"numero\":10,\"monto\":40.00,\"fecha_pago\":\"2026-09-01\"}],");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
+                        List.of(new Item("P1", "Menú", "NIU", BigDecimal.ONE, new BigDecimal("110.50"), TipoAfectacionIgv.GRAVADO)))
+                .anticipos(List.of(new Anticipo("F001", 10, new BigDecimal("40.00"), null, LocalDate.of(2026, 9, 1))))
+                .tasaIgv(new BigDecimal("10.50"))
+                .crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conAnticipo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.totales.tasa_igv").value(10.50))
+                .andExpect(jsonPath("$.datos.anticipos[0].monto").value(40.00))
+                .andExpect(jsonPath("$.datos.anticipos[0].importe_pagado").value(44.20))   // 40.00 × 1.105, no × 1.18 (47.20)
+                .andExpect(jsonPath("$.datos.totales.total_anticipos").value(44.20))
+                .andExpect(jsonPath("$.datos.totales.total").value(66.30));
+    }
+
     @Test void anticipoConSerieInvalidaEs422DeValidacion() throws Exception {
         String mal = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"B001\",\"numero\":10,\"monto\":30.00}],");
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(mal))

@@ -10,9 +10,11 @@ import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.ItemCalculado;
+import pe.factura.domain.documento.Leyenda;
 import pe.factura.domain.documento.Nota;
 import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.Referencias;
+import pe.factura.domain.documento.Totales;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -91,8 +93,12 @@ public record ComprobanteResponse(
                               @Schema(example = "gravado", description = "`gravado`, `exonerado` o `inafecto`") String afectacion,
                               @Schema(example = "04", description = "Código SUNAT del descuento global por anticipo (catálogo 53: 04/05/06)") String codigoSunat,
                               @Schema(example = "2026-09-01") LocalDate fechaPago) {
-        static AnticipoDto de(Anticipo a) {
-            return new AnticipoDto(a.comprobante(), a.serie(), a.numero(), a.monto(), a.importePagado(), a.afectacion().name().toLowerCase(), a.codigoSunat(), a.fechaPago());
+        // AnticipoCalculado, no Anticipo a secas: importePagado() debe calcularse con la tasa de IGV real del comprobante
+        // (Totales.tasaIgv), no con la general fija — si no, una empresa del padrón (10 %/10.5 %) recibiría un importe
+        // pagado incorrecto en la respuesta.
+        static AnticipoDto de(Totales.AnticipoCalculado ac) {
+            Anticipo a = ac.anticipo();
+            return new AnticipoDto(a.comprobante(), a.serie(), a.numero(), a.monto(), ac.importePagado(), a.afectacion().name().toLowerCase(), a.codigoSunat(), a.fechaPago());
         }
     }
 
@@ -240,13 +246,13 @@ public record ComprobanteResponse(
                 c.retencion() == null ? null : new RetencionDto(c.retencion().porcentaje(), c.retencion().monto(), c.totales().total().subtract(c.retencion().monto())),
                 c.percepcion() == null ? null : new PercepcionDto(c.percepcion().regimen(), c.percepcion().descripcionRegimen(), c.percepcion().porcentaje(),
                         c.percepcion().base(), c.percepcion().monto(), c.percepcion().totalConPercepcion(c.totales().total())),
-                c.anticipos().isEmpty() ? null : c.anticipos().stream().map(AnticipoDto::de).toList(),
+                c.anticipos().isEmpty() ? null : c.totales().anticipos().stream().map(AnticipoDto::de).toList(),
                 ReferenciasDto.de(c.referencias()),
                 NotaDto.de(c),
                 notas == null ? null : notas.stream().map(NotaResumenDto::de).toList(),
                 baja == null ? null : BajaResponse.de(baja),
                 c.observaciones(),
-                c.leyendas().stream().map(l -> new LeyendaDto(l, pe.factura.domain.documento.Leyenda.texto(l))).toList(),
+                c.leyendas().stream().map(l -> new LeyendaDto(l, Leyenda.texto(l))).toList(),
                 enlaces(c, p));
     }
 

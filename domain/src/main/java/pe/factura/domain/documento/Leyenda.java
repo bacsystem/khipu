@@ -4,6 +4,7 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.catalogo.CatalogoSunat;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -15,8 +16,8 @@ public final class Leyenda {
     private Leyenda() {}
 
     public static final Set<String> AUTOMATICAS = Set.of("1000", "1002", "2000", "2006", "2007");
-    /** Las que exigen total exonerado (9997) mayor que cero: 3283, 3284, 3285, 3289. */
-    public static final Set<String> EXIGEN_EXONERADO = Set.of("2001", "2002", "2003", "2008");
+    /** Las que exigen total exonerado (9997) mayor que cero, y la regla SUNAT que citar si no lo cumplen. */
+    public static final Map<String, String> EXIGEN_EXONERADO = Map.of("2001", "3283", "2002", "3284", "2003", "3285", "2008", "3289");
 
     /** Normaliza y valida la lista que envía el emisor: códigos del catálogo 52, sin repetidos ni automáticas. */
     public static List<String> validar(List<String> codigos) {
