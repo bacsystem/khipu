@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BloqueCodigo } from "@/components/developers/guia/bloque-codigo";
 import { CASOS, ERROR_EJEMPLO, RESPUESTA_EJEMPLO } from "@/components/developers/guia/casos-emision";
-import { NotaProsa, Codigo, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
+import { Codigo, NotaProsa, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
 import { Rico } from "@/components/developers/guia/rico";
 import { apiPublicUrl } from "@/lib/api/client";
 import { messages } from "@/lib/messages";

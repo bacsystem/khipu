@@ -73,4 +73,10 @@ describe("sumarDias", () => {
   it("es el inverso de diasEntre", () => {
     expect(diasEntre("2026-09-18", sumarDias("2026-09-18", -3))).toBe(-3);
   });
+
+  it("con una fecha ilegible devuelve la entrada en vez de lanzar", () => {
+    // Sin la guarda, `toISOString()` sobre un Invalid Date lanza RangeError y se cae el render entero.
+    expect(sumarDias("", -3)).toBe("");
+    expect(sumarDias("no-es-fecha", -3)).toBe("no-es-fecha");
+  });
 });

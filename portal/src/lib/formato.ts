@@ -27,9 +27,14 @@ export function diasEntre(desde: string, hasta: string): number {
   return (Date.UTC(a2, m2 - 1, d2) - Date.UTC(a1, m1 - 1, d1)) / 86_400_000;
 }
 
-/** Suma (o resta, con negativo) días calendario a una fecha `YYYY-MM-DD`, sin zona horaria de por medio. */
+/**
+ * Suma (o resta, con negativo) días calendario a una fecha `YYYY-MM-DD`, sin zona horaria de por medio.
+ * Con una fecha ilegible devuelve la entrada, como `formatearFecha`: sin la guarda, `toISOString()` lanza
+ * `RangeError` y tumba el render, que es peor que mostrar el valor crudo.
+ */
 export function sumarDias(iso: string, dias: number): string {
   const [anio, mes, dia] = iso.split("-").map(Number);
+  if (!anio || !mes || !dia) return iso;
   return new Date(Date.UTC(anio, mes - 1, dia + dias)).toISOString().slice(0, 10);
 }
 

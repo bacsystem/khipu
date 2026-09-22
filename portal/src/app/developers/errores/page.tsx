@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { NotaProsa, Codigo, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
+import { Codigo, NotaProsa, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
 import { messages } from "@/lib/messages";
 
 export const metadata = { title: `Errores y estados · ${messages.app.nombre}` };
