@@ -128,7 +128,11 @@ final class EscenariosFactura {
             // Serie asignada a un establecimiento anexo (#80): RegistrationAddress con AddressTypeCode 0002 y la dirección del anexo.
             new Escenario("24-anexo", "Factura desde una serie asignada al establecimiento anexo 0002",
                 "{" + cabAnexo + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
-                "{\"descripcion\":\"Venta en tienda Miraflores\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":236.00,\"tipo_afectacion_igv\":\"10\"}]}")
+                "{\"descripcion\":\"Venta en tienda Miraflores\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":236.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            // IVAP (#67): afectación 17, tributo 1016 al 4 %, leyenda 2007, TaxInclusiveAmount sin IGV (campo 55).
+            new Escenario("25-ivap", "Venta de arroz pilado sujeta al IVAP (afectación 17, 4 %)",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"codigo\":\"ARZ-01\",\"descripcion\":\"Arroz pilado superior\",\"unidad\":\"KGM\",\"cantidad\":500,\"precio_unitario\":3.12,\"tipo_afectacion_igv\":\"17\"}]}")
         );
     }
 

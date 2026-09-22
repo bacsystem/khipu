@@ -141,7 +141,7 @@
         <th>Descripción</th>
         <th class="n" style="width: 20mm;">V. unitario</th>
         <th class="n" style="width: 16mm;">Dscto.</th>
-        <th class="n" style="width: 16mm;">IGV</th>
+        <th class="n" style="width: 16mm;"><#if tot.tieneIvap()>IVAP<#else>IGV</#if></th>
         <th class="n" style="width: 22mm;">Importe</th>
       </tr>
     </thead>
@@ -170,14 +170,15 @@
 <#-- Totales por afectación, descuentos, cargos, anticipos, tributos y el importe total (etiqueta variable: nota de débito "Importe total"). -->
 <#macro totales>
   <table class="totales">
-    <#if tot.gravado() gt 0 || tot.exonerado() == 0 && tot.inafecto() == 0><tr><td class="k">Op. gravadas</td><td class="n">${c.moneda()} ${m(tot.gravado())}</td></tr></#if>
+    <#if tot.gravado() gt 0 || tot.exonerado() == 0 && tot.inafecto() == 0><tr><td class="k"><#if tot.tieneIvap()>Op. sujetas al IVAP<#else>Op. gravadas</#if></td><td class="n">${c.moneda()} ${m(tot.gravado())}</td></tr></#if>
     <#if tot.exonerado() gt 0><tr><td class="k">Op. exoneradas</td><td class="n">${c.moneda()} ${m(tot.exonerado())}</td></tr></#if>
     <#if tot.inafecto() gt 0><tr><td class="k">Op. inafectas</td><td class="n">${c.moneda()} ${m(tot.inafecto())}</td></tr></#if>
     <#if tot.tieneGratuitas()><tr><td class="k">Op. gratuitas</td><td class="n">${c.moneda()} ${m(tot.gratuito())}</td></tr></#if>
     <#if tot.totalDescuentos() gt 0><tr><td class="k">Descuentos</td><td class="n">- ${c.moneda()} ${m(tot.totalDescuentos())}</td></tr></#if>
     <#if tot.totalCargos() gt 0><tr><td class="k">Cargos</td><td class="n">${c.moneda()} ${m(tot.totalCargos())}</td></tr></#if>
     <#if tot.isc() gt 0><tr><td class="k">ISC</td><td class="n">${c.moneda()} ${m(tot.isc())}</td></tr></#if>
-    <tr><td class="k">IGV (${tot.tasaIgv()?string["0.##"]}%)</td><td class="n">${c.moneda()} ${m(tot.igv())}</td></tr>
+    <#if tot.tieneIvap()><tr><td class="k">IVAP (4%)</td><td class="n">${c.moneda()} ${m(tot.ivap())}</td></tr>
+    <#else><tr><td class="k">IGV (${tot.tasaIgv()?string["0.##"]}%)</td><td class="n">${c.moneda()} ${m(tot.igv())}</td></tr></#if>
     <#if tot.icbper() gt 0><tr><td class="k">ICBPER</td><td class="n">${c.moneda()} ${m(tot.icbper())}</td></tr></#if>
     <#if tot.tieneAnticipos()><tr><td class="k">Anticipos</td><td class="n">- ${c.moneda()} ${m(tot.totalAnticipos())}</td></tr></#if>
     <#if tot.tieneRedondeo()><tr><td class="k">Redondeo</td><td class="n">${c.moneda()} ${m(tot.redondeo())}</td></tr></#if>

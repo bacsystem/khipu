@@ -634,6 +634,40 @@ class AtributosSunatFacturaTest {
         assertThat(xml).contains(CAT06);
     }
 
+    /** IVAP (#67): línea con afectación 17, tributo 1016 al 4 %, subtotal global 1016 en lugar de 1000, TaxTotal con el IVAP y leyenda 2007. */
+    @Test void ivapEnElXml() throws Exception {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "MOLINO SAC", null),
+                List.of(new Item("ARZ", "Arroz pilado", "KGM", new BigDecimal("100"), new BigDecimal("3.12"), TipoAfectacionIgv.IVAP))).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(12, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='2007']")).isEqualTo("OPERACIÓN SUJETA AL IVAP");
+        String linea = "/inv:Invoice/cac:InvoiceLine[1]";
+        assertThat(valor(d, linea + "/cbc:LineExtensionAmount")).isEqualTo("300.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("12.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cbc:TaxableAmount")).isEqualTo("300.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:Percent")).isEqualTo("4.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReasonCode")).isEqualTo("17");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID")).isEqualTo("1016");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:Name")).isEqualTo("IVAP");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode")).isEqualTo("VAT");
+
+        assertThat(valor(d, "count(/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal)")).isEqualTo("1");
+        String ivap = "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='1016']";
+        assertThat(valor(d, ivap + "/cbc:TaxableAmount")).isEqualTo("300.00");
+        assertThat(valor(d, ivap + "/cbc:TaxAmount")).isEqualTo("12.00");
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("12.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:LineExtensionAmount")).isEqualTo("300.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount")).isEqualTo("312.00");   // campo 55 sin IGV
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("312.00");
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     /** Leyendas del catálogo 52 declaradas por el emisor (#66): cbc:Note con el código en languageLocaleID y el texto oficial. */
     @Test void leyendasDeclaradasEnElXml() throws Exception {
         Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),

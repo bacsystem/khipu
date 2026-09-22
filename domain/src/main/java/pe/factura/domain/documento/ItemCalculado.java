@@ -32,9 +32,13 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
 
     /** {@code tasaIgv} en porcentaje (18.00 o la reducida del padrón): decide el IGV de la línea y el cbc:Percent del XML. */
     public static ItemCalculado de(Item item, BigDecimal tasaIcbper, BigDecimal tasaIgv) {
-        BigDecimal factorIgv = TasaIgv.factor(tasaIgv);
-        BigDecimal unoMasIgv = BigDecimal.ONE.add(factorIgv);
         TipoAfectacionIgv af = item.afectacion();
+        // Una línea IVAP (17) tributa el 4 % del IVAP en vez del IGV: misma mecánica de precio con impuesto incluido.
+        BigDecimal tasaLinea = af.ivap() ? TasaIgv.IVAP : tasaIgv;
+        BigDecimal factorIgv = TasaIgv.factor(tasaLinea);
+        BigDecimal unoMasIgv = BigDecimal.ONE.add(factorIgv);
+        if (af.ivap() && (item.tieneIsc() || item.icbper()))
+            throw new DomainException("AFECTACION_INVALIDA", "2650 - Una línea afecta al IVAP (17) no lleva ISC ni ICBPER (combinación de tributos no permitida, 3223)");
         boolean onerosaGravada = af.gravado() && !af.gratuita();
         BigDecimal cantidad = item.cantidad();
         // ICBPER: monto fijo por unidad, fuera de la base del IGV; el precio enviado lo incluye.
@@ -63,7 +67,7 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         BigDecimal precioVenta = af.gratuita() ? BigDecimal.ZERO.setScale(2) : valorVenta.add(isc).add(igv).add(icbper).subtract(descuentoNoAfecta).add(sumaCargos(cargos, false));
         BigDecimal valorUnitario = af.gratuita() ? BigDecimal.ZERO.setScale(10) : valorReferencial;
         BigDecimal precioVentaUnitario = af.gratuita() ? valorReferencial : precioVenta.divide(cantidad, 10, RoundingMode.HALF_UP);
-        BigDecimal pct = af.gravado() ? tasaIgv : new BigDecimal("0.00");
+        BigDecimal pct = af.gravado() ? tasaLinea : new BigDecimal("0.00");
         return new ItemCalculado(item, valorUnitario, baseBruta, descuento, afectaBase, valorVenta, isc, iscPorcentaje, iscBase, icbper, icbperUnitario,
                 igv, precioVenta, precioVentaUnitario, pct, cargos);
     }
