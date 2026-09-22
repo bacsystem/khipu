@@ -45,15 +45,17 @@ class DetraccionSectorialTest {
         assertThatThrownBy(() -> factura("1001", item(ANCHOVETA, null))).hasMessageContaining("solo aplican al tipo de operación 1002");
     }
 
+    /** Las reglas de campo se exigen con {@link Hidrobiologico#exigirValido()}, no al construir el record (#89: no revalidar al rehidratar). */
     @Test void hidrobiologicoValidaSusCampos() {
-        assertThatThrownBy(() -> new Hidrobiologico(null, "N", "E", "L", LocalDate.now(), BigDecimal.ONE)).hasMessageContaining("3063");
-        assertThatThrownBy(() -> new Hidrobiologico("M", "", "E", "L", LocalDate.now(), BigDecimal.ONE)).hasMessageContaining("3130");
-        assertThatThrownBy(() -> new Hidrobiologico("M", "N", " ", "L", LocalDate.now(), BigDecimal.ONE)).hasMessageContaining("3131");
-        assertThatThrownBy(() -> new Hidrobiologico("M", "N", "E", null, LocalDate.now(), BigDecimal.ONE)).hasMessageContaining("3132");
-        assertThatThrownBy(() -> new Hidrobiologico("M", "N", "E", "L", null, BigDecimal.ONE)).hasMessageContaining("3134");
-        assertThatThrownBy(() -> new Hidrobiologico("M", "N", "E", "L", LocalDate.now(), null)).hasMessageContaining("3133");
-        assertThatThrownBy(() -> new Hidrobiologico("M", "N", "E", "L", LocalDate.now(), new BigDecimal("1.234"))).hasMessageContaining("4281");
-        assertThatThrownBy(() -> new Hidrobiologico("MATRICULA-DEMASIADO-LARGA", "N", "E", "L", LocalDate.now(), BigDecimal.ONE)).hasMessageContaining("4280").hasMessageContaining("15");
+        assertThatThrownBy(() -> new Hidrobiologico(null, "N", "E", "L", LocalDate.now(), BigDecimal.ONE).exigirValido()).hasMessageContaining("3063");
+        assertThatThrownBy(() -> new Hidrobiologico("M", "", "E", "L", LocalDate.now(), BigDecimal.ONE).exigirValido()).hasMessageContaining("3130");
+        assertThatThrownBy(() -> new Hidrobiologico("M", "N", " ", "L", LocalDate.now(), BigDecimal.ONE).exigirValido()).hasMessageContaining("3131");
+        assertThatThrownBy(() -> new Hidrobiologico("M", "N", "E", null, LocalDate.now(), BigDecimal.ONE).exigirValido()).hasMessageContaining("3132");
+        assertThatThrownBy(() -> new Hidrobiologico("M", "N", "E", "L", null, BigDecimal.ONE).exigirValido()).hasMessageContaining("3134");
+        assertThatThrownBy(() -> new Hidrobiologico("M", "N", "E", "L", LocalDate.now(), null).exigirValido()).hasMessageContaining("3133");
+        assertThatThrownBy(() -> new Hidrobiologico("M", "N", "E", "L", LocalDate.now(), new BigDecimal("1.234")).exigirValido()).hasMessageContaining("4281");
+        assertThatThrownBy(() -> new Hidrobiologico("MATRICULA-DEMASIADO-LARGA", "N", "E", "L", LocalDate.now(), BigDecimal.ONE).exigirValido()).hasMessageContaining("4280").hasMessageContaining("15");
+        // Construir sin llamar exigirValido() nunca lanza: la normalización (strip) es la única regla que corre siempre.
         assertThat(new Hidrobiologico(" M ", "N", "E", "L", LocalDate.now(), BigDecimal.ONE).matricula()).isEqualTo("M");
     }
 
@@ -69,18 +71,27 @@ class DetraccionSectorialTest {
                 .detraccion(new Detraccion("027", new BigDecimal("4"), null, "00-000-123456", null)).crear(CLOCK)).hasMessageContaining("3116");
     }
 
+    /**
+     * Las reglas de {@code TransporteCarga} (incluidas las de sus records anidados: {@code Punto} contra el catálogo 13,
+     * {@code ValorReferencial}) se exigen con {@link TransporteCarga#exigirValido()}, no al construir los records.
+     */
     @Test void transporteValidaSusCampos() {
         TransporteCarga.ValorReferencial vr = FLETE.valorReferencial();
-        assertThatThrownBy(() -> new TransporteCarga(null, LIMA, "Detalle", vr, null)).hasMessageContaining("3116");
-        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, null, "Detalle", vr, null)).hasMessageContaining("3118");
-        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "ab", vr, null)).hasMessageContaining("3120");
-        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "Detalle", null, null)).hasMessageContaining("3122");
-        assertThatThrownBy(() -> new TransporteCarga.Punto("999999", "Dirección")).hasMessageContaining("3116").hasMessageContaining("catálogo 13");
-        assertThatThrownBy(() -> new TransporteCarga.Punto("150101", "ab")).hasMessageContaining("3117");
-        assertThatThrownBy(() -> new TransporteCarga.ValorReferencial(null, BigDecimal.ONE, BigDecimal.ONE)).hasMessageContaining("3124");
-        assertThatThrownBy(() -> new TransporteCarga.ValorReferencial(BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ONE)).hasMessageContaining("3125");
-        assertThatThrownBy(() -> new TransporteCarga.ValorReferencial(BigDecimal.ONE, BigDecimal.ONE, new BigDecimal("1.234"))).hasMessageContaining("3126");
-        assertThat(new TransporteCarga.ValorReferencial(new BigDecimal("2500"), BigDecimal.ONE, BigDecimal.ONE).servicio()).isEqualTo(new BigDecimal("2500.00"));
+        assertThatThrownBy(() -> new TransporteCarga(null, LIMA, "Detalle", vr, null).exigirValido()).hasMessageContaining("3116");
+        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, null, "Detalle", vr, null).exigirValido()).hasMessageContaining("3118");
+        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "ab", vr, null).exigirValido()).hasMessageContaining("3120");
+        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "Detalle", null, null).exigirValido()).hasMessageContaining("3122");
+        // Punto con ubigeo fuera del catálogo 13 o dirección corta: no lanzan al construirse, solo al validar el transporte completo.
+        TransporteCarga.Punto ubigeoInvalido = new TransporteCarga.Punto("999999", "Dirección");
+        assertThatThrownBy(() -> new TransporteCarga(ubigeoInvalido, LIMA, "Detalle", vr, null).exigirValido()).hasMessageContaining("3116").hasMessageContaining("catálogo 13");
+        TransporteCarga.Punto direccionCorta = new TransporteCarga.Punto("150101", "ab");
+        assertThatThrownBy(() -> new TransporteCarga(direccionCorta, LIMA, "Detalle", vr, null).exigirValido()).hasMessageContaining("3117");
+        // ValorReferencial con un monto ausente o inválido: mismo patrón, solo lanza al validar el transporte completo.
+        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "Detalle", new TransporteCarga.ValorReferencial(null, BigDecimal.ONE, BigDecimal.ONE), null).exigirValido()).hasMessageContaining("3124");
+        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "Detalle", new TransporteCarga.ValorReferencial(BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ONE), null).exigirValido()).hasMessageContaining("3125");
+        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "Detalle", new TransporteCarga.ValorReferencial(BigDecimal.ONE, BigDecimal.ONE, new BigDecimal("1.234")), null).exigirValido()).hasMessageContaining("3126");
+        // Un transporte completo y válido no lanza.
+        FLETE.exigirValido();
     }
 
     @Test void tramosYVehiculosOpcionales() {
@@ -89,10 +100,28 @@ class DetraccionSectorialTest {
         TransporteCarga t = new TransporteCarga(CHIMBOTE, LIMA, "Detalle del viaje", FLETE.valorReferencial(), List.of(tramo));
         assertThat(t.tramos()).hasSize(1);
         assertThat(t.tramos().get(0).vehiculos().get(0).cargaUtilTm()).isEqualByComparingTo("30.00");
+        t.exigirValido();
         assertThat(new TransporteCarga.Tramo(null, null, null, null, null, null).vehiculos()).isEmpty();
-        assertThatThrownBy(() -> new TransporteCarga.Tramo("000000", null, null, null, null, null)).hasMessageContaining("4200");
-        assertThatThrownBy(() -> new TransporteCarga.Tramo(null, null, "ab", null, null, null)).hasMessageContaining("4271");
-        assertThatThrownBy(() -> new TransporteCarga.Vehiculo("T3 S3", null, null)).hasMessageContaining("4273");
-        assertThatThrownBy(() -> new TransporteCarga.Vehiculo("T3S3", new BigDecimal("-1"), null)).hasMessageContaining("4276");
+        // Tramos y vehículos inválidos: no lanzan al construirse, solo al validar el transporte que los contiene.
+        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "Detalle del viaje", FLETE.valorReferencial(),
+                List.of(new TransporteCarga.Tramo("000000", null, null, null, null, null))).exigirValido()).hasMessageContaining("4200");
+        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "Detalle del viaje", FLETE.valorReferencial(),
+                List.of(new TransporteCarga.Tramo(null, null, "ab", null, null, null))).exigirValido()).hasMessageContaining("4271");
+        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "Detalle del viaje", FLETE.valorReferencial(),
+                List.of(new TransporteCarga.Tramo(null, null, null, null, null, List.of(new TransporteCarga.Vehiculo("T3 S3", null, null))))).exigirValido()).hasMessageContaining("4273");
+        assertThatThrownBy(() -> new TransporteCarga(CHIMBOTE, LIMA, "Detalle del viaje", FLETE.valorReferencial(),
+                List.of(new TransporteCarga.Tramo(null, null, null, null, null, List.of(new TransporteCarga.Vehiculo("T3S3", new BigDecimal("-1"), null))))).exigirValido()).hasMessageContaining("4276");
+    }
+
+    /** #89: un ubigeo del catálogo 13 puede reorganizarse después de emitido; eso no debe impedir leer un comprobante ya persistido. */
+    @Test void noSeRevalidaAlRehidratar() {
+        TransporteCarga.Punto ubigeoQueYaNoExisteEnElCatalogo = new TransporteCarga.Punto("999999", "Dirección");
+        TransporteCarga transporteInvalido = new TransporteCarga(ubigeoQueYaNoExisteEnElCatalogo, LIMA, "Detalle del viaje", FLETE.valorReferencial(), null);
+        assertThatThrownBy(transporteInvalido::exigirValido).hasMessageContaining("catálogo 13");
+
+        Comprobante rehidratado = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 1L, LocalDate.of(2026, 9, 13), EstadoDocumento.ACEPTADO,
+                        RECEPTOR, List.of(item(null, transporteInvalido)))
+                .tipoOperacion("1004").firma("h", "n", "k").rehidratar();
+        assertThat(rehidratado.items().get(0).transporte()).isEqualTo(transporteInvalido);
     }
 }
