@@ -27,7 +27,7 @@ class EmitirNotaServiceTest {
     UUID tenantId = UUID.randomUUID();
     Fakes.Comprobantes comprobantes = new Fakes.Comprobantes();
     Fakes.Series series = new Fakes.Series();
-    Fakes.Establecimientos establecimientos = new Fakes.Establecimientos();
+    Fakes.Establecimientos establecimientos = new Fakes.Establecimientos(series);
     Fakes.Tenants tenants = new Fakes.Tenants();
     Fakes.Storage storage = new Fakes.Storage();
     Fakes.Outbox outbox = new Fakes.Outbox();

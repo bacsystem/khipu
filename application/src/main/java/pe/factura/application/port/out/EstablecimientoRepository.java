@@ -9,6 +9,8 @@ import java.util.UUID;
 public interface EstablecimientoRepository {
     void guardar(Establecimiento e); // insert o update por (tenant, código)
     Optional<Establecimiento> buscar(UUID tenantId, String codigo);
+    /** Como {@link #buscar}, pero bloquea la fila (SELECT ... FOR UPDATE): serializa crear una serie contra ese anexo con darlo de baja. */
+    Optional<Establecimiento> buscarConBloqueo(UUID tenantId, String codigo);
     /** Anexos de la empresa (activos e inactivos), por código; el 0000 no está aquí: es el domicilio del tenant. */
     List<Establecimiento> listar(UUID tenantId);
 }
