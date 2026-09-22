@@ -1,5 +1,8 @@
 package pe.factura.adapters.signing;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -24,15 +27,30 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
+import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Enumeration;
+import java.util.HexFormat;
 import java.util.List;
 
 public class XmlDsigSigner implements XmlSigner {
     private static final String NS_EXT = "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2";
     private final boolean sha1;
+
+    /** Clave privada y certificado ya extraídos del PKCS#12; inmutables, se comparten entre hilos. */
+    private record MaterialFirma(PrivateKey key, X509Certificate x509) {}
+
+    // Abrir el PKCS#12 (PBKDF2 con miles de iteraciones) cuesta unos ms por firma y hoy corre dentro del lock de la
+    // serie (issue #9). Se cachea por hash del contenido+clave: un certificado nuevo tiene otro hash y entra solo;
+    // expireAfterAccess acota cuánto vive la clave privada en memoria tras rotar el certificado o dejar de emitir.
+    private final Cache<String, MaterialFirma> material = Caffeine.newBuilder()
+            .maximumSize(1_000)
+            .expireAfterAccess(Duration.ofMinutes(10))
+            .recordStats()
+            .build();
 
     public XmlDsigSigner() { this(false); }
     /** sha1=true replica los ejemplos históricos de SUNAT (rsa-sha1); por defecto rsa-sha256. */
@@ -40,11 +58,9 @@ public class XmlDsigSigner implements XmlSigner {
 
     @Override public FirmaResultado firmar(String xml, CertificadoDigital cert) {
         try {
-            KeyStore ks = KeyStore.getInstance("PKCS12");
-            ks.load(new ByteArrayInputStream(cert.pkcs12()), cert.clave().toCharArray());
-            String alias = aliasConClavePrivada(ks);
-            PrivateKey key = (PrivateKey) ks.getKey(alias, cert.clave().toCharArray());
-            X509Certificate x509 = (X509Certificate) ks.getCertificate(alias);
+            MaterialFirma m = material.get(huella(cert), k -> abrir(cert));
+            PrivateKey key = m.key();
+            X509Certificate x509 = m.x509();
 
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setNamespaceAware(true);
@@ -76,6 +92,29 @@ public class XmlDsigSigner implements XmlSigner {
         } catch (DomainException e) { throw e;
         } catch (Exception e) { throw new DomainException("FIRMA_FALLIDA", "No se pudo firmar el XML: " + e.getMessage(), e); }
     }
+
+    private static MaterialFirma abrir(CertificadoDigital cert) {
+        try {
+            KeyStore ks = KeyStore.getInstance("PKCS12");
+            ks.load(new ByteArrayInputStream(cert.pkcs12()), cert.clave().toCharArray());
+            String alias = aliasConClavePrivada(ks);
+            return new MaterialFirma((PrivateKey) ks.getKey(alias, cert.clave().toCharArray()), (X509Certificate) ks.getCertificate(alias));
+        } catch (DomainException e) { throw e;
+        } catch (Exception e) { throw new DomainException("FIRMA_FALLIDA", "No se pudo abrir el certificado: " + e.getMessage(), e); }
+    }
+
+    /** SHA-256 de PKCS#12 + clave: dos tenants con el mismo archivo comparten entrada; una clave distinta no la reutiliza. */
+    private static String huella(CertificadoDigital cert) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(cert.pkcs12());
+            md.update((byte) 0);
+            md.update(cert.clave().getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(md.digest());
+        } catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+    }
+
+    CacheStats estadisticasCache() { return material.stats(); }
 
     /** Un PKCS#12 puede traer entradas de solo certificado (CA) antes de la clave; se elige la primera con clave privada. */
     private static String aliasConClavePrivada(KeyStore ks) throws KeyStoreException {

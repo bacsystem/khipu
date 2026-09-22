@@ -71,7 +71,7 @@ describe("proxy /api/proxy/[...path]", () => {
 
     expect(res.status).toBe(200);
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("http://localhost:8080/v1/empresas");
+    expect(url).toBe("http://localhost:8001/v1/empresas");
     expect(init.headers.get("Authorization")).toBe("Bearer a1");
     expect(init.headers.get("X-Empresa")).toBe("e1");
   });

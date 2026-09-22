@@ -4,7 +4,7 @@ import { telefonoSchema } from "@/lib/validacion";
 import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
-const BASE = process.env.API_BASE_URL ?? "http://localhost:8080";
+const BASE = process.env.API_BASE_URL ?? "http://localhost:8001";
 
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });

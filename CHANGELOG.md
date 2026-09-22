@@ -2,6 +2,20 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.2.0] - 2026-09-22
+
+### Added
+- Despliegue a Railway: `deploy/backend/Dockerfile` (build multi-etapa de `:bootstrap:bootJar` sobre `eclipse-temurin:21`, runtime con usuario sin privilegios y caché de dependencias de Gradle entre builds), `.dockerignore` para acotar el contexto, y `deploy/README.md` con los dos servicios (`backend` y `portal`), el plugin de Postgres, las variables de entorno y dónde persistir los XML/CDR/PDF: Volume con `STORAGE_TYPE=fs` (una sola réplica) o bucket con `STORAGE_TYPE=s3` (varias). Sin persistencia, cada redeploy borraría la evidencia ya emitida.
+- Grupo de health `liveness` (`GET /health/liveness`: base de datos y proceso) para el healthcheck de la plataforma.
+
+### Changed
+- **Rompiente:** el puerto por defecto del backend pasa de 8080 a **8001**, y ahora se puede sobrescribir con `PORT` (`server.port: ${PORT:8001}`), que es lo que inyectan Railway y similares. Cualquier script, integración o marcador que asumiera `localhost:8080` hay que apuntarlo a `8001` (o fijar `PORT=8080`). Actualizados la documentación, `.env.example`, `docker-compose.yml`, los scripts de k6 y la configuración del portal.
+
+### Fixed
+- `GET /health` devolvía `503 DOWN` sin SMTP configurado, porque el indicador de salud de correo de actuator reporta DOWN aunque el correo es opcional por diseño (`MAIL_HABILITADO=false` por defecto, con `LogCorreoSender` de fallback): un healthcheck de plataforma apuntado ahí nunca habría pasado. Ahora ese indicador se registra solo si el correo está habilitado (`management.health.mail.enabled: ${MAIL_HABILITADO:false}`), así que sin correo `/health` responde `200 UP` y con correo un SMTP roto sigue saliendo en `503`. Además el healthcheck de la plataforma usa el grupo `liveness` (base de datos y proceso), para que un SMTP caído no tumbe el despliegue. No cambia el envío de correo.
+- Con `MAIL_HABILITADO=true` pero sin `MAIL_HOST`, la app arrancaba igual y mandaba los correos a un host vacío: fallaban uno por uno en tiempo de ejecución (recuperación de contraseña, comprobantes al cliente) en vez de avisar. La guarda que debía evitarlo nunca podía dispararse, porque Spring crea el bean `JavaMailSender` aunque `spring.mail.host` esté vacío. Ahora se valida el host y el arranque aborta con `define MAIL_HOST`, cubierto por `AppConfigCorreoTest`.
+- Emisión: la clave privada y el certificado extraídos del PKCS#12 se cachean en `XmlDsigSigner` (Caffeine, por hash de archivo + clave, expiran a los 10 min sin uso), en vez de abrir el PKCS#12 (PBKDF2, 10 000 iteraciones) en cada firma dentro del lock de la serie (#9). k6 `emision.js` a 50 doc/s sobre una sola serie: p95 4.3 s → **29 ms**, sin iteraciones descartadas, numeración `F001-1`…`F001-8047` sin huecos; la garantía de numeración correlativa no cambia. Techo estimado ~60 doc/s por serie (detalle y opciones en `k6/README.md`).
+
 ## [0.1.41] - 2026-09-21
 
 ### Added

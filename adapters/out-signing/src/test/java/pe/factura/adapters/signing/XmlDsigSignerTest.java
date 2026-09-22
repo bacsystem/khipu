@@ -72,6 +72,30 @@ class XmlDsigSignerTest {
                 .satisfies(e -> assertThat(e.getCause()).isNotNull());
     }
 
+    /** El PKCS#12 se abre una vez por certificado (issue #9): las firmas siguientes reutilizan la clave ya extraída. */
+    @Test void elCertificadoSeAbreUnaVezYLasFirmasSiguientesLoReutilizan() throws Exception {
+        XmlDsigSigner signer = new XmlDsigSigner();
+        FirmaResultado primera = signer.firmar(XML, cert());
+        FirmaResultado segunda = signer.firmar(XML, cert());   // otra instancia de CertificadoDigital, mismo contenido
+        assertThat(segunda.hash()).isEqualTo(primera.hash());
+        assertThat(signer.estadisticasCache().loadCount()).isEqualTo(1);
+        assertThat(signer.estadisticasCache().hitCount()).isEqualTo(1);
+    }
+
+    @Test void unaClaveDistintaOUnPkcs12DistintoNoCompartenLaEntradaDelCache() throws Exception {
+        XmlDsigSigner signer = new XmlDsigSigner();
+        signer.firmar(XML, cert());
+        // Clave mala: falla y no queda cacheada; la clave buena con el mismo archivo sigue siendo un hit.
+        CertificadoDigital malaClave = new CertificadoDigital(cert().pkcs12(), "mala", LocalDate.of(2036, 1, 1));
+        assertThatThrownBy(() -> signer.firmar(XML, malaClave)).isInstanceOf(DomainException.class);
+        signer.firmar(XML, cert());
+        assertThat(signer.estadisticasCache().loadSuccessCount()).isEqualTo(1);
+        assertThat(signer.estadisticasCache().loadFailureCount()).isEqualTo(1);
+        // Otro PKCS#12 (mismas claves, distinto orden de entradas → bytes distintos) es otra entrada.
+        signer.firmar(XML, certConEntradaDeCaPrimero());
+        assertThat(signer.estadisticasCache().loadSuccessCount()).isEqualTo(2);
+    }
+
     /**
      * PKCS#12 con una entrada de solo certificado (confiable) ANTES de la entrada con clave privada.
      * <p>

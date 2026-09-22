@@ -28,7 +28,7 @@ Required env vars beyond `.env.example`: `JWT_SECRET` (≥32 bytes, portal auth)
 
 ```bash
 cd portal
-npm run dev                                        # http://localhost:3000, needs API_BASE_URL (default http://localhost:8080)
+npm run dev                                        # http://localhost:3000, needs API_BASE_URL (default http://localhost:8001)
 npm run build                                       # do not run concurrently with `dev` against the same .next/ — corrupts the dev server
 npm run test                                        # Vitest
 npx vitest run src/lib/session.test.ts              # single test file

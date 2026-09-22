@@ -37,9 +37,9 @@ services:
   portal:
     build: ./portal
     environment:
-      API_BASE_URL: ${PORTAL_API_BASE_URL:-http://host.docker.internal:8080}
+      API_BASE_URL: ${PORTAL_API_BASE_URL:-http://host.docker.internal:8001}
       # La que ve el navegador (snippets de integración, "Try it" de /developers): desde el host, la API está en localhost.
-      API_PUBLIC_URL: ${PORTAL_API_PUBLIC_URL:-http://localhost:8080}
+      API_PUBLIC_URL: ${PORTAL_API_PUBLIC_URL:-http://localhost:8001}
     ports: ["3000:3000"]
 volumes:
   pgdata:

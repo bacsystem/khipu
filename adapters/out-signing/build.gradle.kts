@@ -1,2 +1,5 @@
 plugins { `java-library` }
-dependencies { api(project(":application")) }
+dependencies {
+    api(project(":application"))
+    implementation(libs.caffeine)
+}

@@ -12,13 +12,28 @@ spring:
     property-naming-strategy: SNAKE_CASE
     default-property-inclusion: non_null
 server:
-  port: 8080
+  port: ${PORT:8001}
 management:
   endpoints:
     web:
       base-path: /
       exposure:
         include: health
+  health:
+    # Sigue a app.mail.habilitado (la misma propiedad que elige SmtpCorreoSender o LogCorreoSender), no a
+    # la variable de entorno suelta: así el indicador no puede quedar apagado mientras la app sí manda
+    # correo. Con el correo apagado no hay SMTP que comprobar y el indicador dejaría /health en DOWN para
+    # siempre, que es un falso rojo y no una señal.
+    mail:
+      enabled: ${app.mail.habilitado}
+  endpoint:
+    health:
+      group:
+        # Para el healthcheck de la plataforma (Railway y similares): solo lo que hace al servicio
+        # inutilizable. Con el correo habilitado, un SMTP roto sí sale en `/health` completo, pero no
+        # debe tumbar el despliegue.
+        liveness:
+          include: db, ping
 springdoc:
   api-docs:
     path: /openapi.json

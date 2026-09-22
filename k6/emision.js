@@ -3,7 +3,7 @@
 // validar + firmar + guardar, que es lo que controla este servicio).
 //
 // Uso:
-//   API_BASE_URL=http://localhost:8080 API_KEY=fk_... k6 run k6/emision.js
+//   API_BASE_URL=http://localhost:8001 API_KEY=fk_... k6 run k6/emision.js
 //
 // La serie no necesita correlativo: el servidor lo asigna de forma atómica
 // (FOR UPDATE), así que todas las VUs pueden emitir contra la misma serie sin
@@ -11,7 +11,7 @@
 import http from "k6/http";
 import { check } from "k6";
 
-const BASE_URL = __ENV.API_BASE_URL || "http://localhost:8080";
+const BASE_URL = __ENV.API_BASE_URL || "http://localhost:8001";
 const API_KEY = __ENV.API_KEY;
 const SERIE = __ENV.SERIE || "F001";
 
