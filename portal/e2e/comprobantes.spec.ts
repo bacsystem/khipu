@@ -253,6 +253,77 @@ test("nota parcial: las cantidades arrancan en 0 aunque el 100 % quepa en el top
   await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
 });
 
+test("nota: los motivos que no aplican a la factura no se ofrecen (11 exportación, 12 IVAP, 13 solo al crédito)", async ({ page }) => {
+  // Con el catálogo completo, «11» o «12» sobre una factura interna salían numeradas y SUNAT las rechazaba
+  // (2642/3107) con el correlativo consumido; «13» sobre una factura al contado viola 3260.
+  await page.goto("/comprobantes/f-obs/nota"); // interna, al contado
+  const form = page.getByTestId("nota-form");
+  const codigos = async () => (await form.getByLabel(/Motivo/).locator("option").allTextContents()).map((t) => t.slice(0, 2)).filter((c) => /^\d\d$/.test(c));
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
+  expect(await codigos()).toEqual(["01", "07"]);
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  expect(await codigos()).toEqual(["01", "13"]); // el 13 de la ND (penalidades) no depende de la forma de pago
+
+  await page.goto("/comprobantes/f-aceptada/nota"); // interna, al crédito
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
+  expect(await codigos()).toEqual(["01", "07", "13"]);
+
+  await page.goto("/comprobantes/f-export/nota"); // exportación 0200
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
+  expect(await codigos()).toEqual(["01", "07", "11"]);
+});
+
+test("nota de débito sobre una exportación: la línea sale con afectación 40, no con 10 fijo", async ({ page }) => {
+  await page.goto("/comprobantes/f-export/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  await form.getByLabel(/Motivo/).selectOption("01");
+  await form.getByLabel("Sustento").fill("Intereses por mora de 30 días");
+  await form.getByLabel("Concepto").fill("Intereses por mora");
+  await form.getByLabel(/Importe con IGV/).fill("59");
+  // Con «10» fijo el dominio rechazaba (2642): ninguna ND sobre exportaciones podía salir del portal.
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de débito" }).click();
+  expect((await peticion).postDataJSON().items[0]).toMatchObject({ tipo_afectacion_igv: "40", precio_unitario: 59 });
+});
+
+test("NC 13: una cuota en blanco o vencida antes de la factura no deja emitir", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada/nota"); // al crédito, emitida el 2026-09-01
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("13");
+  await form.getByLabel("Sustento").fill("Reprogramación de cuotas");
+  const boton = form.getByRole("button", { name: "Emitir nota de crédito" });
+  await expect(boton).toBeEnabled(); // las cuotas de la factura vienen precargadas y son válidas
+
+  // Antes «listo» solo pedía que hubiera una cuota: una en blanco viajaba como monto 0 y vencimiento vacío.
+  await form.getByRole("button", { name: "Añadir cuota" }).click();
+  await expect(boton).toBeDisabled();
+  const n = await form.getByLabel(/Monto de la cuota/).count();
+  await form.getByLabel(`Monto de la cuota ${n}`).fill("10");
+  await form.getByLabel(`Vencimiento de la cuota ${n}`).fill("2026-08-01"); // anterior a la factura (3321)
+  await expect(boton).toBeDisabled();
+  await expect(form.getByLabel(`Vencimiento de la cuota ${n}`)).toHaveAttribute("min", "2026-09-02");
+  await form.getByLabel(`Vencimiento de la cuota ${n}`).fill("2026-12-01");
+  // Fecha ya válida, pero 61.5 + 61.5 + 10 = 133 supera el total de la factura (123): 3320 sigue bloqueando.
+  await expect(boton).toBeDisabled();
+  await form.getByLabel("Monto de la cuota 1").fill("51.5");
+  await expect(boton).toBeEnabled();
+});
+
+test("nota: si los catálogos no cargan por red, avisa y se puede reintentar", async ({ page }) => {
+  let caido = true;
+  await page.route("**/api/proxy/catalogos/**", (r) => (caido ? r.abort("failed") : r.continue()));
+  await page.goto("/comprobantes/f-aceptada/nota");
+  const form = page.getByTestId("nota-form");
+  // Antes: `fetch` rechazado → el motivo quedaba en «Cargando…» deshabilitado para siempre, sin mensaje.
+  await expect(form.getByRole("alert")).toContainText("No se pudieron cargar los motivos");
+  await expect(form.getByLabel(/Motivo/)).toBeDisabled();
+  caido = false;
+  await form.getByRole("button", { name: "Reintentar" }).click();
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
+  await expect(form.getByRole("alert")).toHaveCount(0);
+});
+
 test("da de baja una factura aceptada tras confirmar el motivo y queda anulada", async ({ page }) => {
   await page.goto("/comprobantes/f-obs");
   await page.getByTestId("dar-de-baja").click();
