@@ -9,9 +9,9 @@ export const passwordSchema = z
   .regex(/\d/, "Debe incluir un número");
 
 /**
- * Celular de contacto en Perú: 9 dígitos que empiezan con 9. Admite escribirlo con +51/51 y espacios o guiones —se
- * quitan antes de validar, igual que en el dominio (Cuenta.normalizarTelefono)— así que lo que llega al backend ya
- * viene limpio.
+ * Celular de contacto en Perú: 9 dígitos que empiezan con 9. Admite escribirlo con +51/51 y espacios o guiones —solo
+ * los espacios/guiones se quitan aquí; el prefijo +51/51, si viene, se envía tal cual— el dominio
+ * (Cuenta.normalizarTelefono) es quien lo deja en su forma canónica de 9 dígitos.
  */
 export const telefonoSchema = z
   .string()
