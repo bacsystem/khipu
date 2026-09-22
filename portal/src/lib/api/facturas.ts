@@ -310,9 +310,9 @@ export function esEstadoFinal(estado: EstadoDocumento): boolean {
   return (ESTADOS_FINALES as readonly string[]).includes(estado);
 }
 
-// Un backend anterior a la exposición de receptor/items responde sin esos campos.
 export type EventoComprobante = { fecha: string; estado_anterior: EstadoDocumento | null; estado_resultante: EstadoDocumento; mensaje: string | null };
 
+// Un backend anterior a la exposición de receptor/items responde sin esos campos.
 export function normalizarComprobante(c: Partial<Comprobante> & Pick<Comprobante, "id">): Comprobante {
   return {
     ...(c as Comprobante),

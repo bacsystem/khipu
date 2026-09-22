@@ -30,7 +30,7 @@ const ESTILOS: Record<EstadoDocumento, string> = {
   FUERA_DE_PLAZO: "bg-destructive/10 text-destructive border-destructive-border",
 };
 
-const PUNTOS: Record<EstadoDocumento, string> = {
+export const PUNTOS: Record<EstadoDocumento, string> = {
   RECIBIDO: "bg-muted-foreground/50",
   FIRMADO: "bg-muted-foreground/50",
   PENDIENTE_AGRUPACION: "bg-muted-foreground/50",

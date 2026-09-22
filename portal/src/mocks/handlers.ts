@@ -338,7 +338,12 @@ export const handlers = [
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1));
     const porPagina = Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20));
     const total = lista.length;
-    const datos = lista.slice((pagina - 1) * porPagina, pagina * porPagina);
+    // Como el backend: el historial de intentos solo viaja al consultar por id, nunca en el listado.
+    const datos = lista.slice((pagina - 1) * porPagina, pagina * porPagina).map((f) => {
+      const copia: Partial<typeof f> = { ...f };
+      delete copia.eventos;
+      return copia;
+    });
     return HttpResponse.json(
       { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
       { headers: { "x-total-count": String(total) } },

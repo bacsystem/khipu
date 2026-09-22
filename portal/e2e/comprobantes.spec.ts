@@ -75,7 +75,7 @@ test("el detalle muestra el historial de intentos en hora de Lima (#7)", async (
   await expect(historial.getByText("Historial")).toBeVisible();
   const filas = historial.locator("li");
   await expect(filas).toHaveCount(4);
-  // 15:00:05Z es 10:00 en Lima; primero el más antiguo.
+  // 15:00:01Z es 10:00 en Lima; primero el más antiguo.
   await expect(filas.nth(0)).toContainText("2 Set 2026, 10:00");
   await expect(filas.nth(1)).toContainText("Error de envío");
   await expect(filas.nth(1)).toContainText("SUNAT no disponible (timeout)");

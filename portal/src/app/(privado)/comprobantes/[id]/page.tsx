@@ -2,7 +2,7 @@ import { ArrowLeftIcon, BanIcon, FileMinusIcon, FileTextIcon, HistoryIcon, IdCar
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { EstadoBadge, ETIQUETAS_ESTADO } from "@/components/comprobantes/estado-badge";
+import { EstadoBadge, ETIQUETAS_ESTADO, PUNTOS } from "@/components/comprobantes/estado-badge";
 import { BajaButton } from "@/components/comprobantes/baja-button";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
@@ -195,16 +195,6 @@ function CajaRespuesta({ comprobante }: { comprobante: Comprobante }) {
   );
 }
 
-const TONO_EVENTO: Record<string, string> = {
-  ACEPTADO: "bg-success-foreground",
-  ACEPTADO_CON_OBS: "bg-warning-foreground",
-  RECHAZADO: "bg-destructive",
-  ERROR_ENVIO: "bg-destructive",
-  ANULADO: "bg-destructive",
-  FUERA_DE_PLAZO: "bg-destructive",
-  INVALIDO: "bg-destructive",
-};
-
 /** Historial de intentos (#7): un punto por cambio de estado, en hora de Lima, con el motivo; «Sin historial» si el backend no lo envía. */
 function Historial({ eventos }: { eventos: Comprobante["eventos"] }) {
   return (
@@ -217,7 +207,7 @@ function Historial({ eventos }: { eventos: Comprobante["eventos"] }) {
         <ol className="relative ml-1.5 space-y-3 border-l border-border pl-4">
           {eventos.map((e, i) => (
             <li key={i} className="relative text-xs">
-              <span className={cn("absolute top-1.5 -left-[21px] size-2.5 rounded-full ring-2 ring-card", TONO_EVENTO[e.estado_resultante] ?? "bg-muted-foreground/60")} />
+              <span className={cn("absolute top-1.5 -left-[21px] size-2.5 rounded-full ring-2 ring-card", PUNTOS[e.estado_resultante] ?? "bg-muted-foreground/60")} />
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
                 <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{formatearFechaHora(e.fecha)}</span>
                 <span className="font-semibold text-foreground">{ETIQUETAS_ESTADO[e.estado_resultante] ?? e.estado_resultante}</span>
