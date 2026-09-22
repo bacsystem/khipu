@@ -6,7 +6,6 @@ import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.application.port.out.UnitOfWork;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.PlazoEnvio;
-import pe.factura.domain.documento.TipoDocumento;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -27,8 +26,8 @@ public class ControlarPlazoEnvioService implements ControlarPlazoEnvioUseCase {
     @Override
     public List<Comprobante> marcarVencidos() {
         LocalDate hoy = LocalDate.now(clock);
-        // Corte grueso en SQL con el plazo más corto; la regla exacta por tipo la decide el dominio.
-        LocalDate corte = hoy.minusDays(PlazoEnvio.dias(TipoDocumento.FACTURA) + 1);
+        // Corte grueso en SQL con el plazo más corto entre todos los tipos; la regla exacta por tipo la decide el dominio.
+        LocalDate corte = hoy.minusDays(PlazoEnvio.diasMinimo() + 1);
         List<Comprobante> vencidos = new ArrayList<>();
         for (Comprobante c : comprobantes.pendientesDeEnvioEmitidosHasta(corte)) {
             if (!c.fueraDePlazo(hoy)) continue;

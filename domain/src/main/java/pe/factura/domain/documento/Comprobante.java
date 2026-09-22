@@ -124,32 +124,36 @@ public class Comprobante {
             List<Anticipo> anticipos = this.anticipos;
             Detraccion detraccion = this.detraccion;
             Percepcion percepcion = this.percepcion;
-        if (!TipoDocumento.FACTURA.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de factura inválida: " + serie);
-        if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
-        exigirDentroDelPlazoDeEnvio(TipoDocumento.FACTURA, fechaEmision, clock);
-        if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
-            throw new DomainException("FECHA_INVALIDA", "La fecha de vencimiento no puede ser anterior a la de emisión");
-        if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
-        String operacion = tipoOperacion == null ? "0101" : tipoOperacion;
-        validarTipoOperacion(operacion);
-        if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor" + (Exportacion.es(operacion) ? "" : " con RUC"));
-        receptor.exigirValidoParaFactura(operacion, leyendas.contains("2008"));
-        if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
-        Exportacion.validar(exportacion, operacion);
-        exigirAfectacionSegunOperacion(operacion, items);
-        if (detraccion == null && Detraccion.TIPOS_OPERACION.contains(operacion))
-            throw new DomainException("DETRACCION_INVALIDA", "3127 - El tipo de operación " + operacion + " exige los datos de la detracción (bien/servicio, porcentaje, monto y cuenta)");
-        if (detraccion != null) detraccion.validarContra(operacion);
-        if (percepcion == null && Percepcion.TIPO_OPERACION.equals(operacion) && !formaPago.esCredito())
-            throw new DomainException("PERCEPCION_INVALIDA", "3093 - Una operación sujeta a percepción (2001) al contado debe informar la percepción");
-        if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
-            throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
+            if (!TipoDocumento.FACTURA.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de factura inválida: " + serie);
+            if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
+            exigirDentroDelPlazoDeEnvio(TipoDocumento.FACTURA, fechaEmision, clock);
+            if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
+                throw new DomainException("FECHA_INVALIDA", "La fecha de vencimiento no puede ser anterior a la de emisión");
+            if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
+            items.forEach(Item::exigirValidoParaFactura);
+            String operacion = tipoOperacion == null ? "0101" : tipoOperacion;
+            validarTipoOperacion(operacion);
+            if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor" + (Exportacion.es(operacion) ? "" : " con RUC"));
+            receptor.exigirValidoParaFactura(operacion, leyendas.contains("2008"));
+            if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
+            Exportacion.validar(exportacion, operacion);
+            exigirAfectacionSegunOperacion(operacion, items);
+            if (detraccion == null && Detraccion.TIPOS_OPERACION.contains(operacion))
+                throw new DomainException("DETRACCION_INVALIDA", "3127 - El tipo de operación " + operacion + " exige los datos de la detracción (bien/servicio, porcentaje, monto y cuenta)");
+            if (detraccion != null) detraccion.validarContra(operacion);
+            if (percepcion == null && Percepcion.TIPO_OPERACION.equals(operacion) && !formaPago.esCredito())
+                throw new DomainException("PERCEPCION_INVALIDA", "3093 - Una operación sujeta a percepción (2001) al contado debe informar la percepción");
+            if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
+                throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
                     moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, tasaIgv, leyendas, exportacion, EstadoDocumento.RECIBIDO);
             formaPago.validarContra(c.totales.total(), fechaEmision);
-            for (String l : leyendas)
-                if (Leyenda.EXIGEN_EXONERADO.contains(l) && c.totales.exonerado().signum() <= 0)
-                    throw new DomainException("LEYENDA_INVALIDA", "La leyenda " + l + " exige un total exonerado mayor a 0.00 (regla " + switch (l) { case "2001" -> "3283"; case "2002" -> "3284"; case "2003" -> "3285"; default -> "3289"; } + ")");
+            c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
+            for (String l : leyendas) {
+                String regla = Leyenda.EXIGEN_EXONERADO.get(l);
+                if (regla != null && c.totales.exonerado().signum() <= 0)
+                    throw new DomainException("LEYENDA_INVALIDA", "La leyenda " + l + " exige un total exonerado mayor a 0.00 (regla " + regla + ")");
+            }
             return c;
         }
     }
@@ -185,27 +189,30 @@ public class Comprobante {
         public NotaBuilder exportacion(Exportacion e) { this.exportacion = e; return this; }
 
         public Comprobante crear(Clock clock) {
-        if (tipo != TipoDocumento.NOTA_CREDITO && tipo != TipoDocumento.NOTA_DEBITO)
-            throw new DomainException("NOTA_INVALIDA", "El tipo de nota debe ser 07 (crédito) u 08 (débito)");
-        if (nota == null) throw new DomainException("NOTA_INVALIDA", "2524 - La nota debe indicar el documento que modifica y el motivo");
-        if (!tipo.serieValida(serie) || serie.charAt(0) != nota.serieAfectada().charAt(0))
-            throw new DomainException("SERIE_INVALIDA", "1001 - La serie de una nota sobre " + nota.documentoAfectado() + " debe ser " + nota.serieAfectada().charAt(0) + "### : " + serie);
-        if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
-        exigirDentroDelPlazoDeEnvio(tipo, fechaEmision, clock);
-        boolean nc13 = nota.corrigeCuotas(tipo);
-        if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
-        if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La nota sobre una factura requiere un receptor" + (Exportacion.es(tipoOperacion) ? "" : " con RUC"));
-        receptor.exigirValidoParaFactura(tipoOperacion, false);
-        if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
-        nota.validarMotivoPara(tipo);
-        if (!nc13) exigirAfectacionSegunOperacion(tipoOperacion, items);
-        if (nc13 && (formaPago == null || !formaPago.esCredito()))
-            throw new DomainException("NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
-        // La NC 13 no mueve importes: una sola línea de valor 0 (regla 3315). La forma de pago de una nota solo tiene sentido
-        // en la NC 13 y se valida contra la factura modificada (3320/3321), no contra la nota.
-            return new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
+            if (tipo != TipoDocumento.NOTA_CREDITO && tipo != TipoDocumento.NOTA_DEBITO)
+                throw new DomainException("NOTA_INVALIDA", "El tipo de nota debe ser 07 (crédito) u 08 (débito)");
+            if (nota == null) throw new DomainException("NOTA_INVALIDA", "2524 - La nota debe indicar el documento que modifica y el motivo");
+            if (!tipo.serieValida(serie) || serie.charAt(0) != nota.serieAfectada().charAt(0))
+                throw new DomainException("SERIE_INVALIDA", "1001 - La serie de una nota sobre " + nota.documentoAfectado() + " debe ser " + nota.serieAfectada().charAt(0) + "### : " + serie);
+            if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
+            exigirDentroDelPlazoDeEnvio(tipo, fechaEmision, clock);
+            boolean nc13 = nota.corrigeCuotas(tipo);
+            if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
+            if (items != null) items.forEach(Item::exigirValidoParaFactura);
+            if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La nota sobre una factura requiere un receptor" + (Exportacion.es(tipoOperacion) ? "" : " con RUC"));
+            receptor.exigirValidoParaFactura(tipoOperacion, false);
+            if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
+            nota.validarMotivoPara(tipo);
+            if (!nc13) exigirAfectacionSegunOperacion(tipoOperacion, items);
+            if (nc13 && (formaPago == null || !formaPago.esCredito()))
+                throw new DomainException("NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
+            // La NC 13 no mueve importes: una sola línea de valor 0 (regla 3315). La forma de pago de una nota solo tiene sentido
+            // en la NC 13 y se valida contra la factura modificada (3320/3321), no contra la nota.
+            Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
                     moneda, tipoOperacion, receptor, nc13 ? List.of(nota.lineaSinImporte()) : items, formaPago == null ? FormaPago.contado() : formaPago,
                     nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, null, nota, tasaIgv, List.of(), exportacion, EstadoDocumento.RECIBIDO);
+            c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
+            return c;
         }
     }
 

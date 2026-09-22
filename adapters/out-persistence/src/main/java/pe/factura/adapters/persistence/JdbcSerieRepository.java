@@ -10,7 +10,6 @@ import pe.factura.domain.tenant.Serie;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -37,9 +36,6 @@ public class JdbcSerieRepository implements SerieRepository {
     @Override public void crear(Serie s) {
         jdbc.update("INSERT INTO serie (tenant_id, tipo, codigo, ultimo_numero, activa, establecimiento) VALUES (?, ?, ?, ?, ?, ?)",
                 s.tenantId(), s.tipo().codigo(), s.codigo(), s.ultimoNumero(), s.activa(), s.establecimiento());
-    }
-    @Override public Optional<Serie> buscar(UUID tenantId, TipoDocumento tipo, String serie) {
-        return jdbc.query(SELECT + " WHERE tenant_id = ? AND tipo = ? AND codigo = ?", this::mapear, tenantId, tipo.codigo(), serie).stream().findFirst();
     }
     @Override public List<Serie> listar(UUID tenantId) {
         return jdbc.query(SELECT + " WHERE tenant_id = ? ORDER BY tipo, codigo", this::mapear, tenantId);
