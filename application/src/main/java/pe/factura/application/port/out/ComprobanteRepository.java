@@ -27,6 +27,8 @@ public interface ComprobanteRepository {
     List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fechaEmisionMaxima);
     /** Comprobantes firmados de cualquier empresa sin CDR en el storage: ENVIADO, ERROR_ENVIO, o aceptados/rechazados que lo perdieron. */
     List<Comprobante> pendientesDeCdr();
+    /** Historial de cambios de estado del comprobante (#4), en orden cronológico; vacío si no tiene. */
+    List<pe.factura.domain.documento.EventoDocumento> eventosDe(UUID tenantId, UUID comprobanteId);
     /** Comprobantes ya firmados (con XML en el storage) de cualquier empresa emitidos entre las dos fechas inclusive, para verificar la integridad del storage. */
     List<Comprobante> firmadosEmitidosEntre(java.time.LocalDate desde, java.time.LocalDate hasta);
     List<Comprobante> listar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, int pagina, int porPagina);

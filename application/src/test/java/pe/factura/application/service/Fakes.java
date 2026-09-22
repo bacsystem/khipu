@@ -13,7 +13,11 @@ import java.util.function.Supplier;
 final class Fakes {
     static final class Comprobantes implements ComprobanteRepository {
         final Map<UUID, Comprobante> datos = new HashMap<>();
-        public void guardar(Comprobante c) { datos.put(c.id(), c); }
+        public void guardar(Comprobante c) {
+            datos.put(c.id(), c);
+            for (EventoDocumento e : c.eventosPendientes()) eventos.computeIfAbsent(c.id(), k -> new ArrayList<>()).add(new EventoDocumento(e.estadoAnterior(), e.estadoNuevo(), e.detalle(), Instant.now()));
+            c.eventosGuardados();
+        }
         public Optional<Comprobante> buscar(UUID t, UUID id) { return Optional.ofNullable(datos.get(id)).filter(c -> c.tenantId().equals(t)); }
         public Optional<Comprobante> bloquear(UUID t, UUID id) { return buscar(t, id); }
         public BigDecimal montoRegularizado(UUID t, String serie, long numero) {
@@ -31,6 +35,8 @@ final class Fakes {
         public List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fecha) {
             return datos.values().stream().filter(c -> c.estado().esEnviable() && !c.fechaEmision().isAfter(fecha)).toList();
         }
+        final Map<UUID, List<EventoDocumento>> eventos = new HashMap<>();
+        public List<EventoDocumento> eventosDe(UUID t, UUID id) { return eventos.getOrDefault(id, List.of()); }
         public List<Comprobante> firmadosEmitidosEntre(java.time.LocalDate desde, java.time.LocalDate hasta) { return datos.values().stream().filter(c -> c.xmlKey() != null && !c.fechaEmision().isBefore(desde) && !c.fechaEmision().isAfter(hasta)).toList(); }
         public List<Comprobante> pendientesDeCdr() { return datos.values().stream().filter(c -> c.xmlKey() != null && c.cdrKey() == null && c.estado() != EstadoDocumento.FIRMADO && c.estado() != EstadoDocumento.FUERA_DE_PLAZO && c.estado() != EstadoDocumento.INVALIDO && c.estado() != EstadoDocumento.RECIBIDO).toList(); }
         public List<Comprobante> listar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }

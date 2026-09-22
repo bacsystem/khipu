@@ -277,6 +277,32 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.contar(t, new Filtro(null, null, null, "F999"))).isZero();
     }
 
+    /** Historial de intentos (#4): los eventos se persisten en cada guardar con hora del servidor y vuelven en orden; sin eventos, lista vacía. */
+    @Test void guardaElHistorialDeEventosEnOrden() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 1);
+        c.firmar("H", "k1.xml"); repo.guardar(c);
+        assertThat(c.eventosPendientes()).isEmpty();
+        c.marcarEnviado(); c.marcarErrorEnvio("SUNAT no disponible"); repo.guardar(c);
+        c.marcarEnviado(); repo.guardar(c);
+        Comprobante copiaTardia = repo.buscar(t, c.id()).orElseThrow();   // otro hilo leyó ENVIADO antes del CDR
+        c.aplicarCdr(new Cdr("0", "ok", List.of()), "R-1.zip"); repo.guardar(c);
+        List<EventoDocumento> eventos = repo.eventosDe(t, c.id());
+        assertThat(eventos).extracting(EventoDocumento::estadoNuevo).containsExactly(EstadoDocumento.FIRMADO, EstadoDocumento.ENVIADO, EstadoDocumento.ERROR_ENVIO, EstadoDocumento.ENVIADO, EstadoDocumento.ACEPTADO);
+        assertThat(eventos.get(2).detalle()).isEqualTo("SUNAT no disponible");
+        assertThat(eventos.get(0).estadoAnterior()).isEqualTo(EstadoDocumento.RECIBIDO);
+        assertThat(eventos).allSatisfy(e -> assertThat(e.ocurridoEn()).isNotNull());
+        assertThat(eventos).isSortedAccordingTo(java.util.Comparator.comparing(EventoDocumento::ocurridoEn));
+        // Otro tenant no ve el historial; un comprobante sin eventos devuelve lista vacía
+        assertThat(repo.eventosDe(tenantDePrueba(), c.id())).isEmpty();
+        Comprobante sinEventos = factura(t, 2); repo.guardar(sinEventos);
+        assertThat(repo.eventosDe(t, sinEventos.id())).isEmpty();
+        // Un guardado condicional rechazado (ESTADO_CONFLICTO: el ENVIADO tardío no pisa al ACEPTADO) no deja eventos huérfanos
+        copiaTardia.marcarErrorEnvio("tarde");
+        assertThatThrownBy(() -> repo.guardar(copiaTardia)).isInstanceOf(pe.factura.domain.DomainException.class).hasMessageContaining("otra transacción");
+        assertThat(repo.eventosDe(t, c.id())).hasSize(5);
+    }
+
     @Test void guardaYRehidrataNotasYLasListaPorFactura() {
         UUID t = tenantDePrueba();
         Comprobante f = factura(t, 20);

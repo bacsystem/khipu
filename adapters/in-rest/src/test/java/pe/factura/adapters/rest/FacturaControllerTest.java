@@ -247,6 +247,29 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.datos.estado_documento").value("ACEPTADO"));
     }
 
+    /** Historial de intentos (#4): solo al consultar por id, del más antiguo al más reciente; vacío (no null) si no hay. */
+    @Test void obtenerIncluyeElHistorialDeEventos() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        when(consultar.eventos(tenant, c)).thenReturn(List.of(
+                new EventoDocumento(EstadoDocumento.FIRMADO, EstadoDocumento.ERROR_ENVIO, "SUNAT no disponible (timeout)", Instant.parse("2026-09-13T15:00:05Z")),
+                new EventoDocumento(EstadoDocumento.ERROR_ENVIO, EstadoDocumento.ACEPTADO, "0 - La Factura numero F001-1, ha sido aceptada", Instant.parse("2026-09-13T15:02:05Z"))));
+        mvc.perform(get("/v1/facturas/{id}", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.eventos.length()").value(2))
+                .andExpect(jsonPath("$.datos.eventos[0].fecha").value("2026-09-13T15:00:05Z"))
+                .andExpect(jsonPath("$.datos.eventos[0].estado_anterior").value("FIRMADO"))
+                .andExpect(jsonPath("$.datos.eventos[0].estado_resultante").value("ERROR_ENVIO"))
+                .andExpect(jsonPath("$.datos.eventos[0].mensaje").value("SUNAT no disponible (timeout)"))
+                .andExpect(jsonPath("$.datos.eventos[1].estado_resultante").value("ACEPTADO"));
+        when(consultar.eventos(tenant, c)).thenReturn(List.of());
+        mvc.perform(get("/v1/facturas/{id}", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.eventos").isArray()).andExpect(jsonPath("$.datos.eventos").isEmpty());
+        // En el listado no viaja
+        when(consultar.listar(eq(tenant), any(), eq(1), eq(20))).thenReturn(List.of(c));
+        mvc.perform(get("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(jsonPath("$.datos[0].eventos").doesNotExist());
+    }
+
     @Test void obtenerInexistenteEs404() throws Exception {
         UUID id = UUID.randomUUID();
         when(consultar.obtener(tenant, id)).thenThrow(new DomainException("NO_ENCONTRADO", "x"));

@@ -3,6 +3,7 @@ package pe.factura.adapters.rest.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import pe.factura.domain.documento.Anticipo;
 import pe.factura.domain.documento.Cargo;
+import pe.factura.domain.documento.EventoDocumento;
 import pe.factura.domain.documento.Hidrobiologico;
 import pe.factura.domain.documento.TransporteCarga;
 import pe.factura.domain.documento.CargoCalculado;
@@ -53,6 +54,7 @@ public record ComprobanteResponse(
         @Schema(description = "Solo en notas de crédito/débito: factura que modifica y motivo") NotaDto nota,
         @Schema(description = "Solo al consultar una factura: notas de crédito/débito emitidas sobre ella (todas, con su estado); `null` en listados y en la emisión") List<NotaResumenDto> notas,
         @Schema(description = "Solo al consultar: la comunicación de baja más reciente del comprobante (en curso, aceptada o rechazada), o `null`") BajaResponse baja,
+        @Schema(description = "Solo al consultar: historial de cambios de estado e intentos de envío, del más antiguo al más reciente (vacío si no hay); `null` en listados y en la emisión") List<EventoDto> eventos,
         @Schema(example = "Entrega en almacén central.", description = "Observaciones impresas en el PDF (solo las propias del comprobante), o `null`") String observaciones,
         @Schema(description = "Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML") List<LeyendaDto> leyendas,
         @Schema(description = "Solo en exportaciones (0200–0208): Incoterm y país de uso del servicio; `null` en las demás") ExportacionDto exportacion,
@@ -240,10 +242,23 @@ public record ComprobanteResponse(
             @Schema(description = "Descuento global aplicado, si lo hubo") DescuentoDto descuentoGlobal,
             @Schema(description = "Cargos globales aplicados, si los hubo") List<CargoDto> cargos) {}
 
-    public static ComprobanteResponse de(Comprobante c, String base) { return de(c, base, null, null); }
+    public static ComprobanteResponse de(Comprobante c, String base) { return de(c, base, null, null, null); }
+
+    public static ComprobanteResponse de(Comprobante c, String base, List<Comprobante> notas, ComunicacionBaja baja) { return de(c, base, notas, baja, null); }
+
+    /** Un cambio de estado del comprobante (#4): cuándo, de qué estado a cuál y por qué (motivo del error, CDR, baja…). */
+    public record EventoDto(
+            @Schema(example = "2026-09-13T15:00:05Z", description = "Instante del cambio (UTC)") java.time.Instant fecha,
+            @Schema(example = "FIRMADO", description = "Estado previo, o `null` en el primer evento") String estadoAnterior,
+            @Schema(example = "ERROR_ENVIO") String estadoResultante,
+            @Schema(example = "SUNAT no disponible (timeout)", description = "Motivo o resultado: error de envío, código y descripción del CDR, baja aceptada…") String mensaje) {
+        static EventoDto de(EventoDocumento e) {
+            return new EventoDto(e.ocurridoEn(), e.estadoAnterior() == null ? null : e.estadoAnterior().name(), e.estadoNuevo().name(), e.detalle());
+        }
+    }
 
     /** Con {@code notas} (las emitidas sobre esta factura) y {@code baja} (la última comunicación de baja) solo al consultar un comprobante concreto. */
-    public static ComprobanteResponse de(Comprobante c, String base, List<Comprobante> notas, ComunicacionBaja baja) {
+    public static ComprobanteResponse de(Comprobante c, String base, List<Comprobante> notas, ComunicacionBaja baja, List<EventoDocumento> eventos) {
         String p = base + "/" + c.id();
         return new ComprobanteResponse(c.id(), c.tipo().codigo(), c.serie(), c.numero(), c.fechaEmision(), c.fechaVencimiento(), c.fechaLimiteEnvio(), c.moneda(), c.tipoOperacion(),
                 de(c.receptor()), c.totales().items().stream().map(ComprobanteResponse::de).toList(),
@@ -265,6 +280,7 @@ public record ComprobanteResponse(
                 NotaDto.de(c),
                 notas == null ? null : notas.stream().map(NotaResumenDto::de).toList(),
                 baja == null ? null : BajaResponse.de(baja),
+                eventos == null ? null : eventos.stream().map(EventoDto::de).toList(),
                 c.observaciones(),
                 c.leyendas().stream().map(l -> new LeyendaDto(l, Leyenda.texto(l))).toList(),
                 ExportacionDto.de(c.exportacion()),

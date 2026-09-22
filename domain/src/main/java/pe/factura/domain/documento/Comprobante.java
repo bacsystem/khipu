@@ -9,6 +9,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,6 +57,8 @@ public class Comprobante {
     private String ultimoError;
     /** Texto libre que solo va a la representación impresa (bloque "Observaciones"); no forma parte del XML firmado. */
     private String observaciones;
+    /** Cambios de estado ocurridos en memoria y aún no persistidos (#4); el repositorio los vacía al guardar. */
+    private final List<EventoDocumento> eventosPendientes = new ArrayList<>();
 
     private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
@@ -313,16 +316,16 @@ public class Comprobante {
     }
 
     public void firmar(String hash, String xmlKey) {
-        transitar(EstadoDocumento.FIRMADO);
+        transitar(EstadoDocumento.FIRMADO, "Firmado; resumen " + hash);
         this.hash = hash; this.xmlKey = xmlKey;
     }
 
-    public void marcarEnviado() { transitar(EstadoDocumento.ENVIADO); }
+    public void marcarEnviado() { transitar(EstadoDocumento.ENVIADO, "Enviado a SUNAT (intento " + (intentos + 1) + ")"); }
 
     public void aplicarCdr(Cdr cdr, String cdrKey) {
         EstadoDocumento destino = cdr.esRechazo() ? EstadoDocumento.RECHAZADO
                 : cdr.tieneObservaciones() ? EstadoDocumento.ACEPTADO_CON_OBS : EstadoDocumento.ACEPTADO;
-        transitar(destino);
+        transitar(destino, cdr.codigo() + " - " + cdr.descripcion() + (cdr.tieneObservaciones() ? " (" + String.join("; ", cdr.observaciones()) + ")" : ""));
         this.cdr = cdr; this.cdrKey = cdrKey; this.ultimoError = null;
     }
 
@@ -334,12 +337,12 @@ public class Comprobante {
     }
 
     public void marcarErrorEnvio(String motivo) {
-        transitar(EstadoDocumento.ERROR_ENVIO);
+        transitar(EstadoDocumento.ERROR_ENVIO, motivo);
         this.intentos++; this.ultimoError = motivo;
     }
 
     /** SUNAT aceptó la comunicación de baja que lo incluye: el número queda consumido y el comprobante deja de ser válido. */
-    public void anular() { transitar(EstadoDocumento.ANULADO); }
+    public void anular() { transitar(EstadoDocumento.ANULADO, "Comunicación de baja aceptada por SUNAT"); }
 
     /** Último día en que SUNAT acepta recibirlo ({@link PlazoEnvio}). */
     public LocalDate fechaLimiteEnvio() { return PlazoEnvio.fechaLimite(tipo, fechaEmision); }
@@ -349,20 +352,28 @@ public class Comprobante {
     /** Venció el plazo sin llegar a SUNAT: terminal, el número queda consumido y hay que emitir de nuevo (2108). */
     public void marcarFueraDePlazo(LocalDate hoy) {
         if (!fueraDePlazo(hoy)) throw new DomainException("TRANSICION_INVALIDA", "El plazo de envío vence el " + fechaLimiteEnvio() + ": todavía se puede enviar");
-        transitar(EstadoDocumento.FUERA_DE_PLAZO);
         this.ultimoError = "2108 - Presentación fuera de fecha: el plazo venció el " + fechaLimiteEnvio();
+        transitar(EstadoDocumento.FUERA_DE_PLAZO, this.ultimoError);
     }
 
     public void rechazarPorFault(String codigo, String descripcion) {
-        if (estado.esEnviable()) transitar(EstadoDocumento.ENVIADO);
-        transitar(EstadoDocumento.RECHAZADO);
+        if (estado.esEnviable()) marcarEnviado();
+        transitar(EstadoDocumento.RECHAZADO, codigo + " - " + descripcion);
         this.cdr = new Cdr(codigo, descripcion, List.of());
     }
 
-    private void transitar(EstadoDocumento destino) {
+    private void transitar(EstadoDocumento destino) { transitar(destino, null); }
+
+    private void transitar(EstadoDocumento destino, String detalle) {
         if (!estado.puedeTransitarA(destino))
             throw new DomainException("TRANSICION_INVALIDA", "No se puede pasar de " + estado + " a " + destino);
+        eventosPendientes.add(EventoDocumento.pendiente(estado, destino, detalle));
         estado = destino;
     }
+
+    /** Cambios de estado aún no persistidos, en orden; el repositorio los guarda y llama a {@link #eventosGuardados()}. */
+    public List<EventoDocumento> eventosPendientes() { return List.copyOf(eventosPendientes); }
+
+    public void eventosGuardados() { eventosPendientes.clear(); }
 
 }
