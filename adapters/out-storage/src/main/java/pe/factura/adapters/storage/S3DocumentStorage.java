@@ -69,7 +69,7 @@ public class S3DocumentStorage implements DocumentStorage {
         try {
             ResponseBytes<GetObjectResponse> r = s3.getObjectAsBytes(b -> b.bucket(bucket).key(key));
             return r.asByteArray();
-        } catch (NoSuchKeyException e) { throw new IllegalStateException("No existe " + key);
+        } catch (NoSuchKeyException e) { throw new IllegalStateException("No existe " + key, e);
         } catch (S3Exception e) { throw new IllegalStateException("No se pudo leer " + key + " de s3://" + bucket, e); }
     }
 
