@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.35] - 2026-09-19
+
+### Added
+- Filtro por rango de fecha de emisión en `GET /v1/facturas` (#2): `desde` y `hasta` (`YYYY-MM-DD`, inclusive, rango abierto si falta uno), combinables con `estado`, `pagina` y `por_pagina`; `X-Total-Count` refleja el filtro. `desde > hasta` responde `400 RANGO_INVALIDO` y una fecha mal formada `400 PARAMETRO_INVALIDO`. Internamente el listado y el conteo comparten un `Filtro` (estado, desde, hasta) en el caso de uso y el repositorio.
+
 ## [0.1.34] - 2026-09-19
 
 ### Added

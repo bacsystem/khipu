@@ -33,8 +33,8 @@ final class Fakes {
         }
         public List<Comprobante> firmadosEmitidosEntre(java.time.LocalDate desde, java.time.LocalDate hasta) { return datos.values().stream().filter(c -> c.xmlKey() != null && !c.fechaEmision().isBefore(desde) && !c.fechaEmision().isAfter(hasta)).toList(); }
         public List<Comprobante> pendientesDeCdr() { return datos.values().stream().filter(c -> c.xmlKey() != null && c.cdrKey() == null && c.estado() != EstadoDocumento.FIRMADO && c.estado() != EstadoDocumento.FUERA_DE_PLAZO && c.estado() != EstadoDocumento.INVALIDO && c.estado() != EstadoDocumento.RECIBIDO).toList(); }
-        public List<Comprobante> listar(UUID t, EstadoDocumento e, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
-        public long contar(UUID t, EstadoDocumento e) { return listar(t, e, 1, Integer.MAX_VALUE).size(); }
+        public List<Comprobante> listar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
+        public long contar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f) { return listar(t, f, 1, Integer.MAX_VALUE).size(); }
     }
     static final class Series implements SerieRepository {
         final Map<String, Long> ultimo = new HashMap<>();

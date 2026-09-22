@@ -2,6 +2,7 @@ package pe.factura.application.service;
 
 import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.ConsultarComprobanteUseCase;
+import pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.application.port.out.DocumentStorage;
 import pe.factura.application.port.out.PdfGenerator;
@@ -35,8 +36,8 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
     public List<Comprobante> notasDe(UUID tenantId, Comprobante factura) {
         return factura.tipo() == TipoDocumento.FACTURA && factura.numero() != null ? comprobantes.notasDe(tenantId, factura.serie(), factura.numero()) : List.of();
     }
-    public List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina) { return comprobantes.listar(tenantId, estado, pagina, porPagina); }
-    public long contar(UUID tenantId, EstadoDocumento estado) { return comprobantes.contar(tenantId, estado); }
+    public List<Comprobante> listar(UUID tenantId, Filtro filtro, int pagina, int porPagina) { return comprobantes.listar(tenantId, filtro == null ? Filtro.NINGUNO : filtro, pagina, porPagina); }
+    public long contar(UUID tenantId, Filtro filtro) { return comprobantes.contar(tenantId, filtro == null ? Filtro.NINGUNO : filtro); }
     public byte[] xml(UUID tenantId, UUID id) { return storage.leer(obtener(tenantId, id).xmlKey()); }
     public byte[] cdr(UUID tenantId, UUID id) {
         Comprobante c = obtener(tenantId, id);

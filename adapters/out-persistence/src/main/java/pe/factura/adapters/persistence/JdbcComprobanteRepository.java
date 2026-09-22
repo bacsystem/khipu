@@ -3,6 +3,7 @@ package pe.factura.adapters.persistence;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
+import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
@@ -134,17 +135,27 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public List<Comprobante> firmadosEmitidosEntre(LocalDate desde, LocalDate hasta) {
         return jdbc.query(SELECT + " WHERE d.xml_key IS NOT NULL AND d.fecha_emision BETWEEN ? AND ? ORDER BY d.fecha_emision, d.created_at", this::mapear, Date.valueOf(desde), Date.valueOf(hasta));
     }
-    @Override public List<Comprobante> listar(UUID tenantId, EstadoDocumento estado, int pagina, int porPagina) {
-        String sql = SELECT + " WHERE d.tenant_id = ?" + (estado == null ? "" : " AND d.estado = ?") + " ORDER BY d.created_at DESC LIMIT ? OFFSET ?";
-        Object[] args = estado == null ? new Object[]{tenantId, porPagina, (pagina - 1) * porPagina} : new Object[]{tenantId, estado.name(), porPagina, (pagina - 1) * porPagina};
-        return jdbc.query(sql, this::mapear, args);
+    @Override public List<Comprobante> listar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, int pagina, int porPagina) {
+        List<Object> args = new ArrayList<>();
+        String where = where(tenantId, filtro, args);
+        args.add(porPagina); args.add((pagina - 1) * porPagina);
+        return jdbc.query(SELECT + where + " ORDER BY d.created_at DESC LIMIT ? OFFSET ?", this::mapear, args.toArray());
     }
 
-    @Override public long contar(UUID tenantId, EstadoDocumento estado) {
-        String sql = "SELECT count(*) FROM documento d WHERE d.tenant_id = ?" + (estado == null ? "" : " AND d.estado = ?");
-        Object[] args = estado == null ? new Object[]{tenantId} : new Object[]{tenantId, estado.name()};
-        Long total = jdbc.queryForObject(sql, Long.class, args);
+    @Override public long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro) {
+        List<Object> args = new ArrayList<>();
+        Long total = jdbc.queryForObject("SELECT count(*) FROM documento d" + where(tenantId, filtro, args), Long.class, args.toArray());
         return total == null ? 0 : total;
+    }
+
+    /** Filtros del listado (#2): estado y rango de fecha de emisión, inclusive; el WHERE y sus argumentos se comparten con el conteo. */
+    private static String where(UUID tenantId, ConsultarComprobanteUseCase.Filtro f, List<Object> args) {
+        StringBuilder w = new StringBuilder(" WHERE d.tenant_id = ?");
+        args.add(tenantId);
+        if (f.estado() != null) { w.append(" AND d.estado = ?"); args.add(f.estado().name()); }
+        if (f.desde() != null) { w.append(" AND d.fecha_emision >= ?"); args.add(Date.valueOf(f.desde())); }
+        if (f.hasta() != null) { w.append(" AND d.fecha_emision <= ?"); args.add(Date.valueOf(f.hasta())); }
+        return w.toString();
     }
 
     private static final String SELECT = """

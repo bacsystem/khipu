@@ -191,8 +191,8 @@ class FacturaControllerTest {
     }
 
     @Test void listarDevuelveListaYTotalEnHeader() throws Exception {
-        when(consultar.listar(eq(tenant), isNull(), eq(1), eq(20))).thenReturn(List.of(aceptado(tenant)));
-        when(consultar.contar(tenant, null)).thenReturn(126L);
+        when(consultar.listar(eq(tenant), eq(ConsultarComprobanteUseCase.Filtro.NINGUNO), eq(1), eq(20))).thenReturn(List.of(aceptado(tenant)));
+        when(consultar.contar(tenant, ConsultarComprobanteUseCase.Filtro.NINGUNO)).thenReturn(126L);
         mvc.perform(get("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isOk())
                 .andExpect(header().string(FacturaController.TOTAL_HEADER, "126"))
@@ -200,10 +200,29 @@ class FacturaControllerTest {
     }
 
     @Test void listarAcotaPorPagina() throws Exception {
-        when(consultar.listar(eq(tenant), isNull(), eq(1), eq(100))).thenReturn(List.of());
+        when(consultar.listar(eq(tenant), any(), eq(1), eq(100))).thenReturn(List.of());
         mvc.perform(get("/v1/facturas?pagina=0&por_pagina=500").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isOk());
-        org.mockito.Mockito.verify(consultar).listar(tenant, null, 1, 100);
+        org.mockito.Mockito.verify(consultar).listar(tenant, ConsultarComprobanteUseCase.Filtro.NINGUNO, 1, 100);
+    }
+
+    /** Filtro por rango de fechas (#2): desde/hasta llegan al caso de uso junto con el estado y el total refleja el filtro. */
+    @Test void listarFiltraPorFechasYEstado() throws Exception {
+        var filtro = new ConsultarComprobanteUseCase.Filtro(EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 13));
+        when(consultar.listar(eq(tenant), eq(filtro), eq(1), eq(20))).thenReturn(List.of(aceptado(tenant)));
+        when(consultar.contar(tenant, filtro)).thenReturn(1L);
+        mvc.perform(get("/v1/facturas?estado=ACEPTADO&desde=2026-09-01&hasta=2026-09-13").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string(FacturaController.TOTAL_HEADER, "1"))
+                .andExpect(jsonPath("$.datos[0].serie").value("F001"));
+        // Rango abierto: solo desde
+        when(consultar.listar(eq(tenant), eq(new ConsultarComprobanteUseCase.Filtro(null, LocalDate.of(2026, 9, 1), null)), eq(1), eq(20))).thenReturn(List.of());
+        mvc.perform(get("/v1/facturas?desde=2026-09-01").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isOk());
+        // desde > hasta y fecha mal formada
+        mvc.perform(get("/v1/facturas?desde=2026-09-13&hasta=2026-09-01").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("RANGO_INVALIDO"));
+        mvc.perform(get("/v1/facturas?desde=13/09/2026").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
     }
 
     @Test void obtenerPorId() throws Exception {

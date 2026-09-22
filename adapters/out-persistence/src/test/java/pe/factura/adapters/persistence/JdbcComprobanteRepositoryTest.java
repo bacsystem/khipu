@@ -1,6 +1,7 @@
 package pe.factura.adapters.persistence;
 
 import org.junit.jupiter.api.Test;
+import pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro;
 import pe.factura.domain.documento.*;
 
 import java.math.BigDecimal;
@@ -248,6 +249,27 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.firmadosEmitidosEntre(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31))).extracting(Comprobante::id).containsExactly(antigua.id());
     }
 
+    /** Filtro por rango de fechas (#2): bordes inclusive, rango abierto, combinado con estado; el conteo usa el mismo filtro. */
+    @Test void listaYCuentaPorRangoDeFechasYEstado() {
+        UUID t = tenantDePrueba();
+        var lima = java.time.ZoneId.of("America/Lima");
+        for (String dia : List.of("2026-09-01", "2026-09-10", "2026-09-13")) {
+            Comprobante c = Comprobante.factura(t, "F001", LocalDate.parse(dia), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                    List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)))
+                    .crear(java.time.Clock.fixed(LocalDate.parse(dia).atTime(15, 0).atZone(lima).toInstant(), lima));
+            c.asignarNumero(Long.parseLong(dia.substring(8)), "20100066603");
+            if (dia.equals("2026-09-10")) { c.firmar("H", "k.xml"); }
+            repo.guardar(c);
+        }
+        assertThat(repo.listar(t, new Filtro(null, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 10)), 1, 10)).extracting(Comprobante::numero).containsExactlyInAnyOrder(1L, 10L);
+        assertThat(repo.contar(t, new Filtro(null, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 10)))).isEqualTo(2);
+        assertThat(repo.listar(t, new Filtro(null, LocalDate.of(2026, 9, 11), null), 1, 10)).extracting(Comprobante::numero).containsExactly(13L);
+        assertThat(repo.listar(t, new Filtro(null, null, LocalDate.of(2026, 9, 9)), 1, 10)).extracting(Comprobante::numero).containsExactly(1L);
+        assertThat(repo.contar(t, new Filtro(EstadoDocumento.FIRMADO, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30)))).isEqualTo(1);
+        assertThat(repo.contar(t, new Filtro(EstadoDocumento.FIRMADO, LocalDate.of(2026, 9, 11), null))).isZero();
+        assertThat(repo.contar(t, Filtro.NINGUNO)).isEqualTo(3);
+    }
+
     @Test void guardaYRehidrataNotasYLasListaPorFactura() {
         UUID t = tenantDePrueba();
         Comprobante f = factura(t, 20);
@@ -401,8 +423,8 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         UUID t1 = tenantDePrueba(), t2 = tenantDePrueba();
         Comprobante c = factura(t1, 1); c.firmar("h", "k"); repo.guardar(c);
         assertThat(repo.buscar(t2, c.id())).isEmpty();
-        assertThat(repo.listar(t1, null, 1, 10)).hasSize(1);
-        assertThat(repo.listar(t2, null, 1, 10)).isEmpty();
+        assertThat(repo.listar(t1, Filtro.NINGUNO, 1, 10)).hasSize(1);
+        assertThat(repo.listar(t2, Filtro.NINGUNO, 1, 10)).isEmpty();
     }
 
     @Test void observacionesConSaltosDeLineaSobrevivenAlRoundTrip() {

@@ -27,7 +27,7 @@ public class GlobalExceptionHandler {
             case "DUPLICADO", "ESTADO_NO_ENVIABLE", "NO_ACEPTADO", "ESTABLECIMIENTO_EN_USO", "FUERA_DE_PLAZO", "CDR_YA_DISPONIBLE" -> HttpStatus.CONFLICT;
             case "NO_AUTORIZADO", "CREDENCIALES_INVALIDAS", "SESION_INVALIDA" -> HttpStatus.UNAUTHORIZED;
             case "EMPRESA_AJENA", "REQUIERE_SESION" -> HttpStatus.FORBIDDEN;
-            case "PARAMETRO_INVALIDO" -> HttpStatus.BAD_REQUEST;
+            case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;
             // El correo saliente es un servicio externo: su fallo no es culpa del cliente ni un bug del servidor.
             case "CORREO_NO_ENVIADO" -> HttpStatus.BAD_GATEWAY;
             // Un CDR guardado que no se puede leer es un fallo del servidor, no de la petición.
