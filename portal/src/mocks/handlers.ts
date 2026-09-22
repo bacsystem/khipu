@@ -438,12 +438,42 @@ export const handlers = [
     if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(422, "NOTA_INVALIDA", `2119 - La factura no está aceptada por SUNAT (estado ${factura.estado_documento})`);
     const serie = (db.seriesPorEmpresa.get(empresaId) ?? []).find((s) => s.tipo === body.tipo && s.serie === body.serie);
     if (!serie) return fail(422, "SERIE_NO_CONFIGURADA", `Serie no configurada: ${body.serie}`);
-    serie.ultimo_numero += 1;
-    const motivos: Record<string, string> = { "01": body.tipo === "07" ? "Anulación de la operación" : "Intereses por mora", "07": "Devolución por ítem", "13": body.tipo === "07" ? "Corrección o modificación del monto neto pendiente de pago" : "Penalidades" };
-    const items = body.motivo === "13" && body.tipo === "07"
+
+    // Lo que el backend real valida ANTES de numerar, con los códigos de la tabla oficial. Sin esto los e2e afirmaban
+    // sobre lo que el mock inventaba: una nota con fecha 2020, sin forma de pago en la NC 13 o por 10× la factura
+    // pasaba igual, y ocho mutaciones del formulario sobrevivían a la suite.
+    if (!body.serie.startsWith("F")) return fail(422, "SERIE_INVALIDA", `1001 - La serie de una nota sobre ${factura.serie}-${factura.numero} debe ser F###: ${body.serie}`);
+    if (body.fecha_emision < factura.fecha_emision) return fail(422, "NOTA_INVALIDA", `2885 - La fecha de la nota no puede ser anterior a la de la factura que modifica (${factura.fecha_emision})`);
+    if (body.fecha_emision > hoyLima()) return fail(422, "FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
+    const catalogo = CATALOGOS.find((c) => c.id === (body.tipo === "07" ? "09" : "10"))!;
+    const entradaMotivo = catalogo.entradas.find((e) => e.codigo === body.motivo);
+    if (!entradaMotivo) return fail(422, "NOTA_INVALIDA", `2172 - El motivo ${body.motivo} no existe en el catálogo ${catalogo.id}`);
+    const desc = body.descripcion ?? "";
+    if (desc.trim() === "" || desc.length > 500 || /[\x00-\x08\x0A-\x1F\x7F]/.test(desc)) return fail(422, "NOTA_INVALIDA", "2135 - El sustento de la nota tiene de 1 a 500 caracteres, sin saltos de línea");
+    const nc13 = body.tipo === "07" && body.motivo === "13";
+    const formaPago = (body as { forma_pago?: { tipo: string; monto_pendiente: number; cuotas: Array<{ monto: number; vencimiento: string }> } }).forma_pago;
+    if (nc13 && (!formaPago || formaPago.tipo !== "credito" || !formaPago.cuotas?.length)) return fail(422, "NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
+    if (!nc13 && formaPago) return fail(422, "NOTA_INVALIDA", "forma_pago solo se admite en una nota de crédito con motivo 13 (corrección de cuotas)");
+    if (nc13) {
+      if (factura.forma_pago.tipo !== "credito") return fail(422, "NOTA_INVALIDA", `3260 - El motivo 13 solo aplica a facturas al crédito y ${factura.serie}-${factura.numero} es al contado`);
+      if (formaPago!.cuotas.some((q) => !(q.monto > 0))) return fail(422, "FORMA_PAGO_INVALIDA", "3253 - El monto de cada cuota debe ser positivo");
+      if (formaPago!.cuotas.some((q) => !(q.vencimiento > factura.fecha_emision))) return fail(422, "FORMA_PAGO_INVALIDA", `3321 - La fecha de la cuota debe ser posterior a la emisión de la factura (${factura.fecha_emision})`);
+      if (formaPago!.monto_pendiente > factura.totales.total) return fail(422, "FORMA_PAGO_INVALIDA", `3320 - El monto neto pendiente (${formaPago!.monto_pendiente}) supera el total de la factura (${factura.totales.total})`);
+    }
+
+    const motivos: Record<string, string> = Object.fromEntries(catalogo.entradas.map((e) => [e.codigo, e.descripcion]));
+    const items = nc13
       ? [{ codigo: null, descripcion: body.descripcion, unidad: "ZZ", cantidad: 1, precio_unitario: 0, tipo_afectacion_igv: "10" }]
       : body.items?.length ? body.items.map((i) => ({ codigo: null, ...i })) : factura.items;
-    const total = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0);
+    const total = Number(items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0).toFixed(2));
+    // 3286 con el acumulado de NC vigentes sobre la misma factura, como `EmitirComprobanteService.acreditadoPorNotas`.
+    if (body.tipo === "07") {
+      const acreditado = lista
+        .filter((n) => n.tipo === "07" && n.nota?.documento_afectado === `${factura.serie}-${factura.numero}` && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "ANULADO")
+        .reduce((acc, n) => acc + n.totales.total, 0);
+      if (total + acreditado - factura.totales.total > 1) return fail(422, "NOTA_INVALIDA", `3286 - El importe total de la nota (${total}) supera el de la factura ${factura.serie}-${factura.numero} (${factura.totales.total})${acreditado > 0 ? `: ya acreditado ${acreditado} en otras notas de crédito` : ""}`);
+    }
+    serie.ultimo_numero += 1;
     const id = nuevoId("n");
     const nota: Comprobante = {
       id, tipo: body.tipo, serie: body.serie, numero: serie.ultimo_numero, fecha_emision: body.fecha_emision, moneda: factura.moneda,

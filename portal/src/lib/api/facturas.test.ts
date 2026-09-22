@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { admiteBaja, normalizarComprobante, totalDesdeHeaders, type Baja, type Comprobante } from "./facturas";
+import { admiteBaja, admiteNotas, normalizarComprobante, totalDesdeHeaders, type Baja, type Comprobante } from "./facturas";
+
+/**
+ * `admiteNotas` es la única puerta al flujo irreversible de notas (la ficha ofrece «Emitir nota» y `/nota` deja
+ * pasar según ella) y no tenía ningún test: la auditoría la mutó a `return true` y 40/40 e2e siguieron en verde.
+ */
+describe("admiteNotas", () => {
+  const f = (tipo: string, estado_documento: string) => ({ tipo, estado_documento }) as Pick<Comprobante, "tipo" | "estado_documento">;
+
+  it("solo una factura aceptada por SUNAT, con o sin observaciones", () => {
+    expect(admiteNotas(f("01", "ACEPTADO"))).toBe(true);
+    expect(admiteNotas(f("01", "ACEPTADO_CON_OBS"))).toBe(true);
+  });
+
+  it("no sobre boletas ni sobre otras notas: las boletas van en el resumen diario (#20) y el backend responde 2116", () => {
+    expect(admiteNotas(f("03", "ACEPTADO"))).toBe(false);
+    expect(admiteNotas(f("07", "ACEPTADO"))).toBe(false);
+    expect(admiteNotas(f("08", "ACEPTADO"))).toBe(false);
+  });
+
+  it("no sobre una factura que SUNAT no aceptó o que ya está anulada (2119/2120)", () => {
+    for (const estado of ["FIRMADO", "ENVIADA", "ERROR_ENVIO", "RECHAZADO", "INVALIDO", "ANULADO"]) {
+      expect(admiteNotas(f("01", estado)), estado).toBe(false);
+    }
+  });
+});
 
 const base = {
   id: "abc",
