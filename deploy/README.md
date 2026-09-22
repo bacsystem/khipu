@@ -38,8 +38,18 @@ Agregar el plugin **Postgres** de Railway al proyecto. Provee las variables `PGH
 | `APP_MODE` | `multi` | |
 | `STORAGE_TYPE` | `fs` o `s3` | `fs` necesita un Volume (paso 3); `s3` no y además permite más de una réplica — ver abajo |
 | `STORAGE_FS_ROOT` | `/data` | Solo con `STORAGE_TYPE=fs`; debe coincidir con el mount path del Volume (paso 3) |
+| `MAIL_HABILITADO` | `true` | **Requerido en producción.** Su default es `false`, que escribe los correos en el log en vez de enviarlos — ver aviso abajo |
+| `MAIL_HOST` | host SMTP del proveedor | Obligatorio con `MAIL_HABILITADO=true`: sin él la app aborta al arrancar (`no hay SMTP configurado (define MAIL_HOST)`), en vez de levantar y fallar en cada correo |
+| `MAIL_PORT` | `587` | Opcional, es el default |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | credenciales SMTP | Según el proveedor |
+| `MAIL_REMITENTE` | `no-responder@tu-dominio.pe` | De dónde salen los correos; default `no-responder@khipu.pe` |
 
-Variables opcionales (correo, timeouts SUNAT, outbox): ver `.env.example` en la raíz del repo —
+> **Dejar `MAIL_HABILITADO` en `false` en producción falla en silencio.** No hay error ni alerta: la
+> recuperación de contraseña y el envío de comprobantes al cliente se escriben en el log del servicio y
+> el destinatario nunca recibe nada. Es la razón por la que `PORTAL_URL` (arriba) importa: sin correo
+> habilitado, ese enlace de recuperación no llega a ninguna parte.
+
+Las demás opcionales (timeouts SUNAT, outbox, integridad): ver `.env.example` en la raíz del repo —
 usan default razonable si se omiten. `PORT` no hace falta: Railway lo inyecta.
 
 ## 3. Dónde se guardan los XML, CDR y PDF

@@ -20,11 +20,12 @@ management:
       exposure:
         include: health
   health:
-    # El indicador de correo solo aporta si el correo está en uso: con MAIL_HABILITADO=false (el default,
-    # con LogCorreoSender de fallback) no hay SMTP que comprobar y dejaría /health en DOWN para siempre,
-    # que es un falso rojo y no una señal.
+    # Sigue a app.mail.habilitado (la misma propiedad que elige SmtpCorreoSender o LogCorreoSender), no a
+    # la variable de entorno suelta: así el indicador no puede quedar apagado mientras la app sí manda
+    # correo. Con el correo apagado no hay SMTP que comprobar y el indicador dejaría /health en DOWN para
+    # siempre, que es un falso rojo y no una señal.
     mail:
-      enabled: ${MAIL_HABILITADO:false}
+      enabled: ${app.mail.habilitado}
   endpoint:
     health:
       group:

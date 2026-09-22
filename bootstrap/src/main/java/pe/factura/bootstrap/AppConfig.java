@@ -10,6 +10,7 @@ import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -241,10 +242,14 @@ public class AppConfig {
     @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }
     @Bean TokenEmisor tokenEmisor(AppProperties p) { return new JwtTokenEmisor(p.jwtSecret()); }
     /** Sin app.mail.habilitado=true (MAIL_HABILITADO), los correos se escriben en el log en lugar de enviarse. */
-    @Bean CorreoSender correoSender(AppProperties p, ObjectProvider<JavaMailSender> mailSenderProvider) {
+    @Bean CorreoSender correoSender(AppProperties p, ObjectProvider<JavaMailSender> mailSenderProvider,
+                                    @Value("${spring.mail.host:}") String mailHost) {
         if (!p.mail().habilitado()) return new LogCorreoSender();
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
-        if (mailSender == null) throw new IllegalStateException("app.mail.habilitado=true pero no hay JavaMailSender configurado (revisa MAIL_HOST)");
+        // No alcanza con que exista el bean: Spring lo crea igual con `spring.mail.host` vacío, y entonces cada correo
+        // falla en tiempo de ejecución (recuperación de contraseña, comprobantes al cliente) en vez de avisar al arrancar.
+        if (mailSender == null || mailHost.isBlank())
+            throw new IllegalStateException("app.mail.habilitado=true pero no hay SMTP configurado (define MAIL_HOST)");
         return new SmtpCorreoSender(mailSender, p.mail().remitente());
     }
 
