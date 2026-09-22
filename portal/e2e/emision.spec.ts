@@ -103,6 +103,51 @@ test("una línea sin precio no se emite como S/ 0.00, y vaciar la fecha no manda
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
 });
 
+test("emite con cantidad fraccionaria: el submit no queda bloqueado por la validación de paso del stepper", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  await dialogo.getByLabel("Descripción").fill("Harina de pescado");
+  await dialogo.getByLabel("Cantidad").fill("0.59");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1208.79");
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 713.18");
+
+  // Antes: con `step=1` en el input oculto de base-ui, `0.59` caía en `stepMismatch`, el navegador abortaba el
+  // submit sin alerta y el botón parecía muerto. Kilos, horas y metros quedaban fuera del portal.
+  const posts: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().includes("/api/proxy/facturas")) posts.push(r.url());
+  });
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  expect(posts).toHaveLength(1);
+});
+
+test("si la red se corta durante la emisión, avisa y no deja el botón en «Emitiendo…» para siempre", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  await dialogo.getByLabel("Descripción").fill("Consultoría");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100");
+
+  // `fetch` rechaza (no resuelve) ante un corte: sin `try/catch` el estado `enviando` nunca volvía a false.
+  await page.route("**/api/proxy/facturas", (r) => r.abort("connectionreset"));
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+
+  const alerta = dialogo.getByRole("alert");
+  await expect(alerta).toContainText("Se cortó la conexión");
+  // Lo esencial del mensaje: no reintentar a ciegas, porque el POST pudo haber consumido correlativo.
+  await expect(alerta).toContainText("pudo haberse emitido");
+  await expect(dialogo.getByRole("button", { name: "Emitir factura" })).toBeEnabled();
+  await expect(page).toHaveURL(/\/comprobantes(\?|$)/);
+});
+
 test("cancelar cierra el diálogo sin emitir nada (#17)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");

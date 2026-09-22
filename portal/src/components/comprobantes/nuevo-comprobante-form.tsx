@@ -146,17 +146,31 @@ export function NuevoComprobanteForm({
     }
 
     setEnviando(true);
-    const res = await apiRequest<{ id: string }>("/api/proxy/facturas", {
-      method: "POST",
-      body: {
-        serie,
-        fecha_emision: fecha,
-        moneda,
-        cliente: { tipo_doc: "6", num_doc: numDoc.trim(), razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined },
-        items,
-      },
-    });
-    setEnviando(false);
+    let res: Awaited<ReturnType<typeof apiRequest<{ id: string }>>>;
+    try {
+      res = await apiRequest<{ id: string }>("/api/proxy/facturas", {
+        method: "POST",
+        body: {
+          serie,
+          fecha_emision: fecha,
+          moneda,
+          cliente: { tipo_doc: "6", num_doc: numDoc.trim(), razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined },
+          items,
+        },
+      });
+    } catch {
+      // `fetch` no resuelve con error: RECHAZA ante un corte de conexión, y sin este catch el `finally` de abajo no
+      // existía —el botón quedaba en «Emitiendo…» para siempre, sin alerta—. Y es el peor momento para fallar: el
+      // POST pudo haber llegado y consumido correlativo. No se pide reintentar a ciegas; se manda a mirar primero.
+      setError(
+        "Se cortó la conexión mientras se emitía. La factura pudo haberse emitido igual: revisá el listado de comprobantes antes de volver a intentarlo, para no duplicarla.",
+      );
+      // El listado de fondo puede tener ya la factura nueva: que se vea sin recargar la página.
+      router.refresh();
+      return;
+    } finally {
+      setEnviando(false);
+    }
 
     if (res.estado !== "exito" || !res.datos) {
       // El backend devuelve el detalle de SUNAT en `mensaje`; el código genérico solo dice la familia del error.
@@ -283,7 +297,9 @@ export function NuevoComprobanteForm({
                   />
                 </Campo>
                 <Campo id={`nc-cant-${i}`} etiqueta="Cantidad" className="[&>label]:sr-only">
-                  <StepperNumerico id={`nc-cant-${i}`} valor={linea.cantidad} onCambio={(v) => actualizar(i, { cantidad: v })} min={0} variante="filtro" />
+                  {/* `paso="any"`: sin él, el input oculto de base-ui queda en `stepMismatch` con cualquier cantidad no
+                      entera y el navegador aborta el submit sin decir nada. Kilos, horas y metros son medio SUNAT. */}
+                  <StepperNumerico id={`nc-cant-${i}`} valor={linea.cantidad} onCambio={(v) => actualizar(i, { cantidad: v })} min={0} paso="any" variante="filtro" />
                 </Campo>
                 <Campo id={`nc-precio-${i}`} etiqueta="Precio unit. (con IGV)" className="[&>label]:sr-only">
                   <EntradaMonto id={`nc-precio-${i}`} valor={linea.precioUnitario} onCambio={(v) => actualizar(i, { precioUnitario: v })} moneda={moneda} variante="filtro" />
