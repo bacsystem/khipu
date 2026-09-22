@@ -20,7 +20,7 @@ Una ficha por flujo. Certificado = **0 bloqueantes, 0 importantes** tras auditor
 
 ## Método (fijo)
 
-1. Matriz de contrato: cada control vs. DTO + dominio Java.
+1. Matriz de contrato: cada control vs. DTO + dominio Java **vs. fuente SUNAT** (`docs/sunat/ref/reglas_validacion_*.xlsx`, guías UBL, XSD, catálogos). El backend puede citar mal una regla.
 2. Auditores con contexto limpio, cada uno en su `git worktree`. Dos en flujos irreversibles.
 3. Cada hallazgo se verifica antes de aceptarlo. Foco/teclado: ≥150 ms entre teclas.
 4. Corregir → **recertificar** → repetir hasta cero.
