@@ -1,8 +1,12 @@
 {
   "compilerOptions": {
     // ES2020 (y no el ES2017 del scaffold de Next) por BigInt: `lib/comprobantes/totales.ts` calcula los importes
-    // con enteros para igualar al BigDecimal del backend, y BigInt no se puede transpilar a un target menor.
-    // Solo afecta al chequeo de tipos —acá `noEmit` está en true—; el bundle lo genera SWC según browserslist.
+    // con enteros para igualar al BigDecimal del backend.
+    //
+    // Esto solo gobierna el chequeo de tipos (`noEmit`). Quién puede *ejecutar* el bundle lo decide el
+    // `browserslist` de package.json, y ahí está la parte que importa: **BigInt es sintaxis, no se transpila ni
+    // se polirellena**, así que SWC lo emite tal cual y un navegador sin soporte no parsea el chunk. Por eso la
+    // consulta es `defaults and supports bigint` y no `defaults` a secas.
     "target": "ES2020",
     "lib": [
       "dom",
@@ -35,10 +39,10 @@
     "**/*.ts",
     "**/*.tsx",
     ".next-build/types/**/*.ts",
+    ".next-e2e/types/**/*.ts",
     ".next-mock/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts",
-    ".next-e2e/types/**/*.ts"
+    "next-env.d.ts"
   ],
   "exclude": [
     "node_modules"

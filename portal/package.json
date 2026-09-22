@@ -2,6 +2,9 @@
   "name": "khipu-portal",
   "version": "0.2.1",
   "private": true,
+  "browserslist": [
+    "defaults and supports bigint"
+  ],
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
