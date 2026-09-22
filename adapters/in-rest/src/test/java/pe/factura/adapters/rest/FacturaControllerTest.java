@@ -389,6 +389,46 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.datos.receptor.pais").doesNotExist());
     }
 
+    /** Detracción sectorial (#69): `hidrobiologico` y `transporte` por ítem entran al comando y vuelven en la respuesta. */
+    @Test void datosSectorialesDeLaDetraccionEntranYSalen() throws Exception {
+        String con1004 = """
+            {"serie":"F001","fecha_emision":"2026-09-13","tipo_operacion":"1004","moneda":"PEN",
+             "cliente":{"tipo_doc":"6","num_doc":"20601234565","razon_social":"CLIENTE SAC"},
+             "detraccion":{"codigo_bien_servicio":"027","porcentaje":4,"cuenta_banco_nacion":"00-000-123456"},
+             "items":[{"descripcion":"Flete Chimbote – Lima","unidad":"ZZ","cantidad":1,"precio_unitario":2950.00,"tipo_afectacion_igv":"10",
+               "transporte":{"origen":{"ubigeo":"021801","direccion":"Av. Los Pescadores 450"},"destino":{"ubigeo":"150101","direccion":"Jr. de la Unión 100"},
+                 "detalle_viaje":"Traslado de 20 t de harina de pescado","valor_referencial":{"servicio":2500,"carga_efectiva":2400,"carga_util_nominal":2600},
+                 "tramos":[{"origen_ubigeo":"021801","destino_ubigeo":"150101","descripcion":"Chimbote – Lima","vehiculos":[{"configuracion":"T3S3","carga_util_tm":30}]}]}}]}
+            """;
+        TransporteCarga tr = new TransporteCarga(new TransporteCarga.Punto("021801", "Av. Los Pescadores 450"), new TransporteCarga.Punto("150101", "Jr. de la Unión 100"),
+                "Traslado de 20 t de harina de pescado", new TransporteCarga.ValorReferencial(new BigDecimal("2500"), new BigDecimal("2400"), new BigDecimal("2600")),
+                List.of(new TransporteCarga.Tramo("021801", "150101", "Chimbote – Lima", null, null, List.of(new TransporteCarga.Vehiculo("T3S3", new BigDecimal("30"), null)))));
+        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "1004", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("FLT", "Flete Chimbote – Lima", "ZZ", BigDecimal.ONE, new BigDecimal("2950.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, tr)))
+                .detraccion(new Detraccion("027", new BigDecimal("4"), null, "00-000-123456", null)).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(c);
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(con1004))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.items[0].transporte.origen.ubigeo").value("021801"))
+                .andExpect(jsonPath("$.datos.items[0].transporte.valor_referencial.servicio").value(2500.00))
+                .andExpect(jsonPath("$.datos.items[0].transporte.tramos[0].vehiculos[0].configuracion").value("T3S3"))
+                .andExpect(jsonPath("$.datos.items[0].hidrobiologico").doesNotExist());
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().items().get(0).transporte()).isEqualTo(tr);
+        // Hidrobiológico incompleto: la validación del DTO responde 422 antes del dominio
+        String con1002 = """
+            {"serie":"F001","fecha_emision":"2026-09-13","tipo_operacion":"1002","moneda":"PEN",
+             "cliente":{"tipo_doc":"6","num_doc":"20601234565","razon_social":"CLIENTE SAC"},
+             "detraccion":{"codigo_bien_servicio":"004","porcentaje":4,"cuenta_banco_nacion":"00-000-123456"},
+             "items":[{"descripcion":"Anchoveta","unidad":"TNE","cantidad":12.5,"precio_unitario":1180.00,"tipo_afectacion_igv":"10",
+               "hidrobiologico":{"matricula":"CO-12345-PM"}}]}
+            """;
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(con1002))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores['items[0].hidrobiologico.especie']").exists());
+    }
+
     /** Fuera del catálogo 07 se rechaza en la validación del DTO, antes de llegar al dominio. */
     @Test void afectacionNoSoportadaEs422DeValidacion() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo.replace("\"tipo_afectacion_igv\":\"10\"", "\"tipo_afectacion_igv\":\"50\"")))

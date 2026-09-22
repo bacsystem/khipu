@@ -65,6 +65,27 @@ export type ItemComprobante = {
   /** Código de producto SUNAT (catálogo 25, UNSPSC) y GTIN, si el emisor los informó. */
   codigo_sunat?: string | null;
   gtin?: { tipo: string; codigo: string } | null;
+  /** Detracción 1002: datos de la embarcación y la especie (catálogo 55, conceptos 3001–3006). */
+  hidrobiologico?: Hidrobiologico | null;
+  /** Detracción 1004: origen, destino, detalle del viaje y valores referenciales del transporte de carga. */
+  transporte?: TransporteCarga | null;
+};
+
+export type Hidrobiologico = { matricula: string; nombre_embarcacion: string; especie: string; lugar_descarga: string; fecha_descarga: string; cantidad: number };
+
+export type TransporteCarga = {
+  origen: { ubigeo: string; direccion: string };
+  destino: { ubigeo: string; direccion: string };
+  detalle_viaje: string;
+  valor_referencial: { servicio: number; carga_efectiva: number; carga_util_nominal: number };
+  tramos?: Array<{
+    origen_ubigeo?: string | null;
+    destino_ubigeo?: string | null;
+    descripcion?: string | null;
+    valor_carga_efectiva?: number | null;
+    valor_carga_util_nominal?: number | null;
+    vehiculos?: Array<{ configuracion?: string | null; carga_util_tm?: number | null; carga_efectiva_tm?: number | null }>;
+  }>;
 };
 
 export const ETIQUETAS_GUIA: Record<string, string> = { "09": "Guía de remisión remitente", "31": "Guía de remisión transportista" };

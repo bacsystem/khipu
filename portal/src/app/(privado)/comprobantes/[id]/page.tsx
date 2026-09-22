@@ -523,6 +523,22 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                         {item.gtin ? `${item.gtin.tipo} ${item.gtin.codigo}` : null}
                       </span>
                     ) : null}
+                    {item.hidrobiologico ? (
+                      <span className="mt-1 block text-[11px] font-normal leading-snug text-muted-foreground" data-testid="hidrobiologico">
+                        Embarcación {item.hidrobiologico.nombre_embarcacion} (matrícula {item.hidrobiologico.matricula}) · {item.hidrobiologico.especie} ·{" "}
+                        {formatearNumero(item.hidrobiologico.cantidad)} t descargadas en {item.hidrobiologico.lugar_descarga} el {formatearFecha(item.hidrobiologico.fecha_descarga)}
+                      </span>
+                    ) : null}
+                    {item.transporte ? (
+                      <span className="mt-1 block text-[11px] font-normal leading-snug text-muted-foreground" data-testid="transporte">
+                        {item.transporte.origen.direccion} ({item.transporte.origen.ubigeo}) → {item.transporte.destino.direccion} ({item.transporte.destino.ubigeo}) · {item.transporte.detalle_viaje}
+                        <span className="block font-mono">
+                          Valores referenciales: servicio {formatearMonto("PEN", item.transporte.valor_referencial.servicio)} · carga efectiva{" "}
+                          {formatearMonto("PEN", item.transporte.valor_referencial.carga_efectiva)} · carga útil {formatearMonto("PEN", item.transporte.valor_referencial.carga_util_nominal)}
+                          {item.transporte.tramos?.length ? ` · ${item.transporte.tramos.length} tramo${item.transporte.tramos.length === 1 ? "" : "s"}` : ""}
+                        </span>
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3 text-right font-mono text-foreground/90 tabular-nums">{formatearNumero(item.cantidad)}</td>
                   <td className="px-3 py-3 text-center font-mono">
