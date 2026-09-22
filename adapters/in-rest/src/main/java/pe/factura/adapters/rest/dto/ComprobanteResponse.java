@@ -53,6 +53,7 @@ public record ComprobanteResponse(
         @Schema(description = "Solo al consultar: la comunicación de baja más reciente del comprobante (en curso, aceptada o rechazada), o `null`") BajaResponse baja,
         @Schema(example = "Entrega en almacén central.", description = "Observaciones impresas en el PDF (solo las propias del comprobante), o `null`") String observaciones,
         @Schema(description = "Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML") List<LeyendaDto> leyendas,
+        @Schema(description = "Solo en exportaciones (0200–0208): Incoterm y país de uso del servicio; `null` en las demás") ExportacionDto exportacion,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"pdf\": \"/v1/facturas/{id}/pdf\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     public record FormaPagoDto(
             @Schema(example = "credito", description = "contado | credito") String tipo,
@@ -148,7 +149,14 @@ public record ComprobanteResponse(
             @Schema(example = "6", description = "Catálogo 06 SUNAT: 6=RUC, 1=DNI") String tipoDoc,
             @Schema(example = "20554198211") String numDoc,
             @Schema(example = "CORPORACION GRAFICA ANDINA S.A.C.") String razonSocial,
-            @Schema(example = "Av. Argentina 2450, Lima") String direccion) {}
+            @Schema(example = "Av. Argentina 2450, Lima") String direccion,
+            @Schema(example = "PE", description = "País del adquirente (ISO 3166-1, catálogo 04), o `null`") String pais) {}
+
+    public record ExportacionDto(
+            @Schema(example = "FOB", description = "Incoterm 2020 de la venta, o `null`") String incoterm,
+            @Schema(example = "US", description = "País de uso del servicio (solo 0201/0208), o `null`") String paisUso) {
+        static ExportacionDto de(pe.factura.domain.documento.Exportacion e) { return e == null ? null : new ExportacionDto(e.incoterm(), e.paisUso()); }
+    }
 
     /** Descuento tal como se aplicó: lo enviado (tipo/valor), el monto resultante y el código SUNAT del catálogo 53. */
     public record DescuentoDto(
@@ -181,7 +189,7 @@ public record ComprobanteResponse(
             @Schema(example = "ZZ") String unidad,
             @Schema(example = "1.00") BigDecimal cantidad,
             @Schema(example = "2000.00") BigDecimal precioUnitario,
-            @Schema(example = "10", description = "Afectación del IGV, catálogo 07: `10` gravado, `17` IVAP, `20` exonerado, `30` inafecto; gratuitas `11`–`16` (gravadas), `21` (exonerada), `31`–`37` (inafectas)") String tipoAfectacionIgv,
+            @Schema(example = "10", description = "Afectación del IGV, catálogo 07: `10` gravado, `17` IVAP, `20` exonerado, `30` inafecto, `40` exportación; gratuitas `11`–`16` (gravadas), `21` (exonerada), `31`–`37` (inafectas)") String tipoAfectacionIgv,
             @Schema(example = "1000.00", description = "Valor de venta de la línea sin IGV, neto de descuento que afecta la base y con los cargos 47 (en gratuitas, el valor referencial)") BigDecimal valorVenta,
             @Schema(example = "180.00", description = "IGV de la línea; en gratuitas gravadas se informa pero no se cobra. En una línea IVAP (afectación 17) este campo trae el IVAP (4 %), no el IGV") BigDecimal igv,
             @Schema(example = "1180.00", description = "Lo que paga el cliente por la línea, con cargos 48 (0.00 en gratuitas)") BigDecimal precioVenta,
@@ -215,6 +223,7 @@ public record ComprobanteResponse(
             @Schema(example = "0.00", description = "Base de las operaciones gratuitas (tributo 9996): no se cobra") BigDecimal gratuito,
             @Schema(example = "0.00", description = "IGV de las operaciones gratuitas gravadas: solo informativo, no se cobra") BigDecimal igvGratuitas,
             @Schema(example = "0.00", description = "Total IVAP (tributo 1016, 4 % sobre la venta de arroz pilado, afectación 17): sustituye al IGV en el comprobante") BigDecimal ivap,
+            @Schema(example = "0.00", description = "Total valor de venta de exportación (tributo 9995, afectación 40, sin IGV)") BigDecimal exportacion,
             @Schema(example = "0.00", description = "Total ISC (se suma al precio de venta y a la base del IGV)") BigDecimal isc,
             @Schema(example = "0.00", description = "Total ICBPER (bolsas de plástico)") BigDecimal icbper,
             @Schema(example = "1000.00", description = "Total valor de venta onerosa (suma de bases, LineExtensionAmount)") BigDecimal totalValorVenta,
@@ -237,7 +246,7 @@ public record ComprobanteResponse(
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),
                 new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(), c.tasaIgv(),
-                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().ivap(), c.totales().isc(), c.totales().icbper(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().totalCargos(), c.totales().totalAnticipos(), c.totales().redondeo(), c.totales().total(),
+                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().ivap(), c.totales().exportacion(), c.totales().isc(), c.totales().icbper(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().totalCargos(), c.totales().totalAnticipos(), c.totales().redondeo(), c.totales().total(),
                         c.totales().descuentoGlobal() == null ? null : new DescuentoDto(c.totales().descuentoGlobal().descuento().tipo().name(),
                                 c.totales().descuentoGlobal().descuento().valor(), c.totales().descuentoGlobal().monto(),
                                 c.totales().descuentoGlobal().afectaBase(), c.totales().descuentoGlobal().codigo()),
@@ -254,6 +263,7 @@ public record ComprobanteResponse(
                 baja == null ? null : BajaResponse.de(baja),
                 c.observaciones(),
                 c.leyendas().stream().map(l -> new LeyendaDto(l, Leyenda.texto(l))).toList(),
+                ExportacionDto.de(c.exportacion()),
                 enlaces(c, p));
     }
 
@@ -263,7 +273,7 @@ public record ComprobanteResponse(
     }
 
     private static ReceptorDto de(Receptor r) {
-        return r == null ? null : new ReceptorDto(r.tipoDoc(), r.numDoc(), r.razonSocial(), r.direccion());
+        return r == null ? null : new ReceptorDto(r.tipoDoc(), r.numDoc(), r.razonSocial(), r.direccion(), r.pais());
     }
 
     private static ItemDto de(ItemCalculado ic) {

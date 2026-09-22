@@ -668,6 +668,71 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /** Exportación (#65): receptor del exterior con país, DeliveryTerms con el Incoterm, línea 40 con tributo 9995 sin IGV y subtotal global 9995 (3273, 3000). */
+    @Test void exportacionDeBienesEnElXml() throws Exception {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "0200", new Receptor("0", "US123456789", "ACME IMPORTS LLC", "1200 Main St, Miami", "US"),
+                List.of(new Item("CAF", "Café verde en grano", "KGM", new BigDecimal("1000"), new BigDecimal("4.50"), TipoAfectacionIgv.EXPORTACION)))
+                .exportacion(new Exportacion("FOB", null)).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(13, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        assertThat(valor(d, "/inv:Invoice/cbc:InvoiceTypeCode/@listID")).isEqualTo("0200");
+        String cli = "/inv:Invoice/cac:AccountingCustomerParty/cac:Party";
+        assertThat(valor(d, cli + "/cac:PartyIdentification/cbc:ID/@schemeID")).isEqualTo("0");
+        assertThat(valor(d, cli + "/cac:PartyIdentification/cbc:ID")).isEqualTo("US123456789");
+        assertThat(valor(d, cli + "/cac:PartyLegalEntity/cac:RegistrationAddress/cac:AddressLine/cbc:Line")).isEqualTo("1200 Main St, Miami");
+        assertThat(valor(d, cli + "/cac:PartyLegalEntity/cac:RegistrationAddress/cac:Country/cbc:IdentificationCode")).isEqualTo("US");
+        assertThat(valor(d, "/inv:Invoice/cac:DeliveryTerms/cbc:ID")).isEqualTo("FOB");
+        assertThat(valor(d, "count(/inv:Invoice/cac:Delivery)")).isEqualTo("0");
+
+        String linea = "/inv:Invoice/cac:InvoiceLine[1]";
+        assertThat(valor(d, linea + "/cbc:LineExtensionAmount")).isEqualTo("4500.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("0.00");                                              // 3110
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cbc:TaxableAmount")).isEqualTo("4500.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:ID")).isEqualTo("G");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:Percent")).isEqualTo("0.00");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReasonCode")).isEqualTo("40");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID")).isEqualTo("9995");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:Name")).isEqualTo("EXP");
+        assertThat(valor(d, linea + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode")).isEqualTo("FRE");
+        assertThat(valor(d, linea + "/cac:Price/cbc:PriceAmount")).isEqualTo("4.5000000000");
+
+        assertThat(valor(d, "count(/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal)")).isEqualTo("1");                                     // 3107
+        String exp = "/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='9995']";
+        assertThat(valor(d, exp + "/cbc:TaxableAmount")).isEqualTo("4500.00");                                                        // 3273
+        assertThat(valor(d, exp + "/cbc:TaxAmount")).isEqualTo("0.00");                                                               // 3000
+        assertThat(valor(d, "/inv:Invoice/cac:TaxTotal/cbc:TaxAmount")).isEqualTo("0.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:LineExtensionAmount")).isEqualTo("4500.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount")).isEqualTo("4500.00");
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("4500.00");
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
+    /** Exportación de servicios 0201: el país de uso va en cac:Delivery (3098) antes de DeliveryTerms y de los pagos (orden del XSD). */
+    @Test void exportacionDeServiciosConPaisDeUsoEnElXml() throws Exception {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "0201", new Receptor("0", "DE811", "BERLIN SOFT GMBH", null, "DE"),
+                List.of(new Item("SRV", "Desarrollo de software", "ZZ", BigDecimal.ONE, new BigDecimal("5000.00"), TipoAfectacionIgv.EXPORTACION)))
+                .exportacion(new Exportacion(null, "DE")).formaPago(FormaPago.credito(new BigDecimal("5000.00"), List.of(new FormaPago.Cuota(new BigDecimal("5000.00"), LocalDate.of(2026, 10, 13)))))
+                .crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(14, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+        assertThat(valor(d, "/inv:Invoice/cac:Delivery/cac:DeliveryLocation/cac:Address/cac:Country/cbc:IdentificationCode")).isEqualTo("DE");
+        assertThat(valor(d, "count(/inv:Invoice/cac:DeliveryTerms)")).isEqualTo("0");
+        assertThat(valor(d, "/inv:Invoice/cac:PaymentTerms[cbc:ID='FormaPago'][1]/cbc:PaymentMeansID")).isEqualTo("Credito");
+        assertThat(valor(d, "count(/inv:Invoice/cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity/cac:RegistrationAddress/cac:AddressLine)")).isEqualTo("0");
+        assertThat(valor(d, "/inv:Invoice/cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity/cac:RegistrationAddress/cac:Country/cbc:IdentificationCode")).isEqualTo("DE");
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     /** Leyendas del catálogo 52 declaradas por el emisor (#66): cbc:Note con el código en languageLocaleID y el texto oficial. */
     @Test void leyendasDeclaradasEnElXml() throws Exception {
         Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),

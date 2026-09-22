@@ -20,6 +20,7 @@ import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.Referencias;
 import pe.factura.domain.documento.GuiaRelacionada;
 import pe.factura.domain.documento.DocumentoRelacionado;
+import pe.factura.domain.documento.Exportacion;
 import pe.factura.domain.documento.TipoAfectacionIgv;
 
 import java.math.BigDecimal;
@@ -31,7 +32,7 @@ public record FacturaRequest(
         @Positive @Schema(example = "125", description = "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`") Long correlativo,
         @NotNull @Schema(example = "2026-09-14", description = "Fecha de emisión (`YYYY-MM-DD`), no futura. SUNAT exige recibir la factura dentro de los 3 días calendario siguientes") LocalDate fechaEmision,
         @Schema(example = "2026-10-14", description = "Fecha de vencimiento del pago (`cbc:DueDate`), no anterior a la de emisión. Informativa: al crédito las cuotas de `forma_pago` siguen siendo obligatorias. Opcional") LocalDate fechaVencimiento,
-        @Pattern(regexp = "\\d{4}") @Schema(example = "0101", description = "Tipo de operación, catálogo 51 (`GET /v1/catalogos/51`); un código fuera del catálogo responde `422 TIPO_OPERACION_INVALIDO` (regla 3206). `0101` venta interna (por defecto), `1001` operación sujeta a detracción. Exportación (`0200`) aún no soportada") String tipoOperacion,
+        @Pattern(regexp = "\\d{4}") @Schema(example = "0101", description = "Tipo de operación, catálogo 51 (`GET /v1/catalogos/51`); un código fuera del catálogo responde `422 TIPO_OPERACION_INVALIDO` (regla 3206). `0101` venta interna (por defecto), `1001` operación sujeta a detracción, `0200`–`0208` exportación (ítems con afectación `40`, cliente del exterior con `pais`, y `exportacion` con el Incoterm; `0202`/`0205` —hospedaje y paquete turístico a no domiciliados— aún no)") String tipoOperacion,
         @NotBlank @Pattern(regexp = "PEN|USD|EUR") @Schema(example = "PEN", description = "Moneda ISO 4217 de todo el comprobante: `PEN`, `USD` o `EUR` (catálogo 02)") String moneda,
         @NotNull @Valid ClienteDto cliente,
         @NotEmpty @Valid List<ItemDto> items,
@@ -48,13 +49,21 @@ public record FacturaRequest(
         @Schema(example = "-0.40", description = "Redondeo del importe total (`PayableRoundingAmount`): se suma al total a pagar; entre −1.00 y 1.00 con 2 decimales (regla 3303). Útil para cobrar en efectivo sin céntimos. Opcional") BigDecimal redondeo,
         @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja el comprobante `FIRMADO` para enviarlo luego con `POST /v1/facturas/{id}/enviar` (p. ej. para emitir en lote y enviar después)") Boolean enviarAutomatico,
         @Size(max = 1000) @Schema(example = "Entrega en almacén central. Horario: 9 a 18 h.", description = "Texto libre que se imprime en el bloque «Observaciones» del PDF (hasta 1000 caracteres, admite saltos de línea). No va al XML ni a SUNAT. Si se omite, se imprimen las observaciones por defecto de la empresa") String observaciones,
-        @Schema(example = "[\"2001\"]", description = "Leyendas del catálogo 52 que declara el emisor (`GET /v1/catalogos/52`): `2001` bienes en Amazonía, `2002` servicios en Amazonía, `2003` contratos de construcción en Amazonía, `2004` paquete turístico, `2005` venta itinerante, `2008`/`2009` zona comercial de Tacna… Van al XML como `cbc:Note`. 2001/2002/2003/2008 exigen total exonerado mayor a 0 (3283–3285, 3289). Las automáticas (monto en letras, gratuitas, detracción, percepción, IVAP) las pone khipu: `422 LEYENDA_INVALIDA` si se envían. Opcional") List<String> leyendas) {
+        @Schema(example = "[\"2001\"]", description = "Leyendas del catálogo 52 que declara el emisor (`GET /v1/catalogos/52`): `2001` bienes en Amazonía, `2002` servicios en Amazonía, `2003` contratos de construcción en Amazonía, `2004` paquete turístico, `2005` venta itinerante, `2008`/`2009` zona comercial de Tacna… Van al XML como `cbc:Note`. 2001/2002/2003/2008 exigen total exonerado mayor a 0 (3283–3285, 3289). Las automáticas (monto en letras, gratuitas, detracción, percepción, IVAP) las pone khipu: `422 LEYENDA_INVALIDA` si se envían. Opcional") List<String> leyendas,
+        @Valid @Schema(description = "Datos de una factura de exportación (`tipo_operacion` 0200–0208): Incoterm y, en servicios 0201/0208, país de uso. `422 EXPORTACION_INVALIDA` fuera de esos tipos. Opcional") ExportacionDto exportacion) {
 
     public record ClienteDto(
-            @NotBlank @Schema(example = "6", description = "Tipo de documento de identidad, catálogo 06. En factura debe ser `6` (RUC); `1` DNI, `4` carné de extranjería y `7` pasaporte se usan en boletas") String tipoDoc,
-            @NotBlank @Schema(example = "20123456786", description = "RUC de 11 dígitos del adquirente") String numDoc,
+            @NotBlank @Schema(example = "6", description = "Tipo de documento de identidad, catálogo 06. En una factura de venta interna debe ser `6` (RUC); en una exportación (0200–0208), el del cliente del exterior: `0` documento tributario no domiciliado sin RUC, `1` DNI, `4` carné de extranjería, `7` pasaporte, `A`–`G` (regla 2800; `6` no se admite en 0200/0201/0204)") String tipoDoc,
+            @NotBlank @Schema(example = "20123456786", description = "RUC de 11 dígitos del adquirente; en exportación, el número del documento (DNI de 8 dígitos, los demás hasta 15 caracteres sin espacios: 2801/2802)") String numDoc,
             @NotBlank @Schema(example = "Comercial Andina SAC", description = "Razón social tal como figura en la ficha RUC del adquirente") String razonSocial,
-            @Schema(example = "Av. Javier Prado Este 123, San Isidro", description = "Dirección del adquirente (opcional; se imprime en el XML)") String direccion) {}
+            @Schema(example = "Av. Javier Prado Este 123, San Isidro", description = "Dirección del adquirente (opcional; se imprime en el XML)") String direccion,
+            @Pattern(regexp = "[A-Za-z]{2}") @Schema(example = "PE", description = "País del adquirente, código ISO 3166-1 de dos letras (catálogo 04): `cac:Country/cbc:IdentificationCode`. Obligatorio en una exportación; opcional en las demás") String pais) {}
+
+    public record ExportacionDto(
+            @Pattern(regexp = "[A-Za-z]{3}") @Schema(example = "FOB", description = "Incoterm 2020 de la venta (EXW, FCA, FAS, FOB, CFR, CIF, CPT, CIP, DAP, DPU, DDP): `cac:DeliveryTerms/cbc:ID`. Sin validación SUNAT; lo exige Aduanas. Opcional") String incoterm,
+            @Pattern(regexp = "[A-Za-z]{2}") @Schema(example = "US", description = "País donde se usa o aprovecha el servicio exportado (ISO 3166-1, distinto de PE): `cac:Delivery/cac:DeliveryLocation/cac:Address/cac:Country`. Obligatorio en `0201`/`0208` (regla 3098), no admitido en los demás tipos") String paisUso) {
+        Exportacion aDominio() { return new Exportacion(incoterm, paisUso); }
+    }
 
     public record ItemDto(
             @Schema(example = "SKU-001", description = "Código interno del producto o servicio (opcional)") String codigo,
@@ -62,14 +71,15 @@ public record FacturaRequest(
             @NotBlank @Schema(example = "NIU", description = "Unidad de medida UN/ECE rec 20 (catálogo 03, `GET /v1/catalogos/03`, lista las más usadas): `NIU` unidad (bienes), `ZZ` unidad (servicios), `KGM` kilogramo, `HUR` hora… khipu no la valida contra el catálogo: un código inexistente lo rechaza SUNAT") String unidad,
             @NotNull @Positive @Schema(example = "2", description = "Cantidad, hasta 10 decimales") BigDecimal cantidad,
             @NotNull @PositiveOrZero @Schema(example = "1000.00", description = "Precio de venta unitario **con IGV incluido** (gravados); khipu calcula el valor unitario sin IGV") BigDecimal precioUnitario,
-            @NotBlank @Pattern(regexp = "1[0-7]|2[01]|3[0-7]", message = "afectación IGV no soportada: use 10–17, 20, 21 o 30–37 (catálogo 07)")
+            @NotBlank @Pattern(regexp = "1[0-7]|2[01]|3[0-7]|40", message = "afectación IGV no soportada: use 10–17, 20, 21, 30–37 o 40 (catálogo 07)")
             @Schema(example = "10", description = """
                     Afectación del IGV, catálogo 07 (`GET /v1/catalogos/07`). Onerosas: `10` gravado (IGV 18 %, o la tasa reducida del padrón de restaurantes y hoteles si la empresa la activó; precio con IGV),
                     `20` exonerado (Apéndice I de la Ley del IGV), `30` inafecto (fuera del ámbito). Gratuitas (bonificaciones, muestras,
                     retiros): `11`–`16` gravadas, `21` exonerada, `31`–`37` inafectas — el `precio_unitario` es el **valor referencial sin
                     IGV**, la línea no suma al importe a pagar y su IGV solo se informa (tributo 9996). `17` IVAP (arroz pilado, Ley 28211): 4 % en
                     lugar del IGV (tributo 1016), precio con IVAP incluido; el comprobante entero debe ser IVAP (no se mezcla con 10/20/30 ni
-                    gratuitas) y la línea no admite ISC ni ICBPER. No soportada: `40` (exportación).""") String tipoAfectacionIgv,
+                    gratuitas) y la línea no admite ISC ni ICBPER. `40` exportación (tributo 9995, sin IGV: el `precio_unitario` es el valor
+                    de venta): todos los ítems de una factura `0200`–`0208` la llevan y ninguno fuera de ella (2642, 3107); sin ISC ni ICBPER (3223).""") String tipoAfectacionIgv,
             @Valid @Schema(description = "Descuento de la línea (catálogo 53: `00` si afecta la base del IGV, `01` si no). Opcional.") DescuentoDto descuento,
             @Valid @Schema(description = "Cargos de la línea (catálogo 53): `afecta_base_igv: true` → `47` (se suma al valor de venta y paga IGV), `false` → `48` (se cobra sin IGV). No admitidos en gratuitas. Opcional.") List<CargoDto> cargos,
             @Valid @Schema(description = "Impuesto Selectivo al Consumo del ítem (bebidas alcohólicas, combustibles, vehículos…). Opcional; el `precio_unitario` lo incluye.") IscDto isc,
@@ -206,7 +216,7 @@ public record FacturaRequest(
 
     public EmitirFacturaCommand aComando() {
         return new EmitirFacturaCommand(serie, correlativo, fechaEmision, fechaVencimiento, moneda, tipoOperacion,
-                new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion()),
+                new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.razonSocial(), cliente.direccion(), cliente.pais()),
                 items.stream().map(ItemDto::aDominio).toList(),
                 formaPago == null ? FormaPago.contado() : formaPago.aDominio(),
                 descuentoGlobal == null ? null : descuentoGlobal.aDominio(),
@@ -218,7 +228,8 @@ public record FacturaRequest(
                 new Referencias(ordenCompra, guias == null ? List.of() : guias.stream().map(GuiaDto::aDominio).toList(),
                         documentosRelacionados == null ? List.of() : documentosRelacionados.stream().map(DocumentoRelacionadoDto::aDominio).toList()),
                 redondeo,
-                enviarAutomatico == null || enviarAutomatico, observaciones, leyendas == null ? List.of() : leyendas);
+                enviarAutomatico == null || enviarAutomatico, observaciones, leyendas == null ? List.of() : leyendas,
+                exportacion == null ? null : exportacion.aDominio());
     }
 
     static List<Cargo> cargos(List<CargoDto> dtos, boolean globales) {

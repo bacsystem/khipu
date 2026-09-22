@@ -49,8 +49,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
               descuento_global_tipo, descuento_global_valor, descuento_global_afecta_base,
               detraccion_codigo, detraccion_porcentaje, detraccion_monto, detraccion_cuenta, detraccion_medio_pago,
               retencion_porcentaje, retencion_monto, percepcion_regimen, percepcion_porcentaje, percepcion_base, percepcion_monto, orden_compra,
-              fecha_vencimiento, redondeo, nota_tipo_afectado, nota_serie_afectada, nota_numero_afectado, nota_motivo, nota_descripcion, observaciones, tasa_igv, leyendas)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              fecha_vencimiento, redondeo, nota_tipo_afectado, nota_serie_afectada, nota_numero_afectado, nota_motivo, nota_descripcion, observaciones, tasa_igv, leyendas,
+              receptor_pais, incoterm, pais_uso)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, c.id(), c.tipoOperacion(), c.moneda(), c.receptor().tipoDoc(), c.receptor().numDoc(), c.receptor().razonSocial(),
                 c.receptor().direccion(), t.gravado(), t.exonerado(), t.inafecto(), t.igv(), t.total(),
                 c.formaPago().tipo().name(), c.formaPago().montoPendiente(),
@@ -61,7 +62,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 pc == null ? null : pc.regimen(), pc == null ? null : pc.porcentaje(), pc == null ? null : pc.base(), pc == null ? null : pc.monto(),
                 c.referencias().ordenCompra(), c.fechaVencimiento() == null ? null : Date.valueOf(c.fechaVencimiento()), t.tieneRedondeo() ? t.redondeo() : null,
                 n == null ? null : n.tipoAfectado().codigo(), n == null ? null : n.serieAfectada(), n == null ? null : n.numeroAfectado(), n == null ? null : n.motivo(), n == null ? null : n.descripcion(),
-                c.observaciones(), c.tasaIgv(), c.leyendas().isEmpty() ? null : String.join(",", c.leyendas()));
+                c.observaciones(), c.tasaIgv(), c.leyendas().isEmpty() ? null : String.join(",", c.leyendas()),
+                c.receptor().pais(), c.exportacion() == null ? null : c.exportacion().incoterm(), c.exportacion() == null ? null : c.exportacion().paisUso());
         int nDoc = 1;
         for (GuiaRelacionada g : c.referencias().guias()) {
             jdbc.update("INSERT INTO comprobante_documento_relacionado (comprobante_id, orden, clase, tipo, numero) VALUES (?, ?, 'GUIA', ?, ?)", c.id(), nDoc++, g.tipo(), g.numero());
@@ -148,7 +150,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                c.forma_pago, c.monto_pendiente, c.descuento_global_tipo, c.descuento_global_valor, c.descuento_global_afecta_base,
                c.detraccion_codigo, c.detraccion_porcentaje, c.detraccion_monto, c.detraccion_cuenta, c.detraccion_medio_pago,
                c.retencion_porcentaje, c.retencion_monto, c.percepcion_regimen, c.percepcion_porcentaje, c.percepcion_base, c.percepcion_monto, c.orden_compra, c.fecha_vencimiento, c.redondeo,
-               c.nota_tipo_afectado, c.nota_serie_afectada, c.nota_numero_afectado, c.nota_motivo, c.nota_descripcion, c.observaciones, c.tasa_igv, c.leyendas
+               c.nota_tipo_afectado, c.nota_serie_afectada, c.nota_numero_afectado, c.nota_motivo, c.nota_descripcion, c.observaciones, c.tasa_igv, c.leyendas,
+               c.receptor_pais, c.incoterm, c.pais_uso
         FROM documento d JOIN comprobante c ON c.documento_id = d.id
         """;
 
@@ -182,7 +185,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         }, id);
         Referencias referencias = new Referencias(rs.getString("orden_compra"), guias, otros);
         Cdr cdr = rs.getString("cdr_codigo") == null ? null : new Cdr(rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), deJson(rs.getString("cdr_obs")));
-        Comprobante c = Comprobante.persistido(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"), rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), EstadoDocumento.valueOf(rs.getString("estado")), new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion")), items)
+        Comprobante c = Comprobante.persistido(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"), rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), EstadoDocumento.valueOf(rs.getString("estado")), new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion"), rs.getString("receptor_pais")), items)
                 .horaEmision(rs.getTime("hora_emision") == null ? null : rs.getTime("hora_emision").toLocalTime())
                 .fechaVencimiento(rs.getDate("fecha_vencimiento") == null ? null : rs.getDate("fecha_vencimiento").toLocalDate())
                 .moneda(rs.getString("moneda"))
@@ -199,6 +202,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 .nota(nota(rs))
                 .tasaIgv(rs.getBigDecimal("tasa_igv"))
                 .leyendas(rs.getString("leyendas") == null ? List.of() : List.of(rs.getString("leyendas").split(",")))
+                .exportacion(rs.getString("incoterm") == null && rs.getString("pais_uso") == null ? null : new Exportacion(rs.getString("incoterm"), rs.getString("pais_uso")))
                 .firma(rs.getString("hash"), rs.getString("nombre_archivo"), rs.getString("xml_key"))
                 .cdr(cdr, rs.getString("cdr_key"))
                 .envio(rs.getInt("intentos"), rs.getString("ultimo_error"))

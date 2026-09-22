@@ -59,6 +59,24 @@ class FlyingSaucerPdfGeneratorTest {
                 .doesNotContain("Documento que modifica");
     }
 
+    /** Exportación (#65) e IVAP (#67): la fila de totales cambia (sin IGV / IVAP 4 %). */
+    @Test void laExportacionYElIvapCambianLasFilasDeTotales() {
+        Comprobante exp = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "0200", new Receptor("0", "US123456789", "ACME IMPORTS LLC", "1200 Main St", "US"),
+                List.of(new Item("CAF", "Café verde en grano", "KGM", new BigDecimal("1000"), new BigDecimal("4.50"), TipoAfectacionIgv.EXPORTACION))).exportacion(new Exportacion("FOB", null)).crear(CLOCK);
+        exp.asignarNumero(126, "20100066603");
+        exp.firmar("h", "k");
+        assertThat(generador.xhtml(exp, TENANT, "qr", null))
+                .contains("Exportación (sin IGV)", "USD 4,500.00", "Importe total")
+                .doesNotContain("IGV (18%)", "Op. gravadas");
+        Comprobante ivap = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", RECEPTOR,
+                List.of(new Item("ARZ", "Arroz pilado", "KGM", new BigDecimal("100"), new BigDecimal("3.12"), TipoAfectacionIgv.IVAP))).crear(CLOCK);
+        ivap.asignarNumero(127, "20100066603");
+        ivap.firmar("h", "k");
+        assertThat(generador.xhtml(ivap, TENANT, "qr", null))
+                .contains("Op. sujetas al IVAP", "PEN 300.00", "IVAP (4%)", "PEN 12.00", "PEN 312.00")
+                .doesNotContain("IGV (18%)");
+    }
+
     @Test void laNotaDeCreditoIndicaElComprobanteQueModificaYElMotivo() {
         String html = generador.xhtml(notaCredito(), TENANT, "qr", null);
         assertThat(html).contains("NOTA DE CRÉDITO ELECTRÓNICA", "FC01-7", "Documento que modifica", "Factura F001-125", "07 - Devolución por ítem", "Devolución de una laptop", "hashnota==");

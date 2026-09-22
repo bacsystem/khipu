@@ -39,6 +39,8 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         BigDecimal unoMasIgv = BigDecimal.ONE.add(factorIgv);
         if (af.ivap() && (item.tieneIsc() || item.icbper()))
             throw new DomainException("AFECTACION_INVALIDA", "2650 - Una línea afecta al IVAP (17) no lleva ISC ni ICBPER (combinación de tributos no permitida, 3223)");
+        if (af.exportacion() && (item.tieneIsc() || item.icbper()))
+            throw new DomainException("AFECTACION_INVALIDA", "3223 - Una línea de exportación (40) no lleva ISC ni ICBPER (combinación de tributos no permitida)");
         boolean onerosaGravada = af.gravado() && !af.gratuita();
         BigDecimal cantidad = item.cantidad();
         // ICBPER: monto fijo por unidad, fuera de la base del IGV; el precio enviado lo incluye.
