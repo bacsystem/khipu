@@ -31,6 +31,7 @@ final class Fakes {
         public List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fecha) {
             return datos.values().stream().filter(c -> c.estado().esEnviable() && !c.fechaEmision().isAfter(fecha)).toList();
         }
+        public List<Comprobante> pendientesDeCdr() { return datos.values().stream().filter(c -> c.xmlKey() != null && c.cdrKey() == null && c.estado() != EstadoDocumento.FIRMADO && c.estado() != EstadoDocumento.FUERA_DE_PLAZO && c.estado() != EstadoDocumento.INVALIDO && c.estado() != EstadoDocumento.RECIBIDO).toList(); }
         public List<Comprobante> listar(UUID t, EstadoDocumento e, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
         public long contar(UUID t, EstadoDocumento e) { return listar(t, e, 1, Integer.MAX_VALUE).size(); }
     }
@@ -115,6 +116,13 @@ final class Fakes {
         Tenant ultimoEmisor;
         public String generar(Comprobante c, Tenant t) { ultimoEmisor = t; return "<" + c.tipo() + ">" + c.nombreArchivo() + "</" + c.tipo() + ">"; }
         public String generarBaja(ComunicacionBaja b, Tenant t) { return "<VoidedDocuments>" + b.identificador() + "</VoidedDocuments>"; }
+    }
+    static final class Consultas implements pe.factura.application.port.out.SunatConsultaGateway {
+        Consulta respuesta = new Consulta("0001", "El comprobante existe y está aceptado.", "cdr".getBytes());
+        RuntimeException falla; int llamadas; String ultimaOperacion; Object[] ultimosCriterios;
+        public Consulta getStatusCdr(Tenant t, String ruc, String tipo, String serie, long numero) { llamadas++; ultimaOperacion = "getStatusCdr"; ultimosCriterios = new Object[]{ruc, tipo, serie, numero}; if (falla != null) throw falla; return respuesta; }
+        public Consulta getStatus(Tenant t, String ruc, String tipo, String serie, long numero) { llamadas++; ultimaOperacion = "getStatus"; if (falla != null) throw falla; return respuesta; }
+        public Consulta validar(Tenant t, String ruc, String tipo, String serie, long numero, String td, String nd, java.time.LocalDate f, java.math.BigDecimal m) { llamadas++; ultimaOperacion = "validar"; ultimosCriterios = new Object[]{ruc, tipo, serie, numero, td, nd, f, m}; if (falla != null) throw falla; return respuesta; }
     }
     static final class Cdrs implements CdrParser {
         Cdr cdr = new Cdr("0", "aceptada", List.of());

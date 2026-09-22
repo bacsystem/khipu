@@ -187,6 +187,18 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactlyInAnyOrder(enError.id(), ajena.id());
     }
 
+    /** Recuperación de CDR (#36): firmados sin cdr_key en estados donde SUNAT pudo haberlo recibido. */
+    @Test void listaLosPendientesDeCdr() {
+        UUID t = tenantDePrueba();
+        Comprobante firmada = factura(t, 1); firmada.firmar("H", "k1.xml"); repo.guardar(firmada);   // FIRMADO: nunca se envió, no entra
+        Comprobante enviada = factura(t, 2); enviada.firmar("H", "k2.xml"); repo.guardar(enviada); enviada.marcarEnviado(); repo.guardar(enviada);
+        Comprobante aceptadaSinCdr = factura(t, 3); aceptadaSinCdr.firmar("H", "k3.xml"); repo.guardar(aceptadaSinCdr);
+        aceptadaSinCdr.marcarEnviado(); aceptadaSinCdr.aplicarCdr(new pe.factura.domain.documento.Cdr("0", "ok", List.of()), null); repo.guardar(aceptadaSinCdr);
+        Comprobante conCdr = factura(t, 4); conCdr.firmar("H", "k4.xml"); repo.guardar(conCdr);
+        conCdr.marcarEnviado(); conCdr.aplicarCdr(new pe.factura.domain.documento.Cdr("0", "ok", List.of()), "R-4.zip"); repo.guardar(conCdr);
+        assertThat(repo.pendientesDeCdr()).extracting(Comprobante::id).containsExactlyInAnyOrder(enviada.id(), aceptadaSinCdr.id());
+    }
+
     @Test void guardaYRehidrataNotasYLasListaPorFactura() {
         UUID t = tenantDePrueba();
         Comprobante f = factura(t, 20);

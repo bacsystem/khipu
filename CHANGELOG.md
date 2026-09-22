@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [0.1.27] - 2026-09-19
+
+### Added
+- Consulta de validez y recuperación de CDR (#36), con los contratos de los WSDL de SUNAT (`billConsultService`, `billValidService`). `POST /v1/facturas/{id}/cdr/recuperar` pide a SUNAT (`getStatusCdr`) la constancia de un comprobante `ENVIADO`/`ERROR_ENVIO` —la conexión se cortó después de que SUNAT lo aceptara— o de uno resuelto que perdió el CDR en el storage; si SUNAT lo tiene, lo guarda y aplica el resultado sin reenviar. Barrido horario (`RecuperarCdrWorker`, `app.cdr.intervalo-ms`) para las empresas en producción. `GET /v1/consultas/validez?ruc&tipo&serie&numero[&tipo_doc_receptor&num_doc_receptor&fecha&monto]` (`validaCDPcriterios`) devuelve `ACEPTADO`/`RECHAZADO`/`DE_BAJA`/`NO_EXISTE`/`AJENO` con el código y mensaje de SUNAT, para verificar lo que un tercero factura. Ambos servicios solo existen en producción: en BETA responden `422 NO_DISPONIBLE_EN_BETA` salvo que se configuren `SUNAT_CONSULTA_BETA_URL`/`SUNAT_VALIDEZ_BETA_URL`. La llamada SOAP (cliente nuevo por petición, reintento del 401, faults) pasa a `SoapCliente`, compartido con el envío. Pantalla del portal: fase posterior.
+
 ## [0.1.26] - 2026-09-19
 
 ### Added
