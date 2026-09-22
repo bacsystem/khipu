@@ -70,6 +70,8 @@ export type Comprobante = {
   referencias?: { orden_compra?: string | null; guias?: Array<{ tipo: string; numero: string }> | null; documentos_relacionados?: Array<{ tipo: string; numero: string }> | null } | null;
   nota?: { tipo_afectado: string; documento_afectado: string; motivo: string; motivo_descripcion: string; descripcion: string } | null;
   notas?: Array<{ id: string; tipo: string; comprobante: string; fecha_emision: string; motivo: string; motivo_descripcion: string; estado_documento: string; total: number }> | null;
+  /** Historial de intentos (#7): solo lo devuelve GET por id. */
+  eventos?: Array<{ fecha: string; estado_anterior: string | null; estado_resultante: string; mensaje: string | null }> | null;
   baja?: Baja | null;
   enlaces: { xml: string; pdf?: string; cdr?: string };
 };
@@ -239,6 +241,12 @@ export function resetDb() {
       nombre_archivo: "20123456786-01-F001-00000002",
       intentos: 2,
       ultimo_error: "SUNAT no respondió a tiempo",
+      eventos: [
+        { fecha: "2026-09-02T15:00:01Z", estado_anterior: "RECIBIDO", estado_resultante: "FIRMADO", mensaje: "Firmado; resumen k9Qx…" },
+        { fecha: "2026-09-02T15:00:05Z", estado_anterior: "FIRMADO", estado_resultante: "ERROR_ENVIO", mensaje: "SUNAT no disponible (timeout)" },
+        { fecha: "2026-09-02T15:02:10Z", estado_anterior: "ERROR_ENVIO", estado_resultante: "ENVIADO", mensaje: "Enviado a SUNAT (intento 2)" },
+        { fecha: "2026-09-02T15:02:40Z", estado_anterior: "ENVIADO", estado_resultante: "ERROR_ENVIO", mensaje: "SUNAT no respondió a tiempo" },
+      ],
       cdr: null,
       totales: { gravado: 50, exonerado: 0, inafecto: 0, igv: 9, total: 59 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },

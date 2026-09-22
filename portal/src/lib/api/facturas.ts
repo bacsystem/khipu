@@ -296,6 +296,8 @@ export type Comprobante = {
   nota?: { tipo_afectado: string; documento_afectado: string; motivo: string; motivo_descripcion: string; descripcion: string } | null;
   /** Solo al consultar una factura: notas emitidas sobre ella, con su estado. */
   notas?: NotaResumen[] | null;
+  /** Historial de intentos y cambios de estado (#7), del más antiguo al más reciente; solo al consultar por id y ausente en backends anteriores. */
+  eventos?: EventoComprobante[] | null;
   /** Solo al consultar: la comunicación de baja más reciente (en curso, aceptada o rechazada). */
   baja?: Baja | null;
   /** Observaciones propias del comprobante, impresas en el PDF (no van al XML). */
@@ -308,10 +310,13 @@ export function esEstadoFinal(estado: EstadoDocumento): boolean {
   return (ESTADOS_FINALES as readonly string[]).includes(estado);
 }
 
+export type EventoComprobante = { fecha: string; estado_anterior: EstadoDocumento | null; estado_resultante: EstadoDocumento; mensaje: string | null };
+
 // Un backend anterior a la exposición de receptor/items responde sin esos campos.
 export function normalizarComprobante(c: Partial<Comprobante> & Pick<Comprobante, "id">): Comprobante {
   return {
     ...(c as Comprobante),
+    eventos: c.eventos ?? null,
     tipo_operacion: c.tipo_operacion ?? null,
     receptor: c.receptor ?? null,
     items: c.items ?? [],

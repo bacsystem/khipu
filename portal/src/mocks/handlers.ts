@@ -338,7 +338,12 @@ export const handlers = [
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1));
     const porPagina = Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20));
     const total = lista.length;
-    const datos = lista.slice((pagina - 1) * porPagina, pagina * porPagina);
+    // Como el backend: el historial de intentos solo viaja al consultar por id, nunca en el listado.
+    const datos = lista.slice((pagina - 1) * porPagina, pagina * porPagina).map((f) => {
+      const copia: Partial<typeof f> = { ...f };
+      delete copia.eventos;
+      return copia;
+    });
     return HttpResponse.json(
       { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
       { headers: { "x-total-count": String(total) } },
@@ -357,7 +362,8 @@ export const handlers = [
           motivo_descripcion: n.nota!.motivo_descripcion, estado_documento: n.estado_documento, total: n.totales.total,
         }))
       : [];
-    return ok({ ...factura, notas: notas.length ? notas : null });
+    // Como el backend (#4): el historial viaja solo al consultar por id; un comprobante sin eventos devuelve [].
+    return ok({ ...factura, notas: notas.length ? notas : null, eventos: factura.eventos ?? [] });
   }),
 
   // Notas de crédito/débito: la factura debe existir y estar aceptada; la nota copia cliente y moneda y se acepta al instante.

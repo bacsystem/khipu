@@ -1,15 +1,15 @@
-import { ArrowLeftIcon, BanIcon, FileMinusIcon, FileTextIcon, IdCardIcon, LinkIcon, Rows3Icon } from "lucide-react";
+import { ArrowLeftIcon, BanIcon, FileMinusIcon, FileTextIcon, HistoryIcon, IdCardIcon, LinkIcon, Rows3Icon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { EstadoBadge } from "@/components/comprobantes/estado-badge";
+import { EstadoBadge, ETIQUETAS_ESTADO, PUNTOS } from "@/components/comprobantes/estado-badge";
 import { BajaButton } from "@/components/comprobantes/baja-button";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
 import { admiteBaja, admiteCorreo, admiteNotas, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
-import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
+import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 
@@ -195,6 +195,35 @@ function CajaRespuesta({ comprobante }: { comprobante: Comprobante }) {
   );
 }
 
+/** Historial de intentos (#7): un punto por cambio de estado, en hora de Lima, con el motivo; «Sin historial» si el backend no lo envía. */
+function Historial({ eventos }: { eventos: Comprobante["eventos"] }) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="historial">
+      <div className={cn(TITULO_SECCION, "mb-3")}>
+        <HistoryIcon className="size-4" />
+        Historial
+      </div>
+      {eventos && eventos.length > 0 ? (
+        <ol className="relative ml-1.5 space-y-3 border-l border-border pl-4">
+          {eventos.map((e, i) => (
+            <li key={i} className="relative text-xs">
+              <span className={cn("absolute top-1.5 -left-[21px] size-2.5 rounded-full ring-2 ring-card", PUNTOS[e.estado_resultante] ?? "bg-muted-foreground/60")} />
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{formatearFechaHora(e.fecha)}</span>
+                <span className="font-semibold text-foreground">{ETIQUETAS_ESTADO[e.estado_resultante] ?? e.estado_resultante}</span>
+                {e.estado_anterior ? <span className="text-[11px] text-muted-foreground/70">desde {ETIQUETAS_ESTADO[e.estado_anterior] ?? e.estado_anterior}</span> : null}
+              </div>
+              {e.mensaje ? <p className="mt-0.5 font-mono text-[11px] leading-snug text-foreground/80">{e.mensaje}</p> : null}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-xs text-muted-foreground/70">Sin historial.</p>
+      )}
+    </section>
+  );
+}
+
 export default async function ComprobanteDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { access, empresaId } = await getServerSession();
@@ -358,6 +387,8 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           <p className="text-xs text-muted-foreground/60">Sin datos de receptor.</p>
         )}
       </section>
+
+      <Historial eventos={c.eventos} />
 
       {c.baja ? (
         <section
