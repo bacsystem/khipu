@@ -6,7 +6,7 @@ plugins {
 
 allprojects {
     group = "pe.factura"
-    version = "0.1.42"
+    version = "0.2.0"
     repositories { mavenCentral() }
 }
 

@@ -19,11 +19,15 @@ management:
       base-path: /
       exposure:
         include: health
-  health:
-    # El correo es opcional (MAIL_HABILITADO=false por defecto, con LogCorreoSender de fallback); sin SMTP
-    # configurado su indicador deja /health en DOWN y un healthcheck de plataforma nunca pasaría.
-    mail:
-      enabled: false
+  endpoint:
+    health:
+      group:
+        # Para el healthcheck de la plataforma (Railway y similares): solo lo que hace al servicio
+        # inutilizable. El correo queda fuera a propósito porque es opcional (MAIL_HABILITADO=false por
+        # defecto, con LogCorreoSender de fallback) y sin SMTP su indicador dejaría el deploy en DOWN
+        # para siempre. `/health` completo sigue incluyendo el correo, así un SMTP roto se ve igual.
+        liveness:
+          include: db, ping
 springdoc:
   api-docs:
     path: /openapi.json

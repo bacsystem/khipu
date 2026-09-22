@@ -59,7 +59,7 @@ después del cambio:
 | mediana | 2 350 ms | 16 ms |
 | throughput | 39.7 doc/s, 101 iteraciones descartadas | 40.7 doc/s = el 100 % del perfil de carga, 0 descartadas |
 | errores | 0 % | 0 % |
-| numeración | — | 8 047 documentos, último `F001-8047`: 1…8047 sin huecos ni duplicados |
+| numeración | — | 4 074 emitidos en esta corrida; sumados a los de la corrida anterior sobre la misma serie, `F001-1`…`F001-8047`: total = máximo, o sea sin huecos ni duplicados |
 
 El salto es mucho mayor que los ms ahorrados porque se cruzó el "codo" de la
 cola: con ~25 ms por emisión el servicio daba ~40 doc/s, menos que la llegada
