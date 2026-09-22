@@ -38,6 +38,28 @@ npm run lint
 npm run generate:api                                # regenerate src/lib/api/openapi.d.ts from a running backend's /openapi.json — NOT currently wired into the app (see below)
 ```
 
+### Pull requests: stacked, via `gh stack`
+
+Work that spans several PRs is stacked, not chained by hand. GitHub's official extension manages it (`gh extension install github/gh-stack` — per machine, not a repo dependency):
+
+```bash
+gh stack init feat/base                 # new stack on top of main; adopts the branch if it already exists
+gh stack add feat/encima -m "mensaje"   # next layer, based on the previous one
+gh stack view                           # where each branch sits
+gh stack submit                         # push every branch and open/update its PR, each based on the one below
+gh stack sync --prune                   # after a merge: rebase the rest onto main, retarget bases, drop merged branches
+gh stack merge                          # atomic bottom-up merge of the whole stack (or up to a chosen PR)
+```
+
+The point is `sync`: when the bottom PR merges, it cascade-rebases the branches above it and retargets their bases. Doing that by hand is what made the #102 → #103 → #104 chain expensive — every merge meant retargeting the next PR and resolving conflicts against a stale branch.
+
+Two things worth knowing before running it:
+
+- **`sync` force-pushes** every branch in the stack (`--force-with-lease --atomic`). Commit or stash first; it rewrites the branches you have checked out.
+- **The stack lives in `.git/gh-stack`**, local and uncommitted — it is not shared through the repo. On another machine or a fresh clone, rebuild it with `gh stack checkout <PR#>` instead of `init` (which would create a second stack over the same branches).
+
+Merging the bottom PR from the GitHub UI still works; just run `gh stack sync --prune` afterwards so the rest of the stack catches up. Each PR in a stack keeps the usual convention: one issue, reviewed before merge.
+
 ## Architecture
 
 ### Backend: hexagonal, enforced by ArchUnit
