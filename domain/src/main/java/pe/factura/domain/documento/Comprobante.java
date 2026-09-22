@@ -134,7 +134,7 @@ public class Comprobante {
             String operacion = tipoOperacion == null ? "0101" : tipoOperacion;
             validarTipoOperacion(operacion);
             if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor" + (Exportacion.es(operacion) ? "" : " con RUC"));
-            receptor.exigirValidoParaFactura(operacion, leyendas.contains("2008"));
+            receptor.exigirValidoParaFactura(operacion);
             if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
             Exportacion.validar(exportacion, operacion);
             exigirAfectacionSegunOperacion(operacion, items);
@@ -200,8 +200,9 @@ public class Comprobante {
             if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
             if (items != null) items.forEach(Item::exigirValidoParaFactura);
             if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La nota sobre una factura requiere un receptor" + (Exportacion.es(tipoOperacion) ? "" : " con RUC"));
-            receptor.exigirValidoParaFactura(tipoOperacion, false);
+            receptor.exigirValidoParaFactura(tipoOperacion);
             if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
+            Exportacion.validar(exportacion, tipoOperacion);
             nota.validarMotivoPara(tipo);
             if (!nc13) exigirAfectacionSegunOperacion(tipoOperacion, items);
             if (nc13 && (formaPago == null || !formaPago.esCredito()))

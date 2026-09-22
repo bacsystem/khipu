@@ -17,7 +17,7 @@ public record Exportacion(String incoterm, String paisUso) {
     public static final Set<String> CON_HUESPED = Set.of("0202", "0205");
     /** Exportación de servicios usados en el extranjero: llevan el país de uso (3098). */
     public static final Set<String> EXIGEN_PAIS_USO = Set.of("0201", "0208");
-    /** Con receptor con RUC (tipo 6) SUNAT rechaza (2800) salvo que lleve la leyenda 2008. */
+    /** Con receptor con RUC (tipo 6) SUNAT rechaza (2800). */
     public static final Set<String> SIN_RUC = Set.of("0200", "0201", "0204");
     /** Incoterms 2020 (ICC). */
     public static final Set<String> INCOTERMS = Set.of("EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP");
