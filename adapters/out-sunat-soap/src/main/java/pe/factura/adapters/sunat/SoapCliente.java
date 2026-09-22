@@ -24,6 +24,17 @@ final class SoapCliente {
 
     SoapCliente(Duration timeout, Supplier<HttpClient> clientes) { this.timeout = timeout; this.clientes = clientes; }
 
+    /**
+     * Hoja "CódigosRetorno" de las reglas de validación de SUNAT: 0100–0999 son fallos del servicio o de
+     * autenticación (reintentar); 1000–1999 son errores del contenido o del emisor (1001 formato de serie,
+     * 1033 "registrado previamente con otros datos", 1034–1036 nombre de archivo ≠ XML, 1059 sin firma,
+     * 1078 emisor no autorizado en el SEE) y 2000–3999 rechazos de validación. Ni los 1xxx ni los 2xxx
+     * cambian por reintentar: el comprobante (o la consulta) queda resuelto tal cual, sin reintento.
+     */
+    static boolean esFaultDefinitivo(String codigo) {
+        return Integer.parseInt(codigo) >= 1000;
+    }
+
     String llamar(String url, String operacion, String cuerpo) {
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(timeout)
@@ -39,7 +50,7 @@ final class SoapCliente {
         if (faultcode != null) {
             String codigo = SoapEnvelope.codigoDeFault(faultcode);
             String msg = SoapEnvelope.textoDe(body, "faultstring");
-            if (SoapBillingGateway.esFaultDefinitivo(codigo)) throw new SunatRechazoException(codigo, msg == null ? "" : msg);
+            if (esFaultDefinitivo(codigo)) throw new SunatRechazoException(codigo, msg == null ? "" : msg);
             throw new SunatTransientException(codigo, msg == null ? "SOAPFault " + faultcode : msg);
         }
         if (resp.statusCode() == 401) throw new SunatTransientException("0000", "SUNAT respondió HTTP 401 en " + INTENTOS_401 + " intentos (revisar credenciales SOL/URL)");
