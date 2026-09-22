@@ -205,8 +205,6 @@
   .khipu-onda {
     animation: khipu-onda 4.8s ease-out infinite;
     animation-delay: var(--khipu-retraso, 0s);
-    transform-box: fill-box;
-    transform-origin: center;
   }
 }
 
