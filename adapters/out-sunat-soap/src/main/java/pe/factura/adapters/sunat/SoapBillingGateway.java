@@ -30,16 +30,8 @@ public class SoapBillingGateway implements SunatBillingGateway {
         this.cliente = new SoapCliente(timeout, clientes);
     }
 
-    /**
-     * Hoja "CódigosRetorno" de las reglas de validación de SUNAT: 0100–0999 son fallos del servicio o de
-     * autenticación (reintentar); 1000–1999 son errores del contenido o del emisor (1001 formato de serie,
-     * 1033 "registrado previamente con otros datos", 1034–1036 nombre de archivo ≠ XML, 1059 sin firma,
-     * 1078 emisor no autorizado en el SEE) y 2000–3999 rechazos de validación. Ni los 1xxx ni los 2xxx
-     * cambian por reintentar: el comprobante queda rechazado y hay que corregirlo y volver a emitir.
-     */
-    static boolean esFaultDefinitivo(String codigo) {
-        return Integer.parseInt(codigo) >= 1000;
-    }
+    /** La lógica real vive en {@link SoapCliente#esFaultDefinitivo}: es genérica a cualquier llamada SOAP a SUNAT, no solo a sendBill. */
+    static boolean esFaultDefinitivo(String codigo) { return SoapCliente.esFaultDefinitivo(codigo); }
 
     /**
      * Reintentos inmediatos ante {@code HTTP 401}. El balanceador de SUNAT devuelve 401 de forma intermitente con credenciales

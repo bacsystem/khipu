@@ -364,6 +364,27 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /** ISC sistema 03 (#68, regla 3108): la base en el XML es el PVP sugerido × cantidad, no el valor de venta. */
+    @Test void iscSistema03BaseEsElPvpSugeridoEnElXml() throws Exception {
+        Isc isc = new Isc("03", new BigDecimal("30"), null, new BigDecimal("3.50"));
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
+                List.of(new Item("C", "Cerveza 620 ml", "NIU", new BigDecimal("10"), new BigDecimal("3.599"), TipoAfectacionIgv.GRAVADO, null, isc, false))).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(15, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        String isc03 = "/inv:Invoice/cac:InvoiceLine[1]/cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='2000']";
+        assertThat(valor(d, isc03 + "/cbc:TaxableAmount")).isEqualTo("35.00");     // 3.50 × 10, no el valor de venta (20.00)
+        assertThat(valor(d, isc03 + "/cbc:TaxAmount")).isEqualTo("10.50");         // 3108: 35.00 × 30 %
+        assertThat(valor(d, isc03 + "/cac:TaxCategory/cbc:Percent")).isEqualTo("30.00");
+        assertThat(valor(d, isc03 + "/cac:TaxCategory/cbc:TierRange")).isEqualTo("03");   // 2373
+
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     /**
      * Factura final con anticipo (reglas 65–66): documento referenciado con identificador de pago, PrepaidPayment con el importe
      * pagado (IGV incluido), descuento global 04 por el valor sin IGV que reduce la base del IGV (3277, 3291) y PrepaidAmount
