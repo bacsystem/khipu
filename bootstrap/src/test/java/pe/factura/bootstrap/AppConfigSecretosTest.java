@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AppConfigSecretosTest {
     private static AppProperties con(String masterKey, String pepper) {
         return new AppProperties("multi", masterKey, pepper, "plataforma", "jwt-secret", "http://localhost:3000",
-                null, null, null, new AppProperties.Mail(false, "no-responder@factura.pe"), "America/Lima");
+                null, null, null, new AppProperties.Mail(false, "no-responder@factura.pe"), null, "America/Lima");
     }
 
     @Test void secretosPresentesPasan() {

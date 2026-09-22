@@ -23,11 +23,12 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = {EmpresaController.class, AdminTenantController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = {EmpresaController.class, AdminTenantController.class, AdminIntegridadController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 @Import(GlobalExceptionHandler.class)
 class EmpresaControllerTest {
     @Autowired MockMvc mvc;
     @MockBean AdministrarTenantUseCase admin;
+    @MockBean pe.factura.application.port.in.VerificarIntegridadUseCase integridad;
     UUID tenant = UUID.randomUUID();
     UUID cuenta = UUID.randomUUID();
 
@@ -195,6 +196,19 @@ class EmpresaControllerTest {
         mvc.perform(delete("/v1/empresa/api-keys/" + id).requestAttr(TenantActual.ATRIBUTO, tenant).requestAttr(CuentaActual.ATRIBUTO, cuenta))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+    }
+
+    /** Integridad del storage (#38): el informe del rango vuelve con sus problemas; el rango es obligatorio. */
+    @Test void adminVerificaLaIntegridadDelStorage() throws Exception {
+        var informe = new pe.factura.application.port.in.VerificarIntegridadUseCase.Informe(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 12,
+                List.of(new pe.factura.application.port.in.VerificarIntegridadUseCase.Problema(UUID.randomUUID(), tenant, "20100066603-01-F001-7", "XML_FALTANTE", "t/2026/09/x.xml")));
+        when(integridad.verificar(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30))).thenReturn(informe);
+        mvc.perform(post("/v1/admin/integridad").param("desde", "2026-09-01").param("hasta", "2026-09-30"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.verificados").value(12))
+                .andExpect(jsonPath("$.datos.problemas[0].tipo").value("XML_FALTANTE"))
+                .andExpect(jsonPath("$.datos.problemas[0].nombre_archivo").value("20100066603-01-F001-7"));
+        mvc.perform(post("/v1/admin/integridad").param("desde", "2026-09-01")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
     }
 
     @Test void adminCreaTenant() throws Exception {

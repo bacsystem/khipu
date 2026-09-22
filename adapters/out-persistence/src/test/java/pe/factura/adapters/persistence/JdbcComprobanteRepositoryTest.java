@@ -235,6 +235,19 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.pendientesDeCdr()).extracting(Comprobante::id).containsExactlyInAnyOrder(enviada.id(), aceptadaSinCdr.id());
     }
 
+    /** Integridad del storage (#38): solo los firmados (con xml_key) del rango, de cualquier empresa. */
+    @Test void listaLosFirmadosEmitidosEntreDosFechas() {
+        UUID t = tenantDePrueba(), otro = tenantDePrueba();
+        Comprobante sinFirma = factura(t, 1); repo.guardar(sinFirma);
+        Comprobante firmada = factura(t, 2); firmada.firmar("H", "k2.xml"); repo.guardar(firmada);
+        Comprobante deOtro = factura(otro, 1); deOtro.firmar("H", "k3.xml"); repo.guardar(deOtro);
+        Comprobante antigua = Comprobante.factura(t, "F001", LocalDate.of(2026, 8, 31), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(java.time.Clock.fixed(java.time.Instant.parse("2026-08-31T15:00:00Z"), java.time.ZoneId.of("America/Lima")));
+        antigua.asignarNumero(3, "20100066603"); antigua.firmar("H", "k4.xml"); repo.guardar(antigua);
+        assertThat(repo.firmadosEmitidosEntre(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30))).extracting(Comprobante::id).containsExactlyInAnyOrder(firmada.id(), deOtro.id());
+        assertThat(repo.firmadosEmitidosEntre(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31))).extracting(Comprobante::id).containsExactly(antigua.id());
+    }
+
     @Test void guardaYRehidrataNotasYLasListaPorFactura() {
         UUID t = tenantDePrueba();
         Comprobante f = factura(t, 20);
