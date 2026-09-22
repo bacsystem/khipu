@@ -42,6 +42,29 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
   await expect(page.getByText(previsualizado, { exact: false }).first()).toBeVisible();
 });
 
+test("tras emitir, el diálogo anuncia el correlativo siguiente, no el que acaba de usar (#17)", async ({ page }) => {
+  const numeroAnunciado = async () => {
+    const texto = await page.getByRole("dialog").getByLabel("Serie").innerText();
+    return Number(texto.match(/siguiente N\.º (\d+)/)?.[1]);
+  };
+
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const antes = await numeroAnunciado();
+
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  await dialogo.getByLabel("Descripción").fill("Consultoría");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100");
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+
+  // El diálogo vive en el top bar y sobrevive a esta navegación: si cacheara las series, seguiría ofreciendo el
+  // número que la emisión acaba de consumir. Se compara con `>` porque otros specs emiten sobre el mismo mock.
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  expect(await numeroAnunciado()).toBeGreaterThan(antes);
+});
+
 test("cancelar cierra el diálogo sin emitir nada (#17)", async ({ page }) => {
   const filasAntes = await page.locator("table tbody tr").count();
 

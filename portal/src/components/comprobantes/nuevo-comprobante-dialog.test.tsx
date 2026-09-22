@@ -17,6 +17,15 @@ function stubFetch(porRuta: (url: string) => Response) {
   return fetch;
 }
 
+function llamadasA(fetch: ReturnType<typeof stubFetch>, ruta: string) {
+  return fetch.mock.calls.filter(([url]) => String(url).includes(ruta)).length;
+}
+
+async function abrir() {
+  fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+  await waitFor(() => expect(screen.getByLabelText("Serie")).toBeInTheDocument());
+}
+
 afterEach(() => {
   // La config de vitest no usa `globals`, así que testing-library no registra su limpieza automática: sin esto
   // el diálogo de un test sigue montado en el siguiente y las consultas encuentran elementos duplicados.
@@ -83,7 +92,7 @@ describe("NuevoComprobanteDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
     await waitFor(() => expect(screen.getByText("No se pudo leer la configuración de la empresa")).toBeInTheDocument());
 
-    const seriesAntes = fetch.mock.calls.filter(([url]) => String(url).includes("/series")).length;
+    const seriesAntes = llamadasA(fetch, "/series");
     fallarEmpresa = false;
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
 
@@ -91,6 +100,22 @@ describe("NuevoComprobanteDialog", () => {
     await waitFor(() => expect(screen.getByText(/Producción/)).toBeInTheDocument());
     expect(screen.getByText("IGV (10.5 %)")).toBeInTheDocument();
     // Cada recurso tiene su efecto: reintentar la empresa no vuelve a pedir las series, que ya estaban cargadas.
-    expect(fetch.mock.calls.filter(([url]) => String(url).includes("/series")).length).toBe(seriesAntes);
+    expect(llamadasA(fetch, "/series")).toBe(seriesAntes);
+  });
+
+  it("al reabrir recarga las series: cachearlas anunciaría el correlativo que ya consumió la emisión anterior", async () => {
+    const fetch = stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    const primeraApertura = llamadasA(fetch, "/series");
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument());
+
+    // El diálogo vive en el top bar y sobrevive a la navegación posterior a emitir, así que si el estado no se
+    // olvidara al cerrar, `ultimo_numero` seguiría siendo el de antes de la emisión.
+    await abrir();
+    expect(llamadasA(fetch, "/series")).toBe(primeraApertura + 1);
   });
 });
