@@ -19,8 +19,16 @@ describe("formatearMonto", () => {
     expect(formatearMonto("USD", 5)).toBe("$ 5.00");
   });
 
+  it("cubre las tres monedas que acepta la API con su símbolo", () => {
+    // EUR llegó tarde al mapa: el formulario de emisión lo ofrecía y el pie de totales mostraba "EUR 2,500.01"
+    // mientras el campo de precio mostraba "€ 2,500.01" para el mismo importe.
+    expect(formatearMonto("PEN", 1)).toBe("S/ 1.00");
+    expect(formatearMonto("USD", 1)).toBe("$ 1.00");
+    expect(formatearMonto("EUR", 1)).toBe("€ 1.00");
+  });
+
   it("usa el código ISO cuando la moneda no tiene símbolo", () => {
-    expect(formatearMonto("EUR", 1)).toBe("EUR 1.00");
+    expect(formatearMonto("CLP", 1)).toBe("CLP 1.00");
   });
 });
 

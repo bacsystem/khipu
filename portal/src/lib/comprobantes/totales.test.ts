@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularTotales, factorIgv, redondear } from "./totales";
+import { calcularTotales, esGratuita, factorIgv, redondear } from "./totales";
 
 const gravado = (cantidad: number, precioUnitario: number) => ({ cantidad, precioUnitario, tipoAfectacionIgv: "10" });
 
@@ -65,6 +65,33 @@ describe("calcularTotales", () => {
   it("usa la tasa reducida del padrón cuando corresponde", () => {
     // 110.50 / 1.105 = 100.00 exacto.
     expect(calcularTotales([gravado(1, 110.5)], 10.5)).toMatchObject({ gravado: 100, igv: 10.5, total: 110.5 });
+  });
+
+  /**
+   * Con cantidad fraccionaria el resultado depende del dígito n.º 11 del valor referencial, que en punto flotante
+   * se pierde: `1208.79 / 1.18` es 1024.39830508474576…, y escalar ese `double` por 1e10 redondeaba a …0848 en vez
+   * de …0847. Un diezmilmillonésimo que acá se vuelve un céntimo. Contrastado contra la cadena de `ItemCalculado`.
+   */
+  it("acierta el céntimo con cantidades fraccionarias, donde el punto flotante fallaba", () => {
+    expect(calcularTotales([gravado(0.59, 1208.79)], 18)).toMatchObject({
+      gravado: 604.39,
+      igv: 108.79,
+      total: 713.18,
+    });
+  });
+
+  it("mantiene la paridad con el dominio en cantidades de tres decimales", () => {
+    expect(calcularTotales([gravado(1.125, 47.9)], 18)).toMatchObject({ gravado: 45.67, igv: 8.22, total: 53.89 });
+    expect(calcularTotales([gravado(0.001, 9999.99)], 10.5)).toMatchObject({ gravado: 9.05, igv: 0.95, total: 10 });
+  });
+
+  it("el 17 es IVAP, una venta gravada: no se cuenta como gratuita", () => {
+    // `TipoAfectacionIgv.IVAP("17", Tributo.IVAP, gravada=true, gratuita=false)`. Tratarlo como gratuita
+    // previsualizaba total S/ 0 sobre una línea que el backend sí cobra.
+    expect(esGratuita("17")).toBe(false);
+    expect(esGratuita("16")).toBe(true);
+    expect(esGratuita("21")).toBe(true);
+    expect(esGratuita("10")).toBe(false);
   });
 
   it("ignora líneas incompletas mientras se escribe el formulario", () => {

@@ -73,16 +73,52 @@ test("tras emitir, el diálogo anuncia el correlativo siguiente, no el que acaba
   expect(await numeroAnunciado()).toBeGreaterThan(antes);
 });
 
-test("cancelar cierra el diálogo sin emitir nada (#17)", async ({ page }) => {
-  const filasAntes = await page.locator("table tbody tr").count();
-
+test("una línea sin precio no se emite como S/ 0.00, y vaciar la fecha no manda un comprobante sin fecha (#17)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
-  await dialogo.getByRole("button", { name: "Cancelar" }).click();
 
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+
+  // La cantidad ya viene en 1: con solo la descripción, la línea parecía completa y se emitía a precio 0 —una
+  // factura que después hay que anular con nota de crédito.
+  await dialogo.getByLabel("Descripción").fill("Consultoría");
+  await expect(dialogo.getByText("1 ítem incompleto no se emitirá")).toBeVisible();
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 0.00");
+
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100");
+  await expect(dialogo.getByText("1 ítem incompleto no se emitirá")).toBeHidden();
+  // 100 / 1.18 = 84.75 y su IGV 15.26: el redondeo por línea da 100.01, no 100.00.
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 100.01");
+
+  // Un input de fecha vaciado emite "", no null: la guarda tiene que devolverlo a hoy y no dejar pasar el vacío.
+  const fecha = dialogo.getByLabel("Fecha de emisión");
+  const hoy = await fecha.inputValue();
+  await fecha.fill("");
+  await fecha.blur();
+  await expect(fecha).toHaveValue(hoy);
+
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+});
+
+test("cancelar cierra el diálogo sin emitir nada (#17)", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+
+  // Se observa la petición y no el estado compartido: otros specs emiten contra el mismo mock en paralelo, así que
+  // ni el conteo de filas ni el correlativo ofrecido sirven para afirmar que *este* cancelar no emitió.
+  const emisiones: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().includes("/api/proxy/facturas")) emisiones.push(r.url());
+  });
+
+  await dialogo.getByRole("button", { name: "Cancelar" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator("table tbody tr")).toHaveCount(filasAntes);
+  await expect(page).toHaveURL(/\/comprobantes(\?|$)/);
+  expect(emisiones).toEqual([]);
 });
 
 test("una línea sin descripción no entra en el total ni se emite en silencio (#17)", async ({ page }) => {

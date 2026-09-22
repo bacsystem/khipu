@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    // ES2020 (y no el ES2017 del scaffold de Next) por BigInt: `lib/comprobantes/totales.ts` calcula los importes
+    // con enteros para igualar al BigDecimal del backend, y BigInt no se puede transpilar a un target menor.
+    // Solo afecta al chequeo de tipos —acá `noEmit` está en true—; el bundle lo genera SWC según browserslist.
+    "target": "ES2020",
     "lib": [
       "dom",
       "dom.iterable",

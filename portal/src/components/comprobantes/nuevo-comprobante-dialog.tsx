@@ -11,12 +11,9 @@ import { GrupoBotones } from "@/components/ui/grupo-botones";
 import { apiRequest } from "@/lib/api/browser";
 import type { EmpresaDetalle } from "@/lib/api/empresas";
 import type { Serie } from "@/lib/api/series";
+import { TASA_GENERAL, TASA_PADRON } from "@/lib/comprobantes/totales";
 import { BOTON_SECUNDARIO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
-
-/** Tasas del IGV (#84): la general y la reducida del Padrón de Tasa Especial (Ley 31556). */
-const TASA_GENERAL = 18;
-const TASA_PADRON = 10.5;
 
 /**
  * Carga un recurso mientras el diálogo está abierto, y lo deja reintentable.
@@ -74,9 +71,9 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   const series = useRecursoDelDialogo<Serie[]>(abierto, "/api/proxy/series");
   const empresa = useRecursoDelDialogo<EmpresaDetalle>(abierto, "/api/proxy/empresa");
 
-  // La tasa de la empresa decide el IGV que se previsualiza. Si no se pudo leer se cae a la general, y eso hay que
-  // decirlo: con la reducida los totales previsualizados no serían los del comprobante (ver el aviso de abajo).
-  const tasaIgv = empresa.dato?.padron_tasa_especial_igv ? TASA_PADRON : TASA_GENERAL;
+  // La tasa de la empresa decide el IGV que se previsualiza, y hasta saberla no se afirma ninguna: `null` mientras
+  // carga (el pie muestra "IGV" a secas), la general si la lectura falló (con el aviso de abajo diciéndolo).
+  const tasaIgv = empresa.dato ? (empresa.dato.padron_tasa_especial_igv ? TASA_PADRON : TASA_GENERAL) : empresa.error ? TASA_GENERAL : null;
 
   const ambiente =
     // El detalle lo da el aviso del cuerpo; acá solo se deja de afirmar un ambiente que no se conoce.

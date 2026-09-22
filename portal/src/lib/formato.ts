@@ -1,4 +1,12 @@
-const SIMBOLOS: Record<string, string> = { PEN: "S/", USD: "$" };
+/**
+ * Las tres monedas que acepta `FacturaRequest` (`@Pattern("PEN|USD|EUR")`). Tiene que cubrirlas a todas: lo que
+ * falte cae al código ISO, y el formulario de emisión mostraba «€ 2,500.01» en el campo de precio y «EUR 2,500.01»
+ * en el pie de totales para el mismo importe.
+ *
+ * `EntradaMonto` mantiene su propia copia a propósito: es un componente vendorizado del design system y no debe
+ * depender del `lib/` de esta app. Si aparece una moneda nueva, hay que tocar las dos.
+ */
+const SIMBOLOS: Record<string, string> = { PEN: "S/", USD: "$", EUR: "€" };
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"];
 

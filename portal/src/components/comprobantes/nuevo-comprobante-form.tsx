@@ -11,7 +11,7 @@ import { StepperNumerico } from "@/components/formularios/stepper-numerico";
 import { BotonAsync } from "@/components/patrones/boton-async";
 import { apiRequest } from "@/lib/api/browser";
 import type { Serie } from "@/lib/api/series";
-import { calcularTotales, type ItemParaTotales } from "@/lib/comprobantes/totales";
+import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, hoyLima, sumarDias } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
@@ -61,8 +61,12 @@ export function NuevoComprobanteForm({
   onCancelar,
 }: {
   series: Serie[];
-  /** Tasa vigente de la empresa: 10.5 % si está en el padrón de tasa especial, 18 % si no. */
-  tasaIgv: number;
+  /**
+   * Tasa vigente de la empresa: 10.5 % si está en el padrón de tasa especial, 18 % si no, y `null` mientras no se
+   * sabe. El `null` importa: previsualizar al 18 % a un tenant del padrón muestra importes que no son los que
+   * emitirá, y encima cambian solos cuando llega la respuesta.
+   */
+  tasaIgv: number | null;
   onEmitido?: () => void;
   onCancelar?: () => void;
 }) {
@@ -99,15 +103,21 @@ export function NuevoComprobanteForm({
 
   // Una sola definición de "línea que cuenta", para previsualizar y para enviar: si difieren, el total que el
   // usuario revisa no es el del comprobante que se emite.
-  const lineasCompletas = lineas.filter((l) => l.descripcion.trim() && (l.cantidad ?? 0) > 0);
+  //
+  // El precio también decide: sin él, una línea con solo la descripción escrita (la cantidad ya viene en 1 desde
+  // `LINEA_VACIA`) se daba por completa, el aviso de ítem incompleto desaparecía y se emitía una línea de S/ 0.00
+  // —que ya no se puede corregir sin nota de crédito—. Las gratuitas se cobran a 0 pero llevan valor referencial,
+  // así que tampoco son una excepción: su precio es el valor de referencia y debe estar.
+  const lineasCompletas = lineas.filter((l) => l.descripcion.trim() && (l.cantidad ?? 0) > 0 && (l.precioUnitario ?? 0) > 0);
   const paraTotales: ItemParaTotales[] = lineasCompletas.map((l) => ({
     cantidad: l.cantidad ?? 0,
     precioUnitario: l.precioUnitario ?? 0,
     tipoAfectacionIgv: l.tipoAfectacionIgv,
   }));
-  const totales = calcularTotales(paraTotales, tasaIgv);
+  // Sin tasa confirmada se previsualiza con la general, pero la etiqueta del pie no la afirma (ver abajo).
+  const totales = calcularTotales(paraTotales, tasaIgv ?? TASA_GENERAL);
   // Una línea a medio cargar no se descarta en silencio: se avisa, porque su importe no está en el total de
-  // arriba. El texto no nombra la causa: `lineasCompletas` excluye tanto por descripción vacía como por cantidad 0.
+  // arriba. El texto no nombra la causa: `lineasCompletas` excluye por descripción, por cantidad y por precio.
   const lineasIncompletas = lineas.length - lineasCompletas.length;
 
   /** `detalle` guarda un índice: al borrar una fila hay que reubicarlo o el panel queda abierto sobre otro ítem. */
@@ -131,7 +141,7 @@ export function NuevoComprobanteForm({
       tipo_afectacion_igv: l.tipoAfectacionIgv,
     }));
     if (items.length === 0) {
-      setError("Agrega al menos un ítem con descripción y cantidad.");
+      setError("Agrega al menos un ítem con descripción, cantidad y precio.");
       return;
     }
 
@@ -190,7 +200,9 @@ export function NuevoComprobanteForm({
         <Campo id="nc-fecha" etiqueta="Fecha de emisión" ayuda="Máx. 3 días">
           {/* Los dos extremos los rechaza el backend (futura y fuera del plazo de envío, regla 2108), así que el
               calendario los cierra acá en vez de gastar un viaje para que lo diga SUNAT. */}
-          <EntradaFecha id="nc-fecha" valor={fecha} onCambio={(v) => setFecha(v ?? hoy)} min={sumarDias(hoy, -PLAZO_ENVIO_DIAS)} max={hoy} variante="filtro" />
+          {/* `||` y no `??`: un input de fecha vaciado emite `""`, no `null`, así que `??` dejaba pasar el vacío
+              hasta el `@NotNull LocalDate` del backend y la emisión moría con un error de deserialización. */}
+          <EntradaFecha id="nc-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={sumarDias(hoy, -PLAZO_ENVIO_DIAS)} max={hoy} variante="filtro" />
         </Campo>
 
         <Campo id="nc-moneda" etiqueta="Moneda">
@@ -349,7 +361,9 @@ export function NuevoComprobanteForm({
               { etiqueta: "Exonerado", monto: totales.exonerado, siempre: false },
               { etiqueta: "Inafecto", monto: totales.inafecto, siempre: false },
               { etiqueta: "Gratuito", monto: totales.gratuito, siempre: false },
-              { etiqueta: `IGV (${tasaIgv} %)`, monto: totales.igv, siempre: true },
+              // Mientras la empresa carga no se sabe si es 18 % o la reducida del padrón: se muestra sin tasa en
+              // vez de afirmar una que puede cambiarle los importes bajo los ojos un instante después.
+              { etiqueta: tasaIgv === null ? "IGV" : `IGV (${tasaIgv} %)`, monto: totales.igv, siempre: true },
             ]
               .filter((f) => f.siempre || f.monto > 0)
               .map((f) => (
