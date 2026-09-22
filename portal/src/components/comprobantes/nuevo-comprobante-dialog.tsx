@@ -37,6 +37,9 @@ function useRecursoDelDialogo<T>(abierto: boolean, ruta: string) {
 
   useEffect(() => {
     if (!abierto) {
+      // Estados primitivos a propósito: al reasignar el mismo `null`/`false` React corta el re-render, así que este
+      // reset no vuelve a disparar el efecto. Con un objeto de estado (`{ estado: "cargando" }`) cada reset crearía
+      // una referencia nueva y el efecto se relanzaría en bucle.
       setDato(null);
       setError(false);
       return;
@@ -55,7 +58,8 @@ function useRecursoDelDialogo<T>(abierto: boolean, ruta: string) {
     };
   }, [abierto, dato, error, ruta]);
 
-  return { dato, error, cargando: dato === null && !error, reintentar: () => setError(false) };
+  // Sin `cargando`: es `!dato && !error`, y quien renderiza ya decide por descarte tras mirar los otros dos.
+  return { dato, error, reintentar: () => setError(false) };
 }
 
 /**

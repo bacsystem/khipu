@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BloqueCodigo } from "@/components/developers/guia/bloque-codigo";
 import { CASOS, ERROR_EJEMPLO, RESPUESTA_EJEMPLO } from "@/components/developers/guia/casos-emision";
-import { Aviso, Codigo, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
+import { NotaProsa, Codigo, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
 import { Rico } from "@/components/developers/guia/rico";
 import { apiPublicUrl } from "@/lib/api/client";
 import { messages } from "@/lib/messages";
@@ -98,7 +98,7 @@ export default function GuiaPage() {
             ["enviar_automatico", "Enviar a SUNAT en la misma llamada.", <><Codigo>true</Codigo> por defecto; <Codigo>false</Codigo> deja el comprobante FIRMADO.</>],
           ]}
         />
-        <Aviso>
+        <NotaProsa>
           Los códigos vienen de los catálogos oficiales de SUNAT. Puede consultarlos en la sección{" "}
           <Link href="/developers/catalogos" className="font-medium underline">
             Catálogos SUNAT
@@ -106,7 +106,7 @@ export default function GuiaPage() {
           o por API (<Codigo>GET /v1/catalogos/07</Codigo>, sin credenciales). Un <Codigo>tipo_operacion</Codigo>, <Codigo>tipo_afectacion_igv</Codigo>,{" "}
           <Codigo>tipo_doc</Codigo> o <Codigo>moneda</Codigo> fuera de catálogo responde <Codigo>422</Codigo> antes de consumir numeración; la{" "}
           <Codigo>unidad</Codigo> no se valida localmente (la lista UN/ECE completa excede el catálogo) y un código inexistente lo rechaza SUNAT.
-        </Aviso>
+        </NotaProsa>
       </Seccion>
 
       <Seccion id="casos" titulo="Casos de emisión">

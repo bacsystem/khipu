@@ -13,7 +13,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { Serie } from "@/lib/api/series";
 import { calcularTotales, type ItemParaTotales } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { formatearMonto, hoyLima } from "@/lib/formato";
+import { formatearMonto, hoyLima, sumarDias } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +48,12 @@ const CAMPO_DENSO = cn(CAMPO, "h-8 text-[13px]");
 
 const LINEA_VACIA: Linea = { descripcion: "", cantidad: 1, precioUnitario: null, unidad: "NIU", tipoAfectacionIgv: "10" };
 
+/**
+ * SUNAT recibe la factura hasta el 3.er día calendario contado desde el día siguiente a la emisión; pasado eso
+ * rechaza con 2108 y el número queda consumido. Espeja `PlazoEnvio.dias` del dominio (RS 193-2020).
+ */
+const PLAZO_ENVIO_DIAS = 3;
+
 export function NuevoComprobanteForm({
   series,
   tasaIgv,
@@ -64,7 +70,9 @@ export function NuevoComprobanteForm({
   const seriesFactura = series.filter((s) => s.tipo === "01" && s.activa);
 
   const [serie, setSerie] = useState(seriesFactura[0]?.serie ?? "");
-  const [fecha, setFecha] = useState(hoyLima());
+  // Por render, no a nivel de módulo: el diálogo puede quedar abierto cruzando la medianoche de Lima.
+  const hoy = hoyLima();
+  const [fecha, setFecha] = useState(hoy);
   const [moneda, setMoneda] = useState("PEN");
   const [numDoc, setNumDoc] = useState("");
   const [razonSocial, setRazonSocial] = useState("");
@@ -180,7 +188,9 @@ export function NuevoComprobanteForm({
         </Campo>
 
         <Campo id="nc-fecha" etiqueta="Fecha de emisión" ayuda="Máx. 3 días">
-          <EntradaFecha id="nc-fecha" valor={fecha} onCambio={(v) => setFecha(v ?? hoyLima())} variante="filtro" />
+          {/* Los dos extremos los rechaza el backend (futura y fuera del plazo de envío, regla 2108), así que el
+              calendario los cierra acá en vez de gastar un viaje para que lo diga SUNAT. */}
+          <EntradaFecha id="nc-fecha" valor={fecha} onCambio={(v) => setFecha(v ?? hoy)} min={sumarDias(hoy, -PLAZO_ENVIO_DIAS)} max={hoy} variante="filtro" />
         </Campo>
 
         <Campo id="nc-moneda" etiqueta="Moneda">

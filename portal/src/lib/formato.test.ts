@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diasEntre, formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } from "./formato";
+import { diasEntre, formatearFecha, formatearFechaHora, formatearMonto, formatearNumero, sumarDias } from "./formato";
 
 describe("formatearNumero", () => {
   it("usa separador de miles y siempre 2 decimales", () => {
@@ -55,5 +55,22 @@ describe("diasEntre", () => {
 
   it("es negativo cuando la segunda fecha es anterior", () => {
     expect(diasEntre("2026-09-18", "2026-09-15")).toBe(-3);
+  });
+});
+
+describe("sumarDias", () => {
+  it("suma y resta días calendario cruzando mes y año", () => {
+    expect(sumarDias("2026-09-18", 3)).toBe("2026-09-21");
+    expect(sumarDias("2026-09-01", -3)).toBe("2026-08-29");
+    expect(sumarDias("2027-01-01", -1)).toBe("2026-12-31");
+  });
+
+  it("cuenta el 29 de febrero en año bisiesto", () => {
+    expect(sumarDias("2028-02-28", 1)).toBe("2028-02-29");
+    expect(sumarDias("2027-02-28", 1)).toBe("2027-03-01");
+  });
+
+  it("es el inverso de diasEntre", () => {
+    expect(diasEntre("2026-09-18", sumarDias("2026-09-18", -3))).toBe(-3);
   });
 });

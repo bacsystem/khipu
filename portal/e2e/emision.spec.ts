@@ -19,6 +19,14 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
   // Boleta existe en el catálogo pero todavía no se puede emitir (#20): se muestra deshabilitada, no oculta.
   await expect(dialogo.getByRole("button", { name: "Boleta" })).toBeDisabled();
 
+  // El calendario no deja elegir una fecha que el backend va a rechazar: ni futura ni fuera del plazo de envío.
+  const fecha = dialogo.getByLabel("Fecha de emisión");
+  const hoy = await fecha.getAttribute("max");
+  expect(hoy).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(await fecha.getAttribute("min")).toBe(
+    new Date(Date.parse(`${hoy}T00:00:00Z`) - 3 * 86_400_000).toISOString().slice(0, 10),
+  );
+
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
 
