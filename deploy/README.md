@@ -15,10 +15,11 @@ Agregar el plugin **Postgres** de Railway al proyecto. Provee las variables `PGH
 - **Root Directory**: `.` (raíz del repo — es un proyecto Gradle multi-módulo, necesita ver todos los
   módulos para compilar `:bootstrap:bootJar`)
 - **Dockerfile Path**: `deploy/backend/Dockerfile`
-- **Healthcheck path**: `/health/liveness` — grupo que incluye solo base de datos y proceso. Devuelve
-  `200 UP` sin SMTP configurado, porque el correo es opcional (`MAIL_HABILITADO=false` por defecto, con
-  fallback a log) y su indicador dejaría el deploy en DOWN para siempre. Usar `/health` a secas como
-  healthcheck haría fallar el despliegue; para diagnóstico sí conviene, que ahí el correo sigue visible
+- **Healthcheck path**: `/health/liveness` — grupo con base de datos y proceso, o sea lo que vuelve
+  inservible al servicio. No incluye el correo a propósito: un SMTP caído no debería tumbar el
+  despliegue. Para diagnóstico está `/health` completo, que sí incluye el correo **cuando está
+  habilitado** (`MAIL_HABILITADO=true`); con el correo apagado su indicador no se registra, así que
+  `/health` no queda en rojo permanente por algo que nadie usa
 - **Puerto**: no fijar `PORT` manualmente — Railway lo inyecta y el backend ya lo respeta
   (`server.port: ${PORT:8001}`)
 

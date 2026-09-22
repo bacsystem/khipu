@@ -1,10 +1,12 @@
+# syntax=docker/dockerfile:1
 # Build context: raíz del repo (proyecto Gradle multi-módulo). En Railway: Root Directory = ".",
-# Dockerfile Path = "deploy/backend/Dockerfile".
+# Dockerfile Path = "deploy/backend/Dockerfile". Requiere BuildKit por el cache mount de abajo.
 FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /app
 COPY . .
-# El caché de Gradle va en un cache mount y no en la capa: un cambio de código invalida la capa del
-# COPY, pero las dependencias ya descargadas se reusan entre builds en vez de bajarse de nuevo.
+# El caché de Gradle va en un cache mount y no en la capa del COPY. Donde el constructor conserve ese
+# mount entre builds (Docker local; en Railway depende de si reusa el builder), las dependencias ya
+# descargadas se reutilizan; donde no, el build es igual de correcto, solo vuelve a bajarlas.
 RUN --mount=type=cache,target=/root/.gradle/caches \
     ./gradlew :bootstrap:bootJar --no-daemon -x test
 
