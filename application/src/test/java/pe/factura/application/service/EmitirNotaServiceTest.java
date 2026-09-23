@@ -149,6 +149,51 @@ class EmitirNotaServiceTest {
                 List.of(new Item("D", "Disminución en el valor", "ZZ", BigDecimal.ONE, new BigDecimal("237.18"), TipoAfectacionIgv.GRAVADO)))).totales().gravado()).isEqualByComparingTo("201.00");
     }
 
+    /**
+     * Los tres límites del 3503 que el total no implica (recert #9: sus mutaciones sobrevivían): exportación (f114, la base
+     * 9995 queda por debajo del total con un cargo global sin IGV), inafecto en una factura mixta (f115) y gratuitas (f117,
+     * que ni entran en el total). Cada uno con el total dentro del 3286 y el concepto fuera de la +1.
+     */
+    @Test void losLimitesPorTributoQueElTotalNoImplica() {
+        // Exportación 4500 + cargo global 50 de 100: total 4600, base 9995 = 4500. NC por 4550 pasa el total y no la base.
+        Comprobante ex = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "USD", "0200",
+                new Receptor("0", "US123456789", "ACME IMPORTS LLC", "1200 Main St", "US"),
+                List.of(new Item("CAF", "Café verde", "KGM", new BigDecimal("1000"), new BigDecimal("4.50"), TipoAfectacionIgv.EXPORTACION)),
+                FormaPago.contado(), null, List.of(Cargo.global(false, null, Cargo.Tipo.MONTO, new BigDecimal("100.00"))), null, null, null, List.of(), null, null, true, null, List.of(), new Exportacion("FOB", null)));
+        assertThat(ex.totales().total()).isEqualByComparingTo("4600.00");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(ex.numero(), "07",
+                List.of(new Item("CAF", "Café verde", "KGM", new BigDecimal("1000"), new BigDecimal("4.55"), TipoAfectacionIgv.EXPORTACION)))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3503").hasMessageContaining("exportación");
+        // Mixta: gravado 200 + inafecto 50. NC inafecta por 51.50: total dentro, inafecto fuera de la +1.
+        Comprobante mixta = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("P3", "Servicio inafecto", "ZZ", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.INAFECTO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(mixta.numero(), "07",
+                List.of(new Item("P3", "Servicio inafecto", "ZZ", BigDecimal.ONE, new BigDecimal("51.50"), TipoAfectacionIgv.INAFECTO)))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3503").hasMessageContaining("inafecto");
+        // Gratuitas: no entran en el total (la NC pasa el 3286 con 0.00) pero su valor referencial sí se compara (f117).
+        Comprobante conGratuita = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("B1", "Bonificación", "NIU", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(conGratuita.numero(), "07",
+                List.of(new Item("B1", "Bonificación", "NIU", BigDecimal.ONE, new BigDecimal("102.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION)))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3503").hasMessageContaining("gratuitas");
+    }
+
+    /** Una NC dada de baja (ANULADO) ya no acredita: sin este filtro la factura quedaba bloqueada tras anular una nota errónea. */
+    @Test void unaNotaAnuladaNoCuentaEnElAcumulado() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        Comprobante primera = service.emitirNota(tenantId, nc(f.numero(), "01", null));
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("ya acreditado 276.00");
+        primera.anular();
+        comprobantes.guardar(primera);
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "01", null)).totales().total()).isEqualByComparingTo("276.00");
+    }
+
     /** La nota total copia también el redondeo de la factura: sin él salía por el total sin redondear, por encima del PayableAmount (3286). */
     @Test void laNotaTotalCopiaElRedondeoDeLaFactura() {
         Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
