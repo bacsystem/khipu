@@ -360,6 +360,85 @@ test("nota: el sustento se corta a 500 caracteres en el cliente (2135)", async (
   await expect(form.getByLabel("Sustento")).toHaveValue("x".repeat(500));
 });
 
+test("nota de débito 13 (penalidades): la línea sale inafecta, 30 (SUNAT 3507)", async ({ page }) => {
+  await page.goto("/comprobantes/f-obs/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  await form.getByLabel(/Motivo/).selectOption("13");
+  await form.getByLabel("Sustento").fill("Penalidad por entrega tardía");
+  await form.getByLabel("Concepto").fill("Penalidad contractual");
+  // La etiqueta ya no promete «con IGV»: las penalidades son inafectas.
+  await form.getByLabel(/Importe inafecto, sin IGV/).fill("100");
+  // Antes salía con afectación 10 (o 40 en exportación): numerada, firmada y rechazada por SUNAT con el
+  // correlativo consumido. El mock ahora replica 3507, así que si volviera a salir gravada esto ni navega.
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de débito" }).click();
+  expect((await peticion).postDataJSON().items[0]).toMatchObject({ tipo_afectacion_igv: "30", precio_unitario: 100 });
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+});
+
+test("nota parcial y total sobre exportación: el importe no es 0.00 y el tope bloquea también la nota total", async ({ page }) => {
+  await page.goto("/comprobantes/f-export/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución por ítem");
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
+  // Con `calcularTotales` (que no entiende la afectación 40) acá decía «$ 0.00» y el tope era inerte.
+  await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: $ 100.00");
+
+  // Se acredita la mitad por HTTP directo (con la cookie de sesión), para que el estado no dependa del orden de
+  // los tests: si el server ya venía con f-export acreditada, el POST falla por 3286 y el tope igual queda < 100.
+  await page.evaluate(() =>
+    fetch("/api/proxy/notas", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        // Fecha de Lima, no UTC: pasada la medianoche UTC el mock la tomaría como futura y rechazaría el POST.
+        tipo: "07", serie: "FC01", fecha_emision: new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }), documento_afectado: { serie: "F001", numero: 5 },
+        motivo: "07", descripcion: "Media devolución",
+        items: [{ descripcion: "Servicio de diseño para el exterior", unidad: "ZZ", cantidad: 0.5, precio_unitario: 100, tipo_afectacion_igv: "40" }],
+      }),
+    }).catch(() => null),
+  );
+  await page.goto("/comprobantes/f-export/nota");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución por ítem");
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
+  await expect(form.getByTestId("nota-importe").getByRole("alert")).toContainText("Supera el tope");
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
+
+  // Nota TOTAL (01) sobre una factura ya acreditada: antes decía «copia la factura ($ 100.00)» y dejaba emitir.
+  await form.getByLabel(/Motivo/).selectOption("01");
+  const total = form.getByTestId("nota-total");
+  await expect(total).toContainText("ya acreditado");
+  await expect(total.getByRole("alert")).toContainText("Supera el tope");
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
+});
+
+test("NC 13: el neto pendiente viaja redondeado a 2 decimales, no en punto flotante (3250/3319)", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("13");
+  await form.getByLabel("Sustento").fill("Reprogramación de cuotas");
+  // 10.1 + 20.2 = 30.299999999999997 en JS; el backend real exige hasta 2 decimales y que la suma sea el pendiente.
+  await form.getByLabel("Monto de la cuota 1").fill("10.1");
+  await form.getByLabel("Monto de la cuota 2").fill("20.2");
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  const fp = (await peticion).postDataJSON().forma_pago;
+  expect(fp.monto_pendiente).toBe(30.3);
+  expect(fp.cuotas.map((q: { monto: number }) => q.monto)).toEqual([10.1, 20.2]);
+});
+
+test("nota: Enter sobre «Cancelar» (un enlace) sigue navegando; la guarda solo frena el envío implícito", async ({ page }) => {
+  const { form, posts } = await notaLista(page);
+  await form.getByRole("link", { name: "Cancelar" }).focus();
+  await page.waitForTimeout(150);
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/comprobantes\/f-aceptada$/);
+  expect(posts).toEqual([]);
+});
+
 test("da de baja una factura aceptada tras confirmar el motivo y queda anulada", async ({ page }) => {
   await page.goto("/comprobantes/f-obs");
   await page.getByTestId("dar-de-baja").click();

@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
-import { calcularTotales, redondear } from "@/lib/comprobantes/totales";
+import { redondear } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
@@ -100,7 +100,14 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     };
     if (esParcial) body.items = itemsParciales;
     if (esCuotas) {
-      body.forma_pago = { tipo: "credito", monto_pendiente: cuotas.reduce((acc, q) => acc + Number(q.monto || 0), 0), cuotas: cuotas.map((q) => ({ monto: Number(q.monto), vencimiento: q.vencimiento })) };
+      // Redondeado a 2: la suma en punto flotante de 10.10 + 20.20 viaja como 30.299999999999997 y el backend la
+      // rechaza (3250: hasta 2 decimales; 3319: la suma de cuotas debe ser el pendiente). Los fixtures (61.5+61.5)
+      // son exactos en binario, por eso ningún e2e lo veía.
+      body.forma_pago = {
+        tipo: "credito",
+        monto_pendiente: redondear(cuotas.reduce((acc, q) => acc + Number(q.monto || 0), 0), 2),
+        cuotas: cuotas.map((q) => ({ monto: redondear(Number(q.monto), 2), vencimiento: q.vencimiento })),
+      };
     }
     // La afectación de la línea de la ND sigue a la factura, no un «10» fijo: sobre una exportación el dominio
     // exige 40 (2642) —con el 10 fijo no se podía emitir ninguna ND sobre exportaciones— y sobre IVAP, 17.
@@ -134,7 +141,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const esExportacion = /^020[0-8]$/.test(factura.tipo_operacion ?? "");
   const esIvap = factura.items.some((i) => i.tipo_afectacion_igv === "17");
   const alCredito = factura.forma_pago.tipo === "credito";
-  const afectacionNd = esExportacion ? "40" : esIvap ? "17" : "10";
+  // ND 13 «Penalidades»: SUNAT las declara operaciones INAFECTAS (regla 3507, tres variantes en la hoja
+  // NotaDebito2_0: con IGV/IVAP, con 9995/9997 o con tributo 1000/1016 → ERROR). La única afectación que pasa es
+  // 30. Antes salía gravada (10, o 40 en exportación): numerada, firmada y rechazada, con el correlativo consumido.
+  const esPenalidad = !esNc && motivo === "13";
+  const afectacionNd = esPenalidad ? "30" : esExportacion ? "40" : esIvap ? "17" : "10";
 
   // NC 13: lo que exige SUNAT (3253 monto > 0, 3321 vencimiento posterior a la factura, 3320 neto ≤ total) antes
   // «listo» solo pedía que hubiera al menos una cuota, y una cuota en blanco viajaba como monto 0 y fecha vacía.
@@ -149,23 +160,35 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     return true;
   });
 
-  // Importe de la nota parcial y su tope. El tope es lo que SUNAT compara (3286): el total de la factura, menos lo
-  // que ya acreditaron otras NC vigentes (el backend lo suma con lock de fila; acá se anticipa para no gastar un
-  // viaje ni consumir número). La tasa se deduce de la propia factura: la nota hereda la de la factura, no la
-  // vigente de la empresa.
-  const tasaFactura = factura.totales.gravado > 0 ? redondear((factura.totales.igv / factura.totales.gravado) * 100, 1) : 18;
-  const importeNota = esParcial ? calcularTotales(itemsParciales.map((i) => ({ cantidad: i.cantidad, precioUnitario: i.precio_unitario, tipoAfectacionIgv: i.tipo_afectacion_igv })), tasaFactura).total : 0;
-  const acreditado = (factura.notas ?? [])
-    .filter((n) => n.tipo === "07" && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO")
-    .reduce((s, n) => s + n.total, 0);
+  // Importe de la nota y su tope. El tope es lo que SUNAT compara (3286): el total de la factura, menos lo que ya
+  // acreditaron otras NC vigentes (el backend lo suma con lock de fila; acá se anticipa para no gastar un viaje ni
+  // consumir número).
+  //
+  // El importe se calcula como Σ precio × cantidad por línea, redondeado a 2: `precio_unitario` ya es el precio de
+  // venta con impuesto incluido en 10/17 y el valor sin IGV en 20/30/40, así que la suma es el total a pagar de la
+  // línea para CUALQUIER afectación. La primera versión pasaba por `calcularTotales`, que solo entiende 10/20/30
+  // y devuelve 0 para 40 (exportación) y 17 (IVAP): el tope era inerte y el usuario leía «$ 0.00» antes de emitir.
+  // Vale también para la nota total (01/02/06): copia la factura entera, y si ya hay NC vigentes la supera.
+  const importeNota = esParcial
+    ? redondear(itemsParciales.reduce((s, i) => s + redondear(i.precio_unitario * i.cantidad, 2), 0), 2)
+    : esTotal
+      ? factura.totales.total
+      : 0;
+  const acreditado = redondear(
+    (factura.notas ?? [])
+      .filter((n) => n.tipo === "07" && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO")
+      .reduce((s, n) => s + n.total, 0),
+    2,
+  );
   const tope = redondear(factura.totales.total - acreditado, 2);
-  const superaTope = esParcial && importeNota > tope;
+  const superaTope = (esParcial || esTotal) && importeNota > tope;
 
   const listo =
     serie !== "" &&
     motivo !== "" &&
     descripcion.trim() !== "" &&
     (!esParcial || (itemsParciales.length > 0 && !superaTope)) &&
+    (!esTotal || !superaTope) &&
     (esNc || (nd.descripcion.trim() !== "" && Number(nd.importe) > 0)) &&
     (!esCuotas || cuotasValidas);
 
@@ -211,9 +234,19 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       </div>
 
       {esTotal ? (
-        <p className="rounded-lg border border-border bg-muted px-3 py-2 text-[12px] leading-relaxed text-muted-foreground" data-testid="nota-total">
-          Nota <strong className="text-foreground">total</strong>: khipu copia los ítems, el descuento global y los cargos de la factura {factura.serie}-{factura.numero} ({formatearMonto(factura.moneda, factura.totales.total)}).
-        </p>
+        <div className={cn("rounded-lg border px-3 py-2 text-[12px] leading-relaxed", superaTope ? "border-destructive/50 bg-destructive/5 text-destructive" : "border-border bg-muted text-muted-foreground")} data-testid="nota-total">
+          <p>
+            Nota <strong className="text-foreground">total</strong>: khipu copia los ítems, el descuento global y los cargos de la factura {factura.serie}-{factura.numero} ({formatearMonto(factura.moneda, factura.totales.total)}).
+          </p>
+          {/* Una nota total sobre una factura ya acreditada por otras NC vigentes la supera (3286): es el escenario de
+              la doble acreditación (#83), y antes esta pantalla no decía nada y dejaba emitir. */}
+          {acreditado > 0 ? (
+            <p className="mt-1" data-testid="nota-importe">
+              Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span> (ya acreditado {formatearMonto(factura.moneda, acreditado)} en otras notas de crédito).
+              {superaTope ? <span role="alert" className="block"> Supera el tope: SUNAT la rechazaría (3286). Solo queda por acreditar {formatearMonto(factura.moneda, tope)}; elegí un motivo parcial.</span> : null}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       {esParcial ? (
@@ -292,7 +325,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             <input id="nd-descripcion" value={nd.descripcion} onChange={(e) => setNd({ ...nd, descripcion: e.target.value })} placeholder="Ej.: intereses por mora de 30 días" className={CAMPO} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="nd-importe" className={ETIQUETA_CAMPO}>Importe con IGV ({factura.moneda})</label>
+            <label htmlFor="nd-importe" className={ETIQUETA_CAMPO}>{esPenalidad ? `Importe inafecto, sin IGV (${factura.moneda})` : `Importe con IGV (${factura.moneda})`}</label>
             <input id="nd-importe" type="number" min={0.01} step="0.01" value={nd.importe} onChange={(e) => setNd({ ...nd, importe: e.target.value })} className={cn(CAMPO, "font-mono")} />
           </div>
         </div>

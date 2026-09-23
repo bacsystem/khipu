@@ -454,6 +454,11 @@ export const handlers = [
     const formaPago = (body as { forma_pago?: { tipo: string; monto_pendiente: number; cuotas: Array<{ monto: number; vencimiento: string }> } }).forma_pago;
     if (nc13 && (!formaPago || formaPago.tipo !== "credito" || !formaPago.cuotas?.length)) return fail(422, "NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
     if (!nc13 && formaPago) return fail(422, "NOTA_INVALIDA", "forma_pago solo se admite en una nota de crédito con motivo 13 (corrección de cuotas)");
+    // 3507 (hoja NotaDebito2_0): las penalidades (ND motivo 13) son operaciones inafectas — con IGV/IVAP, 9995/9997
+    // o tributo 1000/1016 SUNAT rechaza. El backend real todavía no lo cruza (#123): acá se aplica para que el e2e
+    // no dé por buena una ND que SUNAT devolvería rechazada con el correlativo consumido.
+    if (body.tipo === "08" && body.motivo === "13" && (body.items ?? []).some((i) => i.tipo_afectacion_igv !== "30"))
+      return fail(422, "NOTA_INVALIDA", "3507 - Las penalidades son operaciones inafectas del IGV: la línea debe llevar afectación 30");
     if (nc13) {
       if (factura.forma_pago.tipo !== "credito") return fail(422, "NOTA_INVALIDA", `3260 - El motivo 13 solo aplica a facturas al crédito y ${factura.serie}-${factura.numero} es al contado`);
       if (formaPago!.cuotas.some((q) => !(q.monto > 0))) return fail(422, "FORMA_PAGO_INVALIDA", "3253 - El monto de cada cuota debe ser positivo");
