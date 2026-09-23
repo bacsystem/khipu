@@ -96,7 +96,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       fecha_emision: hoyLima(),
       documento_afectado: { serie: factura.serie, numero: factura.numero },
       motivo,
-      descripcion: descripcion.trim(),
+      // Un `<input>` de una línea no admite saltos, pero sí un tabulador pegado (una celda de Excel): el backend lo
+      // rechaza (2135, `isISOControl`). Cualquier espacio en blanco se normaliza a un espacio antes de viajar.
+      descripcion: descripcion.replace(/\s+/g, " ").trim(),
     };
     if (esParcial) body.items = itemsParciales;
     if (esCuotas) {
