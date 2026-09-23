@@ -8,6 +8,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
+import { importeLineaNota, itemParaNota } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
@@ -72,20 +73,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const esTotal = esNc && MOTIVOS_NC_TOTAL.has(motivo) && !conAnticipos;
   const esCuotas = esNc && motivo === "13";
   const esParcial = esNc && motivo !== "" && !esTotal && !esCuotas;
-  const itemsParciales = factura.items
-    .map((i, idx) => ({ item: i, cantidad: cantidades[idx] ?? 0 }))
-    .filter((x) => x.cantidad > 0)
-    .map(({ item, cantidad }) => ({
-      codigo: item.codigo ?? undefined,
-      descripcion: item.descripcion,
-      unidad: item.unidad,
-      cantidad,
-      precio_unitario: item.precio_unitario,
-      tipo_afectacion_igv: item.tipo_afectacion_igv,
-      descuento: item.descuento && cantidad === Number(item.cantidad) ? { [item.descuento.tipo === "PORCENTAJE" ? "porcentaje" : "monto"]: item.descuento.valor, afecta_base_igv: item.descuento.afecta_base_igv } : undefined,
-      isc: item.isc ? { sistema: item.isc.sistema, tasa: item.isc.tasa } : undefined,
-      icbper: item.icbper ? true : undefined,
-    }));
+  const lineasParciales = factura.items.map((item, idx) => ({ item, cantidad: cantidades[idx] ?? 0 })).filter((x) => x.cantidad > 0);
+  const itemsParciales = lineasParciales.map(({ item, cantidad }) => itemParaNota(item, cantidad));
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -168,13 +157,14 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // acreditaron otras NC vigentes (el backend lo suma con lock de fila; acá se anticipa para no gastar un viaje ni
   // consumir número).
   //
-  // El importe se calcula como Σ precio × cantidad por línea, redondeado a 2: `precio_unitario` ya es el precio de
-  // venta con impuesto incluido en 10/17 y el valor sin IGV en 20/30/40, así que la suma es el total a pagar de la
-  // línea para CUALQUIER afectación. La primera versión pasaba por `calcularTotales`, que solo entiende 10/20/30
-  // y devuelve 0 para 40 (exportación) y 17 (IVAP): el tope era inerte y el usuario leía «$ 0.00» antes de emitir.
-  // Vale también para la nota total (01/02/06): copia la factura entera, y si ya hay NC vigentes la supera.
+  // El importe es Σ de lo que paga el cliente por cada línea (`importeLineaNota`: el `precio_venta` del backend con
+  // la cantidad facturada; en proporción, con los ajustes que viajan, con menos), válido para CUALQUIER afectación.
+  // La primera versión pasaba por `calcularTotales`, que solo entiende 10/20/30 y devuelve 0 para 40 (exportación) y
+  // 17 (IVAP): el tope era inerte y el usuario leía «$ 0.00» antes de emitir. La segunda hacía precio × cantidad y no
+  // veía los cargos de línea. Vale también para la nota total (01/02/06): copia la factura entera, y si ya hay NC
+  // vigentes la supera.
   const importeNota = esParcial
-    ? redondear(itemsParciales.reduce((s, i) => s + redondear(i.precio_unitario * i.cantidad, 2), 0), 2)
+    ? redondear(lineasParciales.reduce((s, { item, cantidad }) => s + importeLineaNota(item, cantidad), 0), 2)
     : esTotal
       ? factura.totales.total
       : 0;
@@ -286,7 +276,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
           </table>
           <p className={cn(AYUDA_CAMPO, "border-t border-border/60 px-3 py-2")}>
             {conAnticipos && MOTIVOS_NC_TOTAL.has(motivo) ? `La factura regularizó anticipos (neto ${formatearMonto(factura.moneda, factura.totales.total)}): ajuste las cantidades para que la nota no supere ese importe. ` : ""}
-            Ponga 0 en los ítems que no entran en la nota. El descuento de línea solo se conserva si la cantidad es la facturada.
+            Ponga 0 en los ítems que no entran en la nota. Un descuento o cargo de línea en porcentaje acompaña a la cantidad; los de monto fijo solo se conservan con la cantidad facturada.
           </p>
           {/* El importe que va a salir, contra lo que SUNAT compara. Antes el formulario no mostraba ninguna cifra
               de la nota y el usuario descubría el 3286 después de emitir. */}

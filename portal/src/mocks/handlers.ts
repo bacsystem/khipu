@@ -443,7 +443,9 @@ export const handlers = [
     // Con guarda: un cuerpo vacío o truncado (un POST abortado en el teardown de un test, reenviado por el BFF sin
     // cuerpo) hacía que `request.json()` lanzara y MSW respondiera 500 con el stack —el «SyntaxError: Unexpected
     // end of JSON input» de los logs—. El backend real responde 400 JSON_INVALIDO; el mock ahora también.
-    type CuerpoNota = { tipo: "07" | "08"; serie: string; fecha_emision: string; documento_afectado: { serie: string; numero: number }; motivo: string; descripcion: string; items?: Array<{ descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }> };
+    type Ajuste = { porcentaje?: number; monto?: number; afecta_base_igv?: boolean };
+    type ItemNota = { descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string; descuento?: Ajuste; cargos?: Ajuste[]; isc?: { sistema: string; tasa?: number; monto_unitario?: number; base_pvp?: number } };
+    type CuerpoNota = { tipo: "07" | "08"; serie: string; fecha_emision: string; documento_afectado: { serie: string; numero: number }; motivo: string; descripcion: string; items?: ItemNota[] };
     let body: CuerpoNota;
     try {
       body = (await request.json()) as CuerpoNota;
@@ -470,6 +472,20 @@ export const handlers = [
     // Incluye el tabulador (\x09): el backend usa `Character::isISOControl` y SUNAT 2135 lo prohíbe explícitamente.
     // La primera versión lo dejaba pasar y una celda pegada de Excel salía en verde acá y en 422 en producción.
     if (desc.trim() === "" || desc.length > 500 || /[\x00-\x1F\x7F]/.test(desc)) return fail(422, "NOTA_INVALIDA", "2135 - El sustento de la nota tiene de 1 a 500 caracteres, sin saltos de línea ni tabuladores");
+    // Contrato de los ítems, a paridad con `Isc`, `DescuentoDto.aDominio` y `CargoDto.aDominio`: sin esto el mock daba
+    // 201 a un ISC {sistema: "02", tasa} que el dominio rechaza, y una NC parcial sobre una línea con ISC salía verde en
+    // e2e y 422 en producción.
+    for (const i of body.items ?? []) {
+      for (const a of [i.descuento, ...(i.cargos ?? [])]) {
+        if (a && (a.porcentaje == null) === (a.monto == null)) return fail(422, "CARGO_INVALIDO", "Indique porcentaje o monto, no ambos");
+      }
+      const isc = i.isc;
+      if (!isc) continue;
+      if (!/^0[123]$/.test(isc.sistema)) return fail(422, "ISC_INVALIDO", "2041 - El sistema de cálculo del ISC debe ser 01, 02 o 03 (catálogo 08)");
+      if (isc.sistema === "02" && (!(isc.monto_unitario! > 0) || isc.tasa != null)) return fail(422, "ISC_INVALIDO", "El sistema 02 (monto fijo) exige monto_unitario positivo y no lleva tasa");
+      if (isc.sistema !== "02" && (!(isc.tasa! > 0) || isc.monto_unitario != null)) return fail(422, "ISC_INVALIDO", `3104 - El sistema ${isc.sistema} exige una tasa de ISC positiva y no lleva monto_unitario`);
+      if (isc.sistema === "03" && !(isc.base_pvp! > 0)) return fail(422, "ISC_INVALIDO", "El sistema 03 (precio de venta al público) exige base_pvp");
+    }
     const nc13 = body.tipo === "07" && body.motivo === "13";
     const formaPago = (body as { forma_pago?: { tipo: string; monto_pendiente: number; cuotas: Array<{ monto: number; vencimiento: string }> } }).forma_pago;
     if (nc13 && (!formaPago || formaPago.tipo !== "credito" || !formaPago.cuotas?.length)) return fail(422, "NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
@@ -497,7 +513,19 @@ export const handlers = [
     const items = nc13
       ? [{ codigo: null, descripcion: body.descripcion, unidad: "ZZ", cantidad: 1, precio_unitario: 0, tipo_afectacion_igv: "10" }]
       : body.items?.length ? body.items.map((i) => ({ codigo: null, ...i })) : factura.items;
-    const total = Number(items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0).toFixed(2));
+    // Lo que paga el cliente por línea: precio × cantidad más los cargos de línea que viajan en el request (un porcentaje
+    // sobre el valor sin IGV; el que afecta la base paga IGV). Aproximación del mock —el backend real es la autoridad—,
+    // suficiente para que el 3286 no salte con una NC parcial legítima sobre una línea con cargo 47.
+    const total = Number(
+      items
+        .reduce((acc, i) => {
+          const precio = i.cantidad * i.precio_unitario;
+          const factor = i.tipo_afectacion_igv === "10" ? 1.18 : 1;
+          const cargos = ("cargos" in i && i.cargos ? (i.cargos as Ajuste[]) : []).reduce((s, c) => s + (c.monto ?? (precio / factor) * (c.porcentaje ?? 0) / 100) * (c.afecta_base_igv === false ? 1 : factor), 0);
+          return acc + precio + cargos;
+        }, 0)
+        .toFixed(2),
+    );
     // 3286 con el acumulado de NC vigentes sobre la misma factura, como `EmitirComprobanteService.acreditadoPorNotas`.
     if (body.tipo === "07") {
       const acreditado = lista
@@ -507,9 +535,11 @@ export const handlers = [
     }
     serie.ultimo_numero += 1;
     const id = nuevoId("n");
+    // La nota guarda las líneas con la forma de la respuesta (sin los ajustes en forma de request).
+    const itemsNota = items.map((i) => ({ codigo: i.codigo ?? null, descripcion: i.descripcion, unidad: i.unidad, cantidad: i.cantidad, precio_unitario: i.precio_unitario, tipo_afectacion_igv: i.tipo_afectacion_igv }));
     const nota: Comprobante = {
       id, tipo: body.tipo, serie: body.serie, numero: serie.ultimo_numero, fecha_emision: body.fecha_emision, moneda: factura.moneda,
-      tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items, estado_documento: "ACEPTADO", hash: "hashnota==",
+      tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items: itemsNota, estado_documento: "ACEPTADO", hash: "hashnota==",
       nombre_archivo: `20123456786-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
       totales: { gravado: Number((total / 1.18).toFixed(2)), exonerado: 0, inafecto: 0, igv: Number((total - total / 1.18).toFixed(2)), total: Number(total.toFixed(2)) },

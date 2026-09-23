@@ -54,6 +54,12 @@ export type Comprobante = {
     cantidad: number;
     precio_unitario: number;
     tipo_afectacion_igv: string;
+    // Lo que el backend calcula por línea y una nota parcial tiene que leer (cargos, ISC) o mostrar (precio_venta).
+    valor_venta?: number;
+    igv?: number;
+    precio_venta?: number;
+    cargos?: Array<{ tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string }> | null;
+    isc?: { sistema: string; tasa: number; monto: number; base?: number; base_pvp?: number | null; monto_unitario?: number | null } | null;
   }>;
   estado_documento: string;
   hash: string;
@@ -211,6 +217,36 @@ export function resetDb() {
       totales: { gravado: 0, exonerado: 0, inafecto: 0, igv: 0, total: 100 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-export/xml" },
+    },
+    {
+      // Factura con cargo de línea 47 e ISC en los sistemas 02 y 03: la recertificación de notas midió que la NC parcial
+      // descartaba los cargos (acreditaba de menos) y mandaba el ISC como {sistema, tasa}, que el dominio rechaza en
+      // 02 y 03. Fecha fuera de setiembre para no alterar el e2e de filtros por fecha.
+      id: "f-cargos",
+      tipo: "01",
+      serie: "F001",
+      numero: 7,
+      fecha_emision: "2026-08-26",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: "Av. Argentina 2450, Lima" },
+      items: [
+        // 10 × 118 con flete del 10 % que paga IGV (47): valor 1000 + 100, IGV 198, paga 1298.
+        { codigo: "MESA-01", descripcion: "Mesa de trabajo", unidad: "NIU", cantidad: 10, precio_unitario: 118, tipo_afectacion_igv: "10", valor_venta: 1100, igv: 198, precio_venta: 1298, cargos: [{ tipo: "PORCENTAJE", valor: 10, monto: 100, afecta_base_igv: true, codigo: "47" }] },
+        // ISC de monto fijo (02): 2.25 por unidad; la tasa que devuelve el backend es derivada.
+        { codigo: null, descripcion: "Cerveza artesanal 330 ml", unidad: "NIU", cantidad: 2, precio_unitario: 20, tipo_afectacion_igv: "10", valor_venta: 29.4, igv: 6.1, precio_venta: 40, isc: { sistema: "02", tasa: 15.31, monto: 4.5, base: 29.4, monto_unitario: 2.25 } },
+        // ISC al valor según PVP (03): tasa sobre el PVP sugerido unitario.
+        { codigo: null, descripcion: "Gaseosa 500 ml", unidad: "NIU", cantidad: 3, precio_unitario: 5, tipo_afectacion_igv: "10", valor_venta: 10.92, igv: 2.29, precio_venta: 15, isc: { sistema: "03", tasa: 17, monto: 1.79, base: 10.5, base_pvp: 3.5 } },
+      ],
+      estado_documento: "ACEPTADO",
+      hash: "cargos==",
+      nombre_archivo: "20123456786-01-F001-00000007",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-7, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 1140.32, exonerado: 0, inafecto: 0, igv: 206.39, total: 1353 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-cargos/xml" },
     },
     {
       // Anulada por comunicación de baja aceptada: el estado más peligroso para las notas (2120) no estaba en el mock.

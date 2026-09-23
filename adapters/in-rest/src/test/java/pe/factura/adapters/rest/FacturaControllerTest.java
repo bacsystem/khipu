@@ -713,6 +713,20 @@ class FacturaControllerTest {
         assertThat(cap.getValue().items().get(1).icbper()).isTrue();
     }
 
+    /** El sistema 02 vuelve con su `monto_unitario`: es lo que una nota parcial tiene que reenviar (el dominio no admite tasa en 02). */
+    @Test void iscDeMontoFijoDevuelveElMontoUnitario() throws Exception {
+        String conIsc = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"isc\":{\"sistema\":\"02\",\"monto_unitario\":2.25}}");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
+                List.of(new Item("P1", "Prod", "NIU", new BigDecimal("2"), new BigDecimal("20"), TipoAfectacionIgv.GRAVADO, null, new Isc("02", null, new BigDecimal("2.25")), false)))
+                .crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conIsc))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.items[0].isc.sistema").value("02"))
+                .andExpect(jsonPath("$.datos.items[0].isc.monto_unitario").value(2.25))
+                .andExpect(jsonPath("$.datos.items[0].isc.monto").value(4.50));
+    }
+
     @Test void anticiposEntranYSalen() throws Exception {
         String conAnticipo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"F001\",\"numero\":10,\"monto\":30.00,\"fecha_pago\":\"2026-09-01\"}],");
         Comprobante c = aceptado(tenant);
