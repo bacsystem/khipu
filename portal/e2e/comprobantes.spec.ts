@@ -292,10 +292,12 @@ test("nota: los motivos que no aplican a la factura no se ofrecen (11 exportaci�
   await form.getByLabel("Tipo de nota").selectOption("08");
   expect(await codigos()).toEqual(["01", "11"]);
 
-  await page.goto("/comprobantes/f-ivap/nota"); // IVAP (afectación 17)
+  await page.goto("/comprobantes/f-ivap/nota"); // IVAP (afectación 17), al contado
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  expect(await codigos()).toEqual(["01", "07", "12"]);
-  // ND sobre IVAP: la línea sale con 17 y SUNAT exige el motivo 12 (3230); el 13 escapa porque va con 30.
+  // NC sobre IVAP: la línea sale con 17 y SUNAT exige el motivo 12 (3230, fila 223); la recert #3 midió que se
+  // ofrecían 01 y 07 y salían numeradas. El 13 escaparía (línea gravada de importe 0) pero esta es al contado.
+  expect(await codigos()).toEqual(["12"]);
+  // ND sobre IVAP: ídem (fila 206); el 13 escapa porque va con 30.
   await form.getByLabel("Tipo de nota").selectOption("08");
   expect(await codigos()).toEqual(["12", "13"]);
 });
@@ -303,6 +305,9 @@ test("nota: los motivos que no aplican a la factura no se ofrecen (11 exportaci�
 test("nota de débito 12 sobre una factura IVAP: la línea sale con afectación 17", async ({ page }) => {
   await page.goto("/comprobantes/f-ivap/nota");
   const form = page.getByTestId("nota-form");
+  // «Motivo» se habilita cuando cargan los catálogos, es decir, después de hidratar: elegir el tipo antes de eso
+  // cambia el DOM pero no el estado de React, que lo devuelve a 07 (medido: 3 tests de ND rojos bajo carga).
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
   await form.getByLabel("Tipo de nota").selectOption("08");
   await form.getByLabel(/Motivo/).selectOption("12");
   await form.getByLabel("Sustento").fill("Ajuste del precio del arroz");
@@ -327,6 +332,13 @@ test("el mock de POST /v1/notas rechaza los ítems que el backend rechaza: 3230,
   let r = await post({ tipo: "08", serie: "FD01", documento_afectado: { serie: "F001", numero: 8 }, motivo: "01", items: linea("17") });
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("3230");
+  // 3230 también en la NC (fila 223): parcial con línea 17 y total (sin ítems: copia los 17 de la factura).
+  r = await post({ tipo: "07", serie: "FC01", documento_afectado: { serie: "F001", numero: 8 }, motivo: "07", items: linea("17") });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3230");
+  r = await post({ tipo: "07", serie: "FC01", documento_afectado: { serie: "F001", numero: 8 }, motivo: "01" });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3230");
 
   r = await post({ tipo: "08", serie: "FD01", documento_afectado: { serie: "F001", numero: 5 }, motivo: "13", items: linea("30") });
   expect(r.status, r.texto).toBe(422);
@@ -345,6 +357,9 @@ test("el mock de POST /v1/notas rechaza los ítems que el backend rechaza: 3230,
 test("nota de débito sobre una exportación: la línea sale con afectación 40, no con 10 fijo", async ({ page }) => {
   await page.goto("/comprobantes/f-export/nota");
   const form = page.getByTestId("nota-form");
+  // «Motivo» se habilita cuando cargan los catálogos, es decir, después de hidratar: elegir el tipo antes de eso
+  // cambia el DOM pero no el estado de React, que lo devuelve a 07 (medido: 3 tests de ND rojos bajo carga).
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
   await form.getByLabel("Tipo de nota").selectOption("08");
   await form.getByLabel(/Motivo/).selectOption("01");
   await form.getByLabel("Sustento").fill("Intereses por mora de 30 días");
@@ -415,6 +430,9 @@ test("nota: el sustento se corta a 500 caracteres en el cliente (2135)", async (
 test("nota de débito 13 (penalidades): la línea sale inafecta, 30 (SUNAT 3507)", async ({ page }) => {
   await page.goto("/comprobantes/f-obs/nota");
   const form = page.getByTestId("nota-form");
+  // «Motivo» se habilita cuando cargan los catálogos, es decir, después de hidratar: elegir el tipo antes de eso
+  // cambia el DOM pero no el estado de React, que lo devuelve a 07 (medido: 3 tests de ND rojos bajo carga).
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
   await form.getByLabel("Tipo de nota").selectOption("08");
   await form.getByLabel(/Motivo/).selectOption("13");
   await form.getByLabel("Sustento").fill("Penalidad por entrega tardía");

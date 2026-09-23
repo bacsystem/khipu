@@ -157,9 +157,10 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     // ND 13 sobre una exportación no tiene salida: la penalidad va inafecta (3507) y el dominio exige 40 en toda
     // línea de una exportación (2642). Se ofrecía igual y el mock la daba por buena.
     if (m.codigo === "13") return esNc ? alCredito : !esExportacion;
-    // ND sobre una factura IVAP: la línea sale con 17 y SUNAT exige que el motivo sea el 12 (3230, hoja
-    // NotaDebito2_0 fila 206). Intereses (01) o aumento de valor (02) salían numerados y rechazados.
-    if (!esNc && esIvap) return false;
+    // Factura IVAP: la línea sale con 17 y SUNAT exige el motivo 12 en la NC (NotaCredito2_0 fila 223) y en la ND
+    // (NotaDebito2_0 fila 206): 3230. Solo escapa el 13 (NC: línea gravada de importe 0; ND: penalidad con 30). La
+    // primera corrección lo aplicó solo a la ND; la NC 01/07 seguía saliendo numerada y rechazada.
+    if (esIvap) return false;
     return true;
   });
 
