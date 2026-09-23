@@ -2,6 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  // Reinicia el mock en memoria al empezar cada corrida: con `reuseExistingServer` el estado sobrevivía entre
+  // corridas y la segunda ya fallaba (topes gastados, facturas anuladas). Playwright arranca el webServer antes.
+  globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
   // Todos los tests comparten un único dev server (Turbopack) con mocks en memoria: con más workers se
   // pisan los tiempos de compilación bajo demanda y saltan timeouts de 5s en la primera carga de cada ruta.

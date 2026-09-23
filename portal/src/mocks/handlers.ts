@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 import { hoyLima } from "@/lib/formato";
 import { telefonoSchema } from "@/lib/validacion";
 import { calcularTotales } from "@/lib/comprobantes/totales";
-import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
+import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, resetDb, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8001";
@@ -118,6 +118,15 @@ const CATALOGOS = [
 ];
 
 export const handlers = [
+  // Solo bajo API_MOCKING: `globalSetup` de Playwright lo llama al empezar cada corrida. Sin esto la suite no era
+  // idempotente contra un dev server reutilizado (`reuseExistingServer` en local): cada corrida gastaba el tope 3286
+  // de f-aceptada y dejaba f-obs anulada para siempre —corrida 2: 6 rojos; corrida 3: 10—, y un rojo que «a veces
+  // pasa» enseña a ignorar el rojo.
+  http.post(`${BASE}/v1/__test/reset`, () => {
+    resetDb();
+    return ok({ reiniciado: true });
+  }),
+
   http.post(`${BASE}/v1/auth/registro`, async ({ request }) => {
     const body = (await request.json()) as { nombre: string; email: string; password: string; telefono?: string };
     if (!telefonoSchema.safeParse(body.telefono ?? "").success) return fail(422, "TELEFONO_INVALIDO", "El celular debe tener 9 dígitos y empezar con 9 (Perú)");
@@ -474,7 +483,7 @@ export const handlers = [
     // 3286 con el acumulado de NC vigentes sobre la misma factura, como `EmitirComprobanteService.acreditadoPorNotas`.
     if (body.tipo === "07") {
       const acreditado = lista
-        .filter((n) => n.tipo === "07" && n.nota?.documento_afectado === `${factura.serie}-${factura.numero}` && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "ANULADO")
+        .filter((n) => n.tipo === "07" && n.nota?.documento_afectado === `${factura.serie}-${factura.numero}` && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO")
         .reduce((acc, n) => acc + n.totales.total, 0);
       if (total + acreditado - factura.totales.total > 1) return fail(422, "NOTA_INVALIDA", `3286 - El importe total de la nota (${total}) supera el de la factura ${factura.serie}-${factura.numero} (${factura.totales.total})${acreditado > 0 ? `: ya acreditado ${acreditado} en otras notas de crédito` : ""}`);
     }
