@@ -221,12 +221,17 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // Por qué el botón está deshabilitado cuando el campo se ve lleno: un importe con 3 decimales no avisaba nada.
   const conDecimalesDeMas = (v: string) => v.trim() !== "" && !DOS_DECIMALES.test(v.trim());
   const lineaEnCero = esParcial && lineasParciales.some(({ item, cantidad }) => lineaRedondeaACero(item, cantidad));
+  // Lo que SUNAT prohíbe no es una línea gratuita dentro de la nota, sino que el importe TOTAL sea 0 (f401, 2062): una NC
+  // solo de bonificaciones no acredita nada. Una gratuita sí puede acompañar a una onerosa.
+  const notaSinImporte = esParcial && itemsParciales.length > 0 && importeNota < 0.01;
   const avisoDecimales = lineaPropia && conDecimalesDeMas(nd.importe)
     ? "El importe admite hasta 2 decimales."
     : esCuotas && cuotas.some((q) => conDecimalesDeMas(q.monto))
       ? "Cada cuota admite hasta 2 decimales."
       : lineaEnCero
         ? "Hay una línea cuyo importe, cargo o impuesto redondea a 0.00: subí la cantidad o ponela en 0."
+        : notaSinImporte
+          ? "La nota no acredita ningún importe (SUNAT 2062): las líneas gratuitas no se cobran, así que incluí también la línea que devolvés."
         : ivapEnCero
           ? "El IVAP de la línea redondearía a 0.00 (SUNAT 3111): el importe debe ser 0.13 o más."
         : lineaPropia && nd.descripcion.trim() !== "" && nd.descripcion.trim().length < 3
@@ -239,7 +244,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     serie !== "" &&
     motivo !== "" &&
     descripcion.trim() !== "" &&
-    (!esParcial || (itemsParciales.length > 0 && !superaTope && !lineaEnCero)) &&
+    (!esParcial || (itemsParciales.length > 0 && !superaTope && !lineaEnCero && !notaSinImporte)) &&
     (!esTotal || !superaTope) &&
     (!esImporte || !superaTope) &&
     !ivapEnCero &&

@@ -1,5 +1,5 @@
 import type { CargoAplicado, Comprobante, DescuentoAplicado, ItemComprobante } from "@/lib/api/facturas";
-import { redondear } from "./totales";
+import { esGratuita, redondear } from "./totales";
 
 /** Descuento o cargo tal como lo piden `FacturaRequest.DescuentoDto`/`CargoDto`: porcentaje **o** monto, nunca ambos. */
 type Ajuste = { porcentaje?: number; monto?: number; afecta_base_igv: boolean };
@@ -85,8 +85,14 @@ export function importeLineaNota(item: ItemComprobante, cantidad: number): numbe
  * (`Cargo.montoSobre`, 2955) y SUNAT el valor/precio unitario en cero (2367/2369). El descuento NO cuenta:
  * `Descuento.montoSobre` solo rechaza que alcance la base, un descuento de 0.00 pasa. El formulario dejaba teclear
  * 0.0004 de 10 mesas con flete del 10 % (base 0.04 → cargo 0.00) y el POST volvía 422.
+ *
+ * Una línea **gratuita** tampoco cuenta: su importe es 0 por definición (no se cobra) y SUNAT lo exige así —con 9996 en la
+ * línea, el valor unitario debe ser 0 (`NotaCredito2_0` f184, 2640) y el precio de venta solo se exige distinto de cero
+ * cuando NO hay 9996 (f187, 3224)—. Sin esta excepción una NC parcial que incluyera una bonificación quedaba bloqueada con
+ * un consejo imposible («subí la cantidad»), aunque el backend la emite (recert #10).
  */
 export function lineaRedondeaACero(item: ItemComprobante, cantidad: number): boolean {
+  if (esGratuita(item.tipo_afectacion_igv)) return false;
   const importe = importeLineaNota(item, cantidad);
   if (importe < 0.01) return true;
   if (impuestoRedondeaACero(item.tipo_afectacion_igv, importe)) return true;

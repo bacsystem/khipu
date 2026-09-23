@@ -556,10 +556,15 @@ export const handlers = [
     // suficiente para que el 3286 no salte con una NC parcial legítima sobre una línea con cargo 47.
     // Totales por tributo, como `Totales` del dominio (aproximados: el backend real es la autoridad): la ficha de la
     // nota y el 3503 se prueban contra cifras reales, no contra un «gravado = total / 1.18» inventado.
-    const t = { gravado: 0, igv: 0, ivap: 0, exonerado: 0, inafecto: 0, exportacion: 0, total: 0 };
+    const t = { gravado: 0, igv: 0, ivap: 0, exonerado: 0, inafecto: 0, exportacion: 0, gratuito: 0, igvGratuitas: 0, total: 0 };
     for (const i of items) {
-      // Una gratuita no se cobra: su precio unitario es el valor referencial (como `ItemCalculado`, precioVenta 0).
-      if (esGratuita(i.tipo_afectacion_igv)) continue;
+      // Una gratuita no se cobra (precioVenta 0), pero su valor referencial va al cubo 9996 que el 3503 limita (f117/f118).
+      if (esGratuita(i.tipo_afectacion_igv)) {
+        const referencial = redondear(i.cantidad * i.precio_unitario, 2);
+        t.gratuito += referencial;
+        if (/^1[1-6]$/.test(i.tipo_afectacion_igv)) t.igvGratuitas += redondear(referencial * 0.18, 2);
+        continue;
+      }
       const precio = i.cantidad * i.precio_unitario;
       const factor = i.tipo_afectacion_igv === "10" ? 1.18 : i.tipo_afectacion_igv === "17" ? 1.04 : 1;
       const cargos = ("cargos" in i && i.cargos ? (i.cargos as Ajuste[]) : []).reduce((s, c) => s + (c.monto ?? (precio / factor) * (c.porcentaje ?? 0) / 100) * (c.afecta_base_igv === false ? 1 : factor), 0);
@@ -582,6 +587,8 @@ export const handlers = [
     }
     for (const k of Object.keys(t) as Array<keyof typeof t>) t[k] = Number(t[k].toFixed(2));
     const total = t.total;
+    // 2062 (NC f401): el importe total de la nota no puede ser 0 —una NC solo de líneas gratuitas no acredita nada—.
+    if (!nc13 && body.items?.length && t.total < 0.005) return fail(422, "NOTA_INVALIDA", "2062 - El importe total de la nota debe ser mayor que cero: las líneas gratuitas no se cobran");
     // La nota total copia también el redondeo de la factura (#123): sale por su PayableAmount exacto.
     const copiaLaFactura = !nc13 && !body.items?.length;
     const redondeo = copiaLaFactura ? (factura.totales.redondeo ?? 0) : 0;
@@ -599,7 +606,7 @@ export const handlers = [
       // 1146.61 vs 1140.32. El mock daba 201 y el backend 422.
       if (body.motivo !== "10") {
         const vigentes = lista.filter((n) => n.tipo === "07" && n.nota?.documento_afectado === `${factura.serie}-${factura.numero}` && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO");
-        const suma = (k: "gravado" | "igv" | "ivap" | "exonerado" | "inafecto" | "exportacion") => vigentes.reduce((acc, n) => acc + (n.totales[k] ?? 0), 0);
+        const suma = (k: "gravado" | "igv" | "ivap" | "exonerado" | "inafecto" | "exportacion" | "gratuito" | "igv_gratuitas") => vigentes.reduce((acc, n) => acc + (n.totales[k] ?? 0), 0);
         const limites: Array<[string, number, number, number]> = [
           ["valor de venta gravado", t.gravado, factura.totales.gravado, suma("gravado")],
           ["IGV", t.igv, factura.totales.igv, suma("igv")],
@@ -607,6 +614,8 @@ export const handlers = [
           ["valor de venta exonerado", t.exonerado, factura.totales.exonerado, suma("exonerado")],
           ["valor de venta inafecto", t.inafecto, factura.totales.inafecto, suma("inafecto")],
           ["valor de venta de exportación", t.exportacion, factura.totales.exportacion ?? (exportacion ? factura.totales.total : 0), suma("exportacion")],
+          ["valor de las operaciones gratuitas", t.gratuito, factura.totales.gratuito ?? 0, suma("gratuito")],
+          ["IGV de las operaciones gratuitas", t.igvGratuitas, factura.totales.igv_gratuitas ?? 0, suma("igv_gratuitas")],
         ];
         for (const [concepto, nota, fact, previo] of limites) {
           if (nota + previo - fact > 1) return fail(422, "NOTA_INVALIDA", `3503 - El ${concepto} de la nota (${nota.toFixed(2)}) supera el de la factura ${factura.serie}-${factura.numero} (${fact.toFixed(2)})${previo > 0 ? `: ya acreditado ${previo.toFixed(2)} en otras notas de crédito` : ""}`);
@@ -622,7 +631,7 @@ export const handlers = [
       tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items: itemsNota, estado_documento: "ACEPTADO", hash: "hashnota==",
       nombre_archivo: `20123456786-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
-      totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, ivap: t.ivap || undefined, exportacion: t.exportacion || undefined, redondeo: redondeo || undefined, total: totalNota },
+      totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, ivap: t.ivap || undefined, exportacion: t.exportacion || undefined, gratuito: t.gratuito || undefined, igv_gratuitas: t.igvGratuitas || undefined, redondeo: redondeo || undefined, total: totalNota },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       nota: { tipo_afectado: "01", documento_afectado: `${factura.serie}-${factura.numero}`, motivo: body.motivo, motivo_descripcion: motivos[body.motivo] ?? "Otros", descripcion: body.descripcion },
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },

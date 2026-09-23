@@ -134,6 +134,15 @@ describe("lineaRedondeaACero", () => {
     expect(lineaRedondeaACero(conDescuento, 0.0004)).toBe(false);
   });
 
+  it("una línea gratuita no cuenta: su importe es 0 por definición y SUNAT lo exige así (2640/3224)", () => {
+    // Recert #10: con la bonificación dentro, la NC parcial entera quedaba bloqueada con un consejo imposible de cumplir.
+    const bonificacion: ItemComprobante = { codigo: null, descripcion: "Muestra sin costo", unidad: "NIU", cantidad: 5, precio_unitario: 100, tipo_afectacion_igv: "11", valor_venta: 500, igv: 90, precio_venta: 0, gratuita: true };
+    expect(lineaRedondeaACero(bonificacion, 5)).toBe(false);
+    expect(lineaRedondeaACero(bonificacion, 1)).toBe(false);
+    expect(lineaRedondeaACero({ ...bonificacion, tipo_afectacion_igv: "21" }, 1)).toBe(false);
+    expect(lineaRedondeaACero({ ...bonificacion, tipo_afectacion_igv: "31" }, 1)).toBe(false);
+  });
+
   it("una línea cuyo importe redondea a 0.00 (2367/2369)", () => {
     const simple: ItemComprobante = { codigo: null, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10", precio_venta: 118 };
     expect(lineaRedondeaACero(simple, 0.00001)).toBe(true);

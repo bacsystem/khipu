@@ -58,6 +58,7 @@ export type Comprobante = {
     valor_venta?: number;
     igv?: number;
     precio_venta?: number;
+    gratuita?: boolean;
     cargos?: Array<{ tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string }> | null;
     isc?: { sistema: string; tasa: number; monto: number; base?: number; base_pvp?: number | null; monto_unitario?: number | null } | null;
   }>;
@@ -69,7 +70,7 @@ export type Comprobante = {
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   fecha_vencimiento?: string | null;
   totales: {
-    gravado: number; exonerado: number; inafecto: number; igv: number; total: number; ivap?: number; exportacion?: number; total_precio_venta?: number; total_anticipos?: number;
+    gravado: number; exonerado: number; inafecto: number; igv: number; total: number; ivap?: number; exportacion?: number; gratuito?: number; igv_gratuitas?: number; total_precio_venta?: number; total_anticipos?: number;
     total_cargos?: number; redondeo?: number; cargos?: Array<{ tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string }>;
   };
   forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
@@ -443,14 +444,19 @@ export function resetDb() {
       moneda: "PEN",
       tipo_operacion: "0101",
       receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: "Av. Argentina 2450, Lima" },
-      items: [{ codigo: null, descripcion: "Libro técnico", unidad: "NIU", cantidad: 4, precio_unitario: 50, tipo_afectacion_igv: "20", valor_venta: 200, igv: 0, precio_venta: 200 }],
+      items: [
+        { codigo: null, descripcion: "Libro técnico", unidad: "NIU", cantidad: 4, precio_unitario: 50, tipo_afectacion_igv: "20", valor_venta: 200, igv: 0, precio_venta: 200 },
+        // Bonificación (11): no se cobra (`precio_venta` 0, valor referencial 30). La recert #10 midió que con una línea así
+        // la NC parcial entera quedaba bloqueada; el backend la emite y SUNAT exige justamente valor unitario 0 (2640).
+        { codigo: null, descripcion: "Muestra sin costo", unidad: "NIU", cantidad: 3, precio_unitario: 10, tipo_afectacion_igv: "21", valor_venta: 30, igv: 0, precio_venta: 0, gratuita: true },
+      ],
       estado_documento: "ACEPTADO",
       hash: "exo==",
       nombre_archivo: "20123456786-01-F001-00000010",
       intentos: 1,
       ultimo_error: null,
       cdr: { codigo: "0", descripcion: "La Factura numero F001-10, ha sido aceptada", observaciones: [] },
-      totales: { gravado: 0, exonerado: 200, inafecto: 0, igv: 0, total: 200 },
+      totales: { gravado: 0, exonerado: 200, inafecto: 0, igv: 0, gratuito: 30, igv_gratuitas: 0, total: 200 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-exonerada/xml" },
     },
@@ -497,6 +503,53 @@ export function resetDb() {
       totales: { gravado: 0, exonerado: 0, inafecto: 0, igv: 0, exportacion: 100, total: 110, total_cargos: 10, cargos: [{ tipo: "MONTO", valor: 10, monto: 10, afecta_base_igv: false, codigo: "50" }] },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-export-cargo/xml" },
+    },
+    {
+      // Solo para el e2e de la NC 10 «Otros conceptos», que emite por encima del total: exenta del 3286/3503, pero entra en el
+      // acumulado, así que gastaría el tope de cualquier factura compartida (la recert #10 lo midió con 2 workers).
+      id: "f-otros-conceptos",
+      tipo: "01",
+      serie: "F001",
+      numero: 17,
+      fecha_emision: "2026-09-02",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null },
+      items: [{ codigo: null, descripcion: "Servicio de consultoría", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10", valor_venta: 100, igv: 18, precio_venta: 118 }],
+      estado_documento: "ACEPTADO",
+      hash: "otros==",
+      nombre_archivo: "20123456786-01-F001-00000017",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-17, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-otros-conceptos/xml" },
+    },
+    {
+      // Solo para el e2e de paridad del 3503 de gratuitas (f117/f118) y del 2062: nadie más la acredita, así que los mensajes
+      // del mock son exactamente los del cubo gratuito. Una línea exonerada onerosa + una bonificación exonerada (21).
+      id: "f-gratuitas",
+      tipo: "01",
+      serie: "F001",
+      numero: 18,
+      fecha_emision: "2026-09-02",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null },
+      items: [
+        { codigo: null, descripcion: "Libro técnico", unidad: "NIU", cantidad: 4, precio_unitario: 50, tipo_afectacion_igv: "20", valor_venta: 200, igv: 0, precio_venta: 200 },
+        { codigo: null, descripcion: "Muestra sin costo", unidad: "NIU", cantidad: 3, precio_unitario: 10, tipo_afectacion_igv: "21", valor_venta: 30, igv: 0, precio_venta: 0, gratuita: true },
+      ],
+      estado_documento: "ACEPTADO",
+      hash: "grat==",
+      nombre_archivo: "20123456786-01-F001-00000018",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-18, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 0, exonerado: 200, inafecto: 0, igv: 0, gratuito: 30, igv_gratuitas: 0, total: 200 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-gratuitas/xml" },
     },
     {
       // Facturas de hoy, dentro del plazo de baja (2957), una por e2e del diálogo: corte de red y respuesta HTML.
