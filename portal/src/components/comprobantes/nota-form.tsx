@@ -149,7 +149,12 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const motivos = (catalogos[tipo]?.entradas ?? []).filter((m) => {
     if (m.codigo === "11") return esExportacion;
     if (m.codigo === "12") return esIvap;
-    if (m.codigo === "13" && esNc) return alCredito;
+    // ND 13 sobre una exportación no tiene salida: la penalidad va inafecta (3507) y el dominio exige 40 en toda
+    // línea de una exportación (2642). Se ofrecía igual y el mock la daba por buena.
+    if (m.codigo === "13") return esNc ? alCredito : !esExportacion;
+    // ND sobre una factura IVAP: la línea sale con 17 y SUNAT exige que el motivo sea el 12 (3230, hoja
+    // NotaDebito2_0 fila 206). Intereses (01) o aumento de valor (02) salían numerados y rechazados.
+    if (!esNc && esIvap) return false;
     return true;
   });
 

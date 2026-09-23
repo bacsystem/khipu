@@ -288,6 +288,58 @@ test("nota: los motivos que no aplican a la factura no se ofrecen (11 exportaci�
   await page.goto("/comprobantes/f-export/nota"); // exportación 0200
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
   expect(await codigos()).toEqual(["01", "07", "11"]);
+  // ND 13 sobre exportación no tiene salida: la penalidad va inafecta (3507) y la exportación exige 40 (2642).
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  expect(await codigos()).toEqual(["01", "11"]);
+
+  await page.goto("/comprobantes/f-ivap/nota"); // IVAP (afectación 17)
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
+  expect(await codigos()).toEqual(["01", "07", "12"]);
+  // ND sobre IVAP: la línea sale con 17 y SUNAT exige el motivo 12 (3230); el 13 escapa porque va con 30.
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  expect(await codigos()).toEqual(["12", "13"]);
+});
+
+test("nota de débito 12 sobre una factura IVAP: la línea sale con afectación 17", async ({ page }) => {
+  await page.goto("/comprobantes/f-ivap/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  await form.getByLabel(/Motivo/).selectOption("12");
+  await form.getByLabel("Sustento").fill("Ajuste del precio del arroz");
+  await form.getByLabel("Concepto").fill("Diferencia de precio");
+  await form.getByLabel(/Importe con IGV/).fill("10.4");
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de débito" }).click();
+  expect((await peticion).postDataJSON().items[0]).toMatchObject({ tipo_afectacion_igv: "17", precio_unitario: 10.4 });
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+});
+
+test("el mock de POST /v1/notas rechaza los ítems que el backend rechaza: 3230, 2642, 2025 y 3286", async ({ page }) => {
+  await page.goto("/comprobantes/f-cargos");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const post = (body: Record<string, unknown>) =>
+    page.evaluate(async ([b]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, texto: await r.text() };
+    }, [JSON.stringify({ fecha_emision: hoy, descripcion: "Prueba de contrato", ...body })]);
+  const linea = (afectacion: string, cantidad = 1) => [{ descripcion: "Línea", unidad: "ZZ", cantidad, precio_unitario: 10, tipo_afectacion_igv: afectacion }];
+
+  let r = await post({ tipo: "08", serie: "FD01", documento_afectado: { serie: "F001", numero: 8 }, motivo: "01", items: linea("17") });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3230");
+
+  r = await post({ tipo: "08", serie: "FD01", documento_afectado: { serie: "F001", numero: 5 }, motivo: "13", items: linea("30") });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("2642");
+
+  r = await post({ tipo: "07", serie: "FC01", documento_afectado: { serie: "F001", numero: 7 }, motivo: "07", items: linea("10", 0.12345678901) });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("2025");
+
+  // 3286: una NC por más que la factura (1353). Este chequeo del mock no tenía test; su mutación sobrevivía.
+  r = await post({ tipo: "07", serie: "FC01", documento_afectado: { serie: "F001", numero: 7 }, motivo: "07", items: linea("10", 200) });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3286");
 });
 
 test("nota de débito sobre una exportación: la línea sale con afectación 40, no con 10 fijo", async ({ page }) => {
