@@ -124,6 +124,8 @@ export type Baja = {
   comprobante: string;
   tipo_comprobante: string;
   fecha_generacion: string;
+  /** Fecha de emisión del comprobante tal como se comunicó a SUNAT (cbc:ReferenceDate). */
+  fecha_referencia?: string | null;
   motivo: string;
   estado: EstadoBaja;
   ticket: string | null;

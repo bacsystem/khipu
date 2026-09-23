@@ -1,9 +1,10 @@
-import { ArrowLeftIcon, BanIcon, FileMinusIcon, FileTextIcon, HistoryIcon, IdCardIcon, LinkIcon, Rows3Icon } from "lucide-react";
+import { ArrowLeftIcon, FileMinusIcon, FileTextIcon, HistoryIcon, IdCardIcon, LinkIcon, Rows3Icon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { EstadoBadge, ETIQUETAS_ESTADO, PUNTOS } from "@/components/comprobantes/estado-badge";
 import { BajaButton } from "@/components/comprobantes/baja-button";
+import { BajaEstado } from "@/components/comprobantes/baja-estado";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
@@ -265,7 +266,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               Emitir nota
             </Link>
           ) : null}
-          {admiteBaja(c) ? <BajaButton id={c.id} numero={numero} /> : null}
+          {admiteBaja(c) ? <BajaButton id={c.id} numero={numero} fechaEmision={c.fecha_emision} notasVigentes={(c.notas ?? []).filter((n) => n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO").length} /> : null}
           <VistaPrevia id={c.id} numero={numero} nombreArchivo={c.nombre_archivo} tieneCdr={tieneConstanciaCdr(c)} />
           {c.enlaces?.pdf ? (
             <a
@@ -388,35 +389,11 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         )}
       </section>
 
+      {/* Arriba del historial: es lo primero que hay que ver tras confirmar una baja, y antes quedaba fuera de la vista. */}
+      {c.baja ? <BajaEstado baja={c.baja} /> : null}
+
       <Historial eventos={c.eventos} />
 
-      {c.baja ? (
-        <section
-          className={cn("rounded-xl border p-5 shadow-2xs", c.baja.estado === "ACEPTADA" ? "border-destructive/40 bg-destructive/5" : c.baja.estado === "RECHAZADA" ? "border-warning-border bg-warning/40" : "border-border bg-card")}
-          data-testid="baja"
-        >
-          <div className={cn(TITULO_SECCION, "mb-3")}>
-            <BanIcon className="size-4" />
-            Comunicación de baja {c.baja.identificador}
-          </div>
-          <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-4">
-            <Campo etiqueta="Estado">
-              <span className="font-semibold text-foreground">
-                {{ GENERADA: "Generada, pendiente de envío", ENVIADA: "Enviada: SUNAT la está procesando", ERROR_ENVIO: "Error de envío: se reintentará", ACEPTADA: "Aceptada: comprobante anulado", RECHAZADA: "Rechazada por SUNAT" }[c.baja.estado]}
-              </span>
-            </Campo>
-            <Campo etiqueta="Motivo">
-              <p className="leading-snug text-foreground/80">{c.baja.motivo}</p>
-            </Campo>
-            <Campo etiqueta="Ticket SUNAT">
-              <span className="font-mono text-foreground/80">{c.baja.ticket ?? "—"}</span>
-            </Campo>
-            <Campo etiqueta={c.baja.cdr ? "CDR" : "Último intento"}>
-              <span className="font-mono text-foreground/80">{c.baja.cdr ? `${c.baja.cdr.codigo} · ${c.baja.cdr.descripcion}` : (c.baja.ultimo_error ?? "—")}</span>
-            </Campo>
-          </div>
-        </section>
-      ) : null}
 
       {c.observaciones ? (
         <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="observaciones">

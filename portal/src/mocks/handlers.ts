@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import { hoyLima } from "@/lib/formato";
+import { diasEntre, hoyLima } from "@/lib/formato";
 import { telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, resetDb, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
@@ -631,28 +631,51 @@ export const handlers = [
     return ok(nota, 201);
   }),
 
-  // Comunicación de baja: se acepta al instante (en el backend real pasa por ticket y el worker la reconsulta) y anula el comprobante.
+  // Comunicación de baja, a paridad con `ComunicacionBaja.crear` y `DarDeBajaService` (la auditoría midió que el mock daba 201
+  // fuera de plazo, con motivo vacío/tab/101 caracteres y con cuerpo vacío). Por defecto SUNAT la acepta en el acto; con el
+  // motivo empezando por «[ENVIADA]» queda en proceso (ticket) hasta que se consulta, y con «[RECHAZADA]» SUNAT la rechaza.
   http.post(`${BASE}/v1/facturas/:id/baja`, async ({ params, request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
     const factura = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === params.id);
     if (!factura) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
-    const body = (await request.json()) as { motivo: string };
-    if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(422, "BAJA_INVALIDA", `El comprobante no está aceptado por SUNAT (estado ${factura.estado_documento})`);
+    let body: { motivo?: string };
+    try {
+      body = (await request.json()) as { motivo?: string };
+    } catch {
+      return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
+    }
+    if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(422, "BAJA_INVALIDA", `2105/2398 - Solo se puede dar de baja un comprobante aceptado por SUNAT; ${factura.serie}-${factura.numero} está ${factura.estado_documento}`);
+    if (factura.tipo === "03") return fail(422, "BAJA_INVALIDA", "2308 - Las boletas se dan de baja en el resumen diario, no con una comunicación de baja");
+    if (diasEntre(factura.fecha_emision, hoyLima()) > 7) return fail(422, "BAJA_INVALIDA", `2957 - El plazo para dar de baja ${factura.serie}-${factura.numero} venció: se emitió el ${factura.fecha_emision} y la comunicación debe presentarse dentro de los 7 días calendario`);
+    const motivo = (body.motivo ?? "").trim();
+    if (motivo.length < 3 || motivo.length > 100 || /[\x00-\x1F\x7F]/.test(motivo)) return fail(422, "BAJA_INVALIDA", "2315 - El motivo de la baja debe tener de 3 a 100 caracteres, sin saltos de línea");
     if (factura.baja && factura.baja.estado !== "RECHAZADA") return fail(422, "BAJA_INVALIDA", `Ya hay una comunicación de baja en curso para ${factura.serie}-${factura.numero}`);
     const hoy = hoyLima().replace(/-/g, "");
+    const simulada = motivo.startsWith("[ENVIADA]") ? "ENVIADA" : motivo.startsWith("[RECHAZADA]") ? "RECHAZADA" : "ACEPTADA";
     const baja: Baja = {
-      id: nuevoId("b"), identificador: `RA-${hoy}-1`, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(),
-      motivo: body.motivo, estado: "ACEPTADA", ticket: "1758200000123", cdr: { codigo: "0", descripcion: `La Comunicacion de baja RA-${hoy}-1, ha sido aceptada`, observaciones: [] },
-      intentos: 1, ultimo_error: null,
+      id: nuevoId("b"), identificador: `RA-${hoy}-1`, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
+      motivo, estado: simulada, ticket: "1758200000123",
+      cdr: simulada === "ACEPTADA" ? { codigo: "0", descripcion: `La Comunicacion de baja RA-${hoy}-1, ha sido aceptada`, observaciones: [] }
+        : simulada === "RECHAZADA" ? { codigo: "2323", descripcion: "Existe documento ya informado anteriormente en una comunicacion de baja", observaciones: [] } : null,
+      intentos: 1, ultimo_error: simulada === "ENVIADA" ? "98 - SUNAT sigue procesando el ticket 1758200000123" : null,
     };
     factura.baja = baja;
-    factura.estado_documento = "ANULADO";
+    if (simulada === "ACEPTADA") factura.estado_documento = "ANULADO";
     db.bajas.set(baja.id, baja);
     return ok(baja, 201);
   }),
+  // Como `BajaController.obtener`: si está ENVIADA consulta el ticket en el acto. En el mock SUNAT ya terminó: se acepta y anula.
   http.get(`${BASE}/v1/bajas/:id`, ({ params }) => {
     const baja = db.bajas.get(String(params.id));
-    return baja ? ok(baja) : fail(404, "NO_ENCONTRADO", "Comunicación de baja no encontrada");
+    if (!baja) return fail(404, "NO_ENCONTRADO", "Comunicación de baja no encontrada");
+    if (baja.estado === "ENVIADA") {
+      baja.estado = "ACEPTADA";
+      baja.cdr = { codigo: "0", descripcion: `La Comunicacion de baja ${baja.identificador}, ha sido aceptada`, observaciones: [] };
+      baja.ultimo_error = null;
+      baja.intentos += 1;
+      for (const lista of db.facturasPorEmpresa.values()) for (const f of lista) if (f.baja?.id === baja.id) f.estado_documento = "ANULADO";
+    }
+    return ok(baja);
   }),
 
   http.post(`${BASE}/v1/facturas/:id/enviar`, ({ params, request }) => {

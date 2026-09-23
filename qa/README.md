@@ -15,7 +15,7 @@ Cómo leer un hallazgo en una ficha: 🔧 **corregido** = PR mergeado, a la espe
 | 7 | Series | ⬜ | — |
 | 8 | Listado + filtros | ⬜ | — |
 | 9 | Detalle + XML/PDF/CDR | ⬜ | — |
-| 10 | Bajas | ⬜ irreversible → 2 auditores | — |
+| 10 | Comunicación de baja | 🔴 auditoría #1 (2 auditores): 2 bloqueantes · 7 importantes, corregido (#151 + A1), pendiente recert #1 | [bajas.md](bajas.md) |
 | 11 | API keys | ⬜ | — |
 | 12 | Personalización PDF | ⬜ | — |
 | 13 | Developers | ⬜ | — |
