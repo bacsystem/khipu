@@ -405,6 +405,29 @@ export function resetDb() {
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-error/xml", pdf: "/v1/facturas/f-error/pdf" },
     },
+    {
+      // Al final del arreglo a propósito: la lista pagina de a 10 y los e2e cuentan con f-error en la primera página.
+      // Factura con redondeo del importe total (−0.44, para cobrar sin céntimos): la nota total copia los ítems pero no
+      // el redondeo, así que sale 0.44 por encima del total de la factura (3286, sin tolerancia). Antes nadie avisaba.
+      id: "f-redondeo",
+      tipo: "01",
+      serie: "F001",
+      numero: 9,
+      fecha_emision: "2026-08-28",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: "Av. Argentina 2450, Lima" },
+      items: [{ codigo: null, descripcion: "Servicio de mantenimiento", unidad: "ZZ", cantidad: 1, precio_unitario: 118.44, tipo_afectacion_igv: "10", valor_venta: 100.37, igv: 18.07, precio_venta: 118.44 }],
+      estado_documento: "ACEPTADO",
+      hash: "redondeo==",
+      nombre_archivo: "20123456786-01-F001-00000009",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-9, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 100.37, exonerado: 0, inafecto: 0, igv: 18.07, total: 118, total_precio_venta: 118.44, redondeo: -0.44 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-redondeo/xml" },
+    },
   ]);
 }
 

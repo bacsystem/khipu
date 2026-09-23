@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { hoyLima } from "@/lib/formato";
 import { telefonoSchema } from "@/lib/validacion";
-import { calcularTotales } from "@/lib/comprobantes/totales";
+import { calcularTotales, esGratuita } from "@/lib/comprobantes/totales";
 import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, resetDb, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
@@ -536,6 +536,8 @@ export const handlers = [
     const total = Number(
       items
         .reduce((acc, i) => {
+          // Una gratuita no se cobra: su precio unitario es el valor referencial (como `ItemCalculado`, precioVenta 0).
+          if (esGratuita(i.tipo_afectacion_igv)) return acc;
           const precio = i.cantidad * i.precio_unitario;
           const factor = i.tipo_afectacion_igv === "10" ? 1.18 : 1;
           const cargos = ("cargos" in i && i.cargos ? (i.cargos as Ajuste[]) : []).reduce((s, c) => s + (c.monto ?? (precio / factor) * (c.porcentaje ?? 0) / 100) * (c.afecta_base_igv === false ? 1 : factor), 0);
