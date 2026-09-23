@@ -249,6 +249,28 @@ export function resetDb() {
       enlaces: { xml: "/v1/facturas/f-cargos/xml" },
     },
     {
+      // Venta de arroz pilado afecta al IVAP (afectación 17, 4 %): la rama IVAP del formulario de notas no tenía
+      // ninguna factura en el mock y una ND 01/02 sobre ella salía con 17 y motivo ≠ 12 (SUNAT 3230).
+      id: "f-ivap",
+      tipo: "01",
+      serie: "F001",
+      numero: 8,
+      fecha_emision: "2026-08-27",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: "Av. Argentina 2450, Lima" },
+      items: [{ codigo: null, descripcion: "Arroz pilado, saco de 50 kg", unidad: "NIU", cantidad: 10, precio_unitario: 10.4, tipo_afectacion_igv: "17", valor_venta: 100, igv: 4, precio_venta: 104 }],
+      estado_documento: "ACEPTADO",
+      hash: "ivap==",
+      nombre_archivo: "20123456786-01-F001-00000008",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-8, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 0, exonerado: 0, inafecto: 0, igv: 4, total: 104 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-ivap/xml" },
+    },
+    {
       // Anulada por comunicación de baja aceptada: el estado más peligroso para las notas (2120) no estaba en el mock.
       id: "f-anulada",
       tipo: "01",

@@ -156,6 +156,10 @@ export const handlers = [
 
   http.post(`${BASE}/v1/auth/logout`, () => new HttpResponse(null, { status: 204 })),
 
+  // Recuperación de contraseña: 202 siempre (el backend no revela si el correo existe). No tenía mock: el e2e de
+  // «Cambiar contraseña» llegaba al backend real en :8001 y, si estaba levantado, mandaba un correo de verdad.
+  http.post(`${BASE}/v1/auth/recuperar`, () => ok(null, 202)),
+
   http.get(`${BASE}/v1/auth/me`, ({ request }) => {
     const c = claims(request);
     if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");
@@ -490,6 +494,19 @@ export const handlers = [
     const formaPago = (body as { forma_pago?: { tipo: string; monto_pendiente: number; cuotas: Array<{ monto: number; vencimiento: string }> } }).forma_pago;
     if (nc13 && (!formaPago || formaPago.tipo !== "credito" || !formaPago.cuotas?.length)) return fail(422, "NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
     if (!nc13 && formaPago) return fail(422, "NOTA_INVALIDA", "forma_pago solo se admite en una nota de crédito con motivo 13 (corrección de cuotas)");
+    // Ítems contra la operación y el dominio, como `Comprobante.exigirAfectacionSegunOperacion` (2642/3107, salvo
+    // NC 13) e `Item` (2025: cantidad positiva, hasta 10 decimales). El recertificador midió que el mock daba 201 a
+    // una ND 13 con 30 sobre una exportación y a una cantidad con 11 decimales, ambas 422 en el backend.
+    const decimales = (n: number) => (String(n).split(".")[1] ?? "").length;
+    const exportacion = /^020[0-8]$/.test(factura.tipo_operacion ?? "");
+    for (const i of nc13 ? [] : (body.items ?? [])) {
+      if (exportacion && i.tipo_afectacion_igv !== "40") return fail(422, "AFECTACION_INVALIDA", `2642 - En una exportación (${factura.tipo_operacion}) todos los ítems llevan tipo_afectacion_igv 40`);
+      if (!exportacion && i.tipo_afectacion_igv === "40") return fail(422, "AFECTACION_INVALIDA", `3107 - La afectación 40 (exportación) exige un tipo de operación 0200–0208; recibido ${factura.tipo_operacion}`);
+      if (!(i.cantidad > 0) || decimales(i.cantidad) > 10) return fail(422, "ITEM_INVALIDO", "2025 - La cantidad debe ser positiva, con hasta 12 enteros y 10 decimales");
+    }
+    // 3230 (hoja NotaDebito2_0, fila 206): una ND con líneas IVAP (17) solo puede ser «12 - Ajustes afectos al IVAP».
+    if (body.tipo === "08" && body.motivo !== "12" && (body.items ?? []).some((i) => i.tipo_afectacion_igv === "17"))
+      return fail(422, "NOTA_INVALIDA", "3230 - Tipo de nota debe ser 'Ajustes afectos al IVAP' (12) cuando la línea lleva afectación 17");
     // 3507 (hoja NotaDebito2_0): las penalidades (ND motivo 13) son operaciones inafectas — con IGV/IVAP, 9995/9997
     // o tributo 1000/1016 SUNAT rechaza. El backend real todavía no lo cruza (#123): acá se aplica para que el e2e
     // no dé por buena una ND que SUNAT devolvería rechazada con el correlativo consumido.
@@ -499,7 +516,6 @@ export const handlers = [
       // A paridad con `FormaPago.validarComoCorreccionDe`: escala ≤ 2 en pendiente (3250) y cuotas (3253), y la
       // suma de cuotas igual al pendiente (3319). El recertificador midió que el mock aceptaba las tres cosas que el
       // backend rechaza, así que un e2e verde no garantizaba nada.
-      const decimales = (n: number) => (String(n).split(".")[1] ?? "").length;
       if (factura.forma_pago.tipo !== "credito") return fail(422, "NOTA_INVALIDA", `3260 - El motivo 13 solo aplica a facturas al crédito y ${factura.serie}-${factura.numero} es al contado`);
       if (!(formaPago!.monto_pendiente > 0) || decimales(formaPago!.monto_pendiente) > 2) return fail(422, "FORMA_PAGO_INVALIDA", "3250 - El monto neto pendiente de pago debe ser positivo con hasta 2 decimales");
       if (formaPago!.cuotas.some((q) => !(q.monto > 0) || decimales(q.monto) > 2)) return fail(422, "FORMA_PAGO_INVALIDA", "3253 - El monto de cada cuota debe ser positivo con hasta 2 decimales");

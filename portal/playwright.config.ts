@@ -25,7 +25,9 @@ export default defineConfig({
     url: "http://localhost:3100",
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
-    // API_BASE_URL fija para que un .env.local (p. ej. acceso por red) no desvíe los mocks al backend real.
-    env: { API_MOCKING: "enabled", API_BASE_URL: "http://localhost:8001" },
+    // API_BASE_URL fija, y a un puerto MUERTO: MSW intercepta lo que tiene handler y deja pasar el resto, así que
+    // con :8001 (donde suele escuchar el backend real) una petición sin mock llegaba al backend del desarrollador.
+    // Con :8999 falla en la conexión y el test lo denuncia. También evita que un .env.local desvíe los mocks.
+    env: { API_MOCKING: "enabled", API_BASE_URL: "http://localhost:8999" },
   },
 });
