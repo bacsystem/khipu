@@ -132,6 +132,23 @@ class EmitirNotaServiceTest {
                 .isInstanceOf(DomainException.class).hasMessageContaining("3286").hasMessageContaining("(276.50)");
     }
 
+    /**
+     * 3503 por tributo cuando el total (3286) pasa: la factura tiene gravado 200 + exonerado 50 − 10 = 276; una NC de una sola
+     * línea gravada de 237.77 (base 201.50) queda por debajo del total pero supera el gravado (200 + 1). Es el caso de una
+     * NC por importe sobre una factura con ISC/anticipos (f-cargos en el portal); la recert #8 midió que quitar el límite
+     * del gravado dejaba la suite verde. El límite del IVAP no puede atar solo: en una factura IVAP total = base × 1.04
+     * y el 3286 lo atrapa antes (mutante equivalente).
+     */
+    @Test void elGravadoDeLaNotaNoPuedeSuperarElDeLaFacturaAunqueElTotalPase() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09",
+                List.of(new Item("D", "Disminución en el valor", "ZZ", BigDecimal.ONE, new BigDecimal("237.77"), TipoAfectacionIgv.GRAVADO)))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3503").hasMessageContaining("gravado").hasMessageContaining("(201.50)");
+        // 237.18 (base 201.00) entra en la +1.
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "09",
+                List.of(new Item("D", "Disminución en el valor", "ZZ", BigDecimal.ONE, new BigDecimal("237.18"), TipoAfectacionIgv.GRAVADO)))).totales().gravado()).isEqualByComparingTo("201.00");
+    }
+
     /** La nota total copia también el redondeo de la factura: sin él salía por el total sin redondear, por encima del PayableAmount (3286). */
     @Test void laNotaTotalCopiaElRedondeoDeLaFactura() {
         Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",

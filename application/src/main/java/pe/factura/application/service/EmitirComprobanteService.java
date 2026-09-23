@@ -178,6 +178,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         limites.addAll(List.of(
                 new Limite("valor de venta gravado", "3503", nc.gravado(), f.gravado(), previo.gravado(), tol),
                 new Limite("IGV", "3503", nc.igv(), f.igv(), previo.igv(), tol),
+                // Redundante con el 3286 en una factura IVAP (total = base × 1.04), se deja por fidelidad a las filas 120/122.
                 new Limite("IVAP", "3503", nc.ivap(), f.ivap(), previo.ivap(), tol),
                 new Limite("valor de venta exonerado", "3503", nc.exonerado(), f.exonerado(), previo.exonerado(), tol),
                 new Limite("valor de venta inafecto", "3503", nc.inafecto(), f.inafecto(), previo.inafecto(), tol),
