@@ -884,6 +884,38 @@ test("NC 10 «Otros conceptos» no tiene tope por importe total (3286 exime al m
   await expect(importe).toContainText("exime al motivo 10 del 3286 y del 3503");
   await expect(importe.getByRole("alert")).toHaveCount(0);
   await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
+  // Y se emite de verdad: el mock también exime al 10 (una mutación que le quitaba la exención sobrevivía sin este clic).
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  expect((await peticion).postDataJSON().motivo).toBe("10");
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+});
+
+test("NC por importe sobre una exportación con cargo sin IGV: el tope es la base 9995 (3503), no el total; el mock lo replica", async ({ page }) => {
+  // f-export-cargo: total $110, base de exportación $100. Recert #9: el límite de exportación no tenía test ni en el
+  // backend ni en el mock (quitarlo dejaba todo verde).
+  await page.goto("/comprobantes/f-export-cargo/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("09");
+  await form.getByLabel("Sustento").fill("Disminución acordada");
+  await form.getByLabel("Concepto").fill("Disminución en el valor");
+  const importe = form.getByTestId("nota-importe");
+  const boton = form.getByRole("button", { name: "Emitir nota de crédito" });
+  await form.getByLabel(/Importe sin IGV, exportación/).fill("110");
+  await expect(importe).toContainText("Tope: $ 100.00 (por tributo, 3503: exportación de la factura $ 100.00)");
+  await expect(boton).toBeDisabled();
+  await form.getByLabel(/Importe sin IGV, exportación/).fill("100");
+  await expect(boton).toBeEnabled();
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const r = await page.evaluate(async ([h]) => {
+    const res = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      tipo: "07", serie: "FC01", fecha_emision: h, documento_afectado: { serie: "F001", numero: 12 }, motivo: "07", descripcion: "Devolución",
+      items: [{ descripcion: "Servicio de diseño para el exterior", unidad: "ZZ", cantidad: 1.05, precio_unitario: 100, tipo_afectacion_igv: "40" }] }) });
+    return { status: res.status, texto: await res.text() };
+  }, [hoy]);
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3503");
+  expect(r.texto).toContain("exportación");
 });
 
 test("nota: avisa por qué el botón está deshabilitado con concepto corto o sin cantidades", async ({ page }) => {
@@ -950,11 +982,12 @@ test("NC 12 sobre una factura IVAP se emite: el mock reparte la base en gravado 
   const form = page.getByTestId("nota-form");
   await form.getByLabel(/Motivo/).selectOption("12");
   await form.getByLabel("Sustento").fill("Ajuste IVAP");
-  await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
-  await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 10.40");
+  // Por el total (104): con 1 unidad el IVAP (0.40) entraba en la +1 del 3503 y una mutación «IVAP al cubo del IGV» sobrevivía.
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("10");
+  await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 104.00");
   const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
   await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
-  expect((await peticion).postDataJSON().items[0]).toMatchObject({ cantidad: 1, precio_unitario: 10.4, tipo_afectacion_igv: "17" });
+  expect((await peticion).postDataJSON().items[0]).toMatchObject({ cantidad: 10, precio_unitario: 10.4, tipo_afectacion_igv: "17" });
   await expect(page).toHaveURL(/\/comprobantes\/n-/);
 });
 

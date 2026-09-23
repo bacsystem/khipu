@@ -473,6 +473,28 @@ export function resetDb() {
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-isc/xml" },
     },
+    {
+      // Exportación con un cargo global sin IGV (50): el total (110) supera la base 9995 (100), así que el tope real de una
+      // NC por importe es la base (3503, fila 114), no el total. Solo para ese e2e.
+      id: "f-export-cargo",
+      tipo: "01",
+      serie: "F001",
+      numero: 12,
+      fecha_emision: "2026-08-31",
+      moneda: "USD",
+      tipo_operacion: "0200",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null },
+      items: [{ codigo: null, descripcion: "Servicio de diseño para el exterior", unidad: "ZZ", cantidad: 1, precio_unitario: 100, tipo_afectacion_igv: "40", valor_venta: 100, igv: 0, precio_venta: 100 }],
+      estado_documento: "ACEPTADO",
+      hash: "expcargo==",
+      nombre_archivo: "20123456786-01-F001-00000012",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-12, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 0, exonerado: 0, inafecto: 0, igv: 0, exportacion: 100, total: 110, total_cargos: 10, cargos: [{ tipo: "MONTO", valor: 10, monto: 10, afecta_base_igv: false, codigo: "50" }] },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-export-cargo/xml" },
+    },
   ]);
 }
 

@@ -1,4 +1,4 @@
-# Notas de crédito/débito · 🟡 recert #8: 0 bloqueantes · 5 importantes (4 en el mock/tests de A8) → corregido (backend + A9), pendiente de recert #9
+# Notas de crédito/débito · 🟡 recert #9: 0 bloqueantes · 1 importante (cobertura) → corregido (backend + A10), pendiente de recert #10
 
 Estado de cada hallazgo: 🔧 corregido en un PR mergeado, a la espera de la recert · ✅ verificado por una recert posterior (el arreglo resiste) · ⬜ abierto ([pendientes.md](pendientes.md)).
 
@@ -12,20 +12,28 @@ Estado de cada hallazgo: 🔧 corregido en un PR mergeado, a la espera de la rec
 | Recert #5 | `bb801d1` | 0 🔴 · 3 🟠 | #136 (backend) → #137 | recert #6 |
 | Recert #6 | `29ee9b4` | 0 🔴 · 1 🟠 | #139 (+ NC por importe) | recert #7 |
 | Recert #7 | `21cfaa9` | 0 🔴 · 3 🟠 | #141 (backend) → #142 | recert #8 |
-| Recert #8 | `7f766b6` | 0 🔴 · 5 🟠 | backend tests → A9 | **recert #9 pendiente** |
+| Recert #8 | `7f766b6` | 0 🔴 · 5 🟠 | #145 (backend) → #146 | recert #9 |
+| Recert #9 | `dc7b516` | 0 🔴 · 1 🟠 (cobertura) | backend tests → A10 | **recert #10 pendiente** |
 
-Suite tras A9: 127/127 Vitest · 81/81 e2e ×2 · backend 689/689. Recert #8: 25/29 mutaciones (las 4 que sobrevivían tienen test en A9 o son equivalentes); e2e 79/79 ×3 con puerto propio.
+Suite tras A10: 127/127 Vitest · 82/82 e2e ×2 · backend 692/692. Recert #9: los 5 arreglos de A9 resisten; 37/48 mutaciones (las vivas: 3 límites del 3503 sin test → A10; IGV/IVAP equivalentes al gravado/3286; el resto no-op); e2e 81/81 ×3; contrato JSON campo a campo; catálogos 09/10 idénticos a la hoja.
 
-## Recert #8 → backend tests + A9
+## Recert #9 → backend tests + A10
 
 | Sev | Qué | Corregido | Estado |
 |---|---|---|---|
-| 🟠 | El mock rechazaba **toda NC sobre IVAP** (regresión de A8): fixture `f-ivap` con `{gravado: 0, igv: 4}` en vez de `{gravado: 100, ivap: 4}` como `Totales`; la línea 17 sumaba a `igv`; el 3503 del mock no tenía IVAP | A9 | 🔧 recert #9 |
-| 🟠 | El mock rechazaba con 3111 el 0.13 que el formulario recomienda y el dominio acepta (base redondeada antes del impuesto) | A9 | 🔧 recert #9 |
-| 🟠 | `topePorTributo` en exportación devolvía el total, no la base 9995 (cargo 48, descuento global o redondeo lo separan) | A9 | 🔧 recert #9 |
-| 🟠 | El e2e del tope por tributo dependía del orden de la suite (leía el tope de una factura compartida) → fixture `f-isc` propia, tope exacto | A9 | 🔧 recert #9 |
-| 🟠 | Los límites 3503 del gravado y del IVAP no tenían test en el backend → test del gravado atando con el total dentro del 3286; el del IVAP es redundante con el 3286 (total = base × 1.04), documentado | backend | 🔧 recert #9 |
-| 🟡 | Motivo 02 → nota total sin test | A9 | 🔧 recert #9 |
+| 🟠 | 3 de los 8 límites del 3503 sin test que los ate (exportación f114, inafecto f115, gratuitas f117: los que el total no implica); ídem el de exportación en el mock | backend: 3 casos con el total dentro del 3286 y el concepto fuera de la +1 · A10: fixture `f-export-cargo` (total 110, base 9995 = 100) con e2e y paridad del mock | 🔧 recert #10 |
+| 🟡 | Cobertura: NC 12 IVAP solo a 1 unidad (ahora por el total) · exención del 10 en el mock nunca ejercida (ahora se emite) · NC ANULADA fuera del acumulado sin test en el backend (ahora con test) | A10 + backend | 🔧 recert #10 |
+
+## Recert #8 → #145 + #146
+
+| Sev | Qué | Corregido | Estado |
+|---|---|---|---|
+| 🟠 | El mock rechazaba **toda NC sobre IVAP** (regresión de A8): fixture `f-ivap` con `{gravado: 0, igv: 4}` en vez de `{gravado: 100, ivap: 4}` como `Totales`; la línea 17 sumaba a `igv`; el 3503 del mock no tenía IVAP | #146 | ✅ recert #9 |
+| 🟠 | El mock rechazaba con 3111 el 0.13 que el formulario recomienda y el dominio acepta (base redondeada antes del impuesto) | #146 | ✅ recert #9 |
+| 🟠 | `topePorTributo` en exportación devolvía el total, no la base 9995 (cargo 48, descuento global o redondeo lo separan) | #146 | ✅ recert #9 |
+| 🟠 | El e2e del tope por tributo dependía del orden de la suite (leía el tope de una factura compartida) → fixture `f-isc` propia, tope exacto | #146 | ✅ recert #9 (mata la mutación en la suite completa) |
+| 🟠 | Los límites 3503 del gravado y del IVAP no tenían test en el backend → test del gravado atando con el total dentro del 3286; el del IVAP es redundante con el 3286 (total = base × 1.04), documentado | #145 | ✅ recert #9 |
+| 🟡 | Motivo 02 → nota total sin test | #146 | ✅ recert #9 |
 
 ## Recert #7 → #141 + #142
 
@@ -120,4 +128,4 @@ Todo en [pendientes.md](pendientes.md), sección Notas.
 
 ## Siguiente paso
 
-Mergear backend → A9 → **recert #9**. Si sale 0/0: ✅ certificado.
+Mergear backend → A10 → **recert #10**. Si sale 0/0: ✅ certificado.
