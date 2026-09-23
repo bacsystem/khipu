@@ -18,6 +18,10 @@ Una ficha por flujo. Certificado = **0 bloqueantes, 0 importantes** tras auditor
 | 12 | Personalización PDF | ⬜ | — |
 | 13 | Developers | ⬜ | — |
 
+## Pendientes
+
+Todo lo abierto que no bloquea, de todos los flujos, en [pendientes.md](pendientes.md). Los issues de GitHub (#115, #117, #20) son solo enlaces; el control es este directorio.
+
 ## Transversales
 
 | Tema | Estado | Ficha |
