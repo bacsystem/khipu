@@ -440,7 +440,16 @@ export const handlers = [
   // Notas de crédito/débito: la factura debe existir y estar aceptada; la nota copia cliente y moneda y se acepta al instante.
   http.post(`${BASE}/v1/notas`, async ({ request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
-    const body = (await request.json()) as { tipo: "07" | "08"; serie: string; fecha_emision: string; documento_afectado: { serie: string; numero: number }; motivo: string; descripcion: string; items?: Array<{ descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }> };
+    // Con guarda: un cuerpo vacío o truncado (un POST abortado en el teardown de un test, reenviado por el BFF sin
+    // cuerpo) hacía que `request.json()` lanzara y MSW respondiera 500 con el stack —el «SyntaxError: Unexpected
+    // end of JSON input» de los logs—. El backend real responde 400 JSON_INVALIDO; el mock ahora también.
+    type CuerpoNota = { tipo: "07" | "08"; serie: string; fecha_emision: string; documento_afectado: { serie: string; numero: number }; motivo: string; descripcion: string; items?: Array<{ descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }> };
+    let body: CuerpoNota;
+    try {
+      body = (await request.json()) as CuerpoNota;
+    } catch {
+      return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
+    }
     const lista = db.facturasPorEmpresa.get(empresaId) ?? [];
     const factura = lista.find((f) => f.tipo === "01" && f.serie === body.documento_afectado.serie && f.numero === body.documento_afectado.numero);
     if (!factura) return fail(422, "NOTA_INVALIDA", `2119 - La factura ${body.documento_afectado.serie}-${body.documento_afectado.numero} no existe en esta empresa`);
@@ -458,7 +467,9 @@ export const handlers = [
     const entradaMotivo = catalogo.entradas.find((e) => e.codigo === body.motivo);
     if (!entradaMotivo) return fail(422, "NOTA_INVALIDA", `2172 - El motivo ${body.motivo} no existe en el catálogo ${catalogo.id}`);
     const desc = body.descripcion ?? "";
-    if (desc.trim() === "" || desc.length > 500 || /[\x00-\x08\x0A-\x1F\x7F]/.test(desc)) return fail(422, "NOTA_INVALIDA", "2135 - El sustento de la nota tiene de 1 a 500 caracteres, sin saltos de línea");
+    // Incluye el tabulador (\x09): el backend usa `Character::isISOControl` y SUNAT 2135 lo prohíbe explícitamente.
+    // La primera versión lo dejaba pasar y una celda pegada de Excel salía en verde acá y en 422 en producción.
+    if (desc.trim() === "" || desc.length > 500 || /[\x00-\x1F\x7F]/.test(desc)) return fail(422, "NOTA_INVALIDA", "2135 - El sustento de la nota tiene de 1 a 500 caracteres, sin saltos de línea ni tabuladores");
     const nc13 = body.tipo === "07" && body.motivo === "13";
     const formaPago = (body as { forma_pago?: { tipo: string; monto_pendiente: number; cuotas: Array<{ monto: number; vencimiento: string }> } }).forma_pago;
     if (nc13 && (!formaPago || formaPago.tipo !== "credito" || !formaPago.cuotas?.length)) return fail(422, "NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
@@ -469,10 +480,17 @@ export const handlers = [
     if (body.tipo === "08" && body.motivo === "13" && (body.items ?? []).some((i) => i.tipo_afectacion_igv !== "30"))
       return fail(422, "NOTA_INVALIDA", "3507 - Las penalidades son operaciones inafectas del IGV: la línea debe llevar afectación 30");
     if (nc13) {
+      // A paridad con `FormaPago.validarComoCorreccionDe`: escala ≤ 2 en pendiente (3250) y cuotas (3253), y la
+      // suma de cuotas igual al pendiente (3319). El recertificador midió que el mock aceptaba las tres cosas que el
+      // backend rechaza, así que un e2e verde no garantizaba nada.
+      const decimales = (n: number) => (String(n).split(".")[1] ?? "").length;
       if (factura.forma_pago.tipo !== "credito") return fail(422, "NOTA_INVALIDA", `3260 - El motivo 13 solo aplica a facturas al crédito y ${factura.serie}-${factura.numero} es al contado`);
-      if (formaPago!.cuotas.some((q) => !(q.monto > 0))) return fail(422, "FORMA_PAGO_INVALIDA", "3253 - El monto de cada cuota debe ser positivo");
+      if (!(formaPago!.monto_pendiente > 0) || decimales(formaPago!.monto_pendiente) > 2) return fail(422, "FORMA_PAGO_INVALIDA", "3250 - El monto neto pendiente de pago debe ser positivo con hasta 2 decimales");
+      if (formaPago!.cuotas.some((q) => !(q.monto > 0) || decimales(q.monto) > 2)) return fail(422, "FORMA_PAGO_INVALIDA", "3253 - El monto de cada cuota debe ser positivo con hasta 2 decimales");
       if (formaPago!.cuotas.some((q) => !(q.vencimiento > factura.fecha_emision))) return fail(422, "FORMA_PAGO_INVALIDA", `3321 - La fecha de la cuota debe ser posterior a la emisión de la factura (${factura.fecha_emision})`);
       if (formaPago!.monto_pendiente > factura.totales.total) return fail(422, "FORMA_PAGO_INVALIDA", `3320 - El monto neto pendiente (${formaPago!.monto_pendiente}) supera el total de la factura (${factura.totales.total})`);
+      const suma = Number(formaPago!.cuotas.reduce((acc, q) => acc + q.monto, 0).toFixed(2));
+      if (suma !== Number(formaPago!.monto_pendiente.toFixed(2))) return fail(422, "FORMA_PAGO_INVALIDA", `3319 - La suma de las cuotas (${suma}) debe ser igual al monto neto pendiente (${formaPago!.monto_pendiente})`);
     }
 
     const motivos: Record<string, string> = Object.fromEntries(catalogo.entradas.map((e) => [e.codigo, e.descripcion]));

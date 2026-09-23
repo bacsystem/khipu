@@ -457,6 +457,47 @@ test("NC 13: una cuota con más de 2 decimales no deja emitir (3253)", async ({ 
   await expect(boton).toBeEnabled();
 });
 
+test("nota: un tabulador pegado en el sustento viaja como espacio (2135)", async ({ page }) => {
+  const { form } = await notaLista(page);
+  // `fill` mete el tab tal cual, como un pegado desde Excel; un input de una línea no lo bloquea.
+  await form.getByLabel("Sustento").fill("linea1\tcon tab");
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  expect((await peticion).postDataJSON().descripcion).toBe("linea1 con tab");
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+});
+
+test("el mock de POST /v1/notas rechaza lo que el backend rechaza: tab (2135), 3 decimales (3253), suma ≠ pendiente (3319), cuerpo vacío (400)", async ({ page }) => {
+  // Red de seguridad de la suite: si el mock aceptara esto, un e2e verde no diría nada sobre producción. Se prueba
+  // por HTTP directo con la cookie de sesión, porque el formulario (correctamente) ya no deja construir estos casos.
+  await page.goto("/comprobantes/f-aceptada");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const post = (body: unknown) =>
+    page.evaluate(async ([b]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, texto: await r.text() };
+    }, [typeof body === "string" ? body : JSON.stringify(body)]);
+  const base = { tipo: "07", serie: "FC01", fecha_emision: hoy, documento_afectado: { serie: "F001", numero: 1 }, motivo: "13", descripcion: "Reprogramación" };
+  const cuotas = (montos: number[], pendiente: number) => ({ ...base, forma_pago: { tipo: "credito", monto_pendiente: pendiente, cuotas: montos.map((m) => ({ monto: m, vencimiento: "2026-12-01" })) } });
+
+  let r = await post({ ...base, motivo: "07", descripcion: "con\ttab", items: [{ descripcion: "x", unidad: "ZZ", cantidad: 0.1, precio_unitario: 141.6, tipo_afectacion_igv: "10" }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("2135");
+
+  // Pendiente a 2 decimales para pasar 3250 y que el rechazo sea el de la cuota (3253), no el del pendiente.
+  r = await post(cuotas([10.123, 20.12], 30.24));
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3253");
+
+  r = await post(cuotas([10, 20], 40));
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3319");
+
+  r = await post("");
+  expect(r.status, r.texto).toBe(400);
+  expect(r.texto).toContain("JSON_INVALIDO");
+});
+
 test("da de baja una factura aceptada tras confirmar el motivo y queda anulada", async ({ page }) => {
   await page.goto("/comprobantes/f-obs");
   await page.getByTestId("dar-de-baja").click();
