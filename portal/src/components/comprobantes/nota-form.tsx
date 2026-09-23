@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
-import { importeLineaNota, itemParaNota } from "@/lib/comprobantes/notas";
+import { importeLineaNota, itemParaNota, lineaRedondeaACero } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
@@ -19,8 +19,8 @@ import { cn } from "@/lib/utils";
 type Tipo = "07" | "08";
 /** Motivos de NC en los que la nota es total y se copian los ítems de la factura; el 13 no mueve importes. */
 const MOTIVOS_NC_TOTAL = new Set(["01", "02", "06"]);
-/** Importes de dinero: hasta 2 decimales (3250/3253 en cuotas; 2025 en la línea de la ND). */
-const DOS_DECIMALES = /^\d+(\.\d{1,2})?$/;
+/** Importes de dinero: hasta 12 enteros y 2 decimales (3250/3253 en cuotas; 2025 en la línea de la ND, «12 enteros y 10 decimales»). */
+const DOS_DECIMALES = /^\d{1,12}(\.\d{1,2})?$/;
 
 /**
  * Emite una nota de crédito o débito sobre una factura aceptada (`POST /v1/notas`). La NC puede ser total (copia la
@@ -179,13 +179,12 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // veía los cargos de línea. Vale también para la nota total (01/02/06): copia la factura entera, y si ya hay NC
   // vigentes la supera.
   //
-  // La nota total copia los ítems, el descuento global y los cargos, pero NO el redondeo del importe total (el
-  // backend no lo copia a la nota, #123): sale por el total sin redondear. Con el redondeo habitual (negativo, para
-  // cobrar sin céntimos) queda por encima del PayableAmount de la factura y SUNAT la rechaza (3286, sin tolerancia).
+  // La nota total copia ítems, descuento global, cargos y —desde #123— también el redondeo del importe total, así
+  // que sale exactamente por el PayableAmount de la factura (3286 sin tolerancia en facturas).
   const importeNota = esParcial
     ? redondear(lineasParciales.reduce((s, { item, cantidad }) => s + importeLineaNota(item, cantidad), 0), 2)
     : esTotal
-      ? redondear(factura.totales.total - (factura.totales.redondeo ?? 0), 2)
+      ? factura.totales.total
       : 0;
   const acreditado = redondear(
     (factura.notas ?? [])
@@ -198,20 +197,23 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
 
   // Por qué el botón está deshabilitado cuando el campo se ve lleno: un importe con 3 decimales no avisaba nada.
   const conDecimalesDeMas = (v: string) => v.trim() !== "" && !DOS_DECIMALES.test(v.trim());
+  const lineaEnCero = esParcial && lineasParciales.some(({ item, cantidad }) => lineaRedondeaACero(item, cantidad));
   const avisoDecimales = !esNc && conDecimalesDeMas(nd.importe)
     ? "El importe admite hasta 2 decimales."
     : esCuotas && cuotas.some((q) => conDecimalesDeMas(q.monto))
       ? "Cada cuota admite hasta 2 decimales."
-      : null;
+      : lineaEnCero
+        ? "Hay una línea cuyo importe o cargo redondea a 0.00: subí la cantidad o ponela en 0."
+        : null;
 
   const listo =
     serie !== "" &&
     motivo !== "" &&
     descripcion.trim() !== "" &&
-    (!esParcial || (itemsParciales.length > 0 && !superaTope)) &&
+    (!esParcial || (itemsParciales.length > 0 && !superaTope && !lineaEnCero)) &&
     (!esTotal || !superaTope) &&
-    // Importe de la ND con hasta 2 decimales: `step=0.01` no frena lo tipeado y el dominio rechaza 11 decimales (2025).
-    (esNc || (nd.descripcion.trim() !== "" && Number(nd.importe) > 0 && DOS_DECIMALES.test(nd.importe.trim()))) &&
+    // Importe de la ND con hasta 12 enteros y 2 decimales (2025); concepto de 3 a 500 (4084 observa con menos de 3).
+    (esNc || (nd.descripcion.trim().length >= 3 && Number(nd.importe) > 0 && DOS_DECIMALES.test(nd.importe.trim()))) &&
     (!esCuotas || cuotasValidas);
 
   return (
@@ -264,8 +266,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
               la doble acreditación (#83), y antes esta pantalla no decía nada y dejaba emitir. */}
           {acreditado > 0 || superaTope ? (
             <p className="mt-1" data-testid="nota-importe">
-              Importe de la nota: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</span>
-              {importeNota !== factura.totales.total ? " (sin el redondeo de la factura)" : ""}. Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>
+              Importe de la nota: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</span>. Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>
               {acreditado > 0 ? ` (ya acreditado ${formatearMonto(factura.moneda, acreditado)} en otras notas de crédito)` : ""}.
               {superaTope ? <span role="alert" className="block"> Supera el tope: SUNAT la rechazaría (3286). Solo queda por acreditar {formatearMonto(factura.moneda, tope)}; elegí un motivo parcial.</span> : null}
             </p>

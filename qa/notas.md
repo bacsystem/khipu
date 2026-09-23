@@ -1,4 +1,4 @@
-# Notas de crédito/débito · 🟡 recert #4: 0 bloqueantes · 1 importante → corregido (A5), pendiente de recert #5
+# Notas de crédito/débito · 🟡 recert #5: 0 bloqueantes · 3 importantes → corregido (A6 + backend #123), pendiente de recert #6
 
 | | |
 |---|---|
@@ -6,8 +6,19 @@
 | Recert #1 | 3 bloqueantes (ND 13 gravada 3507, tope inerte en 40/17, pendiente en flotante) → #124 → #125 → #127 |
 | Recert #2 | `main@e68d60b` · 2 bloqueantes · 4 importantes → #128 → #129 → #131 |
 | Recert #3 | `main@fc07431` · **1 bloqueante · 3 importantes** → #132 → #133 |
-| Recert #4 | `main@9d9e3e5` · Opus, worktree, puerto muerto · **0 bloqueantes · 1 importante** · importe a ±0.01 del dominio en 18 casos · 25/28 mutaciones → A5 |
-| Suite tras A5 | 120/120 Vitest · 70/70 e2e ×2 · 7/7 mutaciones nuevas mueren |
+| Recert #4 | `main@9d9e3e5` · **0 bloqueantes · 1 importante** → #135 |
+| Recert #5 | `main@bb801d1` · Opus, worktree, puerto muerto · **0 bloqueantes · 3 importantes** · importe a ±0.02 del dominio (20 000 líneas aleatorias, 91 % exacto) · 19/20 mutaciones → A6 + backend |
+| Suite tras A6 | 122/122 Vitest · 72/72 e2e ×2 · backend 686/686 · 12/12 mutaciones nuevas mueren |
+
+## Recert #5: encontrado y corregido
+
+| Sev | Qué | PR |
+|---|---|---|
+| 🟠 | Suite intermitente (1 rojo en 5): aserción ambigua en el panel de notas con NC 07 paralelas sobre la misma factura | A6 |
+| 🟠 | Importe de la ND sin límite de enteros y mock sin validar el formato del precio (2025, 12 enteros) | A6 |
+| 🟠 | Cantidad parcial tan chica que el cargo en porcentaje redondea a 0.00: dominio 2955, mock 201 | A6 |
+| 🟡 | Concepto de la ND de 3 a 500 (4084) · frontera de la cuota el mismo día (3321) · ficha ±0.02 | A6 |
+| 🔧 | **Backend (#123 cerrado)**: 3286 sin tolerancia en facturas y exento en motivo 10; 2642/2644/3230/3507 cruzados en el dominio; redondeo copiado a la nota total; citas 1001/2524 | backend |
 
 ## Recert #4: encontrado y corregido
 
@@ -28,15 +39,13 @@
 
 ## Contraste SUNAT (acumulado)
 
-- Coinciden en las tres capas: 2116/2117/2119/2120/2128/2135, 2172, 2885, 3250/3253/3319/3320/3321, 3257, 3259/3260, 3315, 2642/3107/3221, 3230 (NC y ND), 3507 (portal y mock; backend #123), 3194/3261.
-- **3286**: fila 111 (facturas) **sin tolerancia** y exime al motivo 10; ±1 solo boletas (113). Backend ±1 a todo → #123. Portal estricto.
-- 3503 (por tributo): solo backend. 2644 cerrado: `Totales` prohíbe mezclar IVAP con otras afectaciones.
+- Coinciden en las tres capas: 2116/2117/2119/2120/2128/2135, 2172, 2885, 3250/3253/3319/3320/3321, 3257, 3259/3260, 3315, 2642/2644/3107/3221, 3230 (NC y ND), 3507, 3194/3261, 2025/2027.
+- **3286**: fila 111 (facturas) **sin tolerancia** y exime al motivo 10; ±1 solo boletas (113). Las tres capas estrictas desde el backend de #123. 3503 con +1 (filas 114–122): solo backend.
 - Catálogo 10: 3507 solo al 13 («Penalidades»); el 03 con línea gravada es legal.
 - `itemParaNota` no reenvía `hidrobiologico`/`transporte`: correcto, ninguna regla de NC los pide y el `NotaBuilder` no los valida. No «arreglar».
 
 ## Pendiente (no bloquea)
 
-- Backend (#123): 3286 sin tolerancia en facturas y exento en motivo 10 · 3503 ok · 3507, 3230 y **2644** sin cruzar · copiar `redondeo` a la nota total (hoy una factura con redondeo no se puede acreditar entera desde el portal).
 - Tope solo anticipa 3286, no 3503 por tributo (el backend lo rechaza sin gastar correlativo). Descuento fijo en parcial acredita por encima de lo proporcional (simétrico al cargo; decisión de producto, el texto de ayuda lo dice).
 - Cancelar sin confirmar · motivo 03 obliga a mover dinero · errores por campo del 422 ignorados (transversal) · 12 enteros en cuotas (inalcanzable).
 - Decisión de producto: NC **por importe** (04 descuento, 09 disminución) — hoy solo por unidades.
@@ -44,4 +53,4 @@
 
 ## Siguiente paso
 
-Mergear A5 → **recert #5** (auditor limpio, worktree, `API_BASE_URL` muerto). Si sale 0/0: ✅ certificado.
+Mergear backend → A6 → **recert #6**. Si sale 0/0: ✅ certificado. Después: NC por importe (04/05/09) según catálogo 09 → recert.

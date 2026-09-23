@@ -503,6 +503,13 @@ export const handlers = [
       if (exportacion && i.tipo_afectacion_igv !== "40") return fail(422, "AFECTACION_INVALIDA", `2642 - En una exportación (${factura.tipo_operacion}) todos los ítems llevan tipo_afectacion_igv 40`);
       if (!exportacion && i.tipo_afectacion_igv === "40") return fail(422, "AFECTACION_INVALIDA", `3107 - La afectación 40 (exportación) exige un tipo de operación 0200–0208; recibido ${factura.tipo_operacion}`);
       if (!(i.cantidad > 0) || decimales(i.cantidad) > 10) return fail(422, "ITEM_INVALIDO", "2025 - La cantidad debe ser positiva, con hasta 12 enteros y 10 decimales");
+      // `Item.exigirFormatoNumerico`: 12 enteros y 10 decimales también en el precio. El importe de la ND llegaba con 13 enteros.
+      if (!(i.precio_unitario >= 0) || decimales(i.precio_unitario) > 10 || Math.trunc(i.precio_unitario) >= 1e12) return fail(422, "ITEM_INVALIDO", "2025 - El precio unitario admite hasta 12 enteros y 10 decimales");
+      // `Cargo.montoSobre` (2955) y `Descuento.montoSobre`: un porcentaje que redondea a 0.00 sobre la base de la línea.
+      const base = (i.cantidad * i.precio_unitario) / (i.tipo_afectacion_igv === "10" ? 1.18 : 1);
+      for (const a of [i.descuento, ...(i.cargos ?? [])]) {
+        if (a?.porcentaje != null && Math.round((base * a.porcentaje) / 100 * 100) === 0) return fail(422, "CARGO_INVALIDO", `2955 - El ajuste en porcentaje resulta en 0.00 sobre la base ${base.toFixed(2)}`);
+      }
       // `Item`: descripción obligatoria y hasta 500 (2026/2027). El «Concepto» de la ND llegaba con 501 y el mock daba 201.
       if (!i.descripcion?.trim()) return fail(422, "ITEM_INVALIDO", "2026 - Cada ítem necesita una descripción");
       if (i.descripcion.length > 500) return fail(422, "ITEM_INVALIDO", "2027 - La descripción del ítem admite hasta 500 caracteres");
@@ -548,12 +555,18 @@ export const handlers = [
         }, 0)
         .toFixed(2),
     );
+    // La nota total copia también el redondeo de la factura (#123): sale por su PayableAmount exacto.
+    const copiaLaFactura = !nc13 && !body.items?.length;
+    const redondeo = copiaLaFactura ? (factura.totales.redondeo ?? 0) : 0;
+    const totalNota = Number((total + redondeo).toFixed(2));
     // 3286 con el acumulado de NC vigentes sobre la misma factura, como `EmitirComprobanteService.acreditadoPorNotas`.
     if (body.tipo === "07") {
       const acreditado = lista
         .filter((n) => n.tipo === "07" && n.nota?.documento_afectado === `${factura.serie}-${factura.numero}` && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO")
         .reduce((acc, n) => acc + n.totales.total, 0);
-      if (total + acreditado - factura.totales.total > 1) return fail(422, "NOTA_INVALIDA", `3286 - El importe total de la nota (${total}) supera el de la factura ${factura.serie}-${factura.numero} (${factura.totales.total})${acreditado > 0 ? `: ya acreditado ${acreditado} en otras notas de crédito` : ""}`);
+      // Sin tolerancia sobre facturas (NotaCredito2_0 fila 111; la +1 de la fila 113 es solo boletas) y exento en el motivo 10,
+      // como el backend desde #123. Con margen de flotante (0.005) para que 118.44 − 118.44 no dé 1e-14.
+      if (body.motivo !== "10" && totalNota + acreditado - factura.totales.total > 0.005) return fail(422, "NOTA_INVALIDA", `3286 - El importe total de la nota (${totalNota}) supera el de la factura ${factura.serie}-${factura.numero} (${factura.totales.total})${acreditado > 0 ? `: ya acreditado ${acreditado} en otras notas de crédito` : ""}`);
     }
     serie.ultimo_numero += 1;
     const id = nuevoId("n");
@@ -564,7 +577,7 @@ export const handlers = [
       tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items: itemsNota, estado_documento: "ACEPTADO", hash: "hashnota==",
       nombre_archivo: `20123456786-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
-      totales: { gravado: Number((total / 1.18).toFixed(2)), exonerado: 0, inafecto: 0, igv: Number((total - total / 1.18).toFixed(2)), total: Number(total.toFixed(2)) },
+      totales: { gravado: Number((total / 1.18).toFixed(2)), exonerado: 0, inafecto: 0, igv: Number((total - total / 1.18).toFixed(2)), redondeo: redondeo || undefined, total: totalNota },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       nota: { tipo_afectado: "01", documento_afectado: `${factura.serie}-${factura.numero}`, motivo: body.motivo, motivo_descripcion: motivos[body.motivo] ?? "Otros", descripcion: body.descripcion },
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },

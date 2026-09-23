@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ItemComprobante } from "@/lib/api/facturas";
-import { importeLineaNota, itemParaNota } from "./notas";
+import { importeLineaNota, itemParaNota, lineaRedondeaACero } from "./notas";
 
 // 10 mesas a 118 con IGV, cargo 47 del 10 % (flete, paga IGV): valor 1000 + 100, IGV 198, paga 1298.
 const conCargoPorcentaje: ItemComprobante = {
@@ -119,3 +119,19 @@ const conIscYCargo: ItemComprobante = {
   isc: { sistema: "01", tasa: 35, monto: 241.69, base: 690.53 },
   cargos: [{ tipo: "PORCENTAJE", valor: 10, monto: 62.78, afecta_base_igv: true, codigo: "47" }],
 };
+
+describe("lineaRedondeaACero", () => {
+  it("un cargo en porcentaje que redondea a 0.00 sobre la base de la cantidad parcial (2955)", () => {
+    // 0.0004 × 118 = 0.05 de importe (no es cero), pero la base sin IGV es 0.04 y el 10 % es 0.004 → 0.00.
+    expect(lineaRedondeaACero(conCargoPorcentaje, 0.0004)).toBe(true);
+    expect(lineaRedondeaACero(conCargoPorcentaje, 0.01)).toBe(false);
+    // Un cargo de monto fijo no viaja en parcial, así que no cuenta.
+    expect(lineaRedondeaACero(conCargoMonto, 0.0004)).toBe(false);
+  });
+
+  it("una línea cuyo importe redondea a 0.00 (2367/2369)", () => {
+    const simple: ItemComprobante = { codigo: null, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10", precio_venta: 118 };
+    expect(lineaRedondeaACero(simple, 0.00001)).toBe(true);
+    expect(lineaRedondeaACero(simple, 0.001)).toBe(false);
+  });
+});

@@ -79,3 +79,17 @@ export function importeLineaNota(item: ItemComprobante, cantidad: number): numbe
   if (item.descuento && !seConserva(item.descuento, completa)) completo += enPrecio(item.descuento);
   return redondear((completo * cantidad) / facturada, 2);
 }
+
+/**
+ * Una cantidad tan chica que la línea, o uno de sus ajustes en porcentaje, redondea a 0.00: el dominio rechaza el ajuste
+ * (`Cargo.montoSobre` 2955, `Descuento.montoSobre`) y SUNAT el valor/precio unitario en cero (2367/2369). El formulario
+ * dejaba teclear 0.0004 de 10 mesas con flete del 10 % (base 0.04 → cargo 0.00) y el POST volvía 422.
+ */
+export function lineaRedondeaACero(item: ItemComprobante, cantidad: number): boolean {
+  if (importeLineaNota(item, cantidad) < 0.01) return true;
+  const completa = cantidad === Number(item.cantidad);
+  const factorIgv = item.valor_venta && item.igv != null ? 1 + item.igv / (item.valor_venta + (item.isc?.monto ?? 0)) : 1;
+  const base = (item.precio_unitario * cantidad) / factorIgv;
+  const ajustes = [...(item.cargos ?? []), ...(item.descuento ? [item.descuento] : [])];
+  return ajustes.some((a) => a.tipo === "PORCENTAJE" && seConserva(a, completa) && redondear((base * a.valor) / 100, 2) < 0.01);
+}
