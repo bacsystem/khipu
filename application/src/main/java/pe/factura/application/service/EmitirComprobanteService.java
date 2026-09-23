@@ -105,13 +105,15 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 .cargos(copia ? factura.cargos() : cmd.cargos())
                 .tasaIgv(factura.tasaIgv())
                 .exportacion(factura.exportacion())
+                // Con el redondeo de la factura la nota total sale exactamente por su PayableAmount (3286 sin tolerancia en facturas).
+                .redondeo(copia ? factura.totales().redondeo() : null)
                 .crear(clock);
         c.anotar(cmd.observaciones());
         // Releída con lock de fila dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota,
         // y el acumulado de NC se lee con la factura bloqueada, así que dos NC concurrentes no pueden acreditarla dos veces.
         return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> {
             Comprobante bloqueada = exigirModificable(comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, factura.serie(), factura.numero()), factura.serie(), factura.numero());
-            if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereALaFactura(c.totales(), bloqueada, acreditadoPorNotas(tenantId, bloqueada));
+            if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereALaFactura(c.totales(), nota.motivo(), bloqueada, acreditadoPorNotas(tenantId, bloqueada));
         });
     }
 
@@ -159,22 +161,27 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
 
     /**
      * Reglas 3286 (importe total) y 3503 (base e impuesto por tributo) de la hoja NotaCredito2_0: la NC no puede superar
-     * (tolerancia ±1) los importes de la factura que modifica. SUNAT lo comprueba nota por nota; khipu descuenta además lo
-     * ya acreditado por las NC anteriores, para que varias notas no sumen más que la factura (#83).
+     * los importes de la factura que modifica. Sobre facturas (F/E) el 3286 es estricto (fila 111: «mayor a la sumatoria»,
+     * sin tolerancia; la +1 de la fila 113 es solo para boletas) y exime al motivo 10 «Otros conceptos»; el 3503 sí admite
+     * +1 en cada concepto (filas 114–122). SUNAT lo comprueba nota por nota; khipu descuenta además lo ya acreditado por
+     * las NC anteriores, para que varias notas no sumen más que la factura (#83).
      */
-    private static void exigirQueNoSupereALaFactura(Totales nc, Comprobante factura, Acreditado previo) {
+    private static void exigirQueNoSupereALaFactura(Totales nc, String motivo, Comprobante factura, Acreditado previo) {
         Totales f = factura.totales();
+        record Limite(String concepto, String regla, BigDecimal nota, BigDecimal factura, BigDecimal acreditado, BigDecimal tolerancia) {}
+        List<Limite> limites = new java.util.ArrayList<>();
+        if (!"10".equals(motivo)) limites.add(new Limite("importe total", "3286", nc.total(), f.total(), previo.total(), BigDecimal.ZERO));
         BigDecimal tol = BigDecimal.ONE;
-        record Limite(String concepto, String regla, BigDecimal nota, BigDecimal factura, BigDecimal acreditado) {}
-        for (Limite l : List.of(new Limite("importe total", "3286", nc.total(), f.total(), previo.total()),
-                new Limite("valor de venta gravado", "3503", nc.gravado(), f.gravado(), previo.gravado()),
-                new Limite("IGV", "3503", nc.igv(), f.igv(), previo.igv()),
-                new Limite("IVAP", "3503", nc.ivap(), f.ivap(), previo.ivap()),
-                new Limite("valor de venta exonerado", "3503", nc.exonerado(), f.exonerado(), previo.exonerado()),
-                new Limite("valor de venta inafecto", "3503", nc.inafecto(), f.inafecto(), previo.inafecto()),
-                new Limite("valor de las operaciones gratuitas", "3503", nc.gratuito(), f.gratuito(), previo.gratuito()),
-                new Limite("valor de venta de exportación", "3503", nc.exportacion(), f.exportacion(), previo.exportacion()))) {
-            if (l.nota().add(l.acreditado()).subtract(l.factura()).compareTo(tol) > 0)
+        limites.addAll(List.of(
+                new Limite("valor de venta gravado", "3503", nc.gravado(), f.gravado(), previo.gravado(), tol),
+                new Limite("IGV", "3503", nc.igv(), f.igv(), previo.igv(), tol),
+                new Limite("IVAP", "3503", nc.ivap(), f.ivap(), previo.ivap(), tol),
+                new Limite("valor de venta exonerado", "3503", nc.exonerado(), f.exonerado(), previo.exonerado(), tol),
+                new Limite("valor de venta inafecto", "3503", nc.inafecto(), f.inafecto(), previo.inafecto(), tol),
+                new Limite("valor de las operaciones gratuitas", "3503", nc.gratuito(), f.gratuito(), previo.gratuito(), tol),
+                new Limite("valor de venta de exportación", "3503", nc.exportacion(), f.exportacion(), previo.exportacion(), tol)));
+        for (Limite l : limites) {
+            if (l.nota().add(l.acreditado()).subtract(l.factura()).compareTo(l.tolerancia()) > 0)
                 throw new DomainException("NOTA_INVALIDA", l.regla() + " - El " + l.concepto() + " de la nota (" + l.nota() + ") supera el de la factura "
                         + factura.serie() + "-" + factura.numero() + " (" + l.factura() + ")"
                         + (l.acreditado().signum() > 0 ? ": ya acreditado " + l.acreditado() + " en otras notas de crédito" : ""));

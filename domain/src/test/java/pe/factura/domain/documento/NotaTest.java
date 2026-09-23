@@ -30,6 +30,21 @@ class NotaTest {
         return Comprobante.nota(UUID.randomUUID(), tipo, serie, LocalDate.of(2026, 9, 18), nota, RECEPTOR, ITEMS).formaPago(fp).crear(CLOCK);
     }
 
+    static Comprobante conItems(TipoDocumento tipo, String serie, String motivo, TipoAfectacionIgv afectacion) {
+        List<Item> items = List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), afectacion));
+        return Comprobante.nota(UUID.randomUUID(), tipo, serie, LocalDate.of(2026, 9, 18), new Nota(TipoDocumento.FACTURA, "F001", 1, motivo, "x"), RECEPTOR, items).crear(CLOCK);
+    }
+
+    /** Lo que sí pasa el cruce motivo ↔ afectación: ND 13 inafecta (30), NC 12 en IVAP, ND 11 sobre exportación. */
+    @Test void motivoYAfectacionCoherentes() {
+        assertThat(conItems(TipoDocumento.NOTA_DEBITO, "FD01", "13", TipoAfectacionIgv.INAFECTO).totales().igv()).isEqualByComparingTo("0");
+        assertThat(conItems(TipoDocumento.NOTA_CREDITO, "FC01", "12", TipoAfectacionIgv.IVAP).totales().ivap()).isGreaterThan(BigDecimal.ZERO);
+        Comprobante nd11 = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_DEBITO, "FD01", LocalDate.of(2026, 9, 18), new Nota(TipoDocumento.FACTURA, "F001", 1, "11", "x"),
+                new Receptor("0", "US123456789", "ACME IMPORTS LLC", "1200 Main St, Miami FL", "US"), List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.EXPORTACION)))
+                .tipoOperacion("0200").exportacion(new Exportacion("FOB", null)).crear(CLOCK);
+        assertThat(nd11.totales().exportacion()).isEqualByComparingTo("100.00");
+    }
+
     @Test void notaDeCreditoSobreFactura() {
         Comprobante c = nota(TipoDocumento.NOTA_CREDITO, "FC01", NC_ANULACION, null);
         assertThat(c.esNota()).isTrue();
@@ -47,12 +62,13 @@ class NotaTest {
         Nota interes = new Nota(TipoDocumento.FACTURA, "F001", 12, "01", "Intereses por mora");
         Comprobante c = nota(TipoDocumento.NOTA_DEBITO, "FD01", interes, null);
         assertThat(c.nota().descripcionMotivo(TipoDocumento.NOTA_DEBITO)).isEqualTo("Intereses por mora");
-        // 13 existe en ambos catálogos con sentidos distintos: en la ND es "Penalidades", no corrige cuotas.
-        Comprobante penalidad = nota(TipoDocumento.NOTA_DEBITO, "FD01", new Nota(TipoDocumento.FACTURA, "F001", 12, "13", "Penalidad"), null);
+        // 13 existe en ambos catálogos con sentidos distintos: en la ND es "Penalidades", no corrige cuotas, y va inafecta (3507).
+        Comprobante penalidad = conItems(TipoDocumento.NOTA_DEBITO, "FD01", "13", TipoAfectacionIgv.INAFECTO);
         assertThat(penalidad.nota().descripcionMotivo(TipoDocumento.NOTA_DEBITO)).isEqualTo("Penalidades");
         assertThat(penalidad.nota().corrigeCuotas(TipoDocumento.NOTA_DEBITO)).isFalse();
-        assertThat(penalidad.items()).isEqualTo(ITEMS);
+        assertThat(penalidad.items()).hasSize(1);
         assertThat(penalidad.totales().total()).isEqualByComparingTo("118.00");
+        assertThat(penalidad.totales().igv()).isEqualByComparingTo("0");
     }
 
     @Test void laNotaDeCredito13NoMueveImportes() {
@@ -97,6 +113,13 @@ class NotaTest {
                 Arguments.of("NC 13 sin forma de pago al crédito", "3257", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "FC01", new Nota(TipoDocumento.FACTURA, "F001", 1, "13", "x"), null)),
                 Arguments.of("NC 13 al contado", "3257", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "FC01", new Nota(TipoDocumento.FACTURA, "F001", 1, "13", "x"), FormaPago.contado())),
                 Arguments.of("sin nota", "2524", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "FC01", null, null)),
+                // Motivo ↔ afectación (filas 221-223 NC / 204-206 ND, 194/283/325 ND): antes nadie lo cruzaba y la nota salía numerada.
+                Arguments.of("ND 11 (exportación) con línea gravada", "2642", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_DEBITO, "FD01", new Nota(TipoDocumento.FACTURA, "F001", 1, "11", "x"), null)),
+                Arguments.of("NC 12 (IVAP) con línea gravada", "2644", (ThrowingCallable) () -> nota(TipoDocumento.NOTA_CREDITO, "FC01", new Nota(TipoDocumento.FACTURA, "F001", 1, "12", "x"), null)),
+                Arguments.of("NC 07 con línea IVAP (17)", "3230", (ThrowingCallable) () -> conItems(TipoDocumento.NOTA_CREDITO, "FC01", "07", TipoAfectacionIgv.IVAP)),
+                Arguments.of("ND 01 con línea IVAP (17)", "3230", (ThrowingCallable) () -> conItems(TipoDocumento.NOTA_DEBITO, "FD01", "01", TipoAfectacionIgv.IVAP)),
+                Arguments.of("ND 13 (penalidad) con línea gravada", "3507", (ThrowingCallable) () -> conItems(TipoDocumento.NOTA_DEBITO, "FD01", "13", TipoAfectacionIgv.GRAVADO)),
+                Arguments.of("ND 13 (penalidad) con línea exonerada (9997)", "3507", (ThrowingCallable) () -> conItems(TipoDocumento.NOTA_DEBITO, "FD01", "13", TipoAfectacionIgv.EXONERADO)),
                 Arguments.of("cuotas de la NC 13 con vencimiento anterior a la factura", "3321", (ThrowingCallable) () -> credito.validarComoCorreccionDe(new BigDecimal("500.00"), LocalDate.of(2026, 10, 18))),
                 Arguments.of("pendiente de la NC 13 mayor que la factura", "3320", (ThrowingCallable) () -> credito.validarComoCorreccionDe(new BigDecimal("100.00"), LocalDate.of(2026, 9, 1))));
     }
