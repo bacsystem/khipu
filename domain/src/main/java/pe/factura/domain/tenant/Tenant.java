@@ -22,6 +22,12 @@ public record Tenant(UUID id, String ruc, String razonSocial, Entorno entorno, C
         personalizacionPdf = personalizacionPdf == null ? PersonalizacionPdf.porDefecto() : personalizacionPdf;
         if (ruc == null || !ruc.matches("\\d{11}")) throw new DomainException("RUC_INVALIDO", "RUC inválido: " + ruc);
         if (razonSocial == null || razonSocial.isBlank()) throw new DomainException("RAZON_SOCIAL_REQUERIDA", "Razón social requerida");
+        // 1037/4338: `cbc:RegistrationName` del emisor admite hasta 1500 caracteres y ningún whitespace que no sea el espacio
+        // (ni tab ni salto de línea). Iba cruda al XML: una razón social pegada desde una planilla hacía que SUNAT rechazara
+        // TODOS los comprobantes de esa empresa, quemando correlativo, y no hay forma de corregirla después.
+        razonSocial = razonSocial.strip();
+        if (razonSocial.length() > 1500 || razonSocial.chars().anyMatch(Character::isISOControl))
+            throw new DomainException("RAZON_SOCIAL_INVALIDA", "4338 - La razón social admite hasta 1500 caracteres, sin saltos de línea ni tabuladores");
         cuentaDetracciones = cuentaDetracciones == null || cuentaDetracciones.isBlank() ? null : cuentaDetracciones.strip();
         if (cuentaDetracciones != null && !cuentaDetracciones.matches("[0-9-]{8,20}"))
             throw new DomainException("CUENTA_DETRACCIONES_INVALIDA", "3034 - La cuenta de detracciones del Banco de la Nación son dígitos y guiones (p. ej. 00-000-123456)");

@@ -20,6 +20,7 @@ class UsuarioTest {
     @Test void politicaDePassword() {
         assertThatThrownBy(() -> Usuario.validarPassword("corta1")).extracting("codigo").isEqualTo("PASSWORD_DEBIL");
         assertThatThrownBy(() -> Usuario.validarPassword("sinnumeros")).extracting("codigo").isEqualTo("PASSWORD_DEBIL");
+        assertThatThrownBy(() -> Usuario.validarPassword("12345678")).extracting("codigo").isEqualTo("PASSWORD_DEBIL");  // sin letras
         assertThatCode(() -> Usuario.validarPassword("Segura123")).doesNotThrowAnyException();
     }
     @Test void cuentaExigeNombre() {
