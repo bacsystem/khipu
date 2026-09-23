@@ -28,6 +28,14 @@ public class DarDeBajaService implements DarDeBajaUseCase {
     public static final String ACCION_BAJA = "BAJA";
     /** SUNAT suele procesar un RA en segundos: se reconsulta pronto, sin el backoff largo de los envíos fallidos. */
     public static final Duration REINTENTO_CONSULTA = Duration.ofSeconds(30);
+    /** Tope del intervalo entre consultas del ticket: un RA que SUNAT tarda horas en resolver se reconsulta cada 5 min, no cada 30 s. */
+    public static final Duration CONSULTA_MAXIMA = Duration.ofMinutes(5);
+
+    /** Intervalo creciente entre consultas del ticket (30 s × intentos, hasta 5 min). */
+    public static Duration consultaTicket(int intentos) {
+        Duration d = REINTENTO_CONSULTA.multipliedBy(Math.max(1, intentos));
+        return d.compareTo(CONSULTA_MAXIMA) > 0 ? CONSULTA_MAXIMA : d;
+    }
 
     private final BajaRepository bajas;
     private final ComprobanteRepository comprobantes;
@@ -93,6 +101,11 @@ public class DarDeBajaService implements DarDeBajaUseCase {
             b.rechazarPorFault(e.codigo(), e.descripcion());
         } catch (IllegalStateException e) {   // storage, ZIP o CDR ilegible: infraestructura, reintentable
             if (b.estado() == EstadoBaja.ENVIADA) b.registrarConsultaPendiente("INFRA - " + e.getMessage()); else b.marcarErrorEnvio("INFRA - " + e.getMessage());
+        } catch (RuntimeException e) {
+            // Cualquier otra falla (red hacia S3, SDK, NPE de un parser): sin este catch la excepción salía antes de la transacción de
+            // abajo y la baja quedaba GENERADA sin fila de outbox, es decir «en curso» para siempre y sin nadie que la reintentara.
+            String motivo = "INFRA - " + e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
+            if (b.estado() == EstadoBaja.ENVIADA) b.registrarConsultaPendiente(motivo); else b.marcarErrorEnvio(motivo);
         }
         // Estado de la baja, anulación del comprobante y reprogramación en una sola transacción (mismo criterio que EnviarDocumentoService).
         uow.ejecutar(() -> {

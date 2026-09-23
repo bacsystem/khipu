@@ -60,9 +60,14 @@ public class OutboxWorker {
                 case DarDeBajaService.ACCION_BAJA -> {
                     // Una baja ENVIADA (ticket) se reconsulta pronto; una en ERROR_ENVIO (sin ticket) sigue el backoff de los envíos.
                     ComunicacionBaja b = bajas.continuar(fila.tenantId(), fila.agregadoId());
+                    // Una baja pendiente NUNCA se abandona: el manual (§2.7) no fija plazo para que SUNAT resuelva un RA (98 durante
+                    // más de 10 min es normal), y borrar la fila al intento 20 dejaba el comprobante «en curso» para siempre —bloqueado
+                    // para otra baja y para notas— y, si SUNAT sí lo anuló, ACEPTADO en khipu. ENVIADA: consulta con intervalo
+                    // creciente hasta 5 min; ERROR_ENVIO: backoff, hasta que venza el plazo (FUERA_DE_PLAZO descarta arriba).
                     if (!b.pendiente()) outbox.completar(fila.id());
-                    else reintentarOAgotar(fila, b.identificador(), b.ultimoError(),
-                            b.estado() == ComunicacionBaja.EstadoBaja.ENVIADA ? clock.instant().plus(DarDeBajaService.REINTENTO_CONSULTA) : Backoff.siguiente(fila.intentos() + 1, clock.instant()));
+                    else outbox.reprogramar(fila.id(),
+                            b.estado() == ComunicacionBaja.EstadoBaja.ENVIADA ? clock.instant().plus(DarDeBajaService.consultaTicket(fila.intentos() + 1)) : Backoff.siguiente(fila.intentos() + 1, clock.instant()),
+                            b.ultimoError());
                 }
                 default -> { log.warn("Acción desconocida {} en outbox {}", fila.accion(), fila.id()); outbox.completar(fila.id()); }
             }

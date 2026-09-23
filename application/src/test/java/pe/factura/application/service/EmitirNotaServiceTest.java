@@ -27,6 +27,7 @@ class EmitirNotaServiceTest {
     UUID tenantId = UUID.randomUUID();
     Fakes.Comprobantes comprobantes = new Fakes.Comprobantes();
     Fakes.Series series = new Fakes.Series();
+    Fakes.Bajas bajas = new Fakes.Bajas();
     Fakes.Establecimientos establecimientos = new Fakes.Establecimientos(series);
     Fakes.Tenants tenants = new Fakes.Tenants();
     Fakes.Storage storage = new Fakes.Storage();
@@ -48,7 +49,7 @@ class EmitirNotaServiceTest {
         series.crear(new Serie(tenantId, TipoDocumento.NOTA_CREDITO, "FC01", 0, true));
         series.crear(new Serie(tenantId, TipoDocumento.NOTA_DEBITO, "FD01", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos);
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas);
     }
 
     /** Factura de 2 laptops (200 + 36) y un libro exonerado (50), descuento global 03 de 10: total 276.00. */
@@ -408,7 +409,7 @@ class EmitirNotaServiceTest {
             public void ejecutar(Runnable w) { w.run(); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService conCarrera = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uowConBaja, Fakes.CLOCK, establecimientos);
+        EmitirComprobanteService conCarrera = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uowConBaja, Fakes.CLOCK, establecimientos, bajas);
         assertThatThrownBy(() -> conCarrera.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("2120");
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
     }

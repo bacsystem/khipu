@@ -20,6 +20,7 @@ class EmitirComprobanteServiceTest {
     UUID tenantId = UUID.randomUUID();
     Fakes.Comprobantes comprobantes = new Fakes.Comprobantes();
     Fakes.Series series = new Fakes.Series();
+    Fakes.Bajas bajas = new Fakes.Bajas();
     Fakes.Establecimientos establecimientos = new Fakes.Establecimientos(series);
     Fakes.Tenants tenants = new Fakes.Tenants();
     Fakes.Storage storage = new Fakes.Storage();
@@ -43,7 +44,7 @@ class EmitirComprobanteServiceTest {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos);
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas);
     }
 
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
@@ -138,7 +139,7 @@ class EmitirComprobanteServiceTest {
             public void validarBaja(String xml) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos);
+        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas);
         assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).extracting("codigo").isEqualTo("XSD_INVALIDO");
         assertThat(comprobantes.datos).isEmpty();
     }

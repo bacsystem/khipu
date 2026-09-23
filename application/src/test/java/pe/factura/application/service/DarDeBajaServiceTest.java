@@ -49,7 +49,7 @@ class DarDeBajaServiceTest {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        emitir = new EmitirComprobanteService(comprobantes, series, tenants, storage, new Fakes.Ubl(), xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos);
+        emitir = new EmitirComprobanteService(comprobantes, series, tenants, storage, new Fakes.Ubl(), xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas);
         service = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
     }
 
@@ -96,6 +96,40 @@ class DarDeBajaServiceTest {
         assertThat(lista.estado()).isEqualTo(EstadoBaja.ACEPTADA);
         assertThat(gateway.consultas).isEqualTo(2);
         assertThat(comprobantes.buscar(tenantId, f.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ANULADO);
+    }
+
+    /**
+     * Una excepción no prevista (red hacia S3, SDK) al enviar: antes salía antes de la transacción final y la baja quedaba
+     * GENERADA sin fila de outbox —«en curso» para siempre, sin nadie que la reintentara—. Ahora es ERROR_ENVIO con reintento.
+     */
+    @Test void unaFallaNoPrevistaAlEnviarDejaErrorEnvioConReintento() {
+        Comprobante f = facturaAceptada();
+        gateway.fallaResumen = new RuntimeException("conexión con S3 perdida");
+        ComunicacionBaja b = service.solicitar(tenantId, f.id(), "Error en el RUC");
+        assertThat(b.estado()).isEqualTo(EstadoBaja.ERROR_ENVIO);
+        assertThat(b.ultimoError()).startsWith("INFRA - RuntimeException");
+        assertThat(outbox.filas).hasSize(1);
+        assertThat(outbox.filas.get(0).accion()).isEqualTo("BAJA");
+        // Y se recupera al reintentar.
+        gateway.fallaResumen = null;
+        assertThat(service.continuar(tenantId, b.id()).estado()).isEqualTo(EstadoBaja.ACEPTADA);
+    }
+
+    /** Con una baja en curso la factura sigue ACEPTADA, pero una nota caería sobre un documento anulado si SUNAT la acepta (2120). */
+    @Test void unaNotaSobreFacturaConBajaEnCursoSeRechaza() {
+        Comprobante f = facturaAceptada();
+        gateway.statusCode = "98";
+        ComunicacionBaja b = service.solicitar(tenantId, f.id(), "Error en el RUC");
+        assertThat(b.estado()).isEqualTo(EstadoBaja.ENVIADA);
+        series.crear(new Serie(tenantId, TipoDocumento.NOTA_CREDITO, "FC01", 0, true));
+        assertThatThrownBy(() -> emitir.emitirNota(tenantId, new pe.factura.application.port.in.EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "Anulación", null, null, List.of(), null, true)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("2120").hasMessageContaining("baja en curso").hasMessageContaining(b.identificador());
+        // Rechazada por SUNAT, la baja ya no bloquea.
+        gateway.statusCode = "0";
+        gateway.respuesta = "cdr-rechazo".getBytes();
+        cdrs.cdr = new Cdr("2323", "ya informado", List.of());
+        assertThat(service.continuar(tenantId, b.id()).estado()).isEqualTo(EstadoBaja.RECHAZADA);
+        assertThat(emitir.emitirNota(tenantId, new pe.factura.application.port.in.EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "Anulación", null, null, List.of(), null, true)).estado()).isNotNull();
     }
 
     @Test void dosContinuarConcurrentesSobreLaMismaBajaNoFallanAlAnular() {
