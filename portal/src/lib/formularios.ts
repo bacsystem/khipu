@@ -12,5 +12,10 @@ import type { KeyboardEvent } from "react";
  * auditoría emitió cinco notas reales con cinco Enter. Por eso vive acá y no en cada formulario.
  */
 export function sinEnvioImplicito(e: KeyboardEvent<HTMLFormElement>) {
-  if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "BUTTON") e.preventDefault();
+  if (e.key !== "Enter") return;
+  const tag = (e.target as HTMLElement).tagName;
+  // Botones y enlaces conservan su Enter: un `<Link>` («Cancelar», «Cree una») dentro del form navega con Enter
+  // por su propia acción por defecto, no por el envío implícito. La primera versión solo exceptuaba BUTTON y un
+  // usuario de teclado no podía cancelar — regresión que la recertificación de notas reprodujo.
+  if (tag !== "BUTTON" && tag !== "A") e.preventDefault();
 }
