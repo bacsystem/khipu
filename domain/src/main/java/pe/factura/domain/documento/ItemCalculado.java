@@ -65,6 +65,10 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         BigDecimal iscBase = item.tieneIsc() && !af.gratuita() ? item.isc().baseSobre(valorVenta, cantidad) : BigDecimal.ZERO.setScale(2);
         BigDecimal iscPorcentaje = item.tieneIsc() && !af.gratuita() ? item.isc().porcentajeSobre(iscBase, isc) : BigDecimal.ZERO;
         BigDecimal igv = af.gravado() ? valorVenta.add(isc).multiply(factorIgv).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
+        // 3111 (Factura2_0, NotaCredito2_0 f211, NotaDebito2_0 f192): con tributo 1000/1016 y base > 0.06, el impuesto de la
+        // línea no puede ser 0.00. Solo pasa con el IVAP al 4 % (base 0.07–0.12); antes salía numerada y SUNAT la rechazaba.
+        if (onerosaGravada && valorVenta.add(isc).compareTo(new BigDecimal("0.06")) > 0 && igv.signum() == 0)
+            throw new DomainException("ITEM_INVALIDO", "3111 - Con base imponible mayor a 0.06 el " + (af.ivap() ? "IVAP" : "IGV") + " de la línea «" + item.descripcion() + "» no puede redondear a 0.00: suba el importe");
         BigDecimal descuentoNoAfecta = item.tieneDescuento() && !afectaBase ? descuento : BigDecimal.ZERO;
         BigDecimal precioVenta = af.gratuita() ? BigDecimal.ZERO.setScale(2) : valorVenta.add(isc).add(igv).add(icbper).subtract(descuentoNoAfecta).add(sumaCargos(cargos, false));
         BigDecimal valorUnitario = af.gratuita() ? BigDecimal.ZERO.setScale(10) : valorReferencial;

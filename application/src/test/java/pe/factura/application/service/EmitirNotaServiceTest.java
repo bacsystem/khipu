@@ -121,6 +121,9 @@ class EmitirNotaServiceTest {
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09", porEncima)))
                 .isInstanceOf(DomainException.class).hasMessageContaining("3286").hasMessageContaining("importe total");
         assertThat(service.emitirNota(tenantId, nc(f.numero(), "10", porEncima)).totales().total()).isEqualByComparingTo("287.18");
+        // Y tampoco el 3503 (filas 114–122 eximen al 10 igual que la 111): gravado 300 sobre una factura con gravado 200.
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "10",
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("3"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)))).totales().gravado()).isEqualByComparingTo("300.00");
         // Exceso de 0.50 en el total: antes pasaba por la tolerancia ±1.
         Comprobante g = facturaAceptada(FormaPago.contado());
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(g.numero(), "09",
