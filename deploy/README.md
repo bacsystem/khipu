@@ -75,6 +75,9 @@ están en el `README.md` de la raíz (§Storage).
 
 ## 4. Servicio `portal`
 
+Pasos completos, verificación y fase 0 (landing público con el autoservicio cerrado):
+[`frontend/README.md`](frontend/README.md). Resumen:
+
 - **Root Directory**: `portal`
 - **Dockerfile Path**: `Dockerfile` (el que ya existe en `portal/Dockerfile`)
 - **Puerto**: tampoco fijar `PORT` — el output `standalone` de Next.js ya lo respeta
@@ -85,6 +88,11 @@ están en el `README.md` de la raíz (§Storage).
 |---|---|---|
 | `API_BASE_URL` | dominio interno de Railway del servicio `backend`, en el puerto que ese servicio escucha (`http://backend.railway.internal:$PORT`) | Usado server-side (Server Components, route handlers) — tráfico dentro de la red privada de Railway. Si preferís un puerto interno fijo, seteá `PORT=8001` en el servicio `backend` y usá ese valor acá |
 | `API_PUBLIC_URL` | dominio público del servicio `backend` | Es lo que ve el navegador (snippets de integración, "Try it" de `/developers`) |
+| `REGISTRO_ABIERTO` | `false` mientras el autoservicio no esté certificado | Con `false`: `/registro` da 404, `POST /api/auth/registro` da 403 y el landing ofrece «Solicitar acceso». Su default en producción ya es `false` |
+| `CONTACTO_URL` | `mailto:` o URL de un formulario | A dónde lleva «Solicitar acceso» con el registro cerrado |
+
+El portal se puede desplegar **antes que el backend**: sin `API_BASE_URL` el landing, `/login` y la
+documentación funcionan, y `/developers` muestra un aviso en vez de fallar.
 
 ## 5. Orden de despliegue sugerido
 

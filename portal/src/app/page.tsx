@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/landing/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { contactoUrl, registroAbierto } from "@/lib/acceso";
 import { messages } from "@/lib/messages";
 
 const CONFIANZA = ["Firma XML-DSig (RSA-SHA256)", "UBL 2.1 sobre el estándar SUNAT", "Reintentos automáticos", "API REST documentada"];
@@ -70,7 +71,14 @@ const PLANES = [
   { nombre: "Pro", precio: "S/ 129", periodo: "/mes", docs: "Documentos ilimitados", rucs: "10 RUC", destacado: false },
 ];
 
+// Se renderiza en cada request, no en el build: `REGISTRO_ABIERTO` y `CONTACTO_URL` son variables del entorno de despliegue
+// (Railway las inyecta en runtime) y prerenderizar dejaría el flag congelado con lo que hubiera al construir la imagen.
+export const dynamic = "force-dynamic";
+
 export default function Home() {
+  // Beta por invitación mientras el autoservicio (registro → onboarding → certificado → SOL) no esté certificado.
+  const abierto = registroAbierto();
+  const contacto = contactoUrl();
   return (
     <div>
       <SiteHeader />
@@ -85,19 +93,27 @@ export default function Home() {
             Empezá gratis, para siempre, con tu primer RUC.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button render={<Link href="/registro" />} nativeButton={false} className="h-11 px-6 text-base">
-              Crear cuenta gratis
-            </Button>
+            {abierto ? (
+              <Button render={<Link href="/registro" />} nativeButton={false} className="h-11 px-6 text-base">
+                Crear cuenta gratis
+              </Button>
+            ) : contacto ? (
+              <Button render={<a href={contacto} />} nativeButton={false} className="h-11 px-6 text-base">
+                Solicitar acceso
+              </Button>
+            ) : null}
             <Button
               render={<Link href="/developers" />}
               nativeButton={false}
-              variant="outline"
+              variant={abierto || contacto ? "outline" : undefined}
               className="h-11 px-6 text-base"
             >
               Ver documentación de la API
             </Button>
           </div>
-          <p className="mt-4 text-sm text-muted-foreground">Sin tarjeta · Plan gratis permanente, no un trial.</p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            {abierto ? "Sin tarjeta · Plan gratis permanente, no un trial." : "Beta por invitación: las cuentas se habilitan una por una mientras cerramos la certificación."}
+          </p>
         </div>
         <div className="relative">
           <div
@@ -215,17 +231,29 @@ export default function Home() {
 
       <section className="bg-foreground text-background">
         <div className="mx-auto max-w-6xl px-6 py-20 text-center">
-          <h2 className="font-heading text-3xl">Emití tu primera factura hoy</h2>
+          <h2 className="font-heading text-3xl">{abierto ? "Emití tu primera factura hoy" : "Pedí acceso a la beta"}</h2>
           <p className="mx-auto mt-2 max-w-md text-background/70">
-            Creá tu cuenta, configurá tu empresa y verificá que SUNAT acepta tus comprobantes — sin pagar un sol.
+            {abierto
+              ? "Creá tu cuenta, configurá tu empresa y verificá que SUNAT acepta tus comprobantes — sin pagar un sol."
+              : "Habilitamos cuentas de a una para acompañar la configuración del certificado y las credenciales SOL."}
           </p>
-          <Button
-            render={<Link href="/registro" />}
-            nativeButton={false}
-            className="mt-6 h-11 bg-background px-6 text-base text-foreground hover:bg-background/85"
-          >
-            Crear cuenta gratis
-          </Button>
+          {abierto ? (
+            <Button
+              render={<Link href="/registro" />}
+              nativeButton={false}
+              className="mt-6 h-11 bg-background px-6 text-base text-foreground hover:bg-background/85"
+            >
+              Crear cuenta gratis
+            </Button>
+          ) : contacto ? (
+            <Button
+              render={<a href={contacto} />}
+              nativeButton={false}
+              className="mt-6 h-11 bg-background px-6 text-base text-foreground hover:bg-background/85"
+            >
+              Solicitar acceso
+            </Button>
+          ) : null}
         </div>
       </section>
 
