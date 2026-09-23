@@ -2,6 +2,8 @@
 
 Una ficha por flujo. Certificado = **0 bloqueantes, 0 importantes** tras auditoría independiente + recertificación.
 
+Cómo leer un hallazgo en una ficha: 🔧 **corregido** = PR mergeado, a la espera de que la siguiente recert lo confirme · ✅ **verificado** = una recert posterior (contexto limpio) comprobó que el arreglo resiste y sus mutaciones mueren · ⬜ **abierto** = en [pendientes.md](pendientes.md). Un flujo pasa a ✅ cuando una recert termina en 0/0.
+
 | # | Flujo | Estado | Ficha |
 |---|---|---|---|
 | 1 | Emisión de factura | ✅ certificado `37e1a75` | [emision.md](emision.md) |
