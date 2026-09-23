@@ -534,3 +534,55 @@ test("un comprobante firmado sin respuesta de SUNAT no ofrece envío por correo 
   await expect(page.getByTestId("ver-pdf")).toBeVisible();
   await expect(page.getByTestId("enviar-correo")).toHaveCount(0);
 });
+
+test("NC parcial: los cargos de línea y el ISC de la factura viajan con la forma que exige el backend y entran en el importe", async ({ page }) => {
+  // Recertificación #2: la NC omitía los cargos (acreditaba de menos) y mandaba el ISC como {sistema, tasa}, que el
+  // dominio rechaza en los sistemas 02 (exige monto_unitario) y 03 (exige base_pvp). Un solo test sobre f-cargos, y
+  // por menos del total, para no gastar el tope 3286 que comparten los workers.
+  await page.goto("/comprobantes/f-cargos/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución parcial con flete");
+  const importe = page.getByTestId("nota-importe");
+  // Con la cantidad facturada el importe es el precio de venta del backend, flete incluido (no 1180 de precio × cantidad).
+  await form.getByLabel("Cantidad de Mesa de trabajo en la nota").fill("10");
+  await expect(importe).toContainText("Importe de la nota: S/ 1,298.00");
+  // Con la mitad: 5 × 118 = 590 más la mitad del flete (50) con su IGV (59) = 649, porque el porcentaje acompaña a la línea.
+  await form.getByLabel("Cantidad de Mesa de trabajo en la nota").fill("5");
+  await expect(importe).toContainText("Importe de la nota: S/ 649.00");
+  await form.getByLabel("Cantidad de Cerveza artesanal 330 ml en la nota").fill("2");
+  await form.getByLabel("Cantidad de Gaseosa 500 ml en la nota").fill("3");
+  await expect(importe).toContainText("Importe de la nota: S/ 704.00");
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  const items = (await peticion).postDataJSON().items;
+  expect(items).toHaveLength(3);
+  expect(items[0]).toMatchObject({ cantidad: 5, cargos: [{ porcentaje: 10, afecta_base_igv: true }] });
+  expect(items[0].cargos[0].tipo).toBeUndefined();
+  expect(items[1].isc).toEqual({ sistema: "02", monto_unitario: 2.25 });
+  expect(items[2].isc).toEqual({ sistema: "03", tasa: 17, base_pvp: 3.5 });
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+});
+
+test("el mock de POST /v1/notas rechaza el ISC y los cargos que el dominio rechaza", async ({ page }) => {
+  await page.goto("/comprobantes/f-cargos");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const post = (items: unknown) =>
+    page.evaluate(async ([b]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, texto: await r.text() };
+    }, [JSON.stringify({ tipo: "07", serie: "FC01", fecha_emision: hoy, documento_afectado: { serie: "F001", numero: 7 }, motivo: "07", descripcion: "Prueba de contrato", items })]);
+  const linea = { descripcion: "Cerveza", unidad: "NIU", cantidad: 1, precio_unitario: 20, tipo_afectacion_igv: "10" };
+
+  let r = await post([{ ...linea, isc: { sistema: "02", tasa: 15.31 } }]);
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("ISC_INVALIDO");
+
+  r = await post([{ ...linea, isc: { sistema: "03", tasa: 17 } }]);
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("base_pvp");
+
+  r = await post([{ ...linea, cargos: [{ tipo: "PORCENTAJE", valor: 10, afecta_base_igv: true }] }]);
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("CARGO_INVALIDO");
+});
