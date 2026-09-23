@@ -1,12 +1,20 @@
-# Notas de crédito/débito · 🔴 NO CERTIFICADO → recert #3 corregida, pendiente de recert #4
+# Notas de crédito/débito · 🟡 recert #4: 0 bloqueantes · 1 importante → corregido (A5), pendiente de recert #5
 
 | | |
 |---|---|
 | Auditoría #1 | `main@37e1a75` · 4 bloqueantes · 4 importantes → #119 → #120 → #122 |
 | Recert #1 | 3 bloqueantes (ND 13 gravada 3507, tope inerte en 40/17, pendiente en flotante) → #124 → #125 → #127 |
 | Recert #2 | `main@e68d60b` · 2 bloqueantes · 4 importantes → #128 → #129 → #131 |
-| Recert #3 | `main@fc07431` · Opus, worktree, puerto muerto · **1 bloqueante · 3 importantes** → #132 (A4) → B4 |
-| Suite tras B4 | 118/118 Vitest · 68/68 e2e ×2 · 6/6 mutaciones nuevas mueren (21/22 del auditor: la que sobrevivía ya tiene test) |
+| Recert #3 | `main@fc07431` · **1 bloqueante · 3 importantes** → #132 → #133 |
+| Recert #4 | `main@9d9e3e5` · Opus, worktree, puerto muerto · **0 bloqueantes · 1 importante** · importe a ±0.01 del dominio en 18 casos · 25/28 mutaciones → A5 |
+| Suite tras A5 | 120/120 Vitest · 70/70 e2e ×2 · 7/7 mutaciones nuevas mueren |
+
+## Recert #4: encontrado y corregido
+
+| Sev | Qué | PR |
+|---|---|---|
+| 🟠 | «Concepto» de la ND sin `maxLength` y el mock sin validar la descripción del ítem (2026/2027): 501 caracteres viajaban, mock 201, backend 422 | A5 |
+| 🟡 | 3507 del mock sobre ítems resueltos (ND 13 sin ítems pasaba) · tests de descuento fijo e ICBPER (2 mutaciones sobrevivían) · etiqueta «con IGV» en ND 40/17 · `aria-label` en «Quitar» · aviso cuando el botón se deshabilita por decimales | A5 |
 
 ## Recert #3: encontrado y corregido
 
@@ -28,11 +36,12 @@
 
 ## Pendiente (no bloquea)
 
-- Backend (#123): 3286 sin tolerancia en facturas y exento en motivo 10 · 3503 ok · 3507 y 3230 sin cruzar · copiar `redondeo` a la nota total.
+- Backend (#123): 3286 sin tolerancia en facturas y exento en motivo 10 · 3503 ok · 3507, 3230 y **2644** sin cruzar · copiar `redondeo` a la nota total (hoy una factura con redondeo no se puede acreditar entera desde el portal).
+- Tope solo anticipa 3286, no 3503 por tributo (el backend lo rechaza sin gastar correlativo). Descuento fijo en parcial acredita por encima de lo proporcional (simétrico al cargo; decisión de producto, el texto de ayuda lo dice).
 - Cancelar sin confirmar · motivo 03 obliga a mover dinero · errores por campo del 422 ignorados (transversal) · 12 enteros en cuotas (inalcanzable).
 - Decisión de producto: NC **por importe** (04 descuento, 09 disminución) — hoy solo por unidades.
 - Boletas fuera de alcance (#20).
 
 ## Siguiente paso
 
-Mergear #132 → B4 → **recert #4** (auditor limpio, worktree, `API_BASE_URL` muerto).
+Mergear A5 → **recert #5** (auditor limpio, worktree, `API_BASE_URL` muerto). Si sale 0/0: ✅ certificado.

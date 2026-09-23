@@ -42,6 +42,12 @@ describe("itemParaNota", () => {
     expect(item.gtin).toEqual({ tipo: "GTIN-13", codigo: "7750182000123" });
   });
 
+  it("el ICBPER viaja como bandera: sin él la NC sobre bolsas saldría sin el tributo 7152 y acreditaría de menos", () => {
+    const bolsas: ItemComprobante = { codigo: null, descripcion: "Bolsa", unidad: "NIU", cantidad: 2, precio_unitario: 0.618, tipo_afectacion_igv: "10", icbper: 1 };
+    expect(itemParaNota(bolsas, 2).icbper).toBe(true);
+    expect(itemParaNota({ ...bolsas, icbper: 0 }, 2).icbper).toBeUndefined();
+  });
+
   it("sin ajustes no manda claves vacías", () => {
     const simple: ItemComprobante = { codigo: null, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10" };
     expect(itemParaNota(simple, 1)).toEqual({ codigo: undefined, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10", descuento: undefined, cargos: undefined, isc: undefined, icbper: undefined, codigo_sunat: undefined, gtin: undefined });
@@ -71,6 +77,14 @@ describe("importeLineaNota", () => {
     expect(importeLineaNota(con48, 5)).toBe(640);
     const con48Fijo = { ...con48, cargos: [{ ...con48.cargos[0], tipo: "MONTO" as const }] };
     expect(importeLineaNota(con48Fijo, 5)).toBe(590);
+  });
+
+  it("con menos cantidad, un descuento de monto fijo no viaja: se devuelve con su IGV antes de prorratear", () => {
+    // 10 × 118 con descuento 00 de 100 (afecta la base): paga 1180 − 118 = 1062. Devolver 3 acredita (1062 + 118) × 0.3 = 354.
+    const conDescuentoFijo: ItemComprobante = { ...conCargoPorcentaje, cargos: null, valor_venta: 900, igv: 162, precio_venta: 1062, descuento: { tipo: "MONTO", valor: 100, monto: 100, afecta_base_igv: true, codigo: "00" } };
+    expect(importeLineaNota(conDescuentoFijo, 3)).toBe(354);
+    // En porcentaje acompaña a la cantidad: 1062 × 0.3 = 318.60.
+    expect(importeLineaNota({ ...conDescuentoFijo, descuento: { ...conDescuentoFijo.descuento!, tipo: "PORCENTAJE", valor: 10 } }, 3)).toBe(318.6);
   });
 
   it("una gratuita no se cobra, tampoco en parcial: el precio unitario es solo el valor referencial", () => {
