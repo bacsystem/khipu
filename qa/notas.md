@@ -1,4 +1,4 @@
-# Notas de crédito/débito · 🟡 recert #9: 0 bloqueantes · 1 importante (cobertura) → corregido (backend + A10), pendiente de recert #10
+# Notas de crédito/débito · 🟡 recert #10: 0 bloqueantes · 2 importantes → corregido (backend + A11), pendiente de recert #11
 
 Estado de cada hallazgo: 🔧 corregido en un PR mergeado, a la espera de la recert · ✅ verificado por una recert posterior (el arreglo resiste) · ⬜ abierto ([pendientes.md](pendientes.md)).
 
@@ -13,16 +13,26 @@ Estado de cada hallazgo: 🔧 corregido en un PR mergeado, a la espera de la rec
 | Recert #6 | `29ee9b4` | 0 🔴 · 1 🟠 | #139 (+ NC por importe) | recert #7 |
 | Recert #7 | `21cfaa9` | 0 🔴 · 3 🟠 | #141 (backend) → #142 | recert #8 |
 | Recert #8 | `7f766b6` | 0 🔴 · 5 🟠 | #145 (backend) → #146 | recert #9 |
-| Recert #9 | `dc7b516` | 0 🔴 · 1 🟠 (cobertura) | backend tests → A10 | **recert #10 pendiente** |
+| Recert #9 | `dc7b516` | 0 🔴 · 1 🟠 (cobertura) | #148 (backend) → #149 | recert #10 |
+| Recert #10 | `c98b629` | 0 🔴 · 2 🟠 | backend f118 → A11 | **recert #11 pendiente** |
 
-Suite tras A10: 127/127 Vitest · 82/82 e2e ×2 · backend 692/692. Recert #9: los 5 arreglos de A9 resisten; 37/48 mutaciones (las vivas: 3 límites del 3503 sin test → A10; IGV/IVAP equivalentes al gravado/3286; el resto no-op); e2e 81/81 ×3; contrato JSON campo a campo; catálogos 09/10 idénticos a la hoja.
+Suite tras A11: 131/131 Vitest · 84/84 e2e ×3 · backend 530/530 (sin Docker) · 11/11 mutaciones mueren. Recert #9: los 5 arreglos de A9 resisten; 37/48 mutaciones (las vivas: 3 límites del 3503 sin test → A10; IGV/IVAP equivalentes al gravado/3286; el resto no-op); e2e 81/81 ×3; contrato JSON campo a campo; catálogos 09/10 idénticos a la hoja.
 
-## Recert #9 → backend tests + A10
+## Recert #10 → backend f118 + A11
 
 | Sev | Qué | Corregido | Estado |
 |---|---|---|---|
-| 🟠 | 3 de los 8 límites del 3503 sin test que los ate (exportación f114, inafecto f115, gratuitas f117: los que el total no implica); ídem el de exportación en el mock | backend: 3 casos con el total dentro del 3286 y el concepto fuera de la +1 · A10: fixture `f-export-cargo` (total 110, base 9995 = 100) con e2e y paridad del mock | 🔧 recert #10 |
-| 🟡 | Cobertura: NC 12 IVAP solo a 1 unidad (ahora por el total) · exención del 10 en el mock nunca ejercida (ahora se emite) · NC ANULADA fuera del acumulado sin test en el backend (ahora con test) | A10 + backend | 🔧 recert #10 |
+| 🟠 | **Una NC parcial con una línea gratuita (bonificación) era imposible de emitir**: `lineaRedondeaACero` la marcaba como «importe 0» —lo es por definición— y bloqueaba la nota entera con un consejo imposible. SUNAT exige justamente valor unitario 0 en una línea 9996 (f184/2640) y el backend la emite. Lo que sí prohíbe es que el importe **total** sea 0 (f401/2062) | A11: las gratuitas quedan fuera de la guarda; aviso y bloqueo solo si la nota entera no acredita nada | 🔧 recert #11 |
+| 🟠 | El test de la NC 10 (añadido en A10) emitía sobre `f-cargos` y gastaba su tope 3286: con 2 workers rompía los otros dos tests que lo leen | A11: fixture propia `f-otros-conceptos`; ídem `f-gratuitas` para el de paridad | 🔧 recert #11 |
+| 🟡 | El 3503 cubría 8 de las 9 filas 114–122: faltaba **f118** (impuesto de las gratuitas). No es redundante con f117: cambiar la clase de gratuita (21 → 11) mantiene la base y suma 18 % de impuesto | backend + mock | 🔧 recert #11 |
+| 🟡 | 2885 más estricto que SUNAT (exime al motivo 10 en NC y al 03 en ND): inalcanzable desde el portal | → [pendientes.md](pendientes.md) | ⬜ |
+
+## Recert #9 → #148 + #149
+
+| Sev | Qué | Corregido | Estado |
+|---|---|---|---|
+| 🟠 | 3 de los 8 límites del 3503 sin test que los ate (exportación f114, inafecto f115, gratuitas f117: los que el total no implica); ídem el de exportación en el mock | #148: 3 casos con el total dentro del 3286 y el concepto fuera de la +1 · #149: fixture `f-export-cargo` con e2e y paridad del mock | ✅ recert #10 |
+| 🟡 | Cobertura: NC 12 IVAP solo a 1 unidad · exención del 10 en el mock nunca ejercida · NC ANULADA fuera del acumulado sin test | #148 + #149 | ✅ recert #10 |
 
 ## Recert #8 → #145 + #146
 
@@ -128,4 +138,4 @@ Todo en [pendientes.md](pendientes.md), sección Notas.
 
 ## Siguiente paso
 
-Mergear backend → A10 → **recert #10**. Si sale 0/0: ✅ certificado.
+Mergear backend → A11 → **recert #11**. Con el criterio nuevo (0 en producto), notas ya está en condiciones de cerrarse: los hallazgos restantes son de mock y cobertura.

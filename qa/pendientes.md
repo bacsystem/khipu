@@ -19,7 +19,7 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 
 - Idempotencia en `POST /v1/facturas`: un reintento tras corte de red no debe emitir dos facturas (clave de idempotencia por tenant). Hoy el portal avisa «pudo haberse emitido»; el backend no protege.
 
-## Notas (recert #9: 0 bloqueantes · 1 importante de cobertura, corregido; recert #10 pendiente)
+## Notas (recert #10: 0 bloqueantes · 2 importantes, corregido; recert #11 pendiente)
 
 | Qué | Nota |
 |---|---|
@@ -35,6 +35,7 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 | `Acreditado` suma también las NC de motivo 10 al acumulado | política deliberada (#83), más estricta que SUNAT |
 | Mock: 3503 sin el límite de gratuitas; descuento de línea no restado del total; 3111 solo en gravadas onerosas (la fila del 9996 es inalcanzable con IGV ≥ 10.5 %) | sin fixture con gratuitas ni descuento de línea; inalcanzables hoy |
 | Backend: el 3503 compara `gravado` sin mirar el tributo (NC 12 con líneas 17 sobre factura no IVAP pasaría) | solo por API; el formulario no ofrece el 12 sin IVAP |
+| 2885: SUNAT lo exime en el motivo 10 (NC) y en el 03 (ND); khipu lo aplica siempre | más estricto, inalcanzable desde el portal (el formulario manda siempre la fecha de hoy) |
 | Boletas fuera de alcance | issue #20 |
 
 ## Bajas (auditoría #1: 2 bloqueantes · 7 importantes, corregido; recert #1 pendiente)

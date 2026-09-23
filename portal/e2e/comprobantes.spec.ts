@@ -987,7 +987,9 @@ test("NC por importe sobre una exportación: la línea sale con afectación 40 y
 test("NC 10 «Otros conceptos» no tiene tope por importe total (3286 exime al motivo 10)", async ({ page }) => {
   // Recert #6: el formulario bloqueaba una NC 10 por encima del total citando el 3286, que SUNAT (fila 111) y el
   // backend eximen para ese motivo. Sobre f-cargos (1353): 1500 pasa el formulario; el backend compara por tributo (3503).
-  await page.goto("/comprobantes/f-cargos/nota");
+  // Sobre f-otros-conceptos (118) y no f-cargos: esta NC emite POR ENCIMA del total y, aunque está exenta del 3286/3503,
+  // entra en el acumulado. Con f-cargos compartida, otros dos tests que leen su tope fallaban con 2 workers (recert #10).
+  await page.goto("/comprobantes/f-otros-conceptos/nota");
   const form = page.getByTestId("nota-form");
   await form.getByLabel(/Motivo/).selectOption("10");
   await form.getByLabel("Sustento").fill("Ajuste por otros conceptos");
@@ -1146,4 +1148,62 @@ test("ND 12 sobre IVAP: un importe de 0.07 a 0.12 deja el IVAP en 0.00 (3111) y 
     return { status: res.status, texto: await res.text() };
   }, [hoy]);
   expect(ok.status, ok.texto).toBe(201);
+});
+
+test("NC parcial con una línea gratuita: la bonificación no bloquea la nota, y una nota solo de gratuitas sí (2062)", async ({ page }) => {
+  // Recert #10: `lineaRedondeaACero` marcaba la gratuita como «importe 0» (lo es por definición) y deshabilitaba la nota
+  // entera con un consejo imposible («subí la cantidad»). SUNAT exige justamente valor unitario 0 en una línea 9996 (2640).
+  await page.goto("/comprobantes/f-exonerada/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución con bonificación");
+  const boton = form.getByRole("button", { name: "Emitir nota de crédito" });
+  // Solo la gratuita: la nota no acreditaría nada → 2062.
+  await form.getByLabel("Cantidad de Muestra sin costo en la nota").fill("3");
+  await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 0.00");
+  await expect(form.getByRole("status").filter({ hasText: "2062" })).toBeVisible();
+  await expect(boton).toBeDisabled();
+  // Con la línea onerosa dentro ya se puede emitir, y la gratuita viaja con su afectación 11.
+  await form.getByLabel("Cantidad de Libro técnico en la nota").fill("1");
+  await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 50.00");
+  await expect(form.getByRole("status").filter({ hasText: "2062" })).toHaveCount(0);
+  await expect(boton).toBeEnabled();
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await boton.click();
+  const items = (await peticion).postDataJSON().items;
+  expect(items).toHaveLength(2);
+  expect(items.map((i: { tipo_afectacion_igv: string }) => i.tipo_afectacion_igv).sort()).toEqual(["20", "21"]);
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+});
+
+test("el mock rechaza la NC sin importe (2062) y limita las gratuitas por su cubo (3503, f117/f118)", async ({ page }) => {
+  // Sobre f-gratuitas, que nadie más acredita: con f-exonerada compartida otro test movía el acumulado y el 422 llegaba con
+  // el mensaje de otro cubo (es el mismo acoplamiento que esta ronda vino a corregir).
+  await page.goto("/comprobantes/f-gratuitas");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const post = (items: unknown) =>
+    page.evaluate(async ([b]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, texto: await r.text() };
+    }, [JSON.stringify({ tipo: "07", serie: "FC01", fecha_emision: hoy, documento_afectado: { serie: "F001", numero: 18 }, motivo: "07", descripcion: "Prueba de contrato", items })]);
+
+  // Solo gratuitas: total 0 → 2062.
+  let r = await post([{ descripcion: "Muestra sin costo", unidad: "NIU", cantidad: 3, precio_unitario: 10, tipo_afectacion_igv: "11" }]);
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("2062");
+  // Base gratuita por encima de la de la factura (30 → 60): 3503 f117, con su concepto exacto (el de f118 también dice
+  // «gratuitas», así que el mensaje completo es lo que distingue un límite del otro).
+  r = await post([
+    { descripcion: "Libro técnico", unidad: "NIU", cantidad: 1, precio_unitario: 50, tipo_afectacion_igv: "20" },
+    { descripcion: "Muestra sin costo", unidad: "NIU", cantidad: 6, precio_unitario: 10, tipo_afectacion_igv: "21" },
+  ]);
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3503 - El valor de las operaciones gratuitas");
+  // Misma base (30) pero cambiando la clase de gratuita: 21 (impuesto 0) → 11 (18 %). Solo el impuesto excede: f118.
+  r = await post([
+    { descripcion: "Libro técnico", unidad: "NIU", cantidad: 1, precio_unitario: 50, tipo_afectacion_igv: "20" },
+    { descripcion: "Muestra sin costo", unidad: "NIU", cantidad: 3, precio_unitario: 10, tipo_afectacion_igv: "11" },
+  ]);
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3503 - El IGV de las operaciones gratuitas");
 });
