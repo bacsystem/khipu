@@ -3,7 +3,7 @@
 import { FileMinusIcon, SendIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
@@ -42,6 +42,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const [catalogos, setCatalogos] = useState<Record<Tipo, CatalogoSunat | null>>({ "07": null, "08": null });
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // Tras un error el botón se deshabilita y el foco caía a `body`: un lector de pantalla no llegaba al mensaje.
+  const alertaRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (error) alertaRef.current?.focus();
+  }, [error]);
 
   const [intentoCatalogos, setIntentoCatalogos] = useState(0);
   useEffect(() => {
@@ -271,7 +276,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
                       step="any"
                       value={cantidades[idx] ?? 0}
                       aria-label={`Cantidad de ${item.descripcion} en la nota`}
-                      onChange={(e) => setCantidades((c) => c.map((v, i) => (i === idx ? Math.min(Number(item.cantidad), Math.max(0, Number(e.target.value))) : v)))}
+                      // Hasta 10 decimales (2025): con 11 el backend rechazaba después. Y entre 0 y lo facturado.
+                      onChange={(e) => setCantidades((c) => c.map((v, i) => (i === idx ? Math.min(Number(item.cantidad), Math.max(0, Number(Number(e.target.value).toFixed(10)))) : v)))}
                       className={cn(CAMPO, "h-8 w-28 text-right font-mono")}
                     />
                   </td>
@@ -332,8 +338,10 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
 
       {error ? (
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-destructive" role="alert">{error}</p>
-          {!catalogos[tipo] ? (
+          <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">{error}</p>
+          {/* Si falló UNO de los dos catálogos, la otra pestaña funciona pero la alerta queda pegada: el botón tiene
+              que seguir ahí para recargar el que falta, no solo cuando falta el de la pestaña actual. */}
+          {!catalogos["07"] || !catalogos["08"] ? (
             <button type="button" onClick={() => { setError(null); setIntentoCatalogos((n) => n + 1); }} className={cn(BOTON_SECUNDARIO, "h-8 text-xs")}>
               Reintentar
             </button>
@@ -347,6 +355,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
           {enviando ? "Emitiendo y enviando a SUNAT…" : `Emitir ${esNc ? "nota de crédito" : "nota de débito"}`}
         </button>
         <Link href={`/comprobantes/${factura.id}`} className={BOTON_SECUNDARIO}>Cancelar</Link>
+        {/* El cambio de texto del botón no se anuncia; esto sí. */}
+        <span role="status" className="sr-only">{enviando ? "Emitiendo y enviando a SUNAT…" : ""}</span>
       </div>
     </form>
   );
