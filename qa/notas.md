@@ -53,7 +53,7 @@
 - Catálogo 10: 3507 solo al 13 («Penalidades»); el 03 con línea gravada es legal.
 - `itemParaNota` no reenvía `hidrobiologico`/`transporte`: correcto, ninguna regla de NC los pide y el `NotaBuilder` no los valida. No «arreglar».
 
-## Pendiente (no bloquea)
+## Pendiente (no bloquea) · detalle en [pendientes.md](pendientes.md)
 
 - Tope solo anticipa 3286, no 3503 por tributo (el backend lo rechaza sin gastar correlativo). Mock sin dos guardas de la nota total (anticipos, descuento/cargos globales sin ítems) ni 2642/2644 por motivo: inalcanzables desde el formulario. Descuento fijo en parcial acredita por encima de lo proporcional (simétrico al cargo; decisión de producto, el texto de ayuda lo dice).
 - Cancelar sin confirmar · motivo 03 obliga a mover dinero · errores por campo del 422 ignorados (transversal) · 12 enteros en cuotas (inalcanzable).

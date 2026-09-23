@@ -30,8 +30,7 @@
 
 ## Pendiente (no bloquea)
 
-- **#115** idempotencia `POST /v1/facturas` — backend.
-- **#117** 7 menores agrupados.
+- Detalle en [pendientes.md](pendientes.md) (issues #115 backend, #117 menores: solo enlaces).
 - ⚠️ **Verificar a mano** (30 s): abrir Moneda con Espacio, elegir con flechas, Enter → cambia moneda, no emite. Popup nativo no automatizable en macOS.
 
 ## Certificado con evidencia
