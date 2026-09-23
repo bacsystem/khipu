@@ -101,6 +101,24 @@ class OutboxWorkerTest {
                 estado, estado == ComunicacionBaja.EstadoBaja.GENERADA ? null : "T-1", "k.xml", null, null, 1, estado == ComunicacionBaja.EstadoBaja.ENVIADA ? "98 - en proceso" : "timeout");
     }
 
+    /**
+     * Una baja pendiente no se abandona nunca (auditoría de bajas): con max-intentos 3 y una fila en el intento 10 se sigue
+     * reprogramando —a 5 min, el tope del intervalo de consulta— en vez de completar (borrar) la fila y dejar el comprobante «en curso».
+     */
+    @Test void unaBajaEnviadaNuncaSeAgota() {
+        OutboxWorker w = new OutboxWorker(outbox, uow, enviar, bajas, clock, 3);
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "BAJA", 10)));
+        when(bajas.continuar(tenant, doc)).thenReturn(baja(ComunicacionBaja.EstadoBaja.ENVIADA));
+        w.procesar();
+        verify(outbox, never()).completar(fila);
+        verify(outbox).reprogramar(fila, clock.instant().plus(DarDeBajaService.CONSULTA_MAXIMA), "98 - en proceso");
+        // ERROR_ENVIO (sin ticket) tampoco: sigue el backoff.
+        when(bajas.continuar(tenant, doc)).thenReturn(baja(ComunicacionBaja.EstadoBaja.ERROR_ENVIO));
+        w.procesar();
+        verify(outbox, never()).completar(fila);
+        verify(outbox).reprogramar(fila, Backoff.siguiente(11, clock.instant()), "timeout");
+    }
+
     @Test void bajaAceptadaCompletaYEnviadaSeReconsultaPronto() {
         when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "BAJA", 0)));
         when(bajas.continuar(tenant, doc)).thenReturn(baja(ComunicacionBaja.EstadoBaja.ACEPTADA));

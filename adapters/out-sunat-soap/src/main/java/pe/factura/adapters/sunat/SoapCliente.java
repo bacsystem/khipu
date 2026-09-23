@@ -32,7 +32,9 @@ final class SoapCliente {
      * cambian por reintentar: el comprobante (o la consulta) queda resuelto tal cual, sin reintento.
      */
     static boolean esFaultDefinitivo(String codigo) {
-        return Integer.parseInt(codigo) >= 1000;
+        // 1xxx–3xxx: error del contribuyente, no cambia por reintentar. El 0127 («El ticket no existe») también es definitivo:
+        // reintentarlo consumía el presupuesto de consultas sin que SUNAT tuviera nada que responder.
+        return Integer.parseInt(codigo) >= 1000 || "0127".equals(codigo);
     }
 
     String llamar(String url, String operacion, String cuerpo) {

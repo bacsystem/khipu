@@ -8,6 +8,7 @@ import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Anticipo;
+import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.EstadoDocumento;
@@ -38,6 +39,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     private final UnitOfWork uow;
     private final Clock clock;
     private final EmisorDeSerieRepository emisorDeSerie;
+    private final BajaRepository bajas;
 
 
     @Override
@@ -74,6 +76,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         if (cmd.fechaEmision().isBefore(factura.fechaEmision()))
             throw new DomainException("NOTA_INVALIDA", "2885 - La fecha de la nota no puede ser anterior a la de la factura que modifica (" + factura.fechaEmision() + ")");
 
+        exigirSinBajaEnCurso(tenantId, factura);
         Nota nota = new Nota(TipoDocumento.FACTURA, factura.serie(), factura.numero(), cmd.motivo(), cmd.descripcion());
         boolean nc13 = nota.corrigeCuotas(cmd.tipo());
         if (nc13) {
@@ -113,6 +116,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         // y el acumulado de NC se lee con la factura bloqueada, así que dos NC concurrentes no pueden acreditarla dos veces.
         return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> {
             Comprobante bloqueada = exigirModificable(comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, factura.serie(), factura.numero()), factura.serie(), factura.numero());
+            exigirSinBajaEnCurso(tenantId, bloqueada);
             if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereALaFactura(c.totales(), nota.motivo(), bloqueada, acreditadoPorNotas(tenantId, bloqueada));
         });
     }
@@ -138,6 +142,18 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         Acreditado mas(Totales t) {
             return new Acreditado(total.add(t.total()), gravado.add(t.gravado()), igv.add(t.igv()), ivap.add(t.ivap()), exonerado.add(t.exonerado()), inafecto.add(t.inafecto()), gratuito.add(t.gratuito()), exportacion.add(t.exportacion()));
         }
+    }
+
+    /**
+     * Una baja en curso (GENERADA/ENVIADA/ERROR_ENVIO) sobre la factura: si SUNAT la acepta, la nota caería sobre un documento
+     * anulado (2120). El estado del documento sigue ACEPTADO mientras tanto, así que `exigirModificable` no lo ve; el portal
+     * ya lo bloqueaba (`admiteNotas`) pero la API quedaba abierta.
+     */
+    private void exigirSinBajaEnCurso(UUID tenantId, Comprobante factura) {
+        bajas.deComprobante(tenantId, factura.id()).stream().filter(ComunicacionBaja::pendiente).findFirst().ifPresent(b -> {
+            throw new DomainException("NOTA_INVALIDA", "2120 - La factura " + factura.serie() + "-" + factura.numero() + " tiene una comunicación de baja en curso (" + b.identificador()
+                    + ", " + b.estado() + "): si SUNAT la acepta, la nota caería sobre un documento anulado");
+        });
     }
 
     /** La factura serie-número debe existir en la empresa, estar aceptada por SUNAT y no anulada (2119/2120). */

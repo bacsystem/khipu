@@ -224,8 +224,9 @@ public class AppConfig {
         return new EnviarDocumentoService(c, t, s, g, p, o, u, clock);
     }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
-                                                    UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock, EmisorDeSerieRepository emisor) {
-        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor);
+                                                    UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock, EmisorDeSerieRepository emisor,
+                                                    BajaRepository bajas) {
+        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas);
     }
     @Bean PdfGenerator pdfGenerator() { return new FlyingSaucerPdfGenerator(); }
     @Bean PersonalizarPdfUseCase personalizarPdf(TenantRepository t, DocumentStorage s, PdfGenerator pdf, Clock clock) { return new PersonalizarPdfService(t, s, pdf, clock); }

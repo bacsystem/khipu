@@ -57,6 +57,13 @@ class SoapBillingGatewayTest {
                 .extracting("codigo").isEqualTo("0109");
     }
 
+    /** 0127 «El ticket no existe» tampoco cambia por reintentar: se reintentaba cada 30 s hasta agotar el presupuesto de consultas. */
+    @Test void ticketInexistenteEsRechazoDefinitivo(WireMockRuntimeInfo wm) {
+        stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault("0127", "El ticket no existe"))));
+        assertThatThrownBy(() -> gateway(wm).getStatus(tenant, "T-1"))
+                .isInstanceOf(SunatRechazoException.class).extracting("codigo").isEqualTo("0127");
+    }
+
     /** Un 1xxx (error del contribuyente) no cambia por reintentar: antes se reintentaba 20 veces con backoff. */
     @Test void faultEntre1000Y1999EsRechazoDefinitivo(WireMockRuntimeInfo wm) {
         stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault("1033", "El comprobante fue registrado previamente con otros datos"))));

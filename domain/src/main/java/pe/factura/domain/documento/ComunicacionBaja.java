@@ -56,7 +56,7 @@ public class ComunicacionBaja {
     public static ComunicacionBaja crear(Comprobante c, int correlativoDelDia, String motivo, Clock clock) {
         LocalDate hoy = LocalDate.now(clock);
         if (!c.estado().esFinalAceptado())
-            throw new DomainException("BAJA_INVALIDA", "2398 - Solo se puede dar de baja un comprobante aceptado por SUNAT; " + c.serie() + "-" + c.numero() + " está " + c.estado());
+            throw new DomainException("BAJA_INVALIDA", "2105/2398 - Solo se puede dar de baja un comprobante aceptado por SUNAT (2105 si no está registrado, 2398 si fue rechazado); " + c.serie() + "-" + c.numero() + " está " + c.estado());
         if (c.tipo() == TipoDocumento.BOLETA)
             throw new DomainException("BAJA_INVALIDA", "2308 - Las boletas se dan de baja en el resumen diario, no con una comunicación de baja");
         if (ChronoUnit.DAYS.between(c.fechaEmision(), hoy) > PLAZO_DIAS)
