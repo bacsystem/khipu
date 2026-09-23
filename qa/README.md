@@ -5,7 +5,7 @@ Una ficha por flujo. Certificado = **0 bloqueantes, 0 importantes** tras auditor
 | # | Flujo | Estado | Ficha |
 |---|---|---|---|
 | 1 | Emisión de factura | ✅ certificado `37e1a75` | [emision.md](emision.md) |
-| 2 | Notas de crédito/débito | 🔴 recert #3 corregida (#132 → B4), pendiente recert #4 | [notas.md](notas.md) |
+| 2 | Notas de crédito/débito | 🟡 recert #4: 0 bloqueantes · 1 importante, corregido (A5), pendiente recert #5 | [notas.md](notas.md) |
 | 3 | Registro + onboarding | ⬜ | — |
 | 4 | Login / recuperar / restablecer | ⬜ | — |
 | 5 | Empresa: fiscales, certificado, SOL | ⬜ | — |

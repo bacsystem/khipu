@@ -503,12 +503,10 @@ export const handlers = [
       if (exportacion && i.tipo_afectacion_igv !== "40") return fail(422, "AFECTACION_INVALIDA", `2642 - En una exportación (${factura.tipo_operacion}) todos los ítems llevan tipo_afectacion_igv 40`);
       if (!exportacion && i.tipo_afectacion_igv === "40") return fail(422, "AFECTACION_INVALIDA", `3107 - La afectación 40 (exportación) exige un tipo de operación 0200–0208; recibido ${factura.tipo_operacion}`);
       if (!(i.cantidad > 0) || decimales(i.cantidad) > 10) return fail(422, "ITEM_INVALIDO", "2025 - La cantidad debe ser positiva, con hasta 12 enteros y 10 decimales");
+      // `Item`: descripción obligatoria y hasta 500 (2026/2027). El «Concepto» de la ND llegaba con 501 y el mock daba 201.
+      if (!i.descripcion?.trim()) return fail(422, "ITEM_INVALIDO", "2026 - Cada ítem necesita una descripción");
+      if (i.descripcion.length > 500) return fail(422, "ITEM_INVALIDO", "2027 - La descripción del ítem admite hasta 500 caracteres");
     }
-    // 3507 (hoja NotaDebito2_0): las penalidades (ND motivo 13) son operaciones inafectas — con IGV/IVAP, 9995/9997
-    // o tributo 1000/1016 SUNAT rechaza. El backend real todavía no lo cruza (#123): acá se aplica para que el e2e
-    // no dé por buena una ND que SUNAT devolvería rechazada con el correlativo consumido.
-    if (body.tipo === "08" && body.motivo === "13" && (body.items ?? []).some((i) => i.tipo_afectacion_igv !== "30"))
-      return fail(422, "NOTA_INVALIDA", "3507 - Las penalidades son operaciones inafectas del IGV: la línea debe llevar afectación 30");
     if (nc13) {
       // A paridad con `FormaPago.validarComoCorreccionDe`: escala ≤ 2 en pendiente (3250) y cuotas (3253), y la
       // suma de cuotas igual al pendiente (3319). El recertificador midió que el mock aceptaba las tres cosas que el
@@ -528,6 +526,11 @@ export const handlers = [
       : body.items?.length ? body.items.map((i) => ({ codigo: null, ...i })) : factura.items;
     // 3230 en NC (NotaCredito2_0 fila 223) y ND (NotaDebito2_0 fila 206): una línea IVAP (17) exige el motivo 12. Sobre
     // las líneas resueltas, porque la nota total no manda ítems y copia los de la factura. La NC 13 escapa (línea 10).
+    // 3507 (hoja NotaDebito2_0, filas 194/283/325): las penalidades (ND motivo 13) son operaciones inafectas — con
+    // IGV/IVAP, 9995/9997 o tributo 1000/1016 SUNAT rechaza. El backend real todavía no lo cruza (#123). Sobre los
+    // ítems resueltos: sin `items` la nota copia los de la factura (gravados) y antes pasaba.
+    if (body.tipo === "08" && body.motivo === "13" && items.some((i) => i.tipo_afectacion_igv !== "30"))
+      return fail(422, "NOTA_INVALIDA", "3507 - Las penalidades son operaciones inafectas del IGV: la línea debe llevar afectación 30");
     if (!nc13 && body.motivo !== "12" && items.some((i) => i.tipo_afectacion_igv === "17"))
       return fail(422, "NOTA_INVALIDA", "3230 - Tipo de nota debe ser 'Ajustes afectos al IVAP' (12) cuando la línea lleva afectación 17");
     // Lo que paga el cliente por línea: precio × cantidad más los cargos de línea que viajan en el request (un porcentaje

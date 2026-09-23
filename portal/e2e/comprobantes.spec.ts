@@ -312,7 +312,7 @@ test("nota de débito 12 sobre una factura IVAP: la línea sale con afectación 
   await form.getByLabel(/Motivo/).selectOption("12");
   await form.getByLabel("Sustento").fill("Ajuste del precio del arroz");
   await form.getByLabel("Concepto").fill("Diferencia de precio");
-  await form.getByLabel(/Importe con IGV/).fill("10.4");
+  await form.getByLabel(/Importe con IVAP/).fill("10.4");
   const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
   await form.getByRole("button", { name: "Emitir nota de débito" }).click();
   expect((await peticion).postDataJSON().items[0]).toMatchObject({ tipo_afectacion_igv: "17", precio_unitario: 10.4 });
@@ -364,7 +364,7 @@ test("nota de débito sobre una exportación: la línea sale con afectación 40,
   await form.getByLabel(/Motivo/).selectOption("01");
   await form.getByLabel("Sustento").fill("Intereses por mora de 30 días");
   await form.getByLabel("Concepto").fill("Intereses por mora");
-  await form.getByLabel(/Importe con IGV/).fill("59");
+  await form.getByLabel(/Importe sin IGV, exportación/).fill("59");
   // Con «10» fijo el dominio rechazaba (2642): ninguna ND sobre exportaciones podía salir del portal.
   const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
   await form.getByRole("button", { name: "Emitir nota de débito" }).click();
@@ -730,6 +730,37 @@ test("ND: el importe admite hasta 2 decimales (2025)", async ({ page }) => {
   const boton = form.getByRole("button", { name: "Emitir nota de débito" });
   await form.getByLabel(/Importe con IGV/).fill("10.123");
   await expect(boton).toBeDisabled();
+  // Y dice por qué: antes el campo se veía lleno y el botón gris, sin explicación.
+  await expect(form.getByRole("status").filter({ hasText: "hasta 2 decimales" })).toBeVisible();
   await form.getByLabel(/Importe con IGV/).fill("10.12");
   await expect(boton).toBeEnabled();
+  await expect(form.getByRole("status").filter({ hasText: "hasta 2 decimales" })).toHaveCount(0);
+});
+
+test("ND: el concepto se corta a 500 caracteres en el cliente (2027)", async ({ page }) => {
+  await page.goto("/comprobantes/f-cargos/nota");
+  const form = page.getByTestId("nota-form");
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  await form.getByLabel("Concepto").fill("x".repeat(501));
+  await expect(form.getByLabel("Concepto")).toHaveValue("x".repeat(500));
+});
+
+test("el mock de POST /v1/notas rechaza la descripción de ítem que el backend rechaza (2027) y la ND 13 sin ítems (3507)", async ({ page }) => {
+  await page.goto("/comprobantes/f-cargos");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const post = (body: Record<string, unknown>) =>
+    page.evaluate(async ([b]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, texto: await r.text() };
+    }, [JSON.stringify({ tipo: "08", serie: "FD01", fecha_emision: hoy, documento_afectado: { serie: "F001", numero: 7 }, descripcion: "Prueba de contrato", ...body })]);
+
+  let r = await post({ motivo: "01", items: [{ descripcion: "x".repeat(501), unidad: "ZZ", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10" }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("2027");
+
+  // Sin ítems la nota copia los de la factura (gravados): una penalidad gravada, que SUNAT rechaza. El mock la aceptaba.
+  r = await post({ motivo: "13" });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3507");
 });

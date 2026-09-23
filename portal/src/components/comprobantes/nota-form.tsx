@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 type Tipo = "07" | "08";
 /** Motivos de NC en los que la nota es total y se copian los ítems de la factura; el 13 no mueve importes. */
 const MOTIVOS_NC_TOTAL = new Set(["01", "02", "06"]);
+/** Importes de dinero: hasta 2 decimales (3250/3253 en cuotas; 2025 en la línea de la ND). */
+const DOS_DECIMALES = /^\d+(\.\d{1,2})?$/;
 
 /**
  * Emite una nota de crédito o débito sobre una factura aceptada (`POST /v1/notas`). La NC puede ser total (copia la
@@ -142,6 +144,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // 30. Antes salía gravada (10, o 40 en exportación): numerada, firmada y rechazada, con el correlativo consumido.
   const esPenalidad = !esNc && motivo === "13";
   const afectacionNd = esPenalidad ? "30" : esExportacion ? "40" : esIvap ? "17" : "10";
+  // La etiqueta dice qué impuesto lleva el importe tecleado: «con IGV» mentía en exportación (40, sin IGV) e IVAP (17, 4 %).
+  const etiquetaImporteNd = { "30": "Importe inafecto, sin IGV", "40": "Importe sin IGV, exportación", "17": "Importe con IVAP", "10": "Importe con IGV" }[afectacionNd];
 
   // NC 13: lo que exige SUNAT (3253 monto > 0, 3321 vencimiento posterior a la factura, 3320 neto ≤ total) antes
   // «listo» solo pedía que hubiera al menos una cuota, y una cuota en blanco viajaba como monto 0 y fecha vacía.
@@ -149,7 +153,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     cuotas.length > 0 &&
     // Hasta 2 decimales por cuota (3253: «12 enteros y hasta 2 decimales»): `10.123` pasaba el formulario y el
     // backend lo rechazaba después. `step=0.01` no frena lo tipeado, solo las flechas.
-    cuotas.every((q) => Number(q.monto) > 0 && /^\d+(\.\d{1,2})?$/.test(q.monto.trim()) && q.vencimiento !== "" && q.vencimiento > factura.fecha_emision) &&
+    cuotas.every((q) => Number(q.monto) > 0 && DOS_DECIMALES.test(q.monto.trim()) && q.vencimiento !== "" && q.vencimiento > factura.fecha_emision) &&
     redondear(cuotas.reduce((acc, q) => acc + Number(q.monto), 0), 2) <= factura.totales.total;
   const motivos = (catalogos[tipo]?.entradas ?? []).filter((m) => {
     if (m.codigo === "11") return esExportacion;
@@ -192,6 +196,14 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const tope = redondear(factura.totales.total - acreditado, 2);
   const superaTope = (esParcial || esTotal) && importeNota > tope;
 
+  // Por qué el botón está deshabilitado cuando el campo se ve lleno: un importe con 3 decimales no avisaba nada.
+  const conDecimalesDeMas = (v: string) => v.trim() !== "" && !DOS_DECIMALES.test(v.trim());
+  const avisoDecimales = !esNc && conDecimalesDeMas(nd.importe)
+    ? "El importe admite hasta 2 decimales."
+    : esCuotas && cuotas.some((q) => conDecimalesDeMas(q.monto))
+      ? "Cada cuota admite hasta 2 decimales."
+      : null;
+
   const listo =
     serie !== "" &&
     motivo !== "" &&
@@ -199,7 +211,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     (!esParcial || (itemsParciales.length > 0 && !superaTope)) &&
     (!esTotal || !superaTope) &&
     // Importe de la ND con hasta 2 decimales: `step=0.01` no frena lo tipeado y el dominio rechaza 11 decimales (2025).
-    (esNc || (nd.descripcion.trim() !== "" && Number(nd.importe) > 0 && /^\d+(\.\d{1,2})?$/.test(nd.importe.trim()))) &&
+    (esNc || (nd.descripcion.trim() !== "" && Number(nd.importe) > 0 && DOS_DECIMALES.test(nd.importe.trim()))) &&
     (!esCuotas || cuotasValidas);
 
   return (
@@ -324,7 +336,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
               <span className="w-20 font-mono text-[11px] text-muted-foreground">Cuota{String(i + 1).padStart(3, "0")}</span>
               <input type="number" min={0.01} step="0.01" value={q.monto} aria-label={`Monto de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, monto: e.target.value } : c)))} className={cn(CAMPO, "h-8 w-32 font-mono")} />
               <input type="date" value={q.vencimiento} min={sumarDias(factura.fecha_emision, 1)} aria-label={`Vencimiento de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: e.target.value } : c)))} className={cn(CAMPO, "h-8 w-40 font-mono")} />
-              <button type="button" onClick={() => setCuotas((cs) => cs.filter((_, j) => j !== i))} className="text-[12px] text-muted-foreground hover:text-destructive">Quitar</button>
+              <button type="button" aria-label={`Quitar la cuota ${i + 1}`} onClick={() => setCuotas((cs) => cs.filter((_, j) => j !== i))} className="text-[12px] text-muted-foreground hover:text-destructive">Quitar</button>
             </div>
           ))}
           <button type="button" onClick={() => setCuotas((cs) => [...cs, { monto: "", vencimiento: "" }])} className={cn(BOTON_SECUNDARIO, "h-8 text-xs")}>Añadir cuota</button>
@@ -335,10 +347,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_180px]">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="nd-descripcion" className={ETIQUETA_CAMPO}>Concepto</label>
-            <input id="nd-descripcion" value={nd.descripcion} onChange={(e) => setNd({ ...nd, descripcion: e.target.value })} placeholder="Ej.: intereses por mora de 30 días" className={CAMPO} />
+            {/* Hasta 500 como el sustento (2027, `Item`): la recert #4 midió 501 caracteres viajando y un 422 evitable. */}
+            <input id="nd-descripcion" value={nd.descripcion} onChange={(e) => setNd({ ...nd, descripcion: e.target.value })} maxLength={500} placeholder="Ej.: intereses por mora de 30 días" className={CAMPO} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="nd-importe" className={ETIQUETA_CAMPO}>{esPenalidad ? `Importe inafecto, sin IGV (${factura.moneda})` : `Importe con IGV (${factura.moneda})`}</label>
+            <label htmlFor="nd-importe" className={ETIQUETA_CAMPO}>{etiquetaImporteNd} ({factura.moneda})</label>
             <input id="nd-importe" type="number" min={0.01} step="0.01" value={nd.importe} onChange={(e) => setNd({ ...nd, importe: e.target.value })} className={cn(CAMPO, "font-mono")} />
           </div>
         </div>
@@ -357,8 +370,12 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         </div>
       ) : null}
 
+      {avisoDecimales ? (
+        <p id="nota-aviso-decimales" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")}>{avisoDecimales}</p>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" disabled={!listo || enviando} className={BOTON_PRIMARIO}>
+        <button type="submit" disabled={!listo || enviando} aria-describedby={avisoDecimales ? "nota-aviso-decimales" : undefined} className={BOTON_PRIMARIO}>
           {enviando ? <SendIcon className="size-4 animate-pulse" /> : <FileMinusIcon className="size-4" />}
           {enviando ? "Emitiendo y enviando a SUNAT…" : `Emitir ${esNc ? "nota de crédito" : "nota de débito"}`}
         </button>
