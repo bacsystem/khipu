@@ -13,6 +13,10 @@ jobs:
   homologacion:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # `secrets` no se puede usar en un `if:` (GitHub lo rechaza y el workflow queda inválido: cada push registraba un run
+    # fallido con 0 jobs desde el 2026-09-18). Se pasa por `env`, que sí se admite en las condiciones.
+    env:
+      TIENE_CERT_PROPIO: ${{ secrets.HOMOLOGACION_CERT_B64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -21,14 +25,14 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
       - name: Certificado propio (solo si hay secretos)
-        if: ${{ secrets.HOMOLOGACION_CERT_B64 != '' }}
+        if: ${{ env.TIENE_CERT_PROPIO == 'true' }}
         env:
           HOMOLOGACION_CERT_B64: ${{ secrets.HOMOLOGACION_CERT_B64 }}
         run: echo "$HOMOLOGACION_CERT_B64" | base64 -d > "$RUNNER_TEMP/homologacion.p12"
       - name: Emitir escenarios contra e-beta
         env:
           HOMOLOGACION_RUC: ${{ secrets.HOMOLOGACION_RUC }}
-          HOMOLOGACION_CERT: ${{ secrets.HOMOLOGACION_CERT_B64 != '' && format('{0}/homologacion.p12', runner.temp) || '' }}
+          HOMOLOGACION_CERT: ${{ env.TIENE_CERT_PROPIO == 'true' && format('{0}/homologacion.p12', runner.temp) || '' }}
           HOMOLOGACION_CERT_CLAVE: ${{ secrets.HOMOLOGACION_CERT_CLAVE }}
         run: ./gradlew :bootstrap:homologacion --no-daemon
       - name: Resumen
