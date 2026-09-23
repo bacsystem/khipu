@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ItemComprobante } from "@/lib/api/facturas";
-import { afectacionPredominante, importeLineaNota, itemParaNota, lineaRedondeaACero } from "./notas";
+import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, topePorTributo } from "./notas";
 
 // 10 mesas a 118 con IGV, cargo 47 del 10 % (flete, paga IGV): valor 1000 + 100, IGV 198, paga 1298.
 const conCargoPorcentaje: ItemComprobante = {
@@ -142,12 +142,40 @@ describe("lineaRedondeaACero", () => {
 });
 
 describe("afectacionPredominante", () => {
-  const a = (...codigos: string[]) => codigos.map((c) => ({ tipo_afectacion_igv: c }));
-  it("gravada si la factura tiene alguna línea gravada; exonerada o inafecta solo si toda la factura lo es", () => {
-    expect(afectacionPredominante(a("10", "20"))).toBe("10");
-    expect(afectacionPredominante(a("20", "21"))).toBe("20");
-    expect(afectacionPredominante(a("30", "31"))).toBe("30");
-    // Mezcla exonerada + inafecta sin gravadas: gravada por defecto (el backend limita por tributo, 3503).
-    expect(afectacionPredominante(a("20", "30"))).toBe("10");
+  const a = (...lineas: Array<[string, number]>) => lineas.map(([c, precio]) => ({ tipo_afectacion_igv: c, cantidad: 1, precio_unitario: precio, precio_venta: precio }));
+  it("gravada si la factura tiene alguna línea gravada; si no, exonerada o inafecta según cuál pese más", () => {
+    expect(afectacionPredominante(a(["10", 1], ["20", 1000]))).toBe("10");
+    expect(afectacionPredominante(a(["20", 1], ["21", 1]))).toBe("20");
+    expect(afectacionPredominante(a(["30", 1], ["31", 1]))).toBe("30");
+    // Mezcla sin gravadas: nunca «10» (la nota llevaría IGV contra un gravado de 0 → 3503 siempre); gana la que más pesa.
+    expect(afectacionPredominante(a(["20", 100], ["30", 300]))).toBe("30");
+    expect(afectacionPredominante(a(["20", 300], ["30", 100]))).toBe("20");
+  });
+});
+
+describe("topePorTributo", () => {
+  // f-cargos: gravado 1140.32 + IGV 206.39 = 1346.71, por debajo del total 1353 (el resto es ISC): el límite real (3503).
+  const totales = { gravado: 1140.32, igv: 206.39, exonerado: 0, inafecto: 0, total: 1353 };
+  it("gravada: gravado + IGV; exonerada/inafecta: su base; exportación e IVAP: el total", () => {
+    expect(topePorTributo(totales, "10")).toBe(1346.71);
+    expect(topePorTributo({ ...totales, exonerado: 200 }, "20")).toBe(200);
+    expect(topePorTributo({ ...totales, inafecto: 50 }, "30")).toBe(50);
+    expect(topePorTributo(totales, "40")).toBe(1353);
+    expect(topePorTributo(totales, "17")).toBe(1353);
+  });
+});
+
+describe("impuestoRedondeaACero (3111)", () => {
+  it("solo el IVAP al 4 %: importes con impuesto entre 0.07 y 0.12 tienen base > 0.06 e IVAP 0.00", () => {
+    expect(impuestoRedondeaACero("17", 0.10)).toBe(true);
+    expect(impuestoRedondeaACero("17", 0.12)).toBe(true);
+    expect(impuestoRedondeaACero("17", 0.13)).toBe(false); // base 0.125 → 0.005 → 0.01
+    expect(impuestoRedondeaACero("17", 0.06)).toBe(false); // base 0.0577 ≤ 0.06: SUNAT no lo exige
+    expect(impuestoRedondeaACero("10", 0.10)).toBe(false); // IGV 18 %: base 0.0847 → 0.02
+  });
+  it("una línea parcial IVAP con importe en esa ventana no deja emitir", () => {
+    const arroz: ItemComprobante = { codigo: null, descripcion: "Arroz", unidad: "NIU", cantidad: 10, precio_unitario: 10.4, tipo_afectacion_igv: "17", valor_venta: 100, igv: 4, precio_venta: 104 };
+    expect(lineaRedondeaACero(arroz, 0.0096)).toBe(true); // 0.10
+    expect(lineaRedondeaACero(arroz, 0.0125)).toBe(false); // 0.13
   });
 });

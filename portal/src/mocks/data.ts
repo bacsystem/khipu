@@ -69,7 +69,7 @@ export type Comprobante = {
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   fecha_vencimiento?: string | null;
   totales: {
-    gravado: number; exonerado: number; inafecto: number; igv: number; total: number; total_precio_venta?: number; total_anticipos?: number;
+    gravado: number; exonerado: number; inafecto: number; igv: number; total: number; exportacion?: number; total_precio_venta?: number; total_anticipos?: number;
     total_cargos?: number; redondeo?: number; cargos?: Array<{ tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string }>;
   };
   forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
