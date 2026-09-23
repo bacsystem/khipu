@@ -36,7 +36,7 @@ describe("itemParaNota", () => {
     expect(itemParaNota({ ...base, isc: { sistema: "03", tasa: 17, monto: 5.95, base_pvp: 3.5 } }, 10).isc).toEqual({ sistema: "03", tasa: 17, base_pvp: 3.5 });
   });
 
-  it("conserva código SUNAT y GTIN (4331 observa la nota si faltan)", () => {
+  it("conserva código SUNAT y GTIN, que van al XML de la nota igual que en la factura", () => {
     const item = itemParaNota(conCargoPorcentaje, 10);
     expect(item.codigo_sunat).toBe("56101500");
     expect(item.gtin).toEqual({ tipo: "GTIN-13", codigo: "7750182000123" });
@@ -49,27 +49,59 @@ describe("itemParaNota", () => {
 });
 
 describe("importeLineaNota", () => {
-  it("con la cantidad facturada es el precio de venta que calculó el backend (cargos incluidos)", () => {
+  it("con la cantidad facturada es el precio de venta que calculó el backend, aunque no coincida con precio × cantidad", () => {
     expect(importeLineaNota(conCargoPorcentaje, 10)).toBe(1298);
+    // ISC 01 al 35 % + cargo 47 del 10 %: el dominio da 1100.02 (ISC sobre el valor con cargo, IGV sobre valor + ISC);
+    // precio × cantidad daría 1000.
+    expect(importeLineaNota(conIscYCargo, 10)).toBe(1100.02);
   });
 
-  it("con menos cantidad, un cargo en porcentaje entra en proporción y con su IGV", () => {
+  it("con menos cantidad prorratea el precio de venta: un cargo en porcentaje entra en proporción y con su IGV", () => {
     // 5 × 118 = 590, más la mitad del cargo (50) con IGV (59) = 649.
     expect(importeLineaNota(conCargoPorcentaje, 5)).toBe(649);
   });
 
-  it("con menos cantidad, un cargo de monto fijo no entra (no viaja)", () => {
+  it("con menos cantidad, un cargo de monto fijo no entra (no viaja): se resta con su IGV antes de prorratear", () => {
+    // (1298 − 100 × 1.18) / 2 = 590.
     expect(importeLineaNota(conCargoMonto, 5)).toBe(590);
   });
 
   it("un cargo que no afecta la base (48) entra sin IGV", () => {
     const con48 = { ...conCargoPorcentaje, cargos: [{ tipo: "PORCENTAJE" as const, valor: 10, monto: 100, afecta_base_igv: false, codigo: "48" }], valor_venta: 1000, igv: 180, precio_venta: 1280 };
     expect(importeLineaNota(con48, 5)).toBe(640);
+    const con48Fijo = { ...con48, cargos: [{ ...con48.cargos[0], tipo: "MONTO" as const }] };
+    expect(importeLineaNota(con48Fijo, 5)).toBe(590);
   });
 
-  it("sin precio_venta (backend anterior) reconstruye el importe también con la cantidad facturada", () => {
+  it("una gratuita no se cobra, tampoco en parcial: el precio unitario es solo el valor referencial", () => {
+    // La recert #3 midió 300 para 3 de 10 unidades a 100 de valor referencial: el tope bloqueaba NC legítimas.
+    const gratuita: ItemComprobante = { codigo: null, descripcion: "Muestra", unidad: "NIU", cantidad: 10, precio_unitario: 100, tipo_afectacion_igv: "11", valor_venta: 1000, igv: 180, precio_venta: 0, gratuita: true };
+    expect(importeLineaNota(gratuita, 10)).toBe(0);
+    expect(importeLineaNota(gratuita, 3)).toBe(0);
+  });
+
+  it("con ISC (01) y un cargo en porcentaje en la misma línea, la mitad es la mitad del dominio (±0.01), no un 2 % menos", () => {
+    // Dominio para 5 unidades: baseBruta 313.87 + cargo 31.39 → valor 345.26, ISC 120.84, IGV 83.90 → 550.00.
+    // La reconstrucción desde el precio unitario daba 539.02.
+    expect(Math.abs(importeLineaNota(conIscYCargo, 5) - 550)).toBeLessThanOrEqual(0.01);
+    // Y con un cargo de monto fijo que no viaja, se descuenta con el ISC y el IGV que arrastraba.
+    const conIscYCargoFijo = { ...conIscYCargo, cargos: [{ tipo: "MONTO" as const, valor: 62.78, monto: 62.78, afecta_base_igv: true, codigo: "47" }] };
+    // 62.78 × 1.35 × 1.18 = 100.01 → (1100.02 − 100.01) / 2 = 500.01 (el dominio sin cargo: 500.00).
+    expect(Math.abs(importeLineaNota(conIscYCargoFijo, 5) - 500)).toBeLessThanOrEqual(0.01);
+  });
+
+  it("sin precio_venta (backend anterior) queda precio × cantidad como aproximación", () => {
     const { precio_venta: _omitido, ...sinPrecioVenta } = conCargoMonto;
     void _omitido;
-    expect(importeLineaNota(sinPrecioVenta, 10)).toBe(1298);
+    expect(importeLineaNota(sinPrecioVenta, 10)).toBe(1180);
   });
 });
+
+// Línea consistente con `ItemCalculado`: precio 100 con todo incluido, cantidad 10, ISC 01 al 35 %, cargo 47 del 10 %:
+// baseBruta 627.75, cargo 62.78 → valor 690.53, ISC 241.69, IGV 167.80 → precio de venta 1100.02.
+const conIscYCargo: ItemComprobante = {
+  codigo: null, descripcion: "Pisco", unidad: "NIU", cantidad: 10, precio_unitario: 100, tipo_afectacion_igv: "10",
+  valor_venta: 690.53, igv: 167.8, precio_venta: 1100.02,
+  isc: { sistema: "01", tasa: 35, monto: 241.69, base: 690.53 },
+  cargos: [{ tipo: "PORCENTAJE", valor: 10, monto: 62.78, afecta_base_igv: true, codigo: "47" }],
+};

@@ -705,3 +705,31 @@ test("nota: tras un error el foco va al mensaje", async ({ page }) => {
   await expect(alerta).toContainText("Se cortó la conexión");
   await expect(alerta).toBeFocused();
 });
+
+test("NC total sobre una factura con redondeo: la nota sale sin el redondeo y supera a la factura (3286), el formulario avisa", async ({ page }) => {
+  // f-redondeo: ítems 118.44, redondeo −0.44, total 118. El backend no copia el redondeo a la nota (#123): la NC
+  // total saldría por 118.44 > 118 y SUNAT la rechaza sin tolerancia (fila 111). Antes: «copia la factura (S/ 118.00)».
+  await page.goto("/comprobantes/f-redondeo/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("01");
+  await form.getByLabel("Sustento").fill("Anulación de la operación");
+  const total = form.getByTestId("nota-total");
+  await expect(total).toContainText("Importe de la nota: S/ 118.44 (sin el redondeo de la factura). Tope: S/ 118.00");
+  await expect(total.getByRole("alert")).toContainText("Supera el tope");
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
+});
+
+test("ND: el importe admite hasta 2 decimales (2025)", async ({ page }) => {
+  await page.goto("/comprobantes/f-cargos/nota");
+  const form = page.getByTestId("nota-form");
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  await form.getByLabel(/Motivo/).selectOption("01");
+  await form.getByLabel("Sustento").fill("Intereses");
+  await form.getByLabel("Concepto").fill("Intereses por mora");
+  const boton = form.getByRole("button", { name: "Emitir nota de débito" });
+  await form.getByLabel(/Importe con IGV/).fill("10.123");
+  await expect(boton).toBeDisabled();
+  await form.getByLabel(/Importe con IGV/).fill("10.12");
+  await expect(boton).toBeEnabled();
+});

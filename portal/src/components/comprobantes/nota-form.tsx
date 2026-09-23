@@ -174,10 +174,14 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // 17 (IVAP): el tope era inerte y el usuario leía «$ 0.00» antes de emitir. La segunda hacía precio × cantidad y no
   // veía los cargos de línea. Vale también para la nota total (01/02/06): copia la factura entera, y si ya hay NC
   // vigentes la supera.
+  //
+  // La nota total copia los ítems, el descuento global y los cargos, pero NO el redondeo del importe total (el
+  // backend no lo copia a la nota, #123): sale por el total sin redondear. Con el redondeo habitual (negativo, para
+  // cobrar sin céntimos) queda por encima del PayableAmount de la factura y SUNAT la rechaza (3286, sin tolerancia).
   const importeNota = esParcial
     ? redondear(lineasParciales.reduce((s, { item, cantidad }) => s + importeLineaNota(item, cantidad), 0), 2)
     : esTotal
-      ? factura.totales.total
+      ? redondear(factura.totales.total - (factura.totales.redondeo ?? 0), 2)
       : 0;
   const acreditado = redondear(
     (factura.notas ?? [])
@@ -194,7 +198,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     descripcion.trim() !== "" &&
     (!esParcial || (itemsParciales.length > 0 && !superaTope)) &&
     (!esTotal || !superaTope) &&
-    (esNc || (nd.descripcion.trim() !== "" && Number(nd.importe) > 0)) &&
+    // Importe de la ND con hasta 2 decimales: `step=0.01` no frena lo tipeado y el dominio rechaza 11 decimales (2025).
+    (esNc || (nd.descripcion.trim() !== "" && Number(nd.importe) > 0 && /^\d+(\.\d{1,2})?$/.test(nd.importe.trim()))) &&
     (!esCuotas || cuotasValidas);
 
   return (
@@ -245,9 +250,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
           </p>
           {/* Una nota total sobre una factura ya acreditada por otras NC vigentes la supera (3286): es el escenario de
               la doble acreditación (#83), y antes esta pantalla no decía nada y dejaba emitir. */}
-          {acreditado > 0 ? (
+          {acreditado > 0 || superaTope ? (
             <p className="mt-1" data-testid="nota-importe">
-              Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span> (ya acreditado {formatearMonto(factura.moneda, acreditado)} en otras notas de crédito).
+              Importe de la nota: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</span>
+              {importeNota !== factura.totales.total ? " (sin el redondeo de la factura)" : ""}. Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>
+              {acreditado > 0 ? ` (ya acreditado ${formatearMonto(factura.moneda, acreditado)} en otras notas de crédito)` : ""}.
               {superaTope ? <span role="alert" className="block"> Supera el tope: SUNAT la rechazaría (3286). Solo queda por acreditar {formatearMonto(factura.moneda, tope)}; elegí un motivo parcial.</span> : null}
             </p>
           ) : null}

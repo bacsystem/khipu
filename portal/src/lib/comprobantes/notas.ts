@@ -55,20 +55,27 @@ export function itemParaNota(item: ItemComprobante, cantidad: number) {
 
 /**
  * Lo que paga el cliente por la línea de la nota, para mostrarlo y compararlo con el tope (3286) antes de emitir.
- * Con la cantidad facturada es el `precio_venta` que calculó el backend (exacto). Con menos, se parte del precio × cantidad
- * y se suman los ajustes que viajan (ver `seConserva`) en proporción a la cantidad; los que afectan la base entran con
- * su IGV, con la tasa efectiva de la propia línea (igv ÷ valor de venta), que vale tanto para el 18 % como para el
- * 10,5 % del padrón o el 4 % del IVAP.
+ *
+ * Se parte del `precio_venta` que calculó el backend para la línea completa (exacto: gratuitas en 0, ISC sobre el valor
+ * con cargo, IGV sobre valor + ISC…) y se prorratea por la cantidad, porque todo lo que viaja en la línea parcial es
+ * proporcional a ella. Lo único que no viaja son los ajustes de monto fijo (ver `seConserva`): se restan antes de
+ * prorratear, con el ISC (solo el sistema 01 lo calcula sobre el valor) y el IGV que arrastraban.
+ *
+ * Reconstruir el importe desde el precio unitario no sirve: cobraba las gratuitas al valor referencial (bloqueaba NC
+ * legítimas) y con ISC + cargo en porcentaje se quedaba ~2 % corto (dejaba pasar una NC que SUNAT rechaza sin
+ * tolerancia). Sin `precio_venta` (backend anterior) queda precio × cantidad como aproximación.
  */
 export function importeLineaNota(item: ItemComprobante, cantidad: number): number {
   const facturada = Number(item.cantidad);
+  if (item.precio_venta == null || !(facturada > 0)) return redondear(item.precio_unitario * cantidad, 2);
   const completa = cantidad === facturada;
-  if (completa && item.precio_venta != null) return item.precio_venta;
-  const proporcion = facturada > 0 ? cantidad / facturada : 0;
-  const factor = item.valor_venta && item.igv != null ? 1 + item.igv / item.valor_venta : 1;
-  const enPrecio = (a: DescuentoAplicado | CargoAplicado) => a.monto * proporcion * (a.afecta_base_igv ? factor : 1);
-  let importe = item.precio_unitario * cantidad;
-  for (const c of item.cargos ?? []) if (seConserva(c, completa)) importe += enPrecio(c);
-  if (item.descuento && seConserva(item.descuento, completa)) importe -= enPrecio(item.descuento);
-  return redondear(importe, 2);
+  if (completa) return item.precio_venta;
+  const iscMonto = item.isc?.monto ?? 0;
+  const factorIsc = item.isc?.sistema === "01" ? 1 + item.isc.tasa / 100 : 1;
+  const factorIgv = item.valor_venta && item.igv != null ? 1 + item.igv / (item.valor_venta + iscMonto) : 1;
+  const enPrecio = (a: DescuentoAplicado | CargoAplicado) => a.monto * (a.afecta_base_igv ? factorIsc * factorIgv : 1);
+  let completo = item.precio_venta;
+  for (const c of item.cargos ?? []) if (!seConserva(c, completa)) completo -= enPrecio(c);
+  if (item.descuento && !seConserva(item.descuento, completa)) completo += enPrecio(item.descuento);
+  return redondear((completo * cantidad) / facturada, 2);
 }
