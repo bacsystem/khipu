@@ -162,15 +162,18 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     /**
      * Reglas 3286 (importe total) y 3503 (base e impuesto por tributo) de la hoja NotaCredito2_0: la NC no puede superar
      * los importes de la factura que modifica. Sobre facturas (F/E) el 3286 es estricto (fila 111: «mayor a la sumatoria»,
-     * sin tolerancia; la +1 de la fila 113 es solo para boletas) y exime al motivo 10 «Otros conceptos»; el 3503 sí admite
-     * +1 en cada concepto (filas 114–122). SUNAT lo comprueba nota por nota; khipu descuenta además lo ya acreditado por
+     * sin tolerancia; la +1 de la fila 113 es solo para boletas); el 3503 sí admite +1 en cada concepto (filas 114–122).
+     * Las ocho reglas eximen al motivo 10 «Otros conceptos». SUNAT lo comprueba nota por nota; khipu descuenta además lo ya acreditado por
      * las NC anteriores, para que varias notas no sumen más que la factura (#83).
      */
     private static void exigirQueNoSupereALaFactura(Totales nc, String motivo, Comprobante factura, Acreditado previo) {
         Totales f = factura.totales();
         record Limite(String concepto, String regla, BigDecimal nota, BigDecimal factura, BigDecimal acreditado, BigDecimal tolerancia) {}
+        // El motivo 10 «Otros conceptos» está exento de los ocho límites: las filas 111 (3286) y 114–122 (3503) empiezan
+        // todas con «diferente de '10'». La primera corrección eximió solo el 3286 y una NC 10 legal caía en 3503.
+        if ("10".equals(motivo)) return;
         List<Limite> limites = new java.util.ArrayList<>();
-        if (!"10".equals(motivo)) limites.add(new Limite("importe total", "3286", nc.total(), f.total(), previo.total(), BigDecimal.ZERO));
+        limites.add(new Limite("importe total", "3286", nc.total(), f.total(), previo.total(), BigDecimal.ZERO));
         BigDecimal tol = BigDecimal.ONE;
         limites.addAll(List.of(
                 new Limite("valor de venta gravado", "3503", nc.gravado(), f.gravado(), previo.gravado(), tol),

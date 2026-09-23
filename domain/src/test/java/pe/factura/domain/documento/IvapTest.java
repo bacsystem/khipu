@@ -30,6 +30,14 @@ class IvapTest {
         assertThat(ic.precioVenta()).isEqualByComparingTo("312.00");
     }
 
+    /** 3111: base > 0.06 con IVAP 0.00 (importes 0.07–0.12 con impuesto incluido). Con 0.13 el 4 % ya redondea a 0.01. */
+    @Test void unaLineaIvapCuyoImpuestoRedondeaACeroSeRechaza() {
+        assertThatThrownBy(() -> ItemCalculado.de(arroz("0.10", "1"))).isInstanceOf(DomainException.class).hasMessageContaining("3111");
+        assertThatThrownBy(() -> ItemCalculado.de(arroz("0.05", "2"))).isInstanceOf(DomainException.class).hasMessageContaining("3111");
+        assertThat(ItemCalculado.de(arroz("0.13", "1")).igv()).isEqualByComparingTo("0.01");
+        assertThat(ItemCalculado.de(arroz("0.06", "1")).igv()).isEqualByComparingTo("0.00"); // base 0.0577 ≤ 0.06: SUNAT no lo exige
+    }
+
     @Test void laTasaEspecialDelPadronNoAfectaAlIvap() {
         ItemCalculado ic = ItemCalculado.de(arroz("3.12", "100"), BigDecimal.ZERO, new BigDecimal("10.50"));
         assertThat(ic.igv()).isEqualByComparingTo("12.00");
