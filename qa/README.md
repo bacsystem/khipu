@@ -5,7 +5,7 @@ Una ficha por flujo. Certificado = **0 bloqueantes, 0 importantes** tras auditor
 | # | Flujo | Estado | Ficha |
 |---|---|---|---|
 | 1 | Emisión de factura | ✅ certificado `37e1a75` | [emision.md](emision.md) |
-| 2 | Notas de crédito/débito | 🟡 recert #5: 0 bloqueantes · 3 importantes, corregido (backend + A6), pendiente recert #6 | [notas.md](notas.md) |
+| 2 | Notas de crédito/débito | 🟡 recert #6: 0 bloqueantes · 1 importante, corregido + NC por importe (A7), pendiente recert #7 | [notas.md](notas.md) |
 | 3 | Registro + onboarding | ⬜ | — |
 | 4 | Login / recuperar / restablecer | ⬜ | — |
 | 5 | Empresa: fiscales, certificado, SOL | ⬜ | — |
@@ -27,7 +27,7 @@ Una ficha por flujo. Certificado = **0 bloqueantes, 0 importantes** tras auditor
 ## Método (fijo)
 
 1. Matriz de contrato: cada control vs. DTO + dominio Java **vs. fuente SUNAT** (`docs/sunat/ref/reglas_validacion_*.xlsx`, guías UBL, XSD, catálogos). El backend puede citar mal una regla.
-2. Auditores con contexto limpio, cada uno en su `git worktree`, con `API_BASE_URL` a un puerto muerto (lo sin mock debe fallar, no llegar al backend real). Dos en flujos irreversibles.
+2. Auditores con contexto limpio, cada uno en su `git worktree`, con `API_BASE_URL` a un puerto muerto (lo sin mock debe fallar, no llegar al backend real) y su propio `E2E_PORT` (dos corridas en :3100 comparten servidor y mock). Dos en flujos irreversibles.
 3. Cada hallazgo se verifica antes de aceptarlo. Foco/teclado: ≥150 ms entre teclas.
 4. Corregir → **recertificar** → repetir hasta cero.
 5. Cada arreglo con test verificado por mutación.

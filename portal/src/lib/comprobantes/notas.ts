@@ -81,15 +81,27 @@ export function importeLineaNota(item: ItemComprobante, cantidad: number): numbe
 }
 
 /**
- * Una cantidad tan chica que la línea, o uno de sus ajustes en porcentaje, redondea a 0.00: el dominio rechaza el ajuste
- * (`Cargo.montoSobre` 2955, `Descuento.montoSobre`) y SUNAT el valor/precio unitario en cero (2367/2369). El formulario
- * dejaba teclear 0.0004 de 10 mesas con flete del 10 % (base 0.04 → cargo 0.00) y el POST volvía 422.
+ * Una cantidad tan chica que la línea, o uno de sus cargos en porcentaje, redondea a 0.00: el dominio rechaza el cargo
+ * (`Cargo.montoSobre`, 2955) y SUNAT el valor/precio unitario en cero (2367/2369). El descuento NO cuenta:
+ * `Descuento.montoSobre` solo rechaza que alcance la base, un descuento de 0.00 pasa. El formulario dejaba teclear
+ * 0.0004 de 10 mesas con flete del 10 % (base 0.04 → cargo 0.00) y el POST volvía 422.
  */
 export function lineaRedondeaACero(item: ItemComprobante, cantidad: number): boolean {
   if (importeLineaNota(item, cantidad) < 0.01) return true;
   const completa = cantidad === Number(item.cantidad);
   const factorIgv = item.valor_venta && item.igv != null ? 1 + item.igv / (item.valor_venta + (item.isc?.monto ?? 0)) : 1;
   const base = (item.precio_unitario * cantidad) / factorIgv;
-  const ajustes = [...(item.cargos ?? []), ...(item.descuento ? [item.descuento] : [])];
-  return ajustes.some((a) => a.tipo === "PORCENTAJE" && seConserva(a, completa) && redondear((base * a.valor) / 100, 2) < 0.01);
+  return (item.cargos ?? []).some((a) => a.tipo === "PORCENTAJE" && seConserva(a, completa) && redondear((base * a.valor) / 100, 2) < 0.01);
+}
+
+/**
+ * Afectación de la línea propia de una NC por importe (descuento, bonificación, disminución): sigue a lo que la
+ * factura cobró. Con alguna línea gravada, 10 (el descuento lleva IGV y SUNAT lo compara contra el gravado, 3503);
+ * si toda la factura es exonerada o inafecta, esa afectación. Exportación e IVAP se resuelven antes (40/17).
+ */
+export function afectacionPredominante(items: Pick<ItemComprobante, "tipo_afectacion_igv">[]): "10" | "20" | "30" {
+  if (items.some((i) => i.tipo_afectacion_igv === "10")) return "10";
+  if (items.every((i) => i.tipo_afectacion_igv === "20" || i.tipo_afectacion_igv === "21")) return "20";
+  if (items.every((i) => /^3[0-7]$/.test(i.tipo_afectacion_igv))) return "30";
+  return "10";
 }

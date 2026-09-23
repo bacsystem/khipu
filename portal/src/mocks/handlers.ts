@@ -91,7 +91,12 @@ const CATALOGOS = [
   { id: "09", nombre: "Códigos de tipo de nota de crédito electrónica", columnas: ["Código", "Descripción"],
     entradas: [
       { codigo: "01", descripcion: "Anulación de la operación", extra: {} },
+      { codigo: "04", descripcion: "Descuento global", extra: {} },
+      { codigo: "05", descripcion: "Descuento por ítem", extra: {} },
       { codigo: "07", descripcion: "Devolución por ítem", extra: {} },
+      { codigo: "08", descripcion: "Bonificación", extra: {} },
+      { codigo: "09", descripcion: "Disminución en el valor", extra: {} },
+      { codigo: "10", descripcion: "Otros Conceptos", extra: {} },
       // 11 y 12 están para probar que el formulario los oculta cuando la factura no es de exportación / IVAP.
       { codigo: "11", descripcion: "Ajustes de operaciones de exportación", extra: {} },
       { codigo: "12", descripcion: "Ajustes afectos al IVAP", extra: {} },
@@ -505,10 +510,11 @@ export const handlers = [
       if (!(i.cantidad > 0) || decimales(i.cantidad) > 10) return fail(422, "ITEM_INVALIDO", "2025 - La cantidad debe ser positiva, con hasta 12 enteros y 10 decimales");
       // `Item.exigirFormatoNumerico`: 12 enteros y 10 decimales también en el precio. El importe de la ND llegaba con 13 enteros.
       if (!(i.precio_unitario >= 0) || decimales(i.precio_unitario) > 10 || Math.trunc(i.precio_unitario) >= 1e12) return fail(422, "ITEM_INVALIDO", "2025 - El precio unitario admite hasta 12 enteros y 10 decimales");
-      // `Cargo.montoSobre` (2955) y `Descuento.montoSobre`: un porcentaje que redondea a 0.00 sobre la base de la línea.
-      const base = (i.cantidad * i.precio_unitario) / (i.tipo_afectacion_igv === "10" ? 1.18 : 1);
-      for (const a of [i.descuento, ...(i.cargos ?? [])]) {
-        if (a?.porcentaje != null && Math.round((base * a.porcentaje) / 100 * 100) === 0) return fail(422, "CARGO_INVALIDO", `2955 - El ajuste en porcentaje resulta en 0.00 sobre la base ${base.toFixed(2)}`);
+      // `Cargo.montoSobre` (2955): un cargo en porcentaje que redondea a 0.00 sobre la base de la línea. El descuento no
+      // (`Descuento.montoSobre` solo rechaza que alcance la base). Base aproximada: /1.18 en gravadas, /1.04 en IVAP.
+      const base = (i.cantidad * i.precio_unitario) / (i.tipo_afectacion_igv === "10" ? 1.18 : i.tipo_afectacion_igv === "17" ? 1.04 : 1);
+      for (const a of i.cargos ?? []) {
+        if (a?.porcentaje != null && Math.round((base * a.porcentaje) / 100 * 100) === 0) return fail(422, "CARGO_INVALIDO", `2955 - El cargo en porcentaje resulta en 0.00 sobre la base ${base.toFixed(2)}`);
       }
       // `Item`: descripción obligatoria y hasta 500 (2026/2027). El «Concepto» de la ND llegaba con 501 y el mock daba 201.
       if (!i.descripcion?.trim()) return fail(422, "ITEM_INVALIDO", "2026 - Cada ítem necesita una descripción");

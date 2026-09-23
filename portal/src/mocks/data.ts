@@ -428,6 +428,27 @@ export function resetDb() {
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-redondeo/xml" },
     },
+    {
+      // Factura íntegramente exonerada (libros, afectación 20): la NC por importe debe salir exonerada, no gravada.
+      id: "f-exonerada",
+      tipo: "01",
+      serie: "F001",
+      numero: 10,
+      fecha_emision: "2026-08-29",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: "Av. Argentina 2450, Lima" },
+      items: [{ codigo: null, descripcion: "Libro técnico", unidad: "NIU", cantidad: 4, precio_unitario: 50, tipo_afectacion_igv: "20", valor_venta: 200, igv: 0, precio_venta: 200 }],
+      estado_documento: "ACEPTADO",
+      hash: "exo==",
+      nombre_archivo: "20123456786-01-F001-00000010",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-10, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 0, exonerado: 200, inafecto: 0, igv: 0, total: 200 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-exonerada/xml" },
+    },
   ]);
 }
 

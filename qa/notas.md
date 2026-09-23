@@ -1,4 +1,4 @@
-# Notas de crédito/débito · 🟡 recert #5: 0 bloqueantes · 3 importantes → corregido (A6 + backend #123), pendiente de recert #6
+# Notas de crédito/débito · 🟡 recert #6: 0 bloqueantes · 1 importante → corregido + NC por importe, pendiente de recert #7
 
 | | |
 |---|---|
@@ -7,8 +7,17 @@
 | Recert #2 | `main@e68d60b` · 2 bloqueantes · 4 importantes → #128 → #129 → #131 |
 | Recert #3 | `main@fc07431` · **1 bloqueante · 3 importantes** → #132 → #133 |
 | Recert #4 | `main@9d9e3e5` · **0 bloqueantes · 1 importante** → #135 |
-| Recert #5 | `main@bb801d1` · Opus, worktree, puerto muerto · **0 bloqueantes · 3 importantes** · importe a ±0.02 del dominio (20 000 líneas aleatorias, 91 % exacto) · 19/20 mutaciones → A6 + backend |
-| Suite tras A6 | 122/122 Vitest · 72/72 e2e ×2 · backend 686/686 · 12/12 mutaciones nuevas mueren |
+| Recert #5 | `main@bb801d1` · **0 bloqueantes · 3 importantes** → #136 (backend) + #137 |
+| Recert #6 | `main@29ee9b4` · Opus, worktree, puerto muerto · **0 bloqueantes · 1 importante** · 33/34 mutaciones (11 backend, 22 portal) · barrido de los 203 ERROR de las hojas NC/ND: ninguno alcanzable sin cruzar · e2e 72/72 ×4 aislada |
+| Suite tras A7 | 124/124 Vitest · 77/77 e2e ×2 · out-ubl NotaUblTest 4/4 · 8/8 mutaciones nuevas mueren |
+
+## Recert #6: encontrado y corregido · NC por importe
+
+| Sev | Qué | PR |
+|---|---|---|
+| 🟠 | El formulario aplicaba el tope 3286 al motivo 10, que SUNAT (fila 111) y el backend eximen; nadie lo veía porque el catálogo 09 del mock no traía el 10 | A7 |
+| 🟡 | `lineaRedondeaACero` bloqueaba por un descuento en 0.00 que el dominio acepta (solo el cargo tiene 2955) · `PayableRoundingAmount` de la nota sin test en out-ubl · avisos para concepto < 3 y cantidades en 0 · `E2E_PORT` en `playwright.config.ts` (dos corridas en :3100 se pisaban) | A7 |
+| ✨ | **NC por importe** (catálogo 09: 04 descuento global, 05 por ítem, 08 bonificación, 09 disminución, 10 otros): una línea propia con concepto + importe, afectación según la factura (10 si tiene gravadas; 20/30 si es toda exonerada/inafecta; 40/17 en exportación/IVAP), tope 3286 salvo el 10. SUNAT no impone otra estructura (solo 4367 observa 04/05/08 sobre boletas). Catálogo 09 del mock completo | A7 |
 
 ## Recert #5: encontrado y corregido
 
@@ -46,11 +55,10 @@
 
 ## Pendiente (no bloquea)
 
-- Tope solo anticipa 3286, no 3503 por tributo (el backend lo rechaza sin gastar correlativo). Descuento fijo en parcial acredita por encima de lo proporcional (simétrico al cargo; decisión de producto, el texto de ayuda lo dice).
+- Tope solo anticipa 3286, no 3503 por tributo (el backend lo rechaza sin gastar correlativo). Mock sin dos guardas de la nota total (anticipos, descuento/cargos globales sin ítems) ni 2642/2644 por motivo: inalcanzables desde el formulario. Descuento fijo en parcial acredita por encima de lo proporcional (simétrico al cargo; decisión de producto, el texto de ayuda lo dice).
 - Cancelar sin confirmar · motivo 03 obliga a mover dinero · errores por campo del 422 ignorados (transversal) · 12 enteros en cuotas (inalcanzable).
-- Decisión de producto: NC **por importe** (04 descuento, 09 disminución) — hoy solo por unidades.
 - Boletas fuera de alcance (#20).
 
 ## Siguiente paso
 
-Mergear backend → A6 → **recert #6**. Si sale 0/0: ✅ certificado. Después: NC por importe (04/05/09) según catálogo 09 → recert.
+Mergear A7 → **recert #7** (auditor limpio, worktree, `E2E_PORT` propio). Si sale 0/0: ✅ certificado.

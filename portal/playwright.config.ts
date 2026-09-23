@@ -1,5 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Puerto del dev server de los e2e. Con `reuseExistingServer`, dos corridas a la vez sobre el mismo puerto (p. ej. un
+// auditor en su worktree y el repo principal) comparten servidor y estado del mock: medido, 5 rojos espurios en una y
+// resultados contaminados en la otra. Cada corrida paralela lleva su propio E2E_PORT.
+const PUERTO = Number(process.env.E2E_PORT ?? 3100);
+
 export default defineConfig({
   testDir: "./e2e",
   // Reinicia el mock en memoria al empezar cada corrida: con `reuseExistingServer` el estado sobrevivía entre
@@ -16,13 +21,13 @@ export default defineConfig({
   // con 4 workers en paralelo): el margen cubre esa compilación, no un fallo funcional.
   expect: { timeout: 15_000 },
   use: {
-    baseURL: "http://localhost:3100",
+    baseURL: `http://localhost:${PUERTO}`,
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "npm run dev -- -p 3100",
-    url: "http://localhost:3100",
+    command: `npm run dev -- -p ${PUERTO}`,
+    url: `http://localhost:${PUERTO}`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
     // API_BASE_URL fija, y a un puerto MUERTO: MSW intercepta lo que tiene handler y deja pasar el resto, así que
