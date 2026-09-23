@@ -160,8 +160,11 @@ describe("topePorTributo", () => {
     expect(topePorTributo(totales, "10")).toBe(1346.71);
     expect(topePorTributo({ ...totales, exonerado: 200 }, "20")).toBe(200);
     expect(topePorTributo({ ...totales, inafecto: 50 }, "30")).toBe(50);
-    expect(topePorTributo(totales, "40")).toBe(1353);
-    expect(topePorTributo(totales, "17")).toBe(1353);
+    // Exportación: la base 9995, no el total (un cargo 48 o un descuento global lo separan). IVAP: base + IVAP.
+    expect(topePorTributo({ ...totales, exportacion: 1000, total: 1050 }, "40")).toBe(1000);
+    expect(topePorTributo(totales, "40")).toBe(1353); // backend anterior sin `exportacion`: el total
+    // Total distinto de base + IVAP (p. ej. con un cargo sin IGV) para que «devolver el total» no pase por casualidad.
+    expect(topePorTributo({ gravado: 100, igv: 0, ivap: 4, exonerado: 0, inafecto: 0, total: 110 }, "17")).toBe(104);
   });
 });
 

@@ -69,7 +69,7 @@ export type Comprobante = {
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   fecha_vencimiento?: string | null;
   totales: {
-    gravado: number; exonerado: number; inafecto: number; igv: number; total: number; exportacion?: number; total_precio_venta?: number; total_anticipos?: number;
+    gravado: number; exonerado: number; inafecto: number; igv: number; total: number; ivap?: number; exportacion?: number; total_precio_venta?: number; total_anticipos?: number;
     total_cargos?: number; redondeo?: number; cargos?: Array<{ tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string }>;
   };
   forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
@@ -266,7 +266,9 @@ export function resetDb() {
       intentos: 1,
       ultimo_error: null,
       cdr: { codigo: "0", descripcion: "La Factura numero F001-8, ha sido aceptada", observaciones: [] },
-      totales: { gravado: 0, exonerado: 0, inafecto: 0, igv: 4, total: 104 },
+      // Como `Totales` del backend: en una factura IVAP la base 1016 va en `gravado` y el impuesto en `ivap`, con `igv` 0.
+      // La recert #8 midió que con {gravado: 0, igv: 4} el mock rechazaba con 3503 toda NC sobre esta factura.
+      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 0, ivap: 4, total: 104 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-ivap/xml" },
     },
@@ -448,6 +450,28 @@ export function resetDb() {
       totales: { gravado: 0, exonerado: 200, inafecto: 0, igv: 0, total: 200 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-exonerada/xml" },
+    },
+    {
+      // Solo para el e2e del tope por tributo (nadie más la acredita, así que el tope mostrado es exacto): una línea con ISC de
+      // monto fijo, donde el total (200) supera al gravado + IGV (177.50) y el 3503 es el límite real.
+      id: "f-isc",
+      tipo: "01",
+      serie: "F001",
+      numero: 11,
+      fecha_emision: "2026-08-30",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: "Av. Argentina 2450, Lima" },
+      items: [{ codigo: null, descripcion: "Cerveza artesanal 330 ml", unidad: "NIU", cantidad: 10, precio_unitario: 20, tipo_afectacion_igv: "10", valor_venta: 146.99, igv: 30.51, precio_venta: 200, isc: { sistema: "02", tasa: 15.31, monto: 22.5, base: 146.99, monto_unitario: 2.25 } }],
+      estado_documento: "ACEPTADO",
+      hash: "isc==",
+      nombre_archivo: "20123456786-01-F001-00000011",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-11, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 146.99, exonerado: 0, inafecto: 0, igv: 30.51, total: 200 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-isc/xml" },
     },
   ]);
 }

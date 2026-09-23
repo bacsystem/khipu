@@ -1,4 +1,4 @@
-# Notas de crédito/débito · 🟡 recert #7: 0 bloqueantes · 3 importantes → corregido (backend + A8), pendiente de recert #8
+# Notas de crédito/débito · 🟡 recert #8: 0 bloqueantes · 5 importantes (4 en el mock/tests de A8) → corregido (backend + A9), pendiente de recert #9
 
 Estado de cada hallazgo: 🔧 corregido en un PR mergeado, a la espera de la recert · ✅ verificado por una recert posterior (el arreglo resiste) · ⬜ abierto ([pendientes.md](pendientes.md)).
 
@@ -11,18 +11,30 @@ Estado de cada hallazgo: 🔧 corregido en un PR mergeado, a la espera de la rec
 | Recert #4 | `9d9e3e5` | 0 🔴 · 1 🟠 | #135 | recert #5 |
 | Recert #5 | `bb801d1` | 0 🔴 · 3 🟠 | #136 (backend) → #137 | recert #6 |
 | Recert #6 | `29ee9b4` | 0 🔴 · 1 🟠 | #139 (+ NC por importe) | recert #7 |
-| Recert #7 | `21cfaa9` | 0 🔴 · 3 🟠 | backend 3503/3111 → A8 | **recert #8 pendiente** |
+| Recert #7 | `21cfaa9` | 0 🔴 · 3 🟠 | #141 (backend) → #142 | recert #8 |
+| Recert #8 | `7f766b6` | 0 🔴 · 5 🟠 | backend tests → A9 | **recert #9 pendiente** |
 
-Suite tras A8: 127/127 Vitest · 79/79 e2e ×2 · backend 688/688. Recert #7: 24/25 mutaciones mueren (la que sobrevive era código muerto, ya retirado); e2e 77/77 ×3 con puerto propio.
+Suite tras A9: 127/127 Vitest · 81/81 e2e ×2 · backend 689/689. Recert #8: 25/29 mutaciones (las 4 que sobrevivían tienen test en A9 o son equivalentes); e2e 79/79 ×3 con puerto propio.
 
-## Recert #7 → backend + A8
+## Recert #8 → backend tests + A9
 
 | Sev | Qué | Corregido | Estado |
 |---|---|---|---|
-| 🟠 | NC por importe: el tope mostrado era el 3286, pero en facturas con ISC/anticipos/mixtas el límite real es el **3503 por tributo**; el mock no lo implementaba (201 donde el backend da 422). Sin gravadas, la línea caía en «10» → siempre 3503 | A8: `topePorTributo`, `afectacionPredominante` sin comodín, mock con 3503 y totales por tributo | 🔧 recert #8 |
-| 🟠 | El backend aplicaba el **3503 al motivo 10**, que las filas 114–122 eximen igual que la 111 | backend | 🔧 recert #8 |
-| 🟠 | **3111** sin cruzar en ninguna capa: línea IVAP con base > 0.06 e impuesto 0.00 (importes 0.07–0.12) → rechazo con correlativo gastado | backend (`ItemCalculado`, también facturas) + A8 (aviso) + mock | 🔧 recert #8 |
-| 🟡 | Catálogos del mock completos (09: 02/03/06; 10: 02/03) · código muerto en `lineaRedondeaACero` · totales de la nota en el mock por afectación | A8 | 🔧 recert #8 |
+| 🟠 | El mock rechazaba **toda NC sobre IVAP** (regresión de A8): fixture `f-ivap` con `{gravado: 0, igv: 4}` en vez de `{gravado: 100, ivap: 4}` como `Totales`; la línea 17 sumaba a `igv`; el 3503 del mock no tenía IVAP | A9 | 🔧 recert #9 |
+| 🟠 | El mock rechazaba con 3111 el 0.13 que el formulario recomienda y el dominio acepta (base redondeada antes del impuesto) | A9 | 🔧 recert #9 |
+| 🟠 | `topePorTributo` en exportación devolvía el total, no la base 9995 (cargo 48, descuento global o redondeo lo separan) | A9 | 🔧 recert #9 |
+| 🟠 | El e2e del tope por tributo dependía del orden de la suite (leía el tope de una factura compartida) → fixture `f-isc` propia, tope exacto | A9 | 🔧 recert #9 |
+| 🟠 | Los límites 3503 del gravado y del IVAP no tenían test en el backend → test del gravado atando con el total dentro del 3286; el del IVAP es redundante con el 3286 (total = base × 1.04), documentado | backend | 🔧 recert #9 |
+| 🟡 | Motivo 02 → nota total sin test | A9 | 🔧 recert #9 |
+
+## Recert #7 → #141 + #142
+
+| Sev | Qué | Corregido | Estado |
+|---|---|---|---|
+| 🟠 | NC por importe: el tope mostrado era el 3286, pero en facturas con ISC/anticipos/mixtas el límite real es el **3503 por tributo**; el mock no lo implementaba (201 donde el backend da 422). Sin gravadas, la línea caía en «10» → siempre 3503 | #142: `topePorTributo`, `afectacionPredominante` sin comodín, mock con 3503 y totales por tributo | ✅ recert #8 (que halló el hueco IVAP/exportación, arriba) |
+| 🟠 | El backend aplicaba el **3503 al motivo 10**, que las filas 114–122 eximen igual que la 111 | #141 | ✅ recert #8 |
+| 🟠 | **3111** sin cruzar en ninguna capa: línea IVAP con base > 0.06 e impuesto 0.00 (importes 0.07–0.12) → rechazo con correlativo gastado | #141 (`ItemCalculado`, también facturas) + #142 (aviso) + mock | ✅ recert #8 (frontera del mock corregida en A9) |
+| 🟡 | Catálogos del mock completos (09: 02/03/06; 10: 02/03) · código muerto en `lineaRedondeaACero` · totales de la nota en el mock por afectación | #142 | ✅ recert #8 |
 
 ## Recert #6 → #139
 
@@ -108,4 +120,4 @@ Todo en [pendientes.md](pendientes.md), sección Notas.
 
 ## Siguiente paso
 
-Mergear backend → A8 → **recert #8**. Si sale 0/0: ✅ certificado.
+Mergear backend → A9 → **recert #9**. Si sale 0/0: ✅ certificado.

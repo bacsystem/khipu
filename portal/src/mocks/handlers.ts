@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { hoyLima } from "@/lib/formato";
 import { telefonoSchema } from "@/lib/validacion";
-import { calcularTotales, esGratuita } from "@/lib/comprobantes/totales";
+import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, resetDb, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
@@ -556,7 +556,7 @@ export const handlers = [
     // suficiente para que el 3286 no salte con una NC parcial legítima sobre una línea con cargo 47.
     // Totales por tributo, como `Totales` del dominio (aproximados: el backend real es la autoridad): la ficha de la
     // nota y el 3503 se prueban contra cifras reales, no contra un «gravado = total / 1.18» inventado.
-    const t = { gravado: 0, igv: 0, exonerado: 0, inafecto: 0, exportacion: 0, total: 0 };
+    const t = { gravado: 0, igv: 0, ivap: 0, exonerado: 0, inafecto: 0, exportacion: 0, total: 0 };
     for (const i of items) {
       // Una gratuita no se cobra: su precio unitario es el valor referencial (como `ItemCalculado`, precioVenta 0).
       if (esGratuita(i.tipo_afectacion_igv)) continue;
@@ -564,12 +564,17 @@ export const handlers = [
       const factor = i.tipo_afectacion_igv === "10" ? 1.18 : i.tipo_afectacion_igv === "17" ? 1.04 : 1;
       const cargos = ("cargos" in i && i.cargos ? (i.cargos as Ajuste[]) : []).reduce((s, c) => s + (c.monto ?? (precio / factor) * (c.porcentaje ?? 0) / 100) * (c.afecta_base_igv === false ? 1 : factor), 0);
       const conImpuesto = precio + cargos;
-      const base = Number((conImpuesto / factor).toFixed(2));
-      const impuesto = Number((conImpuesto - base).toFixed(2));
+      // Como `ItemCalculado`: impuesto = base exacta × tasa, HALF_UP a 2 (0.13 → base 0.125 → 0.01). Restar la base ya
+      // redondeada daba 0.00 y el mock rechazaba con 3111 el 0.13 que el formulario recomienda y el dominio acepta.
+      const baseExacta = conImpuesto / factor;
+      const impuesto = redondear(baseExacta * (factor - 1), 2);
+      const base = redondear(conImpuesto - impuesto, 2);
       // 3111 (NC f211 / ND f192): base > 0.06 con impuesto 0.00 (solo pasa con el IVAP al 4 %). El dominio lo rechaza antes de numerar.
       if ((i.tipo_afectacion_igv === "10" || i.tipo_afectacion_igv === "17") && base > 0.06 && impuesto === 0)
         return fail(422, "ITEM_INVALIDO", `3111 - Con base imponible mayor a 0.06 el ${i.tipo_afectacion_igv === "17" ? "IVAP" : "IGV"} de la línea «${i.descripcion}» no puede redondear a 0.00: suba el importe`);
-      if (i.tipo_afectacion_igv === "10" || i.tipo_afectacion_igv === "17") { t.gravado += base; t.igv += impuesto; }
+      // Como `Totales`: la base IVAP (1016) va en `gravado` y su impuesto en `ivap`, no en `igv`.
+      if (i.tipo_afectacion_igv === "17") { t.gravado += base; t.ivap += impuesto; }
+      else if (i.tipo_afectacion_igv === "10") { t.gravado += base; t.igv += impuesto; }
       else if (i.tipo_afectacion_igv === "20") t.exonerado += base;
       else if (i.tipo_afectacion_igv === "40") t.exportacion += base;
       else t.inafecto += base;
@@ -594,10 +599,11 @@ export const handlers = [
       // 1146.61 vs 1140.32. El mock daba 201 y el backend 422.
       if (body.motivo !== "10") {
         const vigentes = lista.filter((n) => n.tipo === "07" && n.nota?.documento_afectado === `${factura.serie}-${factura.numero}` && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO");
-        const suma = (k: "gravado" | "igv" | "exonerado" | "inafecto" | "exportacion") => vigentes.reduce((acc, n) => acc + (n.totales[k] ?? 0), 0);
+        const suma = (k: "gravado" | "igv" | "ivap" | "exonerado" | "inafecto" | "exportacion") => vigentes.reduce((acc, n) => acc + (n.totales[k] ?? 0), 0);
         const limites: Array<[string, number, number, number]> = [
           ["valor de venta gravado", t.gravado, factura.totales.gravado, suma("gravado")],
           ["IGV", t.igv, factura.totales.igv, suma("igv")],
+          ["IVAP", t.ivap, factura.totales.ivap ?? 0, suma("ivap")],
           ["valor de venta exonerado", t.exonerado, factura.totales.exonerado, suma("exonerado")],
           ["valor de venta inafecto", t.inafecto, factura.totales.inafecto, suma("inafecto")],
           ["valor de venta de exportación", t.exportacion, factura.totales.exportacion ?? (exportacion ? factura.totales.total : 0), suma("exportacion")],
@@ -616,7 +622,7 @@ export const handlers = [
       tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items: itemsNota, estado_documento: "ACEPTADO", hash: "hashnota==",
       nombre_archivo: `20123456786-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
-      totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, exportacion: t.exportacion || undefined, redondeo: redondeo || undefined, total: totalNota },
+      totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, ivap: t.ivap || undefined, exportacion: t.exportacion || undefined, redondeo: redondeo || undefined, total: totalNota },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       nota: { tipo_afectado: "01", documento_afectado: `${factura.serie}-${factura.numero}`, motivo: body.motivo, motivo_descripcion: motivos[body.motivo] ?? "Otros", descripcion: body.descripcion },
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },
