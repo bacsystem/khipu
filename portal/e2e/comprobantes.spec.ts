@@ -599,6 +599,10 @@ test("NC parcial: los cargos de línea y el ISC de la factura viajan con la form
   // Con la cantidad facturada el importe es el precio de venta del backend, flete incluido (no 1180 de precio × cantidad).
   await form.getByLabel("Cantidad de Mesa de trabajo en la nota").fill("10");
   await expect(importe).toContainText("Importe de la nota: S/ 1,298.00");
+  // La NC `n-anulada` (100, ANULADO) sobre esta factura no acreditó nada: el tope sigue siendo el total, sin
+  // «ya acreditado». Este filtro no tenía test y su mutación sobrevivía.
+  await expect(importe).toContainText("Tope: S/ 1,353.00");
+  await expect(importe).not.toContainText("ya acreditado");
   // Con la mitad: 5 × 118 = 590 más la mitad del flete (50) con su IGV (59) = 649, porque el porcentaje acompaña a la línea.
   await form.getByLabel("Cantidad de Mesa de trabajo en la nota").fill("5");
   await expect(importe).toContainText("Importe de la nota: S/ 649.00");
@@ -637,4 +641,49 @@ test("el mock de POST /v1/notas rechaza el ISC y los cargos que el dominio recha
   r = await post([{ ...linea, cargos: [{ tipo: "PORCENTAJE", valor: 10, afecta_base_igv: true }] }]);
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("CARGO_INVALIDO");
+});
+
+test("NC total (01) sobre una factura con anticipos se pide por ítems: copiar la factura iría por el bruto (3286)", async ({ page }) => {
+  // f-aceptada regularizó un anticipo (bruto 141.60, neto 123). La guarda `!conAnticipos` existía sin test.
+  await page.goto("/comprobantes/f-aceptada/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("01");
+  await expect(form.getByTestId("nota-total")).toHaveCount(0);
+  await expect(form.getByText(/regularizó anticipos \(neto S\/ 123\.00\)/)).toBeVisible();
+  await expect(form.getByLabel(/Cantidad de .* en la nota/)).toBeVisible();
+});
+
+test("nota: si falla solo un catálogo, la otra pestaña funciona y «Reintentar» sigue disponible para recargarlo", async ({ page }) => {
+  let caido = true;
+  await page.route("**/api/proxy/catalogos/09", (r) => (caido ? r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ estado: "error", datos: null, mensaje: "Boom", codigo: "ERROR_INTERNO", errores: null }) }) : r.continue()));
+  await page.goto("/comprobantes/f-aceptada/nota");
+  const form = page.getByTestId("nota-form");
+  await expect(form.getByRole("alert")).toContainText("No se pudieron cargar los motivos");
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled(); // el 10 sí cargó
+  // Antes: en esta pestaña la alerta quedaba pegada y «Reintentar» desaparecía (su condición miraba solo la pestaña actual).
+  caido = false;
+  await form.getByRole("button", { name: "Reintentar" }).click();
+  await expect(form.getByRole("alert")).toHaveCount(0);
+  await form.getByLabel("Tipo de nota").selectOption("07");
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
+});
+
+test("NC parcial: la cantidad se limita a 10 decimales (2025)", async ({ page }) => {
+  // Sobre f-cargos (sin POST): f-obs la anula el test de baja que corre en paralelo y /nota redirige a la ficha.
+  await page.goto("/comprobantes/f-cargos/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  const cantidad = form.getByLabel("Cantidad de Gaseosa 500 ml en la nota");
+  await cantidad.fill("0.12345678901");
+  await expect(cantidad).toHaveValue("0.123456789");
+});
+
+test("nota: tras un error el foco va al mensaje", async ({ page }) => {
+  await page.route("**/api/proxy/notas", (r) => r.abort("failed"));
+  const { form } = await notaLista(page);
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  const alerta = form.getByRole("alert");
+  await expect(alerta).toContainText("Se cortó la conexión");
+  await expect(alerta).toBeFocused();
 });

@@ -24,6 +24,13 @@ describe("admiteNotas", () => {
       expect(admiteNotas(f("01", estado)), estado).toBe(false);
     }
   });
+
+  it("tampoco con una baja en curso: si SUNAT la acepta, la nota cae sobre una factura anulada (2120)", () => {
+    const conBaja = (estado: string) => ({ ...f("01", "ACEPTADO"), baja: { estado } }) as unknown as Parameters<typeof admiteNotas>[0];
+    for (const estado of ["GENERADA", "ENVIADA", "ERROR_ENVIO"]) expect(admiteNotas(conBaja(estado)), estado).toBe(false);
+    // Una baja rechazada por SUNAT no cambia nada: la factura sigue aceptada.
+    expect(admiteNotas(conBaja("RECHAZADA"))).toBe(true);
+  });
 });
 
 const base = {

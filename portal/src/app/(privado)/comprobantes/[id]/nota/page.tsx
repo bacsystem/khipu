@@ -36,7 +36,8 @@ export default async function NotaPage({ params }: { params: Promise<{ id: strin
         </Link>
       </div>
       <section className={cn(TARJETA, "p-6")}>
-        <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">Emitir nota sobre {factura.serie}-{factura.numero}</h1>
+        {/* El h1 de la página lo pone el top bar (la miga); este es el título de la tarjeta. */}
+        <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">Emitir nota sobre {factura.serie}-{factura.numero}</h2>
         <p className="mt-1 text-[13px] text-muted-foreground">
           {factura.receptor?.razon_social} · {formatearMonto(factura.moneda, factura.totales.total)} · la nota toma el cliente y la moneda de la factura y se envía a SUNAT al emitirla.
         </p>

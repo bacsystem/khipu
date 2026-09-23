@@ -142,8 +142,13 @@ export const PLAZO_BAJA_DIAS = 7;
 export function admiteBaja(c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_emision" | "baja">, hoy: string = hoyLima()): boolean {
   if (c.tipo === "03") return false;
   if (c.estado_documento !== "ACEPTADO" && c.estado_documento !== "ACEPTADO_CON_OBS") return false;
-  if (c.baja && (c.baja.estado === "ENVIADA" || c.baja.estado === "GENERADA" || c.baja.estado === "ERROR_ENVIO")) return false;
+  if (bajaEnCurso(c)) return false;
   return diasEntre(c.fecha_emision, hoy) <= PLAZO_BAJA_DIAS;
+}
+
+/** Una comunicación de baja generada, enviada o con error de envío sigue en curso: puede terminar anulando el comprobante. */
+function bajaEnCurso(c: Pick<Comprobante, "baja">): boolean {
+  return !!c.baja && (c.baja.estado === "ENVIADA" || c.baja.estado === "GENERADA" || c.baja.estado === "ERROR_ENVIO");
 }
 
 /** Solo lo que SUNAT ya aceptó se envía al cliente por correo (PDF + XML + CDR). */
@@ -151,9 +156,12 @@ export function admiteCorreo(c: Pick<Comprobante, "estado_documento">): boolean 
   return c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS";
 }
 
-/** Una factura aceptada por SUNAT (con o sin observaciones) admite notas de crédito/débito. */
-export function admiteNotas(c: Pick<Comprobante, "tipo" | "estado_documento">): boolean {
-  return c.tipo === "01" && (c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS");
+/**
+ * Una factura aceptada por SUNAT (con o sin observaciones) admite notas de crédito/débito, salvo que tenga una baja en
+ * curso: si SUNAT la acepta, la factura queda anulada y la nota, sobre un documento anulado (2120).
+ */
+export function admiteNotas(c: Pick<Comprobante, "tipo" | "estado_documento" | "baja">): boolean {
+  return c.tipo === "01" && (c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS") && !bajaEnCurso(c);
 }
 
 export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
