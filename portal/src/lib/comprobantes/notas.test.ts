@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ItemComprobante } from "@/lib/api/facturas";
-import { importeLineaNota, itemParaNota, lineaRedondeaACero } from "./notas";
+import { afectacionPredominante, importeLineaNota, itemParaNota, lineaRedondeaACero } from "./notas";
 
 // 10 mesas a 118 con IGV, cargo 47 del 10 % (flete, paga IGV): valor 1000 + 100, IGV 198, paga 1298.
 const conCargoPorcentaje: ItemComprobante = {
@@ -129,9 +129,25 @@ describe("lineaRedondeaACero", () => {
     expect(lineaRedondeaACero(conCargoMonto, 0.0004)).toBe(false);
   });
 
+  it("un descuento en porcentaje que redondea a 0.00 no bloquea: el dominio lo acepta", () => {
+    const conDescuento: ItemComprobante = { ...conCargoPorcentaje, cargos: null, valor_venta: 900, igv: 162, precio_venta: 1062, descuento: { tipo: "PORCENTAJE", valor: 10, monto: 100, afecta_base_igv: true, codigo: "00" } };
+    expect(lineaRedondeaACero(conDescuento, 0.0004)).toBe(false);
+  });
+
   it("una línea cuyo importe redondea a 0.00 (2367/2369)", () => {
     const simple: ItemComprobante = { codigo: null, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10", precio_venta: 118 };
     expect(lineaRedondeaACero(simple, 0.00001)).toBe(true);
     expect(lineaRedondeaACero(simple, 0.001)).toBe(false);
+  });
+});
+
+describe("afectacionPredominante", () => {
+  const a = (...codigos: string[]) => codigos.map((c) => ({ tipo_afectacion_igv: c }));
+  it("gravada si la factura tiene alguna línea gravada; exonerada o inafecta solo si toda la factura lo es", () => {
+    expect(afectacionPredominante(a("10", "20"))).toBe("10");
+    expect(afectacionPredominante(a("20", "21"))).toBe("20");
+    expect(afectacionPredominante(a("30", "31"))).toBe("30");
+    // Mezcla exonerada + inafecta sin gravadas: gravada por defecto (el backend limita por tributo, 3503).
+    expect(afectacionPredominante(a("20", "30"))).toBe("10");
   });
 });

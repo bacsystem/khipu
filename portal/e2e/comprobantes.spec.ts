@@ -279,17 +279,17 @@ test("nota: los motivos que no aplican a la factura no se ofrecen (11 exportaci�
   const form = page.getByTestId("nota-form");
   const codigos = async () => (await form.getByLabel(/Motivo/).locator("option").allTextContents()).map((t) => t.slice(0, 2)).filter((c) => /^\d\d$/.test(c));
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  expect(await codigos()).toEqual(["01", "07"]);
+  expect(await codigos()).toEqual(["01", "04", "05", "07", "08", "09", "10"]);
   await form.getByLabel("Tipo de nota").selectOption("08");
   expect(await codigos()).toEqual(["01", "13"]); // el 13 de la ND (penalidades) no depende de la forma de pago
 
   await page.goto("/comprobantes/f-aceptada/nota"); // interna, al crédito
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  expect(await codigos()).toEqual(["01", "07", "13"]);
+  expect(await codigos()).toEqual(["01", "04", "05", "07", "08", "09", "10", "13"]);
 
   await page.goto("/comprobantes/f-export/nota"); // exportación 0200
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  expect(await codigos()).toEqual(["01", "07", "11"]);
+  expect(await codigos()).toEqual(["01", "04", "05", "07", "08", "09", "10", "11"]);
   // ND 13 sobre exportación no tiene salida: la penalidad va inafecta (3507) y la exportación exige 40 (2642).
   await form.getByLabel("Tipo de nota").selectOption("08");
   expect(await codigos()).toEqual(["01", "11"]);
@@ -833,4 +833,83 @@ test("el mock de POST /v1/notas rechaza la descripción de ítem que el backend 
   r = await post({ motivo: "13" });
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("3507");
+});
+
+test("NC por importe (09 disminución en el valor): una sola línea por el monto, gravada como la factura, y con tope", async ({ page }) => {
+  // Catálogo 09: 04/05/08/09/10 acreditan un importe, no unidades. Antes solo existía la parcial por cantidades.
+  await page.goto("/comprobantes/f-cargos/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("09");
+  await form.getByLabel("Sustento").fill("Acuerdo comercial por demora en la entrega");
+  await expect(form.getByRole("table")).toHaveCount(0); // sin tabla de ítems
+  await form.getByLabel("Concepto").fill("Descuento por demora en la entrega");
+  const boton = form.getByRole("button", { name: "Emitir nota de crédito" });
+  await form.getByLabel(/Importe con IGV/).fill("2000");
+  const importe = form.getByTestId("nota-importe");
+  await expect(importe).toContainText("Importe de la nota: S/ 2,000.00");
+  await expect(importe.getByRole("alert")).toContainText("Supera el tope");
+  await expect(boton).toBeDisabled();
+  await form.getByLabel(/Importe con IGV/).fill("100");
+  await expect(importe.getByRole("alert")).toHaveCount(0);
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await boton.click();
+  const cuerpo = (await peticion).postDataJSON();
+  expect(cuerpo.motivo).toBe("09");
+  expect(cuerpo.items).toEqual([{ descripcion: "Descuento por demora en la entrega", unidad: "ZZ", cantidad: 1, precio_unitario: 100, tipo_afectacion_igv: "10" }]);
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+});
+
+test("NC por importe sobre una exportación: la línea sale con afectación 40 y la etiqueta lo dice", async ({ page }) => {
+  await page.goto("/comprobantes/f-export/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("04");
+  await form.getByLabel("Sustento").fill("Descuento global acordado");
+  await form.getByLabel("Concepto").fill("Descuento global");
+  await form.getByLabel(/Importe sin IGV, exportación/).fill("10");
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  expect((await peticion).postDataJSON().items[0]).toMatchObject({ precio_unitario: 10, tipo_afectacion_igv: "40" });
+});
+
+test("NC 10 «Otros conceptos» no tiene tope por importe total (3286 exime al motivo 10)", async ({ page }) => {
+  // Recert #6: el formulario bloqueaba una NC 10 por encima del total citando el 3286, que SUNAT (fila 111) y el
+  // backend eximen para ese motivo. Sobre f-cargos (1353): 1500 pasa el formulario; el backend compara por tributo (3503).
+  await page.goto("/comprobantes/f-cargos/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("10");
+  await form.getByLabel("Sustento").fill("Ajuste por otros conceptos");
+  await form.getByLabel("Concepto").fill("Otros conceptos");
+  await form.getByLabel(/Importe con IGV/).fill("1500");
+  const importe = form.getByTestId("nota-importe");
+  await expect(importe).toContainText("exento del 3286");
+  await expect(importe.getByRole("alert")).toHaveCount(0);
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
+});
+
+test("nota: avisa por qué el botón está deshabilitado con concepto corto o sin cantidades", async ({ page }) => {
+  await page.goto("/comprobantes/f-cargos/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución");
+  await expect(form.getByRole("status").filter({ hasText: "cantidad mayor que 0" })).toBeVisible();
+  await form.getByLabel("Cantidad de Gaseosa 500 ml en la nota").fill("1");
+  await expect(form.getByRole("status").filter({ hasText: "cantidad mayor que 0" })).toHaveCount(0);
+  await form.getByLabel(/Motivo/).selectOption("09");
+  await form.getByLabel("Concepto").fill("ab");
+  await expect(form.getByRole("status").filter({ hasText: "al menos 3 caracteres" })).toBeVisible();
+  await form.getByLabel("Concepto").fill("abc");
+  await expect(form.getByRole("status").filter({ hasText: "al menos 3 caracteres" })).toHaveCount(0);
+});
+
+test("NC por importe sobre una factura exonerada: la línea sale exonerada (20) y la etiqueta lo dice", async ({ page }) => {
+  await page.goto("/comprobantes/f-exonerada/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("05");
+  await form.getByLabel("Sustento").fill("Descuento por ítem acordado");
+  await form.getByLabel("Concepto").fill("Descuento libros");
+  await form.getByLabel(/Importe exonerado, sin IGV/).fill("20");
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  expect((await peticion).postDataJSON().items[0]).toMatchObject({ precio_unitario: 20, tipo_afectacion_igv: "20" });
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
 });

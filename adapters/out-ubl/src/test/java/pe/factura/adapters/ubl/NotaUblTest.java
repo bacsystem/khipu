@@ -64,6 +64,16 @@ class NotaUblTest {
         new JaxpXsdValidator().validar(firmaFalsa(xml), TipoDocumento.NOTA_CREDITO);
     }
 
+    /** La nota total copia el redondeo de la factura (#123): el XML lo lleva en LegalMonetaryTotal (NC f406, 3303) y la mutación sin él no tenía test. */
+    @Test void notaConRedondeoLoLlevaEnElTotal() throws Exception {
+        Comprobante c = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), NOTA, new Receptor("6", "20601234565", "CLIENTE S.A.C.", "AV. LIMA 1"),
+                List.of(new Item("A", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.44"), TipoAfectacionIgv.GRAVADO))).redondeo(new BigDecimal("-0.44")).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(8, "20100066603");
+        Document d = parsear(new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant()));
+        assertThat(valor(d, "/cn:CreditNote/cac:LegalMonetaryTotal/cbc:PayableRoundingAmount")).isEqualTo("-0.44");
+        assertThat(valor(d, "/cn:CreditNote/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("118.00");
+    }
+
     @Test void notaDeCreditoConCuotasCorregidas_motivo13() throws Exception {
         Nota nota13 = new Nota(TipoDocumento.FACTURA, "F001", 123, "13", "Se reprograman las cuotas");
         FormaPago fp = FormaPago.credito(new BigDecimal("2410.00"), List.of(new FormaPago.Cuota(new BigDecimal("2410.00"), LocalDate.of(2026, 12, 1))));

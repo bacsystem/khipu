@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
-import { importeLineaNota, itemParaNota, lineaRedondeaACero } from "@/lib/comprobantes/notas";
+import { afectacionPredominante, importeLineaNota, itemParaNota, lineaRedondeaACero } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
@@ -19,6 +19,12 @@ import { cn } from "@/lib/utils";
 type Tipo = "07" | "08";
 /** Motivos de NC en los que la nota es total y se copian los ítems de la factura; el 13 no mueve importes. */
 const MOTIVOS_NC_TOTAL = new Set(["01", "02", "06"]);
+/**
+ * Motivos de NC que acreditan un importe, no unidades (catálogo 09: descuento global, descuento por ítem, bonificación,
+ * disminución en el valor, otros conceptos): una sola línea propia por el monto, como la ND. SUNAT no impone otra
+ * estructura (solo 4367 observa 04/05/08 sobre boletas) y la compara con la factura por total (3286) y por tributo (3503).
+ */
+const MOTIVOS_NC_IMPORTE = new Set(["04", "05", "08", "09", "10"]);
 /** Importes de dinero: hasta 12 enteros y 2 decimales (3250/3253 en cuotas; 2025 en la línea de la ND, «12 enteros y 10 decimales»). */
 const DOS_DECIMALES = /^\d{1,12}(\.\d{1,2})?$/;
 
@@ -79,7 +85,10 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const conAnticipos = (factura.anticipos?.length ?? 0) > 0;
   const esTotal = esNc && MOTIVOS_NC_TOTAL.has(motivo) && !conAnticipos;
   const esCuotas = esNc && motivo === "13";
-  const esParcial = esNc && motivo !== "" && !esTotal && !esCuotas;
+  const esImporte = esNc && MOTIVOS_NC_IMPORTE.has(motivo);
+  const esParcial = esNc && motivo !== "" && !esTotal && !esCuotas && !esImporte;
+  // La ND y la NC por importe comparten la línea propia (concepto + importe).
+  const lineaPropia = !esNc || esImporte;
   const lineasParciales = factura.items.map((item, idx) => ({ item, cantidad: cantidades[idx] ?? 0 })).filter((x) => x.cantidad > 0);
   const itemsParciales = lineasParciales.map(({ item, cantidad }) => itemParaNota(item, cantidad));
 
@@ -107,9 +116,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         cuotas: cuotas.map((q) => ({ monto: redondear(Number(q.monto), 2), vencimiento: q.vencimiento })),
       };
     }
-    // La afectación de la línea de la ND sigue a la factura, no un «10» fijo: sobre una exportación el dominio
+    // La afectación de la línea propia sigue a la factura, no un «10» fijo: sobre una exportación el dominio
     // exige 40 (2642) —con el 10 fijo no se podía emitir ninguna ND sobre exportaciones— y sobre IVAP, 17.
-    if (!esNc) body.items = [{ descripcion: nd.descripcion.trim(), unidad: "ZZ", cantidad: 1, precio_unitario: Number(nd.importe), tipo_afectacion_igv: afectacionNd }];
+    if (lineaPropia) body.items = [{ descripcion: nd.descripcion.trim(), unidad: "ZZ", cantidad: 1, precio_unitario: Number(nd.importe), tipo_afectacion_igv: afectacionLinea }];
     setEnviando(true);
     let res: Awaited<ReturnType<typeof apiRequest<Comprobante>>>;
     try {
@@ -143,9 +152,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // NotaDebito2_0: con IGV/IVAP, con 9995/9997 o con tributo 1000/1016 → ERROR). La única afectación que pasa es
   // 30. Antes salía gravada (10, o 40 en exportación): numerada, firmada y rechazada, con el correlativo consumido.
   const esPenalidad = !esNc && motivo === "13";
-  const afectacionNd = esPenalidad ? "30" : esExportacion ? "40" : esIvap ? "17" : "10";
+  // La NC por importe descuenta lo que la factura cobró: si tiene alguna línea gravada va con IGV (10); si toda la
+  // factura es exonerada/inafecta, con esa afectación (3503 compara por tributo). La ND de intereses va gravada.
+  const afectacionLinea = esPenalidad ? "30" : esExportacion ? "40" : esIvap ? "17" : esImporte ? afectacionPredominante(factura.items) : "10";
   // La etiqueta dice qué impuesto lleva el importe tecleado: «con IGV» mentía en exportación (40, sin IGV) e IVAP (17, 4 %).
-  const etiquetaImporteNd = { "30": "Importe inafecto, sin IGV", "40": "Importe sin IGV, exportación", "17": "Importe con IVAP", "10": "Importe con IGV" }[afectacionNd];
+  const etiquetaImporte = { "30": "Importe inafecto, sin IGV", "40": "Importe sin IGV, exportación", "17": "Importe con IVAP", "20": "Importe exonerado, sin IGV", "10": "Importe con IGV" }[afectacionLinea];
 
   // NC 13: lo que exige SUNAT (3253 monto > 0, 3321 vencimiento posterior a la factura, 3320 neto ≤ total) antes
   // «listo» solo pedía que hubiera al menos una cuota, y una cuota en blanco viajaba como monto 0 y fecha vacía.
@@ -185,7 +196,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     ? redondear(lineasParciales.reduce((s, { item, cantidad }) => s + importeLineaNota(item, cantidad), 0), 2)
     : esTotal
       ? factura.totales.total
-      : 0;
+      : esImporte
+        ? redondear(Number(nd.importe) || 0, 2)
+        : 0;
   const acreditado = redondear(
     (factura.notas ?? [])
       .filter((n) => n.tipo === "07" && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO")
@@ -193,18 +206,26 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     2,
   );
   const tope = redondear(factura.totales.total - acreditado, 2);
-  const superaTope = (esParcial || esTotal) && importeNota > tope;
+  // El motivo 10 «Otros conceptos» está exento del 3286 (NotaCredito2_0 fila 111: «diferente de '10'») y el backend lo
+  // exime igual; el portal lo bloqueaba con un aviso que citaba una regla que no aplica. SUNAT sigue comparando por
+  // tributo (3503), que el backend cruza antes de numerar.
+  const exentoDeTope = esNc && motivo === "10";
+  const superaTope = (esParcial || esTotal || esImporte) && !exentoDeTope && importeNota > tope;
 
   // Por qué el botón está deshabilitado cuando el campo se ve lleno: un importe con 3 decimales no avisaba nada.
   const conDecimalesDeMas = (v: string) => v.trim() !== "" && !DOS_DECIMALES.test(v.trim());
   const lineaEnCero = esParcial && lineasParciales.some(({ item, cantidad }) => lineaRedondeaACero(item, cantidad));
-  const avisoDecimales = !esNc && conDecimalesDeMas(nd.importe)
+  const avisoDecimales = lineaPropia && conDecimalesDeMas(nd.importe)
     ? "El importe admite hasta 2 decimales."
     : esCuotas && cuotas.some((q) => conDecimalesDeMas(q.monto))
       ? "Cada cuota admite hasta 2 decimales."
       : lineaEnCero
         ? "Hay una línea cuyo importe o cargo redondea a 0.00: subí la cantidad o ponela en 0."
-        : null;
+        : lineaPropia && nd.descripcion.trim() !== "" && nd.descripcion.trim().length < 3
+          ? "El concepto necesita al menos 3 caracteres (SUNAT 4084)."
+          : esParcial && descripcion.trim() !== "" && lineasParciales.length === 0
+            ? "Poné una cantidad mayor que 0 en al menos un ítem."
+            : null;
 
   const listo =
     serie !== "" &&
@@ -212,8 +233,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     descripcion.trim() !== "" &&
     (!esParcial || (itemsParciales.length > 0 && !superaTope && !lineaEnCero)) &&
     (!esTotal || !superaTope) &&
-    // Importe de la ND con hasta 12 enteros y 2 decimales (2025); concepto de 3 a 500 (4084 observa con menos de 3).
-    (esNc || (nd.descripcion.trim().length >= 3 && Number(nd.importe) > 0 && DOS_DECIMALES.test(nd.importe.trim()))) &&
+    (!esImporte || !superaTope) &&
+    // Importe de la línea propia con hasta 12 enteros y 2 decimales (2025); concepto de 3 a 500 (4084 observa con menos de 3).
+    (!lineaPropia || (nd.descripcion.trim().length >= 3 && Number(nd.importe) > 0 && DOS_DECIMALES.test(nd.importe.trim()))) &&
     (!esCuotas || cuotasValidas);
 
   return (
@@ -344,17 +366,30 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         </div>
       ) : null}
 
-      {!esNc ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_180px]">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="nd-descripcion" className={ETIQUETA_CAMPO}>Concepto</label>
-            {/* Hasta 500 como el sustento (2027, `Item`): la recert #4 midió 501 caracteres viajando y un 422 evitable. */}
-            <input id="nd-descripcion" value={nd.descripcion} onChange={(e) => setNd({ ...nd, descripcion: e.target.value })} maxLength={500} placeholder="Ej.: intereses por mora de 30 días" className={CAMPO} />
+      {lineaPropia ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_180px]">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="nd-descripcion" className={ETIQUETA_CAMPO}>Concepto</label>
+              {/* Hasta 500 como el sustento (2027, `Item`): la recert #4 midió 501 caracteres viajando y un 422 evitable. */}
+              <input id="nd-descripcion" value={nd.descripcion} onChange={(e) => setNd({ ...nd, descripcion: e.target.value })} maxLength={500} placeholder={esNc ? "Ej.: descuento por pronto pago" : "Ej.: intereses por mora de 30 días"} className={CAMPO} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="nd-importe" className={ETIQUETA_CAMPO}>{etiquetaImporte} ({factura.moneda})</label>
+              <input id="nd-importe" type="number" min={0.01} step="0.01" value={nd.importe} onChange={(e) => setNd({ ...nd, importe: e.target.value })} className={cn(CAMPO, "font-mono")} />
+            </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="nd-importe" className={ETIQUETA_CAMPO}>{etiquetaImporteNd} ({factura.moneda})</label>
-            <input id="nd-importe" type="number" min={0.01} step="0.01" value={nd.importe} onChange={(e) => setNd({ ...nd, importe: e.target.value })} className={cn(CAMPO, "font-mono")} />
-          </div>
+          {esImporte ? (
+            <div className={cn("flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-border px-3 py-2 text-[12px]", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
+              <span>
+                Importe de la nota: <strong className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</strong>
+              </span>
+              <span>
+                {exentoDeTope ? "Sin tope por importe total (el motivo 10 está exento del 3286); SUNAT lo compara por tributo (3503)." : <>Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>{acreditado > 0 ? ` (factura ${formatearMonto(factura.moneda, factura.totales.total)} menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}</>}
+              </span>
+              {superaTope ? <span role="alert" className="basis-full">Supera el tope: SUNAT la rechazaría (3286). Bajá el importe.</span> : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
