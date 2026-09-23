@@ -151,7 +151,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // «listo» solo pedía que hubiera al menos una cuota, y una cuota en blanco viajaba como monto 0 y fecha vacía.
   const cuotasValidas =
     cuotas.length > 0 &&
-    cuotas.every((q) => Number(q.monto) > 0 && q.vencimiento !== "" && q.vencimiento > factura.fecha_emision) &&
+    // Hasta 2 decimales por cuota (3253: «12 enteros y hasta 2 decimales»): `10.123` pasaba el formulario y el
+    // backend lo rechazaba después. `step=0.01` no frena lo tipeado, solo las flechas.
+    cuotas.every((q) => Number(q.monto) > 0 && /^\d+(\.\d{1,2})?$/.test(q.monto.trim()) && q.vencimiento !== "" && q.vencimiento > factura.fecha_emision) &&
     redondear(cuotas.reduce((acc, q) => acc + Number(q.monto), 0), 2) <= factura.totales.total;
   const motivos = (catalogos[tipo]?.entradas ?? []).filter((m) => {
     if (m.codigo === "11") return esExportacion;

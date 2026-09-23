@@ -385,6 +385,9 @@ test("nota parcial y total sobre exportación: el importe no es 0.00 y el tope b
   await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
   // Con `calcularTotales` (que no entiende la afectación 40) acá decía «$ 0.00» y el tope era inerte.
   await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: $ 100.00");
+  // El tope arranca en el total: la NC `n-rechazada` (RECHAZADO, 100) sobre esta factura NO se descuenta, como en
+  // `acreditadoPorNotas` del backend. Este filtro no tenía test; su mutación sobrevivía.
+  await expect(form.getByTestId("nota-importe")).toContainText("Tope: $ 100.00");
 
   // Se acredita la mitad por HTTP directo (con la cookie de sesión), para que el estado no dependa del orden de
   // los tests: si el server ya venía con f-export acreditada, el POST falla por 3286 y el tope igual queda < 100.
@@ -437,6 +440,21 @@ test("nota: Enter sobre «Cancelar» (un enlace) sigue navegando; la guarda solo
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/comprobantes\/f-aceptada$/);
   expect(posts).toEqual([]);
+});
+
+test("NC 13: una cuota con más de 2 decimales no deja emitir (3253)", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("13");
+  await form.getByLabel("Sustento").fill("Reprogramación de cuotas");
+  const boton = form.getByRole("button", { name: "Emitir nota de crédito" });
+  await expect(boton).toBeEnabled();
+  // `step=0.01` no frena lo tipeado, solo las flechas: `10.123` pasaba el formulario y el backend lo rechazaba.
+  await form.getByLabel("Monto de la cuota 1").fill("10.123");
+  await expect(boton).toBeDisabled();
+  await form.getByLabel("Monto de la cuota 1").fill("10.12");
+  await form.getByLabel("Monto de la cuota 2").fill("20.20");
+  await expect(boton).toBeEnabled();
 });
 
 test("da de baja una factura aceptada tras confirmar el motivo y queda anulada", async ({ page }) => {
