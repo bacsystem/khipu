@@ -91,8 +91,11 @@ const CATALOGOS = [
   { id: "09", nombre: "Códigos de tipo de nota de crédito electrónica", columnas: ["Código", "Descripción"],
     entradas: [
       { codigo: "01", descripcion: "Anulación de la operación", extra: {} },
+      { codigo: "02", descripcion: "Anulación por error en el RUC", extra: {} },
+      { codigo: "03", descripcion: "Corrección por error en la descripción", extra: {} },
       { codigo: "04", descripcion: "Descuento global", extra: {} },
       { codigo: "05", descripcion: "Descuento por ítem", extra: {} },
+      { codigo: "06", descripcion: "Devolución total", extra: {} },
       { codigo: "07", descripcion: "Devolución por ítem", extra: {} },
       { codigo: "08", descripcion: "Bonificación", extra: {} },
       { codigo: "09", descripcion: "Disminución en el valor", extra: {} },
@@ -105,6 +108,8 @@ const CATALOGOS = [
   { id: "10", nombre: "Códigos de tipo de nota de débito electrónica", columnas: ["Código", "Descripción"],
     entradas: [
       { codigo: "01", descripcion: "Intereses por mora", extra: {} },
+      { codigo: "02", descripcion: "Aumento en el valor", extra: {} },
+      { codigo: "03", descripcion: "Penalidades/ otros conceptos", extra: {} },
       { codigo: "11", descripcion: "Ajustes de operaciones de exportación", extra: {} },
       { codigo: "12", descripcion: "Ajustes afectos al IVAP", extra: {} },
       { codigo: "13", descripcion: "Penalidades", extra: {} },
@@ -549,18 +554,29 @@ export const handlers = [
     // Lo que paga el cliente por línea: precio × cantidad más los cargos de línea que viajan en el request (un porcentaje
     // sobre el valor sin IGV; el que afecta la base paga IGV). Aproximación del mock —el backend real es la autoridad—,
     // suficiente para que el 3286 no salte con una NC parcial legítima sobre una línea con cargo 47.
-    const total = Number(
-      items
-        .reduce((acc, i) => {
-          // Una gratuita no se cobra: su precio unitario es el valor referencial (como `ItemCalculado`, precioVenta 0).
-          if (esGratuita(i.tipo_afectacion_igv)) return acc;
-          const precio = i.cantidad * i.precio_unitario;
-          const factor = i.tipo_afectacion_igv === "10" ? 1.18 : 1;
-          const cargos = ("cargos" in i && i.cargos ? (i.cargos as Ajuste[]) : []).reduce((s, c) => s + (c.monto ?? (precio / factor) * (c.porcentaje ?? 0) / 100) * (c.afecta_base_igv === false ? 1 : factor), 0);
-          return acc + precio + cargos;
-        }, 0)
-        .toFixed(2),
-    );
+    // Totales por tributo, como `Totales` del dominio (aproximados: el backend real es la autoridad): la ficha de la
+    // nota y el 3503 se prueban contra cifras reales, no contra un «gravado = total / 1.18» inventado.
+    const t = { gravado: 0, igv: 0, exonerado: 0, inafecto: 0, exportacion: 0, total: 0 };
+    for (const i of items) {
+      // Una gratuita no se cobra: su precio unitario es el valor referencial (como `ItemCalculado`, precioVenta 0).
+      if (esGratuita(i.tipo_afectacion_igv)) continue;
+      const precio = i.cantidad * i.precio_unitario;
+      const factor = i.tipo_afectacion_igv === "10" ? 1.18 : i.tipo_afectacion_igv === "17" ? 1.04 : 1;
+      const cargos = ("cargos" in i && i.cargos ? (i.cargos as Ajuste[]) : []).reduce((s, c) => s + (c.monto ?? (precio / factor) * (c.porcentaje ?? 0) / 100) * (c.afecta_base_igv === false ? 1 : factor), 0);
+      const conImpuesto = precio + cargos;
+      const base = Number((conImpuesto / factor).toFixed(2));
+      const impuesto = Number((conImpuesto - base).toFixed(2));
+      // 3111 (NC f211 / ND f192): base > 0.06 con impuesto 0.00 (solo pasa con el IVAP al 4 %). El dominio lo rechaza antes de numerar.
+      if ((i.tipo_afectacion_igv === "10" || i.tipo_afectacion_igv === "17") && base > 0.06 && impuesto === 0)
+        return fail(422, "ITEM_INVALIDO", `3111 - Con base imponible mayor a 0.06 el ${i.tipo_afectacion_igv === "17" ? "IVAP" : "IGV"} de la línea «${i.descripcion}» no puede redondear a 0.00: suba el importe`);
+      if (i.tipo_afectacion_igv === "10" || i.tipo_afectacion_igv === "17") { t.gravado += base; t.igv += impuesto; }
+      else if (i.tipo_afectacion_igv === "20") t.exonerado += base;
+      else if (i.tipo_afectacion_igv === "40") t.exportacion += base;
+      else t.inafecto += base;
+      t.total += conImpuesto;
+    }
+    for (const k of Object.keys(t) as Array<keyof typeof t>) t[k] = Number(t[k].toFixed(2));
+    const total = t.total;
     // La nota total copia también el redondeo de la factura (#123): sale por su PayableAmount exacto.
     const copiaLaFactura = !nc13 && !body.items?.length;
     const redondeo = copiaLaFactura ? (factura.totales.redondeo ?? 0) : 0;
@@ -573,6 +589,23 @@ export const handlers = [
       // Sin tolerancia sobre facturas (NotaCredito2_0 fila 111; la +1 de la fila 113 es solo boletas) y exento en el motivo 10,
       // como el backend desde #123. Con margen de flotante (0.005) para que 118.44 − 118.44 no dé 1e-14.
       if (body.motivo !== "10" && totalNota + acreditado - factura.totales.total > 0.005) return fail(422, "NOTA_INVALIDA", `3286 - El importe total de la nota (${totalNota}) supera el de la factura ${factura.serie}-${factura.numero} (${factura.totales.total})${acreditado > 0 ? `: ya acreditado ${acreditado} en otras notas de crédito` : ""}`);
+      // 3503 (filas 114–122, +1 por concepto, exento el motivo 10) con el acumulado por tributo de las NC vigentes, como
+      // `exigirQueNoSupereALaFactura`. La NC por importe sobre f-cargos por el total (1353) lo alcanza de frente: gravado
+      // 1146.61 vs 1140.32. El mock daba 201 y el backend 422.
+      if (body.motivo !== "10") {
+        const vigentes = lista.filter((n) => n.tipo === "07" && n.nota?.documento_afectado === `${factura.serie}-${factura.numero}` && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO");
+        const suma = (k: "gravado" | "igv" | "exonerado" | "inafecto" | "exportacion") => vigentes.reduce((acc, n) => acc + (n.totales[k] ?? 0), 0);
+        const limites: Array<[string, number, number, number]> = [
+          ["valor de venta gravado", t.gravado, factura.totales.gravado, suma("gravado")],
+          ["IGV", t.igv, factura.totales.igv, suma("igv")],
+          ["valor de venta exonerado", t.exonerado, factura.totales.exonerado, suma("exonerado")],
+          ["valor de venta inafecto", t.inafecto, factura.totales.inafecto, suma("inafecto")],
+          ["valor de venta de exportación", t.exportacion, factura.totales.exportacion ?? (exportacion ? factura.totales.total : 0), suma("exportacion")],
+        ];
+        for (const [concepto, nota, fact, previo] of limites) {
+          if (nota + previo - fact > 1) return fail(422, "NOTA_INVALIDA", `3503 - El ${concepto} de la nota (${nota.toFixed(2)}) supera el de la factura ${factura.serie}-${factura.numero} (${fact.toFixed(2)})${previo > 0 ? `: ya acreditado ${previo.toFixed(2)} en otras notas de crédito` : ""}`);
+        }
+      }
     }
     serie.ultimo_numero += 1;
     const id = nuevoId("n");
@@ -583,7 +616,7 @@ export const handlers = [
       tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items: itemsNota, estado_documento: "ACEPTADO", hash: "hashnota==",
       nombre_archivo: `20123456786-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
-      totales: { gravado: Number((total / 1.18).toFixed(2)), exonerado: 0, inafecto: 0, igv: Number((total - total / 1.18).toFixed(2)), redondeo: redondeo || undefined, total: totalNota },
+      totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, exportacion: t.exportacion || undefined, redondeo: redondeo || undefined, total: totalNota },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       nota: { tipo_afectado: "01", documento_afectado: `${factura.serie}-${factura.numero}`, motivo: body.motivo, motivo_descripcion: motivos[body.motivo] ?? "Otros", descripcion: body.descripcion },
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },

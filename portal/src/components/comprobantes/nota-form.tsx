@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
-import { afectacionPredominante, importeLineaNota, itemParaNota, lineaRedondeaACero } from "@/lib/comprobantes/notas";
+import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, topePorTributo } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
@@ -205,12 +205,18 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       .reduce((s, n) => s + n.total, 0),
     2,
   );
-  const tope = redondear(factura.totales.total - acreditado, 2);
-  // El motivo 10 «Otros conceptos» está exento del 3286 (NotaCredito2_0 fila 111: «diferente de '10'») y el backend lo
-  // exime igual; el portal lo bloqueaba con un aviso que citaba una regla que no aplica. SUNAT sigue comparando por
-  // tributo (3503), que el backend cruza antes de numerar.
+  // En la NC por importe el límite real puede ser el del tributo de la línea (3503), no el total (3286): en una
+  // factura con ISC, anticipos o mixta el total queda por encima del gravado + IGV, y el tope mostrado invitaba al 422.
+  const topeTributo = esImporte ? topePorTributo(factura.totales, afectacionLinea) : factura.totales.total;
+  const limitaTributo = esImporte && topeTributo < factura.totales.total;
+  const tope = redondear(Math.min(factura.totales.total, topeTributo) - acreditado, 2);
+  // El motivo 10 «Otros conceptos» está exento de los ocho límites: NotaCredito2_0 fila 111 (3286) y filas 114–122
+  // (3503) empiezan todas con «diferente de '10'». El backend lo exime igual desde #141.
   const exentoDeTope = esNc && motivo === "10";
   const superaTope = (esParcial || esTotal || esImporte) && !exentoDeTope && importeNota > tope;
+  const conceptoTributo = { "10": "gravado + IGV", "20": "exonerado", "30": "inafecto", "40": "exportación", "17": "IVAP" }[afectacionLinea];
+  // 3111: en una línea IVAP un importe de 0.07 a 0.12 deja el impuesto en 0.00 y SUNAT rechaza ya numerada.
+  const ivapEnCero = lineaPropia && impuestoRedondeaACero(afectacionLinea, Number(nd.importe) || 0);
 
   // Por qué el botón está deshabilitado cuando el campo se ve lleno: un importe con 3 decimales no avisaba nada.
   const conDecimalesDeMas = (v: string) => v.trim() !== "" && !DOS_DECIMALES.test(v.trim());
@@ -220,7 +226,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     : esCuotas && cuotas.some((q) => conDecimalesDeMas(q.monto))
       ? "Cada cuota admite hasta 2 decimales."
       : lineaEnCero
-        ? "Hay una línea cuyo importe o cargo redondea a 0.00: subí la cantidad o ponela en 0."
+        ? "Hay una línea cuyo importe, cargo o impuesto redondea a 0.00: subí la cantidad o ponela en 0."
+        : ivapEnCero
+          ? "El IVAP de la línea redondearía a 0.00 (SUNAT 3111): el importe debe ser 0.13 o más."
         : lineaPropia && nd.descripcion.trim() !== "" && nd.descripcion.trim().length < 3
           ? "El concepto necesita al menos 3 caracteres (SUNAT 4084)."
           : esParcial && descripcion.trim() !== "" && lineasParciales.length === 0
@@ -234,6 +242,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     (!esParcial || (itemsParciales.length > 0 && !superaTope && !lineaEnCero)) &&
     (!esTotal || !superaTope) &&
     (!esImporte || !superaTope) &&
+    !ivapEnCero &&
     // Importe de la línea propia con hasta 12 enteros y 2 decimales (2025); concepto de 3 a 500 (4084 observa con menos de 3).
     (!lineaPropia || (nd.descripcion.trim().length >= 3 && Number(nd.importe) > 0 && DOS_DECIMALES.test(nd.importe.trim()))) &&
     (!esCuotas || cuotasValidas);
@@ -385,9 +394,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
                 Importe de la nota: <strong className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</strong>
               </span>
               <span>
-                {exentoDeTope ? "Sin tope por importe total (el motivo 10 está exento del 3286); SUNAT lo compara por tributo (3503)." : <>Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>{acreditado > 0 ? ` (factura ${formatearMonto(factura.moneda, factura.totales.total)} menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}</>}
+                {exentoDeTope ? "Sin tope: SUNAT exime al motivo 10 del 3286 y del 3503 (filas 111 y 114–122)." : <>Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>{limitaTributo ? ` (por tributo, 3503: ${conceptoTributo} de la factura ${formatearMonto(factura.moneda, topeTributo)})` : ""}{acreditado > 0 ? ` (menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}</>}
               </span>
-              {superaTope ? <span role="alert" className="basis-full">Supera el tope: SUNAT la rechazaría (3286). Bajá el importe.</span> : null}
+              {superaTope ? <span role="alert" className="basis-full">Supera el tope: SUNAT la rechazaría ({limitaTributo ? "3503, por tributo" : "3286"}). Bajá el importe.</span> : null}
             </div>
           ) : null}
         </div>

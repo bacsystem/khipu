@@ -19,19 +19,20 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 
 - Idempotencia en `POST /v1/facturas`: un reintento tras corte de red no debe emitir dos facturas (clave de idempotencia por tenant). Hoy el portal avisa «pudo haberse emitido»; el backend no protege.
 
-## Notas (recert #6: 0 bloqueantes · 1 importante, corregido en #139; recert #7 en curso)
+## Notas (recert #7: 0 bloqueantes · 3 importantes, corregido; recert #8 pendiente)
 
 | Qué | Nota |
 |---|---|
-| El tope del formulario anticipa 3286, no 3503 por tributo (ni el mock) | el backend lo rechaza dentro de la transacción, sin gastar correlativo |
+| El tope de la NC **parcial** anticipa 3286, no 3503 por tributo (la NC por importe sí, desde A8) | el backend lo rechaza dentro de la transacción, sin gastar correlativo |
 | Descuento de monto fijo en parcial acredita por encima de lo proporcional | simétrico al cargo; decisión de producto, el texto de ayuda lo dice |
 | «Cancelar» sin confirmar | `<Link>` directo |
 | Motivo 03 «corrección por error en la descripción» obliga a mover cantidades | cae en parcial; SUNAT no define importe 0 para el 03 |
 | Errores por campo del 422 descartados (`res.errores`) | transversal, ver [validaciones.md](validaciones.md) |
-| 12 enteros en cuotas sin límite en el regex | inalcanzable: 3320 exige suma ≤ total |
 | Mock sin dos guardas de la nota total (anticipos; descuento/cargos globales sin ítems) ni 2642/2644 por motivo | inalcanzables desde el formulario |
 | Base del 2955 del mock aproximada (/1.18 gravadas, /1.04 IVAP) | `[POSIBLE]` con cantidad subcentavo en IVAP con cargo % |
 | `importeLineaNota` se desvía ≤ 0.02 del dominio en parciales con ISC | 20 000 líneas aleatorias: 91 % exacto, máx. 0.02; exacto con la cantidad facturada |
+| `afectacionPredominante` elige 10 en una factura mixta: el descuento acredita IGV sobre todo el importe aunque parte sea exonerada | SUNAT lo acepta dentro del 3503; riesgo fiscal del emisor, no rechazo. Partir la nota por afectación sería otra iteración |
+| `Acreditado` suma también las NC de motivo 10 al acumulado | política deliberada (#83), más estricta que SUNAT |
 | Boletas fuera de alcance | issue #20 |
 
 ## Transversal

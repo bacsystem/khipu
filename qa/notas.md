@@ -1,4 +1,4 @@
-# Notas de crédito/débito · 🟡 recert #6: 0 bloqueantes · 1 importante → corregido (#139), recert #7 en curso
+# Notas de crédito/débito · 🟡 recert #7: 0 bloqueantes · 3 importantes → corregido (backend + A8), pendiente de recert #8
 
 Estado de cada hallazgo: 🔧 corregido en un PR mergeado, a la espera de la recert · ✅ verificado por una recert posterior (el arreglo resiste) · ⬜ abierto ([pendientes.md](pendientes.md)).
 
@@ -10,17 +10,27 @@ Estado de cada hallazgo: 🔧 corregido en un PR mergeado, a la espera de la rec
 | Recert #3 | `fc07431` | 1 🔴 · 3 🟠 | #132 → #133 | recert #4 |
 | Recert #4 | `9d9e3e5` | 0 🔴 · 1 🟠 | #135 | recert #5 |
 | Recert #5 | `bb801d1` | 0 🔴 · 3 🟠 | #136 (backend) → #137 | recert #6 |
-| Recert #6 | `29ee9b4` | 0 🔴 · 1 🟠 | #139 (+ NC por importe) | **recert #7 en curso** |
+| Recert #6 | `29ee9b4` | 0 🔴 · 1 🟠 | #139 (+ NC por importe) | recert #7 |
+| Recert #7 | `21cfaa9` | 0 🔴 · 3 🟠 | backend 3503/3111 → A8 | **recert #8 pendiente** |
 
-Suite tras #139: 124/124 Vitest · 77/77 e2e ×2 · out-ubl 4/4 · backend 686/686. Recert #6: 33/34 mutaciones mueren; barrido de los 203 ERROR de las hojas NC/ND sin reglas alcanzables sin cruzar.
+Suite tras A8: 127/127 Vitest · 79/79 e2e ×2 · backend 688/688. Recert #7: 24/25 mutaciones mueren (la que sobrevive era código muerto, ya retirado); e2e 77/77 ×3 con puerto propio.
+
+## Recert #7 → backend + A8
+
+| Sev | Qué | Corregido | Estado |
+|---|---|---|---|
+| 🟠 | NC por importe: el tope mostrado era el 3286, pero en facturas con ISC/anticipos/mixtas el límite real es el **3503 por tributo**; el mock no lo implementaba (201 donde el backend da 422). Sin gravadas, la línea caía en «10» → siempre 3503 | A8: `topePorTributo`, `afectacionPredominante` sin comodín, mock con 3503 y totales por tributo | 🔧 recert #8 |
+| 🟠 | El backend aplicaba el **3503 al motivo 10**, que las filas 114–122 eximen igual que la 111 | backend | 🔧 recert #8 |
+| 🟠 | **3111** sin cruzar en ninguna capa: línea IVAP con base > 0.06 e impuesto 0.00 (importes 0.07–0.12) → rechazo con correlativo gastado | backend (`ItemCalculado`, también facturas) + A8 (aviso) + mock | 🔧 recert #8 |
+| 🟡 | Catálogos del mock completos (09: 02/03/06; 10: 02/03) · código muerto en `lineaRedondeaACero` · totales de la nota en el mock por afectación | A8 | 🔧 recert #8 |
 
 ## Recert #6 → #139
 
 | Sev | Qué | Corregido | Estado |
 |---|---|---|---|
-| 🟠 | El formulario aplicaba el tope 3286 al motivo 10, que SUNAT (fila 111) y el backend eximen; el catálogo 09 del mock no traía el 10 | #139 | 🔧 recert #7 |
-| 🟡 | `lineaRedondeaACero` bloqueaba por un descuento en 0.00 que el dominio acepta (solo el cargo tiene 2955) · `PayableRoundingAmount` de la nota sin test · avisos para concepto < 3 y cantidades en 0 · `E2E_PORT` (dos corridas en :3100 se pisaban) | #139 | 🔧 recert #7 |
-| ✨ | **NC por importe** (04/05/08/09/10): línea propia concepto + importe, afectación según la factura, tope 3286 salvo el 10 | #139 | 🔧 recert #7 |
+| 🟠 | El formulario aplicaba el tope 3286 al motivo 10, que SUNAT (fila 111) y el backend eximen; el catálogo 09 del mock no traía el 10 | #139 | ✅ recert #7 |
+| 🟡 | `lineaRedondeaACero` bloqueaba por un descuento en 0.00 que el dominio acepta (solo el cargo tiene 2955) · `PayableRoundingAmount` de la nota sin test · avisos para concepto < 3 y cantidades en 0 · `E2E_PORT` (dos corridas en :3100 se pisaban) | #139 | ✅ recert #7 |
+| ✨ | **NC por importe** (04/05/08/09/10): línea propia concepto + importe, afectación según la factura, tope 3286 salvo el 10 | #139 | ✅ recert #7 (halló el tope por tributo, arriba) |
 
 ## Recert #5 → #136 + #137
 
@@ -88,7 +98,7 @@ Suite tras #139: 124/124 Vitest · 77/77 e2e ×2 · out-ubl 4/4 · backend 686/6
 ## Contraste SUNAT (acumulado)
 
 - Coinciden en las tres capas: 2116/2117/2119/2120/2128/2135, 2172, 2885, 3250/3253/3319/3320/3321, 3257, 3259/3260, 3315, 2642/2644/3107/3221, 3230 (NC y ND), 3507, 3194/3261, 2025/2027, 3303.
-- **3286**: fila 111 (facturas) **sin tolerancia** y exime al motivo 10; ±1 solo boletas (113). Las tres capas estrictas desde #136. 3503 con +1 (filas 114–122): solo backend.
+- **3286** (fila 111) y **3503** (filas 114–122): sin tolerancia / +1 por tributo, **ambos eximen al motivo 10**; en las tres capas desde A8. **3111** (NC f211 / ND f192): dominio, portal y mock desde A8.
 - Catálogo 10: 3507 solo al 13 («Penalidades»); el 03 con línea gravada es legal. Catálogo 09: 04/05/08 solo observan (4367) sobre boletas.
 - `itemParaNota` no reenvía `hidrobiologico`/`transporte`: correcto, ninguna regla de NC los pide. No «arreglar».
 
@@ -98,4 +108,4 @@ Todo en [pendientes.md](pendientes.md), sección Notas.
 
 ## Siguiente paso
 
-Recert #7 en curso sobre `main@21cfaa9`. Si sale 0/0: ✅ certificado.
+Mergear backend → A8 → **recert #8**. Si sale 0/0: ✅ certificado.

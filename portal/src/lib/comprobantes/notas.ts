@@ -1,4 +1,4 @@
-import type { CargoAplicado, DescuentoAplicado, ItemComprobante } from "@/lib/api/facturas";
+import type { CargoAplicado, Comprobante, DescuentoAplicado, ItemComprobante } from "@/lib/api/facturas";
 import { redondear } from "./totales";
 
 /** Descuento o cargo tal como lo piden `FacturaRequest.DescuentoDto`/`CargoDto`: porcentaje **o** monto, nunca ambos. */
@@ -87,11 +87,43 @@ export function importeLineaNota(item: ItemComprobante, cantidad: number): numbe
  * 0.0004 de 10 mesas con flete del 10 % (base 0.04 → cargo 0.00) y el POST volvía 422.
  */
 export function lineaRedondeaACero(item: ItemComprobante, cantidad: number): boolean {
-  if (importeLineaNota(item, cantidad) < 0.01) return true;
-  const completa = cantidad === Number(item.cantidad);
+  const importe = importeLineaNota(item, cantidad);
+  if (importe < 0.01) return true;
+  if (impuestoRedondeaACero(item.tipo_afectacion_igv, importe)) return true;
   const factorIgv = item.valor_venta && item.igv != null ? 1 + item.igv / (item.valor_venta + (item.isc?.monto ?? 0)) : 1;
   const base = (item.precio_unitario * cantidad) / factorIgv;
-  return (item.cargos ?? []).some((a) => a.tipo === "PORCENTAJE" && seConserva(a, completa) && redondear((base * a.valor) / 100, 2) < 0.01);
+  // Solo los cargos en porcentaje (los de monto fijo no viajan en parcial, y un porcentaje siempre viaja).
+  return (item.cargos ?? []).some((a) => a.tipo === "PORCENTAJE" && redondear((base * a.valor) / 100, 2) < 0.01);
+}
+
+/**
+ * SUNAT 3111 (NotaCredito2_0 f211, NotaDebito2_0 f192, y la gemela de Factura2_0): con tributo 1000/1016 y base > 0.06
+ * el impuesto de la línea no puede ser 0.00. Con el IGV al 18 % nunca pasa (base 0.07 → 0.01); con el IVAP al 4 % pasa
+ * entre 0.07 y 0.12 de importe con impuesto. El dominio lo rechaza antes de numerar desde #141; acá se avisa antes.
+ */
+export function impuestoRedondeaACero(afectacion: string, importeConImpuesto: number): boolean {
+  if (afectacion !== "17") return false;
+  const base = importeConImpuesto / 1.04;
+  return base > 0.06 && redondear(base * 0.04, 2) < 0.01;
+}
+
+/**
+ * Hasta dónde puede llegar una NC por importe según el tributo de su línea (3503, filas 114–122: base e impuesto por
+ * tributo no pueden superar los de la factura). En precio con impuesto: gravado + IGV (10), exonerado (20), inafecto
+ * (30); en exportación e IVAP toda la factura es del mismo tributo. Es el límite real en facturas con ISC, ICBPER,
+ * cargos sin IGV, anticipos o mixtas, donde el total (3286) queda por encima.
+ */
+export function topePorTributo(totales: Pick<Comprobante["totales"], "gravado" | "igv" | "exonerado" | "inafecto" | "total">, afectacion: string): number {
+  switch (afectacion) {
+    case "10":
+      return redondear(totales.gravado + totales.igv, 2);
+    case "20":
+      return totales.exonerado;
+    case "30":
+      return totales.inafecto;
+    default:
+      return totales.total;
+  }
 }
 
 /**
@@ -99,9 +131,10 @@ export function lineaRedondeaACero(item: ItemComprobante, cantidad: number): boo
  * factura cobró. Con alguna línea gravada, 10 (el descuento lleva IGV y SUNAT lo compara contra el gravado, 3503);
  * si toda la factura es exonerada o inafecta, esa afectación. Exportación e IVAP se resuelven antes (40/17).
  */
-export function afectacionPredominante(items: Pick<ItemComprobante, "tipo_afectacion_igv">[]): "10" | "20" | "30" {
+export function afectacionPredominante(items: Pick<ItemComprobante, "tipo_afectacion_igv" | "cantidad" | "precio_unitario" | "precio_venta">[]): "10" | "20" | "30" {
   if (items.some((i) => i.tipo_afectacion_igv === "10")) return "10";
-  if (items.every((i) => i.tipo_afectacion_igv === "20" || i.tipo_afectacion_igv === "21")) return "20";
-  if (items.every((i) => /^3[0-7]$/.test(i.tipo_afectacion_igv))) return "30";
-  return "10";
+  // Sin gravadas: exonerada o inafecta, la que más pesa en la factura. Con «10» de comodín la nota llevaba IGV contra un
+  // gravado de 0 y el backend la rechazaba siempre (3503): callejón sin salida medido en la recert #7.
+  const peso = (pred: (a: string) => boolean) => items.filter((i) => pred(i.tipo_afectacion_igv)).reduce((s, i) => s + (i.precio_venta ?? i.precio_unitario * Number(i.cantidad)), 0);
+  return peso((a) => a === "20" || a === "21") >= peso((a) => /^3[0-7]$/.test(a)) ? "20" : "30";
 }
