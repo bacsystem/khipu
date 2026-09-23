@@ -133,7 +133,9 @@ test("emite una nota de crédito parcial desde la factura y la factura la lista"
   await page.goto("/comprobantes/f-aceptada");
   const notas = page.getByTestId("notas");
   await expect(notas.getByText("FC01-1")).toBeVisible();
-  await expect(notas.getByText("Devolución por ítem")).toBeVisible();
+  // `.first()`: otros tests emiten NC 07 sobre esta misma factura en paralelo y el panel puede traer dos «Devolución
+  // por ítem» (medido: 1 rojo en 5 corridas por strict mode). Lo que se afirma es que el motivo se lista.
+  await expect(notas.getByText("Devolución por ítem").first()).toBeVisible();
 });
 
 test("una nota de crédito 13 sale sin importe y una nota de débito con su concepto", async ({ page }) => {
@@ -384,11 +386,16 @@ test("NC 13: una cuota en blanco o vencida antes de la factura no deja emitir", 
   await expect(boton).toBeDisabled();
   const n = await form.getByLabel(/Monto de la cuota/).count();
   await form.getByLabel(`Monto de la cuota ${n}`).fill("10");
-  await form.getByLabel(`Vencimiento de la cuota ${n}`).fill("2026-08-01"); // anterior a la factura (3321)
+  // Suma dentro del total (51.5 + 61.5 + 10 = 123) para que lo ÚNICO que bloquee sea la fecha: con 61.5 el 3320 tapaba
+  // al 3321 y una mutación `>=` en la fecha sobrevivía.
+  await form.getByLabel("Monto de la cuota 1").fill("51.5");
+  await form.getByLabel(`Vencimiento de la cuota ${n}`).fill("2026-09-01"); // el mismo día de la factura: 3321 exige posterior
   await expect(boton).toBeDisabled();
   await expect(form.getByLabel(`Vencimiento de la cuota ${n}`)).toHaveAttribute("min", "2026-09-02");
-  await form.getByLabel(`Vencimiento de la cuota ${n}`).fill("2026-12-01");
-  // Fecha ya válida, pero 61.5 + 61.5 + 10 = 133 supera el total de la factura (123): 3320 sigue bloqueando.
+  await form.getByLabel(`Vencimiento de la cuota ${n}`).fill("2026-09-02"); // el día siguiente ya vale
+  await expect(boton).toBeEnabled();
+  // Fecha válida pero 61.5 + 61.5 + 10 = 133 supera el total de la factura (123): 3320 bloquea.
+  await form.getByLabel("Monto de la cuota 1").fill("61.5");
   await expect(boton).toBeDisabled();
   await form.getByLabel("Monto de la cuota 1").fill("51.5");
   await expect(boton).toBeEnabled();
@@ -706,17 +713,37 @@ test("nota: tras un error el foco va al mensaje", async ({ page }) => {
   await expect(alerta).toBeFocused();
 });
 
-test("NC total sobre una factura con redondeo: la nota sale sin el redondeo y supera a la factura (3286), el formulario avisa", async ({ page }) => {
-  // f-redondeo: ítems 118.44, redondeo −0.44, total 118. El backend no copia el redondeo a la nota (#123): la NC
-  // total saldría por 118.44 > 118 y SUNAT la rechaza sin tolerancia (fila 111). Antes: «copia la factura (S/ 118.00)».
+test("NC total sobre una factura con redondeo: la nota copia el redondeo y sale por el total exacto; una parcial por encima se bloquea (3286)", async ({ page }) => {
+  // f-redondeo: ítems 118.44, redondeo −0.44, total 118. El backend copia el redondeo a la nota total (#123), así que la
+  // NC 01 sale por 118.00 = PayableAmount de la factura. Una parcial por la unidad completa (118.44) supera el tope sin
+  // tolerancia (fila 111) y no se ofrece.
   await page.goto("/comprobantes/f-redondeo/nota");
   const form = page.getByTestId("nota-form");
+  // Paridad del mock por HTTP directo: la parcial por 118.44 supera 118.00 por 0.44 y el 3286 no tiene tolerancia en
+  // facturas (antes el mock copiaba el ±1 del backend y esto daba 201).
+  const r = await page.evaluate(async ([hoy]) => {
+    const res = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      tipo: "07", serie: "FC01", fecha_emision: hoy, documento_afectado: { serie: "F001", numero: 9 }, motivo: "07", descripcion: "Devolución",
+      items: [{ descripcion: "Servicio de mantenimiento", unidad: "ZZ", cantidad: 1, precio_unitario: 118.44, tipo_afectacion_igv: "10" }] }) });
+    return { status: res.status, texto: await res.text() };
+  }, [new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" })]);
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3286");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución");
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
+  await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 118.44");
+  await expect(form.getByTestId("nota-importe").getByRole("alert")).toContainText("Supera el tope");
   await form.getByLabel(/Motivo/).selectOption("01");
-  await form.getByLabel("Sustento").fill("Anulación de la operación");
-  const total = form.getByTestId("nota-total");
-  await expect(total).toContainText("Importe de la nota: S/ 118.44 (sin el redondeo de la factura). Tope: S/ 118.00");
-  await expect(total.getByRole("alert")).toContainText("Supera el tope");
-  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
+  await expect(form.getByTestId("nota-total")).toContainText("copia los ítems, el descuento global y los cargos de la factura F001-9 (S/ 118.00)");
+  await expect(form.getByTestId("nota-total").getByRole("alert")).toHaveCount(0);
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  expect((await peticion).postDataJSON().items).toBeUndefined();
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+  // La nota que devuelve el mock sale por 118.00 (con el redondeo), no por 118.44.
+  await expect(page.getByTestId("nota")).toBeVisible();
+  await expect(page.getByText("S/ 118.00").first()).toBeVisible();
 });
 
 test("ND: el importe admite hasta 2 decimales (2025)", async ({ page }) => {
@@ -735,6 +762,49 @@ test("ND: el importe admite hasta 2 decimales (2025)", async ({ page }) => {
   await form.getByLabel(/Importe con IGV/).fill("10.12");
   await expect(boton).toBeEnabled();
   await expect(form.getByRole("status").filter({ hasText: "hasta 2 decimales" })).toHaveCount(0);
+  // 13 enteros: `Item.exigirFormatoNumerico` admite 12 (2025). Viajaba y el mock daba 201.
+  await form.getByLabel(/Importe con IGV/).fill("9999999999999");
+  await expect(boton).toBeDisabled();
+  // Concepto de 2 caracteres: SUNAT observa (4084, «de 3 hasta 500») y la nota saldría ACEPTADO_CON_OBS.
+  await form.getByLabel(/Importe con IGV/).fill("10.12");
+  await form.getByLabel("Concepto").fill("ab");
+  await expect(boton).toBeDisabled();
+  await form.getByLabel("Concepto").fill("abc");
+  await expect(boton).toBeEnabled();
+});
+
+test("NC parcial: una cantidad tan chica que el cargo de línea redondea a 0.00 no deja emitir (2955)", async ({ page }) => {
+  // 0.0004 de 10 mesas con cargo 47 del 10 %: base 0.04, cargo 0.00 → `Cargo.montoSobre` lanza 2955. Viajaba y el mock daba 201.
+  await page.goto("/comprobantes/f-cargos/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución mínima");
+  await form.getByLabel("Cantidad de Mesa de trabajo en la nota").fill("0.0004");
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
+  await expect(form.getByRole("status").filter({ hasText: "redondea a 0.00" })).toBeVisible();
+  await form.getByLabel("Cantidad de Mesa de trabajo en la nota").fill("0.01");
+  await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
+});
+
+test("el mock de POST /v1/notas rechaza el formato numérico y el cargo en 0.00 que el dominio rechaza (2025, 2955)", async ({ page }) => {
+  await page.goto("/comprobantes/f-cargos");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const post = (body: Record<string, unknown>) =>
+    page.evaluate(async ([b]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, texto: await r.text() };
+    }, [JSON.stringify({ fecha_emision: hoy, descripcion: "Prueba de contrato", ...body })]);
+  const linea = (extra: Record<string, unknown>) => [{ descripcion: "Línea", unidad: "ZZ", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10", ...extra }];
+
+  let r = await post({ tipo: "08", serie: "FD01", documento_afectado: { serie: "F001", numero: 7 }, motivo: "01", items: linea({ precio_unitario: 9999999999999 }) });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("2025");
+  r = await post({ tipo: "08", serie: "FD01", documento_afectado: { serie: "F001", numero: 7 }, motivo: "01", items: linea({ precio_unitario: 10.12345678901 }) });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("2025");
+  r = await post({ tipo: "07", serie: "FC01", documento_afectado: { serie: "F001", numero: 7 }, motivo: "07", items: linea({ cantidad: 0.0004, precio_unitario: 118, cargos: [{ porcentaje: 10, afecta_base_igv: true }] }) });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("2955");
 });
 
 test("ND: el concepto se corta a 500 caracteres en el cliente (2027)", async ({ page }) => {
