@@ -103,9 +103,42 @@ class EmitirNotaServiceTest {
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09",
                 List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("60.00"), TipoAfectacionIgv.EXONERADO)))))
                 .hasMessageContaining("3503").hasMessageContaining("exonerado");
-        // Tolerancia ±1: 51 exonerado pasa
+        // Tolerancia +1 del 3503 (filas 114-122): 51 exonerado pasa
         assertThat(service.emitirNota(tenantId, nc(f.numero(), "09",
                 List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("51.00"), TipoAfectacionIgv.EXONERADO)))).totales().total()).isEqualByComparingTo("51.00");
+    }
+
+    /**
+     * 3286 sobre facturas es estricto (NotaCredito2_0 fila 111: «mayor a la sumatoria», sin la +1 que la fila 113 da a las
+     * boletas) y exime al motivo 10 «Otros conceptos». Antes se aplicaba ±1 a todo: una NC que excedía por 0.50 pasaba y
+     * SUNAT la rechazaba con el correlativo consumido.
+     */
+    @Test void elImporteTotalNoAdmiteToleranciaSalvoEnElMotivo10() {
+        Comprobante f = facturaAceptada(FormaPago.contado()); // 276.00
+        // 2 × 118.59 (gravado 201.00, IGV 36.18) + 50 = 287.18: cada concepto dentro de la +1 del 3503, el total supera por 11.18.
+        List<Item> porEncima = List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.59"), TipoAfectacionIgv.GRAVADO),
+                new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO));
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09", porEncima)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3286").hasMessageContaining("importe total");
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "10", porEncima)).totales().total()).isEqualByComparingTo("287.18");
+        // Exceso de 0.50 en el total: antes pasaba por la tolerancia ±1.
+        Comprobante g = facturaAceptada(FormaPago.contado());
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(g.numero(), "09",
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("40.50"), TipoAfectacionIgv.EXONERADO)))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3286").hasMessageContaining("(276.50)");
+    }
+
+    /** La nota total copia también el redondeo de la factura: sin él salía por el total sin redondear, por encima del PayableAmount (3286). */
+    @Test void laNotaTotalCopiaElRedondeoDeLaFactura() {
+        Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.44"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, new BigDecimal("-0.44"), true));
+        assertThat(f.totales().total()).isEqualByComparingTo("118.00");
+        Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "01", null));
+        assertThat(nc.totales().redondeo()).isEqualByComparingTo("-0.44");
+        assertThat(nc.totales().total()).isEqualByComparingTo("118.00");
     }
 
     /**
@@ -186,20 +219,24 @@ class EmitirNotaServiceTest {
         assertThat(f.totales().ivap()).isEqualByComparingTo("12.00");
         assertThat(f.totales().igv()).isEqualByComparingTo("0.00");
         assertThat(f.totales().total()).isEqualByComparingTo("312.00");
-        // Misma base pero declarada como IGV: el IGV (18) supera al de la factura (0) → 3503
+        // Sobre IVAP la NC exige el motivo 12 (3230, NotaCredito2_0 fila 223) y el 12 exige líneas 17 (2644, fila 222).
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09",
+                List.of(new Item("ARZ", "Arroz", "KGM", new BigDecimal("50"), new BigDecimal("3.12"), TipoAfectacionIgv.IVAP)))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3230");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "12",
                 List.of(new Item("ARZ", "Arroz", "KGM", new BigDecimal("50"), new BigDecimal("3.12"), TipoAfectacionIgv.GRAVADO)))))
-                .isInstanceOf(DomainException.class).hasMessageContaining("3503").hasMessageContaining("IGV");
-        // Más IVAP que la factura → 3503 IVAP
-        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09",
+                .isInstanceOf(DomainException.class).hasMessageContaining("2644");
+        // Más IVAP que la factura → 3286 (y 3503 IVAP)
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "12",
                 List.of(new Item("ARZ", "Arroz", "KGM", new BigDecimal("150"), new BigDecimal("3.12"), TipoAfectacionIgv.IVAP)))))
                 .hasMessageContaining("3286");
-        Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "09",
+        Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "12",
                 List.of(new Item("ARZ", "Arroz", "KGM", new BigDecimal("50"), new BigDecimal("3.12"), TipoAfectacionIgv.IVAP))));
         assertThat(nc.totales().ivap()).isEqualByComparingTo("6.00");
         assertThat(nc.totales().total()).isEqualByComparingTo("156.00");
-        // Nota total: hereda las líneas IVAP de la factura y descuenta lo ya acreditado (#83)
-        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("ya acreditado");
+        // Nota total (12, copia las líneas IVAP de la factura) y descuenta lo ya acreditado (#83); con el 01 sería 3230.
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("3230");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "12", null))).hasMessageContaining("ya acreditado");
     }
 
     /** Exportación (#65): la nota hereda tipo de operación, datos de exportación y receptor del exterior; se limita por la base 9995 (3503). */

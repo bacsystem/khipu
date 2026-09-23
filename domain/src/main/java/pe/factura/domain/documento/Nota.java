@@ -39,6 +39,27 @@ public record Nota(TipoDocumento tipoAfectado, String serieAfectada, long numero
             throw new DomainException("NOTA_INVALIDA", "2172 - El motivo " + motivo + " no existe en el catálogo " + catalogo + " (" + tipoNota + ")");
     }
 
+    /**
+     * Motivo ↔ afectación de las líneas, hojas NotaCredito2_0 / NotaDebito2_0 (misma regla en ambas):
+     * 11 exige 40 en toda línea (2642, filas 221/204); 12 exige 17 (2644, filas 222/205); una línea 17 exige el motivo 12
+     * (3230, filas 223/206); la ND 13 «Penalidades» es inafecta: ni IGV/IVAP (3507, fila 194) ni tributos 9995/9997
+     * (fila 283) ni 1000/1016 (fila 325), así que solo pasa la afectación 30. Antes nadie lo cruzaba y una ND 11 sobre una
+     * factura interna se numeraba y firmaba para volver rechazada. No aplica a la NC 13, cuya única línea es fija.
+     */
+    void validarAfectacionesPara(TipoDocumento tipoNota, java.util.List<Item> items) {
+        boolean todas40 = items.stream().allMatch(i -> i.afectacion().exportacion());
+        boolean todas17 = items.stream().allMatch(i -> i.afectacion().ivap());
+        boolean alguna17 = items.stream().anyMatch(i -> i.afectacion().ivap());
+        if ("11".equals(motivo) && !todas40)
+            throw new DomainException("AFECTACION_INVALIDA", "2642 - El motivo 11 (ajustes de exportación) exige tipo_afectacion_igv 40 en todas las líneas");
+        if ("12".equals(motivo) && !todas17)
+            throw new DomainException("AFECTACION_INVALIDA", "2644 - El motivo 12 (ajustes afectos al IVAP) exige tipo_afectacion_igv 17 en todas las líneas");
+        if (!"12".equals(motivo) && alguna17)
+            throw new DomainException("AFECTACION_INVALIDA", "3230 - Una línea con afectación 17 (IVAP) exige el motivo 12 (ajustes afectos al IVAP); recibido " + motivo);
+        if (tipoNota == TipoDocumento.NOTA_DEBITO && "13".equals(motivo) && items.stream().anyMatch(i -> i.afectacion() != TipoAfectacionIgv.INAFECTO))
+            throw new DomainException("AFECTACION_INVALIDA", "3507 - Las penalidades (motivo 13) son operaciones inafectas: todas las líneas llevan tipo_afectacion_igv 30");
+    }
+
     /** Descripción oficial del motivo (catálogo 09/10) para respuestas y representación impresa. */
     public String descripcionMotivo(TipoDocumento tipoNota) {
         return CatalogoSunat.porId(catalogoMotivo(tipoNota)).flatMap(c -> c.entrada(motivo)).map(CatalogoSunat.Entrada::descripcion).orElse(motivo);

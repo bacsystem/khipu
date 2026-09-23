@@ -176,7 +176,7 @@ public class Comprobante {
         private final UUID tenantId; private final TipoDocumento tipo; private final String serie; private final LocalDate fechaEmision; private final Nota nota;
         private final Receptor receptor; private final List<Item> items;
         private String moneda = "PEN"; private String tipoOperacion = "0101"; private FormaPago formaPago; private Descuento descuentoGlobal; private List<Cargo> cargos = List.of();
-        private BigDecimal tasaIgv = TasaIgv.GENERAL; private Exportacion exportacion;
+        private BigDecimal tasaIgv = TasaIgv.GENERAL; private Exportacion exportacion; private BigDecimal redondeo;
 
         private NotaBuilder(UUID tenantId, TipoDocumento tipo, String serie, LocalDate fechaEmision, Nota nota, Receptor receptor, List<Item> items) {
             this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.fechaEmision = fechaEmision; this.nota = nota; this.receptor = receptor; this.items = items;
@@ -191,13 +191,22 @@ public class Comprobante {
         public NotaBuilder tasaIgv(BigDecimal t) { this.tasaIgv = t == null ? TasaIgv.GENERAL : t; return this; }
         /** Los de la factura que modifica; nulo si no es exportación. */
         public NotaBuilder exportacion(Exportacion e) { this.exportacion = e; return this; }
+        /**
+         * El de la factura que modifica, en la nota total: sin él la nota salía por el total sin redondear y, con el redondeo
+         * habitual (negativo), por encima del PayableAmount de la factura (3286, sin tolerancia). La NC admite
+         * PayableRoundingAmount con |x| ≤ 1 (NotaCredito2_0 fila 406, regla 3303).
+         */
+        public NotaBuilder redondeo(BigDecimal r) { this.redondeo = r; return this; }
 
         public Comprobante crear(Clock clock) {
             if (tipo != TipoDocumento.NOTA_CREDITO && tipo != TipoDocumento.NOTA_DEBITO)
                 throw new DomainException("NOTA_INVALIDA", "El tipo de nota debe ser 07 (crédito) u 08 (débito)");
-            if (nota == null) throw new DomainException("NOTA_INVALIDA", "2524 - La nota debe indicar el documento que modifica y el motivo");
+            // 2524 es la ausencia de cac:BillingReference (el motivo ausente es 2128, ya en Nota); la cita anterior mezclaba ambas.
+            if (nota == null) throw new DomainException("NOTA_INVALIDA", "2524 - La nota debe indicar el documento que modifica");
+            // La 1001 solo fija el formato del ID de la nota; que la letra coincida con la factura sale de 2116/2119 (la nota se busca
+            // en el listado de facturas F/E). Más estricto que SUNAT a propósito: una serie que no coincide no llega a numerarse.
             if (!tipo.serieValida(serie) || serie.charAt(0) != nota.serieAfectada().charAt(0))
-                throw new DomainException("SERIE_INVALIDA", "1001 - La serie de una nota sobre " + nota.documentoAfectado() + " debe ser " + nota.serieAfectada().charAt(0) + "### : " + serie);
+                throw new DomainException("SERIE_INVALIDA", "1001/2116 - La serie de una nota sobre " + nota.documentoAfectado() + " debe ser " + nota.serieAfectada().charAt(0) + "### : " + serie);
             if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
             exigirDentroDelPlazoDeEnvio(tipo, fechaEmision, clock);
             boolean nc13 = nota.corrigeCuotas(tipo);
@@ -208,14 +217,17 @@ public class Comprobante {
             if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
             Exportacion.validar(exportacion, tipoOperacion);
             nota.validarMotivoPara(tipo);
-            if (!nc13) exigirAfectacionSegunOperacion(tipoOperacion, items);
+            if (!nc13) {
+                exigirAfectacionSegunOperacion(tipoOperacion, items);
+                nota.validarAfectacionesPara(tipo, items);
+            }
             if (nc13 && (formaPago == null || !formaPago.esCredito()))
                 throw new DomainException("NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
             // La NC 13 no mueve importes: una sola línea de valor 0 (regla 3315). La forma de pago de una nota solo tiene sentido
             // en la NC 13 y se valida contra la factura modificada (3320/3321), no contra la nota.
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
                     moneda, tipoOperacion, receptor, nc13 ? List.of(nota.lineaSinImporte()) : items, formaPago == null ? FormaPago.contado() : formaPago,
-                    nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, null, nota, tasaIgv, List.of(), exportacion, EstadoDocumento.RECIBIDO);
+                    nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, nc13 ? null : redondeo, nota, tasaIgv, List.of(), exportacion, EstadoDocumento.RECIBIDO);
             c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
             return c;
         }
