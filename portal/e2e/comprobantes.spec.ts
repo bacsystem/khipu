@@ -579,15 +579,128 @@ test("da de baja una factura aceptada tras confirmar el motivo y queda anulada",
   await page.goto("/comprobantes/f-obs");
   await page.getByTestId("dar-de-baja").click();
   const confirmacion = page.getByTestId("baja-confirmacion");
+  await expect(confirmacion).toContainText("Quedan 7 días de plazo"); // emitida hoy
   // Sin motivo (mínimo 3 caracteres) no se puede confirmar: la baja es irreversible ante SUNAT.
   await expect(confirmacion.getByRole("button", { name: "Confirmar la baja" })).toBeDisabled();
-  await confirmacion.getByLabel(/Motivo/).fill("Error en el RUC del cliente");
+  await confirmacion.getByLabel(/Motivo/).fill("  Error en el RUC del cliente  ");
+  // Lo que viaja: el motivo exacto, recortado. La e2e anterior aceptaba un motivo alterado (mutación con prefijo sobrevivía).
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/baja"));
   await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
-
+  expect((await peticion).postDataJSON()).toEqual({ motivo: "Error en el RUC del cliente" });
+  // El diálogo se cierra y la ficha muestra el resultado arriba del historial.
+  await expect(confirmacion).toHaveCount(0);
   await expect(page.getByTestId("baja")).toContainText("Aceptada: comprobante anulado");
   await expect(page.getByTestId("baja")).toContainText("Error en el RUC del cliente");
   await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("dar-de-baja")).toHaveCount(0);
+});
+
+test("baja: si se corta la conexión, el diálogo avisa que pudo haber llegado a SUNAT y se puede cerrar", async ({ page }) => {
+  // Antes: `fetch` rechazaba, «Enviando a SUNAT…» para siempre, Cancelar deshabilitado, sin X ni Escape. Recargar a ciegas.
+  await page.goto("/comprobantes/f-baja-red");
+  await page.route("**/api/proxy/facturas/f-baja-red/baja", (r) => r.abort("connectionreset"));
+  await page.getByTestId("dar-de-baja").click();
+  const confirmacion = page.getByTestId("baja-confirmacion");
+  await confirmacion.getByLabel(/Motivo/).fill("Error en el RUC del cliente");
+  await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
+  const alerta = confirmacion.getByRole("alert");
+  await expect(alerta).toContainText("pudo haber llegado a SUNAT");
+  await expect(alerta).toBeFocused();
+  await expect(confirmacion.getByRole("button", { name: "Cancelar" })).toBeEnabled();
+  await confirmacion.getByRole("button", { name: "Cancelar" }).click();
+  await expect(confirmacion).toHaveCount(0);
+});
+
+test("baja: una respuesta que no es JSON (HTML de un proxy) no cuelga el diálogo", async ({ page }) => {
+  await page.goto("/comprobantes/f-baja-red");
+  await page.route("**/api/proxy/facturas/f-baja-red/baja", (r) => r.fulfill({ status: 504, contentType: "text/html", body: "<html><body>Gateway Timeout</body></html>" }));
+  await page.getByTestId("dar-de-baja").click();
+  const confirmacion = page.getByTestId("baja-confirmacion");
+  await confirmacion.getByLabel(/Motivo/).fill("Error en el RUC del cliente");
+  await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
+  await expect(confirmacion.getByRole("alert")).toContainText("Respuesta inválida del servidor (HTTP 504)");
+  await expect(confirmacion.getByRole("button", { name: "Confirmar la baja" })).toBeEnabled();
+});
+
+test("baja: si SUNAT la rechaza, el diálogo lo dice con el CDR y el comprobante sigue vigente", async ({ page }) => {
+  // Antes un 201 con estado RECHAZADA cerraba el diálogo como si fuera un éxito.
+  await page.goto("/comprobantes/f-baja-rechazada");
+  await page.getByTestId("dar-de-baja").click();
+  const confirmacion = page.getByTestId("baja-confirmacion");
+  await confirmacion.getByLabel(/Motivo/).fill("[RECHAZADA] Error en el RUC");
+  await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
+  await expect(confirmacion.getByRole("alert")).toContainText("SUNAT rechazó la baja (2323");
+  await expect(confirmacion.getByRole("alert")).toContainText("sigue vigente");
+  await confirmacion.getByRole("button", { name: "Cancelar" }).click();
+  await expect(page.getByTestId("baja")).toContainText("Rechazada por SUNAT");
+  await expect(page.getByTestId("dar-de-baja")).toBeVisible(); // una rechazada no bloquea otra
+});
+
+test("baja: si SUNAT sigue procesando, la ficha lo muestra en curso y permite reconsultar hasta que se acepta", async ({ page }) => {
+  // Antes la ficha decía «SUNAT la está procesando» para siempre: el portal nunca llamaba a GET /v1/bajas/{id}.
+  await page.goto("/comprobantes/f-baja-enviada");
+  await page.getByTestId("dar-de-baja").click();
+  const confirmacion = page.getByTestId("baja-confirmacion");
+  await confirmacion.getByLabel(/Motivo/).fill("[ENVIADA] Error en el RUC");
+  await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
+  await expect(confirmacion).toHaveCount(0);
+  const panel = page.getByTestId("baja");
+  await expect(panel).toContainText("Enviada: SUNAT la está procesando");
+  await expect(panel).toContainText("no admite otra baja ni notas");
+  await expect(page.getByTestId("dar-de-baja")).toHaveCount(0);
+  await expect(page.getByTestId("emitir-nota")).toHaveCount(0);
+  await panel.getByRole("button", { name: "Actualizar estado" }).click();
+  await expect(panel).toContainText("Aceptada: comprobante anulado");
+  await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
+});
+
+test("baja: un segundo clic durante el envío no manda otra comunicación", async ({ page }) => {
+  await page.goto("/comprobantes/f-baja-doble");
+  let posts = 0;
+  await page.route("**/api/proxy/facturas/f-baja-doble/baja", async (r) => {
+    posts += 1;
+    await new Promise((f) => setTimeout(f, 500));
+    await r.continue();
+  });
+  await page.getByTestId("dar-de-baja").click();
+  const confirmacion = page.getByTestId("baja-confirmacion");
+  await confirmacion.getByLabel(/Motivo/).fill("Error en el RUC del cliente");
+  // Dos clics en el MISMO tick, antes de que React aplique `disabled`: es el único camino que llegaba al handler dos veces
+  // (medido en la auditoría), y el que la guarda por `ref` corta. Con `disabled` del DOM ya aplicado, Playwright ni clicaría.
+  await confirmacion.getByRole("button", { name: "Confirmar la baja" }).evaluate((b: HTMLButtonElement) => {
+    b.click();
+    b.click();
+  });
+  await expect(page.getByTestId("baja")).toContainText("Aceptada");
+  expect(posts).toBe(1);
+});
+
+test("el mock de POST /v1/facturas/:id/baja rechaza lo que el backend rechaza: plazo (2957), motivo (2315), cuerpo vacío", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada");
+  const post = (id: string, body: unknown) =>
+    page.evaluate(async ([i, b]) => {
+      const r = await fetch(`/api/proxy/facturas/${i}/baja`, { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, texto: await r.text() };
+    }, [id, typeof body === "string" ? body : JSON.stringify(body)]);
+  let r = await post("f-aceptada", { motivo: "Fuera de plazo" }); // emitida el 2026-09-01: antes el mock daba 201
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("2957");
+  // Sobre f-baja-red (nadie la anula): f-obs la anula el test principal en paralelo y respondía 2105/2398.
+  for (const motivo of ["ab", "Error\tRUC", "x".repeat(101), ""]) {
+    r = await post("f-baja-red", { motivo });
+    expect(r.status, r.texto).toBe(422);
+    expect(r.texto).toContain("2315");
+  }
+  r = await post("f-baja-red", "");
+  expect(r.status, r.texto).toBe(400);
+  expect(r.texto).toContain("JSON_INVALIDO");
+});
+
+test("una factura anulada muestra su comunicación de baja aceptada", async ({ page }) => {
+  await page.goto("/comprobantes/f-anulada");
+  await expect(page.getByTestId("baja")).toContainText("Comunicación de baja RA-20260821-1");
+  await expect(page.getByTestId("baja")).toContainText("Aceptada: comprobante anulado");
+  await expect(page.getByTestId("baja").getByRole("button", { name: "Actualizar estado" })).toHaveCount(0);
 });
 
 test("el PDF se abre desde el detalle y el comprobante aceptado se envía por correo al cliente", async ({ page }) => {

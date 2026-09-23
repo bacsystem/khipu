@@ -37,6 +37,18 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 | Backend: el 3503 compara `gravado` sin mirar el tributo (NC 12 con líneas 17 sobre factura no IVAP pasaría) | solo por API; el formulario no ofrece el 12 sin IVAP |
 | Boletas fuera de alcance | issue #20 |
 
+## Bajas (auditoría #1: 2 bloqueantes · 7 importantes, corregido; recert #1 pendiente)
+
+| Qué | Nota |
+|---|---|
+| `DarDeBajaService.continuar` corre sin lock de la baja: un `GET /v1/bajas/{id}` de un integrador y el outbox a la vez podrían enviar dos veces el mismo RA | `[POSIBLE]`, no alcanzable desde el portal |
+| `getStatus` 99 con `content` que no es ZIP (SUNAT devuelve texto en algunos errores) | `[POSIBLE]`; con el arreglo del worker ya no se agota, se reintenta |
+| El outbox ordena por `d.fecha_emision NULLS LAST` y una fila `BAJA` (cuyo `agregado_id` no es un documento) queda siempre al final | con ≥50 envíos pendientes la consulta del ticket se posterga |
+| El CDR de la baja se rehidrata con `observaciones = List.of()` | se pierden tras un reinicio |
+| El ZIP del RA lleva solo el XML; el manual describe además una carpeta dummy | `[POSIBLE]`, igual que en emisión (certificada); SUNAT lo acepta |
+| 2957 se mide contra la fecha de generación, SUNAT contra la de recepción | el diálogo avisa cuando es el último día del plazo |
+| La ficha no muestra `intentos` salvo cuando no hay CDR | cosmético |
+
 ## Transversal
 
 - El portal descarta los errores por campo del 422 (`errores`) y muestra solo `mensaje` — 1 PR; ver [validaciones.md](validaciones.md).

@@ -90,6 +90,7 @@ export type Baja = {
   comprobante: string;
   tipo_comprobante: string;
   fecha_generacion: string;
+  fecha_referencia?: string | null;
   motivo: string;
   estado: "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA";
   ticket: string | null;
@@ -291,6 +292,8 @@ export function resetDb() {
       cdr: { codigo: "0", descripcion: "La Factura numero F001-6, ha sido aceptada", observaciones: [] },
       totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      // En el backend un ANULADO siempre tiene su RA aceptada; sin esto el mock enseñaba una ficha imposible.
+      baja: { id: "b-anulada", identificador: "RA-20260821-1", comprobante: "F001-6", tipo_comprobante: "01", fecha_generacion: "2026-08-21", fecha_referencia: "2026-08-20", motivo: "Error en el RUC del cliente", estado: "ACEPTADA", ticket: "1758100000001", cdr: { codigo: "0", descripcion: "La Comunicacion de baja RA-20260821-1, ha sido aceptada", observaciones: [] }, intentos: 1, ultimo_error: null },
       enlaces: { xml: "/v1/facturas/f-anulada/xml" },
     },
     {
@@ -494,6 +497,90 @@ export function resetDb() {
       totales: { gravado: 0, exonerado: 0, inafecto: 0, igv: 0, exportacion: 100, total: 110, total_cargos: 10, cargos: [{ tipo: "MONTO", valor: 10, monto: 10, afecta_base_igv: false, codigo: "50" }] },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-export-cargo/xml" },
+    },
+    {
+      // Facturas de hoy, dentro del plazo de baja (2957), una por e2e del diálogo: corte de red y respuesta HTML.
+      id: "f-baja-red",
+      tipo: "01",
+      serie: "F001",
+      numero: 13,
+      fecha_emision: hoyLima(),
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null },
+      items: [{ codigo: null, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10", valor_venta: 100, igv: 18, precio_venta: 118 }],
+      estado_documento: "ACEPTADO",
+      hash: "f-baja-red==",
+      nombre_archivo: "20123456786-01-F001-00000013",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-13, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-baja-red/xml" },
+    },
+    {
+      // Facturas de hoy, dentro del plazo de baja (2957), una por e2e del diálogo: SUNAT rechaza.
+      id: "f-baja-rechazada",
+      tipo: "01",
+      serie: "F001",
+      numero: 14,
+      fecha_emision: hoyLima(),
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null },
+      items: [{ codigo: null, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10", valor_venta: 100, igv: 18, precio_venta: 118 }],
+      estado_documento: "ACEPTADO",
+      hash: "f-baja-rechazada==",
+      nombre_archivo: "20123456786-01-F001-00000014",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-14, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-baja-rechazada/xml" },
+    },
+    {
+      // Facturas de hoy, dentro del plazo de baja (2957), una por e2e del diálogo: SUNAT en proceso y reconsulta desde la ficha.
+      id: "f-baja-enviada",
+      tipo: "01",
+      serie: "F001",
+      numero: 15,
+      fecha_emision: hoyLima(),
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null },
+      items: [{ codigo: null, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10", valor_venta: 100, igv: 18, precio_venta: 118 }],
+      estado_documento: "ACEPTADO",
+      hash: "f-baja-enviada==",
+      nombre_archivo: "20123456786-01-F001-00000015",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-15, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-baja-enviada/xml" },
+    },
+    {
+      // Facturas de hoy, dentro del plazo de baja (2957), una por e2e del diálogo: doble clic.
+      id: "f-baja-doble",
+      tipo: "01",
+      serie: "F001",
+      numero: 16,
+      fecha_emision: hoyLima(),
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null },
+      items: [{ codigo: null, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10", valor_venta: 100, igv: 18, precio_venta: 118 }],
+      estado_documento: "ACEPTADO",
+      hash: "f-baja-doble==",
+      nombre_archivo: "20123456786-01-F001-00000016",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Factura numero F001-16, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-baja-doble/xml" },
     },
   ]);
 }
