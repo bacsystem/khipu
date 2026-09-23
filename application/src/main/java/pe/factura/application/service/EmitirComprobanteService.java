@@ -137,10 +137,10 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     }
 
     /** Importes ya acreditados por NC vigentes sobre una factura, en los conceptos que SUNAT limita (3286, 3503). */
-    private record Acreditado(BigDecimal total, BigDecimal gravado, BigDecimal igv, BigDecimal ivap, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito, BigDecimal exportacion) {
-        static final Acreditado CERO = new Acreditado(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+    private record Acreditado(BigDecimal total, BigDecimal gravado, BigDecimal igv, BigDecimal ivap, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito, BigDecimal igvGratuitas, BigDecimal exportacion) {
+        static final Acreditado CERO = new Acreditado(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
         Acreditado mas(Totales t) {
-            return new Acreditado(total.add(t.total()), gravado.add(t.gravado()), igv.add(t.igv()), ivap.add(t.ivap()), exonerado.add(t.exonerado()), inafecto.add(t.inafecto()), gratuito.add(t.gratuito()), exportacion.add(t.exportacion()));
+            return new Acreditado(total.add(t.total()), gravado.add(t.gravado()), igv.add(t.igv()), ivap.add(t.ivap()), exonerado.add(t.exonerado()), inafecto.add(t.inafecto()), gratuito.add(t.gratuito()), igvGratuitas.add(t.igvGratuitas()), exportacion.add(t.exportacion()));
         }
     }
 
@@ -185,7 +185,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     private static void exigirQueNoSupereALaFactura(Totales nc, String motivo, Comprobante factura, Acreditado previo) {
         Totales f = factura.totales();
         record Limite(String concepto, String regla, BigDecimal nota, BigDecimal factura, BigDecimal acreditado, BigDecimal tolerancia) {}
-        // El motivo 10 «Otros conceptos» está exento de los ocho límites: las filas 111 (3286) y 114–122 (3503) empiezan
+        // El motivo 10 «Otros conceptos» está exento de los nueve límites: las filas 111 (3286) y 114–122 (3503) empiezan
         // todas con «diferente de '10'». La primera corrección eximió solo el 3286 y una NC 10 legal caía en 3503.
         if ("10".equals(motivo)) return;
         List<Limite> limites = new java.util.ArrayList<>();
@@ -199,6 +199,9 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 new Limite("valor de venta exonerado", "3503", nc.exonerado(), f.exonerado(), previo.exonerado(), tol),
                 new Limite("valor de venta inafecto", "3503", nc.inafecto(), f.inafecto(), previo.inafecto(), tol),
                 new Limite("valor de las operaciones gratuitas", "3503", nc.gratuito(), f.gratuito(), previo.gratuito(), tol),
+                // f118: el impuesto de las gratuitas (9996) por separado de su base (f117). No es redundante: una nota que cambie
+                // la clase de gratuita (21 o 31–37, impuesto 0 → 11–16, gravadas) tiene la misma base y 18 % más de impuesto.
+                new Limite("IGV de las operaciones gratuitas", "3503", nc.igvGratuitas(), f.igvGratuitas(), previo.igvGratuitas(), tol),
                 new Limite("valor de venta de exportación", "3503", nc.exportacion(), f.exportacion(), previo.exportacion(), tol)));
         for (Limite l : limites) {
             if (l.nota().add(l.acreditado()).subtract(l.factura()).compareTo(l.tolerancia()) > 0)

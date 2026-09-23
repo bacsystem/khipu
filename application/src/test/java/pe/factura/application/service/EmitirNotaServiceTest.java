@@ -185,6 +185,28 @@ class EmitirNotaServiceTest {
                 .isInstanceOf(DomainException.class).hasMessageContaining("3503").hasMessageContaining("gratuitas");
     }
 
+    /**
+     * f118 (impuesto de las gratuitas, 9996) no es redundante con f117 (su base): una nota que cambia la CLASE de gratuita —21
+     * exonerada (impuesto 0) por 11 gravada (18 %)— lleva la misma base y 18 más de impuesto. Alcanzable solo por API, porque el
+     * portal reenvía la afectación de la línea facturada.
+     */
+    @Test void elImpuestoDeLasGratuitasSeLimitaAparteDeSuBase() {
+        Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("M1", "Muestra", "NIU", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.EXONERADO_GRATUITO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+        assertThat(f.totales().gratuito()).isEqualByComparingTo("100.00");
+        assertThat(f.totales().igvGratuitas()).isEqualByComparingTo("0.00");
+        // Misma base gratuita, pero declarada como gravada (11): el IGV informado pasa de 0 a 18 y f118 la rechaza.
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "07",
+                List.of(new Item("M1", "Muestra", "NIU", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.GRAVADO_RETIRO_PREMIO)))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3503").hasMessageContaining("IGV de las operaciones gratuitas");
+        // Con la misma clase (21) pasa: base y impuesto coinciden con la factura.
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "07",
+                List.of(new Item("M1", "Muestra", "NIU", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.EXONERADO_GRATUITO)))).totales().gratuito()).isEqualByComparingTo("100.00");
+    }
+
     /** Una NC dada de baja (ANULADO) ya no acredita: sin este filtro la factura quedaba bloqueada tras anular una nota errónea. */
     @Test void unaNotaAnuladaNoCuentaEnElAcumulado() {
         Comprobante f = facturaAceptada(FormaPago.contado());
