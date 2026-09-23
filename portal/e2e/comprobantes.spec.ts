@@ -915,38 +915,58 @@ test("NC por importe sobre una factura exonerada: la línea sale exonerada (20) 
 });
 
 test("NC por importe: el tope real es el del tributo (3503) cuando queda por debajo del total, y el mock lo replica", async ({ page }) => {
-  // f-cargos: total 1353, pero gravado + IGV = 1346.71 (el resto es ISC). Recert #7: el formulario mostraba 1353 como
-  // tope, el mock daba 201 y el backend 422 (gravado de la nota 1146.61 > 1140.32 + 1).
-  await page.goto("/comprobantes/f-cargos/nota");
+  // f-isc (solo de este test, así el tope es exacto y no depende del orden de la suite): total 200, gravado + IGV = 177.50
+  // (el resto es ISC). Recert #7: el formulario mostraba el total como tope, el mock daba 201 y el backend 422.
+  await page.goto("/comprobantes/f-isc/nota");
   const form = page.getByTestId("nota-form");
   await form.getByLabel(/Motivo/).selectOption("09");
   await form.getByLabel("Sustento").fill("Disminución acordada");
   await form.getByLabel("Concepto").fill("Disminución en el valor");
   const importe = form.getByTestId("nota-importe");
   const boton = form.getByRole("button", { name: "Emitir nota de crédito" });
-  await form.getByLabel(/Importe con IGV/).fill("1353");
-  // El tope mostrado es 1346.71 menos lo que otros tests ya acreditaron sobre f-cargos en paralelo: se lee de la
-  // pantalla en vez de fijarlo, y lo que se afirma es que manda el tributo, no el total.
-  await expect(importe).toContainText("(por tributo, 3503: gravado + IGV de la factura S/ 1,346.71)");
+  await form.getByLabel(/Importe con IGV/).fill("200");
+  await expect(importe).toContainText("Tope: S/ 177.50 (por tributo, 3503: gravado + IGV de la factura S/ 177.50)");
   await expect(importe.getByRole("alert")).toContainText("3503, por tributo");
   await expect(boton).toBeDisabled();
-  const topeMostrado = /Tope: S\/ ([\d,]+\.\d{2})/.exec((await importe.textContent()) ?? "")?.[1]?.replace(/,/g, "");
-  expect(Number(topeMostrado)).toBeLessThanOrEqual(1346.71);
-  await form.getByLabel(/Importe con IGV/).fill(topeMostrado!);
+  await form.getByLabel(/Importe con IGV/).fill("177.50");
   await expect(importe.getByRole("alert")).toHaveCount(0);
   await expect(boton).toBeEnabled();
-  // Paridad del mock por HTTP directo, sobre f-exonerada (nadie más la acredita en gravado): una línea gravada de 100
-  // pasa el 3286 (total 200) pero su gravado (84.75) supera el de la factura (0) → 422 3503. Antes el mock daba 201.
+  // Paridad del mock por HTTP directo: por el total (200) pasa el 3286 pero el gravado (169.49) supera 146.99 + 1 → 3503.
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
   const r = await page.evaluate(async ([h]) => {
     const res = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-      tipo: "07", serie: "FC01", fecha_emision: h, documento_afectado: { serie: "F001", numero: 10 }, motivo: "09", descripcion: "Disminución",
-      items: [{ descripcion: "Disminución en el valor", unidad: "ZZ", cantidad: 1, precio_unitario: 100, tipo_afectacion_igv: "10" }] }) });
+      tipo: "07", serie: "FC01", fecha_emision: h, documento_afectado: { serie: "F001", numero: 11 }, motivo: "09", descripcion: "Disminución",
+      items: [{ descripcion: "Disminución en el valor", unidad: "ZZ", cantidad: 1, precio_unitario: 200, tipo_afectacion_igv: "10" }] }) });
     return { status: res.status, texto: await res.text() };
   }, [hoy]);
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("3503");
   expect(r.texto).toContain("gravado");
+});
+
+test("NC 12 sobre una factura IVAP se emite: el mock reparte la base en gravado y el impuesto en ivap, como el backend", async ({ page }) => {
+  // Recert #8: con el fixture {gravado: 0, igv: 4} y el 3503 sin IVAP, el mock rechazaba TODA NC sobre f-ivap.
+  await page.goto("/comprobantes/f-ivap/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("12");
+  await form.getByLabel("Sustento").fill("Ajuste IVAP");
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
+  await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 10.40");
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  expect((await peticion).postDataJSON().items[0]).toMatchObject({ cantidad: 1, precio_unitario: 10.4, tipo_afectacion_igv: "17" });
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+});
+
+test("NC 02 (anulación por error en el RUC) es una nota total, como 01 y 06", async ({ page }) => {
+  await page.goto("/comprobantes/f-cargos/nota");
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("02");
+  await expect(form.getByTestId("nota-total")).toContainText("copia los ítems");
+  await form.getByLabel(/Motivo/).selectOption("06");
+  await expect(form.getByTestId("nota-total")).toContainText("copia los ítems");
+  await form.getByLabel(/Motivo/).selectOption("03");
+  await expect(form.getByRole("table")).toBeVisible(); // 03 corrige por ítem
 });
 
 test("ND 12 sobre IVAP: un importe de 0.07 a 0.12 deja el IVAP en 0.00 (3111) y no se emite; el mock lo replica", async ({ page }) => {
@@ -972,4 +992,12 @@ test("ND 12 sobre IVAP: un importe de 0.07 a 0.12 deja el IVAP en 0.00 (3111) y 
   }, [hoy]);
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("3111");
+  // Y el 0.13 que el formulario recomienda sí pasa (base 0.125 → IVAP 0.01, como el dominio): el mock lo rechazaba.
+  const ok = await page.evaluate(async ([h]) => {
+    const res = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      tipo: "08", serie: "FD01", fecha_emision: h, documento_afectado: { serie: "F001", numero: 8 }, motivo: "12", descripcion: "Ajuste mínimo",
+      items: [{ descripcion: "Ajuste de precio", unidad: "ZZ", cantidad: 1, precio_unitario: 0.13, tipo_afectacion_igv: "17" }] }) });
+    return { status: res.status, texto: await res.text() };
+  }, [hoy]);
+  expect(ok.status, ok.texto).toBe(201);
 });

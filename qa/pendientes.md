@@ -19,7 +19,7 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 
 - Idempotencia en `POST /v1/facturas`: un reintento tras corte de red no debe emitir dos facturas (clave de idempotencia por tenant). Hoy el portal avisa «pudo haberse emitido»; el backend no protege.
 
-## Notas (recert #7: 0 bloqueantes · 3 importantes, corregido; recert #8 pendiente)
+## Notas (recert #8: 0 bloqueantes · 5 importantes, corregido; recert #9 pendiente)
 
 | Qué | Nota |
 |---|---|
@@ -33,6 +33,8 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 | `importeLineaNota` se desvía ≤ 0.02 del dominio en parciales con ISC | 20 000 líneas aleatorias: 91 % exacto, máx. 0.02; exacto con la cantidad facturada |
 | `afectacionPredominante` elige 10 en una factura mixta: el descuento acredita IGV sobre todo el importe aunque parte sea exonerada | SUNAT lo acepta dentro del 3503; riesgo fiscal del emisor, no rechazo. Partir la nota por afectación sería otra iteración |
 | `Acreditado` suma también las NC de motivo 10 al acumulado | política deliberada (#83), más estricta que SUNAT |
+| Mock: 3503 sin el límite de gratuitas; descuento de línea no restado del total; 3111 solo en gravadas onerosas (la fila del 9996 es inalcanzable con IGV ≥ 10.5 %) | sin fixture con gratuitas ni descuento de línea; inalcanzables hoy |
+| Backend: el 3503 compara `gravado` sin mirar el tributo (NC 12 con líneas 17 sobre factura no IVAP pasaría) | solo por API; el formulario no ofrece el 12 sin IVAP |
 | Boletas fuera de alcance | issue #20 |
 
 ## Transversal

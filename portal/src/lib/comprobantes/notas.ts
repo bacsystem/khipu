@@ -113,14 +113,20 @@ export function impuestoRedondeaACero(afectacion: string, importeConImpuesto: nu
  * (30); en exportación e IVAP toda la factura es del mismo tributo. Es el límite real en facturas con ISC, ICBPER,
  * cargos sin IGV, anticipos o mixtas, donde el total (3286) queda por encima.
  */
-export function topePorTributo(totales: Pick<Comprobante["totales"], "gravado" | "igv" | "exonerado" | "inafecto" | "total">, afectacion: string): number {
+export function topePorTributo(totales: Pick<Comprobante["totales"], "gravado" | "igv" | "exonerado" | "inafecto" | "total" | "ivap" | "exportacion">, afectacion: string): number {
   switch (afectacion) {
     case "10":
       return redondear(totales.gravado + totales.igv, 2);
+    case "17":
+      // En una factura IVAP la base 1016 viaja en `gravado` y el impuesto en `ivap`.
+      return redondear(totales.gravado + (totales.ivap ?? 0), 2);
     case "20":
       return totales.exonerado;
     case "30":
       return totales.inafecto;
+    case "40":
+      // Base 9995 (fila 114): con un cargo sin IGV, descuento global o redondeo el total queda por encima y el tope mentía.
+      return totales.exportacion ?? totales.total;
     default:
       return totales.total;
   }
