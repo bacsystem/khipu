@@ -19,7 +19,7 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 
 - Idempotencia en `POST /v1/facturas`: un reintento tras corte de red no debe emitir dos facturas (clave de idempotencia por tenant). Hoy el portal avisa «pudo haberse emitido»; el backend no protege.
 
-## Notas (recert #8: 0 bloqueantes · 5 importantes, corregido; recert #9 pendiente)
+## Notas (recert #9: 0 bloqueantes · 1 importante de cobertura, corregido; recert #10 pendiente)
 
 | Qué | Nota |
 |---|---|
