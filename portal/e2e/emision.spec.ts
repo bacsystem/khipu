@@ -158,6 +158,26 @@ test("si la red se corta durante la emisión, avisa y no deja el botón en «Emi
   await expect(page).toHaveURL(/\/comprobantes(\?|$)/);
 });
 
+/**
+ * El otro final incierto: la petición llegó y la respuesta no es JSON (el HTML de un 502 de proxy, típico). Acá el POST
+ * casi con seguridad se procesó, así que el aviso de no reintentar a ciegas importa más todavía que en el corte.
+ */
+test("si la respuesta de la emisión no es JSON, avisa que pudo haberse emitido igual", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+  await completarMinimo(dialogo);
+
+  await page.route("**/api/proxy/facturas", (r) =>
+    r.fulfill({ status: 502, contentType: "text/html", body: "<html><body>502 Bad Gateway</body></html>" }),
+  );
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+
+  const alerta = dialogo.getByRole("alert");
+  await expect(alerta).toContainText("pudo haberse emitido");
+  await expect(dialogo.getByRole("button", { name: "Emitir factura" })).toBeEnabled();
+});
+
 /** Formulario mínimamente válido: lo que hace falta para que un submit implícito realmente emita. */
 async function completarMinimo(dialogo: ReturnType<import("@playwright/test").Page["getByRole"]>) {
   await dialogo.getByLabel("RUC").fill("20554198211");

@@ -50,19 +50,16 @@ export function BajaButton({ id, numero, fechaEmision, notasVigentes = 0 }: { id
     enviandoRef.current = true;
     setEnviando(true);
     setError(null);
-    let res: Awaited<ReturnType<typeof apiRequest<Baja>>>;
-    try {
-      res = await apiRequest<Baja>(`/api/proxy/facturas/${id}/baja`, { method: "POST", body: { motivo: motivo.trim() } });
-    } catch {
-      // `fetch` RECHAZA ante un corte de conexión: la comunicación pudo haber llegado a SUNAT (es irreversible), así que no
-      // se reintenta a ciegas. El backend impide una segunda baja mientras haya una en curso.
-      enviandoRef.current = false;
-      setEnviando(false);
+    const res = await apiRequest<Baja>(`/api/proxy/facturas/${id}/baja`, { method: "POST", body: { motivo: motivo.trim() } });
+    enviandoRef.current = false;
+    setEnviando(false);
+    // Un corte de conexión no dice si la comunicación llegó a SUNAT, y la baja es irreversible: no se reintenta a
+    // ciegas. El backend impide una segunda baja mientras haya una en curso. La respuesta que no es JSON cae más
+    // abajo a propósito: su mensaje ya trae el HTTP y manda a recargar para ver el estado real.
+    if (res.codigo === "RED") {
       setError(`Se cortó la conexión mientras se enviaba. La baja de ${numero} pudo haber llegado a SUNAT: recargá la ficha y revisá su estado antes de volver a intentarlo.`);
       return;
     }
-    enviandoRef.current = false;
-    setEnviando(false);
     if (res.estado !== "exito" || !res.datos) {
       setError(res.mensaje ?? mensajeError(res.codigo));
       return;

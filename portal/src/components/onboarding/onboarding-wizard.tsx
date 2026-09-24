@@ -8,7 +8,7 @@ import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { apiRequest } from "@/lib/api/browser";
+import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import { mensajeError } from "@/lib/messages";
 import { codigoSerie, razonSocialSchema, rucSchema, soloDigitos } from "@/lib/validacion";
 import { cn } from "@/lib/utils";
@@ -76,16 +76,17 @@ export function OnboardingWizard() {
   }, []);
 
   /**
-   * `fetch` RECHAZA ante un corte de conexión y `apiRequest` no lo captura: los cuatro envíos del alta fallaban en silencio
-   * (el botón volvía a su estado y no aparecía nada). Devuelve `null` cuando no hubo respuesta, con el aviso ya puesto.
+   * Un corte de conexión no dice si el paso se completó, y los cuatro envíos del alta fallaban en silencio (el botón
+   * volvía a su estado y no aparecía nada). Devuelve `null` cuando no se sabe, con el aviso ya puesto. El cliente no
+   * lanza: devuelve el sobre de error, así que la decisión se toma sobre el código y no en un `catch`.
    */
   async function enviar<T>(ruta: string, init: { method: string; body?: unknown }) {
-    try {
-      return await apiRequest<T>(ruta, init);
-    } catch {
+    const res = await apiRequest<T>(ruta, init);
+    if (noSeSabeSiLlego(res)) {
       setError("Se cortó la conexión y no sabemos si el paso se completó. Recargá la página: el asistente retoma donde quedó.");
       return null;
     }
+    return res;
   }
 
   const empresaForm = useForm<EmpresaValues>({
