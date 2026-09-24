@@ -19,8 +19,14 @@ const SVG_W = 320;
 const SVG_H = PASOS.length * BOX_H + (PASOS.length - 1) * GAP;
 
 /** Un tic por paso, más uno de sobra para que el resultado se quede a la vista antes de volver a empezar. */
-const MS_POR_PASO = 1100;
+const MS_POR_PASO = 1900;
 const TICS = PASOS.length + 1;
+/** Radio y perímetro del anillo de progreso: va por fuera del círculo del icono, sin taparlo. */
+const ANILLO_R = ICON_R + 2;
+const ANILLO_C = 2 * Math.PI * ANILLO_R;
+
+/** El paso cumplido cambia de icono: el suyo deja lugar a un check, que es lo que hace legible el avance. */
+const CHECK = "M20 6 9 17l-5-5";
 
 const ICON_PATHS: Record<number, string[]> = {
   0: [
@@ -103,7 +109,7 @@ export function ComprobantePreview() {
                   y1={y1}
                   x2={ICON_CX}
                   y2={y2 - 5}
-                  stroke="var(--sidebar-primary)"
+                  stroke="var(--acento)"
                   strokeWidth={1.5}
                   strokeDasharray={largo}
                   strokeDashoffset={hecho ? 0 : largo}
@@ -111,7 +117,7 @@ export function ComprobantePreview() {
                 />
                 <path
                   d={`M${ICON_CX - 3.5} ${y2 - 5} L${ICON_CX + 3.5} ${y2 - 5} L${ICON_CX} ${y2} Z`}
-                  fill={hecho ? "var(--sidebar-primary)" : "var(--sidebar-border)"}
+                  fill={hecho ? "var(--acento)" : "var(--sidebar-border)"}
                   className={trans}
                 />
               </g>
@@ -124,7 +130,9 @@ export function ComprobantePreview() {
             const destacado = paso_.detalle === null;
             const activo = i === paso;
             const hecho = i < paso;
-            const verde = destacado || (i === PASOS.length - 1 && hecho);
+            // Cumplido = verde con check. El paso 4 («Recibe respuesta») ya es verde cuando le toca, porque su
+            // resultado *es* la aceptación: ahí el verde no anuncia que terminó, anuncia qué contestó SUNAT.
+            const verde = hecho || (destacado && activo);
             return (
               <g key={paso_.titulo} opacity={activo || hecho ? 1 : 0.38} className={trans}>
                 <rect
@@ -136,40 +144,52 @@ export function ComprobantePreview() {
                   fill={activo ? "var(--sidebar-border)" : "var(--sidebar-accent)"}
                   className={trans}
                 />
-                {/* La onda solo en el paso que está corriendo: marca dónde va el recorrido. */}
+                {/*
+                  El anillo recorre el círculo del paso que está corriendo, una vuelta por fase. Se monta y se
+                  desmonta con `activo`, que es lo que hace que la vuelta arranque de cero en cada paso.
+                */}
                 {activo ? (
                   <circle
+                    key={`anillo-${paso}`}
                     cx={ICON_CX}
                     cy={cy}
-                    r={ICON_R}
-                    className="khipu-onda"
-                    style={{ "--khipu-retraso": "0s" } as CSSProperties}
+                    r={ANILLO_R}
+                    className="khipu-anillo"
+                    style={
+                      {
+                        "--khipu-circunferencia": ANILLO_C,
+                        "--khipu-duracion": `${MS_POR_PASO}ms`,
+                      } as CSSProperties
+                    }
                     fill="none"
-                    stroke={verde ? "var(--success-foreground)" : "var(--sidebar-primary)"}
-                    strokeWidth={1.5}
+                    stroke={verde ? "var(--success-foreground)" : "var(--acento)"}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeDasharray={ANILLO_C}
+                    transform={`rotate(-90 ${ICON_CX} ${cy})`}
                   />
                 ) : null}
-                <circle
-                  cx={ICON_CX}
-                  cy={cy}
-                  r={ICON_R}
-                  fill={verde && (hecho || activo) ? "var(--success)" : "rgba(192,138,46,0.16)"}
-                  className={trans}
-                />
+                <circle cx={ICON_CX} cy={cy} r={ICON_R} fill={verde ? "var(--success)" : "rgba(192,138,46,0.16)"} className={trans} />
                 <g
                   transform={`translate(${ICON_CX - 9} ${cy - 9})`}
                   fill="none"
-                  stroke={verde && (hecho || activo) ? "var(--success-foreground)" : "var(--sidebar-primary)"}
+                  stroke={verde ? "var(--success-foreground)" : "var(--acento)"}
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   className={trans}
                 >
                   <svg width={18} height={18} viewBox="0 0 24 24">
-                    {i === 3 ? <circle cx={12} cy={12} r={10} /> : null}
-                    {ICON_PATHS[i].map((d) => (
-                      <path key={d} d={d} />
-                    ))}
+                    {hecho && !destacado ? (
+                      <path d={CHECK} />
+                    ) : (
+                      <>
+                        {i === 3 ? <circle cx={12} cy={12} r={10} /> : null}
+                        {ICON_PATHS[i].map((d) => (
+                          <path key={d} d={d} />
+                        ))}
+                      </>
+                    )}
                   </svg>
                 </g>
                 <text x={56} y={cy} dominantBaseline="middle" className="font-sans text-[13px]" fill="var(--sidebar-foreground)">

@@ -204,20 +204,27 @@
    desvanece sobre cada paso del proceso, en cascada, para transmitir que el pipeline está en marcha.
    Ver src/components/landing/comprobante-preview.tsx. Desactivado si el visitante prefiere sin movimiento. */
 @media (prefers-reduced-motion: no-preference) {
-  @keyframes khipu-onda {
-    0% {
-      r: 16px;
-      opacity: 0.45;
+  /*
+   * Anillo de progreso del paso que está corriendo en el panel del hero: recorre el círculo del icono una vez, en el
+   * tiempo que dura la fase. Reemplaza al pulso que latía en los cinco pasos a la vez, que no decía dónde iba el
+   * recorrido. `stroke-dasharray` es la circunferencia, y el trazo se va descubriendo hasta cerrarla.
+   */
+  @keyframes khipu-anillo {
+    from {
+      stroke-dashoffset: var(--khipu-circunferencia);
     }
-    65%,
-    100% {
-      r: 23px;
-      opacity: 0;
+    to {
+      stroke-dashoffset: 0;
     }
   }
-  .khipu-onda {
-    animation: khipu-onda 4.8s ease-out infinite;
-    animation-delay: var(--khipu-retraso, 0s);
+  .khipu-anillo {
+    animation: khipu-anillo var(--khipu-duracion, 1.8s) linear forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .khipu-anillo {
+      animation: none;
+      stroke-dashoffset: 0;
+    }
   }
 }
 
