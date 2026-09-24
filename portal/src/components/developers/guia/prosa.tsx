@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { IndiceActivo } from "@/components/developers/guia/indice-activo";
 import { cn } from "@/lib/utils";
 
 export function Seccion({ id, titulo, children }: { id: string; titulo: string; children: ReactNode }) {
@@ -41,6 +42,13 @@ export function NotaProsa({ tono = "info", children }: { tono?: "info" | "aviso"
 export function Tabla({ cabeceras, filas }: { cabeceras: string[]; filas: ReactNode[][] }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
+      {/*
+        La primera columna NO lleva `whitespace-nowrap`. Con él, una celda que enumera varios códigos
+        —«DESCUENTO_INVALIDO / CARGO_INVALIDO / DETRACCION_INVALIDA / …»— no podía cortarse y estiraba la columna a
+        804 px, dejando 179 px para el significado: las filas quedaban de 95 px de alto, con el texto aplastado en una
+        tira y el resto en blanco. Sin él, el corte ocurre en los espacios y ningún código se parte, porque el guion
+        bajo no es un punto de corte. Medido en la página de errores: la tabla pasó de 6511 a 4191 px de alto.
+      */}
       <table className="w-full text-[13px]">
         <thead>
           <tr className="border-b border-border/60 bg-muted">
@@ -55,7 +63,7 @@ export function Tabla({ cabeceras, filas }: { cabeceras: string[]; filas: ReactN
           {filas.map((f, i) => (
             <tr key={i} className="border-b border-border/60 align-top last:border-0">
               {f.map((c, k) => (
-                <td key={k} className={cn("px-3 py-2", k === 0 && "font-mono whitespace-nowrap text-foreground")}>
+                <td key={k} className={cn("px-3 py-3 align-top leading-relaxed", k === 0 && "font-mono text-foreground")}>
                   {c}
                 </td>
               ))}
@@ -67,35 +75,18 @@ export function Tabla({ cabeceras, filas }: { cabeceras: string[]; filas: ReactN
   );
 }
 
-/** Índice lateral de una página de guía. */
-export function Indice({ items }: { items: Array<{ id: string; label: string }> }) {
-  return (
-    <nav aria-label="Contenido" className="sticky top-16 hidden max-h-[calc(100vh-5rem)] overflow-y-auto lg:block">
-      <span className="mb-2 block text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">En esta página</span>
-      <ul className="space-y-1 border-l border-border/60">
-        {items.map((i) => (
-          <li key={i.id}>
-            <a href={`#${i.id}`} className="-ml-px block border-l border-transparent py-0.5 pl-3 text-[12px] text-muted-foreground hover:border-primary hover:text-foreground">
-              {i.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
 
 export function PaginaGuia({ titulo, resumen, indice, children }: { titulo: string; resumen: string; indice: Array<{ id: string; label: string }>; children: ReactNode }) {
   return (
-    <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-10 px-4 py-8 md:px-6 lg:grid-cols-[minmax(0,1fr)_200px]">
-      <div className="min-w-0 space-y-10">
+    <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-12 px-4 py-10 md:px-6 lg:grid-cols-[minmax(0,1fr)_228px]">
+      <div className="min-w-0 space-y-12">
         <header className="space-y-2">
           <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">{titulo}</h1>
           <P className="text-[14px]">{resumen}</P>
         </header>
         {children}
       </div>
-      <Indice items={indice} />
+      <IndiceActivo items={indice} />
     </div>
   );
 }
