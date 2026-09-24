@@ -41,6 +41,7 @@
     ".next-build/types/**/*.ts",
     ".next-e2e/types/**/*.ts",
     ".next-mock/types/**/*.ts",
+    ".next-prod/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts"
   ],
