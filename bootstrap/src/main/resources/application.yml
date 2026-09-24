@@ -54,6 +54,9 @@ app:
   platform-admin-key: ${PLATFORM_ADMIN_KEY:}
   jwt-secret: ${JWT_SECRET:}
   portal-url: ${PORTAL_URL:http://localhost:3000}
+  # Cerrado por defecto (issue #174): el portal ya cerraba su propia ruta de registro, pero el backend la dejaba
+  # abierta a quien lo llamara directo. Abrirlo es una decisión explícita de despliegue, no el estado de reposo.
+  registro-abierto: ${REGISTRO_ABIERTO:false}
   storage:
     type: ${STORAGE_TYPE:fs}
     fs-root: ${STORAGE_FS_ROOT:./storage}
