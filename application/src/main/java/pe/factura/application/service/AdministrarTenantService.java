@@ -90,10 +90,11 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         throw new DomainException("CERTIFICADO_INVALIDO", "El PKCS#12 no contiene una clave privada");
     }
 
+    /** La validación y la normalización del usuario viven en {@link CredencialesSol}: así valen para cualquier camino. */
     public void cargarCredencialesSol(UUID tenantId, String usuario, String clave) {
         Tenant t = obtener(tenantId);
-        if (usuario == null || usuario.isBlank() || clave == null || clave.isBlank()) throw new DomainException("CREDENCIALES_INVALIDAS", "Usuario y clave SOL son obligatorios");
-        uow.ejecutar(() -> tenants.guardar(t.conCredencialesSol(new CredencialesSol(usuario, clave))));
+        CredencialesSol sol = new CredencialesSol(usuario, clave);
+        uow.ejecutar(() -> tenants.guardar(t.conCredencialesSol(sol)));
     }
 
     public void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial) {

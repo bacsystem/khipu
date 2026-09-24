@@ -14,6 +14,16 @@ import { UbigeoSelector } from "./ubigeo-selector";
  * Domicilio fiscal (RegistrationAddress del emisor en cada XML) y cuenta de detracciones por defecto. El ubigeo se elige en
  * cascada departamento → provincia → distrito sobre el catálogo 13 (INEI), que se carga al abrir el formulario.
  */
+/**
+ * Sin ubigeo el PUT manda `domicilio: null`, y el backend reemplaza los tres valores: borra el domicilio guardado
+ * **y** descarta la dirección recién escrita, informando éxito. Así que si el formulario tiene algo del domicilio
+ * cargado, el distrito es obligatorio. Vaciar los tres campos sí borra el domicilio, que es deliberado.
+ */
+export function faltaElDistrito(ubigeo: string, direccion: string, urbanizacion: string): boolean {
+  if (ubigeo) return false;
+  return direccion.trim() !== "" || urbanizacion.trim() !== "";
+}
+
 export function DatosFiscalesForm({
   domicilio,
   cuentaDetracciones,
@@ -39,9 +49,13 @@ export function DatosFiscalesForm({
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setEnviando(true);
     setError(null);
     setOk(false);
+    if (faltaElDistrito(ubigeo, direccion, urbanizacion)) {
+      setError("Elegí el distrito. Sin ubigeo, SUNAT no acepta el domicilio (regla 4093) y la dirección no se guarda.");
+      return;
+    }
+    setEnviando(true);
     const res = await apiRequest<EmpresaDetalle>("/api/proxy/empresa/datos-fiscales", {
       method: "PUT",
       body: {

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import pe.factura.domain.DomainException;
 
@@ -37,10 +38,32 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(st).body(ApiResponse.error(e.codigo(), e.getMessage()));
     }
 
-    /** Carrera entre dos emisiones con el mismo (serie, número): la UNIQUE de documento es la última barrera. */
+    /**
+     * Última barrera de las UNIQUE: la carrera entre dos emisiones con el mismo (serie, número) y el alta de una
+     * serie repetida caen las dos acá. El mensaje se elige por la tabla del constraint porque decirle «ya existe un
+     * documento con esa serie y número» a quien está creando una serie no explica nada. El texto del constraint no
+     * se devuelve, solo se usa para decidir.
+     */
     @ExceptionHandler(DuplicateKeyException.class)
     public ResponseEntity<ApiResponse<Void>> duplicado(DuplicateKeyException e) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error("DUPLICADO", "Ya existe un documento con esa serie y número"));
+        String causa = String.valueOf(e.getMostSpecificCause().getMessage()).toLowerCase(Locale.ROOT);
+        String mensaje = causa.contains("serie") && !causa.contains("documento")
+                ? "Ya existe una serie con ese tipo y código"
+                : causa.contains("documento")
+                ? "Ya existe un documento con esa serie y número"
+                : "Ya existe un registro con esos datos";
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error("DUPLICADO", mensaje));
+    }
+
+    /**
+     * El único multipart del sistema es el .p12 del certificado. Sin este handler un archivo más grande que el tope
+     * cae en el catch-all y devuelve 500 INTERNO, que el portal traduce a «error interno, intentá en unos minutos»:
+     * el usuario no tiene forma de saber que el problema es el tamaño del archivo que eligió.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> archivoDemasiadoGrande(MaxUploadSizeExceededException e) {
+        return ResponseEntity.unprocessableEntity()
+                .body(ApiResponse.error("ARCHIVO_DEMASIADO_GRANDE", "El archivo supera el tamaño máximo permitido (1 MB). Un certificado .p12 pesa unos pocos KB: revisá que sea el archivo correcto."));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

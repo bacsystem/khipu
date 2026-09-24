@@ -103,6 +103,34 @@ class EmpresaControllerTest {
         verify(admin).crearSerie(tenant, TipoDocumento.FACTURA, "F002", 0, "0002");
     }
 
+    /** Una serie repetida y un documento repetido caen las dos en la UNIQUE: el mensaje tiene que distinguirlas. */
+    @Test void serieRepetidaEs409ConSuPropioMensaje() throws Exception {
+        org.mockito.Mockito.doThrow(new org.springframework.dao.DuplicateKeyException("ERROR: duplicate key value violates unique constraint \"serie_tenant_id_tipo_codigo_key\""))
+                .when(admin).crearSerie(tenant, TipoDocumento.FACTURA, "F001", 0, null);
+        mvc.perform(post("/v1/series").contentType("application/json").content("{\"tipo\":\"01\",\"serie\":\"F001\",\"correlativo_inicial\":0}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("DUPLICADO"))
+                .andExpect(jsonPath("$.mensaje").value("Ya existe una serie con ese tipo y código"));
+    }
+
+    /** El correlativo son 8 dígitos (regla 1001): el DTO lo corta antes de llegar al caso de uso. */
+    @Test void correlativoDeMasDeOchoDigitosEs422() throws Exception {
+        mvc.perform(post("/v1/series").contentType("application/json").content("{\"tipo\":\"01\",\"serie\":\"F001\",\"correlativo_inicial\":100000000}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"));
+        org.mockito.Mockito.verify(admin, org.mockito.Mockito.never()).crearSerie(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any());
+    }
+
+    /** Sin handler propio, un archivo grande caía en el catch-all y devolvía 500 INTERNO. */
+    @Test void certificadoDemasiadoGrandeEs422YNo500() throws Exception {
+        org.mockito.Mockito.doThrow(new org.springframework.web.multipart.MaxUploadSizeExceededException(1_048_576L))
+                .when(admin).cargarCertificado(org.mockito.ArgumentMatchers.eq(tenant), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
+        mvc.perform(multipart("/v1/empresa/certificado").file(new MockMultipartFile("archivo", "c.p12", "application/x-pkcs12", new byte[]{1, 2}))
+                        .param("clave", "x").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("ARCHIVO_DEMASIADO_GRANDE"));
+    }
+
     @Test void establecimientosAnexos() throws Exception {
         Domicilio fiscal = Domicilio.de("150101", "Av. Lima 123");
         Domicilio larco = Domicilio.de("150122", "Av. Larco 345");
