@@ -72,12 +72,9 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 
 | Qué | Dónde | Arreglo |
 |---|---|---|
-| Usuario y clave SOL sin recortar espacios: `" MODDATOS "` hace que SUNAT rechace la autenticación en **todos** los envíos, con el portal mostrando «CONFIGURADAS» | `AdministrarTenantService.cargarCredencialesSol` | `strip()` en el usuario; avisar en la clave |
-| Dirección escrita sin elegir distrito: se descarta en silencio **y borra el domicilio guardado**, informando éxito | `datos-fiscales-form.tsx` | exigir ubigeo, o no mandar `domicilio` a medias |
-| El `.p12` pasa por un archivo temporal en claro y un archivo de más de 1 MB responde 500 | `bootstrap/application.yml`, `GlobalExceptionHandler` | `file-size-threshold` ≥ `max-file-size`, tope explícito, handler 422 |
-| Paridad del mock (5): acepta cualquier «certificado» sin parsearlo, acepta SOL en blanco, solo valida el ubigeo, **no persiste `padron_tasa_especial_igv`** (decide 10.5 % vs 18 %) y deja registrar dos empresas con el mismo RUC | `src/mocks/handlers.ts` | el del padrón es de dinero: prioridad |
+| Paridad del mock (4, el del padrón ya corregido): acepta cualquier «certificado» sin parsearlo, acepta SOL en blanco, solo valida el ubigeo, y deja registrar dos empresas con el mismo RUC | `src/mocks/handlers.ts` | |
 | Cobertura: OU↔RUC y SOL en blanco sin test; `empresa.spec.ts` no toca el formulario de certificado ni el de SOL; el test de cifrado solo cubre `sol_clave_enc` | tests | |
-| Menores: cookie `factura_empresa` sin comprobar pertenencia (el backend corta con 403, no hay fuga); fault SOAP de credenciales clasificado como transitorio y sin señal en pantalla; `CREDENCIALES_INVALIDAS` mapeado a 401 para un caso de validación; faltan 4 claves de mensaje; `cert_vigencia_hasta` nullable se muestra «Sin certificado»; RUC sin dígito verificador en cliente; cita equivocada de la regla 3034 | varios | |
+| Menores: cookie `factura_empresa` sin comprobar pertenencia (el backend corta con 403, no hay fuga); fault SOAP de credenciales clasificado como transitorio y sin señal en pantalla; `cert_vigencia_hasta` nullable se muestra «Sin certificado»; RUC sin dígito verificador en cliente; cita equivocada de la regla 3034. *(El 401 de `CREDENCIALES_INVALIDAS` y las claves de mensaje faltantes: corregidos en #162.)* | varios | |
 
 ## Series (aud. #1, ficha [series.md](series.md))
 
