@@ -3,6 +3,7 @@
 import { SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
+import { useSeccionActiva } from "@/lib/seccion-activa";
 import { cn } from "@/lib/utils";
 import { Rico } from "./guia/rico";
 
@@ -43,6 +44,8 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
         .filter((c) => !q || c.entradas.length > 0 || c.nombre.toLowerCase().includes(q)),
     [catalogos, q],
   );
+  // Solo se siguen los catálogos que están en el documento: con el filtro puesto, el resto ni existe.
+  const activo = useSeccionActiva(visibles.map((c) => `cat-${c.id}`));
 
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-4 py-8 md:px-6 lg:grid-cols-[200px_minmax(0,1fr)]">
@@ -57,15 +60,29 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
             className="h-8 w-full rounded-lg border border-border bg-muted pl-8 pr-2 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card"
           />
         </div>
+        {/*
+          La lista sigue al filtro: antes mostraba los 22 catálogos siempre, así que con una búsqueda puesta la mitad
+          de los enlaces no llevaba a ninguna parte, porque esas secciones no están en el documento.
+        */}
         <ul className="space-y-0.5">
-          {catalogos.map((c) => (
-            <li key={c.id}>
-              <a href={`#cat-${c.id}`} className="flex items-baseline gap-2 rounded px-2 py-1 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground">
-                <span className="font-mono text-foreground/80">{c.id}</span>
-                <span className="truncate">{c.nombre}</span>
-              </a>
-            </li>
-          ))}
+          {visibles.map((c) => {
+            const esActivo = `cat-${c.id}` === activo;
+            return (
+              <li key={c.id}>
+                <a
+                  href={`#cat-${c.id}`}
+                  aria-current={esActivo ? "location" : undefined}
+                  className={cn(
+                    "flex items-baseline gap-2 rounded px-2 py-1 text-[12px] transition-colors",
+                    esActivo ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  )}
+                >
+                  <span className={cn("font-mono", esActivo ? "text-primary" : "text-foreground/80")}>{c.id}</span>
+                  <span className="truncate">{c.nombre}</span>
+                </a>
+              </li>
+            );
+          })}
         </ul>
       </aside>
 
