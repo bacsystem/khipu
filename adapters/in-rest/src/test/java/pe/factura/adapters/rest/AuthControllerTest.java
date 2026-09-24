@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.AutenticarUsuarioUseCase;
 import pe.factura.domain.DomainException;
@@ -19,8 +20,10 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/** {@code app.registro-abierto} se fija explícito: el default real (issue #174) es cerrado, ver {@link AuthControllerRegistroCerradoTest}. */
 @WebMvcTest(controllers = AuthController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 @Import(GlobalExceptionHandler.class)
+@TestPropertySource(properties = "app.registro-abierto=true")
 class AuthControllerTest {
     @Autowired MockMvc mvc;
     @MockBean AutenticarUsuarioUseCase auth;

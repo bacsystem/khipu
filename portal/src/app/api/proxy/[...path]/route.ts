@@ -37,6 +37,23 @@ function segmentoValido(segmento: string): boolean {
   return segmento !== "" && segmento !== "." && segmento !== ".." && !segmento.includes("/") && !segmento.includes("\\");
 }
 
+/**
+ * `/v1/auth/**` no se reenvía nunca desde acá (issue #174).
+ *
+ * Este proxy no exige sesión: `middleware.ts` solo protege las páginas privadas, no `/api/proxy/**`, así que
+ * cualquier visitante sin cuenta puede llamarlo. Antes de esto, un `POST /api/proxy/auth/registro` llegaba
+ * directo a `/v1/auth/registro` del backend sin pasar por `/api/auth/registro`, que es donde vive el chequeo de
+ * «registro cerrado» del portal — el registro cerrado de la página no protegía nada si alguien llamaba a la API.
+ *
+ * Los endpoints de auth ya tienen su propia ruta dedicada (`/api/auth/login`, `/registro`, `/recuperar`,
+ * `/restablecer`; el refresh no tiene una porque nada del navegador lo llama directo, solo el propio proxy y el
+ * middleware), y ninguna parte del portal usa `/api/proxy/auth/*` — comprobado, no hay una sola llamada así en
+ * el código. Bloquear el prefijo entero cierra la clase de bypass, no solo el caso del registro.
+ */
+function esRutaDeAuth(path: string[]): boolean {
+  return path[0] === "auth";
+}
+
 async function readBody(req: NextRequest): Promise<ArrayBuffer | undefined> {
   if (req.method === "GET" || req.method === "HEAD") return undefined;
   return req.arrayBuffer();
@@ -62,6 +79,9 @@ async function handle(req: NextRequest, context: RouteContext) {
   const { path } = await context.params;
   if (path.length === 0 || !path.every(segmentoValido)) {
     return new NextResponse(null, { status: 400 });
+  }
+  if (esRutaDeAuth(path)) {
+    return new NextResponse(null, { status: 404 });
   }
 
   const { access, refresh, empresa } = readSession(req);

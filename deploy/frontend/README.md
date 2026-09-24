@@ -38,7 +38,7 @@ en Railway y redeployar basta: no hay que reconstruir la imagen**.
 
 | Variable | Fase 0 (landing) | Con backend | Notas |
 |---|---|---|---|
-| `REGISTRO_ABIERTO` | `false` | `true` cuando el autoservicio esté certificado | Sin la variable, el default en producción ya es cerrado; se declara explícita para que el estado sea visible en Railway |
+| `REGISTRO_ABIERTO` | `false` | `true` cuando el autoservicio esté certificado | Sin la variable, el default en producción ya es cerrado; se declara explícita para que el estado sea visible en Railway. **El backend tiene la misma variable y cierra por su cuenta** (issue #174): hay que ponerla en los dos servicios para abrir el autoservicio de verdad, no solo la página |
 | `CONTACTO_URL` | `mailto:...` o la URL de un formulario | — | A dónde lleva «Solicitar acceso». Sin ella el landing no muestra botón de alta |
 | `API_BASE_URL` | se puede omitir | `http://backend.railway.internal:$PORT` | URL interna que usa el BFF. Sin backend, `/developers` y `/developers/catalogos` muestran un aviso en vez de fallar |
 | `API_PUBLIC_URL` | se puede omitir | dominio público del backend | Es la URL que ve el navegador en los ejemplos de `/developers` |

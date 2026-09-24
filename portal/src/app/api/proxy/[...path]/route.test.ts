@@ -199,4 +199,33 @@ describe("proxy /api/proxy/[...path]", () => {
     const [, init] = fetchMock.mock.calls[0];
     expect(new TextDecoder().decode(init.body)).toBe(JSON.stringify({ ruc: "12345678901" }));
   });
+
+  // Issue #174: antes de esto, un POST acá llegaba directo a /v1/auth/registro del backend sin pasar por
+  // /api/auth/registro, que es donde vive el chequeo de «registro cerrado» del portal. Este proxy no exige
+  // sesión (`middleware.ts` no lo protege), así que cualquier visitante sin cuenta podía llamarlo.
+  it("no reenvía /auth/**: los endpoints de auth tienen su propia ruta dedicada", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const req = new NextRequest("http://localhost/api/proxy/auth/registro", {
+      method: "POST",
+      body: JSON.stringify({ nombre: "x", email: "x@x.pe", password: "x", telefono: "1" }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await POST(req, ctx(["auth", "registro"]));
+
+    expect(res.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("tampoco reenvía otras rutas bajo /auth/, como login", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(new NextRequest("http://localhost/api/proxy/auth/login", { method: "POST" }), ctx(["auth", "login"]));
+
+    expect(res.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
