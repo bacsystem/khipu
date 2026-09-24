@@ -1,4 +1,6 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { type CSSProperties, useEffect, useState } from "react";
 
 const PASOS = [
   { titulo: "Valida los datos", detalle: "reglas de negocio" },
@@ -15,6 +17,10 @@ const ICON_CX = 28;
 const ICON_R = 16;
 const SVG_W = 320;
 const SVG_H = PASOS.length * BOX_H + (PASOS.length - 1) * GAP;
+
+/** Un tic por paso, más uno de sobra para que el resultado se quede a la vista antes de volver a empezar. */
+const MS_POR_PASO = 1100;
+const TICS = PASOS.length + 1;
 
 const ICON_PATHS: Record<number, string[]> = {
   0: [
@@ -38,7 +44,36 @@ const ICON_PATHS: Record<number, string[]> = {
   ],
 };
 
+/**
+ * El panel del hero: la emisión ocurriendo, no el resultado ya hecho. Cada paso se enciende por turno, la línea que
+ * baja se va llenando, y el «Aceptado» y el importe aparecen recién cuando el recorrido llega ahí.
+ *
+ * Tres decisiones que importan:
+ *
+ * - **En reposo se ve terminado.** El servidor renderiza el último estado, así que quien no tiene JS, quien pidió menos
+ *   movimiento y la primera pintura ven el panel completo, con su importe. El recorrido arranca al montar.
+ * - **`prefers-reduced-motion` no anima nada**, ni siquiera una vuelta: se queda en ese estado final.
+ * - Sin librería de animación: un índice en el estado y transiciones CSS.
+ */
 export function ComprobantePreview() {
+  const [paso, setPaso] = useState(PASOS.length);
+  const [animando, setAnimando] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // El salto del estado final al inicio va sin transición: `animando` recién habilita el CSS en el tic siguiente.
+    setPaso(0);
+    const id = setInterval(() => setPaso((p) => (p + 1) % TICS), MS_POR_PASO);
+    const alta = requestAnimationFrame(() => setAnimando(true));
+    return () => {
+      clearInterval(id);
+      cancelAnimationFrame(alta);
+    };
+  }, []);
+
+  const trans = animando ? "transition-[opacity,fill,stroke-dashoffset] duration-500 ease-out" : "";
+  const completado = paso >= PASOS.length;
+
   return (
     <div className="relative mx-auto w-full max-w-sm">
       <div
@@ -57,39 +92,78 @@ export function ComprobantePreview() {
           {PASOS.slice(0, -1).map((_, i) => {
             const y1 = i * UNIT + BOX_H / 2 + ICON_R;
             const y2 = (i + 1) * UNIT + BOX_H / 2 - ICON_R;
+            const largo = y2 - 5 - y1;
+            const hecho = i < paso;
             return (
               <g key={`linea-${i}`}>
                 <line x1={ICON_CX} y1={y1} x2={ICON_CX} y2={y2 - 5} stroke="var(--sidebar-border)" strokeWidth={1} />
-                <path d={`M${ICON_CX - 3.5} ${y2 - 5} L${ICON_CX + 3.5} ${y2 - 5} L${ICON_CX} ${y2} Z`} fill="var(--sidebar-border)" />
+                {/* La misma línea encima, en color de marca, revelada de arriba abajo cuando el paso se completa. */}
+                <line
+                  x1={ICON_CX}
+                  y1={y1}
+                  x2={ICON_CX}
+                  y2={y2 - 5}
+                  stroke="var(--sidebar-primary)"
+                  strokeWidth={1.5}
+                  strokeDasharray={largo}
+                  strokeDashoffset={hecho ? 0 : largo}
+                  className={trans}
+                />
+                <path
+                  d={`M${ICON_CX - 3.5} ${y2 - 5} L${ICON_CX + 3.5} ${y2 - 5} L${ICON_CX} ${y2} Z`}
+                  fill={hecho ? "var(--sidebar-primary)" : "var(--sidebar-border)"}
+                  className={trans}
+                />
               </g>
             );
           })}
 
-          {PASOS.map((paso, i) => {
+          {PASOS.map((paso_, i) => {
             const boxY = i * UNIT;
             const cy = boxY + BOX_H / 2;
-            const destacado = paso.detalle === null;
+            const destacado = paso_.detalle === null;
+            const activo = i === paso;
+            const hecho = i < paso;
+            const verde = destacado || (i === PASOS.length - 1 && hecho);
             return (
-              <g key={paso.titulo}>
-                <rect x={0} y={boxY} width={SVG_W} height={BOX_H} rx={10} fill="var(--sidebar-accent)" />
+              <g key={paso_.titulo} opacity={activo || hecho ? 1 : 0.38} className={trans}>
+                <rect
+                  x={0}
+                  y={boxY}
+                  width={SVG_W}
+                  height={BOX_H}
+                  rx={10}
+                  fill={activo ? "var(--sidebar-border)" : "var(--sidebar-accent)"}
+                  className={trans}
+                />
+                {/* La onda solo en el paso que está corriendo: marca dónde va el recorrido. */}
+                {activo ? (
+                  <circle
+                    cx={ICON_CX}
+                    cy={cy}
+                    r={ICON_R}
+                    className="khipu-onda"
+                    style={{ "--khipu-retraso": "0s" } as CSSProperties}
+                    fill="none"
+                    stroke={verde ? "var(--success-foreground)" : "var(--sidebar-primary)"}
+                    strokeWidth={1.5}
+                  />
+                ) : null}
                 <circle
                   cx={ICON_CX}
                   cy={cy}
                   r={ICON_R}
-                  className="khipu-onda"
-                  style={{ "--khipu-retraso": `${i * 0.96}s` } as CSSProperties}
-                  fill="none"
-                  stroke={i >= 3 ? "var(--success-foreground)" : "var(--sidebar-primary)"}
-                  strokeWidth={1.5}
+                  fill={verde && (hecho || activo) ? "var(--success)" : "rgba(192,138,46,0.16)"}
+                  className={trans}
                 />
-                <circle cx={ICON_CX} cy={cy} r={ICON_R} fill={destacado ? "var(--success)" : "rgba(192,138,46,0.16)"} />
                 <g
                   transform={`translate(${ICON_CX - 9} ${cy - 9})`}
                   fill="none"
-                  stroke={destacado ? "var(--success-foreground)" : "var(--sidebar-primary)"}
+                  stroke={verde && (hecho || activo) ? "var(--success-foreground)" : "var(--sidebar-primary)"}
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  className={trans}
                 >
                   <svg width={18} height={18} viewBox="0 0 24 24">
                     {i === 3 ? <circle cx={12} cy={12} r={10} /> : null}
@@ -99,10 +173,10 @@ export function ComprobantePreview() {
                   </svg>
                 </g>
                 <text x={56} y={cy} dominantBaseline="middle" className="font-sans text-[13px]" fill="var(--sidebar-foreground)">
-                  {paso.titulo}
+                  {paso_.titulo}
                 </text>
                 {destacado ? (
-                  <g>
+                  <g opacity={hecho || activo ? 1 : 0} className={trans}>
                     <rect x={SVG_W - 88} y={cy - 11} width={82} height={22} rx={11} fill="var(--success)" />
                     <text
                       x={SVG_W - 47}
@@ -125,7 +199,7 @@ export function ComprobantePreview() {
                     fill="var(--sidebar-foreground)"
                     opacity={0.5}
                   >
-                    {paso.detalle}
+                    {paso_.detalle}
                   </text>
                 )}
               </g>
@@ -133,7 +207,11 @@ export function ComprobantePreview() {
           })}
         </svg>
 
-        <div className="mt-5 flex items-center justify-between border-t border-sidebar-border pt-4 font-mono text-sm">
+        {/* El comprobante emitido: aparece cuando el recorrido terminó, que es lo que el panel viene a contar. */}
+        <div
+          className={`mt-5 flex items-center justify-between border-t border-sidebar-border pt-4 font-mono text-sm ${animando ? "transition-opacity duration-500 ease-out" : ""}`}
+          style={{ opacity: completado ? 1 : 0.25 }}
+        >
           <span>F001-00001024</span>
           <span className="text-sidebar-foreground/60">S/ 2,360.00</span>
         </div>
