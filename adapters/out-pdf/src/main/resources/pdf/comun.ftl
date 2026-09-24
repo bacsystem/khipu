@@ -43,6 +43,8 @@
     .qr img { width: 32mm; height: 32mm; }
     .hash { font-family: Courier, monospace; font-size: 7.5pt; word-break: break-all; }
     .leyenda { color: #444; font-size: 8pt; margin: 0.5mm 0; }
+    .leyendas-declaradas { margin: 2mm 0 1mm; padding-top: 1.5mm; border-top: 0.3mm solid #ddd; }
+    .leyenda-declarada { color: #222; font-size: 8.5pt; font-weight: bold; }
     .obs { color: #444; font-size: 8pt; }
     .logo { margin-bottom: 1.5mm; }
     .observaciones p { margin: 0; white-space: pre-line; }
@@ -229,6 +231,21 @@
   <div class="bloque observaciones">
     <h2>Observaciones</h2>
     <p>${texto}</p>
+  </div>
+  </#if>
+</#macro>
+
+<#--
+  Leyendas del catálogo 52 que declaró el emisor. El texto del catálogo es la frase que va impresa: en una factura de la
+  Amazonía o de la zona comercial de Tacna es lo que sustenta la exoneración, así que faltaba justo en los comprobantes
+  donde más importa. Las automáticas (monto en letras, detracción, IVAP, gratuitas, percepción) ya salen en el cuerpo.
+-->
+<#macro leyendasDeclaradas>
+  <#if leyendas?? && leyendas?size gt 0>
+  <div class="leyendas-declaradas">
+    <#list leyendas as l>
+    <p class="leyenda leyenda-declarada">${l}</p>
+    </#list>
   </div>
   </#if>
 </#macro>

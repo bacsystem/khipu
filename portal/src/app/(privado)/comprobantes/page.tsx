@@ -46,7 +46,7 @@ export default async function ComprobantesPage({
         <Metrica etiqueta="Atención requerida" ayuda="requiere endpoint de resumen" pendiente />
       </section>
 
-      <ComprobantesTable inicial={{ datos, total }} pagina={paginaNum} porPagina={porPagina} filtros={filtros} series={series.map((s) => s.serie)} />
+      <ComprobantesTable empresaId={empresaId} inicial={{ datos, total }} pagina={paginaNum} porPagina={porPagina} filtros={filtros} series={series.map((s) => s.serie)} />
     </div>
   );
 }

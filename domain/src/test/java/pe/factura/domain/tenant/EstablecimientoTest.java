@@ -21,6 +21,16 @@ class EstablecimientoTest {
         assertThat(e.desactivar().activo()).isFalse();
     }
 
+    /**
+     * El anexo reescribe el domicilio con su propio código, así que vuelve a pasar por las validaciones con el distrito ya
+     * derivado. Con uno de los tres distritos largos del catálogo 13 esto fallaba y no se podía registrar el establecimiento.
+     */
+    @Test void unAnexoEnUnDistritoDeNombreLargoSeRegistra() {
+        Establecimiento e = new Establecimiento(tenant, "0002", "Tienda Gregorio Albarracín", Domicilio.de("230110", "Av. Bolognesi 100"), true);
+        assertThat(e.domicilio().distrito()).isEqualTo("CORONEL GREGORIO ALBARRACIN LA").hasSize(30);
+        assertThat(e.domicilio().codigoEstablecimiento()).isEqualTo("0002");
+    }
+
     @Test void codigoNombreYDomicilioSeValidan() {
         assertThatThrownBy(() -> new Establecimiento(tenant, "12", "A", dom, true)).isInstanceOf(DomainException.class).hasMessageContaining("3030");
         assertThatThrownBy(() -> new Establecimiento(tenant, "0000", "Principal", dom, true)).hasMessageContaining("domicilio fiscal");

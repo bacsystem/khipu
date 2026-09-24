@@ -76,11 +76,22 @@ function etiquetaEstado(c: Comprobante): string | undefined {
   return undefined;
 }
 
+/**
+ * Clave de la consulta del listado. **La empresa va primero y no es opcional**: cambiar de empresa es una navegación blanda,
+ * así que la tabla no se desmonta, y sin la empresa en la clave react-query servía las filas cacheadas de la empresa
+ * anterior descartando las que el servidor acababa de renderizar. El listado mostraba comprobantes ajenos bajo el RUC
+ * nuevo, y se quedaba así mientras el refetch no respondiera.
+ */
+export function claveComprobantes(empresaId: string, filtros: FiltrosComprobantes, pagina: number, porPagina: number) {
+  return ["facturas", empresaId, filtros.estado ?? null, filtros.desde ?? null, filtros.hasta ?? null, filtros.serie ?? null, pagina, porPagina] as const;
+}
+
 export function ComprobantesTable({
   inicial,
   pagina,
   porPagina,
   filtros,
+  empresaId,
   series,
 }: {
   inicial: PaginaComprobantes;
@@ -88,6 +99,12 @@ export function ComprobantesTable({
   porPagina: number;
   /** Filtros activos, leídos de la URL por la página (#6). */
   filtros: FiltrosComprobantes;
+  /**
+   * Empresa activa. Va en la clave de la consulta y no es opcional: cambiar de empresa es una navegación blanda, así que
+   * la tabla no se desmonta, y sin la empresa en la clave react-query servía las filas cacheadas de la empresa anterior
+   * descartando las que acababa de renderizar el servidor. El listado mostraba comprobantes ajenos bajo el RUC nuevo.
+   */
+  empresaId: string;
   /** Series de la empresa para el selector; vacío si no se pudieron cargar. */
   series: string[];
 }) {
@@ -96,7 +113,7 @@ export function ComprobantesTable({
   const { estado, desde, hasta, serie } = filtros;
 
   const { data: paginaActual, isFetching, refetch } = useQuery({
-    queryKey: ["facturas", estado ?? null, desde ?? null, hasta ?? null, serie ?? null, pagina, porPagina],
+    queryKey: claveComprobantes(empresaId, filtros, pagina, porPagina),
     queryFn: () => fetchComprobantes(filtros, pagina, porPagina),
     initialData: inicial,
     refetchInterval: (query) => {

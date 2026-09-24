@@ -15,5 +15,6 @@
   <@u.totales />
   <@u.condiciones />
   <@u.observaciones />
+  <@u.leyendasDeclaradas />
   <@u.pie tipoNombre=n.nombre />
 </@u.pagina>

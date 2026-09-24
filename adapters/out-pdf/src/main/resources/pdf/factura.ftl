@@ -6,5 +6,6 @@
   <@u.totales />
   <@u.condiciones />
   <@u.observaciones />
+  <@u.leyendasDeclaradas />
   <@u.pie tipoNombre="factura" />
 </@u.pagina>
