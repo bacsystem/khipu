@@ -107,6 +107,15 @@
     "XSD_INVALIDO": "El XML generado no cumple el esquema oficial de SUNAT.",
     "XML_SIN_EXTENSION": "El XML generado no es válido para firmar.",
     "FIRMA_FALLIDA": "No se pudo firmar el comprobante.",
-    "NO_ENCONTRADO": "No se encontró lo que buscás."
+    "NO_ENCONTRADO": "No se encontró lo que buscás.",
+    "CREDENCIALES_SOL_INVALIDAS": "El usuario SOL es obligatorio y no admite espacios. La clave tampoco puede estar vacía.",
+    "ARCHIVO_DEMASIADO_GRANDE": "El archivo supera el tamaño máximo. Un certificado .p12 pesa unos pocos KB: revisá que sea el archivo correcto.",
+    "DOMICILIO_INVALIDO": "El domicilio fiscal no es válido. Revisá el distrito y la dirección.",
+    "CUENTA_DETRACCIONES_INVALIDA": "La cuenta de detracciones del Banco de la Nación no es válida.",
+    "NOMBRE_COMERCIAL_INVALIDO": "El nombre comercial no es válido: hasta 1500 caracteres, sin saltos de línea.",
+    "SERIE_AGOTADA": "Esa serie agotó sus 8 dígitos de correlativo. Creá una serie nueva para seguir emitiendo.",
+    "CORRELATIVO_INVALIDO": "El correlativo de la serie va de 0 a 99 999 999 (8 dígitos).",
+    "ESTABLECIMIENTO_INVALIDO": "Ese establecimiento no existe o está dado de baja.",
+    "ESTABLECIMIENTO_EN_USO": "Ese establecimiento tiene series activas. Reasignalas antes de darlo de baja."
   }
 }
