@@ -293,7 +293,7 @@ export const handlers = [
     const empresaId = request.headers.get("x-empresa");
     const empresa = [...db.empresasPorCuenta.values()].flat().find((e) => e.id === empresaId);
     if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
-    const body = (await request.json()) as { domicilio?: { ubigeo: string; direccion: string; urbanizacion?: string; codigo_establecimiento?: string } | null; cuenta_detracciones?: string | null; nombre_comercial?: string | null };
+    const body = (await request.json()) as { domicilio?: { ubigeo: string; direccion: string; urbanizacion?: string; codigo_establecimiento?: string } | null; cuenta_detracciones?: string | null; nombre_comercial?: string | null; padron_tasa_especial_igv?: boolean };
     if (body.domicilio) {
       const u = UBIGEOS.find((x) => x.codigo === body.domicilio?.ubigeo);
       if (!u) return fail(422, "DOMICILIO_INVALIDO", "4093 - El ubigeo debe ser un código de 6 dígitos del catálogo 13 (INEI)");
@@ -303,6 +303,10 @@ export const handlers = [
     empresa.tiene_domicilio = Boolean(empresa.domicilio);
     empresa.cuenta_detracciones = body.cuenta_detracciones ?? null;
     empresa.nombre_comercial = body.nombre_comercial ?? null;
+    // Campo de dinero: el padrón decide si el IGV de los comprobantes de esta empresa sale al 10.5 % o al 18 %
+    // (se lee más abajo, al emitir). Sin persistirlo, la casilla se marcaba, se guardaba «con éxito» y volvía
+    // desmarcada al recargar, y ningún e2e podía verlo.
+    empresa.padron_tasa_especial_igv = body.padron_tasa_especial_igv ?? false;
     return ok(empresa);
   }),
 

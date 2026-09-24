@@ -11,6 +11,14 @@ spring:
   jackson:
     property-naming-strategy: SNAKE_CASE
     default-property-inclusion: non_null
+  servlet:
+    multipart:
+      # El único multipart del sistema es el .p12 del certificado, y trae la clave privada del emisor. Con el
+      # umbral por defecto (0B) Tomcat escribe toda parte subida a un archivo temporal en claro antes de que el
+      # controlador la lea; con el umbral por encima del tope máximo se queda en memoria y nunca toca el disco.
+      file-size-threshold: 2MB
+      max-file-size: 1MB
+      max-request-size: 2MB
 server:
   port: ${PORT:8001}
 management:
