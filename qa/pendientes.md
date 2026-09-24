@@ -86,6 +86,45 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 | Cobertura: no existe `e2e/series.spec.ts`; las cuatro anotaciones de `SerieRequest` no están atadas por ningún test REST | tests | |
 | Menores: el alta no da señal si la fila cae en la página 2 (buscador deshabilitado); filtro «Inactivas» inalcanzable; series `BC##` legítimas invisibles en notas; orden distinto entre mock y backend; `codigo` sin normalizar en el dominio | varios | |
 
+## Establecimientos (aud. #1, ficha [establecimientos.md](establecimientos.md))
+
+**Dos bloqueantes abiertos**, ver la ficha: tres distritos válidos del catálogo 13 imposibles de registrar (el dominio rechaza lo que él mismo derivó; SUNAT dice truncar a 30, no rechazar), y el PDF que cambia si se edita el domicilio del anexo.
+
+| Qué | Dónde | Arreglo |
+|---|---|---|
+| La baja de un anexo no tiene vuelta atrás: re-registrarlo responde 201 con `activo:false` y el portal no ofrece ni editar ni reactivar | `AdministrarTenantService`, `establecimientos-table.tsx` | endpoint de reactivación, o rechazar el alta sobre uno de baja |
+| El `AddressTypeCode` del domicilio fiscal es texto libre: con un código de anexo ahí, **todas** las series en `0000` emiten con ese código. Si no está declarado en el RUC, SUNAT devuelve 3239 en cada comprobante | `datos-fiscales-form.tsx`, `Domicilio.java` | quitarlo del formulario o validarlo contra los anexos |
+| Un código de anexo mal tipeado deja la serie inservible sin forma de corregirlo (3239 con el correlativo gastado) | varios | ligado al hueco de series |
+| **[POSIBLE]** Lost update: el `PUT` lee `activo` fuera de la transacción y sin bloqueo, así que puede deshacer una baja en silencio | `AdministrarTenantService` | usar el `buscarConBloqueo` que ya existe |
+| Menores: el formato de 4 dígitos se cita como 3030 cuando es **4242**, y el 3239 no se menciona en ninguna parte; el `PUT` sobre un código inexistente lo **crea** y responde 200; el tope de 100 del nombre sin test; la acción principal del top bar dice «Nuevo comprobante»; foco perdido tras confirmar una baja y sin región viva; espacios Unicode que `isISOControl` no filtra; el mock con 5 ubigeos, ninguno de Tacna | varios | |
+
+## Listado (aud. #1, ficha [listado.md](listado.md))
+
+**Un bloqueante abierto**: al cambiar de empresa el listado sigue mostrando los comprobantes de la anterior, porque la clave de caché no incluye la empresa.
+
+| Qué | Dónde | Arreglo |
+|---|---|---|
+| El refresco falla en silencio: datos viejos, el icono girando para siempre y ningún aviso. La página que sondea puede quedar congelada mostrando «Enviado» mientras SUNAT ya rechazó | `comprobantes-table.tsx` | leer el estado de error |
+| Un `hasta` anterior al `desde` **ensancha** la lista: el cliente borra el campo en silencio. La API devuelve 400 y el portal lo tapa | `lib/api/facturas.ts` | propagar el 400 |
+| El número de página llega sin validar: contadores negativos, «todavía no emitiste ningún comprobante» habiendo 14 y sin salida, y 400 contra el backend real → pantalla de error | `(privado)/comprobantes/page.tsx` | el saneado que ya tiene `por_pagina` |
+| Los importes del listado son un recálculo: las cinco columnas de totales se escriben y **nunca se leen**. Nada contrasta lo que se muestra con lo que se firmó | `JdbcComprobanteRepository` | leer los totales persistidos |
+| Cobertura del dinero: cambiar la columna de importe por la base gravada deja 150 tests y 49 e2e en verde. Tampoco hay test del color ni de la etiqueta del estado, ni de la paginación, ni del orden | tests | |
+| Paridad del mock: acepta seis clases de parámetro que el backend rechaza con 400, y no verifica la pertenencia de la empresa | `src/mocks/handlers.ts` | |
+| Menores: «IGV S/ 0.00» en un IVAP que sí lleva impuesto; tres estados del filtro inalcanzables; botón de PDF deshabilitado que es código muerto; el conteo sin el JOIN del listado; notas mezcladas con facturas sin poder separarlas; baja en curso invisible; orden sin desempate | varios | |
+
+## Detalle y descargas (aud. #1, ficha [detalle.md](detalle.md))
+
+**Tres bloqueantes abiertos**: «Reenviar» sin ningún manejo de error, el PDF sin las leyendas del catálogo 52 que declaró el emisor, y el PDF armado con los datos fiscales de hoy en vez de los firmados.
+
+| Qué | Dónde | Arreglo |
+|---|---|---|
+| «Copiar» de la vista previa entrega un XML reindentado: la firma no valida y SUNAT responde 2336. El panel se titula «XML firmado», así que invita a guardarlo | `lib/xml.ts`, `vista-previa.tsx` | copiar el original |
+| Las descargas son anclas sin manejo de error: se termina viendo un JSON crudo, y el ZIP sin constancia **navega la pestaña actual** y pierde la ficha | `[id]/page.tsx` | pedir por fetch y avisar |
+| El PDF de un rechazado o anulado se imprime como válido, sin ninguna marca | `comun.ftl` | marca de estado |
+| La versión del PDF quedó en 1 y la plantilla cambió cuatro veces: la próxima corrección de importes no llegará a los ya cacheados | `ConsultarComprobanteService` | test que ate el bump |
+| Paridad del mock: los tres endpoints de descarga no validan nada (ni empresa, ni id, ni estado), y los fixtures no felices omiten enlaces que el backend siempre manda | `src/mocks/*` | |
+| Menores: `colSpan` de 9 en una tabla de 10; el monto en letras revienta con importes de diez cifras que SUNAT admite, y el golpe cae en la **emisión** con un 500; falta la página de no encontrado; «Total a pagar» sin la percepción y otro número más abajo que sí la lleva; un estado terminal de fallo en caja gris; dos posibles sin confirmar (el IGV del QR en IVAP, una lectura sin guarda de nulo) | varios | |
+
 ## Transversal
 
 - El portal descarta los errores por campo del 422 (`errores`) y muestra solo `mensaje` — 1 PR; ver [validaciones.md](validaciones.md).
