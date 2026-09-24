@@ -4,7 +4,7 @@ import { FileMinusIcon, SendIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { apiRequest } from "@/lib/api/browser";
+import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
@@ -120,12 +120,10 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     // exige 40 (2642) —con el 10 fijo no se podía emitir ninguna ND sobre exportaciones— y sobre IVAP, 17.
     if (lineaPropia) body.items = [{ descripcion: nd.descripcion.trim(), unidad: "ZZ", cantidad: 1, precio_unitario: Number(nd.importe), tipo_afectacion_igv: afectacionLinea }];
     setEnviando(true);
-    let res: Awaited<ReturnType<typeof apiRequest<Comprobante>>>;
-    try {
-      res = await apiRequest<Comprobante>("/api/proxy/notas", { method: "POST", body });
-    } catch {
-      // `fetch` RECHAZA ante un corte de conexión: sin este catch el botón quedaba en «Emitiendo…» para siempre,
-      // sin alerta, y el POST pudo haber llegado y consumido correlativo. Reintentar a ciegas duplica la nota.
+    const res = await apiRequest<Comprobante>("/api/proxy/notas", { method: "POST", body });
+    // Un corte de conexión no dice si el POST llegó, y pudo haber consumido correlativo: reintentar a ciegas
+    // duplica la nota. (El cliente ya no lanza: devuelve el sobre de error, así que esto no puede ir en un catch.)
+    if (noSeSabeSiLlego(res)) {
       setEnviando(false);
       setError(
         `Se cortó la conexión mientras se emitía. La nota pudo haberse emitido igual: revisá las notas de la factura ${factura.serie}-${factura.numero} antes de volver a intentarlo, para no duplicarla.`,

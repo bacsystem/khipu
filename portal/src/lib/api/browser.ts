@@ -5,6 +5,15 @@ function sobre<T>(codigo: string, mensaje: string): ApiEnvelope<T> {
 }
 
 /**
+ * El error no deja saber si la petición llegó al servidor o no. En un GET da igual, pero en el POST que emite un
+ * comprobante es la diferencia entre «no pasó nada» y «se consumió un correlativo»: reintentar a ciegas duplica el
+ * documento. Los formularios que emiten usan esto para avisar que hay que mirar antes de volver a intentar.
+ */
+export function noSeSabeSiLlego(res: ApiEnvelope<unknown>): boolean {
+  return res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA";
+}
+
+/**
  * Ninguna de estas funciones lanza: siempre devuelven un sobre. Los formularios hacen
  * `const res = await …` sin try/catch y apagan el «Enviando…» al mirar `res.estado`, así que una
  * excepción acá dejaba el botón deshabilitado para siempre, sin un mensaje que explicara nada.

@@ -9,7 +9,7 @@ import { EntradaFecha } from "@/components/formularios/entrada-fecha";
 import { EntradaMonto } from "@/components/formularios/entrada-monto";
 import { StepperNumerico } from "@/components/formularios/stepper-numerico";
 import { BotonAsync } from "@/components/patrones/boton-async";
-import { apiRequest } from "@/lib/api/browser";
+import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { Serie } from "@/lib/api/series";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -173,18 +173,22 @@ export function NuevoComprobanteForm({
           items,
         },
       });
-    } catch {
-      // `fetch` no resuelve con error: RECHAZA ante un corte de conexión, y sin este catch el `finally` de abajo no
-      // existía —el botón quedaba en «Emitiendo…» para siempre, sin alerta—. Y es el peor momento para fallar: el
-      // POST pudo haber llegado y consumido correlativo. No se pide reintentar a ciegas; se manda a mirar primero.
+      // `finally` sin `catch` a propósito: el cliente no lanza, pero si algo inesperado lo hiciera, el botón tiene
+      // que volver a habilitarse igual en vez de quedarse en «Emitiendo…».
+    } finally {
+      setEnviando(false);
+    }
+
+    // Un corte de conexión no dice si el POST llegó, y es el peor momento para fallar: pudo haber consumido
+    // correlativo. No se pide reintentar a ciegas; se manda a mirar primero. (El cliente ya no lanza: devuelve el
+    // sobre de error, así que esto no puede ir en un catch.)
+    if (noSeSabeSiLlego(res)) {
       setError(
         "Se cortó la conexión mientras se emitía. La factura pudo haberse emitido igual: revisá el listado de comprobantes antes de volver a intentarlo, para no duplicarla.",
       );
       // El listado de fondo puede tener ya la factura nueva: que se vea sin recargar la página.
       router.refresh();
       return;
-    } finally {
-      setEnviando(false);
     }
 
     if (res.estado !== "exito" || !res.datos) {
