@@ -44,6 +44,7 @@ import pe.factura.adapters.scheduler.RecuperarCdrWorker;
 import pe.factura.adapters.sunat.XmlCdrParser;
 import pe.factura.adapters.pdf.FlyingSaucerPdfGenerator;
 import pe.factura.adapters.ubl.FreemarkerUblGenerator;
+import pe.factura.adapters.ubl.XmlEmisorFirmado;
 import pe.factura.adapters.ubl.JaxpXsdValidator;
 import pe.factura.application.port.in.*;
 import pe.factura.application.port.out.*;
@@ -230,8 +231,9 @@ public class AppConfig {
     }
     @Bean PdfGenerator pdfGenerator() { return new FlyingSaucerPdfGenerator(); }
     @Bean PersonalizarPdfUseCase personalizarPdf(TenantRepository t, DocumentStorage s, PdfGenerator pdf, Clock clock) { return new PersonalizarPdfService(t, s, pdf, clock); }
-    @Bean ConsultarComprobanteUseCase consultarComprobante(ComprobanteRepository c, TenantRepository t, DocumentStorage s, PdfGenerator pdf, EmisorDeSerieRepository emisor) {
-        return new ConsultarComprobanteService(c, t, s, pdf, emisor);
+    @Bean EmisorFirmado emisorFirmado() { return new XmlEmisorFirmado(); }
+    @Bean ConsultarComprobanteUseCase consultarComprobante(ComprobanteRepository c, TenantRepository t, DocumentStorage s, PdfGenerator pdf, EmisorDeSerieRepository emisor, EmisorFirmado firmado) {
+        return new ConsultarComprobanteService(c, t, s, pdf, emisor, firmado);
     }
     @Bean CompartirComprobanteUseCase compartirComprobante(ConsultarComprobanteUseCase consultar, TenantRepository t, CorreoSender correo) {
         return new CompartirComprobanteService(consultar, t, correo);
