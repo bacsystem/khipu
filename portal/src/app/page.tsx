@@ -3,10 +3,10 @@ import Link from "next/link";
 import { ComoFunciona } from "@/components/landing/como-funciona";
 import { ComprobantePreview } from "@/components/landing/comprobante-preview";
 import { Faq } from "@/components/landing/faq";
+import { Planes } from "@/components/landing/planes";
 import { SiteHeader } from "@/components/landing/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { contactoUrl, registroAbierto } from "@/lib/acceso";
 import { messages } from "@/lib/messages";
 
@@ -62,13 +62,6 @@ const COMPROBANTES = [
   { codigo: "RA", nombre: "Comunicación de baja", disponible: false },
   { codigo: "09", nombre: "Guía de remisión", disponible: false },
   { codigo: "—", nombre: "Retención / percepción", disponible: false },
-];
-
-const PLANES = [
-  { nombre: "Gratis", precio: "S/ 0", periodo: "para siempre", docs: "30 documentos/mes", rucs: "1 RUC", destacado: false },
-  { nombre: "Emprende", precio: "S/ 29", periodo: "/mes", docs: "300 documentos/mes", rucs: "1 RUC", destacado: false },
-  { nombre: "Negocio", precio: "S/ 69", periodo: "/mes", docs: "1 500 documentos/mes", rucs: "3 RUC", destacado: true },
-  { nombre: "Pro", precio: "S/ 129", periodo: "/mes", docs: "Documentos ilimitados", rucs: "10 RUC", destacado: false },
 ];
 
 // Se renderiza en cada request, no en el build: `REGISTRO_ABIERTO` y `CONTACTO_URL` son variables del entorno de despliegue
@@ -203,44 +196,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="precios" className="mx-auto max-w-6xl px-6 py-24">
-        <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">Planes claros, gratis para empezar</h2>
-        <p className="mt-2 max-w-2xl text-muted-foreground">
-          El plan Gratis no vence — no es un trial. Subes de plan cuando tu volumen lo pida.
-        </p>
-        <div className="mt-10 grid gap-6 md:grid-cols-4">
-          {PLANES.map((p) => (
-            <Card
-              key={p.nombre}
-              className={
-                p.destacado
-                  ? "border-acento-borde p-6 shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_32px_-12px_rgba(217,140,43,0.35)] md:-translate-y-3"
-                  : "p-6 transition-shadow hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_8px_24px_-16px_rgba(16,35,31,0.25)]"
-              }
-            >
-              {p.destacado ? (
-                <Badge className="w-fit border-transparent bg-acento text-[#1b1206]">Más usado</Badge>
-              ) : null}
-              <h3 className="mt-2 font-heading text-lg font-semibold">{p.nombre}</h3>
-              <p className="mt-1 flex items-baseline gap-1.5">
-                <span className="font-heading text-[2rem] leading-none font-semibold tracking-[-0.02em]">{p.precio}</span>
-                <span className="text-sm text-muted-foreground">{p.periodo}</span>
-              </p>
-              <ul className="mt-4 grid gap-1.5 text-sm text-muted-foreground">
-                <li>{p.docs}</li>
-                <li>{p.rucs}</li>
-              </ul>
-            </Card>
-          ))}
-        </div>
-        <p className="mt-6 text-sm text-muted-foreground">
-          ¿Necesitas on-premise o un plan a medida?{" "}
-          <a href="mailto:hola@factura.pe" className="text-primary hover:underline">
-            Escríbenos
-          </a>
-          .
-        </p>
-      </section>
+      <Planes abierto={abierto} contacto={contacto} />
 
       <Faq />
 
