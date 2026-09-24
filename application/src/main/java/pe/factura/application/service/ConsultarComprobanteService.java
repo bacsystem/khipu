@@ -7,6 +7,7 @@ import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.application.port.out.DocumentStorage;
 import pe.factura.application.port.out.PdfGenerator;
 import pe.factura.application.port.out.EmisorDeSerieRepository;
+import pe.factura.application.port.out.EmisorFirmado;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.CodigoQr;
@@ -29,6 +30,7 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
     private final DocumentStorage storage;
     private final PdfGenerator pdf;
     private final EmisorDeSerieRepository emisorDeSerie;
+    private final EmisorFirmado emisorFirmado;
 
     public Comprobante obtener(UUID tenantId, UUID id) {
         return comprobantes.buscar(tenantId, id).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
@@ -48,9 +50,13 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
     /**
      * Versión del diseño de la representación impresa, parte de la clave del PDF en storage. Súbala cuando cambie una plantilla
      * de {@code adapters/out-pdf}: los PDF ya generados quedan con la versión anterior y el siguiente {@link #pdf} regenera con la nueva
-     * sin tocar storage a mano. Los datos impresos no cambian nunca (el comprobante es inmutable), solo su presentación.
+     * sin tocar storage a mano.
+     *
+     * <p>La 2 es la que corrige el emisor. Hasta la 1 el PDF se armaba con los datos fiscales de <em>hoy</em>, así que
+     * los que quedaron en caché después de que una empresa mudara su domicilio o editara un anexo tienen una dirección
+     * que no es la del XML firmado. Subir la versión los regenera solos en la próxima descarga.
      */
-    static final int VERSION_PDF = 1;
+    static final int VERSION_PDF = 2;
 
     /**
      * El PDF vive junto al XML firmado (misma clave, sufijo {@code -v<versión>-<huella del diseño>.pdf}); si falta —o nunca se pidió—
@@ -62,8 +68,13 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
         Tenant t = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
         String key = c.xmlKey().replaceFirst("\\.xml$", "-v" + VERSION_PDF + "-" + t.personalizacionPdf().huella() + ".pdf");
         if (storage.existe(key)) return storage.leer(key);
-        Tenant emisor = EmisorDeSerie.paraImprimir(emisorDeSerie, t, c);
-        byte[] bytes = pdf.generar(c, emisor, CodigoQr.contenido(c, t.ruc()), PersonalizarPdfService.logoDe(storage, t.personalizacionPdf()));
+        // La identidad la manda el XML firmado: es lo que SUNAT recibió, y así la impresa no puede contradecirlo por
+        // más que después cambien el domicilio fiscal, el de un anexo o la serie. Si el XML no se puede leer se cae al
+        // emisor de la serie, que es lo que se hacía antes: peor que exacto, pero mejor que no poder imprimir.
+        Tenant emisor = emisorFirmado.leer(storage.leer(c.xmlKey()))
+                .map(e -> e.sobre(t))
+                .orElseGet(() -> EmisorDeSerie.paraImprimir(emisorDeSerie, t, c));
+        byte[] bytes = pdf.generar(c, emisor, CodigoQr.contenido(c, emisor.ruc()), PersonalizarPdfService.logoDe(storage, t.personalizacionPdf()));
         storage.guardar(key, bytes);
         return bytes;
     }

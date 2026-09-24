@@ -20,7 +20,7 @@ Cómo leer un hallazgo en una ficha: 🔧 **corregido** = PR mergeado, a la espe
 | 12 | Personalización PDF | ⬜ | — |
 | 13 | Developers | ⬜ | — |
 
-> **El bloqueante del PDF con los datos fiscales de hoy lo encontraron dos auditorías por separado** (flujos 6 y 9). La representación impresa puede contradecir al XML firmado y al CDR, y el resultado depende de cuándo se descargó el PDF por primera vez.
+> **El bloqueante del PDF con los datos fiscales de hoy lo encontraron dos auditorías por separado** (flujos 6 y 9). Corregido: el PDF toma la identidad del emisor del XML firmado, así que la impresa no puede contradecir a lo que SUNAT recibió, y los comprobantes ya emitidos también quedan bien. Pendiente de recert.
 
 ## Pendientes
 

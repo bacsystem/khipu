@@ -4,7 +4,10 @@ import org.junit.jupiter.api.Test;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Cdr;
 import pe.factura.domain.documento.Comprobante;
+import pe.factura.domain.tenant.Domicilio;
+import pe.factura.domain.tenant.EmisorImpreso;
 import pe.factura.domain.tenant.PersonalizacionPdf;
+import pe.factura.domain.tenant.Tenant;
 import pe.factura.domain.tenant.PlantillaPdf;
 
 import java.io.ByteArrayOutputStream;
@@ -22,7 +25,13 @@ class ConsultarComprobanteServiceTest {
     private final Fakes.Storage storage = new Fakes.Storage();
     private final Fakes.Tenants tenants = new Fakes.Tenants();
     private final List<String> qrs = new ArrayList<>();
-    private final ConsultarComprobanteService service = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr, logo) -> { qrs.add(qr); return ("%PDF " + qr + (logo == null ? "" : " logo=" + logo.length)).getBytes(); }, new Fakes.Establecimientos(new Fakes.Series()));
+    /** El emisor con el que se armó el PDF: es lo que este flujo tiene que acertar. */
+    private final List<Tenant> emisoresImpresos = new ArrayList<>();
+    /** Doble del lector del XML: el parseo real se prueba en `adapters/out-ubl`; acá importa de dónde salen los datos. */
+    private java.util.Optional<EmisorImpreso> enElXml = java.util.Optional.empty();
+    private final ConsultarComprobanteService service = new ConsultarComprobanteService(repo, tenants, storage,
+            (c, t, qr, logo) -> { qrs.add(qr); emisoresImpresos.add(t); return ("%PDF " + qr + (logo == null ? "" : " logo=" + logo.length)).getBytes(); },
+            new Fakes.Establecimientos(new Fakes.Series()), xml -> enElXml);
     private final UUID tenant = UUID.randomUUID();
 
     private static byte[] zip(String nombre, String contenido) throws Exception {
@@ -96,5 +105,46 @@ class ConsultarComprobanteServiceTest {
         Comprobante c = Comprobante.factura(tenant, "F001", java.time.LocalDate.of(2026, 9, 13), "PEN", "0101", new pe.factura.domain.documento.Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new pe.factura.domain.documento.Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), pe.factura.domain.documento.TipoAfectacionIgv.GRAVADO))).crear(java.time.Clock.fixed(java.time.Instant.parse("2026-09-13T15:00:00Z"), java.time.ZoneId.of("America/Lima")));
         repo.guardar(c);
         assertThatThrownBy(() -> service.pdf(tenant, c.id())).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SIN_FIRMA");
+    }
+
+    /**
+     * El bloqueante que esto corrige: el PDF se armaba con los datos fiscales de **hoy**. Si la empresa mudaba su
+     * domicilio después de emitir, la representación impresa salía con la dirección nueva mientras el XML firmado y el
+     * CDR de SUNAT llevaban la vieja, y cuál te tocaba dependía de si el PDF ya estaba en caché.
+     */
+    @Test void elPdfLlevaElEmisorDelXmlFirmado_aunqueLaEmpresaHayaCambiadoDespues() {
+        tenants.guardar(Fakes.tenantListo(tenant).conDatosFiscales(Domicilio.de("040101", "Calle Mercaderes 100 (la nueva)"), null, "Nombre de hoy"));
+        Comprobante c = Fakes.facturaFirmada(tenant, storage);
+        repo.guardar(c);
+        enElXml = java.util.Optional.of(new EmisorImpreso("20601234565", "RAZON AL EMITIR S.A.C.", "Comercial al emitir",
+                Domicilio.de("150122", "Av. Larco 345 (la del XML)")));
+
+        service.pdf(tenant, c.id());
+
+        Tenant impreso = emisoresImpresos.get(0);
+        assertThat(impreso.razonSocial()).isEqualTo("RAZON AL EMITIR S.A.C.");
+        assertThat(impreso.nombreComercial()).isEqualTo("Comercial al emitir");
+        assertThat(impreso.domicilio().direccion()).isEqualTo("Av. Larco 345 (la del XML)");
+        assertThat(impreso.domicilio().distrito()).isEqualTo("MIRAFLORES");
+        // El diseño sí es el de hoy a propósito: su huella entra en la clave de la caché.
+        assertThat(impreso.personalizacionPdf()).isEqualTo(tenants.buscar(tenant).orElseThrow().personalizacionPdf());
+        // El QR lleva el RUC del emisor, y el que vale es el que se firmó: es lo que SUNAT contrasta al verificarlo.
+        assertThat(qrs.get(0)).startsWith("20601234565|");
+        // La clave del PDF lleva la versión del diseño. Subirla es lo que regenera los que quedaron mal en caché.
+        assertThat(storage.datos.keySet()).anySatisfy(k -> assertThat(k).contains("-v" + ConsultarComprobanteService.VERSION_PDF + "-").endsWith(".pdf"));
+        assertThat(ConsultarComprobanteService.VERSION_PDF).isEqualTo(2);
+    }
+
+    /** Si el XML no se puede leer, imprimir con el emisor actual es peor que exacto, pero mejor que no imprimir. */
+    @Test void siElXmlNoDiceQuienEmitioSeCaeAlEmisorActual() {
+        tenants.guardar(Fakes.tenantListo(tenant).conDatosFiscales(Domicilio.de("040101", "Calle Mercaderes 100"), null, "Nombre de hoy"));
+        Comprobante c = Fakes.facturaFirmada(tenant, storage);
+        repo.guardar(c);
+        enElXml = java.util.Optional.empty();
+
+        service.pdf(tenant, c.id());
+
+        assertThat(emisoresImpresos.get(0).razonSocial()).isEqualTo(tenants.buscar(tenant).orElseThrow().razonSocial());
+        assertThat(emisoresImpresos.get(0).domicilio().direccion()).isEqualTo("Calle Mercaderes 100");
     }
 }
