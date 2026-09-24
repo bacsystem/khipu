@@ -9,16 +9,23 @@ type RouteContext = { params: Promise<{ path: string[] }> };
  * El refresh rota el token en el backend: dos peticiones concurrentes con el mismo
  * refresh vencido no pueden refrescar cada una por su cuenta (la segunda encontraría
  * la sesión ya revocada por la primera). Comparten una única promesa en curso.
+ *
+ * La clave del mapa es el refresh token, y eso no es un detalle: este módulo es único
+ * para todo el proceso, así que dos usuarios distintos pueden estar refrescando a la
+ * vez. Con una sola promesa compartida, al segundo se le escribirían las cookies del
+ * primero — es decir, terminaría dentro de la sesión ajena.
  */
-let refrescoEnCurso: Promise<Tokens> | null = null;
+const refrescosEnCurso = new Map<string, Promise<Tokens>>();
 
 function refrescarUnaVez(refresh: string): Promise<Tokens> {
-  if (!refrescoEnCurso) {
-    refrescoEnCurso = refrescar(refresh).finally(() => {
-      refrescoEnCurso = null;
-    });
-  }
-  return refrescoEnCurso;
+  const enCurso = refrescosEnCurso.get(refresh);
+  if (enCurso) return enCurso;
+
+  const promesa = refrescar(refresh).finally(() => {
+    refrescosEnCurso.delete(refresh);
+  });
+  refrescosEnCurso.set(refresh, promesa);
+  return promesa;
 }
 
 /**

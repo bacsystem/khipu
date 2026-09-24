@@ -29,6 +29,25 @@ class JdbcSerieRepositoryTest extends PersistenciaTestBase {
                 .containsExactly(tuple("F001", "0000", 0L), tuple("F002", "0002", 5L));
     }
 
+    /**
+     * El tope de la regla 1001 se comprueba dentro del {@code FOR UPDATE}: es el único punto donde se conoce el
+     * número que va a salir sin carrera con otra emisión. Al llegar al techo la serie deja de avanzar en vez de
+     * gastar correlativos que SUNAT rechaza.
+     */
+    @Test void alLlegarAlTopeDeOchoDigitosLaSerieSeAgota() {
+        UUID t = tenantDePrueba();
+        repo.crear(new Serie(t, TipoDocumento.FACTURA, "F001", Serie.NUMERO_MAXIMO - 1, true));
+
+        assertThat(uow.ejecutar(() -> repo.siguienteNumero(t, TipoDocumento.FACTURA, "F001"))).isEqualTo(Serie.NUMERO_MAXIMO);
+        assertThatThrownBy(() -> uow.ejecutar(() -> repo.siguienteNumero(t, TipoDocumento.FACTURA, "F001")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SERIE_AGOTADA");
+        // El rechazo no consumió numeración: la serie sigue en el último número válido.
+        assertThat(repo.listar(t)).extracting(Serie::ultimoNumero).containsExactly(Serie.NUMERO_MAXIMO);
+
+        assertThatThrownBy(() -> uow.ejecutar(() -> { repo.avanzarHasta(t, TipoDocumento.FACTURA, "F001", Serie.NUMERO_MAXIMO + 1); return null; }))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SERIE_AGOTADA");
+    }
+
     @Test void serieNoConfigurada() {
         UUID t = tenantDePrueba();
         assertThatThrownBy(() -> uow.ejecutar(() -> repo.siguienteNumero(t, TipoDocumento.FACTURA, "F009")))

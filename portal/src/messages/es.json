@@ -63,6 +63,8 @@
   },
   "errores": {
     "generico": "Ocurrió un error. Intenta de nuevo.",
+    "RED": "No se pudo conectar con el servidor. Revisá tu conexión e intentá de nuevo.",
+    "RESPUESTA_INVALIDA": "La respuesta del servidor no se pudo interpretar. Intentá de nuevo en unos minutos.",
     "DUPLICADO": "Ya existe una cuenta con ese correo.",
     "CREDENCIALES_INVALIDAS": "Correo o contraseña incorrectos.",
     "TELEFONO_INVALIDO": "El celular debe tener 9 dígitos y empezar con 9.",
@@ -83,6 +85,7 @@
     "EMPRESA_INVALIDA": "La empresa indicada no es válida.",
     "CERTIFICADO_NO_CARGADO": "Tu empresa no tiene un certificado digital cargado. Configúralo en Empresa.",
     "CERTIFICADO_VENCIDO": "Tu certificado digital venció. Cargá uno nuevo en Empresa.",
+    "CERTIFICADO_NO_VIGENTE": "Ese certificado todavía no entró en vigencia. Cargalo a partir de la fecha en que empieza a valer.",
     "CREDENCIALES_SOL_NO_CARGADAS": "Tu empresa no tiene credenciales SOL configuradas. Configúralas en Empresa.",
     "RUC_INVALIDO": "El RUC no es válido.",
     "RAZON_SOCIAL_REQUERIDA": "La razón social es obligatoria.",

@@ -143,6 +143,46 @@ describe("proxy /api/proxy/[...path]", () => {
     expect(res2.status).toBe(200);
   });
 
+  // El módulo es único para todo el proceso: si el refresco en curso se compartiera sin mirar de
+  // quién es, al segundo usuario se le escribirían las cookies del primero y quedaría dentro de la
+  // sesión ajena. Los dos refrescos se solapan a propósito (el mock tarda), que es cuando pasa.
+  it("ante 401 concurrentes de dos sesiones distintas, cada una recibe sus propios tokens", async () => {
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const auth = new Headers(init.headers as HeadersInit).get("Authorization");
+      return auth?.startsWith("Bearer nuevo-")
+        ? new Response('{"estado":"exito"}', { status: 200 })
+        : new Response("{}", { status: 401 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(refrescar).mockImplementation(async (refresh: string) => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return {
+        access: `nuevo-${refresh}`,
+        refresh: `rotado-${refresh}`,
+        usuario: { id: refresh, cuenta_id: `c-${refresh}`, email: `${refresh}@b.com`, rol: "admin" },
+      };
+    });
+
+    const ana = requestWithSession("http://localhost/api/proxy/empresas", {
+      method: "GET",
+      access: "viejo-ana",
+      refresh: "r-ana",
+    });
+    const beto = requestWithSession("http://localhost/api/proxy/empresas", {
+      method: "GET",
+      access: "viejo-beto",
+      refresh: "r-beto",
+    });
+
+    const [resAna, resBeto] = await Promise.all([GET(ana, ctx(["empresas"])), GET(beto, ctx(["empresas"]))]);
+
+    expect(refrescar).toHaveBeenCalledTimes(2);
+    expect(resAna.cookies.get(COOKIE_ACCESS)?.value).toBe("nuevo-r-ana");
+    expect(resAna.cookies.get(COOKIE_REFRESH)?.value).toBe("rotado-r-ana");
+    expect(resBeto.cookies.get(COOKIE_ACCESS)?.value).toBe("nuevo-r-beto");
+    expect(resBeto.cookies.get(COOKIE_REFRESH)?.value).toBe("rotado-r-beto");
+  });
+
   it("reenvía el body en POST", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);

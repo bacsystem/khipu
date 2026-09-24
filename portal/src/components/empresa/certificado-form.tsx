@@ -65,7 +65,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
     });
     setEnviando(false);
     if (res.estado !== "exito") {
-      setError(mensajeError(res.codigo));
+      setError(res.mensaje ?? mensajeError(res.codigo));
       return;
     }
     setOk(true);

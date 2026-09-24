@@ -22,6 +22,11 @@ public class JdbcSerieRepository implements SerieRepository {
                 Long.class, tenantId, tipo.codigo(), serie);
         if (actual.isEmpty()) throw new DomainException("SERIE_NO_CONFIGURADA", "Serie no configurada o inactiva: " + serie);
         long siguiente = actual.get(0) + 1;
+        // El chequeo va dentro del FOR UPDATE: es el único punto donde se sabe, sin carrera, cuál va a ser el número.
+        // Sin esto la serie sigue avanzando más allá de los 8 dígitos de la regla 1001 y cada emisión gasta un
+        // correlativo que SUNAT va a rechazar (la serie no se puede editar ni reiniciar).
+        if (siguiente > Serie.NUMERO_MAXIMO)
+            throw new DomainException("SERIE_AGOTADA", "1001 - La serie " + serie + " agotó sus 8 dígitos de correlativo (" + Serie.NUMERO_MAXIMO + "). Creá una serie nueva para seguir emitiendo.");
         jdbc.update("UPDATE serie SET ultimo_numero = ? WHERE tenant_id = ? AND tipo = ? AND codigo = ?", siguiente, tenantId, tipo.codigo(), serie);
         return siguiente;
     }
@@ -30,6 +35,8 @@ public class JdbcSerieRepository implements SerieRepository {
                 "SELECT ultimo_numero FROM serie WHERE tenant_id = ? AND tipo = ? AND codigo = ? AND activa FOR UPDATE",
                 Long.class, tenantId, tipo.codigo(), serie);
         if (actual.isEmpty()) throw new DomainException("SERIE_NO_CONFIGURADA", "Serie no configurada o inactiva: " + serie);
+        if (numero > Serie.NUMERO_MAXIMO)
+            throw new DomainException("SERIE_AGOTADA", "1001 - El correlativo " + numero + " de la serie " + serie + " pasa los 8 dígitos que admite SUNAT.");
         jdbc.update("UPDATE serie SET ultimo_numero = GREATEST(ultimo_numero, ?) WHERE tenant_id = ? AND tipo = ? AND codigo = ? AND activa",
                 numero, tenantId, tipo.codigo(), serie);
     }
