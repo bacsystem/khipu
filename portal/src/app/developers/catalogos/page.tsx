@@ -15,7 +15,7 @@ export default async function CatalogosPage() {
       <div className="mx-auto max-w-3xl px-6 py-16">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Catálogos SUNAT</h1>
         <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
-          No pudimos cargar los catálogos: los sirve la API y ahora no está disponible. Volvé a intentarlo en un momento; el
+          No pudimos cargar los catálogos: los sirve la API y ahora no está disponible. Vuelve a intentarlo en un momento; el
           resto de la documentación no depende de ellos.
         </p>
       </div>

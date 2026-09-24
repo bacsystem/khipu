@@ -35,7 +35,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       const res = await apiRequest<Baja>(`/api/proxy/bajas/${baja.id}`, { method: "GET" });
       if (res.estado !== "exito") setError(res.mensaje ?? mensajeError(res.codigo));
     } catch {
-      setError("Sin conexión: no se pudo consultar a SUNAT. Volvé a intentarlo.");
+      setError("Sin conexión: no se pudo consultar a SUNAT. Vuelve a intentarlo.");
     } finally {
       setConsultando(false);
       router.refresh();

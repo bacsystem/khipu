@@ -26,7 +26,7 @@ public class JdbcSerieRepository implements SerieRepository {
         // Sin esto la serie sigue avanzando más allá de los 8 dígitos de la regla 1001 y cada emisión gasta un
         // correlativo que SUNAT va a rechazar (la serie no se puede editar ni reiniciar).
         if (siguiente > Serie.NUMERO_MAXIMO)
-            throw new DomainException("SERIE_AGOTADA", "1001 - La serie " + serie + " agotó sus 8 dígitos de correlativo (" + Serie.NUMERO_MAXIMO + "). Creá una serie nueva para seguir emitiendo.");
+            throw new DomainException("SERIE_AGOTADA", "1001 - La serie " + serie + " agotó sus 8 dígitos de correlativo (" + Serie.NUMERO_MAXIMO + "). Hay que crear una serie nueva para seguir emitiendo.");
         jdbc.update("UPDATE serie SET ultimo_numero = ? WHERE tenant_id = ? AND tipo = ? AND codigo = ?", siguiente, tenantId, tipo.codigo(), serie);
         return siguiente;
     }

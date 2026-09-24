@@ -22,7 +22,7 @@ export default async function DevelopersPage() {
       <div className="mx-auto max-w-3xl px-6 py-16">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Documentación de la API</h1>
         <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
-          La referencia interactiva se genera desde la API y ahora no está disponible. Mientras tanto podés leer la{" "}
+          La referencia interactiva se genera desde la API y ahora no está disponible. Mientras tanto puedes leer la{" "}
           <Link href="/developers/guia" className="underline">guía de integración</Link> y los{" "}
           <Link href="/developers/errores" className="underline">códigos de error</Link>.
         </p>

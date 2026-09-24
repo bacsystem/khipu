@@ -83,7 +83,7 @@ export function OnboardingWizard() {
   async function enviar<T>(ruta: string, init: { method: string; body?: unknown }) {
     const res = await apiRequest<T>(ruta, init);
     if (noSeSabeSiLlego(res)) {
-      setError("Se cortó la conexión y no sabemos si el paso se completó. Recargá la página: el asistente retoma donde quedó.");
+      setError("Se cortó la conexión y no sabemos si el paso se completó. Recarga la página: el asistente retoma donde quedó.");
       return null;
     }
     return res;
@@ -105,7 +105,7 @@ export function OnboardingWizard() {
     if (!res) return;
     if (res.estado !== "exito" || !res.datos) {
       // El 409 de una empresa ya registrada no es «ya existe una cuenta con ese correo»: es este RUC.
-      setError(res.codigo === "DUPLICADO" ? `Ya hay una empresa registrada con el RUC ${values.ruc}. Si es tuya, entrá desde el selector de empresa; si no, revisá el número.` : mensajeError(res.codigo));
+      setError(res.codigo === "DUPLICADO" ? `Ya hay una empresa registrada con el RUC ${values.ruc}. Si es tuya, entra desde el selector de empresa; si no, revisa el número.` : mensajeError(res.codigo));
       return;
     }
     const sesion = await enviar("/api/session/empresa", { method: "POST", body: { empresaId: res.datos.id } });
@@ -149,7 +149,7 @@ export function OnboardingWizard() {
     });
     if (!res) return;
     if (res.estado !== "exito") {
-      setError(res.codigo === "DUPLICADO" ? `Ya tenés una serie ${values.serie} configurada. Elegí otra (p. ej. ${values.tipo === "01" ? "F002" : "B002"}).` : mensajeError(res.codigo));
+      setError(res.codigo === "DUPLICADO" ? `Ya tienes una serie ${values.serie} configurada. Elige otra (p. ej. ${values.tipo === "01" ? "F002" : "B002"}).` : mensajeError(res.codigo));
       return;
     }
     router.push("/comprobantes");

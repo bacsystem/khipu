@@ -135,7 +135,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
             Establecimiento e = establecimientos.buscarConBloqueo(tenantId, codigo).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Establecimiento " + codigo + " no encontrado"));
             List<String> enUso = series.listar(tenantId).stream().filter(s -> s.activa() && s.establecimiento().equals(e.codigo())).map(Serie::codigo).toList();
             if (!enUso.isEmpty())
-                throw new DomainException("ESTABLECIMIENTO_EN_USO", "El establecimiento " + codigo + " tiene series activas (" + String.join(", ", enUso) + "): reasígnelas antes de darlo de baja");
+                throw new DomainException("ESTABLECIMIENTO_EN_USO", "El establecimiento " + codigo + " tiene series activas (" + String.join(", ", enUso) + "): hay que reasignarlas antes de darlo de baja");
             Establecimiento baja = e.desactivar();
             establecimientos.guardar(baja);
             return baja;

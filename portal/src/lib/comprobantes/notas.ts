@@ -89,7 +89,7 @@ export function importeLineaNota(item: ItemComprobante, cantidad: number): numbe
  * Una línea **gratuita** tampoco cuenta: su importe es 0 por definición (no se cobra) y SUNAT lo exige así —con 9996 en la
  * línea, el valor unitario debe ser 0 (`NotaCredito2_0` f184, 2640) y el precio de venta solo se exige distinto de cero
  * cuando NO hay 9996 (f187, 3224)—. Sin esta excepción una NC parcial que incluyera una bonificación quedaba bloqueada con
- * un consejo imposible («subí la cantidad»), aunque el backend la emite (recert #10).
+ * un consejo imposible («sube la cantidad»), aunque el backend la emite (recert #10).
  */
 export function lineaRedondeaACero(item: ItemComprobante, cantidad: number): boolean {
   if (esGratuita(item.tipo_afectacion_igv)) return false;
