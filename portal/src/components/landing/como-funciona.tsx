@@ -1,18 +1,18 @@
 const PASOS = [
   {
-    titulo: "Subís tu certificado y tus credenciales SOL",
+    titulo: "Subes tu certificado y tus credenciales SOL",
     detalle: "Una sola vez. Se guardan cifrados — khipu los usa para firmar cada comprobante.",
   },
   {
-    titulo: "Configurás tus series",
+    titulo: "Configuras tus series",
     detalle: "F001, B001… cada una con su correlativo y, si tienes locales, su establecimiento.",
   },
   {
-    titulo: "Emitís desde el portal o por tu sistema",
+    titulo: "Emites desde el portal o por tu sistema",
     detalle: "khipu calcula los totales, arma el XML UBL 2.1, lo firma y lo envía a SUNAT.",
   },
   {
-    titulo: "Recibís la constancia",
+    titulo: "Recibes la constancia",
     detalle: "El CDR llega en segundos. Si SUNAT no responde, khipu reintenta solo — nada se numera dos veces.",
   },
 ];

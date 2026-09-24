@@ -5,7 +5,7 @@ import { Spinner } from "@/components/feedback/spinner";
 
 /**
  * Envoltorio de un botón nativo que muestra `Spinner` y deshabilita mientras `pendiente`.
- * Agnóstico de receta: dale la clase de `BOTON_PRIMARIO` / `BOTON_SECUNDARIO` / `ACCION_PRINCIPAL` en `className`,
+ * Agnóstico de receta: se le pasa la clase de `BOTON_PRIMARIO` / `BOTON_SECUNDARIO` / `ACCION_PRINCIPAL` en `className`,
  * igual que a un `<button>` normal (ya traen `inline-flex items-center gap-1.5`, así que el spinner encaja solo).
  * `icon` es lo que se ve en el estado normal; se sustituye por el spinner mientras está pendiente.
  *

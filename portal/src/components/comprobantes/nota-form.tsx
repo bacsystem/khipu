@@ -229,7 +229,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       : lineaEnCero
         ? "Hay una línea cuyo importe, cargo o impuesto redondea a 0.00: sube la cantidad o ponla en 0."
         : notaSinImporte
-          ? "La nota no acredita ningún importe (SUNAT 2062): las líneas gratuitas no se cobran, así que incluí también la línea que devolvés."
+          ? "La nota no acredita ningún importe (SUNAT 2062): las líneas gratuitas no se cobran, así que incluye también la línea que devuelves."
         : ivapEnCero
           ? "El IVAP de la línea redondearía a 0.00 (SUNAT 3111): el importe debe ser 0.13 o más."
         : lineaPropia && nd.descripcion.trim() !== "" && nd.descripcion.trim().length < 3

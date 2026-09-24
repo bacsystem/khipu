@@ -8,7 +8,7 @@ const PREGUNTAS = [
   },
   {
     pregunta: "¿Necesito instalar algo en mi sistema?",
-    respuesta: "No. Es una API REST: la llamás desde tu sistema, o usás el portal directamente sin escribir código.",
+    respuesta: "No. Es una API REST: la llamas desde tu sistema, o usas el portal directamente sin escribir código.",
   },
   {
     pregunta: "¿Qué pasa con mi certificado digital?",

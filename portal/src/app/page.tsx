@@ -205,7 +205,7 @@ export default function Home() {
       <section id="precios" className="mx-auto max-w-6xl px-6 py-24">
         <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">Planes claros, gratis para empezar</h2>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          El plan Gratis no vence — no es un trial. Subís de plan cuando tu volumen lo pida.
+          El plan Gratis no vence — no es un trial. Subes de plan cuando tu volumen lo pida.
         </p>
         <div className="mt-10 grid gap-6 md:grid-cols-4">
           {PLANES.map((p) => (
