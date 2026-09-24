@@ -26,6 +26,21 @@ export async function middleware(req: NextRequest) {
   }
 }
 
+/**
+ * Una ruta privada que falte acá no queda abierta —el backend sigue exigiendo el JWT—, pero nadie
+ * le refresca el access token antes de que rendericen los Server Components, así que al usuario lo
+ * expulsa al login cuando vence (a los 15 minutos) aunque su sesión siga viva. Next exige que el
+ * matcher sea un literal analizable en build, así que no se puede derivar del árbol de `app/`:
+ * `middleware.test.ts` compara esta lista contra los directorios de `app/(privado)/` para que
+ * agregar una página nueva y olvidarse de esta línea rompa los tests.
+ */
 export const config = {
-  matcher: ["/onboarding/:path*", "/comprobantes/:path*", "/empresa/:path*", "/series/:path*", "/api-keys/:path*"],
+  matcher: [
+    "/onboarding/:path*",
+    "/comprobantes/:path*",
+    "/empresa/:path*",
+    "/establecimientos/:path*",
+    "/series/:path*",
+    "/api-keys/:path*",
+  ],
 };

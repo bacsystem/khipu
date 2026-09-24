@@ -27,7 +27,7 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
     });
     if (res.estado !== "exito" || !res.datos) {
       setEnviando(false);
-      setError(mensajeError(res.codigo));
+      setError(res.mensaje ?? mensajeError(res.codigo));
       return;
     }
     // La empresa nueva pasa a ser la activa de la sesión.

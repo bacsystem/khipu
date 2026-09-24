@@ -2,12 +2,30 @@
 
 import { ChevronDownIcon, SaveIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+
+/**
+ * Ocho dígitos: la regla 1001 de SUNAT define el ID del comprobante como `[FB][A-Z0-9]{3}-[0-9]{1,8}`. Pasado ese
+ * techo el comprobante se firma igual y SUNAT lo rechaza con el correlativo ya consumido, y la serie no se puede
+ * editar. El backend lo rechaza también; acá se evita el viaje.
+ */
+export const CORRELATIVO_MAXIMO = 99_999_999;
+
+/**
+ * El `value` de un `type=number` es texto libre: «1e30», «3.5», «-1» y «» llegan acá si el navegador no los filtra.
+ * Devuelve `null` cuando no es un correlativo usable, para avisar en vez de recortar: recortar al tope crearía una
+ * serie agotada de entrada, que tampoco sirve para emitir.
+ */
+export function correlativoValido(valor: string): number | null {
+  if (!/^\d+$/.test(valor.trim())) return null;
+  const n = Number(valor);
+  return n <= CORRELATIVO_MAXIMO ? n : null;
+}
 
 const TIPOS = [
   { codigo: "01", etiqueta: "01 · Factura electrónica (F###)" },
@@ -25,6 +43,9 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
   const [establecimientos, setEstablecimientos] = useState<Establecimiento[] | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // `enviando` es estado: React lo aplica al final del tick, así que dos clics en el mismo tick pasan los dos por
+  // `onSubmit` y crean la serie dos veces (la segunda choca con el 409 y confunde). El ref corta en el acto.
+  const enviandoRef = useRef(false);
 
   // Puntos de emisión de la empresa (#80): el 0000 siempre existe; los anexos dados de baja no se ofrecen.
   useEffect(() => {
@@ -43,15 +64,23 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setEnviando(true);
+    if (enviandoRef.current) return;
     setError(null);
+    const correlativoInicial = correlativoValido(correlativo);
+    if (correlativoInicial === null) {
+      setError("El último número va de 0 a 99 999 999: SUNAT admite 8 dígitos de correlativo (regla 1001).");
+      return;
+    }
+    enviandoRef.current = true;
+    setEnviando(true);
     const res = await apiRequest("/api/proxy/series", {
       method: "POST",
-      body: { tipo, serie: serie.toUpperCase(), correlativo_inicial: Number(correlativo) || 0, establecimiento },
+      body: { tipo, serie: serie.toUpperCase(), correlativo_inicial: correlativoInicial, establecimiento },
     });
+    enviandoRef.current = false;
     setEnviando(false);
     if (res.estado !== "exito") {
-      setError(mensajeError(res.codigo));
+      setError(res.mensaje ?? mensajeError(res.codigo));
       return;
     }
     setSerie("");
@@ -105,11 +134,13 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
             id="correlativo"
             type="number"
             min={0}
+            max={CORRELATIVO_MAXIMO}
+            step={1}
             value={correlativo}
             onChange={(e) => setCorrelativo(e.target.value)}
             className={cn(CAMPO, "font-mono")}
           />
-          <span className={AYUDA_CAMPO}>Base inicial (0 = nueva)</span>
+          <span className={AYUDA_CAMPO}>Base inicial (0 = nueva). Hasta 8 dígitos.</span>
         </div>
       </div>
 

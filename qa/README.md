@@ -9,16 +9,18 @@ Cómo leer un hallazgo en una ficha: 🔧 **corregido** = PR mergeado, a la espe
 | 1 | Emisión de factura | ✅ certificado `37e1a75` | [emision.md](emision.md) |
 | 2 | Notas de crédito/débito | 🟡 recert #10: 0 bloqueantes · 2 importantes, corregido (backend + A11), pendiente recert #11 | [notas.md](notas.md) |
 | 3 | Registro + onboarding | 🔴 auditoría #1: 1 bloqueante · 12 importantes, corregido (#158 + portal), pendiente recert #1 | [registro.md](registro.md) |
-| 4 | Login / recuperar / restablecer | ⬜ | — |
-| 5 | Empresa: fiscales, certificado, SOL | ⬜ | — |
+| 4 | Login / recuperar / restablecer | 🟡 aud. #1: 1 bloqueante (sesiones cruzadas al refrescar) + 3 importantes corregidos; 4 en pendientes | [login.md](login.md) |
+| 5 | Empresa: fiscales, certificado, SOL | 🟡 aud. #1: 1 bloqueante (certificado no vigente) + 3 importantes corregidos; 5 abiertos | [empresa.md](empresa.md) |
 | 6 | Establecimientos | ⬜ | — |
-| 7 | Series | ⬜ | — |
+| 7 | Series | 🟡 aud. #1: 1 bloqueante (correlativo sin tope, 1001) + 4 importantes corregidos; 4 abiertos | [series.md](series.md) |
 | 8 | Listado + filtros | ⬜ | — |
 | 9 | Detalle + XML/PDF/CDR | ⬜ | — |
 | 10 | Comunicación de baja | 🔴 auditoría #1 (2 auditores): 2 bloqueantes · 7 importantes, corregido (#151 + A1), pendiente recert #1 | [bajas.md](bajas.md) |
 | 11 | API keys | ⬜ | — |
 | 12 | Personalización PDF | ⬜ | — |
 | 13 | Developers | ⬜ | — |
+
+> Las fichas `bajas.md` y `registro.md` llegan con sus PRs (todavía sin mergear); los enlaces resuelven en cuanto entren.
 
 ## Pendientes
 

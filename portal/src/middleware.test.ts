@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+import path from "node:path";
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/types";
@@ -8,7 +10,7 @@ vi.mock("@/lib/api/auth", () => ({
 }));
 
 import { refrescar } from "@/lib/api/auth";
-import { middleware } from "./middleware";
+import { config, middleware } from "./middleware";
 
 function jwtCon(exp: number): string {
   const payload = btoa(JSON.stringify({ exp }))
@@ -84,5 +86,21 @@ describe("middleware", () => {
 
     expect(res.status).toBe(307);
     expect(res.cookies.get(COOKIE_REFRESH)?.value).toBe("");
+  });
+
+  // El matcher tiene que ser un literal para que Next lo analice en build, así que no se puede
+  // derivar del árbol de rutas. Esta comparación es lo que impide que una página privada nueva se
+  // quede sin refresco proactivo del access token (el síntoma es una expulsión al login a los 15
+  // minutos, con la sesión todavía viva).
+  it("cubre todas las páginas de app/(privado)", () => {
+    const privado = path.join(__dirname, "app", "(privado)");
+    const paginas = readdirSync(privado, { withFileTypes: true })
+      .filter((entrada) => entrada.isDirectory())
+      .map((entrada) => entrada.name);
+
+    expect(paginas.length).toBeGreaterThan(0);
+    for (const pagina of paginas) {
+      expect(config.matcher).toContain(`/${pagina}/:path*`);
+    }
   });
 });

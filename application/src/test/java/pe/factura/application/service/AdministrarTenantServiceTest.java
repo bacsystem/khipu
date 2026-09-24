@@ -1,6 +1,7 @@
 package pe.factura.application.service;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import pe.factura.application.port.in.AdministrarTenantUseCase.TenantCreado;
 import pe.factura.application.port.out.ApiKeyRepository;
 import pe.factura.domain.DomainException;
@@ -11,6 +12,9 @@ import pe.factura.domain.tenant.Entorno;
 import pe.factura.domain.tenant.Establecimiento;
 import pe.factura.domain.tenant.Serie;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.*;
@@ -76,6 +80,49 @@ class AdministrarTenantServiceTest {
         UUID id = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
         assertThatThrownBy(() -> service.cargarCertificado(id, new byte[]{1, 2, 3}, "x"))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CERTIFICADO_INVALIDO");
+    }
+
+    /**
+     * Las tres ventanas de vigencia contra el reloj fijo de los tests (2026-09-13). El caso del medio es el que
+     * importa: una CA suele emitir la renovación arrancando el día que expira el certificado anterior, así que un
+     * .p12 que llega hoy puede recién servir el mes que viene. Firmarlo antes hace que SUNAT devuelva 2327 con el
+     * correlativo ya gastado.
+     */
+    @Test void vigenciaDelCertificado(@TempDir Path dir) throws Exception {
+        UUID id = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
+
+        byte[] vigente = p12(dir, "vigente", "2026/09/01 00:00:00", 365);
+        byte[] futuro = p12(dir, "futuro", "2026/10/23 00:00:00", 365);
+        byte[] vencido = p12(dir, "vencido", "2025/01/01 00:00:00", 30);
+
+        service.cargarCertificado(id, vigente, CLAVE_P12);
+        assertThat(tenants.buscar(id).get().certificado().vigenciaHasta()).isEqualTo(LocalDate.of(2027, 9, 1));
+
+        assertThatThrownBy(() -> service.cargarCertificado(id, futuro, CLAVE_P12))
+                .extracting("codigo").isEqualTo("CERTIFICADO_NO_VIGENTE");
+        assertThatThrownBy(() -> service.cargarCertificado(id, vencido, CLAVE_P12))
+                .extracting("codigo").isEqualTo("CERTIFICADO_VENCIDO");
+
+        // Ninguno de los dos rechazos pisó al que sí servía.
+        assertThat(tenants.buscar(id).get().certificado().vigenciaHasta()).isEqualTo(LocalDate.of(2027, 9, 1));
+    }
+
+    private static final String CLAVE_P12 = "secreto";
+
+    /** Genera un PKCS#12 autofirmado con el RUC en el OU y una ventana de vigencia exacta. `keytool` viene con el JDK. */
+    private static byte[] p12(Path dir, String nombre, String desde, int dias) throws Exception {
+        Path archivo = dir.resolve(nombre + ".p12");
+        Process p = new ProcessBuilder(
+                Path.of(System.getProperty("java.home"), "bin", "keytool").toString(),
+                "-genkeypair", "-alias", nombre, "-keyalg", "RSA", "-keysize", "2048",
+                "-dname", "CN=TEST,OU=20100066603,O=Khipu,C=PE",
+                "-keystore", archivo.toString(), "-storetype", "PKCS12",
+                "-storepass", CLAVE_P12, "-keypass", CLAVE_P12,
+                "-startdate", desde, "-validity", String.valueOf(dias))
+                .redirectErrorStream(true).start();
+        String salida = new String(p.getInputStream().readAllBytes());
+        assertThat(p.waitFor()).as("keytool: %s", salida).isZero();
+        return Files.readAllBytes(archivo);
     }
 
     @Test void listaYRevocaApiKeys() {

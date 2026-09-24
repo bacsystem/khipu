@@ -49,4 +49,41 @@ describe("apiRequest / postJson", () => {
     expect(init.headers).toBeUndefined();
     expect(init.body).toBe(form);
   });
+
+  // Los 23 formularios que usan este cliente hacen `await` sin try/catch y apagan el «Enviando…»
+  // mirando `res.estado`. Si algo de acá lanzara, el botón quedaría deshabilitado para siempre.
+  describe("nunca lanza: el error llega como sobre", () => {
+    it("corte de red al enviar", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+      const res = await apiRequest("/api/proxy/empresa/certificado", { method: "POST", body: new FormData() });
+
+      expect(res.estado).toBe("error");
+      expect(res.codigo).toBe("RED");
+      expect(res.mensaje).toBeTruthy();
+    });
+
+    it("corte de red al leer el cuerpo de la respuesta", async () => {
+      const cuerpoRoto = new Response("x", { status: 200 });
+      vi.spyOn(cuerpoRoto, "text").mockRejectedValue(new TypeError("network error"));
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(cuerpoRoto));
+
+      const res = await postJson("/api/auth/login", { email: "a@b.com", password: "x" });
+
+      expect(res.estado).toBe("error");
+      expect(res.codigo).toBe("RED");
+    });
+
+    it("respuesta que no es JSON (el HTML de un 502 de proxy)", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response("<html><body>502 Bad Gateway</body></html>", { status: 502 })),
+      );
+
+      const res = await postJson("/api/auth/recuperar", { email: "a@b.com" });
+
+      expect(res.estado).toBe("error");
+      expect(res.codigo).toBe("RESPUESTA_INVALIDA");
+    });
+  });
 });

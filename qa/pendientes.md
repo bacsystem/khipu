@@ -59,6 +59,35 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 | El wizard no tiene «Volver» | un tipeo solo se corrige antes de enviar el paso |
 | `POST /api/auth/registro` con cuerpo no-JSON da 500 en vez de 400 | mismo patrón que el resto de los route handlers |
 | El mock revienta con cuerpo vacío en `POST /v1/empresas` | `[POSIBLE]` en cuanto al disparador |
+## Login / sesión (aud. #1, ficha [login.md](login.md))
+
+| Qué | Dónde | Arreglo |
+|---|---|---|
+| Enumeración de cuentas por tiempo: 324 ms con bcrypt cuando el correo existe vs ~1–5 ms cuando no | backend, autenticación | hash dummy en la rama de correo inexistente |
+| Sin rate limiting en login, recuperar ni restablecer | backend | trabajo propio; decide si va antes de abrir el autoservicio |
+| Logout no revoca el refresh cuando el access ya venció | `api/auth/logout` | revocar por refresh |
+| Paridad del mock: no verifica firma ni `exp` del JWT, falta el handler de `/v1/auth/restablecer`, y el correo se compara respetando mayúsculas | `src/mocks/handlers.ts` | tres huecos independientes |
+
+## Empresa: fiscales, certificado, SOL (aud. #1, ficha [empresa.md](empresa.md))
+
+| Qué | Dónde | Arreglo |
+|---|---|---|
+| Usuario y clave SOL sin recortar espacios: `" MODDATOS "` hace que SUNAT rechace la autenticación en **todos** los envíos, con el portal mostrando «CONFIGURADAS» | `AdministrarTenantService.cargarCredencialesSol` | `strip()` en el usuario; avisar en la clave |
+| Dirección escrita sin elegir distrito: se descarta en silencio **y borra el domicilio guardado**, informando éxito | `datos-fiscales-form.tsx` | exigir ubigeo, o no mandar `domicilio` a medias |
+| El `.p12` pasa por un archivo temporal en claro y un archivo de más de 1 MB responde 500 | `bootstrap/application.yml`, `GlobalExceptionHandler` | `file-size-threshold` ≥ `max-file-size`, tope explícito, handler 422 |
+| Paridad del mock (5): acepta cualquier «certificado» sin parsearlo, acepta SOL en blanco, solo valida el ubigeo, **no persiste `padron_tasa_especial_igv`** (decide 10.5 % vs 18 %) y deja registrar dos empresas con el mismo RUC | `src/mocks/handlers.ts` | el del padrón es de dinero: prioridad |
+| Cobertura: OU↔RUC y SOL en blanco sin test; `empresa.spec.ts` no toca el formulario de certificado ni el de SOL; el test de cifrado solo cubre `sol_clave_enc` | tests | |
+| Menores: cookie `factura_empresa` sin comprobar pertenencia (el backend corta con 403, no hay fuga); fault SOAP de credenciales clasificado como transitorio y sin señal en pantalla; `CREDENCIALES_INVALIDAS` mapeado a 401 para un caso de validación; faltan 4 claves de mensaje; `cert_vigencia_hasta` nullable se muestra «Sin certificado»; RUC sin dígito verificador en cliente; cita equivocada de la regla 3034 | varios | |
+
+## Series (aud. #1, ficha [series.md](series.md))
+
+| Qué | Dónde | Arreglo |
+|---|---|---|
+| Una serie asignada a un anexo lo bloquea para siempre: el error pide reasignarlas, pero no existe endpoint para reasignar, desactivar ni borrar una serie | backend | falta el endpoint; también deja estados «Inactiva» inalcanzables en el portal |
+| Establecimientos sin estado de carga ni de error: el combo ofrece solo «0000 · Domicilio fiscal» sin aviso, y como la serie no se puede editar, todos sus comprobantes saldrían con el domicilio fiscal (regla 3030) | `nueva-serie-form.tsx` | el patrón de catálogos de notas (#120) |
+| Paridad del mock: no replica `serieValida` (una `BQQ1` queda ofrecida como serie de factura en emisión) ni la unicidad `(tipo, codigo)` | `src/mocks/handlers.ts` | |
+| Cobertura: no existe `e2e/series.spec.ts`; las cuatro anotaciones de `SerieRequest` no están atadas por ningún test REST | tests | |
+| Menores: el alta no da señal si la fila cae en la página 2 (buscador deshabilitado); filtro «Inactivas» inalcanzable; series `BC##` legítimas invisibles en notas; orden distinto entre mock y backend; `codigo` sin normalizar en el dominio | varios | |
 
 ## Transversal
 

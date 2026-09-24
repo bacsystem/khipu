@@ -50,9 +50,16 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         return t;
     }
 
+    /**
+     * Rechaza el certificado que todavía no entró en vigencia, no solo el vencido. Una CA suele emitir la renovación
+     * con {@code notBefore} en la fecha en que expira el anterior, así que un certificado que llega hoy puede recién
+     * servir el mes que viene. Firmar antes de esa fecha hace que SUNAT devuelva 2327 («El certificado usado no se
+     * encuentra vigente») con el correlativo ya consumido: la numeración se asigna y se bloquea antes de firmar.
+     */
     public void cargarCertificado(UUID tenantId, byte[] pkcs12, String clave) {
         Tenant t = obtener(tenantId);
         LocalDate vigencia;
+        Instant desde;
         try {
             KeyStore ks = KeyStore.getInstance("PKCS12");
             ks.load(new ByteArrayInputStream(pkcs12), clave.toCharArray());
@@ -62,9 +69,15 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
             String subject = cert.getSubjectX500Principal().getName();
             if (!ouContieneRuc(subject, t.ruc())) throw new DomainException("CERTIFICADO_INVALIDO", "El RUC " + t.ruc() + " no figura en el campo OU del certificado");
             vigencia = cert.getNotAfter().toInstant().atZone(ZoneId.of("America/Lima")).toLocalDate();
+            desde = cert.getNotBefore().toInstant();
         } catch (DomainException e) { throw e;
         } catch (Exception e) { throw new DomainException("CERTIFICADO_INVALIDO", "No se pudo abrir el PKCS#12: " + e.getMessage(), e); }
         if (vigencia.isBefore(LocalDate.now(clock))) throw new DomainException("CERTIFICADO_VENCIDO", "El certificado venció el " + vigencia);
+        // Se compara el instante, no la fecha: un certificado que arranca hoy a las 15:00 no sirve para firmar a las 08:00.
+        if (desde.isAfter(clock.instant()))
+            throw new DomainException("CERTIFICADO_NO_VIGENTE",
+                    "2327 - El certificado recién entra en vigencia el " + desde.atZone(ZoneId.of("America/Lima")).toLocalDate()
+                            + "; SUNAT rechaza todo lo que se firme antes de esa fecha");
         uow.ejecutar(() -> tenants.guardar(t.conCertificado(new CertificadoDigital(pkcs12, clave, vigencia))));
     }
 
