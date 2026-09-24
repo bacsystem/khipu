@@ -14,7 +14,10 @@ const eslintConfig = [
   {
     ignores: [
       "node_modules/**",
+      // `.next-*` cubre los distDir alternativos: `.next-prod` de `make build-portal`, `.next-e2e` y `.next-mock`.
+      // Sin esto, un build deja 900 errores de lint en código generado y `make verificar` deja de significar algo.
       ".next/**",
+      ".next-*/**",
       "out/**",
       "build/**",
       "next-env.d.ts",
