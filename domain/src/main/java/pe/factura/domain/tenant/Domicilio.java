@@ -23,15 +23,31 @@ public record Domicilio(String ubigeo, String direccion, String urbanizacion, St
         direccion = direccion.strip();
         urbanizacion = limpiar(urbanizacion, 25, "4095 - La urbanización admite hasta 25 caracteres");
         CatalogoSunat.Entrada ubi = CatalogoSunat.porId("13").flatMap(c -> c.entrada(ubigeo)).orElseThrow();
-        distrito = limpiar(distrito == null ? ubi.extra().get("Distrito") : distrito, 30, "4098 - El distrito admite hasta 30 caracteres");
-        provincia = limpiar(provincia == null ? ubi.extra().get("Provincia") : provincia, 30, "4096 - La provincia admite hasta 30 caracteres");
-        departamento = limpiar(departamento == null ? ubi.extra().get("Departamento") : departamento, 30, "4097 - El departamento admite hasta 30 caracteres");
+        distrito = derivado(distrito, ubi.extra().get("Distrito"), "4098 - El distrito admite hasta 30 caracteres");
+        provincia = derivado(provincia, ubi.extra().get("Provincia"), "4096 - La provincia admite hasta 30 caracteres");
+        departamento = derivado(departamento, ubi.extra().get("Departamento"), "4097 - El departamento admite hasta 30 caracteres");
         codigoEstablecimiento = codigoEstablecimiento == null || codigoEstablecimiento.isBlank() ? ESTABLECIMIENTO_PRINCIPAL : codigoEstablecimiento.strip();
         if (!codigoEstablecimiento.matches("\\d{4}"))
             throw new DomainException("DOMICILIO_INVALIDO", "3030 - El código de establecimiento anexo son 4 dígitos (0000 para el domicilio fiscal)");
     }
 
     public static Domicilio de(String ubigeo, String direccion) { return new Domicilio(ubigeo, direccion, null, null, null, null, null); }
+
+    /**
+     * Distrito, provincia y departamento salen del catálogo 13 salvo que el emisor los mande. Y el catálogo del INEI trae tres
+     * distritos de más de 30 caracteres —«CORONEL GREGORIO ALBARRACIN LANCHIPA» (Tacna), «SAN FRANCISCO DE ASIS DE YARUSYACAN»
+     * (Pasco) y «ANDRES AVELINO CACERES DORREGARAY» (Ayacucho)—, así que validar el valor derivado como si fuera entrada del
+     * usuario dejaba fuera del sistema a tres distritos válidos, por un campo que nadie escribió y que no se puede corregir.
+     *
+     * <p>Las reglas 4096–4098 son {@code an..30} con retorno OBSERV, no ERROR: pasarse observa el comprobante, no lo rechaza.
+     * Así que lo que deriva el catálogo se recorta a 30 y lo que escribe el emisor se sigue rechazando, que es su entrada.
+     */
+    private static String derivado(String propio, String delCatalogo, String error) {
+        if (propio != null && !propio.isBlank()) return limpiar(propio, 30, error);
+        if (delCatalogo == null || delCatalogo.isBlank()) return null;
+        String s = delCatalogo.strip();
+        return s.length() > 30 ? s.substring(0, 30).strip() : s;
+    }
 
     private static String limpiar(String v, int max, String error) {
         if (v == null || v.isBlank()) return null;

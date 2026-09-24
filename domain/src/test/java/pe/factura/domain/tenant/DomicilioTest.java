@@ -44,6 +44,27 @@ class DomicilioTest {
         assertThatThrownBy(() -> new Domicilio("150122", "Av. Larco 345", null, null, null, null, "12")).hasMessageStartingWith("3030");
     }
 
+    /**
+     * El catálogo 13 del INEI trae tres distritos de más de 30 caracteres, y los tres existen: uno de ellos es un distrito de
+     * Tacna con unos 120 000 habitantes. Validarlos como si el emisor los hubiera escrito dejaba esas tres zonas sin poder
+     * registrar un domicilio, por un campo que nadie teclea. Las reglas 4096–4098 son OBSERV, no ERROR, así que se recorta.
+     */
+    @Test void recortaLosTresDistritosDelCatalogoQuePasanDe30() {
+        assertThat(Domicilio.de("230110", "Av. Bolognesi 100").distrito()).isEqualTo("CORONEL GREGORIO ALBARRACIN LA");
+        assertThat(Domicilio.de("190108", "Av. Central 1").distrito()).isEqualTo("SAN FRANCISCO DE ASIS DE YARUS");
+        assertThat(Domicilio.de("050116", "Jr. Lima 200").distrito()).isEqualTo("ANDRES AVELINO CACERES DORREGA");
+        // Nombre corto: intacto, sin recorte ni relleno.
+        assertThat(Domicilio.de("150122", "Av. Larco 345").distrito()).isEqualTo("MIRAFLORES");
+    }
+
+    /** Lo que escribe el emisor se sigue rechazando: el recorte es solo para el valor que deriva el catálogo. */
+    @Test void elDistritoEscritoPorElEmisorNoSeRecorta() {
+        assertThatThrownBy(() -> new Domicilio("230110", "Av. Bolognesi 100", null, "D".repeat(31), null, null, null))
+                .isInstanceOf(DomainException.class).hasMessageStartingWith("4098");
+        assertThatThrownBy(() -> new Domicilio("150122", "Av. Larco 345", null, null, "P".repeat(31), null, null)).hasMessageStartingWith("4096");
+        assertThatThrownBy(() -> new Domicilio("150122", "Av. Larco 345", null, null, null, "D".repeat(31), null)).hasMessageStartingWith("4097");
+    }
+
     @Test void cuentaDeDetraccionesDelTenant() {
         Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "EMPRESA SAC", Entorno.BETA, null, null).conDatosFiscales(Domicilio.de("150122", "Av. Larco 345"), " 00-000-123456 ");
         assertThat(t.cuentaDetracciones()).isEqualTo("00-000-123456");

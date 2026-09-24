@@ -95,6 +95,33 @@ test("reenvía un comprobante en error y queda aceptado", async ({ page }) => {
   await expect(page.getByText("Aceptado", { exact: true }).first()).toBeVisible();
 });
 
+/**
+ * «Reenviar» usaba `fetch` a pelo, sin mirar la respuesta ni capturar el rechazo. Importa más que en otros botones: un
+ * comprobante en error de envío puede estar **aceptado** en SUNAT, así que un fallo silencioso es cómo el emisor se queda
+ * sin saber el estado real y reintenta a ciegas.
+ */
+test("reenviar: si se corta la conexión, avisa y el botón vuelve a habilitarse", async ({ page }) => {
+  await page.goto("/comprobantes/f-error");
+  await page.route("**/api/proxy/facturas/f-error/enviar", (r) => r.abort("connectionreset"));
+
+  const boton = page.getByRole("button", { name: "Reenviar", exact: true });
+  await boton.click();
+
+  await expect(page.getByRole("alert").filter({ hasText: "pudo haber llegado a SUNAT" })).toBeVisible();
+  await expect(boton).toBeEnabled();
+});
+
+test("reenviar: un rechazo del backend se muestra en la ficha", async ({ page }) => {
+  await page.goto("/comprobantes/f-error");
+  await page.route("**/api/proxy/facturas/f-error/enviar", (r) =>
+    r.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ estado: "error", codigo: "ESTADO_NO_ENVIABLE", mensaje: "El comprobante ya fue aceptado por SUNAT", datos: null, errores: null }) }),
+  );
+
+  await page.getByRole("button", { name: "Reenviar", exact: true }).click();
+
+  await expect(page.getByRole("alert").filter({ hasText: "ya fue aceptado por SUNAT" })).toBeVisible();
+});
+
 test("emite una nota de crédito parcial desde la factura y la factura la lista", async ({ page }) => {
   await page.goto("/comprobantes/f-aceptada");
   await page.getByTestId("emitir-nota").click();

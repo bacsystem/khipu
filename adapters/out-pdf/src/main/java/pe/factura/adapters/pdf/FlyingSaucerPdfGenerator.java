@@ -12,6 +12,7 @@ import org.xhtmlrenderer.pdf.ITextRenderer;
 import pe.factura.application.port.out.PdfGenerator;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.MontoEnLetras;
+import pe.factura.domain.documento.Leyenda;
 import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.LogoPdf;
 import pe.factura.domain.tenant.Tenant;
@@ -76,6 +77,10 @@ public class FlyingSaucerPdfGenerator implements PdfGenerator {
             modelo.put("fechaEmision", c.fechaEmision().format(FECHA));
             modelo.put("fechaVencimiento", c.fechaVencimiento() == null ? null : c.fechaVencimiento().format(FECHA));
             modelo.put("montoEnLetras", MontoEnLetras.de(c.totales().total(), c.moneda()));
+            // Las leyendas que declaró el emisor (Amazonía, zona comercial de Tacna, paquete turístico…) van impresas: el texto
+            // del catálogo 52 *es* la frase que sustenta la exoneración. Las automáticas ya tienen su lugar en el cuerpo del
+            // documento (monto en letras, detracción, IVAP, gratuitas, percepción), así que no se repiten acá.
+            modelo.put("leyendas", c.leyendas().stream().map(Leyenda::texto).toList());
             modelo.put("qr", "data:image/png;base64," + Base64.getEncoder().encodeToString(qrPng(contenidoQr)));
             modelo.put("statics", ((freemarker.ext.beans.BeansWrapper) cfg.getObjectWrapper()).getStaticModels());
             // Las dos notas comparten plantilla; solo cambian el título del recuadro y el nombre en la leyenda del pie.

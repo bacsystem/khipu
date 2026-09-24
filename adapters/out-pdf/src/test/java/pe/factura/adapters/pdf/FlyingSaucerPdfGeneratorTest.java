@@ -59,6 +59,32 @@ class FlyingSaucerPdfGeneratorTest {
                 .doesNotContain("Documento que modifica");
     }
 
+    /**
+     * Las leyendas del catálogo 52 que declara el emisor tienen que salir impresas: en una factura de la Amazonía o de la zona
+     * comercial de Tacna, el texto del catálogo es la frase que sustenta la exoneración. Faltaba justo en esos comprobantes.
+     * Las automáticas no se repiten acá porque ya tienen su lugar en el cuerpo (monto en letras, detracción, IVAP, gratuitas).
+     */
+    @Test void lasLeyendasDeclaradasPorElEmisorSeImprimen() {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", RECEPTOR,
+                        List.of(new Item("A", "Madera", "NIU", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.EXONERADO)))
+                .referencias(Referencias.ninguna()).leyendas(List.of("2001", "2008")).crear(CLOCK);
+        c.asignarNumero(300, "20100066603");
+        c.firmar("hashamazonia==", "k");
+
+        String html = generador.xhtml(c, TENANT, "qr", null);
+
+        assertThat(html)
+                .contains("BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA")
+                .contains("VENTA EXONERADA DEL IGV-ISC-IPM. PROHIBIDA LA VENTA FUERA DE LA ZONA COMERCIAL DE TACNA")
+                // El texto va sin el prefijo ni las comillas con que el catálogo lo describe.
+                .doesNotContain("Leyenda “BIENES", "Leyenda: “VENTA");
+    }
+
+    /** Sin leyendas declaradas no aparece el bloque: una factura común no gana ruido. */
+    @Test void sinLeyendasDeclaradasNoHayBloque() {
+        assertThat(generador.xhtml(factura(), TENANT, "qr", null)).doesNotContain("class=\"leyenda leyenda-declarada\"");
+    }
+
     /** Exportación (#65) e IVAP (#67): la fila de totales cambia (sin IGV / IVAP 4 %). */
     @Test void laExportacionYElIvapCambianLasFilasDeTotales() {
         Comprobante exp = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "0200", new Receptor("0", "US123456789", "ACME IMPORTS LLC", "1200 Main St", "US"),
