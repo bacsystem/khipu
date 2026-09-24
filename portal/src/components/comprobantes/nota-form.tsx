@@ -126,7 +126,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     if (noSeSabeSiLlego(res)) {
       setEnviando(false);
       setError(
-        `Se cortó la conexión mientras se emitía. La nota pudo haberse emitido igual: revisá las notas de la factura ${factura.serie}-${factura.numero} antes de volver a intentarlo, para no duplicarla.`,
+        `Se cortó la conexión mientras se emitía. La nota pudo haberse emitido igual: revisa las notas de la factura ${factura.serie}-${factura.numero} antes de volver a intentarlo, para no duplicarla.`,
       );
       return;
     }
@@ -227,7 +227,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     : esCuotas && cuotas.some((q) => conDecimalesDeMas(q.monto))
       ? "Cada cuota admite hasta 2 decimales."
       : lineaEnCero
-        ? "Hay una línea cuyo importe, cargo o impuesto redondea a 0.00: subí la cantidad o ponela en 0."
+        ? "Hay una línea cuyo importe, cargo o impuesto redondea a 0.00: sube la cantidad o ponla en 0."
         : notaSinImporte
           ? "La nota no acredita ningún importe (SUNAT 2062): las líneas gratuitas no se cobran, así que incluí también la línea que devolvés."
         : ivapEnCero
@@ -235,7 +235,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         : lineaPropia && nd.descripcion.trim() !== "" && nd.descripcion.trim().length < 3
           ? "El concepto necesita al menos 3 caracteres (SUNAT 4084)."
           : esParcial && descripcion.trim() !== "" && lineasParciales.length === 0
-            ? "Poné una cantidad mayor que 0 en al menos un ítem."
+            ? "Pon una cantidad mayor que 0 en al menos un ítem."
             : null;
 
   const listo =
@@ -302,7 +302,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             <p className="mt-1" data-testid="nota-importe">
               Importe de la nota: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</span>. Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>
               {acreditado > 0 ? ` (ya acreditado ${formatearMonto(factura.moneda, acreditado)} en otras notas de crédito)` : ""}.
-              {superaTope ? <span role="alert" className="block"> Supera el tope: SUNAT la rechazaría (3286). Solo queda por acreditar {formatearMonto(factura.moneda, tope)}; elegí un motivo parcial.</span> : null}
+              {superaTope ? <span role="alert" className="block"> Supera el tope: SUNAT la rechazaría (3286). Solo queda por acreditar {formatearMonto(factura.moneda, tope)}; elige un motivo parcial.</span> : null}
             </p>
           ) : null}
         </div>
@@ -356,7 +356,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             </span>
             {superaTope ? (
               <span role="alert" className="basis-full">
-                Supera el tope: SUNAT la rechazaría (3286). Bajá cantidades, o para anular o devolver todo elegí el motivo 01 o 06.
+                Supera el tope: SUNAT la rechazaría (3286). Baja cantidades, o para anular o devolver todo elige el motivo 01 o 06.
               </span>
             ) : null}
           </div>
@@ -399,7 +399,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
               <span>
                 {exentoDeTope ? "Sin tope: SUNAT exime al motivo 10 del 3286 y del 3503 (filas 111 y 114–122)." : <>Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>{limitaTributo ? ` (por tributo, 3503: ${conceptoTributo} de la factura ${formatearMonto(factura.moneda, topeTributo)})` : ""}{acreditado > 0 ? ` (menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}</>}
               </span>
-              {superaTope ? <span role="alert" className="basis-full">Supera el tope: SUNAT la rechazaría ({limitaTributo ? "3503, por tributo" : "3286"}). Bajá el importe.</span> : null}
+              {superaTope ? <span role="alert" className="basis-full">Supera el tope: SUNAT la rechazaría ({limitaTributo ? "3503, por tributo" : "3286"}). Baja el importe.</span> : null}
             </div>
           ) : null}
         </div>

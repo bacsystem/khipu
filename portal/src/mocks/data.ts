@@ -411,6 +411,66 @@ export function resetDb() {
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-error/xml", pdf: "/v1/facturas/f-error/pdf" },
     },
+
+    {
+      // Reenvío con la red cortada. Fixture propia: el e2e de «reenvía y queda aceptado» deja f-error en ACEPTADO,
+      // y con `fullyParallel` el que corriera después no encontraba el botón «Reenviar».
+      id: "f-error-red",
+      tipo: "01",
+      serie: "F001",
+      numero: 19,
+      fecha_emision: "2026-09-02",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "1", num_doc: "44781209", razon_social: "MIGUEL ANGEL VALENCIA RAMOS", direccion: null },
+      items: [
+        { codigo: null, descripcion: "Consultoría técnica", unidad: "ZZ", cantidad: 2, precio_unitario: 25, tipo_afectacion_igv: "10" },
+      ],
+      estado_documento: "ERROR_ENVIO",
+      hash: "f-error-red==",
+      nombre_archivo: "20123456786-01-F001-00000019",
+      intentos: 2,
+      ultimo_error: "SUNAT no respondió a tiempo",
+      eventos: [
+        { fecha: "2026-09-02T15:00:01Z", estado_anterior: "RECIBIDO", estado_resultante: "FIRMADO", mensaje: "Firmado; resumen k9Qx…" },
+        { fecha: "2026-09-02T15:00:05Z", estado_anterior: "FIRMADO", estado_resultante: "ERROR_ENVIO", mensaje: "SUNAT no disponible (timeout)" },
+        { fecha: "2026-09-02T15:02:10Z", estado_anterior: "ERROR_ENVIO", estado_resultante: "ENVIADO", mensaje: "Enviado a SUNAT (intento 2)" },
+        { fecha: "2026-09-02T15:02:40Z", estado_anterior: "ENVIADO", estado_resultante: "ERROR_ENVIO", mensaje: "SUNAT no respondió a tiempo" },
+      ],
+      cdr: null,
+      totales: { gravado: 50, exonerado: 0, inafecto: 0, igv: 9, total: 59 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-error-red/xml", pdf: "/v1/facturas/f-error-red/pdf" },
+    },
+    {
+      // Reenvío que el backend rechaza. Misma razón que f-error-red: no compartir el estado con otro test.
+      id: "f-error-rechazo",
+      tipo: "01",
+      serie: "F001",
+      numero: 20,
+      fecha_emision: "2026-09-02",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "1", num_doc: "44781209", razon_social: "MIGUEL ANGEL VALENCIA RAMOS", direccion: null },
+      items: [
+        { codigo: null, descripcion: "Consultoría técnica", unidad: "ZZ", cantidad: 2, precio_unitario: 25, tipo_afectacion_igv: "10" },
+      ],
+      estado_documento: "ERROR_ENVIO",
+      hash: "f-error-rechazo==",
+      nombre_archivo: "20123456786-01-F001-00000020",
+      intentos: 2,
+      ultimo_error: "SUNAT no respondió a tiempo",
+      eventos: [
+        { fecha: "2026-09-02T15:00:01Z", estado_anterior: "RECIBIDO", estado_resultante: "FIRMADO", mensaje: "Firmado; resumen k9Qx…" },
+        { fecha: "2026-09-02T15:00:05Z", estado_anterior: "FIRMADO", estado_resultante: "ERROR_ENVIO", mensaje: "SUNAT no disponible (timeout)" },
+        { fecha: "2026-09-02T15:02:10Z", estado_anterior: "ERROR_ENVIO", estado_resultante: "ENVIADO", mensaje: "Enviado a SUNAT (intento 2)" },
+        { fecha: "2026-09-02T15:02:40Z", estado_anterior: "ENVIADO", estado_resultante: "ERROR_ENVIO", mensaje: "SUNAT no respondió a tiempo" },
+      ],
+      cdr: null,
+      totales: { gravado: 50, exonerado: 0, inafecto: 0, igv: 9, total: 59 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/f-error-rechazo/xml", pdf: "/v1/facturas/f-error-rechazo/pdf" },
+    },
     {
       // Al final del arreglo a propósito: la lista pagina de a 10 y los e2e cuentan con f-error en la primera página.
       // Factura con redondeo del importe total (−0.44, para cobrar sin céntimos): la nota total copia los ítems pero no

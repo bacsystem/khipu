@@ -55,4 +55,4 @@ export const rucSchema = z
   .string()
   .transform((v) => v.replace(/\D/g, ""))
   .refine((v) => v.length === 11, "El RUC tiene 11 dígitos")
-  .refine(rucValido, "El RUC no es válido: revisá los dígitos (SUNAT valida el dígito verificador)");
+  .refine(rucValido, "El RUC no es válido: revisa los dígitos (SUNAT valida el dígito verificador)");

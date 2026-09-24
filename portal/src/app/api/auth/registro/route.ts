@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   // Cerrar solo la página dejaría el endpoint abierto: cualquiera podría crear una cuenta con un POST.
   if (!registroAbierto())
     return NextResponse.json(
-      { estado: "error", datos: null, mensaje: "El registro está por invitación: escribinos para pedir acceso.", codigo: "REGISTRO_CERRADO", errores: null },
+      { estado: "error", datos: null, mensaje: "El registro está por invitación: escríbenos para pedir acceso.", codigo: "REGISTRO_CERRADO", errores: null },
       { status: 403 },
     );
   const { nombre, email, password, telefono } = await req.json();

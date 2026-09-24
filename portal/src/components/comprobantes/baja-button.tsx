@@ -57,7 +57,7 @@ export function BajaButton({ id, numero, fechaEmision, notasVigentes = 0 }: { id
     // ciegas. El backend impide una segunda baja mientras haya una en curso. La respuesta que no es JSON cae más
     // abajo a propósito: su mensaje ya trae el HTTP y manda a recargar para ver el estado real.
     if (res.codigo === "RED") {
-      setError(`Se cortó la conexión mientras se enviaba. La baja de ${numero} pudo haber llegado a SUNAT: recargá la ficha y revisá su estado antes de volver a intentarlo.`);
+      setError(`Se cortó la conexión mientras se enviaba. La baja de ${numero} pudo haber llegado a SUNAT: recarga la ficha y revisa su estado antes de volver a intentarlo.`);
       return;
     }
     if (res.estado !== "exito" || !res.datos) {

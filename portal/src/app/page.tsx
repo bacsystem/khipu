@@ -24,14 +24,14 @@ const BENEFICIOS = [
       "Si SUNAT no responde, reintentamos automáticamente con espera creciente. Ningún comprobante se pierde ni se numera dos veces.",
   },
   {
-    titulo: "Portal para vos, API para tu equipo",
+    titulo: "Portal para ti, API para tu equipo",
     descripcion:
-      "Emití y consultá desde el portal, o integrá la misma API a tu sistema — documentada, con referencia interactiva y prueba en vivo.",
+      "Emite y consulta desde el portal, o integra la misma API a tu sistema — documentada, con referencia interactiva y prueba en vivo.",
   },
   {
     titulo: "Certificado y series en minutos",
     descripcion:
-      "Subí tu certificado digital y tus credenciales SOL una sola vez, y configurá tus series desde el panel — sin tickets de soporte.",
+      "Sube tu certificado digital y tus credenciales SOL una sola vez, y configura tus series desde el panel — sin tickets de soporte.",
   },
 ];
 
@@ -39,17 +39,17 @@ const AUDIENCIA = [
   {
     icono: Building2,
     titulo: "PYMES y comercios",
-    descripcion: "Emití, controlá tus series y llevá el historial de tu empresa desde un panel simple.",
+    descripcion: "Emite, controla tus series y lleva el historial de tu empresa desde un panel simple.",
   },
   {
     icono: Users,
     titulo: "Contadores y estudios",
-    descripcion: "Administrá varias empresas (RUC) desde una sola cuenta y descargá XML y CDR cuando los necesites.",
+    descripcion: "Administra varias empresas (RUC) desde una sola cuenta y descarga XML y CDR cuando los necesites.",
   },
   {
     icono: Code2,
     titulo: "Integradores y SaaS",
-    descripcion: "Sumá la emisión a tu producto con una API REST documentada, sandbox y referencia interactiva.",
+    descripcion: "Suma la emisión a tu producto con una API REST documentada, sandbox y referencia interactiva.",
   },
 ];
 
@@ -95,7 +95,7 @@ export default function Home() {
           </h1>
           <p className="mt-6 max-w-[38ch] text-lg leading-relaxed text-muted-foreground">
             Calculamos los totales en el servidor antes de firmar, así que los rechazos por descuadre no existen.
-            Empezá gratis, para siempre, con tu primer RUC.
+            Empieza gratis, para siempre, con tu primer RUC.
           </p>
           <div className="mt-8 flex flex-wrap gap-3 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-700 motion-safe:delay-150 motion-safe:fill-mode-backwards">
             {abierto ? (
@@ -233,9 +233,9 @@ export default function Home() {
           ))}
         </div>
         <p className="mt-6 text-sm text-muted-foreground">
-          ¿Necesitás on-premise o un plan a medida?{" "}
+          ¿Necesitas on-premise o un plan a medida?{" "}
           <a href="mailto:hola@factura.pe" className="text-primary hover:underline">
-            Escribinos
+            Escríbenos
           </a>
           .
         </p>
@@ -245,10 +245,10 @@ export default function Home() {
 
       <section className="bg-foreground text-background">
         <div className="mx-auto max-w-6xl px-6 py-20 text-center">
-          <h2 className="font-heading text-3xl">{abierto ? "Emití tu primera factura hoy" : "Pedí acceso a la beta"}</h2>
+          <h2 className="font-heading text-3xl">{abierto ? "Emite tu primera factura hoy" : "Pide acceso a la beta"}</h2>
           <p className="mx-auto mt-2 max-w-md text-background/70">
             {abierto
-              ? "Creá tu cuenta, configurá tu empresa y verificá que SUNAT acepta tus comprobantes — sin pagar un sol."
+              ? "Crea tu cuenta, configura tu empresa y verifica que SUNAT acepta tus comprobantes — sin pagar un sol."
               : "Habilitamos cuentas de a una para acompañar la configuración del certificado y las credenciales SOL."}
           </p>
           {abierto ? (

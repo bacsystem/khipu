@@ -52,7 +52,7 @@ export function DatosFiscalesForm({
     setError(null);
     setOk(false);
     if (faltaElDistrito(ubigeo, direccion, urbanizacion)) {
-      setError("Elegí el distrito. Sin ubigeo, SUNAT no acepta el domicilio (regla 4093) y la dirección no se guarda.");
+      setError("Elige el distrito. Sin ubigeo, SUNAT no acepta el domicilio (regla 4093) y la dirección no se guarda.");
       return;
     }
     setEnviando(true);
@@ -157,7 +157,7 @@ export function DatosFiscalesForm({
             <span className={ETIQUETA_CAMPO}>Inscrita en el Padrón de Tasa Especial del IGV (restaurantes y hoteles)</span>
           </label>
           <span className={AYUDA_CAMPO}>
-            Ley 31556: los comprobantes gravados salen con la tasa reducida vigente (10.5 %) en vez del 18 %. Márquelo solo si SUNAT lo incluyó en el padrón; si no, observará cada comprobante (4439)
+            Ley 31556: los comprobantes gravados salen con la tasa reducida vigente (10.5 %) en vez del 18 %. Márcalo solo si SUNAT lo incluyó en el padrón; si no, observará cada comprobante (4439)
           </span>
         </div>
       </div>

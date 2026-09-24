@@ -25,7 +25,7 @@ async function toEnvelope<T>(res: Response): Promise<ApiEnvelope<T>> {
   try {
     texto = await res.text();
   } catch {
-    return sobre("RED", "Se cortó la conexión antes de recibir la respuesta. Verificá el estado del envío antes de reintentar.");
+    return sobre("RED", "Se cortó la conexión antes de recibir la respuesta. Verifica el estado del envío antes de reintentar.");
   }
 
   if (!texto) {
@@ -39,7 +39,7 @@ async function toEnvelope<T>(res: Response): Promise<ApiEnvelope<T>> {
   try {
     return JSON.parse(texto) as ApiEnvelope<T>;
   } catch {
-    return sobre("RESPUESTA_INVALIDA", `Respuesta inválida del servidor (HTTP ${res.status}). Recargá la página para ver el estado real.`);
+    return sobre("RESPUESTA_INVALIDA", `Respuesta inválida del servidor (HTTP ${res.status}). Recarga la página para ver el estado real.`);
   }
 }
 
@@ -48,7 +48,7 @@ async function pedir<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>
   try {
     res = await fetch(path, init);
   } catch {
-    return sobre("RED", "No se pudo conectar con el servidor. Revisá tu conexión e intentá de nuevo.");
+    return sobre("RED", "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.");
   }
   return toEnvelope<T>(res);
 }

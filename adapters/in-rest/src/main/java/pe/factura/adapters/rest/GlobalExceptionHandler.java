@@ -57,13 +57,13 @@ public class GlobalExceptionHandler {
 
     /**
      * El único multipart del sistema es el .p12 del certificado. Sin este handler un archivo más grande que el tope
-     * cae en el catch-all y devuelve 500 INTERNO, que el portal traduce a «error interno, intentá en unos minutos»:
+     * cae en el catch-all y devuelve 500 INTERNO, que el portal traduce a «error interno, intenta en unos minutos»:
      * el usuario no tiene forma de saber que el problema es el tamaño del archivo que eligió.
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> archivoDemasiadoGrande(MaxUploadSizeExceededException e) {
         return ResponseEntity.unprocessableEntity()
-                .body(ApiResponse.error("ARCHIVO_DEMASIADO_GRANDE", "El archivo supera el tamaño máximo permitido (1 MB). Un certificado .p12 pesa unos pocos KB: revisá que sea el archivo correcto."));
+                .body(ApiResponse.error("ARCHIVO_DEMASIADO_GRANDE", "El archivo supera el tamaño máximo permitido (1 MB). Un certificado .p12 pesa unos pocos KB: conviene verificar que sea el archivo correcto."));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

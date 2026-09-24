@@ -52,7 +52,7 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
   return (
     <div className="grid gap-2 rounded-lg border border-border bg-card p-4">
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <p className="text-sm text-muted-foreground">Probá los endpoints de abajo con una API key real de tu cuenta.</p>
+      <p className="text-sm text-muted-foreground">Prueba los endpoints de abajo con una API key real de tu cuenta.</p>
       <Button type="button" size="sm" className="w-fit" disabled={generando} onClick={generar}>
         {generando ? "Generando…" : "Generar API key de prueba"}
       </Button>

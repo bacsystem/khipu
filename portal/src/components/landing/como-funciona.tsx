@@ -5,7 +5,7 @@ const PASOS = [
   },
   {
     titulo: "Configurás tus series",
-    detalle: "F001, B001… cada una con su correlativo y, si tenés locales, su establecimiento.",
+    detalle: "F001, B001… cada una con su correlativo y, si tienes locales, su establecimiento.",
   },
   {
     titulo: "Emitís desde el portal o por tu sistema",

@@ -31,7 +31,7 @@ export function ReenviarButton({ id }: { id: string }) {
     setEnviando(false);
 
     if (noSeSabeSiLlego(res)) {
-      setError("Se cortó la conexión mientras se reenviaba. El comprobante pudo haber llegado a SUNAT: actualizá la ficha para ver su estado antes de reintentar.");
+      setError("Se cortó la conexión mientras se reenviaba. El comprobante pudo haber llegado a SUNAT: actualiza la ficha para ver su estado antes de reintentar.");
       return;
     }
     if (res.estado !== "exito") {

@@ -184,7 +184,7 @@ export function NuevoComprobanteForm({
     // sobre de error, así que esto no puede ir en un catch.)
     if (noSeSabeSiLlego(res)) {
       setError(
-        "Se cortó la conexión mientras se emitía. La factura pudo haberse emitido igual: revisá el listado de comprobantes antes de volver a intentarlo, para no duplicarla.",
+        "Se cortó la conexión mientras se emitía. La factura pudo haberse emitido igual: revisa el listado de comprobantes antes de volver a intentarlo, para no duplicarla.",
       );
       // El listado de fondo puede tener ya la factura nueva: que se vea sin recargar la página.
       router.refresh();

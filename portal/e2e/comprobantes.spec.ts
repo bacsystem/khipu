@@ -101,8 +101,8 @@ test("reenvía un comprobante en error y queda aceptado", async ({ page }) => {
  * sin saber el estado real y reintenta a ciegas.
  */
 test("reenviar: si se corta la conexión, avisa y el botón vuelve a habilitarse", async ({ page }) => {
-  await page.goto("/comprobantes/f-error");
-  await page.route("**/api/proxy/facturas/f-error/enviar", (r) => r.abort("connectionreset"));
+  await page.goto("/comprobantes/f-error-red");
+  await page.route("**/api/proxy/facturas/f-error-red/enviar", (r) => r.abort("connectionreset"));
 
   const boton = page.getByRole("button", { name: "Reenviar", exact: true });
   await boton.click();
@@ -112,8 +112,8 @@ test("reenviar: si se corta la conexión, avisa y el botón vuelve a habilitarse
 });
 
 test("reenviar: un rechazo del backend se muestra en la ficha", async ({ page }) => {
-  await page.goto("/comprobantes/f-error");
-  await page.route("**/api/proxy/facturas/f-error/enviar", (r) =>
+  await page.goto("/comprobantes/f-error-rechazo");
+  await page.route("**/api/proxy/facturas/f-error-rechazo/enviar", (r) =>
     r.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ estado: "error", codigo: "ESTADO_NO_ENVIABLE", mensaje: "El comprobante ya fue aceptado por SUNAT", datos: null, errores: null }) }),
   );
 
@@ -1179,7 +1179,7 @@ test("ND 12 sobre IVAP: un importe de 0.07 a 0.12 deja el IVAP en 0.00 (3111) y 
 
 test("NC parcial con una línea gratuita: la bonificación no bloquea la nota, y una nota solo de gratuitas sí (2062)", async ({ page }) => {
   // Recert #10: `lineaRedondeaACero` marcaba la gratuita como «importe 0» (lo es por definición) y deshabilitaba la nota
-  // entera con un consejo imposible («subí la cantidad»). SUNAT exige justamente valor unitario 0 en una línea 9996 (2640).
+  // entera con un consejo imposible («sube la cantidad»). SUNAT exige justamente valor unitario 0 en una línea 9996 (2640).
   await page.goto("/comprobantes/f-exonerada/nota");
   const form = page.getByTestId("nota-form");
   await form.getByLabel(/Motivo/).selectOption("07");
