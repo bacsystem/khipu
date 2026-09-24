@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-titulo), var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -51,6 +51,9 @@
   --color-destructive-border: var(--destructive-border);
   --color-accent-border: var(--accent-border);
   --color-primary-light: var(--primary-light);
+  --color-acento: var(--acento);
+  --color-acento-suave: var(--acento-suave);
+  --color-acento-borde: var(--acento-borde);
   --color-overlay: var(--overlay);
   --color-code: var(--code);
   --color-code-foreground: var(--code-foreground);
@@ -66,25 +69,28 @@
 }
 
 :root {
-  --background: #fafafc;
-  --foreground: #0f172a;
+  /* Identidad khipu: teal andino (los tintes de las cuerdas con que se llevaban las cuentas) sobre papel cálido, con ámbar
+     para lo que hay que mirar. El teal vive lejos del verde de «éxito» (#10b981) y del rojo de «error», así que el color
+     de marca nunca se confunde con un estado. */
+  --background: #fbfaf7;
+  --foreground: #10231f;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #10231f;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #4f46e5;
+  --popover-foreground: #10231f;
+  --primary: #0f5c5e;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f8fafc;
-  --muted-foreground: #64748b;
-  --accent: #eef2ff;
-  --accent-foreground: #4338ca;
-  --destructive: #e11d48;
+  --secondary: #f2f1ec;
+  --secondary-foreground: #10231f;
+  --muted: #f7f6f2;
+  --muted-foreground: #5f6b68;
+  --accent: #e8f1f0;
+  --accent-foreground: #0b4547;
+  --destructive: #b3261e;
   --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #4f46e5;
+  --border: #e4e2db;
+  --input: #dddbd3;
+  --ring: #0f5c5e;
   --success: #ecfdf5;
   --success-foreground: #047857;
   --success-border: rgba(167, 243, 208, 0.7);
@@ -93,51 +99,55 @@
   --warning-foreground: #b45309;
   --warning-border: rgba(253, 230, 138, 0.7);
   --warning-solid: #f59e0b;
-  --destructive-border: rgba(254, 205, 211, 0.7);
-  --accent-border: rgba(199, 210, 254, 0.7);
-  --primary-light: #6366f1;
-  --overlay: rgba(15, 23, 42, 0.2);
+  --destructive-border: rgba(179, 38, 30, 0.25);
+  --accent-border: rgba(15, 92, 94, 0.22);
+  --primary-light: #157a7c;
+  --overlay: rgba(16, 35, 31, 0.22);
   /* Bloques de código: siempre oscuros, también en modo claro (contraste con el fondo de la tarjeta). */
   --code: oklch(0.18 0.02 265);
   --code-foreground: oklch(0.9 0.01 265);
-  --brand: #4f46e5;
+  --brand: #0f5c5e;
   --brand-foreground: #ffffff;
-  --chart-1: #4f46e5;
-  --chart-2: #10b981;
-  --chart-3: #f59e0b;
-  --chart-4: #e11d48;
-  --chart-5: #0ea5e9;
+  /* Ámbar de la marca: acento y realces, nunca una acción destructiva. */
+  --acento: #d98c2b;
+  --acento-suave: #fdf3e3;
+  --acento-borde: rgba(217, 140, 43, 0.3);
+  --chart-1: #0f5c5e;
+  --chart-2: #d98c2b;
+  --chart-3: #3f7d6e;
+  --chart-4: #b3261e;
+  --chart-5: #6b8fa3;
   --radius: 0.5rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #334155;
-  --sidebar-primary: #eef2ff;
-  --sidebar-primary-foreground: #4338ca;
-  --sidebar-accent: #f8fafc;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #4f46e5;
+  --sidebar-foreground: #3c4a47;
+  --sidebar-primary: #e8f1f0;
+  --sidebar-primary-foreground: #0b4547;
+  --sidebar-accent: #f7f6f2;
+  --sidebar-accent-foreground: #10231f;
+  --sidebar-border: #e4e2db;
+  --sidebar-ring: #0f5c5e;
 }
 
 .dark {
-  --background: #0a0e1a;
-  --foreground: #e2e8f0;
-  --card: #111827;
-  --card-foreground: #e2e8f0;
-  --popover: #111827;
-  --popover-foreground: #e2e8f0;
-  --primary: #8b83ff;
-  --primary-foreground: #0a0e1a;
-  --secondary: #1e293b;
-  --secondary-foreground: #e2e8f0;
-  --muted: #161f30;
-  --muted-foreground: #94a3b8;
-  --accent: #23294d;
-  --accent-foreground: #c3c0ff;
-  --destructive: #fb7185;
-  --destructive-foreground: #0a0e1a;
-  --border: rgba(226, 232, 240, 0.12);
-  --input: rgba(226, 232, 240, 0.16);
-  --ring: #8b83ff;
+  --background: #0b1614;
+  --foreground: #e6ece9;
+  --card: #122220;
+  --card-foreground: #e6ece9;
+  --popover: #122220;
+  --popover-foreground: #e6ece9;
+  --primary: #5cc8c2;
+  --primary-foreground: #06100f;
+  --secondary: #1b302d;
+  --secondary-foreground: #e6ece9;
+  --muted: #162725;
+  --muted-foreground: #9aaaa5;
+  --accent: #17403f;
+  --accent-foreground: #8fd8d3;
+  --destructive: #f0857c;
+  --destructive-foreground: #06100f;
+  --border: rgba(230, 236, 233, 0.12);
+  --input: rgba(230, 236, 233, 0.16);
+  --ring: #5cc8c2;
   --success: #0f2e24;
   --success-foreground: #5fd0a5;
   --success-border: rgba(95, 208, 165, 0.3);
@@ -146,28 +156,31 @@
   --warning-foreground: #f0c05a;
   --warning-border: rgba(240, 192, 90, 0.3);
   --warning-solid: #fbbf24;
-  --destructive-border: rgba(251, 113, 133, 0.35);
-  --accent-border: rgba(195, 192, 255, 0.3);
-  --primary-light: #a29dff;
+  --destructive-border: rgba(240, 133, 124, 0.35);
+  --accent-border: rgba(143, 216, 211, 0.3);
+  --primary-light: #7fd8d3;
   --overlay: rgba(0, 0, 0, 0.5);
   --code: oklch(0.14 0.02 265);
   --code-foreground: oklch(0.9 0.01 265);
-  --brand: #8b83ff;
-  --brand-foreground: #0a0e1a;
+  --brand: #5cc8c2;
+  --brand-foreground: #06100f;
+  --acento: #e6a445;
+  --acento-suave: #2a2113;
+  --acento-borde: rgba(230, 164, 69, 0.32);
   /* Marcas de gráfico en oscuro: pasos más saturados y menos claros que los semánticos (validados para CVD y contraste sobre #111827). */
-  --chart-1: #7b72f0;
-  --chart-2: #27a070;
-  --chart-3: #bf8a26;
-  --chart-4: #dc4a68;
-  --chart-5: #3a88c6;
-  --sidebar: #0d1424;
-  --sidebar-foreground: #c7d2e0;
-  --sidebar-primary: #23294d;
-  --sidebar-primary-foreground: #c3c0ff;
-  --sidebar-accent: #1e293b;
-  --sidebar-accent-foreground: #e2e8f0;
-  --sidebar-border: rgba(226, 232, 240, 0.12);
-  --sidebar-ring: #8b83ff;
+  --chart-1: #4fb3ad;
+  --chart-2: #e6a445;
+  --chart-3: #6ba58f;
+  --chart-4: #f0857c;
+  --chart-5: #7fa3b8;
+  --sidebar: #0e1b19;
+  --sidebar-foreground: #c6d3cf;
+  --sidebar-primary: #17403f;
+  --sidebar-primary-foreground: #8fd8d3;
+  --sidebar-accent: #1b302d;
+  --sidebar-accent-foreground: #e6ece9;
+  --sidebar-border: rgba(230, 236, 233, 0.12);
+  --sidebar-ring: #5cc8c2;
 }
 
 @layer base {

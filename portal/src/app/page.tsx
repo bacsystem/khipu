@@ -83,16 +83,21 @@ export default function Home() {
     <div>
       <SiteHeader />
 
-      <section className="mx-auto grid max-w-6xl items-center gap-12 overflow-x-clip px-6 py-20 md:grid-cols-2 md:py-28">
-        <div>
-          <h1 className="font-heading text-4xl leading-[1.08] tracking-tight text-balance md:text-5xl">
+      <section className="mx-auto grid max-w-6xl items-center gap-12 overflow-x-clip px-6 py-20 md:grid-cols-[1.05fr_1fr] md:py-28">
+        {/* Una sola entrada orquestada, escalonada, y solo si el visitante no pidió menos movimiento. */}
+        <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700">
+          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-[12px] font-medium text-foreground/80">
+            <span className="size-1.5 rounded-full bg-acento" aria-hidden />
+            Facturación electrónica para Perú
+          </p>
+          <h1 className="font-heading text-[2.6rem] leading-[1.05] font-semibold tracking-[-0.02em] text-balance md:text-6xl">
             Comprobantes que SUNAT acepta a la primera.
           </h1>
-          <p className="mt-5 max-w-md text-lg text-muted-foreground">
+          <p className="mt-6 max-w-[38ch] text-lg leading-relaxed text-muted-foreground">
             Calculamos los totales en el servidor antes de firmar, así que los rechazos por descuadre no existen.
             Empezá gratis, para siempre, con tu primer RUC.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-wrap gap-3 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-700 motion-safe:delay-150 motion-safe:fill-mode-backwards">
             {abierto ? (
               <Button render={<Link href="/registro" />} nativeButton={false} className="h-11 px-6 text-base">
                 Crear cuenta gratis
@@ -115,17 +120,17 @@ export default function Home() {
             {abierto ? "Sin tarjeta · Plan gratis permanente, no un trial." : "Beta por invitación: las cuentas se habilitan una por una mientras cerramos la certificación."}
           </p>
         </div>
-        <div className="relative">
+        <div className="relative motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 motion-safe:duration-1000 motion-safe:delay-100 motion-safe:fill-mode-backwards">
           <div
             aria-hidden
-            className="absolute -inset-x-10 -inset-y-12 -z-10 bg-[radial-gradient(closest-side,var(--primary),transparent)] opacity-[0.07]"
+            className="absolute -inset-x-10 -inset-y-12 -z-10 bg-[radial-gradient(closest-side,var(--primary),transparent)] opacity-[0.09]"
           />
           <ComprobantePreview />
         </div>
       </section>
 
       <section className="border-y border-border bg-card">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-y-3 px-6 py-6 text-center text-sm text-muted-foreground sm:divide-x sm:divide-border">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-y-3 px-6 py-7 text-center text-[13px] tracking-[0.01em] text-muted-foreground sm:divide-x sm:divide-border">
           {CONFIANZA.map((item) => (
             <span key={item} className="px-6 first:pl-0 last:pr-0">
               {item}
@@ -137,9 +142,9 @@ export default function Home() {
       <ComoFunciona />
 
       <section className="bg-card">
-        <div className="mx-auto max-w-6xl px-6 py-20">
-          <h2 className="font-heading text-3xl">Menos trámite, más control</h2>
-          <div className="mt-8 grid gap-x-10 gap-y-8 border-t border-border pt-8 sm:grid-cols-2">
+        <div className="mx-auto max-w-6xl px-6 py-24">
+          <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">Menos trámite, más control</h2>
+          <div className="mt-10 grid gap-x-12 gap-y-10 border-t border-border pt-10 sm:grid-cols-2">
             {BENEFICIOS.map((b) => (
               <div key={b.titulo}>
                 <h3 className="font-heading text-lg">{b.titulo}</h3>
@@ -150,12 +155,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <h2 className="font-heading text-3xl">Hecho para tu tipo de negocio</h2>
+      <section className="mx-auto max-w-6xl px-6 py-24">
+        <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">Hecho para tu tipo de negocio</h2>
         <div className="mt-10 grid gap-x-10 gap-y-8 md:grid-cols-3 md:divide-x md:divide-border">
           {AUDIENCIA.map((a) => (
             <div key={a.titulo} className="md:px-8 md:first:pl-0 md:last:pr-0">
-              <a.icono className="size-5 text-primary" />
+              <a.icono className="size-5 text-primary" aria-hidden />
               <h3 className="font-heading mt-3 text-lg">{a.titulo}</h3>
               <p className="mt-2 text-sm text-muted-foreground">{a.descripcion}</p>
             </div>
@@ -164,16 +169,21 @@ export default function Home() {
       </section>
 
       <section className="bg-card">
-        <div className="mx-auto max-w-6xl px-6 py-20">
-          <h2 className="font-heading text-3xl">Comprobantes electrónicos</h2>
+        <div className="mx-auto max-w-6xl px-6 py-24">
+          <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">Comprobantes electrónicos</h2>
           <p className="mt-2 max-w-2xl text-muted-foreground">
             Empezamos por factura electrónica. El resto del catálogo SUNAT está en camino — lo marcamos tal cual
             para que sepas con qué contar hoy.
           </p>
           <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {COMPROBANTES.map((c) => (
-              <div key={c.codigo} className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted font-mono text-xs text-muted-foreground">
+              <div
+                key={c.codigo}
+                className={`flex items-center gap-3 rounded-lg border bg-background p-4 transition-colors ${c.disponible ? "border-accent-border" : "border-border"}`}
+              >
+                <span
+                  className={`flex size-9 shrink-0 items-center justify-center rounded-md font-mono text-xs ${c.disponible ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}
+                >
                   {c.codigo}
                 </span>
                 <div className="min-w-0">
@@ -192,8 +202,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="precios" className="mx-auto max-w-6xl px-6 py-20">
-        <h2 className="font-heading text-3xl">Planes claros, gratis para empezar</h2>
+      <section id="precios" className="mx-auto max-w-6xl px-6 py-24">
+        <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">Planes claros, gratis para empezar</h2>
         <p className="mt-2 max-w-2xl text-muted-foreground">
           El plan Gratis no vence — no es un trial. Subís de plan cuando tu volumen lo pida.
         </p>
@@ -201,14 +211,18 @@ export default function Home() {
           {PLANES.map((p) => (
             <Card
               key={p.nombre}
-              className={p.destacado ? "p-6 ring-2 ring-primary md:-translate-y-3 md:shadow-lg" : "p-6"}
+              className={
+                p.destacado
+                  ? "border-acento-borde p-6 shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_32px_-12px_rgba(217,140,43,0.35)] md:-translate-y-3"
+                  : "p-6 transition-shadow hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_8px_24px_-16px_rgba(16,35,31,0.25)]"
+              }
             >
               {p.destacado ? (
-                <Badge className="w-fit border-transparent bg-brand text-brand-foreground">Más usado</Badge>
+                <Badge className="w-fit border-transparent bg-acento text-[#1b1206]">Más usado</Badge>
               ) : null}
-              <h3 className="mt-2 font-heading text-lg">{p.nombre}</h3>
-              <p className="mt-1">
-                <span className="font-heading text-3xl">{p.precio}</span>{" "}
+              <h3 className="mt-2 font-heading text-lg font-semibold">{p.nombre}</h3>
+              <p className="mt-1 flex items-baseline gap-1.5">
+                <span className="font-heading text-[2rem] leading-none font-semibold tracking-[-0.02em]">{p.precio}</span>
                 <span className="text-sm text-muted-foreground">{p.periodo}</span>
               </p>
               <ul className="mt-4 grid gap-1.5 text-sm text-muted-foreground">
