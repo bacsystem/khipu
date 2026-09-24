@@ -22,6 +22,15 @@ Cómo leer un hallazgo en una ficha: 🔧 **corregido** = PR mergeado, a la espe
 
 > **El bloqueante del PDF con los datos fiscales de hoy lo encontraron dos auditorías por separado** (flujos 6 y 9). Corregido: el PDF toma la identidad del emisor del XML firmado, así que la impresa no puede contradecir a lo que SUNAT recibió, y los comprobantes ya emitidos también quedan bien. Pendiente de recert.
 
+## Backoffice del administrador (épica #11)
+
+Certificación issue por issue, no por flujo: cada uno de la etiqueta `portal admin` se implementa, se prueba y se
+verifica por mutación antes de abrir su PR. Detalle en [backoffice.md](backoffice.md).
+
+| Issue | Estado |
+|---|---|
+| #174 Cerrar el registro público en el backend | ✅ certificado, 0/0 |
+
 ## Pendientes
 
 Todo lo abierto que no bloquea, de todos los flujos, en [pendientes.md](pendientes.md). Los issues de GitHub (#115, #117, #20) son solo enlaces; el control es este directorio.
