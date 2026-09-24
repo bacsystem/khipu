@@ -77,6 +77,7 @@ export const dynamic = "force-dynamic";
 
 export default function Home() {
   // Beta por invitación mientras el autoservicio (registro → onboarding → certificado → SOL) no esté certificado.
+  // El texto que se muestra NO dice eso: al visitante se le cuenta cómo entra, no en qué anda nuestra certificación.
   const abierto = registroAbierto();
   const contacto = contactoUrl();
   return (
@@ -117,7 +118,7 @@ export default function Home() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            {abierto ? "Sin tarjeta · Plan gratis permanente, no un trial." : "Beta por invitación: las cuentas se habilitan una por una mientras cerramos la certificación."}
+            {abierto ? "Sin tarjeta · Plan gratis permanente, no un trial." : "Beta por invitación: habilitamos las cuentas una por una y acompañamos cada alta."}
           </p>
         </div>
         <div className="relative motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 motion-safe:duration-1000 motion-safe:delay-100 motion-safe:fill-mode-backwards">
