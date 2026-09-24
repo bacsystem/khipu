@@ -19,6 +19,7 @@ Leyenda: 🔧 corregido, a la espera de recert · ✅ verificado por una recert 
 | 🔧 | Corte de red → «Guardando…» eterno sin aviso, y el POST pudo haber llegado | `lib/api/browser.ts` | el cliente ya no lanza (arreglo compartido con los flujos 4 y 5) |
 | 🔧 | El formulario descartaba `res.mensaje`: una serie repetida (409 `DUPLICADO`) se mostraba como **«Ya existe una cuenta con ese correo»**, y `ESTABLECIMIENTO_INVALIDO` caía en el texto genérico perdiendo «el establecimiento 0002 está dado de baja» | `nueva-serie-form.tsx` | `res.mensaje ?? mensajeError(res.codigo)` |
 | 🔧 | `Number(correlativo) || 0` mandaba float: «1e30» se guardaba como `1e+30` | `nueva-serie-form.tsx` | `correlativoValido`, solo dígitos y acotado, con test |
+| 🔧 | El mensaje del 409 mentía además del lado del backend: «Ya existe un documento con esa serie y número» para quien crea una serie. Ahora se elige por la tabla del constraint (PR #162) | `GlobalExceptionHandler` | |
 | 🔧 | Guarda de doble envío inerte (estado en vez de ref): dos clics en el mismo tick creaban la serie dos veces | `nueva-serie-form.tsx` | `enviandoRef`, el mismo patrón del botón de baja |
 | ⬜ | Una serie asignada a un anexo lo bloquea para siempre: el error pide «reasígnelas antes de darlo de baja», pero no hay forma de reasignar, desactivar ni borrar una serie | backend | falta el endpoint; ver pendientes |
 | ⬜ | Los establecimientos se cargan sin estado de carga ni de error: mientras no vuelven, el combo solo ofrece «0000 · Domicilio fiscal» sin aviso. Como la serie no se puede editar, **todos** sus comprobantes saldrían con el domicilio fiscal en vez del del anexo (regla 3030) | `nueva-serie-form.tsx` | el patrón de catálogos de notas (#120) |
@@ -43,6 +44,8 @@ La numeración correlativa, que es lo que no se puede repetir ni saltear: `sigui
 | `siguienteNumero` sin la guarda | muere |
 | `avanzarHasta` sin la guarda | muere |
 | No-op (control) | sobrevive |
+| DTO sin `@Max` en el correlativo (segunda ronda, PR #162) | muere |
+| Mensaje del duplicado siempre «documento» (segunda ronda, PR #162) | muere |
 
 Tests nuevos: `SerieTest` (dominio) y el caso de agotamiento en `JdbcSerieRepositoryTest` (Testcontainers, comprueba además que el rechazo **no** consume numeración), más `nueva-serie-form.test.ts` en el portal.
 
