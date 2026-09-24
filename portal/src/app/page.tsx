@@ -1,4 +1,4 @@
-import { Building2, Code2, Users } from "lucide-react";
+import { Building2, Code2, KeyRound, LayoutDashboard, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
 import { ComoFunciona } from "@/components/landing/como-funciona";
 import { ComprobantePreview } from "@/components/landing/comprobante-preview";
@@ -14,21 +14,25 @@ const CONFIANZA = ["Firma XML-DSig (RSA-SHA256)", "UBL 2.1 sobre el estándar SU
 
 const BENEFICIOS = [
   {
+    icono: ShieldCheck,
     titulo: "Cero rechazos por descuadre",
     descripcion:
       "Calculamos y validamos los totales en el servidor antes de firmar: no dependemos de que tu sistema arme bien el XML.",
   },
   {
+    icono: RefreshCw,
     titulo: "Sigue facturando aunque SUNAT se caiga",
     descripcion:
       "Si SUNAT no responde, reintentamos automáticamente con espera creciente. Ningún comprobante se pierde ni se numera dos veces.",
   },
   {
+    icono: LayoutDashboard,
     titulo: "Portal para ti, API para tu equipo",
     descripcion:
       "Emite y consulta desde el portal, o integra la misma API a tu sistema — documentada, con referencia interactiva y prueba en vivo.",
   },
   {
+    icono: KeyRound,
     titulo: "Certificado y series en minutos",
     descripcion:
       "Sube tu certificado digital y tus credenciales SOL una sola vez, y configura tus series desde el panel — sin tickets de soporte.",
@@ -56,10 +60,10 @@ const AUDIENCIA = [
 const COMPROBANTES = [
   { codigo: "01", nombre: "Factura electrónica", disponible: true },
   { codigo: "03", nombre: "Boleta de venta", disponible: false },
-  { codigo: "07", nombre: "Nota de crédito", disponible: false },
-  { codigo: "08", nombre: "Nota de débito", disponible: false },
+  { codigo: "07", nombre: "Nota de crédito", disponible: true },
+  { codigo: "08", nombre: "Nota de débito", disponible: true },
   { codigo: "RC", nombre: "Resumen diario de boletas", disponible: false },
-  { codigo: "RA", nombre: "Comunicación de baja", disponible: false },
+  { codigo: "RA", nombre: "Comunicación de baja", disponible: true },
   { codigo: "09", nombre: "Guía de remisión", disponible: false },
   { codigo: "—", nombre: "Retención / percepción", disponible: false },
 ];
@@ -137,12 +141,22 @@ export default function Home() {
 
       <section className="bg-card">
         <div className="mx-auto max-w-6xl px-6 py-24">
+          <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-[12px] font-medium text-foreground/80">
+            <span className="size-1.5 rounded-full bg-acento" aria-hidden />
+            Por qué khipu
+          </p>
           <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">Menos trámite, más control</h2>
-          <div className="mt-10 grid gap-x-12 gap-y-10 border-t border-border pt-10 sm:grid-cols-2">
+          <p className="mt-2 max-w-2xl text-muted-foreground">
+            Lo que cambia cuando el cálculo, la firma y el reintento no son tu problema.
+          </p>
+          <div className="mt-10 grid gap-5 sm:grid-cols-2">
             {BENEFICIOS.map((b) => (
-              <div key={b.titulo}>
-                <h3 className="font-heading text-lg">{b.titulo}</h3>
-                <p className="mt-2 max-w-sm text-sm text-muted-foreground">{b.descripcion}</p>
+              <div key={b.titulo} className="group rounded-xl border border-border bg-background p-6 transition-all duration-300 hover:-translate-y-1 hover:border-acento-borde hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_28px_-18px_rgba(16,35,31,0.35)]">
+                <span className="mb-4 flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento ring-1 ring-acento-borde" aria-hidden>
+                  <b.icono className="size-[18px]" />
+                </span>
+                <h3 className="font-heading text-lg font-semibold">{b.titulo}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{b.descripcion}</p>
               </div>
             ))}
           </div>
@@ -151,12 +165,15 @@ export default function Home() {
 
       <section className="mx-auto max-w-6xl px-6 py-24">
         <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">Hecho para tu tipo de negocio</h2>
-        <div className="mt-10 grid gap-x-10 gap-y-8 md:grid-cols-3 md:divide-x md:divide-border">
+        <p className="mt-2 max-w-2xl text-muted-foreground">La misma plataforma, según de qué lado la mires.</p>
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
           {AUDIENCIA.map((a) => (
-            <div key={a.titulo} className="md:px-8 md:first:pl-0 md:last:pr-0">
-              <a.icono className="size-5 text-primary" aria-hidden />
-              <h3 className="font-heading mt-3 text-lg">{a.titulo}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{a.descripcion}</p>
+            <div key={a.titulo} className="group rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:border-acento-borde hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_28px_-18px_rgba(16,35,31,0.35)]">
+              <span className="mb-4 flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento ring-1 ring-acento-borde" aria-hidden>
+                <a.icono className="size-[18px]" />
+              </span>
+              <h3 className="font-heading text-lg font-semibold">{a.titulo}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{a.descripcion}</p>
             </div>
           ))}
         </div>
@@ -166,8 +183,8 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-6 py-24">
           <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">Comprobantes electrónicos</h2>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Empezamos por factura electrónica. El resto del catálogo SUNAT está en camino — lo marcamos tal cual
-            para que sepas con qué contar hoy.
+            Factura, notas de crédito y de débito, y comunicación de baja, todas emitiendo hoy. El resto del catálogo
+            de SUNAT está en camino, y lo marcamos tal cual para que sepas con qué contar.
           </p>
           <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {COMPROBANTES.map((c) => (
