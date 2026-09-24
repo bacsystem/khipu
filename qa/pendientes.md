@@ -49,6 +49,16 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 | El ZIP del RA lleva solo el XML; el manual describe además una carpeta dummy | `[POSIBLE]`, igual que en emisión (certificada); SUNAT lo acepta |
 | 2957 se mide contra la fecha de generación, SUNAT contra la de recepción | el diálogo avisa cuando es el último día del plazo |
 | La ficha no muestra `intentos` salvo cuando no hay CDR | cosmético |
+## Registro + onboarding (auditoría #1: 1 bloqueante · 12 importantes, corregido; recert #1 pendiente)
+
+| Qué | Nota |
+|---|---|
+| No existe endpoint para editar la razón social ni el entorno de una empresa | por eso la validación al crear es la única defensa; un cambio posterior exige intervención manual |
+| Un RUC tecleado por error queda tomado en toda la plataforma | denegación de registro, no impersonación: emitir exige que el OU del certificado traiga ese RUC |
+| El correo no se verifica y no hay límite de empresas por cuenta | — |
+| El wizard no tiene «Volver» | un tipeo solo se corrige antes de enviar el paso |
+| `POST /api/auth/registro` con cuerpo no-JSON da 500 en vez de 400 | mismo patrón que el resto de los route handlers |
+| El mock revienta con cuerpo vacío en `POST /v1/empresas` | `[POSIBLE]` en cuanto al disparador |
 
 ## Transversal
 

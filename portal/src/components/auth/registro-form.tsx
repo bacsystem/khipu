@@ -9,10 +9,10 @@ import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import { postJson } from "@/lib/api/browser";
 import { mensajeError, messages } from "@/lib/messages";
-import { emailSchema, passwordSchema, telefonoSchema } from "@/lib/validacion";
+import { emailSchema, passwordSchema, soloTelefono, telefonoSchema } from "@/lib/validacion";
 
 const schema = z.object({
-  nombre: z.string().min(1, "Ingresa el nombre de tu cuenta").max(150),
+  nombre: z.string().trim().min(1, "Ingresa el nombre de tu cuenta").max(150, "Hasta 150 caracteres"),
   telefono: telefonoSchema,
   email: emailSchema,
   password: passwordSchema,
@@ -27,7 +27,8 @@ export function RegistroForm() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+    // `onTouched`: el error aparece al salir del campo y no recién al enviar.
+  } = useForm<FormValues>({ resolver: zodResolver(schema), mode: "onTouched" });
 
   async function onSubmit(values: FormValues) {
     setError(null);
@@ -56,6 +57,8 @@ export function RegistroForm() {
         autoComplete="tel-national"
         inputMode="numeric"
         placeholder="987654321"
+        maxLength={12}
+        filtrar={soloTelefono}
         register={register("telefono")}
         error={errors.telefono?.message}
         hint={messages.auth.registro.ayudaTelefono}
@@ -77,7 +80,7 @@ export function RegistroForm() {
         error={errors.password?.message}
         hint={messages.auth.registro.ayudaPassword}
       />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? messages.auth.registro.enviando : messages.auth.registro.enviar}
       </Button>

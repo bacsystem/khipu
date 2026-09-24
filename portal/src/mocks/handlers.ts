@@ -140,9 +140,16 @@ export const handlers = [
   http.post(`${BASE}/v1/auth/registro`, async ({ request }) => {
     const body = (await request.json()) as { nombre: string; email: string; password: string; telefono?: string };
     if (!telefonoSchema.safeParse(body.telefono ?? "").success) return fail(422, "TELEFONO_INVALIDO", "El celular debe tener 9 dígitos y empezar con 9 (Perú)");
-    if (db.usuariosPorEmail.has(body.email)) return fail(409, "DUPLICADO", "Ya existe una cuenta con ese correo");
-    const usuario: Usuario = { id: nuevoId("u"), cuenta_id: nuevoId("c"), email: body.email, rol: "ADMIN" };
-    db.usuariosPorEmail.set(body.email, { usuario, password: body.password });
+    // A paridad con `Cuenta`/`Usuario`: nombre obligatorio, correo con formato y en minúsculas (`normalizarEmail`) y
+    // contraseña de 8 con letra y dígito. El mock aceptaba todo eso y creaba dos cuentas con el mismo correo en distinta caja.
+    if (!body.nombre?.trim()) return fail(422, "NOMBRE_REQUERIDO", "El nombre de la cuenta es obligatorio");
+    const email = (body.email ?? "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail(422, "EMAIL_INVALIDO", `Correo inválido: ${body.email}`);
+    if (!body.password || body.password.length < 8 || !/[A-Za-z]/.test(body.password) || !/\d/.test(body.password))
+      return fail(422, "PASSWORD_DEBIL", "La contraseña debe tener al menos 8 caracteres, una letra y un dígito");
+    if (db.usuariosPorEmail.has(email)) return fail(409, "DUPLICADO", "Ya existe una cuenta con ese correo");
+    const usuario: Usuario = { id: nuevoId("u"), cuenta_id: nuevoId("c"), email, rol: "ADMIN" };
+    db.usuariosPorEmail.set(email, { usuario, password: body.password });
     db.empresasPorCuenta.set(usuario.cuenta_id, []);
     return ok(emitirTokens(usuario), 201);
   }),
@@ -189,10 +196,19 @@ export const handlers = [
     if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");
     const body = (await request.json()) as { ruc: string; razon_social: string; entorno: "BETA" | "PRODUCCION" };
     if (!rucValido(body.ruc)) return fail(422, "RUC_INVALIDO", `Empresa: el dígito verificador del RUC ${body.ruc} no es válido; revise el número`);
+    // 4338: la razón social del emisor va cruda al XML, sin tabuladores ni saltos de línea, hasta 1500.
+    const razonSocial = (body.razon_social ?? "").trim();
+    if (!razonSocial) return fail(422, "RAZON_SOCIAL_REQUERIDA", "Razón social requerida");
+    if (razonSocial.length > 1500 || /[\x00-\x1F\x7F]/.test(razonSocial))
+      return fail(422, "RAZON_SOCIAL_INVALIDA", "4338 - La razón social admite hasta 1500 caracteres, sin saltos de línea ni tabuladores");
+    // El RUC es único en TODA la plataforma, no por cuenta (`GestionarEmpresasService`): el mock dejaba a dos cuentas
+    // registrar el mismo y el e2e daba por bueno un camino que en producción es un 409.
+    if ([...db.empresasPorCuenta.values()].flat().some((e) => e.ruc === body.ruc))
+      return fail(409, "DUPLICADO", `Ya existe una empresa con RUC ${body.ruc}`);
     const empresa: Empresa = {
       id: nuevoId("e"),
       ruc: body.ruc,
-      razon_social: body.razon_social,
+      razon_social: razonSocial,
       entorno: body.entorno,
       tiene_certificado: false,
       tiene_credenciales_sol: false,
@@ -327,7 +343,14 @@ export const handlers = [
       if (!e) return fail(422, "ESTABLECIMIENTO_INVALIDO", `El establecimiento ${establecimiento} no existe en la empresa: regístrelo antes de asignarle una serie`);
       if (!e.activo) return fail(422, "ESTABLECIMIENTO_INVALIDO", `El establecimiento ${establecimiento} (${e.nombre}) está dado de baja`);
     }
+    // 1001: `F###` para facturas y notas sobre factura, `B###` para boletas. El mock aceptaba «1234» y el onboarding
+    // terminaba en verde contra un backend que responde 422.
+    const inicial = body.tipo === "03" ? "B" : "F";
+    if (!new RegExp(`^${inicial}[A-Z0-9]{3}$`).test(body.serie ?? ""))
+      return fail(422, "SERIE_INVALIDA", `1001 - La serie de un comprobante tipo ${body.tipo} es ${inicial}### (p. ej. ${inicial}001): ${body.serie}`);
     const lista = db.seriesPorEmpresa.get(empresaId) ?? [];
+    if (lista.some((s) => s.tipo === body.tipo && s.serie === body.serie))
+      return fail(409, "DUPLICADO", `Ya existe la serie ${body.serie} para el tipo ${body.tipo}`);
     lista.push({ tipo: body.tipo, serie: body.serie, ultimo_numero: body.correlativo_inicial ?? 0, activa: true, establecimiento });
     db.seriesPorEmpresa.set(empresaId, lista);
     return new HttpResponse(null, { status: 201 });
