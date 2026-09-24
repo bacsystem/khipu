@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/api/browser";
 import { mensajeError } from "@/lib/messages";
+import { codigoSerie, razonSocialSchema, rucSchema, soloDigitos } from "@/lib/validacion";
 import { cn } from "@/lib/utils";
 
 const PASOS = ["Empresa", "Certificado y SOL", "Primera serie"] as const;
 
 const empresaSchema = z.object({
-  ruc: z.string().regex(/^\d{11}$/, "El RUC debe tener 11 dígitos"),
-  razon_social: z.string().min(1, "Ingresa la razón social"),
+  ruc: rucSchema,
+  razon_social: razonSocialSchema,
   entorno: z.enum(["BETA", "PRODUCCION"]),
 });
 type EmpresaValues = z.infer<typeof empresaSchema>;
@@ -28,10 +29,17 @@ const credencialesSchema = z.object({
 });
 type CredencialesValues = z.infer<typeof credencialesSchema>;
 
-const serieSchema = z.object({
-  tipo: z.enum(["01", "03"]),
-  serie: z.string().min(4, "Ingresa la serie, p. ej. F001"),
-});
+// 1001: la serie de una factura es `F` + 3 alfanuméricos y la de una boleta, `B` + 3. El cliente pedía «4 caracteres»
+// y el mock lo aceptaba, así que el onboarding terminaba en verde con series que el backend rechaza.
+const serieSchema = z
+  .object({
+    tipo: z.enum(["01", "03"]),
+    serie: z.string().transform((v) => v.toUpperCase().trim()),
+  })
+  .refine((v) => new RegExp(`^${v.tipo === "01" ? "F" : "B"}[A-Z0-9]{3}$`).test(v.serie), {
+    path: ["serie"],
+    message: "La serie de una factura empieza con F y la de una boleta con B, más 3 caracteres (p. ej. F001)",
+  });
 type SerieValues = z.infer<typeof serieSchema>;
 
 export function OnboardingWizard() {
@@ -39,6 +47,46 @@ export function OnboardingWizard() {
   const [paso, setPaso] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [archivo, setArchivo] = useState<File | null>(null);
+  const [cargando, setCargando] = useState(true);
+
+  /**
+   * Retoma el alta donde haya quedado. El paso vivía solo en `useState`: recargar (o volver desde un error) devolvía al paso
+   * 1 con los campos vacíos, y reenviar el mismo RUC daba 409 «Ya existe una cuenta con ese correo» —el mensaje equivocado—
+   * sin ninguna salida. Ahora se leen las empresas de la cuenta y se salta al paso que falta.
+   */
+  useEffect(() => {
+    let vigente = true;
+    (async () => {
+      try {
+        const lista = await apiRequest<Array<{ id: string; tiene_certificado: boolean; tiene_credenciales_sol: boolean }>>("/api/proxy/empresas", { method: "GET" });
+        const empresa = lista.estado === "exito" ? lista.datos?.[0] : null;
+        if (!vigente || !empresa) return;
+        await apiRequest("/api/session/empresa", { method: "POST", body: { empresaId: empresa.id } });
+        if (!vigente) return;
+        setPaso(empresa.tiene_certificado && empresa.tiene_credenciales_sol ? 2 : 1);
+      } catch {
+        // Sin conexión se arranca del paso 1: el POST de empresa avisará si ya existe.
+      } finally {
+        if (vigente) setCargando(false);
+      }
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  /**
+   * `fetch` RECHAZA ante un corte de conexión y `apiRequest` no lo captura: los cuatro envíos del alta fallaban en silencio
+   * (el botón volvía a su estado y no aparecía nada). Devuelve `null` cuando no hubo respuesta, con el aviso ya puesto.
+   */
+  async function enviar<T>(ruta: string, init: { method: string; body?: unknown }) {
+    try {
+      return await apiRequest<T>(ruta, init);
+    } catch {
+      setError("Se cortó la conexión y no sabemos si el paso se completó. Recargá la página: el asistente retoma donde quedó.");
+      return null;
+    }
+  }
 
   const empresaForm = useForm<EmpresaValues>({
     resolver: zodResolver(empresaSchema),
@@ -52,12 +100,16 @@ export function OnboardingWizard() {
 
   async function onEmpresa(values: EmpresaValues) {
     setError(null);
-    const res = await apiRequest<{ id: string }>("/api/proxy/empresas", { method: "POST", body: values });
+    const res = await enviar<{ id: string }>("/api/proxy/empresas", { method: "POST", body: values });
+    if (!res) return;
     if (res.estado !== "exito" || !res.datos) {
-      setError(mensajeError(res.codigo));
+      // El 409 de una empresa ya registrada no es «ya existe una cuenta con ese correo»: es este RUC.
+      setError(res.codigo === "DUPLICADO" ? `Ya hay una empresa registrada con el RUC ${values.ruc}. Si es tuya, entrá desde el selector de empresa; si no, revisá el número.` : mensajeError(res.codigo));
       return;
     }
-    await apiRequest("/api/session/empresa", { method: "POST", body: { empresaId: res.datos.id } });
+    const sesion = await enviar("/api/session/empresa", { method: "POST", body: { empresaId: res.datos.id } });
+    // Sin esto la empresa quedaba creada, el wizard no avanzaba y no decía nada: los pasos 2 y 3 van contra la empresa activa.
+    if (!sesion) return;
     setPaso(1);
   }
 
@@ -70,15 +122,17 @@ export function OnboardingWizard() {
     const form = new FormData();
     form.set("archivo", archivo);
     form.set("clave", values.clave);
-    const certRes = await apiRequest("/api/proxy/empresa/certificado", { method: "POST", body: form });
+    const certRes = await enviar("/api/proxy/empresa/certificado", { method: "POST", body: form });
+    if (!certRes) return;
     if (certRes.estado !== "exito") {
       setError(mensajeError(certRes.codigo));
       return;
     }
-    const solRes = await apiRequest("/api/proxy/empresa/credenciales-sol", {
+    const solRes = await enviar("/api/proxy/empresa/credenciales-sol", {
       method: "PUT",
       body: { usuario: values.usuarioSol, clave: values.claveSol },
     });
+    if (!solRes) return;
     if (solRes.estado !== "exito") {
       setError(mensajeError(solRes.codigo));
       return;
@@ -88,17 +142,20 @@ export function OnboardingWizard() {
 
   async function onSerie(values: SerieValues) {
     setError(null);
-    const res = await apiRequest("/api/proxy/series", {
+    const res = await enviar("/api/proxy/series", {
       method: "POST",
       body: { tipo: values.tipo, serie: values.serie },
     });
+    if (!res) return;
     if (res.estado !== "exito") {
-      setError(mensajeError(res.codigo));
+      setError(res.codigo === "DUPLICADO" ? `Ya tenés una serie ${values.serie} configurada. Elegí otra (p. ej. ${values.tipo === "01" ? "F002" : "B002"}).` : mensajeError(res.codigo));
       return;
     }
     router.push("/comprobantes");
     router.refresh();
   }
+
+  if (cargando) return <div className="mx-auto w-full max-w-lg py-16 text-center text-sm text-muted-foreground" role="status">Cargando tu configuración…</div>;
 
   return (
     <div className="mx-auto w-full max-w-lg">
@@ -119,19 +176,29 @@ export function OnboardingWizard() {
         ))}
       </ol>
 
-      {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
+      {error ? <p role="alert" className="mb-4 text-sm text-destructive">{error}</p> : null}
 
       {paso === 0 ? (
         <form className="grid gap-4" onSubmit={empresaForm.handleSubmit(onEmpresa)} noValidate>
           <FormField
             id="ruc"
             label="RUC"
+            inputMode="numeric"
+            maxLength={11}
+            filtrar={soloDigitos}
+            placeholder="20123456786"
+            hint="11 dígitos. Lo verificamos acá mismo antes de enviarlo."
             register={empresaForm.register("ruc")}
             error={empresaForm.formState.errors.ruc?.message}
           />
           <FormField
             id="razon_social"
             label="Razón social"
+            maxLength={1500}
+            // Un pegado desde una planilla trae tabuladores: SUNAT los rechaza (4338) y la razón social no se puede
+            // corregir después, así que se limpian al escribir en vez de avisar cuando ya es tarde.
+            filtrar={(v) => v.replace(/[\u0000-\u001F\u007F]/g, " ")}
+            hint="Tal como figura en tu ficha RUC. No se puede cambiar después."
             register={empresaForm.register("razon_social")}
             error={empresaForm.formState.errors.razon_social?.message}
           />
@@ -145,6 +212,12 @@ export function OnboardingWizard() {
               <option value="BETA">Beta (pruebas)</option>
               <option value="PRODUCCION">Producción</option>
             </select>
+            {/* El entorno no se puede cambiar después (no hay endpoint que lo edite): quien onboardea en Beta por descuido
+                necesita intervención manual para emitir de verdad. */}
+            <p className="text-sm text-muted-foreground">
+              En <strong className="font-medium">Beta</strong> los comprobantes no tienen validez tributaria: es para probar.
+              El entorno <strong className="font-medium">no se puede cambiar</strong> después de crear la empresa.
+            </p>
           </div>
           <Button type="submit" disabled={empresaForm.formState.isSubmitting} className="w-full">
             Continuar
@@ -207,9 +280,12 @@ export function OnboardingWizard() {
           <FormField
             id="serie"
             label="Serie"
+            maxLength={4}
+            filtrar={codigoSerie}
+            placeholder={serieForm.watch("tipo") === "03" ? "B001" : "F001"}
             register={serieForm.register("serie")}
             error={serieForm.formState.errors.serie?.message}
-            hint="Por ejemplo F001 para facturas o B001 para boletas."
+            hint="Por ejemplo F001 para facturas o B001 para boletas (SUNAT 1001)."
           />
           <Button type="submit" disabled={serieForm.formState.isSubmitting} className="w-full">
             Terminar

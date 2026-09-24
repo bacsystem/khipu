@@ -8,7 +8,7 @@ Cómo leer un hallazgo en una ficha: 🔧 **corregido** = PR mergeado, a la espe
 |---|---|---|---|
 | 1 | Emisión de factura | ✅ certificado `37e1a75` | [emision.md](emision.md) |
 | 2 | Notas de crédito/débito | 🟡 recert #10: 0 bloqueantes · 2 importantes, corregido (backend + A11), pendiente recert #11 | [notas.md](notas.md) |
-| 3 | Registro + onboarding | ⬜ | — |
+| 3 | Registro + onboarding | 🔴 auditoría #1: 1 bloqueante · 12 importantes, corregido (#158 + portal), pendiente recert #1 | [registro.md](registro.md) |
 | 4 | Login / recuperar / restablecer | ⬜ | — |
 | 5 | Empresa: fiscales, certificado, SOL | ⬜ | — |
 | 6 | Establecimientos | ⬜ | — |
