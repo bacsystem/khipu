@@ -20,7 +20,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
 
     /**
      * Decide sobre la ruta normalizada (ver {@link RutaRequest}). Las rutas de administración las
-     * protege {@link PlatformKeyFilter}; las públicas de autenticación no exigen ningún credencial;
+     * protege {@link AdminAuthFilter}; las públicas de autenticación no exigen ningún credencial;
      * y una petición ya autenticada por JWT ({@link JwtFilter}, que se ejecuta antes) no vuelve a
      * exigir API key.
      */

@@ -61,6 +61,19 @@
       "irALogin": "Ir a iniciar sesión"
     }
   },
+  "admin": {
+    "login": {
+      "titulo": "Backoffice",
+      "subtitulo": "Acceso para administradores de la plataforma.",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "enviar": "Iniciar sesión",
+      "enviando": "Ingresando…"
+    },
+    "nav": {
+      "inicio": "Inicio"
+    }
+  },
   "errores": {
     "generico": "Ocurrió un error. Intenta de nuevo.",
     "RED": "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.",

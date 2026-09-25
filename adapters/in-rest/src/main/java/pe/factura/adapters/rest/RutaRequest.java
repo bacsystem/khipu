@@ -27,6 +27,9 @@ final class RutaRequest {
 
     static boolean esAdmin(String ruta) { return ruta.equals("/v1/admin") || ruta.startsWith("/v1/admin/"); }
 
+    /** Dentro de /v1/admin/**, el login del backoffice: el administrador aún no tiene JWT ni X-Platform-Key. */
+    static boolean esAdminAuthPublica(String ruta) { return ruta.equals("/v1/admin/auth/login"); }
+
     static boolean esApiV1(String ruta) { return ruta.equals("/v1") || ruta.startsWith("/v1/"); }
 
     /** Sin credenciales: rutas de autenticación (el cliente aún no tiene ninguna) y los catálogos SUNAT (información pública de referencia). */

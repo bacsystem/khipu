@@ -9,6 +9,7 @@ export function fakeJwt(payload: Record<string, unknown>): string {
 }
 
 export type Usuario = { id: string; cuenta_id: string; email: string; rol: string };
+export type Administrador = { id: string; email: string };
 export type Empresa = {
   id: string;
   ruc: string;
@@ -112,6 +113,7 @@ export const db = {
   bajas: new Map<string, Baja>(),
   correos: [] as Array<{ comprobante: string; email: string; mensaje: string | null }>,
   sesionesPorToken: new Map<string, Sesion>(),
+  administradoresPorEmail: new Map<string, { administrador: Administrador; password: string }>(),
 };
 
 export function resetDb() {
@@ -124,6 +126,10 @@ export function resetDb() {
   db.bajas.clear();
   db.correos.length = 0;
   db.sesionesPorToken.clear();
+  db.administradoresPorEmail.clear();
+
+  const administrador: Administrador = { id: "admin-demo", email: "admin@khipu.pe" };
+  db.administradoresPorEmail.set(administrador.email, { administrador, password: "AdminPass1" });
 
   const usuario: Usuario = {
     id: "u-demo",
