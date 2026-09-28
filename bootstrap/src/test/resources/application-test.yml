@@ -4,6 +4,7 @@ app:
   platform-admin-key: plataforma-test
   jwt-secret: QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=
   portal-url: http://localhost:3000
+  registro-abierto: true
   storage:
     fs-root: ${java.io.tmpdir}/factura-e2e
   outbox:
