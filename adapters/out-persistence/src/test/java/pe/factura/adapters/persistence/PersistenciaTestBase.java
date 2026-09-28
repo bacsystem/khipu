@@ -27,7 +27,7 @@ abstract class PersistenciaTestBase {
     }
 
     @BeforeEach void limpiar() {
-        jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, establecimiento, api_key, tenant, token_recuperacion, sesion, usuario, cuenta CASCADE");
+        jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, establecimiento, api_key, tenant, token_recuperacion, sesion, usuario, cuenta, administrador CASCADE");
     }
 
     static UUID tenantDePrueba() {

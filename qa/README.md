@@ -30,6 +30,7 @@ verifica por mutación antes de abrir su PR. Detalle en [backoffice.md](backoffi
 | Issue | Estado |
 |---|---|
 | #174 Cerrar el registro público en el backend | ✅ certificado, 0/0 |
+| #175/#176/#179 Concepto de PLATFORM_ADMIN, JWT propio, `/v1/admin/**` dual y cáscara del panel en `/admin` | ✅ certificado, 0/0 |
 
 ## Pendientes
 

@@ -24,13 +24,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 import pe.factura.adapters.crypto.AesGcmSecretCipher;
 import pe.factura.adapters.crypto.BcryptPasswordHasher;
+import pe.factura.adapters.crypto.JwtAdministradorTokenEmisor;
 import pe.factura.adapters.crypto.JwtTokenEmisor;
 import pe.factura.adapters.mail.LogCorreoSender;
 import pe.factura.adapters.mail.SmtpCorreoSender;
 import pe.factura.adapters.persistence.*;
+import pe.factura.adapters.rest.AdminAuthFilter;
 import pe.factura.adapters.rest.ApiKeyFilter;
 import pe.factura.adapters.rest.JwtFilter;
-import pe.factura.adapters.rest.PlatformKeyFilter;
 import pe.factura.adapters.scheduler.OutboxWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
@@ -160,7 +161,7 @@ public class AppConfig {
     }
 
     /**
-     * Debe correr ANTES que PlatformKeyFilter/JwtFilter/ApiKeyFilter (órdenes 5/8/10): CorsFilter
+     * Debe correr ANTES que AdminAuthFilter/JwtFilter/ApiKeyFilter (órdenes 5/8/10): CorsFilter
      * responde el preflight OPTIONS directo (sin seguir la cadena) cuando corresponde, así que si
      * corriera después, ApiKeyFilter rechazaría el preflight con 401 antes de que CORS actúe.
      */
@@ -192,6 +193,7 @@ public class AppConfig {
     @Bean CuentaRepository cuentaRepository(JdbcTemplate jdbc) { return new JdbcCuentaRepository(jdbc); }
     @Bean UsuarioRepository usuarioRepository(JdbcTemplate jdbc) { return new JdbcUsuarioRepository(jdbc); }
     @Bean SesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
+    @Bean AdministradorRepository administradorRepository(JdbcTemplate jdbc) { return new JdbcAdministradorRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -244,6 +246,7 @@ public class AppConfig {
 
     @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }
     @Bean TokenEmisor tokenEmisor(AppProperties p) { return new JwtTokenEmisor(p.jwtSecret()); }
+    @Bean AdministradorTokenEmisor administradorTokenEmisor(AppProperties p) { return new JwtAdministradorTokenEmisor(p.jwtSecret()); }
     /** Sin app.mail.habilitado=true (MAIL_HABILITADO), los correos se escriben en el log en lugar de enviarse. */
     @Bean CorreoSender correoSender(AppProperties p, ObjectProvider<JavaMailSender> mailSenderProvider,
                                     @Value("${spring.mail.host:}") String mailHost) {
@@ -264,6 +267,13 @@ public class AppConfig {
         return new GestionarEmpresasService(t, cu, u);
     }
 
+    @Bean AutenticarAdministradorUseCase autenticarAdministrador(AdministradorRepository a, PasswordHasher h, AdministradorTokenEmisor te) {
+        return new AutenticarAdministradorService(a, h, te);
+    }
+    @Bean CrearAdministradorUseCase crearAdministrador(AdministradorRepository a, PasswordHasher h) {
+        return new CrearAdministradorService(a, h);
+    }
+
     @Bean DarDeBajaUseCase darDeBaja(BajaRepository b, ComprobanteRepository c, TenantRepository t, DocumentStorage s, UblGenerator ubl, XsdValidator xsd, XmlSigner signer,
                                      SunatBillingGateway g, CdrParser p, OutboxRepository o, UnitOfWork u, Clock clock) {
         return new DarDeBajaService(b, c, t, s, ubl, xsd, signer, g, p, o, u, clock);
@@ -281,8 +291,8 @@ public class AppConfig {
         var f = new FilterRegistrationBean<>(new ApiKeyFilter(k, p.apiKeyPepper()));
         f.addUrlPatterns("/v1/*"); f.setOrder(10); return f;
     }
-    @Bean FilterRegistrationBean<PlatformKeyFilter> platformKeyFilter(AppProperties p) {
-        var f = new FilterRegistrationBean<>(new PlatformKeyFilter(p.platformAdminKey()));
+    @Bean FilterRegistrationBean<AdminAuthFilter> adminAuthFilter(AppProperties p, AdministradorTokenEmisor te) {
+        var f = new FilterRegistrationBean<>(new AdminAuthFilter(p.platformAdminKey(), te));
         f.addUrlPatterns("/v1/*"); f.setOrder(5); return f;
     }
     @Bean FilterRegistrationBean<JwtFilter> jwtFilter(TokenEmisor te, TenantRepository t) {

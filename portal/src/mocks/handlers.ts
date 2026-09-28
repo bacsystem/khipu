@@ -4,6 +4,21 @@ import { telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, resetDb, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
+/** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
+ * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
+function claimsAdmin(req: Request): { sub: string } | null {
+  const auth = req.headers.get("authorization");
+  if (!auth?.startsWith("Bearer ")) return null;
+  const token = auth.slice("Bearer ".length);
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (payload.tipo !== "plataforma") return null;
+    return { sub: payload.sub };
+  } catch {
+    return null;
+  }
+}
+
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8001";
 
@@ -183,6 +198,29 @@ export const handlers = [
     const registro = [...db.usuariosPorEmail.values()].find((r) => r.usuario.id === c.sub);
     if (!registro) return fail(404, "NO_ENCONTRADO", "Usuario no encontrado");
     return ok(registro.usuario);
+  }),
+
+  http.post(`${BASE}/v1/admin/auth/login`, async ({ request }) => {
+    const body = (await request.json()) as { email: string; password: string };
+    const registro = db.administradoresPorEmail.get(body.email);
+    if (!registro || registro.password !== body.password) {
+      return fail(401, "CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos");
+    }
+    const access_token = fakeJwt({
+      sub: registro.administrador.id,
+      tipo: "plataforma",
+      email: registro.administrador.email,
+      exp: Math.floor(Date.now() / 1000) + 1800,
+    });
+    return ok({ access_token, administrador: registro.administrador });
+  }),
+
+  http.get(`${BASE}/v1/admin/auth/me`, ({ request }) => {
+    const c = claimsAdmin(request);
+    if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const registro = [...db.administradoresPorEmail.values()].find((r) => r.administrador.id === c.sub);
+    if (!registro) return fail(404, "NO_ENCONTRADO", "Administrador no encontrado");
+    return ok(registro.administrador);
   }),
 
   http.get(`${BASE}/v1/empresas`, ({ request }) => {
