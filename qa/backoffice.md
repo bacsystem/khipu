@@ -170,7 +170,7 @@ anotó qué murió y se restauró el código; después se volvieron a correr `:d
 
 ## #180 · Listado de cuentas con búsqueda y filtros — rebanada 1: backend
 
-**Estado: 🔧 backend implementado, 9/9 mutaciones verificadas — falta la pantalla del portal (rebanada 2) y la revisión de la PR. El issue sigue abierto.**
+**Estado: 🔧 backend implementado, 10/10 mutaciones verificadas — falta la pantalla del portal (rebanada 2) y la revisión de la PR. El issue sigue abierto.**
 
 ### Diseño
 
@@ -190,13 +190,17 @@ búsqueda, más recientes primero con el `id` como desempate. Cada fila: `id`, `
 - **Las lecturas no se auditan**: la bitácora de #178 registra acciones, no consultas.
 - Una sola consulta (subconsultas correlacionadas para empresas y último acceso, `EXISTS` para la búsqueda por empresa): sin N+1
   ni cuentas repetidas. Hexagonal, con `listar` y `contar` separados como el listado de comprobantes.
+- **Índices (V27)**: `ix_usuario_cuenta (cuenta_id)`, que usa la subconsulta de `ultimo_acceso` en cada fila de la página, y
+  `ix_cuenta_alta (created_at DESC, id)`, que sirve el orden del listado. `tenant(cuenta_id)` y `sesion(usuario_id)` ya
+  estaban indexadas (V3). La búsqueda `ILIKE '%…%'` no usa índice y recorre las cuentas: aceptable con el volumen actual; si crece, `pg_trgm`.
 
 ### Tests
 
 - Aplicación: `ListarCuentasAdminServiceTest` (delegación, filtro nulo, normalización de `q`).
-- Persistencia (Postgres): `JdbcCuentasAdminRepositoryTest`, 9 casos — orden y desempate, datos y conteo de empresas, último
+- Persistencia (Postgres): `JdbcCuentasAdminRepositoryTest`, 11 casos — orden y desempate, datos y conteo de empresas, último
   acceso (máximo entre usuarios y nulo sin sesiones), búsqueda por correo/nombre, RUC por prefijo, razón social sin duplicar cuentas,
-  comodines literales y paginación con su total.
+  comodines literales, paginación con su total y los dos índices de V27 (`EXPLAIN` con `enable_seqscan = off`: comprueba que el índice
+  sirve a la consulta, no que gane con pocas filas).
 - REST: `AdminCuentaControllerTest` — forma de la respuesta, cabecera de total, parámetros, tope de página y ausencia de estado/plan.
 - e2e (HTTP + Postgres reales): `AdminCuentasE2ETest`. **Aislamiento**: la clave de plataforma y un administrador con sesión
   leen el listado (200); sin credencial, con el JWT de un cliente del portal, con la API key de una empresa y con una clave de
@@ -215,6 +219,7 @@ búsqueda, más recientes primero con el `id` como desempate. Cada fila: `id`, `
 | El controlador no acota página ni tamaño | muere (`acotaLaPaginaYElTamanoDePagina`) |
 | El total de la cabecera sale del tamaño de la página | muere (`devuelveLasCuentasConElTotalEnLaCabecera`, `pasaLaBusquedaYLaPagina…`) |
 | `Filtro` sin recortar ni anular la búsqueda en blanco | muere (`laBusquedaSeRecortaYLaVaciaEsNinguna`) |
+| V27 sin `ix_cuenta_alta` | muere sola (`elOrdenDelListadoSeApoyaEnUnIndice`), con 10 tests verdes |
 
 Las mutaciones se aplicaron en dos tandas (seis en el repositorio, tres en el controlador y el filtro) sobre tests distintos;
 la del RUC por prefijo se repitió sola para comprobar que muere por sí misma, porque la del `EXISTS` mata el mismo test. Tras cada tanda se restauró

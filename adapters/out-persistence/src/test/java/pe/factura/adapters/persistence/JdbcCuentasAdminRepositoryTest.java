@@ -136,4 +136,32 @@ class JdbcCuentasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(emails(repo.listar(filtro, 3, 2))).containsExactly("c1@x.pe");
         assertThat(repo.listar(filtro, 4, 2)).isEmpty();
     }
+
+    /**
+     * Plan de una consulta con los recorridos completos desactivados: si el índice existe, el planificador lo usa; si no,
+     * no tiene alternativa. Con las pocas filas de un test el planificador elegiría un recorrido completo aunque el índice
+     * esté, por eso se le prohíbe: lo que se comprueba es que el índice sirve para esa consulta, no que gane con poco volumen.
+     */
+    private String plan(String consulta) {
+        return jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<String>) con -> {
+            try (java.sql.Statement st = con.createStatement()) {
+                st.execute("SET enable_seqscan = off");
+                StringBuilder texto = new StringBuilder();
+                try (java.sql.ResultSet rs = st.executeQuery("EXPLAIN " + consulta)) {
+                    while (rs.next()) texto.append(rs.getString(1)).append('\n');
+                }
+                return texto.toString();
+            }
+        });
+    }
+
+    @Test void elUltimoAccesoBuscaLosUsuariosDeLaCuentaPorIndice() {
+        // La subconsulta de `ultimo_acceso` filtra `usuario` por `cuenta_id` en cada fila de la página.
+        assertThat(plan("SELECT id FROM usuario WHERE cuenta_id = '" + UUID.randomUUID() + "'")).contains("ix_usuario_cuenta");
+    }
+
+    @Test void elOrdenDelListadoSeApoyaEnUnIndice() {
+        // Sin él, cada página ordena todas las cuentas.
+        assertThat(plan("SELECT id FROM cuenta ORDER BY created_at DESC, id LIMIT 10")).contains("ix_cuenta_alta");
+    }
 }
