@@ -12,28 +12,31 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-  # Storage S3 local (#38): `docker compose --profile s3 up -d minio`; el bucket `khipu` se crea al arrancar.
+  # Storage S3 local (#38): `docker compose --profile s3 up -d minio minio-init`; minio-init crea el bucket `khipu` con versionado.
+  # MinIO dejó de publicar sus imágenes en Docker Hub y Quay (oct. 2025): se usan las de Chainguard, que solo ofrecen `latest`.
+  # Son distroless (sin shell ni `mc` dentro del servidor): por eso minio no tiene healthcheck, y minio-init llama a `mc`
+  # directo y se reintenta (`restart: on-failure`) hasta que el servidor responda. `user: "0:0"` es solo para desarrollo
+  # local: la imagen corre como 65532, que no puede escribir en el volumen /data.
   minio:
-    image: quay.io/minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     profiles: ["s3"]
+    user: "0:0"
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: khipu
       MINIO_ROOT_PASSWORD: khipu-minio
     ports: ["9000:9000", "9001:9001"]
     volumes: ["miniodata:/data"]
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
   minio-init:
-    image: quay.io/minio/mc:latest
+    image: cgr.dev/chainguard/minio-client:latest
     profiles: ["s3"]
     depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: ["/bin/sh", "-c", "mc alias set local http://minio:9000 khipu khipu-minio && mc mb --ignore-existing local/khipu && mc version enable local/khipu"]
+      - minio
+    restart: on-failure
+    environment:
+      MC_HOST_local: http://khipu:khipu-minio@minio:9000
+    # El versionado se activa al crear el bucket; si ya existía sin versionado, no lo cambia.
+    command: ["mb", "--ignore-existing", "--with-versioning", "local/khipu"]
   portal:
     build: ./portal
     environment:

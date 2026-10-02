@@ -73,8 +73,10 @@ STORAGE_TYPE=s3 STORAGE_S3_BUCKET=mi-bucket STORAGE_S3_ENDPOINT=https://… STOR
 # 3. Verifica el periodo migrado antes de retirar el disco:
 curl -X POST -H "X-Platform-Key: $PLATFORM_ADMIN_KEY" "http://localhost:8001/v1/admin/integridad?desde=2024-01-01&hasta=$(date +%F)"
 ```
-Para probar en local, `docker compose --profile s3 up -d minio` levanta MinIO en `http://localhost:9000` (consola en `:9001`,
-usuario/clave `khipu`/`khipu-minio`) con el bucket `khipu` creado; `.env.example` trae las variables comentadas.
+Para probar en local, `docker compose --profile s3 up -d minio minio-init` levanta MinIO en `http://localhost:9000` (consola en
+`:9001`, usuario/clave `khipu`/`khipu-minio`) y `minio-init` crea el bucket `khipu` con versionado; `.env.example` trae las
+variables comentadas. MinIO dejó de publicar sus imágenes en Docker Hub y Quay (oct. 2025), así que el compose y los tests de S3
+usan las de Chainguard (`cgr.dev/chainguard/minio`), que solo ofrecen `latest`.
 
 ## Flujo mínimo
 1. `POST /v1/admin/tenants` con header `X-Platform-Key` → devuelve `api_key`.
