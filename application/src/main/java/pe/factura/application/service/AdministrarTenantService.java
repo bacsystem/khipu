@@ -5,6 +5,9 @@ import pe.factura.application.port.in.AdministrarTenantUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.plataforma.AccionAdmin;
+import pe.factura.domain.plataforma.ActorAdmin;
+import pe.factura.domain.plataforma.RegistroAuditoria;
 import pe.factura.domain.tenant.*;
 
 import javax.naming.ldap.LdapName;
@@ -28,9 +31,10 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     private final String pepper;
     private final Clock clock;
     private final EstablecimientoRepository establecimientos;
+    private final AuditoriaAdminRepository auditoria;
 
 
-    public TenantCreado crearTenant(String ruc, String razonSocial, Entorno entorno) {
+    public TenantCreado crearTenant(ActorAdmin actor, String ruc, String razonSocial, Entorno entorno) {
         Ruc.exigirValido(ruc, "RUC_INVALIDO", "Empresa");
         if (tenants.buscarPorRuc(ruc).isPresent()) throw new DomainException("DUPLICADO", "Ya existe un tenant con RUC " + ruc);
         Tenant t = new Tenant(UUID.randomUUID(), ruc, razonSocial, entorno, null, null);
@@ -38,6 +42,8 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         uow.ejecutar(() -> {
             tenants.guardar(t);
             apiKeys.guardar(nuevaApiKey(t.id(), key));
+            // En la misma transacción: si la bitácora falla, el alta tampoco queda. El detalle nunca lleva la API key.
+            auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.CREAR_TENANT, null, t.id(), "ruc=" + ruc + " entorno=" + entorno, Instant.now(clock)));
         });
         return new TenantCreado(t, key);
     }

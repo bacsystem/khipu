@@ -194,6 +194,7 @@ public class AppConfig {
     @Bean UsuarioRepository usuarioRepository(JdbcTemplate jdbc) { return new JdbcUsuarioRepository(jdbc); }
     @Bean SesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
     @Bean AdministradorRepository administradorRepository(JdbcTemplate jdbc) { return new JdbcAdministradorRepository(jdbc); }
+    @Bean AuditoriaAdminRepository auditoriaAdminRepository(JdbcTemplate jdbc) { return new JdbcAuditoriaAdminRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -240,8 +241,9 @@ public class AppConfig {
     @Bean CompartirComprobanteUseCase compartirComprobante(ConsultarComprobanteUseCase consultar, TenantRepository t, CorreoSender correo) {
         return new CompartirComprobanteService(consultar, t, correo);
     }
-    @Bean AdministrarTenantUseCase administrarTenant(TenantRepository t, SerieRepository s, ApiKeyRepository k, UnitOfWork u, AppProperties p, Clock clock, EstablecimientoRepository est) {
-        return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock, est);
+    @Bean AdministrarTenantUseCase administrarTenant(TenantRepository t, SerieRepository s, ApiKeyRepository k, UnitOfWork u, AppProperties p, Clock clock, EstablecimientoRepository est,
+                                                    AuditoriaAdminRepository auditoria) {
+        return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock, est, auditoria);
     }
 
     @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }
@@ -270,8 +272,8 @@ public class AppConfig {
     @Bean AutenticarAdministradorUseCase autenticarAdministrador(AdministradorRepository a, PasswordHasher h, AdministradorTokenEmisor te) {
         return new AutenticarAdministradorService(a, h, te);
     }
-    @Bean CrearAdministradorUseCase crearAdministrador(AdministradorRepository a, PasswordHasher h) {
-        return new CrearAdministradorService(a, h);
+    @Bean CrearAdministradorUseCase crearAdministrador(AdministradorRepository a, PasswordHasher h, UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {
+        return new CrearAdministradorService(a, h, u, auditoria, clock);
     }
 
     @Bean DarDeBajaUseCase darDeBaja(BajaRepository b, ComprobanteRepository c, TenantRepository t, DocumentStorage s, UblGenerator ubl, XsdValidator xsd, XmlSigner signer,

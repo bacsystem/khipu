@@ -1,6 +1,7 @@
 package pe.factura.application.port.in;
 
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.plataforma.ActorAdmin;
 import pe.factura.domain.tenant.ApiKey;
 import pe.factura.domain.tenant.Domicilio;
 import pe.factura.domain.tenant.Entorno;
@@ -13,7 +14,8 @@ import java.util.UUID;
 
 public interface AdministrarTenantUseCase {
     record TenantCreado(Tenant tenant, String apiKeyEnClaro) {}
-    TenantCreado crearTenant(String ruc, String razonSocial, Entorno entorno);
+    /** Alta administrativa; queda en la bitácora de auditoría a nombre de {@code actor}, en la misma transacción que el alta. */
+    TenantCreado crearTenant(ActorAdmin actor, String ruc, String razonSocial, Entorno entorno);
     Tenant obtener(UUID tenantId);
     /** Domicilio fiscal (RegistrationAddress del XML) y cuenta de detracciones por defecto; cualquiera puede ir en null para borrarlo. */
     Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv);

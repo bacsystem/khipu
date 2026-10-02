@@ -2,6 +2,7 @@ package pe.factura.adapters.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,8 +25,8 @@ public class AdministradorController {
 
     @PostMapping("/administradores")
     @Operation(summary = "Crear una cuenta de administrador", description = "Alta de un administrador de la plataforma (email + password); no pertenece a ninguna cuenta de cliente.")
-    public ResponseEntity<ApiResponse<AdministradorResponse>> crear(@Valid @RequestBody CrearAdministradorRequest body) {
-        var a = crear.crear(body.email(), body.password());
+    public ResponseEntity<ApiResponse<AdministradorResponse>> crear(@Valid @RequestBody CrearAdministradorRequest body, HttpServletRequest req) {
+        var a = crear.crear(AdministradorActual.actor(req), body.email(), body.password());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(AdministradorResponse.de(a)));
     }
 }

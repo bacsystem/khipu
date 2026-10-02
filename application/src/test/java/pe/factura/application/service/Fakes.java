@@ -3,6 +3,7 @@ package pe.factura.application.service;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
+import pe.factura.domain.plataforma.RegistroAuditoria;
 import pe.factura.domain.tenant.*;
 
 import java.math.BigDecimal;
@@ -140,6 +141,26 @@ final class Fakes {
         public void ejecutar(Runnable w) { w.run(); }
     };
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
+
+    /** Sabe si el trabajo corre dentro de {@code ejecutar}: lo que separa «dentro de la transacción» de «después de ella». */
+    static final class UowTransaccional implements UnitOfWork {
+        boolean dentro;
+        public <T> T ejecutar(Supplier<T> w) { dentro = true; try { return w.get(); } finally { dentro = false; } }
+        public void ejecutar(Runnable w) { ejecutar(() -> { w.run(); return null; }); }
+    }
+
+    /** Bitácora en memoria; {@code falla} simula que la tabla de auditoría rechaza la escritura. */
+    static final class Auditoria implements AuditoriaAdminRepository {
+        final List<RegistroAuditoria> registros = new ArrayList<>();
+        final List<Boolean> dentroAlRegistrar = new ArrayList<>();
+        UowTransaccional uow;
+        RuntimeException falla;
+        public void registrar(RegistroAuditoria r) {
+            if (falla != null) throw falla;
+            dentroAlRegistrar.add(uow != null && uow.dentro);
+            registros.add(r);
+        }
+    }
 
     static Tenant tenantListo(UUID id) {
         return new Tenant(id, "20100066603", "EMPRESA SAC", Entorno.BETA, new CredencialesSol("MODDATOS", "moddatos"),
