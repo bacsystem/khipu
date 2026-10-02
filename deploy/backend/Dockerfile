@@ -14,6 +14,10 @@ RUN --mount=type=cache,target=/root/.gradle/caches \
 FROM eclipse-temurin:21-jre-jammy AS runtime
 WORKDIR /app
 RUN groupadd -r khipu && useradd -r -g khipu khipu
+# WORKDIR crea /app como root: sin esto el usuario khipu no puede crear ./logs (el default de LOG_DIR) y Spring Boot
+# aborta el arranque con «Logback configuration error detected: Failed to create parent directories». No es solo
+# perder los logs: el backend no levanta.
+RUN mkdir -p /app/logs && chown khipu:khipu /app/logs
 COPY --from=build --chown=khipu:khipu /app/bootstrap/build/libs/*.jar app.jar
 USER khipu
 # El puerto real lo fija PORT (Railway lo inyecta); 8001 es solo el default de application.yml.
