@@ -184,8 +184,9 @@ test("una nota de crédito 13 sale sin importe y una nota de débito con su conc
   await expect(page.getByTestId("nota").getByText(/Corrección o modificación/)).toBeVisible();
 
   await page.goto("/comprobantes/f-aceptada/nota");
-  // Antes de hidratar el `selectOption` se pierde y la serie se queda en la de crédito.
-  await esperarHidratacion(page, "#nota-serie");
+  // «Motivo» se habilita cuando cargan los catálogos, es decir, después de hidratar: elegir el tipo antes de eso
+  // cambia el DOM pero no el estado de React, que lo devuelve a 07 (medido: 3 tests de ND rojos bajo carga).
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
   await form.getByLabel("Tipo de nota").selectOption("08");
   await expect(form.getByLabel("Serie")).toHaveValue("FD01");
   await form.getByLabel(/Motivo/).selectOption("01");
