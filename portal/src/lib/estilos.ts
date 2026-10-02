@@ -5,7 +5,10 @@ export const CAMPO =
 export const ETIQUETA_CAMPO = "text-[12px] font-medium text-foreground";
 export const AYUDA_CAMPO = "font-mono text-[11px] text-muted-foreground";
 
-/** Celda de cabecera de las tablas del portal. */
+/**
+ * Celda de cabecera de las tablas. Hoy solo la usa la tabla de cuentas del backoffice: las de api-keys, establecimientos, series y
+ * comprobantes aún repiten la misma cadena, así que cambiar esta constante no cambia su estilo hasta migrarlas.
+ */
 export const CABECERA_TABLA = "h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase";
 
 export const TARJETA = "rounded-xl border border-border bg-card shadow-2xs";
