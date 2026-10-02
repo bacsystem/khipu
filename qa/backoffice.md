@@ -171,7 +171,7 @@ retirado sus imágenes públicas; ambos tests usan ahora `cgr.dev/chainguard/min
 
 ## #180 · Listado de cuentas con búsqueda y filtros — rebanada 1: backend
 
-**Estado: 🔧 backend implementado, 12/12 mutaciones verificadas — falta la pantalla del portal (rebanada 2) y la revisión de la PR. El issue sigue abierto.**
+**Estado: ✅ mergeado (#209), 12/12 mutaciones verificadas — la pantalla del portal (rebanada 2) va en su propia PR. El issue sigue abierto.**
 
 ### Diseño
 
@@ -231,10 +231,50 @@ la del RUC por prefijo se repitió sola para comprobar que muere por sí misma, 
 el código y se volvieron a correr `:domain`, `:application`, `:adapters:in-rest`, `:adapters:out-persistence` y, de `:bootstrap`,
 `ArchitectureTest`, `AdminCuentasE2ETest`, `AuditoriaAdminE2ETest`, `AuthE2ETest`, `FacturaE2ETest` y `DeveloperPortalE2ETest`: verdes.
 
-### Pendiente en este issue
+### Rebanada 2: la pantalla `/admin/cuentas` del portal
 
-La pantalla `/admin/cuentas` del portal (rebanada 2), con el patrón del §12 del design system, y habilitar «Cuentas» en la
-navegación del admin.
+**Estado: 🔧 implementada, 7/7 mutaciones verificadas — falta la revisión de la PR.**
+
+- **Página en el servidor** (`app/admin/(panel)/cuentas/page.tsx`): lee `q`, `pagina` y `por_pagina` de la URL y llama al backend
+  con el JWT del administrador (`lib/api/admin-cuentas.ts`). **Sin react-query ni refetch desde el navegador**: el proxy genérico
+  `/api/proxy` usa las cookies del cliente, no `khipu_admin_access`. Buscar, paginar y cambiar las filas por página cambian la URL
+  y el servidor vuelve a renderizar; la URL es compartible.
+- **No captura el 401 por separado**: el layout del panel valida la sesión del administrador (`/me`) en cada render, así que un
+  token vencido ya redirigió a `/admin/login` antes de llegar a la página. Cualquier otro fallo se muestra dentro de la página,
+  con un enlace para reintentar.
+- **Tabla** con el §12 del design system y solo piezas existentes (`Table`, `PieTabla`, `CAMPO`, `BOTON_SECUNDARIO`): cuenta
+  (nombre y correo), teléfono, empresas, alta y «Último inicio de sesión» («Nunca» si falta; nada inventado). La búsqueda se envía
+  con Enter o con el botón, sin debounce. Sin columnas de estado ni plan.
+- **Navegación**: «Clientes» (placeholder) pasa a «Cuentas», con enlace; «Empresas» queda como «Pronto» hasta #185.
+
+**Tests**
+- Vitest, lógica pura (`admin-cuentas.test.ts`, 10): saneo de parámetros, query al backend, URL de la pantalla, total de la cabecera.
+- Vitest, componente (`cuentas-tabla.test.tsx`, 10): datos y formato en hora de Lima, «Nunca» y guion, rótulo, ausencia de
+  estado/plan, pie, enlaces de paginación que conservan la búsqueda, vacíos, y el envío de la búsqueda.
+- Playwright con MSW (`admin-cuentas.spec.ts`, 8): sin sesión redirige; **una sesión de cliente no abre la pantalla**; llegada
+  desde el menú; paginación; búsqueda por razón social (la cuenta está en la segunda página); RUC por prefijo y no por fragmento
+  interno; sin resultados y «Quitar filtros»; URL compartible. Usa `esperarHidratacion` antes de escribir en el buscador.
+- El mock (`src/mocks`) sigue el contrato real del backend: solo el administrador, `q` en correo/nombre/razón social y RUC por
+  prefijo, total en cabecera, campos sin valor omitidos.
+
+**Verificación por mutación — 7/7 mueren** (una por test distinto, aplicadas a la vez):
+
+| Mutación | Test que muere |
+|---|---|
+| Página inválida (`-3`, `2.5`) pasa tal cual | `una página que no es un entero positivo…` |
+| La búsqueda no se recorta | `la búsqueda se recorta y una en blanco…` |
+| `q` viaja siempre al backend, aun vacía | `manda la búsqueda solo si la hay…` |
+| El total ignora la cabecera `X-Total-Count` | `llama al backend con el JWT… y lee el total` |
+| Los enlaces de paginación pierden la búsqueda | `la paginación conserva la búsqueda…` |
+| «Nunca» se reemplaza por un guion | `una cuenta sin teléfono ni sesiones…` |
+| Buscar no vuelve a la página 1 | `buscar manda a la primera página…` |
+
+Vitest completo 187/187 (antes 167), `eslint` y `tsc` limpios. Playwright: los 8 de la pantalla y los 5 de `admin.spec.ts` pasan.
+
+### Pendiente en #180
+
+Nada de código. El backend ya está mergeado (#209); el issue sigue abierto hasta que se mergee la pantalla y se pruebe de punta
+a punta con el portal conectado al backend.
 
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 

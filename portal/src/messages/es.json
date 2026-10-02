@@ -71,7 +71,27 @@
       "enviando": "Ingresando…"
     },
     "nav": {
-      "inicio": "Inicio"
+      "inicio": "Inicio",
+      "cuentas": "Cuentas"
+    },
+    "cuentas": {
+      "titulo": "Cuentas",
+      "descripcion": "Clientes registrados en la plataforma.",
+      "buscar": "Buscar por correo, nombre, RUC o razón social",
+      "botonBuscar": "Buscar",
+      "quitarFiltros": "Quitar filtros",
+      "vacio": "Todavía no hay cuentas.",
+      "sinResultados": "No hay cuentas con esos filtros.",
+      "nunca": "Nunca",
+      "columnas": {
+        "cuenta": "Cuenta",
+        "telefono": "Teléfono",
+        "empresas": "Empresas",
+        "alta": "Alta",
+        "ultimoAcceso": "Último inicio de sesión"
+      },
+      "error": "No se pudo cargar el listado de cuentas.",
+      "reintentar": "Reintentar"
     }
   },
   "errores": {
