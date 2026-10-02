@@ -40,7 +40,7 @@ export function AdminTopBar({ administrador }: { administrador: Administrador })
       </div>
 
       <div className="flex shrink-0 items-center gap-2.5">
-        {pathname === "/admin/cuentas" ? (
+        {miga?.accion === "nuevaCuenta" ? (
           <button disabled title={t.nuevaCuentaProximamente} className={ACCION_PRINCIPAL_DESHABILITADA}>
             <PlusIcon className="size-4" />
             {t.nuevaCuenta}

@@ -291,7 +291,7 @@ con el portal conectado al backend.
 
 ## Cabecera del backoffice: miga de ubicación, «Nueva cuenta» y menú en móvil (épica #11, sin issue propio)
 
-**Estado: 🔧 implementada, 9/9 mutaciones verificadas — falta la revisión de la PR (#212). Necesita la ruta `/admin/cuentas`, que llegó con #211.**
+**Estado: 🔧 implementada, 11/11 mutaciones verificadas — falta la revisión de la PR (#212). Necesita la ruta `/admin/cuentas`, que llegó con #211.**
 
 Las pantallas de cliente tienen una cabecera con miga y la acción principal de la página; el backoffice no tenía ninguna.
 
@@ -303,17 +303,21 @@ Las pantallas de cliente tienen una cabecera con miga y la acción principal de 
 - **La miga NO es un `h1`** (a diferencia del portal de clientes): cada página del backoffice ya trae el suyo, y dos `h1` por página empeoran la
   accesibilidad. Es un `span` con `aria-current="page"`. El e2e fija que sigue habiendo un solo `h1`.
 - **Mapa de migas** en `lib/admin-migas.ts`: `/admin` casa de forma exacta (no engulle las páginas sin miga) y el resto por segmento, así que
-  `/admin/cuentas/<id>` sigue bajo «Cuentas» pero `/admin/cuentas-viejas` no.
+  `/admin/cuentas/<id>` sigue bajo «Cuentas» pero `/admin/cuentas-viejas` no. La **acción** de la página («Nueva cuenta») también vive en
+  el mapa y solo se devuelve con la ruta exacta de la lista, no en un detalle: así la cabecera no conoce rutas (antes comparaba contra el
+  literal `"/admin/cuentas"`, una cuarta copia).
 - **Sin buscador ni «Exportar» deshabilitados**, aunque el portal de clientes los tiene: serían controles muertos sin funcionalidad detrás.
 
 **Tests**
-- Vitest, lógica pura (`admin-migas.test.ts`, 6): inicio, cuentas, detalle, `/admin` exacto, prefijo parecido, fuera del backoffice.
-- Vitest, componente (`admin-top-bar.test.tsx`, 6): miga y `aria-current`, ausencia de encabezados, sin miga conocida, «Nueva cuenta» deshabilitado
-  con su motivo, sin acción en el inicio, botón del menú.
+- Vitest, lógica pura (`admin-migas.test.ts`, 6): inicio, cuentas con su acción, detalle sin la acción, `/admin` exacto, prefijo parecido,
+  fuera del backoffice.
+- Vitest, componente (`admin-top-bar.test.tsx`, 7): miga y `aria-current`, ausencia de encabezados, sin miga conocida, «Nueva cuenta» deshabilitado
+  con su motivo, sin acción en el detalle de una cuenta, sin acción en el inicio, botón del menú. La prop `administrador` va tipada
+  (`Administrador`), no con `as never`.
 - Playwright con MSW (`admin-topbar.spec.ts`, 3): inicio sin acción de crear; en Cuentas, miga, botón deshabilitado y un solo `h1`; en móvil
   (390×844) el menú abre la navegación, lleva a Cuentas y se cierra solo.
 
-**Verificación por mutación — 9/9 mueren**
+**Verificación por mutación — 11/11 mueren**
 
 | Mutación | Test que muere |
 |---|---|
@@ -322,13 +326,15 @@ Las pantallas de cliente tienen una cabecera con miga y la acción principal de 
 | «Nueva cuenta» sin `disabled` | `en Cuentas ofrece «Nueva cuenta» deshabilitado…` |
 | Sin el menú móvil | `trae el botón del menú…` |
 | Se ignora `exacta` (`/admin` engulle todo) | `solo es el inicio de forma exacta…` y otros 3 de migas |
-| «Nueva cuenta» siempre visible | `en el inicio no hay acción de crear cuentas` |
+| «Nueva cuenta» en cualquier página con miga | `en el inicio no hay acción…` y `en el detalle de una cuenta conserva la miga…` |
+| El mapa devuelve la acción también en el detalle | `el detalle de una cuenta… sin la acción de la lista` y el de componente |
 | Sin `aria-current` | `muestra la miga… y marca la página actual` |
 | El menú móvil no se cierra al navegar | e2e `el menú abre la navegación… y se cierra solo` (los otros dos pasan) |
 | El layout no monta el TopBar | los 3 e2e |
 
-Las cuatro primeras se aplicaron juntas (cuatro tests distintos); la quinta, sexta y séptima en otra tanda; las dos de e2e, una por una.
-Vitest completo 204/204 (antes 192), `eslint` y `tsc` limpios. Playwright: los 3 nuevos, los 9 de cuentas y los 5 de `admin.spec.ts` pasan (17).
+Las cuatro primeras se aplicaron juntas (cuatro tests distintos); `exacta` y `aria-current` en otra tanda; «cualquier página con miga»
+(antes «siempre visible», que se probó en esa tanda), la del mapa de la acción y las dos de e2e, una por una.
+Vitest completo 205/205 (antes 192), `eslint` y `tsc` limpios. Playwright: los 3 nuevos, los 9 de cuentas y los 5 de `admin.spec.ts` pasan (17).
 
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 

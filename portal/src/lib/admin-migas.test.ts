@@ -6,11 +6,11 @@ describe("migaAdmin", () => {
     expect(migaAdmin("/admin")).toEqual({ seccion: "Backoffice", pagina: "Inicio" });
   });
 
-  it("las cuentas cuelgan de «Clientes»", () => {
-    expect(migaAdmin("/admin/cuentas")).toEqual({ seccion: "Clientes", pagina: "Cuentas" });
+  it("las cuentas cuelgan de «Clientes» y su lista ofrece crear una cuenta", () => {
+    expect(migaAdmin("/admin/cuentas")).toEqual({ seccion: "Clientes", pagina: "Cuentas", accion: "nuevaCuenta" });
   });
 
-  it("el detalle de una cuenta sigue bajo «Clientes / Cuentas»", () => {
+  it("el detalle de una cuenta sigue bajo «Clientes / Cuentas» pero sin la acción de la lista", () => {
     expect(migaAdmin("/admin/cuentas/6b1d")).toEqual({ seccion: "Clientes", pagina: "Cuentas" });
   });
 
