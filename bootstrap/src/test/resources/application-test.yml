@@ -6,6 +6,9 @@ app:
   portal-url: http://localhost:3000
   registro-abierto: true
   storage:
+    # Fijo: los tests no deben depender del valor por defecto de application.yml (si alguien lo cambia a s3 para
+    # desarrollo local, los e2e escribirían sus documentos en su bucket). FacturaS3E2ETest lo sobrescribe a s3.
+    type: fs
     fs-root: ${java.io.tmpdir}/factura-e2e
   outbox:
     intervalo-ms: 600000

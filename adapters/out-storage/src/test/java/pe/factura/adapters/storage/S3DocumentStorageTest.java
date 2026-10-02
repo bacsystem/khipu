@@ -20,8 +20,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Contrato del storage S3 contra MinIO (#38): mismas claves y semántica que el de disco, PutObject con checksum SHA-256. */
 @Testcontainers
 class S3DocumentStorageTest {
-    // Docker Hub retiró minio/minio (2025); la imagen oficial vive en quay.io.
-    @Container static final MinIOContainer MINIO = new MinIOContainer(DockerImageName.parse("quay.io/minio/minio:latest").asCompatibleSubstituteFor("minio/minio"));
+    // MinIO dejó de publicar sus imágenes en Docker Hub y Quay (oct. 2025): se usa la de Chainguard. Corre como el usuario
+    // 65532, que no puede escribir en /data, así que en pruebas se arranca como root.
+    @Container static final MinIOContainer MINIO = new MinIOContainer(DockerImageName.parse("cgr.dev/chainguard/minio:latest").asCompatibleSubstituteFor("minio/minio"))
+            .withCreateContainerCmdModifier(cmd -> cmd.withUser("0:0"));
     static final String BUCKET = "khipu-test";
     static S3DocumentStorage storage;
 
