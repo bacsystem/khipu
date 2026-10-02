@@ -38,16 +38,27 @@ npm run lint
 npm run generate:api                                # regenerate src/lib/api/openapi.d.ts from a running backend's /openapi.json — NOT currently wired into the app (see below)
 ```
 
+### Branching model: GitFlow (simplified)
+
+Two long-lived branches, both protected on GitHub (1 required approving review, no force-push, no deletion):
+
+- **`main`** — production. Only receives merges from `develop` (a release) or from a `hotfix/*` branch. Every merge into `main` gets tagged `vX.Y.Z` afterward (see `git-flow` skill, step 10).
+- **`develop`** — integration branch. Default base for all feature/fix work, including `gh stack` stacks (see below). Runs ahead of `main` with merged-but-unreleased work.
+
+No formal `release/*` branches — a release is just a PR with base `main` and head `develop` (or a fast-forward) once `develop` is stable enough to ship. `hotfix/*` branches off `main` for urgent prod-only fixes, PRs back into `main` (tag after merge), and then get merged into `develop` too so it doesn't regress.
+
+The `git-flow` skill detects `develop` automatically and uses it as the PR base instead of `main` — no need to pass it explicitly.
+
 ### Pull requests: stacked, via `gh stack`
 
 Work that spans several PRs is stacked, not chained by hand. GitHub's official extension manages it (`gh extension install github/gh-stack` — per machine, not a repo dependency):
 
 ```bash
-gh stack init feat/base                 # new stack on top of main; adopts the branch if it already exists
+gh stack init feat/base                 # new stack on top of develop; adopts the branch if it already exists
 gh stack add feat/encima -m "mensaje"   # next layer, based on the previous one
 gh stack view                           # where each branch sits
 gh stack submit                         # push every branch and open/update its PR, each based on the one below
-gh stack sync --prune                   # after a merge: rebase the rest onto main, retarget bases, drop merged branches
+gh stack sync --prune                   # after a merge: rebase the rest onto develop, retarget bases, drop merged branches
 gh stack merge                          # atomic bottom-up merge of the whole stack (or up to a chosen PR)
 ```
 
