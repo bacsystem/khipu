@@ -170,7 +170,7 @@ anotó qué murió y se restauró el código; después se volvieron a correr `:d
 
 ## #180 · Listado de cuentas con búsqueda y filtros — rebanada 1: backend
 
-**Estado: 🔧 backend implementado, 11/11 mutaciones verificadas — falta la pantalla del portal (rebanada 2) y la revisión de la PR. El issue sigue abierto.**
+**Estado: 🔧 backend implementado, 12/12 mutaciones verificadas — falta la pantalla del portal (rebanada 2) y la revisión de la PR. El issue sigue abierto.**
 
 ### Diseño
 
@@ -193,12 +193,13 @@ búsqueda, más recientes primero con el `id` como desempate. Cada fila: `id`, `
 - **Índices (V27)**: `ix_usuario_cuenta (cuenta_id)` e `ix_sesion_acceso (usuario_id, created_at DESC)`, que usa la subconsulta de
   `ultimo_acceso` en cada fila de la página (el máximo se lee del final del índice, sin recorrer todas las sesiones del usuario), y
   `ix_cuenta_alta (created_at DESC, id)`, que sirve el orden del listado. `tenant(cuenta_id)` ya estaba indexada (V3). `ix_sesion_acceso`
-  también cubre las búsquedas solo por `usuario_id`, de modo que `ix_sesion_usuario` (V3) queda redundante; no se retira aquí. La búsqueda `ILIKE '%…%'` no usa índice y recorre las cuentas: aceptable con el volumen actual; si crece, `pg_trgm`.
+  también cubre las búsquedas solo por `usuario_id`, así que V27 retira `ix_sesion_usuario` (V3), que quedaba redundante: cada inicio de
+  sesión y cada refresco habría mantenido dos índices con la misma columna inicial. La búsqueda `ILIKE '%…%'` no usa índice y recorre las cuentas: aceptable con el volumen actual; si crece, `pg_trgm`.
 
 ### Tests
 
 - Aplicación: `ListarCuentasAdminServiceTest` (delegación, filtro nulo, normalización de `q`).
-- Persistencia (Postgres): `JdbcCuentasAdminRepositoryTest`, 12 casos — orden y desempate, datos y conteo de empresas, último
+- Persistencia (Postgres): `JdbcCuentasAdminRepositoryTest`, 13 casos — orden y desempate, datos y conteo de empresas, último
   acceso (máximo entre usuarios y nulo sin sesiones), búsqueda por correo/nombre, RUC por prefijo, razón social sin duplicar cuentas,
   comodines literales, paginación con su total y los tres índices de V27 (`EXPLAIN` con `enable_seqscan = off`: comprueba que el índice
   sirve a la consulta, no que gane con pocas filas).
@@ -222,6 +223,7 @@ búsqueda, más recientes primero con el `id` como desempate. Cada fila: `id`, `
 | `Filtro` sin recortar ni anular la búsqueda en blanco | muere (`laBusquedaSeRecortaYLaVaciaEsNinguna`) |
 | V27 sin `ix_cuenta_alta` | muere sola (`elOrdenDelListadoSeApoyaEnUnIndice`), con 10 tests verdes |
 | V27 sin `ix_sesion_acceso` | muere sola (`laSesionMasRecienteDeUnUsuarioSeLeeDelIndice…`), con los demás verdes |
+| V27 sin el `DROP INDEX ix_sesion_usuario` | muere sola (`sesionTieneUnSoloIndiceSobreUsuario…`), con los demás verdes |
 
 Las mutaciones se aplicaron en dos tandas (seis en el repositorio, tres en el controlador y el filtro) sobre tests distintos;
 la del RUC por prefijo se repitió sola para comprobar que muere por sí misma, porque la del `EXISTS` mata el mismo test. Tras cada tanda se restauró
