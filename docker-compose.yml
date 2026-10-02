@@ -5,7 +5,7 @@ services:
       POSTGRES_DB: factura
       POSTGRES_USER: factura
       POSTGRES_PASSWORD: factura
-    ports: ["5432:5432"]
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U factura"]
@@ -42,13 +42,52 @@ services:
       MC_HOST_local: http://khipu:khipu-minio@minio:9000
     # El versionado se activa al crear el bucket; si ya existía sin versionado, no lo cambia.
     command: ["mb", "--ignore-existing", "--with-versioning", "local/khipu"]
+  # Correo de desarrollo (`make deploy-develop`): Mailpit recibe lo que envía el backend y lo muestra en su interfaz web
+  # (http://localhost:${MAILPIT_UI_PORT}). El SMTP (1025) solo se usa dentro de la red del compose, no se publica.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    profiles: ["app"]
+    ports: ["${MAILPIT_UI_PORT:-8025}:8025"]
+  # Backend (`make deploy-develop`): la misma imagen que despliega Railway (deploy/backend/Dockerfile), con el Postgres de este compose.
+  # Perfil `app`: sin él `docker compose up` no lo construye, así que el flujo de desarrollo (backend por Gradle) no cambia.
+  # Las claves vienen del .env (`make env` lo crea). No se rotan: cifran certificados y claves SOL guardados en la base.
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/backend/Dockerfile
+    profiles: ["app"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/factura
+      DB_USER: factura
+      DB_PASSWORD: factura
+      MASTER_KEY: ${MASTER_KEY:-}
+      API_KEY_PEPPER: ${API_KEY_PEPPER:-}
+      PLATFORM_ADMIN_KEY: ${PLATFORM_ADMIN_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      PORTAL_URL: ${PORTAL_URL:-http://localhost:3000}
+      REGISTRO_ABIERTO: ${REGISTRO_ABIERTO:-true}
+      # Correo habilitado hacia Mailpit (sin credenciales, de ahí MAIL_SMTP_AUTH=false): la recuperación de contraseña y el envío
+      # de comprobantes se ven en la interfaz de Mailpit en vez de perderse.
+      MAIL_HABILITADO: "true"
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      MAIL_SMTP_AUTH: "false"
+      STORAGE_FS_ROOT: /app/storage
+    volumes: ["storagedata:/app/storage"]
+    ports: ["${BACKEND_PORT:-8001}:8001"]
   portal:
     build: ./portal
     environment:
       API_BASE_URL: ${PORTAL_API_BASE_URL:-http://host.docker.internal:8001}
       # La que ve el navegador (snippets de integración, "Try it" de /developers): desde el host, la API está en localhost.
       API_PUBLIC_URL: ${PORTAL_API_PUBLIC_URL:-http://localhost:8001}
-    ports: ["3000:3000"]
+    ports: ["${PORTAL_PORT:-3000}:3000"]
 volumes:
   pgdata:
   miniodata:
+  storagedata:
