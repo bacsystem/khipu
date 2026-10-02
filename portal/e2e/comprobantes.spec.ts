@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { esperarHidratacion } from "./hidratacion";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
@@ -52,7 +53,8 @@ test("filtra por serie y fechas desde la URL y desde los controles (#6)", async 
   await expect(page.getByLabel("Serie")).toContainText("Serie: F001");
   await expect(page.getByLabel("Desde")).toHaveValue("2026-09-02");
 
-  // Cambiar el filtro por los controles actualiza la URL (compartible) y la lista.
+  // Cambiar el filtro por los controles actualiza la URL (compartible) y la lista. Antes de hidratar el `fill` se pierde.
+  await esperarHidratacion(page, "#filtro-hasta");
   await page.getByLabel("Hasta").fill("2026-09-01");
   await expect(page).toHaveURL(/hasta=2026-09-01/);
   await page.getByLabel("Desde").fill("2026-09-01");
@@ -182,6 +184,9 @@ test("una nota de crédito 13 sale sin importe y una nota de débito con su conc
   await expect(page.getByTestId("nota").getByText(/Corrección o modificación/)).toBeVisible();
 
   await page.goto("/comprobantes/f-aceptada/nota");
+  // «Motivo» se habilita cuando cargan los catálogos, es decir, después de hidratar: elegir el tipo antes de eso
+  // cambia el DOM pero no el estado de React, que lo devuelve a 07 (medido: 3 tests de ND rojos bajo carga).
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
   await form.getByLabel("Tipo de nota").selectOption("08");
   await expect(form.getByLabel("Serie")).toHaveValue("FD01");
   await form.getByLabel(/Motivo/).selectOption("01");
