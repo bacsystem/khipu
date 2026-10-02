@@ -1,0 +1,7 @@
+# Scripts que se ejecutan en Linux (contenedores, CI). Con core.autocrlf=true (Windows) git los descargaría con CRLF y
+# `./gradlew` fallaría dentro de la imagen con «not found»: el shebang termina en \r y /bin/sh\r no existe. El índice ya
+# está en LF; esto solo fija cómo se descargan, no cambia ningún contenido.
+gradlew text eol=lf
+*.sh text eol=lf
+# El wrapper de Windows sí necesita CRLF.
+gradlew.bat text eol=crlf
