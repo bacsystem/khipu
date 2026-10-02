@@ -20,6 +20,8 @@ services:
   # `latest` no está fijada por digest a propósito: no se verificó que Chainguard conserve digests antiguos en su capa gratuita, y
   # uno retirado rompería el pull de golpe. Si una actualización de la imagen rompe `S3DocumentStorageTest`, `FacturaS3E2ETest` o este
   # servicio, fija el digest que funcione (`docker buildx imagetools inspect cgr.dev/chainguard/minio:latest`) en los tres sitios.
+  # Lo mismo vale para `minio-client` en `minio-init` si lo que se rompe es la creación del bucket (`mb --with-versioning`); esa
+  # imagen solo se usa aquí.
   minio:
     image: cgr.dev/chainguard/minio:latest
     profiles: ["s3"]
