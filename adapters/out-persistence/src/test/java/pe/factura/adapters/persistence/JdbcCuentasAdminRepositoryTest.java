@@ -165,6 +165,14 @@ class JdbcCuentasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(plan("SELECT max(created_at) FROM sesion WHERE usuario_id = '" + UUID.randomUUID() + "'")).contains("ix_sesion_acceso");
     }
 
+    @Test void sesionTieneUnSoloIndiceSobreUsuarioYLasBusquedasPorUsuarioSiguenIndexadas() {
+        // `ix_sesion_acceso` cubre las búsquedas solo por `usuario_id` (revocar sesiones, borrado en cascada): un segundo índice con la misma
+        // columna inicial solo encarece cada inicio de sesión y cada refresco.
+        List<String> indices = jdbc.queryForList("SELECT indexname FROM pg_indexes WHERE tablename = 'sesion' AND indexdef LIKE '%(usuario_id%'", String.class);
+        assertThat(indices).containsExactly("ix_sesion_acceso");
+        assertThat(plan("SELECT id FROM sesion WHERE usuario_id = '" + UUID.randomUUID() + "'")).contains("ix_sesion_acceso");
+    }
+
     @Test void elOrdenDelListadoSeApoyaEnUnIndice() {
         // Sin él, cada página ordena todas las cuentas.
         assertThat(plan("SELECT id FROM cuenta ORDER BY created_at DESC, id LIMIT 10")).contains("ix_cuenta_alta");
