@@ -17,7 +17,11 @@ RUN groupadd -r khipu && useradd -r -g khipu khipu
 # WORKDIR crea /app como root: sin esto el usuario khipu no puede crear ./logs (el default de LOG_DIR) y Spring Boot
 # aborta el arranque con «Logback configuration error detected: Failed to create parent directories». No es solo
 # perder los logs: el backend no levanta.
-RUN mkdir -p /app/logs && chown khipu:khipu /app/logs
+#
+# /app/storage es el STORAGE_FS_ROOT del compose (volumen `storagedata`). Un volumen nuevo hereda dueño y permisos del
+# directorio de la imagen; si no existiera aquí, nacería de root y el usuario khipu no podría guardar los XML. En Railway
+# (STORAGE_TYPE=s3) no se usa y la carpeta vacía no cuesta nada.
+RUN mkdir -p /app/logs /app/storage && chown khipu:khipu /app/logs /app/storage
 COPY --from=build --chown=khipu:khipu /app/bootstrap/build/libs/*.jar app.jar
 USER khipu
 # El puerto real lo fija PORT (Railway lo inyecta); 8001 es solo el default de application.yml.

@@ -92,5 +92,7 @@ spring.mail:
   port: ${MAIL_PORT:587}
   username: ${MAIL_USERNAME:}
   password: ${MAIL_PASSWORD:}
-  properties.mail.smtp.auth: true
+  # Con usuario y clave vacíos, Spring no autentica: contra un SMTP sin credenciales (Mailpit en local) hay que poner
+  # MAIL_SMTP_AUTH=false. Por defecto sigue siendo true, como en producción.
+  properties.mail.smtp.auth: ${MAIL_SMTP_AUTH:true}
   properties.mail.smtp.starttls.enable: true
