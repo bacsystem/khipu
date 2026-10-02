@@ -37,6 +37,26 @@ set -a; source .env; set +a
 si cambia, esos secretos dejan de poder descifrarse y cada tenant tendría que volver a cargarlos.
 Respáldala junto con la base de datos. Lo mismo aplica a `API_KEY_PEPPER`: rotarlo invalida todas las API keys emitidas.
 
+### Probar `develop` en Docker (`make`)
+Para probar lo ya mergeado sin depender de la rama que tengas abierta, `develop` se despliega en Docker con backend, portal y
+su propio Postgres. `make` sin argumentos lista todos los objetivos.
+```bash
+make env              # una sola vez: crea .env con secretos nuevos (nunca pisa uno existente)
+make deploy-develop   # fija un worktree en origin/develop, construye backend y portal y los levanta
+make develop-logs     # logs del backend y del portal
+make develop-version  # qué commit de develop está fijado
+make deploy-develop   # tras cada merge: vuelve a fijar origin/develop y reconstruye
+```
+- **Puertos**: portal `:3000`, backend `:8001`, Postgres `:5433` y correos (Mailpit) `:8026` (`DEVELOP_PORTAL_PORT`, `DEVELOP_BACKEND_PORT`,
+  `DEVELOP_POSTGRES_PORT`, `DEVELOP_MAILPIT_PORT`). Portal y backend son los mismos de desarrollo: apaga `make api` y `make dev` antes, o cámbialos.
+- **Correo**: el backend desplegado envía a Mailpit (`MAIL_SMTP_AUTH=false`, sin credenciales); la recuperación de contraseña y el envío de
+  comprobantes se ven en su interfaz web.
+- **Datos aparte**: usa el proyecto `khipu-develop` (volúmenes propios), así que no toca el Postgres ni los datos de tu desarrollo local.
+  `make develop-stop` conserva los datos; `make develop-reset` los borra y el siguiente deploy parte de cero.
+- **El worktree** (`../khipu-wt-develop`) solo se usa como contexto de build y nunca recibe commits.
+- Para probar un PR sin mergear, usa `make api` y `make dev` desde el worktree de ese PR.
+- Los objetivos de backend por Gradle necesitan `JAVA_HOME_21=/ruta/al/jdk-21` fuera de macOS.
+
 ## Storage de XML y CDR (conservación)
 
 SUNAT obliga a conservar los XML firmados y sus CDR durante el plazo de prescripción y a entregarlos al adquirente cuando
