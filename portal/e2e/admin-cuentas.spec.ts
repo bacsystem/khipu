@@ -57,6 +57,18 @@ test("Siguiente lleva a la segunda página con las dos cuentas más antiguas", a
   await expect(page.locator("body")).toContainText(/Mostrando\s*11–12\s*de\s*12/);
 });
 
+/** Una URL editada a mano o un marcador viejo: antes salía «Mostrando 981–980 de 12» y «Todavía no hay cuentas». */
+test("una página pasada de la última lleva a la última en vez de una tabla vacía", async ({ page }) => {
+  await entrarComoAdmin(page);
+
+  await page.goto("/admin/cuentas?pagina=99");
+
+  await expect(page).toHaveURL(/pagina=2$/);
+  await expect(filas(page)).toHaveCount(2);
+  await expect(page.locator("body")).toContainText(/Mostrando\s*11–12\s*de\s*12/);
+  await expect(page.getByText("Todavía no hay cuentas.")).toHaveCount(0);
+});
+
 test("busca por razón social y encuentra la cuenta aunque esté en la segunda página", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto("/admin/cuentas");

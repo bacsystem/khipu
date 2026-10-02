@@ -233,7 +233,7 @@ el código y se volvieron a correr `:domain`, `:application`, `:adapters:in-rest
 
 ### Rebanada 2: la pantalla `/admin/cuentas` del portal
 
-**Estado: 🔧 implementada, 7/7 mutaciones verificadas — falta la revisión de la PR.**
+**Estado: 🔧 implementada, 11/11 mutaciones verificadas — falta la revisión de la PR.**
 
 - **Página en el servidor** (`app/admin/(panel)/cuentas/page.tsx`): lee `q`, `pagina` y `por_pagina` de la URL y llama al backend
   con el JWT del administrador (`lib/api/admin-cuentas.ts`). **Sin react-query ni refetch desde el navegador**: el proxy genérico
@@ -242,22 +242,30 @@ el código y se volvieron a correr `:domain`, `:application`, `:adapters:in-rest
 - **No captura el 401 por separado**: el layout del panel valida la sesión del administrador (`/me`) en cada render, así que un
   token vencido ya redirigió a `/admin/login` antes de llegar a la página. Cualquier otro fallo se muestra dentro de la página,
   con un enlace para reintentar.
-- **Tabla** con el §12 del design system y solo piezas existentes (`Table`, `PieTabla`, `CAMPO`, `BOTON_SECUNDARIO`): cuenta
+- **Página fuera de rango**: con `?pagina=99` (URL editada a mano o marcador viejo) el backend devuelve una página vacía con el total
+  intacto y la tabla decía «Mostrando 981–980 de 12» y «Todavía no hay cuentas». `hrefSiFueraDeRango` redirige a la última página
+  (conservando búsqueda y tamaño); sin resultados la última es la primera. El `redirect` va fuera del `.then`/catch de la carga, porque
+  lanza y no debe confundirse con un fallo del backend.
+- **Tabla** con el §12 del design system y solo piezas existentes (`Table`, `PieTabla`, `CAMPO`, `BOTON_SECUNDARIO`, y `CABECERA_TABLA`,
+  nueva en `lib/estilos` para no sumar una quinta copia de la cadena de cabecera; las otras cuatro tablas la siguen repitiendo): cuenta
   (nombre y correo), teléfono, empresas, alta y «Último inicio de sesión» («Nunca» si falta; nada inventado). La búsqueda se envía
   con Enter o con el botón, sin debounce. Sin columnas de estado ni plan.
 - **Navegación**: «Clientes» (placeholder) pasa a «Cuentas», con enlace; «Empresas» queda como «Pronto» hasta #185.
 
 **Tests**
-- Vitest, lógica pura (`admin-cuentas.test.ts`, 10): saneo de parámetros, query al backend, URL de la pantalla, total de la cabecera.
+- Vitest, lógica pura (`admin-cuentas.test.ts`, 15): saneo de parámetros, query al backend, URL de la pantalla, total de la cabecera
+  y la corrección de la página fuera de rango (5: pasada de la última, conserva búsqueda y tamaño, sin resultados, dentro de rango,
+  total exacto de una página).
 - Vitest, componente (`cuentas-tabla.test.tsx`, 10): datos y formato en hora de Lima, «Nunca» y guion, rótulo, ausencia de
   estado/plan, pie, enlaces de paginación que conservan la búsqueda, vacíos, y el envío de la búsqueda.
-- Playwright con MSW (`admin-cuentas.spec.ts`, 8): sin sesión redirige; **una sesión de cliente no abre la pantalla**; llegada
-  desde el menú; paginación; búsqueda por razón social (la cuenta está en la segunda página); RUC por prefijo y no por fragmento
-  interno; sin resultados y «Quitar filtros»; URL compartible. Usa `esperarHidratacion` antes de escribir en el buscador.
+- Playwright con MSW (`admin-cuentas.spec.ts`, 9): sin sesión redirige; **una sesión de cliente no abre la pantalla**; llegada
+  desde el menú; paginación; una página pasada de la última lleva a la última; búsqueda por razón social (la cuenta está en la
+  segunda página); RUC por prefijo y no por fragmento interno; sin resultados y «Quitar filtros»; URL compartible. Usa
+  `esperarHidratacion` antes de escribir en el buscador.
 - El mock (`src/mocks`) sigue el contrato real del backend: solo el administrador, `q` en correo/nombre/razón social y RUC por
   prefijo, total en cabecera, campos sin valor omitidos.
 
-**Verificación por mutación — 7/7 mueren** (una por test distinto, aplicadas a la vez):
+**Verificación por mutación — 11/11 mueren** (las 7 primeras, una por test distinto y a la vez; las 4 de la página fuera de rango, una por una):
 
 | Mutación | Test que muere |
 |---|---|
@@ -268,8 +276,13 @@ el código y se volvieron a correr `:domain`, `:application`, `:adapters:in-rest
 | Los enlaces de paginación pierden la búsqueda | `la paginación conserva la búsqueda…` |
 | «Nunca» se reemplaza por un guion | `una cuenta sin teléfono ni sesiones…` |
 | Buscar no vuelve a la página 1 | `buscar manda a la primera página…` |
+| Fuera de rango con `>=` en vez de `>` | `una página dentro de rango no se toca…` y `el total exacto de una página…` |
+| Sin `Math.max(1, …)` en la última página | `una página dentro de rango no se toca…` (la primera de un listado vacío) |
+| La corrección manda siempre a la página 1 | `una página pasada de la última lleva a la última…` y `conserva la búsqueda…` |
+| La página no llama a `redirect` | e2e `una página pasada de la última lleva a la última…` (los otros 8 pasan) |
 
-Vitest completo 187/187 (antes 167), `eslint` y `tsc` limpios. Playwright: los 8 de la pantalla y los 5 de `admin.spec.ts` pasan.
+Vitest completo 192/192 (antes 167), `eslint` y `tsc` limpios. Playwright, tras el rebase sobre `develop` (#210): los 9 de la pantalla y
+los 5 de `admin.spec.ts` pasan.
 
 ### Pendiente en #180
 

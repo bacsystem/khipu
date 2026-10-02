@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiBaseUrl } from "./client";
-import { hrefCuentas, listarCuentasAdmin, paramsCuentasDesdeUrl, queryCuentas } from "./admin-cuentas";
+import { hrefCuentas, hrefSiFueraDeRango, listarCuentasAdmin, paramsCuentasDesdeUrl, queryCuentas } from "./admin-cuentas";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -51,6 +51,31 @@ describe("hrefCuentas", () => {
 
   it("codifica la búsqueda: un & o un espacio no rompen la URL", () => {
     expect(hrefCuentas({ q: "a&b c", pagina: 1, porPagina: 10 })).toBe("/admin/cuentas?q=a%26b+c");
+  });
+});
+
+describe("hrefSiFueraDeRango", () => {
+  it("una página pasada de la última lleva a la última, no a una tabla vacía que dice «no hay cuentas»", () => {
+    expect(hrefSiFueraDeRango({ pagina: 99, porPagina: 10 }, 12)).toBe("/admin/cuentas?pagina=2");
+  });
+
+  it("conserva la búsqueda y las filas por página al corregir", () => {
+    expect(hrefSiFueraDeRango({ q: "ana", pagina: 9, porPagina: 20 }, 25)).toBe("/admin/cuentas?q=ana&pagina=2&por_pagina=20");
+  });
+
+  it("sin resultados la última página es la primera, así que vuelve a la ruta limpia de esa búsqueda", () => {
+    expect(hrefSiFueraDeRango({ q: "zzz", pagina: 3, porPagina: 10 }, 0)).toBe("/admin/cuentas?q=zzz");
+  });
+
+  it("una página dentro de rango no se toca, incluida la última y la primera de un listado vacío", () => {
+    expect(hrefSiFueraDeRango({ pagina: 2, porPagina: 10 }, 12)).toBeNull();
+    expect(hrefSiFueraDeRango({ pagina: 1, porPagina: 10 }, 12)).toBeNull();
+    expect(hrefSiFueraDeRango({ pagina: 1, porPagina: 10 }, 0)).toBeNull();
+  });
+
+  it("el total exacto de una página no abre una página de más", () => {
+    expect(hrefSiFueraDeRango({ pagina: 1, porPagina: 10 }, 10)).toBeNull();
+    expect(hrefSiFueraDeRango({ pagina: 2, porPagina: 10 }, 10)).toBe("/admin/cuentas");
   });
 });
 
