@@ -74,6 +74,14 @@
       "inicio": "Inicio",
       "cuentas": "Cuentas"
     },
+    "topbar": {
+      "ubicacion": "Ubicación",
+      "abrirMenu": "Abrir menú",
+      "backoffice": "Backoffice",
+      "clientes": "Clientes",
+      "nuevaCuenta": "Nueva cuenta",
+      "nuevaCuentaProximamente": "Crear cuentas desde el backoffice: próximamente"
+    },
     "cuentas": {
       "titulo": "Cuentas",
       "descripcion": "Clientes registrados en la plataforma.",
