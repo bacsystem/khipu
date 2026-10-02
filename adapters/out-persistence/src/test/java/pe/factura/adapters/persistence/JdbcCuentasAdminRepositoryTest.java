@@ -160,6 +160,11 @@ class JdbcCuentasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(plan("SELECT id FROM usuario WHERE cuenta_id = '" + UUID.randomUUID() + "'")).contains("ix_usuario_cuenta");
     }
 
+    @Test void laSesionMasRecienteDeUnUsuarioSeLeeDelIndiceSinRecorrerSusSesiones() {
+        // `max(created_at)` por usuario: con (usuario_id, created_at) es una lectura al final del índice, no un recorrido de todas sus sesiones.
+        assertThat(plan("SELECT max(created_at) FROM sesion WHERE usuario_id = '" + UUID.randomUUID() + "'")).contains("ix_sesion_acceso");
+    }
+
     @Test void elOrdenDelListadoSeApoyaEnUnIndice() {
         // Sin él, cada página ordena todas las cuentas.
         assertThat(plan("SELECT id FROM cuenta ORDER BY created_at DESC, id LIMIT 10")).contains("ix_cuenta_alta");
