@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import type { Administrador } from "@/lib/api/admin-auth";
 import { AdminTopBar } from "./admin-top-bar";
 
 const pathname = vi.hoisted(() => ({ actual: "/admin" }));
 vi.mock("next/navigation", () => ({ usePathname: () => pathname.actual, useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
-const ADMINISTRADOR = { id: "a1", email: "root@khipu.pe" } as never;
+const ADMINISTRADOR: Administrador = { id: "a1", email: "root@khipu.pe" };
 
 function pintar(ruta: string) {
   pathname.actual = ruta;
@@ -41,6 +42,13 @@ describe("AdminTopBar", () => {
     const boton = screen.getByRole("button", { name: "Nueva cuenta" }) as HTMLButtonElement;
     expect(boton.disabled).toBe(true);
     expect(boton.title).toContain("próximamente");
+  });
+
+  it("en el detalle de una cuenta conserva la miga pero no la acción de la lista", () => {
+    pintar("/admin/cuentas/6b1d");
+
+    expect(screen.getByRole("navigation", { name: "Ubicación" }).textContent).toContain("Clientes");
+    expect(screen.queryByRole("button", { name: "Nueva cuenta" })).toBeNull();
   });
 
   it("en el inicio no hay acción de crear cuentas", () => {
