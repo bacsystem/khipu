@@ -17,6 +17,9 @@ services:
   # Son distroless (sin shell ni `mc` dentro del servidor): por eso minio no tiene healthcheck, y minio-init llama a `mc`
   # directo y se reintenta (`restart: on-failure`) hasta que el servidor responda. `user: "0:0"` es solo para desarrollo
   # local: la imagen corre como 65532, que no puede escribir en el volumen /data.
+  # `latest` no está fijada por digest a propósito: no se verificó que Chainguard conserve digests antiguos en su capa gratuita, y
+  # uno retirado rompería el pull de golpe. Si una actualización de la imagen rompe `S3DocumentStorageTest`, `FacturaS3E2ETest` o este
+  # servicio, fija el digest que funcione (`docker buildx imagetools inspect cgr.dev/chainguard/minio:latest`) en los tres sitios.
   minio:
     image: cgr.dev/chainguard/minio:latest
     profiles: ["s3"]
