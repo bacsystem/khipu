@@ -223,6 +223,26 @@ export const handlers = [
     return ok(registro.administrador);
   }),
 
+  /** Como el backend (#180): solo el administrador; `q` en correo, nombre, razón social (fragmento) y RUC (prefijo); total en cabecera. */
+  http.get(`${BASE}/v1/admin/cuentas`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const url = new URL(request.url);
+    const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
+    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
+    const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
+    const coincide = (c: (typeof db.cuentasAdmin)[number]) =>
+      !q ||
+      c.email.toLowerCase().includes(q) ||
+      c.nombre.toLowerCase().includes(q) ||
+      c.empresas.some((e) => e.ruc.startsWith(q) || e.razon_social.toLowerCase().includes(q));
+    const lista = db.cuentasAdmin.filter(coincide).sort((a, b) => b.creada_en.localeCompare(a.creada_en) || a.id.localeCompare(b.id));
+    const datos = lista.slice((pagina - 1) * porPagina, pagina * porPagina).map(({ empresas, ...cuenta }) => ({ ...cuenta, empresas: empresas.length }));
+    return HttpResponse.json(
+      { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
+      { headers: { "x-total-count": String(lista.length) } },
+    );
+  }),
+
   http.get(`${BASE}/v1/empresas`, ({ request }) => {
     const c = claims(request);
     if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");

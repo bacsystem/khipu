@@ -1,0 +1,89 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { apiBaseUrl } from "./client";
+import { hrefCuentas, listarCuentasAdmin, paramsCuentasDesdeUrl, queryCuentas } from "./admin-cuentas";
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("paramsCuentasDesdeUrl", () => {
+  it("sin parámetros: primera página, 10 filas y sin búsqueda", () => {
+    expect(paramsCuentasDesdeUrl({})).toEqual({ q: undefined, pagina: 1, porPagina: 10 });
+  });
+
+  it("una página que no es un entero positivo vuelve a la primera (el backend la acotaría igual)", () => {
+    for (const malo of ["abc", "0", "-3", "2.5", ""]) {
+      expect(paramsCuentasDesdeUrl({ pagina: malo }).pagina, malo).toBe(1);
+    }
+    expect(paramsCuentasDesdeUrl({ pagina: "3" }).pagina).toBe(3);
+  });
+
+  it("las filas por página solo pueden ser 10, 20 o 50", () => {
+    expect(paramsCuentasDesdeUrl({ por_pagina: "7" }).porPagina).toBe(10);
+    expect(paramsCuentasDesdeUrl({ por_pagina: "100" }).porPagina).toBe(10);
+    expect(paramsCuentasDesdeUrl({ por_pagina: "20" }).porPagina).toBe(20);
+    expect(paramsCuentasDesdeUrl({ por_pagina: "50" }).porPagina).toBe(50);
+  });
+
+  it("la búsqueda se recorta y una en blanco cuenta como ninguna", () => {
+    expect(paramsCuentasDesdeUrl({ q: "  ana " }).q).toBe("ana");
+    expect(paramsCuentasDesdeUrl({ q: "   " }).q).toBeUndefined();
+    expect(paramsCuentasDesdeUrl({ q: "" }).q).toBeUndefined();
+  });
+});
+
+describe("queryCuentas", () => {
+  it("manda la búsqueda solo si la hay, y siempre página y tamaño", () => {
+    expect(queryCuentas({ q: "ana", pagina: 2, porPagina: 20 }).toString()).toBe("q=ana&pagina=2&por_pagina=20");
+    expect(queryCuentas({ pagina: 1, porPagina: 10 }).toString()).toBe("pagina=1&por_pagina=10");
+  });
+});
+
+describe("hrefCuentas", () => {
+  it("con todo por defecto es la ruta limpia", () => {
+    expect(hrefCuentas({ pagina: 1, porPagina: 10 })).toBe("/admin/cuentas");
+  });
+
+  it("solo incluye lo que se aparta del defecto", () => {
+    expect(hrefCuentas({ q: "ana", pagina: 1, porPagina: 10 })).toBe("/admin/cuentas?q=ana");
+    expect(hrefCuentas({ pagina: 3, porPagina: 10 })).toBe("/admin/cuentas?pagina=3");
+    expect(hrefCuentas({ pagina: 1, porPagina: 50 })).toBe("/admin/cuentas?por_pagina=50");
+    expect(hrefCuentas({ q: "ana", pagina: 2, porPagina: 20 })).toBe("/admin/cuentas?q=ana&pagina=2&por_pagina=20");
+  });
+
+  it("codifica la búsqueda: un & o un espacio no rompen la URL", () => {
+    expect(hrefCuentas({ q: "a&b c", pagina: 1, porPagina: 10 })).toBe("/admin/cuentas?q=a%26b+c");
+  });
+});
+
+describe("listarCuentasAdmin", () => {
+  const CUENTA = { id: "c1", nombre: "Mi negocio", email: "ana@negocio.pe", creada_en: "2026-09-01T10:00:00Z", empresas: 2 };
+
+  function stubFetch(headers: Record<string, string> = {}) {
+    const fetch = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ estado: "exito", datos: [CUENTA], mensaje: null, codigo: null, errores: null }), { status: 200, headers }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+    return fetch;
+  }
+
+  it("llama al backend con el JWT del administrador y los parámetros, y lee el total de la cabecera", async () => {
+    const fetch = stubFetch({ "x-total-count": "42" });
+
+    const pagina = await listarCuentasAdmin("tok", { q: "ana", pagina: 2, porPagina: 20 });
+
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit & { headers: Headers }];
+    expect(url).toBe(`${apiBaseUrl()}/v1/admin/cuentas?q=ana&pagina=2&por_pagina=20`);
+    expect(init.headers.get("Authorization")).toBe("Bearer tok");
+    expect(pagina.datos).toEqual([CUENTA]);
+    expect(pagina.total).toBe(42);
+  });
+
+  it("sin cabecera de total, el total es lo recibido", async () => {
+    stubFetch();
+
+    const pagina = await listarCuentasAdmin("tok", { pagina: 1, porPagina: 10 });
+
+    expect(pagina.total).toBe(1);
+  });
+});
