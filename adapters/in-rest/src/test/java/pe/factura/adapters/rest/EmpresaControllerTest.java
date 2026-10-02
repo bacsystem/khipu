@@ -9,6 +9,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.AdministrarTenantUseCase;
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.plataforma.ActorAdmin;
 import pe.factura.domain.tenant.*;
 
 import pe.factura.domain.DomainException;
@@ -239,12 +240,34 @@ class EmpresaControllerTest {
         mvc.perform(post("/v1/admin/integridad").param("desde", "2026-09-01")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
     }
 
-    @Test void adminCreaTenant() throws Exception {
+    private static final String CUERPO_TENANT = "{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA SAC\",\"entorno\":\"BETA\"}";
+
+    @Test void adminCreaTenantAtribuidoAlAdministradorQueTieneSesion() throws Exception {
+        UUID administrador = UUID.randomUUID();
+        ActorAdmin actor = ActorAdmin.administrador(administrador, "203.0.113.7");
         Tenant t = new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null);
-        when(admin.crearTenant("20100066603", "EMPRESA SAC", Entorno.BETA)).thenReturn(new AdministrarTenantUseCase.TenantCreado(t, "fk_primera"));
-        mvc.perform(post("/v1/admin/tenants").contentType("application/json").content("{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA SAC\",\"entorno\":\"BETA\"}"))
+        when(admin.crearTenant(actor, "20100066603", "EMPRESA SAC", Entorno.BETA)).thenReturn(new AdministrarTenantUseCase.TenantCreado(t, "fk_primera"));
+        mvc.perform(post("/v1/admin/tenants").contentType("application/json").content(CUERPO_TENANT)
+                        .requestAttr(AdministradorActual.ATRIBUTO, administrador).with(r -> { r.setRemoteAddr("203.0.113.7"); return r; }))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.tenant_id").value(tenant.toString()))
                 .andExpect(jsonPath("$.datos.api_key").value("fk_primera"));
+    }
+
+    @Test void adminCreaTenantAtribuidoALaClaveDePlataformaSiVinoPorEllaDesdeSuIp() throws Exception {
+        ActorAdmin actor = ActorAdmin.clavePlataforma("198.51.100.4");
+        Tenant t = new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null);
+        when(admin.crearTenant(actor, "20100066603", "EMPRESA SAC", Entorno.BETA)).thenReturn(new AdministrarTenantUseCase.TenantCreado(t, "fk_primera"));
+        mvc.perform(post("/v1/admin/tenants").contentType("application/json").content(CUERPO_TENANT)
+                        .requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE).with(r -> { r.setRemoteAddr("198.51.100.4"); return r; }))
+                .andExpect(status().isCreated());
+        verify(admin).crearTenant(actor, "20100066603", "EMPRESA SAC", Entorno.BETA);
+    }
+
+    @Test void adminCreaTenantSinCredencialNoCreaNadaYEs401() throws Exception {
+        mvc.perform(post("/v1/admin/tenants").contentType("application/json").content(CUERPO_TENANT))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.codigo").value("NO_AUTORIZADO"));
+        verify(admin, never()).crearTenant(any(), any(), any(), any());
     }
 }

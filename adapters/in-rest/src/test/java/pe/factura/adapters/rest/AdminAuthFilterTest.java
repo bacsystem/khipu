@@ -21,6 +21,14 @@ class AdminAuthFilterTest {
         new AdminAuthFilter("secreta", SIN_TOKENS).doFilter(req, new MockHttpServletResponse(), chain);
         assertThat(chain.getRequest()).isNotNull();
     }
+    /** Sin esta marca explícita el controlador no sabría quién actuó: no se deduce «clave de plataforma» por descarte. */
+    @Test void claveCorrectaMarcaElRequestComoClaveDePlataforma() throws Exception {
+        var req = new MockHttpServletRequest("POST", "/v1/admin/tenants"); req.addHeader("X-Platform-Key", "secreta");
+        var chain = new MockFilterChain();
+        new AdminAuthFilter("secreta", SIN_TOKENS).doFilter(req, new MockHttpServletResponse(), chain);
+        assertThat(chain.getRequest().getAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA)).isEqualTo(Boolean.TRUE);
+        assertThat(chain.getRequest().getAttribute(AdministradorActual.ATRIBUTO)).isNull();
+    }
     @Test void claveIncorrecta401() throws Exception {
         var req = new MockHttpServletRequest("POST", "/v1/admin/tenants"); req.addHeader("X-Platform-Key", "otra");
         var res = new MockHttpServletResponse();
@@ -78,6 +86,7 @@ class AdminAuthFilterTest {
         new AdminAuthFilter("secreta", tokens).doFilter(req, new MockHttpServletResponse(), chain);
         assertThat(chain.getRequest()).isNotNull();
         assertThat(chain.getRequest().getAttribute(AdministradorActual.ATRIBUTO)).isEqualTo(id);
+        assertThat(chain.getRequest().getAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA)).isNull();
     }
 
     @Test void jwtDeAdministradorInvalidoEs401AunqueLaClaveDePlataformaEsteVacia() throws Exception {

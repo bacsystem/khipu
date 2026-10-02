@@ -42,6 +42,7 @@ public class AdminAuthFilter extends OncePerRequestFilter {
             // Clave de ops sin configurar: se oculta el prefijo entero (404) en vez de admitir que existe.
             if (platformKey.isBlank()) { res.setStatus(404); return; }
             if (MessageDigest.isEqual(claveDada.getBytes(StandardCharsets.UTF_8), platformKey.getBytes(StandardCharsets.UTF_8))) {
+                req.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE);
                 chain.doFilter(req, res);
                 return;
             }
