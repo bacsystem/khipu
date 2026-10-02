@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { CuentasTabla } from "@/components/admin/cuentas-tabla";
 import { getAdminServerSession } from "@/lib/admin-session-server";
-import { hrefCuentas, listarCuentasAdmin, paramsCuentasDesdeUrl } from "@/lib/api/admin-cuentas";
+import { hrefCuentas, hrefSiFueraDeRango, listarCuentasAdmin, paramsCuentasDesdeUrl } from "@/lib/api/admin-cuentas";
 import { messages } from "@/lib/messages";
 
 export const metadata = { title: "Cuentas · Backoffice" };
@@ -25,6 +25,9 @@ export default async function AdminCuentasPage({
     (pagina) => ({ pagina }),
     () => ({ pagina: null }),
   );
+  // Fuera del `.then`/catch de arriba: `redirect` lanza, y no debe confundirse con un fallo del backend.
+  const corregida = resultado.pagina ? hrefSiFueraDeRango(params, resultado.pagina.total) : null;
+  if (corregida) redirect(corregida);
 
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">

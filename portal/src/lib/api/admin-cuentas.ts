@@ -53,6 +53,16 @@ export function hrefCuentas(p: ParamsCuentas): string {
   return texto ? `${RUTA_PANTALLA}?${texto}` : RUTA_PANTALLA;
 }
 
+/**
+ * Si la página pedida pasa de la última (URL editada a mano, marcador viejo), la URL de la última; si no, `null`. Sin esto el
+ * backend devuelve una página vacía con el total intacto y la tabla dice «Mostrando 981–980 de 12» y «Todavía no hay cuentas».
+ * Sin resultados la última es la primera (`max(1, …)`), así que una página > 1 de una búsqueda vacía vuelve a la 1.
+ */
+export function hrefSiFueraDeRango(p: ParamsCuentas, total: number): string | null {
+  const ultima = Math.max(1, Math.ceil(total / p.porPagina));
+  return p.pagina > ultima ? hrefCuentas({ ...p, pagina: ultima }) : null;
+}
+
 /** Solo desde el servidor: usa el JWT del administrador, que el navegador nunca ve. */
 export async function listarCuentasAdmin(access: string, params: ParamsCuentas): Promise<PaginaCuentasAdmin> {
   const { datos, headers } = await backendFetchConHeaders<CuentaAdmin[]>(`/v1/admin/cuentas?${queryCuentas(params)}`, {

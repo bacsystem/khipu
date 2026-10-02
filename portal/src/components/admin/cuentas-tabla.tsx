@@ -7,11 +7,10 @@ import { useRef } from "react";
 import { PieTabla } from "@/components/ui/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { hrefCuentas, type CuentaAdmin, type ParamsCuentas } from "@/lib/api/admin-cuentas";
-import { BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
+import { BOTON_SECUNDARIO, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 
-const TH = "h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase";
 const columnas = messages.admin.cuentas.columnas;
 
 /**
@@ -66,11 +65,11 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className={`${TH} pl-4`}>{columnas.cuenta}</TableHead>
-              <TableHead className={TH}>{columnas.telefono}</TableHead>
-              <TableHead className={`${TH} text-right`}>{columnas.empresas}</TableHead>
-              <TableHead className={TH}>{columnas.alta}</TableHead>
-              <TableHead className={`${TH} pr-4`}>{columnas.ultimoAcceso}</TableHead>
+              <TableHead className={`${CABECERA_TABLA} pl-4`}>{columnas.cuenta}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{columnas.telefono}</TableHead>
+              <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.empresas}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{columnas.alta}</TableHead>
+              <TableHead className={`${CABECERA_TABLA} pr-4`}>{columnas.ultimoAcceso}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">
