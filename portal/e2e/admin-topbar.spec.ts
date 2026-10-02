@@ -1,0 +1,51 @@
+import { expect, test, type Page } from "@playwright/test";
+
+async function entrarComoAdmin(page: Page) {
+  await page.goto("/admin/login");
+  await page.getByLabel("Correo electrónico").fill("admin@khipu.pe");
+  await page.getByLabel("Contraseña").fill("AdminPass1");
+  await page.getByRole("button", { name: "Iniciar sesión" }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+}
+
+const miga = (page: Page) => page.getByRole("navigation", { name: "Ubicación" });
+
+test("el inicio del backoffice muestra su miga y ninguna acción de crear cuentas", async ({ page }) => {
+  await entrarComoAdmin(page);
+
+  await expect(miga(page)).toContainText("Backoffice");
+  await expect(miga(page).locator("[aria-current=page]")).toHaveText("Inicio");
+  await expect(page.getByRole("button", { name: "Nueva cuenta" })).toHaveCount(0);
+});
+
+test("en Cuentas la miga dice «Clientes / Cuentas» y «Nueva cuenta» está deshabilitado con su motivo", async ({ page }) => {
+  await entrarComoAdmin(page);
+
+  await page.getByRole("link", { name: "Cuentas" }).click();
+
+  await expect(page).toHaveURL(/\/admin\/cuentas$/);
+  await expect(miga(page)).toContainText("Clientes");
+  await expect(miga(page).locator("[aria-current=page]")).toHaveText("Cuentas");
+  const nueva = page.getByRole("button", { name: "Nueva cuenta" });
+  await expect(nueva).toBeDisabled();
+  await expect(nueva).toHaveAttribute("title", /próximamente/);
+  // La miga no compite con el título de la página: sigue habiendo un solo h1.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+});
+
+test.describe("en móvil", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  /** Antes el sidebar solo existía desde `md` y en móvil el backoffice no tenía ninguna navegación. */
+  test("el menú abre la navegación, lleva a Cuentas y se cierra solo", async ({ page }) => {
+    await entrarComoAdmin(page);
+    await expect(page.getByRole("link", { name: "Cuentas" })).toBeHidden();
+
+    await page.getByRole("button", { name: "Abrir menú" }).click();
+    await page.getByRole("link", { name: "Cuentas" }).click();
+
+    await expect(page).toHaveURL(/\/admin\/cuentas$/);
+    await expect(page.getByRole("heading", { name: "Cuentas" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Cuentas" })).toBeHidden();
+  });
+});

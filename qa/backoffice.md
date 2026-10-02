@@ -171,7 +171,7 @@ retirado sus imágenes públicas; ambos tests usan ahora `cgr.dev/chainguard/min
 
 ## #180 · Listado de cuentas con búsqueda y filtros — rebanada 1: backend
 
-**Estado: ✅ mergeado (#209), 12/12 mutaciones verificadas — la pantalla del portal (rebanada 2) va en su propia PR. El issue sigue abierto.**
+**Estado: ✅ mergeado (#209), 12/12 mutaciones verificadas — la pantalla del portal (rebanada 2) está en #211. El issue sigue abierto.**
 
 ### Diseño
 
@@ -233,7 +233,7 @@ el código y se volvieron a correr `:domain`, `:application`, `:adapters:in-rest
 
 ### Rebanada 2: la pantalla `/admin/cuentas` del portal
 
-**Estado: 🔧 implementada, 11/11 mutaciones verificadas — falta la revisión de la PR.**
+**Estado: ✅ mergeada (#211), 11/11 mutaciones verificadas — falta probarla de punta a punta con el portal conectado al backend.**
 
 - **Página en el servidor** (`app/admin/(panel)/cuentas/page.tsx`): lee `q`, `pagina` y `por_pagina` de la URL y llama al backend
   con el JWT del administrador (`lib/api/admin-cuentas.ts`). **Sin react-query ni refetch desde el navegador**: el proxy genérico
@@ -286,8 +286,49 @@ los 5 de `admin.spec.ts` pasan.
 
 ### Pendiente en #180
 
-Nada de código. El backend ya está mergeado (#209); el issue sigue abierto hasta que se mergee la pantalla y se pruebe de punta
-a punta con el portal conectado al backend.
+Nada de código. El backend (#209) y la pantalla (#211) ya están mergeados; el issue sigue abierto hasta probarlo de punta a punta
+con el portal conectado al backend.
+
+## Cabecera del backoffice: miga de ubicación, «Nueva cuenta» y menú en móvil (épica #11, sin issue propio)
+
+**Estado: 🔧 implementada, 9/9 mutaciones verificadas — falta la revisión de la PR (#212). Necesita la ruta `/admin/cuentas`, que llegó con #211.**
+
+Las pantallas de cliente tienen una cabecera con miga y la acción principal de la página; el backoffice no tenía ninguna.
+
+- **Qué agrega** (`admin-top-bar.tsx`, en el layout del panel): miga «Clientes / Cuentas» (el inicio cuelga de «Backoffice»), el botón
+  «Nueva cuenta» **deshabilitado** en `/admin/cuentas` con su motivo («próximamente»: crear cuentas desde el backoffice es #188), y el menú de
+  navegación en móvil.
+- **El backoffice no tenía navegación en móvil**: el sidebar solo se ve desde `md` y no había `MobileNav`. `admin-mobile-nav.tsx` lo abre en un `Sheet`
+  y se cierra al cambiar de página.
+- **La miga NO es un `h1`** (a diferencia del portal de clientes): cada página del backoffice ya trae el suyo, y dos `h1` por página empeoran la
+  accesibilidad. Es un `span` con `aria-current="page"`. El e2e fija que sigue habiendo un solo `h1`.
+- **Mapa de migas** en `lib/admin-migas.ts`: `/admin` casa de forma exacta (no engulle las páginas sin miga) y el resto por segmento, así que
+  `/admin/cuentas/<id>` sigue bajo «Cuentas» pero `/admin/cuentas-viejas` no.
+- **Sin buscador ni «Exportar» deshabilitados**, aunque el portal de clientes los tiene: serían controles muertos sin funcionalidad detrás.
+
+**Tests**
+- Vitest, lógica pura (`admin-migas.test.ts`, 6): inicio, cuentas, detalle, `/admin` exacto, prefijo parecido, fuera del backoffice.
+- Vitest, componente (`admin-top-bar.test.tsx`, 6): miga y `aria-current`, ausencia de encabezados, sin miga conocida, «Nueva cuenta» deshabilitado
+  con su motivo, sin acción en el inicio, botón del menú.
+- Playwright con MSW (`admin-topbar.spec.ts`, 3): inicio sin acción de crear; en Cuentas, miga, botón deshabilitado y un solo `h1`; en móvil
+  (390×844) el menú abre la navegación, lleva a Cuentas y se cierra solo.
+
+**Verificación por mutación — 9/9 mueren**
+
+| Mutación | Test que muere |
+|---|---|
+| Prefijo sin límite de segmento (`startsWith(ruta)`) | `un prefijo parecido no cuenta…` |
+| La miga es un `h1` | `la miga no es un encabezado…` |
+| «Nueva cuenta» sin `disabled` | `en Cuentas ofrece «Nueva cuenta» deshabilitado…` |
+| Sin el menú móvil | `trae el botón del menú…` |
+| Se ignora `exacta` (`/admin` engulle todo) | `solo es el inicio de forma exacta…` y otros 3 de migas |
+| «Nueva cuenta» siempre visible | `en el inicio no hay acción de crear cuentas` |
+| Sin `aria-current` | `muestra la miga… y marca la página actual` |
+| El menú móvil no se cierra al navegar | e2e `el menú abre la navegación… y se cierra solo` (los otros dos pasan) |
+| El layout no monta el TopBar | los 3 e2e |
+
+Las cuatro primeras se aplicaron juntas (cuatro tests distintos); la quinta, sexta y séptima en otra tanda; las dos de e2e, una por una.
+Vitest completo 204/204 (antes 192), `eslint` y `tsc` limpios. Playwright: los 3 nuevos, los 9 de cuentas y los 5 de `admin.spec.ts` pasan (17).
 
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 

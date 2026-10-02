@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
+import { AdminTopBar } from "@/components/admin/admin-top-bar";
 import { meAdministrador } from "@/lib/api/admin-auth";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 
@@ -22,6 +23,7 @@ export default async function AdminPanelLayout({ children }: { children: ReactNo
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <AdminTopBar administrador={administrador} />
         <main className="min-w-0 flex-1 overflow-x-auto p-4 md:p-6">{children}</main>
       </div>
     </div>
