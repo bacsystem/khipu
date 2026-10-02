@@ -168,6 +168,64 @@ anotó qué murió y se restauró el código; después se volvieron a correr `:d
 - **No es de solo-anexar a nivel de base**: nada impide un `UPDATE`/`DELETE` manual sobre `auditoria_admin`.
 - **Sin consulta**: no hay endpoint ni pantalla para leer la bitácora; es un issue aparte («consultable y exportable»).
 
+## #180 · Listado de cuentas con búsqueda y filtros — rebanada 1: backend
+
+**Estado: 🔧 backend implementado, 9/9 mutaciones verificadas — falta la pantalla del portal (rebanada 2) y la revisión de la PR. El issue sigue abierto.**
+
+### Diseño
+
+`GET /v1/admin/cuentas?q=&pagina=&por_pagina=` (default 1 y 20, tope 100), `X-Total-Count` con el total que refleja la
+búsqueda, más recientes primero con el `id` como desempate. Cada fila: `id`, `nombre`, `email`, `telefono`, `creada_en`,
+`empresas` y `ultimo_acceso`. Un campo sin valor no aparece (la API omite los nulos), así que el portal los tipa opcionales.
+
+- **Búsqueda `q`**, sin distinguir mayúsculas: subcadena en el correo y el nombre de la cuenta; RUC **por prefijo**
+  (un fragmento interno de un RUC no identifica a nadie) y razón social por subcadena, de cualquiera de sus empresas, de modo
+  que buscar por empresa devuelve su cuenta, una sola vez. Los `%` y `_` del texto buscado se toman literalmente.
+- **`ultimo_acceso`** es la sesión más reciente de los usuarios de la cuenta: inicio de sesión o refresco de token **en el
+  portal**. El uso por API key no cuenta; un cliente que solo integra por API tendría un valor viejo. La pantalla lo rotulará
+  «Último inicio de sesión».
+- **Sin estado ni plan**, a propósito (regla de columnas aprobada: una columna se entrega cuando existe la funcionalidad que la
+  alimenta). «Estado» llega con #182, «sin verificar» con #22 y «plan» con #189/#191. El test `noInventaColumnasQueTodaviaNoExisten`
+  lo fija.
+- **Las lecturas no se auditan**: la bitácora de #178 registra acciones, no consultas.
+- Una sola consulta (subconsultas correlacionadas para empresas y último acceso, `EXISTS` para la búsqueda por empresa): sin N+1
+  ni cuentas repetidas. Hexagonal, con `listar` y `contar` separados como el listado de comprobantes.
+
+### Tests
+
+- Aplicación: `ListarCuentasAdminServiceTest` (delegación, filtro nulo, normalización de `q`).
+- Persistencia (Postgres): `JdbcCuentasAdminRepositoryTest`, 9 casos — orden y desempate, datos y conteo de empresas, último
+  acceso (máximo entre usuarios y nulo sin sesiones), búsqueda por correo/nombre, RUC por prefijo, razón social sin duplicar cuentas,
+  comodines literales y paginación con su total.
+- REST: `AdminCuentaControllerTest` — forma de la respuesta, cabecera de total, parámetros, tope de página y ausencia de estado/plan.
+- e2e (HTTP + Postgres reales): `AdminCuentasE2ETest`. **Aislamiento**: la clave de plataforma y un administrador con sesión
+  leen el listado (200); sin credencial, con el JWT de un cliente del portal, con la API key de una empresa y con una clave de
+  plataforma errónea responden 401.
+
+### Verificación por mutación
+
+| Mutación | Resultado |
+|---|---|
+| Orden ascendente en vez de descendente | muere (`listaDeLaMasRecienteALaMasAntigua…`, `paginaYCuentaRespetandoElFiltro`) |
+| RUC por subcadena en vez de por prefijo | muere sola (`buscaElRucPorPrefijoYNoPorUnFragmentoInterno`) |
+| Sin escapar los comodines de `LIKE` | muere (`losComodinesDeLikeSeTomanLiteralmente`) |
+| Último acceso con `min` en vez de `max` | muere (`elUltimoAccesoEsLaSesionMasReciente…`) |
+| Conteo de empresas sin filtrar por cuenta | muere (`devuelveLosDatosDeLaCuentaYCuentaSusEmpresas`) |
+| Búsqueda por empresa deshabilitada (`EXISTS … AND false`) | muere (`buscaPorRazonSocial…`, `buscaElRucPorPrefijo…`) |
+| El controlador no acota página ni tamaño | muere (`acotaLaPaginaYElTamanoDePagina`) |
+| El total de la cabecera sale del tamaño de la página | muere (`devuelveLasCuentasConElTotalEnLaCabecera`, `pasaLaBusquedaYLaPagina…`) |
+| `Filtro` sin recortar ni anular la búsqueda en blanco | muere (`laBusquedaSeRecortaYLaVaciaEsNinguna`) |
+
+Las mutaciones se aplicaron en dos tandas (seis en el repositorio, tres en el controlador y el filtro) sobre tests distintos;
+la del RUC por prefijo se repitió sola para comprobar que muere por sí misma, porque la del `EXISTS` mata el mismo test. Tras cada tanda se restauró
+el código y se volvieron a correr `:domain`, `:application`, `:adapters:in-rest`, `:adapters:out-persistence` y, de `:bootstrap`,
+`ArchitectureTest`, `AdminCuentasE2ETest`, `AuditoriaAdminE2ETest`, `AuthE2ETest`, `FacturaE2ETest` y `DeveloperPortalE2ETest`: verdes.
+
+### Pendiente en este issue
+
+La pantalla `/admin/cuentas` del portal (rebanada 2), con el patrón del §12 del design system, y habilitar «Cuentas» en la
+navegación del admin.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
