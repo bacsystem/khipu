@@ -88,7 +88,10 @@ limpiar: ## Borra artefactos de build del portal y del backend
 # Se cambian con DEVELOP_BACKEND_PORT, DEVELOP_PORTAL_PORT, DEVELOP_POSTGRES_PORT y DEVELOP_MAILPIT_PORT.
 DEVELOP_WT ?= $(abspath ../khipu-wt-develop)
 DEVELOP_PROJECT ?= khipu-develop
-DEVELOP_ENV ?= $(abspath .env)
+# Las claves del despliegue viven en UN archivo fijo, junto al worktree (../khipu-develop.env) y no en el .env de cada checkout:
+# el volumen de datos persiste, así que un segundo `make env` desde otro worktree generaría claves distintas sobre datos ya
+# cifrados con las primeras (MASTER_KEY) o con API keys emitidas con otro pepper, y se perderían sin ningún error.
+DEVELOP_ENV ?= $(abspath ../khipu-develop.env)
 DEVELOP_BACKEND_PORT ?= 8001
 DEVELOP_PORTAL_PORT ?= 3000
 DEVELOP_POSTGRES_PORT ?= 5433
@@ -100,13 +103,13 @@ COMPOSE_DEVELOP = POSTGRES_PORT=$(DEVELOP_POSTGRES_PORT) BACKEND_PORT=$(DEVELOP_
 	PORTAL_URL=http://localhost:$(DEVELOP_PORTAL_PORT) \
 	docker compose -p $(DEVELOP_PROJECT) --project-directory $(DEVELOP_WT) -f $(DEVELOP_WT)/docker-compose.yml --env-file $(DEVELOP_ENV)
 
-env: ## Crea .env con secretos nuevos si no existe (nunca pisa uno existente)
-	@if [ -f .env ]; then echo ".env ya existe: no se toca"; else \
-		cp .env.example .env; \
+env: ## Crea el archivo de claves del despliegue (../khipu-develop.env) con secretos nuevos si no existe; nunca pisa uno existente
+	@if [ -f $(DEVELOP_ENV) ]; then echo "$(DEVELOP_ENV) ya existe: no se toca"; else \
+		cp .env.example $(DEVELOP_ENV); \
 		for v in MASTER_KEY API_KEY_PEPPER PLATFORM_ADMIN_KEY JWT_SECRET; do \
-			sed "s|^$$v=.*|$$v=$$(openssl rand -base64 32)|" .env > .env.tmp; mv .env.tmp .env; \
+			sed "s|^$$v=.*|$$v=$$(openssl rand -base64 32)|" $(DEVELOP_ENV) > $(DEVELOP_ENV).tmp; mv $(DEVELOP_ENV).tmp $(DEVELOP_ENV); \
 		done; \
-		echo ".env creado con secretos nuevos. No rotes MASTER_KEY ni API_KEY_PEPPER cuando ya haya datos."; \
+		echo "$(DEVELOP_ENV) creado con secretos nuevos. No rotes MASTER_KEY ni API_KEY_PEPPER cuando ya haya datos."; \
 	fi
 
 comprobar-env:
@@ -125,13 +128,13 @@ deploy-develop: comprobar-env develop-sync ## Construye y levanta develop en Doc
 	@echo "Desplegado: $$(git -C $(DEVELOP_WT) log -1 --oneline)"
 	@echo "Portal http://localhost:$(DEVELOP_PORTAL_PORT) · API http://localhost:$(DEVELOP_BACKEND_PORT)/swagger-ui · Correo http://localhost:$(DEVELOP_MAILPIT_PORT)"
 
-develop-logs: ## Sigue los logs del backend y del portal desplegados
+develop-logs: comprobar-env ## Sigue los logs del backend y del portal desplegados
 	$(COMPOSE_DEVELOP) --profile app logs -f --tail=100 backend portal
 
-develop-stop: ## Detiene el despliegue de develop (conserva sus datos)
+develop-stop: comprobar-env ## Detiene el despliegue de develop (conserva sus datos)
 	$(COMPOSE_DEVELOP) --profile app stop
 
-develop-reset: ## Borra el despliegue de develop Y sus datos (base y storage); el próximo deploy parte de cero
+develop-reset: comprobar-env ## Borra el despliegue de develop Y sus datos (base y storage); el próximo deploy parte de cero
 	$(COMPOSE_DEVELOP) --profile app down -v
 
 develop-version: ## Muestra qué commit de develop hay fijado para desplegar

@@ -41,7 +41,7 @@ Respáldala junto con la base de datos. Lo mismo aplica a `API_KEY_PEPPER`: rota
 Para probar lo ya mergeado sin depender de la rama que tengas abierta, `develop` se despliega en Docker con backend, portal y
 su propio Postgres. `make` sin argumentos lista todos los objetivos.
 ```bash
-make env              # una sola vez: crea .env con secretos nuevos (nunca pisa uno existente)
+make env              # una sola vez: crea ../khipu-develop.env con secretos nuevos (nunca pisa uno existente)
 make deploy-develop   # fija un worktree en origin/develop, construye backend y portal y los levanta
 make develop-logs     # logs del backend y del portal
 make develop-version  # qué commit de develop está fijado
@@ -53,6 +53,10 @@ make deploy-develop   # tras cada merge: vuelve a fijar origin/develop y reconst
   comprobantes se ven en su interfaz web.
 - **Datos aparte**: usa el proyecto `khipu-develop` (volúmenes propios), así que no toca el Postgres ni los datos de tu desarrollo local.
   `make develop-stop` conserva los datos; `make develop-reset` los borra y el siguiente deploy parte de cero.
+- **Las claves** están en un único archivo, `../khipu-develop.env` (`DEVELOP_ENV`), y no en el `.env` de cada checkout: así dan igual el
+  worktree y la rama desde los que corras `make`. No lo borres ni lo regeneres mientras exista el despliegue: los datos persisten y
+  `MASTER_KEY`/`API_KEY_PEPPER` no se rotan (si lo pierdes, `make develop-reset` y vuelve a empezar). Es independiente del `.env` de
+  `make api`.
 - **El worktree** (`../khipu-wt-develop`) solo se usa como contexto de build y nunca recibe commits.
 - Para probar un PR sin mergear, usa `make api` y `make dev` desde el worktree de ese PR.
 - Los objetivos de backend por Gradle necesitan `JAVA_HOME_21=/ruta/al/jdk-21` fuera de macOS.
