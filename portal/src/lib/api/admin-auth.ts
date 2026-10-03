@@ -10,8 +10,9 @@ export type AdminSesion = {
   administrador: Administrador;
 };
 
-export function loginAdministrador(email: string, password: string) {
-  return backendFetch<AdminSesion>("/v1/admin/auth/login", { method: "POST", body: { email, password } });
+/** `origen`: la IP del cliente ya resuelta por el BFF (`cabecerasDeOrigen`, #208); sin ella el backend ve la del portal. */
+export function loginAdministrador(email: string, password: string, origen: Record<string, string> = {}) {
+  return backendFetch<AdminSesion>("/v1/admin/auth/login", { method: "POST", body: { email, password }, headers: origen });
 }
 
 export function meAdministrador(access: string) {

@@ -37,7 +37,36 @@ function requestWithSession(url: string, init: SessionInit = {}) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.mocked(refrescar).mockReset();
+});
+
+describe("proxy /api/proxy/[...path]: IP del cliente (#208)", () => {
+  const llamar = async (xff: string | undefined) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = requestWithSession("http://localhost/api/proxy/empresas", {
+      method: "GET",
+      access: "a1",
+      headers: xff === undefined ? {} : { "x-forwarded-for": xff },
+    });
+    await GET(req, ctx(["empresas"]));
+    return fetchMock.mock.calls[0][1].headers as Headers;
+  };
+
+  it("manda al backend la IP de confianza resuelta y descarta lo que el navegador puso a la izquierda", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+
+    const saliente = await llamar("6.6.6.6, 203.0.113.7");
+
+    expect(saliente.get("x-forwarded-for")).toBe("203.0.113.7");
+  });
+
+  it("sin saltos de confianza no reenvía la cabecera del navegador", async () => {
+    const saliente = await llamar("6.6.6.6");
+
+    expect(saliente.has("x-forwarded-for")).toBe(false);
+  });
 });
 
 describe("proxy /api/proxy/[...path]", () => {
