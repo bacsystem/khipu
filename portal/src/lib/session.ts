@@ -13,12 +13,10 @@ export const REFRESH_MAX_AGE = 30 * 24 * 60 * 60;
  * red, donde una cookie `Secure` nunca se guarda y el login no deja sesión. Solo valen los valores exactos `true` y `false`; con
  * cualquier otro (un typo, `False`, vacío) manda el default, para que un error de escritura no debilite producción.
  *
- * El default lee cada variable como `process.env.X` directo, no el objeto `process.env` entero: este módulo también corre en el
- * middleware (runtime edge, `writeTokens` al refrescar), y Next solo resuelve ahí los accesos directos. El parámetro es para los tests.
+ * Este módulo también corre en el middleware (runtime edge, `writeTokens` al refrescar): verificado con la imagen que ahí respeta
+ * `NODE_ENV` y `COOKIE_SECURE` igual que en Node. El parámetro es para los tests.
  */
-export function cookieSegura(
-  env: Record<string, string | undefined> = { NODE_ENV: process.env.NODE_ENV, COOKIE_SECURE: process.env.COOKIE_SECURE },
-): boolean {
+export function cookieSegura(env: Record<string, string | undefined> = process.env): boolean {
   if (env.COOKIE_SECURE === "true") return true;
   if (env.COOKIE_SECURE === "false") return false;
   return env.NODE_ENV === "production";
