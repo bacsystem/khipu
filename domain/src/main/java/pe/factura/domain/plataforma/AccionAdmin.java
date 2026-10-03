@@ -6,5 +6,7 @@ package pe.factura.domain.plataforma;
  */
 public enum AccionAdmin {
     CREAR_TENANT,
-    CREAR_ADMINISTRADOR
+    CREAR_ADMINISTRADOR,
+    /** Alta asistida de un cliente: cuenta, empresa, serie y API key en un solo paso (#188). */
+    CREAR_CUENTA
 }

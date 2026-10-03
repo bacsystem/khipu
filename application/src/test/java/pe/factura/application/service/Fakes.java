@@ -43,7 +43,7 @@ final class Fakes {
         public List<Comprobante> listar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
         public long contar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f) { return listar(t, f, 1, Integer.MAX_VALUE).size(); }
     }
-    static final class Series implements SerieRepository {
+    static class Series implements SerieRepository {
         final Map<String, Long> ultimo = new HashMap<>();
         public long siguienteNumero(UUID t, TipoDocumento tipo, String serie) {
             String k = t + tipo.codigo() + serie;
@@ -74,7 +74,7 @@ final class Fakes {
                     .map(s -> new Asignacion(s.establecimiento(), datos.get(t + s.establecimiento())));
         }
     }
-    static final class Tenants implements TenantRepository {
+    static class Tenants implements TenantRepository {
         final Map<UUID, Tenant> datos = new HashMap<>();
         public void guardar(Tenant t) { datos.put(t.id(), t); }
         public Optional<Tenant> buscar(UUID id) { return Optional.ofNullable(datos.get(id)); }
@@ -150,7 +150,7 @@ final class Fakes {
     }
 
     /** Bitácora en memoria; {@code falla} simula que la tabla de auditoría rechaza la escritura. */
-    static final class Auditoria implements AuditoriaAdminRepository {
+    static class Auditoria implements AuditoriaAdminRepository {
         final List<RegistroAuditoria> registros = new ArrayList<>();
         final List<Boolean> dentroAlRegistrar = new ArrayList<>();
         UowTransaccional uow;
