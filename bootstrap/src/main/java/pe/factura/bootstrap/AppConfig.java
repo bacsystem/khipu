@@ -277,6 +277,10 @@ public class AppConfig {
     @Bean CrearAdministradorUseCase crearAdministrador(AdministradorRepository a, PasswordHasher h, UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {
         return new CrearAdministradorService(a, h, u, auditoria, clock);
     }
+    @Bean AltaAsistidaUseCase altaAsistida(CuentaRepository cu, UsuarioRepository us, SesionRepository se, TenantRepository t, SerieRepository s, ApiKeyRepository k,
+                                          PasswordHasher h, CorreoSender co, UnitOfWork u, AuditoriaAdminRepository auditoria, AppProperties p, Clock clock) {
+        return new AltaAsistidaService(cu, us, se, t, s, k, h, co, u, auditoria, p.apiKeyPepper(), clock);
+    }
 
     @Bean DarDeBajaUseCase darDeBaja(BajaRepository b, ComprobanteRepository c, TenantRepository t, DocumentStorage s, UblGenerator ubl, XsdValidator xsd, XmlSigner signer,
                                      SunatBillingGateway g, CdrParser p, OutboxRepository o, UnitOfWork u, Clock clock) {
