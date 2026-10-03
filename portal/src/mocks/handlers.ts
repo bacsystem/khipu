@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { diasEntre, hoyLima } from "@/lib/formato";
-import { telefonoSchema } from "@/lib/validacion";
+import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, resetDb, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
@@ -240,6 +240,53 @@ export const handlers = [
     return HttpResponse.json(
       { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
       { headers: { "x-total-count": String(lista.length) } },
+    );
+  }),
+
+  /**
+   * Como el backend (#188): solo el administrador; valida todo antes de escribir; el correo y el RUC son únicos en TODA la plataforma.
+   * La API key viaja solo en esta respuesta. Un correo que empieza con `sin-correo` simula un SMTP caído: el alta queda hecha y
+   * `invitacion_enviada` es `false`.
+   *
+   * **No guarda la cuenta**: valida contra los datos sembrados, pero no los modifica. Las specs de la corrida comparten este mock en
+   * paralelo y `admin-cuentas.spec.ts` cuenta exactamente 12 cuentas; guardar altas aquí las rompería y haría chocar a las propias
+   * specs del alta por correo y RUC repetidos. Que la cuenta aparezca en el listado lo prueba el e2e real del backend
+   * (`AltaAsistidaE2ETest`).
+   */
+  http.post(`${BASE}/v1/admin/cuentas`, async ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const b = (await request.json()) as {
+      nombre?: string;
+      email?: string;
+      telefono?: string;
+      empresa?: { ruc?: string; razon_social?: string; entorno?: "BETA" | "PRODUCCION" };
+      serie?: { tipo?: string; serie?: string };
+    };
+    const nombre = (b.nombre ?? "").trim();
+    const email = (b.email ?? "").trim().toLowerCase();
+    const ruc = b.empresa?.ruc ?? "";
+    const razonSocial = (b.empresa?.razon_social ?? "").trim();
+    if (!b.empresa || !b.serie || !nombre || !email || !razonSocial) return fail(422, "VALIDACION", "Faltan datos obligatorios");
+    if (nombre.length > 150 || email.length > 254) return fail(422, "VALIDACION", "Nombre o correo demasiado largos");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail(422, "EMAIL_INVALIDO", "Correo electrónico inválido");
+    if (b.telefono && !telefonoSchema.safeParse(b.telefono).success) return fail(422, "TELEFONO_INVALIDO", "El celular debe tener 9 dígitos y empezar con 9 (Perú)");
+    if (!rucValido(ruc)) return fail(422, "RUC_INVALIDO", `Empresa: el dígito verificador del RUC ${ruc} no es válido; revise el número`);
+    if (!serieCoincideConTipo(b.serie.tipo ?? "", b.serie.serie ?? "")) return fail(422, "SERIE_INVALIDA", `Serie ${b.serie.serie} no válida para el tipo ${b.serie.tipo}`);
+    if (db.cuentasAdmin.some((c) => c.email === email) || db.usuariosPorEmail.has(email)) return fail(409, "DUPLICADO", "Ya existe una cuenta con ese correo");
+    const rucRepetido =
+      db.cuentasAdmin.some((c) => c.empresas.some((e) => e.ruc === ruc)) || [...db.empresasPorCuenta.values()].flat().some((e) => e.ruc === ruc);
+    if (rucRepetido) return fail(409, "DUPLICADO", `Ya existe una empresa con RUC ${ruc}`);
+
+    return ok(
+      {
+        cuenta_id: nuevoId("ca"),
+        tenant_id: nuevoId("t"),
+        ruc,
+        api_key: `fk_mock_${contador}${Math.random().toString(36).slice(2, 12)}`,
+        serie: { tipo: b.serie.tipo, serie: (b.serie.serie ?? "").toUpperCase() },
+        invitacion_enviada: !email.startsWith("sin-correo"),
+      },
+      201,
     );
   }),
 

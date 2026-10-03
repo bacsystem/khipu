@@ -15,10 +15,10 @@ test("el inicio del backoffice muestra su miga y ninguna acción de crear cuenta
 
   await expect(miga(page)).toContainText("Backoffice");
   await expect(miga(page).locator("[aria-current=page]")).toHaveText("Inicio");
-  await expect(page.getByRole("button", { name: "Nueva cuenta" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Nueva cuenta" })).toHaveCount(0);
 });
 
-test("en Cuentas la miga dice «Clientes / Cuentas» y «Nueva cuenta» está deshabilitado con su motivo", async ({ page }) => {
+test("en Cuentas la miga dice «Clientes / Cuentas» y «Nueva cuenta» lleva al alta asistida", async ({ page }) => {
   await entrarComoAdmin(page);
 
   await page.getByRole("link", { name: "Cuentas" }).click();
@@ -26,9 +26,7 @@ test("en Cuentas la miga dice «Clientes / Cuentas» y «Nueva cuenta» está de
   await expect(page).toHaveURL(/\/admin\/cuentas$/);
   await expect(miga(page)).toContainText("Clientes");
   await expect(miga(page).locator("[aria-current=page]")).toHaveText("Cuentas");
-  const nueva = page.getByRole("button", { name: "Nueva cuenta" });
-  await expect(nueva).toBeDisabled();
-  await expect(nueva).toHaveAttribute("title", /próximamente/);
+  await expect(page.getByRole("link", { name: "Nueva cuenta" })).toHaveAttribute("href", "/admin/cuentas/nueva");
   // La miga no compite con el título de la página: sigue habiendo un solo h1.
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
 });

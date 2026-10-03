@@ -1,13 +1,14 @@
 "use client";
 
-import { CheckIcon, CopyIcon, KeyRoundIcon, PlusIcon, TriangleAlertIcon } from "lucide-react";
+import { KeyRoundIcon, PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, ETIQUETA_DATO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+import { ApiKeyRevelada } from "./api-key-revelada";
 
 /** Crea una API key y la muestra una sola vez; al cerrar, refresca la lista del servidor. */
 export function NuevaApiKeyDialog({ className }: { className?: string }) {
@@ -15,7 +16,6 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
   const [abierto, setAbierto] = useState(false);
   const [creando, setCreando] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [copiada, setCopiada] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function cambiarAbierto(valor: boolean) {
@@ -23,7 +23,6 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
     if (!valor) {
       if (apiKey) router.refresh();
       setApiKey(null);
-      setCopiada(false);
       setError(null);
     }
   }
@@ -38,16 +37,6 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
       return;
     }
     setApiKey(res.datos.api_key);
-  }
-
-  async function copiar() {
-    if (!apiKey) return;
-    try {
-      await navigator.clipboard.writeText(apiKey);
-      setCopiada(true);
-    } catch {
-      // el navegador puede denegar el portapapeles; la llave sigue visible para copiarla a mano
-    }
   }
 
   return (
@@ -76,34 +65,7 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
 
         <div className="grid gap-4 px-5 py-4">
           {apiKey ? (
-            <>
-              <div>
-                <span className={cn(ETIQUETA_DATO, "mb-1.5")}>Tu API key</span>
-                <div className="flex items-center gap-2">
-                  <code
-                    data-testid="api-key-nueva"
-                    className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted px-3 py-2 font-mono text-[13px] font-semibold text-foreground select-all"
-                  >
-                    {apiKey}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={copiar}
-                    className={cn(BOTON_SECUNDARIO, "h-9 shrink-0 px-3 text-[12px]", copiada && "border-success-border bg-success text-success-foreground")}
-                  >
-                    {copiada ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
-                    {copiada ? "Copiada" : "Copiar"}
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5 rounded-lg border border-warning-border bg-warning px-3 py-2.5 text-[12px] leading-relaxed text-warning-foreground">
-                <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
-                <p>
-                  Guárdala ahora en un lugar seguro: <strong className="font-semibold">no volverá a mostrarse</strong>. Solo se conserva un hash, así que si la
-                  pierdes tendrás que revocarla y crear otra.
-                </p>
-              </div>
-            </>
+            <ApiKeyRevelada apiKey={apiKey} />
           ) : (
             <>
               <p className="text-[13px] leading-relaxed text-muted-foreground">

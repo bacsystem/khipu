@@ -428,8 +428,8 @@ Navegador → portal → backend → Postgres, con `TRUSTED_PROXIES` cubriendo l
 
 ## #188 · Alta asistida de cliente, empresa y primera serie — rebanada 1: backend
 
-**Estado: 🔧 backend implementado, 33/33 mutaciones verificadas (26 del alta y 7 de las correcciones de la revisión) — falta la aprobación de la PR. El formulario del portal va en otra PR; hasta entonces
-el endpoint se llama con la clave de plataforma o con el JWT de un administrador.**
+**Estado: ✅ mergeado (#216), 33/33 mutaciones verificadas (26 del alta y 7 de las correcciones de la revisión). Seguimientos de la revisión en #218 (correo de
+comprobantes sin SMTP) y #219 (idempotencia del alta). El formulario del portal es la rebanada 2.**
 
 Con el registro público cerrado (#174) no había camino para incorporar a un cliente: `POST /v1/admin/tenants` crea la empresa pero no la cuenta.
 
@@ -533,10 +533,108 @@ Con el registro público cerrado (#174) no había camino para incorporar a un cl
 - **El texto de la invitación llega con la PR del portal.** Hasta entonces el enlace abre la página de restablecer con su texto genérico («Elige una nueva contraseña»).
 - **Sin SMTP, el enlace de la invitación queda en el log** (como el de recuperar contraseña): es como se trabaja en desarrollo. En producción `MAIL_HABILITADO`
   es obligatorio (`deploy/README.md`); si faltara, la respuesta ya no dice «enviada».
-- Un reintento tras perder la respuesta recibe 409 y la API key del primer intento no se recupera (seguimiento: idempotencia, #115).
+- Un reintento tras perder la respuesta recibe 409 y la API key del primer intento no se recupera (seguimiento: idempotencia, #219).
 - La serie arranca en 0 (el primer comprobante lleva el 1): migrar desde otro sistema con numeración ya usada necesitaría un `correlativo_inicial` que este alta no pide.
 - El teléfono es opcional (el registro público lo exige): quien da de alta puede no tenerlo.
 - La cuenta nueva no tiene plan (#189).
+
+## #188 · Alta asistida de cliente, empresa y primera serie — rebanada 2: portal
+
+**Estado: 🔧 portal implementado, 30/30 mutaciones verificadas (más 1 equivalente) — falta la revisión de la PR (#217). Usa `POST /v1/admin/cuentas`, ya mergeado (#216).
+Con esta mergeada el issue queda completo.**
+
+### Diseño
+
+- **`/admin/cuentas/nueva`** (`AltaAsistidaForm`): una sola pantalla con tres bloques —cuenta, primera empresa, primera serie— y el mismo patrón de formularios
+  del portal (react-hook-form + zod, los esquemas de RUC y razón social del onboarding). **No pide contraseña**: lo dice, y es el cliente quien la elige.
+- **BFF `POST /api/admin/cuentas`**: exige la sesión de administrador (cookie `httpOnly`; el JWT no llega al JS), reenvía la IP ya resuelta (#208) para que la bitácora
+  registre la del administrador, y responde con `Cache-Control: no-store` porque lleva la API key.
+- **La API key inicial se muestra una sola vez** con el mismo bloque que el diálogo de «Crear API key» del portal de clientes, extraído a `ApiKeyRevelada` (el
+  diálogo ahora lo usa, sin duplicarlo). Aquí el aviso cambia: la ve quien la entrega a un cliente, no quien la guarda para sí.
+- **Si el correo no salió** (`invitacion_enviada: false`) lo dice y explica cómo pedir el enlace desde «¿Olvidaste tu contraseña?»; el alta quedó hecha y la key se entrega igual.
+- **Un correo o un RUC repetido** muestra lo que dijo el backend: el 409 es el mismo código para los dos y un texto genérico («ya existe una cuenta con ese correo»)
+  engañaría cuando lo repetido es la empresa.
+- **El enlace de la invitación** es `/restablecer/<token>?invitacion=1`: misma página y mismo endpoint, con otro texto («Crea tu contraseña», «Crear contraseña»).
+- **«Nueva cuenta» en la cabecera** deja de estar deshabilitado y pasa a ser un enlace; la miga reconoce `/admin/cuentas/nueva` (antes que `/admin/cuentas`, que la
+  engulliría por prefijo).
+- La regla de la serie (SUNAT 1001: `F` + 3 para facturas, `B` + 3 para boletas) se extrajo a `serieCoincideConTipo` y la usan el onboarding y el alta asistida.
+
+### Hallazgos que cambiaron la implementación
+
+- **El mock en memoria se comparte entre todas las specs de la corrida, en paralelo.** Si el alta guardara la cuenta, rompería `admin-cuentas.spec.ts` (cuenta exactamente 12) y
+  las specs del alta chocarían entre sí por correo y RUC repetidos. El mock valida contra los datos sembrados pero **no guarda**; que la cuenta aparezca en el listado lo
+  prueba el e2e del backend (`AltaAsistidaE2ETest`).
+- **`Button render={<Link/>}` publica un enlace como `role="button"`.** El test de «Ver cuentas» lo mostró: para un destino que navega se usa un `<Link>` real con la clase de
+  botón. El enlace «Ir a iniciar sesión» que ya existía en restablecer conserva su markup (no es parte de este issue).
+- **Vitest lanzado con `--root` desde otro directorio da un falso rojo** en `browserslist.test.ts`: lee su configuración del directorio de trabajo. Con `npm run test` desde
+  `portal/` pasa. Los comandos de verificación de esta rebanada se lanzaron así.
+- **El runner de mutaciones no veía nada** porque Vitest escribe el JSON en `.vitest/json/output.json` (lo fija su configuración) y no en stdout: las primeras 31 «mutaciones» dieron
+  todas «sin resultado». Se corrigió y se probó con una mutación antes de repetirlas; ninguna de esas lecturas fallidas se cuenta.
+
+### Hallazgos de la revisión de la PR (corregidos)
+
+- **H1 · La pestaña contradecía a la página.** El `metadata` de `/restablecer/[token]` era estático: con `?invitacion=1` la pestaña decía «Elige una nueva
+  contraseña» y el encabezado «Crea tu contraseña». Ahora `generateMetadata` usa el mismo criterio que la página. El e2e del enlace comprueba el título en los dos
+  casos (falló antes del cambio).
+- **H2 · La receta del `<select>` nativo estaba copiada** en el alta asistida y dos veces en el onboarding. Ahora es `SELECT_NATIVO` en `lib/estilos.ts`, junto a
+  las demás recetas, y la cadena aparece una sola vez en `src/`.
+
+### Tests
+
+- Vitest (+46, de 243 a 289): `AltaAsistidaForm` (17), `ApiKeyRevelada` (5), `RestablecerForm` (6), la ruta del BFF (7), el cliente `altaAsistida` (4), `serieCoincideConTipo` (5), y la cabecera
+  y las migas (+1 cada una).
+- Playwright (`admin-alta.spec.ts`, 12): sin sesión y con sesión de cliente no se abre; «Nueva cuenta» lleva al alta con su miga; no pide contraseña; el alta completa deja la key a la vista
+  una sola vez; el correo no enviado; correo y RUC repetidos; RUC con el dígito mal y serie de boleta en una factura sin salir del navegador; «Dar de alta a otro cliente» limpia todo;
+  y el enlace de invitación frente al de restablecer. La suite completa: 127/127.
+- `tsc`, `eslint` y `next build` limpios.
+
+### Verificación por mutación — 30/30 mueren
+
+| Pieza | Mutación | Qué muere |
+|---|---|---|
+| BFF | No exige sesión de administrador | `sin sesión de administrador responde 401…` |
+| BFF | No reenvía la IP resuelta | `manda al backend la IP de confianza ya resuelta…` |
+| BFF | Responde 200 en vez de 201 | `reenvía el cuerpo… y devuelve el alta con 201` |
+| BFF | La respuesta con la API key puede cachearse | `…no debe quedar en ninguna caché` |
+| BFF | Un cuerpo que no es JSON responde 500 | `un cuerpo que no es JSON responde 400…` |
+| BFF | No propaga el error del backend | `propaga el status y el código del backend…` |
+| Cliente | No manda el JWT del administrador | 2 |
+| Cliente | No manda la IP resuelta | `agrega la IP ya resuelta…` |
+| Cliente | Llama a otra ruta | `hace POST a /v1/admin/cuentas…` |
+| Formulario | El celular pasa a ser obligatorio | 10 |
+| Formulario | No se comprueba que la serie sea del tipo | `rechaza una serie que no corresponde al tipo` |
+| Formulario | Manda una contraseña | `manda el alta tal como el backend la espera…` |
+| Formulario | Un correo repetido muestra el texto genérico | 2 |
+| Formulario | Una sesión vencida muestra un «no autorizado» a secas | `si la sesión del administrador venció…` |
+| Formulario | Se dice siempre que la invitación salió | `si el correo no salió lo dice claro…` |
+| Formulario | No se valida el RUC | 2 |
+| Formulario | «Dar de alta a otro cliente» no limpia el formulario | `«Dar de alta a otro cliente» vuelve a un formulario limpio…` |
+| Formulario | El botón no se bloquea mientras envía | `mientras envía bloquea el botón…` |
+| Formulario | El entorno por defecto es Producción | 2 |
+| Formulario | «Ver cuentas» lleva a otra ruta | `desde el resultado se puede volver…` |
+| Formulario | No se muestra la API key tras el alta | 2 |
+| `ApiKeyRevelada` | «Copiar» no copia | 2 |
+| `ApiKeyRevelada` | Se pierde el aviso de que no volverá a mostrarse | `avisa que no volverá a mostrarse…` |
+| Cabecera | «Nueva cuenta» apunta a otra ruta | `en Cuentas ofrece «Nueva cuenta» como un enlace…` |
+| Cabecera | «Nueva cuenta» se ofrece en todas las páginas | 3 |
+| Migas | La miga del alta va después de la de cuentas (la engulle) | 2 |
+| Restablecer | La invitación usa los textos de restablecer | 2 |
+| Restablecer | Una invitación vencida muestra el texto de restablecer | `una invitación vencida o ya usada dice cómo pedir otro enlace…` |
+| Serie | La serie de boleta se acepta con prefijo de factura | 4 |
+| Serie | La serie admite cualquier largo | `rechaza lo que no tiene exactamente 4 caracteres` |
+| Formulario | El teléfono no se normaliza | **sobrevive: equivalente** (ver abajo) |
+
+**La mutación que sobrevive es equivalente, no un hueco de test.** El campo del celular filtra lo tecleado con `soloTelefono` (solo dígitos y `+`) antes de que llegue al esquema, así que
+`telefonoSchema.parse` nunca recibe algo que normalizar: el resultado es idéntico con y sin ella. Se deja como defensa en profundidad, por si cambia el filtro.
+
+### Límites conocidos
+
+- **El mock no guarda el alta**: el e2e del portal no puede comprobar que la cuenta aparece en el listado (lo hace el del backend).
+- **Sin reenvío de la invitación** (#183): si el correo no salió o pasaron los 7 días, el cliente pide el enlace con «¿Olvidaste tu contraseña?».
+- La pantalla no tiene la API key después: si el administrador cierra o recarga antes de copiarla, la cuenta queda sin key y hay que crear otra desde el portal del cliente (no hay acción de
+  administrador para eso todavía: #187).
+- El formulario no ofrece correlativo inicial, ni establecimientos anexos, ni credenciales SOL ni certificado: eso lo completa el cliente en su portal.
+- La página pesa 346 kB de primera carga (233 kB la lista de cuentas): el formulario trae `react-hook-form` y `zod`.
 
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 

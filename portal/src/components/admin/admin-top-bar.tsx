@@ -1,14 +1,15 @@
 "use client";
 
 import { PlusIcon } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Administrador } from "@/lib/api/admin-auth";
 import { migaAdmin } from "@/lib/admin-migas";
 import { messages } from "@/lib/messages";
 import { AdminMobileNav } from "./admin-mobile-nav";
 
-const ACCION_PRINCIPAL_DESHABILITADA =
-  "flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[12px] font-medium whitespace-nowrap text-background shadow-xs disabled:cursor-not-allowed disabled:opacity-60";
+const ACCION_PRINCIPAL =
+  "flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[12px] font-medium whitespace-nowrap text-background shadow-xs transition-opacity hover:opacity-90";
 
 /**
  * Cabecera del backoffice, con el mismo esqueleto que la del portal de clientes: menú en móvil, miga de ubicación y la acción
@@ -41,10 +42,10 @@ export function AdminTopBar({ administrador }: { administrador: Administrador })
 
       <div className="flex shrink-0 items-center gap-2.5">
         {miga?.accion === "nuevaCuenta" ? (
-          <button disabled title={t.nuevaCuentaProximamente} className={ACCION_PRINCIPAL_DESHABILITADA}>
+          <Link href="/admin/cuentas/nueva" className={ACCION_PRINCIPAL}>
             <PlusIcon className="size-4" />
             {t.nuevaCuenta}
-          </button>
+          </Link>
         ) : null}
       </div>
     </header>

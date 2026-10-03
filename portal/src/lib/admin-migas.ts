@@ -1,6 +1,6 @@
 import { messages } from "@/lib/messages";
 
-/** Acción principal que la cabecera ofrece en una página (hoy una sola, deshabilitada hasta #188). */
+/** Acción principal que la cabecera ofrece en una página (hoy una sola: el alta asistida de una cuenta, #188). */
 export type AccionAdmin = "nuevaCuenta";
 
 export type MigaAdmin = { seccion: string; pagina: string; accion?: AccionAdmin };
@@ -15,6 +15,8 @@ const t = messages.admin;
  */
 const MIGAS: Array<{ ruta: string; exacta?: boolean } & MigaAdmin> = [
   { ruta: "/admin", exacta: true, seccion: t.topbar.backoffice, pagina: t.nav.inicio },
+  // Antes que «/admin/cuentas»: `find` toma la primera que casa, y esa también casaría por prefijo con esta ruta.
+  { ruta: "/admin/cuentas/nueva", seccion: t.topbar.clientes, pagina: t.topbar.nuevaCuenta },
   { ruta: "/admin/cuentas", seccion: t.topbar.clientes, pagina: t.nav.cuentas, accion: "nuevaCuenta" },
 ];
 
