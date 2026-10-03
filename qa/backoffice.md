@@ -426,6 +426,93 @@ Navegador → portal → backend → Postgres, con `TRUSTED_PROXIES` cubriendo l
 - `TRUSTED_PROXIES` debe ser lo más estrecha posible: un rango de plataforma compartido con otros servicios los hace «de confianza».
 - No hay forma de leer la bitácora por API ni por el portal: solo la tabla `auditoria_admin`.
 
+## #188 · Alta asistida de cliente, empresa y primera serie — rebanada 1: backend
+
+**Estado: 🔧 backend implementado, 26/26 mutaciones verificadas — falta la revisión de la PR. El formulario del portal va en otra PR; hasta entonces
+el endpoint se llama con la clave de plataforma o con el JWT de un administrador.**
+
+Con el registro público cerrado (#174) no había camino para incorporar a un cliente: `POST /v1/admin/tenants` crea la empresa pero no la cuenta.
+
+### Diseño
+
+- **`POST /v1/admin/cuentas`** (`AdminAltaAsistidaController`): `{ nombre, email, telefono?, empresa: { ruc, razon_social, entorno? }, serie: { tipo, serie } }`.
+  Responde `201` con `cuenta_id`, `tenant_id`, `ruc`, `api_key` (solo aquí), la serie e `invitacion_enviada`. Solo la clave de plataforma o un administrador.
+- **`AltaAsistidaService`**: valida todo antes de escribir (correo, teléfono, RUC, razón social, serie del tipo pedido, correo y RUC sin repetir) y escribe
+  **en una sola transacción** la cuenta, su usuario ADMIN, la empresa atada a la cuenta, la API key, la serie, la invitación y el registro de bitácora.
+- **El administrador no elige la contraseña.** El usuario queda con el hash de una contraseña aleatoria que nadie conoce (`Usuario` exige un hash no vacío, así que
+  no hace falta tocar el dominio ni el esquema) y el cliente fija la suya con la invitación.
+- **Invitación**: mismo mecanismo que restablecer (token de un solo uso, solo se guarda su hash) con **7 días** de vigencia, no la hora de recuperar. El enlace es
+  `/restablecer/<token>?invitacion=1`: funciona con la página que ya existe y el portal adapta el texto con ese parámetro.
+- **El correo sale fuera de la transacción.** Si falla, el alta **no** se revierte: la respuesta trae `invitacion_enviada: false` y el cliente puede pedir un
+  enlace con «olvidé mi contraseña». Revertirla habría hecho que un SMTP caído impida dar de alta a nadie.
+- **Bitácora**: una sola entrada `CREAR_CUENTA` con la cuenta y la empresa. El detalle lleva RUC, serie y entorno; **nunca** la API key, el token ni el correo.
+- Sin migración: `auditoria_admin.accion` es un `VARCHAR`.
+
+### Hallazgos que cambiaron la implementación
+
+- **Una mutación murió por la razón equivocada** (E1): que el filtro dejara pasar `POST /v1/admin/cuentas` sin validar nada rompió **todos los casos felices**
+  (la clave de plataforma dejaba de reconocerse), pero el test de aislamiento **sobrevivió**. Es defensa en profundidad real: `AdministradorActual.actor` falla cerrado,
+  así que el filtro por sí solo no es la única barrera y ningún test de comportamiento puede distinguirlo. El aislamiento se verifica con mutaciones que quitan las dos
+  capas a la vez (E2) o que hacen que el filtro acepte una clave equivocada (E3); las dos las mata `soloLaPlataformaOUnAdministradorPuedenDarDeAltaAUnCliente`.
+- **Sin tope, un nombre de más de 150 caracteres era un 500 de la base** (`cuenta.nombre` es `VARCHAR(150)`, `email` 254). El test rojo lo mostró antes de poner
+  `@Size`, igual que el registro público.
+- **El rollback no se puede probar con fakes** (no hay transacción): `AltaAsistidaTransaccionalTest` usa Postgres y un trigger que falla al insertar en **cada**
+  tabla del alta, una por una, para que cada paso tenga su turno de ser el que falla con todo lo anterior ya escrito.
+
+### Tests
+
+- Servicio (`AltaAsistidaServiceTest`, 14): todo el alta, el entorno por defecto y el pedido, la contraseña que nadie conoce, la invitación (enlace, vigencia, solo
+  el hash), la bitácora sin secretos, **todas las escrituras dentro de la transacción**, el correo fuera de ella, un correo caído, validación previa sin dejar rastro,
+  serie del tipo, y correo o RUC repetidos.
+- Controlador (`AdminAltaAsistidaControllerTest`, 9): forma de la respuesta, atribución a la clave o al administrador con su IP, 401 sin credencial, 409, 422 y siete
+  cuerpos inválidos (incluidos los más largos que las columnas).
+- Persistencia (`AltaAsistidaTransaccionalTest`, 3, Postgres real): el alta sana deja todo atado; **un fallo en cualquiera de las siete tablas no deja nada**; y el
+  mismo alta se puede reintentar tras un fallo.
+- E2E (`AltaAsistidaE2ETest`, 7, HTTP y Postgres reales): el cliente acepta la invitación, entra con la contraseña que elige y ve su empresa; la API key sirve
+  (`GET /v1/series`); la invitación es de un solo uso; el listado de cuentas la muestra; la bitácora; el aislamiento (sin credencial, solo `X-Forwarded-For`,
+  JWT de cliente, API key, clave equivocada); duplicados y solicitudes inválidas sin dejar nada.
+
+### Verificación por mutación — 26/26 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | Las escrituras fuera de la transacción | 1 unitario y 2 de rollback en Postgres |
+| Servicio | La invitación vence en 1 hora, no en 7 días | `mandaUnaInvitacion…` |
+| Servicio | La contraseña inicial es una fija | `elAdministradorNuncaEligeLaContrasena…` |
+| Servicio | El correo sale dentro de la transacción | `elCorreoSaleDespuesDeLaTransaccion…` |
+| Servicio | Sin comprobar que el correo ya exista | `unCorreoYaRegistrado…` |
+| Servicio | Sin comprobar que el RUC ya exista | `unaEmpresaYaRegistrada…` |
+| Servicio | La empresa no se ata a la cuenta | 2 unitarios y 1 de Postgres |
+| Servicio | La bitácora lleva la API key en el detalle | `laBitacoraRegistra…SinSecretos` |
+| Servicio | La bitácora registra otra acción | `laBitacoraRegistra…` |
+| Servicio | No se crea la primera serie | 2 unitarios y los 3 de Postgres |
+| Servicio | `invitacion_enviada` siempre `true` | `siElCorreoFalla…` |
+| Servicio | El usuario queda inactivo | `creaLaCuenta…` |
+| Servicio | El usuario no es ADMIN de su cuenta | `creaLaCuenta…` |
+| Servicio | El token de invitación se guarda en claro | `mandaUnaInvitacion…` |
+| Servicio | Sin comprobar que la serie sea del tipo | 2 unitarios |
+| Servicio | El entorno por defecto es PRODUCCION | 2 unitarios |
+| Servicio | El enlace no lleva `?invitacion=1` | `mandaUnaInvitacion…` |
+| Controlador | URL de portal vacía | 7 |
+| Controlador | El tipo de serie siempre es factura | `sinEntornoYConUnaBoleta…` |
+| Controlador | Se ignora el entorno pedido | 6 |
+| Controlador | Responde 200 en vez de 201 | 5 |
+| Controlador | La empresa del cuerpo no se valida | `cuerpoIncompletoOMalFormado…` |
+| Controlador | La respuesta no entrega la API key | 2 |
+| Controlador | La serie del cuerpo no se valida | `cuerpoIncompletoOMalFormado…` |
+| Seguridad | El filtro y `actor()` dejan pasar sin credencial (las dos capas) | el aislamiento (e2e), `sinCredencialNoCreaNadaYEs401` y la atribución al administrador |
+| Seguridad | El filtro acepta cualquier clave de plataforma | `soloLaPlataformaOUnAdministrador…` |
+| *(no concluyente)* | El filtro deja pasar la ruta, con `actor()` intacto | murió 5/7 **por romper los casos felices**; el aislamiento sobrevive: la segunda capa lo sostiene |
+
+### Límites conocidos
+
+- **Sin reenvío de la invitación** (#183). Pasados los 7 días, o si el correo no salió, el cliente usa «olvidé mi contraseña» (enlace de 1 hora).
+- **El texto de la invitación llega con la PR del portal.** Hasta entonces el enlace abre la página de restablecer con su texto genérico («Elige una nueva contraseña»).
+- **No queda rastro de por qué falló el correo**: el módulo de aplicación no tiene logger y el servicio devuelve solo `invitacion_enviada: false`.
+- La serie arranca en 0 (el primer comprobante lleva el 1): migrar desde otro sistema con numeración ya usada necesitaría un `correlativo_inicial` que este alta no pide.
+- El teléfono es opcional (el registro público lo exige): quien da de alta puede no tenerlo.
+- La cuenta nueva no tiene plan (#189).
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
