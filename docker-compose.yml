@@ -71,6 +71,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-}
       PORTAL_URL: ${PORTAL_URL:-http://localhost:3000}
       REGISTRO_ABIERTO: ${REGISTRO_ABIERTO:-true}
+      # IP real del administrador (#208): vacío = no se confía en X-Forwarded-For. Ver deploy/README.md.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       # Correo habilitado hacia Mailpit (sin credenciales, de ahí MAIL_SMTP_AUTH=false): la recuperación de contraseña y el envío
       # de comprobantes se ven en la interfaz de Mailpit en vez de perderse.
       MAIL_HABILITADO: "true"
@@ -86,6 +88,8 @@ services:
       API_BASE_URL: ${PORTAL_API_BASE_URL:-http://host.docker.internal:8001}
       # La que ve el navegador (snippets de integración, "Try it" de /developers): desde el host, la API está en localhost.
       API_PUBLIC_URL: ${PORTAL_API_PUBLIC_URL:-http://localhost:8001}
+      # IP real del administrador (#208): proxies de confianza delante del portal; 0 = no se reenvía ninguna IP. Ver deploy/README.md.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
     ports: ["${PORTAL_PORT:-3000}:3000"]
 volumes:
   pgdata:
