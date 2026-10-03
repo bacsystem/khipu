@@ -103,19 +103,24 @@ COMPOSE_DEVELOP = POSTGRES_PORT=$(DEVELOP_POSTGRES_PORT) BACKEND_PORT=$(DEVELOP_
 	PORTAL_URL=http://localhost:$(DEVELOP_PORTAL_PORT) \
 	docker compose -p $(DEVELOP_PROJECT) --project-directory $(DEVELOP_WT) -f $(DEVELOP_WT)/docker-compose.yml --env-file $(DEVELOP_ENV)
 
+# `env` arma el archivo en un temporal y solo lo mueve a su sitio si las cuatro claves salieron: un fallo a medias (p. ej. sin
+# openssl) no puede dejar un archivo con claves vacías, que el siguiente `make env` ya no tocaría. Cualquier paso que falle aborta
+# con error en vez de imprimir «creado».
 env: ## Crea el archivo de claves del despliegue (../khipu-develop.env) con secretos nuevos si no existe; nunca pisa uno existente
-	@if [ -f $(DEVELOP_ENV) ]; then echo "$(DEVELOP_ENV) ya existe: no se toca"; else \
-		cp .env.example $(DEVELOP_ENV); \
-		for v in MASTER_KEY API_KEY_PEPPER PLATFORM_ADMIN_KEY JWT_SECRET; do \
-			sed "s|^$$v=.*|$$v=$$(openssl rand -base64 32)|" $(DEVELOP_ENV) > $(DEVELOP_ENV).tmp; mv $(DEVELOP_ENV).tmp $(DEVELOP_ENV); \
-		done; \
-		echo "$(DEVELOP_ENV) creado con secretos nuevos. No rotes MASTER_KEY ni API_KEY_PEPPER cuando ya haya datos."; \
-	fi
+	@if [ -f $(DEVELOP_ENV) ]; then echo "$(DEVELOP_ENV) ya existe: no se toca"; exit 0; fi; \
+	command -v openssl >/dev/null || { echo "Falta openssl para generar los secretos"; exit 1; }; \
+	tmp=$(DEVELOP_ENV).tmp; \
+	cp .env.example $$tmp || exit 1; \
+	for v in MASTER_KEY API_KEY_PEPPER PLATFORM_ADMIN_KEY JWT_SECRET; do \
+		valor=$$(openssl rand -base64 32) && [ -n "$$valor" ] || { echo "No se pudo generar $$v"; rm -f $$tmp $$tmp.2; exit 1; }; \
+		sed "s|^$$v=.*|$$v=$$valor|" $$tmp > $$tmp.2 && mv $$tmp.2 $$tmp || { echo "No se pudo escribir $$v"; rm -f $$tmp $$tmp.2; exit 1; }; \
+	done; \
+	mv $$tmp $(DEVELOP_ENV) && echo "$(DEVELOP_ENV) creado con secretos nuevos. No rotes MASTER_KEY ni API_KEY_PEPPER cuando ya haya datos."
 
 comprobar-env:
 	@test -f $(DEVELOP_ENV) || { echo "Falta $(DEVELOP_ENV): corre 'make env'"; exit 1; }
 	@for v in MASTER_KEY API_KEY_PEPPER PLATFORM_ADMIN_KEY JWT_SECRET; do \
-		grep -Eq "^$$v=.+" $(DEVELOP_ENV) || { echo "$$v está vacío o ausente en $(DEVELOP_ENV): corre 'make env' o complétalo"; exit 1; }; \
+		grep -Eq "^$$v=.+" $(DEVELOP_ENV) || { echo "$$v está vacío o ausente en $(DEVELOP_ENV): complétalo a mano ('make env' no pisa un archivo existente; si no hay datos que conservar, bórralo y vuelve a correrlo)"; exit 1; }; \
 	done
 
 develop-sync: ## Fija el worktree de despliegue en origin/develop (lo crea si no existe; nunca recibe commits)
