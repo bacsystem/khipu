@@ -336,6 +336,83 @@ Las cuatro primeras se aplicaron juntas (cuatro tests distintos); `exacta` y `ar
 (antes «siempre visible», que se probó en esa tanda), la del mapa de la acción y las dos de e2e, una por una.
 Vitest completo 205/205 (antes 192), `eslint` y `tsc` limpios. Playwright: los 3 nuevos, los 9 de cuentas y los 5 de `admin.spec.ts` pasan (17).
 
+## #208 · IP real del administrador en la bitácora, detrás del BFF y del proxy
+
+**Estado: 🔧 implementado, 12/12 mutaciones verificadas y cadena probada en Docker — falta la revisión de la PR. No se calibró en Railway
+(sin acceso desde aquí): queda el mecanismo y el procedimiento (`deploy/README.md` §5), y los valores reales los fija quien despliega.**
+
+### Diseño
+
+Dos mitades que van juntas, **ninguna confía en nadie por defecto**:
+
+- **Portal** (`lib/ip-cliente.ts`, `lib/origen.ts`): `TRUSTED_PROXY_HOPS` (0 por defecto) cuenta cuántos proxies de confianza hay delante.
+  Se lee `X-Forwarded-For` **desde la derecha** y solo cuentan las últimas `saltos` entradas; lo de la izquierda lo controla el navegador y
+  nunca se mira. Al backend sale **una sola IP ya resuelta**, nunca la cadena. Con 0 saltos, cadena más corta o entrada inválida, no sale nada.
+  Lo pasan explícitamente las rutas del BFF que lo necesitan: el proxy de clientes, el login del administrador y la ruta de calibración.
+- **Backend** (`ProxyDeConfianzaConfig`): `TRUSTED_PROXIES` (vacío por defecto) es una regex de proxies de confianza. Vacía, no se instala nada.
+  Con valor, un `RemoteIpValve` de Tomcat reescribe la IP solo cuando el par casa, leyendo desde la derecha; `X-Forwarded-Proto` queda
+  desactivado. Una regex inválida impide arrancar. `AdministradorActual` no cambia: `getRemoteAddr()` ya es la IP correcta.
+- **Calibración**: `GET /v1/admin/origen` (backend, solo lectura, administrador o clave de plataforma) y `GET /api/admin/origen` (portal, solo
+  con sesión de administrador) ponen lado a lado la cadena recibida, la IP resuelta y la que el backend registraría.
+
+### Hallazgos que cambiaron la implementación
+
+- **Railway no se comporta igual según la fuente** (hilos del foro, no documentación): un empleado dice que el borde borra el `X-Forwarded-For`
+  del cliente, otro que es lo más fiable, y usuarios dicen que agrega sin borrar. De ahí el número de saltos configurable y la calibración.
+- **Next solo rellena `X-Forwarded-For` si falta** (`base-server.js:568`, `??=`): con una falsa del navegador y sin proxy, la conserva.
+- **El `RemoteIpValve` trae `X-Forwarded-Proto` activo por defecto** (lo vio el test, no lo supuse): se desactiva para tocar solo la IP.
+- **No se puede inyectar `next/headers` en `client.ts`**: varios componentes de cliente importan valores de módulos que lo importan, y el
+  build de producción de Next lo rechaza. Vitest, `tsc` y `eslint` no lo detectan; solo `next build`. Por eso la IP se pasa explícitamente.
+- **Una mutación sobrevivió** (P4, abajo) y destapó un defecto: un `,` suelto a la izquierda anulaba la lectura, y eso habría permitido
+  **borrar la propia IP de la bitácora**. Ahora solo se valida lo que escribieron los proxies de confianza.
+
+### Tests
+
+- Backend: `ProxyDeConfianzaConfigTest` (4), `AdminOrigenControllerTest` (2) y dos e2e con HTTP real, donde la válvula participa de verdad:
+  `OrigenAdminConProxyE2ETest` (4: la IP reenviada llega a la bitácora, una IP falsa a la izquierda no gana, el endpoint de calibración,
+  sin cabecera) y `OrigenAdminSinProxyE2ETest` (3: la cabecera falsificada se ignora, también la cadena y el endpoint).
+- Portal: `ip-cliente.test.ts` (24), `origen.test.ts` (5) y casos nuevos en el proxy (2), el login del administrador (2) y la ruta de calibración (5).
+
+### Verificación por mutación — 12/12 mueren
+
+| Lado | Mutación | Qué muere |
+|---|---|---|
+| Backend | La válvula no se instala nunca | 5 (2 unitarios y los 3 e2e con proxy) |
+| Backend | La válvula se instala aunque no haya nada configurado (hereda los rangos privados de Tomcat) | 4 (1 unitario y los 3 e2e sin proxy) |
+| Backend | La válvula sin `internalProxies` propio | 2 unitarios |
+| Backend | El endpoint devuelve la cabecera cruda en vez de la IP resuelta | `noDevuelveNadaMasQueLaIp` |
+| Portal | Se lee la entrada de la izquierda, no la de la derecha | 5 |
+| Portal | 0 saltos devuelve IP | 3 |
+| Portal | `cabecerasDeOrigen` reenvía la cadena cruda del navegador | 5 (helper y las tres rutas) |
+| Portal | Sin comprobar el rango de los octetos (`999.1.1.1`) | `octeto fuera de rango` |
+| Portal | Sin descartar entradas vacías entre las de confianza | `una entrada vacía entre las que escribieron…` (**sobrevivió la primera vez**: el test no discriminaba) |
+| Portal | El proxy de clientes no reenvía la IP | `manda al backend la IP de confianza resuelta…` |
+| Portal | El login del administrador no pasa la IP | `manda al backend la IP de confianza ya resuelta…` |
+| Portal | La ruta de calibración sin comprobar sesión | `sin sesión de administrador responde 401…` |
+
+### Cadena completa en Docker (código final, proyecto desechable)
+
+Navegador → portal → backend → Postgres, con `TRUSTED_PROXIES` cubriendo la red del compose:
+
+| Escenario | `ip_resuelta` | `ip_backend` |
+|---|---|---|
+| Sin cabecera: Next la rellena con la IP de la conexión (`172.19.0.1`) | `172.19.0.1` | `172.19.0.1` |
+| `6.6.6.6, 203.0.113.7` con 1 salto (como un proxy que agrega) | `203.0.113.7` | `203.0.113.7` |
+| `6.6.6.6` con 1 salto y **sin proxy real delante** | `6.6.6.6` | `6.6.6.6` (límite conocido) |
+| Comas sueltas a la izquierda: `, ,203.0.113.7` | `203.0.113.7` | `203.0.113.7` |
+| Portal con **0 saltos**, cabecera falsa del navegador | `null` | IP del portal en la red (`172.19.0.2`) |
+| Portal con 1 salto pero **backend sin proxies de confianza** | `203.0.113.7` | IP del portal (`172.19.0.2`) |
+
+### Límites conocidos
+
+- **`TRUSTED_PROXY_HOPS` mayor que 0 sin un proxy real delante del portal permite falsificar la IP** (tercera fila). Es un ajuste del operador,
+  documentado en `deploy/README.md` §5.
+- **Sin calibrar en Railway.** La cadena real (cuántos saltos, qué rango privado) hay que medirla con `/api/admin/origen` en el despliegue.
+- Solo reenvían la IP el proxy de clientes, el login del administrador y la calibración. Las rutas de autenticación de clientes y las lecturas
+  de Server Components no (nadie las audita). Las lecturas del backoffice no se auditan (#178).
+- `TRUSTED_PROXIES` debe ser lo más estrecha posible: un rango de plataforma compartido con otros servicios los hace «de confianza».
+- No hay forma de leer la bitácora por API ni por el portal: solo la tabla `auditoria_admin`.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de

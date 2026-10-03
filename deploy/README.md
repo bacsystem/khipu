@@ -44,6 +44,7 @@ Agregar el plugin **Postgres** de Railway al proyecto. Provee las variables `PGH
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | credenciales SMTP | Según el proveedor |
 | `MAIL_REMITENTE` | `no-responder@tu-dominio.pe` | De dónde salen los correos; default `no-responder@khipu.pe` |
 | `REGISTRO_ABIERTO` | `false` mientras el autoservicio no esté certificado | Cierra `POST /v1/auth/registro` con `403 REGISTRO_CERRADO` (issue #174). Su default ya es `false`: es la misma variable que usa el servicio `portal` (ver abajo), y **hay que ponerla en los dos servicios** — el portal cierra su propia ruta, el backend cierra la suya, y son independientes |
+| `TRUSTED_PROXIES` | expresión regular de las IPs de los proxies de confianza (el servicio `portal`) | Opcional, **vacío por defecto: no se confía en `X-Forwarded-For`** y la bitácora registra la IP de la conexión. Se calibra con `GET /v1/admin/origen`; ver §5 antes de fijarla. Una expresión inválida impide arrancar |
 | `LOG_DIR` | `/data/logs` (dentro del Volume) | Opcional. Carpeta de `khipu.log` (INFO y superiores) y `khipu-error.log` (WARN y ERROR con la traza completa). Default `./logs`, que en la imagen es `/app/logs` (el Dockerfile la crea con permisos para el usuario `khipu`) y se pierde al redeployar. Para conservarlos, apuntar `LOG_DIR` a una carpeta del Volume, con el mismo requisito que `STORAGE_FS_ROOT`: que el usuario `khipu` pueda escribir ahí. Con `STORAGE_TYPE=s3` no hay Volume y `/data` no existe: no fijar `LOG_DIR` en ese caso. **Un `LOG_DIR` que `khipu` no pueda crear o escribir impide que el backend arranque** (Spring Boot aborta con `Logback configuration error detected: Failed to create parent directories`): es una configuración que falla rápido, igual que `MASTER_KEY` o `MAIL_HOST`. En Railway el log de referencia es la consola, que ya muestra cada error en una línea con su causa raíz |
 
 > **Dejar `MAIL_HABILITADO` en `false` en producción falla en silencio.** No hay error ni alerta: la
@@ -92,11 +93,53 @@ Pasos completos, verificación y fase 0 (landing público con el autoservicio ce
 | `API_PUBLIC_URL` | dominio público del servicio `backend` | Es lo que ve el navegador (snippets de integración, "Try it" de `/developers`) |
 | `REGISTRO_ABIERTO` | `false` mientras el autoservicio no esté certificado | Con `false`: `/registro` da 404, `POST /api/auth/registro` da 403 y el landing ofrece «Solicitar acceso». Su default en producción ya es `false` |
 | `CONTACTO_URL` | `mailto:` o URL de un formulario | A dónde lleva «Solicitar acceso» con el registro cerrado |
+| `TRUSTED_PROXY_HOPS` | cuántos proxies de confianza hay **delante del portal** | Opcional, **`0` por defecto: el portal no reenvía ninguna IP** y el backend ve la del servidor de Next. Se calibra con `/api/admin/origen`; ver §5. No poner más de `0` si el portal está expuesto directamente, sin proxy delante |
 
 El portal se puede desplegar **antes que el backend**: sin `API_BASE_URL` el landing, `/login` y la
 documentación funcionan, y `/developers` muestra un aviso en vez de fallar.
 
-## 5. Orden de despliegue sugerido
+## 5. IP real del administrador en la bitácora (#208)
+
+La bitácora de auditoría (#178) guarda de dónde actuó el administrador. Detrás del portal, esa IP es la del servidor de Next,
+igual para todos, salvo que el portal la reenvíe y el backend la acepte. Las dos mitades van juntas y **ninguna confía en nadie por
+defecto**:
+
+- **Portal** (`TRUSTED_PROXY_HOPS`, `0` por defecto): cuántos proxies de confianza hay delante. Lee `X-Forwarded-For` **desde la
+  derecha** (los proxies agregan a la derecha; lo que el navegador antepone a la izquierda nunca se mira) y manda al backend **una
+  sola IP ya resuelta**, nunca la cadena que llegó. Con `0`, o si la cadena es más corta que los saltos, no manda nada.
+- **Backend** (`TRUSTED_PROXIES`, vacío por defecto): regex de las IPs de las que acepta esa IP. Solo si el par que llama casa con ella,
+  Tomcat reescribe la IP de la conexión, también leyendo desde la derecha. Una petición directa con un `X-Forwarded-For` falso
+  se ignora. Solo se toca la IP: el esquema (`X-Forwarded-Proto`) no.
+
+### Qué se sabe de Railway, y qué no
+
+**No hay documentación oficial de este comportamiento y las fuentes se contradicen.** En hilos del foro de Railway (Central
+Station) un empleado dice que el borde *borra* el `X-Forwarded-For` del cliente y sobrescribe `X-Real-IP`; en otro, que
+`X-Forwarded-For` es lo más fiable y que `X-Real-IP` trae la IP del borde (lo llama un bug); usuarios dicen que el borde *agrega*
+sin borrar, que la red interna es `100.0.0.0/8`, y alguno vio solo IPs de Railway y Cloudflare. Por eso el número de saltos no está
+fijado en el código: **se mide en tu despliegue**, y puede cambiar si Railway cambia su borde. Repetir la calibración si cambia
+algo en el borde, el dominio o Cloudflare.
+
+### Calibrar
+
+Con la sesión de administrador abierta, visitar `https://<portal>/api/admin/origen`. Devuelve `cadena_recibida` (el
+`X-Forwarded-For` que llegó al portal), `saltos` (`TRUSTED_PROXY_HOPS`), `ip_resuelta` (la que el portal sacó de la cadena) e
+`ip_backend` (la que el backend registraría). Se compara con tu IP pública real (p. ej. la que muestra `ifconfig.me`).
+
+1. **Primero `TRUSTED_PROXIES`.** Con la variable vacía, `ip_backend` es la dirección del **portal dentro de la red privada**: es
+   justo lo que la regex debe cubrir. Ponerla en el backend con la menor cobertura posible (el rango de esa red, no «todo»).
+2. **Después `TRUSTED_PROXY_HOPS`.** Empezar en `1`:
+   - `ip_resuelta` es tu IP pública → correcto.
+   - `ip_resuelta` es una IP de Railway o Cloudflare (la cadena es `cliente, borde, …`) → falta un salto: subir en `1`.
+   - `ip_resuelta` es `null` con saltos > 0 → la cadena es más corta que los saltos: bajar en `1`, o el portal no tiene proxy delante (`0`).
+3. Comprobar que `ip_backend` coincide con `ip_resuelta`. Si `ip_backend` sigue siendo la del portal, `TRUSTED_PROXIES` no casa con él.
+
+**`TRUSTED_PROXY_HOPS` mayor que `0` sin un proxy real delante del portal permite falsificar la IP**: Next no la sobrescribe si el
+navegador ya mandó `X-Forwarded-For` (solo la rellena si falta), y esa cabecera sería lo que se lee. Probado en local: con `1` y sin
+proxy, un `X-Forwarded-For: 6.6.6.6` del navegador queda como IP registrada. Con un borde que agrega a la derecha, lo falso queda a
+la izquierda y no se mira.
+
+## 6. Orden de despliegue sugerido
 
 1. Postgres (plugin).
 2. `backend` — esperar que el healthcheck `/health/liveness` pase (corre las migraciones Flyway al arrancar).
