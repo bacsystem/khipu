@@ -17,7 +17,7 @@ IMAGEN_PORTAL ?= khipu-portal
 IMAGEN_BACKEND ?= khipu-backend
 
 .DEFAULT_GOAL := help
-.PHONY: help instalar test test-backend test-backend-todo test-portal e2e lint build build-portal verificar docker-portal docker-backend dev api db-up db-down limpiar env comprobar-env comprobar-despliegue develop-sync deploy-develop develop-logs develop-stop develop-reset develop-version
+.PHONY: help instalar test test-backend test-backend-todo test-portal e2e lint build build-portal verificar docker-portal docker-backend dev api db-up db-down limpiar env comprobar-env comprobar-despliegue develop-sync deploy-develop develop-datos develop-logs develop-stop develop-reset develop-version
 
 help: ## Lista los objetivos
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[1m%-16s\033[0m %s\n", $$1, $$2}'
@@ -83,8 +83,9 @@ limpiar: ## Borra artefactos de build del portal y del backend
 # worktree propio fijado a origin/develop y los levanta con su propio Postgres. Proyecto y volúmenes aparte (khipu-develop):
 # no toca el Postgres ni los datos de tu desarrollo local. Para probar un PR sin mergear usa `api` y `dev` desde su worktree.
 #
-# Puertos por defecto: backend :8001, portal :3000 (los mismos de desarrollo: apaga `api` y `dev` antes) y Postgres :5433
-# (para no chocar con el :5432 del compose de desarrollo); la interfaz de Mailpit (correos que envía el backend) en :8026.
+# Puertos por defecto: backend :18001, portal :13000, Postgres :5433 y la interfaz de Mailpit (correos que envía el backend)
+# :8026. Ninguno es de desarrollo (`api` :8001, `dev` :3000, Postgres :5432): con los mismos puertos, lo que respondía en :8001
+# dependía de cuál de los dos estuviera levantado, y cambiar de uno a otro parecía que «borraba todo» (eran dos bases distintas).
 # Se cambian con DEVELOP_BACKEND_PORT, DEVELOP_PORTAL_PORT, DEVELOP_POSTGRES_PORT y DEVELOP_MAILPIT_PORT.
 DEVELOP_WT ?= $(abspath ../khipu-wt-develop)
 DEVELOP_PROJECT ?= khipu-develop
@@ -92,8 +93,8 @@ DEVELOP_PROJECT ?= khipu-develop
 # el volumen de datos persiste, así que un segundo `make env` desde otro worktree generaría claves distintas sobre datos ya
 # cifrados con las primeras (MASTER_KEY) o con API keys emitidas con otro pepper, y se perderían sin ningún error.
 DEVELOP_ENV ?= $(abspath ../khipu-develop.env)
-DEVELOP_BACKEND_PORT ?= 8001
-DEVELOP_PORTAL_PORT ?= 3000
+DEVELOP_BACKEND_PORT ?= 18001
+DEVELOP_PORTAL_PORT ?= 13000
 DEVELOP_POSTGRES_PORT ?= 5433
 DEVELOP_MAILPIT_PORT ?= 8026
 # El portal habla con el backend por la red del compose (http://backend:8001); el navegador, por el puerto publicado.
@@ -137,6 +138,20 @@ deploy-develop: comprobar-env develop-sync ## Construye y levanta develop en Doc
 	$(COMPOSE_DEVELOP) --profile app up -d --build
 	@echo "Desplegado: $$(git -C $(DEVELOP_WT) log -1 --oneline)"
 	@echo "Portal http://localhost:$(DEVELOP_PORTAL_PORT) · API http://localhost:$(DEVELOP_BACKEND_PORT)/swagger-ui · Correo http://localhost:$(DEVELOP_MAILPIT_PORT)"
+	@$(MAKE) --no-print-directory develop-datos
+
+# Lee la base del despliegue (no la de desarrollo): ver que los datos siguen ahí después de un deploy es la forma de saber que la
+# base es la esperada. Un deploy nunca borra el volumen; solo `develop-reset` lo hace.
+SQL_DEVELOP = $(COMPOSE_DEVELOP) exec -T postgres psql -U factura -d factura -tAc
+develop-datos: comprobar-despliegue ## Muestra qué datos tiene la base del despliegue de develop (cuentas, empresas, administradores)
+	@migrada=$$($(SQL_DEVELOP) "select count(*) from information_schema.tables where table_name = 'cuenta'" 2>/dev/null | tr -d '[:space:]'); \
+	if [ "$$migrada" = "1" ]; then \
+		echo "Datos en develop: $$($(SQL_DEVELOP) "select (select count(*) from cuenta) || ' cuentas, ' || (select count(*) from tenant) || ' empresas, ' || (select count(*) from administrador) || ' administradores'")"; \
+	elif [ -n "$$migrada" ]; then \
+		echo "Datos en develop: base nueva, todavía sin migrar (el backend la migra al arrancar)"; \
+	else \
+		echo "Datos en develop: Postgres no responde (¿está levantado el despliegue?)"; \
+	fi
 
 develop-logs: comprobar-despliegue ## Sigue los logs del backend y del portal desplegados
 	$(COMPOSE_DEVELOP) --profile app logs -f --tail=100 backend portal
@@ -144,7 +159,12 @@ develop-logs: comprobar-despliegue ## Sigue los logs del backend y del portal de
 develop-stop: comprobar-despliegue ## Detiene el despliegue de develop (conserva sus datos)
 	$(COMPOSE_DEVELOP) --profile app stop
 
-develop-reset: comprobar-despliegue ## Borra el despliegue de develop Y sus datos (base y storage); el próximo deploy parte de cero
+# Irreversible: exige CONFIRMAR=si. Sin la guarda bastaba un `make develop-reset` suelto (p. ej. al probar el Makefile) para perder
+# la base y el storage del despliegue sin ningún aviso. Tiene que venir en la línea de comandos: make importa las variables de
+# entorno, y un `export CONFIRMAR=si` olvidado en la shell volvería a dejar pasar un reset suelto.
+develop-reset: comprobar-despliegue ## Borra el despliegue de develop Y sus datos (base y storage); exige CONFIRMAR=si
+	@[ "$(origin CONFIRMAR)" = "command line" ] && [ "$(CONFIRMAR)" = "si" ] || { echo "develop-reset borra la base y el storage del despliegue de develop, sin vuelta atrás."; \
+		echo "Si es lo que quieres: make develop-reset CONFIRMAR=si"; exit 1; }
 	$(COMPOSE_DEVELOP) --profile app down -v
 
 develop-version: ## Muestra qué commit de develop hay fijado para desplegar
