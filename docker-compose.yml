@@ -90,6 +90,10 @@ services:
       API_PUBLIC_URL: ${PORTAL_API_PUBLIC_URL:-http://localhost:8001}
       # IP real del administrador (#208): proxies de confianza delante del portal; 0 = no se reenvía ninguna IP. Ver deploy/README.md.
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
+      # Vacío = el default del portal: cookie Secure en producción (la imagen corre en producción). `make deploy-develop` lo pone en
+      # `false` porque ese despliegue es HTTP local: por HTTP desde otro dispositivo (el celular) el navegador descarta una cookie
+      # Secure y el login no deja sesión. Nunca en un despliegue con HTTPS real.
+      COOKIE_SECURE: ${PORTAL_COOKIE_SECURE:-}
     ports: ["${PORTAL_PORT:-3000}:3000"]
 volumes:
   pgdata:
