@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import pe.factura.adapters.rest.dto.OrigenResponse;
+import pe.factura.domain.plataforma.ActorAdmin;
 
 /**
  * Herramienta de calibración de la IP del administrador (#208): devuelve la IP que el backend resolvió para esta petición, que
@@ -22,6 +23,7 @@ public class AdminOrigenController {
     @GetMapping("/origen")
     @Operation(summary = "IP de origen resuelta", description = "La IP que el backend usa como origen de esta petición (y que registra en la bitácora de auditoría). Sirve para comprobar la cadena de proxies de confianza (`TRUSTED_PROXIES`).")
     public ResponseEntity<ApiResponse<OrigenResponse>> origen(HttpServletRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok(new OrigenResponse(req.getRemoteAddr())));
+        // La misma normalización que `ActorAdmin` aplica a lo que va a la bitácora: se calibra contra lo que se guardará.
+        return ResponseEntity.ok(ApiResponse.ok(new OrigenResponse(ActorAdmin.normalizarIp(req.getRemoteAddr()))));
     }
 }

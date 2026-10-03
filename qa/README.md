@@ -34,7 +34,7 @@ verifica por mutación antes de abrir su PR. Detalle en [backoffice.md](backoffi
 | #178 Bitácora de auditoría de las acciones del administrador | ✅ mergeado (#207), 9/9 mutaciones verificadas; el criterio de las acciones futuras sigue abierto |
 | #180 Listado de cuentas — backend (#209) y pantalla del portal (#211) | ✅ mergeados (12/12 y 11/11 mutaciones); falta probar de punta a punta |
 | Cabecera del backoffice (miga, «Nueva cuenta» deshabilitado, menú en móvil) | ✅ mergeada (#212), 11/11 mutaciones verificadas |
-| #208 IP real del administrador en la bitácora, detrás del BFF y del proxy | 🔧 implementado, 12/12 mutaciones y cadena probada en Docker; falta la revisión de la PR y calibrar en Railway |
+| #208 IP real del administrador en la bitácora, detrás del BFF y del proxy | 🔧 implementado, 16/16 mutaciones y cadena probada en Docker; falta la revisión de la PR y calibrar en Railway |
 
 ## Pendientes
 

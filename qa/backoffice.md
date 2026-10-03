@@ -338,7 +338,7 @@ Vitest completo 205/205 (antes 192), `eslint` y `tsc` limpios. Playwright: los 3
 
 ## #208 · IP real del administrador en la bitácora, detrás del BFF y del proxy
 
-**Estado: 🔧 implementado, 12/12 mutaciones verificadas y cadena probada en Docker — falta la revisión de la PR. No se calibró en Railway
+**Estado: 🔧 implementado, 16/16 mutaciones verificadas y cadena probada en Docker — falta la revisión de la PR. No se calibró en Railway
 (sin acceso desde aquí): queda el mecanismo y el procedimiento (`deploy/README.md` §5), y los valores reales los fija quien despliega.**
 
 ### Diseño
@@ -365,15 +365,24 @@ Dos mitades que van juntas, **ninguna confía en nadie por defecto**:
   build de producción de Next lo rechaza. Vitest, `tsc` y `eslint` no lo detectan; solo `next build`. Por eso la IP se pasa explícitamente.
 - **Una mutación sobrevivió** (P4, abajo) y destapó un defecto: un `,` suelto a la izquierda anulaba la lectura, y eso habría permitido
   **borrar la propia IP de la bitácora**. Ahora solo se valida lo que escribieron los proxies de confianza.
+- **Una misma IPv6 se guardaba con dos grafías** (hallazgo de la revisión de la PR): el portal reenvía la forma comprimida
+  (`2001:db8::1`) y la JVM da `getRemoteAddr()` sin comprimir (`2001:db8:0:0:0:0:0:1`), así que `WHERE ip = '2001:db8::1'` se perdía las
+  filas de las llamadas directas. `ActorAdmin.normalizarIp` la deja siempre en la forma de la JVM (y una IPv4 mapeada en su IPv4), en un
+  solo sitio —el constructor del record—, y el endpoint de calibración la muestra igual para que se calibre contra lo que se guardará.
+  Sin `InetAddress.getByName`: ante un texto de apariencia inválida consulta el DNS, y esto está en la ruta de auditoría.
 
 ### Tests
 
-- Backend: `ProxyDeConfianzaConfigTest` (4), `AdminOrigenControllerTest` (2) y dos e2e con HTTP real, donde la válvula participa de verdad:
-  `OrigenAdminConProxyE2ETest` (4: la IP reenviada llega a la bitácora, una IP falsa a la izquierda no gana, el endpoint de calibración,
-  sin cabecera) y `OrigenAdminSinProxyE2ETest` (3: la cabecera falsificada se ignora, también la cadena y el endpoint).
+- Backend: `ActorAdminTest` (12, 7 de ellos de la normalización de la IP), `ProxyDeConfianzaConfigTest` (4), `AdminOrigenControllerTest` (3)
+  y dos e2e con HTTP real, donde la válvula participa de verdad:
+  `OrigenAdminConProxyE2ETest` (6: la IP reenviada llega a la bitácora, una IP falsa a la izquierda no gana, el endpoint de calibración,
+  una IPv6 reenviada queda en la misma grafía que una conexión directa, sin cabecera, y el aislamiento) y `OrigenAdminSinProxyE2ETest`
+  (4: la cabecera falsificada se ignora, también la cadena y el endpoint, y el aislamiento).
+- Aislamiento de `GET /v1/admin/origen` (en la base de ambos e2e, así que corre con y sin proxy): 401 sin credencial, solo con
+  `X-Forwarded-For`, con el JWT de un cliente, con una API key y con una clave de plataforma equivocada; 200 con la correcta.
 - Portal: `ip-cliente.test.ts` (24), `origen.test.ts` (5) y casos nuevos en el proxy (2), el login del administrador (2) y la ruta de calibración (5).
 
-### Verificación por mutación — 12/12 mueren
+### Verificación por mutación — 16/16 mueren
 
 | Lado | Mutación | Qué muere |
 |---|---|---|
@@ -389,6 +398,10 @@ Dos mitades que van juntas, **ninguna confía en nadie por defecto**:
 | Portal | El proxy de clientes no reenvía la IP | `manda al backend la IP de confianza resuelta…` |
 | Portal | El login del administrador no pasa la IP | `manda al backend la IP de confianza ya resuelta…` |
 | Portal | La ruta de calibración sin comprobar sesión | `sin sesión de administrador responde 401…` |
+| Backend | `AdminAuthFilter` deja pasar `/v1/admin/origen` sin credencial | `elEndpointDeCalibracionSoloLoLeeQuienEsAdministrador`, en las dos clases e2e |
+| Backend | `ActorAdmin` no normaliza la IP | 3 unitarios y el e2e de la IPv6 reenviada |
+| Backend | El endpoint de calibración no normaliza | `muestraUnaIpv6EnLaMismaFormaQueLaBitacora` |
+| Backend | Sin tratar la IPv4 mapeada en IPv6 | `unaIpv4MapeadaEnIpv6EsLaIpv4` |
 
 ### Cadena completa en Docker (código final, proyecto desechable)
 

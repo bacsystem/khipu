@@ -23,6 +23,12 @@ class AdminOrigenControllerTest {
                 .andExpect(jsonPath("$.datos.ip").value("203.0.113.7"));
     }
 
+    /** Si mostrara otra grafía, quien calibra compararía algo distinto de lo que la bitácora guardará. */
+    @Test void muestraUnaIpv6EnLaMismaFormaQueLaBitacora() throws Exception {
+        mvc.perform(get("/v1/admin/origen").with(req -> { req.setRemoteAddr("2001:db8::1"); return req; }))
+                .andExpect(jsonPath("$.datos.ip").value("2001:db8:0:0:0:0:0:1"));
+    }
+
     @Test void noDevuelveNadaMasQueLaIp() throws Exception {
         // La cabecera cruda no se devuelve: es lo que el cliente puso, y reflejarla no aporta nada a quien calibra.
         mvc.perform(get("/v1/admin/origen").header("X-Forwarded-For", "6.6.6.6").with(req -> { req.setRemoteAddr("203.0.113.7"); return req; }))
