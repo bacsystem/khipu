@@ -44,18 +44,24 @@ su propio Postgres. `make` sin argumentos lista todos los objetivos.
 make env              # una sola vez: crea ../khipu-develop.env con secretos nuevos (nunca pisa uno existente)
 make deploy-develop   # fija un worktree en origin/develop, construye backend y portal y los levanta
 make develop-logs     # logs del backend y del portal
+make develop-datos    # cuántas cuentas, empresas y administradores tiene su base (también lo dice al final de cada deploy)
 make develop-version  # qué commit de develop está fijado
 make deploy-develop   # tras cada merge: vuelve a fijar origin/develop y reconstruye
 ```
-- **Puertos**: portal `:3000`, backend `:8001`, Postgres `:5433` y correos (Mailpit) `:8026` (`DEVELOP_PORTAL_PORT`, `DEVELOP_BACKEND_PORT`,
-  `DEVELOP_POSTGRES_PORT`, `DEVELOP_MAILPIT_PORT`). Portal y backend son los mismos de desarrollo: apaga `make api` y `make dev` antes, o cámbialos.
+- **Puertos**: portal `:13000`, backend `:18001`, Postgres `:5433` y correos (Mailpit) `:8026` (`DEVELOP_PORTAL_PORT`, `DEVELOP_BACKEND_PORT`,
+  `DEVELOP_POSTGRES_PORT`, `DEVELOP_MAILPIT_PORT`). **Ninguno coincide con desarrollo** (`make api` `:8001`, `make dev` `:3000`): con los
+  mismos puertos, lo que respondía dependía de cuál de los dos estuviera levantado y cambiar de uno a otro parecía borrar los datos (eran
+  dos bases distintas). Ahora pueden correr a la vez. Las cookies del navegador no distinguen puertos: si usas los dos portales en el mismo
+  navegador, uno puede cerrar la sesión del otro; usa una ventana privada para uno de ellos.
 - **Correo**: el backend desplegado envía a Mailpit (`MAIL_SMTP_AUTH=false`, sin credenciales); la recuperación de contraseña y el envío de
   comprobantes se ven en su interfaz web.
 - **Datos aparte**: usa el proyecto `khipu-develop` (volúmenes propios), así que no toca el Postgres ni los datos de tu desarrollo local.
-  `make develop-stop` conserva los datos; `make develop-reset` los borra y el siguiente deploy parte de cero.
+  Un `deploy-develop` **nunca** borra la base: reconstruye y reemplaza contenedores, pero el volumen sigue. `make develop-stop` conserva los
+  datos; `make develop-reset CONFIRMAR=si` los borra y el siguiente deploy parte de cero (sin `CONFIRMAR=si` se niega, para que no se
+  pierdan por un comando suelto).
 - **Las claves** están en un único archivo, `../khipu-develop.env` (`DEVELOP_ENV`), y no en el `.env` de cada checkout: así dan igual el
   worktree y la rama desde los que corras `make`. No lo borres ni lo regeneres mientras exista el despliegue: los datos persisten y
-  `MASTER_KEY`/`API_KEY_PEPPER` no se rotan (si lo pierdes, `make develop-reset`, que no necesita el archivo, borra el despliegue y sus datos; después `make env` y
+  `MASTER_KEY`/`API_KEY_PEPPER` no se rotan (si lo pierdes, `make develop-reset CONFIRMAR=si`, que no necesita el archivo, borra el despliegue y sus datos; después `make env` y
   `make deploy-develop` parten de cero. No corras `make env` y `deploy-develop` sin resetear antes: las claves nuevas no descifran los
   datos viejos). `make develop-stop`, `develop-logs` y `develop-reset` tampoco lo necesitan. Es independiente del `.env` de `make api`.
 - **El worktree** (`../khipu-wt-develop`) solo se usa como contexto de build y nunca recibe commits.
