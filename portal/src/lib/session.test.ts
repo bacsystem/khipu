@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { describe, expect, it } from "vitest";
-import { baseCookie, clearSession, COOKIE_ACCESS, COOKIE_EMPRESA, COOKIE_REFRESH, cookieSegura, readSession, writeTokens } from "./session";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { clearSession, COOKIE_ACCESS, COOKIE_EMPRESA, COOKIE_REFRESH, cookieSegura, readSession, writeTokens } from "./session";
 
 function requestWithCookies(cookies: Record<string, string>) {
   const header = Object.entries(cookies)
@@ -80,7 +80,32 @@ describe("cookieSegura", () => {
     }
   });
 
-  it("las cookies de sesión usan el valor calculado", () => {
-    expect(baseCookie.secure).toBe(cookieSegura());
+});
+
+/**
+ * `baseCookie` se calcula al cargar el módulo: se recarga con el entorno controlado y se mira la cookie que de verdad se escribe.
+ * Comparar `baseCookie.secure` con `cookieSegura()` no basta: en Vitest ambos dan `false` y un `secure: false` fijo pasaría.
+ */
+describe("cookies de sesión según el entorno", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  async function secureDeLaCookieEscrita(env: Record<string, string>) {
+    for (const [nombre, valor] of Object.entries(env)) vi.stubEnv(nombre, valor);
+    vi.resetModules();
+    const session = await import("./session");
+    const res = NextResponse.json({ ok: true });
+    session.writeTokens(res, { access: "a1", refresh: "r1" });
+    return [res.cookies.get(session.COOKIE_ACCESS)?.secure, res.cookies.get(session.COOKIE_REFRESH)?.secure];
+  }
+
+  it("en producción las cookies salen Secure", async () => {
+    expect(await secureDeLaCookieEscrita({ NODE_ENV: "production" })).toEqual([true, true]);
+  });
+
+  it("con COOKIE_SECURE=false salen sin Secure aun en producción", async () => {
+    expect(await secureDeLaCookieEscrita({ NODE_ENV: "production", COOKIE_SECURE: "false" })).toEqual([false, false]);
   });
 });
