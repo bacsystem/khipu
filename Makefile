@@ -160,9 +160,10 @@ develop-stop: comprobar-despliegue ## Detiene el despliegue de develop (conserva
 	$(COMPOSE_DEVELOP) --profile app stop
 
 # Irreversible: exige CONFIRMAR=si. Sin la guarda bastaba un `make develop-reset` suelto (p. ej. al probar el Makefile) para perder
-# la base y el storage del despliegue sin ningún aviso.
+# la base y el storage del despliegue sin ningún aviso. Tiene que venir en la línea de comandos: make importa las variables de
+# entorno, y un `export CONFIRMAR=si` olvidado en la shell volvería a dejar pasar un reset suelto.
 develop-reset: comprobar-despliegue ## Borra el despliegue de develop Y sus datos (base y storage); exige CONFIRMAR=si
-	@[ "$(CONFIRMAR)" = "si" ] || { echo "develop-reset borra la base y el storage del despliegue de develop, sin vuelta atrás."; \
+	@[ "$(origin CONFIRMAR)" = "command line" ] && [ "$(CONFIRMAR)" = "si" ] || { echo "develop-reset borra la base y el storage del despliegue de develop, sin vuelta atrás."; \
 		echo "Si es lo que quieres: make develop-reset CONFIRMAR=si"; exit 1; }
 	$(COMPOSE_DEVELOP) --profile app down -v
 

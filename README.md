@@ -57,8 +57,8 @@ make deploy-develop   # tras cada merge: vuelve a fijar origin/develop y reconst
   comprobantes se ven en su interfaz web.
 - **Datos aparte**: usa el proyecto `khipu-develop` (volúmenes propios), así que no toca el Postgres ni los datos de tu desarrollo local.
   Un `deploy-develop` **nunca** borra la base: reconstruye y reemplaza contenedores, pero el volumen sigue. `make develop-stop` conserva los
-  datos; `make develop-reset CONFIRMAR=si` los borra y el siguiente deploy parte de cero (sin `CONFIRMAR=si` se niega, para que no se
-  pierdan por un comando suelto).
+  datos; `make develop-reset CONFIRMAR=si` los borra y el siguiente deploy parte de cero. Sin `CONFIRMAR=si` **en la línea de comandos**
+  se niega (una variable de entorno exportada no cuenta), para que no se pierdan por un comando suelto.
 - **Las claves** están en un único archivo, `../khipu-develop.env` (`DEVELOP_ENV`), y no en el `.env` de cada checkout: así dan igual el
   worktree y la rama desde los que corras `make`. No lo borres ni lo regeneres mientras exista el despliegue: los datos persisten y
   `MASTER_KEY`/`API_KEY_PEPPER` no se rotan (si lo pierdes, `make develop-reset CONFIRMAR=si`, que no necesita el archivo, borra el despliegue y sus datos; después `make env` y
