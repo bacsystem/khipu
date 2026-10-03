@@ -13,8 +13,9 @@ public interface AltaAsistidaUseCase {
     record Solicitud(String nombre, String email, String telefono, String ruc, String razonSocial, Entorno entorno, TipoDocumento tipoSerie, String serie) {}
 
     /**
-     * {@code apiKeyEnClaro} se entrega esta única vez. {@code invitacionEnviada} es {@code false} si el correo no salió: el alta
-     * queda hecha igual y el cliente puede pedir un enlace desde «olvidé mi contraseña».
+     * {@code apiKeyEnClaro} se entrega esta única vez. {@code invitacionEnviada} es {@code false} si el correo no salió —el envío
+     * falló, o no hay SMTP y el correo solo quedó en el log ({@code CorreoSender#entregaDeVerdad})—: el alta queda hecha igual y el
+     * cliente puede pedir un enlace desde «olvidé mi contraseña».
      */
     record AltaCreada(UUID cuentaId, Tenant tenant, String apiKeyEnClaro, TipoDocumento tipoSerie, String serie, boolean invitacionEnviada) {}
 

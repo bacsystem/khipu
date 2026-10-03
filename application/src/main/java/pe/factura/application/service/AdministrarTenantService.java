@@ -165,7 +165,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     }
 
     private ApiKey nuevaApiKey(UUID tenantId, String key) {
-        return new ApiKey(UUID.randomUUID(), tenantId, ApiKeyGenerator.hash(key, pepper), ApiKeyGenerator.prefijo(key), true, Instant.now(clock), null);
+        return ApiKeyGenerator.nueva(tenantId, key, pepper, Instant.now(clock));
     }
 
     static boolean ouContieneRuc(String subjectDn, String ruc) {

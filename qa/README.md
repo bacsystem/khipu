@@ -35,7 +35,7 @@ verifica por mutación antes de abrir su PR. Detalle en [backoffice.md](backoffi
 | #180 Listado de cuentas — backend (#209) y pantalla del portal (#211) | ✅ mergeados (12/12 y 11/11 mutaciones); falta probar de punta a punta |
 | Cabecera del backoffice (miga, «Nueva cuenta» deshabilitado, menú en móvil) | ✅ mergeada (#212), 11/11 mutaciones verificadas |
 | #208 IP real del administrador en la bitácora, detrás del BFF y del proxy | ✅ mergeado (#215), 16/16 mutaciones y cadena probada en Docker; falta calibrar en Railway |
-| #188 Alta asistida de cliente, empresa y primera serie — backend | 🔧 implementado, 26/26 mutaciones; falta la revisión de la PR. El formulario del portal va en otra PR |
+| #188 Alta asistida de cliente, empresa y primera serie — backend | 🔧 implementado y revisado (3 hallazgos corregidos), 33/33 mutaciones; falta la aprobación de la PR. El formulario del portal va en otra PR |
 
 ## Pendientes
 

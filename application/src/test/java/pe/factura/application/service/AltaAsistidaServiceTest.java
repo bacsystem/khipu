@@ -77,6 +77,8 @@ class AltaAsistidaServiceTest {
     List<String> correos = new ArrayList<>();
     List<Boolean> correoDentroDeLaTransaccion = new ArrayList<>();
     RuntimeException correoFalla;
+    /** {@code false} simula el adaptador que solo escribe el correo en el log (sin SMTP): no lanza, pero no entrega. */
+    boolean correoEntrega = true;
     CorreoSender correo = new CorreoSender() {
         public void enviar(String para, String asunto, String cuerpo) {
             correoDentroDeLaTransaccion.add(uow.dentro);
@@ -84,6 +86,7 @@ class AltaAsistidaServiceTest {
             correos.add(para + "|" + asunto + "|" + cuerpo);
         }
         public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) { enviar(para, asunto, cuerpo); }
+        @Override public boolean entregaDeVerdad() { return correoEntrega; }
     };
     Fakes.Auditoria auditoria = new Fakes.Auditoria() {
         @Override public void registrar(RegistroAuditoria r) { escrituras.add(uow.dentro); super.registrar(r); }
@@ -195,6 +198,20 @@ class AltaAsistidaServiceTest {
         assertThat(cuentasMap).containsKey(r.cuentaId());
         assertThat(tenants.buscarPorRuc("20100066603")).isPresent();
         assertThat(r.apiKeyEnClaro()).as("la API key se entrega igual: es la única vez").startsWith("fk_");
+    }
+
+    /**
+     * Sin SMTP (el default de MAIL_HABILITADO) el adaptador escribe el correo en el log y no lanza. Antes la respuesta decía
+     * «invitación enviada» y el cliente nunca la recibía. Se sigue «enviando» —en desarrollo el log es por donde se lee el
+     * enlace—, pero la respuesta no afirma una entrega que no ocurrió.
+     */
+    @Test void siElCorreoSoloQuedaEnElLogLaRespuestaDiceQueLaInvitacionNoSalio() {
+        correoEntrega = false;
+        AltaCreada r = servicio().alta(ACTOR, solicitud(), PORTAL);
+
+        assertThat(r.invitacionEnviada()).isFalse();
+        assertThat(correos).as("el enlace sigue quedando donde el adaptador lo deja (el log, en desarrollo)").hasSize(1);
+        assertThat(cuentasMap).containsKey(r.cuentaId());
     }
 
     @Test void siElCorreoSaleLaRespuestaLoDice() {

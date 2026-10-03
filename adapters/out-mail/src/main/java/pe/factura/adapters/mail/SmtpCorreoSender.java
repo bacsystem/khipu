@@ -3,7 +3,9 @@ package pe.factura.adapters.mail;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -13,6 +15,7 @@ import pe.factura.application.port.out.CorreoSender;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+@Slf4j
 @RequiredArgsConstructor
 public class SmtpCorreoSender implements CorreoSender {
     private final JavaMailSender mailSender;
@@ -24,7 +27,22 @@ public class SmtpCorreoSender implements CorreoSender {
         mensaje.setTo(para);
         mensaje.setSubject(asunto);
         mensaje.setText(cuerpoTexto);
-        mailSender.send(mensaje);
+        enviarRegistrandoFallos(para, () -> mailSender.send(mensaje));
+    }
+
+    @Override public boolean entregaDeVerdad() { return true; }
+
+    /**
+     * Quien llama puede convertir el fallo en un «no salió» sin causa (el alta asistida, #188), así que la causa se registra aquí,
+     * donde se conoce. Va el destinatario, nunca el cuerpo: puede llevar un enlace de un solo uso.
+     */
+    private void enviarRegistrandoFallos(String para, Runnable envio) {
+        try {
+            envio.run();
+        } catch (MailException e) {
+            log.error("No se pudo enviar el correo a {}", para, e);
+            throw e;
+        }
     }
 
     @Override public void enviar(String para, String asunto, String cuerpoTexto, List<Adjunto> adjuntos) {
@@ -39,6 +57,6 @@ public class SmtpCorreoSender implements CorreoSender {
         } catch (MessagingException e) {
             throw new IllegalStateException("No se pudo construir el correo para " + para, e);
         }
-        mailSender.send(mensaje);
+        enviarRegistrandoFallos(para, () -> mailSender.send(mensaje));
     }
 }

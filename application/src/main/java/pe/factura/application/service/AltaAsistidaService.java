@@ -12,7 +12,6 @@ import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.plataforma.AccionAdmin;
 import pe.factura.domain.plataforma.ActorAdmin;
 import pe.factura.domain.plataforma.RegistroAuditoria;
-import pe.factura.domain.tenant.ApiKey;
 import pe.factura.domain.tenant.Entorno;
 import pe.factura.domain.tenant.Ruc;
 import pe.factura.domain.tenant.Serie;
@@ -66,7 +65,7 @@ public class AltaAsistidaService implements AltaAsistidaUseCase {
             usuarios.guardar(usuario);
             tenants.guardar(tenant);
             tenants.asignarCuenta(tenant.id(), cuenta.id());
-            apiKeys.guardar(new ApiKey(UUID.randomUUID(), tenant.id(), ApiKeyGenerator.hash(apiKey, pepper), ApiKeyGenerator.prefijo(apiKey), true, ahora, null));
+            apiKeys.guardar(ApiKeyGenerator.nueva(tenant.id(), apiKey, pepper, ahora));
             series.crear(new Serie(tenant.id(), tipo, s.serie(), 0, true, null));
             sesiones.crearRecuperacion(new TokenRecuperacion(TokenOpaco.hash(invitacion), usuario.id(), ahora.plus(VIDA_INVITACION), false));
             // En la misma transacción: si la bitácora falla, el alta tampoco queda. El detalle no lleva la API key, el token ni el correo.
@@ -77,15 +76,21 @@ public class AltaAsistidaService implements AltaAsistidaUseCase {
         return new AltaCreada(cuenta.id(), tenant, apiKey, tipo, s.serie(), enviarInvitacion(usuario.email(), tenant, urlPortal, invitacion));
     }
 
-    /** Fuera de la transacción: un SMTP caído no debe impedir el alta, y el cliente puede pedir otro enlace con «olvidé mi contraseña». */
+    /**
+     * Fuera de la transacción: un SMTP caído no debe impedir el alta, y el cliente puede pedir otro enlace con «olvidé mi contraseña».
+     * Devuelve si el correo salió de verdad: sin SMTP el adaptador lo escribe en el log y no lanza, y eso no es una entrega (sigue
+     * «enviándose» para que en desarrollo el enlace se lea en el log).
+     */
     private boolean enviarInvitacion(String email, Tenant tenant, String urlPortal, String token) {
         try {
             correo.enviar(email, "Te damos la bienvenida a khipu",
                     "Dimos de alta a " + tenant.razonSocial() + " (RUC " + tenant.ruc() + ") en khipu.\n"
                             + "Para entrar, crea tu contraseña en este enlace (válido 7 días, de un solo uso):\n"
                             + urlPortal + "/restablecer/" + token + "?invitacion=1");
-            return true;
+            return correo.entregaDeVerdad();
         } catch (RuntimeException e) {
+            // La causa la registra el adaptador de correo, que es quien la conoce (este módulo no tiene logger). Aquí solo importa
+            // que el alta quedó hecha y la invitación no salió.
             return false;
         }
     }
