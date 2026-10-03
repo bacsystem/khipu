@@ -428,7 +428,7 @@ Navegador → portal → backend → Postgres, con `TRUSTED_PROXIES` cubriendo l
 
 ## #188 · Alta asistida de cliente, empresa y primera serie — rebanada 1: backend
 
-**Estado: 🔧 backend implementado, 26/26 mutaciones verificadas — falta la revisión de la PR. El formulario del portal va en otra PR; hasta entonces
+**Estado: 🔧 backend implementado, 33/33 mutaciones verificadas (26 del alta y 7 de las correcciones de la revisión) — falta la aprobación de la PR. El formulario del portal va en otra PR; hasta entonces
 el endpoint se llama con la clave de plataforma o con el JWT de un administrador.**
 
 Con el registro público cerrado (#174) no había camino para incorporar a un cliente: `POST /v1/admin/tenants` crea la empresa pero no la cuenta.
@@ -444,7 +444,8 @@ Con el registro público cerrado (#174) no había camino para incorporar a un cl
 - **Invitación**: mismo mecanismo que restablecer (token de un solo uso, solo se guarda su hash) con **7 días** de vigencia, no la hora de recuperar. El enlace es
   `/restablecer/<token>?invitacion=1`: funciona con la página que ya existe y el portal adapta el texto con ese parámetro.
 - **El correo sale fuera de la transacción.** Si falla, el alta **no** se revierte: la respuesta trae `invitacion_enviada: false` y el cliente puede pedir un
-  enlace con «olvidé mi contraseña». Revertirla habría hecho que un SMTP caído impida dar de alta a nadie.
+  enlace con «olvidé mi contraseña». Revertirla habría hecho que un SMTP caído impida dar de alta a nadie. Sin SMTP configurado (`MAIL_HABILITADO=false`, el
+  default) también es `false`: el correo solo queda en el log, que en desarrollo es de donde se lee el enlace.
 - **Bitácora**: una sola entrada `CREAR_CUENTA` con la cuenta y la empresa. El detalle lleva RUC, serie y entorno; **nunca** la API key, el token ni el correo.
 - Sin migración: `auditoria_admin.accion` es un `VARCHAR`.
 
@@ -459,11 +460,26 @@ Con el registro público cerrado (#174) no había camino para incorporar a un cl
 - **El rollback no se puede probar con fakes** (no hay transacción): `AltaAsistidaTransaccionalTest` usa Postgres y un trigger que falla al insertar en **cada**
   tabla del alta, una por una, para que cada paso tenga su turno de ser el que falla con todo lo anterior ya escrito.
 
+### Hallazgos de la revisión de la PR (corregidos)
+
+- **H1 · `invitacion_enviada: true` sin entrega.** Con `MAIL_HABILITADO=false` (el default) el adaptador `LogCorreoSender` escribe el correo en el log y **no lanza**,
+  así que el servicio lo daba por enviado: el administrador leía «enviamos la invitación» y el cliente nunca la recibía. El puerto `CorreoSender` ahora dice si
+  entrega de verdad (`entregaDeVerdad()`, `false` en el de log) y el servicio lo usa. El correo se sigue «enviando» al log, porque en desarrollo es por ahí que se lee
+  el enlace.
+- **H2 · La causa del fallo se perdía.** El servicio convierte el fallo en `false` y el adaptador SMTP no registraba nada. Ahora `SmtpCorreoSender` registra el error
+  con el destinatario y la causa, **sin el cuerpo** (puede llevar un enlace de un solo uso), y lo propaga.
+- **H3 · La construcción de una API key nueva estaba duplicada** con la del alta de una empresa. Ahora vive en un solo lugar, `ApiKeyGenerator.nueva`, que usan los dos
+  servicios: un cambio en cómo se guardan las keys ya no puede quedar a medias.
+- Quedó como seguimiento (fuera de alcance): un reintento tras un corte de red recibe 409 y la API key del primer intento, que solo viajaba en esa respuesta, no se
+  puede recuperar. Lo resolvería una clave de idempotencia (#115).
+
 ### Tests
 
-- Servicio (`AltaAsistidaServiceTest`, 14): todo el alta, el entorno por defecto y el pedido, la contraseña que nadie conoce, la invitación (enlace, vigencia, solo
-  el hash), la bitácora sin secretos, **todas las escrituras dentro de la transacción**, el correo fuera de ella, un correo caído, validación previa sin dejar rastro,
-  serie del tipo, y correo o RUC repetidos.
+- Servicio (`AltaAsistidaServiceTest`, 15): todo el alta, el entorno por defecto y el pedido, la contraseña que nadie conoce, la invitación (enlace, vigencia, solo
+  el hash), la bitácora sin secretos, **todas las escrituras dentro de la transacción**, el correo fuera de ella, un correo caído, un correo que solo queda en el log,
+  validación previa sin dejar rastro, serie del tipo, y correo o RUC repetidos.
+- Correo (`SmtpCorreoSenderTest` +2, `LogCorreoSenderTest` +1): quién entrega de verdad, y que un fallo de envío queda registrado con su causa y sin el cuerpo.
+- `ApiKeyGeneratorTest` (2): la key nueva guarda solo hash y prefijo, activa y sin revocar, y el hash depende del pepper.
 - Controlador (`AdminAltaAsistidaControllerTest`, 9): forma de la respuesta, atribución a la clave o al administrador con su IP, 401 sin credencial, 409, 422 y siete
   cuerpos inválidos (incluidos los más largos que las columnas).
 - Persistencia (`AltaAsistidaTransaccionalTest`, 3, Postgres real): el alta sana deja todo atado; **un fallo en cualquiera de las siete tablas no deja nada**; y el
@@ -472,7 +488,7 @@ Con el registro público cerrado (#174) no había camino para incorporar a un cl
   (`GET /v1/series`); la invitación es de un solo uso; el listado de cuentas la muestra; la bitácora; el aislamiento (sin credencial, solo `X-Forwarded-For`,
   JWT de cliente, API key, clave equivocada); duplicados y solicitudes inválidas sin dejar nada.
 
-### Verificación por mutación — 26/26 mueren
+### Verificación por mutación — 33/33 mueren
 
 | Capa | Mutación | Qué muere |
 |---|---|---|
@@ -502,13 +518,22 @@ Con el registro público cerrado (#174) no había camino para incorporar a un cl
 | Controlador | La serie del cuerpo no se valida | `cuerpoIncompletoOMalFormado…` |
 | Seguridad | El filtro y `actor()` dejan pasar sin credencial (las dos capas) | el aislamiento (e2e), `sinCredencialNoCreaNadaYEs401` y la atribución al administrador |
 | Seguridad | El filtro acepta cualquier clave de plataforma | `soloLaPlataformaOUnAdministrador…` |
+| Revisión (H1) | `invitacion_enviada` ignora si el correo se entregó de verdad | `siElCorreoSoloQuedaEnElLog…` |
+| Revisión (H1) | El adaptador de log dice que entrega | `diceQueNoEntregaDeVerdad` |
+| Revisión (H2) | El adaptador SMTP no registra el fallo | `unFalloDeEnvioSeRegistra…` |
+| Revisión (H2) | Lo registra sin la causa | `unFalloDeEnvioSeRegistra…` |
+| Revisión (H2) | Se traga el fallo en vez de propagarlo | `unFalloDeEnvioSeRegistra…` |
+| Revisión (H3) | La fábrica ignora el pepper | los 2 de `ApiKeyGeneratorTest` |
+| Revisión (H3) | La fábrica crea la key inactiva | `unaKeyNuevaGuardaSoloElHash…` |
 | *(no concluyente)* | El filtro deja pasar la ruta, con `actor()` intacto | murió 5/7 **por romper los casos felices**; el aislamiento sobrevive: la segunda capa lo sostiene |
 
 ### Límites conocidos
 
 - **Sin reenvío de la invitación** (#183). Pasados los 7 días, o si el correo no salió, el cliente usa «olvidé mi contraseña» (enlace de 1 hora).
 - **El texto de la invitación llega con la PR del portal.** Hasta entonces el enlace abre la página de restablecer con su texto genérico («Elige una nueva contraseña»).
-- **No queda rastro de por qué falló el correo**: el módulo de aplicación no tiene logger y el servicio devuelve solo `invitacion_enviada: false`.
+- **Sin SMTP, el enlace de la invitación queda en el log** (como el de recuperar contraseña): es como se trabaja en desarrollo. En producción `MAIL_HABILITADO`
+  es obligatorio (`deploy/README.md`); si faltara, la respuesta ya no dice «enviada».
+- Un reintento tras perder la respuesta recibe 409 y la API key del primer intento no se recupera (seguimiento: idempotencia, #115).
 - La serie arranca en 0 (el primer comprobante lleva el 1): migrar desde otro sistema con numeración ya usada necesitaría un `correlativo_inicial` que este alta no pide.
 - El teléfono es opcional (el registro público lo exige): quien da de alta puede no tenerlo.
 - La cuenta nueva no tiene plan (#189).

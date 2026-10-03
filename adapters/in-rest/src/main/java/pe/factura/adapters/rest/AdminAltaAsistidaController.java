@@ -38,8 +38,9 @@ public class AdminAltaAsistidaController {
             Crea en una sola transacción la cuenta con su primer usuario, la primera empresa atada a ella, su primera serie y una
             API key inicial, y manda al correo del cliente una invitación para que cree su contraseña (el administrador nunca la
             elige). Todo o nada: si algo falla, no queda nada. La API key se devuelve solo en esta respuesta. Si el correo no
-            salió, `invitacion_enviada` es `false` y el alta queda hecha: el cliente puede pedir un enlace con «olvidé mi
-            contraseña». `409 DUPLICADO` si el correo o el RUC ya existen.""")
+            salió —el SMTP lo rechazó, o no hay SMTP configurado y solo quedó en el log—, `invitacion_enviada` es `false` y el
+            alta queda hecha: el cliente puede pedir un enlace con «olvidé mi contraseña». `409 DUPLICADO` si el correo o el
+            RUC ya existen.""")
     public ResponseEntity<ApiResponse<AltaAsistidaResponse>> crear(@Valid @RequestBody AltaAsistidaRequest body, HttpServletRequest req) {
         var solicitud = new Solicitud(body.nombre(), body.email(), body.telefono(), body.empresa().ruc(), body.empresa().razonSocial(),
                 body.empresa().entorno(), TipoDocumento.porCodigo(body.serie().tipo()), body.serie().serie());
