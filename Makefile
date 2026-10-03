@@ -17,7 +17,7 @@ IMAGEN_PORTAL ?= khipu-portal
 IMAGEN_BACKEND ?= khipu-backend
 
 .DEFAULT_GOAL := help
-.PHONY: help instalar test test-backend test-backend-todo test-portal e2e lint build build-portal verificar docker-portal docker-backend dev api db-up db-down limpiar env comprobar-env develop-sync deploy-develop develop-logs develop-stop develop-reset develop-version
+.PHONY: help instalar test test-backend test-backend-todo test-portal e2e lint build build-portal verificar docker-portal docker-backend dev api db-up db-down limpiar env comprobar-env comprobar-despliegue develop-sync deploy-develop develop-logs develop-stop develop-reset develop-version
 
 help: ## Lista los objetivos
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[1m%-16s\033[0m %s\n", $$1, $$2}'
@@ -97,11 +97,13 @@ DEVELOP_PORTAL_PORT ?= 3000
 DEVELOP_POSTGRES_PORT ?= 5433
 DEVELOP_MAILPIT_PORT ?= 8026
 # El portal habla con el backend por la red del compose (http://backend:8001); el navegador, por el puerto publicado.
+# `--env-file` solo si el archivo existe: levantar (`up`) exige las claves y lo valida `comprobar-env`, pero parar, ver logs o
+# resetear no las necesitan (en el compose llevan `:-`). Así `develop-reset` funciona justo cuando se perdió el archivo.
 COMPOSE_DEVELOP = POSTGRES_PORT=$(DEVELOP_POSTGRES_PORT) BACKEND_PORT=$(DEVELOP_BACKEND_PORT) PORTAL_PORT=$(DEVELOP_PORTAL_PORT) \
 	MAILPIT_UI_PORT=$(DEVELOP_MAILPIT_PORT) \
 	PORTAL_API_BASE_URL=http://backend:8001 PORTAL_API_PUBLIC_URL=http://localhost:$(DEVELOP_BACKEND_PORT) \
 	PORTAL_URL=http://localhost:$(DEVELOP_PORTAL_PORT) \
-	docker compose -p $(DEVELOP_PROJECT) --project-directory $(DEVELOP_WT) -f $(DEVELOP_WT)/docker-compose.yml --env-file $(DEVELOP_ENV)
+	docker compose -p $(DEVELOP_PROJECT) --project-directory $(DEVELOP_WT) -f $(DEVELOP_WT)/docker-compose.yml $(if $(wildcard $(DEVELOP_ENV)),--env-file $(DEVELOP_ENV))
 
 # `env` arma el archivo en un temporal y solo lo mueve a su sitio si las cuatro claves salieron: un fallo a medias (p. ej. sin
 # openssl) no puede dejar un archivo con claves vacías, que el siguiente `make env` ya no tocaría. Cualquier paso que falle aborta
@@ -123,6 +125,9 @@ comprobar-env:
 		grep -Eq "^$$v=.+" $(DEVELOP_ENV) || { echo "$$v está vacío o ausente en $(DEVELOP_ENV): complétalo a mano ('make env' no pisa un archivo existente; si no hay datos que conservar, bórralo y vuelve a correrlo)"; exit 1; }; \
 	done
 
+comprobar-despliegue:
+	@test -d $(DEVELOP_WT) || { echo "No hay despliegue de develop: falta $(DEVELOP_WT) (se crea con 'make deploy-develop')"; exit 1; }
+
 develop-sync: ## Fija el worktree de despliegue en origin/develop (lo crea si no existe; nunca recibe commits)
 	git fetch origin develop
 	@test -d $(DEVELOP_WT) || git worktree add --detach $(DEVELOP_WT) origin/develop
@@ -133,13 +138,13 @@ deploy-develop: comprobar-env develop-sync ## Construye y levanta develop en Doc
 	@echo "Desplegado: $$(git -C $(DEVELOP_WT) log -1 --oneline)"
 	@echo "Portal http://localhost:$(DEVELOP_PORTAL_PORT) · API http://localhost:$(DEVELOP_BACKEND_PORT)/swagger-ui · Correo http://localhost:$(DEVELOP_MAILPIT_PORT)"
 
-develop-logs: comprobar-env ## Sigue los logs del backend y del portal desplegados
+develop-logs: comprobar-despliegue ## Sigue los logs del backend y del portal desplegados
 	$(COMPOSE_DEVELOP) --profile app logs -f --tail=100 backend portal
 
-develop-stop: comprobar-env ## Detiene el despliegue de develop (conserva sus datos)
+develop-stop: comprobar-despliegue ## Detiene el despliegue de develop (conserva sus datos)
 	$(COMPOSE_DEVELOP) --profile app stop
 
-develop-reset: comprobar-env ## Borra el despliegue de develop Y sus datos (base y storage); el próximo deploy parte de cero
+develop-reset: comprobar-despliegue ## Borra el despliegue de develop Y sus datos (base y storage); el próximo deploy parte de cero
 	$(COMPOSE_DEVELOP) --profile app down -v
 
 develop-version: ## Muestra qué commit de develop hay fijado para desplegar

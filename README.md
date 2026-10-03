@@ -55,8 +55,9 @@ make deploy-develop   # tras cada merge: vuelve a fijar origin/develop y reconst
   `make develop-stop` conserva los datos; `make develop-reset` los borra y el siguiente deploy parte de cero.
 - **Las claves** están en un único archivo, `../khipu-develop.env` (`DEVELOP_ENV`), y no en el `.env` de cada checkout: así dan igual el
   worktree y la rama desde los que corras `make`. No lo borres ni lo regeneres mientras exista el despliegue: los datos persisten y
-  `MASTER_KEY`/`API_KEY_PEPPER` no se rotan (si lo pierdes, `make develop-reset` y vuelve a empezar). Es independiente del `.env` de
-  `make api`.
+  `MASTER_KEY`/`API_KEY_PEPPER` no se rotan (si lo pierdes, `make develop-reset`, que no necesita el archivo, borra el despliegue y sus datos; después `make env` y
+  `make deploy-develop` parten de cero. No corras `make env` y `deploy-develop` sin resetear antes: las claves nuevas no descifran los
+  datos viejos). `make develop-stop`, `develop-logs` y `develop-reset` tampoco lo necesitan. Es independiente del `.env` de `make api`.
 - **El worktree** (`../khipu-wt-develop`) solo se usa como contexto de build y nunca recibe commits.
 - Para probar un PR sin mergear, usa `make api` y `make dev` desde el worktree de ese PR.
 - Los objetivos de backend por Gradle necesitan `JAVA_HOME_21=/ruta/al/jdk-21` fuera de macOS.
