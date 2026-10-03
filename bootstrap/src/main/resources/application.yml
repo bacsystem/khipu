@@ -57,6 +57,10 @@ app:
   # Cerrado por defecto (issue #174): el portal ya cerraba su propia ruta de registro, pero el backend la dejaba
   # abierta a quien lo llamara directo. Abrirlo es una decisión explícita de despliegue, no el estado de reposo.
   registro-abierto: ${REGISTRO_ABIERTO:false}
+  # IP del cliente detrás de proxies (#208). Expresión regular de las IPs de los proxies de los que se acepta `X-Forwarded-For`
+  # (p. ej. el BFF del portal). Vacío por defecto: no se confía en la cabecera y se registra la IP de la conexión. Se calibra con
+  # `GET /v1/admin/origen`; ver deploy/README.md. Ver ProxyDeConfianzaConfig.
+  trusted-proxies: ${TRUSTED_PROXIES:}
   storage:
     type: ${STORAGE_TYPE:fs}
     fs-root: ${STORAGE_FS_ROOT:./storage}
