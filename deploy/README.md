@@ -133,6 +133,8 @@ Con la sesión de administrador abierta, visitar `https://<portal>/api/admin/ori
    - `ip_resuelta` es una IP de Railway o Cloudflare (la cadena es `cliente, borde, …`) → falta un salto: subir en `1`.
    - `ip_resuelta` es `null` con saltos > 0 → la cadena es más corta que los saltos: bajar en `1`, o el portal no tiene proxy delante (`0`).
 3. Comprobar que `ip_backend` coincide con `ip_resuelta`. Si `ip_backend` sigue siendo la del portal, `TRUSTED_PROXIES` no casa con él.
+   Una IPv6 se ve igual en los dos campos solo si la grafía es la misma: `ip_backend` y la bitácora la escriben siempre sin comprimir
+   (`2001:db8:0:0:0:0:0:1`), también cuando el portal la reenvía comprimida; para buscarla en `auditoria_admin` usar esa forma.
 
 **`TRUSTED_PROXY_HOPS` mayor que `0` sin un proxy real delante del portal permite falsificar la IP**: Next no la sobrescribe si el
 navegador ya mandó `X-Forwarded-For` (solo la rellena si falta), y esa cabecera sería lo que se lee. Probado en local: con `1` y sin

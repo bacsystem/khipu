@@ -28,6 +28,12 @@ class OrigenAdminConProxyE2ETest extends OrigenAdminE2EBase {
         assertThat(ipSegunElEndpointDeCalibracion("203.0.113.7")).isEqualTo("203.0.113.7");
     }
 
+    @Test void unaIpv6ReenviadaQuedaEnLaMismaGrafiaQueUnaConexionDirecta() {
+        // El portal reenvía la forma comprimida; la JVM da las conexiones directas sin comprimir. En la bitácora, una sola.
+        assertThat(ipRegistradaTras("2001:db8::1")).isEqualTo("2001:db8:0:0:0:0:0:1");
+        assertThat(ipSegunElEndpointDeCalibracion("2001:db8::1")).isEqualTo("2001:db8:0:0:0:0:0:1");
+    }
+
     @Test void sinCabeceraSeRegistraLaIpDeLaConexion() {
         assertThat(ipRegistradaTras(null)).isIn(LOOPBACK);
     }
