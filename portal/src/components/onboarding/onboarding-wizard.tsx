@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import { mensajeError } from "@/lib/messages";
-import { codigoSerie, razonSocialSchema, rucSchema, soloDigitos } from "@/lib/validacion";
+import { codigoSerie, MENSAJE_SERIE, razonSocialSchema, rucSchema, serieCoincideConTipo, soloDigitos } from "@/lib/validacion";
 import { cn } from "@/lib/utils";
 
 const PASOS = ["Empresa", "Certificado y SOL", "Primera serie"] as const;
@@ -29,17 +29,13 @@ const credencialesSchema = z.object({
 });
 type CredencialesValues = z.infer<typeof credencialesSchema>;
 
-// 1001: la serie de una factura es `F` + 3 alfanuméricos y la de una boleta, `B` + 3. El cliente pedía «4 caracteres»
-// y el mock lo aceptaba, así que el onboarding terminaba en verde con series que el backend rechaza.
+// La regla de la serie (SUNAT 1001) vive en `serieCoincideConTipo`: la comparte el alta asistida del backoffice.
 const serieSchema = z
   .object({
     tipo: z.enum(["01", "03"]),
     serie: z.string().transform((v) => v.toUpperCase().trim()),
   })
-  .refine((v) => new RegExp(`^${v.tipo === "01" ? "F" : "B"}[A-Z0-9]{3}$`).test(v.serie), {
-    path: ["serie"],
-    message: "La serie de una factura empieza con F y la de una boleta con B, más 3 caracteres (p. ej. F001)",
-  });
+  .refine((v) => serieCoincideConTipo(v.tipo, v.serie), { path: ["serie"], message: MENSAJE_SERIE });
 type SerieValues = z.infer<typeof serieSchema>;
 
 export function OnboardingWizard() {

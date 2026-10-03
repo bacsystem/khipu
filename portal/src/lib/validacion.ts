@@ -34,6 +34,19 @@ export const soloTelefono = (v: string) => {
 /** Serie en mayúsculas y sin espacios: `F001`, `B001`. */
 export const codigoSerie = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
 
+/** Mensaje de la serie que no corresponde al tipo (SUNAT 1001); el mismo en el onboarding y en el alta asistida del backoffice. */
+export const MENSAJE_SERIE = "La serie de una factura empieza con F y la de una boleta con B, más 3 caracteres (p. ej. F001)";
+
+/**
+ * 1001: la serie de una factura es `F` + 3 alfanuméricos y la de una boleta, `B` + 3. Pedir «4 caracteres» no basta: el mock lo
+ * aceptaba y el alta terminaba en verde con series que el backend rechaza. Compara en mayúsculas y sin espacios alrededor, como
+ * la deja `codigoSerie`/el formulario.
+ */
+export function serieCoincideConTipo(tipo: string, serie: string): boolean {
+  const prefijo = tipo === "01" ? "F" : tipo === "03" ? "B" : null;
+  return prefijo !== null && new RegExp(`^${prefijo}[A-Z0-9]{3}$`).test(serie.toUpperCase().trim());
+}
+
 /** Módulo 11 de SUNAT (mismos pesos que `Ruc` en el dominio): evita un viaje al servidor por un dígito mal tecleado. */
 export function rucValido(ruc: string): boolean {
   if (!/^(10|15|16|17|20)\d{9}$/.test(ruc)) return false;
