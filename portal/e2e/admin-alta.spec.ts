@@ -159,8 +159,11 @@ test("el enlace de la invitación pide crear la contraseña; el de restablecer, 
   await page.goto("/restablecer/un-token?invitacion=1");
   await expect(page.getByRole("heading", { name: "Crea tu contraseña" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Crear contraseña" })).toBeVisible();
+  // La pestaña dice lo mismo que la página: es lo primero que ve el cliente invitado.
+  await expect(page).toHaveTitle(/^Crea tu contraseña/);
 
   await page.goto("/restablecer/un-token");
   await expect(page.getByRole("heading", { name: "Elige una nueva contraseña" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Restablecer contraseña" })).toBeVisible();
+  await expect(page).toHaveTitle(/^Elige una nueva contraseña/);
 });

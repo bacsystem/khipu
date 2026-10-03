@@ -12,14 +12,11 @@ import { Label } from "@/components/ui/label";
 import type { AltaAsistidaCreada } from "@/lib/api/admin-alta";
 import { postJson } from "@/lib/api/browser";
 import type { ApiEnvelope } from "@/lib/api/types";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, SELECT_NATIVO } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";
 import { codigoSerie, MENSAJE_SERIE, razonSocialSchema, rucSchema, serieCoincideConTipo, soloDigitos, soloTelefono, telefonoSchema } from "@/lib/validacion";
 
 const t = messages.admin.alta;
-
-const SELECT =
-  "h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 
 /** El celular es opcional aquí (quien da de alta puede no tenerlo); si se escribe, se valida y normaliza como en el registro. */
 const telefonoOpcional = z
@@ -165,7 +162,7 @@ export function AltaAsistidaForm() {
         <FormField id="alta-razon-social" label={t.razonSocial} register={register("razon_social")} error={errors.razon_social?.message} />
         <div className="grid gap-1.5">
           <Label htmlFor="alta-entorno">{t.entorno}</Label>
-          <select id="alta-entorno" {...register("entorno")} className={SELECT}>
+          <select id="alta-entorno" {...register("entorno")} className={SELECT_NATIVO}>
             <option value="BETA">{t.entornoBeta}</option>
             <option value="PRODUCCION">{t.entornoProduccion}</option>
           </select>
@@ -176,7 +173,7 @@ export function AltaAsistidaForm() {
         <h2 className="font-heading text-base">{t.seccionSerie}</h2>
         <div className="grid gap-1.5">
           <Label htmlFor="alta-tipo">{t.tipo}</Label>
-          <select id="alta-tipo" {...register("tipo")} className={SELECT}>
+          <select id="alta-tipo" {...register("tipo")} className={SELECT_NATIVO}>
             <option value="01">{t.tipoFactura}</option>
             <option value="03">{t.tipoBoleta}</option>
           </select>

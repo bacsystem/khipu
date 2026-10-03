@@ -9,6 +9,7 @@ import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
+import { SELECT_NATIVO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { codigoSerie, MENSAJE_SERIE, razonSocialSchema, rucSchema, serieCoincideConTipo, soloDigitos } from "@/lib/validacion";
 import { cn } from "@/lib/utils";
@@ -204,7 +205,7 @@ export function OnboardingWizard() {
             <select
               id="entorno"
               {...empresaForm.register("entorno")}
-              className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              className={SELECT_NATIVO}
             >
               <option value="BETA">Beta (pruebas)</option>
               <option value="PRODUCCION">Producción</option>
@@ -268,7 +269,7 @@ export function OnboardingWizard() {
             <select
               id="tipo"
               {...serieForm.register("tipo")}
-              className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              className={SELECT_NATIVO}
             >
               <option value="01">Factura</option>
               <option value="03">Boleta</option>

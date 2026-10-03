@@ -571,6 +571,14 @@ Con esta mergeada el issue queda completo.**
 - **El runner de mutaciones no veía nada** porque Vitest escribe el JSON en `.vitest/json/output.json` (lo fija su configuración) y no en stdout: las primeras 31 «mutaciones» dieron
   todas «sin resultado». Se corrigió y se probó con una mutación antes de repetirlas; ninguna de esas lecturas fallidas se cuenta.
 
+### Hallazgos de la revisión de la PR (corregidos)
+
+- **H1 · La pestaña contradecía a la página.** El `metadata` de `/restablecer/[token]` era estático: con `?invitacion=1` la pestaña decía «Elige una nueva
+  contraseña» y el encabezado «Crea tu contraseña». Ahora `generateMetadata` usa el mismo criterio que la página. El e2e del enlace comprueba el título en los dos
+  casos (falló antes del cambio).
+- **H2 · La receta del `<select>` nativo estaba copiada** en el alta asistida y dos veces en el onboarding. Ahora es `SELECT_NATIVO` en `lib/estilos.ts`, junto a
+  las demás recetas, y la cadena aparece una sola vez en `src/`.
+
 ### Tests
 
 - Vitest (+46, de 243 a 289): `AltaAsistidaForm` (17), `ApiKeyRevelada` (5), `RestablecerForm` (6), la ruta del BFF (7), el cliente `altaAsistida` (4), `serieCoincideConTipo` (5), y la cabecera

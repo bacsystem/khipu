@@ -4,6 +4,9 @@ export const CAMPO =
   "h-10 w-full rounded-lg border border-border bg-muted px-3 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card focus:ring-3 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 export const ETIQUETA_CAMPO = "text-[12px] font-medium text-foreground";
 export const AYUDA_CAMPO = "font-mono text-[11px] text-muted-foreground";
+/** `<select>` nativo con la misma altura y foco que los `Input` del design system (onboarding, alta asistida del backoffice). */
+export const SELECT_NATIVO =
+  "h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 
 /**
  * Celda de cabecera de las tablas. Hoy solo la usa la tabla de cuentas del backoffice: las de api-keys, establecimientos, series y
