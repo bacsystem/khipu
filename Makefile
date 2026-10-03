@@ -17,7 +17,7 @@ IMAGEN_PORTAL ?= khipu-portal
 IMAGEN_BACKEND ?= khipu-backend
 
 .DEFAULT_GOAL := help
-.PHONY: help instalar test test-backend test-backend-todo test-portal e2e lint build build-portal verificar docker-portal docker-backend dev api db-up db-down limpiar env comprobar-env comprobar-despliegue develop-sync deploy-develop develop-datos develop-logs develop-stop develop-reset develop-version
+.PHONY: help instalar test test-backend test-backend-todo test-portal e2e lint build build-portal verificar docker-portal docker-backend dev api db-up db-down limpiar env comprobar-env comprobar-host comprobar-despliegue develop-sync deploy-develop develop-datos develop-logs develop-stop develop-reset develop-version
 
 help: ## Lista los objetivos
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[1m%-16s\033[0m %s\n", $$1, $$2}'
@@ -87,6 +87,13 @@ limpiar: ## Borra artefactos de build del portal y del backend
 # :8026. Ninguno es de desarrollo (`api` :8001, `dev` :3000, Postgres :5432): con los mismos puertos, lo que respondía en :8001
 # dependía de cuál de los dos estuviera levantado, y cambiar de uno a otro parecía que «borraba todo» (eran dos bases distintas).
 # Se cambian con DEVELOP_BACKEND_PORT, DEVELOP_PORTAL_PORT, DEVELOP_POSTGRES_PORT y DEVELOP_MAILPIT_PORT.
+#
+# Host con el que se abre el despliegue (DEVELOP_HOST, `localhost` por defecto). Para abrirlo desde otro dispositivo (el celular):
+# `make deploy-develop DEVELOP_HOST=192.168.x.x`. De él salen PORTAL_URL —el único origen que el backend admite en CORS y la base de
+# los enlaces de los correos— y la URL pública de la API; con `localhost` el celular apuntaría a sí mismo y CORS rechazaría su origen.
+# El despliegue es HTTP local, así que además apaga la cookie Secure (COOKIE_SECURE): por HTTP desde otro dispositivo el navegador
+# la descarta y el login no deja sesión. Es solo para este entorno local; la IP de la red cambia con DHCP.
+DEVELOP_HOST ?= localhost
 DEVELOP_WT ?= $(abspath ../khipu-wt-develop)
 DEVELOP_PROJECT ?= khipu-develop
 # Las claves del despliegue viven en UN archivo fijo, junto al worktree (../khipu-develop.env) y no en el .env de cada checkout:
@@ -102,8 +109,8 @@ DEVELOP_MAILPIT_PORT ?= 8026
 # resetear no las necesitan (en el compose llevan `:-`). Así `develop-reset` funciona justo cuando se perdió el archivo.
 COMPOSE_DEVELOP = POSTGRES_PORT=$(DEVELOP_POSTGRES_PORT) BACKEND_PORT=$(DEVELOP_BACKEND_PORT) PORTAL_PORT=$(DEVELOP_PORTAL_PORT) \
 	MAILPIT_UI_PORT=$(DEVELOP_MAILPIT_PORT) \
-	PORTAL_API_BASE_URL=http://backend:8001 PORTAL_API_PUBLIC_URL=http://localhost:$(DEVELOP_BACKEND_PORT) \
-	PORTAL_URL=http://localhost:$(DEVELOP_PORTAL_PORT) \
+	PORTAL_API_BASE_URL=http://backend:8001 PORTAL_API_PUBLIC_URL=http://$(DEVELOP_HOST):$(DEVELOP_BACKEND_PORT) \
+	PORTAL_URL=http://$(DEVELOP_HOST):$(DEVELOP_PORTAL_PORT) PORTAL_COOKIE_SECURE=false \
 	docker compose -p $(DEVELOP_PROJECT) --project-directory $(DEVELOP_WT) -f $(DEVELOP_WT)/docker-compose.yml $(if $(wildcard $(DEVELOP_ENV)),--env-file $(DEVELOP_ENV))
 
 # `env` arma el archivo en un temporal y solo lo mueve a su sitio si las cuatro claves salieron: un fallo a medias (p. ej. sin
@@ -126,7 +133,7 @@ comprobar-env:
 		grep -Eq "^$$v=.+" $(DEVELOP_ENV) || { echo "$$v está vacío o ausente en $(DEVELOP_ENV): complétalo a mano ('make env' no pisa un archivo existente; si no hay datos que conservar, bórralo y vuelve a correrlo)"; exit 1; }; \
 	done
 
-comprobar-despliegue:
+comprobar-despliegue: comprobar-host
 	@test -d $(DEVELOP_WT) || { echo "No hay despliegue de develop: falta $(DEVELOP_WT) (se crea con 'make deploy-develop')"; exit 1; }
 
 develop-sync: ## Fija el worktree de despliegue en origin/develop (lo crea si no existe; nunca recibe commits)
@@ -134,10 +141,16 @@ develop-sync: ## Fija el worktree de despliegue en origin/develop (lo crea si no
 	@test -d $(DEVELOP_WT) || git worktree add --detach $(DEVELOP_WT) origin/develop
 	git -C $(DEVELOP_WT) checkout --detach origin/develop
 
-deploy-develop: comprobar-env develop-sync ## Construye y levanta develop en Docker (backend, portal y su Postgres)
+# El host va dentro de PORTAL_URL, que el backend compara tal cual en CORS: solo letras, dígitos, puntos y guiones. Se valida desde el
+# entorno (`export`) y no pegándolo en el texto del comando: un host con una comilla rompería el quoting y ejecutaría lo que siga.
+export DEVELOP_HOST
+comprobar-host:
+	@printf '%s' "$$DEVELOP_HOST" | grep -Eq '^[A-Za-z0-9.-]+$$' || { echo "DEVELOP_HOST no es un host válido: solo letras, dígitos, puntos y guiones (p. ej. localhost o 192.168.18.13)"; exit 1; }
+
+deploy-develop: comprobar-host comprobar-env develop-sync ## Construye y levanta develop en Docker (backend, portal y su Postgres); DEVELOP_HOST=<ip> para abrirlo desde otro dispositivo
 	$(COMPOSE_DEVELOP) --profile app up -d --build
 	@echo "Desplegado: $$(git -C $(DEVELOP_WT) log -1 --oneline)"
-	@echo "Portal http://localhost:$(DEVELOP_PORTAL_PORT) · API http://localhost:$(DEVELOP_BACKEND_PORT)/swagger-ui · Correo http://localhost:$(DEVELOP_MAILPIT_PORT)"
+	@echo "Portal http://$(DEVELOP_HOST):$(DEVELOP_PORTAL_PORT) · API http://$(DEVELOP_HOST):$(DEVELOP_BACKEND_PORT)/swagger-ui · Correo http://localhost:$(DEVELOP_MAILPIT_PORT)"
 	@$(MAKE) --no-print-directory develop-datos
 
 # Lee la base del despliegue (no la de desarrollo): ver que los datos siguen ahí después de un deploy es la forma de saber que la

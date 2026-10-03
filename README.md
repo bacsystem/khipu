@@ -53,6 +53,12 @@ make deploy-develop   # tras cada merge: vuelve a fijar origin/develop y reconst
   mismos puertos, lo que respondía dependía de cuál de los dos estuviera levantado y cambiar de uno a otro parecía borrar los datos (eran
   dos bases distintas). Ahora pueden correr a la vez. Las cookies del navegador no distinguen puertos: si usas los dos portales en el mismo
   navegador, uno puede cerrar la sesión del otro; usa una ventana privada para uno de ellos.
+- **Abrirlo desde el celular u otro equipo de la red**: `make deploy-develop DEVELOP_HOST=192.168.x.x` (la IP de tu PC en la red; `ipconfig`).
+  Con `localhost`, el otro dispositivo apuntaría a sí mismo. `DEVELOP_HOST` fija `PORTAL_URL` —el único origen que el backend admite en
+  CORS y la base de los enlaces de los correos— y la URL pública de la API, así que CORS admite justo ese origen y no un comodín. Dos
+  cosas más: (1) el despliegue apaga la cookie `Secure` (`COOKIE_SECURE=false`), porque por HTTP desde otro dispositivo el navegador la
+  descarta y el login no deja sesión; en producción sigue siendo `Secure`; (2) la IP de la red cambia con DHCP y, si el firewall de Windows
+  lo bloquea, hay que permitir los puertos `13000` y `18001` en la red privada. Solo para este entorno local, nunca para un HTTPS real.
 - **Correo**: el backend desplegado envía a Mailpit (`MAIL_SMTP_AUTH=false`, sin credenciales); la recuperación de contraseña y el envío de
   comprobantes se ven en su interfaz web.
 - **Datos aparte**: usa el proyecto `khipu-develop` (volúmenes propios), así que no toca el Postgres ni los datos de tu desarrollo local.

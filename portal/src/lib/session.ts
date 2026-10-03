@@ -7,9 +7,21 @@ export const COOKIE_EMPRESA = "factura_empresa";
 export const ACCESS_MAX_AGE = 15 * 60;
 export const REFRESH_MAX_AGE = 30 * 24 * 60 * 60;
 
+/**
+ * `Secure`: el navegador solo guarda la cookie por HTTPS (salvo en `localhost`). Por defecto lo es en producción. `COOKIE_SECURE`
+ * lo fuerza (`true`) o lo apaga (`false`): el despliegue de develop en Docker es HTTP local y se abre desde el celular por la IP de la
+ * red, donde una cookie `Secure` nunca se guarda y el login no deja sesión. Solo valen los valores exactos `true` y `false`; con
+ * cualquier otro (un typo, `False`, vacío) manda el default, para que un error de escritura no debilite producción.
+ */
+export function cookieSegura(env: Record<string, string | undefined> = process.env): boolean {
+  if (env.COOKIE_SECURE === "true") return true;
+  if (env.COOKIE_SECURE === "false") return false;
+  return env.NODE_ENV === "production";
+}
+
 export const baseCookie = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: cookieSegura(),
   sameSite: "lax" as const,
   path: "/",
 };
