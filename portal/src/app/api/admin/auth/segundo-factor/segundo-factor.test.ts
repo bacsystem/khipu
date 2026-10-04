@@ -81,7 +81,7 @@ describe("POST /api/admin/auth/segundo-factor/confirmar", () => {
 
 describe("POST /api/admin/auth/segundo-factor/verificar", () => {
   it("abre la sesión con la vida que dice el backend y borra el desafío", async () => {
-    vi.mocked(verificarSegundoFactor).mockResolvedValue({ access_token: "jwt-admin", expira_en: 1800, administrador });
+    vi.mocked(verificarSegundoFactor).mockResolvedValue({ access_token: "jwt-admin", expira_en: 600, administrador });
 
     const res = await verificar(postRequest("verificar", { codigo: "654321" }));
     const json = await res.json();
@@ -89,7 +89,7 @@ describe("POST /api/admin/auth/segundo-factor/verificar", () => {
     expect(verificarSegundoFactor).toHaveBeenCalledWith("desafio-1", "654321", {});
     expect(json.datos).toEqual({ administrador });
     expect(res.cookies.get(COOKIE_ADMIN_ACCESS)?.value).toBe("jwt-admin");
-    expect(res.cookies.get(COOKIE_ADMIN_ACCESS)?.maxAge).toBe(1800);
+    expect(res.cookies.get(COOKIE_ADMIN_ACCESS)?.maxAge).toBe(600);
     expect(res.cookies.get(COOKIE_ADMIN_DESAFIO)?.maxAge).toBe(0);
   });
 
