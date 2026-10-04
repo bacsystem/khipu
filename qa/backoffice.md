@@ -1960,6 +1960,57 @@ Lo que sobrevivía en la primera tanda:
 - **Mientras se mira no se registra lo que se mira**, solo que se miró: la bitácora de accesos no es un registro de páginas vistas.
 - **El mock del portal** abre la sesión con el cliente de demostración marcado como soporte (su mundo de clientes es otro): lo que prueba el e2e es el recorrido, no los datos; que la sesión es de solo lectura lo prueba el backend, no el mock.
 
+## #189 · Planes: modelo de plan y suscripción en el dominio
+
+**Estado: 🔧 implementado, 71/71 mutaciones verificadas — falta la revisión de la PR.** Es la base de #190–#194 y #196: solo el modelo, sin pantallas ni endpoints (no los pedía el issue).
+
+### Diseño
+
+- **El plan es un dato.** Tabla `plan`: nombre, precio mensual, documentos al mes, RUC, usuarios, API keys, retención en años y estado (`ACTIVO`/`INACTIVO`), más `por_defecto`. Un límite en `NULL` es **«sin límite»** (el dominio lo dice con `Limite.sinLimite()`, nunca con un número mágico) y **cero no existe**: ni en el dominio ni en un `CHECK` de la base (un plan que no deja emitir un documento no se vende).
+- **Los cuatro planes de la página de precios**, cargados por la propia migración (V37): Gratis (S/ 0, 30 docs, 1 RUC, 1 usuario, 1 key, retención 1 año), Emprende (S/ 29, 300, 1, 1, 2, 5), Negocio (S/ 69, 1 500, 3, 3, 5, 5) y Pro (S/ 129, ilimitados, 10 RUC, usuarios y keys ilimitados, 5). **La página no dice la retención de Negocio y Pro**: heredan los 5 años de Emprende («Todo lo de Emprende»); es una suposición mía y está a una línea de cambiarse.
+- **La suscripción liga una cuenta con un plan** con inicio, vencimiento (`NULL`: no vence, el plan gratis; exclusivo: en ese instante ya empieza la gracia), días de gracia y `termina_en`. **`termina_en NULL` = la suscripción vigente de la cuenta**; con fecha, fue reemplazada y queda como historial. Estados en un instante: `VIGENTE`, `EN_GRACIA`, `VENCIDA`, `REEMPLAZADA`.
+- **«No dos suscripciones activas» lo garantiza la base**, no solo el código: índice único parcial `ux_suscripcion_activa ON suscripcion(cuenta_id) WHERE termina_en IS NULL`. Dos cambios de plan a la vez no pueden dejar a la cuenta con dos, venga el código de donde venga.
+- **«Toda cuenta tiene siempre un plan»**, por tres lados:
+  - **Las cuentas existentes migran a Gratis**, desde el día que se crearon (`inicia_en = cuenta.created_at`).
+  - **Toda cuenta nueva nace con el plan por defecto por un trigger** (`AFTER INSERT ON cuenta`). Lo elegí en vez de ponerlo en cada servicio porque una cuenta se crea por varios caminos (registro, alta asistida, scripts, los INSERT de las pruebas) y «siempre» no puede depender de que cada uno se acuerde. Si no hubiera plan por defecto, **crear la cuenta falla** en vez de dejarla sin plan.
+  - **El plan por defecto es uno solo y siempre activo** (índice único parcial + `CHECK`), y el dominio no deja desactivarlo: dejaría a las cuentas siguientes sin plan. Se identifica por la marca `por_defecto`, no por el nombre, para que renombrar «Gratis» (#190) no rompa nada.
+- **Dominio (`pe.factura.domain.plan`):** `Limite`, `Plan` (valida nombre ≤ 40 sin espacios sobrantes, precio ≥ 0 con a lo sumo dos decimales —se rechaza, no se redondea en silencio—, límites > 0, retención > 0), `Suscripcion` y **`PlanesDeCuenta`**, el agregado que impone las dos reglas del issue: no se puede construir (ni llegar por un cambio) a una cuenta sin suscripción activa (`CUENTA_SIN_PLAN`) ni con dos (`SUSCRIPCIONES_ACTIVAS_MULTIPLES`). `cambiarA` devuelve otro agregado que cierra la activa y abre la nueva **en el mismo instante** (sin hueco ni solape) y no muta el original.
+- **Puertos y adaptadores:** `PlanRepository` (buscar, listar del más barato al más caro, plan por defecto) y `SuscripcionRepository` (`deLaCuenta`, `cambiar`). **`cambiar` es una única sentencia** (una CTE que cierra la activa y, solo si la cerró, inserta la nueva): no hay instante en que la cuenta quede sin plan ni con dos, y de dos cambios a la vez solo uno encuentra la suscripción aún abierta (el otro recibe `false`). Si la nueva no se puede abrir, la vieja sigue activa.
+
+### Tests (72)
+
+- **Dominio (41):** `LimiteTest` (5), `PlanTest` (12), `SuscripcionTest` (13: los instantes exactos del vencimiento y del fin de la gracia), `PlanesDeCuentaTest` (11: sin suscripciones, todas terminadas y dos activas se rechazan; el cambio cierra la activa y abre la nueva en el mismo instante, no muta el original y nunca deja más de una activa).
+- **Esquema, con Postgres real (`EsquemaDePlanesTest`, 14):** los cuatro planes con todos sus valores; Gratis es el único por defecto; una cuenta nueva nace con Gratis activo y cada cuenta con la suya; actualizar la cuenta (el upsert del repositorio) no abre otra; dos activas → error; cerrada la activa se puede abrir otra; nombre único sin importar mayúsculas; un solo plan por defecto, que no puede estar inactivo; límites, precio, fechas y gracia inválidos; sin plan por defecto crear una cuenta falla entera.
+- **Migración de verdad (`MigracionDePlanesTest`, 2):** con su propia base detenida en la versión 36 se crean cuentas «como existían» y recién después se aplica la V37: todas quedan en Gratis, con su fecha de creación, sin vencimiento. Sin cuentas no se crea ninguna suscripción.
+- **Adaptadores (`JdbcPlanRepositoryTest` 7, `JdbcSuscripcionRepositoryTest` 8):** `NULL` vuelve como «sin límite»; orden por precio y luego por nombre; el cambio completo con fechas, vencimiento y gracia; historial en orden; **el segundo de dos cambios simultáneos no hace nada**; si la nueva falla, la cuenta conserva su plan; no toca a otras cuentas; una nueva de otra cuenta no se acepta.
+
+### Verificación por mutación — 71/71 mueren
+
+| Capa | Mutaciones | Cuántas |
+|---|---|---|
+| `Limite` | el cero es válido / lo finito es ilimitado / «sin límite» lleva una cifra | 3 |
+| `Plan` | nombre sin recortar o con otro tope / gratis no puede costar cero / precio negativo / tres decimales / precio sin normalizar / cero RUC o años / el plan por defecto nace inactivo o se desactiva / desactivar no desactiva / un inactivo figura activo / sin estado o sin límites | 14 |
+| `Suscripcion` | gracia negativa / vence al empezar / termina antes de empezar / un día de gracia de más / vencimiento o fin de gracia inclusivos / una reemplazada sigue vigente / se termina dos veces / sin vencimiento vence / sin cuenta o sin inicio | 11 |
+| `PlanesDeCuenta` | suscripción ajena / sin plan / dos activas / cambiar no cierra la activa o cierra en otro instante / la nueva empieza en otro instante, pierde la gracia o el plan / la lista se altera por fuera | 9 |
+| Adaptadores | orden de los planes (2) / un null no es sin límite / el plan por defecto es cualquiera / cambiar pisa una ya cerrada / acepta una nueva de otra cuenta / la vieja termina en otro instante / historial al revés / la nueva pierde vencimiento, gracia o plan / cambiar siempre dice que sí / una cuenta inexistente tiene planes / se leen las de todas las cuentas | 14 |
+| Esquema (V37) | sin trigger / las existentes no migran o migran con la fecha de hoy / un valor de un plan mal / Pro con tope de keys / Gratis no es el defecto / unicidad de la activa abarca el historial o falta / dos planes por defecto / nombre sensible a mayúsculas / defecto inactivo / límite cero, cero RUC, precio negativo, fechas invertidas, gracia negativa, estado desconocido / el trigger no falla sin plan por defecto / el trigger usa otra fecha | 20 |
+
+**Un hueco real, encontrado antes de las mutaciones:** `Plan` normalizaba el precio a dos decimales pero ningún test lo notaba (los míos comparaban con `isEqualByComparingTo`, que ignora la escala). Ahora hay un test que mira el texto (`29.00`, `29.50`, `100.00`).
+
+### Suites
+
+- Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (7 min 51 s; incluye `ArchitectureTest` y todos los E2E de Spring con Postgres real, que ahora crean sus cuentas con el trigger de plan).
+- Portal: sin cambios (esta PR solo toca el backend).
+
+### Límites conocidos
+
+- **Todavía nada hace valer el plan.** `LIMITE_PLAN` sigue siendo un texto: aplicar los límites es #192. Esta PR solo hace que el plan exista, se pueda asignar y nunca falte.
+- **No hay endpoints ni pantalla**: asignar y cambiar el plan es #191, el CRUD de planes #190. Los adaptadores no están cableados en `AppConfig` todavía (no los usa nadie).
+- **El trigger esconde una regla en la base.** Es deliberado (ver arriba) y está comentado en la migración, pero quien lea solo el código Java no verá de dónde sale la suscripción de una cuenta nueva.
+- **Retención de Negocio y Pro**: suposición (5 años), la página de precios no la dice.
+- **«Cambiar un límite afecta al ciclo siguiente»** (#190) necesitará que la suscripción recuerde los límites con los que empezó el ciclo; este modelo no lo hace aún y no se anticipó para no inventar lo que #190 va a decidir.
+- **La migración no es reversible por sí sola** (no hay `undo` de Flyway en este repo): revertir es borrar el trigger, `suscripcion` y `plan`.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
