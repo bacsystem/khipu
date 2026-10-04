@@ -41,7 +41,7 @@ public class AvisarAlClienteService implements AvisarAlClienteUseCase {
         Situacion s = avisos.situacionDe(empresaId, LocalDate.now(clock)).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "La empresa no existe"));
         MotivoDeAviso motivo = motivoDe(s, tipo);
         if (motivo == null) throw new DomainException("AVISO_SIN_MOTIVO", "No hay nada que avisar: la empresa no está en ese problema");
-        if (s.cuenta().cuentaId() == null || s.cuenta().email() == null) throw new DomainException("EMPRESA_SIN_CUENTA", "La empresa no tiene una cuenta con correo a quien avisarle");
+        if (s.cuenta().email() == null) throw new DomainException("EMPRESA_SIN_CUENTA", "La empresa no tiene una cuenta con correo a quien avisarle");
         if (!correo.entregaDeVerdad()) throw new DomainException("CORREO_NO_CONFIGURADO", "El envío de correos no está habilitado en el servidor: no se mandó nada");
 
         AvisoRegistrado aviso = new AvisoRegistrado(UUID.randomUUID(), empresaId, s.cuenta().cuentaId(), motivo, s.cuenta().email(), ahora, actor.administradorId());
