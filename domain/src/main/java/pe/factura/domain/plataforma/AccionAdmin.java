@@ -32,5 +32,15 @@ public enum AccionAdmin {
     /** Prueba la conexión de una empresa con SUNAT usando sus credenciales SOL (#187). El detalle lleva el resultado, nunca las credenciales. */
     PROBAR_CONEXION_EMPRESA,
     /** Un administrador abrió una sesión de soporte como un usuario de un cliente: solo lectura, 15 minutos (#184). El detalle dice a qué usuario y por cuánto tiempo; nunca lleva el token. */
-    IMPERSONAR_USUARIO
+    IMPERSONAR_USUARIO,
+    /** Alta de un plan (#190). El detalle dice su nombre, precio y límites. */
+    CREAR_PLAN,
+    /** Cambio de nombre, precio o límites de un plan (#190). El detalle dice qué cambió, de qué a qué y, para los límites, desde cuándo. */
+    EDITAR_PLAN,
+    /** Saca un plan de la oferta sin tocar a las cuentas que ya lo tienen (#190). */
+    DESACTIVAR_PLAN,
+    /** Devuelve un plan a la oferta (#190). */
+    ACTIVAR_PLAN,
+    /** Borra un plan que nadie usó nunca (#190). */
+    ELIMINAR_PLAN
 }

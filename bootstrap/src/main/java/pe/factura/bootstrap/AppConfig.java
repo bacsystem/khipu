@@ -217,6 +217,8 @@ public class AppConfig {
     @Bean BajaDeCuentaRepository bajaDeCuentaRepository(JdbcTemplate jdbc) { return new JdbcBajaDeCuentaRepository(jdbc); }
     @Bean AccionesDeEmpresaRepository accionesDeEmpresaRepository(JdbcTemplate jdbc) { return new JdbcAccionesDeEmpresaRepository(jdbc); }
     @Bean AccesosDeSoporteRepository accesosDeSoporteRepository(JdbcTemplate jdbc) { return new JdbcAccesosDeSoporteRepository(jdbc); }
+    @Bean PlanRepository planRepository(JdbcTemplate jdbc) { return new JdbcPlanRepository(jdbc); }
+    @Bean SuscripcionRepository suscripcionRepository(JdbcTemplate jdbc) { return new JdbcSuscripcionRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -314,6 +316,9 @@ public class AppConfig {
     }
     @Bean DarDeBajaCuentaUseCase darDeBajaCuenta(CuentaRepository cuentas, BajaDeCuentaRepository bajas, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new DarDeBajaCuentaService(cuentas, bajas, auditoria, u, clock);
+    }
+    @Bean GestionarPlanesUseCase gestionarPlanes(PlanRepository planes, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
+        return new GestionarPlanesService(planes, auditoria, u, clock);
     }
     @Bean AccionesDeEmpresaUseCase accionesDeEmpresa(TenantRepository tenants, AccionesDeEmpresaRepository acciones, SunatBillingGateway sunat, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new AccionesDeEmpresaService(tenants, acciones, sunat, auditoria, u, clock);
