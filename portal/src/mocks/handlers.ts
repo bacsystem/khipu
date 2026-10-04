@@ -1574,6 +1574,39 @@ export const handlers = [
     );
   }),
 
+  /**
+   * Como el backend (#15): el resumen de los comprobantes de la empresa en un rango de fecha de emisión (inclusive; un lado ausente lo deja abierto). Emitidos: todo menos lo
+   * que nunca se firmó; aceptados: con o sin observaciones; atención requerida: rechazados, error de envío y fuera de plazo, cada uno aparte; facturado por moneda con lo
+   * aceptado y lo que está en camino, las notas de crédito restando. **Va antes de `/v1/facturas/:id`**: si no, «resumen» se tomaría por un id.
+   */
+  http.get(`${BASE}/v1/facturas/resumen`, ({ request }) => {
+    if (!claims(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const url = new URL(request.url);
+    const desde = url.searchParams.get("desde");
+    const hasta = url.searchParams.get("hasta");
+    if ((desde && !fechaIsoValidaMock(desde)) || (hasta && !fechaIsoValidaMock(hasta))) return fail(400, "PARAMETRO_INVALIDO", "Una fecha no tiene un formato válido");
+    if (desde && hasta && desde > hasta) return fail(400, "RANGO_INVALIDO", `desde (${desde}) no puede ser posterior a hasta (${hasta})`);
+    const del = (db.facturasPorEmpresa.get(empresaId) ?? []).filter((f) => (!desde || f.fecha_emision >= desde) && (!hasta || f.fecha_emision <= hasta));
+    const cuenta = (estados: string[]) => del.filter((f) => estados.includes(f.estado_documento)).length;
+    const facturables = ["ACEPTADO", "ACEPTADO_CON_OBS", "ENVIADO", "FIRMADO", "ERROR_ENVIO", "PENDIENTE_AGRUPACION"];
+    const porMoneda = new Map<string, number>();
+    for (const f of del.filter((x) => facturables.includes(x.estado_documento))) {
+      porMoneda.set(f.moneda, Math.round(((porMoneda.get(f.moneda) ?? 0) + (f.tipo === "07" ? -f.totales.total : f.totales.total)) * 100) / 100);
+    }
+    const rechazados = cuenta(["RECHAZADO"]);
+    const erroresDeEnvio = cuenta(["ERROR_ENVIO"]);
+    const fueraDePlazo = cuenta(["FUERA_DE_PLAZO"]);
+    return ok({
+      ...(desde ? { desde } : {}),
+      ...(hasta ? { hasta } : {}),
+      emitidos: del.filter((f) => !["RECIBIDO", "INVALIDO"].includes(f.estado_documento)).length,
+      aceptados_con_cdr: cuenta(["ACEPTADO", "ACEPTADO_CON_OBS"]),
+      atencion_requerida: { total: rechazados + erroresDeEnvio + fueraDePlazo, rechazados, errores_de_envio: erroresDeEnvio, fuera_de_plazo: fueraDePlazo },
+      facturado: [...porMoneda.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([moneda, total]) => ({ moneda, total })),
+    });
+  }),
+
   http.get(`${BASE}/v1/facturas/:id`, ({ params, request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
     const lista = db.facturasPorEmpresa.get(empresaId) ?? [];

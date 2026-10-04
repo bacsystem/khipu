@@ -391,6 +391,42 @@ export async function listarFacturas(
   return { datos: datos.map(normalizarComprobante), total: totalDesdeHeaders(headers, datos.length) };
 }
 
+/**
+ * El resumen de los comprobantes de la empresa en un período (#15), con la forma real del JSON. `desde`/`hasta` faltan si ese lado del rango estaba abierto. `facturado`
+ * va por moneda y vacío si no hay nada; es el neto: las notas de crédito restan.
+ */
+export type ResumenDeFacturas = {
+  desde?: string;
+  hasta?: string;
+  /** Comprobantes firmados del período, en cualquier estado. */
+  emitidos: number;
+  /** Aceptados por SUNAT, con o sin observaciones: los que ya tienen su CDR. */
+  aceptados_con_cdr: number;
+  atencion_requerida: { total: number; rechazados: number; errores_de_envio: number; fuera_de_plazo: number };
+  facturado: Array<{ moneda: string; total: number }>;
+};
+
+/** El período que resumen las métricas: el rango de fechas que se está mirando o, si no hay ninguno, el mes en curso en Lima hasta hoy. */
+export type PeriodoDelResumen = { desde?: string; hasta?: string; esElMesEnCurso: boolean };
+
+/**
+ * Qué período resume la franja de métricas de la página de comprobantes: el de los filtros de fecha, y sin ellos el mes en curso (de su día 1 a hoy, en Lima) y no todo el
+ * historial: es «una foto del mes». Solo importan `desde` y `hasta`; los demás filtros (estado, serie) no acotan el resumen.
+ */
+export function periodoDelResumen(filtros: Pick<FiltrosComprobantes, "desde" | "hasta">, hoy: string): PeriodoDelResumen {
+  if (filtros.desde || filtros.hasta) return { desde: filtros.desde, hasta: filtros.hasta, esElMesEnCurso: false };
+  return { desde: `${hoy.slice(0, 7)}-01`, hasta: hoy, esElMesEnCurso: true };
+}
+
+/** Solo desde el servidor: usa el JWT del usuario y la empresa activa, que el navegador no manda a mano. */
+export function resumirFacturas(access: string, empresaId: string, periodo: Pick<PeriodoDelResumen, "desde" | "hasta">) {
+  const qs = new URLSearchParams();
+  if (periodo.desde) qs.set("desde", periodo.desde);
+  if (periodo.hasta) qs.set("hasta", periodo.hasta);
+  const consulta = qs.toString();
+  return backendFetch<ResumenDeFacturas>(`/v1/facturas/resumen${consulta ? `?${consulta}` : ""}`, { headers: tenantHeaders(access, empresaId) });
+}
+
 export async function obtenerFactura(access: string, empresaId: string, id: string) {
   const c = await backendFetch<Comprobante>(`/v1/facturas/${id}`, { headers: tenantHeaders(access, empresaId) });
   return normalizarComprobante(c);
