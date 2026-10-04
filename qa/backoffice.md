@@ -1757,6 +1757,92 @@ bajas, cuentas, empresas, suspensión y detalle 60/60.
 - **El e2e de Playwright no muta:** dar de baja o reponer una cuenta cambia lo que cuentan las demás specs que corren a la vez contra el mismo mock (12 cuentas, 12 empresas); por eso «Cliente 13» está de baja de
   siembra y las specs solo la leen. El ciclo completo, con la bitácora, lo prueba `BajaDeClienteE2ETest`, y el diálogo y sus estados, `acciones-de-baja`.
 
+## #187 · Acciones sobre una empresa: entorno, API keys y prueba de conexión
+
+**Estado: 🔧 implementado, 84/84 mutaciones verificadas (2 equivalentes documentadas) — falta la revisión de la PR.** La acción con más consecuencias del backoffice: el entorno decide contra qué URLs de SUNAT se emite.
+
+`POST /v1/admin/empresas/{id}/entorno`, `POST /v1/admin/empresas/{id}/api-keys/{apiKeyId}/revocar` y `POST /v1/admin/empresas/{id}/prueba-de-conexion`. Las tres quedan en la bitácora, también en la de la cuenta
+dueña (si la tiene), y ninguna lleva secretos.
+
+### Diseño
+
+- **Cambiar el entorno** (`BETA` ↔ `PRODUCCION`) toca **una sola columna**, con `UPDATE … WHERE entorno = <el que se vio>`: no pasa por `JdbcTenantRepository.guardar`, que reescribe la fila entera (certificado y credenciales
+  SOL cifrados incluidos). Es condicional y va en la misma transacción que la bitácora (`desde=BETA hacia=PRODUCCION`). **No toca los comprobantes ya emitidos**: el E2E compara el documento y el comprobante antes y después.
+- **Con envíos pendientes en el outbox el cambio se rechaza** (`409 EMPRESA_CON_ENVIOS_PENDIENTES`). El worker del outbox reintenta contra el entorno que la empresa tenga *en ese momento*: sin este freno, un comprobante
+  emitido en beta podía enviarse a la SUNAT de producción (o al revés). Una sola tarea pendiente basta. Es una decisión de diseño que el issue no pedía y que conviene revisar: si el outbox queda atascado, hay que vaciarlo
+  antes de poder cambiar el entorno. La comprobación y el cambio no son atómicos entre sí: una emisión que cree una tarea justo entre las dos pasaría (ventana pequeña, documentada).
+- **Revocar una API key concreta**, solo esa: `UPDATE api_key SET activa = false, revoked_at = ? WHERE id = ? AND tenant_id = ? AND activa`. De dos pedidos a la vez solo uno lo logra y el otro recibe `409
+  API_KEY_YA_REVOCADA`; una key de otra empresa o inexistente es `404`, sin confirmar que existe. La key revocada deja de autenticar de inmediato (el E2E lo comprueba con una llamada real) y las otras siguen
+  sirviendo. La bitácora lleva el **prefijo**, nunca la clave.
+- **Probar la conexión con SUNAT** consulta, con las credenciales SOL y el entorno de la empresa, `getStatus` de un **ticket que no existe**: es de solo lectura, no envía ni cambia nada. Responde `CONECTADO` (SUNAT
+  contestó con normalidad), `RECHAZADO` (contestó con un error definitivo) o `SIN_RESPUESTA` (red, tiempo de espera, error del servicio o de autenticación HTTP), con el **código y el mensaje de SUNAT tal cual**. La
+  llamada se hace **fuera de la transacción**. Sin credenciales SOL, `409 SOL_NO_CARGADAS` y no se llama a SUNAT.
+- **Portal:** en el detalle de la empresa, **Cambiar entorno** (el diálogo siempre ofrece el contrario al que se ve; pasar a producción dice que emite de verdad, que hacen falta las credenciales y el certificado de
+  producción, que no toca lo emitido y que no se puede con envíos pendientes), **Revocar** en cada key vigente (dice cuál, que deja de autenticar de inmediato, que las demás siguen y que no se deshace) y **Probar
+  conexión** (sin confirmación, porque no cambia nada; el resultado se muestra en la propia página con su código y su mensaje). Salen por tres rutas del BFF que validan los ids, exigen sesión de administrador y
+  reenvían la IP real (#208).
+- **Un diálogo de confirmación común** (`DialogoDeAccion`) reúne lo que ya habían aprendido suspender, dar de baja y los correos de acceso: guardia contra el doble clic con un ref, no se cierra mientras envía (Escape
+  incluido), un corte de red no se reintenta a ciegas y un error que dice que la página quedó vieja recarga. Las tres acciones nuevas lo usan; las anteriores siguen con su copia (migrarlas toca código de PRs de más abajo).
+
+### Tests
+
+- Servicio (`AccionesDeEmpresaServiceTest`, 23): cambio y bitácora (acción, actor, origen y destino, cuenta, misma transacción, falla → falla), el mismo entorno, **un solo envío pendiente ya frena**, entorno nulo, empresa
+  inexistente en las tres acciones; revocar (prefijo en la bitácora, ya revocada, otra empresa o inexistente, falla de la bitácora); prueba (credenciales y entorno de la empresa, ticket de solo lectura, error
+  definitivo, sin respuesta, sin SOL, bitácora sin credenciales, **SUNAT se consulta fuera de la transacción**).
+- Persistencia (`JdbcAccionesDeEmpresaRepositoryTest`, 12, Postgres real): el cambio condicional, **no toca ninguna otra columna** (certificado y SOL cifrados siguen), no afecta a otras empresas; los pendientes son
+  de la empresa; la key se lee con su prefijo, la de otra empresa no se encuentra ni se revoca, revocar dos veces no pisa la hora.
+- REST (`AdminEmpresaAccionesControllerTest`, 13): actor, ids, respuesta sin secretos, un entorno inexistente es 400, los cuatro conflictos son 409 con su código, 404, sin credencial no se ejecuta nada y ids mal formados.
+- **E2E real** (`AccionesDeEmpresaE2ETest`, 13, Spring completo + Postgres + los filtros reales, con SUNAT sustituida por un doble que registra con qué empresa lo llamaron): el cambio de entorno no toca los comprobantes, ni
+  las keys, ni las credenciales SOL, ni a otra empresa, y se puede volver; con envíos pendientes se rechaza y al vaciarlos procede; **una key revocada deja de autenticar y la otra no**; la prueba usa el RUC, las
+  credenciales SOL descifradas y el entorno de la empresa, y distingue los tres resultados; la bitácora (en la de la cuenta también, sin secretos, con la empresa de integración sin cuenta); y que nadie más puede.
+- Portal, Vitest: cliente (`admin-acciones-empresa` 10), BFF (`entorno` 8, `revocar` 7, `prueba-de-conexion` 6), `dialogo-de-accion` (16) y `acciones-de-empresa` (17: qué entorno se ofrece y qué dice el diálogo, qué se
+  envía y a qué ruta, errores y estado viejo; la prueba con sus tres resultados, sin SOL, doble clic y resultado viejo), más el ajuste de `empresa-detalle` (qué botones hay y cuáles se ofrecen a cada key).
+- Portal, Playwright (`admin-acciones-empresa.spec.ts`, 14 + el ajuste de `admin-empresa-detalle.spec.ts`): la prueba de conexión de punta a punta con los tres resultados; sin SOL deshabilitada; los diálogos de cambiar
+  de entorno y de revocar; con envíos pendientes el diálogo muestra el rechazo y sigue abierto; cancelar no envía; y los conflictos, 400, 404, 422 y 401 del BFF.
+
+### Verificación por mutación — 84/84 mueren (2 equivalentes)
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | El mismo entorno no es conflicto / los envíos pendientes no frenan / **un envío no basta** / entorno nulo | 1 + 1 + 1 + 1 |
+| Servicio | La bitácora del entorno pierde el origen / la cuenta / dice otra acción / no se registra | 1 + 1 + 1 + 3 |
+| Servicio | La bitácora de la key pierde el prefijo / no se registra / sin la empresa | 1 + 3 + 1 |
+| Servicio | Sin SOL se llama a SUNAT / el error definitivo y la falta de respuesta se confunden / la bitácora lleva el mensaje o no se registra | 1 + 2 + 1 + 1 + 3 |
+| Servicio | La prueba pierde el código / consulta con otra empresa | 2 + 1 |
+| Persistencia | Cambiar el entorno sin condición / revocar sin comprobar que estuviera activa / revocar o buscar una key de otra empresa | 1 + 1 + 1 + 1 |
+| Persistencia | Los pendientes son de todas las empresas / la revocación ignora la hora / el cambio de entorno desactiva las credenciales | 1 + 2 + 1 |
+| REST | El cuerpo se pierde / cada uno de los cuatro conflictos deja de ser 409 | 2 + 1 + 1 + 1 + 1 |
+| REST | El cambio intercambia origen y destino / la revocación o la prueba pierden un dato | 1 + 1 + 1 + 1 |
+| Vitest (cliente) | Rutas equivocadas (3) / el entorno, el JWT o la IP no viajan / un tercer entorno | 1 + 1 + 1 + 1 + 3 + 3 + 1 |
+| Vitest (BFF) | Entorno: sin sesión / id cualquiera / entorno inventado / sin IP / sin `no-store` | 1 + 1 + 1 + 1 + 1 |
+| Vitest (BFF) | Revocar y probar: sin sesión / ids cualquiera (empresa y key) / sin IP | 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 |
+| Vitest (componentes) | Se ofrece el mismo entorno / pasar a producción no pesa más / ruta o cuerpo equivocados | 4 + 1 + 2 + 2 |
+| Vitest (componentes) | Un estado viejo no recarga (entorno y key) / revocar a otra ruta | 1 + 1 + 1 |
+| Vitest (componentes) | La prueba: sin SOL / doble clic / el error se pinta de verde / resultado viejo / mensaje perdido / entorno al revés / código oculto / prefijo sin nombrar | 1 + 1 + 1 + 1 + 1 + 2 + 1 + 1 |
+| Vitest (diálogo) | Doble clic / Escape / corte de red / estado viejo / la respuesta no llega / no recarga / cancelar no avisa / el cuerpo se lee al montar / el error queda al reabrir | 1 + 1 + 2 + 1 + 1 + 2 + 1 + 2 + 1 |
+| Vitest y Playwright (detalle) | Se ofrece revocar una key revocada / la key que se revoca es otra / se prueba sin SOL / el entorno del diálogo es fijo | 1 + 1 + 1 + 1 |
+
+Lo que sobrevivía en la primera tanda:
+
+- **Un solo envío pendiente no frenaba el cambio** (`> 0` → `> 1`): mi test usaba tres. Era un hueco real, y el peor posible en esta acción. Ahora hay un test con exactamente una tarea.
+- **Dos mutaciones equivalentes**, que no son huecos: la comprobación previa de «la key ya está revocada» (el cambio condicional ya devuelve ese 409 sin dejar registro, así que la comprobación sobraba: se **quitó**)
+  y la guarda de una key con id nulo (la ruta exige un UUID y una key nula no existe de todas formas: sigue siendo `404`).
+
+### Suites
+
+- Backend: `./gradlew test` completo sobre la rama, código de salida 0 (incluye `ArchitectureTest` y `AccionesDeEmpresaE2ETest`).
+- Portal: `tsc --noEmit` limpio · ESLint limpio · Vitest 580/580 · Playwright completo 228/228 (2 workers y nada más corriendo). La primera corrida no arrancó: el servidor de desarrollo agotó su espera
+  porque no pudo descargar las fuentes de Google (fallo del entorno, no de las pruebas); la segunda pasó entera.
+
+### Límites conocidos
+
+- **La prueba de conexión no diagnostica por sí sola.** Consulta un ticket que no existe, así que un error de ticket es esperable y no significa que las credenciales estén mal. Se muestra el código y el mensaje de SUNAT
+  tal cual, sin clasificar «credenciales inválidas»: no se pudo verificar contra SUNAT real qué responde exactamente en cada caso, y no se promete lo que no se verificó.
+- **No se mide cuánto tarda la prueba** ni se cachea su resultado: cada pulsación es una consulta a SUNAT y una fila en la bitácora.
+- **Cambiar el entorno no cambia las credenciales ni el certificado**: pasar a producción con los de pruebas hará que SUNAT rechace los envíos. El diálogo lo advierte; validarlo antes sería otra funcionalidad.
+- **El e2e de Playwright no ejecuta los cambios que sí proceden** (pasar a producción, revocar una key): alteran lo que cuentan las demás specs que corren a la vez contra el mismo mock. Lo que no muta (la prueba de
+  conexión, los diálogos y los rechazos) sí está de punta a punta; los cambios reales los prueban `AccionesDeEmpresaE2ETest` y los componentes.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
