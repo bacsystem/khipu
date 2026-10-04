@@ -115,6 +115,9 @@ test("el cliente ve en su portal los accesos de soporte a su cuenta, sin saber q
   const tabla = page.getByTestId("accesos-de-soporte");
   await expect(tabla.locator("tbody tr")).toHaveCount(2);
   await expect(tabla.locator("tbody tr").first()).toContainText("demo@example.com");
+  // Visible de verdad, no solo presente en el DOM: es lo que el cliente necesita leer.
+  await expect(tabla.getByText("demo@example.com")).toBeVisible();
+  await expect(tabla.getByText("15 min")).toBeVisible();
   await expect(tabla.locator("tbody tr").first()).toContainText("15 min");
   // El acceso cuyo registro no se entiende se muestra igual, con su fecha.
   await expect(tabla.locator("tbody tr").nth(1)).toContainText("Sin detalle");

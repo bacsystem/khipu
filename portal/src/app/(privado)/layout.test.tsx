@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/types";
 
@@ -14,6 +14,7 @@ vi.mock("@/lib/api/empresas", () => ({ listarEmpresas: vi.fn() }));
 vi.mock("@/components/auth/revisa-tu-correo", () => ({ RevisaTuCorreo: () => null }));
 vi.mock("@/components/nav/sidebar-content", () => ({ SidebarContent: () => null }));
 vi.mock("@/components/nav/top-bar", () => ({ TopBar: () => null }));
+vi.mock("@/lib/api/browser", () => ({ apiRequest: vi.fn().mockResolvedValue({ estado: "exito", datos: null, mensaje: null, codigo: null, errores: null }) }));
 
 import { me } from "@/lib/api/auth";
 import { listarEmpresas } from "@/lib/api/empresas";
@@ -115,6 +116,25 @@ describe("PrivadoLayout (#184)", () => {
     const aviso = screen.getByTestId("aviso-de-soporte");
     const contenido = screen.getByText("contenido");
     expect(aviso.compareDocumentPosition(contenido) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  /** Salir vuelve a la cuenta del usuario al que se mira (la que dice /me), no a otra: la empresa activa tiene su propio id y el administrador no mira «una cuenta cualquiera». */
+  it("salir del modo soporte lleva a la cuenta del usuario al que se mira", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue({ ...USUARIO, soporte_hasta: "2026-10-04T17:15:00Z" } as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, "location", { configurable: true, value: { ...original, assign } });
+    try {
+      render(await PrivadoLayout({ children: null }));
+
+      fireEvent.click(screen.getByTestId("salir-de-soporte"));
+
+      await waitFor(() => expect(assign).toHaveBeenCalledWith("/admin/cuentas/c1"));
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: original });
+    }
   });
 
   it("una sesión normal no muestra ningún aviso", async () => {
