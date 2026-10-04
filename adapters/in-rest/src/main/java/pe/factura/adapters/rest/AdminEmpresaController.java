@@ -16,6 +16,7 @@ import pe.factura.application.port.in.DetalleEmpresaAdminUseCase;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.EstadoCertificado;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.Filtro;
+import pe.factura.application.port.in.VisibilidadDeBajas;
 import pe.factura.domain.tenant.Entorno;
 
 import java.util.List;
@@ -39,14 +40,16 @@ public class AdminEmpresaController {
             cuenta. El total de resultados va en la cabecera `X-Total-Count` y refleja los filtros, que se combinan con «y». Por cada
             empresa: su cuenta, su entorno, el estado del certificado y los días que le quedan (hoy es la fecha de Lima), si tiene
             credenciales SOL cargadas, sus series activas, los documentos emitidos en el mes y la fecha de la última emisión. Del certificado
-            y de las credenciales solo se informa su estado, **nunca su contenido**. `entorno` o `certificado` con un valor que no existe
-            responden `400`.""")
+            y de las credenciales solo se informa su estado, **nunca su contenido**. `entorno`, `certificado` o `bajas` con un valor que no existe
+            responden `400`. **Las empresas de cuentas dadas de baja (#201) no salen** salvo que se pida con `bajas`: `INCLUIDAS` las mezcla y
+            `SOLO` devuelve únicamente esas; el total las trata igual. Las empresas sin cuenta nunca están de baja.""")
     public ResponseEntity<ApiResponse<List<EmpresaAdminResponse>>> listar(
             @Parameter(description = "Solo las empresas de ese entorno") @RequestParam(required = false) Entorno entorno,
             @Parameter(description = "Solo las empresas con el certificado en ese estado") @RequestParam(required = false) EstadoCertificado certificado,
+            @Parameter(description = "Qué hacer con las empresas de cuentas dadas de baja: `OCULTAS` (por defecto), `INCLUIDAS` o `SOLO`") @RequestParam(required = false) VisibilidadDeBajas bajas,
             @Parameter(description = "Página, desde 1") @RequestParam(defaultValue = "1") int pagina,
             @Parameter(description = "Resultados por página, 1–100") @RequestParam(name = "por_pagina", defaultValue = "20") int porPagina) {
-        var filtro = new Filtro(entorno, certificado);
+        var filtro = new Filtro(entorno, certificado, bajas);
         List<EmpresaAdminResponse> datos = empresas.listar(filtro, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
                 .stream().map(EmpresaAdminResponse::de).toList();
         return ResponseEntity.ok().header(FacturaController.TOTAL_HEADER, String.valueOf(empresas.contar(filtro))).body(ApiResponse.ok(datos));

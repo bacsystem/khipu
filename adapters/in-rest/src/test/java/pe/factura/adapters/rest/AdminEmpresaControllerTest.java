@@ -12,6 +12,7 @@ import pe.factura.application.port.in.ListarEmpresasAdminUseCase;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.EmpresaResumen;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.EstadoCertificado;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.Filtro;
+import pe.factura.application.port.in.VisibilidadDeBajas;
 import pe.factura.domain.tenant.Entorno;
 
 import java.time.Instant;
@@ -33,7 +34,7 @@ class AdminEmpresaControllerTest {
     static final UUID ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     static final UUID CUENTA = UUID.fromString("22222222-2222-2222-2222-222222222222");
     static final EmpresaResumen ANDINA = new EmpresaResumen(ID, "20100066603", "COMERCIAL ANDINA SAC", CUENTA, "Mi negocio", Entorno.PRODUCCION,
-            EstadoCertificado.POR_VENCER, LocalDate.of(2026, 10, 20), 17, true, 2, 31, LocalDate.of(2026, 10, 2));
+            EstadoCertificado.POR_VENCER, LocalDate.of(2026, 10, 20), 17, true, 2, 31, LocalDate.of(2026, 10, 2), null);
 
     @Autowired MockMvc mvc;
     @MockBean ListarEmpresasAdminUseCase listar;
@@ -64,7 +65,7 @@ class AdminEmpresaControllerTest {
     /** Como en toda la API (`non_null`): una empresa sin cuenta, sin certificado y que nunca emitió no trae esos campos. */
     @Test void loQueNoTieneValorNoAparece() throws Exception {
         EmpresaResumen nueva = new EmpresaResumen(ID, "20100066611", "INTEGRADOR SAC", null, null, Entorno.BETA, EstadoCertificado.SIN_CERTIFICADO,
-                null, null, false, 0, 0, null);
+                null, null, false, 0, 0, null, null);
         when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(nueva));
 
         mvc.perform(get("/v1/admin/empresas"))
@@ -262,5 +263,48 @@ class AdminEmpresaControllerTest {
         mvc.perform(get("/v1/admin/empresas/no-es-un-uuid")).andExpect(status().isBadRequest());
 
         verifyNoInteractions(detalle);
+    }
+
+    // --- #201: baja lógica de la cuenta ----------------------------------------------------------------------------------------------
+
+    @Test void unaEmpresaDeUnaCuentaDeBajaDiceDesdeCuando() throws Exception {
+        EmpresaResumen deBaja = new EmpresaResumen(ID, "20100066603", "COMERCIAL ANDINA SAC", CUENTA, "Mi negocio", Entorno.PRODUCCION,
+                EstadoCertificado.POR_VENCER, LocalDate.of(2026, 10, 20), 17, true, 2, 31, LocalDate.of(2026, 10, 2), java.time.Instant.parse("2026-10-03T09:00:00Z"));
+        when(listar.listar(new Filtro(null, null, VisibilidadDeBajas.SOLO), 1, 20)).thenReturn(List.of(deBaja));
+
+        mvc.perform(get("/v1/admin/empresas").param("bajas", "SOLO"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos[0].cuenta_de_baja_en").value("2026-10-03T09:00:00Z"));
+    }
+
+    @Test void unaEmpresaEnServicioNoLlevaFechaDeBaja() throws Exception {
+        when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(ANDINA));
+
+        mvc.perform(get("/v1/admin/empresas")).andExpect(jsonPath("$.datos[0].cuenta_de_baja_en").doesNotExist());
+    }
+
+    @Test void sinPedirNadaLasBajasSeOcultanYElTotalLasTrataIgual() throws Exception {
+        when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(ANDINA));
+
+        mvc.perform(get("/v1/admin/empresas")).andExpect(status().isOk());
+
+        verify(listar).listar(new Filtro(null, null, VisibilidadDeBajas.OCULTAS), 1, 20);
+        verify(listar).contar(new Filtro(null, null, VisibilidadDeBajas.OCULTAS));
+    }
+
+    @Test void elFiltroDeBajasSeCombinaConLosOtrosYLlegaAlTotal() throws Exception {
+        var filtro = new Filtro(Entorno.PRODUCCION, EstadoCertificado.VENCIDO, VisibilidadDeBajas.INCLUIDAS);
+        when(listar.listar(filtro, 1, 20)).thenReturn(List.of(ANDINA));
+        when(listar.contar(filtro)).thenReturn(4L);
+
+        mvc.perform(get("/v1/admin/empresas").param("entorno", "PRODUCCION").param("certificado", "VENCIDO").param("bajas", "INCLUIDAS"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "4"));
+    }
+
+    @Test void unValorDeBajasQueNoExisteEs400() throws Exception {
+        mvc.perform(get("/v1/admin/empresas").param("bajas", "TODAS")).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(listar);
     }
 }

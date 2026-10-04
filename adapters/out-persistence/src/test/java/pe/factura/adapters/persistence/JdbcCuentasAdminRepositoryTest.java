@@ -3,6 +3,7 @@ package pe.factura.adapters.persistence;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.CuentaResumen;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.Filtro;
+import pe.factura.application.port.in.VisibilidadDeBajas;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -425,5 +426,75 @@ class JdbcCuentasAdminRepositoryTest extends PersistenciaTestBase {
 
         assertThat(repo.contar(Filtro.NINGUNO)).isEqualTo(1);
         assertThat(repo.listar(new Filtro("sus@"), 1, 20)).hasSize(1);
+    }
+
+    // --- #201: baja lógica ----------------------------------------------------------------------------------------------------------
+
+    UUID deBaja(String nombre, String email, Instant creada) {
+        UUID id = cuenta(nombre, email, creada);
+        jdbc.update("UPDATE cuenta SET baja_en = ? WHERE id = ?", Timestamp.from(creada.plusSeconds(500)), id);
+        return id;
+    }
+
+    /** El listado operativo por defecto: la cuenta dada de baja desaparece, y el total (la cabecera de paginación) la descuenta también. */
+    @Test void lasCuentasDeBajaNoSalenEnElListadoNiEnElTotalPorDefecto() {
+        cuenta("Activa", "act@x.pe", T0);
+        deBaja("Se fue", "baja@x.pe", T0.plusSeconds(60));
+
+        assertThat(emails(repo.listar(Filtro.NINGUNO, 1, 20))).containsExactly("act@x.pe");
+        assertThat(repo.contar(Filtro.NINGUNO)).isEqualTo(1);
+    }
+
+    @Test void conIncluidasSalenLasDosYSoloDevuelveUnicamenteLasDeBaja() {
+        cuenta("Activa", "act@x.pe", T0);
+        deBaja("Se fue", "baja@x.pe", T0.plusSeconds(60));
+
+        assertThat(emails(repo.listar(new Filtro(null, VisibilidadDeBajas.INCLUIDAS), 1, 20))).containsExactly("baja@x.pe", "act@x.pe");
+        assertThat(repo.contar(new Filtro(null, VisibilidadDeBajas.INCLUIDAS))).isEqualTo(2);
+        assertThat(emails(repo.listar(new Filtro(null, VisibilidadDeBajas.SOLO), 1, 20))).containsExactly("baja@x.pe");
+        assertThat(repo.contar(new Filtro(null, VisibilidadDeBajas.SOLO))).isEqualTo(1);
+    }
+
+    @Test void laFilaDiceDesdeCuandoEstaDeBaja() {
+        deBaja("Se fue", "baja@x.pe", T0);
+        cuenta("Activa", "act@x.pe", T0.plusSeconds(60));
+
+        List<CuentaResumen> filas = repo.listar(new Filtro(null, VisibilidadDeBajas.INCLUIDAS), 1, 20);
+
+        assertThat(filas.get(0).bajaEn()).isNull();
+        assertThat(filas.get(1).bajaEn()).isEqualTo(T0.plusSeconds(500));
+    }
+
+    /** La visibilidad y la búsqueda se combinan con «y»: buscar a una cuenta de baja por su nombre no la encuentra a menos que se pida verla. */
+    @Test void laBusquedaNoEncuentraUnaCuentaDeBajaSalvoQueSePidaVerla() {
+        deBaja("Panadería Sol", "ana@sol.pe", T0);
+
+        assertThat(repo.listar(new Filtro("sol"), 1, 20)).isEmpty();
+        assertThat(repo.contar(new Filtro("sol"))).isZero();
+        assertThat(emails(repo.listar(new Filtro("sol", VisibilidadDeBajas.INCLUIDAS), 1, 20))).containsExactly("ana@sol.pe");
+        assertThat(emails(repo.listar(new Filtro("sol", VisibilidadDeBajas.SOLO), 1, 20))).containsExactly("ana@sol.pe");
+    }
+
+    /** Una cuenta de baja y suspendida: la baja manda en el listado (no sale) y la suspensión se conserva al verla. */
+    @Test void laBajaNoPisaLaSuspension() {
+        UUID id = deBaja("Doble", "doble@x.pe", T0);
+        jdbc.update("UPDATE cuenta SET suspendida_en = ? WHERE id = ?", Timestamp.from(T0.plusSeconds(10)), id);
+
+        CuentaResumen fila = repo.listar(new Filtro(null, VisibilidadDeBajas.SOLO), 1, 20).get(0);
+
+        assertThat(fila.suspendidaEn()).isEqualTo(T0.plusSeconds(10));
+        assertThat(fila.bajaEn()).isEqualTo(T0.plusSeconds(500));
+    }
+
+    /** Se conserva todo lo que la ley obliga: el detalle de una cuenta de baja se abre igual, con sus empresas, y dice desde cuándo está de baja. */
+    @Test void elDetalleDeUnaCuentaDeBajaSeAbreIgualYDiceDesdeCuando() {
+        UUID id = deBaja("Se fue", "baja@x.pe", T0);
+        empresa(id, "20100066603", "SE FUE SAC");
+
+        var detalle = repo.detalle(id).orElseThrow();
+
+        assertThat(detalle.bajaEn()).isEqualTo(T0.plusSeconds(500));
+        assertThat(detalle.empresas()).hasSize(1);
+        assertThat(repo.detalle(cuenta("Activa", "act@x.pe", T0)).orElseThrow().bajaEn()).isNull();
     }
 }

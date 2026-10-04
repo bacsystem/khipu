@@ -17,7 +17,7 @@ class ListarCuentasAdminServiceTest {
 
     final List<Llamada> llamadas = new ArrayList<>();
     final List<CuentaResumen> datos = List.of(
-            new CuentaResumen(UUID.randomUUID(), "Mi negocio", "ana@negocio.pe", "987654321", Instant.parse("2026-09-01T10:00:00Z"), 2, Instant.parse("2026-10-01T09:00:00Z"), null));
+            new CuentaResumen(UUID.randomUUID(), "Mi negocio", "ana@negocio.pe", "987654321", Instant.parse("2026-09-01T10:00:00Z"), 2, Instant.parse("2026-10-01T09:00:00Z"), null, null));
     final CuentasAdminRepository repo = new CuentasAdminRepository() {
         public List<CuentaResumen> listar(Filtro f, int pagina, int porPagina) { llamadas.add(new Llamada("listar", f, pagina, porPagina)); return datos; }
         public long contar(Filtro f) { llamadas.add(new Llamada("contar", f, 0, 0)); return 42; }

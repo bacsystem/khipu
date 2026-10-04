@@ -20,5 +20,9 @@ public enum AccionAdmin {
     /** El administrador mandó a un usuario el correo para restablecer su contraseña (#183). El detalle dice a qué usuario; nunca lleva el enlace ni el token. */
     ENVIAR_RESTABLECIMIENTO,
     /** El administrador reenvió a un usuario el correo para verificar su dirección (#183). Mismo detalle que el restablecimiento. */
-    REENVIAR_VERIFICACION
+    REENVIAR_VERIFICACION,
+    /** Baja lógica de un cliente que se fue: sale de los listados y del cobro, pero se conserva todo lo que la ley obliga a conservar (#201). El detalle lleva el motivo, si lo hubo. */
+    DAR_DE_BAJA_CUENTA,
+    /** Revierte la baja de una cuenta (#201). */
+    REPONER_CUENTA
 }

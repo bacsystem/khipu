@@ -28,7 +28,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
     private static final String SELECT = """
-            SELECT c.id, c.nombre, c.email, c.telefono, c.created_at, c.suspendida_en,
+            SELECT c.id, c.nombre, c.email, c.telefono, c.created_at, c.suspendida_en, c.baja_en,
                    (SELECT count(*) FROM tenant t WHERE t.cuenta_id = c.id) AS empresas,
                    (SELECT max(s.created_at) FROM sesion s JOIN usuario u ON u.id = s.usuario_id WHERE u.cuenta_id = c.id) AS ultimo_acceso
             FROM cuenta c
@@ -36,7 +36,8 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
     private static final RowMapper<CuentaResumen> MAPPER = (rs, i) -> {
         Timestamp ultimoAcceso = rs.getTimestamp("ultimo_acceso");
         return new CuentaResumen(rs.getObject("id", UUID.class), rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"),
-                rs.getTimestamp("created_at").toInstant(), rs.getInt("empresas"), ultimoAcceso == null ? null : ultimoAcceso.toInstant(), instante(rs.getTimestamp("suspendida_en")));
+                rs.getTimestamp("created_at").toInstant(), rs.getInt("empresas"), ultimoAcceso == null ? null : ultimoAcceso.toInstant(), instante(rs.getTimestamp("suspendida_en")),
+                instante(rs.getTimestamp("baja_en")));
     };
 
     private final JdbcTemplate jdbc;
@@ -63,9 +64,11 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
      * comprobantes para mostrar diez.
      */
     @Override public Optional<CuentaDetalle> detalle(UUID cuentaId) {
-        return jdbc.query("SELECT id, nombre, email, telefono, created_at, suspendida_en FROM cuenta WHERE id = ?", (rs, i) -> new Object[]{
-                        rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"), rs.getTimestamp("created_at").toInstant(), instante(rs.getTimestamp("suspendida_en"))}, cuentaId)
-                .stream().findFirst().map(c -> new CuentaDetalle(cuentaId, (String) c[0], (String) c[1], (String) c[2], (Instant) c[3], (Instant) c[4],
+        // El detalle no filtra por baja: una cuenta dada de baja se abre igual, con todo lo suyo (sus comprobantes se conservan).
+        return jdbc.query("SELECT id, nombre, email, telefono, created_at, suspendida_en, baja_en FROM cuenta WHERE id = ?", (rs, i) -> new Object[]{
+                        rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"), rs.getTimestamp("created_at").toInstant(), instante(rs.getTimestamp("suspendida_en")),
+                        instante(rs.getTimestamp("baja_en"))}, cuentaId)
+                .stream().findFirst().map(c -> new CuentaDetalle(cuentaId, (String) c[0], (String) c[1], (String) c[2], (Instant) c[3], (Instant) c[4], (Instant) c[5],
                         usuariosDe(cuentaId), empresasDe(cuentaId), comprobantesDe(cuentaId), eventosDe(cuentaId)));
     }
 
@@ -132,10 +135,18 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
      * Correo y nombre por subcadena; RUC por prefijo (un fragmento interno de un RUC no identifica a nadie); razón social por
      * subcadena. Todo sin distinguir mayúsculas ni tildes y con los comodines del texto buscado tomados literalmente.
      */
+    /** La búsqueda y la visibilidad de las bajas (#201) se combinan con «y»; las dos valen igual para la página y para el total. */
     private static String donde(Filtro filtro, List<Object> args) {
-        if (filtro.q() == null) return "";
+        List<String> condiciones = new ArrayList<>();
+        if (filtro.q() != null) condiciones.add(busqueda(filtro.q(), args));
+        String baja = BajasEnListado.deCuenta(filtro.bajas(), "c");
+        if (baja != null) condiciones.add(baja);
+        return condiciones.isEmpty() ? "" : " WHERE " + String.join(" AND ", condiciones);
+    }
+
+    private static String busqueda(String q, List<Object> args) {
         // Una tilde puede llegar como «í» o como «i» + acento combinado: en forma compuesta (NFC) las dos son «í».
-        String literal = escaparComodines(Normalizer.normalize(filtro.q(), Normalizer.Form.NFC));
+        String literal = escaparComodines(Normalizer.normalize(q, Normalizer.Form.NFC));
         String contiene = "%" + literal + "%";
         args.add(contiene);
         args.add(contiene);
@@ -143,7 +154,7 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
         args.add(contiene);
         String buscado = SIN_TILDES.formatted("?");
         return """
-                 WHERE (c.email ILIKE ? ESCAPE '\\' OR %s ILIKE %s ESCAPE '\\'
+                (c.email ILIKE ? ESCAPE '\\' OR %s ILIKE %s ESCAPE '\\'
                         OR EXISTS (SELECT 1 FROM tenant t WHERE t.cuenta_id = c.id
                                    AND (t.ruc LIKE ? ESCAPE '\\' OR %s ILIKE %s ESCAPE '\\')))
                 """.formatted(SIN_TILDES.formatted("c.nombre"), buscado, SIN_TILDES.formatted("t.razon_social"), buscado);

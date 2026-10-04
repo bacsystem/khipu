@@ -12,6 +12,7 @@ import pe.factura.application.port.in.ListarCuentasAdminUseCase;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.CuentaResumen;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.Filtro;
 import pe.factura.application.port.in.SuspenderCuentaUseCase;
+import pe.factura.application.port.in.VisibilidadDeBajas;
 import pe.factura.domain.DomainException;
 
 import java.time.Instant;
@@ -33,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AdminCuentaControllerTest {
     static final UUID ID = UUID.randomUUID();
     static final CuentaResumen ANA = new CuentaResumen(ID, "Mi negocio", "ana@negocio.pe", "987654321",
-            Instant.parse("2026-09-01T10:00:00Z"), 2, Instant.parse("2026-10-01T09:00:00Z"), null);
+            Instant.parse("2026-09-01T10:00:00Z"), 2, Instant.parse("2026-10-01T09:00:00Z"), null, null);
 
     @Autowired MockMvc mvc;
     @MockBean ListarCuentasAdminUseCase listar;
@@ -75,7 +76,7 @@ class AdminCuentaControllerTest {
     }
 
     @Test void unaCuentaSuspendidaDiceDesdeCuando() throws Exception {
-        CuentaResumen suspendida = new CuentaResumen(ID, "Mi negocio", "ana@negocio.pe", null, Instant.parse("2026-09-01T10:00:00Z"), 1, null, Instant.parse("2026-10-02T15:00:00Z"));
+        CuentaResumen suspendida = new CuentaResumen(ID, "Mi negocio", "ana@negocio.pe", null, Instant.parse("2026-09-01T10:00:00Z"), 1, null, Instant.parse("2026-10-02T15:00:00Z"), null);
         when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(suspendida));
 
         mvc.perform(get("/v1/admin/cuentas"))
@@ -167,7 +168,7 @@ class AdminCuentaControllerTest {
 
     /** Como en toda la API (`default-property-inclusion: non_null`), un campo sin valor no aparece: el portal lo trata como opcional. */
     @Test void unaCuentaQueNuncaInicioSesionNoTraElUltimoAcceso() throws Exception {
-        CuentaResumen nunca = new CuentaResumen(ID, "Nueva", "nueva@x.pe", null, Instant.parse("2026-09-01T10:00:00Z"), 0, null, null);
+        CuentaResumen nunca = new CuentaResumen(ID, "Nueva", "nueva@x.pe", null, Instant.parse("2026-09-01T10:00:00Z"), 0, null, null, null);
         when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(nunca));
 
         mvc.perform(get("/v1/admin/cuentas"))
@@ -200,7 +201,7 @@ class AdminCuentaControllerTest {
 
     static CuentaDetalle detalleCompleto() {
         UUID empresa = UUID.randomUUID();
-        return new CuentaDetalle(ID, "Mi negocio", "ana@negocio.pe", "987654321", Instant.parse("2026-09-01T10:00:00Z"), null,
+        return new CuentaDetalle(ID, "Mi negocio", "ana@negocio.pe", "987654321", Instant.parse("2026-09-01T10:00:00Z"), null, null,
                 List.of(new DetalleCuentaAdminUseCase.UsuarioDeCuenta(UUID.fromString("11111111-1111-1111-1111-111111111111"), "ana@negocio.pe", "ADMIN", true,
                         Instant.parse("2026-09-02T10:00:00Z"), Instant.parse("2026-10-01T09:00:00Z"))),
                 List.of(new DetalleCuentaAdminUseCase.EmpresaDeCuenta(empresa, "20100066603", "COMERCIAL ANDINA SAC", "PRODUCCION", true,
@@ -253,7 +254,7 @@ class AdminCuentaControllerTest {
     }
 
     @Test void unaCuentaSinHistoriaDevuelveListasVaciasYSinCamposOpcionales() throws Exception {
-        when(detalle.detalle(ID)).thenReturn(new CuentaDetalle(ID, "Nueva", "nueva@x.pe", null, Instant.parse("2026-09-01T10:00:00Z"), null,
+        when(detalle.detalle(ID)).thenReturn(new CuentaDetalle(ID, "Nueva", "nueva@x.pe", null, Instant.parse("2026-09-01T10:00:00Z"), null, null,
                 List.of(new DetalleCuentaAdminUseCase.UsuarioDeCuenta(UUID.randomUUID(), "nueva@x.pe", "ADMIN", true, null, null)),
                 List.of(new DetalleCuentaAdminUseCase.EmpresaDeCuenta(UUID.randomUUID(), "20100066611", "VACIA SAC", "BETA", false, null, false)),
                 List.of(), List.of()));
@@ -276,7 +277,7 @@ class AdminCuentaControllerTest {
                 .andExpect(jsonPath("$.datos.estado").value("ACTIVA"))
                 .andExpect(jsonPath("$.datos.suspendida_en").doesNotExist());
 
-        var suspendida = new CuentaDetalle(activa.id(), activa.nombre(), activa.email(), activa.telefono(), activa.creadaEn(), Instant.parse("2026-10-02T15:00:00Z"),
+        var suspendida = new CuentaDetalle(activa.id(), activa.nombre(), activa.email(), activa.telefono(), activa.creadaEn(), Instant.parse("2026-10-02T15:00:00Z"), null,
                 activa.usuarios(), activa.empresas(), activa.comprobantes(), activa.eventos());
         when(detalle.detalle(ID)).thenReturn(suspendida);
         mvc.perform(get("/v1/admin/cuentas/" + ID))
@@ -298,5 +299,75 @@ class AdminCuentaControllerTest {
                 .andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
 
         verifyNoInteractions(detalle);
+    }
+
+    // --- #201: baja lógica -----------------------------------------------------------------------------------------------------------
+
+    static final Instant SUSPENDIDA_EN = Instant.parse("2026-10-02T15:00:00Z");
+    static final Instant BAJA_EN = Instant.parse("2026-10-03T09:00:00Z");
+
+    @Test void unaCuentaDeBajaDiceBajaYDesdeCuando() throws Exception {
+        CuentaResumen deBaja = new CuentaResumen(ID, "Mi negocio", "ana@negocio.pe", null, Instant.parse("2026-09-01T10:00:00Z"), 1, null, null, BAJA_EN);
+        when(listar.listar(new Filtro(null, VisibilidadDeBajas.SOLO), 1, 20)).thenReturn(List.of(deBaja));
+
+        mvc.perform(get("/v1/admin/cuentas").param("bajas", "SOLO"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos[0].estado").value("BAJA"))
+                .andExpect(jsonPath("$.datos[0].baja_en").value("2026-10-03T09:00:00Z"));
+    }
+
+    @Test void unaCuentaEnServicioNoLlevaFechaDeBaja() throws Exception {
+        when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(ANA));
+
+        mvc.perform(get("/v1/admin/cuentas")).andExpect(jsonPath("$.datos[0].baja_en").doesNotExist());
+    }
+
+    /** La baja manda sobre la suspensión en el estado, pero las dos fechas se siguen informando. */
+    @Test void unaCuentaDeBajaYSuspendidaDiceBajaYConservaLasDosFechas() throws Exception {
+        CuentaResumen doble = new CuentaResumen(ID, "Mi negocio", "ana@negocio.pe", null, Instant.parse("2026-09-01T10:00:00Z"), 1, null, SUSPENDIDA_EN, BAJA_EN);
+        when(listar.listar(new Filtro(null, VisibilidadDeBajas.INCLUIDAS), 1, 20)).thenReturn(List.of(doble));
+
+        mvc.perform(get("/v1/admin/cuentas").param("bajas", "INCLUIDAS"))
+                .andExpect(jsonPath("$.datos[0].estado").value("BAJA"))
+                .andExpect(jsonPath("$.datos[0].suspendida_en").value("2026-10-02T15:00:00Z"))
+                .andExpect(jsonPath("$.datos[0].baja_en").value("2026-10-03T09:00:00Z"));
+    }
+
+    @Test void sinPedirNadaLasBajasSeOcultanYElTotalLasTrataIgual() throws Exception {
+        when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(ANA));
+        when(listar.contar(Filtro.NINGUNO)).thenReturn(1L);
+
+        mvc.perform(get("/v1/admin/cuentas")).andExpect(header().string("X-Total-Count", "1"));
+
+        verify(listar).listar(new Filtro(null, VisibilidadDeBajas.OCULTAS), 1, 20);
+        verify(listar).contar(new Filtro(null, VisibilidadDeBajas.OCULTAS));
+    }
+
+    @Test void elFiltroDeBajasLlegaAlListadoYAlTotalJuntoConLaBusqueda() throws Exception {
+        var filtro = new Filtro("sol", VisibilidadDeBajas.INCLUIDAS);
+        when(listar.listar(filtro, 2, 10)).thenReturn(List.of(ANA));
+        when(listar.contar(filtro)).thenReturn(11L);
+
+        mvc.perform(get("/v1/admin/cuentas").param("q", "sol").param("bajas", "INCLUIDAS").param("pagina", "2").param("por_pagina", "10"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "11"));
+    }
+
+    @Test void unValorDeBajasQueNoExisteEs400() throws Exception {
+        mvc.perform(get("/v1/admin/cuentas").param("bajas", "TODAS")).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(listar);
+    }
+
+    @Test void elDetalleDeUnaCuentaDeBajaDiceBajaYDesdeCuando() throws Exception {
+        var activa = detalleCompleto();
+        when(detalle.detalle(ID)).thenReturn(new CuentaDetalle(activa.id(), activa.nombre(), activa.email(), activa.telefono(), activa.creadaEn(), null, BAJA_EN,
+                activa.usuarios(), activa.empresas(), activa.comprobantes(), activa.eventos()));
+
+        mvc.perform(get("/v1/admin/cuentas/" + ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.estado").value("BAJA"))
+                .andExpect(jsonPath("$.datos.baja_en").value("2026-10-03T09:00:00Z"))
+                .andExpect(jsonPath("$.datos.comprobantes").isNotEmpty());
     }
 }

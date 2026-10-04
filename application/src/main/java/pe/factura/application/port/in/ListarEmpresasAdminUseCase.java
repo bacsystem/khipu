@@ -2,6 +2,7 @@ package pe.factura.application.port.in;
 
 import pe.factura.domain.tenant.Entorno;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -30,10 +31,17 @@ public interface ListarEmpresasAdminUseCase {
      */
     record EmpresaResumen(UUID id, String ruc, String razonSocial, UUID cuentaId, String cuentaNombre, Entorno entorno,
                           EstadoCertificado certificado, LocalDate certificadoVigenteHasta, Integer certificadoDiasRestantes,
-                          boolean tieneCredencialesSol, int series, int comprobantesDelMes, LocalDate ultimaEmision) {}
+                          boolean tieneCredencialesSol, int series, int comprobantesDelMes, LocalDate ultimaEmision, Instant cuentaDeBajaEn) {}
 
-    /** Ambos filtros son opcionales y se combinan con «y». */
-    record Filtro(Entorno entorno, EstadoCertificado certificado) {
+    /**
+     * Los filtros son opcionales y se combinan con «y». {@code bajas}: qué hacer con las empresas de cuentas dadas de baja (#201); por defecto,
+     * ocultarlas. Las empresas sin cuenta (de integración) nunca están de baja.
+     */
+    record Filtro(Entorno entorno, EstadoCertificado certificado, VisibilidadDeBajas bajas) {
         public static final Filtro NINGUNO = new Filtro(null, null);
+        public Filtro {
+            bajas = bajas == null ? VisibilidadDeBajas.OCULTAS : bajas;
+        }
+        public Filtro(Entorno entorno, EstadoCertificado certificado) { this(entorno, certificado, VisibilidadDeBajas.OCULTAS); }
     }
 }
