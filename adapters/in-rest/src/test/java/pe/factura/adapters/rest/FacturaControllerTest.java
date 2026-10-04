@@ -128,6 +128,70 @@ class FacturaControllerTest {
         assertThat(cap.getValue().observaciones()).isEqualTo("Entrega en almacén.");
     }
 
+    // --- #115: Idempotency-Key ---------------------------------------------------------------------------------------------------
+
+    static final String CLAVE = "5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
+
+    private org.springframework.test.web.servlet.ResultActions emitirConClave(String clave, String cuerpoJson) throws Exception {
+        return mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                .header("Idempotency-Key", clave).content(cuerpoJson));
+    }
+
+    private EmitirComprobanteUseCase.Idempotencia claveRecibida() {
+        ArgumentCaptor<EmitirComprobanteUseCase.Idempotencia> cap = ArgumentCaptor.forClass(EmitirComprobanteUseCase.Idempotencia.class);
+        verify(emitir, atLeastOnce()).emitirFactura(eq(tenant), any(), cap.capture());
+        return cap.getValue();
+    }
+
+    @Test void conClaveLaEmisionNuevaEs201YLlevaLaClaveYUnaHuellaDelPedido() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(aceptado(tenant), false));
+
+        emitirConClave(CLAVE, cuerpo).andExpect(status().isCreated()).andExpect(jsonPath("$.datos.numero").value(601));
+
+        EmitirComprobanteUseCase.Idempotencia idem = claveRecibida();
+        assertThat(idem.clave()).isEqualTo(CLAVE);
+        assertThat(idem.huella()).matches("[0-9a-f]{64}");
+        verify(emitir, never()).emitirFactura(any(), any());
+    }
+
+    /** El reintento devuelve el mismo comprobante con 200: no se creó nada nuevo. */
+    @Test void unPedidoRepetidoEs200ConElMismoComprobante() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(aceptado(tenant), true));
+
+        emitirConClave(CLAVE, cuerpo).andExpect(status().isOk()).andExpect(jsonPath("$.datos.numero").value(601));
+    }
+
+    /** La huella es del pedido interpretado, no de sus bytes: espacios o saltos de línea distintos son el mismo pedido. */
+    @Test void laHuellaNoDependeDelFormatoDelJsonPeroSiDeSusDatos() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(aceptado(tenant), false));
+
+        emitirConClave(CLAVE, cuerpo);
+        String original = claveRecibida().huella();
+        reset(emitir);
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(aceptado(tenant), false));
+        emitirConClave(CLAVE, cuerpo.replace("\n", "\n\n  ").replace(":", " : "));
+        String reformateado = claveRecibida().huella();
+        reset(emitir);
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(aceptado(tenant), false));
+        emitirConClave(CLAVE, cuerpo.replace("CLIENTE SAC", "OTRO CLIENTE SAC"));
+        String otroCliente = claveRecibida().huella();
+
+        assertThat(reformateado).isEqualTo(original);
+        assertThat(otroCliente).isNotEqualTo(original);
+    }
+
+    @Test void unaClaveMalFormadaEs422SinEmitir() throws Exception {
+        for (String mala : List.of("", "corta", "con espacios aquí", "a".repeat(101), "../../x", "<script>"))
+            emitirConClave(mala, cuerpo).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("IDEMPOTENCIA_INVALIDA"));
+        verifyNoInteractions(emitir);
+    }
+
+    @Test void laMismaClaveConOtroPedidoEs422() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenThrow(new DomainException("IDEMPOTENCIA_INVALIDA", "La clave ya se usó con otro contenido"));
+
+        emitirConClave(CLAVE, cuerpo).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("IDEMPOTENCIA_INVALIDA"));
+    }
+
     @Test void enlaceCdrSoloCuandoHayConstancia() throws Exception {
         Comprobante conCdr = aceptado(tenant), sinCdr = rechazadoPorFault(tenant);
         when(consultar.obtener(tenant, conCdr.id())).thenReturn(conCdr);

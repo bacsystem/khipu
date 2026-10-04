@@ -15,6 +15,7 @@ import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/compr
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
+import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +88,8 @@ export function NuevoComprobanteForm({
   const [unidades, setUnidades] = useState<EntradaCatalogo[] | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Clave de idempotencia (#115): la misma mientras se reintente el mismo contenido, otra si el contenido cambia.
+  const intento = useRef<Intento | null>(null);
 
   // Tras un error el botón estuvo `disabled` y el navegador soltó el foco a `<body>`: un usuario de teclado perdía
   // su posición. Llevarlo a la alerta lo reubica y, de paso, garantiza que se lea.
@@ -160,18 +163,22 @@ export function NuevoComprobanteForm({
       return;
     }
 
+    const factura = {
+      serie,
+      fecha_emision: fecha,
+      moneda,
+      cliente: { tipo_doc: "6", num_doc: numDoc.trim(), razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined },
+      items,
+    };
+    intento.current = intentoPara(intento.current, JSON.stringify(factura));
+
     setEnviando(true);
     let res: Awaited<ReturnType<typeof apiRequest<{ id: string }>>>;
     try {
       res = await apiRequest<{ id: string }>("/api/proxy/facturas", {
         method: "POST",
-        body: {
-          serie,
-          fecha_emision: fecha,
-          moneda,
-          cliente: { tipo_doc: "6", num_doc: numDoc.trim(), razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined },
-          items,
-        },
+        body: factura,
+        headers: { [CABECERA_IDEMPOTENCIA]: intento.current.clave },
       });
       // `finally` sin `catch` a propósito: el cliente no lanza, pero si algo inesperado lo hiciera, el botón tiene
       // que volver a habilitarse igual en vez de quedarse en «Emitiendo…».
@@ -179,12 +186,12 @@ export function NuevoComprobanteForm({
       setEnviando(false);
     }
 
-    // Un corte de conexión no dice si el POST llegó, y es el peor momento para fallar: pudo haber consumido
-    // correlativo. No se pide reintentar a ciegas; se manda a mirar primero. (El cliente ya no lanza: devuelve el
-    // sobre de error, así que esto no puede ir en un catch.)
+    // Un corte de conexión no dice si el POST llegó: pudo haber consumido correlativo. Con la clave de idempotencia (#115)
+    // reintentar sin cambiar nada es seguro: si la factura ya se emitió, el backend devuelve la misma. (El cliente no lanza:
+    // devuelve el sobre de error, así que esto no puede ir en un catch.)
     if (noSeSabeSiLlego(res)) {
       setError(
-        "Se cortó la conexión mientras se emitía. La factura pudo haberse emitido igual: revisa el listado de comprobantes antes de volver a intentarlo, para no duplicarla.",
+        "Se cortó la conexión mientras se emitía. Vuelve a emitir sin cambiar nada: si la factura ya se había emitido, verás la misma, sin duplicarla.",
       );
       // El listado de fondo puede tener ya la factura nueva: que se vea sin recargar la página.
       router.refresh();

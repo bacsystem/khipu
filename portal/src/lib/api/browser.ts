@@ -61,14 +61,17 @@ export async function postJson<T>(path: string, body: unknown): Promise<ApiEnvel
   });
 }
 
+/** `headers`: cabeceras propias del pedido, como la clave de idempotencia de la emisión (#115). */
 export async function apiRequest<T>(
   path: string,
-  init: { method: string; body?: unknown },
+  init: { method: string; body?: unknown; headers?: Record<string, string> },
 ): Promise<ApiEnvelope<T>> {
   const isFormData = init.body instanceof FormData;
+  const tipo = isFormData || init.body === undefined ? {} : { "content-type": "application/json" };
+  const headers = { ...tipo, ...init.headers };
   return pedir<T>(path, {
     method: init.method,
-    headers: isFormData || init.body === undefined ? undefined : { "content-type": "application/json" },
+    headers: Object.keys(headers).length === 0 ? undefined : headers,
     body: isFormData ? (init.body as FormData) : init.body !== undefined ? JSON.stringify(init.body) : undefined,
   });
 }

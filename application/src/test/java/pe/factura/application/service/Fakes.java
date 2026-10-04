@@ -104,10 +104,10 @@ final class Fakes {
         public void completar(UUID id) {}
     }
     static final class Gateway implements SunatBillingGateway {
-        RuntimeException falla; byte[] respuesta = "cdr".getBytes(); String ultimoNombre;
+        RuntimeException falla; byte[] respuesta = "cdr".getBytes(); String ultimoNombre; int enviados;
         /** sendSummary/getStatus: ticket fijo y estado configurable (por defecto procesado con el mismo ZIP de respuesta). */
         RuntimeException fallaResumen; RuntimeException fallaStatus; String ticket = "T-1"; String statusCode = "0"; int consultas;
-        public byte[] sendBill(Tenant t, String nombre, byte[] xml) { ultimoNombre = nombre; if (falla != null) throw falla; return respuesta; }
+        public byte[] sendBill(Tenant t, String nombre, byte[] xml) { enviados++; ultimoNombre = nombre; if (falla != null) throw falla; return respuesta; }
         public String sendSummary(Tenant t, String nombre, byte[] xml) { ultimoNombre = nombre; if (fallaResumen != null) throw fallaResumen; return ticket; }
         public EstadoTicket getStatus(Tenant t, String tk) { consultas++; if (fallaStatus != null) throw fallaStatus; return new EstadoTicket(statusCode, "98".equals(statusCode) ? null : respuesta); }
     }
@@ -147,6 +147,24 @@ final class Fakes {
         boolean dentro;
         public <T> T ejecutar(Supplier<T> w) { dentro = true; try { return w.get(); } finally { dentro = false; } }
         public void ejecutar(Runnable w) { ejecutar(() -> { w.run(); return null; }); }
+    }
+
+    /** Claves de idempotencia en memoria (#115). Registra si cada llamada corrió dentro de la transacción. */
+    static final class Idempotencias implements IdempotenciaRepository {
+        final Map<String, Registro> filas = new HashMap<>();
+        final List<Boolean> reservadoDentro = new ArrayList<>();
+        UowTransaccional uow;
+        public Optional<Registro> reservar(String alcance, String clave, String huella) {
+            reservadoDentro.add(uow != null && uow.dentro);
+            Registro r = filas.get(alcance + "|" + clave);
+            if (r != null) return Optional.of(r);
+            filas.put(alcance + "|" + clave, new Registro(huella, null));
+            return Optional.empty();
+        }
+        public void completar(String alcance, String clave, UUID recursoId) {
+            filas.computeIfPresent(alcance + "|" + clave, (k, r) -> new Registro(r.huella(), recursoId));
+        }
+        public int borrarAnterioresA(Instant limite) { return 0; }
     }
 
     /** Bitácora en memoria; {@code falla} simula que la tabla de auditoría rechaza la escritura. */

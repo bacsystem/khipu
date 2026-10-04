@@ -2,6 +2,7 @@ package pe.factura.application.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
@@ -44,7 +45,7 @@ class EmitirComprobanteServiceTest {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas);
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias());
     }
 
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
@@ -64,6 +65,81 @@ class EmitirComprobanteServiceTest {
         assertThat(outbox.filas).isEmpty();
         // El validador XSD debe recibir el XML ya firmado, no el XML sin firmar generado por ubl.generar(...).
         assertThat(recibido[0]).contains("<ds:Signature/>");
+    }
+
+    // --- #115: idempotencia ------------------------------------------------------------------------------------------------------
+
+    /** Servicio con una transacción que se puede observar y las claves a la vista. */
+    private record ConClaves(EmitirComprobanteService service, Fakes.Idempotencias claves) {}
+
+    private ConClaves conClaves() {
+        Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
+        Fakes.Idempotencias claves = new Fakes.Idempotencias();
+        claves.uow = uow;
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, Fakes.CLOCK);
+        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, Fakes.CLOCK, establecimientos, bajas, claves), claves);
+    }
+
+    private static final EmitirComprobanteUseCase.Idempotencia CLAVE = new EmitirComprobanteUseCase.Idempotencia("c1a7e5b0-0000-4000-8000-000000000001", "huella-1");
+
+    @Test void conUnaClaveNuevaEmiteYAnotaElComprobanteBajoLaClave() {
+        ConClaves s = conClaves();
+
+        var e = s.service().emitirFactura(tenantId, cmd(null, false), CLAVE);
+
+        assertThat(e.repetida()).isFalse();
+        assertThat(e.comprobante().numero()).isEqualTo(1L);
+        assertThat(s.claves().filas).containsEntry("factura:" + tenantId + "|" + CLAVE.clave(), new IdempotenciaRepository.Registro("huella-1", e.comprobante().id()));
+        assertThat(s.claves().reservadoDentro).as("la reserva va en la transacción de la emisión: si esta se revierte, la clave queda libre").containsExactly(true);
+    }
+
+    /** El reintento tras un corte de red: el mismo comprobante, sin consumir otro número ni enviarlo otra vez a SUNAT. */
+    @Test void laMismaClaveConElMismoPedidoDevuelveElMismoComprobanteSinEmitirOtro() {
+        ConClaves s = conClaves();
+        Comprobante primero = s.service().emitirFactura(tenantId, cmd(null, true), CLAVE).comprobante();
+        int enviosAntes = gateway.enviados;
+
+        var otraVez = s.service().emitirFactura(tenantId, cmd(null, true), CLAVE);
+
+        assertThat(otraVez.repetida()).isTrue();
+        assertThat(otraVez.comprobante().id()).isEqualTo(primero.id());
+        assertThat(otraVez.comprobante().numero()).isEqualTo(1L);
+        assertThat(otraVez.comprobante().estado()).as("el estado actual, no uno de antes del envío").isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(comprobantes.datos).hasSize(1);
+        assertThat(gateway.enviados).as("no se reenvía a SUNAT").isEqualTo(enviosAntes);
+        assertThat(service.emitirFactura(tenantId, cmd(null, false)).numero()).as("el número 2 sigue libre").isEqualTo(2L);
+    }
+
+    @Test void laMismaClaveConOtroPedidoSeRechazaSinEmitir() {
+        ConClaves s = conClaves();
+        s.service().emitirFactura(tenantId, cmd(null, false), CLAVE);
+
+        assertThatThrownBy(() -> s.service().emitirFactura(tenantId, cmd(null, false), new EmitirComprobanteUseCase.Idempotencia(CLAVE.clave(), "otra-huella")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
+        assertThat(comprobantes.datos).hasSize(1);
+    }
+
+    @Test void laClaveEsPorEmpresa() {
+        ConClaves s = conClaves();
+        UUID otra = UUID.randomUUID();
+        tenants.guardar(Fakes.tenantListo(otra));
+        series.crear(new Serie(otra, TipoDocumento.FACTURA, "F001", 0, true));
+
+        Comprobante mio = s.service().emitirFactura(tenantId, cmd(null, false), CLAVE).comprobante();
+        var deOtra = s.service().emitirFactura(otra, cmd(null, false), CLAVE);
+
+        assertThat(deOtra.repetida()).isFalse();
+        assertThat(deOtra.comprobante().id()).isNotEqualTo(mio.id());
+        assertThat(deOtra.comprobante().tenantId()).isEqualTo(otra);
+    }
+
+    @Test void sinClaveCadaPedidoEsUnaFacturaNueva() {
+        ConClaves s = conClaves();
+        s.service().emitirFactura(tenantId, cmd(null, false), null);
+        s.service().emitirFactura(tenantId, cmd(null, false), null);
+
+        assertThat(comprobantes.datos).hasSize(2);
+        assertThat(s.claves().filas).isEmpty();
     }
 
     @Test void numeracionCorrelativa() {
@@ -139,7 +215,7 @@ class EmitirComprobanteServiceTest {
             public void validarBaja(String xml) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas);
+        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias());
         assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).extracting("codigo").isEqualTo("XSD_INVALIDO");
         assertThat(comprobantes.datos).isEmpty();
     }
