@@ -263,6 +263,11 @@ public class AppConfig {
                                                  TenantRepository tenants, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new ResolverErroresService(cola, enviar, cdrs, comprobantes, outbox, tenants, auditoria, u, clock);
     }
+    @Bean AvisosRepository avisosRepository(JdbcTemplate jdbc) { return new JdbcAvisosRepository(jdbc); }
+    @Bean ConsultarAvisosUseCase consultarAvisos(AvisosRepository avisos, Clock clock) { return new ConsultarAvisosService(avisos, clock); }
+    @Bean AvisarAlClienteUseCase avisarAlCliente(AvisosRepository avisos, CorreoSender correo, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
+        return new AvisarAlClienteService(avisos, correo, auditoria, u, clock);
+    }
     @Bean MonitorearEmisionUseCase monitorearEmision(MonitorDeEmisionRepository m, SondeoDeSunat s, Clock clock) { return new MonitorDeEmisionService(m, s, clock); }
     @Bean RecuperarCdrUseCase recuperarCdr(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatConsultaGateway g, CdrParser cdr, UnitOfWork u) {
         return new RecuperarCdrService(c, t, s, g, cdr, u);

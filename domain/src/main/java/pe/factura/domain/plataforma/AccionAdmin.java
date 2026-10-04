@@ -50,5 +50,7 @@ public enum AccionAdmin {
     /** Reintenta a mano el envío de un comprobante en error (#196). El detalle dice el comprobante y cómo terminó el intento (su nuevo estado o por qué no se pudo); la empresa va en `tenant_id`. */
     REINTENTAR_ENVIO_COMPROBANTE,
     /** Descarta un comprobante en error de envío: deja de intentarse y queda terminal (#196). El detalle dice el comprobante y el motivo del administrador; la empresa va en `tenant_id`. */
-    DESCARTAR_COMPROBANTE
+    DESCARTAR_COMPROBANTE,
+    /** Le manda a un cliente el aviso de que su certificado está por vencer o vencido, o de que SUNAT no acepta sus credenciales SOL (#197). El detalle dice el motivo y la empresa va en `tenant_id`; no lleva el correo del cliente. */
+    AVISAR_AL_CLIENTE
 }
