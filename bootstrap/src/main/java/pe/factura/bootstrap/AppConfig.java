@@ -308,6 +308,10 @@ public class AppConfig {
     @Bean SuspenderCuentaUseCase suspenderCuenta(CuentaRepository cuentas, SuspensionRepository suspensiones, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new SuspenderCuentaService(cuentas, suspensiones, auditoria, u, clock);
     }
+    @Bean SoporteDeAccesoUseCase soporteDeAcceso(UsuarioRepository usuarios, SesionRepository sesiones, VerificacionCorreoRepository verificaciones, CorreoSender correo,
+                                                 UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {
+        return new SoporteDeAccesoService(usuarios, sesiones, verificaciones, correo, u, auditoria, clock);
+    }
     @Bean CrearAdministradorUseCase crearAdministrador(AdministradorRepository a, PasswordHasher h, UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {
         return new CrearAdministradorService(a, h, u, auditoria, clock);
     }

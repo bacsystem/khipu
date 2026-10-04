@@ -31,6 +31,8 @@ public class GlobalExceptionHandler {
             // El alta ya se hizo con esa clave pero su respuesta (con la API key) ya no se guarda: no es un dato inválido del pedido.
             case "IDEMPOTENCIA_VENCIDA" -> HttpStatus.CONFLICT;
             case "CORREO_YA_VERIFICADO" -> HttpStatus.CONFLICT;
+            // Mandarle un correo de acceso a un usuario desactivado (#183): el pedido es válido pero el estado del usuario no lo permite.
+            case "USUARIO_INACTIVO" -> HttpStatus.CONFLICT;
             // Suspender o reactivar una cuenta que ya está en ese estado (#182): el pedido es válido pero el estado ya no lo permite.
             case "CUENTA_YA_SUSPENDIDA", "CUENTA_NO_SUSPENDIDA" -> HttpStatus.CONFLICT;
             case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES" -> HttpStatus.TOO_MANY_REQUESTS;

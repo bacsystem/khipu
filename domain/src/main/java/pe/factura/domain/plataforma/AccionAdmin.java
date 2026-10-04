@@ -16,5 +16,9 @@ public enum AccionAdmin {
     /** Corta el portal y la emisión por API de una cuenta y de todas sus empresas, sin borrar nada (#182). El detalle lleva el motivo, si lo hubo. */
     SUSPENDER_CUENTA,
     /** Devuelve una cuenta suspendida al estado en que estaba (#182). */
-    REACTIVAR_CUENTA
+    REACTIVAR_CUENTA,
+    /** El administrador mandó a un usuario el correo para restablecer su contraseña (#183). El detalle dice a qué usuario; nunca lleva el enlace ni el token. */
+    ENVIAR_RESTABLECIMIENTO,
+    /** El administrador reenvió a un usuario el correo para verificar su dirección (#183). Mismo detalle que el restablecimiento. */
+    REENVIAR_VERIFICACION
 }
