@@ -171,6 +171,13 @@ describe("AvisosTabla (#197)", () => {
     await waitFor(() => expect(screen.getByTestId("avisos-resultado").textContent).toBe("Se le avisó a panaderia@sol.pe (PANADERIA SOL SAC)."));
     expect(screen.getByTestId("avisos-resultado").getAttribute("role")).toBe("status");
     expect(refresh).toHaveBeenCalledTimes(1);
+    expect(apiRequest).toHaveBeenCalledWith(`/api/admin/empresas/${EMPRESA}/avisos`, { method: "POST", body: { tipo: "CERTIFICADO" } });
+  });
+
+  it("si no vino desde cuándo se puede repetir, la espera no inventa una fecha", () => {
+    render(<AvisosTabla params={CERTIFICADOS} certificados={pagina([certificado({ puede_avisar: false, avisar_desde: undefined })])} sol={null} />);
+
+    expect(within(filas()[0]).getByTestId("avisos-espera").textContent).toBe("");
   });
 
   it("el botón de una fila de SOL avisa de las credenciales", async () => {
@@ -214,6 +221,13 @@ describe("AvisosTabla (#197)", () => {
 
     render(<AvisosTabla params={SOL} certificados={null} sol={pagina([])} />);
     expect(screen.getByTestId("avisos-vacio").textContent).toBe("Ninguna empresa tiene envíos atascados por sus credenciales SOL.");
+  });
+
+  it("sin nada el pie dice 0–0 de 0 y deja una sola página, la primera", () => {
+    render(<AvisosTabla params={CERTIFICADOS} certificados={pagina([])} sol={null} />);
+
+    expect(screen.getByText("0–0")).toBeTruthy();
+    expect(document.querySelector('span[aria-current="page"]')?.textContent).toBe("1");
   });
 
   it("con filas no muestra el estado vacío", () => {
