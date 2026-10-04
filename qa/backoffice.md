@@ -2476,7 +2476,7 @@ Lo que sobrevivía:
 
 ## #15 · Endpoint de resumen para las métricas del panel
 
-**Estado: ✅ revisado (#245) sin hallazgos, 95/95 mutaciones verificadas (55 de backend, 40 de portal).** Backend (`GET /v1/facturas/resumen`) y la franja de métricas de la página de comprobantes del portal. Va después de #198 en la pila; #195 («monitor global») lo reutiliza.
+**Estado: ✅ revisado (#245) sin hallazgos, 95/95 mutaciones verificadas (55 de backend, 40 de portal).** Backend (`GET /v1/facturas/resumen`) y la franja de métricas de la página de comprobantes del portal. Va después de #198 en la pila. (#195, el monitor global, no lo reutiliza: este resumen es de una empresa y el monitor mira todas a la vez.)
 
 ### Diseño
 
@@ -2525,6 +2525,63 @@ Nada sobrevivió. Una mutación del portal («la atención muestra los rechazado
 - **Los contadores por serie** (último número, porcentaje de uso) que el issue pide «considerar» **no se hicieron**: la lista de series ya trae el último número y el cálculo del porcentaje no tiene un tope definido.
 - **Las demás métricas del portal (series, empresa, API keys)** ya mostraban un valor real: la única franja que seguía «pendiente» era la de comprobantes.
 - **El período por defecto es el mes en curso y no se puede cambiar con un selector propio:** se cambia con los filtros de fecha de la lista.
+
+## #195 · Monitor global de emisión y outbox
+
+**Estado: 🔧 implementado, 139/139 mutaciones verificadas (74 de backend, 65 de portal) — falta la revisión de la PR.** Backend (`GET /v1/admin/monitor`) y la pantalla `/admin/monitor` del backoffice. Va después de #15 en la pila.
+
+### Diseño
+
+- **`GET /v1/admin/monitor`**, solo para la plataforma (clave de plataforma o JWT de administrador, como el resto de `/v1/admin/**`). Mira **todas** las empresas a la vez; no recibe parámetros. Una sola lectura trae cuatro cosas:
+  - **Las últimas 24 horas, hora por hora**, de la más vieja a la actual, con las horas sin comprobantes **en cero** (no faltan). Cada franja parte los comprobantes creados en esa hora en cinco categorías que no se pisan y suman el total: **aceptados** (con o sin observaciones), **rechazados**, **con error** (error de envío o fuera de plazo), **en camino** (firmados, enviados o esperando el resumen) y **otros** (recibidos, inválidos, dados de baja). Qué estado cae en cada una lo decide `EstadoDocumento` (nuevo `estaEnCamino()` más los predicados que ya existían), una sola vez; el SQL no conoce categorías.
+  - **El día de Lima** (desde su medianoche hasta ahora) con su **tasa de rechazo**: rechazados sobre los que SUNAT ya resolvió (aceptados + rechazados). Los errores de envío y lo que está en camino **no** entran en la base: aún no los resolvió nadie. Sin resueltos no hay tasa (campo ausente, nunca 0).
+  - **La cola del outbox:** pendientes, **vencidos** (ya tocaba enviarlos y nadie los tomó: no cuenta lo que está en proceso ni lo que espera su reintento programado; es exactamente la condición con que `OutboxWorker` toma filas), desde cuándo está el más antiguo y cuánto lleva esperando el vencido que más espera. **Alerta** cuando ese vencido supera los **5 minutos**: señal de que el trabajo que vacía la cola no corre. Una cola larga pero con reintentos programados no da alerta: esperar el backoff no es un trabajo caído.
+  - **Si SUNAT contesta:** un `GET` al WSDL de cada uno de los cuatro servicios (envío producción, envío beta, consulta de CDR, consulta de validez). Sin credenciales y sin enviar ningún comprobante. Los servicios se sondean **a la vez** (el peor caso es un plazo, no la suma) y la lectura se **guarda 30 segundos**: el monitor se refresca solo y no debe llamar a SUNAT con cada refresco ni con cada administrador que lo mire.
+- **Una consulta por las horas y otra por la cola**, la primera por un índice nuevo sobre `documento (created_at)` (V41). Las horas se agrupan en UTC de forma explícita, no según la zona de la sesión de la base: Lima va 5 horas atrás sin horario de verano, así que sus horas caen en las mismas fronteras y «el día de Lima» sale de sumar las horas desde su medianoche.
+- **Portal (`/admin/monitor`, «Operación / Monitor»):** el servidor trae la primera lectura (si falla, la página igual abre y el panel reintenta) y el panel pide una nueva **cada 30 s** por el BFF. Muestra la franja del día con su tasa, un gráfico de barras apiladas por hora (con una tabla equivalente para lectores de pantalla y para quien quiere los números), la cola de envíos, el estado de cada servicio de SUNAT y «Última lectura». **Si una lectura falla se queda con la última y lo dice**, y se recupera sola con la siguiente; si la **sesión terminó** deja de pedir (cada pedido seguiría fallando) y no ofrece reintentar. No encima pedidos si el anterior no terminó.
+
+### Tests
+
+- **Dominio:** `EstadoDocumentoTest` (+): `estaEnCamino()` para cada estado (tabla completa).
+- **Servicio** (`MonitorDeEmisionServiceTest`, 22): la serie siempre tiene 24 horas contiguas, las vacías en cero, el rango que se pide al repositorio, una consulta fuera de la ventana que se ignora, cada estado en su categoría y ninguno perdido, la tasa de rechazo (base, sin resueltos, todo rechazado), el día de Lima con los bordes de su medianoche (justo antes y justo después), y la alerta del outbox: justo en el umbral no, pasado sí, sin vencidos no aunque el más viejo sea antiguo, y un reloj atrasado que no da una duración negativa.
+- **Persistencia** (`JdbcMonitorDeEmisionRepositoryTest`, 15, Postgres real): agrupa por hora con el inicio de la hora, suma las empresas, bordes del rango, la hora no depende de la zona de la sesión (con una zona de media hora de desfase y **una sola conexión**: la primera versión de esta prueba abría una conexión por consulta y no probaba nada, y por eso sobrevivía una mutación), el índice, y la cola con su definición de «vencido» (borde exacto, bloqueo que vence justo ahora, lo que está en proceso, lo que espera su reintento).
+- **Sondeo de SUNAT** (`SondeoDeSunatHttpTest`, 15, WireMock): disponible con los milisegundos, solo `GET` del WSDL sin credenciales, `?`/`&` según la URL, cada código HTTP, una redirección que no se sigue, el plazo agotado, «Sin conexión» (puerto cerrado y URL mal escrita) sin lanzar nunca, URLs con espacios, servicios sin URL que no se sondean, **todos a la vez**, y el resultado guardado (dentro de la vigencia no llama, al cumplirse vuelve a llamar, se ve cuando el servicio cae y cuando vuelve).
+- **REST** (`AdminMonitorControllerTest`, 4): la forma real del JSON (snake_case, la duración en segundos), lo opcional **ausente en lugar de nulo**, las franjas en cero que no faltan, y que no viaja ningún campo en camelCase.
+- **E2E real** (`MonitorDeEmisionE2ETest`, 13; Spring completo + Postgres + filtros reales + dos servicios de SUNAT falsos en un puerto local, sin salir a internet): suma de varias empresas por categoría, lo de hace más de 24 horas que no entra, las horas contiguas, el día de Lima, la cola (vacía, vencida hace 12 min = alerta, vencida hace 1 min = sin alerta, esperando su reintento, tomada por el trabajo) y el estado de SUNAT (producción 503, beta bien, las consultas sin conexión) y **que solo la plataforma lo vea** (ni cliente, ni API key, ni clave errónea).
+- **Portal, Vitest:** formato de horas y números (15), cliente de la API (3), BFF (4), miga (1) y el panel (30: la lectura, la tasa, las barras y sus segmentos, el eje, la tabla, la alerta en singular y plural, SUNAT, el refresco cada 30 s, no encimar pedidos, la lectura que falla y se recupera, la sesión terminada, el éxito sin datos, el desmontado y la lectura inicial ausente).
+- **Portal, Playwright** (`admin-monitor.spec.ts`, 10): el menú y la miga, las 24 barras con el día y la cola, SUNAT con la consulta de CDR caída y su motivo, la tabla por hora, **el refresco a los 30 s** (con el reloj de la página adelantado: una lectura nueva trae más pendientes), que a los 29 s todavía no pidió nada, el fallo de lectura con la última a la vista y la recuperación, la sesión terminada y la alerta (aparece y se va), forzadas interceptando el BFF.
+
+### Verificación por mutación — **139/139 mueren** (74 de backend, 65 de portal)
+
+| Capa | Mutaciones | Cuántas |
+|---|---|---|
+| Regla «en camino» | cada uno de los tres estados que dejan de estarlo, y el error de envío y lo recién recibido que pasan a estarlo | 5 |
+| Repositorio | agrupar por día, el desde exclusivo, la hora según la zona de la sesión, lo vencido estricto, un bloqueo que vence ahora, el más viejo que es el más nuevo, el «vencido desde» más reciente, pendientes que no cuentan lo bloqueado, `OR` por `AND`, fechas y cantidades perdidas | 12 |
+| Sondeo de SUNAT | un 3xx o un 200 mal clasificados, seguir redirecciones, el WSDL al revés, el borde de la vigencia, no guardar o no usar lo guardado, sondear uno detrás de otro, sin plazo, URLs vacías o sin recortar, milisegundos o código perdidos, los tres mensajes de fallo | 16 |
+| Servicio | 25 horas, la hora actual sin truncar, cada categoría con la regla de otra, las horas corridas o con huecos, el día a la medianoche de UTC, el borde de la medianoche, el futuro dentro del día, el umbral de la alerta, la duración negativa, SUNAT no sondeado, la cola o `generado_en` a la hora redonda | 21 |
+| Caso de uso | la tasa con otra base o sin resueltos en 0, el total que pierde `otros`, el umbral de diez minutos, la serie de 25 horas | 6 |
+| REST | la ruta, categorías o campos cruzados, la duración en minutos, `hoy` que es la última hora, la disponibilidad al revés, la alerta, la tasa o el detalle perdidos | 12 |
+| Cableado | producción que sondea la URL de beta, las consultas que no se sondean | 2 |
+| Formato (portal) | otra zona horaria, las 24:00, sin segundos, la tasa (cero, decimales), los bordes de segundos/minutos/horas, duraciones negativas, el máximo de una barra | 14 |
+| Cliente y BFF (portal) | la ruta, el JWT que no viaja, sin sesión que pasa, la lectura que se guarda en caché, el error del backend que se vuelve 500, la miga | 8 |
+| Panel: el refresco | pedidos encimados, pedir con la sesión terminada, la lectura inicial, el intervalo que no se limpia, el error que no se borra, la lectura que no se muestra, un éxito sin datos, el mensaje de sesión terminada, el reintento tras sesión terminada, el intervalo, el método | 16 |
+| Panel: lo que muestra | la alerta (cuándo y en plural), la tasa, los totales, la última lectura sin segundos, el gráfico (sin datos, los rótulos, los segmentos, el alto), la cola (vacía, el más antiguo, el vencido), SUNAT (el color, el texto, los milisegundos, el detalle) | 27 |
+
+Hubo cuatro supervivientes en la primera tanda: tres de backend y uno de portal. **P3** (la hora según la zona de la sesión) sobrevivía porque la prueba abría una conexión distinta a la del repositorio: la corregí con una sola conexión y una comprobación de que la zona estaba puesta. **S11** (la URL sin recortar) y **V14** (el futuro dentro del día) no tenían prueba: ahora sí. **C5** (`vivoRef`, «no mira si el panel sigue montado») era **código muerto**: en React 18 un `setState` tras desmontar no hace nada, así que lo borré en lugar de tolerar el superviviente.
+
+### Suites
+
+- Backend: `./gradlew test` completo, **BUILD SUCCESSFUL (10 min 48 s)** (incluye `ArchitectureTest`, el E2E del monitor y las pruebas de persistencia con Postgres real).
+- Portal: `tsc` y ESLint limpios; Vitest **1049/1049 (114 archivos)**; Playwright completo (`--workers=2`) **342/342**.
+
+### Límites conocidos
+
+- **El estado de SUNAT dice si el servicio contesta, no si emitir funciona.** Un `GET` al WSDL prueba red, TLS y que el servicio está arriba; no prueba que el envío de un comprobante real sea aceptado. A propósito: sin credenciales de ninguna empresa y sin tocar comprobantes.
+- **La latencia de SUNAT es la del sondeo (la lectura guardada), no un histórico.** El issue pide «latencia SUNAT»: muestra cuánto tardó la última lectura. No hay serie de tiempo ni percentiles; eso pide Micrometer (spec ★17), que no está en el proyecto.
+- **El día de Lima se arma sumando horas enteras.** Funciona porque Lima es UTC-5 sin horario de verano; si el país adoptara uno, la medianoche dejaría de caer en una frontera de hora y la regla tendría que cambiar (hay una prueba que fija el borde).
+- **Un comprobante cuenta en la hora en que se creó, no en la que cambió de estado.** Un comprobante creado a las 14:50 y aceptado a las 15:10 figura en las 14:00 como aceptado. Es lo que permite leer solo por `created_at` con un índice; la foto dice cómo terminó lo que entró en cada hora.
+- **La alerta mira el envío vencido que más espera, no la edad total de la cola.** Una cola con miles de reintentos programados no alerta; lo que alerta es que un envío ya vencido no haya sido tomado en 5 minutos.
+- **El monitor no avisa por correo ni notifica:** hay que mirarlo. Un aviso activo sería otro issue.
 
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
