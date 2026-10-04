@@ -136,6 +136,7 @@ class ConsultarColaDeErroresServiceTest {
         service.listar(new Filtro(null, null, "   "), 1, 20);
         service.listar(new Filtro(null, null, ""), 1, 20);
 
+        assertThat(((Filtro) cola.conteos.get(0)[0]).texto()).as("el total cuenta con el mismo filtro que la página").isEqualTo("20100066603");
         assertThat(((Filtro) cola.consultas.get(0)[0]).texto()).isEqualTo("20100066603");
         assertThat(((Filtro) cola.consultas.get(1)[0]).texto()).isNull();
         assertThat(((Filtro) cola.consultas.get(2)[0]).texto()).isNull();
