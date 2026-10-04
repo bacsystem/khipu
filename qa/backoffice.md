@@ -2658,6 +2658,62 @@ Hubo **cinco supervivientes** en la primera tanda. **Backend:** el total de la c
 - **El correo de la cuenta viaja en la URL de la búsqueda** (`?q=…`) si el administrador busca por correo: es un dato del backoffice, pero queda en el historial del navegador.
 - **«Abrir ticket»**, que la épica también lista como acción, **no está**: lo decidió #200 (soporte en un servicio externo).
 
+## #197 · Backoffice: certificados por vencer y credenciales SOL inválidas
+
+**Estado: 🔧 implementado, 137/137 mutaciones verificadas (65 de backend, 72 de portal) — falta la revisión de la PR.** Backend (`GET /v1/admin/avisos/certificados`, `GET /v1/admin/avisos/credenciales-sol` y `POST /v1/admin/empresas/{id}/avisos`), la migración V43 y la pantalla `/admin/avisos`. Va después de #196 en la pila.
+
+### Diseño
+
+- **Lista de certificados:** las empresas cuyo certificado está **por vencer (menos de 30 días) o vencido**, del que vence antes al que vence después (los vencidos primero). El estado sale de la **misma regla del listado de empresas** (`JdbcEmpresasAdminRepository.ESTADO`), no de una copia: la lista de avisos y la ficha de la empresa no pueden discrepar. Cada fila trae la empresa, su cuenta (ausente en una empresa de integración), los días (negativos si ya venció) y el último aviso de ese motivo.
+- **Lista de credenciales SOL — se deduce, no se sondea.** El issue pide «empresas cuyas credenciales SOL fallan la autenticación con SUNAT». Probar cada empresa contra SUNAT con sus credenciales desde el backoffice sería una llamada real por cliente (y arriesga bloquear un usuario SOL por intentos fallidos). En su lugar se miran los **envíos que están fallando ahora**: un comprobante en `ERROR_ENVIO` cuyo último error es de autenticación (`FalloDeAutenticacionSol`, dominio: los códigos `0102`–`0106` y `0111` de usuario y clave, o el `HTTP 401` de la autenticación HTTP; **un servicio caído, un timeout o un 5xx no cuentan**: el cliente no tiene nada que corregir). Un comprobante ya aceptado no cuenta, así que una empresa que reenvió con éxito **sale sola** de la lista. Contrapartida: una empresa que **no está emitiendo** no aparece (la pantalla lo dice). Cada fila trae cuántos comprobantes están atascados, cuándo fue el último fallo y **qué dijo SUNAT**, tal cual.
+- **Avisar al cliente** (`POST /v1/admin/empresas/{id}/avisos`, cuerpo `{"tipo": "CERTIFICADO" | "CREDENCIALES_SOL"}`): el administrador dice **qué** avisa; el **motivo exacto lo decide el backend** según la situación de la empresa en ese momento (`CERTIFICADO_POR_VENCER`, `CERTIFICADO_VENCIDO` o `CREDENCIALES_SOL_INVALIDAS`), de modo que no se manda un aviso falso por una pantalla desactualizada. Los rechazos, todos de dominio: `AVISO_SIN_MOTIVO` (la empresa ya no está en ese problema), `EMPRESA_SIN_CUENTA` (no hay a quién avisarle), `AVISO_RECIENTE` (ya se avisó lo mismo), todos `409`; `CORREO_NO_CONFIGURADO` (`503`: el servidor no entrega correo de verdad) y `CORREO_NO_ENVIADO` (`502`), además de `NO_ENCONTRADO` (`404`) y `TIPO_INVALIDO` (`422`).
+- **«El envío del aviso queda registrado para no repetirlo todos los días»:** la tabla `aviso_a_cliente` (V43) guarda quién, a quién, de qué y cuándo, y **el mismo aviso (empresa + motivo) no se repite en 7 días**. Ese plazo es del motivo (`MotivoDeAviso.ENFRIAMIENTO`) y la lista dice **desde cuándo** se puede repetir. Un certificado que pasa de «por vencer» a «vencido» es **otro motivo**, así que **sí se avisa de nuevo**: el cliente tiene que enterarse de que ya no puede emitir.
+- **Reservar, enviar, registrar.** Dos administradores haciendo clic a la vez no deben mandar dos correos, y un correo que falla no debe quedar anotado como enviado. El orden es: (1) **reservar** el aviso en una transacción que toma un candado de Postgres por empresa y motivo (`pg_advisory_xact_lock`), de modo que el segundo espera y al entrar ya ve la reserva del primero (`AVISO_RECIENTE`); (2) **mandar el correo fuera de la transacción** (es lento y externo); (3) si **falla**, **anular la reserva** (se puede reintentar) y responder `502`; (4) si **sale**, escribir la **bitácora** (`AVISAR_AL_CLIENTE`, con la empresa, su cuenta y el motivo, **sin el correo del cliente**). Queda un hueco chico a propósito: si el proceso muere entre mandar el correo y anotar la bitácora, el aviso salió y está reservado pero no está en la bitácora (preferible a lo contrario).
+- **Las cuentas dadas de baja no se avisan** (ni salen en las listas): la misma visibilidad que el resto del backoffice. **Sin una cuenta con correo** (empresas de integración) la fila lo dice y no ofrece el botón.
+- **El texto del correo está en el código** (`MensajeDeAviso`: asunto y cuerpo por motivo, con la razón social, el RUC, la fecha y el enlace al portal). Que sea **editable, con vista previa y remitente validado** es el issue #199, que parte de acá.
+- **Portal (`/admin/avisos`, «Operación / Avisos»):** dos vistas («Certificados» y «Credenciales SOL», en la URL), la tabla con empresa y cuenta, situación (etiqueta de tono: vencido de error, por vencer de aviso), último aviso y la acción: **«Avisar al cliente»** (diálogo con a quién le llega, qué se le dice, que no se repite en una semana y que queda en la bitácora), **«Se puede repetir desde…»** o «Sin cuenta». **Lo que pasó con el último aviso queda arriba y sobrevive a la recarga**: si otro administrador se adelantó, la fila cambia con la recarga y se llevaría el diálogo con su aviso, así que el aviso también va al banner (el mismo `alEstadoViejo` de #196).
+
+### Tests
+
+- **Dominio:** `FalloDeAutenticacionSolTest` (6: cada código, el 401 y que un 5xx o un timeout no cuenten), `MotivoDeAvisoTest` (4) y `AccionAdmin` con `AVISAR_AL_CLIENTE`.
+- **Servicios:** `MensajeDeAvisoTest` (6), `ConsultarAvisosServiceTest` (18: la situación y el último aviso de cada fila, desde cuándo se puede repetir, sin cuenta, el borde de la semana) y `AvisarAlClienteServiceTest` (22: cada rechazo, el motivo que decide el backend, reservar antes de enviar, anular si el correo falla, la bitácora solo si salió y sin el correo del cliente, el orden de las operaciones).
+- **Persistencia (Postgres real):** `JdbcAvisosRepositoryTest` (30: cada código de SOL contra `FalloDeAutenticacionSol`, solo envíos atascados, las bajas fuera, el orden y las páginas, la reserva —el borde, otro motivo, otra empresa, **el candado entre dos transacciones a la vez**—, anular).
+- **REST** (`AdminAvisosControllerTest`, 13): la forma real del JSON (snake_case, lo opcional ausente en lugar de nulo, el total en la cabecera), el tope de página, y cada error del dominio con su status.
+- **E2E real** (`AvisosAClientesE2ETest`, Spring completo + Postgres + un correo de mentira): las dos listas con su orden y sus datos, un aviso que sale (correo con su asunto, destinatario y enlace; reserva; bitácora), no se repite, **otro motivo sí**, el correo que falla anula la reserva y se puede reintentar, **la bitácora que falla deja el aviso reservado y no se duplica**, sin cuenta, sin motivo, sin SMTP, **dos avisos a la vez que mandan un solo correo**, las bajas fuera y **solo la plataforma** usa estas rutas.
+- **Portal, Vitest:** cliente y URL (21), formato (7), BFF de avisos (8), el diálogo (10), la tabla (20) y la miga (+1).
+- **Portal, Playwright** (`admin-avisos.spec.ts`, 13): el menú y la miga; el orden de los certificados; las filas con empresa, cuenta y último aviso; la vista de SOL con lo que dijo SUNAT; la página fuera de rango; sin cuenta y ya avisado (sin botón, con la fecha); avisar un certificado por vencer, uno vencido y las credenciales SOL (cada uno con lo que se le dice al cliente), cancelar, **otro administrador que se adelantó** y **el correo que falla**.
+
+### Verificación por mutación — **137/137 mueren** (65 de backend, 72 de portal)
+
+| Capa | Mutaciones | Cuántas |
+|---|---|---|
+| Fallo de credenciales (dominio) | el `0111` que no cuenta, la marca `HTTP 404`, el 401 o el código que valen en cualquier lado, el error nulo | 5 |
+| Motivos y mensajes | el enfriamiento de ocho días o que se sume, el vencido con el tipo de la SOL; hoy y mañana cruzados, la fecha al revés, el correo sin RUC, sin enlace o sin nombrar a SUNAT | 10 |
+| Lectura de las listas | el vencido como por vencer, el borde de la semana, sin correo que se puede avisar, la cuenta vacía, últimos avisos de otro motivo o perdidos | 6 |
+| Avisar | sin tipo, el motivo cruzado, sin fallos o sin SMTP que se avisa igual, el enfriamiento que no cuenta, el aviso reciente que pasa, **la reserva que queda si el correo falla**, el que no queda en la bitácora o sin motivo, la fecha de espera y el destinatario, **el correo que sale sin reservar antes** | 13 |
+| Persistencia | el 401 o los códigos en cualquier lado (en SQL), solo el primer código, un envío atascado que es un rechazo, lo por vencer fuera de riesgo, las bajas, el orden de cada lista, el último error o fallo o aviso más viejo, el borde de la reserva, **sin candado entre administradores**, anular que no borra, la reserva que ignora el motivo | 15 |
+| REST | cada ruta, el tope de página y la página cero, sin cuerpo, el motivo siempre vencido, cuenta o último aviso ausentes que revientan, días, `puede_avisar`, afectados y destinatario que se pierden, y los tres `409` como `422` | 16 |
+| Cliente y URL (portal) | la vista en cualquier caja, la página cero o decimal, cada parámetro que va a la URL o no, la ruta, el total que ignora la cabecera, cada ruta del backend, el tipo y el origen que no viajan, el verbo, las credenciales | 21 |
+| Formato, BFF y miga (portal) | los días con signo y el plural, «vence hoy», el último aviso sin hora o sin a quién, el mensaje sin empresa o sin correo, sin sesión que pasa, el id y el tipo sin validar, caché, la IP, el fallo que pierde su código, la ruta de la miga | 19 |
+| Diálogo y tabla | cada código de estado viejo, ruta, tipo, mensaje sin empresa, sin a quién ni qué se le dice; vistas, filas y total de la otra vista, el pie, el banner, la cuenta, el botón, la espera, el tono y el tipo de cada fila, el vacío y las fechas | 32 |
+
+Hubo **un superviviente** en la primera tanda de backend: `puede_avisar` de un certificado se probaba solo con `false`, y el DTO podía fijarlo en `false` sin que nada cayera (el E2E sí lo habría visto, pero la mutación corre solo la prueba del controlador): ahora una prueba fija el `true`. En el portal hubo **cuatro supervivientes**: el pie de una lista vacía (sin prueba), la espera sin fecha, y el tipo del aviso de un certificado (la prueba del botón solo miraba el de las credenciales): ahora una prueba fija cada uno.
+
+### Suites
+
+- Backend: `./gradlew test` completo, **BUILD SUCCESSFUL (11 min 32 s)** (incluye `ArchitectureTest`, el E2E de los avisos a clientes y las pruebas de persistencia con Postgres real).
+- Portal: `tsc` y ESLint limpios; Vitest **1211/1211 (125 archivos)**; Playwright completo (`--workers=2`) **373/373**.
+
+### Límites conocidos
+
+- **«Credenciales SOL inválidas» es una deducción, no una prueba contra SUNAT.** Una empresa cuyo comprobante nunca se intentó enviar no aparece, y una empresa con credenciales malas que dejó de emitir deja de aparecer en cuanto sus envíos atascados se resuelven (por otra vía) o se descartan (#196). Si más adelante se quiere un sondeo activo, es otro issue (con el riesgo de bloqueo del usuario SOL).
+- **Las listas no se actualizan solas**; se recargan al actuar o al navegar. Tampoco hay avisos en lote.
+- **No se avisa a una empresa sin cuenta** (de integración): no hay a quién; la fila lo dice. Habría que avisarle por otra vía.
+- **Sin SMTP no se avisa** (`CORREO_NO_CONFIGURADO`, `503`): en un entorno con el `LogCorreoSender` el botón responde ese error en lugar de fingir que mandó el correo.
+- **El plazo de espera es de 7 días fijo** (constante del dominio): ajustarlo por tipo de aviso o desde la pantalla no está en el alcance.
+- **Un hueco chico a propósito:** si el proceso muere entre el correo y la bitácora, el aviso salió y está reservado pero no está en la bitácora.
+- **El texto del correo está en el código**: editarlo, la vista previa y el remitente validado son #199.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
