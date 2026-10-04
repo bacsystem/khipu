@@ -219,6 +219,7 @@ public class AppConfig {
     @Bean AccesosDeSoporteRepository accesosDeSoporteRepository(JdbcTemplate jdbc) { return new JdbcAccesosDeSoporteRepository(jdbc); }
     @Bean PlanRepository planRepository(JdbcTemplate jdbc) { return new JdbcPlanRepository(jdbc); }
     @Bean SuscripcionRepository suscripcionRepository(JdbcTemplate jdbc) { return new JdbcSuscripcionRepository(jdbc); }
+    @Bean ConsumoRepository consumoRepository(JdbcTemplate jdbc) { return new JdbcConsumoRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -316,6 +317,9 @@ public class AppConfig {
     }
     @Bean DarDeBajaCuentaUseCase darDeBajaCuenta(CuentaRepository cuentas, BajaDeCuentaRepository bajas, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new DarDeBajaCuentaService(cuentas, bajas, auditoria, u, clock);
+    }
+    @Bean ConsultarConsumoUseCase consultarConsumo(ConsumoRepository consumos, CuentaRepository cuentas, TenantRepository tenants, Clock clock) {
+        return new ConsultarConsumoService(consumos, cuentas, tenants, clock);
     }
     @Bean GestionarPlanesUseCase gestionarPlanes(PlanRepository planes, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new GestionarPlanesService(planes, auditoria, u, clock);
