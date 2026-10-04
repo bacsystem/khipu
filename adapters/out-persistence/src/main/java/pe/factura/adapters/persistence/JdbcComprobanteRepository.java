@@ -25,11 +25,14 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public void guardar(Comprobante c) {
         // Un envío tardío (p. ej. el worker y una llamada manual en paralelo) no debe sobreescribir un
         // ACEPTADO/RECHAZADO ya persistido: al guardar ERROR_ENVIO o ENVIADO la actualización es condicional.
-        boolean condicional = c.estado() == EstadoDocumento.ERROR_ENVIO || c.estado() == EstadoDocumento.ENVIADO;
+        // Descartar (#196) también es condicional y más estricto: solo se descarta lo que sigue en error de envío en la base, no lo que un envío en paralelo ya resolvió.
+        String guardia = c.estado() == EstadoDocumento.DESCARTADO ? " AND estado = 'ERROR_ENVIO'"
+                : c.estado() == EstadoDocumento.ERROR_ENVIO || c.estado() == EstadoDocumento.ENVIADO ? " AND estado IN " + ESTADOS_DE_ENVIO : "";
+        boolean condicional = !guardia.isEmpty();
         int filas = jdbc.update("""
             UPDATE documento SET estado = ?, hash = ?, ticket = NULL, intentos = ?, ultimo_error = ?, cdr_codigo = ?, cdr_descripcion = ?,
               cdr_observaciones = ?::jsonb, xml_key = ?, cdr_key = ?, updated_at = now() WHERE id = ? AND tenant_id = ?
-            """ + (condicional ? " AND estado IN " + ESTADOS_DE_ENVIO : ""),
+            """ + guardia,
                 c.estado().name(), c.hash(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : c.cdr().codigo(), c.cdr() == null ? null : c.cdr().descripcion(),
                 c.cdr() == null ? null : aJson(c.cdr().observaciones()), c.xmlKey(), c.cdrKey(), c.id(), c.tenantId());

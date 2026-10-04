@@ -39,7 +39,7 @@ public record ComprobanteResponse(
         @Schema(example = "0101", description = "Catálogo 51 SUNAT") String tipoOperacion,
         ReceptorDto receptor,
         List<ItemDto> items,
-        @Schema(example = "ACEPTADO", description = "Estado del comprobante: `RECIBIDO` → `FIRMADO` → `ENVIADO` → `ACEPTADO` / `ACEPTADO_CON_OBS` / `RECHAZADO`; `ERROR_ENVIO` (SUNAT no disponible, se reintenta), `INVALIDO` (XML no válido), `ANULADO` (comunicación de baja aceptada)") String estadoDocumento,
+        @Schema(example = "ACEPTADO", description = "Estado del comprobante: `RECIBIDO` → `FIRMADO` → `ENVIADO` → `ACEPTADO` / `ACEPTADO_CON_OBS` / `RECHAZADO`; `ERROR_ENVIO` (SUNAT no disponible, se reintenta), `INVALIDO` (XML no válido), `ANULADO` (comunicación de baja aceptada), `FUERA_DE_PLAZO` (no llegó dentro del plazo de envío; terminal), `DESCARTADO` (un administrador dejó de intentar enviarlo; terminal)") String estadoDocumento,
         @Schema(example = "a1b2c3d4e5f6...", description = "Resumen (digest) de la firma XML-DSig; se imprime en la representación impresa y en el código QR") String hash,
         @Schema(example = "20614798093-01-F001-00000125", description = "Nombre oficial del archivo: `RUC-TIPO-SERIE-NUMERO`") String nombreArchivo,
         @Schema(example = "1", description = "Intentos de envío a SUNAT realizados") Integer intentos,

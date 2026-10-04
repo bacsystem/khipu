@@ -8,14 +8,19 @@ public enum EstadoDocumento {
     RECIBIDO, INVALIDO, FIRMADO, ERROR_ENVIO, PENDIENTE_AGRUPACION, ENVIADO,
     ACEPTADO, ACEPTADO_CON_OBS, RECHAZADO, ANULADO,
     /** No llegó a SUNAT dentro del plazo de envío ({@link PlazoEnvio}); terminal: hay que emitir de nuevo. */
-    FUERA_DE_PLAZO;
+    FUERA_DE_PLAZO,
+    /**
+     * Un administrador dejó de intentar enviarlo (#196): estaba en error de envío y no se recupera. Terminal: hay que emitir de nuevo. No pide atención (ya lo resolvió un
+     * administrador), no se factura y no consume del plan.
+     */
+    DESCARTADO;
 
     private Set<EstadoDocumento> siguientes = new HashSet<>();
 
     static {
         RECIBIDO.siguientes = EnumSet.of(FIRMADO, INVALIDO);
         FIRMADO.siguientes = EnumSet.of(ENVIADO, ERROR_ENVIO, PENDIENTE_AGRUPACION, FUERA_DE_PLAZO);
-        ERROR_ENVIO.siguientes = EnumSet.of(ENVIADO, ERROR_ENVIO, FUERA_DE_PLAZO);
+        ERROR_ENVIO.siguientes = EnumSet.of(ENVIADO, ERROR_ENVIO, FUERA_DE_PLAZO, DESCARTADO);
         PENDIENTE_AGRUPACION.siguientes = EnumSet.of(ENVIADO);
         ENVIADO.siguientes = EnumSet.of(ACEPTADO, ACEPTADO_CON_OBS, RECHAZADO, ERROR_ENVIO, PENDIENTE_AGRUPACION);
         ACEPTADO.siguientes = EnumSet.of(ANULADO);
