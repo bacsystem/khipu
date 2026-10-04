@@ -2426,6 +2426,53 @@ Se reabre si pasa alguna de estas cosas:
 - **Las estimaciones de esfuerzo son mías**, no medidas.
 - **No se consultaron precios** de ningún servicio; la comparación de costo es cualitativa.
 
+## #198 · Backoffice: verificación de integridad del almacenamiento
+
+**Estado: 🔧 implementado, 68/70 mutaciones verificadas (1 equivalente documentada, 1 línea redundante eliminada) — falta la revisión de la PR.** Es solo la pantalla, como dice el issue: el endpoint `POST /v1/admin/integridad` ya existía. Lo único nuevo en el backend es un **test de contrato** del controlador; no cambió código de producción. Va después de #200 en la pila.
+
+### Diseño
+
+- **Pantalla `/admin/integridad`** (menú «Integridad», miga «Operación / Integridad»): un formulario con el rango de fechas de emisión (`Desde`, `Hasta` inclusive; por defecto los últimos siete días) y, debajo, el resultado: cuántos comprobantes se verificaron, qué se encontró y, si hay problemas, una tabla con el tipo, el comprobante (`RUC-tipo-serie-número`), el detalle y un enlace «Ver empresa». Solo se barre cuando el administrador lo pide: nada corre al abrir la página ni se repite sola.
+- **Los cuatro tipos** (`XML_FALTANTE`, `XML_CORRUPTO`, `CDR_FALTANTE`, `STORAGE_INACCESIBLE`) se explican en una leyenda que solo muestra los que aparecieron. Perder o alterar un objeto es grave (rojo); **no poder leer el almacenamiento** puede ser un fallo pasajero y no un objeto perdido, así que sale como aviso y la leyenda aconseja repetir.
+- **El resumen cuenta comprobantes, no problemas:** un comprobante con el XML corrupto y el CDR faltante es un comprobante con dos problemas («Se encontraron 2 problemas en 1 comprobante»).
+- **Tope de 92 días por vez** (decisión mía: el backend no lo limita). Cada comprobante firmado del rango se lee del almacenamiento; un rango de años por error sería un barrido enorme sobre producción. Lo aplican el formulario y el BFF, que arma con esas fechas la URL del backend (existen, `desde` ≤ `hasta`, y no pasan del tope): de ahí solo salen fechas `AAAA-MM-DD` válidas. El barrido de todos los días sigue corriendo a diario sobre los últimos.
+- **«Enlace al comprobante» → enlace a la empresa.** El backoffice **no tiene una página por comprobante** (la ficha de la empresa muestra los diez más recientes) y la API de comprobantes es de la empresa, no del administrador. Cada fallo enlaza a la ficha de **su empresa** (`tenant_id`) y muestra la identidad completa del comprobante; una página de detalle de un comprobante sería otro issue.
+- **Solo lee:** no repara nada, no deja bitácora (el endpoint no escribe) y la respuesta del BFF no se guarda en caché. El JWT del administrador sigue en su cookie `httpOnly`.
+
+### Tests
+
+- **Backend:** `AdminIntegridadControllerTest` (6): la **forma real** del JSON (snake_case, `problemas` vacío y no ausente, sin campos de más), el rango pasado tal cual, el rango al revés (`400 RANGO_INVALIDO`) y los parámetros ausentes o mal escritos (`400`, sin llamar al caso de uso).
+- **Portal, Vitest (+39, 974 en total):** la validación del rango (incluido el borde exacto de 92 días), el cliente, el BFF (sesión, cuerpo, fechas, parámetro colado, caché, error), el componente (16: resumen en singular y plural, tabla, tonos, leyenda, enlaces, validación, estados, doble clic, fallos) y la página.
+- **Portal, Playwright** (`admin-integridad.spec.ts`, 14): el menú y la miga, el rango por defecto, un barrido limpio, uno con problemas (tabla y leyenda), el enlace a la empresa (navega y llega), el almacenamiento inaccesible, reemplazar un resultado por otro, los rechazos del formulario, justo 92 días, el BFF (sin sesión, cuerpos inválidos, informe tal cual, sin caché) y la página sin sesión.
+
+### Verificación por mutación — 68/70 mueren (1 equivalente, 1 línea redundante eliminada)
+
+| Capa | Mutaciones | Cuántas |
+|---|---|---|
+| Rango | el tope en 91 o 93; los extremos que no cuentan; el tope exclusivo o ausente; el rango al revés (o de un día) que pasa; fecha ausente o inexistente que pasa en `desde` o en `hasta`; fechas sin recortar; comparar aunque una no exista; el mensaje sin el máximo | 16 |
+| Cliente y BFF | método, codificación de cada fecha, JWT, ruta, fechas al revés; BFF: sin sesión, cuerpo roto, fechas que no son texto, solo una exigida, rango sin validar, texto crudo en la URL, caché, código y estado del rechazo, mensaje que pierde un error, error que no se propaga | 18 |
+| Componente | rango inicial (±1 día) y «hasta» sin hoy; doble clic; sin validar; ruta; éxito sin datos; fallo sin mensaje; botón sin bloquear; aviso y fallo que no se muestran; limpio con tabla / con problemas que es limpio; singular y plural de cada frase; comprobantes sin agrupar; el tono de cada tipo; enlace a otra empresa; detalle sin guion; leyenda repetida o con todos los tipos; el comprobante o el tipo mal mostrados | 31 |
+| Página y miga | sin sesión, «hoy» de UTC, título; la integridad bajo «Comercial» o con otro nombre | 5 |
+
+Lo que sobrevivía:
+
+- **Línea redundante eliminada — `setErrores({})` antes de enviar:** cada cambio de un campo ya limpia los errores, así que al llegar un envío válido no queda ninguno que limpiar; ningún camino alcanzaba esa línea.
+- **Equivalente — mandar `{desde, hasta}` en vez de las fechas recortadas por `validarRango`:** un campo de fecha nunca trae espacios (el navegador y jsdom lo sanean), así que no hay un valor sin recortar que probar desde la pantalla; el BFF recorta igual y eso sí está probado.
+
+**Hallazgo, fuera de este issue:** un `GET` a una ruta que solo acepta `POST` (p. ej. `/v1/admin/integridad`) responde **`500 INTERNO`** en vez de `405`: `GlobalExceptionHandler` no cubre `HttpRequestMethodNotSupportedException` y cae en el manejador general. Es de toda la API, no de esta ruta; no se tocó acá.
+
+### Suites
+
+- Backend: los módulos `:adapters:in-rest`, `:application` y `:domain` (**BUILD SUCCESSFUL**); no cambió código de producción ni hay migración, así que no se repitió el `./gradlew test` completo de 10 minutos.
+- Portal: `tsc` y ESLint limpios; Vitest **974/974** (108 archivos); Playwright completo (`--workers=2`) **321/321 (en la primera corrida pasaron 320 y falló un test de la spec de #193 por una carrera de hidratación del selector de mes: corregida en la rama de #193, y esa spec pasa 20/20)**.
+
+### Límites conocidos
+
+- **No hay página de detalle de un comprobante:** el enlace va a la empresa (ver arriba).
+- **El barrido es síncrono:** la página espera la respuesta; con un rango de 92 días en producción podría tardar. Mientras tanto avisa que puede tardar y no deja lanzar otro. Si en la práctica tarda demasiado, habría que pasarlo a un trabajo con su resultado guardado (otro issue).
+- **No repara nada y no guarda los resultados:** cada barrido es una consulta; el historial de barridos no existe.
+- **El tope de 92 días es una decisión mía** y solo lo aplica la pantalla (el endpoint sigue aceptando cualquier rango).
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
