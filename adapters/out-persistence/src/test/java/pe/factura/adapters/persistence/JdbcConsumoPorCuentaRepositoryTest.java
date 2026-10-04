@@ -132,6 +132,18 @@ class JdbcConsumoPorCuentaRepositoryTest extends PersistenciaTestBase {
         assertThat(de(repo.listar(todas(), 1, 20), c).documentos()).isEqualTo(5);
     }
 
+    /** Los bordes del mes son del mes: el día 1 y el último día cuentan; el día anterior y el siguiente, no. */
+    @Test void elPrimeroYElUltimoDiaDelMesCuentanYSusVecinosNo() {
+        UUID c = cuenta("Ana");
+        UUID e = empresa(c);
+        documentos(e, "ACEPTADO", 1, LocalDate.of(2026, 10, 1));
+        documentos(e, "ACEPTADO", 10, LocalDate.of(2026, 10, 31));
+        documentos(e, "ACEPTADO", 100, LocalDate.of(2026, 9, 30));
+        documentos(e, "ACEPTADO", 1000, LocalDate.of(2026, 11, 1));
+
+        assertThat(de(repo.listar(todas(), 1, 20), c).documentos()).isEqualTo(11);
+    }
+
     @Test void soloCuentaLaSuscripcionVigenteNoElHistorial() {
         UUID c = cuenta("Ana");
         enPlan(c, "Negocio", AHORA.plus(Duration.ofDays(20)), 0);
@@ -226,6 +238,19 @@ class JdbcConsumoPorCuentaRepositoryTest extends PersistenciaTestBase {
         List<Registro> filas = repo.listar(consulta(FiltroDeConsumo.TODAS, OrdenDeConsumo.PORCENTAJE), 1, 20);
 
         assertThat(filas).extracting(Registro::nombre).containsExactly("Alfa grande", "Beta igual", "Zeta chica");
+    }
+
+    /** Con todo igual, el orden lo decide el id: así dos cuentas que se llaman igual no cambian de lugar entre una página y la siguiente. */
+    @Test void conTodoIgualIncluidoElNombreGanaElIdMenorSinImportarElOrdenDeAlta() {
+        UUID menor = UUID.fromString("00000000-0000-4000-8000-000000000001");
+        UUID mayor = UUID.fromString("00000000-0000-4000-8000-000000000002");
+        for (UUID id : List.of(mayor, menor)) {
+            jdbc.update("INSERT INTO cuenta (id, nombre, email, telefono, created_at) VALUES (?, 'Igual', ?, '987654321', ?)", id, id + "@negocio.pe", Timestamp.from(AHORA.minus(Duration.ofDays(60))));
+        }
+
+        for (OrdenDeConsumo orden : OrdenDeConsumo.values()) {
+            assertThat(repo.listar(consulta(FiltroDeConsumo.TODAS, orden), 1, 20)).as(orden.name()).extracting(Registro::cuentaId).containsExactly(menor, mayor);
+        }
     }
 
     @Test void porDocumentosVaDeMasAMenosAunqueElPorcentajeSeaMenor() {

@@ -66,6 +66,11 @@ class CsvDeConsumoTest {
         assertThat(l).contains("\"Ana\r\nInyectada,x\"");
     }
 
+    /** Un retorno de carro suelto (sin salto de línea detrás) también parte el registro en algunos lectores: va entre comillas. */
+    @Test void unRetornoDeCarroSueltoVaEntreComillas() {
+        assertThat(csv(fila("Ana\rLuis", "a@x.pe", "P"))).contains(",\"Ana\rLuis\",");
+    }
+
     /** Excel y Calc evalúan como fórmula una celda que empieza por = + - @ (o por tab o retorno): se le antepone una comilla para que sea texto. */
     @Test void unaCeldaQueEmpiezaComoFormulaSeNeutraliza() {
         for (String peligro : List.of("=HYPERLINK(\"http://x\")", "+cmd|' /C calc'!A0", "-2+3", "@SUM(A1)", "\tcmd", "\rcmd")) {

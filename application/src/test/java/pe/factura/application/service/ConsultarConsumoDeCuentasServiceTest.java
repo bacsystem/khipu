@@ -76,6 +76,7 @@ class ConsultarConsumoDeCuentasServiceTest {
 
         assertThat(consumos.llamadas).containsExactly("contar", "todas");
         assertThat(consumos.consultas.get(0).filtro()).isEqualTo(FiltroDeConsumo.PLAN_VENCIDO);
+        assertThat(consumos.consultas.get(1).filtro()).isEqualTo(FiltroDeConsumo.PLAN_VENCIDO);
         assertThat(consumos.consultas.get(1).orden()).isEqualTo(OrdenDeConsumo.DOCUMENTOS);
     }
 

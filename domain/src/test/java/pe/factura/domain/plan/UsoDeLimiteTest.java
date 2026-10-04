@@ -3,6 +3,7 @@ package pe.factura.domain.plan;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Cuánto de su tope de documentos lleva usado una cuenta, y desde cuándo hay que avisar (#193). */
 class UsoDeLimiteTest {
@@ -32,6 +33,17 @@ class UsoDeLimiteTest {
     @Test void noSeDesbordaConCifrasGrandes() {
         assertThat(UsoDeLimite.porcentaje(Long.MAX_VALUE / 200, Limite.de(Integer.MAX_VALUE))).isPresent();
         assertThat(UsoDeLimite.porcentaje(4_000_000_000L, Limite.de(2_000_000_000))).hasValue(200);
+    }
+
+    /** Un porcentaje que no cabe en un entero se queda en el máximo; no da la vuelta a un número negativo ni a uno chico. */
+    @Test void unPorcentajeQueNoCabeEnUnEnteroSeQuedaEnElMaximo() {
+        assertThat(UsoDeLimite.porcentaje(Long.MAX_VALUE / 100, Limite.de(1))).hasValue(Integer.MAX_VALUE);
+        assertThat(UsoDeLimite.enAlerta(Long.MAX_VALUE / 100, Limite.de(1))).isTrue();
+    }
+
+    /** Un conteo imposible (más de 9×10¹⁶ documentos) falla a la vista en vez de dar la vuelta en silencio y mostrar un porcentaje cualquiera. */
+    @Test void unConteoImposibleFallaAlMultiplicarEnVezDeDesbordarEnSilencio() {
+        assertThatThrownBy(() -> UsoDeLimite.porcentaje(Long.MAX_VALUE / 50, Limite.de(300))).isInstanceOf(ArithmeticException.class);
     }
 
     @Test void laAlertaEmpiezaEnElOchentaPorCientoInclusive() {

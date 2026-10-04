@@ -76,6 +76,15 @@ describe("ConsumoTabla (#193)", () => {
     expect(within(fila("Sobrepasada")).getByText("Vencido")).toBeTruthy();
   });
 
+  it("usar justo todo el tope ya es «En el límite»; un punto menos, solo «Cerca»", () => {
+    const justo: CuentaConsumo = { ...ANA, cuenta_id: "j", nombre: "Justo", documentos: 300, porcentaje: 100 };
+    const casi: CuentaConsumo = { ...ANA, cuenta_id: "k", nombre: "Casi", documentos: 297, porcentaje: 99 };
+    render(<ConsumoTabla datos={datos([justo, casi])} total={2} params={PARAMS} />);
+
+    expect(within(fila("Justo")).getByText("En el límite")).toBeTruthy();
+    expect(within(fila("Casi")).getByText("Cerca del límite")).toBeTruthy();
+  });
+
   it("la barra de uso refleja el porcentaje y no pasa de lleno", () => {
     render(<ConsumoTabla datos={datos([LUIS, TOPE])} total={2} params={PARAMS} />);
 
@@ -168,6 +177,15 @@ describe("ConsumoTabla (#193)", () => {
     expect(push).toHaveBeenCalledWith("/admin/consumo?mes=2026-08&filtro=PLAN_VENCIDO&orden=DOCUMENTOS&por_pagina=20");
   });
 
+  /** Algunos navegadores dejan escribir texto libre en un campo de mes: lo que no es AAAA-MM no llega a la URL ni al backend. */
+  it("un mes escrito a mano que no es AAAA-MM no llega a la URL", () => {
+    render(<ConsumoTabla datos={datos([ANA])} total={1} params={{ ...PARAMS, mes: "2026-08" }} />);
+
+    fireEvent.change(screen.getByLabelText("Mes"), { target: { value: "agosto" } });
+
+    expect(push).toHaveBeenCalledWith("/admin/consumo");
+  });
+
   it("borrar el mes vuelve al mes en curso, sin mes en la URL", () => {
     render(<ConsumoTabla datos={datos([ANA])} total={1} params={{ ...PARAMS, mes: "2026-08" }} />);
 
@@ -215,6 +233,14 @@ describe("ConsumoTabla (#193)", () => {
     expect(screen.getByText("42")).toBeTruthy();
     const siguiente = screen.getAllByRole("link").find((a) => a.getAttribute("href")?.includes("pagina=3"));
     expect(siguiente?.getAttribute("href")).toBe("/admin/consumo?mes=2026-09&filtro=CERCA_DEL_LIMITE&orden=DOCUMENTOS&pagina=3");
+  });
+
+  it("un clic en una página navega sin recargar y conserva mes, filtro y orden", () => {
+    render(<ConsumoTabla datos={datos([ANA, LUIS])} total={42} params={{ mes: "2026-09", filtro: "CERCA_DEL_LIMITE", orden: "DOCUMENTOS", pagina: 2, porPagina: 10 }} />);
+
+    fireEvent.click(screen.getAllByRole("link").find((a) => a.getAttribute("href")?.includes("pagina=3")) as HTMLElement);
+
+    expect(push).toHaveBeenCalledWith("/admin/consumo?mes=2026-09&filtro=CERCA_DEL_LIMITE&orden=DOCUMENTOS&pagina=3");
   });
 
   it("el cambio de filas por página vuelve a la primera página", () => {
