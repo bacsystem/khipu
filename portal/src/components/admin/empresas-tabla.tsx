@@ -102,7 +102,9 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
               <TableHead className={CABECERA_TABLA}>{t.columnas.certificado}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.sol}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{t.columnas.series}</TableHead>
-              <TableHead className={`${CABECERA_TABLA} text-right`}>{t.columnas.delMes}</TableHead>
+              <TableHead className={`${CABECERA_TABLA} text-right`} title={t.columnas.delMesAyuda}>
+                {t.columnas.delMes}
+              </TableHead>
               <TableHead className={`${CABECERA_TABLA} pr-4`}>{t.columnas.ultimaEmision}</TableHead>
             </TableRow>
           </TableHeader>

@@ -126,7 +126,8 @@
       "inicio": "Inicio",
       "cuentas": "Cuentas",
       "empresas": "Empresas",
-      "planes": "Planes"
+      "planes": "Planes",
+      "consumo": "Consumo"
     },
     "topbar": {
       "ubicacion": "Ubicación",
@@ -187,7 +188,8 @@
         "certificado": "Certificado",
         "sol": "Credenciales SOL",
         "series": "Series",
-        "delMes": "Comprobantes del mes",
+        "delMes": "Emitidos en el mes",
+        "delMesAyuda": "Todos los comprobantes emitidos en el mes, aceptados o no. Lo que consume el plan (solo los aceptados por SUNAT) está en Consumo.",
         "ultimaEmision": "Última emisión"
       },
       "error": "No se pudo cargar el listado de empresas.",
@@ -303,6 +305,45 @@
         "enviando": "Borrando…",
         "cancelar": "Cancelar"
       }
+    },
+    "consumo": {
+      "titulo": "Consumo",
+      "descripcion": "Cuánto consumió cada cuenta en el mes contra el tope de su plan de hoy, para avisar antes de que choque contra el límite o se quede sin servicio. Solo cuentan los comprobantes que SUNAT aceptó, por su fecha de emisión, en el mes calendario de Lima.",
+      "ayudaPlanDeHoy": "Se compara con el plan de hoy de cada cuenta, también en un mes pasado.",
+      "ayudaAlerta": "Cerca del límite: desde el {umbral} % del tope de documentos del mes.",
+      "mes": "Mes",
+      "orden": "Ordenar por",
+      "ordenes": {
+        "PORCENTAJE": "Porcentaje usado",
+        "DOCUMENTOS": "Documentos consumidos"
+      },
+      "vistas": "Cuentas a mostrar",
+      "filtros": {
+        "TODAS": "Todas",
+        "CERCA_DEL_LIMITE": "Cerca del límite",
+        "PLAN_VENCIDO": "Plan vencido"
+      },
+      "exportar": "Exportar CSV",
+      "vacio": {
+        "TODAS": "Todavía no hay cuentas.",
+        "CERCA_DEL_LIMITE": "Ninguna cuenta está cerca de su límite este mes.",
+        "PLAN_VENCIDO": "Ninguna cuenta tiene el plan vencido."
+      },
+      "columnas": {
+        "cuenta": "Cuenta",
+        "plan": "Plan",
+        "documentos": "Documentos",
+        "limite": "Tope al mes",
+        "uso": "Uso",
+        "estadoDelPlan": "Estado del plan"
+      },
+      "ilimitado": "Ilimitado",
+      "sinTope": "Sin tope",
+      "cercaDelLimite": "Cerca del límite",
+      "enElLimite": "En el límite",
+      "pagadoHasta": "Hasta el {fecha}",
+      "error": "No se pudo cargar el consumo de las cuentas.",
+      "reintentar": "Reintentar"
     },
     "planDeCuenta": {
       "titulo": "Plan",

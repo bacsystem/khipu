@@ -322,6 +322,76 @@ function consumoDelMesMock(cuentaId: string): number {
   return 20;
 }
 
+/** El consumo de una cuenta en un mes en el mock (#193): el del mes en curso es el que ya usa la previsualización; «Cliente 05» lleva 25 de 30 para ver «Cerca del límite»; otro mes, 5. */
+function consumoEnMesMock(cuentaId: string, mes: string): number {
+  if (mes !== new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7)) return 5;
+  return cuentaId === idCuentaMock(5) ? 25 : consumoDelMesMock(cuentaId);
+}
+
+/** El tope de documentos que manda hoy: el del plan, o el de su cambio programado si ya llegó a su fecha (como el backend). */
+function topeDeHoyMock(plan: PlanMock): number | undefined {
+  const limites = plan.limites_programados && Date.parse(plan.limites_programados.aplica_desde) <= Date.now() ? plan.limites_programados.limites : plan.limites;
+  return limites.documentos_al_mes.ilimitado ? undefined : limites.documentos_al_mes.maximo;
+}
+
+const UMBRAL_DE_ALERTA_MOCK = 80;
+
+type FilaDeConsumoMock = {
+  cuenta_id: string; nombre: string; email: string; plan_id: string; plan: string; documentos: number; limite?: number; porcentaje?: number; en_alerta: boolean;
+  estado_del_plan: "VIGENTE" | "EN_GRACIA" | "VENCIDA"; pagado_hasta?: string; se_sirve_hasta?: string;
+};
+
+/** Una fila por cuenta que no está de baja, con el plan de hoy y las mismas reglas que el backend: porcentaje hacia abajo, alerta desde el umbral inclusive, plan vencido = en gracia o vencida. */
+function filasDeConsumoMock(mes: string, filtro: string, orden: string): FilaDeConsumoMock[] {
+  const filas = db.cuentasAdmin
+    .filter((c) => !c.baja_en)
+    .map((c): FilaDeConsumoMock => {
+      const s = planDeCuentaMock(c.id);
+      const plan = db.planesAdmin.find((p) => p.id === s.planId)!;
+      const documentos = consumoEnMesMock(c.id, mes);
+      const limite = topeDeHoyMock(plan);
+      const porcentaje = limite === undefined ? undefined : Math.floor((documentos * 100) / limite);
+      return {
+        cuenta_id: c.id, nombre: c.nombre, email: c.email, plan_id: plan.id, plan: plan.nombre, documentos,
+        ...(limite === undefined ? {} : { limite, porcentaje }),
+        en_alerta: porcentaje !== undefined && porcentaje >= UMBRAL_DE_ALERTA_MOCK,
+        estado_del_plan: estadoDeSuscripcion(s),
+        ...(s.venceEn ? { pagado_hasta: s.venceEn, se_sirve_hasta: new Date(Date.parse(s.venceEn) + s.diasDeGracia * 86_400_000).toISOString() } : {}),
+      };
+    })
+    .filter((f) => (filtro === "CERCA_DEL_LIMITE" ? f.en_alerta : filtro === "PLAN_VENCIDO" ? f.estado_del_plan !== "VIGENTE" : true));
+  const desempate = (a: FilaDeConsumoMock, b: FilaDeConsumoMock) => a.nombre.localeCompare(b.nombre) || a.cuenta_id.localeCompare(b.cuenta_id);
+  return filas.sort((a, b) =>
+    orden === "DOCUMENTOS"
+      ? b.documentos - a.documentos || desempate(a, b)
+      : Number(a.porcentaje === undefined) - Number(b.porcentaje === undefined) || (b.porcentaje ?? 0) - (a.porcentaje ?? 0) || b.documentos - a.documentos || desempate(a, b),
+  );
+}
+
+/** El texto de un cliente no se ejecuta como fórmula en una hoja de cálculo (comilla delante) y, si trae coma, comillas o saltos, va entre comillas. */
+function celdaCsvMock(valor: string): string {
+  const t = valor && "=+-@\t\r".includes(valor[0]) ? `'${valor}` : valor;
+  return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
+
+/** Como el backend: BOM UTF-8, registros con CRLF (también el último), `ilimitado` sin tope y celdas vacías sin fecha. */
+function csvDeConsumoMock(filas: FilaDeConsumoMock[]): string {
+  const cabecera = "cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta";
+  const lineas = filas.map((f) =>
+    [f.cuenta_id, celdaCsvMock(f.nombre), celdaCsvMock(f.email), celdaCsvMock(f.plan), f.documentos, f.limite ?? "ilimitado", f.porcentaje ?? "", f.en_alerta ? "si" : "no", f.estado_del_plan, f.pagado_hasta ?? "", f.se_sirve_hasta ?? ""].join(","),
+  );
+  return "\uFEFF" + [cabecera, ...lineas].join("\r\n") + "\r\n";
+}
+
+/** Los parámetros de las dos rutas de consumo: un mes, filtro u orden mal escritos son 400 (no se ignoran), igual que el backend. */
+function parametrosDeConsumoMock(url: URL): { mes: string; filtro: string; orden: string } | null {
+  const mes = url.searchParams.get("mes") ?? new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7);
+  const filtro = url.searchParams.get("filtro") ?? "TODAS";
+  const orden = url.searchParams.get("orden") ?? "PORCENTAJE";
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes) || !["TODAS", "CERCA_DEL_LIMITE", "PLAN_VENCIDO"].includes(filtro) || !["PORCENTAJE", "DOCUMENTOS"].includes(orden)) return null;
+  return { mes, filtro, orden };
+}
+
 export const handlers = [
   // Solo bajo API_MOCKING: `globalSetup` de Playwright lo llama al empezar cada corrida. Sin esto la suite no era
   // idempotente contra un dev server reutilizado (`reuseExistingServer` en local): cada corrida gastaba el tope 3286
@@ -604,6 +674,31 @@ export const handlers = [
     if (bajada) db.planesDeCuenta.set(String(params.id), { ...actual, programado: { planId: nuevo.id, aplicaDesde: desde, venceEn: cuerpo.vence_en, diasDeGracia: gracia } });
     else db.planesDeCuenta.set(String(params.id), { planId: nuevo.id, iniciaEn: desde, venceEn: cuerpo.vence_en, diasDeGracia: gracia });
     return ok(vistaDePlanDeCuenta(String(params.id)));
+  }),
+
+  /** Como el backend (#193): consumo de todas las cuentas contra su plan de hoy, con filtro, orden, mes y página; el total, que refleja el filtro, va en la cabecera. */
+  http.get(`${BASE}/v1/admin/consumo`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const url = new URL(request.url);
+    const p = parametrosDeConsumoMock(url);
+    if (!p) return fail(400, "PARAMETRO_INVALIDO", "El mes, el filtro o el orden no son válidos");
+    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
+    const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
+    const filas = filasDeConsumoMock(p.mes, p.filtro, p.orden);
+    return HttpResponse.json(
+      { estado: "exito", datos: { mes: p.mes, umbral_de_alerta: UMBRAL_DE_ALERTA_MOCK, cuentas: filas.slice((pagina - 1) * porPagina, pagina * porPagina) }, mensaje: null, codigo: null, errores: null },
+      { headers: { "x-total-count": String(filas.length) } },
+    );
+  }),
+
+  /** Como el backend (#193): lo mismo, completo y sin paginar, como CSV que se descarga. */
+  http.get(`${BASE}/v1/admin/consumo/exportacion`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const p = parametrosDeConsumoMock(new URL(request.url));
+    if (!p) return fail(400, "PARAMETRO_INVALIDO", "El mes, el filtro o el orden no son válidos");
+    return new HttpResponse(csvDeConsumoMock(filasDeConsumoMock(p.mes, p.filtro, p.orden)), {
+      headers: { "Content-Type": "text/csv;charset=UTF-8", "Content-Disposition": `attachment; filename="consumo-${p.mes}.csv"` },
+    });
   }),
 
   /** Como el backend (#180): solo el administrador; `q` en correo, nombre, razón social (fragmento) y RUC (prefijo); total en cabecera. */
