@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { refrescar } from "@/lib/api/auth";
+import { esCuentaSuspendida, RUTA_CUENTA_SUSPENDIDA } from "@/lib/api/cuenta-suspendida";
 import { accesoExpirado } from "@/lib/jwt";
 import { clearSession, readSession, writeTokens } from "@/lib/session";
 
@@ -19,7 +20,10 @@ export async function middleware(req: NextRequest) {
     const res = NextResponse.next();
     writeTokens(res, tokens);
     return res;
-  } catch {
+  } catch (err) {
+    // Una cuenta suspendida (#182) no es una sesión muerta: el backend no la revocó, y al reactivar la cuenta la misma sesión vuelve a servir.
+    // Por eso se explica en una página pública y NO se limpian las cookies; cerrar la sesión es una acción explícita de esa página.
+    if (esCuentaSuspendida(err)) return NextResponse.redirect(new URL(RUTA_CUENTA_SUSPENDIDA, req.url));
     const res = redirigirALogin(req);
     clearSession(res);
     return res;

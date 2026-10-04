@@ -230,6 +230,8 @@ export const handlers = [
     if (!registro || registro.password !== body.password) {
       return fail(401, "CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos");
     }
+    // Como el backend (#182): después de comprobar la contraseña, para no revelar el estado de una cuenta a quien no se identificó.
+    if (db.cuentasSuspendidas.has(registro.usuario.cuenta_id)) return fail(403, "CUENTA_SUSPENDIDA", "Tu cuenta está suspendida. Contacta a soporte para reactivarla");
     return ok(emitirTokens(registro.usuario));
   }),
 
@@ -237,6 +239,8 @@ export const handlers = [
     const body = (await request.json()) as { refresh: string };
     const sesion = db.sesionesPorToken.get(body.refresh);
     if (!sesion) return fail(401, "SESION_INVALIDA", "Sesión expirada o inválida");
+    // Sin tocar la sesión: suspender no la revoca, y al reactivar la cuenta la misma sesión vuelve a servir (#182).
+    if (db.cuentasSuspendidas.has(sesion.usuario.cuenta_id)) return fail(403, "CUENTA_SUSPENDIDA", "Tu cuenta está suspendida. Contacta a soporte para reactivarla");
     db.sesionesPorToken.delete(body.refresh);
     return ok(emitirTokens(sesion.usuario));
   }),
@@ -331,7 +335,9 @@ export const handlers = [
       sinTildes(c.nombre.toLowerCase()).includes(qSinTildes) ||
       c.empresas.some((e) => e.ruc.startsWith(q) || sinTildes(e.razon_social.toLowerCase()).includes(qSinTildes));
     const lista = db.cuentasAdmin.filter(coincide).sort((a, b) => b.creada_en.localeCompare(a.creada_en) || a.id.localeCompare(b.id));
-    const datos = lista.slice((pagina - 1) * porPagina, pagina * porPagina).map(({ empresas, ...cuenta }) => ({ ...cuenta, empresas: empresas.length }));
+    const datos = lista
+      .slice((pagina - 1) * porPagina, pagina * porPagina)
+      .map(({ empresas, ...cuenta }) => ({ ...cuenta, empresas: empresas.length, estado: cuenta.suspendida_en ? "SUSPENDIDA" : "ACTIVA" }));
     return HttpResponse.json(
       { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
       { headers: { "x-total-count": String(lista.length) } },
@@ -485,6 +491,7 @@ export const handlers = [
     const { empresas, ...base } = cuenta;
     const detalle = {
       ...base,
+      estado: cuenta.suspendida_en ? "SUSPENDIDA" : "ACTIVA",
       usuarios: [
         {
           id: `u-${cuenta.id}`,
@@ -531,6 +538,33 @@ export const handlers = [
         : [],
     };
     return ok(detalle);
+  }),
+
+  /**
+   * Como el backend (#182): solo el administrador; un id que no es UUID es 400 y uno que no existe, 404. Suspender una cuenta ya suspendida y
+   * reactivar una activa son 409, con su código propio. Un motivo de más de 200 caracteres (recortado) es 422 y no suspende.
+   */
+  http.post(`${BASE}/v1/admin/cuentas/:id/suspender`, async ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
+    if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
+    const texto = await request.text();
+    const motivo = texto ? ((JSON.parse(texto) as { motivo?: string }).motivo ?? "").trim() : "";
+    if (motivo.length > 200) return fail(422, "MOTIVO_INVALIDO", "El motivo no puede pasar de 200 caracteres");
+    if (cuenta.suspendida_en) return fail(409, "CUENTA_YA_SUSPENDIDA", "La cuenta ya está suspendida");
+    cuenta.suspendida_en = new Date().toISOString();
+    return ok({ cuenta_id: cuenta.id, estado: "SUSPENDIDA", suspendida_en: cuenta.suspendida_en });
+  }),
+
+  http.post(`${BASE}/v1/admin/cuentas/:id/reactivar`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
+    if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
+    if (!cuenta.suspendida_en) return fail(409, "CUENTA_NO_SUSPENDIDA", "La cuenta no está suspendida");
+    delete cuenta.suspendida_en;
+    return ok({ cuenta_id: cuenta.id, estado: "ACTIVA" });
   }),
 
   /**

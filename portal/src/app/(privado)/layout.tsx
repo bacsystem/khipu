@@ -5,6 +5,7 @@ import { SidebarContent } from "@/components/nav/sidebar-content";
 import { TopBar } from "@/components/nav/top-bar";
 import { me } from "@/lib/api/auth";
 import { apiPublicUrl } from "@/lib/api/client";
+import { esCuentaSuspendida, RUTA_CUENTA_SUSPENDIDA } from "@/lib/api/cuenta-suspendida";
 import { listarEmpresas } from "@/lib/api/empresas";
 import { getServerSession } from "@/lib/session-server";
 
@@ -12,7 +13,17 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
   const { access, empresaId } = await getServerSession();
   if (!access) redirect("/login");
 
-  const [usuario, empresas] = await Promise.all([me(access), listarEmpresas(access)]);
+  // Una cuenta suspendida (#182) conserva su sesión pero el backend le niega todo: se le explica en vez de dejar que la página falle sin decir por qué.
+  // El `redirect` va fuera del `.then`, porque lanza y no debe confundirse con un fallo del backend.
+  const cargado = await Promise.all([me(access), listarEmpresas(access)]).then(
+    (datos) => ({ datos }),
+    (error: unknown) => ({ error }),
+  );
+  if ("error" in cargado) {
+    if (esCuentaSuspendida(cargado.error)) redirect(RUTA_CUENTA_SUSPENDIDA);
+    throw cargado.error;
+  }
+  const [usuario, empresas] = cargado.datos;
   if (empresas.length === 0) redirect("/onboarding");
   const activa = empresas.find((empresa) => empresa.id === empresaId) ?? empresas[0];
 

@@ -1,5 +1,6 @@
 import { diasEntre } from "@/lib/formato";
 import { esUuid } from "@/lib/uuid";
+import type { EstadoCuentaAdmin } from "./admin-suspension";
 import { backendFetch } from "./client";
 import type { EstadoDocumento } from "./facturas";
 
@@ -13,6 +14,10 @@ export type CuentaDetalleAdmin = {
   email: string;
   telefono?: string;
   creada_en: string;
+  /** ACTIVA o SUSPENDIDA (#182). */
+  estado: EstadoCuentaAdmin;
+  /** Desde cuándo está suspendida; falta si está activa. */
+  suspendida_en?: string;
   usuarios: UsuarioCuenta[];
   empresas: EmpresaCuenta[];
   comprobantes: ComprobanteReciente[];

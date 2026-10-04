@@ -1,4 +1,5 @@
 import { POR_PAGINA_DEFECTO, porPaginaValido } from "@/lib/paginacion";
+import type { EstadoCuentaAdmin } from "./admin-suspension";
 import { backendFetchConHeaders } from "./client";
 import { totalDesdeHeaders } from "./facturas";
 
@@ -15,6 +16,10 @@ export type CuentaAdmin = {
   empresas: number;
   /** Sesión más reciente de sus usuarios en el portal; el uso por API key no cuenta. */
   ultimo_acceso?: string;
+  /** Una cuenta suspendida (#182) no entra al portal ni emite por API, y sigue en el listado para poder reactivarla. */
+  estado: EstadoCuentaAdmin;
+  /** Desde cuándo está suspendida; falta si está activa. */
+  suspendida_en?: string;
 };
 
 export type PaginaCuentasAdmin = { datos: CuentaAdmin[]; total: number };

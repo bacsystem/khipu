@@ -1,4 +1,5 @@
-import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
+import { AccionesDeCuenta } from "@/components/admin/acciones-de-cuenta";
+import { CertificadoEtiqueta, Etiqueta, EstadoCuentaEtiqueta } from "@/components/admin/etiquetas";
 import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -159,27 +160,41 @@ function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
 }
 
 /**
- * Detalle de una cuenta del backoffice (#181). Solo lectura: no hay botones de acción (suspender, impersonar, planes…); llegan en
- * sus issues, con su propia confirmación y su registro en la bitácora. `hoy` (fecha de Lima) llega de afuera para que el estado del
- * certificado se calcule igual en el servidor y en las pruebas.
+ * Detalle de una cuenta del backoffice (#181). Lo único que se puede hacer desde aquí es suspenderla o reactivarla (#182), con su confirmación
+ * y su registro en la bitácora; el resto (impersonar, planes…) llega en sus issues. `hoy` (fecha de Lima) llega de afuera para que el estado
+ * del certificado se calcule igual en el servidor y en las pruebas.
  */
 export function CuentaDetalle({ cuenta, hoy }: { cuenta: CuentaDetalleAdmin; hoy: string }) {
   return (
     <div className="grid min-w-0 gap-6" data-testid="cuenta-detalle">
-      <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-        <div>
-          <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.correo}</dt>
-          <dd className="font-mono text-[13px]">{cuenta.email}</dd>
-        </div>
-        <div>
-          <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.telefono}</dt>
-          <dd className="font-mono text-[13px]">{cuenta.telefono ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.alta}</dt>
-          <dd className="text-[13px]">{formatearFechaHora(cuenta.creada_en)}</dd>
-        </div>
-      </dl>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+          <div>
+            <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.estado}</dt>
+            <dd className="text-[13px]">
+              <EstadoCuentaEtiqueta estado={cuenta.estado} />
+              {cuenta.suspendida_en ? (
+                <span data-testid="suspendida-desde" className="mt-1 block text-[11px] text-muted-foreground">
+                  {t.suspendidaDesde.replace("{fecha}", formatearFechaHora(cuenta.suspendida_en))}
+                </span>
+              ) : null}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.correo}</dt>
+            <dd className="font-mono text-[13px]">{cuenta.email}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.telefono}</dt>
+            <dd className="font-mono text-[13px]">{cuenta.telefono ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.alta}</dt>
+            <dd className="text-[13px]">{formatearFechaHora(cuenta.creada_en)}</dd>
+          </div>
+        </dl>
+        <AccionesDeCuenta id={cuenta.id} nombre={cuenta.nombre} estado={cuenta.estado} empresas={cuenta.empresas.length} />
+      </div>
       <p className="text-xs text-muted-foreground">{t.soloLectura}</p>
       <Usuarios usuarios={cuenta.usuarios} />
       <Empresas empresas={cuenta.empresas} hoy={hoy} />

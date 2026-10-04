@@ -147,6 +147,7 @@
         "cuenta": "Cuenta",
         "telefono": "Teléfono",
         "empresas": "Empresas",
+        "estado": "Estado",
         "alta": "Alta",
         "ultimoAcceso": "Último inicio de sesión"
       },
@@ -189,6 +190,44 @@
       },
       "error": "No se pudo cargar el listado de empresas.",
       "reintentar": "Reintentar"
+    },
+    "estadoCuenta": {
+      "ACTIVA": "Activa",
+      "SUSPENDIDA": "Suspendida"
+    },
+    "suspension": {
+      "suspender": {
+        "boton": "Suspender cuenta",
+        "titulo": "Suspender la cuenta",
+        "descripcion": "Esto corta el servicio de {nombre} ahora mismo. No se borra nada y se puede revertir.",
+        "efectos": [
+          "Ninguno de sus usuarios podrá entrar al portal, ni siquiera con una sesión ya abierta.",
+          "Ninguna de sus empresas podrá emitir ni consultar por API: sus API keys responderán «cuenta suspendida».",
+          "Los comprobantes que ya se emitieron seguirán enviándose a SUNAT: cortarlos los dejaría fuera de plazo.",
+          "Reactivar la cuenta lo devuelve todo a como estaba, con las mismas sesiones y API keys."
+        ],
+        "motivo": "Motivo (opcional)",
+        "motivoAyuda": "Queda en la bitácora de auditoría. Hasta 200 caracteres; nunca escribas contraseñas ni API keys.",
+        "motivoEjemplo": "Ej.: factura de septiembre sin pagar",
+        "confirmar": "Suspender cuenta",
+        "enviando": "Suspendiendo…",
+        "cancelar": "Cancelar"
+      },
+      "reactivar": {
+        "boton": "Reactivar cuenta",
+        "titulo": "Reactivar la cuenta",
+        "descripcion": "{nombre} volverá a tener el servicio completo.",
+        "efectos": [
+          "Sus usuarios vuelven a entrar al portal, con las sesiones que ya tenían.",
+          "Sus empresas vuelven a emitir por API, con las mismas API keys."
+        ],
+        "confirmar": "Reactivar cuenta",
+        "enviando": "Reactivando…",
+        "cancelar": "Cancelar"
+      },
+      "empresasAfectadas": "{n} empresas",
+      "unaEmpresaAfectada": "1 empresa",
+      "sinEmpresasAfectadas": "Sin empresas todavía"
     },
     "empresaDetalle": {
       "volver": "Empresas",
@@ -281,7 +320,9 @@
       "telefono": "Celular",
       "error": "No se pudo cargar la cuenta.",
       "noExiste": "La cuenta no existe.",
-      "soloLectura": "Solo lectura: las acciones sobre la cuenta llegan más adelante.",
+      "soloLectura": "Aquí solo se puede suspender o reactivar la cuenta: las demás acciones llegan más adelante.",
+      "estado": "Estado",
+      "suspendidaDesde": "Suspendida desde {fecha}",
       "usuarios": {
         "titulo": "Usuarios",
         "vacio": "Esta cuenta no tiene usuarios.",
@@ -363,6 +404,12 @@
       }
     }
   },
+  "cuentaSuspendida": {
+    "titulo": "Tu cuenta está suspendida",
+    "descripcion": "No puedes usar el portal ni emitir por API mientras la cuenta esté suspendida. No se borró nada: tus empresas, comprobantes y API keys siguen ahí y todo vuelve a funcionar en cuanto la reactiven.",
+    "soporte": "Para reactivarla, contacta a soporte.",
+    "cerrarSesion": "Cerrar sesión"
+  },
   "errores": {
     "generico": "Ocurrió un error. Intenta de nuevo.",
     "RED": "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.",
@@ -379,6 +426,11 @@
     "CORREO_SIN_VERIFICAR": "Verifica tu correo para continuar: te enviamos un enlace al registrarte.",
     "CORREO_YA_VERIFICADO": "Tu correo ya está verificado.",
     "DEMASIADOS_ENLACES": "Ya te enviamos varios enlaces hoy. Revisa tu correo, también la carpeta de spam, o vuelve a pedirlo mañana.",
+    "CUENTA_SUSPENDIDA": "Tu cuenta está suspendida. Contacta a soporte para reactivarla.",
+    "CUENTA_YA_SUSPENDIDA": "La cuenta ya estaba suspendida. Recarga la página para ver su estado.",
+    "CUENTA_NO_SUSPENDIDA": "La cuenta no estaba suspendida. Recarga la página para ver su estado.",
+    "MOTIVO_INVALIDO": "El motivo no puede pasar de 200 caracteres.",
+    "ID_INVALIDO": "El identificador no es válido.",
     "IDEMPOTENCIA_VENCIDA": "Esta alta ya se hizo hace más de una hora y su API key ya no se puede mostrar. El cliente puede crear otra desde su portal.",
     "IDEMPOTENCIA_INVALIDA": "La clave del pedido ya se usó con otros datos. Vuelve a enviar el formulario.",
     "DEMASIADOS_INTENTOS":"Demasiados códigos incorrectos. Espera 15 minutos antes de volver a intentarlo.",
