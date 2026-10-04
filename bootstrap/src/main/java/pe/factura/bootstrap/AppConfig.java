@@ -34,6 +34,7 @@ import pe.factura.adapters.rest.AdminAuthFilter;
 import pe.factura.adapters.rest.ApiKeyFilter;
 import pe.factura.adapters.rest.JwtFilter;
 import pe.factura.adapters.scheduler.OutboxWorker;
+import pe.factura.adapters.scheduler.AplicarCambiosDePlanWorker;
 import pe.factura.adapters.scheduler.LimpiezaIdempotenciaWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
@@ -321,6 +322,12 @@ public class AppConfig {
     @Bean ConsultarConsumoUseCase consultarConsumo(ConsumoRepository consumos, CuentaRepository cuentas, TenantRepository tenants, Clock clock) {
         return new ConsultarConsumoService(consumos, cuentas, tenants, clock);
     }
+    /** Un solo servicio para las dos caras del cambio de plan: lo que hacen los administradores y lo que aplica el trabajo programado al llegar la fecha. */
+    @Bean CambiarPlanDeCuentaService cambiarPlanDeCuenta(CuentaRepository cuentas, PlanRepository planes, SuscripcionRepository suscripciones, ConsultarConsumoUseCase consumo,
+                                                        AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
+        return new CambiarPlanDeCuentaService(cuentas, planes, suscripciones, consumo, auditoria, u, clock);
+    }
+    @Bean AplicarCambiosDePlanWorker aplicarCambiosDePlanWorker(AplicarCambiosDePlanUseCase cambios) { return new AplicarCambiosDePlanWorker(cambios); }
     @Bean GestionarPlanesUseCase gestionarPlanes(PlanRepository planes, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new GestionarPlanesService(planes, auditoria, u, clock);
     }

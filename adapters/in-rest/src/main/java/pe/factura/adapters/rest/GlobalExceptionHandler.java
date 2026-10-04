@@ -39,6 +39,8 @@ public class GlobalExceptionHandler {
             case "ENTORNO_SIN_CAMBIOS", "EMPRESA_CON_ENVIOS_PENDIENTES", "API_KEY_YA_REVOCADA", "SOL_NO_CARGADAS" -> HttpStatus.CONFLICT;
             // Gestión de planes (#190): el pedido es válido pero el estado del plan no lo permite (nombre repetido, ya estaba así, es el de las cuentas nuevas o lo usan cuentas).
             case "NOMBRE_DUPLICADO", "PLAN_POR_DEFECTO", "PLAN_EN_USO", "PLAN_YA_ACTIVO", "PLAN_YA_INACTIVO" -> HttpStatus.CONFLICT;
+            // Cambio de plan de una cuenta (#191): el plan está fuera de la oferta, o otro administrador cambió el plan de la cuenta en el medio.
+            case "PLAN_INACTIVO", "CAMBIO_CONCURRENTE" -> HttpStatus.CONFLICT;
             case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES" -> HttpStatus.TOO_MANY_REQUESTS;
             // La cuenta está suspendida (#182): el cliente se identificó bien, pero no tiene permiso hasta que la reactiven.
             case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO", "CUENTA_SUSPENDIDA", "REQUIERE_ADMINISTRADOR" -> HttpStatus.FORBIDDEN;
