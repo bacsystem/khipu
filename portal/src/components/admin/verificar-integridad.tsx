@@ -59,7 +59,6 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
       setErrores(rango.errores);
       return;
     }
-    setErrores({});
     enviandoRef.current = true;
     setFase({ estado: "verificando" });
     const res = await apiRequest<InformeDeIntegridad>("/api/admin/integridad", { method: "POST", body: { desde: rango.desde, hasta: rango.hasta } });
