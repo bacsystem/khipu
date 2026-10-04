@@ -167,6 +167,13 @@ export type PlanDeCuentaMock = {
   programado?: { planId: string; aplicaDesde: string; venceEn?: string; diasDeGracia: number };
 };
 
+/** Un pago registrado a mano (#194), con la forma del JSON del backend. */
+export type PagoMock = import("@/lib/api/admin-pagos").PagoAdmin;
+
+export function idPagoMock(n: number): string {
+  return `00000000-0000-4000-b000-${String(n).padStart(12, "0")}`;
+}
+
 export function idPlanMock(n: number): string {
   return `00000000-0000-4000-a000-${String(n).padStart(12, "0")}`;
 }
@@ -192,6 +199,8 @@ export const db = {
   planesAdmin: [] as PlanMock[],
   /** El plan de cada cuenta del backoffice (#191), por id de cuenta; la que no figura está en el plan por defecto desde que se creó. */
   planesDeCuenta: new Map<string, PlanDeCuentaMock>(),
+  /** Los pagos registrados a mano de cada cuenta (#194), por id de cuenta; sin entrada, ninguno. */
+  pagosPorCuenta: new Map<string, PagoMock[]>(),
   /** Idempotency-Key de la emisión (#115): `empresa|clave` → huella del pedido y factura emitida. */
   clavesEmision: new Map<string, { huella: string; id: string }>(),
   /** Idempotency-Key del alta asistida (#219): clave → huella del pedido y respuesta, con la API key. */
@@ -221,6 +230,7 @@ export function resetDb() {
   db.empresasAdmin = [];
   db.planesAdmin = [];
   db.planesDeCuenta.clear();
+  db.pagosPorCuenta.clear();
 
   const administrador: Administrador = { id: "admin-demo", email: "admin@khipu.pe" };
   db.administradoresPorEmail.set(administrador.email, { administrador, password: "AdminPass1", segundoFactor: true });
@@ -339,6 +349,30 @@ export function resetDb() {
     diasDeGracia: 0,
     programado: { planId: idPlanMock(2), aplicaDesde: inicioDelProximoCiclo(new Date()), venceEn: enDias(80), diasDeGracia: 3 },
   });
+
+  // Pagos de algunas cuentas (#194): «Panadería Sol» tiene dos que movieron el vencimiento; «Ferretería Luna», uno solo anotado; «Cliente 03» tiene doce, para ver que la
+  // ficha muestra los diez más recientes y dice cuántos hay. Las demás no tienen ninguno.
+  const pago = (n: number, cuenta: string, desde: string, hasta: string, monto: number, medio: PagoMock["medio"], fecha: string, referencia?: string, extendio?: string): PagoMock => ({
+    id: idPagoMock(n),
+    cuenta_id: cuenta,
+    periodo_desde: desde,
+    periodo_hasta: hasta,
+    monto,
+    medio,
+    fecha_de_pago: fecha,
+    ...(referencia ? { referencia } : {}),
+    registrado_en: `${fecha}T15:00:00Z`,
+    ...(extendio ? { extendio_hasta: extendio } : {}),
+  });
+  db.pagosPorCuenta.set(idCuentaMock(1), [
+    pago(2, idCuentaMock(1), "2026-09-21", "2026-10-20", 29, "YAPE", "2026-09-18", "YP-4411", "2026-10-21T05:00:00Z"),
+    pago(1, idCuentaMock(1), "2026-08-21", "2026-09-20", 29, "TRANSFERENCIA", "2026-08-20", "BCP-90210", "2026-09-21T05:00:00Z"),
+  ]);
+  db.pagosPorCuenta.set(idCuentaMock(2), [pago(3, idCuentaMock(2), "2026-07-01", "2026-07-31", 29, "EFECTIVO", "2026-07-02")]);
+  db.pagosPorCuenta.set(
+    idCuentaMock(3),
+    Array.from({ length: 12 }, (_, i) => pago(100 + i, idCuentaMock(3), `2025-${String(i + 1).padStart(2, "0")}-01`, `2025-${String(i + 1).padStart(2, "0")}-28`, 29, "TRANSFERENCIA", `2025-${String(i + 1).padStart(2, "0")}-02`, `T-${i + 1}`)),
+  );
 
   const usuario: Usuario = {
     id: "u-demo",

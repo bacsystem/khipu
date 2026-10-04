@@ -2,9 +2,11 @@ import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CuentaDetalle } from "@/components/admin/cuenta-detalle";
+import { PagosDeCuenta } from "@/components/admin/pagos-de-cuenta";
 import { PlanDeCuenta } from "@/components/admin/plan-de-cuenta";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { esIdDeCuenta, hrefDetalleCuenta, obtenerCuentaAdmin } from "@/lib/api/admin-cuenta-detalle";
+import { listarPagosDeCuenta } from "@/lib/api/admin-pagos";
 import { obtenerPlanDeCuenta } from "@/lib/api/admin-plan-de-cuenta";
 import { listarPlanesAdmin } from "@/lib/api/admin-planes";
 import { ApiError } from "@/lib/api/types";
@@ -31,13 +33,20 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
   // Fuera del `.then`: `notFound` lanza, y no debe confundirse con un fallo del backend.
   if (resultado.error instanceof ApiError && resultado.error.status === 404) notFound();
 
-  // El plan va aparte del detalle (#191): si no carga, la ficha de la cuenta se ve igual y el plan dice que falló, con su «Reintentar».
-  const plan = resultado.cuenta
-    ? await Promise.all([obtenerPlanDeCuenta(access, id), listarPlanesAdmin(access)]).then(
-        ([datos, planes]) => ({ datos, planes }),
-        () => null,
-      )
-    : null;
+  // El plan (#191) y los pagos (#194) van aparte del detalle y entre sí: si uno no carga, la ficha de la cuenta se ve igual y esa sección dice que falló, con su
+  // «Reintentar». Los pagos se piden a la vez que el plan, pero no dependen de él: sin el plan solo se pierde la opción de extender el vencimiento.
+  const [plan, pagos] = resultado.cuenta
+    ? await Promise.all([
+        Promise.all([obtenerPlanDeCuenta(access, id), listarPlanesAdmin(access)]).then(
+          ([datos, planes]) => ({ datos, planes }),
+          () => null,
+        ),
+        listarPagosDeCuenta(access, id).then(
+          (p) => p,
+          () => null,
+        ),
+      ])
+    : [null, null];
 
   const t = messages.admin.detalle;
   return (
@@ -59,6 +68,16 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
               <span>{messages.admin.planDeCuenta.error}</span>
               <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
                 {messages.admin.planDeCuenta.reintentar}
+              </Link>
+            </div>
+          )}
+          {pagos ? (
+            <PagosDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} pagos={pagos} plan={plan?.datos ?? null} hoy={hoyLima()} />
+          ) : (
+            <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <span>{messages.admin.pagos.error}</span>
+              <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
+                {messages.admin.pagos.reintentar}
               </Link>
             </div>
           )}

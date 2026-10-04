@@ -10,7 +10,7 @@ export type ValoresDeCambioDePlan = { planId: string; precioDelPlan?: number; pa
 export type ErroresDeCambioDePlan = Partial<Record<"planId" | "pagadoHasta" | "gracia", string>>;
 
 /** `YYYY-MM-DD` de un día que existe: `2026-02-30` no. */
-function fechaValida(texto: string): boolean {
+export function fechaValida(texto: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) return false;
   const [a, m, d] = texto.split("-").map(Number);
   const f = new Date(Date.UTC(a, m - 1, d));
