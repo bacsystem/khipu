@@ -338,6 +338,58 @@ export const handlers = [
   }),
 
   /**
+   * Como el backend (#185): solo el administrador; filtros por `entorno` y por `certificado` (un valor desconocido es 400, no se ignora);
+   * total en cabecera, de la más reciente a la más antigua. El estado del certificado sale de «hoy» con la misma regla que el backend:
+   * vencido antes de hoy, por vencer con menos de 30 días, y con 30 justos todavía vigente. Las empresas de integración no traen cuenta.
+   */
+  http.get(`${BASE}/v1/admin/empresas`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const url = new URL(request.url);
+    const entorno = url.searchParams.get("entorno");
+    const certificado = url.searchParams.get("certificado");
+    if (entorno && !["BETA", "PRODUCCION"].includes(entorno)) return fail(400, "VALIDACION", "Entorno no válido");
+    if (certificado && !["SIN_CERTIFICADO", "SIN_FECHA", "VIGENTE", "POR_VENCER", "VENCIDO"].includes(certificado))
+      return fail(400, "VALIDACION", "Estado de certificado no válido");
+    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
+    const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
+    const desdeHoy = (n: number) => {
+      const [a, m, d] = hoyLima().split("-").map(Number);
+      return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
+    };
+    const filas = db.empresasAdmin.map((e) => {
+      const estado =
+        e.certificado === null ? "SIN_CERTIFICADO" : e.certificado === "sin_fecha" ? "SIN_FECHA" : e.certificado < 0 ? "VENCIDO" : e.certificado < 30 ? "POR_VENCER" : "VIGENTE";
+      return {
+        estado,
+        entorno: e.entorno,
+        id: e.id,
+        creada_en: e.creada_en,
+        json: {
+          id: e.id,
+          ruc: e.ruc,
+          razon_social: e.razon_social,
+          cuenta_id: e.cuenta?.id,
+          cuenta_nombre: e.cuenta?.nombre,
+          entorno: e.entorno,
+          certificado: estado,
+          ...(typeof e.certificado === "number" ? { certificado_vigente_hasta: desdeHoy(e.certificado), certificado_dias_restantes: e.certificado } : {}),
+          tiene_credenciales_sol: e.tiene_credenciales_sol,
+          series: e.series,
+          comprobantes_del_mes: e.comprobantes_del_mes,
+          ultima_emision: e.ultima_emision_hace === null ? undefined : desdeHoy(-e.ultima_emision_hace),
+        },
+      };
+    });
+    const lista = filas
+      .filter((f) => (!entorno || f.entorno === entorno) && (!certificado || f.estado === certificado))
+      .sort((a, b) => b.creada_en.localeCompare(a.creada_en) || a.id.localeCompare(b.id));
+    return HttpResponse.json(
+      { estado: "exito", datos: lista.slice((pagina - 1) * porPagina, pagina * porPagina).map((f) => f.json), mensaje: null, codigo: null, errores: null },
+      { headers: { "x-total-count": String(lista.length) } },
+    );
+  }),
+
+  /**
    * Como el backend (#181): solo el administrador; 404 `NO_ENCONTRADO` si no existe. La primera cuenta sembrada («Panadería Sol») trae
    * un detalle completo (dos usuarios, un certificado por vencer, un comprobante, una acción de la bitácora); las demás, lo mínimo.
    * Fechas del certificado relativas a hoy, para que «por vencer» no caduque con el calendario.

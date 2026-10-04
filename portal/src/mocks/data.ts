@@ -25,6 +25,24 @@ export type CuentaAdminMock = {
   ultimo_acceso?: string;
   empresas: Array<{ ruc: string; razon_social: string }>;
 };
+/**
+ * Una empresa del listado del backoffice (#185). El certificado se siembra como días desde hoy (`null`: sin certificado; `"sin_fecha"`:
+ * cargado sin vigencia): el mock calcula las fechas al responder, así «por vencer» no caduca con el calendario.
+ */
+export type EmpresaAdminMock = {
+  id: string;
+  ruc: string;
+  razon_social: string;
+  cuenta?: { id: string; nombre: string };
+  entorno: "BETA" | "PRODUCCION";
+  certificado: number | "sin_fecha" | null;
+  tiene_credenciales_sol: boolean;
+  series: number;
+  comprobantes_del_mes: number;
+  /** Días hacia atrás desde hoy; `null`: nunca emitió. */
+  ultima_emision_hace: number | null;
+  creada_en: string;
+};
 export type Empresa = {
   id: string;
   ruc: string;
@@ -131,6 +149,8 @@ export const db = {
   /** `segundoFactor`: si ya configuró la app de autenticación (#177). El mock no guarda estado del 2FA: ver los handlers. */
   administradoresPorEmail: new Map<string, { administrador: Administrador; password: string; segundoFactor: boolean }>(),
   cuentasAdmin: [] as CuentaAdminMock[],
+  /** Las empresas del listado del backoffice (#185); aparte de `cuentasAdmin` para sembrar todos los estados del certificado. */
+  empresasAdmin: [] as EmpresaAdminMock[],
   /** Idempotency-Key de la emisión (#115): `empresa|clave` → huella del pedido y factura emitida. */
   clavesEmision: new Map<string, { huella: string; id: string }>(),
   /** Idempotency-Key del alta asistida (#219): clave → huella del pedido y respuesta, con la API key. */
@@ -156,6 +176,7 @@ export function resetDb() {
   db.clavesEmision.clear();
   db.clavesAlta.clear();
   db.verificaciones.clear();
+  db.empresasAdmin = [];
 
   const administrador: Administrador = { id: "admin-demo", email: "admin@khipu.pe" };
   db.administradoresPorEmail.set(administrador.email, { administrador, password: "AdminPass1", segundoFactor: true });
@@ -198,6 +219,25 @@ export function resetDb() {
       };
     }),
     { id: idCuentaMock(12), nombre: "Cuenta Nueva", email: "nueva@demo.pe", creada_en: "2026-09-20T15:00:00Z", empresas: [] },
+  ];
+
+  // 12 empresas (10 por página + 2), con todos los estados del certificado. «Panadería Sol» y «Ferretería Luna» son las más antiguas: caen en
+  // la segunda página sin filtros, y su cuenta es la de las cuentas sembradas de arriba (el enlace lleva a un detalle que existe). Las tres
+  // últimas son de integración: no tienen cuenta.
+  const inactiva = { certificado: null, tiene_credenciales_sol: false, series: 0, comprobantes_del_mes: 0, ultima_emision_hace: null, entorno: "BETA" as const };
+  db.empresasAdmin = [
+    { id: "ea-01", ruc: "20100047226", razon_social: "PANADERIA SOL SAC", cuenta: { id: idCuentaMock(1), nombre: "Panadería Sol" }, entorno: "BETA", certificado: 10, tiene_credenciales_sol: true, series: 2, comprobantes_del_mes: 14, ultima_emision_hace: 1, creada_en: "2026-09-01T15:00:00Z" },
+    { id: "ea-02", ruc: "20100055121", razon_social: "FERRETERIA LUNA SAC", cuenta: { id: idCuentaMock(2), nombre: "Ferretería Luna" }, entorno: "PRODUCCION", certificado: -5, tiene_credenciales_sol: true, series: 1, comprobantes_del_mes: 0, ultima_emision_hace: 40, creada_en: "2026-09-02T15:00:00Z" },
+    { id: "ea-04", ruc: "20100000400", razon_social: "CLIENTE 04 SAC", cuenta: { id: idCuentaMock(4), nombre: "Cliente 04" }, entorno: "PRODUCCION", certificado: 200, tiene_credenciales_sol: true, series: 1, comprobantes_del_mes: 30, ultima_emision_hace: 0, creada_en: "2026-09-04T15:00:00Z" },
+    { id: "ea-05", ruc: "20100000500", razon_social: "CLIENTE 05 SAC", cuenta: { id: idCuentaMock(5), nombre: "Cliente 05" }, entorno: "BETA", certificado: "sin_fecha", tiene_credenciales_sol: false, series: 1, comprobantes_del_mes: 2, ultima_emision_hace: 3, creada_en: "2026-09-05T15:00:00Z" },
+    { id: "ea-07", ruc: "20100000700", razon_social: "CLIENTE 07 SAC", cuenta: { id: idCuentaMock(7), nombre: "Cliente 07" }, entorno: "PRODUCCION", certificado: 29, tiene_credenciales_sol: true, series: 1, comprobantes_del_mes: 3, ultima_emision_hace: 2, creada_en: "2026-09-07T15:00:00Z" },
+    { id: "ea-08", ruc: "20100000800", razon_social: "CLIENTE 08 SAC", cuenta: { id: idCuentaMock(8), nombre: "Cliente 08" }, entorno: "BETA", certificado: 30, tiene_credenciales_sol: true, series: 0, comprobantes_del_mes: 0, ultima_emision_hace: null, creada_en: "2026-09-08T15:00:00Z" },
+    { id: "ea-10", ruc: "20100001000", razon_social: "CLIENTE 10 SAC", cuenta: { id: idCuentaMock(10), nombre: "Cliente 10" }, entorno: "BETA", certificado: -1, tiene_credenciales_sol: false, series: 1, comprobantes_del_mes: 0, ultima_emision_hace: 90, creada_en: "2026-09-10T15:00:00Z" },
+    { id: "ea-11", ruc: "20100001100", razon_social: "CLIENTE 11 SAC", cuenta: { id: idCuentaMock(11), nombre: "Cliente 11" }, ...inactiva, creada_en: "2026-09-11T15:00:00Z" },
+    { id: "ea-i1", ruc: "20100066611", razon_social: "INTEGRADOR SAC", ...inactiva, creada_en: "2026-09-12T15:00:00Z" },
+    { id: "ea-i2", ruc: "20100066620", razon_social: "INTEGRADOR NORTE SAC", ...inactiva, creada_en: "2026-09-13T15:00:00Z" },
+    { id: "ea-i3", ruc: "20100066638", razon_social: "INTEGRADOR SUR SAC", ...inactiva, creada_en: "2026-09-14T15:00:00Z" },
+    { id: "ea-i4", ruc: "20100066646", razon_social: "INTEGRADOR ESTE SAC", ...inactiva, creada_en: "2026-09-15T15:00:00Z" },
   ];
 
   const usuario: Usuario = {

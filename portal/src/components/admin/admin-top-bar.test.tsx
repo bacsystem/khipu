@@ -31,7 +31,7 @@ describe("AdminTopBar", () => {
   });
 
   it("sin miga conocida no pinta la navegación de ubicación", () => {
-    pintar("/admin/empresas");
+    pintar("/admin/planes");
 
     expect(screen.queryByRole("navigation", { name: "Ubicación" })).toBeNull();
   });
