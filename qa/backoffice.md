@@ -1248,6 +1248,102 @@ Después: Playwright de cuentas 16/16 (detalle y listado), Vitest 326/326, `tsc`
 - Los últimos 10 comprobantes y las últimas 10 acciones no se paginan: es un vistazo, no un historial.
 - El último acceso no cuenta el uso por API key.
 
+## #185 · Listado de empresas de la plataforma
+
+**Estado: 🔧 implementado, 42/42 mutaciones verificadas — falta la revisión de la PR.** Rebanada de lectura de la épica #11, sección 2.1.
+
+`GET /v1/admin/empresas` y la página `/admin/empresas`: todas las empresas con su cuenta, entorno, estado del certificado y días restantes,
+credenciales SOL, series, comprobantes del mes y última emisión; filtros por entorno y por estado del certificado; paginado. Las que tienen el
+certificado vencido o por vencer se distinguen a simple vista.
+
+### Diseño
+
+- **Una sola regla para el certificado, en SQL, que usan la columna y el filtro.** Un `CASE` calcula `SIN_CERTIFICADO` / `SIN_FECHA` / `VENCIDO` /
+  `POR_VENCER` / `VIGENTE`; el mismo texto va en el `SELECT` y en el `WHERE`, así lo que el filtro deja pasar es exactamente lo que la fila dice ser (un
+  test lo comprueba para cada estado). Vencido es antes de hoy (el último día todavía vale, como en `Tenant`); por vencer, menos de 30 días (épica #11):
+  con 30 justos todavía es vigente.
+- **«Hoy» y «el mes» los pone la aplicación, no la base.** El servicio toma la fecha del `Clock` (America/Lima) y se la pasa al repositorio: con las 21:00
+  del 30 de septiembre en Lima, «hoy» es el 30 y no el 1 de octubre de UTC. Un test fija ese reloj; otro cambia el «hoy» que se pasa y comprueba que el
+  estado y el mes lo siguen.
+- **«Comprobantes del mes» y «última emisión» salen de la fecha de emisión**, no de `created_at`: así las dos se resuelven por el índice que ya existe,
+  `(tenant_id, fecha_emision)` (una prueba de plan lo verifica), sin recorrer los documentos de cada empresa. «Del mes» es de la fecha de emisión del
+  1 al último día del mes de hoy, todos los documentos; «series» son las activas.
+- **Incluye las empresas sin cuenta.** Las que da de alta una integración (`POST /v1/admin/tenants`) no tienen `cuenta_id`: el listado usa `LEFT JOIN` y
+  esas filas salen sin los campos de la cuenta. Con `JOIN` desaparecerían del listado en silencio.
+- Una sola consulta; los números de cada fila son subconsultas correlacionadas que Postgres calcula solo para las filas de la página. Índice nuevo
+  `ix_tenant_alta (created_at DESC, id)` (V33) para el orden, con su prueba de plan.
+- **Nada secreto:** del certificado y de las credenciales solo se informa si están (la clave SOL cuenta cargada solo con usuario y clave). Un valor de
+  filtro que no existe responde `400`, no se ignora.
+- **Portal:** los dos filtros viven en la URL (compartible); un filtro inventado en la URL se descarta antes de llamar al backend; cambiar un filtro
+  navega a la página 1; una página fuera de rango se corrige a la última. La etiqueta del certificado es la misma que usa el detalle de una cuenta
+  (`etiquetas.tsx`, extraída), así las dos pantallas lo muestran idéntico. Las filas con el certificado vencido o por vencer se tiñen.
+- El menú activa «Empresas» (estaba deshabilitado con «Pronto») y la cabecera la ubica bajo «Clientes».
+
+### Tests
+
+- Servicio (`ListarEmpresasAdminServiceTest`, 3): el «hoy» de Lima, listar y contar con el mismo «hoy», sin filtro.
+- Persistencia (`JdbcEmpresasAdminRepositoryTest`, 19, Postgres): los siete bordes del certificado (sin certificado, sin fecha, ayer, hoy, 29, 30 y 365
+  días), el estado cambia con el «hoy» que se pasa, una fecha suelta sin certificado no cuenta, filtro y columna coinciden para cada estado, entorno,
+  filtros combinados con su total, series activas, mes (30 de septiembre y 1 de noviembre fuera; 1 y 31 de octubre dentro), última emisión, empresa sin
+  cuenta, paginado y los dos planes de consulta.
+- REST (`AdminEmpresaControllerTest`, 7) y E2E real (`AdminEmpresasE2ETest`, 9, Postgres + Spring completo con el reloj real): columnas, campos ausentes,
+  filtros y total, un valor de filtro inexistente es 400, tope de página, ningún secreto en la respuesta, una empresa de integración sin cuenta, y las
+  puertas: abre la clave de plataforma o un administrador; sin credencial, con el JWT de un cliente, con una API key o con una clave errónea es 401.
+- Portal, Vitest: `admin-empresas.test.ts` (14: parámetros de la URL, `href`, fuera de rango, mapeo del estado), `empresas-tabla.test.tsx` (8: a dónde
+  navega cada selector, la paginación conserva filtros y tamaño, los estados vacíos) y la miga de `/admin/empresas`.
+- Portal, Playwright (`admin-empresas.spec.ts`, 15): sin sesión → login; menú → listado con sus columnas; vencida y por vencer se distinguen (atributo y
+  tinte); cada estado trae sus empresas; el borde de los 30 días (30 vigente, 29 por vencer); entorno y combinado; los dos filtros vuelven a la página 1;
+  «Quitar filtros»; URL compartible; un filtro inventado se ignora; sin resultados; segunda página y página fuera de rango; la cuenta enlaza a su detalle;
+  el menú marca «Empresas».
+
+### Verificación por mutación — 42/42 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Backend SQL | Vencido también el último día / por vencer con 30 días / «sin certificado» nunca | 3 + 2 + 3 |
+| Backend SQL | Días con el signo al revés / fecha o días visibles sin certificado | 2 + 1 + 1 |
+| Backend SQL | Series inactivas cuentan / mes sin el día 1 / mes con el 1 del siguiente | 1 + 1 + 2 |
+| Backend SQL | Última emisión la más vieja | 1 |
+| Backend SQL | `JOIN` en vez de `LEFT JOIN` (las de integración desaparecen) | 15 |
+| Backend SQL | Orden ascendente / página salteada | 2 + 16 |
+| Backend SQL | Filtro de entorno ignorado / filtro de certificado invertido | 3 + 4 |
+| Servicio | El «hoy» del reloj del sistema / contar con otro «hoy» | 1 + 1 |
+| REST | El controlador pierde el entorno / el certificado / el total sin filtro / sin tope de página | 2 + 2 + 1 + 1 |
+| REST | El DTO cruza series y comprobantes del mes | 1 |
+| Vitest | Filtro inventado pasa / ruta base con `pagina=1` / query sin certificado / href sin entorno | 2 + 3 + 1 + 2 |
+| Vitest | Fuera de rango en la última / vigente como por vencer / sin guarda de fecha / página decimal / miga de otra ruta | 1 + 1 + 1 + 1 + 1 |
+| Vitest (componente) | Cualquiera de los dos filtros sin volver a la página 1 | 1 + 1 |
+| Playwright | Vencida o por vencer sin tinte | 1 + 1 |
+| Playwright | La cuenta sin enlace al detalle / «Sin cuenta» sin decirlo / «Nunca emitió» roto | 1 + 1 + 9 |
+| Playwright | Sin resultados dice «no hay empresas» / «Quitar filtros» nunca aparece | 1 + 1 |
+| Playwright | Sin la corrección de página fuera de rango / el menú no lleva a Empresas | 1 + 2 |
+| Playwright | El detalle de una cuenta pierde el estado del certificado (regresión de la etiqueta compartida) | 1 |
+
+Un hallazgo de la propia verificación: **no volver a la página 1 al cambiar un filtro sobrevivía** (los dos selectores). Lo tapaba la corrección de
+página fuera de rango: con 8 o 5 resultados, `pagina=2` se redirige sola a la 1 y la URL queda limpia, así que el e2e no lo veía. Solo se nota cuando el
+resultado todavía tiene varias páginas, y eso no cabe en la siembra de 12 empresas. Se cubrió con un test de componente que mira a dónde navega cada
+selector (`empresas-tabla.test.tsx`) y se repitieron las dos mutaciones: mueren.
+
+Otros dos tropiezos, ya resueltos: los RUC de prueba del primer E2E no tenían dígito verificador válido (422 al dar de alta la empresa), y dos tests
+existentes usaban `/admin/empresas` como ejemplo de «ruta sin miga»; ahora usan `/admin/planes`, que sigue sin tenerla.
+
+### Suites
+
+- Backend: `./gradlew test` completo sobre la rama, código de salida 0 (incluye `ArchitectureTest`, `AdminEmpresasE2ETest` y las migraciones hasta V33).
+- Portal: `tsc --noEmit` limpio · ESLint limpio · Vitest 349/349 · Playwright completo 165/165, sin nada más corriendo en la máquina.
+- La mutación C5 de Playwright salió con el conteo de fallos en blanco en la tanda; se repitió a mano con el log a la vista: muere porque el enlace llevó a
+  `/admin/cuentas` en vez de al detalle de la cuenta.
+
+### Límites conocidos
+
+- Sin búsqueda de texto (RUC o razón social): el issue pide filtros por entorno y estado del certificado. La búsqueda por RUC y razón social ya existe en el
+  listado de cuentas.
+- «Credenciales SOL cargadas», no «validadas»: validarlas depende de la prueba de conexión con SUNAT (#14).
+- Los comprobantes del mes cuentan todos los documentos de la empresa con fecha de emisión en el mes, sea cual sea su estado; el consumo facturable por plan
+  se definirá con los planes.
+- El listado calcula los números de cada fila en el momento: la lectura sigue siendo por índice, pero un contador materializado sería lo siguiente si el
+  listado se vuelve lento con muchísimas empresas con millones de documentos.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
