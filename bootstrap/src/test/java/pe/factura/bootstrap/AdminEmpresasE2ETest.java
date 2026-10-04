@@ -190,4 +190,111 @@ class AdminEmpresasE2ETest {
         assertThat(listar(conApiKey, "").getStatusCode()).as("API key de una empresa").isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(listar(conClaveErronea, "").getStatusCode()).as("clave de plataforma errónea").isEqualTo(HttpStatus.UNAUTHORIZED);
     }
+
+    // --- #186: detalle ------------------------------------------------------------------------------------------------------------
+
+    private UUID idDe(String ruc) { return jdbc.queryForObject("SELECT id FROM tenant WHERE ruc = ?", UUID.class, ruc); }
+
+    private ResponseEntity<Map> abrir(HttpHeaders h, Object id) {
+        return http.exchange("/v1/admin/empresas/" + id, HttpMethod.GET, new HttpEntity<>(h), Map.class);
+    }
+
+    private Map<String, Object> datosDe(ResponseEntity<Map> r) { return (Map<String, Object>) r.getBody().get("datos"); }
+
+    @Test void abrirUnaEmpresaMuestraTodoLoQueVeSuDueno() {
+        clienteConEmpresa("ana@negocio.pe", "20100066603", "COMERCIAL ANDINA SAC");
+        clienteConEmpresa("luis@otro.pe", "20100066611", "FERRETERIA LUNA SAC");
+        UUID id = idDe("20100066603");
+        jdbc.update("""
+                UPDATE tenant SET entorno = 'PRODUCCION', nombre_comercial = 'ANDINA', cuenta_detracciones = '00-123-456789',
+                       dom_ubigeo = '150122', dom_direccion = 'AV. LARCO 345', dom_distrito = 'MIRAFLORES', dom_provincia = 'LIMA', dom_departamento = 'LIMA',
+                       dom_establecimiento = '0000', pdf_plantilla = 'MODERNO', pdf_logo_key = 'logos/guardado-en-secreto.png',
+                       sol_usuario_enc = ?, sol_clave_enc = ?, cert_pkcs12_enc = ?, cert_clave_enc = ?, cert_vigencia_hasta = ?
+                WHERE id = ?""", new byte[]{1}, new byte[]{2}, new byte[]{3}, new byte[]{4}, java.sql.Date.valueOf(HOY.plusDays(10)), id);
+        jdbc.update("INSERT INTO serie (tenant_id, tipo, codigo, ultimo_numero) VALUES (?, '01', 'F001', 12)", id);
+        jdbc.update("""
+                INSERT INTO establecimiento (tenant_id, codigo, nombre, dom_ubigeo, dom_direccion) VALUES (?, '0002', 'Tienda Surco', '150140', 'AV. CAMINOS 100')""", id);
+        UUID documento = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, intentos, cdr_codigo, cdr_descripcion, cdr_observaciones)
+                VALUES (?, ?, '01', 'F001', 12, ?, 'ACEPTADO_CON_OBS', 'doc-12', 2, '0', 'La Factura ha sido aceptada', '["4287 - El dato ingresado no cumple"]'::jsonb)""",
+                documento, id, java.sql.Date.valueOf(HOY));
+        jdbc.update("""
+                INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, total_gravado, total_exonerado, total_inafecto, total_igv, total)
+                VALUES (?, '0101', 'PEN', '6', '20601234565', 'CLIENTE SAC', 0, 0, 0, 0, 118.00)""", documento);
+        jdbc.update("INSERT INTO evento_documento (documento_id, estado_anterior, estado_nuevo, detalle) VALUES (?, 'FIRMADO', 'ACEPTADO_CON_OBS', 'CDR recibido')", documento);
+        jdbc.update("INSERT INTO outbox (tenant_id, agregado_id, accion, intentos, siguiente_intento, ultimo_error) VALUES (?, ?, 'ENVIAR', 3, now(), 'SUNAT no responde')", id, documento);
+
+        ResponseEntity<Map> r = abrir(conClaveDePlataforma(), id);
+
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> d = datosDe(r);
+        assertThat(d).containsEntry("id", id.toString()).containsEntry("ruc", "20100066603").containsEntry("razon_social", "COMERCIAL ANDINA SAC")
+                .containsEntry("nombre_comercial", "ANDINA").containsEntry("entorno", "PRODUCCION").containsEntry("cuenta_nombre", "Mi negocio")
+                .containsEntry("certificado", "POR_VENCER").containsEntry("certificado_dias_restantes", 10).containsEntry("tiene_credenciales_sol", true)
+                .containsEntry("cuenta_detracciones", "00-123-456789");
+        assertThat((Map<String, Object>) d.get("domicilio")).containsEntry("ubigeo", "150122").containsEntry("direccion", "AV. LARCO 345").containsEntry("codigo_establecimiento", "0000");
+        assertThat((Map<String, Object>) d.get("pdf")).containsEntry("plantilla", "MODERNO").containsEntry("tiene_logo", true);
+        assertThat((List<Map<String, Object>>) d.get("series")).hasSize(1);
+        assertThat(((List<Map<String, Object>>) d.get("series")).get(0)).containsEntry("codigo", "F001").containsEntry("ultimo_numero", 12);
+        assertThat(((List<Map<String, Object>>) d.get("establecimientos")).get(0)).containsEntry("nombre", "Tienda Surco").containsEntry("codigo", "0002");
+        List<Map<String, Object>> comprobantes = (List<Map<String, Object>>) d.get("comprobantes");
+        assertThat(comprobantes).hasSize(1);
+        assertThat(comprobantes.get(0)).containsEntry("estado", "ACEPTADO_CON_OBS").containsEntry("intentos", 2);
+        assertThat((Map<String, Object>) comprobantes.get(0).get("cdr")).containsEntry("codigo", "0").containsEntry("descripcion", "La Factura ha sido aceptada")
+                .containsEntry("observaciones", List.of("4287 - El dato ingresado no cumple"));
+        assertThat(((List<Map<String, Object>>) d.get("eventos")).get(0)).containsEntry("comprobante", "F001-00000012").containsEntry("estado_nuevo", "ACEPTADO_CON_OBS");
+        assertThat((Map<String, Object>) d.get("outbox")).containsEntry("total", 1);
+        assertThat(((List<Map<String, Object>>) ((Map<String, Object>) d.get("outbox")).get("proximas")).get(0)).containsEntry("accion", "ENVIAR").containsEntry("ultimo_error", "SUNAT no responde");
+    }
+
+    /** Una API key se ve por su prefijo; ni el secreto que se entregó al crearla ni su hash salen nunca, y tampoco dónde está guardado el logo. */
+    @Test void unaApiKeyMuestraSuPrefijoPeroNuncaSuSecretoNiSuHash() {
+        ResponseEntity<Map> tenant = http.postForEntity("/v1/admin/tenants", new HttpEntity<>(
+                "{\"ruc\":\"20100066611\",\"razon_social\":\"INTEGRADOR SAC\",\"entorno\":\"BETA\"}", conClaveDePlataforma()), Map.class);
+        String secreto = (String) ((Map<?, ?>) tenant.getBody().get("datos")).get("api_key");
+        UUID id = idDe("20100066611");
+        String hash = jdbc.queryForObject("SELECT key_hash FROM api_key WHERE tenant_id = ?", String.class, id);
+        jdbc.update("UPDATE tenant SET pdf_logo_key = 'logos/guardado-en-secreto.png' WHERE id = ?", id);
+
+        String cuerpo = http.exchange("/v1/admin/empresas/" + id, HttpMethod.GET, new HttpEntity<>(conClaveDePlataforma()), String.class).getBody();
+        List<Map<String, Object>> keys = (List<Map<String, Object>>) datosDe(abrir(conClaveDePlataforma(), id)).get("api_keys");
+
+        assertThat(keys).hasSize(1);
+        assertThat(keys.get(0)).containsEntry("activa", true);
+        assertThat(secreto).startsWith((String) keys.get(0).get("prefijo"));
+        assertThat(cuerpo).doesNotContain(secreto).doesNotContain(hash).doesNotContain("guardado-en-secreto").doesNotContain("key_hash").doesNotContain("pkcs12");
+    }
+
+    @Test void abrirUnaEmpresaQueNoExisteEs404YUnIdMalFormadoEs400() {
+        ResponseEntity<Map> noExiste = abrir(conClaveDePlataforma(), UUID.randomUUID());
+        assertThat(noExiste.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(noExiste.getBody()).containsEntry("codigo", "NO_ENCONTRADO");
+
+        assertThat(abrir(conClaveDePlataforma(), "no-es-un-uuid").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test void unAdministradorConSesionTambienAbreLaEmpresa() {
+        clienteConEmpresa("ana@negocio.pe", "20100066603", "COMERCIAL ANDINA SAC");
+        http.postForEntity("/v1/admin/administradores", new HttpEntity<>("{\"email\":\"admin@khipu.pe\",\"password\":\"Segura123\"}", conClaveDePlataforma()), Map.class);
+        String token = (String) SesionAdminDePrueba.entrar(http, "admin@khipu.pe", "Segura123").get("access_token");
+
+        assertThat(abrir(conBearer(token), idDe("20100066603")).getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    /** El detalle trae el domicilio y la situación de una empresa ajena: las mismas puertas que el listado, ninguna más. */
+    @Test void nadieMasAbreUnaEmpresa() {
+        String jwtDeCliente = clienteConEmpresa("ana@negocio.pe", "20100066603", "COMERCIAL ANDINA SAC");
+        UUID propia = idDe("20100066603");
+        ResponseEntity<Map> tenant = http.postForEntity("/v1/admin/tenants", new HttpEntity<>(
+                "{\"ruc\":\"20100066611\",\"razon_social\":\"INTEGRADOR SAC\",\"entorno\":\"BETA\"}", conClaveDePlataforma()), Map.class);
+        String apiKey = (String) ((Map<?, ?>) tenant.getBody().get("datos")).get("api_key");
+        HttpHeaders conApiKey = json(); conApiKey.set("X-Api-Key", apiKey);
+        HttpHeaders conClaveErronea = json(); conClaveErronea.set("X-Platform-Key", "clave-incorrecta");
+
+        assertThat(abrir(json(), propia).getStatusCode()).as("sin credencial").isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(abrir(conBearer(jwtDeCliente), propia).getStatusCode()).as("JWT del propio dueño").isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(abrir(conApiKey, propia).getStatusCode()).as("API key de una empresa").isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(abrir(conClaveErronea, propia).getStatusCode()).as("clave de plataforma errónea").isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
 }

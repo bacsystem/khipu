@@ -6,19 +6,23 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import pe.factura.adapters.rest.dto.EmpresaAdminResponse;
+import pe.factura.adapters.rest.dto.EmpresaDetalleResponse;
+import pe.factura.application.port.in.DetalleEmpresaAdminUseCase;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.EstadoCertificado;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.Filtro;
 import pe.factura.domain.tenant.Entorno;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
- * Listado de empresas de toda la plataforma del backoffice (#185). Solo lectura. Autenticado por {@link AdminAuthFilter}: la clave de
+ * Listado y detalle de las empresas de toda la plataforma del backoffice (#185, #186). Solo lectura. Autenticado por {@link AdminAuthFilter}: la clave de
  * plataforma o el JWT de un administrador; un JWT de cliente o una API key de tenant no pasan.
  */
 @RestController
@@ -27,6 +31,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminEmpresaController {
     private final ListarEmpresasAdminUseCase empresas;
+    private final DetalleEmpresaAdminUseCase detalle;
 
     @GetMapping("/empresas")
     @Operation(summary = "Listar las empresas de la plataforma", description = """
@@ -45,5 +50,16 @@ public class AdminEmpresaController {
         List<EmpresaAdminResponse> datos = empresas.listar(filtro, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
                 .stream().map(EmpresaAdminResponse::de).toList();
         return ResponseEntity.ok().header(FacturaController.TOTAL_HEADER, String.valueOf(empresas.contar(filtro))).body(ApiResponse.ok(datos));
+    }
+
+    @GetMapping("/empresas/{id}")
+    @Operation(summary = "Abrir una empresa", description = """
+            Lo mismo que ve su dueño, en solo lectura: datos fiscales y domicilio, estado del certificado y de las credenciales SOL (**sin
+            exponer su contenido**), series, establecimientos, API keys (**solo el prefijo**, nunca el secreto ni el hash), personalización del
+            PDF (si hay logo, sin dónde está guardado), los 10 comprobantes más recientes con el detalle del CDR de SUNAT, los últimos 20
+            cambios de estado de esos comprobantes y el outbox pendiente de la empresa. No se audita. `404 NO_ENCONTRADO` si la empresa no
+            existe; un id que no es un UUID responde `400`.""")
+    public ApiResponse<EmpresaDetalleResponse> abrir(@Parameter(description = "Id de la empresa") @PathVariable UUID id) {
+        return ApiResponse.ok(EmpresaDetalleResponse.de(detalle.detalle(id)));
     }
 }

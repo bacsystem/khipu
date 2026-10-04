@@ -25,6 +25,9 @@ class ListarEmpresasAdminServiceTest {
         final List<Object[]> llamadas = new ArrayList<>();
         public List<EmpresaResumen> listar(Filtro f, LocalDate hoy, int pagina, int porPagina) { llamadas.add(new Object[]{"listar", f, hoy, pagina, porPagina}); return List.of(); }
         public long contar(Filtro f, LocalDate hoy) { llamadas.add(new Object[]{"contar", f, hoy}); return 7; }
+        public java.util.Optional<pe.factura.application.port.in.DetalleEmpresaAdminUseCase.EmpresaDetalle> detalle(java.util.UUID id, LocalDate hoy) {
+            throw new AssertionError("el listado no abre una empresa");
+        }
     }
 
     RepoFalso repo = new RepoFalso();
