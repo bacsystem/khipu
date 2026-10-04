@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EmpresaAdmin } from "@/lib/api/admin-empresas";
 import { EmpresasTabla } from "./empresas-tabla";
@@ -119,6 +119,14 @@ describe("EmpresasTabla (#185)", () => {
     fireEvent.change(screen.getByLabelText("Entorno"), { target: { value: "PRODUCCION" } });
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=PRODUCCION&bajas=SOLO");
+  });
+
+  it("cambiar las filas por página vuelve a la primera y conserva los filtros, también el de bajas", () => {
+    render(<EmpresasTabla datos={[ANDINA]} total={45} params={{ entorno: "BETA", bajas: "SOLO", pagina: 3, porPagina: 10 }} />);
+
+    fireEvent.click(within(screen.getByRole("group", { name: "Filas por página" })).getByRole("button", { name: "20" }));
+
+    expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=BETA&bajas=SOLO&por_pagina=20");
   });
 
   it("la paginación conserva el filtro de bajas en sus enlaces", () => {
