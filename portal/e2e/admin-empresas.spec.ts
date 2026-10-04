@@ -21,7 +21,7 @@ test("desde el menú, el administrador llega a Empresas y ve la primera página 
   await expect(page.getByRole("heading", { name: "Empresas", level: 1 })).toBeVisible();
   await expect(filas(page)).toHaveCount(10);
   await expect(page.locator("body")).toContainText(/Mostrando\s*1–10\s*de\s*12/);
-  for (const columna of ["Empresa", "Cuenta", "Entorno", "Certificado", "Credenciales SOL", "Series", "Comprobantes del mes", "Última emisión"])
+  for (const columna of ["Empresa", "Cuenta", "Entorno", "Certificado", "Credenciales SOL", "Series", "Emitidos en el mes", "Última emisión"])
     await expect(page.getByRole("columnheader", { name: columna })).toBeVisible();
   // Una empresa de integración no tiene cuenta, y una que nunca emitió lo dice: no se inventa nada.
   await expect(page.getByText("Sin cuenta").first()).toBeVisible();

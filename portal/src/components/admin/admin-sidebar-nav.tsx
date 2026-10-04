@@ -1,6 +1,6 @@
 "use client";
 
-import { ActivityIcon, BuildingIcon, CreditCardIcon, HomeIcon, UsersIcon } from "lucide-react";
+import { ActivityIcon, BuildingIcon, CreditCardIcon, GaugeIcon, HomeIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { messages } from "@/lib/messages";
@@ -8,12 +8,13 @@ import { cn } from "@/lib/utils";
 
 type Item = { href?: string; label: string; icon: typeof HomeIcon };
 
-/** "Inicio", "Cuentas" (#180), "Empresas" (#185) y "Planes" (#190) tienen página propia: el resto del backoffice llega en los issues de la épica #11. */
+/** "Inicio", "Cuentas" (#180), "Empresas" (#185), "Planes" (#190) y "Consumo" (#193) tienen página propia: el resto del backoffice llega en los issues de la épica #11. */
 const ITEMS: Item[] = [
   { href: "/admin", label: messages.admin.nav.inicio, icon: HomeIcon },
   { href: "/admin/cuentas", label: messages.admin.nav.cuentas, icon: UsersIcon },
   { href: "/admin/empresas", label: messages.admin.nav.empresas, icon: BuildingIcon },
   { href: "/admin/planes", label: messages.admin.nav.planes, icon: CreditCardIcon },
+  { href: "/admin/consumo", label: messages.admin.nav.consumo, icon: GaugeIcon },
   { label: "Operación", icon: ActivityIcon },
 ];
 
