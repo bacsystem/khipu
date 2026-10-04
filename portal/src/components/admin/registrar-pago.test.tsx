@@ -275,6 +275,32 @@ describe("RegistrarPago", () => {
     await act(async () => terminar(exito()));
   });
 
+  /** El botón y la cruz ya no están, pero Escape y el clic afuera también pasan por `onOpenChange`: tampoco cierran mientras se envía. */
+  it("mientras envía, Escape tampoco cierra el modal", async () => {
+    let terminar!: (r: ApiEnvelope<unknown>) => void;
+    apiRequest.mockReturnValue(new Promise((resolve) => (terminar = resolve)));
+    abrir();
+    llenar();
+
+    await act(async () => fireEvent.click(screen.getByTestId("registrar-pago-confirmar")));
+    await act(async () => {
+      fireEvent.keyDown(screen.getByTestId("registrar-pago-dialogo"), { key: "Escape" });
+    });
+
+    expect(screen.getByTestId("registrar-pago-dialogo")).toBeTruthy();
+    await act(async () => terminar(exito()));
+  });
+
+  it("sin enviar, Escape sí cierra el modal", async () => {
+    abrir();
+
+    await act(async () => {
+      fireEvent.keyDown(screen.getByTestId("registrar-pago-dialogo"), { key: "Escape" });
+    });
+
+    await waitFor(() => expect(screen.queryByTestId("registrar-pago-dialogo")).toBeNull());
+  });
+
   // --- errores del backend ----------------------------------------------------------------------------------------------------------------
 
   it("un pago repetido muestra el motivo, no cierra y no recarga", async () => {

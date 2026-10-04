@@ -167,7 +167,6 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                 onChange={(e) => {
                   setHasta(e.target.value);
                   limpiar("hasta");
-                  limpiar("extender");
                 }}
                 aria-invalid={errores.hasta ? true : undefined}
                 className={cn(CAMPO, "h-9")}
@@ -263,10 +262,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                 data-testid="registrar-pago-extender"
                 checked={extender}
                 disabled={!puedeExtender}
-                onChange={(e) => {
-                  setExtenderElegido(e.target.checked);
-                  limpiar("extender");
-                }}
+                onChange={(e) => setExtenderElegido(e.target.checked)}
                 className="mt-0.5 size-4"
               />
               <span>{t.extender}</span>
@@ -274,7 +270,6 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
             <p data-testid="registrar-pago-extender-nota" className="pl-6 text-[12px] text-muted-foreground">
               {notaDeExtension}
             </p>
-            {errores.extender ? <span className="pl-6 text-[12px] text-destructive">{errores.extender}</span> : null}
           </div>
 
           {error ? (
