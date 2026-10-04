@@ -433,6 +433,19 @@
       },
       "acceso": {
         "cerrar": "Cerrar",
+        "impersonar": {
+          "boton": "Entrar como este usuario",
+          "titulo": "Entrar al portal como este usuario",
+          "descripcion": "Vas a ver el portal tal como lo ve {correo}.",
+          "confirmar": "Entrar al portal",
+          "enviando": "Abriendo…",
+          "efectos": [
+            "La sesión dura 15 minutos y no se puede renovar: para seguir mirando hay que entrar de nuevo.",
+            "Solo puedes mirar: no puedes cambiar nada (ni la contraseña, ni las credenciales SOL, ni las API keys, ni emitir).",
+            "Queda en la bitácora a tu nombre, y el cliente lo ve en su historial de accesos de soporte, sin tu nombre.",
+            "Reemplaza la sesión de cliente que tengas abierta en este navegador."
+          ]
+        },
         "restablecer": {
           "boton": "Restablecer contraseña",
           "titulo": "Mandar el correo de restablecimiento",
@@ -539,6 +552,26 @@
         "verCuentas": "Ver cuentas",
         "otra": "Dar de alta a otro cliente"
       }
+    }
+  },
+  "soporte": {
+    "aviso": {
+      "region": "Modo soporte",
+      "titulo": "Modo soporte",
+      "descripcion": "Estás viendo el portal como {email}. Solo puedes mirar: no puedes cambiar nada. La sesión termina el {hasta}.",
+      "salir": "Salir del modo soporte",
+      "saliendo": "Saliendo…",
+      "error": "No se pudo salir del modo soporte. Inténtalo de nuevo."
+    },
+    "accesos": {
+      "titulo": "Accesos de soporte",
+      "descripcion": "Cada vez que alguien del equipo de khipu miró tu portal para ayudarte, queda aquí: cuándo, como qué usuario y por cuánto tiempo como máximo. Solo pueden mirar: no pueden cambiar nada.",
+      "vacio": "Nadie del equipo de soporte ha entrado a tu cuenta.",
+      "error": "No se pudo cargar el historial de accesos.",
+      "columnas": { "cuando": "Cuándo", "usuario": "Usuario", "duracion": "Duración máxima" },
+      "minutos": "{n} min",
+      "segundos": "{n} s",
+      "sinDetalle": "Sin detalle"
     }
   },
   "cuentaSuspendida": {

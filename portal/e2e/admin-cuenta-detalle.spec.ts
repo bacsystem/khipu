@@ -69,8 +69,10 @@ test("las únicas acciones son suspender o dar de baja la cuenta y los correos d
   await expect(detalle.getByTestId("suspender-cuenta")).toBeVisible();
   await expect(detalle.getByTestId("restablecer-usuario")).toHaveCount(3);
   await expect(detalle.getByTestId("verificar-usuario")).toHaveCount(2);
+  // Entrar como el usuario (#184): a cualquiera que esté activo; carla, desactivada, no tiene ninguno.
+  await expect(detalle.getByTestId("impersonar-usuario")).toHaveCount(3);
   await expect(detalle.getByTestId("dar-de-baja-cuenta")).toBeVisible();
-  await expect(detalle.getByRole("button")).toHaveCount(1 + 1 + 3 + 2);
+  await expect(detalle.getByRole("button")).toHaveCount(1 + 1 + 3 + 2 + 3);
 
   const carla = detalle.locator("tbody tr", { hasText: "carla@sol.pe" });
   await expect(carla.getByRole("button")).toHaveCount(0);

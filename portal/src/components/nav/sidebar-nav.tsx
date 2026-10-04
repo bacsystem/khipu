@@ -1,6 +1,6 @@
 "use client";
 
-import { ListOrderedIcon, PackageIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon } from "lucide-react";
+import { EyeIcon, ListOrderedIcon, PackageIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,7 @@ const GRUPOS: Grupo[] = [
       { href: "/empresa", label: "Fiscal & certificado", icon: ShieldCheckIcon },
       { href: "/establecimientos", label: "Establecimientos", icon: StoreIcon },
       { href: "/api-keys", label: "API keys", icon: TerminalIcon },
+      { href: "/cuenta/accesos-de-soporte", label: "Accesos de soporte", icon: EyeIcon },
     ],
   },
 ];

@@ -30,17 +30,19 @@ function abrir(tipo: "restablecer" | "verificar") {
 }
 
 describe("AccionesDeUsuario (#183)", () => {
-  it("un usuario activo sin verificar ofrece las dos acciones", () => {
+  it("un usuario activo sin verificar ofrece restablecer, reenviar la verificación y entrar como él", () => {
     mostrar();
 
     expect(screen.getByTestId("restablecer-usuario")).toBeTruthy();
     expect(screen.getByTestId("verificar-usuario")).toBeTruthy();
+    expect(screen.getByTestId("impersonar-usuario")).toBeTruthy();
   });
 
-  it("uno ya verificado solo ofrece restablecer", () => {
+  it("uno ya verificado ofrece restablecer y entrar como él, pero no reenviar la verificación", () => {
     mostrar({ verificado: true });
 
     expect(screen.getByTestId("restablecer-usuario")).toBeTruthy();
+    expect(screen.getByTestId("impersonar-usuario")).toBeTruthy();
     expect(screen.queryByTestId("verificar-usuario")).toBeNull();
   });
 
@@ -192,5 +194,74 @@ describe("AccionesDeUsuario (#183)", () => {
 
     expect(screen.queryByRole("alert")).toBeNull();
     expect(apiRequest).toHaveBeenCalledTimes(1);
+  });
+
+  // --- #184: entrar como el usuario ------------------------------------------------------------------------------------------------
+
+  describe("entrar como el usuario", () => {
+    function abrirImpersonar(irA = vi.fn()) {
+      render(<AccionesDeUsuario cuentaId={CUENTA} usuarioId={USUARIO} correo="beto@sol.pe" activo verificado={false} irA={irA} />);
+      fireEvent.click(screen.getByTestId("impersonar-usuario"));
+      return irA;
+    }
+
+    /** La función más sensible del backoffice: el diálogo dice qué se puede y qué no, antes de entrar. */
+    it("el diálogo dice que dura 15 minutos, que solo se mira, que queda registrado y que reemplaza la sesión del navegador", () => {
+      abrirImpersonar();
+
+      const texto = screen.getByTestId("impersonar-usuario-dialogo").textContent ?? "";
+      expect(texto).toContain("Vas a ver el portal tal como lo ve beto@sol.pe");
+      expect(texto).toContain("15 minutos y no se puede renovar");
+      expect(texto).toContain("Solo puedes mirar: no puedes cambiar nada");
+      expect(texto).toContain("ni la contraseña, ni las credenciales SOL, ni las API keys, ni emitir");
+      expect(texto).toContain("Queda en la bitácora a tu nombre, y el cliente lo ve en su historial");
+      expect(texto).toContain("Reemplaza la sesión de cliente que tengas abierta en este navegador");
+      expect(apiRequest).not.toHaveBeenCalled();
+    });
+
+    it("confirmar hace POST a la ruta de impersonar de ese usuario, sin cuerpo, y navega al portal del cliente", async () => {
+      apiRequest.mockResolvedValue(exito({ expira_en: "2026-10-04T17:15:00Z", usuario: { email: "beto@sol.pe" } }));
+      const irA = abrirImpersonar();
+
+      fireEvent.click(screen.getByTestId("impersonar-usuario-confirmar"));
+
+      await waitFor(() => expect(irA).toHaveBeenCalledWith("/comprobantes"));
+      expect(apiRequest).toHaveBeenCalledWith(`/api/admin/cuentas/${CUENTA}/usuarios/${USUARIO}/impersonar`, { method: "POST", body: undefined });
+    });
+
+    it("si el backend se niega muestra el motivo, no navega y el diálogo sigue abierto", async () => {
+      apiRequest.mockResolvedValue(error("REQUIERE_ADMINISTRADOR", "Impersonar a un usuario requiere la sesión de un administrador"));
+      const irA = abrirImpersonar();
+
+      fireEvent.click(screen.getByTestId("impersonar-usuario-confirmar"));
+
+      expect((await screen.findByRole("alert")).textContent).toContain("requiere la sesión de un administrador");
+      expect(irA).not.toHaveBeenCalled();
+      expect(screen.getByTestId("impersonar-usuario-dialogo")).toBeTruthy();
+    });
+
+    it("un doble clic en confirmar abre una sola sesión", async () => {
+      let resolver: (v: ApiEnvelope<unknown>) => void = () => {};
+      apiRequest.mockReturnValue(new Promise<ApiEnvelope<unknown>>((r) => (resolver = r)));
+      abrirImpersonar();
+
+      const boton = screen.getByTestId("impersonar-usuario-confirmar");
+      act(() => {
+        fireEvent.click(boton);
+        fireEvent.click(boton);
+      });
+      await act(async () => resolver(exito({})));
+
+      expect(apiRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("cancelar no abre ninguna sesión", () => {
+      const irA = abrirImpersonar();
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+      expect(apiRequest).not.toHaveBeenCalled();
+      expect(irA).not.toHaveBeenCalled();
+    });
   });
 });

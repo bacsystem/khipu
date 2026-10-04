@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { RevisaTuCorreo } from "@/components/auth/revisa-tu-correo";
+import { AvisoDeSoporte } from "@/components/soporte/aviso-de-soporte";
 import { SidebarContent } from "@/components/nav/sidebar-content";
 import { TopBar } from "@/components/nav/top-bar";
 import { me } from "@/lib/api/auth";
 import { apiPublicUrl } from "@/lib/api/client";
 import { esCuentaSuspendida, RUTA_CUENTA_SUSPENDIDA } from "@/lib/api/cuenta-suspendida";
 import { listarEmpresas } from "@/lib/api/empresas";
+import { ApiError } from "@/lib/api/types";
 import { getServerSession } from "@/lib/session-server";
 
 export default async function PrivadoLayout({ children }: { children: ReactNode }) {
@@ -21,6 +23,8 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
   );
   if ("error" in cargado) {
     if (esCuentaSuspendida(cargado.error)) redirect(RUTA_CUENTA_SUSPENDIDA);
+    // Un 401 es una sesión muerta (p. ej. una sesión de soporte que venció entre el middleware y este render): al login, no a una página de error.
+    if (cargado.error instanceof ApiError && cargado.error.status === 401) redirect("/login");
     throw cargado.error;
   }
   const [usuario, empresas] = cargado.datos;
@@ -28,7 +32,10 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
   const activa = empresas.find((empresa) => empresa.id === empresaId) ?? empresas[0];
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col">
+      {/* Una sesión de soporte (#184) lo dice arriba de todo, fijo, en cada página: es lo que evita confundirla con la sesión normal del cliente. */}
+      {usuario.soporte_hasta ? <AvisoDeSoporte email={usuario.email} hasta={usuario.soporte_hasta} cuentaId={usuario.cuenta_id} /> : null}
+      <div className="flex min-w-0 flex-1">
       <aside className="hidden w-60 shrink-0 overflow-x-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:block md:h-screen md:overflow-y-auto">
         <SidebarContent usuario={usuario} empresas={empresas} activaId={activa?.id} />
       </aside>
@@ -44,6 +51,7 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
           )}
           {children}
         </main>
+      </div>
       </div>
     </div>
   );

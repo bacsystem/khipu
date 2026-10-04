@@ -132,4 +132,40 @@ describe("middleware", () => {
       expect(config.matcher).toContain(`/${pagina}/:path*`);
     }
   });
+
+  // --- #184: una sesión de soporte no tiene refresh -----------------------------------------------------------------------------------
+
+  function jwtDeSoporte(exp: number): string {
+    const payload = btoa(JSON.stringify({ exp, imp: "0b1f1c3e-0f1c-4b53-9a1e-2f6f6d0c7a11" })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    return `header.${payload}.firma`;
+  }
+
+  it("deja pasar una sesión de soporte sin refresh mientras el access no venza, sin intentar refrescar", async () => {
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: jwtDeSoporte(Math.floor(Date.now() / 1000) + 600) }));
+
+    expect(res.status).toBe(200);
+    expect(refrescar).not.toHaveBeenCalled();
+  });
+
+  it("una sesión de soporte vencida no se renueva: va al login, sin llamar a refrescar", async () => {
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: jwtDeSoporte(Math.floor(Date.now() / 1000) - 60) }));
+
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+    expect(refrescar).not.toHaveBeenCalled();
+  });
+
+  /** Sin refresh y sin la marca de soporte sigue siendo lo de siempre: una sesión normal sin refresh no es una sesión. */
+  it("un access normal sin refresh sigue yendo al login", async () => {
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: jwtCon(Math.floor(Date.now() / 1000) + 600) }));
+
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+  });
+
+  it("un token de soporte que ya está a punto de vencer tampoco pasa", async () => {
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: jwtDeSoporte(Math.floor(Date.now() / 1000) + 2) }));
+
+    expect(res.status).toBe(307);
+  });
 });
