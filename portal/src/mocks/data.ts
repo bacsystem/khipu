@@ -20,6 +20,11 @@ export function idUsuarioMock(n: number): string {
   return `00000000-0000-4000-a000-${String(n).padStart(12, "0")}`;
 }
 
+/** Y para las API keys del detalle de una empresa (#187): el BFF descarta todo id de key que no sea un UUID. */
+export function idApiKeyMock(n: number): string {
+  return `00000000-0000-4000-b000-${String(n).padStart(12, "0")}`;
+}
+
 /** Lo mismo para las empresas del listado del backoffice (#185): el detalle (#186) descarta todo lo que no sea un UUID. */
 export function idEmpresaMock(n: number): string {
   return `00000000-0000-4000-9000-${String(n).padStart(12, "0")}`;

@@ -1,7 +1,9 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EmpresaDetalleAdmin } from "@/lib/api/admin-empresa-detalle";
 import { EmpresaDetalle } from "./empresa-detalle";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 
 afterEach(cleanup);
 
@@ -106,9 +108,33 @@ describe("EmpresaDetalle (#186)", () => {
     expect(screen.getByText("fk_demo001…")).toBeTruthy();
   });
 
-  it("no ofrece ninguna acción: ni un botón", () => {
-    render(<EmpresaDetalle empresa={BASE} />);
+  /** Las acciones del administrador sobre una empresa (#187) son tres y solo esas: cambiar el entorno, revocar una key vigente y probar la conexión. */
+  it("ofrece cambiar el entorno y probar la conexión, y revocar solo las keys vigentes", () => {
+    const { unmount } = render(<EmpresaDetalle empresa={BASE} />);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("data-testid"))).toEqual(["cambiar-entorno", "probar-conexion"]);
+    unmount();
 
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    render(
+      <EmpresaDetalle
+        empresa={{
+          ...BASE,
+          api_keys: [
+            { id: "k1", prefijo: "fk_vigente", activa: true, creada_en: "2026-09-02T15:00:00Z" },
+            { id: "k2", prefijo: "fk_vieja01", activa: false, creada_en: "2026-09-01T15:00:00Z", revocada_en: "2026-09-09T12:00:00Z" },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("data-testid"))).toEqual(["cambiar-entorno", "probar-conexion", "revocar-api-key-k1"]);
   });
+
+  it("la prueba de conexión está deshabilitada sin credenciales SOL y habilitada con ellas", () => {
+    const { unmount } = render(<EmpresaDetalle empresa={BASE} />);
+    expect((screen.getByTestId("probar-conexion") as HTMLButtonElement).disabled).toBe(true);
+    unmount();
+
+    render(<EmpresaDetalle empresa={{ ...BASE, tiene_credenciales_sol: true }} />);
+    expect((screen.getByTestId("probar-conexion") as HTMLButtonElement).disabled).toBe(false);
+  });
+
 });

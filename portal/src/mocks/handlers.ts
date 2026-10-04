@@ -3,7 +3,7 @@ import { diasEntre, hoyLima, sumarDias } from "@/lib/formato";
 import { esUuid } from "@/lib/uuid";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
-import { db, fakeJwt, idCuentaMock, idEmpresaMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
+import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -488,8 +488,8 @@ export const handlers = [
         : [],
       api_keys: completa
         ? [
-            { id: "k-sol-2", prefijo: "fk_sol0002", activa: true, creada_en: "2026-09-10T15:00:00Z" },
-            { id: "k-sol-1", prefijo: "fk_sol0001", activa: false, creada_en: "2026-09-01T15:00:00Z", revocada_en: "2026-09-09T12:00:00Z" },
+            { id: idApiKeyMock(2), prefijo: "fk_sol0002", activa: true, creada_en: "2026-09-10T15:00:00Z" },
+            { id: idApiKeyMock(1), prefijo: "fk_sol0001", activa: false, creada_en: "2026-09-01T15:00:00Z", revocada_en: "2026-09-09T12:00:00Z" },
           ]
         : [],
       comprobantes: completa
@@ -519,6 +519,48 @@ export const handlers = [
           }
         : { total: 0, proximas: [] },
     });
+  }),
+
+  /**
+   * Como el backend (#187): solo el administrador; un id que no es UUID es 400 y una empresa que no existe, 404. Pasar al entorno que ya tiene es 409
+   * `ENTORNO_SIN_CAMBIOS`; con envíos pendientes en el outbox (la sembrada «Panadería Sol» tiene doce), 409 `EMPRESA_CON_ENVIOS_PENDIENTES`.
+   * Revocar una key ya revocada es 409 `API_KEY_YA_REVOCADA`; una key que no existe, 404. La prueba de conexión sin credenciales SOL es 409
+   * `SOL_NO_CARGADAS`; con ellas, el resultado depende de la empresa (Sol: conectado; Luna: error definitivo de SUNAT; Cliente 04: sin respuesta útil).
+   * **Los cambios que sí proceden no se guardan**: cambiar el entorno o revocar una key altera lo que cuentan las demás specs que corren a la vez contra
+   * este mock (los filtros por entorno, las keys del detalle); que lo hagan de verdad lo prueba `AccionesDeEmpresaE2ETest` y los componentes.
+   */
+  http.post(`${BASE}/v1/admin/empresas/:id/entorno`, async ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la empresa no es válido");
+    const e = db.empresasAdmin.find((x) => x.id === params.id);
+    if (!e) return fail(404, "NO_ENCONTRADO", "La empresa no existe");
+    const { entorno } = (await request.json()) as { entorno?: string };
+    if (entorno !== "BETA" && entorno !== "PRODUCCION") return fail(400, "VALIDACION", "Entorno no válido");
+    if (e.entorno === entorno) return fail(409, "ENTORNO_SIN_CAMBIOS", `La empresa ya está en ${entorno}`);
+    if (e.id === idEmpresaMock(1)) return fail(409, "EMPRESA_CON_ENVIOS_PENDIENTES", "La empresa tiene envíos pendientes a SUNAT: espera a que terminen antes de cambiar el entorno");
+    return ok({ empresa_id: e.id, desde: e.entorno, hacia: entorno });
+  }),
+
+  http.post(`${BASE}/v1/admin/empresas/:id/api-keys/:apiKeyId/revocar`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id)) || !esUuid(String(params.apiKeyId))) return fail(400, "VALIDACION", "El identificador no es válido");
+    const e = db.empresasAdmin.find((x) => x.id === params.id);
+    if (!e) return fail(404, "NO_ENCONTRADO", "La empresa no existe");
+    // Solo «Panadería Sol» trae keys sembradas: la 2 está vigente y la 1 ya revocada.
+    if (e.id !== idEmpresaMock(1) || (params.apiKeyId !== idApiKeyMock(1) && params.apiKeyId !== idApiKeyMock(2))) return fail(404, "NO_ENCONTRADO", "La API key no existe");
+    if (params.apiKeyId === idApiKeyMock(1)) return fail(409, "API_KEY_YA_REVOCADA", "La API key ya estaba revocada");
+    return ok({ api_key_id: params.apiKeyId, revocada_en: new Date().toISOString() });
+  }),
+
+  http.post(`${BASE}/v1/admin/empresas/:id/prueba-de-conexion`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la empresa no es válido");
+    const e = db.empresasAdmin.find((x) => x.id === params.id);
+    if (!e) return fail(404, "NO_ENCONTRADO", "La empresa no existe");
+    if (!e.tiene_credenciales_sol) return fail(409, "SOL_NO_CARGADAS", "La empresa no tiene credenciales SOL cargadas");
+    if (e.id === idEmpresaMock(2)) return ok({ resultado: "RECHAZADO", entorno: e.entorno, codigo: "1033", mensaje: "El ticket no existe" });
+    if (e.id === idEmpresaMock(4)) return ok({ resultado: "SIN_RESPUESTA", entorno: e.entorno, codigo: "0109", mensaje: "Tiempo de espera agotado llamando a SUNAT" });
+    return ok({ resultado: "CONECTADO", entorno: e.entorno });
   }),
 
   /**
