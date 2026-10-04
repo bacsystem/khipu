@@ -106,6 +106,14 @@ class AdminAvisosControllerTest {
                 .andExpect(jsonPath("$.datos.length()").value(0));
     }
 
+    /** Que `puede_avisar` viaje tal cual: un certificado con a quién avisarle y sin espera es `true` (los otros tests solo ven el `false`). */
+    @Test void unCertificadoSinEsperaNiBloqueoSePuedeAvisar() throws Exception {
+        when(consultar.certificados(1, 20)).thenReturn(new PaginaDeCertificados(List.of(certificado(new CuentaDelCliente(CUENTA, "Ana", "ana@negocio.pe"), null, null, true)), 1));
+
+        mvc.perform(get("/v1/admin/avisos/certificados").with(clave()))
+                .andExpect(jsonPath("$.datos[0].puede_avisar").value(true));
+    }
+
     @Test void noTraeMasCamposQueLosQueElPortalConoce() throws Exception {
         when(consultar.certificados(1, 20)).thenReturn(new PaginaDeCertificados(List.of(certificado(new CuentaDelCliente(CUENTA, "Ana", "ana@negocio.pe"), null, null, true)), 1));
 
