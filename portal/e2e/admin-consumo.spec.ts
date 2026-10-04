@@ -17,6 +17,18 @@ test.beforeEach(async ({ page }) => {
   await entrarComoAdmin(page);
 });
 
+/**
+ * Abre la pantalla y espera a que React haya hidratado el selector de mes: un campo que se cambia antes de hidratar no dispara el `onChange` (la URL no cambia) o vuelve a
+ * su valor por defecto. Con el servidor de desarrollo ocupado (dos workers) a veces pasaba. React deja sus propiedades en el nodo del DOM cuando lo adopta.
+ */
+async function abrirHidratada(page: Page, ruta: string) {
+  await page.goto(ruta);
+  await page.waitForFunction(() => {
+    const campo = document.getElementById("consumo-mes");
+    return campo !== null && Object.keys(campo).some((k) => k.startsWith("__reactProps"));
+  });
+}
+
 const fila = (page: Page, nombre: string) => page.locator("tbody tr", { hasText: nombre });
 const nombresEnOrden = (page: Page) => page.locator("tbody tr td:first-child a").allTextContents();
 
@@ -110,7 +122,7 @@ test("un filtro o un orden raros en la URL no rompen la página: valen los de po
 // --- el orden y el mes --------------------------------------------------------------------------------------------------------------------
 
 test("ordenar por documentos pone arriba a quien más consumió", async ({ page }) => {
-  await page.goto("/admin/consumo");
+  await abrirHidratada(page, "/admin/consumo");
 
   await page.getByLabel("Ordenar por").selectOption("DOCUMENTOS");
 
@@ -122,7 +134,7 @@ test("ordenar por documentos pone arriba a quien más consumió", async ({ page 
 });
 
 test("el selector de mes arranca en el mes en curso y otro mes cambia el consumo, no el plan con el que se compara", async ({ page }) => {
-  await page.goto("/admin/consumo?por_pagina=50");
+  await abrirHidratada(page, "/admin/consumo?por_pagina=50");
   const mesEnCurso = await page.getByLabel("Mes").inputValue();
   expect(mesEnCurso).toMatch(/^\d{4}-\d{2}$/);
 
