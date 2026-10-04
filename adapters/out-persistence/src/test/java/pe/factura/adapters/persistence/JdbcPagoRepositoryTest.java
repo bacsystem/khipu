@@ -67,6 +67,17 @@ class JdbcPagoRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.monto().toPlainString()).isEqualTo("10.00");
     }
 
+    /** Las columnas caben lo que el dominio permite: el monto máximo, una referencia de 100 caracteres y una nota de 200. */
+    @Test void guardaElMontoMaximoYLasLongitudesMaximasQueElDominioPermite() {
+        UUID c = cuenta("ana@negocio.pe");
+        Pago p = Pago.registrar(UUID.randomUUID(), c, suscripcionDe(c), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), new BigDecimal("9999999.99"), MedioDePago.OTRO,
+                LocalDate.of(2026, 10, 14), "r".repeat(100), "n".repeat(200), T0.plusSeconds(60), null);
+
+        assertThat(repo.registrar(p)).isTrue();
+
+        assertThat(repo.deLaCuenta(c, 1, 10)).containsExactly(p);
+    }
+
     @Test void cadaMedioSeGuardaYVuelve() {
         UUID c = cuenta("ana@negocio.pe");
         for (MedioDePago medio : MedioDePago.values()) {
