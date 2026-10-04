@@ -61,6 +61,9 @@ app:
   # (p. ej. el BFF del portal). Vacío por defecto: no se confía en la cabecera y se registra la IP de la conexión. Se calibra con
   # `GET /v1/admin/origen`; ver deploy/README.md. Ver ProxyDeConfianzaConfig.
   trusted-proxies: ${TRUSTED_PROXIES:}
+  # Vida de la sesión del administrador del backoffice, en minutos (#177): entre 5 y 60, o el arranque aborta. Sin refresh: al vencer
+  # se vuelve a entrar con contraseña y segundo factor.
+  admin-sesion-minutos: ${ADMIN_SESION_MINUTOS:30}
   storage:
     type: ${STORAGE_TYPE:fs}
     fs-root: ${STORAGE_FS_ROOT:./storage}

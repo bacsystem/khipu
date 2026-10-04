@@ -123,7 +123,8 @@ export const db = {
   bajas: new Map<string, Baja>(),
   correos: [] as Array<{ comprobante: string; email: string; mensaje: string | null }>,
   sesionesPorToken: new Map<string, Sesion>(),
-  administradoresPorEmail: new Map<string, { administrador: Administrador; password: string }>(),
+  /** `segundoFactor`: si ya configuró la app de autenticación (#177). El mock no guarda estado del 2FA: ver los handlers. */
+  administradoresPorEmail: new Map<string, { administrador: Administrador; password: string; segundoFactor: boolean }>(),
   cuentasAdmin: [] as CuentaAdminMock[],
 };
 
@@ -140,7 +141,10 @@ export function resetDb() {
   db.administradoresPorEmail.clear();
 
   const administrador: Administrador = { id: "admin-demo", email: "admin@khipu.pe" };
-  db.administradoresPorEmail.set(administrador.email, { administrador, password: "AdminPass1" });
+  db.administradoresPorEmail.set(administrador.email, { administrador, password: "AdminPass1", segundoFactor: true });
+  // Un administrador que todavía no configuró el segundo factor: su login pasa por el QR (#177).
+  const nuevo: Administrador = { id: "admin-nuevo", email: "nuevo@khipu.pe" };
+  db.administradoresPorEmail.set(nuevo.email, { administrador: nuevo, password: "AdminPass1", segundoFactor: false });
 
   // 12 cuentas (10 por página + 2): Luna y Ana son las más antiguas, así que caen en la segunda página sin filtros.
   // La más reciente nunca inició sesión y no tiene teléfono: el backend omite esos campos.

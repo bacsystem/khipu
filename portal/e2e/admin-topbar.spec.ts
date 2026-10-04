@@ -1,12 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-
-async function entrarComoAdmin(page: Page) {
-  await page.goto("/admin/login");
-  await page.getByLabel("Correo electrónico").fill("admin@khipu.pe");
-  await page.getByLabel("Contraseña").fill("AdminPass1");
-  await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/admin$/);
-}
+import { entrarComoAdmin } from "./admin-sesion";
 
 const miga = (page: Page) => page.getByRole("navigation", { name: "Ubicación" });
 

@@ -8,5 +8,9 @@ public enum AccionAdmin {
     CREAR_TENANT,
     CREAR_ADMINISTRADOR,
     /** Alta asistida de un cliente: cuenta, empresa, serie y API key en un solo paso (#188). */
-    CREAR_CUENTA
+    CREAR_CUENTA,
+    /** Login completo, con el segundo factor ya verificado (#177). El detalle dice si se usó un código de recuperación. */
+    INICIAR_SESION,
+    /** Primera configuración del segundo factor, que también inicia la sesión (#177). */
+    CONFIGURAR_SEGUNDO_FACTOR
 }

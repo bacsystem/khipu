@@ -26,7 +26,9 @@ public class GlobalExceptionHandler {
         HttpStatus st = switch (e.codigo()) {
             case "NO_ENCONTRADO", "SIN_CDR" -> HttpStatus.NOT_FOUND;
             case "DUPLICADO", "ESTADO_NO_ENVIABLE", "NO_ACEPTADO", "ESTABLECIMIENTO_EN_USO", "FUERA_DE_PLAZO", "CDR_YA_DISPONIBLE" -> HttpStatus.CONFLICT;
-            case "NO_AUTORIZADO", "CREDENCIALES_INVALIDAS", "SESION_INVALIDA" -> HttpStatus.UNAUTHORIZED;
+            case "NO_AUTORIZADO", "CREDENCIALES_INVALIDAS", "SESION_INVALIDA", "CODIGO_INVALIDO" -> HttpStatus.UNAUTHORIZED;
+            case "SEGUNDO_FACTOR_NO_CONFIGURADO", "SEGUNDO_FACTOR_YA_CONFIGURADO" -> HttpStatus.CONFLICT;
+            case "DEMASIADOS_INTENTOS" -> HttpStatus.TOO_MANY_REQUESTS;
             case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO" -> HttpStatus.FORBIDDEN;
             case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;
             // El correo saliente es un servicio externo: su fallo no es culpa del cliente ni un bug del servidor.

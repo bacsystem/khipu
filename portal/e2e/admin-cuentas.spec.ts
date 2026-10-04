@@ -1,14 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import { entrarComoAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
 
-/** El mock (src/mocks/data.ts) siembra 12 cuentas: 10 en la primera página y, las dos más antiguas, Luna y Ana, en la segunda. */
-async function entrarComoAdmin(page: Page) {
-  await page.goto("/admin/login");
-  await page.getByLabel("Correo electrónico").fill("admin@khipu.pe");
-  await page.getByLabel("Contraseña").fill("AdminPass1");
-  await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/admin$/);
-}
+// El mock (src/mocks/data.ts) siembra 12 cuentas: 10 en la primera página y, las dos más antiguas, Luna y Ana, en la segunda.
 
 const filas = (page: Page) => page.locator("tbody tr");
 
