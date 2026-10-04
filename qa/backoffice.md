@@ -2474,6 +2474,58 @@ Lo que sobrevivía:
 - **No repara nada y no guarda los resultados:** cada barrido es una consulta; el historial de barridos no existe.
 - **El tope de 92 días es una decisión mía** y solo lo aplica la pantalla (el endpoint sigue aceptando cualquier rango).
 
+## #15 · Endpoint de resumen para las métricas del panel
+
+**Estado: 🔧 implementado, 95/95 mutaciones verificadas (55 de backend, 40 de portal) — falta la revisión de la PR.** Backend (`GET /v1/facturas/resumen`) y la franja de métricas de la página de comprobantes del portal. Va después de #198 en la pila; #195 («monitor global») lo reutiliza.
+
+### Diseño
+
+- **`GET /v1/facturas/resumen?desde=&hasta=`**, de la empresa autenticada (API key o JWT del portal con `X-Empresa`, como el resto de `/v1/facturas`). `desde`/`hasta` acotan la fecha de emisión, inclusive; un lado ausente deja el rango abierto; `desde > hasta` es `400 RANGO_INVALIDO` y una fecha mal escrita `400 PARAMETRO_INVALIDO` (igual que el listado).
+- **Qué cuenta cada número** lo decide `EstadoDocumento`, una sola vez, y el SQL se arma con el enum (no con una lista de estados copiada):
+  - **Emitidos:** todo lo firmado, en cualquier estado (rechazados, fuera de plazo y dados de baja incluidos); no lo que solo se recibió ni lo que no pasó la validación, que no tiene XML firmado.
+  - **Aceptados con CDR:** `ACEPTADO` y `ACEPTADO_CON_OBS`.
+  - **Atención requerida:** `RECHAZADO` + `ERROR_ENVIO` + `FUERA_DE_PLAZO`, con el desglose de cada clase (el issue pide la suma; el desglose permite decir qué hacer con cada una).
+  - **Total facturado, por moneda:** lo aceptado **y lo que está en camino** (firmado, enviado, en reintento, pendiente de agrupación); **no** lo rechazado, lo fuera de plazo ni lo dado de baja. **Las notas de crédito restan y las de débito suman**: es el neto, lo que un dueño entiende por «facturado». Puede salir negativo si las notas superan lo emitido en el período.
+- **Dos consultas, las dos por el índice `(tenant_id, fecha_emision)`:** cuántos hay por estado, y la suma por moneda de los que facturan. Con **100 000 comprobantes responde en 95 ms** (la mejor de tres lecturas, sobre Postgres real y datos sembrados con `generate_series`; el criterio pedía < 300 ms). No hizo falta un índice nuevo ni una migración.
+- **Portal:** la franja de la página de comprobantes deja de decir «requiere endpoint de resumen» y muestra el resumen del **período de los filtros de fecha** o, si no hay filtros, **el mes en curso** (de su día 1 a hoy en Lima): es «una foto del mes», no todo el historial. Cada indicador dice a qué período corresponde. El filtro de estado y el de serie no acotan el resumen. Si el resumen no carga, las cuatro métricas quedan atenuadas con «—» y lo dicen, y la lista de abajo sigue funcionando.
+
+### Tests
+
+- **Dominio:** `EstadoDocumentoTest` (+4): cada estado cae en su lugar para «emitido», «atención requerida» y «facturado» (tablas completas: si se agrega un estado, el test obliga a decidir), y lo facturado siempre fue emitido.
+- **Servicio** (`ResumirComprobantesServiceTest`, 10): emitidos, aceptados y cada clase de atención desde los conteos por estado, que la suma de las tres clases sea exactamente `requiereAtencion`, las monedas, y el rango (llega tal cual, un lado abierto, un día solo, al revés = `RANGO_INVALIDO` sin consultar).
+- **Persistencia** (`JdbcResumenDeComprobantesRepositoryTest`, 15, Postgres real): conteo por estado, solo la empresa y solo el rango (bordes inclusivos, lados abiertos, sin resultados), notas de crédito que restan y de débito que suman, una nota rechazada que no resta, neto negativo, cada moneda aparte y ordenada, que los estados que suman son los del dominio uno por uno, los céntimos, y **100 000 comprobantes en menos de 300 ms**.
+- **REST** (`FacturaResumenControllerTest`, 7): la forma real del JSON (snake_case, el desglose, la lista de moneda vacía y no ausente), el rango abierto, el rango al revés, las fechas mal escritas y la falta de empresa.
+- **E2E real** (`ResumenDeComprobantesE2ETest`, 11; Spring completo + Postgres + filtros reales): los conteos, lo que nunca se firmó, el neto con notas y dos monedas, **cada empresa solo ve lo suyo**, empresa sin comprobantes, rango inclusivo y abierto, rechazos, **API key y JWT del portal dicen lo mismo**, y que sin credenciales o con la clave de plataforma no se vea.
+- **Portal, Vitest:** cliente y período (8), franja de métricas (14).
+- **Portal, Playwright** (`comprobantes-resumen.spec.ts`, 11): las cuatro métricas con valor real, el mes en curso, un día con una factura aceptada en dólares (100 %, `$ 110.00`), una anulada (emitida, no aceptada ni facturada), un período vacío sin dividir por cero, un rango con soles y dólares por moneda, la coherencia de la atención, que el estado y la serie no acotan, los rangos abiertos y al revés, y el cambio de rango.
+
+### Verificación por mutación — **95/95 mueren** (55 de backend, 40 de portal)
+
+| Capa | Mutaciones | Cuántas |
+|---|---|---|
+| Reglas de estado | «emitido» que incluye lo recibido, lo inválido, o excluye lo anulado o lo rechazado; «atención» que excluye cada una de sus tres clases o incluye lo enviado; «facturado» que incluye lo anulado o lo rechazado, o excluye lo enviado, lo firmado, lo aceptado con observaciones o lo pendiente de agrupación | 14 |
+| Repositorio | notas de crédito que suman y notas de débito que restan, monedas sin separar o desordenadas, borde del desde y del hasta, una empresa sin filtrar (en el conteo y en lo facturado), todos los estados facturando, conteo sin agrupar, contar en vez de sumar, otro total, lado abierto que se ignora | 14 |
+| Servicio | rango al revés que pasa, un día solo o un lado abierto que fallan, «emitidos» o «aceptados» con la regla equivocada, cada clase de atención con la de otra, la atención que no suma todo, monedas perdidas, desde y hasta que no llegan al repositorio, el resumen que pierde su rango | 14 |
+| REST | la empresa que no es la autenticada, desde y hasta perdidos o cruzados, el desglose que pierde el total o cruza clases, emitidos y aceptados cruzados, lo facturado, su moneda o su total perdidos, el rango perdido, la ruta | 13 |
+| Período y cliente (portal) | sin fechas que no es el mes en curso (empieza el día 2, termina antes, una sola fecha lo trae), con fechas que dice «mes en curso», el desde o el hasta que no se mandan, el signo de pregunta suelto, la empresa que no viaja, la ruta | 10 |
+| Franja de métricas | cómo se dice cada período, el mes que se corre, el porcentaje (redondeo, base, sin emitidos), lo emitido y lo aceptado cruzados, lo facturado (cero, moneda, una sola, sin «neto»), cada clase de atención (singular, en cero, separadores, «todo en orden»), la alerta siempre o nunca, el número equivocado, y sin resumen (ceros, sin atenuar, sin decir por qué, sin marcar) | 30 |
+
+Nada sobrevivió. Una mutación del portal («la atención muestra los rechazados en vez del total») no llegó a aplicarse la primera vez porque su patrón abarcaba dos líneas de código; se repitió con uno de una línea y muere.
+
+### Suites
+
+- Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (10 min 33 s; incluye `ArchitectureTest`, el E2E del resumen y la prueba de 100 000 comprobantes).
+- Portal: `tsc` y ESLint limpios; Vitest **996/996** (110 archivos); Playwright completo (`--workers=2`) **332/332**.
+
+### Límites conocidos
+
+- **«Facturado» es una definición de negocio mía:** neto de notas de crédito y con lo que está en camino. Si la contabilidad de un cliente prefiere solo lo aceptado, o bruto, es otro número; el desglose por estado ya está en el servicio para cambiarlo sin tocar la consulta.
+- **Las notas de crédito restan en el período en que se emiten**, no en el de la factura que corrigen: una nota de un mes distinto puede dejar un neto negativo.
+- **«Emitidos» no filtra por serie ni por tipo:** cuenta facturas, boletas y notas por igual.
+- **Los contadores por serie** (último número, porcentaje de uso) que el issue pide «considerar» **no se hicieron**: la lista de series ya trae el último número y el cálculo del porcentaje no tiene un tope definido.
+- **Las demás métricas del portal (series, empresa, API keys)** ya mostraban un valor real: la única franja que seguía «pendiente» era la de comprobantes.
+- **El período por defecto es el mes en curso y no se puede cambiar con un selector propio:** se cambia con los filtros de fecha de la lista.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
