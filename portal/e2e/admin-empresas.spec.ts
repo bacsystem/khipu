@@ -94,14 +94,18 @@ test("filtrar por entorno, y combinado con el certificado", async ({ page }) => 
   await expect(page.getByText("FERRETERIA LUNA SAC")).toBeVisible();
 });
 
-test("cambiar un filtro vuelve a la primera página", async ({ page }) => {
+test("cambiar cualquiera de los dos filtros vuelve a la primera página", async ({ page }) => {
   await entrarComoAdmin(page);
+
   await page.goto("/admin/empresas?pagina=2");
-
   await page.getByLabel("Entorno").selectOption("BETA");
-
   await expect(page).not.toHaveURL(/pagina=/);
   await expect(page).toHaveURL(/entorno=BETA/);
+
+  await page.goto("/admin/empresas?pagina=2");
+  await page.getByLabel("Certificado").selectOption("SIN_CERTIFICADO");
+  await expect(page).not.toHaveURL(/pagina=/);
+  await expect(page).toHaveURL(/certificado=SIN_CERTIFICADO/);
 });
 
 test("«Quitar filtros» vuelve al listado completo", async ({ page }) => {
