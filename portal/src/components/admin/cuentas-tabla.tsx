@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { PieTabla } from "@/components/ui/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import { hrefCuentas, type CuentaAdmin, type ParamsCuentas } from "@/lib/api/admin-cuentas";
 import { BOTON_SECUNDARIO, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
@@ -77,7 +78,9 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
               <TableRow key={c.id} className="border-b border-border/60 hover:bg-muted/80">
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
-                    <span className="font-medium text-foreground">{c.nombre}</span>
+                    <Link href={hrefDetalleCuenta(c.id)} className="font-medium text-foreground hover:text-primary hover:underline">
+                      {c.nombre}
+                    </Link>
                     <span className="font-mono text-[11px] text-muted-foreground">{c.email}</span>
                   </div>
                 </TableCell>

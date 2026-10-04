@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 import { diasEntre, hoyLima } from "@/lib/formato";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
-import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
+import { db, fakeJwt, idCuentaMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -335,6 +335,64 @@ export const handlers = [
       { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
       { headers: { "x-total-count": String(lista.length) } },
     );
+  }),
+
+  /**
+   * Como el backend (#181): solo el administrador; 404 `NO_ENCONTRADO` si no existe. La primera cuenta sembrada («Panadería Sol») trae
+   * un detalle completo (dos usuarios, un certificado por vencer, un comprobante, una acción de la bitácora); las demás, lo mínimo.
+   * Fechas del certificado relativas a hoy, para que «por vencer» no caduque con el calendario.
+   */
+  http.get(`${BASE}/v1/admin/cuentas/:id`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
+    if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
+    const enDias = (n: number) => {
+      const [a, m, d] = hoyLima().split("-").map(Number);
+      return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
+    };
+    const completa = cuenta.id === idCuentaMock(1);
+    const { empresas, ...base } = cuenta;
+    const detalle = {
+      ...base,
+      usuarios: [
+        {
+          id: `u-${cuenta.id}`,
+          email: cuenta.email,
+          rol: "ADMIN",
+          activo: true,
+          correo_verificado_en: "2026-09-01T15:05:00Z",
+          ...(cuenta.ultimo_acceso ? { ultimo_acceso: cuenta.ultimo_acceso } : {}),
+        },
+        ...(completa ? [{ id: "u-colega", email: "beto@sol.pe", rol: "USER", activo: true }] : []),
+      ],
+      empresas: empresas.map((e, i) => ({
+        id: `e-${cuenta.id}-${i}`,
+        ruc: e.ruc,
+        razon_social: e.razon_social,
+        entorno: "BETA",
+        tiene_certificado: completa,
+        ...(completa ? { certificado_vigente_hasta: enDias(10) } : {}),
+        tiene_credenciales_sol: completa,
+      })),
+      comprobantes: completa
+        ? [
+            {
+              id: "f-sol-1",
+              empresa_id: `e-${cuenta.id}-0`,
+              ruc: empresas[0].ruc,
+              tipo: "01",
+              serie: "F001",
+              numero: 7,
+              fecha_emision: "2026-10-01",
+              estado: "ACEPTADO",
+              moneda: "PEN",
+              total: 118,
+            },
+          ]
+        : [],
+      eventos: completa ? [{ accion: "CREAR_CUENTA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-01T15:00:00Z", detalle: "ruc=20100047226" }] : [],
+    };
+    return ok(detalle);
   }),
 
   /**
