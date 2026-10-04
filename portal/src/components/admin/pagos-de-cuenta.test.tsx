@@ -66,7 +66,7 @@ describe("PagosDeCuenta (#194)", () => {
     mostrar([SIMPLE]);
 
     const fila = within(screen.getByTestId("pago-fila"));
-    expect(fila.getByText("—")).toBeTruthy();
+    expect(fila.getByText("—").hasAttribute("hidden")).toBe(false);
     expect(fila.getByText("Sin cambio")).toBeTruthy();
     expect(screen.getByTestId("pago-fila").getAttribute("data-extendio")).toBe("false");
     expect(screen.getByTestId("pago-fila").textContent).not.toContain("undefined");
