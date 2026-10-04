@@ -86,6 +86,9 @@ const CODIGOS_RECUPERACION_MOCK = [
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8001";
 
+/** Cuántas veces se leyó el monitor (#195): la cola de envíos crece una por lectura, y así las pruebas ven que el panel se actualizó. */
+let lecturasDelMonitorMock = 0;
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -819,6 +822,63 @@ export const handlers = [
     ];
     const dias = (Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000 + 1;
     return ok({ desde, hasta, verificados: Math.min(500, 12 * dias), problemas });
+  }),
+
+  /**
+   * Como el backend (#195): el monitor global de emisión. Las 24 horas terminan en la hora actual y traen lo que pasó con los comprobantes (un patrón fijo por hora, para
+   * que las pruebas puedan contar), el día de Lima suma las horas desde su medianoche, la cola del outbox arranca con 3 pendientes y **crece uno por cada lectura** (así una
+   * prueba ve que el panel se actualizó sin depender del reloj) y SUNAT contesta salvo la consulta de CDR, que responde 503. Sin alerta: la alerta y los fallos de lectura se
+   * fuerzan en las pruebas interceptando el BFF.
+   */
+  http.get(`${BASE}/v1/admin/monitor`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    lecturasDelMonitorMock += 1;
+    const UNA_HORA = 3_600_000;
+    const ahora = Date.now();
+    const horaActual = Math.floor(ahora / UNA_HORA) * UNA_HORA;
+    const horas = Array.from({ length: 24 }, (_, i) => {
+      const aceptados = 10 + (i % 5) * 3;
+      const rechazados = i % 7 === 0 ? 1 : 0;
+      const con_error = i % 11 === 0 ? 1 : 0;
+      const en_camino = i === 23 ? 4 : 0;
+      const resueltos = aceptados + rechazados;
+      return {
+        desde: new Date(horaActual - (23 - i) * UNA_HORA).toISOString(),
+        total: aceptados + rechazados + con_error + en_camino,
+        aceptados,
+        rechazados,
+        con_error,
+        en_camino,
+        otros: 0,
+        tasa_de_rechazo: rechazados / resueltos,
+      };
+    });
+    const CINCO_HORAS = 5 * UNA_HORA;
+    const medianoche = Math.floor((ahora - CINCO_HORAS) / 86_400_000) * 86_400_000 + CINCO_HORAS;
+    const delDia = horas.filter((h) => Date.parse(h.desde) >= medianoche);
+    const suma = (campo: "total" | "aceptados" | "rechazados" | "con_error" | "en_camino" | "otros") => delDia.reduce((s, h) => s + h[campo], 0);
+    const resueltosDelDia = suma("aceptados") + suma("rechazados");
+    return ok({
+      generado_en: new Date(ahora).toISOString(),
+      horas,
+      hoy: {
+        desde: new Date(medianoche).toISOString(),
+        total: suma("total"),
+        aceptados: suma("aceptados"),
+        rechazados: suma("rechazados"),
+        con_error: suma("con_error"),
+        en_camino: suma("en_camino"),
+        otros: suma("otros"),
+        ...(resueltosDelDia === 0 ? {} : { tasa_de_rechazo: suma("rechazados") / resueltosDelDia }),
+      },
+      outbox: { pendientes: 2 + lecturasDelMonitorMock, vencidos: 0, mas_viejo_desde: new Date(ahora - 2 * UNA_HORA).toISOString(), alerta: false },
+      sunat: [
+        { servicio: "ENVIO_PRODUCCION", disponible: true, milisegundos: 140 },
+        { servicio: "ENVIO_BETA", disponible: true, milisegundos: 90 },
+        { servicio: "CONSULTA_DE_CDR", disponible: false, detalle: "HTTP 503" },
+        { servicio: "CONSULTA_DE_VALIDEZ", disponible: true, milisegundos: 210 },
+      ],
+    });
   }),
 
   /** Como el backend (#193): consumo de todas las cuentas contra su plan de hoy, con filtro, orden, mes y página; el total, que refleja el filtro, va en la cabecera. */
