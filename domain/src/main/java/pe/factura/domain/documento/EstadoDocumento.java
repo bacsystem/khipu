@@ -33,4 +33,22 @@ public enum EstadoDocumento {
      * {@link #esFinalAceptado()} a propósito: es una regla comercial, y si cambia no debe arrastrar al flujo de estados.
      */
     public boolean cuentaParaElConsumo() { return this == ACEPTADO || this == ACEPTADO_CON_OBS || this == ANULADO; }
+
+    /**
+     * Si el documento llegó a emitirse (#15): quedó firmado, con o sin respuesta de SUNAT. No cuentan los que solo se recibieron ni los que no pasaron la validación,
+     * que no tienen XML firmado. Sí cuentan los rechazados, los que no llegaron y los dados de baja: se emitieron.
+     */
+    public boolean fueEmitido() { return this != RECIBIDO && this != INVALIDO; }
+
+    /**
+     * Si el documento pide que el emisor haga algo (#15): SUNAT lo rechazó, el envío falló o se pasó el plazo de envío. Es el «atención requerida» de las métricas del
+     * portal. Un {@link #ENVIADO} sin respuesta todavía no lo es: aún no falló.
+     */
+    public boolean requiereAtencion() { return this == RECHAZADO || this == ERROR_ENVIO || this == FUERA_DE_PLAZO; }
+
+    /**
+     * Si el documento cuenta en el total facturado (#15): lo que SUNAT aceptó y lo que está en camino y todavía puede aceptarse. No cuentan los rechazados, los que se
+     * pasaron del plazo, los dados de baja ni los que nunca se firmaron: no son plata facturada.
+     */
+    public boolean cuentaComoFacturado() { return this == ACEPTADO || this == ACEPTADO_CON_OBS || this == ENVIADO || this == FIRMADO || this == ERROR_ENVIO || this == PENDIENTE_AGRUPACION; }
 }
