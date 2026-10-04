@@ -246,6 +246,15 @@ class AdminErroresControllerTest {
                 .andExpect(jsonPath("$.codigo").value("MOTIVO_REQUERIDO"));
     }
 
+    /** Un descarte sin cuerpo no es un error de forma: es un motivo que falta, y lo dice el caso de uso. */
+    @Test void sinCuerpoAlgunoElMotivoLlegaNuloYNoUnaExcepcion() throws Exception {
+        when(resolver.descartar(any(ActorAdmin.class), eq(COMPROBANTE), eq(null))).thenThrow(new DomainException("MOTIVO_REQUERIDO", "Indica por qué se descarta el comprobante"));
+
+        mvc.perform(post("/v1/admin/comprobantes/" + COMPROBANTE + "/descarte").with(clave()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("MOTIVO_REQUERIDO"));
+    }
+
     @Test void losErroresDelDominioTienenSuStatusEnElDescarte() throws Exception {
         when(resolver.descartar(any(ActorAdmin.class), eq(COMPROBANTE), any())).thenThrow(new DomainException("ESTADO_NO_DESCARTABLE", "Solo se descarta un comprobante en error de envío"));
         mvc.perform(post("/v1/admin/comprobantes/" + COMPROBANTE + "/descarte").contentType(MediaType.APPLICATION_JSON).content("{\"motivo\":\"x\"}").with(clave()))
