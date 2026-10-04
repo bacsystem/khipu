@@ -44,7 +44,7 @@ public class JdbcEmpresasAdminRepository implements EmpresasAdminRepository {
      * La única regla del estado del certificado: la usan la columna y el filtro, así lo que el filtro deja pasar es exactamente lo que la fila
      * dice ser. Pide dos veces «hoy». Vencido es antes de hoy (el último día todavía vale); por vencer, menos de {@code DIAS_POR_VENCER} días.
      */
-    private static final String ESTADO = """
+    static final String ESTADO = """
             CASE WHEN t.cert_pkcs12_enc IS NULL THEN 'SIN_CERTIFICADO'
                  WHEN t.cert_vigencia_hasta IS NULL THEN 'SIN_FECHA'
                  WHEN t.cert_vigencia_hasta < ?::date THEN 'VENCIDO'
