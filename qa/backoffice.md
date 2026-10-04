@@ -1433,6 +1433,116 @@ Qué se aprendió al verificar:
 - El outbox solo muestra lo pendiente o lo que está fallando (cada tarea completada se borra); no hay historial de envíos.
 - No se muestra el logo, solo si hay uno; ni el contenido del certificado ni de las credenciales, por diseño.
 
+## #182 · Suspender y reactivar una cuenta
+
+**Estado: 🔧 implementado, 74/74 mutaciones verificadas — falta la revisión de la PR.** Primera acción de escritura del backoffice sobre un cliente.
+
+`POST /v1/admin/cuentas/{id}/suspender` y `/reactivar`. Una cuenta suspendida no entra al portal y ninguna de sus empresas emite por API: responden
+`403 CUENTA_SUSPENDIDA`, un código propio. No se borra nada, y reactivar lo devuelve todo con las mismas credenciales.
+
+### Diseño
+
+- **Dónde se corta.** Hay cuatro puertas, todas con el estado de la cuenta leído **en la base en cada petición**, no del token:
+  1. `JwtFilter`: toda petición del portal (lectura y escritura), también con una sesión que ya estaba abierta. Las rutas de la propia sesión (`/v1/auth/**`:
+     quién soy, cerrar sesión) siguen funcionando para que el portal pueda decirle «tu cuenta está suspendida». Va antes que la verificación del correo.
+  2. `ApiKeyFilter`: cualquier llamada con la API key de cualquier empresa de la cuenta, para ver y para emitir.
+  3. El login: después de comprobar la contraseña, para no revelar el estado de una cuenta a quien no se identificó.
+  4. El refresh: **sin revocar la sesión**, así que al reactivar la misma sesión vuelve a servir.
+- **Los filtros rechazan primero lo inválido.** Un token o una API key inválidos dan 401 sin consultar el estado: nadie se entera de qué cuentas están suspendidas.
+- **Los documentos ya emitidos siguen enviándose a SUNAT.** El outbox no pasa por los filtros: cortarlos los dejaría fuera del plazo de envío (`FUERA_DE_PLAZO`, estado terminal: hay que
+  emitir de nuevo), con consecuencia para el cliente. Suspender corta emitir y consultar, no el envío de lo ya emitido.
+- **Las empresas de integración, sin cuenta, nunca están suspendidas** (no hay a quién suspender).
+- **El cambio es condicional y atómico.** `UPDATE … WHERE suspendida_en IS NULL` (y `IS NOT NULL` para reactivar) devuelve cuántas filas cambió: de dos pedidos a la vez
+  solo uno lo logra, y el otro recibe `409 CUENTA_YA_SUSPENDIDA` / `CUENTA_NO_SUSPENDIDA`. Va en **la misma transacción que el registro de la bitácora**
+  (`SUSPENDER_CUENTA` / `REACTIVAR_CUENTA`, con el motivo si lo hubo): si la bitácora falla, la cuenta tampoco queda suspendida.
+- **El estado es una fecha** (`cuenta.suspendida_en`, V35; nulo = activa), así el estado y el «desde cuándo» no pueden contradecirse. El listado y el detalle de la
+  cuenta (#180, #181) dicen `ESTADO` y `suspendida_en`; una cuenta suspendida **sigue apareciendo** para poder reactivarla.
+- **El motivo es opcional**, de hasta 200 caracteres (recortado), y va a la bitácora; más largo es `422 MOTIVO_INVALIDO` y no suspende.
+- **Portal (backoffice):** columna «Estado» en el listado (fila teñida si está suspendida); en el detalle, el estado, «Suspendida desde …» y **un solo botón según el
+  estado**. Suspender abre un diálogo de confirmación que dice a cuántas empresas alcanza y qué hace y qué NO hace (no borra, no corta los envíos de lo ya emitido, es
+  reversible) — el mismo patrón que la baja de comprobantes. Las acciones pasan por dos rutas del BFF que validan el id y reenvían la IP real del administrador (#208).
+- **Portal (cliente):** una página pública `/cuenta-suspendida` que explica la suspensión («no se borró nada») y deja cerrar la sesión; la lleva el middleware cuando el refresh
+  responde `CUENTA_SUSPENDIDA` (**sin limpiar las cookies**, para que al reactivar siga la misma sesión) y el layout privado cuando el listado de empresas lo responde. El login
+  muestra el mensaje del backend.
+
+### Tests
+
+- Servicio (`SuspenderCuentaServiceTest`, 13): suspender y reactivar, nada se borra, la bitácora (acción, actor, motivo recortado, sin motivo, misma transacción, falla →
+  falla la acción), conflictos sin registro de bitácora, cuenta inexistente o nula, motivo demasiado largo y de exactamente el máximo.
+- Login y refresh (`AutenticarUsuarioServiceTest`, 21 en total, 5 nuevos): una cuenta suspendida no inicia sesión ni abre una; con la contraseña errónea no se revela; el refresh
+  no la renueva y **no revoca la sesión**; reactivada vuelve; suspender una cuenta no afecta a las demás.
+- Persistencia (`JdbcSuspensionRepositoryTest`, 13, Postgres): el cambio atómico y condicional, dos veces seguidas, cuenta inexistente, no toca a otras cuentas; empresas de una
+  cuenta suspendida, de otra, reactivadas, sin cuenta y que no existen. `JdbcCuentasAdminRepositoryTest` (+3): listado y detalle dicen desde cuándo, y una suspendida sigue apareciendo.
+- Filtros: `JwtFilterTest` (+7: lectura y escritura, con la empresa elegida, `/v1/auth/**` sigue, reactivada vuelve con la misma sesión, otra cuenta no, token inválido sin
+  consultar, la suspensión va antes que el correo) y `ApiKeyFilterTest` (+5: ver y emitir con una key, reactivada, otra empresa no, key inválida o inactiva sin consultar, una
+  petición ya autenticada por JWT no vuelve a consultar).
+- REST (`AdminCuentaControllerTest`, +12): estado en el listado y el detalle, actor y motivo, sin cuerpo, conflictos 409, 404, 422, 401 sin actor y 400 con un id mal formado.
+- **E2E real** (`SuspensionE2ETest`, 9, Spring completo + Postgres + los filtros reales): una cuenta con **dos empresas y dos API keys**; antes todo funciona; suspendida, se corta el portal
+  (con la sesión ya abierta, lectura y escritura), el login, el refresh y la API de las dos empresas (ver y emitir) con `CUENTA_SUSPENDIDA`; otra cuenta no se entera; no se borró ninguna fila ni
+  se revocó ninguna key ni sesión; **reactivada, vuelve con el mismo JWT, el mismo refresh y las mismas API keys**; la bitácora (actor, motivo, cuenta); conflictos; listado y detalle;
+  y que nadie más puede suspender (sin credencial, JWT del dueño, API key, clave errónea).
+- Portal, Vitest: BFF (`suspender` 9 y `reactivar` 5), `acciones-de-cuenta` (14: qué botón se ofrece, qué dice el diálogo, qué se envía, errores, 409, corte de red, doble clic), `cuentas-tabla` (+4),
+  `cuenta-suspendida` (predicado, 4; página, 4), `layout` privado (6) y `middleware` (+3).
+- Portal, Playwright (`admin-suspension.spec.ts`, 11): el listado distingue suspendidas; una suspendida sigue en la búsqueda; el detalle según el estado; **el ciclo completo
+  suspender → listado → reactivar**, con cancelar y confirmación; un 409 porque otro administrador ya la suspendió; el tope del motivo y el alcance; el BFF sin sesión y con un id inválido;
+  el login de un cliente suspendido; y la página de cuenta suspendida.
+
+### Verificación por mutación — 74/74 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | Suspender dos veces / reactivar una activa no es conflicto | 1 + 1 |
+| Servicio | La bitácora de suspender dice «reactivar» y al revés | 1 + 1 |
+| Servicio | El motivo pierde su prefijo / no se recorta / en blanco se guarda vacío | 1 + 1 + 1 |
+| Servicio | El máximo del motivo se rechaza / una cuenta inexistente se acepta / reactivar sin comprobar que exista | 1 + 1 + 1 |
+| Servicio | Reactivar devuelve una fecha / suspender devuelve otra hora | 1 + 1 |
+| Login y refresh | El login no mira la suspensión / el refresh no la mira | 1 + 1 |
+| Login y refresh | Otro código de error / se consulta el usuario en vez de la cuenta | 2 + 2 |
+| Repositorio | Suspender o reactivar sin condición | 1 + 3 |
+| Repositorio | Suspender siempre dice que cambió / una cuenta suspendida suspende todas las empresas / la suspendida es la activa | 2 + 2 + 4 |
+| Repositorio | El listado o el detalle pierden la fecha | 1 + 1 |
+| `JwtFilter` | No corta / corta solo las rutas de sesión / corta solo las escrituras | 5 + 6 + 1 |
+| `JwtFilter` | Consulta al usuario y no a la cuenta / responde 401 / responde otro código | 4 + 2 + 2 |
+| `ApiKeyFilter` | No corta / responde 401 / responde otro código | 3 + 1 + 1 |
+| Controlador y DTO | Suspender pierde el motivo / reactivar suspende / los conflictos no son 409 | 1 + 2 + 2 |
+| Controlador y DTO | Estado invertido / el listado, el detalle o la acción pierden la fecha | 6 + 1 + 1 + 1 |
+| E2E | La suspensión responde 422 y no 403 / las empresas nunca están suspendidas | 1 + 1 |
+| Vitest | Predicado: cualquier 403 / cualquier código | 1 + 1 |
+| Vitest | Middleware: no reconoce / limpia la sesión / manda al login | 1 + 1 + 1 |
+| Vitest | Layout: no redirige / redirige cualquier error | 2 + 1 |
+| Vitest (componente) | Motivo sin recortar / sin tope / doble clic / 409 sin recargar / corte de red / rutas cruzadas | 1 + 1 + 1 + 1 + 1 + 3 |
+| Vitest (componente) | Reactivar pide motivo / «1 empresa» mal dicho / sin empresas sin decir / no recarga tras confirmar | 1 + 1 + 1 + 2 |
+| Vitest (BFF) | Suspender: id cualquiera / motivo que no es texto / sin IP / sin sesión | 1 + 1 + 1 + 1 |
+| Vitest (BFF) | Reactivar: id cualquiera / sin IP / sin sesión | 1 + 1 + 1 |
+| Vitest | Fila suspendida sin tinte / listado sin estado / etiqueta «Suspendida» en verde / página del cliente sin explicación | 1 + 1 + 1 + 1 |
+| Playwright | El detalle no dice desde cuándo / acciones siempre «activa» / alcance siempre cero / sin etiqueta de estado / la página del cliente no cierra sesión | 2 + 3 + 1 + 4 + 1 |
+
+Dos sobrevivían en la primera tanda y eran huecos reales de mis pruebas, no equivalentes:
+
+- **Quitar la guardia anti doble envío (`if (enviandoRef.current) return`).** Mi test hacía dos clics seguidos, pero `fireEvent` aplica el estado entre uno y otro: el botón ya estaba
+  `disabled` y la guardia nunca se ejercitaba. Ahora los dos clics van dentro de un mismo `act`, que es cuando el segundo manejador ve el `enviando` viejo; sin la guardia se envían dos pedidos.
+- **Poner la etiqueta «Suspendida» en verde.** Nadie comprobaba el color, que es lo que el administrador lee de un vistazo. Ahora el test comprueba rojo y verde, y que no se crucen.
+
+Otro hallazgo, del primer E2E del portal: un test esperaba el texto propio del portal («ya estaba suspendida») y el diálogo muestra el del backend («La cuenta ya está suspendida»), que es lo correcto
+(el backend es quien sabe). Se corrigió la prueba, no el código.
+
+### Suites
+
+- Backend: `./gradlew test` completo sobre la rama, código de salida 0 (incluye `ArchitectureTest`, `SuspensionE2ETest` y las migraciones hasta V35).
+- Portal: `tsc --noEmit` limpio · ESLint limpio · Vitest 414/414 · Playwright completo 187/187, sin nada más corriendo en la máquina.
+
+### Límites conocidos
+
+- **Un cliente con la sesión abierta puede ver un error genérico unos minutos.** El layout lo detecta, pero las páginas privadas se renderizan en paralelo con él y una puede fallar antes; el token
+  de acceso dura 15 minutos y al renovarse el middleware ya lo lleva a la página de suspensión. Los formularios sí muestran el mensaje (`CUENTA_SUSPENDIDA`). Cerrarlo del todo pide revisar cada página
+  privada o una llamada más por render; no se hizo aquí.
+- **Una consulta a la base más por cada petición autenticada** (por clave primaria) en `JwtFilter` y en `ApiKeyFilter`. Si el volumen la hace notar, el siguiente paso es un caché corto del estado, con la
+  contrapartida de que una suspensión tardaría ese tiempo en notarse.
+- **Suspender corta todo el uso de la API de la cuenta**, no solo la emisión (también consultar y descargar): es lo más simple y lo más estricto. El issue pide cortar la emisión; si hiciera falta dejar
+  descargar, se afloja en `ApiKeyFilter`.
+- **El mensaje manda a «soporte» sin enlace**: el canal de soporte llega con #200 (servicio externo).
+- Sin filtro por estado en el listado todavía (el estado se ve, pero no se filtra por él), ni «sin verificar» como estado de cuenta: ese estado es del correo de cada usuario (#22).
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
