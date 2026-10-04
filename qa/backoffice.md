@@ -1344,6 +1344,95 @@ existentes usaban `/admin/empresas` como ejemplo de «ruta sin miga»; ahora usa
 - El listado calcula los números de cada fila en el momento: la lectura sigue siendo por índice, pero un contador materializado sería lo siguiente si el
   listado se vuelve lento con muchísimas empresas con millones de documentos.
 
+## #186 · Detalle de una empresa (solo lectura)
+
+**Estado: 🔧 implementado, 47/47 mutaciones verificadas — falta la revisión de la PR.** Rebanada de lectura de la épica #11, sección 2.1.
+
+`GET /v1/admin/empresas/{id}` y la página `/admin/empresas/[id]`: lo que ve el dueño de la empresa, en solo lectura y sin secretos. Sin botones de acción
+(cambiar el entorno, revocar API keys, probar la conexión): llegan en su issue.
+
+### Diseño
+
+- **Qué trae:** datos fiscales y domicilio, estado del certificado y de las credenciales SOL, series, establecimientos anexos, API keys, personalización del
+  PDF, los 10 comprobantes más recientes con el detalle del CDR de SUNAT (código, descripción, observaciones, intentos y último error), los últimos 20
+  cambios de estado de esos comprobantes y el outbox pendiente de la empresa (el total y las 10 próximas tareas).
+- **Qué no sale nunca del backend:** el contenido del certificado y de las credenciales SOL (solo si están), el secreto y el **hash** de las API keys (solo
+  el prefijo; la columna `key_hash` ni se lee), y **dónde está guardado el logo** (solo si hay uno). Lo comprueban la persistencia, el DTO y el E2E con la API
+  key real que entrega el alta: ni el secreto, ni su hash, ni la ruta del logo aparecen en la respuesta.
+- **El estado del certificado es el del listado (#185): una sola regla.** El `CASE` y las expresiones de vigencia, días y credenciales SOL pasaron a
+  constantes que usan el listado y el detalle; un test compara las dos pantallas para cada borde (sin fecha, ayer, hoy, 29 y 30 días). «Hoy» lo pone el
+  servicio con el reloj de Lima, como en el listado.
+- **Los eventos son los de los comprobantes que se muestran**, no la historia entera de la empresa: se piden por el id de esos comprobantes (a lo más 10) y
+  por un índice nuevo. Con el comprobante número 11 en adelante no hay eventos en esta pantalla; se dice en los límites.
+- **Dos índices nuevos (V34):** `api_key (tenant_id, created_at DESC)` y `evento_documento (documento_id, ocurrido_en DESC)`. Sin ellos cada lectura recorría la
+  tabla entera de todas las empresas. El segundo también le sirve a la consulta de eventos de un comprobante que ya usa el portal de los clientes
+  (`JdbcComprobanteRepository.eventosDe`); eso es por la forma de la consulta, no se midió. El outbox no necesita índice: se vacía al completar cada tarea.
+- Cuenta ausente (empresas de integración) y domicilio ausente se dicen con nulos y se muestran como «Sin cuenta» y «Todavía no declaró su domicilio fiscal»;
+  una empresa sin nada cargado dice en cada sección que no hay nada, en vez de dejar huecos.
+- **Portal:** Server Component. El id de la URL se valida como UUID antes de pedirlo al backend; un 404 del backend es `notFound()` y cualquier otro fallo es una
+  alerta con «Reintentar». La razón social del listado enlaza al detalle y la cuenta de la empresa al detalle de la cuenta.
+- **Refactor de paso, con sus pruebas:** `Seccion` y `Vacio` salieron de `cuenta-detalle.tsx` a un componente compartido; `esUuid` salió a su módulo
+  (`lib/uuid.ts`); los dos handlers del mock que sumaban días a mano usan `sumarDias`; y los ids sembrados de las empresas pasaron a UUID, porque la página
+  descarta lo que no lo sea.
+
+### Tests
+
+- Servicio (`DetalleEmpresaAdminServiceTest`, 4): el detalle, el «hoy» de Lima, no encontrada y un id nulo (sin consultar).
+- Persistencia (`JdbcEmpresaDetalleAdminRepositoryTest`, 24, Postgres): datos fiscales y de la cuenta; empresa sin cuenta ni domicilio; certificado y SOL
+  (también a medias); el estado coincide con el del listado en cada borde; PDF con y sin logo; series, establecimientos y API keys sin mezclar empresas (la key
+  revocada, con su fecha); los 10 comprobantes más recientes; el CDR con observaciones, sin observaciones y sin CDR; los eventos de los comprobantes
+  recientes (no los de uno más viejo ni los de otra empresa), con tope y sin estado anterior; el outbox con su total y sus 10 próximas; y los planes de
+  consulta de los cuatro índices.
+- REST (`AdminEmpresaControllerTest`, 13 en total: 6 del detalle) y E2E real (`AdminEmpresasE2ETest`, 14 en total: 5 del detalle, con Postgres y Spring
+  completo): el detalle completo, la API key que no suelta su secreto ni su hash ni el logo, 404, 400, un administrador con sesión, y 401 sin credencial, con el
+  JWT del propio dueño, con una API key o con una clave errónea.
+- Portal, Vitest: `admin-empresa-detalle.test.ts` (3), `uuid.test.ts` (2), `empresa-detalle.test.tsx` (10: la dirección y sus separadores, singular y plural
+  del outbox, «Inicio», estado desconocido, CDR con y sin observaciones, el prefijo, sin botones) y la miga del detalle.
+- Portal, Playwright (`admin-empresa-detalle.spec.ts`, 11): sin sesión; listado → detalle; datos fiscales y certificado; series, establecimientos y API keys;
+  PDF; comprobantes con su CDR (aceptado con observaciones, rechazado con su error, sin respuesta); eventos y outbox; solo lectura; la cuenta enlaza; una
+  empresa de integración sin nada cargado; 404 con un id inexistente y con uno que no es UUID.
+
+### Verificación por mutación — 47/47 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Backend SQL | Series / establecimientos / API keys / comprobantes / próximas del outbox de todas las empresas | 1 + 1 + 1 + 2 + 1 |
+| Backend SQL | Total del outbox de todas las empresas | 1 |
+| Backend SQL | API key revocada sin fecha / logo siempre cargado / domicilio siempre presente | 1 + 1 + 1 |
+| Backend SQL | Más de 10 comprobantes / los más viejos / más de 20 eventos / los eventos más viejos | 2 + 3 + 1 + 2 |
+| Backend SQL | CDR siempre presente / CDR sin observaciones / outbox al revés | 1 + 1 + 1 |
+| Backend SQL | `JOIN` en vez de `LEFT JOIN` (la empresa sin cuenta no se abre) | 18 |
+| Servicio | El «hoy» del reloj del sistema / consultar con un id nulo | 1 + 1 |
+| REST | Etiqueta del comprobante sin ceros / el DTO pierde las API keys / CDR siempre / código y nombre del establecimiento cruzados / pierde el logo | 1 + 1 + 1 + 1 + 1 |
+| Vitest | Cualquier id vale / href equivocado / UUID sin ancla inicial / sin ancla final | 1 + 1 + 1 + 1 |
+| Vitest (componente) | Otro separador / separadores colgando / singular / total siempre / sin «Inicio» / estado desconocido escondido | 1 + 1 + 1 + 1 + 1 + 1 |
+| Vitest (componente) | Observaciones vacías sin decirlo / CDR siempre / prefijo sin puntos | 1 + 1 + 1 |
+| Playwright | Sin nombre comercial / la cuenta sin enlace / último error oculto / serie inactiva como activa | 1 + 1 + 1 + 1 |
+| Playwright | Siempre con logo / outbox vacío sin decirlo / el listado sin enlace al detalle | 1 + 1 + 1 |
+| Playwright | Un 404 no es `notFound()` / sin el filtro de UUID | 1 + 1 |
+| Playwright | La sección compartida pierde su nombre (regresión del refactor, en la spec del detalle de cuenta) | 1 |
+
+Qué se aprendió al verificar:
+
+- **El script de mutaciones de Playwright ahora distingue «murió por el test» de «no arrancó».** Un fallo sin conteo de tests fallidos ya no se cuenta: sale
+  «REVISAR» y deja el log. En esta tanda lo detectó una vez (E1): el servidor de desarrollo no arrancó (error resolviendo una fuente de Google y *timeout* de
+  60 s). Repetida sola, muere por el test. Es el mismo defecto que en #185 dejó una mutación con el conteo en blanco.
+- Dos errores de mis tests, no del código: `getAllByRole("row")` recorría todas las tablas de la página, y «Sin cargar» aparece dos veces en una empresa sin
+  certificado ni credenciales (una por cada etiqueta). Los dos se acotaron a su sección.
+
+### Suites
+
+- Backend: `./gradlew test` completo sobre la rama, código de salida 0 (incluye `ArchitectureTest`, `AdminEmpresasE2ETest` y las migraciones hasta V34).
+- Portal: `tsc --noEmit` limpio · ESLint limpio · Vitest 365/365 · Playwright completo 176/176, sin nada más corriendo en la máquina.
+
+### Límites conocidos
+
+- Solo lectura: sin acciones sobre la empresa; cada una llega en su propio issue.
+- Los comprobantes recientes (10), los cambios de estado (20) y las tareas del outbox (10) no se paginan: es un vistazo para diagnosticar, no un historial. Los
+  eventos son solo los de esos comprobantes recientes.
+- El outbox solo muestra lo pendiente o lo que está fallando (cada tarea completada se borra); no hay historial de envíos.
+- No se muestra el logo, solo si hay uno; ni el contenido del certificado ni de las credenciales, por diseño.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
