@@ -887,6 +887,70 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
   backend no. Ahora usa la misma tabla. No se pudo correr el e2e: el Control de aplicaciones de Windows bloquea el binario nativo de Next en esta máquina
   (`next-swc.win32-x64-msvc.node`); ESLint limpio.
 
+## #115 · Idempotencia en POST /v1/facturas
+
+**Estado: 🔧 implementado, 17/17 mutaciones verificadas — falta la revisión de la PR.** No es del backoffice, pero va en la pila: el alta asistida (#219)
+reutiliza el mismo mecanismo.
+
+Un corte de red después de que el backend emitió dejaba al cliente sin respuesta; si reintentaba, salía otra factura con otro correlativo, que solo se
+deshace con nota de crédito.
+
+### Diseño
+
+- **`Idempotency-Key`** (opcional) en `POST /v1/facturas`: de 8 a 100 letras, dígitos, `-` o `_`, se recomienda un UUID. Sin la cabecera, todo igual que antes.
+- **Reserva dentro de la transacción de la emisión, antes de tomar la serie**: `INSERT ... ON CONFLICT DO NOTHING` en `idempotencia` (`V29`, clave primaria
+  `(alcance, clave)`). Si otro pedido con la misma clave está en curso, Postgres hace esperar a este hasta que el primero confirme (y entonces ve su factura) o
+  se revierta (y entonces reserva él). Leer antes de insertar habría dejado pasar a los dos. Si la emisión falla, la reserva se revierte con ella y la clave
+  queda libre.
+- **Un pedido repetido** devuelve `200` con el comprobante de entonces **en su estado actual**: no toma la serie, no consume número y no se reenvía a SUNAT.
+  **La misma clave con otro contenido** responde `422 IDEMPOTENCIA_INVALIDA`.
+- **Huella**: SHA-256 del pedido ya interpretado y vuelto a serializar (Jackson), no de los bytes: otro espaciado es el mismo pedido; otro dato, otra huella.
+- **Alcance por empresa** (`factura:<tenant>`) y **vigencia de 24 horas**: `LimpiezaIdempotenciaWorker` borra cada hora las claves vencidas (índice por
+  `creado_at`).
+- **Portal**: el diálogo de emisión manda la clave por *intento* (`intentoPara`): la misma mientras se reintente el mismo contenido, otra si el contenido cambia.
+  El proxy reenvía solo esa cabecera del navegador, también en el reintento tras renovar el token. Ante un corte, el mensaje ya no manda a revisar el listado:
+  invita a volver a emitir sin cambiar nada. CORS admite la cabecera para «Try it» de `/developers`.
+- `/developers/errores` y la descripción OpenAPI documentan la cabecera, el `200` y el `422`.
+
+### Tests
+
+- Servicio (`EmitirComprobanteServiceTest` +5): clave nueva emite y anota (reserva dentro de la transacción), repetida devuelve el mismo sin consumir número ni
+  reenviar a SUNAT, otra huella 422, alcance por empresa, sin clave como siempre. `LimpiarIdempotenciaServiceTest`: 24 horas.
+- Persistencia (`JdbcIdempotenciaRepositoryTest`, 7, Postgres): reserva y registro, alcance, **reserva revertida libera la clave**, **un pedido simultáneo
+  espera al primero y ve su resultado**, **si el primero se revierte el segundo reserva**, limpieza, `completar` no toca otro alcance.
+- REST (`FacturaControllerTest` +5): 201 nueva / 200 repetida, la huella no depende del formato del JSON pero sí de los datos, clave mal formada 422 sin
+  emitir, 422 del caso de uso.
+- E2E backend (`FacturaIdempotenciaE2ETest`, 6, HTTP y Postgres reales): reintento → misma factura y número libre; **8 pedidos idénticos simultáneos → 1
+  factura** (1×201, 7×200); otra factura con la misma clave 422; una emisión rechazada no gasta la clave; pasadas 24 h la clave vuelve a ser nueva; sin clave,
+  dos facturas.
+- Portal: `intentoPara` (4), proxy (+3: reenvía solo la clave, la misma tras renovar el token, no inventa una); e2e (`emision.spec.ts` +2): **el pedido llega
+  y emite pero la respuesta se corta; reemitir sin cambiar nada lleva a la misma factura con la misma clave**; si se cambia la factura después del corte, la
+  clave es otra.
+
+### Verificación por mutación — 17/17 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | No se consulta la reserva / no se compara la huella | 2 y 1 |
+| Servicio | Alcance común a todas las empresas | `laClaveEsPorEmpresa` y 1 |
+| Servicio | No se anota el comprobante bajo la clave | 2 |
+| Servicio | La repetida se reenvía a SUNAT / se marca como nueva | 1 y 1 |
+| Persistencia | Reservar con un `SELECT` previo (sin la espera del `INSERT`) | 3, incluidos los de concurrencia |
+| Persistencia | Borrar todas las claves / `completar` sin el alcance | 1 y 1 (este, tras agregar su test) |
+| REST | Repetida con 201 / sin validar la clave / huella constante / la clave no llega | 1 cada una |
+| Limpieza | Vigencia de 1 hora | 1 |
+| Portal | El proxy no reenvía la clave | 2 |
+| Portal | Clave nueva en cada intento / la misma aunque cambie el contenido | 1 y 1 |
+
+Una primera versión de la mutación «huella» no compilaba y se descartó; el script de mutaciones ahora distingue «no compila» de «muere».
+
+### Límites conocidos
+
+- Solo facturas. Las notas de crédito y débito (`POST /v1/notas`) siguen sin clave: el mecanismo es el mismo y queda como seguimiento.
+- Un reintento llega a la reserva después de validar que la empresa puede emitir: si el certificado venció entre el pedido y el reintento, el reintento falla
+  por eso y no devuelve la factura ya emitida (se ve en el listado).
+- La huella es del pedido interpretado: dos JSON con los mismos datos pero un campo desconocido distinto (que se ignora) son el mismo pedido.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
