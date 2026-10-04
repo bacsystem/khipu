@@ -127,7 +127,8 @@
       "cuentas": "Cuentas",
       "empresas": "Empresas",
       "planes": "Planes",
-      "consumo": "Consumo"
+      "consumo": "Consumo",
+      "integridad": "Integridad"
     },
     "topbar": {
       "ubicacion": "Ubicación",
@@ -135,6 +136,7 @@
       "backoffice": "Backoffice",
       "clientes": "Clientes",
       "comercial": "Comercial",
+      "operacion": "Operación",
       "nuevaCuenta": "Nueva cuenta"
     },
     "cuentas": {
@@ -467,6 +469,52 @@
           "notaLarga": "La nota no puede pasar de 200 caracteres.",
           "extenderSinEfecto": "Este periodo no adelanta el vencimiento: desmarca la extensión o corrige el periodo."
         }
+      }
+    },
+    "integridad": {
+      "titulo": "Integridad del almacenamiento",
+      "descripcion": "Comprueba que los XML y los CDR guardados siguen siendo los que se firmaron. Solo lee: no repara nada. El mismo barrido corre a diario sobre los últimos días.",
+      "desde": "Desde",
+      "hasta": "Hasta (inclusive)",
+      "ayudaRango": "Por fecha de emisión, hasta {max} días por vez.",
+      "verificar": "Verificar",
+      "verificando": "Verificando…",
+      "avisoVerificando": "Revisando los comprobantes del rango. Puede tardar si hay muchos; no cierres la página.",
+      "error": "No se pudo verificar la integridad.",
+      "resultado": {
+        "verificados": "Se verificaron {n} comprobantes entre el {desde} y el {hasta}.",
+        "verificadosUno": "Se verificó 1 comprobante entre el {desde} y el {hasta}.",
+        "verificadosNinguno": "No había comprobantes firmados entre el {desde} y el {hasta}.",
+        "limpio": "Todo en orden: no se encontró ningún problema.",
+        "problemasUno": "Se encontró 1 problema en 1 comprobante.",
+        "problemasEnUno": "Se encontraron {p} problemas en 1 comprobante.",
+        "problemasVarios": "Se encontraron {p} problemas en {c} comprobantes."
+      },
+      "columnas": {
+        "problema": "Problema",
+        "comprobante": "Comprobante",
+        "detalle": "Detalle",
+        "empresa": "Empresa"
+      },
+      "verEmpresa": "Ver empresa",
+      "tipos": {
+        "XML_FALTANTE": "XML faltante",
+        "XML_CORRUPTO": "XML corrupto",
+        "CDR_FALTANTE": "CDR faltante",
+        "STORAGE_INACCESIBLE": "Almacenamiento inaccesible"
+      },
+      "tiposAyuda": {
+        "XML_FALTANTE": "El comprobante está firmado pero su XML ya no está en el almacenamiento.",
+        "XML_CORRUPTO": "El XML existe pero no contiene el DigestValue con el que se firmó, o está truncado.",
+        "CDR_FALTANTE": "SUNAT respondió pero su CDR ya no está en el almacenamiento.",
+        "STORAGE_INACCESIBLE": "No se pudo leer el almacenamiento: puede ser un fallo de conexión y no un objeto perdido. Conviene repetir la verificación."
+      },
+      "errores": {
+        "desdeRequerido": "Indica desde cuándo verificar.",
+        "hastaRequerido": "Indica hasta cuándo verificar.",
+        "fechaInvalida": "Esa fecha no existe.",
+        "alReves": "El rango no puede terminar antes de empezar.",
+        "demasiadoLargo": "El rango no puede pasar de {max} días."
       }
     },
     "estadoCuenta": {

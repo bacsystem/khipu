@@ -783,6 +783,44 @@ export const handlers = [
     return "error" in r ? r.error : ok(r.pago, 201);
   }),
 
+  /**
+   * Como el backend (#198): verifica los comprobantes firmados emitidos entre `desde` y `hasta` (inclusive) y devuelve cuántos revisó y los problemas. Falta un parámetro o
+   * una fecha no existe: 400 `PARAMETRO_INVALIDO`; `desde` posterior a `hasta`: 400 `RANGO_INVALIDO` (no 422). El mock siembra los hallazgos por fecha: si el rango incluye el
+   * 10 de septiembre de 2026 hay tres problemas (dos comprobantes de «Panadería Sol» y uno de «Ferretería Luna»); si incluye el 15 de agosto, un almacenamiento inaccesible;
+   * en cualquier otro rango, nada. Revisa 12 comprobantes por día, hasta 500.
+   */
+  http.post(`${BASE}/v1/admin/integridad`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const url = new URL(request.url);
+    const desde = url.searchParams.get("desde");
+    const hasta = url.searchParams.get("hasta");
+    if (!desde) return fail(400, "PARAMETRO_INVALIDO", "Falta el parámetro 'desde'");
+    if (!hasta) return fail(400, "PARAMETRO_INVALIDO", "Falta el parámetro 'hasta'");
+    if (!fechaIsoValidaMock(desde)) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'desde' no tiene un formato válido");
+    if (!fechaIsoValidaMock(hasta)) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'hasta' no tiene un formato válido");
+    if (hasta < desde) return fail(400, "RANGO_INVALIDO", "El rango de fechas es obligatorio y desde ≤ hasta");
+    const incluye = (dia: string) => desde <= dia && dia <= hasta;
+    const problema = (n: number, empresa: number, nombre: string, tipo: string, detalle: string) => ({
+      comprobante_id: `00000000-0000-4000-c000-${String(n).padStart(12, "0")}`,
+      tenant_id: idEmpresaMock(empresa),
+      nombre_archivo: nombre,
+      tipo,
+      detalle,
+    });
+    const problemas = [
+      ...(incluye("2026-09-10")
+        ? [
+            problema(1, 1, "20100047226-01-F001-14", "XML_CORRUPTO", "el DigestValue registrado (abc123=) no está en xml/20100047226-01-F001-14.xml"),
+            problema(2, 1, "20100047226-03-B001-7", "CDR_FALTANTE", "cdr/R-20100047226-03-B001-7.zip"),
+            problema(3, 2, "20100055121-01-F001-3", "XML_FALTANTE", "xml/20100055121-01-F001-3.xml"),
+          ]
+        : []),
+      ...(incluye("2026-08-15") ? [problema(4, 2, "20100055121-01-F001-1", "STORAGE_INACCESIBLE", "Read timed out")] : []),
+    ];
+    const dias = (Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000 + 1;
+    return ok({ desde, hasta, verificados: Math.min(500, 12 * dias), problemas });
+  }),
+
   /** Como el backend (#193): consumo de todas las cuentas contra su plan de hoy, con filtro, orden, mes y página; el total, que refleja el filtro, va en la cabecera. */
   http.get(`${BASE}/v1/admin/consumo`, ({ request }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
