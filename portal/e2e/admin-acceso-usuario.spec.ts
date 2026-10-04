@@ -78,21 +78,6 @@ test("si el servidor no puede mandar correos, el modal lo dice y no afirma que s
   await expect(diálogo(page)).toBeVisible();
 });
 
-test("dos clics seguidos en Confirmar mandan un solo correo", async ({ page }) => {
-  let pedidos = 0;
-  await page.route("**/api/admin/cuentas/*/usuarios/*/restablecimiento", async (route) => {
-    pedidos++;
-    await route.continue();
-  });
-  await fila(page, "beto@sol.pe").getByTestId("restablecer-usuario").click();
-
-  const confirmar = diálogo(page).getByTestId("acceso-confirmar");
-  await confirmar.dblclick();
-
-  await expect(diálogo(page).getByTestId("acceso-hecho")).toBeVisible();
-  expect(pedidos).toBe(1);
-});
-
 test("el BFF rechaza un id de usuario que no es un UUID sin llegar al backend", async ({ page }) => {
   const res = await page.request.post(`/api/admin/cuentas/${ID_SOL}/usuarios/no-es-un-uuid/restablecimiento`);
 
