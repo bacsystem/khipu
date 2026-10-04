@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
  * ya lo valida), así que el formato es inequívoco.
  */
 public record DetalleDeSoporte(String usuario, long duracionSegundos) {
-    private static final Pattern FORMATO = Pattern.compile("^usuario=(\\S+) duracion_s=(\\d+)$");
+    private static final Pattern FORMATO = Pattern.compile("usuario=(\\S+) duracion_s=(\\d+)");
 
     public String texto() { return "usuario=" + usuario + " duracion_s=" + duracionSegundos; }
 
