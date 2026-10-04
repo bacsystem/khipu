@@ -113,6 +113,35 @@ describe("AccionesDeUsuario (#183)", () => {
     await act(async () => resolver(exito({ usuario_id: USUARIO, correo: "beto@sol.pe" })));
   });
 
+  /** El botón «Cancelar» ya está deshabilitado; Escape o el clic fuera del modal no pasan por él y también deben esperar el resultado. */
+  it("Escape mientras se envía no cierra el modal: el administrador debe ver el resultado", async () => {
+    let resolver: (v: ApiEnvelope<unknown>) => void = () => {};
+    apiRequest.mockReturnValue(new Promise<ApiEnvelope<unknown>>((r) => (resolver = r)));
+    abrir("restablecer");
+    fireEvent.click(screen.getByTestId("acceso-confirmar"));
+
+    fireEvent.keyDown(screen.getByTestId("acceso-confirmacion"), { key: "Escape" });
+
+    expect(screen.getByTestId("acceso-confirmacion")).toBeTruthy();
+    await act(async () => resolver(exito({ usuario_id: USUARIO, correo: "beto@sol.pe" })));
+    expect(screen.getByTestId("acceso-hecho")).toBeTruthy();
+  });
+
+  it("al cerrar y reabrir tras un envío, el modal vuelve a pedir confirmación, sin el resultado anterior", async () => {
+    apiRequest.mockResolvedValue(exito({ usuario_id: USUARIO, correo: "beto@sol.pe" }));
+    abrir("restablecer");
+    fireEvent.click(screen.getByTestId("acceso-confirmar"));
+    await screen.findByTestId("acceso-hecho");
+
+    // Hay dos «Cerrar»: el del pie del modal y la X de la esquina; cualquiera de los dos cierra.
+    fireEvent.click(screen.getAllByRole("button", { name: "Cerrar" })[0]);
+    await waitFor(() => expect(screen.queryByTestId("acceso-confirmacion")).toBeNull());
+    fireEvent.click(screen.getByTestId("restablecer-usuario"));
+
+    expect(screen.queryByTestId("acceso-hecho")).toBeNull();
+    expect(screen.getByTestId("acceso-confirmar")).toBeTruthy();
+  });
+
   it("un error del backend se muestra en el modal, que sigue abierto, sin decir que se envió ni recargar", async () => {
     apiRequest.mockResolvedValue(error("CORREO_NO_CONFIGURADO", "El envío de correos no está habilitado en el servidor: no se mandó nada"));
     abrir("restablecer");
