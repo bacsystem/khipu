@@ -121,8 +121,13 @@ describe("AccionesDeCuenta (#182)", () => {
     apiRequest.mockReturnValue(new Promise<ApiEnvelope<unknown>>((r) => (resolver = r)));
     abrir();
 
-    fireEvent.click(screen.getByTestId("suspension-confirmar"));
-    fireEvent.click(screen.getByTestId("suspension-confirmar"));
+    // Los dos clics dentro de un mismo `act`: React no aplica el estado entre uno y otro, así que el segundo manejador ve el `enviando` viejo
+    // y el botón todavía no está deshabilitado. Es lo único que frena el segundo pedido en ese caso: la guardia del ref, no el `disabled`.
+    const boton = screen.getByTestId("suspension-confirmar");
+    act(() => {
+      fireEvent.click(boton);
+      fireEvent.click(boton);
+    });
     await act(async () => resolver(exito({ cuenta_id: ID, estado: "SUSPENDIDA" })));
 
     expect(apiRequest).toHaveBeenCalledTimes(1);

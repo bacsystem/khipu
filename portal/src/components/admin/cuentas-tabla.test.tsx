@@ -35,6 +35,16 @@ describe("CuentasTabla estado (#182)", () => {
     expect(screen.getByRole("columnheader", { name: "Estado" })).toBeTruthy();
   });
 
+  /** El color es lo que el administrador lee de un vistazo: suspendida en rojo, activa en verde, y nunca al revés. */
+  it("la etiqueta de suspendida va en rojo y la de activa en verde", () => {
+    render(<CuentasTabla datos={[ANA, SUSPENDIDA]} total={2} params={SIN_FILTROS} />);
+
+    expect(screen.getByText("Suspendida").className).toContain("text-destructive");
+    expect(screen.getByText("Suspendida").className).not.toContain("text-success");
+    expect(screen.getByText("Activa").className).toContain("text-success");
+    expect(screen.getByText("Activa").className).not.toContain("text-destructive");
+  });
+
   it("la fila de una cuenta suspendida se distingue, y la de una activa no", () => {
     render(<CuentasTabla datos={[ANA, SUSPENDIDA]} total={2} params={SIN_FILTROS} />);
 
