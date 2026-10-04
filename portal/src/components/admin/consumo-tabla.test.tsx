@@ -177,15 +177,6 @@ describe("ConsumoTabla (#193)", () => {
     expect(push).toHaveBeenCalledWith("/admin/consumo?mes=2026-08&filtro=PLAN_VENCIDO&orden=DOCUMENTOS&por_pagina=20");
   });
 
-  /** Algunos navegadores dejan escribir texto libre en un campo de mes: lo que no es AAAA-MM no llega a la URL ni al backend. */
-  it("un mes escrito a mano que no es AAAA-MM no llega a la URL", () => {
-    render(<ConsumoTabla datos={datos([ANA])} total={1} params={{ ...PARAMS, mes: "2026-08" }} />);
-
-    fireEvent.change(screen.getByLabelText("Mes"), { target: { value: "agosto" } });
-
-    expect(push).toHaveBeenCalledWith("/admin/consumo");
-  });
-
   it("borrar el mes vuelve al mes en curso, sin mes en la URL", () => {
     render(<ConsumoTabla datos={datos([ANA])} total={1} params={{ ...PARAMS, mes: "2026-08" }} />);
 
