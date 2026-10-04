@@ -182,7 +182,7 @@ class EmitirComprobanteServiceTest {
         hoy.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), CLAVE);
         ConClaves alDiaSiguiente = conClaves(hoy.claves(), Clock.offset(Fakes.CLOCK, Duration.ofDays(1)));
 
-        assertThatThrownBy(() -> alDiaSiguiente.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), new EmitirComprobanteUseCase.Idempotencia(CLAVE.clave(), "otra-huella")))
+        assertThatThrownBy(() -> alDiaSiguiente.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), new pe.factura.application.port.in.Idempotencia(CLAVE.clave(), "otra-huella")))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
     }
 

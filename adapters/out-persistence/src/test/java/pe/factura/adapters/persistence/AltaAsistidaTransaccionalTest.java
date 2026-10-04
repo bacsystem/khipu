@@ -46,7 +46,7 @@ class AltaAsistidaTransaccionalTest extends PersistenciaTestBase {
     AltaAsistidaService servicio() {
         return new AltaAsistidaService(new JdbcCuentaRepository(jdbc), new JdbcUsuarioRepository(jdbc), new JdbcSesionRepository(jdbc),
                 new JdbcTenantRepository(jdbc, sinCifrar), new JdbcSerieRepository(jdbc), new JdbcApiKeyRepository(jdbc), hasher, correo, uow,
-                new JdbcAuditoriaAdminRepository(jdbc), "pepper", CLOCK);
+                new JdbcAuditoriaAdminRepository(jdbc), "pepper", CLOCK, new JdbcIdempotenciaRepository(jdbc), sinCifrar);
     }
 
     long filas(String tabla) { return jdbc.queryForObject("SELECT count(*) FROM " + tabla, Long.class); }

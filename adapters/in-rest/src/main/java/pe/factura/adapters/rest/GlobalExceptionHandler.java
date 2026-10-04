@@ -28,6 +28,8 @@ public class GlobalExceptionHandler {
             case "DUPLICADO", "ESTADO_NO_ENVIABLE", "NO_ACEPTADO", "ESTABLECIMIENTO_EN_USO", "FUERA_DE_PLAZO", "CDR_YA_DISPONIBLE" -> HttpStatus.CONFLICT;
             case "NO_AUTORIZADO", "CREDENCIALES_INVALIDAS", "SESION_INVALIDA", "CODIGO_INVALIDO" -> HttpStatus.UNAUTHORIZED;
             case "SEGUNDO_FACTOR_NO_CONFIGURADO", "SEGUNDO_FACTOR_YA_CONFIGURADO" -> HttpStatus.CONFLICT;
+            // El alta ya se hizo con esa clave pero su respuesta (con la API key) ya no se guarda: no es un dato inválido del pedido.
+            case "IDEMPOTENCIA_VENCIDA" -> HttpStatus.CONFLICT;
             case "DEMASIADOS_INTENTOS" -> HttpStatus.TOO_MANY_REQUESTS;
             case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO" -> HttpStatus.FORBIDDEN;
             case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;

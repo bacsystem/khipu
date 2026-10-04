@@ -61,7 +61,7 @@ class AltaAsistidaE2ETest {
 
     @BeforeEach void limpiar() {
         CORREOS.clear();
-        jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, sesion, usuario, cuenta, administrador, auditoria_admin CASCADE");
+        jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, sesion, usuario, cuenta, administrador, auditoria_admin, idempotencia CASCADE");
     }
 
     private HttpHeaders json() { HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON); return h; }
@@ -207,5 +207,77 @@ class AltaAsistidaE2ETest {
         for (String tabla : List.of("cuenta", "usuario", "tenant", "api_key", "serie", "token_recuperacion", "auditoria_admin"))
             assertThat(filas(tabla)).as(tabla).isZero();
         assertThat(CORREOS).isEmpty();
+    }
+
+    // --- #219: Idempotency-Key ---------------------------------------------------------------------------------------------------
+
+    @Autowired pe.factura.application.port.in.LimpiarIdempotenciaUseCase limpieza;
+
+    private HttpHeaders conClave(String clave) { HttpHeaders h = conClaveDePlataforma(); h.set("Idempotency-Key", clave); return h; }
+
+    /** El caso del issue: la respuesta se perdió; el reintento recibe la misma API key, que funciona, y no se crea nada más. */
+    @Test void unReintentoConLaMismaClaveDevuelveLaMismaApiKeyYNoCreaNada() {
+        String clave = java.util.UUID.randomUUID().toString();
+        ResponseEntity<Map> primero = alta(conClave(clave), ALTA);
+        ResponseEntity<Map> reintento = alta(conClave(clave), ALTA);
+
+        assertThat(primero.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(reintento.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<?, ?> a = (Map<?, ?>) primero.getBody().get("datos"), b = (Map<?, ?>) reintento.getBody().get("datos");
+        assertThat(b).isEqualTo(a);
+        assertThat(filas("cuenta")).isEqualTo(1);
+        assertThat(filas("api_key")).isEqualTo(1);
+        assertThat(CORREOS).as("una sola invitación").hasSize(1);
+        assertThat(http.exchange("/v1/series", HttpMethod.GET, new HttpEntity<>(conApiKey((String) b.get("api_key"))), Map.class).getStatusCode())
+                .as("la key del reintento es la que funciona").isEqualTo(HttpStatus.OK);
+    }
+
+    @Test void laRespuestaQuedaCifradaEnLaBase() {
+        String clave = java.util.UUID.randomUUID().toString();
+        String apiKey = (String) ((Map<?, ?>) alta(conClave(clave), ALTA).getBody().get("datos")).get("api_key");
+
+        byte[] guardada = jdbc.queryForObject("SELECT respuesta_cifrada FROM idempotencia WHERE clave = ?", byte[].class, clave);
+        assertThat(new String(guardada, java.nio.charset.StandardCharsets.ISO_8859_1)).doesNotContain(apiKey);
+    }
+
+    @Test void laMismaClaveConOtroClienteSeRechaza() {
+        String clave = java.util.UUID.randomUUID().toString();
+        alta(conClave(clave), ALTA);
+
+        ResponseEntity<Map> otro = alta(conClave(clave), ALTA.replace("ana@andina.pe", "otra@andina.pe").replace("20100066603", "20601234565"));
+
+        assertThat(otro.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(otro.getBody()).containsEntry("codigo", "IDEMPOTENCIA_INVALIDA");
+        assertThat(filas("cuenta")).isEqualTo(1);
+    }
+
+    /** Pasada la hora la API key ya no está guardada: el reintento se reconoce (no es un 409 DUPLICADO confuso) y dice qué hacer. */
+    @Test void pasadaLaHoraElReintentoNoRecibeLaApiKey() {
+        String clave = java.util.UUID.randomUUID().toString();
+        alta(conClave(clave), ALTA);
+        jdbc.update("UPDATE idempotencia SET creado_at = now() - interval '2 hours'");
+        limpieza.limpiar();
+
+        assertThat(jdbc.queryForObject("SELECT respuesta_cifrada FROM idempotencia WHERE clave = ?", byte[].class, clave)).isNull();
+        ResponseEntity<Map> tarde = alta(conClave(clave), ALTA);
+        assertThat(tarde.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(tarde.getBody()).containsEntry("codigo", "IDEMPOTENCIA_VENCIDA");
+        assertThat(filas("cuenta")).isEqualTo(1);
+    }
+
+    @Test void altasSimultaneasConLaMismaClaveCreanUnaSola() throws Exception {
+        String clave = java.util.UUID.randomUUID().toString();
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(4);
+        var salida = new java.util.concurrent.CountDownLatch(1);
+        List<java.util.concurrent.Future<ResponseEntity<Map>>> pedidos = new java.util.ArrayList<>();
+        for (int i = 0; i < 4; i++) pedidos.add(pool.submit(() -> { salida.await(); return alta(conClave(clave), ALTA); }));
+        salida.countDown();
+        List<HttpStatusCode> estados = new java.util.ArrayList<>();
+        for (var p : pedidos) estados.add(p.get(60, java.util.concurrent.TimeUnit.SECONDS).getStatusCode());
+        pool.shutdown();
+
+        assertThat(estados).filteredOn(s -> s.equals(HttpStatus.CREATED)).hasSize(1);
+        assertThat(estados).filteredOn(s -> s.equals(HttpStatus.OK)).hasSize(3);
+        assertThat(filas("cuenta")).isEqualTo(1);
     }
 }

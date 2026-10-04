@@ -147,6 +147,41 @@ class JdbcIdempotenciaRepositoryTest extends PersistenciaTestBase {
         assertThat(jdbc.queryForList("SELECT clave FROM idempotencia", String.class)).containsExactly("nueva");
     }
 
+    // --- #219: respuesta guardada ----------------------------------------------------------------------------------------------
+
+    @Test void buscarNoReservaYDevuelveLaRespuestaGuardada() {
+        assertThat(repo.buscar("alta-cuenta", "k1")).isEmpty();
+        assertThat(repo.buscar("alta-cuenta", "k1")).as("buscar no reserva").isEmpty();
+
+        UUID cuenta = UUID.randomUUID();
+        repo.reservar("alta-cuenta", "k1", H1);
+        repo.completar("alta-cuenta", "k1", cuenta, new byte[]{9, 8, 7});
+
+        Registro r = repo.buscar("alta-cuenta", "k1").orElseThrow();
+        assertThat(r.huella()).isEqualTo(H1);
+        assertThat(r.recursoId()).isEqualTo(cuenta);
+        assertThat(r.respuestaCifrada()).containsExactly(9, 8, 7);
+        assertThat(repo.reservar("alta-cuenta", "k1", H1).orElseThrow().respuestaCifrada()).containsExactly(9, 8, 7);
+    }
+
+    /** La respuesta lleva un secreto: se olvida pronto, pero la clave sigue y un reintento tardío se reconoce. */
+    @Test void olvidaLasRespuestasViejasYConservaLaClave() {
+        repo.reservar("alta-cuenta", "vieja", H1);
+        repo.completar("alta-cuenta", "vieja", UUID.randomUUID(), new byte[]{1});
+        repo.reservar("alta-cuenta", "nueva", H1);
+        repo.completar("alta-cuenta", "nueva", UUID.randomUUID(), new byte[]{2});
+        jdbc.update("UPDATE idempotencia SET creado_at = ? WHERE clave = 'vieja'", Timestamp.from(Instant.now().minus(2, ChronoUnit.HOURS)));
+
+        int olvidadas = repo.olvidarRespuestasAnterioresA(Instant.now().minus(1, ChronoUnit.HOURS));
+
+        assertThat(olvidadas).isEqualTo(1);
+        assertThat(repo.buscar("alta-cuenta", "vieja").orElseThrow()).satisfies(r -> {
+            assertThat(r.respuestaCifrada()).isNull();
+            assertThat(r.huella()).isEqualTo(H1);
+        });
+        assertThat(repo.buscar("alta-cuenta", "nueva").orElseThrow().respuestaCifrada()).containsExactly(2);
+    }
+
     private static void esperar(CountDownLatch l) {
         try {
             if (!l.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("timeout");

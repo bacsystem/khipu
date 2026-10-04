@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readAdminSession } from "@/lib/admin-session";
 import { altaAsistida, type AltaAsistida } from "@/lib/api/admin-alta";
 import { errorResponse } from "@/lib/api/http";
+import { CABECERA_IDEMPOTENCIA } from "@/lib/idempotencia";
 import { cabecerasDeOrigen } from "@/lib/origen";
 
 const ERROR = (status: number, codigo: string, mensaje: string) =>
@@ -23,8 +24,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // La IP real del administrador (#208), ya resuelta: la bitácora del alta la registra.
-    const datos = await altaAsistida(access, cuerpo, cabecerasDeOrigen(req.headers));
+    // La IP real del administrador (#208), ya resuelta: la bitácora del alta la registra. La clave de idempotencia (#219) es del
+    // navegador y viaja tal cual: con ella, un reintento recibe la misma API key.
+    const clave = req.headers.get(CABECERA_IDEMPOTENCIA);
+    const origen = cabecerasDeOrigen(req.headers);
+    const datos = await (clave ? altaAsistida(access, cuerpo, origen, clave) : altaAsistida(access, cuerpo, origen));
     return NextResponse.json(
       { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
       { status: 201, headers: { "Cache-Control": "no-store" } },
