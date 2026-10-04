@@ -140,6 +140,8 @@ test("un motivo de más de 200 caracteres no cabe en el campo", async ({ page })
   await page.goto(`/admin/cuentas/${ACTIVA}`);
 
   await page.getByTestId("suspender-cuenta").click();
+  // «Cliente 04» tiene una empresa: el diálogo dice a cuántas alcanza la suspensión.
+  await expect(diálogo(page).getByTestId("suspension-alcance")).toHaveText("1 empresa");
   await diálogo(page).getByLabel(/Motivo/).fill("x".repeat(250));
 
   await expect(diálogo(page).getByLabel(/Motivo/)).toHaveValue("x".repeat(200));
