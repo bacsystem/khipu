@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CuentaAdmin } from "@/lib/api/admin-cuentas";
 import { CuentasTabla } from "./cuentas-tabla";
@@ -192,6 +192,14 @@ describe("CuentasTabla bajas (#201)", () => {
     fireEvent.submit(screen.getByRole("search"));
 
     expect(push).toHaveBeenCalledWith("/admin/cuentas?q=norte&bajas=SOLO&por_pagina=20");
+  });
+
+  it("cambiar las filas por página vuelve a la primera y conserva la búsqueda y el filtro de bajas", () => {
+    render(<CuentasTabla datos={[DE_BAJA]} total={45} params={{ q: "norte", bajas: "INCLUIDAS", pagina: 3, porPagina: 10 }} />);
+
+    fireEvent.click(within(screen.getByRole("group", { name: "Filas por página" })).getByRole("button", { name: "20" }));
+
+    expect(push).toHaveBeenCalledWith("/admin/cuentas?q=norte&bajas=INCLUIDAS&por_pagina=20");
   });
 
   it("la paginación conserva el filtro de bajas en sus enlaces", () => {
