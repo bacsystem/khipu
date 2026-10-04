@@ -40,7 +40,7 @@ class AutenticarAdministradorServiceTest {
     final AdministradorTokenEmisor tokens = new AdministradorTokenEmisor() {
         public String emitir(Claims c) { return "jwt:" + c.administradorId() + ":" + c.email(); }
         public Optional<Claims> verificar(String t) { return Optional.empty(); }
-        public long vidaSesionSegundos() { return 1800; }
+        public long vidaSesionSegundos() { return 900; }
         public String emitirDesafio(UUID id) { return "desafio:" + id; }
         public Optional<UUID> verificarDesafio(String t) {
             return t != null && t.startsWith("desafio:") ? Optional.of(UUID.fromString(t.substring(8))) : Optional.empty();
@@ -119,7 +119,7 @@ class AutenticarAdministradorServiceTest {
         var nueva = service.confirmarSegundoFactor(d, codigoDe(c.secreto(), pasoActual()), "203.0.113.7");
 
         assertThat(nueva.sesion().accessToken()).isEqualTo("jwt:" + ana.id() + ":ana@khipu.pe");
-        assertThat(nueva.sesion().expiraEnSegundos()).isEqualTo(1800);
+        assertThat(nueva.sesion().expiraEnSegundos()).isEqualTo(900);
         assertThat(nueva.codigosRecuperacion()).hasSize(10).doesNotHaveDuplicates()
                 .allMatch(x -> x.matches("[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}"), "formato XXXXX-XXXXX sin 0/O ni 1/I");
         assertThat(factores.estados.get(ana.id()).confirmado()).isTrue();
@@ -181,7 +181,7 @@ class AutenticarAdministradorServiceTest {
         var s = service.verificarSegundoFactor(desafio(ana), codigoDe(secreto, pasoActual()), "198.51.100.4");
 
         assertThat(s.accessToken()).isEqualTo("jwt:" + ana.id() + ":ana@khipu.pe");
-        assertThat(s.expiraEnSegundos()).isEqualTo(1800);
+        assertThat(s.expiraEnSegundos()).isEqualTo(900);
         assertThat(s.administrador().id()).isEqualTo(ana.id());
         assertThat(auditoria.registros).last().satisfies(r -> {
             assertThat(r.accion()).isEqualTo(AccionAdmin.INICIAR_SESION);
@@ -260,7 +260,10 @@ class AutenticarAdministradorServiceTest {
 
         assertThat(factores.falloDentro).as("contado fuera de la transacción: dentro, se revertiría con el error").hasSize(5).containsOnly(false);
 
-        reloj.avanzar(Duration.ofMinutes(15));
+        reloj.avanzar(Duration.ofMinutes(14));
+        assertThatThrownBy(() -> service.verificarSegundoFactor(desafio(ana), codigoDe(secreto, pasoActual()), "198.51.100.4"))
+                .as("a los 14 minutos sigue bloqueado").extracting("codigo").isEqualTo("DEMASIADOS_INTENTOS");
+        reloj.avanzar(Duration.ofMinutes(1));
         assertThat(service.verificarSegundoFactor(desafio(ana), codigoDe(secreto, pasoActual()), "198.51.100.4")).isNotNull();
     }
 
