@@ -94,6 +94,7 @@ class MonitorDeEmisionServiceTest {
         Monitor m = service.monitorear();
 
         assertThat(m.horas()).allMatch(f -> f.total() == 0);
+        assertThat(m.hoy().total()).as("lo que todavía no ocurrió tampoco entra en el día").isZero();
     }
 
     // --- las categorías ---------------------------------------------------------------------------------------------------------------------

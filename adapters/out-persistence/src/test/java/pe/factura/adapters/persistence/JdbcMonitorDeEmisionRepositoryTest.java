@@ -1,6 +1,8 @@
 package pe.factura.adapters.persistence;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import pe.factura.application.port.out.MonitorDeEmisionRepository.Cola;
 import pe.factura.application.port.out.MonitorDeEmisionRepository.Conteo;
 import pe.factura.domain.documento.EstadoDocumento;
@@ -98,14 +100,17 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.porHoraYEstado(hace(Duration.ofHours(1)))).extracting(Conteo::estado).containsExactlyInAnyOrder(EstadoDocumento.values());
     }
 
+    /** Una zona con media hora de desfase: si la hora se agrupara en la zona de la sesión, 14:05 UTC caería en la hora de las 13:30 UTC. */
     @Test void laHoraNoDependeDeLaZonaDeLaSesionDeLaBase() {
         UUID t = tenantDePrueba();
         documento(t, EstadoDocumento.ACEPTADO, Instant.parse("2026-10-15T14:05:00Z"));
-        jdbc.execute("SET TIME ZONE 'Asia/Kolkata'");
-        try {
-            assertThat(repo.porHoraYEstado(hace(Duration.ofHours(24)))).extracting(Conteo::hora).containsExactly(Instant.parse("2026-10-15T14:00:00Z"));
-        } finally {
-            jdbc.execute("RESET TIME ZONE");
+        // Una sola conexión: con el `DriverManagerDataSource` de la base cada consulta abre la suya, y el `SET` no llegaría a la del repositorio.
+        try (SingleConnectionDataSource unica = new SingleConnectionDataSource(PG.getJdbcUrl(), PG.getUsername(), PG.getPassword(), true)) {
+            JdbcTemplate sesion = new JdbcTemplate(unica);
+            sesion.execute("SET TIME ZONE 'Asia/Kolkata'");
+            assertThat(sesion.queryForObject("SHOW TIME ZONE", String.class)).isEqualTo("Asia/Kolkata");
+
+            assertThat(new JdbcMonitorDeEmisionRepository(sesion).porHoraYEstado(hace(Duration.ofHours(24)))).extracting(Conteo::hora).containsExactly(Instant.parse("2026-10-15T14:00:00Z"));
         }
     }
 
