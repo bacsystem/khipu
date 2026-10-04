@@ -25,4 +25,11 @@ public enum EstadoDocumento {
     public boolean puedeTransitarA(EstadoDocumento destino) { return siguientes.contains(destino); }
     public boolean esEnviable() { return this == FIRMADO || this == ERROR_ENVIO; }
     public boolean esFinalAceptado() { return this == ACEPTADO || this == ACEPTADO_CON_OBS; }
+
+    /**
+     * Si el documento consume del plan de la cuenta (#192): solo lo que SUNAT aceptó (con o sin observaciones). No cuentan los rechazados, los que no llegaron
+     * (error de envío, fuera de plazo), los que están en camino ni los dados de baja. Aparte de {@link #esFinalAceptado()} a propósito: es una regla comercial, y
+     * si cambia no debe arrastrar al flujo de estados.
+     */
+    public boolean cuentaParaElConsumo() { return this == ACEPTADO || this == ACEPTADO_CON_OBS; }
 }
