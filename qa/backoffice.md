@@ -2164,6 +2164,68 @@ Lo que sobrevivía en la primera tanda y se arregló con su test:
 - **No hay todavía una pantalla** ni el cruce con el límite del plan (#193). Tampoco se aplica ningún límite: hacerlo valer es otro trabajo, y cuando se haga debe leer los límites con `Plan.vigenteEn` (#190).
 - **Sin caché ni tabla de agregados:** cada consulta cuenta filas de `documento` con el índice `(tenant_id, fecha_emision)`. Para una cuenta con millones de documentos al mes habría que medirlo; hoy no hay ese volumen.
 
+## #191 · Planes: asignar y cambiar el plan de una cuenta
+
+**Estado: 🔧 implementado, 148/148 mutaciones verificadas (1 equivalente documentada) — falta la revisión de la PR.** Backend (`/v1/admin/cuentas/{id}/plan`) y portal (la ficha de la cuenta). Va **después de #192** en la pila (lo adelanté): el issue pide mostrar el consumo del mes antes de confirmar, y ese contador es de #192.
+
+### Diseño
+
+- **Subir de plan entra ya; bajar, al ciclo siguiente.** Lo que es «subir» o «bajar» lo decide el **precio** (`DireccionDeCambio`): más caro, subida; más barato, bajada; el mismo plan es una **renovación** (otro vencimiento u otra gracia) y entra ya. Dos planes distintos al mismo precio **no** son una bajada: nadie paga menos, así que no se hace esperar al cliente.
+- **Subida o renovación: inmediata y condicional.** Se cierra la suscripción activa y se abre la nueva **en una sola sentencia**, condicionada a que la activa siga siendo la que el administrador vio (`409 CAMBIO_CONCURRENTE` si otro administrador la cambió en el medio; el E2E lo prueba con dos hilos: pase lo que pase queda **una** activa y nadie recibe un 500). En la misma sentencia se borra la bajada que esperaba: un cambio inmediato la cancela.
+- **Bajada: programada, no aplicada.** La cuenta sigue con el plan de hoy hasta la medianoche del día 1 en Lima (`CicloMensual`, el mismo ciclo de #190 y #192). Queda en `suscripcion_cambio_programado` (V39): como mucho **una por cuenta** (una segunda bajada reemplaza a la primera), con el vencimiento y la gracia con que empezará la suscripción nueva.
+- **Aplicar lo vencido: un trabajo programado cada diez minutos** (`AplicarCambiosDePlanWorker`). La suscripción nueva **empieza en la fecha programada**, no cuando el trabajo corrió, y la anterior termina en ese mismo instante: el historial dice cuándo cambió el plan de verdad y no hay hueco ni solape. Cada cuenta va en su transacción: una que falla no frena a las demás y se reintenta. Entre la búsqueda y la transacción se vuelve a mirar si sigue vencido (alguien pudo reprogramarlo).
+- **Vencimiento y gracia.** Un plan de pago exige el vencimiento (`422 VENCIMIENTO_REQUERIDO`); uno gratis no. El vencimiento es **exclusivo** (en ese instante empieza la gracia) y debe ser posterior al inicio. La gracia va de **0 a 90 días** (el tope de 90 es mío: el issue no lo fija). Un plan fuera de la oferta no se asigna (`409 PLAN_INACTIVO`); la cuenta que ya lo tiene lo conserva.
+- **Previsualización antes de confirmar** (`GET …/plan/previsualizacion?plan_id=`): si sube, baja o renueva, cuándo entra y el consumo de la cuenta **este mes** (solo comprobantes aceptados, de #192) frente al tope de documentos del plan nuevo, con una advertencia si ya lo supera. No escribe nada. El modal **no deja confirmar hasta tenerla**.
+- **Bitácora** `CAMBIAR_PLAN`, en la misma transacción y con la cuenta en `cuenta_id` (aparece en el detalle de la cuenta): `desde=Negocio hacia=Emprende direccion=BAJADA efecto=CICLO_SIGUIENTE aplica_desde=2026-10-01 vence=2026-12-01 gracia=3`. Aplicar lo programado **no** deja otro registro: no es una acción de nadie y el de cuando se programó ya dice quién.
+- **Un plan al que una cuenta va a pasar no se puede borrar** (#190 lo cuenta como en uso).
+- **Portal:** en la ficha de la cuenta, una tarjeta con el plan, su estado de pago (**Al día / En gracia / Vencido**), «Pagado hasta el …» (el último día cubierto: el vencimiento es exclusivo), los días de gracia, hasta cuándo se la sirve, los límites vigentes y, aparte, la bajada que espera. El modal de cambio pide «Pagado hasta (inclusive)» y manda como vencimiento la medianoche de Lima del día siguiente.
+
+### Tests
+
+- **Dominio:** `DireccionDeCambioTest` (5) y `PlanesDeCuentaProgramadoTest` (16: programar, reemplazar, cancelar; un cambio inmediato cancela lo programado; el plan vigente antes y **en el instante exacto** de la fecha; aplicar empieza en la fecha programada con su vencimiento y su gracia).
+- **Servicio** (`CambiarPlanDeCuentaServiceTest`, 36): las dos direcciones del cambio (subir entra ya, bajar queda programado y no toca la suscripción), renovar, la previsualización (consumo frente al tope, ilimitado nunca se supera), todas las validaciones, el conflicto concurrente, la bitácora dentro de la transacción, un cambio vencido sin aplicar, y aplicar lo vencido (fechas, una cuenta que falla, lo que ya no estaba vencido, sin bitácora).
+- **Persistencia:** `JdbcSuscripcionRepositoryTest` (+14: el cambio programado, un cambio inmediato lo borra en la misma sentencia y uno que no se hizo no lo borra, los vencidos por orden, el límite) y los topes de V39 en `EsquemaDePlanesTest`.
+- **REST** (`AdminPlanDeCuentaControllerTest`, 12) y **trabajo programado** (`AplicarCambiosDePlanWorkerTest`, 3).
+- **E2E real** (`CambioDePlanE2ETest`, Spring completo + Postgres + filtros reales): subir entra ya con vencimiento y gracia y se cierra la anterior sin hueco; el listado de planes cuenta la cuenta en el plan nuevo; la bitácora (clave de plataforma y administrador real); **bajar deja programado y las filas de suscripción no cambian**; una segunda bajada reemplaza, una subida y una renovación cancelan; **llegada la fecha el trabajo la pasa a vigente desde la fecha programada** y una segunda pasada no vuelve a aplicar nada; la previsualización con consumo real (solo aceptados) y sin escribir nada; los rechazos; dos cambios a la vez; y nadie más puede.
+- **Portal, Vitest (74):** formato de fechas (+9), cliente (6), validación (12), BFF (12), modal (21), tarjeta (9) y página (5).
+- **Portal, Playwright** (`admin-plan-de-cuenta.spec.ts`, 15): la tarjeta en cada estado de pago, la previsualización de subida / bajada / renovación / advertencia, que no se puede confirmar sin ella, subir, bajar y cancelar renovando, las validaciones y el BFF.
+
+### Verificación por mutación — 148/148 mueren (1 equivalente)
+
+| Capa | Mutaciones | Cuántas |
+|---|---|---|
+| Dirección del cambio | el mismo plan no es renovación; a igual precio es bajada; la dirección invertida; la renovación o la bajada con efecto cambiado | 5 |
+| `CambioDePlan` y el agregado | sin plan; vence al mismo instante; la gracia negativa; programar antes del inicio; un cambio inmediato no cancela lo programado; el plan vigente manda antes de tiempo o nunca; aplicar antes de la fecha, hoy en vez de la fecha programada, sin vencimiento o sin gracia; cancelar o programar que no hacen nada | 13 |
+| Servicio | gracia de 90 / negativa; un plan gratis exige vencimiento o uno de pago no; la bajada entra hoy o se aplica al instante; un conflicto pasa; sin registro, sin la cuenta o con otra acción; el tope justo se supera; lo ilimitado se supera; la dirección desde el plan equivocado; efecto invertido; el consumo de otro mes; un plan inactivo se asigna; aplicar sin mirar la fecha; los fallidos no se cuentan; la bitácora sin vencimiento, sin fecha o con el texto cambiado; vista sin lo programado, con otro estado o sin «hasta cuándo»; la bajada no se programa o programa otro plan; lo vencido no se aplica antes de cambiar | 28 |
+| Persistencia y esquema | un cambio inmediato no borra lo programado, o borra el de todas las cuentas; lo que vence hoy no cuenta; orden y límite de los vencidos; reprogramar sin actualizar vencimiento o gracia; leer sin vencimiento; cancelar que borra todo; un plan esperado se borra o no se cuenta; las restricciones de V39 | 14 |
+| REST y trabajo | un cambio sin plan; la vista pierde lo programado, «hasta cuándo» o la gracia; la previsualización confunde dirección y efecto o pierde el consumo o la advertencia; los 409; el cambio pierde el vencimiento o la gracia; la previsualización pide otro plan; el trabajo no aplica o un fallo lo tumba | 14 |
+| Fechas, validación y cliente | «pagado hasta» sin sumar un día / a medianoche UTC / en UTC; el último día cubierto; un mes 13; un día que no existe; una fecha con sufijo; fecha de hoy; un plan gratis exige fecha; la gracia (90, negativa, con letras, vacía); el cuerpo; la URL, el método, el JWT y la IP | 24 |
+| BFF | sin sesión; un id cualquiera; el cuerpo inválido; sin IP; sin `no-store`; la previsualización con plan cualquiera o sin plan | 11 |
+| Modal | doble clic; confirmar sin la previsualización; el botón sin esperarla; una respuesta atrasada pisa a la nueva; cerrar mientras envía; un corte de red reintentado; un conflicto sin recargar; lo escrito sobrevive; sin recargar tras confirmar; efecto o advertencia invertidos o sin advertir; lo ilimitado dice una cifra; el mes sin formato; cuerpo vacío; otro plan; el precio equivocado; el plan actual sin marca; elegir nada pide la previsualización; sin «Cambiando…»; un error de validación envía igual; elegir plan limpia errores ajenos | 22 |
+| Tarjeta, página y Playwright | sin vencimiento siempre; «pagado hasta» con el día del vencimiento; la gracia sin vencimiento; sin «hasta cuándo»; sin la bajada; planes fuera de la oferta; plural de la gracia; los límites sin documentos; sin «desde»; el modal sin su plan actual; la página que se cae si el plan falla, sin JWT, con otro enlace o con la cuenta equivocada; **la previsualización pide otro plan (Playwright)** | 18 |
+
+Lo que sobrevivía en la primera tanda y se arregló con su test (o con menos código):
+
+- **Aplicar un cambio ya no vencido** (el trabajo lo busca y entre la búsqueda y la transacción alguien lo reprogramó) no estaba probado: ahora hay un test con un repositorio desfasado.
+- **El orden de las validaciones** (la gracia antes de buscar el plan) tampoco; ahora está fijado.
+- **Fechas imposibles en el futuro** (`2026-11-31`, `2027-02-29`): mis casos eran del pasado, así que los atrapaba «la fecha ya pasó» por casualidad. Ahora hay casos futuros, y la validez se reconoce solo por el mes (comparar el año y el día sobraba: un día o un mes imposibles siempre desbordan a otro mes). Un sufijo (`2026-10-04-5`) pasaba.
+- **Elegir otro plan borraba también el error de la gracia**, que sigue mal: ahora no.
+- **El servicio ya no depende del repositorio de cuentas:** toda cuenta tiene siempre una suscripción, así que «no existe» y «no tiene» eran lo mismo (dos comprobaciones que ningún test podía distinguir).
+- **Equivalente:** quitar de `confirmar()` la guarda «solo con la previsualización lista». El botón ya está deshabilitado en ese estado y no hay otro camino al envío; la guarda queda por el tipo (`previa.datos`).
+
+### Suites
+
+- Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (9 min 13 s; incluye `ArchitectureTest` y todos los E2E de Spring con Postgres real).
+- Portal: `tsc` y ESLint limpios; Vitest **805/805** (94 archivos); Playwright completo (`--workers=2`) **268/268**.
+
+### Límites conocidos
+
+- **Que una suscripción venza no hace nada por sí solo.** El estado pasa a «En gracia» y luego a «Vencido» y se ve en la ficha, pero no hay corte ni baja automática de plan al vencer: eso lo muestra #193 (planes vencidos o en gracia) y hacerlo valer es otro trabajo.
+- **Entre la fecha de una bajada y la pasada del trabajo hay hasta diez minutos** en que la fila sigue en el plan viejo: el listado de planes (#190) todavía cuenta a la cuenta en el anterior. Un cambio manual en ese lapso aplica primero lo vencido.
+- **La gracia máxima de 90 días es una decisión mía**, igual que que renovar sea el mismo plan con otro vencimiento (no hay una acción de «extender» aparte: #194, el pago manual, podrá extender el vencimiento).
+- **No se bloquea cambiarle el plan a una cuenta de baja o suspendida:** es una acción del administrador y a veces es justo lo que hace falta.
+- **El modal no se refresca si otro administrador cambia el plan mientras está abierto:** se entera al confirmar (`CAMBIO_CONCURRENTE`, que además recarga la página).
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
