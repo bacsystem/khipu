@@ -1059,6 +1059,67 @@ que ya tiene más de una. Una respuesta creada justo después de una pasada sobr
 horas, contra el «solo una hora» del OpenAPI. Ahora `Registro` trae `creado_at` y `AltaAsistidaService` la da por vencida pasada `VIGENCIA_RESPUESTA`, la
 misma constante que usa la limpieza. El test de los 61 minutos estaba en rojo antes del cambio.
 
+## #22 · Verificación de correo obligatoria en el registro
+
+**Estado: 🔧 implementado, 18/18 mutaciones verificadas — falta la revisión de la PR.** No es del backoffice, pero va en la pila: #183 («reenviar
+verificación») y el estado «sin verificar» de #180 dependen de él.
+
+### Diseño
+
+- **`Usuario.correoVerificadoEn`** (columna `correo_verificado_at`, `V31`). Nulo = sin verificar. **Los usuarios que ya existían quedan verificados** en la
+  migración: entraron cuando no se pedía y bloquearlos de golpe les cortaría la emisión.
+- **Enlace** en `token_verificacion` (tabla aparte de `token_recuperacion`, para que un enlace de verificación no sirva para cambiar la contraseña): solo el
+  hash, **24 horas**, **un solo uso** (la condición `usado = false` está en el `UPDATE`: dos clics simultáneos, uno verifica).
+- **El registro manda el enlace** fuera de la transacción y sin propagar el error: un SMTP caído no impide registrarse (el usuario pide otro).
+- **Bloqueo en el `JwtFilter`**: con la sesión del portal y el correo sin verificar, **cualquier escritura** (todo lo que no sea `GET`/`HEAD`/`OPTIONS`)
+  responde `403 CORREO_SIN_VERIFICAR`, salvo `/v1/auth/**` (reenviar el enlace, cerrar sesión). Se mira el usuario **en la base**, no en el token: verificado en
+  otra pestaña, la siguiente escritura ya pasa. Un usuario que ya no existe o está inactivo no escribe (falla cerrado). La ruta se decide normalizada.
+- **Las API keys no se bloquean**: son credenciales de un integrador o del alta asistida, emitidas por alguien ya verificado o por un operador.
+- **Restablecer la contraseña (y aceptar la invitación del alta asistida, que usa el mismo enlace) también verifica**: el enlace llegó a ese correo.
+- `POST /v1/auth/verificar {token}` (público) y `POST /v1/auth/verificacion` (reenviar, con sesión; `409 CORREO_YA_VERIFICADO`). `me` devuelve
+  `correo_verificado`.
+- **Portal**: el onboarding muestra «Revisa tu correo» (con reenvío y «Ya lo verifiqué») en vez del formulario, y el layout privado lo avisa arriba.
+  `/verificar/[token]` verifica **con un botón y no al abrir la página**: los filtros y antivirus del correo abren los enlaces y gastarían uno de un solo uso.
+  El segmento del token se decodifica: un cliente de correo puede haber reescrito el enlace codificándolo.
+
+### Tests
+
+- Dominio (`UsuarioTest` +1): empieza sin verificar, la fecha es la primera y se conserva al cambiar la contraseña o desactivar.
+- Servicio (`AutenticarUsuarioServiceTest` +8): el registro manda el enlace (solo el hash, 24 h); el enlace verifica una vez; vencido o inventado no;
+  no sirve para cambiar la contraseña; reenviar; ya verificado no reenvía; restablecer verifica; un SMTP caído no rompe el registro.
+- Persistencia (`JdbcVerificacionCorreoRepositoryTest`, 3, Postgres): guardar/buscar, un solo uso, el usuario guarda la verificación.
+- REST: `AuthControllerTest` +5 (verificar, reenviar, 409, `me` con el campo), `JwtFilterTest` +5 (ninguna escritura sin verificar; mirar y la sesión sí;
+  verificado escribe; sin usuario o inactivo 401; ruta disfrazada de auth).
+- E2E backend (`AuthE2ETest` +5, con el enlace sacado del correo real): sin verificar se mira y no se crea empresa; con el enlace se crea **con el mismo token
+  de sesión**; un solo uso; reenviar; una API key no depende de la verificación. `AdminCuentasE2ETest` verifica su cliente; `AltaAsistidaE2ETest` ignora el
+  correo de verificación del registro que usa para su prueba de aislamiento.
+- Portal: BFF (+5), e2e `verificacion-correo.spec.ts` (6: pantalla en vez del formulario, `403` por HTTP directo, reenvío, el enlace verifica, un solo
+  uso, «Ya lo verifiqué» tras verificar en otra pestaña); `onboarding.spec.ts` verifica antes del asistente (helper `registrarYVerificar`).
+
+### Verificación por mutación — 18/18 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | El registro no manda el enlace | 6 |
+| Servicio | El enlace dura 1 hora / acepta uno vencido | 1 y 1 |
+| Servicio | Verificar no marca usado / no guarda la verificación | 1 y 3 |
+| Servicio | Reenviar con el correo ya verificado | 1 |
+| Servicio | Restablecer no verifica | 1 |
+| Servicio | Un SMTP caído rompe el registro | 1 |
+| Dominio | Verificar otra vez cambia la fecha / cambiar la contraseña pierde la verificación | 1 y 1 |
+| Filtro | Sin el bloqueo | 2 |
+| Filtro | Bloquea también las lecturas / sin la excepción de `/v1/auth/` | 1 y 1 |
+| Filtro | Decide con la URI cruda | `unaRutaDisfrazadaDeAuth…` |
+| Filtro | Un usuario inactivo escribe | 1 |
+| Persistencia | `usar` sin exigir que esté sin usar / el usuario no guarda la verificación | 1 y 1 |
+| BFF | El reenvío sin sesión llama al backend | 1 |
+
+### Límites conocidos
+
+- Sin tope de reenvíos: quien tiene la sesión puede pedir enlaces seguidos (llegan a su propio correo). Si molesta, un límite por minuto.
+- El bloqueo cuesta una lectura de `usuario` por cada escritura con sesión del portal (no con API key).
+- El estado «sin verificar» todavía no se ve en el listado de cuentas del backoffice (#180): llega con su columna de estado (#182).
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
