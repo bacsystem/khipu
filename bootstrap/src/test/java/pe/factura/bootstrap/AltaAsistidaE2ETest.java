@@ -142,8 +142,7 @@ class AltaAsistidaE2ETest {
 
     @Test void unAdministradorConSesionQuedaRegistradoConSuPropioId() {
         http.postForEntity("/v1/admin/administradores", new HttpEntity<>("{\"email\":\"root@khipu.pe\",\"password\":\"Segura123\"}", conClaveDePlataforma()), Map.class);
-        ResponseEntity<Map> login = http.postForEntity("/v1/admin/auth/login", new HttpEntity<>("{\"email\":\"root@khipu.pe\",\"password\":\"Segura123\"}", conClaveDePlataforma()), Map.class);
-        Map<?, ?> sesion = (Map<?, ?>) login.getBody().get("datos");
+        Map<String, Object> sesion = SesionAdminDePrueba.entrar(http, "root@khipu.pe", "Segura123");
         String token = (String) sesion.get("access_token");
         String administradorId = (String) ((Map<?, ?>) sesion.get("administrador")).get("id");
 

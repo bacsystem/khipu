@@ -1,11 +1,5 @@
 package pe.factura.adapters.pdf;
 
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.EncodeHintType;
-import com.google.zxing.client.j2se.MatrixToImageWriter;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import org.xhtmlrenderer.pdf.ITextRenderer;
@@ -35,7 +29,8 @@ import java.util.Map;
  */
 public class FlyingSaucerPdfGenerator implements PdfGenerator {
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    static final int QR_PX = 220;
+    static final int QR_PX = ZxingCodigoQr.PX;
+    private static final ZxingCodigoQr QR = new ZxingCodigoQr();
     private final Configuration cfg;
 
     public FlyingSaucerPdfGenerator() {
@@ -112,13 +107,5 @@ public class FlyingSaucerPdfGenerator implements PdfGenerator {
         } catch (IOException e) { throw new IllegalStateException("No se pudo leer el logo", e); }
     }
 
-    static byte[] qrPng(String contenido) {
-        try {
-            BitMatrix m = new QRCodeWriter().encode(contenido, BarcodeFormat.QR_CODE, QR_PX, QR_PX,
-                    Map.of(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.M, EncodeHintType.MARGIN, 1, EncodeHintType.CHARACTER_SET, "UTF-8"));
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            MatrixToImageWriter.writeToStream(m, "PNG", out);
-            return out.toByteArray();
-        } catch (Exception e) { throw new IllegalStateException("No se pudo generar el QR", e); }
-    }
+    static byte[] qrPng(String contenido) { return QR.png(contenido); }
 }

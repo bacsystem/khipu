@@ -73,10 +73,7 @@ class AuditoriaAdminE2ETest {
                 new HttpEntity<>("{\"email\":\"ana@khipu.pe\",\"password\":\"Segura123\"}", conClaveDePlataforma()), Map.class);
         assertThat(alta.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
-        ResponseEntity<Map> login = http.postForEntity("/v1/admin/auth/login",
-                new HttpEntity<>("{\"email\":\"ana@khipu.pe\",\"password\":\"Segura123\"}", conClaveDePlataforma()), Map.class);
-        assertThat(login.getStatusCode()).isEqualTo(HttpStatus.OK);
-        Map<?, ?> sesion = (Map<?, ?>) login.getBody().get("datos");
+        Map<String, Object> sesion = SesionAdminDePrueba.entrar(http, "ana@khipu.pe", "Segura123");
         String token = (String) sesion.get("access_token");
         String administradorId = (String) ((Map<?, ?>) sesion.get("administrador")).get("id");
 
@@ -84,10 +81,11 @@ class AuditoriaAdminE2ETest {
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
         List<Map<String, Object>> filas = bitacora();
-        assertThat(filas).extracting(f -> f.get("accion")).containsExactly("CREAR_ADMINISTRADOR", "CREAR_TENANT");
+        // El primer login configura el segundo factor (#177) y también queda en la bitácora.
+        assertThat(filas).extracting(f -> f.get("accion")).containsExactly("CREAR_ADMINISTRADOR", "CONFIGURAR_SEGUNDO_FACTOR", "CREAR_TENANT");
         assertThat(filas.get(0).get("actor_tipo")).isEqualTo("CLAVE_PLATAFORMA");
-        assertThat(filas.get(1).get("actor_tipo")).isEqualTo("ADMINISTRADOR");
-        assertThat(filas.get(1).get("administrador_id").toString()).isEqualTo(administradorId);
+        assertThat(filas.get(2).get("actor_tipo")).isEqualTo("ADMINISTRADOR");
+        assertThat(filas.get(2).get("administrador_id").toString()).isEqualTo(administradorId);
     }
 
     @Test void unaAccionRechazadaONoAutenticadaNoDejaRegistro() {

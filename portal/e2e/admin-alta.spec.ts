@@ -1,13 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { entrarComoAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
-
-async function entrarComoAdmin(page: Page) {
-  await page.goto("/admin/login");
-  await page.getByLabel("Correo electrónico").fill("admin@khipu.pe");
-  await page.getByLabel("Contraseña").fill("AdminPass1");
-  await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/admin$/);
-}
 
 async function abrirAlta(page: Page) {
   await page.goto("/admin/cuentas/nueva");

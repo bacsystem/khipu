@@ -10,10 +10,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AdminAuthFilterTest {
-    private static final AdministradorTokenEmisor SIN_TOKENS = new AdministradorTokenEmisor() {
-        public String emitir(Claims c) { throw new UnsupportedOperationException(); }
-        public Optional<Claims> verificar(String token) { return Optional.empty(); }
-    };
+    private static final AdministradorTokenEmisor SIN_TOKENS = new TokensDeAdminFalsos() {};
 
     @Test void claveCorrectaPasa() throws Exception {
         var req = new MockHttpServletRequest("POST", "/v1/admin/tenants"); req.addHeader("X-Platform-Key", "secreta");
@@ -68,18 +65,47 @@ class AdminAuthFilterTest {
         }
     }
 
-    @Test void loginDelBackofficeNoExigeCredencial() throws Exception {
-        var req = new MockHttpServletRequest("POST", "/v1/admin/auth/login");
+    /** El login y sus pasos del segundo factor (#177): el administrador todavía no tiene sesión; los protege el token de desafío. */
+    @Test void loginDelBackofficeYSuSegundoFactorNoExigenCredencial() throws Exception {
+        for (String uri : new String[]{"/v1/admin/auth/login", "/v1/admin/auth/segundo-factor/configurar",
+                "/v1/admin/auth/segundo-factor/confirmar", "/v1/admin/auth/segundo-factor/verificar"}) {
+            var req = new MockHttpServletRequest("POST", uri);
+            var chain = new MockFilterChain();
+            new AdminAuthFilter("secreta", SIN_TOKENS).doFilter(req, new MockHttpServletResponse(), chain);
+            assertThat(chain.getRequest()).as(uri).isNotNull();
+        }
+    }
+
+    /** Solo esas rutas exactas: un prefijo parecido no abre nada. */
+    @Test void otrasRutasDeAuthSiExigenCredencial() throws Exception {
+        for (String uri : new String[]{"/v1/admin/auth/segundo-factor", "/v1/admin/auth/segundo-factor/otra", "/v1/admin/auth/me",
+                "/v1/admin/auth/login/x", "/v1;x/admin/auth/segundo-factor/configurar/../../me"}) {
+            var req = new MockHttpServletRequest("POST", uri);
+            var res = new MockHttpServletResponse();
+            var chain = new MockFilterChain();
+            new AdminAuthFilter("secreta", SIN_TOKENS).doFilter(req, res, chain);
+            assertThat(chain.getRequest()).as(uri).isNull();
+            assertThat(res.getStatus()).as(uri).isEqualTo(401);
+        }
+    }
+
+    /** Con la contraseña sola se obtiene un desafío: llevarlo como Bearer no abre el backoffice. */
+    @Test void unTokenDeDesafioNoAutentica() throws Exception {
+        AdministradorTokenEmisor tokens = new TokensDeAdminFalsos() {
+            @Override public Optional<UUID> verificarDesafio(String token) { return Optional.of(UUID.randomUUID()); }
+        };
+        var req = new MockHttpServletRequest("GET", "/v1/admin/cuentas"); req.addHeader("Authorization", "Bearer desafio");
+        var res = new MockHttpServletResponse();
         var chain = new MockFilterChain();
-        new AdminAuthFilter("secreta", SIN_TOKENS).doFilter(req, new MockHttpServletResponse(), chain);
-        assertThat(chain.getRequest()).isNotNull();
+        new AdminAuthFilter("secreta", tokens).doFilter(req, res, chain);
+        assertThat(chain.getRequest()).isNull();
+        assertThat(res.getStatus()).isEqualTo(401);
     }
 
     @Test void jwtDeAdministradorValidoPasaYExponeElId() throws Exception {
         UUID id = UUID.randomUUID();
-        AdministradorTokenEmisor tokens = new AdministradorTokenEmisor() {
-            public String emitir(Claims c) { throw new UnsupportedOperationException(); }
-            public Optional<Claims> verificar(String token) { return "bueno".equals(token) ? Optional.of(new Claims(id, "a@b.pe")) : Optional.empty(); }
+        AdministradorTokenEmisor tokens = new TokensDeAdminFalsos() {
+            @Override public Optional<Claims> verificar(String token) { return "bueno".equals(token) ? Optional.of(new Claims(id, "a@b.pe")) : Optional.empty(); }
         };
         var req = new MockHttpServletRequest("GET", "/v1/admin/auth/me"); req.addHeader("Authorization", "Bearer bueno");
         var chain = new MockFilterChain();

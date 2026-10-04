@@ -93,8 +93,7 @@ class AdminCuentasE2ETest {
     @Test void unAdministradorConSesionTambienPuedeLeerlo() {
         clienteConEmpresa("ana@negocio.pe", "20100066603", "COMERCIAL ANDINA SAC");
         http.postForEntity("/v1/admin/administradores", new HttpEntity<>("{\"email\":\"admin@khipu.pe\",\"password\":\"Segura123\"}", conClaveDePlataforma()), Map.class);
-        ResponseEntity<Map> login = http.postForEntity("/v1/admin/auth/login", new HttpEntity<>("{\"email\":\"admin@khipu.pe\",\"password\":\"Segura123\"}", json()), Map.class);
-        String token = (String) ((Map<?, ?>) login.getBody().get("datos")).get("access_token");
+        String token = (String) SesionAdminDePrueba.entrar(http, "admin@khipu.pe", "Segura123").get("access_token");
 
         assertThat(listar(conBearer(token), "").getStatusCode()).isEqualTo(HttpStatus.OK);
     }

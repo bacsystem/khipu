@@ -26,6 +26,7 @@ import pe.factura.adapters.crypto.AesGcmSecretCipher;
 import pe.factura.adapters.crypto.BcryptPasswordHasher;
 import pe.factura.adapters.crypto.JwtAdministradorTokenEmisor;
 import pe.factura.adapters.crypto.JwtTokenEmisor;
+import pe.factura.adapters.crypto.TotpRfc6238;
 import pe.factura.adapters.mail.LogCorreoSender;
 import pe.factura.adapters.mail.SmtpCorreoSender;
 import pe.factura.adapters.persistence.*;
@@ -44,6 +45,7 @@ import pe.factura.adapters.sunat.SoapConsultaGateway;
 import pe.factura.adapters.scheduler.RecuperarCdrWorker;
 import pe.factura.adapters.sunat.XmlCdrParser;
 import pe.factura.adapters.pdf.FlyingSaucerPdfGenerator;
+import pe.factura.adapters.pdf.ZxingCodigoQr;
 import pe.factura.adapters.ubl.FreemarkerUblGenerator;
 import pe.factura.adapters.ubl.XmlEmisorFirmado;
 import pe.factura.adapters.ubl.JaxpXsdValidator;
@@ -73,6 +75,17 @@ public class AppConfig {
         if (esInvalido(p.masterKey()) || esInvalido(p.apiKeyPepper())) {
             throw new IllegalStateException("MASTER_KEY y API_KEY_PEPPER son obligatorios y no pueden ser '" + PLACEHOLDER + "'");
         }
+    }
+
+    /**
+     * Vida de la sesión del administrador (#177): entre 5 y 60 minutos. Ve los datos fiscales de todos los clientes, así que su sesión
+     * es siempre más corta que la del cliente (15 min renovables por 30 días); un valor fuera de rango aborta el arranque en vez de
+     * dejar pasar una sesión de un día por un cero de más.
+     */
+    static Duration vidaSesionAdmin(int minutos) {
+        if (minutos < 5 || minutos > 60)
+            throw new IllegalStateException("ADMIN_SESION_MINUTOS debe estar entre 5 y 60 (es " + minutos + ")");
+        return Duration.ofMinutes(minutos);
     }
 
     private static boolean esInvalido(String secreto) {
@@ -195,6 +208,7 @@ public class AppConfig {
     @Bean SesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
     @Bean AdministradorRepository administradorRepository(JdbcTemplate jdbc) { return new JdbcAdministradorRepository(jdbc); }
     @Bean AuditoriaAdminRepository auditoriaAdminRepository(JdbcTemplate jdbc) { return new JdbcAuditoriaAdminRepository(jdbc); }
+    @Bean SegundoFactorRepository segundoFactorRepository(JdbcTemplate jdbc) { return new JdbcSegundoFactorRepository(jdbc); }
     @Bean CuentasAdminRepository cuentasAdminRepository(JdbcTemplate jdbc) { return new JdbcCuentasAdminRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
@@ -249,7 +263,11 @@ public class AppConfig {
 
     @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }
     @Bean TokenEmisor tokenEmisor(AppProperties p) { return new JwtTokenEmisor(p.jwtSecret()); }
-    @Bean AdministradorTokenEmisor administradorTokenEmisor(AppProperties p) { return new JwtAdministradorTokenEmisor(p.jwtSecret()); }
+    @Bean AdministradorTokenEmisor administradorTokenEmisor(AppProperties p, @Value("${app.admin-sesion-minutos:30}") int minutos) {
+        return new JwtAdministradorTokenEmisor(p.jwtSecret(), vidaSesionAdmin(minutos));
+    }
+    @Bean SegundoFactor segundoFactor() { return new TotpRfc6238(); }
+    @Bean CodigoQr codigoQr() { return new ZxingCodigoQr(); }
     /** Sin app.mail.habilitado=true (MAIL_HABILITADO), los correos se escriben en el log en lugar de enviarse. */
     @Bean CorreoSender correoSender(AppProperties p, ObjectProvider<JavaMailSender> mailSenderProvider,
                                     @Value("${spring.mail.host:}") String mailHost) {
@@ -270,8 +288,10 @@ public class AppConfig {
         return new GestionarEmpresasService(t, cu, u);
     }
 
-    @Bean AutenticarAdministradorUseCase autenticarAdministrador(AdministradorRepository a, PasswordHasher h, AdministradorTokenEmisor te) {
-        return new AutenticarAdministradorService(a, h, te);
+    @Bean AutenticarAdministradorUseCase autenticarAdministrador(AdministradorRepository a, PasswordHasher h, AdministradorTokenEmisor te,
+                                                              SegundoFactorRepository f, SegundoFactor totp, SecretCipher c, CodigoQr qr, UnitOfWork u,
+                                                              AuditoriaAdminRepository auditoria, Clock clock) {
+        return new AutenticarAdministradorService(a, h, te, f, totp, c, qr, u, auditoria, clock);
     }
     @Bean ListarCuentasAdminUseCase listarCuentasAdmin(CuentasAdminRepository cuentas) { return new ListarCuentasAdminService(cuentas); }
     @Bean CrearAdministradorUseCase crearAdministrador(AdministradorRepository a, PasswordHasher h, UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {

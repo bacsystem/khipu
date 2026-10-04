@@ -27,8 +27,15 @@ final class RutaRequest {
 
     static boolean esAdmin(String ruta) { return ruta.equals("/v1/admin") || ruta.startsWith("/v1/admin/"); }
 
-    /** Dentro de /v1/admin/**, el login del backoffice: el administrador aún no tiene JWT ni X-Platform-Key. */
-    static boolean esAdminAuthPublica(String ruta) { return ruta.equals("/v1/admin/auth/login"); }
+    /**
+     * Dentro de /v1/admin/**, el login del backoffice y sus pasos del segundo factor (#177): el administrador aún no tiene JWT ni
+     * X-Platform-Key. Los pasos del segundo factor exigen el desafío que solo da la contraseña.
+     */
+    private static final java.util.Set<String> ADMIN_AUTH_PUBLICA = java.util.Set.of(
+            "/v1/admin/auth/login", "/v1/admin/auth/segundo-factor/configurar", "/v1/admin/auth/segundo-factor/confirmar",
+            "/v1/admin/auth/segundo-factor/verificar");
+
+    static boolean esAdminAuthPublica(String ruta) { return ADMIN_AUTH_PUBLICA.contains(ruta); }
 
     static boolean esApiV1(String ruta) { return ruta.equals("/v1") || ruta.startsWith("/v1/"); }
 

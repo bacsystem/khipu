@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 import { diasEntre, hoyLima } from "@/lib/formato";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
-import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, resetDb, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
+import { db, fakeJwt, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -18,6 +18,29 @@ function claimsAdmin(req: Request): { sub: string } | null {
     return null;
   }
 }
+
+/** El desafío del login (#177): solo vale con `tipo=plataforma-desafio`, nunca un token de sesión ni de cliente. */
+function delDesafio(desafio: string) {
+  try {
+    const payload = JSON.parse(atob(desafio.split(".")[1]));
+    if (payload.tipo !== "plataforma-desafio") return null;
+    return db.administradoresPorEmail.get(payload.email) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function sesionAdmin(administrador: Administrador) {
+  const access_token = fakeJwt({ sub: administrador.id, tipo: "plataforma", email: administrador.email, exp: Math.floor(Date.now() / 1000) + 1800 });
+  return { access_token, expira_en: 1800, administrador };
+}
+
+const SECRETO_TOTP_MOCK = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
+const PNG_1X1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+const CODIGOS_RECUPERACION_MOCK = [
+  "ABCDE-FGHJK", "LMNPQ-RSTUV", "WXYZ2-34567", "89ABC-DEFGH", "JKLMN-PQRST",
+  "UVWXY-Z2345", "6789A-BCDEF", "GHJKL-MNPQR", "STUVW-XYZ23", "45678-9ABCD",
+];
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8001";
@@ -200,19 +223,47 @@ export const handlers = [
     return ok(registro.usuario);
   }),
 
+  /**
+   * Login del backoffice en dos pasos, como el backend (#177): la contraseña da un desafío; la sesión, el segundo factor. El mock no
+   * guarda estado del 2FA (los e2e corren en paralelo contra el mismo servidor): `123456` es el código correcto de la app,
+   * `ABCDE-FGHJK` uno de recuperación y `999999` simula el bloqueo por demasiados intentos. El anti-reuso y el bloqueo reales los
+   * prueba el backend.
+   */
   http.post(`${BASE}/v1/admin/auth/login`, async ({ request }) => {
     const body = (await request.json()) as { email: string; password: string };
     const registro = db.administradoresPorEmail.get(body.email);
     if (!registro || registro.password !== body.password) {
       return fail(401, "CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos");
     }
-    const access_token = fakeJwt({
-      sub: registro.administrador.id,
-      tipo: "plataforma",
-      email: registro.administrador.email,
-      exp: Math.floor(Date.now() / 1000) + 1800,
-    });
-    return ok({ access_token, administrador: registro.administrador });
+    const desafio = fakeJwt({ sub: registro.administrador.id, tipo: "plataforma-desafio", email: registro.administrador.email });
+    return ok({ desafio, paso: registro.segundoFactor ? "VERIFICAR_SEGUNDO_FACTOR" : "CONFIGURAR_SEGUNDO_FACTOR" });
+  }),
+
+  http.post(`${BASE}/v1/admin/auth/segundo-factor/configurar`, async ({ request }) => {
+    const registro = delDesafio(((await request.json()) as { desafio: string }).desafio);
+    if (!registro) return fail(401, "SESION_INVALIDA", "El inicio de sesión venció o no es válido");
+    if (registro.segundoFactor) return fail(409, "SEGUNDO_FACTOR_YA_CONFIGURADO", "El segundo factor ya está configurado");
+    return ok({ secreto: SECRETO_TOTP_MOCK, uri: `otpauth://totp/khipu:${encodeURIComponent(registro.administrador.email)}?secret=${SECRETO_TOTP_MOCK}`, qr_png: PNG_1X1 });
+  }),
+
+  http.post(`${BASE}/v1/admin/auth/segundo-factor/confirmar`, async ({ request }) => {
+    const body = (await request.json()) as { desafio: string; codigo: string };
+    const registro = delDesafio(body.desafio);
+    if (!registro) return fail(401, "SESION_INVALIDA", "El inicio de sesión venció o no es válido");
+    if (registro.segundoFactor) return fail(409, "SEGUNDO_FACTOR_YA_CONFIGURADO", "El segundo factor ya está configurado");
+    if (body.codigo !== "123456") return fail(401, "CODIGO_INVALIDO", "El código no es válido");
+    return ok({ ...sesionAdmin(registro.administrador), codigos_recuperacion: CODIGOS_RECUPERACION_MOCK });
+  }),
+
+  http.post(`${BASE}/v1/admin/auth/segundo-factor/verificar`, async ({ request }) => {
+    const body = (await request.json()) as { desafio: string; codigo: string };
+    const registro = delDesafio(body.desafio);
+    if (!registro) return fail(401, "SESION_INVALIDA", "El inicio de sesión venció o no es válido");
+    if (!registro.segundoFactor) return fail(409, "SEGUNDO_FACTOR_NO_CONFIGURADO", "El segundo factor no está configurado");
+    if (body.codigo === "999999") return fail(429, "DEMASIADOS_INTENTOS", "Demasiados códigos incorrectos");
+    const codigo = body.codigo.replace(/[\s-]/g, "").toUpperCase();
+    if (codigo !== "123456" && codigo !== "ABCDEFGHJK") return fail(401, "CODIGO_INVALIDO", "El código no es válido");
+    return ok(sesionAdmin(registro.administrador));
   }),
 
   http.get(`${BASE}/v1/admin/auth/me`, ({ request }) => {
