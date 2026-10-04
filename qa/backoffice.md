@@ -828,6 +828,49 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
   existe (borrar al administrador, que arrastra su 2FA en cascada, y crearlo de nuevo) y avisa que una sesión ya emitida no se revoca.
 - Los administradores que ya existen configuran el 2FA en su próximo login.
 
+## #214 · La búsqueda de cuentas ignora tildes
+
+**Estado: 🔧 implementado, 7/7 mutaciones verificadas — falta la revisión de la PR.** Seguimiento de #180.
+
+`GET /v1/admin/cuentas?q=libreria` no encontraba «Librería El Saber»: `ILIKE` ignora mayúsculas pero no tildes.
+
+### Diseño
+
+- **`translate()` y no `unaccent`.** `translate` es del núcleo de Postgres: funciona igual en el compose, en Testcontainers y en cualquier proveedor, sin
+  migración ni extensión (el issue dejaba abierto si el proveedor de producción ofrece `unaccent`; así deja de importar). Se aplica a la columna y al texto
+  buscado, así que la regla vale en los dos sentidos. Solo en el nombre de la cuenta y la razón social: el correo y el RUC no llevan tildes.
+- **La tabla incluye mayúsculas** (`Í` → `I`): no se depende de que el `LC_CTYPE` de la base sepa pasar `Í` a minúscula para el `ILIKE`.
+- **La `ñ` se distingue de la `n`** (decisión del issue): «peña» y «pena» son palabras distintas, y en un teclado en español —también el del móvil— la `ñ` no
+  cuesta. Documentado en la descripción OpenAPI del endpoint.
+- **El texto buscado se normaliza a NFC**: una tilde que llega como `i` + acento combinado cuenta igual que `í`.
+- Lo ya resuelto no cambia: sin distinguir mayúsculas, RUC por prefijo, comodines literales, `X-Total-Count`. Rendimiento igual que antes (`ILIKE '%…%'` ya no
+  usaba índice); si el volumen crece, `pg_trgm`, como dice #180.
+- El mock del portal aplica la misma regla (sin tildes salvo la `ñ`).
+- No hay otros buscadores con `ILIKE` en el backend: es el único.
+
+### Tests
+
+- Persistencia (`JdbcCuentasAdminRepositoryTest` +4, Postgres): tildes en los dos sentidos y en mayúsculas en el nombre; razón social con tilde y diéresis;
+  acento grave; `ñ` distinta de `n`; tilde combinada. Los 13 tests anteriores (mayúsculas, RUC por prefijo, comodines, total) siguen pasando sin cambios.
+- E2E portal (`admin-cuentas.spec.ts` +1): «panadería sol sac» encuentra `PANADERIA SOL SAC`, que sin la regla no coincide ni por nombre ni por razón social.
+
+### Verificación por mutación — 7/7 mueren
+
+| Mutación | Qué muere |
+|---|---|
+| El nombre sin normalizar | 3 |
+| La razón social sin normalizar | `tambienEnLaRazonSocial…` |
+| El texto buscado sin normalizar (falla el sentido «librería» → «Libreria») | 3 |
+| Sin NFC | `unaTildeEscritaComoAcentoCombinado…` |
+| La `ñ` se vuelve `n` | `laEnieNoSeConfundeConLaEne` |
+| La tabla solo con minúsculas | 2 |
+| Mock: la razón social sin normalizar | el e2e nuevo |
+
+### Límites conocidos
+
+- Solo vocales con tilde, diéresis, acento grave o circunflejo: otras letras con marca (ç, å) no se normalizan. No aparecen en nombres peruanos ni en razones
+  sociales de SUNAT.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
