@@ -1643,6 +1643,103 @@ código 1 (todo «moría» sin haber corrido nada: el script ahora lo marca como
   desde el backoffice, sería otra acción, con su propio issue.
 - **El mock del portal no guarda estado ni bitácora** (las specs comparten el mock en paralelo y la bitácora de «Panadería Sol» se cuenta): que el envío quede registrado lo prueba `SoporteDeAccesoE2ETest`.
 
+## #201 · Baja lógica de un cliente conservando sus comprobantes
+
+**Estado: 🔧 implementado, 83/83 mutaciones verificadas — falta la revisión de la PR.** Para el cliente que se fue: sale de los listados operativos y del cobro, **sin borrar nada**.
+
+`POST /v1/admin/cuentas/{id}/baja` y `/reponer`, y un filtro explícito `bajas` en los listados de cuentas y de empresas. Distinto de suspender (#182): la suspensión corta el servicio de quien no paga y se revierte
+a diario; la baja es una marca administrativa, con fecha, sobre la cuenta.
+
+### Diseño
+
+- **Una marca con fecha, nada más.** `cuenta.baja_en` (V36; nulo = en servicio). No se toca `tenant`, `documento`, `comprobante`, `api_key`, `usuario` ni `sesion`: los comprobantes, XML y CDR se conservan (la retención
+  es una obligación legal del emisor) y **el RUC sigue ocupado**, porque la empresa sigue ahí y la restricción de unicidad de la base sigue impidiendo registrarlo otra vez (lo prueba el E2E por las tres vías: portal,
+  `POST /v1/admin/tenants` y el alta asistida).
+- **Independiente de la suspensión.** Dos columnas, dos acciones: reponer no reactiva una cuenta suspendida y reactivar no repone una de baja. El estado que se muestra es `BAJA > SUSPENDIDA > ACTIVA` (la baja
+  manda), pero las dos fechas se informan siempre.
+- **No corta el acceso.** Decisión consciente: el issue pide sacar al cliente de los listados y del cobro, no cortarle el servicio, y cortarlo es lo que ya hace suspender. El diálogo lo dice sin rodeos («No corta el
+  acceso… Para cortar el servicio, suspende la cuenta») y el E2E lo fija con un test para que nadie lo cambie sin darse cuenta.
+- **Visibilidad explícita, una sola regla.** `bajas = OCULTAS | INCLUIDAS | SOLO`, por defecto `OCULTAS`, en `GET /v1/admin/cuentas` y `GET /v1/admin/empresas`. La regla vive en un solo sitio
+  (`BajasEnListado`) y la usan los dos listados, así dicen lo mismo; vale igual para la página y para el total (`X-Total-Count`), y se combina con «y» con la búsqueda y los demás filtros. Un valor que no existe es
+  `400`. Una empresa sin cuenta (de integración) nunca está de baja: se ve por defecto y no sale con `SOLO`.
+- **El detalle no filtra:** una cuenta o una empresa de baja se abre igual, con todo lo suyo (sus comprobantes siguen consultables); el detalle dice `BAJA` y desde cuándo.
+- **Cambio atómico y bitácora en la misma transacción**, como #182: `UPDATE … WHERE baja_en IS NULL` (y `IS NOT NULL` para reponer) devuelve cuántas filas cambió; de dos pedidos a la vez solo uno lo logra y el otro
+  recibe `409 CUENTA_YA_DE_BAJA` / `CUENTA_NO_DE_BAJA`. `DAR_DE_BAJA_CUENTA` lleva el motivo (opcional, 200 caracteres, recortado; más es `422 MOTIVO_INVALIDO`); `REPONER_CUENTA`, no.
+- **Portal:** en el detalle de la cuenta, **Dar de baja** (con confirmación que dice qué se conserva, que el RUC sigue ocupado y que NO corta el acceso) junto a Suspender; una cuenta de baja solo ofrece **Reponer**
+  (suspenderla no tiene sentido mientras el cliente no está en servicio). En los dos listados, un selector «Cuentas dadas de baja» (Ocultar / Incluir / Solo las dadas de baja) cuya elección vive en la URL, vuelve a
+  la página 1 y se conserva al buscar, paginar y cambiar las filas por página; la fila de una cuenta de baja dice «De baja» en neutro (no es una alarma) y la de una empresa lo dice junto a su cuenta.
+
+### Tests
+
+- Servicio (`DarDeBajaCuentaServiceTest`, 13): marca con la hora del servidor, reponer, nada se borra, la bitácora (acción, actor, motivo recortado, sin motivo, misma transacción, falla → falla la acción), conflictos
+  sin registro de bitácora, cuenta inexistente o nula, motivo demasiado largo y de exactamente el máximo.
+- Persistencia (`JdbcBajaDeCuentaRepositoryTest`, 10, Postgres real): el cambio atómico y condicional, no toca a otras cuentas, **independiente de la suspensión en los dos sentidos**, no borra la empresa y **el RUC
+  sigue ocupado** (`DuplicateKeyException`). `JdbcCuentasAdminRepositoryTest` (+6) y `JdbcEmpresasAdminRepositoryTest` (+6): oculta por defecto en la página y en el total, `INCLUIDAS`, `SOLO`, la fila dice desde cuándo,
+  se combina con la búsqueda y con los otros filtros, la empresa sin cuenta nunca está de baja y el detalle de una cuenta o empresa de baja se abre con sus comprobantes.
+- REST: `AdminBajaCuentaControllerTest` (9), `AdminCuentaControllerTest` (+7) y `AdminEmpresaControllerTest` (+5): actor, motivo y fecha, 409/404/422, sin credencial no se ejecuta nada, id mal formado es 400, `bajas` llega al
+  listado y al total, un valor inexistente es 400, la baja manda sobre la suspensión en el estado y las dos fechas se conservan.
+- **E2E real** (`BajaDeClienteE2ETest`, 11, Spring completo + Postgres + los filtros reales): una cuenta con dos empresas sale de los dos listados y del total, y aparece con `INCLUIDAS` y `SOLO`; reponer la devuelve;
+  **los comprobantes se conservan (ni una fila menos) y siguen consultables** por el administrador y por su dueño con la API key; **la baja no corta el acceso** y es independiente de la suspensión; **el RUC sigue ocupado**
+  por portal, por integración y por alta asistida; la bitácora (actor, motivo, cuenta); conflictos, 404, 400 y 422; y que nadie más puede darla de baja (sin credencial, JWT del dueño, API key, clave errónea).
+- Portal, Vitest: clientes (`admin-baja` 8, `admin-cuentas` +7, `admin-empresas` +4), BFF (`baja` 9 y `reponer` 5), `acciones-de-baja` (18: qué botón se ofrece, qué dice el diálogo, qué se envía y a qué ruta, doble clic,
+  Escape durante el envío, errores, 409 con recarga, corte de red), `cuentas-tabla` (+10) y `empresas-tabla` (+7).
+- Portal, Playwright (`admin-baja.spec.ts`, 18 + el ajuste de `admin-cuenta-detalle.spec.ts`): por defecto no salen y el total las descuenta; `SOLO`, `INCLUIDAS`, el selector cambia la URL sin perder lo elegido, la búsqueda no
+  encuentra una de baja salvo que se pida, un valor inventado se ignora; lo mismo en empresas, y la empresa de una cuenta de baja se abre; el detalle de una cuenta de baja dice desde cuándo y solo ofrece reponer; el diálogo;
+  cancelar no envía; y el BFF de punta a punta sin mutar (409 con su código, 400, 404, 422, 401).
+
+### Verificación por mutación — 83/83 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | Dar de baja dos veces / reponer una que no está de baja no es conflicto | 1 + 1 |
+| Servicio | La bitácora dice la acción contraria (x2) / el motivo pierde su prefijo / no se recorta / en blanco se guarda | 1 + 1 + 1 + 1 + 1 |
+| Servicio | El máximo del motivo se rechaza / reponer sin comprobar que exista / reponer devuelve una fecha | 1 + 1 + 1 |
+| Persistencia | Dar de baja o reponer sin condición / reponer también reactiva / la hora se ignora | 1 + 3 + 1 + 2 |
+| Listados | Ocultar no filtra cuentas / `SOLO` es lo contrario / `INCLUIDAS` filtra | 2 + 3 + 3 |
+| Listados | Lo mismo en empresas (ocultar, `SOLO`) / la subconsulta no une por cuenta | 2 + 3 + 3 |
+| Listados | El listado de cuentas o de empresas ignora la visibilidad / búsqueda y visibilidad con «o» | 3 + 4 + 9 |
+| Listados | El detalle o la fila no dicen la baja (cuentas y empresas) | 1 + 2 + 1 |
+| Puertos | El defecto es incluir (cuentas y empresas) | 7 + 6 |
+| REST | Dar de baja pierde el motivo / los conflictos no son 409 / el controlador ignora `bajas` (cuentas y empresas) | 1 + 2 + 3 + 2 |
+| REST | La baja no manda en el estado / la suspensión manda sobre la baja | 3 + 1 |
+| REST | El listado, el detalle, la empresa o la respuesta de la acción pierden la fecha | 2 + 1 + 1 + 2 |
+| Vitest (clientes) | `OCULTAS` como valor de la URL / dar de baja y reponer pegan a la ruta contraria / el motivo, el JWT o la IP no viajan | 1 + 1 + 1 + 1 + 2 + 2 |
+| Vitest (clientes) | Cuentas y empresas: no mandan `bajas` al backend / no lo ponen en la URL / no lo leen de la URL | 2 + 1 + 2 + 2 + 1 + 1 |
+| Vitest (BFF) | Baja: sin sesión / id cualquiera / motivo que no es texto / sin IP / sin `no-store` | 1 + 1 + 1 + 1 + 1 |
+| Vitest (BFF) | Reponer: sin sesión / id cualquiera / sin IP | 1 + 1 + 1 |
+| Vitest (componente) | Doble clic / motivo sin recortar / rutas cruzadas / un 409 sin recargar / corte de red como error común | 1 + 1 + 3 + 2 + 2 |
+| Vitest (componente) | Sin tope / reponer pide motivo / Escape cierra mientras envía / el motivo queda escrito / no recarga tras confirmar | 1 + 1 + 1 + 1 + 2 |
+| Vitest (componente) | Una cuenta de baja ofrece dar de baja / el mensaje de error se pierde | 5 + 3 |
+| Vitest (etiqueta y tablas) | «De baja» en rojo / el selector no vuelve a la página 1 (cuentas, empresas) / buscar pierde las bajas | 1 + 1 + 1 + 1 |
+| Vitest (tablas) | «Quitar filtros» ignora las bajas (cuentas, empresas) / las filas por página pierden las bajas (cuentas, empresas) / la empresa de una cuenta de baja no se marca | 1 + 1 + 1 + 1 + 1 |
+| Playwright | La cuenta de baja ofrece suspender / el detalle no dice desde cuándo / la acción recibe siempre «activa» / no ofrece dar de baja | 1 + 1 + 2 + 5 |
+
+Lo que sobrevivía en la primera tanda y se arregló con una prueba, no con código:
+
+- **Las filas por página perdían el filtro de bajas.** Cuentas y empresas conservaban `bajas` al buscar, filtrar y paginar, pero nadie comprobaba el selector de filas por página: cambiarlo habría dejado al administrador
+  mirando otro conjunto sin saberlo. Ahora hay un test en cada listado.
+
+Un tropiezo de herramienta que ya conocía: pasé a Vitest un filtro con corchetes escapados y no encontraba ningún test (todo «moría» sin correr nada). El script ya lo marca como inválido y esta tanda usó subcadenas simples.
+
+### Suites
+
+- Backend: `./gradlew test` completo sobre la rama, código de salida 0 (incluye `ArchitectureTest`, `BajaDeClienteE2ETest` y las migraciones hasta V36).
+- Portal: `tsc --noEmit` limpio · ESLint limpio · Vitest 514/514 · Playwright completo 214/214 (con 2 workers y nada más corriendo).
+- **Un fallo de la primera corrida completa, que no era de ningún test:** `:bootstrap:test` terminó en rojo con `OutOfMemoryError: Java heap space` y ninguna prueba fallida. Cada E2E de Spring levanta su propio Postgres y su
+  propio contexto, que Spring deja en caché toda la corrida; con los 512 MB que Gradle da por defecto a un worker de pruebas, el contexto número dieciséis (el de esta PR) agotaba el heap. Se subió a 1 GB en
+  `bootstrap/build.gradle.kts`: es un cambio de infraestructura de pruebas, no de comportamiento.
+
+### Límites conocidos
+
+- **«Del cálculo de consumo y cobro» todavía no tiene dónde aplicarse:** en el código no existe aún ningún cálculo de consumo ni de cobro (llegan con los planes, #189 y siguientes). La marca `cuenta.baja_en` es la
+  que esos cálculos deberán mirar; hasta entonces, la baja ya los deja fuera por diseño pero no hay nada que probar.
+- **La baja no corta el acceso del cliente** (ver Diseño): un cliente dado de baja puede seguir entrando y emitiendo hasta que se suspenda. Si se quisiera que la baja implicara el corte, se extiende `JwtFilter` y
+  `ApiKeyFilter` como en #182; no se hizo aquí porque no lo pide el issue.
+- **Las rutas del BFF y el diálogo se parecen mucho a los de suspender** (el motivo, la guardia del doble clic, el manejo de errores): son dos copias de ~150 líneas. Extraer un diálogo de confirmación común es un
+  seguimiento razonable, pero toca código de la PR de #182.
+- **El e2e de Playwright no muta:** dar de baja o reponer una cuenta cambia lo que cuentan las demás specs que corren a la vez contra el mismo mock (12 cuentas, 12 empresas); por eso «Cliente 13» está de baja de
+  siembra y las specs solo la leen. El ciclo completo, con la bitácora, lo prueba `BajaDeClienteE2ETest`, y el diálogo y sus estados, `acciones-de-baja`.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
