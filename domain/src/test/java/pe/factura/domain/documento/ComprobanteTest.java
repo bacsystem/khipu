@@ -127,6 +127,37 @@ class ComprobanteTest {
         assertThat(c.estado()).isEqualTo(EstadoDocumento.ENVIADO);
     }
 
+    @Test void unErrorDeEnvioSeDescartaYQuedaTerminalConSuMotivoEnLaHistoria() {
+        Comprobante c = firmado();
+        c.marcarErrorEnvio("0000 - SUNAT respondió HTTP 503");
+        c.eventosGuardados();
+
+        c.descartar("el cliente lo reemitió");
+
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.DESCARTADO);
+        assertThat(c.estado().esEnviable()).isFalse();
+        assertThat(c.intentos()).as("los intentos que hubo no se borran").isEqualTo(1);
+        assertThat(c.ultimoError()).as("el último fallo de SUNAT sigue a la vista").isEqualTo("0000 - SUNAT respondió HTTP 503");
+        assertThat(c.eventosPendientes()).extracting(EventoDocumento::estadoAnterior, EventoDocumento::estadoNuevo, EventoDocumento::detalle)
+                .containsExactly(tuple(EstadoDocumento.ERROR_ENVIO, EstadoDocumento.DESCARTADO, "Descartado por un administrador: el cliente lo reemitió"));
+        assertThatThrownBy(c::marcarEnviado).extracting("codigo").isEqualTo("TRANSICION_INVALIDA");
+    }
+
+    @Test void soloSeDescartaLoQueEstaEnErrorDeEnvio() {
+        Comprobante firmado = firmado();
+        assertThatThrownBy(() -> firmado.descartar("x")).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("ESTADO_NO_DESCARTABLE");
+        assertThat(firmado.estado()).isEqualTo(EstadoDocumento.FIRMADO);
+
+        Comprobante enviado = firmado();
+        enviado.marcarEnviado();
+        assertThatThrownBy(() -> enviado.descartar("x")).extracting("codigo").isEqualTo("ESTADO_NO_DESCARTABLE");
+
+        Comprobante rechazado = firmado();
+        rechazado.rechazarPorFault("1033", "ya registrado");
+        assertThatThrownBy(() -> rechazado.descartar("x")).extracting("codigo").isEqualTo("ESTADO_NO_DESCARTABLE");
+        assertThat(rechazado.estado()).isEqualTo(EstadoDocumento.RECHAZADO);
+    }
+
     @Test void faultDefinitivoRechaza() {
         Comprobante c = firmado();
         c.rechazarPorFault("2324", "registrado previamente");

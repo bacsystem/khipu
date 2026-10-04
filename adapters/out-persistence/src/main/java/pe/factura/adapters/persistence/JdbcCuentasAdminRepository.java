@@ -129,7 +129,7 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
      * {@code translate} es del núcleo de Postgres: no exige la extensión {@code unaccent}, que no todos los proveedores ofrecen. Se
      * aplica a la columna y al texto buscado, así la regla vale en los dos sentidos.
      */
-    private static final String SIN_TILDES = "translate(%s, '" + CON_TILDE + "', '" + SIN_TILDE + "')";
+    static final String SIN_TILDES = "translate(%s, '" + CON_TILDE + "', '" + SIN_TILDE + "')";
 
     /**
      * Correo y nombre por subcadena; RUC por prefijo (un fragmento interno de un RUC no identifica a nadie); razón social por

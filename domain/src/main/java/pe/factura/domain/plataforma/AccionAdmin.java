@@ -46,5 +46,9 @@ public enum AccionAdmin {
     /** Cambia el plan de una cuenta (#191). El detalle dice de cuál a cuál, si sube, baja o renueva, cuándo entra y con qué vencimiento y gracia; la cuenta va en `cuenta_id`. */
     CAMBIAR_PLAN,
     /** Registra a mano un pago de una cuenta y, si se pidió, extiende el vencimiento de su suscripción (#194). El detalle dice el periodo, el monto, el medio y el nuevo vencimiento; la cuenta va en `cuenta_id`. */
-    REGISTRAR_PAGO
+    REGISTRAR_PAGO,
+    /** Reintenta a mano el envío de un comprobante en error (#196). El detalle dice el comprobante y cómo terminó el intento (su nuevo estado o por qué no se pudo); la empresa va en `tenant_id`. */
+    REINTENTAR_ENVIO_COMPROBANTE,
+    /** Descarta un comprobante en error de envío: deja de intentarse y queda terminal (#196). El detalle dice el comprobante y el motivo del administrador; la empresa va en `tenant_id`. */
+    DESCARTAR_COMPROBANTE
 }

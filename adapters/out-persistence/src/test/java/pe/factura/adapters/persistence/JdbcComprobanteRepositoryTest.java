@@ -494,6 +494,81 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
     }
 
+    /** Una copia rehidratada con el estado y el fallo que se le diga, como la leería otra transacción. */
+    private Comprobante copia(Comprobante c, UUID t, EstadoDocumento estado) {
+        return Comprobante.persistido(c.id(), t, TipoDocumento.FACTURA, "F001", c.numero(), LocalDate.of(2026, 9, 13), estado, c.receptor(), c.items()).horaEmision(c.horaEmision())
+                .firma("h", c.nombreArchivo(), "k").envio(2, "0109 - timeout").rehidratar();
+    }
+
+    private Comprobante enErrorDeEnvio(UUID t, long numero) {
+        Comprobante c = factura(t, numero);
+        c.firmar("h", "k");
+        repo.guardar(c);                                   // el primer guardado inserta; los condicionales (error de envío) solo actualizan
+        c.marcarErrorEnvio("0109 - timeout");
+        repo.guardar(c);
+        return c;
+    }
+
+    @Test void descartarGuardaElEstadoTerminalConSuHistoriaYConservaElFallo() {
+        UUID t = tenantDePrueba();
+        Comprobante c = enErrorDeEnvio(t, 20);
+
+        c.descartar("el cliente lo reemitió");
+        repo.guardar(c);
+
+        Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(leido.estado()).isEqualTo(EstadoDocumento.DESCARTADO);
+        assertThat(leido.ultimoError()).isEqualTo("0109 - timeout");
+        assertThat(leido.intentos()).isEqualTo(1);
+        List<EventoDocumento> eventos = repo.eventosDe(t, c.id());
+        assertThat(eventos).extracting(EventoDocumento::estadoNuevo).containsExactly(EstadoDocumento.FIRMADO, EstadoDocumento.ERROR_ENVIO, EstadoDocumento.DESCARTADO);
+        assertThat(eventos.get(2).detalle()).isEqualTo("Descartado por un administrador: el cliente lo reemitió");
+    }
+
+    /** El descarte lo decide un administrador sobre lo que vio: si en el medio el envío se resolvió, no se pisa. */
+    @Test void descartarNoPisaLoQueUnEnvioEnParaleloResolvio() {
+        UUID t = tenantDePrueba();
+        Comprobante c = enErrorDeEnvio(t, 21);
+        Comprobante vista = copia(c, t, EstadoDocumento.ERROR_ENVIO);
+        c.marcarEnviado();
+        c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "k/cdr.zip");
+        repo.guardar(c);
+
+        vista.descartar("ya no se envía");
+
+        assertThatThrownBy(() -> repo.guardar(vista)).isInstanceOf(pe.factura.domain.DomainException.class).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(repo.eventosDe(t, c.id())).extracting(EventoDocumento::estadoNuevo).doesNotContain(EstadoDocumento.DESCARTADO);
+    }
+
+    @Test void descartarSoloEsPosibleDesdeErrorDeEnvioEnLaBase() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 22);
+        c.firmar("h", "k");
+        repo.guardar(c);                                   // en la base sigue FIRMADO
+        Comprobante vista = copia(c, t, EstadoDocumento.ERROR_ENVIO);
+        vista.descartar("x");
+
+        assertThatThrownBy(() -> repo.guardar(vista)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FIRMADO);
+    }
+
+    @Test void unEnvioTardioNoPisaUnDescarte() {
+        UUID t = tenantDePrueba();
+        Comprobante c = enErrorDeEnvio(t, 23);
+        Comprobante tardio = copia(c, t, EstadoDocumento.ERROR_ENVIO);
+        c.descartar("x");
+        repo.guardar(c);
+
+        tardio.marcarEnviado();
+        assertThatThrownBy(() -> repo.guardar(tardio)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        Comprobante otro = copia(c, t, EstadoDocumento.ERROR_ENVIO);
+        otro.marcarErrorEnvio("0109 - otra vez");
+        assertThatThrownBy(() -> repo.guardar(otro)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.DESCARTADO);
+    }
+
     @Test void errorEnvioSobreFirmadoOErrorEnvioSiSeGuarda() {
         UUID t = tenantDePrueba();
         Comprobante c = factura(t, 11);

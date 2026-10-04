@@ -102,6 +102,7 @@ final class Fakes {
         public List<OutboxItem> tomarVencidas(int l, Duration d) { return List.of(); }
         public void reprogramar(UUID id, Instant c, String e) {}
         public void completar(UUID id) {}
+        public void completarPorAgregado(UUID agregadoId, String accion) { filas.removeIf(f -> f.agregadoId().equals(agregadoId) && f.accion().equals(accion)); }
     }
     static final class Gateway implements SunatBillingGateway {
         RuntimeException falla; byte[] respuesta = "cdr".getBytes(); String ultimoNombre; int enviados;

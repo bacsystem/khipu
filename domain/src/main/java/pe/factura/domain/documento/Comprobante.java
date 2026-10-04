@@ -353,6 +353,16 @@ public class Comprobante {
         this.intentos++; this.ultimoError = motivo;
     }
 
+    /**
+     * Un administrador deja de intentar un envío que falla (#196). Solo desde {@link EstadoDocumento#ERROR_ENVIO}: lo que SUNAT ya resolvió, lo que está en camino y lo
+     * que ya es terminal no se descarta. No borra los intentos ni el último fallo: es lo que explica por qué se descartó.
+     */
+    public void descartar(String motivo) {
+        if (estado != EstadoDocumento.ERROR_ENVIO)
+            throw new DomainException("ESTADO_NO_DESCARTABLE", "Solo se descarta un comprobante en error de envío; este está " + estado);
+        transitar(EstadoDocumento.DESCARTADO, "Descartado por un administrador: " + motivo);
+    }
+
     /** SUNAT aceptó la comunicación de baja que lo incluye: el número queda consumido y el comprobante deja de ser válido. */
     public void anular() { transitar(EstadoDocumento.ANULADO, "Comunicación de baja aceptada por SUNAT"); }
 
