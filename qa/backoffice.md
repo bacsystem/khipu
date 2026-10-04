@@ -976,6 +976,71 @@ servicio y solo la mataba el e2e de 8 hilos (`FacturaIdempotenciaE2ETest`, que n
 - Solo facturas. Las notas de crédito y débito (`POST /v1/notas`) siguen sin clave: el mecanismo es el mismo y queda como seguimiento.
 - La huella es del pedido interpretado: dos JSON con los mismos datos pero un campo desconocido distinto (que se ignora) son el mismo pedido.
 
+## #219 · Idempotencia del alta asistida
+
+**Estado: 🔧 implementado, 21/21 mutaciones verificadas — falta la revisión de la PR.** Seguimiento de la revisión de #216 (#188). Usa el mecanismo de #115.
+
+El alta devuelve la API key inicial solo en su respuesta (se guarda el hash). Si la respuesta se perdía, el reintento recibía `409 DUPLICADO` y la
+key no se recuperaba.
+
+### Diseño
+
+- **`Idempotency-Key`** en `POST /v1/admin/cuentas`, con la misma validación y huella que la emisión: `ClaveDeIdempotencia` (in-rest) las comparten los dos
+  controladores y `Idempotencia` pasó a ser un tipo propio de `port.in`.
+- **El reintento se reconoce antes de validar** (`buscar`): si no, el correo ya registrado lo volvería un `409 DUPLICADO`.
+- **La reserva va al inicio de la transacción del alta**: dos altas simultáneas con la misma clave pasan las dos la búsqueda previa, y la reserva de la
+  segunda espera a la primera y devuelve su respuesta sin escribir nada.
+- **La respuesta se guarda cifrada con `MASTER_KEY`** (columna `respuesta_cifrada`, `V30`), en la misma transacción que el alta y actualizada después de
+  enviar la invitación, así el reintento muestra lo mismo que vio el administrador (`invitacion_enviada` incluido). Formato: campos separados por `\u001f`,
+  que ningún campo puede contener.
+- **Ventana de una hora para la respuesta**: `LimpiarIdempotenciaService` la borra a la hora (`olvidarRespuestasAnterioresA`) y la clave sigue 24 h. Un
+  reintento tardío se reconoce y responde **`409 IDEMPOTENCIA_VENCIDA`** («el cliente puede crear otra API key desde su portal») en vez de un `DUPLICADO`
+  confuso.
+- La misma clave con otro pedido: `422 IDEMPOTENCIA_INVALIDA`. Alcance único `alta-cuenta` (las altas no son de ninguna empresa).
+- **Portal**: el formulario manda la clave por intento (`intentoPara`) y la estrena al «dar de alta a otro cliente»; ante un corte, el aviso invita a reenviar sin
+  cambiar nada. El BFF reenvía la clave.
+
+### Tests
+
+- Servicio (`AltaAsistidaServiceTest` +9): reintento con la misma API key sin crear, invitar ni auditar otra vez; respuesta cifrada; reserva y guardado en la
+  transacción; el reintento conserva `invitacion_enviada` (enviada y no enviada); otra huella 422; respuesta olvidada 409; **reserva que encuentra un alta
+  simultánea**; sin clave sigue siendo `DUPLICADO`.
+- Persistencia (`JdbcIdempotenciaRepositoryTest` +2): `buscar` no reserva y devuelve la respuesta; olvidar las viejas conserva la clave.
+  `LimpiarIdempotenciaServiceTest` +1: una hora para las respuestas.
+- REST (`AdminAltaAsistidaControllerTest` +3): 201 nueva / 200 repetida con la misma key, clave mal formada 422, 409 vencida.
+- E2E backend (`AltaAsistidaE2ETest` +5): reintento con la misma key **que funciona** contra `/v1/series`, respuesta cifrada en la base, otra alta con la
+  misma clave 422, pasada la hora 409 sin crear nada, **4 altas simultáneas → 1 cuenta** (1×201, 3×200).
+- Portal: formulario (+3: el corte invita a reenviar, misma clave al reenviar y otra si cambia, otra al «dar de alta a otro cliente»), BFF (+1), e2e (+1:
+  **el alta se hace, la respuesta se corta, el reenvío muestra la misma API key**).
+
+### Verificación por mutación — 21/21 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | Sin reconocer el reintento antes de validar | 4 |
+| Servicio | Sin consultar la reserva en la transacción | `siLaReservaEncuentraUnAltaSimultanea…` (sobrevivía; se agregó ese test) |
+| Servicio | Sin comparar la huella / respuesta olvidada tratada como repetida | 1 y 1 |
+| Servicio | Respuesta en claro | 4 |
+| Servicio | No se guarda la respuesta en la transacción / no se actualiza tras la invitación | 2 y 2 |
+| Servicio | El reintento se marca como nuevo | 1 |
+| Persistencia | `buscar` sin el alcance / `completar` no guarda la respuesta / olvidar borra todas | 1, 2 y 1 |
+| Persistencia | Reservar ignorando si la clave ya existía | 4 |
+| Persistencia | Reservar leyendo antes de insertar (sin la espera del `INSERT`) | el de concurrencia |
+| Limpieza | Respuestas de 24 h / la limpieza no olvida | 1 y 2 |
+| REST | Repetida con 201 / `IDEMPOTENCIA_VENCIDA` sin 409 | 1 y 1 |
+| Portal | El BFF no reenvía la clave / otro cliente reusa la clave / el corte no invita a reenviar | 1 cada una |
+
+**Corrección sobre #115.** Dos mutaciones de persistencia de su tabla murieron la primera vez por SQL inválido, no por los tests: la de #115 que «leía
+antes de insertar» usaba un parámetro sin tipo, y una de esta tanda tenía paréntesis desbalanceados. Se rehicieron con cambios válidos (las dos filas de
+«Reservar…» de arriba, sobre el mismo código que trae #115) y mueren por la razón correcta. El script de mutaciones ya marca «no compila», pero un SQL
+inválido solo se ve leyendo el motivo del fallo.
+
+### Límites conocidos
+
+- Pasada la hora, la API key del alta no se recupera: es el precio de no guardarla más tiempo. El cliente crea otra desde su portal (o un administrador, cuando
+  exista #187).
+- La respuesta guardada es la del momento del alta: si después cambian la razón social o la serie, el reintento muestra los datos de entonces.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
