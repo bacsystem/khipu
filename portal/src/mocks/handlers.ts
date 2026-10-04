@@ -107,13 +107,13 @@ function jsonInvalido() {
   return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
 }
 
-function claims(req: Request): { sub: string; cuenta: string } | null {
+function claims(req: Request): { sub: string; cuenta: string; imp?: string; exp?: number; ue?: string; cx?: string } | null {
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return null;
   const token = auth.slice("Bearer ".length);
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    return { sub: payload.sub, cuenta: payload.cuenta };
+    return { sub: payload.sub, cuenta: payload.cuenta, imp: payload.imp, exp: payload.exp, ue: payload.ue, cx: payload.cx };
   } catch {
     return null;
   }
@@ -304,7 +304,19 @@ export const handlers = [
     if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");
     const registro = [...db.usuariosPorEmail.values()].find((r) => r.usuario.id === c.sub);
     if (!registro) return fail(404, "NO_ENCONTRADO", "Usuario no encontrado");
-    return ok(registro.usuario);
+    // Una sesión de soporte (#184) lo dice en /me, con hasta cuándo vale; nunca qué administrador la abrió.
+    // Solo del mock: el mundo de clientes es otro, así que el token de soporte lleva el correo y la cuenta (del backoffice) del usuario al que se mira, para que el
+    // aviso diga a quién y el enlace de salida lleve a la cuenta correcta. El backend real devuelve el usuario y la cuenta reales.
+    return ok(c.imp && c.exp ? { ...registro.usuario, email: c.ue ?? registro.usuario.email, cuenta_id: c.cx ?? registro.usuario.cuenta_id, soporte_hasta: new Date(c.exp * 1000).toISOString() } : registro.usuario);
+  }),
+
+  /** Los accesos de soporte a la cuenta del cliente (#184): uno completo y uno cuyo registro el backend no entiende (solo la fecha). Sin el administrador. */
+  http.get(`${BASE}/v1/cuenta/accesos-de-soporte`, ({ request }) => {
+    if (!claims(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    return ok([
+      { ocurrido_en: "2026-10-02T15:00:00Z", usuario: "demo@example.com", duracion_segundos: 900 },
+      { ocurrido_en: "2026-09-20T09:30:00Z" },
+    ]);
   }),
 
   /**
@@ -542,6 +554,26 @@ export const handlers = [
    * **Los cambios que sí proceden no se guardan**: cambiar el entorno o revocar una key altera lo que cuentan las demás specs que corren a la vez contra
    * este mock (los filtros por entorno, las keys del detalle); que lo hagan de verdad lo prueba `AccionesDeEmpresaE2ETest` y los componentes.
    */
+  /**
+   * Como el backend (#184): solo el administrador; un id que no es UUID es 400; el usuario se busca DENTRO de la cuenta de la ruta (404 si es de otra) y uno
+   * desactivado es 409 `USUARIO_INACTIVO`. Devuelve una sesión de soporte de 15 minutos. **El mock del cliente es otro mundo** (sus cuentas y usuarios no son los
+   * del backoffice), así que el token es el del cliente de demostración con la marca de soporte: lo que se comprueba aquí es el recorrido, no los datos.
+   */
+  http.post(`${BASE}/v1/admin/cuentas/:id/usuarios/:usuarioId/impersonar`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id)) || !esUuid(String(params.usuarioId))) return fail(400, "VALIDACION", "El identificador no es válido");
+    const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
+    const usuario = cuenta ? usuariosDeCuenta(cuenta).find((u) => u.id === params.usuarioId) : undefined;
+    if (!cuenta || !usuario) return fail(404, "NO_ENCONTRADO", "El usuario no existe en esta cuenta");
+    if (!usuario.activo) return fail(409, "USUARIO_INACTIVO", `El usuario ${usuario.email} está desactivado`);
+    const expira = Math.floor(Date.now() / 1000) + 15 * 60;
+    return ok({
+      access_token: fakeJwt({ sub: "u-demo", cuenta: "c-demo", rol: "ADMIN", imp: "admin-demo", exp: expira, ue: usuario.email, cx: cuenta.id }),
+      expira_en: new Date(expira * 1000).toISOString(),
+      usuario: { id: usuario.id, cuenta_id: cuenta.id, email: usuario.email, rol: usuario.rol, correo_verificado: Boolean(usuario.correo_verificado_en) },
+    });
+  }),
+
   http.post(`${BASE}/v1/admin/empresas/:id/entorno`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     if (!esUuid(String(params.id))) return parametroInvalido("id");

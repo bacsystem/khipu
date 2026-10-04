@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { refrescar } from "@/lib/api/auth";
 import { esCuentaSuspendida, RUTA_CUENTA_SUSPENDIDA } from "@/lib/api/cuenta-suspendida";
-import { accesoExpirado } from "@/lib/jwt";
+import { accesoExpirado, esSesionDeSoporte } from "@/lib/jwt";
 import { clearSession, readSession, writeTokens } from "@/lib/session";
 
 function redirigirALogin(req: NextRequest) {
@@ -12,7 +12,12 @@ function redirigirALogin(req: NextRequest) {
 
 export async function middleware(req: NextRequest) {
   const { access, refresh } = readSession(req);
-  if (!refresh) return redirigirALogin(req);
+  if (!refresh) {
+    // Una sesión de soporte (#184) no tiene refresh a propósito: vale mientras su access no venza y no se renueva. Cualquier otro access sin refresh no es
+    // una sesión. Lo que valga el token lo decide el backend: aquí solo se decide si se intenta.
+    if (access && esSesionDeSoporte(access) && !accesoExpirado(access)) return NextResponse.next();
+    return redirigirALogin(req);
+  }
   if (access && !accesoExpirado(access)) return NextResponse.next();
 
   try {
@@ -46,5 +51,6 @@ export const config = {
     "/establecimientos/:path*",
     "/series/:path*",
     "/api-keys/:path*",
+    "/cuenta/:path*",
   ],
 };

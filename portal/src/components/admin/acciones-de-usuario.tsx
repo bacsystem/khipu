@@ -1,8 +1,9 @@
 "use client";
 
-import { KeyRoundIcon, MailCheckIcon } from "lucide-react";
+import { EyeIcon, KeyRoundIcon, MailCheckIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { DestinatarioAdmin } from "@/lib/api/admin-acceso";
 import { apiRequest } from "@/lib/api/browser";
@@ -123,8 +124,35 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
 }
 
 /**
- * Las acciones de acceso que corresponden a un usuario: un usuario inactivo no recibe ninguna (el backend responde 409 `USUARIO_INACTIVO`) y
- * la verificación solo se ofrece a quien todavía no verificó su correo.
+ * Entrar al portal como este usuario (#184). La función más sensible del backoffice, y el diálogo lo dice: dura 15 minutos y no se renueva, **solo se puede
+ * mirar** (ni contraseña, ni credenciales SOL, ni API keys, ni emitir), queda en la bitácora a nombre del administrador y el cliente lo ve en su historial.
+ * También avisa que reemplaza la sesión de cliente que hubiera en este navegador. Al abrirse la sesión se navega al portal del cliente, donde un aviso
+ * permanente dice que se está actuando como él. `irA` es para las pruebas: por defecto navega de verdad.
+ */
+function Impersonar({ cuentaId, usuarioId, correo, irA }: { cuentaId: string; usuarioId: string; correo: string; irA: (url: string) => void }) {
+  const i = t.impersonar;
+  return (
+    <DialogoDeAccion
+      testId="impersonar-usuario"
+      boton={i.boton}
+      icono={EyeIcon}
+      chico
+      titulo={i.titulo}
+      descripcion={i.descripcion.replace("{correo}", correo)}
+      efectos={i.efectos}
+      advertencia
+      confirmar={i.confirmar}
+      enviando={i.enviando}
+      cancelar={t.restablecer.cancelar}
+      ruta={`/api/admin/cuentas/${cuentaId}/usuarios/${usuarioId}/impersonar`}
+      alExito={() => irA("/comprobantes")}
+    />
+  );
+}
+
+/**
+ * Las acciones que corresponden a un usuario: un usuario inactivo no recibe ninguna (el backend responde 409 `USUARIO_INACTIVO`), la verificación solo se
+ * ofrece a quien todavía no verificó su correo, y entrar como el usuario (#184) a cualquiera que esté activo.
  */
 export function AccionesDeUsuario({
   cuentaId,
@@ -132,18 +160,21 @@ export function AccionesDeUsuario({
   correo,
   activo,
   verificado,
+  irA = (url) => window.location.assign(url),
 }: {
   cuentaId: string;
   usuarioId: string;
   correo: string;
   activo: boolean;
   verificado: boolean;
+  irA?: (url: string) => void;
 }) {
   if (!activo) return null;
   return (
     <div className="flex flex-wrap justify-end gap-1.5">
       <AccionDeAcceso tipo="restablecer" cuentaId={cuentaId} usuarioId={usuarioId} correo={correo} />
       {verificado ? null : <AccionDeAcceso tipo="verificar" cuentaId={cuentaId} usuarioId={usuarioId} correo={correo} />}
+      <Impersonar cuentaId={cuentaId} usuarioId={usuarioId} correo={correo} irA={irA} />
     </div>
   );
 }

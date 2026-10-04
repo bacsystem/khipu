@@ -1,3 +1,4 @@
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/types";
 
@@ -27,6 +28,7 @@ function sesion(access: string | null = "jwt") {
 }
 
 afterEach(() => {
+  cleanup();
   redirect.mockClear();
   vi.mocked(getServerSession).mockReset();
   vi.mocked(me).mockReset();
@@ -85,5 +87,67 @@ describe("PrivadoLayout (#182)", () => {
 
     expect(arbol).toBeTruthy();
     expect(redirect).not.toHaveBeenCalled();
+  });
+});
+
+/** Una sesión de soporte (#184) lo dice arriba de todo, en cada página, y una sesión normal no dice nada. */
+describe("PrivadoLayout (#184)", () => {
+  it("con una sesión de soporte muestra el aviso permanente, como quién se mira y hasta cuándo", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue({ ...USUARIO, soporte_hasta: "2026-10-04T17:15:00Z" } as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+
+    render(await PrivadoLayout({ children: <p>contenido</p> }));
+
+    const aviso = screen.getByTestId("aviso-de-soporte");
+    expect(aviso.textContent).toContain("a@b.com");
+    expect(aviso.textContent).toContain("12:15");
+    expect(screen.getByText("contenido")).toBeTruthy();
+  });
+
+  it("el aviso va antes que el resto de la página", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue({ ...USUARIO, soporte_hasta: "2026-10-04T17:15:00Z" } as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+
+    render(await PrivadoLayout({ children: <p>contenido</p> }));
+
+    const aviso = screen.getByTestId("aviso-de-soporte");
+    const contenido = screen.getByText("contenido");
+    expect(aviso.compareDocumentPosition(contenido) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("una sesión normal no muestra ningún aviso", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue(USUARIO as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+
+    render(await PrivadoLayout({ children: <p>contenido</p> }));
+
+    expect(screen.queryByTestId("aviso-de-soporte")).toBeNull();
+    expect(screen.getByText("contenido")).toBeTruthy();
+  });
+});
+
+/** Un 401 al cargar el portal es una sesión muerta (p. ej. una sesión de soporte que venció entre el middleware y el render): al login, no a una página de error. */
+describe("PrivadoLayout (sesión vencida)", () => {
+  it("un 401 de cualquiera de las dos llamadas va al login", async () => {
+    sesion();
+    vi.mocked(me).mockRejectedValue(new ApiError(401, "NO_AUTORIZADO", "Token inválido o expirado"));
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+    await expect(PrivadoLayout({ children: null })).rejects.toThrow("REDIRECT:/login");
+
+    vi.mocked(me).mockResolvedValue(USUARIO as never);
+    vi.mocked(listarEmpresas).mockRejectedValue(new ApiError(401, "NO_AUTORIZADO", "Token inválido o expirado"));
+    await expect(PrivadoLayout({ children: null })).rejects.toThrow("REDIRECT:/login");
+  });
+
+  it("un 403 por otra causa o un 500 siguen propagándose: no son una sesión muerta", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue(USUARIO as never);
+    for (const err of [new ApiError(500, "INTERNO", "Error interno"), new ApiError(403, "SOPORTE_SOLO_LECTURA", "solo se puede mirar")]) {
+      vi.mocked(listarEmpresas).mockRejectedValue(err);
+      await expect(PrivadoLayout({ children: null })).rejects.toBe(err);
+    }
   });
 });

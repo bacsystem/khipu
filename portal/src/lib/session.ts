@@ -48,6 +48,19 @@ export function writeTokens(res: NextResponse, tokens: { access: string; refresh
   res.cookies.set(COOKIE_REFRESH, tokens.refresh, { ...baseCookie, maxAge: REFRESH_MAX_AGE });
 }
 
+/**
+ * Abre la sesión de soporte (#184) en el navegador: el token de soporte como cookie de acceso, con la vida que le queda (nunca más), y **sin refresh ni empresa
+ * activa**. Sin refresh, al vencer el token no se renueva; y se borran el refresh y la empresa de cualquier sesión de cliente que hubiera en este navegador, para
+ * que lo que se ve sea solo lo del usuario al que se impersona. `empresaId` es la empresa activa que lee cada página (el login también la fija).
+ */
+export function writeAccesoDeSoporte(res: NextResponse, access: string, segundos: number, empresaId?: string): void {
+  const maxAge = Math.max(1, Math.min(ACCESS_MAX_AGE, Math.floor(segundos)));
+  res.cookies.set(COOKIE_ACCESS, access, { ...baseCookie, maxAge });
+  res.cookies.set(COOKIE_REFRESH, "", { ...baseCookie, maxAge: 0 });
+  // La empresa activa vive lo que la sesión de soporte, no los 30 días de una sesión normal; sin empresa, se borra la que hubiera.
+  res.cookies.set(COOKIE_EMPRESA, empresaId ?? "", { ...baseCookie, maxAge: empresaId ? maxAge : 0 });
+}
+
 export function writeEmpresaActiva(res: NextResponse, empresaId: string): void {
   res.cookies.set(COOKIE_EMPRESA, empresaId, { ...baseCookie, maxAge: REFRESH_MAX_AGE });
 }

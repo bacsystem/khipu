@@ -7,6 +7,11 @@ export type Usuario = {
   rol: string;
   /** `false` hasta abrir el enlace de verificación (#22): sin verificar no se crean empresas ni se emite. */
   correo_verificado: boolean;
+  /**
+   * Solo en una sesión de soporte (#184: un administrador mirando el portal como este usuario): hasta cuándo vale. Ausente en una sesión normal. Lo dice el
+   * backend en `/me`, que es quien conoce el token: el portal no lee ni confía en lo que el JWT pueda decir.
+   */
+  soporte_hasta?: string;
 };
 
 export type Tokens = {
