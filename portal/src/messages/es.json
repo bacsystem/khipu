@@ -304,6 +304,59 @@
         "cancelar": "Cancelar"
       }
     },
+    "planDeCuenta": {
+      "titulo": "Plan",
+      "error": "No se pudo cargar el plan de la cuenta.",
+      "reintentar": "Reintentar",
+      "cambiar": "Cambiar plan",
+      "estados": {
+        "VIGENTE": "Al día",
+        "EN_GRACIA": "En gracia",
+        "VENCIDA": "Vencido"
+      },
+      "precio": "{precio} al mes",
+      "sinVencimiento": "Sin vencimiento",
+      "pagadoHasta": "Pagado hasta el {fecha}",
+      "sinGracia": "Sin gracia",
+      "graciaUno": "1 día de gracia",
+      "graciaVarios": "{n} días de gracia",
+      "cubreHasta": "Se la sirve hasta el {fecha}, gracia incluida.",
+      "desde": "Con este plan desde el {fecha}",
+      "limites": "Límites vigentes: {documentos} documentos al mes · {rucs} RUC · {usuarios} usuarios · {apiKeys} API keys",
+      "programado": "Pasa a {plan} el {fecha}, al inicio del ciclo siguiente. Hasta entonces sigue con {actual}.",
+      "dialogo": {
+        "titulo": "Cambiar el plan de {cuenta}",
+        "descripcion": "Subir de plan entra ya; bajar, al inicio del ciclo siguiente.",
+        "plan": "Plan nuevo",
+        "elegir": "Elige un plan",
+        "pagadoHasta": "Pagado hasta (inclusive)",
+        "pagadoHastaAyuda": "Obligatorio en un plan de pago. Un plan gratis no vence.",
+        "gracia": "Días de gracia",
+        "graciaAyuda": "Cuánto se sigue sirviendo después de vencido: de 0 a 90 días.",
+        "calculando": "Calculando lo que pasaría…",
+        "errorPrevia": "No se pudo calcular lo que pasaría.",
+        "direcciones": {
+          "SUBIDA": "Subida de plan",
+          "BAJADA": "Bajada de plan",
+          "RENOVACION": "Renovación del mismo plan"
+        },
+        "efectoInmediato": "Entra ahora.",
+        "efectoCicloSiguiente": "Entra el {fecha}, al inicio del ciclo siguiente. Hasta entonces la cuenta sigue con {actual}.",
+        "consumo": "En {mes} la cuenta consumió {n} documentos (solo cuentan los comprobantes aceptados por SUNAT). El plan {plan} permite {limite} al mes.",
+        "consumoSinTope": "En {mes} la cuenta consumió {n} documentos (solo cuentan los comprobantes aceptados por SUNAT). El plan {plan} no tiene tope de documentos.",
+        "superaInmediato": "Ya supera ese tope: con el cambio inmediato, la cuenta quedaría por encima de su límite de este mes.",
+        "superaBajada": "Este mes no cambia nada: hasta el ciclo siguiente la cuenta sigue con su plan de hoy.",
+        "confirmar": "Confirmar el cambio",
+        "enviando": "Cambiando…",
+        "cancelar": "Cancelar",
+        "errores": {
+          "planRequerido": "Elige el plan.",
+          "vencimientoRequerido": "Un plan de pago necesita la fecha hasta la que está pagado.",
+          "vencimientoPasado": "La fecha tiene que ser de hoy en adelante.",
+          "graciaInvalida": "Los días de gracia van de 0 a 90."
+        }
+      }
+    },
     "estadoCuenta": {
       "ACTIVA": "Activa",
       "SUSPENDIDA": "Suspendida",

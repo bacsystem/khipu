@@ -158,6 +158,15 @@ type Sesion = { usuario: Usuario };
 /** Un plan del backoffice (#190), con la forma del JSON del backend. `historial`: alguna cuenta lo tuvo alguna vez (no se puede borrar aunque hoy nadie lo tenga). */
 export type PlanMock = import("@/lib/api/admin-planes").PlanAdmin & { historial?: boolean };
 
+/** El plan de una cuenta en el mock (#191): la suscripción vigente y, si hay, la bajada que espera el ciclo siguiente. Los ids de plan son los de `db.planesAdmin`. */
+export type PlanDeCuentaMock = {
+  planId: string;
+  iniciaEn: string;
+  venceEn?: string;
+  diasDeGracia: number;
+  programado?: { planId: string; aplicaDesde: string; venceEn?: string; diasDeGracia: number };
+};
+
 export function idPlanMock(n: number): string {
   return `00000000-0000-4000-a000-${String(n).padStart(12, "0")}`;
 }
@@ -181,6 +190,8 @@ export const db = {
   empresasAdmin: [] as EmpresaAdminMock[],
   /** Los planes del backoffice (#190). Las specs de la corrida comparten este mock en paralelo: cada una crea y borra los suyos y no toca los sembrados. */
   planesAdmin: [] as PlanMock[],
+  /** El plan de cada cuenta del backoffice (#191), por id de cuenta; la que no figura está en el plan por defecto desde que se creó. */
+  planesDeCuenta: new Map<string, PlanDeCuentaMock>(),
   /** Idempotency-Key de la emisión (#115): `empresa|clave` → huella del pedido y factura emitida. */
   clavesEmision: new Map<string, { huella: string; id: string }>(),
   /** Idempotency-Key del alta asistida (#219): clave → huella del pedido y respuesta, con la API key. */
@@ -209,6 +220,7 @@ export function resetDb() {
   db.verificaciones.clear();
   db.empresasAdmin = [];
   db.planesAdmin = [];
+  db.planesDeCuenta.clear();
 
   const administrador: Administrador = { id: "admin-demo", email: "admin@khipu.pe" };
   db.administradoresPorEmail.set(administrador.email, { administrador, password: "AdminPass1", segundoFactor: true });
@@ -311,6 +323,22 @@ export function resetDb() {
     },
     { id: idPlanMock(4), nombre: "Pro", precio_mensual: 129, limites: limites(null, 10, null, null, 5), estado: "ACTIVO", por_defecto: false, cuentas: 0, historial: true },
   ];
+
+  // Planes de algunas cuentas (#191), con las fechas relativas a hoy para que el estado de pago sea siempre el que dice cada una:
+  // «Panadería Sol» está al día en Emprende; «Ferretería Luna» venció hace dos días y está en gracia; la cuenta 3 venció hace tiempo; la 4 está en Negocio
+  // con una bajada a Emprende esperando el ciclo siguiente. El resto está en Gratis, sin vencimiento.
+  const ahoraMs = Date.now();
+  const enDias = (n: number) => new Date(ahoraMs + n * 86_400_000).toISOString();
+  db.planesDeCuenta.set(idCuentaMock(1), { planId: idPlanMock(2), iniciaEn: enDias(-20), venceEn: enDias(40), diasDeGracia: 5 });
+  db.planesDeCuenta.set(idCuentaMock(2), { planId: idPlanMock(2), iniciaEn: enDias(-60), venceEn: enDias(-2), diasDeGracia: 5 });
+  db.planesDeCuenta.set(idCuentaMock(3), { planId: idPlanMock(2), iniciaEn: enDias(-90), venceEn: enDias(-30), diasDeGracia: 3 });
+  db.planesDeCuenta.set(idCuentaMock(4), {
+    planId: idPlanMock(3),
+    iniciaEn: enDias(-10),
+    venceEn: enDias(50),
+    diasDeGracia: 0,
+    programado: { planId: idPlanMock(2), aplicaDesde: inicioDelProximoCiclo(new Date()), venceEn: enDias(80), diasDeGracia: 3 },
+  });
 
   const usuario: Usuario = {
     id: "u-demo",

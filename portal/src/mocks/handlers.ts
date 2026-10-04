@@ -3,7 +3,7 @@ import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias } from "@/lib/form
 import { esUuid } from "@/lib/uuid";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
-import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PlanMock, type Usuario } from "./data";
+import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -275,6 +275,53 @@ function planVisible(p: PlanMock) {
   return visible;
 }
 
+
+/** Lo que el mock entiende como el plan de una cuenta (#191): el guardado, o el plan por defecto desde que la cuenta se creó. */
+function planDeCuentaMock(cuentaId: string): PlanDeCuentaMock {
+  const guardado = db.planesDeCuenta.get(cuentaId);
+  if (guardado) return guardado;
+  const cuenta = db.cuentasAdmin.find((c) => c.id === cuentaId);
+  const porDefecto = db.planesAdmin.find((p) => p.por_defecto);
+  return { planId: porDefecto?.id ?? "", iniciaEn: cuenta?.creada_en ?? new Date().toISOString(), diasDeGracia: 0 };
+}
+
+function resumenDePlan(p: PlanMock) {
+  return { id: p.id, nombre: p.nombre, precio_mensual: p.precio_mensual, limites: p.limites };
+}
+
+/** Vigente hasta el vencimiento, en gracia los días siguientes, vencida después; sin vencimiento siempre vigente (igual que `Suscripcion.estadoEn`). */
+function estadoDeSuscripcion(s: PlanDeCuentaMock): "VIGENTE" | "EN_GRACIA" | "VENCIDA" {
+  if (!s.venceEn) return "VIGENTE";
+  const ahora = Date.now();
+  if (ahora < Date.parse(s.venceEn)) return "VIGENTE";
+  return ahora < Date.parse(s.venceEn) + s.diasDeGracia * 86_400_000 ? "EN_GRACIA" : "VENCIDA";
+}
+
+function vistaDePlanDeCuenta(cuentaId: string) {
+  const s = planDeCuentaMock(cuentaId);
+  const plan = db.planesAdmin.find((p) => p.id === s.planId);
+  if (!plan) throw new Error(`El mock no tiene el plan ${s.planId}`);
+  const programado = s.programado ? db.planesAdmin.find((p) => p.id === s.programado!.planId) : undefined;
+  return {
+    cuenta_id: cuentaId,
+    plan: resumenDePlan(plan),
+    estado: estadoDeSuscripcion(s),
+    inicia_en: s.iniciaEn,
+    ...(s.venceEn ? { vence_en: s.venceEn, hasta_cuando_cubre: new Date(Date.parse(s.venceEn) + s.diasDeGracia * 86_400_000).toISOString() } : {}),
+    dias_de_gracia: s.diasDeGracia,
+    ...(s.programado && programado
+      ? { programado: { plan: resumenDePlan(programado), aplica_desde: s.programado.aplicaDesde, ...(s.programado.venceEn ? { vence_en: s.programado.venceEn } : {}), dias_de_gracia: s.programado.diasDeGracia } }
+      : {}),
+  };
+}
+
+/** Cuánto consumió cada cuenta este mes en el mock: «Cliente 7» ya pasó el tope de Emprende, para ver la advertencia. */
+function consumoDelMesMock(cuentaId: string): number {
+  if (cuentaId === idCuentaMock(1)) return 312;
+  if (cuentaId === idCuentaMock(7)) return 400;
+  return 20;
+}
+
 export const handlers = [
   // Solo bajo API_MOCKING: `globalSetup` de Playwright lo llama al empezar cada corrida. Sin esto la suite no era
   // idempotente contra un dev server reutilizado (`reuseExistingServer` en local): cada corrida gastaba el tope 3286
@@ -491,6 +538,68 @@ export const handlers = [
     if (plan.historial) return fail(409, "PLAN_EN_USO", "El plan tiene historial de suscripciones: desactívalo en vez de borrarlo");
     db.planesAdmin = db.planesAdmin.filter((p) => p.id !== plan.id);
     return ok(null);
+  }),
+
+  /**
+   * Como el backend (#191): solo el administrador; ids que no son UUID, 400; cuentas o planes que no existen, 404. **Subir de plan (o renovar) entra ya y cancela la
+   * bajada que esperaba; bajar queda programado para el inicio del ciclo siguiente** y la cuenta sigue con el plan de hoy. Un plan de pago exige vencimiento, la gracia va
+   * de 0 a 90 y un plan fuera de la oferta no se asigna. El estado se guarda por cuenta: las specs de la corrida comparten este mock en paralelo, así que **cada test
+   * que cambia un plan usa su propia cuenta**.
+   */
+  http.get(`${BASE}/v1/admin/cuentas/:id/plan`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    if (!db.cuentasAdmin.some((c) => c.id === params.id)) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
+    return ok(vistaDePlanDeCuenta(String(params.id)));
+  }),
+
+  http.get(`${BASE}/v1/admin/cuentas/:id/plan/previsualizacion`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    if (!db.cuentasAdmin.some((c) => c.id === params.id)) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
+    const planId = new URL(request.url).searchParams.get("plan_id") ?? "";
+    if (!esUuid(planId)) return fail(400, "VALIDACION", "El id del plan no es válido");
+    const nuevo = db.planesAdmin.find((p) => p.id === planId);
+    if (!nuevo) return fail(404, "NO_ENCONTRADO", "El plan no existe");
+    if (nuevo.estado !== "ACTIVO") return fail(409, "PLAN_INACTIVO", `El plan «${nuevo.nombre}» está fuera de la oferta: no se puede asignar`);
+    const actual = db.planesAdmin.find((p) => p.id === planDeCuentaMock(String(params.id)).planId)!;
+    const direccion = nuevo.id === actual.id ? "RENOVACION" : nuevo.precio_mensual < actual.precio_mensual ? "BAJADA" : "SUBIDA";
+    const consumo = consumoDelMesMock(String(params.id));
+    const limite = nuevo.limites.documentos_al_mes;
+    return ok({
+      cuenta_id: params.id,
+      plan_actual: resumenDePlan(actual),
+      plan_nuevo: resumenDePlan(nuevo),
+      direccion,
+      efecto: direccion === "BAJADA" ? "CICLO_SIGUIENTE" : "INMEDIATO",
+      aplica_desde: direccion === "BAJADA" ? inicioDelProximoCiclo(new Date()) : new Date().toISOString(),
+      mes: new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7),
+      consumo_del_mes: consumo,
+      limite_de_documentos: limite,
+      supera_el_limite: !limite.ilimitado && consumo > (limite.maximo ?? 0),
+    });
+  }),
+
+  http.post(`${BASE}/v1/admin/cuentas/:id/plan`, async ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    if (!db.cuentasAdmin.some((c) => c.id === params.id)) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
+    const cuerpo = (await request.json()) as { plan_id?: string; vence_en?: string; dias_de_gracia?: number };
+    if (!cuerpo.plan_id) return fail(422, "PLAN_REQUERIDO", "Falta el plan al que pasa la cuenta");
+    const nuevo = db.planesAdmin.find((p) => p.id === cuerpo.plan_id);
+    if (!nuevo) return fail(404, "NO_ENCONTRADO", "El plan no existe");
+    if (nuevo.estado !== "ACTIVO") return fail(409, "PLAN_INACTIVO", `El plan «${nuevo.nombre}» está fuera de la oferta: no se puede asignar`);
+    const gracia = cuerpo.dias_de_gracia ?? 0;
+    if (!Number.isInteger(gracia) || gracia < 0 || gracia > 90) return fail(422, "GRACIA_INVALIDA", `Los días de gracia van de 0 a 90: ${gracia}`);
+    if (nuevo.precio_mensual > 0 && !cuerpo.vence_en) return fail(422, "VENCIMIENTO_REQUERIDO", "Un plan de pago necesita una fecha de vencimiento: hasta cuándo está pagado");
+    const actual = planDeCuentaMock(String(params.id));
+    const planActual = db.planesAdmin.find((p) => p.id === actual.planId)!;
+    const bajada = nuevo.id !== planActual.id && nuevo.precio_mensual < planActual.precio_mensual;
+    const desde = bajada ? inicioDelProximoCiclo(new Date()) : new Date().toISOString();
+    if (cuerpo.vence_en && Date.parse(cuerpo.vence_en) <= Date.parse(desde)) return fail(422, "SUSCRIPCION_FECHAS_INVALIDAS", "El vencimiento debe ser posterior al inicio");
+    if (bajada) db.planesDeCuenta.set(String(params.id), { ...actual, programado: { planId: nuevo.id, aplicaDesde: desde, venceEn: cuerpo.vence_en, diasDeGracia: gracia } });
+    else db.planesDeCuenta.set(String(params.id), { planId: nuevo.id, iniciaEn: desde, venceEn: cuerpo.vence_en, diasDeGracia: gracia });
+    return ok(vistaDePlanDeCuenta(String(params.id)));
   }),
 
   /** Como el backend (#180): solo el administrador; `q` en correo, nombre, razón social (fragmento) y RUC (prefijo); total en cabecera. */
