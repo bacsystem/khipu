@@ -61,6 +61,20 @@ class EstadoDocumentoTest {
         for (EstadoDocumento e : EstadoDocumento.values()) if (e.cuentaComoFacturado()) assertThat(e.fueEmitido()).as(e.name()).isTrue();
     }
 
+    /** El monitor (#195) reparte cada estado en una categoría: aceptado, en camino, atención o «otros». Las tres primeras no se pisan entre sí. */
+    @Test void soloLoFirmadoEnviadoOEnAgrupacionEstaEnCamino() {
+        assertThat(EnumSet.allOf(EstadoDocumento.class).stream().filter(EstadoDocumento::estaEnCamino).toList()).containsExactlyInAnyOrder(FIRMADO, ENVIADO, PENDIENTE_AGRUPACION);
+        for (EstadoDocumento e : new EstadoDocumento[]{RECIBIDO, INVALIDO, ERROR_ENVIO, ACEPTADO, ACEPTADO_CON_OBS, RECHAZADO, ANULADO, FUERA_DE_PLAZO})
+            assertThat(e.estaEnCamino()).as(e.name()).isFalse();
+    }
+
+    @Test void lasCategoriasDelMonitorNoSePisan() {
+        for (EstadoDocumento e : EstadoDocumento.values()) {
+            int categorias = (e.esFinalAceptado() ? 1 : 0) + (e.estaEnCamino() ? 1 : 0) + (e.requiereAtencion() ? 1 : 0);
+            assertThat(categorias).as(e.name()).isLessThanOrEqualTo(1);
+        }
+    }
+
     @Test void enviable() {
         assertThat(FIRMADO.esEnviable()).isTrue();
         assertThat(ERROR_ENVIO.esEnviable()).isTrue();

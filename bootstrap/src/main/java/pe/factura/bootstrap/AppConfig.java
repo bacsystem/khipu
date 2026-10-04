@@ -44,6 +44,7 @@ import pe.factura.adapters.scheduler.IntegridadWorker;
 import pe.factura.adapters.sunat.SoapBillingGateway;
 import pe.factura.adapters.sunat.SunatUrls;
 import pe.factura.adapters.sunat.SoapConsultaGateway;
+import pe.factura.adapters.sunat.SondeoDeSunatHttp;
 import pe.factura.adapters.scheduler.RecuperarCdrWorker;
 import pe.factura.adapters.sunat.XmlCdrParser;
 import pe.factura.adapters.pdf.FlyingSaucerPdfGenerator;
@@ -60,6 +61,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 @EnableConfigurationProperties(AppProperties.class)
@@ -224,6 +226,7 @@ public class AppConfig {
     @Bean ConsumoPorCuentaRepository consumoPorCuentaRepository(JdbcTemplate jdbc) { return new JdbcConsumoPorCuentaRepository(jdbc); }
     @Bean PagoRepository pagoRepository(JdbcTemplate jdbc) { return new JdbcPagoRepository(jdbc); }
     @Bean ResumenDeComprobantesRepository resumenDeComprobantesRepository(JdbcTemplate jdbc) { return new JdbcResumenDeComprobantesRepository(jdbc); }
+    @Bean MonitorDeEmisionRepository monitorDeEmisionRepository(JdbcTemplate jdbc) { return new JdbcMonitorDeEmisionRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -246,6 +249,15 @@ public class AppConfig {
     @Bean SunatConsultaGateway sunatConsultaGateway(AppProperties p) {
         return new SoapConsultaGateway(p.sunat().consultaUrl(), p.sunat().consultaBetaUrl(), p.sunat().validezUrl(), p.sunat().validezBetaUrl(), Duration.ofSeconds(p.sunat().timeoutSeconds()));
     }
+    /** Sondea el WSDL de cada servicio de SUNAT (sin credenciales ni comprobantes) y guarda la lectura 30 s para que el monitor, que se refresca solo, no la llame cada vez. */
+    @Bean SondeoDeSunat sondeoDeSunat(AppProperties p, Clock clock) {
+        AppProperties.Sunat s = p.sunat();
+        return new SondeoDeSunatHttp(Map.of(SondeoDeSunat.Servicio.ENVIO_PRODUCCION, nulo(s.prodUrl()), SondeoDeSunat.Servicio.ENVIO_BETA, nulo(s.betaUrl()),
+                SondeoDeSunat.Servicio.CONSULTA_DE_CDR, nulo(s.consultaUrl()), SondeoDeSunat.Servicio.CONSULTA_DE_VALIDEZ, nulo(s.validezUrl())),
+                Duration.ofSeconds(Math.min(s.timeoutSeconds(), 5)), Duration.ofSeconds(30), clock);
+    }
+    private static String nulo(String url) { return url == null ? "" : url; }
+    @Bean MonitorearEmisionUseCase monitorearEmision(MonitorDeEmisionRepository m, SondeoDeSunat s, Clock clock) { return new MonitorDeEmisionService(m, s, clock); }
     @Bean RecuperarCdrUseCase recuperarCdr(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatConsultaGateway g, CdrParser cdr, UnitOfWork u) {
         return new RecuperarCdrService(c, t, s, g, cdr, u);
     }
