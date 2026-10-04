@@ -344,6 +344,8 @@ export const handlers = [
    */
   http.get(`${BASE}/v1/admin/cuentas/:id`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    // Un id que no es UUID no llega a buscarse: el backend lo rechaza al convertir la ruta. Si la página no lo filtrara, sería un 400, no un 404.
+    if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     const enDias = (n: number) => {
