@@ -63,6 +63,17 @@ describe("DialogoDeAccion", () => {
     expect(screen.queryByTestId("accion-dialogo")).toBeNull();
   });
 
+  /** Borrar un plan (#190) es un DELETE; el resto de las acciones siguen siendo POST sin que nadie lo diga. */
+  it("con un método propio (DELETE) lo usa en vez de POST", async () => {
+    apiRequest.mockResolvedValue(exito());
+    abrir({ metodo: "DELETE" });
+
+    fireEvent.click(screen.getByTestId("accion-confirmar"));
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(apiRequest).toHaveBeenCalledWith("/api/admin/x", { method: "DELETE", body: undefined });
+  });
+
   it("sin cuerpo envía el pedido sin cuerpo", async () => {
     apiRequest.mockResolvedValue(exito());
     abrir();

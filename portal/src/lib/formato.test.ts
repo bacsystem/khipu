@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diasEntre, formatearFecha, formatearFechaHora, formatearMonto, formatearNumero, sumarDias } from "./formato";
+import { diasEntre, formatearFecha, formatearFechaDeLima, formatearFechaHora, formatearMonto, formatearNumero, inicioDelProximoCiclo, sumarDias } from "./formato";
 
 describe("formatearNumero", () => {
   it("usa separador de miles y siempre 2 decimales", () => {
@@ -86,5 +86,37 @@ describe("sumarDias", () => {
     // Sin la guarda, `toISOString()` sobre un Invalid Date lanza RangeError y se cae el render entero.
     expect(sumarDias("", -3)).toBe("");
     expect(sumarDias("no-es-fecha", -3)).toBe("no-es-fecha");
+  });
+});
+
+describe("formatearFechaDeLima", () => {
+  it("da la fecha de Lima del instante, no la de UTC", () => {
+    expect(formatearFechaDeLima("2026-11-01T05:00:00Z")).toBe("1 Nov 2026");
+    // 03:00 UTC del 1 de noviembre todavía es el 31 de octubre en Lima.
+    expect(formatearFechaDeLima("2026-11-01T03:00:00Z")).toBe("31 Oct 2026");
+  });
+
+  it("con un instante ilegible devuelve la entrada en vez de lanzar", () => {
+    expect(formatearFechaDeLima("no-es-fecha")).toBe("no-es-fecha");
+  });
+});
+
+/** La misma regla que aplica el backend (CicloMensual): el mes calendario en Lima. */
+describe("inicioDelProximoCiclo (#190)", () => {
+  it("es la medianoche del día 1 del mes que viene, hora de Lima (05:00Z)", () => {
+    expect(inicioDelProximoCiclo(new Date("2026-10-15T15:00:00Z"))).toBe("2026-11-01T05:00:00.000Z");
+  });
+
+  it("usa el mes de Lima, no el de UTC: a 01:00Z del 1 de noviembre todavía es octubre", () => {
+    expect(inicioDelProximoCiclo(new Date("2026-11-01T01:00:00Z"))).toBe("2026-11-01T05:00:00.000Z");
+  });
+
+  it("justo en el inicio de un ciclo ya es el ciclo nuevo", () => {
+    expect(inicioDelProximoCiclo(new Date("2026-11-01T05:00:00Z"))).toBe("2026-12-01T05:00:00.000Z");
+    expect(inicioDelProximoCiclo(new Date("2026-11-01T04:59:59Z"))).toBe("2026-11-01T05:00:00.000Z");
+  });
+
+  it("diciembre salta al año siguiente", () => {
+    expect(inicioDelProximoCiclo(new Date("2026-12-20T12:00:00Z"))).toBe("2027-01-01T05:00:00.000Z");
   });
 });

@@ -19,6 +19,7 @@ const MIGAS: Array<{ ruta: string; exacta?: boolean } & MigaAdmin> = [
   { ruta: "/admin/cuentas/nueva", seccion: t.topbar.clientes, pagina: t.topbar.nuevaCuenta },
   { ruta: "/admin/cuentas", seccion: t.topbar.clientes, pagina: t.nav.cuentas, accion: "nuevaCuenta" },
   { ruta: "/admin/empresas", seccion: t.topbar.clientes, pagina: t.nav.empresas },
+  { ruta: "/admin/planes", seccion: t.topbar.comercial, pagina: t.nav.planes },
 ];
 
 export function migaAdmin(pathname: string): MigaAdmin | null {

@@ -1,9 +1,9 @@
 import { http, HttpResponse } from "msw";
-import { diasEntre, hoyLima, sumarDias } from "@/lib/formato";
+import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias } from "@/lib/formato";
 import { esUuid } from "@/lib/uuid";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
-import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
+import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PlanMock, type Usuario } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -167,6 +167,11 @@ function nuevoId(prefijo: string) {
   return `${prefijo}-${contador}`;
 }
 
+/** Un UUID de verdad: el BFF valida los ids de ruta con `esUuid` antes de llamar al backend, y un plan creado en la sesión también tiene que pasar. */
+function nuevoUuid() {
+  return crypto.randomUUID();
+}
+
 /** Subconjunto del catálogo 13 (ubigeo INEI) para el formulario de domicilio fiscal. */
 const UBIGEOS = [
   { codigo: "150101", descripcion: "LIMA / LIMA / LIMA", extra: { Departamento: "LIMA", Provincia: "LIMA", Distrito: "LIMA" } },
@@ -218,6 +223,56 @@ const CATALOGOS = [
   { id: "25", nombre: "Código de producto SUNAT (UNSPSC; listados 25.1–25.3)", columnas: ["Código", "Descripción", "Listado", "Partidas arancelarias"],
     entradas: [{ codigo: "15101505", descripcion: "Combustible diésel", extra: { Listado: "25.1 Padrón obligado: Combustible" } }] },
 ];
+
+
+/**
+ * Valida el cuerpo de crear o editar un plan con las reglas del backend (#190): nombre obligatorio, de hasta 40 caracteres y único sin importar mayúsculas;
+ * precio de cero o más con hasta dos decimales; límites mayores que cero o ilimitados (nunca omitidos ni las dos cosas a la vez); RUC y retención mayores que cero.
+ */
+function validarPlanMock(body: unknown, exceptoId?: string): { error: Response } | { nombre: string; precio: number; limites: PlanMock["limites"] } {
+  const b = (body ?? {}) as { nombre?: unknown; precio_mensual?: unknown; limites?: Record<string, unknown> };
+  const nombre = typeof b.nombre === "string" ? b.nombre.trim() : "";
+  if (!nombre) return { error: fail(422, "NOMBRE_REQUERIDO", "El nombre del plan es obligatorio") };
+  if (nombre.length > 40) return { error: fail(422, "NOMBRE_INVALIDO", "El nombre del plan admite hasta 40 caracteres") };
+  const precio = b.precio_mensual;
+  if (typeof precio !== "number" || precio < 0 || Math.round(precio * 100) / 100 !== precio)
+    return { error: fail(422, "PRECIO_INVALIDO", "El precio mensual debe ser cero o más, con hasta dos decimales") };
+  const l = b.limites;
+  if (!l) return { error: fail(422, "LIMITE_INVALIDO", "Faltan los límites del plan") };
+  const limite = (campo: string): { maximo?: number; ilimitado: boolean } | Response => {
+    const v = l[campo] as { maximo?: number; ilimitado?: boolean } | undefined;
+    if (!v) return fail(422, "LIMITE_INVALIDO", `Falta el límite «${campo}»`);
+    if (v.ilimitado) return v.maximo === undefined ? { ilimitado: true } : fail(422, "LIMITE_INVALIDO", `El límite «${campo}» no puede ser ilimitado y tener un máximo a la vez`);
+    if (v.maximo === undefined) return fail(422, "LIMITE_INVALIDO", `Falta el máximo del límite «${campo}»`);
+    return Number.isInteger(v.maximo) && v.maximo > 0 ? { maximo: v.maximo, ilimitado: false } : fail(422, "LIMITE_INVALIDO", "Un límite debe ser mayor que cero (o ilimitado)");
+  };
+  const documentos = limite("documentos_al_mes");
+  if (documentos instanceof Response) return { error: documentos };
+  const usuarios = limite("usuarios");
+  if (usuarios instanceof Response) return { error: usuarios };
+  const apiKeys = limite("api_keys");
+  if (apiKeys instanceof Response) return { error: apiKeys };
+  if (!Number.isInteger(l.rucs) || (l.rucs as number) <= 0) return { error: fail(422, "LIMITE_INVALIDO", "Un plan debe permitir al menos un RUC") };
+  if (!Number.isInteger(l.retencion_anios) || (l.retencion_anios as number) <= 0) return { error: fail(422, "RETENCION_INVALIDA", "La retención debe ser de al menos un año") };
+  if (db.planesAdmin.some((p) => p.id !== exceptoId && p.nombre.toLowerCase() === nombre.toLowerCase()))
+    return { error: fail(409, "NOMBRE_DUPLICADO", `Ya existe un plan llamado «${nombre}»`) };
+  return {
+    nombre,
+    precio,
+    limites: { documentos_al_mes: documentos, rucs: l.rucs as number, usuarios, api_keys: apiKeys, retencion_anios: l.retencion_anios as number },
+  };
+}
+
+function planesOrdenados(): PlanMock[] {
+  return [...db.planesAdmin].sort((a, b) => a.precio_mensual - b.precio_mensual || a.nombre.localeCompare(b.nombre));
+}
+
+/** Lo que el backend deja ver de un plan: sin lo que solo sabe el mock (`historial`). */
+function planVisible(p: PlanMock) {
+  const visible: Partial<PlanMock> = { ...p };
+  delete visible.historial;
+  return visible;
+}
 
 export const handlers = [
   // Solo bajo API_MOCKING: `globalSetup` de Playwright lo llama al empezar cada corrida. Sin esto la suite no era
@@ -368,6 +423,73 @@ export const handlers = [
     const registro = [...db.administradoresPorEmail.values()].find((r) => r.administrador.id === c.sub);
     if (!registro) return fail(404, "NO_ENCONTRADO", "Administrador no encontrado");
     return ok(registro.administrador);
+  }),
+
+  /**
+   * Como el backend (#190): solo el administrador; ids que no son UUID, 400; planes que no existen, 404. Crear nace activo y con el nombre único; editar cambia el
+   * nombre y el precio al instante pero deja los límites **programados** para el ciclo siguiente (poner otra vez los vigentes cancela el cambio). Desactivar no
+   * toca a las cuentas; el plan de las cuentas nuevas no se desactiva ni se borra; un plan con cuentas o con historial no se borra (409 `PLAN_EN_USO`).
+   * Las specs de la corrida comparten este mock en paralelo: **cada una crea y borra sus planes y no toca los sembrados**.
+   */
+  http.get(`${BASE}/v1/admin/planes`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    return ok(planesOrdenados().map(planVisible));
+  }),
+
+  http.post(`${BASE}/v1/admin/planes`, async ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const v = validarPlanMock(await request.json());
+    if ("error" in v) return v.error;
+    const plan: PlanMock = { id: nuevoUuid(), nombre: v.nombre, precio_mensual: v.precio, limites: v.limites, estado: "ACTIVO", por_defecto: false, cuentas: 0 };
+    db.planesAdmin.push(plan);
+    return ok(planVisible(plan), 201);
+  }),
+
+  http.put(`${BASE}/v1/admin/planes/:id`, async ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id del plan no es válido");
+    const plan = db.planesAdmin.find((p) => p.id === params.id);
+    if (!plan) return fail(404, "NO_ENCONTRADO", "El plan no existe");
+    const v = validarPlanMock(await request.json(), plan.id);
+    if ("error" in v) return v.error;
+    plan.nombre = v.nombre;
+    plan.precio_mensual = v.precio;
+    if (JSON.stringify(v.limites) === JSON.stringify(plan.limites)) delete plan.limites_programados;
+    else plan.limites_programados = { limites: v.limites, aplica_desde: inicioDelProximoCiclo(new Date()) };
+    return ok(planVisible(plan));
+  }),
+
+  http.post(`${BASE}/v1/admin/planes/:id/desactivar`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id del plan no es válido");
+    const plan = db.planesAdmin.find((p) => p.id === params.id);
+    if (!plan) return fail(404, "NO_ENCONTRADO", "El plan no existe");
+    if (plan.por_defecto) return fail(409, "PLAN_POR_DEFECTO", "El plan por defecto de las cuentas nuevas no se puede desactivar");
+    if (plan.estado === "INACTIVO") return fail(409, "PLAN_YA_INACTIVO", "El plan ya está inactivo");
+    plan.estado = "INACTIVO";
+    return ok(planVisible(plan));
+  }),
+
+  http.post(`${BASE}/v1/admin/planes/:id/activar`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id del plan no es válido");
+    const plan = db.planesAdmin.find((p) => p.id === params.id);
+    if (!plan) return fail(404, "NO_ENCONTRADO", "El plan no existe");
+    if (plan.estado === "ACTIVO") return fail(409, "PLAN_YA_ACTIVO", "El plan ya está activo");
+    plan.estado = "ACTIVO";
+    return ok(planVisible(plan));
+  }),
+
+  http.delete(`${BASE}/v1/admin/planes/:id`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id del plan no es válido");
+    const plan = db.planesAdmin.find((p) => p.id === params.id);
+    if (!plan) return fail(404, "NO_ENCONTRADO", "El plan no existe");
+    if (plan.por_defecto) return fail(409, "PLAN_POR_DEFECTO", "El plan por defecto de las cuentas nuevas no se puede borrar");
+    if (plan.cuentas > 0) return fail(409, "PLAN_EN_USO", `El plan lo tiene ${plan.cuentas} ${plan.cuentas === 1 ? "cuenta" : "cuentas"}: desactívalo en vez de borrarlo`);
+    if (plan.historial) return fail(409, "PLAN_EN_USO", "El plan tiene historial de suscripciones: desactívalo en vez de borrarlo");
+    db.planesAdmin = db.planesAdmin.filter((p) => p.id !== plan.id);
+    return ok(null);
   }),
 
   /** Como el backend (#180): solo el administrador; `q` en correo, nombre, razón social (fragmento) y RUC (prefijo); total en cabecera. */

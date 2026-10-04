@@ -8,12 +8,12 @@ import { cn } from "@/lib/utils";
 
 type Item = { href?: string; label: string; icon: typeof HomeIcon };
 
-/** "Inicio", "Cuentas" (#180) y "Empresas" (#185) tienen página propia: el resto del backoffice llega en los issues de la épica #11. */
+/** "Inicio", "Cuentas" (#180), "Empresas" (#185) y "Planes" (#190) tienen página propia: el resto del backoffice llega en los issues de la épica #11. */
 const ITEMS: Item[] = [
   { href: "/admin", label: messages.admin.nav.inicio, icon: HomeIcon },
   { href: "/admin/cuentas", label: messages.admin.nav.cuentas, icon: UsersIcon },
   { href: "/admin/empresas", label: messages.admin.nav.empresas, icon: BuildingIcon },
-  { label: "Planes", icon: CreditCardIcon },
+  { href: "/admin/planes", label: messages.admin.nav.planes, icon: CreditCardIcon },
   { label: "Operación", icon: ActivityIcon },
 ];
 
