@@ -23,7 +23,7 @@ describe("POST /api/auth/registro", () => {
     vi.mocked(registrar).mockResolvedValue({
       access: "a1",
       refresh: "r1",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const res = await POST(postRequest({ nombre: "Mi cuenta", email: "a@b.com", password: "secreto1" }));
@@ -49,7 +49,7 @@ describe("POST /api/auth/registro", () => {
     vi.mocked(registrar).mockResolvedValue({
       access: "a1",
       refresh: "r1",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const res = await POST(

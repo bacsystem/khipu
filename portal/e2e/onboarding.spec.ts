@@ -1,16 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { registrarYVerificar } from "./registro-sesion";
 
 test("registro completa el onboarding de 3 pasos y llega a comprobantes", async ({ page }) => {
-  const email = `nueva-${Date.now()}@example.com`;
-
-  await page.goto("/registro");
-  await page.getByLabel("Nombre de la cuenta").fill("Mi Empresa de Prueba");
-  await page.getByLabel("Celular (Perú)").fill("987654321");
-  await page.getByLabel("Correo electrónico").fill(email);
-  await page.getByLabel("Contraseña").fill("Passw0rd1");
-  await page.getByRole("button", { name: "Crear cuenta" }).click();
-
-  await expect(page).toHaveURL(/\/onboarding/);
+  await registrarYVerificar(page, { email: `nueva-${Date.now()}@example.com` });
 
   // Paso 1: empresa
   await page.getByLabel("RUC").fill("20999999990");
@@ -53,14 +45,7 @@ test("registro: el celular no acepta letras, se corta en 12 y avisa al salir del
 });
 
 test("onboarding: el RUC se valida con el módulo 11 en el cliente y la serie sigue el patrón de SUNAT", async ({ page }) => {
-  await page.goto("/registro");
-  const sufijo = Date.now();
-  await page.getByLabel("Nombre de la cuenta").fill("Contrato SAC");
-  await page.getByLabel(/Celular/).fill("987654321");
-  await page.getByLabel("Correo electrónico").fill(`contrato${sufijo}@ejemplo.pe`);
-  await page.getByLabel("Contraseña").fill("Passw0rd1");
-  await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page).toHaveURL(/\/onboarding/);
+  await registrarYVerificar(page, { email: `contrato${Date.now()}@ejemplo.pe`, nombre: "Contrato SAC" });
 
   const ruc = page.getByLabel("RUC");
   await ruc.fill("20ABCDEF123456");
@@ -84,14 +69,7 @@ test("onboarding: el RUC se valida con el módulo 11 en el cliente y la serie si
 });
 
 test("onboarding: si se corta la conexión al crear la empresa, avisa en vez de quedarse mudo", async ({ page }) => {
-  await page.goto("/registro");
-  const sufijo = Date.now();
-  await page.getByLabel("Nombre de la cuenta").fill("Corte SAC");
-  await page.getByLabel(/Celular/).fill("987654322");
-  await page.getByLabel("Correo electrónico").fill(`corte${sufijo}@ejemplo.pe`);
-  await page.getByLabel("Contraseña").fill("Passw0rd1");
-  await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page).toHaveURL(/\/onboarding/);
+  await registrarYVerificar(page, { email: `corte${Date.now()}@ejemplo.pe`, nombre: "Corte SAC", celular: "987654322" });
 
   await page.route("**/api/proxy/empresas", (r) => (r.request().method() === "POST" ? r.abort("connectionreset") : r.continue()));
   await page.getByLabel("RUC").fill("20100066603");
@@ -101,15 +79,9 @@ test("onboarding: si se corta la conexión al crear la empresa, avisa en vez de 
 });
 
 test("onboarding: al recargar retoma el paso que falta en vez de pedir el RUC otra vez", async ({ page }) => {
-  await page.goto("/registro");
   const sufijo = Date.now();
   const ruc = `2010006660${(sufijo % 10 === 3 ? 3 : 3)}`; // RUC válido de ejemplo
-  await page.getByLabel("Nombre de la cuenta").fill("Retoma SAC");
-  await page.getByLabel(/Celular/).fill("987654323");
-  await page.getByLabel("Correo electrónico").fill(`retoma${sufijo}@ejemplo.pe`);
-  await page.getByLabel("Contraseña").fill("Passw0rd1");
-  await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page).toHaveURL(/\/onboarding/);
+  await registrarYVerificar(page, { email: `retoma${sufijo}@ejemplo.pe`, nombre: "Retoma SAC", celular: "987654323" });
   // Crea la empresa por HTTP directo (el RUC de ejemplo puede estar tomado por otro worker: lo que importa es retomar).
   const creada = await page.evaluate(async ([r]) => {
     const res = await fetch("/api/proxy/empresas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ruc: r, razon_social: "Retoma SAC", entorno: "BETA" }) });

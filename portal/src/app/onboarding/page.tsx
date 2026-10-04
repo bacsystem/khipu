@@ -1,9 +1,17 @@
+import { redirect } from "next/navigation";
+import { RevisaTuCorreo } from "@/components/auth/revisa-tu-correo";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { me } from "@/lib/api/auth";
 import { messages } from "@/lib/messages";
+import { getServerSession } from "@/lib/session-server";
 
 export const metadata = { title: `Configura tu empresa · ${messages.app.nombre}` };
 
-export default function OnboardingPage() {
+export default async function OnboardingPage() {
+  const { access } = await getServerSession();
+  if (!access) redirect("/login");
+  const usuario = await me(access);
+
   return (
     <div className="min-h-screen px-6 py-16">
       <div className="mx-auto mb-10 max-w-lg text-center">
@@ -13,7 +21,8 @@ export default function OnboardingPage() {
           Necesitamos estos datos para poder emitir comprobantes a nombre tuyo.
         </p>
       </div>
-      <OnboardingWizard />
+      {/* Sin verificar el correo (#22) el backend rechaza crear la empresa: se explica antes de que llene el formulario. */}
+      {usuario.correo_verificado ? <OnboardingWizard /> : <RevisaTuCorreo email={usuario.email} />}
     </div>
   );
 }

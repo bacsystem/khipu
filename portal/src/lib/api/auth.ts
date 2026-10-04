@@ -5,6 +5,8 @@ export type Usuario = {
   cuenta_id: string;
   email: string;
   rol: string;
+  /** `false` hasta abrir el enlace de verificación (#22): sin verificar no se crean empresas ni se emite. */
+  correo_verificado: boolean;
 };
 
 export type Tokens = {
@@ -43,4 +45,14 @@ export function recuperar(email: string) {
 
 export function restablecer(token: string, password: string) {
   return backendFetch<void>("/v1/auth/restablecer", { method: "POST", body: { token, password } });
+}
+
+/** Con el token del enlace del correo (#22). Público: el enlace puede abrirse en otro dispositivo, sin sesión. */
+export function verificarCorreo(token: string) {
+  return backendFetch<void>("/v1/auth/verificar", { method: "POST", body: { token } });
+}
+
+/** Otro enlace de verificación al correo del usuario de la sesión. */
+export function reenviarVerificacion(access: string) {
+  return backendFetch<void>("/v1/auth/verificacion", { method: "POST", headers: { Authorization: `Bearer ${access}` } });
 }
