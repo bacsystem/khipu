@@ -126,6 +126,8 @@ export const db = {
   /** `segundoFactor`: si ya configuró la app de autenticación (#177). El mock no guarda estado del 2FA: ver los handlers. */
   administradoresPorEmail: new Map<string, { administrador: Administrador; password: string; segundoFactor: boolean }>(),
   cuentasAdmin: [] as CuentaAdminMock[],
+  /** Idempotency-Key de la emisión (#115): `empresa|clave` → huella del pedido y factura emitida. */
+  clavesEmision: new Map<string, { huella: string; id: string }>(),
 };
 
 export function resetDb() {
@@ -139,6 +141,7 @@ export function resetDb() {
   db.correos.length = 0;
   db.sesionesPorToken.clear();
   db.administradoresPorEmail.clear();
+  db.clavesEmision.clear();
 
   const administrador: Administrador = { id: "admin-demo", email: "admin@khipu.pe" };
   db.administradoresPorEmail.set(administrador.email, { administrador, password: "AdminPass1", segundoFactor: true });

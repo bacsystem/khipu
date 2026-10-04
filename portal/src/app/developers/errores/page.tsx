@@ -42,6 +42,7 @@ const CODIGOS: Array<[string, string, string, string]> = [
   ["SERIE_INVALIDA", "422", "La serie no tiene el formato del tipo (factura: F + 3 alfanuméricos).", "Use una serie F###."],
   ["SERIE_NO_CONFIGURADA", "422", "La serie no está registrada en la empresa.", "Créela en POST /v1/series o en el portal."],
   ["DUPLICADO", "409", "Ya existe un comprobante con esa serie y correlativo (o la serie ya existe).", "Reintento seguro: no se emitió nada nuevo."],
+  ["IDEMPOTENCIA_INVALIDA", "422", "La Idempotency-Key ya se usó con otro contenido en las últimas 24 horas, o no tiene el formato (8 a 100 letras, dígitos, - o _).", "Use una clave nueva (un UUID) por factura; repita la misma clave solo para reintentar el mismo pedido."],
   ["NUMERO_YA_ASIGNADO", "422", "Se intentó asignar número a un comprobante que ya lo tiene.", "No debería ocurrir vía API; contacte soporte."],
   ["FECHA_INVALIDA", "422", "fecha_emision futura, con el plazo de envío ya vencido (2108: más de 3 días calendario atrás), o fecha_vencimiento anterior a la emisión.", "Use una fecha de emisión de hoy o de los 3 días anteriores y un vencimiento igual o posterior."],
   ["MONEDA_INVALIDA", "422", "Moneda distinta de PEN/USD/EUR.", "Vea el catálogo 02."],

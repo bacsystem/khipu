@@ -569,6 +569,17 @@ export const handlers = [
     if (!/^\d{11}$/.test(body.cliente?.num_doc ?? "")) return fail(422, "RECEPTOR_INVALIDO", "2017 - El RUC del adquirente debe tener 11 dígitos");
     if (!body.items?.length) return fail(422, "ITEMS_REQUERIDOS", "Un comprobante necesita al menos un ítem");
 
+    // Idempotency-Key (#115), como el backend: la misma clave con el mismo pedido devuelve la factura ya emitida con 200; con otro
+    // pedido, 422. La huella es el JSON del cuerpo, que el formulario arma siempre igual.
+    const clave = request.headers.get("idempotency-key");
+    const huella = JSON.stringify(body);
+    const previa = clave ? db.clavesEmision.get(`${empresaId}|${clave}`) : undefined;
+    if (previa) {
+      if (previa.huella !== huella) return fail(422, "IDEMPOTENCIA_INVALIDA", `La clave de idempotencia ${clave} ya se usó con otro contenido`);
+      const emitida = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === previa.id);
+      if (emitida) return ok(emitida, 200);
+    }
+
     serie.ultimo_numero += 1;
     // La tasa sale de la empresa, igual que en el diálogo: si el fixture entra al padrón de tasa especial, mock y
     // formulario siguen de acuerdo en vez de romper el e2e con un descuadre que parecería un bug del helper.
@@ -599,6 +610,7 @@ export const handlers = [
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },
     };
     db.facturasPorEmpresa.set(empresaId, [comprobante, ...(db.facturasPorEmpresa.get(empresaId) ?? [])]);
+    if (clave) db.clavesEmision.set(`${empresaId}|${clave}`, { huella, id });
     return ok(comprobante, 201);
   }),
 
