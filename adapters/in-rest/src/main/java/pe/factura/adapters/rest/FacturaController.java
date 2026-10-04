@@ -1,6 +1,5 @@
 package pe.factura.adapters.rest;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,13 +27,9 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/v1/facturas")
@@ -57,10 +52,6 @@ public class FacturaController {
     private final CompartirComprobanteUseCase compartir;
     private final RecuperarCdrUseCase cdrs;
     private final ObjectMapper json;
-
-    static final String CABECERA_IDEMPOTENCIA = "Idempotency-Key";
-    /** Un UUID es lo recomendado; se admite cualquier texto de 8 a 100 letras, dígitos, guiones o guiones bajos. */
-    private static final Pattern CLAVE_VALIDA = Pattern.compile("[A-Za-z0-9_-]{8,100}");
 
 
     @PostMapping
@@ -95,27 +86,14 @@ public class FacturaController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422", description = "Datos inválidos o regla de negocio incumplida; `codigo` y `mensaje` explican cuál")})
     public ResponseEntity<ApiResponse<ComprobanteResponse>> crear(HttpServletRequest req, @Valid @RequestBody FacturaRequest body,
             @Parameter(description = "Clave única por factura (un UUID), para repetir el pedido sin emitir dos veces", example = "5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f")
-            @RequestHeader(name = CABECERA_IDEMPOTENCIA, required = false) String clave) {
-        if (clave == null) {
+            @RequestHeader(name = ClaveDeIdempotencia.CABECERA, required = false) String clave) {
+        var idempotencia = ClaveDeIdempotencia.de(clave, body, json);
+        if (idempotencia == null) {
             Comprobante c = emitir.emitirFactura(TenantActual.id(req), body.aComando());
             return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(c, BASE)));
         }
-        if (!CLAVE_VALIDA.matcher(clave).matches())
-            throw new DomainException("IDEMPOTENCIA_INVALIDA", "Idempotency-Key debe tener de 8 a 100 letras, dígitos, guiones o guiones bajos (se recomienda un UUID)");
-        var emision = emitir.emitirFactura(TenantActual.id(req), body.aComando(), new EmitirComprobanteUseCase.Idempotencia(clave, huella(body)));
+        var emision = emitir.emitirFactura(TenantActual.id(req), body.aComando(), idempotencia);
         return ResponseEntity.status(emision.repetida() ? HttpStatus.OK : HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(emision.comprobante(), BASE)));
-    }
-
-    /**
-     * SHA-256 del pedido ya interpretado y vuelto a serializar, no de los bytes recibidos: dos JSON con otro espaciado o saltos de
-     * línea son el mismo pedido; cambiar un dato da otra huella.
-     */
-    private String huella(FacturaRequest body) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(json.writeValueAsBytes(body)));
-        } catch (JsonProcessingException | NoSuchAlgorithmException e) {
-            throw new IllegalStateException("No se pudo calcular la huella del pedido", e);
-        }
     }
 
     @GetMapping

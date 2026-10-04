@@ -4,12 +4,6 @@ import pe.factura.domain.documento.Comprobante;
 import java.util.UUID;
 
 public interface EmitirComprobanteUseCase {
-    /**
-     * Clave de idempotencia de una emisión (#115): {@code clave} la elige el cliente por intento de emisión; {@code huella}
-     * identifica el contenido del pedido, para no aceptar la misma clave con otra factura.
-     */
-    record Idempotencia(String clave, String huella) {}
-
     /** {@code repetida}: el pedido ya se había hecho con esa clave y se devuelve el comprobante de entonces, sin emitir otro. */
     record Emision(Comprobante comprobante, boolean repetida) {}
 

@@ -137,8 +137,8 @@ class FacturaControllerTest {
                 .header("Idempotency-Key", clave).content(cuerpoJson));
     }
 
-    private EmitirComprobanteUseCase.Idempotencia claveRecibida() {
-        ArgumentCaptor<EmitirComprobanteUseCase.Idempotencia> cap = ArgumentCaptor.forClass(EmitirComprobanteUseCase.Idempotencia.class);
+    private pe.factura.application.port.in.Idempotencia claveRecibida() {
+        ArgumentCaptor<pe.factura.application.port.in.Idempotencia> cap = ArgumentCaptor.forClass(pe.factura.application.port.in.Idempotencia.class);
         verify(emitir, atLeastOnce()).emitirFactura(eq(tenant), any(), cap.capture());
         return cap.getValue();
     }
@@ -148,7 +148,7 @@ class FacturaControllerTest {
 
         emitirConClave(CLAVE, cuerpo).andExpect(status().isCreated()).andExpect(jsonPath("$.datos.numero").value(601));
 
-        EmitirComprobanteUseCase.Idempotencia idem = claveRecibida();
+        pe.factura.application.port.in.Idempotencia idem = claveRecibida();
         assertThat(idem.clave()).isEqualTo(CLAVE);
         assertThat(idem.huella()).matches("[0-9a-f]{64}");
         verify(emitir, never()).emitirFactura(any(), any());
