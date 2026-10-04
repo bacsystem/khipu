@@ -65,6 +65,21 @@ class CompartirComprobanteServiceTest {
                 .extracting("codigo").isEqualTo("CORREO_NO_ENVIADO");
     }
 
+    /** Sin SMTP el adaptador escribe en el log y no lanza: responder «enviado» sería decirle al emisor algo falso (#218). */
+    @Test void sinCorreoQueEntregueDeVerdadNoSeDaPorEnviado() {
+        Comprobante c = aceptada();
+        List<Correo> alLog = new ArrayList<>();
+        CorreoSender soloLog = new CorreoSender() {
+            public void enviar(String para, String asunto, String cuerpo) { enviar(para, asunto, cuerpo, List.of()); }
+            public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) { alLog.add(new Correo(para, asunto, cuerpo, adjuntos)); }
+            @Override public boolean entregaDeVerdad() { return false; }
+        };
+        assertThatThrownBy(() -> new CompartirComprobanteService(consultar, tenants, soloLog).enviarPorCorreo(tenant, c.id(), "cliente@example.com", null))
+                .isInstanceOf(DomainException.class).hasMessageContaining("no está habilitado").hasMessageContaining("F001-" + c.numero() + " no se envió")
+                .extracting("codigo").isEqualTo("CORREO_NO_CONFIGURADO");
+        assertThat(alLog).as("no se intenta un envío que no va a salir").isEmpty();
+    }
+
     @Test void soloSeEnvianComprobantesAceptados() {
         tenants.guardar(Fakes.tenantListo(tenant));
         Comprobante c = Fakes.facturaFirmada(tenant, storage);
