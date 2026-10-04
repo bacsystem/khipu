@@ -2021,6 +2021,75 @@ Lo que sobrevivía en la primera tanda:
 - **«Cambiar un límite afecta al ciclo siguiente»** (#190) necesitará que la suscripción recuerde los límites con los que empezó el ciclo; este modelo no lo hace aún y no se anticipó para no inventar lo que #190 va a decidir.
 - **La migración no es reversible por sí sola** (no hay `undo` de Flyway en este repo): revertir es borrar el trigger, `suscripcion` y `plan`.
 
+## #190 · Planes: CRUD de planes en el backoffice
+
+**Estado: 🔧 implementado, 185/185 mutaciones verificadas (1 equivalente documentada) — falta la revisión de la PR.** Backend (`/v1/admin/planes`) y portal (`/admin/planes`).
+
+### Diseño
+
+- **El nombre y el precio cambian al instante; los límites, al ciclo siguiente.** Es el criterio que más pesa del issue: «subir un límite a mitad de mes no debe regalar documentos del ciclo corriente ni cortarle a nadie». `Plan.editar` **no toca** los límites vigentes: si los nuevos difieren, quedan como `programado` (`CambioDeLimites`, tabla `plan_cambio_programado`, V38) con `aplica_desde` = la medianoche del día 1 del mes siguiente **en America/Lima** (`CicloMensual`: el mismo ciclo que #192 definirá para el consumo). Subir o bajar un tope se trata igual.
+  - Como mucho **un** cambio por plan: un segundo cambio antes de que llegue la fecha reemplaza al primero; poner otra vez los límites vigentes **cancela** el programado (y queda en la bitácora).
+  - Cuando la fecha llega, `Plan.vigenteEn(ahora)` lo da por vigente (sin tarea programada que se pueda olvidar: quien lea los límites para hacerlos valer, #192, pasa por ahí) y la siguiente edición lo pasa a las columnas de `plan`. En el instante exacto de `aplica_desde` ya manda.
+  - Desactivar y activar **conservan** el cambio programado.
+- **Desactivar no toca a las cuentas.** Solo marca el plan fuera de la oferta; las suscripciones no se tocan (el E2E compara las filas de `suscripcion` antes y después). La bitácora dice con cuántas cuentas se quedó. Se puede volver a ofrecer (`activar`; el issue pedía desactivar, pero sin volver atrás sería un callejón sin salida).
+- **«Un plan con cuentas activas no se puede borrar, solo desactivar»**, y un poco más: tampoco si **alguna vez** tuvo una cuenta (el historial de suscripciones apunta al plan y borrarlo lo rompería). `409 PLAN_EN_USO` con un mensaje que dice cuál de las dos cosas es y qué hacer. El plan de las cuentas nuevas no se borra ni se desactiva (`409 PLAN_POR_DEFECTO`). El borrado es condicional en SQL (`NOT EXISTS` de suscripciones): si entre mirar y borrar una cuenta lo toma, la base no lo borra y es `PLAN_EN_USO`, no un 500. Su cambio programado se va con él (`ON DELETE CASCADE`).
+- **Nombre único sin importar mayúsculas ni espacios, decidido por la base** (`ux_plan_nombre`): dos altas simultáneas con el mismo nombre dejan un solo plan y un `409 NOMBRE_DUPLICADO` limpio para la otra (el E2E lo prueba con dos hilos), no un 500 ni un «mirar y luego guardar».
+- **Dos administradores a la vez se serializan:** el plan se lee con `FOR UPDATE` dentro de la transacción de la acción (un test de persistencia lo comprueba con una segunda conexión `NOWAIT`).
+- **«Sin límite» nunca se asume.** La API recibe cada tope como `{maximo}` o `{ilimitado: true}`; un límite omitido, uno vacío o uno con las dos cosas es `422 LIMITE_INVALIDO`. Así un campo que se olvidó mandar jamás se vuelve «ilimitado» en silencio.
+- **Bitácora**, en la misma transacción que el cambio: `CREAR_PLAN` (con el plan completo), `EDITAR_PLAN` (qué cambió, de qué a qué, y `limites_desde=` la fecha), `DESACTIVAR_PLAN` (con las cuentas que lo siguen teniendo), `ACTIVAR_PLAN`, `ELIMINAR_PLAN`. Una edición que no cambia nada no escribe ni deja registro.
+- **Listado:** del más barato al más caro, con los límites vigentes, el precio y **cuántas cuentas lo tienen como suscripción vigente** (el plan que nadie usa figura con 0).
+- **Portal:** tabla con precio, límites, retención, cuentas y acciones por fila; el cambio programado se muestra **aparte** de lo vigente («Desde el 1 Nov 2026: Documentos / mes: 1,500 → 2,000»). El formulario (crear y editar) dice el efecto antes de guardar —incluida la fecha en que entran los límites— y, si ya hay un cambio programado, muestra esos límites y avisa que volver a poner los de hoy lo cancela. Solo se ofrece lo que el plan permite (el de las cuentas nuevas solo se edita; con cuentas, no se ofrece borrar), pero que se ofrezca no lo autoriza: el backend decide.
+- **`DialogoDeAccion`** aprendió `DELETE` (por defecto sigue siendo `POST`).
+- **Enlace «Planes»** en el menú (ya no «Pronto») y miga «Comercial / Planes».
+
+### Tests
+
+- **Dominio:** `LimitesTest` (4), `CicloMensualTest` (5: la medianoche de Lima, no la de UTC; el instante exacto de inicio ya es el ciclo nuevo; diciembre; febrero bisiesto), `PlanTest` (27, +15: editar programa, bajar también, un segundo cambio reemplaza, cancelar, `vigenteEn` antes y en el instante exacto, desactivar y activar conservan el programado).
+- **Servicio** (`GestionarPlanesServiceTest`, 36): listar con cuentas y con el cambio que ya llegó, crear/editar/desactivar/activar/borrar con su bitácora dentro de la transacción, los rechazos sin registro, el texto exacto de la bitácora, la lectura con bloqueo.
+- **REST** (`AdminPlanControllerTest`, 17): cada forma de límite inválido, 201 al crear, los 409, sin credencial no se ejecuta nada, id mal formado es 400.
+- **Persistencia:** `JdbcPlanRepositoryTest` (26, +19: guardar, cambio programado, reemplazar y cancelar, nombre repetido, borrar con cuentas / con historial / el por defecto, cuentas por plan, el bloqueo) y `EsquemaDePlanesTest` (+2: los topes del programado y un solo programado por plan).
+- **E2E real** (`PlanesAdminE2ETest`, 25, Spring completo + Postgres + filtros reales): listado con cuentas; crear con bitácora (clave de plataforma y administrador real); los datos inválidos no crean ni registran nada; nombre repetido; **dos altas a la vez**; el precio cambia al instante y **los límites quedan programados con la fecha exacta del ciclo siguiente** (en la base el plan sigue con 800 y 2000 espera); segundo cambio y cancelación; editar y desactivar **no tocan** las suscripciones; borrar con cuentas / con historial / el por defecto; y nadie más puede (sin credencial, JWT del dueño, API key, clave errónea).
+- **Portal, Vitest (101):** cliente (15) y formatos del ciclo (+6), validación del formulario (13), BFF (`comun` 6, crear 5, editar y borrar 8, activar y desactivar 2), formulario (17), acciones de fila (12), tabla (12), página (3), diálogo (+1) y migas (+1).
+- **Portal, Playwright** (`admin-planes.spec.ts`, 16): el listado, el menú y la miga, el cambio programado sembrado, crear, el formulario vacío, nombre repetido, ilimitado, editar (precio al instante, límites programados), cancelar el cambio, desactivar y reactivar, borrar, lo que no se ofrece, el rechazo de un plan con historial, y el BFF (sin sesión, ids inválidos, JSON inválido, cookie `httpOnly`).
+
+### Verificación por mutación — 185/185 mueren (1 equivalente)
+
+| Capa | Mutaciones | Cuántas |
+|---|---|---|
+| `Limites`, `CicloMensual`, `CambioDeLimites` | cero RUC o años; sin límites; el ciclo siguiente es el actual / se cuenta en UTC / empieza el día 2; un cambio sin límites o sin fecha | 8 |
+| `Plan` | sin id; desactivar uno inactivo; activar uno activo; el cambio entra tarde o nunca; editar programa aunque no cambie nada / parte de los límites viejos / aplica al instante / pierde el por defecto o reactiva; desactivar o activar pierden el programado; editar sin límites | 15 |
+| Servicio | listar sin aplicar lo que ya llegó o con 0 cuentas; crear inactivo, por defecto, sin registro o con otra acción; editar sin el no-op, sin aplicar lo vigente, sin guardar, sin registro; desactivar/activar sin guardar ni registrar; borrar el por defecto, con cuentas o con historial, sin mirar si la base lo dejó; leer sin bloqueo; sin datos; la bitácora sin fecha, sin «cancelados», con lo que no cambió, sin límites, `ilimitado` como `null`, precios sin dos decimales; plural | 30 |
+| Persistencia | nombre repetido no reconocido; cancelar no borra; borrar el por defecto o con suscripciones; cuentas por plan cuenta el historial; suscripciones solo las vigentes; leer sin bloqueo; estado o precio sin actualizar; el programado lee los RUC, usuarios o retención del plan; un segundo cambio no reemplaza; fecha perdida | 14 |
+| Esquema V38 | sin `ON DELETE CASCADE`; cero documentos, RUC, usuarios, keys o años en el programado; varios cambios por plan | 7 |
+| REST | ilimitado con máximo; sin máximo ni ilimitado; límite omitido; sin RUC, retención o límites; la respuesta pierde el programado, las cuentas, el por defecto o el máximo; crear con 200; los 409 de plan en uso, nombre repetido y ya inactivo; el actor o el id | 16 |
+| Cliente y formatos (Vitest) | lo ilimitado con cifra; sin máximo; sin separador de miles *(equivalente, ver abajo)*; gratis; plural de años; los cambios incluyen lo que no cambia; usuarios compara las keys; los métodos y rutas; sin JWT ni IP; el ciclo en UTC / el mes anterior / medianoche UTC | 18 |
+| Validación del formulario | nombre sin recortar o con otro tope; tres decimales; cero entero; el tope de un entero; ilimitado manda el máximo; los errores de nombre, precio y límites; prellenar con los vigentes en vez de los programados | 12 |
+| BFF | sin sesión; un id cualquiera; sin caché; sin IP; un arreglo o un nulo como cuerpo; crear con 200 o ignorando el cuerpo; editar sin sesión o con id cualquiera; borrar que llama a editar; activar y desactivar cruzados | 17 |
+| Formulario | doble clic; cerrar mientras envía; método o ruta equivocados; nombre repetido sin marcar; 404 sin recargar; corte de red reintentado; lo escrito sobrevive; sin recargar ni cerrar tras guardar; sin aviso del programado ni fecha del ciclo; ilimitado sin deshabilitar o mostrando el número; corregir no quita el error; sin `aria-invalid`; un error de validación envía igual; el botón sin «Guardando…» | 19 |
+| Acciones de fila y diálogo | el por defecto se desactiva o se borra; activar uno activo; borrar con cuentas; borrar como POST; el texto de las cuentas (cero, una, varias, sin la cifra); sin el nombre; rutas cruzadas; sin refresco si el estado estaba viejo; el diálogo siempre POST | 13 |
+| Tabla, página y navegación | sin marca de por defecto o de inactivo; precio sin formato; cuentas en 0; sin aviso del programado, o con uno vacío, o sin fecha; sin estado en la fila; sin botón de nuevo ni estado vacío; la retención sin palabras; la página sin redirección, que revienta si no carga, sin JWT, con otro enlace; la miga bajo «Clientes»; **el menú sin enlace (Playwright)** | 17 |
+
+Lo que sobrevivía en la primera tanda y se arregló con su test:
+
+- **`desactivar()` y `activar()` descartaban el cambio de límites programado** sin que ningún test lo viera: desactivar un plan con un cambio pendiente lo perdía en silencio. Ahora hay un test que lo exige.
+- **El servicio de `activar` no guardaba** (devolvía el plan activado pero no lo persistía) y mi test solo miraba la respuesta. Ahora comprueba lo guardado.
+- **El campo «ilimitado» mostraba un número viejo** que ya no valía; **un cambio programado idéntico a lo vigente** se anunciaba como un cambio vacío; **`cambiosDeLimites` listaba también lo que no cambiaba**.
+- **Equivalente:** pasar `"en-US"` a `"es-PE"` en el separador de miles (`limiteEnPalabras`): ambos escriben «1,500». El código usa `en-US` por la convención de miles del resto del portal.
+
+### Suites
+
+- Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (8 min 53 s; incluye `ArchitectureTest` y todos los E2E de Spring con Postgres real).
+- Portal: `tsc` y ESLint limpios; Vitest **733/733** (87 archivos); Playwright completo (`--workers=2`) **253/253**.
+
+### Límites conocidos
+
+- **El cambio programado se aplica «al leer», no con una tarea:** `vigenteEn` lo da por vigente en el instante exacto, y la fila de `plan` se actualiza en la siguiente edición. Mientras nadie edite el plan, la fila conserva los límites viejos y el cambio sigue en su tabla; quien haga valer los límites (#192) **debe** pasar por `Plan.vigenteEn` y no leer las columnas de `plan` por su cuenta.
+- **El ciclo es el mes calendario de Lima para todas las cuentas**, no el día en que cada una contrató. Es lo que dice #192; si el plan comercial cambiara a ciclos por suscripción, hay que revisar `CicloMensual`.
+- **Los límites que se ven en la tabla son los vigentes en el momento de cargar la página** (el servidor aplica `vigenteEn(ahora)`); una página abierta de un día para otro no se actualiza sola al llegar el ciclo.
+- **El precio de un plan no tiene «ciclo siguiente»**: cambia al instante porque todavía no hay cobro automático (#194 es manual). Cuando lo haya, un cambio de precio a mitad de ciclo tendrá que decidir si afecta a quien ya pagó.
+- **La mensajería de «cuentas» cuenta suscripciones vigentes**, incluidas las de cuentas dadas de baja (siguen apuntando al plan).
+- **El borrado no se prueba contra una carrera real** (una cuenta que toma el plan justo entre mirar y borrar): lo cubre la condición SQL y un test del servicio con un repositorio que se niega a borrar, no un test concurrente.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
