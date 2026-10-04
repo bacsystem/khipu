@@ -69,7 +69,7 @@ public class AuthController {
     @GetMapping("/me")
     @Operation(summary = "Usuario de la sesión", description = "Correo, rol y cuenta del usuario autenticado por JWT.")
     public ApiResponse<UsuarioResponse> me(HttpServletRequest req) {
-        return ApiResponse.ok(UsuarioResponse.de(auth.me(UsuarioActual.id(req))));
+        return ApiResponse.ok(UsuarioResponse.de(auth.me(UsuarioActual.id(req)), SoporteActual.de(req).orElse(null)));
     }
 
     /** Siempre 202, exista o no la cuenta: no revela si un correo está registrado. */

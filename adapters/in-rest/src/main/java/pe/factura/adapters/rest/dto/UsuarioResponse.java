@@ -1,8 +1,10 @@
 package pe.factura.adapters.rest.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import pe.factura.application.port.out.TokenEmisor;
 import pe.factura.domain.cuenta.Usuario;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public record UsuarioResponse(
@@ -11,8 +13,15 @@ public record UsuarioResponse(
         @Schema(example = "facturacion@comercialandina.pe") String email,
         @Schema(example = "ADMIN") String rol,
         @Schema(description = "`false` hasta abrir el enlace de verificación (#22): sin verificar no puede crear empresas ni emitir desde el portal.", example = "true")
-        boolean correoVerificado) {
+        boolean correoVerificado,
+        @Schema(example = "2026-10-04T12:15:00Z", description = "Solo en una sesión de soporte (#184: un administrador mirando el portal como este usuario): hasta cuándo vale. Ausente en una sesión normal. El portal lo usa para avisar que se está actuando como el cliente")
+        Instant soporteHasta) {
     public static UsuarioResponse de(Usuario u) {
-        return new UsuarioResponse(u.id(), u.cuentaId(), u.email(), u.rol().name(), u.correoVerificado());
+        return new UsuarioResponse(u.id(), u.cuentaId(), u.email(), u.rol().name(), u.correoVerificado(), null);
+    }
+
+    /** El usuario de la sesión, diciendo hasta cuándo vale si es de soporte. Del administrador solo se usa la expiración: nunca sale su id. */
+    public static UsuarioResponse de(Usuario u, TokenEmisor.Soporte soporte) {
+        return new UsuarioResponse(u.id(), u.cuentaId(), u.email(), u.rol().name(), u.correoVerificado(), soporte == null ? null : soporte.expiraEn());
     }
 }

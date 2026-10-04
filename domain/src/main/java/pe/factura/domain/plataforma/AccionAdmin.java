@@ -30,5 +30,7 @@ public enum AccionAdmin {
     /** Revoca una API key concreta de una empresa (#187). El detalle lleva su prefijo, nunca la clave. */
     REVOCAR_API_KEY_EMPRESA,
     /** Prueba la conexión de una empresa con SUNAT usando sus credenciales SOL (#187). El detalle lleva el resultado, nunca las credenciales. */
-    PROBAR_CONEXION_EMPRESA
+    PROBAR_CONEXION_EMPRESA,
+    /** Un administrador abrió una sesión de soporte como un usuario de un cliente: solo lectura, 15 minutos (#184). El detalle dice a qué usuario y por cuánto tiempo; nunca lleva el token. */
+    IMPERSONAR_USUARIO
 }

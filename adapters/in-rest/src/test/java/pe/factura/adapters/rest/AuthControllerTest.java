@@ -147,4 +147,35 @@ class AuthControllerTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.codigo").value("TOKEN_INVALIDO"));
     }
+
+    // --- #184: la sesión de soporte se dice en /me, para que el portal pueda avisar que se está actuando como ese cliente --------------------------
+
+    @Test void meNoDiceNadaDeSoporteEnUnaSesionNormal() throws Exception {
+        when(auth.me(usuarioId)).thenReturn(usuario);
+
+        mvc.perform(get("/v1/auth/me").requestAttr(UsuarioActual.ATRIBUTO, usuarioId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.soporte_hasta").doesNotExist());
+    }
+
+    @Test void meDiceHastaCuandoVaLaSesionDeSoporte() throws Exception {
+        when(auth.me(usuarioId)).thenReturn(usuario);
+
+        mvc.perform(get("/v1/auth/me").requestAttr(UsuarioActual.ATRIBUTO, usuarioId)
+                        .requestAttr(SoporteActual.ATRIBUTO, new pe.factura.application.port.out.TokenEmisor.Soporte(UUID.randomUUID(), java.time.Instant.parse("2026-10-04T12:15:00Z"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.soporte_hasta").value("2026-10-04T12:15:00Z"))
+                .andExpect(jsonPath("$.datos.email").value("ana@negocio.pe"));
+    }
+
+    /** El cliente nunca debe enterarse del id del administrador desde su propia sesión. */
+    @Test void meNoDiceQueAdministradorEs() throws Exception {
+        UUID admin = UUID.randomUUID();
+        when(auth.me(usuarioId)).thenReturn(usuario);
+
+        String cuerpo = mvc.perform(get("/v1/auth/me").requestAttr(UsuarioActual.ATRIBUTO, usuarioId)
+                .requestAttr(SoporteActual.ATRIBUTO, new pe.factura.application.port.out.TokenEmisor.Soporte(admin, java.time.Instant.parse("2026-10-04T12:15:00Z")))).andReturn().getResponse().getContentAsString();
+
+        org.assertj.core.api.Assertions.assertThat(cuerpo).doesNotContain(admin.toString());
+    }
 }

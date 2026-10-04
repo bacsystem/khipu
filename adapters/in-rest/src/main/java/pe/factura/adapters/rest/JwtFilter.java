@@ -56,6 +56,14 @@ public class JwtFilter extends OncePerRequestFilter {
 
         String ruta = RutaRequest.rutaNormalizada(req);
 
+        // Una sesión de soporte (#184: un administrador mirando el portal como un cliente) solo puede mirar: nada que escriba, ni siquiera lo de la propia sesión
+        // (/v1/auth/**). Es lo que garantiza que no cambie la contraseña, las credenciales SOL ni nada más del cliente, y que no emita en su nombre. Va antes que
+        // todo lo demás: ni se consulta la base.
+        if (claims.get().esSoporte() && !LECTURAS.contains(req.getMethod())) {
+            escribirError(res, 403, "SOPORTE_SOLO_LECTURA", "Estás viendo el portal en modo soporte: solo se puede mirar, no cambiar nada");
+            return;
+        }
+
         // Una cuenta suspendida (#182) no entra: ni a mirar ni a escribir, y tampoco con una sesión que ya estaba abierta, porque se mira la
         // cuenta en la base y no el token. Después de validar el token: quien presenta uno inválido no se entera del estado de ninguna cuenta.
         // Lo de la propia sesión (/v1/auth/**: quién soy, cerrar sesión) sigue funcionando, para que el portal pueda decirle «tu cuenta está
@@ -80,6 +88,7 @@ public class JwtFilter extends OncePerRequestFilter {
             }
         }
 
+        if (claims.get().esSoporte()) req.setAttribute(SoporteActual.ATRIBUTO, claims.get().soporte());
         req.setAttribute(CuentaActual.ATRIBUTO, claims.get().cuentaId());
         req.setAttribute(UsuarioActual.ATRIBUTO, claims.get().usuarioId());
 
