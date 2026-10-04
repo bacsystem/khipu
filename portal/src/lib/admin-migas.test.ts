@@ -22,6 +22,10 @@ describe("migaAdmin", () => {
     expect(migaAdmin("/admin/empresas")).toEqual({ seccion: "Clientes", pagina: "Empresas" });
   });
 
+  it("el detalle de una empresa sigue bajo «Clientes / Empresas»", () => {
+    expect(migaAdmin("/admin/empresas/6b1d")).toEqual({ seccion: "Clientes", pagina: "Empresas" });
+  });
+
   it("«/admin» solo es el inicio de forma exacta: no engulle las páginas que todavía no tienen miga", () => {
     expect(migaAdmin("/admin/planes")).toBeNull();
   });

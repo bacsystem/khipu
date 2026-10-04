@@ -1,8 +1,9 @@
 import { http, HttpResponse } from "msw";
-import { diasEntre, hoyLima } from "@/lib/formato";
+import { diasEntre, hoyLima, sumarDias } from "@/lib/formato";
+import { esUuid } from "@/lib/uuid";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
-import { db, fakeJwt, idCuentaMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
+import { db, fakeJwt, idCuentaMock, idEmpresaMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -352,10 +353,7 @@ export const handlers = [
       return fail(400, "VALIDACION", "Estado de certificado no válido");
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
     const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
-    const desdeHoy = (n: number) => {
-      const [a, m, d] = hoyLima().split("-").map(Number);
-      return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
-    };
+    const desdeHoy = (n: number) => sumarDias(hoyLima(), n);
     const filas = db.empresasAdmin.map((e) => {
       const estado =
         e.certificado === null ? "SIN_CERTIFICADO" : e.certificado === "sin_fecha" ? "SIN_FECHA" : e.certificado < 0 ? "VENCIDO" : e.certificado < 30 ? "POR_VENCER" : "VIGENTE";
@@ -390,6 +388,86 @@ export const handlers = [
   }),
 
   /**
+   * Como el backend (#186): solo el administrador; un id que no es UUID es 400 y uno que no existe, 404. «Panadería Sol» trae un detalle
+   * completo (domicilio, tres series, un establecimiento, dos API keys, PDF con logo, tres comprobantes —uno con observaciones del CDR,
+   * uno rechazado y uno sin respuesta—, sus cambios de estado y doce tareas pendientes); las demás, lo mínimo. Sin secretos, como el
+   * backend: de las API keys, solo el prefijo; del logo, solo si hay uno. El estado del certificado es el del listado.
+   */
+  http.get(`${BASE}/v1/admin/empresas/:id`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la empresa no es válido");
+    const e = db.empresasAdmin.find((x) => x.id === params.id);
+    if (!e) return fail(404, "NO_ENCONTRADO", "La empresa no existe");
+    const completa = e.id === idEmpresaMock(1);
+    const estado =
+      e.certificado === null ? "SIN_CERTIFICADO" : e.certificado === "sin_fecha" ? "SIN_FECHA" : e.certificado < 0 ? "VENCIDO" : e.certificado < 30 ? "POR_VENCER" : "VIGENTE";
+    const hoy = hoyLima();
+    return ok({
+      id: e.id,
+      ruc: e.ruc,
+      razon_social: e.razon_social,
+      nombre_comercial: completa ? "LA PANADERIA" : undefined,
+      entorno: e.entorno,
+      creada_en: e.creada_en,
+      cuenta_id: e.cuenta?.id,
+      cuenta_nombre: e.cuenta?.nombre,
+      certificado: estado,
+      ...(typeof e.certificado === "number" ? { certificado_vigente_hasta: sumarDias(hoy, e.certificado), certificado_dias_restantes: e.certificado } : {}),
+      tiene_credenciales_sol: e.tiene_credenciales_sol,
+      domicilio: completa
+        ? { ubigeo: "150122", direccion: "AV. LARCO 345", urbanizacion: "URB. SOL", distrito: "MIRAFLORES", provincia: "LIMA", departamento: "LIMA", codigo_establecimiento: "0000" }
+        : undefined,
+      cuenta_detracciones: completa ? "00-123-456789" : undefined,
+      padron_tasa_especial_igv: completa,
+      pdf: completa
+        ? { plantilla: "MODERNO", color_primario: "#0F766E", tiene_logo: true, pie_de_pagina: "Gracias por su compra", observaciones_por_defecto: "Pago a 30 días" }
+        : { plantilla: "CLASICO", color_primario: "#1E1E24", tiene_logo: false },
+      series: completa
+        ? [
+            { tipo: "01", codigo: "F001", ultimo_numero: 12, activa: true, establecimiento: "0000" },
+            { tipo: "01", codigo: "F002", ultimo_numero: 0, activa: false, establecimiento: "0001" },
+            { tipo: "03", codigo: "B001", ultimo_numero: 3, activa: true, establecimiento: "0000" },
+          ]
+        : [],
+      establecimientos: completa
+        ? [{ codigo: "0001", nombre: "Tienda Surco", domicilio: { ubigeo: "150140", direccion: "AV. CAMINOS DEL INCA 100", distrito: "SANTIAGO DE SURCO", provincia: "LIMA", departamento: "LIMA", codigo_establecimiento: "0001" }, activo: true }]
+        : [],
+      api_keys: completa
+        ? [
+            { id: "k-sol-2", prefijo: "fk_sol0002", activa: true, creada_en: "2026-09-10T15:00:00Z" },
+            { id: "k-sol-1", prefijo: "fk_sol0001", activa: false, creada_en: "2026-09-01T15:00:00Z", revocada_en: "2026-09-09T12:00:00Z" },
+          ]
+        : [],
+      comprobantes: completa
+        ? [
+            {
+              id: "f-sol-12", tipo: "01", serie: "F001", numero: 12, fecha_emision: sumarDias(hoy, -1), estado: "ACEPTADO_CON_OBS", moneda: "PEN", total: 118, intentos: 2,
+              cdr: { codigo: "0", descripcion: "La Factura numero F001-12, ha sido aceptada", observaciones: ["4287 - El dato ingresado como parte de la dirección no cumple el formato"] },
+            },
+            { id: "f-sol-11", tipo: "01", serie: "F001", numero: 11, fecha_emision: sumarDias(hoy, -2), estado: "RECHAZADO", moneda: "PEN", total: 59, intentos: 1, ultimo_error: "RUC del receptor no existe en SUNAT", cdr: { codigo: "2017", descripcion: "El RUC del receptor no es válido", observaciones: [] } },
+            { id: "f-sol-13", tipo: "03", serie: "B001", numero: 3, fecha_emision: sumarDias(hoy, -3), estado: "FIRMADO", moneda: "PEN", total: 25.5, intentos: 0 },
+          ]
+        : [],
+      eventos: completa
+        ? [
+            { comprobante: "F001-00000012", estado_anterior: "ENVIADO", estado_nuevo: "ACEPTADO_CON_OBS", detalle: "CDR recibido con observaciones", ocurrido_en: `${sumarDias(hoy, -1)}T15:00:00Z` },
+            { comprobante: "F001-00000012", estado_anterior: "FIRMADO", estado_nuevo: "ENVIADO", ocurrido_en: `${sumarDias(hoy, -1)}T14:59:00Z` },
+            { comprobante: "F001-00000011", estado_nuevo: "RECHAZADO", detalle: "SUNAT rechazó el comprobante", ocurrido_en: `${sumarDias(hoy, -2)}T10:00:00Z` },
+          ]
+        : [],
+      outbox: completa
+        ? {
+            total: 12,
+            proximas: [
+              { agregado: "DOCUMENTO", agregado_id: "f-sol-13", accion: "ENVIAR", intentos: 3, siguiente_intento: `${hoy}T16:00:00Z`, ultimo_error: "SUNAT no responde" },
+              { agregado: "DOCUMENTO", agregado_id: "f-sol-14", accion: "ENVIAR", intentos: 0, siguiente_intento: `${hoy}T16:05:00Z` },
+            ],
+          }
+        : { total: 0, proximas: [] },
+    });
+  }),
+
+  /**
    * Como el backend (#181): solo el administrador; 404 `NO_ENCONTRADO` si no existe. La primera cuenta sembrada («Panadería Sol») trae
    * un detalle completo (dos usuarios, un certificado por vencer, un comprobante, una acción de la bitácora); las demás, lo mínimo.
    * Fechas del certificado relativas a hoy, para que «por vencer» no caduque con el calendario.
@@ -398,13 +476,10 @@ export const handlers = [
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     // Un id que no es UUID no llega a buscarse: el backend lo rechaza al convertir la ruta. Si la página no lo filtrara, sería un 400, no un 404.
     // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
-    if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
+    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
-    const enDias = (n: number) => {
-      const [a, m, d] = hoyLima().split("-").map(Number);
-      return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
-    };
+    const enDias = (n: number) => sumarDias(hoyLima(), n);
     const completa = cuenta.id === idCuentaMock(1);
     const { empresas, ...base } = cuenta;
     const detalle = {

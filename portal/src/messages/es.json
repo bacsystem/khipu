@@ -190,6 +190,90 @@
       "error": "No se pudo cargar el listado de empresas.",
       "reintentar": "Reintentar"
     },
+    "empresaDetalle": {
+      "volver": "Empresas",
+      "alta": "Alta",
+      "cuenta": "Cuenta",
+      "sinCuenta": "Sin cuenta (alta por integración)",
+      "error": "No se pudo cargar la empresa.",
+      "soloLectura": "Solo lectura: las acciones sobre la empresa llegan más adelante.",
+      "fiscales": {
+        "titulo": "Datos fiscales",
+        "ruc": "RUC",
+        "razonSocial": "Razón social",
+        "nombreComercial": "Nombre comercial",
+        "entorno": "Entorno",
+        "domicilio": "Domicilio fiscal",
+        "sinDomicilio": "Todavía no declaró su domicilio fiscal.",
+        "ubigeo": "Ubigeo",
+        "detracciones": "Cuenta de detracciones",
+        "padron": "Tasa especial de IGV (padrón)",
+        "si": "Sí",
+        "no": "No",
+        "ninguno": "—"
+      },
+      "conexion": {
+        "titulo": "Certificado y credenciales SOL",
+        "certificado": "Certificado digital",
+        "sol": "Credenciales SOL",
+        "solCargadas": "Cargadas",
+        "solSinCargar": "Sin cargar",
+        "nota": "Solo se sabe si están cargados: su contenido nunca sale del backend."
+      },
+      "series": {
+        "titulo": "Series",
+        "vacio": "Esta empresa no tiene series.",
+        "columnas": { "serie": "Serie", "tipo": "Tipo", "ultimo": "Último número", "estado": "Estado", "establecimiento": "Establecimiento" },
+        "activa": "Activa",
+        "inactiva": "Inactiva"
+      },
+      "establecimientos": {
+        "titulo": "Establecimientos anexos",
+        "vacio": "No tiene establecimientos anexos.",
+        "columnas": { "codigo": "Código", "nombre": "Nombre", "direccion": "Dirección", "estado": "Estado" },
+        "activo": "Activo",
+        "inactivo": "Inactivo"
+      },
+      "apiKeys": {
+        "titulo": "API keys",
+        "vacio": "Esta empresa no tiene API keys.",
+        "columnas": { "prefijo": "Prefijo", "estado": "Estado", "creada": "Creada", "revocada": "Revocada" },
+        "nota": "Solo el prefijo: el secreto nunca se muestra.",
+        "activa": "Vigente",
+        "revocada": "Revocada"
+      },
+      "pdf": {
+        "titulo": "Personalización del PDF",
+        "plantilla": "Plantilla",
+        "color": "Color principal",
+        "logo": "Logo",
+        "conLogo": "Cargado",
+        "sinLogo": "Sin logo",
+        "pie": "Pie de página",
+        "observaciones": "Observaciones por defecto"
+      },
+      "comprobantes": {
+        "titulo": "Comprobantes recientes",
+        "vacio": "Todavía no emitió comprobantes.",
+        "columnas": { "comprobante": "Comprobante", "fecha": "Emisión", "estado": "Estado", "total": "Total", "intentos": "Intentos", "cdr": "CDR de SUNAT" },
+        "sinCdr": "Sin respuesta de SUNAT",
+        "sinObservaciones": "Sin observaciones",
+        "ultimoError": "Último error"
+      },
+      "eventos": {
+        "titulo": "Cambios de estado",
+        "vacio": "Los comprobantes recientes no tienen cambios de estado.",
+        "columnas": { "comprobante": "Comprobante", "cambio": "Cambio", "detalle": "Detalle", "cuando": "Cuándo" },
+        "inicio": "Inicio"
+      },
+      "outbox": {
+        "titulo": "Outbox pendiente",
+        "vacio": "No tiene tareas pendientes.",
+        "total": "{n} tareas pendientes",
+        "unaTarea": "1 tarea pendiente",
+        "columnas": { "tarea": "Tarea", "intentos": "Intentos", "proximo": "Próximo intento", "error": "Último error" }
+      }
+    },
     "detalle": {
       "volver": "Cuentas",
       "alta": "Alta",

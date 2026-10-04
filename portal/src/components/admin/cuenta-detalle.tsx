@@ -1,6 +1,5 @@
-import { InboxIcon } from "lucide-react";
-import type { ReactNode } from "react";
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
+import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { estadoCertificado, type CuentaDetalleAdmin, type EmpresaCuenta } from "@/lib/api/admin-cuenta-detalle";
@@ -10,39 +9,13 @@ import { messages } from "@/lib/messages";
 
 const t = messages.admin.detalle;
 
-function Seccion({ titulo, id, children }: { titulo: string; id: string; children: ReactNode }) {
-  return (
-    <section aria-labelledby={id} className="grid min-w-0 gap-2">
-      <h2 id={id} className="font-heading text-base">
-        {titulo}
-      </h2>
-      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">{children}</div>
-    </section>
-  );
-}
-
-function Vacio({ columnas, texto }: { columnas: number; texto: string }) {
-  return (
-    <TableRow className="hover:bg-transparent">
-      <TableCell colSpan={columnas} className="py-10 text-center">
-        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <InboxIcon className="size-5" />
-          <p className="text-sm">{texto}</p>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-const CABECERA = "border-b border-border/80 bg-muted hover:bg-muted";
-
 function Usuarios({ usuarios }: { usuarios: CuentaDetalleAdmin["usuarios"] }) {
   const u = t.usuarios;
   return (
     <Seccion titulo={u.titulo} id="detalle-usuarios">
       <Table>
         <TableHeader>
-          <TableRow className={CABECERA}>
+          <TableRow className={CABECERA_FILA}>
             <TableHead className={`${CABECERA_TABLA} pl-4`}>{u.columnas.correo}</TableHead>
             <TableHead className={CABECERA_TABLA}>{u.columnas.rol}</TableHead>
             <TableHead className={CABECERA_TABLA}>{u.columnas.estado}</TableHead>
@@ -85,7 +58,7 @@ function Empresas({ empresas, hoy }: { empresas: EmpresaCuenta[]; hoy: string })
     <Seccion titulo={e.titulo} id="detalle-empresas">
       <Table>
         <TableHeader>
-          <TableRow className={CABECERA}>
+          <TableRow className={CABECERA_FILA}>
             <TableHead className={`${CABECERA_TABLA} pl-4`}>{e.columnas.empresa}</TableHead>
             <TableHead className={CABECERA_TABLA}>{e.columnas.entorno}</TableHead>
             <TableHead className={CABECERA_TABLA}>{e.columnas.certificado}</TableHead>
@@ -125,7 +98,7 @@ function Comprobantes({ comprobantes }: { comprobantes: CuentaDetalleAdmin["comp
     <Seccion titulo={c.titulo} id="detalle-comprobantes">
       <Table>
         <TableHeader>
-          <TableRow className={CABECERA}>
+          <TableRow className={CABECERA_FILA}>
             <TableHead className={`${CABECERA_TABLA} pl-4`}>{c.columnas.comprobante}</TableHead>
             <TableHead className={CABECERA_TABLA}>{c.columnas.empresa}</TableHead>
             <TableHead className={CABECERA_TABLA}>{c.columnas.fecha}</TableHead>
@@ -161,7 +134,7 @@ function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
     <Seccion titulo={e.titulo} id="detalle-eventos">
       <Table>
         <TableHeader>
-          <TableRow className={CABECERA}>
+          <TableRow className={CABECERA_FILA}>
             <TableHead className={`${CABECERA_TABLA} pl-4`}>{e.columnas.accion}</TableHead>
             <TableHead className={CABECERA_TABLA}>{e.columnas.actor}</TableHead>
             <TableHead className={CABECERA_TABLA}>{e.columnas.cuando}</TableHead>

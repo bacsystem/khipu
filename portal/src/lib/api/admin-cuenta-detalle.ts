@@ -1,4 +1,5 @@
 import { diasEntre } from "@/lib/formato";
+import { esUuid } from "@/lib/uuid";
 import { backendFetch } from "./client";
 import type { EstadoDocumento } from "./facturas";
 
@@ -61,11 +62,9 @@ export type EventoReciente = {
   detalle?: string;
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** Lo que llega por la URL no se pega en la llamada al backend sin mirarlo: `../auth/me` o un espacio no son un id de cuenta. */
 export function esIdDeCuenta(id: string): boolean {
-  return UUID.test(id);
+  return esUuid(id);
 }
 
 export function hrefDetalleCuenta(id: string): string {
