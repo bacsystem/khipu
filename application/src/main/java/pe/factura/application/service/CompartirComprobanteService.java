@@ -27,6 +27,11 @@ public class CompartirComprobanteService implements CompartirComprobanteUseCase 
         // Solo lo que SUNAT ya validó llega al cliente: un FIRMADO puede terminar rechazado y un ANULADO ya no vale.
         if (c.estado() != EstadoDocumento.ACEPTADO && c.estado() != EstadoDocumento.ACEPTADO_CON_OBS)
             throw new DomainException("NO_ACEPTADO", "Solo se envían comprobantes aceptados por SUNAT; " + c.serie() + "-" + c.numero() + " está " + c.estado());
+        // Sin SMTP el adaptador escribe en el log y no lanza: responder «enviado» le diría al emisor que su cliente recibió una factura
+        // que nunca le llegó. No se intenta: el log no sirve de entrega y armar los adjuntos sería trabajo para nada.
+        if (!correo.entregaDeVerdad())
+            throw new DomainException("CORREO_NO_CONFIGURADO", "El envío de correos no está habilitado en el servidor: " + c.serie() + "-" + c.numero()
+                    + " no se envió. Descargue el PDF y envíelo por su cuenta, o contacte a soporte.");
         Tenant t = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
 
         String numero = c.serie() + "-" + c.numero();

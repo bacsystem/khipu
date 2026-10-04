@@ -835,7 +835,8 @@ export const handlers = [
       headers: { "content-type": "application/pdf", "content-disposition": 'inline; filename="20123456786-01-F001-00000001.pdf"' },
     }),
   ),
-  // Envío por correo al adquirente: solo comprobantes aceptados; el backend valida el email (422 VALIDACION).
+  // Envío por correo al adquirente: solo comprobantes aceptados; el backend valida el email (422 VALIDACION). Un correo que empieza con
+  // `sin-smtp` simula un servidor sin correo configurado (#218): 503 CORREO_NO_CONFIGURADO y no se envía nada.
   http.post(`${BASE}/v1/facturas/:id/correo`, async ({ params, request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
     const factura = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === params.id);
@@ -845,6 +846,9 @@ export const handlers = [
       return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: { email: ["debe ser una dirección de correo electrónico con formato correcto"] } }, { status: 422 });
     }
     if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(409, "NO_ACEPTADO", `Solo se envían comprobantes aceptados por SUNAT; ${factura.serie}-${factura.numero} está ${factura.estado_documento}`);
+    if (body.email.startsWith("sin-smtp")) {
+      return fail(503, "CORREO_NO_CONFIGURADO", `El envío de correos no está habilitado en el servidor: ${factura.serie}-${factura.numero} no se envió. Descargue el PDF y envíelo por su cuenta, o contacte a soporte.`);
+    }
     db.correos.push({ comprobante: factura.id, email: body.email, mensaje: body.mensaje ?? null });
     return ok(null, 202);
   }),

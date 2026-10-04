@@ -636,6 +636,45 @@ Con esta mergeada el issue queda completo.**
 - El formulario no ofrece correlativo inicial, ni establecimientos anexos, ni credenciales SOL ni certificado: eso lo completa el cliente en su portal.
 - La página pesa 346 kB de primera carga (233 kB la lista de cuentas): el formulario trae `react-hook-form` y `zod`.
 
+## #218 · Enviar un comprobante por correo sin SMTP no lo da por enviado
+
+**Estado: 🔧 implementado, 5/5 mutaciones verificadas — falta la revisión de la PR.** Seguimiento de la revisión de #216 (#188, hallazgo H1).
+
+Con `MAIL_HABILITADO=false` (el default) el adaptador `LogCorreoSender` escribe el correo en el log y no lanza: `POST /v1/facturas/{id}/correo` respondía
+`202` y el portal mostraba «Enviado a …» aunque el adquirente no recibía nada.
+
+### Diseño
+
+- **`CompartirComprobanteService` pregunta `CorreoSender.entregaDeVerdad()`** (el puerto que agregó #188) y, si el adaptador no entrega, responde
+  **`503 CORREO_NO_CONFIGURADO`**. Es 503 y no 502: no falló un servicio externo, el servidor no tiene correo, y reintentar no sirve hasta que el operador lo habilite.
+- **No se intenta el envío.** El alta asistida sí lo «envía» al log, porque ahí se lee el enlace de la invitación en desarrollo; aquí el log no le sirve a nadie y
+  armar los adjuntos (PDF, XML y CDR) sería trabajo tirado. Se comprueba después de `NO_ACEPTADO`, para que un comprobante no aceptado siga diciendo eso.
+- **El portal no cambia de código**: `CorreoButton` ya muestra el `mensaje` del backend, así que el texto vive ahí y dice qué hacer («descargue el PDF y envíelo
+  por su cuenta, o contacte a soporte»). Con SMTP configurado nada cambia: éxito si sale, `502 CORREO_NO_ENVIADO` si el SMTP lo rechaza.
+- `/developers/errores` documenta el código y el 503.
+
+### Tests
+
+- Servicio (`CompartirComprobanteServiceTest` +1): con un `CorreoSender` que no entrega, `CORREO_NO_CONFIGURADO` con el número del comprobante en el mensaje, y
+  **no se llama a `enviar`**.
+- Controlador (`FacturaControllerTest`, +1 caso): `503` con el código.
+- E2E (`comprobantes.spec.ts` +1): un correo `sin-smtp@…` hace que el mock responda 503; el formulario muestra el aviso y **no** aparece «Enviado a …».
+
+### Verificación por mutación — 5/5 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | Sin preguntar `entregaDeVerdad()` (el código anterior) | `sinCorreoQueEntregueDeVerdadNoSeDaPorEnviado` (fue el rojo del TDD) |
+| Servicio | La condición invertida | 3 de 4 (también los casos con SMTP) |
+| Servicio | Escribe el correo antes de fallar | `sinCorreoQueEntregueDeVerdad…` («no se intenta») |
+| Controlador | `CORREO_NO_CONFIGURADO` sin su 503 (cae en 422) | `correo…` de `FacturaControllerTest` |
+| Mock | Sin el caso `sin-smtp` | el e2e nuevo |
+
+### Límites conocidos
+
+- La recuperación de contraseña sigue respondiendo `202` sin SMTP, a propósito: un código distinto revelaría qué correos existen.
+- El portal no ofrece «enviar» deshabilitado de antemano: se entera al intentarlo. Saberlo antes pediría un endpoint de capacidades del servidor.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de

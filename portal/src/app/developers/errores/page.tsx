@@ -34,6 +34,7 @@ const HTTP: Array<[string, string]> = [
   ["409", "Conflicto: correlativo repetido (DUPLICADO), comprobante que no admite envío (ESTADO_NO_ENVIABLE), fuera del plazo de envío (FUERA_DE_PLAZO), aún no aceptado para enviarlo por correo (NO_ACEPTADO) o establecimiento con series activas (ESTABLECIMIENTO_EN_USO)."],
   ["422", "Datos válidos en forma pero no en fondo: validación de campos (VALIDACION, detalle en errores) o regla de negocio (el codigo dice cuál)."],
   ["500", "Error interno; el mensaje incluye un trace_id para soporte."],
+  ["502 / 503", "Falla del correo saliente al enviar un comprobante: el servidor de correo lo rechazó (502 CORREO_NO_ENVIADO) o no está habilitado (503 CORREO_NO_CONFIGURADO)."],
 ];
 
 const CODIGOS: Array<[string, string, string, string]> = [
@@ -69,6 +70,7 @@ const CODIGOS: Array<[string, string, string, string]> = [
   ["XSD_INVALIDO / FIRMA_FALLIDA", "422", "El XML generado no validó o no pudo firmarse.", "Contacte soporte con el id; suele ser un dato fuera de catálogo."],
   ["NO_ACEPTADO", "409", "Se pidió enviar por correo un comprobante que SUNAT aún no aceptó (FIRMADO, ERROR_ENVIO, RECHAZADO o ANULADO).", "Espere la aceptación; el PDF sí se puede descargar desde FIRMADO."],
   ["CORREO_NO_ENVIADO", "502", "El servidor de correo rechazó o no aceptó el envío al adquirente (SMTP caído, buzón inválido).", "Reintente más tarde; el comprobante no cambia de estado."],
+  ["CORREO_NO_CONFIGURADO", "503", "El servidor no tiene el envío de correos habilitado: no se envió nada al adquirente.", "Reintentar no sirve hasta que se habilite; entregue el PDF por su cuenta o contacte a soporte."],
   ["PERSONALIZACION_INVALIDA / LOGO_INVALIDO / OBSERVACIONES_INVALIDAS", "422", "Diseño del PDF fuera de formato (plantilla desconocida, color no hexadecimal, pie de más de 300 caracteres o con saltos de línea, observaciones de más de 1000), logo que no es PNG/JPEG o pesa más de 200 KB, u observaciones del comprobante con caracteres de control.", "Corrija el valor indicado en el mensaje; los textos del PDF no afectan al XML ni a SUNAT."],
   ["SIN_FIRMA", "422", "Se pidió el PDF de un comprobante que aún no está numerado y firmado.", "Solo ocurre con comprobantes INVALIDO; corrija y vuelva a emitir."],
   ["ESTADO_NO_ENVIABLE", "409", "Se intentó enviar un comprobante ACEPTADO, RECHAZADO o ANULADO.", "Solo FIRMADO y ERROR_ENVIO se envían."],
