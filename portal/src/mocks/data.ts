@@ -11,6 +11,11 @@ export function fakeJwt(payload: Record<string, unknown>): string {
 export type Usuario = { id: string; cuenta_id: string; email: string; rol: string; correo_verificado: boolean };
 export type Administrador = { id: string; email: string };
 /** Cuenta del listado del backoffice (#180) con sus empresas; el endpoint devuelve solo el número de empresas. */
+/** El id de la cuenta sembrada número `n`: un UUID, porque la página de detalle (#181) descarta todo lo que no lo sea. */
+export function idCuentaMock(n: number): string {
+  return `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+}
+
 export type CuentaAdminMock = {
   id: string;
   nombre: string;
@@ -162,7 +167,7 @@ export function resetDb() {
   // La más reciente nunca inició sesión y no tiene teléfono: el backend omite esos campos.
   db.cuentasAdmin = [
     {
-      id: "ca-01",
+      id: idCuentaMock(1),
       nombre: "Panadería Sol",
       email: "ana@sol.pe",
       telefono: "987654321",
@@ -171,7 +176,7 @@ export function resetDb() {
       empresas: [{ ruc: "20100047226", razon_social: "PANADERIA SOL SAC" }],
     },
     {
-      id: "ca-02",
+      id: idCuentaMock(2),
       nombre: "Ferretería Luna",
       email: "luis@luna.pe",
       telefono: "912345678",
@@ -183,7 +188,7 @@ export function resetDb() {
       const n = i + 3;
       const dos = String(n).padStart(2, "0");
       return {
-        id: `ca-${dos}`,
+        id: idCuentaMock(n),
         nombre: `Cliente ${dos}`,
         email: `cliente${dos}@demo.pe`,
         telefono: `9000000${dos}`,
@@ -192,7 +197,7 @@ export function resetDb() {
         empresas: i % 3 === 0 ? [] : [{ ruc: `2010000${dos}00`, razon_social: `CLIENTE ${dos} SAC` }],
       };
     }),
-    { id: "ca-12", nombre: "Cuenta Nueva", email: "nueva@demo.pe", creada_en: "2026-09-20T15:00:00Z", empresas: [] },
+    { id: idCuentaMock(12), nombre: "Cuenta Nueva", email: "nueva@demo.pe", creada_en: "2026-09-20T15:00:00Z", empresas: [] },
   ];
 
   const usuario: Usuario = {

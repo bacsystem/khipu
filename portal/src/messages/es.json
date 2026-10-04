@@ -152,6 +152,58 @@
       "error": "No se pudo cargar el listado de cuentas.",
       "reintentar": "Reintentar"
     },
+    "detalle": {
+      "volver": "Cuentas",
+      "alta": "Alta",
+      "telefono": "Celular",
+      "error": "No se pudo cargar la cuenta.",
+      "noExiste": "La cuenta no existe.",
+      "soloLectura": "Solo lectura: las acciones sobre la cuenta llegan más adelante.",
+      "usuarios": {
+        "titulo": "Usuarios",
+        "vacio": "Esta cuenta no tiene usuarios.",
+        "columnas": { "correo": "Correo", "rol": "Rol", "estado": "Estado", "verificado": "Correo", "ultimoAcceso": "Último acceso" },
+        "activo": "Activo",
+        "inactivo": "Inactivo",
+        "verificado": "Verificado",
+        "sinVerificar": "Sin verificar",
+        "nunca": "Nunca"
+      },
+      "empresas": {
+        "titulo": "Empresas",
+        "vacio": "Esta cuenta todavía no tiene empresas.",
+        "columnas": { "empresa": "Empresa", "entorno": "Entorno", "certificado": "Certificado", "sol": "Credenciales SOL" },
+        "beta": "Beta",
+        "produccion": "Producción",
+        "sinCertificado": "Sin cargar",
+        "certificadoSinFecha": "Cargado, sin fecha de vigencia",
+        "certificadoVigente": "Vigente hasta {fecha}",
+        "certificadoPorVencer": "Vence el {fecha} ({dias} días)",
+        "certificadoVence": "Vence el {fecha} (hoy)",
+        "certificadoVencido": "Venció el {fecha}",
+        "solCargadas": "Cargadas",
+        "solSinCargar": "Sin cargar"
+      },
+      "comprobantes": {
+        "titulo": "Comprobantes recientes",
+        "vacio": "Todavía no emitió comprobantes.",
+        "columnas": { "comprobante": "Comprobante", "empresa": "Empresa", "fecha": "Emisión", "estado": "Estado", "total": "Total" }
+      },
+      "eventos": {
+        "titulo": "Acciones del administrador",
+        "vacio": "Ningún administrador actuó sobre esta cuenta.",
+        "columnas": { "accion": "Acción", "actor": "Quién", "cuando": "Cuándo", "detalle": "Detalle" },
+        "actorAdministrador": "Administrador",
+        "actorPlataforma": "Clave de plataforma",
+        "acciones": {
+          "CREAR_CUENTA": "Alta de la cuenta",
+          "CREAR_TENANT": "Alta de una empresa",
+          "CREAR_ADMINISTRADOR": "Alta de un administrador",
+          "INICIAR_SESION": "Inicio de sesión",
+          "CONFIGURAR_SEGUNDO_FACTOR": "Configuró el segundo factor"
+        }
+      }
+    },
     "alta": {
       "titulo": "Nueva cuenta",
       "descripcion": "Da de alta a un cliente: su cuenta, su primera empresa y su primera serie. El cliente recibe una invitación por correo y elige su propia contraseña; tú nunca la defines.",
