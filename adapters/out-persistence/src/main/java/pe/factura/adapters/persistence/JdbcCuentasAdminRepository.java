@@ -28,7 +28,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
     private static final String SELECT = """
-            SELECT c.id, c.nombre, c.email, c.telefono, c.created_at,
+            SELECT c.id, c.nombre, c.email, c.telefono, c.created_at, c.suspendida_en,
                    (SELECT count(*) FROM tenant t WHERE t.cuenta_id = c.id) AS empresas,
                    (SELECT max(s.created_at) FROM sesion s JOIN usuario u ON u.id = s.usuario_id WHERE u.cuenta_id = c.id) AS ultimo_acceso
             FROM cuenta c
@@ -36,7 +36,7 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
     private static final RowMapper<CuentaResumen> MAPPER = (rs, i) -> {
         Timestamp ultimoAcceso = rs.getTimestamp("ultimo_acceso");
         return new CuentaResumen(rs.getObject("id", UUID.class), rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"),
-                rs.getTimestamp("created_at").toInstant(), rs.getInt("empresas"), ultimoAcceso == null ? null : ultimoAcceso.toInstant());
+                rs.getTimestamp("created_at").toInstant(), rs.getInt("empresas"), ultimoAcceso == null ? null : ultimoAcceso.toInstant(), instante(rs.getTimestamp("suspendida_en")));
     };
 
     private final JdbcTemplate jdbc;
@@ -63,9 +63,9 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
      * comprobantes para mostrar diez.
      */
     @Override public Optional<CuentaDetalle> detalle(UUID cuentaId) {
-        return jdbc.query("SELECT id, nombre, email, telefono, created_at FROM cuenta WHERE id = ?", (rs, i) -> new Object[]{
-                        rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"), rs.getTimestamp("created_at").toInstant()}, cuentaId)
-                .stream().findFirst().map(c -> new CuentaDetalle(cuentaId, (String) c[0], (String) c[1], (String) c[2], (Instant) c[3],
+        return jdbc.query("SELECT id, nombre, email, telefono, created_at, suspendida_en FROM cuenta WHERE id = ?", (rs, i) -> new Object[]{
+                        rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"), rs.getTimestamp("created_at").toInstant(), instante(rs.getTimestamp("suspendida_en"))}, cuentaId)
+                .stream().findFirst().map(c -> new CuentaDetalle(cuentaId, (String) c[0], (String) c[1], (String) c[2], (Instant) c[3], (Instant) c[4],
                         usuariosDe(cuentaId), empresasDe(cuentaId), comprobantesDe(cuentaId), eventosDe(cuentaId)));
     }
 

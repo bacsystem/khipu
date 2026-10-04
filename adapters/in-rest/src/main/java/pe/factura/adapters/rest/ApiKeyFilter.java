@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.filter.OncePerRequestFilter;
 import pe.factura.application.port.out.ApiKeyRepository;
+import pe.factura.application.port.out.SuspensionRepository;
 import pe.factura.application.service.ApiKeyGenerator;
 import pe.factura.domain.tenant.ApiKey;
 
@@ -17,6 +18,7 @@ import java.util.Optional;
 public class ApiKeyFilter extends OncePerRequestFilter {
     private final ApiKeyRepository apiKeys;
     private final String pepper;
+    private final SuspensionRepository suspensiones;
 
     /**
      * Decide sobre la ruta normalizada (ver {@link RutaRequest}). Las rutas de administración las
@@ -37,6 +39,14 @@ public class ApiKeyFilter extends OncePerRequestFilter {
             res.setStatus(401);
             res.setContentType("application/json;charset=UTF-8");
             res.getWriter().write("{\"estado\":\"error\",\"codigo\":\"NO_AUTORIZADO\",\"mensaje\":\"API key ausente o inválida\"}");
+            return;
+        }
+        // Después de validar la key: quien no tiene una válida no se entera del estado de ninguna cuenta (#182). La empresa de una cuenta
+        // suspendida no emite ni consulta; las ya emitidas siguen enviándose a SUNAT por el outbox, que no pasa por aquí.
+        if (suspensiones.empresaSuspendida(k.get().tenantId())) {
+            res.setStatus(403);
+            res.setContentType("application/json;charset=UTF-8");
+            res.getWriter().write("{\"estado\":\"error\",\"codigo\":\"CUENTA_SUSPENDIDA\",\"mensaje\":\"La cuenta de esta empresa está suspendida. Contacta a soporte para reactivarla\"}");
             return;
         }
         req.setAttribute(TenantActual.ATRIBUTO, k.get().tenantId());

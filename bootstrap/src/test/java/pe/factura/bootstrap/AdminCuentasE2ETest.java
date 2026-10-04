@@ -72,7 +72,7 @@ class AdminCuentasE2ETest {
         assertThat(datos).hasSize(1);
         assertThat(datos.get(0)).containsEntry("email", "ana@negocio.pe").containsEntry("nombre", "Mi negocio").containsEntry("empresas", 1);
         assertThat(datos.get(0)).containsKeys("id", "creada_en", "ultimo_acceso");   // el registro abre una sesión
-        assertThat(datos.get(0)).doesNotContainKeys("estado", "plan");
+        assertThat(datos.get(0)).containsEntry("estado", "ACTIVA").doesNotContainKeys("plan", "suspendida_en");   // el plan llega con #189
     }
 
     @Test void buscaPorRucYPorRazonSocialYElTotalRefleja() {

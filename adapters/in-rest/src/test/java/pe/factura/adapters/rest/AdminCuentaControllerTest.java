@@ -11,6 +11,7 @@ import pe.factura.application.port.in.DetalleCuentaAdminUseCase.CuentaDetalle;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.CuentaResumen;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.Filtro;
+import pe.factura.application.port.in.SuspenderCuentaUseCase;
 import pe.factura.domain.DomainException;
 
 import java.time.Instant;
@@ -22,6 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -31,11 +33,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AdminCuentaControllerTest {
     static final UUID ID = UUID.randomUUID();
     static final CuentaResumen ANA = new CuentaResumen(ID, "Mi negocio", "ana@negocio.pe", "987654321",
-            Instant.parse("2026-09-01T10:00:00Z"), 2, Instant.parse("2026-10-01T09:00:00Z"));
+            Instant.parse("2026-09-01T10:00:00Z"), 2, Instant.parse("2026-10-01T09:00:00Z"), null);
 
     @Autowired MockMvc mvc;
     @MockBean ListarCuentasAdminUseCase listar;
     @MockBean DetalleCuentaAdminUseCase detalle;
+    @MockBean SuspenderCuentaUseCase suspender;
 
     @Test void devuelveLasCuentasConElTotalEnLaCabecera() throws Exception {
         when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(ANA));
@@ -54,17 +57,117 @@ class AdminCuentaControllerTest {
     }
 
     @Test void noInventaColumnasQueTodaviaNoExisten() throws Exception {
-        // Estado y plan llegan con #182 y #189: hasta entonces no se exponen con un valor fijo.
+        // El plan llega con #189: hasta entonces no se expone con un valor fijo.
         when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(ANA));
 
         mvc.perform(get("/v1/admin/cuentas"))
-                .andExpect(jsonPath("$.datos[0].estado").doesNotExist())
                 .andExpect(jsonPath("$.datos[0].plan").doesNotExist());
+    }
+
+    // --- #182: estado de la cuenta -------------------------------------------------------------------------------------------------
+
+    @Test void unaCuentaActivaDiceActivaYSinFechaDeSuspension() throws Exception {
+        when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(ANA));
+
+        mvc.perform(get("/v1/admin/cuentas"))
+                .andExpect(jsonPath("$.datos[0].estado").value("ACTIVA"))
+                .andExpect(jsonPath("$.datos[0].suspendida_en").doesNotExist());
+    }
+
+    @Test void unaCuentaSuspendidaDiceDesdeCuando() throws Exception {
+        CuentaResumen suspendida = new CuentaResumen(ID, "Mi negocio", "ana@negocio.pe", null, Instant.parse("2026-09-01T10:00:00Z"), 1, null, Instant.parse("2026-10-02T15:00:00Z"));
+        when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(suspendida));
+
+        mvc.perform(get("/v1/admin/cuentas"))
+                .andExpect(jsonPath("$.datos[0].estado").value("SUSPENDIDA"))
+                .andExpect(jsonPath("$.datos[0].suspendida_en").value("2026-10-02T15:00:00Z"));
+    }
+
+    @Test void suspenderPasaElActorYElMotivoYDevuelveElNuevoEstado() throws Exception {
+        UUID admin = UUID.randomUUID();
+        var actor = pe.factura.domain.plataforma.ActorAdmin.administrador(admin, "203.0.113.7");
+        when(suspender.suspender(actor, ID, "no pagó septiembre")).thenReturn(new SuspenderCuentaUseCase.EstadoDeCuenta(ID, Instant.parse("2026-10-02T15:00:00Z")));
+
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/suspender").contentType("application/json").content("{\"motivo\":\"no pagó septiembre\"}")
+                        .requestAttr(AdministradorActual.ATRIBUTO, admin).with(r -> { r.setRemoteAddr("203.0.113.7"); return r; }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.cuenta_id").value(ID.toString()))
+                .andExpect(jsonPath("$.datos.estado").value("SUSPENDIDA"))
+                .andExpect(jsonPath("$.datos.suspendida_en").value("2026-10-02T15:00:00Z"));
+    }
+
+    @Test void suspenderSinCuerpoEsValidoYNoLlevaMotivo() throws Exception {
+        when(suspender.suspender(pe.factura.domain.plataforma.ActorAdmin.clavePlataforma("127.0.0.1"), ID, null))
+                .thenReturn(new SuspenderCuentaUseCase.EstadoDeCuenta(ID, Instant.parse("2026-10-02T15:00:00Z")));
+
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/suspender").requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.estado").value("SUSPENDIDA"));
+    }
+
+    @Test void reactivarDevuelveLaCuentaActivaSinFechaDeSuspension() throws Exception {
+        when(suspender.reactivar(pe.factura.domain.plataforma.ActorAdmin.clavePlataforma("127.0.0.1"), ID)).thenReturn(new SuspenderCuentaUseCase.EstadoDeCuenta(ID, null));
+
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/reactivar").requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.cuenta_id").value(ID.toString()))
+                .andExpect(jsonPath("$.datos.estado").value("ACTIVA"))
+                .andExpect(jsonPath("$.datos.suspendida_en").doesNotExist());
+    }
+
+    @Test void suspenderUnaCuentaYaSuspendidaEsConflicto() throws Exception {
+        when(suspender.suspender(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(ID), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new DomainException("CUENTA_YA_SUSPENDIDA", "La cuenta ya está suspendida"));
+
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/suspender").requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("CUENTA_YA_SUSPENDIDA"));
+    }
+
+    @Test void reactivarUnaCuentaActivaEsConflicto() throws Exception {
+        when(suspender.reactivar(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(ID)))
+                .thenThrow(new DomainException("CUENTA_NO_SUSPENDIDA", "La cuenta no está suspendida"));
+
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/reactivar").requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("CUENTA_NO_SUSPENDIDA"));
+    }
+
+    @Test void unMotivoDemasiadoLargoEsUnDatoInvalido() throws Exception {
+        when(suspender.suspender(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(ID), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new DomainException("MOTIVO_INVALIDO", "El motivo no puede pasar de 200 caracteres"));
+
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/suspender").contentType("application/json").content("{\"motivo\":\"x\"}")
+                        .requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("MOTIVO_INVALIDO"));
+    }
+
+    @Test void unaCuentaQueNoExisteEsNoEncontradaAlSuspender() throws Exception {
+        when(suspender.suspender(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(ID), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new DomainException("NO_ENCONTRADO", "La cuenta no existe"));
+
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/suspender").requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test void sinAdministradorNiClaveAutenticadosLaAccionNoSeEjecuta() throws Exception {
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/suspender")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/reactivar")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(suspender);
+    }
+
+    @Test void unIdentificadorQueNoEsUnUuidEs400SinSuspenderNiReactivar() throws Exception {
+        mvc.perform(post("/v1/admin/cuentas/no-es-un-uuid/suspender").requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE)).andExpect(status().isBadRequest());
+        mvc.perform(post("/v1/admin/cuentas/no-es-un-uuid/reactivar").requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE)).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(suspender);
     }
 
     /** Como en toda la API (`default-property-inclusion: non_null`), un campo sin valor no aparece: el portal lo trata como opcional. */
     @Test void unaCuentaQueNuncaInicioSesionNoTraElUltimoAcceso() throws Exception {
-        CuentaResumen nunca = new CuentaResumen(ID, "Nueva", "nueva@x.pe", null, Instant.parse("2026-09-01T10:00:00Z"), 0, null);
+        CuentaResumen nunca = new CuentaResumen(ID, "Nueva", "nueva@x.pe", null, Instant.parse("2026-09-01T10:00:00Z"), 0, null, null);
         when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(nunca));
 
         mvc.perform(get("/v1/admin/cuentas"))
@@ -97,7 +200,7 @@ class AdminCuentaControllerTest {
 
     static CuentaDetalle detalleCompleto() {
         UUID empresa = UUID.randomUUID();
-        return new CuentaDetalle(ID, "Mi negocio", "ana@negocio.pe", "987654321", Instant.parse("2026-09-01T10:00:00Z"),
+        return new CuentaDetalle(ID, "Mi negocio", "ana@negocio.pe", "987654321", Instant.parse("2026-09-01T10:00:00Z"), null,
                 List.of(new DetalleCuentaAdminUseCase.UsuarioDeCuenta(UUID.fromString("11111111-1111-1111-1111-111111111111"), "ana@negocio.pe", "ADMIN", true,
                         Instant.parse("2026-09-02T10:00:00Z"), Instant.parse("2026-10-01T09:00:00Z"))),
                 List.of(new DetalleCuentaAdminUseCase.EmpresaDeCuenta(empresa, "20100066603", "COMERCIAL ANDINA SAC", "PRODUCCION", true,
@@ -150,7 +253,7 @@ class AdminCuentaControllerTest {
     }
 
     @Test void unaCuentaSinHistoriaDevuelveListasVaciasYSinCamposOpcionales() throws Exception {
-        when(detalle.detalle(ID)).thenReturn(new CuentaDetalle(ID, "Nueva", "nueva@x.pe", null, Instant.parse("2026-09-01T10:00:00Z"),
+        when(detalle.detalle(ID)).thenReturn(new CuentaDetalle(ID, "Nueva", "nueva@x.pe", null, Instant.parse("2026-09-01T10:00:00Z"), null,
                 List.of(new DetalleCuentaAdminUseCase.UsuarioDeCuenta(UUID.randomUUID(), "nueva@x.pe", "ADMIN", true, null, null)),
                 List.of(new DetalleCuentaAdminUseCase.EmpresaDeCuenta(UUID.randomUUID(), "20100066611", "VACIA SAC", "BETA", false, null, false)),
                 List.of(), List.of()));
@@ -164,6 +267,21 @@ class AdminCuentaControllerTest {
                 .andExpect(jsonPath("$.datos.empresas[0].tiene_credenciales_sol").value(false))
                 .andExpect(jsonPath("$.datos.comprobantes").isEmpty())
                 .andExpect(jsonPath("$.datos.eventos").isEmpty());
+    }
+
+    @Test void elDetalleDiceElEstadoDeLaCuentaYDesdeCuandoEstaSuspendida() throws Exception {
+        var activa = detalleCompleto();
+        when(detalle.detalle(ID)).thenReturn(activa);
+        mvc.perform(get("/v1/admin/cuentas/" + ID))
+                .andExpect(jsonPath("$.datos.estado").value("ACTIVA"))
+                .andExpect(jsonPath("$.datos.suspendida_en").doesNotExist());
+
+        var suspendida = new CuentaDetalle(activa.id(), activa.nombre(), activa.email(), activa.telefono(), activa.creadaEn(), Instant.parse("2026-10-02T15:00:00Z"),
+                activa.usuarios(), activa.empresas(), activa.comprobantes(), activa.eventos());
+        when(detalle.detalle(ID)).thenReturn(suspendida);
+        mvc.perform(get("/v1/admin/cuentas/" + ID))
+                .andExpect(jsonPath("$.datos.estado").value("SUSPENDIDA"))
+                .andExpect(jsonPath("$.datos.suspendida_en").value("2026-10-02T15:00:00Z"));
     }
 
     @Test void unaCuentaQueNoExisteEs404() throws Exception {

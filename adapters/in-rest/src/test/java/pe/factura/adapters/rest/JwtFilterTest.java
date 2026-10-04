@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import pe.factura.application.port.out.SuspensionRepository;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.application.port.out.TokenEmisor;
 import pe.factura.application.port.out.UsuarioRepository;
@@ -54,7 +55,15 @@ class JwtFilterTest {
         public Optional<Usuario> buscarPorEmail(String e) { return Optional.empty(); }
         public void marcarCorreoVerificado(UUID id, java.time.Instant cuando) {}
     };
-    JwtFilter filter = new JwtFilter(tokenEmisor, tenants, usuarios);
+    java.util.Set<UUID> cuentasSuspendidas = new java.util.HashSet<>();
+    int consultasDeSuspension = 0;
+    SuspensionRepository suspensiones = new SuspensionRepository() {
+        public boolean cuentaSuspendida(UUID c) { consultasDeSuspension++; return cuentasSuspendidas.contains(c); }
+        public boolean empresaSuspendida(UUID t) { throw new AssertionError("el filtro JWT trabaja por cuenta"); }
+        public boolean suspender(UUID c, java.time.Instant cuando) { throw new AssertionError("un filtro no suspende"); }
+        public boolean reactivar(UUID c) { throw new AssertionError("un filtro no reactiva"); }
+    };
+    JwtFilter filter = new JwtFilter(tokenEmisor, tenants, usuarios, suspensiones);
 
     // --- #22: sin verificar el correo se puede mirar, no escribir ------------------------------------------------------------------
 
@@ -64,6 +73,92 @@ class JwtFilterTest {
         MockHttpServletResponse res = new MockHttpServletResponse();
         filter.doFilter(req, res, chain);
         return res;
+    }
+
+    // --- #182: una cuenta suspendida no entra, ni con una sesión que ya estaba abierta ---------------------------------------------
+
+    @Test void unaCuentaSuspendidaNoPasaNiParaMirarNiParaEscribir() throws Exception {
+        cuentasSuspendidas.add(cuenta);
+        for (String[] m : new String[][]{{"GET", "/v1/empresas"}, {"GET", "/v1/facturas"}, {"POST", "/v1/facturas"}, {"POST", "/v1/empresas"},
+                {"PUT", "/v1/empresa/datos-fiscales"}, {"DELETE", "/v1/empresa/api-keys/1"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            MockHttpServletResponse res = pedir(m[0], m[1], chain);
+            assertThat(chain.getRequest()).as("%s %s", m[0], m[1]).isNull();
+            assertThat(res.getStatus()).as("%s %s", m[0], m[1]).isEqualTo(403);
+            assertThat(res.getContentAsString()).as("%s %s", m[0], m[1]).contains("\"codigo\":\"CUENTA_SUSPENDIDA\"").contains("\"estado\":\"error\"");
+        }
+    }
+
+    @Test void conLaEmpresaElegidaTambienSeCorta() throws Exception {
+        cuentasSuspendidas.add(cuenta);
+        MockHttpServletRequest req = new MockHttpServletRequest("POST", "/v1/facturas");
+        req.addHeader("Authorization", "Bearer " + tokenValido);
+        req.addHeader("X-Empresa", empresaPropia.toString());
+        MockFilterChain chain = new MockFilterChain();
+        MockHttpServletResponse res = new MockHttpServletResponse();
+
+        filter.doFilter(req, res, chain);
+
+        assertThat(chain.getRequest()).isNull();
+        assertThat(res.getStatus()).isEqualTo(403);
+        assertThat(req.getAttribute(TenantActual.ATRIBUTO)).as("no se llega a fijar la empresa activa").isNull();
+    }
+
+    /** El portal sigue sabiendo quién es el usuario y puede cerrar la sesión, para mostrar «cuenta suspendida» en vez de un error suelto. */
+    @Test void lasRutasDeLaPropiaSesionSiguenFuncionandoConLaCuentaSuspendida() throws Exception {
+        cuentasSuspendidas.add(cuenta);
+        for (String[] m : new String[][]{{"GET", "/v1/auth/me"}, {"POST", "/v1/auth/logout"}, {"POST", "/v1/auth/verificacion"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            pedir(m[0], m[1], chain);
+            assertThat(chain.getRequest()).as("%s %s", m[0], m[1]).isNotNull();
+        }
+    }
+
+    @Test void reactivadaLaCuentaVuelveAPasarConLaMismaSesion() throws Exception {
+        cuentasSuspendidas.add(cuenta);
+        MockFilterChain bloqueada = new MockFilterChain();
+        pedir("POST", "/v1/facturas", bloqueada);
+        assertThat(bloqueada.getRequest()).isNull();
+
+        cuentasSuspendidas.clear();
+        MockFilterChain pasa = new MockFilterChain();
+        MockHttpServletResponse res = pedir("POST", "/v1/facturas", pasa);
+
+        assertThat(pasa.getRequest()).isNotNull();
+        assertThat(res.getStatus()).isEqualTo(200);
+    }
+
+    @Test void suspenderOtraCuentaNoAfectaAEstaYLaCuentaDelTokenEsLaQueSeConsulta() throws Exception {
+        cuentasSuspendidas.add(UUID.randomUUID());
+        MockFilterChain chain = new MockFilterChain();
+
+        pedir("POST", "/v1/facturas", chain);
+
+        assertThat(chain.getRequest()).isNotNull();
+        assertThat(consultasDeSuspension).isEqualTo(1);
+    }
+
+    /** Quien presenta un token inválido no se entera de nada de ninguna cuenta: se rechaza antes de mirar el estado. */
+    @Test void conUnTokenInvalidoSeRechazaSinConsultarLaSuspension() throws Exception {
+        cuentasSuspendidas.add(cuenta);
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/empresas");
+        req.addHeader("Authorization", "Bearer " + tokenInvalido);
+        MockHttpServletResponse res = new MockHttpServletResponse();
+
+        filter.doFilter(req, res, new MockFilterChain());
+
+        assertThat(res.getStatus()).isEqualTo(401);
+        assertThat(res.getContentAsString()).doesNotContain("SUSPENDIDA");
+        assertThat(consultasDeSuspension).isZero();
+    }
+
+    @Test void laSuspensionVaAntesQueLaVerificacionDelCorreo() throws Exception {
+        delToken = new Usuario(usuario, cuenta, "ana@b.pe", "hash", Rol.ADMIN, true);
+        cuentasSuspendidas.add(cuenta);
+
+        MockHttpServletResponse res = pedir("POST", "/v1/facturas", new MockFilterChain());
+
+        assertThat(res.getContentAsString()).contains("CUENTA_SUSPENDIDA").doesNotContain("CORREO_SIN_VERIFICAR");
     }
 
     @Test void sinVerificarElCorreoNingunaEscrituraPasa() throws Exception {

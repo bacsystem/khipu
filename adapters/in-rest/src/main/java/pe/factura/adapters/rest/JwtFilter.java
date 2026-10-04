@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.filter.OncePerRequestFilter;
+import pe.factura.application.port.out.SuspensionRepository;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.application.port.out.TokenEmisor;
 import pe.factura.application.port.out.UsuarioRepository;
@@ -32,6 +33,7 @@ public class JwtFilter extends OncePerRequestFilter {
     private final TokenEmisor tokenEmisor;
     private final TenantRepository tenants;
     private final UsuarioRepository usuarios;
+    private final SuspensionRepository suspensiones;
     /** Lo que no escribe: con el correo sin verificar se puede mirar (#22). */
     private static final Set<String> LECTURAS = Set.of("GET", "HEAD", "OPTIONS");
 
@@ -52,10 +54,20 @@ public class JwtFilter extends OncePerRequestFilter {
             return;
         }
 
+        String ruta = RutaRequest.rutaNormalizada(req);
+
+        // Una cuenta suspendida (#182) no entra: ni a mirar ni a escribir, y tampoco con una sesión que ya estaba abierta, porque se mira la
+        // cuenta en la base y no el token. Después de validar el token: quien presenta uno inválido no se entera del estado de ninguna cuenta.
+        // Lo de la propia sesión (/v1/auth/**: quién soy, cerrar sesión) sigue funcionando, para que el portal pueda decirle «tu cuenta está
+        // suspendida» en vez de mostrarle un error suelto.
+        if (!ruta.startsWith("/v1/auth/") && suspensiones.cuentaSuspendida(claims.get().cuentaId())) {
+            escribirError(res, 403, "CUENTA_SUSPENDIDA", "Tu cuenta está suspendida. Contacta a soporte para reactivarla");
+            return;
+        }
+
         // Sin verificar el correo (#22) se puede entrar y mirar, pero no escribir: ni crear empresas ni emitir. Lo de la propia sesión
         // (/v1/auth/**: reenviar el enlace, cerrar sesión) sí. Se mira el usuario en la base, no el token: verificado en otra pestaña,
         // la siguiente escritura ya pasa.
-        String ruta = RutaRequest.rutaNormalizada(req);
         if (!LECTURAS.contains(req.getMethod()) && !ruta.startsWith("/v1/auth/")) {
             Optional<Usuario> usuario = usuarios.buscar(claims.get().usuarioId()).filter(Usuario::activo);
             if (usuario.isEmpty()) {

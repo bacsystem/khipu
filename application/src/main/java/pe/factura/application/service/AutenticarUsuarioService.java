@@ -32,6 +32,7 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     private final UnitOfWork uow;
     private final Clock clock;
     private final VerificacionCorreoRepository verificaciones;
+    private final SuspensionRepository suspensiones;
 
     @Override
     public Tokens registrar(String nombreCuenta, String email, String password, String telefono, String urlBase) {
@@ -98,6 +99,8 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
                 .filter(Usuario::activo)
                 .filter(x -> hasher.coincide(password == null ? "" : password, x.passwordHash()))
                 .orElseThrow(() -> new DomainException("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos"));
+        // Después de comprobar la contraseña: quien no se identificó no debe enterarse de si la cuenta existe ni de si está suspendida (#182).
+        exigirCuentaActiva(u);
         return uow.ejecutar(() -> emitirTokens(u));
     }
 
@@ -108,7 +111,14 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
                 .orElseThrow(() -> new DomainException("SESION_INVALIDA", "Sesión expirada o inválida"));
         Usuario u = usuarios.buscar(s.usuarioId()).filter(Usuario::activo)
                 .orElseThrow(() -> new DomainException("SESION_INVALIDA", "Usuario inactivo"));
+        // Sin tocar la sesión: suspender no borra nada, y al reactivar la misma sesión vuelve a servir (#182).
+        exigirCuentaActiva(u);
         return uow.ejecutar(() -> { sesiones.revocar(s.id()); return emitirTokens(u); });   // rotación
+    }
+
+    private void exigirCuentaActiva(Usuario u) {
+        if (suspensiones.cuentaSuspendida(u.cuentaId()))
+            throw new DomainException("CUENTA_SUSPENDIDA", "Tu cuenta está suspendida. Contacta a soporte para reactivarla");
     }
 
     @Override
