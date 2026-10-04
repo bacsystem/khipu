@@ -51,4 +51,10 @@ public enum EstadoDocumento {
      * pasaron del plazo, los dados de baja ni los que nunca se firmaron: no son plata facturada.
      */
     public boolean cuentaComoFacturado() { return this == ACEPTADO || this == ACEPTADO_CON_OBS || this == ENVIADO || this == FIRMADO || this == ERROR_ENVIO || this == PENDIENTE_AGRUPACION; }
+
+    /**
+     * Si el documento sigue su camino a SUNAT sin haber fallado ni resuelto (#195): firmado, enviado o esperando la agrupación en un resumen. Es lo que el monitor muestra
+     * como «en camino». No incluye {@link #ERROR_ENVIO}, que ya pide atención aunque se vaya a reintentar.
+     */
+    public boolean estaEnCamino() { return this == FIRMADO || this == ENVIADO || this == PENDIENTE_AGRUPACION; }
 }
