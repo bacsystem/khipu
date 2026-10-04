@@ -180,6 +180,16 @@ class PlanTest {
         assertThat(inactivo.editar("Viejo", BigDecimal.TEN, LIMITES, AHORA).activo()).isFalse();
     }
 
+    /** Sacar un plan de la oferta (o devolverlo) no cancela el cambio de límites que ya estaba decidido. */
+    @Test void desactivarYActivarConservanElCambioProgramado() {
+        Plan conCambio = plan().editar("Emprende", new BigDecimal("29"), masDocumentos(), AHORA);
+
+        Plan inactivo = conCambio.desactivar();
+
+        assertThat(inactivo.programado()).isEqualTo(conCambio.programado());
+        assertThat(inactivo.activar().programado()).isEqualTo(conCambio.programado());
+    }
+
     @Test void antesDelCicloSiguienteElPlanVigenteSigueConLosLimitesDeAhora() {
         Plan conCambio = plan().editar("Emprende", new BigDecimal("29"), masDocumentos(), AHORA);
 

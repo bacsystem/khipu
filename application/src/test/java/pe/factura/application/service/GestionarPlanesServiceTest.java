@@ -331,6 +331,7 @@ class GestionarPlanesServiceTest {
         PlanConUso activado = service.activar(ACTOR, emprende.id());
 
         assertThat(activado.plan().activo()).isTrue();
+        assertThat(planes.datos.get(emprende.id()).activo()).as("quedó guardado, no solo devuelto").isTrue();
         RegistroAuditoria r = unicoRegistro();
         assertThat(r.accion()).isEqualTo(AccionAdmin.ACTIVAR_PLAN);
         assertThat(r.detalle()).isEqualTo("plan=Emprende");
