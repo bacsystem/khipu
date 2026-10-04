@@ -3,6 +3,7 @@ package pe.factura.application.service;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.AltaAsistidaUseCase.AltaCreada;
 import pe.factura.application.port.in.AltaAsistidaUseCase.Solicitud;
+import pe.factura.application.port.in.Idempotencia;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.cuenta.Cuenta;
@@ -93,9 +94,23 @@ class AltaAsistidaServiceTest {
     };
     { auditoria.uow = uow; }
 
+    Fakes.Idempotencias claves = new Fakes.Idempotencias();
+    { claves.uow = uow; }
+    /** «Cifra» invirtiendo los bytes: basta para comprobar que la respuesta, con la API key, no se guarda en claro. */
+    SecretCipher cifrador = new SecretCipher() {
+        public byte[] cifrar(byte[] p) { return invertir(p); }
+        public byte[] descifrar(byte[] c) { return invertir(c); }
+    };
+
+    static byte[] invertir(byte[] b) {
+        byte[] r = new byte[b.length];
+        for (int i = 0; i < b.length; i++) r[i] = b[b.length - 1 - i];
+        return r;
+    }
+
     AltaAsistidaService service = null;
     AltaAsistidaService servicio() {
-        if (service == null) service = new AltaAsistidaService(cuentas, usuarios, sesiones, tenants, series, apiKeys, hasher, correo, uow, auditoria, "pepper", Fakes.CLOCK);
+        if (service == null) service = new AltaAsistidaService(cuentas, usuarios, sesiones, tenants, series, apiKeys, hasher, correo, uow, auditoria, "pepper", Fakes.CLOCK, claves, cifrador);
         return service;
     }
 
@@ -270,5 +285,79 @@ class AltaAsistidaServiceTest {
         auditoria.falla = new IllegalStateException("tabla de auditoría no disponible");
         assertThatThrownBy(() -> servicio().alta(ACTOR, solicitud(), PORTAL)).isInstanceOf(IllegalStateException.class);
         assertThat(correos).as("sin alta no hay invitación").isEmpty();
+    }
+
+    // --- #219: idempotencia ------------------------------------------------------------------------------------------------------
+
+    static final Idempotencia CLAVE = new Idempotencia("a1b2c3d4-0000-4000-8000-000000000001", "huella-1");
+
+    /** El caso del issue: la respuesta del alta se perdió; el reintento recibe la misma API key, sin crear ni invitar otra vez. */
+    @Test void unReintentoConLaMismaClaveDevuelveLaMismaRespuestaConLaApiKey() {
+        var primero = servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
+        var reintento = servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
+
+        assertThat(primero.repetida()).isFalse();
+        assertThat(reintento.repetida()).isTrue();
+        assertThat(reintento.alta()).isEqualTo(primero.alta());
+        assertThat(reintento.alta().apiKeyEnClaro()).isEqualTo(primero.alta().apiKeyEnClaro());
+        assertThat(cuentasMap).hasSize(1);
+        assertThat(keys).hasSize(1);
+        assertThat(correos).as("una sola invitación").hasSize(1);
+        assertThat(auditoria.registros).as("una sola entrada en la bitácora").hasSize(1);
+    }
+
+    @Test void laRespuestaGuardadaVaCifradaYNuncaConLaApiKeyEnClaro() {
+        var alta = servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE).alta();
+
+        byte[] guardada = claves.filas.get("alta-cuenta|" + CLAVE.clave()).respuestaCifrada();
+        assertThat(new String(guardada, java.nio.charset.StandardCharsets.UTF_8)).doesNotContain(alta.apiKeyEnClaro());
+        assertThat(new String(invertir(guardada), java.nio.charset.StandardCharsets.UTF_8)).as("y descifrada sí la tiene").contains(alta.apiKeyEnClaro());
+    }
+
+    @Test void laClaveSeReservaYCompletaDentroDeLaTransaccion() {
+        servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
+
+        assertThat(claves.reservadoDentro).containsExactly(true);
+        assertThat(claves.completadoDentro).as("la respuesta con la API key, junto con el alta").first().isEqualTo(true);
+    }
+
+    /** Si la invitación no salió, el reintento lo sigue diciendo: la respuesta guardada es la que vio el administrador. */
+    @Test void elReintentoConservaSiLaInvitacionSalio() {
+        correoEntrega = false;
+        servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
+        correoEntrega = true;
+
+        assertThat(servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE).alta().invitacionEnviada()).isFalse();
+    }
+
+    @Test void conLaInvitacionEnviadaElReintentoTambienLoDice() {
+        servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
+        assertThat(servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE).alta().invitacionEnviada()).isTrue();
+    }
+
+    @Test void laMismaClaveConOtroPedidoSeRechazaSinCrearNada() {
+        servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
+        Solicitud otra = new Solicitud("Otra", "otra@andina.pe", null, "20601234565", "OTRA SAC", null, TipoDocumento.FACTURA, "F001");
+
+        assertThatThrownBy(() -> servicio().alta(ACTOR, otra, PORTAL, new Idempotencia(CLAVE.clave(), "otra-huella")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
+        assertThat(cuentasMap).hasSize(1);
+    }
+
+    /** Pasada la hora la API key ya no se guarda: el reintento se reconoce, no crea un alta duplicada, y dice qué hacer. */
+    @Test void pasadaLaHoraElReintentoSeReconocePeroYaNoDevuelveLaApiKey() {
+        servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
+        claves.olvidarRespuestasAnterioresA(null);
+
+        assertThatThrownBy(() -> servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE))
+                .isInstanceOf(DomainException.class).hasMessageContaining("otra API key")
+                .extracting("codigo").isEqualTo("IDEMPOTENCIA_VENCIDA");
+        assertThat(cuentasMap).hasSize(1);
+    }
+
+    @Test void sinClaveUnReintentoSigueSiendoDuplicado() {
+        servicio().alta(ACTOR, solicitud(), PORTAL, null);
+        assertThatThrownBy(() -> servicio().alta(ACTOR, solicitud(), PORTAL, null)).extracting("codigo").isEqualTo("DUPLICADO");
+        assertThat(claves.filas).isEmpty();
     }
 }

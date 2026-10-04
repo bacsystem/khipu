@@ -15,9 +15,13 @@ import pe.factura.domain.plataforma.ActorAdmin;
 import pe.factura.domain.tenant.Entorno;
 import pe.factura.domain.tenant.Tenant;
 
+import pe.factura.application.port.in.Idempotencia;
+
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -58,6 +62,39 @@ class AdminAltaAsistidaControllerTest {
                 .andExpect(jsonPath("$.datos.serie.tipo").value("01"))
                 .andExpect(jsonPath("$.datos.serie.serie").value("F001"))
                 .andExpect(jsonPath("$.datos.invitacion_enviada").value(true));
+    }
+
+    // --- #219: Idempotency-Key ---------------------------------------------------------------------------------------------------
+
+    static final String CLAVE_IDEM = "a1b2c3d4-0000-4000-8000-000000000001";
+
+    private org.springframework.test.web.servlet.ResultActions conClave(String clave) throws Exception {
+        return mvc.perform(post("/v1/admin/cuentas").contentType("application/json").content(CUERPO).header("Idempotency-Key", clave)
+                .requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE));
+    }
+
+    @Test void conClaveElAltaNuevaEs201YLaRepetidaEs200ConLaMismaApiKey() throws Exception {
+        when(alta.alta(eq(CLAVE), eq(SOLICITUD), eq(PORTAL), any())).thenReturn(new AltaAsistidaUseCase.Resultado(creada(true), false));
+        conClave(CLAVE_IDEM).andExpect(status().isCreated()).andExpect(jsonPath("$.datos.api_key").value("fk_secreta"));
+
+        when(alta.alta(eq(CLAVE), eq(SOLICITUD), eq(PORTAL), any())).thenReturn(new AltaAsistidaUseCase.Resultado(creada(true), true));
+        conClave(CLAVE_IDEM).andExpect(status().isOk()).andExpect(jsonPath("$.datos.api_key").value("fk_secreta"));
+
+        org.mockito.ArgumentCaptor<Idempotencia> cap = org.mockito.ArgumentCaptor.forClass(Idempotencia.class);
+        verify(alta, org.mockito.Mockito.times(2)).alta(eq(CLAVE), eq(SOLICITUD), eq(PORTAL), cap.capture());
+        assertThat(cap.getValue().clave()).isEqualTo(CLAVE_IDEM);
+        assertThat(cap.getValue().huella()).matches("[0-9a-f]{64}");
+        verify(alta, never()).alta(any(), any(), any());
+    }
+
+    @Test void unaClaveMalFormadaEs422SinDarDeAlta() throws Exception {
+        conClave("corta").andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("IDEMPOTENCIA_INVALIDA"));
+        verify(alta, never()).alta(any(), any(), any(), any());
+    }
+
+    @Test void unaRespuestaYaOlvidadaEs409() throws Exception {
+        when(alta.alta(eq(CLAVE), eq(SOLICITUD), eq(PORTAL), any())).thenThrow(new DomainException("IDEMPOTENCIA_VENCIDA", "ya no se puede mostrar"));
+        conClave(CLAVE_IDEM).andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("IDEMPOTENCIA_VENCIDA"));
     }
 
     @Test void siElCorreoNoSalioLoDiceYEntregaLaApiKeyIgual() throws Exception {

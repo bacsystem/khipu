@@ -19,9 +19,18 @@ public interface AltaAsistidaUseCase {
      */
     record AltaCreada(UUID cuentaId, Tenant tenant, String apiKeyEnClaro, TipoDocumento tipoSerie, String serie, boolean invitacionEnviada) {}
 
+    /** {@code repetida}: el alta ya se había hecho con esa clave y se devuelve la respuesta de entonces, sin crear nada (#219). */
+    record Resultado(AltaCreada alta, boolean repetida) {}
+
     /**
      * Todo o nada: la cuenta, su usuario, la empresa, la API key, la serie, la invitación y el registro de bitácora se escriben en
      * una sola transacción. El correo sale después, fuera de ella. {@code urlPortal} es la base de los enlaces del correo.
      */
-    AltaCreada alta(ActorAdmin actor, Solicitud solicitud, String urlPortal);
+    default AltaCreada alta(ActorAdmin actor, Solicitud solicitud, String urlPortal) { return alta(actor, solicitud, urlPortal, null).alta(); }
+
+    /**
+     * Con clave de idempotencia (#219), un reintento con el mismo pedido devuelve la misma respuesta —incluida la API key— durante una
+     * hora; después, {@code 409 IDEMPOTENCIA_VENCIDA}. Con {@code clave} nula, igual que sin clave.
+     */
+    Resultado alta(ActorAdmin actor, Solicitud solicitud, String urlPortal, Idempotencia clave);
 }

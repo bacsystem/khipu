@@ -96,6 +96,20 @@ describe("POST /api/admin/cuentas", () => {
     expect(json.mensaje).toBe("Ya existe una cuenta con ese correo");
   });
 
+  /** #219: con la clave, un reintento recibe la misma API key en vez de un 409. */
+  it("reenvía la clave de idempotencia del navegador", async () => {
+    vi.mocked(altaAsistida).mockResolvedValue(CREADA);
+    const req = new NextRequest("http://localhost/api/admin/cuentas", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: `${COOKIE_ADMIN_ACCESS}=jwt-admin`, "idempotency-key": "a1b2c3d4-clave" },
+      body: JSON.stringify(CUERPO),
+    });
+
+    await POST(req);
+
+    expect(altaAsistida).toHaveBeenCalledWith("jwt-admin", CUERPO, {}, "a1b2c3d4-clave");
+  });
+
   it("un cuerpo que no es JSON responde 400 sin llamar al backend", async () => {
     const res = await POST(peticion({ cuerpo: "{no es json" }));
 

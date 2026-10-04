@@ -128,6 +128,8 @@ export const db = {
   cuentasAdmin: [] as CuentaAdminMock[],
   /** Idempotency-Key de la emisión (#115): `empresa|clave` → huella del pedido y factura emitida. */
   clavesEmision: new Map<string, { huella: string; id: string }>(),
+  /** Idempotency-Key del alta asistida (#219): clave → huella del pedido y respuesta, con la API key. */
+  clavesAlta: new Map<string, { huella: string; respuesta: { cuenta_id: string; tenant_id: string; ruc: string; api_key: string; serie: { tipo: string; serie: string }; invitacion_enviada: boolean } }>(),
 };
 
 export function resetDb() {
@@ -142,6 +144,7 @@ export function resetDb() {
   db.sesionesPorToken.clear();
   db.administradoresPorEmail.clear();
   db.clavesEmision.clear();
+  db.clavesAlta.clear();
 
   const administrador: Administrador = { id: "admin-demo", email: "admin@khipu.pe" };
   db.administradoresPorEmail.set(administrador.email, { administrador, password: "AdminPass1", segundoFactor: true });

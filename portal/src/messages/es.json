@@ -158,6 +158,7 @@
       "enviar": "Dar de alta",
       "enviando": "Dando de alta…",
       "sesionExpirada": "Tu sesión de administrador expiró. Vuelve a iniciar sesión.",
+      "corteDeConexion": "Se cortó la conexión mientras se daba de alta. Vuelve a enviar sin cambiar nada: si el alta ya se hizo, verás la misma API key, sin crear otra cuenta.",
       "resultado": {
         "titulo": "Cliente dado de alta",
         "descripcion": "La cuenta, la empresa y la serie quedaron creadas.",
@@ -183,7 +184,9 @@
     "TOKEN_INVALIDO": "El enlace de recuperación es inválido o venció. Solicita uno nuevo.",
     "SESION_INVALIDA": "Tu sesión expiró. Inicia sesión de nuevo.",
     "CODIGO_INVALIDO": "El código no es válido. Usa el que muestra la app ahora y revisa que la hora del teléfono sea la correcta.",
-    "DEMASIADOS_INTENTOS": "Demasiados códigos incorrectos. Espera 15 minutos antes de volver a intentarlo.",
+    "IDEMPOTENCIA_VENCIDA": "Esta alta ya se hizo hace más de una hora y su API key ya no se puede mostrar. El cliente puede crear otra desde su portal.",
+    "IDEMPOTENCIA_INVALIDA": "La clave del pedido ya se usó con otros datos. Vuelve a enviar el formulario.",
+    "DEMASIADOS_INTENTOS":"Demasiados códigos incorrectos. Espera 15 minutos antes de volver a intentarlo.",
     "SEGUNDO_FACTOR_YA_CONFIGURADO": "Tu cuenta ya tiene la verificación en dos pasos configurada. Vuelve a iniciar sesión.",
     "SEGUNDO_FACTOR_NO_CONFIGURADO": "Tu cuenta todavía no tiene la verificación en dos pasos. Vuelve a iniciar sesión para configurarla.",
     "NO_AUTORIZADO": "No autorizado.",

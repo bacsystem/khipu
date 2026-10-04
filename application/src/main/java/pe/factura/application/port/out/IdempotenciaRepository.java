@@ -9,8 +9,14 @@ import java.util.UUID;
  * {@code alcance} separa las claves de cada tenant y de cada operación; la misma clave en dos alcances son dos claves.
  */
 public interface IdempotenciaRepository {
-    /** Lo que quedó registrado para una clave: la huella del pedido y el recurso que produjo. */
-    record Registro(String huella, UUID recursoId) {}
+    /**
+     * Lo que quedó registrado para una clave: la huella del pedido, el recurso que produjo y, si la operación lo guardó, su respuesta
+     * cifrada (#219: la del alta asistida lleva una API key que no se puede reconstruir). {@code respuestaCifrada} es nula si no se
+     * guardó o si ya se olvidó.
+     */
+    record Registro(String huella, UUID recursoId, byte[] respuestaCifrada) {
+        public Registro(String huella, UUID recursoId) { this(huella, recursoId, null); }
+    }
 
     /**
      * Lo que ya está registrado para la clave, sin reservar nada ni esperar a nadie: solo ve lo confirmado. Sirve para contestar un
@@ -27,8 +33,17 @@ public interface IdempotenciaRepository {
     Optional<Registro> reservar(String alcance, String clave, String huella);
 
     /** Anota el recurso que produjo la operación de una clave reservada; en la misma transacción que la reserva. */
-    void completar(String alcance, String clave, UUID recursoId);
+    default void completar(String alcance, String clave, UUID recursoId) { completar(alcance, clave, recursoId, null); }
+
+    /** Ídem, con la respuesta de la operación ya cifrada, para devolverla igual en un reintento. */
+    void completar(String alcance, String clave, UUID recursoId, byte[] respuestaCifrada);
 
     /** Borra las claves reservadas antes de {@code limite} y devuelve cuántas: la tabla no crece sin límite. */
     int borrarAnterioresA(Instant limite);
+
+    /**
+     * Borra la respuesta guardada de las claves reservadas antes de {@code limite}, pero conserva la clave: un reintento tardío se
+     * reconoce, aunque ya no se le pueda devolver lo que contenía. Devuelve cuántas respuestas olvidó.
+     */
+    int olvidarRespuestasAnterioresA(Instant limite);
 }

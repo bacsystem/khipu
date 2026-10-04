@@ -2,6 +2,7 @@ package pe.factura.application.service;
 
 import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.AltaAsistidaUseCase;
+import pe.factura.application.port.in.Idempotencia;
 import pe.factura.application.port.out.*;
 import pe.factura.application.port.out.SesionRepository.TokenRecuperacion;
 import pe.factura.domain.DomainException;
@@ -17,9 +18,11 @@ import pe.factura.domain.tenant.Ruc;
 import pe.factura.domain.tenant.Serie;
 import pe.factura.domain.tenant.Tenant;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -39,9 +42,21 @@ public class AltaAsistidaService implements AltaAsistidaUseCase {
     private final AuditoriaAdminRepository auditoria;
     private final String pepper;
     private final Clock clock;
+    private final IdempotenciaRepository idempotencia;
+    private final SecretCipher cifrador;
+
+    /** Las altas no son de ninguna empresa: un solo alcance para todas las claves. */
+    static final String ALCANCE = "alta-cuenta";
+    /** Separador de la respuesta guardada: ningún campo lo puede contener (la razón social no admite caracteres de control, 4338). */
+    private static final String SEP = "\u001f";
 
     @Override
-    public AltaCreada alta(ActorAdmin actor, Solicitud s, String urlPortal) {
+    public Resultado alta(ActorAdmin actor, Solicitud s, String urlPortal, Idempotencia clave) {
+        // Un reintento se reconoce antes de validar: si no, el correo ya registrado lo convertiría en un 409 DUPLICADO.
+        if (clave != null) {
+            Optional<IdempotenciaRepository.Registro> previo = idempotencia.buscar(ALCANCE, clave.clave());
+            if (previo.isPresent()) return repetida(previo.get(), clave);
+        }
         // Todo se valida antes de escribir nada: una solicitud inválida no deja ni un rastro.
         Cuenta cuenta = new Cuenta(UUID.randomUUID(), s.nombre(), s.email(), s.telefono());
         Ruc.exigirValido(s.ruc(), "RUC_INVALIDO", "Empresa");
@@ -60,7 +75,13 @@ public class AltaAsistidaService implements AltaAsistidaUseCase {
         Instant ahora = Instant.now(clock);
         String invitacion = TokenOpaco.generar();
 
-        uow.ejecutar(() -> {
+        Optional<IdempotenciaRepository.Registro> simultaneo = uow.ejecutar(() -> {
+            // Lo primero de la transacción: un pedido simultáneo con la misma clave espera aquí a que el primero termine y devuelve su
+            // respuesta, en vez de chocar con el correo ya registrado.
+            if (clave != null) {
+                Optional<IdempotenciaRepository.Registro> previo = idempotencia.reservar(ALCANCE, clave.clave(), clave.huella());
+                if (previo.isPresent()) return previo;
+            }
             cuentas.guardar(cuenta);
             usuarios.guardar(usuario);
             tenants.guardar(tenant);
@@ -71,9 +92,40 @@ public class AltaAsistidaService implements AltaAsistidaUseCase {
             // En la misma transacción: si la bitácora falla, el alta tampoco queda. El detalle no lleva la API key, el token ni el correo.
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.CREAR_CUENTA, cuenta.id(), tenant.id(),
                     "ruc=" + s.ruc() + " serie=" + s.serie() + " entorno=" + entorno, ahora));
+            // La respuesta, con la API key, se guarda junto con el alta: si la respuesta se pierde, el reintento la recupera.
+            if (clave != null) idempotencia.completar(ALCANCE, clave.clave(), cuenta.id(), cifrada(new AltaCreada(cuenta.id(), tenant, apiKey, tipo, s.serie(), false)));
+            return Optional.<IdempotenciaRepository.Registro>empty();
         });
+        if (simultaneo.isPresent()) return repetida(simultaneo.get(), clave);
 
-        return new AltaCreada(cuenta.id(), tenant, apiKey, tipo, s.serie(), enviarInvitacion(usuario.email(), tenant, urlPortal, invitacion));
+        AltaCreada creada = new AltaCreada(cuenta.id(), tenant, apiKey, tipo, s.serie(), enviarInvitacion(usuario.email(), tenant, urlPortal, invitacion));
+        // Con la invitación ya enviada, la respuesta guardada lo refleja: el reintento muestra lo mismo que vio el administrador.
+        if (clave != null && creada.invitacionEnviada()) idempotencia.completar(ALCANCE, clave.clave(), cuenta.id(), cifrada(creada));
+        return new Resultado(creada, false);
+    }
+
+    /** La misma clave con otro pedido es un error del cliente; pasada la hora, la API key ya no se guarda y no se puede devolver. */
+    private Resultado repetida(IdempotenciaRepository.Registro previo, Idempotencia clave) {
+        if (!previo.huella().equals(clave.huella()))
+            throw new DomainException("IDEMPOTENCIA_INVALIDA", "La clave de idempotencia " + clave.clave()
+                    + " ya se usó con otro contenido: genere una clave nueva para otra alta");
+        if (previo.respuestaCifrada() == null)
+            throw new DomainException("IDEMPOTENCIA_VENCIDA", "Esta alta ya se hizo y su API key inicial ya no se puede volver a mostrar: "
+                    + "el cliente puede crear otra API key desde su portal");
+        return new Resultado(desdeCifrada(previo.respuestaCifrada()), true);
+    }
+
+    private byte[] cifrada(AltaCreada a) {
+        Tenant t = a.tenant();
+        String texto = String.join(SEP, a.cuentaId().toString(), t.id().toString(), t.ruc(), t.razonSocial(), t.entorno().name(),
+                a.apiKeyEnClaro(), a.tipoSerie().name(), a.serie(), String.valueOf(a.invitacionEnviada()));
+        return cifrador.cifrar(texto.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private AltaCreada desdeCifrada(byte[] cifrada) {
+        String[] c = new String(cifrador.descifrar(cifrada), StandardCharsets.UTF_8).split(SEP, -1);
+        Tenant tenant = new Tenant(UUID.fromString(c[1]), c[2], c[3], Entorno.valueOf(c[4]), null, null);
+        return new AltaCreada(UUID.fromString(c[0]), tenant, c[5], TipoDocumento.valueOf(c[6]), c[7], Boolean.parseBoolean(c[8]));
     }
 
     /**

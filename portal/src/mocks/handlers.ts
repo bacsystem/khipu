@@ -340,17 +340,26 @@ export const handlers = [
       db.cuentasAdmin.some((c) => c.empresas.some((e) => e.ruc === ruc)) || [...db.empresasPorCuenta.values()].flat().some((e) => e.ruc === ruc);
     if (rucRepetido) return fail(409, "DUPLICADO", `Ya existe una empresa con RUC ${ruc}`);
 
-    return ok(
-      {
-        cuenta_id: nuevoId("ca"),
-        tenant_id: nuevoId("t"),
-        ruc,
-        api_key: `fk_mock_${contador}${Math.random().toString(36).slice(2, 12)}`,
-        serie: { tipo: b.serie.tipo, serie: (b.serie.serie ?? "").toUpperCase() },
-        invitacion_enviada: !email.startsWith("sin-correo"),
-      },
-      201,
-    );
+    // Idempotency-Key (#219), como el backend: el mismo pedido con la misma clave devuelve la misma respuesta (la misma API key) con
+    // 200; con otro pedido, 422. El mock no guarda el alta, así que no hay ventana: la respuesta se recuerda mientras corra el servidor.
+    const clave = request.headers.get("idempotency-key");
+    const huella = JSON.stringify(b);
+    const previa = clave ? db.clavesAlta.get(clave) : undefined;
+    if (previa) {
+      if (previa.huella !== huella) return fail(422, "IDEMPOTENCIA_INVALIDA", `La clave de idempotencia ${clave} ya se usó con otro contenido`);
+      return ok(previa.respuesta, 200);
+    }
+
+    const respuesta = {
+      cuenta_id: nuevoId("ca"),
+      tenant_id: nuevoId("t"),
+      ruc,
+      api_key: `fk_mock_${contador}${Math.random().toString(36).slice(2, 12)}`,
+      serie: { tipo: b.serie.tipo ?? "", serie: (b.serie.serie ?? "").toUpperCase() },
+      invitacion_enviada: !email.startsWith("sin-correo"),
+    };
+    if (clave) db.clavesAlta.set(clave, { huella, respuesta });
+    return ok(respuesta, 201);
   }),
 
   http.get(`${BASE}/v1/empresas`, ({ request }) => {

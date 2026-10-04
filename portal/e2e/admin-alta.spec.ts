@@ -77,6 +77,38 @@ test("el alta completa deja la API key a la vista una sola vez y ofrece volver a
   await expect(page.getByRole("heading", { name: "Cuentas" })).toBeVisible();
 });
 
+/**
+ * #219, el caso del issue: el alta llegó y se hizo, pero la respuesta —con la API key que solo se muestra una vez— se cortó. Reenviar
+ * sin cambiar nada muestra la misma API key en vez de un «ya existe una cuenta con ese correo».
+ */
+test("tras un corte, reenviar sin cambiar nada muestra la misma API key del alta ya hecha", async ({ page }) => {
+  await entrarComoAdmin(page);
+  await abrirAlta(page);
+  await llenar(page, { email: "corte@nueva.pe" });
+
+  const claves: string[] = [];
+  let apiKey = "";
+  await page.route("**/api/admin/cuentas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    const res = await r.fetch();
+    apiKey = (await res.json()).datos.api_key;
+    await r.abort("connectionreset");
+  });
+  await darDeAlta(page);
+  await expect(page.getByText(/Vuelve a enviar sin cambiar nada/)).toBeVisible();
+  expect(apiKey).toMatch(/^fk_/);
+
+  await page.unroute("**/api/admin/cuentas");
+  await page.route("**/api/admin/cuentas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    await r.continue();
+  });
+  await darDeAlta(page);
+
+  await expect(page.getByTestId("api-key-nueva")).toHaveText(apiKey);
+  expect(claves[1]).toBe(claves[0]);
+});
+
 test("si el correo no salió lo dice y deja la API key a la vista igual", async ({ page }) => {
   await entrarComoAdmin(page);
   await abrirAlta(page);

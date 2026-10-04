@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ApiKeyRevelada } from "@/components/api-keys/api-key-revelada";
@@ -10,9 +10,10 @@ import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { AltaAsistidaCreada } from "@/lib/api/admin-alta";
-import { postJson } from "@/lib/api/browser";
+import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { ApiEnvelope } from "@/lib/api/types";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO, SELECT_NATIVO } from "@/lib/estilos";
+import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import { mensajeError, messages } from "@/lib/messages";
 import { codigoSerie, MENSAJE_SERIE, razonSocialSchema, rucSchema, serieCoincideConTipo, soloDigitos, soloTelefono, telefonoSchema } from "@/lib/validacion";
 
@@ -61,6 +62,8 @@ const VALORES_INICIALES: Entrada = { nombre: "", email: "", telefono: "", ruc: "
 /** Lo que dijo el backend cuando es más específico que el texto por código: un 409 puede ser el correo o el RUC. */
 function textoDeError(res: ApiEnvelope<unknown>): string {
   if (res.codigo === "NO_AUTORIZADO") return t.sesionExpirada;
+  // Con la clave de idempotencia (#219) reenviar el mismo formulario es seguro: si el alta se hizo, vuelve la misma API key.
+  if (noSeSabeSiLlego(res)) return t.corteDeConexion;
   if (res.codigo === "DUPLICADO" && res.mensaje) return res.mensaje;
   return mensajeError(res.codigo);
 }
@@ -72,6 +75,8 @@ function textoDeError(res: ApiEnvelope<unknown>): string {
 export function AltaAsistidaForm() {
   const [error, setError] = useState<string | null>(null);
   const [creada, setCreada] = useState<{ datos: AltaAsistidaCreada; email: string } | null>(null);
+  // Clave de idempotencia (#219): la misma mientras se reenvíe el mismo formulario, otra si cambia o se da de alta a otro cliente.
+  const intento = useRef<Intento | null>(null);
   const {
     register,
     handleSubmit,
@@ -82,12 +87,18 @@ export function AltaAsistidaForm() {
 
   async function onSubmit(values: Salida) {
     setError(null);
-    const res = await postJson<AltaAsistidaCreada>("/api/admin/cuentas", {
+    const cuerpo = {
       nombre: values.nombre,
       email: values.email,
       telefono: values.telefono,
       empresa: { ruc: values.ruc, razon_social: values.razon_social, entorno: values.entorno },
       serie: { tipo: values.tipo, serie: values.serie },
+    };
+    intento.current = intentoPara(intento.current, JSON.stringify(cuerpo));
+    const res = await apiRequest<AltaAsistidaCreada>("/api/admin/cuentas", {
+      method: "POST",
+      body: cuerpo,
+      headers: { [CABECERA_IDEMPOTENCIA]: intento.current.clave },
     });
     if (res.estado === "exito" && res.datos) {
       setCreada({ datos: res.datos, email: values.email });
@@ -97,6 +108,7 @@ export function AltaAsistidaForm() {
   }
 
   function otroCliente() {
+    intento.current = null;
     reset(VALORES_INICIALES);
     setError(null);
     setCreada(null);

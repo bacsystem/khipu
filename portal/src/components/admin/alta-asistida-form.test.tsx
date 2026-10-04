@@ -202,7 +202,8 @@ describe("AltaAsistidaForm", () => {
     await waitFor(() => expect(screen.getByText(/Tu sesión de administrador expiró/)).toBeTruthy());
   });
 
-  it("un corte de red muestra el error genérico de conexión", async () => {
+  /** #219: tras un corte no se sabe si el alta se hizo; con la clave de idempotencia reenviar es seguro, y el mensaje lo dice. */
+  it("un corte de red invita a reenviar sin cambiar nada", async () => {
     stubFetch(async () => {
       throw new TypeError("fallo de red");
     });
@@ -211,7 +212,46 @@ describe("AltaAsistidaForm", () => {
 
     enviar();
 
-    await waitFor(() => expect(screen.getByText(/No se pudo conectar con el servidor/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Vuelve a enviar sin cambiar nada/)).toBeTruthy());
+  });
+
+  const claveDe = (fetch: ReturnType<typeof stubFetch>, n: number) =>
+    new Headers((fetch.mock.calls[n] as unknown as [string, RequestInit])[1].headers).get("Idempotency-Key");
+
+  it("reenviar el mismo formulario lleva la misma clave; cambiarlo, otra", async () => {
+    const fetch = stubFetch(async () => {
+      throw new TypeError("fallo de red");
+    });
+    render(<AltaAsistidaForm />);
+    llenarValido();
+
+    enviar();
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Dar de alta" })).toBeTruthy());
+    enviar();
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Dar de alta" })).toBeTruthy());
+    llenar("Razón social", "OTRA RAZON SOCIAL SAC");
+    enviar();
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+
+    expect(claveDe(fetch, 0)).toMatch(/^[0-9a-f-]{36}$/);
+    expect(claveDe(fetch, 1)).toBe(claveDe(fetch, 0));
+    expect(claveDe(fetch, 2)).not.toBe(claveDe(fetch, 0));
+  });
+
+  it("dar de alta a otro cliente con los mismos datos estrena clave", async () => {
+    const fetch = stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
+    render(<AltaAsistidaForm />);
+    llenarValido();
+    enviar();
+    await waitFor(() => expect(screen.getByTestId("api-key-nueva")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Dar de alta a otro cliente" }));
+    llenarValido();
+    enviar();
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+
+    expect(claveDe(fetch, 1)).not.toBe(claveDe(fetch, 0));
   });
 
   it("mientras envía bloquea el botón: un doble clic no crea dos altas", async () => {

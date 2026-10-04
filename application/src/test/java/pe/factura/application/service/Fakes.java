@@ -165,10 +165,17 @@ final class Fakes {
             filas.put(alcance + "|" + clave, new Registro(huella, null));
             return Optional.empty();
         }
-        public void completar(String alcance, String clave, UUID recursoId) {
-            filas.computeIfPresent(alcance + "|" + clave, (k, r) -> new Registro(r.huella(), recursoId));
+        public void completar(String alcance, String clave, UUID recursoId, byte[] respuesta) {
+            completadoDentro.add(uow != null && uow.dentro);
+            filas.computeIfPresent(alcance + "|" + clave, (k, r) -> new Registro(r.huella(), recursoId, respuesta));
         }
+        final List<Boolean> completadoDentro = new ArrayList<>();
         public int borrarAnterioresA(Instant limite) { return 0; }
+        /** Simula que pasó la hora de la respuesta: olvida todas las respuestas guardadas. */
+        public int olvidarRespuestasAnterioresA(Instant limite) {
+            filas.replaceAll((k, r) -> new Registro(r.huella(), r.recursoId(), null));
+            return filas.size();
+        }
     }
 
     /** Bitácora en memoria; {@code falla} simula que la tabla de auditoría rechaza la escritura. */
