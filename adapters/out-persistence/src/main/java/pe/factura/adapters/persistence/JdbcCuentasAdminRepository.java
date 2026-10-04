@@ -3,14 +3,22 @@ package pe.factura.adapters.persistence;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import pe.factura.application.port.in.DetalleCuentaAdminUseCase.ComprobanteReciente;
+import pe.factura.application.port.in.DetalleCuentaAdminUseCase.CuentaDetalle;
+import pe.factura.application.port.in.DetalleCuentaAdminUseCase.EmpresaDeCuenta;
+import pe.factura.application.port.in.DetalleCuentaAdminUseCase.EventoReciente;
+import pe.factura.application.port.in.DetalleCuentaAdminUseCase.UsuarioDeCuenta;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.CuentaResumen;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.Filtro;
 import pe.factura.application.port.out.CuentasAdminRepository;
 
 import java.sql.Timestamp;
 import java.text.Normalizer;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -45,6 +53,66 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
         List<Object> args = new ArrayList<>();
         return jdbc.queryForObject("SELECT count(*) FROM cuenta c" + donde(filtro, args), Long.class, args.toArray());
     }
+
+    /** Cuántas filas de actividad reciente trae el detalle (#181): lo que cabe leer de un vistazo, no un historial. */
+    static final int RECIENTES = 10;
+
+    /**
+     * Detalle de una cuenta (#181): cuatro lecturas cortas por la clave de la cuenta. Los comprobantes se piden por empresa, con el
+     * índice de {@code (tenant_id, fecha_emision)}, y se reducen a los últimos de todas: una cuenta con mucha historia no recorre sus
+     * comprobantes para mostrar diez.
+     */
+    @Override public Optional<CuentaDetalle> detalle(UUID cuentaId) {
+        return jdbc.query("SELECT id, nombre, email, telefono, created_at FROM cuenta WHERE id = ?", (rs, i) -> new Object[]{
+                        rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"), rs.getTimestamp("created_at").toInstant()}, cuentaId)
+                .stream().findFirst().map(c -> new CuentaDetalle(cuentaId, (String) c[0], (String) c[1], (String) c[2], (Instant) c[3],
+                        usuariosDe(cuentaId), empresasDe(cuentaId), comprobantesDe(cuentaId), eventosDe(cuentaId)));
+    }
+
+    private List<UsuarioDeCuenta> usuariosDe(UUID cuentaId) {
+        return jdbc.query("""
+                SELECT u.id, u.email, u.rol, u.activo, u.correo_verificado_at,
+                       (SELECT max(s.created_at) FROM sesion s WHERE s.usuario_id = u.id) AS ultimo_acceso
+                FROM usuario u WHERE u.cuenta_id = ? ORDER BY u.created_at, u.email
+                """, (rs, i) -> new UsuarioDeCuenta(rs.getObject("id", UUID.class), rs.getString("email"), rs.getString("rol"), rs.getBoolean("activo"),
+                instante(rs.getTimestamp("correo_verificado_at")), instante(rs.getTimestamp("ultimo_acceso"))), cuentaId);
+    }
+
+    /**
+     * El certificado y la clave SOL se informan como «cargados» sin tocar su contenido (las columnas están cifradas y ni se leen). Las
+     * credenciales SOL cuentan solo con usuario y clave: una a medias no sirve para enviar.
+     */
+    private List<EmpresaDeCuenta> empresasDe(UUID cuentaId) {
+        return jdbc.query("""
+                SELECT id, ruc, razon_social, entorno, cert_pkcs12_enc IS NOT NULL AS tiene_certificado, cert_vigencia_hasta,
+                       (sol_usuario_enc IS NOT NULL AND sol_clave_enc IS NOT NULL) AS tiene_sol
+                FROM tenant WHERE cuenta_id = ? ORDER BY created_at, ruc
+                """, (rs, i) -> new EmpresaDeCuenta(rs.getObject("id", UUID.class), rs.getString("ruc"), rs.getString("razon_social"), rs.getString("entorno"),
+                rs.getBoolean("tiene_certificado"), rs.getObject("cert_vigencia_hasta", LocalDate.class), rs.getBoolean("tiene_sol")), cuentaId);
+    }
+
+    private List<ComprobanteReciente> comprobantesDe(UUID cuentaId) {
+        return jdbc.query("""
+                SELECT d.id, d.tenant_id, t.ruc, d.tipo, d.serie, d.numero, d.fecha_emision, d.estado, c.moneda, c.total
+                FROM tenant t
+                CROSS JOIN LATERAL (SELECT * FROM documento x WHERE x.tenant_id = t.id ORDER BY x.fecha_emision DESC, x.created_at DESC LIMIT ?) d
+                JOIN comprobante c ON c.documento_id = d.id
+                WHERE t.cuenta_id = ?
+                ORDER BY d.fecha_emision DESC, d.created_at DESC, d.id
+                LIMIT ?
+                """, (rs, i) -> new ComprobanteReciente(rs.getObject("id", UUID.class), rs.getObject("tenant_id", UUID.class), rs.getString("ruc"), rs.getString("tipo"),
+                rs.getString("serie"), rs.getLong("numero"), rs.getObject("fecha_emision", LocalDate.class), rs.getString("estado"), rs.getString("moneda"),
+                rs.getBigDecimal("total")), RECIENTES, cuentaId, RECIENTES);
+    }
+
+    private List<EventoReciente> eventosDe(UUID cuentaId) {
+        return jdbc.query("""
+                SELECT accion, actor_tipo, ocurrido_en, detalle FROM auditoria_admin WHERE cuenta_id = ? ORDER BY ocurrido_en DESC, id LIMIT ?
+                """, (rs, i) -> new EventoReciente(rs.getString("accion"), rs.getString("actor_tipo"), rs.getTimestamp("ocurrido_en").toInstant(), rs.getString("detalle")),
+                cuentaId, RECIENTES);
+    }
+
+    private static Instant instante(Timestamp t) { return t == null ? null : t.toInstant(); }
 
     /**
      * Vocales con tilde, diéresis, acento grave o circunflejo y su vocal sin marca (#214), en minúscula y mayúscula: así no depende de

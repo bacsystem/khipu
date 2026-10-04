@@ -214,6 +214,182 @@ class JdbcCuentasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(plan("SELECT id FROM sesion WHERE usuario_id = '" + UUID.randomUUID() + "'")).contains("ix_sesion_acceso");
     }
 
+    // --- #181: detalle de una cuenta ----------------------------------------------------------------------------------------------
+
+    UUID empresaConId(UUID cuenta, String ruc, String razonSocial) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO tenant (id, ruc, razon_social, entorno, cuenta_id) VALUES (?, ?, ?, 'BETA', ?)", id, ruc, razonSocial, cuenta);
+        return id;
+    }
+
+    void comprobante(UUID tenant, String serie, long numero, String fecha, String estado, String total, Instant creado) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, created_at)
+                VALUES (?, ?, '01', ?, ?, ?::date, ?, ?, ?)""", id, tenant, serie, numero, fecha, estado, serie + "-" + numero, Timestamp.from(creado));
+        jdbc.update("""
+                INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre,
+                                         total_gravado, total_exonerado, total_inafecto, total_igv, total)
+                VALUES (?, '0101', 'PEN', '6', '20601234565', 'CLIENTE SAC', 0, 0, 0, 0, ?::numeric)""", id, total);
+    }
+
+    @Test void unaCuentaQueNoExisteNoTieneDetalle() {
+        assertThat(repo.detalle(UUID.randomUUID())).isEmpty();
+    }
+
+    @Test void elDetalleTraeLosDatosDeLaCuenta() {
+        UUID id = cuenta("Mi negocio", "ana@negocio.pe", T0);
+
+        var d = repo.detalle(id).orElseThrow();
+
+        assertThat(d.id()).isEqualTo(id);
+        assertThat(d.nombre()).isEqualTo("Mi negocio");
+        assertThat(d.email()).isEqualTo("ana@negocio.pe");
+        assertThat(d.telefono()).isEqualTo("987654321");
+        assertThat(d.creadaEn()).isEqualTo(T0);
+        assertThat(d.usuarios()).isEmpty();
+        assertThat(d.empresas()).isEmpty();
+        assertThat(d.comprobantes()).isEmpty();
+        assertThat(d.eventos()).isEmpty();
+    }
+
+    @Test void losUsuariosTraenRolVerificacionYUltimoAccesoDeCadaUno() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        UUID ana = usuario(cuenta, "ana@negocio.pe");
+        UUID luis = usuario(cuenta, "luis@negocio.pe");
+        jdbc.update("UPDATE usuario SET rol = 'EMISOR', activo = false WHERE id = ?", luis);
+        jdbc.update("UPDATE usuario SET correo_verificado_at = ? WHERE id = ?", Timestamp.from(T0.plusSeconds(60)), ana);
+        sesion(ana, T0.plusSeconds(100));
+        sesion(ana, T0.plusSeconds(500));
+        UUID otra = cuenta("Otra", "otra@x.pe", T0);
+        sesion(usuario(otra, "otro@x.pe"), T0.plusSeconds(900));
+
+        var usuarios = repo.detalle(cuenta).orElseThrow().usuarios();
+
+        assertThat(usuarios).extracting(u -> u.email()).containsExactly("ana@negocio.pe", "luis@negocio.pe");
+        var a = usuarios.get(0);
+        assertThat(a.rol()).isEqualTo("ADMIN");
+        assertThat(a.activo()).isTrue();
+        assertThat(a.correoVerificadoEn()).isEqualTo(T0.plusSeconds(60));
+        assertThat(a.ultimoAcceso()).as("la más reciente de SUS sesiones, no la de otra cuenta").isEqualTo(T0.plusSeconds(500));
+        var l = usuarios.get(1);
+        assertThat(l.rol()).isEqualTo("EMISOR");
+        assertThat(l.activo()).isFalse();
+        assertThat(l.correoVerificadoEn()).isNull();
+        assertThat(l.ultimoAcceso()).isNull();
+    }
+
+    @Test void lasEmpresasDicenSiTienenCertificadoYCredencialesSolSinExponerlos() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        UUID completa = empresaConId(cuenta, "20100066603", "COMERCIAL ANDINA SAC");
+        UUID vacia = empresaConId(cuenta, "20100066611", "ANDINA NORTE SAC");
+        UUID soloSol = empresaConId(cuenta, "20100066629", "ANDINA SUR SAC");
+        jdbc.update("UPDATE tenant SET cert_pkcs12_enc = ?, cert_clave_enc = ?, cert_vigencia_hasta = '2027-03-01', sol_usuario_enc = ?, sol_clave_enc = ?, entorno = 'PRODUCCION' WHERE id = ?",
+                new byte[]{1}, new byte[]{2}, new byte[]{3}, new byte[]{4}, completa);
+        jdbc.update("UPDATE tenant SET sol_usuario_enc = ?, sol_clave_enc = ? WHERE id = ?", new byte[]{3}, new byte[]{4}, soloSol);
+        empresaConId(cuenta("Ajena", "ajena@x.pe", T0), "20100066637", "NO ES DE ESTA CUENTA");
+
+        var empresas = repo.detalle(cuenta).orElseThrow().empresas();
+
+        assertThat(empresas).extracting(e -> e.ruc()).containsExactlyInAnyOrder("20100066603", "20100066611", "20100066629");
+        var c = empresas.stream().filter(e -> e.id().equals(completa)).findFirst().orElseThrow();
+        assertThat(c.razonSocial()).isEqualTo("COMERCIAL ANDINA SAC");
+        assertThat(c.entorno()).isEqualTo("PRODUCCION");
+        assertThat(c.tieneCertificado()).isTrue();
+        assertThat(c.certificadoVigenteHasta()).isEqualTo(java.time.LocalDate.of(2027, 3, 1));
+        assertThat(c.tieneCredencialesSol()).isTrue();
+        var v = empresas.stream().filter(e -> e.id().equals(vacia)).findFirst().orElseThrow();
+        assertThat(v.entorno()).isEqualTo("BETA");
+        assertThat(v.tieneCertificado()).isFalse();
+        assertThat(v.certificadoVigenteHasta()).isNull();
+        assertThat(v.tieneCredencialesSol()).isFalse();
+        var s = empresas.stream().filter(e -> e.id().equals(soloSol)).findFirst().orElseThrow();
+        assertThat(s.tieneCertificado()).isFalse();
+        assertThat(s.tieneCredencialesSol()).isTrue();
+    }
+
+    /** Unas credenciales a medias (solo el usuario SOL) no sirven para enviar: no cuentan como cargadas. */
+    @Test void unaClaveSolSinUsuarioONoCuentaComoCargada() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        UUID e = empresaConId(cuenta, "20100066603", "COMERCIAL ANDINA SAC");
+        jdbc.update("UPDATE tenant SET sol_usuario_enc = ? WHERE id = ?", new byte[]{3}, e);
+
+        assertThat(repo.detalle(cuenta).orElseThrow().empresas().get(0).tieneCredencialesSol()).isFalse();
+    }
+
+    @Test void losComprobantesRecientesSonLosUltimosDeTodasLasEmpresasDeLaCuentaYNoDeOtras() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        UUID a = empresaConId(cuenta, "20100066603", "EMPRESA A");
+        UUID b = empresaConId(cuenta, "20100066611", "EMPRESA B");
+        UUID ajena = empresaConId(cuenta("Ajena", "ajena@x.pe", T0), "20100066629", "EMPRESA AJENA");
+        for (int i = 1; i <= 12; i++) comprobante(a, "F001", i, "2026-09-" + String.format("%02d", i), "ACEPTADO", "118.00", T0.plusSeconds(i));
+        comprobante(b, "F001", 1, "2026-09-20", "RECHAZADO", "50.00", T0.plusSeconds(100));
+        comprobante(ajena, "F001", 1, "2026-09-25", "ACEPTADO", "999.00", T0.plusSeconds(200));
+
+        var cs = repo.detalle(cuenta).orElseThrow().comprobantes();
+
+        assertThat(cs).as("tope de 10, de los más recientes a los más antiguos").hasSize(10);
+        assertThat(cs.get(0).ruc()).isEqualTo("20100066611");
+        assertThat(cs.get(0).estado()).isEqualTo("RECHAZADO");
+        assertThat(cs.get(0).total()).isEqualByComparingTo("50.00");
+        assertThat(cs.get(0).moneda()).isEqualTo("PEN");
+        assertThat(cs.get(0).empresaId()).isEqualTo(b);
+        assertThat(cs.get(1)).satisfies(c -> {
+            assertThat(c.ruc()).isEqualTo("20100066603");
+            assertThat(c.serie()).isEqualTo("F001");
+            assertThat(c.numero()).isEqualTo(12);
+            assertThat(c.fechaEmision()).isEqualTo(java.time.LocalDate.of(2026, 9, 12));
+            assertThat(c.tipo()).isEqualTo("01");
+        });
+        assertThat(cs).extracting(c -> c.ruc()).doesNotContain("20100066629");
+        assertThat(cs.stream().filter(c -> c.ruc().equals("20100066603")).map(c -> c.numero()).filter(n -> n < 4))
+                .as("de A quedaron fuera los tres más antiguos (1, 2 y 3)").isEmpty();
+        assertThat(cs.stream().filter(c -> c.ruc().equals("20100066603")).count()).isEqualTo(9);
+    }
+
+    @Test void losEventosSonLasAccionesDelAdministradorSobreEstaCuenta() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        UUID otra = cuenta("Otra", "otra@x.pe", T0);
+        var auditoria = new JdbcAuditoriaAdminRepository(jdbc);
+        var admin = pe.factura.domain.plataforma.ActorAdmin.administrador(UUID.randomUUID(), "203.0.113.7");
+        auditoria.registrar(pe.factura.domain.plataforma.RegistroAuditoria.de(admin, pe.factura.domain.plataforma.AccionAdmin.CREAR_CUENTA, cuenta, null, "ruc=20100066603", T0));
+        auditoria.registrar(pe.factura.domain.plataforma.RegistroAuditoria.de(pe.factura.domain.plataforma.ActorAdmin.clavePlataforma("10.0.0.1"),
+                pe.factura.domain.plataforma.AccionAdmin.CREAR_TENANT, cuenta, null, "ruc=20100066611", T0.plusSeconds(60)));
+        auditoria.registrar(pe.factura.domain.plataforma.RegistroAuditoria.de(admin, pe.factura.domain.plataforma.AccionAdmin.CREAR_CUENTA, otra, null, "ruc=otra", T0.plusSeconds(120)));
+        for (int i = 0; i < 12; i++)
+            auditoria.registrar(pe.factura.domain.plataforma.RegistroAuditoria.de(admin, pe.factura.domain.plataforma.AccionAdmin.CREAR_TENANT, cuenta, null, "n=" + i, T0.plusSeconds(1000 + i)));
+
+        var eventos = repo.detalle(cuenta).orElseThrow().eventos();
+
+        assertThat(eventos).as("tope de 10, de los más recientes a los más antiguos").hasSize(10);
+        assertThat(eventos.get(0).detalle()).isEqualTo("n=11");
+        assertThat(eventos.get(0).accion()).isEqualTo("CREAR_TENANT");
+        assertThat(eventos.get(0).actor()).isEqualTo("ADMINISTRADOR");
+        assertThat(eventos.get(0).ocurridoEn()).isEqualTo(T0.plusSeconds(1011));
+        assertThat(eventos).extracting(e -> e.detalle()).doesNotContain("ruc=otra");
+
+        var delTodo = repo.detalle(otra).orElseThrow().eventos();
+        assertThat(delTodo).extracting(e -> e.detalle()).containsExactly("ruc=otra");
+    }
+
+    @Test void laClavePlataformaSeVeComoTal() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        new JdbcAuditoriaAdminRepository(jdbc).registrar(pe.factura.domain.plataforma.RegistroAuditoria.de(pe.factura.domain.plataforma.ActorAdmin.clavePlataforma("10.0.0.1"),
+                pe.factura.domain.plataforma.AccionAdmin.CREAR_TENANT, cuenta, null, "x", T0));
+
+        assertThat(repo.detalle(cuenta).orElseThrow().eventos().get(0).actor()).isEqualTo("CLAVE_PLATAFORMA");
+    }
+
+    /** El detalle de una cuenta con mucha historia no recorre todos los comprobantes de sus empresas: cada página lee por índice. */
+    @Test void losComprobantesRecientesSeLeenPorIndiceDeCadaEmpresa() {
+        assertThat(plan("SELECT id FROM documento WHERE tenant_id = '" + UUID.randomUUID() + "' ORDER BY fecha_emision DESC, created_at DESC LIMIT 10"))
+                .contains("ix_documento_tenant_fecha");
+    }
+
+    @Test void laBitacoraDeUnaCuentaSeLeePorIndice() {
+        assertThat(plan("SELECT id FROM auditoria_admin WHERE cuenta_id = '" + UUID.randomUUID() + "' ORDER BY ocurrido_en DESC LIMIT 10")).contains("ix_auditoria_cuenta");
+    }
+
     @Test void elOrdenDelListadoSeApoyaEnUnIndice() {
         // Sin él, cada página ordena todas las cuentas.
         assertThat(plan("SELECT id FROM cuenta ORDER BY created_at DESC, id LIMIT 10")).contains("ix_cuenta_alta");

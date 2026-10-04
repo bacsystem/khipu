@@ -21,6 +21,7 @@ class ListarCuentasAdminServiceTest {
     final CuentasAdminRepository repo = new CuentasAdminRepository() {
         public List<CuentaResumen> listar(Filtro f, int pagina, int porPagina) { llamadas.add(new Llamada("listar", f, pagina, porPagina)); return datos; }
         public long contar(Filtro f) { llamadas.add(new Llamada("contar", f, 0, 0)); return 42; }
+        public java.util.Optional<pe.factura.application.port.in.DetalleCuentaAdminUseCase.CuentaDetalle> detalle(UUID id) { throw new AssertionError("el listado no abre cuentas"); }
     };
     final ListarCuentasAdminService service = new ListarCuentasAdminService(repo);
 
