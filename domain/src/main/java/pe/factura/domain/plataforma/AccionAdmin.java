@@ -52,5 +52,15 @@ public enum AccionAdmin {
     /** Descarta un comprobante en error de envío: deja de intentarse y queda terminal (#196). El detalle dice el comprobante y el motivo del administrador; la empresa va en `tenant_id`. */
     DESCARTAR_COMPROBANTE,
     /** Le manda a un cliente el aviso de que su certificado está por vencer o vencido, o de que SUNAT no acepta sus credenciales SOL (#197). El detalle dice el motivo y la empresa va en `tenant_id`; no lleva el correo del cliente. */
-    AVISAR_AL_CLIENTE
+    AVISAR_AL_CLIENTE,
+    /** Cambia el remitente de los correos de la plataforma (#199). El detalle dice el correo y el nombre antes y después; no lleva credenciales del SMTP. */
+    CAMBIAR_REMITENTE_DE_CORREO,
+    /** Reemplaza el texto de un correo de la plataforma (#199). El detalle dice cuál; el texto mismo está en la plantilla, no en la bitácora. */
+    EDITAR_PLANTILLA_DE_CORREO,
+    /** Devuelve un correo de la plataforma a su texto de fábrica (#199). */
+    RESTAURAR_PLANTILLA_DE_CORREO,
+    /** Publica o reemplaza el aviso de mantenimiento que ven todos los clientes (#199). El detalle lleva el texto y la vigencia. */
+    PUBLICAR_BANNER,
+    /** Retira el aviso de mantenimiento antes de que venza (#199). */
+    RETIRAR_BANNER
 }
