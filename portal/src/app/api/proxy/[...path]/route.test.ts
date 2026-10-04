@@ -89,7 +89,7 @@ describe("proxy /api/proxy/[...path]: Idempotency-Key (#115)", () => {
 
   /** El reintento tras renovar el token es el mismo pedido: lleva la misma clave, así el backend no emite dos veces. */
   it("el reintento tras renovar el token lleva la misma clave", async () => {
-    vi.mocked(refrescar).mockResolvedValue({ access: "a2", refresh: "r2", usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" } });
+    vi.mocked(refrescar).mockResolvedValue({ access: "a2", refresh: "r2", usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true } });
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response("{}", { status: 401 }))
@@ -164,7 +164,7 @@ describe("proxy /api/proxy/[...path]", () => {
     vi.mocked(refrescar).mockResolvedValue({
       access: "a2",
       refresh: "r2",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const req = requestWithSession("http://localhost/api/proxy/empresas", {
@@ -209,7 +209,7 @@ describe("proxy /api/proxy/[...path]", () => {
     vi.mocked(refrescar).mockResolvedValue({
       access: "a2",
       refresh: "r2",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const req1 = requestWithSession("http://localhost/api/proxy/empresas", { method: "GET", access: "a1", refresh: "r1" });
@@ -238,7 +238,7 @@ describe("proxy /api/proxy/[...path]", () => {
       return {
         access: `nuevo-${refresh}`,
         refresh: `rotado-${refresh}`,
-        usuario: { id: refresh, cuenta_id: `c-${refresh}`, email: `${refresh}@b.com`, rol: "admin" },
+        usuario: { id: refresh, cuenta_id: `c-${refresh}`, email: `${refresh}@b.com`, rol: "admin", correo_verificado: true },
       };
     });
 

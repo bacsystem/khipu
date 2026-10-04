@@ -55,7 +55,7 @@ describe("middleware", () => {
     vi.mocked(refrescar).mockResolvedValue({
       access: "a2",
       refresh: "r2",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const res = await middleware(requestCon({ [COOKIE_ACCESS]: access, [COOKIE_REFRESH]: "r1" }));
@@ -69,7 +69,7 @@ describe("middleware", () => {
     vi.mocked(refrescar).mockResolvedValue({
       access: "a2",
       refresh: "r2",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const res = await middleware(requestCon({ [COOKIE_REFRESH]: "r1" }));

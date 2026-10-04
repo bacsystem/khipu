@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { RevisaTuCorreo } from "@/components/auth/revisa-tu-correo";
 import { SidebarContent } from "@/components/nav/sidebar-content";
 import { TopBar } from "@/components/nav/top-bar";
 import { me } from "@/lib/api/auth";
@@ -23,7 +24,15 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar entorno={activa.entorno} usuario={usuario} empresas={empresas} activaId={activa?.id} apiBaseUrl={apiPublicUrl()} />
-        <main className="min-w-0 flex-1 overflow-x-auto p-4 md:p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-auto p-4 md:p-6">
+          {/* Con el correo sin verificar (#22) el backend rechaza toda escritura: se dice antes de que algo falle sin explicación. */}
+          {usuario.correo_verificado ? null : (
+            <div className="mb-4">
+              <RevisaTuCorreo email={usuario.email} />
+            </div>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );

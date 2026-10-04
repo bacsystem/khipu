@@ -27,7 +27,7 @@ describe("POST /api/auth/login", () => {
     vi.mocked(login).mockResolvedValue({
       access: "a1",
       refresh: "r1",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
     vi.mocked(listarEmpresas).mockResolvedValue([]);
 
@@ -55,7 +55,7 @@ describe("POST /api/auth/login", () => {
     vi.mocked(login).mockResolvedValue({
       access: "a1",
       refresh: "r1",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
     vi.mocked(listarEmpresas).mockResolvedValue([
       { id: "e1", ruc: "1", razon_social: "Uno", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true },
@@ -71,7 +71,7 @@ describe("POST /api/auth/login", () => {
     vi.mocked(login).mockResolvedValue({
       access: "a1",
       refresh: "r1",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
     vi.mocked(listarEmpresas).mockResolvedValue([
       { id: "e1", ruc: "1", razon_social: "Uno", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true },
@@ -89,7 +89,7 @@ describe("POST /api/auth/login", () => {
     vi.mocked(login).mockResolvedValue({
       access: "a1",
       refresh: "r1",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
     vi.mocked(listarEmpresas).mockResolvedValue([]);
 

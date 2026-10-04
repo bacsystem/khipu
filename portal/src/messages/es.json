@@ -70,6 +70,23 @@
       "exito": "Tu contraseña quedó lista. Ya puedes iniciar sesión.",
       "irALogin": "Ir a iniciar sesión",
       "enlaceInvalido": "El enlace de la invitación es inválido o venció. Pide uno nuevo desde «¿Olvidaste tu contraseña?» en el inicio de sesión."
+    },
+    "verificar": {
+      "titulo": "Verifica tu correo",
+      "subtitulo": "Confirma que este correo es tuyo para empezar a emitir.",
+      "enviar": "Verificar mi correo",
+      "enviando": "Verificando…",
+      "exito": "Tu correo quedó verificado. Ya puedes configurar tu empresa y emitir.",
+      "continuar": "Continuar",
+      "enlaceInvalido": "El enlace de verificación es inválido, venció o ya se usó. Inicia sesión y pide otro."
+    },
+    "revisaTuCorreo": {
+      "titulo": "Revisa tu correo",
+      "descripcion": "Te enviamos un enlace a {email} para verificar que es tuyo. Ábrelo para configurar tu empresa y empezar a emitir: hasta entonces puedes mirar el portal, pero no crear ni emitir nada.",
+      "reenviar": "Enviarme otro enlace",
+      "reenviando": "Enviando…",
+      "reenviado": "Te enviamos otro enlace. Revisa también la carpeta de spam.",
+      "yaVerifique": "Ya lo verifiqué"
     }
   },
   "admin": {
@@ -184,7 +201,9 @@
     "TOKEN_INVALIDO": "El enlace de recuperación es inválido o venció. Solicita uno nuevo.",
     "SESION_INVALIDA": "Tu sesión expiró. Inicia sesión de nuevo.",
     "CODIGO_INVALIDO": "El código no es válido. Usa el que muestra la app ahora y revisa que la hora del teléfono sea la correcta.",
-    "IDEMPOTENCIA_VENCIDA": "Esta alta ya se hizo hace más de una hora y su API key ya no se puede mostrar. El cliente puede crear otra desde su portal.",
+    "CORREO_SIN_VERIFICAR": "Verifica tu correo para continuar: te enviamos un enlace al registrarte.",
+    "CORREO_YA_VERIFICADO": "Tu correo ya está verificado.",
+    "IDEMPOTENCIA_VENCIDA":"Esta alta ya se hizo hace más de una hora y su API key ya no se puede mostrar. El cliente puede crear otra desde su portal.",
     "IDEMPOTENCIA_INVALIDA": "La clave del pedido ya se usó con otros datos. Vuelve a enviar el formulario.",
     "DEMASIADOS_INTENTOS":"Demasiados códigos incorrectos. Espera 15 minutos antes de volver a intentarlo.",
     "SEGUNDO_FACTOR_YA_CONFIGURADO": "Tu cuenta ya tiene la verificación en dos pasos configurada. Vuelve a iniciar sesión.",

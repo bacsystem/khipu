@@ -19,6 +19,11 @@ function claimsAdmin(req: Request): { sub: string } | null {
   }
 }
 
+/** Como el `JwtFilter` del backend (#22): sin verificar el correo no se escribe. */
+function correoVerificado(usuarioId: string) {
+  return [...db.usuariosPorEmail.values()].some((r) => r.usuario.id === usuarioId && r.usuario.correo_verificado);
+}
+
 /** El desafío del login (#177): solo vale con `tipo=plataforma-desafio`, nunca un token de sesión ni de cliente. */
 function delDesafio(desafio: string) {
   try {
@@ -186,10 +191,32 @@ export const handlers = [
     if (!body.password || body.password.length < 8 || !/[A-Za-z]/.test(body.password) || !/\d/.test(body.password))
       return fail(422, "PASSWORD_DEBIL", "La contraseña debe tener al menos 8 caracteres, una letra y un dígito");
     if (db.usuariosPorEmail.has(email)) return fail(409, "DUPLICADO", "Ya existe una cuenta con ese correo");
-    const usuario: Usuario = { id: nuevoId("u"), cuenta_id: nuevoId("c"), email, rol: "ADMIN" };
+    // Como el backend (#22): el correo queda sin verificar y se «manda» el enlace; el e2e lo arma con `verif-<correo>`.
+    const usuario: Usuario = { id: nuevoId("u"), cuenta_id: nuevoId("c"), email, rol: "ADMIN", correo_verificado: false };
     db.usuariosPorEmail.set(email, { usuario, password: body.password });
     db.empresasPorCuenta.set(usuario.cuenta_id, []);
+    db.verificaciones.set(`verif-${email}`, { email, usado: false });
     return ok(emitirTokens(usuario), 201);
+  }),
+
+  http.post(`${BASE}/v1/auth/verificar`, async ({ request }) => {
+    const { token } = (await request.json()) as { token: string };
+    const v = db.verificaciones.get(token);
+    if (!v || v.usado) return fail(422, "TOKEN_INVALIDO", "El enlace de verificación es inválido o venció. Pide otro desde el portal");
+    v.usado = true;
+    const registro = db.usuariosPorEmail.get(v.email);
+    if (registro) registro.usuario.correo_verificado = true;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post(`${BASE}/v1/auth/verificacion`, ({ request }) => {
+    const c = claims(request);
+    if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const registro = [...db.usuariosPorEmail.values()].find((r) => r.usuario.id === c.sub);
+    if (!registro) return fail(404, "NO_ENCONTRADO", "Usuario no encontrado");
+    if (registro.usuario.correo_verificado) return fail(409, "CORREO_YA_VERIFICADO", "Tu correo ya está verificado");
+    db.verificaciones.set(`verif-${registro.usuario.email}`, { email: registro.usuario.email, usado: false });
+    return new HttpResponse(null, { status: 202 });
   }),
 
   http.post(`${BASE}/v1/auth/login`, async ({ request }) => {
@@ -371,6 +398,7 @@ export const handlers = [
   http.post(`${BASE}/v1/empresas`, async ({ request }) => {
     const c = claims(request);
     if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!correoVerificado(c.sub)) return fail(403, "CORREO_SIN_VERIFICAR", "Verifica tu correo para continuar: te enviamos un enlace");
     const body = (await request.json()) as { ruc: string; razon_social: string; entorno: "BETA" | "PRODUCCION" };
     if (!rucValido(body.ruc)) return fail(422, "RUC_INVALIDO", `Empresa: el dígito verificador del RUC ${body.ruc} no es válido; revise el número`);
     // 4338: la razón social del emisor va cruda al XML, sin tabuladores ni saltos de línea, hasta 1500.

@@ -8,7 +8,7 @@ export function fakeJwt(payload: Record<string, unknown>): string {
   return `${base64url({ alg: "none" })}.${base64url(payload)}.firma-de-prueba`;
 }
 
-export type Usuario = { id: string; cuenta_id: string; email: string; rol: string };
+export type Usuario = { id: string; cuenta_id: string; email: string; rol: string; correo_verificado: boolean };
 export type Administrador = { id: string; email: string };
 /** Cuenta del listado del backoffice (#180) con sus empresas; el endpoint devuelve solo el número de empresas. */
 export type CuentaAdminMock = {
@@ -129,6 +129,8 @@ export const db = {
   /** Idempotency-Key de la emisión (#115): `empresa|clave` → huella del pedido y factura emitida. */
   clavesEmision: new Map<string, { huella: string; id: string }>(),
   /** Idempotency-Key del alta asistida (#219): clave → huella del pedido y respuesta, con la API key. */
+  /** Enlaces de verificación del correo (#22): token → correo y si ya se usó. El e2e arma el enlace con `verif-<correo>`. */
+  verificaciones: new Map<string, { email: string; usado: boolean }>(),
   clavesAlta: new Map<string, { huella: string; respuesta: { cuenta_id: string; tenant_id: string; ruc: string; api_key: string; serie: { tipo: string; serie: string }; invitacion_enviada: boolean } }>(),
 };
 
@@ -145,6 +147,7 @@ export function resetDb() {
   db.administradoresPorEmail.clear();
   db.clavesEmision.clear();
   db.clavesAlta.clear();
+  db.verificaciones.clear();
 
   const administrador: Administrador = { id: "admin-demo", email: "admin@khipu.pe" };
   db.administradoresPorEmail.set(administrador.email, { administrador, password: "AdminPass1", segundoFactor: true });
@@ -194,6 +197,7 @@ export function resetDb() {
     cuenta_id: "c-demo",
     email: "demo@example.com",
     rol: "ADMIN",
+    correo_verificado: true,
   };
   db.usuariosPorEmail.set(usuario.email, { usuario, password: "Passw0rd1" });
 
