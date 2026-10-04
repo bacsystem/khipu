@@ -41,7 +41,6 @@ export function PanelDelMonitor({ inicial, intervaloMs = INTERVALO_DEL_MONITOR_M
   // Refs, no estado: el intervalo y dos pedidos en el mismo tick leerían el valor viejo del closure.
   const enCursoRef = useRef(false);
   const sesionTerminadaRef = useRef(false);
-  const vivoRef = useRef(true);
 
   const leer = useCallback(async () => {
     if (enCursoRef.current || sesionTerminadaRef.current) return;
@@ -49,7 +48,6 @@ export function PanelDelMonitor({ inicial, intervaloMs = INTERVALO_DEL_MONITOR_M
     setActualizando(true);
     const res = await apiRequest<MonitorDeEmision>("/api/admin/monitor", { method: "GET" });
     enCursoRef.current = false;
-    if (!vivoRef.current) return;
     setActualizando(false);
     if (res.estado === "exito" && res.datos) {
       setMonitor(res.datos);
@@ -64,11 +62,9 @@ export function PanelDelMonitor({ inicial, intervaloMs = INTERVALO_DEL_MONITOR_M
   }, []);
 
   useEffect(() => {
-    vivoRef.current = true;
     if (!inicial) void leer();
     const id = setInterval(() => void leer(), intervaloMs);
     return () => {
-      vivoRef.current = false;
       clearInterval(id);
     };
   }, [inicial, intervaloMs, leer]);
