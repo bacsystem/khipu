@@ -108,6 +108,13 @@ describe("PlanesTabla", () => {
     expect(aviso.textContent).not.toContain("RUC");
   });
 
+  /** Un programado idéntico a lo vigente no cambia nada: no se anuncia un cambio vacío. */
+  it("un cambio programado sin diferencias con lo vigente no muestra aviso", () => {
+    render(<PlanesTabla planes={[{ ...NEGOCIO, limites_programados: { aplica_desde: "2026-11-01T05:00:00Z", limites: NEGOCIO.limites } }]} />);
+
+    expect(screen.queryByTestId("plan-programado-n")).toBeNull();
+  });
+
   it("sin cambio programado no hay aviso", () => {
     render(<PlanesTabla planes={[NEGOCIO]} />);
 
