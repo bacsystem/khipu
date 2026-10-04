@@ -1,4 +1,5 @@
 import { AccionesDeCuenta } from "@/components/admin/acciones-de-cuenta";
+import { AccionesDeUsuario } from "@/components/admin/acciones-de-usuario";
 import { CertificadoEtiqueta, Etiqueta, EstadoCuentaEtiqueta } from "@/components/admin/etiquetas";
 import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
@@ -10,7 +11,7 @@ import { messages } from "@/lib/messages";
 
 const t = messages.admin.detalle;
 
-function Usuarios({ usuarios }: { usuarios: CuentaDetalleAdmin["usuarios"] }) {
+function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDetalleAdmin["usuarios"] }) {
   const u = t.usuarios;
   return (
     <Seccion titulo={u.titulo} id="detalle-usuarios">
@@ -21,7 +22,8 @@ function Usuarios({ usuarios }: { usuarios: CuentaDetalleAdmin["usuarios"] }) {
             <TableHead className={CABECERA_TABLA}>{u.columnas.rol}</TableHead>
             <TableHead className={CABECERA_TABLA}>{u.columnas.estado}</TableHead>
             <TableHead className={CABECERA_TABLA}>{u.columnas.verificado}</TableHead>
-            <TableHead className={`${CABECERA_TABLA} pr-4`}>{u.columnas.ultimoAcceso}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{u.columnas.ultimoAcceso}</TableHead>
+            <TableHead className={`${CABECERA_TABLA} pr-4 text-right`}>{u.columnas.acciones}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="text-[13px]">
@@ -41,12 +43,15 @@ function Usuarios({ usuarios }: { usuarios: CuentaDetalleAdmin["usuarios"] }) {
                   <Etiqueta tono="aviso">{u.sinVerificar}</Etiqueta>
                 )}
               </TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">
+              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">
                 {x.ultimo_acceso ? formatearFechaHora(x.ultimo_acceso) : <span className="text-muted-foreground">{u.nunca}</span>}
+              </TableCell>
+              <TableCell className="py-2 pr-4 pl-3">
+                <AccionesDeUsuario cuentaId={cuentaId} usuarioId={x.id} correo={x.email} activo={x.activo} verificado={Boolean(x.correo_verificado_en)} />
               </TableCell>
             </TableRow>
           ))}
-          {usuarios.length === 0 ? <Vacio columnas={5} texto={u.vacio} /> : null}
+          {usuarios.length === 0 ? <Vacio columnas={6} texto={u.vacio} /> : null}
         </TableBody>
       </Table>
     </Seccion>
@@ -160,8 +165,8 @@ function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
 }
 
 /**
- * Detalle de una cuenta del backoffice (#181). Lo único que se puede hacer desde aquí es suspenderla o reactivarla (#182), con su confirmación
- * y su registro en la bitácora; el resto (impersonar, planes…) llega en sus issues. `hoy` (fecha de Lima) llega de afuera para que el estado
+ * Detalle de una cuenta del backoffice (#181). Desde aquí se puede suspenderla o reactivarla (#182) y mandarle a un usuario el correo de
+ * restablecimiento o de verificación (#183), cada cosa con su confirmación y su registro en la bitácora; el resto (impersonar, planes…) llega en sus issues. `hoy` (fecha de Lima) llega de afuera para que el estado
  * del certificado se calcule igual en el servidor y en las pruebas.
  */
 export function CuentaDetalle({ cuenta, hoy }: { cuenta: CuentaDetalleAdmin; hoy: string }) {
@@ -196,7 +201,7 @@ export function CuentaDetalle({ cuenta, hoy }: { cuenta: CuentaDetalleAdmin; hoy
         <AccionesDeCuenta id={cuenta.id} nombre={cuenta.nombre} estado={cuenta.estado} empresas={cuenta.empresas.length} />
       </div>
       <p className="text-xs text-muted-foreground">{t.soloLectura}</p>
-      <Usuarios usuarios={cuenta.usuarios} />
+      <Usuarios cuentaId={cuenta.id} usuarios={cuenta.usuarios} />
       <Empresas empresas={cuenta.empresas} hoy={hoy} />
       <Comprobantes comprobantes={cuenta.comprobantes} />
       <Eventos eventos={cuenta.eventos} />
