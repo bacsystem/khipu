@@ -12,11 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.factura.adapters.rest.dto.ConsumoCuentaResponse;
 import pe.factura.adapters.rest.dto.ConsumoEmpresaResponse;
 import pe.factura.application.port.in.ConsultarConsumoUseCase;
-import pe.factura.domain.DomainException;
 
-import java.time.YearMonth;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 /**
  * Cuántos documentos consumió una cuenta o una empresa en un mes (#192). Autenticado por {@link AdminAuthFilter}: la clave de plataforma o el JWT de un administrador.
@@ -27,8 +24,6 @@ import java.util.regex.Pattern;
 @Tag(name = "Administración de la plataforma", description = "Operaciones del operador de khipu con `X-Platform-Key` o de un administrador ya autenticado. No están disponibles para empresas ni integradores.")
 @RequiredArgsConstructor
 public class AdminConsumoController {
-    private static final Pattern MES = Pattern.compile("\\d{4}-(0[1-9]|1[0-2])");
-
     private final ConsultarConsumoUseCase consumo;
 
     @GetMapping("/cuentas/{id}/consumo")
@@ -40,7 +35,7 @@ public class AdminConsumoController {
             `mes` es `AAAA-MM`; sin él, el mes en curso (`400 PARAMETRO_INVALIDO` si está mal escrito). `404 NO_ENCONTRADO` si la cuenta no existe.""")
     public ApiResponse<ConsumoCuentaResponse> deCuenta(@Parameter(description = "Id de la cuenta") @PathVariable UUID id,
                                                        @Parameter(description = "Mes, `AAAA-MM`; por defecto el mes en curso", example = "2026-10") @RequestParam(required = false) String mes) {
-        return ApiResponse.ok(ConsumoCuentaResponse.de(consumo.deCuenta(id, mes(mes))));
+        return ApiResponse.ok(ConsumoCuentaResponse.de(consumo.deCuenta(id, ParametroMes.de(mes))));
     }
 
     @GetMapping("/empresas/{id}/consumo")
@@ -49,13 +44,6 @@ public class AdminConsumoController {
             emisión, en el mes calendario de Lima. `mes` es `AAAA-MM`; sin él, el mes en curso. `404 NO_ENCONTRADO` si la empresa no existe.""")
     public ApiResponse<ConsumoEmpresaResponse> deEmpresa(@Parameter(description = "Id de la empresa") @PathVariable UUID id,
                                                          @Parameter(description = "Mes, `AAAA-MM`; por defecto el mes en curso", example = "2026-10") @RequestParam(required = false) String mes) {
-        return ApiResponse.ok(ConsumoEmpresaResponse.de(consumo.deEmpresa(id, mes(mes))));
-    }
-
-    /** {@code AAAA-MM} y nada más; vacío o ausente es el mes en curso. */
-    private static YearMonth mes(String texto) {
-        if (texto == null || texto.isEmpty()) return null;
-        if (!MES.matcher(texto).matches()) throw new DomainException("PARAMETRO_INVALIDO", "El mes debe tener el formato AAAA-MM (p. ej. 2026-10)");
-        return YearMonth.parse(texto);
+        return ApiResponse.ok(ConsumoEmpresaResponse.de(consumo.deEmpresa(id, ParametroMes.de(mes))));
     }
 }
