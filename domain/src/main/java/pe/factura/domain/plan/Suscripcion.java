@@ -28,8 +28,16 @@ public record Suscripcion(UUID id, UUID cuentaId, UUID planId, Instant iniciaEn,
 
     public EstadoSuscripcion estadoEn(Instant ahora) {
         if (!activa()) return EstadoSuscripcion.REEMPLAZADA;
+        return estadoDeLaVigente(venceEn, diasDeGracia, ahora);
+    }
+
+    /**
+     * El estado de pago de la suscripción vigente de una cuenta, con solo lo que hace falta saber (el vencimiento y la gracia). Es la única definición: la ficha de
+     * la cuenta y el listado de consumo (#193) la usan, así nunca dicen cosas distintas. El vencimiento es exclusivo: en ese instante exacto ya no está {@code VIGENTE}.
+     */
+    public static EstadoSuscripcion estadoDeLaVigente(Instant venceEn, int diasDeGracia, Instant ahora) {
         if (venceEn == null || ahora.isBefore(venceEn)) return EstadoSuscripcion.VIGENTE;
-        return ahora.isBefore(hastaCuandoCubre()) ? EstadoSuscripcion.EN_GRACIA : EstadoSuscripcion.VENCIDA;
+        return ahora.isBefore(venceEn.plus(Duration.ofDays(diasDeGracia))) ? EstadoSuscripcion.EN_GRACIA : EstadoSuscripcion.VENCIDA;
     }
 
     /** La cierra porque otra la reemplaza. */

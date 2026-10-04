@@ -20,6 +20,28 @@ class SuscripcionTest {
 
     static String codigo(Runnable r) { return catchThrowableOfType(DomainException.class, r::run).codigo(); }
 
+    /** La misma regla, sin necesitar la suscripción entera (la usa el listado de consumo): los mismos bordes exactos. */
+    @Test void elEstadoDeLaVigenteSoloNecesitaElVencimientoYLaGracia() {
+        Instant vence = T0.plusSeconds(86400);
+        Instant finGracia = vence.plusSeconds(3 * 86400L);
+
+        assertThat(Suscripcion.estadoDeLaVigente(null, 0, T0.plusSeconds(999_999_999))).isEqualTo(EstadoSuscripcion.VIGENTE);
+        assertThat(Suscripcion.estadoDeLaVigente(vence, 3, vence.minusSeconds(1))).isEqualTo(EstadoSuscripcion.VIGENTE);
+        assertThat(Suscripcion.estadoDeLaVigente(vence, 3, vence)).isEqualTo(EstadoSuscripcion.EN_GRACIA);
+        assertThat(Suscripcion.estadoDeLaVigente(vence, 3, finGracia.minusSeconds(1))).isEqualTo(EstadoSuscripcion.EN_GRACIA);
+        assertThat(Suscripcion.estadoDeLaVigente(vence, 3, finGracia)).isEqualTo(EstadoSuscripcion.VENCIDA);
+        assertThat(Suscripcion.estadoDeLaVigente(vence, 0, vence)).isEqualTo(EstadoSuscripcion.VENCIDA);
+    }
+
+    @Test void estadoEnYEstadoDeLaVigenteDicenLoMismo() {
+        Suscripcion s = de(T0, T0.plusSeconds(86400), 3, null);
+
+        for (long segundos : new long[]{0, 86399, 86400, 86401, 86400 + 3 * 86400L - 1, 86400 + 3 * 86400L, 999_999}) {
+            Instant ahora = T0.plusSeconds(segundos);
+            assertThat(s.estadoEn(ahora)).as("%d s", segundos).isEqualTo(Suscripcion.estadoDeLaVigente(s.venceEn(), s.diasDeGracia(), ahora));
+        }
+    }
+
     @Test void sinVencimientoSiempreEstaVigente() {
         Suscripcion s = de(T0, null, 0, null);
 
