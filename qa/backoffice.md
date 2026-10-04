@@ -2101,6 +2101,61 @@ Lo que sobrevivía en la primera tanda y se arregló con su test:
 - **La mensajería de «cuentas» cuenta suscripciones vigentes**, incluidas las de cuentas dadas de baja (siguen apuntando al plan).
 - **El borrado no se prueba contra una carrera real** (una cuenta que toma el plan justo entre mirar y borrar): lo cubre la condición SQL y un test del servicio con un repositorio que se niega a borrar, no un test concurrente.
 
+## #192 · Planes: contador de consumo mensual por cuenta y empresa
+
+**Estado: 🔧 implementado, 39/39 mutaciones verificadas — falta la revisión de la PR.** Es código de dinero: se verificó sobre todo lo que **no** cuenta, que es donde se equivoca el cálculo. Solo backend (la pantalla de consumo es #193; #191 lo usa para avisar antes de cambiar un plan). Sin esta PR el límite de documentos de un plan no tiene contra qué compararse.
+
+> ⚠️ **No pude leer `docs/plan/plan.md`**, que el issue cita como la definición de «documento consumido»: `docs/` es local y no existe en esta máquina. Seguí al pie lo que el propio issue dice (aceptados, sin rechazados / reintentos / errores / bajas, mes calendario en Lima). **Conviene que quien tenga ese documento compare las tres decisiones de abajo antes de mergear.**
+
+### Qué cuenta
+
+- **Solo los comprobantes que SUNAT aceptó**: `ACEPTADO` o `ACEPTADO_CON_OBS`. La regla vive en **un solo sitio**, `EstadoDocumento.cuentaParaElConsumo()`, y el SQL arma su lista de estados desde ahí (no hay un texto copiado que pueda desacordarse). Un test recorre los once estados y obliga a clasificar cada uno a propósito: un estado nuevo no puede colarse en el cobro, ni quedarse fuera, sin que ese test falle.
+- **No cuentan:** `RECHAZADO`, `ERROR_ENVIO`, `FUERA_DE_PLAZO` (no llegaron), `RECIBIDO`, `INVALIDO`, `FIRMADO`, `PENDIENTE_AGRUPACION`, `ENVIADO` (todavía no hay respuesta de SUNAT) y `ANULADO` (los dados de baja).
+- **Los reintentos no multiplican.** Un comprobante reintentado hasta que lo aceptan es **una fila** de `documento` con `intentos = 7`, no siete: se cuentan filas. Hay un test con un aceptado de 7 intentos y otro con rechazados y errores de envío muy reintentados.
+- **Un resumen diario cuenta 1:** hoy el sistema no guarda resúmenes diarios como documentos (el estado `PENDIENTE_AGRUPACION` existe pero ningún servicio lo usa), así que no hay nada que excluir. Si algún día se guardan, **ese día habrá que decidir** cómo cuentan; está anotado en el código.
+- **La comunicación de baja** vive en otra tabla (`comunicacion_baja`), no en `documento`: no cuenta por construcción.
+- **Los cuatro tipos** (factura, boleta, nota de crédito y de débito) cuentan como un documento cada uno.
+
+### El mes y los alcances
+
+- **Mes calendario en America/Lima**, por la **fecha de emisión** (`fecha_emision`, un `DATE` ya en hora de Lima): del día 1 inclusive al día 1 siguiente exclusive. Los bordes están probados (30 de septiembre, 1 y 31 de octubre, 1 de noviembre; diciembre y enero; el mismo mes de otro año). **Sin `mes`, es el mes en curso de Lima, no el de UTC** (a las 03:00 UTC del 1 de noviembre todavía es octubre).
+- `GET /v1/admin/empresas/{id}/consumo?mes=AAAA-MM` y `GET /v1/admin/cuentas/{id}/consumo?mes=AAAA-MM`. La cuenta devuelve el total —la suma de sus empresas— y el detalle por empresa **aunque alguna no haya emitido nada**, ordenadas por RUC. Una cuenta de otra no se mezcla; una empresa sin cuenta no figura en ninguna.
+- `mes` es `AAAA-MM` y nada más (`400 PARAMETRO_INVALIDO` con `2026-13`, `26-10`, `2026-10-15`, `+12026-10`…); vacío o ausente es el mes en curso. `404` si la cuenta o la empresa no existen; `400` si el id no es un UUID.
+- **Solo del administrador** (clave de plataforma o JWT de administrador): ni el dueño de la cuenta, ni una API key, ni una clave errónea lo ven. **Solo lectura**: no escribe nada ni deja registro.
+
+### Tests (48)
+
+- **Dominio** (`EstadoDocumentoTest`, +1): los once estados, uno por uno.
+- **Persistencia, Postgres real** (`JdbcConsumoRepositoryTest`, 17): aceptados y con observaciones; los cuatro tipos; **un documento en cada uno de los demás estados**; rechazados y errores reintentados; un aceptado con 6 reintentos cuenta 1; la baja (comunicación y anulado); los bordes del mes; diciembre/enero; otro año; mes vacío; empresa inexistente; cada empresa lo suyo; la cuenta lista cada empresa por RUC aunque tenga 0; cuentas ajenas; empresa sin cuenta; cuenta sin empresas; y que la lista de la cuenta aplique **las mismas reglas** que la de la empresa.
+- **Servicio** (`ConsultarConsumoServiceTest`, 8): el mes en curso es el de Lima (tres bordes); con y sin mes; el total de la cuenta es la suma; cuenta sin empresas; 404.
+- **REST** (`AdminConsumoControllerTest`, 7) y **E2E real** (`ConsumoMensualE2ETest`, 15, Spring completo + Postgres + filtros reales): el recorrido completo de «lo que no cuenta» por HTTP, los meses mal escritos, 404/400, que consultar no escribe nada, y que nadie más puede.
+
+### Verificación por mutación — 39/39 mueren
+
+| Capa | Mutaciones | Cuántas |
+|---|---|---|
+| Regla del dominio | contar los enviados, los anulados, los rechazados o los errores de envío; contar solo `ACEPTADO` o solo `ACEPTADO_CON_OBS`; no contar nada | 7 |
+| Contador en la base | la lista de estados con todos o con uno solo; el primer día del mes no cuenta; el primer día del mes siguiente cuenta (en la consulta de la empresa y en la de la cuenta); el mes empieza el día 2 o dura dos meses; contar series o sumar intentos en vez de documentos; las empresas sin documentos desaparecen; la cuenta lista todas las empresas o no las ordena por RUC; la empresa cuenta las de todos; el estado no se mira en la cuenta | 14 |
+| Servicio | el mes en curso en UTC; la cuenta suma mal; una cuenta inexistente se consulta; el detalle pierde los documentos o el mes; la empresa pierde su razón social; el mes pedido se ignora | 7 |
+| REST | cualquier mes vale; el mes 13 o el 00 valen; un mes vacío es un error; la cuenta o la empresa ignoran el mes; la respuesta pierde el mes, el total, el detalle, el RUC o los documentos | 11 |
+
+### Suites
+
+- Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (8 min 51 s; incluye `ArchitectureTest` y todos los E2E de Spring con Postgres real).
+- Portal: sin cambios (esta PR solo toca el backend).
+
+### Decisiones que conviene contrastar con el plan comercial
+
+1. **`ANULADO` no cuenta**, porque el issue dice «cuenta solo los comprobantes aceptados» y «las bajas no cuentan». Consecuencia: un cliente que emite y luego da de baja deja de consumir ese documento. Si el plan comercial dice que un comprobante aceptado consumió aunque se anule después, hay que cambiar **una línea** (`cuentaParaElConsumo`) y su test.
+2. **El mes es el de la fecha de emisión, no el de la aceptación.** Un comprobante emitido el 31 de octubre y aceptado el 1 de noviembre consume en octubre. Es lo que ya usa el listado de empresas («comprobantes del mes») y evita depender de una marca de tiempo que cambia con cada actualización de la fila.
+3. **La consulta por id de una cuenta dada de baja devuelve sus números reales.** El issue de la baja (#201) dice que la cuenta de baja sale del cálculo de consumo y cobro: cualquier **listado o total agregado** (#193) debe excluirlas con `BajasEnListado`; esta consulta es la de una cuenta concreta que el administrador pidió.
+
+### Límites conocidos
+
+- **El «comprobantes del mes» que ya muestra el listado de empresas es otra cosa:** cuenta **todos** los documentos del mes, aceptados o no. No se tocó; el consumo de esta PR es el que se cobra, y la pantalla de #193 debe llamarlos distinto para no confundir.
+- **No hay todavía una pantalla** ni el cruce con el límite del plan (#193). Tampoco se aplica ningún límite: hacerlo valer es otro trabajo, y cuando se haga debe leer los límites con `Plan.vigenteEn` (#190).
+- **Sin caché ni tabla de agregados:** cada consulta cuenta filas de `documento` con el índice `(tenant_id, fecha_emision)`. Para una cuenta con millones de documentos al mes habría que medirlo; hoy no hay ese volumen.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
