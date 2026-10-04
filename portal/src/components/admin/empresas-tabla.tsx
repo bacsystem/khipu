@@ -7,6 +7,7 @@ import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { PieTabla } from "@/components/ui/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
+import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import {
   ENTORNOS,
   ESTADOS_CERTIFICADO,
@@ -108,7 +109,9 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
               <TableRow key={e.id} data-certificado={e.certificado} className={cn("border-b border-border/60 hover:bg-muted/80", TINTE[e.certificado])}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
-                    <span className="font-medium text-foreground">{e.razon_social}</span>
+                    <Link href={hrefDetalleEmpresa(e.id)} className="font-medium text-foreground hover:text-primary hover:underline">
+                      {e.razon_social}
+                    </Link>
                     <span className="font-mono text-[11px] text-muted-foreground">{e.ruc}</span>
                   </div>
                 </TableCell>

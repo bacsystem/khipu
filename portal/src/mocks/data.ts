@@ -15,6 +15,11 @@ export function idCuentaMock(n: number): string {
   return `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 }
 
+/** Lo mismo para las empresas del listado del backoffice (#185): el detalle (#186) descarta todo lo que no sea un UUID. */
+export function idEmpresaMock(n: number): string {
+  return `00000000-0000-4000-9000-${String(n).padStart(12, "0")}`;
+}
+
 /** Cuenta del listado del backoffice (#180) con sus empresas; el endpoint devuelve solo el número de empresas. */
 export type CuentaAdminMock = {
   id: string;
@@ -226,18 +231,18 @@ export function resetDb() {
   // últimas son de integración: no tienen cuenta.
   const inactiva = { certificado: null, tiene_credenciales_sol: false, series: 0, comprobantes_del_mes: 0, ultima_emision_hace: null, entorno: "BETA" as const };
   db.empresasAdmin = [
-    { id: "ea-01", ruc: "20100047226", razon_social: "PANADERIA SOL SAC", cuenta: { id: idCuentaMock(1), nombre: "Panadería Sol" }, entorno: "BETA", certificado: 10, tiene_credenciales_sol: true, series: 2, comprobantes_del_mes: 14, ultima_emision_hace: 1, creada_en: "2026-09-01T15:00:00Z" },
-    { id: "ea-02", ruc: "20100055121", razon_social: "FERRETERIA LUNA SAC", cuenta: { id: idCuentaMock(2), nombre: "Ferretería Luna" }, entorno: "PRODUCCION", certificado: -5, tiene_credenciales_sol: true, series: 1, comprobantes_del_mes: 0, ultima_emision_hace: 40, creada_en: "2026-09-02T15:00:00Z" },
-    { id: "ea-04", ruc: "20100000400", razon_social: "CLIENTE 04 SAC", cuenta: { id: idCuentaMock(4), nombre: "Cliente 04" }, entorno: "PRODUCCION", certificado: 200, tiene_credenciales_sol: true, series: 1, comprobantes_del_mes: 30, ultima_emision_hace: 0, creada_en: "2026-09-04T15:00:00Z" },
-    { id: "ea-05", ruc: "20100000500", razon_social: "CLIENTE 05 SAC", cuenta: { id: idCuentaMock(5), nombre: "Cliente 05" }, entorno: "BETA", certificado: "sin_fecha", tiene_credenciales_sol: false, series: 1, comprobantes_del_mes: 2, ultima_emision_hace: 3, creada_en: "2026-09-05T15:00:00Z" },
-    { id: "ea-07", ruc: "20100000700", razon_social: "CLIENTE 07 SAC", cuenta: { id: idCuentaMock(7), nombre: "Cliente 07" }, entorno: "PRODUCCION", certificado: 29, tiene_credenciales_sol: true, series: 1, comprobantes_del_mes: 3, ultima_emision_hace: 2, creada_en: "2026-09-07T15:00:00Z" },
-    { id: "ea-08", ruc: "20100000800", razon_social: "CLIENTE 08 SAC", cuenta: { id: idCuentaMock(8), nombre: "Cliente 08" }, entorno: "BETA", certificado: 30, tiene_credenciales_sol: true, series: 0, comprobantes_del_mes: 0, ultima_emision_hace: null, creada_en: "2026-09-08T15:00:00Z" },
-    { id: "ea-10", ruc: "20100001000", razon_social: "CLIENTE 10 SAC", cuenta: { id: idCuentaMock(10), nombre: "Cliente 10" }, entorno: "BETA", certificado: -1, tiene_credenciales_sol: false, series: 1, comprobantes_del_mes: 0, ultima_emision_hace: 90, creada_en: "2026-09-10T15:00:00Z" },
-    { id: "ea-11", ruc: "20100001100", razon_social: "CLIENTE 11 SAC", cuenta: { id: idCuentaMock(11), nombre: "Cliente 11" }, ...inactiva, creada_en: "2026-09-11T15:00:00Z" },
-    { id: "ea-i1", ruc: "20100066611", razon_social: "INTEGRADOR SAC", ...inactiva, creada_en: "2026-09-12T15:00:00Z" },
-    { id: "ea-i2", ruc: "20100066620", razon_social: "INTEGRADOR NORTE SAC", ...inactiva, creada_en: "2026-09-13T15:00:00Z" },
-    { id: "ea-i3", ruc: "20100066638", razon_social: "INTEGRADOR SUR SAC", ...inactiva, creada_en: "2026-09-14T15:00:00Z" },
-    { id: "ea-i4", ruc: "20100066646", razon_social: "INTEGRADOR ESTE SAC", ...inactiva, creada_en: "2026-09-15T15:00:00Z" },
+    { id: idEmpresaMock(1), ruc: "20100047226", razon_social: "PANADERIA SOL SAC", cuenta: { id: idCuentaMock(1), nombre: "Panadería Sol" }, entorno: "BETA", certificado: 10, tiene_credenciales_sol: true, series: 2, comprobantes_del_mes: 14, ultima_emision_hace: 1, creada_en: "2026-09-01T15:00:00Z" },
+    { id: idEmpresaMock(2), ruc: "20100055121", razon_social: "FERRETERIA LUNA SAC", cuenta: { id: idCuentaMock(2), nombre: "Ferretería Luna" }, entorno: "PRODUCCION", certificado: -5, tiene_credenciales_sol: true, series: 1, comprobantes_del_mes: 0, ultima_emision_hace: 40, creada_en: "2026-09-02T15:00:00Z" },
+    { id: idEmpresaMock(4), ruc: "20100000400", razon_social: "CLIENTE 04 SAC", cuenta: { id: idCuentaMock(4), nombre: "Cliente 04" }, entorno: "PRODUCCION", certificado: 200, tiene_credenciales_sol: true, series: 1, comprobantes_del_mes: 30, ultima_emision_hace: 0, creada_en: "2026-09-04T15:00:00Z" },
+    { id: idEmpresaMock(5), ruc: "20100000500", razon_social: "CLIENTE 05 SAC", cuenta: { id: idCuentaMock(5), nombre: "Cliente 05" }, entorno: "BETA", certificado: "sin_fecha", tiene_credenciales_sol: false, series: 1, comprobantes_del_mes: 2, ultima_emision_hace: 3, creada_en: "2026-09-05T15:00:00Z" },
+    { id: idEmpresaMock(7), ruc: "20100000700", razon_social: "CLIENTE 07 SAC", cuenta: { id: idCuentaMock(7), nombre: "Cliente 07" }, entorno: "PRODUCCION", certificado: 29, tiene_credenciales_sol: true, series: 1, comprobantes_del_mes: 3, ultima_emision_hace: 2, creada_en: "2026-09-07T15:00:00Z" },
+    { id: idEmpresaMock(8), ruc: "20100000800", razon_social: "CLIENTE 08 SAC", cuenta: { id: idCuentaMock(8), nombre: "Cliente 08" }, entorno: "BETA", certificado: 30, tiene_credenciales_sol: true, series: 0, comprobantes_del_mes: 0, ultima_emision_hace: null, creada_en: "2026-09-08T15:00:00Z" },
+    { id: idEmpresaMock(10), ruc: "20100001000", razon_social: "CLIENTE 10 SAC", cuenta: { id: idCuentaMock(10), nombre: "Cliente 10" }, entorno: "BETA", certificado: -1, tiene_credenciales_sol: false, series: 1, comprobantes_del_mes: 0, ultima_emision_hace: 90, creada_en: "2026-09-10T15:00:00Z" },
+    { id: idEmpresaMock(11), ruc: "20100001100", razon_social: "CLIENTE 11 SAC", cuenta: { id: idCuentaMock(11), nombre: "Cliente 11" }, ...inactiva, creada_en: "2026-09-11T15:00:00Z" },
+    { id: idEmpresaMock(101), ruc: "20100066611", razon_social: "INTEGRADOR SAC", ...inactiva, creada_en: "2026-09-12T15:00:00Z" },
+    { id: idEmpresaMock(102), ruc: "20100066620", razon_social: "INTEGRADOR NORTE SAC", ...inactiva, creada_en: "2026-09-13T15:00:00Z" },
+    { id: idEmpresaMock(103), ruc: "20100066638", razon_social: "INTEGRADOR SUR SAC", ...inactiva, creada_en: "2026-09-14T15:00:00Z" },
+    { id: idEmpresaMock(104), ruc: "20100066646", razon_social: "INTEGRADOR ESTE SAC", ...inactiva, creada_en: "2026-09-15T15:00:00Z" },
   ];
 
   const usuario: Usuario = {
