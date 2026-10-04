@@ -42,5 +42,7 @@ public enum AccionAdmin {
     /** Devuelve un plan a la oferta (#190). */
     ACTIVAR_PLAN,
     /** Borra un plan que nadie usó nunca (#190). */
-    ELIMINAR_PLAN
+    ELIMINAR_PLAN,
+    /** Cambia el plan de una cuenta (#191). El detalle dice de cuál a cuál, si sube, baja o renueva, cuándo entra y con qué vencimiento y gracia; la cuenta va en `cuenta_id`. */
+    CAMBIAR_PLAN
 }
