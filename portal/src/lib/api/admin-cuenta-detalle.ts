@@ -14,10 +14,12 @@ export type CuentaDetalleAdmin = {
   email: string;
   telefono?: string;
   creada_en: string;
-  /** ACTIVA o SUSPENDIDA (#182). */
+  /** ACTIVA, SUSPENDIDA (#182) o BAJA (#201); la baja manda sobre la suspensión. */
   estado: EstadoCuentaAdmin;
-  /** Desde cuándo está suspendida; falta si está activa. */
+  /** Desde cuándo está suspendida; falta si no lo está. */
   suspendida_en?: string;
+  /** Desde cuándo está dada de baja; falta si está en servicio. Una cuenta de baja se abre igual, con todo lo suyo. */
+  baja_en?: string;
   usuarios: UsuarioCuenta[];
   empresas: EmpresaCuenta[];
   comprobantes: ComprobanteReciente[];

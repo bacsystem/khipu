@@ -15,7 +15,7 @@ export const metadata = { title: "Cuentas · Backoffice" };
 export default async function AdminCuentasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; pagina?: string; por_pagina?: string }>;
+  searchParams: Promise<{ q?: string; bajas?: string; pagina?: string; por_pagina?: string }>;
 }) {
   const { access } = await getAdminServerSession();
   if (!access) redirect("/admin/login");

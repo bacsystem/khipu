@@ -134,3 +134,83 @@ describe("CuentasTabla", () => {
     expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("sol");
   });
 });
+
+const DE_BAJA: CuentaAdmin = { ...ANA, id: "c4", nombre: "Cafetería Norte", email: "norte@cafe.pe", estado: "BAJA", baja_en: "2026-10-03T09:00:00Z" };
+
+/** La baja (#201): el cliente que se fue. No es una alarma como la suspensión, y sus filas solo aparecen si el administrador las pide. */
+describe("CuentasTabla bajas (#201)", () => {
+  it("una cuenta de baja lo dice, sin el rojo de la suspensión ni el verde de una activa", () => {
+    render(<CuentasTabla datos={[ANA, DE_BAJA]} total={2} params={{ bajas: "INCLUIDAS", ...SIN_FILTROS }} />);
+
+    const etiqueta = screen.getByText("De baja");
+    expect(etiqueta.className).not.toContain("text-destructive");
+    expect(etiqueta.className).not.toContain("text-success");
+    const filas = screen.getAllByRole("row").slice(1);
+    expect(filas[1].getAttribute("data-estado-cuenta")).toBe("BAJA");
+    expect(filas[1].className).not.toContain("bg-destructive");
+  });
+
+  it("una cuenta de baja sigue enlazada a su detalle: es lo que permite reponerla", () => {
+    render(<CuentasTabla datos={[DE_BAJA]} total={1} params={{ bajas: "SOLO", ...SIN_FILTROS }} />);
+
+    expect(screen.getByRole("link", { name: "Cafetería Norte" }).getAttribute("href")).toBe("/admin/cuentas/c4");
+  });
+
+  it("el selector muestra lo que dice la URL y, sin nada, «Ocultar»", () => {
+    const { unmount } = render(<CuentasTabla datos={[ANA]} total={1} params={SIN_FILTROS} />);
+    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("");
+    unmount();
+
+    render(<CuentasTabla datos={[DE_BAJA]} total={1} params={{ bajas: "SOLO", ...SIN_FILTROS }} />);
+    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("SOLO");
+  });
+
+  /**
+   * Cambiar el filtro cambia el conjunto: seguir en la página 3 de otro conjunto es una página que ya no existe. La página lo corrige
+   * redirigiendo a la última, pero eso solo tapa el error cuando el resultado cabe en una sola página; por eso el selector manda siempre a la 1.
+   */
+  it("elegir un valor desde la página 3 navega a la primera y conserva la búsqueda y el tamaño de página", () => {
+    render(<CuentasTabla datos={[ANA]} total={120} params={{ q: "sol", pagina: 3, porPagina: 20 }} />);
+
+    fireEvent.change(screen.getByLabelText("Cuentas dadas de baja"), { target: { value: "INCLUIDAS" } });
+
+    expect(push).toHaveBeenCalledWith("/admin/cuentas?q=sol&bajas=INCLUIDAS&por_pagina=20");
+  });
+
+  it("volver a «Ocultar» quita el filtro de la URL y deja la búsqueda", () => {
+    render(<CuentasTabla datos={[DE_BAJA]} total={5} params={{ q: "sol", bajas: "SOLO", pagina: 1, porPagina: 10 }} />);
+
+    fireEvent.change(screen.getByLabelText("Cuentas dadas de baja"), { target: { value: "" } });
+
+    expect(push).toHaveBeenCalledWith("/admin/cuentas?q=sol");
+  });
+
+  it("buscar conserva el filtro de bajas", () => {
+    render(<CuentasTabla datos={[DE_BAJA]} total={1} params={{ bajas: "SOLO", pagina: 2, porPagina: 20 }} />);
+
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "norte" } });
+    fireEvent.submit(screen.getByRole("search"));
+
+    expect(push).toHaveBeenCalledWith("/admin/cuentas?q=norte&bajas=SOLO&por_pagina=20");
+  });
+
+  it("la paginación conserva el filtro de bajas en sus enlaces", () => {
+    render(<CuentasTabla datos={[DE_BAJA]} total={45} params={{ bajas: "SOLO", pagina: 1, porPagina: 20 }} />);
+
+    expect(screen.getByRole("link", { name: /Siguiente/ }).getAttribute("href")).toBe("/admin/cuentas?bajas=SOLO&pagina=2&por_pagina=20");
+  });
+
+  it("con el filtro de bajas puesto lo dice y ofrece quitar los filtros, conservando el tamaño de página", () => {
+    render(<CuentasTabla datos={[]} total={0} params={{ bajas: "SOLO", pagina: 1, porPagina: 20 }} />);
+
+    expect(screen.getByText("No hay cuentas con esos filtros.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Quitar filtros" }).getAttribute("href")).toBe("/admin/cuentas?por_pagina=20");
+  });
+
+  it("sin filtros y sin cuentas no ofrece quitar nada", () => {
+    render(<CuentasTabla datos={[]} total={0} params={SIN_FILTROS} />);
+
+    expect(screen.getByText("Todavía no hay cuentas.")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Quitar filtros" })).toBeNull();
+  });
+});

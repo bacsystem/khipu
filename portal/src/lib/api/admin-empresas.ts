@@ -1,5 +1,6 @@
 import { POR_PAGINA_DEFECTO, porPaginaValido } from "@/lib/paginacion";
 import type { EstadoCertificado } from "./admin-cuenta-detalle";
+import { bajasDesdeUrl, type VisibilidadDeBajasAdmin } from "./admin-baja";
 import { backendFetchConHeaders } from "./client";
 import { totalDesdeHeaders } from "./facturas";
 
@@ -33,11 +34,14 @@ export type EmpresaAdmin = {
   comprobantes_del_mes: number;
   /** `YYYY-MM-DD`; ausente si nunca emitió. */
   ultima_emision?: string;
+  /** Desde cuándo su cuenta está dada de baja (#201); falta si está en servicio o si la empresa no tiene cuenta. */
+  cuenta_de_baja_en?: string;
 };
 
 export type PaginaEmpresasAdmin = { datos: EmpresaAdmin[]; total: number };
 
-export type ParamsEmpresas = { entorno?: EntornoAdmin; certificado?: EstadoCertificadoAdmin; pagina: number; porPagina: number };
+/** `bajas` ausente = las empresas de cuentas dadas de baja (#201) no salen; `INCLUIDAS` las mezcla y `SOLO` muestra únicamente esas. */
+export type ParamsEmpresas = { entorno?: EntornoAdmin; certificado?: EstadoCertificadoAdmin; bajas?: VisibilidadDeBajasAdmin; pagina: number; porPagina: number };
 
 const RUTA_PANTALLA = "/admin/empresas";
 
@@ -49,11 +53,12 @@ function unoDe<T extends string>(opciones: readonly T[], valor: string | undefin
  * Sanea lo que llega por la URL. Un filtro que el backend no conoce (o escrito en minúsculas) se descarta en vez de mandarlo: respondería 400
  * y el listado entero se vería roto por un parámetro de más.
  */
-export function paramsEmpresasDesdeUrl(p: { entorno?: string; certificado?: string; pagina?: string; por_pagina?: string }): ParamsEmpresas {
+export function paramsEmpresasDesdeUrl(p: { entorno?: string; certificado?: string; bajas?: string; pagina?: string; por_pagina?: string }): ParamsEmpresas {
   const pagina = Number(p.pagina);
   return {
     entorno: unoDe(ENTORNOS, p.entorno),
     certificado: unoDe(ESTADOS_CERTIFICADO, p.certificado),
+    bajas: bajasDesdeUrl(p.bajas),
     pagina: Number.isInteger(pagina) && pagina >= 1 ? pagina : 1,
     porPagina: porPaginaValido(p.por_pagina),
   };
@@ -64,6 +69,7 @@ export function queryEmpresas(p: ParamsEmpresas): URLSearchParams {
   const qs = new URLSearchParams();
   if (p.entorno) qs.set("entorno", p.entorno);
   if (p.certificado) qs.set("certificado", p.certificado);
+  if (p.bajas) qs.set("bajas", p.bajas);
   qs.set("pagina", String(p.pagina));
   qs.set("por_pagina", String(p.porPagina));
   return qs;
@@ -74,6 +80,7 @@ export function hrefEmpresas(p: ParamsEmpresas): string {
   const qs = new URLSearchParams();
   if (p.entorno) qs.set("entorno", p.entorno);
   if (p.certificado) qs.set("certificado", p.certificado);
+  if (p.bajas) qs.set("bajas", p.bajas);
   if (p.pagina > 1) qs.set("pagina", String(p.pagina));
   if (p.porPagina !== POR_PAGINA_DEFECTO) qs.set("por_pagina", String(p.porPagina));
   const texto = qs.toString();

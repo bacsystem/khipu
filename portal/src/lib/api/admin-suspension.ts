@@ -1,6 +1,7 @@
 import { backendFetch } from "./client";
 
-export type EstadoCuentaAdmin = "ACTIVA" | "SUSPENDIDA";
+/** `BAJA` (#201): el cliente que se fue. Manda sobre la suspensión: una cuenta de baja que además estaba suspendida es `BAJA`. */
+export type EstadoCuentaAdmin = "ACTIVA" | "SUSPENDIDA" | "BAJA";
 
 /** Lo que responde suspender o reactivar una cuenta (#182): el estado en que quedó. La fecha falta si está activa. */
 export type EstadoDeCuentaAdmin = { cuenta_id: string; estado: EstadoCuentaAdmin; suspendida_en?: string };

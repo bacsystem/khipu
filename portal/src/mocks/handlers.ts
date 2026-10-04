@@ -46,6 +46,15 @@ function usuariosDeCuenta(cuenta: { id: string; email: string; ultimo_acceso?: s
   ];
 }
 
+/** Como el backend (#201): qué hacer con las cuentas dadas de baja en un listado; por defecto se ocultan y un valor desconocido es 400, no se ignora. */
+function visibilidadDeBajas(url: URL): "OCULTAS" | "INCLUIDAS" | "SOLO" | null {
+  const v = url.searchParams.get("bajas");
+  if (v === null || v === "") return "OCULTAS";
+  return v === "OCULTAS" || v === "INCLUIDAS" || v === "SOLO" ? v : null;
+}
+
+const estadoDeCuenta = (c: { suspendida_en?: string; baja_en?: string }) => (c.baja_en ? "BAJA" : c.suspendida_en ? "SUSPENDIDA" : "ACTIVA");
+
 /** Como el `JwtFilter` del backend (#22): sin verificar el correo no se escribe. */
 function correoVerificado(usuarioId: string) {
   return [...db.usuariosPorEmail.values()].some((r) => r.usuario.id === usuarioId && r.usuario.correo_verificado);
@@ -341,6 +350,8 @@ export const handlers = [
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     const url = new URL(request.url);
     const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
+    const bajas = visibilidadDeBajas(url);
+    if (!bajas) return fail(400, "VALIDACION", "Valor de bajas no válido");
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
     const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
     // La misma tabla que el `translate` del backend (#214, JdbcCuentasAdminRepository): solo las vocales con marca pierden la marca, y
@@ -360,10 +371,11 @@ export const handlers = [
       c.email.toLowerCase().includes(q) ||
       sinTildes(c.nombre.toLowerCase()).includes(qSinTildes) ||
       c.empresas.some((e) => e.ruc.startsWith(q) || sinTildes(e.razon_social.toLowerCase()).includes(qSinTildes));
-    const lista = db.cuentasAdmin.filter(coincide).sort((a, b) => b.creada_en.localeCompare(a.creada_en) || a.id.localeCompare(b.id));
+    const visible = (c: (typeof db.cuentasAdmin)[number]) => bajas === "INCLUIDAS" || (bajas === "SOLO") === Boolean(c.baja_en);
+    const lista = db.cuentasAdmin.filter((c) => coincide(c) && visible(c)).sort((a, b) => b.creada_en.localeCompare(a.creada_en) || a.id.localeCompare(b.id));
     const datos = lista
       .slice((pagina - 1) * porPagina, pagina * porPagina)
-      .map(({ empresas, ...cuenta }) => ({ ...cuenta, empresas: empresas.length, estado: cuenta.suspendida_en ? "SUSPENDIDA" : "ACTIVA" }));
+      .map(({ empresas, ...cuenta }) => ({ ...cuenta, empresas: empresas.length, estado: estadoDeCuenta(cuenta) }));
     return HttpResponse.json(
       { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
       { headers: { "x-total-count": String(lista.length) } },
@@ -383,10 +395,14 @@ export const handlers = [
     if (entorno && !["BETA", "PRODUCCION"].includes(entorno)) return fail(400, "VALIDACION", "Entorno no válido");
     if (certificado && !["SIN_CERTIFICADO", "SIN_FECHA", "VIGENTE", "POR_VENCER", "VENCIDO"].includes(certificado))
       return fail(400, "VALIDACION", "Estado de certificado no válido");
+    const bajas = visibilidadDeBajas(url);
+    if (!bajas) return fail(400, "VALIDACION", "Valor de bajas no válido");
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
     const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
     const desdeHoy = (n: number) => sumarDias(hoyLima(), n);
     const filas = db.empresasAdmin.map((e) => {
+      // Una empresa sin cuenta (de integración) nunca está de baja; las demás dependen de su cuenta, que es la única fuente.
+      const cuentaDeBajaEn = e.cuenta ? db.cuentasAdmin.find((c) => c.id === e.cuenta?.id)?.baja_en : undefined;
       const estado =
         e.certificado === null ? "SIN_CERTIFICADO" : e.certificado === "sin_fecha" ? "SIN_FECHA" : e.certificado < 0 ? "VENCIDO" : e.certificado < 30 ? "POR_VENCER" : "VIGENTE";
       return {
@@ -407,11 +423,14 @@ export const handlers = [
           series: e.series,
           comprobantes_del_mes: e.comprobantes_del_mes,
           ultima_emision: e.ultima_emision_hace === null ? undefined : desdeHoy(-e.ultima_emision_hace),
+          cuenta_de_baja_en: cuentaDeBajaEn,
         },
+        cuentaDeBaja: Boolean(cuentaDeBajaEn),
       };
     });
     const lista = filas
       .filter((f) => (!entorno || f.entorno === entorno) && (!certificado || f.estado === certificado))
+      .filter((f) => bajas === "INCLUIDAS" || (bajas === "SOLO") === f.cuentaDeBaja)
       .sort((a, b) => b.creada_en.localeCompare(a.creada_en) || a.id.localeCompare(b.id));
     return HttpResponse.json(
       { estado: "exito", datos: lista.slice((pagina - 1) * porPagina, pagina * porPagina).map((f) => f.json), mensaje: null, codigo: null, errores: null },
@@ -517,7 +536,7 @@ export const handlers = [
     const { empresas, ...base } = cuenta;
     const detalle = {
       ...base,
-      estado: cuenta.suspendida_en ? "SUSPENDIDA" : "ACTIVA",
+      estado: estadoDeCuenta(cuenta),
       usuarios: usuariosDeCuenta(cuenta),
       empresas: empresas.map((e, i) => ({
         id: `e-${cuenta.id}-${i}`,
@@ -584,6 +603,34 @@ export const handlers = [
     if (!cuenta.suspendida_en) return fail(409, "CUENTA_NO_SUSPENDIDA", "La cuenta no está suspendida");
     delete cuenta.suspendida_en;
     return ok({ cuenta_id: cuenta.id, estado: "ACTIVA" });
+  }),
+
+  /**
+   * Como el backend (#201): solo el administrador; un id que no es UUID es 400 y uno que no existe, 404. Dar de baja una cuenta ya de baja y reponer
+   * una que no lo está son 409, con su código propio; un motivo de más de 200 caracteres (recortado) es 422. La baja es independiente de la
+   * suspensión y no corta el acceso del cliente.
+   */
+  http.post(`${BASE}/v1/admin/cuentas/:id/baja`, async ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
+    if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
+    const texto = await request.text();
+    const motivo = texto ? ((JSON.parse(texto) as { motivo?: string }).motivo ?? "").trim() : "";
+    if (motivo.length > 200) return fail(422, "MOTIVO_INVALIDO", "El motivo no puede pasar de 200 caracteres");
+    if (cuenta.baja_en) return fail(409, "CUENTA_YA_DE_BAJA", "La cuenta ya está dada de baja");
+    cuenta.baja_en = new Date().toISOString();
+    return ok({ cuenta_id: cuenta.id, baja_en: cuenta.baja_en });
+  }),
+
+  http.post(`${BASE}/v1/admin/cuentas/:id/reponer`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
+    if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
+    if (!cuenta.baja_en) return fail(409, "CUENTA_NO_DE_BAJA", "La cuenta no está dada de baja");
+    delete cuenta.baja_en;
+    return ok({ cuenta_id: cuenta.id });
   }),
 
   /**
