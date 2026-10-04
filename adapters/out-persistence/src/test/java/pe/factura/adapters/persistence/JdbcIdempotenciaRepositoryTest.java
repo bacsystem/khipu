@@ -34,6 +34,17 @@ class JdbcIdempotenciaRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.reservar("factura:t2", "k1", H1)).isEmpty();
     }
 
+    @Test void completarUnaClaveNoTocaLaMismaClaveDeOtroAlcance() {
+        UUID mio = UUID.randomUUID();
+        repo.reservar("factura:t1", "k1", H1);
+        repo.reservar("factura:t2", "k1", H2);
+
+        repo.completar("factura:t1", "k1", mio);
+
+        assertThat(repo.reservar("factura:t1", "k1", H1)).contains(new Registro(H1, mio));
+        assertThat(repo.reservar("factura:t2", "k1", H2)).contains(new Registro(H2, null));
+    }
+
     /** Si la operación se revierte, la reserva también: el reintento la vuelve a hacer. */
     @Test void unaReservaRevertidaDejaLaClaveLibre() {
         TransactionTemplate tx = new TransactionTemplate(new DataSourceTransactionManager(ds));
