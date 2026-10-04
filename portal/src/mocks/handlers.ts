@@ -3,7 +3,7 @@ import { diasEntre, hoyLima, sumarDias } from "@/lib/formato";
 import { esUuid } from "@/lib/uuid";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
-import { db, fakeJwt, idCuentaMock, idEmpresaMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
+import { db, fakeJwt, idCuentaMock, idEmpresaMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type Usuario } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -18,6 +18,32 @@ function claimsAdmin(req: Request): { sub: string } | null {
   } catch {
     return null;
   }
+}
+
+type UsuarioDeCuentaMock = { id: string; email: string; rol: string; activo: boolean; correo_verificado_en?: string; ultimo_acceso?: string };
+
+/**
+ * Los usuarios del detalle de una cuenta (#181/#183), con ids UUID. Todas tienen a su administrador, activo y con el correo verificado; la
+ * primera («Panadería Sol») suma tres casos para las acciones de acceso: un colega activo sin verificar (`beto`), uno desactivado (`carla`:
+ * no se le manda nada) y uno cuyo correo no sale (`sin-correo`: el servidor no tiene SMTP).
+ */
+function usuariosDeCuenta(cuenta: { id: string; email: string; ultimo_acceso?: string }): UsuarioDeCuentaMock[] {
+  const principal: UsuarioDeCuentaMock = {
+    id: idUsuarioMock(Number(cuenta.id.slice(-12))),
+    email: cuenta.email,
+    rol: "ADMIN",
+    activo: true,
+    correo_verificado_en: "2026-09-01T15:05:00Z",
+    ...(cuenta.ultimo_acceso ? { ultimo_acceso: cuenta.ultimo_acceso } : {}),
+  };
+  if (cuenta.id !== idCuentaMock(1)) return [principal];
+  return [
+    principal,
+    // Roles del dominio (`Rol`: ADMIN, EMISOR, LECTURA), como el backend (revisión de #229).
+    { id: idUsuarioMock(9001), email: "beto@sol.pe", rol: "EMISOR", activo: true },
+    { id: idUsuarioMock(9002), email: "carla@sol.pe", rol: "LECTURA", activo: false },
+    { id: idUsuarioMock(9003), email: "sin-correo@sol.pe", rol: "EMISOR", activo: true },
+  ];
 }
 
 /** Como el `JwtFilter` del backend (#22): sin verificar el correo no se escribe. */
@@ -492,17 +518,7 @@ export const handlers = [
     const detalle = {
       ...base,
       estado: cuenta.suspendida_en ? "SUSPENDIDA" : "ACTIVA",
-      usuarios: [
-        {
-          id: `u-${cuenta.id}`,
-          email: cuenta.email,
-          rol: "ADMIN",
-          activo: true,
-          correo_verificado_en: "2026-09-01T15:05:00Z",
-          ...(cuenta.ultimo_acceso ? { ultimo_acceso: cuenta.ultimo_acceso } : {}),
-        },
-        ...(completa ? [{ id: "u-colega", email: "beto@sol.pe", rol: "EMISOR", activo: true }] : []),
-      ],
+      usuarios: usuariosDeCuenta(cuenta),
       empresas: empresas.map((e, i) => ({
         id: `e-${cuenta.id}-${i}`,
         ruc: e.ruc,
@@ -569,6 +585,27 @@ export const handlers = [
     delete cuenta.suspendida_en;
     return ok({ cuenta_id: cuenta.id, estado: "ACTIVA" });
   }),
+
+  /**
+   * Como el backend (#183): solo el administrador; ids que no son UUID, 400; el usuario se busca DENTRO de la cuenta de la ruta (404
+   * `NO_ENCONTRADO` si es de otra); un usuario desactivado, 409 `USUARIO_INACTIVO`; reenviar la verificación a quien ya la tiene, 409
+   * `CORREO_YA_VERIFICADO`; y un correo que empieza con `sin-correo` simula un servidor sin SMTP: 503 `CORREO_NO_CONFIGURADO`.
+   * **No guarda nada** (ni la bitácora): las specs de la corrida comparten este mock en paralelo y la bitácora de «Panadería Sol» se cuenta.
+   * Que el envío quede registrado lo prueba el e2e real del backend (`SoporteDeAccesoE2ETest`).
+   */
+  ...(["restablecimiento", "verificacion"] as const).map((accion) =>
+    http.post(`${BASE}/v1/admin/cuentas/:id/usuarios/:usuarioId/${accion}`, ({ request, params }) => {
+      if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+      if (!esUuid(String(params.id)) || !esUuid(String(params.usuarioId))) return fail(400, "VALIDACION", "El identificador no es válido");
+      const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
+      const usuario = cuenta ? usuariosDeCuenta(cuenta).find((u) => u.id === params.usuarioId) : undefined;
+      if (!usuario) return fail(404, "NO_ENCONTRADO", "El usuario no existe en esta cuenta");
+      if (!usuario.activo) return fail(409, "USUARIO_INACTIVO", `El usuario ${usuario.email} está desactivado`);
+      if (accion === "verificacion" && usuario.correo_verificado_en) return fail(409, "CORREO_YA_VERIFICADO", `El correo de ${usuario.email} ya está verificado`);
+      if (usuario.email.startsWith("sin-correo")) return fail(503, "CORREO_NO_CONFIGURADO", "El envío de correos no está habilitado en el servidor: no se mandó nada");
+      return ok({ usuario_id: usuario.id, correo: usuario.email });
+    }),
+  ),
 
   /**
    * Como el backend (#188): solo el administrador; valida todo antes de escribir; el correo y el RUC son únicos en TODA la plataforma.

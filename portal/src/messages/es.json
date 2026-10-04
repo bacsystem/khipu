@@ -320,18 +320,48 @@
       "telefono": "Celular",
       "error": "No se pudo cargar la cuenta.",
       "noExiste": "La cuenta no existe.",
-      "soloLectura": "Aquí solo se puede suspender o reactivar la cuenta: las demás acciones llegan más adelante.",
+      "soloLectura": "Aquí se puede suspender o reactivar la cuenta y mandarle a un usuario el correo de acceso: las demás acciones llegan más adelante.",
       "estado": "Estado",
       "suspendidaDesde": "Suspendida desde {fecha}",
       "usuarios": {
         "titulo": "Usuarios",
         "vacio": "Esta cuenta no tiene usuarios.",
-        "columnas": { "correo": "Correo", "rol": "Rol", "estado": "Estado", "verificado": "Correo", "ultimoAcceso": "Último acceso" },
+        "columnas": { "correo": "Correo", "rol": "Rol", "estado": "Estado", "verificado": "Correo", "ultimoAcceso": "Último acceso", "acciones": "Acciones" },
         "activo": "Activo",
         "inactivo": "Inactivo",
         "verificado": "Verificado",
         "sinVerificar": "Sin verificar",
         "nunca": "Nunca"
+      },
+      "acceso": {
+        "cerrar": "Cerrar",
+        "restablecer": {
+          "boton": "Restablecer contraseña",
+          "titulo": "Mandar el correo de restablecimiento",
+          "descripcion": "Se le manda a {correo} un enlace para que elija una contraseña nueva.",
+          "efectos": [
+            "Tú no ves ni defines la contraseña: el enlace le llega solo a esa persona.",
+            "Su contraseña actual sigue valiendo hasta que use el enlace.",
+            "Queda registrado en la bitácora de la cuenta."
+          ],
+          "confirmar": "Mandar correo",
+          "enviando": "Enviando…",
+          "cancelar": "Cancelar",
+          "hecho": "Correo de restablecimiento enviado a {correo}."
+        },
+        "verificar": {
+          "boton": "Reenviar verificación",
+          "titulo": "Reenviar el correo de verificación",
+          "descripcion": "Se le vuelve a mandar a {correo} el enlace para verificar su correo.",
+          "efectos": [
+            "El correo trae un enlace nuevo; solo esa persona puede usarlo.",
+            "Queda registrado en la bitácora de la cuenta."
+          ],
+          "confirmar": "Reenviar correo",
+          "enviando": "Enviando…",
+          "cancelar": "Cancelar",
+          "hecho": "Correo de verificación enviado a {correo}."
+        }
       },
       "empresas": {
         "titulo": "Empresas",
@@ -366,7 +396,9 @@
           "INICIAR_SESION": "Inicio de sesión",
           "CONFIGURAR_SEGUNDO_FACTOR": "Configuró el segundo factor",
           "SUSPENDER_CUENTA": "Suspendió la cuenta",
-          "REACTIVAR_CUENTA": "Reactivó la cuenta"
+          "REACTIVAR_CUENTA": "Reactivó la cuenta",
+          "ENVIAR_RESTABLECIMIENTO": "Correo de restablecimiento de contraseña",
+          "REENVIAR_VERIFICACION": "Reenvío de la verificación de correo"
         }
       }
     },

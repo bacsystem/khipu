@@ -27,9 +27,10 @@ test("el detalle muestra usuarios, empresas con su certificado, comprobantes y b
   const detalle = page.getByTestId("cuenta-detalle");
 
   const usuarios = detalle.getByRole("region", { name: "Usuarios" });
-  await expect(usuarios.locator("tbody tr")).toHaveCount(2);
+  await expect(usuarios.locator("tbody tr")).toHaveCount(4);
   await expect(usuarios.getByText("Verificado")).toHaveCount(1);
-  await expect(usuarios.getByText("Sin verificar")).toHaveCount(1);
+  await expect(usuarios.getByText("Sin verificar")).toHaveCount(3);
+  await expect(usuarios.getByRole("cell", { name: "Inactivo", exact: true })).toHaveCount(1);
   // Los roles son los del dominio (`Rol`): el mock no inventa otros.
   await expect(usuarios.locator("tbody tr", { hasText: "ana@sol.pe" }).getByRole("cell", { name: "ADMIN", exact: true })).toBeVisible();
   await expect(usuarios.locator("tbody tr", { hasText: "beto@sol.pe" }).getByRole("cell", { name: "EMISOR", exact: true })).toBeVisible();
@@ -55,15 +56,23 @@ test("el detalle muestra usuarios, empresas con su certificado, comprobantes y b
   await expect(eventos.getByText("ACCION_FUTURA")).toBeVisible();
 });
 
-/** Desde #182 hay una acción, y solo esa: suspender. Las demás (impersonar, planes…) llegan en sus issues. */
-test("la única acción sobre la cuenta es suspenderla: ningún otro botón", async ({ page }) => {
+/**
+ * Las acciones sobre la cuenta son suspenderla (#182) y, por usuario, mandarle el correo de acceso (#183). Las demás (impersonar, planes…)
+ * llegan en sus issues: ningún botón más. Un usuario desactivado no tiene ninguno, y la verificación solo se ofrece a quien no la tiene.
+ */
+test("las únicas acciones son suspender la cuenta y los correos de acceso de cada usuario", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto(`/admin/cuentas/${ID_SOL}`);
 
   const detalle = page.getByTestId("cuenta-detalle");
   await expect(detalle).toBeVisible();
-  await expect(detalle.getByRole("button")).toHaveCount(1);
   await expect(detalle.getByTestId("suspender-cuenta")).toBeVisible();
+  await expect(detalle.getByTestId("restablecer-usuario")).toHaveCount(3);
+  await expect(detalle.getByTestId("verificar-usuario")).toHaveCount(2);
+  await expect(detalle.getByRole("button")).toHaveCount(1 + 3 + 2);
+
+  const carla = detalle.locator("tbody tr", { hasText: "carla@sol.pe" });
+  await expect(carla.getByRole("button")).toHaveCount(0);
 });
 
 test("una cuenta sin empresas ni movimientos muestra los estados vacíos", async ({ page }) => {
