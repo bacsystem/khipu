@@ -20,7 +20,9 @@ final class Fakes {
             c.eventosGuardados();
         }
         public Optional<Comprobante> buscar(UUID t, UUID id) { return Optional.ofNullable(datos.get(id)).filter(c -> c.tenantId().equals(t)); }
-        public Optional<Comprobante> bloquear(UUID t, UUID id) { return buscar(t, id); }
+        /** Cuántas veces se pidió una fila con bloqueo: quien serializa a los administradores (#196) tiene que pedirla así. */
+        int bloqueos;
+        public Optional<Comprobante> bloquear(UUID t, UUID id) { bloqueos++; return buscar(t, id); }
         public BigDecimal montoRegularizado(UUID t, String serie, long numero) {
             return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.estado() != EstadoDocumento.RECHAZADO && c.estado() != EstadoDocumento.INVALIDO)
                     .flatMap(c -> c.anticipos().stream()).filter(a -> a.serie().equals(serie) && a.numero() == numero)

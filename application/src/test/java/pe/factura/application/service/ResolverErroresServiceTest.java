@@ -172,6 +172,15 @@ class ResolverErroresServiceTest {
                 .containsExactly("DESCARTADO: Descartado por un administrador: El cliente lo reemitió con otra serie");
     }
 
+    /** Dos administradores que descartan a la vez: la fila se toma con bloqueo para que uno espere al otro, y el guardado condicional es la segunda defensa. */
+    @Test void descartarTomaLaFilaConBloqueo() {
+        Comprobante c = enError(1);
+
+        service.descartar(ACTOR, c.id(), "x");
+
+        assertThat(comprobantes.bloqueos).isEqualTo(1);
+    }
+
     @Test void descartarSoloSacaElEnvioDeEseComprobante() {
         Comprobante a = enError(1);
         Comprobante b = enError(1);
