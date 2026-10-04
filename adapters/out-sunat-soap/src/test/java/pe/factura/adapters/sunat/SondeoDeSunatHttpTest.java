@@ -138,6 +138,17 @@ class SondeoDeSunatHttpTest {
         verify(2, getRequestedFor(anyUrl()));
     }
 
+    /** Una URL pegada en la configuración con espacios o un salto de línea de más igual se sondea: con ellos, {@code URI.create} la rechazaría. */
+    @Test void losEspaciosAlrededorDeLaUrlSeIgnoran(WireMockRuntimeInfo wm) {
+        stubFor(get(urlEqualTo("/envio?wsdl")).willReturn(ok()));
+        Map<Servicio, String> m = new EnumMap<>(Servicio.class);
+        m.put(Servicio.ENVIO_PRODUCCION, "  " + wm.getHttpBaseUrl() + "/envio \n");
+
+        Resultado r = sondeo(m).sondear().get(0);
+
+        assertThat(r.disponible()).isTrue();
+    }
+
     @Test void sinNingunaUrlNoHayNadaQueSondear() {
         assertThat(sondeo(new EnumMap<>(Servicio.class)).sondear()).isEmpty();
     }
