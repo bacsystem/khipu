@@ -287,8 +287,10 @@ describe("ColaDeErroresTabla (#196)", () => {
 
     expect(screen.getByText("11–12")).toBeTruthy();
     expect(screen.getByText("42")).toBeTruthy();
-    const siguiente = screen.getAllByRole("link").find((a) => a.getAttribute("href")?.includes("pagina=3"));
-    expect(siguiente?.getAttribute("href")).toBe("/admin/errores?clase=ERROR_DE_ENVIO&q=sol&pagina=3");
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain("/admin/errores?clase=ERROR_DE_ENVIO&q=sol&pagina=3");
+    expect(hrefs, "42 filas de a 10 son cinco páginas, no cuatro").toContain("/admin/errores?clase=ERROR_DE_ENVIO&q=sol&pagina=5");
+    expect(hrefs.some((h) => h?.includes("pagina=6"))).toBe(false);
   });
 
   it("un clic en una página navega sin recargar", () => {

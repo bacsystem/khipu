@@ -6,8 +6,7 @@ const r = messages.admin.errores.resultado;
 /** El fault en una línea: «0109 - El sistema no puede responder», o solo el mensaje si no hay código. Sin fault, vacío. */
 export function faultEnPalabras(fault: FaultDeSunat | undefined): string {
   if (!fault) return "";
-  if (fault.codigo && fault.mensaje) return `${fault.codigo} - ${fault.mensaje}`;
-  return fault.mensaje ?? fault.codigo ?? "";
+  return [fault.codigo, fault.mensaje].filter(Boolean).join(" - ");
 }
 
 /**

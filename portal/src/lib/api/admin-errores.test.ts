@@ -57,7 +57,8 @@ describe("paramsErroresDesdeUrl", () => {
     expect(paramsErroresDesdeUrl({ q: "  andina  " }).q).toBe("andina");
     expect(paramsErroresDesdeUrl({ q: "   " }).q).toBeUndefined();
     expect(paramsErroresDesdeUrl({ q: "" }).q).toBeUndefined();
-    expect(paramsErroresDesdeUrl({ q: "x".repeat(MAX_BUSQUEDA + 50) })?.q).toHaveLength(MAX_BUSQUEDA);
+    expect(paramsErroresDesdeUrl({ q: "x".repeat(MAX_BUSQUEDA + 50) })?.q).toHaveLength(100);
+    expect(MAX_BUSQUEDA).toBe(100);
   });
 
   it("una página que no es un entero positivo es la primera", () => {
