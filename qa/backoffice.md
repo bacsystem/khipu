@@ -677,6 +677,120 @@ Con `MAIL_HABILITADO=false` (el default) el adaptador `LogCorreoSender` escribe 
 - La recuperación de contraseña sigue respondiendo `202` sin SMTP, a propósito: un código distinto revelaría qué correos existen.
 - El portal no ofrece «enviar» deshabilitado de antemano: se entera al intentarlo. Saberlo antes pediría un endpoint de capacidades del servidor.
 
+## #177 · 2FA obligatorio y sesión corta para el administrador
+
+**Estado: 🔧 implementado, 55/55 mutaciones verificadas (41 backend, 13 BFF, 1 interfaz) — falta la revisión de la PR.**
+
+Un administrador ve los datos fiscales de todos los clientes: una contraseña filtrada no debe alcanzar para entrar.
+
+### Diseño
+
+- **Login en dos pasos.** `POST /v1/admin/auth/login` ya no devuelve una sesión: devuelve un **desafío** (JWT de 5 minutos, `tipo=plataforma-desafio`) y el
+  paso siguiente. `segundo-factor/configurar` (QR + secreto) y `segundo-factor/confirmar` (primer código → sesión + 10 códigos de recuperación) la primera vez;
+  `segundo-factor/verificar` (código de la app o de recuperación) después. Las cuatro rutas son públicas en el filtro (`RutaRequest`, lista exacta) y las tres
+  del segundo factor exigen el desafío. El filtro de sesión exige `tipo=plataforma` exacto: **un desafío nunca abre el backoffice**.
+- **TOTP propio** (`TotpRfc6238`): RFC 6238 con HMAC-SHA1, 6 dígitos, pasos de 30 s y ±1 paso de tolerancia, sobre `javax.crypto`. Sin dependencia nueva.
+  Secreto de 160 bits en Base32, comparación de tiempo constante.
+- **Estado del 2FA en tablas aparte** (`V28`): `administrador_segundo_factor` (secreto **cifrado con MASTER_KEY**, confirmado, último paso aceptado, fallos,
+  bloqueo) y `administrador_codigo_recuperacion` (solo SHA-256; son 50 bits al azar, no adivinables por diccionario). El estado cambia en cada login y no
+  reescribe la fila de la identidad.
+- **Reglas en la condición del UPDATE, no en una lectura previa**: anti-reuso (`ultimo_paso < ?`), código de recuperación de un solo uso (`usado_at IS NULL`)
+  y contador de fallos atómico (`CASE WHEN fallos + 1 >= ?`). Así valen también entre peticiones simultáneas.
+- **Con el 2FA confirmado, la contraseña sola no lo reemplaza** (`409 SEGUNDO_FACTOR_YA_CONFIGURADO`): si no, quien robara la contraseña enrolaría su teléfono.
+- **Bloqueo**: 5 códigos fallidos → `429 DEMASIADOS_INTENTOS` durante 15 minutos, aun con el código correcto. Cuentan también los fallos al confirmar.
+- **Sesión corta configurable**: `ADMIN_SESION_MINUTOS` (default 30), entre 5 y 60 o el arranque aborta. El backend responde `expira_en` y el BFF fija con eso la
+  vida de la cookie: se configura en un solo lugar.
+- **Bitácora**: `CONFIGURAR_SEGUNDO_FACTOR` e `INICIAR_SESION` (`segundo_factor=app|codigo_recuperacion`), con la IP del administrador (#208), en la misma
+  transacción que el cambio de estado.
+- **Portal**: el desafío vive en una cookie httpOnly limitada a `/api/admin/auth` (5 minutos) y el navegador nunca lo ve; el login cierra cualquier sesión de
+  administrador previa. El formulario va en pasos y el campo del código solo admite 6 dígitos (`autocomplete="one-time-code"`). El QR lo genera el backend
+  (zxing, el mismo `ZxingCodigoQr` que ahora usa el PDF del comprobante): el portal no suma dependencias.
+
+### Hallazgos que cambiaron la implementación
+
+- **El fallo se contaba dentro de la transacción.** La primera versión de `verificar` lanzaba el error dentro de `uow.ejecutar`: con JDBC real, el `registrarFallo`
+  se revertía junto con la excepción y el bloqueo **nunca** habría llegado. Los fakes no lo mostraban (no hay rollback). Ahora el fallo se cuenta después de la
+  transacción, y el fake registra si se llamó dentro (`falloDentro`) para que el test lo detecte.
+- **Leer y escribir el contador por separado dejaba pasar intentos en paralelo**: todos leían «0 fallos». Ahora es una sola sentencia; el test lanza 20 fallos
+  simultáneos contra Postgres y comprueba que bloquean.
+- **Tres mutaciones sobrevivieron la primera vuelta** y reforzaron los tests: un bloqueo de 1 minuto (el test saltaba 15 de golpe; ahora comprueba que a los 14
+  sigue bloqueado) y la vida de la sesión fija en el servicio y en el BFF (los fakes usaban justo el valor por defecto, 1800).
+
+### Tests
+
+- Servicio (`AutenticarAdministradorServiceTest`, 24): desafío en vez de sesión, paso según el estado, configurar (secreto cifrado, QR, reemplazo), confirmar
+  (códigos con formato y solo sus hashes, bitácora dentro de la transacción), verificar (ventana de reloj, anti-reuso, código de la confirmación no reusable,
+  recuperación de un solo uso y normalizada, códigos inventados), bloqueo (5 fallos, 14 y 15 minutos, reinicio con un acierto, fallos al configurar), desafío
+  inválido o de un administrador desactivado.
+- TOTP (`TotpRfc6238Test`, 7): los cinco vectores SHA-1 del RFC 6238, ventana, códigos malformados, secreto en minúsculas y con espacios, secretos nuevos, URI.
+- JWT (`JwtAdministradorTokenEmisorTest`, +4): vida configurable, desafío de 5 minutos, **desafío ≠ sesión en ambos sentidos**, desafío vencido o ajeno.
+- QR (`ZxingCodigoQrTest`): el PNG se decodifica de vuelta a la URI.
+- Persistencia (`JdbcSegundoFactorRepositoryTest`, 9, Postgres): pendiente y confirmación, reemplazo, anti-reuso, **8 accesos simultáneos → uno**, tope y bloqueo,
+  **20 fallos simultáneos**, recuperación de un solo uso y de otro administrador.
+- REST (`AdminAuthControllerTest` 9, `AdminAuthFilterTest` +3): forma de cada respuesta, IP de la conexión, estado de cada error, validación; rutas públicas
+  exactas, prefijos parecidos y rutas disfrazadas exigen credencial, un desafío como `Bearer` da 401.
+- Configuración (`AppConfigSesionAdminTest`, 2): 5–60 y fuera de rango aborta.
+- E2E backend (`SegundoFactorAdminE2ETest`, 7, HTTP y Postgres reales): la contraseña sola no abre nada, primer login y siguientes, reuso, recuperación, bloqueo,
+  bitácora y secreto cifrado en la base. Los e2e que necesitan sesión de admin (`AdminCuentas`, `AltaAsistida`, `AuditoriaAdmin`) entran con
+  `SesionAdminDePrueba`, que genera el código como el teléfono.
+- BFF (Vitest, `login/route.test.ts` 5, `segundo-factor.test.ts` 7): cookie del desafío (httpOnly, ruta y vida), el login no abre sesión, cada paso sin desafío,
+  vida de la cookie desde `expira_en`, el token nunca en el cuerpo, la IP de origen.
+- E2E portal (`admin.spec.ts` 11): segundo factor, contraseña sola sin sesión, reintento, bloqueo, código de recuperación, configuración con QR y códigos, campo
+  solo dígitos. Los specs de admin entran con `e2e/admin-sesion.ts`.
+
+### Verificación por mutación — 55/55 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | El login siempre pide verificar | `laContrasenaSola…`, `unSecretoPendiente…` |
+| Servicio | Se reconfigura con el 2FA ya confirmado | `conElSegundoFactorYaConfigurado…` |
+| Servicio | Confirmar no rechaza un 2FA ya confirmado | `conElSegundoFactorYaConfigurado…` |
+| Servicio | Verificar no mira el bloqueo | `cincoCodigosFallidos…` |
+| Servicio | Confirmar no mira el bloqueo | `losFallosAlConfigurar…` |
+| Servicio | Se ignora el anti-reuso | `unCodigoYaUsado…`, `elCodigoConElQueSeConfiguro…` |
+| Servicio | Un secreto pendiente cuenta como configurado | `verificarSinSegundoFactor…` |
+| Servicio | Tope de 6 fallos | 2 de bloqueo |
+| Servicio | Bloqueo de 1 minuto | `cincoCodigosFallidos…` (tras reforzarlo) |
+| Servicio | El fallo se cuenta dentro de la transacción | `cincoCodigosFallidos…` |
+| Servicio | Confirmar no cuenta el fallo | `losFallosAlConfigurar…` |
+| Servicio | Secreto en claro | 16 |
+| Servicio | Verificar / confirmar sin bitácora | 2 y 1 |
+| Servicio | El desafío no revisa que el administrador siga activo | 2 |
+| Servicio | Hash de recuperación sin normalizar | `unCodigoDeRecuperacion…` |
+| Servicio | Nueve códigos / códigos en claro | 1 y 2 |
+| Servicio | La sesión ignora la vida del emisor | 2 (tras reforzarlo) |
+| Persistencia | `registrarAcceso` sin la condición de paso | 2, incluido el de concurrencia |
+| Persistencia | `registrarAcceso` no reinicia fallos | 1 |
+| Persistencia | Recuperación reusable / de cualquier administrador | 1 y 1 |
+| Persistencia | El tope no bloquea | 5 |
+| Persistencia | Otro pendiente no borra códigos / conserva confirmado | 1 y 1 |
+| TOTP | Ventana de 2 pasos / sin ventana | `toleraUnPaso…` |
+| TOTP | Truncamiento sin el bit de signo | 4 vectores del RFC |
+| TOTP | Secreto de 80 bits | `cadaSecretoNuevo…` |
+| JWT | La sesión acepta el desafío / el desafío acepta la sesión | `unDesafioNoSirveComoSesion…` |
+| JWT | Desafío de 30 minutos / vida de sesión fija | 1 y 1 |
+| Filtro | Cualquier `/v1/admin/auth/*` es pública | 4 |
+| Filtro | `verificar` deja de ser pública | `loginDelBackofficeYSuSegundoFactor…` |
+| Errores | `DEMASIADOS_INTENTOS` sin 429 / `CODIGO_INVALIDO` sin 401 | `cadaFalloDelSegundoFactor…` |
+| Configuración | Sesión de admin sin tope | `fueraDelRango…` |
+| BFF | El desafío viaja con todas las peticiones (`path=/`) / dura 30 min | 1 y 1 |
+| BFF | El login no cierra la sesión anterior / no guarda el desafío | 1 y 1 |
+| BFF | Confirmar / verificar ignoran `expira_en` | 1 y 1 (verificar, tras reforzarlo) |
+| BFF | Confirmar / verificar no borran el desafío | 1 y 1 |
+| BFF | Configurar / confirmar / verificar no exigen el desafío | 1 cada uno |
+| BFF | Confirmar expone el token al navegador | 1 |
+| BFF | Confirmar no manda la IP | 1 |
+| Interfaz | El campo del código acepta letras y más de 6 dígitos | e2e `el campo del código solo acepta seis dígitos` |
+
+### Límites conocidos
+
+- **Sin reinicio del 2FA desde el backoffice**: si un administrador pierde el teléfono y los diez códigos, hoy hay que borrar su fila de
+  `administrador_segundo_factor` a mano o crear otro administrador. Encaja con «forzar restablecimiento» (#183).
+- El tope es por administrador, no por IP: quien tenga la contraseña puede mantener la cuenta bloqueada (15 minutos cada 5 intentos). Es preferible a dejar que
+  pruebe códigos.
+- El mock del portal no guarda estado del 2FA (los e2e corren en paralelo): el anti-reuso y el bloqueo reales se prueban en el backend.
+- Los administradores que ya existen configuran el 2FA en su próximo login.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
