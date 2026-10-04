@@ -91,7 +91,7 @@ class EmitirComprobanteServiceTest {
         return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves), claves);
     }
 
-    private static final EmitirComprobanteUseCase.Idempotencia CLAVE = new EmitirComprobanteUseCase.Idempotencia("c1a7e5b0-0000-4000-8000-000000000001", "huella-1");
+    private static final pe.factura.application.port.in.Idempotencia CLAVE = new pe.factura.application.port.in.Idempotencia("c1a7e5b0-0000-4000-8000-000000000001", "huella-1");
 
     @Test void conUnaClaveNuevaEmiteYAnotaElComprobanteBajoLaClave() {
         ConClaves s = conClaves();
@@ -125,7 +125,7 @@ class EmitirComprobanteServiceTest {
         ConClaves s = conClaves();
         s.service().emitirFactura(tenantId, cmd(null, false), CLAVE);
 
-        assertThatThrownBy(() -> s.service().emitirFactura(tenantId, cmd(null, false), new EmitirComprobanteUseCase.Idempotencia(CLAVE.clave(), "otra-huella")))
+        assertThatThrownBy(() -> s.service().emitirFactura(tenantId, cmd(null, false), new pe.factura.application.port.in.Idempotencia(CLAVE.clave(), "otra-huella")))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
         assertThat(comprobantes.datos).hasSize(1);
     }

@@ -5,6 +5,7 @@ import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.in.EmitirNotaCommand;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
+import pe.factura.application.port.in.Idempotencia;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Anticipo;
