@@ -21,6 +21,7 @@ import pe.factura.application.port.in.DetalleCuentaAdminUseCase;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.Filtro;
 import pe.factura.application.port.in.SuspenderCuentaUseCase;
+import pe.factura.application.port.in.VisibilidadDeBajas;
 
 import java.util.List;
 import java.util.UUID;
@@ -45,12 +46,14 @@ public class AdminCuentaController {
             y en la razón social de sus empresas (por fragmento) y su RUC (por prefijo). En el nombre y la razón social tampoco
             distingue tildes, diéresis ni acentos, en los dos sentidos: `libreria` encuentra «Librería» y `librería` encuentra
             «Libreria». La `ñ` **sí** se distingue de la `n`: es otra letra, y `pena` no encuentra «Peña». `ultimo_acceso` mide la actividad en el
-            portal, no el uso por API key. El estado y el plan de la cuenta se agregarán más adelante.""")
+            portal, no el uso por API key. **Las cuentas dadas de baja (#201) no salen** salvo que se pida con `bajas`: `INCLUIDAS` las mezcla y
+            `SOLO` devuelve únicamente esas; el total las trata igual. El plan de la cuenta se agregará más adelante.""")
     public ResponseEntity<ApiResponse<List<CuentaAdminResponse>>> listar(
             @Parameter(description = "Búsqueda libre: correo, nombre, razón social o RUC", example = "ana@") @RequestParam(required = false) String q,
+            @Parameter(description = "Qué hacer con las cuentas dadas de baja: `OCULTAS` (por defecto), `INCLUIDAS` o `SOLO`") @RequestParam(required = false) VisibilidadDeBajas bajas,
             @Parameter(description = "Página, desde 1") @RequestParam(defaultValue = "1") int pagina,
             @Parameter(description = "Resultados por página, 1–100") @RequestParam(name = "por_pagina", defaultValue = "20") int porPagina) {
-        var filtro = new Filtro(q);
+        var filtro = new Filtro(q, bajas);
         List<CuentaAdminResponse> datos = cuentas.listar(filtro, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
                 .stream().map(CuentaAdminResponse::de).toList();
         return ResponseEntity.ok().header(FacturaController.TOTAL_HEADER, String.valueOf(cuentas.contar(filtro))).body(ApiResponse.ok(datos));

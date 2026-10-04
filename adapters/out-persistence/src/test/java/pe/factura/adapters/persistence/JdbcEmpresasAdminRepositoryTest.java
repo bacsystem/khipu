@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.EmpresaResumen;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.EstadoCertificado;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.Filtro;
+import pe.factura.application.port.in.VisibilidadDeBajas;
 import pe.factura.domain.tenant.Entorno;
 
 import java.sql.Timestamp;
@@ -302,5 +303,85 @@ class JdbcEmpresasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(plan("SELECT max(fecha_emision) FROM documento WHERE tenant_id = '" + t + "'")).contains("ix_documento_tenant_fecha");
         assertThat(plan("SELECT count(*) FROM documento WHERE tenant_id = '" + t + "' AND fecha_emision >= '2026-10-01' AND fecha_emision < '2026-11-01'"))
                 .contains("ix_documento_tenant_fecha");
+    }
+
+    // --- #201: baja lógica de la cuenta ---------------------------------------------------------------------------------------------
+
+    UUID cuentaDeBaja(String nombre, String email) {
+        UUID id = cuenta(nombre, email);
+        jdbc.update("UPDATE cuenta SET baja_en = ? WHERE id = ?", Timestamp.from(T0.plusSeconds(500)), id);
+        return id;
+    }
+
+    /** La empresa de una cuenta dada de baja sale del listado operativo, y el total (la cabecera de paginación) la descuenta. */
+    @Test void lasEmpresasDeUnaCuentaDeBajaNoSalenEnElListadoNiEnElTotalPorDefecto() {
+        UUID enServicio = cuenta("Activa", "act@x.pe");
+        UUID deBaja = cuentaDeBaja("Se fue", "baja@x.pe");
+        empresa(enServicio, "20100000001", "ACTIVA SAC", T0);
+        empresa(deBaja, "20100000002", "SE FUE SAC", T0);
+
+        assertThat(rucs(repo.listar(Filtro.NINGUNO, HOY, 1, 20))).containsExactly("20100000001");
+        assertThat(repo.contar(Filtro.NINGUNO, HOY)).isEqualTo(1);
+    }
+
+    @Test void conIncluidasSalenTodasYSoloDevuelveUnicamenteLasDeCuentasDeBaja() {
+        UUID enServicio = cuenta("Activa", "act@x.pe");
+        UUID deBaja = cuentaDeBaja("Se fue", "baja@x.pe");
+        empresa(enServicio, "20100000001", "ACTIVA SAC", T0);
+        empresa(deBaja, "20100000002", "SE FUE SAC", T0.plusSeconds(10));
+
+        Filtro incluidas = new Filtro(null, null, VisibilidadDeBajas.INCLUIDAS);
+        Filtro solo = new Filtro(null, null, VisibilidadDeBajas.SOLO);
+        assertThat(rucs(repo.listar(incluidas, HOY, 1, 20))).containsExactly("20100000002", "20100000001");
+        assertThat(repo.contar(incluidas, HOY)).isEqualTo(2);
+        assertThat(rucs(repo.listar(solo, HOY, 1, 20))).containsExactly("20100000002");
+        assertThat(repo.contar(solo, HOY)).isEqualTo(1);
+    }
+
+    /** Las empresas de integración no tienen cuenta, así que nunca están de baja: se ven por defecto y no salen al pedir solo las de baja. */
+    @Test void unaEmpresaSinCuentaNuncaEstaDeBaja() {
+        empresa("20100000001");
+
+        assertThat(rucs(repo.listar(Filtro.NINGUNO, HOY, 1, 20))).containsExactly("20100000001");
+        assertThat(rucs(repo.listar(new Filtro(null, null, VisibilidadDeBajas.INCLUIDAS), HOY, 1, 20))).containsExactly("20100000001");
+        assertThat(repo.listar(new Filtro(null, null, VisibilidadDeBajas.SOLO), HOY, 1, 20)).isEmpty();
+    }
+
+    @Test void laFilaDiceDesdeCuandoSuCuentaEstaDeBaja() {
+        empresa(cuentaDeBaja("Se fue", "baja@x.pe"), "20100000002", "SE FUE SAC", T0);
+        empresa(cuenta("Activa", "act@x.pe"), "20100000001", "ACTIVA SAC", T0.plusSeconds(10));
+
+        List<EmpresaResumen> filas = repo.listar(new Filtro(null, null, VisibilidadDeBajas.INCLUIDAS), HOY, 1, 20);
+
+        assertThat(filas.get(0).cuentaDeBajaEn()).isNull();
+        assertThat(filas.get(1).cuentaDeBajaEn()).isEqualTo(T0.plusSeconds(500));
+    }
+
+    /** La visibilidad se combina con «y» con los demás filtros, y el total también. */
+    @Test void laVisibilidadSeCombinaConLosOtrosFiltros() {
+        UUID deBaja = cuentaDeBaja("Se fue", "baja@x.pe");
+        UUID enServicio = cuenta("Activa", "act@x.pe");
+        certificado(empresa(deBaja, "20100000001", "SE FUE SAC", T0), "2026-10-10");
+        certificado(empresa(enServicio, "20100000002", "ACTIVA SAC", T0), "2026-10-10");
+
+        Filtro porVencer = new Filtro(null, EstadoCertificado.POR_VENCER);
+
+        assertThat(rucs(repo.listar(porVencer, HOY, 1, 20))).containsExactly("20100000002");
+        assertThat(repo.contar(porVencer, HOY)).isEqualTo(1);
+        assertThat(rucs(repo.listar(new Filtro(null, EstadoCertificado.POR_VENCER, VisibilidadDeBajas.SOLO), HOY, 1, 20))).containsExactly("20100000001");
+    }
+
+    /** Se conserva todo lo que la ley obliga: la empresa de una cuenta de baja se abre igual, con sus comprobantes. */
+    @Test void elDetalleDeUnaEmpresaDeUnaCuentaDeBajaSeAbreConSusComprobantes() {
+        UUID e = empresa(cuentaDeBaja("Se fue", "baja@x.pe"), "20100000001", "SE FUE SAC", T0);
+        documento(e, "2026-09-15");
+        jdbc.update("""
+                INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre,
+                                         total_gravado, total_exonerado, total_inafecto, total_igv, total)
+                SELECT id, '0101', 'PEN', '6', '20601234565', 'CLIENTE SAC', 0, 0, 0, 0, 118.00 FROM documento WHERE tenant_id = ?""", e);
+
+        var detalle = repo.detalle(e, HOY).orElseThrow();
+
+        assertThat(detalle.comprobantes()).hasSize(1);
     }
 }

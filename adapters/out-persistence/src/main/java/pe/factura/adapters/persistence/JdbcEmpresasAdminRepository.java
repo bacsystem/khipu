@@ -58,7 +58,7 @@ public class JdbcEmpresasAdminRepository implements EmpresasAdminRepository {
     private static final String SOL_CARGADAS = "(t.sol_usuario_enc IS NOT NULL AND t.sol_clave_enc IS NOT NULL)";
 
     private static final String SELECT = """
-            SELECT t.id, t.ruc, t.razon_social, t.cuenta_id, c.nombre AS cuenta_nombre, t.entorno,
+            SELECT t.id, t.ruc, t.razon_social, t.cuenta_id, c.nombre AS cuenta_nombre, c.baja_en AS cuenta_baja_en, t.entorno,
                    %s AS estado,
                    %s AS vigente_hasta,
                    %s AS dias_restantes,
@@ -81,7 +81,7 @@ public class JdbcEmpresasAdminRepository implements EmpresasAdminRepository {
                 rs.getObject("id", UUID.class), rs.getString("ruc"), rs.getString("razon_social"), rs.getObject("cuenta_id", UUID.class),
                 rs.getString("cuenta_nombre"), Entorno.valueOf(rs.getString("entorno")), EstadoCertificado.valueOf(rs.getString("estado")),
                 rs.getObject("vigente_hasta", LocalDate.class), rs.getObject("dias_restantes", Integer.class), rs.getBoolean("tiene_sol"),
-                rs.getInt("series"), rs.getInt("del_mes"), rs.getObject("ultima_emision", LocalDate.class)), args.toArray());
+                rs.getInt("series"), rs.getInt("del_mes"), rs.getObject("ultima_emision", LocalDate.class), instante(rs.getTimestamp("cuenta_baja_en"))), args.toArray());
     }
 
     @Override public long contar(Filtro filtro, LocalDate hoy) {
@@ -212,6 +212,8 @@ public class JdbcEmpresasAdminRepository implements EmpresasAdminRepository {
             args.add(hoy);
             args.add(filtro.certificado().name());
         }
+        String baja = BajasEnListado.deEmpresa(filtro.bajas());
+        if (baja != null) condiciones.add(baja);
         return condiciones.isEmpty() ? "" : " WHERE " + String.join(" AND ", condiciones);
     }
 }

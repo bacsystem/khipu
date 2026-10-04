@@ -5,6 +5,7 @@ import pe.factura.application.port.in.ListarEmpresasAdminUseCase.EmpresaResumen;
 import pe.factura.application.port.in.ListarEmpresasAdminUseCase.EstadoCertificado;
 import pe.factura.domain.tenant.Entorno;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -22,9 +23,10 @@ public record EmpresaAdminResponse(
         @Schema(description = "Credenciales SOL cargadas (usuario y clave); no se sabe si son válidas") boolean tieneCredencialesSol,
         @Schema(example = "2", description = "Series activas") int series,
         @Schema(example = "31", description = "Documentos con fecha de emisión en el mes de hoy (Lima)") int comprobantesDelMes,
-        @Schema(example = "2026-10-02", description = "Fecha de emisión del documento más reciente; ausente si nunca emitió") LocalDate ultimaEmision) {
+        @Schema(example = "2026-10-02", description = "Fecha de emisión del documento más reciente; ausente si nunca emitió") LocalDate ultimaEmision,
+        @Schema(example = "2026-10-03T09:00:00Z", description = "Desde cuándo su cuenta está dada de baja (#201); ausente si está en servicio o si la empresa no tiene cuenta") Instant cuentaDeBajaEn) {
     public static EmpresaAdminResponse de(EmpresaResumen e) {
         return new EmpresaAdminResponse(e.id(), e.ruc(), e.razonSocial(), e.cuentaId(), e.cuentaNombre(), e.entorno(), e.certificado(),
-                e.certificadoVigenteHasta(), e.certificadoDiasRestantes(), e.tieneCredencialesSol(), e.series(), e.comprobantesDelMes(), e.ultimaEmision());
+                e.certificadoVigenteHasta(), e.certificadoDiasRestantes(), e.tieneCredencialesSol(), e.series(), e.comprobantesDelMes(), e.ultimaEmision(), e.cuentaDeBajaEn());
     }
 }

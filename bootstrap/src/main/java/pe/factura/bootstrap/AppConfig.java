@@ -214,6 +214,7 @@ public class AppConfig {
     @Bean CuentasAdminRepository cuentasAdminRepository(JdbcTemplate jdbc) { return new JdbcCuentasAdminRepository(jdbc); }
     @Bean EmpresasAdminRepository empresasAdminRepository(JdbcTemplate jdbc) { return new JdbcEmpresasAdminRepository(jdbc); }
     @Bean SuspensionRepository suspensionRepository(JdbcTemplate jdbc) { return new JdbcSuspensionRepository(jdbc); }
+    @Bean BajaDeCuentaRepository bajaDeCuentaRepository(JdbcTemplate jdbc) { return new JdbcBajaDeCuentaRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -307,6 +308,9 @@ public class AppConfig {
     @Bean DetalleEmpresaAdminUseCase detalleEmpresaAdmin(EmpresasAdminRepository empresas, Clock clock) { return new DetalleEmpresaAdminService(empresas, clock); }
     @Bean SuspenderCuentaUseCase suspenderCuenta(CuentaRepository cuentas, SuspensionRepository suspensiones, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new SuspenderCuentaService(cuentas, suspensiones, auditoria, u, clock);
+    }
+    @Bean DarDeBajaCuentaUseCase darDeBajaCuenta(CuentaRepository cuentas, BajaDeCuentaRepository bajas, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
+        return new DarDeBajaCuentaService(cuentas, bajas, auditoria, u, clock);
     }
     @Bean SoporteDeAccesoUseCase soporteDeAcceso(UsuarioRepository usuarios, SesionRepository sesiones, VerificacionCorreoRepository verificaciones, CorreoSender correo,
                                                  UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {
