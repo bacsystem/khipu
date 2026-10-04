@@ -144,6 +144,20 @@ class JdbcEmpresasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(fila("20100000007").certificado()).isEqualTo(EstadoCertificado.VIGENTE);
     }
 
+    /** Una fecha de vigencia suelta, sin certificado detrás, no vale: la empresa está «sin certificado» y no se muestra ni la fecha ni los días. */
+    @Test void unaFechaDeVigenciaSinCertificadoNoCuenta() {
+        UUID e = empresa("20100000001");
+        jdbc.update("UPDATE tenant SET cert_vigencia_hasta = '2026-10-20' WHERE id = ?", e);
+
+        EmpresaResumen r = fila("20100000001");
+
+        assertThat(r.certificado()).isEqualTo(EstadoCertificado.SIN_CERTIFICADO);
+        assertThat(r.certificadoVigenteHasta()).isNull();
+        assertThat(r.certificadoDiasRestantes()).isNull();
+        assertThat(repo.listar(new Filtro(null, EstadoCertificado.SIN_CERTIFICADO), HOY, 1, 20)).hasSize(1);
+        assertThat(repo.listar(new Filtro(null, EstadoCertificado.POR_VENCER), HOY, 1, 20)).isEmpty();
+    }
+
     @Test void elEstadoCambiaConLaFechaDeHoyQueSePasa() {
         certificado(empresa("20100000004"), "2026-10-03");
 
