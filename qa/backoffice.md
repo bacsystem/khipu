@@ -2374,6 +2374,58 @@ Lo que sobrevivía en la primera tanda:
 - **La ficha muestra los diez pagos más recientes:** el historial completo está en la API (paginado); una pantalla de historial con páginas no estaba en los criterios.
 - **No emite comprobante de pago:** emitir la factura de la plataforma con el propio khipu queda para después, como dice la épica.
 
+## #200 · Decisión: cómo se atienden los tickets de soporte
+
+**Estado: ✅ decidido — falta la revisión de la PR.** Es un issue de decisión, no de código: esta sección es el entregable (el issue pide dejarlo en `docs/superpowers/specs/`, que está en `.gitignore` y es solo local; se escribió allí **y** acá, que es lo que viaja con la PR).
+
+### Decisión
+
+**Los tickets viven en un servicio externo; khipu no construye un sistema de tickets.** Lo único que se construye es lo mínimo para llegar a él: un enlace y un correo de soporte, configurables, visibles en el portal del cliente y en el backoffice (issue de implementación propuesto abajo). Se revisa si se cumple alguna condición de la última sección.
+
+### La comparación
+
+| Criterio | Tickets propios (asunto, empresa, estado, notas internas) | Servicio externo |
+|---|---|---|
+| **Costo** | Sin licencia, pero se paga en tiempo de desarrollo y de mantenimiento, para siempre. | Una cuota mensual por agente o un plan gratuito, según el servicio (**precios a verificar**: no se consultaron). Con uno o dos agentes es poco. |
+| **Esfuerzo** | Lo más grande de todo el backoffice. Mínimo: tablas de ticket, mensaje y nota interna; estados y asignación; API; lista y detalle en el backoffice; **pantallas del cliente** para abrir y seguir un ticket; correos de aviso en las dos direcciones; adjuntos; permisos y bitácora; protección contra spam. Mi estimación: entre dos y cuatro issues del tamaño de #191, y **recibir correos** (que el cliente responda por mail) no existe hoy en la plataforma: es otro componente. | Elegir el servicio, crear una cuenta, una dirección de correo y una página; el resto lo da hecho (respuestas por correo, estados, notas internas, adjuntos, plantillas). Una integración más profunda (widget, enlace desde la ficha de la cuenta) es opcional y posterior. |
+| **¿El cliente lo ve desde su portal?** | Sí, pero solo si se construye (es la mitad del esfuerzo de arriba). | Lo ve en el propio servicio (hilo por correo o su portal de clientes) y desde el portal de khipu llega por un enlace o un widget. No hay una vista de tickets *dentro* de khipu. |
+| **¿Qué pasa con los datos?** | Quedan en nuestra base: nosotros decidimos retención, copia y borrado, y no hay un tercero más que tratar datos personales. | Las conversaciones viven en un tercero (encargado del tratamiento): hay que revisar su contrato de tratamiento de datos, dónde guarda la información y cómo se exporta si algún día cambiamos. A cambio, la plataforma no guarda más datos personales de los que ya tiene. |
+
+### Por qué externo
+
+1. **El volumen de hoy no justifica construirlo:** son clientes que se dan de alta uno a uno, con soporte asistido. Un sistema de tickets propio sería lo más caro del backoffice para resolver algo que ya está resuelto, y mal hecho es peor que no tenerlo («un sistema de tickets a medias», como dice el issue).
+2. **Lo que el soporte necesita ya existe en el backoffice:** la ficha de la cuenta, sus empresas, su plan y sus pagos, la impersonación de solo lectura (#184) y el restablecimiento de acceso (#183). El ticket es una conversación; el contexto está acá, y se une con un enlace, no con una tabla.
+3. **El costo de equivocarse es bajo y reversible:** un servicio externo se cambia por otro (o por uno propio) sin migrar nada de la plataforma; un sistema propio, no.
+4. **Los datos sensibles no entran:** se le pide al cliente no pegar claves (API keys, contraseñas, certificados) en un ticket; el soporte nunca las necesita (hay acciones del administrador que las reemplazan).
+
+### Lo que sí se construye (issue de implementación propuesto)
+
+**Soporte: enlace y correo de soporte configurables.** Criterios propuestos:
+
+- Dos variables de entorno opcionales, `SUPPORT_URL` (la página o el portal de ayuda) y `SUPPORT_EMAIL`, con valores por defecto vacíos y una validación clara si traen un valor mal formado (URL `https`, correo con formato).
+- El portal del cliente muestra «¿Necesitas ayuda?» con ese enlace y ese correo, en el pie y en las pantallas de error; sin configurar, no muestra nada.
+- El backoffice muestra, en la ficha de una cuenta, un enlace «Escribir a soporte» con el correo ya redactado (asunto con el nombre de la cuenta y su id; sin datos sensibles).
+- Se documenta en `README.md` y `.env.example`.
+- Fuera de alcance: tablas de tickets, recibir correos, widget embebido.
+
+No se abrió el issue en GitHub: queda la propuesta acá para que se abra (o se ajuste) al revisar esta PR.
+
+### Cuándo volver a decidir
+
+Se reabre si pasa alguna de estas cosas:
+
+- **El soporte necesita el ticket dentro de la ficha de la cuenta** (verlo sin salir de khipu) y el enlace deja de alcanzar.
+- **El volumen crece** hasta que la cuota por agente o la falta de integración cuesten más que construir lo mínimo.
+- **El soporte pasa a depender del plan** (tiempos de respuesta acordados por plan, #189): el plan tendría que viajar al ticket.
+- **Un cliente exige que los datos del soporte no salgan de la plataforma** (contrato o regulación).
+- **El servicio elegido sube de precio o cambia sus condiciones** de tratamiento de datos.
+
+### Límites de esta decisión
+
+- **No se eligió un servicio concreto:** el issue pide decidir *si* son propios o externos; elegir producto (y verificar precios y contrato de datos) es parte del trabajo de implementación o de quien administra la plataforma.
+- **Las estimaciones de esfuerzo son mías**, no medidas.
+- **No se consultaron precios** de ningún servicio; la comparación de costo es cualitativa.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
