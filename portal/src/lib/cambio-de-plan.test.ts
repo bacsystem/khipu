@@ -52,7 +52,7 @@ describe("validarCambioDePlan", () => {
   });
 
   it("una fecha mal escrita o que no existe se rechaza", () => {
-    for (const mala of ["31/10/2026", "2026-13-01", "2026-02-30", "2026-1-5", "mañana", "2026-10-04T00:00"]) expect(errores({ pagadoHasta: mala }).pagadoHasta, mala).toBeDefined();
+    for (const mala of ["31/10/2026", "2026-13-01", "2026-02-30", "2026-10-00", "2026-04-31", "2026-1-5", "mañana", "2026-10-04T00:00", "2026-10-04-5", "x2026-10-04"]) expect(errores({ pagadoHasta: mala }).pagadoHasta, mala).toBeDefined();
   });
 
   it("los días de gracia son un entero de 0 a 90", () => {
