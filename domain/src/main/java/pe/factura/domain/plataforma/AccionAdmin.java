@@ -44,5 +44,7 @@ public enum AccionAdmin {
     /** Borra un plan que nadie usó nunca (#190). */
     ELIMINAR_PLAN,
     /** Cambia el plan de una cuenta (#191). El detalle dice de cuál a cuál, si sube, baja o renueva, cuándo entra y con qué vencimiento y gracia; la cuenta va en `cuenta_id`. */
-    CAMBIAR_PLAN
+    CAMBIAR_PLAN,
+    /** Registra a mano un pago de una cuenta y, si se pidió, extiende el vencimiento de su suscripción (#194). El detalle dice el periodo, el monto, el medio y el nuevo vencimiento; la cuenta va en `cuenta_id`. */
+    REGISTRAR_PAGO
 }

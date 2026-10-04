@@ -23,6 +23,12 @@ public interface SuscripcionRepository {
      */
     boolean cambiar(Suscripcion actual, Suscripcion nueva);
 
+    /**
+     * Mueve el vencimiento de la suscripción activa (#194) de {@code vencimientoActual} a {@code nuevo}, en una sola sentencia condicionada a que siga siendo ese: si otro
+     * administrador lo movió o la suscripción ya fue reemplazada, no cambia nada y devuelve {@code false}. No toca el plan, la gracia ni el cambio programado.
+     */
+    boolean extenderVencimiento(UUID suscripcionId, Instant vencimientoActual, Instant nuevo);
+
     /** Deja anotado un cambio para más adelante (la bajada de plan, #191). Como mucho uno por cuenta: reemplaza al que hubiera. No toca la suscripción activa. */
     void programar(UUID cuentaId, CambioDePlan cambio);
 

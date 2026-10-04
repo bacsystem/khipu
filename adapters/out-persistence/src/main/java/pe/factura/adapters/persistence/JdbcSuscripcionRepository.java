@@ -51,6 +51,10 @@ public class JdbcSuscripcionRepository implements SuscripcionRepository {
                 nueva.id(), nueva.planId(), Timestamp.from(nueva.iniciaEn()), nueva.venceEn() == null ? null : Timestamp.from(nueva.venceEn()), nueva.diasDeGracia()) == 1;
     }
 
+    @Override public boolean extenderVencimiento(UUID suscripcionId, Instant vencimientoActual, Instant nuevo) {
+        return jdbc.update("UPDATE suscripcion SET vence_en = ? WHERE id = ? AND termina_en IS NULL AND vence_en = ?", Timestamp.from(nuevo), suscripcionId, Timestamp.from(vencimientoActual)) == 1;
+    }
+
     @Override public void programar(UUID cuentaId, CambioDePlan c) {
         jdbc.update("""
                 INSERT INTO suscripcion_cambio_programado (cuenta_id, plan_id, aplica_desde, vence_en, dias_de_gracia) VALUES (?, ?, ?, ?, ?)

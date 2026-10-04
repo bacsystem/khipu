@@ -222,6 +222,7 @@ public class AppConfig {
     @Bean SuscripcionRepository suscripcionRepository(JdbcTemplate jdbc) { return new JdbcSuscripcionRepository(jdbc); }
     @Bean ConsumoRepository consumoRepository(JdbcTemplate jdbc) { return new JdbcConsumoRepository(jdbc); }
     @Bean ConsumoPorCuentaRepository consumoPorCuentaRepository(JdbcTemplate jdbc) { return new JdbcConsumoPorCuentaRepository(jdbc); }
+    @Bean PagoRepository pagoRepository(JdbcTemplate jdbc) { return new JdbcPagoRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -328,6 +329,10 @@ public class AppConfig {
     @Bean CambiarPlanDeCuentaService cambiarPlanDeCuenta(PlanRepository planes, SuscripcionRepository suscripciones, ConsultarConsumoUseCase consumo,
                                                         AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new CambiarPlanDeCuentaService(planes, suscripciones, consumo, auditoria, u, clock);
+    }
+    /** Un solo servicio para registrar un pago a mano y consultar el historial (#194). */
+    @Bean PagosDeCuentaService pagosDeCuenta(PagoRepository pagos, SuscripcionRepository suscripciones, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
+        return new PagosDeCuentaService(pagos, suscripciones, auditoria, u, clock);
     }
     @Bean AplicarCambiosDePlanWorker aplicarCambiosDePlanWorker(AplicarCambiosDePlanUseCase cambios) { return new AplicarCambiosDePlanWorker(cambios); }
     @Bean GestionarPlanesUseCase gestionarPlanes(PlanRepository planes, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {

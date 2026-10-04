@@ -41,6 +41,8 @@ public class GlobalExceptionHandler {
             case "NOMBRE_DUPLICADO", "PLAN_POR_DEFECTO", "PLAN_EN_USO", "PLAN_YA_ACTIVO", "PLAN_YA_INACTIVO" -> HttpStatus.CONFLICT;
             // Cambio de plan de una cuenta (#191): el plan está fuera de la oferta, o otro administrador cambió el plan de la cuenta en el medio.
             case "PLAN_INACTIVO", "CAMBIO_CONCURRENTE" -> HttpStatus.CONFLICT;
+            // Pagos manuales (#194): el pedido es válido pero el estado de la cuenta no lo permite (el mismo apunte repetido, un plan que no vence o un pago que no adelanta nada).
+            case "PAGO_DUPLICADO", "PLAN_SIN_VENCIMIENTO", "EXTENSION_SIN_EFECTO" -> HttpStatus.CONFLICT;
             case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES" -> HttpStatus.TOO_MANY_REQUESTS;
             // La cuenta está suspendida (#182): el cliente se identificó bien, pero no tiene permiso hasta que la reactiven.
             case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO", "CUENTA_SUSPENDIDA", "REQUIERE_ADMINISTRADOR" -> HttpStatus.FORBIDDEN;
