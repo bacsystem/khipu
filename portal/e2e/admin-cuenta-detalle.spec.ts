@@ -40,7 +40,13 @@ test("el detalle muestra usuarios, empresas con su certificado, comprobantes y b
   await expect(comprobantes.getByText("F001-00000007")).toBeVisible();
 
   const eventos = detalle.getByRole("region", { name: "Acciones del administrador" });
+  await expect(eventos.locator("tbody tr")).toHaveCount(3);
   await expect(eventos.getByText("Alta de la cuenta")).toBeVisible();
+  // Quién actuó: la clave de plataforma no se presenta como un administrador.
+  await expect(eventos.locator("tbody tr", { hasText: "Alta de una empresa" }).getByText("Clave de plataforma")).toBeVisible();
+  await expect(eventos.locator("tbody tr", { hasText: "Alta de la cuenta" }).getByText("Administrador")).toBeVisible();
+  // Una acción que el portal todavía no conoce se muestra con su código, no se esconde.
+  await expect(eventos.getByText("SUSPENDER_CUENTA")).toBeVisible();
 });
 
 test("es solo lectura: no ofrece ninguna acción sobre la cuenta", async ({ page }) => {
