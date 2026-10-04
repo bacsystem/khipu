@@ -1553,6 +1553,96 @@ Después: Playwright de cuentas, detalle y suspensión 27/27, Vitest 414/414, `t
 - **El mensaje manda a «soporte» sin enlace**: el canal de soporte llega con #200 (servicio externo).
 - Sin filtro por estado en el listado todavía (el estado se ve, pero no se filtra por él), ni «sin verificar» como estado de cuenta: ese estado es del correo de cada usuario (#22).
 
+## #183 · Soporte de acceso: mandar el correo de restablecimiento y reenviar la verificación
+
+**Estado: 🔧 implementado, 61/61 mutaciones verificadas — falta la revisión de la PR.** El administrador dispara el correo; **nunca ve ni fija una contraseña**: el usuario elige la suya con el enlace.
+
+`POST /v1/admin/cuentas/{cuentaId}/usuarios/{usuarioId}/restablecimiento` y `/verificacion`. Cada una crea un enlace de un solo uso, se lo manda al correo del usuario y
+responde **a quién** se le mandó (`usuario_id`, `correo`): ni el enlace ni su token salen en la respuesta, ni en la bitácora.
+
+### Diseño
+
+- **El mismo correo que el del propio usuario.** El asunto y el texto salen de un solo lugar (`CorreosDeAcceso`), que ahora usan también el «olvidé mi contraseña» y la verificación del
+  registro (`AutenticarUsuarioService`): lo que dispara el administrador es exactamente lo que el usuario recibiría por su cuenta, con la misma vida del enlace (1 hora el restablecimiento,
+  24 horas la verificación).
+- **El usuario se busca dentro de la cuenta de la ruta.** Un usuario de otra cuenta responde `404 NO_ENCONTRADO` aunque exista: la pantalla de una cuenta no alcanza a los de otra.
+- **Un usuario desactivado no recibe nada** (`409 USUARIO_INACTIVO`): mandarle un enlace que no puede usar sería ruido. Reenviar la verificación a quien ya la tiene es `409 CORREO_YA_VERIFICADO`;
+  restablecer sí vale con el correo verificado.
+- **Sin correo configurado no se da nada por enviado.** Sin SMTP el adaptador solo escribe en el log y no falla; contestar «enviado» sería mentir. `CorreoSender.entregaDeVerdad()` lo dice y, si es
+  falso, `503 CORREO_NO_CONFIGURADO` **antes de crear nada** (misma lección que #218).
+- **Enlace y bitácora van en la misma transacción; el correo sale después.** Si la bitácora falla no sale ningún correo y no queda un enlace que nadie sabe quién pidió. Si el servidor de correo
+  rechaza el envío, `502 CORREO_NO_ENVIADO`: el intento ya quedó en la bitácora (`ENVIAR_RESTABLECIMIENTO` / `REENVIAR_VERIFICACION`, con `usuario=<correo>`) y el enlace sin usar vence solo.
+- **No se tocan sesiones ni contraseñas.** El restablecimiento no revoca nada ni cambia la clave: la actual vale hasta que el usuario use el enlace. Los dobles del test lanzan `AssertionError` si el
+  servicio toca una sesión, guarda un usuario o consume un enlace.
+- **Portal:** en la tabla de usuarios del detalle de la cuenta, por fila, **Restablecer contraseña** y (solo si el correo no está verificado) **Reenviar verificación**; un usuario desactivado no
+  tiene ninguna. Cada acción abre un modal que dice a quién le llega, qué hace y que el administrador no ve la contraseña; el resultado («Correo … enviado a …» o el error del backend) se queda en el
+  modal hasta que se cierre, no se cierra con Escape mientras se envía, y tras un corte de red se avisa que **no se sabe si salió** y se manda a mirar la bitácora (reintentar a ciegas mandaría dos
+  correos). Pasan por dos rutas del BFF que validan los dos ids, exigen sesión de administrador y reenvían la IP real del administrador (#208).
+
+### Tests
+
+- Servicio (`SoporteDeAccesoServiceTest`, 14): el enlace y su vida, el correo al usuario, la bitácora sin el enlace ni el token, misma transacción y el correo después, nunca se fija ni se muestra una
+  contraseña, si la bitácora falla no sale correo, usuario de otra cuenta / inexistente / id nulo, desactivado, sin SMTP (no se crea nada), servidor de correo que rechaza (queda en la bitácora),
+  verificación (24 h, bitácora, transacción), ya verificado, y un verificado sí puede restablecer.
+- REST (`AdminUsuarioControllerTest`, 6): qué se le pasa al caso de uso (actor, ids, URL del portal), la respuesta sin enlace ni token, el estado de cada error, sin administrador no se ejecuta nada y un
+  id que no es UUID es 400.
+- **E2E real** (`SoporteDeAccesoE2ETest`, 13, Spring completo + Postgres + los filtros reales, con el correo capturado): **el usuario usa el enlace que le llegó y elige su contraseña** (la anterior deja de
+  servir y el enlace es de un solo uso) sin que el administrador vea nada; el reenvío de la verificación llega y se puede usar; la bitácora de las dos acciones sin token; un administrador con sesión deja su nombre; usuario de otra
+  cuenta, inexistente y mal formado; desactivado; sin SMTP (503, sin filas nuevas); servidor que rechaza (502, queda en la bitácora); y que nadie más puede dispararlos.
+- Portal, Vitest: BFF (`restablecimiento` 6 y `verificacion` 5: sin sesión, ids inválidos, JWT, IP, errores, sin caché), cliente (`admin-acceso`, 6) y `acciones-de-usuario` (15: qué acciones se ofrecen, qué
+  se envía y a qué ruta, doble clic, «Enviando…», Escape durante el envío, errores, reintento, corte de red, reapertura).
+- Portal, Playwright (`admin-acceso-usuario.spec.ts`, 9 + los ajustes de `admin-cuenta-detalle.spec.ts`): el modal pide confirmación y dice a quién; cancelar no manda nada; confirmar dice a quién se mandó; la
+  verificación al usuario sin verificar; el verificado solo ofrece restablecer; el desactivado no tiene acciones; sin SMTP el modal lo dice y no afirma que se envió; el BFF rechaza un id que no es UUID y sin sesión.
+
+### Verificación por mutación — 61/61 mueren
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | El usuario se busca sin mirar la cuenta / un inactivo recibe el correo / sin SMTP se da por enviado / se reenvía a quien ya verificó | 1 + 1 + 1 + 1 |
+| Servicio | El restablecimiento o la verificación no crean su enlace | 2 + 2 |
+| Servicio | Cada enlace vale lo que el otro | 1 + 1 |
+| Servicio | La bitácora dice la acción contraria (x2) / sin la cuenta / sin el usuario | 1 + 1 + 1 + 2 |
+| Servicio | El correo sale antes de la transacción / un fallo del servidor de correo no se informa | 5 + 1 |
+| Servicio | El correo va a otra dirección / el destinatario de la respuesta es otro | 2 + 2 |
+| Textos | El enlace de cada correo apunta al del otro / el asunto cambia | 1 + 1 + 1 |
+| Controlador | Cada ruta llama al caso de uso contrario / los ids van cruzados / el inactivo no es 409 | 1 + 1 + 1 + 1 |
+| Vitest (BFF) | Sin sesión / id de cuenta o de usuario cualquiera / sin IP / sin `no-store` / traga el error (restablecimiento) | 1 + 1 + 1 + 1 + 1 + 1 |
+| Vitest (BFF) | Lo mismo en la verificación (sin `no-store`, que ahí no se prueba) | 1 + 1 + 1 + 1 + 1 |
+| Vitest (cliente) | La ruta de restablecer apunta a la de verificar / no manda el JWT | 1 + 2 |
+| Vitest (componente) | Doble clic / un error se da por enviado / rutas cruzadas / tras enviar se ofrece otro | 1 + 3 + 2 + 1 |
+| Vitest (componente) | Un corte de red como error común / sin recargar / cerrar con Escape mientras envía / el resultado anterior queda al reabrir / el error anterior queda al reabrir | 1 + 1 + 1 + 1 + 1 |
+| Vitest (componente) | Un inactivo con acciones / un verificado con «reenviar» / el modal sin el correo / el resultado sin el correo | 1 + 1 + 1 + 1 |
+| Playwright | Un inactivo con acciones / un verificado con «reenviar» / un error se da por enviado / tras enviar se ofrece otro | 2 + 2 + 1 + 1 |
+| Playwright | El modal no nombra al destinatario / confirmar cierra sin mostrar el resultado / el error no se ve | 2 + 3 + 1 |
+| Playwright | Todos aparecen verificados / todos activos / el correo, el usuario o la cuenta del botón son otros | 2 + 2 + 2 + 3 + 3 |
+
+Lo que sobrevivía en la primera tanda y se arregló con una prueba, no con código:
+
+- **La guardia del doble clic (`enviandoRef`).** Un doble clic de Playwright no la ejercita: el primer clic deshabilita el botón antes de que llegue el segundo. Solo la mata el test de componente con los dos
+  clics dentro de un mismo `act` (como en #182). Se **quitó** el test e2e del doble clic porque pasaba con o sin la guardia y daba una seguridad falsa.
+- **Cerrar el modal con Escape mientras se envía** y **el resultado de un envío anterior al reabrir**: el botón «Cancelar» ya estaba deshabilitado y el test de error cubría solo el reabrir tras un fallo.
+  Ahora hay un test de cada uno.
+- **Las rutas cruzadas (`restablecimiento` ↔ `verificacion`) sobreviven en Playwright**: el mock responde igual a las dos y no hay diferencia observable. Las mata el test de componente (que comprueba la ruta
+  exacta) y el e2e real del backend; es una equivalencia del mock, no un hueco.
+- **El cliente de la API (`admin-acceso.ts`)** no tenía test propio: los de las rutas lo mockean, así que cambiar su ruta o quitar el JWT sobrevivía. Ahora tiene los suyos.
+
+Dos fallos de herramienta, no del código, que invalidaron tandas enteras y se detectaron por la salida y no por el aviso de «MUERE»: un filtro de Vitest con corchetes escapados no encontraba ningún test y salía con
+código 1 (todo «moría» sin haber corrido nada: el script ahora lo marca como inválido), y un servidor de desarrollo huérfano de una corrida detenida en el puerto 3100 hacía fallar el arranque de Playwright (502).
+
+### Suites
+
+- Backend: `./gradlew test` completo sobre la rama, código de salida 0 (incluye `ArchitectureTest` y `SoporteDeAccesoE2ETest`).
+- Portal: `tsc --noEmit` limpio · ESLint limpio · Vitest 446/446 · Playwright: pasan `admin-acceso-usuario` y `admin-cuenta-detalle` (los dos specs que toca esta PR). **La corrida completa de Playwright no
+  terminó**: el sistema se quedó sin memoria y Claude Code detuvo el proceso, así que no hay un resultado completo que citar; queda por correr antes de fusionar.
+
+### Límites conocidos
+
+- **No hay un límite de envíos.** Un administrador puede mandar cuantos correos quiera a un usuario; cada uno queda en la bitácora, pero no hay un tope por hora. Si se abusara, el siguiente paso es un
+  límite por usuario destino.
+- **Mandar el correo no revoca las sesiones abiertas** ni toca la contraseña actual: el servicio no toca sesiones (los dobles del test lo verifican). Si hiciera falta cortar las sesiones de un usuario
+  desde el backoffice, sería otra acción, con su propio issue.
+- **El mock del portal no guarda estado ni bitácora** (las specs comparten el mock en paralelo y la bitácora de «Panadería Sol» se cuenta): que el envío quede registrado lo prueba `SoporteDeAccesoE2ETest`.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
