@@ -212,6 +212,7 @@ public class AppConfig {
     @Bean AuditoriaAdminRepository auditoriaAdminRepository(JdbcTemplate jdbc) { return new JdbcAuditoriaAdminRepository(jdbc); }
     @Bean SegundoFactorRepository segundoFactorRepository(JdbcTemplate jdbc) { return new JdbcSegundoFactorRepository(jdbc); }
     @Bean CuentasAdminRepository cuentasAdminRepository(JdbcTemplate jdbc) { return new JdbcCuentasAdminRepository(jdbc); }
+    @Bean EmpresasAdminRepository empresasAdminRepository(JdbcTemplate jdbc) { return new JdbcEmpresasAdminRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -300,6 +301,7 @@ public class AppConfig {
     }
     @Bean ListarCuentasAdminUseCase listarCuentasAdmin(CuentasAdminRepository cuentas) { return new ListarCuentasAdminService(cuentas); }
     @Bean DetalleCuentaAdminUseCase detalleCuentaAdmin(CuentasAdminRepository cuentas) { return new DetalleCuentaAdminService(cuentas); }
+    @Bean ListarEmpresasAdminUseCase listarEmpresasAdmin(EmpresasAdminRepository empresas, Clock clock) { return new ListarEmpresasAdminService(empresas, clock); }
     @Bean CrearAdministradorUseCase crearAdministrador(AdministradorRepository a, PasswordHasher h, UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {
         return new CrearAdministradorService(a, h, u, auditoria, clock);
     }
