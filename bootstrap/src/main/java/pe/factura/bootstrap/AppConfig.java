@@ -34,6 +34,7 @@ import pe.factura.adapters.rest.AdminAuthFilter;
 import pe.factura.adapters.rest.ApiKeyFilter;
 import pe.factura.adapters.rest.JwtFilter;
 import pe.factura.adapters.scheduler.OutboxWorker;
+import pe.factura.adapters.scheduler.LimpiezaIdempotenciaWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
 import pe.factura.adapters.storage.FileSystemDocumentStorage;
@@ -182,7 +183,7 @@ public class AppConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(p.portalUrl()));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Content-Type", "X-Api-Key", "Authorization", "X-Empresa"));
+        config.setAllowedHeaders(List.of("Content-Type", "X-Api-Key", "Authorization", "X-Empresa", "Idempotency-Key"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/v1/**", config);
         var f = new FilterRegistrationBean<>(new CorsFilter(source));
@@ -244,9 +245,12 @@ public class AppConfig {
     }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
                                                     UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock, EmisorDeSerieRepository emisor,
-                                                    BajaRepository bajas) {
-        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas);
+                                                    BajaRepository bajas, IdempotenciaRepository idempotencia) {
+        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia);
     }
+    @Bean IdempotenciaRepository idempotenciaRepository(JdbcTemplate jdbc) { return new JdbcIdempotenciaRepository(jdbc); }
+    @Bean LimpiarIdempotenciaUseCase limpiarIdempotencia(IdempotenciaRepository i, Clock clock) { return new LimpiarIdempotenciaService(i, clock); }
+    @Bean LimpiezaIdempotenciaWorker limpiezaIdempotenciaWorker(LimpiarIdempotenciaUseCase l) { return new LimpiezaIdempotenciaWorker(l); }
     @Bean PdfGenerator pdfGenerator() { return new FlyingSaucerPdfGenerator(); }
     @Bean PersonalizarPdfUseCase personalizarPdf(TenantRepository t, DocumentStorage s, PdfGenerator pdf, Clock clock) { return new PersonalizarPdfService(t, s, pdf, clock); }
     @Bean EmisorFirmado emisorFirmado() { return new XmlEmisorFirmado(); }

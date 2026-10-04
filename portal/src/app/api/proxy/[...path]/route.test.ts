@@ -69,6 +69,56 @@ describe("proxy /api/proxy/[...path]: IP del cliente (#208)", () => {
   });
 });
 
+describe("proxy /api/proxy/[...path]: Idempotency-Key (#115)", () => {
+  it("reenvía la clave de idempotencia tal cual y ninguna otra cabecera del navegador", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = requestWithSession("http://localhost/api/proxy/facturas", {
+      method: "POST",
+      body: "{}",
+      access: "a1",
+      headers: { "content-type": "application/json", "idempotency-key": "5f0c1d2e-clave", "x-otra": "no" },
+    });
+
+    await POST(req, ctx(["facturas"]));
+
+    const saliente = fetchMock.mock.calls[0][1].headers as Headers;
+    expect(saliente.get("idempotency-key")).toBe("5f0c1d2e-clave");
+    expect(saliente.has("x-otra")).toBe(false);
+  });
+
+  /** El reintento tras renovar el token es el mismo pedido: lleva la misma clave, así el backend no emite dos veces. */
+  it("el reintento tras renovar el token lleva la misma clave", async () => {
+    vi.mocked(refrescar).mockResolvedValue({ access: "a2", refresh: "r2", usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 401 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = requestWithSession("http://localhost/api/proxy/facturas", {
+      method: "POST",
+      body: "{}",
+      access: "a1",
+      refresh: "r1",
+      headers: { "content-type": "application/json", "idempotency-key": "5f0c1d2e-clave" },
+    });
+
+    await POST(req, ctx(["facturas"]));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[1][1].headers as Headers).get("idempotency-key")).toBe("5f0c1d2e-clave");
+  });
+
+  it("sin clave no inventa una", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await POST(requestWithSession("http://localhost/api/proxy/facturas", { method: "POST", body: "{}", access: "a1" }), ctx(["facturas"]));
+
+    expect((fetchMock.mock.calls[0][1].headers as Headers).has("idempotency-key")).toBe(false);
+  });
+});
+
 describe("proxy /api/proxy/[...path]", () => {
   it("rechaza un segmento .. sin llegar a hacer fetch", async () => {
     const fetchMock = vi.fn();

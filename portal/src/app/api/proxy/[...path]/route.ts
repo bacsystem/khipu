@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiBaseUrl } from "@/lib/api/client";
 import { refrescar, type Tokens } from "@/lib/api/auth";
+import { CABECERA_IDEMPOTENCIA } from "@/lib/idempotencia";
 import { cabecerasDeOrigen } from "@/lib/origen";
 import { clearSession, readSession, writeTokens } from "@/lib/session";
 
@@ -73,6 +74,10 @@ async function forward(
   if (contentType) headers.set("content-type", contentType);
   if (access) headers.set("Authorization", `Bearer ${access}`);
   if (empresa) headers.set("X-Empresa", empresa);
+  // La clave de idempotencia de la emisión (#115) es del navegador y viaja tal cual; también en el reintento tras renovar el token,
+  // que es el mismo pedido.
+  const clave = req.headers.get(CABECERA_IDEMPOTENCIA);
+  if (clave) headers.set(CABECERA_IDEMPOTENCIA, clave);
   // Solo la IP de confianza ya resuelta (#208): este proxy no copia las cabeceras del navegador, y esta tampoco.
   for (const [nombre, valor] of Object.entries(cabecerasDeOrigen(req.headers))) headers.set(nombre, valor);
   return fetch(url, { method: req.method, headers, body, cache: "no-store" });

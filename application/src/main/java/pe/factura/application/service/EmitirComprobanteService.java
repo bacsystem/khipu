@@ -40,10 +40,11 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     private final Clock clock;
     private final EmisorDeSerieRepository emisorDeSerie;
     private final BajaRepository bajas;
+    private final IdempotenciaRepository idempotencia;
 
 
     @Override
-    public Comprobante emitirFactura(UUID tenantId, EmitirFacturaCommand cmd) {
+    public Emision emitirFactura(UUID tenantId, EmitirFacturaCommand cmd, Idempotencia clave) {
         Tenant tenant = tenantListo(tenantId, cmd.enviarAutomatico());
         List<Anticipo> anticipos = cmd.anticipos() == null ? List.of() : cmd.anticipos();
         // La cuenta de detracciones puede omitirse en la factura si la empresa la tiene configurada.
@@ -66,8 +67,12 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 .crear(clock);
         c.anotar(cmd.observaciones());
         // Dentro de la transacción y con la factura de anticipo bloqueada: dos finales concurrentes no pueden regularizar el mismo anticipo dos veces.
-        return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a)));
+        return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a)),
+                clave == null ? null : new ClaveEnAlcance("factura:" + tenantId, clave));
     }
+
+    /** La clave de idempotencia con su alcance: la misma clave en otra empresa es otra clave. */
+    private record ClaveEnAlcance(String alcance, Idempotencia clave) {}
 
     @Override
     public Comprobante emitirNota(UUID tenantId, EmitirNotaCommand cmd) {
@@ -118,7 +123,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             Comprobante bloqueada = exigirModificable(comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, factura.serie(), factura.numero()), factura.serie(), factura.numero());
             exigirSinBajaEnCurso(tenantId, bloqueada);
             if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereALaFactura(c.totales(), nota.motivo(), bloqueada, acreditadoPorNotas(tenantId, bloqueada));
-        });
+        }, null).comprobante();
     }
 
     /**
@@ -211,10 +216,21 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         }
     }
 
-    /** Numera, genera, firma, valida, guarda y (si procede) envía; {@code enTransaccion} corre con el número ya asignado y la serie bloqueada. */
-    private Comprobante emitir(Tenant tenant, Comprobante c, Long correlativo, boolean enviarAutomatico, Runnable enTransaccion) {
+    /**
+     * Numera, genera, firma, valida, guarda y (si procede) envía; {@code enTransaccion} corre con el número ya asignado y la serie bloqueada.
+     * <p>
+     * Con clave de idempotencia (#115), lo primero de la transacción es reservarla: si se revierte, la clave queda libre para el
+     * reintento; si otro pedido con la misma clave está en curso, la reserva espera a que termine, así que dos pedidos simultáneos no
+     * emiten dos facturas. Un pedido ya hecho no toma la serie ni consume número, y no se reenvía a SUNAT: devuelve el comprobante de
+     * entonces en su estado actual.
+     */
+    private Emision emitir(Tenant tenant, Comprobante c, Long correlativo, boolean enviarAutomatico, Runnable enTransaccion, ClaveEnAlcance clave) {
         UUID tenantId = tenant.id();
-        Comprobante firmado = uow.ejecutar(() -> {
+        Emision emision = uow.ejecutar(() -> {
+            if (clave != null) {
+                Optional<IdempotenciaRepository.Registro> previo = idempotencia.reservar(clave.alcance(), clave.clave().clave(), clave.clave().huella());
+                if (previo.isPresent()) return yaEmitida(tenantId, clave, previo.get());
+            }
             long numero;
             if (correlativo != null) {
                 if (comprobantes.buscarPorNumero(tenantId, c.tipo(), c.serie(), correlativo).isPresent())
@@ -238,13 +254,24 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             storage.guardar(key, firma.xmlFirmado().getBytes(StandardCharsets.UTF_8));
             c.firmar(firma.hash(), key);
             comprobantes.guardar(c);
-            return c;
+            if (clave != null) idempotencia.completar(clave.alcance(), clave.clave().clave(), c.id());
+            return new Emision(c, false);
         });
 
-        if (!enviarAutomatico) return firmado;
+        if (emision.repetida() || !enviarAutomatico) return emision;
         // EnviarDocumentoService persiste el resultado y, si queda en ERROR_ENVIO, programa el reintento
         // en el outbox dentro de la misma transacción.
-        return enviar.enviar(tenantId, firmado.id());
+        return new Emision(enviar.enviar(tenantId, emision.comprobante().id()), false);
+    }
+
+    /** La misma clave con otro contenido es un error del cliente: no se reutiliza una clave para otra factura. */
+    private Emision yaEmitida(UUID tenantId, ClaveEnAlcance clave, IdempotenciaRepository.Registro previo) {
+        if (!previo.huella().equals(clave.clave().huella()))
+            throw new DomainException("IDEMPOTENCIA_INVALIDA", "La clave de idempotencia " + clave.clave().clave()
+                    + " ya se usó con otro contenido: genere una clave nueva para otra factura");
+        Comprobante emitida = comprobantes.buscar(tenantId, previo.recursoId())
+                .orElseThrow(() -> new IllegalStateException("La clave " + clave.clave().clave() + " apunta a un comprobante que no existe"));
+        return new Emision(emitida, true);
     }
 
     /**
