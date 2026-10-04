@@ -218,6 +218,42 @@ class JdbcPlanRepositoryTest extends PersistenciaTestBase {
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("NOMBRE_DUPLICADO");
     }
 
+    /** Dos administradores editando el mismo plan se serializan: mientras uno lo tiene leído para editar, nadie más puede bloquearlo. */
+    @Test void leerParaEditarBloqueaLaFilaHastaElFinalDeLaTransaccion() {
+        Plan p = nuevo("Estudio");
+        repo.guardar(p);
+
+        uow.ejecutar(() -> {
+            repo.buscarParaEditar(p.id());
+            assertThatThrownBy(() -> {
+                try (var otra = ds.getConnection(); var st = otra.prepareStatement("SELECT id FROM plan WHERE id = ? FOR UPDATE NOWAIT")) {
+                    st.setObject(1, p.id());
+                    st.executeQuery();
+                }
+            }).hasMessageContaining("could not obtain lock");
+        });
+    }
+
+    @Test void leerSinEditarNoBloquea() {
+        Plan p = nuevo("Estudio");
+        repo.guardar(p);
+
+        uow.ejecutar(() -> {
+            repo.buscar(p.id());
+            assertThat(otraConexionPuedeBloquear(p.id())).isTrue();
+        });
+    }
+
+    private boolean otraConexionPuedeBloquear(UUID id) {
+        try (var otra = ds.getConnection(); var st = otra.prepareStatement("SELECT id FROM plan WHERE id = ? FOR UPDATE NOWAIT")) {
+            st.setObject(1, id);
+            st.executeQuery();
+            return true;
+        } catch (java.sql.SQLException e) {
+            return false;
+        }
+    }
+
     // --- borrar -----------------------------------------------------------------------------------------------------------------------------
 
     @Test void unPlanQueNadieUsoSeBorra() {
