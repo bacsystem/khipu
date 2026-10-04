@@ -73,6 +73,18 @@ class CambiarPlanDeCuentaServiceTest {
             datos.put(actual.cuentaId(), p.cambiarA(nueva.id(), nueva.planId(), nueva.iniciaEn(), nueva.venceEn(), nueva.diasDeGracia()));
             return true;
         }
+        boolean negarExtensiones;
+        public boolean extenderVencimiento(UUID suscripcionId, Instant vencimientoActual, Instant nuevo) {
+            for (Map.Entry<UUID, PlanesDeCuenta> e : datos.entrySet()) {
+                PlanesDeCuenta p = e.getValue();
+                Suscripcion a = p.activa();
+                if (negarExtensiones || !a.id().equals(suscripcionId) || !vencimientoActual.equals(a.venceEn())) continue;
+                List<Suscripcion> lista = p.suscripciones().stream().map(s -> s == a ? new Suscripcion(a.id(), a.cuentaId(), a.planId(), a.iniciaEn(), nuevo, a.diasDeGracia(), a.terminaEn()) : s).toList();
+                datos.put(e.getKey(), new PlanesDeCuenta(p.cuentaId(), lista, p.programado()));
+                return true;
+            }
+            return false;
+        }
         public void programar(UUID c, CambioDePlan cambio) { datos.put(c, datos.get(c).programar(cambio)); }
         public void cancelarProgramado(UUID c) { datos.put(c, datos.get(c).cancelarProgramado()); }
         public List<UUID> cuentasConCambioVencido(Instant ahora, int limite) {
