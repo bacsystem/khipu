@@ -6,14 +6,18 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import pe.factura.adapters.rest.dto.CuentaAdminResponse;
+import pe.factura.adapters.rest.dto.CuentaDetalleResponse;
+import pe.factura.application.port.in.DetalleCuentaAdminUseCase;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.Filtro;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Listado de cuentas de clientes del backoffice (#180). Solo lectura. Autenticado por {@link AdminAuthFilter}: la clave de
@@ -25,6 +29,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminCuentaController {
     private final ListarCuentasAdminUseCase cuentas;
+    private final DetalleCuentaAdminUseCase detalle;
 
     @GetMapping("/cuentas")
     @Operation(summary = "Listar las cuentas de clientes", description = """
@@ -42,5 +47,15 @@ public class AdminCuentaController {
         List<CuentaAdminResponse> datos = cuentas.listar(filtro, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
                 .stream().map(CuentaAdminResponse::de).toList();
         return ResponseEntity.ok().header(FacturaController.TOTAL_HEADER, String.valueOf(cuentas.contar(filtro))).body(ApiResponse.ok(datos));
+    }
+
+    @GetMapping("/cuentas/{id}")
+    @Operation(summary = "Abrir una cuenta", description = """
+            Los usuarios de la cuenta (rol, si verificaron su correo y su último acceso), sus empresas (RUC, razón social, entorno y si
+            tienen certificado y credenciales SOL cargados, **sin exponer su contenido**) y su actividad reciente: los 10 comprobantes
+            de fecha de emisión más reciente entre todas sus empresas y las últimas 10 acciones del administrador sobre la cuenta.
+            Solo lectura; no se audita. `404 NO_ENCONTRADO` si la cuenta no existe.""")
+    public ApiResponse<CuentaDetalleResponse> abrir(@Parameter(description = "Id de la cuenta") @PathVariable UUID id) {
+        return ApiResponse.ok(CuentaDetalleResponse.de(detalle.detalle(id)));
     }
 }
