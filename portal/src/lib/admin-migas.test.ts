@@ -38,6 +38,10 @@ describe("migaAdmin", () => {
     expect(migaAdmin("/admin/integridad")).toEqual({ seccion: "Operación", pagina: "Integridad" });
   });
 
+  it("el monitor cuelga de «Operación» y no ofrece crear una cuenta", () => {
+    expect(migaAdmin("/admin/monitor")).toEqual({ seccion: "Operación", pagina: "Monitor" });
+  });
+
   it("«/admin» solo es el inicio de forma exacta: no engulle las páginas que todavía no tienen miga", () => {
     expect(migaAdmin("/admin/operacion")).toBeNull();
   });

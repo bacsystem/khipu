@@ -128,7 +128,8 @@
       "empresas": "Empresas",
       "planes": "Planes",
       "consumo": "Consumo",
-      "integridad": "Integridad"
+      "integridad": "Integridad",
+      "monitor": "Monitor"
     },
     "topbar": {
       "ubicacion": "Ubicación",
@@ -515,6 +516,74 @@
         "fechaInvalida": "Esa fecha no existe.",
         "alReves": "El rango no puede terminar antes de empezar.",
         "demasiadoLargo": "El rango no puede pasar de {max} días."
+      }
+    },
+    "monitor": {
+      "titulo": "Monitor de emisión",
+      "descripcion": "Cómo va la emisión de todos los clientes: los comprobantes de las últimas 24 horas, la cola de envíos a SUNAT y si SUNAT contesta. Se actualiza solo cada 30 segundos.",
+      "ultimaLectura": "Última lectura: {hora}",
+      "actualizando": "Actualizando…",
+      "errorAlActualizar": "No se pudo actualizar el monitor. Se muestra la última lectura.",
+      "errorInicial": "No se pudo cargar el monitor.",
+      "sesionTerminada": "Tu sesión terminó. Recarga la página para volver a entrar.",
+      "reintentar": "Reintentar",
+      "alerta": {
+        "titulo": "El envío a SUNAT parece detenido",
+        "uno": "Hay 1 envío vencido y lleva {tiempo} esperando. El trabajo que vacía la cola probablemente no está corriendo.",
+        "varios": "Hay {n} envíos vencidos y el que más espera lleva {tiempo}. El trabajo que vacía la cola probablemente no está corriendo."
+      },
+      "hoy": {
+        "titulo": "Hoy",
+        "ayuda": "Desde la medianoche de Lima.",
+        "tasa": "Tasa de rechazo",
+        "tasaAyuda": "Rechazados sobre los que SUNAT ya resolvió."
+      },
+      "categorias": {
+        "total": "Comprobantes",
+        "aceptados": "Aceptados",
+        "rechazados": "Rechazados",
+        "conError": "Con error",
+        "enCamino": "En camino",
+        "otros": "Otros"
+      },
+      "categoriasAyuda": {
+        "aceptados": "Aceptados por SUNAT, con o sin observaciones.",
+        "rechazados": "Rechazados por SUNAT.",
+        "conError": "No llegaron: error de envío o fuera de plazo.",
+        "enCamino": "Firmados, enviados o esperando el resumen diario.",
+        "otros": "Recibidos, inválidos o dados de baja."
+      },
+      "horas": {
+        "titulo": "Últimas 24 horas",
+        "ayuda": "Comprobantes creados por hora, en hora de Lima.",
+        "sinDatos": "No se creó ningún comprobante en las últimas 24 horas.",
+        "grafico": "Comprobantes creados por hora en las últimas 24 horas",
+        "tabla": "Ver los números por hora",
+        "hora": "Hora",
+        "barra": "{hora}: {total} comprobantes"
+      },
+      "outbox": {
+        "titulo": "Cola de envíos",
+        "ayuda": "Envíos a SUNAT que esperan salir. Un reintento programado no cuenta como vencido.",
+        "pendientes": "Pendientes",
+        "vencidos": "Vencidos",
+        "masAntiguo": "El más antiguo está desde",
+        "vencidoHace": "El que más espera lleva {tiempo}.",
+        "vacia": "La cola está vacía."
+      },
+      "sunat": {
+        "titulo": "SUNAT",
+        "ayuda": "Si cada servicio contesta. La lectura se guarda 30 segundos y no envía ningún comprobante.",
+        "disponible": "Disponible",
+        "noDisponible": "No disponible",
+        "sinServicios": "No hay servicios de SUNAT configurados.",
+        "milisegundos": "{ms} ms",
+        "servicios": {
+          "ENVIO_PRODUCCION": "Envío (producción)",
+          "ENVIO_BETA": "Envío (beta)",
+          "CONSULTA_DE_CDR": "Consulta de CDR",
+          "CONSULTA_DE_VALIDEZ": "Consulta de validez"
+        }
       }
     },
     "estadoCuenta": {
