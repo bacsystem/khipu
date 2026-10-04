@@ -88,6 +88,35 @@ describe("middleware", () => {
     expect(res.cookies.get(COOKIE_REFRESH)?.value).toBe("");
   });
 
+  // --- #182: una cuenta suspendida no es una sesión muerta -----------------------------------------------------------------------
+
+  it("si la cuenta está suspendida, explica en /cuenta-suspendida y NO limpia la sesión", async () => {
+    const access = jwtCon(Math.floor(Date.now() / 1000) - 60);
+    vi.mocked(refrescar).mockRejectedValue(new ApiError(403, "CUENTA_SUSPENDIDA", "Tu cuenta está suspendida"));
+
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: access, [COOKIE_REFRESH]: "r1" }));
+
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/cuenta-suspendida");
+    // El backend no revoca la sesión al suspender: al reactivar, la misma sesión vuelve a servir.
+    expect(res.cookies.get(COOKIE_REFRESH)).toBeUndefined();
+    expect(res.cookies.get(COOKIE_ACCESS)).toBeUndefined();
+  });
+
+  it("un 403 por otra causa sigue yendo al login y limpiando la sesión", async () => {
+    const access = jwtCon(Math.floor(Date.now() / 1000) - 60);
+    vi.mocked(refrescar).mockRejectedValue(new ApiError(403, "EMPRESA_AJENA", "No es tu empresa"));
+
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: access, [COOKIE_REFRESH]: "r1" }));
+
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+    expect(res.cookies.get(COOKIE_REFRESH)?.value).toBe("");
+  });
+
+  it("la página de cuenta suspendida no es privada: no está en el matcher, o redirigiría a sí misma sin fin", () => {
+    expect(config.matcher.join(" ")).not.toContain("cuenta-suspendida");
+  });
+
   // El matcher tiene que ser un literal para que Next lo analice en build, así que no se puede
   // derivar del árbol de rutas. Esta comparación es lo que impide que una página privada nueva se
   // quede sin refresco proactivo del access token (el síntoma es una expulsión al login a los 15

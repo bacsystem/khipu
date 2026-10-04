@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { EstadoCertificado } from "@/lib/api/admin-cuenta-detalle";
+import type { EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import { formatearFecha } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,15 @@ export function CertificadoEtiqueta({ estado }: { estado: EstadoCertificado }) {
   return (
     <span data-estado={estado.tipo}>
       <Etiqueta tono={tono}>{texto}</Etiqueta>
+    </span>
+  );
+}
+
+/** El estado de una cuenta (#182): «Suspendida» en rojo, para que el administrador la vea de un vistazo. `data-estado-cuenta` es para las pruebas y los estilos. */
+export function EstadoCuentaEtiqueta({ estado }: { estado: EstadoCuentaAdmin }) {
+  return (
+    <span data-estado-cuenta={estado}>
+      <Etiqueta tono={estado === "SUSPENDIDA" ? "error" : "ok"}>{messages.admin.estadoCuenta[estado]}</Etiqueta>
     </span>
   );
 }

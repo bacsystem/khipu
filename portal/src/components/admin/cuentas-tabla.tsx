@@ -4,6 +4,7 @@ import { InboxIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
+import { EstadoCuentaEtiqueta } from "@/components/admin/etiquetas";
 import { PieTabla } from "@/components/ui/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
@@ -11,6 +12,7 @@ import { hrefCuentas, type CuentaAdmin, type ParamsCuentas } from "@/lib/api/adm
 import { BOTON_SECUNDARIO, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { messages } from "@/lib/messages";
+import { cn } from "@/lib/utils";
 
 const columnas = messages.admin.cuentas.columnas;
 
@@ -69,13 +71,14 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
               <TableHead className={`${CABECERA_TABLA} pl-4`}>{columnas.cuenta}</TableHead>
               <TableHead className={CABECERA_TABLA}>{columnas.telefono}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.empresas}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{columnas.estado}</TableHead>
               <TableHead className={CABECERA_TABLA}>{columnas.alta}</TableHead>
               <TableHead className={`${CABECERA_TABLA} pr-4`}>{columnas.ultimoAcceso}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">
             {datos.map((c) => (
-              <TableRow key={c.id} className="border-b border-border/60 hover:bg-muted/80">
+              <TableRow key={c.id} data-estado-cuenta={c.estado} className={cn("border-b border-border/60 hover:bg-muted/80", c.estado === "SUSPENDIDA" && "bg-destructive/5 hover:bg-destructive/10")}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleCuenta(c.id)} className="font-medium text-foreground hover:text-primary hover:underline">
@@ -86,6 +89,9 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
                 </TableCell>
                 <TableCell className="px-3 py-2 font-mono text-[12px] text-foreground/80">{c.telefono ?? "—"}</TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{c.empresas}</TableCell>
+                <TableCell className="px-3 py-2">
+                  <EstadoCuentaEtiqueta estado={c.estado} />
+                </TableCell>
                 <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(c.creada_en)}</TableCell>
                 <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">
                   {c.ultimo_acceso ? formatearFechaHora(c.ultimo_acceso) : <span className="text-muted-foreground">{messages.admin.cuentas.nunca}</span>}
@@ -94,7 +100,7 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
             ))}
             {datos.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={5} className="py-14 text-center">
+                <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <InboxIcon className="size-6" />
                     <p className="text-sm">{params.q ? messages.admin.cuentas.sinResultados : messages.admin.cuentas.vacio}</p>

@@ -28,6 +28,8 @@ export type CuentaAdminMock = {
   telefono?: string;
   creada_en: string;
   ultimo_acceso?: string;
+  /** Desde cuándo está suspendida (#182); ausente si está activa. */
+  suspendida_en?: string;
   empresas: Array<{ ruc: string; razon_social: string }>;
 };
 /**
@@ -154,6 +156,8 @@ export const db = {
   /** `segundoFactor`: si ya configuró la app de autenticación (#177). El mock no guarda estado del 2FA: ver los handlers. */
   administradoresPorEmail: new Map<string, { administrador: Administrador; password: string; segundoFactor: boolean }>(),
   cuentasAdmin: [] as CuentaAdminMock[],
+  /** Cuentas de CLIENTE suspendidas (#182), por id de cuenta: su login y su refresh responden 403 `CUENTA_SUSPENDIDA`. */
+  cuentasSuspendidas: new Set<string>(),
   /** Las empresas del listado del backoffice (#185); aparte de `cuentasAdmin` para sembrar todos los estados del certificado. */
   empresasAdmin: [] as EmpresaAdminMock[],
   /** Idempotency-Key de la emisión (#115): `empresa|clave` → huella del pedido y factura emitida. */
@@ -180,6 +184,7 @@ export function resetDb() {
   db.administradoresPorEmail.clear();
   db.clavesEmision.clear();
   db.clavesAlta.clear();
+  db.cuentasSuspendidas.clear();
   db.verificaciones.clear();
   db.empresasAdmin = [];
 
@@ -220,6 +225,8 @@ export function resetDb() {
         telefono: `9000000${dos}`,
         creada_en: `2026-09-${dos}T15:00:00Z`,
         ultimo_acceso: `2026-10-01T1${i}:00:00Z`,
+        // «Cliente 06» está suspendida de siembra (nadie la muta); «Cliente 09» es la que suspende y reactiva el e2e de la acción.
+        ...(n === 6 ? { suspendida_en: "2026-10-02T15:00:00Z" } : {}),
         empresas: i % 3 === 0 ? [] : [{ ruc: `2010000${dos}00`, razon_social: `CLIENTE ${dos} SAC` }],
       };
     }),
@@ -253,6 +260,10 @@ export function resetDb() {
     correo_verificado: true,
   };
   db.usuariosPorEmail.set(usuario.email, { usuario, password: "Passw0rd1" });
+  // Un cliente cuya cuenta está suspendida (#182): sus credenciales son correctas, pero el backend no lo deja entrar.
+  const suspendido: Usuario = { id: "u-suspendida", cuenta_id: "c-suspendida", email: "suspendida@example.com", rol: "ADMIN", correo_verificado: true };
+  db.usuariosPorEmail.set(suspendido.email, { usuario: suspendido, password: "Passw0rd1" });
+  db.cuentasSuspendidas.add(suspendido.cuenta_id);
 
   const empresa: Empresa = {
     id: "e-demo",

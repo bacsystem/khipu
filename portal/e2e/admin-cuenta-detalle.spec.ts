@@ -52,12 +52,15 @@ test("el detalle muestra usuarios, empresas con su certificado, comprobantes y b
   await expect(eventos.getByText("SUSPENDER_CUENTA")).toBeVisible();
 });
 
-test("es solo lectura: no ofrece ninguna acción sobre la cuenta", async ({ page }) => {
+/** Desde #182 hay una acción, y solo esa: suspender. Las demás (impersonar, planes…) llegan en sus issues. */
+test("la única acción sobre la cuenta es suspenderla: ningún otro botón", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto(`/admin/cuentas/${ID_SOL}`);
 
-  await expect(page.getByTestId("cuenta-detalle")).toBeVisible();
-  await expect(page.getByTestId("cuenta-detalle").getByRole("button")).toHaveCount(0);
+  const detalle = page.getByTestId("cuenta-detalle");
+  await expect(detalle).toBeVisible();
+  await expect(detalle.getByRole("button")).toHaveCount(1);
+  await expect(detalle.getByTestId("suspender-cuenta")).toBeVisible();
 });
 
 test("una cuenta sin empresas ni movimientos muestra los estados vacíos", async ({ page }) => {

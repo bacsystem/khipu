@@ -19,10 +19,38 @@ const ANA: CuentaAdmin = {
   creada_en: "2026-09-02T15:00:00Z",
   empresas: 2,
   ultimo_acceso: "2026-10-01T14:30:00Z",
+  estado: "ACTIVA",
 };
-const NUEVA: CuentaAdmin = { id: "c2", nombre: "Ferretería Luna", email: "luis@luna.pe", creada_en: "2026-09-03T15:00:00Z", empresas: 0 };
+const NUEVA: CuentaAdmin = { id: "c2", nombre: "Ferretería Luna", email: "luis@luna.pe", creada_en: "2026-09-03T15:00:00Z", empresas: 0, estado: "ACTIVA" };
+const SUSPENDIDA: CuentaAdmin = { ...ANA, id: "c3", nombre: "Bodega Sur", email: "sur@bodega.pe", estado: "SUSPENDIDA", suspendida_en: "2026-10-02T15:00:00Z" };
 
 const SIN_FILTROS = { pagina: 1, porPagina: 10 };
+
+describe("CuentasTabla estado (#182)", () => {
+  it("cada cuenta dice si está activa o suspendida", () => {
+    render(<CuentasTabla datos={[ANA, SUSPENDIDA]} total={2} params={SIN_FILTROS} />);
+
+    expect(screen.getByText("Activa")).toBeTruthy();
+    expect(screen.getByText("Suspendida")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Estado" })).toBeTruthy();
+  });
+
+  it("la fila de una cuenta suspendida se distingue, y la de una activa no", () => {
+    render(<CuentasTabla datos={[ANA, SUSPENDIDA]} total={2} params={SIN_FILTROS} />);
+
+    const filas = screen.getAllByRole("row").slice(1);
+    expect(filas[0].getAttribute("data-estado-cuenta")).toBe("ACTIVA");
+    expect(filas[0].className).not.toContain("bg-destructive");
+    expect(filas[1].getAttribute("data-estado-cuenta")).toBe("SUSPENDIDA");
+    expect(filas[1].className).toContain("bg-destructive");
+  });
+
+  it("una cuenta suspendida sigue en el listado y enlazada a su detalle, para poder reactivarla", () => {
+    render(<CuentasTabla datos={[SUSPENDIDA]} total={1} params={SIN_FILTROS} />);
+
+    expect(screen.getByRole("link", { name: "Bodega Sur" }).getAttribute("href")).toBe("/admin/cuentas/c3");
+  });
+});
 
 describe("CuentasTabla", () => {
   it("muestra la cuenta con su correo, teléfono, empresas y fechas en hora de Lima", () => {
@@ -49,10 +77,9 @@ describe("CuentasTabla", () => {
     expect(screen.getByText("Último inicio de sesión")).toBeTruthy();
   });
 
-  it("no muestra columnas de estado ni de plan: llegan con #182 y #189", () => {
+  it("no muestra una columna de plan: llega con #189", () => {
     render(<CuentasTabla datos={[ANA]} total={1} params={SIN_FILTROS} />);
 
-    expect(screen.queryByText(/estado/i)).toBeNull();
     expect(screen.queryByText(/plan/i)).toBeNull();
   });
 
