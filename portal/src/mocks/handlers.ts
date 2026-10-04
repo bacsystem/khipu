@@ -1,9 +1,9 @@
 import { http, HttpResponse } from "msw";
-import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
+import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto, venceDesdeFechaDeLima } from "@/lib/formato";
 import { esUuid } from "@/lib/uuid";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
-import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
+import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -392,6 +392,75 @@ function parametrosDeConsumoMock(url: URL): { mes: string; filtro: string; orden
   return { mes, filtro, orden };
 }
 
+const MEDIOS_DE_PAGO_MOCK = ["TRANSFERENCIA", "DEPOSITO", "YAPE", "PLIN", "TARJETA", "EFECTIVO", "OTRO"];
+
+/** `YYYY-MM-DD` de un día que existe, como el backend lo lee (`2026-02-30` no). */
+function fechaIsoValidaMock(texto: unknown): texto is string {
+  if (typeof texto !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(texto)) return false;
+  const [a, m, d] = texto.split("-").map(Number);
+  return new Date(Date.UTC(a, m - 1, d)).getUTCMonth() === m - 1;
+}
+
+/** El último día que admite un periodo que empieza en `desde`: un año después menos un día (el 29 de febrero se ajusta al último día del mes). */
+function ultimoDiaDeUnPeriodoMock(desde: string): string {
+  const [a, m, d] = desde.split("-").map(Number);
+  const f = new Date(Date.UTC(a + 1, m - 1, d));
+  if (f.getUTCMonth() !== m - 1) f.setTime(Date.UTC(a + 1, m, 0));
+  f.setUTCDate(f.getUTCDate() - 1);
+  return f.toISOString().slice(0, 10);
+}
+
+/**
+ * Las mismas reglas que el backend al registrar un pago (#194), en su mismo orden: el periodo, el monto, el medio y las fechas son datos (422); luego la fecha futura; luego
+ * la extensión del vencimiento (409 si el plan no vence o el pago no lo adelanta); luego el pago repetido (409). Con `extender_vencimiento` el vencimiento pasa a la
+ * medianoche de Lima del día siguiente al fin del periodo. Devuelve el pago guardado o el error.
+ */
+function registrarPagoMock(cuentaId: string, c: Record<string, unknown>): { pago: PagoMock } | { error: ReturnType<typeof fail> } {
+  const desde = c.periodo_desde;
+  const hasta = c.periodo_hasta;
+  if (!fechaIsoValidaMock(desde) || !fechaIsoValidaMock(hasta)) return { error: fail(422, "PERIODO_INVALIDO", "El pago necesita el periodo que cubre: desde y hasta") };
+  if (hasta < desde) return { error: fail(422, "PERIODO_INVALIDO", "El periodo no puede terminar antes de empezar") };
+  if (hasta > ultimoDiaDeUnPeriodoMock(desde)) return { error: fail(422, "PERIODO_INVALIDO", "El periodo no puede pasar de un año") };
+  const monto = c.monto;
+  if (typeof monto !== "number" || !(monto > 0) || Math.round(monto * 100) / 100 !== monto || monto > 9_999_999.99) return { error: fail(422, "MONTO_INVALIDO", "El monto debe ser mayor que cero, con hasta dos decimales") };
+  if (typeof c.medio !== "string" || !MEDIOS_DE_PAGO_MOCK.includes(c.medio)) return { error: fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido") };
+  if (!fechaIsoValidaMock(c.fecha_de_pago)) return { error: fail(422, "FECHA_DE_PAGO_INVALIDA", "El pago necesita la fecha en que se hizo") };
+  const referencia = typeof c.referencia === "string" && c.referencia.trim() ? c.referencia.trim() : undefined;
+  const nota = typeof c.nota === "string" && c.nota.trim() ? c.nota.trim() : undefined;
+  if (referencia && referencia.length > 100) return { error: fail(422, "REFERENCIA_INVALIDA", "La referencia no puede pasar de 100 caracteres") };
+  if (nota && nota.length > 200) return { error: fail(422, "NOTA_INVALIDA", "La nota no puede pasar de 200 caracteres") };
+  if (c.fecha_de_pago > hoyLima()) return { error: fail(422, "FECHA_DE_PAGO_FUTURA", `La fecha de pago no puede ser futura: ${c.fecha_de_pago}`) };
+
+  const actual = planDeCuentaMock(cuentaId);
+  let extendioHasta: string | undefined;
+  if (c.extender_vencimiento === true) {
+    if (!actual.venceEn) return { error: fail(409, "PLAN_SIN_VENCIMIENTO", "El plan de la cuenta no vence: no hay vencimiento que extender") };
+    extendioHasta = venceDesdeFechaDeLima(hasta);
+    if (Date.parse(extendioHasta) <= Date.parse(actual.venceEn))
+      return { error: fail(409, "EXTENSION_SIN_EFECTO", "La cuenta ya está pagada hasta esa fecha o más: el pago no extiende nada. Regístralo sin extender el vencimiento") };
+  }
+  const existentes = db.pagosPorCuenta.get(cuentaId) ?? [];
+  if (referencia && existentes.some((p) => p.medio === c.medio && p.referencia?.toLowerCase() === referencia.toLowerCase()))
+    return { error: fail(409, "PAGO_DUPLICADO", `Esa cuenta ya tiene un pago por ${c.medio} con la referencia «${referencia}»`) };
+
+  if (extendioHasta) db.planesDeCuenta.set(cuentaId, { ...actual, venceEn: extendioHasta });
+  const pago: PagoMock = {
+    id: idPagoMock(1000 + [...db.pagosPorCuenta.values()].reduce((n, l) => n + l.length, 0) + Math.floor(Math.random() * 1_000_000)),
+    cuenta_id: cuentaId,
+    periodo_desde: desde,
+    periodo_hasta: hasta,
+    monto,
+    medio: c.medio as PagoMock["medio"],
+    fecha_de_pago: c.fecha_de_pago,
+    ...(referencia ? { referencia } : {}),
+    ...(nota ? { nota } : {}),
+    registrado_en: new Date().toISOString(),
+    ...(extendioHasta ? { extendio_hasta: extendioHasta } : {}),
+  };
+  db.pagosPorCuenta.set(cuentaId, [...existentes, pago]);
+  return { pago };
+}
+
 export const handlers = [
   // Solo bajo API_MOCKING: `globalSetup` de Playwright lo llama al empezar cada corrida. Sin esto la suite no era
   // idempotente contra un dev server reutilizado (`reuseExistingServer` en local): cada corrida gastaba el tope 3286
@@ -674,6 +743,42 @@ export const handlers = [
     if (bajada) db.planesDeCuenta.set(String(params.id), { ...actual, programado: { planId: nuevo.id, aplicaDesde: desde, venceEn: cuerpo.vence_en, diasDeGracia: gracia } });
     else db.planesDeCuenta.set(String(params.id), { planId: nuevo.id, iniciaEn: desde, venceEn: cuerpo.vence_en, diasDeGracia: gracia });
     return ok(vistaDePlanDeCuenta(String(params.id)));
+  }),
+
+  /**
+   * Como el backend (#194): el historial de pagos de una cuenta, del más reciente al más antiguo (por fecha de pago y luego por registro), con el total en la cabecera.
+   * El estado se guarda por cuenta: las specs de la corrida comparten este mock en paralelo, así que **cada test que registra pagos usa referencias propias** y los
+   * que mueven un vencimiento usan su propia cuenta.
+   */
+  http.get(`${BASE}/v1/admin/cuentas/:id/pagos`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    if (!db.cuentasAdmin.some((c) => c.id === params.id)) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
+    const url = new URL(request.url);
+    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
+    const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
+    const todos = [...(db.pagosPorCuenta.get(String(params.id)) ?? [])].sort(
+      (a, b) => b.fecha_de_pago.localeCompare(a.fecha_de_pago) || b.registrado_en.localeCompare(a.registrado_en) || a.id.localeCompare(b.id),
+    );
+    return HttpResponse.json(
+      { estado: "exito", datos: todos.slice((pagina - 1) * porPagina, pagina * porPagina), mensaje: null, codigo: null, errores: null },
+      { headers: { "x-total-count": String(todos.length) } },
+    );
+  }),
+
+  http.post(`${BASE}/v1/admin/cuentas/:id/pagos`, async ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    if (!db.cuentasAdmin.some((c) => c.id === params.id)) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
+    let cuerpo: unknown;
+    try {
+      cuerpo = await request.json();
+    } catch {
+      return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
+    }
+    if (cuerpo === null || typeof cuerpo !== "object" || Array.isArray(cuerpo)) return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
+    const r = registrarPagoMock(String(params.id), cuerpo as Record<string, unknown>);
+    return "error" in r ? r.error : ok(r.pago, 201);
   }),
 
   /** Como el backend (#193): consumo de todas las cuentas contra su plan de hoy, con filtro, orden, mes y página; el total, que refleja el filtro, va en la cabecera. */
