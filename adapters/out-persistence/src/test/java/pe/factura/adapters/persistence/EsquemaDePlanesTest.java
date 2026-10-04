@@ -136,6 +136,31 @@ class EsquemaDePlanesTest extends PersistenciaTestBase {
         assertThatThrownBy(() -> nuevoPlan("Raro", "10", 10, 1, false, "SUSPENDIDO")).isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    void cambioProgramado(Integer documentos, int rucs, Integer usuarios, Integer keys, int retencion) {
+        jdbc.update("INSERT INTO plan_cambio_programado (plan_id, aplica_desde, documentos_al_mes, rucs, usuarios, api_keys, retencion_anios) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                plan("Emprende"), Timestamp.from(T0), documentos, rucs, usuarios, keys, retencion);
+    }
+
+    /** El cambio programado respeta los mismos topes que el plan: mayores que cero o ilimitados, nunca cero. */
+    @Test void elCambioProgramadoRespetaLosMismosTopes() {
+        assertThatThrownBy(() -> cambioProgramado(0, 1, 1, 1, 1)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> cambioProgramado(1, 0, 1, 1, 1)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> cambioProgramado(1, 1, 0, 1, 1)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> cambioProgramado(1, 1, 1, 0, 1)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> cambioProgramado(1, 1, 1, 1, 0)).isInstanceOf(DataIntegrityViolationException.class);
+
+        cambioProgramado(null, 1, null, null, 1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM plan_cambio_programado", Integer.class)).isEqualTo(1);
+        jdbc.update("DELETE FROM plan_cambio_programado");
+    }
+
+    @Test void unPlanTieneComoMuchoUnCambioProgramado() {
+        cambioProgramado(5, 1, 1, 1, 1);
+
+        assertThatThrownBy(() -> cambioProgramado(6, 1, 1, 1, 1)).isInstanceOf(DuplicateKeyException.class);
+        jdbc.update("DELETE FROM plan_cambio_programado");
+    }
+
     /** Sin plan por defecto una cuenta nueva no puede nacer: falla entera en vez de quedar sin plan. */
     @Test void sinPlanPorDefectoNoSePuedeCrearUnaCuenta() {
         jdbc.update("UPDATE plan SET por_defecto = FALSE WHERE nombre = 'Gratis'");
