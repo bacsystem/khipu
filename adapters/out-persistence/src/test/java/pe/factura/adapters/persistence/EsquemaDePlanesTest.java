@@ -161,6 +161,35 @@ class EsquemaDePlanesTest extends PersistenciaTestBase {
         jdbc.update("DELETE FROM plan_cambio_programado");
     }
 
+    void programar(UUID cuenta, Instant aplica, Instant vence, int gracia) {
+        jdbc.update("INSERT INTO suscripcion_cambio_programado (cuenta_id, plan_id, aplica_desde, vence_en, dias_de_gracia) VALUES (?, ?, ?, ?, ?)",
+                cuenta, plan("Emprende"), Timestamp.from(aplica), vence == null ? null : Timestamp.from(vence), gracia);
+    }
+
+    /** El cambio de plan programado (#191, V39): uno por cuenta, con fechas y gracia coherentes. */
+    @Test void elCambioDePlanProgramadoEsUnoPorCuentaYConFechasCoherentes() {
+        UUID c = cuenta("ana@negocio.pe", T0);
+        Instant aplica = T0.plusSeconds(86_400);
+
+        programar(c, aplica, aplica.plusSeconds(86_400), 3);
+
+        assertThatThrownBy(() -> programar(c, aplica, null, 0)).isInstanceOf(DuplicateKeyException.class);
+        jdbc.update("DELETE FROM suscripcion_cambio_programado");
+        assertThatThrownBy(() -> programar(c, aplica, aplica, 0)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> programar(c, aplica, aplica.minusSeconds(1), 0)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> programar(c, aplica, null, -1)).isInstanceOf(DataIntegrityViolationException.class);
+        programar(c, aplica, null, 0);
+        jdbc.update("DELETE FROM suscripcion_cambio_programado");
+    }
+
+    @Test void unCambioProgramadoNoApuntaAUnaCuentaNiAUnPlanQueNoExisten() {
+        UUID c = cuenta("ana@negocio.pe", T0);
+
+        assertThatThrownBy(() -> programar(UUID.randomUUID(), T0.plusSeconds(10), null, 0)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO suscripcion_cambio_programado (cuenta_id, plan_id, aplica_desde) VALUES (?, ?, ?)",
+                c, UUID.randomUUID(), Timestamp.from(T0.plusSeconds(10)))).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     /** Sin plan por defecto una cuenta nueva no puede nacer: falla entera en vez de quedar sin plan. */
     @Test void sinPlanPorDefectoNoSePuedeCrearUnaCuenta() {
         jdbc.update("UPDATE plan SET por_defecto = FALSE WHERE nombre = 'Gratis'");

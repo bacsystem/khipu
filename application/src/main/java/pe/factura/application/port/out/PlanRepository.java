@@ -32,6 +32,9 @@ public interface PlanRepository {
     /** Cuántas cuentas tienen hoy cada plan como su suscripción vigente. Los planes que nadie usa no figuran. */
     Map<UUID, Long> cuentasPorPlan();
 
-    /** Cuántas suscripciones —vigentes o pasadas— se hicieron alguna vez a este plan. Si hay alguna, el plan no se puede borrar (solo desactivar). */
+    /**
+     * Cuántas suscripciones —vigentes o pasadas— se hicieron alguna vez a este plan, más las cuentas que esperan pasar a él (un cambio programado, #191). Si hay
+     * alguna, el plan no se puede borrar (solo desactivar).
+     */
     long suscripcionesDelPlan(UUID id);
 }

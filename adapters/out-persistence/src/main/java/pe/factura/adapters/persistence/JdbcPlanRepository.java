@@ -89,6 +89,7 @@ public class JdbcPlanRepository implements PlanRepository {
     @Override public boolean eliminar(UUID id) {
         return jdbc.update("""
                 DELETE FROM plan WHERE id = ? AND NOT por_defecto AND NOT EXISTS (SELECT 1 FROM suscripcion s WHERE s.plan_id = plan.id)
+                AND NOT EXISTS (SELECT 1 FROM suscripcion_cambio_programado c WHERE c.plan_id = plan.id)
                 """, id) == 1;
     }
 
@@ -100,7 +101,7 @@ public class JdbcPlanRepository implements PlanRepository {
     }
 
     @Override public long suscripcionesDelPlan(UUID id) {
-        return jdbc.queryForObject("SELECT count(*) FROM suscripcion WHERE plan_id = ?", Long.class, id);
+        return jdbc.queryForObject("SELECT (SELECT count(*) FROM suscripcion WHERE plan_id = ?) + (SELECT count(*) FROM suscripcion_cambio_programado WHERE plan_id = ?)", Long.class, id, id);
     }
 
     private Plan mapear(ResultSet rs, int i) throws SQLException {

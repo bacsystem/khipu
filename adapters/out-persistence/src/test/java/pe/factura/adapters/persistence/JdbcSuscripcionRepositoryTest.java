@@ -2,11 +2,14 @@ package pe.factura.adapters.persistence;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
+import pe.factura.domain.plan.CambioDePlan;
 import pe.factura.domain.plan.PlanesDeCuenta;
 import pe.factura.domain.plan.Suscripcion;
 
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -145,5 +148,171 @@ class JdbcSuscripcionRepositoryTest extends PersistenciaTestBase {
 
         assertThat(repo.deLaCuenta(a).orElseThrow()).isEqualTo(pa);
         assertThat(activas(b)).isEqualTo(1);
+    }
+
+    // --- el cambio programado (#191) --------------------------------------------------------------------------------------------------------
+
+    static final Instant CICLO = Instant.parse("2026-11-01T05:00:00Z");
+
+    CambioDePlan aEmprende() { return new CambioDePlan(plan("Emprende"), CICLO, CICLO.plus(Duration.ofDays(30)), 3); }
+
+    long programados(UUID cuenta) { return jdbc.queryForObject("SELECT count(*) FROM suscripcion_cambio_programado WHERE cuenta_id = ?", Long.class, cuenta); }
+
+    @Test void unaCuentaNuevaNoTieneNadaProgramado() {
+        assertThat(repo.deLaCuenta(cuenta("ana@negocio.pe")).orElseThrow().programado()).isNull();
+    }
+
+    @Test void programarGuardaElCambioConSuVencimientoYSuGraciaYNoTocaLaSuscripcionActiva() {
+        UUID c = cuenta("ana@negocio.pe");
+        PlanesDeCuenta antes = repo.deLaCuenta(c).orElseThrow();
+
+        repo.programar(c, aEmprende());
+
+        PlanesDeCuenta leido = repo.deLaCuenta(c).orElseThrow();
+        assertThat(leido.programado()).isEqualTo(aEmprende());
+        assertThat(leido.activa()).isEqualTo(antes.activa());
+        assertThat(leido.suscripciones()).hasSize(1);
+        assertThat(activas(c)).isEqualTo(1);
+    }
+
+    @Test void unCambioSinVencimientoNiGraciaTambienSeGuarda() {
+        UUID c = cuenta("ana@negocio.pe");
+
+        repo.programar(c, new CambioDePlan(plan("Gratis"), CICLO, null, 0));
+
+        assertThat(repo.deLaCuenta(c).orElseThrow().programado()).isEqualTo(new CambioDePlan(plan("Gratis"), CICLO, null, 0));
+    }
+
+    @Test void unSegundoCambioProgramadoReemplazaAlPrimero() {
+        UUID c = cuenta("ana@negocio.pe");
+        repo.programar(c, aEmprende());
+
+        repo.programar(c, new CambioDePlan(plan("Gratis"), CICLO.plusSeconds(60), null, 0));
+
+        assertThat(programados(c)).isEqualTo(1);
+        CambioDePlan leido = repo.deLaCuenta(c).orElseThrow().programado();
+        assertThat(leido.planId()).isEqualTo(plan("Gratis"));
+        assertThat(leido.aplicaDesde()).isEqualTo(CICLO.plusSeconds(60));
+        assertThat(leido.venceEn()).isNull();
+        assertThat(leido.diasDeGracia()).isZero();
+    }
+
+    @Test void cancelarLoProgramadoLoBorraYSinNadaNoHaceNada() {
+        UUID c = cuenta("ana@negocio.pe");
+        repo.programar(c, aEmprende());
+
+        repo.cancelarProgramado(c);
+        repo.cancelarProgramado(c);
+
+        assertThat(programados(c)).isZero();
+        assertThat(repo.deLaCuenta(c).orElseThrow().programado()).isNull();
+    }
+
+    @Test void loProgramadoDeUnaCuentaNoApareceEnOtra() {
+        UUID a = cuenta("a@negocio.pe");
+        UUID b = cuenta("b@negocio.pe");
+
+        repo.programar(a, aEmprende());
+
+        assertThat(repo.deLaCuenta(b).orElseThrow().programado()).isNull();
+        repo.cancelarProgramado(b);
+        assertThat(repo.deLaCuenta(a).orElseThrow().programado()).isNotNull();
+    }
+
+    @Test void noSeProgramaUnPlanOUnaCuentaQueNoExisten() {
+        UUID c = cuenta("ana@negocio.pe");
+
+        assertThatThrownBy(() -> repo.programar(c, new CambioDePlan(UUID.randomUUID(), CICLO, null, 0))).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> repo.programar(UUID.randomUUID(), aEmprende())).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    /** Un cambio inmediato (una subida, una renovación) deja sin efecto la bajada que esperaba: en la misma sentencia que cierra la suscripción. */
+    @Test void cambiarDePlanAhoraCancelaLoProgramado() {
+        UUID c = cuenta("ana@negocio.pe");
+        PlanesDeCuenta antes = repo.deLaCuenta(c).orElseThrow();
+        repo.programar(c, aEmprende());
+        PlanesDeCuenta despues = antes.cambiarA(UUID.randomUUID(), plan("Pro"), T0.plusSeconds(60), null, 0);
+
+        assertThat(repo.cambiar(antes.activa(), despues.activa())).isTrue();
+
+        assertThat(programados(c)).isZero();
+        assertThat(repo.deLaCuenta(c).orElseThrow().activa().planId()).isEqualTo(plan("Pro"));
+    }
+
+    /** Si el cambio no se hizo (alguien ya había cambiado la activa), lo programado de la cuenta se queda como estaba. */
+    @Test void unCambioQueNoSeHizoNoBorraLoProgramado() {
+        UUID c = cuenta("ana@negocio.pe");
+        PlanesDeCuenta antes = repo.deLaCuenta(c).orElseThrow();
+        PlanesDeCuenta unoMas = antes.cambiarA(UUID.randomUUID(), plan("Pro"), T0.plusSeconds(60), null, 0);
+        repo.cambiar(antes.activa(), unoMas.activa());
+        repo.programar(c, aEmprende());
+
+        assertThat(repo.cambiar(antes.activa(), antes.cambiarA(UUID.randomUUID(), plan("Negocio"), T0.plusSeconds(120), null, 0).activa())).isFalse();
+
+        assertThat(programados(c)).isEqualTo(1);
+    }
+
+    @Test void cambiarLaSuscripcionDeUnaCuentaNoBorraLoProgramadoDeOtra() {
+        UUID a = cuenta("a@negocio.pe");
+        UUID b = cuenta("b@negocio.pe");
+        repo.programar(b, aEmprende());
+        PlanesDeCuenta pa = repo.deLaCuenta(a).orElseThrow();
+
+        repo.cambiar(pa.activa(), pa.cambiarA(UUID.randomUUID(), plan("Pro"), T0.plusSeconds(60), null, 0).activa());
+
+        assertThat(programados(b)).isEqualTo(1);
+    }
+
+    @Test void lasCuentasConUnCambioVencidoSonLasQueYaLlegaronASuFechaPorOrden() {
+        UUID tarde = cuenta("tarde@negocio.pe");
+        UUID pronto = cuenta("pronto@negocio.pe");
+        UUID futura = cuenta("futura@negocio.pe");
+        UUID sinNada = cuenta("nada@negocio.pe");
+        repo.programar(tarde, new CambioDePlan(plan("Emprende"), CICLO.plusSeconds(3600), null, 0));
+        repo.programar(pronto, new CambioDePlan(plan("Emprende"), CICLO, null, 0));
+        repo.programar(futura, new CambioDePlan(plan("Emprende"), CICLO.plusSeconds(999_999), null, 0));
+
+        List<UUID> vencidos = repo.cuentasConCambioVencido(CICLO.plusSeconds(7200), 100);
+
+        assertThat(vencidos).containsExactly(pronto, tarde);
+        assertThat(vencidos).doesNotContain(futura, sinNada);
+    }
+
+    @Test void enElInstanteExactoDeLaFechaYaEstaVencido() {
+        UUID c = cuenta("ana@negocio.pe");
+        repo.programar(c, aEmprende());
+
+        assertThat(repo.cuentasConCambioVencido(CICLO.minusMillis(1), 100)).isEmpty();
+        assertThat(repo.cuentasConCambioVencido(CICLO, 100)).containsExactly(c);
+    }
+
+    @Test void elLimiteAcotaCuantasSeTraenYSiempreLasMasViejas() {
+        UUID a = cuenta("a@negocio.pe");
+        UUID b = cuenta("b@negocio.pe");
+        UUID c = cuenta("c@negocio.pe");
+        repo.programar(a, new CambioDePlan(plan("Emprende"), CICLO.plusSeconds(30), null, 0));
+        repo.programar(b, new CambioDePlan(plan("Emprende"), CICLO.plusSeconds(10), null, 0));
+        repo.programar(c, new CambioDePlan(plan("Emprende"), CICLO.plusSeconds(20), null, 0));
+
+        assertThat(repo.cuentasConCambioVencido(CICLO.plusSeconds(60), 2)).containsExactly(b, c);
+    }
+
+    /** Aplicar lo programado con el agregado y guardarlo: la actual termina en la fecha programada, la nueva empieza ahí y lo programado desaparece. */
+    @Test void aplicarLoProgramadoDejaElHistorialConLaFechaDelCambio() {
+        UUID c = cuenta("ana@negocio.pe");
+        repo.programar(c, aEmprende());
+        PlanesDeCuenta leida = repo.deLaCuenta(c).orElseThrow();
+        PlanesDeCuenta aplicada = leida.aplicarProgramadoEn(CICLO.plusSeconds(7200), UUID.randomUUID());
+
+        assertThat(repo.cambiar(leida.activa(), aplicada.activa())).isTrue();
+
+        PlanesDeCuenta resultado = repo.deLaCuenta(c).orElseThrow();
+        assertThat(resultado.programado()).isNull();
+        assertThat(resultado.suscripciones().get(0).terminaEn()).isEqualTo(CICLO);
+        assertThat(resultado.activa().planId()).isEqualTo(plan("Emprende"));
+        assertThat(resultado.activa().iniciaEn()).isEqualTo(CICLO);
+        assertThat(resultado.activa().venceEn()).isEqualTo(CICLO.plus(Duration.ofDays(30)));
+        assertThat(resultado.activa().diasDeGracia()).isEqualTo(3);
+        assertThat(activas(c)).isEqualTo(1);
     }
 }
