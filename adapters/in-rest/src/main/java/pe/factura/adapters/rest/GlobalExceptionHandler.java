@@ -35,6 +35,8 @@ public class GlobalExceptionHandler {
             case "USUARIO_INACTIVO" -> HttpStatus.CONFLICT;
             // Suspender o reactivar una cuenta que ya está en ese estado (#182): el pedido es válido pero el estado ya no lo permite.
             case "CUENTA_YA_SUSPENDIDA", "CUENTA_NO_SUSPENDIDA", "CUENTA_YA_DE_BAJA", "CUENTA_NO_DE_BAJA" -> HttpStatus.CONFLICT;
+            // Acciones sobre una empresa (#187): el pedido es válido pero el estado de la empresa no lo permite (ya estaba así, tiene envíos pendientes o le faltan las credenciales SOL).
+            case "ENTORNO_SIN_CAMBIOS", "EMPRESA_CON_ENVIOS_PENDIENTES", "API_KEY_YA_REVOCADA", "SOL_NO_CARGADAS" -> HttpStatus.CONFLICT;
             case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES" -> HttpStatus.TOO_MANY_REQUESTS;
             // La cuenta está suspendida (#182): el cliente se identificó bien, pero no tiene permiso hasta que la reactiven.
             case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO", "CUENTA_SUSPENDIDA" -> HttpStatus.FORBIDDEN;

@@ -24,5 +24,11 @@ public enum AccionAdmin {
     /** Baja lógica de un cliente que se fue: sale de los listados y del cobro, pero se conserva todo lo que la ley obliga a conservar (#201). El detalle lleva el motivo, si lo hubo. */
     DAR_DE_BAJA_CUENTA,
     /** Revierte la baja de una cuenta (#201). */
-    REPONER_CUENTA
+    REPONER_CUENTA,
+    /** Cambia el entorno de una empresa (BETA ↔ PRODUCCION), que decide contra qué URLs de SUNAT emite (#187). El detalle dice de cuál a cuál. */
+    CAMBIAR_ENTORNO_EMPRESA,
+    /** Revoca una API key concreta de una empresa (#187). El detalle lleva su prefijo, nunca la clave. */
+    REVOCAR_API_KEY_EMPRESA,
+    /** Prueba la conexión de una empresa con SUNAT usando sus credenciales SOL (#187). El detalle lleva el resultado, nunca las credenciales. */
+    PROBAR_CONEXION_EMPRESA
 }
