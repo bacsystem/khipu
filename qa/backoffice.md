@@ -1156,6 +1156,85 @@ Después de la corrección: suite backend completa en verde, Vitest 318/318, `ts
 - El bloqueo cuesta una lectura de `usuario` por cada escritura con sesión del portal (no con API key).
 - El estado «sin verificar» todavía no se ve en el listado de cuentas del backoffice (#180): llega con su columna de estado (#182).
 
+## #181 · Detalle de una cuenta (solo lectura)
+
+**Estado: 🔧 implementado, 21/21 mutaciones verificadas más 1 equivalente — falta la revisión de la PR.** Rebanada de lectura de la épica #11.
+
+`GET /v1/admin/cuentas/{id}` y la página `/admin/cuentas/[id]`: usuarios, empresas con el estado de su certificado, últimos comprobantes y las últimas
+acciones del administrador sobre la cuenta. Sin botones de acción: suspender, impersonar o cambiar de plan llegan en sus issues, cada uno con su
+confirmación y su registro en la bitácora.
+
+### Diseño
+
+- **Lo que no sale del backend:** del certificado y de la clave SOL solo se sabe si existen (`cert_pkcs12_enc IS NOT NULL`, usuario **y** clave SOL
+  presentes) y hasta cuándo vale el certificado. Ni el PKCS#12, ni la clave, ni el hash de la contraseña, ni la IP o el id del administrador de la bitácora.
+- **Cuatro consultas, todas acotadas por la cuenta.** Los comprobantes salen de un `CROSS JOIN LATERAL` por empresa (los 10 más recientes de cada una, luego
+  los 10 más recientes en total) para que una empresa con millones de documentos no obligue a ordenarlos todos. Las acciones, de `auditoria_admin`, con el
+  índice nuevo `ix_auditoria_cuenta (cuenta_id, ocurrido_en DESC)` (V32); una prueba de plan verifica que lo usa.
+- **El último acceso es el de la sesión del portal** (`sesion.created_at`); el uso por API key no cuenta, y se dice en el contrato.
+- **Cuenta que no existe → 404 `NO_ENCONTRADO`**; un id que no es UUID → 400 (lo rechaza el backend al convertir la ruta, sin llamar al caso de uso).
+- **Certificado «por vencer» = menos de 30 días** (épica #11: «< 30 días»): con 30 justos todavía es vigente, con 29 ya no; el último día de vigencia aún
+  vale y el día siguiente es «vencido». Cargado pero sin fecha: se dice «sin fecha de vigencia», no se inventa una. La fecha de hoy es la de Lima.
+- **Portal:** Server Component. El id de la URL se valida como UUID antes de pedirlo al backend (`../auth/me` o un espacio no llegan a la llamada); un 404
+  del backend es `notFound()`, cualquier otro fallo es una alerta con «Reintentar». El nombre de la cuenta en el listado enlaza al detalle.
+- El mock del portal sembró los ids como UUID (`idCuentaMock`) y responde 400 ante un id que no lo es, como el backend; sin eso, quitar el filtro de la
+  página seguía dando 404 y nadie lo notaba.
+
+### Tests
+
+- Servicio: `DetalleCuentaAdminServiceTest` (existe / no existe / id nulo).
+- Persistencia (`JdbcCuentasAdminRepositoryTest`, Postgres): el detalle completo de una cuenta, sin mezclar usuarios, empresas, comprobantes ni eventos de
+  otras; certificado y SOL (cargados, a medias, ausentes); los 10 comprobantes más recientes de varias empresas; las acciones por orden y sin IP; el
+  último acceso por usuario; planes de consulta que usan los índices.
+- REST (`AdminCuentaControllerTest`) y E2E real (`AdminCuentasE2ETest`, Postgres + Spring completo): abre la clave de plataforma o el JWT de administrador;
+  sin credencial, con el JWT del propio cliente, con una API key o con una clave errónea es 401; 404 y 400; y la respuesta no trae secretos ni la IP del
+  administrador.
+- Portal, Vitest (`admin-cuenta-detalle.test.ts`, 8): estado del certificado en sus bordes (30/29/0/−1 días, sin fecha), `esIdDeCuenta`, `hrefDetalleCuenta`.
+- Portal, Playwright (`admin-cuenta-detalle.spec.ts`, 6): sin sesión → login; el enlace del listado; usuarios (verificado / sin verificar), empresas con
+  «Vence el … (10 días)», comprobantes y bitácora (quién actuó y una acción desconocida con su código); sin botones de acción; estados vacíos; 404 con un
+  id inexistente y con uno que no es UUID.
+
+### Verificación por mutación — 21/21 mueren, 1 equivalente
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Backend | Las empresas de todas las cuentas / los comprobantes de todas / las acciones de todas | 1 + 1 + 1 |
+| Backend | El certificado siempre «cargado» | 1 |
+| Backend | La clave SOL con solo uno de sus dos campos | 1 |
+| Backend | Los comprobantes o las acciones, los más viejos en vez de los más nuevos | 1 + 1 |
+| Backend | El último acceso, el más viejo | 1 |
+| Vitest | «Por vencer» con 30 días / «vencido» el último día / umbral 31 | 1 + 1 + 1 |
+| Vitest | El UUID sin ancla final / el enlace a `/admin/cuenta/` / una fecha inventada si falta | 1 + 1 + 1 |
+| Playwright | El nombre del listado no enlaza al detalle | 1 |
+| Playwright | Correo siempre «Verificado» | 1 |
+| Playwright | El actor siempre «Administrador» / siempre «Clave de plataforma» | 1 + 1 |
+| Playwright | Una acción desconocida se esconde | 1 |
+| Playwright | Un 404 del backend no es `notFound()` / sin el filtro de UUID | 1 + 1 |
+| Playwright | **Equivalente:** `return null` en vez de `redirect` sin sesión | sobrevive |
+
+Dos incidentes de la propia verificación, para que no se repitan:
+
+- **El actor de la bitácora sobrevivía** (forzarlo a «Administrador»): el mock solo sembraba un evento. Ahora siembra uno de la clave de plataforma y otro
+  con una acción que el portal no conoce, y la spec los afirma.
+- **El script de mutaciones de Playwright no restauraba los archivos** (usaba `$2` después de `shift`): la primera tanda de resultados quedó inválida porque
+  las mutaciones se acumulaban. Se comprobó que el diff fuera solo las mutaciones, se restauró, se arregló el script y se repitió la tanda completa.
+
+La mutación equivalente es defensa en profundidad: el layout del panel ya redirige al login antes de renderizar la página, así que la línea no se puede
+distinguir desde fuera (el listado tiene la misma). Se conserva porque también estrecha el tipo de `access`.
+
+### Suites
+
+- Backend: `./gradlew test` completo sobre la rama, código de salida 0 (incluye `ArchitectureTest`, `AdminCuentasE2ETest` y los tests de migraciones).
+- Portal: `tsc --noEmit` limpio · ESLint limpio · Vitest 326/326.
+- Playwright completo con el código final de la página: 149/150 en la primera corrida; la que cayó (`emision.spec.ts`, #115) corría mientras Gradle ejecutaba
+  mutaciones y pasó 48/48 al repetir el archivo tres veces. Es de carga de la máquina, no de este cambio.
+
+### Límites conocidos
+
+- Solo lectura: sin acciones sobre la cuenta; cada una llega en su propio issue.
+- Los últimos 10 comprobantes y las últimas 10 acciones no se paginan: es un vistazo, no un historial.
+- El último acceso no cuenta el uso por API key.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
