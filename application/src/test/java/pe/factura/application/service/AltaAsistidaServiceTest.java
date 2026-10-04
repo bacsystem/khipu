@@ -355,6 +355,27 @@ class AltaAsistidaServiceTest {
         assertThat(cuentasMap).hasSize(1);
     }
 
+    /**
+     * Dos altas simultáneas con la misma clave: las dos pasan la búsqueda previa (el otro aún no confirmó) y la reserva de la segunda
+     * espera a la primera. Esa reserva es la que tiene que ver el alta y devolverla, sin escribir nada.
+     */
+    @Test void siLaReservaEncuentraUnAltaSimultaneaDevuelveEsaSinCrearNada() {
+        servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
+        Fakes.Idempotencias ciegaAlBuscar = new Fakes.Idempotencias() {
+            @Override public Optional<Registro> buscar(String alcance, String clave) { return Optional.empty(); }
+        };
+        ciegaAlBuscar.filas.putAll(claves.filas);
+        AltaAsistidaService otra = new AltaAsistidaService(cuentas, usuarios, sesiones, tenants, series, apiKeys, hasher, correo, uow, auditoria, "pepper",
+                Fakes.CLOCK, ciegaAlBuscar, cifrador);
+        Solicitud igualPeroSinDuplicar = new Solicitud("Comercial Andina", "ana2@andina.pe", "987654321", "20601234565", "COMERCIAL ANDINA SAC", null, TipoDocumento.FACTURA, "F001");
+
+        var r = otra.alta(ACTOR, igualPeroSinDuplicar, PORTAL, CLAVE);
+
+        assertThat(r.repetida()).isTrue();
+        assertThat(cuentasMap).hasSize(1);
+        assertThat(correos).hasSize(1);
+    }
+
     @Test void sinClaveUnReintentoSigueSiendoDuplicado() {
         servicio().alta(ACTOR, solicitud(), PORTAL, null);
         assertThatThrownBy(() -> servicio().alta(ACTOR, solicitud(), PORTAL, null)).extracting("codigo").isEqualTo("DUPLICADO");
