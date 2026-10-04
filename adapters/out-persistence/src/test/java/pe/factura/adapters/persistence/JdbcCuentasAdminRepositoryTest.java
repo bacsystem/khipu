@@ -114,6 +114,47 @@ class JdbcCuentasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.contar(filtro)).isEqualTo(1);
     }
 
+    // --- #214: tildes ------------------------------------------------------------------------------------------------------------
+
+    @Test void lasTildesNoImportanEnNingunSentido() {
+        cuenta("Librería El Saber", "libro@x.pe", T0);
+        cuenta("Taller Mecanico Rojas", "taller@x.pe", T0.plusSeconds(1));
+
+        for (String q : List.of("libreria", "LIBRERIA", "librería", "LIBRERÍA", "LiBrErÍa"))
+            assertThat(emails(repo.listar(new Filtro(q), 1, 20))).as("«%s»", q).containsExactly("libro@x.pe");
+        for (String q : List.of("mecanico", "mecánico", "MECÁNICO"))
+            assertThat(emails(repo.listar(new Filtro(q), 1, 20))).as("«%s»", q).containsExactly("taller@x.pe");
+        assertThat(repo.contar(new Filtro("libreria"))).isEqualTo(1);
+    }
+
+    @Test void tambienEnLaRazonSocialYConDieresisYOtrosAcentos() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        empresa(cuenta, "20100066603", "INVERSIONES ÁVILA Y AGÜERO SAC");
+        cuenta("Crèperie Sofía", "crepe@x.pe", T0.plusSeconds(1));
+
+        assertThat(emails(repo.listar(new Filtro("avila"), 1, 20))).containsExactly("ana@negocio.pe");
+        assertThat(emails(repo.listar(new Filtro("aguero"), 1, 20))).containsExactly("ana@negocio.pe");
+        assertThat(emails(repo.listar(new Filtro("creperie"), 1, 20))).containsExactly("crepe@x.pe");
+        assertThat(repo.contar(new Filtro("ávila"))).isEqualTo(1);
+    }
+
+    /** La ñ es otra letra, no una n con tilde: «peña» y «pena» son palabras distintas (decisión de #214). */
+    @Test void laEnieNoSeConfundeConLaEne() {
+        cuenta("Peña Hermanos", "hermanos@x.pe", T0);
+        cuenta("Pena Sur", "sur@x.pe", T0.plusSeconds(1));
+
+        assertThat(emails(repo.listar(new Filtro("peña"), 1, 20))).containsExactly("hermanos@x.pe");
+        assertThat(emails(repo.listar(new Filtro("PEÑA"), 1, 20))).containsExactly("hermanos@x.pe");
+        assertThat(emails(repo.listar(new Filtro("pena"), 1, 20))).containsExactly("sur@x.pe");
+    }
+
+    /** Una tilde puede llegar como un carácter (í) o como letra + acento combinado (i + ́): las dos formas buscan lo mismo. */
+    @Test void unaTildeEscritaComoAcentoCombinadoTambienSeIgnora() {
+        cuenta("Librería El Saber", "libro@x.pe", T0);
+
+        assertThat(emails(repo.listar(new Filtro("librería"), 1, 20))).containsExactly("libro@x.pe");
+    }
+
     @Test void losComodinesDeLikeSeTomanLiteralmente() {
         cuenta("Uno", "a_b@x.pe", T0);
         cuenta("Dos", "axb@x.pe", T0.plusSeconds(1));
