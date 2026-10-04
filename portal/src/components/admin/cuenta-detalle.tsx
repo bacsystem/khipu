@@ -1,46 +1,14 @@
 import { InboxIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { estadoCertificado, type CuentaDetalleAdmin, type EmpresaCuenta, type EstadoCertificado } from "@/lib/api/admin-cuenta-detalle";
+import { estadoCertificado, type CuentaDetalleAdmin, type EmpresaCuenta } from "@/lib/api/admin-cuenta-detalle";
 import { CABECERA_TABLA } from "@/lib/estilos";
 import { formatearFecha, formatearFechaHora, formatearMonto } from "@/lib/formato";
 import { messages } from "@/lib/messages";
-import { cn } from "@/lib/utils";
 
 const t = messages.admin.detalle;
-
-/** El texto y el tono del certificado de una empresa: el administrador ve de un vistazo cuáles piden atención. */
-function certificado(estado: EstadoCertificado): { texto: string; tono: "ok" | "aviso" | "error" | "neutro" } {
-  const c = t.empresas;
-  switch (estado.tipo) {
-    case "ninguno":
-      return { texto: c.sinCertificado, tono: "neutro" };
-    case "sin_fecha":
-      return { texto: c.certificadoSinFecha, tono: "aviso" };
-    case "vencido":
-      return { texto: c.certificadoVencido.replace("{fecha}", formatearFecha(estado.hasta)), tono: "error" };
-    case "por_vencer":
-      return {
-        texto: (estado.dias === 0 ? c.certificadoVence : c.certificadoPorVencer).replace("{fecha}", formatearFecha(estado.hasta)).replace("{dias}", String(estado.dias)),
-        tono: "aviso",
-      };
-    case "vigente":
-      return { texto: c.certificadoVigente.replace("{fecha}", formatearFecha(estado.hasta)), tono: "ok" };
-  }
-}
-
-const TONOS = {
-  ok: "bg-success text-success-foreground border-success-border",
-  aviso: "bg-warning text-warning-foreground border-warning-border",
-  error: "bg-destructive/10 text-destructive border-destructive-border",
-  neutro: "bg-secondary text-muted-foreground border-border",
-};
-
-function Etiqueta({ tono, children }: { tono: keyof typeof TONOS; children: ReactNode }) {
-  return <Badge className={cn("border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap", TONOS[tono])}>{children}</Badge>;
-}
 
 function Seccion({ titulo, id, children }: { titulo: string; id: string; children: ReactNode }) {
   return (
@@ -125,28 +93,25 @@ function Empresas({ empresas, hoy }: { empresas: EmpresaCuenta[]; hoy: string })
           </TableRow>
         </TableHeader>
         <TableBody className="text-[13px]">
-          {empresas.map((x) => {
-            const cert = certificado(estadoCertificado(x, hoy));
-            return (
-              <TableRow key={x.id} className="border-b border-border/60">
-                <TableCell className="py-2 pr-3 pl-4">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-foreground">{x.razon_social}</span>
-                    <span className="font-mono text-[11px] text-muted-foreground">{x.ruc}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <Etiqueta tono={x.entorno === "PRODUCCION" ? "ok" : "neutro"}>{x.entorno === "PRODUCCION" ? e.produccion : e.beta}</Etiqueta>
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <Etiqueta tono={cert.tono}>{cert.texto}</Etiqueta>
-                </TableCell>
-                <TableCell className="py-2 pr-4 pl-3">
-                  <Etiqueta tono={x.tiene_credenciales_sol ? "ok" : "neutro"}>{x.tiene_credenciales_sol ? e.solCargadas : e.solSinCargar}</Etiqueta>
-                </TableCell>
-              </TableRow>
-            );
-          })}
+          {empresas.map((x) => (
+            <TableRow key={x.id} className="border-b border-border/60">
+              <TableCell className="py-2 pr-3 pl-4">
+                <div className="flex flex-col">
+                  <span className="font-medium text-foreground">{x.razon_social}</span>
+                  <span className="font-mono text-[11px] text-muted-foreground">{x.ruc}</span>
+                </div>
+              </TableCell>
+              <TableCell className="px-3 py-2">
+                <Etiqueta tono={x.entorno === "PRODUCCION" ? "ok" : "neutro"}>{x.entorno === "PRODUCCION" ? e.produccion : e.beta}</Etiqueta>
+              </TableCell>
+              <TableCell className="px-3 py-2">
+                <CertificadoEtiqueta estado={estadoCertificado(x, hoy)} />
+              </TableCell>
+              <TableCell className="py-2 pr-4 pl-3">
+                <Etiqueta tono={x.tiene_credenciales_sol ? "ok" : "neutro"}>{x.tiene_credenciales_sol ? e.solCargadas : e.solSinCargar}</Etiqueta>
+              </TableCell>
+            </TableRow>
+          ))}
           {empresas.length === 0 ? <Vacio columnas={4} texto={e.vacio} /> : null}
         </TableBody>
       </Table>

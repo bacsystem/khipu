@@ -124,7 +124,8 @@
     },
     "nav": {
       "inicio": "Inicio",
-      "cuentas": "Cuentas"
+      "cuentas": "Cuentas",
+      "empresas": "Empresas"
     },
     "topbar": {
       "ubicacion": "Ubicación",
@@ -150,6 +151,43 @@
         "ultimoAcceso": "Último inicio de sesión"
       },
       "error": "No se pudo cargar el listado de cuentas.",
+      "reintentar": "Reintentar"
+    },
+    "empresas": {
+      "titulo": "Empresas",
+      "descripcion": "Todas las empresas de la plataforma y si están en condiciones de emitir.",
+      "filtroEntorno": "Entorno",
+      "filtroCertificado": "Certificado",
+      "todosEntornos": "Todos los entornos",
+      "todosCertificados": "Todos los certificados",
+      "quitarFiltros": "Quitar filtros",
+      "vacio": "Todavía no hay empresas.",
+      "sinResultados": "No hay empresas con esos filtros.",
+      "sinCuenta": "Sin cuenta",
+      "sinSerie": "Sin series",
+      "nuncaEmitio": "Nunca emitió",
+      "beta": "Beta",
+      "produccion": "Producción",
+      "solCargadas": "Cargadas",
+      "solSinCargar": "Sin cargar",
+      "estados": {
+        "SIN_CERTIFICADO": "Sin certificado",
+        "SIN_FECHA": "Sin fecha de vigencia",
+        "VIGENTE": "Vigente",
+        "POR_VENCER": "Por vencer",
+        "VENCIDO": "Vencido"
+      },
+      "columnas": {
+        "empresa": "Empresa",
+        "cuenta": "Cuenta",
+        "entorno": "Entorno",
+        "certificado": "Certificado",
+        "sol": "Credenciales SOL",
+        "series": "Series",
+        "delMes": "Comprobantes del mes",
+        "ultimaEmision": "Última emisión"
+      },
+      "error": "No se pudo cargar el listado de empresas.",
       "reintentar": "Reintentar"
     },
     "detalle": {
