@@ -49,6 +49,10 @@ tasks.withType<Test>().configureEach {
 
 tasks.test {
     useJUnitPlatform { excludeTags("homologacion") }
+    // Cada E2E de Spring levanta su propio Postgres de Testcontainers, y con él su propio contexto, que Spring deja en caché durante toda la corrida: con
+    // los 512 MB que Gradle da por defecto a un worker de pruebas, el decimosexto contexto agotaba el heap («OutOfMemoryError: Java heap space») y la
+    // tarea fallaba sin ningún test en rojo.
+    maxHeapSize = "1g"
 }
 
 // Suite de homologación contra e-beta (#32): red + Docker; no forma parte de `test`. Evidencia en build/homologacion/.
