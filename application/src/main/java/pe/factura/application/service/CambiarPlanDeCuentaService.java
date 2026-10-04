@@ -58,7 +58,6 @@ public class CambiarPlanDeCuentaService implements CambiarPlanDeCuentaUseCase, A
     }
 
     @Override public PlanDeCuenta cambiar(ActorAdmin actor, UUID cuentaId, UUID planId, Instant venceEn, Integer diasDeGracia) {
-        if (cuentaId == null) throw new DomainException("NO_ENCONTRADO", "La cuenta no existe");
         int gracia = diasDeGracia == null ? 0 : diasDeGracia;
         if (gracia < 0 || gracia > GRACIA_MAX_DIAS) throw new DomainException("GRACIA_INVALIDA", "Los días de gracia van de 0 a " + GRACIA_MAX_DIAS + ": " + gracia);
         Plan nuevo = planAsignable(planId);
@@ -117,7 +116,6 @@ public class CambiarPlanDeCuentaService implements CambiarPlanDeCuentaUseCase, A
 
     /** Toda cuenta tiene siempre una suscripción (la base lo garantiza), así que «no tiene» y «no existe» son lo mismo. */
     private PlanesDeCuenta cargar(UUID cuentaId) {
-        if (cuentaId == null) throw new DomainException("NO_ENCONTRADO", "La cuenta no existe");
         return suscripciones.deLaCuenta(cuentaId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "La cuenta no existe"));
     }
 
