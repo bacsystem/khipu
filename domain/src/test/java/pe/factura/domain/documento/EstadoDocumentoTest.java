@@ -35,6 +35,32 @@ class EstadoDocumentoTest {
             assertThat(e.cuentaParaElConsumo()).as(e.name()).isFalse();
     }
 
+    /** El resumen del portal (#15): cada estado cae en un lugar y los tres criterios no se pisan por accidente. Si se agrega un estado, este test obliga a decidir dónde cuenta. */
+    @Test void soloLosFirmadosEnAdelanteSeEmitieron() {
+        assertThat(EnumSet.allOf(EstadoDocumento.class).stream().filter(EstadoDocumento::fueEmitido).toList())
+                .containsExactlyInAnyOrder(FIRMADO, ERROR_ENVIO, PENDIENTE_AGRUPACION, ENVIADO, ACEPTADO, ACEPTADO_CON_OBS, RECHAZADO, ANULADO, FUERA_DE_PLAZO);
+        assertThat(RECIBIDO.fueEmitido()).isFalse();
+        assertThat(INVALIDO.fueEmitido()).isFalse();
+    }
+
+    @Test void pideAtencionLoRechazadoLoQueNoLlegoYLoQueSePasoDelPlazo() {
+        assertThat(EnumSet.allOf(EstadoDocumento.class).stream().filter(EstadoDocumento::requiereAtencion).toList()).containsExactlyInAnyOrder(RECHAZADO, ERROR_ENVIO, FUERA_DE_PLAZO);
+        for (EstadoDocumento e : new EstadoDocumento[]{RECIBIDO, INVALIDO, FIRMADO, PENDIENTE_AGRUPACION, ENVIADO, ACEPTADO, ACEPTADO_CON_OBS, ANULADO})
+            assertThat(e.requiereAtencion()).as(e.name()).isFalse();
+    }
+
+    @Test void facturaLoAceptadoYLoQueEstaEnCaminoPeroNoLoRechazadoNiLoAnulado() {
+        assertThat(EnumSet.allOf(EstadoDocumento.class).stream().filter(EstadoDocumento::cuentaComoFacturado).toList())
+                .containsExactlyInAnyOrder(FIRMADO, ERROR_ENVIO, PENDIENTE_AGRUPACION, ENVIADO, ACEPTADO, ACEPTADO_CON_OBS);
+        for (EstadoDocumento e : new EstadoDocumento[]{RECIBIDO, INVALIDO, RECHAZADO, ANULADO, FUERA_DE_PLAZO})
+            assertThat(e.cuentaComoFacturado()).as(e.name()).isFalse();
+    }
+
+    /** Lo facturado siempre fue emitido: no puede haber plata facturada de un documento que nunca se firmó. */
+    @Test void loFacturadoSiempreFueEmitido() {
+        for (EstadoDocumento e : EstadoDocumento.values()) if (e.cuentaComoFacturado()) assertThat(e.fueEmitido()).as(e.name()).isTrue();
+    }
+
     @Test void enviable() {
         assertThat(FIRMADO.esEnviable()).isTrue();
         assertThat(ERROR_ENVIO.esEnviable()).isTrue();

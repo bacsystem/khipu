@@ -223,6 +223,7 @@ public class AppConfig {
     @Bean ConsumoRepository consumoRepository(JdbcTemplate jdbc) { return new JdbcConsumoRepository(jdbc); }
     @Bean ConsumoPorCuentaRepository consumoPorCuentaRepository(JdbcTemplate jdbc) { return new JdbcConsumoPorCuentaRepository(jdbc); }
     @Bean PagoRepository pagoRepository(JdbcTemplate jdbc) { return new JdbcPagoRepository(jdbc); }
+    @Bean ResumenDeComprobantesRepository resumenDeComprobantesRepository(JdbcTemplate jdbc) { return new JdbcResumenDeComprobantesRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -324,6 +325,7 @@ public class AppConfig {
     @Bean ConsultarConsumoUseCase consultarConsumo(ConsumoRepository consumos, CuentaRepository cuentas, TenantRepository tenants, Clock clock) {
         return new ConsultarConsumoService(consumos, cuentas, tenants, clock);
     }
+    @Bean ResumirComprobantesUseCase resumirComprobantes(ResumenDeComprobantesRepository resumenes) { return new ResumirComprobantesService(resumenes); }
     @Bean ConsultarConsumoDeCuentasUseCase consultarConsumoDeCuentas(ConsumoPorCuentaRepository consumos, Clock clock) { return new ConsultarConsumoDeCuentasService(consumos, clock); }
     /** Un solo servicio para las dos caras del cambio de plan: lo que hacen los administradores y lo que aplica el trabajo programado al llegar la fecha. */
     @Bean CambiarPlanDeCuentaService cambiarPlanDeCuenta(PlanRepository planes, SuscripcionRepository suscripciones, ConsultarConsumoUseCase consumo,
