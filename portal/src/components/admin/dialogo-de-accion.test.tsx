@@ -191,6 +191,34 @@ describe("DialogoDeAccion", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
+  /** Si la recarga hace desaparecer lo que el diálogo accionaba, su mensaje se iría con él: quien llama lo recibe antes para ponerlo donde sobreviva. */
+  it("un error de página vieja le pasa su mensaje a quien llama antes de recargar; uno cualquiera no", async () => {
+    const alEstadoViejo = vi.fn();
+    const ordenDeLlamadas: string[] = [];
+    alEstadoViejo.mockImplementation(() => ordenDeLlamadas.push("mensaje"));
+    refresh.mockImplementation(() => ordenDeLlamadas.push("recarga"));
+    apiRequest.mockResolvedValue(error("API_KEY_YA_REVOCADA", "La API key ya estaba revocada"));
+    abrir({ estadoViejo: ["API_KEY_YA_REVOCADA"], alEstadoViejo });
+
+    fireEvent.click(screen.getByTestId("accion-confirmar"));
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(alEstadoViejo).toHaveBeenCalledWith("La API key ya estaba revocada");
+    expect(ordenDeLlamadas).toEqual(["mensaje", "recarga"]);
+    refresh.mockReset();
+  });
+
+  it("un error que no es de página vieja no llama a alEstadoViejo", async () => {
+    const alEstadoViejo = vi.fn();
+    apiRequest.mockResolvedValue(error("OTRO", "Otro error"));
+    abrir({ estadoViejo: ["API_KEY_YA_REVOCADA"], alEstadoViejo });
+
+    fireEvent.click(screen.getByTestId("accion-confirmar"));
+
+    await screen.findByRole("alert");
+    expect(alEstadoViejo).not.toHaveBeenCalled();
+  });
+
   it("un corte de red no se reintenta a ciegas: avisa que recargue para ver el estado real", async () => {
     apiRequest.mockResolvedValue(error("RED", "No se pudo conectar con el servidor."));
     abrir();

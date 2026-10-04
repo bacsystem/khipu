@@ -44,6 +44,7 @@ const ESTADOS: EstadoDocumento[] = [
   "RECHAZADO",
   "ANULADO",
   "FUERA_DE_PLAZO",
+  "DESCARTADO",
   "INVALIDO",
 ];
 

@@ -23,6 +23,7 @@ export const ESTADOS_DOCUMENTO = [
   "RECHAZADO",
   "ANULADO",
   "FUERA_DE_PLAZO",
+  "DESCARTADO",
 ] as const;
 
 export type EstadoDocumento = (typeof ESTADOS_DOCUMENTO)[number];

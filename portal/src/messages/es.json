@@ -129,7 +129,8 @@
       "planes": "Planes",
       "consumo": "Consumo",
       "integridad": "Integridad",
-      "monitor": "Monitor"
+      "monitor": "Monitor",
+      "errores": "Errores"
     },
     "topbar": {
       "ubicacion": "Ubicación",
@@ -584,6 +585,86 @@
           "CONSULTA_DE_CDR": "Consulta de CDR",
           "CONSULTA_DE_VALIDEZ": "Consulta de validez"
         }
+      }
+    },
+    "errores": {
+      "titulo": "Cola de errores",
+      "descripcion": "Los comprobantes con problema de todos los clientes, del más urgente al menos: error de envío, error de formato y fuera de plazo, con el fault de SUNAT y los intentos. Solo un error de envío se puede reintentar o descartar; los otros dos ya son terminales.",
+      "vistas": "Tipo de error",
+      "filtros": {
+        "TODAS": "Todos",
+        "ERROR_DE_ENVIO": "Error de envío",
+        "ERROR_DE_FORMATO": "Error de formato",
+        "FUERA_DE_PLAZO": "Fuera de plazo"
+      },
+      "ayudaClase": {
+        "ERROR_DE_ENVIO": "SUNAT no contestó o falló. Se reintenta solo.",
+        "ERROR_DE_FORMATO": "SUNAT lo rechazó con un fault 1000–1999: no cambia por reintentar.",
+        "FUERA_DE_PLAZO": "No llegó dentro del plazo de envío: hay que emitir de nuevo."
+      },
+      "buscar": "Buscar cliente",
+      "buscarPlaceholder": "RUC, razón social o cuenta",
+      "botonBuscar": "Buscar",
+      "quitarFiltros": "Quitar filtros",
+      "soloUnaEmpresa": "Solo una empresa",
+      "verTodas": "Ver todas",
+      "columnas": {
+        "cliente": "Cliente",
+        "comprobante": "Comprobante",
+        "problema": "Problema",
+        "fault": "Fault de SUNAT",
+        "intentos": "Intentos",
+        "acciones": "Acciones"
+      },
+      "sinFault": "Sin detalle",
+      "proximoIntento": "Próximo intento: {fecha}",
+      "sinReintento": "Sin reintento programado",
+      "terminal": "Terminal: no se reintenta",
+      "vacio": {
+        "TODAS": "No hay comprobantes con problema. Todo en orden.",
+        "ERROR_DE_ENVIO": "No hay errores de envío.",
+        "ERROR_DE_FORMATO": "No hay errores de formato.",
+        "FUERA_DE_PLAZO": "No hay comprobantes fuera de plazo."
+      },
+      "vacioConBusqueda": "Ningún comprobante con problema coincide con la búsqueda.",
+      "error": "No se pudo cargar la cola de errores.",
+      "volverACargar": "Volver a cargar",
+      "reintento": {
+        "boton": "Reintentar",
+        "titulo": "Reintentar el envío",
+        "descripcion": "Envía {comprobante} a SUNAT ahora.",
+        "efectos": [
+          "Envía el comprobante a SUNAT ahora, con las credenciales de su empresa.",
+          "Si SUNAT vuelve a fallar, queda en error de envío y sigue reintentándose solo.",
+          "Si ya no está por enviar o se pasó el plazo, no se envía y se avisa.",
+          "Queda en la bitácora."
+        ],
+        "confirmar": "Reintentar envío",
+        "enviando": "Reintentando…",
+        "cancelar": "Cancelar"
+      },
+      "descarte": {
+        "boton": "Descartar",
+        "titulo": "Descartar el comprobante",
+        "descripcion": "Deja de intentar enviar {comprobante}.",
+        "efectos": [
+          "El comprobante queda descartado: no se vuelve a enviar, ni solo ni a mano. No se puede deshacer.",
+          "El cliente tiene que emitir uno nuevo; el número de este queda consumido.",
+          "Se saca de la cola de envíos y de esta lista.",
+          "Queda en la bitácora con tu motivo."
+        ],
+        "motivo": "Motivo",
+        "ayudaMotivo": "Obligatorio. Queda en la bitácora. Hasta {max} caracteres.",
+        "confirmar": "Descartar comprobante",
+        "enviando": "Descartando…",
+        "cancelar": "Cancelar"
+      },
+      "resultado": {
+        "aceptado": "{comprobante}: SUNAT lo aceptó.",
+        "rechazado": "{comprobante}: SUNAT lo rechazó{codigo}.",
+        "vuelveAFallar": "{comprobante}: SUNAT volvió a fallar (intento {n}).{detalle}",
+        "otro": "{comprobante} quedó en estado {estado}.",
+        "descartado": "{comprobante} se descartó."
       }
     },
     "estadoCuenta": {

@@ -321,6 +321,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             {c.fecha_limite_envio && c.estado_documento === "FUERA_DE_PLAZO" ? (
               <span className="block text-[11px] text-destructive">Plazo de envío vencido el {formatearFecha(c.fecha_limite_envio)}: emita un comprobante nuevo</span>
             ) : null}
+            {c.estado_documento === "DESCARTADO" ? <span className="block text-[11px] text-muted-foreground">El soporte dejó de intentar enviarlo: emita un comprobante nuevo</span> : null}
           </Campo>
           <Campo etiqueta="Moneda">
             <span className="text-xs font-semibold text-foreground">{MONEDAS[c.moneda] ?? c.moneda}</span>

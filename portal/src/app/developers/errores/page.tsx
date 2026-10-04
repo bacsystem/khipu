@@ -23,6 +23,7 @@ const ESTADOS: Array<[string, string, string]> = [
   ["INVALIDO", "El XML no pasó la validación local (esquema).", "Contacte soporte con el id: no debería ocurrir con datos que la API aceptó."],
   ["ANULADO", "Comunicación de baja aceptada por SUNAT.", "Terminal: el número queda consumido."],
   ["FUERA_DE_PLAZO", "No llegó a SUNAT dentro del plazo de envío (fecha_limite_envio: 3 días calendario desde la emisión, RS 193-2020). Se marca al intentar enviarlo o en el barrido horario.", "Terminal: emita un comprobante nuevo con fecha vigente; el número queda consumido. Un envío manual responde 409 FUERA_DE_PLAZO."],
+  ["DESCARTADO", "El soporte de khipu dejó de intentar enviarlo: estaba en ERROR_ENVIO y no se recuperaba.", "Terminal: emita un comprobante nuevo; el número queda consumido. Un envío manual responde 409 ESTADO_NO_ENVIABLE."],
 ];
 
 const HTTP: Array<[string, string]> = [
