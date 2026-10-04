@@ -1,4 +1,4 @@
-import { hoyLima } from "@/lib/formato";
+import { hoyLima, inicioDelProximoCiclo } from "@/lib/formato";
 
 function base64url(obj: unknown): string {
   return btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -155,6 +155,13 @@ export type Baja = {
 
 type Sesion = { usuario: Usuario };
 
+/** Un plan del backoffice (#190), con la forma del JSON del backend. `historial`: alguna cuenta lo tuvo alguna vez (no se puede borrar aunque hoy nadie lo tenga). */
+export type PlanMock = import("@/lib/api/admin-planes").PlanAdmin & { historial?: boolean };
+
+export function idPlanMock(n: number): string {
+  return `00000000-0000-4000-a000-${String(n).padStart(12, "0")}`;
+}
+
 export const db = {
   usuariosPorEmail: new Map<string, { usuario: Usuario; password: string }>(),
   empresasPorCuenta: new Map<string, Empresa[]>(),
@@ -172,6 +179,8 @@ export const db = {
   cuentasSuspendidas: new Set<string>(),
   /** Las empresas del listado del backoffice (#185); aparte de `cuentasAdmin` para sembrar todos los estados del certificado. */
   empresasAdmin: [] as EmpresaAdminMock[],
+  /** Los planes del backoffice (#190). Las specs de la corrida comparten este mock en paralelo: cada una crea y borra los suyos y no toca los sembrados. */
+  planesAdmin: [] as PlanMock[],
   /** Idempotency-Key de la emisión (#115): `empresa|clave` → huella del pedido y factura emitida. */
   clavesEmision: new Map<string, { huella: string; id: string }>(),
   /** Idempotency-Key del alta asistida (#219): clave → huella del pedido y respuesta, con la API key. */
@@ -199,6 +208,7 @@ export function resetDb() {
   db.cuentasSuspendidas.clear();
   db.verificaciones.clear();
   db.empresasAdmin = [];
+  db.planesAdmin = [];
 
   const administrador: Administrador = { id: "admin-demo", email: "admin@khipu.pe" };
   db.administradoresPorEmail.set(administrador.email, { administrador, password: "AdminPass1", segundoFactor: true });
@@ -275,6 +285,31 @@ export function resetDb() {
     { id: idEmpresaMock(102), ruc: "20100066620", razon_social: "INTEGRADOR NORTE SAC", ...inactiva, creada_en: "2026-09-13T15:00:00Z" },
     { id: idEmpresaMock(103), ruc: "20100066638", razon_social: "INTEGRADOR SUR SAC", ...inactiva, creada_en: "2026-09-14T15:00:00Z" },
     { id: idEmpresaMock(104), ruc: "20100066646", razon_social: "INTEGRADOR ESTE SAC", ...inactiva, creada_en: "2026-09-15T15:00:00Z" },
+  ];
+
+  // Los cuatro planes de la página de precios (#190). Gratis es el de las cuentas nuevas; Negocio trae un cambio de límites ya programado para el ciclo
+  // siguiente; Pro nunca tuvo cuentas hoy pero sí las tuvo (historial), así que no se puede borrar aunque figure con 0 cuentas.
+  const limites = (docs: number | null, rucs: number, usuarios: number | null, keys: number | null, retencion: number) => ({
+    documentos_al_mes: docs === null ? { ilimitado: true } : { maximo: docs, ilimitado: false },
+    rucs,
+    usuarios: usuarios === null ? { ilimitado: true } : { maximo: usuarios, ilimitado: false },
+    api_keys: keys === null ? { ilimitado: true } : { maximo: keys, ilimitado: false },
+    retencion_anios: retencion,
+  });
+  db.planesAdmin = [
+    { id: idPlanMock(1), nombre: "Gratis", precio_mensual: 0, limites: limites(30, 1, 1, 1, 1), estado: "ACTIVO", por_defecto: true, cuentas: 12 },
+    { id: idPlanMock(2), nombre: "Emprende", precio_mensual: 29, limites: limites(300, 1, 1, 2, 5), estado: "ACTIVO", por_defecto: false, cuentas: 3 },
+    {
+      id: idPlanMock(3),
+      nombre: "Negocio",
+      precio_mensual: 69,
+      limites: limites(1500, 3, 3, 5, 5),
+      limites_programados: { limites: limites(2000, 3, 3, 5, 5), aplica_desde: inicioDelProximoCiclo(new Date()) },
+      estado: "ACTIVO",
+      por_defecto: false,
+      cuentas: 0,
+    },
+    { id: idPlanMock(4), nombre: "Pro", precio_mensual: 129, limites: limites(null, 10, null, null, 5), estado: "ACTIVO", por_defecto: false, cuentas: 0, historial: true },
   ];
 
   const usuario: Usuario = {

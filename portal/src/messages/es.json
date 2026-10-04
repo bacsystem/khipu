@@ -125,13 +125,15 @@
     "nav": {
       "inicio": "Inicio",
       "cuentas": "Cuentas",
-      "empresas": "Empresas"
+      "empresas": "Empresas",
+      "planes": "Planes"
     },
     "topbar": {
       "ubicacion": "Ubicación",
       "abrirMenu": "Abrir menú",
       "backoffice": "Backoffice",
       "clientes": "Clientes",
+      "comercial": "Comercial",
       "nuevaCuenta": "Nueva cuenta"
     },
     "cuentas": {
@@ -190,6 +192,117 @@
       },
       "error": "No se pudo cargar el listado de empresas.",
       "reintentar": "Reintentar"
+    },
+    "planes": {
+      "titulo": "Planes",
+      "descripcion": "Lo que se vende: el precio y los límites de cada plan, y cuántas cuentas lo tienen. Cambiar un límite afecta al ciclo siguiente (el mes calendario en Lima), no al que está en curso.",
+      "nuevo": "Nuevo plan",
+      "vacio": "Todavía no hay planes.",
+      "error": "No se pudo cargar el listado de planes.",
+      "reintentar": "Reintentar",
+      "porDefecto": "Para cuentas nuevas",
+      "porDefectoAyuda": "Es el plan con el que nace toda cuenta nueva: no se puede desactivar ni borrar.",
+      "inactivo": "Fuera de la oferta",
+      "columnas": {
+        "plan": "Plan",
+        "precio": "Precio mensual",
+        "documentos": "Documentos / mes",
+        "rucs": "RUC",
+        "usuarios": "Usuarios",
+        "apiKeys": "API keys",
+        "retencion": "Retención",
+        "cuentas": "Cuentas",
+        "acciones": "Acciones"
+      },
+      "retencionAnios": "{n} años",
+      "retencionUnAnio": "1 año",
+      "programado": "Desde el {fecha}",
+      "programadoAyuda": "Este cambio de límites todavía no manda: entra al inicio del ciclo siguiente.",
+      "cambiosDe": {
+        "documentos": "Documentos / mes",
+        "rucs": "RUC",
+        "usuarios": "Usuarios",
+        "apiKeys": "API keys",
+        "retencion": "Retención (años)"
+      },
+      "editar": "Editar",
+      "formulario": {
+        "tituloNuevo": "Nuevo plan",
+        "descripcionNuevo": "Nace activo y se puede asignar a las cuentas desde ya.",
+        "tituloEditar": "Editar {nombre}",
+        "descripcionEditar": "Cambia el nombre, el precio o los límites del plan.",
+        "efectosNuevo": [
+          "El plan se ofrece desde el momento en que lo creas.",
+          "El nombre no puede repetirse, sin importar mayúsculas."
+        ],
+        "efectosEditar": [
+          "El nombre y el precio cambian al instante.",
+          "Los límites nuevos entran el {fecha}, al inicio del ciclo siguiente: subir o bajar un límite a mitad de mes no cambia lo de este mes ni le corta a nadie.",
+          "Las cuentas que ya tienen el plan no se tocan."
+        ],
+        "hayProgramado": "Ves los límites ya programados (desde el {fecha}). Si vuelves a poner los de hoy, el cambio se cancela.",
+        "nombre": "Nombre",
+        "nombreEjemplo": "Estudio",
+        "precio": "Precio mensual (S/)",
+        "precioAyuda": "En soles, con hasta dos decimales. Cero para un plan gratis.",
+        "documentos": "Documentos por mes",
+        "rucs": "RUC",
+        "usuarios": "Usuarios",
+        "apiKeys": "API keys",
+        "retencion": "Retención de XML y CDR (años)",
+        "ilimitado": "Ilimitado",
+        "guardar": "Guardar plan",
+        "guardando": "Guardando…",
+        "crear": "Crear plan",
+        "creando": "Creando…",
+        "cancelar": "Cancelar",
+        "errores": {
+          "nombreRequerido": "Escribe el nombre del plan.",
+          "nombreLargo": "El nombre admite hasta 40 caracteres.",
+          "precioInvalido": "Escribe un precio de cero o más, con hasta dos decimales.",
+          "limiteInvalido": "Escribe un número entero mayor que cero, o marca «Ilimitado».",
+          "numeroInvalido": "Escribe un número entero mayor que cero."
+        }
+      },
+      "desactivar": {
+        "boton": "Desactivar",
+        "titulo": "Desactivar {nombre}",
+        "descripcion": "Lo saca de la oferta, sin tocar a quienes ya lo tienen.",
+        "efectos": [
+          "Deja de ofrecerse: no se podrá asignar a cuentas nuevas.",
+          "Se puede volver a ofrecer cuando quieras."
+        ],
+        "cuentasUna": "La cuenta que lo tiene sigue con él: su suscripción no cambia.",
+        "cuentasVarias": "Las {n} cuentas que lo tienen siguen con él: su suscripción no cambia.",
+        "cuentasNinguna": "Ninguna cuenta lo tiene hoy.",
+        "confirmar": "Desactivar plan",
+        "enviando": "Desactivando…",
+        "cancelar": "Cancelar"
+      },
+      "activar": {
+        "boton": "Activar",
+        "titulo": "Volver a ofrecer {nombre}",
+        "descripcion": "Lo devuelve a la oferta.",
+        "efectos": [
+          "Vuelve a poder asignarse a cuentas.",
+          "No cambia a las cuentas que ya lo tienen."
+        ],
+        "confirmar": "Activar plan",
+        "enviando": "Activando…",
+        "cancelar": "Cancelar"
+      },
+      "eliminar": {
+        "boton": "Borrar",
+        "titulo": "Borrar {nombre}",
+        "descripcion": "Solo se puede borrar un plan que nadie ha usado nunca.",
+        "efectos": [
+          "El plan se borra para siempre, con su cambio de límites programado si lo tiene.",
+          "Si alguna cuenta lo tuvo alguna vez, no se puede borrar: hay que desactivarlo."
+        ],
+        "confirmar": "Borrar plan",
+        "enviando": "Borrando…",
+        "cancelar": "Cancelar"
+      }
     },
     "estadoCuenta": {
       "ACTIVA": "Activa",

@@ -26,8 +26,12 @@ describe("migaAdmin", () => {
     expect(migaAdmin("/admin/empresas/6b1d")).toEqual({ seccion: "Clientes", pagina: "Empresas" });
   });
 
+  it("los planes cuelgan de «Comercial» y no ofrecen crear una cuenta", () => {
+    expect(migaAdmin("/admin/planes")).toEqual({ seccion: "Comercial", pagina: "Planes" });
+  });
+
   it("«/admin» solo es el inicio de forma exacta: no engulle las páginas que todavía no tienen miga", () => {
-    expect(migaAdmin("/admin/planes")).toBeNull();
+    expect(migaAdmin("/admin/operacion")).toBeNull();
   });
 
   it("un prefijo parecido no cuenta: «/admin/cuentas-viejas» no es «Cuentas»", () => {

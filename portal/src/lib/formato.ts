@@ -68,3 +68,19 @@ export function formatearFechaHora(iso: string): string {
   const v = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? "";
   return `${formatearFecha(`${v("year")}-${v("month")}-${v("day")}`)}, ${v("hour")}:${v("minute")}`;
 }
+
+/** La fecha de Lima de un instante ISO (UTC): "1 Nov 2026". Un instante ilegible se devuelve tal cual. */
+export function formatearFechaDeLima(iso: string): string {
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return iso;
+  return formatearFecha(fecha.toLocaleDateString("en-CA", { timeZone: "America/Lima" }));
+}
+
+/**
+ * Cuándo empieza el ciclo siguiente: la medianoche del día 1 del mes que viene, hora de Lima (UTC-5, sin horario de verano), como instante ISO.
+ * Es la misma regla que aplica el backend a los cambios de límites de un plan (#190); acá solo sirve para avisar antes de guardar.
+ */
+export function inicioDelProximoCiclo(ahora: Date): string {
+  const [anio, mes] = ahora.toLocaleDateString("en-CA", { timeZone: "America/Lima" }).split("-").map(Number);
+  return new Date(Date.UTC(anio, mes, 1, 5)).toISOString();
+}

@@ -26,8 +26,10 @@ export type DialogoDeAccionProps = {
   confirmar: string;
   enviando: string;
   cancelar: string;
-  /** Ruta del BFF a la que se hace POST. */
+  /** Ruta del BFF a la que se hace el pedido. */
   ruta: string;
+  /** Por defecto POST; borrar un plan es un DELETE (#190). */
+  metodo?: "POST" | "DELETE";
   /** Cuerpo del POST; una función porque puede depender de campos que el diálogo muestra. */
   cuerpo?: () => unknown;
   /**
@@ -44,7 +46,7 @@ export type DialogoDeAccionProps = {
 };
 
 /**
- * Un diálogo de confirmación para una acción del backoffice: dice el efecto antes de enviar (qué hace y qué NO hace), manda un POST al BFF y muestra el
+ * Un diálogo de confirmación para una acción del backoffice: dice el efecto antes de enviar (qué hace y qué NO hace), manda un POST (o DELETE) al BFF y muestra el
  * resultado sin cerrarse si falló. Reúne lo que ya aprendieron las acciones de suspender, dar de baja y los correos de acceso: la guardia contra el doble
  * clic es un ref (dos clics en el mismo tick leen el `enviando` viejo del closure), el diálogo no se cierra mientras envía (Escape incluido: el administrador
  * debe ver el resultado), y un corte de red no se reintenta a ciegas, porque no se sabe si el cambio llegó.
@@ -74,7 +76,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
     enviandoRef.current = true;
     setEnviando(true);
     setError(null);
-    const res = await apiRequest<unknown>(p.ruta, { method: "POST", body: p.cuerpo?.() });
+    const res = await apiRequest<unknown>(p.ruta, { method: p.metodo ?? "POST", body: p.cuerpo?.() });
     enviandoRef.current = false;
     setEnviando(false);
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
