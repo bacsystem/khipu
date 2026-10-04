@@ -34,7 +34,7 @@ class AuthControllerTest {
     AutenticarUsuarioUseCase.Tokens tokens = new AutenticarUsuarioUseCase.Tokens("access-token", "refresh-token", usuario);
 
     @Test void registroDevuelve201ConTokens() throws Exception {
-        when(auth.registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321")).thenReturn(tokens);
+        when(auth.registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", "http://localhost:3000")).thenReturn(tokens);
         mvc.perform(post("/v1/auth/registro").contentType("application/json")
                         .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}"))
                 .andExpect(status().isCreated())
@@ -42,7 +42,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.datos.refresh").value("refresh-token"))
                 .andExpect(jsonPath("$.datos.usuario.email").value("ana@negocio.pe"))
                 .andExpect(jsonPath("$.datos.usuario.rol").value("ADMIN"));
-        verify(auth).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321");
+        verify(auth).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", "http://localhost:3000");
     }
 
     @Test void registroConDatosInvalidosEs422() throws Exception {
@@ -97,6 +97,41 @@ class AuthControllerTest {
         mvc.perform(post("/v1/auth/restablecer").contentType("application/json").content("{\"token\":\"t\",\"password\":\"Nueva1234\"}"))
                 .andExpect(status().isNoContent());
         verify(auth).restablecer("t", "Nueva1234");
+    }
+
+    // --- #22 ----------------------------------------------------------------------------------------------------------------------
+
+    @Test void meDiceSiElCorreoEstaVerificado() throws Exception {
+        when(auth.me(usuarioId)).thenReturn(usuario);
+        mvc.perform(get("/v1/auth/me").requestAttr(UsuarioActual.ATRIBUTO, usuarioId))
+                .andExpect(jsonPath("$.datos.correo_verificado").value(false));
+        when(auth.me(usuarioId)).thenReturn(usuario.conCorreoVerificado(java.time.Instant.parse("2026-10-03T15:00:00Z")));
+        mvc.perform(get("/v1/auth/me").requestAttr(UsuarioActual.ATRIBUTO, usuarioId))
+                .andExpect(jsonPath("$.datos.correo_verificado").value(true));
+    }
+
+    @Test void verificarDevuelve204() throws Exception {
+        mvc.perform(post("/v1/auth/verificar").contentType("application/json").content("{\"token\":\"t\"}"))
+                .andExpect(status().isNoContent());
+        verify(auth).verificarCorreo("t");
+    }
+
+    @Test void verificarSinTokenEs422() throws Exception {
+        mvc.perform(post("/v1/auth/verificar").contentType("application/json").content("{}"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test void reenviarLaVerificacionEsDelUsuarioDeLaSesion() throws Exception {
+        mvc.perform(post("/v1/auth/verificacion").requestAttr(UsuarioActual.ATRIBUTO, usuarioId))
+                .andExpect(status().isAccepted());
+        verify(auth).reenviarVerificacion(usuarioId, "http://localhost:3000");
+    }
+
+    @Test void reenviarConElCorreoYaVerificadoEs409() throws Exception {
+        org.mockito.Mockito.doThrow(new DomainException("CORREO_YA_VERIFICADO", "ya")).when(auth).reenviarVerificacion(usuarioId, "http://localhost:3000");
+        mvc.perform(post("/v1/auth/verificacion").requestAttr(UsuarioActual.ATRIBUTO, usuarioId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("CORREO_YA_VERIFICADO"));
     }
 
     @Test void restablecerConTokenInvalidoEs422() throws Exception {

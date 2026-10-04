@@ -4,18 +4,26 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import pe.factura.application.port.out.Adjunto;
+import pe.factura.application.port.out.CorreoSender;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,8 +41,112 @@ class AuthE2ETest {
     @Autowired TestRestTemplate http;
     @Autowired JdbcTemplate jdbc;
 
+    /** Los correos que salieron: el enlace de verificación (#22) se toma de aquí, como lo haría el usuario. */
+    static final List<String> CORREOS = new CopyOnWriteArrayList<>();
+
+    @TestConfiguration
+    static class CorreoDePrueba {
+        @Bean @Primary CorreoSender correoQueGuarda() {
+            return new CorreoSender() {
+                public void enviar(String para, String asunto, String cuerpo) { CORREOS.add(para + "\n" + cuerpo); }
+                public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) { enviar(para, asunto, cuerpo); }
+            };
+        }
+    }
+
     @BeforeEach void limpiar() {
+        CORREOS.clear();
         jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, sesion, usuario, cuenta CASCADE");
+    }
+
+    /** El token del último enlace de verificación que llegó a {@code email}. */
+    private String enlaceDeVerificacion(String email) {
+        String correo = CORREOS.stream().filter(c -> c.startsWith(email + "\n") && c.contains("/verificar/")).reduce((a, b) -> b)
+                .orElseThrow(() -> new AssertionError("no llegó un enlace de verificación a " + email + ": " + CORREOS));
+        Matcher m = Pattern.compile("/verificar/([A-Za-z0-9_-]+)").matcher(correo);
+        assertThat(m.find()).isTrue();
+        return m.group(1);
+    }
+
+    private ResponseEntity<Map> verificar(String token) {
+        HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
+        return http.postForEntity("/v1/auth/verificar", new HttpEntity<>("{\"token\":\"%s\"}".formatted(token), h), Map.class);
+    }
+
+    /** Registro y verificación del correo con el enlace que llegó: lo que hace falta para crear empresas (#22). */
+    private Cuenta registrarVerificado(String nombre, String email) {
+        Cuenta c = registrar(nombre, email);
+        assertThat(verificar(enlaceDeVerificacion(email)).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        return c;
+    }
+
+    private ResponseEntity<Map> crearEmpresa(HttpHeaders h) {
+        return http.postForEntity("/v1/empresas",
+                new HttpEntity<>("{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA DE PRUEBA S.A.C.\",\"entorno\":\"BETA\"}", h), Map.class);
+    }
+
+    // --- #22: verificación del correo ---------------------------------------------------------------------------------------------
+
+    @Test void sinVerificarElCorreoSePuedeMirarPeroNoCrearEmpresas() {
+        Cuenta cuenta = registrar("Mi negocio", "ana@negocio.pe");
+        HttpHeaders h = conJwt(cuenta.access());
+
+        ResponseEntity<Map> me = http.exchange("/v1/auth/me", HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat(me.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(((Map<?, ?>) me.getBody().get("datos")).get("correo_verificado")).isEqualTo(false);
+        assertThat(http.exchange("/v1/empresas", HttpMethod.GET, new HttpEntity<>(h), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<Map> creada = crearEmpresa(h);
+        assertThat(creada.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(creada.getBody()).containsEntry("codigo", "CORREO_SIN_VERIFICAR");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM tenant", Integer.class)).isZero();
+    }
+
+    /** El mismo token de sesión: verificado en otra pestaña, la siguiente escritura ya pasa sin volver a entrar. */
+    @Test void conElEnlaceDelCorreoQuedaVerificadoYYaPuedeCrearEmpresas() {
+        Cuenta cuenta = registrar("Mi negocio", "ana@negocio.pe");
+
+        assertThat(verificar(enlaceDeVerificacion("ana@negocio.pe")).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+        HttpHeaders h = conJwt(cuenta.access());
+        assertThat(((Map<?, ?>) http.exchange("/v1/auth/me", HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos")).get("correo_verificado")).isEqualTo(true);
+        assertThat(crearEmpresa(h).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test void elEnlaceSirveUnaSolaVez() {
+        registrar("Mi negocio", "ana@negocio.pe");
+        String token = enlaceDeVerificacion("ana@negocio.pe");
+        verificar(token);
+
+        ResponseEntity<Map> otraVez = verificar(token);
+        assertThat(otraVez.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(otraVez.getBody()).containsEntry("codigo", "TOKEN_INVALIDO");
+    }
+
+    @Test void sePuedePedirOtroEnlaceYElNuevoTambienVerifica() {
+        Cuenta cuenta = registrar("Mi negocio", "ana@negocio.pe");
+        String primero = enlaceDeVerificacion("ana@negocio.pe");
+
+        ResponseEntity<Void> reenvio = http.postForEntity("/v1/auth/verificacion", new HttpEntity<>(conJwt(cuenta.access())), Void.class);
+
+        assertThat(reenvio.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        String segundo = enlaceDeVerificacion("ana@negocio.pe");
+        assertThat(segundo).isNotEqualTo(primero);
+        assertThat(verificar(segundo).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(http.postForEntity("/v1/auth/verificacion", new HttpEntity<>(conJwt(cuenta.access())), Map.class).getStatusCode())
+                .as("ya verificado").isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    /** El bloqueo es de la sesión del portal: una API key (de un integrador o de un alta asistida) escribe como siempre. */
+    @Test void unaApiKeyNoDependeDeLaVerificacion() {
+        HttpHeaders admin = new HttpHeaders(); admin.set("X-Platform-Key", "plataforma-test"); admin.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<Map> creado = http.postForEntity("/v1/admin/tenants",
+                new HttpEntity<>("{\"ruc\":\"20100066603\",\"razon_social\":\"INTEGRADOR SAC\",\"entorno\":\"BETA\"}", admin), Map.class);
+        HttpHeaders conKey = new HttpHeaders(); conKey.setContentType(MediaType.APPLICATION_JSON);
+        conKey.set("X-Api-Key", (String) ((Map<?, ?>) creado.getBody().get("datos")).get("api_key"));
+
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"01\",\"serie\":\"F001\",\"correlativo_inicial\":0}", conKey), Void.class)
+                .getStatusCode()).isEqualTo(HttpStatus.CREATED);
     }
 
     private record Cuenta(String access, String refresh, String cuentaId) {}
@@ -77,7 +189,7 @@ class AuthE2ETest {
     }
 
     @Test void crearYListarEmpresasDeLaCuentaAutenticada() {
-        Cuenta cuenta = registrar("Mi negocio", "ana@negocio.pe");
+        Cuenta cuenta = registrarVerificado("Mi negocio", "ana@negocio.pe");
         HttpHeaders h = conJwt(cuenta.access());
 
         ResponseEntity<Map> creada = http.postForEntity("/v1/empresas",
@@ -92,7 +204,7 @@ class AuthE2ETest {
     }
 
     @Test void listarFacturasConJwtYEmpresaPropia() {
-        Cuenta cuenta = registrar("Mi negocio", "ana@negocio.pe");
+        Cuenta cuenta = registrarVerificado("Mi negocio", "ana@negocio.pe");
         HttpHeaders h = conJwt(cuenta.access());
         ResponseEntity<Map> creada = http.postForEntity("/v1/empresas",
                 new HttpEntity<>("{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA DE PRUEBA S.A.C.\",\"entorno\":\"BETA\"}", h), Map.class);
@@ -105,7 +217,7 @@ class AuthE2ETest {
     }
 
     @Test void empresaDeOtraCuentaEs403() {
-        Cuenta cuentaA = registrar("Negocio A", "a@negocio.pe");
+        Cuenta cuentaA = registrarVerificado("Negocio A", "a@negocio.pe");
         HttpHeaders hA = conJwt(cuentaA.access());
         ResponseEntity<Map> creada = http.postForEntity("/v1/empresas",
                 new HttpEntity<>("{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA A\",\"entorno\":\"BETA\"}", hA), Map.class);

@@ -18,6 +18,8 @@ import java.util.UUID;
 public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     static final Duration VIDA_REFRESH = Duration.ofDays(30);
     static final Duration VIDA_RECUPERACION = Duration.ofHours(1);
+    /** Un día: quien se registra puede no abrir el correo enseguida; pasado eso pide otro desde el portal. */
+    static final Duration VIDA_VERIFICACION = Duration.ofHours(24);
 
     private final CuentaRepository cuentas;
     private final UsuarioRepository usuarios;
@@ -27,19 +29,62 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     private final CorreoSender correo;
     private final UnitOfWork uow;
     private final Clock clock;
+    private final VerificacionCorreoRepository verificaciones;
 
     @Override
-    public Tokens registrar(String nombreCuenta, String email, String password, String telefono) {
+    public Tokens registrar(String nombreCuenta, String email, String password, String telefono, String urlBase) {
         Usuario.validarPassword(password);
         Cuenta cuenta = new Cuenta(UUID.randomUUID(), nombreCuenta, email, telefono);
         if (cuentas.buscarPorEmail(cuenta.email()).isPresent() || usuarios.buscarPorEmail(cuenta.email()).isPresent())
             throw new DomainException("DUPLICADO", "Ya existe una cuenta con ese correo");
         Usuario usuario = new Usuario(UUID.randomUUID(), cuenta.id(), email, hasher.hash(password), Rol.ADMIN, true);
-        return uow.ejecutar(() -> {
+        String verificacion = TokenOpaco.generar();
+        Tokens t = uow.ejecutar(() -> {
             cuentas.guardar(cuenta);
             usuarios.guardar(usuario);
+            verificaciones.crear(new VerificacionCorreoRepository.Token(TokenOpaco.hash(verificacion), usuario.id(), clock.instant().plus(VIDA_VERIFICACION), false));
             return emitirTokens(usuario);
         });
+        enviarVerificacion(usuario.email(), urlBase, verificacion);
+        return t;
+    }
+
+    @Override
+    public void verificarCorreo(String token) {
+        String hash = TokenOpaco.hash(token == null ? "" : token);
+        VerificacionCorreoRepository.Token t = verificaciones.buscar(hash)
+                .filter(x -> !x.usado() && x.expiraEn().isAfter(clock.instant()))
+                .orElseThrow(() -> new DomainException("TOKEN_INVALIDO", "El enlace de verificación es inválido o venció. Pide otro desde el portal"));
+        Usuario u = usuarios.buscar(t.usuarioId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Usuario no encontrado"));
+        uow.ejecutar(() -> {
+            // Marcarlo usado es la condición: si dos clics llegan a la vez, solo uno verifica, y el otro ve el enlace ya usado.
+            if (!verificaciones.usar(hash))
+                throw new DomainException("TOKEN_INVALIDO", "El enlace de verificación ya se usó");
+            usuarios.guardar(u.conCorreoVerificado(clock.instant()));
+        });
+    }
+
+    @Override
+    public void reenviarVerificacion(UUID usuarioId, String urlBase) {
+        Usuario u = usuarios.buscar(usuarioId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Usuario no encontrado"));
+        if (u.correoVerificado()) throw new DomainException("CORREO_YA_VERIFICADO", "Tu correo ya está verificado");
+        String verificacion = TokenOpaco.generar();
+        uow.ejecutar(() -> verificaciones.crear(new VerificacionCorreoRepository.Token(TokenOpaco.hash(verificacion), u.id(), clock.instant().plus(VIDA_VERIFICACION), false)));
+        enviarVerificacion(u.email(), urlBase, verificacion);
+    }
+
+    /**
+     * Fuera de la transacción y sin propagar el error: un SMTP caído no debe impedir registrarse, y el usuario pide otro enlace desde
+     * el portal. La causa la registra el adaptador de correo, que es quien la conoce.
+     */
+    private void enviarVerificacion(String email, String urlBase, String token) {
+        try {
+            correo.enviar(email, "Verifica tu correo en khipu",
+                    "Para terminar de crear tu cuenta, verifica tu correo abriendo este enlace (válido 24 horas, de un solo uso):\n"
+                            + urlBase + "/verificar/" + token);
+        } catch (RuntimeException e) {
+            // el portal muestra «revisa tu correo» con un botón para pedir otro enlace
+        }
     }
 
     @Override
@@ -91,7 +136,8 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
                 .orElseThrow(() -> new DomainException("TOKEN_INVALIDO", "Enlace de recuperación inválido o vencido"));
         Usuario u = usuarios.buscar(t.usuarioId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Usuario no encontrado"));
         uow.ejecutar(() -> {
-            usuarios.guardar(u.conPasswordHash(hasher.hash(nuevaPassword)));
+            // El enlace llegó a su correo: abrirlo también lo verifica (#22). Así quien entra por la invitación del alta asistida queda verificado.
+            usuarios.guardar(u.conPasswordHash(hasher.hash(nuevaPassword)).conCorreoVerificado(clock.instant()));
             sesiones.marcarRecuperacionUsada(hash);
             sesiones.revocarTodas(u.id());
         });
