@@ -8,6 +8,7 @@ import pe.factura.application.port.in.ListarCuentasAdminUseCase.Filtro;
 import pe.factura.application.port.out.CuentasAdminRepository;
 
 import java.sql.Timestamp;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -46,22 +47,36 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
     }
 
     /**
+     * Vocales con tilde, diéresis o acento grave y su vocal sin marca (#214), en minúscula y mayúscula: así no depende de que el
+     * {@code LC_CTYPE} de la base sepa pasar «Í» a minúscula. La ñ queda fuera a propósito: es otra letra («peña» no es «pena»).
+     */
+    private static final String CON_TILDE = "áéíóúàèìòùäëïöüâêîôûÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÂÊÎÔÛ";
+    private static final String SIN_TILDE = "aeiouaeiouaeiouaeiouAEIOUAEIOUAEIOUAEIOU";
+    /**
+     * {@code translate} es del núcleo de Postgres: no exige la extensión {@code unaccent}, que no todos los proveedores ofrecen. Se
+     * aplica a la columna y al texto buscado, así la regla vale en los dos sentidos.
+     */
+    private static final String SIN_TILDES = "translate(%s, '" + CON_TILDE + "', '" + SIN_TILDE + "')";
+
+    /**
      * Correo y nombre por subcadena; RUC por prefijo (un fragmento interno de un RUC no identifica a nadie); razón social por
-     * subcadena. Todo sin distinguir mayúsculas y con los comodines del texto buscado tomados literalmente.
+     * subcadena. Todo sin distinguir mayúsculas ni tildes y con los comodines del texto buscado tomados literalmente.
      */
     private static String donde(Filtro filtro, List<Object> args) {
         if (filtro.q() == null) return "";
-        String literal = escaparComodines(filtro.q());
+        // Una tilde puede llegar como «í» o como «i» + acento combinado: en forma compuesta (NFC) las dos son «í».
+        String literal = escaparComodines(Normalizer.normalize(filtro.q(), Normalizer.Form.NFC));
         String contiene = "%" + literal + "%";
         args.add(contiene);
         args.add(contiene);
         args.add(literal + "%");
         args.add(contiene);
+        String buscado = SIN_TILDES.formatted("?");
         return """
-                 WHERE (c.email ILIKE ? ESCAPE '\\' OR c.nombre ILIKE ? ESCAPE '\\'
+                 WHERE (c.email ILIKE ? ESCAPE '\\' OR %s ILIKE %s ESCAPE '\\'
                         OR EXISTS (SELECT 1 FROM tenant t WHERE t.cuenta_id = c.id
-                                   AND (t.ruc LIKE ? ESCAPE '\\' OR t.razon_social ILIKE ? ESCAPE '\\')))
-                """;
+                                   AND (t.ruc LIKE ? ESCAPE '\\' OR %s ILIKE %s ESCAPE '\\')))
+                """.formatted(SIN_TILDES.formatted("c.nombre"), buscado, SIN_TILDES.formatted("t.razon_social"), buscado);
     }
 
     static String escaparComodines(String texto) {

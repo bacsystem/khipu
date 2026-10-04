@@ -77,6 +77,19 @@ test("busca por razón social y encuentra la cuenta aunque esté en la segunda p
   await expect(page.locator("body")).toContainText(/Mostrando\s*1–1\s*de\s*1/);
 });
 
+/** #214: la razón social está como la registra SUNAT, sin tilde; quien busca puede escribirla con tilde (o al revés). */
+test("las tildes no importan: «panadería sol sac» encuentra PANADERIA SOL SAC", async ({ page }) => {
+  await entrarComoAdmin(page);
+  await page.goto("/admin/cuentas");
+  await esperarHidratacion(page, "#buscar-cuentas");
+
+  await page.getByRole("searchbox").fill("panadería sol sac");
+  await page.getByRole("searchbox").press("Enter");
+
+  await expect(page.getByText("ana@sol.pe")).toBeVisible();
+  await expect(filas(page)).toHaveCount(1);
+});
+
 test("el RUC se busca por prefijo, no por un fragmento interno", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto("/admin/cuentas");

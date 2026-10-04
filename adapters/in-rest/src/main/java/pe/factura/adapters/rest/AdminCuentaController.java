@@ -30,7 +30,9 @@ public class AdminCuentaController {
     @Operation(summary = "Listar las cuentas de clientes", description = """
             Todas las cuentas, de la más reciente a la más antigua, paginadas. El total de resultados va en la cabecera
             `X-Total-Count` y refleja la búsqueda. `q` busca sin distinguir mayúsculas en el correo y el nombre de la cuenta,
-            y en la razón social de sus empresas (por fragmento) y su RUC (por prefijo). `ultimo_acceso` mide la actividad en el
+            y en la razón social de sus empresas (por fragmento) y su RUC (por prefijo). En el nombre y la razón social tampoco
+            distingue tildes, diéresis ni acentos, en los dos sentidos: `libreria` encuentra «Librería» y `librería` encuentra
+            «Libreria». La `ñ` **sí** se distingue de la `n`: es otra letra, y `pena` no encuentra «Peña». `ultimo_acceso` mide la actividad en el
             portal, no el uso por API key. El estado y el plan de la cuenta se agregarán más adelante.""")
     public ResponseEntity<ApiResponse<List<CuentaAdminResponse>>> listar(
             @Parameter(description = "Búsqueda libre: correo, nombre, razón social o RUC", example = "ana@") @RequestParam(required = false) String q,

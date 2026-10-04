@@ -281,11 +281,14 @@ export const handlers = [
     const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
     const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
+    // Como el backend (#214): nombre y razón social sin tildes en los dos sentidos; la ñ (n + tilde combinada) se conserva.
+    const sinTildes = (s: string) => s.normalize("NFD").replace(/(?<![nN])[̀-ͯ]/g, "").normalize("NFC");
+    const qSinTildes = sinTildes(q);
     const coincide = (c: (typeof db.cuentasAdmin)[number]) =>
       !q ||
       c.email.toLowerCase().includes(q) ||
-      c.nombre.toLowerCase().includes(q) ||
-      c.empresas.some((e) => e.ruc.startsWith(q) || e.razon_social.toLowerCase().includes(q));
+      sinTildes(c.nombre.toLowerCase()).includes(qSinTildes) ||
+      c.empresas.some((e) => e.ruc.startsWith(q) || sinTildes(e.razon_social.toLowerCase()).includes(qSinTildes));
     const lista = db.cuentasAdmin.filter(coincide).sort((a, b) => b.creada_en.localeCompare(a.creada_en) || a.id.localeCompare(b.id));
     const datos = lista.slice((pagina - 1) * porPagina, pagina * porPagina).map(({ empresas, ...cuenta }) => ({ ...cuenta, empresas: empresas.length }));
     return HttpResponse.json(
