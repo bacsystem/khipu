@@ -216,6 +216,7 @@ public class AppConfig {
     @Bean SuspensionRepository suspensionRepository(JdbcTemplate jdbc) { return new JdbcSuspensionRepository(jdbc); }
     @Bean BajaDeCuentaRepository bajaDeCuentaRepository(JdbcTemplate jdbc) { return new JdbcBajaDeCuentaRepository(jdbc); }
     @Bean AccionesDeEmpresaRepository accionesDeEmpresaRepository(JdbcTemplate jdbc) { return new JdbcAccionesDeEmpresaRepository(jdbc); }
+    @Bean AccesosDeSoporteRepository accesosDeSoporteRepository(JdbcTemplate jdbc) { return new JdbcAccesosDeSoporteRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -317,6 +318,10 @@ public class AppConfig {
     @Bean AccionesDeEmpresaUseCase accionesDeEmpresa(TenantRepository tenants, AccionesDeEmpresaRepository acciones, SunatBillingGateway sunat, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new AccionesDeEmpresaService(tenants, acciones, sunat, auditoria, u, clock);
     }
+    @Bean ImpersonarUsuarioUseCase impersonarUsuario(UsuarioRepository usuarios, TokenEmisor tokens, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
+        return new ImpersonarUsuarioService(usuarios, tokens, auditoria, u, clock);
+    }
+    @Bean AccesosDeSoporteUseCase accesosDeSoporte(AccesosDeSoporteRepository registros) { return new AccesosDeSoporteService(registros); }
     @Bean SoporteDeAccesoUseCase soporteDeAcceso(UsuarioRepository usuarios, SesionRepository sesiones, VerificacionCorreoRepository verificaciones, CorreoSender correo,
                                                  UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {
         return new SoporteDeAccesoService(usuarios, sesiones, verificaciones, correo, u, auditoria, clock);

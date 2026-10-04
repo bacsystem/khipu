@@ -18,6 +18,8 @@ public class JwtTokenEmisor implements TokenEmisor {
     private static final Duration VIDA_ACCESS = Duration.ofMinutes(15);
     private static final String CLAIM_CUENTA = "cuenta";
     private static final String CLAIM_ROL = "rol";
+    /** El administrador que abrió una sesión de soporte (#184): su presencia es lo que distingue esa sesión de una normal. */
+    private static final String CLAIM_SOPORTE = "imp";
 
     private final Algorithm algoritmo;
 
@@ -32,13 +34,15 @@ public class JwtTokenEmisor implements TokenEmisor {
 
     @Override public String emitir(Claims claims) {
         Instant ahora = Instant.now();
-        return JWT.create()
+        var jwt = JWT.create()
                 .withSubject(claims.usuarioId().toString())
                 .withClaim(CLAIM_CUENTA, claims.cuentaId().toString())
                 .withClaim(CLAIM_ROL, claims.rol().name())
-                .withIssuedAt(Date.from(ahora))
-                .withExpiresAt(Date.from(ahora.plus(VIDA_ACCESS)))
-                .sign(algoritmo);
+                .withIssuedAt(Date.from(ahora));
+        // La sesión de soporte vence cuando ella dice, no a los 15 minutos de una normal.
+        if (claims.esSoporte())
+            return jwt.withClaim(CLAIM_SOPORTE, claims.soporte().administradorId().toString()).withExpiresAt(Date.from(claims.soporte().expiraEn())).sign(algoritmo);
+        return jwt.withExpiresAt(Date.from(ahora.plus(VIDA_ACCESS))).sign(algoritmo);
     }
 
     @Override public Optional<Claims> verificar(String token) {
@@ -48,7 +52,9 @@ public class JwtTokenEmisor implements TokenEmisor {
             UUID usuarioId = UUID.fromString(jwt.getSubject());
             UUID cuentaId = UUID.fromString(jwt.getClaim(CLAIM_CUENTA).asString());
             Rol rol = Rol.valueOf(jwt.getClaim(CLAIM_ROL).asString());
-            return Optional.of(new Claims(usuarioId, cuentaId, rol));
+            // Un claim de soporte que no es un UUID (alguien lo editó, o una versión futura lo cambió) invalida el token: nunca se degrada a una sesión normal.
+            Soporte soporte = jwt.getClaim(CLAIM_SOPORTE).isMissing() ? null : new Soporte(UUID.fromString(jwt.getClaim(CLAIM_SOPORTE).asString()), jwt.getExpiresAtAsInstant());
+            return Optional.of(new Claims(usuarioId, cuentaId, rol, soporte));
         } catch (JWTVerificationException | IllegalArgumentException | NullPointerException e) {
             return Optional.empty();
         }

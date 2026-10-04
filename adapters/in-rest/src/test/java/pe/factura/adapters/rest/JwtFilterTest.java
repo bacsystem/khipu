@@ -27,6 +27,8 @@ class JwtFilterTest {
     UUID empresaAjena = UUID.randomUUID();
     String tokenValido = "jwt-valido";
     String tokenInvalido = "jwt-basura";
+    static final String TOKEN_DE_SOPORTE = "jwt-de-soporte";
+    UUID administrador = UUID.randomUUID();
 
     Map<UUID, UUID> cuentaPorEmpresa = new HashMap<>() {{
         put(empresaPropia, cuenta);
@@ -36,6 +38,7 @@ class JwtFilterTest {
     TokenEmisor tokenEmisor = new TokenEmisor() {
         public String emitir(Claims c) { throw new UnsupportedOperationException(); }
         public Optional<Claims> verificar(String token) {
+            if (TOKEN_DE_SOPORTE.equals(token)) return Optional.of(new Claims(usuario, cuenta, Rol.ADMIN, new Soporte(administrador, java.time.Instant.parse("2026-10-04T12:15:00Z"))));
             return tokenValido.equals(token) ? Optional.of(new Claims(usuario, cuenta, Rol.ADMIN)) : Optional.empty();
         }
     };
@@ -303,5 +306,102 @@ class JwtFilterTest {
         filter.doFilter(req, new MockHttpServletResponse(), chain);
         assertThat(chain.getRequest()).isNotNull();
         assertThat(req.getAttribute(CuentaActual.ATRIBUTO)).isNull();
+    }
+
+    // --- #184: una sesión de soporte solo puede mirar ------------------------------------------------------------------------------------
+
+    private MockHttpServletResponse pedirConToken(String token, String metodo, String uri, MockFilterChain chain) throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest(metodo, uri);
+        req.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        filter.doFilter(req, res, chain);
+        return res;
+    }
+
+    @Test void unaSesionDeSoportePuedeMirar() throws Exception {
+        for (String[] m : new String[][]{{"GET", "/v1/empresas"}, {"GET", "/v1/facturas"}, {"GET", "/v1/auth/me"}, {"HEAD", "/v1/empresas"}, {"OPTIONS", "/v1/empresas"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            MockHttpServletResponse res = pedirConToken(TOKEN_DE_SOPORTE, m[0], m[1], chain);
+            assertThat(chain.getRequest()).as("%s %s", m[0], m[1]).isNotNull();
+            assertThat(res.getStatus()).as("%s %s", m[0], m[1]).isEqualTo(200);
+        }
+    }
+
+    /** Nada que escriba: ni la contraseña, ni las credenciales SOL, ni el certificado, ni las API keys, ni emitir, ni lo de la propia sesión. */
+    @Test void unaSesionDeSoporteNoPuedeEscribirNada() throws Exception {
+        for (String[] m : new String[][]{{"POST", "/v1/empresas"}, {"POST", "/v1/facturas"}, {"PUT", "/v1/empresa/credenciales-sol"}, {"PUT", "/v1/empresa/datos-fiscales"},
+                {"POST", "/v1/empresa/certificado"}, {"POST", "/v1/empresa/api-keys"}, {"DELETE", "/v1/empresa/api-keys/1"}, {"POST", "/v1/series"},
+                {"POST", "/v1/auth/logout"}, {"POST", "/v1/auth/verificacion"}, {"PATCH", "/v1/empresa"}, {"DELETE", "/v1/facturas/1"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            MockHttpServletResponse res = pedirConToken(TOKEN_DE_SOPORTE, m[0], m[1], chain);
+            assertThat(chain.getRequest()).as("%s %s", m[0], m[1]).isNull();
+            assertThat(res.getStatus()).as("%s %s", m[0], m[1]).isEqualTo(403);
+            assertThat(res.getContentAsString()).as("%s %s", m[0], m[1]).contains("\"codigo\":\"SOPORTE_SOLO_LECTURA\"").contains("\"estado\":\"error\"");
+        }
+    }
+
+    /** Se corta antes que todo lo demás: ni se consulta la base para saber si la cuenta está suspendida o el correo verificado. */
+    @Test void elCorteDeEscrituraDeSoporteNoConsultaNada() throws Exception {
+        pedirConToken(TOKEN_DE_SOPORTE, "POST", "/v1/empresas", new MockFilterChain());
+
+        assertThat(consultasDeSuspension).isZero();
+    }
+
+    @Test void unaSesionNormalSigueEscribiendoYNoQuedaMarcadaComoSoporte() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest("POST", "/v1/empresas");
+        req.addHeader("Authorization", "Bearer " + tokenValido);
+        MockFilterChain chain = new MockFilterChain();
+        MockHttpServletResponse res = new MockHttpServletResponse();
+
+        filter.doFilter(req, res, chain);
+
+        assertThat(chain.getRequest()).isNotNull();
+        assertThat(res.getStatus()).isEqualTo(200);
+        assertThat(SoporteActual.de(req)).isEmpty();
+    }
+
+    @Test void laPeticionDeSoporteQuedaMarcadaConElAdministradorYSuExpiracion() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/empresas");
+        req.addHeader("Authorization", "Bearer " + TOKEN_DE_SOPORTE);
+
+        filter.doFilter(req, new MockHttpServletResponse(), new MockFilterChain());
+
+        var soporte = SoporteActual.de(req).orElseThrow();
+        assertThat(soporte.administradorId()).isEqualTo(administrador);
+        assertThat(soporte.expiraEn()).isEqualTo(java.time.Instant.parse("2026-10-04T12:15:00Z"));
+        assertThat(req.getAttribute(CuentaActual.ATRIBUTO)).as("mira como el usuario de la cuenta").isEqualTo(cuenta);
+        assertThat(req.getAttribute(UsuarioActual.ATRIBUTO)).isEqualTo(usuario);
+    }
+
+    /** El soporte no abre más puertas que el cliente: su sesión sigue acotada a su cuenta. */
+    @Test void conLaEmpresaDeOtraCuentaSigueSiendo403YConLaPropiaMira() throws Exception {
+        MockHttpServletRequest ajena = new MockHttpServletRequest("GET", "/v1/series");
+        ajena.addHeader("Authorization", "Bearer " + TOKEN_DE_SOPORTE);
+        ajena.addHeader("X-Empresa", empresaAjena.toString());
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        MockFilterChain chainAjena = new MockFilterChain();
+
+        filter.doFilter(ajena, res, chainAjena);
+
+        assertThat(chainAjena.getRequest()).isNull();
+        assertThat(res.getStatus()).isEqualTo(403);
+        assertThat(res.getContentAsString()).contains("EMPRESA_AJENA");
+
+        MockHttpServletRequest propia = new MockHttpServletRequest("GET", "/v1/series");
+        propia.addHeader("Authorization", "Bearer " + TOKEN_DE_SOPORTE);
+        propia.addHeader("X-Empresa", empresaPropia.toString());
+        filter.doFilter(propia, new MockHttpServletResponse(), new MockFilterChain());
+        assertThat(propia.getAttribute(TenantActual.ATRIBUTO)).isEqualTo(empresaPropia);
+    }
+
+    @Test void unaCuentaSuspendidaTampocoSeMiraEnSoporte() throws Exception {
+        cuentasSuspendidas.add(cuenta);
+        MockFilterChain chain = new MockFilterChain();
+
+        MockHttpServletResponse res = pedirConToken(TOKEN_DE_SOPORTE, "GET", "/v1/empresas", chain);
+
+        assertThat(chain.getRequest()).isNull();
+        assertThat(res.getStatus()).isEqualTo(403);
+        assertThat(res.getContentAsString()).contains("CUENTA_SUSPENDIDA");
     }
 }
