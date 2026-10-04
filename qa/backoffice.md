@@ -1851,6 +1851,104 @@ Lo que sobrevivía en la primera tanda:
 - **El e2e de Playwright no ejecuta los cambios que sí proceden** (pasar a producción, revocar una key): alteran lo que cuentan las demás specs que corren a la vez contra el mismo mock. Lo que no muta (la prueba de
   conexión, los diálogos y los rechazos) sí está de punta a punta; los cambios reales los prueban `AccionesDeEmpresaE2ETest` y los componentes.
 
+## #184 · Impersonar a un usuario del cliente (sesión de soporte)
+
+**Estado: 🔧 implementado, 85/85 mutaciones verificadas (2 equivalentes documentadas) — falta la revisión de la PR.** La función más sensible del backoffice: se hizo lo más acotada posible.
+
+`POST /v1/admin/cuentas/{cuentaId}/usuarios/{usuarioId}/impersonar` abre una **sesión de soporte**; `GET /v1/cuenta/accesos-de-soporte` es el historial que ve el propio cliente. Ya no hay nada más que pedir al
+soporte para que un cliente sepa que alguien miró su portal.
+
+### Diseño
+
+- **Un token distinto de una sesión normal.** Es un JWT del usuario al que se mira, con un claim propio (`imp`: el administrador que la abrió) y **su propia expiración, 15 minutos, sin refresh**: no se puede renovar. Para seguir
+  mirando se impersona de nuevo, y cada vez deja su registro. Un claim `imp` que no se entiende **invalida el token** en vez de degradarlo a una sesión normal, y quitarlo para volverlo normal rompe la firma (ambos tienen test).
+- **Solo lectura, en el filtro de JWT.** Cualquier petición que no sea `GET`/`HEAD`/`OPTIONS` con una sesión de soporte responde `403 SOPORTE_SOLO_LECTURA` **antes** de consultar nada, incluidas las de la propia
+  sesión (`/v1/auth/**`). Eso es lo que cumple «no permite cambiar la contraseña ni las credenciales SOL» —y también las API keys, el certificado, los datos fiscales, las series y, sobre todo, **emitir**, que sería
+  firmar un comprobante en nombre del cliente—. El issue no pedía tanta restricción; la elegí a propósito (ver abajo). La sesión sigue acotada a su cuenta (`X-Empresa` de otra cuenta es `403 EMPRESA_AJENA`) y una cuenta
+  suspendida tampoco se mira.
+- **Solo una persona puede impersonar.** La clave de plataforma (`X-Platform-Key`) no identifica a nadie y la bitácora no podría decir «quién»: `403 REQUIERE_ADMINISTRADOR`. Un usuario de otra cuenta es `404`, uno
+  desactivado `409 USUARIO_INACTIVO`. Un usuario con el correo sin verificar sí se puede mirar.
+- **Sin bitácora no hay impersonación.** El token se firma primero (no tiene efectos) y la bitácora va después, en una transacción: si falla, la excepción se lleva el token y nunca sale uno sin su registro. La bitácora dice
+  **quién** (administrador), **a quién** (cuenta y correo del usuario), **cuándo** y **por cuánto tiempo** (`usuario=… duracion_s=900`), y nunca el token. El formato del detalle vive en un solo sitio
+  (`DetalleDeSoporte`: lo escribe el servicio y lo lee el historial del cliente, así no pueden desacordarse).
+- **El cliente lo ve, sin saber quién fue.** `GET /v1/cuenta/accesos-de-soporte` (solo con sesión de cuenta; con API key no hay cuenta) lista cuándo, a qué usuario y por cuánto tiempo, de lo más reciente a lo más antiguo
+  (hasta 100). El DTO **no tiene ningún campo del administrador** (hay un test que lo fija) y un registro que no se entiende se muestra igual, solo con su fecha: el cliente tiene derecho a ver que hubo un acceso.
+- **El token nunca llega al JS del administrador.** El BFF lo guarda en la cookie `httpOnly` de acceso del cliente, con la vida que le queda (como mucho 15 minutos, mínimo 1 s), **sin refresh**, y la respuesta solo dice a quién
+  se mira y hasta cuándo. Fija como empresa activa la primera de la cuenta (las páginas la leen de su cookie, como hace el login) con la misma vida. El middleware deja pasar una sesión de soporte sin refresh mientras no
+  venza (lo decide por el claim `imp`, sin verificar la firma: si fuera falso, el backend rechaza el token); cualquier otro access sin refresh sigue yendo al login.
+- **Aviso permanente.** En el portal del cliente, `/v1/auth/me` dice `soporte_hasta` (lo dice el backend, que es quien conoce el token; no se lee el JWT en el cliente, y no se dice qué administrador es) y el layout privado
+  pinta arriba de todo un aviso fijo (`sticky`) en cada página: «Modo soporte. Estás viendo el portal como … Solo puedes mirar. La sesión termina el …», con **Salir del modo soporte**, que borra las cookies del cliente y vuelve
+  a la cuenta en el backoffice (la sesión del administrador es otra cookie y sigue abierta). Un 401 al cargar el portal ahora lleva al login en vez de a una página de error.
+- **Backoffice:** botón **Entrar como este usuario** en cada usuario activo del detalle de la cuenta, con un diálogo que dice que dura 15 minutos y no se renueva, que solo se mira, que queda a su nombre y que el cliente lo ve,
+  y que reemplaza la sesión de cliente que hubiera en ese navegador.
+- **Portal del cliente:** página **Accesos de soporte** (`/cuenta/accesos-de-soporte`, con enlace en el menú) con el historial.
+
+### Tests
+
+- Token (`JwtTokenEmisorTest`, +6): una sesión normal no es de soporte; la de soporte lleva al administrador y su expiración, que manda sobre los 15 minutos normales; vencida no verifica; un claim malformado invalida; quitar el claim
+  rompe la firma.
+- Filtro (`JwtFilterTest`, +7): una sesión de soporte mira; no escribe **nada** (doce rutas, incluida la propia sesión); se corta antes de consultar; marca la petición con el administrador y la expiración; sigue acotada a su cuenta;
+  una cuenta suspendida tampoco se mira; la sesión normal sigue escribiendo.
+- Servicio (`ImpersonarUsuarioServiceTest`, 11) e historial (`AccesosDeSoporteServiceTest`, 6), formato (`DetalleDeSoporteTest`, 3, incluidos once textos que no se leen) y persistencia (`JdbcAccesosDeSoporteRepositoryTest`, 6, Postgres real:
+  solo la cuenta pedida, solo impersonaciones, orden, límite e índice).
+- REST: `AdminImpersonacionControllerTest` (7: sin caché, sin el hash de la contraseña, la clave de plataforma, sin credencial no se ejecuta nada), `CuentaAccesosDeSoporteControllerTest` (5: nada del administrador) y `AuthControllerTest` (+3: `/me` dice
+  `soporte_hasta` y nunca el administrador).
+- **E2E real** (`ImpersonacionE2ETest`, 12, Spring completo + Postgres + los filtros reales): el administrador recibe un token que vence en ~15 minutos y no tiene refresh; con él se mira como el usuario y `/me` lo dice; **con él no se puede
+  cambiar nada** (ocho rutas de escritura y un DELETE responden `SOPORTE_SOLO_LECTURA` y se comprueba que la contraseña, las credenciales SOL, las empresas, las keys, las series, los documentos y las sesiones no cambiaron);
+  sigue acotado a su cuenta y a una suspendida; queda en la bitácora con quién, a quién, cuándo y cuánto, sin el token; **el cliente lo ve en su historial sin el administrador** y otra cuenta no ve nada; la clave de plataforma no puede; usuario de
+  otra cuenta, inexistente o desactivado; nadie más puede (sin credencial, JWT del dueño, API key, clave errónea); y el token de soporte no abre las rutas de administrador.
+- Portal, Vitest: BFF (`impersonar` 14, `salir` 4), `aviso-de-soporte` (6), `accesos-de-soporte` (7) y su cliente (2), `acciones-de-usuario` (+7), `jwt` (+4), `middleware` (+4) y `layout` privado (+6: el aviso sale y va antes que el resto, no sale en una sesión
+  normal, salir va a la cuenta del usuario, y un 401 lleva al login).
+- Portal, Playwright (`admin-impersonacion.spec.ts`, 9 + el ajuste del detalle de la cuenta): el diálogo; entrar como el usuario deja el aviso permanente; el aviso sigue en cada página; **el token vive en una cookie `httpOnly`** (el JS no la ve y no hay refresh); salir vuelve
+  a la cuenta, cierra la sesión del cliente y deja la del administrador; un desactivado no tiene botón; el BFF rechaza ids inválidos, usuarios inexistentes y la falta de sesión; y el cliente ve su historial (con el acceso sin detalle) sin una palabra sobre el administrador.
+
+### Verificación por mutación — 85/85 mueren (2 equivalentes)
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Token | Sin claim / vence como uno normal / `verificar` lo ignora / un claim malformado no invalida / la expiración leída es otra | 2 + 3 + 2 + 2 + 1 |
+| Filtro | Soporte escribe / solo se bloquea el POST / tampoco lee / la petición no queda marcada / el bloqueo responde otro código | 2 + 1 + 4 + 1 + 1 |
+| Servicio | La clave de plataforma impersona / un usuario de otra cuenta / un desactivado | 1 + 1 + 1 |
+| Servicio | Dura 30 minutos / la bitácora dice otra acción, sin la cuenta o sin la duración / no se registra | 3 + 1 + 1 + 1 + 4 |
+| Servicio | El administrador del token es el usuario / el token no es de soporte / es de otro rol / la expiración es otra | 1 + 1 + 1 + 1 |
+| Historial | Pierde el usuario y la duración / esconde lo que no entiende / el límite es otro | 2 + 1 + 1 |
+| Formato | El texto se escribe distinto / la duración no se lee | 2 + 2 |
+| Persistencia | Todas las cuentas / todas las acciones / orden inverso / límite ignorado | 1 + 1 + 2 + 1 |
+| REST | La respuesta queda en caché / `REQUIERE_ADMINISTRADOR` no es 403 / pierde la expiración | 1 + 1 + 1 |
+| REST | `/me` no dice hasta cuándo o ignora la sesión de soporte / el historial pierde usuario, duración o fecha | 1 + 1 + 1 + 1 + 2 |
+| Vitest (jwt y middleware) | Un claim vacío o todo token cuenta como soporte / una sesión vencida pasa / cualquier access sin refresh pasa | 1 + 1 + 1 + 1 |
+| Vitest (BFF) | Sin sesión / un id o un usuario cualquiera / **el token viaja en el cuerpo** / sin IP / sin `no-store` | 1 + 1 + 1 + 1 + 1 + 1 |
+| Vitest (BFF) | La cookie vive más de 15 minutos o puede ser inmortal / el refresh previo sobrevive / no se fija la empresa activa o dura 30 días / un fallo al listar rompe la sesión / la respuesta no dice a quién | 1 + 1 + 1 + 1 + 1 + 1 + 1 |
+| Vitest (aviso) | No es fijo / el doble clic sale dos veces / se navega aunque falle / sale a otra ruta, sin hasta cuándo, sin a quién, sin región, sin error, por otra ruta | 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 |
+| Vitest (layout) | No muestra el aviso / un 401 no lleva al login / el aviso llama a otra cuenta o sale sin correo | 1 + 1 + 1 + 1 |
+| Vitest (acción) | Navega a otra página / otra ruta / se ofrece a los desactivados / otro usuario / el diálogo no nombra al usuario | 1 + 1 + 1 + 1 + 1 |
+| Vitest (historial) | Los minutos se dicen mal / se esconde el acceso sin detalle / sin accesos no se dice / duración vacía / el cliente de la API usa otra ruta o no manda el JWT | 1 + 1 + 1 + 1 + 1 + 1 |
+| Playwright | Sin enlace al historial / el correo del acceso está oculto | 1 + 1 |
+
+Lo que sobrevivía en la primera tanda:
+
+- **El enlace de salida usaba una cuenta equivocada y nadie lo notaba** (`cuentaId={activa.id}` en vez de la cuenta del usuario): el aviso se probaba con la propia fecha y el correo, no con adónde lleva «Salir». Ahora el test de la página
+  hace clic en salir y comprueba que va a `/admin/cuentas/<la cuenta del usuario>`.
+- **El correo del acceso podía estar oculto (`hidden`) sin que ningún test lo viera**: jsdom no aplica CSS y `toContainText` cuenta el DOM, no lo visible. Ahora el e2e exige `toBeVisible`.
+- **Dos equivalentes**: los anclajes `^…$` del formato del detalle (con `matches()` ya se exige coincidir con todo: se quitaron) y el `if (!access) redirect("/login")` de la página del historial (el middleware y el layout ya redirigen; el `if` solo
+  estrecha el tipo para TypeScript).
+- **Dos hallazgos reales del e2e, antes de las mutaciones**: el middleware echaba al login a cualquier sesión sin refresh (justo lo que es una sesión de soporte), y sin la empresa activa «Empresa» llevaba al onboarding. Se arreglaron con sus tests.
+
+### Suites
+
+- Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (7 min 34 s, Testcontainers incluido).
+- Portal: `tsc --noEmit` y ESLint limpios; Vitest **632/632** (76 archivos); Playwright completo (`--workers=2`) **237/237**.
+
+### Límites conocidos
+
+- **Una sesión de soporte no se puede revocar antes de que venza.** Es un JWT sin estado: si hay que cortarla ya, solo vence a los 15 minutos (o se suspende la cuenta, que se mira en la base en cada petición, pero eso corta también al cliente).
+- **Es de solo lectura por completo, más de lo que pedía el issue.** El issue prohibía cambiar la contraseña y las credenciales SOL; yo bloqueé toda escritura, porque emitir o crear una API key «como el cliente» tiene consecuencias fiscales y de seguridad
+  que no se arreglan con una bitácora. Si el soporte necesita reproducir una emisión, hace falta una decisión explícita (y su propia bitácora).
+- **Reemplaza la sesión de cliente del navegador del administrador** (el diálogo lo dice). Para tener las dos a la vez hace falta otro navegador o un perfil aparte.
+- **La identidad del administrador no se muestra al cliente.** Queda en la bitácora interna, que el cliente no ve. Si algún cliente la pidiera, sería una decisión de producto.
+- **Mientras se mira no se registra lo que se mira**, solo que se miró: la bitácora de accesos no es un registro de páginas vistas.
+- **El mock del portal** abre la sesión con el cliente de demostración marcado como soporte (su mundo de clientes es otro): lo que prueba el e2e es el recorrido, no los datos; que la sesión es de solo lectura lo prueba el backend, no el mock.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
