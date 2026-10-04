@@ -6,10 +6,8 @@ import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase.Efecto;
 import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase.PlanDeCuenta;
 import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase.Previsualizacion;
 import pe.factura.application.port.in.ConsultarConsumoUseCase;
-import pe.factura.application.port.out.CuentaRepository;
 import pe.factura.application.port.out.SuscripcionRepository;
 import pe.factura.domain.DomainException;
-import pe.factura.domain.cuenta.Cuenta;
 import pe.factura.domain.plan.CambioDePlan;
 import pe.factura.domain.plan.DireccionDeCambio;
 import pe.factura.domain.plan.EstadoPlan;
@@ -63,12 +61,6 @@ class CambiarPlanDeCuentaServiceTest {
         return p;
     }
 
-    CuentaRepository cuentas = new CuentaRepository() {
-        public void guardar(Cuenta c) { throw new AssertionError("cambiar el plan no reescribe la cuenta"); }
-        public Optional<Cuenta> buscar(UUID id) { return cuentaId.equals(id) ? Optional.of(new Cuenta(cuentaId, "Mi negocio", "ana@negocio.pe")) : Optional.empty(); }
-        public Optional<Cuenta> buscarPorEmail(String email) { throw new AssertionError("no se busca por correo"); }
-    };
-
     /** En memoria, con la misma regla del real: el cambio es condicional (solo si la activa sigue siendo la que se vio) y un cambio cancela lo programado. */
     static class Suscripciones implements SuscripcionRepository {
         final Map<UUID, PlanesDeCuenta> datos = new HashMap<>();
@@ -106,7 +98,7 @@ class CambiarPlanDeCuentaServiceTest {
     Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
     Fakes.Auditoria auditoria = new Fakes.Auditoria();
     { auditoria.uow = uow; }
-    CambiarPlanDeCuentaService service = new CambiarPlanDeCuentaService(cuentas, planes, suscripciones, consumos, auditoria, uow, Fakes.CLOCK);
+    CambiarPlanDeCuentaService service = new CambiarPlanDeCuentaService(planes, suscripciones, consumos, auditoria, uow, Fakes.CLOCK);
 
     PlanesDeCuenta guardado() { return suscripciones.datos.get(cuentaId); }
 
@@ -393,6 +385,12 @@ class CambiarPlanDeCuentaServiceTest {
         assertThat(guardado().activa().diasDeGracia()).isZero();
     }
 
+    /** Los datos del pedido se miran antes de buscar nada: una gracia imposible se rechaza aunque el plan tampoco exista. */
+    @Test void losDatosDelPedidoSeValidanAntesDeBuscarElPlan() {
+        assertThat(codigo(() -> service.cambiar(ACTOR, cuentaId, UUID.randomUUID(), VENCE, -1))).isEqualTo("GRACIA_INVALIDA");
+        assertThat(codigo(() -> service.cambiar(ACTOR, cuentaId, UUID.randomUUID(), VENCE, 91))).isEqualTo("GRACIA_INVALIDA");
+    }
+
     @Test void unPlanFueraDeLaOfertaNoSeAsignaAunqueSigaExistiendo() {
         planes.datos.put(emprende.id(), emprende.desactivar());
 
@@ -492,13 +490,30 @@ class CambiarPlanDeCuentaServiceTest {
             }
         };
         conFalla.datos.putAll(suscripciones.datos);
-        CambiarPlanDeCuentaService s = new CambiarPlanDeCuentaService(cuentas, planes, conFalla, consumos, auditoria, uow, Fakes.CLOCK);
+        CambiarPlanDeCuentaService s = new CambiarPlanDeCuentaService(planes, conFalla, consumos, auditoria, uow, Fakes.CLOCK);
 
         Resultado r = s.aplicarVencidos();
 
         assertThat(r).isEqualTo(new Resultado(1, 1));
         assertThat(conFalla.datos.get(cuentaId).activa().planId()).isEqualTo(emprende.id());
         assertThat(conFalla.datos.get(rota).programado()).as("la que falló sigue esperando para la siguiente pasada").isNotNull();
+    }
+
+    /** Entre la búsqueda y la transacción alguien pudo reprogramar el cambio para más adelante: lo que ya no está vencido no se aplica. */
+    @Test void aplicarNoTocaUnCambioQueYaNoEstabaVencidoCuandoLlegoLaTransaccion() {
+        empezarEn(negocio, VENCE);
+        suscripciones.programar(cuentaId, new CambioDePlan(emprende.id(), PROXIMO_CICLO, null, 0));
+        PlanesDeCuenta antes = guardado();
+        Suscripciones desfasada = new Suscripciones() {
+            @Override public List<UUID> cuentasConCambioVencido(Instant ahora, int limite) { return List.of(cuentaId); }
+        };
+        desfasada.datos.putAll(suscripciones.datos);
+        CambiarPlanDeCuentaService s = new CambiarPlanDeCuentaService(planes, desfasada, consumos, auditoria, uow, Fakes.CLOCK);
+
+        Resultado r = s.aplicarVencidos();
+
+        assertThat(r).isEqualTo(new Resultado(0, 0));
+        assertThat(desfasada.datos.get(cuentaId)).isEqualTo(antes);
     }
 
     @Test void aplicarLosVencidosSinNadaProgramadoNoHaceNada() {

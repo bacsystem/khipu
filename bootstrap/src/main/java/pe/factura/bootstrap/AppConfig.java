@@ -323,9 +323,9 @@ public class AppConfig {
         return new ConsultarConsumoService(consumos, cuentas, tenants, clock);
     }
     /** Un solo servicio para las dos caras del cambio de plan: lo que hacen los administradores y lo que aplica el trabajo programado al llegar la fecha. */
-    @Bean CambiarPlanDeCuentaService cambiarPlanDeCuenta(CuentaRepository cuentas, PlanRepository planes, SuscripcionRepository suscripciones, ConsultarConsumoUseCase consumo,
+    @Bean CambiarPlanDeCuentaService cambiarPlanDeCuenta(PlanRepository planes, SuscripcionRepository suscripciones, ConsultarConsumoUseCase consumo,
                                                         AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
-        return new CambiarPlanDeCuentaService(cuentas, planes, suscripciones, consumo, auditoria, u, clock);
+        return new CambiarPlanDeCuentaService(planes, suscripciones, consumo, auditoria, u, clock);
     }
     @Bean AplicarCambiosDePlanWorker aplicarCambiosDePlanWorker(AplicarCambiosDePlanUseCase cambios) { return new AplicarCambiosDePlanWorker(cambios); }
     @Bean GestionarPlanesUseCase gestionarPlanes(PlanRepository planes, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
