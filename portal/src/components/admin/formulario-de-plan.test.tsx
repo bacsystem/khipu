@@ -137,6 +137,19 @@ describe("FormularioDePlan — nuevo", () => {
     expect(cuerpo.limites.usuarios).toEqual({ maximo: 3, ilimitado: false });
   });
 
+  /** Marcar «Ilimitado» no deja a la vista un número viejo que ya no vale: el campo se ve vacío (y al desmarcar vuelve lo que había). */
+  it("«Ilimitado» vacía el campo a la vista y al desmarcarlo vuelve el número que había", () => {
+    abrirNuevo();
+    llenar({ "Documentos por mes": "800" });
+    const ilimitado = screen.getAllByLabelText("Ilimitado")[0] as HTMLInputElement;
+
+    fireEvent.click(ilimitado);
+    expect(campo("Documentos por mes").value).toBe("");
+
+    fireEvent.click(ilimitado);
+    expect(campo("Documentos por mes").value).toBe("800");
+  });
+
   it("un nombre repetido lo dice el backend: se muestra bajo el campo, sin cerrar", async () => {
     apiRequest.mockResolvedValue(error("NOMBRE_DUPLICADO", "Ya existe un plan llamado «Estudio»"));
     abrirNuevo();
