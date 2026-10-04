@@ -67,8 +67,8 @@ export async function apiRequest<T>(
   init: { method: string; body?: unknown; headers?: Record<string, string> },
 ): Promise<ApiEnvelope<T>> {
   const isFormData = init.body instanceof FormData;
-  const tipo = isFormData || init.body === undefined ? {} : { "content-type": "application/json" };
-  const headers = { ...tipo, ...init.headers };
+  const tipo: Record<string, string> = isFormData || init.body === undefined ? {} : { "content-type": "application/json" };
+  const headers: Record<string, string> = { ...tipo, ...init.headers };
   return pedir<T>(path, {
     method: init.method,
     headers: Object.keys(headers).length === 0 ? undefined : headers,

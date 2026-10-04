@@ -152,17 +152,73 @@ test("si la red se corta durante la emisión, avisa y no deja el botón en «Emi
 
   const alerta = dialogo.getByRole("alert");
   await expect(alerta).toContainText("Se cortó la conexión");
-  // Lo esencial del mensaje: no reintentar a ciegas, porque el POST pudo haber consumido correlativo.
-  await expect(alerta).toContainText("pudo haberse emitido");
+  // Con la clave de idempotencia (#115) reintentar el mismo contenido es seguro: el mensaje lo dice.
+  await expect(alerta).toContainText("Vuelve a emitir sin cambiar nada");
   await expect(dialogo.getByRole("button", { name: "Emitir factura" })).toBeEnabled();
   await expect(page).toHaveURL(/\/comprobantes(\?|$)/);
+});
+
+/**
+ * #115, el caso que lo motivó: el POST llegó y la factura se emitió, pero la respuesta se cortó antes de llegar al navegador. El
+ * usuario vuelve a emitir sin cambiar nada: el reintento lleva la misma clave y termina en la misma factura, no en otra.
+ */
+test("tras un corte, volver a emitir sin cambiar nada lleva a la misma factura en vez de duplicarla", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+  await completarMinimo(dialogo);
+
+  const claves: string[] = [];
+  let emitida = "";
+  await page.route("**/api/proxy/facturas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    const res = await r.fetch();
+    emitida = (await res.json()).datos.id;
+    await r.abort("connectionreset");
+  });
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(dialogo.getByRole("alert")).toContainText("Vuelve a emitir sin cambiar nada");
+  expect(emitida).not.toBe("");
+
+  await page.unroute("**/api/proxy/facturas");
+  await page.route("**/api/proxy/facturas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    await r.continue();
+  });
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/comprobantes/${emitida}$`));
+  expect(claves).toHaveLength(2);
+  expect(claves[0]).toMatch(/^[0-9a-f-]{36}$/);
+  expect(claves[1]).toBe(claves[0]);
+});
+
+test("si después del corte se cambia la factura, el reintento es otra factura con otra clave", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+  await completarMinimo(dialogo);
+
+  const claves: string[] = [];
+  await page.route("**/api/proxy/facturas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    await r.abort("connectionreset");
+  });
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(dialogo.getByRole("alert")).toContainText("Se cortó la conexión");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("200");
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(dialogo.getByRole("alert")).toContainText("Se cortó la conexión");
+
+  expect(claves).toHaveLength(2);
+  expect(claves[1]).not.toBe(claves[0]);
 });
 
 /**
  * El otro final incierto: la petición llegó y la respuesta no es JSON (el HTML de un 502 de proxy, típico). Acá el POST
  * casi con seguridad se procesó, así que el aviso de no reintentar a ciegas importa más todavía que en el corte.
  */
-test("si la respuesta de la emisión no es JSON, avisa que pudo haberse emitido igual", async ({ page }) => {
+test("si la respuesta de la emisión no es JSON, avisa que se puede reintentar sin duplicar", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
@@ -174,7 +230,7 @@ test("si la respuesta de la emisión no es JSON, avisa que pudo haberse emitido 
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
 
   const alerta = dialogo.getByRole("alert");
-  await expect(alerta).toContainText("pudo haberse emitido");
+  await expect(alerta).toContainText("Vuelve a emitir sin cambiar nada");
   await expect(dialogo.getByRole("button", { name: "Emitir factura" })).toBeEnabled();
 });
 
