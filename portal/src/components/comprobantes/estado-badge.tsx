@@ -14,6 +14,7 @@ export const ETIQUETAS_ESTADO: Record<EstadoDocumento, string> = {
   RECHAZADO: "Rechazado",
   ANULADO: "Anulado",
   FUERA_DE_PLAZO: "Fuera de plazo",
+  DESCARTADO: "Descartado",
 };
 
 const ESTILOS: Record<EstadoDocumento, string> = {
@@ -28,6 +29,7 @@ const ESTILOS: Record<EstadoDocumento, string> = {
   RECHAZADO: "bg-destructive/10 text-destructive border-destructive-border",
   ANULADO: "bg-secondary text-muted-foreground border-border",
   FUERA_DE_PLAZO: "bg-destructive/10 text-destructive border-destructive-border",
+  DESCARTADO: "bg-secondary text-muted-foreground border-border",
 };
 
 export const PUNTOS: Record<EstadoDocumento, string> = {
@@ -42,6 +44,7 @@ export const PUNTOS: Record<EstadoDocumento, string> = {
   RECHAZADO: "bg-destructive",
   ANULADO: "bg-muted-foreground/50",
   FUERA_DE_PLAZO: "bg-destructive",
+  DESCARTADO: "bg-muted-foreground/50",
 };
 
 export function EstadoBadge({ estado, etiqueta }: { estado: EstadoDocumento; etiqueta?: string }) {

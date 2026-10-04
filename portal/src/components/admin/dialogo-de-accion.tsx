@@ -37,6 +37,11 @@ export type DialogoDeAccionProps = {
    * la página muestre el estado real.
    */
   estadoViejo?: string[];
+  /**
+   * Se llama con el mensaje del backend cuando el error es de los de {@link estadoViejo}, justo antes de recargar: si la recarga hace desaparecer lo que este diálogo
+   * accionaba (la fila ya no está), el mensaje se perdería con él; quien llama puede guardarlo en un lugar que sobreviva a la recarga.
+   */
+  alEstadoViejo?: (mensaje: string) => void;
   /** Campos propios de la acción (un motivo, un selector…), dentro del diálogo. */
   children?: ReactNode;
   /** Se llama al cerrar el diálogo, para que la acción limpie sus campos. */
@@ -85,7 +90,10 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
     }
     if (res.estado !== "exito") {
       setError(res.mensaje ?? mensajeError(res.codigo));
-      if (res.codigo && p.estadoViejo?.includes(res.codigo)) router.refresh();
+      if (res.codigo && p.estadoViejo?.includes(res.codigo)) {
+        p.alEstadoViejo?.(res.mensaje ?? mensajeError(res.codigo));
+        router.refresh();
+      }
       return;
     }
     setAbierto(false);

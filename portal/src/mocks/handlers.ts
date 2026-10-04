@@ -86,6 +86,104 @@ const CODIGOS_RECUPERACION_MOCK = [
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8001";
 
+/**
+ * La cola de errores del mock (#196). Los comprobantes que solo se leen (empresas 4, 7 y 101, y los terminales de las empresas 1 y 2) nunca cambian; los que se reintentan o se
+ * descartan tienen su propio comportamiento, uno por prueba: las pruebas corren en paralelo contra esta misma memoria, y ninguna toca lo que cuentan las demás.
+ */
+type FilaDeErrorMock = {
+  comprobante_id: string;
+  empresa_id: string;
+  ruc: string;
+  razon_social: string;
+  cuenta_id?: string;
+  cuenta_nombre?: string;
+  nombre_archivo: string;
+  tipo: string;
+  serie: string;
+  numero: number;
+  fecha_emision: string;
+  estado: string;
+  clase: "ERROR_DE_ENVIO" | "ERROR_DE_FORMATO" | "FUERA_DE_PLAZO";
+  intentos: number;
+  fault?: { codigo?: string; mensaje?: string };
+  proximo_intento?: string;
+  actualizado_en: string;
+  accionable: boolean;
+};
+
+/** Qué pasa al reintentar un comprobante: falla otra vez, SUNAT lo acepta, lo rechaza con un fault de formato, se pasó el plazo, o ya lo había resuelto otro administrador. */
+type ReintentoMock = "FALLA" | "ACEPTA" | "RECHAZA" | "VENCE" | "OBSOLETO";
+
+const idComprobanteErrorMock = (n: number) => `00000000-0000-4000-d000-${String(n).padStart(12, "0")}`;
+
+function fila(n: number, empresa: number, ruc: string, razon: string, cuenta: { id: string; nombre: string } | null, clase: FilaDeErrorMock["clase"], fecha: string, p: Partial<FilaDeErrorMock> = {}): FilaDeErrorMock {
+  const envio = clase === "ERROR_DE_ENVIO";
+  return {
+    comprobante_id: idComprobanteErrorMock(n),
+    empresa_id: idEmpresaMock(empresa),
+    ruc,
+    razon_social: razon,
+    ...(cuenta ? { cuenta_id: cuenta.id, cuenta_nombre: cuenta.nombre } : {}),
+    nombre_archivo: `${ruc}-01-F001-${n}`,
+    tipo: "01",
+    serie: "F001",
+    numero: n,
+    fecha_emision: fecha,
+    estado: envio ? "ERROR_ENVIO" : clase === "ERROR_DE_FORMATO" ? "RECHAZADO" : "FUERA_DE_PLAZO",
+    clase,
+    intentos: envio ? 2 : 1,
+    fault: envio ? { codigo: "0109", mensaje: "El sistema no puede responder su solicitud" } : undefined,
+    ...(envio ? { proximo_intento: "2026-10-04T18:30:00Z" } : {}),
+    actualizado_en: "2026-10-04T15:00:00Z",
+    accionable: envio,
+    ...p,
+  };
+}
+
+const PANADERIA = { ruc: "20100047226", razon: "PANADERIA SOL SAC", cuenta: { id: idCuentaMock(1), nombre: "Panadería Sol" } };
+const FERRETERIA = { ruc: "20100055121", razon: "FERRETERIA LUNA SAC", cuenta: { id: idCuentaMock(2), nombre: "Ferretería Luna" } };
+const CLIENTE_4 = { ruc: "20100000400", razon: "CLIENTE 04 SAC", cuenta: { id: idCuentaMock(4), nombre: "Cliente 04" } };
+const CLIENTE_7 = { ruc: "20100000700", razon: "CLIENTE 07 SAC", cuenta: { id: idCuentaMock(7), nombre: "Cliente 07" } };
+const INTEGRADOR = { ruc: "20100066611", razon: "INTEGRADOR SAC", cuenta: null };
+
+function erroresIniciales(): FilaDeErrorMock[] {
+  const d = (e: { ruc: string; razon: string; cuenta: { id: string; nombre: string } | null }) => [e.ruc, e.razon, e.cuenta] as const;
+  return [
+    // Con acciones: una por prueba.
+    fila(101, 1, ...d(PANADERIA), "ERROR_DE_ENVIO", "2026-10-01", { intentos: 3 }),
+    fila(102, 1, ...d(PANADERIA), "ERROR_DE_ENVIO", "2026-10-01"),
+    fila(103, 1, ...d(PANADERIA), "ERROR_DE_ENVIO", "2026-10-01"),
+    fila(104, 2, ...d(FERRETERIA), "ERROR_DE_ENVIO", "2026-10-01"),
+    fila(105, 1, ...d(PANADERIA), "ERROR_DE_ENVIO", "2026-10-01"),
+    fila(106, 2, ...d(FERRETERIA), "ERROR_DE_ENVIO", "2026-10-01"),
+    fila(107, 1, ...d(PANADERIA), "ERROR_DE_ENVIO", "2026-10-01"),
+    // Solo lectura: la empresa 4 tiene una de cada clase y un fallo propio sin código de SUNAT.
+    fila(201, 4, ...d(CLIENTE_4), "ERROR_DE_ENVIO", "2026-10-02", { intentos: 2 }),
+    fila(202, 4, ...d(CLIENTE_4), "ERROR_DE_ENVIO", "2026-10-03", { intentos: 5, fault: { mensaje: "INFRA - storage no disponible" }, proximo_intento: undefined }),
+    fila(203, 4, ...d(CLIENTE_4), "ERROR_DE_FORMATO", "2026-10-02", { fault: { codigo: "1033", mensaje: "El comprobante fue registrado previamente con otros datos" } }),
+    fila(204, 4, ...d(CLIENTE_4), "FUERA_DE_PLAZO", "2026-10-01", { fault: { codigo: "2108", mensaje: "Presentación fuera de fecha: el plazo venció el 2026-10-04" } }),
+    // Solo lectura: doce de la empresa 7, para paginar.
+    ...Array.from({ length: 12 }, (_, i) => fila(301 + i, 7, ...d(CLIENTE_7), "ERROR_DE_ENVIO", `2026-09-${String(10 + i).padStart(2, "0")}`)),
+    // Solo lectura: una empresa de integración (sin cuenta), un formato y un fuera de plazo de las empresas 1 y 2.
+    fila(401, 101, ...d(INTEGRADOR), "ERROR_DE_ENVIO", "2026-10-02", { intentos: 1 }),
+    fila(501, 2, ...d(FERRETERIA), "ERROR_DE_FORMATO", "2026-10-01", { fault: { codigo: "1001", mensaje: "Serie inválida" } }),
+    fila(502, 1, ...d(PANADERIA), "FUERA_DE_PLAZO", "2026-10-01", { fault: { codigo: "2108", mensaje: "Presentación fuera de fecha: el plazo venció el 2026-10-01" } }),
+  ];
+}
+
+const REINTENTOS_MOCK: Record<string, ReintentoMock> = {
+  [idComprobanteErrorMock(101)]: "FALLA",
+  [idComprobanteErrorMock(102)]: "ACEPTA",
+  [idComprobanteErrorMock(103)]: "RECHAZA",
+  [idComprobanteErrorMock(104)]: "VENCE",
+  [idComprobanteErrorMock(107)]: "OBSOLETO",
+};
+
+let erroresMock: FilaDeErrorMock[] = erroresIniciales();
+
+/** Sin tildes y en minúsculas: la búsqueda del backend no distingue ni mayúsculas ni tildes. */
+const sinTildes = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 /** Cuántas veces se leyó el monitor (#195): la cola de envíos crece una por lectura, y así las pruebas ven que el panel se actualizó. */
 let lecturasDelMonitorMock = 0;
 
@@ -879,6 +977,87 @@ export const handlers = [
         { servicio: "CONSULTA_DE_VALIDEZ", disponible: true, milisegundos: 210 },
       ],
     });
+  }),
+
+  /**
+   * Como el backend (#196): la cola global de errores de todas las empresas, de la emisión más antigua a la más reciente, con filtro por clase, empresa y texto (RUC por prefijo,
+   * razón social y cuenta, sin tildes), paginada, y el total en `x-total-count`. Una clase que no existe o una empresa que no es un UUID: 400 `PARAMETRO_INVALIDO`.
+   */
+  http.get(`${BASE}/v1/admin/errores`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const url = new URL(request.url);
+    const clase = url.searchParams.get("clase");
+    if (clase !== null && !["ERROR_DE_ENVIO", "ERROR_DE_FORMATO", "FUERA_DE_PLAZO"].includes(clase)) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'clase' no tiene un formato válido");
+    const empresa = url.searchParams.get("empresa_id");
+    if (empresa !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(empresa)) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'empresa_id' no tiene un formato válido");
+    const q = sinTildes((url.searchParams.get("q") ?? "").trim());
+    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
+    const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
+    const filtradas = erroresMock
+      .filter((e) => (clase === null || e.clase === clase) && (empresa === null || e.empresa_id === empresa))
+      .filter((e) => q === "" || e.ruc.startsWith(q) || sinTildes(e.razon_social).includes(q) || sinTildes(e.cuenta_nombre ?? "").includes(q))
+      .sort((a, b) => (a.fecha_emision === b.fecha_emision ? a.numero - b.numero : a.fecha_emision < b.fecha_emision ? -1 : 1));
+    return HttpResponse.json(
+      { estado: "exito", datos: filtradas.slice((pagina - 1) * porPagina, pagina * porPagina), mensaje: null, codigo: null, errores: null },
+      { headers: { "x-total-count": String(filtradas.length) } },
+    );
+  }),
+
+  /**
+   * Como el backend (#196): reintenta el envío de un comprobante en error de envío. Lo que pasa depende del comprobante (ver `REINTENTOS_MOCK`): vuelve a fallar (200 con
+   * `ERROR_ENVIO` y un intento más), SUNAT lo acepta (sale de la cola), lo rechaza con un fault de formato (pasa a error de formato), se pasó el plazo (409 `FUERA_DE_PLAZO`) o ya
+   * lo había resuelto otro administrador (409 `ESTADO_NO_ENVIABLE`). Lo que no está en error de envío: 409 `ESTADO_NO_ENVIABLE`.
+   */
+  http.post(`${BASE}/v1/admin/comprobantes/:id/reintento`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const e = erroresMock.find((x) => x.comprobante_id === params.id);
+    if (!e) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
+    if (e.estado !== "ERROR_ENVIO") return fail(409, "ESTADO_NO_ENVIABLE", `El comprobante está en estado ${e.estado}`);
+    switch (REINTENTOS_MOCK[e.comprobante_id] ?? "FALLA") {
+      case "ACEPTA":
+        erroresMock = erroresMock.filter((x) => x !== e);
+        return ok({ comprobante_id: e.comprobante_id, estado: "ACEPTADO", intentos: e.intentos });
+      case "RECHAZA": {
+        const fault = { codigo: "1033", mensaje: "El comprobante fue registrado previamente con otros datos" };
+        Object.assign(e, { estado: "RECHAZADO", clase: "ERROR_DE_FORMATO", fault, accionable: false, proximo_intento: undefined });
+        return ok({ comprobante_id: e.comprobante_id, estado: "RECHAZADO", intentos: e.intentos, fault });
+      }
+      case "VENCE":
+        Object.assign(e, { estado: "FUERA_DE_PLAZO", clase: "FUERA_DE_PLAZO", accionable: false, proximo_intento: undefined, fault: { codigo: "2108", mensaje: "Presentación fuera de fecha" } });
+        return fail(409, "FUERA_DE_PLAZO", "2108 - El comprobante no se envió dentro del plazo: emita un comprobante nuevo");
+      case "OBSOLETO":
+        erroresMock = erroresMock.filter((x) => x !== e);
+        return fail(409, "ESTADO_NO_ENVIABLE", "El comprobante está en estado ACEPTADO");
+      default: {
+        const fault = { codigo: "0000", mensaje: "SUNAT respondió HTTP 503" };
+        e.intentos += 1;
+        e.fault = fault;
+        e.proximo_intento = new Date(Date.now() + 3_600_000).toISOString();
+        return ok({ comprobante_id: e.comprobante_id, estado: "ERROR_ENVIO", intentos: e.intentos, fault });
+      }
+    }
+  }),
+
+  /**
+   * Como el backend (#196): descarta un comprobante en error de envío. El motivo es obligatorio (422 `MOTIVO_REQUERIDO`) y de hasta 200 caracteres (422 `MOTIVO_LARGO`); lo que
+   * no está en error de envío: 409 `ESTADO_NO_DESCARTABLE`. Descartado, sale de la cola.
+   */
+  http.post(`${BASE}/v1/admin/comprobantes/:id/descarte`, async ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    let cuerpo: { motivo?: unknown } = {};
+    try {
+      cuerpo = (await request.json()) as { motivo?: unknown };
+    } catch {
+      return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
+    }
+    const motivo = typeof cuerpo.motivo === "string" ? cuerpo.motivo.trim() : "";
+    if (motivo === "") return fail(422, "MOTIVO_REQUERIDO", "Indica por qué se descarta el comprobante");
+    if (motivo.length > 200) return fail(422, "MOTIVO_LARGO", "El motivo no puede pasar de 200 caracteres");
+    const e = erroresMock.find((x) => x.comprobante_id === params.id);
+    if (!e) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
+    if (e.estado !== "ERROR_ENVIO") return fail(409, "ESTADO_NO_DESCARTABLE", `Solo se descarta un comprobante en error de envío; este está ${e.estado}`);
+    erroresMock = erroresMock.filter((x) => x !== e);
+    return ok({ comprobante_id: e.comprobante_id, estado: "DESCARTADO" });
   }),
 
   /** Como el backend (#193): consumo de todas las cuentas contra su plan de hoy, con filtro, orden, mes y página; el total, que refleja el filtro, va en la cabecera. */
