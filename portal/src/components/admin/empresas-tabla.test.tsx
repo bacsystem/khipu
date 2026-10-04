@@ -93,4 +93,52 @@ describe("EmpresasTabla (#185)", () => {
     expect(screen.getByText("COMERCIAL ANDINA SAC")).toBeTruthy();
     expect(screen.getByText("20100066603")).toBeTruthy();
   });
+
+  // --- #201: baja lógica de la cuenta ----------------------------------------------------------------------------------------------
+
+  it("el selector de bajas muestra lo que dice la URL y, sin nada, «Ocultar»", () => {
+    const { unmount } = render(<EmpresasTabla datos={[ANDINA]} total={1} params={{ pagina: 1, porPagina: 10 }} />);
+    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("");
+    unmount();
+
+    render(<EmpresasTabla datos={[ANDINA]} total={1} params={{ bajas: "SOLO", pagina: 1, porPagina: 10 }} />);
+    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("SOLO");
+  });
+
+  it("elegir un valor desde la página 3 navega a la primera y conserva los otros filtros", () => {
+    render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ entorno: "BETA", certificado: "VENCIDO", pagina: 3, porPagina: 20 }} />);
+
+    fireEvent.change(screen.getByLabelText("Cuentas dadas de baja"), { target: { value: "INCLUIDAS" } });
+
+    expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=BETA&certificado=VENCIDO&bajas=INCLUIDAS&por_pagina=20");
+  });
+
+  it("cambiar el entorno conserva el filtro de bajas", () => {
+    render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ bajas: "SOLO", pagina: 3, porPagina: 10 }} />);
+
+    fireEvent.change(screen.getByLabelText("Entorno"), { target: { value: "PRODUCCION" } });
+
+    expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=PRODUCCION&bajas=SOLO");
+  });
+
+  it("la paginación conserva el filtro de bajas en sus enlaces", () => {
+    render(<EmpresasTabla datos={[ANDINA]} total={45} params={{ bajas: "INCLUIDAS", pagina: 1, porPagina: 20 }} />);
+
+    expect(screen.getByRole("link", { name: /Siguiente/ }).getAttribute("href")).toBe("/admin/empresas?bajas=INCLUIDAS&pagina=2&por_pagina=20");
+  });
+
+  it("con solo el filtro de bajas puesto ofrece quitar los filtros", () => {
+    render(<EmpresasTabla datos={[]} total={0} params={{ bajas: "SOLO", pagina: 1, porPagina: 20 }} />);
+
+    expect(screen.getByText("No hay empresas con esos filtros.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Quitar filtros" }).getAttribute("href")).toBe("/admin/empresas?por_pagina=20");
+  });
+
+  it("una empresa de una cuenta de baja lo dice junto a su cuenta, y una en servicio no", () => {
+    const deBaja = { ...ANDINA, id: "e2", ruc: "20100066611", cuenta_nombre: "Se fue", cuenta_de_baja_en: "2026-10-03T09:00:00Z" };
+    render(<EmpresasTabla datos={[ANDINA, deBaja]} total={2} params={{ bajas: "INCLUIDAS", pagina: 1, porPagina: 10 }} />);
+
+    expect(screen.getAllByText("De baja")).toHaveLength(1);
+    expect(screen.getByText("De baja").closest("tr")?.textContent).toContain("20100066611");
+  });
 });

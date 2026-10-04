@@ -57,10 +57,10 @@ test("el detalle muestra usuarios, empresas con su certificado, comprobantes y b
 });
 
 /**
- * Las acciones sobre la cuenta son suspenderla (#182) y, por usuario, mandarle el correo de acceso (#183). Las demás (impersonar, planes…)
+ * Las acciones sobre la cuenta son suspenderla (#182), darla de baja (#201) y, por usuario, mandarle el correo de acceso (#183). Las demás (impersonar, planes…)
  * llegan en sus issues: ningún botón más. Un usuario desactivado no tiene ninguno, y la verificación solo se ofrece a quien no la tiene.
  */
-test("las únicas acciones son suspender la cuenta y los correos de acceso de cada usuario", async ({ page }) => {
+test("las únicas acciones son suspender o dar de baja la cuenta y los correos de acceso de cada usuario", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto(`/admin/cuentas/${ID_SOL}`);
 
@@ -69,7 +69,8 @@ test("las únicas acciones son suspender la cuenta y los correos de acceso de ca
   await expect(detalle.getByTestId("suspender-cuenta")).toBeVisible();
   await expect(detalle.getByTestId("restablecer-usuario")).toHaveCount(3);
   await expect(detalle.getByTestId("verificar-usuario")).toHaveCount(2);
-  await expect(detalle.getByRole("button")).toHaveCount(1 + 3 + 2);
+  await expect(detalle.getByTestId("dar-de-baja-cuenta")).toBeVisible();
+  await expect(detalle.getByRole("button")).toHaveCount(1 + 1 + 3 + 2);
 
   const carla = detalle.locator("tbody tr", { hasText: "carla@sol.pe" });
   await expect(carla.getByRole("button")).toHaveCount(0);

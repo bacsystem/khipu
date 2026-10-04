@@ -112,3 +112,46 @@ describe("listarCuentasAdmin", () => {
     expect(pagina.total).toBe(1);
   });
 });
+
+/** Las cuentas dadas de baja (#201) no salen salvo que se pida: el filtro viaja por la URL de la pantalla, hasta el backend, y se sanea en el camino. */
+describe("bajas en el listado de cuentas (#201)", () => {
+  it("por defecto no hay filtro de bajas: el backend las oculta", () => {
+    expect(paramsCuentasDesdeUrl({}).bajas).toBeUndefined();
+    expect(queryCuentas({ pagina: 1, porPagina: 10 }).toString()).toBe("pagina=1&por_pagina=10");
+    expect(hrefCuentas({ pagina: 1, porPagina: 10 })).toBe("/admin/cuentas");
+  });
+
+  it("INCLUIDAS y SOLO pasan de la URL a los parámetros", () => {
+    expect(paramsCuentasDesdeUrl({ bajas: "INCLUIDAS" }).bajas).toBe("INCLUIDAS");
+    expect(paramsCuentasDesdeUrl({ bajas: "SOLO" }).bajas).toBe("SOLO");
+  });
+
+  /** Un valor que el backend no conoce respondería 400 y el listado entero se vería roto por un parámetro de más: se descarta. */
+  it("un valor desconocido, en minúsculas o el propio OCULTAS (que es el defecto) se descarta", () => {
+    for (const malo of ["TODAS", "solo", "incluidas", "OCULTAS", "", "1"]) {
+      expect(paramsCuentasDesdeUrl({ bajas: malo }).bajas, malo).toBeUndefined();
+    }
+  });
+
+  it("el filtro viaja al backend junto con la búsqueda, antes de la página", () => {
+    expect(queryCuentas({ q: "sol", bajas: "SOLO", pagina: 2, porPagina: 20 }).toString()).toBe("q=sol&bajas=SOLO&pagina=2&por_pagina=20");
+  });
+
+  it("la URL de la pantalla lo conserva, y la ruta base queda limpia sin él", () => {
+    expect(hrefCuentas({ bajas: "INCLUIDAS", pagina: 1, porPagina: 10 })).toBe("/admin/cuentas?bajas=INCLUIDAS");
+    expect(hrefCuentas({ q: "sol", bajas: "SOLO", pagina: 3, porPagina: 50 })).toBe("/admin/cuentas?q=sol&bajas=SOLO&pagina=3&por_pagina=50");
+  });
+
+  it("corregir una página fuera de rango no pierde el filtro de bajas", () => {
+    expect(hrefSiFueraDeRango({ bajas: "SOLO", pagina: 9, porPagina: 10 }, 12)).toBe("/admin/cuentas?bajas=SOLO&pagina=2");
+  });
+
+  it("llama al backend con el filtro", async () => {
+    const fetch = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos: [], mensaje: null, codigo: null, errores: null }), { status: 200 })));
+    vi.stubGlobal("fetch", fetch);
+
+    await listarCuentasAdmin("tok", { bajas: "INCLUIDAS", pagina: 1, porPagina: 10 });
+
+    expect((fetch.mock.calls[0] as unknown as [string])[0]).toBe(`${apiBaseUrl()}/v1/admin/cuentas?bajas=INCLUIDAS&pagina=1&por_pagina=10`);
+  });
+});

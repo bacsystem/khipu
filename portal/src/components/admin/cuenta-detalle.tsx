@@ -1,3 +1,4 @@
+import { AccionesDeBaja } from "@/components/admin/acciones-de-baja";
 import { AccionesDeCuenta } from "@/components/admin/acciones-de-cuenta";
 import { AccionesDeUsuario } from "@/components/admin/acciones-de-usuario";
 import { CertificadoEtiqueta, Etiqueta, EstadoCuentaEtiqueta } from "@/components/admin/etiquetas";
@@ -165,8 +166,8 @@ function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
 }
 
 /**
- * Detalle de una cuenta del backoffice (#181). Desde aquí se puede suspenderla o reactivarla (#182) y mandarle a un usuario el correo de
- * restablecimiento o de verificación (#183), cada cosa con su confirmación y su registro en la bitácora; el resto (impersonar, planes…) llega en sus issues. `hoy` (fecha de Lima) llega de afuera para que el estado
+ * Detalle de una cuenta del backoffice (#181). Desde aquí se puede suspenderla o reactivarla (#182), darla de baja o reponerla (#201) y mandarle a
+ * un usuario el correo de restablecimiento o de verificación (#183), cada cosa con su confirmación y su registro en la bitácora; el resto (impersonar, planes…) llega en sus issues. `hoy` (fecha de Lima) llega de afuera para que el estado
  * del certificado se calcule igual en el servidor y en las pruebas.
  */
 export function CuentaDetalle({ cuenta, hoy }: { cuenta: CuentaDetalleAdmin; hoy: string }) {
@@ -181,6 +182,11 @@ export function CuentaDetalle({ cuenta, hoy }: { cuenta: CuentaDetalleAdmin; hoy
               {cuenta.suspendida_en ? (
                 <span data-testid="suspendida-desde" className="mt-1 block text-[11px] text-muted-foreground">
                   {t.suspendidaDesde.replace("{fecha}", formatearFechaHora(cuenta.suspendida_en))}
+                </span>
+              ) : null}
+              {cuenta.baja_en ? (
+                <span data-testid="baja-desde" className="mt-1 block text-[11px] text-muted-foreground">
+                  {t.bajaDesde.replace("{fecha}", formatearFechaHora(cuenta.baja_en))}
                 </span>
               ) : null}
             </dd>
@@ -198,7 +204,11 @@ export function CuentaDetalle({ cuenta, hoy }: { cuenta: CuentaDetalleAdmin; hoy
             <dd className="text-[13px]">{formatearFechaHora(cuenta.creada_en)}</dd>
           </div>
         </dl>
-        <AccionesDeCuenta id={cuenta.id} nombre={cuenta.nombre} estado={cuenta.estado} empresas={cuenta.empresas.length} />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Una cuenta de baja solo se puede reponer: suspenderla o reactivarla no tiene sentido mientras el cliente no está en servicio. */}
+          {cuenta.estado === "BAJA" ? null : <AccionesDeCuenta id={cuenta.id} nombre={cuenta.nombre} estado={cuenta.estado} empresas={cuenta.empresas.length} />}
+          <AccionesDeBaja id={cuenta.id} nombre={cuenta.nombre} estado={cuenta.estado} />
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">{t.soloLectura}</p>
       <Usuarios cuentaId={cuenta.id} usuarios={cuenta.usuarios} />

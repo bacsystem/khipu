@@ -4,6 +4,7 @@ import { InboxIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
+import { FiltroDeBajas } from "@/components/admin/filtro-de-bajas";
 import { PieTabla } from "@/components/ui/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
@@ -42,7 +43,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
   const ultimaPagina = Math.max(1, Math.ceil(total / params.porPagina));
   const primero = total === 0 ? 0 : (params.pagina - 1) * params.porPagina + 1;
   const ultimo = (params.pagina - 1) * params.porPagina + datos.length;
-  const hayFiltros = Boolean(params.entorno || params.certificado);
+  const hayFiltros = Boolean(params.entorno || params.certificado || params.bajas);
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
@@ -83,6 +84,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
             ))}
           </select>
         </div>
+        <FiltroDeBajas valor={params.bajas} onCambio={(bajas) => router.push(hrefEmpresas({ ...params, bajas, pagina: 1 }))} />
         {hayFiltros ? (
           <Link href={hrefEmpresas({ pagina: 1, porPagina: params.porPagina })} className="pb-2 text-xs text-primary hover:underline">
             {t.quitarFiltros}
@@ -117,9 +119,12 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
                 </TableCell>
                 <TableCell className="px-3 py-2">
                   {e.cuenta_id ? (
-                    <Link href={hrefDetalleCuenta(e.cuenta_id)} className="text-foreground hover:text-primary hover:underline">
-                      {e.cuenta_nombre}
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Link href={hrefDetalleCuenta(e.cuenta_id)} className="text-foreground hover:text-primary hover:underline">
+                        {e.cuenta_nombre}
+                      </Link>
+                      {e.cuenta_de_baja_en ? <Etiqueta tono="neutro">{messages.admin.bajas.cuentaDeBaja}</Etiqueta> : null}
+                    </div>
                   ) : (
                     <span className="text-muted-foreground">{t.sinCuenta}</span>
                   )}

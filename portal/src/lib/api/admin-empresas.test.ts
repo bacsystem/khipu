@@ -120,3 +120,29 @@ describe("estadoCertificadoDeEmpresa", () => {
     expect(estadoCertificadoDeEmpresa({ ...base, certificado: "VENCIDO", certificado_vigente_hasta: "2026-09-28" })).toEqual({ tipo: "sin_fecha" });
   });
 });
+
+/** Las empresas de cuentas dadas de baja (#201) no salen salvo que se pida: mismo filtro, mismo saneo y mismos valores que en cuentas. */
+describe("bajas en el listado de empresas (#201)", () => {
+  it("por defecto no hay filtro de bajas: el backend las oculta", () => {
+    expect(paramsEmpresasDesdeUrl({}).bajas).toBeUndefined();
+    expect(queryEmpresas({ pagina: 1, porPagina: 10 }).toString()).toBe("pagina=1&por_pagina=10");
+    expect(hrefEmpresas({ pagina: 1, porPagina: 10 })).toBe("/admin/empresas");
+  });
+
+  it("INCLUIDAS y SOLO pasan de la URL a los parámetros; lo demás se descarta", () => {
+    expect(paramsEmpresasDesdeUrl({ bajas: "INCLUIDAS" }).bajas).toBe("INCLUIDAS");
+    expect(paramsEmpresasDesdeUrl({ bajas: "SOLO" }).bajas).toBe("SOLO");
+    for (const malo of ["TODAS", "solo", "OCULTAS", ""]) expect(paramsEmpresasDesdeUrl({ bajas: malo }).bajas, malo).toBeUndefined();
+  });
+
+  it("viaja al backend con los otros filtros, antes de la página, y la URL de la pantalla lo conserva", () => {
+    const p = { entorno: "BETA", certificado: "VENCIDO", bajas: "SOLO", pagina: 2, porPagina: 20 } as const;
+
+    expect(queryEmpresas(p).toString()).toBe("entorno=BETA&certificado=VENCIDO&bajas=SOLO&pagina=2&por_pagina=20");
+    expect(hrefEmpresas(p)).toBe("/admin/empresas?entorno=BETA&certificado=VENCIDO&bajas=SOLO&pagina=2&por_pagina=20");
+  });
+
+  it("corregir una página fuera de rango no pierde el filtro de bajas", () => {
+    expect(hrefEmpresasSiFueraDeRango({ bajas: "INCLUIDAS", pagina: 9, porPagina: 10 }, 12)).toBe("/admin/empresas?bajas=INCLUIDAS&pagina=2");
+  });
+});

@@ -193,7 +193,46 @@
     },
     "estadoCuenta": {
       "ACTIVA": "Activa",
-      "SUSPENDIDA": "Suspendida"
+      "SUSPENDIDA": "Suspendida",
+      "BAJA": "De baja"
+    },
+    "bajas": {
+      "etiqueta": "Cuentas dadas de baja",
+      "ocultas": "Ocultar",
+      "incluidas": "Incluir",
+      "solo": "Solo las dadas de baja",
+      "cuentaDeBaja": "De baja"
+    },
+    "baja": {
+      "darDeBaja": {
+        "boton": "Dar de baja",
+        "titulo": "Dar de baja al cliente",
+        "descripcion": "{nombre} sale de los listados y del cobro. No se borra nada y se puede revertir.",
+        "efectos": [
+          "La cuenta y sus empresas dejan de salir en los listados, salvo que pidas verlas.",
+          "Los comprobantes, XML y CDR se conservan, y su RUC sigue ocupado: nadie más podrá registrarlo.",
+          "No corta el acceso: sus usuarios siguen entrando y sus API keys siguen emitiendo. Para cortar el servicio, suspende la cuenta.",
+          "Reponer la cuenta la devuelve a los listados."
+        ],
+        "motivo": "Motivo (opcional)",
+        "motivoAyuda": "Queda en la bitácora de auditoría. Hasta 200 caracteres; nunca escribas contraseñas ni API keys.",
+        "motivoEjemplo": "Ej.: cerró su negocio",
+        "confirmar": "Dar de baja",
+        "enviando": "Dando de baja…",
+        "cancelar": "Cancelar"
+      },
+      "reponer": {
+        "boton": "Reponer cuenta",
+        "titulo": "Reponer la cuenta",
+        "descripcion": "{nombre} vuelve a los listados y al cobro.",
+        "efectos": [
+          "La cuenta y sus empresas vuelven a salir en los listados.",
+          "No cambia nada más: si estaba suspendida, sigue suspendida hasta que la reactives."
+        ],
+        "confirmar": "Reponer cuenta",
+        "enviando": "Reponiendo…",
+        "cancelar": "Cancelar"
+      }
     },
     "suspension": {
       "suspender": {
@@ -320,7 +359,8 @@
       "telefono": "Celular",
       "error": "No se pudo cargar la cuenta.",
       "noExiste": "La cuenta no existe.",
-      "soloLectura": "Aquí se puede suspender o reactivar la cuenta y mandarle a un usuario el correo de acceso: las demás acciones llegan más adelante.",
+      "soloLectura": "Aquí se puede suspender o reactivar la cuenta, darla de baja o reponerla, y mandarle a un usuario el correo de acceso: las demás acciones llegan más adelante.",
+      "bajaDesde": "De baja desde {fecha}",
       "estado": "Estado",
       "suspendidaDesde": "Suspendida desde {fecha}",
       "usuarios": {
@@ -398,7 +438,9 @@
           "SUSPENDER_CUENTA": "Suspendió la cuenta",
           "REACTIVAR_CUENTA": "Reactivó la cuenta",
           "ENVIAR_RESTABLECIMIENTO": "Correo de restablecimiento de contraseña",
-          "REENVIAR_VERIFICACION": "Reenvío de la verificación de correo"
+          "REENVIAR_VERIFICACION": "Reenvío de la verificación de correo",
+          "DAR_DE_BAJA_CUENTA": "Baja de la cuenta",
+          "REPONER_CUENTA": "Reposición de la cuenta"
         }
       }
     },

@@ -1,4 +1,5 @@
 import { POR_PAGINA_DEFECTO, porPaginaValido } from "@/lib/paginacion";
+import { bajasDesdeUrl, type VisibilidadDeBajasAdmin } from "./admin-baja";
 import type { EstadoCuentaAdmin } from "./admin-suspension";
 import { backendFetchConHeaders } from "./client";
 import { totalDesdeHeaders } from "./facturas";
@@ -18,22 +19,26 @@ export type CuentaAdmin = {
   ultimo_acceso?: string;
   /** Una cuenta suspendida (#182) no entra al portal ni emite por API, y sigue en el listado para poder reactivarla. */
   estado: EstadoCuentaAdmin;
-  /** Desde cuándo está suspendida; falta si está activa. */
+  /** Desde cuándo está suspendida; falta si no lo está. */
   suspendida_en?: string;
+  /** Desde cuándo está dada de baja (#201); falta si está en servicio. */
+  baja_en?: string;
 };
 
 export type PaginaCuentasAdmin = { datos: CuentaAdmin[]; total: number };
 
-export type ParamsCuentas = { q?: string; pagina: number; porPagina: number };
+/** `bajas` ausente = las cuentas dadas de baja (#201) no salen; `INCLUIDAS` las mezcla y `SOLO` muestra únicamente esas. */
+export type ParamsCuentas = { q?: string; bajas?: VisibilidadDeBajasAdmin; pagina: number; porPagina: number };
 
 const RUTA_PANTALLA = "/admin/cuentas";
 
 /** Sanea lo que llega por la URL: lo que el backend acotaría igual (página, tamaño) o no tiene sentido (búsqueda en blanco). */
-export function paramsCuentasDesdeUrl(p: { q?: string; pagina?: string; por_pagina?: string }): ParamsCuentas {
+export function paramsCuentasDesdeUrl(p: { q?: string; bajas?: string; pagina?: string; por_pagina?: string }): ParamsCuentas {
   const pagina = Number(p.pagina);
   const q = p.q?.trim();
   return {
     q: q ? q : undefined,
+    bajas: bajasDesdeUrl(p.bajas),
     pagina: Number.isInteger(pagina) && pagina >= 1 ? pagina : 1,
     porPagina: porPaginaValido(p.por_pagina),
   };
@@ -43,6 +48,7 @@ export function paramsCuentasDesdeUrl(p: { q?: string; pagina?: string; por_pagi
 export function queryCuentas(p: ParamsCuentas): URLSearchParams {
   const qs = new URLSearchParams();
   if (p.q) qs.set("q", p.q);
+  if (p.bajas) qs.set("bajas", p.bajas);
   qs.set("pagina", String(p.pagina));
   qs.set("por_pagina", String(p.porPagina));
   return qs;
@@ -52,6 +58,7 @@ export function queryCuentas(p: ParamsCuentas): URLSearchParams {
 export function hrefCuentas(p: ParamsCuentas): string {
   const qs = new URLSearchParams();
   if (p.q) qs.set("q", p.q);
+  if (p.bajas) qs.set("bajas", p.bajas);
   if (p.pagina > 1) qs.set("pagina", String(p.pagina));
   if (p.porPagina !== POR_PAGINA_DEFECTO) qs.set("por_pagina", String(p.porPagina));
   const texto = qs.toString();

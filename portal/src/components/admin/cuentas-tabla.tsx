@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { EstadoCuentaEtiqueta } from "@/components/admin/etiquetas";
+import { FiltroDeBajas } from "@/components/admin/filtro-de-bajas";
 import { PieTabla } from "@/components/ui/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
@@ -28,16 +29,17 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
   const ultimaPagina = Math.max(1, Math.ceil(total / params.porPagina));
   const primero = total === 0 ? 0 : (params.pagina - 1) * params.porPagina + 1;
   const ultimo = (params.pagina - 1) * params.porPagina + datos.length;
+  const hayFiltros = Boolean(params.q || params.bajas);
 
   function buscar(e: React.FormEvent) {
     e.preventDefault();
     const q = buscador.current?.value.trim();
-    router.push(hrefCuentas({ q: q ? q : undefined, pagina: 1, porPagina: params.porPagina }));
+    router.push(hrefCuentas({ q: q ? q : undefined, bajas: params.bajas, pagina: 1, porPagina: params.porPagina }));
   }
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-end gap-3">
         {/* `key`: al cambiar la búsqueda (p. ej. «Quitar filtros») el campo se vuelve a montar con el valor de la URL. */}
         <form key={params.q ?? ""} role="search" onSubmit={buscar} className="flex w-full max-w-xl items-center gap-2">
           <div className="relative min-w-0 flex-1">
@@ -57,8 +59,9 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
             {messages.admin.cuentas.botonBuscar}
           </button>
         </form>
-        {params.q ? (
-          <Link href={hrefCuentas({ pagina: 1, porPagina: params.porPagina })} className="text-xs text-primary hover:underline">
+        <FiltroDeBajas valor={params.bajas} onCambio={(bajas) => router.push(hrefCuentas({ ...params, bajas, pagina: 1 }))} />
+        {hayFiltros ? (
+          <Link href={hrefCuentas({ pagina: 1, porPagina: params.porPagina })} className="pb-2 text-xs text-primary hover:underline">
             {messages.admin.cuentas.quitarFiltros}
           </Link>
         ) : null}
@@ -103,7 +106,7 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <InboxIcon className="size-6" />
-                    <p className="text-sm">{params.q ? messages.admin.cuentas.sinResultados : messages.admin.cuentas.vacio}</p>
+                    <p className="text-sm">{hayFiltros ? messages.admin.cuentas.sinResultados : messages.admin.cuentas.vacio}</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -117,7 +120,7 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
           total={total}
           unidad="cuentas"
           porPagina={params.porPagina}
-          onPorPagina={(n) => router.push(hrefCuentas({ q: params.q, pagina: 1, porPagina: n }))}
+          onPorPagina={(n) => router.push(hrefCuentas({ ...params, pagina: 1, porPagina: n }))}
           pagina={params.pagina}
           ultimaPagina={ultimaPagina}
           onPagina={(p) => router.push(hrefCuentas({ ...params, pagina: p }))}

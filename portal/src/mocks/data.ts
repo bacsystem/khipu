@@ -35,6 +35,8 @@ export type CuentaAdminMock = {
   ultimo_acceso?: string;
   /** Desde cuándo está suspendida (#182); ausente si está activa. */
   suspendida_en?: string;
+  /** Desde cuándo está dada de baja (#201); ausente si está en servicio. Las de baja no salen en los listados salvo que se pida con `bajas`. */
+  baja_en?: string;
   empresas: Array<{ ruc: string; razon_social: string }>;
 };
 /**
@@ -236,6 +238,18 @@ export function resetDb() {
       };
     }),
     { id: idCuentaMock(12), nombre: "Cuenta Nueva", email: "nueva@demo.pe", creada_en: "2026-09-20T15:00:00Z", empresas: [] },
+    // De baja de siembra (#201), con una empresa: no sale en los listados por defecto (así los 12 de arriba siguen siendo 12) y nadie
+    // la muta, porque dar de baja o reponer una cuenta cambia lo que cuentan las demás specs que corren a la vez.
+    {
+      id: idCuentaMock(13),
+      nombre: "Cliente 13",
+      email: "cliente13@demo.pe",
+      telefono: "900000013",
+      creada_en: "2026-09-13T15:00:00Z",
+      ultimo_acceso: "2026-09-20T10:00:00Z",
+      baja_en: "2026-10-03T09:00:00Z",
+      empresas: [{ ruc: "20100001300", razon_social: "CLIENTE 13 SAC" }],
+    },
   ];
 
   // 12 empresas (10 por página + 2), con todos los estados del certificado. «Panadería Sol» y «Ferretería Luna» son las más antiguas: caen en
@@ -251,6 +265,7 @@ export function resetDb() {
     { id: idEmpresaMock(8), ruc: "20100000800", razon_social: "CLIENTE 08 SAC", cuenta: { id: idCuentaMock(8), nombre: "Cliente 08" }, entorno: "BETA", certificado: 30, tiene_credenciales_sol: true, series: 0, comprobantes_del_mes: 0, ultima_emision_hace: null, creada_en: "2026-09-08T15:00:00Z" },
     { id: idEmpresaMock(10), ruc: "20100001000", razon_social: "CLIENTE 10 SAC", cuenta: { id: idCuentaMock(10), nombre: "Cliente 10" }, entorno: "BETA", certificado: -1, tiene_credenciales_sol: false, series: 1, comprobantes_del_mes: 0, ultima_emision_hace: 90, creada_en: "2026-09-10T15:00:00Z" },
     { id: idEmpresaMock(11), ruc: "20100001100", razon_social: "CLIENTE 11 SAC", cuenta: { id: idCuentaMock(11), nombre: "Cliente 11" }, ...inactiva, creada_en: "2026-09-11T15:00:00Z" },
+    { id: idEmpresaMock(13), ruc: "20100001300", razon_social: "CLIENTE 13 SAC", cuenta: { id: idCuentaMock(13), nombre: "Cliente 13" }, ...inactiva, creada_en: "2026-09-13T15:00:00Z" },
     { id: idEmpresaMock(101), ruc: "20100066611", razon_social: "INTEGRADOR SAC", ...inactiva, creada_en: "2026-09-12T15:00:00Z" },
     { id: idEmpresaMock(102), ruc: "20100066620", razon_social: "INTEGRADOR NORTE SAC", ...inactiva, creada_en: "2026-09-13T15:00:00Z" },
     { id: idEmpresaMock(103), ruc: "20100066638", razon_social: "INTEGRADOR SUR SAC", ...inactiva, creada_en: "2026-09-14T15:00:00Z" },
