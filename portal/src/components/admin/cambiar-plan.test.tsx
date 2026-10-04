@@ -224,6 +224,20 @@ describe("CambiarPlan — confirmar", () => {
     expect(screen.queryByTestId("cambiar-plan-dialogo")).toBeNull();
   });
 
+  /** Elegir otro plan limpia lo que dependía del plan (que falte la fecha), pero no un error de otro campo que sigue igual de mal. */
+  it("al elegir otro plan se quitan los errores del plan, no el de la gracia", async () => {
+    await listoParaConfirmar();
+    fireEvent.change(screen.getByLabelText("Días de gracia"), { target: { value: "91" } });
+    fireEvent.click(screen.getByTestId("cambiar-plan-confirmar"));
+    expect(dialogo().textContent).toContain("Un plan de pago necesita la fecha");
+    expect(dialogo().textContent).toContain("Los días de gracia van de 0 a 90.");
+
+    elegir(EMPRENDE.id);
+
+    expect(dialogo().textContent).not.toContain("Un plan de pago necesita la fecha");
+    expect(dialogo().textContent).toContain("Los días de gracia van de 0 a 90.");
+  });
+
   it("un plan gratis se confirma sin fecha", async () => {
     responder(exito(previa({ plan_nuevo: resumen(GRATIS), direccion: "BAJADA", efecto: "CICLO_SIGUIENTE", aplica_desde: "2026-11-01T05:00:00Z" })));
     abrir();

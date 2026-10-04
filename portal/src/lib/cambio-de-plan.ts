@@ -14,7 +14,8 @@ function fechaValida(texto: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) return false;
   const [a, m, d] = texto.split("-").map(Number);
   const f = new Date(Date.UTC(a, m - 1, d));
-  return f.getUTCFullYear() === a && f.getUTCMonth() === m - 1 && f.getUTCDate() === d;
+  // Un día que no existe (30 de febrero, día 00) desborda al mes vecino: con comparar el año y el mes alcanza.
+  return f.getUTCFullYear() === a && f.getUTCMonth() === m - 1;
 }
 
 /**
