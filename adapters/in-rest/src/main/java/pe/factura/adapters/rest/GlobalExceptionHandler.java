@@ -31,8 +31,11 @@ public class GlobalExceptionHandler {
             // El alta ya se hizo con esa clave pero su respuesta (con la API key) ya no se guarda: no es un dato inválido del pedido.
             case "IDEMPOTENCIA_VENCIDA" -> HttpStatus.CONFLICT;
             case "CORREO_YA_VERIFICADO" -> HttpStatus.CONFLICT;
+            // Suspender o reactivar una cuenta que ya está en ese estado (#182): el pedido es válido pero el estado ya no lo permite.
+            case "CUENTA_YA_SUSPENDIDA", "CUENTA_NO_SUSPENDIDA" -> HttpStatus.CONFLICT;
             case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES" -> HttpStatus.TOO_MANY_REQUESTS;
-            case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO" -> HttpStatus.FORBIDDEN;
+            // La cuenta está suspendida (#182): el cliente se identificó bien, pero no tiene permiso hasta que la reactiven.
+            case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO", "CUENTA_SUSPENDIDA" -> HttpStatus.FORBIDDEN;
             case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;
             // El correo saliente es un servicio externo: su fallo no es culpa del cliente ni un bug del servidor.
             case "CORREO_NO_ENVIADO" -> HttpStatus.BAD_GATEWAY;

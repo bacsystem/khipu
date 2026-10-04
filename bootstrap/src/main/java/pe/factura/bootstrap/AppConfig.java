@@ -213,6 +213,7 @@ public class AppConfig {
     @Bean SegundoFactorRepository segundoFactorRepository(JdbcTemplate jdbc) { return new JdbcSegundoFactorRepository(jdbc); }
     @Bean CuentasAdminRepository cuentasAdminRepository(JdbcTemplate jdbc) { return new JdbcCuentasAdminRepository(jdbc); }
     @Bean EmpresasAdminRepository empresasAdminRepository(JdbcTemplate jdbc) { return new JdbcEmpresasAdminRepository(jdbc); }
+    @Bean SuspensionRepository suspensionRepository(JdbcTemplate jdbc) { return new JdbcSuspensionRepository(jdbc); }
 
     @Bean DocumentStorage documentStorage(AppProperties p) {
         AppProperties.Storage st = p.storage();
@@ -287,8 +288,9 @@ public class AppConfig {
     }
 
     @Bean AutenticarUsuarioUseCase autenticarUsuario(CuentaRepository cu, UsuarioRepository us, SesionRepository se, PasswordHasher h,
-                                                    TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v) {
-        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v);
+                                                    TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v,
+                                                    SuspensionRepository suspensiones) {
+        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones);
     }
     @Bean GestionarEmpresasUseCase gestionarEmpresas(TenantRepository t, CuentaRepository cu, UnitOfWork u) {
         return new GestionarEmpresasService(t, cu, u);
@@ -303,6 +305,9 @@ public class AppConfig {
     @Bean DetalleCuentaAdminUseCase detalleCuentaAdmin(CuentasAdminRepository cuentas) { return new DetalleCuentaAdminService(cuentas); }
     @Bean ListarEmpresasAdminUseCase listarEmpresasAdmin(EmpresasAdminRepository empresas, Clock clock) { return new ListarEmpresasAdminService(empresas, clock); }
     @Bean DetalleEmpresaAdminUseCase detalleEmpresaAdmin(EmpresasAdminRepository empresas, Clock clock) { return new DetalleEmpresaAdminService(empresas, clock); }
+    @Bean SuspenderCuentaUseCase suspenderCuenta(CuentaRepository cuentas, SuspensionRepository suspensiones, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
+        return new SuspenderCuentaService(cuentas, suspensiones, auditoria, u, clock);
+    }
     @Bean CrearAdministradorUseCase crearAdministrador(AdministradorRepository a, PasswordHasher h, UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {
         return new CrearAdministradorService(a, h, u, auditoria, clock);
     }
@@ -324,17 +329,17 @@ public class AppConfig {
 
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
     // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.
-    @Bean FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(ApiKeyRepository k, AppProperties p) {
+    @Bean FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(ApiKeyRepository k, AppProperties p, SuspensionRepository suspensiones) {
         exigirSecretosDePlataforma(p);
-        var f = new FilterRegistrationBean<>(new ApiKeyFilter(k, p.apiKeyPepper()));
+        var f = new FilterRegistrationBean<>(new ApiKeyFilter(k, p.apiKeyPepper(), suspensiones));
         f.addUrlPatterns("/v1/*"); f.setOrder(10); return f;
     }
     @Bean FilterRegistrationBean<AdminAuthFilter> adminAuthFilter(AppProperties p, AdministradorTokenEmisor te) {
         var f = new FilterRegistrationBean<>(new AdminAuthFilter(p.platformAdminKey(), te));
         f.addUrlPatterns("/v1/*"); f.setOrder(5); return f;
     }
-    @Bean FilterRegistrationBean<JwtFilter> jwtFilter(TokenEmisor te, TenantRepository t, UsuarioRepository us) {
-        var f = new FilterRegistrationBean<>(new JwtFilter(te, t, us));
+    @Bean FilterRegistrationBean<JwtFilter> jwtFilter(TokenEmisor te, TenantRepository t, UsuarioRepository us, SuspensionRepository suspensiones) {
+        var f = new FilterRegistrationBean<>(new JwtFilter(te, t, us, suspensiones));
         f.addUrlPatterns("/v1/*"); f.setOrder(8); return f;
     }
 }

@@ -15,7 +15,8 @@ public interface DetalleCuentaAdminUseCase {
     /** {@code NO_ENCONTRADO} si la cuenta no existe. */
     CuentaDetalle detalle(UUID cuentaId);
 
-    record CuentaDetalle(UUID id, String nombre, String email, String telefono, Instant creadaEn,
+    /** {@code suspendidaEn} es nulo si la cuenta está activa (#182). */
+    record CuentaDetalle(UUID id, String nombre, String email, String telefono, Instant creadaEn, Instant suspendidaEn,
                          List<UsuarioDeCuenta> usuarios, List<EmpresaDeCuenta> empresas,
                          List<ComprobanteReciente> comprobantes, List<EventoReciente> eventos) {}
 

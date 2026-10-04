@@ -5,6 +5,7 @@ import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import pe.factura.application.port.out.ApiKeyRepository;
+import pe.factura.application.port.out.SuspensionRepository;
 import pe.factura.application.service.ApiKeyGenerator;
 import pe.factura.domain.tenant.ApiKey;
 
@@ -28,7 +29,88 @@ class ApiKeyFilterTest {
         public Optional<ApiKey> buscar(UUID id) { return Optional.empty(); }
         public List<ApiKey> listarPorTenant(UUID tenantId) { return List.of(); }
     };
-    ApiKeyFilter filter = new ApiKeyFilter(repo, "pep");
+    java.util.Set<UUID> empresasSuspendidas = new java.util.HashSet<>();
+    int consultasDeSuspension = 0;
+    SuspensionRepository suspensiones = new SuspensionRepository() {
+        public boolean cuentaSuspendida(UUID c) { throw new AssertionError("el filtro de API key trabaja por empresa"); }
+        public boolean empresaSuspendida(UUID t) { consultasDeSuspension++; return empresasSuspendidas.contains(t); }
+        public boolean suspender(UUID c, java.time.Instant cuando) { throw new AssertionError("un filtro no suspende"); }
+        public boolean reactivar(UUID c) { throw new AssertionError("un filtro no reactiva"); }
+    };
+    ApiKeyFilter filter = new ApiKeyFilter(repo, "pep", suspensiones);
+
+    // --- #182: las empresas de una cuenta suspendida no emiten ---------------------------------------------------------------------
+
+    private MockHttpServletResponse pedir(String metodo, String uri, String apiKey, MockFilterChain chain, MockHttpServletRequest[] reqSalida) throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest(metodo, uri);
+        req.addHeader("X-Api-Key", apiKey);
+        if (reqSalida != null) reqSalida[0] = req;
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        filter.doFilter(req, res, chain);
+        return res;
+    }
+
+    @Test void laKeyDeUnaEmpresaDeUnaCuentaSuspendidaNoEmiteNiConsulta() throws Exception {
+        empresasSuspendidas.add(tenant);
+        for (String[] m : new String[][]{{"POST", "/v1/facturas"}, {"POST", "/v1/notas"}, {"GET", "/v1/facturas"}, {"GET", "/v1/facturas/1/pdf"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            MockHttpServletRequest[] req = new MockHttpServletRequest[1];
+            MockHttpServletResponse res = pedir(m[0], m[1], key, chain, req);
+            assertThat(chain.getRequest()).as("%s %s", m[0], m[1]).isNull();
+            assertThat(res.getStatus()).as("%s %s", m[0], m[1]).isEqualTo(403);
+            assertThat(res.getContentAsString()).as("%s %s", m[0], m[1]).contains("\"codigo\":\"CUENTA_SUSPENDIDA\"").contains("\"estado\":\"error\"");
+            assertThat(req[0].getAttribute(TenantActual.ATRIBUTO)).as("no se llega a fijar la empresa activa").isNull();
+        }
+    }
+
+    @Test void reactivadaLaCuentaLaMismaKeyVuelveAEmitir() throws Exception {
+        empresasSuspendidas.add(tenant);
+        MockFilterChain bloqueada = new MockFilterChain();
+        pedir("POST", "/v1/facturas", key, bloqueada, null);
+        assertThat(bloqueada.getRequest()).isNull();
+
+        empresasSuspendidas.clear();
+        MockFilterChain pasa = new MockFilterChain();
+        MockHttpServletResponse res = pedir("POST", "/v1/facturas", key, pasa, null);
+
+        assertThat(pasa.getRequest()).isNotNull();
+        assertThat(res.getStatus()).isEqualTo(200);
+    }
+
+    @Test void suspenderOtraEmpresaNoAfectaAEstaYSeConsultaLaDeLaKey() throws Exception {
+        empresasSuspendidas.add(UUID.randomUUID());
+        MockFilterChain chain = new MockFilterChain();
+
+        pedir("POST", "/v1/facturas", key, chain, null);
+
+        assertThat(chain.getRequest()).isNotNull();
+        assertThat(consultasDeSuspension).isEqualTo(1);
+    }
+
+    /** Quien no tiene una key válida no se entera de nada de ninguna cuenta: se rechaza antes de mirar el estado. */
+    @Test void conUnaKeyInvalidaOInactivaSeRechazaSinConsultarLaSuspension() throws Exception {
+        empresasSuspendidas.add(tenant);
+
+        MockHttpServletResponse invalida = pedir("POST", "/v1/facturas", "fk_otra", new MockFilterChain(), null);
+        MockHttpServletResponse inactiva = pedir("POST", "/v1/facturas", keyInactiva, new MockFilterChain(), null);
+
+        assertThat(invalida.getStatus()).isEqualTo(401);
+        assertThat(inactiva.getStatus()).isEqualTo(401);
+        assertThat(invalida.getContentAsString() + inactiva.getContentAsString()).doesNotContain("SUSPENDIDA");
+        assertThat(consultasDeSuspension).isZero();
+    }
+
+    @Test void unaPeticionYaAutenticadaPorJwtNoVuelveAConsultarPorKey() throws Exception {
+        empresasSuspendidas.add(tenant);
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
+        req.setAttribute(CuentaActual.ATRIBUTO, UUID.randomUUID());
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilter(req, new MockHttpServletResponse(), chain);
+
+        assertThat(chain.getRequest()).as("ese caso lo cubre JwtFilter, que ya miró la cuenta").isNotNull();
+        assertThat(consultasDeSuspension).isZero();
+    }
 
     @Test void keyValidaDejaPasarYExponeTenant() throws Exception {
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/v1/facturas");

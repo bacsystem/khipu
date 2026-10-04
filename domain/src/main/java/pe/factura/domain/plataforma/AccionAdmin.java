@@ -12,5 +12,9 @@ public enum AccionAdmin {
     /** Login completo, con el segundo factor ya verificado (#177). El detalle dice si se usó un código de recuperación. */
     INICIAR_SESION,
     /** Primera configuración del segundo factor, que también inicia la sesión (#177). */
-    CONFIGURAR_SEGUNDO_FACTOR
+    CONFIGURAR_SEGUNDO_FACTOR,
+    /** Corta el portal y la emisión por API de una cuenta y de todas sus empresas, sin borrar nada (#182). El detalle lleva el motivo, si lo hubo. */
+    SUSPENDER_CUENTA,
+    /** Devuelve una cuenta suspendida al estado en que estaba (#182). */
+    REACTIVAR_CUENTA
 }

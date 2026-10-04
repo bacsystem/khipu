@@ -394,4 +394,36 @@ class JdbcCuentasAdminRepositoryTest extends PersistenciaTestBase {
         // Sin él, cada página ordena todas las cuentas.
         assertThat(plan("SELECT id FROM cuenta ORDER BY created_at DESC, id LIMIT 10")).contains("ix_cuenta_alta");
     }
+
+    // --- #182: estado de la cuenta ------------------------------------------------------------------------------------------------
+
+    @Test void elListadoDiceDesdeCuandoEstaSuspendidaCadaCuentaYLasActivasNo() {
+        UUID suspendida = cuenta("Suspendida", "sus@x.pe", T0);
+        cuenta("Activa", "act@x.pe", T0.plusSeconds(60));
+        jdbc.update("UPDATE cuenta SET suspendida_en = ? WHERE id = ?", Timestamp.from(T0.plusSeconds(300)), suspendida);
+
+        List<CuentaResumen> filas = repo.listar(Filtro.NINGUNO, 1, 20);
+
+        assertThat(filas).extracting(CuentaResumen::email).containsExactly("act@x.pe", "sus@x.pe");
+        assertThat(filas.get(0).suspendidaEn()).isNull();
+        assertThat(filas.get(1).suspendidaEn()).isEqualTo(T0.plusSeconds(300));
+    }
+
+    @Test void elDetalleDiceDesdeCuandoEstaSuspendida() {
+        UUID id = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        assertThat(repo.detalle(id).orElseThrow().suspendidaEn()).isNull();
+
+        jdbc.update("UPDATE cuenta SET suspendida_en = ? WHERE id = ?", Timestamp.from(T0.plusSeconds(300)), id);
+
+        assertThat(repo.detalle(id).orElseThrow().suspendidaEn()).isEqualTo(T0.plusSeconds(300));
+    }
+
+    /** Suspender no esconde a la cuenta del listado: el administrador tiene que poder encontrarla para reactivarla. */
+    @Test void unaCuentaSuspendidaSigueApareciendoEnElListadoYEnLaBusqueda() {
+        UUID id = cuenta("Suspendida", "sus@x.pe", T0);
+        jdbc.update("UPDATE cuenta SET suspendida_en = ? WHERE id = ?", Timestamp.from(T0), id);
+
+        assertThat(repo.contar(Filtro.NINGUNO)).isEqualTo(1);
+        assertThat(repo.listar(new Filtro("sus@"), 1, 20)).hasSize(1);
+    }
 }

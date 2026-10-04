@@ -14,9 +14,10 @@ public interface ListarCuentasAdminUseCase {
 
     /**
      * Una fila del listado. {@code ultimoAcceso} es la sesión más reciente de los usuarios de la cuenta (inicio de sesión o
-     * refresco de token en el portal); el uso por API key no cuenta. Nulo si la cuenta nunca inició sesión.
+     * refresco de token en el portal); el uso por API key no cuenta. Nulo si la cuenta nunca inició sesión. {@code suspendidaEn} es nulo si
+     * la cuenta está activa (#182); una cuenta suspendida sigue en el listado, para poder reactivarla.
      */
-    record CuentaResumen(UUID id, String nombre, String email, String telefono, Instant creadaEn, int empresas, Instant ultimoAcceso) {}
+    record CuentaResumen(UUID id, String nombre, String email, String telefono, Instant creadaEn, int empresas, Instant ultimoAcceso, Instant suspendidaEn) {}
 
     /**
      * {@code q}: búsqueda libre sobre el correo y el nombre de la cuenta, y sobre el RUC y la razón social de sus empresas.

@@ -16,6 +16,8 @@ public record CuentaDetalleResponse(
         @Schema(example = "ana@negocio.pe") String email,
         @Schema(example = "987654321", description = "Celular de contacto; ausente en cuentas anteriores a ese campo") String telefono,
         @Schema(example = "2026-09-01T10:00:00Z", description = "Fecha de alta") Instant creadaEn,
+        @Schema(description = "ACTIVA o SUSPENDIDA (#182)") EstadoCuenta estado,
+        @Schema(example = "2026-10-02T15:00:00Z", description = "Desde cuándo está suspendida; ausente si la cuenta está activa") Instant suspendidaEn,
         List<UsuarioResponse> usuarios,
         List<EmpresaResponse> empresas,
         @Schema(description = "Los 10 comprobantes de fecha de emisión más reciente entre todas las empresas de la cuenta") List<ComprobanteResponse> comprobantes,
@@ -57,7 +59,7 @@ public record CuentaDetalleResponse(
             @Schema(example = "ruc=20100066603 serie=F001", description = "Contexto de la acción; nunca lleva secretos") String detalle) {}
 
     public static CuentaDetalleResponse de(CuentaDetalle d) {
-        return new CuentaDetalleResponse(d.id(), d.nombre(), d.email(), d.telefono(), d.creadaEn(),
+        return new CuentaDetalleResponse(d.id(), d.nombre(), d.email(), d.telefono(), d.creadaEn(), EstadoCuenta.de(d.suspendidaEn()), d.suspendidaEn(),
                 d.usuarios().stream().map(u -> new UsuarioResponse(u.id(), u.email(), u.rol(), u.activo(), u.correoVerificadoEn(), u.ultimoAcceso())).toList(),
                 d.empresas().stream().map(e -> new EmpresaResponse(e.id(), e.ruc(), e.razonSocial(), e.entorno(), e.tieneCertificado(), e.certificadoVigenteHasta(),
                         e.tieneCredencialesSol())).toList(),
