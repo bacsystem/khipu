@@ -392,7 +392,14 @@ export const handlers = [
             },
           ]
         : [],
-      eventos: completa ? [{ accion: "CREAR_CUENTA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-01T15:00:00Z", detalle: "ruc=20100047226" }] : [],
+      // Del más reciente al más antiguo, como el backend. La última acción no está en el catálogo del portal: se muestra con su código.
+      eventos: completa
+        ? [
+            { accion: "SUSPENDER_CUENTA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-03T09:00:00Z" },
+            { accion: "CREAR_TENANT", actor: "CLAVE_PLATAFORMA", ocurrido_en: "2026-09-02T10:00:00Z" },
+            { accion: "CREAR_CUENTA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-01T15:00:00Z", detalle: "ruc=20100047226" },
+          ]
+        : [],
     };
     return ok(detalle);
   }),
