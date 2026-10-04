@@ -130,7 +130,8 @@
       "consumo": "Consumo",
       "integridad": "Integridad",
       "monitor": "Monitor",
-      "errores": "Errores"
+      "errores": "Errores",
+      "avisos": "Avisos"
     },
     "topbar": {
       "ubicacion": "Ubicación",
@@ -666,6 +667,73 @@
         "vuelveAFallar": "{comprobante}: SUNAT volvió a fallar (intento {n}).{detalle}",
         "otro": "{comprobante} quedó en estado {estado}.",
         "descartado": "{comprobante} se descartó."
+      }
+    },
+    "avisos": {
+      "titulo": "Avisos a clientes",
+      "descripcion": "Las empresas a las que hay que avisarles algo antes de que dejen de poder emitir: un certificado por vencer o vencido, y credenciales SOL que SUNAT no acepta. El aviso va por correo a la cuenta; el mismo aviso no se repite en una semana.",
+      "vistas": "Qué avisar",
+      "filtros": {
+        "CERTIFICADOS": "Certificados",
+        "CREDENCIALES_SOL": "Credenciales SOL"
+      },
+      "ayuda": {
+        "CERTIFICADOS": "Certificados que vencen en menos de 30 días o ya vencieron, del más urgente al menos.",
+        "CREDENCIALES_SOL": "Se deduce de los envíos que fallan ahora: una empresa que no está emitiendo no aparece, y una que ya reenvió con éxito sale sola."
+      },
+      "columnas": {
+        "empresa": "Empresa",
+        "situacion": "Situación",
+        "ultimoAviso": "Último aviso",
+        "accion": "Acción"
+      },
+      "motivos": {
+        "CERTIFICADO_POR_VENCER": "Por vencer",
+        "CERTIFICADO_VENCIDO": "Vencido"
+      },
+      "certificado": {
+        "venceHoy": "Vence hoy ({fecha})",
+        "vence": "Vence el {fecha} (en {dias})",
+        "vencio": "Venció el {fecha} (hace {dias})",
+        "unDia": "1 día",
+        "variosDias": "{n} días"
+      },
+      "sol": {
+        "atascadoUno": "1 comprobante atascado",
+        "atascadoVarios": "{n} comprobantes atascados",
+        "ultimoFallo": "Último fallo: {fecha}",
+        "dijoSunat": "SUNAT dijo: {error}"
+      },
+      "sinAvisos": "Sin avisos",
+      "avisado": "Avisado el {fecha} a {correo}",
+      "puedeRepetirDesde": "Se puede repetir desde el {fecha}",
+      "sinCuenta": "Sin cuenta: no hay a quién avisarle",
+      "vacio": {
+        "CERTIFICADOS": "Ningún certificado vence en los próximos 30 días. Todo en orden.",
+        "CREDENCIALES_SOL": "Ninguna empresa tiene envíos atascados por sus credenciales SOL."
+      },
+      "error": "No se pudo cargar la lista de avisos.",
+      "volverACargar": "Volver a cargar",
+      "avisar": {
+        "boton": "Avisar al cliente",
+        "titulo": "Avisar al cliente",
+        "descripcion": "Le manda a {empresa} un correo de aviso.",
+        "efectos": [
+          "Le manda un correo a {correo}: {que}.",
+          "El mismo aviso no se repite en una semana, ni aunque otro administrador haga clic a la vez.",
+          "Queda registrado y en la bitácora, sin el correo del cliente."
+        ],
+        "que": {
+          "CERTIFICADO_POR_VENCER": "que su certificado digital está por vencer",
+          "CERTIFICADO_VENCIDO": "que su certificado digital venció y no puede emitir",
+          "CREDENCIALES_SOL_INVALIDAS": "que SUNAT no acepta sus credenciales SOL"
+        },
+        "confirmar": "Mandar el aviso",
+        "enviando": "Mandando…",
+        "cancelar": "Cancelar"
+      },
+      "resultado": {
+        "enviado": "Se le avisó a {correo} ({empresa})."
       }
     },
     "estadoCuenta": {
