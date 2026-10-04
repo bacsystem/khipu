@@ -51,6 +51,13 @@ class PlanTest {
         assertThat(codigo(() -> plan("Raro", "29.999", 1, 1, EstadoPlan.ACTIVO, false))).isEqualTo("PRECIO_INVALIDO");
     }
 
+    /** El precio siempre lleva dos decimales: dos planes de «29» y «29.00» son el mismo y se comparan (y se muestran) igual. */
+    @Test void elPrecioSeNormalizaADosDecimales() {
+        assertThat(plan("A", "29", 1, 1, EstadoPlan.ACTIVO, false).precioMensual().toPlainString()).isEqualTo("29.00");
+        assertThat(plan("B", "29.5", 1, 1, EstadoPlan.ACTIVO, false).precioMensual().toPlainString()).isEqualTo("29.50");
+        assertThat(plan("C", "1E+2", 1, 1, EstadoPlan.ACTIVO, false).precioMensual().toPlainString()).isEqualTo("100.00");
+    }
+
     @Test void sinPrecioNoHayPlan() {
         assertThat(codigo(() -> new Plan(UUID.randomUUID(), "X", null, Limite.de(1), 1, Limite.de(1), Limite.de(1), 1, EstadoPlan.ACTIVO, false))).isEqualTo("PRECIO_INVALIDO");
     }
