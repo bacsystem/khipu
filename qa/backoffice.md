@@ -2307,6 +2307,64 @@ Lo que sobrevivía en la primera tanda y se arregló con su test:
 - **La exportación no pagina:** con decenas de miles de cuentas habría que pasarla a flujo; hoy el volumen no lo pide.
 - **El plan vencido no corta el servicio:** solo se ve (hacerlo valer sigue siendo otro trabajo, como dice #191).
 
+## #194 · Planes: registro manual de pagos e historial
+
+**Estado: 🔧 implementado, 177/180 mutaciones verificadas (2 equivalentes documentadas, 1 código muerto eliminado) — falta la revisión de la PR.** Backend (`POST` y `GET /v1/admin/cuentas/{id}/pagos`, migración V40) y portal (la sección «Pagos» de la ficha de la cuenta). Va después de #193 en la pila.
+
+### Diseño
+
+- **Un pago es un apunte que solo se agrega.** No se edita ni se borra: es el rastro de plata que entró; una equivocación se aclara con otro apunte. Guarda la cuenta, la suscripción vigente en ese momento, el periodo (`periodo_desde`…`periodo_hasta`, ambos inclusive, hasta un año), el monto en soles (mayor que cero, hasta dos decimales, hasta 9 999 999,99), el medio (`TRANSFERENCIA`, `DEPOSITO`, `YAPE`, `PLIN`, `TARJETA`, `EFECTIVO`, `OTRO`), la fecha de pago (no futura, en hora de Lima), una referencia y una nota opcionales. **Sin pasarela de pago, a propósito.**
+- **Extender el vencimiento es opcional y condicional.** Con `extender_vencimiento` el vencimiento de la suscripción vigente pasa a ser la medianoche (Lima) del día siguiente a `periodo_hasta`, el mismo criterio exclusivo de #191. Solo si **adelanta** el vencimiento (`409 EXTENSION_SIN_EFECTO`: pagar un mes que ya estaba pagado no extiende nada) y solo en un plan que **vence** (`409 PLAN_SIN_VENCIMIENTO`: el gratis no). No toca el plan, la gracia ni la bajada programada. La extensión es una sentencia condicionada a que el vencimiento siga siendo el que se vio (`409 CAMBIO_CONCURRENTE` si otro administrador lo movió).
+- **El pago, la extensión y la bitácora son una sola transacción.** Si la bitácora no puede escribir, no queda el pago ni el vencimiento movido (el E2E lo prueba rompiendo la tabla de bitácora a propósito). `REGISTRAR_PAGO` dice el pago, el periodo, el monto, el medio, la fecha y el nuevo vencimiento (o `sin_cambio`); **no lleva la referencia ni la nota**, que son texto libre del administrador y ya están en el pago.
+- **El mismo apunte no se anota dos veces.** Con referencia, una cuenta no repite medio y referencia (sin distinguir mayúsculas): `409 PAGO_DUPLICADO`, por un índice único parcial; el insert pasa a «no hacer nada» y el repositorio lo cuenta como repetido, sin excepción que aborte la transacción. Así un doble clic o un reintento no duplican el pago. **Sin referencia no hay con qué comparar**, y dos pagos iguales se pueden anotar (límite conocido).
+- **El historial** va del más reciente al más antiguo (fecha de pago, luego registro, luego id para que dos páginas no se pisen), paginado, con el total en `X-Total-Count`.
+- **Portal:** la ficha de la cuenta muestra los **diez más recientes** (y dice cuántos hay si son más) con periodo, monto, medio, referencia y hasta dónde dejaron pagada la cuenta. El modal «Registrar pago» sugiere el periodo desde el día siguiente a donde está pagada la cuenta, y la casilla **«Extender el vencimiento»** viene marcada cuando se puede (el plan vence y el periodo adelanta), diciendo de qué día a qué día se mueve; si no se puede, se deshabilita y explica por qué. Los pagos y el plan se piden por separado: si el plan no carga, los pagos se ven igual y solo se pierde la opción de extender.
+- **Un corte de red no reintenta a ciegas:** si no se sabe si el pago llegó, el modal manda a recargar para ver si quedó registrado (un reintento podría anotarlo dos veces).
+
+### Tests
+
+- **Dominio:** `PagoTest` (17: periodo, monto con decimales y tope, medio, fecha, referencia y nota recortadas y con límite, ids, y el vencimiento que daría).
+- **Servicio** (`PagosDeCuentaServiceTest`, 26): registrar con y sin extender, todos los rechazos (plan que no vence, sin efecto, concurrente, duplicado, datos inválidos, cuenta inexistente), «hoy» de Lima y no de UTC, la bitácora dentro de la transacción y sin la referencia ni la nota, y el historial.
+- **Persistencia** (`JdbcPagoRepositoryTest`, 19, Postgres real): lo guardado vuelve igual, el orden y las páginas, el apunte repetido (sin distinguir mayúsculas, por medio, por cuenta), las restricciones de la base y los tamaños máximos, y `extenderVencimiento` (condicional, solo la activa, sin tocar lo demás).
+- **REST:** `AdminPagoControllerTest` (11).
+- **E2E real** (`PagosManualesE2ETest`, 23; Spring completo + Postgres + filtros reales): registrar sin extender, extender (movimiento exacto del vencimiento, plan y gracia intactos, estado «al día»), no cancela la bajada programada, plan sin vencimiento, sin efecto, duplicado (deshace la extensión), **bitácora rota → no queda nada**, **dos administradores a la vez → un 201 y un 409, nunca un 500**, datos inválidos, bitácora (clave de plataforma y administrador real), historial y páginas, los pagos sobreviven a un cambio de plan, y que nadie más pueda verlos ni anotarlos.
+- **Portal, Vitest (+76, 935 en total):** el cliente de la API, la validación del formulario, el BFF, el modal, la sección de pagos y la ficha de la cuenta.
+- **Portal, Playwright** (`admin-pagos.spec.ts`, 19): la ficha con sus pagos, el orden, «sin referencia», el recorte de diez, la cuenta sin pagos, registrar sin y con extensión (el plan de la ficha cambia), el duplicado, la misma referencia por otro medio, las validaciones del formulario, la casilla en cada estado y el BFF (sin sesión, id, cuerpo, rechazos del backend).
+
+### Verificación por mutación — 177/180 mueren (2 equivalentes, 1 código muerto eliminado)
+
+| Capa | Mutaciones | Cuántas |
+|---|---|---|
+| `Pago` | periodo de un día / al revés / de más de un año (y su borde) / sin fechas; monto cero, tres decimales, ceros de más, tope exclusivo o ausente, sin normalizar, sin monto; sin medio ni fecha; texto sin recortar, vacío que no es nulo, límites exclusivos o cambiados; cada id obligatorio; el vencimiento que daría (mismo día, UTC); la extensión que se pierde | 27 |
+| Servicio | fecha futura (pasa, UTC, hoy ya es futuro); nunca o siempre extiende; el mismo vencimiento extiende; plan sin vencimiento o un vencimiento que retrocede pasan; duplicado y conflicto pasan; la extensión pide otro vencimiento; bitácora ausente, de otra acción, sin la cuenta, sin el id del pago, que dice siempre «sin_cambio» o lleva la referencia; el historial de una cuenta inexistente; el total; sin comando; el pago pierde su suscripción, su nota, su referencia o su instante | 24 |
+| Persistencia y esquema | orden (fecha, registro, id, cada uno), página mal calculada, `registrar` al revés, historial o total que mezclan cuentas, nota o extensión perdidas, extender sin exigir la activa o el vencimiento visto o tocando otra suscripción; la base acepta monto cero, periodo al revés o de más de un año, medio desconocido, referencia que distingue mayúsculas, monto, referencia o nota que no caben, pago sin cuenta o sin suscripción | 22 |
+| REST | página 0, tamaño sin acotar, total perdido, 200 en vez de 201, siempre / nunca extiende, periodo y referencia / nota cruzados, el DTO pierde medio, monto, fecha o extensión, los tres 409 | 16 |
+| Validación y cliente (portal) | cada regla del formulario (periodo, un año y su 29 de febrero, monto con coma y tope, medio, fecha futura y hoy, referencia y nota con sus límites y recortes, extender sin plan que venza o sin adelantar) y el cuerpo que arma; el cliente (medios, tamaño, página, total, JWT, método, IP); el BFF (sesión, id, cuerpo, 201, caché, IP, error) | 46 |
+| Modal, sección y ficha | periodo sugerido, fecha por defecto, plan que vence, adelanta, casilla marcada / habilitada / que respeta la elección, doble clic, cierre mientras envía (botón, cruz, Escape), corte de red y respuesta inválida, conflicto y no encontrado que recargan, reinicio, validación previa, contexto, casilla, ruta; monto, fecha, medio, extensión, guion, nota, aviso de recorte, vacío, botón; la ficha (pide los pagos, los separa del plan, su error y su «Reintentar») | 45 |
+
+Lo que sobrevivía en la primera tanda:
+
+- **Un test de la clase equivocada** (`extenderVencimiento` ignorando que la suscripción ya terminó): la mutación corría contra `JdbcSuscripcionRepositoryTest` y la regla la prueba `JdbcPagoRepositoryTest`; corrida contra la correcta, muere.
+- **Cerrar con Escape mientras se envía:** la guarda de `cambiarAbierto` no tenía test (el botón y la cruz ya no están, pero Escape pasa por el mismo camino). Ahora hay dos tests, uno de cada lado.
+- **El guion de «sin referencia»** podía estar oculto sin que ningún test lo viera.
+- **Equivalente — `ORDER BY … id`:** el índice `ix_pago_cuenta` termina en `id` y ya entrega ese orden en los empates; la cláusula queda para garantizarlo aunque el planificador no use el índice.
+- **Equivalente — valor inicial de la fecha de pago y del «desde»:** abrir el modal siempre llama a `reiniciar()`, así que el valor del `useState` no se llega a ver.
+- **Código muerto eliminado — error de la casilla «extender»:** el modal deshabilita y desmarca la casilla cuando no se puede extender, así que ese error nunca se mostraba; se quitó del modal y la regla queda en `validarPago`, probada.
+
+### Suites
+
+- Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (9 min 58 s; incluye `ArchitectureTest`).
+- Portal: `tsc` y ESLint limpios; Vitest **935/935** (103 archivos); Playwright completo (`--workers=2`) **307/307**.
+
+### Límites conocidos
+
+- **Sin referencia, dos pagos idénticos se pueden anotar dos veces:** no hay con qué reconocer un reintento. Con referencia, no.
+- **No se edita ni se anula un pago.** Una equivocación se aclara con otro apunte; si hace falta anular, es otro issue (y otra acción en la bitácora).
+- **Un pago no valida que el periodo siga al anterior:** el administrador decide; la casilla solo comprueba que el vencimiento avance.
+- **El monto es solo en soles** y no se concilia con el precio del plan (puede haber descuentos, pagos adelantados o parciales).
+- **La ficha muestra los diez pagos más recientes:** el historial completo está en la API (paginado); una pantalla de historial con páginas no estaba en los criterios.
+- **No emite comprobante de pago:** emitir la factura de la plataforma con el propio khipu queda para después, como dice la épica.
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
