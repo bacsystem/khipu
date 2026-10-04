@@ -31,6 +31,8 @@ public class GlobalExceptionHandler {
             case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;
             // El correo saliente es un servicio externo: su fallo no es culpa del cliente ni un bug del servidor.
             case "CORREO_NO_ENVIADO" -> HttpStatus.BAD_GATEWAY;
+            // El servidor no tiene SMTP: no es culpa del cliente y reintentar no sirve hasta que el operador lo configure.
+            case "CORREO_NO_CONFIGURADO" -> HttpStatus.SERVICE_UNAVAILABLE;
             // Un CDR guardado que no se puede leer es un fallo del servidor, no de la petición.
             case "CDR_CORRUPTO" -> HttpStatus.INTERNAL_SERVER_ERROR;
             default -> HttpStatus.UNPROCESSABLE_ENTITY;

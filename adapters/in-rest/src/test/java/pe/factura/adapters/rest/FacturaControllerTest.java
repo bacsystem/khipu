@@ -106,6 +106,13 @@ class FacturaControllerTest {
                         .content("{\"email\":\"z@y.pe\"}"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.codigo").value("CORREO_NO_ENVIADO"));
+
+        doThrow(new DomainException("CORREO_NO_CONFIGURADO", "El envío de correos no está configurado en el servidor"))
+                .when(compartir).enviarPorCorreo(eq(tenant), eq(id), eq("w@y.pe"), isNull());
+        mvc.perform(post("/v1/facturas/{id}/correo", id).requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                        .content("{\"email\":\"w@y.pe\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.codigo").value("CORREO_NO_CONFIGURADO"));
     }
 
     @Test void lasObservacionesLleganAlComandoYVuelvenEnLaRespuesta() throws Exception {

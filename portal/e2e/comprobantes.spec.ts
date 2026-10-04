@@ -751,6 +751,18 @@ test("el PDF se abre desde el detalle y el comprobante aceptado se envía por co
   await expect(page.getByTestId("correo-enviado")).toHaveText("Enviado a compras@cliente.pe");
 });
 
+/** Sin SMTP en el servidor el correo no sale: el portal no puede decir «enviado» (#218). */
+test("si el servidor no tiene correo configurado lo dice y no lo da por enviado", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada");
+  await page.getByTestId("enviar-correo").click();
+  const form = page.getByTestId("correo-form");
+  await form.getByLabel("Correo del cliente").fill("sin-smtp@cliente.pe");
+  await form.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(form.getByRole("alert")).toContainText("El envío de correos no está habilitado");
+  await expect(form.getByRole("alert")).toContainText("Descargue el PDF");
+  await expect(page.getByTestId("correo-enviado")).toHaveCount(0);
+});
+
 test("un comprobante firmado sin respuesta de SUNAT no ofrece envío por correo pero sí su PDF", async ({ page }) => {
   await page.goto("/comprobantes/f-firmada");
   await expect(page.getByTestId("ver-pdf")).toBeVisible();
