@@ -184,6 +184,82 @@ let erroresMock: FilaDeErrorMock[] = erroresIniciales();
 /** Sin tildes y en minúsculas: la búsqueda del backend no distingue ni mayúsculas ni tildes. */
 const sinTildes = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
+/**
+ * Los avisos a clientes del mock (#197). Como la cola de errores, las pruebas corren en paralelo contra esta memoria: los avisos que se mandan tienen su propia empresa (una por
+ * prueba) y el resto solo se lee. Certificados (hoy + días): empresa 1 por vencer en 10 (se le avisa), 2 vencido hace 5 (se le avisa), 5 por vencer en 20 (otro administrador ya
+ * avisó: 409), 4 por vencer en 3 con un aviso de hace 2 días (bloqueada), 7 por vencer en 29, 10 vencido hace 1 (el correo falla: 502) y la de integración 101, vencida hace 2 y sin
+ * cuenta. Credenciales SOL: empresa 8 con 5 comprobantes atascados (se le avisa), 4 con 2, 7 con 1 y un aviso de ayer (bloqueada) y la de integración 101 con 3.
+ */
+type CuentaDeAvisoMock = { id: string; nombre: string; email: string };
+type UltimoAvisoMock = { enviado_en: string; destinatario: string };
+type FilaDeAvisoMock = {
+  empresa_id: string;
+  ruc: string;
+  razon_social: string;
+  cuenta?: CuentaDeAvisoMock;
+  ultimo_aviso?: UltimoAvisoMock;
+  avisar_desde?: string;
+  puede_avisar: boolean;
+};
+type CertificadoDeAvisoMock = FilaDeAvisoMock & { motivo: "CERTIFICADO_POR_VENCER" | "CERTIFICADO_VENCIDO"; dias_restantes: number };
+type SolDeAvisoMock = FilaDeAvisoMock & { comprobantes_afectados: number; ultimo_fallo: string; ultimo_error: string };
+
+const DIA_MS = 86_400_000;
+const fechaDeLimaMock = (dias: number) => new Date(Date.now() + dias * DIA_MS).toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+
+const cuentaAvisoMock = (n: number, nombre: string, email: string): CuentaDeAvisoMock => ({ id: idCuentaMock(n), nombre, email });
+
+function empresaAvisoMock(n: number, ruc: string, razon: string, cuenta?: CuentaDeAvisoMock) {
+  return { empresa_id: idEmpresaMock(n), ruc, razon_social: razon, ...(cuenta ? { cuenta } : {}), puede_avisar: cuenta !== undefined };
+}
+
+function certificadoAvisoMock(n: number, ruc: string, razon: string, dias: number, cuenta?: CuentaDeAvisoMock, p: Partial<CertificadoDeAvisoMock> = {}): CertificadoDeAvisoMock {
+  return { ...empresaAvisoMock(n, ruc, razon, cuenta), motivo: dias < 0 ? "CERTIFICADO_VENCIDO" : "CERTIFICADO_POR_VENCER", dias_restantes: dias, ...p };
+}
+
+function solAvisoMock(n: number, ruc: string, razon: string, afectados: number, error: string, cuenta?: CuentaDeAvisoMock, p: Partial<SolDeAvisoMock> = {}): SolDeAvisoMock {
+  return { ...empresaAvisoMock(n, ruc, razon, cuenta), comprobantes_afectados: afectados, ultimo_fallo: new Date(Date.now() - 600_000).toISOString(), ultimo_error: error, ...p };
+}
+
+function avisosIniciales() {
+  const ayer = new Date(Date.now() - DIA_MS).toISOString();
+  const haceDos = new Date(Date.now() - 2 * DIA_MS).toISOString();
+  const panaderia = cuentaAvisoMock(1, "Panadería Sol", "panaderia@sol.pe");
+  const ferreteria = cuentaAvisoMock(2, "Ferretería Luna", "ferreteria@luna.pe");
+  const c4 = cuentaAvisoMock(4, "Cliente 04", "cliente04@negocio.pe");
+  const c5 = cuentaAvisoMock(5, "Cliente 05", "cliente05@negocio.pe");
+  const c7 = cuentaAvisoMock(7, "Cliente 07", "cliente07@negocio.pe");
+  const c8 = cuentaAvisoMock(8, "Cliente 08", "cliente08@negocio.pe");
+  const c10 = cuentaAvisoMock(10, "Cliente 10", "cliente10@negocio.pe");
+  return {
+    certificados: [
+      certificadoAvisoMock(1, "20100047226", "PANADERIA SOL SAC", 10, panaderia),
+      certificadoAvisoMock(2, "20100055121", "FERRETERIA LUNA SAC", -5, ferreteria),
+      certificadoAvisoMock(5, "20100000500", "CLIENTE 05 SAC", 20, c5),
+      certificadoAvisoMock(4, "20100000400", "CLIENTE 04 SAC", 3, c4, {
+        ultimo_aviso: { enviado_en: haceDos, destinatario: c4.email },
+        avisar_desde: new Date(Date.now() + 5 * DIA_MS).toISOString(),
+        puede_avisar: false,
+      }),
+      certificadoAvisoMock(7, "20100000700", "CLIENTE 07 SAC", 29, c7),
+      certificadoAvisoMock(10, "20100001000", "CLIENTE 10 SAC", -1, c10),
+      certificadoAvisoMock(101, "20100066611", "INTEGRADOR SAC", -2),
+    ],
+    sol: [
+      solAvisoMock(8, "20100000800", "CLIENTE 08 SAC", 5, "0000 - SUNAT respondió HTTP 401 en 2 intentos (revisar credenciales SOL/URL)", c8),
+      solAvisoMock(4, "20100000400", "CLIENTE 04 SAC", 2, "0102 - Usuario o contraseña incorrectos", c4),
+      solAvisoMock(7, "20100000700", "CLIENTE 07 SAC", 1, "0104 - La clave ingresada es incorrecta", c7, {
+        ultimo_aviso: { enviado_en: ayer, destinatario: c7.email },
+        avisar_desde: new Date(Date.now() + 6 * DIA_MS).toISOString(),
+        puede_avisar: false,
+      }),
+      solAvisoMock(101, "20100066611", "INTEGRADOR SAC", 3, "0103 - El usuario ingresado no existe"),
+    ],
+  };
+}
+
+const avisosMock = avisosIniciales();
+
 /** Cuántas veces se leyó el monitor (#195): la cola de envíos crece una por lectura, y así las pruebas ven que el panel se actualizó. */
 let lecturasDelMonitorMock = 0;
 
@@ -1058,6 +1134,77 @@ export const handlers = [
     if (e.estado !== "ERROR_ENVIO") return fail(409, "ESTADO_NO_DESCARTABLE", `Solo se descarta un comprobante en error de envío; este está ${e.estado}`);
     erroresMock = erroresMock.filter((x) => x !== e);
     return ok({ comprobante_id: e.comprobante_id, estado: "DESCARTADO" });
+  }),
+
+  /**
+   * Como el backend (#197): las empresas con el certificado vencido o por vencer, de la que vence antes a la que vence después (con `vigente_hasta` calculado desde hoy), paginadas,
+   * con el total en `x-total-count`.
+   */
+  http.get(`${BASE}/v1/admin/avisos/certificados`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const url = new URL(request.url);
+    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
+    const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
+    const todas = [...avisosMock.certificados].sort((a, b) => a.dias_restantes - b.dias_restantes);
+    return HttpResponse.json(
+      {
+        estado: "exito",
+        datos: todas.slice((pagina - 1) * porPagina, pagina * porPagina).map((c) => ({ ...c, vigente_hasta: fechaDeLimaMock(c.dias_restantes) })),
+        mensaje: null,
+        codigo: null,
+        errores: null,
+      },
+      { headers: { "x-total-count": String(todas.length) } },
+    );
+  }),
+
+  /** Como el backend (#197): las empresas con comprobantes atascados por sus credenciales SOL, de la que más tiene a la que menos, paginadas. */
+  http.get(`${BASE}/v1/admin/avisos/credenciales-sol`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const url = new URL(request.url);
+    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
+    const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
+    const todas = [...avisosMock.sol].sort((a, b) => b.comprobantes_afectados - a.comprobantes_afectados || a.ruc.localeCompare(b.ruc));
+    return HttpResponse.json(
+      { estado: "exito", datos: todas.slice((pagina - 1) * porPagina, pagina * porPagina), mensaje: null, codigo: null, errores: null },
+      { headers: { "x-total-count": String(todas.length) } },
+    );
+  }),
+
+  /**
+   * Como el backend (#197): avisarle a un cliente. Sin tipo o con uno desconocido: 422 `TIPO_INVALIDO`; una empresa que no está en ese problema: 409 `AVISO_SIN_MOTIVO` (404 si no existe
+   * en ninguna lista); sin cuenta: 409 `EMPRESA_SIN_CUENTA`; ya avisada: 409 `AVISO_RECIENTE`. La empresa 10 simula un correo que falla (502 `CORREO_NO_ENVIADO`, sin registrar nada) y la 5
+   * simula a otro administrador que se adelantó (409 `AVISO_RECIENTE`, y queda avisada). Si sale, la empresa queda avisada: ya no se puede repetir hasta dentro de una semana.
+   */
+  http.post(`${BASE}/v1/admin/empresas/:id/avisos`, async ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    let cuerpo: { tipo?: unknown } = {};
+    try {
+      cuerpo = (await request.json()) as { tipo?: unknown };
+    } catch {
+      return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
+    }
+    if (cuerpo.tipo !== "CERTIFICADO" && cuerpo.tipo !== "CREDENCIALES_SOL") return fail(422, "TIPO_INVALIDO", "Indica qué se le avisa al cliente");
+    const fila: FilaDeAvisoMock | undefined = (cuerpo.tipo === "CERTIFICADO" ? avisosMock.certificados : avisosMock.sol).find((f) => f.empresa_id === params.id);
+    if (!fila) {
+      const existe = [...avisosMock.certificados, ...avisosMock.sol].some((f) => f.empresa_id === params.id);
+      return existe ? fail(409, "AVISO_SIN_MOTIVO", "No hay nada que avisar: la empresa no está en ese problema") : fail(404, "NO_ENCONTRADO", "La empresa no existe");
+    }
+    if (!fila.cuenta) return fail(409, "EMPRESA_SIN_CUENTA", "La empresa no tiene una cuenta con correo a quien avisarle");
+    const ahora = Date.now();
+    const registrar = () => {
+      fila.ultimo_aviso = { enviado_en: new Date(ahora).toISOString(), destinatario: fila.cuenta!.email };
+      fila.avisar_desde = new Date(ahora + 7 * DIA_MS).toISOString();
+      fila.puede_avisar = false;
+    };
+    if (params.id === idEmpresaMock(10)) return fail(502, "CORREO_NO_ENVIADO", "No se pudo enviar el aviso: SMTP caído");
+    if (params.id === idEmpresaMock(5) || !fila.puede_avisar) {
+      if (fila.puede_avisar) registrar();
+      return fail(409, "AVISO_RECIENTE", `Ya se avisó lo mismo el ${fila.ultimo_aviso?.enviado_en}: se puede repetir desde el ${fila.avisar_desde}`);
+    }
+    registrar();
+    const motivo = cuerpo.tipo === "CREDENCIALES_SOL" ? "CREDENCIALES_SOL_INVALIDAS" : (fila as CertificadoDeAvisoMock).motivo;
+    return ok({ empresa_id: fila.empresa_id, motivo, destinatario: fila.cuenta.email, enviado_en: fila.ultimo_aviso!.enviado_en, avisar_desde: fila.avisar_desde });
   }),
 
   /** Como el backend (#193): consumo de todas las cuentas contra su plan de hoy, con filtro, orden, mes y página; el total, que refleja el filtro, va en la cabecera. */

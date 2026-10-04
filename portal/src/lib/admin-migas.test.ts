@@ -46,6 +46,10 @@ describe("migaAdmin", () => {
     expect(migaAdmin("/admin/errores")).toEqual({ seccion: "Operación", pagina: "Errores" });
   });
 
+  it("los avisos a clientes cuelgan de «Operación» y no ofrecen crear una cuenta", () => {
+    expect(migaAdmin("/admin/avisos")).toEqual({ seccion: "Operación", pagina: "Avisos" });
+  });
+
   it("«/admin» solo es el inicio de forma exacta: no engulle las páginas que todavía no tienen miga", () => {
     expect(migaAdmin("/admin/operacion")).toBeNull();
   });

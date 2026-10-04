@@ -23,6 +23,7 @@ const MIGAS: Array<{ ruta: string; exacta?: boolean } & MigaAdmin> = [
   { ruta: "/admin/consumo", seccion: t.topbar.comercial, pagina: t.nav.consumo },
   { ruta: "/admin/monitor", seccion: t.topbar.operacion, pagina: t.nav.monitor },
   { ruta: "/admin/errores", seccion: t.topbar.operacion, pagina: t.nav.errores },
+  { ruta: "/admin/avisos", seccion: t.topbar.operacion, pagina: t.nav.avisos },
   { ruta: "/admin/integridad", seccion: t.topbar.operacion, pagina: t.nav.integridad },
 ];
 

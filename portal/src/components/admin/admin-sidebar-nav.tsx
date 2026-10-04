@@ -1,6 +1,6 @@
 "use client";
 
-import { ActivityIcon, BuildingIcon, CircleAlertIcon, CreditCardIcon, GaugeIcon, HomeIcon, RadioIcon, ShieldCheckIcon, UsersIcon } from "lucide-react";
+import { ActivityIcon, BellIcon, BuildingIcon, CircleAlertIcon, CreditCardIcon, GaugeIcon, HomeIcon, RadioIcon, ShieldCheckIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { messages } from "@/lib/messages";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 type Item = { href?: string; label: string; icon: typeof HomeIcon };
 
-/** "Inicio", "Cuentas" (#180), "Empresas" (#185), "Planes" (#190), "Consumo" (#193), "Monitor" (#195), "Errores" (#196) e "Integridad" (#198) tienen página propia: el resto del backoffice llega en los issues de la épica #11. */
+/** "Inicio", "Cuentas" (#180), "Empresas" (#185), "Planes" (#190), "Consumo" (#193), "Monitor" (#195), "Errores" (#196), "Avisos" (#197) e "Integridad" (#198) tienen página propia: el resto del backoffice llega en los issues de la épica #11. */
 const ITEMS: Item[] = [
   { href: "/admin", label: messages.admin.nav.inicio, icon: HomeIcon },
   { href: "/admin/cuentas", label: messages.admin.nav.cuentas, icon: UsersIcon },
@@ -17,6 +17,7 @@ const ITEMS: Item[] = [
   { href: "/admin/consumo", label: messages.admin.nav.consumo, icon: GaugeIcon },
   { href: "/admin/monitor", label: messages.admin.nav.monitor, icon: RadioIcon },
   { href: "/admin/errores", label: messages.admin.nav.errores, icon: CircleAlertIcon },
+  { href: "/admin/avisos", label: messages.admin.nav.avisos, icon: BellIcon },
   { href: "/admin/integridad", label: messages.admin.nav.integridad, icon: ShieldCheckIcon },
   { label: "Operación", icon: ActivityIcon },
 ];
