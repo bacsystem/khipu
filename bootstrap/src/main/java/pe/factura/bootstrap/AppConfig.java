@@ -206,6 +206,7 @@ public class AppConfig {
     @Bean OutboxRepository outboxRepository(JdbcTemplate jdbc) { return new JdbcOutboxRepository(jdbc); }
     @Bean CuentaRepository cuentaRepository(JdbcTemplate jdbc) { return new JdbcCuentaRepository(jdbc); }
     @Bean UsuarioRepository usuarioRepository(JdbcTemplate jdbc) { return new JdbcUsuarioRepository(jdbc); }
+    @Bean VerificacionCorreoRepository verificacionCorreoRepository(JdbcTemplate jdbc) { return new JdbcVerificacionCorreoRepository(jdbc); }
     @Bean SesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
     @Bean AdministradorRepository administradorRepository(JdbcTemplate jdbc) { return new JdbcAdministradorRepository(jdbc); }
     @Bean AuditoriaAdminRepository auditoriaAdminRepository(JdbcTemplate jdbc) { return new JdbcAuditoriaAdminRepository(jdbc); }
@@ -285,8 +286,8 @@ public class AppConfig {
     }
 
     @Bean AutenticarUsuarioUseCase autenticarUsuario(CuentaRepository cu, UsuarioRepository us, SesionRepository se, PasswordHasher h,
-                                                    TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock) {
-        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock);
+                                                    TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v) {
+        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v);
     }
     @Bean GestionarEmpresasUseCase gestionarEmpresas(TenantRepository t, CuentaRepository cu, UnitOfWork u) {
         return new GestionarEmpresasService(t, cu, u);
@@ -328,8 +329,8 @@ public class AppConfig {
         var f = new FilterRegistrationBean<>(new AdminAuthFilter(p.platformAdminKey(), te));
         f.addUrlPatterns("/v1/*"); f.setOrder(5); return f;
     }
-    @Bean FilterRegistrationBean<JwtFilter> jwtFilter(TokenEmisor te, TenantRepository t) {
-        var f = new FilterRegistrationBean<>(new JwtFilter(te, t));
+    @Bean FilterRegistrationBean<JwtFilter> jwtFilter(TokenEmisor te, TenantRepository t, UsuarioRepository us) {
+        var f = new FilterRegistrationBean<>(new JwtFilter(te, t, us));
         f.addUrlPatterns("/v1/*"); f.setOrder(8); return f;
     }
 }

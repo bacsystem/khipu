@@ -6,7 +6,9 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.application.port.out.TokenEmisor;
+import pe.factura.application.port.out.UsuarioRepository;
 import pe.factura.domain.cuenta.Rol;
+import pe.factura.domain.cuenta.Usuario;
 import pe.factura.domain.tenant.Entorno;
 import pe.factura.domain.tenant.Tenant;
 
@@ -44,7 +46,72 @@ class JwtFilterTest {
         public void asignarCuenta(UUID t, UUID c) {}
         public Optional<UUID> cuentaDe(UUID t) { return Optional.ofNullable(cuentaPorEmpresa.get(t)); }
     };
-    JwtFilter filter = new JwtFilter(tokenEmisor, tenants);
+    /** El usuario del token, verificado por defecto: lo que prueban los tests de empresa no depende de la verificación (#22). */
+    Usuario delToken = new Usuario(usuario, cuenta, "ana@b.pe", "hash", Rol.ADMIN, true, java.time.Instant.parse("2026-10-01T00:00:00Z"));
+    UsuarioRepository usuarios = new UsuarioRepository() {
+        public void guardar(Usuario u) {}
+        public Optional<Usuario> buscar(UUID id) { return delToken != null && delToken.id().equals(id) ? Optional.of(delToken) : Optional.empty(); }
+        public Optional<Usuario> buscarPorEmail(String e) { return Optional.empty(); }
+    };
+    JwtFilter filter = new JwtFilter(tokenEmisor, tenants, usuarios);
+
+    // --- #22: sin verificar el correo se puede mirar, no escribir ------------------------------------------------------------------
+
+    private MockHttpServletResponse pedir(String metodo, String uri, MockFilterChain chain) throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest(metodo, uri);
+        req.addHeader("Authorization", "Bearer " + tokenValido);
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        filter.doFilter(req, res, chain);
+        return res;
+    }
+
+    @Test void sinVerificarElCorreoNingunaEscrituraPasa() throws Exception {
+        delToken = new Usuario(usuario, cuenta, "ana@b.pe", "hash", Rol.ADMIN, true);
+        for (String[] m : new String[][]{{"POST", "/v1/empresas"}, {"POST", "/v1/facturas"}, {"PUT", "/v1/empresa/datos-fiscales"},
+                {"DELETE", "/v1/empresa/api-keys/1"}, {"PATCH", "/v1/series/F001"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            MockHttpServletResponse res = pedir(m[0], m[1], chain);
+            assertThat(chain.getRequest()).as("%s %s", m[0], m[1]).isNull();
+            assertThat(res.getStatus()).as("%s %s", m[0], m[1]).isEqualTo(403);
+            assertThat(res.getContentAsString()).contains("CORREO_SIN_VERIFICAR");
+        }
+    }
+
+    @Test void sinVerificarSePuedeMirarYManejarLaSesion() throws Exception {
+        delToken = new Usuario(usuario, cuenta, "ana@b.pe", "hash", Rol.ADMIN, true);
+        for (String[] m : new String[][]{{"GET", "/v1/empresas"}, {"HEAD", "/v1/facturas"}, {"OPTIONS", "/v1/facturas"},
+                {"POST", "/v1/auth/verificacion"}, {"POST", "/v1/auth/logout"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            pedir(m[0], m[1], chain);
+            assertThat(chain.getRequest()).as("%s %s", m[0], m[1]).isNotNull();
+        }
+    }
+
+    @Test void verificadoEscribeComoSiempre() throws Exception {
+        MockFilterChain chain = new MockFilterChain();
+        pedir("POST", "/v1/empresas", chain);
+        assertThat(chain.getRequest()).isNotNull();
+    }
+
+    /** Un token de un usuario que ya no existe o se desactivó no escribe: falla cerrado. */
+    @Test void sinUsuarioOConElUsuarioInactivoNoEscribe() throws Exception {
+        delToken = null;
+        MockHttpServletResponse res = pedir("POST", "/v1/empresas", new MockFilterChain());
+        assertThat(res.getStatus()).isEqualTo(401);
+
+        delToken = new Usuario(usuario, cuenta, "ana@b.pe", "hash", Rol.ADMIN, false, java.time.Instant.parse("2026-10-01T00:00:00Z"));
+        assertThat(pedir("POST", "/v1/empresas", new MockFilterChain()).getStatus()).isEqualTo(401);
+    }
+
+    /** La ruta se decide normalizada: un {@code ;x} o un {@code ..} no hace pasar una escritura por una ruta de auth. */
+    @Test void unaRutaDisfrazadaDeAuthNoEsquivaElBloqueo() throws Exception {
+        delToken = new Usuario(usuario, cuenta, "ana@b.pe", "hash", Rol.ADMIN, true);
+        for (String uri : new String[]{"/v1/auth/../empresas", "/v1/auth;x/../empresas"}) {
+            MockFilterChain chain = new MockFilterChain();
+            assertThat(pedir("POST", uri, chain).getStatus()).as(uri).isEqualTo(403);
+            assertThat(chain.getRequest()).as(uri).isNull();
+        }
+    }
 
     @Test void tokenValidoSinEmpresaExponeSoloLaCuenta() throws Exception {
         MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/empresas");
@@ -125,7 +192,7 @@ class JwtFilterTest {
     }
 
     @Test void rutasPublicasDeAuthNoInterceptan() throws Exception {
-        for (String uri : new String[]{"/v1/auth/registro", "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/recuperar", "/v1/auth/restablecer"}) {
+        for (String uri : new String[]{"/v1/auth/registro", "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/recuperar", "/v1/auth/restablecer", "/v1/auth/verificar"}) {
             MockHttpServletRequest req = new MockHttpServletRequest("POST", uri);
             MockFilterChain chain = new MockFilterChain();
             filter.doFilter(req, new MockHttpServletResponse(), chain);

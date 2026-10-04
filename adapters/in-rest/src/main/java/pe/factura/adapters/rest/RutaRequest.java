@@ -18,7 +18,7 @@ final class RutaRequest {
 
     /** Rutas de autenticación que no exigen ni API key ni JWT (el cliente aún no tiene ninguno). */
     private static final java.util.Set<String> AUTH_PUBLICA = java.util.Set.of(
-            "/v1/auth/registro", "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/recuperar", "/v1/auth/restablecer");
+            "/v1/auth/registro", "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/recuperar", "/v1/auth/restablecer", "/v1/auth/verificar");
 
     static String rutaNormalizada(HttpServletRequest req) {
         String ruta = UrlPathHelper.defaultInstance.getPathWithinApplication(req);

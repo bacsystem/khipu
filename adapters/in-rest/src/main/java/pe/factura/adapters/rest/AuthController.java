@@ -37,10 +37,13 @@ public class AuthController {
      * que la experiencia no cambie según por dónde entre la petición.
      */
     @PostMapping("/registro")
-    @Operation(summary = "Registrar una cuenta", description = "Crea la cuenta del portal y devuelve los tokens de sesión. `403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`).")
+    @Operation(summary = "Registrar una cuenta", description = """
+            Crea la cuenta del portal y devuelve los tokens de sesión. El correo queda sin verificar y se le manda un enlace (24 h): hasta
+            verificarlo puede entrar al portal, pero cualquier escritura con su sesión responde `403 CORREO_SIN_VERIFICAR`.
+            `403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`).""")
     public ResponseEntity<ApiResponse<TokensResponse>> registrar(@Valid @RequestBody RegistroRequest body) {
         if (!registroAbierto) throw new DomainException("REGISTRO_CERRADO", "El registro está por invitación: escríbenos para pedir acceso.");
-        var tokens = auth.registrar(body.nombre(), body.email(), body.password(), body.telefono());
+        var tokens = auth.registrar(body.nombre(), body.email(), body.password(), body.telefono(), portalUrl);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(TokensResponse.de(tokens)));
     }
 
@@ -78,9 +81,23 @@ public class AuthController {
     }
 
     @PostMapping("/restablecer")
-    @Operation(summary = "Restablecer la contraseña", description = "Fija una contraseña nueva con el token recibido por correo.")
+    @Operation(summary = "Restablecer la contraseña", description = "Fija una contraseña nueva con el token recibido por correo. También verifica el correo: el enlace llegó ahí.")
     public ResponseEntity<Void> restablecer(@Valid @RequestBody RestablecerRequest body) {
         auth.restablecer(body.token(), body.password());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/verificar")
+    @Operation(summary = "Verificar el correo", description = "Con el token del enlace que llegó al correo (24 h, un solo uso). `422 TOKEN_INVALIDO` si venció, ya se usó o no existe.")
+    public ResponseEntity<Void> verificar(@Valid @RequestBody VerificarRequest body) {
+        auth.verificarCorreo(body.token());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/verificacion")
+    @Operation(summary = "Reenviar el enlace de verificación", description = "Al correo del usuario de la sesión. `409 CORREO_YA_VERIFICADO` si no hace falta.")
+    public ResponseEntity<Void> reenviarVerificacion(HttpServletRequest req) {
+        auth.reenviarVerificacion(UsuarioActual.id(req), portalUrl);
+        return ResponseEntity.accepted().build();
     }
 }

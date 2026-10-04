@@ -23,6 +23,20 @@ class UsuarioTest {
         assertThatThrownBy(() -> Usuario.validarPassword("12345678")).extracting("codigo").isEqualTo("PASSWORD_DEBIL");  // sin letras
         assertThatCode(() -> Usuario.validarPassword("Segura123")).doesNotThrowAnyException();
     }
+    /** #22: un usuario nuevo no tiene el correo verificado; verificarlo guarda cuándo y no se pierde al cambiar otra cosa. */
+    @Test void elCorreoEmpiezaSinVerificarYLaVerificacionSeConserva() {
+        java.time.Instant cuando = java.time.Instant.parse("2026-10-03T15:00:00Z");
+        Usuario nuevo = new Usuario(UUID.randomUUID(), UUID.randomUUID(), "ana@b.pe", "hash", Rol.ADMIN, true);
+        assertThat(nuevo.correoVerificado()).isFalse();
+
+        Usuario verificado = nuevo.conCorreoVerificado(cuando);
+        assertThat(verificado.correoVerificado()).isTrue();
+        assertThat(verificado.correoVerificadoEn()).isEqualTo(cuando);
+        assertThat(verificado.conPasswordHash("otro").correoVerificadoEn()).isEqualTo(cuando);
+        assertThat(verificado.desactivar().correoVerificadoEn()).isEqualTo(cuando);
+        assertThat(verificado.conCorreoVerificado(cuando.plusSeconds(60)).correoVerificadoEn()).as("la primera vez es la que vale").isEqualTo(cuando);
+    }
+
     @Test void cuentaExigeNombre() {
         assertThatThrownBy(() -> new Cuenta(UUID.randomUUID(), " ", "a@b.pe")).extracting("codigo").isEqualTo("NOMBRE_REQUERIDO");
         assertThat(new Cuenta(UUID.randomUUID(), "Mi negocio", "A@B.PE").email()).isEqualTo("a@b.pe");

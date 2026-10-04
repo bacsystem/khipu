@@ -8,9 +8,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.filter.OncePerRequestFilter;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.application.port.out.TokenEmisor;
+import pe.factura.application.port.out.UsuarioRepository;
+import pe.factura.domain.cuenta.Usuario;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -28,6 +31,9 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private final TokenEmisor tokenEmisor;
     private final TenantRepository tenants;
+    private final UsuarioRepository usuarios;
+    /** Lo que no escribe: con el correo sin verificar se puede mirar (#22). */
+    private static final Set<String> LECTURAS = Set.of("GET", "HEAD", "OPTIONS");
 
     @Override protected boolean shouldNotFilter(HttpServletRequest req) {
         String ruta = RutaRequest.rutaNormalizada(req);
@@ -44,6 +50,22 @@ public class JwtFilter extends OncePerRequestFilter {
         if (claims.isEmpty()) {
             escribirError(res, 401, "NO_AUTORIZADO", "Token inválido o expirado");
             return;
+        }
+
+        // Sin verificar el correo (#22) se puede entrar y mirar, pero no escribir: ni crear empresas ni emitir. Lo de la propia sesión
+        // (/v1/auth/**: reenviar el enlace, cerrar sesión) sí. Se mira el usuario en la base, no el token: verificado en otra pestaña,
+        // la siguiente escritura ya pasa.
+        String ruta = RutaRequest.rutaNormalizada(req);
+        if (!LECTURAS.contains(req.getMethod()) && !ruta.startsWith("/v1/auth/")) {
+            Optional<Usuario> usuario = usuarios.buscar(claims.get().usuarioId()).filter(Usuario::activo);
+            if (usuario.isEmpty()) {
+                escribirError(res, 401, "NO_AUTORIZADO", "Token inválido o expirado");
+                return;
+            }
+            if (!usuario.get().correoVerificado()) {
+                escribirError(res, 403, "CORREO_SIN_VERIFICAR", "Verifica tu correo para continuar: te enviamos un enlace");
+                return;
+            }
         }
 
         req.setAttribute(CuentaActual.ATRIBUTO, claims.get().cuentaId());

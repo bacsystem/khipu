@@ -160,6 +160,7 @@ class AltaAsistidaE2ETest {
         // El perfil de prueba abre el registro público (application-test.yml): así hay un JWT de cliente real con el que probar. Si dejara
         // de abrirlo, este assert falla en vez de probar con un token inventado.
         assertThat(registro.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        CORREOS.clear();   // el de verificación del registro (#22): lo que importa abajo es que ningún alta rechazada mande una invitación
         String jwtDeCliente = (String) ((Map<?, ?>) registro.getBody().get("datos")).get("access");
         ResponseEntity<Map> tenant = http.postForEntity("/v1/admin/tenants", new HttpEntity<>("{\"ruc\":\"20601234565\",\"razon_social\":\"OTRA SAC\",\"entorno\":\"BETA\"}", conClaveDePlataforma()), Map.class);
         String apiKey = (String) ((Map<?, ?>) tenant.getBody().get("datos")).get("api_key");

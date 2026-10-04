@@ -2,16 +2,23 @@ package pe.factura.domain.cuenta;
 
 import pe.factura.domain.DomainException;
 
+import java.time.Instant;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-public record Usuario(UUID id, UUID cuentaId, String email, String passwordHash, Rol rol, boolean activo) {
+/** {@code correoVerificadoEn}: cuándo demostró que el correo es suyo (#22); nulo si todavía no. */
+public record Usuario(UUID id, UUID cuentaId, String email, String passwordHash, Rol rol, boolean activo, Instant correoVerificadoEn) {
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     public Usuario {
         email = normalizarEmail(email);
         if (passwordHash == null || passwordHash.isBlank()) throw new DomainException("PASSWORD_REQUERIDO", "Hash de contraseña requerido");
         if (rol == null) throw new DomainException("ROL_REQUERIDO", "Rol requerido");
+    }
+
+    /** Un usuario nuevo: el correo sin verificar. */
+    public Usuario(UUID id, UUID cuentaId, String email, String passwordHash, Rol rol, boolean activo) {
+        this(id, cuentaId, email, passwordHash, rol, activo, null);
     }
 
     static String normalizarEmail(String email) {
@@ -25,7 +32,14 @@ public record Usuario(UUID id, UUID cuentaId, String email, String passwordHash,
             throw new DomainException("PASSWORD_DEBIL", "La contraseña debe tener al menos 8 caracteres, una letra y un dígito");
     }
 
-    public Usuario desactivar() { return new Usuario(id, cuentaId, email, passwordHash, rol, false); }
-    public Usuario conPasswordHash(String hash) { return new Usuario(id, cuentaId, email, hash, rol, activo); }
+    public Usuario desactivar() { return new Usuario(id, cuentaId, email, passwordHash, rol, false, correoVerificadoEn); }
+    public Usuario conPasswordHash(String hash) { return new Usuario(id, cuentaId, email, hash, rol, activo, correoVerificadoEn); }
     public boolean esAdmin() { return rol == Rol.ADMIN; }
+
+    public boolean correoVerificado() { return correoVerificadoEn != null; }
+
+    /** Verificar otra vez no cambia la fecha: vale la primera vez que lo demostró. */
+    public Usuario conCorreoVerificado(Instant cuando) {
+        return correoVerificado() ? this : new Usuario(id, cuentaId, email, passwordHash, rol, activo, cuando);
+    }
 }

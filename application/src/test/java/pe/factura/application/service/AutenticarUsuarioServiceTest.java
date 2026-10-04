@@ -56,10 +56,113 @@ class AutenticarUsuarioServiceTest {
         public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) { enviar(para, asunto, cuerpo); }
     };
     Clock clock = Clock.fixed(java.time.Instant.parse("2026-09-14T12:00:00Z"), ZoneId.of("America/Lima"));
-    AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock);
+    static final String PORTAL = "https://portal";
+    Map<String, VerificacionCorreoRepository.Token> verifMap = new HashMap<>();
+    VerificacionCorreoRepository verificaciones = new VerificacionCorreoRepository() {
+        public void crear(Token t) { verifMap.put(t.tokenHash(), t); }
+        public Optional<Token> buscar(String h) { return Optional.ofNullable(verifMap.get(h)); }
+        public boolean usar(String h) {
+            Token t = verifMap.get(h);
+            if (t == null || t.usado()) return false;
+            verifMap.put(h, new Token(t.tokenHash(), t.usuarioId(), t.expiraEn(), true));
+            return true;
+        }
+    };
+    AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones);
+
+    /** El token del último correo que contiene {@code ruta}: así llega al usuario, y así se lo usa. */
+    private String tokenDelCorreo(String ruta) {
+        String c = correos.stream().filter(x -> x.contains(ruta)).reduce((a, b) -> b).orElseThrow();
+        return c.substring(c.lastIndexOf(ruta) + ruta.length()).trim();
+    }
+
+    // --- #22: verificación del correo ---------------------------------------------------------------------------------------------
+
+    @Test void elRegistroDejaElCorreoSinVerificarYMandaElEnlace() {
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+
+        assertThat(t.usuario().correoVerificado()).isFalse();
+        assertThat(correos).singleElement().satisfies(c -> assertThat(c).startsWith("a@b.pe|").contains(PORTAL + "/verificar/").contains("24 horas"));
+        String token = tokenDelCorreo("/verificar/");
+        assertThat(verifMap).as("solo el hash").containsOnlyKeys(TokenOpaco.hash(token));
+        assertThat(verifMap.get(TokenOpaco.hash(token)).expiraEn()).isEqualTo(clock.instant().plus(Duration.ofHours(24)));
+    }
+
+    @Test void elEnlaceVerificaElCorreoUnaSolaVez() {
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        String token = tokenDelCorreo("/verificar/");
+
+        service.verificarCorreo(token);
+
+        assertThat(service.me(t.usuario().id()).correoVerificadoEn()).isEqualTo(clock.instant());
+        assertThatThrownBy(() -> service.verificarCorreo(token)).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
+    }
+
+    @Test void unEnlaceVencidoOInventadoNoVerifica() {
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        String token = tokenDelCorreo("/verificar/");
+        AutenticarUsuarioService tarde = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
+                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones);
+
+        assertThatThrownBy(() -> tarde.verificarCorreo(token)).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
+        assertThatThrownBy(() -> service.verificarCorreo("inventado")).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
+        assertThatThrownBy(() -> service.verificarCorreo(null)).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
+        assertThat(service.me(t.usuario().id()).correoVerificado()).isFalse();
+    }
+
+    @Test void unEnlaceDeVerificacionNoSirveParaCambiarLaContrasena() {
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        String token = tokenDelCorreo("/verificar/");
+        assertThatThrownBy(() -> service.restablecer(token, "Nueva1234")).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
+    }
+
+    @Test void reenviarMandaOtroEnlaceQueTambienVale() {
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        String primero = tokenDelCorreo("/verificar/");
+
+        service.reenviarVerificacion(t.usuario().id(), PORTAL);
+
+        String segundo = tokenDelCorreo("/verificar/");
+        assertThat(segundo).isNotEqualTo(primero);
+        assertThat(correos).hasSize(2);
+        service.verificarCorreo(segundo);
+        assertThat(service.me(t.usuario().id()).correoVerificado()).isTrue();
+    }
+
+    @Test void conElCorreoYaVerificadoNoSeReenvia() {
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        service.verificarCorreo(tokenDelCorreo("/verificar/"));
+
+        assertThatThrownBy(() -> service.reenviarVerificacion(t.usuario().id(), PORTAL)).extracting("codigo").isEqualTo("CORREO_YA_VERIFICADO");
+        assertThat(correos).hasSize(1);
+    }
+
+    /** Abrir el enlace de restablecer (o el de la invitación del alta asistida) también demuestra que el correo es suyo. */
+    @Test void restablecerLaContrasenaTambienVerificaElCorreo() {
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        service.solicitarRecuperacion("a@b.pe", PORTAL);
+
+        service.restablecer(tokenDelCorreo("/restablecer/"), "Nueva1234");
+
+        assertThat(service.me(t.usuario().id()).correoVerificado()).isTrue();
+    }
+
+    /** Un SMTP caído no impide registrarse: el usuario pide otro enlace desde el portal. */
+    @Test void siElCorreoFallaElRegistroQuedaHechoIgual() {
+        CorreoSender roto = new CorreoSender() {
+            public void enviar(String p, String a, String c) { throw new IllegalStateException("SMTP caído"); }
+            public void enviar(String p, String a, String c, List<Adjunto> adj) { throw new IllegalStateException("SMTP caído"); }
+        };
+        AutenticarUsuarioService conRoto = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, roto, Fakes.UOW, clock, verificaciones);
+
+        Tokens t = conRoto.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+
+        assertThat(usuariosMap).containsKey(t.usuario().id());
+        assertThat(verifMap).hasSize(1);
+    }
 
     @Test void registroCreaCuentaUsuarioAdminYTokens() {
-        Tokens t = service.registrar("Mi negocio", "Ana@Negocio.pe", "Segura123", "987654321");
+        Tokens t = service.registrar("Mi negocio", "Ana@Negocio.pe", "Segura123", "987654321", PORTAL);
         assertThat(cuentasMap).hasSize(1);
         assertThat(t.usuario().rol()).isEqualTo(Rol.ADMIN);
         assertThat(t.usuario().email()).isEqualTo("ana@negocio.pe");
@@ -70,29 +173,29 @@ class AutenticarUsuarioServiceTest {
 
     /** Celular de contacto en Perú (#onboarding): 9 dígitos que empiezan con 9; admite +51/51 y espacios, se normaliza sin ellos. */
     @Test void telefonoDeContactoSeNormalizaYSeValida() {
-        Tokens t = service.registrar("Con prefijo", "prefijo@b.pe", "Segura123", "+51 987 654 321");
+        Tokens t = service.registrar("Con prefijo", "prefijo@b.pe", "Segura123", "+51 987 654 321", PORTAL);
         assertThat(cuentasMap.get(t.usuario().cuentaId()).telefono()).isEqualTo("987654321");
-        assertThatThrownBy(() -> service.registrar("Fijo", "fijo@b.pe", "Segura123", "123456789"))
+        assertThatThrownBy(() -> service.registrar("Fijo", "fijo@b.pe", "Segura123", "123456789", PORTAL))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("TELEFONO_INVALIDO");
-        assertThatThrownBy(() -> service.registrar("Corto", "corto@b.pe", "Segura123", "98765432"))
+        assertThatThrownBy(() -> service.registrar("Corto", "corto@b.pe", "Segura123", "98765432", PORTAL))
                 .extracting("codigo").isEqualTo("TELEFONO_INVALIDO");
     }
 
     @Test void registroDuplicadoYPasswordDebil() {
-        service.registrar("A", "a@b.pe", "Segura123", "987654321");
-        assertThatThrownBy(() -> service.registrar("B", "A@B.PE", "Segura123", "987654321")).extracting("codigo").isEqualTo("DUPLICADO");
-        assertThatThrownBy(() -> service.registrar("C", "c@d.pe", "corta", "987654321")).extracting("codigo").isEqualTo("PASSWORD_DEBIL");
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        assertThatThrownBy(() -> service.registrar("B", "A@B.PE", "Segura123", "987654321", PORTAL)).extracting("codigo").isEqualTo("DUPLICADO");
+        assertThatThrownBy(() -> service.registrar("C", "c@d.pe", "corta", "987654321", PORTAL)).extracting("codigo").isEqualTo("PASSWORD_DEBIL");
     }
 
     @Test void loginCorrectoEIncorrecto() {
-        service.registrar("A", "a@b.pe", "Segura123", "987654321");
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         assertThat(service.login("A@B.PE", "Segura123").access()).isNotBlank();
         assertThatThrownBy(() -> service.login("a@b.pe", "otra")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
         assertThatThrownBy(() -> service.login("nadie@b.pe", "Segura123")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
     }
 
     @Test void refreshRotaYElAnteriorDejaDeServir() {
-        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321");
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         Tokens t2 = service.refrescar(t1.refresh());
         assertThat(t2.refresh()).isNotEqualTo(t1.refresh());
         assertThatThrownBy(() -> service.refrescar(t1.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
@@ -101,14 +204,15 @@ class AutenticarUsuarioServiceTest {
     }
 
     @Test void refreshExpiradoFalla() {
-        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321");
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         AutenticarUsuarioService tarde = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofDays(31)));
+                Clock.offset(clock, Duration.ofDays(31)), verificaciones);
         assertThatThrownBy(() -> tarde.refrescar(t.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
     }
 
     @Test void recuperacionEnviaCorreoYRestablece() {
-        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321");
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        correos.clear();   // el de verificación del registro (#22)
         service.solicitarRecuperacion("nadie@b.pe", "https://portal");   // silencioso
         assertThat(correos).isEmpty();
         service.solicitarRecuperacion("a@b.pe", "https://portal");
@@ -122,7 +226,7 @@ class AutenticarUsuarioServiceTest {
     }
 
     @Test void empresasDeLaCuenta() {
-        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321");
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         Fakes.Tenants tenants = new Fakes.Tenants();
         GestionarEmpresasService empresas = new GestionarEmpresasService(tenants, cuentas, Fakes.UOW);
         Tenant e = empresas.crear(t.usuario().cuentaId(), "20100066603", "EMPRESA SAC", Entorno.BETA);

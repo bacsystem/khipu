@@ -48,6 +48,8 @@ class AdminCuentasE2ETest {
         ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro", new HttpEntity<>(
                 "{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}".formatted(email), json()), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        // Sin verificar el correo no se crea la empresa (#22); el enlace del correo lo prueba AuthE2ETest.
+        jdbc.update("UPDATE usuario SET correo_verificado_at = now() WHERE email = ?", email);
         String access = (String) ((Map<?, ?>) r.getBody().get("datos")).get("access");
         ResponseEntity<Map> empresa = http.postForEntity("/v1/empresas", new HttpEntity<>(
                 "{\"ruc\":\"%s\",\"razon_social\":\"%s\",\"entorno\":\"BETA\"}".formatted(ruc, razonSocial), conBearer(access)), Map.class);
