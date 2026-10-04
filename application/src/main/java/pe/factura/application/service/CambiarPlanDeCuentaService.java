@@ -5,7 +5,6 @@ import pe.factura.application.port.in.AplicarCambiosDePlanUseCase;
 import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase;
 import pe.factura.application.port.in.ConsultarConsumoUseCase;
 import pe.factura.application.port.out.AuditoriaAdminRepository;
-import pe.factura.application.port.out.CuentaRepository;
 import pe.factura.application.port.out.PlanRepository;
 import pe.factura.application.port.out.SuscripcionRepository;
 import pe.factura.application.port.out.UnitOfWork;
@@ -35,7 +34,6 @@ public class CambiarPlanDeCuentaService implements CambiarPlanDeCuentaUseCase, A
     /** Cuántas cuentas se aplican como mucho por pasada: acota el trabajo; lo que quede se hace en la siguiente. */
     private static final int POR_PASADA = 200;
 
-    private final CuentaRepository cuentas;
     private final PlanRepository planes;
     private final SuscripcionRepository suscripciones;
     private final ConsultarConsumoUseCase consumos;
@@ -117,9 +115,10 @@ public class CambiarPlanDeCuentaService implements CambiarPlanDeCuentaUseCase, A
         return aplicada;
     }
 
+    /** Toda cuenta tiene siempre una suscripción (la base lo garantiza), así que «no tiene» y «no existe» son lo mismo. */
     private PlanesDeCuenta cargar(UUID cuentaId) {
-        if (cuentaId == null || cuentas.buscar(cuentaId).isEmpty()) throw new DomainException("NO_ENCONTRADO", "La cuenta no existe");
-        return suscripciones.deLaCuenta(cuentaId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "La cuenta no tiene suscripción"));
+        if (cuentaId == null) throw new DomainException("NO_ENCONTRADO", "La cuenta no existe");
+        return suscripciones.deLaCuenta(cuentaId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "La cuenta no existe"));
     }
 
     private Plan planDe(UUID id) { return planes.buscar(id).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "El plan no existe")); }
