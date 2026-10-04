@@ -33,7 +33,7 @@ export async function sobrePlan(
 }
 
 /** El cuerpo de crear o editar: un objeto JSON, que se reenvía sin tocarlo (las reglas de cada dato las pone el backend, una sola vez). */
-export async function leerCuerpoDePlan(req: NextRequest): Promise<{ cuerpo: object } | { error: NextResponse }> {
+export async function leerCuerpoJson(req: NextRequest): Promise<{ cuerpo: object } | { error: NextResponse }> {
   try {
     const cuerpo: unknown = JSON.parse(await req.text());
     if (cuerpo === null || typeof cuerpo !== "object" || Array.isArray(cuerpo)) return { error: ERROR(400, "JSON_INVALIDO", "Petición inválida") };

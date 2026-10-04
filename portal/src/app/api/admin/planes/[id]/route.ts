@@ -4,7 +4,7 @@ import { editarPlan, eliminarPlan } from "@/lib/api/admin-planes";
 import { errorResponse } from "@/lib/api/http";
 import { cabecerasDeOrigen } from "@/lib/origen";
 import { esUuid } from "@/lib/uuid";
-import { ERROR, leerCuerpoDePlan, sinCache, sobrePlan } from "../comun";
+import { ERROR, leerCuerpoJson, sinCache, sobrePlan } from "../comun";
 
 type Contexto = { params: Promise<{ id: string }> };
 
@@ -16,7 +16,7 @@ export async function PUT(req: NextRequest, { params }: Contexto) {
   const { id } = await params;
   if (!esUuid(id)) return ERROR(400, "ID_INVALIDO", "Identificador de plan inválido");
 
-  const leido = await leerCuerpoDePlan(req);
+  const leido = await leerCuerpoJson(req);
   if ("error" in leido) return leido.error;
 
   try {

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { describe, expect, it, vi } from "vitest";
 import { COOKIE_ADMIN_ACCESS } from "@/lib/admin-session";
 import { ApiError } from "@/lib/api/types";
-import { leerCuerpoDePlan, sobrePlan } from "./comun";
+import { leerCuerpoJson, sobrePlan } from "./comun";
 
 const ID = "0b1f1c3e-0f1c-4b53-9a1e-2f6f6d0c7a11";
 
@@ -63,18 +63,18 @@ describe("sobrePlan", () => {
   });
 });
 
-describe("leerCuerpoDePlan", () => {
+describe("leerCuerpoJson", () => {
   it("un objeto JSON se devuelve tal cual, sin tocarlo (las reglas las pone el backend)", async () => {
     const cuerpo = { nombre: "Estudio", precio_mensual: 49.9, limites: { rucs: 2 } };
 
-    const r = await leerCuerpoDePlan(peticion({ cuerpo: JSON.stringify(cuerpo) }));
+    const r = await leerCuerpoJson(peticion({ cuerpo: JSON.stringify(cuerpo) }));
 
     expect(r).toEqual({ cuerpo });
   });
 
   it("lo que no es un objeto JSON se rechaza con 400 antes de llegar al backend", async () => {
     for (const malo of ["{no es json", "", "[1,2]", "42", '"texto"', "null"]) {
-      const r = await leerCuerpoDePlan(peticion({ cuerpo: malo }));
+      const r = await leerCuerpoJson(peticion({ cuerpo: malo }));
       expect("error" in r, malo).toBe(true);
       if ("error" in r) {
         expect(r.error.status, malo).toBe(400);

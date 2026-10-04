@@ -2,8 +2,11 @@ import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CuentaDetalle } from "@/components/admin/cuenta-detalle";
+import { PlanDeCuenta } from "@/components/admin/plan-de-cuenta";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { esIdDeCuenta, hrefDetalleCuenta, obtenerCuentaAdmin } from "@/lib/api/admin-cuenta-detalle";
+import { obtenerPlanDeCuenta } from "@/lib/api/admin-plan-de-cuenta";
+import { listarPlanesAdmin } from "@/lib/api/admin-planes";
 import { ApiError } from "@/lib/api/types";
 import { hoyLima } from "@/lib/formato";
 import { messages } from "@/lib/messages";
@@ -28,6 +31,14 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
   // Fuera del `.then`: `notFound` lanza, y no debe confundirse con un fallo del backend.
   if (resultado.error instanceof ApiError && resultado.error.status === 404) notFound();
 
+  // El plan va aparte del detalle (#191): si no carga, la ficha de la cuenta se ve igual y el plan dice que falló, con su «Reintentar».
+  const plan = resultado.cuenta
+    ? await Promise.all([obtenerPlanDeCuenta(access, id), listarPlanesAdmin(access)]).then(
+        ([datos, planes]) => ({ datos, planes }),
+        () => null,
+      )
+    : null;
+
   const t = messages.admin.detalle;
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
@@ -40,7 +51,19 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
       </div>
 
       {resultado.cuenta ? (
-        <CuentaDetalle cuenta={resultado.cuenta} hoy={hoyLima()} />
+        <>
+          {plan ? (
+            <PlanDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} plan={plan.datos} planes={plan.planes} hoy={hoyLima()} />
+          ) : (
+            <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <span>{messages.admin.planDeCuenta.error}</span>
+              <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
+                {messages.admin.planDeCuenta.reintentar}
+              </Link>
+            </div>
+          )}
+          <CuentaDetalle cuenta={resultado.cuenta} hoy={hoyLima()} />
+        </>
       ) : (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <span>{t.error}</span>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diasEntre, formatearFecha, formatearFechaDeLima, formatearFechaHora, formatearMonto, formatearNumero, inicioDelProximoCiclo, sumarDias } from "./formato";
+import { diasEntre, formatearFecha, formatearFechaDeLima, formatearFechaHora, formatearMes, formatearMonto, formatearNumero, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto, venceDesdeFechaDeLima } from "./formato";
 
 describe("formatearNumero", () => {
   it("usa separador de miles y siempre 2 decimales", () => {
@@ -118,5 +118,43 @@ describe("inicioDelProximoCiclo (#190)", () => {
 
   it("diciembre salta al año siguiente", () => {
     expect(inicioDelProximoCiclo(new Date("2026-12-20T12:00:00Z"))).toBe("2027-01-01T05:00:00.000Z");
+  });
+});
+
+describe("venceDesdeFechaDeLima y ultimoDiaCubierto (#191)", () => {
+  it("«pagado hasta el 31 de octubre» vence a la medianoche del 1 de noviembre en Lima (05:00Z)", () => {
+    expect(venceDesdeFechaDeLima("2026-10-31")).toBe("2026-11-01T05:00:00.000Z");
+  });
+
+  it("cruza el fin de mes y de año", () => {
+    expect(venceDesdeFechaDeLima("2026-09-30")).toBe("2026-10-01T05:00:00.000Z");
+    expect(venceDesdeFechaDeLima("2026-12-31")).toBe("2027-01-01T05:00:00.000Z");
+    expect(venceDesdeFechaDeLima("2028-02-28")).toBe("2028-02-29T05:00:00.000Z");
+    expect(venceDesdeFechaDeLima("2027-02-28")).toBe("2027-03-01T05:00:00.000Z");
+  });
+
+  it("el último día cubierto es el día anterior al vencimiento, en hora de Lima", () => {
+    expect(ultimoDiaCubierto("2026-11-01T05:00:00Z")).toBe("2026-10-31");
+    expect(ultimoDiaCubierto("2027-01-01T05:00:00Z")).toBe("2026-12-31");
+  });
+
+  it("son inversas una de la otra", () => {
+    for (const dia of ["2026-10-31", "2026-02-28", "2028-02-29", "2026-12-31"]) expect(ultimoDiaCubierto(venceDesdeFechaDeLima(dia))).toBe(dia);
+  });
+
+  it("con un vencimiento ilegible devuelve la entrada en vez de lanzar", () => {
+    expect(ultimoDiaCubierto("no-es-fecha")).toBe("no-es-fecha");
+  });
+});
+
+describe("formatearMes", () => {
+  it("«2026-09» es «Set 2026»", () => {
+    expect(formatearMes("2026-09")).toBe("Set 2026");
+    expect(formatearMes("2027-01")).toBe("Ene 2027");
+    expect(formatearMes("2026-12")).toBe("Dic 2026");
+  });
+
+  it("con algo que no es un mes devuelve la entrada", () => {
+    for (const malo of ["", "2026", "2026-13", "2026-00", "octubre"]) expect(formatearMes(malo), malo).toBe(malo);
   });
 });

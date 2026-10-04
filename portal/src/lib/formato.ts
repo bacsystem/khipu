@@ -84,3 +84,26 @@ export function inicioDelProximoCiclo(ahora: Date): string {
   const [anio, mes] = ahora.toLocaleDateString("en-CA", { timeZone: "America/Lima" }).split("-").map(Number);
   return new Date(Date.UTC(anio, mes, 1, 5)).toISOString();
 }
+
+/**
+ * Hasta qué día está pagado un plan, como instante de vencimiento (#191): el vencimiento es **exclusivo** (en ese instante ya empieza la gracia), así que «pagado
+ * hasta el 31 de octubre» es la medianoche del 1 de noviembre en Lima (UTC-5, sin horario de verano). Recibe `YYYY-MM-DD`.
+ */
+export function venceDesdeFechaDeLima(ultimoDia: string): string {
+  const [anio, mes, dia] = ultimoDia.split("-").map(Number);
+  return new Date(Date.UTC(anio, mes - 1, dia + 1, 5)).toISOString();
+}
+
+/** Lo inverso: el último día (hora de Lima, `YYYY-MM-DD`) que cubre un vencimiento exclusivo. Un instante ilegible se devuelve tal cual. */
+export function ultimoDiaCubierto(venceEn: string): string {
+  const instante = Date.parse(venceEn);
+  if (Number.isNaN(instante)) return venceEn;
+  return new Date(instante - 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+}
+
+/** «2026-09» como «Set 2026». Lo que no tiene ese formato se devuelve tal cual. */
+export function formatearMes(mes: string): string {
+  const [anio, m] = mes.split("-").map(Number);
+  if (!anio || !m || m < 1 || m > 12) return mes;
+  return `${MESES[m - 1]} ${anio}`;
+}
