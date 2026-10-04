@@ -32,6 +32,7 @@ class JdbcPlanRepositoryTest extends PersistenciaTestBase {
     JdbcSuscripcionRepository suscripciones = new JdbcSuscripcionRepository(jdbc);
 
     @AfterEach void quitarLosPlanesDeLaPrueba() {
+        jdbc.update("DELETE FROM suscripcion_cambio_programado");
         jdbc.update("DELETE FROM suscripcion");
         jdbc.update("DELETE FROM plan WHERE nombre NOT IN ('Gratis', 'Emprende', 'Negocio', 'Pro')");
     }
@@ -297,6 +298,19 @@ class JdbcPlanRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.eliminar(p.id())).isFalse();
         assertThat(repo.suscripcionesDelPlan(p.id())).isEqualTo(1);
         assertThat(repo.cuentasPorPlan()).doesNotContainKey(p.id());
+    }
+
+    /** Una cuenta que espera pasar a este plan (un cambio programado, #191) lo cuenta como en uso: borrarlo dejaría el cambio apuntando a la nada. */
+    @Test void unPlanAlQueUnaCuentaVaAPasarNoSeBorra() {
+        Plan p = nuevo("Estudio");
+        repo.guardar(p);
+        UUID c = cuenta("ana@negocio.pe");
+        suscripciones.programar(c, new pe.factura.domain.plan.CambioDePlan(p.id(), T0.plusSeconds(86_400), null, 0));
+
+        assertThat(repo.suscripcionesDelPlan(p.id())).isEqualTo(1);
+        assertThat(repo.eliminar(p.id())).isFalse();
+
+        assertThat(repo.buscar(p.id())).isPresent();
     }
 
     @Test void elPlanPorDefectoNoSeBorra() {
