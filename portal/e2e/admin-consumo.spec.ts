@@ -23,7 +23,7 @@ const nombresEnOrden = (page: Page) => page.locator("tbody tr td:first-child a")
 // --- la tabla -----------------------------------------------------------------------------------------------------------------------------
 
 test("la lista dice el consumo, el tope, el uso y el estado del plan de cada cuenta", async ({ page }) => {
-  await page.goto("/admin/consumo");
+  await page.goto("/admin/consumo?por_pagina=50");
 
   await expect(page.getByRole("heading", { name: "Consumo" })).toBeVisible();
   const panaderia = fila(page, "Panadería Sol");
@@ -42,7 +42,7 @@ test("la lista dice el consumo, el tope, el uso y el estado del plan de cada cue
 });
 
 test("se ordena por porcentaje usado: lo más cerca del límite arriba", async ({ page }) => {
-  await page.goto("/admin/consumo");
+  await page.goto("/admin/consumo?por_pagina=50");
 
   const nombres = await nombresEnOrden(page);
   expect(nombres.indexOf("Cliente 07")).toBeLessThan(nombres.indexOf("Panadería Sol"));
@@ -122,7 +122,7 @@ test("ordenar por documentos pone arriba a quien más consumió", async ({ page 
 });
 
 test("el selector de mes arranca en el mes en curso y otro mes cambia el consumo, no el plan con el que se compara", async ({ page }) => {
-  await page.goto("/admin/consumo");
+  await page.goto("/admin/consumo?por_pagina=50");
   const mesEnCurso = await page.getByLabel("Mes").inputValue();
   expect(mesEnCurso).toMatch(/^\d{4}-\d{2}$/);
 

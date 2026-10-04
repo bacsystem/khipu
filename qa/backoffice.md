@@ -2237,6 +2237,66 @@ Lo que sobrevivía en la primera tanda y se arregló con su test (o con menos c�
 - **No se bloquea cambiarle el plan a una cuenta de baja o suspendida:** es una acción del administrador y a veces es justo lo que hace falta.
 - **El modal no se refresca si otro administrador cambia el plan mientras está abierto:** se entera al confirmar (`CAMBIO_CONCURRENTE`, que además recarga la página).
 
+## #193 · Planes: consumo contra el límite, alertas y exportación
+
+**Estado: 🔧 implementado, 161/162 mutaciones verificadas (1 equivalente documentada) — falta la revisión de la PR.** Backend (`GET /v1/admin/consumo` y `/v1/admin/consumo/exportacion`) y portal (`/admin/consumo`). Va después de #191: usa el plan vigente de cada cuenta y el contador de #192.
+
+### Diseño
+
+- **Una sola definición de «cerca del límite» y de «plan vencido».** `UsoDeLimite` (dominio) calcula el porcentaje —**hacia abajo**: 79,9 % se ve como 79 % y no alerta— y la alerta («el porcentaje llegó al umbral»), así nunca se contradicen; `Suscripcion.estadoDeLaVigente` es la regla de pago que ya usa la ficha de la cuenta. El SQL de los filtros reproduce las mismas fórmulas y hay tests que comparan base y dominio.
+- **Umbral 80 % inclusive.** El issue dice «por encima del 80 %»; elegí que el 80 justo ya alerte (240 de 300). Se cambia en un solo sitio (`UMBRAL_DE_ALERTA`) y el portal lo muestra tal como lo manda el backend.
+- **Se cuenta como #192** (solo aceptados, por fecha de emisión, mes calendario de Lima) y **se compara con el plan de hoy** de cada cuenta, con los límites que rigen hoy (un cambio de límites programado cuenta desde su fecha). Un mes pasado se compara con el plan actual, no con el que tenía entonces: limitación explícita, abajo.
+- **Quién sale:** una fila por cuenta que no está de baja (#201); las suspendidas sí.
+- **Vistas:** `TODAS`, `CERCA_DEL_LIMITE` (`en_alerta`) y `PLAN_VENCIDO` (`vence_en <= ahora`: en gracia o vencida). Orden por porcentaje (de mayor a menor, **los planes sin tope al final**) o por documentos; el desempate es siempre nombre y luego id, así la paginación no repite ni pierde cuentas. El total (`X-Total-Count`) refleja el filtro.
+- **Exportación CSV** completa y sin paginar, de lo que se ve (mes, vista y orden), como `consumo-AAAA-MM.csv`: UTF-8 **con marca de orden de bytes** (Excel lee las tildes), registros con CRLF también el último, RFC 4180 (comas, comillas y saltos entre comillas) y **neutralización de fórmulas**: un nombre de cliente que empiece por `= + - @`, tabulador o retorno lleva una comilla delante. Un plan sin tope dice `ilimitado`.
+- **BFF de la descarga:** el CSV pasa como bytes (`Response.text()` quita la marca UTF-8), valida mes/vista/orden (400 si están mal escritos: no se exporta otra cosa que lo que se ve) y nunca se cachea. El JWT sigue en la cookie `httpOnly`.
+- **La columna «Comprobantes del mes» de Empresas** contaba **todo** lo emitido y se parecía demasiado al consumo: ahora dice «Emitidos en el mes» con una ayuda que remite a Consumo.
+- Solo lectura: no escribe nada ni deja bitácora (el E2E lo comprueba).
+
+### Tests
+
+- **Dominio:** `UsoDeLimiteTest` (11: redondeo hacia abajo, umbral inclusive, sin tope, más de 100 %, desbordes) y `SuscripcionTest` (+2: la regla de pago estática y sus bordes).
+- **Servicio** (`ConsultarConsumoDeCuentasServiceTest`, 12): valores por defecto, mes de Lima y no de UTC, porcentaje y alerta, los bordes exactos del estado de pago, «hasta cuándo se la sirve».
+- **Persistencia** (`JdbcConsumoPorCuentaRepositoryTest`, 24, Postgres real): solo aceptados y el mes con sus bordes (día 1 y último día), una suscripción por cuenta, límites que mandan hoy, bajas fuera y suspendidas dentro, orden y desempates, 79/80 %, vencido en el instante exacto y coincidencia con la regla del dominio, paginación estable.
+- **REST:** `AdminConsumoDeCuentasControllerTest` (10) y `CsvDeConsumoTest` (12: BOM, CRLF, comillas, fórmulas una por una, retorno suelto).
+- **E2E real** (`ConsumoPorCuentasE2ETest`, 14; Spring completo + Postgres + filtros reales, con los planes sembrados): fila completa, 79/80 %, sin tope, orden, filtros con su total, estado de cobro con gracia, bajas, mes pedido, paginación, CSV completo, CSV con filtro, fórmula en el nombre, solo lectura, parámetros inválidos y que nadie más (dueño, API key, clave errónea) pueda verlo ni bajarlo.
+- **Portal, Vitest (+54):** cliente (20), BFF de la exportación (6), tabla (22), página (5) y miga (1).
+- **Portal, Playwright** (`admin-consumo.spec.ts`, 20): la lista en cada estado, orden, bajas fuera, enlace al detalle, las tres vistas con sus totales, estado en la URL, mes y su vacío, paginación y página fuera de rango, **la descarga real** (nombre, BOM, filas, filtro), el BFF sin sesión y con parámetros malos, el menú y la miga, la columna renombrada de Empresas y la página sin sesión.
+
+### Verificación por mutación — 161/162 mueren (1 equivalente)
+
+| Capa | Mutaciones | Cuántas |
+|---|---|---|
+| `UsoDeLimite` y regla de pago | umbral 79/81, alerta exclusiva, redondeo (a la mitad / hacia arriba), sin tope que alerta o tiene 0 %, el porcentaje se corta en 100 o desborda, el producto desborda en silencio; vencimiento y gracia inclusivos, sin gracia nunca vence, sin vencimiento vencida | 14 |
+| Repositorio | cambio de límites un instante tarde o nunca, suscripciones viejas mezcladas, días 1 y siguiente del mes, todos los estados, vencido sin el instante exacto, umbral exclusivo, cuentas sin documentos desaparecen, sin tope primero, orden invertido, desempates (nombre, id) por orden, bajas salen, página mal calculada, orden por documentos que ordena por porcentaje, mes de dos meses, contar sin filtro, límite siempre del plan | 19 |
+| Servicio | mes de UTC, mes pedido ignorado, filtro/orden/umbral por defecto otros, «hasta cuándo» sin gracia, estado sin gracia, nunca alerta, tope nulo que no es ilimitado, `todas` y `contar` sin filtro, porcentaje perdido | 12 |
+| REST y CSV | página 0, tamaño sin acotar, total sin filtro, nombre del archivo, mes pedido, exportación sin filtro o sin orden, umbral, lista sin orden o filtro, sin UTF-8, sin descarga, DTO (estado, límite, «se sirve hasta»), validación del mes; BOM, LF en vez de CRLF, sin fin de línea final, cada carácter de fórmula (`= + - @` tab retorno), comilla, comas, saltos y retornos, comillas sin duplicar, `ilimitado`, alerta invertida, porcentaje vacío, estado, cabecera, fecha vacía | 38 |
+| Cliente y BFF (portal) | mes 13 / sin ancla / cualquiera, valores por defecto, página 0 o fraccionaria, exportación sin orden / filtro / mes, consulta sin tamaño o página, la URL con los valores por defecto, fuera de rango, total, JWT, caché, error ignorado o sin código o sin mensaje, disposición; BFF: sin sesión, mes / filtro / orden mal escritos, charset, descarga, caché, parámetros perdidos, código y status del rechazo, error no propagado | 40 |
+| Tabla, página y miga | tope exacto, barra pasada de 100 y colores, tonos del estado de pago, alerta sin etiqueta o con la equivocada, sin tope, fecha pagada, páginas que no se conservan (cambiar, vista, filas), exportación sin el mes medido o sin `download`, vista actual sin marcar, rango, vacío por vista, marca de alerta, umbral fijo, mes mostrado, enlace al detalle, paginación que pierde el filtro; página: sin sesión, sin corregir, reintentar, total, params | 39 |
+
+Lo que sobrevivía en la primera tanda y se arregló con su test:
+
+- **Porcentaje y producto con cifras imposibles** (`Math.min` al entero máximo, `multiplyExact`): no estaban probados; ahora sí (un conteo imposible falla a la vista en vez de dar la vuelta).
+- **El primer día del mes** no tenía documentos de prueba (solo el 30 de septiembre y el 1 de noviembre): ahora el día 1 y el último cuentan y sus vecinos no.
+- **Dos cuentas con el mismo nombre**: el desempate por id no se probaba; ahora, en los dos órdenes.
+- **`todas` ignoraba el filtro** sin que ningún test lo viera (solo se miraba el orden).
+- **Un retorno de carro suelto** en un nombre no obligaba a comillas.
+- **Portal:** el 100 % exacto («En el límite»), el clic en una página que perdía el filtro.
+- **Equivalente:** `cambiar({ mes: mesValido(e.target.value) })` → `e.target.value`. jsdom (y Chromium) sanean un `<input type="month">` a `""` antes de llegar al código, así que no hay valor inválido que probar; la guarda queda por navegadores que dejan escribir texto libre en ese campo.
+
+### Suites
+
+- Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (9 min 46 s; incluye `ArchitectureTest`).
+- Portal: `tsc` y ESLint limpios; Vitest **859/859** (98 archivos); Playwright completo (`--workers=2`) **288/288**: en la primera corrida pasaron 285 y fallaron 3 tests de la spec nueva (filas que caían en la página 2 con el tamaño por defecto); corregida la spec, esa spec pasa 20/20.
+
+### Límites conocidos
+
+- **Un mes pasado se compara con el plan de hoy**, no con el que tenía la cuenta ese mes (no hay historial de límites por mes). Lo dice la propia pantalla.
+- **Umbral de 80 % inclusivo y fijo:** decisión mía sobre el «por encima del 80 %» del issue; no es configurable por cuenta ni por plan.
+- **Sin avisos al cliente ni al operador:** la pantalla es de consulta y exportación; enviar la alerta por correo no estaba en los criterios.
+- **La exportación no pagina:** con decenas de miles de cuentas habría que pasarla a flujo; hoy el volumen no lo pide.
+- **El plan vencido no corta el servicio:** solo se ve (hacerlo valer sigue siendo otro trabajo, como dice #191).
+
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
 Slice mínimo real, no cosmético: sin esto un guard en `/admin` solo podría apoyarse en `Rol.ADMIN` de
