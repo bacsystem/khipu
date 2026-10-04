@@ -159,6 +159,14 @@ class AccionesDeEmpresaServiceTest {
         assertThat(auditoria.registros).isEmpty();
     }
 
+    /** Una sola tarea pendiente basta: enviarla al entorno equivocado ya es enviar un comprobante a donde no va. */
+    @Test void unSoloEnvioPendienteYaFrenaElCambio() {
+        acciones.pendientes.put(empresaId, 1L);
+
+        assertThatThrownBy(() -> service.cambiarEntorno(ACTOR, empresaId, Entorno.PRODUCCION)).extracting("codigo").isEqualTo("EMPRESA_CON_ENVIOS_PENDIENTES");
+        assertThat(acciones.entornos.get(empresaId)).isEqualTo(Entorno.BETA);
+    }
+
     @Test void unaEmpresaQueNoExisteEsNoEncontradaEnLasTresAcciones() {
         UUID otra = UUID.randomUUID();
 

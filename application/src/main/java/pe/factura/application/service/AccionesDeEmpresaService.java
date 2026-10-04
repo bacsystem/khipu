@@ -53,8 +53,8 @@ public class AccionesDeEmpresaService implements AccionesDeEmpresaUseCase {
         exigirQueExista(empresaId);
         ApiKeyDeEmpresa key = apiKeyId == null ? null : acciones.apiKey(empresaId, apiKeyId).orElse(null);
         if (key == null) throw new DomainException("NO_ENCONTRADO", "La API key no existe");
-        if (!key.activa()) throw yaRevocada();
         Instant ahora = clock.instant();
+        // El cambio es condicional (solo si seguía activa): una key ya revocada, o revocada por otro administrador un instante antes, es 409 sin dejar registro.
         uow.ejecutar(() -> {
             if (!acciones.revocarApiKey(empresaId, apiKeyId, ahora)) throw yaRevocada();
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.REVOCAR_API_KEY_EMPRESA, cuentaDe(empresaId), empresaId, "prefijo=" + key.prefijo(), ahora));
