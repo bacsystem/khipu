@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { CambiarEntorno, ProbarConexion, RevocarApiKey } from "@/components/admin/acciones-de-empresa";
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "@/components/comprobantes/estado-badge";
@@ -79,6 +80,7 @@ function Conexion({ e }: { e: EmpresaDetalleAdmin }) {
           </Dato>
         </dl>
         <p className="text-xs text-muted-foreground">{c.nota}</p>
+        <ProbarConexion empresaId={e.id} tieneSol={e.tiene_credenciales_sol} />
       </div>
     </Seccion>
   );
@@ -148,7 +150,7 @@ function Establecimientos({ establecimientos }: { establecimientos: EmpresaDetal
   );
 }
 
-function ApiKeys({ keys }: { keys: EmpresaDetalleAdmin["api_keys"] }) {
+function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSocial: string; keys: EmpresaDetalleAdmin["api_keys"] }) {
   const k = t.apiKeys;
   return (
     <Seccion titulo={k.titulo} id="empresa-api-keys">
@@ -158,7 +160,8 @@ function ApiKeys({ keys }: { keys: EmpresaDetalleAdmin["api_keys"] }) {
             <TableHead className={`${CABECERA_TABLA} pl-4`}>{k.columnas.prefijo}</TableHead>
             <TableHead className={CABECERA_TABLA}>{k.columnas.estado}</TableHead>
             <TableHead className={CABECERA_TABLA}>{k.columnas.creada}</TableHead>
-            <TableHead className={`${CABECERA_TABLA} pr-4`}>{k.columnas.revocada}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{k.columnas.revocada}</TableHead>
+            <TableHead className={`${CABECERA_TABLA} pr-4 text-right`}>{k.columnas.acciones}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="text-[13px]">
@@ -169,10 +172,13 @@ function ApiKeys({ keys }: { keys: EmpresaDetalleAdmin["api_keys"] }) {
                 <Etiqueta tono={x.activa ? "ok" : "neutro"}>{x.activa ? k.activa : k.revocada}</Etiqueta>
               </TableCell>
               <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(x.creada_en)}</TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">{x.revocada_en ? formatearFechaHora(x.revocada_en) : SIN_DATO}</TableCell>
+              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{x.revocada_en ? formatearFechaHora(x.revocada_en) : SIN_DATO}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-right">
+                {x.activa ? <RevocarApiKey empresaId={empresaId} apiKeyId={x.id} prefijo={x.prefijo} razonSocial={razonSocial} /> : null}
+              </TableCell>
             </TableRow>
           ))}
-          {keys.length === 0 ? <Vacio columnas={4} texto={k.vacio} /> : null}
+          {keys.length === 0 ? <Vacio columnas={5} texto={k.vacio} /> : null}
         </TableBody>
       </Table>
       <p className="border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">{k.nota}</p>
@@ -329,38 +335,42 @@ function Outbox({ outbox }: { outbox: EmpresaDetalleAdmin["outbox"] }) {
 }
 
 /**
- * Detalle de una empresa del backoffice (#186): lo mismo que ve su dueño, en solo lectura. No hay botones de acción (cambiar el entorno,
- * revocar API keys, probar la conexión…): llegan en sus issues, con su confirmación y su registro en la bitácora.
+ * Detalle de una empresa del backoffice (#186): lo mismo que ve su dueño. Desde aquí el administrador puede cambiar el entorno, revocar una API key y
+ * probar la conexión con SUNAT (#187), cada cosa con su confirmación (salvo la prueba, que no cambia nada) y su registro en la bitácora; las demás
+ * acciones llegan en sus issues.
  */
 export function EmpresaDetalle({ empresa }: { empresa: EmpresaDetalleAdmin }) {
   return (
     <div className="grid min-w-0 gap-6" data-testid="empresa-detalle">
-      <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-        <Dato etiqueta={t.fiscales.ruc}>
-          <span className="font-mono">{empresa.ruc}</span>
-        </Dato>
-        <Dato etiqueta={t.cuenta}>
-          {empresa.cuenta_id ? (
-            <Link href={hrefDetalleCuenta(empresa.cuenta_id)} className="text-primary hover:underline">
-              {empresa.cuenta_nombre}
-            </Link>
-          ) : (
-            <span className="text-muted-foreground">{t.sinCuenta}</span>
-          )}
-        </Dato>
-        <Dato etiqueta={t.fiscales.entorno}>
-          <Etiqueta tono={empresa.entorno === "PRODUCCION" ? "ok" : "neutro"}>
-            {empresa.entorno === "PRODUCCION" ? messages.admin.empresas.produccion : messages.admin.empresas.beta}
-          </Etiqueta>
-        </Dato>
-        <Dato etiqueta={t.alta}>{formatearFechaHora(empresa.creada_en)}</Dato>
-      </dl>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+          <Dato etiqueta={t.fiscales.ruc}>
+            <span className="font-mono">{empresa.ruc}</span>
+          </Dato>
+          <Dato etiqueta={t.cuenta}>
+            {empresa.cuenta_id ? (
+              <Link href={hrefDetalleCuenta(empresa.cuenta_id)} className="text-primary hover:underline">
+                {empresa.cuenta_nombre}
+              </Link>
+            ) : (
+              <span className="text-muted-foreground">{t.sinCuenta}</span>
+            )}
+          </Dato>
+          <Dato etiqueta={t.fiscales.entorno}>
+            <Etiqueta tono={empresa.entorno === "PRODUCCION" ? "ok" : "neutro"}>
+              {empresa.entorno === "PRODUCCION" ? messages.admin.empresas.produccion : messages.admin.empresas.beta}
+            </Etiqueta>
+          </Dato>
+          <Dato etiqueta={t.alta}>{formatearFechaHora(empresa.creada_en)}</Dato>
+        </dl>
+        <CambiarEntorno empresaId={empresa.id} razonSocial={empresa.razon_social} entorno={empresa.entorno} />
+      </div>
       <p className="text-xs text-muted-foreground">{t.soloLectura}</p>
       <Fiscales e={empresa} />
       <Conexion e={empresa} />
       <Series series={empresa.series} />
       <Establecimientos establecimientos={empresa.establecimientos} />
-      <ApiKeys keys={empresa.api_keys} />
+      <ApiKeys empresaId={empresa.id} razonSocial={empresa.razon_social} keys={empresa.api_keys} />
       <Pdf pdf={empresa.pdf} />
       <Comprobantes comprobantes={empresa.comprobantes} />
       <Eventos eventos={empresa.eventos} />

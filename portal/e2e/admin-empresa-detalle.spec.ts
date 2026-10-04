@@ -112,12 +112,18 @@ test("los cambios de estado y el outbox pendiente", async ({ page }) => {
   await expect(outbox).toContainText("SUNAT no responde");
 });
 
-test("es solo lectura: no ofrece ninguna acción sobre la empresa", async ({ page }) => {
+/** Desde #187 hay tres acciones, y solo esas: cambiar el entorno, revocar una API key vigente y probar la conexión. Las demás llegan en sus issues. */
+test("las únicas acciones sobre la empresa son cambiar el entorno, revocar una key vigente y probar la conexión", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto(`/admin/empresas/${ID_SOL}`);
 
-  await expect(page.getByTestId("empresa-detalle")).toBeVisible();
-  await expect(page.getByTestId("empresa-detalle").getByRole("button")).toHaveCount(0);
+  const detalle = page.getByTestId("empresa-detalle");
+  await expect(detalle).toBeVisible();
+  await expect(detalle.getByRole("button")).toHaveCount(3);
+  await expect(detalle.getByTestId("cambiar-entorno")).toBeVisible();
+  await expect(detalle.getByTestId("probar-conexion")).toBeVisible();
+  // De las dos keys de «Panadería Sol», solo la vigente se puede revocar.
+  await expect(detalle.locator("[data-testid^='revocar-api-key-']")).toHaveCount(1);
 });
 
 test("la cuenta de la empresa lleva a su detalle", async ({ page }) => {

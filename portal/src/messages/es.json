@@ -268,13 +268,71 @@
       "unaEmpresaAfectada": "1 empresa",
       "sinEmpresasAfectadas": "Sin empresas todavía"
     },
+    "accionesEmpresa": {
+      "cancelar": "Cancelar",
+      "entorno": {
+        "boton": "Cambiar entorno",
+        "enviando": "Cambiando…",
+        "aProduccion": {
+          "titulo": "Pasar a producción",
+          "descripcion": "{empresa} pasa de BETA a PRODUCCIÓN.",
+          "confirmar": "Pasar a producción",
+          "efectos": [
+            "Desde este momento emite contra la SUNAT de producción: los comprobantes que emita valen de verdad.",
+            "Necesita las credenciales SOL y el certificado de producción: los de pruebas (beta) serán rechazados.",
+            "No toca los comprobantes ya emitidos.",
+            "No se puede cambiar mientras tenga envíos pendientes a SUNAT: lo emitido en un entorno no debe enviarse al otro.",
+            "Queda en la bitácora, de cuál a cuál."
+          ]
+        },
+        "aBeta": {
+          "titulo": "Volver a beta",
+          "descripcion": "{empresa} pasa de PRODUCCIÓN a BETA.",
+          "confirmar": "Volver a beta",
+          "efectos": [
+            "Desde este momento emite contra el entorno de pruebas de SUNAT: los comprobantes que emita no tienen validez.",
+            "No toca los comprobantes ya emitidos.",
+            "No se puede cambiar mientras tenga envíos pendientes a SUNAT: lo emitido en un entorno no debe enviarse al otro.",
+            "Queda en la bitácora, de cuál a cuál."
+          ]
+        }
+      },
+      "apiKey": {
+        "boton": "Revocar",
+        "titulo": "Revocar la API key",
+        "descripcion": "Se revoca {prefijo}… de {empresa}.",
+        "confirmar": "Revocar key",
+        "enviando": "Revocando…",
+        "efectos": [
+          "Deja de autenticar de inmediato: las integraciones que la usen empezarán a recibir 401.",
+          "Las demás keys de la empresa siguen sirviendo.",
+          "No se puede deshacer: habría que crear otra key.",
+          "Queda en la bitácora con su prefijo, nunca la clave."
+        ]
+      },
+      "conexion": {
+        "boton": "Probar conexión",
+        "probando": "Probando…",
+        "sinSol": "Sin credenciales SOL no hay con qué probar.",
+        "nota": "La prueba consulta a SUNAT un ticket que no existe, con las credenciales SOL y el entorno de la empresa: es de solo lectura y no envía nada. Con un ticket que no existe, un error de ticket es esperable; lo que dice la prueba es si SUNAT contestó. Queda en la bitácora.",
+        "titulo": "Resultado de la prueba",
+        "entornoProbado": "Entorno probado",
+        "resultados": {
+          "CONECTADO": "SUNAT contestó con normalidad.",
+          "RECHAZADO": "SUNAT contestó con un error.",
+          "SIN_RESPUESTA": "No hubo una respuesta útil de SUNAT."
+        },
+        "codigo": "Código",
+        "mensaje": "Mensaje de SUNAT"
+      }
+    },
     "empresaDetalle": {
       "volver": "Empresas",
       "alta": "Alta",
       "cuenta": "Cuenta",
       "sinCuenta": "Sin cuenta (alta por integración)",
       "error": "No se pudo cargar la empresa.",
-      "soloLectura": "Solo lectura: las acciones sobre la empresa llegan más adelante.",
+      "soloLectura": "Aquí se puede cambiar el entorno, revocar una API key y probar la conexión con SUNAT: las demás acciones llegan más adelante.",
       "fiscales": {
         "titulo": "Datos fiscales",
         "ruc": "RUC",
@@ -315,7 +373,7 @@
       "apiKeys": {
         "titulo": "API keys",
         "vacio": "Esta empresa no tiene API keys.",
-        "columnas": { "prefijo": "Prefijo", "estado": "Estado", "creada": "Creada", "revocada": "Revocada" },
+        "columnas": { "prefijo": "Prefijo", "estado": "Estado", "creada": "Creada", "revocada": "Revocada", "acciones": "Acciones" },
         "nota": "Solo el prefijo: el secreto nunca se muestra.",
         "activa": "Vigente",
         "revocada": "Revocada"
@@ -440,7 +498,10 @@
           "ENVIAR_RESTABLECIMIENTO": "Correo de restablecimiento de contraseña",
           "REENVIAR_VERIFICACION": "Reenvío de la verificación de correo",
           "DAR_DE_BAJA_CUENTA": "Baja de la cuenta",
-          "REPONER_CUENTA": "Reposición de la cuenta"
+          "REPONER_CUENTA": "Reposición de la cuenta",
+          "CAMBIAR_ENTORNO_EMPRESA": "Cambio de entorno de una empresa",
+          "REVOCAR_API_KEY_EMPRESA": "Revocación de una API key",
+          "PROBAR_CONEXION_EMPRESA": "Prueba de conexión con SUNAT"
         }
       }
     },
