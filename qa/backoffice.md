@@ -679,7 +679,8 @@ Con `MAIL_HABILITADO=false` (el default) el adaptador `LogCorreoSender` escribe 
 
 ## #177 · 2FA obligatorio y sesión corta para el administrador
 
-**Estado: 🔧 implementado, 55/55 mutaciones verificadas (41 backend, 13 BFF, 1 interfaz) — falta la revisión de la PR.**
+**Estado: 🔧 implementado, 60/60 mutaciones verificadas (46 backend, 13 BFF, 1 interfaz): 55 de la primera vuelta, de las que 7 se sustituyeron por 12 al
+corregir el tope de intentos (H1 de la revisión).**
 
 Un administrador ve los datos fiscales de todos los clientes: una contraseña filtrada no debe alcanzar para entrar.
 
@@ -695,9 +696,12 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
   bloqueo) y `administrador_codigo_recuperacion` (solo SHA-256; son 50 bits al azar, no adivinables por diccionario). El estado cambia en cada login y no
   reescribe la fila de la identidad.
 - **Reglas en la condición del UPDATE, no en una lectura previa**: anti-reuso (`ultimo_paso < ?`), código de recuperación de un solo uso (`usado_at IS NULL`)
-  y contador de fallos atómico (`CASE WHEN fallos + 1 >= ?`). Así valen también entre peticiones simultáneas.
+  y **reserva del intento** (`reservarIntento`: la compuerta «no está bloqueada» y el conteo, `CASE WHEN fallos + 1 >= ?`, en la misma sentencia). Así valen
+  también entre peticiones simultáneas.
 - **Con el 2FA confirmado, la contraseña sola no lo reemplaza** (`409 SEGUNDO_FACTOR_YA_CONFIGURADO`): si no, quien robara la contraseña enrolaría su teléfono.
-- **Bloqueo**: 5 códigos fallidos → `429 DEMASIADOS_INTENTOS` durante 15 minutos, aun con el código correcto. Cuentan también los fallos al confirmar.
+- **Bloqueo**: 5 intentos con código equivocado → `429 DEMASIADOS_INTENTOS` durante 15 minutos, aun con el código correcto. Cuentan también los intentos al
+  confirmar. El intento se reserva **antes** de comprobar el código; el quinto todavía se concede y deja el bloqueo puesto, y un acierto (de la app o de
+  recuperación) lo levanta.
 - **Sesión corta configurable**: `ADMIN_SESION_MINUTOS` (default 30), entre 5 y 60 o el arranque aborta. El backend responde `expira_en` y el BFF fija con eso la
   vida de la cookie: se configura en un solo lugar.
 - **Bitácora**: `CONFIGURAR_SEGUNDO_FACTOR` e `INICIAR_SESION` (`segundo_factor=app|codigo_recuperacion`), con la IP del administrador (#208), en la misma
@@ -708,27 +712,29 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
 
 ### Hallazgos que cambiaron la implementación
 
-- **El fallo se contaba dentro de la transacción.** La primera versión de `verificar` lanzaba el error dentro de `uow.ejecutar`: con JDBC real, el `registrarFallo`
-  se revertía junto con la excepción y el bloqueo **nunca** habría llegado. Los fakes no lo mostraban (no hay rollback). Ahora el fallo se cuenta después de la
-  transacción, y el fake registra si se llamó dentro (`falloDentro`) para que el test lo detecte.
-- **Leer y escribir el contador por separado dejaba pasar intentos en paralelo**: todos leían «0 fallos». Ahora es una sola sentencia; el test lanza 20 fallos
-  simultáneos contra Postgres y comprueba que bloquean.
+- **El fallo se contaba dentro de la transacción.** La primera versión de `verificar` lanzaba el error dentro de `uow.ejecutar`: con JDBC real, el conteo del fallo
+  (entonces `registrarFallo`, hoy `reservarIntento`) se revertía junto con la excepción y el bloqueo **nunca** habría llegado. Los fakes no lo mostraban (no hay
+  rollback). Ahora el intento se reserva fuera de la transacción, y el fake registra si se llamó dentro (`intentoDentro`) para que el test lo detecte.
+- **Leer y escribir el contador por separado dejaba pasar intentos en paralelo**: todos leían «0 fallos». Primero se hizo una sola sentencia para contar; la
+  revisión mostró que faltaba lo mismo para la compuerta (ver «Corrección de la revisión»).
 - **Tres mutaciones sobrevivieron la primera vuelta** y reforzaron los tests: un bloqueo de 1 minuto (el test saltaba 15 de golpe; ahora comprueba que a los 14
   sigue bloqueado) y la vida de la sesión fija en el servicio y en el BFF (los fakes usaban justo el valor por defecto, 1800).
 
 ### Tests
 
-- Servicio (`AutenticarAdministradorServiceTest`, 24): desafío en vez de sesión, paso según el estado, configurar (secreto cifrado, QR, reemplazo), confirmar
+- Servicio (`AutenticarAdministradorServiceTest`, 26): desafío en vez de sesión, paso según el estado, configurar (secreto cifrado, QR, reemplazo), confirmar
   (códigos con formato y solo sus hashes, bitácora dentro de la transacción), verificar (ventana de reloj, anti-reuso, código de la confirmación no reusable,
-  recuperación de un solo uso y normalizada, códigos inventados), bloqueo (5 fallos, 14 y 15 minutos, reinicio con un acierto, fallos al configurar), desafío
-  inválido o de un administrador desactivado.
+  recuperación de un solo uso y normalizada, códigos inventados), bloqueo (5 intentos reservados fuera de la transacción, 14 y 15 minutos, reinicio con un
+  acierto, intentos al configurar, **20 peticiones simultáneas → 5 comprueban el código y 15 se bloquean**, un acierto en el quinto intento no deja la
+  cuenta bloqueada), desafío inválido o de un administrador desactivado.
 - TOTP (`TotpRfc6238Test`, 7): los cinco vectores SHA-1 del RFC 6238, ventana, códigos malformados, secreto en minúsculas y con espacios, secretos nuevos, URI.
 - JWT (`JwtAdministradorTokenEmisorTest`, +4): vida configurable, desafío de 5 minutos, **desafío ≠ sesión en ambos sentidos**, desafío vencido o ajeno.
 - QR (`ZxingCodigoQrTest`): el PNG se decodifica de vuelta a la URI.
-- Persistencia (`JdbcSegundoFactorRepositoryTest`, 9, Postgres): pendiente y confirmación, reemplazo, anti-reuso, **8 accesos simultáneos → uno**, tope y bloqueo,
-  **20 fallos simultáneos**, recuperación de un solo uso y de otro administrador.
-- REST (`AdminAuthControllerTest` 9, `AdminAuthFilterTest` +3): forma de cada respuesta, IP de la conexión, estado de cada error, validación; rutas públicas
-  exactas, prefijos parecidos y rutas disfrazadas exigen credencial, un desafío como `Bearer` da 401.
+- Persistencia (`JdbcSegundoFactorRepositoryTest`, 11, Postgres): pendiente y confirmación, reemplazo, anti-reuso, **8 accesos simultáneos → uno**, intentos que
+  suman y el quinto que bloquea, intento negado con la cuenta bloqueada (14 minutos) y concedido al vencer, **20 intentos simultáneos → exactamente 5
+  concedidos**, un acierto que levanta el bloqueo de su propio intento (app y recuperación), recuperación de un solo uso y de otro administrador.
+- REST (`AdminAuthControllerTest`: 9 en total, +5; `AdminAuthFilterTest`: 13 en total, +2, es decir +7 en esta PR): forma de cada respuesta, IP de la conexión,
+  estado de cada error, validación; rutas públicas exactas, prefijos parecidos y rutas disfrazadas exigen credencial, un desafío como `Bearer` da 401.
 - Configuración (`AppConfigSesionAdminTest`, 2): 5–60 y fuera de rango aborta.
 - E2E backend (`SegundoFactorAdminE2ETest`, 7, HTTP y Postgres reales): la contraseña sola no abre nada, primer login y siguientes, reuso, recuperación, bloqueo,
   bitácora y secreto cifrado en la base. Los e2e que necesitan sesión de admin (`AdminCuentas`, `AltaAsistida`, `AuditoriaAdmin`) entran con
@@ -738,22 +744,22 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
 - E2E portal (`admin.spec.ts` 11): segundo factor, contraseña sola sin sesión, reintento, bloqueo, código de recuperación, configuración con QR y códigos, campo
   solo dígitos. Los specs de admin entran con `e2e/admin-sesion.ts`.
 
-### Verificación por mutación — 55/55 mueren
+### Verificación por mutación — 60/60 mueren
 
 | Capa | Mutación | Qué muere |
 |---|---|---|
 | Servicio | El login siempre pide verificar | `laContrasenaSola…`, `unSecretoPendiente…` |
 | Servicio | Se reconfigura con el 2FA ya confirmado | `conElSegundoFactorYaConfigurado…` |
 | Servicio | Confirmar no rechaza un 2FA ya confirmado | `conElSegundoFactorYaConfigurado…` |
-| Servicio | Verificar no mira el bloqueo | `cincoCodigosFallidos…` |
-| Servicio | Confirmar no mira el bloqueo | `losFallosAlConfigurar…` |
 | Servicio | Se ignora el anti-reuso | `unCodigoYaUsado…`, `elCodigoConElQueSeConfiguro…` |
 | Servicio | Un secreto pendiente cuenta como configurado | `verificarSinSegundoFactor…` |
-| Servicio | Tope de 6 fallos | 2 de bloqueo |
+| Servicio | La reserva negada no bloquea (compuerta ignorada) | 3, incluido `peticionesSimultaneasNoPruebanMasDeCincoCodigos` |
+| Servicio | Tope de 6 intentos | 3 |
 | Servicio | Bloqueo de 1 minuto | `cincoCodigosFallidos…` (tras reforzarlo) |
-| Servicio | El fallo se cuenta dentro de la transacción | `cincoCodigosFallidos…` |
-| Servicio | Confirmar no cuenta el fallo | `losFallosAlConfigurar…` |
-| Servicio | Secreto en claro | 16 |
+| Servicio | Confirmar no reserva el intento | `losFallosAlConfigurar…` |
+| Servicio | Verificar no reserva el intento | 2 |
+| Servicio | Verificar reserva dentro de la transacción | `cincoCodigosFallidos…` |
+| Servicio | Secreto en claro | 18 |
 | Servicio | Verificar / confirmar sin bitácora | 2 y 1 |
 | Servicio | El desafío no revisa que el administrador siga activo | 2 |
 | Servicio | Hash de recuperación sin normalizar | `unCodigoDeRecuperacion…` |
@@ -762,7 +768,11 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
 | Persistencia | `registrarAcceso` sin la condición de paso | 2, incluido el de concurrencia |
 | Persistencia | `registrarAcceso` no reinicia fallos | 1 |
 | Persistencia | Recuperación reusable / de cualquier administrador | 1 y 1 |
-| Persistencia | El tope no bloquea | 5 |
+| Persistencia | `reservarIntento` sin la condición de bloqueo | 2, incluido el de 20 simultáneos |
+| Persistencia | Tope de 6 en el SQL | 4 |
+| Persistencia | El bloqueo vence un instante tarde (`<` en vez de `<=`) | `conLaCuentaBloqueada…` |
+| Persistencia | `registrarAcceso` / la recuperación no levantan el bloqueo | 1 y 1 |
+| Persistencia | El tope no deja bloqueo efectivo | 3 |
 | Persistencia | Otro pendiente no borra códigos / conserva confirmado | 1 y 1 |
 | TOTP | Ventana de 2 pasos / sin ventana | `toleraUnPaso…` |
 | TOTP | Truncamiento sin el bit de signo | 4 vectores del RFC |
@@ -789,6 +799,28 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
 - El tope es por administrador, no por IP: quien tenga la contraseña puede mantener la cuenta bloqueada (15 minutos cada 5 intentos). Es preferible a dejar que
   pruebe códigos.
 - El mock del portal no guarda estado del 2FA (los e2e corren en paralelo): el anti-reuso y el bloqueo reales se prueban en el backend.
+- **Hasta el primer ingreso de un administrador, su contraseña sola alcanza para entrar.** El segundo factor se enrola en el primer login y `configurar` solo
+  exige el desafío, que da la contraseña; mientras el 2FA no esté confirmado, pedir otro secreto reemplaza el pendiente (`pedirOtroSecretoAntesDeConfirmar…`).
+  Quien tenga la contraseña de un administrador aún no enrolado puede enrolar *su* teléfono, recibir sesión y los diez códigos, y dejar al legítimo fuera.
+  Los administradores que ya existían están en ese estado desde el despliegue hasta que entren. «Sin 2FA nadie opera el backoffice» vale una vez enrolado.
+  Mitigación operativa en `deploy/README.md` §7: que cada administrador enrole de inmediato. Cerrarlo del todo pide una prueba de posesión que solo tenga quien
+  opera la plataforma (p. ej. un token de enrolamiento de un solo uso): queda como seguimiento.
+- La bitácora registra el inicio de sesión exitoso y la primera configuración, no los intentos fallidos ni los bloqueos: un ataque de adivinanza contra la
+  cuenta no deja rastro más que el log HTTP. Seguimiento.
+
+### Corrección de la revisión (H1, H2, H3)
+
+- **H1, el tope de intentos no era atómico con el intento.** `verificar` y `confirmar` comprobaban el bloqueo con un estado leído al inicio y contaban el
+  fallo al final: N peticiones que leían «sin bloqueo» antes del primer fallo contado probaban las N un código. Con una barrera tras la lectura, 20 peticiones
+  probaron **20** códigos (el diseño promete 5); el mismo experimento por HTTP real en loopback (60 peticiones) no se desbordó (5×401, 55×429), porque a ese
+  ritmo las primeras cinco terminan antes de que lean las demás: con latencia real a Postgres la ventana crece. Con 5 intentos cada 15 minutos son 480 al día
+  (unos 2 años esperados para acertar un código válido en ±1 paso, 3 de 10⁶); con ráfagas de 200, ~19 000 al día (~17 días). Ahora `reservarIntento` es una
+  sola sentencia que niega el intento si la cuenta está bloqueada y, si lo concede, lo cuenta y bloquea al llegar al tope; reemplaza a `registrarFallo` y se
+  invoca antes de mirar el código y fuera de la transacción. Como el quinto intento deja el bloqueo puesto antes de saber si era bueno, `registrarAcceso` y
+  `consumirCodigoRecuperacion` ahora también levantan el bloqueo. 12 mutaciones nuevas, todas mueren; de las 55 de la primera vuelta se sustituyeron 7 (las
+  que apuntaban a `registrarFallo` y a `exigirNoBloqueado`) y se repitieron las 19 restantes del servicio y la persistencia, que siguen muriendo.
+- **H2, el hueco del primer ingreso**, documentado arriba (límites) y en `deploy/README.md` §7, con la mitigación operativa.
+- **H3, la cifra de REST**: «12» no salía de ningún conteo; son +5 en el controlador (9 en total) y +2 en el filtro (13 en total).
 - Los administradores que ya existen configuran el 2FA en su próximo login.
 
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel

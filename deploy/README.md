@@ -148,3 +148,17 @@ la izquierda y no se mira.
 1. Postgres (plugin).
 2. `backend` — esperar que el healthcheck `/health/liveness` pase (corre las migraciones Flyway al arrancar).
 3. `portal` — depende de que `backend` ya tenga una URL asignada para `API_BASE_URL`/`API_PUBLIC_URL`.
+4. **Cada administrador del backoffice entra enseguida y configura su segundo factor** (ver §7).
+
+## 7. Segundo factor del administrador (#177): el primer ingreso
+
+El backoffice exige contraseña **y** un código de una app de autenticación (TOTP). El segundo factor se configura en el primer inicio de sesión: el
+administrador escanea el QR y confirma con el primer código. Eso tiene una consecuencia operativa que conviene conocer:
+
+- **Hasta ese primer ingreso, la contraseña sola alcanza para entrar.** Quien la tenga puede hacer el primer inicio de sesión, configurar *su* teléfono,
+  recibir los diez códigos de recuperación y dejar al administrador legítimo fuera (`409 SEGUNDO_FACTOR_YA_CONFIGURADO`). Los administradores que ya
+  existían antes de este despliegue están en ese estado hasta que entren.
+- **Qué hacer:** al desplegar esta versión, que cada administrador existente inicie sesión y configure su app **de inmediato**, y crear los administradores
+  nuevos solo cuando quien los va a usar pueda enrolarse en el momento. Si una contraseña pudo exponerse antes de enrolar, cambiarla primero.
+- **Si alguien se enroló sin ser el administrador:** borrar su fila de `administrador_segundo_factor` (y, si hace falta, sus filas de
+  `administrador_codigo_recuperacion`) para que vuelva a configurarlo, y rotar su contraseña. No hay todavía un reinicio desde el backoffice (#183).
