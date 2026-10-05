@@ -931,10 +931,10 @@ deshace con nota de crédito.
 
 | Capa | Mutación | Qué muere |
 |---|---|---|
-| Servicio | No se consulta la reserva / no se compara la huella | 2 y 1 |
-| Servicio | Alcance común a todas las empresas | `laClaveEsPorEmpresa` y 1 |
-| Servicio | No se anota el comprobante bajo la clave | 2 |
-| Servicio | La repetida se reenvía a SUNAT / se marca como nueva | 1 y 1 |
+| Servicio | No se consulta la reserva / no se compara la huella | 1 y 2 (recontadas tras H1 y H2) |
+| Servicio | Alcance común a todas las empresas | 2 (`laClaveEsPorEmpresa` y otro) |
+| Servicio | No se anota el comprobante bajo la clave | 5 |
+| Servicio | La repetida se reenvía a SUNAT / se marca como nueva | 1 y 4 |
 | Persistencia | Reservar con un `SELECT` previo (sin la espera del `INSERT`) | 3, incluidos los de concurrencia |
 | Persistencia | Borrar todas las claves / `completar` sin el alcance | 1 y 1 (este, tras agregar su test) |
 | REST | Repetida con 201 / sin validar la clave / huella constante / la clave no llega | 1 cada una |
@@ -958,6 +958,18 @@ clave; y quien cambiaba la fecha para que pasara emitía un duplicado con otra c
   nueva fuera de plazo se rechaza y no queda reservada. Persistencia +2: `buscar` no reserva y no ve ni espera una reserva sin confirmar.
 - Mutaciones, 6/6 mueren: sin consulta previa (3 tests), otro alcance en la consulta (3), consulta sin comparar huella (2), la consulta reserva en vez de
   leer (8), `buscar` sin filtrar el alcance (2), `buscar` que reserva (2).
+
+### Corrección de la revisión (H2): la rama de la reserva vuelve a tener test de servicio
+
+Con la consulta previa, todo reintento secuencial se contesta antes de `emitir`, así que ningún test de servicio llegaba a la rama de la reserva
+(`if (previo.isPresent()) return yaEmitida(...)`), la que protege la carrera real. Al repetir las mutaciones, **«no se consulta la reserva» sobrevivía** en el
+servicio y solo la mataba el e2e de 8 hilos (`FacturaIdempotenciaE2ETest`, que necesita Docker): la fila de arriba ya no era cierta.
+
+- Test nuevo `siLaReservaEncuentraLaFacturaQueLaConsultaPreviaNoVioLaDevuelveSinEmitirOtra`: un fake «ciego al buscar» (la consulta previa no ve nada, la
+  reserva sí), con envío automático. Pide la misma factura, ni otra emisión, el número 2 libre y ningún reenvío a SUNAT. Para eso `Fakes.Idempotencias` se
+  puede heredar y su `reservar` lee `filas` directo, como el `INSERT ... ON CONFLICT` real.
+- Una primera versión del test usaba `enviar_automatico: false` y **no mataba «la repetida se reenvía a SUNAT»** (ese `return` solo lo alcanza la repetida
+  que llega por la reserva): se endureció y las seis mutaciones del servicio (I1–I6) se repitieron, **6/6 mueren** (1, 2, 2, 5, 1 y 4 tests).
 
 ### Límites conocidos
 
