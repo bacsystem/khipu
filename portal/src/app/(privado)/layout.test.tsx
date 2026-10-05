@@ -11,12 +11,14 @@ vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/lib/session-server", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/api/auth", () => ({ me: vi.fn() }));
 vi.mock("@/lib/api/empresas", () => ({ listarEmpresas: vi.fn() }));
+vi.mock("@/lib/api/banner", () => ({ obtenerBannerVigente: vi.fn().mockResolvedValue(null) }));
 vi.mock("@/components/auth/revisa-tu-correo", () => ({ RevisaTuCorreo: () => null }));
 vi.mock("@/components/nav/sidebar-content", () => ({ SidebarContent: () => null }));
 vi.mock("@/components/nav/top-bar", () => ({ TopBar: () => null }));
 vi.mock("@/lib/api/browser", () => ({ apiRequest: vi.fn().mockResolvedValue({ estado: "exito", datos: null, mensaje: null, codigo: null, errores: null }) }));
 
 import { me } from "@/lib/api/auth";
+import { obtenerBannerVigente } from "@/lib/api/banner";
 import { listarEmpresas } from "@/lib/api/empresas";
 import { getServerSession } from "@/lib/session-server";
 import PrivadoLayout from "./layout";
@@ -146,6 +148,56 @@ describe("PrivadoLayout (#184)", () => {
 
     expect(screen.queryByTestId("aviso-de-soporte")).toBeNull();
     expect(screen.getByText("contenido")).toBeTruthy();
+  });
+});
+
+/** El aviso de mantenimiento que publica el backoffice (#199): lo ve todo cliente, en cada página, y nunca impide que la página cargue. */
+describe("PrivadoLayout (#199)", () => {
+  const BANNER = { texto: "Mantenimiento esta noche", desde: "2026-10-15T20:00:00Z", hasta: "2026-10-16T04:00:00Z" };
+
+  afterEach(() => vi.mocked(obtenerBannerVigente).mockResolvedValue(null));
+
+  it("con un aviso vigente lo muestra, con su texto y hasta cuándo, antes del resto de la página", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue(USUARIO as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+    vi.mocked(obtenerBannerVigente).mockResolvedValue(BANNER);
+
+    render(await PrivadoLayout({ children: <p>contenido</p> }));
+
+    const banner = screen.getByTestId("banner-de-mantenimiento");
+    expect(banner.textContent).toContain("Mantenimiento esta noche");
+    expect(banner.textContent).toContain("Hasta 15 Oct 2026, 23:00");
+    expect(banner.compareDocumentPosition(screen.getByText("contenido")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("sin aviso no muestra nada", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue(USUARIO as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+
+    render(await PrivadoLayout({ children: <p>contenido</p> }));
+
+    expect(screen.queryByTestId("banner-de-mantenimiento")).toBeNull();
+    expect(screen.getByText("contenido")).toBeTruthy();
+  });
+
+  it("el aviso va después del aviso de una sesión de soporte (lo más importante, arriba de todo)", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue({ ...USUARIO, soporte_hasta: "2026-10-04T17:15:00Z" } as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+    vi.mocked(obtenerBannerVigente).mockResolvedValue(BANNER);
+
+    render(await PrivadoLayout({ children: null }));
+
+    expect(screen.getByTestId("aviso-de-soporte").compareDocumentPosition(screen.getByTestId("banner-de-mantenimiento")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("pedir el aviso no cambia los redirects: sin sesión sigue yendo al login", async () => {
+    sesion(null);
+    vi.mocked(obtenerBannerVigente).mockResolvedValue(BANNER);
+
+    await expect(PrivadoLayout({ children: null })).rejects.toThrow("REDIRECT:/login");
   });
 });
 

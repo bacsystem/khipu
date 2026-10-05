@@ -50,6 +50,10 @@ describe("migaAdmin", () => {
     expect(migaAdmin("/admin/avisos")).toEqual({ seccion: "Operación", pagina: "Avisos" });
   });
 
+  it("la configuración cuelga de «Plataforma» y no ofrece crear una cuenta", () => {
+    expect(migaAdmin("/admin/configuracion")).toEqual({ seccion: "Plataforma", pagina: "Configuración" });
+  });
+
   it("«/admin» solo es el inicio de forma exacta: no engulle las páginas que todavía no tienen miga", () => {
     expect(migaAdmin("/admin/operacion")).toBeNull();
   });
