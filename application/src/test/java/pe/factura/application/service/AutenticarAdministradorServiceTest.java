@@ -20,6 +20,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -251,6 +253,7 @@ class AutenticarAdministradorServiceTest {
     /** Seis dígitos son un millón de combinaciones: sin tope, quien ya tiene la contraseña podría probarlas todas. */
     @Test void cincoCodigosFallidosBloqueanQuinceMinutosAunConElCodigoCorrecto() {
         String secreto = configurado(ana);
+        factores.intentoDentro.clear();
         reloj.avanzar(Duration.ofMinutes(5));
         for (int i = 0; i < 4; i++) fallar(ana);
         assertThatThrownBy(() -> service.verificarSegundoFactor(desafio(ana), "000000", "198.51.100.4")).extracting("codigo").isEqualTo("CODIGO_INVALIDO");
@@ -258,7 +261,7 @@ class AutenticarAdministradorServiceTest {
         assertThatThrownBy(() -> service.verificarSegundoFactor(desafio(ana), codigoDe(secreto, pasoActual()), "198.51.100.4"))
                 .extracting("codigo").isEqualTo("DEMASIADOS_INTENTOS");
 
-        assertThat(factores.falloDentro).as("contado fuera de la transacción: dentro, se revertiría con el error").hasSize(5).containsOnly(false);
+        assertThat(factores.intentoDentro).as("reservado fuera de la transacción: dentro, se revertiría con el error").hasSize(6).containsOnly(false);
 
         reloj.avanzar(Duration.ofMinutes(14));
         assertThatThrownBy(() -> service.verificarSegundoFactor(desafio(ana), codigoDe(secreto, pasoActual()), "198.51.100.4"))
@@ -284,6 +287,68 @@ class AutenticarAdministradorServiceTest {
             assertThatThrownBy(() -> service.confirmarSegundoFactor(d, "000000", "203.0.113.7")).extracting("codigo").isEqualTo("CODIGO_INVALIDO");
         assertThatThrownBy(() -> service.confirmarSegundoFactor(d, codigoDe(c.secreto(), pasoActual()), "203.0.113.7"))
                 .extracting("codigo").isEqualTo("DEMASIADOS_INTENTOS");
+        assertThat(factores.intentoDentro).as("también al configurar, fuera de la transacción").hasSize(6).containsOnly(false);
+    }
+
+    /**
+     * El tope se reserva atómicamente, no se lee al inicio: 20 peticiones que ya leyeron «sin bloqueo» —la barrera lo fuerza, como lo hace
+     * la latencia real a Postgres— consiguen cinco intentos, y solo esos cinco llegan a comprobar un código (#177, revisión H1).
+     */
+    @Test void peticionesSimultaneasNoPruebanMasDeCincoCodigos() throws Exception {
+        configurado(ana);
+        reloj.avanzar(Duration.ofMinutes(5));
+        factores.intentoDentro.clear();
+        int n = 20;
+        CyclicBarrier leyeronElEstado = new CyclicBarrier(n);
+        SegundoFactorRepository leeYEspera = new SegundoFactorRepository() {
+            public Optional<Estado> buscar(UUID id) {
+                Optional<Estado> e = factores.buscar(id);
+                try { leyeronElEstado.await(10, TimeUnit.SECONDS); } catch (Exception ex) { throw new IllegalStateException(ex); }
+                return e;
+            }
+            public void guardarPendiente(UUID id, byte[] s) { factores.guardarPendiente(id, s); }
+            public void confirmar(UUID id, long p, List<String> h) { factores.confirmar(id, p, h); }
+            public boolean registrarAcceso(UUID id, long p) { return factores.registrarAcceso(id, p); }
+            public boolean reservarIntento(UUID id, int m, Instant a, Instant h) { return factores.reservarIntento(id, m, a, h); }
+            public boolean consumirCodigoRecuperacion(UUID id, String h) { return factores.consumirCodigoRecuperacion(id, h); }
+        };
+        AtomicInteger codigosComprobados = new AtomicInteger();
+        SegundoFactor totpQueCuenta = new SegundoFactor() {
+            public String nuevoSecreto() { return totp.nuevoSecreto(); }
+            public String uri(String s, String c) { return totp.uri(s, c); }
+            public OptionalLong paso(String s, String codigo, Instant ahora) { codigosComprobados.incrementAndGet(); return totp.paso(s, codigo, ahora); }
+        };
+        AutenticarAdministradorService simultaneo = new AutenticarAdministradorService(administradores, hasher, tokens, leeYEspera, totpQueCuenta, cifrador,
+                uri -> uri.getBytes(StandardCharsets.UTF_8), uow, auditoria, reloj);
+        String desafio = desafio(ana);
+
+        ExecutorService pool = Executors.newFixedThreadPool(n);
+        List<Future<String>> resultados = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            String distinto = String.format("%06d", 100000 + i);
+            resultados.add(pool.submit(() -> {
+                try { simultaneo.verificarSegundoFactor(desafio, distinto, "198.51.100.4"); return "ENTRO"; }
+                catch (DomainException e) { return e.codigo(); }
+            }));
+        }
+        Map<String, Integer> porCodigo = new TreeMap<>();
+        for (Future<String> f : resultados) porCodigo.merge(f.get(30, TimeUnit.SECONDS), 1, Integer::sum);
+        pool.shutdown();
+
+        assertThat(porCodigo).as("de 20 peticiones, cinco comprueban y quince se bloquean").containsExactly(Map.entry("CODIGO_INVALIDO", 5), Map.entry("DEMASIADOS_INTENTOS", 15));
+        assertThat(codigosComprobados).as("los intentos negados no llegan a mirar el código").hasValue(5);
+    }
+
+    /** El quinto intento deja el bloqueo puesto antes de saber si el código era bueno: si lo era, el acceso lo levanta y no queda nada. */
+    @Test void unAciertoEnElQuintoIntentoEntraYNoDejaLaCuentaBloqueada() {
+        String secreto = configurado(ana);
+        reloj.avanzar(Duration.ofMinutes(5));
+        for (int i = 0; i < 4; i++) fallar(ana);
+
+        assertThat(service.verificarSegundoFactor(desafio(ana), codigoDe(secreto, pasoActual()), "198.51.100.4")).as("el quinto intento, correcto").isNotNull();
+
+        reloj.avanzar(Duration.ofSeconds(30));
+        assertThat(service.verificarSegundoFactor(desafio(ana), codigoDe(secreto, pasoActual()), "198.51.100.4")).as("el siguiente no está bloqueado").isNotNull();
     }
 
     // --- Desafío -------------------------------------------------------------------------------------------------------------
@@ -354,16 +419,19 @@ class AutenticarAdministradorServiceTest {
         } catch (Exception e) { throw new IllegalStateException(e); }
     }
 
-    /** Segundo factor en memoria, con las mismas reglas que la tabla (anti-reuso y códigos de un solo uso). */
+    /**
+     * Segundo factor en memoria, con las mismas reglas que la tabla (anti-reuso, intento reservado de forma atómica y códigos de un
+     * solo uso). Sus operaciones son {@code synchronized} como cada sentencia del UPDATE real: los tests de concurrencia lo comparten.
+     */
     final class Factores implements SegundoFactorRepository {
         final Map<UUID, Estado> estados = new HashMap<>();
         final Map<UUID, Map<String, Boolean>> codigos = new HashMap<>();
         final List<Boolean> confirmadoDentro = new ArrayList<>();
-        final List<Boolean> falloDentro = new ArrayList<>();
+        final List<Boolean> intentoDentro = new ArrayList<>();
 
-        public Optional<Estado> buscar(UUID id) { return Optional.ofNullable(estados.get(id)); }
-        public void guardarPendiente(UUID id, byte[] s) { estados.put(id, new Estado(s, false, 0, 0, null)); codigos.remove(id); }
-        public void confirmar(UUID id, long paso, List<String> hashes) {
+        public synchronized Optional<Estado> buscar(UUID id) { return Optional.ofNullable(estados.get(id)); }
+        public synchronized void guardarPendiente(UUID id, byte[] s) { estados.put(id, new Estado(s, false, 0, 0, null)); codigos.remove(id); }
+        public synchronized void confirmar(UUID id, long paso, List<String> hashes) {
             confirmadoDentro.add(uow.dentro);
             Estado e = estados.get(id);
             estados.put(id, new Estado(e.secretoCifrado(), true, paso, 0, null));
@@ -371,20 +439,22 @@ class AutenticarAdministradorServiceTest {
             hashes.forEach(h -> m.put(h, false));
             codigos.put(id, m);
         }
-        public boolean registrarAcceso(UUID id, long paso) {
+        public synchronized boolean registrarAcceso(UUID id, long paso) {
             Estado e = estados.get(id);
             if (paso <= e.ultimoPaso()) return false;
             estados.put(id, new Estado(e.secretoCifrado(), e.confirmado(), paso, 0, null));
             return true;
         }
-        public void registrarFallo(UUID id, int max, Instant hasta) {
-            falloDentro.add(uow.dentro);
+        public synchronized boolean reservarIntento(UUID id, int max, Instant ahora, Instant hasta) {
+            intentoDentro.add(uow.dentro);
             Estado e = estados.get(id);
+            if (e.bloqueadoHasta() != null && ahora.isBefore(e.bloqueadoHasta())) return false;
             int fallos = e.fallos() + 1;
             estados.put(id, fallos >= max ? new Estado(e.secretoCifrado(), e.confirmado(), e.ultimoPaso(), 0, hasta)
                     : new Estado(e.secretoCifrado(), e.confirmado(), e.ultimoPaso(), fallos, e.bloqueadoHasta()));
+            return true;
         }
-        public boolean consumirCodigoRecuperacion(UUID id, String hash) {
+        public synchronized boolean consumirCodigoRecuperacion(UUID id, String hash) {
             Map<String, Boolean> m = codigos.getOrDefault(id, Map.of());
             if (!Boolean.FALSE.equals(m.get(hash))) return false;
             m.put(hash, true);

@@ -22,20 +22,27 @@ public interface SegundoFactorRepository {
     void confirmar(UUID administradorId, long paso, List<String> hashesRecuperacion);
 
     /**
-     * Registra un código aceptado y pone los fallos en cero. Devuelve {@code false} si ya se aceptó uno de ese paso o posterior:
-     * es la barrera contra reusar un código, también entre dos peticiones simultáneas.
+     * Registra un código aceptado, pone los fallos en cero y levanta el bloqueo que dejó su propio intento (ver
+     * {@link #reservarIntento}). Devuelve {@code false} si ya se aceptó uno de ese paso o posterior: es la barrera contra reusar un
+     * código, también entre dos peticiones simultáneas.
      */
     boolean registrarAcceso(UUID administradorId, long paso);
 
     /**
-     * Suma un código fallido y, si con él se llega a {@code maxFallos}, bloquea hasta {@code bloquearHasta} y pone la cuenta en cero.
-     * En una sola operación atómica: leer y escribir por separado dejaría que intentos en paralelo se pisen la cuenta y nunca bloqueen.
+     * Reserva un intento de código <b>antes</b> de comprobarlo. Devuelve {@code false}, sin sumar nada, si la cuenta está bloqueada
+     * en {@code ahora}; si no, suma el intento y, si con él se llega a {@code maxIntentos}, deja la cuenta bloqueada hasta
+     * {@code bloquearHasta} y la cuenta de intentos en cero. El quinto intento todavía se concede: ya quedó reservado.
+     * <p>
+     * Es una sola sentencia atómica y no una lectura seguida de una escritura: con la compuerta separada del conteo, N peticiones
+     * simultáneas que leen «sin bloqueo» antes de que ninguna cuente su fallo prueban las N un código. Un acierto reinicia la cuenta
+     * ({@link #registrarAcceso}, {@link #consumirCodigoRecuperacion}); un fallo no necesita escribir nada más, porque ya se contó.
+     * Quien llama lo invoca <b>fuera</b> de la transacción de la petición: dentro, se revertiría con el error y el bloqueo nunca llegaría.
      */
-    void registrarFallo(UUID administradorId, int maxFallos, Instant bloquearHasta);
+    boolean reservarIntento(UUID administradorId, int maxIntentos, Instant ahora, Instant bloquearHasta);
 
     /**
-     * Marca usado el código de recuperación con ese hash y pone los fallos en cero. {@code false} si no existe o ya se usó: cada uno
-     * sirve una sola vez.
+     * Marca usado el código de recuperación con ese hash, pone los fallos en cero y levanta el bloqueo de su propio intento.
+     * {@code false} si no existe o ya se usó: cada uno sirve una sola vez.
      */
     boolean consumirCodigoRecuperacion(UUID administradorId, String hash);
 }
