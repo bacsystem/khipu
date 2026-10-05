@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin } from "./admin-sesion";
+import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) siembra el consumo de las cuentas con el plan de cada una. Las specs de la corrida comparten ese mock en paralelo (y algunas
 // cambian el plan de SU cuenta o crean cuentas nuevas), así que esta spec solo lee y solo afirma sobre cuentas que nadie muta, y nunca sobre totales de la lista sin
@@ -19,14 +20,11 @@ test.beforeEach(async ({ page }) => {
 
 /**
  * Abre la pantalla y espera a que React haya hidratado el selector de mes: un campo que se cambia antes de hidratar no dispara el `onChange` (la URL no cambia) o vuelve a
- * su valor por defecto. Con el servidor de desarrollo ocupado (dos workers) a veces pasaba. React deja sus propiedades en el nodo del DOM cuando lo adopta.
+ * su valor por defecto. Con el servidor de desarrollo ocupado (dos workers) a veces pasaba.
  */
 async function abrirHidratada(page: Page, ruta: string) {
   await page.goto(ruta);
-  await page.waitForFunction(() => {
-    const campo = document.getElementById("consumo-mes");
-    return campo !== null && Object.keys(campo).some((k) => k.startsWith("__reactProps"));
-  });
+  await esperarHidratacion(page, "#consumo-mes");
 }
 
 const fila = (page: Page, nombre: string) => page.locator("tbody tr", { hasText: nombre });
