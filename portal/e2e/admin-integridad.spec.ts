@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin } from "./admin-sesion";
+import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) siembra los hallazgos por fecha y esta pantalla solo lee: ninguna spec de la corrida puede pisarse con otra. Si el rango incluye el
 // 10 de septiembre de 2026 hay tres problemas (dos comprobantes de «Panadería Sol» y uno de «Ferretería Luna»); si incluye el 15 de agosto, un almacenamiento
@@ -22,14 +23,11 @@ test.beforeEach(async ({ page }) => {
 
 /**
  * Abre la pantalla y espera a que React haya hidratado el formulario: un campo rellenado antes vuelve a su valor por defecto al hidratar (el primer test de una corrida,
- * con el servidor todavía compilando, lo hacía a veces). React deja sus propiedades en el nodo del DOM cuando lo adopta.
+ * con el servidor todavía compilando, lo hacía a veces).
  */
 async function abrir(page: Page) {
   await page.goto("/admin/integridad");
-  await page.waitForFunction(() => {
-    const campo = document.getElementById("integridad-desde");
-    return campo !== null && Object.keys(campo).some((k) => k.startsWith("__reactProps"));
-  });
+  await esperarHidratacion(page, "#integridad-desde");
 }
 
 async function verificar(page: Page, desde: string, hasta: string) {
