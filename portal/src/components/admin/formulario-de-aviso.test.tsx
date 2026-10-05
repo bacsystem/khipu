@@ -201,6 +201,7 @@ describe("FormularioDeAviso (#199)", () => {
       apiRequest.mockReturnValue(new Promise((r) => (responder = r)));
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       llenar();
+      alResultado.mockClear();   // escribir ya había pedido borrar el resultado: acá importa lo que hace publicar
 
       fireEvent.click(screen.getByTestId("aviso-publicar"));
 
