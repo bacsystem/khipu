@@ -79,6 +79,14 @@ class JdbcConfiguracionDePlataformaTest extends PersistenciaTestBase {
         remitentes.guardar(new RemitenteDeCorreo("n".repeat(100), "a@khipu.pe", null), AHORA, ADMIN);
     }
 
+    /** La base y el dominio coinciden en el límite exacto de la dirección (254), para el remitente y para las respuestas. */
+    @Test void elTopeDeLaDireccionEnLaBaseEsDe254() {
+        remitentes.guardar(new RemitenteDeCorreo(null, "a".repeat(RemitenteDeCorreo.MAX_EMAIL), "b".repeat(RemitenteDeCorreo.MAX_EMAIL)), AHORA, ADMIN);
+
+        assertThatThrownBy(() -> remitentes.guardar(new RemitenteDeCorreo(null, "a".repeat(RemitenteDeCorreo.MAX_EMAIL + 1), null), AHORA, ADMIN)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> remitentes.guardar(new RemitenteDeCorreo(null, "a@khipu.pe", "b".repeat(RemitenteDeCorreo.MAX_EMAIL + 1)), AHORA, ADMIN)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     @Test void soloPuedeHaberUnaFilaDeRemitente() {
         remitentes.guardar(new RemitenteDeCorreo(null, "a@khipu.pe", null), AHORA, ADMIN);
 
