@@ -28,15 +28,15 @@ const t = messages.admin.configuracion.aviso;
 /**
  * El aviso de mantenimiento (#199): su texto y su vigencia, en hora de Lima, y cómo lo verán los clientes. Hay uno solo, y publicar otro reemplaza al anterior. Siempre tiene fin.
  * Acá solo se comprueba que haya texto y fechas; los límites (largo, orden, duración) los pone el backend, una sola vez, y su mensaje se muestra tal cual.
- * {@code ahora} lo da el servidor, para que el valor inicial sea el mismo al renderizar y al hidratar.
+ * {@code ahora} lo da el servidor, para que el valor inicial sea el mismo al renderizar y al hidratar. Que quedó publicado lo dice quien lo contiene ({@code alResultado}): al publicar, la
+ * página se recarga y este formulario se vuelve a montar con lo guardado, y el mensaje no puede morir con él.
  */
-export function FormularioDeAviso({ banner, ahora }: { banner: BannerConfigurado | null; ahora: string }) {
+export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: BannerConfigurado | null; ahora: string; alResultado: (mensaje: string | null) => void }) {
   const router = useRouter();
   const [valores, setValores] = useState<ValoresDeAviso>(banner ? valoresDeAviso(banner) : valoresNuevoAviso(new Date(ahora)));
   const [errores, setErrores] = useState<ErroresDeAviso>({});
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [publicado, setPublicado] = useState(false);
   const alertaRef = useRef<HTMLParagraphElement>(null);
   const enviandoRef = useRef(false);
   useEffect(() => {
@@ -46,7 +46,7 @@ export function FormularioDeAviso({ banner, ahora }: { banner: BannerConfigurado
   function poner<K extends keyof ValoresDeAviso>(campo: K, valor: ValoresDeAviso[K]) {
     setValores((v) => ({ ...v, [campo]: valor }));
     setErrores((e) => ({ ...e, [campo]: undefined }));
-    setPublicado(false);
+    alResultado(null);
   }
 
   async function publicar() {
@@ -59,7 +59,7 @@ export function FormularioDeAviso({ banner, ahora }: { banner: BannerConfigurado
     enviandoRef.current = true;
     setEnviando(true);
     setError(null);
-    setPublicado(false);
+    alResultado(null);
     const res = await apiRequest<BannerConfigurado>("/api/admin/configuracion/banner", { method: "PUT", body: r.cuerpo });
     enviandoRef.current = false;
     setEnviando(false);
@@ -72,7 +72,7 @@ export function FormularioDeAviso({ banner, ahora }: { banner: BannerConfigurado
       setError(res.mensaje ?? mensajeError(res.codigo));
       return;
     }
-    setPublicado(true);
+    alResultado(t.publicado);
     router.refresh();
   }
 
@@ -186,11 +186,6 @@ export function FormularioDeAviso({ banner, ahora }: { banner: BannerConfigurado
       {error ? (
         <p ref={alertaRef} tabIndex={-1} data-testid="aviso-error" className="text-sm text-destructive outline-none" role="alert">
           {error}
-        </p>
-      ) : null}
-      {publicado ? (
-        <p data-testid="aviso-resultado" role="status" className="text-sm text-foreground">
-          {t.publicado}
         </p>
       ) : null}
 

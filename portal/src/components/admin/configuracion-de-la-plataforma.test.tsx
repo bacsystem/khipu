@@ -1,10 +1,13 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BannerConfigurado, PlantillaDeCorreo, RemitenteConfigurado } from "@/lib/api/admin-configuracion";
+import { apiRequest } from "@/lib/api/browser";
 import { ConfiguracionDeLaPlataforma } from "./configuracion-de-la-plataforma";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("@/lib/api/browser", () => ({ apiRequest: vi.fn() }));
+
+const exito = { estado: "exito", datos: {}, mensaje: null, codigo: null, errores: null };
 
 const AHORA = "2026-10-15T17:00:00.000Z";
 const REMITENTE: RemitenteConfigurado = { vigente: { email: "no-responder@khipu.pe" }, personalizado: false, predeterminado: { email: "no-responder@khipu.pe" } };
@@ -15,7 +18,90 @@ function plantilla(tipo: string, etiqueta: string, p: Partial<PlantillaDeCorreo>
 
 const PLANTILLAS = [plantilla("VERIFICACION_CORREO", "Verificación de correo"), plantilla("RECUPERACION_CLAVE", "Restablecer la contraseña"), plantilla("BIENVENIDA", "Bienvenida")];
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.mocked(apiRequest).mockReset();
+});
+
+/**
+ * Guardar recarga la página y el formulario se vuelve a montar con lo guardado (su `key` cambia): el «quedó guardado» no puede vivir en el formulario, porque se vería un instante y
+ * desaparecería. Lo dice quien contiene los formularios, que no se vuelve a montar.
+ */
+describe("ConfiguracionDeLaPlataforma: el mensaje de que quedó guardado (#199)", () => {
+  const GUARDADO = { vigente: { email: "avisos@khipu.pe" }, personalizado: true, actualizado_en: "2026-10-15T20:00:00Z", predeterminado: REMITENTE.predeterminado };
+
+  it("dice que el remitente quedó guardado y el mensaje sobrevive a la recarga que vuelve a montar el formulario", async () => {
+    vi.mocked(apiRequest).mockResolvedValue(exito as never);
+    const { rerender } = render(<ConfiguracionDeLaPlataforma contenido={{ seccion: "correo", remitente: REMITENTE }} ahora={AHORA} />);
+    expect(screen.queryByTestId("correo-resultado")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("correo-guardar"));
+    await waitFor(() => expect(screen.getByTestId("correo-resultado").textContent).toBe("Remitente guardado: vale desde el siguiente correo."));
+    expect(screen.getByTestId("correo-resultado").getAttribute("role")).toBe("status");
+
+    // El servidor trae lo guardado: la `key` cambia y el formulario se vuelve a montar con otro valor.
+    rerender(<ConfiguracionDeLaPlataforma contenido={{ seccion: "correo", remitente: GUARDADO }} ahora={AHORA} />);
+
+    expect((screen.getByTestId("correo-email") as HTMLInputElement).value).toBe("avisos@khipu.pe");
+    expect(screen.getByTestId("correo-resultado").textContent).toBe("Remitente guardado: vale desde el siguiente correo.");
+  });
+
+  it("volver a escribir en el formulario borra el mensaje", async () => {
+    vi.mocked(apiRequest).mockResolvedValue(exito as never);
+    render(<ConfiguracionDeLaPlataforma contenido={{ seccion: "correo", remitente: REMITENTE }} ahora={AHORA} />);
+    fireEvent.click(screen.getByTestId("correo-guardar"));
+    await screen.findByTestId("correo-resultado");
+
+    fireEvent.change(screen.getByTestId("correo-nombre"), { target: { value: "otro" } });
+
+    expect(screen.queryByTestId("correo-resultado")).toBeNull();
+  });
+
+  it("guardar un texto de correo lo dice, y el mensaje es de ese correo: en otro correo no se ve", async () => {
+    vi.mocked(apiRequest).mockResolvedValue(exito as never);
+    const { rerender } = render(<ConfiguracionDeLaPlataforma contenido={{ seccion: "plantillas", plantillas: PLANTILLAS, elegida: "RECUPERACION_CLAVE" }} ahora={AHORA} />);
+
+    fireEvent.click(screen.getByTestId("plantilla-guardar"));
+    await waitFor(() => expect(screen.getByTestId("plantilla-resultado").textContent).toBe("Texto guardado: vale desde el siguiente correo."));
+
+    rerender(<ConfiguracionDeLaPlataforma contenido={{ seccion: "plantillas", plantillas: PLANTILLAS, elegida: "BIENVENIDA" }} ahora={AHORA} />);
+
+    expect(screen.queryByTestId("plantilla-resultado")).toBeNull();
+  });
+
+  it("el mensaje de un texto guardado sobrevive a la recarga que lo vuelve a montar", async () => {
+    vi.mocked(apiRequest).mockResolvedValue(exito as never);
+    const { rerender } = render(<ConfiguracionDeLaPlataforma contenido={{ seccion: "plantillas", plantillas: PLANTILLAS, elegida: "RECUPERACION_CLAVE" }} ahora={AHORA} />);
+    fireEvent.click(screen.getByTestId("plantilla-guardar"));
+    await screen.findByTestId("plantilla-resultado");
+
+    const editada = PLANTILLAS.map((p) => (p.tipo === "RECUPERACION_CLAVE" ? { ...p, personalizada: true, actualizada_en: "2026-10-15T20:00:00Z" } : p));
+    rerender(<ConfiguracionDeLaPlataforma contenido={{ seccion: "plantillas", plantillas: editada, elegida: "RECUPERACION_CLAVE" }} ahora={AHORA} />);
+
+    expect(screen.getByTestId("plantilla-resultado")).toBeTruthy();
+  });
+
+  it("publicar el aviso lo dice, y no se ve en otra sección", async () => {
+    vi.mocked(apiRequest).mockResolvedValue(exito as never);
+    const { rerender } = render(<ConfiguracionDeLaPlataforma contenido={{ seccion: "aviso", banner: null }} ahora={AHORA} />);
+    fireEvent.change(screen.getByTestId("aviso-texto"), { target: { value: "Mantenimiento" } });
+    fireEvent.change(screen.getByTestId("aviso-hasta"), { target: { value: "2026-10-15T23:00" } });
+
+    fireEvent.click(screen.getByTestId("aviso-publicar"));
+    await waitFor(() => expect(screen.getByTestId("aviso-resultado").textContent).toBe("Aviso publicado."));
+
+    rerender(<ConfiguracionDeLaPlataforma contenido={{ seccion: "correo", remitente: REMITENTE }} ahora={AHORA} />);
+
+    expect(screen.queryByTestId("aviso-resultado")).toBeNull();
+    expect(screen.queryByTestId("correo-resultado")).toBeNull();
+  });
+
+  it("sin guardar nada no hay mensaje en ninguna sección", () => {
+    render(<ConfiguracionDeLaPlataforma contenido={{ seccion: "aviso", banner: null }} ahora={AHORA} />);
+
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+});
 
 /** Cada sección dibuja solo lo suyo, y los formularios empiezan de nuevo cuando el servidor trae datos nuevos. */
 describe("ConfiguracionDeLaPlataforma (#199)", () => {

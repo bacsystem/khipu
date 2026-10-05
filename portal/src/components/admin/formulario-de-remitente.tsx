@@ -21,15 +21,15 @@ export function direccionEnPalabras(d: Direccion): string {
 /**
  * El remitente de los correos de la plataforma (#199): el nombre con que se muestra, el correo y adónde llegan las respuestas. Vale desde el siguiente correo. Las reglas de cada
  * dato las pone el backend, una sola vez: si algo no sirve, su mensaje se muestra tal cual. No se puede comprobar que el servidor de correo acepte esa dirección, y la pantalla lo dice.
+ * Que quedó guardado lo dice quien lo contiene ({@code alResultado}): al guardar, la página se recarga y este formulario se vuelve a montar con lo guardado, y el mensaje no puede morir con él.
  */
-export function FormularioDeRemitente({ remitente }: { remitente: RemitenteConfigurado }) {
+export function FormularioDeRemitente({ remitente, alResultado }: { remitente: RemitenteConfigurado; alResultado: (mensaje: string | null) => void }) {
   const router = useRouter();
   const [nombre, setNombre] = useState(remitente.vigente.nombre ?? "");
   const [email, setEmail] = useState(remitente.vigente.email);
   const [responderA, setResponderA] = useState(remitente.vigente.responder_a ?? "");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [guardado, setGuardado] = useState(false);
   const alertaRef = useRef<HTMLParagraphElement>(null);
   // Un ref, no el estado: dos clics en el mismo tick leen el `enviando` viejo del closure.
   const enviandoRef = useRef(false);
@@ -39,7 +39,7 @@ export function FormularioDeRemitente({ remitente }: { remitente: RemitenteConfi
 
   function cambiar(poner: (v: string) => void, valor: string) {
     poner(valor);
-    setGuardado(false);
+    alResultado(null);
   }
 
   async function guardar() {
@@ -47,7 +47,7 @@ export function FormularioDeRemitente({ remitente }: { remitente: RemitenteConfi
     enviandoRef.current = true;
     setEnviando(true);
     setError(null);
-    setGuardado(false);
+    alResultado(null);
     const res = await apiRequest<RemitenteConfigurado>("/api/admin/configuracion/correo", { method: "PUT", body: { nombre, email, responder_a: responderA } });
     enviandoRef.current = false;
     setEnviando(false);
@@ -60,7 +60,7 @@ export function FormularioDeRemitente({ remitente }: { remitente: RemitenteConfi
       setError(res.mensaje ?? mensajeError(res.codigo));
       return;
     }
-    setGuardado(true);
+    alResultado(t.guardado);
     router.refresh();
   }
 
@@ -117,11 +117,6 @@ export function FormularioDeRemitente({ remitente }: { remitente: RemitenteConfi
       {error ? (
         <p ref={alertaRef} tabIndex={-1} data-testid="correo-error" className="text-sm text-destructive outline-none" role="alert">
           {error}
-        </p>
-      ) : null}
-      {guardado ? (
-        <p data-testid="correo-resultado" role="status" className="text-sm text-foreground">
-          {t.guardado}
         </p>
       ) : null}
 
