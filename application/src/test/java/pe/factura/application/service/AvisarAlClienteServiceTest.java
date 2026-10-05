@@ -40,6 +40,7 @@ class AvisarAlClienteServiceTest {
     Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
     Fakes.Auditoria auditoria = new Fakes.Auditoria();
     Correo correo = new Correo();
+    ConfiguracionFake.Plantillas plantillasGuardadas = new ConfiguracionFake.Plantillas();
     AvisarAlClienteService service;
 
     /** Guarda lo que se mandó; puede fallar, o decir que no entrega (sin SMTP). */
@@ -62,7 +63,7 @@ class AvisarAlClienteServiceTest {
         correo.avisos = avisos;
         avisos.uow = uow;
         auditoria.uow = uow;
-        service = new AvisarAlClienteService(avisos, correo, auditoria, uow, Fakes.CLOCK);
+        service = new AvisarAlClienteService(avisos, correo, auditoria, uow, Fakes.CLOCK, new PlantillasDeCorreo(plantillasGuardadas));
     }
 
     Situacion situacion(EstadoCertificado cert, Integer dias, long fallosDeSol, Destino destino) {
@@ -75,6 +76,20 @@ class AvisarAlClienteServiceTest {
 
     void avisoPrevio(MotivoDeAviso motivo, Duration hace) {
         avisos.avisos.add(new AvisoRegistrado(UUID.randomUUID(), empresa, cuenta, motivo, "ana@negocio.pe", AHORA.minus(hace), null));
+    }
+
+    // --- #199: el texto de los avisos lo edita un administrador ----------------------------------------------------------------------
+
+    @Test void elAvisoSaleConElTextoQueUnAdministradorEdito() {
+        situacion(EstadoCertificado.POR_VENCER, 10, 0, destino());
+        plantillasGuardadas.filas.put(pe.factura.domain.plataforma.PlantillaDeCorreo.AVISO_CERTIFICADO_POR_VENCER,
+                new pe.factura.application.port.out.PlantillasRepository.Guardada(new pe.factura.domain.plataforma.PlantillaDeCorreo.Texto("Ojo con {razon_social}", "Vence {cuando} ({fecha}). Renueva en {enlace}"), java.time.Instant.EPOCH));
+
+        service.avisar(ACTOR, empresa, TipoDeAviso.CERTIFICADO, PORTAL);
+
+        String[] c = correo.enviados.get(0);
+        assertThat(c[1]).isEqualTo("Ojo con COMERCIAL ANDINA SAC");
+        assertThat(c[2]).isEqualTo("Vence en 10 días (23/09/2026). Renueva en " + PORTAL);
     }
 
     // --- avisar de un certificado -----------------------------------------------------------------------------------------------------

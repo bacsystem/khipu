@@ -3,6 +3,7 @@ package pe.factura.application.service;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.AutenticarUsuarioUseCase.Tokens;
 import pe.factura.application.port.out.*;
+import pe.factura.domain.plataforma.PlantillaDeCorreo;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.cuenta.Cuenta;
 import pe.factura.domain.cuenta.Rol;
@@ -79,7 +80,8 @@ class AutenticarUsuarioServiceTest {
         public boolean suspender(UUID c, java.time.Instant cuando) { throw new AssertionError("el login no suspende"); }
         public boolean reactivar(UUID c) { throw new AssertionError("el login no reactiva"); }
     };
-    AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones);
+    ConfiguracionFake.Plantillas plantillasGuardadas = new ConfiguracionFake.Plantillas();
+    AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas));
 
     /** El token del último correo que contiene {@code ruta}: así llega al usuario, y así se lo usa. */
     private String tokenDelCorreo(String ruta) {
@@ -113,7 +115,7 @@ class AutenticarUsuarioServiceTest {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         String token = tokenDelCorreo("/verificar/");
         AutenticarUsuarioService tarde = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones);
+                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()));
 
         assertThatThrownBy(() -> tarde.verificarCorreo(token)).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
         assertThatThrownBy(() -> service.verificarCorreo("inventado")).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
@@ -215,7 +217,7 @@ class AutenticarUsuarioServiceTest {
             public void enviar(String p, String a, String c) { throw new IllegalStateException("SMTP caído"); }
             public void enviar(String p, String a, String c, List<Adjunto> adj) { throw new IllegalStateException("SMTP caído"); }
         };
-        AutenticarUsuarioService conRoto = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, roto, Fakes.UOW, clock, verificaciones, suspensiones);
+        AutenticarUsuarioService conRoto = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, roto, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()));
 
         Tokens t = conRoto.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
 
@@ -268,7 +270,7 @@ class AutenticarUsuarioServiceTest {
     @Test void refreshExpiradoFalla() {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         AutenticarUsuarioService tarde = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofDays(31)), verificaciones, suspensiones);
+                Clock.offset(clock, Duration.ofDays(31)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()));
         assertThatThrownBy(() -> tarde.refrescar(t.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
     }
 
@@ -316,6 +318,26 @@ class AutenticarUsuarioServiceTest {
         cuentasSuspendidas.add(a.usuario().cuentaId());
 
         assertThat(service.login("b@b.pe", "Segura123").access()).isNotBlank();
+    }
+
+    // --- #199: el texto de los correos de acceso lo edita un administrador ----------------------------------------------------------
+
+    @Test void elCorreoDeVerificacionSaleConElTextoQueUnAdministradorEdito() {
+        plantillasGuardadas.filas.put(PlantillaDeCorreo.VERIFICACION_CORREO, new PlantillasRepository.Guardada(new PlantillaDeCorreo.Texto("Confirma", "Confirma en {enlace} antes de {validez}"), java.time.Instant.EPOCH));
+
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+
+        assertThat(correos).singleElement().satisfies(c -> assertThat(c).startsWith("a@b.pe|Confirma en " + PORTAL + "/verificar/").endsWith(" antes de 24 horas"));
+    }
+
+    @Test void elCorreoDeRecuperacionSaleConElTextoQueUnAdministradorEdito() {
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        correos.clear();
+        plantillasGuardadas.filas.put(PlantillaDeCorreo.RECUPERACION_CLAVE, new PlantillasRepository.Guardada(new PlantillaDeCorreo.Texto("Nueva clave", "Elige otra clave en {enlace} (dura {validez})"), java.time.Instant.EPOCH));
+
+        service.solicitarRecuperacion("a@b.pe", PORTAL);
+
+        assertThat(correos).singleElement().satisfies(c -> assertThat(c).startsWith("a@b.pe|Elige otra clave en " + PORTAL + "/restablecer/").endsWith(" (dura 1 hora)"));
     }
 
     @Test void recuperacionEnviaCorreoYRestablece() {

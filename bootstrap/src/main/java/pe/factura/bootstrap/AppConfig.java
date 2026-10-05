@@ -55,6 +55,8 @@ import pe.factura.adapters.ubl.JaxpXsdValidator;
 import pe.factura.application.port.in.*;
 import pe.factura.application.port.out.*;
 import pe.factura.application.service.*;
+import pe.factura.domain.DomainException;
+import pe.factura.domain.plataforma.RemitenteDeCorreo;
 
 import java.nio.file.Path;
 import java.time.Clock;
@@ -265,9 +267,20 @@ public class AppConfig {
     }
     @Bean AvisosRepository avisosRepository(JdbcTemplate jdbc) { return new JdbcAvisosRepository(jdbc); }
     @Bean ConsultarAvisosUseCase consultarAvisos(AvisosRepository avisos, Clock clock) { return new ConsultarAvisosService(avisos, clock); }
-    @Bean AvisarAlClienteUseCase avisarAlCliente(AvisosRepository avisos, CorreoSender correo, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
-        return new AvisarAlClienteService(avisos, correo, auditoria, u, clock);
+    @Bean AvisarAlClienteUseCase avisarAlCliente(AvisosRepository avisos, CorreoSender correo, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock, PlantillasDeCorreo plantillas) {
+        return new AvisarAlClienteService(avisos, correo, auditoria, u, clock, plantillas);
     }
+    @Bean RemitenteRepository remitenteRepository(JdbcTemplate jdbc) { return new JdbcConfiguracionDePlataforma.Remitente(jdbc); }
+    @Bean PlantillasRepository plantillasRepository(JdbcTemplate jdbc) { return new JdbcConfiguracionDePlataforma.Plantillas(jdbc); }
+    @Bean BannerRepository bannerRepository(JdbcTemplate jdbc) { return new JdbcConfiguracionDePlataforma.Banner(jdbc); }
+    @Bean PlantillasDeCorreo plantillasDeCorreo(PlantillasRepository plantillas) { return new PlantillasDeCorreo(plantillas); }
+    /** El remitente de la configuración del servidor (`MAIL_REMITENTE`): el de siempre mientras ningún administrador fije otro. */
+    @Bean RemitenteDeCorreo remitentePredeterminado(AppProperties p) { return remitenteDeLaConfiguracion(p.mail().remitente()); }
+    @Bean ConfigurarPlataformaUseCase configurarPlataforma(RemitenteRepository remitentes, PlantillasRepository plantillas, BannerRepository banners, AuditoriaAdminRepository auditoria,
+                                                           UnitOfWork u, Clock clock, RemitenteDeCorreo remitentePredeterminado) {
+        return new ConfigurarPlataformaService(remitentes, plantillas, banners, auditoria, u, clock, remitentePredeterminado);
+    }
+    @Bean ConsultarBannerUseCase consultarBanner(BannerRepository banners, Clock clock) { return new ConsultarBannerService(banners, clock); }
     @Bean MonitorearEmisionUseCase monitorearEmision(MonitorDeEmisionRepository m, SondeoDeSunat s, Clock clock) { return new MonitorDeEmisionService(m, s, clock); }
     @Bean RecuperarCdrUseCase recuperarCdr(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatConsultaGateway g, CdrParser cdr, UnitOfWork u) {
         return new RecuperarCdrService(c, t, s, g, cdr, u);
@@ -309,21 +322,44 @@ public class AppConfig {
     @Bean SegundoFactor segundoFactor() { return new TotpRfc6238(); }
     @Bean CodigoQr codigoQr() { return new ZxingCodigoQr(); }
     /** Sin app.mail.habilitado=true (MAIL_HABILITADO), los correos se escriben en el log en lugar de enviarse. */
-    @Bean CorreoSender correoSender(AppProperties p, ObjectProvider<JavaMailSender> mailSenderProvider,
-                                    @Value("${spring.mail.host:}") String mailHost) {
+    @Bean CorreoSender correoSender(AppProperties p, ObjectProvider<JavaMailSender> mailSenderProvider, @Value("${spring.mail.host:}") String mailHost,
+                                    RemitenteRepository remitentes, RemitenteDeCorreo remitentePredeterminado) {
         if (!p.mail().habilitado()) return new LogCorreoSender();
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
         // No alcanza con que exista el bean: Spring lo crea igual con `spring.mail.host` vacío, y entonces cada correo
         // falla en tiempo de ejecución (recuperación de contraseña, comprobantes al cliente) en vez de avisar al arrancar.
         if (mailSender == null || mailHost.isBlank())
             throw new IllegalStateException("app.mail.habilitado=true pero no hay SMTP configurado (define MAIL_HOST)");
-        return new SmtpCorreoSender(mailSender, p.mail().remitente());
+        return new SmtpCorreoSender(mailSender, () -> remitenteVigente(remitentes, remitentePredeterminado));
+    }
+
+    /**
+     * El remitente que un administrador fijó, o el de la configuración. Un correo no deja de salir porque la base no respondió al leer el remitente: sale con el de la configuración.
+     */
+    static RemitenteDeCorreo remitenteVigente(RemitenteRepository remitentes, RemitenteDeCorreo predeterminado) {
+        try {
+            return remitentes.buscar().map(RemitenteRepository.Guardado::remitente).orElse(predeterminado);
+        } catch (RuntimeException e) {
+            return predeterminado;
+        }
+    }
+
+    /**
+     * `MAIL_REMITENTE` se valida como el remitente de un administrador. Si el valor era uno que antes se aceptaba y ahora no (por ejemplo «khipu &lt;no-responder@khipu.pe&gt;»), se
+     * conserva tal cual en vez de impedir el arranque: el servidor de correo lo interpretaba así.
+     */
+    static RemitenteDeCorreo remitenteDeLaConfiguracion(String configurado) {
+        try {
+            return RemitenteDeCorreo.de(null, configurado, null);
+        } catch (DomainException e) {
+            return new RemitenteDeCorreo(null, configurado, null);
+        }
     }
 
     @Bean AutenticarUsuarioUseCase autenticarUsuario(CuentaRepository cu, UsuarioRepository us, SesionRepository se, PasswordHasher h,
                                                     TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v,
-                                                    SuspensionRepository suspensiones) {
-        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones);
+                                                    SuspensionRepository suspensiones, PlantillasDeCorreo plantillas) {
+        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas);
     }
     @Bean GestionarEmpresasUseCase gestionarEmpresas(TenantRepository t, CuentaRepository cu, UnitOfWork u) {
         return new GestionarEmpresasService(t, cu, u);
@@ -371,16 +407,16 @@ public class AppConfig {
     }
     @Bean AccesosDeSoporteUseCase accesosDeSoporte(AccesosDeSoporteRepository registros) { return new AccesosDeSoporteService(registros); }
     @Bean SoporteDeAccesoUseCase soporteDeAcceso(UsuarioRepository usuarios, SesionRepository sesiones, VerificacionCorreoRepository verificaciones, CorreoSender correo,
-                                                 UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {
-        return new SoporteDeAccesoService(usuarios, sesiones, verificaciones, correo, u, auditoria, clock);
+                                                 UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock, PlantillasDeCorreo plantillas) {
+        return new SoporteDeAccesoService(usuarios, sesiones, verificaciones, correo, u, auditoria, clock, plantillas);
     }
     @Bean CrearAdministradorUseCase crearAdministrador(AdministradorRepository a, PasswordHasher h, UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock) {
         return new CrearAdministradorService(a, h, u, auditoria, clock);
     }
     @Bean AltaAsistidaUseCase altaAsistida(CuentaRepository cu, UsuarioRepository us, SesionRepository se, TenantRepository t, SerieRepository s, ApiKeyRepository k,
                                           PasswordHasher h, CorreoSender co, UnitOfWork u, AuditoriaAdminRepository auditoria, AppProperties p, Clock clock,
-                                          IdempotenciaRepository idempotencia, SecretCipher cifrador) {
-        return new AltaAsistidaService(cu, us, se, t, s, k, h, co, u, auditoria, p.apiKeyPepper(), clock, idempotencia, cifrador);
+                                          IdempotenciaRepository idempotencia, SecretCipher cifrador, PlantillasDeCorreo plantillas) {
+        return new AltaAsistidaService(cu, us, se, t, s, k, h, co, u, auditoria, p.apiKeyPepper(), clock, idempotencia, cifrador, plantillas);
     }
 
     @Bean DarDeBajaUseCase darDeBaja(BajaRepository b, ComprobanteRepository c, TenantRepository t, DocumentStorage s, UblGenerator ubl, XsdValidator xsd, XmlSigner signer,

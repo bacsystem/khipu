@@ -109,14 +109,31 @@ class AltaAsistidaServiceTest {
         return r;
     }
 
+    ConfiguracionFake.Plantillas plantillasGuardadas = new ConfiguracionFake.Plantillas();
     AltaAsistidaService service = null;
     AltaAsistidaService servicio() {
-        if (service == null) service = new AltaAsistidaService(cuentas, usuarios, sesiones, tenants, series, apiKeys, hasher, correo, uow, auditoria, "pepper", Fakes.CLOCK, claves, cifrador);
+        if (service == null) service = new AltaAsistidaService(cuentas, usuarios, sesiones, tenants, series, apiKeys, hasher, correo, uow, auditoria, "pepper", Fakes.CLOCK, claves, cifrador, new PlantillasDeCorreo(plantillasGuardadas));
         return service;
     }
 
     static Solicitud solicitud() {
         return new Solicitud("Comercial Andina", "Ana@Andina.pe", "987654321", "20100066603", "COMERCIAL ANDINA SAC", null, TipoDocumento.FACTURA, "F001");
+    }
+
+    // --- #199: el texto de la bienvenida lo edita un administrador ---------------------------------------------------------------------
+
+    @Test void laInvitacionSaleConElTextoQueUnAdministradorEdito() {
+        plantillasGuardadas.filas.put(pe.factura.domain.plataforma.PlantillaDeCorreo.BIENVENIDA,
+                new pe.factura.application.port.out.PlantillasRepository.Guardada(new pe.factura.domain.plataforma.PlantillaDeCorreo.Texto("Hola {razon_social}", "RUC {ruc}: entra a {enlace} ({validez})"), java.time.Instant.EPOCH));
+
+        servicio().alta(ACTOR, solicitud(), PORTAL);
+
+        assertThat(correos).singleElement().satisfies(c -> {
+            String[] partes = c.split("\\|", 3);
+            assertThat(partes[0]).isEqualTo("ana@andina.pe");
+            assertThat(partes[1]).isEqualTo("Hola COMERCIAL ANDINA SAC");
+            assertThat(partes[2]).startsWith("RUC 20100066603: entra a " + PORTAL + "/restablecer/").endsWith("?invitacion=1 (7 días)");
+        });
     }
 
     @Test void creaLaCuentaSuUsuarioLaEmpresaLaSerieYLaApiKeyEnUnSoloPaso() {
@@ -394,7 +411,7 @@ class AltaAsistidaServiceTest {
         };
         ciegaAlBuscar.filas.putAll(claves.filas);
         AltaAsistidaService otra = new AltaAsistidaService(cuentas, usuarios, sesiones, tenants, series, apiKeys, hasher, correo, uow, auditoria, "pepper",
-                Fakes.CLOCK, ciegaAlBuscar, cifrador);
+                Fakes.CLOCK, ciegaAlBuscar, cifrador, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()));
         Solicitud igualPeroSinDuplicar = new Solicitud("Comercial Andina", "ana2@andina.pe", "987654321", "20601234565", "COMERCIAL ANDINA SAC", null, TipoDocumento.FACTURA, "F001");
 
         var r = otra.alta(ACTOR, igualPeroSinDuplicar, PORTAL, CLAVE);

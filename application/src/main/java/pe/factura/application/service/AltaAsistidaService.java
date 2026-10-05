@@ -44,6 +44,7 @@ public class AltaAsistidaService implements AltaAsistidaUseCase {
     private final Clock clock;
     private final IdempotenciaRepository idempotencia;
     private final SecretCipher cifrador;
+    private final PlantillasDeCorreo plantillas;
 
     /** Las altas no son de ninguna empresa: un solo alcance para todas las claves. */
     static final String ALCANCE = "alta-cuenta";
@@ -143,10 +144,8 @@ public class AltaAsistidaService implements AltaAsistidaUseCase {
      */
     private boolean enviarInvitacion(String email, Tenant tenant, String urlPortal, String token) {
         try {
-            correo.enviar(email, "Te damos la bienvenida a khipu",
-                    "Dimos de alta a " + tenant.razonSocial() + " (RUC " + tenant.ruc() + ") en khipu.\n"
-                            + "Para entrar, crea tu contraseña en este enlace (válido 7 días, de un solo uso):\n"
-                            + urlPortal + "/restablecer/" + token + "?invitacion=1");
+            var texto = CorreosDeAcceso.bienvenida(plantillas, tenant.razonSocial(), tenant.ruc(), urlPortal, token);
+            correo.enviar(email, texto.asunto(), texto.cuerpo());
             return correo.entregaDeVerdad();
         } catch (RuntimeException e) {
             // La causa la registra el adaptador de correo, que es quien la conoce (este módulo no tiene logger). Aquí solo importa

@@ -33,6 +33,7 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     private final Clock clock;
     private final VerificacionCorreoRepository verificaciones;
     private final SuspensionRepository suspensiones;
+    private final PlantillasDeCorreo plantillas;
 
     @Override
     public Tokens registrar(String nombreCuenta, String email, String password, String telefono, String urlBase) {
@@ -85,7 +86,8 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
      */
     private void enviarVerificacion(String email, String urlBase, String token) {
         try {
-            correo.enviar(email, CorreosDeAcceso.ASUNTO_VERIFICACION, CorreosDeAcceso.cuerpoVerificacion(urlBase, token));
+            var texto = CorreosDeAcceso.verificacion(plantillas, urlBase, token);
+            correo.enviar(email, texto.asunto(), texto.cuerpo());
         } catch (RuntimeException e) {
             // el portal muestra «revisa tu correo» con un botón para pedir otro enlace
         }
@@ -135,7 +137,8 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
         usuarios.buscarPorEmail(email == null ? "" : email.trim().toLowerCase()).filter(Usuario::activo).ifPresent(u -> {
             String token = TokenOpaco.generar();
             uow.ejecutar(() -> sesiones.crearRecuperacion(new TokenRecuperacion(TokenOpaco.hash(token), u.id(), clock.instant().plus(VIDA_RECUPERACION), false)));
-            correo.enviar(u.email(), CorreosDeAcceso.ASUNTO_RECUPERACION, CorreosDeAcceso.cuerpoRecuperacion(urlBase, token));
+            var texto = CorreosDeAcceso.recuperacion(plantillas, urlBase, token);
+            correo.enviar(u.email(), texto.asunto(), texto.cuerpo());
         });
     }
 
