@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { entrarComoAdmin } from "./admin-sesion";
+import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) abre la sesión de soporte con el token del cliente de demostración marcado como soporte, porque su mundo de clientes es otro:
 // aquí se prueba el recorrido (el diálogo, la cookie, el aviso permanente, la salida y el historial), no los datos del cliente. Impersonar no muta el mock: solo
@@ -12,6 +13,8 @@ const CARLA = USUARIO(9002); // desactivada
 async function abrirComoBeto(page: import("@playwright/test").Page) {
   await entrarComoAdmin(page);
   await page.goto(`/admin/cuentas/${ID_SOL}`);
+  // Un clic antes de que React hidrate el botón se pierde: el diálogo no se abre.
+  await esperarHidratacion(page, '[data-testid="impersonar-usuario"]');
   await page.locator("tbody tr", { hasText: "beto@sol.pe" }).getByTestId("impersonar-usuario").click();
   await page.getByTestId("impersonar-usuario-confirmar").click();
 }
@@ -67,6 +70,8 @@ test("salir del modo soporte vuelve a la cuenta en el backoffice, cierra la sesi
   await abrirComoBeto(page);
   await expect(page.getByTestId("aviso-de-soporte")).toBeVisible();
 
+  // El aviso viene en el HTML del servidor antes de hidratar: un clic en «Salir» en esa ventana se pierde y la página se queda en el portal del cliente.
+  await esperarHidratacion(page, '[data-testid="salir-de-soporte"]');
   await page.getByTestId("salir-de-soporte").click();
 
   await expect(page).toHaveURL(new RegExp(`/admin/cuentas/${ID_SOL}$`));
