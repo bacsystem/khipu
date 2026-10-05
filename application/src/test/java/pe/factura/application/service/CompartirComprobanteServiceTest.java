@@ -65,19 +65,39 @@ class CompartirComprobanteServiceTest {
                 .extracting("codigo").isEqualTo("CORREO_NO_ENVIADO");
     }
 
-    /** Sin SMTP el adaptador escribe en el log y no lanza: responder «enviado» sería decirle al emisor algo falso (#218). */
-    @Test void sinCorreoQueEntregueDeVerdadNoSeDaPorEnviado() {
-        Comprobante c = aceptada();
-        List<Correo> alLog = new ArrayList<>();
-        CorreoSender soloLog = new CorreoSender() {
+    /** Un adaptador como {@code LogCorreoSender}: deja el correo en {@code alLog}, no lanza y no entrega de verdad. */
+    private static CorreoSender soloLog(List<Correo> alLog) {
+        return new CorreoSender() {
             public void enviar(String para, String asunto, String cuerpo) { enviar(para, asunto, cuerpo, List.of()); }
             public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) { alLog.add(new Correo(para, asunto, cuerpo, adjuntos)); }
             @Override public boolean entregaDeVerdad() { return false; }
         };
+    }
+
+    /** Sin SMTP el adaptador escribe en el log y no lanza: responder «enviado» sería decirle al emisor algo falso (#218). */
+    @Test void sinCorreoQueEntregueDeVerdadNoSeDaPorEnviado() {
+        Comprobante c = aceptada();
+        List<Correo> alLog = new ArrayList<>();
+        CorreoSender soloLog = soloLog(alLog);
         assertThatThrownBy(() -> new CompartirComprobanteService(consultar, tenants, soloLog).enviarPorCorreo(tenant, c.id(), "cliente@example.com", null))
                 .isInstanceOf(DomainException.class).hasMessageContaining("no está habilitado").hasMessageContaining("F001-" + c.numero() + " no se envió")
                 .extracting("codigo").isEqualTo("CORREO_NO_CONFIGURADO");
         assertThat(alLog).as("no se intenta un envío que no va a salir").isEmpty();
+    }
+
+    /**
+     * Sin SMTP, un comprobante que aún no se puede enviar sigue diciendo {@code NO_ACEPTADO} (409): es lo que documenta /developers/errores y
+     * lo que el emisor puede corregir; «el servidor no tiene correo» (503) solo vale cuando el envío sí procedería.
+     */
+    @Test void sinCorreoUnComprobanteNoAceptadoSigueDiciendoNoAceptado() {
+        tenants.guardar(Fakes.tenantListo(tenant));
+        Comprobante c = Fakes.facturaFirmada(tenant, storage);
+        repo.guardar(c);
+        List<Correo> alLog = new ArrayList<>();
+
+        assertThatThrownBy(() -> new CompartirComprobanteService(consultar, tenants, soloLog(alLog)).enviarPorCorreo(tenant, c.id(), "cliente@example.com", null))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("NO_ACEPTADO");
+        assertThat(alLog).isEmpty();
     }
 
     @Test void soloSeEnvianComprobantesAceptados() {
