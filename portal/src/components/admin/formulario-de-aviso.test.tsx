@@ -23,17 +23,19 @@ const texto = () => screen.getByTestId("aviso-texto") as HTMLInputElement;
 const desde = () => screen.getByTestId("aviso-desde") as HTMLInputElement;
 const hasta = () => screen.getByTestId("aviso-hasta") as HTMLInputElement;
 const escribir = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value } });
+const alResultado = vi.fn();
 
 afterEach(() => {
   cleanup();
   refresh.mockClear();
+  alResultado.mockReset();
   apiRequest.mockReset();
 });
 
 describe("FormularioDeAviso (#199)", () => {
   describe("sin aviso publicado", () => {
     it("dice que no hay ninguno y ofrece publicar, empezando ahora en hora de Lima", () => {
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
 
       expect(screen.getByTestId("aviso-ninguno").textContent).toBe("No hay ningún aviso publicado.");
       expect(screen.getByTestId("aviso-publicar").textContent).toContain("Publicar aviso");
@@ -45,7 +47,7 @@ describe("FormularioDeAviso (#199)", () => {
     });
 
     it("el texto tiene el tope del backend y las dos fechas son de fecha y hora", () => {
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
 
       expect(texto().maxLength).toBe(300);
       expect(desde().type).toBe("datetime-local");
@@ -53,7 +55,7 @@ describe("FormularioDeAviso (#199)", () => {
     });
 
     it("explica los límites: una línea, hasta 300 caracteres, fin obligatorio y a lo sumo 90 días", () => {
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
 
       expect(screen.getByText("Una sola línea, hasta 300 caracteres. Se muestra como texto plano.")).toBeTruthy();
       expect(screen.getByText("Obligatorio, y a lo sumo 90 días después de empezar.")).toBeTruthy();
@@ -62,7 +64,7 @@ describe("FormularioDeAviso (#199)", () => {
 
   describe("la vista previa", () => {
     it("no aparece hasta que hay texto y un fin válido", () => {
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       expect(screen.queryByTestId("aviso-vista-previa")).toBeNull();
 
       escribir(texto(), "Mantenimiento");
@@ -73,7 +75,7 @@ describe("FormularioDeAviso (#199)", () => {
     });
 
     it("muestra el banner tal como lo verán los clientes, con el fin en hora de Lima", () => {
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       escribir(texto(), "  Mantenimiento esta noche  ");
       escribir(hasta(), "2026-10-15T23:00");
 
@@ -84,7 +86,7 @@ describe("FormularioDeAviso (#199)", () => {
     });
 
     it("un texto en blanco no genera vista previa", () => {
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       escribir(texto(), "   ");
       escribir(hasta(), "2026-10-15T23:00");
 
@@ -101,22 +103,21 @@ describe("FormularioDeAviso (#199)", () => {
 
     it("manda un PUT con el texto y las fechas de Lima convertidas a instantes, dice que se publicó y recarga", async () => {
       apiRequest.mockResolvedValue(exito(banner()));
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       llenar();
 
       fireEvent.click(screen.getByTestId("aviso-publicar"));
 
-      await waitFor(() => expect(screen.getByTestId("aviso-resultado").textContent).toBe("Aviso publicado."));
+      await waitFor(() => expect(alResultado).toHaveBeenLastCalledWith("Aviso publicado."));
       expect(apiRequest).toHaveBeenCalledExactlyOnceWith("/api/admin/configuracion/banner", {
         method: "PUT",
         body: { texto: "Mantenimiento esta noche", desde: "2026-10-16T03:00:00.000Z", hasta: "2026-10-16T04:30:00.000Z" },
       });
       expect(refresh).toHaveBeenCalledTimes(1);
-      expect(screen.getByTestId("aviso-resultado").getAttribute("role")).toBe("status");
     });
 
     it("sin texto o sin fechas lo dice bajo cada campo y no manda nada", () => {
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       escribir(desde(), "");
 
       fireEvent.click(screen.getByTestId("aviso-publicar"));
@@ -131,7 +132,7 @@ describe("FormularioDeAviso (#199)", () => {
     });
 
     it("escribir en un campo borra su error, y solo el suyo", () => {
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       fireEvent.click(screen.getByTestId("aviso-publicar"));
       expect(screen.getByText("Escribe el texto del aviso.")).toBeTruthy();
       expect(screen.getByText("Indica hasta cuándo se muestra.")).toBeTruthy();
@@ -144,19 +145,19 @@ describe("FormularioDeAviso (#199)", () => {
 
     it("lo que el backend rechaza (el orden, el límite de 90 días) se muestra tal cual, sin decir que se publicó ni recargar", async () => {
       apiRequest.mockResolvedValue(error("BANNER_INVALIDO", "Un aviso puede durar hasta 90 días"));
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       llenar();
 
       fireEvent.click(screen.getByTestId("aviso-publicar"));
 
       expect((await screen.findByRole("alert")).textContent).toBe("Un aviso puede durar hasta 90 días");
-      expect(screen.queryByTestId("aviso-resultado")).toBeNull();
+      expect(alResultado).not.toHaveBeenCalledWith("Aviso publicado.");
       expect(refresh).not.toHaveBeenCalled();
     });
 
     it("un corte de red no se reintenta a ciegas", async () => {
       apiRequest.mockResolvedValue(error("RED", "No se pudo conectar"));
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       llenar();
 
       fireEvent.click(screen.getByTestId("aviso-publicar"));
@@ -168,7 +169,7 @@ describe("FormularioDeAviso (#199)", () => {
     it("dos clics en el mismo instante mandan un solo pedido", async () => {
       let responder: (v: ApiEnvelope<unknown>) => void = () => {};
       apiRequest.mockReturnValue(new Promise((r) => (responder = r)));
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       llenar();
       const boton = screen.getByTestId("aviso-publicar") as HTMLButtonElement;
 
@@ -183,22 +184,34 @@ describe("FormularioDeAviso (#199)", () => {
       await act(async () => responder(exito(banner())));
     });
 
-    it("al volver a escribir deja de decir que se publicó", async () => {
+    it("al volver a escribir pide que se deje de decir que se publicó", async () => {
       apiRequest.mockResolvedValue(exito(banner()));
-      render(<FormularioDeAviso banner={null} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       llenar();
       fireEvent.click(screen.getByTestId("aviso-publicar"));
-      await screen.findByTestId("aviso-resultado");
+      await waitFor(() => expect(alResultado).toHaveBeenLastCalledWith("Aviso publicado."));
 
       escribir(texto(), "Otro");
 
-      expect(screen.queryByTestId("aviso-resultado")).toBeNull();
+      expect(alResultado).toHaveBeenLastCalledWith(null);
+    });
+
+    it("al empezar a publicar borra el resultado anterior, antes de saber cómo termina", async () => {
+      let responder: (v: ApiEnvelope<unknown>) => void = () => {};
+      apiRequest.mockReturnValue(new Promise((r) => (responder = r)));
+      render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
+      llenar();
+
+      fireEvent.click(screen.getByTestId("aviso-publicar"));
+
+      expect(alResultado).toHaveBeenLastCalledWith(null);
+      await act(async () => responder(exito(banner())));
     });
   });
 
   describe("con un aviso publicado", () => {
     it("dice cuál es, su vigencia en hora de Lima y que se está mostrando", () => {
-      render(<FormularioDeAviso banner={banner()} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={banner()} ahora={AHORA} alResultado={alResultado} />);
 
       expect(screen.getByTestId("aviso-estado").textContent).toBe("Se está mostrando ahora.");
       expect(screen.getByTestId("aviso-estado").getAttribute("data-estado")).toBe("vigente");
@@ -208,21 +221,21 @@ describe("FormularioDeAviso (#199)", () => {
     });
 
     it("uno programado para después dice que todavía no se muestra", () => {
-      render(<FormularioDeAviso banner={banner({ desde: "2026-10-16T01:00:00Z", vigente_ahora: false })} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={banner({ desde: "2026-10-16T01:00:00Z", vigente_ahora: false })} ahora={AHORA} alResultado={alResultado} />);
 
       expect(screen.getByTestId("aviso-estado").textContent).toBe("Programado: todavía no se muestra.");
       expect(screen.getByTestId("aviso-estado").getAttribute("data-estado")).toBe("programado");
     });
 
     it("uno que ya terminó dice que venció", () => {
-      render(<FormularioDeAviso banner={banner({ desde: "2026-10-14T10:00:00Z", hasta: "2026-10-14T14:00:00Z", vigente_ahora: false })} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={banner({ desde: "2026-10-14T10:00:00Z", hasta: "2026-10-14T14:00:00Z", vigente_ahora: false })} ahora={AHORA} alResultado={alResultado} />);
 
       expect(screen.getByTestId("aviso-estado").textContent).toBe("Ya venció: no se muestra.");
       expect(screen.getByTestId("aviso-estado").getAttribute("data-estado")).toBe("vencido");
     });
 
     it("el formulario arranca con sus datos, en hora de Lima, y el botón dice «Reemplazar aviso»", () => {
-      render(<FormularioDeAviso banner={banner()} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={banner()} ahora={AHORA} alResultado={alResultado} />);
 
       expect(texto().value).toBe("Mantenimiento esta noche");
       expect(desde().value).toBe("2026-10-15T11:00");
@@ -231,7 +244,7 @@ describe("FormularioDeAviso (#199)", () => {
     });
 
     it("ofrece retirarlo, y el diálogo dice qué pasa y que queda en la bitácora", () => {
-      render(<FormularioDeAviso banner={banner()} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={banner()} ahora={AHORA} alResultado={alResultado} />);
 
       fireEvent.click(screen.getByTestId("aviso-retirar"));
 
@@ -243,7 +256,7 @@ describe("FormularioDeAviso (#199)", () => {
 
     it("confirmar manda un DELETE y recarga", async () => {
       apiRequest.mockResolvedValue(exito(null));
-      render(<FormularioDeAviso banner={banner()} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={banner()} ahora={AHORA} alResultado={alResultado} />);
       fireEvent.click(screen.getByTestId("aviso-retirar"));
 
       fireEvent.click(screen.getByTestId("aviso-retirar-confirmar"));
@@ -254,7 +267,7 @@ describe("FormularioDeAviso (#199)", () => {
 
     it("si otro administrador ya lo retiró, lo dice y recarga para mostrar el estado real", async () => {
       apiRequest.mockResolvedValue(error("NO_ENCONTRADO", "No hay un aviso publicado"));
-      render(<FormularioDeAviso banner={banner()} ahora={AHORA} />);
+      render(<FormularioDeAviso banner={banner()} ahora={AHORA} alResultado={alResultado} />);
       fireEvent.click(screen.getByTestId("aviso-retirar"));
 
       fireEvent.click(screen.getByTestId("aviso-retirar-confirmar"));

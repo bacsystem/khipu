@@ -31,34 +31,36 @@ const error = (codigo: string | null, mensaje: string | null): ApiEnvelope<unkno
 const asunto = () => screen.getByTestId("plantilla-asunto") as HTMLInputElement;
 const cuerpo = () => screen.getByTestId("plantilla-cuerpo") as HTMLTextAreaElement;
 const escribir = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value } });
+const alResultado = vi.fn();
 
 afterEach(() => {
   cleanup();
   refresh.mockClear();
+  alResultado.mockReset();
   apiRequest.mockReset();
 });
 
 describe("EditorDePlantilla (#199)", () => {
   it("dice qué correo es, cuándo se manda y si sale de fábrica o editado", () => {
-    const { unmount } = render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+    const { unmount } = render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
     expect(screen.getByRole("heading", { name: "Restablecer la contraseña" })).toBeTruthy();
     expect(screen.getByText("Se manda cuando alguien olvidó su contraseña.")).toBeTruthy();
     expect(screen.getByTestId("plantilla-origen").textContent).toBe("Sale con el texto de fábrica.");
     unmount();
 
-    render(<EditorDePlantilla plantilla={EDITADA} />);
+    render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
     expect(screen.getByTestId("plantilla-origen").textContent).toBe("Editado el 15 Oct 2026, 15:00.");
   });
 
   it("el asunto y el cuerpo arrancan con el texto vigente", () => {
-    render(<EditorDePlantilla plantilla={EDITADA} />);
+    render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
 
     expect(asunto().value).toBe("Mi asunto");
     expect(cuerpo().value).toBe("Mi cuerpo {enlace}");
   });
 
   it("los límites de los campos son los del backend", () => {
-    render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+    render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
 
     expect(asunto().maxLength).toBe(150);
     expect(cuerpo().maxLength).toBe(5000);
@@ -66,7 +68,7 @@ describe("EditorDePlantilla (#199)", () => {
 
   describe("las variables", () => {
     it("lista cada variable con su descripción y un ejemplo, y marca la indispensable", () => {
-      render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+      render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
 
       const enlace = screen.getByTestId("plantilla-variable-enlace").closest("li")!;
       expect(enlace.textContent).toContain("{enlace}");
@@ -78,7 +80,7 @@ describe("EditorDePlantilla (#199)", () => {
     });
 
     it("un clic inserta la variable en el cuerpo, donde está el cursor, y deja el cursor después", async () => {
-      render(<EditorDePlantilla plantilla={{ ...DE_FABRICA, vigente: { asunto: "Hola", cuerpo: "Abre  ya" } }} />);
+      render(<EditorDePlantilla plantilla={{ ...DE_FABRICA, vigente: { asunto: "Hola", cuerpo: "Abre  ya" } }} alResultado={alResultado} />);
       act(() => cuerpo().focus());
       cuerpo().setSelectionRange(5, 5);
 
@@ -90,7 +92,7 @@ describe("EditorDePlantilla (#199)", () => {
     });
 
     it("reemplaza lo seleccionado", () => {
-      render(<EditorDePlantilla plantilla={{ ...DE_FABRICA, vigente: { asunto: "Hola", cuerpo: "Abre ESTO ya" } }} />);
+      render(<EditorDePlantilla plantilla={{ ...DE_FABRICA, vigente: { asunto: "Hola", cuerpo: "Abre ESTO ya" } }} alResultado={alResultado} />);
       act(() => cuerpo().focus());
       cuerpo().setSelectionRange(5, 9);
 
@@ -100,7 +102,7 @@ describe("EditorDePlantilla (#199)", () => {
     });
 
     it("si el último campo tocado fue el asunto, la variable va al asunto", () => {
-      render(<EditorDePlantilla plantilla={{ ...DE_FABRICA, vigente: { asunto: "Aviso ", cuerpo: "Cuerpo" } }} />);
+      render(<EditorDePlantilla plantilla={{ ...DE_FABRICA, vigente: { asunto: "Aviso ", cuerpo: "Cuerpo" } }} alResultado={alResultado} />);
       act(() => asunto().focus());
       asunto().setSelectionRange(6, 6);
 
@@ -111,7 +113,7 @@ describe("EditorDePlantilla (#199)", () => {
     });
 
     it("sin haber tocado nada, la variable va al cuerpo", () => {
-      render(<EditorDePlantilla plantilla={{ ...DE_FABRICA, vigente: { asunto: "Aviso", cuerpo: "Cuerpo" } }} />);
+      render(<EditorDePlantilla plantilla={{ ...DE_FABRICA, vigente: { asunto: "Aviso", cuerpo: "Cuerpo" } }} alResultado={alResultado} />);
 
       fireEvent.click(screen.getByTestId("plantilla-variable-validez"));
 
@@ -120,7 +122,7 @@ describe("EditorDePlantilla (#199)", () => {
     });
 
     it("insertar cuenta como un cambio: aparece «Hay cambios sin guardar»", () => {
-      render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+      render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
       expect(screen.getByTestId("plantilla-estado").textContent).toBe("Sin cambios sin guardar.");
 
       fireEvent.click(screen.getByTestId("plantilla-variable-validez"));
@@ -131,7 +133,7 @@ describe("EditorDePlantilla (#199)", () => {
 
   describe("el estado", () => {
     it("dice si hay cambios sin guardar, y vuelve a decir que no si se deshacen", () => {
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
       expect(screen.getByTestId("plantilla-estado").textContent).toBe("Sin cambios sin guardar.");
 
       escribir(asunto(), "Otro");
@@ -142,7 +144,7 @@ describe("EditorDePlantilla (#199)", () => {
     });
 
     it("un cambio solo en el cuerpo también cuenta", () => {
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
 
       escribir(cuerpo(), "Mi cuerpo {enlace} y más");
 
@@ -153,7 +155,7 @@ describe("EditorDePlantilla (#199)", () => {
   describe("la vista previa", () => {
     it("manda el texto a la ruta de ese correo y muestra cómo se vería", async () => {
       apiRequest.mockResolvedValue(exito({ asunto: "Mi asunto", cuerpo: "Mi cuerpo https://app.khipu.pe/restablecer/0a1b2c3d" }));
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
 
       fireEvent.click(screen.getByTestId("plantilla-ver-vista-previa"));
 
@@ -165,7 +167,7 @@ describe("EditorDePlantilla (#199)", () => {
 
     it("manda lo que está escrito, no lo guardado", async () => {
       apiRequest.mockResolvedValue(exito({ asunto: "x", cuerpo: "y" }));
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
       escribir(asunto(), "Sin guardar");
       escribir(cuerpo(), "Tampoco {enlace}");
 
@@ -177,7 +179,7 @@ describe("EditorDePlantilla (#199)", () => {
 
     it("lo que el backend rechaza se muestra tal cual y no deja una vista previa vieja", async () => {
       apiRequest.mockResolvedValueOnce(exito({ asunto: "a", cuerpo: "b" })).mockResolvedValueOnce(error("PLANTILLA_INVALIDA", "El cuerpo tiene que incluir {enlace}"));
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
       fireEvent.click(screen.getByTestId("plantilla-ver-vista-previa"));
       await screen.findByTestId("plantilla-vista-previa");
 
@@ -189,7 +191,7 @@ describe("EditorDePlantilla (#199)", () => {
 
     it("al cambiar el texto la vista previa desaparece: ya no diría lo que se va a guardar", async () => {
       apiRequest.mockResolvedValue(exito({ asunto: "a", cuerpo: "b" }));
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
       fireEvent.click(screen.getByTestId("plantilla-ver-vista-previa"));
       await screen.findByTestId("plantilla-vista-previa");
 
@@ -201,7 +203,7 @@ describe("EditorDePlantilla (#199)", () => {
     it("mientras se calcula lo dice y no se pide dos veces", async () => {
       let responder: (v: ApiEnvelope<unknown>) => void = () => {};
       apiRequest.mockReturnValue(new Promise((r) => (responder = r)));
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
       const boton = screen.getByTestId("plantilla-ver-vista-previa") as HTMLButtonElement;
 
       act(() => {
@@ -217,7 +219,7 @@ describe("EditorDePlantilla (#199)", () => {
 
     it("el cuerpo de la vista previa se muestra como texto, nunca como HTML", async () => {
       apiRequest.mockResolvedValue(exito({ asunto: "<b>a</b>", cuerpo: "<img src=x onerror=alert(1)>" }));
-      const { container } = render(<EditorDePlantilla plantilla={EDITADA} />);
+      const { container } = render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
 
       fireEvent.click(screen.getByTestId("plantilla-ver-vista-previa"));
 
@@ -228,7 +230,7 @@ describe("EditorDePlantilla (#199)", () => {
 
     it("un corte de red dice que algo falló y no deja vista previa", async () => {
       apiRequest.mockResolvedValue(error("RED", "No se pudo conectar"));
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
 
       fireEvent.click(screen.getByTestId("plantilla-ver-vista-previa"));
 
@@ -239,32 +241,31 @@ describe("EditorDePlantilla (#199)", () => {
   describe("guardar", () => {
     it("manda un PUT al correo con asunto y cuerpo tal cual, dice que quedó guardado y recarga", async () => {
       apiRequest.mockResolvedValue(exito(EDITADA));
-      render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+      render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
       escribir(asunto(), "  Mi asunto ");
       escribir(cuerpo(), "Mi cuerpo {enlace}\n\n");
 
       fireEvent.click(screen.getByTestId("plantilla-guardar"));
 
-      await waitFor(() => expect(screen.getByTestId("plantilla-resultado").textContent).toBe("Texto guardado: vale desde el siguiente correo."));
+      await waitFor(() => expect(alResultado).toHaveBeenLastCalledWith("Texto guardado: vale desde el siguiente correo."));
       expect(apiRequest).toHaveBeenCalledExactlyOnceWith(RUTA, { method: "PUT", body: { asunto: "  Mi asunto ", cuerpo: "Mi cuerpo {enlace}\n\n" } });
       expect(refresh).toHaveBeenCalledTimes(1);
-      expect(screen.getByTestId("plantilla-resultado").getAttribute("role")).toBe("status");
     });
 
     it("lo que el backend rechaza se muestra tal cual, sin decir que se guardó ni recargar", async () => {
       apiRequest.mockResolvedValue(error("PLANTILLA_INVALIDA", "Este correo no tiene la variable {ruc}"));
-      render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+      render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
 
       fireEvent.click(screen.getByTestId("plantilla-guardar"));
 
       expect((await screen.findByRole("alert")).textContent).toBe("Este correo no tiene la variable {ruc}");
-      expect(screen.queryByTestId("plantilla-resultado")).toBeNull();
+      expect(alResultado).not.toHaveBeenCalledWith(expect.stringContaining("guardado"));
       expect(refresh).not.toHaveBeenCalled();
     });
 
     it("un corte de red no se reintenta a ciegas", async () => {
       apiRequest.mockResolvedValue(error("RED", "No se pudo conectar"));
-      render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+      render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
 
       fireEvent.click(screen.getByTestId("plantilla-guardar"));
 
@@ -275,7 +276,7 @@ describe("EditorDePlantilla (#199)", () => {
     it("dos clics en el mismo instante mandan un solo pedido", async () => {
       let responder: (v: ApiEnvelope<unknown>) => void = () => {};
       apiRequest.mockReturnValue(new Promise((r) => (responder = r)));
-      render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+      render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
       const boton = screen.getByTestId("plantilla-guardar") as HTMLButtonElement;
 
       act(() => {
@@ -289,20 +290,31 @@ describe("EditorDePlantilla (#199)", () => {
       await act(async () => responder(exito(EDITADA)));
     });
 
-    it("al volver a escribir deja de decir que se guardó", async () => {
+    it("al volver a escribir pide que se deje de decir que se guardó", async () => {
       apiRequest.mockResolvedValue(exito(EDITADA));
-      render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+      render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
       fireEvent.click(screen.getByTestId("plantilla-guardar"));
-      await screen.findByTestId("plantilla-resultado");
+      await waitFor(() => expect(alResultado).toHaveBeenLastCalledWith("Texto guardado: vale desde el siguiente correo."));
 
       escribir(asunto(), "Otro");
 
-      expect(screen.queryByTestId("plantilla-resultado")).toBeNull();
+      expect(alResultado).toHaveBeenLastCalledWith(null);
+    });
+
+    it("al empezar a guardar borra el resultado anterior, antes de saber cómo termina", async () => {
+      let responder: (v: ApiEnvelope<unknown>) => void = () => {};
+      apiRequest.mockReturnValue(new Promise((r) => (responder = r)));
+      render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
+
+      fireEvent.click(screen.getByTestId("plantilla-guardar"));
+
+      expect(alResultado).toHaveBeenLastCalledWith(null);
+      await act(async () => responder(exito(EDITADA)));
     });
 
     it("un error anterior se borra al escribir de nuevo", async () => {
       apiRequest.mockResolvedValue(error("PLANTILLA_INVALIDA", "Mal"));
-      render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+      render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
       fireEvent.click(screen.getByTestId("plantilla-guardar"));
       await screen.findByRole("alert");
 
@@ -314,16 +326,16 @@ describe("EditorDePlantilla (#199)", () => {
 
   describe("volver al texto de fábrica", () => {
     it("solo se ofrece si el texto fue editado", () => {
-      const { unmount } = render(<EditorDePlantilla plantilla={DE_FABRICA} />);
+      const { unmount } = render(<EditorDePlantilla plantilla={DE_FABRICA} alResultado={alResultado} />);
       expect(screen.queryByTestId("plantilla-restaurar")).toBeNull();
       unmount();
 
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
       expect(screen.getByTestId("plantilla-restaurar")).toBeTruthy();
     });
 
     it("el diálogo dice de qué correo se trata y que queda en la bitácora, y no pide nada hasta confirmar", () => {
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
 
       fireEvent.click(screen.getByTestId("plantilla-restaurar"));
 
@@ -335,7 +347,7 @@ describe("EditorDePlantilla (#199)", () => {
 
     it("confirmar manda un DELETE a la ruta de ese correo y recarga", async () => {
       apiRequest.mockResolvedValue(exito(DE_FABRICA));
-      render(<EditorDePlantilla plantilla={EDITADA} />);
+      render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
       fireEvent.click(screen.getByTestId("plantilla-restaurar"));
 
       fireEvent.click(screen.getByTestId("plantilla-restaurar-confirmar"));

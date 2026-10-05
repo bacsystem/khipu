@@ -19,9 +19,10 @@ type Campo = "asunto" | "cuerpo";
 /**
  * El texto de un correo de la plataforma (#199): asunto y cuerpo, con las variables que ese correo admite a un clic de donde está el cursor, una vista previa con valores de
  * ejemplo que pasa por las mismas reglas que guardar, y el botón de volver al texto de fábrica. Las reglas (variables que existen, las indispensables, los límites) las pone el
- * backend, una sola vez; acá solo se muestra lo que dice. Cambiar el texto borra la vista previa: ya no diría lo que se va a guardar.
+ * backend, una sola vez; acá solo se muestra lo que dice. Cambiar el texto borra la vista previa: ya no diría lo que se va a guardar. Que quedó guardado lo dice quien lo contiene
+ * ({@code alResultado}): al guardar, la página se recarga y este editor se vuelve a montar con lo guardado, y el mensaje no puede morir con él.
  */
-export function EditorDePlantilla({ plantilla }: { plantilla: PlantillaDeCorreo }) {
+export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: PlantillaDeCorreo; alResultado: (mensaje: string | null) => void }) {
   const router = useRouter();
   const [asunto, setAsunto] = useState(plantilla.vigente.asunto);
   const [cuerpo, setCuerpo] = useState(plantilla.vigente.cuerpo);
@@ -29,7 +30,6 @@ export function EditorDePlantilla({ plantilla }: { plantilla: PlantillaDeCorreo 
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [calculando, setCalculando] = useState(false);
-  const [guardado, setGuardado] = useState(false);
   const asuntoRef = useRef<HTMLInputElement>(null);
   const cuerpoRef = useRef<HTMLTextAreaElement>(null);
   const alertaRef = useRef<HTMLParagraphElement>(null);
@@ -56,7 +56,7 @@ export function EditorDePlantilla({ plantilla }: { plantilla: PlantillaDeCorreo 
   function editado() {
     setVistaPrevia(null);
     setError(null);
-    setGuardado(false);
+    alResultado(null);
   }
 
   function insertar(marca: string) {
@@ -101,7 +101,7 @@ export function EditorDePlantilla({ plantilla }: { plantilla: PlantillaDeCorreo 
     enviandoRef.current = true;
     setEnviando(true);
     setError(null);
-    setGuardado(false);
+    alResultado(null);
     const r = await llamar<PlantillaDeCorreo>(`/api/admin/configuracion/plantillas/${plantilla.tipo}`, "PUT");
     enviandoRef.current = false;
     setEnviando(false);
@@ -109,7 +109,7 @@ export function EditorDePlantilla({ plantilla }: { plantilla: PlantillaDeCorreo 
       setError(r.mensaje);
       return;
     }
-    setGuardado(true);
+    alResultado(t.guardado);
     router.refresh();
   }
 
@@ -210,11 +210,6 @@ export function EditorDePlantilla({ plantilla }: { plantilla: PlantillaDeCorreo 
       {error ? (
         <p ref={alertaRef} tabIndex={-1} data-testid="plantilla-error" className="text-sm text-destructive outline-none" role="alert">
           {error}
-        </p>
-      ) : null}
-      {guardado ? (
-        <p data-testid="plantilla-resultado" role="status" className="text-sm text-foreground">
-          {t.guardado}
         </p>
       ) : null}
 
