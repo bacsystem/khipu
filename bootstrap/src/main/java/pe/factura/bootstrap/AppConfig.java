@@ -337,11 +337,13 @@ public class AppConfig {
      * El remitente que un administrador fijó, o el de la configuración. Un correo no deja de salir porque la base no respondió al leer el remitente: sale con el de la configuración.
      */
     static RemitenteDeCorreo remitenteVigente(RemitenteRepository remitentes, RemitenteDeCorreo predeterminado) {
+        java.util.Optional<RemitenteRepository.Guardado> guardado;
         try {
-            return remitentes.buscar().map(RemitenteRepository.Guardado::remitente).orElse(predeterminado);
+            guardado = remitentes.buscar();
         } catch (RuntimeException e) {
             return predeterminado;
         }
+        return guardado.map(RemitenteRepository.Guardado::remitente).orElse(predeterminado);
     }
 
     /**

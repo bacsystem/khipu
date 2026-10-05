@@ -267,7 +267,9 @@ class ConfigurarPlataformaServiceTest {
     @Test void unBannerInvalidoNoSeGuardaNiDejaRegistro() {
         assertThatThrownBy(() -> service.publicarBanner(ACTOR, "  ", DESDE, HASTA)).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("BANNER_INVALIDO");
         assertThatThrownBy(() -> service.publicarBanner(ACTOR, "x", HASTA, DESDE)).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("BANNER_INVALIDO");
-        assertThatThrownBy(() -> service.publicarBanner(ACTOR, "x", DESDE, AHORA.minusSeconds(1))).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("BANNER_INVALIDO");
+        // Ya venció: empezó hace horas y terminó hace un segundo (el orden de las fechas está bien, lo que falla es que el fin ya pasó).
+        assertThatThrownBy(() -> service.publicarBanner(ACTOR, "x", AHORA.minus(Duration.ofHours(3)), AHORA.minusSeconds(1))).isInstanceOf(DomainException.class).hasMessageContaining("ya venció")
+                .extracting("codigo").isEqualTo("BANNER_INVALIDO");
 
         assertThat(banners.fila).isNull();
         assertThat(auditoria.registros).isEmpty();
@@ -292,10 +294,21 @@ class ConfigurarPlataformaServiceTest {
         assertThat(auditoria.dentroAlRegistrar).containsExactly(true);
     }
 
+    /** El antes y el después de un remitente largo no caben en los 500 caracteres de la bitácora: se recorta en lugar de hacer fallar el cambio. */
     @Test void elDetalleDeLaBitacoraNuncaPasaDeLoQueCabe() {
-        service.publicarBanner(ACTOR, "x".repeat(BannerDeMantenimiento.MAX_TEXTO), DESDE, HASTA);
+        String largo = "a".repeat(64) + "@" + "b".repeat(100) + ".pe";
+        service.cambiarRemitente(ACTOR, "n".repeat(100), largo, largo);
+        auditoria.registros.clear();
 
-        assertThat(unicoRegistro().detalle()).hasSizeLessThanOrEqualTo(500);
+        service.cambiarRemitente(ACTOR, "m".repeat(100), largo, largo);
+
+        assertThat(unicoRegistro().detalle()).hasSize(500).startsWith("remitente=" + "n".repeat(100));
+    }
+
+    @Test void unDetalleCortoSeGuardaEntero() {
+        service.publicarBanner(ACTOR, "Mantenimiento", DESDE, HASTA);
+
+        assertThat(unicoRegistro().detalle()).isEqualTo("texto=Mantenimiento desde=" + DESDE + " hasta=" + HASTA);
     }
 
     @Test void retirarElBannerLoQuitaYDejaRegistro() {

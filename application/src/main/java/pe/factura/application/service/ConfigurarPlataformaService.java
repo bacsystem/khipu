@@ -118,10 +118,11 @@ public class ConfigurarPlataformaService implements ConfigurarPlataformaUseCase 
 
     @Override public void retirarBanner(ActorAdmin actor) {
         Instant ahora = clock.instant();
-        BannerDeMantenimiento publicado = banners.buscar().map(BannerRepository.Guardado::banner).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "No hay un aviso publicado"));
+        String texto = banners.buscar().map(g -> g.banner().texto()).orElse("");
         uow.ejecutar(() -> {
+            // Quien decide si había algo que retirar es el borrado: dos administradores a la vez, y el segundo lo ve.
             if (!banners.retirar()) throw new DomainException("NO_ENCONTRADO", "No hay un aviso publicado");
-            registrar(actor, AccionAdmin.RETIRAR_BANNER, "texto=" + publicado.texto(), ahora);
+            registrar(actor, AccionAdmin.RETIRAR_BANNER, "texto=" + texto, ahora);
         });
     }
 
