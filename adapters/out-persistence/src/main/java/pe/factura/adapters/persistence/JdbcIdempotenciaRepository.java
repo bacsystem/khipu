@@ -18,12 +18,16 @@ import java.util.UUID;
 public class JdbcIdempotenciaRepository implements IdempotenciaRepository {
     private final JdbcTemplate jdbc;
 
+    @Override public Optional<Registro> buscar(String alcance, String clave) {
+        return jdbc.query("SELECT huella, recurso_id FROM idempotencia WHERE alcance = ? AND clave = ?",
+                (rs, i) -> new Registro(rs.getString("huella"), rs.getObject("recurso_id", UUID.class)), alcance, clave).stream().findFirst();
+    }
+
     @Override public Optional<Registro> reservar(String alcance, String clave, String huella) {
         int insertadas = jdbc.update("INSERT INTO idempotencia (alcance, clave, huella) VALUES (?, ?, ?) ON CONFLICT (alcance, clave) DO NOTHING",
                 alcance, clave, huella);
         if (insertadas == 1) return Optional.empty();
-        return jdbc.query("SELECT huella, recurso_id FROM idempotencia WHERE alcance = ? AND clave = ?",
-                (rs, i) -> new Registro(rs.getString("huella"), rs.getObject("recurso_id", UUID.class)), alcance, clave).stream().findFirst();
+        return buscar(alcance, clave);
     }
 
     @Override public void completar(String alcance, String clave, UUID recursoId) {
