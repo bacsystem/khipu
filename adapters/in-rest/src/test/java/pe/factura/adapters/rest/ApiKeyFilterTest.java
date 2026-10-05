@@ -197,6 +197,23 @@ class ApiKeyFilterTest {
         }
     }
 
+    /** El aviso de mantenimiento (#199) lo muestra el portal antes de iniciar sesión: sin credenciales, pero solo esa ruta y no lo que cuelgue de un prefijo parecido. */
+    @Test void elAvisoDeMantenimientoEsPublicoPeroSoloEse() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/banner");
+        MockFilterChain chain = new MockFilterChain();
+        filter.doFilter(req, new MockHttpServletResponse(), chain);
+        assertThat(chain.getRequest()).isNotNull();
+
+        for (String uri : new String[]{"/v1/banner/otra", "/v1/banners", "/v1/banner/../facturas"}) {
+            MockHttpServletRequest otra = new MockHttpServletRequest("GET", uri);
+            MockHttpServletResponse res = new MockHttpServletResponse();
+            MockFilterChain cadena = new MockFilterChain();
+            filter.doFilter(otra, res, cadena);
+            assertThat(cadena.getRequest()).as(uri).isNull();
+            assertThat(res.getStatus()).as(uri).isEqualTo(401);
+        }
+    }
+
     @Test void peticionYaAutenticadaPorJwtNoExigeApiKey() throws Exception {
         MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
         req.setAttribute(CuentaActual.ATRIBUTO, UUID.randomUUID());

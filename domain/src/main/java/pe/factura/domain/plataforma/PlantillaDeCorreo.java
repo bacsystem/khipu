@@ -80,7 +80,7 @@ public enum PlantillaDeCorreo {
                 Variable.opcional("razon_social", "La razón social de la empresa.", "PANADERIA SOL SAC"),
                 Variable.opcional("ruc", "El RUC de la empresa.", "20100047226"),
                 Variable.opcional("fecha", "El día en que vence o venció el certificado (dd/mm/aaaa).", "25/10/2026"),
-                Variable.opcional("cuando", "Cuándo vence: «hoy», «mañana» o «en N días».", "en 10 días"),
+                Variable.opcional("cuando", "Cuándo vence o venció: «hoy», «mañana», «ayer», «en N días» o «hace N días».", "en 10 días"),
                 Variable.opcional("enlace", "El portal, donde el cliente carga su certificado.", "https://app.khipu.pe"));
     }
 

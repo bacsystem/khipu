@@ -1,37 +1,51 @@
 package pe.factura.application.service;
 
 import pe.factura.domain.plataforma.MotivoDeAviso;
+import pe.factura.domain.plataforma.PlantillaDeCorreo;
+import pe.factura.domain.plataforma.PlantillaDeCorreo.Texto;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * El correo que recibe un cliente cuando el backoffice le avisa algo (#197): qué empresa, qué pasa y qué hacer. Texto plano, sin datos que no aplican. Hoy el texto vive acá;
- * cuando las plantillas sean editables (#199), solo cambia de dónde sale.
+ * El correo que recibe un cliente cuando el backoffice le avisa algo (#197): qué empresa, qué pasa y qué hacer. Acá solo se calculan los valores de cada aviso; el texto sale de
+ * {@link PlantillasDeCorreo} (de fábrica o el que un administrador editó, #199).
  */
-public record MensajeDeAviso(String asunto, String cuerpo) {
+final class MensajeDeAviso {
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/uuuu");
 
+    private MensajeDeAviso() {}
+
+    /** La plantilla que corresponde a cada motivo. */
+    static PlantillaDeCorreo plantilla(MotivoDeAviso motivo) {
+        return switch (motivo) {
+            case CERTIFICADO_POR_VENCER -> PlantillaDeCorreo.AVISO_CERTIFICADO_POR_VENCER;
+            case CERTIFICADO_VENCIDO -> PlantillaDeCorreo.AVISO_CERTIFICADO_VENCIDO;
+            case CREDENCIALES_SOL_INVALIDAS -> PlantillaDeCorreo.AVISO_CREDENCIALES_SOL;
+        };
+    }
+
     /**
-     * {@code vigenteHasta} y {@code dias} solo se usan en los avisos del certificado: {@code dias} es lo que le queda (0 es «vence hoy»); en un vencido no se menciona.
+     * {@code vigenteHasta} y {@code dias} solo se usan en los avisos del certificado: {@code dias} es lo que le queda (0 es «vence hoy», negativo es que ya venció).
      * {@code urlPortal} es donde el cliente carga su certificado o sus credenciales.
      */
-    public static MensajeDeAviso de(MotivoDeAviso motivo, String razonSocial, String ruc, LocalDate vigenteHasta, Integer dias, String urlPortal) {
-        String empresa = razonSocial + " (RUC " + ruc + ")";
-        return switch (motivo) {
-            case CERTIFICADO_POR_VENCER -> {
-                String cuando = dias == 0 ? "hoy" : dias == 1 ? "mañana" : "en " + dias + " días";
-                yield new MensajeDeAviso("Tu certificado digital de " + razonSocial + " vence " + cuando,
-                        "Hola,\n\nEl certificado digital de " + empresa + " vence el " + FECHA.format(vigenteHasta) + " (" + cuando + "). Cuando venza, khipu ya no podrá firmar "
-                                + "los comprobantes de esta empresa y no podrás emitir.\n\nPara renovarlo, consigue un certificado nuevo y cárgalo en el portal:\n" + urlPortal
-                                + "\n\nSi ya lo renovaste, ignora este mensaje.\n\nkhipu");
-            }
-            case CERTIFICADO_VENCIDO -> new MensajeDeAviso("El certificado digital de " + razonSocial + " venció",
-                    "Hola,\n\nEl certificado digital de " + empresa + " venció el " + FECHA.format(vigenteHasta) + ". Mientras no cargues uno vigente, khipu no puede firmar "
-                            + "los comprobantes de esta empresa y no podrás emitir.\n\nConsigue un certificado nuevo y cárgalo en el portal:\n" + urlPortal + "\n\nkhipu");
-            case CREDENCIALES_SOL_INVALIDAS -> new MensajeDeAviso("SUNAT no acepta las credenciales SOL de " + razonSocial,
-                    "Hola,\n\nLos envíos de " + empresa + " a SUNAT están fallando porque SUNAT no acepta el usuario o la clave SOL cargados. Los comprobantes quedan pendientes "
-                            + "hasta que se corrijan.\n\nRevísalos y vuelve a guardarlos en el portal:\n" + urlPortal + "\n\nSi ya las corregiste, ignora este mensaje.\n\nkhipu");
-        };
+    static Texto de(PlantillasDeCorreo plantillas, MotivoDeAviso motivo, String razonSocial, String ruc, LocalDate vigenteHasta, Integer dias, String urlPortal) {
+        Map<String, String> valores = new HashMap<>();
+        valores.put("razon_social", razonSocial);
+        valores.put("ruc", ruc);
+        valores.put("enlace", urlPortal);
+        if (vigenteHasta != null) valores.put("fecha", FECHA.format(vigenteHasta));
+        if (dias != null) valores.put("cuando", cuando(dias));
+        return plantillas.de(plantilla(motivo), valores);
+    }
+
+    /** «hoy», «mañana», «ayer», «en 10 días» o «hace 5 días». */
+    static String cuando(int dias) {
+        if (dias == 0) return "hoy";
+        if (dias == 1) return "mañana";
+        if (dias == -1) return "ayer";
+        return dias > 0 ? "en " + dias + " días" : "hace " + -dias + " días";
     }
 }

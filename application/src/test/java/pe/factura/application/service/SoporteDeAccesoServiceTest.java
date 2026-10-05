@@ -86,12 +86,25 @@ class SoporteDeAccesoServiceTest {
         @Override public boolean entregaDeVerdad() { return entrega; }
     };
 
-    SoporteDeAccesoService service = new SoporteDeAccesoService(usuarios, sesiones, verificacion, correo, uow, auditoria, Fakes.CLOCK);
+    ConfiguracionFake.Plantillas plantillasGuardadas = new ConfiguracionFake.Plantillas();
+    SoporteDeAccesoService service = new SoporteDeAccesoService(usuarios, sesiones, verificacion, correo, uow, auditoria, Fakes.CLOCK, new PlantillasDeCorreo(plantillasGuardadas));
 
     /** El token que viaja en el enlace del último correo, para comprobar que es el que se guardó (por su hash). */
     private String tokenDelCorreo(String ruta) {
         String cuerpo = correos.get(correos.size() - 1)[2];
         return cuerpo.substring(cuerpo.indexOf(PORTAL + ruta) + (PORTAL + ruta).length()).strip();
+    }
+
+    // --- #199: el texto de los correos de acceso lo edita un administrador ----------------------------------------------------------
+
+    @Test void elRestablecimientoSaleConElTextoQueUnAdministradorEdito() {
+        plantillasGuardadas.filas.put(pe.factura.domain.plataforma.PlantillaDeCorreo.RECUPERACION_CLAVE,
+                new pe.factura.application.port.out.PlantillasRepository.Guardada(new pe.factura.domain.plataforma.PlantillaDeCorreo.Texto("Soporte te ayuda", "Elige otra clave en {enlace} (dura {validez})"), java.time.Instant.EPOCH));
+
+        service.enviarRestablecimiento(ACTOR, cuentaId, luis.id(), PORTAL);
+
+        assertThat(correos.get(0)[1]).isEqualTo("Soporte te ayuda");
+        assertThat(correos.get(0)[2]).startsWith("Elige otra clave en " + PORTAL + "/restablecer/").endsWith(" (dura 1 hora)");
     }
 
     // --- restablecer la contraseña -------------------------------------------------------------------------------------------------

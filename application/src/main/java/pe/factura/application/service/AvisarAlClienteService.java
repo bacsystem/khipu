@@ -34,6 +34,7 @@ public class AvisarAlClienteService implements AvisarAlClienteUseCase {
     private final AuditoriaAdminRepository auditoria;
     private final UnitOfWork uow;
     private final Clock clock;
+    private final PlantillasDeCorreo plantillas;
 
     @Override public AvisoEnviado avisar(ActorAdmin actor, UUID empresaId, TipoDeAviso tipo, String urlPortal) {
         if (tipo == null) throw new DomainException("TIPO_INVALIDO", "Indica qué se le avisa al cliente");
@@ -49,7 +50,7 @@ public class AvisarAlClienteService implements AvisarAlClienteUseCase {
         if (previo.isPresent())
             throw new DomainException("AVISO_RECIENTE", "Ya se avisó lo mismo el " + previo.get().enviadoEn() + ": se puede repetir desde el " + motivo.avisarDesde(previo.get().enviadoEn()));
 
-        MensajeDeAviso mensaje = MensajeDeAviso.de(motivo, s.razonSocial(), s.ruc(), s.vigenteHasta(), s.diasRestantes(), urlPortal);
+        var mensaje = MensajeDeAviso.de(plantillas, motivo, s.razonSocial(), s.ruc(), s.vigenteHasta(), s.diasRestantes(), urlPortal);
         try {
             correo.enviar(s.cuenta().email(), mensaje.asunto(), mensaje.cuerpo());
         } catch (RuntimeException e) {

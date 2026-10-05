@@ -13,6 +13,7 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.cuenta.Usuario;
 import pe.factura.domain.plataforma.AccionAdmin;
 import pe.factura.domain.plataforma.ActorAdmin;
+import pe.factura.domain.plataforma.PlantillaDeCorreo;
 import pe.factura.domain.plataforma.RegistroAuditoria;
 
 import java.time.Clock;
@@ -28,6 +29,7 @@ public class SoporteDeAccesoService implements SoporteDeAccesoUseCase {
     private final UnitOfWork uow;
     private final AuditoriaAdminRepository auditoria;
     private final Clock clock;
+    private final PlantillasDeCorreo plantillas;
 
     @Override public Destinatario enviarRestablecimiento(ActorAdmin actor, UUID cuentaId, UUID usuarioId, String urlBase) {
         Usuario u = usuarioActivoDeLaCuenta(cuentaId, usuarioId);
@@ -39,7 +41,7 @@ public class SoporteDeAccesoService implements SoporteDeAccesoUseCase {
             sesiones.crearRecuperacion(new TokenRecuperacion(TokenOpaco.hash(token), u.id(), ahora.plus(AutenticarUsuarioService.VIDA_RECUPERACION), false));
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.ENVIAR_RESTABLECIMIENTO, cuentaId, null, "usuario=" + u.email(), ahora));
         });
-        enviar(u, CorreosDeAcceso.ASUNTO_RECUPERACION, CorreosDeAcceso.cuerpoRecuperacion(urlBase, token));
+        enviar(u, CorreosDeAcceso.recuperacion(plantillas, urlBase, token));
         return new Destinatario(u.id(), u.email());
     }
 
@@ -53,7 +55,7 @@ public class SoporteDeAccesoService implements SoporteDeAccesoUseCase {
             verificaciones.crear(new VerificacionCorreoRepository.Token(TokenOpaco.hash(token), u.id(), ahora.plus(AutenticarUsuarioService.VIDA_VERIFICACION), false));
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.REENVIAR_VERIFICACION, cuentaId, null, "usuario=" + u.email(), ahora));
         });
-        enviar(u, CorreosDeAcceso.ASUNTO_VERIFICACION, CorreosDeAcceso.cuerpoVerificacion(urlBase, token));
+        enviar(u, CorreosDeAcceso.verificacion(plantillas, urlBase, token));
         return new Destinatario(u.id(), u.email());
     }
 
@@ -72,9 +74,9 @@ public class SoporteDeAccesoService implements SoporteDeAccesoUseCase {
     }
 
     /** Fuera de la transacción: si el servidor de correo rechaza el envío, el intento ya quedó en la bitácora y el enlace sin usar vence solo. */
-    private void enviar(Usuario u, String asunto, String cuerpo) {
+    private void enviar(Usuario u, PlantillaDeCorreo.Texto texto) {
         try {
-            correo.enviar(u.email(), asunto, cuerpo);
+            correo.enviar(u.email(), texto.asunto(), texto.cuerpo());
         } catch (DomainException e) {
             throw e;
         } catch (RuntimeException e) {

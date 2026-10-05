@@ -39,6 +39,9 @@ final class RutaRequest {
 
     static boolean esApiV1(String ruta) { return ruta.equals("/v1") || ruta.startsWith("/v1/"); }
 
-    /** Sin credenciales: rutas de autenticación (el cliente aún no tiene ninguna) y los catálogos SUNAT (información pública de referencia). */
-    static boolean esPublica(String ruta) { return AUTH_PUBLICA.contains(ruta) || ruta.equals("/v1/catalogos") || ruta.startsWith("/v1/catalogos/"); }
+    /**
+     * Sin credenciales: rutas de autenticación (el cliente aún no tiene ninguna), los catálogos SUNAT (información pública de referencia) y el aviso de mantenimiento (#199), que el
+     * portal muestra también antes de iniciar sesión.
+     */
+    static boolean esPublica(String ruta) { return AUTH_PUBLICA.contains(ruta) || ruta.equals("/v1/catalogos") || ruta.startsWith("/v1/catalogos/") || ruta.equals("/v1/banner"); }
 }
