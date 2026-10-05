@@ -202,17 +202,19 @@ class EmitirComprobanteServiceTest {
      */
     @Test void siLaReservaEncuentraLaFacturaQueLaConsultaPreviaNoVioLaDevuelveSinEmitirOtra() {
         ConClaves primero = conClaves();
-        Comprobante emitida = primero.service().emitirFactura(tenantId, cmd(null, false), CLAVE).comprobante();
+        Comprobante emitida = primero.service().emitirFactura(tenantId, cmd(null, true), CLAVE).comprobante();
+        int enviosAntes = gateway.enviados;
         Fakes.Idempotencias ciegaAlBuscar = new Fakes.Idempotencias() {
             @Override public Optional<IdempotenciaRepository.Registro> buscar(String alcance, String clave) { return Optional.empty(); }
         };
         ciegaAlBuscar.filas.putAll(primero.claves().filas);
 
-        var simultaneo = conClaves(ciegaAlBuscar, Fakes.CLOCK).service().emitirFactura(tenantId, cmd(null, false), CLAVE);
+        var simultaneo = conClaves(ciegaAlBuscar, Fakes.CLOCK).service().emitirFactura(tenantId, cmd(null, true), CLAVE);
 
         assertThat(simultaneo.repetida()).isTrue();
         assertThat(simultaneo.comprobante().id()).isEqualTo(emitida.id());
         assertThat(comprobantes.datos).as("no se emitió otra factura").hasSize(1);
+        assertThat(gateway.enviados).as("tampoco se reenvía a SUNAT").isEqualTo(enviosAntes);
         assertThat(service.emitirFactura(tenantId, cmd(null, false)).numero()).as("el número 2 sigue libre").isEqualTo(2L);
     }
 
