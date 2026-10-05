@@ -957,7 +957,7 @@ clave; y quien cambiaba la fecha para que pasara emitía un duplicado con otra c
 - Tests (servicio +4): reintento con plazo vencido, reintento con certificado vencido, otra huella fuera de plazo sigue siendo `IDEMPOTENCIA_INVALIDA`, clave
   nueva fuera de plazo se rechaza y no queda reservada. Persistencia +2: `buscar` no reserva y no ve ni espera una reserva sin confirmar.
 - Mutaciones, 6/6 mueren: sin consulta previa (3 tests), otro alcance en la consulta (3), consulta sin comparar huella (2), la consulta reserva en vez de
-  leer (8), `buscar` sin filtrar el alcance (2), `buscar` que reserva (2).
+  leer (9, recontada tras el test de H2: eran 8), `buscar` sin filtrar el alcance (2), `buscar` que reserva (2).
 
 ### Corrección de la revisión (H2): la rama de la reserva vuelve a tener test de servicio
 
