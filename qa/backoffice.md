@@ -889,7 +889,7 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
 
 ## #115 · Idempotencia en POST /v1/facturas
 
-**Estado: 🔧 implementado, 17/17 mutaciones verificadas — falta la revisión de la PR.** No es del backoffice, pero va en la pila: el alta asistida (#219)
+**Estado: 🔧 implementado, 17/17 mutaciones verificadas, más 6/6 de la corrección H1 de la revisión.** No es del backoffice, pero va en la pila: el alta asistida (#219)
 reutiliza el mismo mecanismo.
 
 Un corte de red después de que el backend emitió dejaba al cliente sin respuesta; si reintentaba, salía otra factura con otro correlativo, que solo se
@@ -914,9 +914,9 @@ deshace con nota de crédito.
 
 ### Tests
 
-- Servicio (`EmitirComprobanteServiceTest` +5): clave nueva emite y anota (reserva dentro de la transacción), repetida devuelve el mismo sin consumir número ni
+- Servicio (`EmitirComprobanteServiceTest` +5, y +4 de la corrección H1, abajo): clave nueva emite y anota (reserva dentro de la transacción), repetida devuelve el mismo sin consumir número ni
   reenviar a SUNAT, otra huella 422, alcance por empresa, sin clave como siempre. `LimpiarIdempotenciaServiceTest`: 24 horas.
-- Persistencia (`JdbcIdempotenciaRepositoryTest`, 7, Postgres): reserva y registro, alcance, **reserva revertida libera la clave**, **un pedido simultáneo
+- Persistencia (`JdbcIdempotenciaRepositoryTest`, 7 y +2 de H1, Postgres): reserva y registro, alcance, **reserva revertida libera la clave**, **un pedido simultáneo
   espera al primero y ve su resultado**, **si el primero se revierte el segundo reserva**, limpieza, `completar` no toca otro alcance.
 - REST (`FacturaControllerTest` +5): 201 nueva / 200 repetida, la huella no depende del formato del JSON pero sí de los datos, clave mal formada 422 sin
   emitir, 422 del caso de uso.
@@ -944,11 +944,24 @@ deshace con nota de crédito.
 
 Una primera versión de la mutación «huella» no compilaba y se descartó; el script de mutaciones ahora distingue «no compila» de «muere».
 
+### Corrección de la revisión (H1): el reintento se contesta antes de validar
+
+La primera versión consultaba la clave en la reserva, **después** de `tenantListo` y de crear el comprobante. Un reintento que llegaba con el plazo de envío
+vencido (2108, 3 días calendario) o con el certificado vencido recibía `422` en vez de la factura ya emitida, que es justo el caso para el que existe la
+clave; y quien cambiaba la fecha para que pasara emitía un duplicado con otra clave. Se comprobó con un test que fallaba con
+`2108 - Con fecha de emisión 2026-09-10 el plazo de envío a SUNAT venció el 2026-09-13`.
+
+- `IdempotenciaRepository.buscar(alcance, clave)`: lectura de lo confirmado, sin reservar ni esperar. `emitirFactura` la usa **antes** de validar y devuelve
+  la factura ya emitida (`200`) con la misma comparación de huella. La exclusión entre pedidos simultáneos sigue siendo la reserva del `INSERT` dentro de la
+  transacción: una clave nueva se valida y reserva como antes, y si se rechaza fuera de plazo **no** queda reservada.
+- Tests (servicio +4): reintento con plazo vencido, reintento con certificado vencido, otra huella fuera de plazo sigue siendo `IDEMPOTENCIA_INVALIDA`, clave
+  nueva fuera de plazo se rechaza y no queda reservada. Persistencia +2: `buscar` no reserva y no ve ni espera una reserva sin confirmar.
+- Mutaciones, 6/6 mueren: sin consulta previa (3 tests), otro alcance en la consulta (3), consulta sin comparar huella (2), la consulta reserva en vez de
+  leer (8), `buscar` sin filtrar el alcance (2), `buscar` que reserva (2).
+
 ### Límites conocidos
 
 - Solo facturas. Las notas de crédito y débito (`POST /v1/notas`) siguen sin clave: el mecanismo es el mismo y queda como seguimiento.
-- Un reintento llega a la reserva después de validar que la empresa puede emitir: si el certificado venció entre el pedido y el reintento, el reintento falla
-  por eso y no devuelve la factura ya emitida (se ve en el listado).
 - La huella es del pedido interpretado: dos JSON con los mismos datos pero un campo desconocido distinto (que se ignora) son el mismo pedido.
 
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
