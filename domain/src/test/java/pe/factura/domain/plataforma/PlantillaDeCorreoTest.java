@@ -72,6 +72,10 @@ class PlantillaDeCorreoTest {
         assertThat(t.cuerpo()).isEqualTo("Abre {enlace}\ny listo");
     }
 
+    @Test void unRetornoDeCarroSueltoEnMedioDelCuerpoEsUnSaltoDeLinea() {
+        assertThat(ACCESO.validar("Hola", "Abre {enlace}\rtexto").cuerpo()).isEqualTo("Abre {enlace}\ntexto");
+    }
+
     @Test void elAsuntoEsObligatorio() {
         rechaza(ACCESO, null, "Abre {enlace}", "asunto no puede estar vacío");
         rechaza(ACCESO, "   ", "Abre {enlace}", "asunto no puede estar vacío");

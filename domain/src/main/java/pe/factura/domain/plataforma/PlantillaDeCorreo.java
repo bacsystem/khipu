@@ -120,7 +120,8 @@ public enum PlantillaDeCorreo {
         if (a.isEmpty()) throw invalida("El asunto no puede estar vacío");
         if (a.length() > MAX_ASUNTO) throw invalida("El asunto admite hasta " + MAX_ASUNTO + " caracteres");
         if (a.chars().anyMatch(Character::isISOControl)) throw invalida("El asunto va en una sola línea");
-        if (c.isBlank()) throw invalida("El cuerpo no puede estar vacío");
+        // `c` ya no tiene espacios al final: un cuerpo en blanco quedó vacío.
+        if (c.isEmpty()) throw invalida("El cuerpo no puede estar vacío");
         if (c.length() > MAX_CUERPO) throw invalida("El cuerpo admite hasta " + MAX_CUERPO + " caracteres");
         if (c.chars().anyMatch(ch -> Character.isISOControl(ch) && ch != '\n' && ch != '\t')) throw invalida("El cuerpo tiene caracteres de control que no se pueden mandar");
 
