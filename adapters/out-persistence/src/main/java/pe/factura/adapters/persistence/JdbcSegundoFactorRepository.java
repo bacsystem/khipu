@@ -49,19 +49,20 @@ public class JdbcSegundoFactorRepository implements SegundoFactorRepository {
 
     @Override public boolean registrarAcceso(UUID administradorId, long paso) {
         return jdbc.update("""
-                UPDATE administrador_segundo_factor SET ultimo_paso = ?, fallos = 0, actualizado_at = now()
+                UPDATE administrador_segundo_factor SET ultimo_paso = ?, fallos = 0, bloqueado_hasta = NULL, actualizado_at = now()
                 WHERE administrador_id = ? AND ultimo_paso < ?
                 """, paso, administradorId, paso) == 1;
     }
 
-    @Override public void registrarFallo(UUID administradorId, int maxFallos, Instant bloquearHasta) {
-        jdbc.update("""
+    /** La compuerta (no está bloqueada) y el conteo (suma, y bloquea al llegar al tope) en una sola sentencia: no hay hueco entre leer y contar. */
+    @Override public boolean reservarIntento(UUID administradorId, int maxIntentos, Instant ahora, Instant bloquearHasta) {
+        return jdbc.update("""
                 UPDATE administrador_segundo_factor SET
                     fallos = CASE WHEN fallos + 1 >= ? THEN 0 ELSE fallos + 1 END,
                     bloqueado_hasta = CASE WHEN fallos + 1 >= ? THEN ?::timestamptz ELSE bloqueado_hasta END,
                     actualizado_at = now()
-                WHERE administrador_id = ?
-                """, maxFallos, maxFallos, bloquearHasta == null ? null : Timestamp.from(bloquearHasta), administradorId);
+                WHERE administrador_id = ? AND (bloqueado_hasta IS NULL OR bloqueado_hasta <= ?::timestamptz)
+                """, maxIntentos, maxIntentos, Timestamp.from(bloquearHasta), administradorId, Timestamp.from(ahora)) == 1;
     }
 
     @Override public boolean consumirCodigoRecuperacion(UUID administradorId, String hash) {
@@ -69,7 +70,7 @@ public class JdbcSegundoFactorRepository implements SegundoFactorRepository {
                 UPDATE administrador_codigo_recuperacion SET usado_at = now()
                 WHERE administrador_id = ? AND hash = ? AND usado_at IS NULL
                 """, administradorId, hash) == 1;
-        if (consumido) jdbc.update("UPDATE administrador_segundo_factor SET fallos = 0, actualizado_at = now() WHERE administrador_id = ?", administradorId);
+        if (consumido) jdbc.update("UPDATE administrador_segundo_factor SET fallos = 0, bloqueado_hasta = NULL, actualizado_at = now() WHERE administrador_id = ?", administradorId);
         return consumido;
     }
 }

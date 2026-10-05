@@ -46,7 +46,7 @@ class JdbcSegundoFactorRepositoryTest extends PersistenciaTestBase {
     @Test void otroPendienteReemplazaAlAnteriorYBorraSusCodigos() {
         repo.guardarPendiente(admin, new byte[]{1});
         repo.confirmar(admin, 1000L, List.of(hash('a')));
-        repo.registrarFallo(admin, 5, null);
+        repo.reservarIntento(admin, 5, Instant.now(), Instant.now().plus(15, ChronoUnit.MINUTES));
 
         repo.guardarPendiente(admin, new byte[]{9});
 
@@ -61,7 +61,7 @@ class JdbcSegundoFactorRepositoryTest extends PersistenciaTestBase {
     @Test void unPasoSoloSeAceptaSiEsPosteriorAlUltimo() {
         repo.guardarPendiente(admin, new byte[]{1});
         repo.confirmar(admin, 1000L, List.of());
-        repo.registrarFallo(admin, 5, null);
+        repo.reservarIntento(admin, 5, Instant.now(), Instant.now().plus(15, ChronoUnit.MINUTES));
 
         assertThat(repo.registrarAcceso(admin, 1000L)).as("el mismo paso de la confirmación").isFalse();
         assertThat(repo.registrarAcceso(admin, 999L)).isFalse();
@@ -89,16 +89,18 @@ class JdbcSegundoFactorRepositoryTest extends PersistenciaTestBase {
         assertThat(aceptados).isEqualTo(1);
     }
 
-    @Test void losFallosSeSumanYAlLlegarAlTopeBloqueanYVuelvenACero() {
+    /** Cada intento se reserva antes de comprobar el código: los cuatro primeros solo suman, el quinto concede y bloquea. */
+    @Test void losIntentosSeSumanYElQuintoBloquea() {
         repo.guardarPendiente(admin, new byte[]{1});
-        Instant hasta = Instant.now().plus(15, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.MILLIS);
+        Instant ahora = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        Instant hasta = ahora.plus(15, ChronoUnit.MINUTES);
         for (int i = 1; i <= 4; i++) {
-            repo.registrarFallo(admin, 5, hasta);
+            assertThat(repo.reservarIntento(admin, 5, ahora, hasta)).as("intento %d", i).isTrue();
             assertThat(repo.buscar(admin).orElseThrow()).satisfies(e -> assertThat(e.bloqueadoHasta()).isNull());
         }
         assertThat(repo.buscar(admin).orElseThrow().fallos()).isEqualTo(4);
 
-        repo.registrarFallo(admin, 5, hasta);
+        assertThat(repo.reservarIntento(admin, 5, ahora, hasta)).as("el quinto todavía se concede").isTrue();
 
         assertThat(repo.buscar(admin).orElseThrow()).satisfies(e -> {
             assertThat(e.fallos()).isZero();
@@ -106,27 +108,66 @@ class JdbcSegundoFactorRepositoryTest extends PersistenciaTestBase {
         });
     }
 
-    /** Intentos en paralelo no se pisan la cuenta: 20 fallos simultáneos con tope 5 bloquean, aunque todos leyeran «0 fallos». */
-    @Test void fallosSimultaneosNoSePierden() throws Exception {
+    /** Con la cuenta bloqueada el intento se niega y no suma nada; al vencer el bloqueo vuelve a concederse. */
+    @Test void conLaCuentaBloqueadaElIntentoSeNiegaHastaQueVenza() {
         repo.guardarPendiente(admin, new byte[]{1});
-        Instant hasta = Instant.now().plus(15, ChronoUnit.MINUTES);
+        Instant ahora = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        Instant hasta = ahora.plus(15, ChronoUnit.MINUTES);
+        for (int i = 0; i < 5; i++) repo.reservarIntento(admin, 5, ahora, hasta);
+
+        assertThat(repo.reservarIntento(admin, 5, ahora.plus(14, ChronoUnit.MINUTES), hasta.plus(14, ChronoUnit.MINUTES))).as("a los 14 minutos").isFalse();
+        assertThat(repo.buscar(admin).orElseThrow()).satisfies(e -> {
+            assertThat(e.fallos()).as("un intento negado no suma").isZero();
+            assertThat(e.bloqueadoHasta()).as("ni mueve el bloqueo").isEqualTo(hasta);
+        });
+        assertThat(repo.reservarIntento(admin, 5, hasta, hasta.plus(15, ChronoUnit.MINUTES))).as("al vencer").isTrue();
+    }
+
+    /**
+     * El tope se aplica al reservar, no al leer: 20 peticiones simultáneas que ya leyeron «sin bloqueo» consiguen exactamente cinco intentos.
+     * Con la comprobación al inicio y el fallo al final, las 20 habrían probado un código.
+     */
+    @Test void intentosSimultaneosConcedenExactamenteElTope() throws Exception {
+        repo.guardarPendiente(admin, new byte[]{1});
+        Instant ahora = Instant.now();
+        Instant hasta = ahora.plus(15, ChronoUnit.MINUTES);
         ExecutorService pool = Executors.newFixedThreadPool(10);
         CountDownLatch salida = new CountDownLatch(1);
-        List<Future<?>> tareas = new ArrayList<>();
-        for (int i = 0; i < 20; i++) tareas.add(pool.submit(() -> { salida.await(); repo.registrarFallo(admin, 5, hasta); return null; }));
+        List<Future<Boolean>> tareas = new ArrayList<>();
+        for (int i = 0; i < 20; i++) tareas.add(pool.submit(() -> { salida.await(); return repo.reservarIntento(admin, 5, ahora, hasta); }));
         salida.countDown();
-        for (Future<?> t : tareas) t.get(10, TimeUnit.SECONDS);
+        int concedidos = 0;
+        for (Future<Boolean> t : tareas) if (t.get(10, TimeUnit.SECONDS)) concedidos++;
         pool.shutdown();
-        Estado e = repo.buscar(admin).orElseThrow();
-        assertThat(e.bloqueadoHasta()).isNotNull();
-        assertThat(e.fallos()).as("20 fallos con tope 5: cuatro bloqueos exactos").isZero();
+        assertThat(concedidos).isEqualTo(5);
+        assertThat(repo.buscar(admin).orElseThrow().bloqueadoHasta()).isNotNull();
+    }
+
+    /** El quinto intento deja el bloqueo puesto antes de saber si el código era bueno: un acierto lo levanta. */
+    @Test void unAciertoLevantaElBloqueoQueDejoSuPropioIntento() {
+        repo.guardarPendiente(admin, new byte[]{1});
+        repo.confirmar(admin, 1000L, List.of(hash('a')));
+        Instant ahora = Instant.now();
+        for (int i = 0; i < 5; i++) repo.reservarIntento(admin, 5, ahora, ahora.plus(15, ChronoUnit.MINUTES));
+        assertThat(repo.buscar(admin).orElseThrow().bloqueadoHasta()).isNotNull();
+
+        assertThat(repo.registrarAcceso(admin, 1001L)).isTrue();
+
+        assertThat(repo.buscar(admin).orElseThrow().bloqueadoHasta()).as("el código de la app").isNull();
+
+        for (int i = 0; i < 5; i++) repo.reservarIntento(admin, 5, ahora.plus(1, ChronoUnit.HOURS), ahora.plus(75, ChronoUnit.MINUTES));
+        assertThat(repo.buscar(admin).orElseThrow().bloqueadoHasta()).isNotNull();
+
+        assertThat(repo.consumirCodigoRecuperacion(admin, hash('a'))).isTrue();
+
+        assertThat(repo.buscar(admin).orElseThrow().bloqueadoHasta()).as("el código de recuperación").isNull();
     }
 
     @Test void unCodigoDeRecuperacionSeConsumeUnaVezYReiniciaLosFallos() {
         repo.guardarPendiente(admin, new byte[]{1});
         repo.confirmar(admin, 1000L, List.of(hash('a'), hash('b')));
-        repo.registrarFallo(admin, 5, null);
-        repo.registrarFallo(admin, 5, null);
+        repo.reservarIntento(admin, 5, Instant.now(), Instant.now().plus(15, ChronoUnit.MINUTES));
+        repo.reservarIntento(admin, 5, Instant.now(), Instant.now().plus(15, ChronoUnit.MINUTES));
 
         assertThat(repo.consumirCodigoRecuperacion(admin, hash('a'))).isTrue();
         assertThat(repo.buscar(admin).orElseThrow().fallos()).isZero();

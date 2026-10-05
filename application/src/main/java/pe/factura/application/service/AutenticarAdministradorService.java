@@ -71,9 +71,9 @@ public class AutenticarAdministradorService implements AutenticarAdministradorUs
         Administrador a = delDesafio(desafio);
         Estado e = factores.buscar(a.id()).orElseThrow(AutenticarAdministradorService::noConfigurado);
         if (e.confirmado()) throw yaConfigurado();
-        exigirNoBloqueado(e);
+        reservarIntento(a.id());
         OptionalLong paso = totp.paso(secreto(e), codigo == null ? "" : codigo.trim(), Instant.now(clock));
-        if (paso.isEmpty()) throw fallo(a.id());
+        if (paso.isEmpty()) throw codigoInvalido();
 
         List<String> codigos = new ArrayList<>();
         while (codigos.size() < CODIGOS_RECUPERACION) {
@@ -93,7 +93,7 @@ public class AutenticarAdministradorService implements AutenticarAdministradorUs
     public Sesion verificarSegundoFactor(String desafio, String codigo, String ip) {
         Administrador a = delDesafio(desafio);
         Estado e = factores.buscar(a.id()).filter(Estado::confirmado).orElseThrow(AutenticarAdministradorService::noConfigurado);
-        exigirNoBloqueado(e);
+        reservarIntento(a.id());
         String limpio = codigo == null ? "" : codigo.replaceAll("[\\s-]", "").toUpperCase(Locale.ROOT);
         Optional<Sesion> sesion = uow.ejecutar(() -> {
             String via;
@@ -105,8 +105,8 @@ public class AutenticarAdministradorService implements AutenticarAdministradorUs
                     "segundo_factor=" + via, Instant.now(clock)));
             return Optional.of(sesion(a));
         });
-        // El fallo se cuenta después de la transacción: lanzado dentro, se revertiría con ella y el bloqueo nunca llegaría.
-        return sesion.orElseThrow(() -> fallo(a.id()));
+        // El intento ya se contó al reservarlo, fuera de la transacción: lanzado dentro, se revertiría con ella y el bloqueo nunca llegaría.
+        return sesion.orElseThrow(AutenticarAdministradorService::codigoInvalido);
     }
 
     @Override
@@ -129,14 +129,19 @@ public class AutenticarAdministradorService implements AutenticarAdministradorUs
 
     private String secreto(Estado e) { return new String(cifrador.descifrar(e.secretoCifrado()), StandardCharsets.UTF_8); }
 
-    private void exigirNoBloqueado(Estado e) {
-        if (e.bloqueadoHasta() != null && Instant.now(clock).isBefore(e.bloqueadoHasta()))
+    /**
+     * Reserva un intento ANTES de mirar el código, y es la única compuerta: el repositorio lo niega (sin sumar nada) si la cuenta está
+     * bloqueada y, si lo concede, lo cuenta en la misma sentencia. Comprobar el bloqueo con un estado leído antes y contar el fallo
+     * después dejaría que N peticiones simultáneas probaran N códigos antes de que ninguna llegara a bloquear. Se invoca fuera de la
+     * transacción de la petición: dentro, se revertiría con el error y el bloqueo nunca llegaría.
+     */
+    private void reservarIntento(UUID administradorId) {
+        Instant ahora = Instant.now(clock);
+        if (!factores.reservarIntento(administradorId, MAX_FALLOS, ahora, ahora.plus(BLOQUEO)))
             throw new DomainException("DEMASIADOS_INTENTOS", "Demasiados códigos incorrectos. Espera unos minutos antes de volver a intentarlo");
     }
 
-    /** Quien llama lo invoca fuera de la transacción. */
-    private DomainException fallo(UUID administradorId) {
-        factores.registrarFallo(administradorId, MAX_FALLOS, Instant.now(clock).plus(BLOQUEO));
+    private static DomainException codigoInvalido() {
         return new DomainException("CODIGO_INVALIDO", "El código no es válido");
     }
 
