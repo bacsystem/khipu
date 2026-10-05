@@ -638,7 +638,7 @@ Con esta mergeada el issue queda completo.**
 
 ## #218 · Enviar un comprobante por correo sin SMTP no lo da por enviado
 
-**Estado: 🔧 implementado, 5/5 mutaciones verificadas — falta la revisión de la PR.** Seguimiento de la revisión de #216 (#188, hallazgo H1).
+**Estado: 🔧 implementado, 6/6 mutaciones verificadas (5 más la de la revisión, H1).** Seguimiento de la revisión de #216 (#188, hallazgo H1).
 
 Con `MAIL_HABILITADO=false` (el default) el adaptador `LogCorreoSender` escribe el correo en el log y no lanza: `POST /v1/facturas/{id}/correo` respondía
 `202` y el portal mostraba «Enviado a …» aunque el adquirente no recibía nada.
@@ -655,17 +655,19 @@ Con `MAIL_HABILITADO=false` (el default) el adaptador `LogCorreoSender` escribe 
 
 ### Tests
 
-- Servicio (`CompartirComprobanteServiceTest` +1): con un `CorreoSender` que no entrega, `CORREO_NO_CONFIGURADO` con el número del comprobante en el mensaje, y
-  **no se llama a `enviar`**.
+- Servicio (`CompartirComprobanteServiceTest` +2): con un `CorreoSender` que no entrega, `CORREO_NO_CONFIGURADO` con el número del comprobante en el mensaje, y
+  **no se llama a `enviar`**; y, con ese mismo sender, un comprobante `FIRMADO` sigue respondiendo `NO_ACEPTADO` (H1 de la revisión: el orden de las dos
+  comprobaciones estaba afirmado en la PR pero no fijado por ningún test).
 - Controlador (`FacturaControllerTest`, +1 caso): `503` con el código.
 - E2E (`comprobantes.spec.ts` +1): un correo `sin-smtp@…` hace que el mock responda 503; el formulario muestra el aviso y **no** aparece «Enviado a …».
 
-### Verificación por mutación — 5/5 mueren
+### Verificación por mutación — 6/6 mueren
 
 | Capa | Mutación | Qué muere |
 |---|---|---|
 | Servicio | Sin preguntar `entregaDeVerdad()` (el código anterior) | `sinCorreoQueEntregueDeVerdadNoSeDaPorEnviado` (fue el rojo del TDD) |
-| Servicio | La condición invertida | 3 de 4 (también los casos con SMTP) |
+| Servicio | La condición invertida | 3 de 5 (también los casos con SMTP) |
+| Servicio | La comprobación va antes de `NO_ACEPTADO` | `sinCorreoUnComprobanteNoAceptadoSigueDiciendoNoAceptado` (sobrevivía hasta la revisión; responde `CORREO_NO_CONFIGURADO` en vez de `NO_ACEPTADO`) |
 | Servicio | Escribe el correo antes de fallar | `sinCorreoQueEntregueDeVerdad…` («no se intenta») |
 | Controlador | `CORREO_NO_CONFIGURADO` sin su 503 (cae en 422) | `correo…` de `FacturaControllerTest` |
 | Mock | Sin el caso `sin-smtp` | el e2e nuevo |
