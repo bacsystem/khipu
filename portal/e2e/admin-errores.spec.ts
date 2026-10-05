@@ -222,7 +222,9 @@ test("si se pasó el plazo el reintento no envía: lo dice, y la fila pasa a fue
   await fila(page, 104, "20100055121").getByTestId("errores-reintentar").click();
   await page.getByTestId("errores-reintentar-confirmar").click();
 
-  await expect(page.getByTestId("errores-reintentar-dialogo").getByRole("alert")).toContainText("2108");
+  // La recarga convierte la fila en terminal (sin botones) y se lleva el diálogo con su alerta: el aviso duradero es el banner de resultados. Asertar sobre la alerta del
+  // diálogo era una carrera (a veces la recarga la desmontaba antes de que la prueba la viera).
+  await expect(page.getByTestId("errores-resultado")).toContainText("2108");
   await expect(fila(page, 104, "20100055121")).toHaveAttribute("data-clase", "FUERA_DE_PLAZO");
 });
 
