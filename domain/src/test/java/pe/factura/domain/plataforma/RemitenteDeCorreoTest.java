@@ -59,6 +59,17 @@ class RemitenteDeCorreoTest {
         rechaza(null, "a@" + "b".repeat(250) + ".pe", null, "no es una dirección");
     }
 
+    /** 254 caracteres es lo más largo que admite una dirección: ni uno más. */
+    @Test void elTopeDeLaDireccionEsDe254Caracteres() {
+        String dominio = ("b".repeat(63) + ".").repeat(2);
+        String de254 = "a".repeat(64) + "@" + dominio + "c".repeat(58) + ".pe";
+        String de255 = "a".repeat(64) + "@" + dominio + "c".repeat(59) + ".pe";
+
+        assertThat(de254).hasSize(RemitenteDeCorreo.MAX_EMAIL);
+        assertThat(RemitenteDeCorreo.de(null, de254, null).email()).isEqualTo(de254);
+        rechaza(null, de255, null, "no es una dirección");
+    }
+
     @Test void elNombreTieneUnTopeYNoLlevaControlesNiCaracteresDeCabecera() {
         assertThat(RemitenteDeCorreo.de("n".repeat(RemitenteDeCorreo.MAX_NOMBRE), "a@khipu.pe", null).nombre()).hasSize(RemitenteDeCorreo.MAX_NOMBRE);
         rechaza("n".repeat(RemitenteDeCorreo.MAX_NOMBRE + 1), "a@khipu.pe", null, "hasta 100 caracteres");
