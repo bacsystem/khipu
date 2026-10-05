@@ -131,7 +131,8 @@
       "integridad": "Integridad",
       "monitor": "Monitor",
       "errores": "Errores",
-      "avisos": "Avisos"
+      "avisos": "Avisos",
+      "configuracion": "Configuración"
     },
     "topbar": {
       "ubicacion": "Ubicación",
@@ -140,6 +141,7 @@
       "clientes": "Clientes",
       "comercial": "Comercial",
       "operacion": "Operación",
+      "plataforma": "Plataforma",
       "nuevaCuenta": "Nueva cuenta"
     },
     "cuentas": {
@@ -736,6 +738,121 @@
         "enviado": "Se le avisó a {correo} ({empresa})."
       }
     },
+    "configuracion": {
+      "titulo": "Configuración de la plataforma",
+      "descripcion": "Lo que cambia lo que ven y reciben los clientes, sin esperar un despliegue. Cada cambio queda en la bitácora.",
+      "secciones": "Qué configurar",
+      "filtros": {
+        "correo": "Correo saliente",
+        "plantillas": "Plantillas",
+        "aviso": "Aviso de mantenimiento"
+      },
+      "error": "No se pudo cargar la configuración.",
+      "volverACargar": "Volver a cargar",
+      "correo": {
+        "titulo": "De quién salen los correos",
+        "ayuda": "Vale desde el siguiente correo, sin reiniciar. El servidor de correo (SMTP) tiene que aceptar mandar desde esa dirección (remitente verificado, SPF y DKIM): desde acá no se puede comprobar.",
+        "nombre": "Nombre",
+        "nombreAyuda": "Opcional. Cómo se muestra el remitente en la bandeja del cliente.",
+        "email": "Correo del remitente",
+        "emailAyuda": "Una sola dirección.",
+        "responderA": "Responder a",
+        "responderAyuda": "Opcional. Si se deja vacío, las respuestas vuelven al remitente.",
+        "vigente": "Hoy los correos salen de: {remitente}",
+        "personalizado": "Lo fijó un administrador el {fecha}.",
+        "delServidor": "Es el de la configuración del servidor: nadie lo ha cambiado desde acá.",
+        "guardar": "Guardar remitente",
+        "guardando": "Guardando…",
+        "guardado": "Remitente guardado: vale desde el siguiente correo.",
+        "restablecer": {
+          "boton": "Volver al del servidor",
+          "titulo": "Volver al remitente del servidor",
+          "descripcion": "Los correos vuelven a salir del remitente de la configuración del servidor.",
+          "efectos": [
+            "Quita el remitente que se fijó acá y vuelven a salir de {remitente}.",
+            "Vale desde el siguiente correo. No cambia los textos de los correos.",
+            "Queda en la bitácora."
+          ],
+          "confirmar": "Volver al del servidor",
+          "enviando": "Volviendo…",
+          "cancelar": "Cancelar"
+        }
+      },
+      "plantillas": {
+        "titulo": "Textos de los correos",
+        "ayuda": "El texto de cada correo que la plataforma manda. Lo que no se cambia sale con el texto de fábrica. Vale desde el siguiente correo.",
+        "lista": "Correos",
+        "personalizada": "Editado",
+        "defecto": "De fábrica",
+        "cuandoSeManda": "Cuándo se manda",
+        "asunto": "Asunto",
+        "cuerpo": "Cuerpo",
+        "variables": "Variables",
+        "variablesAyuda": "Se escriben entre llaves y se reemplazan al mandar el correo. Haz clic para insertar una donde está el cursor.",
+        "indispensable": "indispensable",
+        "ejemplo": "Ejemplo: {ejemplo}",
+        "insertar": "Insertar {variable}",
+        "vistaPrevia": "Vista previa",
+        "calculandoVistaPrevia": "Calculando…",
+        "vistaPreviaTitulo": "Así se vería, con valores de ejemplo",
+        "vistaPreviaAsunto": "Asunto",
+        "vistaPreviaCuerpo": "Cuerpo",
+        "guardar": "Guardar texto",
+        "guardando": "Guardando…",
+        "guardado": "Texto guardado: vale desde el siguiente correo.",
+        "sinCambios": "Sin cambios sin guardar.",
+        "conCambios": "Hay cambios sin guardar.",
+        "actualizada": "Editado el {fecha}.",
+        "deFabrica": "Sale con el texto de fábrica.",
+        "restaurar": {
+          "boton": "Volver al de fábrica",
+          "titulo": "Volver al texto de fábrica",
+          "descripcion": "El correo «{correo}» vuelve a salir con su texto de fábrica.",
+          "efectos": [
+            "Borra el texto que se escribió acá: no se puede deshacer, pero se puede volver a escribir.",
+            "Vale desde el siguiente correo.",
+            "Queda en la bitácora (sin el texto)."
+          ],
+          "confirmar": "Volver al de fábrica",
+          "enviando": "Restaurando…",
+          "cancelar": "Cancelar"
+        }
+      },
+      "aviso": {
+        "titulo": "Aviso de mantenimiento",
+        "ayuda": "Un aviso que ven todos los clientes arriba de su portal, también antes de iniciar sesión. Siempre tiene fin: se oculta solo. Las horas son de Lima.",
+        "texto": "Texto",
+        "textoAyuda": "Una sola línea, hasta {max} caracteres. Se muestra como texto plano.",
+        "desde": "Se muestra desde",
+        "hasta": "Hasta",
+        "hastaAyuda": "Obligatorio, y a lo sumo {dias} días después de empezar.",
+        "publicar": "Publicar aviso",
+        "reemplazar": "Reemplazar aviso",
+        "publicando": "Publicando…",
+        "publicado": "Aviso publicado.",
+        "vistaPrevia": "Así lo verán los clientes",
+        "estado": {
+          "vigente": "Se está mostrando ahora.",
+          "programado": "Programado: todavía no se muestra.",
+          "vencido": "Ya venció: no se muestra."
+        },
+        "vigencia": "Del {desde} al {hasta}.",
+        "ninguno": "No hay ningún aviso publicado.",
+        "retirar": {
+          "boton": "Retirar aviso",
+          "titulo": "Retirar el aviso",
+          "descripcion": "Deja de mostrarse a los clientes ahora mismo.",
+          "efectos": [
+            "Los clientes dejan de ver el aviso apenas recarguen su portal.",
+            "Para volver a mostrarlo hay que publicarlo de nuevo.",
+            "Queda en la bitácora."
+          ],
+          "confirmar": "Retirar aviso",
+          "enviando": "Retirando…",
+          "cancelar": "Cancelar"
+        }
+      }
+    },
     "estadoCuenta": {
       "ACTIVA": "Activa",
       "SUSPENDIDA": "Suspendida",
@@ -1109,6 +1226,9 @@
         "otra": "Dar de alta a otro cliente"
       }
     }
+  },
+  "banner": {
+    "hasta": "Hasta {fecha}"
   },
   "soporte": {
     "aviso": {

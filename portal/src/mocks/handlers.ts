@@ -258,7 +258,155 @@ function avisosIniciales() {
   };
 }
 
-const avisosMock = avisosIniciales();
+let avisosMock = avisosIniciales();
+
+/**
+ * La configuración de la plataforma del mock (#199). Es **global**: el remitente y el aviso son uno solo para todo el mock, así que las pruebas que los cambian van juntas, en una
+ * sola prueba o en un bloque en serie; los correos son seis independientes y cada prueba usa el suyo. Sin nada guardado, el remitente es el del servidor y cada correo sale de fábrica.
+ * Los textos, variables y mensajes repiten los del dominio (`PlantillaDeCorreo`, `RemitenteDeCorreo`, `BannerDeMantenimiento`).
+ */
+type TextoMock = { asunto: string; cuerpo: string };
+type VariableMock = { nombre: string; descripcion: string; ejemplo: string; indispensable: boolean };
+type PlantillaMock = { tipo: string; etiqueta: string; cuando_se_manda: string; defecto: TextoMock; variables: VariableMock[] };
+
+const v = (nombre: string, descripcion: string, ejemplo: string, indispensable = false): VariableMock => ({ nombre, descripcion, ejemplo, indispensable });
+const VARIABLES_AVISO_CERTIFICADO = [
+  v("razon_social", "La razón social de la empresa.", "PANADERIA SOL SAC"),
+  v("ruc", "El RUC de la empresa.", "20100047226"),
+  v("fecha", "El día en que vence o venció el certificado (dd/mm/aaaa).", "25/10/2026"),
+  v("cuando", "Cuándo vence o venció: «hoy», «mañana», «ayer», «en N días» o «hace N días».", "en 10 días"),
+  v("enlace", "El portal, donde el cliente carga su certificado.", "https://app.khipu.pe"),
+];
+
+const PLANTILLAS_MOCK: PlantillaMock[] = [
+  {
+    tipo: "VERIFICACION_CORREO",
+    etiqueta: "Verificación de correo",
+    cuando_se_manda: "Se manda al registrarse, y cuando alguien pide o un administrador reenvía el enlace para verificar el correo.",
+    defecto: { asunto: "Verifica tu correo en khipu", cuerpo: "Para terminar de crear tu cuenta, verifica tu correo abriendo este enlace (válido {validez}, de un solo uso):\n{enlace}" },
+    variables: [v("enlace", "El enlace de un solo uso para verificar el correo.", "https://app.khipu.pe/verificar/0a1b2c3d", true), v("validez", "Cuánto dura el enlace.", "24 horas")],
+  },
+  {
+    tipo: "RECUPERACION_CLAVE",
+    etiqueta: "Restablecer la contraseña",
+    cuando_se_manda: "Se manda cuando alguien olvidó su contraseña, o un administrador le envía el enlace para restablecerla.",
+    defecto: { asunto: "Restablecer contraseña", cuerpo: "Para restablecer tu contraseña abre este enlace (válido {validez}):\n{enlace}" },
+    variables: [v("enlace", "El enlace de un solo uso para elegir una contraseña nueva.", "https://app.khipu.pe/restablecer/0a1b2c3d", true), v("validez", "Cuánto dura el enlace.", "1 hora")],
+  },
+  {
+    tipo: "BIENVENIDA",
+    etiqueta: "Bienvenida de un cliente dado de alta",
+    cuando_se_manda: "Se manda a quien un administrador dio de alta, para que cree su contraseña.",
+    defecto: { asunto: "Te damos la bienvenida a khipu", cuerpo: "Dimos de alta a {razon_social} (RUC {ruc}) en khipu.\nPara entrar, crea tu contraseña en este enlace (válido {validez}, de un solo uso):\n{enlace}" },
+    variables: [
+      v("enlace", "El enlace de un solo uso para crear la contraseña.", "https://app.khipu.pe/restablecer/0a1b2c3d?invitacion=1", true),
+      v("razon_social", "La razón social de la empresa dada de alta.", "PANADERIA SOL SAC"),
+      v("ruc", "El RUC de la empresa.", "20100047226"),
+      v("validez", "Cuánto dura el enlace.", "7 días"),
+    ],
+  },
+  {
+    tipo: "AVISO_CERTIFICADO_POR_VENCER",
+    etiqueta: "Aviso: certificado por vencer",
+    cuando_se_manda: "Se manda desde «Avisos» cuando el certificado digital de una empresa vence en menos de 30 días.",
+    defecto: {
+      asunto: "Tu certificado digital de {razon_social} vence {cuando}",
+      cuerpo: "Hola,\n\nEl certificado digital de {razon_social} (RUC {ruc}) vence el {fecha} ({cuando}). Cuando venza, khipu ya no podrá firmar los comprobantes de esta empresa y no podrás emitir.\n\nPara renovarlo, consigue un certificado nuevo y cárgalo en el portal:\n{enlace}\n\nSi ya lo renovaste, ignora este mensaje.\n\nkhipu",
+    },
+    variables: VARIABLES_AVISO_CERTIFICADO,
+  },
+  {
+    tipo: "AVISO_CERTIFICADO_VENCIDO",
+    etiqueta: "Aviso: certificado vencido",
+    cuando_se_manda: "Se manda desde «Avisos» cuando el certificado digital de una empresa ya venció.",
+    defecto: {
+      asunto: "El certificado digital de {razon_social} venció",
+      cuerpo: "Hola,\n\nEl certificado digital de {razon_social} (RUC {ruc}) venció el {fecha}. Mientras no cargues uno vigente, khipu no puede firmar los comprobantes de esta empresa y no podrás emitir.\n\nConsigue un certificado nuevo y cárgalo en el portal:\n{enlace}\n\nkhipu",
+    },
+    variables: VARIABLES_AVISO_CERTIFICADO,
+  },
+  {
+    tipo: "AVISO_CREDENCIALES_SOL",
+    etiqueta: "Aviso: credenciales SOL",
+    cuando_se_manda: "Se manda desde «Avisos» cuando SUNAT no acepta el usuario o la clave SOL de una empresa.",
+    defecto: {
+      asunto: "SUNAT no acepta las credenciales SOL de {razon_social}",
+      cuerpo: "Hola,\n\nLos envíos de {razon_social} (RUC {ruc}) a SUNAT están fallando porque SUNAT no acepta el usuario o la clave SOL cargados. Los comprobantes quedan pendientes hasta que se corrijan.\n\nRevísalos y vuelve a guardarlos en el portal:\n{enlace}\n\nSi ya las corregiste, ignora este mensaje.\n\nkhipu",
+    },
+    variables: [v("razon_social", "La razón social de la empresa.", "PANADERIA SOL SAC"), v("ruc", "El RUC de la empresa.", "20100047226"), v("enlace", "El portal, donde el cliente corrige sus credenciales.", "https://app.khipu.pe")],
+  },
+];
+
+type ConfiguracionMock = {
+  remitente?: { nombre?: string; email: string; responder_a?: string; actualizado_en: string };
+  plantillas: Record<string, TextoMock & { actualizada_en: string }>;
+  banner?: { texto: string; desde: string; hasta: string; actualizado_en: string };
+};
+
+const configuracionInicial = (): ConfiguracionMock => ({ plantillas: {} });
+let configuracionMock = configuracionInicial();
+const REMITENTE_DEL_SERVIDOR = { email: "no-responder@khipu.pe" };
+const MARCA_DE_VARIABLE = /\{([a-z_]+)}/g;
+
+function remitenteConfiguradoMock() {
+  const r = configuracionMock.remitente;
+  const { actualizado_en, ...vigente } = r ?? { ...REMITENTE_DEL_SERVIDOR, actualizado_en: "" };
+  return { vigente, personalizado: r !== undefined, ...(r ? { actualizado_en } : {}), predeterminado: REMITENTE_DEL_SERVIDOR };
+}
+
+function plantillaConfiguradaMock(p: PlantillaMock) {
+  const guardada = configuracionMock.plantillas[p.tipo];
+  const { actualizada_en, ...texto } = guardada ?? { ...p.defecto, actualizada_en: "" };
+  return {
+    tipo: p.tipo,
+    etiqueta: p.etiqueta,
+    cuando_se_manda: p.cuando_se_manda,
+    vigente: texto,
+    defecto: p.defecto,
+    personalizada: guardada !== undefined,
+    ...(guardada ? { actualizada_en } : {}),
+    variables: p.variables,
+  };
+}
+
+/** El mismo orden de reglas y los mismos mensajes que `PlantillaDeCorreo.validar`; devuelve el mensaje, o `null` si el texto sirve. */
+function mensajeDePlantillaInvalidaMock(p: PlantillaMock, asuntoCrudo: unknown, cuerpoCrudo: unknown): string | null {
+  const asunto = typeof asuntoCrudo === "string" ? asuntoCrudo.trim() : "";
+  const cuerpo = typeof cuerpoCrudo === "string" ? cuerpoCrudo.replace(/\r\n?/g, "\n").trimEnd() : "";
+  if (asunto === "") return "El asunto no puede estar vacío";
+  if (asunto.length > 150) return "El asunto admite hasta 150 caracteres";
+  if (/[\u0000-\u001f\u007f]/.test(asunto)) return "El asunto va en una sola línea";
+  if (cuerpo.trim() === "") return "El cuerpo no puede estar vacío";
+  if (cuerpo.length > 5000) return "El cuerpo admite hasta 5000 caracteres";
+  const usadas = [...new Set([...asunto.matchAll(MARCA_DE_VARIABLE), ...cuerpo.matchAll(MARCA_DE_VARIABLE)].map((m) => m[1]))];
+  const desconocidas = usadas.filter((u) => !p.variables.some((x) => x.nombre === u)).map((u) => `{${u}}`);
+  if (desconocidas.length > 0) return `Este correo no tiene la variable ${desconocidas.join(", ")}. Las que admite son: ${p.variables.map((x) => `{${x.nombre}}`).join(", ")}`;
+  const falta = p.variables.find((x) => x.indispensable && !cuerpo.includes(`{${x.nombre}}`));
+  if (falta) return `El cuerpo tiene que incluir {${falta.nombre}}: sin eso el correo no sirve (${falta.descripcion})`;
+  return null;
+}
+
+const renderizarConEjemplosMock = (p: PlantillaMock, t: string) => t.replace(MARCA_DE_VARIABLE, (m, nombre: string) => p.variables.find((x) => x.nombre === nombre)?.ejemplo ?? m);
+
+/** Las mismas reglas y mensajes que `BannerDeMantenimiento.de`. */
+function mensajeDeBannerInvalidoMock(cuerpo: { texto?: unknown; desde?: unknown; hasta?: unknown }): string | null {
+  const texto = typeof cuerpo.texto === "string" ? cuerpo.texto.trim() : "";
+  if (texto === "") return "El texto del aviso no puede estar vacío";
+  if (texto.length > 300) return "El texto del aviso admite hasta 300 caracteres";
+  if (/[\u0000-\u001f\u007f]/.test(texto)) return "El texto del aviso va en una sola línea";
+  const desde = typeof cuerpo.desde === "string" ? Date.parse(cuerpo.desde) : NaN;
+  const hasta = typeof cuerpo.hasta === "string" ? Date.parse(cuerpo.hasta) : NaN;
+  if (Number.isNaN(desde) || Number.isNaN(hasta)) return "Indica desde cuándo y hasta cuándo se muestra";
+  if (hasta <= desde) return "El aviso tiene que terminar después de empezar";
+  if (hasta <= Date.now()) return "El aviso ya venció: elige un fin que todavía no haya pasado";
+  if (hasta - desde > 90 * DIA_MS) return "Un aviso puede durar hasta 90 días";
+  return null;
+}
+
+const bannerVigenteMock = () => {
+  const b = configuracionMock.banner;
+  return b && Date.parse(b.desde) <= Date.now() && Date.now() < Date.parse(b.hasta) ? b : null;
+};
 
 /** Cuántas veces se leyó el monitor (#195): la cola de envíos crece una por lectura, y así las pruebas ven que el panel se actualizó. */
 let lecturasDelMonitorMock = 0;
@@ -647,6 +795,11 @@ export const handlers = [
   // pasa» enseña a ignorar el rojo.
   http.post(`${BASE}/v1/__test/reset`, () => {
     resetDb();
+    // Lo que el mock guarda fuera de `db` (monitor #195, cola de errores #196, avisos #197, configuración #199) también vuelve al principio: sin esto, la segunda corrida contra un dev server reutilizado fallaba.
+    lecturasDelMonitorMock = 0;
+    erroresMock = erroresIniciales();
+    avisosMock = avisosIniciales();
+    configuracionMock = configuracionInicial();
     return ok({ reiniciado: true });
   }),
 
@@ -1208,6 +1361,102 @@ export const handlers = [
     registrar();
     const motivo = cuerpo.tipo === "CREDENCIALES_SOL" ? "CREDENCIALES_SOL_INVALIDAS" : (fila as CertificadoDeAvisoMock).motivo;
     return ok({ empresa_id: fila.empresa_id, motivo, destinatario: fila.cuenta.email, enviado_en: fila.ultimo_aviso!.enviado_en, avisar_desde: fila.avisar_desde });
+  }),
+
+  /** Como el backend (#199): el remitente vigente, y el del servidor al que se vuelve. */
+  http.get(`${BASE}/v1/admin/configuracion/correo`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    return ok(remitenteConfiguradoMock());
+  }),
+
+  /** Como el backend: el correo es obligatorio y una sola dirección en ASCII; el nombre, hasta 100 caracteres y sin saltos de línea, comillas ni < >. Si sirve, queda fijado. */
+  http.put(`${BASE}/v1/admin/configuracion/correo`, async ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const c = (await request.json().catch(() => ({}))) as { nombre?: unknown; email?: unknown; responder_a?: unknown };
+    const nombre = typeof c.nombre === "string" && c.nombre.trim() !== "" ? c.nombre.trim() : undefined;
+    const email = typeof c.email === "string" ? c.email.trim() : "";
+    const responder = typeof c.responder_a === "string" && c.responder_a.trim() !== "" ? c.responder_a.trim() : undefined;
+    const direccion = /^[A-Za-z0-9._%+-]{1,64}@([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$/;
+    if (nombre && (nombre.length > 100 || /[\u0000-\u001f\u007f<>"\\]/.test(nombre))) return fail(422, "REMITENTE_INVALIDO", nombre.length > 100 ? "El nombre admite hasta 100 caracteres" : "El nombre no puede llevar saltos de línea, comillas ni < >");
+    if (email === "") return fail(422, "REMITENTE_INVALIDO", "El correo del remitente es obligatorio");
+    if (email.length > 254 || !direccion.test(email) || email.includes("..")) return fail(422, "REMITENTE_INVALIDO", "El correo del remitente no es una dirección de correo válida");
+    if (responder && (responder.length > 254 || !direccion.test(responder) || responder.includes(".."))) return fail(422, "REMITENTE_INVALIDO", "El correo para las respuestas no es una dirección de correo válida");
+    configuracionMock.remitente = { ...(nombre ? { nombre } : {}), email, ...(responder ? { responder_a: responder } : {}), actualizado_en: new Date().toISOString() };
+    return ok(remitenteConfiguradoMock());
+  }),
+
+  http.delete(`${BASE}/v1/admin/configuracion/correo`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    configuracionMock.remitente = undefined;
+    return ok(remitenteConfiguradoMock());
+  }),
+
+  http.get(`${BASE}/v1/admin/configuracion/plantillas`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    return ok(PLANTILLAS_MOCK.map(plantillaConfiguradaMock));
+  }),
+
+  /** Como el backend: un correo que no existe es 404; un texto que no sirve, 422 `PLANTILLA_INVALIDA` con lo que hay que corregir; si sirve, queda como el texto de ese correo. */
+  http.put(`${BASE}/v1/admin/configuracion/plantillas/:tipo`, async ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const p = PLANTILLAS_MOCK.find((x) => x.tipo === params.tipo);
+    if (!p) return fail(404, "NO_ENCONTRADO", "Ese correo no existe");
+    const c = (await request.json().catch(() => ({}))) as { asunto?: unknown; cuerpo?: unknown };
+    const invalida = mensajeDePlantillaInvalidaMock(p, c.asunto, c.cuerpo);
+    if (invalida) return fail(422, "PLANTILLA_INVALIDA", invalida);
+    configuracionMock.plantillas[p.tipo] = {
+      asunto: (c.asunto as string).trim(),
+      cuerpo: (c.cuerpo as string).replace(/\r\n?/g, "\n").trimEnd(),
+      actualizada_en: new Date().toISOString(),
+    };
+    return ok(plantillaConfiguradaMock(p));
+  }),
+
+  http.delete(`${BASE}/v1/admin/configuracion/plantillas/:tipo`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const p = PLANTILLAS_MOCK.find((x) => x.tipo === params.tipo);
+    if (!p) return fail(404, "NO_ENCONTRADO", "Ese correo no existe");
+    delete configuracionMock.plantillas[p.tipo];
+    return ok(plantillaConfiguradaMock(p));
+  }),
+
+  http.post(`${BASE}/v1/admin/configuracion/plantillas/:tipo/vista-previa`, async ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const p = PLANTILLAS_MOCK.find((x) => x.tipo === params.tipo);
+    if (!p) return fail(404, "NO_ENCONTRADO", "Ese correo no existe");
+    const c = (await request.json().catch(() => ({}))) as { asunto?: unknown; cuerpo?: unknown };
+    const invalida = mensajeDePlantillaInvalidaMock(p, c.asunto, c.cuerpo);
+    if (invalida) return fail(422, "PLANTILLA_INVALIDA", invalida);
+    return ok({ asunto: renderizarConEjemplosMock(p, (c.asunto as string).trim()), cuerpo: renderizarConEjemplosMock(p, (c.cuerpo as string).replace(/\r\n?/g, "\n").trimEnd()) });
+  }),
+
+  /** Como el backend: el aviso publicado (o `datos` nulo) y si se está mostrando ahora. */
+  http.get(`${BASE}/v1/admin/configuracion/banner`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const b = configuracionMock.banner;
+    return ok(b ? { ...b, vigente_ahora: bannerVigenteMock() !== null } : null);
+  }),
+
+  http.put(`${BASE}/v1/admin/configuracion/banner`, async ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const c = (await request.json().catch(() => ({}))) as { texto?: unknown; desde?: unknown; hasta?: unknown };
+    const invalido = mensajeDeBannerInvalidoMock(c);
+    if (invalido) return fail(422, "BANNER_INVALIDO", invalido);
+    configuracionMock.banner = { texto: (c.texto as string).trim(), desde: new Date(c.desde as string).toISOString(), hasta: new Date(c.hasta as string).toISOString(), actualizado_en: new Date().toISOString() };
+    return ok({ ...configuracionMock.banner, vigente_ahora: bannerVigenteMock() !== null });
+  }),
+
+  http.delete(`${BASE}/v1/admin/configuracion/banner`, ({ request }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!configuracionMock.banner) return fail(404, "NO_ENCONTRADO", "No hay un aviso publicado");
+    configuracionMock.banner = undefined;
+    return ok(null);
+  }),
+
+  /** Público, sin credenciales: solo el texto y la vigencia del aviso que se muestra ahora; `datos` nulo si no hay ninguno. */
+  http.get(`${BASE}/v1/banner`, () => {
+    const b = bannerVigenteMock();
+    return ok(b ? { texto: b.texto, desde: b.desde, hasta: b.hasta } : null);
   }),
 
   /** Como el backend (#193): consumo de todas las cuentas contra su plan de hoy, con filtro, orden, mes y página; el total, que refleja el filtro, va en la cabecera. */
