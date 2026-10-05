@@ -29,6 +29,38 @@ class JdbcIdempotenciaRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.reservar("factura:t1", "k1", H2)).contains(new Registro(H1, recurso));
     }
 
+    /** Buscar solo lee: una clave que no existe sigue sin existir (no la reserva), y la que existe se ve tal cual quedó. */
+    @Test void buscarNoReservaNadaYDevuelveLoRegistrado() {
+        UUID recurso = UUID.randomUUID();
+        assertThat(repo.buscar("factura:t1", "k1")).isEmpty();
+        assertThat(repo.reservar("factura:t1", "k1", H1)).as("buscar no dejó la clave tomada").isEmpty();
+        repo.completar("factura:t1", "k1", recurso);
+
+        assertThat(repo.buscar("factura:t1", "k1")).contains(new Registro(H1, recurso));
+        assertThat(repo.buscar("factura:t2", "k1")).as("otro alcance, otra clave").isEmpty();
+    }
+
+    /** Una reserva aún sin confirmar no se ve ni se espera: el reintento que llega en ese instante pasa a la reserva, que sí espera. */
+    @Test void buscarNoVeNiEsperaUnaReservaSinConfirmar() throws Exception {
+        TransactionTemplate tx = new TransactionTemplate(new DataSourceTransactionManager(ds));
+        CountDownLatch reservo = new CountDownLatch(1);
+        CountDownLatch soltar = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+
+        Future<?> primero = pool.submit(() -> tx.executeWithoutResult(s -> {
+            repo.reservar("factura:t1", "k1", H1);
+            reservo.countDown();
+            esperar(soltar);
+        }));
+        esperar(reservo);
+        Future<Optional<Registro>> lectura = pool.submit(() -> repo.buscar("factura:t1", "k1"));
+
+        assertThat(lectura.get(2, TimeUnit.SECONDS)).as("la lectura no queda esperando al primero").isEmpty();
+        soltar.countDown();
+        primero.get(5, TimeUnit.SECONDS);
+        pool.shutdown();
+    }
+
     @Test void laMismaClaveEnOtroAlcanceEsOtraClave() {
         repo.reservar("factura:t1", "k1", H1);
         assertThat(repo.reservar("factura:t2", "k1", H1)).isEmpty();

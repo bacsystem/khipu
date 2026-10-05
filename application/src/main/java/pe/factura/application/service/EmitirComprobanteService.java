@@ -45,6 +45,14 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
 
     @Override
     public Emision emitirFactura(UUID tenantId, EmitirFacturaCommand cmd, Idempotencia clave) {
+        ClaveEnAlcance enAlcance = clave == null ? null : new ClaveEnAlcance("factura:" + tenantId, clave);
+        // Un reintento se contesta antes de validar: la factura ya existe, y que después venciera el plazo de envío (2108) o el certificado
+        // no es motivo para negarla, que es justo el caso (un corte de red) para el que existe la clave. Es solo una lectura de lo
+        // confirmado; la exclusión entre pedidos simultáneos sigue en la reserva de `emitir`.
+        if (enAlcance != null) {
+            Optional<IdempotenciaRepository.Registro> previo = idempotencia.buscar(enAlcance.alcance(), clave.clave());
+            if (previo.isPresent()) return yaEmitida(tenantId, enAlcance, previo.get());
+        }
         Tenant tenant = tenantListo(tenantId, cmd.enviarAutomatico());
         List<Anticipo> anticipos = cmd.anticipos() == null ? List.of() : cmd.anticipos();
         // La cuenta de detracciones puede omitirse en la factura si la empresa la tiene configurada.
@@ -67,8 +75,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 .crear(clock);
         c.anotar(cmd.observaciones());
         // Dentro de la transacción y con la factura de anticipo bloqueada: dos finales concurrentes no pueden regularizar el mismo anticipo dos veces.
-        return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a)),
-                clave == null ? null : new ClaveEnAlcance("factura:" + tenantId, clave));
+        return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a)), enAlcance);
     }
 
     /** La clave de idempotencia con su alcance: la misma clave en otra empresa es otra clave. */

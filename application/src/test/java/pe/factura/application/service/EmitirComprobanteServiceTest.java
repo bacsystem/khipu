@@ -11,6 +11,8 @@ import pe.factura.domain.tenant.Serie;
 import pe.factura.domain.tenant.Tenant;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -49,7 +51,11 @@ class EmitirComprobanteServiceTest {
     }
 
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
-        return new EmitirFacturaCommand("F001", correlativo, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+        return cmd(correlativo, enviar, LocalDate.of(2026, 9, 13));
+    }
+
+    private EmitirFacturaCommand cmd(Long correlativo, boolean enviar, LocalDate fecha) {
+        return new EmitirFacturaCommand("F001", correlativo, fecha, null, "PEN", "0101",
                 new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, enviar);
     }
@@ -73,11 +79,15 @@ class EmitirComprobanteServiceTest {
     private record ConClaves(EmitirComprobanteService service, Fakes.Idempotencias claves) {}
 
     private ConClaves conClaves() {
+        return conClaves(new Fakes.Idempotencias(), Fakes.CLOCK);
+    }
+
+    /** Otro servicio sobre las mismas claves y datos, con otro reloj: el mismo sistema, más tarde. */
+    private ConClaves conClaves(Fakes.Idempotencias claves, Clock reloj) {
         Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
-        Fakes.Idempotencias claves = new Fakes.Idempotencias();
         claves.uow = uow;
-        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, Fakes.CLOCK);
-        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, Fakes.CLOCK, establecimientos, bajas, claves), claves);
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, reloj);
+        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves), claves);
     }
 
     private static final EmitirComprobanteUseCase.Idempotencia CLAVE = new EmitirComprobanteUseCase.Idempotencia("c1a7e5b0-0000-4000-8000-000000000001", "huella-1");
@@ -131,6 +141,58 @@ class EmitirComprobanteServiceTest {
         assertThat(deOtra.repetida()).isFalse();
         assertThat(deOtra.comprobante().id()).isNotEqualTo(mio.id());
         assertThat(deOtra.comprobante().tenantId()).isEqualTo(otra);
+    }
+
+    /** Fecha de la factura con la que el reintento de abajo llega ya fuera del plazo de envío (3 días calendario, 2108). */
+    private static final LocalDate FECHA_AL_LIMITE = LocalDate.of(2026, 9, 10);
+
+    private EmitirFacturaCommand cmdConFecha(LocalDate fecha) {
+        return cmd(null, false, fecha);
+    }
+
+    /** El reintento llega al día siguiente: la factura ya emitida se devuelve aunque su fecha ya no se pueda emitir (H1 de la revisión). */
+    @Test void elReintentoTrasVencerElPlazoDeEnvioDevuelveLaFacturaYaEmitida() {
+        ConClaves hoy = conClaves();
+        Comprobante emitida = hoy.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), CLAVE).comprobante();
+        ConClaves alDiaSiguiente = conClaves(hoy.claves(), Clock.offset(Fakes.CLOCK, Duration.ofDays(1)));
+
+        var reintento = alDiaSiguiente.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), CLAVE);
+
+        assertThat(reintento.repetida()).isTrue();
+        assertThat(reintento.comprobante().id()).isEqualTo(emitida.id());
+        assertThat(comprobantes.datos).hasSize(1);
+    }
+
+    /** Lo mismo si lo que venció es el certificado: tener la factura no exige poder emitir otra. */
+    @Test void elReintentoConElCertificadoYaVencidoDevuelveLaFacturaYaEmitida() {
+        ConClaves hoy = conClaves();
+        Comprobante emitida = hoy.service().emitirFactura(tenantId, cmd(null, false), CLAVE).comprobante();
+        ConClaves muchoDespues = conClaves(hoy.claves(), Clock.offset(Fakes.CLOCK, Duration.ofDays(2000)));
+
+        var reintento = muchoDespues.service().emitirFactura(tenantId, cmd(null, false), CLAVE);
+
+        assertThat(reintento.repetida()).isTrue();
+        assertThat(reintento.comprobante().id()).isEqualTo(emitida.id());
+    }
+
+    /** Devolver lo ya emitido no abre la puerta a otro contenido: la huella distinta se sigue rechazando fuera de plazo. */
+    @Test void fueraDePlazoLaMismaClaveConOtroPedidoSigueRechazada() {
+        ConClaves hoy = conClaves();
+        hoy.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), CLAVE);
+        ConClaves alDiaSiguiente = conClaves(hoy.claves(), Clock.offset(Fakes.CLOCK, Duration.ofDays(1)));
+
+        assertThatThrownBy(() -> alDiaSiguiente.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), new EmitirComprobanteUseCase.Idempotencia(CLAVE.clave(), "otra-huella")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
+    }
+
+    /** Una clave que no se usó antes no sirve de pase: fuera de plazo se rechaza como siempre y no deja la clave reservada. */
+    @Test void unaClaveNuevaFueraDePlazoSeRechazaYNoQuedaReservada() {
+        ConClaves tarde = conClaves(new Fakes.Idempotencias(), Clock.offset(Fakes.CLOCK, Duration.ofDays(1)));
+
+        assertThatThrownBy(() -> tarde.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), CLAVE))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("FECHA_INVALIDA");
+        assertThat(tarde.claves().filas).isEmpty();
+        assertThat(comprobantes.datos).isEmpty();
     }
 
     @Test void sinClaveCadaPedidoEsUnaFacturaNueva() {

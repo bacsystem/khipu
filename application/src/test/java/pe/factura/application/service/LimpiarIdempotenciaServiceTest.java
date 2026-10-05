@@ -14,6 +14,7 @@ class LimpiarIdempotenciaServiceTest {
     @Test void borraLasClavesDeMasDe24Horas() {
         Instant[] limite = new Instant[1];
         IdempotenciaRepository repo = new IdempotenciaRepository() {
+            public Optional<Registro> buscar(String a, String c) { return Optional.empty(); }
             public Optional<Registro> reservar(String a, String c, String h) { return Optional.empty(); }
             public void completar(String a, String c, UUID r) {}
             public int borrarAnterioresA(Instant l) { limite[0] = l; return 3; }

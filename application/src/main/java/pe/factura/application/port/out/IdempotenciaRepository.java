@@ -13,6 +13,12 @@ public interface IdempotenciaRepository {
     record Registro(String huella, UUID recursoId) {}
 
     /**
+     * Lo que ya está registrado para la clave, sin reservar nada ni esperar a nadie: solo ve lo confirmado. Sirve para contestar un
+     * reintento antes de volver a validar un pedido que ya se hizo; la exclusión entre pedidos simultáneos sigue siendo de {@link #reservar}.
+     */
+    Optional<Registro> buscar(String alcance, String clave);
+
+    /**
      * Reserva la clave para esta operación y devuelve vacío; si ya existía, devuelve lo registrado y no reserva nada. Debe llamarse
      * dentro de la transacción de la operación: si esta se revierte, la reserva también, y el reintento puede volver a hacerla. Si
      * otra transacción tiene la misma clave reservada y sin confirmar, espera a que termine: dos pedidos simultáneos no pueden

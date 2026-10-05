@@ -154,10 +154,13 @@ final class Fakes {
         final Map<String, Registro> filas = new HashMap<>();
         final List<Boolean> reservadoDentro = new ArrayList<>();
         UowTransaccional uow;
+        public Optional<Registro> buscar(String alcance, String clave) {
+            return Optional.ofNullable(filas.get(alcance + "|" + clave));
+        }
         public Optional<Registro> reservar(String alcance, String clave, String huella) {
             reservadoDentro.add(uow != null && uow.dentro);
-            Registro r = filas.get(alcance + "|" + clave);
-            if (r != null) return Optional.of(r);
+            Optional<Registro> r = buscar(alcance, clave);
+            if (r.isPresent()) return r;
             filas.put(alcance + "|" + clave, new Registro(huella, null));
             return Optional.empty();
         }
