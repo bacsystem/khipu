@@ -15,6 +15,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
@@ -193,6 +194,26 @@ class EmitirComprobanteServiceTest {
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("FECHA_INVALIDA");
         assertThat(tarde.claves().filas).isEmpty();
         assertThat(comprobantes.datos).isEmpty();
+    }
+
+    /**
+     * Dos pedidos simultáneos con la misma clave: los dos pasan la consulta previa (el otro aún no confirmó) y la reserva del segundo
+     * espera al primero. Esa reserva es la que tiene que ver la factura y devolverla, sin tomar la serie: es lo que impide la factura doble.
+     */
+    @Test void siLaReservaEncuentraLaFacturaQueLaConsultaPreviaNoVioLaDevuelveSinEmitirOtra() {
+        ConClaves primero = conClaves();
+        Comprobante emitida = primero.service().emitirFactura(tenantId, cmd(null, false), CLAVE).comprobante();
+        Fakes.Idempotencias ciegaAlBuscar = new Fakes.Idempotencias() {
+            @Override public Optional<IdempotenciaRepository.Registro> buscar(String alcance, String clave) { return Optional.empty(); }
+        };
+        ciegaAlBuscar.filas.putAll(primero.claves().filas);
+
+        var simultaneo = conClaves(ciegaAlBuscar, Fakes.CLOCK).service().emitirFactura(tenantId, cmd(null, false), CLAVE);
+
+        assertThat(simultaneo.repetida()).isTrue();
+        assertThat(simultaneo.comprobante().id()).isEqualTo(emitida.id());
+        assertThat(comprobantes.datos).as("no se emitió otra factura").hasSize(1);
+        assertThat(service.emitirFactura(tenantId, cmd(null, false)).numero()).as("el número 2 sigue libre").isEqualTo(2L);
     }
 
     @Test void sinClaveCadaPedidoEsUnaFacturaNueva() {

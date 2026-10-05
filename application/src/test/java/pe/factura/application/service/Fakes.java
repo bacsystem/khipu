@@ -150,7 +150,7 @@ final class Fakes {
     }
 
     /** Claves de idempotencia en memoria (#115). Registra si cada llamada corrió dentro de la transacción. */
-    static final class Idempotencias implements IdempotenciaRepository {
+    static class Idempotencias implements IdempotenciaRepository {
         final Map<String, Registro> filas = new HashMap<>();
         final List<Boolean> reservadoDentro = new ArrayList<>();
         UowTransaccional uow;
@@ -159,8 +159,9 @@ final class Fakes {
         }
         public Optional<Registro> reservar(String alcance, String clave, String huella) {
             reservadoDentro.add(uow != null && uow.dentro);
-            Optional<Registro> r = buscar(alcance, clave);
-            if (r.isPresent()) return r;
+            // Lee `filas` directo y no `buscar`: como el INSERT ... ON CONFLICT real, la reserva ve lo confirmado aunque la búsqueda previa no.
+            Registro r = filas.get(alcance + "|" + clave);
+            if (r != null) return Optional.of(r);
             filas.put(alcance + "|" + clave, new Registro(huella, null));
             return Optional.empty();
         }
