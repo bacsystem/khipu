@@ -30,7 +30,7 @@ describe("limaAInstante", () => {
   });
 
   it("lo que no es una fecha y hora es null", () => {
-    for (const mal of ["", "mañana", "2026-10-15", "2026-10-15T22", "2026-10-15 22:00", "2026-13-45T25:61", "2026-10-15T22:00:00", "2026-10-15T22:00Z"]) expect(limaAInstante(mal), mal).toBeNull();
+    for (const mal of ["", "mañana", "2026-10-15", "2026-10-15T22", "2026-10-15 22:00", "2026-13-45T25:61", "2026-10-15T22:00:00", "2026-10-15T22:00Z", "x2026-10-15T22:00", "2026-10-15T22:00x", "99999-10-15T22:00"]) expect(limaAInstante(mal), mal).toBeNull();
   });
 });
 

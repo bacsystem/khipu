@@ -120,6 +120,12 @@ describe("las lecturas", () => {
     expect(llamada(fetchMock).autorizacion).toBe("Bearer jwt-admin");
   });
 
+  it("sin aviso la API omite el dato: sigue siendo null, nunca undefined", async () => {
+    simular(new Response(JSON.stringify({ estado: "exito", mensaje: null, codigo: null, errores: null }), { status: 200 }));
+
+    expect(await obtenerBanner("jwt-admin")).toBeNull();
+  });
+
   it("el aviso publicado llega tal cual", async () => {
     simular(sobre({ texto: "Mantenimiento", desde: "a", hasta: "b", actualizado_en: "c", vigente_ahora: true }));
 
