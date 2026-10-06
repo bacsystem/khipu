@@ -31,7 +31,7 @@ public class GlobalExceptionHandler {
             // El alta ya se hizo con esa clave pero su respuesta (con la API key) ya no se guarda: no es un dato inválido del pedido.
             case "IDEMPOTENCIA_VENCIDA" -> HttpStatus.CONFLICT;
             case "CORREO_YA_VERIFICADO" -> HttpStatus.CONFLICT;
-            case "DEMASIADOS_INTENTOS" -> HttpStatus.TOO_MANY_REQUESTS;
+            case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES" -> HttpStatus.TOO_MANY_REQUESTS;
             case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO" -> HttpStatus.FORBIDDEN;
             case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;
             // El correo saliente es un servicio externo: su fallo no es culpa del cliente ni un bug del servidor.

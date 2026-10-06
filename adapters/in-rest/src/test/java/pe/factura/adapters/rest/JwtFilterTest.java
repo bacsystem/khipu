@@ -52,6 +52,7 @@ class JwtFilterTest {
         public void guardar(Usuario u) {}
         public Optional<Usuario> buscar(UUID id) { return delToken != null && delToken.id().equals(id) ? Optional.of(delToken) : Optional.empty(); }
         public Optional<Usuario> buscarPorEmail(String e) { return Optional.empty(); }
+        public void marcarCorreoVerificado(UUID id, java.time.Instant cuando) {}
     };
     JwtFilter filter = new JwtFilter(tokenEmisor, tenants, usuarios);
 

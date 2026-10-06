@@ -27,4 +27,9 @@ public class JdbcVerificacionCorreoRepository implements VerificacionCorreoRepos
     @Override public boolean usar(String tokenHash) {
         return jdbc.update("UPDATE token_verificacion SET usado = true WHERE token_hash = ? AND usado = false", tokenHash) == 1;
     }
+
+    @Override public int contarSinVencer(UUID usuarioId, java.time.Instant ahora) {
+        return jdbc.queryForObject("SELECT count(*) FROM token_verificacion WHERE usuario_id = ? AND expira_en > ?", Integer.class,
+                usuarioId, Timestamp.from(ahora));
+    }
 }

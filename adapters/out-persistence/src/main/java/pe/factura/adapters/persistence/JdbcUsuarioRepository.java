@@ -35,4 +35,8 @@ public class JdbcUsuarioRepository implements UsuarioRepository {
     @Override public Optional<Usuario> buscarPorEmail(String email) {
         return jdbc.query("SELECT " + COLS + " FROM usuario WHERE email = ?", MAPPER, email).stream().findFirst();
     }
+    /** Solo esa columna, y solo si estaba vacía: no pisa un cambio de contraseña concurrente ni mueve la primera fecha. */
+    @Override public void marcarCorreoVerificado(UUID id, java.time.Instant cuando) {
+        jdbc.update("UPDATE usuario SET correo_verificado_at = ? WHERE id = ? AND correo_verificado_at IS NULL", Timestamp.from(cuando), id);
+    }
 }

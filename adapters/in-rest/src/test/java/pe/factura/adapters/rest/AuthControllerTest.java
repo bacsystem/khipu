@@ -134,6 +134,13 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.codigo").value("CORREO_YA_VERIFICADO"));
     }
 
+    @Test void reenviarPasadoElTopeEs429() throws Exception {
+        org.mockito.Mockito.doThrow(new DomainException("DEMASIADOS_ENLACES", "hoy no")).when(auth).reenviarVerificacion(usuarioId, "http://localhost:3000");
+        mvc.perform(post("/v1/auth/verificacion").requestAttr(UsuarioActual.ATRIBUTO, usuarioId))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.codigo").value("DEMASIADOS_ENLACES"));
+    }
+
     @Test void restablecerConTokenInvalidoEs422() throws Exception {
         org.mockito.Mockito.doThrow(new DomainException("TOKEN_INVALIDO", "Enlace vencido")).when(auth).restablecer("malo", "Nueva1234");
         mvc.perform(post("/v1/auth/restablecer").contentType("application/json").content("{\"token\":\"malo\",\"password\":\"Nueva1234\"}"))

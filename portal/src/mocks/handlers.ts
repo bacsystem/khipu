@@ -195,7 +195,7 @@ export const handlers = [
     const usuario: Usuario = { id: nuevoId("u"), cuenta_id: nuevoId("c"), email, rol: "ADMIN", correo_verificado: false };
     db.usuariosPorEmail.set(email, { usuario, password: body.password });
     db.empresasPorCuenta.set(usuario.cuenta_id, []);
-    db.verificaciones.set(`verif-${email}`, { email, usado: false });
+    db.verificaciones.set(`verif-${email}`, { email, usado: false, enviados: 1 });
     return ok(emitirTokens(usuario), 201);
   }),
 
@@ -215,7 +215,11 @@ export const handlers = [
     const registro = [...db.usuariosPorEmail.values()].find((r) => r.usuario.id === c.sub);
     if (!registro) return fail(404, "NO_ENCONTRADO", "Usuario no encontrado");
     if (registro.usuario.correo_verificado) return fail(409, "CORREO_YA_VERIFICADO", "Tu correo ya está verificado");
-    db.verificaciones.set(`verif-${registro.usuario.email}`, { email: registro.usuario.email, usado: false });
+    // Como el backend: hasta 5 enlaces contando el del registro (el mock no los vence a las 24 h).
+    const enviados = db.verificaciones.get(`verif-${registro.usuario.email}`)?.enviados ?? 0;
+    if (enviados >= 5)
+      return fail(429, "DEMASIADOS_ENLACES", "Ya te enviamos varios enlaces hoy. Revisa tu correo, también la carpeta de spam, o vuelve a pedirlo mañana");
+    db.verificaciones.set(`verif-${registro.usuario.email}`, { email: registro.usuario.email, usado: false, enviados: enviados + 1 });
     return new HttpResponse(null, { status: 202 });
   }),
 

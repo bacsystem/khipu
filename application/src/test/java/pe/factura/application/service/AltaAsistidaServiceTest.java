@@ -46,6 +46,7 @@ class AltaAsistidaServiceTest {
         public void guardar(Usuario u) { escrituras.add(uow.dentro); usuariosMap.put(u.id(), u); }
         public Optional<Usuario> buscar(UUID id) { return Optional.ofNullable(usuariosMap.get(id)); }
         public Optional<Usuario> buscarPorEmail(String e) { return usuariosMap.values().stream().filter(u -> u.email().equals(e)).findFirst(); }
+        public void marcarCorreoVerificado(UUID id, java.time.Instant cuando) { usuariosMap.computeIfPresent(id, (k, u) -> u.conCorreoVerificado(cuando)); }
     };
     Map<String, SesionRepository.TokenRecuperacion> invitaciones = new HashMap<>();
     SesionRepository sesiones = new SesionRepository() {
