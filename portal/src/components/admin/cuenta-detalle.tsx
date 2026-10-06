@@ -230,7 +230,7 @@ export function CuentaDetalle({ cuenta, hoy }: { cuenta: CuentaDetalleAdmin; hoy
     <div className="grid min-w-0 gap-6" data-testid="cuenta-detalle">
       <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
         <div>
-          <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">Correo</dt>
+          <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.correo}</dt>
           <dd className="font-mono text-[13px]">{cuenta.email}</dd>
         </div>
         <div>

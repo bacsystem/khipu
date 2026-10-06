@@ -10,12 +10,12 @@ export function fakeJwt(payload: Record<string, unknown>): string {
 
 export type Usuario = { id: string; cuenta_id: string; email: string; rol: string; correo_verificado: boolean };
 export type Administrador = { id: string; email: string };
-/** Cuenta del listado del backoffice (#180) con sus empresas; el endpoint devuelve solo el número de empresas. */
 /** El id de la cuenta sembrada número `n`: un UUID, porque la página de detalle (#181) descarta todo lo que no lo sea. */
 export function idCuentaMock(n: number): string {
   return `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 }
 
+/** Cuenta del listado del backoffice (#180) con sus empresas; el endpoint devuelve solo el número de empresas. */
 export type CuentaAdminMock = {
   id: string;
   nombre: string;

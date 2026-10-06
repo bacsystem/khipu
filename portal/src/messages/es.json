@@ -155,6 +155,7 @@
     "detalle": {
       "volver": "Cuentas",
       "alta": "Alta",
+      "correo": "Correo",
       "telefono": "Celular",
       "error": "No se pudo cargar la cuenta.",
       "noExiste": "La cuenta no existe.",
