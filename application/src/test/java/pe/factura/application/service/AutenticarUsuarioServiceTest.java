@@ -165,7 +165,7 @@ class AutenticarUsuarioServiceTest {
         assertThat(verifMap).hasSize(5);
 
         AutenticarUsuarioService manana = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones);
+                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas));
         manana.reenviarVerificacion(id, PORTAL);
         assertThat(correos).hasSize(6);
     }
@@ -192,7 +192,7 @@ class AutenticarUsuarioServiceTest {
             public Optional<Usuario> buscarPorEmail(String e) { return usuarios.buscarPorEmail(e); }
             public void marcarCorreoVerificado(UUID u, java.time.Instant cuando) { usuarios.marcarCorreoVerificado(u, cuando); }
         };
-        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, leerConCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera, suspensiones);
+        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, leerConCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera, suspensiones, new PlantillasDeCorreo(plantillasGuardadas));
 
         enCarrera.verificarCorreo(token);
 
