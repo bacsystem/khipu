@@ -830,7 +830,7 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
 
 ## #214 · La búsqueda de cuentas ignora tildes
 
-**Estado: 🔧 implementado, 7/7 mutaciones verificadas — falta la revisión de la PR.** Seguimiento de #180.
+**Estado: 🔧 implementado, 9/9 mutaciones verificadas (7 y 2 de la corrección de la revisión).** Seguimiento de #180.
 
 `GET /v1/admin/cuentas?q=libreria` no encontraba «Librería El Saber»: `ILIKE` ignora mayúsculas pero no tildes.
 
@@ -839,22 +839,26 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
 - **`translate()` y no `unaccent`.** `translate` es del núcleo de Postgres: funciona igual en el compose, en Testcontainers y en cualquier proveedor, sin
   migración ni extensión (el issue dejaba abierto si el proveedor de producción ofrece `unaccent`; así deja de importar). Se aplica a la columna y al texto
   buscado, así que la regla vale en los dos sentidos. Solo en el nombre de la cuenta y la razón social: el correo y el RUC no llevan tildes.
-- **La tabla incluye mayúsculas** (`Í` → `I`): no se depende de que el `LC_CTYPE` de la base sepa pasar `Í` a minúscula para el `ILIKE`.
+- **La tabla incluye mayúsculas** (`Í` → `I`, y `Ñ` → `ñ`): no se depende de que el `LC_CTYPE` de la base sepa pasar `Í` o `Ñ` a minúscula para el `ILIKE`.
+  Con `LC_CTYPE=C`, `ILIKE` solo lo hace con el ASCII: `'Peña' ILIKE '%PEÑA%'` es falso.
 - **La `ñ` se distingue de la `n`** (decisión del issue): «peña» y «pena» son palabras distintas, y en un teclado en español —también el del móvil— la `ñ` no
   cuesta. Documentado en la descripción OpenAPI del endpoint.
 - **El texto buscado se normaliza a NFC**: una tilde que llega como `i` + acento combinado cuenta igual que `í`.
 - Lo ya resuelto no cambia: sin distinguir mayúsculas, RUC por prefijo, comodines literales, `X-Total-Count`. Rendimiento igual que antes (`ILIKE '%…%'` ya no
   usaba índice); si el volumen crece, `pg_trgm`, como dice #180.
-- El mock del portal aplica la misma regla (sin tildes salvo la `ñ`).
+- El mock del portal usa **la misma tabla** que el backend, carácter por carácter, y normaliza a NFC solo el texto buscado.
 - No hay otros buscadores con `ILIKE` en el backend: es el único.
 
 ### Tests
 
 - Persistencia (`JdbcCuentasAdminRepositoryTest` +4, Postgres): tildes en los dos sentidos y en mayúsculas en el nombre; razón social con tilde y diéresis;
   acento grave; `ñ` distinta de `n`; tilde combinada. Los 13 tests anteriores (mayúsculas, RUC por prefijo, comodines, total) siguen pasando sin cambios.
+- Persistencia con `LC_CTYPE=C` (`JdbcCuentasAdminRepositoryLocaleCTest`, 3, Postgres propio inicializado con `--locale=C`): la base es de verdad `C` y en ella
+  `ILIKE` solo no basta; «PEÑA», «peña» y «muñoz» encuentran lo suyo y «pena» sigue sin encontrar «Peña»; «LIBRERÍA» encuentra «Librería». El resto de los
+  tests corre con `en_US.utf8` (el default de la imagen), que tapaba el caso de la `Ñ`.
 - E2E portal (`admin-cuentas.spec.ts` +1): «panadería sol sac» encuentra `PANADERIA SOL SAC`, que sin la regla no coincide ni por nombre ni por razón social.
 
-### Verificación por mutación — 7/7 mueren
+### Verificación por mutación — 9/9 mueren
 
 | Mutación | Qué muere |
 |---|---|
@@ -865,11 +869,23 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
 | La `ñ` se vuelve `n` | `laEnieNoSeConfundeConLaEne` |
 | La tabla solo con minúsculas | 2 |
 | Mock: la razón social sin normalizar | el e2e nuevo |
+| La tabla sin la `Ñ` (revisión, H1) | `laEnieEnMayusculasYMinusculasSinDependerDeLaBase` (base `C`) |
+| La `Ñ` se vuelve `n` en vez de `ñ` (revisión, H1) | 2, incluido `laEnieNoSeConfundeConLaEne` |
 
 ### Límites conocidos
 
-- Solo vocales con tilde, diéresis, acento grave o circunflejo: otras letras con marca (ç, å) no se normalizan. No aparecen en nombres peruanos ni en razones
-  sociales de SUNAT.
+- Solo vocales con tilde, diéresis, acento grave o circunflejo, y la `Ñ` a `ñ`: otras letras con marca (ç, å) no se normalizan. No aparecen en nombres peruanos
+  ni en razones sociales de SUNAT. El mock del portal sigue exactamente la misma tabla, así que tampoco las normaliza.
+
+### Corrección de la revisión (H1, H2)
+
+- **H1, la `Ñ` dependía del `LC_CTYPE`.** La tabla de `translate` tenía las vocales mayúsculas justamente para no depender de la base, pero no la `Ñ`.
+  Comprobado con dos Postgres 16: con `C`, `'Peña Hermanos' ILIKE '%PEÑA%'` es falso; con `en_US.utf8`, verdadero. No se sabe qué `LC_CTYPE` tiene el
+  Postgres de producción, así que se agregó `Ñ` → `ñ` (sigue distinta de la `n`) y una clase de test con su propio Postgres en `C`, que estaba en rojo antes
+  del cambio («PEÑA» no encontraba nada).
+- **H2, el mock no era el backend.** Quitaba cualquier marca combinante salvo tras la `n`, así que contra el mock «conceicao» encontraba «Conceição» y contra el
+  backend no. Ahora usa la misma tabla. No se pudo correr el e2e: el Control de aplicaciones de Windows bloquea el binario nativo de Next en esta máquina
+  (`next-swc.win32-x64-msvc.node`); ESLint limpio.
 
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
