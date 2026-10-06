@@ -12,10 +12,11 @@ public interface IdempotenciaRepository {
     /**
      * Lo que quedó registrado para una clave: la huella del pedido, el recurso que produjo y, si la operación lo guardó, su respuesta
      * cifrada (#219: la del alta asistida lleva una API key que no se puede reconstruir). {@code respuestaCifrada} es nula si no se
-     * guardó o si ya se olvidó.
+     * guardó o si ya se olvidó. {@code creadoAt}: cuándo se reservó la clave; con él quien lee hace cumplir la vida de la respuesta sin
+     * esperar a la limpieza, que corre cada hora.
      */
-    record Registro(String huella, UUID recursoId, byte[] respuestaCifrada) {
-        public Registro(String huella, UUID recursoId) { this(huella, recursoId, null); }
+    record Registro(String huella, UUID recursoId, byte[] respuestaCifrada, Instant creadoAt) {
+        public Registro(String huella, UUID recursoId) { this(huella, recursoId, null, null); }
     }
 
     /**

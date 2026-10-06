@@ -17,8 +17,8 @@ import java.util.UUID;
  */
 @RequiredArgsConstructor
 public class JdbcIdempotenciaRepository implements IdempotenciaRepository {
-    private static final RowMapper<Registro> MAPPER = (rs, i) ->
-            new Registro(rs.getString("huella"), rs.getObject("recurso_id", UUID.class), rs.getBytes("respuesta_cifrada"));
+    private static final RowMapper<Registro> MAPPER = (rs, i) -> new Registro(rs.getString("huella"), rs.getObject("recurso_id", UUID.class),
+            rs.getBytes("respuesta_cifrada"), rs.getTimestamp("creado_at").toInstant());
     private final JdbcTemplate jdbc;
 
     @Override public Optional<Registro> reservar(String alcance, String clave, String huella) {
@@ -29,7 +29,7 @@ public class JdbcIdempotenciaRepository implements IdempotenciaRepository {
     }
 
     @Override public Optional<Registro> buscar(String alcance, String clave) {
-        return jdbc.query("SELECT huella, recurso_id, respuesta_cifrada FROM idempotencia WHERE alcance = ? AND clave = ?", MAPPER, alcance, clave)
+        return jdbc.query("SELECT huella, recurso_id, respuesta_cifrada, creado_at FROM idempotencia WHERE alcance = ? AND clave = ?", MAPPER, alcance, clave)
                 .stream().findFirst();
     }
 

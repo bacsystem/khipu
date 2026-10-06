@@ -344,6 +344,33 @@ class AltaAsistidaServiceTest {
         assertThat(cuentasMap).hasSize(1);
     }
 
+    /** El mismo servicio, con las mismas claves y datos, más tarde: el reloj avanza sin que pase la limpieza. */
+    private AltaAsistidaService servicioMasTarde(java.time.Duration despues) {
+        return new AltaAsistidaService(cuentas, usuarios, sesiones, tenants, series, apiKeys, hasher, correo, uow, auditoria, "pepper",
+                java.time.Clock.offset(Fakes.CLOCK, despues), claves, cifrador);
+    }
+
+    /**
+     * La hora de la API key se cumple al leer, no cuando pasa la limpieza (revisión de #219, H1): el worker corre cada hora y solo
+     * borra lo que ya tiene más de una, así que sin esto la key seguía saliendo hasta unas dos horas.
+     */
+    @Test void aLaHoraLaApiKeyYaNoSeDevuelveAunqueLaLimpiezaNoHayaPasado() {
+        servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
+
+        assertThatThrownBy(() -> servicioMasTarde(java.time.Duration.ofMinutes(61)).alta(ACTOR, solicitud(), PORTAL, CLAVE))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_VENCIDA");
+        assertThat(cuentasMap).hasSize(1);
+    }
+
+    @Test void antesDeLaHoraElReintentoSigueRecibiendoLaApiKey() {
+        var primero = servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
+
+        var reintento = servicioMasTarde(java.time.Duration.ofMinutes(59)).alta(ACTOR, solicitud(), PORTAL, CLAVE);
+
+        assertThat(reintento.repetida()).isTrue();
+        assertThat(reintento.alta().apiKeyEnClaro()).isEqualTo(primero.alta().apiKeyEnClaro());
+    }
+
     /** Pasada la hora la API key ya no se guarda: el reintento se reconoce, no crea un alta duplicada, y dice qué hacer. */
     @Test void pasadaLaHoraElReintentoSeReconocePeroYaNoDevuelveLaApiKey() {
         servicio().alta(ACTOR, solicitud(), PORTAL, CLAVE);
