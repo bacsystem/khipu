@@ -41,6 +41,7 @@ class ImpersonarUsuarioServiceTest {
         public void guardar(Usuario u) { throw new AssertionError("impersonar no modifica al usuario"); }
         public Optional<Usuario> buscar(UUID id) { return Optional.ofNullable(guardados.get(id)); }
         public Optional<Usuario> buscarPorEmail(String email) { throw new AssertionError("no se busca por correo"); }
+        public void marcarCorreoVerificado(UUID id, java.time.Instant cuando) { throw new AssertionError("impersonar no verifica el correo"); }
     };
 
     /** Guarda lo que le pidieron firmar y devuelve un token reconocible. */
