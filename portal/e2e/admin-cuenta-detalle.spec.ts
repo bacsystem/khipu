@@ -30,6 +30,9 @@ test("el detalle muestra usuarios, empresas con su certificado, comprobantes y b
   await expect(usuarios.locator("tbody tr")).toHaveCount(2);
   await expect(usuarios.getByText("Verificado")).toHaveCount(1);
   await expect(usuarios.getByText("Sin verificar")).toHaveCount(1);
+  // Los roles son los del dominio (`Rol`): el mock no inventa otros.
+  await expect(usuarios.locator("tbody tr", { hasText: "ana@sol.pe" }).getByRole("cell", { name: "ADMIN", exact: true })).toBeVisible();
+  await expect(usuarios.locator("tbody tr", { hasText: "beto@sol.pe" }).getByRole("cell", { name: "EMISOR", exact: true })).toBeVisible();
 
   const empresas = detalle.getByRole("region", { name: "Empresas" });
   await expect(empresas.getByText("PANADERIA SOL SAC")).toBeVisible();
