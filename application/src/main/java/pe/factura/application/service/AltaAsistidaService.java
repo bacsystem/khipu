@@ -109,10 +109,18 @@ public class AltaAsistidaService implements AltaAsistidaUseCase {
         if (!previo.huella().equals(clave.huella()))
             throw new DomainException("IDEMPOTENCIA_INVALIDA", "La clave de idempotencia " + clave.clave()
                     + " ya se usó con otro contenido: genere una clave nueva para otra alta");
-        if (previo.respuestaCifrada() == null)
+        if (previo.respuestaCifrada() == null || vencida(previo))
             throw new DomainException("IDEMPOTENCIA_VENCIDA", "Esta alta ya se hizo y su API key inicial ya no se puede volver a mostrar: "
                     + "el cliente puede crear otra API key desde su portal");
         return new Resultado(desdeCifrada(previo.respuestaCifrada()), true);
+    }
+
+    /**
+     * La hora de la API key se cumple aquí, al leer: la limpieza (#115) corre cada hora y solo olvida lo que ya tiene más de una, así
+     * que la respuesta podía seguir guardada hasta unas dos horas y salir en un reintento. Con la misma vigencia que usa la limpieza.
+     */
+    private boolean vencida(IdempotenciaRepository.Registro previo) {
+        return previo.creadoAt() != null && !Instant.now(clock).isBefore(previo.creadoAt().plus(LimpiarIdempotenciaService.VIGENCIA_RESPUESTA));
     }
 
     private byte[] cifrada(AltaCreada a) {

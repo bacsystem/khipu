@@ -21,12 +21,30 @@ class JdbcIdempotenciaRepositoryTest extends PersistenciaTestBase {
 
     @BeforeEach void limpiarClaves() { jdbc.update("TRUNCATE idempotencia"); }
 
+    /** Lo registrado sin la fecha de la reserva, que es la del servidor y no se puede fijar: la comprueba su propio test. */
+    static Optional<Registro> sinFecha(Optional<Registro> r) {
+        return r.map(x -> new Registro(x.huella(), x.recursoId(), x.respuestaCifrada(), null));
+    }
+
     @Test void laPrimeraVezReservaYLaSegundaDevuelveLoRegistrado() {
         UUID recurso = UUID.randomUUID();
         assertThat(repo.reservar("factura:t1", "k1", H1)).isEmpty();
         repo.completar("factura:t1", "k1", recurso);
 
-        assertThat(repo.reservar("factura:t1", "k1", H2)).contains(new Registro(H1, recurso));
+        assertThat(sinFecha(repo.reservar("factura:t1", "k1", H2))).contains(new Registro(H1, recurso));
+    }
+
+    /**
+     * Lo registrado dice cuándo se reservó la clave (#219): con eso el alta asistida deja de devolver la API key a la hora, aunque la
+     * limpieza, que corre cada hora, todavía no haya borrado la respuesta.
+     */
+    @Test void loRegistradoDiceCuandoSeReservoLaClave() {
+        Instant antes = Instant.now().minusSeconds(5);
+        repo.reservar("alta-cuenta", "k1", H1);
+
+        Instant creadoAt = repo.buscar("alta-cuenta", "k1").orElseThrow().creadoAt();
+
+        assertThat(creadoAt).isNotNull().isBetween(antes, Instant.now().plusSeconds(5));
     }
 
     /** Buscar solo lee: una clave que no existe sigue sin existir (no la reserva), y la que existe se ve tal cual quedó. */
@@ -36,7 +54,7 @@ class JdbcIdempotenciaRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.reservar("factura:t1", "k1", H1)).as("buscar no dejó la clave tomada").isEmpty();
         repo.completar("factura:t1", "k1", recurso);
 
-        assertThat(repo.buscar("factura:t1", "k1")).contains(new Registro(H1, recurso));
+        assertThat(sinFecha(repo.buscar("factura:t1", "k1"))).contains(new Registro(H1, recurso));
         assertThat(repo.buscar("factura:t2", "k1")).as("otro alcance, otra clave").isEmpty();
     }
 
@@ -73,8 +91,8 @@ class JdbcIdempotenciaRepositoryTest extends PersistenciaTestBase {
 
         repo.completar("factura:t1", "k1", mio);
 
-        assertThat(repo.reservar("factura:t1", "k1", H1)).contains(new Registro(H1, mio));
-        assertThat(repo.reservar("factura:t2", "k1", H2)).contains(new Registro(H2, null));
+        assertThat(sinFecha(repo.reservar("factura:t1", "k1", H1))).contains(new Registro(H1, mio));
+        assertThat(sinFecha(repo.reservar("factura:t2", "k1", H2))).contains(new Registro(H2, null));
     }
 
     /** Si la operación se revierte, la reserva también: el reintento la vuelve a hacer. */
@@ -111,7 +129,7 @@ class JdbcIdempotenciaRepositoryTest extends PersistenciaTestBase {
         assertThat(segundo.isDone()).as("el segundo espera mientras el primero no confirma").isFalse();
         soltarPrimero.countDown();
         primero.get(10, TimeUnit.SECONDS);
-        assertThat(segundo.get(10, TimeUnit.SECONDS)).contains(new Registro(H1, recurso));
+        assertThat(sinFecha(segundo.get(10, TimeUnit.SECONDS))).contains(new Registro(H1, recurso));
         pool.shutdown();
     }
 

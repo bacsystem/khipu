@@ -154,6 +154,8 @@ final class Fakes {
         final Map<String, Registro> filas = new HashMap<>();
         final List<Boolean> reservadoDentro = new ArrayList<>();
         UowTransaccional uow;
+        /** Cuándo se reserva cada clave, como el {@code DEFAULT now()} de la columna {@code creado_at}. */
+        Clock reloj = CLOCK;
         public Optional<Registro> buscar(String alcance, String clave) {
             return Optional.ofNullable(filas.get(alcance + "|" + clave));
         }
@@ -162,18 +164,18 @@ final class Fakes {
             // Lee `filas` directo y no `buscar`: como el INSERT ... ON CONFLICT real, la reserva ve lo confirmado aunque la búsqueda previa no.
             Registro r = filas.get(alcance + "|" + clave);
             if (r != null) return Optional.of(r);
-            filas.put(alcance + "|" + clave, new Registro(huella, null));
+            filas.put(alcance + "|" + clave, new Registro(huella, null, null, Instant.now(reloj)));
             return Optional.empty();
         }
         public void completar(String alcance, String clave, UUID recursoId, byte[] respuesta) {
             completadoDentro.add(uow != null && uow.dentro);
-            filas.computeIfPresent(alcance + "|" + clave, (k, r) -> new Registro(r.huella(), recursoId, respuesta));
+            filas.computeIfPresent(alcance + "|" + clave, (k, r) -> new Registro(r.huella(), recursoId, respuesta, r.creadoAt()));
         }
         final List<Boolean> completadoDentro = new ArrayList<>();
         public int borrarAnterioresA(Instant limite) { return 0; }
         /** Simula que pasó la hora de la respuesta: olvida todas las respuestas guardadas. */
         public int olvidarRespuestasAnterioresA(Instant limite) {
-            filas.replaceAll((k, r) -> new Registro(r.huella(), r.recursoId(), null));
+            filas.replaceAll((k, r) -> new Registro(r.huella(), r.recursoId(), null, r.creadoAt()));
             return filas.size();
         }
     }

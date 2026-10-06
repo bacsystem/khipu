@@ -100,7 +100,9 @@ class EmitirComprobanteServiceTest {
 
         assertThat(e.repetida()).isFalse();
         assertThat(e.comprobante().numero()).isEqualTo(1L);
-        assertThat(s.claves().filas).containsEntry("factura:" + tenantId + "|" + CLAVE.clave(), new IdempotenciaRepository.Registro("huella-1", e.comprobante().id()));
+        assertThat(s.claves().filas.get("factura:" + tenantId + "|" + CLAVE.clave()))
+                .extracting(IdempotenciaRepository.Registro::huella, IdempotenciaRepository.Registro::recursoId)
+                .containsExactly("huella-1", e.comprobante().id());
         assertThat(s.claves().reservadoDentro).as("la reserva va en la transacción de la emisión: si esta se revierte, la clave queda libre").containsExactly(true);
     }
 
