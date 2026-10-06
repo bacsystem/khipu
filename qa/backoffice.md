@@ -978,7 +978,8 @@ servicio y solo la mataba el e2e de 8 hilos (`FacturaIdempotenciaE2ETest`, que n
 
 ## #219 · Idempotencia del alta asistida
 
-**Estado: 🔧 implementado, 21/21 mutaciones verificadas — falta la revisión de la PR.** Seguimiento de la revisión de #216 (#188). Usa el mecanismo de #115.
+**Estado: 🔧 implementado, 25/25 mutaciones verificadas (21 y 4 de la corrección de la revisión).** Seguimiento de la revisión de #216 (#188). Usa el
+mecanismo de #115.
 
 El alta devuelve la API key inicial solo en su respuesta (se guarda el hash). Si la respuesta se perdía, el reintento recibía `409 DUPLICADO` y la
 key no se recuperaba.
@@ -993,7 +994,9 @@ key no se recuperaba.
 - **La respuesta se guarda cifrada con `MASTER_KEY`** (columna `respuesta_cifrada`, `V30`), en la misma transacción que el alta y actualizada después de
   enviar la invitación, así el reintento muestra lo mismo que vio el administrador (`invitacion_enviada` incluido). Formato: campos separados por `\u001f`,
   que ningún campo puede contener.
-- **Ventana de una hora para la respuesta**: `LimpiarIdempotenciaService` la borra a la hora (`olvidarRespuestasAnterioresA`) y la clave sigue 24 h. Un
+- **Ventana de una hora para la respuesta**, que **se cumple al leer**: el servicio no la devuelve pasada una hora desde que se reservó la clave
+  (`creado_at`), aunque la limpieza todavía no la haya borrado. `LimpiarIdempotenciaService` la borra físicamente (`olvidarRespuestasAnterioresA`, cada hora,
+  con la misma vigencia) y la clave sigue 24 h. Un
   reintento tardío se reconoce y responde **`409 IDEMPOTENCIA_VENCIDA`** («el cliente puede crear otra API key desde su portal») en vez de un `DUPLICADO`
   confuso.
 - La misma clave con otro pedido: `422 IDEMPOTENCIA_INVALIDA`. Alcance único `alta-cuenta` (las altas no son de ninguna empresa).
@@ -1013,7 +1016,10 @@ key no se recuperaba.
 - Portal: formulario (+3: el corte invita a reenviar, misma clave al reenviar y otra si cambia, otra al «dar de alta a otro cliente»), BFF (+1), e2e (+1:
   **el alta se hace, la respuesta se corta, el reenvío muestra la misma API key**).
 
-### Verificación por mutación — 21/21 mueren
+- Corrección de la revisión (H1): servicio +2 (a los 61 minutos, sin que pase la limpieza, ya no devuelve la API key; a los 59, sí) y persistencia +1 (lo
+  registrado trae `creado_at`).
+
+### Verificación por mutación — 25/25 mueren
 
 | Capa | Mutación | Qué muere |
 |---|---|---|
@@ -1029,6 +1035,9 @@ key no se recuperaba.
 | Limpieza | Respuestas de 24 h / la limpieza no olvida | 1 y 2 |
 | REST | Repetida con 201 / `IDEMPOTENCIA_VENCIDA` sin 409 | 1 y 1 |
 | Portal | El BFF no reenvía la clave / otro cliente reusa la clave / el corte no invita a reenviar | 1 cada una |
+| Servicio (revisión, H1) | No se mira la edad de la respuesta | `aLaHoraLaApiKeyYaNoSeDevuelve…` |
+| Servicio (revisión, H1) | Vence con el doble de tiempo / a la media hora | 1 y 1 (`antesDeLaHora…` fija que no venza antes) |
+| Persistencia (revisión, H1) | `buscar` no lee `creado_at` | `loRegistradoDiceCuandoSeReservoLaClave` |
 
 **Corrección sobre #115.** Dos mutaciones de persistencia de su tabla murieron la primera vez por SQL inválido, no por los tests: la de #115 que «leía
 antes de insertar» usaba un parámetro sin tipo, y una de esta tanda tenía paréntesis desbalanceados. Se rehicieron con cambios válidos (las dos filas de
@@ -1040,6 +1049,15 @@ inválido solo se ve leyendo el motivo del fallo.
 - Pasada la hora, la API key del alta no se recupera: es el precio de no guardarla más tiempo. El cliente crea otra desde su portal (o un administrador, cuando
   exista #187).
 - La respuesta guardada es la del momento del alta: si después cambian la razón social o la serie, el reintento muestra los datos de entonces.
+- La hora se cuenta desde `creado_at`, que pone Postgres (`now()`), y se compara con el reloj de la aplicación: un desfase entre los dos relojes corre la
+  ventana por esa diferencia.
+
+### Corrección de la revisión (H1)
+
+La primera versión no miraba la edad de la respuesta: la devolvía mientras estuviera guardada, y solo la borra la limpieza, que corre cada hora y olvida lo
+que ya tiene más de una. Una respuesta creada justo después de una pasada sobrevivía a la siguiente: la API key podía salir en un reintento hasta unas dos
+horas, contra el «solo una hora» del OpenAPI. Ahora `Registro` trae `creado_at` y `AltaAsistidaService` la da por vencida pasada `VIGENCIA_RESPUESTA`, la
+misma constante que usa la limpieza. El test de los 61 minutos estaba en rojo antes del cambio.
 
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
 
