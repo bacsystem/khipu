@@ -1158,7 +1158,7 @@ Después de la corrección: suite backend completa en verde, Vitest 318/318, `ts
 
 ## #181 · Detalle de una cuenta (solo lectura)
 
-**Estado: 🔧 implementado, 21/21 mutaciones verificadas más 1 equivalente — falta la revisión de la PR.** Rebanada de lectura de la épica #11.
+**Estado: ✅ hallazgos de la revisión de la PR (#229) corregidos, 22/22 mutaciones verificadas más 1 equivalente.** Rebanada de lectura de la épica #11.
 
 `GET /v1/admin/cuentas/{id}` y la página `/admin/cuentas/[id]`: usuarios, empresas con el estado de su certificado, últimos comprobantes y las últimas
 acciones del administrador sobre la cuenta. Sin botones de acción: suspender, impersonar o cambiar de plan llegan en sus issues, cada uno con su
@@ -1194,7 +1194,7 @@ confirmación y su registro en la bitácora.
   «Vence el … (10 días)», comprobantes y bitácora (quién actuó y una acción desconocida con su código); sin botones de acción; estados vacíos; 404 con un
   id inexistente y con uno que no es UUID.
 
-### Verificación por mutación — 21/21 mueren, 1 equivalente
+### Verificación por mutación — 22/22 mueren, 1 equivalente
 
 | Capa | Mutación | Qué muere |
 |---|---|---|
@@ -1210,6 +1210,7 @@ confirmación y su registro en la bitácora.
 | Playwright | El actor siempre «Administrador» / siempre «Clave de plataforma» | 1 + 1 |
 | Playwright | Una acción desconocida se esconde | 1 |
 | Playwright | Un 404 del backend no es `notFound()` / sin el filtro de UUID | 1 + 1 |
+| Playwright | El mock siembra un rol que no es del dominio (`USER`) — revisión de #229 | 1 |
 | Playwright | **Equivalente:** `return null` en vez de `redirect` sin sesión | sobrevive |
 
 Dos incidentes de la propia verificación, para que no se repitan:
@@ -1228,6 +1229,18 @@ distinguir desde fuera (el listado tiene la misma). Se conserva porque también 
 - Portal: `tsc --noEmit` limpio · ESLint limpio · Vitest 326/326.
 - Playwright completo con el código final de la página: 149/150 en la primera corrida; la que cayó (`emision.spec.ts`, #115) corría mientras Gradle ejecutaba
   mutaciones y pasó 48/48 al repetir el archivo tres veces. Es de carga de la máquina, no de este cambio.
+
+### Corrección de la revisión de #229
+
+Tres hallazgos menores, todos del portal:
+
+- **H1:** el comentario de `CuentaAdminMock` había quedado encima de `idCuentaMock`; cada uno tiene el suyo.
+- **H2: el mock no seguía el contrato.** Ante un id que no es UUID respondía `400 VALIDACION`, cuando el backend responde `400 PARAMETRO_INVALIDO`
+  (`GlobalExceptionHandler`), y sembraba un usuario con `rol: "USER"`, que no existe en `Rol` (`ADMIN`, `EMISOR`, `LECTURA`). Ahora usa
+  `PARAMETRO_INVALIDO` y `EMISOR`. La spec del detalle comprueba el rol de cada usuario: estaba en rojo con el mock anterior (mostraba «USER»).
+- **H3:** el rótulo «Correo» del encabezado estaba escrito en el componente; ahora sale de `messages.admin.detalle.correo`, como sus vecinos.
+
+Después: Playwright de cuentas 16/16 (detalle y listado), Vitest 326/326, `tsc` y ESLint limpios.
 
 ### Límites conocidos
 
