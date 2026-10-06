@@ -47,11 +47,13 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
     }
 
     /**
-     * Vocales con tilde, diéresis o acento grave y su vocal sin marca (#214), en minúscula y mayúscula: así no depende de que el
-     * {@code LC_CTYPE} de la base sepa pasar «Í» a minúscula. La ñ queda fuera a propósito: es otra letra («peña» no es «pena»).
+     * Vocales con tilde, diéresis, acento grave o circunflejo y su vocal sin marca (#214), en minúscula y mayúscula: así no depende de
+     * que el {@code LC_CTYPE} de la base sepa pasar «Í» a minúscula (con {@code C}, {@code ILIKE} solo lo hace con el ASCII). La ñ no se
+     * vuelve n, porque es otra letra («peña» no es «pena»), pero la «Ñ» sí pasa a «ñ» por la misma razón que «Í»: si no, en una base
+     * {@code C} «PEÑA» no encuentra «Peña».
      */
-    private static final String CON_TILDE = "áéíóúàèìòùäëïöüâêîôûÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÂÊÎÔÛ";
-    private static final String SIN_TILDE = "aeiouaeiouaeiouaeiouAEIOUAEIOUAEIOUAEIOU";
+    private static final String CON_TILDE = "áéíóúàèìòùäëïöüâêîôûÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÂÊÎÔÛÑ";
+    private static final String SIN_TILDE = "aeiouaeiouaeiouaeiouAEIOUAEIOUAEIOUAEIOUñ";
     /**
      * {@code translate} es del núcleo de Postgres: no exige la extensión {@code unaccent}, que no todos los proveedores ofrecen. Se
      * aplica a la columna y al texto buscado, así la regla vale en los dos sentidos.
