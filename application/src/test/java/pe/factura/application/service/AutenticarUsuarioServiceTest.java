@@ -166,22 +166,30 @@ class AutenticarUsuarioServiceTest {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         String token = tokenDelCorreo("/verificar/");
         UUID id = t.usuario().id();
-        // Mientras se gasta el enlace, un restablecer de la misma cuenta termina y cambia la contraseña.
+        // Un restablecer de la misma cuenta termina mientras se gasta el enlace, y otra vez justo después de cualquier lectura del usuario:
+        // si verificar escribe lo que leyó, en el orden que sea, devuelve la contraseña anterior.
+        // Cada restablecer deja una contraseña distinta: así se nota cualquier escritura de una lectura vieja.
+        java.util.concurrent.atomic.AtomicInteger restablecidas = new java.util.concurrent.atomic.AtomicInteger();
+        Runnable restablecer = () -> usuariosMap.computeIfPresent(id, (k, u) -> u.conPasswordHash(hasher.hash("Nueva" + restablecidas.incrementAndGet())));
         VerificacionCorreoRepository conCarrera = new VerificacionCorreoRepository() {
             public void crear(Token x) { verificaciones.crear(x); }
             public Optional<Token> buscar(String h) { return verificaciones.buscar(h); }
-            public boolean usar(String h) {
-                usuariosMap.computeIfPresent(id, (k, u) -> u.conPasswordHash(hasher.hash("Nueva1234")));
-                return verificaciones.usar(h);
-            }
+            public boolean usar(String h) { restablecer.run(); return verificaciones.usar(h); }
             public int contarSinVencer(UUID u, java.time.Instant ahora) { return verificaciones.contarSinVencer(u, ahora); }
         };
-        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera);
+        UsuarioRepository leerConCarrera = new UsuarioRepository() {
+            public void guardar(Usuario u) { usuarios.guardar(u); }
+            public Optional<Usuario> buscar(UUID u) { Optional<Usuario> leido = usuarios.buscar(u); restablecer.run(); return leido; }
+            public Optional<Usuario> buscarPorEmail(String e) { return usuarios.buscarPorEmail(e); }
+            public void marcarCorreoVerificado(UUID u, java.time.Instant cuando) { usuarios.marcarCorreoVerificado(u, cuando); }
+        };
+        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, leerConCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera);
 
         enCarrera.verificarCorreo(token);
 
         assertThat(usuariosMap.get(id).correoVerificado()).isTrue();
-        assertThat(usuariosMap.get(id).passwordHash()).isEqualTo(hasher.hash("Nueva1234"));
+        assertThat(restablecidas.get()).isPositive();
+        assertThat(usuariosMap.get(id).passwordHash()).as("la última contraseña restablecida").isEqualTo(hasher.hash("Nueva" + restablecidas.get()));
     }
 
     /** Abrir el enlace de restablecer (o el de la invitación del alta asistida) también demuestra que el correo es suyo. */
