@@ -34,14 +34,15 @@ test("pasado el tope de enlaces, avisa que vuelva a pedirlo mañana", async ({ p
   await registrar(page, { email: `tope${Date.now()}@ejemplo.pe` });
   const reenviar = page.getByRole("button", { name: "Enviarme otro enlace" });
 
+  // Mientras envía, el botón dice «Enviando…»: cada clic espera a que el anterior termine.
   for (let i = 0; i < 4; i++) {
     await reenviar.click();
-    await expect(page.getByRole("status").filter({ hasText: "Te enviamos otro enlace" })).toBeVisible();
-    await expect(reenviar).toBeEnabled();
+    await expect(page.getByText(/Te enviamos otro enlace/)).toBeVisible();
   }
   await reenviar.click();
 
   await expect(page.getByRole("alert").filter({ hasText: "vuelve a pedirlo mañana" })).toBeVisible();
+  await expect(page.getByText(/Te enviamos otro enlace/)).toHaveCount(0);
 });
 
 test("con el enlace del correo queda verificado y el onboarding muestra el formulario", async ({ page }) => {
