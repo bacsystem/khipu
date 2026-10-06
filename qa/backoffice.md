@@ -1061,7 +1061,7 @@ misma constante que usa la limpieza. El test de los 61 minutos estaba en rojo an
 
 ## #22 · Verificación de correo obligatoria en el registro
 
-**Estado: 🔧 implementado, 18/18 mutaciones verificadas — falta la revisión de la PR.** No es del backoffice, pero va en la pila: #183 («reenviar
+**Estado: ✅ hallazgos de la revisión de la PR (#228) corregidos, 31/31 mutaciones verificadas (18 y 13 de la corrección).** No es del backoffice, pero va en la pila: #183 («reenviar
 verificación») y el estado «sin verificar» de #180 dependen de él.
 
 ### Diseño
@@ -1078,6 +1078,11 @@ verificación») y el estado «sin verificar» de #180 dependen de él.
 - **Restablecer la contraseña (y aceptar la invitación del alta asistida, que usa el mismo enlace) también verifica**: el enlace llegó a ese correo.
 - `POST /v1/auth/verificar {token}` (público) y `POST /v1/auth/verificacion` (reenviar, con sesión; `409 CORREO_YA_VERIFICADO`). `me` devuelve
   `correo_verificado`.
+- **Tope de enlaces: 5 cada 24 horas, contando el del registro**; el sexto pedido responde `429 DEMASIADOS_ENLACES` sin mandar nada. Sin verificar, el
+  correo puede no ser de quien se registró: sin tope, el reenvío serviría para llenar el buzón de otro desde nuestro dominio. Se cuentan los enlaces sin
+  vencer del usuario (como todos duran 24 h, son los de las últimas 24 h), con índice `(usuario_id, expira_en)`.
+- **Verificar solo marca la columna** (`UPDATE ... WHERE correo_verificado_at IS NULL`), sin reescribir el usuario: un restablecer que termine a la vez no
+  pierde la contraseña nueva.
 - **Portal**: el onboarding muestra «Revisa tu correo» (con reenvío y «Ya lo verifiqué») en vez del formulario, y el layout privado lo avisa arriba.
   `/verificar/[token]` verifica **con un botón y no al abrir la página**: los filtros y antivirus del correo abren los enlaces y gastarían uno de un solo uso.
   El segmento del token se decodifica: un cliente de correo puede haber reescrito el enlace codificándolo.
@@ -1085,16 +1090,18 @@ verificación») y el estado «sin verificar» de #180 dependen de él.
 ### Tests
 
 - Dominio (`UsuarioTest` +1): empieza sin verificar, la fecha es la primera y se conserva al cambiar la contraseña o desactivar.
-- Servicio (`AutenticarUsuarioServiceTest` +8): el registro manda el enlace (solo el hash, 24 h); el enlace verifica una vez; vencido o inventado no;
-  no sirve para cambiar la contraseña; reenviar; ya verificado no reenvía; restablecer verifica; un SMTP caído no rompe el registro.
-- Persistencia (`JdbcVerificacionCorreoRepositoryTest`, 3, Postgres): guardar/buscar, un solo uso, el usuario guarda la verificación.
-- REST: `AuthControllerTest` +5 (verificar, reenviar, 409, `me` con el campo), `JwtFilterTest` +5 (ninguna escritura sin verificar; mirar y la sesión sí;
+- Servicio (`AutenticarUsuarioServiceTest` +10): el registro manda el enlace (solo el hash, 24 h); el enlace verifica una vez; vencido o inventado no;
+  no sirve para cambiar la contraseña; reenviar; ya verificado no reenvía; restablecer verifica; un SMTP caído no rompe el registro; tope de enlaces;
+  verificar no pisa una contraseña cambiada a la vez.
+- Persistencia (`JdbcVerificacionCorreoRepositoryTest`, 5, Postgres): guardar/buscar, un solo uso, el usuario guarda la verificación, marcar solo toca esa
+  columna, contar los enlaces sin vencer.
+- REST: `AuthControllerTest` +6 (verificar, reenviar, 409, 429, `me` con el campo), `JwtFilterTest` +5 (ninguna escritura sin verificar; mirar y la sesión sí;
   verificado escribe; sin usuario o inactivo 401; ruta disfrazada de auth).
-- E2E backend (`AuthE2ETest` +5, con el enlace sacado del correo real): sin verificar se mira y no se crea empresa; con el enlace se crea **con el mismo token
-  de sesión**; un solo uso; reenviar; una API key no depende de la verificación. `AdminCuentasE2ETest` verifica su cliente; `AltaAsistidaE2ETest` ignora el
+- E2E backend (`AuthE2ETest` +6, con el enlace sacado del correo real): sin verificar se mira y no se crea empresa; con el enlace se crea **con el mismo token
+  de sesión**; un solo uso; reenviar; tope de reenvíos; una API key no depende de la verificación. `AdminCuentasE2ETest` verifica su cliente; `AltaAsistidaE2ETest` ignora el
   correo de verificación del registro que usa para su prueba de aislamiento.
-- Portal: BFF (+5), e2e `verificacion-correo.spec.ts` (6: pantalla en vez del formulario, `403` por HTTP directo, reenvío, el enlace verifica, un solo
-  uso, «Ya lo verifiqué» tras verificar en otra pestaña); `onboarding.spec.ts` verifica antes del asistente (helper `registrarYVerificar`).
+- Portal: BFF (+5), e2e `verificacion-correo.spec.ts` (7: pantalla en vez del formulario, `403` por HTTP directo, reenvío, tope de reenvíos, el enlace
+  verifica, un solo uso, «Ya lo verifiqué» tras verificar en otra pestaña); `onboarding.spec.ts` verifica antes del asistente (helper `registrarYVerificar`).
 
 ### Verificación por mutación — 18/18 mueren
 
@@ -1114,9 +1121,38 @@ verificación») y el estado «sin verificar» de #180 dependen de él.
 | Persistencia | `usar` sin exigir que esté sin usar / el usuario no guarda la verificación | 1 y 1 |
 | BFF | El reenvío sin sesión llama al backend | 1 |
 
+### Corrección de la revisión de #228
+
+- **H1 (importante): el reenvío no tenía tope**, y la justificación («llegan a su propio correo») era falsa: sin verificar, el correo puede no ser suyo.
+  Quien se registrara con el correo de otro podía pedir enlaces en bucle. Ahora 5 por día (ver Diseño). Tests: servicio
+  `losEnlacesDeVerificacionTienenTopePorDia` (el sexto no sale; al vencer el primero, sí), persistencia `cuentaLosEnlacesSinVencerDelUsuario`, REST
+  `reenviarPasadoElTopeEs429`, e2e backend `elReenvioTieneTope` (Postgres, 5 correos), Playwright «pasado el tope de enlaces…» (el mock aplica el mismo tope).
+- **H2 (menor):** el comentario de `clavesAlta` en el mock había quedado encima de `verificaciones`; cada campo tiene el suyo.
+- **H3 (menor): verificar podía deshacer un cambio de contraseña.** Leía el usuario fuera de la transacción y lo guardaba entero. Ahora
+  `UsuarioRepository.marcarCorreoVerificado` toca solo esa columna. Test `verificarNoPisaUnaContrasenaCambiadaMientrasTanto` (en rojo con el código anterior)
+  y `marcarElCorreoVerificadoSoloTocaEsaColumna` (Postgres).
+
+Mutaciones de la corrección, **13/13 mueren**:
+
+| Capa | Mutación | Qué muere |
+|---|---|---|
+| Servicio | Sin tope / deja pasar uno más / tope de 6 | 1, 1 y 1 |
+| Persistencia | Contar solo los no usados / los de todos los usuarios / incluir el que vence justo ahora | 1, 1 y 1 |
+| REST | `DEMASIADOS_ENLACES` no es `429` | 1 |
+| Servicio | Verificar reescribe el usuario leído antes de la transacción (como estaba) / releído dentro / no marca | 1, 1 y 4 |
+| Persistencia | Marcar pisa la primera fecha / no hace nada | 1 y 1 |
+| Mock | Sin tope | Playwright «pasado el tope…» |
+
+La de «releído dentro de la transacción» **sobrevivió la primera vuelta**: el restablecer simulado solo entraba al gastar el enlace, y una relectura posterior
+ya veía la contraseña nueva. El test ahora lo simula también tras cada lectura del usuario, con una contraseña distinta cada vez.
+
+Después de la corrección: suite backend completa en verde, Vitest 318/318, `tsc` y `eslint` limpios, Playwright 145/145.
+
 ### Límites conocidos
 
-- Sin tope de reenvíos: quien tiene la sesión puede pedir enlaces seguidos (llegan a su propio correo). Si molesta, un límite por minuto.
+- El tope de enlaces cuenta y luego inserta sin bloqueo: pedidos simultáneos justo en el límite pueden pasarlo por uno o dos. Alcanza para que el reenvío no
+  sirva de bombardeo; no es un límite exacto.
+- `token_verificacion` no se limpia: los enlaces vencidos o usados se quedan (pocos por usuario gracias al tope).
 - El bloqueo cuesta una lectura de `usuario` por cada escritura con sesión del portal (no con API key).
 - El estado «sin verificar» todavía no se ve en el listado de cuentas del backoffice (#180): llega con su columna de estado (#182).
 
