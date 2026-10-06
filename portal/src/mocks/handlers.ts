@@ -281,9 +281,18 @@ export const handlers = [
     const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
     const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
-    // Como el backend (#214): nombre y razón social sin tildes en los dos sentidos; la ñ (n + tilde combinada) se conserva.
-    const sinTildes = (s: string) => s.normalize("NFD").replace(/(?<![nN])[̀-ͯ]/g, "").normalize("NFC");
-    const qSinTildes = sinTildes(q);
+    // La misma tabla que el `translate` del backend (#214, JdbcCuentasAdminRepository): solo las vocales con marca pierden la marca, y
+    // la Ñ pasa a ñ sin volverse n. Una regla más amplia (quitar cualquier marca) haría pasar contra el mock búsquedas que el backend
+    // no encuentra, como «conceicao» → «Conceição».
+    const CON_TILDE = "áéíóúàèìòùäëïöüâêîôûÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÂÊÎÔÛÑ";
+    const SIN_TILDE = "aeiouaeiouaeiouaeiouAEIOUAEIOUAEIOUAEIOUñ";
+    const sinTildes = (s: string) =>
+      Array.from(s, (ch) => {
+        const i = CON_TILDE.indexOf(ch);
+        return i < 0 ? ch : SIN_TILDE[i];
+      }).join("");
+    // El backend normaliza a NFC solo el texto buscado (una tilde que llega como letra + acento combinado).
+    const qSinTildes = sinTildes(q.normalize("NFC"));
     const coincide = (c: (typeof db.cuentasAdmin)[number]) =>
       !q ||
       c.email.toLowerCase().includes(q) ||
