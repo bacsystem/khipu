@@ -365,7 +365,7 @@ class AltaAsistidaServiceTest {
     /** El mismo servicio, con las mismas claves y datos, más tarde: el reloj avanza sin que pase la limpieza. */
     private AltaAsistidaService servicioMasTarde(java.time.Duration despues) {
         return new AltaAsistidaService(cuentas, usuarios, sesiones, tenants, series, apiKeys, hasher, correo, uow, auditoria, "pepper",
-                java.time.Clock.offset(Fakes.CLOCK, despues), claves, cifrador);
+                java.time.Clock.offset(Fakes.CLOCK, despues), claves, cifrador, new PlantillasDeCorreo(plantillasGuardadas));
     }
 
     /**
