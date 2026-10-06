@@ -11,3 +11,5 @@ CREATE TABLE token_verificacion (
     expira_en  TIMESTAMPTZ NOT NULL,
     usado      BOOLEAN     NOT NULL DEFAULT false
 );
+-- El tope de reenvíos cuenta los enlaces sin vencer de cada usuario.
+CREATE INDEX token_verificacion_usuario ON token_verificacion (usuario_id, expira_en);

@@ -95,7 +95,9 @@ public class AuthController {
     }
 
     @PostMapping("/verificacion")
-    @Operation(summary = "Reenviar el enlace de verificación", description = "Al correo del usuario de la sesión. `409 CORREO_YA_VERIFICADO` si no hace falta.")
+    @Operation(summary = "Reenviar el enlace de verificación", description = """
+            Al correo del usuario de la sesión. `409 CORREO_YA_VERIFICADO` si no hace falta. Hasta 5 enlaces cada 24 horas contando el del
+            registro (el correo todavía no está verificado y podría no ser suyo): pasado eso, `429 DEMASIADOS_ENLACES`.""")
     public ResponseEntity<Void> reenviarVerificacion(HttpServletRequest req) {
         auth.reenviarVerificacion(UsuarioActual.id(req), portalUrl);
         return ResponseEntity.accepted().build();

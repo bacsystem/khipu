@@ -149,6 +149,20 @@ class AuthE2ETest {
                 .getStatusCode()).isEqualTo(HttpStatus.CREATED);
     }
 
+    /** Sin verificar, el correo puede no ser suyo: 5 enlaces por día con el del registro, y el sexto pedido no manda nada. */
+    @Test void elReenvioTieneTope() {
+        Cuenta cuenta = registrar("Mi negocio", "ana@negocio.pe");
+        for (int i = 0; i < 4; i++)
+            assertThat(http.postForEntity("/v1/auth/verificacion", new HttpEntity<>(conJwt(cuenta.access())), Void.class).getStatusCode())
+                    .isEqualTo(HttpStatus.ACCEPTED);
+
+        ResponseEntity<Map> sexto = http.postForEntity("/v1/auth/verificacion", new HttpEntity<>(conJwt(cuenta.access())), Map.class);
+
+        assertThat(sexto.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(sexto.getBody()).containsEntry("codigo", "DEMASIADOS_ENLACES");
+        assertThat(CORREOS).hasSize(5);
+    }
+
     private record Cuenta(String access, String refresh, String cuentaId) {}
 
     private Cuenta registrar(String nombre, String email) {

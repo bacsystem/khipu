@@ -54,4 +54,32 @@ class JdbcVerificacionCorreoRepositoryTest extends PersistenciaTestBase {
         assertThat(usuarios.buscar(u.id()).orElseThrow().correoVerificadoEn()).isEqualTo(cuando);
         assertThat(usuarios.buscarPorEmail(u.email()).orElseThrow().correoVerificadoEn()).isEqualTo(cuando);
     }
+
+    /** Marcar el correo no toca el resto de la fila (una contraseña cambiada a la vez se queda) y no mueve la primera fecha. */
+    @Test void marcarElCorreoVerificadoSoloTocaEsaColumna() {
+        Usuario u = usuario();
+        usuarios.guardar(u.conPasswordHash("hash-nuevo"));
+
+        Instant cuando = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        usuarios.marcarCorreoVerificado(u.id(), cuando);
+        usuarios.marcarCorreoVerificado(u.id(), cuando.plusSeconds(60));
+
+        Usuario leido = usuarios.buscar(u.id()).orElseThrow();
+        assertThat(leido.correoVerificadoEn()).isEqualTo(cuando);
+        assertThat(leido.passwordHash()).isEqualTo("hash-nuevo");
+    }
+
+    /** Los enlaces que siguen sin vencer, usados o no, y solo los del usuario: con eso se pone el tope de reenvíos. */
+    @Test void cuentaLosEnlacesSinVencerDelUsuario() {
+        Usuario u = usuario();
+        Usuario otro = usuario();
+        Instant ahora = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        repo.crear(new Token("a".repeat(64), u.id(), ahora.plusSeconds(60), false));
+        repo.crear(new Token("b".repeat(64), u.id(), ahora.plusSeconds(60), true));
+        repo.crear(new Token("c".repeat(64), u.id(), ahora, false));             // vence justo ahora: ya no cuenta
+        repo.crear(new Token("d".repeat(64), otro.id(), ahora.plusSeconds(60), false));
+
+        assertThat(repo.contarSinVencer(u.id(), ahora)).isEqualTo(2);
+        assertThat(repo.contarSinVencer(otro.id(), ahora)).isEqualTo(1);
+    }
 }

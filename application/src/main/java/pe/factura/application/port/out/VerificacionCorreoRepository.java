@@ -14,4 +14,7 @@ public interface VerificacionCorreoRepository {
 
     /** Lo marca usado si no lo estaba y devuelve si lo marcó: dos clics simultáneos en el mismo enlace no lo usan dos veces. */
     boolean usar(String tokenHash);
+
+    /** Cuántos enlaces del usuario siguen sin vencer a {@code ahora}, usados o no: como todos duran lo mismo, los que se le mandaron hace menos de esa vida. */
+    int contarSinVencer(UUID usuarioId, Instant ahora);
 }

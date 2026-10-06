@@ -20,6 +20,8 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     static final Duration VIDA_RECUPERACION = Duration.ofHours(1);
     /** Un día: quien se registra puede no abrir el correo enseguida; pasado eso pide otro desde el portal. */
     static final Duration VIDA_VERIFICACION = Duration.ofHours(24);
+    /** Enlaces de verificación por usuario dentro de {@link #VIDA_VERIFICACION}, contando el del registro. */
+    static final int MAX_ENLACES_POR_DIA = 5;
 
     private final CuentaRepository cuentas;
     private final UsuarioRepository usuarios;
@@ -55,12 +57,12 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
         VerificacionCorreoRepository.Token t = verificaciones.buscar(hash)
                 .filter(x -> !x.usado() && x.expiraEn().isAfter(clock.instant()))
                 .orElseThrow(() -> new DomainException("TOKEN_INVALIDO", "El enlace de verificación es inválido o venció. Pide otro desde el portal"));
-        Usuario u = usuarios.buscar(t.usuarioId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Usuario no encontrado"));
         uow.ejecutar(() -> {
             // Marcarlo usado es la condición: si dos clics llegan a la vez, solo uno verifica, y el otro ve el enlace ya usado.
             if (!verificaciones.usar(hash))
                 throw new DomainException("TOKEN_INVALIDO", "El enlace de verificación ya se usó");
-            usuarios.guardar(u.conCorreoVerificado(clock.instant()));
+            // Solo la marca, sin reescribir el usuario leído: un restablecer que entre a la vez no pierde la contraseña nueva.
+            usuarios.marcarCorreoVerificado(t.usuarioId(), clock.instant());
         });
     }
 
@@ -68,6 +70,9 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     public void reenviarVerificacion(UUID usuarioId, String urlBase) {
         Usuario u = usuarios.buscar(usuarioId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Usuario no encontrado"));
         if (u.correoVerificado()) throw new DomainException("CORREO_YA_VERIFICADO", "Tu correo ya está verificado");
+        // Sin verificar, el correo puede no ser suyo: sin tope, el reenvío serviría para llenar el buzón de otro desde nuestro dominio.
+        if (verificaciones.contarSinVencer(u.id(), clock.instant()) >= MAX_ENLACES_POR_DIA)
+            throw new DomainException("DEMASIADOS_ENLACES", "Ya te enviamos varios enlaces hoy. Revisa tu correo, también la carpeta de spam, o vuelve a pedirlo mañana");
         String verificacion = TokenOpaco.generar();
         uow.ejecutar(() -> verificaciones.crear(new VerificacionCorreoRepository.Token(TokenOpaco.hash(verificacion), u.id(), clock.instant().plus(VIDA_VERIFICACION), false)));
         enviarVerificacion(u.email(), urlBase, verificacion);

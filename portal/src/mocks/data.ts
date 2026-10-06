@@ -129,9 +129,12 @@ export const db = {
   /** Idempotency-Key de la emisión (#115): `empresa|clave` → huella del pedido y factura emitida. */
   clavesEmision: new Map<string, { huella: string; id: string }>(),
   /** Idempotency-Key del alta asistida (#219): clave → huella del pedido y respuesta, con la API key. */
-  /** Enlaces de verificación del correo (#22): token → correo y si ya se usó. El e2e arma el enlace con `verif-<correo>`. */
-  verificaciones: new Map<string, { email: string; usado: boolean }>(),
   clavesAlta: new Map<string, { huella: string; respuesta: { cuenta_id: string; tenant_id: string; ruc: string; api_key: string; serie: { tipo: string; serie: string }; invitacion_enviada: boolean } }>(),
+  /**
+   * Enlaces de verificación del correo (#22): token → correo, si ya se usó y cuántos se mandaron (el tope de reenvíos; el mock no los
+   * vence). El e2e arma el enlace con `verif-<correo>`.
+   */
+  verificaciones: new Map<string, { email: string; usado: boolean; enviados: number }>(),
 };
 
 export function resetDb() {

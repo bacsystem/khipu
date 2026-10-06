@@ -30,6 +30,7 @@ class AutenticarUsuarioServiceTest {
         public void guardar(Usuario u) { usuariosMap.put(u.id(), u); }
         public Optional<Usuario> buscar(UUID id) { return Optional.ofNullable(usuariosMap.get(id)); }
         public Optional<Usuario> buscarPorEmail(String e) { return usuariosMap.values().stream().filter(u -> u.email().equals(e)).findFirst(); }
+        public void marcarCorreoVerificado(UUID id, java.time.Instant cuando) { usuariosMap.computeIfPresent(id, (k, u) -> u.conCorreoVerificado(cuando)); }
     };
     Map<String, SesionRepository.Sesion> sesionesMap = new HashMap<>();
     Map<String, SesionRepository.TokenRecuperacion> recMap = new HashMap<>();
@@ -66,6 +67,9 @@ class AutenticarUsuarioServiceTest {
             if (t == null || t.usado()) return false;
             verifMap.put(h, new Token(t.tokenHash(), t.usuarioId(), t.expiraEn(), true));
             return true;
+        }
+        public int contarSinVencer(UUID u, java.time.Instant ahora) {
+            return (int) verifMap.values().stream().filter(t -> t.usuarioId().equals(u) && t.expiraEn().isAfter(ahora)).count();
         }
     };
     AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones);
@@ -135,6 +139,49 @@ class AutenticarUsuarioServiceTest {
 
         assertThatThrownBy(() -> service.reenviarVerificacion(t.usuario().id(), PORTAL)).extracting("codigo").isEqualTo("CORREO_YA_VERIFICADO");
         assertThat(correos).hasSize(1);
+    }
+
+    /**
+     * Sin verificar, el correo puede no ser de quien se registró: sin tope, el reenvío serviría para llenar el buzón de otro desde nuestro
+     * dominio. Cinco enlaces por día contando el del registro; al vencer el primero, se puede pedir otro.
+     */
+    @Test void losEnlacesDeVerificacionTienenTopePorDia() {
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        UUID id = t.usuario().id();
+        for (int i = 0; i < 4; i++) service.reenviarVerificacion(id, PORTAL);
+        assertThat(correos).hasSize(5);
+
+        assertThatThrownBy(() -> service.reenviarVerificacion(id, PORTAL)).extracting("codigo").isEqualTo("DEMASIADOS_ENLACES");
+        assertThat(correos).as("no sale el sexto").hasSize(5);
+        assertThat(verifMap).hasSize(5);
+
+        AutenticarUsuarioService manana = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
+                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones);
+        manana.reenviarVerificacion(id, PORTAL);
+        assertThat(correos).hasSize(6);
+    }
+
+    /** Verificar solo marca el correo: una contraseña restablecida mientras tanto no vuelve a la anterior. */
+    @Test void verificarNoPisaUnaContrasenaCambiadaMientrasTanto() {
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        String token = tokenDelCorreo("/verificar/");
+        UUID id = t.usuario().id();
+        // Mientras se gasta el enlace, un restablecer de la misma cuenta termina y cambia la contraseña.
+        VerificacionCorreoRepository conCarrera = new VerificacionCorreoRepository() {
+            public void crear(Token x) { verificaciones.crear(x); }
+            public Optional<Token> buscar(String h) { return verificaciones.buscar(h); }
+            public boolean usar(String h) {
+                usuariosMap.computeIfPresent(id, (k, u) -> u.conPasswordHash(hasher.hash("Nueva1234")));
+                return verificaciones.usar(h);
+            }
+            public int contarSinVencer(UUID u, java.time.Instant ahora) { return verificaciones.contarSinVencer(u, ahora); }
+        };
+        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera);
+
+        enCarrera.verificarCorreo(token);
+
+        assertThat(usuariosMap.get(id).correoVerificado()).isTrue();
+        assertThat(usuariosMap.get(id).passwordHash()).isEqualTo(hasher.hash("Nueva1234"));
     }
 
     /** Abrir el enlace de restablecer (o el de la invitación del alta asistida) también demuestra que el correo es suyo. */
