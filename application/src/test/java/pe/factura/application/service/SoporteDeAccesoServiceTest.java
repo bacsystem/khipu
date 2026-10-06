@@ -48,6 +48,7 @@ class SoporteDeAccesoServiceTest {
         public void guardar(Usuario u) { throw new AssertionError("el soporte de acceso no modifica usuarios"); }
         public Optional<Usuario> buscar(UUID id) { return Optional.ofNullable(usuariosMap.get(id)); }
         public Optional<Usuario> buscarPorEmail(String e) { throw new AssertionError("se busca por id, dentro de la cuenta"); }
+        public void marcarCorreoVerificado(UUID id, java.time.Instant cuando) { throw new AssertionError("el soporte de acceso no verifica correos"); }
     };
 
     final List<SesionRepository.TokenRecuperacion> recuperaciones = new ArrayList<>();
@@ -68,6 +69,7 @@ class SoporteDeAccesoServiceTest {
         public void crear(Token t) { verificacionDentro.add(uow.dentro); verificaciones.add(t); }
         public Optional<Token> buscar(String h) { throw new AssertionError("no se consulta"); }
         public boolean usar(String h) { throw new AssertionError("no se consume"); }
+        public int contarSinVencer(UUID u, java.time.Instant ahora) { throw new AssertionError("el operador no tiene el tope del reenvío del cliente"); }
     };
 
     final List<String[]> correos = new ArrayList<>();
