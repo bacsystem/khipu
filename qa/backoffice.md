@@ -803,8 +803,10 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
   exige el desafío, que da la contraseña; mientras el 2FA no esté confirmado, pedir otro secreto reemplaza el pendiente (`pedirOtroSecretoAntesDeConfirmar…`).
   Quien tenga la contraseña de un administrador aún no enrolado puede enrolar *su* teléfono, recibir sesión y los diez códigos, y dejar al legítimo fuera.
   Los administradores que ya existían están en ese estado desde el despliegue hasta que entren. «Sin 2FA nadie opera el backoffice» vale una vez enrolado.
-  Mitigación operativa en `deploy/README.md` §7: que cada administrador enrole de inmediato. Cerrarlo del todo pide una prueba de posesión que solo tenga quien
-  opera la plataforma (p. ej. un token de enrolamiento de un solo uso): queda como seguimiento.
+  Mitigación operativa en `deploy/README.md` §7: que cada administrador enrole de inmediato, y si una contraseña se expuso o alguien se enroló sin serlo,
+  reemplazar al administrador (borrarlo en la base y crearlo de nuevo con `X-Platform-Key`): el producto no cambia contraseñas de administrador ni los
+  desactiva, y una sesión ya emitida no se revoca (dura hasta `ADMIN_SESION_MINUTOS`). Cerrarlo del todo pide una prueba de posesión que solo tenga quien
+  opera la plataforma (p. ej. un token de enrolamiento de un solo uso): queda como seguimiento, junto con cambiar la contraseña y desactivar desde el backoffice.
 - La bitácora registra el inicio de sesión exitoso y la primera configuración, no los intentos fallidos ni los bloqueos: un ataque de adivinanza contra la
   cuenta no deja rastro más que el log HTTP. Seguimiento.
 
@@ -821,6 +823,9 @@ Un administrador ve los datos fiscales de todos los clientes: una contraseña fi
   que apuntaban a `registrarFallo` y a `exigirNoBloqueado`) y se repitieron las 19 restantes del servicio y la persistencia, que siguen muriendo.
 - **H2, el hueco del primer ingreso**, documentado arriba (límites) y en `deploy/README.md` §7, con la mitigación operativa.
 - **H3, la cifra de REST**: «12» no salía de ningún conteo; son +5 en el controlador (9 en total) y +2 en el filtro (13 en total).
+- **H4 (segunda pasada), la mitigación no se podía ejecutar**: el README mandaba a «rotar la contraseña» del administrador, cosa que el producto no hace, y
+  en un orden (borrar el 2FA y después cambiar la contraseña) que dejaba al atacante volver a enrolarse en el medio. Ahora da un procedimiento con lo que
+  existe (borrar al administrador, que arrastra su 2FA en cascada, y crearlo de nuevo) y avisa que una sesión ya emitida no se revoca.
 - Los administradores que ya existen configuran el 2FA en su próximo login.
 
 ## #175/#176/#179 · Concepto de PLATFORM_ADMIN, JWT propio y cáscara del panel
