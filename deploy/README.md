@@ -159,6 +159,16 @@ administrador escanea el QR y confirma con el primer código. Eso tiene una cons
   recibir los diez códigos de recuperación y dejar al administrador legítimo fuera (`409 SEGUNDO_FACTOR_YA_CONFIGURADO`). Los administradores que ya
   existían antes de este despliegue están en ese estado hasta que entren.
 - **Qué hacer:** al desplegar esta versión, que cada administrador existente inicie sesión y configure su app **de inmediato**, y crear los administradores
-  nuevos solo cuando quien los va a usar pueda enrolarse en el momento. Si una contraseña pudo exponerse antes de enrolar, cambiarla primero.
-- **Si alguien se enroló sin ser el administrador:** borrar su fila de `administrador_segundo_factor` (y, si hace falta, sus filas de
-  `administrador_codigo_recuperacion`) para que vuelva a configurarlo, y rotar su contraseña. No hay todavía un reinicio desde el backoffice (#183).
+  nuevos solo cuando quien los va a usar pueda enrolarse en el momento. Si una contraseña pudo exponerse antes de enrolar, reemplazar al administrador
+  con el procedimiento de abajo antes de que entre.
+- **El producto no cambia la contraseña de un administrador** ni lo desactiva: solo los crea. Reemplazarlo (contraseña expuesta, o alguien se enroló sin
+  ser él) se hace así, **en este orden**:
+  1. Borrarlo en la base: `DELETE FROM administrador WHERE email = 'ana@tu-dominio.pe';` (el correo en minúsculas, como lo guarda el alta). Las filas de
+     su segundo factor y sus códigos de recuperación se borran en cascada, y un login a medias deja de valer: el desafío se comprueba contra la base.
+     La bitácora conserva sus registros con el id viejo (no tiene clave foránea).
+  2. Volver a crearlo con una contraseña nueva: `POST /v1/admin/administradores` con `X-Platform-Key` y `{"email": "...", "password": "..."}`.
+  3. Que la persona entre y configure su app **de inmediato**: hasta entonces vuelve a valer lo de arriba.
+
+  Borrar solo la fila de `administrador_segundo_factor` **no alcanza**: con la contraseña de siempre, quien la tenga puede volver a enrolarse antes que el
+  administrador. Y una sesión ya emitida **no se revoca**: el backoffice solo comprueba la firma y el vencimiento del token, así que la de un atacante dura
+  hasta `ADMIN_SESION_MINUTOS` (30 por defecto, 60 como máximo) aunque el administrador ya no exista. Un reinicio desde el backoffice queda para #183.
