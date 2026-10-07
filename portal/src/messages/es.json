@@ -686,7 +686,8 @@
           "EDITAR_PLAN": "Cambio de un plan",
           "DESACTIVAR_PLAN": "Retiró un plan de la oferta",
           "ACTIVAR_PLAN": "Devolvió un plan a la oferta",
-          "ELIMINAR_PLAN": "Eliminó un plan"
+          "ELIMINAR_PLAN": "Eliminó un plan",
+          "CAMBIAR_PLAN": "Cambio del plan de la cuenta"
         }
       }
     },
