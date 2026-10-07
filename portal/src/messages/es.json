@@ -1069,7 +1069,8 @@
           "CAMBIAR_PLAN": "Cambio del plan de la cuenta",
           "REGISTRAR_PAGO": "Registro de un pago",
           "REINTENTAR_ENVIO_COMPROBANTE": "Reintento del envío de un comprobante",
-          "DESCARTAR_COMPROBANTE": "Descartó un comprobante en error"
+          "DESCARTAR_COMPROBANTE": "Descartó un comprobante en error",
+          "AVISAR_AL_CLIENTE": "Aviso al cliente por su certificado o su clave SOL"
         }
       }
     },
