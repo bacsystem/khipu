@@ -528,10 +528,11 @@ export const handlers = [
             },
           ]
         : [],
-      // Del más reciente al más antiguo, como el backend. La última acción no está en el catálogo del portal: se muestra con su código.
+      // Del más reciente al más antiguo, como el backend. `ACCION_FUTURA` no está en el catálogo del portal: se muestra con su código.
       eventos: completa
         ? [
-            { accion: "SUSPENDER_CUENTA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-03T09:00:00Z" },
+            { accion: "ACCION_FUTURA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-04T09:00:00Z" },
+            { accion: "SUSPENDER_CUENTA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-03T09:00:00Z", detalle: "motivo=Factura de agosto sin pagar" },
             { accion: "CREAR_TENANT", actor: "CLAVE_PLATAFORMA", ocurrido_en: "2026-09-02T10:00:00Z" },
             { accion: "CREAR_CUENTA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-01T15:00:00Z", detalle: "ruc=20100047226" },
           ]
@@ -546,7 +547,8 @@ export const handlers = [
    */
   http.post(`${BASE}/v1/admin/cuentas/:id/suspender`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
+    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     const texto = await request.text();
@@ -559,7 +561,8 @@ export const handlers = [
 
   http.post(`${BASE}/v1/admin/cuentas/:id/reactivar`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
+    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     if (!cuenta.suspendida_en) return fail(409, "CUENTA_NO_SUSPENDIDA", "La cuenta no está suspendida");
