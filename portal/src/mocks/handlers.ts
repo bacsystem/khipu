@@ -94,6 +94,19 @@ function fail(status: number, codigo: string, mensaje: string) {
   return HttpResponse.json({ estado: "error", datos: null, mensaje, codigo, errores: null }, { status });
 }
 
+/**
+ * El 400 del backend cuando un parámetro de ruta o de consulta no convierte a su tipo (un UUID, un enum): `GlobalExceptionHandler`, ante una
+ * `MethodArgumentTypeMismatchException`, nombra el parámetro. Un solo lugar para el código y el mensaje, así ningún handler vuelve a inventar otro.
+ */
+function parametroInvalido(nombre: string) {
+  return fail(400, "PARAMETRO_INVALIDO", `El parámetro '${nombre}' no tiene un formato válido`);
+}
+
+/** El 400 del backend cuando el cuerpo no se puede leer, p. ej. un enum con un valor que no existe (`HttpMessageNotReadableException`). */
+function jsonInvalido() {
+  return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
+}
+
 function claims(req: Request): { sub: string; cuenta: string } | null {
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return null;
@@ -352,7 +365,7 @@ export const handlers = [
     const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
     const bajas = visibilidadDeBajas(url);
     // Mismo código que el backend: `bajas` es un enum en el @RequestParam (MethodArgumentTypeMismatchException).
-    if (!bajas) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'bajas' no tiene un formato válido");
+    if (!bajas) return parametroInvalido("bajas");
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
     const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
     // La misma tabla que el `translate` del backend (#214, JdbcCuentasAdminRepository): solo las vocales con marca pierden la marca, y
@@ -393,12 +406,12 @@ export const handlers = [
     const url = new URL(request.url);
     const entorno = url.searchParams.get("entorno");
     const certificado = url.searchParams.get("certificado");
-    if (entorno && !["BETA", "PRODUCCION"].includes(entorno)) return fail(400, "VALIDACION", "Entorno no válido");
+    if (entorno && !["BETA", "PRODUCCION"].includes(entorno)) return parametroInvalido("entorno");
     if (certificado && !["SIN_CERTIFICADO", "SIN_FECHA", "VIGENTE", "POR_VENCER", "VENCIDO"].includes(certificado))
-      return fail(400, "VALIDACION", "Estado de certificado no válido");
+      return parametroInvalido("certificado");
     const bajas = visibilidadDeBajas(url);
     // Mismo código que el backend: `bajas` es un enum en el @RequestParam (MethodArgumentTypeMismatchException).
-    if (!bajas) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'bajas' no tiene un formato válido");
+    if (!bajas) return parametroInvalido("bajas");
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
     const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
     const desdeHoy = (n: number) => sumarDias(hoyLima(), n);
@@ -449,7 +462,7 @@ export const handlers = [
   http.get(`${BASE}/v1/admin/empresas/:id`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
-    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const e = db.empresasAdmin.find((x) => x.id === params.id);
     if (!e) return fail(404, "NO_ENCONTRADO", "La empresa no existe");
     const completa = e.id === idEmpresaMock(1);
@@ -531,11 +544,13 @@ export const handlers = [
    */
   http.post(`${BASE}/v1/admin/empresas/:id/entorno`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la empresa no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const e = db.empresasAdmin.find((x) => x.id === params.id);
     if (!e) return fail(404, "NO_ENCONTRADO", "La empresa no existe");
     const { entorno } = (await request.json()) as { entorno?: string };
-    if (entorno !== "BETA" && entorno !== "PRODUCCION") return fail(400, "VALIDACION", "Entorno no válido");
+    // Como el backend: sin entorno lo rechaza el servicio (422 ENTORNO_INVALIDO); uno que no existe no se puede leer como enum (400 JSON_INVALIDO).
+    if (entorno === undefined || entorno === null) return fail(422, "ENTORNO_INVALIDO", "El entorno es obligatorio");
+    if (entorno !== "BETA" && entorno !== "PRODUCCION") return jsonInvalido();
     if (e.entorno === entorno) return fail(409, "ENTORNO_SIN_CAMBIOS", `La empresa ya está en ${entorno}`);
     if (e.id === idEmpresaMock(1)) return fail(409, "EMPRESA_CON_ENVIOS_PENDIENTES", "La empresa tiene envíos pendientes a SUNAT: espera a que terminen antes de cambiar el entorno");
     return ok({ empresa_id: e.id, desde: e.entorno, hacia: entorno });
@@ -543,7 +558,8 @@ export const handlers = [
 
   http.post(`${BASE}/v1/admin/empresas/:id/api-keys/:apiKeyId/revocar`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id)) || !esUuid(String(params.apiKeyId))) return fail(400, "VALIDACION", "El identificador no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
+    if (!esUuid(String(params.apiKeyId))) return parametroInvalido("apiKeyId");
     const e = db.empresasAdmin.find((x) => x.id === params.id);
     if (!e) return fail(404, "NO_ENCONTRADO", "La empresa no existe");
     // Solo «Panadería Sol» trae keys sembradas: la 2 está vigente y la 1 ya revocada.
@@ -554,7 +570,7 @@ export const handlers = [
 
   http.post(`${BASE}/v1/admin/empresas/:id/prueba-de-conexion`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la empresa no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const e = db.empresasAdmin.find((x) => x.id === params.id);
     if (!e) return fail(404, "NO_ENCONTRADO", "La empresa no existe");
     if (!e.tiene_credenciales_sol) return fail(409, "SOL_NO_CARGADAS", "La empresa no tiene credenciales SOL cargadas");
@@ -572,7 +588,7 @@ export const handlers = [
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     // Un id que no es UUID no llega a buscarse: el backend lo rechaza al convertir la ruta. Si la página no lo filtrara, sería un 400, no un 404.
     // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
-    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     const enDias = (n: number) => sumarDias(hoyLima(), n);
@@ -627,7 +643,7 @@ export const handlers = [
   http.post(`${BASE}/v1/admin/cuentas/:id/suspender`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
-    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     const texto = await request.text();
@@ -642,7 +658,7 @@ export const handlers = [
   http.post(`${BASE}/v1/admin/cuentas/:id/reactivar`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
-    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     if (!cuenta.suspendida_en) return fail(409, "CUENTA_NO_SUSPENDIDA", "La cuenta no está suspendida");
@@ -658,7 +674,7 @@ export const handlers = [
   http.post(`${BASE}/v1/admin/cuentas/:id/baja`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
-    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     const texto = await request.text();
@@ -672,7 +688,7 @@ export const handlers = [
   http.post(`${BASE}/v1/admin/cuentas/:id/reponer`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
-    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     if (!cuenta.baja_en) return fail(409, "CUENTA_NO_DE_BAJA", "La cuenta no está dada de baja");
@@ -692,7 +708,7 @@ export const handlers = [
       if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
       // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException), que nombra el primer parámetro que no convierte.
       const invalido = !esUuid(String(params.id)) ? "cuentaId" : !esUuid(String(params.usuarioId)) ? "usuarioId" : null;
-      if (invalido) return fail(400, "PARAMETRO_INVALIDO", `El parámetro '${invalido}' no tiene un formato válido`);
+      if (invalido) return parametroInvalido(invalido);
       const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
       const usuario = cuenta ? usuariosDeCuenta(cuenta).find((u) => u.id === params.usuarioId) : undefined;
       if (!usuario) return fail(404, "NO_ENCONTRADO", "El usuario no existe en esta cuenta");

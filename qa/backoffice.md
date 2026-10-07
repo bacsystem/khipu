@@ -1759,7 +1759,7 @@ bajas, cuentas, empresas, suspensión y detalle 60/60.
 
 ## #187 · Acciones sobre una empresa: entorno, API keys y prueba de conexión
 
-**Estado: 🔧 implementado, 84/84 mutaciones verificadas (2 equivalentes documentadas) — falta la revisión de la PR.** La acción con más consecuencias del backoffice: el entorno decide contra qué URLs de SUNAT se emite.
+**Estado: ✅ revisión de la PR (#235) corregida, 84/84 mutaciones verificadas (2 equivalentes documentadas).** La acción con más consecuencias del backoffice: el entorno decide contra qué URLs de SUNAT se emite.
 
 `POST /v1/admin/empresas/{id}/entorno`, `POST /v1/admin/empresas/{id}/api-keys/{apiKeyId}/revocar` y `POST /v1/admin/empresas/{id}/prueba-de-conexion`. Las tres quedan en la bitácora, también en la de la cuenta
 dueña (si la tiene), y ninguna lleva secretos.
@@ -1833,6 +1833,14 @@ Lo que sobrevivía en la primera tanda:
 - Backend: `./gradlew test` completo sobre la rama, código de salida 0 (incluye `ArchitectureTest` y `AccionesDeEmpresaE2ETest`).
 - Portal: `tsc --noEmit` limpio · ESLint limpio · Vitest 580/580 · Playwright completo 228/228 (2 workers y nada más corriendo). La primera corrida no arrancó: el servidor de desarrollo agotó su espera
   porque no pudo descargar las fuentes de Google (fallo del entorno, no de las pruebas); la segunda pasó entera.
+
+### Corrección de la revisión de #235
+
+- **H1 (menor): los mocks de las tres acciones respondían `400 VALIDACION`** donde el backend responde `400 PARAMETRO_INVALIDO` (un id que no es UUID),
+  `400 JSON_INVALIDO` (un entorno que no existe en el cuerpo: Jackson no lo convierte) o `422 ENTORNO_INVALIDO` (el cuerpo sin entorno, que rechaza el
+  servicio). Era la quinta PR seguida con el mismo desajuste, así que el mock ganó dos funciones con el contrato exacto del backend, `parametroInvalido(nombre)`
+  y `jsonInvalido()`, y todos los handlers las usan, también los filtros `entorno` y `certificado` del listado de empresas (#185, ya en `develop`). Ningún test
+  depende del código del 400 (el BFF valida antes); después: `tsc` y ESLint limpios y las specs del backoffice 88/88.
 
 ### Límites conocidos
 
