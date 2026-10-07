@@ -351,7 +351,8 @@ export const handlers = [
     const url = new URL(request.url);
     const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
     const bajas = visibilidadDeBajas(url);
-    if (!bajas) return fail(400, "VALIDACION", "Valor de bajas no válido");
+    // Mismo código que el backend: `bajas` es un enum en el @RequestParam (MethodArgumentTypeMismatchException).
+    if (!bajas) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'bajas' no tiene un formato válido");
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
     const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
     // La misma tabla que el `translate` del backend (#214, JdbcCuentasAdminRepository): solo las vocales con marca pierden la marca, y
@@ -396,7 +397,8 @@ export const handlers = [
     if (certificado && !["SIN_CERTIFICADO", "SIN_FECHA", "VIGENTE", "POR_VENCER", "VENCIDO"].includes(certificado))
       return fail(400, "VALIDACION", "Estado de certificado no válido");
     const bajas = visibilidadDeBajas(url);
-    if (!bajas) return fail(400, "VALIDACION", "Valor de bajas no válido");
+    // Mismo código que el backend: `bajas` es un enum en el @RequestParam (MethodArgumentTypeMismatchException).
+    if (!bajas) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'bajas' no tiene un formato válido");
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
     const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20) || 20));
     const desdeHoy = (n: number) => sumarDias(hoyLima(), n);
@@ -612,7 +614,8 @@ export const handlers = [
    */
   http.post(`${BASE}/v1/admin/cuentas/:id/baja`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
+    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     const texto = await request.text();
@@ -625,7 +628,8 @@ export const handlers = [
 
   http.post(`${BASE}/v1/admin/cuentas/:id/reponer`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
+    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     if (!cuenta.baja_en) return fail(409, "CUENTA_NO_DE_BAJA", "La cuenta no está dada de baja");

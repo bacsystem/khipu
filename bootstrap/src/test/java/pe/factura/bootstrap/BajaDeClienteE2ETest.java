@@ -199,6 +199,25 @@ class BajaDeClienteE2ETest {
         assertThat(detalle).as("reponer no reactiva una cuenta suspendida").containsEntry("estado", "SUSPENDIDA");
     }
 
+    /**
+     * La baja manda en el estado (#201), y en todas las respuestas por igual: suspender o reactivar una cuenta de baja no responde «SUSPENDIDA» o
+     * «ACTIVA» mientras el detalle dice «BAJA».
+     */
+    @Test void suspenderYReactivarUnaCuentaDeBajaRespondenElMismoEstadoQueElDetalle() {
+        Cliente a = cliente("ana@negocio.pe", "20100066603");
+        darDeBaja(a.cuentaId(), null);
+
+        Map<String, Object> suspendida = (Map<String, Object>) llamar(HttpMethod.POST, "/v1/admin/cuentas/" + a.cuentaId() + "/suspender", conClaveDePlataforma(), null)
+                .getBody().get("datos");
+        Map<String, Object> reactivada = (Map<String, Object>) llamar(HttpMethod.POST, "/v1/admin/cuentas/" + a.cuentaId() + "/reactivar", conClaveDePlataforma(), null)
+                .getBody().get("datos");
+        Map<String, Object> detalle = (Map<String, Object>) llamar(HttpMethod.GET, "/v1/admin/cuentas/" + a.cuentaId(), conClaveDePlataforma(), null).getBody().get("datos");
+
+        assertThat(suspendida).containsEntry("estado", "BAJA").containsKey("suspendida_en").containsKey("baja_en");
+        assertThat(reactivada).containsEntry("estado", "BAJA").doesNotContainKey("suspendida_en").containsEntry("baja_en", detalle.get("baja_en"));
+        assertThat(detalle).containsEntry("estado", "BAJA");
+    }
+
     // --- el RUC no queda liberado ------------------------------------------------------------------------------------------------------
 
     @Test void elRucDeUnaCuentaDeBajaSigueOcupadoParaCualquierOtroRegistro() {

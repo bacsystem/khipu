@@ -306,8 +306,9 @@ public class AppConfig {
     @Bean DetalleCuentaAdminUseCase detalleCuentaAdmin(CuentasAdminRepository cuentas) { return new DetalleCuentaAdminService(cuentas); }
     @Bean ListarEmpresasAdminUseCase listarEmpresasAdmin(EmpresasAdminRepository empresas, Clock clock) { return new ListarEmpresasAdminService(empresas, clock); }
     @Bean DetalleEmpresaAdminUseCase detalleEmpresaAdmin(EmpresasAdminRepository empresas, Clock clock) { return new DetalleEmpresaAdminService(empresas, clock); }
-    @Bean SuspenderCuentaUseCase suspenderCuenta(CuentaRepository cuentas, SuspensionRepository suspensiones, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
-        return new SuspenderCuentaService(cuentas, suspensiones, auditoria, u, clock);
+    @Bean SuspenderCuentaUseCase suspenderCuenta(CuentaRepository cuentas, SuspensionRepository suspensiones, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock,
+                                                 BajaDeCuentaRepository bajas) {
+        return new SuspenderCuentaService(cuentas, suspensiones, auditoria, u, clock, bajas);
     }
     @Bean DarDeBajaCuentaUseCase darDeBajaCuenta(CuentaRepository cuentas, BajaDeCuentaRepository bajas, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new DarDeBajaCuentaService(cuentas, bajas, auditoria, u, clock);

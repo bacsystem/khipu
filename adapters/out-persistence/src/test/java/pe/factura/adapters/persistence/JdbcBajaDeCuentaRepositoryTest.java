@@ -37,6 +37,19 @@ class JdbcBajaDeCuentaRepositoryTest extends PersistenciaTestBase {
         assertThat(bajaEn(cuenta("ana@negocio.pe"))).isNull();
     }
 
+    /** El puerto dice desde cuándo está de baja la cuenta, y solo esa: nulo en servicio, nulo si no existe. */
+    @Test void dicedesdeCuandoEstaDeBajaCadaCuenta() {
+        UUID c = cuenta("ana@negocio.pe");
+        UUID otra = cuenta("beto@negocio.pe");
+        assertThat(repo.bajaEn(c)).isNull();
+
+        repo.darDeBaja(c, T0.plusSeconds(60));
+
+        assertThat(repo.bajaEn(c)).isEqualTo(T0.plusSeconds(60));
+        assertThat(repo.bajaEn(otra)).isNull();
+        assertThat(repo.bajaEn(UUID.randomUUID())).isNull();
+    }
+
     @Test void darDeBajaLaMarcaConLaHoraYReponerLaDevuelve() {
         UUID c = cuenta("ana@negocio.pe");
 

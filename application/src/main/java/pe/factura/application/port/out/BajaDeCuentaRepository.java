@@ -14,4 +14,7 @@ public interface BajaDeCuentaRepository {
 
     /** Repone la cuenta. {@code true} si estaba de baja; {@code false} si no lo estaba. Atómico, igual que {@link #darDeBaja}. */
     boolean reponer(UUID cuentaId);
+
+    /** Desde cuándo está de baja la cuenta; {@code null} si está en servicio (o no existe). */
+    Instant bajaEn(UUID cuentaId);
 }

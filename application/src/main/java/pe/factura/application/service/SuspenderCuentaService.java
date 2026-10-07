@@ -3,6 +3,7 @@ package pe.factura.application.service;
 import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.SuspenderCuentaUseCase;
 import pe.factura.application.port.out.AuditoriaAdminRepository;
+import pe.factura.application.port.out.BajaDeCuentaRepository;
 import pe.factura.application.port.out.CuentaRepository;
 import pe.factura.application.port.out.SuspensionRepository;
 import pe.factura.application.port.out.UnitOfWork;
@@ -22,6 +23,7 @@ public class SuspenderCuentaService implements SuspenderCuentaUseCase {
     private final AuditoriaAdminRepository auditoria;
     private final UnitOfWork uow;
     private final Clock clock;
+    private final BajaDeCuentaRepository bajas;
 
     @Override public EstadoDeCuenta suspender(ActorAdmin actor, UUID cuentaId, String motivo) {
         exigirQueExista(cuentaId);
@@ -31,21 +33,22 @@ public class SuspenderCuentaService implements SuspenderCuentaUseCase {
         Instant ahora = clock.instant();
         // El cambio es condicional (solo si estaba activa) y va en la misma transacción que la bitácora: un doble clic no suspende dos veces
         // ni deja dos registros, y si la bitácora falla la cuenta tampoco queda suspendida.
-        uow.ejecutar(() -> {
+        // La baja (#201) se lee en la misma transacción: la respuesta dice el estado que dirá el resto de la API, donde la baja manda.
+        return uow.ejecutar(() -> {
             if (!suspensiones.suspender(cuentaId, ahora)) throw new DomainException("CUENTA_YA_SUSPENDIDA", "La cuenta ya está suspendida");
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.SUSPENDER_CUENTA, cuentaId, null, m == null ? null : "motivo=" + m, ahora));
+            return new EstadoDeCuenta(cuentaId, ahora, bajas.bajaEn(cuentaId));
         });
-        return new EstadoDeCuenta(cuentaId, ahora);
     }
 
     @Override public EstadoDeCuenta reactivar(ActorAdmin actor, UUID cuentaId) {
         exigirQueExista(cuentaId);
         Instant ahora = clock.instant();
-        uow.ejecutar(() -> {
+        return uow.ejecutar(() -> {
             if (!suspensiones.reactivar(cuentaId)) throw new DomainException("CUENTA_NO_SUSPENDIDA", "La cuenta no está suspendida");
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.REACTIVAR_CUENTA, cuentaId, null, null, ahora));
+            return new EstadoDeCuenta(cuentaId, null, bajas.bajaEn(cuentaId));
         });
-        return new EstadoDeCuenta(cuentaId, null);
     }
 
     private void exigirQueExista(UUID cuentaId) {

@@ -43,10 +43,28 @@ class SuspenderCuentaServiceTest {
     }
 
     Suspensiones suspensiones = new Suspensiones();
+    /** La baja (#201) en memoria: la suspensión solo la lee, para decir el estado completo de la cuenta. */
+    DarDeBajaCuentaServiceTest.Bajas bajas = new DarDeBajaCuentaServiceTest.Bajas();
     Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
     Fakes.Auditoria auditoria = new Fakes.Auditoria();
     { auditoria.uow = uow; }
-    SuspenderCuentaService service = new SuspenderCuentaService(cuentas, suspensiones, auditoria, uow, Fakes.CLOCK);
+    SuspenderCuentaService service = new SuspenderCuentaService(cuentas, suspensiones, auditoria, uow, Fakes.CLOCK, bajas);
+
+    /**
+     * La baja manda en el estado de una cuenta (#201): suspender o reactivar una cuenta de baja no la saca de la baja, y la respuesta tiene que
+     * decirlo, igual que el detalle y el listado. Sin la fecha de baja, el que llama veía «SUSPENDIDA» o «ACTIVA».
+     */
+    @Test void suspenderYReactivarUnaCuentaDeBajaInformanLaBaja() {
+        Instant baja = Instant.parse("2026-10-03T09:00:00Z");
+        bajas.darDeBaja(cuentaId, baja);
+
+        assertThat(service.suspender(ACTOR, cuentaId, null).bajaEn()).isEqualTo(baja);
+        assertThat(service.reactivar(ACTOR, cuentaId).bajaEn()).isEqualTo(baja);
+    }
+
+    @Test void unaCuentaEnServicioNoTraeFechaDeBaja() {
+        assertThat(service.suspender(ACTOR, cuentaId, null).bajaEn()).isNull();
+    }
 
     @Test void suspenderMarcaLaCuentaConLaHoraDelServidor() {
         EstadoDeCuenta e = service.suspender(ACTOR, cuentaId, null);
