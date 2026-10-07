@@ -799,7 +799,8 @@
           "DESACTIVAR_PLAN": "Retiró un plan de la oferta",
           "ACTIVAR_PLAN": "Devolvió un plan a la oferta",
           "ELIMINAR_PLAN": "Eliminó un plan",
-          "CAMBIAR_PLAN": "Cambio del plan de la cuenta"
+          "CAMBIAR_PLAN": "Cambio del plan de la cuenta",
+          "REGISTRAR_PAGO": "Registro de un pago"
         }
       }
     },
