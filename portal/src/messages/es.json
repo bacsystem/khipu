@@ -364,7 +364,9 @@
           "CREAR_TENANT": "Alta de una empresa",
           "CREAR_ADMINISTRADOR": "Alta de un administrador",
           "INICIAR_SESION": "Inicio de sesión",
-          "CONFIGURAR_SEGUNDO_FACTOR": "Configuró el segundo factor"
+          "CONFIGURAR_SEGUNDO_FACTOR": "Configuró el segundo factor",
+          "SUSPENDER_CUENTA": "Suspendió la cuenta",
+          "REACTIVAR_CUENTA": "Reactivó la cuenta"
         }
       }
     },

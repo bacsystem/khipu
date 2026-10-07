@@ -43,13 +43,16 @@ test("el detalle muestra usuarios, empresas con su certificado, comprobantes y b
   await expect(comprobantes.getByText("F001-00000007")).toBeVisible();
 
   const eventos = detalle.getByRole("region", { name: "Acciones del administrador" });
-  await expect(eventos.locator("tbody tr")).toHaveCount(3);
+  await expect(eventos.locator("tbody tr")).toHaveCount(4);
   await expect(eventos.getByText("Alta de la cuenta")).toBeVisible();
+  // La suspensión (#182) es una acción conocida: se lee, no se muestra su código.
+  await expect(eventos.getByText("Suspendió la cuenta")).toBeVisible();
+  await expect(eventos.getByText("SUSPENDER_CUENTA")).toHaveCount(0);
   // Quién actuó: la clave de plataforma no se presenta como un administrador.
   await expect(eventos.locator("tbody tr", { hasText: "Alta de una empresa" }).getByText("Clave de plataforma")).toBeVisible();
   await expect(eventos.locator("tbody tr", { hasText: "Alta de la cuenta" }).getByText("Administrador")).toBeVisible();
   // Una acción que el portal todavía no conoce se muestra con su código, no se esconde.
-  await expect(eventos.getByText("SUSPENDER_CUENTA")).toBeVisible();
+  await expect(eventos.getByText("ACCION_FUTURA")).toBeVisible();
 });
 
 /** Desde #182 hay una acción, y solo esa: suspender. Las demás (impersonar, planes…) llegan en sus issues. */
