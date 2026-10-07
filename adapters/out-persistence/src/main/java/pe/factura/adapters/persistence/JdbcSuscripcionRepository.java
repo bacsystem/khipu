@@ -26,7 +26,7 @@ public class JdbcSuscripcionRepository implements SuscripcionRepository {
     @Override public Optional<PlanesDeCuenta> deLaCuenta(UUID cuentaId) {
         List<Suscripcion> lista = jdbc.query("""
                 SELECT id, cuenta_id, plan_id, inicia_en, vence_en, dias_de_gracia, termina_en
-                FROM suscripcion WHERE cuenta_id = ? ORDER BY inicia_en, created_at
+                FROM suscripcion WHERE cuenta_id = ? ORDER BY inicia_en, termina_en NULLS LAST, created_at
                 """, this::mapear, cuentaId);
         return lista.isEmpty() ? Optional.empty() : Optional.of(new PlanesDeCuenta(cuentaId, lista));
     }

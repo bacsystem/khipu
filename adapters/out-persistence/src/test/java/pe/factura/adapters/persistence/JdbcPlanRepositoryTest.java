@@ -1,5 +1,6 @@
 package pe.factura.adapters.persistence;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import pe.factura.domain.plan.EstadoPlan;
 import pe.factura.domain.plan.Limite;
@@ -13,6 +14,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Lectura de los planes (#189) con Postgres real: lo que se guarda como NULL vuelve como «sin límite», y el orden y el plan por defecto son los esperados. */
 class JdbcPlanRepositoryTest extends PersistenciaTestBase {
     JdbcPlanRepository repo = new JdbcPlanRepository(jdbc);
+
+    /** `plan` no se vacía entre tests (los cuatro son de la migración): un plan de más que quede por un test fallido rompería los que cuentan los cuatro. */
+    @AfterEach void quitarLosPlanesDeLosTests() {
+        jdbc.update("DELETE FROM plan WHERE nombre NOT IN ('Gratis', 'Emprende', 'Negocio', 'Pro')");
+    }
 
     @Test void listaLosCuatroPlanesDelMasBaratoAlMasCaro() {
         assertThat(repo.listar()).extracting(Plan::nombre).containsExactly("Gratis", "Emprende", "Negocio", "Pro");
@@ -62,7 +68,6 @@ class JdbcPlanRepositoryTest extends PersistenciaTestBase {
 
         assertThat(todos).extracting(Plan::nombre).contains("Viejo");
         assertThat(todos.stream().filter(p -> p.nombre().equals("Viejo")).findFirst().orElseThrow().activo()).isFalse();
-        jdbc.update("DELETE FROM plan WHERE nombre = 'Viejo'");
     }
 
     @Test void aIgualPrecioOrdenaPorNombre() {
@@ -71,6 +76,5 @@ class JdbcPlanRepositoryTest extends PersistenciaTestBase {
         List<String> nombres = repo.listar().stream().map(Plan::nombre).toList();
 
         assertThat(nombres.indexOf("Abeja")).isLessThan(nombres.indexOf("Emprende"));
-        jdbc.update("DELETE FROM plan WHERE nombre = 'Abeja'");
     }
 }

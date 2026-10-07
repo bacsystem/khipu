@@ -81,6 +81,20 @@ class JdbcSuscripcionRepositoryTest extends PersistenciaTestBase {
         assertThat(leido).isEqualTo(p3);
     }
 
+    /**
+     * Un cambio en el mismo instante en que nace la cuenta (el alta con un plan elegido): las dos empiezan a la vez y, en la misma transacción, también tienen el
+     * mismo {@code created_at}. La que terminó va primero sin depender de ese desempate; aquí la cerrada se fuerza a parecer más nueva para que lo demuestre.
+     */
+    @Test void aIgualInicioLaQueTerminoVaAntesQueLaActiva() {
+        UUID c = cuenta("ana@negocio.pe");
+        PlanesDeCuenta p = repo.deLaCuenta(c).orElseThrow();
+        PlanesDeCuenta p2 = p.cambiarA(UUID.randomUUID(), plan("Pro"), T0, null, 0);
+        repo.cambiar(p.activa(), p2.activa());
+        jdbc.update("UPDATE suscripcion SET created_at = now() + interval '1 hour' WHERE cuenta_id = ? AND termina_en IS NOT NULL", c);
+
+        assertThat(repo.deLaCuenta(c).orElseThrow().suscripciones()).extracting(Suscripcion::planId).containsExactly(plan("Gratis"), plan("Pro"));
+    }
+
     /** Dos administradores cambian a la vez: el segundo ve que la suscripción que miraba ya no es la activa y no cambia nada. */
     @Test void siAlguienYaCambioLaActivaElSegundoCambioNoHaceNada() {
         UUID c = cuenta("ana@negocio.pe");
