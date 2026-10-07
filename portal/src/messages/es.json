@@ -628,7 +628,12 @@
           "CAMBIAR_ENTORNO_EMPRESA": "Cambio de entorno de una empresa",
           "REVOCAR_API_KEY_EMPRESA": "Revocación de una API key",
           "PROBAR_CONEXION_EMPRESA": "Prueba de conexión con SUNAT",
-          "IMPERSONAR_USUARIO": "Acceso de soporte como un usuario"
+          "IMPERSONAR_USUARIO": "Acceso de soporte como un usuario",
+          "CREAR_PLAN": "Alta de un plan",
+          "EDITAR_PLAN": "Cambio de un plan",
+          "DESACTIVAR_PLAN": "Retiró un plan de la oferta",
+          "ACTIVAR_PLAN": "Devolvió un plan a la oferta",
+          "ELIMINAR_PLAN": "Eliminó un plan"
         }
       }
     },
