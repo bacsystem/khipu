@@ -1435,7 +1435,7 @@ Qué se aprendió al verificar:
 
 ## #182 · Suspender y reactivar una cuenta
 
-**Estado: 🔧 implementado, 74/74 mutaciones verificadas — falta la revisión de la PR.** Primera acción de escritura del backoffice sobre un cliente.
+**Estado: ✅ hallazgos de la revisión de la PR (#232) corregidos, 75/75 mutaciones verificadas.** Primera acción de escritura del backoffice sobre un cliente.
 
 `POST /v1/admin/cuentas/{id}/suspender` y `/reactivar`. Una cuenta suspendida no entra al portal y ninguna de sus empresas emite por API: responden
 `403 CUENTA_SUSPENDIDA`, un código propio. No se borra nada, y reactivar lo devuelve todo con las mismas credenciales.
@@ -1530,6 +1530,16 @@ Otro hallazgo, del primer E2E del portal: un test esperaba el texto propio del p
 
 - Backend: `./gradlew test` completo sobre la rama, código de salida 0 (incluye `ArchitectureTest`, `SuspensionE2ETest` y las migraciones hasta V35).
 - Portal: `tsc --noEmit` limpio · ESLint limpio · Vitest 414/414 · Playwright completo 187/187, sin nada más corriendo en la máquina.
+
+### Corrección de la revisión de #232
+
+- **H1: la bitácora del detalle de cuenta mostraba en crudo las dos acciones de esta PR.** El catálogo `admin.detalle.eventos.acciones` no tenía
+  `SUSPENDER_CUENTA` ni `REACTIVAR_CUENTA`, y la spec de #181 afirmaba ver «SUSPENDER_CUENTA» (ahí era el ejemplo de acción desconocida). Ahora se leen
+  «Suspendió la cuenta» y «Reactivó la cuenta»; el ejemplo de acción desconocida pasa a ser `ACCION_FUTURA`. La spec, que pide «Suspendió la cuenta» y que no
+  aparezca el código, estaba en rojo antes del cambio (cuenta como la mutación 75: «la suspensión sin entrada en el catálogo»).
+- **H2:** los mocks de suspender y reactivar respondían `400 VALIDACION` ante un id que no es UUID; ahora `400 PARAMETRO_INVALIDO`, como el backend.
+
+Después: Playwright de cuentas, detalle y suspensión 27/27, Vitest 414/414, `tsc` y ESLint limpios.
 
 ### Límites conocidos
 
