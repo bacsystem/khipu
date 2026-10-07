@@ -1645,7 +1645,7 @@ código 1 (todo «moría» sin haber corrido nada: el script ahora lo marca como
 
 ## #201 · Baja lógica de un cliente conservando sus comprobantes
 
-**Estado: 🔧 implementado, 83/83 mutaciones verificadas — falta la revisión de la PR.** Para el cliente que se fue: sale de los listados operativos y del cobro, **sin borrar nada**.
+**Estado: ✅ hallazgos de la revisión de la PR (#234) corregidos, 90/90 mutaciones verificadas (83 y 7 de la corrección).** Para el cliente que se fue: sale de los listados operativos y del cobro, **sin borrar nada**.
 
 `POST /v1/admin/cuentas/{id}/baja` y `/reponer`, y un filtro explícito `bajas` en los listados de cuentas y de empresas. Distinto de suspender (#182): la suspensión corta el servicio de quien no paga y se revierte
 a diario; la baja es una marca administrativa, con fecha, sobre la cuenta.
@@ -1728,6 +1728,23 @@ Un tropiezo de herramienta que ya conocía: pasé a Vitest un filtro con corchet
 - **Un fallo de la primera corrida completa, que no era de ningún test:** `:bootstrap:test` terminó en rojo con `OutOfMemoryError: Java heap space` y ninguna prueba fallida. Cada E2E de Spring levanta su propio Postgres y su
   propio contexto, que Spring deja en caché toda la corrida; con los 512 MB que Gradle da por defecto a un worker de pruebas, el contexto número dieciséis (el de esta PR) agotaba el heap. Se subió a 1 GB en
   `bootstrap/build.gradle.kts`: es un cambio de infraestructura de pruebas, no de comportamiento.
+
+### Corrección de la revisión de #234
+
+- **H1: suspender o reactivar una cuenta de baja respondía un estado falso.** `EstadoCuentaResponse` calculaba el estado solo con la suspensión: con una
+  cuenta de baja, `suspender` respondía `SUSPENDIDA` y `reactivar` `ACTIVA`, mientras el detalle y el listado decían `BAJA` (la baja manda). El portal no
+  lo mostraba (refresca la página), pero sí quien usa la API con `X-Platform-Key`. Ahora `EstadoDeCuenta` trae la fecha de baja, leída por
+  `BajaDeCuentaRepository.bajaEn` en la misma transacción del cambio, y la respuesta usa `EstadoCuenta.de(suspendidaEn, bajaEn)`. Se quitó la variante de
+  `EstadoCuenta.de` sin la baja, para que no se pueda volver a usar. Tests: servicio (`suspenderYReactivarUnaCuentaDeBajaInformanLaBaja`, en rojo antes),
+  REST (`suspenderOReactivarUnaCuentaDeBajaRespondeBaja`, en rojo con `SUSPENDIDA`), Postgres (`bajaEn` por cuenta) y E2E
+  (`suspenderYReactivarUnaCuentaDeBajaRespondenElMismoEstadoQueElDetalle`).
+- **H2:** los mocks de `bajas` (los dos listados), `…/baja` y `…/reponer` respondían `400 VALIDACION`; ahora `400 PARAMETRO_INVALIDO`, como el backend.
+
+Mutaciones de la corrección, **7/7 mueren**: el servicio no lee la baja al suspender / al reactivar; la respuesta ignora la baja / no lleva su fecha
+(REST y E2E); `bajaEn` de cualquier cuenta / siempre nulo (Postgres).
+
+Después: `application`, `in-rest`, persistencia y los E2E de baja y suspensión en verde; portal `tsc` y ESLint limpios, Vitest 514/514 y Playwright de
+bajas, cuentas, empresas, suspensión y detalle 60/60.
 
 ### Límites conocidos
 
