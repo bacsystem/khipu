@@ -3,8 +3,11 @@ import { backendFetch } from "./client";
 /** `BAJA` (#201): el cliente que se fue. Manda sobre la suspensión: una cuenta de baja que además estaba suspendida es `BAJA`. */
 export type EstadoCuentaAdmin = "ACTIVA" | "SUSPENDIDA" | "BAJA";
 
-/** Lo que responde suspender o reactivar una cuenta (#182): el estado en que quedó. La fecha falta si está activa. */
-export type EstadoDeCuentaAdmin = { cuenta_id: string; estado: EstadoCuentaAdmin; suspendida_en?: string };
+/**
+ * Lo que responde suspender o reactivar una cuenta (#182): el estado en que quedó. Cada fecha falta si no aplica. Una cuenta de baja (#201) responde
+ * `BAJA` aunque se la suspenda o reactive: el estado es el mismo que en el detalle y el listado.
+ */
+export type EstadoDeCuentaAdmin = { cuenta_id: string; estado: EstadoCuentaAdmin; suspendida_en?: string; baja_en?: string };
 
 /** Lo más que cabe en el motivo (el backend lo rechaza con 422 `MOTIVO_INVALIDO` si pasa de aquí). */
 export const MOTIVO_MAX = 200;

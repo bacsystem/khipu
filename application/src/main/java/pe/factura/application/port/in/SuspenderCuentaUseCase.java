@@ -23,8 +23,12 @@ public interface SuspenderCuentaUseCase {
     /** {@code NO_ENCONTRADO} si la cuenta no existe; {@code CUENTA_NO_SUSPENDIDA} si ya estaba activa. */
     EstadoDeCuenta reactivar(ActorAdmin actor, UUID cuentaId);
 
-    /** El estado en que quedó la cuenta; {@code suspendidaEn} es nulo si está activa. */
-    record EstadoDeCuenta(UUID cuentaId, Instant suspendidaEn) {
+    /**
+     * El estado en que quedó la cuenta; {@code suspendidaEn} es nulo si no está suspendida. {@code bajaEn} (#201) es nulo si está en servicio: la
+     * suspensión no la toca, pero hace falta para decir el estado que dice el resto de la API (la baja manda).
+     */
+    record EstadoDeCuenta(UUID cuentaId, Instant suspendidaEn, Instant bajaEn) {
+        public EstadoDeCuenta(UUID cuentaId, Instant suspendidaEn) { this(cuentaId, suspendidaEn, null); }
         public boolean suspendida() { return suspendidaEn != null; }
     }
 }

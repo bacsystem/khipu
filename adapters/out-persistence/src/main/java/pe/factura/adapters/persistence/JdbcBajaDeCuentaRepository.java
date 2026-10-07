@@ -23,4 +23,9 @@ public class JdbcBajaDeCuentaRepository implements BajaDeCuentaRepository {
     @Override public boolean reponer(UUID cuentaId) {
         return jdbc.update("UPDATE cuenta SET baja_en = NULL WHERE id = ? AND baja_en IS NOT NULL", cuentaId) == 1;
     }
+
+    @Override public Instant bajaEn(UUID cuentaId) {
+        return jdbc.query("SELECT baja_en FROM cuenta WHERE id = ?", (rs, i) -> rs.getTimestamp("baja_en"), cuentaId).stream()
+                .filter(java.util.Objects::nonNull).map(Timestamp::toInstant).findFirst().orElse(null);
+    }
 }

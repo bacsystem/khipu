@@ -10,12 +10,11 @@ import java.time.Instant;
 public enum EstadoCuenta {
     ACTIVA, SUSPENDIDA, BAJA;
 
-    /** Nulo = activa: es la única fuente de verdad, así el estado y la fecha nunca se contradicen. */
-    public static EstadoCuenta de(Instant suspendidaEn) {
-        return de(suspendidaEn, null);
-    }
-
-    /** La baja manda: una cuenta de baja que además estaba suspendida es {@code BAJA} (la fecha de suspensión se sigue informando aparte). */
+    /**
+     * Las fechas son la única fuente de verdad (nulas = en servicio y no suspendida), así el estado y las fechas nunca se contradicen. La baja manda:
+     * una cuenta de baja que además está suspendida es {@code BAJA} (la fecha de suspensión se sigue informando aparte). Es la única forma de calcular
+     * el estado: no hay una variante sin la baja, que daría «SUSPENDIDA» o «ACTIVA» para una cuenta de baja.
+     */
     public static EstadoCuenta de(Instant suspendidaEn, Instant bajaEn) {
         if (bajaEn != null) return BAJA;
         return suspendidaEn == null ? ACTIVA : SUSPENDIDA;

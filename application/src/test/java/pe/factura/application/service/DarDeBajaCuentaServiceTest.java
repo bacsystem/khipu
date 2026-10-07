@@ -39,6 +39,7 @@ class DarDeBajaCuentaServiceTest {
         final Map<UUID, Instant> deBaja = new HashMap<>();
         public boolean darDeBaja(UUID c, Instant cuando) { return deBaja.putIfAbsent(c, cuando) == null; }
         public boolean reponer(UUID c) { return deBaja.remove(c) != null; }
+        public Instant bajaEn(UUID c) { return deBaja.get(c); }
     }
 
     Bajas bajas = new Bajas();

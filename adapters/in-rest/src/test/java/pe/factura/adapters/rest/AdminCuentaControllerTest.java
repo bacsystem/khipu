@@ -113,7 +113,24 @@ class AdminCuentaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.datos.cuenta_id").value(ID.toString()))
                 .andExpect(jsonPath("$.datos.estado").value("ACTIVA"))
-                .andExpect(jsonPath("$.datos.suspendida_en").doesNotExist());
+                .andExpect(jsonPath("$.datos.suspendida_en").doesNotExist())
+                .andExpect(jsonPath("$.datos.baja_en").doesNotExist());
+    }
+
+    /** La baja manda (#201): suspender o reactivar una cuenta de baja responde BAJA, el mismo estado que el detalle y el listado. */
+    @Test void suspenderOReactivarUnaCuentaDeBajaRespondeBaja() throws Exception {
+        Instant baja = Instant.parse("2026-10-03T09:00:00Z");
+        var clave = pe.factura.domain.plataforma.ActorAdmin.clavePlataforma("127.0.0.1");
+        when(suspender.suspender(clave, ID, null)).thenReturn(new SuspenderCuentaUseCase.EstadoDeCuenta(ID, Instant.parse("2026-10-04T15:00:00Z"), baja));
+        when(suspender.reactivar(clave, ID)).thenReturn(new SuspenderCuentaUseCase.EstadoDeCuenta(ID, null, baja));
+
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/suspender").requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE))
+                .andExpect(jsonPath("$.datos.estado").value("BAJA"))
+                .andExpect(jsonPath("$.datos.suspendida_en").value("2026-10-04T15:00:00Z"))
+                .andExpect(jsonPath("$.datos.baja_en").value("2026-10-03T09:00:00Z"));
+        mvc.perform(post("/v1/admin/cuentas/" + ID + "/reactivar").requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE))
+                .andExpect(jsonPath("$.datos.estado").value("BAJA"))
+                .andExpect(jsonPath("$.datos.baja_en").value("2026-10-03T09:00:00Z"));
     }
 
     @Test void suspenderUnaCuentaYaSuspendidaEsConflicto() throws Exception {
