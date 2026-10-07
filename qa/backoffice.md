@@ -1853,7 +1853,7 @@ Lo que sobrevivía en la primera tanda:
 
 ## #184 · Impersonar a un usuario del cliente (sesión de soporte)
 
-**Estado: 🔧 implementado, 85/85 mutaciones verificadas (2 equivalentes documentadas) — falta la revisión de la PR.** La función más sensible del backoffice: se hizo lo más acotada posible.
+**Estado: ✅ revisión de la PR (#236) corregida, 86/86 mutaciones verificadas (2 equivalentes documentadas).** La función más sensible del backoffice: se hizo lo más acotada posible.
 
 `POST /v1/admin/cuentas/{cuentaId}/usuarios/{usuarioId}/impersonar` abre una **sesión de soporte**; `GET /v1/cuenta/accesos-de-soporte` es el historial que ve el propio cliente. Ya no hay nada más que pedir al
 soporte para que un cliente sepa que alguien miró su portal.
@@ -1938,6 +1938,17 @@ Lo que sobrevivía en la primera tanda:
 
 - Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (7 min 34 s, Testcontainers incluido).
 - Portal: `tsc --noEmit` y ESLint limpios; Vitest **632/632** (76 archivos); Playwright completo (`--workers=2`) **237/237**.
+
+### Corrección de la revisión de #236
+
+- **H1 (importante): la bitácora mostraba `IMPERSONAR_USUARIO` crudo.** La acción nueva no tenía nombre en el catálogo del portal
+  (`admin.detalle.eventos.acciones`), así que en el detalle de la cuenta salía el código. Era la segunda vez (la suspensión de #182 pasó igual), así que además
+  del nombre («Acceso de soporte como un usuario») hay una guarda, `src/lib/catalogo-bitacora.test.ts`: lee las constantes de `AccionAdmin.java` del dominio y
+  exige que cada una tenga su nombre en `es.json`. Se vio en rojo antes del nombre (`expected [ 'IMPERSONAR_USUARIO' ] to deeply equal []`), que es también su
+  mutación; un segundo test comprueba que de verdad lee el enum, para que un cambio de ruta no la deje pasando en vacío.
+- **H2 (menor): el mock respondía `400 VALIDACION`** a un id que no es UUID; ahora `parametroInvalido("cuentaId")` / `parametroInvalido("usuarioId")`, como
+  el backend. Ningún test depende del código (el BFF valida antes).
+- Después: `tsc` y ESLint limpios; Vitest **634/634** (77 archivos); Playwright `admin-impersonacion` y `admin-cuenta-detalle` **15/15**.
 
 ### Límites conocidos
 

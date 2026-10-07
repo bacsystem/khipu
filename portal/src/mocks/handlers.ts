@@ -561,7 +561,8 @@ export const handlers = [
    */
   http.post(`${BASE}/v1/admin/cuentas/:id/usuarios/:usuarioId/impersonar`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id)) || !esUuid(String(params.usuarioId))) return fail(400, "VALIDACION", "El identificador no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("cuentaId");
+    if (!esUuid(String(params.usuarioId))) return parametroInvalido("usuarioId");
     const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
     const usuario = cuenta ? usuariosDeCuenta(cuenta).find((u) => u.id === params.usuarioId) : undefined;
     if (!cuenta || !usuario) return fail(404, "NO_ENCONTRADO", "El usuario no existe en esta cuenta");
