@@ -1187,7 +1187,12 @@
           "REGISTRAR_PAGO": "Registro de un pago",
           "REINTENTAR_ENVIO_COMPROBANTE": "Reintento del envío de un comprobante",
           "DESCARTAR_COMPROBANTE": "Descartó un comprobante en error",
-          "AVISAR_AL_CLIENTE": "Aviso al cliente por su certificado o su clave SOL"
+          "AVISAR_AL_CLIENTE": "Aviso al cliente por su certificado o su clave SOL",
+          "CAMBIAR_REMITENTE_DE_CORREO": "Cambio del remitente de los correos",
+          "EDITAR_PLANTILLA_DE_CORREO": "Cambio del texto de un correo",
+          "RESTAURAR_PLANTILLA_DE_CORREO": "Devolvió un correo a su texto de fábrica",
+          "PUBLICAR_BANNER": "Publicó el aviso de mantenimiento",
+          "RETIRAR_BANNER": "Retiró el aviso de mantenimiento"
         }
       }
     },
