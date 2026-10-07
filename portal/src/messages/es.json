@@ -514,7 +514,8 @@
           "REPONER_CUENTA": "Reposición de la cuenta",
           "CAMBIAR_ENTORNO_EMPRESA": "Cambio de entorno de una empresa",
           "REVOCAR_API_KEY_EMPRESA": "Revocación de una API key",
-          "PROBAR_CONEXION_EMPRESA": "Prueba de conexión con SUNAT"
+          "PROBAR_CONEXION_EMPRESA": "Prueba de conexión con SUNAT",
+          "IMPERSONAR_USUARIO": "Acceso de soporte como un usuario"
         }
       }
     },
