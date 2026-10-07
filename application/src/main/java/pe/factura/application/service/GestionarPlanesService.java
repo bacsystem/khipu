@@ -68,7 +68,7 @@ public class GestionarPlanesService implements GestionarPlanesUseCase {
     @Override public PlanConUso desactivar(ActorAdmin actor, UUID id) {
         Instant ahora = clock.instant();
         return uow.ejecutar(() -> {
-            Plan inactivo = leerParaEditar(id).desactivar();
+            Plan inactivo = leerParaEditar(id).vigenteEn(ahora).desactivar();
             planes.guardar(inactivo);
             PlanConUso r = conUso(inactivo);
             // Las cuentas que ya lo tienen siguen con él: la bitácora dice cuántas, porque es lo que el administrador querría saber después.
@@ -80,7 +80,7 @@ public class GestionarPlanesService implements GestionarPlanesUseCase {
     @Override public PlanConUso activar(ActorAdmin actor, UUID id) {
         Instant ahora = clock.instant();
         return uow.ejecutar(() -> {
-            Plan activo = leerParaEditar(id).activar();
+            Plan activo = leerParaEditar(id).vigenteEn(ahora).activar();
             planes.guardar(activo);
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.ACTIVAR_PLAN, null, null, "plan=" + activo.nombre(), ahora));
             return conUso(activo);

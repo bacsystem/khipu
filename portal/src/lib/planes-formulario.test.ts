@@ -73,6 +73,11 @@ describe("validarPlan", () => {
     for (const malo of ["", " ", "-1", "-0.01", "29.999", "abc", "1e3", "29,50", "1.", ".5"]) expect(errores({ precio: malo }).precio, malo).toMatch(/precio/);
   });
 
+  it("el precio cabe en la columna del backend (NUMERIC(10,2)): más alto, el backend no lo guarda", () => {
+    expect(errores({ precio: "99999999.99" }).precio).toBeUndefined();
+    for (const malo of ["100000000", "100000000.00", "999999999"]) expect(errores({ precio: malo }).precio, malo).toMatch(/precio/);
+  });
+
   it("los números son enteros mayores que cero", () => {
     for (const campo of ["documentos", "rucs", "usuarios", "apiKeys", "retencion"] as const) {
       for (const bueno of ["1", "10", "2147483647"]) expect(errores({ [campo]: bueno })[campo], `${campo}=${bueno}`).toBeUndefined();

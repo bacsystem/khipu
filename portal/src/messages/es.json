@@ -259,7 +259,7 @@
         "errores": {
           "nombreRequerido": "Escribe el nombre del plan.",
           "nombreLargo": "El nombre admite hasta 40 caracteres.",
-          "precioInvalido": "Escribe un precio de cero o más, con hasta dos decimales.",
+          "precioInvalido": "Escribe un precio de cero o más (hasta 99,999,999.99), con hasta dos decimales.",
           "limiteInvalido": "Escribe un número entero mayor que cero, o marca «Ilimitado».",
           "numeroInvalido": "Escribe un número entero mayor que cero."
         }

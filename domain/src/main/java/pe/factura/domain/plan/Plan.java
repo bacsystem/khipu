@@ -17,6 +17,8 @@ import java.util.UUID;
  */
 public record Plan(UUID id, String nombre, BigDecimal precioMensual, Limites limites, EstadoPlan estado, boolean porDefecto, CambioDeLimites programado) {
     private static final int NOMBRE_MAX = 40;
+    /** El mayor que cabe en {@code plan.precio_mensual NUMERIC(10,2)}. */
+    public static final BigDecimal PRECIO_MAX = new BigDecimal("99999999.99");
 
     public Plan {
         if (id == null) throw new DomainException("PLAN_INVALIDO", "El plan necesita un id");
@@ -26,6 +28,8 @@ public record Plan(UUID id, String nombre, BigDecimal precioMensual, Limites lim
         if (precioMensual == null || precioMensual.signum() < 0 || precioMensual.stripTrailingZeros().scale() > 2)
             throw new DomainException("PRECIO_INVALIDO", "El precio mensual debe ser cero o más, con hasta dos decimales: " + precioMensual);
         precioMensual = precioMensual.setScale(2);
+        if (precioMensual.compareTo(PRECIO_MAX) > 0)
+            throw new DomainException("PRECIO_INVALIDO", "El precio mensual admite hasta " + PRECIO_MAX.toPlainString() + ": " + precioMensual.toPlainString());
         if (limites == null) throw new DomainException("LIMITE_INVALIDO", "Faltan límites del plan");
         if (estado == null) throw new DomainException("ESTADO_INVALIDO", "El estado del plan es obligatorio");
         if (porDefecto && estado != EstadoPlan.ACTIVO) throw new DomainException("PLAN_POR_DEFECTO", "El plan por defecto de las cuentas nuevas no puede estar inactivo");
