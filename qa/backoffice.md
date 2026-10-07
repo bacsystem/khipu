@@ -1962,7 +1962,7 @@ Lo que sobrevivía en la primera tanda:
 
 ## #189 · Planes: modelo de plan y suscripción en el dominio
 
-**Estado: 🔧 implementado, 71/71 mutaciones verificadas — falta la revisión de la PR.** Es la base de #190–#194 y #196: solo el modelo, sin pantallas ni endpoints (no los pedía el issue).
+**Estado: ✅ revisión de la PR (#237) corregida, 72/72 mutaciones verificadas (71 y 1 de la corrección).** Es la base de #190–#194 y #196: solo el modelo, sin pantallas ni endpoints (no los pedía el issue).
 
 ### Diseño
 
@@ -2001,6 +2001,16 @@ Lo que sobrevivía en la primera tanda:
 
 - Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (7 min 51 s; incluye `ArchitectureTest` y todos los E2E de Spring con Postgres real, que ahora crean sus cuentas con el trigger de plan).
 - Portal: sin cambios (esta PR solo toca el backend).
+
+### Corrección de la revisión de #237
+
+- **H1 (menor): dos tests de `JdbcPlanRepositoryTest` borraban su plan de más solo si pasaban.** `plan` no se vacía entre tests (los cuatro vienen de la
+  migración), así que un fallo dejaba «Viejo» o «Abeja» y hacía fallar, por otra razón, a los tests que cuentan los cuatro planes. Ahora un `@AfterEach` borra
+  todo plan que no sea de la migración.
+- **H2 (menor): el historial podía salir al revés.** `deLaCuenta` ordenaba por `inicia_en, created_at`; un cambio en el mismo instante en que nace la cuenta
+  (misma transacción, mismo `now()`) dejaba el orden entre la cerrada y la nueva al azar. Ahora desempata `termina_en NULLS LAST`: a igual inicio, la que terminó
+  va antes. Test `aIgualInicioLaQueTerminoVaAntesQueLaActiva`, en rojo antes del cambio (que es también su mutación: quitar el desempate lo vuelve rojo).
+- Después: los tests de planes y suscripciones de `out-persistence`, **BUILD SUCCESSFUL**.
 
 ### Límites conocidos
 
