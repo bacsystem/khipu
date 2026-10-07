@@ -57,6 +57,12 @@ class PlanTest {
         assertThat(codigo(() -> plan("Raro", "29.999", EstadoPlan.ACTIVO, false))).isEqualTo("PRECIO_INVALIDO");
     }
 
+    /** La columna es NUMERIC(10,2): un precio que no cabe se rechaza aquí con su código, en vez de llegar a la base y volver como un 500. */
+    @Test void elPrecioCabeEnLaColumna() {
+        assertThat(plan("Tope", "99999999.99", EstadoPlan.ACTIVO, false).precioMensual()).isEqualByComparingTo("99999999.99");
+        assertThat(codigo(() -> plan("Caro", "100000000", EstadoPlan.ACTIVO, false))).isEqualTo("PRECIO_INVALIDO");
+    }
+
     /** El precio siempre lleva dos decimales: dos planes de «29» y «29.00» son el mismo y se comparan (y se muestran) igual. */
     @Test void elPrecioSeNormalizaADosDecimales() {
         assertThat(plan("A", "29", EstadoPlan.ACTIVO, false).precioMensual().toPlainString()).isEqualTo("29.00");

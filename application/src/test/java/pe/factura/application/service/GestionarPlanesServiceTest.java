@@ -337,6 +337,23 @@ class GestionarPlanesServiceTest {
         assertThat(r.detalle()).isEqualTo("plan=Emprende");
     }
 
+    /** Si el cambio programado ya llegó, desactivar y activar responden (y guardan) los límites que mandan hoy, igual que el listado; no los de antes con un cambio vencido. */
+    @Test void desactivarYActivarDespuesDeQueElCambioEntroRespondenLosLimitesQueMandan() {
+        Limites mas = new Limites(Limite.de(900), 1, Limite.de(1), Limite.de(2), 5);
+        planes.datos.put(emprende.id(), new Plan(emprende.id(), "Emprende", emprende.precioMensual(), LIMITES, EstadoPlan.ACTIVO, false,
+                new CambioDeLimites(mas, Fakes.CLOCK.instant().minusSeconds(1))));
+
+        PlanConUso desactivado = service.desactivar(ACTOR, emprende.id());
+        assertThat(desactivado.plan().limites()).isEqualTo(mas);
+        assertThat(desactivado.plan().programado()).isNull();
+
+        planes.datos.put(emprende.id(), new Plan(emprende.id(), "Emprende", emprende.precioMensual(), LIMITES, EstadoPlan.INACTIVO, false,
+                new CambioDeLimites(mas, Fakes.CLOCK.instant().minusSeconds(1))));
+        PlanConUso activado = service.activar(ACTOR, emprende.id());
+        assertThat(activado.plan().limites()).isEqualTo(mas);
+        assertThat(activado.plan().programado()).isNull();
+    }
+
     @Test void desactivarOActivarUnPlanQueNoExisteEsNoEncontrado() {
         assertThat(codigo(() -> service.desactivar(ACTOR, UUID.randomUUID()))).isEqualTo("NO_ENCONTRADO");
         assertThat(codigo(() -> service.activar(ACTOR, UUID.randomUUID()))).isEqualTo("NO_ENCONTRADO");

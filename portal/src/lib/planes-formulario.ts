@@ -6,6 +6,8 @@ const t = messages.admin.planes.formulario.errores;
 export const NOMBRE_MAX = 40;
 /** El mayor entero que acepta el backend (Java `int`): más allá, la base lo rechazaría con un error poco claro. */
 const ENTERO_MAX = 2_147_483_647;
+/** El mayor precio que cabe en la columna del backend (`NUMERIC(10,2)`, `Plan.PRECIO_MAX`). */
+export const PRECIO_MAX = 99_999_999.99;
 
 /** Lo que el administrador tiene escrito en el formulario: todo texto, como llega de los campos. */
 export type ValoresDePlan = {
@@ -60,7 +62,7 @@ export function validarPlan(v: ValoresDePlan): { errores: ErroresDePlan } | { cu
   else if (nombre.length > NOMBRE_MAX) errores.nombre = t.nombreLargo;
 
   const precioTexto = v.precio.trim();
-  if (!/^\d+(\.\d{1,2})?$/.test(precioTexto)) errores.precio = t.precioInvalido;
+  if (!/^\d+(\.\d{1,2})?$/.test(precioTexto) || Number(precioTexto) > PRECIO_MAX) errores.precio = t.precioInvalido;
 
   const documentos = limite(v.documentos, v.documentosIlimitado);
   if (!documentos) errores.documentos = t.limiteInvalido;

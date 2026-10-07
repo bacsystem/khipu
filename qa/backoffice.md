@@ -2023,7 +2023,7 @@ Lo que sobrevivía en la primera tanda:
 
 ## #190 · Planes: CRUD de planes en el backoffice
 
-**Estado: 🔧 implementado, 185/185 mutaciones verificadas (1 equivalente documentada) — falta la revisión de la PR.** Backend (`/v1/admin/planes`) y portal (`/admin/planes`).
+**Estado: ✅ revisión de la PR (#238) corregida, 189/189 mutaciones verificadas (185 y 4 de la corrección; 1 equivalente documentada).** Backend (`/v1/admin/planes`) y portal (`/admin/planes`).
 
 ### Diseño
 
@@ -2080,6 +2080,17 @@ Lo que sobrevivía en la primera tanda y se arregló con su test:
 
 - Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (8 min 53 s; incluye `ArchitectureTest` y todos los E2E de Spring con Postgres real).
 - Portal: `tsc` y ESLint limpios; Vitest **733/733** (87 archivos); Playwright completo (`--workers=2`) **253/253**.
+
+### Corrección de la revisión de #238
+
+- **H1 (menor): un precio de 100 000 000 o más respondía 500 INTERNO.** La columna es `NUMERIC(10,2)` y nadie ponía tope: el desborde llegaba como
+  `DataIntegrityViolationException`, sin handler. Ahora `Plan.PRECIO_MAX` (99 999 999.99) lo rechaza con `PRECIO_INVALIDO`, y el formulario y el mock usan el
+  mismo tope. Tests `PlanTest.elPrecioCabeEnLaColumna` y el de `planes-formulario`, ambos en rojo antes.
+- **H2 (menor): desactivar o activar después de que llegó un cambio programado respondía los límites viejos** (y el cambio ya vencido como pendiente), en contra
+  del contrato de `PlanResponse`. Ahora ambos parten de `vigenteEn(ahora)`, como editar y listar. Test
+  `desactivarYActivarDespuesDeQueElCambioEntroRespondenLosLimitesQueMandan`, en rojo antes; quitar cualquiera de los dos `vigenteEn` lo vuelve rojo.
+- **H3 (menor): el mock respondía `400 VALIDACION`** a un id que no es UUID en los cuatro handlers de un plan; ahora `parametroInvalido("id")`, como el backend.
+- Después: dominio y servicio de planes en verde; `tsc` y ESLint limpios; Vitest **736/736** (88 archivos); Playwright `admin-planes` **16/16**.
 
 ### Límites conocidos
 

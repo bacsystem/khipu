@@ -237,6 +237,7 @@ function validarPlanMock(body: unknown, exceptoId?: string): { error: Response }
   const precio = b.precio_mensual;
   if (typeof precio !== "number" || precio < 0 || Math.round(precio * 100) / 100 !== precio)
     return { error: fail(422, "PRECIO_INVALIDO", "El precio mensual debe ser cero o más, con hasta dos decimales") };
+  if (precio > 99_999_999.99) return { error: fail(422, "PRECIO_INVALIDO", "El precio mensual admite hasta 99999999.99") };
   const l = b.limites;
   if (!l) return { error: fail(422, "LIMITE_INVALIDO", "Faltan los límites del plan") };
   const limite = (campo: string): { maximo?: number; ilimitado: boolean } | Response => {
@@ -447,7 +448,7 @@ export const handlers = [
 
   http.put(`${BASE}/v1/admin/planes/:id`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id del plan no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const plan = db.planesAdmin.find((p) => p.id === params.id);
     if (!plan) return fail(404, "NO_ENCONTRADO", "El plan no existe");
     const v = validarPlanMock(await request.json(), plan.id);
@@ -461,7 +462,7 @@ export const handlers = [
 
   http.post(`${BASE}/v1/admin/planes/:id/desactivar`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id del plan no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const plan = db.planesAdmin.find((p) => p.id === params.id);
     if (!plan) return fail(404, "NO_ENCONTRADO", "El plan no existe");
     if (plan.por_defecto) return fail(409, "PLAN_POR_DEFECTO", "El plan por defecto de las cuentas nuevas no se puede desactivar");
@@ -472,7 +473,7 @@ export const handlers = [
 
   http.post(`${BASE}/v1/admin/planes/:id/activar`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id del plan no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const plan = db.planesAdmin.find((p) => p.id === params.id);
     if (!plan) return fail(404, "NO_ENCONTRADO", "El plan no existe");
     if (plan.estado === "ACTIVO") return fail(409, "PLAN_YA_ACTIVO", "El plan ya está activo");
@@ -482,7 +483,7 @@ export const handlers = [
 
   http.delete(`${BASE}/v1/admin/planes/:id`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id del plan no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     const plan = db.planesAdmin.find((p) => p.id === params.id);
     if (!plan) return fail(404, "NO_ENCONTRADO", "El plan no existe");
     if (plan.por_defecto) return fail(409, "PLAN_POR_DEFECTO", "El plan por defecto de las cuentas nuevas no se puede borrar");
