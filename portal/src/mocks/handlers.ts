@@ -596,7 +596,9 @@ export const handlers = [
   ...(["restablecimiento", "verificacion"] as const).map((accion) =>
     http.post(`${BASE}/v1/admin/cuentas/:id/usuarios/:usuarioId/${accion}`, ({ request, params }) => {
       if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-      if (!esUuid(String(params.id)) || !esUuid(String(params.usuarioId))) return fail(400, "VALIDACION", "El identificador no es válido");
+      // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException), que nombra el primer parámetro que no convierte.
+      const invalido = !esUuid(String(params.id)) ? "cuentaId" : !esUuid(String(params.usuarioId)) ? "usuarioId" : null;
+      if (invalido) return fail(400, "PARAMETRO_INVALIDO", `El parámetro '${invalido}' no tiene un formato válido`);
       const cuenta = db.cuentasAdmin.find((c) => c.id === params.id);
       const usuario = cuenta ? usuariosDeCuenta(cuenta).find((u) => u.id === params.usuarioId) : undefined;
       if (!usuario) return fail(404, "NO_ENCONTRADO", "El usuario no existe en esta cuenta");
