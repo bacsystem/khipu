@@ -395,7 +395,8 @@ export const handlers = [
    */
   http.get(`${BASE}/v1/admin/empresas/:id`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la empresa no es válido");
+    // Mismo código que el backend (`GlobalExceptionHandler`, MethodArgumentTypeMismatchException).
+    if (!esUuid(String(params.id))) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'id' no tiene un formato válido");
     const e = db.empresasAdmin.find((x) => x.id === params.id);
     if (!e) return fail(404, "NO_ENCONTRADO", "La empresa no existe");
     const completa = e.id === idEmpresaMock(1);
