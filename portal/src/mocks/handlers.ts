@@ -593,7 +593,8 @@ export const handlers = [
     if (motivo.length > 200) return fail(422, "MOTIVO_INVALIDO", "El motivo no puede pasar de 200 caracteres");
     if (cuenta.suspendida_en) return fail(409, "CUENTA_YA_SUSPENDIDA", "La cuenta ya está suspendida");
     cuenta.suspendida_en = new Date().toISOString();
-    return ok({ cuenta_id: cuenta.id, estado: "SUSPENDIDA", suspendida_en: cuenta.suspendida_en });
+    // Como el backend (revisión de #201): el estado es el mismo que en el detalle; una cuenta de baja responde BAJA y su fecha de baja.
+    return ok({ cuenta_id: cuenta.id, estado: estadoDeCuenta(cuenta), suspendida_en: cuenta.suspendida_en, ...(cuenta.baja_en ? { baja_en: cuenta.baja_en } : {}) });
   }),
 
   http.post(`${BASE}/v1/admin/cuentas/:id/reactivar`, ({ request, params }) => {
@@ -604,7 +605,7 @@ export const handlers = [
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     if (!cuenta.suspendida_en) return fail(409, "CUENTA_NO_SUSPENDIDA", "La cuenta no está suspendida");
     delete cuenta.suspendida_en;
-    return ok({ cuenta_id: cuenta.id, estado: "ACTIVA" });
+    return ok({ cuenta_id: cuenta.id, estado: estadoDeCuenta(cuenta), ...(cuenta.baja_en ? { baja_en: cuenta.baja_en } : {}) });
   }),
 
   /**
