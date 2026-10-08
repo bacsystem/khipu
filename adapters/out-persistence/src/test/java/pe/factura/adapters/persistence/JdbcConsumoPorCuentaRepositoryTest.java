@@ -125,11 +125,12 @@ class JdbcConsumoPorCuentaRepositoryTest extends PersistenciaTestBase {
         UUID e = empresa(c);
         aceptados(e, 3);
         documentos(e, "ACEPTADO_CON_OBS", 2, MITAD);
-        for (String no : List.of("RECHAZADO", "ERROR_ENVIO", "ENVIADO", "ANULADO", "FUERA_DE_PLAZO")) documentos(e, no, 4, MITAD);
+        documentos(e, "ANULADO", 1, MITAD); // aceptado y luego dado de baja: ya consumió (#192)
+        for (String no : List.of("RECHAZADO", "ERROR_ENVIO", "ENVIADO", "FUERA_DE_PLAZO")) documentos(e, no, 4, MITAD);
         documentos(e, "ACEPTADO", 6, LocalDate.of(2026, 9, 30));
         documentos(e, "ACEPTADO", 6, LocalDate.of(2026, 11, 1));
 
-        assertThat(de(repo.listar(todas(), 1, 20), c).documentos()).isEqualTo(5);
+        assertThat(de(repo.listar(todas(), 1, 20), c).documentos()).isEqualTo(6);
     }
 
     /** Los bordes del mes son del mes: el día 1 y el último día cuentan; el día anterior y el siguiente, no. */
