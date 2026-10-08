@@ -5,30 +5,28 @@ const gravado = (cantidad: number, precioUnitario: number) => ({ cantidad, preci
 
 describe("calcularTotales", () => {
   it("separa el IGV del precio por línea, como el dominio", () => {
-    // 1000 / 1.18 = 847.4576271186 (10 dec) → × 2 = 1694.92 → IGV 305.09.
+    // 1000 / 1.18 = 847.4576271186 (10 dec) → × 2 = 1694.92 → IGV lo que falta para 2000.00: 305.08.
     expect(calcularTotales([gravado(2, 1000)], 18)).toEqual({
       gravado: 1694.92,
       exonerado: 0,
       inafecto: 0,
       gratuito: 0,
-      igv: 305.09,
-      total: 2000.01,
+      igv: 305.08,
+      total: 2000,
     });
   });
 
-  it("el total puede no coincidir con precio × cantidad: el redondeo es por línea", () => {
-    // Calcular sobre el total (2000 / 1.18 = 1694.92, IGV 305.08, total 2000.00) da un céntimo menos que el
-    // comprobante real, porque SUNAT exige el importe de cada línea redondeado a 2 decimales.
-    const { total } = calcularTotales([gravado(2, 1000)], 18);
-    expect(total).toBe(2000.01);
-    expect(total).not.toBe(2000);
+  /** H9: antes el IGV salía de la base redondeada (1694.92 × 18 % = 305.09) y el total era 2000.01, o 9.99 por un precio de 10.00. */
+  it("el total es el precio con IGV por la cantidad: 10.00 se paga 10.00", () => {
+    expect(calcularTotales([gravado(2, 1000)], 18).total).toBe(2000);
+    expect(calcularTotales([gravado(1, 10)], 18)).toMatchObject({ gravado: 8.47, igv: 1.53, total: 10 });
   });
 
   it("suma varias líneas gravadas acumulando línea por línea", () => {
     expect(calcularTotales([gravado(2, 1000), gravado(1, 500)], 18)).toMatchObject({
       gravado: 2118.65,
-      igv: 381.36,
-      total: 2500.01,
+      igv: 381.35,
+      total: 2500,
     });
   });
 
@@ -73,10 +71,11 @@ describe("calcularTotales", () => {
    * de …0847. Un diezmilmillonésimo que acá se vuelve un céntimo. Contrastado contra la cadena de `ItemCalculado`.
    */
   it("acierta el céntimo con cantidades fraccionarias, donde el punto flotante fallaba", () => {
+    // 0.59 × 1208.79 = 713.1861 → se paga 713.19 (H9); la base es la del dominio.
     expect(calcularTotales([gravado(0.59, 1208.79)], 18)).toMatchObject({
       gravado: 604.39,
-      igv: 108.79,
-      total: 713.18,
+      igv: 108.8,
+      total: 713.19,
     });
   });
 

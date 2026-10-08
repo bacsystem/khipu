@@ -8,7 +8,8 @@
  * 1. `valorReferencial = precioUnitario / (1 + factorIgv)` a **10 decimales** (gravadas); en exoneradas/inafectas el
  *    precio ya viene sin IGV y se usa tal cual.
  * 2. `baseBruta = valorReferencial × cantidad` a 2 decimales.
- * 3. `igv = baseBruta × factorIgv` a 2 decimales.
+ * 3. En una gravada, `igv = precio × cantidad (a 2 decimales) − baseBruta` (H9): el cliente paga exactamente el precio con IGV que se escribió. Si eso diera
+ *    0.00 o menos (importes de céntimos), `baseBruta × factorIgv` a 2 decimales, como siempre.
  *
  * **Todo se calcula con enteros (`bigint`), no con `number`.** El dominio usa `BigDecimal`, y en punto flotante la
  * división del paso 1 pierde el dígito que decide el redondeo: `1208.79 / 1.18` da `1024.39830508474576…`, y
@@ -148,11 +149,10 @@ export function calcularTotales(items: ItemParaTotales[], tasaIgvPorcentaje: num
 
     if (gratuita) return { ...acc, gratuito: sumar(acc.gratuito, base) };
     if (gravada) {
-      return {
-        ...acc,
-        gravado: sumar(acc.gravado, base),
-        igv: sumar(acc.igv, escalar(multiplicar(base, factor), 2)),
-      };
+      const total = escalar(multiplicar(precio, aDecimal(item.cantidad)), 2);
+      const loQueFalta = sumar(total, { v: -base.v, e: base.e });
+      const igv = loQueFalta.v > 0n ? loQueFalta : escalar(multiplicar(base, factor), 2);
+      return { ...acc, gravado: sumar(acc.gravado, base), igv: sumar(acc.igv, igv) };
     }
     if (item.tipoAfectacionIgv === "20") return { ...acc, exonerado: sumar(acc.exonerado, base) };
     if (item.tipoAfectacionIgv === "30") return { ...acc, inafecto: sumar(acc.inafecto, base) };
