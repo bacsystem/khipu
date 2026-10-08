@@ -1,6 +1,6 @@
 /**
  * Recetas de clases compartidas (evita copiar la misma cadena en cada componente). Las de controles son las de
- * khipu-design-system v0.1.5 (`src/lib/estilos.ts`): si cambian allá, se traen aquí tal cual.
+ * khipu-design-system v0.1.6 (`src/lib/estilos.ts`): si cambian allá, se traen aquí tal cual.
  *
  * Escala de alturas (docs/design-system.md §4 del design system), una receta por altura y contexto. Si un control necesita
  * otra altura, se usa la receta de esa altura: nunca `cn(RECETA, "h-N")`. Sobrescribirla a mano es lo que hace que dos
@@ -18,6 +18,11 @@ export const CONTROL_FILTRO = "h-8 rounded-lg border border-border bg-card text-
 // El aspecto de CAMPO a h-8: inputs y `<select>` nativos de una barra de filtros o de un formulario denso.
 export const CAMPO_FILTRO =
   "h-8 w-full rounded-lg border border-border bg-muted px-3 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card focus:ring-3 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
+// Control segmentado de una barra de filtros: caja de h-8 con segmentos de h-6 (design system v0.1.6). `min-h-8` para que una lista
+// larga se parta en filas en vez de desbordarse. El activo se marca con `aria-current="page"` (enlace a la vista actual) o `data-active`.
+export const SEGMENTADO = "inline-flex min-h-8 w-fit flex-wrap items-center gap-1 rounded-lg border border-border/60 bg-secondary/80 p-0.5";
+export const SEGMENTO =
+  "inline-flex h-6 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 data-active:bg-card data-active:text-foreground data-active:shadow-2xs aria-[current=page]:bg-card aria-[current=page]:text-foreground aria-[current=page]:shadow-2xs";
 
 // ── h-10 · formularios: el campo (también un `<select>` nativo de formulario) y su CTA ──
 export const CAMPO =
@@ -25,8 +30,8 @@ export const CAMPO =
 export const ETIQUETA_CAMPO = "text-[12px] font-medium text-foreground";
 export const AYUDA_CAMPO = "font-mono text-[11px] text-muted-foreground";
 /**
- * `<select>` nativo a h-8 que todavía usan el onboarding y algunas pantallas del backoffice. No es una receta del design system:
- * se reemplaza por `CAMPO` (formulario) o `CAMPO_FILTRO` (barra de filtros) y después se borra.
+ * `<select>` nativo con el aspecto y la altura (h-8) de `ui/Input`: va en los formularios hechos con `FormField` (login, registro,
+ * onboarding, alta asistida), que son todos de h-8. Junto a `CAMPO` va `CAMPO` y en una barra de filtros, `CAMPO_FILTRO`.
  */
 export const SELECT_NATIVO =
   "h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
