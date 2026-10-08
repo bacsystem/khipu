@@ -47,9 +47,11 @@ public class AdminEmpresaController {
             @Parameter(description = "Solo las empresas de ese entorno") @RequestParam(required = false) Entorno entorno,
             @Parameter(description = "Solo las empresas con el certificado en ese estado") @RequestParam(required = false) EstadoCertificado certificado,
             @Parameter(description = "Qué hacer con las empresas de cuentas dadas de baja: `OCULTAS` (por defecto), `INCLUIDAS` o `SOLO`") @RequestParam(required = false) VisibilidadDeBajas bajas,
+            @Parameter(description = "Buscar por RUC (desde el principio) o por razón social (cualquier parte), sin distinguir mayúsculas ni tildes")
+            @RequestParam(required = false) String q,
             @Parameter(description = "Página, desde 1") @RequestParam(defaultValue = "1") int pagina,
             @Parameter(description = "Resultados por página, 1–100") @RequestParam(name = "por_pagina", defaultValue = "20") int porPagina) {
-        var filtro = new Filtro(entorno, certificado, bajas);
+        var filtro = new Filtro(entorno, certificado, bajas, q);
         List<EmpresaAdminResponse> datos = empresas.listar(filtro, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
                 .stream().map(EmpresaAdminResponse::de).toList();
         return ResponseEntity.ok().header(FacturaController.TOTAL_HEADER, String.valueOf(empresas.contar(filtro))).body(ApiResponse.ok(datos));

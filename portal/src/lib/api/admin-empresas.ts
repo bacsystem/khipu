@@ -41,7 +41,7 @@ export type EmpresaAdmin = {
 export type PaginaEmpresasAdmin = { datos: EmpresaAdmin[]; total: number };
 
 /** `bajas` ausente = las empresas de cuentas dadas de baja (#201) no salen; `INCLUIDAS` las mezcla y `SOLO` muestra únicamente esas. */
-export type ParamsEmpresas = { entorno?: EntornoAdmin; certificado?: EstadoCertificadoAdmin; bajas?: VisibilidadDeBajasAdmin; pagina: number; porPagina: number };
+export type ParamsEmpresas = { q?: string; entorno?: EntornoAdmin; certificado?: EstadoCertificadoAdmin; bajas?: VisibilidadDeBajasAdmin; pagina: number; porPagina: number };
 
 const RUTA_PANTALLA = "/admin/empresas";
 
@@ -53,9 +53,12 @@ function unoDe<T extends string>(opciones: readonly T[], valor: string | undefin
  * Sanea lo que llega por la URL. Un filtro que el backend no conoce (o escrito en minúsculas) se descarta en vez de mandarlo: respondería 400
  * y el listado entero se vería roto por un parámetro de más.
  */
-export function paramsEmpresasDesdeUrl(p: { entorno?: string; certificado?: string; bajas?: string; pagina?: string; por_pagina?: string }): ParamsEmpresas {
+export function paramsEmpresasDesdeUrl(p: { q?: string; entorno?: string; certificado?: string; bajas?: string; pagina?: string; por_pagina?: string }): ParamsEmpresas {
   const pagina = Number(p.pagina);
+  const q = p.q?.trim();
   return {
+    // H17: buscar por RUC o razón social; en blanco no busca.
+    q: q ? q : undefined,
     entorno: unoDe(ENTORNOS, p.entorno),
     certificado: unoDe(ESTADOS_CERTIFICADO, p.certificado),
     bajas: bajasDesdeUrl(p.bajas),
@@ -70,6 +73,7 @@ export function queryEmpresas(p: ParamsEmpresas): URLSearchParams {
   if (p.entorno) qs.set("entorno", p.entorno);
   if (p.certificado) qs.set("certificado", p.certificado);
   if (p.bajas) qs.set("bajas", p.bajas);
+  if (p.q) qs.set("q", p.q);
   qs.set("pagina", String(p.pagina));
   qs.set("por_pagina", String(p.porPagina));
   return qs;
@@ -81,6 +85,7 @@ export function hrefEmpresas(p: ParamsEmpresas): string {
   if (p.entorno) qs.set("entorno", p.entorno);
   if (p.certificado) qs.set("certificado", p.certificado);
   if (p.bajas) qs.set("bajas", p.bajas);
+  if (p.q) qs.set("q", p.q);
   if (p.pagina > 1) qs.set("pagina", String(p.pagina));
   if (p.porPagina !== POR_PAGINA_DEFECTO) qs.set("por_pagina", String(p.porPagina));
   const texto = qs.toString();

@@ -1,8 +1,9 @@
 "use client";
 
-import { InboxIcon } from "lucide-react";
+import { InboxIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useRef } from "react";
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { FiltroDeBajas } from "@/components/admin/filtro-de-bajas";
 import { PieTabla } from "@/components/ui/pie-tabla";
@@ -19,7 +20,7 @@ import {
   type EstadoCertificadoAdmin,
   type ParamsEmpresas,
 } from "@/lib/api/admin-empresas";
-import { CABECERA_TABLA, CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -39,15 +40,42 @@ const TINTE: Partial<Record<EstadoCertificadoAdmin, string>> = {
  */
 export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[]; total: number; params: ParamsEmpresas }) {
   const router = useRouter();
+  const buscador = useRef<HTMLInputElement>(null);
 
   const ultimaPagina = Math.max(1, Math.ceil(total / params.porPagina));
   const primero = total === 0 ? 0 : (params.pagina - 1) * params.porPagina + 1;
   const ultimo = (params.pagina - 1) * params.porPagina + datos.length;
-  const hayFiltros = Boolean(params.entorno || params.certificado || params.bajas);
+  const hayFiltros = Boolean(params.q || params.entorno || params.certificado || params.bajas);
+
+  /** H17: buscar por RUC o razón social, como en Cuentas; la búsqueda se combina con los filtros y vuelve a la primera página. */
+  function buscar(e: React.FormEvent) {
+    e.preventDefault();
+    const q = buscador.current?.value.trim();
+    router.push(hrefEmpresas({ ...params, q: q ? q : undefined, pagina: 1 }));
+  }
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <div className="flex flex-wrap items-end gap-3">
+        {/* `key`: al cambiar la búsqueda (p. ej. «Quitar filtros») el campo se vuelve a montar con el valor de la URL. */}
+        <form key={params.q ?? ""} role="search" onSubmit={buscar} className="flex w-full max-w-md items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
+            <input
+              ref={buscador}
+              id="buscar-empresas"
+              type="search"
+              name="q"
+              defaultValue={params.q ?? ""}
+              placeholder={t.buscar}
+              aria-label={t.buscar}
+              className={cn(CAMPO, "pl-9")}
+            />
+          </div>
+          <button type="submit" className={ACCION_SECUNDARIA}>
+            {t.botonBuscar}
+          </button>
+        </form>
         <div className="grid gap-1">
           <label htmlFor="filtro-entorno" className="text-[11px] font-medium text-muted-foreground">
             {t.filtroEntorno}

@@ -1579,8 +1579,11 @@ export const handlers = [
         cuentaDeBaja: Boolean(cuentaDeBajaEn),
       };
     });
+    // H17, como el backend: RUC por prefijo y razón social por subcadena, sin mayúsculas (el mock no cubre las tildes: eso lo prueba el backend).
+    const q = url.searchParams.get("q")?.trim().toLowerCase() ?? "";
     const lista = filas
       .filter((f) => (!entorno || f.entorno === entorno) && (!certificado || f.estado === certificado))
+      .filter((f) => !q || f.json.ruc.startsWith(q) || f.json.razon_social.toLowerCase().includes(q))
       .filter((f) => bajas === "INCLUIDAS" || (bajas === "SOLO") === f.cuentaDeBaja)
       .sort((a, b) => b.creada_en.localeCompare(a.creada_en) || a.id.localeCompare(b.id));
     return HttpResponse.json(

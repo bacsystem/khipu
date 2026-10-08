@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.text.Normalizer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -214,6 +215,19 @@ public class JdbcEmpresasAdminRepository implements EmpresasAdminRepository {
         }
         String baja = BajasEnListado.deEmpresa(filtro.bajas());
         if (baja != null) condiciones.add(baja);
+        if (filtro.q() != null) condiciones.add(busqueda(filtro.q(), args));
         return condiciones.isEmpty() ? "" : " WHERE " + String.join(" AND ", condiciones);
+    }
+
+    /**
+     * H17, con la misma regla que el buscador de cuentas: RUC por prefijo (un fragmento interno no identifica a nadie) y razón social por subcadena, sin distinguir
+     * mayúsculas ni tildes y con los comodines del texto buscado tomados literalmente.
+     */
+    private static String busqueda(String q, List<Object> args) {
+        String literal = JdbcCuentasAdminRepository.escaparComodines(Normalizer.normalize(q, Normalizer.Form.NFC));
+        args.add(literal + "%");
+        args.add("%" + literal + "%");
+        return "(t.ruc LIKE ? ESCAPE '\\' OR %s ILIKE %s ESCAPE '\\')".formatted(
+                JdbcCuentasAdminRepository.SIN_TILDES.formatted("t.razon_social"), JdbcCuentasAdminRepository.SIN_TILDES.formatted("?"));
     }
 }
