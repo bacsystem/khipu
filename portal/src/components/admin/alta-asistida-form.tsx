@@ -286,7 +286,9 @@ export function AltaAsistidaDialog({ claseDelBoton }: { claseDelBoton: string })
   }
 
   return (
-    <Dialog open={abierto} onOpenChange={cambiarAbierto}>
+    // Un clic fuera no lo cierra: perdería lo escrito en tres pasos o, peor, la API key que solo se muestra una vez. Se cierra con la X,
+    // Escape, «Cancelar» o «Listo», que son gestos deliberados.
+    <Dialog open={abierto} onOpenChange={cambiarAbierto} disablePointerDismissal>
       <DialogTrigger className={claseDelBoton} data-testid="nueva-cuenta">
         <UserPlusIcon className="size-4" />
         {t.titulo}
