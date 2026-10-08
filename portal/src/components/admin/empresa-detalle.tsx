@@ -4,11 +4,13 @@ import { CambiarEntorno, ProbarConexion, RevocarApiKey } from "@/components/admi
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "@/components/comprobantes/estado-badge";
+import { Tabs } from "@/components/navegacion/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import type { DomicilioEmpresa, EmpresaDetalleAdmin } from "@/lib/api/admin-empresa-detalle";
 import { estadoCertificadoDeEmpresa } from "@/lib/api/admin-empresas";
-import type { EstadoDocumento } from "@/lib/api/facturas";
+import { PLANTILLAS_PDF } from "@/lib/api/empresas";
+import { ETIQUETAS_TIPO, type EstadoDocumento } from "@/lib/api/facturas";
 import { CABECERA_TABLA, ETIQUETA_DATO } from "@/lib/estilos";
 import { formatearFecha, formatearFechaHora, formatearMonto } from "@/lib/formato";
 import { messages } from "@/lib/messages";
@@ -104,7 +106,9 @@ function Series({ series }: { series: EmpresaDetalleAdmin["series"] }) {
           {series.map((x) => (
             <TableRow key={`${x.tipo}-${x.codigo}`} className="border-b border-border/60">
               <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">{x.codigo}</TableCell>
-              <TableCell className="px-3 py-2 font-mono text-[12px]">{x.tipo}</TableCell>
+              <TableCell className="px-3 py-2 text-[12px]" title={x.tipo}>
+                {ETIQUETAS_TIPO[x.tipo] ?? x.tipo}
+              </TableCell>
               <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{x.ultimo_numero}</TableCell>
               <TableCell className="px-3 py-2">
                 <Etiqueta tono={x.activa ? "ok" : "neutro"}>{x.activa ? s.activa : s.inactiva}</Etiqueta>
@@ -186,12 +190,17 @@ function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSoc
   );
 }
 
+/** El backend manda la plantilla en mayúsculas (`CLASICO`) y el catálogo del portal la nombra en minúsculas: se busca sin importar eso. */
+function nombreDePlantilla(plantilla: string): string {
+  return PLANTILLAS_PDF.find((x) => x.id === plantilla.toLowerCase())?.nombre ?? plantilla;
+}
+
 function Pdf({ pdf }: { pdf: EmpresaDetalleAdmin["pdf"] }) {
   const p = t.pdf;
   return (
     <Seccion titulo={p.titulo} id="empresa-pdf">
       <dl className="grid gap-x-8 gap-y-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Dato etiqueta={p.plantilla}>{pdf.plantilla}</Dato>
+        <Dato etiqueta={p.plantilla}>{nombreDePlantilla(pdf.plantilla)}</Dato>
         <Dato etiqueta={p.color}>
           <span className="inline-flex items-center gap-2 font-mono">
             <span className="inline-block size-3.5 rounded-sm border border-border" style={{ backgroundColor: pdf.color_primario }} aria-hidden="true" />
@@ -334,12 +343,22 @@ function Outbox({ outbox }: { outbox: EmpresaDetalleAdmin["outbox"] }) {
   );
 }
 
+type Pestana = "datos" | "emision" | "apiKeys" | "comprobantes" | "envios";
+
 /**
- * Detalle de una empresa del backoffice (#186): lo mismo que ve su dueño. Desde aquí el administrador puede cambiar el entorno, revocar una API key y
- * probar la conexión con SUNAT (#187), cada cosa con su confirmación (salvo la prueba, que no cambia nada) y su registro en la bitácora; las demás
- * acciones llegan en sus issues.
+ * Detalle de una empresa del backoffice (#186): lo mismo que ve su dueño. Arriba el RUC, la cuenta, el entorno (que se puede cambiar, #187) y el alta;
+ * abajo, en pestañas (H19), lo que antes eran nueve tablas apiladas: datos fiscales y conexión con SUNAT, lo que define cómo emite (series,
+ * establecimientos y diseño del PDF), las API keys, los comprobantes con sus cambios de estado y la cola de envíos pendientes.
  */
 export function EmpresaDetalle({ empresa }: { empresa: EmpresaDetalleAdmin }) {
+  const p = t.pestanas;
+  const pestanas: Array<{ id: Pestana; etiqueta: string; contador?: number }> = [
+    { id: "datos", etiqueta: p.datos },
+    { id: "emision", etiqueta: p.emision },
+    { id: "apiKeys", etiqueta: p.apiKeys, contador: empresa.api_keys.filter((k) => k.activa).length },
+    { id: "comprobantes", etiqueta: p.comprobantes },
+    { id: "envios", etiqueta: p.envios, contador: empresa.outbox.total },
+  ];
   return (
     <div className="grid min-w-0 gap-6" data-testid="empresa-detalle">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -365,16 +384,32 @@ export function EmpresaDetalle({ empresa }: { empresa: EmpresaDetalleAdmin }) {
         </dl>
         <CambiarEntorno empresaId={empresa.id} razonSocial={empresa.razon_social} entorno={empresa.entorno} />
       </div>
-      <p className="text-xs text-muted-foreground">{t.soloLectura}</p>
-      <Fiscales e={empresa} />
-      <Conexion e={empresa} />
-      <Series series={empresa.series} />
-      <Establecimientos establecimientos={empresa.establecimientos} />
-      <ApiKeys empresaId={empresa.id} razonSocial={empresa.razon_social} keys={empresa.api_keys} />
-      <Pdf pdf={empresa.pdf} />
-      <Comprobantes comprobantes={empresa.comprobantes} />
-      <Eventos eventos={empresa.eventos} />
-      <Outbox outbox={empresa.outbox} />
+      <Tabs<Pestana>
+        items={pestanas}
+        paneles={{
+          datos: (
+            <div className="grid gap-6">
+              <Fiscales e={empresa} />
+              <Conexion e={empresa} />
+            </div>
+          ),
+          emision: (
+            <div className="grid gap-6">
+              <Series series={empresa.series} />
+              <Establecimientos establecimientos={empresa.establecimientos} />
+              <Pdf pdf={empresa.pdf} />
+            </div>
+          ),
+          apiKeys: <ApiKeys empresaId={empresa.id} razonSocial={empresa.razon_social} keys={empresa.api_keys} />,
+          comprobantes: (
+            <div className="grid gap-6">
+              <Comprobantes comprobantes={empresa.comprobantes} />
+              <Eventos eventos={empresa.eventos} />
+            </div>
+          ),
+          envios: <Outbox outbox={empresa.outbox} />,
+        }}
+      />
     </div>
   );
 }

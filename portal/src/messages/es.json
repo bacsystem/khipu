@@ -1009,7 +1009,13 @@
       "cuenta": "Cuenta",
       "sinCuenta": "Sin cuenta (alta por integración)",
       "error": "No se pudo cargar la empresa.",
-      "soloLectura": "Aquí se puede cambiar el entorno, revocar una API key y probar la conexión con SUNAT: las demás acciones llegan más adelante.",
+      "pestanas": {
+        "datos": "Datos y conexión",
+        "emision": "Emisión",
+        "apiKeys": "API keys",
+        "comprobantes": "Comprobantes",
+        "envios": "Envíos pendientes"
+      },
       "fiscales": {
         "titulo": "Datos fiscales",
         "ruc": "RUC",
