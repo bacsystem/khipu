@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin } from "./admin-sesion";
+import { clicFuera } from "./clic-fuera";
 import { esperarHidratacion } from "./hidratacion";
 
 /** El alta es un modal de tres pasos que se abre desde la cabecera de Cuentas. */
@@ -99,7 +100,7 @@ test("un clic fuera del modal no lo cierra ni pierde lo escrito", async ({ page 
   await abrirAlta(page);
   await llenarCuenta(page);
 
-  await page.mouse.click(10, 400);
+  await clicFuera(page);
 
   await expect(dialogo(page)).toBeVisible();
   await expect(dialogo(page).getByLabel("Correo del cliente", { exact: true })).toHaveValue("ana@nueva.pe");
