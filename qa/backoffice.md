@@ -2724,7 +2724,7 @@ Hubo **un superviviente** en la primera tanda de backend: `puede_avisar` de un c
 
 ## #199 · Backoffice: configuración de la plataforma
 
-**Estado: 🔧 implementado, 239/239 mutaciones verificadas (111 de backend, 128 de portal) — falta la revisión de la PR.** Remitente de correo editable y validado, textos de los correos con variables y vista previa, aviso de mantenimiento visible para todos los clientes, y todo en la bitácora. Backend (`/v1/admin/configuracion/**` y `GET /v1/banner`, público), la migración V44 y la pantalla `/admin/configuracion`. Va después de #197 en la pila.
+**Estado: ✅ revisado (#249) sin hallazgos, 239/239 mutaciones verificadas (111 de backend, 128 de portal).** Remitente de correo editable y validado, textos de los correos con variables y vista previa, aviso de mantenimiento visible para todos los clientes, y todo en la bitácora. Backend (`/v1/admin/configuracion/**` y `GET /v1/banner`, público), la migración V44 y la pantalla `/admin/configuracion`. Va después de #197 en la pila.
 
 ### Diseño
 
