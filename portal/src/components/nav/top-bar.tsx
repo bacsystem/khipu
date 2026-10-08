@@ -12,12 +12,9 @@ import { ReferenciaEmpresaDialog } from "@/components/empresa/referencia-empresa
 import { NuevoComprobanteDialog } from "@/components/comprobantes/nuevo-comprobante-dialog";
 import { NuevaSerieDialog } from "@/components/series/nueva-serie-dialog";
 import { ReferenciaSeriesDialog } from "@/components/series/referencia-series";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "./mobile-nav";
-
-const ACCION_PRINCIPAL = "flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[12px] font-medium whitespace-nowrap text-background shadow-xs";
-const ACCION_SECUNDARIA =
-  "h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground";
 
 const MIGAS: Array<{ prefijo: string; seccion: string; pagina: string }> = [
   { prefijo: "/comprobantes", seccion: "Facturación", pagina: "Comprobantes" },
@@ -113,13 +110,13 @@ export function TopBar({
         {pathname.startsWith("/series") ? (
           <>
             <ReferenciaSeriesDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
-            <NuevaSerieDialog className={cn(ACCION_PRINCIPAL, "transition-colors hover:bg-foreground/90")} />
+            <NuevaSerieDialog className={ACCION_PRINCIPAL} />
           </>
         ) : pathname.startsWith("/api-keys") ? (
           <>
             <ReferenciaApiKeysDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
             <EjemploIntegracionDialog baseUrl={apiBaseUrl} className={cn(ACCION_SECUNDARIA, "hidden md:inline-flex")} />
-            <NuevaApiKeyDialog className={cn(ACCION_PRINCIPAL, "transition-colors hover:bg-foreground/90")} />
+            <NuevaApiKeyDialog className={ACCION_PRINCIPAL} />
           </>
         ) : pathname.startsWith("/empresa") ? (
           <>
@@ -127,15 +124,15 @@ export function TopBar({
             <button
               disabled
               title="Prueba de conexión con SUNAT: próximamente"
-              className={cn(ACCION_SECUNDARIA, "hidden disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex")}
+              className={cn(ACCION_SECUNDARIA, "hidden md:inline-flex")}
             >
               <RefreshCwIcon className="size-4" />
               Probar conexión SUNAT
             </button>
-            <NuevaEmpresaDialog className={cn(ACCION_PRINCIPAL, "transition-colors hover:bg-foreground/90")} />
+            <NuevaEmpresaDialog className={ACCION_PRINCIPAL} />
           </>
         ) : (
-          <NuevoComprobanteDialog className={cn(ACCION_PRINCIPAL, "transition-colors hover:bg-foreground/90")} />
+          <NuevoComprobanteDialog className={ACCION_PRINCIPAL} />
         )}
       </div>
     </header>
