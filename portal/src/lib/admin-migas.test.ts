@@ -26,8 +26,8 @@ describe("migaAdmin", () => {
     expect(migaAdmin("/admin/empresas/6b1d")).toEqual({ seccion: "Clientes", pagina: "Empresas" });
   });
 
-  it("los planes cuelgan de «Comercial» y no ofrecen crear una cuenta", () => {
-    expect(migaAdmin("/admin/planes")).toEqual({ seccion: "Comercial", pagina: "Planes" });
+  it("los planes cuelgan de «Comercial» y su acción principal es crear un plan, como «Nueva cuenta» en Cuentas", () => {
+    expect(migaAdmin("/admin/planes")).toEqual({ seccion: "Comercial", pagina: "Planes", accion: "nuevoPlan" });
   });
 
   it("el consumo cuelga de «Comercial» y no ofrece crear una cuenta", () => {

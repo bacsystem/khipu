@@ -59,6 +59,20 @@ describe("AdminTopBar", () => {
     expect(screen.queryByRole("link", { name: "Nueva cuenta" })).toBeNull();
   });
 
+  it("en Planes ofrece «Nuevo plan» en la cabecera, que abre el formulario del plan", () => {
+    pintar("/admin/planes");
+
+    const boton = screen.getByTestId("plan-nuevo");
+    expect(boton.textContent).toContain("Nuevo plan");
+    expect(screen.queryByRole("link", { name: "Nueva cuenta" })).toBeNull();
+  });
+
+  it("fuera de Planes no ofrece «Nuevo plan»", () => {
+    pintar("/admin/cuentas");
+
+    expect(screen.queryByTestId("plan-nuevo")).toBeNull();
+  });
+
   it("en el inicio no hay acción de crear cuentas", () => {
     pintar("/admin");
 

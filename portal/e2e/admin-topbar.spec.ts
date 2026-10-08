@@ -24,6 +24,18 @@ test("en Cuentas la miga dice «Clientes / Cuentas» y «Nueva cuenta» lleva al
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
 });
 
+test("en Planes «Nuevo plan» está en la cabecera, como «Nueva cuenta» en Cuentas, y abre el formulario", async ({ page }) => {
+  await entrarComoAdmin(page);
+  await page.goto("/admin/planes");
+
+  const cabecera = page.getByRole("banner");
+  await expect(miga(page).locator("[aria-current=page]")).toHaveText("Planes");
+  await expect(cabecera.getByTestId("plan-nuevo")).toHaveText("Nuevo plan");
+  await expect(page.getByTestId("plan-nuevo")).toHaveCount(1);
+  await cabecera.getByTestId("plan-nuevo").click();
+  await expect(page.getByTestId("plan-formulario")).toBeVisible();
+});
+
 test.describe("en móvil", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

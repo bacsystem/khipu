@@ -7,6 +7,7 @@ import type { Administrador } from "@/lib/api/admin-auth";
 import { migaAdmin } from "@/lib/admin-migas";
 import { messages } from "@/lib/messages";
 import { AdminMobileNav } from "./admin-mobile-nav";
+import { FormularioDePlan } from "./formulario-de-plan";
 
 const ACCION_PRINCIPAL =
   "flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[12px] font-medium whitespace-nowrap text-background shadow-xs transition-opacity hover:opacity-90";
@@ -47,6 +48,8 @@ export function AdminTopBar({ administrador }: { administrador: Administrador })
             {t.nuevaCuenta}
           </Link>
         ) : null}
+        {/* Crear un plan es un modal, no una página: la cabecera ofrece el mismo formulario que antes vivía sobre la tabla. */}
+        {miga?.accion === "nuevoPlan" ? <FormularioDePlan claseDelBoton={ACCION_PRINCIPAL} /> : null}
       </div>
     </header>
   );

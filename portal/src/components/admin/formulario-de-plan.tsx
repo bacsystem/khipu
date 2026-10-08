@@ -21,8 +21,10 @@ type CampoDeNumero = "documentos" | "rucs" | "usuarios" | "apiKeys" | "retencion
  * Crear o editar un plan (#190), en un modal que dice el efecto antes de guardar. Lo que no se puede saber acá (que el nombre no esté repetido) lo contesta el
  * backend y se muestra bajo el campo. Editar cambia el nombre y el precio al instante, pero los límites entran al inicio del ciclo siguiente: el modal dice la
  * fecha, y si ya hay un cambio programado muestra esos límites y avisa que volver a poner los de hoy lo cancela.
+ *
+ * `claseDelBoton` reemplaza el estilo del botón que lo abre: el de «Nuevo plan» vive en la cabecera del backoffice y lleva el de su acción principal.
  */
-export function FormularioDePlan({ plan }: { plan?: PlanAdmin }) {
+export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; claseDelBoton?: string }) {
   const router = useRouter();
   const edicion = plan !== undefined;
   const inicial = plan ? valoresDePlan(plan) : VALORES_NUEVO_PLAN;
@@ -125,7 +127,7 @@ export function FormularioDePlan({ plan }: { plan?: PlanAdmin }) {
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
       <DialogTrigger
-        className={cn(edicion ? BOTON_SECUNDARIO : BOTON_PRIMARIO, edicion ? "h-7 px-2.5 text-[11px]" : "h-9 text-[13px]")}
+        className={claseDelBoton ?? cn(edicion ? BOTON_SECUNDARIO : BOTON_PRIMARIO, edicion ? "h-7 px-2.5 text-[11px]" : "h-9 text-[13px]")}
         data-testid={edicion ? `plan-editar-${id}` : "plan-nuevo"}
       >
         <Icono className={edicion ? "size-3.5" : "size-4"} />

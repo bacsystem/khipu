@@ -130,10 +130,11 @@ describe("PlanesTabla", () => {
     expect(within(fila("g")).queryByTestId("plan-borrar-g")).toBeNull();
   });
 
-  it("el botón para crear un plan está arriba de la tabla", () => {
+  /** Crear un plan es la acción principal de la página y va en la cabecera, como «Nueva cuenta» en Cuentas: la tabla no repite el botón. */
+  it("la tabla no trae su propio botón para crear un plan", () => {
     render(<PlanesTabla planes={[GRATIS]} />);
 
-    expect(screen.getByTestId("plan-nuevo")).toBeTruthy();
+    expect(screen.queryByTestId("plan-nuevo")).toBeNull();
   });
 
   it("sin planes dice que todavía no hay", () => {

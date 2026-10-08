@@ -1,7 +1,6 @@
 import { InboxIcon } from "lucide-react";
 import { AccionesDePlan } from "@/components/admin/acciones-de-plan";
 import { Etiqueta } from "@/components/admin/etiquetas";
-import { FormularioDePlan } from "@/components/admin/formulario-de-plan";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cambiosDeLimites, limiteEnPalabras, precioEnSoles, retencionEnPalabras, type PlanAdmin } from "@/lib/api/admin-planes";
 import { CABECERA_TABLA } from "@/lib/estilos";
@@ -29,15 +28,12 @@ function CambioProgramado({ plan }: { plan: PlanAdmin }) {
 
 /**
  * Listado de planes del backoffice (#190). Los límites que se ven son los que mandan en el ciclo en curso; un cambio ya decidido pero que todavía no entra se
- * muestra debajo del nombre, con qué cambia y desde cuándo. El backend entrega los planes ya ordenados del más barato al más caro.
+ * muestra debajo del nombre, con qué cambia y desde cuándo. El backend entrega los planes ya ordenados del más barato al más caro. «Nuevo plan» no está acá:
+ * es la acción principal de la página y va en la cabecera del backoffice, como «Nueva cuenta».
  */
 export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex justify-end">
-        <FormularioDePlan />
-      </div>
-
       <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs">
         <Table>
           <TableHeader>
