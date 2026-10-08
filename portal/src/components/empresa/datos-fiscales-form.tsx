@@ -166,7 +166,7 @@ export function DatosFiscalesForm({
       {ok ? <p className="text-sm text-success-foreground">Datos fiscales actualizados: el domicilio irá en el XML de las próximas facturas.</p> : null}
 
       <div className="flex justify-end border-t border-border/60 pt-4">
-        <button type="submit" disabled={enviando} className={cn(BOTON_PRIMARIO, "h-9 text-[12px]")}>
+        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
           <SaveIcon className="size-4" />
           {enviando ? "Guardando…" : "Guardar datos fiscales"}
         </button>

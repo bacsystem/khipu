@@ -32,6 +32,7 @@ import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "./estado-badge";
+import { CONTROL_FILTRO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 
 const ESTADOS: EstadoDocumento[] = [
   "RECIBIDO",
@@ -57,7 +58,6 @@ const ITEMS_ESTADO: Record<string, string> = {
 
 const TABS_DESHABILITADOS = ["Facturas", "Boletas", "Notas de crédito"];
 
-const CONTROL = "h-9 rounded-lg border border-border bg-card text-[12px] font-medium text-foreground shadow-2xs";
 const TODAS_LAS_SERIES = "todas";
 const ACCION = "flex h-6 items-center justify-center rounded border border-border font-mono text-[10px] font-semibold shadow-2xs transition-colors";
 
@@ -170,8 +170,8 @@ export function ComprobantesTable({
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-border/60 bg-secondary/80 p-1">
-          <span className="inline-flex h-7 items-center rounded-md bg-card px-3 text-[12px] font-medium text-foreground shadow-2xs">
+        <div className={cn(SEGMENTADO, "shrink-0")}>
+          <span data-active="" className={SEGMENTO}>
             Todos
           </span>
           {TABS_DESHABILITADOS.map((tab) => (
@@ -180,7 +180,7 @@ export function ComprobantesTable({
               type="button"
               disabled
               title="Filtro por tipo de comprobante: próximamente"
-              className="inline-flex h-7 items-center rounded-md px-3 text-[12px] font-medium text-muted-foreground disabled:cursor-not-allowed"
+              className={SEGMENTO}
             >
               {tab}
             </button>
@@ -189,7 +189,7 @@ export function ComprobantesTable({
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Select items={ITEMS_ESTADO} value={estado ?? TODOS_LOS_ESTADOS} onValueChange={cambiarEstado}>
-            <SelectTrigger className={cn(CONTROL, "w-auto min-w-44 pl-3")}>
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-44 pl-3")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -203,7 +203,7 @@ export function ComprobantesTable({
           </Select>
 
           <Select items={itemsSerie} value={serie ?? TODAS_LAS_SERIES} onValueChange={(v) => cambiarFiltro("serie", !v || v === TODAS_LAS_SERIES ? null : v)}>
-            <SelectTrigger className={cn(CONTROL, "w-auto min-w-36 pl-3")} aria-label="Serie">
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")} aria-label="Serie">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -216,7 +216,7 @@ export function ComprobantesTable({
             </SelectContent>
           </Select>
 
-          <div className={cn(CONTROL, "inline-flex items-center gap-1.5 px-3")} title="Fecha de emisión (inclusive)">
+          <div className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3")} title="Fecha de emisión (inclusive)">
             <CalendarIcon className="size-4 text-muted-foreground/70" />
             <label className="sr-only" htmlFor="filtro-desde">Desde</label>
             <input
@@ -243,7 +243,7 @@ export function ComprobantesTable({
             type="button"
             onClick={() => refetch()}
             title="Refrescar lista"
-            className={cn(CONTROL, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+            className={cn(CONTROL_FILTRO, "inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", isFetching && "animate-spin")} />
           </button>

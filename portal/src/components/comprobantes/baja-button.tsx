@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import { type Baja, PLAZO_BAJA_DIAS } from "@/lib/api/facturas";
-import { AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { diasEntre, hoyLima } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -78,7 +78,7 @@ export function BajaButton({ id, numero, fechaEmision, notasVigentes = 0 }: { id
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
-      <DialogTrigger className={cn(BOTON_SECUNDARIO, "h-8 text-xs text-destructive hover:text-destructive")} data-testid="dar-de-baja">
+      <DialogTrigger className={cn(ACCION_SECUNDARIA, "text-destructive hover:text-destructive")} data-testid="dar-de-baja">
         <BanIcon className="size-4" />
         Dar de baja
       </DialogTrigger>
@@ -117,7 +117,7 @@ export function BajaButton({ id, numero, fechaEmision, notasVigentes = 0 }: { id
               onChange={(e) => setMotivo(e.target.value)}
               maxLength={100}
               placeholder="Ej.: error en el RUC del cliente"
-              className={cn(CAMPO, "h-9")}
+              className={CAMPO}
               autoFocus
             />
             <span className={AYUDA_CAMPO}>3–100 caracteres, sin saltos de línea (SUNAT 2315). Va en el XML y lo ve SUNAT.{motivo.length >= 100 ? " Llegaste al máximo de 100." : ""}</span>
@@ -126,10 +126,10 @@ export function BajaButton({ id, numero, fechaEmision, notasVigentes = 0 }: { id
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
             Cancelar
           </button>
-          <button type="button" disabled={motivo.trim().length < 3 || enviando} onClick={confirmar} className={cn(BOTON_DESTRUCTIVO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={motivo.trim().length < 3 || enviando} onClick={confirmar} className={BOTON_DESTRUCTIVO_PIE}>
             <BanIcon className="size-4" />
             {enviando ? "Enviando a SUNAT…" : "Confirmar la baja"}
           </button>

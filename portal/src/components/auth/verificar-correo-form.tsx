@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { postJson } from "@/lib/api/browser";
-import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";
+import { cn } from "@/lib/utils";
 
 const t = messages.auth.verificar;
 
@@ -33,7 +33,8 @@ export function VerificarCorreoForm({ token }: { token: string }) {
     return (
       <div className="grid gap-4">
         <p role="status" className="text-sm">{t.exito}</p>
-        <Link href="/onboarding" className={BOTON_PRIMARIO}>
+        {/* La misma altura que el botón de verificar (los formularios de acceso son de h-8, con `ui/Button` e `Input`). */}
+        <Link href="/onboarding" className={cn(buttonVariants(), "w-full")}>
           {t.continuar}
         </Link>
       </div>

@@ -93,7 +93,7 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" disabled title="Validación de credenciales contra SUNAT: próximamente" className={cn(BOTON_SECUNDARIO, "h-9 text-[12px]")}>
+          <button type="button" disabled title="Validación de credenciales contra SUNAT: próximamente" className={BOTON_SECUNDARIO}>
             <BadgeCheckIcon className="size-4" />
             Verificar credenciales ante SUNAT
           </button>
@@ -101,7 +101,7 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
             Última validación: —
           </span>
         </div>
-        <button type="submit" disabled={enviando} className={cn(BOTON_PRIMARIO, "h-9 text-[12px]")}>
+        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
           <SaveIcon className="size-4" />
           {enviando ? "Guardando…" : configuradas ? "Reemplazar credenciales" : "Guardar credenciales"}
         </button>

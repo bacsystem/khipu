@@ -43,7 +43,7 @@ export function ReenviarButton({ id }: { id: string }) {
 
   return (
     <div className="flex flex-col items-end gap-1.5">
-      <Button size="sm" disabled={enviando} onClick={reenviar}>
+      <Button disabled={enviando} onClick={reenviar}>
         {enviando ? "Reenviando…" : "Reenviar"}
       </Button>
       {error ? (

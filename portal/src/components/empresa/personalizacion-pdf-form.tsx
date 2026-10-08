@@ -136,8 +136,8 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
           <div className="flex flex-col gap-1.5">
             <label htmlFor="pdf-color" className={ETIQUETA_CAMPO}>Color primario</label>
             <div className="flex items-center gap-2">
-              <input id="pdf-color" type="color" value={colorValido ? color : "#1E1E24"} onChange={(e) => setColor(e.target.value.toUpperCase())} className="h-9 w-12 cursor-pointer rounded-md border border-border bg-card p-1" disabled={plantilla === "gris"} />
-              <input aria-label="Color primario en hexadecimal" value={color} onChange={(e) => setColor(e.target.value.toUpperCase())} maxLength={7} className={cn(CAMPO, "h-9 font-mono")} disabled={plantilla === "gris"} />
+              <input id="pdf-color" type="color" value={colorValido ? color : "#1E1E24"} onChange={(e) => setColor(e.target.value.toUpperCase())} className="h-10 w-12 cursor-pointer rounded-lg border border-border bg-card p-1" disabled={plantilla === "gris"} />
+              <input aria-label="Color primario en hexadecimal" value={color} onChange={(e) => setColor(e.target.value.toUpperCase())} maxLength={7} className={cn(CAMPO, "font-mono")} disabled={plantilla === "gris"} />
             </div>
             <span className={AYUDA_CAMPO}>{plantilla === "gris" ? "La plantilla gris no usa color." : "Títulos, número y cabecera de tabla según la plantilla."}</span>
           </div>
@@ -146,17 +146,17 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
             <div className="flex items-center gap-2">
               {tieneLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/api/proxy/empresa/logo?v=${logoVersion}`} alt="Logo actual" className="h-9 max-w-24 rounded border border-border bg-card object-contain p-1" data-testid="logo-actual" />
+                <img src={`/api/proxy/empresa/logo?v=${logoVersion}`} alt="Logo actual" className="h-10 max-w-24 rounded-lg border border-border bg-card object-contain p-1" data-testid="logo-actual" />
               ) : (
-                <span className="flex size-9 items-center justify-center rounded border border-dashed border-border text-muted-foreground"><ImageIcon className="size-4" /></span>
+                <span className="flex size-10 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground"><ImageIcon className="size-4" /></span>
               )}
-              <label htmlFor={logoInputId} className={cn(BOTON_SECUNDARIO, "h-8 cursor-pointer text-xs")}>
+              <label htmlFor={logoInputId} className={cn(BOTON_SECUNDARIO, "cursor-pointer")}>
                 <UploadCloudIcon className="size-3.5" />
                 {subiendoLogo ? "Subiendo…" : tieneLogo ? "Cambiar" : "Subir"}
               </label>
               <input id={logoInputId} type="file" accept="image/png,image/jpeg" className="sr-only" onChange={(e) => subirLogo(e.target.files?.[0])} disabled={subiendoLogo} />
               {tieneLogo ? (
-                <button type="button" onClick={quitarLogo} className={cn(BOTON_SECUNDARIO, "h-8 text-xs text-destructive hover:text-destructive")} title="Quitar logo">
+                <button type="button" onClick={quitarLogo} className={cn(BOTON_SECUNDARIO, "text-destructive hover:text-destructive")} title="Quitar logo">
                   <Trash2Icon className="size-3.5" />
                 </button>
               ) : null}

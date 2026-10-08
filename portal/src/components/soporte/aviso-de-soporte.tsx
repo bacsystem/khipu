@@ -3,10 +3,9 @@
 import { EyeIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
-import { BOTON_SECUNDARIO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { messages } from "@/lib/messages";
-import { cn } from "@/lib/utils";
 
 const t = messages.soporte.aviso;
 
@@ -58,7 +57,7 @@ export function AvisoDeSoporte({
             {t.error}
           </span>
         ) : null}
-        <button type="button" onClick={salir} disabled={saliendo} data-testid="salir-de-soporte" className={cn(BOTON_SECUNDARIO, "h-8 bg-card text-xs")}>
+        <button type="button" onClick={salir} disabled={saliendo} data-testid="salir-de-soporte" className={ACCION_SECUNDARIA}>
           {saliendo ? t.saliendo : t.salir}
         </button>
       </div>
