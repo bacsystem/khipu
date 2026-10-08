@@ -47,4 +47,29 @@ class PrecioConIgvTest {
 
         assertThat(c.igv()).isEqualByComparingTo(c.valorVenta().multiply(new BigDecimal("0.18")).setScale(2, RoundingMode.HALF_UP));
     }
+
+    /*
+     * Regla 3291 (antes 4290): la suma del IGV de las líneas no puede alejarse más de 1.00 de la suma de bases × tasa. Cada línea a precio exacto se aleja
+     * milésimos, siempre hacia el mismo lado con el mismo precio: S/ 10.00 se aleja 0.0054 (1.53 contra 1.5246). Con muchas líneas eso se acumula, así que
+     * pasado 0.50 el comprobante entero vuelve a base × tasa.
+     */
+    static java.util.List<Item> lineasDeDiezSoles(int n) {
+        return java.util.Collections.nCopies(n, gravado("1", "10.00"));
+    }
+
+    @Test void conPocasLineasElComprobanteConservaElPrecioExacto() {
+        Totales t = Totales.calcular(lineasDeDiezSoles(90));   // se aleja 90 × 0.0054 = 0.486
+
+        assertThat(t.igv()).isEqualByComparingTo("137.70");
+        assertThat(t.total()).isEqualByComparingTo("900.00");
+    }
+
+    @Test void siLaSumaSeAlejaMasDeMedioSolVuelveABasePorTasa() {
+        Totales t = Totales.calcular(lineasDeDiezSoles(100));  // a precio exacto se alejaría 0.54
+
+        assertThat(t.items()).allSatisfy(i -> assertThat(i.igv()).isEqualByComparingTo("1.52"));
+        assertThat(t.igv()).isEqualByComparingTo("152.00");
+        assertThat(t.total()).isEqualByComparingTo("999.00");
+        assertThat(t.igv().subtract(t.gravado().multiply(new BigDecimal("0.18"))).abs()).isLessThanOrEqualTo(new BigDecimal("0.50"));
+    }
 }

@@ -31,7 +31,10 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
     public static ItemCalculado de(Item item, BigDecimal tasaIcbper) { return de(item, tasaIcbper, TasaIgv.GENERAL); }
 
     /** {@code tasaIgv} en porcentaje (18.00 o la reducida del padrón): decide el IGV de la línea y el cbc:Percent del XML. */
-    public static ItemCalculado de(Item item, BigDecimal tasaIcbper, BigDecimal tasaIgv) {
+    public static ItemCalculado de(Item item, BigDecimal tasaIcbper, BigDecimal tasaIgv) { return de(item, tasaIcbper, tasaIgv, true); }
+
+    /** {@code precioExacto} (H9): el IGV es lo que falta para llegar al precio con IGV; en falso, base × tasa (lo decide {@link Totales}, regla 3291). */
+    public static ItemCalculado de(Item item, BigDecimal tasaIcbper, BigDecimal tasaIgv, boolean precioExacto) {
         TipoAfectacionIgv af = item.afectacion();
         // Una línea IVAP (17) tributa el 4 % del IVAP en vez del IGV: misma mecánica de precio con impuesto incluido.
         BigDecimal tasaLinea = af.ivap() ? TasaIgv.IVAP : tasaIgv;
@@ -66,10 +69,11 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         BigDecimal iscPorcentaje = item.tieneIsc() && !af.gratuita() ? item.isc().porcentajeSobre(iscBase, isc) : BigDecimal.ZERO;
         BigDecimal igv = af.gravado() ? valorVenta.add(isc).multiply(factorIgv).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
         // H9: con el precio con IGV, el cliente paga exactamente precio × cantidad. Base × 18 % sobre la base ya redondeada perdía un céntimo (S/ 10.00 → 8.47 + 1.52 =
-        // 9.99): el IGV es lo que falta para llegar al precio (8.47 + 1.53). Difiere de base × tasa en unos milésimos, dentro de la tolerancia de ±1 de SUNAT (4290).
+        // 9.99): el IGV es lo que falta para llegar al precio (8.47 + 1.53). Difiere de base × tasa en unos milésimos, dentro de la tolerancia de ±1 de SUNAT
+        // (3103 por línea; 3291, antes 4290, en la suma: Totales vuelve a base × tasa si la suma de muchas líneas se aleja más de 0.50).
         // Con ISC, descuentos o cargos no hay un «precio con IGV» de la línea que reproducir: ahí sigue siendo base × tasa. Con importes de céntimos (un IVAP de 0.13)
         // lo que falta puede ser 0.00, que SUNAT rechaza (3111): ahí también se queda base × tasa.
-        if (onerosaGravada && !item.tieneIsc() && !item.tieneDescuento() && !item.tieneCargos()) {
+        if (precioExacto && onerosaGravada && !item.tieneIsc() && !item.tieneDescuento() && !item.tieneCargos()) {
             BigDecimal loQueFalta = precioSinIcbper.multiply(cantidad).setScale(2, RoundingMode.HALF_UP).subtract(valorVenta);
             if (loQueFalta.signum() > 0) igv = loQueFalta;
         }

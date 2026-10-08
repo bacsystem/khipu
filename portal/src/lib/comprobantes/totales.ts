@@ -9,7 +9,8 @@
  *    precio ya viene sin IGV y se usa tal cual.
  * 2. `baseBruta = valorReferencial × cantidad` a 2 decimales.
  * 3. En una gravada, `igv = precio × cantidad (a 2 decimales) − baseBruta` (H9): el cliente paga exactamente el precio con IGV que se escribió. Si eso diera
- *    0.00 o menos (importes de céntimos), `baseBruta × factorIgv` a 2 decimales, como siempre.
+ *    0.00 o menos (importes de céntimos), `baseBruta × factorIgv` a 2 decimales, como siempre. Si la suma de todas las líneas se aleja más de 0.50 de
+ *    bases × tasa (regla 3291, tolerancia ±1), el comprobante entero vuelve a `baseBruta × factorIgv`.
  *
  * **Todo se calcula con enteros (`bigint`), no con `number`.** El dominio usa `BigDecimal`, y en punto flotante la
  * división del paso 1 pierde el dígito que decide el redondeo: `1208.79 / 1.18` da `1024.39830508474576…`, y
@@ -130,9 +131,19 @@ export function esGratuita(tipoAfectacionIgv: string): boolean {
   return (n >= 11 && n <= 16) || n === 21 || (n >= 31 && n <= 37);
 }
 
-type Acumulado = { gravado: Decimal; exonerado: Decimal; inafecto: Decimal; gratuito: Decimal; igv: Decimal };
+/**
+ * `igv` es el de precio exacto (H9); `igvClasico`, el de base × tasa; `desvio`, cuánto se aleja el primero de base × tasa sin redondear. Si el desvío pasa
+ * de {@link DESVIO_MAXIMO}, el comprobante usa `igvClasico` (regla 3291: SUNAT tolera ±1 en la suma), como `Totales.calcularItems` en el dominio.
+ */
+type Acumulado = { gravado: Decimal; exonerado: Decimal; inafecto: Decimal; gratuito: Decimal; igv: Decimal; igvClasico: Decimal; desvio: Decimal };
 
-const VACIO: Acumulado = { gravado: CERO, exonerado: CERO, inafecto: CERO, gratuito: CERO, igv: CERO };
+const VACIO: Acumulado = { gravado: CERO, exonerado: CERO, inafecto: CERO, gratuito: CERO, igv: CERO, igvClasico: CERO, desvio: CERO };
+
+const DESVIO_MAXIMO: Decimal = { v: 50n, e: 2 };
+
+const negar = (d: Decimal): Decimal => ({ v: -d.v, e: d.e });
+const absoluto = (d: Decimal): Decimal => (d.v < 0n ? negar(d) : d);
+const mayorQue = (a: Decimal, b: Decimal): boolean => sumar(a, negar(b)).v > 0n;
 
 export function calcularTotales(items: ItemParaTotales[], tasaIgvPorcentaje: number): TotalesPrevisualizados {
   const factor = dividir(aDecimal(tasaIgvPorcentaje), { v: 100n, e: 0 }, 6);
@@ -150,22 +161,31 @@ export function calcularTotales(items: ItemParaTotales[], tasaIgvPorcentaje: num
     if (gratuita) return { ...acc, gratuito: sumar(acc.gratuito, base) };
     if (gravada) {
       const total = escalar(multiplicar(precio, aDecimal(item.cantidad)), 2);
-      const loQueFalta = sumar(total, { v: -base.v, e: base.e });
-      const igv = loQueFalta.v > 0n ? loQueFalta : escalar(multiplicar(base, factor), 2);
-      return { ...acc, gravado: sumar(acc.gravado, base), igv: sumar(acc.igv, igv) };
+      const loQueFalta = sumar(total, negar(base));
+      const exacto = multiplicar(base, factor);
+      const clasico = escalar(exacto, 2);
+      const igv = loQueFalta.v > 0n ? loQueFalta : clasico;
+      return {
+        ...acc,
+        gravado: sumar(acc.gravado, base),
+        igv: sumar(acc.igv, igv),
+        igvClasico: sumar(acc.igvClasico, clasico),
+        desvio: sumar(acc.desvio, sumar(igv, negar(exacto))),
+      };
     }
     if (item.tipoAfectacionIgv === "20") return { ...acc, exonerado: sumar(acc.exonerado, base) };
     if (item.tipoAfectacionIgv === "30") return { ...acc, inafecto: sumar(acc.inafecto, base) };
     return acc;
   }, VACIO);
 
-  const total = escalar(sumar(sumar(sumar(t.gravado, t.exonerado), t.inafecto), t.igv), 2);
+  const igv = mayorQue(absoluto(t.desvio), DESVIO_MAXIMO) ? t.igvClasico : t.igv;
+  const total = escalar(sumar(sumar(sumar(t.gravado, t.exonerado), t.inafecto), igv), 2);
   return {
     gravado: aNumero(escalar(t.gravado, 2)),
     exonerado: aNumero(escalar(t.exonerado, 2)),
     inafecto: aNumero(escalar(t.inafecto, 2)),
     gratuito: aNumero(escalar(t.gratuito, 2)),
-    igv: aNumero(escalar(t.igv, 2)),
+    igv: aNumero(escalar(igv, 2)),
     total: aNumero(total),
   };
 }

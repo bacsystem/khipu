@@ -22,6 +22,13 @@ describe("calcularTotales", () => {
     expect(calcularTotales([gravado(1, 10)], 18)).toMatchObject({ gravado: 8.47, igv: 1.53, total: 10 });
   });
 
+  /** Regla 3291: con muchas líneas el desvío de milésimos se acumula; pasado 0.50 el comprobante vuelve a base × tasa, como `Totales` en el dominio. */
+  it("si la suma del IGV se aleja más de 0.50 de base × tasa, vuelve a base × tasa", () => {
+    const lineas = (n: number) => Array.from({ length: n }, () => gravado(1, 10));
+    expect(calcularTotales(lineas(90), 18)).toMatchObject({ igv: 137.7, total: 900 });
+    expect(calcularTotales(lineas(100), 18)).toMatchObject({ igv: 152, total: 999 });
+  });
+
   it("suma varias líneas gravadas acumulando línea por línea", () => {
     expect(calcularTotales([gravado(2, 1000), gravado(1, 500)], 18)).toMatchObject({
       gravado: 2118.65,

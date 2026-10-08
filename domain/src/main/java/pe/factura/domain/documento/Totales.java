@@ -75,7 +75,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         if (redondeo != null && (redondeo.scale() > 2 || redondeo.abs().compareTo(BigDecimal.ONE) > 0))
             throw new DomainException("REDONDEO_INVALIDO", "3303 - El redondeo del importe total admite 2 decimales y no puede superar 1.00 en valor absoluto");
         BigDecimal ajuste = redondeo == null ? z() : redondeo.setScale(2, RoundingMode.HALF_UP);
-        List<ItemCalculado> calculados = items.stream().map(i -> ItemCalculado.de(i, tasaIcbper, tasaIgv)).toList();
+        List<ItemCalculado> calculados = calcularItems(items, tasaIcbper, tasaIgv);
         // IVAP (Ley 28211): el comprobante entero tributa IVAP; SUNAT calcula su total precio de venta sin IGV (campo 55, 3279 IVAP),
         // así que no se mezcla con líneas gravadas/exoneradas/inafectas ni gratuitas.
         boolean hayIvap = calculados.stream().anyMatch(i -> i.item().afectacion().ivap());
@@ -179,6 +179,22 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
             aplicados.add(new AnticipoCalculado(a, base(brutos, tr), tasaIgv));
         }
         return List.copyOf(aplicados);
+    }
+
+    /** Lo más que la suma del IGV a precio exacto puede alejarse de bases × tasa: la mitad de la tolerancia de SUNAT (±1, regla 3291). */
+    static final BigDecimal DESVIO_MAXIMO = new BigDecimal("0.50");
+
+    /**
+     * H9: cada línea a precio exacto se aleja de base × tasa unos milésimos, y con el mismo precio siempre hacia el mismo lado. En un comprobante de muchas líneas
+     * eso se acumula; si la suma pasa de {@link #DESVIO_MAXIMO}, el comprobante entero vuelve a base × tasa en vez de arriesgar el rechazo 3291.
+     */
+    private static List<ItemCalculado> calcularItems(List<Item> items, BigDecimal tasaIcbper, BigDecimal tasaIgv) {
+        List<ItemCalculado> exactos = items.stream().map(i -> ItemCalculado.de(i, tasaIcbper, tasaIgv, true)).toList();
+        BigDecimal desvio = exactos.stream().filter(i -> i.tributo() == Tributo.IGV || i.tributo() == Tributo.IVAP)
+                .map(i -> i.igv().subtract(i.baseIgv().multiply(i.porcentajeIgv()).movePointLeft(2)))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (desvio.abs().compareTo(DESVIO_MAXIMO) <= 0) return exactos;
+        return items.stream().map(i -> ItemCalculado.de(i, tasaIcbper, tasaIgv, false)).toList();
     }
 
     public boolean tieneAnticipos() { return !anticipos.isEmpty(); }
