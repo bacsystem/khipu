@@ -45,12 +45,22 @@ function etiquetaDeApertura(texto: string, inicio: number): string {
 /** Los controles de un archivo que declaran una altura distinta de h-9, con su línea. */
 export function controlesFueraDeEscala(texto: string): Array<{ linea: number; codigo: string }> {
   const hallazgos: Array<{ linea: number; codigo: string }> = [];
+  // Las clases que un archivo guarda en una constante (`const ACCION = "inline-flex h-7 …"`) y luego pasa a `className={ACCION}`.
+  const constantes = new Map([...texto.matchAll(/\bconst ([A-Z][A-Z0-9_]*)\s*=\s*\n?\s*"([^"]*)"/g)].map((c) => [c[1], c[2]]));
   for (const m of texto.matchAll(CONTROL)) {
     const etiqueta = etiquetaDeApertura(texto, m.index);
     // Un input oculto, casilla, radio o archivo no forma fila con los demás controles.
     if (/type="(?:hidden|checkbox|radio|file)"/.test(etiqueta)) continue;
-    if (!ALTURA_FUERA_DE_ESCALA.test(etiqueta)) continue;
+    const usadas = [...etiqueta.matchAll(/\b[A-Z][A-Z0-9_]*\b/g)].map((u) => constantes.get(u[0]) ?? "");
+    if (![etiqueta, ...usadas].some((clases) => ALTURA_FUERA_DE_ESCALA.test(clases))) continue;
     hallazgos.push({ linea: texto.slice(0, m.index).split("\n").length, codigo: etiqueta.replace(/\s+/g, " ").slice(0, 120) });
+  }
+  // Una constante de clases con estado interactivo (hover/disabled) es un control aunque llegue a su `<button>` por una prop
+  // (`<BotonPagina className={BOTON_PAGINA}>`), donde la etiqueta de arriba no la ve.
+  for (const c of texto.matchAll(/\bconst ([A-Z][A-Z0-9_]*)\s*=\s*\n?\s*"([^"]*)"/g)) {
+    if (/\b(?:hover|disabled):/.test(c[2]) && ALTURA_FUERA_DE_ESCALA.test(c[2])) {
+      hallazgos.push({ linea: texto.slice(0, c.index).split("\n").length, codigo: `${c[1]} = "${c[2].slice(0, 80)}"` });
+    }
   }
   return hallazgos;
 }
@@ -67,6 +77,7 @@ const EXCEPCIONES: Record<string, string> = {
   "components/formularios/entrada-monto.tsx": "el selector de moneda va dentro del input",
   "components/nav/theme-toggle.tsx": "segmentos de h-7 dentro de su caja de h-9",
   "components/ui/selector-por-pagina.tsx": "segmentos de h-7 dentro de su caja de h-9",
+  "lib/estilos.ts": "SEGMENTO (h-7) va dentro de SEGMENTADO (h-9); las recetas de control tienen su propio test",
 };
 
 function archivosTsx(dir: string): string[] {
@@ -105,6 +116,9 @@ describe("alturas de los controles", () => {
     expect(controlesFueraDeEscala(`<button type="button" className="inline-flex h-7 items-center">x</button>`)).toHaveLength(1);
     expect(controlesFueraDeEscala(`<button\n  onClick={() => setAbierto(true)}\n  className="flex size-8 items-center"\n>`)).toHaveLength(1);
     expect(controlesFueraDeEscala(`<Button className="h-10 px-4">Entrar</Button>`)).toHaveLength(1);
+    expect(controlesFueraDeEscala(`const BOTON =\n  "inline-flex h-7 items-center";\n<button type="button" className={BOTON}>Anterior</button>`)).toHaveLength(1);
+    expect(controlesFueraDeEscala(`const BOTON_PAGINA = "inline-flex h-7 hover:bg-muted";\n<Pagina className={BOTON_PAGINA} />`)).toHaveLength(1);
+    expect(controlesFueraDeEscala(`const INSIGNIA = "flex size-7 rounded bg-accent";`)).toEqual([]);
     expect(controlesFueraDeEscala(`<button type="button" className="inline-flex h-9 items-center"><XIcon className="size-4" /></button>`)).toEqual([]);
     expect(controlesFueraDeEscala(`<input type="checkbox" className="size-4" />`)).toEqual([]);
   });
