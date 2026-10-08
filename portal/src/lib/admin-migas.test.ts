@@ -14,10 +14,6 @@ describe("migaAdmin", () => {
     expect(migaAdmin("/admin/cuentas/6b1d")).toEqual({ seccion: "Clientes", pagina: "Cuentas" });
   });
 
-  it("el alta de una cuenta es «Clientes / Nueva cuenta» y no se ofrece a sí misma", () => {
-    expect(migaAdmin("/admin/cuentas/nueva")).toEqual({ seccion: "Clientes", pagina: "Nueva cuenta" });
-  });
-
   it("las empresas cuelgan de «Clientes» y no ofrecen crear una cuenta", () => {
     expect(migaAdmin("/admin/empresas")).toEqual({ seccion: "Clientes", pagina: "Empresas" });
   });

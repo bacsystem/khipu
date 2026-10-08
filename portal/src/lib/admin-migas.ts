@@ -15,8 +15,6 @@ const t = messages.admin;
  */
 const MIGAS: Array<{ ruta: string; exacta?: boolean } & MigaAdmin> = [
   { ruta: "/admin", exacta: true, seccion: t.topbar.backoffice, pagina: t.nav.inicio },
-  // Antes que «/admin/cuentas»: `find` toma la primera que casa, y esa también casaría por prefijo con esta ruta.
-  { ruta: "/admin/cuentas/nueva", seccion: t.topbar.clientes, pagina: t.topbar.nuevaCuenta },
   { ruta: "/admin/cuentas", seccion: t.topbar.clientes, pagina: t.nav.cuentas, accion: "nuevaCuenta" },
   { ruta: "/admin/empresas", seccion: t.topbar.clientes, pagina: t.nav.empresas },
   { ruta: "/admin/planes", seccion: t.topbar.comercial, pagina: t.nav.planes, accion: "nuevoPlan" },

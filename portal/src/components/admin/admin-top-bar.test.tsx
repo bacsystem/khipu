@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { Administrador } from "@/lib/api/admin-auth";
 import { AdminTopBar } from "./admin-top-bar";
 
@@ -43,27 +43,22 @@ describe("AdminTopBar", () => {
     expect(screen.queryByRole("navigation", { name: "Ubicación" })).toBeNull();
   });
 
-  it("en Cuentas ofrece «Nueva cuenta» como un enlace al alta asistida", () => {
+  it("en Cuentas ofrece «Nueva cuenta», que abre el alta asistida en un modal (como «Nuevo plan»), no una página", async () => {
     pintar("/admin/cuentas");
 
-    const enlace = screen.getByRole("link", { name: "Nueva cuenta" });
-    expect(enlace.getAttribute("href")).toBe("/admin/cuentas/nueva");
-    expect(screen.queryByRole("button", { name: "Nueva cuenta" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Nueva cuenta" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Nueva cuenta" }));
+
+    const dialogo = await screen.findByRole("dialog");
+    expect(within(dialogo).getByLabelText("Nombre de la cuenta")).toBeTruthy();
+    expect(dialogo.querySelector('[aria-current="step"]')?.textContent).toBe("1");
   });
 
   it("en el detalle de una cuenta conserva la miga pero no la acción de la lista", () => {
     pintar("/admin/cuentas/6b1d");
 
     expect(screen.getByRole("navigation", { name: "Ubicación" }).textContent).toContain("Clientes");
-    expect(screen.queryByRole("link", { name: "Nueva cuenta" })).toBeNull();
-  });
-
-  it("en la propia página de alta marca la miga y no se ofrece a sí misma", () => {
-    pintar("/admin/cuentas/nueva");
-
-    expect(screen.getByRole("navigation", { name: "Ubicación" }).textContent).toContain("Clientes");
-    expect(screen.getByText("Nueva cuenta").getAttribute("aria-current")).toBe("page");
-    expect(screen.queryByRole("link", { name: "Nueva cuenta" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Nueva cuenta" })).toBeNull();
   });
 
   it("en Planes ofrece «Nuevo plan» en la cabecera, que abre el formulario del plan", () => {
@@ -71,7 +66,7 @@ describe("AdminTopBar", () => {
 
     const boton = screen.getByTestId("plan-nuevo");
     expect(boton.textContent).toContain("Nuevo plan");
-    expect(screen.queryByRole("link", { name: "Nueva cuenta" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Nueva cuenta" })).toBeNull();
   });
 
   /** Lo que se baja es lo que se ve: el mes, el filtro y el orden de la URL, sin la página. */
@@ -106,7 +101,7 @@ describe("AdminTopBar", () => {
   it("en el inicio no hay acción de crear cuentas", () => {
     pintar("/admin");
 
-    expect(screen.queryByRole("link", { name: "Nueva cuenta" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Nueva cuenta" })).toBeNull();
   });
 
   it("trae el botón del menú, que es la única navegación del backoffice en móvil", () => {

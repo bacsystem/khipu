@@ -1,7 +1,6 @@
 "use client";
 
-import { DownloadIcon, PlusIcon } from "lucide-react";
-import Link from "next/link";
+import { DownloadIcon } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Administrador } from "@/lib/api/admin-auth";
 import { hrefExportacionConsumo, paramsConsumoDesdeUrl } from "@/lib/api/admin-consumo";
@@ -10,6 +9,7 @@ import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { hoyLima } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 import { AdminMobileNav } from "./admin-mobile-nav";
+import { AltaAsistidaDialog } from "./alta-asistida-form";
 import { FormularioDePlan } from "./formulario-de-plan";
 
 /**
@@ -52,12 +52,8 @@ export function AdminTopBar({ administrador }: { administrador: Administrador })
       </div>
 
       <div className="flex shrink-0 items-center gap-2.5">
-        {miga?.accion === "nuevaCuenta" ? (
-          <Link href="/admin/cuentas/nueva" className={ACCION_PRINCIPAL}>
-            <PlusIcon className="size-4" />
-            {t.nuevaCuenta}
-          </Link>
-        ) : null}
+        {/* Las altas son modales, no páginas: la de una cuenta va en tres pasos (cuenta, empresa, serie). */}
+        {miga?.accion === "nuevaCuenta" ? <AltaAsistidaDialog claseDelBoton={ACCION_PRINCIPAL} /> : null}
         {/* Crear un plan es un modal, no una página: la cabecera ofrece el mismo formulario que antes vivía sobre la tabla. */}
         {miga?.accion === "nuevoPlan" ? <FormularioDePlan claseDelBoton={ACCION_PRINCIPAL} /> : null}
         {miga?.accion === "exportarConsumo" ? (

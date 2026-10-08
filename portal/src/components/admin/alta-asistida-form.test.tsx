@@ -30,6 +30,7 @@ function llenar(etiqueta: RegExp | string, valor: string) {
   fireEvent.change(screen.getByLabelText(etiqueta), { target: { value: valor } });
 }
 
+/** Llena los tres pasos con datos válidos. Los pasos están montados todos (solo se ocultan), así que se llenan sin navegar. */
 function llenarValido(extra: { telefono?: string; razon?: string } = {}) {
   llenar("Nombre de la cuenta", "Comercial Andina");
   llenar("Correo del cliente", "ana@andina.pe");
@@ -38,47 +39,106 @@ function llenarValido(extra: { telefono?: string; razon?: string } = {}) {
   llenar("Razón social", extra.razon ?? "COMERCIAL ANDINA SAC");
 }
 
-const enviar = () => fireEvent.click(screen.getByRole("button", { name: "Dar de alta" }));
+/** El número del paso en curso, según el indicador (`aria-current="step"`). */
+const pasoActual = () => document.querySelector('[aria-current="step"]')?.textContent;
+
+const siguiente = () => fireEvent.click(screen.getByRole("button", { name: /Siguiente/ }));
+
+/** Avanza un paso y espera a que el indicador cambie (la validación del paso es asíncrona). */
+async function avanzar() {
+  const antes = pasoActual();
+  siguiente();
+  await waitFor(() => expect(pasoActual()).not.toBe(antes));
+}
+
+/** Desde el paso 1, pasa los dos primeros y aprieta «Dar de alta» en el tercero. */
+async function enviar() {
+  await avanzar();
+  await avanzar();
+  fireEvent.click(screen.getByRole("button", { name: "Dar de alta" }));
+}
+
+/** Reenvío desde el último paso (tras un error del servidor el asistente se queda ahí). */
+const reenviar = () => fireEvent.click(screen.getByRole("button", { name: "Dar de alta" }));
 
 /**
- * Alta asistida (#188). Lo que importa: el administrador nunca define una contraseña, no se manda nada inválido al servidor, y la API key
- * inicial —que se ve una sola vez— queda a la vista con su aviso.
+ * Alta asistida (#188), en tres pasos dentro de un modal. Lo que importa: el administrador nunca define una contraseña, no se manda nada
+ * inválido al servidor (cada paso valida sus campos antes de dejar seguir), y la API key inicial —que se ve una sola vez— queda a la vista
+ * con su aviso.
  */
 describe("AltaAsistidaForm", () => {
   it("no pide ninguna contraseña: la elige el cliente con la invitación", () => {
     render(<AltaAsistidaForm />);
 
     expect(screen.queryByLabelText(/contraseña/i)).toBeNull();
-    expect(screen.getByText(/elige su propia contraseña/)).toBeTruthy();
+    expect(screen.getByText(/llega la invitación para crear su contraseña/)).toBeTruthy();
   });
 
-  it("parte en Beta, con una factura F001", () => {
+  it("parte en el paso 1, en Beta, con una factura F001", () => {
     render(<AltaAsistidaForm />);
 
+    expect(pasoActual()).toBe("1");
     expect((screen.getByLabelText("Entorno") as HTMLSelectElement).value).toBe("BETA");
     expect((screen.getByLabelText("Tipo de comprobante") as HTMLSelectElement).value).toBe("01");
     expect((screen.getByLabelText("Serie") as HTMLInputElement).value).toBe("F001");
   });
 
-  it("con el formulario vacío marca los obligatorios y no llama al servidor", async () => {
+  it("un paso con los obligatorios vacíos no deja seguir, los marca y no llama al servidor", async () => {
     const fetch = stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
     render(<AltaAsistidaForm />);
 
-    enviar();
+    siguiente();
 
-    await waitFor(() => expect(screen.getAllByRole("alert").length).toBeGreaterThanOrEqual(4));
+    await waitFor(() => expect(screen.getByText("Ingresa el nombre de la cuenta")).toBeTruthy());
+    expect(screen.getByText("Ingresa el correo del cliente")).toBeTruthy();
+    expect(pasoActual()).toBe("1");
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("rechaza un RUC con el dígito verificador mal, sin viajar al servidor", async () => {
+  it("el paso 1 solo valida sus campos: no marca la empresa antes de llegar a ella", async () => {
+    render(<AltaAsistidaForm />);
+    llenar("Nombre de la cuenta", "Comercial Andina");
+    llenar("Correo del cliente", "ana@andina.pe");
+
+    await avanzar();
+
+    expect(pasoActual()).toBe("2");
+    expect(screen.queryByText(/El RUC/)).toBeNull();
+  });
+
+  it("«Atrás» vuelve al paso anterior sin perder lo escrito", async () => {
+    render(<AltaAsistidaForm />);
+    llenarValido();
+    await avanzar();
+
+    fireEvent.click(screen.getByRole("button", { name: /Atrás/ }));
+
+    expect(pasoActual()).toBe("1");
+    expect((screen.getByLabelText("Correo del cliente") as HTMLInputElement).value).toBe("ana@andina.pe");
+  });
+
+  it("«Cancelar» en el primer paso cierra sin enviar", () => {
+    const fetch = stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
+    const alCancelar = vi.fn();
+    render(<AltaAsistidaForm alCancelar={alCancelar} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(alCancelar).toHaveBeenCalledTimes(1);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("rechaza un RUC con el dígito verificador mal en el paso 2, sin viajar al servidor", async () => {
     const fetch = stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
     render(<AltaAsistidaForm />);
     llenarValido();
     llenar("RUC", "20100066604");
+    await avanzar();
 
-    enviar();
+    siguiente();
 
     await waitFor(() => expect(screen.getByText(/El RUC no es válido/)).toBeTruthy());
+    expect(pasoActual()).toBe("2");
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -88,20 +148,32 @@ describe("AltaAsistidaForm", () => {
     llenarValido();
     llenar("Serie", "B001");
 
-    enviar();
+    await enviar();
 
     await waitFor(() => expect(screen.getByText(/empieza con F y la de una boleta con B/)).toBeTruthy());
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("rechaza un celular que no es peruano, pero no lo exige", async () => {
+  it("rechaza un celular que no es peruano en el paso 1, pero no lo exige", async () => {
     const fetch = stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
     render(<AltaAsistidaForm />);
     llenarValido({ telefono: "12345" });
 
-    enviar();
+    siguiente();
 
     await waitFor(() => expect(screen.getByText(/Celular inválido/)).toBeTruthy());
+    expect(pasoActual()).toBe("1");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("Enter en un paso intermedio avanza, no envía", async () => {
+    const fetch = stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
+    render(<AltaAsistidaForm />);
+    llenarValido();
+
+    fireEvent.submit(screen.getByLabelText("Nombre de la cuenta").closest("form")!);
+
+    await waitFor(() => expect(pasoActual()).toBe("2"));
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -110,7 +182,7 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenarValido();
 
-    enviar();
+    await enviar();
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
@@ -132,7 +204,7 @@ describe("AltaAsistidaForm", () => {
     fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "03" } });
     llenar("Serie", "b002");
 
-    enviar();
+    await enviar();
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     const cuerpo = JSON.parse((fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
@@ -146,7 +218,7 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenarValido();
 
-    enviar();
+    await enviar();
 
     await waitFor(() => expect(screen.getByTestId("api-key-nueva").textContent).toBe("fk_secreta123"));
     expect(screen.getByRole("heading", { name: "Cliente dado de alta" })).toBeTruthy();
@@ -161,7 +233,7 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenarValido();
 
-    enviar();
+    await enviar();
 
     await waitFor(() => expect(screen.getByText(/No pudimos enviar la invitación a ana@andina.pe/)).toBeTruthy());
     expect(screen.getByText(/¿Olvidaste tu contraseña\?/)).toBeTruthy();
@@ -174,7 +246,7 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenarValido();
 
-    enviar();
+    await enviar();
 
     await waitFor(() => expect(screen.getByText("Ya existe una cuenta con ese correo")).toBeTruthy());
     expect((screen.getByLabelText("Correo del cliente") as HTMLInputElement).value).toBe("ana@andina.pe");
@@ -186,7 +258,7 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenarValido();
 
-    enviar();
+    await enviar();
 
     await waitFor(() => expect(screen.getByText("Ya existe una empresa con RUC 20100066603")).toBeTruthy());
     expect(screen.queryByText("Ya existe una cuenta con ese correo.")).toBeNull();
@@ -197,7 +269,7 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenarValido();
 
-    enviar();
+    await enviar();
 
     await waitFor(() => expect(screen.getByText(/Tu sesión de administrador expiró/)).toBeTruthy());
   });
@@ -210,7 +282,7 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenarValido();
 
-    enviar();
+    await enviar();
 
     await waitFor(() => expect(screen.getByText(/Vuelve a enviar sin cambiar nada/)).toBeTruthy());
   });
@@ -225,14 +297,14 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenarValido();
 
-    enviar();
+    await enviar();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByRole("button", { name: "Dar de alta" })).toBeTruthy());
-    enviar();
+    reenviar();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByRole("button", { name: "Dar de alta" })).toBeTruthy());
     llenar("Razón social", "OTRA RAZON SOCIAL SAC");
-    enviar();
+    reenviar();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
 
     expect(claveDe(fetch, 0)).toMatch(/^[0-9a-f-]{36}$/);
@@ -244,52 +316,59 @@ describe("AltaAsistidaForm", () => {
     const fetch = stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
     render(<AltaAsistidaForm />);
     llenarValido();
-    enviar();
+    await enviar();
     await waitFor(() => expect(screen.getByTestId("api-key-nueva")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Dar de alta a otro cliente" }));
     llenarValido();
-    enviar();
+    await enviar();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
 
     expect(claveDe(fetch, 1)).not.toBe(claveDe(fetch, 0));
   });
 
-  it("mientras envía bloquea el botón: un doble clic no crea dos altas", async () => {
+  it("mientras envía bloquea el botón y avisa al modal: un doble clic no crea dos altas", async () => {
     let resolver: (r: Response) => void = () => {};
     const fetch = stubFetch(() => new Promise<Response>((r) => (resolver = r)));
-    render(<AltaAsistidaForm />);
+    const alCambiarEnvio = vi.fn();
+    render(<AltaAsistidaForm alCambiarEnvio={alCambiarEnvio} />);
     llenarValido();
 
-    enviar();
+    await enviar();
     await waitFor(() => expect((screen.getByRole("button", { name: "Dando de alta…" }) as HTMLButtonElement).disabled).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: "Dando de alta…" }));
 
     expect(fetch).toHaveBeenCalledTimes(1);
+    expect(alCambiarEnvio).toHaveBeenLastCalledWith(true);
     resolver(sobre(201, { estado: "exito", datos: CREADA }));
     await waitFor(() => expect(screen.getByTestId("api-key-nueva")).toBeTruthy());
+    expect(alCambiarEnvio).toHaveBeenLastCalledWith(false);
   });
 
-  it("«Dar de alta a otro cliente» vuelve a un formulario limpio y la API key anterior desaparece", async () => {
+  it("«Dar de alta a otro cliente» vuelve al paso 1 con un formulario limpio y la API key anterior desaparece", async () => {
     stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
     render(<AltaAsistidaForm />);
     llenarValido();
-    enviar();
+    await enviar();
     await waitFor(() => expect(screen.getByTestId("api-key-nueva")).toBeTruthy());
 
     fireEvent.click(screen.getByRole("button", { name: "Dar de alta a otro cliente" }));
 
     expect(screen.queryByTestId("api-key-nueva")).toBeNull();
+    expect(pasoActual()).toBe("1");
     expect((screen.getByLabelText("Correo del cliente") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("RUC") as HTMLInputElement).value).toBe("");
   });
 
-  it("desde el resultado se puede volver a la lista de cuentas", async () => {
+  it("desde el resultado, «Listo» cierra el modal", async () => {
     stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
-    render(<AltaAsistidaForm />);
+    const alTerminar = vi.fn();
+    render(<AltaAsistidaForm alTerminar={alTerminar} />);
     llenarValido();
-    enviar();
+    await enviar();
     await waitFor(() => expect(screen.getByTestId("api-key-nueva")).toBeTruthy());
 
-    expect(screen.getByRole("link", { name: "Ver cuentas" }).getAttribute("href")).toBe("/admin/cuentas");
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+
+    expect(alTerminar).toHaveBeenCalledTimes(1);
   });
 });

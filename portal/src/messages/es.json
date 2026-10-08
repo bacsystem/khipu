@@ -1202,6 +1202,13 @@
       "seccionCuenta": "Cuenta",
       "seccionEmpresa": "Primera empresa",
       "seccionSerie": "Primera serie",
+      "subtituloCuenta": "Quién usa el portal y adónde le llega la invitación",
+      "subtituloEmpresa": "La que emitirá los comprobantes",
+      "subtituloSerie": "Con la que emitirá su primer comprobante",
+      "cancelar": "Cancelar",
+      "atras": "Atrás",
+      "siguiente": "Siguiente",
+      "pasoDe": "Paso {n} de {total}",
       "nombre": "Nombre de la cuenta",
       "email": "Correo del cliente",
       "emailAyuda": "A este correo llega la invitación para crear su contraseña.",
@@ -1227,7 +1234,7 @@
         "avisoApiKey": "Entrégasela al cliente ahora: no volverá a mostrarse. Solo se conserva un hash, así que si se pierde tendrá que revocarla y crear otra desde su portal.",
         "invitacionEnviada": "Enviamos la invitación a {email}. Con ese enlace el cliente crea su contraseña y entra.",
         "invitacionNoEnviada": "No pudimos enviar la invitación a {email}. El alta quedó hecha: el cliente puede pedir un enlace desde «¿Olvidaste tu contraseña?» en el inicio de sesión.",
-        "verCuentas": "Ver cuentas",
+        "listo": "Listo",
         "otra": "Dar de alta a otro cliente"
       }
     }
