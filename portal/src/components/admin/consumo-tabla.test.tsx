@@ -195,13 +195,11 @@ describe("ConsumoTabla (#193)", () => {
 
   // --- la exportación ---------------------------------------------------------------------------------------------------------------------
 
-  /** Lo que se baja es lo que se ve: el mes que se midió (aunque sea el en curso), el filtro y el orden, sin página. */
-  it("exportar apunta al BFF con el mes que se midió, el filtro y el orden, sin página", () => {
+  /** Exportar es la acción principal de la página y va en la cabecera del backoffice (como «Nueva cuenta» y «Nuevo plan»): la tabla no la repite. */
+  it("la tabla no trae su propio enlace para exportar", () => {
     render(<ConsumoTabla datos={datos([ANA], "2026-10")} total={90} params={{ filtro: "PLAN_VENCIDO", orden: "DOCUMENTOS", pagina: 3, porPagina: 20 }} />);
 
-    const enlace = screen.getByRole("link", { name: "Exportar CSV" });
-    expect(enlace.getAttribute("href")).toBe("/api/admin/consumo/exportacion?mes=2026-10&filtro=PLAN_VENCIDO&orden=DOCUMENTOS");
-    expect(enlace.hasAttribute("download")).toBe(true);
+    expect(screen.queryByRole("link", { name: "Exportar CSV" })).toBeNull();
   });
 
   // --- vacío y paginación -----------------------------------------------------------------------------------------------------------------

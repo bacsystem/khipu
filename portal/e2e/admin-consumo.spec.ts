@@ -187,7 +187,9 @@ test("una página pasada de la última vuelve a la última, sin una tabla vacía
 
 async function descargar(page: Page): Promise<{ nombre: string; bytes: Buffer }> {
   const descarga = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Exportar CSV" }).click();
+  // En la cabecera del backoffice, como las demás acciones principales; y una sola vez en la página.
+  await expect(page.getByRole("link", { name: "Exportar CSV" })).toHaveCount(1);
+  await page.getByRole("banner").getByRole("link", { name: "Exportar CSV" }).click();
   const d = await descarga;
   const flujo = await d.createReadStream();
   const partes: Buffer[] = [];

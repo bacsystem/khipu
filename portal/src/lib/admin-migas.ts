@@ -1,7 +1,7 @@
 import { messages } from "@/lib/messages";
 
-/** Acción principal que la cabecera ofrece en una página: el alta asistida de una cuenta (#188) y el alta de un plan (#190). */
-export type AccionAdmin = "nuevaCuenta" | "nuevoPlan";
+/** Acción principal que la cabecera ofrece en una página: el alta asistida de una cuenta (#188), el alta de un plan (#190) y exportar el consumo (#193). */
+export type AccionAdmin = "nuevaCuenta" | "nuevoPlan" | "exportarConsumo";
 
 export type MigaAdmin = { seccion: string; pagina: string; accion?: AccionAdmin };
 
@@ -20,7 +20,7 @@ const MIGAS: Array<{ ruta: string; exacta?: boolean } & MigaAdmin> = [
   { ruta: "/admin/cuentas", seccion: t.topbar.clientes, pagina: t.nav.cuentas, accion: "nuevaCuenta" },
   { ruta: "/admin/empresas", seccion: t.topbar.clientes, pagina: t.nav.empresas },
   { ruta: "/admin/planes", seccion: t.topbar.comercial, pagina: t.nav.planes, accion: "nuevoPlan" },
-  { ruta: "/admin/consumo", seccion: t.topbar.comercial, pagina: t.nav.consumo },
+  { ruta: "/admin/consumo", seccion: t.topbar.comercial, pagina: t.nav.consumo, accion: "exportarConsumo" },
   { ruta: "/admin/monitor", seccion: t.topbar.operacion, pagina: t.nav.monitor },
   { ruta: "/admin/errores", seccion: t.topbar.operacion, pagina: t.nav.errores },
   { ruta: "/admin/avisos", seccion: t.topbar.operacion, pagina: t.nav.avisos },

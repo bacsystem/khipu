@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadIcon, InboxIcon } from "lucide-react";
+import { InboxIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
@@ -10,7 +10,6 @@ import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import {
   FILTROS_DE_CONSUMO,
   hrefConsumo,
-  hrefExportacionConsumo,
   mesValido,
   ORDENES_DE_CONSUMO,
   type ConsumoDeCuentas,
@@ -19,7 +18,7 @@ import {
   type OrdenDeConsumo,
   type ParamsConsumo,
 } from "@/lib/api/admin-consumo";
-import { BOTON_SECUNDARIO, CABECERA_TABLA, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { CABECERA_TABLA, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { formatearFecha, ultimoDiaCubierto } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -48,7 +47,7 @@ function BarraDeUso({ cuenta }: { cuenta: CuentaConsumo }) {
 /**
  * Consumo de todas las cuentas contra el tope de su plan de hoy (#193), paginado y filtrado en el servidor: cambiar de vista, de mes, de orden o de página solo
  * cambia la URL y el Server Component de la página vuelve a renderizar. La alerta la decide el backend (`en_alerta`); aquí no se vuelve a calcular con otro umbral.
- * «Exportar» baja lo que se ve, completo: el mes que se midió, el filtro y el orden, sin página.
+ * «Exportar CSV» no está acá: es la acción principal de la página y va en la cabecera del backoffice, que lo arma con el mismo mes, filtro y orden de la URL.
  */
 export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas; total: number; params: ParamsConsumo }) {
   const router = useRouter();
@@ -103,11 +102,6 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
             ))}
           </select>
         </div>
-
-        <a href={hrefExportacionConsumo({ ...params, mes: params.mes ?? datos.mes })} download className={`${BOTON_SECUNDARIO} ml-auto inline-flex items-center gap-1.5`}>
-          <DownloadIcon className="size-4" />
-          {t.exportar}
-        </a>
       </div>
 
       <ul className="grid gap-0.5 text-[12px] text-muted-foreground">

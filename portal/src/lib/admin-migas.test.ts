@@ -30,8 +30,8 @@ describe("migaAdmin", () => {
     expect(migaAdmin("/admin/planes")).toEqual({ seccion: "Comercial", pagina: "Planes", accion: "nuevoPlan" });
   });
 
-  it("el consumo cuelga de «Comercial» y no ofrece crear una cuenta", () => {
-    expect(migaAdmin("/admin/consumo")).toEqual({ seccion: "Comercial", pagina: "Consumo" });
+  it("el consumo cuelga de «Comercial» y su acción principal es exportarlo", () => {
+    expect(migaAdmin("/admin/consumo")).toEqual({ seccion: "Comercial", pagina: "Consumo", accion: "exportarConsumo" });
   });
 
   it("la integridad cuelga de «Operación» y no ofrece crear una cuenta", () => {

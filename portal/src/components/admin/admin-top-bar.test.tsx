@@ -3,13 +3,20 @@ import { cleanup, render, screen } from "@testing-library/react";
 import type { Administrador } from "@/lib/api/admin-auth";
 import { AdminTopBar } from "./admin-top-bar";
 
-const pathname = vi.hoisted(() => ({ actual: "/admin" }));
-vi.mock("next/navigation", () => ({ usePathname: () => pathname.actual, useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+const pathname = vi.hoisted(() => ({ actual: "/admin", query: "" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => pathname.actual,
+  useSearchParams: () => new URLSearchParams(pathname.query),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
 
 const ADMINISTRADOR: Administrador = { id: "a1", email: "root@khipu.pe" };
 
+/** `ruta` puede traer su query string, como la URL del navegador. */
 function pintar(ruta: string) {
-  pathname.actual = ruta;
+  const [camino, query = ""] = ruta.split("?");
+  pathname.actual = camino;
+  pathname.query = query;
   render(<AdminTopBar administrador={ADMINISTRADOR} />);
 }
 
@@ -65,6 +72,29 @@ describe("AdminTopBar", () => {
     const boton = screen.getByTestId("plan-nuevo");
     expect(boton.textContent).toContain("Nuevo plan");
     expect(screen.queryByRole("link", { name: "Nueva cuenta" })).toBeNull();
+  });
+
+  /** Lo que se baja es lo que se ve: el mes, el filtro y el orden de la URL, sin la página. */
+  it("en Consumo ofrece «Exportar CSV» en la cabecera, con el mes, el filtro y el orden de la página", () => {
+    pintar("/admin/consumo?mes=2026-10&filtro=PLAN_VENCIDO&orden=DOCUMENTOS&pagina=3");
+
+    const enlace = screen.getByRole("link", { name: "Exportar CSV" });
+    expect(enlace.getAttribute("href")).toBe("/api/admin/consumo/exportacion?mes=2026-10&filtro=PLAN_VENCIDO&orden=DOCUMENTOS");
+    expect(enlace.hasAttribute("download")).toBe(true);
+  });
+
+  /** Sin mes en la URL la página mide el mes en curso de Lima: se exporta ese, no otro. */
+  it("sin mes en la URL exporta el mes en curso de Lima, con la vista por defecto", () => {
+    pintar("/admin/consumo");
+
+    const mes = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7);
+    expect(screen.getByRole("link", { name: "Exportar CSV" }).getAttribute("href")).toBe(`/api/admin/consumo/exportacion?mes=${mes}&filtro=TODAS&orden=PORCENTAJE`);
+  });
+
+  it("fuera de Consumo no ofrece exportar", () => {
+    pintar("/admin/planes");
+
+    expect(screen.queryByRole("link", { name: "Exportar CSV" })).toBeNull();
   });
 
   it("fuera de Planes no ofrece «Nuevo plan»", () => {
