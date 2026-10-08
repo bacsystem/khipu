@@ -4,6 +4,8 @@ import { PlusCircleIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { NuevaSerieForm } from "@/components/series/nueva-serie-form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ACCION_PRINCIPAL } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
 
 export function NuevaSerieDialog({ className }: { className?: string }) {
   const [abierto, setAbierto] = useState(false);
@@ -13,7 +15,7 @@ export function NuevaSerieDialog({ className }: { className?: string }) {
       <DialogTrigger
         className={
           className ??
-          "inline-flex items-center gap-1 self-start rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-xs transition-all hover:opacity-95 active:scale-[0.99] md:self-auto"
+          cn(ACCION_PRINCIPAL, "self-start md:self-auto")
         }
       >
         <PlusIcon className="size-4" />

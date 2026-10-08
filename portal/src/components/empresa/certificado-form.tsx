@@ -4,7 +4,7 @@ import { EyeIcon, EyeOffIcon, FileKey2Icon, KeyRoundIcon, LockIcon, RefreshCcwIc
 import { useRouter } from "next/navigation";
 import { type DragEvent, type FormEvent, useId, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
-import { AYUDA_CAMPO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -160,7 +160,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
       <button
         type="submit"
         disabled={enviando || !archivo}
-        className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-foreground text-[12px] font-medium text-background shadow-2xs transition-all hover:bg-foreground/90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+        className={cn(BOTON_PRIMARIO, "w-full")}
       >
         <RefreshCcwIcon className="size-4" />
         {enviando ? "Subiendo…" : tieneCertificado ? "Actualizar certificado digital" : "Cargar certificado digital"}

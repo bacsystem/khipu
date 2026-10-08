@@ -13,6 +13,7 @@ import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, ETIQUETA_DATO, TITULO_SECCION } from "@/lib/estilos";
 
 const TIPOS_OPERACION: Record<string, string> = {
   "0101": "Venta interna",
@@ -47,10 +48,6 @@ const ESTADOS_CON_RESPUESTA: Record<string, "exito" | "error" | "aviso"> = {
   ERROR_ENVIO: "error",
 };
 
-const BOTON =
-  "inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground";
-const ETIQUETA = "block text-[11px] font-medium tracking-wider text-muted-foreground/80 uppercase";
-const TITULO_SECCION = "flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase";
 
 /** Forma de pago (RS 193-2020): contado, o crédito con el neto pendiente y el calendario de cuotas. */
 function FormaPagoDetalle({ formaPago, moneda }: { formaPago: FormaPago; moneda: string }) {
@@ -58,7 +55,7 @@ function FormaPagoDetalle({ formaPago, moneda }: { formaPago: FormaPago; moneda:
   return (
     <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="forma-pago">
       <div className="flex items-center justify-between">
-        <span className={ETIQUETA}>Forma de pago</span>
+        <span className={ETIQUETA_DATO}>Forma de pago</span>
         <span className={cn("rounded border px-2 py-0.5 text-[11px] font-medium", credito ? "border-warning-border bg-warning text-warning-foreground" : "border-border bg-secondary text-secondary-foreground")}>
           {credito ? "Crédito" : "Contado"}
         </span>
@@ -87,7 +84,7 @@ function FormaPagoDetalle({ formaPago, moneda }: { formaPago: FormaPago; moneda:
 function ExportacionDetalle({ exportacion }: { exportacion: Exportacion }) {
   return (
     <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="exportacion">
-      <span className={ETIQUETA}>Exportación</span>
+      <span className={ETIQUETA_DATO}>Exportación</span>
       <div className="mt-2 space-y-1.5 text-muted-foreground">
         <div className="flex items-baseline justify-between gap-3">
           <span>Incoterm</span>
@@ -110,7 +107,7 @@ function DetraccionDetalle({ detraccion }: { detraccion: Detraccion }) {
   return (
     <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="detraccion">
       <div className="flex items-center justify-between">
-        <span className={ETIQUETA}>Detracción (SPOT)</span>
+        <span className={ETIQUETA_DATO}>Detracción (SPOT)</span>
         <span className="rounded border border-warning-border bg-warning px-2 py-0.5 text-[11px] font-medium text-warning-foreground">{detraccion.porcentaje}%</span>
       </div>
       <div className="mt-2 space-y-1.5 text-muted-foreground">
@@ -133,7 +130,7 @@ function DetraccionDetalle({ detraccion }: { detraccion: Detraccion }) {
 function Campo({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <span className={cn(ETIQUETA, "mb-1")}>{etiqueta}</span>
+      <span className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</span>
       {children}
     </div>
   );
@@ -165,7 +162,7 @@ function CajaRespuesta({ comprobante }: { comprobante: Comprobante }) {
   if (!texto) {
     return (
       <div className="rounded-lg border border-border bg-muted p-3">
-        <span className={cn(ETIQUETA, "mb-1")}>Respuesta SUNAT</span>
+        <span className={cn(ETIQUETA_DATO, "mb-1")}>Respuesta SUNAT</span>
         <p className="font-mono text-xs text-muted-foreground">Todavía sin respuesta de SUNAT.</p>
       </div>
     );
@@ -182,7 +179,7 @@ function CajaRespuesta({ comprobante }: { comprobante: Comprobante }) {
     >
       <span
         className={cn(
-          ETIQUETA,
+          ETIQUETA_DATO,
           "mb-1 font-semibold",
           tono === "exito" && "text-success-foreground",
           tono === "aviso" && "text-warning-foreground",
@@ -248,7 +245,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
     <div className="mx-auto grid w-full max-w-6xl min-w-0 grid-cols-1 gap-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-3 text-sm">
-          <Link href="/comprobantes" className={cn(BOTON, "h-auto px-2.5 py-1.5")}>
+          <Link href="/comprobantes" className={ACCION_SECUNDARIA}>
             <ArrowLeftIcon className="size-3.5" />
             Volver a comprobantes
           </Link>
@@ -261,7 +258,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         <div className="flex flex-wrap items-center gap-2">
           {c.estado_documento === "ERROR_ENVIO" ? <ReenviarButton id={c.id} /> : null}
           {admiteNotas(c) ? (
-            <Link href={`/comprobantes/${c.id}/nota`} className={cn(BOTON, "h-8")} data-testid="emitir-nota">
+            <Link href={`/comprobantes/${c.id}/nota`} className={ACCION_SECUNDARIA} data-testid="emitir-nota">
               <FileMinusIcon className="size-4" />
               Emitir nota
             </Link>
@@ -274,7 +271,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               target="_blank"
               rel="noopener"
               title="Representación impresa con QR y hash"
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90"
+              className={ACCION_PRINCIPAL}
               data-testid="ver-pdf"
             >
               <FileTextIcon className="size-4" />
@@ -712,7 +709,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           {c.exportacion ? <ExportacionDetalle exportacion={c.exportacion} /> : null}
           {c.anticipos?.length ? (
             <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="anticipos">
-              <span className={ETIQUETA}>Anticipos regularizados</span>
+              <span className={ETIQUETA_DATO}>Anticipos regularizados</span>
               <ul className="mt-1 space-y-1">
                 {c.anticipos.map((a) => (
                   <li key={a.comprobante} className="flex items-baseline justify-between gap-3">
@@ -732,7 +729,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           {c.retencion_igv ? (
             <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="retencion">
               <div className="flex items-center justify-between">
-                <span className={ETIQUETA}>Retención del IGV ({c.retencion_igv.porcentaje}%)</span>
+                <span className={ETIQUETA_DATO}>Retención del IGV ({c.retencion_igv.porcentaje}%)</span>
                 <span className="font-mono tabular-nums text-foreground/80">−{formatearMonto(c.moneda, c.retencion_igv.monto)}</span>
               </div>
               <div className="mt-1 flex items-baseline justify-between text-muted-foreground">
@@ -744,7 +741,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           {c.percepcion ? (
             <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="percepcion">
               <div className="flex items-center justify-between">
-                <span className={ETIQUETA}>Percepción {c.percepcion.regimen} ({c.percepcion.porcentaje}%)</span>
+                <span className={ETIQUETA_DATO}>Percepción {c.percepcion.regimen} ({c.percepcion.porcentaje}%)</span>
                 <span className="font-mono tabular-nums text-foreground/80">+{formatearMonto("PEN", c.percepcion.monto)}</span>
               </div>
               <div className="mt-1 flex items-baseline justify-between text-muted-foreground">

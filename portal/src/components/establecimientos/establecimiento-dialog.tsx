@@ -4,6 +4,8 @@ import { PencilIcon, PlusIcon, StoreIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { Establecimiento } from "@/lib/api/establecimientos";
+import { ACCION_PRINCIPAL } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
 import { EstablecimientoForm } from "./establecimiento-form";
 
 /** Alta (sin `existente`) o edición de un anexo en el mismo `Dialog` que series y API keys. */
@@ -12,10 +14,7 @@ export function EstablecimientoDialog({ existente, trigger, className }: { exist
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
       <DialogTrigger
-        className={
-          className ??
-          "inline-flex items-center gap-1 self-start rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-xs transition-all hover:opacity-95 active:scale-[0.99] md:self-auto"
-        }
+        className={className ?? cn(ACCION_PRINCIPAL, "self-start md:self-auto")}
         data-testid={existente ? `editar-establecimiento-${existente.codigo}` : "nuevo-establecimiento"}
       >
         {trigger ?? (

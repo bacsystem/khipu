@@ -34,16 +34,17 @@ export function ApiKeyRevelada({ apiKey, etiqueta = "Tu API key", aviso = AVISO_
       <div>
         <span className={cn(ETIQUETA_DATO, "mb-1.5")}>{etiqueta}</span>
         <div className="flex items-center gap-2">
+          {/* La caja mide lo mismo que el botón de al lado (h-10, la de un campo): el texto se recorta dentro de un span porque `truncate` no corta en un flex. */}
           <code
             data-testid="api-key-nueva"
-            className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted px-3 py-2 font-mono text-[13px] font-semibold text-foreground select-all"
+            className="flex h-10 min-w-0 flex-1 items-center rounded-lg border border-border bg-muted px-3 font-mono text-[13px] font-semibold text-foreground select-all"
           >
-            {apiKey}
+            <span className="truncate">{apiKey}</span>
           </code>
           <button
             type="button"
             onClick={copiar}
-            className={cn(BOTON_SECUNDARIO, "h-9 shrink-0 px-3 text-[12px]", copiada && "border-success-border bg-success text-success-foreground")}
+            className={cn(BOTON_SECUNDARIO, "shrink-0", copiada && "border-success-border bg-success text-success-foreground")}
           >
             {copiada ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
             {copiada ? "Copiada" : "Copiar"}

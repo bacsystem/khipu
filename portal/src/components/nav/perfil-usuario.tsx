@@ -8,7 +8,7 @@ import { Menu, MenuContent, MenuItem, MenuLinkItem, MenuSeparator, MenuTrigger }
 import { ThemeToggle } from "@/components/nav/theme-toggle";
 import type { Usuario } from "@/lib/api/auth";
 import { postJson } from "@/lib/api/browser";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -79,15 +79,15 @@ function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { email: stri
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
           {estado === "enviado" ? (
-            <button type="button" onClick={cerrar} className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+            <button type="button" onClick={cerrar} className={BOTON_PRIMARIO_PIE}>
               Entendido
             </button>
           ) : (
             <>
-              <button type="button" onClick={cerrar} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+              <button type="button" onClick={cerrar} className={BOTON_SECUNDARIO_PIE}>
                 {messages.comun.cancelar}
               </button>
-              <button type="button" disabled={estado === "enviando"} onClick={enviar} className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+              <button type="button" disabled={estado === "enviando"} onClick={enviar} className={BOTON_PRIMARIO_PIE}>
                 {estado === "enviando" ? messages.auth.recuperar.enviando : messages.auth.recuperar.enviar}
               </button>
             </>

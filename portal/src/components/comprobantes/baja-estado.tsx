@@ -3,9 +3,10 @@
 import { BanIcon, RefreshCwIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api/browser";
 import type { Baja } from "@/lib/api/facturas";
-import { BOTON_SECUNDARIO, TITULO_SECCION } from "@/lib/estilos";
+import { TITULO_SECCION } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -59,7 +60,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
           Comunicación de baja {baja.identificador}
         </span>
         {pendiente ? (
-          <button type="button" onClick={actualizar} disabled={consultando} className={cn(BOTON_SECUNDARIO, "h-7 text-[11px] normal-case tracking-normal")}>
+          <button type="button" onClick={actualizar} disabled={consultando} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "normal-case tracking-normal")}>
             <RefreshCwIcon className={cn("size-3.5", consultando ? "animate-spin" : "")} />
             {consultando ? "Consultando a SUNAT…" : "Actualizar estado"}
           </button>

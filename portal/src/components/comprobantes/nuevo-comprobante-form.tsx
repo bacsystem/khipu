@@ -12,7 +12,7 @@ import { BotonAsync } from "@/components/patrones/boton-async";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { Serie } from "@/lib/api/series";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO_FILTRO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
@@ -46,7 +46,7 @@ type Linea = { descripcion: string; cantidad: number | null; precioUnitario: num
 
 /** El diálogo usa la escala compacta del design system (h-8, la de la barra de filtros) en vez de la de formulario
  *  (h-10): con cliente, ítems y totales en una sola vista, 8px por control cambian cuántas líneas entran. */
-const CAMPO_DENSO = cn(CAMPO, "h-8 text-[13px]");
+const CAMPO_DENSO = cn(CAMPO_FILTRO, "text-[13px]");
 
 const LINEA_VACIA: Linea = { descripcion: "", cantidad: 1, precioUnitario: null, unidad: "NIU", tipoAfectacionIgv: "10" };
 
@@ -214,7 +214,7 @@ export function NuevoComprobanteForm({
         <Alerta tono="aviso" titulo="No tienes series de factura">
           Para emitir necesitas al menos una serie de tipo 01 activa.
         </Alerta>
-        <button type="button" className={cn(BOTON_SECUNDARIO, "self-end")} onClick={() => router.push("/series")}>
+        <button type="button" className={cn(ACCION_SECUNDARIA, "self-end")} onClick={() => router.push("/series")}>
           Ir a series
         </button>
       </div>
@@ -445,14 +445,14 @@ export function NuevoComprobanteForm({
         </div>
         <div className="flex items-center gap-2">
         {onCancelar ? (
-          <button type="button" onClick={onCancelar} className={BOTON_SECUNDARIO}>
+          <button type="button" onClick={onCancelar} className={BOTON_SECUNDARIO_PIE}>
             Cancelar
           </button>
         ) : null}
           <BotonAsync
             type="submit"
             pendiente={enviando}
-            className={BOTON_PRIMARIO}
+            className={BOTON_PRIMARIO_PIE}
             textoPendiente="Emitiendo…"
             aria-describedby={lineasIncompletas > 0 ? "nc-aviso-incompletos" : undefined}
           >

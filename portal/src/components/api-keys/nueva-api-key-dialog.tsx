@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { ACCION_PRINCIPAL, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
+import { mensajeError } from "@/lib/messages";
 import { ApiKeyRevelada } from "./api-key-revelada";
 
 /** Crea una API key y la muestra una sola vez; al cerrar, refresca la lista del servidor. */
@@ -44,7 +44,7 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
       <DialogTrigger
         className={
           className ??
-          "inline-flex items-center gap-1 self-start rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-xs transition-all hover:opacity-95 active:scale-[0.99] md:self-auto"
+          cn(ACCION_PRINCIPAL, "self-start md:self-auto")
         }
       >
         <PlusIcon className="size-4" />
@@ -79,15 +79,15 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
           {apiKey ? (
-            <button type="button" onClick={() => cambiarAbierto(false)} className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+            <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_PRIMARIO_PIE}>
               Listo, la guardé
             </button>
           ) : (
             <>
-              <button type="button" onClick={() => cambiarAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+              <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
                 Cancelar
               </button>
-              <button type="button" disabled={creando} onClick={crear} className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+              <button type="button" disabled={creando} onClick={crear} className={BOTON_PRIMARIO_PIE}>
                 {creando ? "Generando…" : "Generar llave"}
               </button>
             </>

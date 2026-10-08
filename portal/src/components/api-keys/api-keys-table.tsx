@@ -13,6 +13,7 @@ import { formatearFechaHora } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
 import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
 import { cn } from "@/lib/utils";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 
 const TODAS = "todas";
 
@@ -22,8 +23,6 @@ const ITEMS_ESTADO: Record<string, string> = {
   revocada: "Revocadas",
 };
 
-const CONTROL = "h-9 rounded-lg border border-border bg-card text-[12px] font-medium text-foreground shadow-2xs";
-const CABECERA = "h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase";
 const ACCION =
   "inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -153,7 +152,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
               setPagina(1);
             }}
           >
-            <SelectTrigger className={cn(CONTROL, "w-auto min-w-36 pl-3")}>
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -169,7 +168,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
             type="button"
             onClick={() => startTransition(() => router.refresh())}
             title="Refrescar lista"
-            className={cn(CONTROL, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+            className={cn(CONTROL_FILTRO, "inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
           </button>
@@ -180,11 +179,11 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className={cn(CABECERA, "pl-4")}>Llave</TableHead>
-              <TableHead className={CABECERA}>Creada</TableHead>
-              <TableHead className={CABECERA}>Revocada</TableHead>
-              <TableHead className={cn(CABECERA, "px-4")}>Estado</TableHead>
-              <TableHead className={cn(CABECERA, "pr-4 pl-2 text-right")}>Acciones</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>Llave</TableHead>
+              <TableHead className={CABECERA_TABLA}>Creada</TableHead>
+              <TableHead className={CABECERA_TABLA}>Revocada</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4")}>Estado</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">

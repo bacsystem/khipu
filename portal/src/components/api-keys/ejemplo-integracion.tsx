@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { TARJETA } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 type Lenguaje = "curl" | "node" | "python";
@@ -126,22 +126,14 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
               <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-muted px-4 py-2">
                 <span className="rounded bg-primary px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary-foreground uppercase">POST</span>
                 <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-foreground">{baseUrl}/v1/facturas</code>
-                <div className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded-lg border border-border/60 bg-secondary/80 p-0.5">
+                <div className={cn(SEGMENTADO, "shrink-0")}>
                   {TABS.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setLenguaje(t.id)}
-                      className={cn(
-                        "h-6 rounded-md px-2 text-[11px] font-medium transition-colors",
-                        lenguaje === t.id ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
+                    <button key={t.id} type="button" onClick={() => setLenguaje(t.id)} data-active={lenguaje === t.id ? "" : undefined} className={SEGMENTO}>
                       {t.etiqueta}
                     </button>
                   ))}
                 </div>
-                <BotonCopiar texto={codigo} etiqueta className="h-7 px-2 text-[11px] font-medium" />
+                <BotonCopiar texto={codigo} etiqueta className={ACCION_SECUNDARIA} />
               </div>
 
               <pre className="max-h-[52vh] overflow-auto bg-code p-4 font-mono text-[12px] leading-relaxed text-code-foreground">

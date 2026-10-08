@@ -2,8 +2,9 @@
 
 import { MailIcon, SendIcon, XIcon } from "lucide-react";
 import { useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api/browser";
-import { BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CAMPO, CAMPO_FILTRO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +38,7 @@ export function CorreoButton({ id, numero }: { id: string; numero: string }) {
   if (!abierto) {
     return (
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => setAbierto(true)} className={cn(BOTON_SECUNDARIO, "h-8 text-xs")} data-testid="enviar-correo">
+        <button type="button" onClick={() => setAbierto(true)} className={ACCION_SECUNDARIA} data-testid="enviar-correo">
           <MailIcon className="size-4 text-muted-foreground" />
           Enviar por correo
         </button>
@@ -51,16 +52,16 @@ export function CorreoButton({ id, numero }: { id: string; numero: string }) {
         Se enviará <span className="font-mono font-semibold">{numero}</span> con el PDF, el XML firmado y la constancia de SUNAT adjuntos.
       </p>
       <label htmlFor="correo-email" className="text-[12px] font-medium text-foreground">Correo del cliente</label>
-      <input id="correo-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} placeholder="compras@cliente.pe" className={cn(CAMPO, "h-9")} autoFocus />
+      <input id="correo-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} placeholder="compras@cliente.pe" className={CAMPO_FILTRO} autoFocus />
       <label htmlFor="correo-mensaje" className="text-[12px] font-medium text-foreground">Mensaje (opcional)</label>
       <textarea id="correo-mensaje" value={mensaje} onChange={(e) => setMensaje(e.target.value)} maxLength={1000} rows={2} placeholder="Gracias por su compra." className={cn(CAMPO, "h-auto py-2")} />
       {error ? <p className="text-destructive" role="alert">{error}</p> : null}
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={!email.includes("@") || enviando} onClick={enviar} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-2xs disabled:cursor-not-allowed disabled:opacity-60">
+        <button type="button" disabled={!email.includes("@") || enviando} onClick={enviar} className={cn(buttonVariants())}>
           <SendIcon className="size-3.5" />
           {enviando ? "Enviando…" : "Enviar"}
         </button>
-        <button type="button" onClick={() => setAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-8 text-xs")}>
+        <button type="button" onClick={() => setAbierto(false)} className={ACCION_SECUNDARIA}>
           <XIcon className="size-3.5" />
           Cancelar
         </button>

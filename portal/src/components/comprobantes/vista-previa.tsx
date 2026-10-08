@@ -4,14 +4,13 @@ import { BadgeCheckIcon, DownloadIcon, FileCodeIcon, Loader2Icon } from "lucide-
 import { useEffect, useRef, useState } from "react";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
 import { formatearXml } from "@/lib/xml";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 
 type Documento = "xml" | "cdr";
 
 type Estado = { estado: "cargando" } | { estado: "ok"; texto: string } | { estado: "error"; mensaje: string };
 
-const BOTON = "inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground";
 
 function urlDe(id: string, doc: Documento, descarga: boolean): string {
   if (doc === "xml") return `/api/proxy/facturas/${id}/xml`;
@@ -57,12 +56,12 @@ export function VistaPrevia({
 
   return (
     <>
-      <button type="button" onClick={() => setAbierto("xml")} className={BOTON}>
+      <button type="button" onClick={() => setAbierto("xml")} className={ACCION_SECUNDARIA}>
         <FileCodeIcon className="size-4 text-muted-foreground" />
         Ver XML
       </button>
       {tieneCdr ? (
-        <button type="button" onClick={() => setAbierto("cdr")} className={BOTON}>
+        <button type="button" onClick={() => setAbierto("cdr")} className={ACCION_SECUNDARIA}>
           <BadgeCheckIcon className="size-4 text-success-foreground" />
           Ver CDR
         </button>
@@ -76,7 +75,7 @@ export function VistaPrevia({
           </SheetHeader>
 
           <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/60 px-5 py-2">
-            <div className="inline-flex h-8 items-center gap-1 rounded-lg border border-border/60 bg-secondary/80 p-1">
+            <div className={SEGMENTADO}>
               {(["xml", "cdr"] as Documento[])
                 .filter((d) => d === "xml" || tieneCdr)
                 .map((d) => (
@@ -84,19 +83,17 @@ export function VistaPrevia({
                     key={d}
                     type="button"
                     onClick={() => setAbierto(d)}
-                    className={cn(
-                      "inline-flex h-6 items-center rounded-md px-3 text-[12px] font-medium transition-colors",
-                      activo === d ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground",
-                    )}
+                    data-active={activo === d ? "" : undefined}
+                    className={SEGMENTO}
                   >
                     {d === "xml" ? "XML" : "CDR"}
                   </button>
                 ))}
             </div>
             <div className="flex items-center gap-2">
-              {contenido?.estado === "ok" ? <BotonCopiar texto={contenido.texto} etiqueta className={BOTON} /> : null}
+              {contenido?.estado === "ok" ? <BotonCopiar texto={contenido.texto} etiqueta className={ACCION_SECUNDARIA} /> : null}
               {activo ? (
-                <a href={urlDe(id, activo, true)} className={cn(BOTON, "bg-foreground text-background hover:bg-foreground/90 hover:text-background")}>
+                <a href={urlDe(id, activo, true)} className={ACCION_PRINCIPAL}>
                   <DownloadIcon className="size-3.5" />
                   Descargar {activo === "cdr" ? "ZIP" : "XML"}
                 </a>

@@ -17,7 +17,7 @@ import { DatosFiscalesForm } from "@/components/empresa/datos-fiscales-form";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { PersonalizacionPdfForm } from "@/components/empresa/personalizacion-pdf-form";
 import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf } from "@/lib/api/empresas";
-import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { diasEntre, formatearFecha, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
@@ -301,7 +301,7 @@ export default async function EmpresaPage() {
             <div className="mt-3 flex justify-end">
               <NuevaEmpresaDialog
                 etiqueta="Registrar empresa"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"
+                className={ACCION_SECUNDARIA}
               />
             </div>
           </section>

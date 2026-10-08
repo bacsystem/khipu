@@ -12,7 +12,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { EmpresaDetalle } from "@/lib/api/empresas";
 import type { Serie } from "@/lib/api/series";
 import { TASA_GENERAL, TASA_PADRON } from "@/lib/comprobantes/totales";
-import { BOTON_SECUNDARIO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 /**
@@ -121,7 +121,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                   tono="aviso"
                   titulo="No se pudo leer la configuración de la empresa"
                   accion={
-                    <button type="button" className={BOTON_SECUNDARIO} onClick={empresa.reintentar}>
+                    <button type="button" className={ACCION_SECUNDARIA} onClick={empresa.reintentar}>
                       Reintentar
                     </button>
                   }
@@ -138,7 +138,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
             <Alerta tono="error" titulo="No se pudieron cargar tus series">
               Puede ser un problema pasajero de conexión. Tus series y sus correlativos no se tocaron.
             </Alerta>
-            <button type="button" className={cn(BOTON_SECUNDARIO, "self-end")} onClick={series.reintentar}>
+            <button type="button" className={cn(ACCION_SECUNDARIA, "self-end")} onClick={series.reintentar}>
               Reintentar
             </button>
           </div>

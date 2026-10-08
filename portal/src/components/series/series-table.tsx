@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ETIQUETAS_TIPO } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { cn } from "@/lib/utils";
+import { CABECERA_TABLA, CONTROL_FILTRO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 
 const TODOS = "todos";
 
@@ -43,9 +44,7 @@ const SUBTITULO_TIPO: Record<string, string> = {
 
 const TABS_DESHABILITADOS = ["Facturas", "Boletas", "Notas de crédito"];
 
-const CONTROL = "h-9 rounded-lg border border-border bg-card text-[12px] font-medium text-foreground shadow-2xs";
 const CONTROL_DESHABILITADO = "cursor-not-allowed text-muted-foreground opacity-70";
-const CABECERA = "h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase";
 const ACCION = "flex size-6 cursor-not-allowed items-center justify-center rounded text-muted-foreground/60";
 
 function mascara(serie: string): string {
@@ -97,15 +96,15 @@ export function SeriesTable({ series }: { series: Serie[] }) {
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-border/60 bg-secondary/80 p-1">
-          <span className="inline-flex h-7 items-center rounded-md bg-card px-3 text-[12px] font-medium text-foreground shadow-2xs">Todas</span>
+        <div className={cn(SEGMENTADO, "shrink-0")}>
+          <span data-active="" className={SEGMENTO}>Todas</span>
           {TABS_DESHABILITADOS.map((tab) => (
             <button
               key={tab}
               type="button"
               disabled
               title="Pestañas por tipo de comprobante: próximamente (usa el filtro Tipo)"
-              className="inline-flex h-7 items-center rounded-md px-3 text-[12px] font-medium text-muted-foreground disabled:cursor-not-allowed"
+              className={SEGMENTO}
             >
               {tab}
             </button>
@@ -114,7 +113,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Select items={ITEMS_ESTADO} value={estado} onValueChange={cambiarEstado}>
-            <SelectTrigger className={cn(CONTROL, "w-auto min-w-36 pl-3")}>
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -127,7 +126,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
           </Select>
 
           <Select items={ITEMS_TIPO} value={tipo} onValueChange={cambiarTipo}>
-            <SelectTrigger className={cn(CONTROL, "w-auto min-w-32 pl-3")}>
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-32 pl-3")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -143,7 +142,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
             type="button"
             disabled
             title="Filtro por período de creación: próximamente"
-            className={cn(CONTROL, CONTROL_DESHABILITADO, "inline-flex items-center gap-1.5 px-3")}
+            className={cn(CONTROL_FILTRO, CONTROL_DESHABILITADO, "inline-flex items-center gap-1.5 px-3")}
           >
             <CalendarIcon className="size-4 text-muted-foreground/70" />
             Período: Todos
@@ -154,7 +153,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
             type="button"
             onClick={() => startTransition(() => router.refresh())}
             title="Refrescar lista"
-            className={cn(CONTROL, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+            className={cn(CONTROL_FILTRO, "inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
           </button>
@@ -168,13 +167,13 @@ export function SeriesTable({ series }: { series: Serie[] }) {
               <TableHead className="h-auto w-8 py-2 pr-2 pl-4">
                 <input type="checkbox" disabled title="Selección múltiple: próximamente" className="size-3.5 cursor-not-allowed rounded border-input" />
               </TableHead>
-              <TableHead className={CABECERA}>Tipo de comprobante</TableHead>
-              <TableHead className={CABECERA}>Código serie</TableHead>
-              <TableHead className={cn(CABECERA, "px-4 text-right")}>Último número (correlativo)</TableHead>
-              <TableHead className={CABECERA}>Establecimiento</TableHead>
-              <TableHead className={CABECERA}>Formato / longitud</TableHead>
-              <TableHead className={cn(CABECERA, "px-4")}>Estado</TableHead>
-              <TableHead className={cn(CABECERA, "pr-4 pl-2 text-right")}>Acciones</TableHead>
+              <TableHead className={CABECERA_TABLA}>Tipo de comprobante</TableHead>
+              <TableHead className={CABECERA_TABLA}>Código serie</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4 text-right")}>Último número (correlativo)</TableHead>
+              <TableHead className={CABECERA_TABLA}>Establecimiento</TableHead>
+              <TableHead className={CABECERA_TABLA}>Formato / longitud</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4")}>Estado</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">

@@ -4,6 +4,7 @@ import { Building2Icon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { NuevaEmpresaForm } from "@/components/empresa/nueva-empresa-form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ACCION_PRINCIPAL } from "@/lib/estilos";
 
 export function NuevaEmpresaDialog({ className, etiqueta = "Nueva empresa" }: { className?: string; etiqueta?: string }) {
   const [abierto, setAbierto] = useState(false);
@@ -11,10 +12,7 @@ export function NuevaEmpresaDialog({ className, etiqueta = "Nueva empresa" }: { 
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
       <DialogTrigger
-        className={
-          className ??
-          "inline-flex items-center gap-1 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-xs transition-all hover:opacity-95 active:scale-[0.99]"
-        }
+        className={className ?? ACCION_PRINCIPAL}
       >
         <PlusIcon className="size-4" />
         {etiqueta}
