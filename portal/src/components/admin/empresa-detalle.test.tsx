@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EmpresaDetalleAdmin } from "@/lib/api/admin-empresa-detalle";
 import { EmpresaDetalle } from "./empresa-detalle";
@@ -6,6 +6,11 @@ import { EmpresaDetalle } from "./empresa-detalle";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 
 afterEach(cleanup);
+
+/** H19: lo de la empresa va en pestañas; cada test abre la que necesita. */
+function pestana(nombre: string) {
+  fireEvent.click(screen.getByRole("tab", { name: new RegExp(nombre) }));
+}
 
 const BASE: EmpresaDetalleAdmin = {
   id: "e1",
@@ -52,6 +57,7 @@ describe("EmpresaDetalle (#186)", () => {
   it("una sola tarea pendiente se dice en singular; varias, con el total aunque la lista traiga menos", () => {
     const tarea = { agregado: "DOCUMENTO", agregado_id: "d1", accion: "ENVIAR", intentos: 1, siguiente_intento: "2026-10-01T10:00:00Z" };
     const { rerender } = render(<EmpresaDetalle empresa={{ ...BASE, outbox: { total: 1, proximas: [tarea] } }} />);
+    pestana("Envíos pendientes");
     expect(screen.getByTestId("outbox-total").textContent).toBe("1 tarea pendiente");
 
     rerender(<EmpresaDetalle empresa={{ ...BASE, outbox: { total: 57, proximas: [tarea] } }} />);
@@ -60,6 +66,7 @@ describe("EmpresaDetalle (#186)", () => {
 
   it("sin tareas pendientes no hay línea de total", () => {
     render(<EmpresaDetalle empresa={BASE} />);
+    pestana("Envíos pendientes");
 
     expect(screen.queryByTestId("outbox-total")).toBeNull();
     expect(screen.getByText("No tiene tareas pendientes.")).toBeTruthy();
@@ -67,6 +74,7 @@ describe("EmpresaDetalle (#186)", () => {
 
   it("el primer cambio de un comprobante dice «Inicio», no un estado anterior vacío", () => {
     render(<EmpresaDetalle empresa={{ ...BASE, eventos: [{ comprobante: "F001-00000001", estado_nuevo: "RECIBIDO", ocurrido_en: "2026-10-01T10:00:00Z" }] }} />);
+    pestana("Comprobantes");
 
     expect(screen.getByText(/Inicio →/)).toBeTruthy();
   });
@@ -77,6 +85,7 @@ describe("EmpresaDetalle (#186)", () => {
         empresa={{ ...BASE, eventos: [{ comprobante: "F001-00000001", estado_anterior: "FIRMADO", estado_nuevo: "ESTADO_NUEVO", ocurrido_en: "2026-10-01T10:00:00Z" }] }}
       />,
     );
+    pestana("Comprobantes");
 
     expect(screen.getByText("ESTADO_NUEVO")).toBeTruthy();
   });
@@ -95,6 +104,7 @@ describe("EmpresaDetalle (#186)", () => {
         }}
       />,
     );
+    pestana("Comprobantes");
 
     const filas = within(screen.getByRole("region", { name: "Comprobantes recientes" })).getAllByRole("row").slice(1);
     expect(within(filas[0]).getByText("4287 - Una observación")).toBeTruthy();
@@ -104,6 +114,7 @@ describe("EmpresaDetalle (#186)", () => {
 
   it("el prefijo de una API key lleva puntos suspensivos: no es la key entera", () => {
     render(<EmpresaDetalle empresa={{ ...BASE, api_keys: [{ id: "k1", prefijo: "fk_demo001", activa: true, creada_en: "2026-09-01T15:00:00Z" }] }} />);
+    pestana("API keys");
 
     expect(screen.getByText("fk_demo001…")).toBeTruthy();
   });
@@ -125,7 +136,36 @@ describe("EmpresaDetalle (#186)", () => {
         }}
       />,
     );
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("data-testid"))).toEqual(["cambiar-entorno", "probar-conexion", "revocar-api-key-k1"]);
+    pestana("API keys");
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("data-testid"))).toEqual(["cambiar-entorno", "revocar-api-key-k1"]);
+  });
+
+  it("H19: lo de la empresa va en cinco pestañas y la primera es la de datos y conexión", () => {
+    render(<EmpresaDetalle empresa={{ ...BASE, outbox: { total: 3, proximas: [] } }} />);
+
+    expect(screen.getAllByRole("tab").map((x) => x.textContent)).toEqual(["Datos y conexión", "Emisión", "API keys0", "Comprobantes", "Envíos pendientes3"]);
+    expect(screen.getByRole("region", { name: "Datos fiscales" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Series" })).toBeNull();
+  });
+
+  it("H18 y H18b: el tipo de una serie y la plantilla del PDF se dicen con su nombre, no con su código", () => {
+    render(
+      <EmpresaDetalle
+        empresa={{
+          ...BASE,
+          series: [
+            { tipo: "01", codigo: "F001", ultimo_numero: 3, activa: true, establecimiento: "0000" },
+            { tipo: "03", codigo: "B001", ultimo_numero: 0, activa: true, establecimiento: "0000" },
+          ],
+        }}
+      />,
+    );
+    pestana("Emisión");
+
+    const filas = within(screen.getByRole("region", { name: "Series" })).getAllByRole("row").slice(1);
+    expect(filas.map((f) => within(f).getAllByRole("cell")[1].textContent)).toEqual(["Factura", "Boleta"]);
+    expect(screen.getByText("Clásico")).toBeTruthy();
+    expect(screen.queryByText("CLASICO")).toBeNull();
   });
 
   it("la prueba de conexión está deshabilitada sin credenciales SOL y habilitada con ellas", () => {
