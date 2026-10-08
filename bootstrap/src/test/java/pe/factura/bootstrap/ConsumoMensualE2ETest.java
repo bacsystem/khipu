@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * El consumo mensual (#192) de extremo a extremo: HTTP real, filtros reales, Postgres real. Es código de dinero y lo que importa es lo que **no** cuenta:
- * rechazados, errores de envío, fuera de plazo, en camino, dados de baja, el borde de los meses y las empresas ajenas. Solo cuentan los comprobantes aceptados por
+ * rechazados, errores de envío, fuera de plazo, en camino, el borde de los meses y las empresas ajenas (y que dar de baja no devuelve el documento al cupo). Solo cuentan los comprobantes aceptados por
  * SUNAT, por su fecha de emisión, dentro del mes calendario en Lima.
  */
 @SuppressWarnings("unchecked")
@@ -103,11 +103,12 @@ class ConsumoMensualE2ETest {
         UUID e = c.empresas().get(0);
         documento(e, "ACEPTADO", MITAD);
         documento(e, "ACEPTADO_CON_OBS", MITAD);
-        for (String estado : List.of("RECIBIDO", "INVALIDO", "FIRMADO", "ERROR_ENVIO", "PENDIENTE_AGRUPACION", "ENVIADO", "RECHAZADO", "ANULADO", "FUERA_DE_PLAZO"))
+        documento(e, "ANULADO", MITAD);
+        for (String estado : List.of("RECIBIDO", "INVALIDO", "FIRMADO", "ERROR_ENVIO", "PENDIENTE_AGRUPACION", "ENVIADO", "RECHAZADO", "FUERA_DE_PLAZO"))
             documento(e, estado, MITAD);
 
-        assertThat(datos(deEmpresa(e, "?mes=2026-10"))).containsEntry("documentos", 2);
-        assertThat(datos(deCuenta(c.cuentaId(), "?mes=2026-10"))).containsEntry("documentos", 2);
+        assertThat(datos(deEmpresa(e, "?mes=2026-10"))).containsEntry("documentos", 3);
+        assertThat(datos(deCuenta(c.cuentaId(), "?mes=2026-10"))).containsEntry("documentos", 3);
     }
 
     @Test void losReintentosNoMultiplicanUnComprobanteAceptado() {
@@ -133,14 +134,14 @@ class ConsumoMensualE2ETest {
         assertThat(datos(deEmpresa(c.empresas().get(0), "?mes=2026-10"))).containsEntry("documentos", 4);
     }
 
-    /** Las bajas no cuentan: la comunicación de baja no es un documento, y el comprobante dado de baja ya no está aceptado. */
-    @Test void laBajaDeUnComprobanteNoCuentaNiComoComunicacionNiComoAnulado() {
+    /** Dar de baja no devuelve el documento al cupo: lo que SUNAT aceptó ya consumió. La comunicación de baja no es un documento y no suma otro. */
+    @Test void elComprobanteDadoDeBajaSigueConsumiendo() {
         Cliente c = cliente("ana@negocio.pe", "20100066603");
         UUID e = c.empresas().get(0);
         documento(e, "ACEPTADO", MITAD);
         documento(e, "ANULADO", MITAD);
 
-        assertThat(datos(deEmpresa(e, "?mes=2026-10"))).containsEntry("documentos", 1);
+        assertThat(datos(deEmpresa(e, "?mes=2026-10"))).containsEntry("documentos", 2);
     }
 
     // --- el mes -----------------------------------------------------------------------------------------------------------------------------

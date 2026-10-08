@@ -95,15 +95,18 @@ class JdbcConsumoRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.documentosDeEmpresa(e, OCTUBRE)).isEqualTo(1);
     }
 
-    /** Las bajas no cuentan: la comunicación de baja es otra tabla, y el comprobante dado de baja ya no está aceptado. */
-    @Test void laBajaNoCuentaNiComoComunicacionNiComoComprobanteAnulado() {
+    /**
+     * Dar de baja no devuelve el documento al cupo: SUNAT ya lo aceptó, así que el anulado sigue consumiendo en su mes (el consumo de un mes cerrado no baja
+     * después). Lo que no cuenta es la comunicación de baja, que vive en otra tabla y no suma un documento más.
+     */
+    @Test void elComprobanteDadoDeBajaSigueConsumiendoYLaComunicacionNoSumaOtro() {
         UUID e = empresa(cuenta("a@negocio.pe"), "UNO SAC");
         documento(e, EstadoDocumento.ACEPTADO, MITAD);
         UUID anulado = UUID.randomUUID();
         jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo) VALUES (?, ?, '01', 'F001', ?, ?, 'ANULADO', 'x')",
                 anulado, e, NUMERO.getAndIncrement(), java.sql.Date.valueOf(MITAD));
 
-        assertThat(repo.documentosDeEmpresa(e, OCTUBRE)).isEqualTo(1);
+        assertThat(repo.documentosDeEmpresa(e, OCTUBRE)).isEqualTo(2);
     }
 
     // --- el mes -----------------------------------------------------------------------------------------------------------------------------

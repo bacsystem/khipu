@@ -5,9 +5,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * El consumo de documentos de un plan (#192). **Es código de dinero:** un documento consume solo si SUNAT lo aceptó (con o sin observaciones;
- * {@code EstadoDocumento.cuentaParaElConsumo}), por su fecha de emisión, dentro del mes calendario. No cuentan los rechazados, los errores de envío, los que
- * están en camino ni los dados de baja, y un comprobante reintentado hasta que lo aceptan es uno solo (los reintentos son un contador, no filas).
+ * El consumo de documentos de un plan (#192). **Es código de dinero:** un documento consume solo si SUNAT lo aceptó (con o sin observaciones, aunque después
+ * se diera de baja; {@code EstadoDocumento.cuentaParaElConsumo}), por su fecha de emisión, dentro del mes calendario. No cuentan los rechazados, los errores de
+ * envío ni los que están en camino; la comunicación de baja no suma otro documento, y un comprobante reintentado hasta que lo aceptan es uno solo (los
+ * reintentos son un contador, no filas).
  */
 public interface ConsumoRepository {
     /** El consumo de una empresa en un mes. */
