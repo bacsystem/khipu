@@ -223,6 +223,15 @@ class PagosDeCuentaServiceTest {
         assertThat(auditoria.registros).isEmpty();
     }
 
+    /** H7: el mensaje lo lee el administrador en el portal; decía «un pago por YAPE», con el código del medio. */
+    @Test void elPagoRepetidoSeExplicaConElNombreDelMedioYNoConSuCodigo() {
+        service.registrar(ACTOR, cuentaId, comando(false));
+
+        DomainException e = catchThrowableOfType(DomainException.class, () -> service.registrar(ACTOR, cuentaId, comando(false)));
+
+        assertThat(e.getMessage()).isEqualTo("Esa cuenta ya tiene un pago por Yape con la referencia «OP-123»");
+    }
+
     // --- la fecha de pago -------------------------------------------------------------------------------------------------------------------
 
     @Test void laFechaDePagoPuedeSerHoyOAnteriorPeroNoFutura() {

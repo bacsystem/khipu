@@ -145,7 +145,7 @@ test("el mismo pago repetido (mismo medio y referencia) se rechaza con su motivo
   await llenar(page, { desde: "2026-09-01", hasta: "2026-09-30", referencia: ref.toLowerCase() });
   await page.getByTestId("registrar-pago-confirmar").click();
 
-  await expect(page.getByRole("alert")).toContainText("ya tiene un pago por YAPE");
+  await expect(page.getByRole("alert")).toContainText("ya tiene un pago por Yape");
   await expect(page.getByTestId("registrar-pago-dialogo")).toBeVisible();
   await page.getByRole("button", { name: "Cancelar" }).click();
   await expect(fila(page, ref)).toHaveCount(1);
