@@ -2428,7 +2428,7 @@ Se reabre si pasa alguna de estas cosas:
 
 ## #198 · Backoffice: verificación de integridad del almacenamiento
 
-**Estado: 🔧 implementado, 68/70 mutaciones verificadas (1 equivalente documentada, 1 línea redundante eliminada) — falta la revisión de la PR.** Es solo la pantalla, como dice el issue: el endpoint `POST /v1/admin/integridad` ya existía. Lo único nuevo en el backend es un **test de contrato** del controlador; no cambió código de producción. Va después de #200 en la pila.
+**Estado: ✅ revisado (#244), 68/70 mutaciones verificadas (1 equivalente documentada, 1 línea redundante eliminada); el enlace al comprobante queda en #251.** Es solo la pantalla, como dice el issue: el endpoint `POST /v1/admin/integridad` ya existía. Lo único nuevo en el backend es un **test de contrato** del controlador; no cambió código de producción. Va después de #200 en la pila.
 
 ### Diseño
 
@@ -2468,7 +2468,8 @@ Lo que sobrevivía:
 
 ### Límites conocidos
 
-- **No hay página de detalle de un comprobante:** el enlace va a la empresa (ver arriba).
+- **No hay página de detalle de un comprobante:** el enlace va a la empresa (ver arriba). Lo que falta del criterio «enlace al comprobante» quedó en **#251**
+  (ficha de un comprobante en el backoffice, enlazada desde esta pantalla y desde la cola de errores); por eso la PR (#244) **referencia** #198 en vez de cerrarlo.
 - **El barrido es síncrono:** la página espera la respuesta; con un rango de 92 días en producción podría tardar. Mientras tanto avisa que puede tardar y no deja lanzar otro. Si en la práctica tarda demasiado, habría que pasarlo a un trabajo con su resultado guardado (otro issue).
 - **No repara nada y no guarda los resultados:** cada barrido es una consulta; el historial de barridos no existe.
 - **El tope de 92 días es una decisión mía** y solo lo aplica la pantalla (el endpoint sigue aceptando cualquier rango).
