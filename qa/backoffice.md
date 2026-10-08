@@ -435,7 +435,8 @@ Con el registro público cerrado (#174) no había camino para incorporar a un cl
 
 ### Diseño
 
-- **`POST /v1/admin/cuentas`** (`AdminAltaAsistidaController`): `{ nombre, email, telefono?, empresa: { ruc, razon_social, entorno? }, serie: { tipo, serie } }`.
+- **`POST /v1/admin/cuentas`** (`AdminAltaAsistidaController`): `{ nombre, email, telefono, empresa: { ruc, razon_social, entorno? }, serie: { tipo, serie } }`.
+  El celular es obligatorio desde 2026-10-08 (`@NotBlank`, 422 de validación), como en el registro; antes era opcional.
   Responde `201` con `cuenta_id`, `tenant_id`, `ruc`, `api_key` (solo aquí), la serie e `invitacion_enviada`. Solo la clave de plataforma o un administrador.
 - **`AltaAsistidaService`**: valida todo antes de escribir (correo, teléfono, RUC, razón social, serie del tipo pedido, correo y RUC sin repetir) y escribe
   **en una sola transacción** la cuenta, su usuario ADMIN, la empresa atada a la cuenta, la API key, la serie, la invitación y el registro de bitácora.

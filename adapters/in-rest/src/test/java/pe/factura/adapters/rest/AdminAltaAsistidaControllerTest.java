@@ -117,10 +117,10 @@ class AdminAltaAsistidaControllerTest {
     }
 
     @Test void sinEntornoYConUnaBoletaPasaLoQueSePidio() throws Exception {
-        Solicitud boleta = new Solicitud("Comercial Andina", "ana@andina.pe", null, "20100066603", "COMERCIAL ANDINA SAC", null, TipoDocumento.BOLETA, "B001");
+        Solicitud boleta = new Solicitud("Comercial Andina", "ana@andina.pe", "987654321", "20100066603", "COMERCIAL ANDINA SAC", null, TipoDocumento.BOLETA, "B001");
         when(alta.alta(CLAVE, boleta, PORTAL)).thenReturn(creada(true));
         mvc.perform(post("/v1/admin/cuentas").contentType("application/json").content("""
-                        {"nombre":"Comercial Andina","email":"ana@andina.pe",
+                        {"nombre":"Comercial Andina","email":"ana@andina.pe","telefono":"987654321",
                          "empresa":{"ruc":"20100066603","razon_social":"COMERCIAL ANDINA SAC"},
                          "serie":{"tipo":"03","serie":"B001"}}""")
                         .requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE))
@@ -166,6 +166,9 @@ class AdminAltaAsistidaControllerTest {
                 "{}",
                 CUERPO.replace("\"nombre\":\"Comercial Andina\"", "\"nombre\":\"\""),
                 CUERPO.replace("ana@andina.pe", ""),
+                // El celular es obligatorio, como en el registro: sin él (o en blanco) no se da de alta a nadie.
+                CUERPO.replace("\"telefono\":\"987654321\",", ""),
+                CUERPO.replace("\"telefono\":\"987654321\"", "\"telefono\":\"  \""),
                 CUERPO.replace("20100066603", "123"),
                 // Más largos que las columnas (cuenta.nombre 150, cuenta.email 254): sin tope serían un 500 de la base y no un 422.
                 CUERPO.replace("Comercial Andina\"", "x".repeat(151) + "\""),

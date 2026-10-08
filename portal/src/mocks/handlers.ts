@@ -1889,10 +1889,11 @@ export const handlers = [
     const email = (b.email ?? "").trim().toLowerCase();
     const ruc = b.empresa?.ruc ?? "";
     const razonSocial = (b.empresa?.razon_social ?? "").trim();
-    if (!b.empresa || !b.serie || !nombre || !email || !razonSocial) return fail(422, "VALIDACION", "Faltan datos obligatorios");
+    // El celular es obligatorio, como en el backend (`@NotBlank` en AltaAsistidaRequest).
+    if (!b.empresa || !b.serie || !nombre || !email || !razonSocial || !(b.telefono ?? "").trim()) return fail(422, "VALIDACION", "Faltan datos obligatorios");
     if (nombre.length > 150 || email.length > 254) return fail(422, "VALIDACION", "Nombre o correo demasiado largos");
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail(422, "EMAIL_INVALIDO", "Correo electrónico inválido");
-    if (b.telefono && !telefonoSchema.safeParse(b.telefono).success) return fail(422, "TELEFONO_INVALIDO", "El celular debe tener 9 dígitos y empezar con 9 (Perú)");
+    if (!telefonoSchema.safeParse(b.telefono).success) return fail(422, "TELEFONO_INVALIDO", "El celular debe tener 9 dígitos y empezar con 9 (Perú)");
     if (!rucValido(ruc)) return fail(422, "RUC_INVALIDO", `Empresa: el dígito verificador del RUC ${ruc} no es válido; revise el número`);
     if (!serieCoincideConTipo(b.serie.tipo ?? "", b.serie.serie ?? "")) return fail(422, "SERIE_INVALIDA", `Serie ${b.serie.serie} no válida para el tipo ${b.serie.tipo}`);
     if (db.cuentasAdmin.some((c) => c.email === email) || db.usuariosPorEmail.has(email)) return fail(409, "DUPLICADO", "Ya existe una cuenta con ese correo");
