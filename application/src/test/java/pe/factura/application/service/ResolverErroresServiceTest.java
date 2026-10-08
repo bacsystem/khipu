@@ -2,6 +2,9 @@ package pe.factura.application.service;
 
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
+import pe.factura.application.port.in.RecuperarCdrUseCase;
+import pe.factura.domain.tenant.Entorno;
+import pe.factura.domain.tenant.Tenant;
 import pe.factura.application.port.in.ConsultarColaDeErroresUseCase.Filtro;
 import pe.factura.application.port.in.ResolverErroresUseCase.Descarte;
 import pe.factura.application.port.in.ResolverErroresUseCase.Reintento;
@@ -52,6 +55,29 @@ class ResolverErroresServiceTest {
     }
 
     Envios envios = new Envios();
+
+    /** La consulta del CDR a SUNAT: devuelve el comprobante como lo deje {@code hace} (por defecto, sin cambios: SUNAT no lo tiene). */
+    static class Cdrs implements RecuperarCdrUseCase {
+        final List<UUID> llamadas = new java.util.ArrayList<>();
+        java.util.function.UnaryOperator<Comprobante> hace = c -> c;
+        RuntimeException falla;
+        Fakes.Comprobantes comprobantes;
+        public Comprobante recuperar(UUID tenantId, UUID id) {
+            llamadas.add(id);
+            if (falla != null) throw falla;
+            Comprobante c = hace.apply(comprobantes.datos.get(id));
+            comprobantes.datos.put(id, c);
+            return c;
+        }
+        public List<Comprobante> recuperarPendientes() { throw new AssertionError("el descarte consulta un comprobante"); }
+    }
+
+    Cdrs cdrs = new Cdrs();
+
+    Tenant tenantEn(Entorno entorno) {
+        Tenant t = Fakes.tenantListo(empresaId);
+        return new Tenant(t.id(), t.ruc(), t.razonSocial(), entorno, t.sol(), t.certificado());
+    }
     ColaDeErroresRepository cola = new ColaDeErroresRepository() {
         public List<Fila> listar(Filtro f, int p, int pp) { throw new AssertionError("las acciones no listan"); }
         public long contar(Filtro f) { throw new AssertionError("las acciones no cuentan"); }
@@ -61,9 +87,10 @@ class ResolverErroresServiceTest {
 
     {
         envios.comprobantes = comprobantes;
+        cdrs.comprobantes = comprobantes;
         tenants.asignarCuenta(empresaId, cuentaId);
         auditoria.uow = uow;
-        service = new ResolverErroresService(cola, envios, comprobantes, outbox, tenants, auditoria, uow, Fakes.CLOCK);
+        service = new ResolverErroresService(cola, envios, cdrs, comprobantes, outbox, tenants, auditoria, uow, Fakes.CLOCK);
     }
 
     /** Un comprobante firmado de la empresa que ya falló {@code veces} veces al enviarse, con su tarea en el outbox. */
@@ -155,6 +182,57 @@ class ResolverErroresServiceTest {
 
         assertThat(auditoria.registros.get(0).cuentaId()).isNull();
         assertThat(auditoria.registros.get(0).tenantId()).isEqualTo(otra);
+    }
+
+    // --- descartar: antes, SUNAT ------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Un error de envío puede ser un corte después de que SUNAT lo recibió. Descartarlo así haría reemitir la venta y dejaría dos comprobantes válidos en SUNAT: en
+     * producción, antes de descartar se le pregunta a SUNAT (getStatusCdr) y, si lo tiene, se aplica su CDR y no se descarta.
+     */
+    @Test void enProduccionSiSunatYaLoTieneSeAplicaSuCdrYNoSeDescarta() {
+        Comprobante c = enError(2);
+        tenants.guardar(tenantEn(Entorno.PRODUCCION));
+        cdrs.hace = x -> { x.marcarEnviado(); x.aplicarCdr(new Cdr("0", "La Factura numero F001-1, ha sido aceptada", List.of()), "k/R-x.zip"); return x; };
+
+        assertThatThrownBy(() -> service.descartar(ACTOR, c.id(), "No sale")).isInstanceOf(DomainException.class)
+                .extracting(e -> ((DomainException) e).codigo()).isEqualTo("SUNAT_YA_LO_TIENE");
+
+        assertThat(cdrs.llamadas).containsExactly(c.id());
+        assertThat(comprobantes.datos.get(c.id()).estado()).isNotEqualTo(EstadoDocumento.DESCARTADO);
+        assertThat(auditoria.registros).isEmpty();
+    }
+
+    @Test void enProduccionSiSunatNoLoTieneSeDescarta() {
+        Comprobante c = enError(2);
+        tenants.guardar(tenantEn(Entorno.PRODUCCION));
+
+        assertThat(service.descartar(ACTOR, c.id(), "No sale").estado()).isEqualTo(EstadoDocumento.DESCARTADO);
+        assertThat(cdrs.llamadas).containsExactly(c.id());
+    }
+
+    /** Si no se puede preguntar, no se sabe si SUNAT lo tiene: no se descarta a ciegas. */
+    @Test void enProduccionSiNoSePuedePreguntarASunatNoSeDescarta() {
+        Comprobante c = enError(2);
+        tenants.guardar(tenantEn(Entorno.PRODUCCION));
+        cdrs.falla = new pe.factura.application.port.out.SunatTransientException("0109", "El sistema no puede responder");
+
+        assertThatThrownBy(() -> service.descartar(ACTOR, c.id(), "No sale")).isInstanceOf(DomainException.class)
+                .extracting(e -> ((DomainException) e).codigo()).isEqualTo("SUNAT_NO_DISPONIBLE");
+        assertThat(comprobantes.datos.get(c.id()).estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(outbox.filas).hasSize(1);
+    }
+
+    /** En beta no hay consulta de CDR (e-beta no la publica) ni efecto fiscal: se descarta sin preguntar. Lo que ya no está en error de envío tampoco se pregunta. */
+    @Test void enBetaOSiYaNoEstaEnErrorDeEnvioNoSePreguntaASunat() {
+        Comprobante c = enError(2);
+        tenants.guardar(tenantEn(Entorno.BETA));
+        service.descartar(ACTOR, c.id(), "No sale");
+
+        tenants.guardar(tenantEn(Entorno.PRODUCCION));
+        assertThatThrownBy(() -> service.descartar(ACTOR, c.id(), "otra vez")).isInstanceOf(DomainException.class)
+                .extracting(e -> ((DomainException) e).codigo()).isEqualTo("ESTADO_NO_DESCARTABLE");
+        assertThat(cdrs.llamadas).isEmpty();
     }
 
     // --- descartar --------------------------------------------------------------------------------------------------------------------------
