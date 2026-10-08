@@ -49,6 +49,8 @@ No formal `release/*` branches — a release is just a PR with base `main` and h
 
 The `git-flow` skill detects `develop` automatically and uses it as the PR base instead of `main` — no need to pass it explicitly.
 
+Closing keywords (`Closes #N`, `Cierra #N`) only auto-close an issue when the PR merges into the **default branch** (`main`). A PR merged into `develop` leaves its issue open until the release PR reaches `main` — close it by hand if it shouldn't wait for the release.
+
 ### Pull requests: stacked, via `gh stack`
 
 Work that spans several PRs is stacked, not chained by hand. GitHub's official extension manages it (`gh extension install github/gh-stack` — per machine, not a repo dependency):
