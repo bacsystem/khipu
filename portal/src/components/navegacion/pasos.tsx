@@ -6,32 +6,37 @@ export type Paso = { titulo: ReactNode; descripcion?: ReactNode };
 
 /**
  * Indicador de pasos (onboarding, asistentes). `actual` es 0-based; los anteriores se marcan completados.
- * Horizontal en desktop, vertical en móvil.
+ * Cada paso ocupa el mismo ancho, con el círculo y el texto centrados en su columna; la línea une los centros de los círculos
+ * (primaria hasta el paso actual). En móvil se ocultan las descripciones para que los títulos quepan en una fila.
  */
 export function Pasos({ pasos, actual, className }: { pasos: Paso[]; actual: number; className?: string }) {
   return (
-    <ol className={cn("flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-0", className)}>
+    <ol className={cn("grid auto-cols-fr grid-flow-col items-start", className)}>
       {pasos.map((p, i) => {
         const estado = i < actual ? "hecho" : i === actual ? "actual" : "pendiente";
         return (
-          <li key={i} className="flex flex-1 items-start gap-3 sm:flex-col sm:gap-2">
-            <div className="flex items-center sm:w-full">
+          <li key={i} className="relative flex min-w-0 flex-col items-center gap-2 px-1 text-center">
+            {/* Tramo desde el paso anterior: de centro a centro de los círculos (size-7 = 28 px), con 8 px de aire a cada lado. */}
+            {i > 0 ? (
               <span
-                aria-current={estado === "actual" ? "step" : undefined}
-                className={cn(
-                  "flex size-7 shrink-0 items-center justify-center rounded-full border font-mono text-[11px] font-semibold",
-                  estado === "hecho" && "border-primary bg-primary text-primary-foreground",
-                  estado === "actual" && "border-primary bg-accent text-primary ring-3 ring-ring/20",
-                  estado === "pendiente" && "border-border bg-muted text-muted-foreground",
-                )}
-              >
-                {estado === "hecho" ? <CheckIcon className="size-3.5" strokeWidth={3} /> : i + 1}
-              </span>
-              {i < pasos.length - 1 ? <span className={cn("mx-2 hidden h-px flex-1 sm:block", i < actual ? "bg-primary" : "bg-border")} /> : null}
-            </div>
+                aria-hidden="true"
+                className={cn("absolute top-3.5 right-[calc(50%+22px)] left-[calc(-50%+22px)] h-px", i <= actual ? "bg-primary" : "bg-border")}
+              />
+            ) : null}
+            <span
+              aria-current={estado === "actual" ? "step" : undefined}
+              className={cn(
+                "relative flex size-7 shrink-0 items-center justify-center rounded-full border font-mono text-[11px] font-semibold",
+                estado === "hecho" && "border-primary bg-primary text-primary-foreground",
+                estado === "actual" && "border-primary bg-accent text-primary ring-3 ring-ring/20",
+                estado === "pendiente" && "border-border bg-muted text-muted-foreground",
+              )}
+            >
+              {estado === "hecho" ? <CheckIcon className="size-3.5" strokeWidth={3} /> : i + 1}
+            </span>
             <div className="min-w-0">
               <p className={cn("text-[13px] font-medium", estado === "pendiente" ? "text-muted-foreground" : "text-foreground")}>{p.titulo}</p>
-              {p.descripcion ? <p className="text-[11px] text-muted-foreground">{p.descripcion}</p> : null}
+              {p.descripcion ? <p className="hidden text-[11px] text-muted-foreground sm:block">{p.descripcion}</p> : null}
             </div>
           </li>
         );

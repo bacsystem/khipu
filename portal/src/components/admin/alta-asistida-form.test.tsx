@@ -32,9 +32,9 @@ function llenar(etiqueta: RegExp | string, valor: string) {
 
 /** Llena los tres pasos con datos válidos. Los pasos están montados todos (solo se ocultan), así que se llenan sin navegar. */
 function llenarValido(extra: { telefono?: string; razon?: string } = {}) {
-  llenar("Nombre de la cuenta", "Comercial Andina");
   llenar("Correo del cliente", "ana@andina.pe");
-  if (extra.telefono) llenar(/Celular/, extra.telefono);
+  llenar("Nombre del cliente", "Comercial Andina");
+  llenar("Celular", extra.telefono ?? "987654321");
   llenar("RUC", "20100066603");
   llenar("Razón social", extra.razon ?? "COMERCIAL ANDINA SAC");
 }
@@ -89,16 +89,18 @@ describe("AltaAsistidaForm", () => {
 
     siguiente();
 
-    await waitFor(() => expect(screen.getByText("Ingresa el nombre de la cuenta")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Ingresa el nombre del cliente")).toBeTruthy());
     expect(screen.getByText("Ingresa el correo del cliente")).toBeTruthy();
+    expect(screen.getByText("Ingresa el celular del cliente")).toBeTruthy();
     expect(pasoActual()).toBe("1");
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it("el paso 1 solo valida sus campos: no marca la empresa antes de llegar a ella", async () => {
     render(<AltaAsistidaForm />);
-    llenar("Nombre de la cuenta", "Comercial Andina");
     llenar("Correo del cliente", "ana@andina.pe");
+    llenar("Nombre del cliente", "Comercial Andina");
+    llenar("Celular", "987654321");
 
     await avanzar();
 
@@ -154,7 +156,7 @@ describe("AltaAsistidaForm", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("rechaza un celular que no es peruano en el paso 1, pero no lo exige", async () => {
+  it("rechaza un celular que no es peruano en el paso 1", async () => {
     const fetch = stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
     render(<AltaAsistidaForm />);
     llenarValido({ telefono: "12345" });
@@ -171,13 +173,13 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenarValido();
 
-    fireEvent.submit(screen.getByLabelText("Nombre de la cuenta").closest("form")!);
+    fireEvent.submit(screen.getByLabelText("Nombre del cliente").closest("form")!);
 
     await waitFor(() => expect(pasoActual()).toBe("2"));
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("manda el alta tal como el backend la espera, sin teléfono si no se escribió y sin contraseña", async () => {
+  it("manda el alta tal como el backend la espera, con el celular y sin contraseña", async () => {
     const fetch = stubFetch(sobre(201, { estado: "exito", datos: CREADA }));
     render(<AltaAsistidaForm />);
     llenarValido();
@@ -191,6 +193,7 @@ describe("AltaAsistidaForm", () => {
     expect(JSON.parse(init.body as string)).toEqual({
       nombre: "Comercial Andina",
       email: "ana@andina.pe",
+      telefono: "987654321",
       empresa: { ruc: "20100066603", razon_social: "COMERCIAL ANDINA SAC", entorno: "BETA" },
       serie: { tipo: "01", serie: "F001" },
     });

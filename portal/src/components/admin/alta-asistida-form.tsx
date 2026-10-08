@@ -23,31 +23,25 @@ import { codigoSerie, MENSAJE_SERIE, razonSocialSchema, rucSchema, serieCoincide
 
 const t = messages.admin.alta;
 
-/** El celular es opcional aquí (quien da de alta puede no tenerlo); si se escribe, se valida y normaliza como en el registro. */
-const telefonoOpcional = z
-  .string()
-  .transform((v) => v.trim())
-  .superRefine((v, ctx) => {
-    if (v === "") return;
-    const r = telefonoSchema.safeParse(v);
-    if (!r.success) ctx.addIssue({ code: "custom", message: r.error.issues[0].message });
-  })
-  .transform((v) => (v === "" ? undefined : telefonoSchema.parse(v)));
-
 const schema = z
   .object({
-    nombre: z
-      .string()
-      .transform((v) => v.trim())
-      .refine((v) => v.length > 0, "Ingresa el nombre de la cuenta")
-      .refine((v) => v.length <= 150, "El nombre admite hasta 150 caracteres"),
     email: z
       .string()
       .transform((v) => v.trim())
       .refine((v) => v.length > 0, "Ingresa el correo del cliente")
       .refine((v) => v.length <= 254, "El correo admite hasta 254 caracteres")
       .pipe(z.email("Correo inválido")),
-    telefono: telefonoOpcional,
+    nombre: z
+      .string()
+      .transform((v) => v.trim())
+      .refine((v) => v.length > 0, "Ingresa el nombre del cliente")
+      .refine((v) => v.length <= 150, "El nombre admite hasta 150 caracteres"),
+    // Obligatorio: es el contacto directo con el cliente si la invitación no le llega. Se valida y normaliza como en el registro.
+    telefono: z
+      .string()
+      .transform((v) => v.trim())
+      .refine((v) => v.length > 0, "Ingresa el celular del cliente")
+      .pipe(telefonoSchema),
     ruc: rucSchema,
     razon_social: razonSocialSchema,
     entorno: z.enum(["BETA", "PRODUCCION"]),
@@ -61,11 +55,11 @@ const schema = z
 type Valores = z.input<typeof schema>;
 type Salida = z.output<typeof schema>;
 
-const VALORES_INICIALES: Valores = { nombre: "", email: "", telefono: "", ruc: "", razon_social: "", entorno: "BETA", tipo: "01", serie: "F001" };
+const VALORES_INICIALES: Valores = { email: "", nombre: "", telefono: "", ruc: "", razon_social: "", entorno: "BETA", tipo: "01", serie: "F001" };
 
 /** Los tres pasos del asistente y los campos que valida cada uno antes de dejar seguir. */
 const PASOS: ReadonlyArray<{ titulo: string; descripcion: string; campos: ReadonlyArray<keyof Valores> }> = [
-  { titulo: t.seccionCuenta, descripcion: t.subtituloCuenta, campos: ["nombre", "email", "telefono"] },
+  { titulo: t.seccionCuenta, descripcion: t.subtituloCuenta, campos: ["email", "nombre", "telefono"] },
   { titulo: t.seccionEmpresa, descripcion: t.subtituloEmpresa, campos: ["ruc", "razon_social", "entorno"] },
   { titulo: t.seccionSerie, descripcion: t.subtituloSerie, campos: ["tipo", "serie"] },
 ];
@@ -196,26 +190,27 @@ export function AltaAsistidaForm({
         <Pasos pasos={PASOS.map(({ titulo, descripcion }) => ({ titulo, descripcion }))} actual={paso} />
 
         {/* Los tres pasos quedan montados y solo se oculta el que no toca: así lo escrito sobrevive a ir y volver. */}
-        <fieldset hidden={paso !== 0} className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+        {/* Una columna: todos los campos del mismo ancho, en el orden en que se piensan (primero con qué correo entra el cliente). */}
+        <fieldset hidden={paso !== 0} className="grid gap-4">
           <legend className="sr-only">{t.seccionCuenta}</legend>
-          <CampoDeTexto id="alta-nombre" etiqueta={t.nombre} maxLength={150} registro={register("nombre")} error={errors.nombre?.message} className="md:col-span-2" />
           <CampoDeTexto id="alta-email" etiqueta={t.email} type="email" autoComplete="off" maxLength={254} registro={register("email")} error={errors.email?.message} ayuda={t.emailAyuda} />
-          <CampoDeTexto id="alta-telefono" etiqueta={t.telefono} inputMode="tel" autoComplete="off" filtrar={soloTelefono} registro={register("telefono")} error={errors.telefono?.message} />
+          <CampoDeTexto id="alta-nombre" etiqueta={t.nombre} maxLength={150} placeholder={t.nombreEjemplo} registro={register("nombre")} error={errors.nombre?.message} ayuda={t.nombreAyuda} />
+          <CampoDeTexto id="alta-telefono" etiqueta={t.telefono} inputMode="tel" autoComplete="off" placeholder="987654321" filtrar={soloTelefono} registro={register("telefono")} error={errors.telefono?.message} />
         </fieldset>
 
-        <fieldset hidden={paso !== 1} className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+        <fieldset hidden={paso !== 1} className="grid gap-4">
           <legend className="sr-only">{t.seccionEmpresa}</legend>
           <CampoDeTexto id="alta-ruc" etiqueta={t.ruc} inputMode="numeric" maxLength={11} filtrar={soloDigitos} mono registro={register("ruc")} error={errors.ruc?.message} />
+          <CampoDeTexto id="alta-razon-social" etiqueta={t.razonSocial} registro={register("razon_social")} error={errors.razon_social?.message} />
           <Campo id="alta-entorno" etiqueta={t.entorno}>
             <select id="alta-entorno" {...register("entorno")} className={CAMPO}>
               <option value="BETA">{t.entornoBeta}</option>
               <option value="PRODUCCION">{t.entornoProduccion}</option>
             </select>
           </Campo>
-          <CampoDeTexto id="alta-razon-social" etiqueta={t.razonSocial} registro={register("razon_social")} error={errors.razon_social?.message} className="md:col-span-2" />
         </fieldset>
 
-        <fieldset hidden={paso !== 2} className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+        <fieldset hidden={paso !== 2} className="grid gap-4">
           <legend className="sr-only">{t.seccionSerie}</legend>
           <Campo id="alta-tipo" etiqueta={t.tipo}>
             <select id="alta-tipo" {...register("tipo")} className={CAMPO}>
@@ -293,7 +288,7 @@ export function AltaAsistidaDialog({ claseDelBoton }: { claseDelBoton: string })
         <UserPlusIcon className="size-4" />
         {t.titulo}
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0 sm:max-w-2xl" data-testid="alta-dialogo" showCloseButton={!enviando}>
+      <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0 sm:max-w-lg" data-testid="alta-dialogo" showCloseButton={!enviando}>
         <CabeceraDialogo icon={UserPlusIcon} titulo={t.titulo} descripcion={t.descripcion} />
         <AltaAsistidaForm key={apertura} alCancelar={() => cambiarAbierto(false)} alTerminar={() => cambiarAbierto(false)} alCambiarEnvio={setEnviando} />
       </DialogContent>
