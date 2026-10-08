@@ -44,7 +44,8 @@ public class GestionarPlanesService implements GestionarPlanesUseCase {
     @Override public PlanConUso crear(ActorAdmin actor, DatosDePlan datos) {
         exigirDatos(datos);
         Instant ahora = clock.instant();
-        Plan nuevo = new Plan(UUID.randomUUID(), datos.nombre(), datos.precioMensual(), datos.limites(), EstadoPlan.ACTIVO, false);
+        Plan nuevo = new Plan(UUID.randomUUID(), datos.nombre(), datos.precioMensual(), datos.limites(), EstadoPlan.ACTIVO, false)
+                .conVisibilidadEnPublicidad(!Boolean.FALSE.equals(datos.visibleEnPublicidad()));
         uow.ejecutar(() -> {
             planes.guardar(nuevo);
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.CREAR_PLAN, null, null, DetalleDePlan.alta(nuevo), ahora));
@@ -58,6 +59,7 @@ public class GestionarPlanesService implements GestionarPlanesUseCase {
         return uow.ejecutar(() -> {
             Plan vigente = leerParaEditar(id).vigenteEn(ahora);
             Plan editado = vigente.editar(datos.nombre(), datos.precioMensual(), datos.limites(), ahora);
+            if (datos.visibleEnPublicidad() != null) editado = editado.conVisibilidadEnPublicidad(datos.visibleEnPublicidad());
             if (editado.equals(vigente)) return conUso(vigente);
             planes.guardar(editado);
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.EDITAR_PLAN, null, null, DetalleDePlan.edicion(vigente, editado), ahora));
@@ -121,7 +123,8 @@ public class GestionarPlanesService implements GestionarPlanesUseCase {
         static String alta(Plan p) {
             Limites l = p.limites();
             return "plan=" + p.nombre() + " precio=" + p.precioMensual().toPlainString() + " documentos=" + texto(l.documentosAlMes()) + " ruc=" + l.rucs()
-                    + " usuarios=" + texto(l.usuarios()) + " api_keys=" + texto(l.apiKeys()) + " retencion=" + l.retencionAnios();
+                    + " usuarios=" + texto(l.usuarios()) + " api_keys=" + texto(l.apiKeys()) + " retencion=" + l.retencionAnios()
+                    + (p.visibleEnPublicidad() ? "" : " publicidad=no");
         }
 
         /** Qué cambió, de qué a qué. Los límites se comparan contra los vigentes: lo programado es relativo a ellos. */
@@ -130,6 +133,7 @@ public class GestionarPlanesService implements GestionarPlanesUseCase {
             partes.add("plan=" + antes.nombre());
             cambio(partes, "nombre", antes.nombre(), despues.nombre());
             cambio(partes, "precio", antes.precioMensual().toPlainString(), despues.precioMensual().toPlainString());
+            cambio(partes, "publicidad", antes.visibleEnPublicidad() ? "si" : "no", despues.visibleEnPublicidad() ? "si" : "no");
             CambioDeLimites programado = despues.programado();
             if (programado != null) {
                 Limites a = antes.limites();

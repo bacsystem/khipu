@@ -17,13 +17,14 @@ public record PlanResponse(
         @Schema(nullable = true, description = "Un cambio de límites ya decidido que entra al inicio del ciclo siguiente; ausente si no hay") CambioProgramadoResponse limitesProgramados,
         @Schema(example = "ACTIVO", allowableValues = {"ACTIVO", "INACTIVO"}, description = "`INACTIVO` está fuera de la oferta pero las cuentas que ya lo tienen lo conservan") String estado,
         @Schema(description = "El plan con el que nacen las cuentas nuevas: no se puede desactivar ni borrar") boolean porDefecto,
+        @Schema(description = "Si sale en la página de precios (`GET /v1/planes`). Un plan a medida está activo pero no se publica") boolean visibleEnPublicidad,
         @Schema(example = "12", description = "Cuentas que lo tienen hoy como su suscripción vigente") long cuentas) {
 
     public static PlanResponse de(PlanConUso p) {
         CambioDeLimites c = p.plan().programado();
         return new PlanResponse(p.plan().id(), p.plan().nombre(), p.plan().precioMensual(), LimitesDto.de(p.plan().limites()),
                 c == null ? null : new CambioProgramadoResponse(LimitesDto.de(c.limites()), c.aplicaDesde()),
-                p.plan().estado().name(), p.plan().porDefecto(), p.cuentas());
+                p.plan().estado().name(), p.plan().porDefecto(), p.plan().visibleEnPublicidad(), p.cuentas());
     }
 
     /** Desde cuándo manda el cambio (la medianoche del día 1 en Lima) y con qué límites. */

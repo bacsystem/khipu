@@ -122,6 +122,22 @@ class JdbcPlanRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscar(p.id()).orElseThrow().limites().documentosAlMes().ilimitado()).isTrue();
     }
 
+    /** H20: un plan a medida se guarda fuera de la publicidad, y volver a publicarlo también se guarda. */
+    @Test void laVisibilidadEnPublicidadSeGuardaYSeLee() {
+        Plan aMedida = nuevo("A medida").conVisibilidadEnPublicidad(false);
+
+        repo.guardar(aMedida);
+        assertThat(repo.buscar(aMedida.id())).contains(aMedida);
+
+        repo.guardar(aMedida.conVisibilidadEnPublicidad(true));
+        assertThat(repo.buscar(aMedida.id()).orElseThrow().visibleEnPublicidad()).isTrue();
+    }
+
+    /** Los planes que ya existían se siguen publicando: la migración no saca a nadie de la página de precios. */
+    @Test void losPlanesSembradosSePublican() {
+        assertThat(repo.listar()).isNotEmpty().allMatch(Plan::visibleEnPublicidad);
+    }
+
     @Test void guardarDeNuevoActualizaElPlanYNoCreaOtro() {
         Plan p = nuevo("Estudio");
         repo.guardar(p);

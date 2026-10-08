@@ -40,8 +40,10 @@ final class RutaRequest {
     static boolean esApiV1(String ruta) { return ruta.equals("/v1") || ruta.startsWith("/v1/"); }
 
     /**
-     * Sin credenciales: rutas de autenticación (el cliente aún no tiene ninguna), los catálogos SUNAT (información pública de referencia) y el aviso de mantenimiento (#199), que el
-     * portal muestra también antes de iniciar sesión.
+     * Sin credenciales: rutas de autenticación (el cliente aún no tiene ninguna), los catálogos SUNAT (información pública de referencia), el aviso de mantenimiento (#199), que el
+     * portal muestra también antes de iniciar sesión, y los planes publicados (H20), que lee la página de precios.
      */
-    static boolean esPublica(String ruta) { return AUTH_PUBLICA.contains(ruta) || ruta.equals("/v1/catalogos") || ruta.startsWith("/v1/catalogos/") || ruta.equals("/v1/banner"); }
+    static boolean esPublica(String ruta) {
+        return AUTH_PUBLICA.contains(ruta) || ruta.equals("/v1/catalogos") || ruta.startsWith("/v1/catalogos/") || ruta.equals("/v1/banner") || ruta.equals("/v1/planes");
+    }
 }

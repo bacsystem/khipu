@@ -10,10 +10,12 @@ import java.math.BigDecimal;
 public record PlanRequest(
         @Schema(example = "Estudio", maxLength = 40, description = "Único sin importar mayúsculas") String nombre,
         @Schema(example = "49.90", description = "En soles, cero o más, con hasta dos decimales") BigDecimal precioMensual,
-        LimitesDto limites) {
+        LimitesDto limites,
+        @Schema(example = "true", nullable = true, description = "Si sale en la página de precios. Ausente: al crear, sí; al editar, como estaba. Un plan a medida para un "
+                + "cliente va en `false`: se asigna y se cobra igual, pero no se publica") Boolean visibleEnPublicidad) {
 
     public DatosDePlan aDominio() {
         if (limites == null) throw new DomainException("LIMITE_INVALIDO", "Faltan los límites del plan");
-        return new DatosDePlan(nombre, precioMensual, limites.aDominio());
+        return new DatosDePlan(nombre, precioMensual, limites.aDominio(), visibleEnPublicidad);
     }
 }

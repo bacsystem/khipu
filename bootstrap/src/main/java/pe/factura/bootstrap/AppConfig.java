@@ -281,6 +281,8 @@ public class AppConfig {
         return new ConfigurarPlataformaService(remitentes, plantillas, banners, auditoria, u, clock, remitentePredeterminado);
     }
     @Bean ConsultarBannerUseCase consultarBanner(BannerRepository banners, Clock clock) { return new ConsultarBannerService(banners, clock); }
+    /** Los planes de la página de precios (H20): público, lo lee la portada. */
+    @Bean ConsultarPlanesPublicadosUseCase consultarPlanesPublicados(PlanRepository planes, Clock clock) { return new ConsultarPlanesPublicadosService(planes, clock); }
     @Bean MonitorearEmisionUseCase monitorearEmision(MonitorDeEmisionRepository m, SondeoDeSunat s, Clock clock) { return new MonitorDeEmisionService(m, s, clock); }
     @Bean RecuperarCdrUseCase recuperarCdr(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatConsultaGateway g, CdrParser cdr, UnitOfWork u) {
         return new RecuperarCdrService(c, t, s, g, cdr, u);
