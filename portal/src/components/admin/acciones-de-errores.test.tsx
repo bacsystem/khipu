@@ -163,7 +163,7 @@ describe("DescartarComprobante (#196)", () => {
     expect(alResultado).not.toHaveBeenCalled();
   });
 
-  it.each(["ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "NO_ENCONTRADO"])("un %s dice que el estado cambió y recarga para mostrar el real", async (codigo) => {
+  it.each(["ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "NO_ENCONTRADO", "SUNAT_YA_LO_TIENE"])("un %s dice que el estado cambió y recarga para mostrar el real", async (codigo) => {
     apiRequest.mockResolvedValue(error(codigo, "Cambió de estado"));
     const alResultado = vi.fn();
     render(<DescartarComprobante comprobante={comprobante} alResultado={alResultado} />);

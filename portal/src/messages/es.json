@@ -650,6 +650,7 @@
         "efectos": [
           "El comprobante queda descartado: no se vuelve a enviar, ni solo ni a mano. No se puede deshacer.",
           "El cliente tiene que emitir uno nuevo; el número de este queda consumido.",
+          "En producción, antes se le pregunta a SUNAT si ya lo recibió: si lo tiene, se aplica su respuesta y no se descarta.",
           "Se saca de la cola de envíos y de esta lista.",
           "Queda en la bitácora con tu motivo."
         ],
