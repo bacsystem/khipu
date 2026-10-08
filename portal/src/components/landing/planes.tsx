@@ -6,58 +6,16 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import type { TarjetaDePlan } from "./planes-datos";
 
 /**
  * Planes. Cada tarjeta dice para quién es, qué incluye y cómo se empieza, porque un precio sin eso obliga a adivinar.
  *
  * El selector mensual/anual no es adorno: el pago anual son diez mensualidades, o sea dos meses libres, y mostrarlo
  * como un total al año evita la cuenta mental. Todo lo que se lista existe hoy —límites, RUC, usuarios, API keys,
- * entornos, personalización del PDF y soporte—; lo que está en el roadmap no se vende acá.
+ * entornos, personalización del PDF y soporte—; lo que está en el roadmap no se vende acá. Los planes llegan armados de la página (H20): precio y límites son
+ * los que publica el backoffice, así que un plan a medida no sale y un cambio de precio se ve sin tocar este archivo.
  */
-const PLANES = [
-  {
-    nombre: "Gratis",
-    para: "Para probar la API",
-    mensual: 0,
-    docs: "30 documentos/mes",
-    rucs: "1 RUC · 1 usuario",
-    incluye: [
-      "Factura, boleta, nota de crédito y de débito",
-      "Portal web y API REST",
-      "Entorno de pruebas de SUNAT",
-      "1 API key · PDF A4",
-      "XML y CDR guardados 1 año",
-    ],
-    destacado: false,
-  },
-  {
-    nombre: "Emprende",
-    para: "Bodegas, freelancers y tiendas",
-    mensual: 29,
-    docs: "300 documentos/mes",
-    rucs: "1 RUC · 1 usuario",
-    incluye: ["Todo lo de Gratis", "Producción además de pruebas", "2 API keys", "XML y CDR guardados 5 años", "Soporte por correo (48 h)"],
-    destacado: false,
-  },
-  {
-    nombre: "Negocio",
-    para: "PYMES y estudios contables",
-    mensual: 69,
-    docs: "1 500 documentos/mes",
-    rucs: "3 RUC · 3 usuarios",
-    incluye: ["Todo lo de Emprende", "PDF con tu logo y tu color", "5 API keys", "Soporte por correo y WhatsApp (24 h)"],
-    destacado: true,
-  },
-  {
-    nombre: "Pro",
-    para: "SaaS, ISV y alto volumen",
-    mensual: 129,
-    docs: "Documentos ilimitados",
-    rucs: "10 RUC · usuarios ilimitados",
-    incluye: ["Todo lo de Negocio", "API keys ilimitadas", "Soporte prioritario (8 h hábiles)"],
-    destacado: false,
-  },
-];
 
 /** Pagando al año se pagan diez meses. */
 const MESES_QUE_SE_PAGAN = 10;
@@ -66,7 +24,7 @@ function soles(n: number) {
   return `S/ ${n.toLocaleString("es-PE", { maximumFractionDigits: 0 })}`;
 }
 
-export function Planes({ abierto, contacto }: { abierto: boolean; contacto: string | null }) {
+export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[]; abierto: boolean; contacto: string | null }) {
   const [anual, setAnual] = useState(false);
   const destinoCta = abierto ? "/registro" : contacto;
 
@@ -110,7 +68,7 @@ export function Planes({ abierto, contacto }: { abierto: boolean; contacto: stri
       </div>
 
       <div className="mt-10 grid items-start gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {PLANES.map((p) => {
+        {planes.map((p) => {
           const alAno = p.mensual * MESES_QUE_SE_PAGAN;
           const porMes = anual && p.mensual > 0 ? Math.round((alAno / 12) * 100) / 100 : p.mensual;
           return (

@@ -24,7 +24,7 @@ const PLAN: PlanAdmin = {
   precio_mensual: 69,
   limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5 },
   estado: "ACTIVO",
-  por_defecto: false,
+  por_defecto: false, visible_en_publicidad: true,
   cuentas: 0,
 };
 

@@ -31,7 +31,7 @@ const PLAN: PlanAdmin = {
   precio_mensual: 69,
   limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5 },
   estado: "ACTIVO",
-  por_defecto: false,
+  por_defecto: false, visible_en_publicidad: true,
   cuentas: 4,
 };
 
@@ -111,9 +111,23 @@ describe("FormularioDePlan — nuevo", () => {
         nombre: "Estudio",
         precio_mensual: 49.9,
         limites: { documentos_al_mes: { maximo: 800, ilimitado: false }, rucs: 2, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 6 },
+        visible_en_publicidad: true,
       },
     });
     expect(screen.queryByTestId("plan-formulario")).toBeNull();
+  });
+
+  /** H20: un plan a medida para un cliente se crea fuera de la página de precios. */
+  it("desmarcar «Mostrarlo en la página de precios» crea el plan sin publicarlo", async () => {
+    apiRequest.mockResolvedValue(exito());
+    abrirNuevo();
+    llenar(VALIDOS);
+    expect((screen.getByTestId("plan-visible") as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.click(screen.getByTestId("plan-visible"));
+    fireEvent.click(screen.getByTestId("plan-guardar"));
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("/api/admin/planes", expect.objectContaining({ body: expect.objectContaining({ visible_en_publicidad: false }) })));
   });
 
   it("«Ilimitado» deshabilita el campo y manda el límite sin máximo", async () => {
@@ -252,6 +266,7 @@ describe("FormularioDePlan — editar", () => {
         nombre: "Negocio",
         precio_mensual: 69,
         limites: { documentos_al_mes: { maximo: 3000, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5 },
+        visible_en_publicidad: true,
       },
     });
   });

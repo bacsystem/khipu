@@ -21,6 +21,8 @@ export type ValoresDePlan = {
   apiKeys: string;
   apiKeysIlimitado: boolean;
   retencion: string;
+  /** H20: si sale en la página de precios; un plan a medida para un cliente va sin marcar. */
+  visibleEnPublicidad: boolean;
 };
 
 export type ErroresDePlan = Partial<Record<keyof ValoresDePlan, string>>;
@@ -36,6 +38,7 @@ export const VALORES_NUEVO_PLAN: ValoresDePlan = {
   apiKeys: "",
   apiKeysIlimitado: false,
   retencion: "",
+  visibleEnPublicidad: true,
 };
 
 function entero(texto: string): number | null {
@@ -81,6 +84,7 @@ export function validarPlan(v: ValoresDePlan): { errores: ErroresDePlan } | { cu
       nombre,
       precio_mensual: Number(precioTexto),
       limites: { documentos_al_mes: documentos, rucs, usuarios, api_keys: apiKeys, retencion_anios: retencion },
+      visible_en_publicidad: v.visibleEnPublicidad,
     },
   };
 }
@@ -99,5 +103,6 @@ export function valoresDePlan(plan: PlanAdmin): ValoresDePlan {
     apiKeys: l.api_keys.maximo?.toString() ?? "",
     apiKeysIlimitado: l.api_keys.ilimitado,
     retencion: String(l.retencion_anios),
+    visibleEnPublicidad: plan.visible_en_publicidad,
   };
 }

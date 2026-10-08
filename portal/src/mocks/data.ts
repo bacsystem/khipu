@@ -321,8 +321,8 @@ export function resetDb() {
     retencion_anios: retencion,
   });
   db.planesAdmin = [
-    { id: idPlanMock(1), nombre: "Gratis", precio_mensual: 0, limites: limites(30, 1, 1, 1, 1), estado: "ACTIVO", por_defecto: true, cuentas: 12 },
-    { id: idPlanMock(2), nombre: "Emprende", precio_mensual: 29, limites: limites(300, 1, 1, 2, 5), estado: "ACTIVO", por_defecto: false, cuentas: 3 },
+    { id: idPlanMock(1), nombre: "Gratis", precio_mensual: 0, limites: limites(30, 1, 1, 1, 1), estado: "ACTIVO", por_defecto: true, visible_en_publicidad: true, cuentas: 12 },
+    { id: idPlanMock(2), nombre: "Emprende", precio_mensual: 29, limites: limites(300, 1, 1, 2, 5), estado: "ACTIVO", por_defecto: false, visible_en_publicidad: true, cuentas: 3 },
     {
       id: idPlanMock(3),
       nombre: "Negocio",
@@ -330,10 +330,10 @@ export function resetDb() {
       limites: limites(1500, 3, 3, 5, 5),
       limites_programados: { limites: limites(2000, 3, 3, 5, 5), aplica_desde: inicioDelProximoCiclo(new Date()) },
       estado: "ACTIVO",
-      por_defecto: false,
+      por_defecto: false, visible_en_publicidad: true,
       cuentas: 0,
     },
-    { id: idPlanMock(4), nombre: "Pro", precio_mensual: 129, limites: limites(null, 10, null, null, 5), estado: "ACTIVO", por_defecto: false, cuentas: 0, historial: true },
+    { id: idPlanMock(4), nombre: "Pro", precio_mensual: 129, limites: limites(null, 10, null, null, 5), estado: "ACTIVO", por_defecto: false, visible_en_publicidad: true, cuentas: 0, historial: true },
   ];
 
   // Planes de algunas cuentas (#191), con las fechas relativas a hoy para que el estado de pago sea siempre el que dice cada una:

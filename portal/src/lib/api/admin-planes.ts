@@ -27,11 +27,13 @@ export type PlanAdmin = {
   limites_programados?: CambioProgramadoAdmin;
   estado: EstadoPlanAdmin;
   por_defecto: boolean;
+  /** H20: si sale en la página de precios. Un plan a medida está activo pero no se publica. */
+  visible_en_publicidad: boolean;
   cuentas: number;
 };
 
 /** Lo que se manda para crear o editar un plan. */
-export type CuerpoDePlan = { nombre: string; precio_mensual: number; limites: LimitesAdmin };
+export type CuerpoDePlan = { nombre: string; precio_mensual: number; limites: LimitesAdmin; visible_en_publicidad: boolean };
 
 /** «1,500» (el formato de miles del portal), o «Ilimitados»; un límite sin máximo ni marca (que el backend no debería mandar) se ve como un guion y no como «undefined». */
 export function limiteEnPalabras(l: LimiteAdmin): string {

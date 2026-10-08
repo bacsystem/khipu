@@ -4,10 +4,12 @@ import { ComoFunciona } from "@/components/landing/como-funciona";
 import { ComprobantePreview } from "@/components/landing/comprobante-preview";
 import { Faq } from "@/components/landing/faq";
 import { Planes } from "@/components/landing/planes";
+import { tarjetasDePlanes } from "@/components/landing/planes-datos";
 import { SiteHeader } from "@/components/landing/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { contactoUrl, registroAbierto } from "@/lib/acceso";
+import { obtenerPlanesPublicados } from "@/lib/api/planes-publicados";
 import { messages } from "@/lib/messages";
 
 const CONFIANZA = ["Firma XML-DSig (RSA-SHA256)", "UBL 2.1 sobre el estándar SUNAT", "Reintentos automáticos", "API REST documentada"];
@@ -72,7 +74,9 @@ const COMPROBANTES = [
 // (Railway las inyecta en runtime) y prerenderizar dejaría el flag congelado con lo que hubiera al construir la imagen.
 export const dynamic = "force-dynamic";
 
-export default function Home() {
+export default async function Home() {
+  // H20: los precios que publica el backoffice; si el backend no responde, la lista de respaldo.
+  const planes = tarjetasDePlanes(await obtenerPlanesPublicados());
   // Beta por invitación mientras el autoservicio (registro → onboarding → certificado → SOL) no esté certificado.
   // El texto que se muestra NO dice eso: al visitante se le cuenta cómo entra, no en qué anda nuestra certificación.
   const abierto = registroAbierto();
@@ -213,7 +217,7 @@ export default function Home() {
         </div>
       </section>
 
-      <Planes abierto={abierto} contacto={contacto} />
+      <Planes planes={planes} abierto={abierto} contacto={contacto} />
 
       <Faq />
 

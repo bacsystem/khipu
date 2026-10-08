@@ -16,7 +16,7 @@ const GRATIS: PlanAdmin = {
   precio_mensual: 0,
   limites: { ...LIMITES, documentos_al_mes: { maximo: 30, ilimitado: false }, api_keys: { maximo: 1, ilimitado: false }, retencion_anios: 1 },
   estado: "ACTIVO",
-  por_defecto: true,
+  por_defecto: true, visible_en_publicidad: true,
   cuentas: 12,
 };
 const NEGOCIO: PlanAdmin = {
@@ -25,7 +25,7 @@ const NEGOCIO: PlanAdmin = {
   precio_mensual: 69,
   limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5 },
   estado: "ACTIVO",
-  por_defecto: false,
+  por_defecto: false, visible_en_publicidad: true,
   cuentas: 4,
 };
 const PRO: PlanAdmin = {
@@ -34,7 +34,7 @@ const PRO: PlanAdmin = {
   precio_mensual: 129,
   limites: { documentos_al_mes: { ilimitado: true }, rucs: 10, usuarios: { ilimitado: true }, api_keys: { ilimitado: true }, retencion_anios: 5 },
   estado: "ACTIVO",
-  por_defecto: false,
+  por_defecto: false, visible_en_publicidad: true,
   cuentas: 0,
 };
 
@@ -87,6 +87,14 @@ describe("PlanesTabla", () => {
 
     expect(within(fila("n")).queryByText("Fuera de la oferta")).toBeNull();
     expect(fila("n").getAttribute("data-estado")).toBe("ACTIVO");
+  });
+
+  /** H20: un plan a medida se vende, pero no sale en la página de precios: la tabla lo dice para no confundirlo con uno publicado. */
+  it("un plan que no se publica lo dice, y uno publicado no lleva marca", () => {
+    render(<PlanesTabla planes={[{ ...NEGOCIO, visible_en_publicidad: false }, PRO]} />);
+
+    expect(within(fila("n")).getByText("No se publica")).toBeTruthy();
+    expect(within(fila("p")).queryByText("No se publica")).toBeNull();
   });
 
   /** Lo que ya se decidió pero todavía no manda: la tabla muestra lo vigente y, aparte, lo que viene y desde cuándo. */
