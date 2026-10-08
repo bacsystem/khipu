@@ -7,6 +7,7 @@ import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
+import { useSoloLectura } from "@/lib/solo-lectura";
 
 type Lenguaje = "curl" | "node" | "python";
 
@@ -91,13 +92,14 @@ print(datos["serie"], datos["numero"], datos["estado_documento"])  # F001 126 AC
 
 /** Ejemplo de emisión por API en varios lenguajes con la respuesta real del endpoint, como referencia en un modal. */
 export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: string; className?: string }) {
+  const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
   const [lenguaje, setLenguaje] = useState<Lenguaje>("curl");
   const codigo = snippet(lenguaje, baseUrl, "fk_TU_API_KEY");
 
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
-      <DialogTrigger
+      <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined}
         className={
           className ??
           "inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"

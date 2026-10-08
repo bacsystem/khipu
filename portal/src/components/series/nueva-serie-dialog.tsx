@@ -6,13 +6,15 @@ import { NuevaSerieForm } from "@/components/series/nueva-serie-form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
+import { useSoloLectura } from "@/lib/solo-lectura";
 
 export function NuevaSerieDialog({ className }: { className?: string }) {
+  const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
 
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
-      <DialogTrigger
+      <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined}
         className={
           className ??
           cn(ACCION_PRINCIPAL, "self-start md:self-auto")

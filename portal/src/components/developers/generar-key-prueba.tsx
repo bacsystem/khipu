@@ -5,8 +5,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api/browser";
 import { mensajeError } from "@/lib/messages";
+import { useSoloLectura } from "@/lib/solo-lectura";
 
 export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => void }) {
+  const soloLectura = useSoloLectura();
   const [generando, setGenerando] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [copiada, setCopiada] = useState(false);
@@ -53,7 +55,7 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
     <div className="grid gap-2 rounded-lg border border-border bg-card p-4">
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <p className="text-sm text-muted-foreground">Prueba los endpoints de abajo con una API key real de tu cuenta.</p>
-      <Button type="button" size="sm" className="w-fit" disabled={generando} onClick={generar}>
+      <Button type="button" size="sm" className="w-fit" disabled={generando || soloLectura !== null} title={soloLectura ?? undefined} onClick={generar}>
         {generando ? "Generando…" : "Generar API key de prueba"}
       </Button>
     </div>

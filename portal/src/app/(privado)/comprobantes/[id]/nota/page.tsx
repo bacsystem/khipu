@@ -1,3 +1,4 @@
+import { FormulariosDeEscritura } from "@/lib/solo-lectura";
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -42,7 +43,9 @@ export default async function NotaPage({ params }: { params: Promise<{ id: strin
           {factura.receptor?.razon_social} · {formatearMonto(factura.moneda, factura.totales.total)} · la nota toma el cliente y la moneda de la factura y se envía a SUNAT al emitirla.
         </p>
         <div className="mt-6">
-          <NotaForm factura={factura} series={series} />
+          <FormulariosDeEscritura>
+            <NotaForm factura={factura} series={series} />
+          </FormulariosDeEscritura>
         </div>
       </section>
     </div>
