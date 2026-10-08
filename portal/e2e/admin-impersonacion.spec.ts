@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { abrirPestana, entrarComoAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) abre la sesión de soporte con el token del cliente de demostración marcado como soporte, porque su mundo de clientes es otro:
@@ -13,6 +13,7 @@ const CARLA = USUARIO(9002); // desactivada
 async function abrirComoBeto(page: import("@playwright/test").Page) {
   await entrarComoAdmin(page);
   await page.goto(`/admin/cuentas/${ID_SOL}`);
+  await abrirPestana(page, "Usuarios");
   // Un clic antes de que React hidrate el botón se pierde: el diálogo no se abre.
   await esperarHidratacion(page, '[data-testid="impersonar-usuario"]');
   await page.locator("tbody tr", { hasText: "beto@sol.pe" }).getByTestId("impersonar-usuario").click();
@@ -22,6 +23,7 @@ async function abrirComoBeto(page: import("@playwright/test").Page) {
 test("el diálogo dice qué se puede y qué no antes de entrar como el usuario", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto(`/admin/cuentas/${ID_SOL}`);
+  await abrirPestana(page, "Usuarios");
 
   await page.locator("tbody tr", { hasText: "beto@sol.pe" }).getByTestId("impersonar-usuario").click();
 
@@ -86,7 +88,9 @@ test("salir del modo soporte vuelve a la cuenta en el backoffice, cierra la sesi
 test("un usuario desactivado no tiene el botón, y el backend se niega con su código si se pide igual", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto(`/admin/cuentas/${ID_SOL}`);
+  await abrirPestana(page, "Usuarios");
 
+  await expect(page.locator("tbody tr", { hasText: "carla@sol.pe" })).toBeVisible();
   await expect(page.locator("tbody tr", { hasText: "carla@sol.pe" }).getByTestId("impersonar-usuario")).toHaveCount(0);
   const res = await page.request.post(`/api/admin/cuentas/${ID_SOL}/usuarios/${CARLA}/impersonar`);
   expect(res.status()).toBe(409);

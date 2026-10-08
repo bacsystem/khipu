@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 
 const miga = (page: Page) => page.getByRole("navigation", { name: "Ubicación" });
 
@@ -14,7 +14,7 @@ test("el inicio del backoffice muestra su miga y ninguna acción de crear cuenta
 test("en Cuentas la miga dice «Clientes / Cuentas» y «Nueva cuenta» está en la cabecera", async ({ page }) => {
   await entrarComoAdmin(page);
 
-  await page.getByRole("link", { name: "Cuentas" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Cuentas" }).click();
 
   await expect(page).toHaveURL(/\/admin\/cuentas$/);
   await expect(miga(page)).toContainText("Clientes");
@@ -42,13 +42,13 @@ test.describe("en móvil", () => {
   /** Antes el sidebar solo existía desde `md` y en móvil el backoffice no tenía ninguna navegación. */
   test("el menú abre la navegación, lleva a Cuentas y se cierra solo", async ({ page }) => {
     await entrarComoAdmin(page);
-    await expect(page.getByRole("link", { name: "Cuentas" })).toBeHidden();
+    await expect(menuAdmin(page).getByRole("link", { name: "Cuentas" })).toBeHidden();
 
     await page.getByRole("button", { name: "Abrir menú" }).click();
-    await page.getByRole("link", { name: "Cuentas" }).click();
+    await menuAdmin(page).getByRole("link", { name: "Cuentas" }).click();
 
     await expect(page).toHaveURL(/\/admin\/cuentas$/);
     await expect(page.getByRole("heading", { name: "Cuentas" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Cuentas" })).toBeHidden();
+    await expect(menuAdmin(page).getByRole("link", { name: "Cuentas" })).toBeHidden();
   });
 });

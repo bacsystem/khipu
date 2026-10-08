@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { abrirPestana, entrarComoAdmin } from "./admin-sesion";
 
 // El mock (src/mocks/data.ts) siembra «Cliente 13» de baja, con una empresa, y nadie la muta: dar de baja o reponer una cuenta cambia lo que cuentan
 // las demás specs que corren a la vez (12 cuentas, 12 empresas), así que estas specs no mutan. El ciclo completo, con la bitácora, lo prueba el
@@ -107,7 +107,7 @@ test("la empresa de una cuenta de baja se abre igual", async ({ page }) => {
 
 // --- detalle de la cuenta -------------------------------------------------------------------------------------------------------------
 
-test("el detalle de una cuenta de baja se abre, dice desde cuándo y solo ofrece reponerla", async ({ page }) => {
+test("el detalle de una cuenta de baja se abre, dice desde cuándo y ofrece reponerla o suspenderla", async ({ page }) => {
   await page.goto(`/admin/cuentas/${DE_BAJA}`);
 
   const detalle = page.getByTestId("cuenta-detalle");
@@ -115,10 +115,11 @@ test("el detalle de una cuenta de baja se abre, dice desde cuándo y solo ofrece
   await expect(detalle.getByTestId("baja-desde")).toContainText("De baja desde");
   await expect(detalle.getByTestId("reponer-cuenta")).toBeVisible();
   await expect(detalle.getByTestId("dar-de-baja-cuenta")).toHaveCount(0);
-  // Suspenderla no tiene sentido mientras el cliente no está en servicio.
-  await expect(detalle.getByTestId("suspender-cuenta")).toHaveCount(0);
+  // H16: la baja no corta el acceso; suspenderla es lo que corta el servicio, así que se sigue ofreciendo.
+  await expect(detalle.getByTestId("suspender-cuenta")).toBeVisible();
   await expect(detalle.getByTestId("reactivar-cuenta")).toHaveCount(0);
   // Se conserva todo: sus empresas siguen ahí.
+  await abrirPestana(page, "Empresas");
   await expect(detalle.getByRole("region", { name: "Empresas" }).getByText("CLIENTE 13 SAC")).toBeVisible();
 });
 

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) arma el monitor con un patrón fijo por hora y deja la cola de envíos en «3 + lecturas» pendientes: crece una por cada lectura, así que una
@@ -36,7 +36,7 @@ async function conCola(page: Page, cola: Record<string, unknown>) {
 // --- la pantalla ----------------------------------------------------------------------------------------------------------------------------
 
 test("el menú lleva a Monitor y la miga dice «Operación / Monitor»", async ({ page }) => {
-  await page.getByRole("link", { name: "Monitor" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Monitor" }).click();
 
   await expect(page).toHaveURL(/\/admin\/monitor$/);
   const miga = page.getByRole("navigation", { name: "Ubicación" });

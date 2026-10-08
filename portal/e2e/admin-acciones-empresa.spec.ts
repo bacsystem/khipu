@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { abrirPestana, entrarComoAdmin } from "./admin-sesion";
 
 // El mock (src/mocks/handlers.ts) responde a las acciones de #187 sin guardar nada: cambiar el entorno o revocar una key altera lo que cuentan las demás
 // specs que corren a la vez (los filtros por entorno, las keys del detalle). Por eso aquí se prueba todo lo que no muta: la prueba de conexión (que es de solo
@@ -114,6 +114,7 @@ test("cancelar el diálogo no envía nada", async ({ page }) => {
 
 test("el diálogo de revocar dice cuál key, que deja de autenticar y que no se deshace", async ({ page }) => {
   await page.goto(`/admin/empresas/${SOL}`);
+  await abrirPestana(page, "API keys");
 
   await page.getByTestId(`revocar-api-key-${key(2)}`).click();
 
@@ -125,6 +126,7 @@ test("el diálogo de revocar dice cuál key, que deja de autenticar y que no se 
 
 test("una key ya revocada no ofrece revocar", async ({ page }) => {
   await page.goto(`/admin/empresas/${SOL}`);
+  await abrirPestana(page, "API keys");
 
   await expect(page.getByTestId(`revocar-api-key-${key(2)}`)).toBeVisible();
   await expect(page.getByTestId(`revocar-api-key-${key(1)}`)).toHaveCount(0);

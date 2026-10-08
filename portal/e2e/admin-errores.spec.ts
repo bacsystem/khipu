@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) siembra la cola de errores. Las specs de la corrida comparten esa memoria en paralelo, así que cada spec que actúa (reintentar, descartar)
@@ -34,7 +34,7 @@ const esperarFilas = (page: Page, esperadas: string[]) => expect.poll(() => comp
 // --- la pantalla ----------------------------------------------------------------------------------------------------------------------------
 
 test("el menú lleva a Errores y la miga dice «Operación / Errores»", async ({ page }) => {
-  await page.getByRole("link", { name: "Errores" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Errores" }).click();
 
   await expect(page).toHaveURL(/\/admin\/errores$/);
   const miga = page.getByRole("navigation", { name: "Ubicación" });

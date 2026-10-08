@@ -138,6 +138,7 @@
       }
     },
     "nav": {
+      "menu": "Menú del backoffice",
       "inicio": "Inicio",
       "cuentas": "Cuentas",
       "empresas": "Empresas",

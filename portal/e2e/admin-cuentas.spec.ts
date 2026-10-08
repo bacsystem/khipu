@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/data.ts) siembra 12 cuentas: 10 en la primera página y, las dos más antiguas, Luna y Ana, en la segunda.
@@ -27,7 +27,7 @@ test("una sesión de cliente no abre /admin/cuentas", async ({ page }) => {
 test("el administrador llega a Cuentas desde el menú y ve la primera página con su total", async ({ page }) => {
   await entrarComoAdmin(page);
 
-  await page.getByRole("link", { name: "Cuentas" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Cuentas" }).click();
 
   await expect(page).toHaveURL(/\/admin\/cuentas$/);
   await expect(page.getByRole("heading", { name: "Cuentas" })).toBeVisible();

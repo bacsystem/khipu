@@ -39,7 +39,7 @@ export function AdminSidebarNav() {
   const activo = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav className="grid w-full grid-cols-1 gap-3 px-2 pt-2">
+    <nav aria-label={messages.admin.nav.menu} className="grid w-full grid-cols-1 gap-3 px-2 pt-2">
       <ItemDelMenu href="/admin" etiqueta={messages.admin.nav.inicio} icono={HomeIcon} activo={pathname === "/admin"} />
       {SECCIONES_ADMIN.map((seccion) => (
         <div key={seccion.titulo} role="group" aria-label={seccion.titulo} className="grid w-full grid-cols-1 gap-0.5">

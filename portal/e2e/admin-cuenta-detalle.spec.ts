@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { abrirPestana, entrarComoAdmin } from "./admin-sesion";
 
 // El mock (src/mocks/data.ts) siembra «Panadería Sol» con un detalle completo: dos usuarios (uno sin verificar), una empresa con
 // certificado por vencer en 10 días, un comprobante y una acción de la bitácora.
@@ -26,6 +26,8 @@ test("el detalle muestra usuarios, empresas con su certificado, comprobantes y b
   await page.goto(`/admin/cuentas/${ID_SOL}`);
   const detalle = page.getByTestId("cuenta-detalle");
 
+  // H19: cada bloque vive en su pestaña y solo se monta la activa.
+  await abrirPestana(page, "Usuarios");
   const usuarios = detalle.getByRole("region", { name: "Usuarios" });
   await expect(usuarios.locator("tbody tr")).toHaveCount(4);
   await expect(usuarios.getByText("Verificado")).toHaveCount(1);
@@ -35,14 +37,17 @@ test("el detalle muestra usuarios, empresas con su certificado, comprobantes y b
   await expect(usuarios.locator("tbody tr", { hasText: "ana@sol.pe" }).getByRole("cell", { name: "ADMIN", exact: true })).toBeVisible();
   await expect(usuarios.locator("tbody tr", { hasText: "beto@sol.pe" }).getByRole("cell", { name: "EMISOR", exact: true })).toBeVisible();
 
+  await abrirPestana(page, "Empresas");
   const empresas = detalle.getByRole("region", { name: "Empresas" });
   await expect(empresas.getByText("PANADERIA SOL SAC")).toBeVisible();
   await expect(empresas.getByText(/Vence el .* \(10 días\)/)).toBeVisible();
   await expect(empresas.getByText("Cargadas")).toBeVisible();
 
+  await abrirPestana(page, "Comprobantes");
   const comprobantes = detalle.getByRole("region", { name: "Comprobantes recientes" });
   await expect(comprobantes.getByText("F001-00000007")).toBeVisible();
 
+  await abrirPestana(page, "Bitácora");
   const eventos = detalle.getByRole("region", { name: "Acciones del administrador" });
   await expect(eventos.locator("tbody tr")).toHaveCount(4);
   await expect(eventos.getByText("Alta de la cuenta")).toBeVisible();
@@ -51,7 +56,8 @@ test("el detalle muestra usuarios, empresas con su certificado, comprobantes y b
   await expect(eventos.getByText("SUSPENDER_CUENTA")).toHaveCount(0);
   // Quién actuó: la clave de plataforma no se presenta como un administrador.
   await expect(eventos.locator("tbody tr", { hasText: "Alta de una empresa" }).getByText("Clave de plataforma")).toBeVisible();
-  await expect(eventos.locator("tbody tr", { hasText: "Alta de la cuenta" }).getByText("Administrador")).toBeVisible();
+  // H11: se dice qué administrador fue, no solo que fue uno.
+  await expect(eventos.locator("tbody tr", { hasText: "Alta de la cuenta" }).getByText("admin@khipu.pe")).toBeVisible();
   // Una acción que el portal todavía no conoce se muestra con su código, no se esconde.
   await expect(eventos.getByText("ACCION_FUTURA")).toBeVisible();
 });
@@ -67,6 +73,7 @@ test("las únicas acciones son suspender o dar de baja la cuenta y los correos d
   const detalle = page.getByTestId("cuenta-detalle");
   await expect(detalle).toBeVisible();
   await expect(detalle.getByTestId("suspender-cuenta")).toBeVisible();
+  await abrirPestana(page, "Usuarios");
   await expect(detalle.getByTestId("restablecer-usuario")).toHaveCount(3);
   await expect(detalle.getByTestId("verificar-usuario")).toHaveCount(2);
   // Entrar como el usuario (#184): a cualquiera que esté activo; carla, desactivada, no tiene ninguno.
@@ -82,8 +89,11 @@ test("una cuenta sin empresas ni movimientos muestra los estados vacíos", async
   await entrarComoAdmin(page);
   await page.goto(`/admin/cuentas/${ID_NUEVA}`);
 
+  await abrirPestana(page, "Empresas");
   await expect(page.getByText("Esta cuenta todavía no tiene empresas.")).toBeVisible();
+  await abrirPestana(page, "Comprobantes");
   await expect(page.getByText("Todavía no emitió comprobantes.")).toBeVisible();
+  await abrirPestana(page, "Bitácora");
   await expect(page.getByText("Ningún administrador actuó sobre esta cuenta.")).toBeVisible();
 });
 

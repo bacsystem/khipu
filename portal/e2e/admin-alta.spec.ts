@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 import { clicFuera } from "./clic-fuera";
 import { esperarHidratacion } from "./hidratacion";
 
@@ -69,7 +69,7 @@ test("la ruta vieja del alta lleva a Cuentas, donde está el botón que abre el 
 
 test("desde Cuentas, «Nueva cuenta» abre el alta en un modal de tres pasos, sin salir de la página", async ({ page }) => {
   await entrarComoAdmin(page);
-  await page.getByRole("link", { name: "Cuentas" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Cuentas" }).click();
 
   await abrirAlta(page);
 
@@ -187,9 +187,7 @@ test("un correo ya registrado muestra el mensaje del backend y no crea nada", as
 
   await expect(page.getByText("Ya existe una cuenta con ese correo")).toBeVisible();
   await expect(page.getByTestId("api-key-nueva")).toHaveCount(0);
-  // El formulario conserva lo escrito para corregirlo: volviendo al primer paso está el correo.
-  await page.getByRole("button", { name: "Atrás" }).click();
-  await page.getByRole("button", { name: "Atrás" }).click();
+  // H3: el formulario vuelve solo al paso del correo, con lo escrito, para corregirlo ahí mismo.
   await expect(dialogo(page).getByLabel("Correo del cliente", { exact: true })).toHaveValue("ana@sol.pe");
 });
 

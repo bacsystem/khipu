@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { abrirPestana, entrarComoAdmin } from "./admin-sesion";
 
 // El mock (src/mocks/data.ts) siembra «Panadería Sol» con un detalle completo: domicilio, tres series (una inactiva), un establecimiento, dos API
 // keys (una revocada), PDF con logo, tres comprobantes (aceptado con observaciones, rechazado y sin respuesta de SUNAT), sus cambios de estado y 12
@@ -45,6 +45,8 @@ test("las series, los establecimientos y las API keys, sin ningún secreto", asy
   await page.goto(`/admin/empresas/${ID_SOL}`);
   const detalle = page.getByTestId("empresa-detalle");
 
+  // H19: series, establecimientos y PDF van en «Emisión»; las keys, en su pestaña.
+  await abrirPestana(page, "Emisión");
   const series = detalle.getByRole("region", { name: "Series" });
   await expect(series.locator("tbody tr")).toHaveCount(3);
   await expect(series.locator("tbody tr", { hasText: "F002" })).toContainText("Inactiva");
@@ -54,6 +56,7 @@ test("las series, los establecimientos y las API keys, sin ningún secreto", asy
   await expect(establecimientos).toContainText("Tienda Surco");
   await expect(establecimientos).toContainText("SANTIAGO DE SURCO");
 
+  await abrirPestana(page, "API keys");
   const keys = detalle.getByRole("region", { name: "API keys" });
   await expect(keys.locator("tbody tr")).toHaveCount(2);
   await expect(keys.locator("tbody tr", { hasText: "fk_sol0002" })).toContainText("Vigente");
@@ -64,10 +67,12 @@ test("las series, los establecimientos y las API keys, sin ningún secreto", asy
 test("la personalización del PDF dice si hay logo sin mostrar dónde está", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto(`/admin/empresas/${ID_SOL}`);
+  await abrirPestana(page, "Emisión");
 
   const pdf = page.getByTestId("empresa-detalle").getByRole("region", { name: "Personalización del PDF" });
 
-  await expect(pdf).toContainText("MODERNO");
+  // El nombre de la plantilla se lee («Moderno»), no su código.
+  await expect(pdf).toContainText("Moderno");
   await expect(pdf).toContainText("#0F766E");
   await expect(pdf.getByText("Cargado")).toBeVisible();
   await expect(pdf).toContainText("Gracias por su compra");
@@ -76,6 +81,7 @@ test("la personalización del PDF dice si hay logo sin mostrar dónde está", as
 test("los comprobantes recientes traen su estado y el detalle del CDR de SUNAT", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto(`/admin/empresas/${ID_SOL}`);
+  await abrirPestana(page, "Comprobantes");
 
   const comprobantes = page.getByTestId("empresa-detalle").getByRole("region", { name: "Comprobantes recientes" });
 
@@ -100,12 +106,14 @@ test("los cambios de estado y el outbox pendiente", async ({ page }) => {
   await page.goto(`/admin/empresas/${ID_SOL}`);
   const detalle = page.getByTestId("empresa-detalle");
 
+  await abrirPestana(page, "Comprobantes");
   const eventos = detalle.getByRole("region", { name: "Cambios de estado" });
   await expect(eventos.locator("tbody tr")).toHaveCount(3);
   await expect(eventos.locator("tbody tr", { hasText: "CDR recibido con observaciones" })).toContainText("Enviado → Aceptado con obs.");
   // El primer cambio de un comprobante no tiene estado anterior: se dice «Inicio», no un hueco.
   await expect(eventos.locator("tbody tr", { hasText: "SUNAT rechazó el comprobante" })).toContainText("Inicio → Rechazado");
 
+  await abrirPestana(page, "Envíos pendientes");
   const outbox = detalle.getByRole("region", { name: "Outbox pendiente" });
   await expect(outbox.locator("tbody tr")).toHaveCount(2);
   await expect(outbox.getByTestId("outbox-total")).toHaveText("12 tareas pendientes");
@@ -119,11 +127,14 @@ test("las únicas acciones sobre la empresa son cambiar el entorno, revocar una 
 
   const detalle = page.getByTestId("empresa-detalle");
   await expect(detalle).toBeVisible();
-  await expect(detalle.getByRole("button")).toHaveCount(3);
+  // En «Datos y conexión»: cambiar el entorno (arriba, fuera de las pestañas) y probar la conexión.
+  await expect(detalle.getByRole("button")).toHaveCount(2);
   await expect(detalle.getByTestId("cambiar-entorno")).toBeVisible();
   await expect(detalle.getByTestId("probar-conexion")).toBeVisible();
   // De las dos keys de «Panadería Sol», solo la vigente se puede revocar.
+  await abrirPestana(page, "API keys");
   await expect(detalle.locator("[data-testid^='revocar-api-key-']")).toHaveCount(1);
+  await expect(detalle.getByRole("button")).toHaveCount(2);
 });
 
 test("la cuenta de la empresa lleva a su detalle", async ({ page }) => {
@@ -146,12 +157,16 @@ test("una empresa de integración, sin nada cargado, lo dice en cada sección en
   const conexion = detalle.getByRole("region", { name: "Certificado y credenciales SOL" });
   await expect(conexion.getByText("Sin cargar")).toHaveCount(2);
   await expect(conexion.locator('[data-estado="ninguno"]')).toHaveCount(1);
+  await abrirPestana(page, "Emisión");
   await expect(detalle.getByText("Esta empresa no tiene series.")).toBeVisible();
   await expect(detalle.getByText("No tiene establecimientos anexos.")).toBeVisible();
-  await expect(detalle.getByText("Esta empresa no tiene API keys.")).toBeVisible();
   await expect(detalle.getByText("Sin logo")).toBeVisible();
+  await abrirPestana(page, "API keys");
+  await expect(detalle.getByText("Esta empresa no tiene API keys.")).toBeVisible();
+  await abrirPestana(page, "Comprobantes");
   await expect(detalle.getByText("Todavía no emitió comprobantes.")).toBeVisible();
   await expect(detalle.getByText("Los comprobantes recientes no tienen cambios de estado.")).toBeVisible();
+  await abrirPestana(page, "Envíos pendientes");
   await expect(detalle.getByText("No tiene tareas pendientes.")).toBeVisible();
 });
 
