@@ -12,7 +12,9 @@ import pe.factura.domain.tenant.Entorno;
 public record AltaAsistidaRequest(
         @NotBlank @Size(max = 150) @Schema(example = "Comercial Andina") String nombre,
         @NotBlank @Size(max = 254) @Schema(example = "ana@andina.pe", description = "Correo del primer usuario de la cuenta; recibe la invitación") String email,
-        @Schema(example = "987654321", description = "Celular de contacto (9 dígitos, empieza con 9); opcional") String telefono,
+        // Obligatorio, como en el registro: es el contacto con el cliente si la invitación no le llega. El formato lo valida y normaliza
+        // el dominio (Cuenta.normalizarTelefono, 422 TELEFONO_INVALIDO), igual que en RegistroRequest, para no duplicar la regla.
+        @NotBlank @Schema(example = "987654321", description = "Celular de contacto en Perú (9 dígitos, empieza con 9); admite +51/51, espacios y guiones") String telefono,
         @NotNull @Valid Empresa empresa,
         @NotNull @Valid Serie serie) {
 
