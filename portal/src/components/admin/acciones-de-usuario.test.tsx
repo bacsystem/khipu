@@ -84,6 +84,18 @@ describe("AccionesDeUsuario (#183)", () => {
     expect(screen.queryByTestId("acceso-confirmar")).toBeNull();
   });
 
+  it("el mensaje de enviado usa el color de texto de éxito, que se lee también en modo oscuro (H8)", async () => {
+    apiRequest.mockResolvedValue(exito({ usuario_id: USUARIO, correo: "beto@sol.pe" }));
+    abrir("restablecer");
+
+    fireEvent.click(screen.getByTestId("acceso-confirmar"));
+
+    // `text-success` es el token de FONDO verde: en modo oscuro es casi negro y el mensaje no se veía.
+    const clases = (await screen.findByTestId("acceso-hecho")).className.split(/\s+/);
+    expect(clases).toContain("text-success-foreground");
+    expect(clases).not.toContain("text-success");
+  });
+
   /** Dos clics seguidos mandarían dos correos con dos enlaces distintos: el segundo no debe salir. */
   it("un doble clic en confirmar manda un solo correo", async () => {
     let resolver: (v: ApiEnvelope<unknown>) => void = () => {};

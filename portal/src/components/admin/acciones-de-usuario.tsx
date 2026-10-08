@@ -91,7 +91,7 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
 
         <div className="grid gap-4 px-5 py-4">
           {enviadoA ? (
-            <p ref={alertaRef} tabIndex={-1} className="text-sm text-success outline-none" role="status" data-testid="acceso-hecho">
+            <p ref={alertaRef} tabIndex={-1} className="text-sm text-success-foreground outline-none" role="status" data-testid="acceso-hecho">
               {textos.hecho.replace("{correo}", enviadoA)}
             </p>
           ) : (
