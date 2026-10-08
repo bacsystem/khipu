@@ -14,8 +14,12 @@ import java.util.UUID;
  * <p>{@code limites} son los que mandan en el ciclo en curso. Cambiarlos ({@link #editar}) no los toca: queda un {@code programado} que entra al inicio del ciclo
  * siguiente, así que subir un tope a mitad de mes no regala documentos del ciclo corriente ni bajarlo le corta a nadie. {@link #vigenteEn} aplica el cambio
  * cuando llega su fecha; quien lea los límites para hacerlos valer debe pasar por ahí.
+ *
+ * <p>{@code visibleEnPublicidad} (H20): si sale en la página de precios. Es aparte de {@code estado}: un plan a medida para un cliente está activo (se asigna y se
+ * cobra) pero no se publica; uno inactivo no se asigna a nadie más, se publique o no.
  */
-public record Plan(UUID id, String nombre, BigDecimal precioMensual, Limites limites, EstadoPlan estado, boolean porDefecto, CambioDeLimites programado) {
+public record Plan(UUID id, String nombre, BigDecimal precioMensual, Limites limites, EstadoPlan estado, boolean porDefecto, CambioDeLimites programado,
+                   boolean visibleEnPublicidad) {
     private static final int NOMBRE_MAX = 40;
     /** El mayor que cabe en {@code plan.precio_mensual NUMERIC(10,2)}. */
     public static final BigDecimal PRECIO_MAX = new BigDecimal("99999999.99");
@@ -35,9 +39,19 @@ public record Plan(UUID id, String nombre, BigDecimal precioMensual, Limites lim
         if (porDefecto && estado != EstadoPlan.ACTIVO) throw new DomainException("PLAN_POR_DEFECTO", "El plan por defecto de las cuentas nuevas no puede estar inactivo");
     }
 
+    /** Un plan que se publica (lo de siempre, H20). */
+    public Plan(UUID id, String nombre, BigDecimal precioMensual, Limites limites, EstadoPlan estado, boolean porDefecto, CambioDeLimites programado) {
+        this(id, nombre, precioMensual, limites, estado, porDefecto, programado, true);
+    }
+
     /** Un plan sin cambio de límites programado. */
     public Plan(UUID id, String nombre, BigDecimal precioMensual, Limites limites, EstadoPlan estado, boolean porDefecto) {
         this(id, nombre, precioMensual, limites, estado, porDefecto, null);
+    }
+
+    /** El mismo plan, publicado o no en la página de precios (H20). No cambia nada más: ni si se vende ni a quién lo tiene. */
+    public Plan conVisibilidadEnPublicidad(boolean visible) {
+        return new Plan(id, nombre, precioMensual, limites, estado, porDefecto, programado, visible);
     }
 
     public boolean activo() { return estado == EstadoPlan.ACTIVO; }
@@ -46,18 +60,18 @@ public record Plan(UUID id, String nombre, BigDecimal precioMensual, Limites lim
     public Plan desactivar() {
         if (porDefecto) throw new DomainException("PLAN_POR_DEFECTO", "El plan por defecto de las cuentas nuevas no se puede desactivar");
         if (!activo()) throw new DomainException("PLAN_YA_INACTIVO", "El plan ya está inactivo");
-        return new Plan(id, nombre, precioMensual, limites, EstadoPlan.INACTIVO, false, programado);
+        return new Plan(id, nombre, precioMensual, limites, EstadoPlan.INACTIVO, false, programado, visibleEnPublicidad);
     }
 
     public Plan activar() {
         if (activo()) throw new DomainException("PLAN_YA_ACTIVO", "El plan ya está activo");
-        return new Plan(id, nombre, precioMensual, limites, EstadoPlan.ACTIVO, porDefecto, programado);
+        return new Plan(id, nombre, precioMensual, limites, EstadoPlan.ACTIVO, porDefecto, programado, visibleEnPublicidad);
     }
 
     /** El plan tal como manda en {@code ahora}: si su cambio de límites programado ya llegó, los límites nuevos pasan a vigentes. */
     public Plan vigenteEn(Instant ahora) {
         if (programado == null || ahora.isBefore(programado.aplicaDesde())) return this;
-        return new Plan(id, nombre, precioMensual, programado.limites(), estado, porDefecto, null);
+        return new Plan(id, nombre, precioMensual, programado.limites(), estado, porDefecto, null, visibleEnPublicidad);
     }
 
     /**
@@ -68,6 +82,6 @@ public record Plan(UUID id, String nombre, BigDecimal precioMensual, Limites lim
         Plan vigente = vigenteEn(ahora);
         if (nuevosLimites == null) throw new DomainException("LIMITE_INVALIDO", "Faltan límites del plan");
         CambioDeLimites cambio = nuevosLimites.equals(vigente.limites) ? null : new CambioDeLimites(nuevosLimites, CicloMensual.inicioDelSiguiente(ahora));
-        return new Plan(id, nuevoNombre, nuevoPrecio, vigente.limites, estado, porDefecto, cambio);
+        return new Plan(id, nuevoNombre, nuevoPrecio, vigente.limites, estado, porDefecto, cambio, visibleEnPublicidad);
     }
 }

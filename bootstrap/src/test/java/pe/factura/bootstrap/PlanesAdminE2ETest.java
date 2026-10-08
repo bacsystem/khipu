@@ -441,4 +441,31 @@ class PlanesAdminE2ETest {
         assertThat(plan("Emprende")).containsEntry("estado", "ACTIVO");
         assertThat(contar("auditoria_admin")).isZero();
     }
+
+    // --- H20: la página de precios -----------------------------------------------------------------------------------------------------
+
+    /** Sin credenciales, como la lee la portada: un plan a medida (activo pero fuera de la publicidad) no sale; los sembrados sí, del más barato al más caro. */
+    @Test void losPlanesPublicadosSeLeenSinCredencialesYNoTraenLosAMedida() {
+        String aMedida = idDe(crear(cuerpo("A medida Torres", "80", 900).replace("}}", "},\"visible_en_publicidad\":false}")));
+        assertThat(listar()).filteredOn(p -> aMedida.equals(p.get("id"))).singleElement().satisfies(p -> {
+            assertThat(p).containsEntry("visible_en_publicidad", false).containsEntry("estado", "ACTIVO");
+        });
+
+        ResponseEntity<Map> r = http.getForEntity("/v1/planes", Map.class);
+
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        List<Map<String, Object>> publicados = (List<Map<String, Object>>) r.getBody().get("datos");
+        assertThat(publicados).extracting(p -> p.get("nombre")).contains("Gratis").doesNotContain("A medida Torres");
+        assertThat(publicados).allSatisfy(p -> assertThat(p).doesNotContainKeys("id", "cuentas"));
+    }
+
+    @Test void volverAPublicarUnPlanAMedidaLoPoneEnLaPaginaDePreciosYQuedaEnLaBitacora() {
+        String id = idDe(crear(cuerpo("A medida Torres", "80", 900).replace("}}", "},\"visible_en_publicidad\":false}")));
+
+        editar(id, cuerpo("A medida Torres", "80", 900).replace("}}", "},\"visible_en_publicidad\":true}"));
+
+        List<Map<String, Object>> publicados = (List<Map<String, Object>>) http.getForEntity("/v1/planes", Map.class).getBody().get("datos");
+        assertThat(publicados).extracting(p -> p.get("nombre")).contains("A medida Torres");
+        assertThat(jdbc.queryForObject("SELECT detalle FROM auditoria_admin WHERE accion = 'EDITAR_PLAN'", String.class)).isEqualTo("plan=A medida Torres; publicidad=no>si");
+    }
 }

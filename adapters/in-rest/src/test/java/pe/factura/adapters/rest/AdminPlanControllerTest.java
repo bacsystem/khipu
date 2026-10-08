@@ -104,6 +104,21 @@ class AdminPlanControllerTest {
         verify(planes).crear(actor, new DatosDePlan("Estudio", new BigDecimal("49.90"), LIMITES));
     }
 
+    /** H20: un plan a medida se pide fuera de la publicidad, y la respuesta dice si se publica. */
+    @Test void laVisibilidadEnPublicidadViajaEnElCuerpoYEnLaRespuesta() throws Exception {
+        UUID admin = UUID.randomUUID();
+        var actor = ActorAdmin.administrador(admin, "203.0.113.7");
+        Plan aMedida = new Plan(ID, "Estudio", new BigDecimal("49.90"), LIMITES, EstadoPlan.ACTIVO, false).conVisibilidadEnPublicidad(false);
+        when(planes.crear(eq(actor), any())).thenReturn(new PlanConUso(aMedida, 0));
+
+        mvc.perform(post("/v1/admin/planes").contentType("application/json").content(CUERPO.replace("}}", "},\"visible_en_publicidad\":false}"))
+                        .requestAttr(AdministradorActual.ATRIBUTO, admin).with(r -> { r.setRemoteAddr("203.0.113.7"); return r; }))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.visible_en_publicidad").value(false));
+
+        verify(planes).crear(actor, new DatosDePlan("Estudio", new BigDecimal("49.90"), LIMITES, false));
+    }
+
     @Test void unLimiteOmitidoNoSeVuelveIlimitadoEnSilencio() throws Exception {
         String sinDocumentos = CUERPO.replace("\"documentos_al_mes\":{\"maximo\":300},", "");
 

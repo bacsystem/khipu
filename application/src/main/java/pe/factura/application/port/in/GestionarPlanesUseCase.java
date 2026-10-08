@@ -17,8 +17,12 @@ public interface GestionarPlanesUseCase {
     /** Un plan tal como manda hoy, con cuántas cuentas lo tienen vigente. {@code plan.programado()} es el cambio de límites que espera al ciclo siguiente. */
     record PlanConUso(Plan plan, long cuentas) {}
 
-    /** Lo que se pide para crear o editar un plan. */
-    record DatosDePlan(String nombre, BigDecimal precioMensual, Limites limites) {}
+    /**
+     * Lo que se pide para crear o editar un plan. {@code visibleEnPublicidad} (H20): si sale en la página de precios; nulo es «como estaba» al editar y «sí» al crear.
+     */
+    record DatosDePlan(String nombre, BigDecimal precioMensual, Limites limites, Boolean visibleEnPublicidad) {
+        public DatosDePlan(String nombre, BigDecimal precioMensual, Limites limites) { this(nombre, precioMensual, limites, null); }
+    }
 
     /** Todos los planes, activos o no, del más barato al más caro. */
     List<PlanConUso> listar();

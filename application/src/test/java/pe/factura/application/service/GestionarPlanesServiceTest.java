@@ -434,4 +434,48 @@ class GestionarPlanesServiceTest {
 
         assertThat(planes.llamadas).containsExactly("buscarParaEditar");
     }
+
+    // --- H20: visible en publicidad -----------------------------------------------------------------------------------------------------
+
+    static DatosDePlan datos(String nombre, String precio, Limites limites, Boolean visible) {
+        return new DatosDePlan(nombre, new BigDecimal(precio), limites, visible);
+    }
+
+    @Test void sinDecirloUnPlanNuevoSePublica() {
+        assertThat(service.crear(ACTOR, datos("Estudio", "49.90", LIMITES)).plan().visibleEnPublicidad()).isTrue();
+    }
+
+    @Test void unPlanAMedidaSeCreaFueraDeLaPublicidadYLaBitacoraLoDice() {
+        PlanConUso creado = service.crear(ACTOR, datos("A medida Torres", "80", LIMITES, false));
+
+        assertThat(creado.plan().visibleEnPublicidad()).isFalse();
+        assertThat(creado.plan().activo()).as("se vende igual: se asigna desde el backoffice").isTrue();
+        assertThat(unicoRegistro().detalle()).endsWith(" publicidad=no");
+    }
+
+    @Test void editarLaVisibilidadQuedaEnLaBitacoraYSinDecirlaNoCambia() {
+        service.editar(ACTOR, emprende.id(), datos("Emprende", "29", LIMITES, false));
+
+        assertThat(planes.datos.get(emprende.id()).visibleEnPublicidad()).isFalse();
+        assertThat(unicoRegistro().detalle()).isEqualTo("plan=Emprende; publicidad=si>no");
+
+        auditoria.registros.clear();
+        service.editar(ACTOR, emprende.id(), datos("Emprende", "35", LIMITES));
+        assertThat(planes.datos.get(emprende.id()).visibleEnPublicidad()).as("sin decir nada, se queda como estaba").isFalse();
+    }
+
+    @Test void losPlanesPublicadosSonLosActivosYVisiblesConSusLimitesDeHoy() {
+        Plan aMedida = guardado("A medida", "80", false).conVisibilidadEnPublicidad(false);
+        planes.datos.put(aMedida.id(), aMedida);
+        Plan retirado = guardado("Viejo", "15", false).desactivar();
+        planes.datos.put(retirado.id(), retirado);
+        Limites mas = new Limites(Limite.de(900), 1, Limite.de(1), Limite.de(2), 5);
+        planes.datos.put(emprende.id(), new Plan(emprende.id(), "Emprende", emprende.precioMensual(), LIMITES, EstadoPlan.ACTIVO, false,
+                new CambioDeLimites(mas, Fakes.CLOCK.instant().minusSeconds(1))));
+
+        List<Plan> publicados = new ConsultarPlanesPublicadosService(planes, Fakes.CLOCK).publicados();
+
+        assertThat(publicados).extracting(Plan::nombre).containsExactly("Gratis", "Emprende");
+        assertThat(publicados.get(1).limites()).as("el cambio que ya entró manda").isEqualTo(mas);
+    }
 }

@@ -238,4 +238,33 @@ class PlanTest {
         assertThat(codigo(() -> new CambioDeLimites(null, PROXIMO_CICLO))).isEqualTo("LIMITE_INVALIDO");
         assertThat(codigo(() -> new CambioDeLimites(LIMITES, null))).isEqualTo("CAMBIO_INVALIDO");
     }
+
+    // --- H20: visible en publicidad -----------------------------------------------------------------------------------------------------
+
+    /** Lo de siempre se publica: un plan que no dice otra cosa sale en la página de precios. */
+    @Test void unPlanNaceVisibleEnLaPublicidad() {
+        assertThat(plan().visibleEnPublicidad()).isTrue();
+    }
+
+    /** Un plan a medida para un cliente se vende igual (está activo y se asigna) pero no se publica. */
+    @Test void unPlanSePuedeSacarDeLaPublicidadSinSacarloDeLaOferta() {
+        Plan publico = plan();
+        Plan aMedida = publico.conVisibilidadEnPublicidad(false);
+
+        assertThat(aMedida.visibleEnPublicidad()).isFalse();
+        assertThat(aMedida.activo()).isTrue();
+        assertThat(aMedida).usingRecursiveComparison().ignoringFields("visibleEnPublicidad").isEqualTo(publico);
+        assertThat(aMedida.conVisibilidadEnPublicidad(true)).isEqualTo(publico);
+    }
+
+    @Test void desactivarActivarEditarYAplicarElCicloConservanLaVisibilidad() {
+        Plan aMedida = plan().conVisibilidadEnPublicidad(false);
+        Limites otros = new Limites(Limite.de(500), 1, Limite.de(1), Limite.de(2), 5);
+
+        assertThat(aMedida.desactivar().visibleEnPublicidad()).isFalse();
+        assertThat(aMedida.desactivar().activar().visibleEnPublicidad()).isFalse();
+        Plan editado = aMedida.editar("A medida", new BigDecimal("80"), otros, AHORA);
+        assertThat(editado.visibleEnPublicidad()).isFalse();
+        assertThat(editado.vigenteEn(PROXIMO_CICLO).visibleEnPublicidad()).isFalse();
+    }
 }

@@ -31,6 +31,7 @@ public class JdbcPlanRepository implements PlanRepository {
 
     private static final String SELECT = """
             SELECT p.id, p.nombre, p.precio_mensual, p.documentos_al_mes, p.rucs, p.usuarios, p.api_keys, p.retencion_anios, p.estado, p.por_defecto,
+                   p.visible_en_publicidad,
                    c.aplica_desde, c.documentos_al_mes AS c_documentos, c.rucs AS c_rucs, c.usuarios AS c_usuarios, c.api_keys AS c_api_keys,
                    c.retencion_anios AS c_retencion
             FROM plan p LEFT JOIN plan_cambio_programado c ON c.plan_id = p.id""";
@@ -56,13 +57,14 @@ public class JdbcPlanRepository implements PlanRepository {
         Limites l = p.limites();
         try {
             jdbc.update("""
-                    INSERT INTO plan (id, nombre, precio_mensual, documentos_al_mes, rucs, usuarios, api_keys, retencion_anios, estado, por_defecto)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO plan (id, nombre, precio_mensual, documentos_al_mes, rucs, usuarios, api_keys, retencion_anios, estado, por_defecto, visible_en_publicidad)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, precio_mensual = EXCLUDED.precio_mensual,
                         documentos_al_mes = EXCLUDED.documentos_al_mes, rucs = EXCLUDED.rucs, usuarios = EXCLUDED.usuarios, api_keys = EXCLUDED.api_keys,
-                        retencion_anios = EXCLUDED.retencion_anios, estado = EXCLUDED.estado, por_defecto = EXCLUDED.por_defecto
+                        retencion_anios = EXCLUDED.retencion_anios, estado = EXCLUDED.estado, por_defecto = EXCLUDED.por_defecto,
+                        visible_en_publicidad = EXCLUDED.visible_en_publicidad
                     """, p.id(), p.nombre(), p.precioMensual(), l.documentosAlMes().maximo(), l.rucs(), l.usuarios().maximo(), l.apiKeys().maximo(),
-                    l.retencionAnios(), p.estado().name(), p.porDefecto());
+                    l.retencionAnios(), p.estado().name(), p.porDefecto(), p.visibleEnPublicidad());
         } catch (DuplicateKeyException e) {
             if (String.valueOf(e.getMostSpecificCause().getMessage()).toLowerCase(Locale.ROOT).contains("ux_plan_nombre"))
                 throw new DomainException("NOMBRE_DUPLICADO", "Ya existe un plan llamado «" + p.nombre() + "»");
@@ -111,7 +113,7 @@ public class JdbcPlanRepository implements PlanRepository {
                 : new CambioDeLimites(new Limites(limite(rs, "c_documentos"), rs.getInt("c_rucs"), limite(rs, "c_usuarios"), limite(rs, "c_api_keys"), rs.getInt("c_retencion")),
                         aplicaDesde.toInstant());
         return new Plan(rs.getObject("id", UUID.class), rs.getString("nombre"), rs.getBigDecimal("precio_mensual"), vigentes,
-                EstadoPlan.valueOf(rs.getString("estado")), rs.getBoolean("por_defecto"), programado);
+                EstadoPlan.valueOf(rs.getString("estado")), rs.getBoolean("por_defecto"), programado, rs.getBoolean("visible_en_publicidad"));
     }
 
     private static Limite limite(ResultSet rs, String columna) throws SQLException {
