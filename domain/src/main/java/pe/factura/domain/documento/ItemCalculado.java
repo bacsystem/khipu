@@ -65,6 +65,14 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         BigDecimal iscBase = item.tieneIsc() && !af.gratuita() ? item.isc().baseSobre(valorVenta, cantidad) : BigDecimal.ZERO.setScale(2);
         BigDecimal iscPorcentaje = item.tieneIsc() && !af.gratuita() ? item.isc().porcentajeSobre(iscBase, isc) : BigDecimal.ZERO;
         BigDecimal igv = af.gravado() ? valorVenta.add(isc).multiply(factorIgv).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
+        // H9: con el precio con IGV, el cliente paga exactamente precio × cantidad. Base × 18 % sobre la base ya redondeada perdía un céntimo (S/ 10.00 → 8.47 + 1.52 =
+        // 9.99): el IGV es lo que falta para llegar al precio (8.47 + 1.53). Difiere de base × tasa en unos milésimos, dentro de la tolerancia de ±1 de SUNAT (4290).
+        // Con ISC, descuentos o cargos no hay un «precio con IGV» de la línea que reproducir: ahí sigue siendo base × tasa. Con importes de céntimos (un IVAP de 0.13)
+        // lo que falta puede ser 0.00, que SUNAT rechaza (3111): ahí también se queda base × tasa.
+        if (onerosaGravada && !item.tieneIsc() && !item.tieneDescuento() && !item.tieneCargos()) {
+            BigDecimal loQueFalta = precioSinIcbper.multiply(cantidad).setScale(2, RoundingMode.HALF_UP).subtract(valorVenta);
+            if (loQueFalta.signum() > 0) igv = loQueFalta;
+        }
         // 3111 (Factura2_0, NotaCredito2_0 f211, NotaDebito2_0 f192): con tributo 1000/1016 y base > 0.06, el impuesto de la
         // línea no puede ser 0.00. Solo pasa con el IVAP al 4 % (base 0.07–0.12); antes salía numerada y SUNAT la rechazaba.
         if (onerosaGravada && valorVenta.add(isc).compareTo(new BigDecimal("0.06")) > 0 && igv.signum() == 0)
