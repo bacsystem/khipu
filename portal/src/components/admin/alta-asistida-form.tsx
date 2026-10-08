@@ -66,6 +66,20 @@ const PASOS: ReadonlyArray<{ titulo: string; descripcion: string; campos: Readon
 
 const ULTIMO = PASOS.length - 1;
 
+/** La serie que se sugiere para cada tipo (H2): la primera de facturas o de boletas. */
+const SERIE_SUGERIDA: Record<Valores["tipo"], string> = { "01": "F001", "03": "B001" };
+
+/**
+ * Qué campo repite un 409 `DUPLICADO` (H3): el backend dice «Ya existe una cuenta con ese correo» o «Ya existe una empresa con RUC …». Sin el campo, el aviso
+ * salía en el paso 3, lejos de donde está el dato, y había que adivinar a qué paso volver.
+ */
+function campoDuplicado(mensaje: string | null): "email" | "ruc" | null {
+  if (!mensaje) return null;
+  if (/\bRUC\b/.test(mensaje)) return "ruc";
+  if (/correo/i.test(mensaje)) return "email";
+  return null;
+}
+
 /** Lo que dijo el backend cuando es más específico que el texto por código: un 409 puede ser el correo o el RUC. */
 function textoDeError(res: ApiEnvelope<unknown>): string {
   if (res.codigo === "NO_AUTORIZADO") return t.sesionExpirada;
@@ -103,6 +117,9 @@ export function AltaAsistidaForm({
     reset,
     trigger,
     watch,
+    getValues,
+    setValue,
+    setError: marcarCampo,
     formState: { errors, isSubmitting },
   } = useForm<Valores, unknown, Salida>({ resolver: zodResolver(schema), defaultValues: VALORES_INICIALES });
   useEffect(() => alCambiarEnvio?.(isSubmitting), [isSubmitting, alCambiarEnvio]);
@@ -124,6 +141,13 @@ export function AltaAsistidaForm({
     });
     if (res.estado === "exito" && res.datos) {
       setCreada({ datos: res.datos, email: values.email });
+      return;
+    }
+    const duplicado = res.codigo === "DUPLICADO" ? campoDuplicado(res.mensaje) : null;
+    if (duplicado) {
+      // El aviso va en el campo, y el asistente vuelve al paso donde está.
+      marcarCampo(duplicado, { message: res.mensaje ?? mensajeError(res.codigo) });
+      setPaso(PASOS.findIndex((p) => p.campos.includes(duplicado)));
       return;
     }
     setError(textoDeError(res));
@@ -183,6 +207,13 @@ export function AltaAsistidaForm({
     );
   }
 
+  /** H2: si la serie es la sugerida (o está vacía), cambia con el tipo; una que el administrador escribió no se toca. */
+  function cambiarTipo(e: ChangeEvent<HTMLSelectElement>) {
+    const nuevo = e.target.value as Valores["tipo"];
+    const serie = getValues("serie").toUpperCase().trim();
+    if (serie === "" || Object.values(SERIE_SUGERIDA).includes(serie)) setValue("serie", SERIE_SUGERIDA[nuevo], { shouldValidate: Boolean(errors.serie) });
+  }
+
   const tipo = watch("tipo");
   return (
     <form onSubmit={enviar} noValidate>
@@ -213,7 +244,7 @@ export function AltaAsistidaForm({
         <fieldset hidden={paso !== 2} className="grid gap-4">
           <legend className="sr-only">{t.seccionSerie}</legend>
           <Campo id="alta-tipo" etiqueta={t.tipo}>
-            <select id="alta-tipo" {...register("tipo")} className={CAMPO}>
+            <select id="alta-tipo" {...register("tipo", { onChange: cambiarTipo })} className={CAMPO}>
               <option value="01">{t.tipoFactura}</option>
               <option value="03">{t.tipoBoleta}</option>
             </select>
