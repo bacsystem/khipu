@@ -29,15 +29,9 @@ class EstadoDocumentoTest {
      * consumió; dar de baja no devuelve el documento al cupo ni cambia el consumo de un mes ya cerrado. «Las bajas no cuentan» es la comunicación de baja, que no
      * suma otro documento.
      */
-<<<<<<< HEAD
     @Test void loQueSunatAceptoCuentaParaElConsumoAunqueDespuesSeDeDeBaja() {
         assertThat(EnumSet.allOf(EstadoDocumento.class).stream().filter(EstadoDocumento::cuentaParaElConsumo).toList()).containsExactlyInAnyOrder(ACEPTADO, ACEPTADO_CON_OBS, ANULADO);
-        for (EstadoDocumento e : new EstadoDocumento[]{RECIBIDO, INVALIDO, FIRMADO, ERROR_ENVIO, PENDIENTE_AGRUPACION, ENVIADO, RECHAZADO, FUERA_DE_PLAZO})
-=======
-    @Test void soloLoAceptadoCuentaParaElConsumo() {
-        assertThat(EnumSet.allOf(EstadoDocumento.class).stream().filter(EstadoDocumento::cuentaParaElConsumo).toList()).containsExactlyInAnyOrder(ACEPTADO, ACEPTADO_CON_OBS);
-        for (EstadoDocumento e : new EstadoDocumento[]{RECIBIDO, INVALIDO, FIRMADO, ERROR_ENVIO, PENDIENTE_AGRUPACION, ENVIADO, RECHAZADO, ANULADO, FUERA_DE_PLAZO, DESCARTADO})
->>>>>>> dadeacb9 (feat(admin): cola global de errores con reintento y descarte (#196))
+        for (EstadoDocumento e : new EstadoDocumento[]{RECIBIDO, INVALIDO, FIRMADO, ERROR_ENVIO, PENDIENTE_AGRUPACION, ENVIADO, RECHAZADO, FUERA_DE_PLAZO, DESCARTADO})
             assertThat(e.cuentaParaElConsumo()).as(e.name()).isFalse();
     }
 
