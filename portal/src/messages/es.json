@@ -122,6 +122,21 @@
         "codigosContinuar": "Ya los guardé, entrar"
       }
     },
+    "inicio": {
+      "titulo": "Backoffice",
+      "descripcion": "Todo lo que se administra de la plataforma, agrupado igual que el menú.",
+      "resumen": {
+        "cuentas": "Clientes registrados: alta, plan, pagos, estado y acceso de sus usuarios.",
+        "empresas": "Cada RUC de la plataforma: entorno, certificado, credenciales SOL y API keys.",
+        "planes": "Lo que se vende: precio y límites de cada plan.",
+        "consumo": "Cuánto consumió cada cuenta en el mes contra el tope de su plan.",
+        "monitor": "Cómo va la emisión de las últimas 24 horas y si SUNAT contesta.",
+        "errores": "Comprobantes con problema de todos los clientes, del más urgente al menos.",
+        "avisos": "Certificados por vencer y credenciales SOL rechazadas, para avisar a tiempo.",
+        "integridad": "Comprueba que los XML y CDR guardados siguen siendo los firmados.",
+        "configuracion": "Remitente, plantillas de correo y aviso de mantenimiento."
+      }
+    },
     "nav": {
       "inicio": "Inicio",
       "cuentas": "Cuentas",

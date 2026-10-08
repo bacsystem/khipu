@@ -1,73 +1,54 @@
 "use client";
 
-import { ActivityIcon, BellIcon, BuildingIcon, CircleAlertIcon, CreditCardIcon, GaugeIcon, HomeIcon, RadioIcon, SettingsIcon, ShieldCheckIcon, UsersIcon } from "lucide-react";
+import { HomeIcon, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SECCIONES_ADMIN } from "@/lib/admin-secciones";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-
-type Item = { href?: string; label: string; icon: typeof HomeIcon };
-
-/** "Inicio", "Cuentas" (#180), "Empresas" (#185), "Planes" (#190), "Consumo" (#193), "Monitor" (#195), "Errores" (#196), "Avisos" (#197), "Integridad" (#198) y "Configuración" (#199) tienen página propia: el resto del backoffice llega en los issues de la épica #11. */
-const ITEMS: Item[] = [
-  { href: "/admin", label: messages.admin.nav.inicio, icon: HomeIcon },
-  { href: "/admin/cuentas", label: messages.admin.nav.cuentas, icon: UsersIcon },
-  { href: "/admin/empresas", label: messages.admin.nav.empresas, icon: BuildingIcon },
-  { href: "/admin/planes", label: messages.admin.nav.planes, icon: CreditCardIcon },
-  { href: "/admin/consumo", label: messages.admin.nav.consumo, icon: GaugeIcon },
-  { href: "/admin/monitor", label: messages.admin.nav.monitor, icon: RadioIcon },
-  { href: "/admin/errores", label: messages.admin.nav.errores, icon: CircleAlertIcon },
-  { href: "/admin/avisos", label: messages.admin.nav.avisos, icon: BellIcon },
-  { href: "/admin/integridad", label: messages.admin.nav.integridad, icon: ShieldCheckIcon },
-  { href: "/admin/configuracion", label: messages.admin.nav.configuracion, icon: SettingsIcon },
-  { label: "Operación", icon: ActivityIcon },
-];
 
 const ITEM_BASE =
   "flex w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-md border border-transparent px-2.5 py-1.5 text-[13px]";
 
+function ItemDelMenu({ href, etiqueta, icono: Icono, activo }: { href: string; etiqueta: string; icono: LucideIcon; activo: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={activo ? "page" : undefined}
+      className={cn(
+        ITEM_BASE,
+        "transition-colors",
+        activo
+          ? "border-primary/20 bg-accent/70 font-medium text-accent-foreground"
+          : "font-normal text-sidebar-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <Icono className={cn("size-[18px] shrink-0", activo ? "text-primary" : "text-muted-foreground/70")} />
+      <span className="min-w-0 flex-1 truncate">{etiqueta}</span>
+      {activo ? <span className="size-1.5 shrink-0 rounded-full bg-primary" /> : null}
+    </Link>
+  );
+}
+
+/**
+ * Menú del backoffice agrupado por sección (Clientes · Comercial · Operación · Plataforma), como el del portal de clientes y como la miga de la cabecera:
+ * todos salen de `SECCIONES_ADMIN`. El detalle de una cuenta o empresa deja marcada su lista.
+ */
 export function AdminSidebarNav() {
   const pathname = usePathname();
+  const activo = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav className="grid w-full grid-cols-1 gap-0.5 px-2 pt-2">
-      {ITEMS.map((item) => {
-        const Icono = item.icon;
-        if (!item.href) {
-          return (
-            <span
-              key={item.label}
-              title="Próximamente"
-              aria-disabled="true"
-              className={cn(ITEM_BASE, "cursor-not-allowed text-muted-foreground/50")}
-            >
-              <Icono className="size-[18px] shrink-0 text-muted-foreground/40" />
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
-              <span className="shrink-0 rounded bg-secondary px-1 py-0.5 text-[9px] font-medium tracking-wide whitespace-nowrap uppercase">
-                Pronto
-              </span>
-            </span>
-          );
-        }
-        const active = pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              ITEM_BASE,
-              "transition-colors",
-              active
-                ? "border-primary/20 bg-accent/70 font-medium text-accent-foreground"
-                : "font-normal text-sidebar-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            <Icono className={cn("size-[18px] shrink-0", active ? "text-primary" : "text-muted-foreground/70")} />
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {active ? <span className="size-1.5 shrink-0 rounded-full bg-primary" /> : null}
-          </Link>
-        );
-      })}
+    <nav className="grid w-full grid-cols-1 gap-3 px-2 pt-2">
+      <ItemDelMenu href="/admin" etiqueta={messages.admin.nav.inicio} icono={HomeIcon} activo={pathname === "/admin"} />
+      {SECCIONES_ADMIN.map((seccion) => (
+        <div key={seccion.titulo} role="group" aria-label={seccion.titulo} className="grid w-full grid-cols-1 gap-0.5">
+          <span className="truncate px-2.5 py-1 text-[10px] font-medium tracking-wider text-muted-foreground/80 uppercase">{seccion.titulo}</span>
+          {seccion.items.map((item) => (
+            <ItemDelMenu key={item.href} href={item.href} etiqueta={item.etiqueta} icono={item.icono} activo={activo(item.href)} />
+          ))}
+        </div>
+      ))}
     </nav>
   );
 }
