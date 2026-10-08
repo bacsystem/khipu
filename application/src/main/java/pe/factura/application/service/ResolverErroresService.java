@@ -2,7 +2,11 @@ package pe.factura.application.service;
 
 import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
+import pe.factura.application.port.in.RecuperarCdrUseCase;
 import pe.factura.application.port.in.ResolverErroresUseCase;
+import pe.factura.application.port.out.SunatTransientException;
+import pe.factura.domain.tenant.Entorno;
+import pe.factura.domain.tenant.Tenant;
 import pe.factura.application.port.out.AuditoriaAdminRepository;
 import pe.factura.application.port.out.ColaDeErroresRepository;
 import pe.factura.application.port.out.ColaDeErroresRepository.Ubicacion;
@@ -31,6 +35,7 @@ import java.util.UUID;
 public class ResolverErroresService implements ResolverErroresUseCase {
     private final ColaDeErroresRepository cola;
     private final EnviarDocumentoUseCase enviar;
+    private final RecuperarCdrUseCase cdrs;
     private final ComprobanteRepository comprobantes;
     private final OutboxRepository outbox;
     private final TenantRepository tenants;
@@ -58,6 +63,7 @@ public class ResolverErroresService implements ResolverErroresUseCase {
         if (m.isEmpty()) throw new DomainException("MOTIVO_REQUERIDO", "Indica por qué se descarta el comprobante");
         if (m.length() > MAX_MOTIVO) throw new DomainException("MOTIVO_LARGO", "El motivo no puede pasar de " + MAX_MOTIVO + " caracteres");
         Ubicacion u = ubicar(comprobanteId);
+        confirmarQueSunatNoLoTiene(u, comprobanteId);
         uow.ejecutar(() -> {
             // La fila se bloquea y el guardado es condicional: si un envío en paralelo la resolvió en el medio, no se pisa su resultado.
             Comprobante c = comprobantes.bloquear(u.tenantId(), comprobanteId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
@@ -67,6 +73,26 @@ public class ResolverErroresService implements ResolverErroresUseCase {
             auditoria.registrar(registro(actor, AccionAdmin.DESCARTAR_COMPROBANTE, u, "comprobante=" + u.nombreArchivo() + " motivo=" + m));
         });
         return new Descarte(comprobanteId, EstadoDocumento.DESCARTADO);
+    }
+
+    /**
+     * Un error de envío puede ser un corte **después** de que SUNAT recibió el comprobante: descartarlo así haría reemitir la venta y dejaría dos comprobantes válidos en
+     * SUNAT. En producción, antes de descartar se le pregunta (getStatusCdr, {@link RecuperarCdrUseCase}): si lo tiene, se aplica su CDR y no se descarta; si no se le
+     * puede preguntar, tampoco (no se sabe). En beta no hay consulta ni efecto fiscal, y sin credenciales SOL el envío nunca pudo llegar: ahí no se pregunta. Lo que ya no
+     * está en error de envío no se pregunta: el dominio lo rechaza igual.
+     */
+    private void confirmarQueSunatNoLoTiene(Ubicacion u, UUID comprobanteId) {
+        Tenant t = tenants.buscar(u.tenantId()).orElse(null);
+        if (t == null || t.entorno() != Entorno.PRODUCCION || t.sol() == null) return;
+        if (comprobantes.buscar(u.tenantId(), comprobanteId).map(c -> c.estado() != EstadoDocumento.ERROR_ENVIO).orElse(true)) return;
+        Comprobante consultado;
+        try {
+            consultado = cdrs.recuperar(u.tenantId(), comprobanteId);
+        } catch (SunatTransientException e) {
+            throw new DomainException("SUNAT_NO_DISPONIBLE", "No se pudo confirmar con SUNAT que no recibió el comprobante, así que no se descarta: inténtalo más tarde");
+        }
+        if (consultado.estado() != EstadoDocumento.ERROR_ENVIO)
+            throw new DomainException("SUNAT_YA_LO_TIENE", "SUNAT ya tiene este comprobante: quedó " + consultado.estado() + " con su CDR, así que no se descarta");
     }
 
     private Ubicacion ubicar(UUID comprobanteId) {

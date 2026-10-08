@@ -259,9 +259,9 @@ public class AppConfig {
     private static String nulo(String url) { return url == null ? "" : url; }
     @Bean ColaDeErroresRepository colaDeErroresRepository(JdbcTemplate jdbc) { return new JdbcColaDeErroresRepository(jdbc); }
     @Bean ConsultarColaDeErroresUseCase consultarColaDeErrores(ColaDeErroresRepository cola) { return new ConsultarColaDeErroresService(cola); }
-    @Bean ResolverErroresUseCase resolverErrores(ColaDeErroresRepository cola, EnviarDocumentoUseCase enviar, ComprobanteRepository comprobantes, OutboxRepository outbox, TenantRepository tenants,
-                                                 AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
-        return new ResolverErroresService(cola, enviar, comprobantes, outbox, tenants, auditoria, u, clock);
+    @Bean ResolverErroresUseCase resolverErrores(ColaDeErroresRepository cola, EnviarDocumentoUseCase enviar, RecuperarCdrUseCase cdrs, ComprobanteRepository comprobantes, OutboxRepository outbox,
+                                                 TenantRepository tenants, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
+        return new ResolverErroresService(cola, enviar, cdrs, comprobantes, outbox, tenants, auditoria, u, clock);
     }
     @Bean MonitorearEmisionUseCase monitorearEmision(MonitorDeEmisionRepository m, SondeoDeSunat s, Clock clock) { return new MonitorDeEmisionService(m, s, clock); }
     @Bean RecuperarCdrUseCase recuperarCdr(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatConsultaGateway g, CdrParser cdr, UnitOfWork u) {

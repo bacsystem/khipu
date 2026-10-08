@@ -44,7 +44,10 @@ public class GlobalExceptionHandler {
             // Pagos manuales (#194): el pedido es válido pero el estado de la cuenta no lo permite (el mismo apunte repetido, un plan que no vence o un pago que no adelanta nada).
             case "PAGO_DUPLICADO", "PLAN_SIN_VENCIMIENTO", "EXTENSION_SIN_EFECTO" -> HttpStatus.CONFLICT;
             // Cola de errores (#196): el pedido es válido pero el estado del comprobante no lo permite, o cambió en el medio (la guía de errores ya documentaba ESTADO_CONFLICTO como 409).
-            case "ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO" -> HttpStatus.CONFLICT;
+            // SUNAT_YA_LO_TIENE: antes de descartar se le preguntó a SUNAT y tenía el comprobante (se aplicó su CDR).
+            case "ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "SUNAT_YA_LO_TIENE" -> HttpStatus.CONFLICT;
+            // No se pudo preguntarle a SUNAT si ya tiene el comprobante: no es culpa del cliente, y se puede reintentar más tarde.
+            case "SUNAT_NO_DISPONIBLE" -> HttpStatus.SERVICE_UNAVAILABLE;
             case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES" -> HttpStatus.TOO_MANY_REQUESTS;
             // La cuenta está suspendida (#182): el cliente se identificó bien, pero no tiene permiso hasta que la reactiven.
             case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO", "CUENTA_SUSPENDIDA", "REQUIERE_ADMINISTRADOR" -> HttpStatus.FORBIDDEN;
