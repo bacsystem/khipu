@@ -2376,7 +2376,7 @@ Lo que sobrevivía en la primera tanda:
 
 ## #200 · Decisión: cómo se atienden los tickets de soporte
 
-**Estado: ✅ decidido — falta la revisión de la PR.** Es un issue de decisión, no de código: esta sección es el entregable (el issue pide dejarlo en `docs/superpowers/specs/`, que está en `.gitignore` y es solo local; se escribió allí **y** acá, que es lo que viaja con la PR).
+**Estado: ✅ decidido y revisado (#243); el issue de implementación es #250.** Es un issue de decisión, no de código: esta sección es el entregable (el issue pide dejarlo en `docs/superpowers/specs/`, que está en `.gitignore` y es solo local; se escribió allí **y** acá, que es lo que viaja con la PR).
 
 ### Decisión
 
@@ -2408,7 +2408,7 @@ Lo que sobrevivía en la primera tanda:
 - Se documenta en `README.md` y `.env.example`.
 - Fuera de alcance: tablas de tickets, recibir correos, widget embebido.
 
-No se abrió el issue en GitHub: queda la propuesta acá para que se abra (o se ajuste) al revisar esta PR.
+El issue de implementación es **#250** (abierto en la revisión de la PR, #243, con estos mismos criterios).
 
 ### Cuándo volver a decidir
 
