@@ -267,6 +267,53 @@ describe("AltaAsistidaForm", () => {
     expect(screen.queryByText("Ya existe una cuenta con ese correo.")).toBeNull();
   });
 
+  /** H3: el aviso salía en el paso 3, lejos del campo; había que adivinar dónde estaba el error y volver con «Atrás». */
+  it("un correo ya registrado lleva al paso 1 y marca el correo", async () => {
+    stubFetch(sobre(409, { estado: "error", codigo: "DUPLICADO", mensaje: "Ya existe una cuenta con ese correo" }));
+    render(<AltaAsistidaForm />);
+    llenarValido();
+
+    await enviar();
+
+    await waitFor(() => expect(pasoActual()).toContain("1"));
+    const correo = screen.getByLabelText("Correo del cliente");
+    expect(correo.getAttribute("aria-invalid")).toBe("true");
+    expect(correo.closest("fieldset")!.hidden).toBe(false);
+  });
+
+  it("un RUC ya registrado lleva al paso 2 y marca el RUC", async () => {
+    stubFetch(sobre(409, { estado: "error", codigo: "DUPLICADO", mensaje: "Ya existe una empresa con RUC 20100066603" }));
+    render(<AltaAsistidaForm />);
+    llenarValido();
+
+    await enviar();
+
+    await waitFor(() => expect(pasoActual()).toContain("2"));
+    expect(screen.getByLabelText("RUC").getAttribute("aria-invalid")).toBe("true");
+  });
+
+  /** H2: al pasar a Boleta la serie se quedaba en «F001» y el formulario la rechazaba. */
+  it("al elegir boleta la serie sugerida pasa sola a B001, y al volver a factura vuelve a F001", async () => {
+    render(<AltaAsistidaForm />);
+    const serie = () => (screen.getByLabelText("Serie") as HTMLInputElement).value;
+
+    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "03" } });
+    await waitFor(() => expect(serie()).toBe("B001"));
+
+    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "01" } });
+    await waitFor(() => expect(serie()).toBe("F001"));
+  });
+
+  it("una serie que el administrador escribió no se pisa al cambiar el tipo", async () => {
+    render(<AltaAsistidaForm />);
+    llenar("Serie", "B002");
+
+    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "03" } });
+
+    await waitFor(() => expect((screen.getByLabelText("Tipo de comprobante") as HTMLSelectElement).value).toBe("03"));
+    expect((screen.getByLabelText("Serie") as HTMLInputElement).value).toBe("B002");
+  });
+
   it("si la sesión del administrador venció lo dice y no muestra un «no autorizado» a secas", async () => {
     stubFetch(sobre(401, { estado: "error", codigo: "NO_AUTORIZADO", mensaje: "Sesión de administrador requerida" }));
     render(<AltaAsistidaForm />);
