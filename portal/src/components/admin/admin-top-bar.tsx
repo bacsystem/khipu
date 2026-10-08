@@ -6,13 +6,11 @@ import { usePathname, useSearchParams } from "next/navigation";
 import type { Administrador } from "@/lib/api/admin-auth";
 import { hrefExportacionConsumo, paramsConsumoDesdeUrl } from "@/lib/api/admin-consumo";
 import { migaAdmin } from "@/lib/admin-migas";
+import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { hoyLima } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 import { AdminMobileNav } from "./admin-mobile-nav";
 import { FormularioDePlan } from "./formulario-de-plan";
-
-const ACCION_PRINCIPAL =
-  "flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[12px] font-medium whitespace-nowrap text-background shadow-xs transition-opacity hover:opacity-90";
 
 /**
  * El CSV del consumo baja lo que se ve: el mes, el filtro y el orden de la URL de la página, sin la paginación. Sin mes en la URL la página mide el mes en
