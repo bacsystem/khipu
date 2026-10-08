@@ -93,6 +93,17 @@ test("un paso con los obligatorios vacíos no deja seguir; «Atrás» vuelve sin
   await expect(dialogo(page).getByLabel("Correo del cliente", { exact: true })).toHaveValue("ana@nueva.pe");
 });
 
+test("un clic fuera del modal no lo cierra ni pierde lo escrito", async ({ page }) => {
+  await entrarComoAdmin(page);
+  await abrirAlta(page);
+  await llenarCuenta(page);
+
+  await page.mouse.click(10, 400);
+
+  await expect(dialogo(page)).toBeVisible();
+  await expect(dialogo(page).getByLabel("Correo del cliente", { exact: true })).toHaveValue("ana@nueva.pe");
+});
+
 test("no pide contraseña: la elige el cliente con la invitación", async ({ page }) => {
   await entrarComoAdmin(page);
   await abrirAlta(page);
