@@ -35,6 +35,8 @@ export type PrevisualizacionDePlanAdmin = {
   consumo_del_mes: number;
   limite_de_documentos: LimiteAdmin;
   supera_el_limite: boolean;
+  /** La bajada que estaba esperando y que este cambio deja sin efecto: un cambio inmediato la cancela, otra bajada la reemplaza. */
+  programado_que_se_descarta?: { plan: PlanResumenAdmin; aplica_desde: string };
 };
 
 /** Lo que se manda para cambiar el plan: `vence_en` es obligatorio en un plan de pago y opcional en el gratis. */

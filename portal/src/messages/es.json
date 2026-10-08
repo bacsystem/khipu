@@ -346,6 +346,8 @@
         "consumoSinTope": "En {mes} la cuenta consumió {n} documentos (solo cuentan los comprobantes aceptados por SUNAT). El plan {plan} no tiene tope de documentos.",
         "superaInmediato": "Ya supera ese tope: con el cambio inmediato, la cuenta quedaría por encima de su límite de este mes.",
         "superaBajada": "Este mes no cambia nada: hasta el ciclo siguiente la cuenta sigue con su plan de hoy.",
+        "descartaInmediato": "Cancela el paso a {plan} programado para el {fecha}: la cuenta se queda con el plan nuevo.",
+        "descartaBajada": "Reemplaza el paso a {plan} programado para el {fecha}.",
         "confirmar": "Confirmar el cambio",
         "enviando": "Cambiando…",
         "cancelar": "Cancelar",

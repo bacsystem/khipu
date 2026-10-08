@@ -126,6 +126,32 @@ describe("CambiarPlan — antes de confirmar", () => {
     await waitFor(() => expect(screen.getByTestId("cambiar-plan-previa").textContent).toContain("Renovación del mismo plan"));
   });
 
+  it("si había una bajada esperando, un cambio inmediato dice que la cancela", async () => {
+    responder(exito(previa({ plan_actual: resumen(NEGOCIO), plan_nuevo: resumen(NEGOCIO), direccion: "RENOVACION", programado_que_se_descarta: { plan: resumen(EMPRENDE), aplica_desde: "2026-11-01T05:00:00Z" } })));
+    abrir(NEGOCIO);
+
+    elegir(NEGOCIO.id);
+
+    const aviso = await screen.findByTestId("cambiar-plan-descarta");
+    expect(aviso.textContent).toContain("Cancela el paso a Emprende programado para el 1 Nov 2026");
+  });
+
+  it("si había una bajada esperando, otra bajada dice que la reemplaza; sin ninguna no se menciona", async () => {
+    responder(exito(previa({ plan_actual: resumen(NEGOCIO), plan_nuevo: resumen(EMPRENDE), direccion: "BAJADA", efecto: "CICLO_SIGUIENTE", aplica_desde: "2026-11-01T05:00:00Z", programado_que_se_descarta: { plan: resumen(GRATIS), aplica_desde: "2026-11-01T05:00:00Z" } })));
+    abrir(NEGOCIO);
+    elegir(EMPRENDE.id);
+    const aviso = await screen.findByTestId("cambiar-plan-descarta");
+    expect(aviso.textContent).toContain("Reemplaza el paso a Gratis programado para el 1 Nov 2026");
+  });
+
+  it("sin bajada esperando no dice nada de descartarla", async () => {
+    responder(exito(previa()));
+    abrir();
+    elegir(NEGOCIO.id);
+    await waitFor(() => expect(screen.getByTestId("cambiar-plan-previa").getAttribute("data-efecto")).toBe("INMEDIATO"));
+    expect(screen.queryByTestId("cambiar-plan-descarta")).toBeNull();
+  });
+
   it("si el consumo ya supera el tope del plan nuevo y el cambio es inmediato lo advierte", async () => {
     responder(exito(previa({ consumo_del_mes: 400, limite_de_documentos: { maximo: 300, ilimitado: false }, supera_el_limite: true })));
     abrir();

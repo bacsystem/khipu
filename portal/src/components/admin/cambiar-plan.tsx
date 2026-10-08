@@ -250,6 +250,14 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
       <p className="font-medium">{t.direcciones[d.direccion]}</p>
       <p>{inmediato ? t.efectoInmediato : t.efectoCicloSiguiente.replace("{fecha}", formatearFechaDeLima(d.aplica_desde)).replace("{actual}", d.plan_actual.nombre)}</p>
       <p>{consumo}</p>
+      {d.programado_que_se_descarta ? (
+        <p data-testid="cambiar-plan-descarta" className="flex items-start gap-1.5 text-warning-foreground">
+          <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" />
+          {(inmediato ? t.descartaInmediato : t.descartaBajada)
+            .replace("{plan}", d.programado_que_se_descarta.plan.nombre)
+            .replace("{fecha}", formatearFechaDeLima(d.programado_que_se_descarta.aplica_desde))}
+        </p>
+      ) : null}
       {d.supera_el_limite ? (
         <p data-testid="cambiar-plan-supera" className="flex items-start gap-1.5 text-warning-foreground">
           <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" />

@@ -109,8 +109,10 @@ class AdminPlanDeCuentaControllerTest {
     @Test void laPrevisualizacionDiceCuandoEntraYQuePasaConElConsumoDelMes() throws Exception {
         Plan actual = plan("Negocio", "69");
         Plan nuevo = plan("Emprende", "29");
+        Plan antes = plan("Gratis", "0");
         when(planes.previsualizar(CUENTA, nuevo.id())).thenReturn(new Previsualizacion(CUENTA, actual, nuevo, DireccionDeCambio.BAJADA, Efecto.CICLO_SIGUIENTE, CICLO,
-                YearMonth.of(2026, 9), 800, Limite.de(300), true));
+                YearMonth.of(2026, 9), 800, Limite.de(300), true,
+                new CambiarPlanDeCuentaUseCase.Programado(antes, new pe.factura.domain.plan.CambioDePlan(antes.id(), CICLO, null, 0))));
 
         mvc.perform(get("/v1/admin/cuentas/" + CUENTA + "/plan/previsualizacion").param("plan_id", nuevo.id().toString()).with(clave()))
                 .andExpect(status().isOk())
@@ -122,7 +124,20 @@ class AdminPlanDeCuentaControllerTest {
                 .andExpect(jsonPath("$.datos.mes").value("2026-09"))
                 .andExpect(jsonPath("$.datos.consumo_del_mes").value(800))
                 .andExpect(jsonPath("$.datos.limite_de_documentos.maximo").value(300))
-                .andExpect(jsonPath("$.datos.supera_el_limite").value(true));
+                .andExpect(jsonPath("$.datos.supera_el_limite").value(true))
+                .andExpect(jsonPath("$.datos.programado_que_se_descarta.plan.nombre").value("Gratis"))
+                .andExpect(jsonPath("$.datos.programado_que_se_descarta.aplica_desde").value("2026-10-01T05:00:00Z"));
+    }
+
+    @Test void laPrevisualizacionSinNadaQueDescartarNoLoMenciona() throws Exception {
+        Plan actual = plan("Emprende", "29");
+        Plan nuevo = plan("Negocio", "69");
+        when(planes.previsualizar(CUENTA, nuevo.id())).thenReturn(new Previsualizacion(CUENTA, actual, nuevo, DireccionDeCambio.SUBIDA, Efecto.INMEDIATO, CICLO,
+                YearMonth.of(2026, 9), 10, Limite.de(1500), false, null));
+
+        mvc.perform(get("/v1/admin/cuentas/" + CUENTA + "/plan/previsualizacion").param("plan_id", nuevo.id().toString()).with(clave()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.programado_que_se_descarta").doesNotExist());
     }
 
     @Test void laPrevisualizacionExigeElPlan() throws Exception {

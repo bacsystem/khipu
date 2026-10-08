@@ -17,10 +17,16 @@ public record PrevisualizacionDePlanResponse(
         @Schema(example = "2026-09", description = "El mes en curso (calendario de America/Lima) del que se habla") String mes,
         @Schema(example = "312", description = "Documentos que la cuenta ha consumido este mes: solo los comprobantes aceptados por SUNAT") long consumoDelMes,
         @Schema(description = "El tope de documentos al mes del plan nuevo") LimiteDto limiteDeDocumentos,
-        @Schema(description = "El consumo de este mes ya pasa el tope del plan nuevo: una advertencia (un cambio inmediato dejaría a la cuenta por encima de su límite; una bajada no toca este mes)") boolean superaElLimite) {
+        @Schema(description = "El consumo de este mes ya pasa el tope del plan nuevo: una advertencia (un cambio inmediato dejaría a la cuenta por encima de su límite; una bajada no toca este mes)") boolean superaElLimite,
+        @Schema(nullable = true, description = "La bajada que estaba esperando y que este cambio deja sin efecto (un cambio inmediato la cancela; otra bajada la reemplaza); ausente si no hay") DescartadoResponse programadoQueSeDescarta) {
 
     public static PrevisualizacionDePlanResponse de(Previsualizacion v) {
+        var d = v.programadoQueSeDescarta();
         return new PrevisualizacionDePlanResponse(v.cuentaId(), PlanResumenResponse.de(v.planActual()), PlanResumenResponse.de(v.planNuevo()), v.direccion().name(), v.efecto().name(),
-                v.aplicaDesde(), v.mes().toString(), v.consumoDelMes(), LimiteDto.de(v.limiteDeDocumentos()), v.superaElLimite());
+                v.aplicaDesde(), v.mes().toString(), v.consumoDelMes(), LimiteDto.de(v.limiteDeDocumentos()), v.superaElLimite(),
+                d == null ? null : new DescartadoResponse(PlanResumenResponse.de(d.plan()), d.cambio().aplicaDesde()));
     }
+
+    /** A qué plan iba a pasar la cuenta y desde cuándo. */
+    public record DescartadoResponse(PlanResumenResponse plan, @Schema(example = "2026-10-01T05:00:00Z") Instant aplicaDesde) {}
 }

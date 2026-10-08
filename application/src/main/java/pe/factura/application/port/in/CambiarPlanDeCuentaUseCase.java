@@ -31,10 +31,11 @@ public interface CambiarPlanDeCuentaUseCase {
     /**
      * Lo que pasaría con un cambio, para mostrarlo antes de confirmar: cuándo entra y qué pasa con el consumo del mes en curso. {@code superaElLimite}: el consumo de
      * este mes ya pasa el tope de documentos del plan nuevo (solo es una advertencia: un cambio inmediato dejaría a la cuenta por encima de su límite; una bajada no
-     * toca este mes).
+     * toca este mes). {@code programadoQueSeDescarta}: la bajada que estaba esperando y que este cambio deja sin efecto (un cambio inmediato la cancela; otra bajada la
+     * reemplaza); nulo si no había ninguna o si ya llegó su fecha (entonces manda y se aplica primero).
      */
     record Previsualizacion(UUID cuentaId, Plan planActual, Plan planNuevo, DireccionDeCambio direccion, Efecto efecto, Instant aplicaDesde,
-                            YearMonth mes, long consumoDelMes, Limite limiteDeDocumentos, boolean superaElLimite) {}
+                            YearMonth mes, long consumoDelMes, Limite limiteDeDocumentos, boolean superaElLimite, Programado programadoQueSeDescarta) {}
 
     /** {@code NO_ENCONTRADO} si no existe la cuenta; no escribe nada. */
     PlanDeCuenta plan(UUID cuentaId);

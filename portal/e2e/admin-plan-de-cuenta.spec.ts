@@ -118,6 +118,16 @@ test("elegir el mismo plan es una renovación", async ({ page }) => {
   await expect(page.getByTestId("cambiar-plan-previa")).toContainText("Renovación del mismo plan");
 });
 
+test("con una bajada esperando, la previsualización dice que renovar la cancela y que otra bajada la reemplaza", async ({ page }) => {
+  await abrirCambio(page, 4);
+
+  await elegir(page, NEGOCIO);
+  await expect(page.getByTestId("cambiar-plan-descarta")).toContainText("Cancela el paso a Emprende programado para el");
+
+  await elegir(page, GRATIS);
+  await expect(page.getByTestId("cambiar-plan-descarta")).toContainText("Reemplaza el paso a Emprende programado para el");
+});
+
 test("si el consumo de este mes ya supera el tope del plan nuevo y el cambio es inmediato lo advierte", async ({ page }) => {
   await abrirCambio(page, 7);
 
