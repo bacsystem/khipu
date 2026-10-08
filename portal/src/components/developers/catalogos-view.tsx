@@ -57,7 +57,7 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar código o texto…"
             aria-label="Buscar en los catálogos"
-            className="h-8 w-full rounded-lg border border-border bg-muted pl-8 pr-2 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card"
+            className="h-9 w-full rounded-lg border border-border bg-muted pl-8 pr-2 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card"
           />
         </div>
         {/*

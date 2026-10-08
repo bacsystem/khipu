@@ -7,7 +7,7 @@ import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { DestinatarioAdmin } from "@/lib/api/admin-acceso";
 import { apiRequest } from "@/lib/api/browser";
-import { BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE } from "@/lib/estilos";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { messages, mensajeError } from "@/lib/messages";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -109,11 +109,11 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {enviadoA ? t.cerrar : textos.cancelar}
           </button>
           {enviadoA ? null : (
-            <button type="button" disabled={enviando} onClick={confirmar} data-testid="acceso-confirmar" className={BOTON_PRIMARIO_PIE}>
+            <button type="button" disabled={enviando} onClick={confirmar} data-testid="acceso-confirmar" className={BOTON_PRIMARIO}>
               <Icono className="size-4" />
               {enviando ? textos.enviando : textos.confirmar}
             </button>

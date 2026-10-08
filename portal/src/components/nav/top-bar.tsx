@@ -92,7 +92,7 @@ export function TopBar({
           <input
             disabled
             placeholder="Buscar por serie, RUC o cliente..."
-            className="h-8 w-full rounded-lg border border-border bg-muted pr-12 pl-8 text-[12px] text-foreground placeholder:text-muted-foreground/70 disabled:cursor-not-allowed"
+            className="h-9 w-full rounded-lg border border-border bg-muted pr-12 pl-8 text-[12px] text-foreground placeholder:text-muted-foreground/70 disabled:cursor-not-allowed"
           />
           <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/70 shadow-2xs">
             ⌘K
@@ -102,7 +102,7 @@ export function TopBar({
         <button
           disabled
           title="Exportar reporte: próximamente"
-          className="hidden h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-[12px] font-medium text-muted-foreground disabled:cursor-not-allowed sm:flex"
+          className="hidden h-9 items-center gap-1.5 rounded-lg border border-border px-2.5 text-[12px] font-medium text-muted-foreground disabled:cursor-not-allowed sm:flex"
         >
           <DownloadIcon className="size-4" />
           Exportar

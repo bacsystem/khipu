@@ -100,7 +100,7 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
       <DialogTrigger
         className={
           className ??
-          "inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"
+          "inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"
         }
       >
         <TerminalSquareIcon className="size-4" />

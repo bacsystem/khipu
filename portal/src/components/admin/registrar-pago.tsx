@@ -8,7 +8,7 @@ import { MEDIOS_DE_PAGO } from "@/lib/api/admin-pagos";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
 import { fechaValida } from "@/lib/cambio-de-plan";
-import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFecha, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
 import { messages, mensajeError } from "@/lib/messages";
 import { validarPago, type ErroresDePago } from "@/lib/pago-formulario";
@@ -279,10 +279,10 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {t.cancelar}
           </button>
-          <button type="button" disabled={enviando} onClick={confirmar} data-testid="registrar-pago-confirmar" className={BOTON_PRIMARIO_PIE}>
+          <button type="button" disabled={enviando} onClick={confirmar} data-testid="registrar-pago-confirmar" className={BOTON_PRIMARIO}>
             <BanknoteIcon className="size-4" />
             {enviando ? t.enviando : t.confirmar}
           </button>

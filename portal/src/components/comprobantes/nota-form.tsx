@@ -10,7 +10,7 @@ import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, topePorTributo } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, CAMPO_FILTRO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { mensajeError } from "@/lib/messages";
@@ -333,7 +333,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
                       aria-label={`Cantidad de ${item.descripcion} en la nota`}
                       // Hasta 10 decimales (2025): con 11 el backend rechazaba después. Y entre 0 y lo facturado.
                       onChange={(e) => setCantidades((c) => c.map((v, i) => (i === idx ? Math.min(Number(item.cantidad), Math.max(0, Number(Number(e.target.value).toFixed(10)))) : v)))}
-                      className={cn(CAMPO_FILTRO, "w-28 text-right font-mono")}
+                      className={cn(CAMPO, "w-28 text-right font-mono")}
                     />
                   </td>
                 </tr>
@@ -369,8 +369,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
           {cuotas.map((q, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2">
               <span className="w-20 font-mono text-[11px] text-muted-foreground">Cuota{String(i + 1).padStart(3, "0")}</span>
-              <input type="number" min={0.01} step="0.01" value={q.monto} aria-label={`Monto de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, monto: e.target.value } : c)))} className={cn(CAMPO_FILTRO, "w-32 font-mono")} />
-              <input type="date" value={q.vencimiento} min={sumarDias(factura.fecha_emision, 1)} aria-label={`Vencimiento de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: e.target.value } : c)))} className={cn(CAMPO_FILTRO, "w-40 font-mono")} />
+              <input type="number" min={0.01} step="0.01" value={q.monto} aria-label={`Monto de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, monto: e.target.value } : c)))} className={cn(CAMPO, "w-32 font-mono")} />
+              <input type="date" value={q.vencimiento} min={sumarDias(factura.fecha_emision, 1)} aria-label={`Vencimiento de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: e.target.value } : c)))} className={cn(CAMPO, "w-40 font-mono")} />
               <button type="button" aria-label={`Quitar la cuota ${i + 1}`} onClick={() => setCuotas((cs) => cs.filter((_, j) => j !== i))} className="text-[12px] text-muted-foreground hover:text-destructive">Quitar</button>
             </div>
           ))}

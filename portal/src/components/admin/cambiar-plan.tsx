@@ -8,7 +8,7 @@ import { limiteEnPalabras, precioEnSoles, type PlanAdmin } from "@/lib/api/admin
 import type { PrevisualizacionDePlanAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
 import { validarCambioDePlan, type ErroresDeCambioDePlan } from "@/lib/cambio-de-plan";
-import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFechaDeLima, formatearMes } from "@/lib/formato";
 import { messages, mensajeError } from "@/lib/messages";
 
@@ -202,7 +202,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {t.cancelar}
           </button>
           <button
@@ -210,7 +210,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
             disabled={enviando || previa.estado !== "lista"}
             onClick={confirmar}
             data-testid="cambiar-plan-confirmar"
-            className={BOTON_PRIMARIO_PIE}
+            className={BOTON_PRIMARIO}
           >
             <ArrowRightLeftIcon className="size-4" />
             {enviando ? t.enviando : t.confirmar}

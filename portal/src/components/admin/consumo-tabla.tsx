@@ -18,7 +18,7 @@ import {
   type OrdenDeConsumo,
   type ParamsConsumo,
 } from "@/lib/api/admin-consumo";
-import { CABECERA_TABLA, CAMPO_FILTRO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
+import { CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { formatearFecha, ultimoDiaCubierto } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -83,7 +83,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
             type="month"
             value={datos.mes}
             onChange={(e) => cambiar({ mes: mesValido(e.target.value) })}
-            className={cn(CAMPO_FILTRO, "w-40")}
+            className={cn(CAMPO, "w-40")}
           />
         </div>
 
@@ -91,7 +91,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
           <label htmlFor="consumo-orden" className="text-[11px] font-medium text-muted-foreground">
             {t.orden}
           </label>
-          <select id="consumo-orden" value={params.orden} onChange={(e) => cambiar({ orden: e.target.value as OrdenDeConsumo })} className={cn(CAMPO_FILTRO, "w-auto")}>
+          <select id="consumo-orden" value={params.orden} onChange={(e) => cambiar({ orden: e.target.value as OrdenDeConsumo })} className={cn(CAMPO, "w-auto")}>
             {ORDENES_DE_CONSUMO.map((o) => (
               <option key={o} value={o}>
                 {t.ordenes[o]}

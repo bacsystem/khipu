@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
-import { ACCION_PRINCIPAL, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 import { mensajeError } from "@/lib/messages";
 import { ApiKeyRevelada } from "./api-key-revelada";
@@ -79,15 +79,15 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
           {apiKey ? (
-            <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_PRIMARIO_PIE}>
+            <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_PRIMARIO}>
               Listo, la guardé
             </button>
           ) : (
             <>
-              <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
+              <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
                 Cancelar
               </button>
-              <button type="button" disabled={creando} onClick={crear} className={BOTON_PRIMARIO_PIE}>
+              <button type="button" disabled={creando} onClick={crear} className={BOTON_PRIMARIO}>
                 {creando ? "Generando…" : "Generar llave"}
               </button>
             </>

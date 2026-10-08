@@ -37,7 +37,7 @@ export function ApiKeyRevelada({ apiKey, etiqueta = "Tu API key", aviso = AVISO_
           {/* La caja mide lo mismo que el botón de al lado (h-10, la de un campo): el texto se recorta dentro de un span porque `truncate` no corta en un flex. */}
           <code
             data-testid="api-key-nueva"
-            className="flex h-10 min-w-0 flex-1 items-center rounded-lg border border-border bg-muted px-3 font-mono text-[13px] font-semibold text-foreground select-all"
+            className="flex h-9 min-w-0 flex-1 items-center rounded-lg border border-border bg-muted px-3 font-mono text-[13px] font-semibold text-foreground select-all"
           >
             <span className="truncate">{apiKey}</span>
           </code>

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import { apiRequest } from "@/lib/api/browser";
-import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFechaDeLima, inicioDelProximoCiclo } from "@/lib/formato";
 import { messages, mensajeError } from "@/lib/messages";
 import { NOMBRE_MAX, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ErroresDePlan, type ValoresDePlan } from "@/lib/planes-formulario";
@@ -223,10 +223,10 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {f.cancelar}
           </button>
-          <button type="button" disabled={enviando} onClick={guardar} data-testid="plan-guardar" className={BOTON_PRIMARIO_PIE}>
+          <button type="button" disabled={enviando} onClick={guardar} data-testid="plan-guardar" className={BOTON_PRIMARIO}>
             <Icono className="size-4" />
             {enviando ? (edicion ? f.guardando : f.creando) : edicion ? f.guardar : f.crear}
           </button>

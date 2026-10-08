@@ -24,7 +24,7 @@ const ITEMS_ESTADO: Record<string, string> = {
 };
 
 const ACCION =
-  "inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 function Estado({ activa }: { activa: boolean }) {
   return activa ? (
@@ -168,7 +168,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
             type="button"
             onClick={() => startTransition(() => router.refresh())}
             title="Refrescar lista"
-            className={cn(CONTROL_FILTRO, "inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+            className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
           </button>

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import type { BajaDeCuentaAdmin } from "@/lib/api/admin-baja";
 import { MOTIVO_MAX, type EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
-import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { messages, mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -128,10 +128,10 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {textos.cancelar}
           </button>
-          <button type="button" disabled={enviando} onClick={confirmar} data-testid="baja-confirmar" className={BOTON_PRIMARIO_PIE}>
+          <button type="button" disabled={enviando} onClick={confirmar} data-testid="baja-confirmar" className={BOTON_PRIMARIO}>
             <Icono className="size-4" />
             {enviando ? textos.enviando : textos.confirmar}
           </button>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
-import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, BOTON_DESTRUCTIVO_PIE, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -152,7 +152,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {p.cancelar}
           </button>
           <button
@@ -160,7 +160,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
             disabled={enviando}
             onClick={confirmar}
             data-testid={`${p.testId}-confirmar`}
-            className={tono === "peligro" ? BOTON_DESTRUCTIVO_PIE : BOTON_PRIMARIO_PIE}
+            className={tono === "peligro" ? BOTON_DESTRUCTIVO : BOTON_PRIMARIO}
           >
             <Icono className="size-4" />
             {enviando ? p.enviando : p.confirmar}
