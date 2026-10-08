@@ -50,7 +50,7 @@ describe("AdminTopBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nueva cuenta" }));
 
     const dialogo = await screen.findByRole("dialog");
-    expect(within(dialogo).getByLabelText("Nombre de la cuenta")).toBeTruthy();
+    expect(within(dialogo).getByLabelText("Correo del cliente")).toBeTruthy();
     expect(dialogo.querySelector('[aria-current="step"]')?.textContent).toBe("1");
   });
 

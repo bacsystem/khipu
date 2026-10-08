@@ -16,8 +16,9 @@ const siguiente = (page: Page) => page.getByRole("button", { name: "Siguiente" }
 const pasoActual = (page: Page) => page.getByTestId("alta-dialogo").locator('[aria-current="step"]');
 
 async function llenarCuenta(page: Page, email = "ana@nueva.pe") {
-  await dialogo(page).getByLabel("Nombre de la cuenta", { exact: true }).fill("Comercial Nueva");
   await dialogo(page).getByLabel("Correo del cliente", { exact: true }).fill(email);
+  await dialogo(page).getByLabel("Nombre del cliente", { exact: true }).fill("Comercial Nueva");
+  await dialogo(page).getByLabel("Celular", { exact: true }).fill("987654321");
 }
 
 async function llenarEmpresa(page: Page, d: { ruc?: string; razon?: string } = {}) {
@@ -81,7 +82,7 @@ test("un paso con los obligatorios vacíos no deja seguir; «Atrás» vuelve sin
   await abrirAlta(page);
 
   await siguiente(page);
-  await expect(page.getByText("Ingresa el nombre de la cuenta")).toBeVisible();
+  await expect(page.getByText("Ingresa el nombre del cliente")).toBeVisible();
   await expect(pasoActual(page)).toHaveText("1");
 
   await llenarCuenta(page);
