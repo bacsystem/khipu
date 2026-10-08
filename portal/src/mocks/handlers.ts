@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto, venceDesdeFechaDeLima } from "@/lib/formato";
 import { esUuid } from "@/lib/uuid";
+import { messages } from "@/lib/messages";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
@@ -776,7 +777,7 @@ function registrarPagoMock(cuentaId: string, c: Record<string, unknown>): { pago
   }
   const existentes = db.pagosPorCuenta.get(cuentaId) ?? [];
   if (referencia && existentes.some((p) => p.medio === c.medio && p.referencia?.toLowerCase() === referencia.toLowerCase()))
-    return { error: fail(409, "PAGO_DUPLICADO", `Esa cuenta ya tiene un pago por ${c.medio} con la referencia «${referencia}»`) };
+    return { error: fail(409, "PAGO_DUPLICADO", `Esa cuenta ya tiene un pago por ${messages.admin.pagos.medios[c.medio as keyof typeof messages.admin.pagos.medios] ?? c.medio} con la referencia «${referencia}»`) };
 
   if (extendioHasta) db.planesDeCuenta.set(cuentaId, { ...actual, venceEn: extendioHasta });
   const pago: PagoMock = {

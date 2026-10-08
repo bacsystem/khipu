@@ -60,6 +60,10 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
   const adelanta = Boolean(pagadoHastaActual) && hastaValida && hasta > (pagadoHastaActual as string);
   const puedeExtender = planVence && adelanta;
   const extender = puedeExtender && (extenderElegido ?? true);
+  // Lo que muestra la casilla (H6): con un plan que vence se ve marcada desde el principio, aunque todavía no haya periodo para extender. Si se mostrara vacía
+  // y se marcara sola al elegir el periodo, quien hace clic para marcarla la apaga sin darse cuenta. Solo un periodo que no adelanta la deja vacía, y la nota
+  // dice por qué.
+  const marcada = planVence && !(hastaValida && !adelanta) && (extenderElegido ?? true);
 
   function limpiar<K extends keyof ErroresDePago>(campo: K) {
     setErrores((e) => ({ ...e, [campo]: undefined }));
@@ -259,7 +263,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
               <input
                 type="checkbox"
                 data-testid="registrar-pago-extender"
-                checked={extender}
+                checked={marcada}
                 disabled={!puedeExtender}
                 onChange={(e) => setExtenderElegido(e.target.checked)}
                 className="mt-0.5 size-4"

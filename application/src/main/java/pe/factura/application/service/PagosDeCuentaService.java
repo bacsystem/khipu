@@ -44,7 +44,7 @@ public class PagosDeCuentaService implements RegistrarPagoUseCase, ConsultarPago
             Instant nuevoVencimiento = c.extenderVencimiento() ? vencimientoNuevo(activa, pago) : null;
             if (nuevoVencimiento != null) pago = pago.conExtension(nuevoVencimiento);
             if (!pagos.registrar(pago))
-                throw new DomainException("PAGO_DUPLICADO", "Esa cuenta ya tiene un pago por " + pago.medio() + " con la referencia «" + pago.referencia() + "»");
+                throw new DomainException("PAGO_DUPLICADO", "Esa cuenta ya tiene un pago por " + pago.medio().nombre() + " con la referencia «" + pago.referencia() + "»");
             if (nuevoVencimiento != null && !suscripciones.extenderVencimiento(activa.id(), activa.venceEn(), nuevoVencimiento))
                 throw new DomainException("CAMBIO_CONCURRENTE", "Otro administrador movió el vencimiento de la cuenta mientras tanto: vuelve a mirarla");
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.REGISTRAR_PAGO, cuentaId, null, detalle(pago), ahora));

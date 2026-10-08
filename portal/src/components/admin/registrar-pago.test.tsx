@@ -93,12 +93,20 @@ describe("RegistrarPago", () => {
     expect(nota()).toBe("Hoy está pagada hasta el 20 Oct 2026; pasaría al 20 Nov 2026.");
   });
 
-  it("sin el fin del periodo, la casilla espera y lo dice", () => {
+  /**
+   * H6: antes aparecía vacía y se marcaba sola al elegir el fin del periodo; quien la veía vacía y hacía clic para marcarla la apagaba, y el pago quedaba sin
+   * extender. Ahora se ve marcada desde el principio, deshabilitada mientras no haya periodo, y elegirlo no la cambia.
+   */
+  it("sin el fin del periodo la casilla ya se ve marcada, esperando, y elegirlo no la cambia (H6)", () => {
     abrir();
 
-    expect(extender().checked).toBe(false);
+    expect(extender().checked).toBe(true);
     expect(extender().disabled).toBe(true);
     expect(nota()).toBe("Elige el fin del periodo para ver el nuevo vencimiento.");
+
+    escribir("Periodo hasta (inclusive)", "2026-11-20");
+    expect(extender().checked).toBe(true);
+    expect(extender().disabled).toBe(false);
   });
 
   it("un periodo que no adelanta el vencimiento deshabilita la casilla y lo explica, el mismo día incluido", () => {
@@ -304,13 +312,13 @@ describe("RegistrarPago", () => {
   // --- errores del backend ----------------------------------------------------------------------------------------------------------------
 
   it("un pago repetido muestra el motivo, no cierra y no recarga", async () => {
-    apiRequest.mockResolvedValue(error("PAGO_DUPLICADO", "Esa cuenta ya tiene un pago por YAPE con la referencia «OP-1»"));
+    apiRequest.mockResolvedValue(error("PAGO_DUPLICADO", "Esa cuenta ya tiene un pago por Yape con la referencia «OP-1»"));
     abrir();
     llenar();
 
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
 
-    expect((await screen.findByRole("alert")).textContent).toContain("ya tiene un pago por YAPE");
+    expect((await screen.findByRole("alert")).textContent).toContain("ya tiene un pago por Yape");
     expect(screen.getByTestId("registrar-pago-dialogo")).toBeTruthy();
     expect(refresh).not.toHaveBeenCalled();
   });
@@ -402,6 +410,8 @@ describe("RegistrarPago", () => {
     fireEvent.click(screen.getByTestId("registrar-pago"));
 
     expect(campo("Monto (S/)").value).toBe("");
-    expect(extender().checked).toBe(false);
+    // Como recién abierto (H6): marcada y en espera del periodo.
+    expect(extender().checked).toBe(true);
+    expect(extender().disabled).toBe(true);
   });
 });
