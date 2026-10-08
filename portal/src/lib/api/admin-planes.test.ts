@@ -153,7 +153,7 @@ describe("PlanAdmin", () => {
         limites: { documentos_al_mes: { maximo: 2000, ilimitado: false }, rucs: 2, usuarios: { maximo: 1, ilimitado: false }, api_keys: { ilimitado: true }, retencion_anios: 6 },
       },
       estado: "ACTIVO",
-      por_defecto: false,
+      por_defecto: false, visible_en_publicidad: true,
       cuentas: 3,
     };
     expect(plan.limites_programados?.limites.documentos_al_mes.maximo).toBe(2000);

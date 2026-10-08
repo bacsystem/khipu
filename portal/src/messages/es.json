@@ -228,6 +228,8 @@
       "reintentar": "Reintentar",
       "porDefecto": "Para cuentas nuevas",
       "porDefectoAyuda": "Es el plan con el que nace toda cuenta nueva: no se puede desactivar ni borrar.",
+      "noPublicado": "No se publica",
+      "noPublicadoAyuda": "Plan a medida: se asigna y se cobra, pero no sale en la página de precios.",
       "inactivo": "Fuera de la oferta",
       "columnas": {
         "plan": "Plan",
@@ -277,6 +279,8 @@
         "apiKeys": "API keys",
         "retencion": "Retención de XML y CDR (años)",
         "ilimitado": "Ilimitado",
+        "visible": "Mostrarlo en la página de precios",
+        "visibleAyuda": "Desmárcalo para un plan a medida de un cliente: se asigna y se cobra igual, pero no se publica.",
         "guardar": "Guardar plan",
         "guardando": "Guardando…",
         "crear": "Crear plan",

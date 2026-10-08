@@ -13,6 +13,7 @@ const VALIDOS: ValoresDePlan = {
   apiKeys: "5",
   apiKeysIlimitado: false,
   retencion: "6",
+  visibleEnPublicidad: true,
 };
 
 function errores(cambios: Partial<ValoresDePlan>) {
@@ -36,6 +37,7 @@ describe("validarPlan", () => {
           api_keys: { maximo: 5, ilimitado: false },
           retencion_anios: 6,
         },
+        visible_en_publicidad: true,
       },
     });
   });
@@ -112,7 +114,7 @@ describe("valoresDePlan", () => {
     precio_mensual: 69,
     limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { ilimitado: true }, retencion_anios: 5 },
     estado: "ACTIVO",
-    por_defecto: false,
+    por_defecto: false, visible_en_publicidad: true,
     cuentas: 4,
   };
 
@@ -154,5 +156,21 @@ describe("valoresDePlan", () => {
     const r = validarPlan(valoresDePlan(plan));
 
     expect(r).toMatchObject({ cuerpo: { nombre: "Negocio", precio_mensual: 69, limites: { rucs: 3, retencion_anios: 5, api_keys: { ilimitado: true } } } });
+  });
+});
+
+/** H20: un plan a medida para un cliente se vende igual pero no sale en la página de precios. */
+describe("visible en publicidad", () => {
+  it("un plan nuevo se publica salvo que se diga otra cosa", () => {
+    expect(VALORES_NUEVO_PLAN.visibleEnPublicidad).toBe(true);
+  });
+
+  it("viaja en el cuerpo tal como se marcó", () => {
+    expect(validarPlan({ ...VALIDOS, visibleEnPublicidad: false })).toMatchObject({ cuerpo: { visible_en_publicidad: false } });
+  });
+
+  it("al editar se prellena con lo que tiene el plan", () => {
+    const plan = { visible_en_publicidad: false, nombre: "A medida", precio_mensual: 80, limites: { documentos_al_mes: { maximo: 900, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 1, ilimitado: false }, retencion_anios: 5 } } as PlanAdmin;
+    expect(valoresDePlan(plan).visibleEnPublicidad).toBe(false);
   });
 });

@@ -11,7 +11,7 @@ afterEach(cleanup);
 
 const LIMITES = { documentos_al_mes: { maximo: 300, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5 };
 const resumen = (id: string, nombre: string, precio: number) => ({ id, nombre, precio_mensual: precio, limites: LIMITES });
-const planAdmin = (id: string, nombre: string, precio: number, estado: "ACTIVO" | "INACTIVO" = "ACTIVO"): PlanAdmin => ({ id, nombre, precio_mensual: precio, limites: LIMITES, estado, por_defecto: false, cuentas: 0 });
+const planAdmin = (id: string, nombre: string, precio: number, estado: "ACTIVO" | "INACTIVO" = "ACTIVO"): PlanAdmin => ({ id, nombre, precio_mensual: precio, limites: LIMITES, estado, por_defecto: false, visible_en_publicidad: true, cuentas: 0 });
 
 const PLANES = [planAdmin("p-gratis", "Gratis", 0), planAdmin("p-emprende", "Emprende", 29), planAdmin("p-viejo", "Viejo", 10, "INACTIVO")];
 

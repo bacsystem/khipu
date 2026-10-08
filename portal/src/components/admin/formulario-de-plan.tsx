@@ -215,6 +215,21 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
             {campoDeNumero("retencion", f.retencion)}
           </div>
 
+          {/* H20: un plan a medida para un cliente se asigna y se cobra igual, pero no se publica en la página de precios. */}
+          <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px] text-foreground">
+            <input
+              type="checkbox"
+              data-testid="plan-visible"
+              checked={valores.visibleEnPublicidad}
+              onChange={(e) => poner("visibleEnPublicidad", e.target.checked)}
+              className="mt-0.5 size-4 accent-primary"
+            />
+            <span className="grid gap-0.5">
+              <span className="font-medium">{f.visible}</span>
+              <span className="text-[12px] text-muted-foreground">{f.visibleAyuda}</span>
+            </span>
+          </label>
+
           {error ? (
             <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">
               {error}

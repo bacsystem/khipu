@@ -66,6 +66,12 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
                       </span>
                     ) : null}
                     {p.estado === "INACTIVO" ? <Etiqueta tono="aviso">{t.inactivo}</Etiqueta> : null}
+                    {/* H20: un plan a medida está activo y se asigna, pero no sale en la página de precios. */}
+                    {p.visible_en_publicidad ? null : (
+                      <span title={t.noPublicadoAyuda} data-testid={`plan-no-publicado-${p.id}`}>
+                        <Etiqueta tono="neutro">{t.noPublicado}</Etiqueta>
+                      </span>
+                    )}
                   </div>
                   <CambioProgramado plan={p} />
                 </TableCell>

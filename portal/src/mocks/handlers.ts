@@ -966,21 +966,38 @@ export const handlers = [
 
   http.post(`${BASE}/v1/admin/planes`, async ({ request }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    const v = validarPlanMock(await request.json());
+    const cuerpo = await request.json();
+    const v = validarPlanMock(cuerpo);
     if ("error" in v) return v.error;
-    const plan: PlanMock = { id: nuevoUuid(), nombre: v.nombre, precio_mensual: v.precio, limites: v.limites, estado: "ACTIVO", por_defecto: false, cuentas: 0 };
+    // H20, como el backend: sin decirlo, un plan nuevo se publica.
+    const visible = (cuerpo as { visible_en_publicidad?: unknown }).visible_en_publicidad !== false;
+    const plan: PlanMock = { id: nuevoUuid(), nombre: v.nombre, precio_mensual: v.precio, limites: v.limites, estado: "ACTIVO", por_defecto: false, visible_en_publicidad: visible, cuentas: 0 };
     db.planesAdmin.push(plan);
     return ok(planVisible(plan), 201);
   }),
+
+  /** Como el backend (H20): público, los planes activos y visibles, sin ids ni cuentas, del más barato al más caro. */
+  http.get(`${BASE}/v1/planes`, () =>
+    ok(
+      db.planesAdmin
+        .filter((p) => p.estado === "ACTIVO" && p.visible_en_publicidad)
+        .sort((a, b) => a.precio_mensual - b.precio_mensual || a.nombre.localeCompare(b.nombre))
+        .map((p) => ({ nombre: p.nombre, precio_mensual: p.precio_mensual, limites: p.limites })),
+    ),
+  ),
 
   http.put(`${BASE}/v1/admin/planes/:id`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     if (!esUuid(String(params.id))) return parametroInvalido("id");
     const plan = db.planesAdmin.find((p) => p.id === params.id);
     if (!plan) return fail(404, "NO_ENCONTRADO", "El plan no existe");
-    const v = validarPlanMock(await request.json(), plan.id);
+    const cuerpo = await request.json();
+    const v = validarPlanMock(cuerpo, plan.id);
     if ("error" in v) return v.error;
     plan.nombre = v.nombre;
+    // H20, como el backend: sin decirlo, la visibilidad se queda como estaba.
+    const visible = (cuerpo as { visible_en_publicidad?: unknown }).visible_en_publicidad;
+    if (typeof visible === "boolean") plan.visible_en_publicidad = visible;
     plan.precio_mensual = v.precio;
     if (JSON.stringify(v.limites) === JSON.stringify(plan.limites)) delete plan.limites_programados;
     else plan.limites_programados = { limites: v.limites, aplica_desde: inicioDelProximoCiclo(new Date()) };

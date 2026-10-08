@@ -21,7 +21,7 @@ const exito = (datos: unknown = {}): ApiEnvelope<unknown> => ({ estado: "exito",
 const error = (codigo: string, mensaje: string): ApiEnvelope<unknown> => ({ estado: "error", datos: null, mensaje, codigo, errores: null });
 
 const LIMITES = { documentos_al_mes: { maximo: 300, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5 };
-const plan = (id: string, nombre: string, precio: number): PlanAdmin => ({ id, nombre, precio_mensual: precio, limites: LIMITES, estado: "ACTIVO", por_defecto: false, cuentas: 0 });
+const plan = (id: string, nombre: string, precio: number): PlanAdmin => ({ id, nombre, precio_mensual: precio, limites: LIMITES, estado: "ACTIVO", por_defecto: false, visible_en_publicidad: true, cuentas: 0 });
 const GRATIS = plan("p-gratis", "Gratis", 0);
 const EMPRENDE = plan("p-emprende", "Emprende", 29);
 const NEGOCIO = plan("p-negocio", "Negocio", 69);
