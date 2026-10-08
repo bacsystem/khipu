@@ -381,6 +381,69 @@ class JdbcCuentasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.detalle(cuenta).orElseThrow().eventos().get(0).actor()).isEqualTo("CLAVE_PLATAFORMA");
     }
 
+    UUID administrador(String email) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO administrador (id, email, password_hash) VALUES (?, ?, 'hash')", id, email);
+        return id;
+    }
+
+    void registrar(pe.factura.domain.plataforma.ActorAdmin actor, pe.factura.domain.plataforma.AccionAdmin accion, UUID cuenta, String detalle, Instant cuando) {
+        new JdbcAuditoriaAdminRepository(jdbc).registrar(pe.factura.domain.plataforma.RegistroAuditoria.de(actor, accion, cuenta, null, detalle, cuando));
+    }
+
+    /** H11: la bitácora dice qué administrador hizo cada acción, no solo «un administrador». */
+    @Test void cadaEventoDiceElCorreoDelAdministradorQueLoHizo() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        UUID ana = administrador("ana@khipu.pe");
+        UUID beto = administrador("beto@khipu.pe");
+        registrar(pe.factura.domain.plataforma.ActorAdmin.administrador(ana, "203.0.113.7"), pe.factura.domain.plataforma.AccionAdmin.CREAR_CUENTA, cuenta, "ruc=1", T0);
+        registrar(pe.factura.domain.plataforma.ActorAdmin.administrador(beto, "203.0.113.8"), pe.factura.domain.plataforma.AccionAdmin.CREAR_TENANT, cuenta, "ruc=2", T0.plusSeconds(60));
+        registrar(pe.factura.domain.plataforma.ActorAdmin.clavePlataforma("10.0.0.1"), pe.factura.domain.plataforma.AccionAdmin.CREAR_TENANT, cuenta, "ruc=3", T0.plusSeconds(120));
+
+        var eventos = repo.detalle(cuenta).orElseThrow().eventos();
+
+        assertThat(eventos).extracting(e -> e.administrador()).as("del más reciente al más antiguo; la clave de la plataforma no es nadie")
+                .containsExactly(null, "beto@khipu.pe", "ana@khipu.pe");
+    }
+
+    @Test void unAdministradorQueYaNoExisteDejaElEventoSinCorreoPeroNoLoEsconde() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        registrar(pe.factura.domain.plataforma.ActorAdmin.administrador(UUID.randomUUID(), "203.0.113.7"), pe.factura.domain.plataforma.AccionAdmin.CREAR_CUENTA, cuenta, "ruc=1", T0);
+
+        var eventos = repo.detalle(cuenta).orElseThrow().eventos();
+
+        assertThat(eventos).singleElement().satisfies(e -> {
+            assertThat(e.actor()).isEqualTo("ADMINISTRADOR");
+            assertThat(e.administrador()).isNull();
+        });
+    }
+
+    /**
+     * H15: el historial del estado son todas las suspensiones, reactivaciones, bajas y reposiciones de la cuenta, con quién y el motivo. No se corta en 10 como la
+     * actividad reciente: es justo lo que se pierde entre las demás acciones de la bitácora.
+     */
+    @Test void elHistorialDelEstadoTraeTodosLosCambiosDeEstadoYNadaMas() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        UUID otra = cuenta("Otra", "otra@x.pe", T0);
+        UUID ana = administrador("ana@khipu.pe");
+        var actor = pe.factura.domain.plataforma.ActorAdmin.administrador(ana, "203.0.113.7");
+        registrar(actor, pe.factura.domain.plataforma.AccionAdmin.SUSPENDER_CUENTA, cuenta, "motivo=Falta de pago", T0);
+        registrar(actor, pe.factura.domain.plataforma.AccionAdmin.REACTIVAR_CUENTA, cuenta, null, T0.plusSeconds(60));
+        registrar(actor, pe.factura.domain.plataforma.AccionAdmin.DAR_DE_BAJA_CUENTA, cuenta, "motivo=Cerró el negocio", T0.plusSeconds(120));
+        registrar(actor, pe.factura.domain.plataforma.AccionAdmin.REPONER_CUENTA, cuenta, null, T0.plusSeconds(180));
+        registrar(actor, pe.factura.domain.plataforma.AccionAdmin.SUSPENDER_CUENTA, otra, "motivo=De otra cuenta", T0.plusSeconds(200));
+        for (int i = 0; i < 12; i++) registrar(actor, pe.factura.domain.plataforma.AccionAdmin.CREAR_TENANT, cuenta, "n=" + i, T0.plusSeconds(1000 + i));
+
+        var historial = repo.detalle(cuenta).orElseThrow().historialEstado();
+
+        assertThat(historial).extracting(e -> e.accion()).as("los cuatro aunque haya 12 acciones más recientes, del más reciente al más antiguo")
+                .containsExactly("REPONER_CUENTA", "DAR_DE_BAJA_CUENTA", "REACTIVAR_CUENTA", "SUSPENDER_CUENTA");
+        assertThat(historial.get(3).detalle()).isEqualTo("motivo=Falta de pago");
+        assertThat(historial.get(3).administrador()).isEqualTo("ana@khipu.pe");
+        assertThat(historial.get(3).ocurridoEn()).isEqualTo(T0);
+        assertThat(repo.detalle(otra).orElseThrow().historialEstado()).extracting(e -> e.detalle()).containsExactly("motivo=De otra cuenta");
+    }
+
     /** El detalle de una cuenta con mucha historia no recorre todos los comprobantes de sus empresas: cada página lee por índice. */
     @Test void losComprobantesRecientesSeLeenPorIndiceDeCadaEmpresa() {
         assertThat(plan("SELECT id FROM documento WHERE tenant_id = '" + UUID.randomUUID() + "' ORDER BY fecha_emision DESC, created_at DESC LIMIT 10"))

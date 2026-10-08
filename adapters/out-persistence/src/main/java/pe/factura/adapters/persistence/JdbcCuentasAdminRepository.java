@@ -69,7 +69,7 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
                         rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"), rs.getTimestamp("created_at").toInstant(), instante(rs.getTimestamp("suspendida_en")),
                         instante(rs.getTimestamp("baja_en"))}, cuentaId)
                 .stream().findFirst().map(c -> new CuentaDetalle(cuentaId, (String) c[0], (String) c[1], (String) c[2], (Instant) c[3], (Instant) c[4], (Instant) c[5],
-                        usuariosDe(cuentaId), empresasDe(cuentaId), comprobantesDe(cuentaId), eventosDe(cuentaId)));
+                        usuariosDe(cuentaId), empresasDe(cuentaId), comprobantesDe(cuentaId), eventosDe(cuentaId), historialEstadoDe(cuentaId)));
     }
 
     private List<UsuarioDeCuenta> usuariosDe(UUID cuentaId) {
@@ -108,11 +108,26 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
                 rs.getBigDecimal("total")), RECIENTES, cuentaId, RECIENTES);
     }
 
+    /** El correo sale de un LEFT JOIN: la bitácora no tiene FK al administrador, y una acción de alguien que ya no existe se muestra igual, sin correo. */
+    private static final String EVENTO = """
+            SELECT a.accion, a.actor_tipo, adm.email AS administrador, a.ocurrido_en, a.detalle
+            FROM auditoria_admin a LEFT JOIN administrador adm ON adm.id = a.administrador_id
+            WHERE a.cuenta_id = ?
+            """;
+    private static final RowMapper<EventoReciente> EVENTO_MAPPER = (rs, i) -> new EventoReciente(rs.getString("accion"), rs.getString("actor_tipo"),
+            rs.getString("administrador"), rs.getTimestamp("ocurrido_en").toInstant(), rs.getString("detalle"));
+
     private List<EventoReciente> eventosDe(UUID cuentaId) {
-        return jdbc.query("""
-                SELECT accion, actor_tipo, ocurrido_en, detalle FROM auditoria_admin WHERE cuenta_id = ? ORDER BY ocurrido_en DESC, id LIMIT ?
-                """, (rs, i) -> new EventoReciente(rs.getString("accion"), rs.getString("actor_tipo"), rs.getTimestamp("ocurrido_en").toInstant(), rs.getString("detalle")),
-                cuentaId, RECIENTES);
+        return jdbc.query(EVENTO + " ORDER BY a.ocurrido_en DESC, a.id LIMIT ?", EVENTO_MAPPER, cuentaId, RECIENTES);
+    }
+
+    /**
+     * Los cambios de estado de la cuenta (H15), todos: una cuenta cambia de estado pocas veces, y lo que importa es justo el motivo de la suspensión de hace
+     * meses que la actividad reciente ya no muestra. Lee por el mismo índice {@code (cuenta_id, ocurrido_en)} que la bitácora.
+     */
+    private List<EventoReciente> historialEstadoDe(UUID cuentaId) {
+        return jdbc.query(EVENTO + " AND a.accion IN ('SUSPENDER_CUENTA', 'REACTIVAR_CUENTA', 'DAR_DE_BAJA_CUENTA', 'REPONER_CUENTA') ORDER BY a.ocurrido_en DESC, a.id",
+                EVENTO_MAPPER, cuentaId);
     }
 
     private static Instant instante(Timestamp t) { return t == null ? null : t.toInstant(); }

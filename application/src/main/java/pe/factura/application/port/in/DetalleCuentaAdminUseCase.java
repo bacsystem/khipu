@@ -21,7 +21,7 @@ public interface DetalleCuentaAdminUseCase {
      */
     record CuentaDetalle(UUID id, String nombre, String email, String telefono, Instant creadaEn, Instant suspendidaEn, Instant bajaEn,
                          List<UsuarioDeCuenta> usuarios, List<EmpresaDeCuenta> empresas,
-                         List<ComprobanteReciente> comprobantes, List<EventoReciente> eventos) {}
+                         List<ComprobanteReciente> comprobantes, List<EventoReciente> eventos, List<EventoReciente> historialEstado) {}
 
     /** {@code ultimoAcceso}: su sesión más reciente en el portal; el uso por API key no cuenta. Nulo si nunca inició sesión. */
     record UsuarioDeCuenta(UUID id, String email, String rol, boolean activo, Instant correoVerificadoEn, Instant ultimoAcceso) {}
@@ -38,8 +38,9 @@ public interface DetalleCuentaAdminUseCase {
                                String estado, String moneda, BigDecimal total) {}
 
     /**
-     * Una acción del administrador sobre esta cuenta, de la bitácora (#178). Sin IP ni identificador del administrador: es contexto para
-     * soporte, no la auditoría completa.
+     * Una acción del administrador sobre esta cuenta, de la bitácora (#178). {@code administrador} es el correo de quien la hizo (H11), para saber a quién
+     * preguntar; es nulo si fue la clave de la plataforma o si ese administrador ya no existe. Sin IP: es contexto para soporte, no la auditoría completa.
+     * El {@code historialEstado} usa la misma forma con solo las suspensiones, reactivaciones, bajas y reposiciones, todas (H15).
      */
-    record EventoReciente(String accion, String actor, Instant ocurridoEn, String detalle) {}
+    record EventoReciente(String accion, String actor, String administrador, Instant ocurridoEn, String detalle) {}
 }

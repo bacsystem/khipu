@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DetalleCuentaAdminServiceTest {
     UUID id = UUID.randomUUID();
     CuentaDetalle detalle = new CuentaDetalle(id, "Mi negocio", "ana@negocio.pe", "987654321", Instant.parse("2026-09-01T10:00:00Z"), null, null,
-            List.of(), List.of(), List.of(), List.of());
+            List.of(), List.of(), List.of(), List.of(), List.of());
     CuentasAdminRepository repo = new CuentasAdminRepository() {
         public List<CuentaResumen> listar(Filtro f, int p, int n) { throw new AssertionError("el detalle no lista"); }
         public long contar(Filtro f) { throw new AssertionError("el detalle no cuenta"); }
