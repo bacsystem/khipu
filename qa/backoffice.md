@@ -2585,7 +2585,7 @@ Hubo cuatro supervivientes en la primera tanda: tres de backend y uno de portal.
 
 ## #196 · Backoffice: cola global de errores con acciones
 
-**Estado: 🔧 implementado, 146/146 mutaciones verificadas (73 de backend, 73 de portal) — falta la revisión de la PR.** Backend (`GET /v1/admin/errores`, `POST /v1/admin/comprobantes/{id}/reintento` y `.../descarte`), un estado nuevo `DESCARTADO` y la pantalla `/admin/errores`. Va después de #195 en la pila.
+**Estado: ✅ revisión de la PR (#247) corregida, 149/149 mutaciones verificadas (75 de backend, 74 de portal).** Backend (`GET /v1/admin/errores`, `POST /v1/admin/comprobantes/{id}/reintento` y `.../descarte`), un estado nuevo `DESCARTADO` y la pantalla `/admin/errores`. Va después de #195 en la pila.
 
 ### Diseño
 
@@ -2634,12 +2634,25 @@ Hubo **cinco supervivientes** en la primera tanda. **Backend:** el total de la c
 - Backend: `./gradlew test` completo, **BUILD SUCCESSFUL (10 min 30 s)** (incluye `ArchitectureTest`, el E2E de la cola de errores y las pruebas de persistencia con Postgres real).
 - Portal: `tsc` y ESLint limpios; Vitest **1140/1140 (120 archivos)**; Playwright completo (`--workers=2`) **360/360**.
 
+### Corrección de la revisión de #247
+
+- **H1 (importante): se podía descartar un comprobante que SUNAT sí había recibido.** Un error de envío por un corte (tiempo agotado, conexión caída) puede llegar
+  **después** de que SUNAT aceptó el comprobante: khipu no recibió el CDR. Descartarlo hacía que el cliente emitiera otro por la misma venta, y SUNAT quedaba con dos
+  comprobantes válidos. Ahora, en una empresa en **producción** con credenciales SOL, antes de descartar se le pregunta a SUNAT (getStatusCdr, con el
+  `RecuperarCdrUseCase` de siempre): si lo tiene, se aplica su CDR (el comprobante queda aceptado o rechazado) y el descarte responde `409 SUNAT_YA_LO_TIENE`; si no se
+  le puede preguntar, `503 SUNAT_NO_DISPONIBLE` (no se descarta a ciegas). En beta (e-beta no publica la consulta y no hay efecto fiscal), sin credenciales SOL (el
+  envío nunca pudo llegar) o si ya no está en error de envío, no se pregunta. El diálogo lo dice y trata `SUNAT_YA_LO_TIENE` como «el estado cambió» (recarga).
+- Tests: servicio (4 nuevos; dos mutaciones mueren: no preguntar, y preguntar también en beta), componente (`SUNAT_YA_LO_TIENE` recarga, en rojo antes).
+- Después: servicio, controlador y E2E de la cola de errores **BUILD SUCCESSFUL**; `tsc` y ESLint limpios; Vitest **1147/1147** (121 archivos); Playwright
+  `admin-errores` **18/18**.
+
 ### Límites conocidos
 
 - **`DESCARTADO` es una decisión de producto mía.** El issue dice «marcar como terminal» y no hay otro estado terminal para un error de envío (`FUERA_DE_PLAZO` es mentira si el plazo no venció, y `RECHAZADO` dice que SUNAT lo rechazó). Es un estado más en una API pública: los integradores lo verán en `estado_documento` (la guía de errores lo documenta). La alternativa mínima (solo sacarlo del outbox y dejarlo en `ERROR_ENVIO`) deja que la empresa lo reenvíe a mano, que es justo lo que «terminal» quiere evitar.
 - **Descartar no avisa al cliente.** Solo cambia el estado que ve en su portal. El aviso por correo es el issue #197 (certificados) y #199 (plantillas); acá no.
 - **El número de un descartado queda consumido**, igual que el de un fuera de plazo: SUNAT puede no haberlo recibido nunca y la serie queda con un hueco. El diálogo lo dice.
-- **Carrera residual:** si el trabajo del outbox ya mandó el comprobante a SUNAT y SUNAT lo aceptó en el mismo instante en que un administrador lo descarta, el guardado condicional protege lo que ya está escrito, pero la aceptación de SUNAT que llegue después encuentra un `DESCARTADO` y no se guarda (el conflicto lo registra el worker). El comprobante queda descartado en khipu y aceptado en SUNAT; la ventana es de milisegundos y `RecuperarCdr` no mira los descartados.
+- **Carrera residual:** si el trabajo del outbox ya mandó el comprobante a SUNAT y SUNAT lo aceptó en el mismo instante en que un administrador lo descarta, el guardado condicional protege lo que ya está escrito, pero la aceptación de SUNAT que llegue después encuentra un `DESCARTADO` y no se guarda (el conflicto lo registra el worker). El comprobante queda descartado en khipu y aceptado en SUNAT; la ventana es de milisegundos y `RecuperarCdr` no mira los descartados. (El caso grande —un corte que dejó el error de envío con SUNAT ya teniendo el comprobante— se
+  cierra preguntándole a SUNAT antes de descartar: ver la corrección de la revisión.)
 - **El reintento es síncrono:** el diálogo queda en «Reintentando…» hasta que SUNAT contesta o vence su espera (hasta 15 s).
 - **La lista no se actualiza sola** (a diferencia del monitor): se recarga al actuar o al navegar. Tampoco hay acciones en lote.
 - **El correo de la cuenta viaja en la URL de la búsqueda** (`?q=…`) si el administrador busca por correo: es un dato del backoffice, pero queda en el historial del navegador.

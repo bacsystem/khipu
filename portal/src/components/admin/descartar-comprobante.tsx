@@ -38,7 +38,7 @@ export function DescartarComprobante({ comprobante, alResultado }: { comprobante
       cancelar={t.cancelar}
       ruta={`/api/admin/comprobantes/${comprobante.comprobante_id}/descarte`}
       cuerpo={() => ({ motivo })}
-      estadoViejo={["ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "NO_ENCONTRADO"]}
+      estadoViejo={["ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "NO_ENCONTRADO", "SUNAT_YA_LO_TIENE"]}
       alEstadoViejo={(mensaje) => alResultado(`${comprobante.nombre_archivo}: ${mensaje}`)}
       alCerrar={() => setMotivo("")}
       alExito={() => alResultado(mensajeDeDescarte(comprobante.nombre_archivo))}
