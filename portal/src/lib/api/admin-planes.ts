@@ -49,6 +49,25 @@ export function retencionEnPalabras(anios: number): string {
   return anios === 1 ? "1 año" : `${anios} años`;
 }
 
+/** «1 usuario», «3 usuarios», o `sinLimite` («usuarios ilimitados»). */
+function cantidad(l: LimiteAdmin | number, singular: string, plural: string, sinLimite: string): string {
+  const limite = typeof l === "number" ? { maximo: l, ilimitado: false } : l;
+  if (limite.ilimitado) return sinLimite;
+  if (limite.maximo === undefined) return `— ${plural}`;
+  return `${limite.maximo.toLocaleString("en-US")} ${limite.maximo === 1 ? singular : plural}`;
+}
+
+/** Los límites de un plan en una línea, con singulares y plurales bien puestos (H13): «1 documento al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención». */
+export function limitesEnPalabras(l: LimitesAdmin): string {
+  return [
+    cantidad(l.documentos_al_mes, "documento al mes", "documentos al mes", "Documentos ilimitados"),
+    cantidad(l.rucs, "RUC", "RUC", "RUC ilimitados"),
+    cantidad(l.usuarios, "usuario", "usuarios", "usuarios ilimitados"),
+    cantidad(l.api_keys, "API key", "API keys", "API keys ilimitadas"),
+    `${retencionEnPalabras(l.retencion_anios)} de retención`,
+  ].join(" · ");
+}
+
 export type CampoDeLimite = "documentos" | "rucs" | "usuarios" | "apiKeys" | "retencion";
 
 /** Lo que cambia entre dos conjuntos de límites, de qué a qué y en el orden de la tabla; sin diferencias, nada. */

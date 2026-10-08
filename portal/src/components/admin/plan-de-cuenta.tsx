@@ -1,7 +1,7 @@
 import { CambiarPlan } from "@/components/admin/cambiar-plan";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
 import { Seccion } from "@/components/admin/seccion";
-import { limiteEnPalabras, precioEnSoles, retencionEnPalabras, type PlanAdmin } from "@/lib/api/admin-planes";
+import { limitesEnPalabras, precioEnSoles, type PlanAdmin } from "@/lib/api/admin-planes";
 import type { EstadoDeSuscripcionAdmin, PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { formatearFecha, formatearFechaDeLima, ultimoDiaCubierto } from "@/lib/formato";
 import { messages } from "@/lib/messages";
@@ -45,12 +45,7 @@ export function PlanDeCuenta({ cuentaId, cuentaNombre, plan, planes, hoy }: { cu
         </ul>
 
         <p className="text-[12px] text-muted-foreground">
-          {t.limites
-            .replace("{documentos}", limiteEnPalabras(l.documentos_al_mes))
-            .replace("{rucs}", String(l.rucs))
-            .replace("{usuarios}", limiteEnPalabras(l.usuarios))
-            .replace("{apiKeys}", limiteEnPalabras(l.api_keys))}
-          {` · ${retencionEnPalabras(l.retencion_anios)} de retención`}
+          {t.limites.replace("{limites}", limitesEnPalabras(l))}
         </p>
 
         {plan.programado ? (

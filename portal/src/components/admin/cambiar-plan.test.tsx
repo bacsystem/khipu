@@ -99,7 +99,7 @@ describe("CambiarPlan — antes de confirmar", () => {
     const texto = screen.getByTestId("cambiar-plan-previa").textContent ?? "";
     expect(texto).toContain("Subida de plan");
     expect(texto).toContain("Entra ahora.");
-    expect(texto).toContain("En Oct 2026 la cuenta consumió 312 documentos (solo cuentan los comprobantes aceptados por SUNAT).");
+    expect(texto).toContain("En Oct 2026 la cuenta consumió 312 documentos (cuenta lo que SUNAT aceptó, aunque después se anule).");
     expect(texto).toContain("El plan Negocio permite 1,500 al mes.");
     expect(screen.queryByTestId("cambiar-plan-supera")).toBeNull();
   });

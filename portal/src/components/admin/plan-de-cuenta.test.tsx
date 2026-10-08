@@ -46,7 +46,7 @@ describe("PlanDeCuenta", () => {
   it("resume los límites que mandan hoy", () => {
     montar();
 
-    expect(seccion().textContent).toContain("Límites vigentes: 300 documentos al mes · 1 RUC · 1 usuarios · 2 API keys");
+    expect(seccion().textContent).toContain("Límites vigentes: 300 documentos al mes · 1 RUC · 1 usuario · 2 API keys · 5 años de retención");
   });
 
   it("el estado de pago se dice con una etiqueta: al día, en gracia o vencido", () => {

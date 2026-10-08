@@ -50,7 +50,7 @@ describe("AdminConsumoPage", () => {
 
     expect(listarConsumoDeCuentas).toHaveBeenCalledWith("jwt-admin", { mes: "2026-09", filtro: "PLAN_VENCIDO", orden: "DOCUMENTOS", pagina: 2, porPagina: 20 });
     expect(screen.getByRole("heading", { name: "Consumo" })).toBeTruthy();
-    expect(screen.getByText(/Solo cuentan los comprobantes que SUNAT aceptó/)).toBeTruthy();
+    expect(screen.getByText(/Cuenta lo que SUNAT aceptó, aunque después se anule/)).toBeTruthy();
     const tabla = screen.getByTestId("tabla");
     expect(tabla.textContent).toBe("Ana,Luis");
     expect(tabla.getAttribute("data-total")).toBe("57");
