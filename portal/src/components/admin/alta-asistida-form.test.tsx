@@ -391,7 +391,8 @@ describe("AltaAsistidaForm", () => {
     expect(alCambiarEnvio).toHaveBeenLastCalledWith(true);
     resolver(sobre(201, { estado: "exito", datos: CREADA }));
     await waitFor(() => expect(screen.getByTestId("api-key-nueva")).toBeTruthy());
-    expect(alCambiarEnvio).toHaveBeenLastCalledWith(false);
+    // El aviso al modal sale de un efecto, que puede correr un render después de que aparezca la API key: se espera, no se supone.
+    await waitFor(() => expect(alCambiarEnvio).toHaveBeenLastCalledWith(false));
   });
 
   it("«Dar de alta a otro cliente» vuelve al paso 1 con un formulario limpio y la API key anterior desaparece", async () => {
