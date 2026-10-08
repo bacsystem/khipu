@@ -2166,7 +2166,7 @@ Lo que sobrevivía en la primera tanda y se arregló con su test:
 
 ## #191 · Planes: asignar y cambiar el plan de una cuenta
 
-**Estado: 🔧 implementado, 148/148 mutaciones verificadas (1 equivalente documentada) — falta la revisión de la PR.** Backend (`/v1/admin/cuentas/{id}/plan`) y portal (la ficha de la cuenta). Va **después de #192** en la pila (lo adelanté): el issue pide mostrar el consumo del mes antes de confirmar, y ese contador es de #192.
+**Estado: ✅ revisión de la PR (#240) corregida, 150/150 mutaciones verificadas (148 y 2 de la corrección; 1 equivalente documentada).** Backend (`/v1/admin/cuentas/{id}/plan`) y portal (la ficha de la cuenta). Va **después de #192** en la pila (lo adelanté): el issue pide mostrar el consumo del mes antes de confirmar, y ese contador es de #192.
 
 ### Diseño
 
@@ -2217,6 +2217,17 @@ Lo que sobrevivía en la primera tanda y se arregló con su test (o con menos c�
 
 - Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (9 min 13 s; incluye `ArchitectureTest` y todos los E2E de Spring con Postgres real).
 - Portal: `tsc` y ESLint limpios; Vitest **805/805** (94 archivos); Playwright completo (`--workers=2`) **268/268**.
+
+### Corrección de la revisión de #240
+
+- **H1 (importante): un cambio descartaba en silencio la bajada que esperaba.** Una subida o una renovación la cancelan y otra bajada la reemplaza, pero la
+  previsualización no lo decía: renovar Negocio a quien ya había pedido bajar a Emprende le seguía cobrando Negocio sin que el administrador lo supiera. Ahora la
+  previsualización trae `programado_que_se_descarta` (el plan y la fecha; ausente si no hay, o si ya llegó su fecha, porque entonces se aplica primero) y el modal
+  lo dice: «Cancela el paso a Emprende programado para el 1 Nov 2026» o «Reemplaza el paso a…». Tests: servicio (2, con dos mutaciones que mueren: no
+  devolverlo, o devolverlo aunque ya llegó), controlador (2), modal (3, en rojo antes) y Playwright sobre la cuenta sembrada con una bajada.
+- **H2 (menor): el mock respondía `400 VALIDACION`** a un id de cuenta o un `plan_id` que no son UUID; ahora `parametroInvalido("id")` /
+  `parametroInvalido("plan_id")`, como el backend.
+- Después: servicio y controlador en verde; `tsc` y ESLint limpios; Vitest **811/811** (95 archivos); Playwright `admin-plan-de-cuenta` + `admin-planes` **32/32**.
 
 ### Límites conocidos
 

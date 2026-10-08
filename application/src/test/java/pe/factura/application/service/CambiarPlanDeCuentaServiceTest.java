@@ -5,6 +5,7 @@ import pe.factura.application.port.in.AplicarCambiosDePlanUseCase.Resultado;
 import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase.Efecto;
 import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase.PlanDeCuenta;
 import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase.Previsualizacion;
+import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase.Programado;
 import pe.factura.application.port.in.ConsultarConsumoUseCase;
 import pe.factura.application.port.out.SuscripcionRepository;
 import pe.factura.domain.DomainException;
@@ -235,6 +236,28 @@ class CambiarPlanDeCuentaServiceTest {
 
         assertThat(v.planActual()).isEqualTo(emprende);
         assertThat(v.direccion()).isEqualTo(DireccionDeCambio.SUBIDA);
+    }
+
+    /**
+     * Un cambio inmediato cancela la bajada que esperaba, y una bajada nueva la reemplaza: la previsualización lo dice, para que el administrador no anule sin saberlo
+     * lo que el cliente ya había pedido (renovar Negocio a quien pidió bajar a Emprende le seguiría cobrando Negocio).
+     */
+    @Test void laPrevisualizacionDiceQueBajadaProgramadaSeDescarta() {
+        empezarEn(negocio, VENCE);
+        CambioDePlan bajada = new CambioDePlan(emprende.id(), PROXIMO_CICLO, VENCE.plus(Duration.ofDays(30)), 3);
+        suscripciones.programar(cuentaId, bajada);
+
+        assertThat(service.previsualizar(cuentaId, negocio.id()).programadoQueSeDescarta()).isEqualTo(new Programado(emprende, bajada));
+        assertThat(service.previsualizar(cuentaId, pro.id()).programadoQueSeDescarta()).isEqualTo(new Programado(emprende, bajada));
+        assertThat(service.previsualizar(cuentaId, gratis.id()).programadoQueSeDescarta()).as("una bajada nueva reemplaza a la anterior").isEqualTo(new Programado(emprende, bajada));
+    }
+
+    @Test void sinBajadaEsperandoOConUnaQueYaLlegoNoHayNadaQueDescartar() {
+        empezarEn(negocio, VENCE);
+        assertThat(service.previsualizar(cuentaId, pro.id()).programadoQueSeDescarta()).isNull();
+
+        suscripciones.programar(cuentaId, new CambioDePlan(emprende.id(), AHORA.minusSeconds(3600), null, 0));
+        assertThat(service.previsualizar(cuentaId, pro.id()).programadoQueSeDescarta()).as("la que ya llegó se aplica primero: no se descarta").isNull();
     }
 
     @Test void previsualizarRechazaLoQueNoExisteOEstaFueraDeLaOferta() {

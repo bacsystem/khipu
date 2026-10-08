@@ -548,17 +548,17 @@ export const handlers = [
    */
   http.get(`${BASE}/v1/admin/cuentas/:id/plan`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     if (!db.cuentasAdmin.some((c) => c.id === params.id)) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     return ok(vistaDePlanDeCuenta(String(params.id)));
   }),
 
   http.get(`${BASE}/v1/admin/cuentas/:id/plan/previsualizacion`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     if (!db.cuentasAdmin.some((c) => c.id === params.id)) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     const planId = new URL(request.url).searchParams.get("plan_id") ?? "";
-    if (!esUuid(planId)) return fail(400, "VALIDACION", "El id del plan no es válido");
+    if (!esUuid(planId)) return parametroInvalido("plan_id");
     const nuevo = db.planesAdmin.find((p) => p.id === planId);
     if (!nuevo) return fail(404, "NO_ENCONTRADO", "El plan no existe");
     if (nuevo.estado !== "ACTIVO") return fail(409, "PLAN_INACTIVO", `El plan «${nuevo.nombre}» está fuera de la oferta: no se puede asignar`);
@@ -566,7 +566,11 @@ export const handlers = [
     const direccion = nuevo.id === actual.id ? "RENOVACION" : nuevo.precio_mensual < actual.precio_mensual ? "BAJADA" : "SUBIDA";
     const consumo = consumoDelMesMock(String(params.id));
     const limite = nuevo.limites.documentos_al_mes;
+    // La bajada que espera (y todavía no llegó) queda sin efecto con cualquier cambio: el backend lo dice en la previsualización.
+    const esperando = planDeCuentaMock(String(params.id)).programado;
+    const planEsperando = esperando && Date.now() < Date.parse(esperando.aplicaDesde) ? db.planesAdmin.find((p) => p.id === esperando.planId) : undefined;
     return ok({
+      ...(esperando && planEsperando ? { programado_que_se_descarta: { plan: resumenDePlan(planEsperando), aplica_desde: esperando.aplicaDesde } } : {}),
       cuenta_id: params.id,
       plan_actual: resumenDePlan(actual),
       plan_nuevo: resumenDePlan(nuevo),
@@ -582,7 +586,7 @@ export const handlers = [
 
   http.post(`${BASE}/v1/admin/cuentas/:id/plan`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     if (!db.cuentasAdmin.some((c) => c.id === params.id)) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     const cuerpo = (await request.json()) as { plan_id?: string; vence_en?: string; dias_de_gracia?: number };
     if (!cuerpo.plan_id) return fail(422, "PLAN_REQUERIDO", "Falta el plan al que pasa la cuenta");

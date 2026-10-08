@@ -53,8 +53,11 @@ public class CambiarPlanDeCuentaService implements CambiarPlanDeCuentaUseCase, A
         ConsultarConsumoUseCase.ConsumoDeCuenta consumo = consumos.deCuenta(cuentaId, null);
         Limite limite = nuevo.vigenteEn(ahora).limites().documentosAlMes();
         Efecto efecto = direccion.esInmediata() ? Efecto.INMEDIATO : Efecto.CICLO_SIGUIENTE;
+        // La bajada que espera y todavía no llegó: cualquier cambio la deja sin efecto (el inmediato la cancela, otra bajada la reemplaza), y hay que decirlo.
+        Programado descartado = p.programado() == null || !ahora.isBefore(p.programado().aplicaDesde()) ? null
+                : new Programado(planDe(p.programado().planId()).vigenteEn(ahora), p.programado());
         return new Previsualizacion(cuentaId, actual, nuevo, direccion, efecto, direccion.esInmediata() ? ahora : CicloMensual.inicioDelSiguiente(ahora),
-                consumo.mes(), consumo.documentos(), limite, !limite.ilimitado() && consumo.documentos() > limite.maximo());
+                consumo.mes(), consumo.documentos(), limite, !limite.ilimitado() && consumo.documentos() > limite.maximo(), descartado);
     }
 
     @Override public PlanDeCuenta cambiar(ActorAdmin actor, UUID cuentaId, UUID planId, Instant venceEn, Integer diasDeGracia) {
