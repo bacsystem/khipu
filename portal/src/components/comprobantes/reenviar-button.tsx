@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import { mensajeError } from "@/lib/messages";
+import { useSoloLectura } from "@/lib/solo-lectura";
 
 /**
  * Reintento manual del envío a SUNAT. Es el único botón de la ficha que usaba `fetch` a pelo, sin mirar la respuesta ni
@@ -13,6 +14,7 @@ import { mensajeError } from "@/lib/messages";
  * en SUNAT, y reintentar a ciegas sin ver el rechazo es cómo el emisor se queda sin saber cuál es el estado real.
  */
 export function ReenviarButton({ id }: { id: string }) {
+  const soloLectura = useSoloLectura();
   const router = useRouter();
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export function ReenviarButton({ id }: { id: string }) {
 
   return (
     <div className="flex flex-col items-end gap-1.5">
-      <Button disabled={enviando} onClick={reenviar}>
+      <Button disabled={enviando || soloLectura !== null} title={soloLectura ?? undefined} onClick={reenviar}>
         {enviando ? "Reenviando…" : "Reenviar"}
       </Button>
       {error ? (

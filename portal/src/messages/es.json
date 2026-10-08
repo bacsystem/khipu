@@ -1333,6 +1333,7 @@
     "hasta": "Hasta {fecha}"
   },
   "soporte": {
+    "soloLectura": "Modo soporte: solo se puede mirar, no cambiar nada.",
     "aviso": {
       "region": "Modo soporte",
       "titulo": "Modo soporte",

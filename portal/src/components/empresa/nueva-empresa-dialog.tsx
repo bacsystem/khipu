@@ -5,13 +5,15 @@ import { useState } from "react";
 import { NuevaEmpresaForm } from "@/components/empresa/nueva-empresa-form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
+import { useSoloLectura } from "@/lib/solo-lectura";
 
 export function NuevaEmpresaDialog({ className, etiqueta = "Nueva empresa" }: { className?: string; etiqueta?: string }) {
+  const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
 
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
-      <DialogTrigger
+      <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined}
         className={className ?? ACCION_PRINCIPAL}
       >
         <PlusIcon className="size-4" />

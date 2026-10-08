@@ -7,6 +7,7 @@ import { Alerta } from "@/components/feedback/alerta";
 import { Button } from "@/components/ui/button";
 import { postJson } from "@/lib/api/browser";
 import { mensajeError, messages } from "@/lib/messages";
+import { useSoloLectura } from "@/lib/solo-lectura";
 
 const t = messages.auth.revisaTuCorreo;
 
@@ -15,6 +16,7 @@ const t = messages.auth.revisaTuCorreo;
  * pedir otro enlace. «Ya lo verifiqué» vuelve a leer el estado: el enlace pudo abrirse en el teléfono.
  */
 export function RevisaTuCorreo({ email }: { email: string }) {
+  const soloLectura = useSoloLectura();
   const router = useRouter();
   const [estado, setEstado] = useState<"quieto" | "enviando" | "enviado">("quieto");
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export function RevisaTuCorreo({ email }: { email: string }) {
         {estado === "enviado" ? <p role="status">{t.reenviado}</p> : null}
         {error ? <p role="alert" className="text-destructive">{error}</p> : null}
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={reenviar} disabled={estado === "enviando"}>
+          <Button type="button" variant="outline" size="sm" onClick={reenviar} disabled={estado === "enviando" || soloLectura !== null} title={soloLectura ?? undefined}>
             {estado === "enviando" ? t.reenviando : t.reenviar}
           </Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => router.refresh()}>

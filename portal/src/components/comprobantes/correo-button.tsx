@@ -7,12 +7,14 @@ import { apiRequest } from "@/lib/api/browser";
 import { ACCION_SECUNDARIA, CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+import { useSoloLectura } from "@/lib/solo-lectura";
 
 /**
  * `POST /v1/facturas/{id}/correo`: envía al adquirente el PDF, el XML firmado y el CDR. El correo lo escribe el usuario cada vez
  * (el comprobante no guarda el email del cliente); el mensaje es opcional y encabeza el cuerpo.
  */
 export function CorreoButton({ id, numero }: { id: string; numero: string }) {
+  const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
   const [email, setEmail] = useState("");
   const [mensaje, setMensaje] = useState("");
@@ -38,7 +40,7 @@ export function CorreoButton({ id, numero }: { id: string; numero: string }) {
   if (!abierto) {
     return (
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => setAbierto(true)} className={ACCION_SECUNDARIA} data-testid="enviar-correo">
+        <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setAbierto(true)} className={ACCION_SECUNDARIA} data-testid="enviar-correo">
           <MailIcon className="size-4 text-muted-foreground" />
           Enviar por correo
         </button>

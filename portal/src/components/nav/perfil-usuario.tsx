@@ -11,6 +11,7 @@ import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+import { useSoloLectura } from "@/lib/solo-lectura";
 
 const ETIQUETA_ROL: Record<string, string> = { ADMIN: "Administrador", EMISOR: "Emisor", LECTURA: "Solo lectura" };
 
@@ -100,6 +101,7 @@ function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { email: stri
 
 /** Bloque de usuario del sidebar: abre un menú con la cuenta, el tema, el cambio de contraseña y el cierre de sesión. */
 export function PerfilUsuario({ usuario }: { usuario: Usuario }) {
+  const soloLectura = useSoloLectura();
   const router = useRouter();
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
@@ -162,7 +164,7 @@ export function PerfilUsuario({ usuario }: { usuario: Usuario }) {
 
           <MenuSeparator />
 
-          <MenuItem onClick={() => setCambiandoContrasena(true)}>
+          <MenuItem disabled={soloLectura !== null} onClick={() => setCambiandoContrasena(true)}>
             <KeyRoundIcon />
             Cambiar contraseña
           </MenuItem>

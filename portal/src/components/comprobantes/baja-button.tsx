@@ -10,6 +10,7 @@ import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CA
 import { diasEntre, hoyLima } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+import { useSoloLectura } from "@/lib/solo-lectura";
 
 /**
  * Comunicación de baja (`POST /v1/facturas/{id}/baja`). Es irreversible ante SUNAT, así que pide el motivo y la confirmación
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils";
  * comprobante anulado.
  */
 export function BajaButton({ id, numero, fechaEmision, notasVigentes = 0 }: { id: string; numero: string; fechaEmision: string; notasVigentes?: number }) {
+  const soloLectura = useSoloLectura();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [motivo, setMotivo] = useState("");
@@ -78,7 +80,7 @@ export function BajaButton({ id, numero, fechaEmision, notasVigentes = 0 }: { id
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
-      <DialogTrigger className={cn(ACCION_SECUNDARIA, "text-destructive hover:text-destructive")} data-testid="dar-de-baja">
+      <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={cn(ACCION_SECUNDARIA, "text-destructive hover:text-destructive")} data-testid="dar-de-baja">
         <BanIcon className="size-4" />
         Dar de baja
       </DialogTrigger>

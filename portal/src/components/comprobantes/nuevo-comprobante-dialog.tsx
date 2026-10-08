@@ -14,6 +14,7 @@ import type { Serie } from "@/lib/api/series";
 import { TASA_GENERAL, TASA_PADRON } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
+import { useSoloLectura } from "@/lib/solo-lectura";
 
 /**
  * Carga un recurso mientras el diálogo está abierto, y lo deja reintentable.
@@ -66,6 +67,7 @@ function useRecursoDelDialogo<T>(abierto: boolean, ruta: string) {
  * props que la cabecera —que es común a todas las páginas— no tiene de dónde sacar.
  */
 export function NuevoComprobanteDialog({ className }: { className?: string }) {
+  const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
 
   const series = useRecursoDelDialogo<Serie[]>(abierto, "/api/proxy/series");
@@ -87,7 +89,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
 
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
-      <DialogTrigger className={className}>
+      <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={className}>
         <PlusIcon className="size-4" />
         Nuevo comprobante
       </DialogTrigger>

@@ -12,6 +12,7 @@ import { esCuentaSuspendida, RUTA_CUENTA_SUSPENDIDA } from "@/lib/api/cuenta-sus
 import { listarEmpresas } from "@/lib/api/empresas";
 import { ApiError } from "@/lib/api/types";
 import { getServerSession } from "@/lib/session-server";
+import { SoloLectura } from "@/lib/solo-lectura";
 
 export default async function PrivadoLayout({ children }: { children: ReactNode }) {
   const { access, empresaId } = await getServerSession();
@@ -40,6 +41,8 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
       {usuario.soporte_hasta ? <AvisoDeSoporte email={usuario.email} hasta={usuario.soporte_hasta} cuentaId={usuario.cuenta_id} /> : null}
       {/* El aviso de mantenimiento que publica el backoffice (#199): lo ve todo cliente, en cada página, hasta que vence o se retira. */}
       {banner ? <BannerDeMantenimiento texto={banner.texto} hasta={banner.hasta} /> : null}
+      {/* H10: en una sesión de soporte cada acción que escribe se ve deshabilitada, en vez de dejar llenar un formulario que el backend va a rechazar. */}
+      <SoloLectura activa={Boolean(usuario.soporte_hasta)}>
       <div className="flex min-w-0 flex-1">
       <aside className="hidden w-60 shrink-0 overflow-x-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:block md:h-screen md:overflow-y-auto">
         <SidebarContent usuario={usuario} empresas={empresas} activaId={activa?.id} />
@@ -58,6 +61,7 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
         </main>
       </div>
       </div>
+      </SoloLectura>
     </div>
   );
 }
