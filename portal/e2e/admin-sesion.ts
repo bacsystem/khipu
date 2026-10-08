@@ -8,6 +8,21 @@ export async function credencialesDeAdmin(page: Page, email = "admin@khipu.pe", 
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
 }
 
+/** El menú lateral del backoffice: las tarjetas del Inicio (H1) repiten los nombres de sus enlaces. */
+export function menuAdmin(page: Page) {
+  return page.getByRole("navigation", { name: "Menú del backoffice" });
+}
+
+/** Abre una pestaña del detalle de cuenta o empresa (H19); su nombre puede llevar el contador detrás («Usuarios 4»). */
+export async function abrirPestana(page: Page, etiqueta: string) {
+  const pestana = page.getByRole("tab", { name: new RegExp(`^${etiqueta}`) });
+  // Un clic antes de que React hidrate las pestañas se pierde: se reintenta hasta que quede seleccionada.
+  await expect(async () => {
+    await pestana.click();
+    await expect(pestana).toHaveAttribute("aria-selected", "true", { timeout: 1_000 });
+  }).toPass();
+}
+
 /** Login completo de un administrador con el segundo factor ya configurado. El mock acepta `123456` como código de la app. */
 export async function entrarComoAdmin(page: Page) {
   await credencialesDeAdmin(page);

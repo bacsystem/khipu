@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) siembra los hallazgos por fecha y esta pantalla solo lee: ninguna spec de la corrida puede pisarse con otra. Si el rango incluye el
@@ -39,7 +39,7 @@ async function verificar(page: Page, desde: string, hasta: string) {
 // --- la pantalla ----------------------------------------------------------------------------------------------------------------------------
 
 test("el menú lleva a Integridad y la miga dice «Operación / Integridad»", async ({ page }) => {
-  await page.getByRole("link", { name: "Integridad" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Integridad" }).click();
 
   await expect(page).toHaveURL(/\/admin\/integridad$/);
   const miga = page.getByRole("navigation", { name: "Ubicación" });

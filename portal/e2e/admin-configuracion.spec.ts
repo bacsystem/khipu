@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) guarda la configuración de la plataforma. Las specs de la corrida comparten esa memoria en paralelo, y dentro de esta spec los tests también
@@ -25,7 +25,7 @@ const enLima = (horas: number) => new Date(Date.now() + horas * 3_600_000 - 5 * 
 // --- la pantalla ----------------------------------------------------------------------------------------------------------------------------
 
 test("el menú lleva a Configuración y la miga dice «Plataforma / Configuración»", async ({ page }) => {
-  await page.getByRole("link", { name: "Configuración" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Configuración" }).click();
 
   await expect(page).toHaveURL(/\/admin\/configuracion$/);
   const miga = page.getByRole("navigation", { name: "Ubicación" });

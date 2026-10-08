@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 
 // El mock (src/mocks/handlers.ts) guarda los planes en memoria y las specs de la corrida lo comparten en paralelo: cada test de aquí crea SU plan con un nombre
 // propio y lo borra al terminar, y los cuatro sembrados solo se leen (o se intenta tocarlos para ver el rechazo, que no cambia nada). Que los cambios queden en
@@ -68,7 +68,7 @@ test("el listado muestra los cuatro planes con su precio, sus límites y cuánta
 test("el menú lleva a los planes y la miga dice «Comercial / Planes»", async ({ page }) => {
   await page.goto("/admin");
 
-  await page.getByRole("link", { name: "Planes" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Planes" }).click();
 
   await expect(page).toHaveURL(/\/admin\/planes$/);
   await expect(page.getByRole("navigation", { name: "Ubicación" })).toContainText("Comercial");

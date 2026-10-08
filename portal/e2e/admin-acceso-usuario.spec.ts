@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { abrirPestana, entrarComoAdmin } from "./admin-sesion";
 
 // El mock (src/mocks/handlers.ts) siembra en «Panadería Sol» cuatro usuarios: su administrador (verificado), `beto` (activo, sin verificar),
 // `carla` (desactivada) y `sin-correo` (activo, pero el servidor no tiene SMTP). El mock no guarda nada, así que estas specs no se pisan.
@@ -11,6 +11,7 @@ const fila = (page: Page, correo: string) => page.getByTestId("cuenta-detalle").
 test.beforeEach(async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto(`/admin/cuentas/${ID_SOL}`);
+  await abrirPestana(page, "Usuarios");
 });
 
 test("restablecer pide confirmación, dice a quién le llega y que el administrador no ve la contraseña", async ({ page }) => {

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) siembra el consumo de las cuentas con el plan de cada una. Las specs de la corrida comparten ese mock en paralelo (y algunas
@@ -244,7 +244,7 @@ test("la descarga exige la sesión del administrador y rechaza lo mal escrito", 
 // --- navegación ---------------------------------------------------------------------------------------------------------------------------
 
 test("el menú lleva a Consumo y la miga dice «Comercial / Consumo»", async ({ page }) => {
-  await page.getByRole("link", { name: "Consumo" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Consumo" }).click();
 
   await expect(page).toHaveURL(/\/admin\/consumo$/);
   const miga = page.getByRole("navigation", { name: "Ubicación" });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 
 // El mock (src/mocks/data.ts) siembra 12 empresas, de la más reciente a la más antigua: la primera página trae 10 y la segunda, «Ferretería
 // Luna» (certificado vencido) y «Panadería Sol» (por vencer en 10 días). Por estado del certificado: 2 vencidas, 2 por vencer, 2 vigentes
@@ -15,7 +15,7 @@ test("sin sesión, /admin/empresas redirige al login del backoffice", async ({ p
 test("desde el menú, el administrador llega a Empresas y ve la primera página con su total y todas las columnas", async ({ page }) => {
   await entrarComoAdmin(page);
 
-  await page.getByRole("link", { name: "Empresas" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Empresas" }).click();
 
   await expect(page).toHaveURL(/\/admin\/empresas$/);
   await expect(page.getByRole("heading", { name: "Empresas", level: 1 })).toBeVisible();
@@ -174,7 +174,7 @@ test("el menú marca «Empresas» como la página actual y la cabecera la ubica 
   await entrarComoAdmin(page);
   await page.goto("/admin/empresas");
 
-  const item = page.getByRole("link", { name: "Empresas" });
+  const item = menuAdmin(page).getByRole("link", { name: "Empresas" });
   await expect(item).toBeVisible();
   await expect(item).toHaveClass(/bg-accent/);
   await expect(page.getByRole("navigation", { name: "Ubicación" })).toContainText("Clientes");

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrarComoAdmin } from "./admin-sesion";
+import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) siembra los avisos. Las specs de la corrida comparten esa memoria en paralelo, así que cada spec que avisa usa SU empresa y solo afirma sobre ella;
@@ -30,7 +30,7 @@ const rucs = (page: Page) => page.locator('[data-testid="avisos-fila"]').evaluat
 // --- la pantalla ----------------------------------------------------------------------------------------------------------------------------
 
 test("el menú lleva a Avisos y la miga dice «Operación / Avisos»", async ({ page }) => {
-  await page.getByRole("link", { name: "Avisos" }).click();
+  await menuAdmin(page).getByRole("link", { name: "Avisos" }).click();
 
   await expect(page).toHaveURL(/\/admin\/avisos$/);
   const miga = page.getByRole("navigation", { name: "Ubicación" });
