@@ -1,10 +1,12 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
+import { DownloadIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { Administrador } from "@/lib/api/admin-auth";
+import { hrefExportacionConsumo, paramsConsumoDesdeUrl } from "@/lib/api/admin-consumo";
 import { migaAdmin } from "@/lib/admin-migas";
+import { hoyLima } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 import { AdminMobileNav } from "./admin-mobile-nav";
 import { FormularioDePlan } from "./formulario-de-plan";
@@ -13,11 +15,21 @@ const ACCION_PRINCIPAL =
   "flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[12px] font-medium whitespace-nowrap text-background shadow-xs transition-opacity hover:opacity-90";
 
 /**
+ * El CSV del consumo baja lo que se ve: el mes, el filtro y el orden de la URL de la página, sin la paginación. Sin mes en la URL la página mide el mes en
+ * curso de Lima, así que se exporta ese (y no el que el backend tome al recibir la descarga, que podría ser otro si se cruza el fin de mes).
+ */
+function hrefExportacionDeLaPagina(busqueda: URLSearchParams): string {
+  const params = paramsConsumoDesdeUrl(Object.fromEntries(busqueda.entries()));
+  return hrefExportacionConsumo({ ...params, mes: params.mes ?? hoyLima().slice(0, 7) });
+}
+
+/**
  * Cabecera del backoffice, con el mismo esqueleto que la del portal de clientes: menú en móvil, miga de ubicación y la acción
  * principal de la página. La miga NO es un encabezado: cada página del backoffice ya trae su propio `h1`.
  */
 export function AdminTopBar({ administrador }: { administrador: Administrador }) {
   const pathname = usePathname();
+  const busqueda = useSearchParams();
   const miga = migaAdmin(pathname);
   const t = messages.admin.topbar;
 
@@ -50,6 +62,12 @@ export function AdminTopBar({ administrador }: { administrador: Administrador })
         ) : null}
         {/* Crear un plan es un modal, no una página: la cabecera ofrece el mismo formulario que antes vivía sobre la tabla. */}
         {miga?.accion === "nuevoPlan" ? <FormularioDePlan claseDelBoton={ACCION_PRINCIPAL} /> : null}
+        {miga?.accion === "exportarConsumo" ? (
+          <a href={hrefExportacionDeLaPagina(busqueda)} download className={ACCION_PRINCIPAL}>
+            <DownloadIcon className="size-4" />
+            {messages.admin.consumo.exportar}
+          </a>
+        ) : null}
       </div>
     </header>
   );
