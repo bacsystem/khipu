@@ -24,6 +24,8 @@ export type CuentaDetalleAdmin = {
   empresas: EmpresaCuenta[];
   comprobantes: ComprobanteReciente[];
   eventos: EventoReciente[];
+  /** Todas las suspensiones, reactivaciones, bajas y reposiciones, de la más reciente a la más antigua (H15); el motivo va en `detalle`. */
+  historial_estado: EventoReciente[];
 };
 
 export type UsuarioCuenta = {
@@ -65,6 +67,8 @@ export type ComprobanteReciente = {
 export type EventoReciente = {
   accion: string;
   actor: "ADMINISTRADOR" | "CLAVE_PLATAFORMA";
+  /** Correo del administrador que la hizo (H11); ausente si fue la clave de la plataforma o si ese administrador ya no existe. */
+  administrador?: string;
   ocurrido_en: string;
   detalle?: string;
 };

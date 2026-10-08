@@ -4,7 +4,7 @@ import { PauseCircleIcon, PlayCircleIcon, TriangleAlertIcon } from "lucide-react
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { type EstadoCuentaAdmin, type EstadoDeCuentaAdmin, MOTIVO_MAX } from "@/lib/api/admin-suspension";
+import { type EstadoDeCuentaAdmin, MOTIVO_MAX } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { messages, mensajeError } from "@/lib/messages";
@@ -20,11 +20,11 @@ function empresasAfectadas(n: number): string {
 /**
  * Suspender o reactivar una cuenta (#182). Pide confirmación en un modal que dice el efecto antes de enviar (el mismo `Dialog` y el mismo patrón
  * que la baja de comprobantes). Suspender corta el servicio de inmediato, así que el modal lo dice sin rodeos y a cuántas empresas alcanza; lo que
- * NO hace (borrar nada, cortar los envíos a SUNAT de lo ya emitido) también. Según el estado que llega de la página se ofrece una sola acción.
+ * NO hace (borrar nada, cortar los envíos a SUNAT de lo ya emitido) también. Según `suspendida` se ofrece una sola acción. Va por la fecha de suspensión y no
+ * por el estado: una cuenta de baja puede estar suspendida o no, y la baja no corta el acceso, así que suspenderla es justo lo que corta el servicio (H16).
  */
-export function AccionesDeCuenta({ id, nombre, estado, empresas }: { id: string; nombre: string; estado: EstadoCuentaAdmin; empresas: number }) {
+export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: string; nombre: string; suspendida: boolean; empresas: number }) {
   const router = useRouter();
-  const suspendida = estado === "SUSPENDIDA";
   const textos = suspendida ? t.reactivar : t.suspender;
   const [abierto, setAbierto] = useState(false);
   const [motivo, setMotivo] = useState("");

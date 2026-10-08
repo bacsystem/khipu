@@ -7,6 +7,14 @@ import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idU
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
+/** Como la bitácora del backend (H15): el cambio de estado queda primero en el historial, con su motivo si lo tiene. */
+function anotarCambioDeEstado(cuenta: (typeof db.cuentasAdmin)[number], accion: string, ocurrido_en: string, motivo?: string) {
+  cuenta.historial_estado = [
+    { accion, actor: "ADMINISTRADOR", administrador: "admin@khipu.pe", ocurrido_en, ...(motivo ? { detalle: `motivo=${motivo}` } : {}) },
+    ...(cuenta.historial_estado ?? []),
+  ];
+}
+
 function claimsAdmin(req: Request): { sub: string } | null {
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return null;
@@ -1515,7 +1523,8 @@ export const handlers = [
     const lista = db.cuentasAdmin.filter((c) => coincide(c) && visible(c)).sort((a, b) => b.creada_en.localeCompare(a.creada_en) || a.id.localeCompare(b.id));
     const datos = lista
       .slice((pagina - 1) * porPagina, pagina * porPagina)
-      .map(({ empresas, ...cuenta }) => ({ ...cuenta, empresas: empresas.length, estado: estadoDeCuenta(cuenta) }));
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- el historial va solo en el detalle, como en el backend.
+      .map(({ empresas, historial_estado, ...cuenta }) => ({ ...cuenta, empresas: empresas.length, estado: estadoDeCuenta(cuenta) }));
     return HttpResponse.json(
       { estado: "exito", datos, mensaje: null, codigo: null, errores: null },
       { headers: { "x-total-count": String(lista.length) } },
@@ -1740,7 +1749,7 @@ export const handlers = [
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     const enDias = (n: number) => sumarDias(hoyLima(), n);
     const completa = cuenta.id === idCuentaMock(1);
-    const { empresas, ...base } = cuenta;
+    const { empresas, historial_estado: cambiosDelMock, ...base } = cuenta;
     const detalle = {
       ...base,
       estado: estadoDeCuenta(cuenta),
@@ -1771,14 +1780,36 @@ export const handlers = [
           ]
         : [],
       // Del más reciente al más antiguo, como el backend. `ACCION_FUTURA` no está en el catálogo del portal: se muestra con su código.
+      // El correo del administrador (H11) falta en la acción de la clave de la plataforma y en la de un administrador que ya no existe (ACCION_FUTURA).
       eventos: completa
         ? [
             { accion: "ACCION_FUTURA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-04T09:00:00Z" },
-            { accion: "SUSPENDER_CUENTA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-03T09:00:00Z", detalle: "motivo=Factura de agosto sin pagar" },
+            {
+              accion: "SUSPENDER_CUENTA",
+              actor: "ADMINISTRADOR",
+              administrador: "admin@khipu.pe",
+              ocurrido_en: "2026-09-03T09:00:00Z",
+              detalle: "motivo=Factura de agosto sin pagar",
+            },
             { accion: "CREAR_TENANT", actor: "CLAVE_PLATAFORMA", ocurrido_en: "2026-09-02T10:00:00Z" },
-            { accion: "CREAR_CUENTA", actor: "ADMINISTRADOR", ocurrido_en: "2026-09-01T15:00:00Z", detalle: "ruc=20100047226" },
+            { accion: "CREAR_CUENTA", actor: "ADMINISTRADOR", administrador: "admin@khipu.pe", ocurrido_en: "2026-09-01T15:00:00Z", detalle: "ruc=20100047226" },
           ]
         : [],
+      // Como el backend (H15): todos los cambios de estado, del más reciente al más antiguo; los que hizo el mock van primero.
+      historial_estado: [
+        ...(cambiosDelMock ?? []),
+        ...(completa
+          ? [
+              {
+                accion: "SUSPENDER_CUENTA",
+                actor: "ADMINISTRADOR",
+                administrador: "admin@khipu.pe",
+                ocurrido_en: "2026-09-03T09:00:00Z",
+                detalle: "motivo=Factura de agosto sin pagar",
+              },
+            ]
+          : []),
+      ],
     };
     return ok(detalle);
   }),
@@ -1798,6 +1829,7 @@ export const handlers = [
     if (motivo.length > 200) return fail(422, "MOTIVO_INVALIDO", "El motivo no puede pasar de 200 caracteres");
     if (cuenta.suspendida_en) return fail(409, "CUENTA_YA_SUSPENDIDA", "La cuenta ya está suspendida");
     cuenta.suspendida_en = new Date().toISOString();
+    anotarCambioDeEstado(cuenta, "SUSPENDER_CUENTA", cuenta.suspendida_en, motivo);
     // Como el backend (revisión de #201): el estado es el mismo que en el detalle; una cuenta de baja responde BAJA y su fecha de baja.
     return ok({ cuenta_id: cuenta.id, estado: estadoDeCuenta(cuenta), suspendida_en: cuenta.suspendida_en, ...(cuenta.baja_en ? { baja_en: cuenta.baja_en } : {}) });
   }),
@@ -1810,6 +1842,7 @@ export const handlers = [
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     if (!cuenta.suspendida_en) return fail(409, "CUENTA_NO_SUSPENDIDA", "La cuenta no está suspendida");
     delete cuenta.suspendida_en;
+    anotarCambioDeEstado(cuenta, "REACTIVAR_CUENTA", new Date().toISOString());
     return ok({ cuenta_id: cuenta.id, estado: estadoDeCuenta(cuenta), ...(cuenta.baja_en ? { baja_en: cuenta.baja_en } : {}) });
   }),
 
@@ -1829,6 +1862,7 @@ export const handlers = [
     if (motivo.length > 200) return fail(422, "MOTIVO_INVALIDO", "El motivo no puede pasar de 200 caracteres");
     if (cuenta.baja_en) return fail(409, "CUENTA_YA_DE_BAJA", "La cuenta ya está dada de baja");
     cuenta.baja_en = new Date().toISOString();
+    anotarCambioDeEstado(cuenta, "DAR_DE_BAJA_CUENTA", cuenta.baja_en, motivo);
     return ok({ cuenta_id: cuenta.id, baja_en: cuenta.baja_en });
   }),
 
@@ -1840,6 +1874,7 @@ export const handlers = [
     if (!cuenta) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     if (!cuenta.baja_en) return fail(409, "CUENTA_NO_DE_BAJA", "La cuenta no está dada de baja");
     delete cuenta.baja_en;
+    anotarCambioDeEstado(cuenta, "REPONER_CUENTA", new Date().toISOString());
     return ok({ cuenta_id: cuenta.id });
   }),
 

@@ -60,29 +60,34 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
       </div>
 
       {resultado.cuenta ? (
-        <>
-          {plan ? (
-            <PlanDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} plan={plan.datos} planes={plan.planes} hoy={hoyLima()} />
-          ) : (
-            <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              <span>{messages.admin.planDeCuenta.error}</span>
-              <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
-                {messages.admin.planDeCuenta.reintentar}
-              </Link>
-            </div>
-          )}
-          {pagos ? (
-            <PagosDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} pagos={pagos} plan={plan?.datos ?? null} hoy={hoyLima()} />
-          ) : (
-            <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              <span>{messages.admin.pagos.error}</span>
-              <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
-                {messages.admin.pagos.reintentar}
-              </Link>
-            </div>
-          )}
-          <CuentaDetalle cuenta={resultado.cuenta} hoy={hoyLima()} />
-        </>
+        <CuentaDetalle
+          cuenta={resultado.cuenta}
+          hoy={hoyLima()}
+          plan={
+            <>
+              {plan ? (
+                <PlanDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} plan={plan.datos} planes={plan.planes} hoy={hoyLima()} />
+              ) : (
+                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  <span>{messages.admin.planDeCuenta.error}</span>
+                  <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
+                    {messages.admin.planDeCuenta.reintentar}
+                  </Link>
+                </div>
+              )}
+              {pagos ? (
+                <PagosDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} pagos={pagos} plan={plan?.datos ?? null} hoy={hoyLima()} />
+              ) : (
+                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  <span>{messages.admin.pagos.error}</span>
+                  <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
+                    {messages.admin.pagos.reintentar}
+                  </Link>
+                </div>
+              )}
+            </>
+          }
+        />
       ) : (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <span>{t.error}</span>

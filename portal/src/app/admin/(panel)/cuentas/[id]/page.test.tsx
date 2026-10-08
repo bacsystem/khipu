@@ -1,3 +1,4 @@
+import type React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/types";
@@ -15,7 +16,14 @@ vi.mock("@/components/admin/pagos-de-cuenta", () => ({
     <p data-testid="pagos">{`${cuentaId}|${cuentaNombre}|${pagos.total}|${plan?.estado ?? "sin plan"}`}</p>
   ),
 }));
-vi.mock("@/components/admin/cuenta-detalle", () => ({ CuentaDetalle: ({ cuenta }: { cuenta: { nombre: string } }) => <p data-testid="detalle">{cuenta.nombre}</p> }));
+vi.mock("@/components/admin/cuenta-detalle", () => ({
+  CuentaDetalle: ({ cuenta, plan }: { cuenta: { nombre: string }; plan: React.ReactNode }) => (
+    <div>
+      <p data-testid="detalle">{cuenta.nombre}</p>
+      <div data-testid="pestana-plan">{plan}</div>
+    </div>
+  ),
+}));
 vi.mock("@/components/admin/plan-de-cuenta", () => ({
   PlanDeCuenta: ({ cuentaId, cuentaNombre, plan, planes }: { cuentaId: string; cuentaNombre: string; plan: { estado: string }; planes: unknown[] }) => (
     <p data-testid="plan">{`${cuentaId}|${cuentaNombre}|${plan.estado}|${planes.length}`}</p>
@@ -52,7 +60,7 @@ const sesion = (access: string | null = "jwt-admin") => vi.mocked(getAdminServer
 
 /** La ficha de una cuenta en el backoffice (#181) con su plan (#191): el plan se pide aparte y, si falla, la ficha se ve igual. */
 describe("AdminCuentaPage — el plan", () => {
-  it("pide la cuenta, su plan y los planes con el JWT, y muestra el plan antes del detalle", async () => {
+  it("pide la cuenta, su plan y los planes con el JWT, y muestra el plan en su pestaña de la ficha", async () => {
     sesion();
     vi.mocked(obtenerCuentaAdmin).mockResolvedValue({ nombre: "Mi negocio" } as never);
     vi.mocked(obtenerPlanDeCuenta).mockResolvedValue({ estado: "VIGENTE" } as never);
@@ -64,7 +72,8 @@ describe("AdminCuentaPage — el plan", () => {
     expect(listarPlanesAdmin).toHaveBeenCalledWith("jwt-admin");
     expect(screen.getByTestId("plan").textContent).toBe(`${ID}|Mi negocio|VIGENTE|3`);
     expect(screen.getByTestId("detalle").textContent).toBe("Mi negocio");
-    expect(screen.getByTestId("plan").compareDocumentPosition(screen.getByTestId("detalle")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // H19: el plan va en la pestaña «Plan y pagos» de la ficha, no apilado sobre ella.
+    expect(screen.getByTestId("pestana-plan").contains(screen.getByTestId("plan"))).toBe(true);
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -117,7 +126,7 @@ describe("AdminCuentaPage — el plan", () => {
 
 /** Los pagos de la cuenta (#194) se piden aparte del plan y del detalle: si fallan, lo demás se ve igual. */
 describe("AdminCuentaPage — los pagos", () => {
-  it("pide los pagos con el JWT, los muestra entre el plan y el detalle y les pasa el plan para poder extender el vencimiento", async () => {
+  it("pide los pagos con el JWT, los muestra después del plan, en la misma pestaña, y les pasa el plan para poder extender el vencimiento", async () => {
     sesion();
     vi.mocked(obtenerCuentaAdmin).mockResolvedValue({ nombre: "Mi negocio" } as never);
     vi.mocked(obtenerPlanDeCuenta).mockResolvedValue({ estado: "VIGENTE" } as never);
@@ -129,7 +138,7 @@ describe("AdminCuentaPage — los pagos", () => {
     expect(screen.getByTestId("pagos").textContent).toBe(`${ID}|Mi negocio|3|VIGENTE`);
     const orden = (a: string, b: string) => screen.getByTestId(a).compareDocumentPosition(screen.getByTestId(b)) & Node.DOCUMENT_POSITION_FOLLOWING;
     expect(orden("plan", "pagos")).toBeTruthy();
-    expect(orden("pagos", "detalle")).toBeTruthy();
+    expect(screen.getByTestId("pestana-plan").contains(screen.getByTestId("pagos"))).toBe(true);
     expect(screen.queryByRole("alert")).toBeNull();
   });
 

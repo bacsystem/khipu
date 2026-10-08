@@ -43,6 +43,8 @@ export type CuentaAdminMock = {
   /** Desde cuándo está dada de baja (#201); ausente si está en servicio. Las de baja no salen en los listados salvo que se pida con `bajas`. */
   baja_en?: string;
   empresas: Array<{ ruc: string; razon_social: string }>;
+  /** Los cambios de estado que hizo el mock (H15), del más reciente al más antiguo, como `historial_estado` del backend. */
+  historial_estado?: Array<{ accion: string; actor: "ADMINISTRADOR"; administrador: string; ocurrido_en: string; detalle?: string }>;
 };
 /**
  * Una empresa del listado del backoffice (#185). El certificado se siembra como días desde hoy (`null`: sin certificado; `"sin_fecha"`:
