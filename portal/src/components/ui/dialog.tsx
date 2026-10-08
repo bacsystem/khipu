@@ -7,8 +7,13 @@ import { cn } from "cn"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+/**
+ * Un clic fuera no cierra el modal (`disablePointerDismissal` por defecto): un clic perdido no debe tirar lo escrito en un formulario
+ * ni lo que se muestra una sola vez (una API key). Se cierra con la X, Escape o los botones del propio modal. Quien de verdad quiera el
+ * cierre por clic fuera lo pide con `disablePointerDismissal={false}`.
+ */
+function Dialog({ disablePointerDismissal = true, ...props }: DialogPrimitive.Root.Props) {
+  return <DialogPrimitive.Root data-slot="dialog" disablePointerDismissal={disablePointerDismissal} {...props} />
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {

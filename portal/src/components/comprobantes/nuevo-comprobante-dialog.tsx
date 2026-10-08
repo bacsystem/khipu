@@ -86,8 +86,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
           : "Cargando ambiente…";
 
   return (
-    // Sin cierre al hacer clic fuera: el formulario tiene datos escritos y un clic al pasar no debe perderlos.
-    <Dialog open={abierto} onOpenChange={setAbierto} disablePointerDismissal>
+    <Dialog open={abierto} onOpenChange={setAbierto}>
       <DialogTrigger className={className}>
         <PlusIcon className="size-4" />
         Nuevo comprobante
