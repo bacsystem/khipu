@@ -2660,7 +2660,7 @@ Hubo **cinco supervivientes** en la primera tanda. **Backend:** el total de la c
 
 ## #197 · Backoffice: certificados por vencer y credenciales SOL inválidas
 
-**Estado: 🔧 implementado, 137/137 mutaciones verificadas (65 de backend, 72 de portal) — falta la revisión de la PR.** Backend (`GET /v1/admin/avisos/certificados`, `GET /v1/admin/avisos/credenciales-sol` y `POST /v1/admin/empresas/{id}/avisos`), la migración V43 y la pantalla `/admin/avisos`. Va después de #196 en la pila.
+**Estado: ✅ revisión de la PR (#248) corregida, 137/137 mutaciones verificadas (65 de backend, 72 de portal).** Backend (`GET /v1/admin/avisos/certificados`, `GET /v1/admin/avisos/credenciales-sol` y `POST /v1/admin/empresas/{id}/avisos`), la migración V43 y la pantalla `/admin/avisos`. Va después de #196 en la pila.
 
 ### Diseño
 
@@ -2703,6 +2703,14 @@ Hubo **un superviviente** en la primera tanda de backend: `puede_avisar` de un c
 
 - Backend: `./gradlew test` completo, **BUILD SUCCESSFUL (11 min 32 s)** (incluye `ArchitectureTest`, el E2E de los avisos a clientes y las pruebas de persistencia con Postgres real).
 - Portal: `tsc` y ESLint limpios; Vitest **1211/1211 (125 archivos)**; Playwright completo (`--workers=2`) **373/373**.
+
+### Corrección de la revisión de #248
+
+- **H1 (menor): el mock del aviso no seguía el contrato del backend en dos rechazos.** No validaba el id de la ruta (el backend: `400 PARAMETRO_INVALIDO`) y un
+  `tipo` que no existe respondía `422 TIPO_INVALIDO` cuando el backend ni lo convierte del JSON (`400 JSON_INVALIDO`; solo la falta de `tipo` es 422). Ninguna spec
+  dependía de esos códigos; después, `tsc` limpio y Playwright `admin-avisos` **13/13**.
+- En la revisión se comprobó además que «hoy» sale del `Clock` en la zona configurada (la misma que usa el listado de empresas para el estado del certificado) y que la
+  regla SQL de un fallo de credenciales coincide con `FalloDeAutenticacionSol`.
 
 ### Límites conocidos
 
