@@ -56,7 +56,7 @@ public class AdminConsumoDeCuentasController {
     @GetMapping("/exportacion")
     @Operation(summary = "Exportar el consumo de todas las cuentas", description = """
             Lo mismo que el listado, completo y sin paginar, como CSV (UTF-8 con marca de orden de bytes, registros separados por CRLF) que se descarga como
-            `consumo-AAAA-MM.csv`. Respeta `mes`, `filtro` y `orden`. Un plan sin tope dice `ilimitado` y no tiene porcentaje; las fechas son instantes UTC. Los textos que empiezan
+            `consumo-AAAA-MM.csv`. Respeta `mes`, `filtro` y `orden`. Un plan sin tope dice `ilimitado` y no tiene porcentaje; las fechas (`pagado_hasta`, `se_sirve_hasta`) son el último día cubierto en hora de Lima (`AAAA-MM-DD`), como en la pantalla. Los textos que empiezan
             por `=`, `+`, `-` o `@` llevan una comilla simple delante para que una hoja de cálculo no los ejecute como fórmula.""")
     public ResponseEntity<String> exportar(
             @Parameter(description = "Mes, `AAAA-MM`; por defecto el mes en curso", example = "2026-10") @RequestParam(required = false) String mes,

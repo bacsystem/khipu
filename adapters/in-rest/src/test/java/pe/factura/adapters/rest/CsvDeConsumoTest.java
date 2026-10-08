@@ -34,10 +34,14 @@ class CsvDeConsumoTest {
         assertThat(lineas(csv()).get(0)).isEqualTo("cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta");
     }
 
-    @Test void unaFilaLlevaTodosSusDatos() {
+    /**
+     * Las fechas son el último día cubierto, en hora de Lima, como en la pantalla («Pagado hasta el 19 Oct 2026»): el vencimiento es exclusivo (2026-10-20T05:00Z es la
+     * medianoche del 20 en Lima), así que escribir el instante haría leer un día más de servicio pagado que el que se ve.
+     */
+    @Test void unaFilaLlevaTodosSusDatosConLasFechasComoUltimoDiaCubierto() {
         String l = lineas(csv(fila("Ana Quispe", "ana@negocio.pe", "Emprende"))).get(1);
 
-        assertThat(l).isEqualTo("9c1f3a2b-4d5e-4a6b-8c7d-1e2f3a4b5c6d,Ana Quispe,ana@negocio.pe,Emprende,240,300,80,si,EN_GRACIA,2026-10-20T05:00:00Z,2026-10-25T05:00:00Z");
+        assertThat(l).isEqualTo("9c1f3a2b-4d5e-4a6b-8c7d-1e2f3a4b5c6d,Ana Quispe,ana@negocio.pe,Emprende,240,300,80,si,EN_GRACIA,2026-10-19,2026-10-24");
     }
 
     @Test void terminaCadaRegistroConCrlfIncluidoElUltimo() {

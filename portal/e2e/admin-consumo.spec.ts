@@ -209,6 +209,8 @@ test("«Exportar CSV» baja lo que se ve: el mes y la vista, con la marca UTF-8 
   expect(lineas[1]).toContain(",Cliente 07,");
   expect(lineas.join("\n")).toContain(`${cuenta(1)},Panadería Sol,`);
   expect(lineas.join("\n")).toContain(",312,300,104,si,VIGENTE,");
+  // Las fechas son el último día cubierto en Lima, como en la pantalla, no el instante de vencimiento (que es exclusivo).
+  expect(lineas.find((l) => l.includes("Panadería Sol"))).toMatch(/,\d{4}-\d{2}-\d{2},\d{4}-\d{2}-\d{2}$/);
   expect(lineas.join("\n")).not.toContain("Ferretería Luna");
 });
 
