@@ -20,18 +20,18 @@ const exito = (datos: unknown): ApiEnvelope<unknown> => ({ estado: "exito", dato
 const error = (codigo: string, mensaje: string): ApiEnvelope<unknown> => ({ estado: "error", datos: null, mensaje, codigo, errores: null });
 
 function abrir(estado: "ACTIVA" | "SUSPENDIDA" = "ACTIVA", empresas = 2) {
-  render(<AccionesDeCuenta id={ID} nombre="Panadería Sol" estado={estado} empresas={empresas} />);
+  render(<AccionesDeCuenta id={ID} nombre="Panadería Sol" suspendida={estado === "SUSPENDIDA"} empresas={empresas} />);
   fireEvent.click(screen.getByTestId(estado === "ACTIVA" ? "suspender-cuenta" : "reactivar-cuenta"));
 }
 
 describe("AccionesDeCuenta (#182)", () => {
   it("una cuenta activa ofrece suspender, y una suspendida, reactivar: nunca las dos", () => {
-    const { unmount } = render(<AccionesDeCuenta id={ID} nombre="Panadería Sol" estado="ACTIVA" empresas={1} />);
+    const { unmount } = render(<AccionesDeCuenta id={ID} nombre="Panadería Sol" suspendida={false} empresas={1} />);
     expect(screen.getByTestId("suspender-cuenta")).toBeTruthy();
     expect(screen.queryByTestId("reactivar-cuenta")).toBeNull();
     unmount();
 
-    render(<AccionesDeCuenta id={ID} nombre="Panadería Sol" estado="SUSPENDIDA" empresas={1} />);
+    render(<AccionesDeCuenta id={ID} nombre="Panadería Sol" suspendida empresas={1} />);
     expect(screen.getByTestId("reactivar-cuenta")).toBeTruthy();
     expect(screen.queryByTestId("suspender-cuenta")).toBeNull();
   });
@@ -55,13 +55,13 @@ describe("AccionesDeCuenta (#182)", () => {
   });
 
   it("el alcance se dice bien con una empresa y con ninguna", () => {
-    const { unmount } = render(<AccionesDeCuenta id={ID} nombre="A" estado="ACTIVA" empresas={1} />);
+    const { unmount } = render(<AccionesDeCuenta id={ID} nombre="A" suspendida={false} empresas={1} />);
     fireEvent.click(screen.getByTestId("suspender-cuenta"));
     expect(screen.getByTestId("suspension-alcance").textContent).toBe("1 empresa");
     unmount();
     cleanup();
 
-    render(<AccionesDeCuenta id={ID} nombre="A" estado="ACTIVA" empresas={0} />);
+    render(<AccionesDeCuenta id={ID} nombre="A" suspendida={false} empresas={0} />);
     fireEvent.click(screen.getByTestId("suspender-cuenta"));
     expect(screen.getByTestId("suspension-alcance").textContent).toBe("Sin empresas todavía");
   });
