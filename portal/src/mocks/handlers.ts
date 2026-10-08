@@ -1178,13 +1178,16 @@ export const handlers = [
    */
   http.post(`${BASE}/v1/admin/empresas/:id/avisos`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     let cuerpo: { tipo?: unknown } = {};
     try {
       cuerpo = (await request.json()) as { tipo?: unknown };
     } catch {
-      return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
+      return jsonInvalido();
     }
-    if (cuerpo.tipo !== "CERTIFICADO" && cuerpo.tipo !== "CREDENCIALES_SOL") return fail(422, "TIPO_INVALIDO", "Indica qué se le avisa al cliente");
+    // Como el backend: sin tipo lo rechaza el servicio (422); un tipo que no existe ni siquiera se convierte del JSON (400).
+    if (cuerpo.tipo === undefined || cuerpo.tipo === null) return fail(422, "TIPO_INVALIDO", "Indica qué se le avisa al cliente");
+    if (cuerpo.tipo !== "CERTIFICADO" && cuerpo.tipo !== "CREDENCIALES_SOL") return jsonInvalido();
     const fila: FilaDeAvisoMock | undefined = (cuerpo.tipo === "CERTIFICADO" ? avisosMock.certificados : avisosMock.sol).find((f) => f.empresa_id === params.id);
     if (!fila) {
       const existe = [...avisosMock.certificados, ...avisosMock.sol].some((f) => f.empresa_id === params.id);
