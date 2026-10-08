@@ -2476,7 +2476,7 @@ Lo que sobrevivía:
 
 ## #15 · Endpoint de resumen para las métricas del panel
 
-**Estado: 🔧 implementado, 95/95 mutaciones verificadas (55 de backend, 40 de portal) — falta la revisión de la PR.** Backend (`GET /v1/facturas/resumen`) y la franja de métricas de la página de comprobantes del portal. Va después de #198 en la pila; #195 («monitor global») lo reutiliza.
+**Estado: ✅ revisado (#245) sin hallazgos, 95/95 mutaciones verificadas (55 de backend, 40 de portal).** Backend (`GET /v1/facturas/resumen`) y la franja de métricas de la página de comprobantes del portal. Va después de #198 en la pila; #195 («monitor global») lo reutiliza.
 
 ### Diseño
 
