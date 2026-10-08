@@ -49,7 +49,7 @@ describe("EditorDePlantilla (#199)", () => {
     unmount();
 
     render(<EditorDePlantilla plantilla={EDITADA} alResultado={alResultado} />);
-    expect(screen.getByTestId("plantilla-origen").textContent).toBe("Editado el 15 Oct 2026, 15:00.");
+    expect(screen.getByTestId("plantilla-origen").textContent).toBe("Lo editó un administrador el 15 Oct 2026, 15:00.");
   });
 
   it("el asunto y el cuerpo arrancan con el texto vigente", () => {

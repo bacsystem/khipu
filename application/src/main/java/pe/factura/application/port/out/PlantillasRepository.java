@@ -10,7 +10,10 @@ import java.util.UUID;
 
 /** Los textos de correo que un administrador reemplazó (#199). Lo que no está acá sigue siendo el texto de fábrica ({@link PlantillaDeCorreo#defecto()}). */
 public interface PlantillasRepository {
-    record Guardada(Texto texto, Instant actualizadaEn) {}
+    /** {@code actualizadaPor}: el correo del administrador que la cambió (H11); nulo si fue la clave de la plataforma o ese administrador ya no existe. */
+    record Guardada(Texto texto, Instant actualizadaEn, String actualizadaPor) {
+        public Guardada(Texto texto, Instant actualizadaEn) { this(texto, actualizadaEn, null); }
+    }
 
     Optional<Guardada> buscar(PlantillaDeCorreo tipo);
 

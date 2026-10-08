@@ -360,7 +360,7 @@ const MARCA_DE_VARIABLE = /\{([a-z_]+)}/g;
 function remitenteConfiguradoMock() {
   const r = configuracionMock.remitente;
   const { actualizado_en, ...vigente } = r ?? { ...REMITENTE_DEL_SERVIDOR, actualizado_en: "" };
-  return { vigente, personalizado: r !== undefined, ...(r ? { actualizado_en } : {}), predeterminado: REMITENTE_DEL_SERVIDOR };
+  return { vigente, personalizado: r !== undefined, ...(r ? { actualizado_en, actualizado_por: "admin@khipu.pe" } : {}), predeterminado: REMITENTE_DEL_SERVIDOR };
 }
 
 function plantillaConfiguradaMock(p: PlantillaMock) {
@@ -373,7 +373,7 @@ function plantillaConfiguradaMock(p: PlantillaMock) {
     vigente: texto,
     defecto: p.defecto,
     personalizada: guardada !== undefined,
-    ...(guardada ? { actualizada_en } : {}),
+    ...(guardada ? { actualizada_en, actualizada_por: "admin@khipu.pe" } : {}),
     variables: p.variables,
   };
 }

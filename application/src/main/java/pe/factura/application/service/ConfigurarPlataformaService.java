@@ -43,7 +43,7 @@ public class ConfigurarPlataformaService implements ConfigurarPlataformaUseCase 
     // --- remitente ----------------------------------------------------------------------------------------------------------------------
 
     @Override public RemitenteVigente remitente() {
-        return remitentes.buscar().map(g -> new RemitenteVigente(g.remitente(), true, g.actualizadoEn(), predeterminado)).orElseGet(() -> new RemitenteVigente(predeterminado, false, null, predeterminado));
+        return remitentes.buscar().map(g -> new RemitenteVigente(g.remitente(), true, g.actualizadoEn(), g.actualizadoPor(), predeterminado)).orElseGet(() -> new RemitenteVigente(predeterminado, false, null, predeterminado));
     }
 
     @Override public RemitenteVigente cambiarRemitente(ActorAdmin actor, String nombre, String email, String responderA) {
@@ -96,7 +96,8 @@ public class ConfigurarPlataformaService implements ConfigurarPlataformaUseCase 
     }
 
     private static PlantillaEditable editable(PlantillaDeCorreo tipo, Optional<PlantillasRepository.Guardada> guardada) {
-        return new PlantillaEditable(tipo, guardada.map(PlantillasRepository.Guardada::texto).orElse(tipo.defecto()), tipo.defecto(), guardada.isPresent(), guardada.map(PlantillasRepository.Guardada::actualizadaEn).orElse(null));
+        return new PlantillaEditable(tipo, guardada.map(PlantillasRepository.Guardada::texto).orElse(tipo.defecto()), tipo.defecto(), guardada.isPresent(),
+                guardada.map(PlantillasRepository.Guardada::actualizadaEn).orElse(null), guardada.map(PlantillasRepository.Guardada::actualizadaPor).orElse(null));
     }
 
     // --- banner -------------------------------------------------------------------------------------------------------------------------

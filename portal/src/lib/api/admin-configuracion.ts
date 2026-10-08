@@ -8,7 +8,14 @@ export type SeccionDeConfiguracion = (typeof SECCIONES_DE_CONFIGURACION)[number]
 export type Direccion = { nombre?: string; email: string; responder_a?: string };
 
 /** De quién salen los correos: el vigente, si lo fijó un administrador (`personalizado`) y el del servidor, al que se vuelve al restablecer. `actualizado_en` solo viene si es personalizado. */
-export type RemitenteConfigurado = { vigente: Direccion; personalizado: boolean; actualizado_en?: string; predeterminado: Direccion };
+export type RemitenteConfigurado = {
+  vigente: Direccion;
+  personalizado: boolean;
+  actualizado_en?: string;
+  /** H11: el correo de quien lo fijó; ausente si fue la clave de la plataforma o si ese administrador ya no existe. */
+  actualizado_por?: string;
+  predeterminado: Direccion;
+};
 
 export type VariableDeCorreo = { nombre: string; descripcion: string; ejemplo: string; indispensable: boolean };
 
@@ -23,6 +30,8 @@ export type PlantillaDeCorreo = {
   defecto: TextoDeCorreo;
   personalizada: boolean;
   actualizada_en?: string;
+  /** H11: el correo de quien lo cambió; ausente si fue la clave de la plataforma o si ese administrador ya no existe. */
+  actualizada_por?: string;
   variables: VariableDeCorreo[];
 };
 

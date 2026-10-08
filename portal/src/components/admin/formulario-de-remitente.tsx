@@ -78,7 +78,7 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
           {t.vigente.replace("{remitente}", direccionEnPalabras(remitente.vigente))}
         </p>
         <p data-testid="correo-origen" className="text-[12px] text-muted-foreground">
-          {remitente.personalizado && remitente.actualizado_en ? t.personalizado.replace("{fecha}", formatearFechaHora(remitente.actualizado_en)) : t.delServidor}
+          {remitente.personalizado && remitente.actualizado_en ? t.personalizado.replace("{quien}", remitente.actualizado_por ?? "un administrador").replace("{fecha}", formatearFechaHora(remitente.actualizado_en)) : t.delServidor}
         </p>
       </div>
 

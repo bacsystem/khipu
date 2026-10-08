@@ -30,8 +30,12 @@ public final class JdbcConfiguracionDePlataforma {
         private final JdbcTemplate jdbc;
 
         @Override public Optional<Guardado> buscar() {
-            return jdbc.query("SELECT nombre, email, responder_a, actualizado_en FROM remitente_correo WHERE id = 1",
-                    (rs, i) -> new Guardado(new RemitenteDeCorreo(rs.getString("nombre"), rs.getString("email"), rs.getString("responder_a")), rs.getTimestamp("actualizado_en").toInstant())).stream().findFirst();
+            // El correo de quien lo fijó (H11) sale de un LEFT JOIN: sin FK al administrador, como la bitácora.
+            return jdbc.query("""
+                            SELECT r.nombre, r.email, r.responder_a, r.actualizado_en, a.email AS actualizado_por
+                            FROM remitente_correo r LEFT JOIN administrador a ON a.id = r.actualizado_por WHERE r.id = 1""",
+                    (rs, i) -> new Guardado(new RemitenteDeCorreo(rs.getString("nombre"), rs.getString("email"), rs.getString("responder_a")), rs.getTimestamp("actualizado_en").toInstant(),
+                            rs.getString("actualizado_por"))).stream().findFirst();
         }
 
         @Override public void guardar(RemitenteDeCorreo r, Instant ahora, UUID por) {
@@ -50,19 +54,26 @@ public final class JdbcConfiguracionDePlataforma {
         private final JdbcTemplate jdbc;
 
         @Override public Optional<Guardada> buscar(PlantillaDeCorreo tipo) {
-            return jdbc.query("SELECT asunto, cuerpo, actualizado_en FROM plantilla_correo WHERE tipo = ?",
-                    (rs, i) -> new Guardada(new Texto(rs.getString("asunto"), rs.getString("cuerpo")), rs.getTimestamp("actualizado_en").toInstant()), tipo.name()).stream().findFirst();
+            return jdbc.query(SELECT_PLANTILLA + " WHERE p.tipo = ?", (rs, i) -> guardada(rs), tipo.name()).stream().findFirst();
         }
 
         @Override public Map<PlantillaDeCorreo, Guardada> todas() {
             Map<PlantillaDeCorreo, Guardada> r = new EnumMap<>(PlantillaDeCorreo.class);
-            for (Fila f : jdbc.query("SELECT tipo, asunto, cuerpo, actualizado_en FROM plantilla_correo",
-                    (rs, i) -> new Fila(rs.getString("tipo"), new Guardada(new Texto(rs.getString("asunto"), rs.getString("cuerpo")), rs.getTimestamp("actualizado_en").toInstant()))))
+            for (Fila f : jdbc.query(SELECT_PLANTILLA, (rs, i) -> new Fila(rs.getString("tipo"), guardada(rs))))
                 PlantillaDeCorreo.deNombre(f.tipo()).ifPresent(t -> r.put(t, f.guardada()));
             return r;
         }
 
         private record Fila(String tipo, Guardada guardada) {}
+
+        /** El correo de quien la cambió (H11) sale de un LEFT JOIN: sin FK al administrador, como la bitácora. */
+        private static final String SELECT_PLANTILLA = """
+                SELECT p.tipo, p.asunto, p.cuerpo, p.actualizado_en, a.email AS actualizado_por
+                FROM plantilla_correo p LEFT JOIN administrador a ON a.id = p.actualizado_por""";
+
+        private static Guardada guardada(java.sql.ResultSet rs) throws java.sql.SQLException {
+            return new Guardada(new Texto(rs.getString("asunto"), rs.getString("cuerpo")), rs.getTimestamp("actualizado_en").toInstant(), rs.getString("actualizado_por"));
+        }
 
         @Override public void guardar(PlantillaDeCorreo tipo, Texto texto, Instant ahora, UUID por) {
             jdbc.update("""
