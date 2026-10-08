@@ -14,7 +14,7 @@ import { EstablecimientoDialog } from "./establecimiento-dialog";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 
 const ACCION =
-  "inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 function Estado({ activo, principal }: { activo: boolean; principal: boolean }) {
   if (principal)
@@ -128,7 +128,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
             type="button"
             onClick={() => startTransition(() => router.refresh())}
             title="Refrescar lista"
-            className={cn(CONTROL_FILTRO, "inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+            className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
           </button>

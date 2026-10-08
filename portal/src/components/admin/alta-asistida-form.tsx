@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import type { AltaAsistidaCreada } from "@/lib/api/admin-alta";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { ApiEnvelope } from "@/lib/api/types";
-import { BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import { mensajeError, messages } from "@/lib/messages";
 import { codigoSerie, MENSAJE_SERIE, razonSocialSchema, rucSchema, serieCoincideConTipo, soloDigitos, soloTelefono, telefonoSchema } from "@/lib/validacion";
@@ -172,10 +172,10 @@ export function AltaAsistidaForm({
           </Alerta>
         </div>
         <PieDialogo>
-          <button type="button" onClick={otroCliente} className={BOTON_SECUNDARIO_PIE}>
+          <button type="button" onClick={otroCliente} className={BOTON_SECUNDARIO}>
             {r.otra}
           </button>
-          <button type="button" onClick={alTerminar} className={BOTON_PRIMARIO_PIE}>
+          <button type="button" onClick={alTerminar} className={BOTON_PRIMARIO}>
             {r.listo}
           </button>
         </PieDialogo>
@@ -236,22 +236,22 @@ export function AltaAsistidaForm({
 
       <PieDialogo izquierda={<span className="font-mono text-[11px] text-muted-foreground">{t.pasoDe.replace("{n}", String(paso + 1)).replace("{total}", String(PASOS.length))}</span>}>
         {paso === 0 ? (
-          <button type="button" onClick={alCancelar} disabled={isSubmitting} className={BOTON_SECUNDARIO_PIE}>
+          <button type="button" onClick={alCancelar} disabled={isSubmitting} className={BOTON_SECUNDARIO}>
             {t.cancelar}
           </button>
         ) : (
-          <button type="button" onClick={() => setPaso((p) => p - 1)} disabled={isSubmitting} className={BOTON_SECUNDARIO_PIE}>
+          <button type="button" onClick={() => setPaso((p) => p - 1)} disabled={isSubmitting} className={BOTON_SECUNDARIO}>
             <ArrowLeftIcon className="size-4" />
             {t.atras}
           </button>
         )}
         {paso < ULTIMO ? (
-          <button type="submit" className={BOTON_PRIMARIO_PIE}>
+          <button type="submit" className={BOTON_PRIMARIO}>
             {t.siguiente}
             <ArrowRightIcon className="size-4" />
           </button>
         ) : (
-          <button type="submit" disabled={isSubmitting} className={BOTON_PRIMARIO_PIE}>
+          <button type="submit" disabled={isSubmitting} className={BOTON_PRIMARIO}>
             <UserPlusIcon className="size-4" />
             {isSubmitting ? t.enviando : t.enviar}
           </button>

@@ -3,9 +3,10 @@ import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Ningún componente le cambia la altura a una receta de control (`cn(CAMPO, "h-9")`, `` `${BOTON_PRIMARIO} h-8` ``). La escala de alturas del design system
- * tiene una receta por altura y contexto (estilos.ts): si un control necesita otra, se usa esa. Sobrescribirla a mano es lo que dejó, por ejemplo, el buscador
- * de la cola de errores en h-10 junto a su botón en h-9. `h-auto` sí vale: es un textarea, que crece con su contenido y no forma fila con nadie.
+ * Todos los controles del portal miden lo mismo: h-9 (36 px), la altura única del design system v0.2.0. Botones, inputs, selects, filtros, acciones de fila y
+ * pie de diálogo quedan alineados donde sea que se junten. Se vigila de tres formas: las recetas de estilos.ts miden h-9, ningún componente les cambia la
+ * altura (`cn(CAMPO, "h-8")`, `` `${BOTON_PRIMARIO} h-10` ``) y ningún `<button>`/`<input>`/`<select>`/enlace declara otra altura a mano. `h-auto` sí vale:
+ * es un textarea, que crece con su contenido y no forma fila con nadie.
  */
 const RECETA = String.raw`(?:CAMPO\w*|BOTON_\w+|ACCION_\w+|CONTROL_FILTRO|SELECT_NATIVO|SEGMENT\w*)`;
 const ALTURA = /(?<![\w-])(?:[a-z-]+:)*h-(?!auto\b)[\d.[]/;
@@ -23,6 +24,50 @@ export function sobrescrituras(texto: string): Array<{ linea: number; codigo: st
   }
   return hallazgos;
 }
+
+// Etiquetas que son un control: el botón, el enlace con forma de botón, el input y el select. Un `<a>` de texto no declara altura.
+const CONTROL = /<(button|input|select|a|Button|Link|BotonCopiar|BotonAsync|SelectTrigger)\b/g;
+// Toda altura de control que no sea la única (h-9 / size-9). `h-auto` y las del textarea quedan fuera por no estar en la lista.
+const ALTURA_FUERA_DE_ESCALA = /(?<![\w-])(?:[a-z-]+:)*(?:h|size)-(?:5|6|7|8|10|11|12)(?![\w.])/;
+
+/** La etiqueta de apertura de un elemento JSX desde `inicio` (respeta llaves, para no cortar en el `>` de un `=>`). */
+function etiquetaDeApertura(texto: string, inicio: number): string {
+  let llaves = 0;
+  for (let i = inicio; i < texto.length; i++) {
+    const c = texto[i];
+    if (c === "{") llaves++;
+    else if (c === "}") llaves--;
+    else if (c === ">" && llaves === 0 && texto[i - 1] !== "=") return texto.slice(inicio, i + 1);
+  }
+  return texto.slice(inicio);
+}
+
+/** Los controles de un archivo que declaran una altura distinta de h-9, con su línea. */
+export function controlesFueraDeEscala(texto: string): Array<{ linea: number; codigo: string }> {
+  const hallazgos: Array<{ linea: number; codigo: string }> = [];
+  for (const m of texto.matchAll(CONTROL)) {
+    const etiqueta = etiquetaDeApertura(texto, m.index);
+    // Un input oculto, casilla, radio o archivo no forma fila con los demás controles.
+    if (/type="(?:hidden|checkbox|radio|file)"/.test(etiqueta)) continue;
+    if (!ALTURA_FUERA_DE_ESCALA.test(etiqueta)) continue;
+    hallazgos.push({ linea: texto.slice(0, m.index).split("\n").length, codigo: etiqueta.replace(/\s+/g, " ").slice(0, 120) });
+  }
+  return hallazgos;
+}
+
+/**
+ * Los controles que miden otra cosa a propósito, por archivo. Cada uno vive DENTRO de otro control de h-9 (no forma fila con nadie)
+ * o es la portada pública, que no es el portal.
+ */
+const EXCEPCIONES: Record<string, string> = {
+  "app/page.tsx": "portada pública: sus CTA de marketing miden h-11",
+  "components/landing/planes.tsx": "portada pública: el CTA de cada plan",
+  "components/empresa/certificado-form.tsx": "mostrar/ocultar la clave va dentro del input",
+  "components/empresa/credenciales-sol-form.tsx": "mostrar/ocultar la clave va dentro del input",
+  "components/formularios/entrada-monto.tsx": "el selector de moneda va dentro del input",
+  "components/nav/theme-toggle.tsx": "segmentos de h-7 dentro de su caja de h-9",
+  "components/ui/selector-por-pagina.tsx": "segmentos de h-7 dentro de su caja de h-9",
+};
 
 function archivosTsx(dir: string): string[] {
   return readdirSync(dir).flatMap((nombre) => {
@@ -45,6 +90,33 @@ describe("alturas de los controles", () => {
     expect(sobrescrituras(`cn(CONTROL_FILTRO, "inline-flex size-8 items-center")`)).toEqual([]);
     expect(sobrescrituras(`cn(BOTON_PRIMARIO, "mt-6")`)).toEqual([]);
     expect(sobrescrituras("className={`${CAMPO} w-64`}")).toEqual([]);
+  });
+
+  it("toda receta de control mide h-9, la altura única", () => {
+    const estilos = readFileSync(resolve(__dirname, "estilos.ts"), "utf8");
+    const recetas = [...estilos.matchAll(/export const ((?:CAMPO|BOTON_\w+|ACCION_\w+|CONTROL_FILTRO|SELECT_NATIVO))\s*=\s*\n?\s*"([^"]*)"/g)];
+    expect(recetas.map((r) => r[1])).toEqual(
+      expect.arrayContaining(["ACCION_PRINCIPAL", "ACCION_SECUNDARIA", "CONTROL_FILTRO", "CAMPO", "SELECT_NATIVO", "BOTON_PRIMARIO", "BOTON_SECUNDARIO", "BOTON_DESTRUCTIVO"]),
+    );
+    expect(recetas.filter((r) => !/(?<![\w-])h-9(?![\w.])/.test(r[2])).map((r) => r[1])).toEqual([]);
+  });
+
+  it("detecta un control que declara otra altura", () => {
+    expect(controlesFueraDeEscala(`<button type="button" className="inline-flex h-7 items-center">x</button>`)).toHaveLength(1);
+    expect(controlesFueraDeEscala(`<button\n  onClick={() => setAbierto(true)}\n  className="flex size-8 items-center"\n>`)).toHaveLength(1);
+    expect(controlesFueraDeEscala(`<Button className="h-10 px-4">Entrar</Button>`)).toHaveLength(1);
+    expect(controlesFueraDeEscala(`<button type="button" className="inline-flex h-9 items-center"><XIcon className="size-4" /></button>`)).toEqual([]);
+    expect(controlesFueraDeEscala(`<input type="checkbox" className="size-4" />`)).toEqual([]);
+  });
+
+  it("ningún control del portal mide otra cosa que h-9", () => {
+    const raiz = resolve(__dirname, "..");
+    const encontradas = archivosTsx(raiz).flatMap((ruta) => {
+      const relativa = relative(raiz, ruta).replaceAll("\\", "/");
+      if (relativa in EXCEPCIONES) return [];
+      return controlesFueraDeEscala(readFileSync(ruta, "utf8")).map((s) => `${relativa}:${s.linea}  ${s.codigo}`);
+    });
+    expect(encontradas).toEqual([]);
   });
 
   it("ningún componente del portal sobrescribe la altura de una receta", () => {

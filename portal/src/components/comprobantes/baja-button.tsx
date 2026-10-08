@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import { type Baja, PLAZO_BAJA_DIAS } from "@/lib/api/facturas";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { diasEntre, hoyLima } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -126,10 +126,10 @@ export function BajaButton({ id, numero, fechaEmision, notasVigentes = 0 }: { id
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             Cancelar
           </button>
-          <button type="button" disabled={motivo.trim().length < 3 || enviando} onClick={confirmar} className={BOTON_DESTRUCTIVO_PIE}>
+          <button type="button" disabled={motivo.trim().length < 3 || enviando} onClick={confirmar} className={BOTON_DESTRUCTIVO}>
             <BanIcon className="size-4" />
             {enviando ? "Enviando a SUNAT…" : "Confirmar la baja"}
           </button>

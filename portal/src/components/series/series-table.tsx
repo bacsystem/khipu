@@ -45,7 +45,7 @@ const SUBTITULO_TIPO: Record<string, string> = {
 const TABS_DESHABILITADOS = ["Facturas", "Boletas", "Notas de crédito"];
 
 const CONTROL_DESHABILITADO = "cursor-not-allowed text-muted-foreground opacity-70";
-const ACCION = "flex size-6 cursor-not-allowed items-center justify-center rounded text-muted-foreground/60";
+const ACCION = "flex size-9 cursor-not-allowed items-center justify-center rounded-lg text-muted-foreground/60";
 
 function mascara(serie: string): string {
   return serie.replace(/[0-9]/g, "#");
@@ -153,7 +153,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
             type="button"
             onClick={() => startTransition(() => router.refresh())}
             title="Refrescar lista"
-            className={cn(CONTROL_FILTRO, "inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+            className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
           </button>

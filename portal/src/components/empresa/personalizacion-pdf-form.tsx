@@ -136,7 +136,7 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
           <div className="flex flex-col gap-1.5">
             <label htmlFor="pdf-color" className={ETIQUETA_CAMPO}>Color primario</label>
             <div className="flex items-center gap-2">
-              <input id="pdf-color" type="color" value={colorValido ? color : "#1E1E24"} onChange={(e) => setColor(e.target.value.toUpperCase())} className="h-10 w-12 cursor-pointer rounded-lg border border-border bg-card p-1" disabled={plantilla === "gris"} />
+              <input id="pdf-color" type="color" value={colorValido ? color : "#1E1E24"} onChange={(e) => setColor(e.target.value.toUpperCase())} className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-card p-1" disabled={plantilla === "gris"} />
               <input aria-label="Color primario en hexadecimal" value={color} onChange={(e) => setColor(e.target.value.toUpperCase())} maxLength={7} className={cn(CAMPO, "font-mono")} disabled={plantilla === "gris"} />
             </div>
             <span className={AYUDA_CAMPO}>{plantilla === "gris" ? "La plantilla gris no usa color." : "Títulos, número y cabecera de tabla según la plantilla."}</span>
@@ -146,9 +146,9 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
             <div className="flex items-center gap-2">
               {tieneLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/api/proxy/empresa/logo?v=${logoVersion}`} alt="Logo actual" className="h-10 max-w-24 rounded-lg border border-border bg-card object-contain p-1" data-testid="logo-actual" />
+                <img src={`/api/proxy/empresa/logo?v=${logoVersion}`} alt="Logo actual" className="h-9 max-w-24 rounded-lg border border-border bg-card object-contain p-1" data-testid="logo-actual" />
               ) : (
-                <span className="flex size-10 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground"><ImageIcon className="size-4" /></span>
+                <span className="flex size-9 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground"><ImageIcon className="size-4" /></span>
               )}
               <label htmlFor={logoInputId} className={cn(BOTON_SECUNDARIO, "cursor-pointer")}>
                 <UploadCloudIcon className="size-3.5" />

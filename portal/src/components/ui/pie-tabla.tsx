@@ -8,9 +8,9 @@ import { paginasVisibles } from "@/lib/paginacion";
 import { cn } from "@/lib/utils";
 
 const BOTON_PAGINA =
-  "inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2.5 text-[11px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted";
+  "inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-card px-2.5 text-[11px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted";
 const BOTON_PAGINA_INACTIVO = "pointer-events-none text-muted-foreground/60";
-const NUMERO_PAGINA = "flex size-7 items-center justify-center rounded-md font-mono text-[11px] text-foreground/80 transition-colors hover:bg-secondary";
+const NUMERO_PAGINA = "flex size-9 items-center justify-center rounded-lg font-mono text-[11px] text-foreground/80 transition-colors hover:bg-secondary";
 
 /** Un salto de página: enlace (estado en la URL) o botón (estado local), según haya `hrefPagina`. */
 function Salto({
@@ -118,7 +118,7 @@ export function PieTabla({
               <span
                 key={p}
                 aria-current="page"
-                className="flex size-7 items-center justify-center rounded-md bg-foreground font-mono text-[11px] font-medium text-background shadow-2xs"
+                className="flex size-9 items-center justify-center rounded-lg bg-foreground font-mono text-[11px] font-medium text-background shadow-2xs"
               >
                 {p}
               </span>

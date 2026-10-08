@@ -24,7 +24,7 @@ export function ThemeToggle({ className, conTexto = false }: { className?: strin
     <div
       role="radiogroup"
       aria-label="Tema de la interfaz"
-      className={cn("inline-flex h-8 items-center rounded-lg border border-border bg-muted p-0.5", conTexto && "w-full", className)}
+      className={cn("inline-flex h-9 items-center rounded-lg border border-border bg-muted p-0.5", conTexto && "w-full", className)}
     >
       {OPCIONES.map(({ valor, etiqueta, Icono }) => {
         const activo = actual === valor;

@@ -59,7 +59,7 @@ const ITEMS_ESTADO: Record<string, string> = {
 const TABS_DESHABILITADOS = ["Facturas", "Boletas", "Notas de crédito"];
 
 const TODAS_LAS_SERIES = "todas";
-const ACCION = "flex h-6 items-center justify-center rounded border border-border font-mono text-[10px] font-semibold shadow-2xs transition-colors";
+const ACCION = "flex h-9 items-center justify-center rounded-lg border border-border font-mono text-[10px] font-semibold shadow-2xs transition-colors";
 
 async function fetchComprobantes(filtros: FiltrosComprobantes, pagina: number, porPagina: number): Promise<PaginaComprobantes> {
   const qs = paramsDeFiltros(filtros, new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) }));
@@ -243,7 +243,7 @@ export function ComprobantesTable({
             type="button"
             onClick={() => refetch()}
             title="Refrescar lista"
-            className={cn(CONTROL_FILTRO, "inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+            className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", isFetching && "animate-spin")} />
           </button>
@@ -373,7 +373,7 @@ export function ComprobantesTable({
                         <a
                           href={`/api/proxy/facturas/${c.id}/cdr`}
                           title="Descargar constancia CDR"
-                          className={cn(ACCION, "w-6 text-muted-foreground hover:bg-secondary hover:text-foreground")}
+                          className={cn(ACCION, "w-9 text-muted-foreground hover:bg-secondary hover:text-foreground")}
                         >
                           <FileCheck2Icon className="size-3.5" />
                         </a>
@@ -381,7 +381,7 @@ export function ComprobantesTable({
                       <button
                         disabled
                         title="Más acciones: próximamente"
-                        className="flex size-6 cursor-not-allowed items-center justify-center rounded text-muted-foreground/60"
+                        className="flex size-9 cursor-not-allowed items-center justify-center rounded-lg text-muted-foreground/60"
                       >
                         <MoreHorizontalIcon className="size-4" />
                       </button>

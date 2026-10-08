@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import { CLASES_DE_ERROR, hrefErrores, MAX_BUSQUEDA, type ClaseDeError, type ErrorDeEmision, type ParamsErrores } from "@/lib/api/admin-errores";
 import { ETIQUETAS_TIPO, type EstadoDocumento } from "@/lib/api/facturas";
-import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO_FILTRO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { faultEnPalabras } from "@/lib/errores-formato";
 import { formatearFecha, formatearFechaHora } from "@/lib/formato";
 import { messages } from "@/lib/messages";
@@ -65,7 +65,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
             <label htmlFor="errores-q" className="text-[11px] font-medium text-muted-foreground">
               {t.buscar}
             </label>
-            <input id="errores-q" name="q" type="search" key={params.q ?? ""} defaultValue={params.q ?? ""} maxLength={MAX_BUSQUEDA} placeholder={t.buscarPlaceholder} className={cn(CAMPO_FILTRO, "w-64")} />
+            <input id="errores-q" name="q" type="search" key={params.q ?? ""} defaultValue={params.q ?? ""} maxLength={MAX_BUSQUEDA} placeholder={t.buscarPlaceholder} className={cn(CAMPO, "w-64")} />
           </div>
           <button type="submit" className={ACCION_SECUNDARIA}>
             <SearchIcon className="size-4" />

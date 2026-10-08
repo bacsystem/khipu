@@ -1,7 +1,7 @@
 "use client";
 
 import { bajasDesdeUrl, VISIBILIDADES_DE_BAJAS, type VisibilidadDeBajasAdmin } from "@/lib/api/admin-baja";
-import { CAMPO_FILTRO } from "@/lib/estilos";
+import { CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 import { messages } from "@/lib/messages";
 
@@ -19,7 +19,7 @@ export function FiltroDeBajas({ valor, onCambio }: { valor?: VisibilidadDeBajasA
       <label htmlFor="filtro-bajas" className="text-[11px] font-medium text-muted-foreground">
         {t.etiqueta}
       </label>
-      <select id="filtro-bajas" value={valor ?? ""} onChange={(e) => onCambio(bajasDesdeUrl(e.target.value))} className={cn(CAMPO_FILTRO, "w-auto")}>
+      <select id="filtro-bajas" value={valor ?? ""} onChange={(e) => onCambio(bajasDesdeUrl(e.target.value))} className={cn(CAMPO, "w-auto")}>
         <option value="">{t.ocultas}</option>
         {VISIBILIDADES_DE_BAJAS.map((v) => (
           <option key={v} value={v}>
