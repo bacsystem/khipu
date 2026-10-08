@@ -67,6 +67,39 @@ class JdbcEmpresasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(rucs(repo.listar(Filtro.NINGUNO, HOY, 1, 20))).containsExactly("20100000001", "20100000002", "20100000009");
     }
 
+    // --- H17: buscar ------------------------------------------------------------------------------------------------------------------
+
+    Filtro buscar(String q) { return new Filtro(null, null, VisibilidadDeBajas.OCULTAS, q); }
+
+    @Test void buscaPorPrefijoDelRucYNoPorUnFragmentoInterno() {
+        empresa(null, "20100066603", "COMERCIAL ANDINA SAC", T0);
+        empresa(null, "20612345679", "FERRETERIA TORRES SAC", T0);
+
+        assertThat(rucs(repo.listar(buscar("2010"), HOY, 1, 20))).containsExactly("20100066603");
+        assertThat(rucs(repo.listar(buscar("66603"), HOY, 1, 20))).as("un fragmento interno del RUC no identifica a nadie").isEmpty();
+        assertThat(repo.contar(buscar("2061"), HOY)).isEqualTo(1);
+    }
+
+    @Test void buscaLaRazonSocialPorSubcadenaSinMayusculasNiTildes() {
+        empresa(null, "20100066603", "COMERCIAL ANDINA SAC", T0);
+        empresa(null, "20612345679", "Panadería Ñuñoa EIRL", T0);
+
+        assertThat(rucs(repo.listar(buscar("andina"), HOY, 1, 20))).containsExactly("20100066603");
+        assertThat(rucs(repo.listar(buscar("PANADERIA"), HOY, 1, 20))).containsExactly("20612345679");
+        assertThat(rucs(repo.listar(buscar("ñuñoa"), HOY, 1, 20))).containsExactly("20612345679");
+        assertThat(rucs(repo.listar(buscar("nunoa"), HOY, 1, 20))).as("la ñ no es una n").isEmpty();
+    }
+
+    @Test void laBusquedaTomaLosComodinesLiteralmenteYSeCombinaConLosFiltros() {
+        empresa(null, "20100066603", "COMERCIAL ANDINA SAC", T0);
+        UUID prod = empresa(null, "20100066611", "ANDINA 100% SAC", T0);
+        jdbc.update("UPDATE tenant SET entorno = 'PRODUCCION' WHERE id = ?", prod);
+
+        assertThat(rucs(repo.listar(buscar("100%"), HOY, 1, 20))).containsExactly("20100066611");
+        assertThat(rucs(repo.listar(buscar("_"), HOY, 1, 20))).isEmpty();
+        assertThat(rucs(repo.listar(new Filtro(Entorno.PRODUCCION, null, VisibilidadDeBajas.OCULTAS, "andina"), HOY, 1, 20))).containsExactly("20100066611");
+    }
+
     @Test void traeLosDatosDeLaEmpresaYDeSuCuenta() {
         UUID ana = cuenta("Mi negocio", "ana@negocio.pe");
         UUID e = empresa(ana, "20100066603", "COMERCIAL ANDINA SAC", T0);

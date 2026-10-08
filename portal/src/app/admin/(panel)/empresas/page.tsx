@@ -14,7 +14,7 @@ export const metadata = { title: "Empresas · Backoffice" };
 export default async function AdminEmpresasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ entorno?: string; certificado?: string; bajas?: string; pagina?: string; por_pagina?: string }>;
+  searchParams: Promise<{ q?: string; entorno?: string; certificado?: string; bajas?: string; pagina?: string; por_pagina?: string }>;
 }) {
   const { access } = await getAdminServerSession();
   if (!access) redirect("/admin/login");

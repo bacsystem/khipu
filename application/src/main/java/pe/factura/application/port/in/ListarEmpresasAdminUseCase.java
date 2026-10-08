@@ -35,13 +35,16 @@ public interface ListarEmpresasAdminUseCase {
 
     /**
      * Los filtros son opcionales y se combinan con «y». {@code bajas}: qué hacer con las empresas de cuentas dadas de baja (#201); por defecto,
-     * ocultarlas. Las empresas sin cuenta (de integración) nunca están de baja.
+     * ocultarlas. Las empresas sin cuenta (de integración) nunca están de baja. {@code q} (H17) busca el RUC por prefijo y la razón social por subcadena,
+     * como el buscador de cuentas; en blanco no filtra.
      */
-    record Filtro(Entorno entorno, EstadoCertificado certificado, VisibilidadDeBajas bajas) {
+    record Filtro(Entorno entorno, EstadoCertificado certificado, VisibilidadDeBajas bajas, String q) {
         public static final Filtro NINGUNO = new Filtro(null, null);
         public Filtro {
             bajas = bajas == null ? VisibilidadDeBajas.OCULTAS : bajas;
+            q = q == null || q.isBlank() ? null : q.strip();
         }
+        public Filtro(Entorno entorno, EstadoCertificado certificado, VisibilidadDeBajas bajas) { this(entorno, certificado, bajas, null); }
         public Filtro(Entorno entorno, EstadoCertificado certificado) { this(entorno, certificado, VisibilidadDeBajas.OCULTAS); }
     }
 }

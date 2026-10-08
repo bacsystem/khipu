@@ -27,6 +27,24 @@ const ANDINA: EmpresaAdmin = {
   ultima_emision: "2026-10-02",
 };
 
+describe("EmpresasTabla — buscar (H17)", () => {
+  it("buscar desde la página 3 va a la primera, con lo escrito recortado y los filtros que había", () => {
+    render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ entorno: "BETA", pagina: 3, porPagina: 20 }} />);
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar por RUC o razón social" }), { target: { value: "  andina " } });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+
+    expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=BETA&q=andina&por_pagina=20");
+  });
+
+  it("muestra la búsqueda de la URL y cuenta como un filtro que se puede quitar", () => {
+    render(<EmpresasTabla datos={[]} total={0} params={{ q: "andina", pagina: 1, porPagina: 10 }} />);
+
+    expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("andina");
+    expect(screen.getByRole("link", { name: "Quitar filtros" }).getAttribute("href")).toBe("/admin/empresas");
+  });
+});
+
 describe("EmpresasTabla (#185)", () => {
   /**
    * Cambiar un filtro cambia el conjunto: seguir en la página 3 de otro conjunto es una página que ya no existe. La página lo corrige

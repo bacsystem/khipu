@@ -307,4 +307,18 @@ class AdminEmpresaControllerTest {
 
         verifyNoInteractions(listar);
     }
+
+    /** H17: la búsqueda llega al listado y al total, combinada con los filtros; recortada, y en blanco no filtra. */
+    @Test void laBusquedaLlegaAlListadoYAlTotalJuntoConLosFiltros() throws Exception {
+        var filtro = new Filtro(Entorno.BETA, null, VisibilidadDeBajas.OCULTAS, "andina");
+        when(listar.listar(filtro, 1, 20)).thenReturn(List.of(ANDINA));
+        when(listar.contar(filtro)).thenReturn(1L);
+
+        mvc.perform(get("/v1/admin/empresas").param("entorno", "BETA").param("q", "  andina "))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "1"));
+
+        mvc.perform(get("/v1/admin/empresas").param("q", "   ")).andExpect(status().isOk());
+        verify(listar).listar(Filtro.NINGUNO, 1, 20);
+    }
 }

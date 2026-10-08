@@ -182,6 +182,8 @@
     "empresas": {
       "titulo": "Empresas",
       "descripcion": "Todas las empresas de la plataforma y si están en condiciones de emitir.",
+      "buscar": "Buscar por RUC o razón social",
+      "botonBuscar": "Buscar",
       "filtroEntorno": "Entorno",
       "filtroCertificado": "Certificado",
       "todosEntornos": "Todos los entornos",
@@ -689,6 +691,8 @@
     "avisos": {
       "titulo": "Avisos a clientes",
       "descripcion": "Las empresas a las que hay que avisarles algo antes de que dejen de poder emitir: un certificado por vencer o vencido, y credenciales SOL que SUNAT no acepta. El aviso va por correo a la cuenta; el mismo aviso no se repite en una semana.",
+      "sinCertificado": "Las empresas que nunca cargaron su certificado tampoco pueden emitir, pero no tienen nada que vencer y no salen acá.",
+      "verSinCertificado": "Ver las empresas sin certificado",
       "vistas": "Qué avisar",
       "filtros": {
         "CERTIFICADOS": "Certificados",

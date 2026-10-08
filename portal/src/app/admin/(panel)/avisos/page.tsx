@@ -2,8 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AvisosTabla } from "@/components/admin/avisos-tabla";
 import { getAdminServerSession } from "@/lib/admin-session-server";
+import { hrefEmpresas } from "@/lib/api/admin-empresas";
 import { hrefAvisos, hrefSiFueraDeRango, listarCertificadosEnRiesgo, listarCredencialesSolFallando, paramsAvisosDesdeUrl } from "@/lib/api/admin-avisos";
 import { messages } from "@/lib/messages";
+import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
 
 export const metadata = { title: "Avisos · Backoffice" };
 
@@ -33,6 +35,13 @@ export default async function AdminAvisosPage({ searchParams }: { searchParams: 
       <div className="grid gap-1">
         <h1 className="font-heading text-2xl">{messages.admin.avisos.titulo}</h1>
         <p className="max-w-4xl text-sm text-muted-foreground">{messages.admin.avisos.descripcion}</p>
+        {/* H21: una empresa que nunca cargó certificado tampoco puede emitir, y no tiene nada que vencer: no sale en estas listas. */}
+        <p className="max-w-4xl text-sm text-muted-foreground">
+          {messages.admin.avisos.sinCertificado}{" "}
+          <Link href={hrefEmpresas({ certificado: "SIN_CERTIFICADO", pagina: 1, porPagina: POR_PAGINA_DEFECTO })} className="font-medium text-primary hover:underline">
+            {messages.admin.avisos.verSinCertificado}
+          </Link>
+        </p>
       </div>
 
       {resultado.r ? (

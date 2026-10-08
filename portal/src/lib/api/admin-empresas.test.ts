@@ -64,6 +64,19 @@ describe("hrefEmpresas", () => {
   });
 });
 
+/** H17: buscar por RUC o razón social, como en Cuentas. */
+describe("la búsqueda de empresas", () => {
+  it("toma la búsqueda de la URL recortada, y una en blanco no busca", () => {
+    expect(paramsEmpresasDesdeUrl({ q: "  andina " }).q).toBe("andina");
+    expect(paramsEmpresasDesdeUrl({ q: "   " }).q).toBeUndefined();
+  });
+
+  it("viaja al backend y queda en la URL de la pantalla, junto a los filtros", () => {
+    expect(queryEmpresas({ q: "2010", entorno: "BETA", pagina: 1, porPagina: 10 }).toString()).toBe("entorno=BETA&q=2010&pagina=1&por_pagina=10");
+    expect(hrefEmpresas({ q: "andina", pagina: 1, porPagina: 10 })).toBe("/admin/empresas?q=andina");
+  });
+});
+
 describe("hrefEmpresasSiFueraDeRango", () => {
   it("una página que pasa de la última lleva a la última, conservando los filtros", () => {
     expect(hrefEmpresasSiFueraDeRango({ entorno: "BETA", pagina: 9, porPagina: 10 }, 25)).toBe("/admin/empresas?entorno=BETA&pagina=3");
