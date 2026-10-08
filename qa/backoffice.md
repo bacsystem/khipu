@@ -2309,7 +2309,7 @@ Lo que sobrevivía en la primera tanda y se arregló con su test:
 
 ## #194 · Planes: registro manual de pagos e historial
 
-**Estado: 🔧 implementado, 177/180 mutaciones verificadas (2 equivalentes documentadas, 1 código muerto eliminado) — falta la revisión de la PR.** Backend (`POST` y `GET /v1/admin/cuentas/{id}/pagos`, migración V40) y portal (la sección «Pagos» de la ficha de la cuenta). Va después de #193 en la pila.
+**Estado: ✅ revisión de la PR (#242) corregida, 177/180 mutaciones verificadas (2 equivalentes documentadas, 1 código muerto eliminado).** Backend (`POST` y `GET /v1/admin/cuentas/{id}/pagos`, migración V40) y portal (la sección «Pagos» de la ficha de la cuenta). Va después de #193 en la pila.
 
 ### Diseño
 
@@ -2355,6 +2355,15 @@ Lo que sobrevivía en la primera tanda:
 
 - Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (9 min 58 s; incluye `ArchitectureTest`).
 - Portal: `tsc` y ESLint limpios; Vitest **935/935** (103 archivos); Playwright completo (`--workers=2`) **307/307**.
+
+### Corrección de la revisión de #242
+
+- **H1 (menor): el mock no seguía el contrato del backend en dos rechazos.** Un id de cuenta que no es UUID respondía `400 VALIDACION` (el backend:
+  `400 PARAMETRO_INVALIDO`), y un pago sin `medio` respondía `400 JSON_INVALIDO` cuando el backend lo rechaza en el dominio con `422 MEDIO_INVALIDO` (solo un medio que
+  no existe es un 400, porque no se convierte del JSON). Ninguna spec dependía de esos códigos (el formulario exige el medio); después, `tsc` limpio y Playwright
+  `admin-pagos` **19/19**.
+- En la revisión se comprobó, además, que el pago, la extensión condicional del vencimiento y la bitácora van en una sola transacción, que el `ON CONFLICT` usa el
+  índice único parcial de la referencia y que el tope del monto (`9 999 999,99`) coincide con la columna `NUMERIC(9,2)`.
 
 ### Límites conocidos
 

@@ -423,7 +423,9 @@ function registrarPagoMock(cuentaId: string, c: Record<string, unknown>): { pago
   if (hasta > ultimoDiaDeUnPeriodoMock(desde)) return { error: fail(422, "PERIODO_INVALIDO", "El periodo no puede pasar de un año") };
   const monto = c.monto;
   if (typeof monto !== "number" || !(monto > 0) || Math.round(monto * 100) / 100 !== monto || monto > 9_999_999.99) return { error: fail(422, "MONTO_INVALIDO", "El monto debe ser mayor que cero, con hasta dos decimales") };
-  if (typeof c.medio !== "string" || !MEDIOS_DE_PAGO_MOCK.includes(c.medio)) return { error: fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido") };
+  // Como el backend: sin medio lo rechaza el dominio (422); un medio que no existe ni siquiera se convierte del JSON (400).
+  if (c.medio === undefined || c.medio === null) return { error: fail(422, "MEDIO_INVALIDO", "El pago necesita el medio por el que se hizo") };
+  if (typeof c.medio !== "string" || !MEDIOS_DE_PAGO_MOCK.includes(c.medio)) return { error: jsonInvalido() };
   if (!fechaIsoValidaMock(c.fecha_de_pago)) return { error: fail(422, "FECHA_DE_PAGO_INVALIDA", "El pago necesita la fecha en que se hizo") };
   const referencia = typeof c.referencia === "string" && c.referencia.trim() ? c.referencia.trim() : undefined;
   const nota = typeof c.nota === "string" && c.nota.trim() ? c.nota.trim() : undefined;
@@ -752,7 +754,7 @@ export const handlers = [
    */
   http.get(`${BASE}/v1/admin/cuentas/:id/pagos`, ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     if (!db.cuentasAdmin.some((c) => c.id === params.id)) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     const url = new URL(request.url);
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1) || 1);
@@ -768,7 +770,7 @@ export const handlers = [
 
   http.post(`${BASE}/v1/admin/cuentas/:id/pagos`, async ({ request, params }) => {
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
-    if (!esUuid(String(params.id))) return fail(400, "VALIDACION", "El id de la cuenta no es válido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
     if (!db.cuentasAdmin.some((c) => c.id === params.id)) return fail(404, "NO_ENCONTRADO", "La cuenta no existe");
     let cuerpo: unknown;
     try {
