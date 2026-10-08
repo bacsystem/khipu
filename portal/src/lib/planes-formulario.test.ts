@@ -137,6 +137,7 @@ describe("valoresDePlan", () => {
       apiKeys: "",
       apiKeysIlimitado: true,
       retencion: "5",
+      visibleEnPublicidad: true,
     });
   });
 
