@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
-import { BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, BOTON_DESTRUCTIVO_PIE, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export type DialogoDeAccionProps = {
@@ -104,11 +105,17 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
 
   const Icono = p.icono;
   const tono = p.tono ?? "secundario";
+  // Chico vive en una fila de tabla (h-7, como el resto de las acciones de fila); si no, en la ficha, junto a las demás acciones (h-8).
+  const claseDelBoton = p.chico
+    ? buttonVariants({ variant: tono === "primario" ? "default" : "outline", size: "sm" })
+    : tono === "primario"
+      ? ACCION_PRINCIPAL
+      : ACCION_SECUNDARIA;
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
       <DialogTrigger
-        className={cn(tono === "primario" ? BOTON_PRIMARIO : BOTON_SECUNDARIO, p.chico ? "h-7 px-2.5 text-[11px]" : "h-8 text-xs", tono === "peligro" && "text-destructive hover:text-destructive")}
+        className={cn(claseDelBoton, tono === "peligro" && "text-destructive hover:text-destructive")}
         data-testid={p.testId}
       >
         <Icono className={p.chico ? "size-3.5" : "size-4"} />
@@ -145,7 +152,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
             {p.cancelar}
           </button>
           <button
@@ -153,7 +160,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
             disabled={enviando}
             onClick={confirmar}
             data-testid={`${p.testId}-confirmar`}
-            className={cn(tono === "peligro" ? BOTON_DESTRUCTIVO : BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}
+            className={tono === "peligro" ? BOTON_DESTRUCTIVO_PIE : BOTON_PRIMARIO_PIE}
           >
             <Icono className="size-4" />
             {enviando ? p.enviando : p.confirmar}

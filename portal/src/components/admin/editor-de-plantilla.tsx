@@ -145,7 +145,7 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
                 editado();
               }}
               autoComplete="off"
-              className={cn(CAMPO, "h-9")}
+              className={CAMPO}
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -214,11 +214,11 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={enviando || calculando} onClick={verVistaPrevia} data-testid="plantilla-ver-vista-previa" className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+        <button type="button" disabled={enviando || calculando} onClick={verVistaPrevia} data-testid="plantilla-ver-vista-previa" className={BOTON_SECUNDARIO}>
           <EyeIcon className="size-4" />
           {calculando ? t.calculandoVistaPrevia : t.vistaPrevia}
         </button>
-        <button type="button" disabled={enviando || calculando} onClick={guardar} data-testid="plantilla-guardar" className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+        <button type="button" disabled={enviando || calculando} onClick={guardar} data-testid="plantilla-guardar" className={BOTON_PRIMARIO}>
           <SaveIcon className="size-4" />
           {enviando ? t.guardando : t.guardar}
         </button>

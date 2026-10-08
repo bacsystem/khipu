@@ -19,7 +19,7 @@ import {
   type EstadoCertificadoAdmin,
   type ParamsEmpresas,
 } from "@/lib/api/admin-empresas";
-import { CABECERA_TABLA, SELECT_NATIVO } from "@/lib/estilos";
+import { CABECERA_TABLA, CAMPO_FILTRO } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -56,7 +56,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
             id="filtro-entorno"
             value={params.entorno ?? ""}
             onChange={(e) => router.push(hrefEmpresas({ ...params, entorno: (e.target.value || undefined) as EntornoAdmin | undefined, pagina: 1 }))}
-            className={SELECT_NATIVO}
+            className={cn(CAMPO_FILTRO, "w-auto")}
           >
             <option value="">{t.todosEntornos}</option>
             {ENTORNOS.map((x) => (
@@ -74,7 +74,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
             id="filtro-certificado"
             value={params.certificado ?? ""}
             onChange={(e) => router.push(hrefEmpresas({ ...params, certificado: (e.target.value || undefined) as EstadoCertificadoAdmin | undefined, pagina: 1 }))}
-            className={SELECT_NATIVO}
+            className={cn(CAMPO_FILTRO, "w-auto")}
           >
             <option value="">{t.todosCertificados}</option>
             {ESTADOS_CERTIFICADO.map((x) => (

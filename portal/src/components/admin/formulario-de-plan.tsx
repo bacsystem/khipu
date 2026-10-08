@@ -6,10 +6,11 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import { apiRequest } from "@/lib/api/browser";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFechaDeLima, inicioDelProximoCiclo } from "@/lib/formato";
 import { messages, mensajeError } from "@/lib/messages";
 import { NOMBRE_MAX, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ErroresDePlan, type ValoresDePlan } from "@/lib/planes-formulario";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const t = messages.admin.planes;
@@ -107,7 +108,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
           autoComplete="off"
           aria-invalid={errores[campo] ? true : undefined}
           aria-describedby={errores[campo] ? `plan-${id}-${campo}-error` : undefined}
-          className={cn(CAMPO, "h-9")}
+          className={CAMPO}
         />
         {ilimitado ? (
           <label className="flex items-center gap-2 text-[12px] text-foreground/80">
@@ -127,7 +128,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
       <DialogTrigger
-        className={claseDelBoton ?? cn(edicion ? BOTON_SECUNDARIO : BOTON_PRIMARIO, edicion ? "h-7 px-2.5 text-[11px]" : "h-9 text-[13px]")}
+        className={claseDelBoton ?? (edicion ? cn(buttonVariants({ variant: "outline", size: "sm" })) : ACCION_PRINCIPAL)}
         data-testid={edicion ? `plan-editar-${id}` : "plan-nuevo"}
       >
         <Icono className={edicion ? "size-3.5" : "size-4"} />
@@ -173,7 +174,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
               autoComplete="off"
               aria-invalid={errores.nombre ? true : undefined}
               aria-describedby={errores.nombre ? `plan-${id}-nombre-error` : undefined}
-              className={cn(CAMPO, "h-9")}
+              className={CAMPO}
               autoFocus
             />
             {errores.nombre ? (
@@ -195,7 +196,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
               autoComplete="off"
               aria-invalid={errores.precio ? true : undefined}
               aria-describedby={errores.precio ? `plan-${id}-precio-error` : undefined}
-              className={cn(CAMPO, "h-9")}
+              className={CAMPO}
             />
             {errores.precio ? (
               <span id={`plan-${id}-precio-error`} className="text-[12px] text-destructive">
@@ -222,10 +223,10 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
             {f.cancelar}
           </button>
-          <button type="button" disabled={enviando} onClick={guardar} data-testid="plan-guardar" className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={guardar} data-testid="plan-guardar" className={BOTON_PRIMARIO_PIE}>
             <Icono className="size-4" />
             {enviando ? (edicion ? f.guardando : f.creando) : edicion ? f.guardar : f.crear}
           </button>

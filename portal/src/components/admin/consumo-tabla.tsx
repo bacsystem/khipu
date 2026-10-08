@@ -18,7 +18,7 @@ import {
   type OrdenDeConsumo,
   type ParamsConsumo,
 } from "@/lib/api/admin-consumo";
-import { CABECERA_TABLA, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { CABECERA_TABLA, CAMPO_FILTRO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { formatearFecha, ultimoDiaCubierto } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -61,16 +61,13 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <div className="flex flex-wrap items-end gap-3">
-        <nav aria-label={t.vistas} className="inline-flex rounded-lg border border-border bg-card p-0.5 shadow-2xs">
+        <nav aria-label={t.vistas} className={SEGMENTADO}>
           {FILTROS_DE_CONSUMO.map((f) => (
             <Link
               key={f}
               href={hrefConsumo({ ...params, filtro: f, pagina: 1 })}
               aria-current={params.filtro === f ? "page" : undefined}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
-                params.filtro === f ? "bg-foreground text-background shadow-2xs" : "text-foreground/70 hover:bg-secondary hover:text-foreground",
-              )}
+              className={SEGMENTO}
             >
               {t.filtros[f]}
             </Link>
@@ -86,7 +83,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
             type="month"
             value={datos.mes}
             onChange={(e) => cambiar({ mes: mesValido(e.target.value) })}
-            className={`${CAMPO} w-40`}
+            className={cn(CAMPO_FILTRO, "w-40")}
           />
         </div>
 
@@ -94,7 +91,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
           <label htmlFor="consumo-orden" className="text-[11px] font-medium text-muted-foreground">
             {t.orden}
           </label>
-          <select id="consumo-orden" value={params.orden} onChange={(e) => cambiar({ orden: e.target.value as OrdenDeConsumo })} className={SELECT_NATIVO}>
+          <select id="consumo-orden" value={params.orden} onChange={(e) => cambiar({ orden: e.target.value as OrdenDeConsumo })} className={cn(CAMPO_FILTRO, "w-auto")}>
             {ORDENES_DE_CONSUMO.map((o) => (
               <option key={o} value={o}>
                 {t.ordenes[o]}
