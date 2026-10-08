@@ -44,6 +44,26 @@ class JdbcConfiguracionDePlataformaTest extends PersistenciaTestBase {
         assertThat(jdbc.queryForObject("SELECT actualizado_por FROM remitente_correo", UUID.class)).isEqualTo(ADMIN);
     }
 
+    UUID administrador(String email) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO administrador (id, email, password_hash) VALUES (?, ?, 'hash')", id, email);
+        return id;
+    }
+
+    /** H11: «Lo fijó un administrador» decía quién no; el dato estaba guardado. Sin administrador (la clave de la plataforma, o uno que ya no existe), nadie. */
+    @Test void elRemitenteYUnaPlantillaDicenElCorreoDeQuienLosCambio() {
+        UUID ana = administrador("ana@khipu.pe");
+        remitentes.guardar(new RemitenteDeCorreo(null, "avisos@khipu.pe", null), AHORA, ana);
+        plantillas.guardar(PlantillaDeCorreo.VERIFICACION_CORREO, new Texto("Asunto", "Hola {enlace}"), AHORA, ana);
+
+        assertThat(remitentes.buscar().orElseThrow().actualizadoPor()).isEqualTo("ana@khipu.pe");
+        assertThat(plantillas.buscar(PlantillaDeCorreo.VERIFICACION_CORREO).orElseThrow().actualizadaPor()).isEqualTo("ana@khipu.pe");
+        assertThat(plantillas.todas().get(PlantillaDeCorreo.VERIFICACION_CORREO).actualizadaPor()).isEqualTo("ana@khipu.pe");
+
+        remitentes.guardar(new RemitenteDeCorreo(null, "avisos@khipu.pe", null), AHORA, null);
+        assertThat(remitentes.buscar().orElseThrow().actualizadoPor()).isNull();
+    }
+
     @Test void losOpcionalesSeGuardanComoNulosYVuelvenNulos() {
         remitentes.guardar(new RemitenteDeCorreo(null, "avisos@khipu.pe", null), AHORA, null);
 

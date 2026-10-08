@@ -782,7 +782,7 @@
         "responderA": "Responder a",
         "responderAyuda": "Opcional. Si se deja vacío, las respuestas vuelven al remitente.",
         "vigente": "Hoy los correos salen de: {remitente}",
-        "personalizado": "Lo fijó un administrador el {fecha}.",
+        "personalizado": "Lo fijó {quien} el {fecha}.",
         "delServidor": "Es el de la configuración del servidor: nadie lo ha cambiado desde acá.",
         "guardar": "Guardar remitente",
         "guardando": "Guardando…",
@@ -825,7 +825,7 @@
         "guardado": "Texto guardado: vale desde el siguiente correo.",
         "sinCambios": "Sin cambios sin guardar.",
         "conCambios": "Hay cambios sin guardar.",
-        "actualizada": "Editado el {fecha}.",
+        "actualizada": "Lo editó {quien} el {fecha}.",
         "deFabrica": "Sale con el texto de fábrica.",
         "restaurar": {
           "boton": "Volver al de fábrica",

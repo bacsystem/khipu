@@ -18,12 +18,20 @@ import java.util.Optional;
 public interface ConfigurarPlataformaUseCase {
     /**
      * El remitente con que salen los correos ahora. {@code personalizado} dice si lo fijó un administrador o es el de la configuración del servidor ({@code predeterminado}, al que
-     * se vuelve al restablecer); {@code actualizadoEn} es nulo cuando no es personalizado.
+     * se vuelve al restablecer); {@code actualizadoEn} es nulo cuando no es personalizado, y {@code actualizadoPor} (H11) es el correo de quien lo fijó.
      */
-    record RemitenteVigente(RemitenteDeCorreo vigente, boolean personalizado, Instant actualizadoEn, RemitenteDeCorreo predeterminado) {}
+    record RemitenteVigente(RemitenteDeCorreo vigente, boolean personalizado, Instant actualizadoEn, String actualizadoPor, RemitenteDeCorreo predeterminado) {
+        public RemitenteVigente(RemitenteDeCorreo vigente, boolean personalizado, Instant actualizadoEn, RemitenteDeCorreo predeterminado) {
+            this(vigente, personalizado, actualizadoEn, null, predeterminado);
+        }
+    }
 
     /** Un correo editable: el texto con que sale ahora, el de fábrica, y si alguien lo cambió (y cuándo). */
-    record PlantillaEditable(PlantillaDeCorreo tipo, Texto vigente, Texto defecto, boolean personalizada, Instant actualizadaEn) {}
+    record PlantillaEditable(PlantillaDeCorreo tipo, Texto vigente, Texto defecto, boolean personalizada, Instant actualizadaEn, String actualizadaPor) {
+        public PlantillaEditable(PlantillaDeCorreo tipo, Texto vigente, Texto defecto, boolean personalizada, Instant actualizadaEn) {
+            this(tipo, vigente, defecto, personalizada, actualizadaEn, null);
+        }
+    }
 
     /** El aviso de mantenimiento publicado y si se está mostrando ahora (puede estar programado para después, o haber vencido). */
     record BannerPublicado(BannerDeMantenimiento banner, Instant actualizadoEn, boolean vigenteAhora) {}

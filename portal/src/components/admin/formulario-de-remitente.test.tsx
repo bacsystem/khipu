@@ -45,6 +45,13 @@ describe("FormularioDeRemitente (#199)", () => {
     expect(screen.getByTestId("correo-origen").textContent).toBe("Lo fijó un administrador el 15 Oct 2026, 15:00.");
   });
 
+  /** H11: con el correo de quien lo fijó, lo dice; sin él (clave de la plataforma, administrador que ya no existe), «un administrador». */
+  it("dice qué administrador lo fijó", () => {
+    render(<FormularioDeRemitente remitente={{ ...PERSONALIZADO, actualizado_por: "ana@khipu.pe" }} alResultado={alResultado} />);
+
+    expect(screen.getByTestId("correo-origen").textContent).toBe("Lo fijó ana@khipu.pe el 15 Oct 2026, 15:00.");
+  });
+
   it("sin remitente propio dice que es el del servidor", () => {
     render(<FormularioDeRemitente remitente={DEL_SERVIDOR} alResultado={alResultado} />);
 

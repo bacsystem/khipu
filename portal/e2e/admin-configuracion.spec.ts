@@ -73,7 +73,7 @@ test("el remitente: lo que no sirve se rechaza con su motivo, uno válido se gua
   await page.getByTestId("correo-guardar").click();
   await expect(page.getByTestId("correo-resultado")).toHaveText("Remitente guardado: vale desde el siguiente correo.");
   await expect(page.getByTestId("correo-vigente")).toHaveText("Hoy los correos salen de: Facturación Perú <avisos@khipu.pe>");
-  await expect(page.getByTestId("correo-origen")).toContainText("Lo fijó un administrador el");
+  await expect(page.getByTestId("correo-origen")).toContainText("Lo fijó admin@khipu.pe el");
 
   // Vale al recargar: lo guardó el servidor, no la pantalla.
   await abrir(page, SECCION.correo, "correo-email");
@@ -146,7 +146,7 @@ test("guardar un texto lo marca como editado y vale al recargar, y restaurar vue
   await page.getByTestId("plantilla-guardar").click();
 
   await expect(page.getByTestId("plantilla-resultado")).toHaveText("Texto guardado: vale desde el siguiente correo.");
-  await expect(page.getByTestId("plantilla-origen")).toContainText("Editado el");
+  await expect(page.getByTestId("plantilla-origen")).toContainText("Lo editó admin@khipu.pe el");
   await expect(page.locator('[data-testid="plantilla-enlace"][data-tipo="RECUPERACION_CLAVE"]')).toContainText("Editado");
 
   await abrir(page, "/admin/configuracion?seccion=plantillas&plantilla=RECUPERACION_CLAVE", "plantilla-asunto");

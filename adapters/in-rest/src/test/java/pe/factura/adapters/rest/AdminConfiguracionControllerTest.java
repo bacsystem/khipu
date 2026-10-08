@@ -69,6 +69,13 @@ class AdminConfiguracionControllerTest {
                 .andExpect(jsonPath("$.datos.predeterminado.responder_a").doesNotExist());
     }
 
+    /** H11: quién lo fijó, no solo «un administrador». */
+    @Test void elRemitenteDiceElCorreoDeQuienLoFijo() throws Exception {
+        when(configuracion.remitente()).thenReturn(new RemitenteVigente(new RemitenteDeCorreo(null, "avisos@khipu.pe", null), true, ACTUALIZADO, "ana@khipu.pe", PREDETERMINADO));
+
+        mvc.perform(get("/v1/admin/configuracion/correo").with(clave())).andExpect(jsonPath("$.datos.actualizado_por").value("ana@khipu.pe"));
+    }
+
     @Test void sinRemitentePropioNoHayFechaDeCambioNiNombre() throws Exception {
         when(configuracion.remitente()).thenReturn(new RemitenteVigente(PREDETERMINADO, false, null, PREDETERMINADO));
 

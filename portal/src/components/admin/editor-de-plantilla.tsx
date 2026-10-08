@@ -123,7 +123,7 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
           <span className="font-medium text-foreground">{t.cuandoSeManda}:</span> {plantilla.cuando_se_manda}
         </p>
         <p data-testid="plantilla-origen" className="text-[12px] text-muted-foreground">
-          {plantilla.personalizada && plantilla.actualizada_en ? t.actualizada.replace("{fecha}", formatearFechaHora(plantilla.actualizada_en)) : t.deFabrica}
+          {plantilla.personalizada && plantilla.actualizada_en ? t.actualizada.replace("{quien}", plantilla.actualizada_por ?? "un administrador").replace("{fecha}", formatearFechaHora(plantilla.actualizada_en)) : t.deFabrica}
         </p>
       </div>
 
