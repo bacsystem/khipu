@@ -225,7 +225,8 @@ class AdminCuentaControllerTest {
                         java.time.LocalDate.of(2027, 3, 1), true)),
                 List.of(new DetalleCuentaAdminUseCase.ComprobanteReciente(UUID.fromString("22222222-2222-2222-2222-222222222222"), empresa, "20100066603", "01", "F001", 15,
                         java.time.LocalDate.of(2026, 9, 30), "ACEPTADO", "PEN", new java.math.BigDecimal("118.00"))),
-                List.of(new DetalleCuentaAdminUseCase.EventoReciente("CREAR_CUENTA", "ADMINISTRADOR", Instant.parse("2026-09-01T10:00:05Z"), "ruc=20100066603 serie=F001")));
+                List.of(new DetalleCuentaAdminUseCase.EventoReciente("CREAR_CUENTA", "ADMINISTRADOR", "admin@khipu.pe", Instant.parse("2026-09-01T10:00:05Z"), "ruc=20100066603 serie=F001")),
+                List.of(new DetalleCuentaAdminUseCase.EventoReciente("SUSPENDER_CUENTA", "ADMINISTRADOR", "admin@khipu.pe", Instant.parse("2026-09-05T10:00:00Z"), "motivo=Falta de pago")));
     }
 
     @Test void abreElDetalleDeUnaCuentaConTodoLoQueMuestraElPanel() throws Exception {
@@ -257,7 +258,12 @@ class AdminCuentaControllerTest {
                 .andExpect(jsonPath("$.datos.comprobantes[0].total").value(118.00))
                 .andExpect(jsonPath("$.datos.eventos[0].accion").value("CREAR_CUENTA"))
                 .andExpect(jsonPath("$.datos.eventos[0].actor").value("ADMINISTRADOR"))
-                .andExpect(jsonPath("$.datos.eventos[0].detalle").value("ruc=20100066603 serie=F001"));
+                .andExpect(jsonPath("$.datos.eventos[0].detalle").value("ruc=20100066603 serie=F001"))
+                .andExpect(jsonPath("$.datos.eventos[0].administrador").value("admin@khipu.pe"))
+                .andExpect(jsonPath("$.datos.historial_estado[0].accion").value("SUSPENDER_CUENTA"))
+                .andExpect(jsonPath("$.datos.historial_estado[0].administrador").value("admin@khipu.pe"))
+                .andExpect(jsonPath("$.datos.historial_estado[0].ocurrido_en").value("2026-09-05T10:00:00Z"))
+                .andExpect(jsonPath("$.datos.historial_estado[0].detalle").value("motivo=Falta de pago"));
     }
 
     /** Solo lectura y sin secretos: nada de lo que podría filtrarse (claves, hashes, IP del administrador) sale en el detalle. */
@@ -274,7 +280,7 @@ class AdminCuentaControllerTest {
         when(detalle.detalle(ID)).thenReturn(new CuentaDetalle(ID, "Nueva", "nueva@x.pe", null, Instant.parse("2026-09-01T10:00:00Z"), null, null,
                 List.of(new DetalleCuentaAdminUseCase.UsuarioDeCuenta(UUID.randomUUID(), "nueva@x.pe", "ADMIN", true, null, null)),
                 List.of(new DetalleCuentaAdminUseCase.EmpresaDeCuenta(UUID.randomUUID(), "20100066611", "VACIA SAC", "BETA", false, null, false)),
-                List.of(), List.of()));
+                List.of(), List.of(), List.of()));
 
         mvc.perform(get("/v1/admin/cuentas/{id}", ID))
                 .andExpect(jsonPath("$.datos.telefono").doesNotExist())
@@ -284,7 +290,8 @@ class AdminCuentaControllerTest {
                 .andExpect(jsonPath("$.datos.empresas[0].tiene_certificado").value(false))
                 .andExpect(jsonPath("$.datos.empresas[0].tiene_credenciales_sol").value(false))
                 .andExpect(jsonPath("$.datos.comprobantes").isEmpty())
-                .andExpect(jsonPath("$.datos.eventos").isEmpty());
+                .andExpect(jsonPath("$.datos.eventos").isEmpty())
+                .andExpect(jsonPath("$.datos.historial_estado").isEmpty());
     }
 
     @Test void elDetalleDiceElEstadoDeLaCuentaYDesdeCuandoEstaSuspendida() throws Exception {
@@ -295,7 +302,7 @@ class AdminCuentaControllerTest {
                 .andExpect(jsonPath("$.datos.suspendida_en").doesNotExist());
 
         var suspendida = new CuentaDetalle(activa.id(), activa.nombre(), activa.email(), activa.telefono(), activa.creadaEn(), Instant.parse("2026-10-02T15:00:00Z"), null,
-                activa.usuarios(), activa.empresas(), activa.comprobantes(), activa.eventos());
+                activa.usuarios(), activa.empresas(), activa.comprobantes(), activa.eventos(), activa.historialEstado());
         when(detalle.detalle(ID)).thenReturn(suspendida);
         mvc.perform(get("/v1/admin/cuentas/" + ID))
                 .andExpect(jsonPath("$.datos.estado").value("SUSPENDIDA"))
@@ -379,7 +386,7 @@ class AdminCuentaControllerTest {
     @Test void elDetalleDeUnaCuentaDeBajaDiceBajaYDesdeCuando() throws Exception {
         var activa = detalleCompleto();
         when(detalle.detalle(ID)).thenReturn(new CuentaDetalle(activa.id(), activa.nombre(), activa.email(), activa.telefono(), activa.creadaEn(), null, BAJA_EN,
-                activa.usuarios(), activa.empresas(), activa.comprobantes(), activa.eventos()));
+                activa.usuarios(), activa.empresas(), activa.comprobantes(), activa.eventos(), activa.historialEstado()));
 
         mvc.perform(get("/v1/admin/cuentas/" + ID))
                 .andExpect(status().isOk())

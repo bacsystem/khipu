@@ -22,7 +22,9 @@ public record CuentaDetalleResponse(
         List<UsuarioResponse> usuarios,
         List<EmpresaResponse> empresas,
         @Schema(description = "Los 10 comprobantes de fecha de emisión más reciente entre todas las empresas de la cuenta") List<ComprobanteResponse> comprobantes,
-        @Schema(description = "Las últimas 10 acciones del administrador sobre esta cuenta (bitácora)") List<EventoResponse> eventos) {
+        @Schema(description = "Las últimas 10 acciones del administrador sobre esta cuenta (bitácora)") List<EventoResponse> eventos,
+        @Schema(description = "Todas las suspensiones, reactivaciones, bajas y reposiciones de la cuenta, de la más reciente a la más antigua, con su motivo en `detalle`")
+        List<EventoResponse> historialEstado) {
 
     public record UsuarioResponse(
             UUID id,
@@ -56,8 +58,14 @@ public record CuentaDetalleResponse(
     public record EventoResponse(
             @Schema(example = "CREAR_CUENTA") String accion,
             @Schema(example = "ADMINISTRADOR", description = "ADMINISTRADOR o CLAVE_PLATAFORMA") String actor,
+            @Schema(example = "ana@khipu.pe", description = "Correo del administrador que la hizo; ausente si fue la clave de la plataforma o si ese administrador ya no existe")
+            String administrador,
             @Schema(example = "2026-09-01T10:00:05Z") Instant ocurridoEn,
-            @Schema(example = "ruc=20100066603 serie=F001", description = "Contexto de la acción; nunca lleva secretos") String detalle) {}
+            @Schema(example = "ruc=20100066603 serie=F001", description = "Contexto de la acción; nunca lleva secretos") String detalle) {
+        static EventoResponse de(pe.factura.application.port.in.DetalleCuentaAdminUseCase.EventoReciente e) {
+            return new EventoResponse(e.accion(), e.actor(), e.administrador(), e.ocurridoEn(), e.detalle());
+        }
+    }
 
     public static CuentaDetalleResponse de(CuentaDetalle d) {
         return new CuentaDetalleResponse(d.id(), d.nombre(), d.email(), d.telefono(), d.creadaEn(), EstadoCuenta.de(d.suspendidaEn(), d.bajaEn()), d.suspendidaEn(), d.bajaEn(),
@@ -66,6 +74,7 @@ public record CuentaDetalleResponse(
                         e.tieneCredencialesSol())).toList(),
                 d.comprobantes().stream().map(c -> new ComprobanteResponse(c.id(), c.empresaId(), c.ruc(), c.tipo(), c.serie(), c.numero(), c.fechaEmision(), c.estado(),
                         c.moneda(), c.total())).toList(),
-                d.eventos().stream().map(e -> new EventoResponse(e.accion(), e.actor(), e.ocurridoEn(), e.detalle())).toList());
+                d.eventos().stream().map(EventoResponse::de).toList(),
+                d.historialEstado().stream().map(EventoResponse::de).toList());
     }
 }
