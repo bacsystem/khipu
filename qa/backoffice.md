@@ -2103,14 +2103,14 @@ Lo que sobrevivía en la primera tanda y se arregló con su test:
 
 ## #192 · Planes: contador de consumo mensual por cuenta y empresa
 
-**Estado: 🔧 implementado, 39/39 mutaciones verificadas — falta la revisión de la PR.** Es código de dinero: se verificó sobre todo lo que **no** cuenta, que es donde se equivoca el cálculo. Solo backend (la pantalla de consumo es #193; #191 lo usa para avisar antes de cambiar un plan). Sin esta PR el límite de documentos de un plan no tiene contra qué compararse.
+**Estado: ✅ revisión de la PR (#239) corregida, 40/40 mutaciones verificadas (39 y 1 de la corrección).** Es código de dinero: se verificó sobre todo lo que **no** cuenta, que es donde se equivoca el cálculo. Solo backend (la pantalla de consumo es #193; #191 lo usa para avisar antes de cambiar un plan). Sin esta PR el límite de documentos de un plan no tiene contra qué compararse.
 
 > ⚠️ **No pude leer `docs/plan/plan.md`**, que el issue cita como la definición de «documento consumido»: `docs/` es local y no existe en esta máquina. Seguí al pie lo que el propio issue dice (aceptados, sin rechazados / reintentos / errores / bajas, mes calendario en Lima). **Conviene que quien tenga ese documento compare las tres decisiones de abajo antes de mergear.**
 
 ### Qué cuenta
 
-- **Solo los comprobantes que SUNAT aceptó**: `ACEPTADO` o `ACEPTADO_CON_OBS`. La regla vive en **un solo sitio**, `EstadoDocumento.cuentaParaElConsumo()`, y el SQL arma su lista de estados desde ahí (no hay un texto copiado que pueda desacordarse). Un test recorre los once estados y obliga a clasificar cada uno a propósito: un estado nuevo no puede colarse en el cobro, ni quedarse fuera, sin que ese test falle.
-- **No cuentan:** `RECHAZADO`, `ERROR_ENVIO`, `FUERA_DE_PLAZO` (no llegaron), `RECIBIDO`, `INVALIDO`, `FIRMADO`, `PENDIENTE_AGRUPACION`, `ENVIADO` (todavía no hay respuesta de SUNAT) y `ANULADO` (los dados de baja).
+- **Solo los comprobantes que SUNAT aceptó**: `ACEPTADO` o `ACEPTADO_CON_OBS`, **y también `ANULADO`** (a él solo se llega desde un aceptado: lo aceptado ya consumió, y dar de baja no lo devuelve al cupo ni cambia el consumo de un mes cerrado; decisión de la revisión de #239). La regla vive en **un solo sitio**, `EstadoDocumento.cuentaParaElConsumo()`, y el SQL arma su lista de estados desde ahí (no hay un texto copiado que pueda desacordarse). Un test recorre los once estados y obliga a clasificar cada uno a propósito: un estado nuevo no puede colarse en el cobro, ni quedarse fuera, sin que ese test falle.
+- **No cuentan:** `RECHAZADO`, `ERROR_ENVIO`, `FUERA_DE_PLAZO` (no llegaron), `RECIBIDO`, `INVALIDO`, `FIRMADO`, `PENDIENTE_AGRUPACION`, `ENVIADO` (todavía no hay respuesta de SUNAT).
 - **Los reintentos no multiplican.** Un comprobante reintentado hasta que lo aceptan es **una fila** de `documento` con `intentos = 7`, no siete: se cuentan filas. Hay un test con un aceptado de 7 intentos y otro con rechazados y errores de envío muy reintentados.
 - **Un resumen diario cuenta 1:** hoy el sistema no guarda resúmenes diarios como documentos (el estado `PENDIENTE_AGRUPACION` existe pero ningún servicio lo usa), así que no hay nada que excluir. Si algún día se guardan, **ese día habrá que decidir** cómo cuentan; está anotado en el código.
 - **La comunicación de baja** vive en otra tabla (`comunicacion_baja`), no en `documento`: no cuenta por construcción.
@@ -2144,9 +2144,17 @@ Lo que sobrevivía en la primera tanda y se arregló con su test:
 - Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (8 min 51 s; incluye `ArchitectureTest` y todos los E2E de Spring con Postgres real).
 - Portal: sin cambios (esta PR solo toca el backend).
 
+### Corrección de la revisión de #239
+
+- **H1 (importante, decisión de negocio): un comprobante aceptado y luego dado de baja dejaba de consumir.** El consumo de un mes ya cerrado bajaba después
+  de cobrarlo, y emitir y anular permitía no gastar el límite. Decidido: `ANULADO` cuenta (`cuentaParaElConsumo`); la comunicación de baja sigue sin sumar
+  otro documento. Tests del dominio, de persistencia y E2E cambiados primero (en rojo antes del cambio, que es también su mutación: quitar `ANULADO` de la
+  regla los vuelve rojos). La documentación de la API y del puerto dicen ahora lo mismo.
+- Después: tests de consumo de dominio, servicio, persistencia, REST y E2E **BUILD SUCCESSFUL**.
+
 ### Decisiones que conviene contrastar con el plan comercial
 
-1. **`ANULADO` no cuenta**, porque el issue dice «cuenta solo los comprobantes aceptados» y «las bajas no cuentan». Consecuencia: un cliente que emite y luego da de baja deja de consumir ese documento. Si el plan comercial dice que un comprobante aceptado consumió aunque se anule después, hay que cambiar **una línea** (`cuentaParaElConsumo`) y su test.
+1. **`ANULADO` cuenta** (decidido en la revisión de #239). «Las bajas no cuentan» se lee como la comunicación de baja, que no suma otro documento —igual que «un resumen diario cuenta 1» habla de documentos de SUNAT—. Si el anulado no contara, el consumo de un mes ya cobrado bajaría después y un cliente podría emitir y anular para no gastar su límite.
 2. **El mes es el de la fecha de emisión, no el de la aceptación.** Un comprobante emitido el 31 de octubre y aceptado el 1 de noviembre consume en octubre. Es lo que ya usa el listado de empresas («comprobantes del mes») y evita depender de una marca de tiempo que cambia con cada actualización de la fila.
 3. **La consulta por id de una cuenta dada de baja devuelve sus números reales.** El issue de la baja (#201) dice que la cuenta de baja sale del cálculo de consumo y cobro: cualquier **listado o total agregado** (#193) debe excluirlas con `BajasEnListado`; esta consulta es la de una cuenta concreta que el administrador pidió.
 

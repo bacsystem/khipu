@@ -27,9 +27,10 @@ public enum EstadoDocumento {
     public boolean esFinalAceptado() { return this == ACEPTADO || this == ACEPTADO_CON_OBS; }
 
     /**
-     * Si el documento consume del plan de la cuenta (#192): solo lo que SUNAT aceptó (con o sin observaciones). No cuentan los rechazados, los que no llegaron
-     * (error de envío, fuera de plazo), los que están en camino ni los dados de baja. Aparte de {@link #esFinalAceptado()} a propósito: es una regla comercial, y
-     * si cambia no debe arrastrar al flujo de estados.
+     * Si el documento consume del plan de la cuenta (#192): lo que SUNAT aceptó (con o sin observaciones), **aunque después se haya dado de baja** —a
+     * {@code ANULADO} solo se llega desde un aceptado, y lo aceptado ya consumió: anular no lo devuelve al cupo ni cambia el consumo de un mes cerrado—. No cuentan
+     * los rechazados, los que no llegaron (error de envío, fuera de plazo) ni los que están en camino; la comunicación de baja no suma otro documento. Aparte de
+     * {@link #esFinalAceptado()} a propósito: es una regla comercial, y si cambia no debe arrastrar al flujo de estados.
      */
-    public boolean cuentaParaElConsumo() { return this == ACEPTADO || this == ACEPTADO_CON_OBS; }
+    public boolean cuentaParaElConsumo() { return this == ACEPTADO || this == ACEPTADO_CON_OBS || this == ANULADO; }
 }

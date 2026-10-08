@@ -34,8 +34,9 @@ public class AdminConsumoController {
     @GetMapping("/cuentas/{id}/consumo")
     @Operation(summary = "Consumo mensual de una cuenta", description = """
             Los documentos que consumió la cuenta en un mes, con el detalle por empresa (cada una, aunque no haya emitido nada). **Solo cuentan los comprobantes
-            que SUNAT aceptó** (`ACEPTADO` o `ACEPTADO_CON_OBS`), por su fecha de emisión, dentro del mes calendario en America/Lima. No cuentan los rechazados, los
-            errores de envío, los fuera de plazo, los que están en camino ni los dados de baja, y un comprobante reintentado hasta que lo aceptan cuenta una sola vez.
+            que SUNAT aceptó** (`ACEPTADO` o `ACEPTADO_CON_OBS`, y también los que después se dieron de baja, `ANULADO`: lo aceptado ya consumió), por su fecha de
+            emisión, dentro del mes calendario en America/Lima. No cuentan los rechazados, los errores de envío, los fuera de plazo ni los que están en camino; la
+            comunicación de baja no suma otro documento, y un comprobante reintentado hasta que lo aceptan cuenta una sola vez.
             `mes` es `AAAA-MM`; sin él, el mes en curso (`400 PARAMETRO_INVALIDO` si está mal escrito). `404 NO_ENCONTRADO` si la cuenta no existe.""")
     public ApiResponse<ConsumoCuentaResponse> deCuenta(@Parameter(description = "Id de la cuenta") @PathVariable UUID id,
                                                        @Parameter(description = "Mes, `AAAA-MM`; por defecto el mes en curso", example = "2026-10") @RequestParam(required = false) String mes) {
