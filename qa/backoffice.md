@@ -2528,7 +2528,7 @@ Nada sobrevivió. Una mutación del portal («la atención muestra los rechazado
 
 ## #195 · Monitor global de emisión y outbox
 
-**Estado: 🔧 implementado, 139/139 mutaciones verificadas (74 de backend, 65 de portal) — falta la revisión de la PR.** Backend (`GET /v1/admin/monitor`) y la pantalla `/admin/monitor` del backoffice. Va después de #15 en la pila.
+**Estado: ✅ revisado (#246) sin hallazgos, 139/139 mutaciones verificadas (74 de backend, 65 de portal).** Backend (`GET /v1/admin/monitor`) y la pantalla `/admin/monitor` del backoffice. Va después de #15 en la pila.
 
 ### Diseño
 
