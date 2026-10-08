@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias } from "@/lib/formato";
+import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
 import { esUuid } from "@/lib/uuid";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
@@ -378,7 +378,7 @@ function celdaCsvMock(valor: string): string {
 function csvDeConsumoMock(filas: FilaDeConsumoMock[]): string {
   const cabecera = "cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta";
   const lineas = filas.map((f) =>
-    [f.cuenta_id, celdaCsvMock(f.nombre), celdaCsvMock(f.email), celdaCsvMock(f.plan), f.documentos, f.limite ?? "ilimitado", f.porcentaje ?? "", f.en_alerta ? "si" : "no", f.estado_del_plan, f.pagado_hasta ?? "", f.se_sirve_hasta ?? ""].join(","),
+    [f.cuenta_id, celdaCsvMock(f.nombre), celdaCsvMock(f.email), celdaCsvMock(f.plan), f.documentos, f.limite ?? "ilimitado", f.porcentaje ?? "", f.en_alerta ? "si" : "no", f.estado_del_plan, f.pagado_hasta ? ultimoDiaCubierto(f.pagado_hasta) : "", f.se_sirve_hasta ? ultimoDiaCubierto(f.se_sirve_hasta) : ""].join(","),
   );
   return "\uFEFF" + [cabecera, ...lineas].join("\r\n") + "\r\n";
 }

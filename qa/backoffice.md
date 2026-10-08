@@ -2239,7 +2239,7 @@ Lo que sobrevivía en la primera tanda y se arregló con su test (o con menos c�
 
 ## #193 · Planes: consumo contra el límite, alertas y exportación
 
-**Estado: 🔧 implementado, 161/162 mutaciones verificadas (1 equivalente documentada) — falta la revisión de la PR.** Backend (`GET /v1/admin/consumo` y `/v1/admin/consumo/exportacion`) y portal (`/admin/consumo`). Va después de #191: usa el plan vigente de cada cuenta y el contador de #192.
+**Estado: ✅ revisión de la PR (#241) corregida, 162/163 mutaciones verificadas (161 y 1 de la corrección; 1 equivalente documentada).** Backend (`GET /v1/admin/consumo` y `/v1/admin/consumo/exportacion`) y portal (`/admin/consumo`). Va después de #191: usa el plan vigente de cada cuenta y el contador de #192.
 
 ### Diseño
 
@@ -2288,6 +2288,16 @@ Lo que sobrevivía en la primera tanda y se arregló con su test:
 
 - Backend: `./gradlew test` completo, **BUILD SUCCESSFUL** (9 min 46 s; incluye `ArchitectureTest`).
 - Portal: `tsc` y ESLint limpios; Vitest **859/859** (98 archivos); Playwright completo (`--workers=2`) **288/288**: en la primera corrida pasaron 285 y fallaron 3 tests de la spec nueva (filas que caían en la página 2 con el tamaño por defecto); corregida la spec, esa spec pasa 20/20.
+
+### Corrección de la revisión de #241
+
+- **H1 (menor): el CSV decía un día más de servicio pagado que la pantalla.** Escribía `pagado_hasta` y `se_sirve_hasta` como el instante de vencimiento, que es
+  exclusivo (`2026-10-20T05:00:00Z` es la medianoche del 20 en Lima), mientras la pantalla muestra el último día cubierto («Pagado hasta el 19 Oct 2026»). Ahora
+  el CSV escribe también el último día cubierto en hora de Lima (`2026-10-19`), en el backend y en el mock; la documentación de la API lo dice. Tests:
+  `CsvDeConsumoTest.unaFilaLlevaTodosSusDatosConLasFechasComoUltimoDiaCubierto` (en rojo antes) y la spec de Playwright, que exige fechas `AAAA-MM-DD` al final de
+  la fila. Se probó en la revisión, además, que el filtro «cerca del límite» de la base (`documentos * 100 >= limite * 80`) equivale al porcentaje hacia abajo
+  del dominio, y que el estado del plan del listado y el de la ficha salen de la misma función.
+- Después: tests de consumo de `in-rest` en verde; `tsc` y ESLint limpios; Playwright `admin-consumo` **20/20**.
 
 ### Límites conocidos
 

@@ -1,7 +1,9 @@
 package pe.factura.adapters.rest;
 
 import pe.factura.application.port.in.ConsultarConsumoDeCuentasUseCase.Fila;
+import pe.factura.domain.plan.CicloMensual;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -25,7 +27,15 @@ final class CsvDeConsumo {
     private static String linea(Fila f) {
         return String.join(",", f.cuentaId().toString(), texto(f.nombre()), texto(f.email()), texto(f.planNombre()), String.valueOf(f.documentos()),
                 f.limite().ilimitado() ? "ilimitado" : String.valueOf(f.limite().maximo()), f.porcentaje() == null ? "" : String.valueOf(f.porcentaje()),
-                f.enAlerta() ? "si" : "no", f.estado().name(), f.venceEn() == null ? "" : f.venceEn().toString(), f.hastaCuandoCubre() == null ? "" : f.hastaCuandoCubre().toString());
+                f.enAlerta() ? "si" : "no", f.estado().name(), ultimoDiaCubierto(f.venceEn()), ultimoDiaCubierto(f.hastaCuandoCubre()));
+    }
+
+    /**
+     * El último día que cubre un vencimiento, en hora de Lima ({@code AAAA-MM-DD}), como lo dice la pantalla: el vencimiento es exclusivo, así que es el día del
+     * instante anterior. Vacío si no vence.
+     */
+    private static String ultimoDiaCubierto(Instant vence) {
+        return vence == null ? "" : vence.minusSeconds(1).atZone(CicloMensual.ZONA).toLocalDate().toString();
     }
 
     /** Un texto del cliente: sin que se lea como fórmula y, si hace falta, entre comillas. */
