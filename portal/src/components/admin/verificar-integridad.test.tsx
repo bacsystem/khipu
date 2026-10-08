@@ -249,6 +249,22 @@ describe("VerificarIntegridad (#198)", () => {
     expect(screen.queryByText("Todo en orden: no se encontró ningún problema.")).toBeNull();
   });
 
+  /** H22: con un rango inválido seguía a la vista «Todo en orden» del barrido anterior, que ya no corresponde a lo que dice el formulario. */
+  it("cambiar el rango después de un barrido quita su resultado, y un rango inválido no lo deja a la vista", async () => {
+    apiRequest.mockResolvedValue(exito(informe(120)));
+    render(<VerificarIntegridad hoy={HOY} />);
+    fireEvent.click(boton());
+    await screen.findByTestId("integridad-resultado");
+
+    escribir(desde(), "2026-01-01");
+    expect(screen.queryByTestId("integridad-resultado")).toBeNull();
+
+    fireEvent.click(boton());
+    expect(screen.getByText(/92 días/)).toBeTruthy();
+    expect(screen.queryByTestId("integridad-resultado")).toBeNull();
+    expect(apiRequest).toHaveBeenCalledTimes(1);
+  });
+
   it("un éxito sin datos no se muestra como un barrido limpio", async () => {
     apiRequest.mockResolvedValue({ estado: "exito", datos: null, mensaje: null, codigo: null, errores: null });
     render(<VerificarIntegridad hoy={HOY} />);

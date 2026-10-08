@@ -208,6 +208,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
             ruta="/api/admin/configuracion/banner"
             metodo="DELETE"
             estadoViejo={["NO_ENCONTRADO"]}
+            alExito={() => alResultado(t.retirado)}
           />
         ) : null}
       </div>

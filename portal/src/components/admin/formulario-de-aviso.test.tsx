@@ -266,6 +266,17 @@ describe("FormularioDeAviso (#199)", () => {
       expect(apiRequest).toHaveBeenCalledWith("/api/admin/configuracion/banner", { method: "DELETE", body: undefined });
     });
 
+    /** H23: tras retirarlo seguía el «Aviso publicado.» de antes junto a «No hay ningún aviso publicado». */
+    it("retirarlo reemplaza el mensaje de publicado por el de retirado", async () => {
+      apiRequest.mockResolvedValue(exito(null));
+      render(<FormularioDeAviso banner={banner()} ahora={AHORA} alResultado={alResultado} />);
+      fireEvent.click(screen.getByTestId("aviso-retirar"));
+
+      fireEvent.click(screen.getByTestId("aviso-retirar-confirmar"));
+
+      await waitFor(() => expect(alResultado).toHaveBeenLastCalledWith("Aviso retirado: ya no se muestra a nadie."));
+    });
+
     it("si otro administrador ya lo retiró, lo dice y recarga para mostrar el estado real", async () => {
       apiRequest.mockResolvedValue(error("NO_ENCONTRADO", "No hay un aviso publicado"));
       render(<FormularioDeAviso banner={banner()} ahora={AHORA} alResultado={alResultado} />);

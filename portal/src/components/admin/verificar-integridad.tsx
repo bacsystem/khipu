@@ -51,11 +51,17 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
   // Un ref, no el estado: dos clics en el mismo tick leen el `fase` viejo del closure.
   const enviandoRef = useRef(false);
 
+  /** El resultado es de un rango: si el rango cambia o no es válido, ya no corresponde a lo que dice el formulario (H22). Mientras verifica se deja. */
+  function olvidarResultado() {
+    setFase((f) => (f.estado === "verificando" ? f : { estado: "inicial" }));
+  }
+
   async function verificar(e: React.FormEvent) {
     e.preventDefault();
     if (enviandoRef.current) return;
     const rango = validarRango(desde, hasta);
     if ("errores" in rango) {
+      olvidarResultado();
       setErrores(rango.errores);
       return;
     }
@@ -81,6 +87,7 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
             value={desde}
             onChange={(e) => {
               setDesde(e.target.value);
+              olvidarResultado();
               setErrores({});
             }}
             aria-invalid={errores.desde ? true : undefined}
@@ -98,6 +105,7 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
             value={hasta}
             onChange={(e) => {
               setHasta(e.target.value);
+              olvidarResultado();
               setErrores({});
             }}
             aria-invalid={errores.hasta ? true : undefined}
