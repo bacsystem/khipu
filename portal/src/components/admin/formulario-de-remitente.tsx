@@ -87,14 +87,14 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
           <label htmlFor="correo-nombre" className={ETIQUETA_CAMPO}>
             {t.nombre}
           </label>
-          <input id="correo-nombre" data-testid="correo-nombre" value={nombre} maxLength={100} onChange={(e) => cambiar(setNombre, e.target.value)} autoComplete="off" className={cn(CAMPO, "h-9")} />
+          <input id="correo-nombre" data-testid="correo-nombre" value={nombre} maxLength={100} onChange={(e) => cambiar(setNombre, e.target.value)} autoComplete="off" className={CAMPO} />
           <span className={AYUDA_CAMPO}>{t.nombreAyuda}</span>
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="correo-email" className={ETIQUETA_CAMPO}>
             {t.email}
           </label>
-          <input id="correo-email" data-testid="correo-email" type="email" value={email} onChange={(e) => cambiar(setEmail, e.target.value)} autoComplete="off" className={cn(CAMPO, "h-9")} />
+          <input id="correo-email" data-testid="correo-email" type="email" value={email} onChange={(e) => cambiar(setEmail, e.target.value)} autoComplete="off" className={CAMPO} />
           <span className={AYUDA_CAMPO}>{t.emailAyuda}</span>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -108,7 +108,7 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
             value={responderA}
             onChange={(e) => cambiar(setResponderA, e.target.value)}
             autoComplete="off"
-            className={cn(CAMPO, "h-9")}
+            className={CAMPO}
           />
           <span className={AYUDA_CAMPO}>{t.responderAyuda}</span>
         </div>
@@ -121,7 +121,7 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={enviando} onClick={guardar} data-testid="correo-guardar" className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+        <button type="button" disabled={enviando} onClick={guardar} data-testid="correo-guardar" className={BOTON_PRIMARIO}>
           <MailIcon className="size-4" />
           {enviando ? t.guardando : t.guardar}
         </button>

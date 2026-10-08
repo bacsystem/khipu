@@ -22,10 +22,9 @@ import {
   type UltimoAviso,
 } from "@/lib/api/admin-avisos";
 import { atascadosEnPalabras, certificadoEnPalabras, ultimoAvisoEnPalabras } from "@/lib/avisos-formato";
-import { CABECERA_TABLA } from "@/lib/estilos";
+import { CABECERA_TABLA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { messages } from "@/lib/messages";
-import { cn } from "@/lib/utils";
 
 const t = messages.admin.avisos;
 
@@ -105,16 +104,13 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <nav aria-label={t.vistas} className="inline-flex w-fit rounded-lg border border-border bg-card p-0.5 shadow-2xs">
+      <nav aria-label={t.vistas} className={SEGMENTADO}>
         {VISTAS_DE_AVISOS.map((v) => (
           <Link
             key={v}
             href={hrefAvisos({ ...params, vista: v, pagina: 1 })}
             aria-current={params.vista === v ? "page" : undefined}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
-              params.vista === v ? "bg-foreground text-background shadow-2xs" : "text-foreground/70 hover:bg-secondary hover:text-foreground",
-            )}
+            className={SEGMENTO}
           >
             {t.filtros[v]}
           </Link>

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import type { BajaDeCuentaAdmin } from "@/lib/api/admin-baja";
 import { MOTIVO_MAX, type EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { messages, mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +73,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
-      <DialogTrigger className={cn(deBaja ? BOTON_PRIMARIO : BOTON_SECUNDARIO, "h-8 text-xs")} data-testid={deBaja ? "reponer-cuenta" : "dar-de-baja-cuenta"}>
+      <DialogTrigger className={deBaja ? ACCION_PRINCIPAL : ACCION_SECUNDARIA} data-testid={deBaja ? "reponer-cuenta" : "dar-de-baja-cuenta"}>
         <Icono className="size-4" />
         {textos.boton}
       </DialogTrigger>
@@ -111,7 +111,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
                 onChange={(e) => setMotivo(e.target.value)}
                 maxLength={MOTIVO_MAX}
                 placeholder={t.darDeBaja.motivoEjemplo}
-                className={cn(CAMPO, "h-9")}
+                className={CAMPO}
                 autoFocus
               />
               <span className={AYUDA_CAMPO}>
@@ -128,10 +128,10 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
             {textos.cancelar}
           </button>
-          <button type="button" disabled={enviando} onClick={confirmar} data-testid="baja-confirmar" className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={confirmar} data-testid="baja-confirmar" className={BOTON_PRIMARIO_PIE}>
             <Icono className="size-4" />
             {enviando ? textos.enviando : textos.confirmar}
           </button>

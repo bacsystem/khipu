@@ -7,8 +7,9 @@ import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { DestinatarioAdmin } from "@/lib/api/admin-acceso";
 import { apiRequest } from "@/lib/api/browser";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE } from "@/lib/estilos";
 import { messages, mensajeError } from "@/lib/messages";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const t = messages.admin.detalle.acceso;
@@ -71,7 +72,7 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
-      <DialogTrigger className={cn(BOTON_SECUNDARIO, "h-7 px-2.5 text-[11px]")} data-testid={`${tipo}-usuario`} aria-label={`${textos.boton}: ${correo}`}>
+      <DialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))} data-testid={`${tipo}-usuario`} aria-label={`${textos.boton}: ${correo}`}>
         <Icono className="size-3.5" />
         {textos.boton}
       </DialogTrigger>
@@ -108,11 +109,11 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
             {enviadoA ? t.cerrar : textos.cancelar}
           </button>
           {enviadoA ? null : (
-            <button type="button" disabled={enviando} onClick={confirmar} data-testid="acceso-confirmar" className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+            <button type="button" disabled={enviando} onClick={confirmar} data-testid="acceso-confirmar" className={BOTON_PRIMARIO_PIE}>
               <Icono className="size-4" />
               {enviando ? textos.enviando : textos.confirmar}
             </button>

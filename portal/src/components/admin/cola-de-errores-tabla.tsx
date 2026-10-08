@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import { CLASES_DE_ERROR, hrefErrores, MAX_BUSQUEDA, type ClaseDeError, type ErrorDeEmision, type ParamsErrores } from "@/lib/api/admin-errores";
 import { ETIQUETAS_TIPO, type EstadoDocumento } from "@/lib/api/facturas";
-import { BOTON_SECUNDARIO, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO_FILTRO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { faultEnPalabras } from "@/lib/errores-formato";
 import { formatearFecha, formatearFechaHora } from "@/lib/formato";
 import { messages } from "@/lib/messages";
@@ -47,16 +47,13 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <div className="flex flex-wrap items-end gap-3">
-        <nav aria-label={t.vistas} className="inline-flex flex-wrap rounded-lg border border-border bg-card p-0.5 shadow-2xs">
+        <nav aria-label={t.vistas} className={SEGMENTADO}>
           {[undefined, ...CLASES_DE_ERROR].map((clase) => (
             <Link
               key={clase ?? "TODAS"}
               href={hrefErrores({ ...params, clase, pagina: 1 })}
               aria-current={params.clase === clase ? "page" : undefined}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
-                params.clase === clase ? "bg-foreground text-background shadow-2xs" : "text-foreground/70 hover:bg-secondary hover:text-foreground",
-              )}
+              className={SEGMENTO}
             >
               {t.filtros[clase ?? "TODAS"]}
             </Link>
@@ -68,9 +65,9 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
             <label htmlFor="errores-q" className="text-[11px] font-medium text-muted-foreground">
               {t.buscar}
             </label>
-            <input id="errores-q" name="q" type="search" key={params.q ?? ""} defaultValue={params.q ?? ""} maxLength={MAX_BUSQUEDA} placeholder={t.buscarPlaceholder} className={`${CAMPO} w-64`} />
+            <input id="errores-q" name="q" type="search" key={params.q ?? ""} defaultValue={params.q ?? ""} maxLength={MAX_BUSQUEDA} placeholder={t.buscarPlaceholder} className={cn(CAMPO_FILTRO, "w-64")} />
           </div>
-          <button type="submit" className={cn(BOTON_SECUNDARIO, "h-9 px-3 text-[13px]")}>
+          <button type="submit" className={ACCION_SECUNDARIA}>
             <SearchIcon className="size-4" />
             {t.botonBuscar}
           </button>

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { type EstadoCuentaAdmin, type EstadoDeCuentaAdmin, MOTIVO_MAX } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
-import { AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO_PIE, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { messages, mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +78,7 @@ export function AccionesDeCuenta({ id, nombre, estado, empresas }: { id: string;
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
       <DialogTrigger
-        className={cn(suspendida ? BOTON_PRIMARIO : BOTON_SECUNDARIO, "h-8 text-xs", !suspendida && "text-destructive hover:text-destructive")}
+        className={cn(suspendida ? ACCION_PRINCIPAL : ACCION_SECUNDARIA, !suspendida && "text-destructive hover:text-destructive")}
         data-testid={suspendida ? "reactivar-cuenta" : "suspender-cuenta"}
       >
         <Icono className="size-4" />
@@ -123,7 +123,7 @@ export function AccionesDeCuenta({ id, nombre, estado, empresas }: { id: string;
                 onChange={(e) => setMotivo(e.target.value)}
                 maxLength={MOTIVO_MAX}
                 placeholder={t.suspender.motivoEjemplo}
-                className={cn(CAMPO, "h-9")}
+                className={CAMPO}
                 autoFocus
               />
               <span className={AYUDA_CAMPO}>
@@ -140,7 +140,7 @@ export function AccionesDeCuenta({ id, nombre, estado, empresas }: { id: string;
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
             {textos.cancelar}
           </button>
           <button
@@ -148,7 +148,7 @@ export function AccionesDeCuenta({ id, nombre, estado, empresas }: { id: string;
             disabled={enviando}
             onClick={confirmar}
             data-testid="suspension-confirmar"
-            className={cn(suspendida ? BOTON_PRIMARIO : BOTON_DESTRUCTIVO, "h-9 px-3.5 text-[13px]")}
+            className={suspendida ? BOTON_PRIMARIO_PIE : BOTON_DESTRUCTIVO_PIE}
           >
             <Icono className="size-4" />
             {enviando ? textos.enviando : textos.confirmar}

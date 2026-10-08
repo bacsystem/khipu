@@ -84,7 +84,7 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
               setErrores({});
             }}
             aria-invalid={errores.desde ? true : undefined}
-            className={cn(CAMPO, "h-9 w-44")}
+            className={cn(CAMPO, "w-44")}
           />
           {errores.desde ? <span className="text-[12px] text-destructive">{errores.desde}</span> : null}
         </div>
@@ -101,11 +101,11 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
               setErrores({});
             }}
             aria-invalid={errores.hasta ? true : undefined}
-            className={cn(CAMPO, "h-9 w-44")}
+            className={cn(CAMPO, "w-44")}
           />
           {errores.hasta ? <span className="text-[12px] text-destructive">{errores.hasta}</span> : <span className={AYUDA_CAMPO}>{t.ayudaRango.replace("{max}", String(MAX_DIAS_DE_INTEGRIDAD))}</span>}
         </div>
-        <button type="submit" disabled={verificando} data-testid="integridad-verificar" className={cn(BOTON_PRIMARIO, "mt-[22px] h-9 px-3.5 text-[13px]")}>
+        <button type="submit" disabled={verificando} data-testid="integridad-verificar" className={cn(BOTON_PRIMARIO, "mt-6")}>
           <ShieldCheckIcon className="size-4" />
           {verificando ? t.verificando : t.verificar}
         </button>

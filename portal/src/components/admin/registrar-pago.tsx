@@ -8,11 +8,10 @@ import { MEDIOS_DE_PAGO } from "@/lib/api/admin-pagos";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
 import { fechaValida } from "@/lib/cambio-de-plan";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFecha, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
 import { messages, mensajeError } from "@/lib/messages";
 import { validarPago, type ErroresDePago } from "@/lib/pago-formulario";
-import { cn } from "@/lib/utils";
 
 const t = messages.admin.pagos.dialogo;
 const medios = messages.admin.pagos.medios;
@@ -126,7 +125,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
-      <DialogTrigger className={cn(BOTON_PRIMARIO, "h-8 text-xs")} data-testid="registrar-pago">
+      <DialogTrigger className={ACCION_PRINCIPAL} data-testid="registrar-pago">
         <BanknoteIcon className="size-4" />
         {messages.admin.pagos.registrar}
       </DialogTrigger>
@@ -156,7 +155,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                   limpiar("hasta");
                 }}
                 aria-invalid={errores.desde ? true : undefined}
-                className={cn(CAMPO, "h-9")}
+                className={CAMPO}
               />
             </Campo>
             <Campo id="registrar-pago-hasta" etiqueta={t.hasta} error={errores.hasta}>
@@ -169,7 +168,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                   limpiar("hasta");
                 }}
                 aria-invalid={errores.hasta ? true : undefined}
-                className={cn(CAMPO, "h-9")}
+                className={CAMPO}
               />
             </Campo>
           </div>
@@ -187,7 +186,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                 autoComplete="off"
                 placeholder="29.00"
                 aria-invalid={errores.monto ? true : undefined}
-                className={cn(CAMPO, "h-9")}
+                className={CAMPO}
               />
             </Campo>
             <Campo id="registrar-pago-medio" etiqueta={t.medio} error={errores.medio}>
@@ -199,7 +198,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                   limpiar("medio");
                 }}
                 aria-invalid={errores.medio ? true : undefined}
-                className={cn(SELECT_NATIVO, "h-9 w-full")}
+                className={CAMPO}
               >
                 <option value="">{t.elegirMedio}</option>
                 {MEDIOS_DE_PAGO.map((m) => (
@@ -223,7 +222,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                   limpiar("fecha");
                 }}
                 aria-invalid={errores.fecha ? true : undefined}
-                className={cn(CAMPO, "h-9")}
+                className={CAMPO}
               />
             </Campo>
             <Campo id="registrar-pago-referencia" etiqueta={t.referencia} error={errores.referencia} ayuda={t.referenciaAyuda}>
@@ -236,7 +235,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                 }}
                 autoComplete="off"
                 aria-invalid={errores.referencia ? true : undefined}
-                className={cn(CAMPO, "h-9")}
+                className={CAMPO}
               />
             </Campo>
           </div>
@@ -251,7 +250,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
               }}
               autoComplete="off"
               aria-invalid={errores.nota ? true : undefined}
-              className={cn(CAMPO, "h-9")}
+              className={CAMPO}
             />
           </Campo>
 
@@ -280,10 +279,10 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
             {t.cancelar}
           </button>
-          <button type="button" disabled={enviando} onClick={confirmar} data-testid="registrar-pago-confirmar" className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={confirmar} data-testid="registrar-pago-confirmar" className={BOTON_PRIMARIO_PIE}>
             <BanknoteIcon className="size-4" />
             {enviando ? t.enviando : t.confirmar}
           </button>

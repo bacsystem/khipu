@@ -2,22 +2,20 @@ import Link from "next/link";
 import { hrefConfiguracion, SECCIONES_DE_CONFIGURACION, type PlantillaDeCorreo, type SeccionDeConfiguracion } from "@/lib/api/admin-configuracion";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+import { SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 
 const t = messages.admin.configuracion;
 
 /** Las tres cosas que se configuran: enlaces (la sección vive en la URL, así que se puede compartir y el servidor solo pide lo que se ve). */
 export function SeccionesDeConfiguracion({ actual }: { actual: SeccionDeConfiguracion }) {
   return (
-    <nav aria-label={t.secciones} className="inline-flex w-fit flex-wrap rounded-lg border border-border bg-card p-0.5 shadow-2xs">
+    <nav aria-label={t.secciones} className={SEGMENTADO}>
       {SECCIONES_DE_CONFIGURACION.map((s) => (
         <Link
           key={s}
           href={hrefConfiguracion({ seccion: s })}
           aria-current={actual === s ? "page" : undefined}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
-            actual === s ? "bg-foreground text-background shadow-2xs" : "text-foreground/70 hover:bg-secondary hover:text-foreground",
-          )}
+          className={SEGMENTO}
         >
           {t.filtros[s]}
         </Link>

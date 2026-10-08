@@ -8,10 +8,9 @@ import { limiteEnPalabras, precioEnSoles, type PlanAdmin } from "@/lib/api/admin
 import type { PrevisualizacionDePlanAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
 import { validarCambioDePlan, type ErroresDeCambioDePlan } from "@/lib/cambio-de-plan";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO_PIE, BOTON_SECUNDARIO_PIE, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFechaDeLima, formatearMes } from "@/lib/formato";
 import { messages, mensajeError } from "@/lib/messages";
-import { cn } from "@/lib/utils";
 
 const t = messages.admin.planDeCuenta.dialogo;
 
@@ -113,7 +112,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
-      <DialogTrigger className={cn(BOTON_PRIMARIO, "h-8 text-xs")} data-testid="cambiar-plan">
+      <DialogTrigger className={ACCION_PRINCIPAL} data-testid="cambiar-plan">
         <ArrowRightLeftIcon className="size-4" />
         {messages.admin.planDeCuenta.cambiar}
       </DialogTrigger>
@@ -140,7 +139,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
               value={planId}
               onChange={(e) => void elegir(e.target.value)}
               aria-invalid={errores.planId ? true : undefined}
-              className={cn(SELECT_NATIVO, "h-9 w-full")}
+              className={CAMPO}
             >
               <option value="">{t.elegir}</option>
               {planes.map((p) => (
@@ -170,7 +169,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
                   setErrores((x) => ({ ...x, pagadoHasta: undefined }));
                 }}
                 aria-invalid={errores.pagadoHasta ? true : undefined}
-                className={cn(CAMPO, "h-9")}
+                className={CAMPO}
               />
               {errores.pagadoHasta ? <span className="text-[12px] text-destructive">{errores.pagadoHasta}</span> : <span className={AYUDA_CAMPO}>{t.pagadoHastaAyuda}</span>}
             </div>
@@ -189,7 +188,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
                 autoComplete="off"
                 placeholder="0"
                 aria-invalid={errores.gracia ? true : undefined}
-                className={cn(CAMPO, "h-9")}
+                className={CAMPO}
               />
               {errores.gracia ? <span className="text-[12px] text-destructive">{errores.gracia}</span> : <span className={AYUDA_CAMPO}>{t.graciaAyuda}</span>}
             </div>
@@ -203,7 +202,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
-          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")}>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO_PIE}>
             {t.cancelar}
           </button>
           <button
@@ -211,7 +210,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
             disabled={enviando || previa.estado !== "lista"}
             onClick={confirmar}
             data-testid="cambiar-plan-confirmar"
-            className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}
+            className={BOTON_PRIMARIO_PIE}
           >
             <ArrowRightLeftIcon className="size-4" />
             {enviando ? t.enviando : t.confirmar}

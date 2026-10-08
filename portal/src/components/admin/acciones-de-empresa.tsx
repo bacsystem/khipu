@@ -7,9 +7,8 @@ import { Etiqueta } from "@/components/admin/etiquetas";
 import type { ResultadoDeConexionAdmin } from "@/lib/api/admin-acciones-empresa";
 import type { EntornoAdmin } from "@/lib/api/admin-empresas";
 import { apiRequest } from "@/lib/api/browser";
-import { BOTON_SECUNDARIO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { messages, mensajeError } from "@/lib/messages";
-import { cn } from "@/lib/utils";
 
 const t = messages.admin.accionesEmpresa;
 
@@ -92,7 +91,7 @@ export function ProbarConexion({ empresaId, tieneSol }: { empresaId: string; tie
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={probar} disabled={probando || !tieneSol} data-testid="probar-conexion" className={cn(BOTON_SECUNDARIO, "h-8 text-xs")}>
+        <button type="button" onClick={probar} disabled={probando || !tieneSol} data-testid="probar-conexion" className={ACCION_SECUNDARIA}>
           <PlugZapIcon className="size-4" />
           {probando ? t.conexion.probando : t.conexion.boton}
         </button>

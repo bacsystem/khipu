@@ -118,7 +118,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
             autoComplete="off"
             aria-invalid={errores.texto ? true : undefined}
             aria-describedby={errores.texto ? "aviso-texto-error" : undefined}
-            className={cn(CAMPO, "h-9")}
+            className={CAMPO}
           />
           {errores.texto ? (
             <span id="aviso-texto-error" className="text-[12px] text-destructive">
@@ -141,7 +141,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
               onChange={(e) => poner("desde", e.target.value)}
               aria-invalid={errores.desde ? true : undefined}
               aria-describedby={errores.desde ? "aviso-desde-error" : undefined}
-              className={cn(CAMPO, "h-9")}
+              className={CAMPO}
             />
             {errores.desde ? (
               <span id="aviso-desde-error" className="text-[12px] text-destructive">
@@ -161,7 +161,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
               onChange={(e) => poner("hasta", e.target.value)}
               aria-invalid={errores.hasta ? true : undefined}
               aria-describedby={errores.hasta ? "aviso-hasta-error" : undefined}
-              className={cn(CAMPO, "h-9")}
+              className={CAMPO}
             />
             {errores.hasta ? (
               <span id="aviso-hasta-error" className="text-[12px] text-destructive">
@@ -190,7 +190,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={enviando} onClick={publicar} data-testid="aviso-publicar" className={cn(BOTON_PRIMARIO, "h-9 px-3.5 text-[13px]")}>
+        <button type="button" disabled={enviando} onClick={publicar} data-testid="aviso-publicar" className={BOTON_PRIMARIO}>
           <MegaphoneIcon className="size-4" />
           {enviando ? t.publicando : banner ? t.reemplazar : t.publicar}
         </button>

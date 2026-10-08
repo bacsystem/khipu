@@ -10,7 +10,7 @@ import { PieTabla } from "@/components/ui/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import { hrefCuentas, type CuentaAdmin, type ParamsCuentas } from "@/lib/api/admin-cuentas";
-import { BOTON_SECUNDARIO, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO_FILTRO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -52,10 +52,10 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
               defaultValue={params.q ?? ""}
               placeholder={messages.admin.cuentas.buscar}
               aria-label={messages.admin.cuentas.buscar}
-              className={`${CAMPO} pl-9`}
+              className={cn(CAMPO_FILTRO, "pl-9")}
             />
           </div>
-          <button type="submit" className={BOTON_SECUNDARIO}>
+          <button type="submit" className={ACCION_SECUNDARIA}>
             {messages.admin.cuentas.botonBuscar}
           </button>
         </form>
