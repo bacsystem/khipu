@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 public class JdbcConsumoRepository implements ConsumoRepository {
     private final JdbcTemplate jdbc;
 
-    /** {@code 'ACEPTADO', 'ACEPTADO_CON_OBS'}: nombres de un enum, nunca texto de fuera, así que no hay inyección posible al armarlo. */
+    /** {@code 'ACEPTADO', 'ACEPTADO_CON_OBS', 'ANULADO'}: nombres de un enum, nunca texto de fuera, así que no hay inyección posible al armarlo. */
     private static final String ESTADOS_QUE_CUENTAN = Arrays.stream(EstadoDocumento.values()).filter(EstadoDocumento::cuentaParaElConsumo)
             .map(e -> "'" + e.name() + "'").collect(Collectors.joining(", "));
 
