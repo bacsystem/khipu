@@ -7,6 +7,7 @@ import {
   eliminarPlan,
   cambiosDeLimites,
   limiteEnPalabras,
+  limitesEnPalabras,
   listarPlanesAdmin,
   precioEnSoles,
   retencionEnPalabras,
@@ -164,6 +165,32 @@ describe("retencionEnPalabras", () => {
     expect(retencionEnPalabras(1)).toBe("1 año");
     expect(retencionEnPalabras(5)).toBe("5 años");
     expect(retencionEnPalabras(10)).toBe("10 años");
+  });
+});
+
+/** H13: la ficha de la cuenta decía «1 usuarios» y «Ilimitados documentos al mes». */
+describe("limitesEnPalabras", () => {
+  const limites = (n: number) => ({
+    documentos_al_mes: { maximo: n, ilimitado: false },
+    rucs: n,
+    usuarios: { maximo: n, ilimitado: false },
+    api_keys: { maximo: n, ilimitado: false },
+    retencion_anios: n,
+  });
+
+  it("con uno de cada cosa va en singular", () => {
+    expect(limitesEnPalabras(limites(1))).toBe("1 documento al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención");
+  });
+
+  it("con varios va en plural y con separador de miles", () => {
+    expect(limitesEnPalabras(limites(1500))).toBe("1,500 documentos al mes · 1,500 RUC · 1,500 usuarios · 1,500 API keys · 1500 años de retención");
+  });
+
+  it("sin límite se dice así, con la palabra delante", () => {
+    const ilimitado = { ilimitado: true };
+    expect(limitesEnPalabras({ ...limites(3), documentos_al_mes: ilimitado, usuarios: ilimitado, api_keys: ilimitado })).toBe(
+      "Documentos ilimitados · 3 RUC · usuarios ilimitados · API keys ilimitadas · 3 años de retención",
+    );
   });
 });
 

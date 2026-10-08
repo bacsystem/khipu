@@ -211,7 +211,7 @@
         "sol": "Credenciales SOL",
         "series": "Series",
         "delMes": "Emitidos en el mes",
-        "delMesAyuda": "Todos los comprobantes emitidos en el mes, aceptados o no. Lo que consume el plan (solo los aceptados por SUNAT) está en Consumo.",
+        "delMesAyuda": "Todos los comprobantes emitidos en el mes, aceptados o no. Lo que consume el plan (lo que SUNAT aceptó, aunque después se anule) está en Consumo.",
         "ultimaEmision": "Última emisión"
       },
       "error": "No se pudo cargar el listado de empresas.",
@@ -330,7 +330,7 @@
     },
     "consumo": {
       "titulo": "Consumo",
-      "descripcion": "Cuánto consumió cada cuenta en el mes contra el tope de su plan de hoy, para avisar antes de que choque contra el límite o se quede sin servicio. Solo cuentan los comprobantes que SUNAT aceptó, por su fecha de emisión, en el mes calendario de Lima.",
+      "descripcion": "Cuánto consumió cada cuenta en el mes contra el tope de su plan de hoy, para avisar antes de que choque contra el límite o se quede sin servicio. Cuenta lo que SUNAT aceptó, aunque después se anule, por su fecha de emisión, en el mes calendario de Lima.",
       "ayudaPlanDeHoy": "Se compara con el plan de hoy de cada cuenta, también en un mes pasado.",
       "ayudaAlerta": "Cerca del límite: desde el {umbral} % del tope de documentos del mes.",
       "mes": "Mes",
@@ -385,7 +385,7 @@
       "graciaVarios": "{n} días de gracia",
       "cubreHasta": "Se la sirve hasta el {fecha}, gracia incluida.",
       "desde": "Con este plan desde el {fecha}",
-      "limites": "Límites vigentes: {documentos} documentos al mes · {rucs} RUC · {usuarios} usuarios · {apiKeys} API keys",
+      "limites": "Límites vigentes: {limites}",
       "programado": "Pasa a {plan} el {fecha}, al inicio del ciclo siguiente. Hasta entonces sigue con {actual}.",
       "dialogo": {
         "titulo": "Cambiar el plan de {cuenta}",
@@ -405,8 +405,8 @@
         },
         "efectoInmediato": "Entra ahora.",
         "efectoCicloSiguiente": "Entra el {fecha}, al inicio del ciclo siguiente. Hasta entonces la cuenta sigue con {actual}.",
-        "consumo": "En {mes} la cuenta consumió {n} documentos (solo cuentan los comprobantes aceptados por SUNAT). El plan {plan} permite {limite} al mes.",
-        "consumoSinTope": "En {mes} la cuenta consumió {n} documentos (solo cuentan los comprobantes aceptados por SUNAT). El plan {plan} no tiene tope de documentos.",
+        "consumo": "En {mes} la cuenta consumió {n} documentos (cuenta lo que SUNAT aceptó, aunque después se anule). El plan {plan} permite {limite} al mes.",
+        "consumoSinTope": "En {mes} la cuenta consumió {n} documentos (cuenta lo que SUNAT aceptó, aunque después se anule). El plan {plan} no tiene tope de documentos.",
         "superaInmediato": "Ya supera ese tope: con el cambio inmediato, la cuenta quedaría por encima de su límite de este mes.",
         "superaBajada": "Este mes no cambia nada: hasta el ciclo siguiente la cuenta sigue con su plan de hoy.",
         "descartaInmediato": "Cancela el paso a {plan} programado para el {fecha}: la cuenta se queda con el plan nuevo.",

@@ -90,7 +90,7 @@ test("al elegir un plan más caro dice que es una subida que entra ahora y cuán
   await expect(previa).toHaveAttribute("data-direccion", "SUBIDA");
   await expect(previa).toContainText("Subida de plan");
   await expect(previa).toContainText("Entra ahora.");
-  await expect(previa).toContainText("la cuenta consumió 312 documentos (solo cuentan los comprobantes aceptados por SUNAT)");
+  await expect(previa).toContainText("la cuenta consumió 312 documentos (cuenta lo que SUNAT aceptó, aunque después se anule)");
   await expect(previa).toContainText("El plan Negocio permite 1,500 al mes.");
   await expect(page.getByTestId("cambiar-plan-supera")).toHaveCount(0);
 });
