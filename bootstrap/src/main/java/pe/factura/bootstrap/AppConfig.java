@@ -319,9 +319,10 @@ public class AppConfig {
     @Bean RecuperarCdrWorker recuperarCdrWorker(RecuperarCdrUseCase cdrs) { return new RecuperarCdrWorker(cdrs); }
 
     @Bean EnviarDocumentoUseCase enviarDocumento(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatBillingGateway g, CdrParser p,
-                                                OutboxRepository o, UnitOfWork u, Clock clock) {
-        return new EnviarDocumentoService(c, t, s, g, p, o, u, clock);
+                                                OutboxRepository o, UnitOfWork u, Clock clock, RechazoDeSolRepository rechazos) {
+        return new EnviarDocumentoService(c, t, s, g, p, o, u, clock, rechazos);
     }
+    @Bean RechazoDeSolRepository rechazoDeSolRepository(JdbcTemplate jdbc) { return new JdbcRechazoDeSolRepository(jdbc); }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
                                                     UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock, EmisorDeSerieRepository emisor,
                                                     BajaRepository bajas, IdempotenciaRepository idempotencia) {
@@ -340,8 +341,8 @@ public class AppConfig {
         return new CompartirComprobanteService(consultar, t, correo);
     }
     @Bean AdministrarTenantUseCase administrarTenant(TenantRepository t, SerieRepository s, ApiKeyRepository k, UnitOfWork u, AppProperties p, Clock clock, EstablecimientoRepository est,
-                                                    AuditoriaAdminRepository auditoria) {
-        return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock, est, auditoria);
+                                                    AuditoriaAdminRepository auditoria, RechazoDeSolRepository rechazos) {
+        return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock, est, auditoria, rechazos);
     }
 
     @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }

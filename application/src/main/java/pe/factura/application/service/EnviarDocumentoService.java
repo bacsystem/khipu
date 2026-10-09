@@ -1,6 +1,5 @@
 package pe.factura.application.service;
 
-import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
@@ -13,7 +12,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.UUID;
 
-@RequiredArgsConstructor
 public class EnviarDocumentoService implements EnviarDocumentoUseCase {
     public static final String ACCION_ENVIAR = "ENVIAR";
 
@@ -25,7 +23,25 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
     private final OutboxRepository outbox;
     private final UnitOfWork uow;
     private final Clock clock;
+    private final RechazoDeSolRepository rechazosDeSol;
 
+    public EnviarDocumentoService(ComprobanteRepository comprobantes, TenantRepository tenants, DocumentStorage storage, SunatBillingGateway gateway,
+                                  CdrParser cdrParser, OutboxRepository outbox, UnitOfWork uow, Clock clock) {
+        this(comprobantes, tenants, storage, gateway, cdrParser, outbox, uow, clock, RechazoDeSolRepository.NINGUNO);
+    }
+
+    public EnviarDocumentoService(ComprobanteRepository comprobantes, TenantRepository tenants, DocumentStorage storage, SunatBillingGateway gateway,
+                                  CdrParser cdrParser, OutboxRepository outbox, UnitOfWork uow, Clock clock, RechazoDeSolRepository rechazosDeSol) {
+        this.comprobantes = comprobantes;
+        this.tenants = tenants;
+        this.storage = storage;
+        this.gateway = gateway;
+        this.cdrParser = cdrParser;
+        this.outbox = outbox;
+        this.uow = uow;
+        this.clock = clock;
+        this.rechazosDeSol = rechazosDeSol;
+    }
 
     @Override
     public Comprobante enviar(UUID tenantId, UUID comprobanteId) {
@@ -42,6 +58,7 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
         Tenant tenant = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
         tenant.exigirCredencialesSol();
 
+        String credencialesRechazadas = null;
         try {
             byte[] xml = storage.leer(c.xmlKey());
             byte[] cdrZip = gateway.sendBill(tenant, c.nombreArchivo(), xml);
@@ -50,6 +67,12 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
             storage.guardar(cdrKey, cdrZip);
             c.marcarEnviado();
             c.aplicarCdr(cdr, cdrKey);
+        } catch (SunatCredencialesException e) {
+            // #107: no es una caída de SUNAT ni un rechazo del comprobante. Queda pendiente, con un mensaje que dice qué hacer, y la empresa se marca:
+            // el outbox no sigue golpeando a SUNAT con credenciales que no acepta, y las retoma solo cuando se corrigen.
+            credencialesRechazadas = e.codigo() + " - " + e.getMessage();
+            c.marcarErrorEnvio("SUNAT rechazó las credenciales SOL de la empresa (" + credencialesRechazadas
+                    + "). Corrígelas en Fiscal & certificado: el envío se reanuda solo.");
         } catch (SunatTransientException e) {
             c.marcarErrorEnvio(e.codigo() + " - " + e.getMessage());
         } catch (SunatRechazoException e) {
@@ -62,8 +85,12 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
         // OutboxRepository.programar es idempotente por (agregado_id, accion): cuando quien invoca es el
         // OutboxWorker, la fila ya existe (la tomó bloqueada) y este programar es un no-op; el worker
         // la reprograma o completa después, y sigue siendo la única ruta de reintento.
+        String motivo = credencialesRechazadas;
         uow.ejecutar(() -> {
             comprobantes.guardar(c);
+            if (motivo != null) rechazosDeSol.marcar(tenantId, motivo, clock.instant());
+            // SUNAT respondió a estas credenciales: si estaban marcadas (se corrigieron por otro camino), ya no lo están.
+            else if (c.estado() != EstadoDocumento.ERROR_ENVIO) rechazosDeSol.levantar(tenantId, clock.instant());
             if (c.estado() == EstadoDocumento.ERROR_ENVIO)
                 outbox.programar(tenantId, ACCION_ENVIAR, c.id(), Backoff.siguiente(c.intentos(), clock.instant()));
         });

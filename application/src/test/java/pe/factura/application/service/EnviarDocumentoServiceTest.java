@@ -2,6 +2,7 @@ package pe.factura.application.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import pe.factura.application.port.out.SunatCredencialesException;
 import pe.factura.application.port.out.SunatRechazoException;
 import pe.factura.application.port.out.SunatTransientException;
 import pe.factura.domain.DomainException;
@@ -62,6 +63,43 @@ class EnviarDocumentoServiceTest {
         assertThat(outbox.filas.get(0).agregadoId()).isEqualTo(c.id());
         assertThat(outbox.filas.get(0).tenantId()).isEqualTo(tenantId);
         assertThat(outbox.filas.get(0).cuando()).isEqualTo(Backoff.siguiente(1, Fakes.CLOCK.instant()));
+    }
+
+    // --- #107: credenciales SOL rechazadas ---------------------------------------------------------------------------------------
+
+    @Test void credencialesRechazadasMarcanLaEmpresaYDicenQueHacer() {
+        Fakes.RechazosDeSol rechazos = new Fakes.RechazosDeSol();
+        EnviarDocumentoService conRechazos = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK, rechazos);
+        gateway.falla = new SunatCredencialesException("0102", "Usuario o contrasena incorrectos");
+
+        Comprobante r = conRechazos.enviar(tenantId, c.id());
+
+        assertThat(r.estado()).as("no es un rechazo del comprobante: queda pendiente de envío").isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(r.ultimoError()).contains("credenciales SOL").contains("0102").contains("Fiscal & certificado");
+        assertThat(rechazos.filas).containsKey(tenantId);
+        assertThat(rechazos.filas.get(tenantId).motivo()).isEqualTo("0102 - Usuario o contrasena incorrectos");
+        assertThat(outbox.filas).as("sigue en el outbox, que lo retoma al corregir las credenciales").hasSize(1);
+    }
+
+    @Test void unaCaidaDeSunatNoMarcaLasCredenciales() {
+        Fakes.RechazosDeSol rechazos = new Fakes.RechazosDeSol();
+        EnviarDocumentoService conRechazos = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK, rechazos);
+        gateway.falla = new SunatTransientException("0109", "El servicio de autenticación no está disponible");
+
+        conRechazos.enviar(tenantId, c.id());
+
+        assertThat(rechazos.filas).isEmpty();
+    }
+
+    /** Un envío que sale bien después de corregir las credenciales no deja la marca puesta. */
+    @Test void unEnvioAceptadoLevantaLaMarca() {
+        Fakes.RechazosDeSol rechazos = new Fakes.RechazosDeSol();
+        rechazos.marcar(tenantId, "0102 - Usuario o contrasena incorrectos", Fakes.CLOCK.instant());
+        EnviarDocumentoService conRechazos = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK, rechazos);
+
+        conRechazos.enviar(tenantId, c.id());
+
+        assertThat(rechazos.filas).isEmpty();
     }
 
     @Test void aceptadoNoProgramaOutbox() {

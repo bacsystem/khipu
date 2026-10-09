@@ -157,4 +157,30 @@ describe("NuevoComprobanteDialog", () => {
     expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ir a Fiscal & certificado" })).toHaveAttribute("href", "/empresa");
   });
+
+  /** #107: con las credenciales rechazadas se puede emitir, pero el envío espera; se dice antes de emitir, no después. */
+  it("con las credenciales SOL rechazadas deja emitir y avisa que el envío espera a corregirlas", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA", credenciales_sol_rechazadas: { desde: "2026-10-09T15:00:00Z", motivo: "0102 - Usuario o contrasena incorrectos" } }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    await waitFor(() => expect(screen.getByText("SUNAT rechazó las credenciales SOL de esta empresa")).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Corregirlas" })).toHaveAttribute("href", "/empresa");
+    expect(screen.getByLabelText("Serie")).toBeInTheDocument();
+  });
+
+  it("sin rechazo no hay aviso de credenciales", async () => {
+    stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    await waitFor(() => expect(screen.getByText(/Homologación/)).toBeInTheDocument());
+
+    expect(screen.queryByText("SUNAT rechazó las credenciales SOL de esta empresa")).not.toBeInTheDocument();
+  });
 });

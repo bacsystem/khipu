@@ -4,6 +4,7 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.out.SunatRechazoException;
+import pe.factura.application.port.out.SunatCredencialesException;
 import pe.factura.application.port.out.SunatBillingGateway;
 import pe.factura.application.port.out.SunatTransientException;
 import pe.factura.domain.tenant.*;
@@ -73,6 +74,29 @@ class SoapBillingGatewayTest {
                 .extracting("codigo").isEqualTo("1033");
     }
 
+    // --- #107: credenciales SOL rechazadas -------------------------------------------------------------------------------------
+
+    /** Los 01xx de autenticación de la hoja «CódigosRetorno»: no cambian por reintentar, hay que corregir las credenciales. */
+    @Test void unFaultDeCredencialesNoEsUnaCaidaDeSunat(WireMockRuntimeInfo wm) {
+        for (String codigo : new String[]{"0101", "0102", "0103", "0104", "0105", "0106", "0111", "0112", "0113", "0154"}) {
+            stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault(codigo, "Usuario o contrasena incorrectos"))));
+            assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0])).as(codigo)
+                    .isInstanceOf(SunatCredencialesException.class).extracting("codigo").isEqualTo(codigo);
+        }
+    }
+
+    /**
+     * Los 01xx de servicio (0100 genérico, 0109 autenticación no disponible, 0110 «no se pudo obtener la información del tipo de usuario», 013x) sí son
+     * una caída: se siguen reintentando como hasta ahora, sin pausar a la empresa por algo que ella no puede corregir (270-H2).
+     */
+    @Test void unFaultDeServicioSigueSiendoTransitorio(WireMockRuntimeInfo wm) {
+        for (String codigo : new String[]{"0100", "0109", "0110", "0130", "0138"}) {
+            stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault(codigo, "El sistema no puede responder su solicitud"))));
+            assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0])).as(codigo)
+                    .isInstanceOf(SunatTransientException.class).isNotInstanceOf(SunatCredencialesException.class);
+        }
+    }
+
     @Test void limitesDeLaClasificacionDeFaults() {
         assertThat(SoapBillingGateway.esFaultDefinitivo("0999")).isFalse();
         assertThat(SoapBillingGateway.esFaultDefinitivo("1000")).isTrue();
@@ -107,11 +131,11 @@ class SoapBillingGatewayTest {
         verify(2, postRequestedFor(urlEqualTo("/billService")));
     }
 
-    /** Tres 401 seguidos ya no son el balanceador: credenciales o URL. Sigue siendo transitorio (el outbox reintenta) pero con el mensaje claro. */
-    @Test void tres401SeguidosSonTransitorioConMensajeDeCredenciales(WireMockRuntimeInfo wm) {
+    /** Tres 401 seguidos ya no son el balanceador: SUNAT no acepta las credenciales (#107). Se trata como un fault de credenciales, no como una caída. */
+    @Test void tres401SeguidosSonCredencialesRechazadas(WireMockRuntimeInfo wm) {
         stubFor(post("/billService").willReturn(aResponse().withStatus(401)));
         assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))
-                .isInstanceOf(SunatTransientException.class).hasMessageContaining("401 en 3 intentos").hasMessageContaining("credenciales");
+                .isInstanceOf(SunatCredencialesException.class).hasMessageContaining("401 en 3 intentos").hasMessageContaining("credenciales");
         verify(3, postRequestedFor(urlEqualTo("/billService")));
     }
 

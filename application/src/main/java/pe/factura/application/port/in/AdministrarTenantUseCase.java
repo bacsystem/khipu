@@ -17,6 +17,8 @@ public interface AdministrarTenantUseCase {
     /** Alta administrativa; queda en la bitácora de auditoría a nombre de {@code actor}, en la misma transacción que el alta. */
     TenantCreado crearTenant(ActorAdmin actor, String ruc, String razonSocial, Entorno entorno);
     Tenant obtener(UUID tenantId);
+    /** #107: si SUNAT rechazó las credenciales SOL de la empresa, cuándo y por qué; vacío si no. */
+    java.util.Optional<pe.factura.application.port.out.RechazoDeSolRepository.Rechazo> rechazoDeSol(UUID tenantId);
     /** Domicilio fiscal (RegistrationAddress del XML) y cuenta de detracciones por defecto; cualquiera puede ir en null para borrarlo. */
     Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv);
     void cargarCertificado(UUID tenantId, byte[] pkcs12, String clave);   // valida abriendo el KeyStore (RUC en OU y vigencia)

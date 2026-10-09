@@ -42,7 +42,18 @@ class EmpresaControllerTest {
                 .andExpect(jsonPath("$.datos.tiene_credenciales_sol").value(true))
                 .andExpect(jsonPath("$.datos.certificado_vigencia_hasta").value("2030-01-01"))
                 .andExpect(jsonPath("$.datos.tiene_certificado").value(true))
-                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("moddatos"))));
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("moddatos"))))
+                .andExpect(jsonPath("$.datos.credenciales_sol_rechazadas").doesNotExist());
+    }
+
+    /** #107: el portal dice que SUNAT rechazó las credenciales, desde cuándo y por qué. */
+    @Test void diceSiSunatRechazoLasCredencialesSol() throws Exception {
+        when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, new CredencialesSol("MODDATOS", "moddatos"), null));
+        when(admin.rechazoDeSol(tenant)).thenReturn(java.util.Optional.of(
+                new pe.factura.application.port.out.RechazoDeSolRepository.Rechazo(java.time.Instant.parse("2026-10-09T15:00:00Z"), "0102 - Usuario o contrasena incorrectos")));
+        mvc.perform(get("/v1/empresa").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.credenciales_sol_rechazadas.desde").value("2026-10-09T15:00:00Z"))
+                .andExpect(jsonPath("$.datos.credenciales_sol_rechazadas.motivo").value("0102 - Usuario o contrasena incorrectos"));
     }
 
     /** El portal decide si se puede emitir con esto (C2): un certificado sin fecha de vigencia también está cargado. */

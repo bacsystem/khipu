@@ -32,6 +32,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     private final Clock clock;
     private final EstablecimientoRepository establecimientos;
     private final AuditoriaAdminRepository auditoria;
+    private final RechazoDeSolRepository rechazosDeSol;
 
 
     public TenantCreado crearTenant(ActorAdmin actor, String ruc, String razonSocial, Entorno entorno) {
@@ -96,11 +97,17 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         throw new DomainException("CERTIFICADO_INVALIDO", "El PKCS#12 no contiene una clave privada");
     }
 
+    @Override public java.util.Optional<RechazoDeSolRepository.Rechazo> rechazoDeSol(UUID tenantId) { return rechazosDeSol.buscar(tenantId); }
+
     /** La validación y la normalización del usuario viven en {@link CredencialesSol}: así valen para cualquier camino. */
     public void cargarCredencialesSol(UUID tenantId, String usuario, String clave) {
         Tenant t = obtener(tenantId);
         CredencialesSol sol = new CredencialesSol(usuario, clave);
-        uow.ejecutar(() -> tenants.guardar(t.conCredencialesSol(sol)));
+        uow.ejecutar(() -> {
+            tenants.guardar(t.conCredencialesSol(sol));
+            // #107: si SUNAT había rechazado las anteriores, los envíos pendientes se reanudan ya, sin esperar su próximo reintento.
+            rechazosDeSol.levantar(tenantId, clock.instant());
+        });
     }
 
     public void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial) {

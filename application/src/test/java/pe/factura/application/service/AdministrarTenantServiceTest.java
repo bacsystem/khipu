@@ -36,7 +36,8 @@ class AdministrarTenantServiceTest {
     Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
     Fakes.Auditoria auditoria = new Fakes.Auditoria();
     { auditoria.uow = uow; }
-    AdministrarTenantService service = new AdministrarTenantService(tenants, series, apiKeys, uow, "pepper", Fakes.CLOCK, establecimientos, auditoria);
+    Fakes.RechazosDeSol rechazosDeSol = new Fakes.RechazosDeSol();
+    AdministrarTenantService service = new AdministrarTenantService(tenants, series, apiKeys, uow, "pepper", Fakes.CLOCK, establecimientos, auditoria, rechazosDeSol);
     static final ActorAdmin ACTOR = ActorAdmin.administrador(UUID.randomUUID(), "203.0.113.7");
 
     @Test void crearTenantDevuelveApiKeyUnaVez() {
@@ -85,6 +86,16 @@ class AdministrarTenantServiceTest {
         assertThatThrownBy(() -> service.crearTenant(ACTOR, "20100066603", "B", Entorno.BETA)).extracting("codigo").isEqualTo("DUPLICADO");
         assertThatThrownBy(() -> service.crearTenant(ACTOR, "123", "C", Entorno.BETA)).isInstanceOf(DomainException.class);
         assertThat(auditoria.registros).hasSize(1);
+    }
+
+    /** #107: corregir las credenciales levanta la marca de rechazadas, y con eso el outbox retoma los envíos de la empresa. */
+    @Test void guardarCredencialesNuevasLevantaElRechazo() {
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
+        rechazosDeSol.marcar(id, "0102 - Usuario o contrasena incorrectos", Fakes.CLOCK.instant());
+
+        service.cargarCredencialesSol(id, "MODDATOS", "moddatos");
+
+        assertThat(rechazosDeSol.filas).doesNotContainKey(id);
     }
 
     @Test void credencialesYSerie() {

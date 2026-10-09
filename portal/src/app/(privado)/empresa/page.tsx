@@ -19,7 +19,8 @@ import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { PersonalizacionPdfForm } from "@/components/empresa/personalizacion-pdf-form";
 import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf } from "@/lib/api/empresas";
 import { ACCION_SECUNDARIA, ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
-import { diasEntre, formatearFecha, hoyLima } from "@/lib/formato";
+import { Alerta } from "@/components/feedback/alerta";
+import { diasEntre, formatearFecha, formatearFechaHora, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { Metrica } from "@/components/ui/metrica";
@@ -64,13 +65,14 @@ function Dato({ etiqueta, children, pendiente }: { etiqueta: string; children?: 
   );
 }
 
-function Pill({ tono, children }: { tono: "ok" | "aviso" | "neutro"; children: React.ReactNode }) {
+function Pill({ tono, children }: { tono: "ok" | "aviso" | "error" | "neutro"; children: React.ReactNode }) {
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium whitespace-nowrap",
         tono === "ok" && "border-success-border bg-success text-success-foreground",
         tono === "aviso" && "border-warning-border bg-warning text-warning-foreground",
+        tono === "error" && "border-destructive/30 bg-destructive/10 text-destructive",
         tono === "neutro" && "border-border bg-secondary text-muted-foreground",
       )}
     >
@@ -88,6 +90,7 @@ export default async function EmpresaPage() {
   const [empresa, empresas, personalizacion] = await Promise.all([obtenerEmpresaActual(access, empresaId), listarEmpresas(access), obtenerPersonalizacionPdf(access, empresaId)]);
 
   const beta = empresa.entorno === "BETA";
+  const rechazoSol = empresa.credenciales_sol_rechazadas ?? null;
   const domicilio = empresa.domicilio ?? null;
   const vigencia = empresa.certificado_vigencia_hasta;
   const dias = vigencia ? diasHasta(vigencia) : null;
@@ -142,14 +145,21 @@ export default async function EmpresaPage() {
         <Metrica
           etiqueta="Credenciales SOL"
           ayuda={
-            <span className={cn("flex items-center gap-1", empresa.tiene_credenciales_sol ? "text-success-foreground" : "text-warning-foreground")}>
-              <Punto tono={empresa.tiene_credenciales_sol ? "ok" : "aviso"} />
-              {empresa.tiene_credenciales_sol ? "Usuario secundario configurado" : "Pendientes de configurar"}
-            </span>
+            rechazoSol ? (
+              <span className="flex items-center gap-1 text-destructive">
+                <Punto tono="error" />
+                SUNAT no las acepta: corrígelas
+              </span>
+            ) : (
+              <span className={cn("flex items-center gap-1", empresa.tiene_credenciales_sol ? "text-success-foreground" : "text-warning-foreground")}>
+                <Punto tono={empresa.tiene_credenciales_sol ? "ok" : "aviso"} />
+                {empresa.tiene_credenciales_sol ? "Usuario secundario configurado" : "Pendientes de configurar"}
+              </span>
+            )
           }
         >
-          <span className={empresa.tiene_credenciales_sol ? "text-primary" : "text-muted-foreground/60"}>
-            {empresa.tiene_credenciales_sol ? "CONFIGURADAS" : "—"}
+          <span className={rechazoSol ? "text-destructive" : empresa.tiene_credenciales_sol ? "text-primary" : "text-muted-foreground/60"}>
+            {rechazoSol ? "RECHAZADAS" : empresa.tiene_credenciales_sol ? "CONFIGURADAS" : "—"}
           </span>
         </Metrica>
 
@@ -244,8 +254,21 @@ export default async function EmpresaPage() {
                 <KeyRoundIcon className="size-4" />
                 Credenciales SUNAT SOL (emisión)
               </div>
-              <Pill tono={empresa.tiene_credenciales_sol ? "ok" : "aviso"}>{empresa.tiene_credenciales_sol ? "Configuradas" : "Pendientes"}</Pill>
+              {rechazoSol ? (
+                <Pill tono="error">Rechazadas</Pill>
+              ) : (
+                <Pill tono={empresa.tiene_credenciales_sol ? "ok" : "aviso"}>{empresa.tiene_credenciales_sol ? "Configuradas" : "Pendientes"}</Pill>
+              )}
             </div>
+            {/* #107: SUNAT no acepta las credenciales y los envíos de la empresa quedaron esperando; se dice por qué y que se reanudan solos. */}
+            {rechazoSol ? (
+              <div className="mt-4" data-testid="credenciales-sol-rechazadas">
+                <Alerta tono="error" titulo="SUNAT rechazó tus credenciales SOL">
+                  Desde el {formatearFechaHora(rechazoSol.desde)} SUNAT responde «{rechazoSol.motivo}». Tus comprobantes se siguen firmando, pero no se
+                  envían hasta que guardes un usuario y clave SOL correctos abajo: los pendientes se reanudan solos.
+                </Alerta>
+              </div>
+            ) : null}
             <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-accent-border bg-accent/60 p-3">
               <ShieldAlertIcon className="mt-0.5 size-4 shrink-0 text-accent-foreground" />
               <p className="text-[12px] leading-relaxed text-accent-foreground">

@@ -2137,6 +2137,8 @@ export const handlers = [
     const empresa = [...db.empresasPorCuenta.values()].flat().find((e) => e.id === empresaId);
     if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
     empresa.tiene_credenciales_sol = true;
+    // Como el backend (#107): credenciales nuevas levantan el rechazo y los envíos en espera se reanudan.
+    empresa.credenciales_sol_rechazadas = null;
     return new HttpResponse(null, { status: 204 });
   }),
 

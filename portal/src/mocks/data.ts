@@ -79,6 +79,8 @@ export type Empresa = {
   /** Padrón de tasa especial del IGV (#84): 10.5 % en vez de 18 %. Lo lee el diálogo de emisión para previsualizar. */
   padron_tasa_especial_igv?: boolean;
   personalizacion_pdf?: PersonalizacionPdf;
+  /** #107: SUNAT rechazó las credenciales SOL; guardar credenciales nuevas lo levanta, como en el backend. */
+  credenciales_sol_rechazadas?: { desde: string; motivo: string } | null;
 };
 
 export type PersonalizacionPdf = {
@@ -392,6 +394,23 @@ export function resetDb() {
   const suspendido: Usuario = { id: "u-suspendida", cuenta_id: "c-suspendida", email: "suspendida@example.com", rol: "ADMIN", correo_verificado: true };
   db.usuariosPorEmail.set(suspendido.email, { usuario: suspendido, password: "Passw0rd1" });
   db.cuentasSuspendidas.add(suspendido.cuenta_id);
+  // Un cliente al que SUNAT le rechazó las credenciales SOL (#107): cuenta propia, para que corregirlas no le cambie el estado a los demás specs.
+  const conSolRechazada: Usuario = { id: "u-sol-rechazada", cuenta_id: "c-sol-rechazada", email: "sol-rechazada@example.com", rol: "ADMIN", correo_verificado: true };
+  db.usuariosPorEmail.set(conSolRechazada.email, { usuario: conSolRechazada, password: "Passw0rd1" });
+  db.nombresDeCuenta.set(conSolRechazada.cuenta_id, "Bodega Rechazada");
+  db.empresasPorCuenta.set(conSolRechazada.cuenta_id, [
+    {
+      id: "e-sol-rechazada",
+      ruc: "20600000001",
+      razon_social: "Bodega Rechazada SAC",
+      entorno: "BETA",
+      tiene_certificado: true,
+      tiene_credenciales_sol: true,
+      certificado_vigencia_hasta: "2036-01-01",
+      credenciales_sol_rechazadas: { desde: "2026-10-09T15:00:00Z", motivo: "0102 - Usuario o contrasena incorrectos" },
+    },
+  ]);
+  db.seriesPorEmpresa.set("e-sol-rechazada", [{ tipo: "01", serie: "F001", ultimo_numero: 0, activa: true, establecimiento: "0000" }]);
 
   const empresa: Empresa = {
     id: "e-demo",
