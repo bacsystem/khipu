@@ -132,7 +132,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
           >
             <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
           </button>
-          <EstablecimientoDialog />
+          {/* «Nuevo establecimiento» vive en la barra superior, como la acción principal de las demás páginas (#277). */}
         </div>
       </div>
 
