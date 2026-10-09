@@ -10,6 +10,7 @@ import { ReferenciaApiKeysDialog } from "@/components/api-keys/referencia-api-ke
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { ReferenciaEmpresaDialog } from "@/components/empresa/referencia-empresa";
 import { NuevoComprobanteDialog } from "@/components/comprobantes/nuevo-comprobante-dialog";
+import { EstablecimientoDialog } from "@/components/establecimientos/establecimiento-dialog";
 import { NuevaSerieDialog } from "@/components/series/nueva-serie-dialog";
 import { ReferenciaSeriesDialog } from "@/components/series/referencia-series";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA } from "@/lib/estilos";
@@ -99,9 +100,11 @@ export function TopBar({
             <ReferenciaEmpresaDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
             <NuevaEmpresaDialog className={ACCION_PRINCIPAL} />
           </>
-        ) : (
+        ) : pathname.startsWith("/establecimientos") ? (
+          <EstablecimientoDialog className={ACCION_PRINCIPAL} />
+        ) : pathname.startsWith("/comprobantes") ? (
           <NuevoComprobanteDialog className={ACCION_PRINCIPAL} />
-        )}
+        ) : /* #277: Plan y consumo, Accesos de soporte y Developers no tienen una acción principal; emitir desde ahí no venía al caso. */ null}
       </div>
     </header>
   );
