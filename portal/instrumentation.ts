@@ -1,4 +1,9 @@
 export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    // #250: un SUPPORT_URL o SUPPORT_EMAIL mal formado se denuncia al arrancar, nombrando la variable; además cada página responde error hasta corregirlo.
+    const { leerSoporte } = await import("./src/lib/soporte");
+    leerSoporte();
+  }
   if (process.env.NEXT_RUNTIME === "nodejs" && process.env.API_MOCKING === "enabled") {
     const { server } = await import("./src/mocks/node");
     // "warn", no "bypass": una petición sin handler igual sigue su camino (y muere en el puerto muerto de

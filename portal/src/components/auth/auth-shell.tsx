@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
 import { messages } from "@/lib/messages";
 
 export function AuthShell({
@@ -38,6 +39,8 @@ export function AuthShell({
           <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
           <div className="mt-6">{children}</div>
           {footer ? <div className="mt-6 text-center text-sm text-muted-foreground">{footer}</div> : null}
+          {/* #250: quien no puede entrar (o tiene la cuenta suspendida) también necesita saber a quién escribir. */}
+          <AyudaDeSoporte className="mt-8 justify-center" />
         </div>
       </div>
     </div>

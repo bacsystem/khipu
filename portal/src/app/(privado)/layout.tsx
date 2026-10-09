@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { RevisaTuCorreo } from "@/components/auth/revisa-tu-correo";
 import { BannerDeMantenimiento } from "@/components/banner-de-mantenimiento";
 import { AvisoDeSoporte } from "@/components/soporte/aviso-de-soporte";
+import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
 import { SidebarContent } from "@/components/nav/sidebar-content";
 import { TopBar } from "@/components/nav/top-bar";
 import { me } from "@/lib/api/auth";
@@ -61,6 +62,8 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
           )}
           {children}
         </main>
+        {/* #250: a dónde escribir si algo no sale. Sin SUPPORT_URL ni SUPPORT_EMAIL no se muestra. */}
+        <AyudaDeSoporte className="border-t border-border px-4 py-3 md:px-6" />
       </div>
       </div>
       </SoloLectura>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
 import { Button } from "@/components/ui/button";
 import { messages } from "@/lib/messages";
 
@@ -20,6 +21,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           Ir al inicio
         </Button>
       </div>
+      {/* #250: si reintentar no lo arregla, a quién escribir. */}
+      <AyudaDeSoporte className="justify-center" />
     </div>
   );
 }

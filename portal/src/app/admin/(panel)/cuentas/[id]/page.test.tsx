@@ -206,3 +206,33 @@ describe("AdminCuentaPage — los pagos", () => {
     expect(screen.queryByTestId("pagos")).toBeNull();
   });
 });
+
+/** #250: desde la ficha se le escribe a soporte con la cuenta ya identificada en el asunto (nombre e id, nada sensible). */
+describe("AdminCuentaPage — escribir a soporte", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("con SUPPORT_EMAIL ofrece el correo con el nombre y el id de la cuenta en el asunto", async () => {
+    vi.stubEnv("SUPPORT_EMAIL", "soporte@khipu.pe");
+    sesion();
+    vi.mocked(obtenerCuentaAdmin).mockResolvedValue({ nombre: "Bodega & Cía" } as never);
+    vi.mocked(obtenerPlanDeCuenta).mockResolvedValue({ estado: "VIGENTE" } as never);
+    vi.mocked(listarPlanesAdmin).mockResolvedValue([] as never);
+
+    render(await AdminCuentaPage(params()));
+
+    const enlace = screen.getByRole("link", { name: "Escribir a soporte" });
+    expect(enlace.getAttribute("href")).toBe(`mailto:soporte@khipu.pe?subject=${encodeURIComponent(`Cuenta Bodega & Cía (${ID})`)}`);
+  });
+
+  it("sin SUPPORT_EMAIL no ofrece nada", async () => {
+    vi.stubEnv("SUPPORT_EMAIL", "");
+    sesion();
+    vi.mocked(obtenerCuentaAdmin).mockResolvedValue({ nombre: "Mi negocio" } as never);
+    vi.mocked(obtenerPlanDeCuenta).mockResolvedValue({ estado: "VIGENTE" } as never);
+    vi.mocked(listarPlanesAdmin).mockResolvedValue([] as never);
+
+    render(await AdminCuentaPage(params()));
+
+    expect(screen.queryByRole("link", { name: "Escribir a soporte" })).toBeNull();
+  });
+});

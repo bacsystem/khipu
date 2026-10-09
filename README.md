@@ -37,6 +37,18 @@ set -a; source .env; set +a
 si cambia, esos secretos dejan de poder descifrarse y cada tenant tendría que volver a cargarlos.
 Respáldala junto con la base de datos. Lo mismo aplica a `API_KEY_PEPPER`: rotarlo invalida todas las API keys emitidas.
 
+### Soporte
+Los tickets viven en un servicio externo (#200); khipu solo enlaza a él. En el **portal** (`portal/.env.example`), dos variables
+opcionales y vacías por defecto (#250):
+
+- `SUPPORT_URL`: página o portal de ayuda, tiene que ser `https`.
+- `SUPPORT_EMAIL`: correo de soporte.
+
+Con alguna de las dos, el portal muestra «¿Necesitas ayuda?» en el pie del panel, en las pantallas de error, login y cuenta
+suspendida, y en `/cuenta/plan`. Con el correo, la ficha de cada cuenta del backoffice ofrece «Escribir a soporte», con el nombre
+y el id de la cuenta en el asunto. Sin ninguna no se muestra nada. Un valor mal formado no pasa en silencio: el log del portal
+nombra la variable y las páginas responden error hasta corregirla.
+
 ### Probar `develop` en Docker (`make`)
 Para probar lo ya mergeado sin depender de la rama que tengas abierta, `develop` se despliega en Docker con backend, portal y
 su propio Postgres. `make` sin argumentos lista todos los objetivos.
