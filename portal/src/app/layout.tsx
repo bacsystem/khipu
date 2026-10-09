@@ -3,7 +3,7 @@ import { Bricolage_Grotesque, Inter, JetBrains_Mono } from "next/font/google";
 import { connection } from "next/server";
 import { Providers } from "@/components/providers";
 import { SoporteProvider } from "@/components/soporte/ayuda-de-soporte";
-import { leerSoporte } from "@/lib/soporte";
+import { soporteParaMostrar } from "@/lib/soporte";
 import "./globals.css";
 
 const sans = Inter({
@@ -37,7 +37,7 @@ export default async function RootLayout({
 }>) {
   // #250: el soporte se lee al servir, no al compilar; si no, una imagen construida una vez llevaría el valor del build a todos los entornos.
   await connection();
-  const soporte = leerSoporte();
+  const soporte = soporteParaMostrar();
   return (
     <html lang="es" className={`${sans.variable} ${heading.variable} ${mono.variable}`} suppressHydrationWarning>
       <body className="antialiased">

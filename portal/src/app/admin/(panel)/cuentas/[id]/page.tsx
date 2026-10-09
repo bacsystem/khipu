@@ -12,7 +12,7 @@ import { listarPlanesAdmin } from "@/lib/api/admin-planes";
 import { ApiError } from "@/lib/api/types";
 import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { hoyLima } from "@/lib/formato";
-import { correoDeSoporte, leerSoporte } from "@/lib/soporte";
+import { correoDeSoporte, soporteParaMostrar } from "@/lib/soporte";
 import { messages } from "@/lib/messages";
 
 export const metadata = { title: "Cuenta · Backoffice" };
@@ -50,7 +50,7 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
       ])
     : [null, null];
 
-  const soporte = leerSoporte();
+  const soporte = soporteParaMostrar();
   const t = messages.admin.detalle;
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">

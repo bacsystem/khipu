@@ -6,8 +6,8 @@ export type Soporte = { url: string | null; email: string | null };
 
 export const SIN_SOPORTE: Soporte = { url: null, email: null };
 
-// Sin `?`, `&` ni espacios: el valor va dentro de un `mailto:` y no debe poder agregarle destinatarios ni cabeceras.
-const CORREO = /^[^\s@?&]+@[^\s@?&]+\.[^\s@?&]+$/;
+// Lista blanca: el valor va dentro de un `mailto:` y no debe poder agregarle destinatarios (`,` `;`) ni cabeceras (`?` `&`), ni codificar nada con `%`.
+const CORREO = /^[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
 
 function valor(v: string | undefined): string | null {
   const limpio = v?.trim();
@@ -29,6 +29,23 @@ export function leerSoporte(env: Record<string, string | undefined> = process.en
   }
   if (email !== null && !CORREO.test(email)) throw new Error(`SUPPORT_EMAIL no es un correo válido (p. ej. soporte@tu-dominio.pe); llegó «${email}»`);
   return { url, email };
+}
+
+let errorAvisado = false;
+
+/**
+ * Lo que las páginas muestran (272-H1): con un valor mal escrito, ningún «¿Necesitas ayuda?» y el error en el log, nombrando la variable. No lanza: una
+ * variable opcional mal puesta no puede tumbar el portal (en producción, un error en `register()` cierra el proceso de Next) ni el login. Lo registra
+ * una sola vez por proceso, no en cada petición.
+ */
+export function soporteParaMostrar(env: Record<string, string | undefined> = process.env): Soporte {
+  try {
+    return leerSoporte(env);
+  } catch (e) {
+    if (!errorAvisado) console.error(`[soporte] ${(e as Error).message}. No se muestra la ayuda hasta corregirlo.`);
+    errorAvisado = true;
+    return SIN_SOPORTE;
+  }
 }
 
 /** El `mailto:` de soporte, con el asunto ya puesto si se da uno. */

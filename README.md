@@ -47,7 +47,7 @@ opcionales y vacías por defecto (#250):
 Con alguna de las dos, el portal muestra «¿Necesitas ayuda?» en el pie del panel, en las pantallas de error, login y cuenta
 suspendida, y en `/cuenta/plan`. Con el correo, la ficha de cada cuenta del backoffice ofrece «Escribir a soporte», con el nombre
 y el id de la cuenta en el asunto. Sin ninguna no se muestra nada. Un valor mal formado no pasa en silencio: el log del portal
-nombra la variable y las páginas responden error hasta corregirla.
+nombra la variable y el portal no muestra ninguna ayuda hasta corregirla (el resto funciona igual).
 
 ### Probar `develop` en Docker (`make`)
 Para probar lo ya mergeado sin depender de la rama que tengas abierta, `develop` se despliega en Docker con backend, portal y
