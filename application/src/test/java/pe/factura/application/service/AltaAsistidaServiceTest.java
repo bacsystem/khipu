@@ -53,7 +53,10 @@ class AltaAsistidaServiceTest {
         public void crear(Sesion s) { throw new AssertionError("un alta asistida no abre sesión"); }
         public Optional<Sesion> buscarPorRefreshHash(String h) { return Optional.empty(); }
         public void revocar(UUID id) {}
+        public void revocarFamilia(UUID familia) {}
         public void revocarTodas(UUID usuarioId) {}
+        public Optional<Sesion> buscar(UUID id) { return Optional.empty(); }
+        public void rotar(UUID id, UUID nueva, java.time.Instant en) { throw new AssertionError("un alta asistida no rota sesiones"); }
         public void crearRecuperacion(TokenRecuperacion t) { escrituras.add(uow.dentro); invitaciones.put(t.tokenHash(), t); }
         public Optional<TokenRecuperacion> buscarRecuperacion(String h) { return Optional.ofNullable(invitaciones.get(h)); }
         public void marcarRecuperacionUsada(String h) {}

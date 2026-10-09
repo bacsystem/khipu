@@ -57,7 +57,10 @@ class SoporteDeAccesoServiceTest {
         public void crear(Sesion s) { throw new AssertionError("no se tocan las sesiones"); }
         public Optional<Sesion> buscarPorRefreshHash(String h) { throw new AssertionError("no se tocan las sesiones"); }
         public void revocar(UUID id) { throw new AssertionError("no se revoca ninguna sesión"); }
+        public void revocarFamilia(UUID familia) { throw new AssertionError("no se revoca ninguna sesión"); }
         public void revocarTodas(UUID u) { throw new AssertionError("no se revoca ninguna sesión"); }
+        public Optional<Sesion> buscar(UUID id) { throw new AssertionError("no se tocan las sesiones"); }
+        public void rotar(UUID id, UUID nueva, java.time.Instant en) { throw new AssertionError("no se rota ninguna sesión"); }
         public void crearRecuperacion(TokenRecuperacion t) { recuperacionDentro.add(uow.dentro); recuperaciones.add(t); }
         public Optional<TokenRecuperacion> buscarRecuperacion(String h) { throw new AssertionError("no se consulta"); }
         public void marcarRecuperacionUsada(String h) { throw new AssertionError("no se consume"); }

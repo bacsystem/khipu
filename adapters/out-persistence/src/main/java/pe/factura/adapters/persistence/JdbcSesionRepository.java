@@ -2,9 +2,11 @@ package pe.factura.adapters.persistence;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import pe.factura.application.port.out.SesionRepository;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,16 +15,37 @@ public class JdbcSesionRepository implements SesionRepository {
     private final JdbcTemplate jdbc;
 
     @Override public void crear(Sesion s) {
-        jdbc.update("INSERT INTO sesion (id, usuario_id, refresh_hash, expira_en, revocada) VALUES (?, ?, ?, ?, ?)",
-                s.id(), s.usuarioId(), s.refreshHash(), Timestamp.from(s.expiraEn()), s.revocada());
+        jdbc.update("INSERT INTO sesion (id, usuario_id, refresh_hash, expira_en, revocada, familia_id) VALUES (?, ?, ?, ?, ?, ?)",
+                s.id(), s.usuarioId(), s.refreshHash(), Timestamp.from(s.expiraEn()), s.revocada(), s.familia());
     }
+    private static final String COLUMNAS = "SELECT id, usuario_id, refresh_hash, expira_en, revocada, rotada_en, reemplazada_por, familia_id FROM sesion";
+    private static final RowMapper<Sesion> MAPPER = (rs, i) -> {
+        Timestamp rotada = rs.getTimestamp("rotada_en");
+        UUID id = rs.getObject("id", UUID.class);
+        UUID familia = rs.getObject("familia_id", UUID.class);
+        // Una sesión de antes de V49 no tiene familia: es la suya propia.
+        return new Sesion(id, rs.getObject("usuario_id", UUID.class), rs.getString("refresh_hash"), rs.getTimestamp("expira_en").toInstant(), rs.getBoolean("revocada"),
+                rotada == null ? null : rotada.toInstant(), rs.getObject("reemplazada_por", UUID.class), familia == null ? id : familia);
+    };
+
     @Override public Optional<Sesion> buscarPorRefreshHash(String hash) {
-        return jdbc.query("SELECT id, usuario_id, refresh_hash, expira_en, revocada FROM sesion WHERE refresh_hash = ?",
-                (rs, i) -> new Sesion(rs.getObject("id", UUID.class), rs.getObject("usuario_id", UUID.class), rs.getString("refresh_hash"),
-                        rs.getTimestamp("expira_en").toInstant(), rs.getBoolean("revocada")), hash).stream().findFirst();
+        return jdbc.query(COLUMNAS + " WHERE refresh_hash = ?", MAPPER, hash).stream().findFirst();
     }
-    @Override public void revocar(UUID id) { jdbc.update("UPDATE sesion SET revocada = true WHERE id = ?", id); }
-    @Override public void revocarTodas(UUID usuarioId) { jdbc.update("UPDATE sesion SET revocada = true WHERE usuario_id = ?", usuarioId); }
+    @Override public Optional<Sesion> buscar(UUID id) {
+        return jdbc.query(COLUMNAS + " WHERE id = ?", MAPPER, id).stream().findFirst();
+    }
+    // Revocar quita la marca de rotación: así un logout o restablecer la contraseña no deja gracia (S6).
+    @Override public void revocar(UUID id) { jdbc.update("UPDATE sesion SET revocada = true, rotada_en = NULL, reemplazada_por = NULL WHERE id = ?", id); }
+    @Override public void revocarFamilia(UUID familia) {
+        jdbc.update("UPDATE sesion SET revocada = true, rotada_en = NULL, reemplazada_por = NULL WHERE familia_id = ? OR id = ?", familia, familia);
+    }
+    @Override public void revocarTodas(UUID usuarioId) {
+        jdbc.update("UPDATE sesion SET revocada = true, rotada_en = NULL, reemplazada_por = NULL WHERE usuario_id = ?", usuarioId);
+    }
+    @Override public void rotar(UUID id, UUID nueva, Instant en) {
+        jdbc.update("UPDATE sesion SET revocada = true, rotada_en = COALESCE(rotada_en, ?), reemplazada_por = COALESCE(reemplazada_por, ?) WHERE id = ?",
+                Timestamp.from(en), nueva, id);
+    }
 
     @Override public void crearRecuperacion(TokenRecuperacion t) {
         jdbc.update("INSERT INTO token_recuperacion (token_hash, usuario_id, expira_en, usado) VALUES (?, ?, ?, ?)",
