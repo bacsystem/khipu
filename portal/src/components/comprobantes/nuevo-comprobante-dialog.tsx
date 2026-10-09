@@ -148,6 +148,22 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                 </Alerta>
               </div>
             ) : null}
+            {/* #107: se puede emitir (se firma y queda guardado), pero SUNAT no lo recibe hasta corregir las credenciales. */}
+            {empresa.dato?.credenciales_sol_rechazadas ? (
+              <div className="shrink-0 px-5 pt-4">
+                <Alerta
+                  tono="aviso"
+                  titulo="SUNAT rechazó las credenciales SOL de esta empresa"
+                  accion={
+                    <Link href="/empresa" onClick={() => setAbierto(false)} className={ACCION_SECUNDARIA}>
+                      Corregirlas
+                    </Link>
+                  }
+                >
+                  El comprobante se firma y queda guardado, pero no se envía a SUNAT hasta que las corrijas: entonces sale solo.
+                </Alerta>
+              </div>
+            ) : null}
             <NuevoComprobanteForm series={series.dato} tasaIgv={tasaIgv} onEmitido={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
           </>
         ) : series.error ? (

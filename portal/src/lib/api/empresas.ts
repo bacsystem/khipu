@@ -39,6 +39,8 @@ export type EmpresaDetalle = {
   nombre_comercial?: string | null;
   /** Inscrita en el Padrón de Tasa Especial del IGV (restaurantes y hoteles, Ley 31556): emite con la tasa reducida. */
   padron_tasa_especial_igv?: boolean;
+  /** #107: SUNAT rechazó las credenciales SOL; mientras esté, los envíos esperan a que se corrijan. Ausente si no. */
+  credenciales_sol_rechazadas?: { desde: string; motivo: string } | null;
 };
 
 export function listarEmpresas(access: string) {
