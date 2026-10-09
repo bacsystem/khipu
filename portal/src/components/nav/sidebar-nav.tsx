@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon } from "lucide-react";
+import { EyeIcon, GaugeIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,13 @@ const GRUPOS: Grupo[] = [
       { href: "/empresa", label: "Fiscal & certificado", icon: ShieldCheckIcon },
       { href: "/establecimientos", label: "Establecimientos", icon: StoreIcon },
       { href: "/api-keys", label: "API keys", icon: TerminalIcon },
+    ],
+  },
+  {
+    // Lo de la cuenta y no de una empresa, como en la miga («Cuenta / …»).
+    titulo: "Cuenta",
+    items: [
+      { href: "/cuenta/plan", label: "Plan y consumo", icon: GaugeIcon },
       { href: "/cuenta/accesos-de-soporte", label: "Accesos de soporte", icon: EyeIcon },
     ],
   },

@@ -15,9 +15,11 @@ import { useSoloLectura } from "@/lib/solo-lectura";
 
 const ETIQUETA_ROL: Record<string, string> = { ADMIN: "Administrador", EMISOR: "Emisor", LECTURA: "Solo lectura" };
 
-function iniciales(email: string): string {
-  const local = email.split("@")[0] ?? email;
-  return local.slice(0, 2).toUpperCase();
+/** Las dos primeras letras del nombre de la cuenta («FT» de «Ferretería Torres»), o del correo si no se pudo leer la cuenta. */
+function iniciales(nombre: string): string {
+  const palabras = nombre.split(/[\s@._-]+/).filter(Boolean);
+  const letras = palabras.length > 1 ? palabras[0][0] + palabras[1][0] : (palabras[0] ?? nombre).slice(0, 2);
+  return letras.toUpperCase();
 }
 
 /** Pide al backend el enlace de restablecimiento para el correo de la sesión: es el mismo flujo público de "recuperar", sin salir del panel. */
@@ -100,13 +102,15 @@ function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { email: stri
 }
 
 /** Bloque de usuario del sidebar: abre un menú con la cuenta, el tema, el cambio de contraseña y el cierre de sesión. */
-export function PerfilUsuario({ usuario }: { usuario: Usuario }) {
+/** `nombreCuenta`: el de la cuenta (C7); `null` si no se pudo leer, y entonces se usa el correo. */
+export function PerfilUsuario({ usuario, nombreCuenta }: { usuario: Usuario; nombreCuenta: string | null }) {
   const soloLectura = useSoloLectura();
   const router = useRouter();
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
 
-  const nombre = usuario.email.split("@")[0] ?? usuario.email;
+  // C7: el nombre de la cuenta («Ferretería Torres»), no la parte del correo antes de la @ («ana.torres»).
+  const nombre = nombreCuenta ?? usuario.email;
   const rol = ETIQUETA_ROL[usuario.rol] ?? usuario.rol;
 
   async function salir() {
@@ -128,7 +132,7 @@ export function PerfilUsuario({ usuario }: { usuario: Usuario }) {
         >
           <div className="flex min-w-0 items-center gap-2.5">
             <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground shadow-xs">
-              {iniciales(usuario.email)}
+              {iniciales(nombre)}
             </div>
             <div className="min-w-0 overflow-hidden">
               <p className="truncate text-[12px] leading-tight font-medium text-foreground">{nombre}</p>
@@ -144,7 +148,7 @@ export function PerfilUsuario({ usuario }: { usuario: Usuario }) {
           {/* Datos completos, sin truncar: el correo se parte en dos líneas si hace falta. */}
           <div className="flex items-start gap-2.5 rounded-md bg-accent/70 py-1.5 pr-2 pl-2 text-accent-foreground">
             <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground shadow-xs">
-              {iniciales(usuario.email)}
+              {iniciales(nombre)}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[12px] leading-tight font-medium">{nombre}</p>
