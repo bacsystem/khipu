@@ -38,8 +38,13 @@ class AutenticarUsuarioServiceTest {
     SesionRepository sesiones = new SesionRepository() {
         public void crear(Sesion s) { sesionesMap.put(s.refreshHash(), s); }
         public Optional<Sesion> buscarPorRefreshHash(String h) { return Optional.ofNullable(sesionesMap.get(h)); }
+        public Optional<Sesion> buscar(UUID id) { return sesionesMap.values().stream().filter(s -> s.id().equals(id)).findFirst(); }
         public void revocar(UUID id) { sesionesMap.replaceAll((k, s) -> s.id().equals(id) ? new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true) : s); }
         public void revocarTodas(UUID u) { sesionesMap.replaceAll((k, s) -> s.usuarioId().equals(u) ? new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true) : s); }
+        public void rotar(UUID id, UUID nueva, java.time.Instant en) {
+            sesionesMap.replaceAll((k, s) -> s.id().equals(id) ? new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true,
+                    s.rotadaEn() == null ? en : s.rotadaEn(), s.reemplazadaPor() == null ? nueva : s.reemplazadaPor()) : s);
+        }
         public void crearRecuperacion(TokenRecuperacion t) { recMap.put(t.tokenHash(), t); }
         public Optional<TokenRecuperacion> buscarRecuperacion(String h) { return Optional.ofNullable(recMap.get(h)); }
         public void marcarRecuperacionUsada(String h) { recMap.computeIfPresent(h, (k, t) -> new TokenRecuperacion(t.tokenHash(), t.usuarioId(), t.expiraEn(), true)); }
@@ -312,13 +317,71 @@ class AutenticarUsuarioServiceTest {
         assertThat(correos).hasSize(3);
     }
 
+    private AutenticarUsuarioService conReloj(Clock c) {
+        return new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, c, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas));
+    }
+
     @Test void refreshRotaYElAnteriorDejaDeServir() {
         Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         Tokens t2 = service.refrescar(t1.refresh());
         assertThat(t2.refresh()).isNotEqualTo(t1.refresh());
-        assertThatThrownBy(() -> service.refrescar(t1.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+        AutenticarUsuarioService pasadaLaGracia = conReloj(Clock.offset(clock, AutenticarUsuarioService.GRACIA_ROTACION.plusSeconds(1)));
+        assertThatThrownBy(() -> pasadaLaGracia.refrescar(t1.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
         service.logout(t2.refresh());
         assertThatThrownBy(() -> service.refrescar(t2.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    // --- S6: dos instancias del portal refrescan la misma sesión casi a la vez ---------------------------------------------------
+
+    /**
+     * Cada instancia del portal tiene su propio single-flight: si dos peticiones del mismo navegador caen en instancias distintas, ambas
+     * mandan el mismo refresh. La que llega segunda no debe cerrar la sesión del usuario.
+     */
+    @Test void elRefreshRecienRotadoSirveParaLaPeticionQueLlegaJustoDespues() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        Tokens primera = service.refrescar(t1.refresh());
+
+        Tokens segunda = conReloj(Clock.offset(clock, Duration.ofSeconds(5))).refrescar(t1.refresh());
+
+        assertThat(segunda.access()).isNotBlank();
+        assertThat(segunda.refresh()).isNotEqualTo(primera.refresh()).isNotEqualTo(t1.refresh());
+        assertThat(service.refrescar(primera.refresh()).access()).as("la de la primera sigue viva").isNotBlank();
+    }
+
+    /** Si el reemplazo también lo rotó otro refresh (no un logout), la sesión sigue viva y la gracia vale. */
+    @Test void laGraciaValeAunqueElReemplazoTambienSeHayaRotado() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        service.refrescar(service.refrescar(t1.refresh()).refresh());
+
+        assertThat(service.refrescar(t1.refresh()).access()).isNotBlank();
+    }
+
+    /** Cerrar sesión justo después de un refresh no deja el refresh anterior abierto durante la gracia. */
+    @Test void cerrarSesionAnulaLaGraciaDelRefreshAnterior() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        Tokens t2 = service.refrescar(t1.refresh());
+
+        service.logout(t2.refresh());
+
+        assertThatThrownBy(() -> service.refrescar(t1.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    /** Restablecer la contraseña revoca todo: tampoco queda gracia para un refresh recién rotado. */
+    @Test void restablecerLaContrasenaAnulaLaGracia() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        service.refrescar(t1.refresh());
+        service.solicitarRecuperacion("a@b.pe", PORTAL);
+
+        service.restablecer(tokenDelCorreo("/restablecer/"), "Nueva1234");
+
+        assertThatThrownBy(() -> service.refrescar(t1.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    /** Un refresh cerrado con logout nunca tuvo gracia: solo la rotación la da. */
+    @Test void unRefreshCerradoConLogoutNoTieneGracia() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        service.logout(t1.refresh());
+        assertThatThrownBy(() -> service.refrescar(t1.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
     }
 
     @Test void refreshExpiradoFalla() {

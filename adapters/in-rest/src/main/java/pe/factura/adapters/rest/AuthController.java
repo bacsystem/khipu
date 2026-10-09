@@ -59,7 +59,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    @Operation(summary = "Renovar la sesión", description = "Entrega un nuevo par de tokens a cambio del refresh vigente; el usado queda invalidado (`401 SESION_INVALIDA` si se reutiliza).")
+    @Operation(summary = "Renovar la sesión", description = "Entrega un nuevo par de tokens a cambio del refresh vigente; el usado queda invalidado. Durante 30 segundos todavía se acepta, para una petición concurrente que mandó el mismo refresh; después, `401 SESION_INVALIDA`. Cerrar sesión lo invalida al instante.")
     public ApiResponse<TokensResponse> refrescar(@Valid @RequestBody RefreshRequest body) {
         return ApiResponse.ok(TokensResponse.de(auth.refrescar(body.refresh())));
     }

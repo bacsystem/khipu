@@ -16,6 +16,11 @@ type RouteContext = { params: Promise<{ path: string[] }> };
  * para todo el proceso, así que dos usuarios distintos pueden estar refrescando a la
  * vez. Con una sola promesa compartida, al segundo se le escribirían las cookies del
  * primero — es decir, terminaría dentro de la sesión ajena.
+ *
+ * Este mapa solo ve su propio proceso: el middleware (edge) y las otras instancias del
+ * portal no lo comparten. Para eso el backend acepta un refresh recién rotado durante
+ * 30 segundos (S6), así que una carrera entre procesos no cierra la sesión. Esto evita
+ * la mayoría de las carreras; aquello cubre las que quedan.
  */
 const refrescosEnCurso = new Map<string, Promise<Tokens>>();
 

@@ -18,6 +18,11 @@ import java.util.UUID;
 public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     static final Duration VIDA_REFRESH = Duration.ofDays(30);
     static final Duration VIDA_RECUPERACION = Duration.ofHours(1);
+    /**
+     * S6: cuánto sigue sirviendo un refresh recién rotado. Cada instancia del portal evita refrescar dos veces a la vez, pero no ve a las
+     * demás: si dos peticiones del mismo navegador caen en instancias distintas, ambas mandan el mismo refresh y la segunda cerraba la sesión.
+     */
+    static final Duration GRACIA_ROTACION = Duration.ofSeconds(30);
     /** Un día: quien se registra puede no abrir el correo enseguida; pasado eso pide otro desde el portal. */
     static final Duration VIDA_VERIFICACION = Duration.ofHours(24);
     /** Enlaces de verificación por usuario dentro de {@link #VIDA_VERIFICACION}, contando el del registro. */
@@ -112,13 +117,26 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     @Override
     public Tokens refrescar(String refresh) {
         Sesion s = sesiones.buscarPorRefreshHash(TokenOpaco.hash(refresh == null ? "" : refresh))
-                .filter(x -> !x.revocada() && x.expiraEn().isAfter(clock.instant()))
+                .filter(x -> x.expiraEn().isAfter(clock.instant()) && (!x.revocada() || enGracia(x)))
                 .orElseThrow(() -> new DomainException("SESION_INVALIDA", "Sesión expirada o inválida"));
         Usuario u = usuarios.buscar(s.usuarioId()).filter(Usuario::activo)
                 .orElseThrow(() -> new DomainException("SESION_INVALIDA", "Usuario inactivo"));
         // Sin tocar la sesión: suspender no borra nada, y al reactivar la misma sesión vuelve a servir (#182).
         exigirCuentaActiva(u);
-        return uow.ejecutar(() -> { sesiones.revocar(s.id()); return emitirTokens(u); });   // rotación
+        return uow.ejecutar(() -> {   // rotación
+            SesionEmitida t = emitirSesion(u);
+            sesiones.rotar(s.id(), t.sesionId(), clock.instant());
+            return t.tokens();
+        });
+    }
+
+    /**
+     * S6: la sesión la cerró un refresh hace menos de {@link #GRACIA_ROTACION} y la que la reemplazó sigue abierta (o también la reemplazó
+     * otro refresh). Si al reemplazo lo cerró un logout, o restablecer la contraseña revocó todo, no hay gracia.
+     */
+    private boolean enGracia(Sesion s) {
+        if (s.rotadaEn() == null || s.reemplazadaPor() == null || !clock.instant().isBefore(s.rotadaEn().plus(GRACIA_ROTACION))) return false;
+        return sesiones.buscar(s.reemplazadaPor()).filter(r -> !r.revocada() || r.rotadaEn() != null).isPresent();
     }
 
     private void exigirCuentaActiva(Usuario u) {
@@ -166,9 +184,16 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     }
 
     private Tokens emitirTokens(Usuario u) {
+        return emitirSesion(u).tokens();
+    }
+
+    private record SesionEmitida(UUID sesionId, Tokens tokens) {}
+
+    private SesionEmitida emitirSesion(Usuario u) {
         String refresh = TokenOpaco.generar();
-        sesiones.crear(new Sesion(UUID.randomUUID(), u.id(), TokenOpaco.hash(refresh), clock.instant().plus(VIDA_REFRESH), false));
+        UUID id = UUID.randomUUID();
+        sesiones.crear(new Sesion(id, u.id(), TokenOpaco.hash(refresh), clock.instant().plus(VIDA_REFRESH), false));
         String access = tokens.emitir(new TokenEmisor.Claims(u.id(), u.cuentaId(), u.rol()));
-        return new Tokens(access, refresh, u);
+        return new SesionEmitida(id, new Tokens(access, refresh, u));
     }
 }
