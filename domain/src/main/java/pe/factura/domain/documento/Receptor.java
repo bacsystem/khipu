@@ -49,14 +49,15 @@ public record Receptor(String tipoDoc, String numDoc, String razonSocial, String
 
     /**
      * Boleta (Boleta2_0): DNI de 8 dígitos (4207), RUC con dígito verificador (2017), los demás documentos del catálogo 06 hasta 15 caracteres sin espacios (4208), o
-     * {@link #SIN_DOCUMENTO} con número «-» (2802). SUNAT deja 4207/4208 como observación; aquí son error para no emitir un comprador mal identificado. El tope de
+     * {@link #SIN_DOCUMENTO} con número «-». SUNAT deja 4207/4208 como observación; aquí son error para no emitir un comprador mal identificado. El tope de
      * S/ 700 sin documento depende del total y lo aplica la boleta.
      */
     void exigirValidoParaBoleta() {
         if (sinDocumento()) {
-            if (!SIN_DOCUMENTO.equals(numDoc)) throw new DomainException("RECEPTOR_INVALIDO", "2802 - Sin documento (tipo_doc «-»), el número de documento también es «-»");
+            // Sin código SUNAT: Boleta2_0 no tiene regla propia para el comprador sin documento (2802 es de exportación en Factura2_0).
+            if (!SIN_DOCUMENTO.equals(numDoc)) throw new DomainException("RECEPTOR_INVALIDO", "Sin documento (tipo_doc «-»), el número de documento también es «-»");
         } else if (tipoDoc == null || !DOCUMENTOS_BOLETA.contains(tipoDoc)) {
-            throw new DomainException("RECEPTOR_INVALIDO", "2016 - El tipo de documento del comprador es del catálogo 06 (1 DNI, 4 carné de extranjería, 6 RUC, 7 pasaporte…) o «-» sin documento; recibido " + tipoDoc);
+            throw new DomainException("RECEPTOR_INVALIDO", "El tipo de documento del comprador es del catálogo 06 (1 DNI, 4 carné de extranjería, 6 RUC, 7 pasaporte…) o «-» sin documento; recibido " + tipoDoc);
         } else if ("6".equals(tipoDoc)) {
             Ruc.exigirValido(numDoc, "RECEPTOR_INVALIDO", "2017 - Receptor");
         } else if ("1".equals(tipoDoc)) {

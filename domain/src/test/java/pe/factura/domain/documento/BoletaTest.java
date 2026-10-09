@@ -61,8 +61,9 @@ class BoletaTest {
             "6, 20601234560, CLIENTE SAC, 2017",
             "4, 'CE 123', JUAN PEREZ, 4208",
             "7, 1234567890123456, JUAN PEREZ, 4208",
-            "-, 12345678, JUAN PEREZ, 2802",
-            "X, 12345678, JUAN PEREZ, 2016",
+            // Sin código SUNAT (274-H3): Boleta2_0 no tiene regla para estos dos; 2802 y 2016 son de otras hojas.
+            "-, 12345678, JUAN PEREZ, Sin documento",
+            "X, 12345678, JUAN PEREZ, El tipo de documento del comprador",
             "1, 12345678, JP, 2022",
     })
     void elReceptorSigueLasReglasDeBoleta(String tipo, String numero, String nombre, String regla) {
@@ -97,9 +98,28 @@ class BoletaTest {
                 .extracting("codigo").isEqualTo("TIPO_OPERACION_INVALIDO");
     }
 
-    /** En boletas el rechazo por plazo vencido es 1079 (Boleta2_0), no el 2108 de las facturas. */
-    @Test void fueraDePlazoCitaLaReglaDeBoleta() {
+    /**
+     * 274-H2: solo los tipos de operación cuyos datos khipu genera en una boleta. Otros del catálogo 51 que dicen «Boleta» (0401 a no domiciliados, 0302
+     * con medio de pago…) pasaban, consumían número y SUNAT los rechazaba.
+     */
+    @Test void soloLosTiposDeOperacionQueKhipuArmaEnUnaBoleta() {
+        for (String op : new String[]{"0401", "0302"})
+            assertThatThrownBy(() -> Comprobante.boleta(tenant, "B001", hoy, "PEN", op, dni, items("10")).crear(clock)).as(op)
+                    .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("TIPO_OPERACION_INVALIDO");
+        assertThat(Comprobante.boleta(tenant, "B001", hoy, "PEN", "0101", dni, items("10")).crear(clock).tipoOperacion()).isEqualTo("0101");
+    }
+
+    /**
+     * En boletas el rechazo por plazo es 1079, «Solo puede enviar el comprobante en un resumen diario» (Boleta2_0): pasado el envío individual, SUNAT la
+     * recibe en el resumen. El mensaje lo dice así, no como un 2108 («fuera de fecha, emita otro»), que llevaría a cobrar la misma venta dos veces (274-H1).
+     */
+    @Test void fueraDePlazoCitaLaReglaDeBoletaYNoPideEmitirOtra() {
         assertThatThrownBy(() -> Comprobante.boleta(tenant, "B001", hoy.minusDays(4), "PEN", "0101", dni, items("10")).crear(clock))
-                .isInstanceOf(DomainException.class).hasMessageStartingWith("1079").extracting("codigo").isEqualTo("FECHA_INVALIDA");
+                .isInstanceOf(DomainException.class).hasMessageStartingWith("1079").hasMessageContaining("resumen diario").extracting("codigo").isEqualTo("FECHA_INVALIDA");
+        Comprobante c = Comprobante.boleta(tenant, "B001", hoy, "PEN", "0101", dni, items("10")).crear(clock);
+        c.asignarNumero(1, "20100066603");
+        c.firmar("h", "k");
+        c.marcarFueraDePlazo(hoy.plusDays(4));
+        assertThat(c.ultimoError()).startsWith("1079").contains("resumen diario").doesNotContain("Presentación fuera de fecha");
     }
 }

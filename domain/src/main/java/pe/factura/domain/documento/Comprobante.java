@@ -191,9 +191,15 @@ public class Comprobante {
             if (formaPago.esCredito()) throw new DomainException("FORMA_PAGO_INVALIDA", "Una boleta se emite al contado: la venta al crédito va en factura");
             if (retencion != null) throw new DomainException("RETENCION_INVALIDA", "La retención del IGV la hace un agente de retención con RUC: va en factura, no en boleta");
             if (anticipos != null && !anticipos.isEmpty()) throw new DomainException("ANTICIPO_INVALIDO", "Los anticipos todavía no se descuentan en boletas: emítela sin anticipos o como factura");
-            if (Exportacion.es(operacion)) throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - La exportación (" + operacion + ") todavía no se emite en boleta: va en factura");
+            // Lista blanca (274-H2): del catálogo 51 que aplica a boletas, solo aquellos cuyos datos khipu arma en el XML. Otros (exportación, 0401 a no
+            // domiciliados, 0302 con medio de pago…) consumían número y SUNAT los rechazaba.
+            if (!OPERACIONES_EN_BOLETA.contains(operacion))
+                throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " todavía no se emite en boleta; en boleta: " + String.join(", ", OPERACIONES_EN_BOLETA.stream().sorted().toList()));
         }
     }
+
+    /** Venta interna, NRUS, detracción (1001–1004) y percepción (2001): lo que khipu sabe armar en una boleta. */
+    static final java.util.Set<String> OPERACIONES_EN_BOLETA = java.util.Set.of("0101", "0113", "1001", "1002", "1003", "1004", "2001");
 
     /**
      * Nota de crédito (07) o de débito (08) sobre una factura. Comparte con la factura receptor, ítems, descuentos, cargos y
@@ -282,8 +288,7 @@ public class Comprobante {
     /** Una fecha de emisión cuyo plazo de envío ya venció daría un comprobante que SUNAT rechaza (2108, o 1079 en boletas) con el número consumido. */
     private static void exigirDentroDelPlazoDeEnvio(TipoDocumento tipo, LocalDate fechaEmision, Clock clock) {
         if (PlazoEnvio.vencido(tipo, fechaEmision, LocalDate.now(clock)))
-            throw new DomainException("FECHA_INVALIDA", PlazoEnvio.reglaDeRechazo(tipo) + " - Con fecha de emisión " + fechaEmision + " el plazo de envío a SUNAT venció el "
-                    + PlazoEnvio.fechaLimite(tipo, fechaEmision) + " (" + PlazoEnvio.dias(tipo) + " días calendario)");
+            throw new DomainException("FECHA_INVALIDA", PlazoEnvio.motivoDeRechazo(tipo, fechaEmision) + " (fecha de emisión " + fechaEmision + ")");
     }
 
     /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar al tipo de comprobante (columna "Tipo de Comprobante asociado": "Factura", "Boleta"…). */
@@ -405,10 +410,10 @@ public class Comprobante {
 
     public boolean fueraDePlazo(LocalDate hoy) { return PlazoEnvio.vencido(tipo, fechaEmision, hoy); }
 
-    /** Venció el plazo sin llegar a SUNAT: terminal, el número queda consumido y hay que emitir de nuevo ({@link PlazoEnvio#reglaDeRechazo}). */
+    /** Venció el plazo sin llegar a SUNAT: terminal para el envío individual, con el motivo de SUNAT ({@link PlazoEnvio#motivoDeRechazo}). */
     public void marcarFueraDePlazo(LocalDate hoy) {
         if (!fueraDePlazo(hoy)) throw new DomainException("TRANSICION_INVALIDA", "El plazo de envío vence el " + fechaLimiteEnvio() + ": todavía se puede enviar");
-        this.ultimoError = PlazoEnvio.reglaDeRechazo(tipo) + " - Presentación fuera de fecha: el plazo venció el " + fechaLimiteEnvio();
+        this.ultimoError = PlazoEnvio.motivoDeRechazo(tipo, fechaEmision);
         transitar(EstadoDocumento.FUERA_DE_PLAZO, this.ultimoError);
     }
 
