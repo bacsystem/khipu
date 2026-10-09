@@ -53,6 +53,10 @@ class RefreshConcurrenteE2ETest {
 
     private String refreshDe(ResponseEntity<Map> r) { return (String) ((Map<?, ?>) r.getBody().get("datos")).get("refresh"); }
 
+    /**
+     * El escenario real, con las dos peticiones a la vez. No discrimina por sí solo (271-H2): si las dos leen la sesión antes del primer commit, ambas la
+     * ven sin revocar y pasan aun sin la gracia. El que sí falla sin la gracia es {@link #elMismoRefreshUnPocoDespuesTodaviaSirve}.
+     */
     @Test void dosRefreshSimultaneosConElMismoTokenSalenBienYCadaUnoQuedaConSesion() throws Exception {
         String refresh = registrar();
         CyclicBarrier largada = new CyclicBarrier(2);
@@ -84,6 +88,24 @@ class RefreshConcurrenteE2ETest {
 
         assertThat(refrescar(refresh).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(refrescar(nuevo).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * 271-H1: dos instancias rotan el mismo refresh (la segunda en gracia) y el navegador se queda con la segunda. Cerrar sesión con esa cierra también la
+     * rama de la primera instancia y la gracia del refresh original: antes la rama quedaba viva 30 días.
+     */
+    @Test void cerrarSesionCierraTambienLaOtraRamaDeLaGracia() {
+        String refresh = registrar();
+        String ramaA = refreshDe(refrescar(refresh));
+        ResponseEntity<Map> ramaB = refrescar(refresh);
+        HttpHeaders conSesion = json();
+        conSesion.setBearerAuth((String) ((Map<?, ?>) ramaB.getBody().get("datos")).get("access"));
+
+        assertThat(http.postForEntity("/v1/auth/logout", new HttpEntity<>("{\"refresh\":\"%s\"}".formatted(refreshDe(ramaB)), conSesion), Void.class).getStatusCode())
+                .isEqualTo(HttpStatus.NO_CONTENT);
+
+        assertThat(refrescar(ramaA).getStatusCode()).as("la otra rama").isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(refrescar(refresh).getStatusCode()).as("el refresh original").isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     @Test void pasadaLaGraciaElRefreshRotadoYaNoSirve() {

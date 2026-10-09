@@ -39,11 +39,14 @@ class AutenticarUsuarioServiceTest {
         public void crear(Sesion s) { sesionesMap.put(s.refreshHash(), s); }
         public Optional<Sesion> buscarPorRefreshHash(String h) { return Optional.ofNullable(sesionesMap.get(h)); }
         public Optional<Sesion> buscar(UUID id) { return sesionesMap.values().stream().filter(s -> s.id().equals(id)).findFirst(); }
-        public void revocar(UUID id) { sesionesMap.replaceAll((k, s) -> s.id().equals(id) ? new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true) : s); }
-        public void revocarTodas(UUID u) { sesionesMap.replaceAll((k, s) -> s.usuarioId().equals(u) ? new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true) : s); }
+        /** Como el JDBC: revocar borra las marcas de rotación (sin gracia) y conserva la familia. */
+        Sesion revocada(Sesion s) { return new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true, null, null, s.familia()); }
+        public void revocar(UUID id) { sesionesMap.replaceAll((k, s) -> s.id().equals(id) ? revocada(s) : s); }
+        public void revocarFamilia(UUID f) { sesionesMap.replaceAll((k, s) -> s.familia().equals(f) ? revocada(s) : s); }
+        public void revocarTodas(UUID u) { sesionesMap.replaceAll((k, s) -> s.usuarioId().equals(u) ? revocada(s) : s); }
         public void rotar(UUID id, UUID nueva, java.time.Instant en) {
             sesionesMap.replaceAll((k, s) -> s.id().equals(id) ? new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true,
-                    s.rotadaEn() == null ? en : s.rotadaEn(), s.reemplazadaPor() == null ? nueva : s.reemplazadaPor()) : s);
+                    s.rotadaEn() == null ? en : s.rotadaEn(), s.reemplazadaPor() == null ? nueva : s.reemplazadaPor(), s.familia()) : s);
         }
         public void crearRecuperacion(TokenRecuperacion t) { recMap.put(t.tokenHash(), t); }
         public Optional<TokenRecuperacion> buscarRecuperacion(String h) { return Optional.ofNullable(recMap.get(h)); }
@@ -318,7 +321,7 @@ class AutenticarUsuarioServiceTest {
     }
 
     private AutenticarUsuarioService conReloj(Clock c) {
-        return new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, c, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas));
+        return new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, c, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite);
     }
 
     @Test void refreshRotaYElAnteriorDejaDeServir() {
@@ -364,6 +367,47 @@ class AutenticarUsuarioServiceTest {
         service.logout(t2.refresh());
 
         assertThatThrownBy(() -> service.refrescar(t1.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    /**
+     * 271-H1: con dos rotaciones seguidas, cerrar sesión desde la última tampoco deja abierto el refresh del principio. Antes la gracia solo miraba al
+     * reemplazo directo (rotado, no revocado por logout) y el refresh original creaba una sesión de 30 días después del logout.
+     */
+    @Test void cerrarSesionTrasDosRotacionesAnulaLaGraciaDeTodaLaCadena() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        Tokens t2 = service.refrescar(t1.refresh());
+        Tokens t3 = service.refrescar(t2.refresh());
+
+        service.logout(t3.refresh());
+
+        assertThatThrownBy(() -> service.refrescar(t1.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+        assertThatThrownBy(() -> service.refrescar(t2.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    /**
+     * 271-H1, el caso real de S6: dos instancias rotan el mismo refresh (una en gracia) y el navegador se queda con una de las dos. Cerrar sesión con esa
+     * cierra también la otra, que si no quedaba viva 30 días, y la gracia del refresh original.
+     */
+    @Test void cerrarSesionCierraTambienLaRamaQueAbrioLaGracia() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        Tokens instanciaA = service.refrescar(t1.refresh());
+        Tokens instanciaB = conReloj(Clock.offset(clock, Duration.ofSeconds(5))).refrescar(t1.refresh());
+
+        service.logout(instanciaB.refresh());
+
+        assertThatThrownBy(() -> service.refrescar(instanciaA.refresh())).as("la otra rama").extracting("codigo").isEqualTo("SESION_INVALIDA");
+        assertThatThrownBy(() -> service.refrescar(t1.refresh())).as("el refresh original").extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    /** Cerrar sesión cierra lo de ese navegador, no las demás sesiones del usuario (otro dispositivo es otro login). */
+    @Test void cerrarSesionNoCierraOtroLoginDelMismoUsuario() {
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        Tokens laptop = service.login("a@b.pe", "Segura123", null);
+        Tokens celular = service.login("a@b.pe", "Segura123", null);
+
+        service.logout(laptop.refresh());
+
+        assertThat(service.refrescar(celular.refresh()).access()).isNotBlank();
     }
 
     /** Restablecer la contraseña revoca todo: tampoco queda gracia para un refresh recién rotado. */

@@ -123,8 +123,8 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
                 .orElseThrow(() -> new DomainException("SESION_INVALIDA", "Usuario inactivo"));
         // Sin tocar la sesión: suspender no borra nada, y al reactivar la misma sesión vuelve a servir (#182).
         exigirCuentaActiva(u);
-        return uow.ejecutar(() -> {   // rotación
-            SesionEmitida t = emitirSesion(u);
+        return uow.ejecutar(() -> {   // rotación: la sesión nueva es de la misma familia (271-H1), también si entró en gracia
+            SesionEmitida t = emitirSesion(u, s.familia());
             sesiones.rotar(s.id(), t.sesionId(), clock.instant());
             return t.tokens();
         });
@@ -147,7 +147,9 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     @Override
     public void logout(String refresh) {
         if (refresh == null || refresh.isBlank()) return;
-        sesiones.buscarPorRefreshHash(TokenOpaco.hash(refresh)).ifPresent(s -> uow.ejecutar(() -> sesiones.revocar(s.id())));
+        // Toda la familia, no solo esta sesión (271-H1): con dos rotaciones, o con dos instancias que rotaron el mismo refresh, quedaban vivas la otra
+        // rama (30 días) y la gracia del refresh original, y un logout no las cerraba.
+        sesiones.buscarPorRefreshHash(TokenOpaco.hash(refresh)).ifPresent(s -> uow.ejecutar(() -> sesiones.revocarFamilia(s.familia())));
     }
 
     @Override
@@ -183,16 +185,18 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
         });
     }
 
+    /** Un login (o un registro): una familia nueva. */
     private Tokens emitirTokens(Usuario u) {
-        return emitirSesion(u).tokens();
+        return emitirSesion(u, null).tokens();
     }
 
     private record SesionEmitida(UUID sesionId, Tokens tokens) {}
 
-    private SesionEmitida emitirSesion(Usuario u) {
+    /** {@code familia}: la de la sesión que se rota, o {@code null} para empezar una nueva (la propia sesión). */
+    private SesionEmitida emitirSesion(Usuario u, UUID familia) {
         String refresh = TokenOpaco.generar();
         UUID id = UUID.randomUUID();
-        sesiones.crear(new Sesion(id, u.id(), TokenOpaco.hash(refresh), clock.instant().plus(VIDA_REFRESH), false));
+        sesiones.crear(new Sesion(id, u.id(), TokenOpaco.hash(refresh), clock.instant().plus(VIDA_REFRESH), familia == null ? id : familia));
         String access = tokens.emitir(new TokenEmisor.Claims(u.id(), u.cuentaId(), u.rol()));
         return new SesionEmitida(id, new Tokens(access, refresh, u));
     }
