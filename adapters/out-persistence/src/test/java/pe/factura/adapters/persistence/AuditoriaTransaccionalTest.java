@@ -35,7 +35,7 @@ class AuditoriaTransaccionalTest extends PersistenciaTestBase {
 
     AdministrarTenantService tenantService(AuditoriaAdminRepository auditoria) {
         return new AdministrarTenantService(new JdbcTenantRepository(jdbc, sinCifrar), new JdbcSerieRepository(jdbc), new JdbcApiKeyRepository(jdbc),
-                uow, "pepper", CLOCK, new JdbcEstablecimientoRepository(jdbc), auditoria);
+                uow, "pepper", CLOCK, new JdbcEstablecimientoRepository(jdbc), auditoria, new JdbcRechazoDeSolRepository(jdbc));
     }
 
     CrearAdministradorService administradorService(AuditoriaAdminRepository auditoria) {

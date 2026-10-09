@@ -41,7 +41,8 @@ public class EmpresaController {
     @GetMapping("/empresa")
     @Operation(summary = "Ver la empresa", description = "RUC, razón social, entorno SUNAT (`BETA` u homologación / `PRODUCCION`), si tiene credenciales SOL, la vigencia del certificado, el domicilio fiscal y la cuenta de detracciones. Nunca devuelve secretos.")
     public ApiResponse<EmpresaResponse> ver(HttpServletRequest req) {
-        return ApiResponse.ok(EmpresaResponse.de(admin.obtener(TenantActual.id(req))));
+        UUID tenant = TenantActual.id(req);
+        return ApiResponse.ok(EmpresaResponse.de(admin.obtener(tenant), admin.rechazoDeSol(tenant).orElse(null)));
     }
 
     @PostMapping(value = "/empresa/certificado", consumes = "multipart/form-data")

@@ -36,6 +36,15 @@ final class Fakes {
         }
     }
 
+    /** Las empresas con credenciales SOL rechazadas (#107), y cuántas veces se levantó la marca. */
+    static final class RechazosDeSol implements RechazoDeSolRepository {
+        final Map<UUID, Rechazo> filas = new HashMap<>();
+        int levantados;
+        public void marcar(UUID t, String motivo, Instant en) { filas.merge(t, new Rechazo(en, motivo), (viejo, nuevo) -> new Rechazo(viejo.en(), nuevo.motivo())); }
+        public Optional<Rechazo> buscar(UUID t) { return Optional.ofNullable(filas.get(t)); }
+        public boolean levantar(UUID t, Instant ahora) { levantados++; return filas.remove(t) != null; }
+    }
+
     static final class Comprobantes implements ComprobanteRepository {
         final Map<UUID, Comprobante> datos = new HashMap<>();
         public void guardar(Comprobante c) {

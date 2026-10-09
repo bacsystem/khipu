@@ -120,6 +120,41 @@ class FacturaE2ETest {
         assertThat((String) eventos.get(3).get("mensaje")).contains("ha sido aceptada");
     }
 
+    /**
+     * #107: con credenciales SOL que SUNAT no acepta, el comprobante queda pendiente con un mensaje que dice qué hacer, la empresa no sigue golpeando a
+     * SUNAT y, al corregir las credenciales, el envío se reanuda solo.
+     */
+    @Test void credencialesSolRechazadasPausanLosEnviosHastaCorregirlas() throws Exception {
+        stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><soap-env:Fault>"
+                        + "<faultcode>soap-env:Client.0102</faultcode><faultstring>Usuario o contrasena incorrectos</faultstring></soap-env:Fault></soap-env:Body></soap-env:Envelope>")));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<?, ?> datos = (Map<?, ?>) http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class).getBody().get("datos");
+        assertThat(datos.get("estado_documento")).isEqualTo("ERROR_ENVIO");
+        assertThat((String) datos.get("ultimo_error")).contains("credenciales SOL").contains("0102").contains("Fiscal & certificado");
+
+        Map<?, ?> empresa = (Map<?, ?>) http.exchange("/v1/empresa", HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos");
+        assertThat((String) ((Map<?, ?>) empresa.get("credenciales_sol_rechazadas")).get("motivo")).startsWith("0102");
+
+        // Pausada: aunque el reintento esté vencido, el outbox no vuelve a golpear a SUNAT con las mismas credenciales.
+        jdbcAdelantarOutbox();
+        int llamadas = getAllServeEvents().size();
+        assertThat(worker.procesar()).isZero();
+        assertThat(getAllServeEvents()).hasSize(llamadas);
+
+        // Corregidas: la marca se levanta y el envío sale en la siguiente vuelta del worker, sin tocar la base.
+        reset();
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        assertThat(http.exchange("/v1/empresa/credenciales-sol", HttpMethod.PUT, new HttpEntity<>("{\"usuario\":\"BIENBIEN\",\"clave\":\"correcta\"}", h), Void.class)
+                .getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(((Map<?, ?>) http.exchange("/v1/empresa", HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos")).get("credenciales_sol_rechazadas")).isNull();
+        assertThat(worker.procesar()).isEqualTo(1);
+        Map<?, ?> d = (Map<?, ?>) http.exchange("/v1/facturas/" + datos.get("id"), HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos");
+        assertThat(d.get("estado_documento")).isEqualTo("ACEPTADO");
+    }
+
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     private void jdbcAdelantarOutbox() { jdbc.update("UPDATE outbox SET siguiente_intento = now() - interval '1 second'"); }
 

@@ -28,6 +28,8 @@ public class JdbcOutboxRepository implements OutboxRepository {
             SELECT o.id, o.tenant_id, o.agregado_id, o.accion, o.intentos FROM outbox o
             LEFT JOIN documento d ON d.id = o.agregado_id
             WHERE o.siguiente_intento <= now() AND (o.locked_until IS NULL OR o.locked_until < now())
+              -- #107: con las credenciales SOL rechazadas, los envíos de la empresa esperan a que se corrijan (RechazoDeSolRepository).
+              AND NOT EXISTS (SELECT 1 FROM tenant t WHERE t.id = o.tenant_id AND t.sol_rechazadas_en IS NOT NULL)
             ORDER BY d.fecha_emision NULLS LAST, o.siguiente_intento FOR UPDATE OF o SKIP LOCKED LIMIT ?
             """, (rs, i) -> new OutboxItem(rs.getObject("id", UUID.class), rs.getObject("tenant_id", UUID.class),
                 rs.getObject("agregado_id", UUID.class), rs.getString("accion"), rs.getInt("intentos")), limite);
