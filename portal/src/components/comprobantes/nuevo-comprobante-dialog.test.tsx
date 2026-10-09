@@ -4,6 +4,9 @@ import { NuevoComprobanteDialog } from "./nuevo-comprobante-dialog";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
+/** Una empresa que puede emitir: con certificado y credenciales SOL (C2). */
+const LISTA_PARA_EMITIR = { tiene_certificado: true, certificado_vigencia_hasta: null, tiene_credenciales_sol: true };
+
 const SERIES = [{ tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" }];
 
 function sobre(datos: unknown, status = 200) {
@@ -38,7 +41,7 @@ describe("NuevoComprobanteDialog", () => {
     let fallar = true;
     stubFetch((url) => {
       if (url.includes("/series")) return fallar ? sobre(null, 502) : sobre(SERIES);
-      return sobre({ id: "e-1", entorno: "BETA" });
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
     });
 
     render(<NuevoComprobanteDialog />);
@@ -57,7 +60,7 @@ describe("NuevoComprobanteDialog", () => {
   });
 
   it("una lista vacía sí es 'no tienes series': son dos situaciones distintas", async () => {
-    stubFetch((url) => (url.includes("/series") ? sobre([]) : sobre({ id: "e-1", entorno: "BETA" })));
+    stubFetch((url) => (url.includes("/series") ? sobre([]) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
 
     render(<NuevoComprobanteDialog />);
     fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
@@ -85,7 +88,7 @@ describe("NuevoComprobanteDialog", () => {
     let fallarEmpresa = true;
     const fetch = stubFetch((url) => {
       if (url.includes("/series")) return sobre(SERIES);
-      return fallarEmpresa ? sobre(null, 500) : sobre({ id: "e-1", entorno: "PRODUCCION", padron_tasa_especial_igv: true });
+      return fallarEmpresa ? sobre(null, 500) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "PRODUCCION", padron_tasa_especial_igv: true });
     });
 
     render(<NuevoComprobanteDialog />);
@@ -104,7 +107,7 @@ describe("NuevoComprobanteDialog", () => {
   });
 
   it("al reabrir recarga las series: cachearlas anunciaría el correlativo que ya consumió la emisión anterior", async () => {
-    const fetch = stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ id: "e-1", entorno: "BETA" })));
+    const fetch = stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
 
     render(<NuevoComprobanteDialog />);
     await abrir();
@@ -117,5 +120,23 @@ describe("NuevoComprobanteDialog", () => {
     // olvidara al cerrar, `ultimo_numero` seguiría siendo el de antes de la emisión.
     await abrir();
     expect(llamadasA(fetch, "/series")).toBe(primeraApertura + 1);
+  });
+
+  /** C2: el backend rechazaría la emisión; el diálogo lo dice antes de que se llene nada y no muestra el formulario. */
+  it("sin certificado vigente ni credenciales SOL dice qué falta en vez de mostrar el formulario", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : sobre({ id: "e-1", entorno: "BETA", tiene_certificado: true, certificado_vigencia_hasta: "2020-01-01", tiene_credenciales_sol: false }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByText("Esta empresa todavía no puede emitir")).toBeInTheDocument());
+    expect(screen.getByText("Renovar el certificado digital: el cargado ya venció.")).toBeInTheDocument();
+    expect(screen.getByText("Guardar el usuario SOL secundario y su clave.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir a Fiscal & certificado" })).toHaveAttribute("href", "/empresa");
   });
 });

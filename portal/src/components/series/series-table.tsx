@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  CalendarIcon,
-  ChevronDownIcon,
-  InboxIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  ReceiptTextIcon,
-  RefreshCwIcon,
-} from "lucide-react";
+import { InboxIcon, RefreshCwIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
@@ -19,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ETIQUETAS_TIPO } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { cn } from "@/lib/utils";
-import { CABECERA_TABLA, CONTROL_FILTRO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 
 const TODOS = "todos";
 
@@ -41,11 +33,6 @@ const SUBTITULO_TIPO: Record<string, string> = {
   "07": "Afecta facturas o boletas",
   "08": "Penalidades / ajustes",
 };
-
-const TABS_DESHABILITADOS = ["Facturas", "Boletas", "Notas de crédito"];
-
-const CONTROL_DESHABILITADO = "cursor-not-allowed text-muted-foreground opacity-70";
-const ACCION = "flex size-9 cursor-not-allowed items-center justify-center rounded-lg text-muted-foreground/60";
 
 function mascara(serie: string): string {
   return serie.replace(/[0-9]/g, "#");
@@ -95,22 +82,9 @@ export function SeriesTable({ series }: { series: Serie[] }) {
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className={cn(SEGMENTADO, "shrink-0")}>
-          <span data-active="" className={SEGMENTO}>Todas</span>
-          {TABS_DESHABILITADOS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              disabled
-              title="Pestañas por tipo de comprobante: próximamente (usa el filtro Tipo)"
-              className={SEGMENTO}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
+      {/* Solo filtros que funcionan (C6): las pestañas por tipo, el período, la selección múltiple y editar/historial/más acciones se
+          veían deshabilitados. El tipo se filtra con su selector. */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <Select items={ITEMS_ESTADO} value={estado} onValueChange={cambiarEstado}>
             <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")}>
@@ -140,17 +114,6 @@ export function SeriesTable({ series }: { series: Serie[] }) {
 
           <button
             type="button"
-            disabled
-            title="Filtro por período de creación: próximamente"
-            className={cn(CONTROL_FILTRO, CONTROL_DESHABILITADO, "inline-flex items-center gap-1.5 px-3")}
-          >
-            <CalendarIcon className="size-4 text-muted-foreground/70" />
-            Período: Todos
-            <ChevronDownIcon className="size-4 text-muted-foreground/70" />
-          </button>
-
-          <button
-            type="button"
             onClick={() => startTransition(() => router.refresh())}
             title="Refrescar lista"
             className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
@@ -164,25 +127,18 @@ export function SeriesTable({ series }: { series: Serie[] }) {
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className="h-auto w-8 py-2 pr-2 pl-4">
-                <input type="checkbox" disabled title="Selección múltiple: próximamente" className="size-3.5 cursor-not-allowed rounded border-input" />
-              </TableHead>
-              <TableHead className={CABECERA_TABLA}>Tipo de comprobante</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>Tipo de comprobante</TableHead>
               <TableHead className={CABECERA_TABLA}>Código serie</TableHead>
               <TableHead className={cn(CABECERA_TABLA, "px-4 text-right")}>Último número (correlativo)</TableHead>
               <TableHead className={CABECERA_TABLA}>Establecimiento</TableHead>
               <TableHead className={CABECERA_TABLA}>Formato / longitud</TableHead>
               <TableHead className={cn(CABECERA_TABLA, "px-4")}>Estado</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">
             {data.map((s) => (
               <TableRow key={`${s.tipo}-${s.serie}`} className={cn("group border-b border-border/60 hover:bg-muted/80", !s.activa && "opacity-80")}>
-                <TableCell className="py-2 pr-2 pl-4">
-                  <input type="checkbox" disabled title="Selección múltiple: próximamente" className="size-3.5 cursor-not-allowed rounded border-input" />
-                </TableCell>
-                <TableCell className="px-3 py-2">
+                <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex items-center gap-2">
                     <div
                       className={cn(
@@ -243,24 +199,11 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                     </span>
                   )}
                 </TableCell>
-                <TableCell className="py-2 pr-4 pl-2">
-                  <div className="flex items-center justify-end gap-1 opacity-80 transition-opacity group-hover:opacity-100">
-                    <button disabled title="Editar serie: próximamente" className={ACCION}>
-                      <PencilIcon className="size-4" />
-                    </button>
-                    <button disabled title="Historial por serie: próximamente (requiere filtro por serie en la API)" className={ACCION}>
-                      <ReceiptTextIcon className="size-4" />
-                    </button>
-                    <button disabled title="Más acciones: próximamente" className={ACCION}>
-                      <MoreHorizontalIcon className="size-4" />
-                    </button>
-                  </div>
-                </TableCell>
               </TableRow>
             ))}
             {data.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8} className="py-14 text-center">
+                <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <InboxIcon className="size-6" />
                     <p className="text-sm">

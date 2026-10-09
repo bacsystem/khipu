@@ -84,22 +84,11 @@ function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
             </button>
           </>
         ) : (
-          <>
-            <button
-              type="button"
-              disabled
-              title="Regenerar (revocar y crear una nueva en un paso): próximamente. Hoy: crea una nueva y revoca esta."
-              className={cn(ACCION, "text-muted-foreground")}
-            >
-              <RefreshCwIcon className="size-3.5" />
-              Regenerar
-            </button>
-            <span className="text-border">|</span>
-            <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
-              <BanIcon className="size-3.5" />
-              Revocar
-            </button>
-          </>
+          // Sin «Regenerar» deshabilitado (C6): para rotar una llave se crea otra con «Crear API key» y se revoca esta.
+          <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
+            <BanIcon className="size-3.5" />
+            Revocar
+          </button>
         )}
       </div>
       {error ? <span className="text-[11px] text-destructive">{error}</span> : null}

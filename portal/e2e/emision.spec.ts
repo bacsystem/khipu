@@ -16,8 +16,8 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
   // La serie anticipa el correlativo que asignará el backend. El número exacto depende de cuántas emitieron los
   // specs que corren en paralelo sobre el mismo mock, así que se comprueba el formato, no el valor.
   await expect(dialogo.getByLabel("Serie")).toContainText(/F001 · siguiente N\.º \d+/);
-  // Boleta existe en el catálogo pero todavía no se puede emitir (#20): se muestra deshabilitada, no oculta.
-  await expect(dialogo.getByRole("button", { name: "Boleta" })).toBeDisabled();
+  // Boleta todavía no se puede emitir (#20): no se ofrece un botón deshabilitado que no decide nada (C6).
+  await expect(dialogo.getByRole("button", { name: "Boleta" })).toHaveCount(0);
 
   // El calendario no deja elegir una fecha que el backend va a rechazar: ni futura ni fuera del plazo de envío.
   const fecha = dialogo.getByLabel("Fecha de emisión");

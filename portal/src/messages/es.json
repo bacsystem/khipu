@@ -13,8 +13,8 @@
   "auth": {
     "marca": {
       "titulo": "Emite comprobantes electrónicos sin fricción.",
-      "subtitulo": "Factura, boleta, notas de crédito y débito, homologadas sobre el estándar SUNAT.",
-      "pie": "Homologado sobre el estándar SUNAT"
+      "subtitulo": "Facturas, notas de crédito y débito, y comunicación de baja, en UBL 2.1 y con las reglas de validación de SUNAT.",
+      "pie": "UBL 2.1 · reglas de validación de SUNAT"
     },
     "login": {
       "titulo": "Inicia sesión",

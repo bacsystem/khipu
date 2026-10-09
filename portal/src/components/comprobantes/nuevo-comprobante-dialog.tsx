@@ -1,20 +1,29 @@
 "use client";
 
 import { FileTextIcon, PlusIcon } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { NuevoComprobanteForm } from "@/components/comprobantes/nuevo-comprobante-form";
 import { Alerta } from "@/components/feedback/alerta";
 import { Spinner } from "@/components/feedback/spinner";
 import { CabeceraDialogo } from "@/components/patrones/cabecera-dialogo";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { GrupoBotones } from "@/components/ui/grupo-botones";
+
 import { apiRequest } from "@/lib/api/browser";
 import type { EmpresaDetalle } from "@/lib/api/empresas";
 import type { Serie } from "@/lib/api/series";
+import { faltaParaEmitir, type Faltante } from "@/lib/comprobantes/listo-para-emitir";
 import { TASA_GENERAL, TASA_PADRON } from "@/lib/comprobantes/totales";
-import { ACCION_SECUNDARIA } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, BOTON_PRIMARIO } from "@/lib/estilos";
+import { hoyLima } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { useSoloLectura } from "@/lib/solo-lectura";
+
+const FALTANTES: Record<Faltante, string> = {
+  certificado: "Cargar el certificado digital (.p12 o .pfx) de la empresa.",
+  "certificado-vencido": "Renovar el certificado digital: el cargado ya venció.",
+  "credenciales-sol": "Guardar el usuario SOL secundario y su clave.",
+};
 
 /**
  * Carga un recurso mientras el diálogo está abierto, y lo deja reintentable.
@@ -76,6 +85,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   // La tasa de la empresa decide el IGV que se previsualiza, y hasta saberla no se afirma ninguna: `null` mientras
   // carga (el pie muestra "IGV" a secas), la general si la lectura falló (con el aviso de abajo diciéndolo).
   const tasaIgv = empresa.dato ? (empresa.dato.padron_tasa_especial_igv ? TASA_PADRON : TASA_GENERAL) : empresa.error ? TASA_GENERAL : null;
+  const faltan = empresa.dato ? faltaParaEmitir(empresa.dato, hoyLima()) : [];
 
   const ambiente =
     // El detalle lo da el aviso del cuerpo; acá solo se deja de afirmar un ambiente que no se conoce.
@@ -99,20 +109,25 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
           titulo="Nuevo comprobante"
           descripcion={ambiente}
         />
-        <div className="shrink-0 px-5 pt-4">
-          <GrupoBotones
-            etiqueta="Tipo de comprobante"
-            valor="factura"
-            opciones={[
-              { valor: "factura", etiqueta: "Factura" },
-              // Boleta existe como serie (tipo 03) pero `POST /v1/facturas` solo acepta series F###: hasta #20 no
-              // hay por dónde emitirla. Se muestra deshabilitada en vez de ocultarla, como pide el design system.
-              { valor: "boleta", etiqueta: "Boleta", disabled: true },
-            ]}
-          />
-        </div>
-        {/* El dato primero: así TypeScript sabe que `series.dato` no es null al pasárselo al formulario. */}
-        {series.dato ? (
+        {/* Sin selector de tipo (C6): solo se emiten facturas, y una «Boleta» deshabilitada no decidía nada. Vuelve con #20. */}
+        {/* C2: si el backend va a rechazar la emisión (sin certificado, vencido o sin credenciales SOL), se dice antes de que el
+            usuario llene nada, y se lo lleva a donde se arregla. */}
+        {faltan.length > 0 ? (
+          <div className="flex flex-col gap-3 px-5 py-4">
+            <Alerta tono="aviso" titulo="Esta empresa todavía no puede emitir">
+              <p>Para firmar y enviar comprobantes a SUNAT falta:</p>
+              <ul className="mt-1 list-disc pl-5">
+                {faltan.map((f) => (
+                  <li key={f}>{FALTANTES[f]}</li>
+                ))}
+              </ul>
+            </Alerta>
+            <Link href="/empresa" onClick={() => setAbierto(false)} className={cn(BOTON_PRIMARIO, "self-end")}>
+              Ir a Fiscal &amp; certificado
+            </Link>
+          </div>
+        ) : /* El dato primero: así TypeScript sabe que `series.dato` no es null al pasárselo al formulario. */
+        series.dato ? (
           <>
             {/* La empresa no bloquea la emisión, pero sí decide la tasa: sin ella se previsualiza con la general, y
                 un tenant del padrón vería totales que no son los que va a emitir. Se avisa en vez de callarlo. */}

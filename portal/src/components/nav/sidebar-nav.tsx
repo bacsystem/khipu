@@ -1,12 +1,12 @@
 "use client";
 
-import { EyeIcon, ListOrderedIcon, PackageIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon } from "lucide-react";
+import { EyeIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 type Item = {
-  href?: string;
+  href: string;
   label: string;
   icon: typeof ReceiptTextIcon;
 };
@@ -16,13 +16,13 @@ type Grupo = {
   items: Item[];
 };
 
+/** Solo páginas que existen (C6): «Catálogo» se veía con «Pronto» y no llevaba a ningún lado. */
 const GRUPOS: Grupo[] = [
   {
     titulo: "Emisión & SUNAT",
     items: [
       { href: "/comprobantes", label: "Comprobantes", icon: ReceiptTextIcon },
       { href: "/series", label: "Series correlativas", icon: ListOrderedIcon },
-      { label: "Catálogo", icon: PackageIcon },
     ],
   },
   {
@@ -51,22 +51,6 @@ export function SidebarNav() {
           </span>
           {grupo.items.map((item) => {
             const Icono = item.icon;
-            if (!item.href) {
-              return (
-                <span
-                  key={item.label}
-                  title="Próximamente"
-                  aria-disabled="true"
-                  className={cn(ITEM_BASE, "cursor-not-allowed text-muted-foreground/50")}
-                >
-                  <Icono className="size-[18px] shrink-0 text-muted-foreground/40" />
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  <span className="shrink-0 rounded bg-secondary px-1 py-0.5 text-[9px] font-medium tracking-wide whitespace-nowrap uppercase">
-                    Pronto
-                  </span>
-                </span>
-              );
-            }
             const active = pathname.startsWith(item.href);
             return (
               <Link

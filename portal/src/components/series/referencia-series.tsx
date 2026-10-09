@@ -1,6 +1,6 @@
 "use client";
 
-import { DatabaseIcon, KeyRoundIcon, LockIcon, NetworkIcon, ShieldCheckIcon } from "lucide-react";
+import { DatabaseIcon, KeyRoundIcon, LockIcon, ShieldCheckIcon } from "lucide-react";
 import {
   type CampoReferencia,
   NotaReferencia,
@@ -37,16 +37,6 @@ export function ReferenciaSeriesDialog({ className }: { className?: string }) {
         icono={DatabaseIcon}
         titulo={<>Entidad &lsquo;serie&rsquo;</>}
         subtitulo="tabla serie · una fila por empresa, tipo y código"
-        accion={
-          <button
-            disabled
-            title="Diagrama entidad-relación: próximamente"
-            className="inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground/60"
-          >
-            <NetworkIcon className="size-3.5" />
-            Ver diagrama ER
-          </button>
-        }
       >
         <TablaCampos
           campos={CAMPOS}

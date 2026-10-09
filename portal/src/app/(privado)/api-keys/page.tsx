@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { ApiKeysTable } from "@/components/api-keys/api-keys-table";
 import { listarApiKeys } from "@/lib/api/api-keys";
-import { formatearFechaHora } from "@/lib/formato";
+import { obtenerEmpresaActual } from "@/lib/api/empresas";
+import { faltaParaEmitir } from "@/lib/comprobantes/listo-para-emitir";
+import { formatearFechaHora, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { Metrica } from "@/components/ui/metrica";
+import { messages } from "@/lib/messages";
+
+export const metadata = { title: `API keys e integración · ${messages.app.nombre}` };
 
 export default async function ApiKeysPage() {
   const { access, empresaId } = await getServerSession();
@@ -20,8 +25,10 @@ export default async function ApiKeysPage() {
     );
   }
 
-  const apiKeys = await listarApiKeys(access, empresaId);
+  const [apiKeys, empresa] = await Promise.all([listarApiKeys(access, empresaId), obtenerEmpresaActual(access, empresaId)]);
   const activas = apiKeys.filter((k) => k.activa);
+  // C4: una llave activa autentica, pero la emisión la rechaza el backend si la empresa no tiene certificado o credenciales SOL.
+  const puedeEmitir = faltaParaEmitir(empresa, hoyLima()).length === 0;
   const revocadas = apiKeys.length - activas.length;
   const ultima = apiKeys[0]; // la API devuelve la más reciente primero
 
@@ -31,11 +38,16 @@ export default async function ApiKeysPage() {
         <Metrica
           etiqueta="Llaves activas"
           ayuda={
-            activas.length > 0 ? (
+            activas.length > 0 && puedeEmitir ? (
               <span className="flex items-center gap-1 text-success-foreground">
                 <span className="size-1.5 shrink-0 rounded-full bg-success-solid" />
                 Listas para emitir por API
               </span>
+            ) : activas.length > 0 ? (
+              <Link href="/empresa" className="flex items-center gap-1 text-warning-foreground hover:underline">
+                <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />
+                Falta el certificado o las credenciales SOL para emitir
+              </Link>
             ) : (
               <span className="flex items-center gap-1 text-warning-foreground">
                 <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />

@@ -14,6 +14,9 @@ import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } f
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, ETIQUETA_DATO, TITULO_SECCION } from "@/lib/estilos";
+import { messages } from "@/lib/messages";
+
+export const metadata = { title: `Comprobante · ${messages.app.nombre}` };
 
 const TIPOS_OPERACION: Record<string, string> = {
   "0101": "Venta interna",

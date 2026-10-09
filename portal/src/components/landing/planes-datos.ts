@@ -15,7 +15,7 @@ export const PLANES_DE_RESPALDO: TarjetaDePlan[] = [
     docs: "30 documentos/mes",
     rucs: "1 RUC · 1 usuario",
     incluye: [
-      "Factura, boleta, nota de crédito y de débito",
+      "Factura, nota de crédito y de débito, y baja",
       "Portal web y API REST",
       "Entorno de pruebas de SUNAT",
       "1 API key · PDF A4",

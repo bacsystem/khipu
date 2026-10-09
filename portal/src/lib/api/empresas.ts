@@ -30,6 +30,8 @@ export type EmpresaDetalle = {
   razon_social: string;
   entorno: Entorno;
   tiene_credenciales_sol: boolean;
+  /** Si hay certificado cargado. Aparte de la vigencia: un certificado puede no traer fecha. */
+  tiene_certificado: boolean;
   certificado_vigencia_hasta: string | null;
   domicilio?: Domicilio | null;
   cuenta_detracciones?: string | null;
