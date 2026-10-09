@@ -6,7 +6,10 @@ package pe.factura.application.port.out;
  * ella se vuelve a cifrar con la vigente.
  */
 public interface SecretosCifradosRepository {
-    /** Cuántos valores siguen cifrados con la clave anterior. Sin rotación en curso, cero. */
+    /**
+     * Cuántos valores no abren con la clave vigente: los que siguen con la anterior y los que no abren con ninguna. Se mide también sin rotación, porque
+     * ahí cualquier valor así ya es ilegible. Lo esperado es cero.
+     */
     int pendientes();
 
     /**

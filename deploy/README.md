@@ -186,13 +186,18 @@ de cada API key. El backend admite **la de antes junto con la nueva** mientras d
 2. En el servicio `backend`: `MASTER_KEY_ANTERIOR` = el valor actual de `MASTER_KEY`, y `MASTER_KEY` = la nueva. Redeploy.
 3. Al arrancar, el backend vuelve a cifrar con la nueva todo lo que estaba con la anterior y lo dice en el log:
    - `Rotación de MASTER_KEY: N valor(es) recifrado(s) con la clave vigente, 0 pendientes. Ya se puede quitar MASTER_KEY_ANTERIOR.`
-   - Si dice que **quedan pendientes**, no seguir: algo no se pudo recifrar y depende de la anterior.
-4. Con «0 pendientes», borrar `MASTER_KEY_ANTERIOR` y redeploy. Desde ese momento la clave vieja ya no abre nada de la base (salvo los respaldos
-   anteriores a la rotación, que siguen cifrados con `BACKUP_PASSPHRASE` y contienen los datos con la clave vieja: por eso la vieja se guarda hasta
-   que esos respaldos venzan).
+   - Si dice que **quedan pendientes**, no seguir: algo no se pudo recifrar y depende de la anterior. El log de arriba dice qué tabla y qué fila no
+     abren con ninguna de las dos claves.
+4. **Reiniciar una vez más, todavía con `MASTER_KEY_ANTERIOR` puesta**, cuando ya no quede ninguna instancia con la configuración vieja (en un
+   redeploy la anterior sigue atendiendo hasta que la nueva está lista, y lo que guarde en ese rato —credenciales SOL, un certificado, un segundo
+   factor— sale con la clave vieja, después del recifrado). Ese arranque recifra lo que quedó y tiene que volver a decir «0 pendientes».
+5. Con «0 pendientes» en ese segundo arranque, borrar `MASTER_KEY_ANTERIOR` y redeploy. Desde ese momento la clave vieja ya no abre nada de la base
+   (salvo los respaldos anteriores a la rotación, que siguen cifrados con `BACKUP_PASSPHRASE` y contienen los datos con la clave vieja: por eso la
+   vieja se guarda hasta que esos respaldos venzan). Si aun así quedó algo con la vieja, ese arranque lo dice en el log (`MASTER_KEY: N valor(es)
+   guardado(s) no abren con la clave vigente…`): volver a poner `MASTER_KEY_ANTERIOR` y reiniciar lo recifra.
 
-Mientras `MASTER_KEY_ANTERIOR` esté puesta, todo sigue funcionando: lo que no se recifró se lee con la anterior. Con varias réplicas es igual: cada
-fila se actualiza solo si nadie la cambió en el medio.
+Mientras `MASTER_KEY_ANTERIOR` esté puesta, todo sigue funcionando: lo que no se recifró se lee con la anterior. Dos réplicas recifrando a la vez no
+se pisan: cada fila se actualiza solo si nadie la cambió en el medio.
 
 ### `API_KEY_PEPPER`
 

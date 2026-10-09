@@ -24,7 +24,11 @@ final class RotacionDeClavesAlArrancar {
             if (i.secretosPendientes() == 0)
                 log.warn("Rotación de MASTER_KEY: {} valor(es) recifrado(s) con la clave vigente, 0 pendientes. Ya se puede quitar MASTER_KEY_ANTERIOR.", i.secretosRecifrados());
             else
-                log.error("Rotación de MASTER_KEY: quedan {} valor(es) con la clave anterior que no se pudieron recifrar. NO quitar MASTER_KEY_ANTERIOR.", i.secretosPendientes());
+                log.error("Rotación de MASTER_KEY: quedan {} valor(es) que no abren con la clave vigente (el log de arriba dice cuáles). NO quitar MASTER_KEY_ANTERIOR.", i.secretosPendientes());
+        } else if (i.secretosPendientes() > 0) {
+            // Sin rotación nada debería quedar fuera de la vigente. Lo típico: se quitó MASTER_KEY_ANTERIOR y una instancia vieja había escrito con ella.
+            log.error("MASTER_KEY: {} valor(es) guardado(s) no abren con la clave vigente y no se pueden leer (credenciales SOL, certificados, segundo factor…). "
+                    + "Si se acaba de quitar MASTER_KEY_ANTERIOR, volver a ponerla y reiniciar para recifrarlos.", i.secretosPendientes());
         }
         if (i.rotandoPepper()) {
             if (i.apiKeysConPepperAnterior() == 0)

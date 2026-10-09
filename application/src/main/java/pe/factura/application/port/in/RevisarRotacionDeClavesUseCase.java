@@ -6,7 +6,8 @@ package pe.factura.application.port.in;
  */
 public interface RevisarRotacionDeClavesUseCase {
     /**
-     * @param secretosPendientes      valores que siguen con MASTER_KEY_ANTERIOR después de recifrar (debería ser 0)
+     * @param secretosPendientes      valores que no abren con la MASTER_KEY vigente después de recifrar (debería ser 0). Sin rotación, mayor que 0 es
+     *                                 que hay valores ilegibles: típicamente, escritos con la clave anterior después de quitarla
      * @param apiKeysConPepperAnterior keys activas que todavía dependen del pepper anterior: se re-hashean solas la próxima vez que se usan. Si es mayor
      *                                 que 0 y no se está rotando, esas keys ya no autentican (se quitó el pepper anterior antes de tiempo)
      */

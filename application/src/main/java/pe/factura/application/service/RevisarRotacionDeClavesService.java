@@ -21,9 +21,10 @@ public class RevisarRotacionDeClavesService implements RevisarRotacionDeClavesUs
 
     @Override
     public Informe revisar() {
-        int recifrados = secretos.recifrar();
         // Las keys de antes de que existiera la huella: si se está rotando, son de antes de rotar (pepper anterior); si no, del único pepper que hubo.
+        // Antes del recifrado: son independientes, y un problema con un secreto no tiene por qué dejar las huellas sin completar.
         pepper.completarHuellas(huellaAnterior != null ? huellaAnterior : huellaVigente);
+        int recifrados = secretos.recifrar();
         return new Informe(recifrados, secretos.pendientes(), pepper.activasConOtraHuella(huellaVigente), huellaAnterior != null);
     }
 }

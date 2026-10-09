@@ -102,4 +102,26 @@ class JdbcSecretosCifradosRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.pendientes()).isZero();
         assertThat(repo.recifrar()).isZero();
     }
+
+    /**
+     * H1 (revisión de la PR #269): sin rotación, lo que no abre con la clave vigente también cuenta. Es el valor que una instancia vieja escribió con la
+     * clave anterior después del recifrado (despliegue con solapamiento) y quedó ilegible al quitar MASTER_KEY_ANTERIOR: antes eso daba 0, en silencio.
+     */
+    @Test void sinRotacionLoQueNoAbreConLaVigenteSeCuenta() {
+        tenantConSecretos(new Versionado(2, false));
+        administradorConSegundoFactor(vieja);
+        var repo = new JdbcSecretosCifradosRepository(jdbc, new Versionado(2, false));
+        assertThat(repo.pendientes()).isEqualTo(1);
+        assertThat(repo.recifrar()).isZero();
+    }
+
+    /** H2: una fila que no abre con ninguna de las dos claves no frena el recifrado de las demás; queda contada como pendiente. */
+    @Test void unaFilaIlegibleNoFrenaElRecifradoDeLasDemas() {
+        tenantConSecretos(vieja);
+        administradorConSegundoFactor(new Versionado(3, false));
+        var repo = new JdbcSecretosCifradosRepository(jdbc, rotando);
+
+        assertThat(repo.recifrar()).isEqualTo(4);
+        assertThat(repo.pendientes()).isEqualTo(1);
+    }
 }

@@ -21,6 +21,15 @@ class AppConfigSecretosTest {
         assertThatThrownBy(() -> AppConfig.exigirSecretosDePlataforma(con("clave", "  "))).isInstanceOf(IllegalStateException.class);
     }
 
+    /** H3 (revisión de la PR #269): un pepper anterior igual al vigente no rota nada y haría creer que ya se puede quitar. */
+    @Test void elPepperAnteriorIgualAlVigenteAborta() {
+        assertThatThrownBy(() -> AppConfig.exigirPepperAnteriorDistinto("pepper-real", "pepper-real")).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("API_KEY_PEPPER_ANTERIOR");
+        assertThatCode(() -> AppConfig.exigirPepperAnteriorDistinto("pepper-real", "pepper-viejo")).doesNotThrowAnyException();
+        assertThatCode(() -> AppConfig.exigirPepperAnteriorDistinto("pepper-real", null)).doesNotThrowAnyException();
+        assertThatCode(() -> AppConfig.exigirPepperAnteriorDistinto("pepper-real", "  ")).doesNotThrowAnyException();
+    }
+
     @Test void placeholderHistoricoAbortaSinDistinguirMayusculas() {
         for (String placeholder : new String[]{"cambiar-en-produccion", "CAMBIAR-EN-PRODUCCION", " Cambiar-En-Produccion "}) {
             assertThatThrownBy(() -> AppConfig.exigirSecretosDePlataforma(con(placeholder, "pepper"))).as("master " + placeholder)
