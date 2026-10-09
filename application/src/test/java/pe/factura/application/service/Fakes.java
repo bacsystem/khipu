@@ -12,6 +12,30 @@ import java.util.*;
 import java.util.function.Supplier;
 
 final class Fakes {
+    /** Mismas reglas que la sentencia de {@code JdbcIntentosDeAccesoRepository}, en memoria y sincronizadas (#261). */
+    static final class Intentos implements IntentosDeAccesoRepository {
+        record Fila(int intentos, Instant ventanaDesde, Instant bloqueadoHasta) {}
+        final Map<String, Fila> filas = new HashMap<>();
+
+        public synchronized boolean reservar(String clave, int max, Instant ahora, Duration ventana, Duration bloqueo) {
+            Fila f = filas.get(clave);
+            if (f != null && f.bloqueadoHasta() != null && f.bloqueadoHasta().isAfter(ahora)) return false;
+            boolean nueva = f == null || !f.ventanaDesde().plus(ventana).isAfter(ahora) || f.bloqueadoHasta() != null;
+            int n = nueva ? 1 : f.intentos() + 1;
+            filas.put(clave, new Fila(n, nueva ? ahora : f.ventanaDesde(), n >= max ? ahora.plus(bloqueo) : null));
+            return true;
+        }
+        public synchronized void devolver(String clave) {
+            filas.computeIfPresent(clave, (k, f) -> new Fila(Math.max(0, f.intentos() - 1), f.ventanaDesde(), null));
+        }
+        public synchronized void reiniciar(String clave) { filas.remove(clave); }
+        public synchronized int purgar(Instant antesDe) {
+            int antes = filas.size();
+            filas.values().removeIf(f -> f.ventanaDesde().isBefore(antesDe) && (f.bloqueadoHasta() == null || f.bloqueadoHasta().isBefore(antesDe)));
+            return antes - filas.size();
+        }
+    }
+
     static final class Comprobantes implements ComprobanteRepository {
         final Map<UUID, Comprobante> datos = new HashMap<>();
         public void guardar(Comprobante c) {

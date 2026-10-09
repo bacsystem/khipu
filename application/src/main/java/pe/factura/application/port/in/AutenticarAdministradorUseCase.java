@@ -19,7 +19,8 @@ public interface AutenticarAdministradorUseCase {
     /** Los códigos de recuperación se muestran una sola vez: solo se guarda su hash. */
     record SesionNueva(Sesion sesion, List<String> codigosRecuperacion) {}
 
-    Desafio login(String email, String password);
+    /** {@code ip}: la del cliente ya resuelta, o {@code null}. Mismo límite de intentos que el portal, contado aparte (#261). */
+    Desafio login(String email, String password, String ip);
     Configuracion configurarSegundoFactor(String desafio);
     SesionNueva confirmarSegundoFactor(String desafio, String codigo, String ip);
     /** {@code codigo}: el de la app de autenticación o uno de recuperación. */

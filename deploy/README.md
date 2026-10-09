@@ -112,6 +112,12 @@ defecto**:
   Tomcat reescribe la IP de la conexión, también leyendo desde la derecha. Una petición directa con un `X-Forwarded-For` falso
   se ignora. Solo se toca la IP: el esquema (`X-Forwarded-Proto`) no.
 
+**El límite de intentos de login por IP (#261) también depende de esto.** El límite por correo (5 contraseñas erróneas en 15 minutos
+bloquean ese correo 15 minutos) funciona siempre. El de IP (20 fallos en 15 minutos desde la misma IP) **solo se activa con
+`TRUSTED_PROXIES` configurado**, y solo para las peticiones cuya IP Tomcat resolvió: sin él, todos los clientes llegan con la IP del
+portal y contar por ella dejaría que veinte fallos de cualquiera bloquearan el login de todos. Calibrar las dos variables (abajo)
+lo enciende sin tocar nada más.
+
 ### Qué se sabe de Railway, y qué no
 
 **No hay documentación oficial de este comportamiento y las fuentes se contradicen.** En hilos del foro de Railway (Central

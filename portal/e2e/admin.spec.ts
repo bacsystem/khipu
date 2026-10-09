@@ -29,6 +29,18 @@ test("credenciales inválidas muestran el error sin salir del login del backoffi
   await expect(page).toHaveURL(/\/admin\/login/);
 });
 
+/** #261: la contraseña del backoffice tampoco se prueba sin freno. Correo propio del test: los specs corren en paralelo contra el mismo mock. */
+test("tras cinco contraseñas erróneas el backoffice pide esperar 15 minutos", async ({ page }) => {
+  for (let i = 0; i < 5; i++) {
+    await credencialesDeAdmin(page, "bloqueo-admin@khipu.pe", `incorrecta-${i}`);
+    await expect(page.getByText("Correo o contraseña incorrectos.")).toBeVisible();
+  }
+  await credencialesDeAdmin(page, "bloqueo-admin@khipu.pe", "incorrecta-5");
+
+  await expect(page.getByText("Demasiados intentos fallidos. Por seguridad, espera 15 minutos antes de volver a intentarlo.")).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/login/);
+});
+
 test("un código equivocado se puede reintentar sin volver a la contraseña", async ({ page }) => {
   await credencialesDeAdmin(page);
   await page.getByLabel("Código de 6 dígitos").fill("000000");

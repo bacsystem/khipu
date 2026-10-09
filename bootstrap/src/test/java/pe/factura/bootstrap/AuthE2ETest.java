@@ -56,7 +56,7 @@ class AuthE2ETest {
 
     @BeforeEach void limpiar() {
         CORREOS.clear();
-        jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, sesion, usuario, cuenta CASCADE");
+        jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, sesion, usuario, cuenta, intento_de_acceso CASCADE");
     }
 
     /** El token del último enlace de verificación que llegó a {@code email}. */
@@ -255,6 +255,34 @@ class AuthE2ETest {
         HttpHeaders h = new HttpHeaders(); h.setBearerAuth("token-basura"); h.setContentType(MediaType.APPLICATION_JSON);
         ResponseEntity<Map> r = http.exchange("/v1/empresas", HttpMethod.GET, new HttpEntity<>(h), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    // --- #261: límite de intentos ---------------------------------------------------------------------------------------------------
+
+    private ResponseEntity<Map> login(String email, String password) {
+        HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
+        return http.postForEntity("/v1/auth/login", new HttpEntity<>("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password), h), Map.class);
+    }
+
+    @Test void trasCincoContrasenasErroneasNiLaCorrectaEntraDuranteQuinceMinutos() {
+        registrar("Mi negocio", "ana@negocio.pe");
+        for (int i = 0; i < 5; i++) assertThat(login("ana@negocio.pe", "incorrecta").getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        ResponseEntity<Map> bloqueado = login("ana@negocio.pe", "Segura123");
+
+        assertThat(bloqueado.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(bloqueado.getBody()).containsEntry("codigo", "DEMASIADOS_INTENTOS_LOGIN");
+        assertThat(login("otra@negocio.pe", "incorrecta").getStatusCode()).as("otro correo no se ve afectado").isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test void laRecuperacionMandaComoMuchoTresCorreosPorHoraYSiempreResponde202() {
+        registrar("Mi negocio", "ana@negocio.pe");
+        CORREOS.clear();
+        HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
+        for (int i = 0; i < 5; i++)
+            assertThat(http.postForEntity("/v1/auth/recuperar", new HttpEntity<>("{\"email\":\"ana@negocio.pe\"}", h), Void.class).getStatusCode())
+                    .isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(CORREOS).hasSize(3);
     }
 
     @Test void recuperarSiempreDevuelve202() {

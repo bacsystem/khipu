@@ -21,14 +21,16 @@ import pe.factura.application.port.in.AutenticarAdministradorUseCase;
 @RequiredArgsConstructor
 public class AdminAuthController {
     private final AutenticarAdministradorUseCase auth;
+    private final IpDelCliente ip;
 
     @PostMapping("/login")
     @Operation(summary = "Iniciar sesión de administrador: paso 1, contraseña", description = """
             Con la contraseña correcta devuelve un `desafio` de 5 minutos y el `paso` siguiente: `CONFIGURAR_SEGUNDO_FACTOR` si el
             administrador todavía no tiene app de autenticación, `VERIFICAR_SEGUNDO_FACTOR` si ya la tiene. La contraseña sola nunca da
-            una sesión.""")
-    public ApiResponse<AdminDesafioResponse> login(@Valid @RequestBody AdminLoginRequest body) {
-        return ApiResponse.ok(AdminDesafioResponse.de(auth.login(body.email(), body.password())));
+            una sesión. Tras 5 contraseñas erróneas en 15 minutos para ese correo (o 20 fallos desde la misma IP),
+            `429 DEMASIADOS_INTENTOS_LOGIN` durante 15 minutos, aun con la contraseña correcta.""")
+    public ApiResponse<AdminDesafioResponse> login(HttpServletRequest req, @Valid @RequestBody AdminLoginRequest body) {
+        return ApiResponse.ok(AdminDesafioResponse.de(auth.login(body.email(), body.password(), ip.de(req))));
     }
 
     @PostMapping("/segundo-factor/configurar")

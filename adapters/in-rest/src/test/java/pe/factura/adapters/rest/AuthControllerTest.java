@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** {@code app.registro-abierto} se fija explícito: el default real (issue #174) es cerrado, ver {@link AuthControllerRegistroCerradoTest}. */
 @WebMvcTest(controllers = AuthController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, IpDelCliente.class})
 @TestPropertySource(properties = "app.registro-abierto=true")
 class AuthControllerTest {
     @Autowired MockMvc mvc;
@@ -52,7 +52,7 @@ class AuthControllerTest {
     }
 
     @Test void loginCorrecto() throws Exception {
-        when(auth.login("ana@negocio.pe", "Segura123")).thenReturn(tokens);
+        when(auth.login("ana@negocio.pe", "Segura123", null)).thenReturn(tokens);
         mvc.perform(post("/v1/auth/login").contentType("application/json")
                         .content("{\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\"}"))
                 .andExpect(status().isOk())
@@ -60,11 +60,19 @@ class AuthControllerTest {
     }
 
     @Test void loginConCredencialesInvalidasEs401() throws Exception {
-        when(auth.login(anyString(), anyString())).thenThrow(new DomainException("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos"));
+        when(auth.login(anyString(), anyString(), any())).thenThrow(new DomainException("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos"));
         mvc.perform(post("/v1/auth/login").contentType("application/json")
                         .content("{\"email\":\"ana@negocio.pe\",\"password\":\"mala\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("CREDENCIALES_INVALIDAS"));
+    }
+
+    @Test void loginBloqueadoPorIntentosEs429() throws Exception {
+        when(auth.login(anyString(), anyString(), any())).thenThrow(new DomainException("DEMASIADOS_INTENTOS_LOGIN", "Demasiados intentos fallidos"));
+        mvc.perform(post("/v1/auth/login").contentType("application/json")
+                        .content("{\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\"}"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.codigo").value("DEMASIADOS_INTENTOS_LOGIN"));
     }
 
     @Test void refreshRota() throws Exception {

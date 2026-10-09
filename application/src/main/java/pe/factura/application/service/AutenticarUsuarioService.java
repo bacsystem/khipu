@@ -34,6 +34,7 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     private final VerificacionCorreoRepository verificaciones;
     private final SuspensionRepository suspensiones;
     private final PlantillasDeCorreo plantillas;
+    private final LimiteDeIntentos limite;
 
     @Override
     public Tokens registrar(String nombreCuenta, String email, String password, String telefono, String urlBase) {
@@ -94,11 +95,15 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     }
 
     @Override
-    public Tokens login(String email, String password) {
-        Usuario u = usuarios.buscarPorEmail(email == null ? "" : email.trim().toLowerCase())
+    public Tokens login(String email, String password, String ip) {
+        // Antes de mirar la contraseña y fuera de la transacción (#261): N peticiones simultáneas no prueban N contraseñas.
+        var intento = limite.reservarLogin(LimiteDeIntentos.Ambito.CLIENTE, email, ip);
+        // El mismo correo que contó el límite: si se buscara otra variante, cada una tendría su propio contador.
+        Usuario u = usuarios.buscarPorEmail(LimiteDeIntentos.normalizar(email))
                 .filter(Usuario::activo)
                 .filter(x -> hasher.coincide(password == null ? "" : password, x.passwordHash()))
                 .orElseThrow(() -> new DomainException("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos"));
+        intento.acerto();
         // Después de comprobar la contraseña: quien no se identificó no debe enterarse de si la cuenta existe ni de si está suspendida (#182).
         exigirCuentaActiva(u);
         return uow.ejecutar(() -> emitirTokens(u));
@@ -134,7 +139,9 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
 
     @Override
     public void solicitarRecuperacion(String email, String urlBase) {
-        usuarios.buscarPorEmail(email == null ? "" : email.trim().toLowerCase()).filter(Usuario::activo).ifPresent(u -> {
+        // Sin tope, esto llenaría el buzón de un cliente desde nuestro dominio (#261). Se cuenta exista o no la cuenta, y en silencio.
+        if (!limite.admiteRecuperacion(email)) return;
+        usuarios.buscarPorEmail(LimiteDeIntentos.normalizar(email)).filter(Usuario::activo).ifPresent(u -> {
             String token = TokenOpaco.generar();
             uow.ejecutar(() -> sesiones.crearRecuperacion(new TokenRecuperacion(TokenOpaco.hash(token), u.id(), clock.instant().plus(VIDA_RECUPERACION), false)));
             var texto = CorreosDeAcceso.recuperacion(plantillas, urlBase, token);
