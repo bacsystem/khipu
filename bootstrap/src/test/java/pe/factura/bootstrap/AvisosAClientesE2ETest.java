@@ -284,7 +284,9 @@ class AvisosAClientesE2ETest {
     @Test void despuesDeUnaSemanaSePuedeRepetir() {
         Cliente c = cliente("ana@negocio.pe", 12);
         avisar(c.empresaId(), "CERTIFICADO");
-        jdbc.update("UPDATE aviso_a_cliente SET enviado_en = now() - interval '7 days'");
+        // Un minuto de margen: `now()` es el reloj de Postgres y el enfriamiento se mide con el de la JVM. Justo en el límite,
+        // unos milisegundos de desfase entre los dos dejaban la semana sin cumplir y el test fallaba al azar (409).
+        jdbc.update("UPDATE aviso_a_cliente SET enviado_en = now() - interval '7 days 1 minute'");
 
         assertThat(avisar(c.empresaId(), "CERTIFICADO").getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(ENVIADOS).hasSize(2);
