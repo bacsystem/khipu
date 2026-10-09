@@ -30,8 +30,9 @@ Agregar el plugin **Postgres** de Railway al proyecto. Provee las variables `PGH
 | `DB_URL` | `jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` | Reference variable al plugin de Postgres |
 | `DB_USER` | `${{Postgres.PGUSER}}` | |
 | `DB_PASSWORD` | `${{Postgres.PGPASSWORD}}` | |
-| `MASTER_KEY` | `openssl rand -base64 32` | **Nunca rotar** una vez emitido el primer comprobante: descifra certificados/credenciales SOL almacenados |
-| `API_KEY_PEPPER` | `openssl rand -base64 32` | **Nunca rotar**: invalida todas las API keys emitidas |
+| `MASTER_KEY` | `openssl rand -base64 32` | **No reemplazar a secas**: descifra certificados, credenciales SOL y secretos del 2FA guardados. Para rotarla, §9 |
+| `API_KEY_PEPPER` | `openssl rand -base64 32` | **No reemplazar a secas**: es parte del hash de cada API key. Para rotarlo, §9 |
+| `MASTER_KEY_ANTERIOR`, `API_KEY_PEPPER_ANTERIOR` | el valor de antes | **Solo durante una rotación** (§9); vacías el resto del tiempo |
 | `PLATFORM_ADMIN_KEY` | `openssl rand -base64 32` | |
 | `JWT_SECRET` | ≥32 bytes, p. ej. `openssl rand -base64 32` | Auth del portal |
 | `PORTAL_URL` | URL pública del servicio `portal` en Railway | Usado en emails de recuperación |
@@ -178,3 +179,46 @@ administrador escanea el QR y confirma con el primer código. Eso tiene una cons
   Borrar solo la fila de `administrador_segundo_factor` **no alcanza**: con la contraseña de siempre, quien la tenga puede volver a enrolarse antes que el
   administrador. Y una sesión ya emitida **no se revoca**: el backoffice solo comprueba la firma y el vencimiento del token, así que la de un atacante dura
   hasta `ADMIN_SESION_MINUTOS` (30 por defecto, 60 como máximo) aunque el administrador ya no exista. Un reinicio desde el backoffice queda para #183.
+
+## 9. Rotar `MASTER_KEY` y `API_KEY_PEPPER`
+
+Hace falta si una de las dos pudo filtrarse, o por política. Ninguna se reemplaza a secas: `MASTER_KEY` cifra lo guardado (certificados y su clave,
+credenciales SOL, secretos del segundo factor de los administradores, respuestas guardadas del alta asistida) y `API_KEY_PEPPER` es parte del hash
+de cada API key. El backend admite **la de antes junto con la nueva** mientras dura la rotación. **Antes de empezar, un respaldo de la base (§8).**
+
+### `MASTER_KEY`
+
+1. Generar la nueva: `openssl rand -base64 32`. Guardarla fuera de Railway, igual que la anterior.
+2. En el servicio `backend`: `MASTER_KEY_ANTERIOR` = el valor actual de `MASTER_KEY`, y `MASTER_KEY` = la nueva. Redeploy.
+3. Al arrancar, el backend vuelve a cifrar con la nueva todo lo que estaba con la anterior y lo dice en el log:
+   - `Rotación de MASTER_KEY: N valor(es) recifrado(s) con la clave vigente, 0 pendientes. Ya se puede quitar MASTER_KEY_ANTERIOR.`
+   - Si dice que **quedan pendientes**, no seguir: algo no se pudo recifrar y depende de la anterior. El log de arriba dice qué tabla y qué fila no
+     abren con ninguna de las dos claves.
+4. **Reiniciar una vez más, todavía con `MASTER_KEY_ANTERIOR` puesta**, cuando ya no quede ninguna instancia con la configuración vieja (en un
+   redeploy la anterior sigue atendiendo hasta que la nueva está lista, y lo que guarde en ese rato —credenciales SOL, un certificado, un segundo
+   factor— sale con la clave vieja, después del recifrado). Ese arranque recifra lo que quedó y tiene que volver a decir «0 pendientes».
+5. Con «0 pendientes» en ese segundo arranque, borrar `MASTER_KEY_ANTERIOR` y redeploy. Desde ese momento la clave vieja ya no abre nada de la base
+   (salvo los respaldos anteriores a la rotación, que siguen cifrados con `BACKUP_PASSPHRASE` y contienen los datos con la clave vieja: por eso la
+   vieja se guarda hasta que esos respaldos venzan). Si aun así quedó algo con la vieja, ese arranque lo dice en el log (`MASTER_KEY: N valor(es)
+   guardado(s) no abren con la clave vigente…`): volver a poner `MASTER_KEY_ANTERIOR` y reiniciar lo recifra.
+
+Mientras `MASTER_KEY_ANTERIOR` esté puesta, todo sigue funcionando: lo que no se recifró se lee con la anterior. Dos réplicas recifrando a la vez no
+se pisan: cada fila se actualiza solo si nadie la cambió en el medio.
+
+### `API_KEY_PEPPER`
+
+Las API keys no se guardan, solo su hash con el pepper: no se pueden recalcular todas de una vez. Cada key pasa al pepper nuevo **la primera vez que
+se usa** durante la rotación.
+
+1. Generar el nuevo: `openssl rand -base64 32`.
+2. `API_KEY_PEPPER_ANTERIOR` = el valor actual de `API_KEY_PEPPER`, y `API_KEY_PEPPER` = el nuevo. Redeploy. Las keys emitidas siguen autenticando.
+3. El log de cada arranque dice cuántas keys activas siguen dependiendo del pepper anterior:
+   `Rotación de API_KEY_PEPPER: N API key(s) activa(s) todavía dependen del pepper anterior`.
+4. Cuando diga **0**, quitar `API_KEY_PEPPER_ANTERIOR` y redeploy. Si quedan keys que nadie usa (un integrador de baja, una key olvidada), decidir:
+   esperar, revocarlas, o avisar a esos clientes que creen otra. **Si se quita antes, esas keys dejan de autenticar**, y el log lo dice al arrancar.
+
+Si el pepper viejo **se filtró**, no alcanza con rotarlo: quien tenga una key ya sabe la key, no el pepper. Revocar y reemplazar las keys
+comprometidas es aparte.
+
+`JWT_SECRET` no necesita este procedimiento: cambiarlo cierra todas las sesiones del portal y del backoffice, y la gente vuelve a entrar.
+

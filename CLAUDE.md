@@ -22,7 +22,7 @@ docker compose up -d postgres                     # only Postgres is containeriz
 ./gradlew :bootstrap:test --tests "*ArchitectureTest*"   # single test class (any module)
 ```
 
-Required env vars beyond `.env.example`: `JWT_SECRET` (≥32 bytes, portal auth) and `PORTAL_URL` (default `http://localhost:3000`, used in recovery emails). **Never rotate `MASTER_KEY`** (decrypts stored PKCS#12 certs / SOL credentials) or `API_KEY_PEPPER` (invalidates all issued API keys) — see `README.md`.
+Required env vars beyond `.env.example`: `JWT_SECRET` (≥32 bytes, portal auth) and `PORTAL_URL` (default `http://localhost:3000`, used in recovery emails). **Never replace `MASTER_KEY`** (decrypts stored PKCS#12 certs / SOL credentials / admin 2FA secrets) or `API_KEY_PEPPER` (part of every API key hash) **outright** — rotating them is only safe with the `MASTER_KEY_ANTERIOR` / `API_KEY_PEPPER_ANTERIOR` procedure in `deploy/README.md` §9.
 
 ### Portal (Next.js, `portal/`)
 

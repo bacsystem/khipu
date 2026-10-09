@@ -222,6 +222,82 @@ class ApiKeyFilterTest {
         assertThat(chain.getRequest()).isNotNull();
     }
 
+    // --- S2: rotar API_KEY_PEPPER sin invalidar las keys emitidas ---------------------------------------------------------------
+
+    /** Las keys guardadas con su hash, y las que se re-hashearon (de qué hash a cuál). */
+    final java.util.Map<String, ApiKey> porHash = new java.util.HashMap<>();
+    final List<String[]> rehasheos = new java.util.ArrayList<>();
+    final ApiKeyRepository repoRotando = new ApiKeyRepository() {
+        public void guardar(ApiKey k) {}
+        public Optional<ApiKey> buscarPorHash(String h) { return Optional.ofNullable(porHash.get(h)); }
+        public Optional<ApiKey> buscar(UUID id) { return Optional.empty(); }
+        public List<ApiKey> listarPorTenant(UUID t) { return List.of(); }
+    };
+    final pe.factura.application.port.out.PepperDeApiKeysRepository pepperRepo = new pe.factura.application.port.out.PepperDeApiKeysRepository() {
+        public boolean rehashear(UUID id, String anterior, String nuevo) {
+            rehasheos.add(new String[]{anterior, nuevo});
+            ApiKey k = porHash.remove(anterior);
+            porHash.put(nuevo, new ApiKey(k.id(), k.tenantId(), nuevo, k.prefijo(), k.activa(), k.creadaEn(), k.revocadaEn()));
+            return true;
+        }
+        public int completarHuellas(String huella) { throw new AssertionError("el filtro no completa huellas"); }
+        public int activasConOtraHuella(String huella) { throw new AssertionError("el filtro no cuenta"); }
+    };
+
+    @Test void conElPepperAnteriorUnaKeyViejaAutenticaYQuedaConElNuevo() throws Exception {
+        String vieja = "fk_de_antes_de_rotar";
+        porHash.put(ApiKeyGenerator.hash(vieja, "pepper-viejo"), new ApiKey(UUID.randomUUID(), tenant, ApiKeyGenerator.hash(vieja, "pepper-viejo"), "fk_de_ante", true, null, null));
+        ApiKeyFilter rotando = new ApiKeyFilter(repoRotando, "pepper-nuevo", "pepper-viejo", pepperRepo, suspensiones);
+
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
+        req.addHeader("X-Api-Key", vieja);
+        MockFilterChain chain = new MockFilterChain();
+        rotando.doFilter(req, new MockHttpServletResponse(), chain);
+
+        assertThat(chain.getRequest()).as("autenticó").isNotNull();
+        assertThat(req.getAttribute(TenantActual.ATRIBUTO)).isEqualTo(tenant);
+        assertThat(rehasheos).singleElement().satisfies(r -> assertThat(r).containsExactly(ApiKeyGenerator.hash(vieja, "pepper-viejo"), ApiKeyGenerator.hash(vieja, "pepper-nuevo")));
+
+        // La segunda vez ya la encuentra con el pepper nuevo: no se vuelve a re-hashear.
+        MockHttpServletRequest otra = new MockHttpServletRequest("GET", "/v1/facturas");
+        otra.addHeader("X-Api-Key", vieja);
+        MockFilterChain chain2 = new MockFilterChain();
+        rotando.doFilter(otra, new MockHttpServletResponse(), chain2);
+        assertThat(chain2.getRequest()).isNotNull();
+        assertThat(rehasheos).hasSize(1);
+    }
+
+    @Test void sinElPepperAnteriorUnaKeyViejaNoAutentica() throws Exception {
+        String vieja = "fk_de_antes_de_rotar";
+        porHash.put(ApiKeyGenerator.hash(vieja, "pepper-viejo"), new ApiKey(UUID.randomUUID(), tenant, ApiKeyGenerator.hash(vieja, "pepper-viejo"), "fk_de_ante", true, null, null));
+        ApiKeyFilter sinAnterior = new ApiKeyFilter(repoRotando, "pepper-nuevo", null, pepperRepo, suspensiones);
+
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
+        req.addHeader("X-Api-Key", vieja);
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+        sinAnterior.doFilter(req, res, chain);
+
+        assertThat(chain.getRequest()).isNull();
+        assertThat(res.getStatus()).isEqualTo(401);
+        assertThat(rehasheos).isEmpty();
+    }
+
+    /** Una key revocada no revive por estar con el pepper anterior, y no se re-hashea. */
+    @Test void unaKeyRevocadaConElPepperAnteriorSigueSinAutenticar() throws Exception {
+        String vieja = "fk_revocada_vieja";
+        porHash.put(ApiKeyGenerator.hash(vieja, "pepper-viejo"), new ApiKey(UUID.randomUUID(), tenant, ApiKeyGenerator.hash(vieja, "pepper-viejo"), "fk_revocad", false, null, null));
+        ApiKeyFilter rotando = new ApiKeyFilter(repoRotando, "pepper-nuevo", "pepper-viejo", pepperRepo, suspensiones);
+
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
+        req.addHeader("X-Api-Key", vieja);
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        rotando.doFilter(req, res, new MockFilterChain());
+
+        assertThat(res.getStatus()).isEqualTo(401);
+        assertThat(rehasheos).isEmpty();
+    }
+
     @Test void rutaApiConParametroDeSegmentoSigueExigiendoApiKey() throws Exception {
         for (String uri : new String[]{"/v1;x/facturas", "/v1/%66acturas", "/v1", "/v1/admin/../facturas"}) {
             MockHttpServletRequest req = new MockHttpServletRequest("GET", uri);

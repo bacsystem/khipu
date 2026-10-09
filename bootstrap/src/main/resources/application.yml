@@ -51,6 +51,9 @@ app:
   mode: ${APP_MODE:multi}
   master-key: ${MASTER_KEY:}
   api-key-pepper: ${API_KEY_PEPPER:}
+  # S2: para rotar. La de antes, mientras se termina de recifrar (MASTER_KEY) o de re-hashear las keys en uso (API_KEY_PEPPER). Vacías: no se está rotando.
+  master-key-anterior: ${MASTER_KEY_ANTERIOR:}
+  api-key-pepper-anterior: ${API_KEY_PEPPER_ANTERIOR:}
   platform-admin-key: ${PLATFORM_ADMIN_KEY:}
   jwt-secret: ${JWT_SECRET:}
   portal-url: ${PORTAL_URL:http://localhost:3000}

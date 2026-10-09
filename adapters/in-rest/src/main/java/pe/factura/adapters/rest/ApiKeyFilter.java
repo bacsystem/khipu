@@ -1,12 +1,12 @@
 package pe.factura.adapters.rest;
 
-import lombok.RequiredArgsConstructor;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.filter.OncePerRequestFilter;
 import pe.factura.application.port.out.ApiKeyRepository;
+import pe.factura.application.port.out.PepperDeApiKeysRepository;
 import pe.factura.application.port.out.SuspensionRepository;
 import pe.factura.application.service.ApiKeyGenerator;
 import pe.factura.domain.tenant.ApiKey;
@@ -14,11 +14,25 @@ import pe.factura.domain.tenant.ApiKey;
 import java.io.IOException;
 import java.util.Optional;
 
-@RequiredArgsConstructor
 public class ApiKeyFilter extends OncePerRequestFilter {
     private final ApiKeyRepository apiKeys;
     private final String pepper;
+    /** S2: el pepper de antes de rotar; {@code null} si no se está rotando. */
+    private final String pepperAnterior;
+    private final PepperDeApiKeysRepository rotacion;
     private final SuspensionRepository suspensiones;
+
+    public ApiKeyFilter(ApiKeyRepository apiKeys, String pepper, SuspensionRepository suspensiones) {
+        this(apiKeys, pepper, null, null, suspensiones);
+    }
+
+    public ApiKeyFilter(ApiKeyRepository apiKeys, String pepper, String pepperAnterior, PepperDeApiKeysRepository rotacion, SuspensionRepository suspensiones) {
+        this.apiKeys = apiKeys;
+        this.pepper = pepper;
+        this.pepperAnterior = pepperAnterior == null || pepperAnterior.isBlank() ? null : pepperAnterior;
+        this.rotacion = rotacion;
+        this.suspensiones = suspensiones;
+    }
 
     /**
      * Decide sobre la ruta normalizada (ver {@link RutaRequest}). Las rutas de administración las
@@ -34,7 +48,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
 
     @Override protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
         String key = req.getHeader("X-Api-Key");
-        Optional<ApiKey> k = key == null || key.isBlank() ? Optional.empty() : apiKeys.buscarPorHash(ApiKeyGenerator.hash(key.trim(), pepper));
+        Optional<ApiKey> k = key == null || key.isBlank() ? Optional.empty() : buscar(key.trim());
         if (k.isEmpty() || !k.get().activa()) {
             res.setStatus(401);
             res.setContentType("application/json;charset=UTF-8");
@@ -51,5 +65,18 @@ public class ApiKeyFilter extends OncePerRequestFilter {
         }
         req.setAttribute(TenantActual.ATRIBUTO, k.get().tenantId());
         chain.doFilter(req, res);
+    }
+
+    /**
+     * Con el pepper vigente; si no aparece y se está rotando (S2), con el anterior, y entonces se guarda de una vez con el vigente: cada key que se usa
+     * durante la rotación deja de depender del pepper anterior. Una revocada se encuentra igual, pero no se re-hashea ni autentica.
+     */
+    private Optional<ApiKey> buscar(String key) {
+        Optional<ApiKey> k = apiKeys.buscarPorHash(ApiKeyGenerator.hash(key, pepper));
+        if (k.isPresent() || pepperAnterior == null) return k;
+        String hashAnterior = ApiKeyGenerator.hash(key, pepperAnterior);
+        Optional<ApiKey> vieja = apiKeys.buscarPorHash(hashAnterior);
+        vieja.filter(ApiKey::activa).ifPresent(v -> rotacion.rehashear(v.id(), hashAnterior, ApiKeyGenerator.hash(key, pepper)));
+        return vieja;
     }
 }

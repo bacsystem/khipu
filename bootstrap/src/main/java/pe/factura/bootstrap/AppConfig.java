@@ -95,6 +95,25 @@ public class AppConfig {
         return Duration.ofMinutes(minutos);
     }
 
+    /** S2: copiar el mismo pepper en las dos variables no rota nada; se dice al arrancar en vez de creer que se está rotando. */
+    static void exigirPepperAnteriorDistinto(String pepper, String anterior) {
+        if (anterior != null && !anterior.isBlank() && anterior.equals(pepper))
+            throw new IllegalStateException("API_KEY_PEPPER_ANTERIOR es igual a API_KEY_PEPPER: así no se rota nada");
+    }
+
+    /**
+     * S2: al arrancar se termina lo que quedó de una rotación (recifrar con la MASTER_KEY vigente, completar huellas de pepper) y se dice qué falta,
+     * para saber cuándo quitar MASTER_KEY_ANTERIOR o API_KEY_PEPPER_ANTERIOR. Un fallo aquí no impide arrancar: se registra y la rotación sigue
+     * pendiente (lo que no se recifró se sigue leyendo con la clave anterior).
+     */
+    @Bean RevisarRotacionDeClavesUseCase revisarRotacionDeClaves(SecretosCifradosRepository secretos, JdbcApiKeyRepository pepper, AppProperties p,
+                                                               @Value("${app.api-key-pepper-anterior:}") String pepperAnterior) {
+        return new RevisarRotacionDeClavesService(secretos, pepper, p.apiKeyPepper(), pepperAnterior);
+    }
+    @Bean org.springframework.boot.ApplicationRunner rotacionDeClavesAlArrancar(RevisarRotacionDeClavesUseCase rotacion, SecretCipher cipher) {
+        return args -> RotacionDeClavesAlArrancar.revisar(rotacion, cipher.rotando());
+    }
+
     private static boolean esInvalido(String secreto) {
         return secreto == null || secreto.isBlank() || secreto.trim().equalsIgnoreCase(PLACEHOLDER);
     }
@@ -199,11 +218,19 @@ public class AppConfig {
     }
 
     @Bean Clock clock(AppProperties p) { return Clock.system(ZoneId.of(p.zonaHoraria())); }
-    @Bean SecretCipher secretCipher(AppProperties p) { exigirSecretosDePlataforma(p); return new AesGcmSecretCipher(p.masterKey()); }
+    @Bean SecretCipher secretCipher(AppProperties p, @Value("${app.master-key-anterior:}") String anterior) {
+        exigirSecretosDePlataforma(p);
+        return new AesGcmSecretCipher(p.masterKey(), anterior);
+    }
+    @Bean SecretosCifradosRepository secretosCifradosRepository(JdbcTemplate jdbc, SecretCipher c) { return new JdbcSecretosCifradosRepository(jdbc, c); }
     @Bean UnitOfWork unitOfWork(PlatformTransactionManager tm) { return new JdbcUnitOfWork(tm); }
 
     @Bean TenantRepository tenantRepository(JdbcTemplate jdbc, SecretCipher c) { return new JdbcTenantRepository(jdbc, c); }
-    @Bean ApiKeyRepository apiKeyRepository(JdbcTemplate jdbc) { return new JdbcApiKeyRepository(jdbc); }
+    /** Implementa también {@link PepperDeApiKeysRepository} (S2): las keys nuevas y re-hasheadas llevan la huella del pepper vigente. */
+    @Bean JdbcApiKeyRepository apiKeyRepository(JdbcTemplate jdbc, AppProperties p) {
+        exigirSecretosDePlataforma(p);
+        return new JdbcApiKeyRepository(jdbc, ApiKeyGenerator.huellaDePepper(p.apiKeyPepper()));
+    }
     @Bean SerieRepository serieRepository(JdbcTemplate jdbc) { return new JdbcSerieRepository(jdbc); }
     @Bean EstablecimientoRepository establecimientoRepository(JdbcTemplate jdbc) { return new JdbcEstablecimientoRepository(jdbc); }
     @Bean EmisorDeSerieRepository emisorDeSerieRepository(JdbcTemplate jdbc) { return new JdbcEmisorDeSerieRepository(jdbc); }
@@ -440,9 +467,11 @@ public class AppConfig {
 
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
     // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.
-    @Bean FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(ApiKeyRepository k, AppProperties p, SuspensionRepository suspensiones) {
+    @Bean FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(JdbcApiKeyRepository k, AppProperties p, SuspensionRepository suspensiones,
+                                                            @Value("${app.api-key-pepper-anterior:}") String pepperAnterior) {
         exigirSecretosDePlataforma(p);
-        var f = new FilterRegistrationBean<>(new ApiKeyFilter(k, p.apiKeyPepper(), suspensiones));
+        exigirPepperAnteriorDistinto(p.apiKeyPepper(), pepperAnterior);
+        var f = new FilterRegistrationBean<>(new ApiKeyFilter(k, p.apiKeyPepper(), pepperAnterior, k, suspensiones));
         f.addUrlPatterns("/v1/*"); f.setOrder(10); return f;
     }
     @Bean FilterRegistrationBean<AdminAuthFilter> adminAuthFilter(AppProperties p, AdministradorTokenEmisor te) {
