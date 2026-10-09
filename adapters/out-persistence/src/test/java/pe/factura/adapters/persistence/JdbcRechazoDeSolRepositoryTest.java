@@ -41,6 +41,29 @@ class JdbcRechazoDeSolRepositoryTest extends PersistenciaTestBase {
         assertThat(tomadas()).containsExactly(sana);
     }
 
+    /**
+     * 270-H1: la pausa no es indefinida. Tres 401 seguidos pueden ser del frontal de SUNAT, no de las credenciales: pasada una hora del último rechazo,
+     * el outbox prueba con un solo envío de la empresa. Si SUNAT vuelve a rechazar, la pausa se renueva; si no, los demás salen solos.
+     */
+    @Test void pasadaUnaHoraDelUltimoRechazoSeProbaraUnSoloEnvio() {
+        UUID t = tenantDePrueba();
+        for (int i = 0; i < 3; i++) outbox.programar(t, "ENVIAR", UUID.randomUUID(), t0.minusSeconds(5));
+        rechazos.marcar(t, "0102 - Usuario o contrasena incorrectos", t0.minus(2, ChronoUnit.HOURS));
+
+        assertThat(tomadas()).as("un solo envío de prueba").containsExactly(t);
+        assertThat(tomadas()).as("y nada más hasta dentro de una hora").isEmpty();
+    }
+
+    @Test void unRechazoRecienteRenuevaLaPausa() {
+        UUID t = tenantDePrueba();
+        outbox.programar(t, "ENVIAR", UUID.randomUUID(), t0.minusSeconds(5));
+        rechazos.marcar(t, "0102 - Usuario o contrasena incorrectos", t0.minus(2, ChronoUnit.HOURS));
+        rechazos.marcar(t, "0102 - Usuario o contrasena incorrectos", t0);
+
+        assertThat(tomadas()).isEmpty();
+        assertThat(rechazos.buscar(t).orElseThrow().en()).as("el primer rechazo se conserva").isEqualTo(t0.minus(2, ChronoUnit.HOURS));
+    }
+
     @Test void levantarElRechazoAdelantaLosEnviosQueEsperaban() {
         UUID t = tenantDePrueba();
         // Uno que ya había fallado y esperaba su reintento dentro de 6 horas.

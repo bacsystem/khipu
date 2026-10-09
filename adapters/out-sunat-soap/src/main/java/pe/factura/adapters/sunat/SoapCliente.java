@@ -26,19 +26,20 @@ final class SoapCliente {
     SoapCliente(Duration timeout, Supplier<HttpClient> clientes) { this.timeout = timeout; this.clientes = clientes; }
 
     /**
-     * Hoja "CódigosRetorno" de las reglas de validación de SUNAT: 0100–0999 son fallos del servicio o de
-     * autenticación (reintentar); 1000–1999 son errores del contenido o del emisor (1001 formato de serie,
-     * 1033 "registrado previamente con otros datos", 1034–1036 nombre de archivo ≠ XML, 1059 sin firma,
-     * 1078 emisor no autorizado en el SEE) y 2000–3999 rechazos de validación. Ni los 1xxx ni los 2xxx
-     * cambian por reintentar: el comprobante (o la consulta) queda resuelto tal cual, sin reintento.
+     * Los faults de autenticación de la hoja «CódigosRetorno» (#107): encabezado de seguridad incorrecto (en la práctica, el usuario SOL mal escrito),
+     * usuario o clave incorrectos o inexistentes, usuario inactivo o no secundario, sin perfil ni afiliación a factura electrónica, y el RUC que no
+     * corresponde al usuario (0154). No cambian por reintentar: pausan los envíos de la empresa (con un envío de prueba por hora). El 0100 genérico, el
+     * 0109 («el servicio de autenticación no está disponible»), el 0110 («no se pudo obtener la información del tipo de usuario», del lado de SUNAT) y
+     * los 013x son del servicio y se reintentan como cualquier caída.
      */
-    /**
-     * Los faults de autenticación de la hoja «CódigosRetorno» (#107): usuario o clave incorrectos o inexistentes, usuario inactivo o no secundario,
-     * sin perfil ni afiliación a factura electrónica, y el RUC que no corresponde al usuario (0154). No cambian por reintentar. El 0100 genérico, el
-     * 0109 («el servicio de autenticación no está disponible») y los 013x son del servicio de SUNAT y sí se reintentan.
-     */
-    static final java.util.Set<String> FAULTS_DE_CREDENCIALES = java.util.Set.of("0101", "0102", "0103", "0104", "0105", "0106", "0110", "0111", "0112", "0113", "0154");
+    static final java.util.Set<String> FAULTS_DE_CREDENCIALES = java.util.Set.of("0101", "0102", "0103", "0104", "0105", "0106", "0111", "0112", "0113", "0154");
 
+    /**
+     * Hoja "CódigosRetorno" de las reglas de validación de SUNAT: los 0100–0999 son del servicio o de autenticación (se reintentan, salvo las
+     * credenciales de arriba, que pausan); 1000–1999 son errores del contenido o del emisor (1001 formato de serie, 1033 "registrado previamente con
+     * otros datos", 1034–1036 nombre de archivo ≠ XML, 1059 sin firma, 1078 emisor no autorizado en el SEE) y 2000–3999 rechazos de validación. Ni los
+     * 1xxx ni los 2xxx cambian por reintentar: el comprobante (o la consulta) queda resuelto tal cual, sin reintento.
+     */
     static boolean esFaultDefinitivo(String codigo) {
         // 1xxx–3xxx: error del contribuyente, no cambia por reintentar. El 0127 («El ticket no existe») también es definitivo:
         // reintentarlo consumía el presupuesto de consultas sin que SUNAT tuviera nada que responder.

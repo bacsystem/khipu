@@ -6,7 +6,8 @@ import java.util.UUID;
 
 /**
  * Si SUNAT rechazó las credenciales SOL de una empresa (#107). Mientras estén rechazadas, el outbox no toma los envíos de esa empresa: no tiene sentido
- * golpear a SUNAT documento por documento con credenciales que no acepta. Guardar credenciales nuevas lo levanta y los envíos se reanudan solos.
+ * golpear a SUNAT documento por documento con credenciales que no acepta. Salvo uno de prueba por hora desde el último rechazo: tres 401 seguidos también
+ * pueden ser del frontal de SUNAT, y un rechazo pasajero no debe pausar para siempre. Guardar credenciales nuevas lo levanta y los envíos se reanudan solos.
  */
 public interface RechazoDeSolRepository {
     record Rechazo(Instant en, String motivo) {}

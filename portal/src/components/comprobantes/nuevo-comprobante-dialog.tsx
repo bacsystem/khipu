@@ -148,7 +148,8 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                 </Alerta>
               </div>
             ) : null}
-            {/* #107: se puede emitir (se firma y queda guardado), pero SUNAT no lo recibe hasta corregir las credenciales. */}
+            {/* #107: se puede emitir (se firma y queda guardado). Al emitir se intenta enviar igual, y SUNAT lo va a rechazar mientras las
+                credenciales sigan mal; los envíos pendientes se prueban una vez por hora (270-H1/H3). */}
             {empresa.dato?.credenciales_sol_rechazadas ? (
               <div className="shrink-0 px-5 pt-4">
                 <Alerta
@@ -160,7 +161,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                     </Link>
                   }
                 >
-                  El comprobante se firma y queda guardado, pero no se envía a SUNAT hasta que las corrijas: entonces sale solo.
+                  El comprobante se firma y queda guardado, pero SUNAT no lo va a recibir hasta que las corrijas: entonces sale solo.
                 </Alerta>
               </div>
             ) : null}
