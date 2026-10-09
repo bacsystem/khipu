@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = AdminAuthController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, IpDelCliente.class})
 class AdminAuthControllerTest {
     @Autowired MockMvc mvc;
     @MockBean AutenticarAdministradorUseCase auth;
@@ -34,7 +34,7 @@ class AdminAuthControllerTest {
 
     /** La contraseña ya no da un access token: da un desafío y dice qué paso sigue (#177). */
     @Test void loginDevuelveElDesafioYElPasoNoUnaSesion() throws Exception {
-        when(auth.login("ana@khipu.pe", "Segura123")).thenReturn(new Desafio("desafio-1", Paso.VERIFICAR_SEGUNDO_FACTOR));
+        when(auth.login("ana@khipu.pe", "Segura123", null)).thenReturn(new Desafio("desafio-1", Paso.VERIFICAR_SEGUNDO_FACTOR));
         mvc.perform(post("/v1/admin/auth/login").contentType("application/json")
                         .content("{\"email\":\"ana@khipu.pe\",\"password\":\"Segura123\"}"))
                 .andExpect(status().isOk())
@@ -44,7 +44,7 @@ class AdminAuthControllerTest {
     }
 
     @Test void loginConCredencialesInvalidasEs401() throws Exception {
-        when(auth.login(anyString(), anyString())).thenThrow(new DomainException("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos"));
+        when(auth.login(anyString(), anyString(), any())).thenThrow(new DomainException("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos"));
         mvc.perform(post("/v1/admin/auth/login").contentType("application/json")
                         .content("{\"email\":\"ana@khipu.pe\",\"password\":\"mala\"}"))
                 .andExpect(status().isUnauthorized())

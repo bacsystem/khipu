@@ -13,11 +13,15 @@ public interface AutenticarUsuarioUseCase {
      * igual: puede ver el portal, pero no crear empresas ni emitir hasta verificar.
      */
     Tokens registrar(String nombreCuenta, String email, String password, String telefono, String urlBase);
-    Tokens login(String email, String password);
+    /**
+     * {@code ip}: la del cliente ya resuelta, o {@code null} si no se conoce. Tras 5 contraseñas erróneas en 15 minutos para ese
+     * correo, o 20 fallos desde esa IP, {@code DEMASIADOS_INTENTOS_LOGIN} durante 15 minutos (#261).
+     */
+    Tokens login(String email, String password, String ip);
     Tokens refrescar(String refresh);
     void logout(String refresh);
     Usuario me(UUID usuarioId);
-    /** Siempre termina sin error para no revelar si el correo existe. */
+    /** Siempre termina sin error para no revelar si el correo existe. Como mucho 3 correos por dirección por hora (#261). */
     void solicitarRecuperacion(String email, String urlBase);
     /** También verifica el correo: abrir el enlace demuestra que es suyo (#22). */
     void restablecer(String token, String nuevaPassword);

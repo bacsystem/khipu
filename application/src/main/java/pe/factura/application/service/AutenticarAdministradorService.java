@@ -44,13 +44,17 @@ public class AutenticarAdministradorService implements AutenticarAdministradorUs
     private final UnitOfWork uow;
     private final AuditoriaAdminRepository auditoria;
     private final Clock clock;
+    private final LimiteDeIntentos limite;
 
     @Override
-    public Desafio login(String email, String password) {
+    public Desafio login(String email, String password, String ip) {
+        // El segundo factor tiene su propio tope; sin este, la contraseña se podía probar sin freno (#261).
+        var intento = limite.reservarLogin(LimiteDeIntentos.Ambito.ADMINISTRADOR, email, ip);
         Administrador a = administradores.buscarPorEmail(email == null ? "" : email.trim().toLowerCase())
                 .filter(Administrador::activo)
                 .filter(x -> hasher.coincide(password == null ? "" : password, x.passwordHash()))
                 .orElseThrow(() -> new DomainException("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos"));
+        intento.acerto();
         boolean configurado = factores.buscar(a.id()).map(Estado::confirmado).orElse(false);
         return new Desafio(tokens.emitirDesafio(a.id()), configurado ? Paso.VERIFICAR_SEGUNDO_FACTOR : Paso.CONFIGURAR_SEGUNDO_FACTOR);
     }

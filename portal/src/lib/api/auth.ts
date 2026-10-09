@@ -24,8 +24,12 @@ export function registrar(nombre: string, email: string, password: string, telef
   return backendFetch<Tokens>("/v1/auth/registro", { method: "POST", body: { nombre, email, password, telefono } });
 }
 
-export function login(email: string, password: string) {
-  return backendFetch<Tokens>("/v1/auth/login", { method: "POST", body: { email, password } });
+/**
+ * `origen`: la IP del cliente ya resuelta por el BFF (`cabecerasDeOrigen`, #208). El backend cuenta los fallos también por IP (#261):
+ * sin ella vería la del portal para todos los clientes y no contaría por IP.
+ */
+export function login(email: string, password: string, origen: Record<string, string> = {}) {
+  return backendFetch<Tokens>("/v1/auth/login", { method: "POST", body: { email, password }, headers: origen });
 }
 
 export function refrescar(refresh: string) {
@@ -44,8 +48,9 @@ export function logout(access: string, refresh: string) {
   });
 }
 
-export function recuperar(email: string) {
-  return backendFetch<void>("/v1/auth/recuperar", { method: "POST", body: { email } });
+/** `origen`: como en {@link login}. El backend manda como mucho 3 correos por dirección por hora (#261) y responde igual pasado el tope. */
+export function recuperar(email: string, origen: Record<string, string> = {}) {
+  return backendFetch<void>("/v1/auth/recuperar", { method: "POST", body: { email }, headers: origen });
 }
 
 export function restablecer(token: string, password: string) {

@@ -81,7 +81,9 @@ class AutenticarUsuarioServiceTest {
         public boolean reactivar(UUID c) { throw new AssertionError("el login no reactiva"); }
     };
     ConfiguracionFake.Plantillas plantillasGuardadas = new ConfiguracionFake.Plantillas();
-    AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas));
+    Fakes.Intentos intentos = new Fakes.Intentos();
+    LimiteDeIntentos limite = new LimiteDeIntentos(intentos, clock);
+    AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite);
 
     /** El token del último correo que contiene {@code ruta}: así llega al usuario, y así se lo usa. */
     private String tokenDelCorreo(String ruta) {
@@ -115,7 +117,7 @@ class AutenticarUsuarioServiceTest {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         String token = tokenDelCorreo("/verificar/");
         AutenticarUsuarioService tarde = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()));
+                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite);
 
         assertThatThrownBy(() -> tarde.verificarCorreo(token)).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
         assertThatThrownBy(() -> service.verificarCorreo("inventado")).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
@@ -165,7 +167,7 @@ class AutenticarUsuarioServiceTest {
         assertThat(verifMap).hasSize(5);
 
         AutenticarUsuarioService manana = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas));
+                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite);
         manana.reenviarVerificacion(id, PORTAL);
         assertThat(correos).hasSize(6);
     }
@@ -192,7 +194,7 @@ class AutenticarUsuarioServiceTest {
             public Optional<Usuario> buscarPorEmail(String e) { return usuarios.buscarPorEmail(e); }
             public void marcarCorreoVerificado(UUID u, java.time.Instant cuando) { usuarios.marcarCorreoVerificado(u, cuando); }
         };
-        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, leerConCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera, suspensiones, new PlantillasDeCorreo(plantillasGuardadas));
+        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, leerConCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite);
 
         enCarrera.verificarCorreo(token);
 
@@ -217,7 +219,7 @@ class AutenticarUsuarioServiceTest {
             public void enviar(String p, String a, String c) { throw new IllegalStateException("SMTP caído"); }
             public void enviar(String p, String a, String c, List<Adjunto> adj) { throw new IllegalStateException("SMTP caído"); }
         };
-        AutenticarUsuarioService conRoto = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, roto, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()));
+        AutenticarUsuarioService conRoto = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, roto, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite);
 
         Tokens t = conRoto.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
 
@@ -253,9 +255,42 @@ class AutenticarUsuarioServiceTest {
 
     @Test void loginCorrectoEIncorrecto() {
         service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
-        assertThat(service.login("A@B.PE", "Segura123").access()).isNotBlank();
-        assertThatThrownBy(() -> service.login("a@b.pe", "otra")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
-        assertThatThrownBy(() -> service.login("nadie@b.pe", "Segura123")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThat(service.login("A@B.PE", "Segura123", null).access()).isNotBlank();
+        assertThatThrownBy(() -> service.login("a@b.pe", "otra", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThatThrownBy(() -> service.login("nadie@b.pe", "Segura123", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+    }
+
+    // --- límite de intentos (#261) ------------------------------------------------------------------------------------------------
+
+    @Test void trasCincoFallosNiLaContrasenaCorrectaEntraYNoSeAbreSesion() {
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        for (int i = 0; i < 5; i++) assertThatThrownBy(() -> service.login("a@b.pe", "otra", "203.0.113.9")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        int sesionesAntes = sesionesMap.size();
+
+        assertThatThrownBy(() -> service.login("a@b.pe", "Segura123", "203.0.113.9")).extracting("codigo").isEqualTo("DEMASIADOS_INTENTOS_LOGIN");
+        assertThat(sesionesMap).hasSize(sesionesAntes);
+    }
+
+    /** El bloqueo de un correo que no existe se ve igual: la respuesta no dice qué cuentas hay. */
+    @Test void unCorreoQueNoExisteTambienSeBloquea() {
+        for (int i = 0; i < 5; i++) assertThatThrownBy(() -> service.login("nadie@b.pe", "otra", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThatThrownBy(() -> service.login("nadie@b.pe", "otra", null)).extracting("codigo").isEqualTo("DEMASIADOS_INTENTOS_LOGIN");
+    }
+
+    @Test void unLoginCorrectoReiniciaLosFallosDelCorreo() {
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        for (int i = 0; i < 4; i++) assertThatThrownBy(() -> service.login("a@b.pe", "otra", null)).isInstanceOf(DomainException.class);
+        service.login("a@b.pe", "Segura123", null);
+        for (int i = 0; i < 4; i++) assertThatThrownBy(() -> service.login("a@b.pe", "otra", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThat(service.login("a@b.pe", "Segura123", null).access()).isNotBlank();
+    }
+
+    /** Pasado el tope no se manda nada, pero quien pide no lo nota: la respuesta es la misma, exista o no la cuenta. */
+    @Test void laRecuperacionMandaComoMuchoTresCorreosPorHora() {
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        correos.clear();
+        for (int i = 0; i < 5; i++) assertThatCode(() -> service.solicitarRecuperacion("a@b.pe", PORTAL)).doesNotThrowAnyException();
+        assertThat(correos).hasSize(3);
     }
 
     @Test void refreshRotaYElAnteriorDejaDeServir() {
@@ -270,7 +305,7 @@ class AutenticarUsuarioServiceTest {
     @Test void refreshExpiradoFalla() {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         AutenticarUsuarioService tarde = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofDays(31)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()));
+                Clock.offset(clock, Duration.ofDays(31)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite);
         assertThatThrownBy(() -> tarde.refrescar(t.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
     }
 
@@ -281,7 +316,7 @@ class AutenticarUsuarioServiceTest {
         cuentasSuspendidas.add(t.usuario().cuentaId());
         int sesionesAntes = sesionesMap.size();
 
-        assertThatThrownBy(() -> service.login("a@b.pe", "Segura123")).extracting("codigo").isEqualTo("CUENTA_SUSPENDIDA");
+        assertThatThrownBy(() -> service.login("a@b.pe", "Segura123", null)).extracting("codigo").isEqualTo("CUENTA_SUSPENDIDA");
         assertThat(sesionesMap).as("no se abre ninguna sesión").hasSize(sesionesAntes);
     }
 
@@ -290,7 +325,7 @@ class AutenticarUsuarioServiceTest {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
         cuentasSuspendidas.add(t.usuario().cuentaId());
 
-        assertThatThrownBy(() -> service.login("a@b.pe", "otra")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThatThrownBy(() -> service.login("a@b.pe", "otra", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
     }
 
     @Test void unaCuentaSuspendidaNoRefrescaSuSesionPeroLaSesionNoSeRevoca() {
@@ -309,7 +344,7 @@ class AutenticarUsuarioServiceTest {
         cuentasSuspendidas.add(t.usuario().cuentaId());
         cuentasSuspendidas.clear();
 
-        assertThat(service.login("a@b.pe", "Segura123").access()).isNotBlank();
+        assertThat(service.login("a@b.pe", "Segura123", null).access()).isNotBlank();
     }
 
     @Test void suspenderUnaCuentaNoAfectaALasDemas() {
@@ -317,7 +352,7 @@ class AutenticarUsuarioServiceTest {
         service.registrar("B", "b@b.pe", "Segura123", "987654321", PORTAL);
         cuentasSuspendidas.add(a.usuario().cuentaId());
 
-        assertThat(service.login("b@b.pe", "Segura123").access()).isNotBlank();
+        assertThat(service.login("b@b.pe", "Segura123", null).access()).isNotBlank();
     }
 
     // --- #199: el texto de los correos de acceso lo edita un administrador ----------------------------------------------------------
@@ -349,8 +384,8 @@ class AutenticarUsuarioServiceTest {
         assertThat(correos).hasSize(1);
         String token = correos.get(0).substring(correos.get(0).lastIndexOf("/restablecer/") + "/restablecer/".length());
         service.restablecer(token, "Nueva1234");
-        assertThat(service.login("a@b.pe", "Nueva1234").access()).isNotBlank();
-        assertThatThrownBy(() -> service.login("a@b.pe", "Segura123")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThat(service.login("a@b.pe", "Nueva1234", null).access()).isNotBlank();
+        assertThatThrownBy(() -> service.login("a@b.pe", "Segura123", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
         assertThatThrownBy(() -> service.refrescar(t.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");   // sesiones revocadas
         assertThatThrownBy(() -> service.restablecer(token, "Otra12345")).extracting("codigo").isEqualTo("TOKEN_INVALIDO"); // un solo uso
     }

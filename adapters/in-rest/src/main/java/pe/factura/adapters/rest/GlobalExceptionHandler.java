@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
             case "SUNAT_NO_DISPONIBLE" -> HttpStatus.SERVICE_UNAVAILABLE;
             // Avisos a los clientes (#197): el pedido es válido pero la situación no lo permite (no hay nada que avisar, no hay a quién escribirle, o se avisó lo mismo hace poco).
             case "AVISO_SIN_MOTIVO", "EMPRESA_SIN_CUENTA", "AVISO_RECIENTE" -> HttpStatus.CONFLICT;
-            case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES" -> HttpStatus.TOO_MANY_REQUESTS;
+            case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES", "DEMASIADOS_INTENTOS_LOGIN" -> HttpStatus.TOO_MANY_REQUESTS;
             // La cuenta está suspendida (#182): el cliente se identificó bien, pero no tiene permiso hasta que la reactiven.
             case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO", "CUENTA_SUSPENDIDA", "REQUIERE_ADMINISTRADOR" -> HttpStatus.FORBIDDEN;
             case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;

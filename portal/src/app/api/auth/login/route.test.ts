@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/types";
 import { COOKIE_ACCESS, COOKIE_EMPRESA, COOKIE_REFRESH } from "@/lib/session";
 
@@ -14,13 +14,52 @@ import { login } from "@/lib/api/auth";
 import { listarEmpresas } from "@/lib/api/empresas";
 import { POST } from "./route";
 
-function postRequest(body: unknown, cookie?: string) {
+function postRequest(body: unknown, cookie?: string, extra: Record<string, string> = {}) {
   return new NextRequest("http://localhost/api/auth/login", {
     method: "POST",
     body: JSON.stringify(body),
-    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}), ...extra },
   });
 }
+
+const tokens = {
+  access: "a1",
+  refresh: "r1",
+  usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
+};
+
+/** El límite de intentos por IP (#261) necesita la del cliente: sin ella el backend vería la del portal para todos. */
+describe("POST /api/auth/login: IP del cliente (#261)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("manda al backend la IP de confianza ya resuelta, no la cadena del navegador", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    vi.mocked(login).mockResolvedValue(tokens);
+    vi.mocked(listarEmpresas).mockResolvedValue([]);
+
+    await POST(postRequest({ email: "a@b.com", password: "secreto" }, undefined, { "x-forwarded-for": "6.6.6.6, 203.0.113.7" }));
+
+    expect(login).toHaveBeenCalledWith("a@b.com", "secreto", { "X-Forwarded-For": "203.0.113.7" });
+  });
+
+  it("sin saltos de confianza no manda ninguna IP", async () => {
+    vi.mocked(login).mockResolvedValue(tokens);
+    vi.mocked(listarEmpresas).mockResolvedValue([]);
+
+    await POST(postRequest({ email: "a@b.com", password: "secreto" }, undefined, { "x-forwarded-for": "6.6.6.6" }));
+
+    expect(login).toHaveBeenCalledWith("a@b.com", "secreto", {});
+  });
+
+  it("el bloqueo por intentos llega al navegador como 429 con su código", async () => {
+    vi.mocked(login).mockRejectedValue(new ApiError(429, "DEMASIADOS_INTENTOS_LOGIN", "Demasiados intentos fallidos"));
+
+    const res = await POST(postRequest({ email: "a@b.com", password: "secreto" }));
+
+    expect(res.status).toBe(429);
+    expect((await res.json()).codigo).toBe("DEMASIADOS_INTENTOS_LOGIN");
+  });
+});
 
 describe("POST /api/auth/login", () => {
   it("fija cookies httpOnly y no expone los tokens en el body", async () => {

@@ -1388,6 +1388,7 @@
     "IDEMPOTENCIA_VENCIDA": "Esta alta ya se hizo hace más de una hora y su API key ya no se puede mostrar. El cliente puede crear otra desde su portal.",
     "IDEMPOTENCIA_INVALIDA": "La clave del pedido ya se usó con otros datos. Vuelve a enviar el formulario.",
     "DEMASIADOS_INTENTOS":"Demasiados códigos incorrectos. Espera 15 minutos antes de volver a intentarlo.",
+    "DEMASIADOS_INTENTOS_LOGIN": "Demasiados intentos fallidos. Por seguridad, espera 15 minutos antes de volver a intentarlo.",
     "SEGUNDO_FACTOR_YA_CONFIGURADO": "Tu cuenta ya tiene la verificación en dos pasos configurada. Vuelve a iniciar sesión.",
     "SEGUNDO_FACTOR_NO_CONFIGURADO": "Tu cuenta todavía no tiene la verificación en dos pasos. Vuelve a iniciar sesión para configurarla.",
     "NO_AUTORIZADO": "No autorizado.",

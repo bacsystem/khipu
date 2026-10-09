@@ -68,8 +68,10 @@ class AutenticarAdministradorServiceTest {
     final Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
     final Fakes.Auditoria auditoria = new Fakes.Auditoria();
     final RelojMovil reloj = new RelojMovil(Instant.parse("2026-10-03T15:00:00Z"));
+    final Fakes.Intentos intentos = new Fakes.Intentos();
+    final LimiteDeIntentos limite = new LimiteDeIntentos(intentos, reloj);
     final AutenticarAdministradorService service = new AutenticarAdministradorService(
-            administradores, hasher, tokens, factores, totp, cifrador, uri -> ("QR:" + uri).getBytes(StandardCharsets.UTF_8), uow, auditoria, reloj);
+            administradores, hasher, tokens, factores, totp, cifrador, uri -> ("QR:" + uri).getBytes(StandardCharsets.UTF_8), uow, auditoria, reloj, limite);
 
     { auditoria.uow = uow; }
 
@@ -78,26 +80,35 @@ class AutenticarAdministradorServiceTest {
     // --- Login ---------------------------------------------------------------------------------------------------------------
 
     @Test void laContrasenaSolaNoDaSesionSinoUnDesafio() {
-        var d = service.login("ANA@khipu.pe", "Segura123");
+        var d = service.login("ANA@khipu.pe", "Segura123", null);
         assertThat(d.token()).isEqualTo("desafio:" + ana.id());
         assertThat(d.paso()).as("sin segundo factor, lo primero es configurarlo").isEqualTo(Paso.CONFIGURAR_SEGUNDO_FACTOR);
     }
 
     @Test void conElSegundoFactorConfiguradoElDesafioPideVerificarlo() {
         configurado(ana);
-        assertThat(service.login("ana@khipu.pe", "Segura123").paso()).isEqualTo(Paso.VERIFICAR_SEGUNDO_FACTOR);
+        assertThat(service.login("ana@khipu.pe", "Segura123", null).paso()).isEqualTo(Paso.VERIFICAR_SEGUNDO_FACTOR);
     }
 
     @Test void unSecretoPendienteSinConfirmarSigueSiendoConfigurar() {
-        service.configurarSegundoFactor(service.login("ana@khipu.pe", "Segura123").token());
-        assertThat(service.login("ana@khipu.pe", "Segura123").paso()).isEqualTo(Paso.CONFIGURAR_SEGUNDO_FACTOR);
+        service.configurarSegundoFactor(service.login("ana@khipu.pe", "Segura123", null).token());
+        assertThat(service.login("ana@khipu.pe", "Segura123", null).paso()).isEqualTo(Paso.CONFIGURAR_SEGUNDO_FACTOR);
     }
 
     @Test void credencialesInvalidasOInactivoFallanIgual() {
         admin("baja@khipu.pe", false);
-        assertThatThrownBy(() -> service.login("ana@khipu.pe", "otra")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
-        assertThatThrownBy(() -> service.login("nadie@khipu.pe", "Segura123")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
-        assertThatThrownBy(() -> service.login("baja@khipu.pe", "Segura123")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThatThrownBy(() -> service.login("ana@khipu.pe", "otra", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThatThrownBy(() -> service.login("nadie@khipu.pe", "Segura123", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThatThrownBy(() -> service.login("baja@khipu.pe", "Segura123", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+    }
+
+    /** #261: la contraseña del backoffice tampoco se puede probar sin freno, aunque detrás haya segundo factor. */
+    @Test void trasCincoContrasenasErroneasNiLaCorrectaDaDesafio() {
+        for (int i = 0; i < 5; i++) assertThatThrownBy(() -> service.login("ana@khipu.pe", "otra", "203.0.113.9")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThatThrownBy(() -> service.login("ana@khipu.pe", "Segura123", "203.0.113.9")).extracting("codigo").isEqualTo("DEMASIADOS_INTENTOS_LOGIN");
+
+        reloj.avanzar(java.time.Duration.ofMinutes(15));
+        assertThat(service.login("ana@khipu.pe", "Segura123", "203.0.113.9").token()).isEqualTo("desafio:" + ana.id());
     }
 
     // --- Configurar ----------------------------------------------------------------------------------------------------------
@@ -319,7 +330,7 @@ class AutenticarAdministradorServiceTest {
             public OptionalLong paso(String s, String codigo, Instant ahora) { codigosComprobados.incrementAndGet(); return totp.paso(s, codigo, ahora); }
         };
         AutenticarAdministradorService simultaneo = new AutenticarAdministradorService(administradores, hasher, tokens, leeYEspera, totpQueCuenta, cifrador,
-                uri -> uri.getBytes(StandardCharsets.UTF_8), uow, auditoria, reloj);
+                uri -> uri.getBytes(StandardCharsets.UTF_8), uow, auditoria, reloj, limite);
         String desafio = desafio(ana);
 
         ExecutorService pool = Executors.newFixedThreadPool(n);
@@ -383,7 +394,7 @@ class AutenticarAdministradorServiceTest {
         return a;
     }
 
-    private String desafio(Administrador a) { return service.login(a.email(), "Segura123").token(); }
+    private String desafio(Administrador a) { return service.login(a.email(), "Segura123", null).token(); }
 
     private String configurado(Administrador a) {
         String d = desafio(a);

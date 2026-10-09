@@ -36,6 +36,7 @@ import pe.factura.adapters.rest.JwtFilter;
 import pe.factura.adapters.scheduler.OutboxWorker;
 import pe.factura.adapters.scheduler.AplicarCambiosDePlanWorker;
 import pe.factura.adapters.scheduler.LimpiezaIdempotenciaWorker;
+import pe.factura.adapters.scheduler.LimpiezaIntentosDeAccesoWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
 import pe.factura.adapters.storage.FileSystemDocumentStorage;
@@ -360,10 +361,14 @@ public class AppConfig {
         }
     }
 
+    @Bean IntentosDeAccesoRepository intentosDeAccesoRepository(JdbcTemplate jdbc) { return new JdbcIntentosDeAccesoRepository(jdbc); }
+    @Bean LimiteDeIntentos limiteDeIntentos(IntentosDeAccesoRepository i, Clock clock) { return new LimiteDeIntentos(i, clock); }
+    @Bean LimpiezaIntentosDeAccesoWorker limpiezaIntentosDeAccesoWorker(LimiteDeIntentos l) { return new LimpiezaIntentosDeAccesoWorker(l); }
+
     @Bean AutenticarUsuarioUseCase autenticarUsuario(CuentaRepository cu, UsuarioRepository us, SesionRepository se, PasswordHasher h,
                                                     TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v,
-                                                    SuspensionRepository suspensiones, PlantillasDeCorreo plantillas) {
-        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas);
+                                                    SuspensionRepository suspensiones, PlantillasDeCorreo plantillas, LimiteDeIntentos limite) {
+        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas, limite);
     }
     @Bean GestionarEmpresasUseCase gestionarEmpresas(TenantRepository t, CuentaRepository cu, UnitOfWork u) {
         return new GestionarEmpresasService(t, cu, u);
@@ -371,8 +376,8 @@ public class AppConfig {
 
     @Bean AutenticarAdministradorUseCase autenticarAdministrador(AdministradorRepository a, PasswordHasher h, AdministradorTokenEmisor te,
                                                               SegundoFactorRepository f, SegundoFactor totp, SecretCipher c, CodigoQr qr, UnitOfWork u,
-                                                              AuditoriaAdminRepository auditoria, Clock clock) {
-        return new AutenticarAdministradorService(a, h, te, f, totp, c, qr, u, auditoria, clock);
+                                                              AuditoriaAdminRepository auditoria, Clock clock, LimiteDeIntentos limite) {
+        return new AutenticarAdministradorService(a, h, te, f, totp, c, qr, u, auditoria, clock, limite);
     }
     @Bean ListarCuentasAdminUseCase listarCuentasAdmin(CuentasAdminRepository cuentas) { return new ListarCuentasAdminService(cuentas); }
     @Bean DetalleCuentaAdminUseCase detalleCuentaAdmin(CuentasAdminRepository cuentas) { return new DetalleCuentaAdminService(cuentas); }

@@ -20,3 +20,23 @@ test("credenciales inválidas muestran el error sin salir del login", async ({ p
   await expect(page.getByText("Correo o contraseña incorrectos.")).toBeVisible();
   await expect(page).toHaveURL(/\/login/);
 });
+
+/** #261: un correo propio del test, para que los specs en paralelo contra el mismo mock no se bloqueen entre sí. */
+test("tras cinco contraseñas erróneas pide esperar 15 minutos en vez de seguir probando", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Correo electrónico").fill("bloqueo-login@example.com");
+  const password = page.getByLabel("Contraseña");
+  const enviar = page.getByRole("button", { name: "Iniciar sesión" });
+
+  for (let i = 0; i < 5; i++) {
+    await password.fill(`incorrecta-${i}`);
+    await enviar.click();
+    await expect(page.getByText("Correo o contraseña incorrectos.")).toBeVisible();
+    await expect(enviar).toBeEnabled();
+  }
+
+  await password.fill("incorrecta-5");
+  await enviar.click();
+  await expect(page.getByText("Demasiados intentos fallidos. Por seguridad, espera 15 minutos antes de volver a intentarlo.")).toBeVisible();
+  await expect(page).toHaveURL(/\/login/);
+});

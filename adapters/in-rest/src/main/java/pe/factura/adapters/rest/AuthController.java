@@ -22,12 +22,14 @@ public class AuthController {
     private final AutenticarUsuarioUseCase auth;
     private final String portalUrl;
     private final boolean registroAbierto;
+    private final IpDelCliente ip;
 
     public AuthController(AutenticarUsuarioUseCase auth, @Value("${app.portal-url}") String portalUrl,
-                           @Value("${app.registro-abierto:false}") boolean registroAbierto) {
+                           @Value("${app.registro-abierto:false}") boolean registroAbierto, IpDelCliente ip) {
         this.auth = auth;
         this.portalUrl = portalUrl;
         this.registroAbierto = registroAbierto;
+        this.ip = ip;
     }
 
     /**
@@ -48,9 +50,12 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Iniciar sesión", description = "Devuelve `access_token` (corta duración) y `refresh_token` (rotativo: cada refresh invalida el anterior).")
-    public ApiResponse<TokensResponse> login(@Valid @RequestBody LoginRequest body) {
-        return ApiResponse.ok(TokensResponse.de(auth.login(body.email(), body.password())));
+    @Operation(summary = "Iniciar sesión", description = """
+            Devuelve `access_token` (corta duración) y `refresh_token` (rotativo: cada refresh invalida el anterior). Tras 5 contraseñas
+            erróneas en 15 minutos para ese correo (o 20 fallos desde la misma IP), `429 DEMASIADOS_INTENTOS_LOGIN` durante 15 minutos,
+            aun con la contraseña correcta.""")
+    public ApiResponse<TokensResponse> login(HttpServletRequest req, @Valid @RequestBody LoginRequest body) {
+        return ApiResponse.ok(TokensResponse.de(auth.login(body.email(), body.password(), ip.de(req))));
     }
 
     @PostMapping("/refresh")
@@ -74,7 +79,9 @@ public class AuthController {
 
     /** Siempre 202, exista o no la cuenta: no revela si un correo está registrado. */
     @PostMapping("/recuperar")
-    @Operation(summary = "Solicitar restablecimiento de contraseña", description = "Envía un enlace de un solo uso al correo si la cuenta existe; responde `202` siempre para no revelar cuentas.")
+    @Operation(summary = "Solicitar restablecimiento de contraseña", description = """
+            Envía un enlace de un solo uso al correo si la cuenta existe; responde `202` siempre para no revelar cuentas. Como mucho
+            3 correos por dirección por hora: pasado eso responde igual, pero no envía nada.""")
     public ResponseEntity<Void> recuperar(@Valid @RequestBody RecuperarRequest body) {
         auth.solicitarRecuperacion(body.email(), portalUrl);
         return ResponseEntity.accepted().build();

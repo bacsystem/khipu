@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@code REGISTRO_ABIERTO} queda cerrado, no abierto.
  */
 @WebMvcTest(controllers = AuthController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, IpDelCliente.class})
 class AuthControllerRegistroCerradoTest {
     @Autowired MockMvc mvc;
     @MockBean AutenticarUsuarioUseCase auth;

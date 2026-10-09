@@ -429,6 +429,28 @@ function fail(status: number, codigo: string, mensaje: string) {
 }
 
 /**
+ * Los contadores de intentos del backend (#261, `JdbcIntentosDeAccesoRepository`): se reserva antes de comprobar, el que llega al
+ * tope todavía se concede y bloquea, y un acierto pone el correo en cero. Sin el límite por IP: los e2e corren todos desde la misma.
+ */
+const intentosMock = new Map<string, { intentos: number; desde: number; hasta?: number }>();
+
+function reservarIntento(clave: string, max: number, ventanaMs: number, bloqueoMs: number = ventanaMs): boolean {
+  const ahora = Date.now();
+  const fila = intentosMock.get(clave);
+  if (fila?.hasta !== undefined && fila.hasta > ahora) return false;
+  const nueva = !fila || fila.hasta !== undefined || fila.desde + ventanaMs <= ahora;
+  const intentos = nueva ? 1 : fila.intentos + 1;
+  intentosMock.set(clave, { intentos, desde: nueva ? ahora : fila.desde, hasta: intentos >= max ? ahora + bloqueoMs : undefined });
+  return true;
+}
+
+/** 5 contraseñas en 15 minutos bloquean ese correo 15 minutos; `null` si ya está bloqueado. */
+function reservarIntentoDeLogin(clave: string): { acerto: () => void } | null {
+  if (!reservarIntento(`login:${clave}`, 5, 15 * 60_000)) return null;
+  return { acerto: () => intentosMock.delete(`login:${clave}`) };
+}
+
+/**
  * El 400 del backend cuando un parámetro de ruta o de consulta no convierte a su tipo (un UUID, un enum): `GlobalExceptionHandler`, ante una
  * `MethodArgumentTypeMismatchException`, nombra el parámetro. Un solo lugar para el código y el mensaje, así ningún handler vuelve a inventar otro.
  */
@@ -857,10 +879,13 @@ export const handlers = [
 
   http.post(`${BASE}/v1/auth/login`, async ({ request }) => {
     const body = (await request.json()) as { email: string; password: string };
+    const intento = reservarIntentoDeLogin(`cliente:${body.email}`);
+    if (!intento) return fail(429, "DEMASIADOS_INTENTOS_LOGIN", "Demasiados intentos fallidos. Espera 15 minutos antes de volver a intentarlo");
     const registro = db.usuariosPorEmail.get(body.email);
     if (!registro || registro.password !== body.password) {
       return fail(401, "CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos");
     }
+    intento.acerto();
     // Como el backend (#182): después de comprobar la contraseña, para no revelar el estado de una cuenta a quien no se identificó.
     if (db.cuentasSuspendidas.has(registro.usuario.cuenta_id)) return fail(403, "CUENTA_SUSPENDIDA", "Tu cuenta está suspendida. Contacta a soporte para reactivarla");
     return ok(emitirTokens(registro.usuario));
@@ -880,7 +905,12 @@ export const handlers = [
 
   // Recuperación de contraseña: 202 siempre (el backend no revela si el correo existe). No tenía mock: el e2e de
   // «Cambiar contraseña» llegaba al backend real en :8001 y, si estaba levantado, mandaba un correo de verdad.
-  http.post(`${BASE}/v1/auth/recuperar`, () => ok(null, 202)),
+  // Como el backend (#261): como mucho 3 correos por dirección por hora; pasado eso responde igual, pero no «manda» nada.
+  http.post(`${BASE}/v1/auth/recuperar`, async ({ request }) => {
+    const { email } = (await request.json()) as { email: string };
+    reservarIntento(`recuperar:${email}`, 3, 60 * 60_000);
+    return ok(null, 202);
+  }),
 
   http.get(`${BASE}/v1/auth/me`, ({ request }) => {
     const c = claims(request);
@@ -910,10 +940,13 @@ export const handlers = [
    */
   http.post(`${BASE}/v1/admin/auth/login`, async ({ request }) => {
     const body = (await request.json()) as { email: string; password: string };
+    const intento = reservarIntentoDeLogin(`administrador:${body.email}`);
+    if (!intento) return fail(429, "DEMASIADOS_INTENTOS_LOGIN", "Demasiados intentos fallidos. Espera 15 minutos antes de volver a intentarlo");
     const registro = db.administradoresPorEmail.get(body.email);
     if (!registro || registro.password !== body.password) {
       return fail(401, "CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos");
     }
+    intento.acerto();
     const desafio = fakeJwt({ sub: registro.administrador.id, tipo: "plataforma-desafio", email: registro.administrador.email });
     return ok({ desafio, paso: registro.segundoFactor ? "VERIFICAR_SEGUNDO_FACTOR" : "CONFIGURAR_SEGUNDO_FACTOR" });
   }),
