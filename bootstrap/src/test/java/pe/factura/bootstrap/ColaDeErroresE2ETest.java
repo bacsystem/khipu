@@ -431,8 +431,33 @@ class ColaDeErroresE2ETest {
             assertThat(llamar(HttpMethod.GET, "/v1/admin/errores", h, null).getStatusCode()).as("ver con %s", h).isEqualTo(HttpStatus.UNAUTHORIZED);
             assertThat(llamar(HttpMethod.POST, "/v1/admin/comprobantes/" + c.id() + "/reintento", h, null).getStatusCode()).as("reintentar con %s", h).isEqualTo(HttpStatus.UNAUTHORIZED);
             assertThat(llamar(HttpMethod.POST, "/v1/admin/comprobantes/" + c.id() + "/descarte", h, "{\"motivo\":\"x\"}").getStatusCode()).as("descartar con %s", h).isEqualTo(HttpStatus.UNAUTHORIZED);
+            assertThat(llamar(HttpMethod.GET, "/v1/admin/comprobantes/" + c.id(), h, null).getStatusCode()).as("ver la ficha con %s", h).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
         assertThat(ENVIOS.get()).isZero();
         assertThat(estado(c.id())).isEqualTo("ERROR_ENVIO");
+    }
+
+    // --- la ficha de un comprobante (#251) -------------------------------------------------------------------------------------------------
+
+    /** La fila de la cola enlaza a la ficha: con su id se ve el comprobante de cualquier empresa, con su estado, intentos, último error y archivos. */
+    @Test void laFichaDeUnComprobanteEnErrorDiceSuEmpresaSusIntentosYSusArchivos() {
+        Cliente a = cliente("ana@negocio.pe");
+        Comprobante c = enError(a, 2);
+
+        Map<String, Object> f = datos(llamar(HttpMethod.GET, "/v1/admin/comprobantes/" + c.id(), conClaveDePlataforma(), null));
+
+        assertThat(f).containsEntry("id", c.id().toString()).containsEntry("empresa_id", a.empresaId().toString()).containsEntry("ruc", a.ruc())
+                .containsEntry("cuenta_id", a.cuentaId().toString()).containsEntry("nombre_archivo", c.nombreArchivo()).containsEntry("estado", "ERROR_ENVIO")
+                .containsEntry("intentos", 2).containsEntry("tiene_xml", true).containsEntry("tiene_cdr", false).doesNotContainKey("respuesta_sunat");
+        assertThat((String) f.get("ultimo_error")).contains("0109");
+    }
+
+    @Test void laFichaDeUnComprobanteQueNoExisteEs404YUnIdMalFormadoEs400() {
+        ResponseEntity<Map> noExiste = llamar(HttpMethod.GET, "/v1/admin/comprobantes/" + UUID.randomUUID(), conClaveDePlataforma(), null);
+        assertThat(noExiste.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(codigo(noExiste)).isEqualTo("NO_ENCONTRADO");
+        ResponseEntity<Map> malFormado = llamar(HttpMethod.GET, "/v1/admin/comprobantes/no-es-un-uuid", conClaveDePlataforma(), null);
+        assertThat(malFormado.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(codigo(malFormado)).isEqualTo("PARAMETRO_INVALIDO");
     }
 }

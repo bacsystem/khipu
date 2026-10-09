@@ -81,6 +81,13 @@ describe("ColaDeErroresTabla (#196)", () => {
     ]);
   });
 
+  /** #251: el comprobante de cada fila lleva a su ficha. */
+  it("el comprobante de cada fila enlaza a su ficha", () => {
+    render(<ColaDeErroresTabla errores={[error(7)]} total={1} params={PARAMS} />);
+
+    expect(screen.getByRole("link", { name: "20100047226-01-F001-7" }).getAttribute("href")).toBe("/admin/comprobantes/00000000-0000-4000-d000-000000000007");
+  });
+
   it("sin fault dice «Sin detalle»; con solo un mensaje, lo muestra sin código", () => {
     render(<ColaDeErroresTabla errores={[error(1, { fault: undefined }), error(2, { fault: { mensaje: "INFRA - storage no disponible" } })]} total={2} params={PARAMS} />);
 

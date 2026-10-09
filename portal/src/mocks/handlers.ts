@@ -190,6 +190,28 @@ const REINTENTOS_MOCK: Record<string, ReintentoMock> = {
 
 let erroresMock: FilaDeErrorMock[] = erroresIniciales();
 
+/** Las fichas (#251) de los comprobantes que reporta la verificación de integridad del mock: aceptados, con el archivo que les falta o está dañado. */
+const FICHAS_DE_INTEGRIDAD: Record<string, object> = Object.fromEntries(
+  (
+    [
+      [1, 1, PANADERIA, "01", "F001", 14, { tiene_xml: true, tiene_cdr: true }],
+      [2, 1, PANADERIA, "03", "B001", 7, { tiene_xml: true, tiene_cdr: false }],
+      [3, 2, FERRETERIA, "01", "F001", 3, { tiene_xml: false, tiene_cdr: true }],
+      [4, 2, FERRETERIA, "01", "F001", 1, { tiene_xml: true, tiene_cdr: true }],
+    ] as const
+  ).map(([n, empresa, e, tipo, serie, numero, archivos]) => {
+    const id = `00000000-0000-4000-c000-${String(n).padStart(12, "0")}`;
+    return [
+      id,
+      {
+        id, empresa_id: idEmpresaMock(empresa), ruc: e.ruc, razon_social: e.razon, cuenta_id: e.cuenta?.id, nombre_archivo: `${e.ruc}-${tipo}-${serie}-${numero}`,
+        tipo, serie, numero, fecha_emision: "2026-09-10", estado: "ACEPTADO", intentos: 0,
+        respuesta_sunat: { codigo: "0", descripcion: `El comprobante ${serie}-${numero} ha sido aceptado` }, ...archivos,
+      },
+    ];
+  }),
+);
+
 /** Sin tildes y en minúsculas: la búsqueda del backend no distingue ni mayúsculas ni tildes. */
 const sinTildes = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
@@ -1312,6 +1334,27 @@ export const handlers = [
       { estado: "exito", datos: filtradas.slice((pagina - 1) * porPagina, pagina * porPagina), mensaje: null, codigo: null, errores: null },
       { headers: { "x-total-count": String(filtradas.length) } },
     );
+  }),
+
+  /**
+   * Como el backend (#251): la ficha de un comprobante de cualquier empresa. Los de la cola de errores salen de ella (un error de envío trae su último error; un rechazo por
+   * formato o fuera de plazo, la respuesta de SUNAT); los de la verificación de integridad, de `FICHAS_DE_INTEGRIDAD`. Un id que no es UUID: 400; uno que no está: 404.
+   */
+  http.get(`${BASE}/v1/admin/comprobantes/:id`, ({ request, params }) => {
+    if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (!esUuid(String(params.id))) return parametroInvalido("id");
+    const e = erroresMock.find((x) => x.comprobante_id === params.id);
+    if (e) {
+      const conFault = e.fault ? (e.fault.codigo ? `${e.fault.codigo} - ${e.fault.mensaje}` : e.fault.mensaje) : undefined;
+      return ok({
+        id: e.comprobante_id, empresa_id: e.empresa_id, ruc: e.ruc, razon_social: e.razon_social, cuenta_id: e.cuenta_id, nombre_archivo: e.nombre_archivo,
+        tipo: e.tipo, serie: e.serie, numero: e.numero, fecha_emision: e.fecha_emision, estado: e.estado, intentos: e.intentos,
+        ...(e.clase === "ERROR_DE_ENVIO" ? { ultimo_error: conFault } : { respuesta_sunat: e.fault?.codigo ? { codigo: e.fault.codigo, descripcion: e.fault.mensaje } : undefined }),
+        tiene_xml: true, tiene_cdr: false,
+      });
+    }
+    const f = FICHAS_DE_INTEGRIDAD[String(params.id)];
+    return f ? ok(f) : fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
   }),
 
   /**

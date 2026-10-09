@@ -266,6 +266,9 @@ public class AppConfig {
                                                  TenantRepository tenants, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new ResolverErroresService(cola, enviar, cdrs, comprobantes, outbox, tenants, auditoria, u, clock);
     }
+    @Bean ConsultarComprobanteAdminUseCase consultarComprobanteAdmin(ColaDeErroresRepository cola, ComprobanteRepository comprobantes, TenantRepository tenants) {
+        return new ConsultarComprobanteAdminService(cola, comprobantes, tenants);
+    }
     @Bean AvisosRepository avisosRepository(JdbcTemplate jdbc) { return new JdbcAvisosRepository(jdbc); }
     @Bean ConsultarAvisosUseCase consultarAvisos(AvisosRepository avisos, Clock clock) { return new ConsultarAvisosService(avisos, clock); }
     @Bean AvisarAlClienteUseCase avisarAlCliente(AvisosRepository avisos, CorreoSender correo, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock, PlantillasDeCorreo plantillas) {
