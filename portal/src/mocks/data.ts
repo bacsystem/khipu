@@ -193,6 +193,8 @@ export const db = {
   /** `segundoFactor`: si ya configuró la app de autenticación (#177). El mock no guarda estado del 2FA: ver los handlers. */
   administradoresPorEmail: new Map<string, { administrador: Administrador; password: string; segundoFactor: boolean }>(),
   cuentasAdmin: [] as CuentaAdminMock[],
+  /** El nombre de cada cuenta de CLIENTE (C7), por id de cuenta: lo que `GET /v1/cuenta` devuelve como `nombre`. */
+  nombresDeCuenta: new Map<string, string>(),
   /** Cuentas de CLIENTE suspendidas (#182), por id de cuenta: su login y su refresh responden 403 `CUENTA_SUSPENDIDA`. */
   cuentasSuspendidas: new Set<string>(),
   /** Las empresas del listado del backoffice (#185); aparte de `cuentasAdmin` para sembrar todos los estados del certificado. */
@@ -228,6 +230,7 @@ export function resetDb() {
   db.clavesEmision.clear();
   db.clavesAlta.clear();
   db.cuentasSuspendidas.clear();
+  db.nombresDeCuenta.clear();
   db.verificaciones.clear();
   db.empresasAdmin = [];
   db.planesAdmin = [];
@@ -384,6 +387,7 @@ export function resetDb() {
     correo_verificado: true,
   };
   db.usuariosPorEmail.set(usuario.email, { usuario, password: "Passw0rd1" });
+  db.nombresDeCuenta.set(usuario.cuenta_id, "Negocio Demo");
   // Un cliente cuya cuenta está suspendida (#182): sus credenciales son correctas, pero el backend no lo deja entrar.
   const suspendido: Usuario = { id: "u-suspendida", cuenta_id: "c-suspendida", email: "suspendida@example.com", rol: "ADMIN", correo_verificado: true };
   db.usuariosPorEmail.set(suspendido.email, { usuario: suspendido, password: "Passw0rd1" });

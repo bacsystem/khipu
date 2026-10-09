@@ -1,16 +1,21 @@
 import type { Usuario } from "@/lib/api/auth";
+import type { MiCuenta } from "@/lib/api/cuenta";
 import type { Empresa } from "@/lib/api/empresas";
 import { EmpresaSelector } from "./empresa-selector";
 import { LogoMarca } from "./logo";
 import { PerfilUsuario } from "./perfil-usuario";
+import { PlanYConsumo } from "./plan-y-consumo";
 import { SidebarNav } from "./sidebar-nav";
 
 export function SidebarContent({
   usuario,
+  cuenta,
   empresas,
   activaId,
 }: {
   usuario: Usuario;
+  /** La cuenta con su plan y su consumo (C1); `null` si no se pudo leer: el panel carga igual. */
+  cuenta: MiCuenta | null;
   empresas: Empresa[];
   activaId?: string;
 }) {
@@ -33,10 +38,10 @@ export function SidebarContent({
         <SidebarNav />
       </div>
 
-      {/* El bloque «Plan y consumo» mostraba «— / —» fijo (C1/C6): vuelve con datos reales en su propio cambio. */}
       <div className="flex w-full min-w-0 flex-col gap-2.5 border-t border-border/60 p-3">
+        <PlanYConsumo cuenta={cuenta} />
         {/* El menú de usuario incluye el tema (en móvil el TopBar lo oculta), el cambio de contraseña y el cierre de sesión. */}
-        <PerfilUsuario usuario={usuario} />
+        <PerfilUsuario usuario={usuario} nombreCuenta={cuenta?.nombre ?? null} />
       </div>
     </div>
   );

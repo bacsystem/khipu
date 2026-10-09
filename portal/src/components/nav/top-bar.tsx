@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import type { Usuario } from "@/lib/api/auth";
+import type { MiCuenta } from "@/lib/api/cuenta";
 import type { Empresa, Entorno } from "@/lib/api/empresas";
 import { EjemploIntegracionDialog } from "@/components/api-keys/ejemplo-integracion";
 import { NuevaApiKeyDialog } from "@/components/api-keys/nueva-api-key-dialog";
@@ -27,17 +28,20 @@ const MIGAS: Array<{ prefijo: string; seccion: string; pagina: string }> = [
   { prefijo: "/api-keys", seccion: "Configuración", pagina: "API keys & integración" },
   { prefijo: "/developers", seccion: "Configuración", pagina: "Developers" },
   { prefijo: "/cuenta/accesos-de-soporte", seccion: "Cuenta", pagina: "Accesos de soporte" },
+  { prefijo: "/cuenta/plan", seccion: "Cuenta", pagina: "Plan y consumo" },
 ];
 
 export function TopBar({
   entorno,
   usuario,
+  cuenta,
   empresas,
   activaId,
   apiBaseUrl,
 }: {
   entorno: Entorno;
   usuario: Usuario;
+  cuenta: MiCuenta | null;
   empresas: Empresa[];
   activaId?: string;
   /** URL pública de la API, para los ejemplos de integración. */
@@ -51,7 +55,7 @@ export function TopBar({
     <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-card/80 px-4 backdrop-blur md:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <div className="md:hidden">
-          <MobileNav usuario={usuario} empresas={empresas} activaId={activaId} />
+          <MobileNav usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activaId} />
         </div>
 
         {miga ? (

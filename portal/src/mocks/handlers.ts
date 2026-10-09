@@ -848,6 +848,7 @@ export const handlers = [
     // Como el backend (#22): el correo queda sin verificar y se «manda» el enlace; el e2e lo arma con `verif-<correo>`.
     const usuario: Usuario = { id: nuevoId("u"), cuenta_id: nuevoId("c"), email, rol: "ADMIN", correo_verificado: false };
     db.usuariosPorEmail.set(email, { usuario, password: body.password });
+    db.nombresDeCuenta.set(usuario.cuenta_id, body.nombre.trim());
     db.empresasPorCuenta.set(usuario.cuenta_id, []);
     db.verificaciones.set(`verif-${email}`, { email, usado: false, enviados: 1 });
     return ok(emitirTokens(usuario), 201);
@@ -921,6 +922,26 @@ export const handlers = [
     // Solo del mock: el mundo de clientes es otro, así que el token de soporte lleva el correo y la cuenta (del backoffice) del usuario al que se mira, para que el
     // aviso diga a quién y el enlace de salida lleve a la cuenta correcta. El backend real devuelve el usuario y la cuenta reales.
     return ok(c.imp && c.exp ? { ...registro.usuario, email: c.ue ?? registro.usuario.email, cuenta_id: c.cx ?? registro.usuario.cuenta_id, soporte_hasta: new Date(c.exp * 1000).toISOString() } : registro.usuario);
+  }),
+
+  /**
+   * Lo que el cliente ve de su cuenta (C1/C7), como `GET /v1/cuenta`: su nombre, su plan (la misma vista que el backoffice) y lo consumido este mes contra el
+   * tope. Solo con sesión de cuenta.
+   */
+  http.get(`${BASE}/v1/cuenta`, ({ request }) => {
+    const c = claims(request);
+    if (!c) return fail(401, "NO_AUTORIZADO", "Petición sin cuenta autenticada por JWT");
+    const plan = vistaDePlanDeCuenta(c.cuenta);
+    const tope = plan.plan.limites.documentos_al_mes;
+    return ok({
+      nombre: db.nombresDeCuenta.get(c.cuenta) ?? "Mi cuenta",
+      plan,
+      consumo: {
+        mes: new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7),
+        documentos: consumoDelMesMock(c.cuenta),
+        ...(tope.ilimitado ? {} : { maximo: tope.maximo }),
+      },
+    });
   }),
 
   /** Los accesos de soporte a la cuenta del cliente (#184): uno completo y uno cuyo registro el backend no entiende (solo la fecha). Sin el administrador. */

@@ -6,15 +6,18 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import type { Usuario } from "@/lib/api/auth";
+import type { MiCuenta } from "@/lib/api/cuenta";
 import type { Empresa } from "@/lib/api/empresas";
 import { SidebarContent } from "./sidebar-content";
 
 export function MobileNav({
   usuario,
+  cuenta,
   empresas,
   activaId,
 }: {
   usuario: Usuario;
+  cuenta: MiCuenta | null;
   empresas: Empresa[];
   activaId?: string;
 }) {
@@ -32,7 +35,7 @@ export function MobileNav({
         <span className="sr-only">Abrir menú</span>
       </SheetTrigger>
       <SheetContent side="left" showCloseButton={false} className="w-60 bg-sidebar p-0 text-sidebar-foreground">
-        <SidebarContent usuario={usuario} empresas={empresas} activaId={activaId} />
+        <SidebarContent usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activaId} />
       </SheetContent>
     </Sheet>
   );
