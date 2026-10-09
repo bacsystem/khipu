@@ -38,8 +38,11 @@ test("sin certificado ni credenciales SOL, «Nuevo comprobante» dice qué falta
   await expect(dialogo.getByRole("button", { name: "Emitir factura" })).toHaveCount(0);
 
   await dialogo.getByRole("link", { name: "Ir a Fiscal & certificado" }).click();
-  await expect(page).toHaveURL(/\/empresa/);
+  // #276: llega a la pestaña de lo primero que falta, con el formulario de carga a la vista.
+  await expect(page).toHaveURL(/\/empresa\?seccion=certificado/);
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /^Certificado\s*, pendiente$/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: /^Credenciales SOL\s*, pendiente$/ })).toBeVisible();
 
   // C4: con una llave activa, la página de API keys tampoco dice «Listas para emitir por API» si la empresa no puede emitir.
   const creada = await page.evaluate(async () => (await fetch("/api/proxy/empresa/api-keys", { method: "POST" })).status);

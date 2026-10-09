@@ -17,7 +17,9 @@ import { CredencialesSolForm } from "@/components/empresa/credenciales-sol-form"
 import { DatosFiscalesForm } from "@/components/empresa/datos-fiscales-form";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { PersonalizacionPdfForm } from "@/components/empresa/personalizacion-pdf-form";
+import { SeccionesEmpresa } from "@/components/empresa/secciones-empresa";
 import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf } from "@/lib/api/empresas";
+import { seccionesPendientes, seccionInicial } from "@/lib/empresa/secciones";
 import { ACCION_SECUNDARIA, ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { Alerta } from "@/components/feedback/alerta";
 import { diasEntre, formatearFecha, formatearFechaHora, hoyLima } from "@/lib/formato";
@@ -82,12 +84,18 @@ function Pill({ tono, children }: { tono: "ok" | "aviso" | "error" | "neutro"; c
   );
 }
 
-export default async function EmpresaPage() {
+export default async function EmpresaPage({ searchParams }: { searchParams: Promise<{ seccion?: string }> }) {
   const { access, empresaId } = await getServerSession();
   if (!access) redirect("/login");
   if (!empresaId) redirect("/onboarding");
 
-  const [empresa, empresas, personalizacion] = await Promise.all([obtenerEmpresaActual(access, empresaId), listarEmpresas(access), obtenerPersonalizacionPdf(access, empresaId)]);
+  const [empresa, empresas, personalizacion, { seccion }] = await Promise.all([
+    obtenerEmpresaActual(access, empresaId),
+    listarEmpresas(access),
+    obtenerPersonalizacionPdf(access, empresaId),
+    searchParams,
+  ]);
+  const pendientes = seccionesPendientes(empresa, hoyLima());
 
   const beta = empresa.entorno === "BETA";
   const rechazoSol = empresa.credenciales_sol_rechazadas ?? null;
@@ -191,8 +199,13 @@ export default async function EmpresaPage() {
         </Metrica>
       </section>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
-        <div className="grid min-w-0 grid-cols-1 gap-4 lg:col-span-7">
+      {/* #276: una pestaña por tema. La franja de arriba queda siempre a la vista: es el resumen de lo que falta. */}
+      <SeccionesEmpresa
+        inicial={seccionInicial(seccion, empresa, hoyLima())}
+        pendientes={pendientes}
+        empresas={empresas.length}
+        paneles={{
+          datos: (
           <section className={cn(TARJETA, "p-5")}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
@@ -247,8 +260,9 @@ export default async function EmpresaPage() {
               </span>
             </div>
           </section>
-
-          <section className={cn(TARJETA, "p-5")}>
+          ),
+          sol: (
+          <section className={cn(TARJETA, "p-5 lg:max-w-4xl")}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
                 <KeyRoundIcon className="size-4" />
@@ -282,8 +296,9 @@ export default async function EmpresaPage() {
               </FormulariosDeEscritura>
             </div>
           </section>
-
-          <section className={cn(TARJETA, "p-5")}>
+          ),
+          empresas: (
+          <section className={cn(TARJETA, "p-5 lg:max-w-4xl")}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
                 <Building2Icon className="size-4" />
@@ -340,10 +355,10 @@ export default async function EmpresaPage() {
               />
             </div>
           </section>
-        </div>
-
-        <div className="grid min-w-0 grid-cols-1 gap-4 lg:col-span-5">
-          <section className={cn(TARJETA, "p-5")}>
+          ),
+          certificado: (
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
+          <section className={cn(TARJETA, "p-5 lg:col-span-7")}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
                 <FileKey2Icon className="size-4" />
@@ -370,7 +385,7 @@ export default async function EmpresaPage() {
             </div>
           </section>
 
-          <section className={cn(TARJETA, "p-5")}>
+          <section className={cn(TARJETA, "p-5 lg:col-span-5")}>
             <div className={cn(TITULO_SECCION, "border-b border-border/60 pb-3")}>Recursos y normativa SUNAT</div>
             <ul className="mt-3 grid grid-cols-1 gap-2 text-[12px]">
               <li>
@@ -399,9 +414,9 @@ export default async function EmpresaPage() {
               </li>
             </ul>
           </section>
-        </div>
-      </div>
-
+          </div>
+          ),
+          pdf: (
       <section className={cn(TARJETA, "p-5")} id="personalizacion">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
           <div className={TITULO_SECCION}>
@@ -416,6 +431,9 @@ export default async function EmpresaPage() {
           </FormulariosDeEscritura>
         </div>
       </section>
+          ),
+        }}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import type { EmpresaDetalle } from "@/lib/api/empresas";
 import type { Serie } from "@/lib/api/series";
 import { faltaParaEmitir, type Faltante } from "@/lib/comprobantes/listo-para-emitir";
 import { TASA_GENERAL, TASA_PADRON } from "@/lib/comprobantes/totales";
+import { enlaceASeccion } from "@/lib/empresa/secciones";
 import { ACCION_SECUNDARIA, BOTON_PRIMARIO } from "@/lib/estilos";
 import { hoyLima } from "@/lib/formato";
 import { cn } from "@/lib/utils";
@@ -122,7 +123,12 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                 ))}
               </ul>
             </Alerta>
-            <Link href="/empresa" onClick={() => setAbierto(false)} className={cn(BOTON_PRIMARIO, "self-end")}>
+            {/* #276: a la pestaña de lo primero que falta. */}
+            <Link
+              href={enlaceASeccion(faltan[0] === "credenciales-sol" ? "sol" : "certificado")}
+              onClick={() => setAbierto(false)}
+              className={cn(BOTON_PRIMARIO, "self-end")}
+            >
               Ir a Fiscal &amp; certificado
             </Link>
           </div>
@@ -156,7 +162,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                   tono="aviso"
                   titulo="SUNAT rechazó las credenciales SOL de esta empresa"
                   accion={
-                    <Link href="/empresa" onClick={() => setAbierto(false)} className={ACCION_SECUNDARIA}>
+                    <Link href={enlaceASeccion("sol")} onClick={() => setAbierto(false)} className={ACCION_SECUNDARIA}>
                       Corregirlas
                     </Link>
                   }

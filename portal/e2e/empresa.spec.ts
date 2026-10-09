@@ -9,7 +9,26 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/empresa");
 });
 
+/** #276: una pestaña por tema; la pestaña va en la URL para que los enlaces abran la que corresponde y recargar no la pierda. */
+test("las pestañas cambian la sección y la URL; recargar y los enlaces directos abren la pedida", async ({ page }) => {
+  await page.getByRole("tab", { name: /Credenciales SOL/ }).click();
+  await expect(page).toHaveURL(/\/empresa\?seccion=sol$/);
+  await expect(page.getByLabel("Usuario SOL secundario")).toBeVisible();
+  await expect(page.getByTestId("datos-fiscales")).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByRole("tab", { name: /Credenciales SOL/ })).toHaveAttribute("aria-selected", "true");
+
+  await page.goto("/empresa?seccion=pdf");
+  await expect(page.getByTestId("personalizacion-pdf")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "PDF" })).toHaveAttribute("aria-selected", "true");
+
+  await page.goto("/empresa?seccion=inventada");
+  await expect(page.getByRole("tab", { selected: true })).toBeVisible();
+});
+
 test("guarda el domicilio fiscal eligiendo el ubigeo en cascada y la cuenta de detracciones", async ({ page }) => {
+  await page.getByRole("tab", { name: "Datos fiscales" }).click();
   const form = page.getByTestId("datos-fiscales");
   // El catálogo 13 se carga al abrir; departamento → provincia → distrito.
   await expect(form.getByLabel("Departamento")).toBeEnabled();
@@ -30,7 +49,7 @@ test("guarda el domicilio fiscal eligiendo el ubigeo en cascada y la cuenta de d
 });
 
 test("personaliza el PDF: elige plantilla, ve la vista previa con esa plantilla y guarda", async ({ page }) => {
-  await page.goto("/empresa");
+  await page.goto("/empresa?seccion=pdf");
   const panel = page.getByTestId("personalizacion-pdf");
   await expect(panel.getByTestId("plantilla-clasico")).toHaveAttribute("aria-checked", "true");
 
@@ -53,7 +72,7 @@ test("personaliza el PDF: elige plantilla, ve la vista previa con esa plantilla 
 });
 
 test("sube y quita el logo del PDF", async ({ page }) => {
-  await page.goto("/empresa");
+  await page.goto("/empresa?seccion=pdf");
   const panel = page.getByTestId("personalizacion-pdf");
   await expect(panel.getByTestId("logo-actual")).toHaveCount(0);
 
