@@ -39,8 +39,8 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
   await dialogo.getByLabel("Cantidad").nth(1).fill("1");
   await dialogo.getByLabel("Precio unit. (con IGV)").nth(1).fill("500");
 
-  // El redondeo va por línea, como exige SUNAT: 2×1000 + 1×500 con IGV da 2500.01, no 2500.00.
-  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 2,500.01");
+  // H9: un precio con IGV se cobra exacto. 2×1000 + 1×500 da 2500.00, no el 2500.01 de base × tasa por línea.
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 2,500.00");
   const previsualizado = await dialogo.getByTestId("total-a-pagar").innerText();
 
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
@@ -99,8 +99,8 @@ test("una línea sin precio no se emite como S/ 0.00, y vaciar la fecha no manda
 
   await dialogo.getByLabel("Precio unit. (con IGV)").fill("100");
   await expect(dialogo.getByText("1 ítem incompleto no se emitirá")).toBeHidden();
-  // 100 / 1.18 = 84.75 y su IGV 15.26: el redondeo por línea da 100.01, no 100.00.
-  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 100.01");
+  // H9: 100 / 1.18 = 84.75 y el IGV es lo que falta para 100 (15.25), no 84.75 × 0.18 = 15.26.
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 100.00");
 
   // Un input de fecha vaciado emite "", no null: la guarda tiene que devolverlo a hoy y no dejar pasar el vacío.
   const fecha = dialogo.getByLabel("Fecha de emisión");
@@ -123,7 +123,8 @@ test("emite con cantidad fraccionaria: el submit no queda bloqueado por la valid
   await dialogo.getByLabel("Descripción").fill("Harina de pescado");
   await dialogo.getByLabel("Cantidad").fill("0.59");
   await dialogo.getByLabel("Precio unit. (con IGV)").fill("1208.79");
-  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 713.18");
+  // H9: 0.59 × 1208.79 = 713.1861, cobrado exacto a 2 decimales.
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 713.19");
 
   // Antes: con `step=1` en el input oculto de base-ui, `0.59` caía en `stepMismatch`, el navegador abortaba el
   // submit sin alerta y el botón parecía muerto. Kilos, horas y metros quedaban fuera del portal.
@@ -406,17 +407,17 @@ test("una línea sin descripción no entra en el total ni se emite en silencio (
   await dialogo.getByLabel("Cantidad").nth(1).fill("2");
   await dialogo.getByLabel("Precio unit. (con IGV)").nth(1).fill("500");
 
-  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 2,000.01");
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 2,000.00");
   await expect(dialogo.getByText("1 ítem incompleto no se emitirá")).toBeVisible();
 
   // Una línea con descripción pero cantidad 0 también queda fuera: el aviso no debe atribuirlo a la descripción.
   await dialogo.getByLabel("Descripción").nth(1).fill("Licencia");
   await dialogo.getByLabel("Cantidad").nth(1).fill("0");
-  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 2,000.01");
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 2,000.00");
   await expect(dialogo.getByText("1 ítem incompleto no se emitirá")).toBeVisible();
 
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
   // Lo emitido es lo previsualizado: la línea incompleta quedó fuera de los dos lados.
-  await expect(page.getByText("S/ 2,000.01").first()).toBeVisible();
+  await expect(page.getByText("S/ 2,000.00").first()).toBeVisible();
 });
