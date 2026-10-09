@@ -20,7 +20,7 @@ const exito = (datos: InformeDeIntegridad): ApiEnvelope<InformeDeIntegridad> => 
 const fallo = (codigo: string | null, mensaje: string | null): ApiEnvelope<InformeDeIntegridad> => ({ estado: "error", datos: null, mensaje, codigo, errores: null });
 const informe = (verificados: number, problemas: ProblemaDeIntegridad[] = [], desde = "2026-10-09", hasta = HOY): InformeDeIntegridad => ({ desde, hasta, verificados, problemas });
 const problema = (n: number, tipo: ProblemaDeIntegridad["tipo"], tenant = EMPRESA_A, detalle: string | undefined = `detalle ${n}`): ProblemaDeIntegridad => ({
-  comprobante_id: `c-${n}`,
+  comprobante_id: `00000000-0000-4000-c000-${String(n).padStart(12, "0")}`,
   tenant_id: tenant,
   nombre_archivo: `20100066603-01-F001-${n}`,
   tipo,
@@ -103,7 +103,7 @@ describe("VerificarIntegridad (#198)", () => {
 
   // --- la tabla ---------------------------------------------------------------------------------------------------------------------------
 
-  it("cada problema dice su tipo, el comprobante, el detalle y lleva un enlace a su empresa", async () => {
+  it("cada problema dice su tipo, el comprobante (con enlace a su ficha, #251), el detalle y lleva un enlace a su empresa", async () => {
     apiRequest.mockResolvedValue(exito(informe(50, [problema(1, "XML_CORRUPTO", EMPRESA_A, "el DigestValue no está en k/x.xml"), problema(2, "CDR_FALTANTE", EMPRESA_B, "k/R-x.zip")])));
     render(<VerificarIntegridad hoy={HOY} />);
 
@@ -114,7 +114,7 @@ describe("VerificarIntegridad (#198)", () => {
     const primera = within(filas[0]);
     expect(filas[0].getAttribute("data-tipo")).toBe("XML_CORRUPTO");
     expect(primera.getByText("XML corrupto")).toBeTruthy();
-    expect(primera.getByText("20100066603-01-F001-1")).toBeTruthy();
+    expect(primera.getByRole("link", { name: "20100066603-01-F001-1" }).getAttribute("href")).toBe("/admin/comprobantes/00000000-0000-4000-c000-000000000001");
     expect(primera.getByText("el DigestValue no está en k/x.xml")).toBeTruthy();
     expect(primera.getByRole("link", { name: "Ver empresa" }).getAttribute("href")).toBe(`/admin/empresas/${EMPRESA_A}`);
     expect(within(filas[1]).getByRole("link", { name: "Ver empresa" }).getAttribute("href")).toBe(`/admin/empresas/${EMPRESA_B}`);

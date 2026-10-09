@@ -10,6 +10,7 @@ import { ReintentarEnvio } from "@/components/admin/reintentar-envio";
 import { ETIQUETAS_ESTADO } from "@/components/comprobantes/estado-badge";
 import { PieTabla } from "@/components/ui/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import { CLASES_DE_ERROR, hrefErrores, MAX_BUSQUEDA, type ClaseDeError, type ErrorDeEmision, type ParamsErrores } from "@/lib/api/admin-errores";
 import { ETIQUETAS_TIPO, type EstadoDocumento } from "@/lib/api/facturas";
@@ -133,7 +134,10 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                 </TableCell>
                 <TableCell className="px-3 py-2">
                   <div className="flex flex-col">
-                    <span className="font-mono text-[12px] whitespace-nowrap">{e.nombre_archivo}</span>
+                    {/* #251: cada fila lleva a la ficha del comprobante. */}
+                    <Link href={hrefDetalleComprobante(e.comprobante_id)} className="font-mono text-[12px] whitespace-nowrap text-foreground hover:text-primary hover:underline">
+                      {e.nombre_archivo}
+                    </Link>
                     <span className="text-[11px] text-muted-foreground">
                       {ETIQUETAS_TIPO[e.tipo] ?? e.tipo} · {formatearFecha(e.fecha_emision)}
                     </span>

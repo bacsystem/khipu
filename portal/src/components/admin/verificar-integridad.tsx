@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { esIdDeComprobante, hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import type { InformeDeIntegridad, TipoDeProblema } from "@/lib/api/admin-integridad";
 import { apiRequest } from "@/lib/api/browser";
@@ -175,7 +176,16 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
                     <TableCell className="py-2 pr-3 pl-4 align-top">
                       <Etiqueta tono={TONO[p.tipo]}>{t.tipos[p.tipo]}</Etiqueta>
                     </TableCell>
-                    <TableCell className="px-3 py-2 align-top font-mono text-[12px] whitespace-nowrap">{p.nombre_archivo}</TableCell>
+                    <TableCell className="px-3 py-2 align-top font-mono text-[12px] whitespace-nowrap">
+                      {/* #251: el fallo lleva a la ficha del comprobante; sin un id válido (un archivo suelto) queda solo el nombre. */}
+                      {esIdDeComprobante(p.comprobante_id) ? (
+                        <Link href={hrefDetalleComprobante(p.comprobante_id)} className="text-foreground hover:text-primary hover:underline">
+                          {p.nombre_archivo}
+                        </Link>
+                      ) : (
+                        p.nombre_archivo
+                      )}
+                    </TableCell>
                     <TableCell className="px-3 py-2 align-top font-mono text-[11px] break-all text-muted-foreground">{p.detalle ?? "—"}</TableCell>
                     <TableCell className="py-2 pr-4 pl-3 align-top whitespace-nowrap">
                       <Link href={hrefDetalleEmpresa(p.tenant_id)} className="text-primary hover:underline">
