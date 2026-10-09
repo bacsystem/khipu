@@ -59,7 +59,10 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         // La cuenta de detracciones puede omitirse en la factura si la empresa la tiene configurada.
         Detraccion detraccion = cmd.detraccion() != null && cmd.detraccion().sinCuenta() ? cmd.detraccion().conCuenta(tenant.cuentaDetracciones()) : cmd.detraccion();
 
-        Comprobante c = Comprobante.factura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.receptor(), cmd.items())
+        // #20: la letra de la serie dice qué se emite (F factura, B boleta), como en SUNAT; los dos se numeran, firman y envían igual.
+        boolean boleta = cmd.serie() != null && cmd.serie().startsWith("B");
+        Comprobante c = (boleta ? Comprobante.boleta(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.receptor(), cmd.items())
+                        : Comprobante.factura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.receptor(), cmd.items()))
                 .fechaVencimiento(cmd.fechaVencimiento())
                 .formaPago(cmd.formaPago())
                 .descuentoGlobal(cmd.descuentoGlobal())

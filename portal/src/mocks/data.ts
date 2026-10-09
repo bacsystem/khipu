@@ -429,6 +429,8 @@ export function resetDb() {
     { tipo: "01", serie: "F002", ultimo_numero: 0, activa: true, establecimiento: "0000" },
     { tipo: "07", serie: "FC01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
     { tipo: "08", serie: "FD01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
+    // #20: la boleta se emite desde el mismo diálogo, con su propia serie.
+    { tipo: "03", serie: "B001", ultimo_numero: 0, activa: true, establecimiento: "0000" },
   ]);
   db.establecimientosPorEmpresa.set(empresa.id, [
     { codigo: "0002", nombre: "Tienda Miraflores", domicilio: { ubigeo: "150122", direccion: "Av. Larco 345", urbanizacion: null, distrito: "MIRAFLORES", provincia: "LIMA", departamento: "LIMA", codigo_establecimiento: "0002" }, activo: true },

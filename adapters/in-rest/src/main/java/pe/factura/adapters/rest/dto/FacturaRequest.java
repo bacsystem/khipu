@@ -30,7 +30,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public record FacturaRequest(
-        @NotBlank @Pattern(regexp = "F[A-Z0-9]{3}", message = "serie de factura inválida") @Schema(example = "F001", description = "Serie de factura: `F` + 3 alfanuméricos, registrada previamente en `POST /v1/series`") String serie,
+        @NotBlank @Pattern(regexp = "[FB][A-Z0-9]{3}", message = "serie de factura (F###) o de boleta (B###) inválida") @Schema(example = "F001", description = "Serie registrada previamente en `POST /v1/series`. Su letra decide qué se emite: `F` + 3 alfanuméricos una factura (01), `B` + 3 alfanuméricos una boleta de venta (03). La boleta se envía igual que la factura, una por una") String serie,
         @Positive @Schema(example = "125", description = "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`") Long correlativo,
         @NotNull @Schema(example = "2026-09-14", description = "Fecha de emisión (`YYYY-MM-DD`), no futura. SUNAT exige recibir la factura dentro de los 3 días calendario siguientes") LocalDate fechaEmision,
         @Schema(example = "2026-10-14", description = "Fecha de vencimiento del pago (`cbc:DueDate`), no anterior a la de emisión. Informativa: al crédito las cuotas de `forma_pago` siguen siendo obligatorias. Opcional") LocalDate fechaVencimiento,
@@ -55,8 +55,8 @@ public record FacturaRequest(
         @Valid @Schema(description = "Datos de una factura de exportación (`tipo_operacion` 0200–0208): Incoterm y, en servicios 0201/0208, país de uso. `422 EXPORTACION_INVALIDA` fuera de esos tipos. Opcional") ExportacionDto exportacion) {
 
     public record ClienteDto(
-            @NotBlank @Schema(example = "6", description = "Tipo de documento de identidad, catálogo 06. En una factura de venta interna debe ser `6` (RUC); en una exportación (0200–0208), el del cliente del exterior: `0` documento tributario no domiciliado sin RUC, `1` DNI, `4` carné de extranjería, `7` pasaporte, `A`–`G` (regla 2800; `6` no se admite en 0200/0201/0204)") String tipoDoc,
-            @NotBlank @Schema(example = "20123456786", description = "RUC de 11 dígitos del adquirente; en exportación, el número del documento (DNI de 8 dígitos, los demás hasta 15 caracteres sin espacios: 2801/2802)") String numDoc,
+            @NotBlank @Schema(example = "6", description = "Tipo de documento de identidad, catálogo 06. En una factura de venta interna debe ser `6` (RUC); en una exportación (0200–0208), el del cliente del exterior: `0` documento tributario no domiciliado sin RUC, `1` DNI, `4` carné de extranjería, `7` pasaporte, `A`–`G` (regla 2800; `6` no se admite en 0200/0201/0204). En una boleta, cualquiera del catálogo 06, o `-` si el comprador no se identifica: solo en soles y hasta S/ 700.00 de total") String tipoDoc,
+            @NotBlank @Schema(example = "20123456786", description = "RUC de 11 dígitos del adquirente; en exportación y en boleta, el número del documento (DNI de 8 dígitos, los demás hasta 15 caracteres sin espacios: 2801/2802, 4207/4208). Con `tipo_doc` `-`, también `-`") String numDoc,
             @NotBlank @Schema(example = "Comercial Andina SAC", description = "Razón social tal como figura en la ficha RUC del adquirente") String razonSocial,
             @Schema(example = "Av. Javier Prado Este 123, San Isidro", description = "Dirección del adquirente (opcional; se imprime en el XML)") String direccion,
             @Pattern(regexp = "[A-Za-z]{2}") @Schema(example = "PE", description = "País del adquirente, código ISO 3166-1 de dos letras (catálogo 04): `cac:Country/cbc:IdentificationCode`. Obligatorio en una exportación; opcional en las demás") String pais) {}

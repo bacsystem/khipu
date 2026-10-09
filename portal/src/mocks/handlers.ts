@@ -2295,10 +2295,16 @@ export const handlers = [
       items: Array<{ descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }>;
     };
 
+    // #20: como el backend, la letra de la serie decide el tipo (F factura, B boleta) y cada uno valida su comprador.
+    const boleta = body.serie?.startsWith("B");
+    const tipo = boleta ? "03" : "01";
     const series = db.seriesPorEmpresa.get(empresaId) ?? [];
-    const serie = series.find((s) => s.serie === body.serie && s.tipo === "01" && s.activa);
-    if (!serie) return fail(422, "SERIE_NO_CONFIGURADA", `La serie ${body.serie} no está registrada como serie de factura activa`);
-    if (!/^\d{11}$/.test(body.cliente?.num_doc ?? "")) return fail(422, "RECEPTOR_INVALIDO", "2017 - El RUC del adquirente debe tener 11 dígitos");
+    const serie = series.find((s) => s.serie === body.serie && s.tipo === tipo && s.activa);
+    if (!serie) return fail(422, "SERIE_NO_CONFIGURADA", `La serie ${body.serie} no está registrada como serie de ${boleta ? "boleta" : "factura"} activa`);
+    const { tipo_doc: tipoDoc, num_doc: numDoc } = body.cliente ?? { tipo_doc: "", num_doc: "" };
+    if (!boleta && !/^\d{11}$/.test(numDoc ?? "")) return fail(422, "RECEPTOR_INVALIDO", "2017 - El RUC del adquirente debe tener 11 dígitos");
+    if (boleta && tipoDoc === "1" && !/^\d{8}$/.test(numDoc)) return fail(422, "RECEPTOR_INVALIDO", "4207 - El DNI del comprador tiene 8 dígitos");
+    if (boleta && tipoDoc === "-" && numDoc !== "-") return fail(422, "RECEPTOR_INVALIDO", "2802 - Sin documento (tipo_doc «-»), el número de documento también es «-»");
     if (!body.items?.length) return fail(422, "ITEMS_REQUERIDOS", "Un comprobante necesita al menos un ítem");
 
     // Idempotency-Key (#115), como el backend: la misma clave con el mismo pedido devuelve la factura ya emitida con 200; con otro
@@ -2320,10 +2326,12 @@ export const handlers = [
       body.items.map((i) => ({ cantidad: i.cantidad, precioUnitario: i.precio_unitario, tipoAfectacionIgv: i.tipo_afectacion_igv })),
       tasaIgv,
     );
+    if (boleta && tipoDoc === "-" && (body.moneda !== "PEN" || t.total > 700))
+      return fail(422, "RECEPTOR_INVALIDO", `Una boleta de más de S/ 700.00 (o en otra moneda) identifica al comprador con su documento; esta es de ${body.moneda} ${t.total.toFixed(2)}`);
     const id = nuevoId("f");
     const comprobante: Comprobante = {
       id,
-      tipo: "01",
+      tipo,
       serie: body.serie,
       numero: serie.ultimo_numero,
       fecha_emision: body.fecha_emision,
@@ -2333,10 +2341,10 @@ export const handlers = [
       items: body.items.map((i) => ({ codigo: null, ...i })),
       estado_documento: "ACEPTADO",
       hash: `hash-${id}`,
-      nombre_archivo: `20123456786-01-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`,
+      nombre_archivo: `20123456786-${tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`,
       intentos: 1,
       ultimo_error: null,
-      cdr: { codigo: "0", descripcion: `La Factura numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
+      cdr: { codigo: "0", descripcion: `La ${boleta ? "Boleta" : "Factura"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
       totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, total: t.total },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },

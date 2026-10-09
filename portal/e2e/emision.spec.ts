@@ -16,8 +16,8 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
   // La serie anticipa el correlativo que asignará el backend. El número exacto depende de cuántas emitieron los
   // specs que corren en paralelo sobre el mismo mock, así que se comprueba el formato, no el valor.
   await expect(dialogo.getByLabel("Serie")).toContainText(/F001 · siguiente N\.º \d+/);
-  // Boleta todavía no se puede emitir (#20): no se ofrece un botón deshabilitado que no decide nada (C6).
-  await expect(dialogo.getByRole("button", { name: "Boleta" })).toHaveCount(0);
+  // La factura solo ofrece series F: la B001 de la empresa es de boletas (#20).
+  await expect(dialogo.getByLabel("Serie")).not.toContainText("B001");
 
   // El calendario no deja elegir una fecha que el backend va a rechazar: ni futura ni fuera del plazo de envío.
   const fecha = dialogo.getByLabel("Fecha de emisión");
@@ -48,6 +48,35 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
   // Lo que se previsualizó es exactamente lo que quedó emitido.
   await expect(page.getByText(previsualizado, { exact: false }).first()).toBeVisible();
+});
+
+/** #20: la boleta sale del mismo diálogo, con su serie y el documento del comprador; sin documento, solo hasta S/ 700. */
+test("emite una boleta a un comprador sin documento y no deja pasar una de más de S/ 700", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByRole("button", { name: "Boleta" }).click();
+
+  await expect(dialogo.getByLabel("Serie")).toContainText(/B001 · siguiente N\.º \d+/);
+  await dialogo.getByLabel("Documento del comprador").selectOption("-");
+  await expect(dialogo.getByLabel("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
+
+  await dialogo.getByLabel("Descripción").fill("Televisor");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("899");
+  await expect(dialogo.getByTestId("aviso-sin-documento")).toBeVisible();
+  await dialogo.getByRole("button", { name: "Emitir boleta" }).click();
+  await expect(dialogo.getByRole("alert")).toContainText("identifica al comprador");
+
+  // Reescribir un monto: `fill` sobre `EntradaMonto` sin foco compite con su `onFocus` (que repone el texto) y concatena; como un usuario, se entra, se selecciona y se escribe.
+  const precio = dialogo.getByLabel("Precio unit. (con IGV)");
+  await precio.click();
+  await precio.press("ControlOrMeta+a");
+  await precio.pressSequentially("59");
+  await expect(dialogo.getByTestId("aviso-sin-documento")).toHaveCount(0);
+  await dialogo.getByRole("button", { name: "Emitir boleta" }).click();
+
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  await expect(page.getByText(/B001-\d+/).first()).toBeVisible();
+  await expect(page.getByText("Sin documento").first()).toBeVisible();
 });
 
 test("tras emitir, el diálogo anuncia el correlativo siguiente, no el que acaba de usar (#17)", async ({ page }) => {

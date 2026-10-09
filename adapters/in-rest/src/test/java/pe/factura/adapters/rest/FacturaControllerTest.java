@@ -229,6 +229,21 @@ class FacturaControllerTest {
         assertThat(cap.getValue().items().get(0).afectacion()).isEqualTo(TipoAfectacionIgv.GRAVADO);
     }
 
+    /** #20: la misma ruta emite una boleta con una serie B###, y un comprador sin documento viaja como «-». Otra letra sigue siendo un 422 de validación. */
+    @Test void unaSerieBPasaAlServicioComoBoletaYOtraLetraEs422() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(aceptado(tenant));
+        String boleta = cuerpo.replace("\"F001\"", "\"B001\"").replace("\"tipo_doc\":\"6\",\"num_doc\":\"20601234565\",\"razon_social\":\"CLIENTE SAC\"",
+                "\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(boleta)).andExpect(status().isCreated());
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().serie()).isEqualTo("B001");
+        assertThat(cap.getValue().receptor().sinDocumento()).isTrue();
+
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo.replace("\"F001\"", "\"T001\"")))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.errores.serie").exists());
+    }
+
     @Test void validacionDeDtoDevuelve422() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":\"F001\",\"items\":[]}"))
                 .andExpect(status().isUnprocessableEntity())

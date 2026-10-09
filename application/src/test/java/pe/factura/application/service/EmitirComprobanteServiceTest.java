@@ -404,6 +404,30 @@ class EmitirComprobanteServiceTest {
         assertThat(comprobantes.listar(tenantId, null, 1, 10)).hasSize(2);
     }
 
+    /** #20: una serie B### emite una boleta con la numeración de su propia serie y se envía sola con sendBill, como una factura. */
+    @Test void unaSerieBEmiteUnaBoletaYLaEnviaComoUnaFactura() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 41, true));
+        Comprobante c = service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+
+        assertThat(c.tipo()).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(c.numero()).isEqualTo(42L);
+        assertThat(c.nombreArchivo()).isEqualTo("20100066603-03-B001-42");
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(gateway.enviados).isEqualTo(1);
+        assertThat(gateway.ultimoNombre).isEqualTo("20100066603-03-B001-42");
+        // La factura sigue en su serie: la boleta no le consumió número.
+        assertThat(service.emitirFactura(tenantId, comando("F001")).numero()).isEqualTo(1L);
+    }
+
+    @Test void unaBoletaSinSerieDeBoletaConfiguradaNoSeEmite() {
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("-", "-", "CLIENTES VARIOS", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true))).extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
+        assertThat(gateway.enviados).isZero();
+    }
+
     private EmitirFacturaCommand comando(String serie) {
         return new EmitirFacturaCommand(serie, null, LocalDate.of(2026, 9, 13), null, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),

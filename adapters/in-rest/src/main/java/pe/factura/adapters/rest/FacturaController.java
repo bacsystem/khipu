@@ -35,7 +35,8 @@ import java.util.UUID;
 @RequestMapping("/v1/facturas")
 @RequiredArgsConstructor
 @Tag(name = "Facturas", description = """
-        Emisión y consulta de facturas electrónicas (tipo 01). Una factura se emite en una sola llamada: khipu asigna el
+        Emisión y consulta de facturas (tipo 01) y boletas de venta (tipo 03) electrónicas: la letra de la serie decide cuál
+        (`F###` factura, `B###` boleta). Las dos se emiten igual, en una sola llamada y una por una: khipu asigna el
         número correlativo de la serie, genera el XML UBL 2.1, lo firma con el certificado de la empresa, lo valida y lo
         envía a SUNAT; la respuesta trae el estado y, si SUNAT respondió, el CDR. Si SUNAT no está disponible, el
         comprobante queda en `ERROR_ENVIO` y khipu lo reintenta solo (ver *Estados del comprobante* en la introducción).
@@ -55,13 +56,18 @@ public class FacturaController {
 
 
     @PostMapping
-    @Operation(summary = "Emitir una factura", description = """
-            Crea la factura, la numera, la firma y la envía a SUNAT en la misma llamada (salvo `enviar_automatico: false`,
-            que la deja `FIRMADO` para enviarla después con `POST /v1/facturas/{id}/enviar`).
+    @Operation(summary = "Emitir una factura o una boleta", description = """
+            Crea la factura (o la boleta, con una serie `B###`), la numera, la firma y la envía a SUNAT en la misma llamada
+            (salvo `enviar_automatico: false`, que la deja `FIRMADO` para enviarla después con `POST /v1/facturas/{id}/enviar`).
 
-            **Qué validar antes de llamar**: la serie debe existir y ser de factura (`F###`, ver *Series*); el receptor de una
-            factura siempre lleva RUC (`cliente.tipo_doc = "6"`); `tipo_afectacion_igv` de cada ítem viene del catálogo 07;
-            `unidad` del catálogo 03; `tipo_operacion` del catálogo 51 (`0101` venta interna por defecto).
+            **Qué validar antes de llamar**: la serie debe existir (ver *Series*); el receptor de una factura siempre lleva
+            RUC (`cliente.tipo_doc = "6"`); `tipo_afectacion_igv` de cada ítem viene del catálogo 07; `unidad` del catálogo 03;
+            `tipo_operacion` del catálogo 51 (`0101` venta interna por defecto) y aplicable al tipo de comprobante (`0113` es solo de boletas).
+
+            **Boleta** (serie `B###`): el comprador se identifica con cualquier documento del catálogo 06 (DNI de 8 dígitos,
+            carné de extranjería, pasaporte, RUC…) o, si la boleta es en soles y de hasta S/ 700.00, con `tipo_doc` y `num_doc`
+            `-` (sin documento). Se emite al contado; crédito, retención, anticipos y exportación todavía van en factura
+            (`422` con el motivo). Una boleta aceptada todavía no se anula desde khipu.
 
             **Precios**: `precio_unitario` es el precio de venta unitario **con IGV incluido** para ítems gravados; khipu
             calcula el valor unitario, el IGV y los totales (tolerancias SUNAT ±1).

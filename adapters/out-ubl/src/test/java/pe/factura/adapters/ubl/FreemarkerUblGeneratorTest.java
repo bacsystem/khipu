@@ -64,4 +64,21 @@ class FreemarkerUblGeneratorTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>");
         new JaxpXsdValidator().validar(xmlConSlotRelleno, TipoDocumento.FACTURA);   // no lanza
     }
+
+    /** #20: la boleta es un Invoice con InvoiceTypeCode 03, el comprador sin documento va como «-» y no lleva forma de pago (Boleta2_0 no la tiene). */
+    @Test void generaUnaBoletaValidaContraElXsd() {
+        Comprobante b = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("-", "-", "CLIENTES VARIOS", null),
+                List.of(new Item("P001", "Pan", "NIU", new BigDecimal("10"), new BigDecimal("0.50"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
+        b.asignarNumero(3, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(b, tenant());
+        assertThat(xml).contains("<cbc:ID>B001-3</cbc:ID>")
+                .contains("listURI=\"urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01\">03</cbc:InvoiceTypeCode>")
+                .contains("<cbc:ID schemeID=\"-\"")
+                .contains("<cbc:RegistrationName>CLIENTES VARIOS</cbc:RegistrationName>")
+                .doesNotContain("FormaPago");
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.BOLETA);
+        // La factura sigue informando la forma de pago (3244).
+        assertThat(new FreemarkerUblGenerator().generar(factura(), tenant())).contains("<cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>");
+    }
 }

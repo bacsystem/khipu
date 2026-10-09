@@ -52,7 +52,8 @@
   </#list>
 <@u.firmaYPartes/>
 <@u.exportacion/>
-<@u.pagos/>
+<#-- La forma de pago es de la factura (3244); Boleta2_0 no la tiene y la boleta se emite al contado (#20). -->
+<@u.pagos contado=(c.tipo().name() == "FACTURA")/>
 <@u.cargosYDescuentosGlobales/>
 <@u.impuestos/>
 <@u.totalMonetario elemento="LegalMonetaryTotal"/>
