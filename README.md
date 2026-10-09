@@ -38,6 +38,18 @@ factor guardados en la base: si se reemplaza sin más, dejan de poder descifrars
 sin más invalida todas las emitidas. **Para rotarlas** (una filtración, una política de rotación) hay un procedimiento con `MASTER_KEY_ANTERIOR` y
 `API_KEY_PEPPER_ANTERIOR` que no pierde nada: ver `deploy/README.md` §9. Guarda las dos fuera de la plataforma, junto con el respaldo de la base.
 
+### Soporte
+Los tickets viven en un servicio externo (#200); khipu solo enlaza a él. En el **portal** (`portal/.env.example`), dos variables
+opcionales y vacías por defecto (#250):
+
+- `SUPPORT_URL`: página o portal de ayuda, tiene que ser `https`.
+- `SUPPORT_EMAIL`: correo de soporte.
+
+Con alguna de las dos, el portal muestra «¿Necesitas ayuda?» en el pie del panel, en las pantallas de error, login y cuenta
+suspendida, y en `/cuenta/plan`. Con el correo, la ficha de cada cuenta del backoffice ofrece «Escribir a soporte», con el nombre
+y el id de la cuenta en el asunto. Sin ninguna no se muestra nada. Un valor mal formado no pasa en silencio: el log del portal
+nombra la variable y el portal no muestra ninguna ayuda hasta corregirla (el resto funciona igual).
+
 ### Probar `develop` en Docker (`make`)
 Para probar lo ya mergeado sin depender de la rama que tengas abierta, `develop` se despliega en Docker con backend, portal y
 su propio Postgres. `make` sin argumentos lista todos los objetivos.

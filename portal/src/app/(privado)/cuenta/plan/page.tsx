@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Alerta } from "@/components/feedback/alerta";
+import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
 import { limitesEnPalabras, precioEnSoles } from "@/lib/api/admin-planes";
 import { obtenerMiCuenta } from "@/lib/api/cuenta";
 import { resumenDePlan } from "@/lib/cuenta/resumen-de-plan";
@@ -58,6 +59,8 @@ export default async function PlanPage() {
       <p className="text-sm text-muted-foreground">
         Tu plan, hasta cuándo está pagado y lo que llevas consumido este mes. Para cambiar de plan o renovarlo, comunícate con el equipo de khipu.
       </p>
+      {/* #250: «comunícate» tiene que decir por dónde. */}
+      <AyudaDeSoporte />
 
       {r.aviso ? (
         <Alerta tono={r.tono === "error" ? "error" : "aviso"} titulo={r.aviso}>
