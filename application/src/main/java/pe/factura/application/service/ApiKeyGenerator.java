@@ -23,6 +23,16 @@ public final class ApiKeyGenerator {
             return HexFormat.of().formatHex(md.digest((key + pepper).getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) { throw new IllegalStateException(e); }
     }
+    /**
+     * De qué pepper es un hash (S2), sin guardar el pepper: los primeros 16 hex de un SHA-256 con dominio propio, para que no coincida con el hash de
+     * ninguna key.
+     */
+    public static String huellaDePepper(String pepper) {
+        try {
+            byte[] d = MessageDigest.getInstance("SHA-256").digest(("khipu:huella-de-pepper:" + pepper).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(d).substring(0, 16);
+        } catch (Exception e) { throw new IllegalStateException(e); }
+    }
     public static String prefijo(String key) { return key.substring(0, Math.min(10, key.length())); }
 
     /**

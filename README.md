@@ -33,9 +33,10 @@ set -a; source .env; set +a
 ./gradlew :bootstrap:bootRun
 ```
 
-**No rotes `MASTER_KEY`.** Cifra los certificados PKCS#12 y las claves SOL almacenados en la base de datos;
-si cambia, esos secretos dejan de poder descifrarse y cada tenant tendría que volver a cargarlos.
-Respáldala junto con la base de datos. Lo mismo aplica a `API_KEY_PEPPER`: rotarlo invalida todas las API keys emitidas.
+**No cambies `MASTER_KEY` ni `API_KEY_PEPPER` a secas.** `MASTER_KEY` cifra los certificados PKCS#12, las claves SOL y los secretos del segundo
+factor guardados en la base: si se reemplaza sin más, dejan de poder descifrarse. `API_KEY_PEPPER` es parte del hash de cada API key: reemplazarlo
+sin más invalida todas las emitidas. **Para rotarlas** (una filtración, una política de rotación) hay un procedimiento con `MASTER_KEY_ANTERIOR` y
+`API_KEY_PEPPER_ANTERIOR` que no pierde nada: ver `deploy/README.md` §9. Guarda las dos fuera de la plataforma, junto con el respaldo de la base.
 
 ### Probar `develop` en Docker (`make`)
 Para probar lo ya mergeado sin depender de la rama que tengas abierta, `develop` se despliega en Docker con backend, portal y
