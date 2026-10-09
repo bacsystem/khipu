@@ -3,6 +3,7 @@ import { ApiKeysTable } from "@/components/api-keys/api-keys-table";
 import { listarApiKeys } from "@/lib/api/api-keys";
 import { obtenerEmpresaActual } from "@/lib/api/empresas";
 import { faltaParaEmitir } from "@/lib/comprobantes/listo-para-emitir";
+import { enlaceASeccion } from "@/lib/empresa/secciones";
 import { formatearFechaHora, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
@@ -45,12 +46,12 @@ export default async function ApiKeysPage() {
             activas.length > 0 && faltan === null ? (
               <span className="text-muted-foreground">Autentican; no se pudo comprobar si la empresa ya puede emitir</span>
             ) : activas.length > 0 && sinCertificado ? (
-              <Link href="/empresa" className="flex items-center gap-1 text-warning-foreground hover:underline">
+              <Link href={enlaceASeccion("certificado")} className="flex items-center gap-1 text-warning-foreground hover:underline">
                 <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />
                 Falta el certificado digital vigente para emitir
               </Link>
             ) : activas.length > 0 && sinSol ? (
-              <Link href="/empresa" className="flex items-center gap-1 text-warning-foreground hover:underline">
+              <Link href={enlaceASeccion("sol")} className="flex items-center gap-1 text-warning-foreground hover:underline">
                 <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />
                 Firman, pero no envían a SUNAT hasta guardar las credenciales SOL
               </Link>

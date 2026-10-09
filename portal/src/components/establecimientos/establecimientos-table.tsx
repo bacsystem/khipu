@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import type { Serie } from "@/lib/api/series";
+import { enlaceASeccion } from "@/lib/empresa/secciones";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { EstablecimientoDialog } from "./establecimiento-dialog";
@@ -46,7 +47,7 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
 
   if (establecimiento.principal)
     return (
-      <Link href="/empresa" className={cn(ACCION, "text-primary hover:bg-accent")}>
+      <Link href={enlaceASeccion("datos")} className={cn(ACCION, "text-primary hover:bg-accent")}>
         Editar en Empresa
       </Link>
     );
@@ -183,7 +184,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
                     <StoreIcon className="size-6" />
                     <p className="text-sm">
                       Configura el domicilio fiscal en{" "}
-                      <Link href="/empresa" className="text-primary hover:underline">
+                      <Link href={enlaceASeccion("datos")} className="text-primary hover:underline">
                         Empresa
                       </Link>{" "}
                       y registra tus anexos con «Nuevo establecimiento».

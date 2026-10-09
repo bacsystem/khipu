@@ -155,7 +155,17 @@ describe("NuevoComprobanteDialog", () => {
     expect(screen.getByText("Renovar el certificado digital: el cargado ya venció.")).toBeInTheDocument();
     expect(screen.getByText("Guardar el usuario SOL secundario y su clave.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ir a Fiscal & certificado" })).toHaveAttribute("href", "/empresa");
+    // #276: abre la pestaña de lo primero que falta (el certificado), no la página en la pestaña que sea.
+    expect(screen.getByRole("link", { name: "Ir a Fiscal & certificado" })).toHaveAttribute("href", "/empresa?seccion=certificado");
+  });
+
+  it("si solo faltan las credenciales SOL, el enlace abre esa pestaña", async () => {
+    stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA", tiene_credenciales_sol: false })));
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByRole("link", { name: "Ir a Fiscal & certificado" })).toHaveAttribute("href", "/empresa?seccion=sol"));
   });
 
   /** #107: con las credenciales rechazadas se puede emitir, pero el envío espera; se dice antes de emitir, no después. */
@@ -170,7 +180,7 @@ describe("NuevoComprobanteDialog", () => {
     await abrir();
 
     await waitFor(() => expect(screen.getByText("SUNAT rechazó las credenciales SOL de esta empresa")).toBeInTheDocument());
-    expect(screen.getByRole("link", { name: "Corregirlas" })).toHaveAttribute("href", "/empresa");
+    expect(screen.getByRole("link", { name: "Corregirlas" })).toHaveAttribute("href", "/empresa?seccion=sol");
     expect(screen.getByLabelText("Serie")).toBeInTheDocument();
   });
 

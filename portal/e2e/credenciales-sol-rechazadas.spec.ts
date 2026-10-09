@@ -17,7 +17,7 @@ test("con las credenciales SOL rechazadas el panel lo dice, y guardarlas de nuev
   await expect(dialogo.getByText("SUNAT rechazó las credenciales SOL de esta empresa")).toBeVisible();
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
   await dialogo.getByRole("link", { name: "Corregirlas" }).click();
-  await expect(page).toHaveURL(/\/empresa/);
+  await expect(page).toHaveURL(/\/empresa\?seccion=sol/);
 
   const aviso = page.getByTestId("credenciales-sol-rechazadas");
   await expect(aviso).toContainText("SUNAT rechazó tus credenciales SOL");
@@ -30,4 +30,6 @@ test("con las credenciales SOL rechazadas el panel lo dice, y guardarlas de nuev
 
   await expect(aviso).toHaveCount(0);
   await expect(page.getByText("CONFIGURADAS", { exact: true })).toBeVisible();
+  // Guardar refresca la página: sigue en la misma pestaña, que ya no está pendiente.
+  await expect(page.getByRole("tab", { name: "Credenciales SOL" })).toHaveAttribute("aria-selected", "true");
 });
