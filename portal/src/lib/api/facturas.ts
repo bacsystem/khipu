@@ -179,6 +179,8 @@ export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
   D: "IN (persona jurídica)",
   E: "Tarjeta Andina de Migración",
   G: "Salvoconducto",
+  // Una boleta de hasta S/ 700 sin comprador identificado (#20): no es del catálogo 06.
+  "-": "Sin documento",
 };
 
 /** Catálogo 07 (afectación del IGV) con las etiquetas cortas que muestra el portal; los códigos gratuitos no se cobran. */

@@ -61,7 +61,7 @@ const AUDIENCIA = [
 
 const COMPROBANTES = [
   { codigo: "01", nombre: "Factura electrónica", disponible: true },
-  { codigo: "03", nombre: "Boleta de venta", disponible: false },
+  { codigo: "03", nombre: "Boleta de venta", disponible: true },
   { codigo: "07", nombre: "Nota de crédito", disponible: true },
   { codigo: "08", nombre: "Nota de débito", disponible: true },
   { codigo: "RC", nombre: "Resumen diario de boletas", disponible: false },

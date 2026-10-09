@@ -56,12 +56,37 @@ const LINEA_VACIA: Linea = { descripcion: "", cantidad: 1, precioUnitario: null,
  */
 const PLAZO_ENVIO_DIAS = 3;
 
+export type TipoEmitible = "factura" | "boleta";
+
+/** Tipo de serie (catálogo 01) de cada comprobante que se emite desde aquí: la letra de la serie decide el tipo en el backend. */
+const TIPO_DE_SERIE: Record<TipoEmitible, string> = { factura: "01", boleta: "03" };
+
+/**
+ * Documentos del comprador de una boleta (catálogo 06), con su formato: lo que exige `Receptor.exigirValidoParaBoleta` (4207, 2017, 4208). «-» es el comprador
+ * sin identificar, que SUNAT admite solo hasta S/ 700 en soles.
+ */
+const DOCUMENTOS_BOLETA = [
+  { codigo: "1", etiqueta: "DNI", patron: "[0-9]{8}", max: 8, ejemplo: "12345678", titulo: "DNI de 8 dígitos" },
+  { codigo: "4", etiqueta: "Carné de extranjería", patron: "\\S{1,15}", max: 15, ejemplo: "001234567", titulo: "Hasta 15 caracteres sin espacios" },
+  { codigo: "7", etiqueta: "Pasaporte", patron: "\\S{1,15}", max: 15, ejemplo: "AB1234567", titulo: "Hasta 15 caracteres sin espacios" },
+  { codigo: "6", etiqueta: "RUC", patron: "[0-9]{11}", max: 11, ejemplo: "20123456786", titulo: "RUC de 11 dígitos" },
+  { codigo: "-", etiqueta: "Sin documento (hasta S/ 700)", patron: "", max: 0, ejemplo: "", titulo: "" },
+] as const;
+
+const SIN_DOCUMENTO = "-";
+const COMPRADOR_SIN_DOCUMENTO = "CLIENTES VARIOS";
+/** Espeja `Comprobante.TOPE_BOLETA_SIN_DOCUMENTO`: hasta este total (en soles) la boleta puede no identificar al comprador. */
+const TOPE_SIN_DOCUMENTO = 700;
+
 export function NuevoComprobanteForm({
+  tipo = "factura",
   series,
   tasaIgv,
   onEmitido,
   onCancelar,
 }: {
+  /** Factura (series F###, comprador con RUC) o boleta (series B###, comprador con cualquier documento o, hasta S/ 700, sin documento). */
+  tipo?: TipoEmitible;
   series: Serie[];
   /**
    * Tasa vigente de la empresa: 10.5 % si está en el padrón de tasa especial, 18 % si no, y `null` mientras no se
@@ -73,13 +98,17 @@ export function NuevoComprobanteForm({
   onCancelar?: () => void;
 }) {
   const router = useRouter();
-  const seriesFactura = series.filter((s) => s.tipo === "01" && s.activa);
+  const boleta = tipo === "boleta";
+  const nombre = boleta ? "boleta" : "factura";
+  const seriesDelTipo = series.filter((s) => s.tipo === TIPO_DE_SERIE[tipo] && s.activa);
 
-  const [serie, setSerie] = useState(seriesFactura[0]?.serie ?? "");
+  const [serie, setSerie] = useState(seriesDelTipo[0]?.serie ?? "");
   // Por render, no a nivel de módulo: el diálogo puede quedar abierto cruzando la medianoche de Lima.
   const hoy = hoyLima();
   const [fecha, setFecha] = useState(hoy);
   const [moneda, setMoneda] = useState("PEN");
+  // La factura siempre lleva RUC; la boleta, el documento que elija el usuario (DNI por defecto: es la venta más común).
+  const [tipoDoc, setTipoDoc] = useState(boleta ? "1" : "6");
   const [numDoc, setNumDoc] = useState("");
   const [razonSocial, setRazonSocial] = useState("");
   const [direccion, setDireccion] = useState("");
@@ -134,6 +163,19 @@ export function NuevoComprobanteForm({
   // arriba. El texto no nombra la causa: `lineasCompletas` excluye por descripción, por cantidad y por precio.
   const lineasIncompletas = lineas.length - lineasCompletas.length;
 
+  const sinDocumento = boleta && tipoDoc === SIN_DOCUMENTO;
+  const documento = DOCUMENTOS_BOLETA.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_BOLETA[0];
+  // Sin tipo de cambio no hay cómo comparar otra moneda con S/ 700: el backend exige el documento, y aquí se avisa antes.
+  const superaTopeSinDocumento = sinDocumento && (moneda !== "PEN" || totales.total > TOPE_SIN_DOCUMENTO);
+
+  /** Al pasar a «sin documento» el nombre se completa con el habitual; al volver a un documento, ese nombre de relleno se quita. */
+  function cambiarTipoDoc(nuevo: string) {
+    setTipoDoc(nuevo);
+    setNumDoc("");
+    if (nuevo === SIN_DOCUMENTO && !razonSocial.trim()) setRazonSocial(COMPRADOR_SIN_DOCUMENTO);
+    if (nuevo !== SIN_DOCUMENTO && razonSocial === COMPRADOR_SIN_DOCUMENTO) setRazonSocial("");
+  }
+
   /** `detalle` guarda un índice: al borrar una fila hay que reubicarlo o el panel queda abierto sobre otro ítem. */
   function quitarLinea(i: number) {
     setLineas((p) => (p.length === 1 ? p : p.filter((_, n) => n !== i)));
@@ -162,12 +204,21 @@ export function NuevoComprobanteForm({
       setError("Agrega al menos un ítem con descripción, cantidad y precio.");
       return;
     }
+    if (superaTopeSinDocumento) {
+      setError(`Una boleta de más de S/ ${TOPE_SIN_DOCUMENTO}.00 (o en otra moneda) identifica al comprador con su documento.`);
+      return;
+    }
 
     const factura = {
       serie,
       fecha_emision: fecha,
       moneda,
-      cliente: { tipo_doc: "6", num_doc: numDoc.trim(), razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined },
+      cliente: {
+        tipo_doc: tipoDoc,
+        num_doc: sinDocumento ? SIN_DOCUMENTO : numDoc.trim(),
+        razon_social: razonSocial.trim(),
+        direccion: direccion.trim() || undefined,
+      },
       items,
     };
     intento.current = intentoPara(intento.current, JSON.stringify(factura));
@@ -191,7 +242,7 @@ export function NuevoComprobanteForm({
     // devuelve el sobre de error, así que esto no puede ir en un catch.)
     if (noSeSabeSiLlego(res)) {
       setError(
-        "Se cortó la conexión mientras se emitía. Vuelve a emitir sin cambiar nada: si la factura ya se había emitido, verás la misma, sin duplicarla.",
+        `Se cortó la conexión mientras se emitía. Vuelve a emitir sin cambiar nada: si la ${nombre} ya se había emitido, verás la misma, sin duplicarla.`,
       );
       // El listado de fondo puede tener ya la factura nueva: que se vea sin recargar la página.
       router.refresh();
@@ -208,11 +259,11 @@ export function NuevoComprobanteForm({
     router.refresh();
   }
 
-  if (seriesFactura.length === 0) {
+  if (seriesDelTipo.length === 0) {
     return (
       <div className="flex flex-col gap-3 px-5 py-4">
-        <Alerta tono="aviso" titulo="No tienes series de factura">
-          Para emitir necesitas al menos una serie de tipo 01 activa.
+        <Alerta tono="aviso" titulo={`No tienes series de ${nombre}`}>
+          Para emitir necesitas al menos una serie de tipo {TIPO_DE_SERIE[tipo]} activa ({boleta ? "B###" : "F###"}).
         </Alerta>
         <button type="button" className={cn(ACCION_SECUNDARIA, "self-end")} onClick={() => router.push("/series")}>
           Ir a series
@@ -229,7 +280,7 @@ export function NuevoComprobanteForm({
       <div className="grid items-start gap-4 sm:grid-cols-3">
         <Campo id="nc-serie" etiqueta="Serie" ayuda="Correlativo automático">
           <select id="nc-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(CAMPO_DENSO, "font-mono")}>
-            {seriesFactura.map((s) => (
+            {seriesDelTipo.map((s) => (
               <option key={s.serie} value={s.serie}>
                 {s.serie} · siguiente N.º {s.ultimo_numero + 1}
               </option>
@@ -257,7 +308,56 @@ export function NuevoComprobanteForm({
       </div>
 
       <section className="grid gap-3">
-        <h3 className={ETIQUETA_CAMPO}>Cliente</h3>
+        <h3 className={ETIQUETA_CAMPO}>{boleta ? "Comprador" : "Cliente"}</h3>
+        {boleta ? (
+          <div className="grid gap-4 sm:grid-cols-[200px_180px_1fr]">
+            <Campo id="nc-tipo-doc" etiqueta="Documento del comprador">
+              <select id="nc-tipo-doc" value={tipoDoc} onChange={(e) => cambiarTipoDoc(e.target.value)} className={CAMPO_DENSO}>
+                {DOCUMENTOS_BOLETA.map((d) => (
+                  <option key={d.codigo} value={d.codigo}>
+                    {d.etiqueta}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            {sinDocumento ? (
+              <p className={cn(AYUDA_CAMPO, "self-center")}>SUNAT lo admite en soles y hasta S/ {TOPE_SIN_DOCUMENTO}.00 de total.</p>
+            ) : (
+              <Campo id="nc-num-doc" etiqueta="Número de documento">
+                <input
+                  id="nc-num-doc"
+                  // `key` por documento: el patrón y el largo cambian con él y el valor anterior ya no aplica.
+                  key={tipoDoc}
+                  value={numDoc}
+                  onChange={(e) => setNumDoc((documento.codigo === "1" || documento.codigo === "6" ? e.target.value.replace(/\D/g, "") : e.target.value.replace(/\s/g, "")).slice(0, documento.max))}
+                  inputMode={documento.codigo === "1" || documento.codigo === "6" ? "numeric" : "text"}
+                  placeholder={documento.ejemplo}
+                  required
+                  pattern={documento.patron}
+                  title={documento.titulo}
+                  className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
+                />
+              </Campo>
+            )}
+            <Campo id="nc-razon" etiqueta="Nombre del comprador">
+              <input
+                id="nc-razon"
+                value={razonSocial}
+                onChange={(e) => setRazonSocial(e.target.value)}
+                placeholder="Juan Pérez"
+                required
+                minLength={3}
+                maxLength={1500}
+                className={CAMPO_DENSO}
+              />
+            </Campo>
+            {superaTopeSinDocumento ? (
+              <p data-testid="aviso-sin-documento" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground sm:col-span-3")}>
+                Esta boleta pasa de S/ {TOPE_SIN_DOCUMENTO}.00{moneda !== "PEN" ? " o no es en soles" : ""}: identifica al comprador con su documento.
+              </p>
+            ) : null}
+          </div>
+        ) : (
         <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
           <Campo id="nc-ruc" etiqueta="RUC" >
             <input
@@ -294,6 +394,7 @@ export function NuevoComprobanteForm({
             </Campo>
           </div>
         </div>
+        )}
       </section>
 
       <section className="flex min-h-0 flex-1 flex-col gap-3">
@@ -456,7 +557,7 @@ export function NuevoComprobanteForm({
             textoPendiente="Emitiendo…"
             aria-describedby={lineasIncompletas > 0 ? "nc-aviso-incompletos" : undefined}
           >
-            Emitir factura
+            Emitir {nombre}
           </BotonAsync>
         </div>
       </div>

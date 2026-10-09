@@ -369,12 +369,17 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               <p className="text-sm font-semibold text-foreground">{c.receptor.razon_social}</p>
             </Campo>
             <Campo etiqueta="Documento de identidad">
-              <div className="flex items-center gap-1.5 font-mono">
-                <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  Tipo {c.receptor.tipo_doc} · {tipoDoc}
-                </span>
-                <span className="font-semibold text-foreground">{c.receptor.num_doc}</span>
-              </div>
+              {/* #20: una boleta de hasta S/ 700 puede no identificar al comprador («-»): se dice así, sin un «Tipo -» ni un número «-». */}
+              {c.receptor.tipo_doc === "-" ? (
+                <p className="text-sm text-foreground">{tipoDoc}</p>
+              ) : (
+                <div className="flex items-center gap-1.5 font-mono">
+                  <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    Tipo {c.receptor.tipo_doc} · {tipoDoc}
+                  </span>
+                  <span className="font-semibold text-foreground">{c.receptor.num_doc}</span>
+                </div>
+              )}
             </Campo>
             <Campo etiqueta="Dirección declarada">
               <p className="leading-snug text-foreground/80">{c.receptor.direccion ?? "—"}</p>

@@ -3,12 +3,12 @@
 import { FileTextIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { NuevoComprobanteForm } from "@/components/comprobantes/nuevo-comprobante-form";
+import { NuevoComprobanteForm, type TipoEmitible } from "@/components/comprobantes/nuevo-comprobante-form";
 import { Alerta } from "@/components/feedback/alerta";
 import { Spinner } from "@/components/feedback/spinner";
 import { CabeceraDialogo } from "@/components/patrones/cabecera-dialogo";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-
+import { GrupoBotones } from "@/components/ui/grupo-botones";
 import { apiRequest } from "@/lib/api/browser";
 import type { EmpresaDetalle } from "@/lib/api/empresas";
 import type { Serie } from "@/lib/api/series";
@@ -78,6 +78,7 @@ function useRecursoDelDialogo<T>(abierto: boolean, ruta: string) {
 export function NuevoComprobanteDialog({ className }: { className?: string }) {
   const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
+  const [tipo, setTipo] = useState<TipoEmitible>("factura");
 
   const series = useRecursoDelDialogo<Serie[]>(abierto, "/api/proxy/series");
   const empresa = useRecursoDelDialogo<EmpresaDetalle>(abierto, "/api/proxy/empresa");
@@ -109,7 +110,6 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
           titulo="Nuevo comprobante"
           descripcion={ambiente}
         />
-        {/* Sin selector de tipo (C6): solo se emiten facturas, y una «Boleta» deshabilitada no decidía nada. Vuelve con #20. */}
         {/* C2: si el backend va a rechazar la emisión (sin certificado, vencido o sin credenciales SOL), se dice antes de que el
             usuario llene nada, y se lo lleva a donde se arregla. */}
         {faltan.length > 0 ? (
@@ -165,7 +165,20 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                 </Alerta>
               </div>
             ) : null}
-            <NuevoComprobanteForm series={series.dato} tasaIgv={tasaIgv} onEmitido={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
+            {/* #20: factura o boleta. Las dos se emiten igual; cambian las series que se ofrecen y lo que se pide del comprador. */}
+            <div className="shrink-0 px-5 pt-4">
+              <GrupoBotones
+                etiqueta="Tipo de comprobante"
+                valor={tipo}
+                onCambio={setTipo}
+                opciones={[
+                  { valor: "factura", etiqueta: "Factura" },
+                  { valor: "boleta", etiqueta: "Boleta" },
+                ]}
+              />
+            </div>
+            {/* `key`: cambiar de tipo es empezar otro comprobante, con su serie y su comprador; lo cargado del otro no aplica. */}
+            <NuevoComprobanteForm key={tipo} tipo={tipo} series={series.dato} tasaIgv={tasaIgv} onEmitido={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
           </>
         ) : series.error ? (
           <div className="flex flex-col gap-3 px-5 py-4">

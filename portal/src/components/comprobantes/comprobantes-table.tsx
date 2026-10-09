@@ -286,7 +286,7 @@ export function ComprobantesTable({
                       <div className="flex flex-col overflow-hidden">
                         <span className="truncate leading-snug font-medium text-foreground">{c.receptor.razon_social}</span>
                         <span className="mt-0.5 font-mono text-[11px] text-muted-foreground/80">
-                          {ETIQUETAS_TIPO_DOC[c.receptor.tipo_doc] ?? "Doc."} {c.receptor.num_doc}
+                          {c.receptor.tipo_doc === "-" ? ETIQUETAS_TIPO_DOC["-"] : `${ETIQUETAS_TIPO_DOC[c.receptor.tipo_doc] ?? "Doc."} ${c.receptor.num_doc}`}
                         </span>
                       </div>
                     ) : (

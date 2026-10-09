@@ -174,6 +174,35 @@ describe("NuevoComprobanteDialog", () => {
     expect(screen.getByLabelText("Serie")).toBeInTheDocument();
   });
 
+  /** #20: la boleta se elige arriba, usa solo series B### y pide el documento del comprador, no un RUC. */
+  it("eligiendo Boleta muestra sus series y pide el documento del comprador", async () => {
+    const conBoleta = [...SERIES, { tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" }];
+    stubFetch((url) => (url.includes("/series") ? sobre(conBoleta) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    expect(screen.getByRole("option", { name: /F001/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("RUC")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
+
+    await waitFor(() => expect(screen.getByRole("option", { name: /B001 · siguiente N\.º 10/ })).toBeInTheDocument());
+    expect(screen.queryByRole("option", { name: /F001/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Documento del comprador")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
+  });
+
+  it("sin series de boleta lo dice con su tipo, sin esconder la opción", async () => {
+    stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
+
+    await waitFor(() => expect(screen.getByText("No tienes series de boleta")).toBeInTheDocument());
+    expect(screen.getByText(/serie de tipo 03 activa/)).toBeInTheDocument();
+  });
+
   it("sin rechazo no hay aviso de credenciales", async () => {
     stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
 
