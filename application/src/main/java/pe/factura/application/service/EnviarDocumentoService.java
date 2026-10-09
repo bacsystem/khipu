@@ -1,6 +1,7 @@
 package pe.factura.application.service;
 
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
+import pe.factura.application.port.in.InformarEnResumenUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Cdr;
@@ -25,14 +26,23 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
     private final UnitOfWork uow;
     private final Clock clock;
     private final RechazoDeSolRepository rechazosDeSol;
+    /** Para la boleta que pasó el envío individual; sin él (tests que no envían boletas viejas) se cierra como fuera de plazo. */
+    private final InformarEnResumenUseCase resumen;
 
     public EnviarDocumentoService(ComprobanteRepository comprobantes, TenantRepository tenants, DocumentStorage storage, SunatBillingGateway gateway,
                                   CdrParser cdrParser, OutboxRepository outbox, UnitOfWork uow, Clock clock) {
-        this(comprobantes, tenants, storage, gateway, cdrParser, outbox, uow, clock, RechazoDeSolRepository.NINGUNO);
+        this(comprobantes, tenants, storage, gateway, cdrParser, outbox, uow, clock, RechazoDeSolRepository.NINGUNO, null);
     }
 
     public EnviarDocumentoService(ComprobanteRepository comprobantes, TenantRepository tenants, DocumentStorage storage, SunatBillingGateway gateway,
                                   CdrParser cdrParser, OutboxRepository outbox, UnitOfWork uow, Clock clock, RechazoDeSolRepository rechazosDeSol) {
+        this(comprobantes, tenants, storage, gateway, cdrParser, outbox, uow, clock, rechazosDeSol, null);
+    }
+
+    public EnviarDocumentoService(ComprobanteRepository comprobantes, TenantRepository tenants, DocumentStorage storage, SunatBillingGateway gateway,
+                                  CdrParser cdrParser, OutboxRepository outbox, UnitOfWork uow, Clock clock, RechazoDeSolRepository rechazosDeSol,
+                                  InformarEnResumenUseCase resumen) {
+        this.resumen = resumen;
         this.comprobantes = comprobantes;
         this.tenants = tenants;
         this.storage = storage;
@@ -50,6 +60,11 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
                 .orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
         if (!c.estado().esEnviable())
             throw new DomainException("ESTADO_NO_ENVIABLE", "El comprobante está en estado " + c.estado());
+        // Pasado el envío individual una boleta ya no va sola (1079): SUNAT la recibe en un resumen diario hasta el séptimo día (274-H1).
+        if (c.soloPorResumen(LocalDate.now(clock))) {
+            if (resumen != null) return resumen.informar(tenantId, comprobanteId);
+            throw new DomainException("FUERA_DE_PLAZO", c.nombreArchivo() + ": 1079 - Pasado el envío individual, SUNAT solo recibe esta boleta en un resumen diario");
+        }
         // Pasado el plazo SUNAT rechaza (2108, o 1079 en boletas) y el número ya está consumido: se cierra aquí, sin gastar el envío (#37).
         if (c.fueraDePlazo(LocalDate.now(clock))) {
             c.marcarFueraDePlazo(LocalDate.now(clock));

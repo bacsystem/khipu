@@ -22,7 +22,20 @@ import { useSoloLectura } from "@/lib/solo-lectura";
  * cerraba sin decir nada; y nada avisaba de cuántos días quedaban del plazo (2957) ni de las notas que quedarían sobre un
  * comprobante anulado.
  */
-export function BajaButton({ id, numero, fechaEmision, notasVigentes = 0 }: { id: string; numero: string; fechaEmision: string; notasVigentes?: number }) {
+export function BajaButton({
+  id,
+  numero,
+  fechaEmision,
+  notasVigentes = 0,
+  boleta = false,
+}: {
+  id: string;
+  numero: string;
+  fechaEmision: string;
+  notasVigentes?: number;
+  /** #20: una boleta no va en una comunicación de baja sino en el resumen diario (RC); el efecto y el plazo son los mismos. */
+  boleta?: boolean;
+}) {
   const soloLectura = useSoloLectura();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
@@ -95,7 +108,7 @@ export function BajaButton({ id, numero, fechaEmision, notasVigentes = 0 }: { id
                 Dar de baja <span className="font-mono">{numero}</span>
               </DialogTitle>
               <DialogDescription className="text-[13px]">
-                Comunicación de baja ante SUNAT (regla 2957: hasta {PLAZO_BAJA_DIAS} días desde la emisión).{" "}
+                {boleta ? "Resumen diario ante SUNAT con la boleta anulada" : "Comunicación de baja ante SUNAT"} (regla 2957: hasta {PLAZO_BAJA_DIAS} días desde la emisión).{" "}
                 {diasRestantes === 0 ? "Hoy es el último día del plazo: si el envío falla y se reintenta mañana, SUNAT la rechazará." : `Quedan ${diasRestantes} ${diasRestantes === 1 ? "día" : "días"} de plazo.`}
               </DialogDescription>
             </div>

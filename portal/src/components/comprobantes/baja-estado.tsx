@@ -18,6 +18,13 @@ const ETIQUETAS: Record<Baja["estado"], string> = {
   RECHAZADA: "Rechazada por SUNAT",
 };
 
+/** Un resumen de alta informa la boleta en vez de anularla: lo que cambia es qué significa que SUNAT lo acepte (274-H1). */
+const ETIQUETAS_ALTA: Record<Baja["estado"], string> = {
+  ...ETIQUETAS,
+  ACEPTADA: "Aceptado: boleta informada a SUNAT",
+  RECHAZADA: "Rechazado por SUNAT: la boleta no quedó informada",
+};
+
 /**
  * Estado de la comunicación de baja en la ficha. Mientras está en curso (ENVIADA/ERROR_ENVIO/GENERADA) se puede reconsultar
  * a SUNAT (`GET /v1/bajas/{id}` continúa el trámite en el acto) y se refresca sola cada 30 s: antes la ficha decía «SUNAT la
@@ -28,6 +35,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
   const [consultando, setConsultando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pendiente = baja.estado === "ENVIADA" || baja.estado === "ERROR_ENVIO" || baja.estado === "GENERADA";
+  const alta = baja.condicion === "ALTA";
 
   const actualizar = useCallback(async () => {
     setConsultando(true);
@@ -51,13 +59,18 @@ export function BajaEstado({ baja }: { baja: Baja }) {
 
   return (
     <section
-      className={cn("rounded-xl border p-5 shadow-2xs", baja.estado === "ACEPTADA" ? "border-destructive/40 bg-destructive/5" : baja.estado === "RECHAZADA" ? "border-warning-border bg-warning/40" : "border-border bg-card")}
+      className={cn(
+        "rounded-xl border p-5 shadow-2xs",
+        baja.estado === "ACEPTADA" && !alta ? "border-destructive/40 bg-destructive/5" : baja.estado === "RECHAZADA" ? "border-warning-border bg-warning/40" : "border-border bg-card",
+      )}
       data-testid="baja"
     >
       <div className={cn(TITULO_SECCION, "mb-3 justify-between")}>
         <span className="flex items-center gap-1.5">
           <BanIcon className="size-4" />
-          Comunicación de baja {baja.identificador}
+          {/* #20: la baja de una boleta va en un resumen diario (RC-…), la de los demás en una comunicación de baja (RA-…). */}
+          {baja.tipo_comprobante === "03" ? "Resumen diario" : "Comunicación de baja"} {baja.identificador}
+          {alta ? " (alta)" : null}
         </span>
         {pendiente ? (
           <button type="button" onClick={actualizar} disabled={consultando} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "normal-case tracking-normal")}>
@@ -69,7 +82,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-4">
         <div className="flex flex-col gap-1">
           <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Estado</span>
-          <span className="font-semibold text-foreground" role="status">{ETIQUETAS[baja.estado]}</span>
+          <span className="font-semibold text-foreground" role="status">{(alta ? ETIQUETAS_ALTA : ETIQUETAS)[baja.estado]}</span>
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Motivo</span>
@@ -84,7 +97,13 @@ export function BajaEstado({ baja }: { baja: Baja }) {
           <span className="font-mono text-foreground/80">{baja.cdr ? `${baja.cdr.codigo} · ${baja.cdr.descripcion}` : (baja.ultimo_error ?? "—")}{!baja.cdr && baja.intentos > 1 ? ` (${baja.intentos} intentos)` : ""}</span>
         </div>
       </div>
-      {pendiente ? <p className="mt-3 text-[12px] text-muted-foreground">Mientras SUNAT no responda, el comprobante no admite otra baja ni notas. Esta ficha se actualiza sola cada 30 s.</p> : null}
+      {pendiente ? (
+        <p className="mt-3 text-[12px] text-muted-foreground">
+          {alta
+            ? "Pasó el envío individual: SUNAT la recibe en el resumen diario. Mientras no responda, la boleta queda enviada. Esta ficha se actualiza sola cada 30 s."
+            : "Mientras SUNAT no responda, el comprobante no admite otra baja ni notas. Esta ficha se actualiza sola cada 30 s."}
+        </p>
+      ) : null}
       {error ? <p className="mt-2 text-sm text-destructive" role="alert">{error}</p> : null}
     </section>
   );

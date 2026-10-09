@@ -77,6 +77,14 @@ test("emite una boleta a un comprador sin documento y no deja pasar una de más 
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
   await expect(page.getByText(/B001-\d+/).first()).toBeVisible();
   await expect(page.getByText("Sin documento").first()).toBeVisible();
+
+  // Se anula con el resumen diario (RC), no con una comunicación de baja.
+  await page.getByTestId("dar-de-baja").click();
+  const confirmacion = page.getByTestId("baja-confirmacion");
+  await expect(confirmacion).toContainText("Resumen diario ante SUNAT");
+  await confirmacion.getByLabel("Motivo").fill("Se cobró dos veces");
+  await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
+  await expect(page.getByTestId("baja")).toContainText(/Resumen diario RC-\d{8}-1/);
 });
 
 test("tras emitir, el diálogo anuncia el correlativo siguiente, no el que acaba de usar (#17)", async ({ page }) => {

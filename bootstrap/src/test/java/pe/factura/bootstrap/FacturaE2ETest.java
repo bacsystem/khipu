@@ -123,6 +123,54 @@ class FacturaE2ETest {
         ResponseEntity<byte[]> pdf = http.exchange("/v1/facturas/" + id + "/pdf", HttpMethod.GET, new HttpEntity<>(h), byte[].class);
         assertThat(pdf.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(new String(pdf.getBody(), 0, 5)).isEqualTo("%PDF-");
+
+        // Anularla: un resumen diario (RC) firmado de verdad y validado contra el XSD oficial, por sendSummary + getStatus; la boleta queda ANULADA.
+        stubFor(post("/billService").withRequestBody(containing("sendSummary")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:sendSummaryResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><ticket>1789768174685</ticket></ns2:sendSummaryResponse></soap-env:Body></soap-env:Envelope>")));
+        byte[] cdrRc = ZipUtil.comprimir("R-20100066603-RC.xml", CDR_OK.getBytes());
+        stubFor(post("/billService").withRequestBody(containing("getStatus")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>0</statusCode><content>"
+                        + Base64.getEncoder().encodeToString(cdrRc) + "</content></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")));
+        ResponseEntity<Map> baja = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Se cobró dos veces\"}", h), Map.class);
+        assertThat(baja.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        Map<?, ?> rc = (Map<?, ?>) baja.getBody().get("datos");
+        assertThat((String) rc.get("identificador")).matches("RC-\\d{8}-1");
+        assertThat(rc.get("estado")).isEqualTo("ACEPTADA");
+        verify(postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("sendSummary")).withRequestBody(matching("(?s).*<fileName>20100066603-RC-\\d{8}-1\\.zip</fileName>.*")));
+        Map<?, ?> anulada = (Map<?, ?>) http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos");
+        assertThat(anulada.get("estado_documento")).isEqualTo("ANULADO");
+    }
+
+    /**
+     * 274-H1: una boleta firmada hace 5 días y nunca enviada ya no va sola con sendBill (1079): al enviarla, khipu la informa en un resumen diario con su
+     * línea en estado 1, firmado de verdad y validado contra el XSD, y al aceptarse la boleta queda ACEPTADO.
+     */
+    @Test void boletaPasadaDelEnvioIndividualSeInformaEnElResumenDiario(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").withRequestBody(containing("sendSummary")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:sendSummaryResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><ticket>1789768174686</ticket></ns2:sendSummaryResponse></soap-env:Body></soap-env:Envelope>")));
+        stubFor(post("/billService").withRequestBody(containing("getStatus")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>0</statusCode><content>"
+                        + Base64.getEncoder().encodeToString(ZipUtil.comprimir("R-20100066603-RC.xml", CDR_OK.getBytes())) + "</content></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"03\",\"serie\":\"B001\",\"correlativo_inicial\":0}", h), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String haceCinco = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).minusDays(5).toString();
+        ResponseEntity<Map> emitida = http.postForEntity("/v1/facturas", new HttpEntity<>("""
+            {"serie":"B001","fecha_emision":"%s","moneda":"PEN","enviar_automatico":false,
+             "cliente":{"tipo_doc":"1","num_doc":"12345678","razon_social":"JUAN PEREZ"},
+             "items":[{"codigo":"P001","descripcion":"Pan","unidad":"NIU","cantidad":10,"precio_unitario":0.50,"tipo_afectacion_igv":"10"}]}
+            """.formatted(haceCinco), h), Map.class);
+        assertThat(emitida.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String id = (String) ((Map<?, ?>) emitida.getBody().get("datos")).get("id");
+
+        ResponseEntity<Map> enviada = http.postForEntity("/v1/facturas/" + id + "/enviar", new HttpEntity<>(h), Map.class);
+
+        assertThat(enviada.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(((Map<?, ?>) enviada.getBody().get("datos")).get("estado_documento")).isEqualTo("ACEPTADO");
+        verify(0, postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("sendBill")));
+        verify(postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("sendSummary")).withRequestBody(matching("(?s).*<fileName>20100066603-RC-\\d{8}-1\\.zip</fileName>.*")));
+        Map<String, Object> resumen = (Map<String, Object>) ((java.util.List<?>) http.exchange("/v1/facturas/" + id + "/bajas", HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos")).get(0);
+        assertThat(resumen).containsEntry("condicion", "ALTA").containsEntry("estado", "ACEPTADA");
     }
 
     @Autowired OutboxWorker worker;

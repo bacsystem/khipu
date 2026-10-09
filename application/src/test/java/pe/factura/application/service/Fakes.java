@@ -159,7 +159,7 @@ final class Fakes {
         /** Emisor con el que se generó el último XML: permite comprobar el domicilio del establecimiento de la serie (#80). */
         Tenant ultimoEmisor;
         public String generar(Comprobante c, Tenant t) { ultimoEmisor = t; return "<" + c.tipo() + ">" + c.nombreArchivo() + "</" + c.tipo() + ">"; }
-        public String generarBaja(ComunicacionBaja b, Tenant t) { return "<VoidedDocuments>" + b.identificador() + "</VoidedDocuments>"; }
+        public String generarBaja(ComunicacionBaja b, Comprobante c, Tenant t) { String raiz = b.resumenDiario() ? "SummaryDocuments" : "VoidedDocuments"; return "<" + raiz + ">" + b.identificador() + "</" + raiz + ">"; }
     }
     static final class Consultas implements pe.factura.application.port.out.SunatConsultaGateway {
         Consulta respuesta = new Consulta("0001", "El comprobante existe y está aceptado.", "cdr".getBytes());

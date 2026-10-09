@@ -3,6 +3,7 @@ package pe.factura.adapters.ubl;
 import org.xml.sax.SAXParseException;
 import pe.factura.application.port.out.XsdValidator;
 import pe.factura.domain.DomainException;
+import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.documento.TipoDocumento;
 
 import javax.xml.XMLConstants;
@@ -18,9 +19,11 @@ import java.util.Map;
 public class JaxpXsdValidator implements XsdValidator {
     private final Map<TipoDocumento, Schema> esquemas = new EnumMap<>(TipoDocumento.class);
     private final Schema baja;
+    private final Schema resumenDiario;
 
     public JaxpXsdValidator() {
         baja = cargar("xsd/2.0/maindoc/UBLPE-VoidedDocuments-1.0.xsd");
+        resumenDiario = cargar("xsd/2.0/maindoc/UBLPE-SummaryDocuments-1.0.xsd");
         esquemas.put(TipoDocumento.FACTURA, cargar("xsd/2.1/maindoc/UBL-Invoice-2.1.xsd"));
         esquemas.put(TipoDocumento.BOLETA, esquemas.get(TipoDocumento.FACTURA));
         esquemas.put(TipoDocumento.NOTA_CREDITO, cargar("xsd/2.1/maindoc/UBL-CreditNote-2.1.xsd"));
@@ -43,7 +46,8 @@ public class JaxpXsdValidator implements XsdValidator {
         validar(xml, s);
     }
 
-    @Override public void validarBaja(String xml) { validar(xml, baja); }
+    // La baja decide si va en un resumen diario (275-H4): la regla «boleta, resumen» vive en un solo lugar.
+    @Override public void validarBaja(String xml, ComunicacionBaja b) { validar(xml, b.resumenDiario() ? resumenDiario : baja); }
 
     private static void validar(String xml, Schema s) {
         try {

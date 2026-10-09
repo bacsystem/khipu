@@ -33,9 +33,49 @@ class ComunicacionBajaTest {
         assertThatThrownBy(() -> ComunicacionBaja.crear(aceptado(TipoDocumento.FACTURA, "F001", LocalDate.of(2026, 9, 12)), 1, "Error", CLOCK)).hasMessageContaining("2957");
     }
 
-    @Test void lasBoletasNoVanEnComunicacionDeBaja() {
-        assertThatThrownBy(() -> ComunicacionBaja.crear(aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 20)), 1, "Error", CLOCK))
-                .isInstanceOf(DomainException.class).hasMessageContaining("2308");
+    /** #20: una boleta no va en una comunicación de baja (2308): se anula en el resumen diario, con su propio identificador RC y las mismas guardas. */
+    @Test void unaBoletaSeDaDeBajaEnElResumenDiario() {
+        ComunicacionBaja rc = ComunicacionBaja.crear(aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 18)), 3, "Error en el monto", CLOCK);
+        assertThat(rc.resumenDiario()).isTrue();
+        assertThat(rc.identificador()).isEqualTo("RC-20260920-3");
+        assertThat(rc.nombreArchivo("20100066603")).isEqualTo("20100066603-RC-20260920-3");
+        assertThat(rc.fechaReferencia()).isEqualTo(LocalDate.of(2026, 9, 18));
+        assertThat(ComunicacionBaja.crear(aceptado(TipoDocumento.FACTURA, "F001", LocalDate.of(2026, 9, 18)), 1, "Error", CLOCK).resumenDiario()).isFalse();
+        // 2957: el plazo de 7 días también vale para la baja en el RC.
+        assertThatThrownBy(() -> ComunicacionBaja.crear(aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 12)), 1, "Error", CLOCK)).hasMessageContaining("2957");
+        // 2987/2282: SUNAT tiene que tenerla como válida; una boleta que no aceptó no se anula.
+        Comprobante firmada = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 2L, LocalDate.of(2026, 9, 20), EstadoDocumento.FIRMADO, RECEPTOR,
+                List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).rehidratar();
+        assertThatThrownBy(() -> ComunicacionBaja.crear(firmada, 1, "Error", CLOCK)).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("BAJA_INVALIDA");
+    }
+
+    /**
+     * 274-H1: una boleta que pasó el envío individual (1079) se informa en un resumen diario con su línea en estado 1 (alta), hasta el séptimo día. Es el
+     * mismo resumen que la baja (RC, ticket, CDR), con otra condición.
+     */
+    @Test void unaBoletaPasadaDelEnvioIndividualSeInformaEnUnResumenDeAlta() {
+        Comprobante boleta = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 4L, LocalDate.of(2026, 9, 15), EstadoDocumento.ERROR_ENVIO,
+                RECEPTOR, List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).rehidratar();
+
+        ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(boleta, 2, CLOCK);
+
+        assertThat(alta.condicion()).isEqualTo(ComunicacionBaja.Condicion.ALTA);
+        assertThat(alta.condicion().codigo()).isEqualTo("1");
+        assertThat(alta.identificador()).isEqualTo("RC-20260920-2");
+        assertThat(alta.fechaReferencia()).isEqualTo(LocalDate.of(2026, 9, 15));
+        assertThat(ComunicacionBaja.crear(aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 18)), 1, "Error", CLOCK).condicion())
+                .isEqualTo(ComunicacionBaja.Condicion.BAJA);
+    }
+
+    @Test void soloVaAlResumenDeAltaLaBoletaQueYaNoSePuedeEnviarSola() {
+        Comprobante delDia = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 4L, LocalDate.of(2026, 9, 19), EstadoDocumento.FIRMADO,
+                RECEPTOR, List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).rehidratar();
+        assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(delDia, 1, CLOCK)).as("todavía va sola con sendBill").extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
+        Comprobante aceptada = aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 15));
+        assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(aceptada, 1, CLOCK)).as("ya la tiene SUNAT").extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
+        Comprobante factura = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 4L, LocalDate.of(2026, 9, 15), EstadoDocumento.FIRMADO,
+                RECEPTOR, List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).rehidratar();
+        assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(factura, 1, CLOCK)).as("una factura no va en un resumen").extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
     }
 
     @Test void elMotivoVaDe3A100SinCaracteresDeControl() {

@@ -114,12 +114,40 @@ class BoletaTest {
      * recibe en el resumen. El mensaje lo dice así, no como un 2108 («fuera de fecha, emita otro»), que llevaría a cobrar la misma venta dos veces (274-H1).
      */
     @Test void fueraDePlazoCitaLaReglaDeBoletaYNoPideEmitirOtra() {
-        assertThatThrownBy(() -> Comprobante.boleta(tenant, "B001", hoy.minusDays(4), "PEN", "0101", dni, items("10")).crear(clock))
+        assertThatThrownBy(() -> Comprobante.boleta(tenant, "B001", hoy.minusDays(8), "PEN", "0101", dni, items("10")).crear(clock))
                 .isInstanceOf(DomainException.class).hasMessageStartingWith("1079").hasMessageContaining("resumen diario").extracting("codigo").isEqualTo("FECHA_INVALIDA");
         Comprobante c = Comprobante.boleta(tenant, "B001", hoy, "PEN", "0101", dni, items("10")).crear(clock);
         c.asignarNumero(1, "20100066603");
         c.firmar("h", "k");
-        c.marcarFueraDePlazo(hoy.plusDays(4));
+        c.marcarFueraDePlazo(hoy.plusDays(8));
         assertThat(c.ultimoError()).startsWith("1079").contains("resumen diario").doesNotContain("Presentación fuera de fecha");
+    }
+
+    /**
+     * 274-H1, segunda parte: pasado el envío individual (3 días) SUNAT todavía recibe la boleta, pero solo en un resumen diario, hasta el séptimo día
+     * (guía del resumen diario). En esa ventana no está fuera de plazo: se informa en un resumen de alta.
+     */
+    @Test void entreElCuartoYElSeptimoDiaSoloVaEnUnResumenDiario() {
+        Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(5), "PEN", "0101", dni, items("10")).crear(clock);
+        assertThat(c.soloPorResumen(hoy.minusDays(2))).as("dentro del envío individual").isFalse();
+        assertThat(c.soloPorResumen(hoy)).isTrue();
+        assertThat(c.fueraDePlazo(hoy)).isFalse();
+        assertThat(c.fueraDePlazo(hoy.plusDays(3))).as("pasado el séptimo día").isTrue();
+        assertThat(c.soloPorResumen(hoy.plusDays(3))).isFalse();
+
+        Comprobante factura = Comprobante.factura(tenant, "F001", hoy, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), items("10")).crear(clock);
+        assertThat(factura.soloPorResumen(hoy.plusDays(5))).as("una factura nunca va en un resumen").isFalse();
+        assertThat(factura.fueraDePlazo(hoy.plusDays(4))).isTrue();
+    }
+
+    /** Informada en el resumen, la boleta queda ENVIADA hasta que SUNAT responda el ticket, y su CDR la acepta o la rechaza como un envío más. */
+    @Test void informadaEnElResumenQuedaEnviadaYElCdrLaResuelve() {
+        Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(5), "PEN", "0101", dni, items("10")).crear(clock);
+        c.asignarNumero(1, "20100066603");
+        c.firmar("h", "k");
+        c.informarEnResumen("RC-20260913-1");
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.ENVIADO);
+        c.aplicarCdr(new Cdr("0", "El Resumen diario RC-20260913-1 ha sido aceptado", List.of()), "R.zip");
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
     }
 }

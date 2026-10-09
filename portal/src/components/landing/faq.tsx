@@ -22,7 +22,7 @@ const PREGUNTAS = [
   {
     pregunta: "¿Puedo emitir boletas o notas de crédito?",
     respuesta:
-      "Hoy emitimos facturas y boletas, notas de crédito y de débito sobre facturas, y comunicaciones de baja de facturas. Anular una boleta (con el resumen diario) y las guías de remisión están en camino.",
+      "Hoy emitimos facturas y boletas, notas de crédito y de débito sobre facturas, y anulamos ante SUNAT facturas (comunicación de baja) y boletas (resumen diario). Las notas sobre boletas y las guías de remisión están en camino.",
   },
 ];
 

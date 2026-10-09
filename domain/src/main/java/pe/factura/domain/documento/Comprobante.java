@@ -373,6 +373,18 @@ public class Comprobante {
 
     public void marcarEnviado() { transitar(EstadoDocumento.ENVIADO, "Enviado a SUNAT (intento " + (intentos + 1) + ")"); }
 
+    /**
+     * Una boleta que pasó el envío individual va en el resumen diario {@code identificador} (274-H1): queda ENVIADA hasta que SUNAT responda el ticket, y
+     * el CDR del resumen la acepta o la rechaza ({@link #aplicarCdr}).
+     */
+    public void informarEnResumen(String identificador) {
+        if (tipo != TipoDocumento.BOLETA) throw new DomainException("RESUMEN_INVALIDO", "Solo una boleta se informa en un resumen diario");
+        transitar(EstadoDocumento.ENVIADO, "Informada a SUNAT en el resumen diario " + identificador + ": pasó el envío individual (1079)");
+    }
+
+    /** Una boleta que ya no se puede enviar sola, pero todavía se puede informar en un resumen diario ({@link PlazoEnvio#soloPorResumen}). */
+    public boolean soloPorResumen(LocalDate hoy) { return PlazoEnvio.soloPorResumen(tipo, fechaEmision, hoy); }
+
     public void aplicarCdr(Cdr cdr, String cdrKey) {
         EstadoDocumento destino = cdr.esRechazo() ? EstadoDocumento.RECHAZADO
                 : cdr.tieneObservaciones() ? EstadoDocumento.ACEPTADO_CON_OBS : EstadoDocumento.ACEPTADO;

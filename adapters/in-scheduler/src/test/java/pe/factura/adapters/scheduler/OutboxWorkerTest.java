@@ -98,7 +98,7 @@ class OutboxWorkerTest {
 
     private ComunicacionBaja baja(ComunicacionBaja.EstadoBaja estado) {
         return ComunicacionBaja.rehidratar(doc, tenant, LocalDate.of(2026, 9, 13), 1, UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 1, LocalDate.of(2026, 9, 13), "Error",
-                estado, estado == ComunicacionBaja.EstadoBaja.GENERADA ? null : "T-1", "k.xml", null, null, 1, estado == ComunicacionBaja.EstadoBaja.ENVIADA ? "98 - en proceso" : "timeout");
+                ComunicacionBaja.Condicion.BAJA, estado, estado == ComunicacionBaja.EstadoBaja.GENERADA ? null : "T-1", "k.xml", null, null, 1, estado == ComunicacionBaja.EstadoBaja.ENVIADA ? "98 - en proceso" : "timeout");
     }
 
     /**

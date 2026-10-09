@@ -64,7 +64,8 @@ const COMPROBANTES = [
   { codigo: "03", nombre: "Boleta de venta", disponible: true },
   { codigo: "07", nombre: "Nota de crédito", disponible: true },
   { codigo: "08", nombre: "Nota de débito", disponible: true },
-  { codigo: "RC", nombre: "Resumen diario de boletas", disponible: false },
+  // Las boletas se envían una por una (#20): el resumen diario se usa para anularlas.
+  { codigo: "RC", nombre: "Resumen diario (anulación de boletas)", disponible: true },
   { codigo: "RA", nombre: "Comunicación de baja", disponible: true },
   { codigo: "09", nombre: "Guía de remisión", disponible: false },
   { codigo: "—", nombre: "Retención / percepción", disponible: false },
