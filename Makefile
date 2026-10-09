@@ -17,7 +17,7 @@ IMAGEN_PORTAL ?= khipu-portal
 IMAGEN_BACKEND ?= khipu-backend
 
 .DEFAULT_GOAL := help
-.PHONY: help instalar test test-backend test-backend-todo test-portal e2e lint build build-portal verificar docker-portal docker-backend dev api db-up db-down limpiar env comprobar-env comprobar-host comprobar-despliegue develop-sync deploy-develop develop-datos develop-logs develop-stop develop-reset develop-version
+.PHONY: help instalar test test-backend test-backend-todo test-portal e2e lint build build-portal verificar docker-portal docker-backend dev api db-up db-down probar-respaldo limpiar env comprobar-env comprobar-host comprobar-despliegue develop-sync deploy-develop develop-datos develop-logs develop-stop develop-reset develop-version
 
 help: ## Lista los objetivos
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[1m%-16s\033[0m %s\n", $$1, $$2}'
@@ -67,6 +67,9 @@ db-up: ## Levanta Postgres (lo único containerizado en desarrollo)
 
 db-down: ## Apaga Postgres
 	docker compose stop postgres
+
+probar-respaldo: ## Prueba de punta a punta del respaldo y la restauración de la base, en contenedores temporales (deploy/respaldo)
+	sh deploy/respaldo/probar.sh
 
 api: db-up ## Arranca el backend en :8001 (necesita las variables de .env.example)
 	$(GRADLE) :bootstrap:bootRun
