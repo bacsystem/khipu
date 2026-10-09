@@ -89,8 +89,13 @@ public class LimiteDeIntentos implements PurgarIntentosDeAccesoUseCase {
         }
     }
 
-    private static String normalizar(String email) {
-        return email == null ? "" : email.strip().toLowerCase(Locale.ROOT);
+    /**
+     * El correo tal como se busca la cuenta (y como lo guarda el dominio, {@code Usuario.normalizarEmail}). Quien limita y quien busca tienen que usar este
+     * mismo valor: con {@code strip()} aquí y {@code trim()} al buscar, un carácter de control delante (que {@code trim()} quita y {@code strip()} no)
+     * abría un contador nuevo por variante sobre la misma cuenta, y la contraseña se podía probar sin límite.
+     */
+    static String normalizar(String email) {
+        return email == null ? "" : email.trim().toLowerCase();
     }
 
     private static DomainException bloqueado() {

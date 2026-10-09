@@ -50,7 +50,8 @@ public class AutenticarAdministradorService implements AutenticarAdministradorUs
     public Desafio login(String email, String password, String ip) {
         // El segundo factor tiene su propio tope; sin este, la contraseña se podía probar sin freno (#261).
         var intento = limite.reservarLogin(LimiteDeIntentos.Ambito.ADMINISTRADOR, email, ip);
-        Administrador a = administradores.buscarPorEmail(email == null ? "" : email.trim().toLowerCase())
+        // El mismo correo que contó el límite: si se buscara otra variante, cada una tendría su propio contador.
+        Administrador a = administradores.buscarPorEmail(LimiteDeIntentos.normalizar(email))
                 .filter(Administrador::activo)
                 .filter(x -> hasher.coincide(password == null ? "" : password, x.passwordHash()))
                 .orElseThrow(() -> new DomainException("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos"));

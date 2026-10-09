@@ -98,7 +98,8 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     public Tokens login(String email, String password, String ip) {
         // Antes de mirar la contraseña y fuera de la transacción (#261): N peticiones simultáneas no prueban N contraseñas.
         var intento = limite.reservarLogin(LimiteDeIntentos.Ambito.CLIENTE, email, ip);
-        Usuario u = usuarios.buscarPorEmail(email == null ? "" : email.trim().toLowerCase())
+        // El mismo correo que contó el límite: si se buscara otra variante, cada una tendría su propio contador.
+        Usuario u = usuarios.buscarPorEmail(LimiteDeIntentos.normalizar(email))
                 .filter(Usuario::activo)
                 .filter(x -> hasher.coincide(password == null ? "" : password, x.passwordHash()))
                 .orElseThrow(() -> new DomainException("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos"));
@@ -140,7 +141,7 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     public void solicitarRecuperacion(String email, String urlBase) {
         // Sin tope, esto llenaría el buzón de un cliente desde nuestro dominio (#261). Se cuenta exista o no la cuenta, y en silencio.
         if (!limite.admiteRecuperacion(email)) return;
-        usuarios.buscarPorEmail(email == null ? "" : email.trim().toLowerCase()).filter(Usuario::activo).ifPresent(u -> {
+        usuarios.buscarPorEmail(LimiteDeIntentos.normalizar(email)).filter(Usuario::activo).ifPresent(u -> {
             String token = TokenOpaco.generar();
             uow.ejecutar(() -> sesiones.crearRecuperacion(new TokenRecuperacion(TokenOpaco.hash(token), u.id(), clock.instant().plus(VIDA_RECUPERACION), false)));
             var texto = CorreosDeAcceso.recuperacion(plantillas, urlBase, token);

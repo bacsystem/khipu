@@ -102,6 +102,12 @@ class AutenticarAdministradorServiceTest {
         assertThatThrownBy(() -> service.login("baja@khipu.pe", "Segura123", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
     }
 
+    /** H1 (revisión de la PR #262): un carácter de control delante del correo no abre otro contador para la contraseña del administrador. */
+    @Test void unCaracterDeControlDelanteDelCorreoNoAbreOtroContador() {
+        for (int i = 0; i < 5; i++) assertThatThrownBy(() -> service.login("ana@khipu.pe", "otra", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThatThrownBy(() -> service.login("\u0001ana@khipu.pe", "Segura123", null)).extracting("codigo").isEqualTo("DEMASIADOS_INTENTOS_LOGIN");
+    }
+
     /** #261: la contraseña del backoffice tampoco se puede probar sin freno, aunque detrás haya segundo factor. */
     @Test void trasCincoContrasenasErroneasNiLaCorrectaDaDesafio() {
         for (int i = 0; i < 5; i++) assertThatThrownBy(() -> service.login("ana@khipu.pe", "otra", "203.0.113.9")).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");

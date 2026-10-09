@@ -271,6 +271,25 @@ class AutenticarUsuarioServiceTest {
         assertThat(sesionesMap).hasSize(sesionesAntes);
     }
 
+    /**
+     * H1 (revisión de la PR #262): el contador y la búsqueda de la cuenta tienen que ver el mismo correo. Con un carácter de control delante, `trim()` lo quitaba
+     * para buscar la cuenta y `strip()` lo dejaba en la clave del contador: cada variante abría un contador nuevo y la contraseña se podía probar sin límite.
+     */
+    @Test void unCaracterDeControlDelanteDelCorreoNoAbreOtroContador() {
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        for (int i = 0; i < 5; i++) assertThatThrownBy(() -> service.login("a@b.pe", "otra", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
+
+        for (String disfrazado : new String[]{"\u0001a@b.pe", "\u0002A@B.PE ", "\u0000\u001Fa@b.pe"})
+            assertThatThrownBy(() -> service.login(disfrazado, "Segura123", null)).extracting("codigo").isEqualTo("DEMASIADOS_INTENTOS_LOGIN");
+    }
+
+    @Test void laRecuperacionNoSeMultiplicaConCaracteresDeControl() {
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        correos.clear();
+        for (String variante : new String[]{"a@b.pe", "\u0001a@b.pe", "\u0002a@b.pe", "\u0003a@b.pe", "\u0004a@b.pe"}) service.solicitarRecuperacion(variante, PORTAL);
+        assertThat(correos).hasSize(3);
+    }
+
     /** El bloqueo de un correo que no existe se ve igual: la respuesta no dice qué cuentas hay. */
     @Test void unCorreoQueNoExisteTambienSeBloquea() {
         for (int i = 0; i < 5; i++) assertThatThrownBy(() -> service.login("nadie@b.pe", "otra", null)).extracting("codigo").isEqualTo("CREDENCIALES_INVALIDAS");
