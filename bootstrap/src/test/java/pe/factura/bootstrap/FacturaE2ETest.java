@@ -89,6 +89,42 @@ class FacturaE2ETest {
         assertThat(new String(ZipUtil.extraerPrimero(cdr.getBody(), ".xml"))).contains("ha sido aceptada");
     }
 
+    /**
+     * #20: una boleta pasa por el mismo camino que la factura (numeración de su serie B, UBL, firma real, XSD, sendBill) y se envía sola. Un comprador sin
+     * documento por encima de S/ 700 no se emite ni consume número.
+     */
+    @Test void boletaAceptadaDeExtremoAExtremo(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-03-B001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"03\",\"serie\":\"B001\",\"correlativo_inicial\":0}", h), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String boleta = """
+            {"serie":"B001","fecha_emision":"%s","moneda":"PEN",
+             "cliente":{"tipo_doc":"-","num_doc":"-","razon_social":"CLIENTES VARIOS"},
+             "items":[{"codigo":"P001","descripcion":"Pan","unidad":"NIU","cantidad":%s,"precio_unitario":0.50,"tipo_afectacion_igv":"10"}]}
+            """;
+        String hoy = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).toString();
+
+        ResponseEntity<Map> caro = http.postForEntity("/v1/facturas", new HttpEntity<>(boleta.formatted(hoy, "1401"), h), Map.class);
+        assertThat(caro.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(caro.getBody().get("codigo")).isEqualTo("RECEPTOR_INVALIDO");
+
+        ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(boleta.formatted(hoy, "10"), h), Map.class);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        Map<?, ?> datos = (Map<?, ?>) r.getBody().get("datos");
+        assertThat(datos.get("tipo")).isEqualTo("03");
+        assertThat(datos.get("numero")).isEqualTo(1);
+        assertThat(datos.get("estado_documento")).isEqualTo("ACEPTADO");
+        verify(postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("<fileName>20100066603-03-B001-1.zip</fileName>")));
+
+        String id = (String) datos.get("id");
+        String xml = new String(http.exchange("/v1/facturas/" + id + "/xml", HttpMethod.GET, new HttpEntity<>(h), byte[].class).getBody());
+        assertThat(xml).contains("<ds:Signature", "<cbc:ID>B001-1</cbc:ID>", ">03</cbc:InvoiceTypeCode>", "schemeID=\"-\"").doesNotContain("FormaPago");
+        ResponseEntity<byte[]> pdf = http.exchange("/v1/facturas/" + id + "/pdf", HttpMethod.GET, new HttpEntity<>(h), byte[].class);
+        assertThat(pdf.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(new String(pdf.getBody(), 0, 5)).isEqualTo("%PDF-");
+    }
+
     @Autowired OutboxWorker worker;
 
     @Test void sunatCaidoDejaErrorEnvioYElOutboxReintenta() throws Exception {

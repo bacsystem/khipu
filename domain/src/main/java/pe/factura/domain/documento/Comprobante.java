@@ -87,10 +87,23 @@ public class Comprobante {
      * se encadenan en el {@link FacturaBuilder} y {@link FacturaBuilder#crear} aplica las reglas de emisión.
      */
     public static FacturaBuilder factura(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor receptor, List<Item> items) {
-        return new FacturaBuilder(tenantId, serie, fechaEmision, moneda, tipoOperacion, receptor, items);
+        return new FacturaBuilder(TipoDocumento.FACTURA, tenantId, serie, fechaEmision, moneda, tipoOperacion, receptor, items);
     }
 
+    /**
+     * Boleta de venta (#20): mismo armado y mismas reglas de líneas, totales, detracción y percepción que la factura, y se envía igual, sola con sendBill. Cambian el
+     * receptor ({@link Receptor#exigirValidoParaBoleta}, y sin documento solo hasta {@link #TOPE_BOLETA_SIN_DOCUMENTO}) y la regla del plazo (1079). Crédito, retención,
+     * anticipos y exportación todavía no se emiten en boleta: se rechazan en vez de salir con un XML que nadie probó.
+     */
+    public static FacturaBuilder boleta(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor receptor, List<Item> items) {
+        return new FacturaBuilder(TipoDocumento.BOLETA, tenantId, serie, fechaEmision, moneda, tipoOperacion, receptor, items);
+    }
+
+    /** Hasta este importe (en soles) una boleta puede no identificar al comprador (guía del resumen diario, campos 12 y 13). */
+    public static final BigDecimal TOPE_BOLETA_SIN_DOCUMENTO = new BigDecimal("700.00");
+
     public static final class FacturaBuilder {
+        private final TipoDocumento tipo;
         private final UUID tenantId; private final String serie; private final LocalDate fechaEmision; private final String moneda; private final String tipoOperacion;
         private final Receptor receptor; private final List<Item> items;
         private LocalDate fechaVencimiento; private FormaPago formaPago = FormaPago.contado(); private Descuento descuentoGlobal; private List<Cargo> cargos = List.of();
@@ -98,8 +111,8 @@ public class Comprobante {
         private Referencias referencias; private BigDecimal redondeo; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<String> leyendas = List.of();
         private Exportacion exportacion;
 
-        private FacturaBuilder(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor receptor, List<Item> items) {
-            this.tenantId = tenantId; this.serie = serie; this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion; this.receptor = receptor; this.items = items;
+        private FacturaBuilder(TipoDocumento tipo, UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor receptor, List<Item> items) {
+            this.tipo = tipo; this.tenantId = tenantId; this.serie = serie; this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion; this.receptor = receptor; this.items = items;
         }
         public FacturaBuilder fechaVencimiento(LocalDate v) { this.fechaVencimiento = v; return this; }
         /** Si no se llama, la factura es al contado; llamarlo con nulo es un error del emisor (3244). */
@@ -127,17 +140,25 @@ public class Comprobante {
             List<Anticipo> anticipos = this.anticipos;
             Detraccion detraccion = this.detraccion;
             Percepcion percepcion = this.percepcion;
-            if (!TipoDocumento.FACTURA.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de factura inválida: " + serie);
+            boolean boleta = tipo == TipoDocumento.BOLETA;
+            String nombre = boleta ? "boleta" : "factura";
+            if (!tipo.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de " + nombre + " inválida (" + (boleta ? "B" : "F") + "###): " + serie);
             if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
-            exigirDentroDelPlazoDeEnvio(TipoDocumento.FACTURA, fechaEmision, clock);
+            exigirDentroDelPlazoDeEnvio(tipo, fechaEmision, clock);
             if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
                 throw new DomainException("FECHA_INVALIDA", "La fecha de vencimiento no puede ser anterior a la de emisión");
-            if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La factura debe tener al menos un ítem");
+            if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La " + nombre + " debe tener al menos un ítem");
             items.forEach(Item::exigirValidoParaFactura);
             String operacion = tipoOperacion == null ? "0101" : tipoOperacion;
-            validarTipoOperacion(operacion);
-            if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor" + (Exportacion.es(operacion) ? "" : " con RUC"));
-            receptor.exigirValidoParaFactura(operacion);
+            validarTipoOperacion(operacion, tipo);
+            if (boleta) {
+                exigirSoloLoQueEmiteUnaBoleta(operacion);
+                if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La boleta requiere el comprador: su documento o, hasta S/ 700, tipo_doc y num_doc «-»");
+                receptor.exigirValidoParaBoleta();
+            } else {
+                if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor" + (Exportacion.es(operacion) ? "" : " con RUC"));
+                receptor.exigirValidoParaFactura(operacion);
+            }
             if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
             Exportacion.validar(exportacion, operacion);
             exigirAfectacionSegunOperacion(operacion, items);
@@ -149,9 +170,13 @@ public class Comprobante {
                 throw new DomainException("PERCEPCION_INVALIDA", "3093 - Una operación sujeta a percepción (2001) al contado debe informar la percepción");
             if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
                 throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
-            Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, TipoDocumento.FACTURA, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
+            Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
                     moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, tasaIgv, leyendas, exportacion, EstadoDocumento.RECIBIDO);
             formaPago.validarContra(c.totales.total(), fechaEmision);
+            // Sin tipo de cambio no hay cómo comparar otra moneda con S/ 700: fuera de soles se identifica siempre al comprador.
+            if (boleta && receptor.sinDocumento() && (!"PEN".equals(moneda) || c.totales.total().compareTo(TOPE_BOLETA_SIN_DOCUMENTO) > 0))
+                throw new DomainException("RECEPTOR_INVALIDO", "Una boleta de más de S/ " + TOPE_BOLETA_SIN_DOCUMENTO + " (o en otra moneda) identifica al comprador con su documento; esta es de "
+                        + moneda + " " + c.totales.total());
             c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
             for (String l : leyendas) {
                 String regla = Leyenda.EXIGEN_EXONERADO.get(l);
@@ -159,6 +184,14 @@ public class Comprobante {
                     throw new DomainException("LEYENDA_INVALIDA", "La leyenda " + l + " exige un total exonerado mayor a 0.00 (regla " + regla + ")");
             }
             return c;
+        }
+
+        /** Lo que la boleta todavía no emite: ninguno tiene reglas en Boleta2_0 que hayamos probado contra SUNAT (y la forma de pago ni existe en la boleta). */
+        private void exigirSoloLoQueEmiteUnaBoleta(String operacion) {
+            if (formaPago.esCredito()) throw new DomainException("FORMA_PAGO_INVALIDA", "Una boleta se emite al contado: la venta al crédito va en factura");
+            if (retencion != null) throw new DomainException("RETENCION_INVALIDA", "La retención del IGV la hace un agente de retención con RUC: va en factura, no en boleta");
+            if (anticipos != null && !anticipos.isEmpty()) throw new DomainException("ANTICIPO_INVALIDO", "Los anticipos todavía no se descuentan en boletas: emítela sin anticipos o como factura");
+            if (Exportacion.es(operacion)) throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - La exportación (" + operacion + ") todavía no se emite en boleta: va en factura");
         }
     }
 
@@ -246,20 +279,21 @@ public class Comprobante {
         this.observaciones = s;
     }
 
-    /** Una fecha de emisión cuyo plazo de envío ya venció daría un comprobante que SUNAT rechaza (2108) con el número consumido. */
+    /** Una fecha de emisión cuyo plazo de envío ya venció daría un comprobante que SUNAT rechaza (2108, o 1079 en boletas) con el número consumido. */
     private static void exigirDentroDelPlazoDeEnvio(TipoDocumento tipo, LocalDate fechaEmision, Clock clock) {
         if (PlazoEnvio.vencido(tipo, fechaEmision, LocalDate.now(clock)))
-            throw new DomainException("FECHA_INVALIDA", "2108 - Con fecha de emisión " + fechaEmision + " el plazo de envío a SUNAT venció el "
+            throw new DomainException("FECHA_INVALIDA", PlazoEnvio.reglaDeRechazo(tipo) + " - Con fecha de emisión " + fechaEmision + " el plazo de envío a SUNAT venció el "
                     + PlazoEnvio.fechaLimite(tipo, fechaEmision) + " (" + PlazoEnvio.dias(tipo) + " días calendario)");
     }
 
-    /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar a facturas (columna "Tipo de Comprobante asociado"). */
-    private static void validarTipoOperacion(String operacion) {
+    /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar al tipo de comprobante (columna "Tipo de Comprobante asociado": "Factura", "Boleta"…). */
+    private static void validarTipoOperacion(String operacion, TipoDocumento tipo) {
         CatalogoSunat.Entrada e = CatalogoSunat.porId("51").flatMap(c -> c.entrada(operacion))
                 .orElseThrow(() -> new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " no existe en el catálogo 51"));
         String aplicaA = e.extra().getOrDefault("Tipo de Comprobante asociado", "");
-        if (!aplicaA.toLowerCase().contains("factura"))
-            throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " (" + e.descripcion() + ") no aplica a facturas: " + aplicaA);
+        String nombre = tipo == TipoDocumento.BOLETA ? "boleta" : "factura";
+        if (!aplicaA.toLowerCase().contains(nombre))
+            throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " (" + e.descripcion() + ") no aplica a " + nombre + "s: " + aplicaA);
     }
 
     /** Regla 2642: una operación de exportación (0200–0208) lleva todas sus líneas con afectación 40; fuera de ella, ninguna (3107). */
@@ -371,10 +405,10 @@ public class Comprobante {
 
     public boolean fueraDePlazo(LocalDate hoy) { return PlazoEnvio.vencido(tipo, fechaEmision, hoy); }
 
-    /** Venció el plazo sin llegar a SUNAT: terminal, el número queda consumido y hay que emitir de nuevo (2108). */
+    /** Venció el plazo sin llegar a SUNAT: terminal, el número queda consumido y hay que emitir de nuevo ({@link PlazoEnvio#reglaDeRechazo}). */
     public void marcarFueraDePlazo(LocalDate hoy) {
         if (!fueraDePlazo(hoy)) throw new DomainException("TRANSICION_INVALIDA", "El plazo de envío vence el " + fechaLimiteEnvio() + ": todavía se puede enviar");
-        this.ultimoError = "2108 - Presentación fuera de fecha: el plazo venció el " + fechaLimiteEnvio();
+        this.ultimoError = PlazoEnvio.reglaDeRechazo(tipo) + " - Presentación fuera de fecha: el plazo venció el " + fechaLimiteEnvio();
         transitar(EstadoDocumento.FUERA_DE_PLAZO, this.ultimoError);
     }
 

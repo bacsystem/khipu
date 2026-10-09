@@ -120,6 +120,17 @@ class FlyingSaucerPdfGeneratorTest {
         assertThat(leido.getText()).isEqualTo(contenido);
     }
 
+    /** #20: la boleta usa su plantilla y un comprador sin documento se imprime como tal, no como «- -». */
+    @Test void laBoletaSinDocumentoDiceSinDocumento() {
+        Comprobante b = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("-", "-", "CLIENTES VARIOS", null),
+                List.of(new Item("P", "Pan francés", "NIU", new BigDecimal("10"), new BigDecimal("0.50"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
+        b.asignarNumero(9, "20100066603");
+        b.firmar("hashboleta==", "k");
+        String html = generador.xhtml(b, TENANT, "qr", null);
+        assertThat(html).contains("BOLETA DE VENTA ELECTRÓNICA", "B001-9", "CLIENTES VARIOS", "Sin documento", "PEN 5.00")
+                .doesNotContain("<td>-</td><td class=\"k\">Fecha de vencimiento");
+    }
+
     @Test void cadaTipoTieneSuPlantilla() {
         assertThat(generador.xhtml(notaDebito(), TENANT, "qr", null)).contains("NOTA DE DÉBITO ELECTRÓNICA", "01 - Intereses por mora");
     }

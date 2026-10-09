@@ -106,7 +106,12 @@
         <td class="k">Fecha de emisión</td><td>${fechaEmision}</td>
       </tr>
       <tr>
+        <#-- Una boleta de hasta S/ 700 puede no identificar al comprador: «-» no está en el catálogo 06 (#20). -->
+        <#if c.receptor().sinDocumento()>
+        <td class="k">Documento</td><td>Sin documento</td>
+        <#else>
         <td class="k">${desc("06", c.receptor().tipoDoc())}</td><td>${c.receptor().numDoc()}</td>
+        </#if>
         <td class="k">Fecha de vencimiento</td><td>${fechaVencimiento!"-"}</td>
       </tr>
       <tr>
