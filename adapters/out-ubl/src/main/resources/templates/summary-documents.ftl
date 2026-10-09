@@ -51,7 +51,7 @@
       <cbc:AdditionalAccountID>${c.receptor().tipoDoc()}</cbc:AdditionalAccountID>
     </cac:AccountingCustomerParty>
     <cac:Status>
-      <cbc:ConditionCode>3</cbc:ConditionCode>
+      <cbc:ConditionCode>${b.condicion().codigo()}</cbc:ConditionCode>
     </cac:Status>
     <sac:TotalAmount currencyID="${c.moneda()}">${tot.total()}</sac:TotalAmount>
     <#-- Catálogo 11: 01 gravadas, 02 exoneradas, 03 inafectas, 04 exportación. -->

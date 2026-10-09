@@ -67,6 +67,6 @@ class VoidedDocumentsUblTest {
         assertThat(xp.evaluate(linea + "/sac:DocumentSerialID", d)).isEqualTo("F001");
         assertThat(xp.evaluate(linea + "/sac:DocumentNumberID", d)).isEqualTo("45");
         assertThat(xp.evaluate(linea + "/sac:VoidReasonDescription", d)).isEqualTo("Error en el RUC del cliente");
-        new JaxpXsdValidator().validarBaja(xml.replace("<ext:ExtensionContent/>", "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+        new JaxpXsdValidator().validarBaja(xml.replace("<ext:ExtensionContent/>", "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), ComunicacionBaja.crear(c, 3, "Error en el RUC del cliente", HOY));
     }
 }

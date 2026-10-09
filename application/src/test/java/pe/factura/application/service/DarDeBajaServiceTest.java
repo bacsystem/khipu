@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.out.FirmaResultado;
+import pe.factura.application.port.out.RechazoDeSolRepository;
 import pe.factura.application.port.out.SunatRechazoException;
 import pe.factura.application.port.out.SunatTransientException;
 import pe.factura.application.port.out.XmlSigner;
@@ -39,7 +40,7 @@ class DarDeBajaServiceTest {
     String[] validado = new String[1];
     XsdValidator xsd = new XsdValidator() {
         public void validar(String xml, TipoDocumento tipo) {}
-        public void validarBaja(String xml, TipoDocumento tipoBaja) { validado[0] = xml; }
+        public void validarBaja(String xml, ComunicacionBaja baja) { validado[0] = xml; }
     };
     XmlSigner signer = (xml, cert) -> new FirmaResultado(xml.replace("</VoidedDocuments>", "<ds:Signature/></VoidedDocuments>"), "HASH");
     DarDeBajaService service;
@@ -83,10 +84,10 @@ class DarDeBajaServiceTest {
         Comprobante f = facturaAceptada();   // el RA de la factura y el RC de la boleta comparten el correlativo del día
         service.solicitar(tenantId, f.id(), "Error en el RUC");
         series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
-        TipoDocumento[] esquema = new TipoDocumento[1];
+        ComunicacionBaja[] validada = new ComunicacionBaja[1];
         XsdValidator porTipo = new XsdValidator() {
             public void validar(String xml, TipoDocumento tipo) {}
-            public void validarBaja(String xml, TipoDocumento tipo) { validado[0] = xml; esquema[0] = tipo; }
+            public void validarBaja(String xml, ComunicacionBaja b) { validado[0] = xml; validada[0] = b; }
         };
         DarDeBajaService conEsquema = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), porTipo, signer, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
         Comprobante boleta = emitir.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
@@ -100,8 +101,35 @@ class DarDeBajaServiceTest {
         assertThat(rc.xmlKey()).isEqualTo(tenantId + "/2026/09/20100066603-RC-20260913-2.xml");
         assertThat(gateway.ultimoNombre).isEqualTo("20100066603-RC-20260913-2");
         assertThat(validado[0]).startsWith("<SummaryDocuments>");
-        assertThat(esquema[0]).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(validada[0].resumenDiario()).as("se valida contra el esquema del resumen").isTrue();
         assertThat(comprobantes.buscar(tenantId, boleta.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ANULADO);
+    }
+
+    /**
+     * 274-H1: una boleta firmada que nadie envió dentro del envío individual (3 días) no se pierde ni se reemplaza: al enviarla, SUNAT ya no la recibe sola
+     * (1079) y khipu la informa en un resumen diario con su línea en estado 1. Cuando SUNAT acepta el resumen, la boleta queda ACEPTADA.
+     */
+    @Test void unaBoletaPasadaDelEnvioIndividualSeInformaEnUnResumenDeAltaYQuedaAceptada() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Comprobante boleta = emitir.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false));
+        Clock cincoDiasDespues = Clock.fixed(Instant.parse("2026-09-18T15:00:00Z"), ZoneId.of("America/Lima"));
+        DarDeBajaService resumen = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, cincoDiasDespues);
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, cincoDiasDespues,
+                RechazoDeSolRepository.NINGUNO, resumen);
+        int enviadosSolos = gateway.enviados;
+
+        Comprobante resuelta = enviar.enviar(tenantId, boleta.id());
+
+        assertThat(gateway.enviados).as("no se intenta sendBill: SUNAT la rechazaría con 1079").isEqualTo(enviadosSolos);
+        assertThat(gateway.ultimoNombre).isEqualTo("20100066603-RC-20260918-1");
+        assertThat(validado[0]).startsWith("<SummaryDocuments>");
+        ComunicacionBaja alta = bajas.deComprobante(tenantId, boleta.id()).get(0);
+        assertThat(alta.alta()).isTrue();
+        assertThat(alta.estado()).isEqualTo(EstadoBaja.ACEPTADA);
+        assertThat(resuelta.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(comprobantes.buscar(tenantId, boleta.id()).orElseThrow().cdrKey()).isEqualTo(alta.cdrKey());
     }
 
     @Test void sunatSigueProcesando_quedaEnviadaYElOutboxLaReconsulta() {
@@ -166,7 +194,7 @@ class DarDeBajaServiceTest {
         // Dos copias de la misma baja ENVIADA (el GET del usuario y el outbox) obtienen el CDR 0 a la vez: la segunda no debe
         // romper con TRANSICION_INVALIDA porque el comprobante ya quedó ANULADO por la primera.
         ComunicacionBaja copiaDelWorker = ComunicacionBaja.rehidratar(enviada.id(), tenantId, enviada.fechaGeneracion(), enviada.correlativo(), enviada.comprobanteId(), enviada.tipoComprobante(),
-                enviada.serie(), enviada.numero(), enviada.fechaReferencia(), enviada.motivo(), EstadoBaja.ENVIADA, enviada.ticket(), enviada.xmlKey(), null, null, enviada.intentos(), enviada.ultimoError());
+                enviada.serie(), enviada.numero(), enviada.fechaReferencia(), enviada.motivo(), enviada.condicion(), EstadoBaja.ENVIADA, enviada.ticket(), enviada.xmlKey(), null, null, enviada.intentos(), enviada.ultimoError());
         gateway.statusCode = "0";
         ComunicacionBaja primera = service.continuar(tenantId, enviada.id());
         assertThat(primera.estado()).isEqualTo(EstadoBaja.ACEPTADA);

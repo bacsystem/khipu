@@ -35,7 +35,7 @@ class BajaControllerTest {
 
     static ComunicacionBaja baja(UUID tenant, UUID comprobante, ComunicacionBaja.EstadoBaja estado) {
         return ComunicacionBaja.rehidratar(UUID.randomUUID(), tenant, LocalDate.of(2026, 9, 18), 1, comprobante, TipoDocumento.FACTURA, "F001", 125, LocalDate.of(2026, 9, 15),
-                "Error en el RUC del cliente", estado, "1789768174685", "k.xml", estado == ComunicacionBaja.EstadoBaja.ACEPTADA ? "r.zip" : null,
+                "Error en el RUC del cliente", ComunicacionBaja.Condicion.BAJA, estado, "1789768174685", "k.xml", estado == ComunicacionBaja.EstadoBaja.ACEPTADA ? "r.zip" : null,
                 estado == ComunicacionBaja.EstadoBaja.ACEPTADA ? new Cdr("0", "La Comunicacion de baja RA-20260918-1, ha sido aceptada", List.of()) : null, 1, null);
     }
 

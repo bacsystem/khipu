@@ -128,6 +128,8 @@ export type Baja = {
   /** Fecha de emisión del comprobante tal como se comunicó a SUNAT (cbc:ReferenceDate). */
   fecha_referencia?: string | null;
   motivo: string;
+  /** `BAJA` anula el comprobante; `ALTA` informa en el resumen diario una boleta que pasó el envío individual (274-H1). Ausente en respuestas viejas: baja. */
+  condicion?: "ALTA" | "BAJA";
   estado: EstadoBaja;
   ticket: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;

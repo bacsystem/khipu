@@ -2644,7 +2644,7 @@ export const handlers = [
     const identificador = `${factura.tipo === "03" ? "RC" : "RA"}-${hoy}-1`;
     const baja: Baja = {
       id: nuevoId("b"), identificador, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
-      motivo, estado: simulada, ticket: "1758200000123",
+      motivo, condicion: "BAJA", estado: simulada, ticket: "1758200000123",
       cdr: simulada === "ACEPTADA" ? { codigo: "0", descripcion: `${factura.tipo === "03" ? "El Resumen diario" : "La Comunicacion de baja"} ${identificador}, ha sido aceptado`, observaciones: [] }
         : simulada === "RECHAZADA" ? { codigo: "2323", descripcion: "Existe documento ya informado anteriormente en una comunicacion de baja", observaciones: [] } : null,
       intentos: 1, ultimo_error: simulada === "ENVIADA" ? "98 - SUNAT sigue procesando el ticket 1758200000123" : null,

@@ -39,7 +39,7 @@ class EmitirComprobanteServiceTest {
     String[] recibido = new String[1];
     XsdValidator xsd = new XsdValidator() {
         public void validar(String xml, TipoDocumento tipo) { recibido[0] = xml; }
-        public void validarBaja(String xml, TipoDocumento tipoBaja) { recibido[0] = xml; }
+        public void validarBaja(String xml, ComunicacionBaja baja) { recibido[0] = xml; }
     };
     XmlSigner signer = (xml, cert) -> new FirmaResultado(xml.replace("<Invoice>", "<Invoice><ds:Signature/>"), "HASH" + xml.length());
     EmitirComprobanteService service;
@@ -299,7 +299,7 @@ class EmitirComprobanteServiceTest {
     @Test void xsdInvalidoNoConsumeNumeroNiGuarda() {
         XsdValidator malo = new XsdValidator() {
             public void validar(String xml, TipoDocumento tipo) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
-            public void validarBaja(String xml, TipoDocumento tipoBaja) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
+            public void validarBaja(String xml, ComunicacionBaja baja) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
         EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias());

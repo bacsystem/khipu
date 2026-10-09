@@ -150,6 +150,7 @@ export type Baja = {
   fecha_generacion: string;
   fecha_referencia?: string | null;
   motivo: string;
+  condicion?: "ALTA" | "BAJA";
   estado: "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA";
   ticket: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;

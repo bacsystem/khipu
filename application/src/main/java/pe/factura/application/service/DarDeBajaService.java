@@ -2,6 +2,7 @@ package pe.factura.application.service;
 
 import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.DarDeBajaUseCase;
+import pe.factura.application.port.in.InformarEnResumenUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Cdr;
@@ -24,7 +25,7 @@ import java.util.UUID;
  * mientras SUNAT devuelva 98. Al aceptarse, el comprobante pasa a {@code ANULADO} en la misma transacción.
  */
 @RequiredArgsConstructor
-public class DarDeBajaService implements DarDeBajaUseCase {
+public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseCase {
     public static final String ACCION_BAJA = "BAJA";
     /** SUNAT suele procesar un RA en segundos: se reconsulta pronto, sin el backoff largo de los envíos fallidos. */
     public static final Duration REINTENTO_CONSULTA = Duration.ofSeconds(30);
@@ -60,17 +61,42 @@ public class DarDeBajaService implements DarDeBajaUseCase {
             if (bajas.deComprobante(tenantId, c.id()).stream().anyMatch(ComunicacionBaja::pendiente))
                 throw new DomainException("BAJA_INVALIDA", "Ya hay una comunicación de baja en curso para " + c.serie() + "-" + c.numero());
             ComunicacionBaja b = ComunicacionBaja.crear(c, bajas.siguienteCorrelativo(tenantId, LocalDate.now(clock)), motivo, clock);
-            // Una boleta va en un resumen diario (RC) y los demás en una comunicación de baja (RA): mismo ciclo, otro XML (#20).
-            String xml = ubl.generarBaja(b, c, tenant);
-            FirmaResultado firma = signer.firmar(xml, tenant.certificado());
-            xsd.validarBaja(firma.xmlFirmado(), c.tipo());
-            String key = tenantId + "/" + b.fechaGeneracion().getYear() + "/" + String.format("%02d", b.fechaGeneracion().getMonthValue()) + "/" + b.nombreArchivo(tenant.ruc()) + ".xml";
-            storage.guardar(key, firma.xmlFirmado().getBytes(StandardCharsets.UTF_8));
-            b.firmar(key);
+            firmarYGuardar(tenant, c, b);
             bajas.guardar(b);
             return b;
         });
         return continuar(tenant, baja);
+    }
+
+    /** Ver {@link InformarEnResumenUseCase}: el mismo resumen que la baja de una boleta, con su línea en estado 1. */
+    @Override
+    public Comprobante informar(UUID tenantId, UUID comprobanteId) {
+        Tenant tenant = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
+        tenant.exigirListoParaEmitir(LocalDate.now(clock));
+        tenant.exigirCredencialesSol();
+        ComunicacionBaja alta = uow.ejecutar(() -> {
+            Comprobante c = comprobantes.bloquear(tenantId, comprobanteId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
+            if (bajas.deComprobante(tenantId, c.id()).stream().anyMatch(ComunicacionBaja::pendiente))
+                throw new DomainException("RESUMEN_INVALIDO", "Ya hay un resumen diario en curso para " + c.serie() + "-" + c.numero());
+            ComunicacionBaja b = ComunicacionBaja.altaEnResumen(c, bajas.siguienteCorrelativo(tenantId, LocalDate.now(clock)), clock);
+            firmarYGuardar(tenant, c, b);
+            c.informarEnResumen(b.identificador());
+            comprobantes.guardar(c);
+            bajas.guardar(b);
+            return b;
+        });
+        continuar(tenant, alta);
+        return comprobantes.buscar(tenantId, comprobanteId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
+    }
+
+    /** Una boleta va en un resumen diario (RC) y los demás en una comunicación de baja (RA): mismo ciclo, otro XML (#20). Lo deja firmado y guardado. */
+    private void firmarYGuardar(Tenant tenant, Comprobante c, ComunicacionBaja b) {
+        String xml = ubl.generarBaja(b, c, tenant);
+        FirmaResultado firma = signer.firmar(xml, tenant.certificado());
+        xsd.validarBaja(firma.xmlFirmado(), b);
+        String key = tenant.id() + "/" + b.fechaGeneracion().getYear() + "/" + String.format("%02d", b.fechaGeneracion().getMonthValue()) + "/" + b.nombreArchivo(tenant.ruc()) + ".xml";
+        storage.guardar(key, firma.xmlFirmado().getBytes(StandardCharsets.UTF_8));
+        b.firmar(key);
     }
 
     @Override
@@ -111,7 +137,14 @@ public class DarDeBajaService implements DarDeBajaUseCase {
         // Estado de la baja, anulación del comprobante y reprogramación en una sola transacción (mismo criterio que EnviarDocumentoService).
         uow.ejecutar(() -> {
             bajas.guardar(b);
-            if (b.estado() == EstadoBaja.ACEPTADA) {
+            if (b.alta() && !b.pendiente()) {
+                // Un resumen de alta resuelto resuelve la boleta: su CDR la acepta o la rechaza, como un envío más. Con lock, por la misma carrera de abajo.
+                Comprobante c = comprobantes.bloquear(b.tenantId(), b.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
+                if (c.estado() == EstadoDocumento.ENVIADO) {
+                    if (b.cdrKey() != null) c.aplicarCdr(b.cdr(), b.cdrKey()); else c.rechazarPorFault(b.cdr().codigo(), b.cdr().descripcion());
+                    comprobantes.guardar(c);
+                }
+            } else if (b.estado() == EstadoBaja.ACEPTADA) {
                 // Con lock de fila: el GET del usuario y el outbox pueden recoger el mismo CDR a la vez, y el segundo se encuentra el comprobante ya ANULADO.
                 Comprobante c = comprobantes.bloquear(b.tenantId(), b.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
                 if (c.estado() != EstadoDocumento.ANULADO) {

@@ -3,6 +3,7 @@ package pe.factura.adapters.ubl;
 import org.xml.sax.SAXParseException;
 import pe.factura.application.port.out.XsdValidator;
 import pe.factura.domain.DomainException;
+import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.documento.TipoDocumento;
 
 import javax.xml.XMLConstants;
@@ -45,7 +46,8 @@ public class JaxpXsdValidator implements XsdValidator {
         validar(xml, s);
     }
 
-    @Override public void validarBaja(String xml, TipoDocumento tipoComprobante) { validar(xml, tipoComprobante == TipoDocumento.BOLETA ? resumenDiario : baja); }
+    // La baja decide si va en un resumen diario (275-H4): la regla «boleta, resumen» vive en un solo lugar.
+    @Override public void validarBaja(String xml, ComunicacionBaja b) { validar(xml, b.resumenDiario() ? resumenDiario : baja); }
 
     private static void validar(String xml, Schema s) {
         try {

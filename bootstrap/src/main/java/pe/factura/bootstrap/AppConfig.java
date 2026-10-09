@@ -296,8 +296,8 @@ public class AppConfig {
     @Bean RecuperarCdrWorker recuperarCdrWorker(RecuperarCdrUseCase cdrs) { return new RecuperarCdrWorker(cdrs); }
 
     @Bean EnviarDocumentoUseCase enviarDocumento(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatBillingGateway g, CdrParser p,
-                                                OutboxRepository o, UnitOfWork u, Clock clock, RechazoDeSolRepository rechazos) {
-        return new EnviarDocumentoService(c, t, s, g, p, o, u, clock, rechazos);
+                                                OutboxRepository o, UnitOfWork u, Clock clock, RechazoDeSolRepository rechazos, InformarEnResumenUseCase resumen) {
+        return new EnviarDocumentoService(c, t, s, g, p, o, u, clock, rechazos, resumen);
     }
     @Bean RechazoDeSolRepository rechazoDeSolRepository(JdbcTemplate jdbc) { return new JdbcRechazoDeSolRepository(jdbc); }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
@@ -436,7 +436,8 @@ public class AppConfig {
         return new AltaAsistidaService(cu, us, se, t, s, k, h, co, u, auditoria, p.apiKeyPepper(), clock, idempotencia, cifrador, plantillas);
     }
 
-    @Bean DarDeBajaUseCase darDeBaja(BajaRepository b, ComprobanteRepository c, TenantRepository t, DocumentStorage s, UblGenerator ubl, XsdValidator xsd, XmlSigner signer,
+    // Concreto: es también el InformarEnResumenUseCase (alta de una boleta en el resumen diario) que usa el envío.
+    @Bean DarDeBajaService darDeBaja(BajaRepository b, ComprobanteRepository c, TenantRepository t, DocumentStorage s, UblGenerator ubl, XsdValidator xsd, XmlSigner signer,
                                      SunatBillingGateway g, CdrParser p, OutboxRepository o, UnitOfWork u, Clock clock) {
         return new DarDeBajaService(b, c, t, s, ubl, xsd, signer, g, p, o, u, clock);
     }

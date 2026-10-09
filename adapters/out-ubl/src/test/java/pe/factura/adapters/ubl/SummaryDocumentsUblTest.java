@@ -98,23 +98,54 @@ class SummaryDocumentsUblTest {
         assertThat(xp.evaluate("count(" + l + "/sac:BillingPayment[cbc:InstructionID='03'])", d)).isEqualTo("0");
         assertThat(xp.evaluate(l + "/cac:TaxTotal[cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID='1000']/cbc:TaxAmount", d)).isEqualTo("18.00");   // 2278
         assertThat(xp.evaluate(l + "/cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='1000']/cac:TaxCategory/cbc:Percent", d)).isEqualTo("18");   // 2992/3504
-        new JaxpXsdValidator().validarBaja(conFirma(xml), TipoDocumento.BOLETA);
+        new JaxpXsdValidator().validarBaja(conFirma(xml), b);
     }
 
     @Test void unCompradorSinDocumentoVaConGuion() throws Exception {
         Comprobante c = boleta(new Receptor("-", "-", "CLIENTES VARIOS", null), List.of(new Item("A", "Pan", "NIU", BigDecimal.TEN, new BigDecimal("0.50"), TipoAfectacionIgv.GRAVADO)));
-        String xml = new FreemarkerUblGenerator().generarBaja(ComunicacionBaja.crear(c, 1, "Error", HOY), c, FreemarkerUblGeneratorTest.tenant());
+        ComunicacionBaja b = ComunicacionBaja.crear(c, 1, "Error", HOY);
+        String xml = new FreemarkerUblGenerator().generarBaja(b, c, FreemarkerUblGeneratorTest.tenant());
         Document d = parsear(xml);
         String l = "/rc:SummaryDocuments/sac:SummaryDocumentsLine";
         assertThat(xpath().evaluate(l + "/cac:AccountingCustomerParty/cbc:CustomerAssignedAccountID", d)).isEqualTo("-");
         assertThat(xpath().evaluate(l + "/cac:AccountingCustomerParty/cbc:AdditionalAccountID", d)).isEqualTo("-");   // 2016: «listado y guión»
-        new JaxpXsdValidator().validarBaja(conFirma(xml), TipoDocumento.BOLETA);
+        new JaxpXsdValidator().validarBaja(conFirma(xml), b);
     }
 
-    /** El esquema se elige por el comprobante: un RC no pasa como RA ni al revés. */
+    /** 274-H1: la boleta que pasó el envío individual va en el mismo resumen, con su línea en estado 1 (catálogo 19: adicionar). */
+    @Test void unaBoletaInformadaPorPrimeraVezVaEnEstadoUno() throws Exception {
+        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null),
+                List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(46, "20100066603"); c.firmar("H", "k");
+        ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(c, 4, HOY);
+
+        String xml = new FreemarkerUblGenerator().generarBaja(alta, c, FreemarkerUblGeneratorTest.tenant());
+
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/sac:SummaryDocumentsLine/cac:Status/cbc:ConditionCode", parsear(xml))).isEqualTo("1");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), alta);
+    }
+
+    /**
+     * 275-H3: una boleta toda exonerada va sin valor de venta gravado (2254 lo prohíbe en cero) pero con el nodo del IGV en 0.00, que 2278 exige. SUNAT lo
+     * acepta en la práctica; que lo acepte en beta se confirma en la homologación (#32).
+     */
+    @Test void unaBoletaExoneradaLlevaElIgvEnCeroYNingunValorGravado() throws Exception {
+        Comprobante c = boleta(new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("L", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)));
+        ComunicacionBaja b = ComunicacionBaja.crear(c, 1, "Error", HOY);
+        String xml = new FreemarkerUblGenerator().generarBaja(b, c, FreemarkerUblGeneratorTest.tenant());
+        Document d = parsear(xml);
+        String l = "/rc:SummaryDocuments/sac:SummaryDocumentsLine";
+        assertThat(xpath().evaluate("count(" + l + "/sac:BillingPayment[cbc:InstructionID='01'])", d)).isEqualTo("0");
+        assertThat(xpath().evaluate(l + "/sac:BillingPayment[cbc:InstructionID='02']/cbc:PaidAmount", d)).isEqualTo("50.00");
+        assertThat(xpath().evaluate(l + "/cac:TaxTotal[cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID='1000']/cbc:TaxAmount", d)).isEqualTo("0.00");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), b);
+    }
+
+    /** El esquema se elige por la baja: un RC no pasa como RA ni al revés. */
     @Test void cadaBajaSeValidaContraSuEsquema() {
         Comprobante c = boleta(new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)));
         String rc = conFirma(new FreemarkerUblGenerator().generarBaja(ComunicacionBaja.crear(c, 1, "Error", HOY), c, FreemarkerUblGeneratorTest.tenant()));
-        assertThatThrownBy(() -> new JaxpXsdValidator().validarBaja(rc, TipoDocumento.FACTURA)).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("XSD_INVALIDO");
+        ComunicacionBaja deUnaFactura = ComunicacionBaja.crear(VoidedDocumentsUblTest.factura(), 1, "Error", HOY);
+        assertThatThrownBy(() -> new JaxpXsdValidator().validarBaja(rc, deUnaFactura)).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("XSD_INVALIDO");
     }
 }
