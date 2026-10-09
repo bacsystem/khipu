@@ -156,6 +156,7 @@ la izquierda y no se mira.
 2. `backend` — esperar que el healthcheck `/health/liveness` pase (corre las migraciones Flyway al arrancar).
 3. `portal` — depende de que `backend` ya tenga una URL asignada para `API_BASE_URL`/`API_PUBLIC_URL`.
 4. **Cada administrador del backoffice entra enseguida y configura su segundo factor** (ver §7).
+5. `respaldo` — el respaldo diario de la base (ver §8). **Antes del primer cliente real.**
 
 ## 7. Segundo factor del administrador (#177): el primer ingreso
 
@@ -179,6 +180,63 @@ administrador escanea el QR y confirma con el primer código. Eso tiene una cons
   Borrar solo la fila de `administrador_segundo_factor` **no alcanza**: con la contraseña de siempre, quien la tenga puede volver a enrolarse antes que el
   administrador. Y una sesión ya emitida **no se revoca**: el backoffice solo comprueba la firma y el vencimiento del token, así que la de un atacante dura
   hasta `ADMIN_SESION_MINUTOS` (30 por defecto, 60 como máximo) aunque el administrador ya no exista. Un reinicio desde el backoffice queda para #183.
+
+## 8. Respaldos de la base
+
+Sin respaldo, perder la base de Postgres es perder cuentas, planes, pagos, la bitácora y **la numeración de los comprobantes**, que SUNAT exige
+correlativa. Los XML y CDR no van aquí: van en el storage (§3), y conviene que sea `STORAGE_TYPE=s3` con versionado y retención, porque un Volume de
+Railway no tiene copia propia.
+
+`deploy/respaldo/` es una imagen con `pg_dump`, `openssl` y el cliente de S3:
+
+- **`respaldar.sh`** (lo que corre el servicio): `pg_dump` en formato custom → cifrado AES-256 con `BACKUP_PASSPHRASE` → objeto
+  `postgres/khipu-<fecha UTC>.dump.enc` en el bucket. Comprueba que el volcado tenga datos y que el objeto subido mida lo mismo que el local. Ante
+  cualquier fallo termina con error, así que Railway marca la ejecución como fallida.
+- **`restaurar.sh <clave> | --ultimo`**: baja, descifra y restaura en `RESTAURAR_EN`, una variable aparte de `DATABASE_URL` a propósito, para no
+  restaurar encima de producción por un descuido. Si la base destino ya tiene tablas, exige `CONFIRMAR=si`.
+- **`probar.sh`** (`make probar-respaldo`): la prueba de punta a punta en contenedores propios y temporales. Crea una base con las migraciones reales y
+  la respalda a un MinIO. Después restaura en una base vacía, compara tabla por tabla y comprueba que una clave equivocada no descifra y que una base
+  con datos no se pisa sin confirmar.
+
+### Servicio `respaldo` en Railway
+
+0. **Misma versión mayor de Postgres que la base.** La imagen trae `pg_dump` 16 y `pg_dump` aborta ante un servidor más nuevo («server version
+   mismatch»): el respaldo fallaría todos los días. Comprobarlo en la base de Railway con `SELECT version();`; si es otra, cambiar el `FROM` de
+   `deploy/respaldo/Dockerfile` a esa versión.
+1. **New → GitHub Repo** (el mismo repo) → **Settings → Build**: Dockerfile `deploy/respaldo/Dockerfile`, root `deploy/respaldo`.
+2. **Settings → Cron Schedule**: `0 8 * * *` (todos los días a las 3:00 de Lima, que es UTC-5). Railway arranca el contenedor a esa hora, corre
+   `respaldar.sh` y lo apaga.
+3. Variables:
+
+| Variable | Valor |
+|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (la del plugin; la red privada alcanza) |
+| `BACKUP_PASSPHRASE` | 20 caracteres o más, al azar. **Guardarla también fuera de Railway** (gestor de contraseñas): si se pierde junto con el proyecto, los respaldos no se pueden leer |
+| `BACKUP_S3_BUCKET` | un bucket **distinto** del de los XML y CDR, con versionado |
+| `BACKUP_S3_ENDPOINT` | solo para S3 compatibles: `https://<cuenta>.r2.cloudflarestorage.com` (R2), `https://s3.<región>.backblazeb2.com` (B2) |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | una llave del bucket **solo con permiso de escribir y leer** ese bucket, no de borrar |
+| `AWS_DEFAULT_REGION` | la del bucket (`auto` en R2) |
+| `BACKUP_S3_PREFIJO` | opcional, por defecto `postgres` |
+
+4. **Retención en el bucket, no en el script:** una regla de ciclo de vida que borre los objetos de `postgres/` a los 35 días. Así nadie con la
+   llave del servicio puede borrar los respaldos viejos, y un atacante que entre a Railway no se lleva la historia. Si el proveedor lo permite, Object
+   Lock en modo *governance* por 30 días. **Con versionado activo, la regla tiene que incluir también las versiones no actuales**
+   (`NoncurrentVersionExpiration`, p. ej. 35 días) **y la limpieza de los marcadores de borrado que quedan solos**: expirar la versión actual solo
+   deja un marcador, y sin esas dos partes las versiones viejas se quedan para siempre (el costo crece y la retención no es la que se dice).
+5. **Probar la restauración una vez al desplegar, y después cada mes.** Un respaldo que nunca se restauró no es un respaldo. Desde una máquina con
+   Docker, con las mismas variables del bucket:
+
+```bash
+docker build -t khipu-respaldo deploy/respaldo
+docker run --rm -e RESTAURAR_EN=postgres://usuario:clave@host:5432/base_de_prueba -e BACKUP_PASSPHRASE=… -e BACKUP_S3_BUCKET=… \
+  -e BACKUP_S3_ENDPOINT=… -e AWS_ACCESS_KEY_ID=… -e AWS_SECRET_ACCESS_KEY=… -e AWS_DEFAULT_REGION=… khipu-respaldo restaurar.sh --ultimo
+# BACKUP_S3_ENDPOINT solo con R2, B2 o MinIO; con AWS S3 se omite.
+```
+
+Restaurar **en una base de prueba**, nunca en la de producción, y abrirla para comprobar que están las cuentas y los comprobantes recientes.
+
+**Además**, si el plan de Railway incluye respaldos del Volume de Postgres, conviene activarlos también: es una segunda copia, en otro lugar. No
+reemplaza a esta, porque queda dentro del mismo proyecto de Railway.
 
 ## 9. Rotar `MASTER_KEY` y `API_KEY_PEPPER`
 
