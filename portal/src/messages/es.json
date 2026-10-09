@@ -1022,19 +1022,18 @@
       "verEmpresa": "Ver la empresa",
       "tipo": "Tipo",
       "fechaEmision": "Fecha de emisión",
-      "estado": "Estado",
       "intentos": "Intentos de envío",
       "ultimoError": "Último error de envío",
       "sinError": "Ninguno",
       "respuestaSunat": "Respuesta de SUNAT",
       "sinRespuesta": "Todavía no respondió",
+      "noLlego": "No llegó a SUNAT",
       "archivos": "Archivos guardados",
       "xml": "XML firmado",
       "cdr": "CDR de SUNAT",
       "guardado": "Guardado",
       "noGuardado": "No está",
-      "ayudaArchivos": "Solo se dice si están: su contenido es del cliente y se descarga desde su panel.",
-      "verFicha": "Ver la ficha"
+      "ayudaArchivos": "Solo se dice si están: su contenido es del cliente y se descarga desde su panel."
     },
     "empresaDetalle": {
       "volver": "Empresas",

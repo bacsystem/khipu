@@ -28,7 +28,7 @@ class ConsultarComprobanteAdminServiceTest {
         public long contar(Filtro f) { throw new AssertionError("la ficha no cuenta"); }
         public Optional<Ubicacion> ubicar(UUID id) { return Optional.ofNullable(comprobantes.datos.get(id)).map(c -> new Ubicacion(c.tenantId(), c.nombreArchivo())); }
     };
-    ConsultarComprobanteAdminService service = new ConsultarComprobanteAdminService(cola, comprobantes, tenants);
+    ConsultarComprobanteAdminService service = new ConsultarComprobanteAdminService(cola, comprobantes, tenants, storage);
 
     {
         tenants.guardar(Fakes.tenantListo(empresaId));
@@ -63,6 +63,7 @@ class ConsultarComprobanteAdminServiceTest {
         Comprobante c = Fakes.facturaFirmada(empresaId, storage);
         c.marcarEnviado();
         c.aplicarCdr(new Cdr("0", "La Factura numero F001-1, ha sido aceptada", List.of()), "k/R-20100066603-01-F001-1.zip");
+        storage.guardar("k/R-20100066603-01-F001-1.zip", new byte[]{1});
         comprobantes.guardar(c);
 
         Ficha f = service.ficha(c.id());
@@ -71,6 +72,23 @@ class ConsultarComprobanteAdminServiceTest {
         assertThat(f.cdr()).isEqualTo(new RespuestaSunat("0", "La Factura numero F001-1, ha sido aceptada"));
         assertThat(f.tieneCdr()).isTrue();
         assertThat(f.ultimoError()).isNull();
+    }
+
+    /**
+     * 273-H1: «guardado» es que el objeto está en el almacenamiento, no que la base tenga su clave. Es justo el caso de la verificación de integridad
+     * (XML_FALTANTE, CDR_FALTANTE): desde ese fallo se llega a la ficha, y no puede decir «Guardado».
+     */
+    @Test void unArchivoConClavePeroSinObjetoNoEstaGuardado() {
+        Comprobante c = Fakes.facturaFirmada(empresaId, storage);
+        c.marcarEnviado();
+        c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "k/R-que-se-perdio.zip");
+        comprobantes.guardar(c);
+        storage.borrar(c.xmlKey());
+
+        Ficha f = service.ficha(c.id());
+
+        assertThat(f.tieneXml()).as("la clave está, el objeto no").isFalse();
+        assertThat(f.tieneCdr()).isFalse();
     }
 
     @Test void unaEmpresaDeIntegracionNoTieneCuenta() {

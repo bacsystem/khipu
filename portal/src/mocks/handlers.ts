@@ -1349,7 +1349,11 @@ export const handlers = [
       return ok({
         id: e.comprobante_id, empresa_id: e.empresa_id, ruc: e.ruc, razon_social: e.razon_social, cuenta_id: e.cuenta_id, nombre_archivo: e.nombre_archivo,
         tipo: e.tipo, serie: e.serie, numero: e.numero, fecha_emision: e.fecha_emision, estado: e.estado, intentos: e.intentos,
-        ...(e.clase === "ERROR_DE_ENVIO" ? { ultimo_error: conFault } : { respuesta_sunat: e.fault?.codigo ? { codigo: e.fault.codigo, descripcion: e.fault.mensaje } : undefined }),
+        // Como el backend (273-H2): solo un rechazo de formato trae la respuesta de SUNAT (su CDR); un error de envío y un fuera de plazo (2108, que khipu
+        // decide sin llamar a SUNAT y no deja CDR) dejan el motivo en `ultimo_error`.
+        ...(e.clase === "ERROR_DE_FORMATO"
+          ? { respuesta_sunat: e.fault?.codigo ? { codigo: e.fault.codigo, descripcion: e.fault.mensaje } : undefined }
+          : { ultimo_error: conFault }),
         tiene_xml: true, tiene_cdr: false,
       });
     }

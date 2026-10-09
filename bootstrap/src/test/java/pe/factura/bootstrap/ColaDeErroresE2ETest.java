@@ -450,6 +450,10 @@ class ColaDeErroresE2ETest {
                 .containsEntry("cuenta_id", a.cuentaId().toString()).containsEntry("nombre_archivo", c.nombreArchivo()).containsEntry("estado", "ERROR_ENVIO")
                 .containsEntry("intentos", 2).containsEntry("tiene_xml", true).containsEntry("tiene_cdr", false).doesNotContainKey("respuesta_sunat");
         assertThat((String) f.get("ultimo_error")).contains("0109");
+
+        // 273-H1: si el objeto se perdió del almacenamiento (lo que la verificación de integridad llama XML_FALTANTE), la ficha no dice «guardado».
+        storage.borrar(c.xmlKey());
+        assertThat(datos(llamar(HttpMethod.GET, "/v1/admin/comprobantes/" + c.id(), conClaveDePlataforma(), null))).containsEntry("tiene_xml", false);
     }
 
     @Test void laFichaDeUnComprobanteQueNoExisteEs404YUnIdMalFormadoEs400() {

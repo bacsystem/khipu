@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.ConsultarComprobanteAdminUseCase;
 import pe.factura.application.port.out.ColaDeErroresRepository;
 import pe.factura.application.port.out.ComprobanteRepository;
+import pe.factura.application.port.out.DocumentStorage;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Cdr;
@@ -18,6 +19,7 @@ public class ConsultarComprobanteAdminService implements ConsultarComprobanteAdm
     private final ColaDeErroresRepository cola;
     private final ComprobanteRepository comprobantes;
     private final TenantRepository tenants;
+    private final DocumentStorage storage;
 
     @Override public Ficha ficha(UUID comprobanteId) {
         UUID tenantId = cola.ubicar(comprobanteId).map(ColaDeErroresRepository.Ubicacion::tenantId).orElseThrow(ConsultarComprobanteAdminService::noEncontrado);
@@ -26,7 +28,15 @@ public class ConsultarComprobanteAdminService implements ConsultarComprobanteAdm
         Cdr cdr = c.cdr();
         return new Ficha(c.id(), tenantId, t.ruc(), t.razonSocial(), tenants.cuentaDe(tenantId).orElse(null), c.nombreArchivo(), c.tipo().codigo(), c.serie(), c.numero(),
                 c.fechaEmision(), c.estado(), c.intentos(), c.ultimoError(), cdr == null ? null : new RespuestaSunat(cdr.codigo(), cdr.descripcion()),
-                c.xmlKey() != null, c.cdrKey() != null);
+                guardado(c.xmlKey()), guardado(c.cdrKey()));
+    }
+
+    /**
+     * Que el objeto esté en el almacenamiento, no solo su clave en la base (273-H1): la verificación de integridad marca XML_FALTANTE y CDR_FALTANTE justo
+     * cuando la clave está y el objeto no, y desde ese fallo se llega a esta ficha.
+     */
+    private boolean guardado(String key) {
+        return key != null && storage.existe(key);
     }
 
     private static DomainException noEncontrado() {

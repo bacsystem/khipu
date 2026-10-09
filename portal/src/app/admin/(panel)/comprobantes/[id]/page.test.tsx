@@ -77,6 +77,17 @@ describe("AdminComprobantePage (#251)", () => {
     expect(screen.getByTestId("comprobante-cdr").textContent).toBe("CDR de SUNAT: Guardado");
   });
 
+  /** 273-H2: fuera de plazo (o descartado) ya no va a llegar a SUNAT: no es «todavía no respondió», y el 2108 está en el último error. */
+  it("fuera de plazo dice que no llegó a SUNAT y muestra el motivo como último error", async () => {
+    sesion();
+    vi.mocked(obtenerComprobanteAdmin).mockResolvedValue({ ...EN_ERROR, estado: "FUERA_DE_PLAZO", ultimo_error: "2108 - Presentación fuera de fecha" });
+
+    render(await AdminComprobantePage(params()));
+
+    expect(screen.getByTestId("comprobante-respuesta").textContent).toBe("No llegó a SUNAT");
+    expect(screen.getByTestId("comprobante-ultimo-error").textContent).toBe("2108 - Presentación fuera de fecha");
+  });
+
   it("si el backend falla muestra el error con «Reintentar» a la misma página", async () => {
     sesion();
     vi.mocked(obtenerComprobanteAdmin).mockRejectedValue(new ApiError(502, null, "caído", null));

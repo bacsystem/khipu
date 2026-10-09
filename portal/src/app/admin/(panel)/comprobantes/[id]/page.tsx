@@ -66,7 +66,8 @@ function Ficha({ c }: { c: ComprobanteAdmin }) {
                 {c.respuesta_sunat.descripcion ? ` — ${c.respuesta_sunat.descripcion}` : null}
               </>
             ) : (
-              <span className="text-muted-foreground">{t.sinRespuesta}</span>
+              // Fuera de plazo o descartado ya no va a llegar a SUNAT: «todavía no respondió» sugeriría que falta poco (273-H2).
+              <span className="text-muted-foreground">{c.estado === "FUERA_DE_PLAZO" || c.estado === "DESCARTADO" ? t.noLlego : t.sinRespuesta}</span>
             )}
           </Dato>
           <Dato etiqueta={t.ultimoError} testId="comprobante-ultimo-error">

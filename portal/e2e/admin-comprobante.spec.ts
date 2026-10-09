@@ -33,6 +33,16 @@ test("un rechazo por formato muestra lo que respondió SUNAT", async ({ page }) 
   await expect(page.getByTestId("comprobante-respuesta")).toContainText("1033");
 });
 
+/** 273-H2: un fuera de plazo no tiene respuesta de SUNAT (khipu lo decide sin llamarla): el 2108 va como último error, como en el backend. */
+test("un fuera de plazo dice que no llegó a SUNAT y el 2108 queda como último error", async ({ page }) => {
+  await page.goto(`/admin/errores?empresa_id=${empresa(4)}`);
+  await esperarHidratacion(page, "#errores-q");
+  await page.getByRole("link", { name: "20100000400-01-F001-204" }).click();
+
+  await expect(page.getByTestId("comprobante-respuesta")).toHaveText("No llegó a SUNAT");
+  await expect(page.getByTestId("comprobante-ultimo-error")).toContainText("2108");
+});
+
 test("desde la verificación de integridad se abre la ficha del comprobante con el archivo que falta", async ({ page }) => {
   await page.goto("/admin/integridad");
   await esperarHidratacion(page, "#integridad-desde");
