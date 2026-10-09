@@ -200,6 +200,9 @@ Railway no tiene copia propia.
 
 ### Servicio `respaldo` en Railway
 
+0. **Misma versión mayor de Postgres que la base.** La imagen trae `pg_dump` 16 y `pg_dump` aborta ante un servidor más nuevo («server version
+   mismatch»): el respaldo fallaría todos los días. Comprobarlo en la base de Railway con `SELECT version();`; si es otra, cambiar el `FROM` de
+   `deploy/respaldo/Dockerfile` a esa versión.
 1. **New → GitHub Repo** (el mismo repo) → **Settings → Build**: Dockerfile `deploy/respaldo/Dockerfile`, root `deploy/respaldo`.
 2. **Settings → Cron Schedule**: `0 8 * * *` (todos los días a las 3:00 de Lima, que es UTC-5). Railway arranca el contenedor a esa hora, corre
    `respaldar.sh` y lo apaga.
@@ -217,13 +220,17 @@ Railway no tiene copia propia.
 
 4. **Retención en el bucket, no en el script:** una regla de ciclo de vida que borre los objetos de `postgres/` a los 35 días. Así nadie con la
    llave del servicio puede borrar los respaldos viejos, y un atacante que entre a Railway no se lleva la historia. Si el proveedor lo permite, Object
-   Lock en modo *governance* por 30 días.
+   Lock en modo *governance* por 30 días. **Con versionado activo, la regla tiene que incluir también las versiones no actuales**
+   (`NoncurrentVersionExpiration`, p. ej. 35 días) **y la limpieza de los marcadores de borrado que quedan solos**: expirar la versión actual solo
+   deja un marcador, y sin esas dos partes las versiones viejas se quedan para siempre (el costo crece y la retención no es la que se dice).
 5. **Probar la restauración una vez al desplegar, y después cada mes.** Un respaldo que nunca se restauró no es un respaldo. Desde una máquina con
    Docker, con las mismas variables del bucket:
 
 ```bash
 docker build -t khipu-respaldo deploy/respaldo
-docker run --rm -e RESTAURAR_EN=postgres://usuario:clave@host:5432/base_de_prueba -e BACKUP_PASSPHRASE=… -e BACKUP_S3_BUCKET=…   -e AWS_ACCESS_KEY_ID=… -e AWS_SECRET_ACCESS_KEY=… -e AWS_DEFAULT_REGION=… khipu-respaldo restaurar.sh --ultimo
+docker run --rm -e RESTAURAR_EN=postgres://usuario:clave@host:5432/base_de_prueba -e BACKUP_PASSPHRASE=… -e BACKUP_S3_BUCKET=… \
+  -e BACKUP_S3_ENDPOINT=… -e AWS_ACCESS_KEY_ID=… -e AWS_SECRET_ACCESS_KEY=… -e AWS_DEFAULT_REGION=… khipu-respaldo restaurar.sh --ultimo
+# BACKUP_S3_ENDPOINT solo con R2, B2 o MinIO; con AWS S3 se omite.
 ```
 
 Restaurar **en una base de prueba**, nunca en la de producción, y abrirla para comprobar que están las cuentas y los comprobantes recientes.

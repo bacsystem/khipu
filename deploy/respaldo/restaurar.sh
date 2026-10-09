@@ -38,7 +38,8 @@ trap 'rm -rf "$tmp"' EXIT
 s3 s3 cp --only-show-errors "s3://${BACKUP_S3_BUCKET}/${clave}" "$tmp/respaldo.enc"
 openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE -in "$tmp/respaldo.enc" -out "$tmp/khipu.dump" \
   || { echo "restaurar: no se pudo descifrar (¿BACKUP_PASSPHRASE equivocada?)" >&2; exit 1; }
-# --exit-on-error: una restauración a medias no se da por buena.
-pg_restore --clean --if-exists --no-owner --no-privileges --exit-on-error --dbname="$RESTAURAR_EN" "$tmp/khipu.dump"
+# --single-transaction: todo o nada. Si algo falla a mitad, la base destino queda como estaba (con --clean y CONFIRMAR=si, sin esto quedaba con
+# tablas borradas y otras restauradas a medias). Implica --exit-on-error, que se deja explícito.
+pg_restore --clean --if-exists --no-owner --no-privileges --exit-on-error --single-transaction --dbname="$RESTAURAR_EN" "$tmp/khipu.dump"
 
 echo "restaurar: ${clave} restaurado"

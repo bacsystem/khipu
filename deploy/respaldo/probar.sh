@@ -35,9 +35,12 @@ esperar_pg() { esperar docker exec "$1" pg_isready -U khipu -d khipu; sleep 2; }
 esperar_pg khipu-pr-origen
 esperar_pg khipu-pr-destino
 
-# Las migraciones reales de Flyway, en orden, y unas filas: lo que importa es que el esquema entero y los datos vuelvan iguales.
+# Las migraciones reales de Flyway, en orden, y unas filas: lo que importa es que el esquema entero y los datos vuelvan iguales. En `solo_esquema`
+# van las mismas migraciones sin filas: una base así no se respalda como si fuera buena.
+docker exec khipu-pr-origen createdb -U khipu solo_esquema
 for m in $(ls "$raiz"/adapters/out-persistence/src/main/resources/db/migration/V*.sql | sort -V); do
   docker exec -i khipu-pr-origen psql -q -v ON_ERROR_STOP=1 -U khipu -d khipu < "$m" >/dev/null
+  docker exec -i khipu-pr-origen psql -q -v ON_ERROR_STOP=1 -U khipu -d solo_esquema < "$m" >/dev/null
 done
 docker exec -i khipu-pr-origen psql -q -v ON_ERROR_STOP=1 -U khipu -d khipu >/dev/null <<'SQL'
 INSERT INTO cuenta (id, nombre, email) VALUES ('00000000-0000-4000-8000-000000000001', 'Ferretería Ñandú', 'ana@prueba.pe');
@@ -49,14 +52,23 @@ correr() { docker run --rm --network "$red" $env_s3 "$@"; }
 
 esperar correr "$imagen" aws --endpoint-url http://khipu-pr-minio:9000 s3 mb s3://respaldos
 
+# Corre un comando que tiene que fallar con un código y un motivo dados: fallar por otra razón (red, argumentos) no prueba nada.
+falla_con() {
+  codigo="$1"; motivo="$2"; shift 2
+  set +e; salida="$("$@" 2>&1)"; real=$?; set -e
+  [ "$real" -eq "$codigo" ] && echo "$salida" | grep -q "$motivo" \
+    || { echo "FALLO: se esperaba salida $codigo con «$motivo» y fue $real:"; echo "$salida"; exit 1; }
+}
+
+echo "0) una base solo con el esquema (sin cuentas ni administradores) no se respalda"
+falla_con 1 "ninguna cuenta ni administrador" correr -e DATABASE_URL=postgres://khipu:khipu@khipu-pr-origen:5432/solo_esquema "$imagen" respaldar.sh
+
 echo "1) respaldar"
 correr -e DATABASE_URL=postgres://khipu:khipu@khipu-pr-origen:5432/khipu "$imagen" respaldar.sh
 
 echo "2) una clave equivocada no descifra"
-if docker run --rm --network "$red" $env_s3 -e BACKUP_PASSPHRASE=otra-clave-equivocada-larga \
-     -e RESTAURAR_EN=postgres://khipu:khipu@khipu-pr-destino:5432/khipu "$imagen" restaurar.sh --ultimo >/dev/null 2>&1; then
-  echo "FALLO: restauró con una clave equivocada"; exit 1
-fi
+falla_con 1 "no se pudo descifrar" docker run --rm --network "$red" $env_s3 -e BACKUP_PASSPHRASE=otra-clave-equivocada-larga \
+  -e RESTAURAR_EN=postgres://khipu:khipu@khipu-pr-destino:5432/khipu "$imagen" restaurar.sh --ultimo
 
 echo "3) restaurar el último en la base vacía"
 correr -e RESTAURAR_EN=postgres://khipu:khipu@khipu-pr-destino:5432/khipu "$imagen" restaurar.sh --ultimo
@@ -73,10 +85,9 @@ nombre="$(docker exec khipu-pr-destino psql -At -U khipu -d khipu -c "SELECT nom
 [ "$nombre" = "Ferretería Ñandú" ] || { echo "FALLO: el texto no volvió igual: $nombre"; exit 1; }
 echo "   $(echo "$a" | tr ',' '\n' | wc -l | tr -d ' ') tablas iguales, con tildes y ñ intactas"
 
-echo "5) no pisa una base con datos sin CONFIRMAR=si"
-if correr -e RESTAURAR_EN=postgres://khipu:khipu@khipu-pr-destino:5432/khipu "$imagen" restaurar.sh --ultimo >/dev/null 2>&1; then
-  echo "FALLO: restauró encima de una base con datos sin confirmar"; exit 1
-fi
+echo "5) no pisa una base con datos sin CONFIRMAR=si, y con CONFIRMAR=si la deja igual al respaldo"
+falla_con 3 "CONFIRMAR=si" correr -e RESTAURAR_EN=postgres://khipu:khipu@khipu-pr-destino:5432/khipu "$imagen" restaurar.sh --ultimo
 correr -e RESTAURAR_EN=postgres://khipu:khipu@khipu-pr-destino:5432/khipu -e CONFIRMAR=si "$imagen" restaurar.sh --ultimo >/dev/null
+[ "$(conteos khipu-pr-destino)" = "$a" ] || { echo "FALLO: tras restaurar con CONFIRMAR=si las tablas no coinciden con el origen"; exit 1; }
 
 echo "OK: respaldo y restauración probados"

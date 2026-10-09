@@ -29,10 +29,16 @@ trap 'rm -rf "$tmp"' EXIT
 
 # --no-owner/--no-privileges: se restaura en otra base con otro usuario sin pelear por dueños. El formato custom ya va comprimido.
 pg_dump --format=custom --no-owner --no-privileges --dbname="$DATABASE_URL" --file="$tmp/khipu.dump"
-# Un volcado vacío o truncado no se sube como si fuera un respaldo bueno.
+# Un volcado truncado no se sube como si fuera un respaldo bueno: el índice tiene que poder leerse y traer las tablas.
 pg_restore --list "$tmp/khipu.dump" > "$tmp/indice"
 tablas="$(grep -c ' TABLE DATA ' "$tmp/indice" || true)"
-[ "$tablas" -gt 0 ] || { echo "respaldo: el volcado no tiene datos de ninguna tabla" >&2; exit 1; }
+[ "$tablas" -gt 0 ] || { echo "respaldo: el volcado no trae ninguna tabla" >&2; exit 1; }
+# Y una base sin datos tampoco. El índice no basta (pg_dump escribe una entrada TABLE DATA por tabla aunque no tenga filas), ni contar filas en
+# general (las migraciones siembran planes). Lo que ninguna migración crea son las cuentas de clientes y los administradores del backoffice: la base
+# de producción tiene al menos su administrador desde el primer día (§7). Sin ninguno, el DATABASE_URL apunta a una base recién migrada o vaciada,
+# y sus «respaldos buenos» vacíos terminarían, por la retención, reemplazando a los que sí servían.
+personas="$(psql "$DATABASE_URL" -At -v ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM cuenta) + (SELECT count(*) FROM administrador)")"
+[ "$personas" -gt 0 ] || { echo "respaldo: la base no tiene ninguna cuenta ni administrador; no se sube un respaldo de una base sin datos" >&2; exit 1; }
 
 openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE -in "$tmp/khipu.dump" -out "$tmp/$nombre"
 s3 s3 cp --only-show-errors "$tmp/$nombre" "$destino"
@@ -42,4 +48,4 @@ local_bytes="$(wc -c < "$tmp/$nombre" | tr -d ' ')"
 remoto_bytes="$(s3 s3api head-object --bucket "$BACKUP_S3_BUCKET" --key "${prefijo}/${nombre}" --query ContentLength --output text)"
 [ "$local_bytes" = "$remoto_bytes" ] || { echo "respaldo: el objeto subido mide $remoto_bytes bytes y el local $local_bytes" >&2; exit 1; }
 
-echo "respaldo: ${destino} (${local_bytes} bytes, ${tablas} tablas con datos)"
+echo "respaldo: ${destino} (${local_bytes} bytes, ${tablas} tablas, ${personas} cuentas y administradores)"
