@@ -139,11 +139,11 @@ export type Baja = {
 export const PLAZO_BAJA_DIAS = 7;
 
 /**
- * Un comprobante aceptado (factura o nota), emitido hace 7 días o menos y sin baja en curso, puede darse de baja.
- * `hoy` es la fecha de Lima (la misma zona con la que el backend aplica la regla 2957), no la del servidor del portal.
+ * Un comprobante aceptado (factura, boleta o nota), emitido hace 7 días o menos y sin baja en curso, puede darse de baja: la boleta en el resumen
+ * diario (RC, #20), los demás en una comunicación de baja (RA). `hoy` es la fecha de Lima (la misma zona con la que el backend aplica la regla 2957),
+ * no la del servidor del portal.
  */
 export function admiteBaja(c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_emision" | "baja">, hoy: string = hoyLima()): boolean {
-  if (c.tipo === "03") return false;
   if (c.estado_documento !== "ACEPTADO" && c.estado_documento !== "ACEPTADO_CON_OBS") return false;
   if (bajaEnCurso(c)) return false;
   return diasEntre(c.fecha_emision, hoy) <= PLAZO_BAJA_DIAS;

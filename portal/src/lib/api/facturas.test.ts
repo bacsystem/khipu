@@ -83,15 +83,17 @@ describe("admiteBaja", () => {
   const aceptada: Parameters<typeof admiteBaja>[0] = { tipo: "01", estado_documento: "ACEPTADO", fecha_emision: "2026-09-15", baja: null };
   const bajaEn = (estado: Baja["estado"]): Baja => ({ id: "b", identificador: "RA-20260918-1", comprobante: "F001-1", tipo_comprobante: "01", fecha_generacion: "2026-09-18", motivo: "m", estado, ticket: null, cdr: null, intentos: 1, ultimo_error: null });
 
-  it("acepta facturas y notas aceptadas (con o sin observaciones) dentro de los 7 días", () => {
+  it("acepta facturas, boletas y notas aceptadas (con o sin observaciones) dentro de los 7 días", () => {
     expect(admiteBaja(aceptada, hoy)).toBe(true);
     expect(admiteBaja({ ...aceptada, tipo: "07", estado_documento: "ACEPTADO_CON_OBS" }, hoy)).toBe(true);
     expect(admiteBaja({ ...aceptada, fecha_emision: "2026-09-11" }, hoy)).toBe(true); // justo 7 días (regla 2957)
+    // #20: la boleta se anula en el resumen diario (RC), con el mismo plazo.
+    expect(admiteBaja({ ...aceptada, tipo: "03" }, hoy)).toBe(true);
+    expect(admiteBaja({ ...aceptada, tipo: "03", fecha_emision: "2026-09-10" }, hoy)).toBe(false);
   });
 
-  it("rechaza fuera de plazo, boletas, estados no aceptados y bajas en curso", () => {
+  it("rechaza fuera de plazo, estados no aceptados y bajas en curso", () => {
     expect(admiteBaja({ ...aceptada, fecha_emision: "2026-09-10" }, hoy)).toBe(false);
-    expect(admiteBaja({ ...aceptada, tipo: "03" }, hoy)).toBe(false);
     expect(admiteBaja({ ...aceptada, estado_documento: "ANULADO" }, hoy)).toBe(false);
     expect(admiteBaja({ ...aceptada, estado_documento: "FIRMADO" }, hoy)).toBe(false);
     expect(admiteBaja({ ...aceptada, baja: bajaEn("ENVIADA") }, hoy)).toBe(false);

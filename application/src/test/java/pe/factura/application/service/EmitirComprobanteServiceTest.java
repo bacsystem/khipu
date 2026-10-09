@@ -34,12 +34,12 @@ class EmitirComprobanteServiceTest {
     Tenant[] emisor = new Tenant[1];
     UblGenerator ubl = new UblGenerator() {
         public String generar(Comprobante c, pe.factura.domain.tenant.Tenant t) { emisor[0] = t; return "<Invoice>" + c.nombreArchivo() + "</Invoice>"; }
-        public String generarBaja(pe.factura.domain.documento.ComunicacionBaja b, pe.factura.domain.tenant.Tenant t) { return ""; }
+        public String generarBaja(pe.factura.domain.documento.ComunicacionBaja b, Comprobante c, pe.factura.domain.tenant.Tenant t) { return ""; }
     };
     String[] recibido = new String[1];
     XsdValidator xsd = new XsdValidator() {
         public void validar(String xml, TipoDocumento tipo) { recibido[0] = xml; }
-        public void validarBaja(String xml) { recibido[0] = xml; }
+        public void validarBaja(String xml, TipoDocumento tipoBaja) { recibido[0] = xml; }
     };
     XmlSigner signer = (xml, cert) -> new FirmaResultado(xml.replace("<Invoice>", "<Invoice><ds:Signature/>"), "HASH" + xml.length());
     EmitirComprobanteService service;
@@ -299,7 +299,7 @@ class EmitirComprobanteServiceTest {
     @Test void xsdInvalidoNoConsumeNumeroNiGuarda() {
         XsdValidator malo = new XsdValidator() {
             public void validar(String xml, TipoDocumento tipo) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
-            public void validarBaja(String xml) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
+            public void validarBaja(String xml, TipoDocumento tipoBaja) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
         EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias());

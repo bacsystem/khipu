@@ -123,6 +123,22 @@ class FacturaE2ETest {
         ResponseEntity<byte[]> pdf = http.exchange("/v1/facturas/" + id + "/pdf", HttpMethod.GET, new HttpEntity<>(h), byte[].class);
         assertThat(pdf.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(new String(pdf.getBody(), 0, 5)).isEqualTo("%PDF-");
+
+        // Anularla: un resumen diario (RC) firmado de verdad y validado contra el XSD oficial, por sendSummary + getStatus; la boleta queda ANULADA.
+        stubFor(post("/billService").withRequestBody(containing("sendSummary")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:sendSummaryResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><ticket>1789768174685</ticket></ns2:sendSummaryResponse></soap-env:Body></soap-env:Envelope>")));
+        byte[] cdrRc = ZipUtil.comprimir("R-20100066603-RC.xml", CDR_OK.getBytes());
+        stubFor(post("/billService").withRequestBody(containing("getStatus")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>0</statusCode><content>"
+                        + Base64.getEncoder().encodeToString(cdrRc) + "</content></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")));
+        ResponseEntity<Map> baja = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Se cobró dos veces\"}", h), Map.class);
+        assertThat(baja.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        Map<?, ?> rc = (Map<?, ?>) baja.getBody().get("datos");
+        assertThat((String) rc.get("identificador")).matches("RC-\\d{8}-1");
+        assertThat(rc.get("estado")).isEqualTo("ACEPTADA");
+        verify(postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("sendSummary")).withRequestBody(matching("(?s).*<fileName>20100066603-RC-\\d{8}-1\\.zip</fileName>.*")));
+        Map<?, ?> anulada = (Map<?, ?>) http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos");
+        assertThat(anulada.get("estado_documento")).isEqualTo("ANULADO");
     }
 
     @Autowired OutboxWorker worker;

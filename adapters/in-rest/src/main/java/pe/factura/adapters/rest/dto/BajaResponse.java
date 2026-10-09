@@ -6,10 +6,10 @@ import pe.factura.domain.documento.ComunicacionBaja;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** Comunicación de baja de un comprobante: identificador RA, estado del trámite ante SUNAT y, cuando existe, el CDR. */
+/** Baja de un comprobante: identificador RA (o RC si es una boleta), estado del trámite ante SUNAT y, cuando existe, el CDR. */
 public record BajaResponse(
         @Schema(example = "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f") UUID id,
-        @Schema(example = "RA-20260918-1", description = "Identificador de la comunicación (uno por empresa y día, correlativo)") String identificador,
+        @Schema(example = "RA-20260918-1", description = "Identificador ante SUNAT: `RA-yyyymmdd-N` (comunicación de baja) o `RC-yyyymmdd-N` (resumen diario, para una boleta). Correlativo por empresa y día") String identificador,
         @Schema(example = "F001-125", description = "Comprobante dado de baja") String comprobante,
         @Schema(example = "01", description = "Tipo del comprobante (01 factura, 07/08 notas)") String tipoComprobante,
         @Schema(example = "2026-09-18") LocalDate fechaGeneracion,

@@ -57,7 +57,8 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       <div className={cn(TITULO_SECCION, "mb-3 justify-between")}>
         <span className="flex items-center gap-1.5">
           <BanIcon className="size-4" />
-          Comunicación de baja {baja.identificador}
+          {/* #20: la baja de una boleta va en un resumen diario (RC-…), la de los demás en una comunicación de baja (RA-…). */}
+          {baja.tipo_comprobante === "03" ? "Resumen diario" : "Comunicación de baja"} {baja.identificador}
         </span>
         {pendiente ? (
           <button type="button" onClick={actualizar} disabled={consultando} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "normal-case tracking-normal")}>

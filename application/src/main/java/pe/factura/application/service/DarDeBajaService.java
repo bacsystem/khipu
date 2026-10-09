@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Comunicación de baja (#31): un VoidedDocuments por comprobante, enviado con {@code sendSummary}. SUNAT responde un ticket;
+ * Comunicación de baja (#31): un VoidedDocuments por comprobante (o, para una boleta, un resumen diario con su línea en estado 3, #20), enviado con {@code sendSummary}. SUNAT responde un ticket;
  * el CDR se recoge con {@code getStatus} — en el acto si ya está procesado, o desde el outbox (acción {@link #ACCION_BAJA})
  * mientras SUNAT devuelva 98. Al aceptarse, el comprobante pasa a {@code ANULADO} en la misma transacción.
  */
@@ -60,9 +60,10 @@ public class DarDeBajaService implements DarDeBajaUseCase {
             if (bajas.deComprobante(tenantId, c.id()).stream().anyMatch(ComunicacionBaja::pendiente))
                 throw new DomainException("BAJA_INVALIDA", "Ya hay una comunicación de baja en curso para " + c.serie() + "-" + c.numero());
             ComunicacionBaja b = ComunicacionBaja.crear(c, bajas.siguienteCorrelativo(tenantId, LocalDate.now(clock)), motivo, clock);
-            String xml = ubl.generarBaja(b, tenant);
+            // Una boleta va en un resumen diario (RC) y los demás en una comunicación de baja (RA): mismo ciclo, otro XML (#20).
+            String xml = ubl.generarBaja(b, c, tenant);
             FirmaResultado firma = signer.firmar(xml, tenant.certificado());
-            xsd.validarBaja(firma.xmlFirmado());
+            xsd.validarBaja(firma.xmlFirmado(), c.tipo());
             String key = tenantId + "/" + b.fechaGeneracion().getYear() + "/" + String.format("%02d", b.fechaGeneracion().getMonthValue()) + "/" + b.nombreArchivo(tenant.ruc()) + ".xml";
             storage.guardar(key, firma.xmlFirmado().getBytes(StandardCharsets.UTF_8));
             b.firmar(key);

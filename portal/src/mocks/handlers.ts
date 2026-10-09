@@ -2634,17 +2634,18 @@ export const handlers = [
       return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
     }
     if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(422, "BAJA_INVALIDA", `2105/2398 - Solo se puede dar de baja un comprobante aceptado por SUNAT; ${factura.serie}-${factura.numero} está ${factura.estado_documento}`);
-    if (factura.tipo === "03") return fail(422, "BAJA_INVALIDA", "2308 - Las boletas se dan de baja en el resumen diario, no con una comunicación de baja");
     if (diasEntre(factura.fecha_emision, hoyLima()) > 7) return fail(422, "BAJA_INVALIDA", `2957 - El plazo para dar de baja ${factura.serie}-${factura.numero} venció: se emitió el ${factura.fecha_emision} y la comunicación debe presentarse dentro de los 7 días calendario`);
     const motivo = (body.motivo ?? "").trim();
     if (motivo.length < 3 || motivo.length > 100 || /[\x00-\x1F\x7F]/.test(motivo)) return fail(422, "BAJA_INVALIDA", "2315 - El motivo de la baja debe tener de 3 a 100 caracteres, sin saltos de línea");
     if (factura.baja && factura.baja.estado !== "RECHAZADA") return fail(422, "BAJA_INVALIDA", `Ya hay una comunicación de baja en curso para ${factura.serie}-${factura.numero}`);
     const hoy = hoyLima().replace(/-/g, "");
     const simulada = motivo.startsWith("[ENVIADA]") ? "ENVIADA" : motivo.startsWith("[RECHAZADA]") ? "RECHAZADA" : "ACEPTADA";
+    // #20: la boleta se anula en el resumen diario (RC), las demás en una comunicación de baja (RA), como en el backend.
+    const identificador = `${factura.tipo === "03" ? "RC" : "RA"}-${hoy}-1`;
     const baja: Baja = {
-      id: nuevoId("b"), identificador: `RA-${hoy}-1`, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
+      id: nuevoId("b"), identificador, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
       motivo, estado: simulada, ticket: "1758200000123",
-      cdr: simulada === "ACEPTADA" ? { codigo: "0", descripcion: `La Comunicacion de baja RA-${hoy}-1, ha sido aceptada`, observaciones: [] }
+      cdr: simulada === "ACEPTADA" ? { codigo: "0", descripcion: `${factura.tipo === "03" ? "El Resumen diario" : "La Comunicacion de baja"} ${identificador}, ha sido aceptado`, observaciones: [] }
         : simulada === "RECHAZADA" ? { codigo: "2323", descripcion: "Existe documento ya informado anteriormente en una comunicacion de baja", observaciones: [] } : null,
       intentos: 1, ultimo_error: simulada === "ENVIADA" ? "98 - SUNAT sigue procesando el ticket 1758200000123" : null,
     };

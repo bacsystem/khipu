@@ -16,7 +16,10 @@ import java.util.UUID;
  * <p>
  * Una comunicación por comprobante: SUNAT exige que todos los documentos de un RA compartan fecha de emisión
  * ({@code ReferenceDate}, regla 2375) y el caso de uso es "anular esta factura"; el correlativo es por empresa y día.
- * Las boletas se dan de baja en el resumen diario (#20), no aquí.
+ * <p>
+ * Una boleta no va en un RA (2308): se anula en el resumen diario (SummaryDocuments, {@code RC-yyyymmdd-N}, #20) con su línea en estado 3. El ciclo es el
+ * mismo (sendSummary, ticket, getStatus, CDR, ANULADO), igual que el plazo (2957, 7 días) y que SUNAT la tenga como válida (2987/2282), así que es esta misma
+ * baja con otro identificador. El correlativo del día se comparte entre RA y RC: SUNAT solo exige que cada identificador no se repita (2223).
  */
 @Getter
 public class ComunicacionBaja {
@@ -50,15 +53,14 @@ public class ComunicacionBaja {
     }
 
     /**
-     * Solo un comprobante aceptado por SUNAT (2398/2323), de tipo 01/07/08 (2308) y emitido hace como máximo 7 días
-     * (2957) puede darse de baja; el motivo va en la línea (3–100 caracteres: 2315, 4203).
+     * Solo un comprobante aceptado por SUNAT (2398/2323; en el RC, 2987/2282) y emitido hace como máximo 7 días (2957) puede darse de baja. El motivo
+     * va en la línea del RA (3–100 caracteres: 2315, 4203); el RC no lo lleva, pero se pide igual: es lo que explica la anulación en khipu.
      */
     public static ComunicacionBaja crear(Comprobante c, int correlativoDelDia, String motivo, Clock clock) {
         LocalDate hoy = LocalDate.now(clock);
         if (!c.estado().esFinalAceptado())
-            throw new DomainException("BAJA_INVALIDA", "2105/2398 - Solo se puede dar de baja un comprobante aceptado por SUNAT (2105 si no está registrado, 2398 si fue rechazado); " + c.serie() + "-" + c.numero() + " está " + c.estado());
-        if (c.tipo() == TipoDocumento.BOLETA)
-            throw new DomainException("BAJA_INVALIDA", "2308 - Las boletas se dan de baja en el resumen diario, no con una comunicación de baja");
+            throw new DomainException("BAJA_INVALIDA", (c.tipo() == TipoDocumento.BOLETA ? "2987/2282" : "2105/2398") + " - Solo se puede dar de baja un comprobante aceptado por SUNAT; "
+                    + c.serie() + "-" + c.numero() + " está " + c.estado());
         if (ChronoUnit.DAYS.between(c.fechaEmision(), hoy) > PLAZO_DIAS)
             throw new DomainException("BAJA_INVALIDA", "2957 - El plazo para dar de baja " + c.serie() + "-" + c.numero() + " venció: se emitió el " + c.fechaEmision()
                     + " y la comunicación debe presentarse dentro de los " + PLAZO_DIAS + " días calendario");
@@ -78,9 +80,12 @@ public class ComunicacionBaja {
         return b;
     }
 
-    /** {@code RA-20260918-1}: cbc:ID y parte del nombre de archivo (reglas 2220, 2346). */
-    public String identificador() { return "RA-" + fechaGeneracion.format(FECHA_ID) + "-" + correlativo; }
-    /** {@code RUC-RA-20260918-1}, sin extensión. */
+    /** Una boleta se anula en el resumen diario (SummaryDocuments), no en una comunicación de baja (VoidedDocuments). */
+    public boolean resumenDiario() { return tipoComprobante == TipoDocumento.BOLETA; }
+
+    /** {@code RA-20260918-1} (o {@code RC-…} para una boleta): cbc:ID y parte del nombre de archivo (reglas 2220, 2346). */
+    public String identificador() { return (resumenDiario() ? "RC-" : "RA-") + fechaGeneracion.format(FECHA_ID) + "-" + correlativo; }
+    /** {@code RUC-RA-20260918-1} o {@code RUC-RC-…}, sin extensión. */
     public String nombreArchivo(String rucEmisor) { return rucEmisor + "-" + identificador(); }
 
     public void firmar(String xmlKey) { this.xmlKey = xmlKey; }

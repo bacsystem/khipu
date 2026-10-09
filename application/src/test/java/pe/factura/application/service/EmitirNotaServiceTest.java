@@ -38,7 +38,7 @@ class EmitirNotaServiceTest {
     TipoDocumento[] validado = new TipoDocumento[1];
     XsdValidator xsd = new XsdValidator() {
         public void validar(String xml, TipoDocumento tipo) { validado[0] = tipo; }
-        public void validarBaja(String xml) {}
+        public void validarBaja(String xml, TipoDocumento tipoBaja) {}
     };
     XmlSigner signer = (xml, cert) -> new FirmaResultado(xml, "HASH");
     EmitirComprobanteService service;

@@ -27,15 +27,18 @@ public class FreemarkerUblGenerator implements UblGenerator {
         cfg.setWrapUncheckedExceptions(true);
     }
 
-    @Override public String generarBaja(ComunicacionBaja b, Tenant t) {
+    @Override public String generarBaja(ComunicacionBaja b, Comprobante c, Tenant t) {
+        String plantilla = b.resumenDiario() ? "summary-documents.ftl" : "voided-documents.ftl";
         try {
             Map<String, Object> modelo = new HashMap<>();
             modelo.put("b", b);
+            modelo.put("c", c);
+            modelo.put("tot", c.totales());
             modelo.put("t", t);
             StringWriter out = new StringWriter();
-            cfg.getTemplate("voided-documents.ftl").process(modelo, out);
+            cfg.getTemplate(plantilla).process(modelo, out);
             return out.toString();
-        } catch (Exception e) { throw new IllegalStateException("Error generando VoidedDocuments", e); }
+        } catch (Exception e) { throw new IllegalStateException("Error generando " + (b.resumenDiario() ? "SummaryDocuments" : "VoidedDocuments"), e); }
     }
 
     @Override public String generar(Comprobante c, Tenant t) {

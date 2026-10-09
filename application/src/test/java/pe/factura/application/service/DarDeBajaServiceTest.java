@@ -39,7 +39,7 @@ class DarDeBajaServiceTest {
     String[] validado = new String[1];
     XsdValidator xsd = new XsdValidator() {
         public void validar(String xml, TipoDocumento tipo) {}
-        public void validarBaja(String xml) { validado[0] = xml; }
+        public void validarBaja(String xml, TipoDocumento tipoBaja) { validado[0] = xml; }
     };
     XmlSigner signer = (xml, cert) -> new FirmaResultado(xml.replace("</VoidedDocuments>", "<ds:Signature/></VoidedDocuments>"), "HASH");
     DarDeBajaService service;
@@ -76,6 +76,32 @@ class DarDeBajaServiceTest {
         assertThat(outbox.filas).isEmpty();
         // El correlativo del día avanza y una segunda baja del mismo comprobante (ya ANULADO) no procede.
         assertThatThrownBy(() -> service.solicitar(tenantId, f.id(), "otra vez")).isInstanceOf(DomainException.class).hasMessageContaining("2398");
+    }
+
+    /** #20: una boleta aceptada se anula con un resumen diario (RC): mismo ciclo, su propio XML y esquema, y la boleta queda ANULADA. */
+    @Test void unaBoletaSeAnulaConUnResumenDiario() {
+        Comprobante f = facturaAceptada();   // el RA de la factura y el RC de la boleta comparten el correlativo del día
+        service.solicitar(tenantId, f.id(), "Error en el RUC");
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        TipoDocumento[] esquema = new TipoDocumento[1];
+        XsdValidator porTipo = new XsdValidator() {
+            public void validar(String xml, TipoDocumento tipo) {}
+            public void validarBaja(String xml, TipoDocumento tipo) { validado[0] = xml; esquema[0] = tipo; }
+        };
+        DarDeBajaService conEsquema = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), porTipo, signer, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
+        Comprobante boleta = emitir.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+
+        ComunicacionBaja rc = conEsquema.solicitar(tenantId, boleta.id(), "Se cobró dos veces");
+
+        assertThat(rc.identificador()).isEqualTo("RC-20260913-2");
+        assertThat(rc.estado()).isEqualTo(EstadoBaja.ACEPTADA);
+        assertThat(rc.xmlKey()).isEqualTo(tenantId + "/2026/09/20100066603-RC-20260913-2.xml");
+        assertThat(gateway.ultimoNombre).isEqualTo("20100066603-RC-20260913-2");
+        assertThat(validado[0]).startsWith("<SummaryDocuments>");
+        assertThat(esquema[0]).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(comprobantes.buscar(tenantId, boleta.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ANULADO);
     }
 
     @Test void sunatSigueProcesando_quedaEnviadaYElOutboxLaReconsulta() {

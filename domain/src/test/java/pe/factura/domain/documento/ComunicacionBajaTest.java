@@ -33,9 +33,20 @@ class ComunicacionBajaTest {
         assertThatThrownBy(() -> ComunicacionBaja.crear(aceptado(TipoDocumento.FACTURA, "F001", LocalDate.of(2026, 9, 12)), 1, "Error", CLOCK)).hasMessageContaining("2957");
     }
 
-    @Test void lasBoletasNoVanEnComunicacionDeBaja() {
-        assertThatThrownBy(() -> ComunicacionBaja.crear(aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 20)), 1, "Error", CLOCK))
-                .isInstanceOf(DomainException.class).hasMessageContaining("2308");
+    /** #20: una boleta no va en una comunicación de baja (2308): se anula en el resumen diario, con su propio identificador RC y las mismas guardas. */
+    @Test void unaBoletaSeDaDeBajaEnElResumenDiario() {
+        ComunicacionBaja rc = ComunicacionBaja.crear(aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 18)), 3, "Error en el monto", CLOCK);
+        assertThat(rc.resumenDiario()).isTrue();
+        assertThat(rc.identificador()).isEqualTo("RC-20260920-3");
+        assertThat(rc.nombreArchivo("20100066603")).isEqualTo("20100066603-RC-20260920-3");
+        assertThat(rc.fechaReferencia()).isEqualTo(LocalDate.of(2026, 9, 18));
+        assertThat(ComunicacionBaja.crear(aceptado(TipoDocumento.FACTURA, "F001", LocalDate.of(2026, 9, 18)), 1, "Error", CLOCK).resumenDiario()).isFalse();
+        // 2957: el plazo de 7 días también vale para la baja en el RC.
+        assertThatThrownBy(() -> ComunicacionBaja.crear(aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 12)), 1, "Error", CLOCK)).hasMessageContaining("2957");
+        // 2987/2282: SUNAT tiene que tenerla como válida; una boleta que no aceptó no se anula.
+        Comprobante firmada = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 2L, LocalDate.of(2026, 9, 20), EstadoDocumento.FIRMADO, RECEPTOR,
+                List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).rehidratar();
+        assertThatThrownBy(() -> ComunicacionBaja.crear(firmada, 1, "Error", CLOCK)).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("BAJA_INVALIDA");
     }
 
     @Test void elMotivoVaDe3A100SinCaracteresDeControl() {
