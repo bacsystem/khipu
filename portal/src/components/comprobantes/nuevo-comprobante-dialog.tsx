@@ -126,8 +126,9 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
               Ir a Fiscal &amp; certificado
             </Link>
           </div>
-        ) : /* El dato primero: así TypeScript sabe que `series.dato` no es null al pasárselo al formulario. */
-        series.dato ? (
+        ) : /* El dato primero: así TypeScript sabe que `series.dato` no es null al pasárselo al formulario. Y la empresa ya leída (o su
+               error): si llegara después, una sin certificado desmontaría el formulario con lo que el usuario ya escribió (264-H1). */
+        series.dato && (empresa.dato || empresa.error) ? (
           <>
             {/* La empresa no bloquea la emisión, pero sí decide la tasa: sin ella se previsualiza con la general, y
                 un tenant del padrón vería totales que no son los que va a emitir. Se avisa en vez de callarlo. */}
@@ -161,7 +162,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
         ) : (
           <div className="flex items-center gap-2 px-5 py-8 text-sm text-muted-foreground">
             <Spinner tamano="sm" />
-            Cargando series…
+            Cargando…
           </div>
         )}
       </DialogContent>

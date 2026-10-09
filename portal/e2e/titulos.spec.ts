@@ -38,6 +38,8 @@ test("el detalle de un comprobante y su nota también tienen título propio", as
   // Una factura aceptada del mock (`src/mocks/data.ts`): admite nota.
   await page.goto("/comprobantes/f-aceptada");
   await expect(page).toHaveTitle(`Comprobante · ${APP}`);
+  // 264-H2: ningún dato «no expuesto todavía» deshabilitado en el detalle.
+  await expect(page.getByText("idempotency_key:")).toHaveCount(0);
 
   await page.goto("/comprobantes/f-aceptada/nota");
   await expect(page).toHaveTitle(`Nota de crédito o débito · ${APP}`);

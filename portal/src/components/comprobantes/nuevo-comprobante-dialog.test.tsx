@@ -122,6 +122,24 @@ describe("NuevoComprobanteDialog", () => {
     expect(llamadasA(fetch, "/series")).toBe(primeraApertura + 1);
   });
 
+  /**
+   * 264-H1: las series y la empresa se piden a la vez. Si las series llegaban primero, el formulario se montaba, el usuario empezaba a llenarlo, y al
+   * llegar una empresa sin certificado se desmontaba con lo escrito. Hasta saber si la empresa puede emitir, no hay formulario.
+   */
+  it("no muestra el formulario hasta saber si la empresa puede emitir", async () => {
+    let soltarEmpresa: (r: Response) => void = () => {};
+    const empresaPendiente = new Promise<Response>((r) => (soltarEmpresa = r));
+    vi.stubGlobal("fetch", vi.fn((url: string) => (String(url).includes("/series") ? Promise.resolve(sobre(SERIES)) : empresaPendiente)));
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+    await waitFor(() => expect(screen.getByText("Cargando…")).toBeInTheDocument());
+    expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
+
+    soltarEmpresa(sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }));
+    await waitFor(() => expect(screen.getByLabelText("Serie")).toBeInTheDocument());
+  });
+
   /** C2: el backend rechazaría la emisión; el diálogo lo dice antes de que se llene nada y no muestra el formulario. */
   it("sin certificado vigente ni credenciales SOL dice qué falta en vez de mostrar el formulario", async () => {
     stubFetch((url) =>

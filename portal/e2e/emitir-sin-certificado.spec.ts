@@ -46,6 +46,7 @@ test("sin certificado ni credenciales SOL, «Nuevo comprobante» dice qué falta
   expect(creada).toBe(201);
   await page.goto("/api-keys");
   await expect(page.getByText("Listas para emitir por API")).toHaveCount(0);
-  await page.getByRole("link", { name: "Falta el certificado o las credenciales SOL para emitir" }).click();
+  // Sin certificado no firma: ese es el aviso, aunque también falten las credenciales SOL (264-H3).
+  await page.getByRole("link", { name: "Falta el certificado digital vigente para emitir" }).click();
   await expect(page).toHaveURL(/\/empresa/);
 });

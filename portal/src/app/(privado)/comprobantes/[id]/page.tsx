@@ -635,13 +635,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <Tecnico nombre="intentos">
               <span className="font-semibold">{c.intentos}</span>
             </Tecnico>
-            <div
-              title="Clave de idempotencia: no expuesta todavía por la API"
-              className="flex cursor-not-allowed items-center justify-between gap-3 rounded bg-muted px-2.5 py-1.5 opacity-60"
-            >
-              <span className="text-muted-foreground">idempotency_key:</span>
-              <span className="text-[11px] text-muted-foreground">—</span>
-            </div>
+            {/* Sin fila de idempotency_key (264-H2): la API no la expone, y un «—» deshabilitado con la explicación en un tooltip es justo lo que C6 quita. */}
           </div>
         </section>
 

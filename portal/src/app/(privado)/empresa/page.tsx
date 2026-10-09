@@ -171,7 +171,8 @@ export default async function EmpresaPage() {
           etiqueta="Empresas en la cuenta"
           ayuda={
             <>
-              <span className="truncate">{empresas.filter((e) => e.tiene_certificado && e.tiene_credenciales_sol).length} listas para emitir</span>
+              {/* «Con certificado y SOL», no «listas para emitir»: el listado no trae la vigencia del certificado, y uno vencido no emite (264-H4). */}
+              <span className="truncate">{empresas.filter((e) => e.tiene_certificado && e.tiene_credenciales_sol).length} con certificado y SOL</span>
             </>
           }
         >

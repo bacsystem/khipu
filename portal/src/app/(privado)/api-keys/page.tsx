@@ -25,10 +25,14 @@ export default async function ApiKeysPage() {
     );
   }
 
-  const [apiKeys, empresa] = await Promise.all([listarApiKeys(access, empresaId), obtenerEmpresaActual(access, empresaId)]);
+  // La empresa solo decide un texto de ayuda: si no se puede leer, la página de llaves sigue (264-H3), y no se afirma nada sobre la emisión.
+  const [apiKeys, empresa] = await Promise.all([listarApiKeys(access, empresaId), obtenerEmpresaActual(access, empresaId).catch(() => null)]);
   const activas = apiKeys.filter((k) => k.activa);
-  // C4: una llave activa autentica, pero la emisión la rechaza el backend si la empresa no tiene certificado o credenciales SOL.
-  const puedeEmitir = faltaParaEmitir(empresa, hoyLima()).length === 0;
+  // C4: una llave activa autentica, pero sin certificado vigente el backend no firma. Sin credenciales SOL sí firma (con `enviar_automatico: false`
+  // queda FIRMADO), solo que no envía a SUNAT: son dos avisos distintos.
+  const faltan = empresa ? faltaParaEmitir(empresa, hoyLima()) : null;
+  const sinCertificado = faltan?.some((f) => f !== "credenciales-sol") ?? false;
+  const sinSol = faltan?.includes("credenciales-sol") ?? false;
   const revocadas = apiKeys.length - activas.length;
   const ultima = apiKeys[0]; // la API devuelve la más reciente primero
 
@@ -38,16 +42,23 @@ export default async function ApiKeysPage() {
         <Metrica
           etiqueta="Llaves activas"
           ayuda={
-            activas.length > 0 && puedeEmitir ? (
+            activas.length > 0 && faltan === null ? (
+              <span className="text-muted-foreground">Autentican; no se pudo comprobar si la empresa ya puede emitir</span>
+            ) : activas.length > 0 && sinCertificado ? (
+              <Link href="/empresa" className="flex items-center gap-1 text-warning-foreground hover:underline">
+                <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />
+                Falta el certificado digital vigente para emitir
+              </Link>
+            ) : activas.length > 0 && sinSol ? (
+              <Link href="/empresa" className="flex items-center gap-1 text-warning-foreground hover:underline">
+                <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />
+                Firman, pero no envían a SUNAT hasta guardar las credenciales SOL
+              </Link>
+            ) : activas.length > 0 ? (
               <span className="flex items-center gap-1 text-success-foreground">
                 <span className="size-1.5 shrink-0 rounded-full bg-success-solid" />
                 Listas para emitir por API
               </span>
-            ) : activas.length > 0 ? (
-              <Link href="/empresa" className="flex items-center gap-1 text-warning-foreground hover:underline">
-                <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />
-                Falta el certificado o las credenciales SOL para emitir
-              </Link>
             ) : (
               <span className="flex items-center gap-1 text-warning-foreground">
                 <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />
