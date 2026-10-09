@@ -41,7 +41,22 @@ class EmpresaControllerTest {
                 .andExpect(jsonPath("$.datos.ruc").value("20100066603"))
                 .andExpect(jsonPath("$.datos.tiene_credenciales_sol").value(true))
                 .andExpect(jsonPath("$.datos.certificado_vigencia_hasta").value("2030-01-01"))
+                .andExpect(jsonPath("$.datos.tiene_certificado").value(true))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("moddatos"))));
+    }
+
+    /** El portal decide si se puede emitir con esto (C2): un certificado sin fecha de vigencia también está cargado. */
+    @Test void dicePorSeparadoSiHayCertificadoYHastaCuandoVale() throws Exception {
+        when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null,
+                new CertificadoDigital(new byte[]{1}, "clave", null)));
+        mvc.perform(get("/v1/empresa").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.tiene_certificado").value(true))
+                .andExpect(jsonPath("$.datos.certificado_vigencia_hasta").doesNotExist());
+
+        when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null));
+        mvc.perform(get("/v1/empresa").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.tiene_certificado").value(false))
+                .andExpect(jsonPath("$.datos.tiene_credenciales_sol").value(false));
     }
 
     @Test void datosFiscalesEntranYSalen() throws Exception {

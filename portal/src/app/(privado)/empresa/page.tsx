@@ -23,6 +23,9 @@ import { diasEntre, formatearFecha, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { Metrica } from "@/components/ui/metrica";
+import { messages } from "@/lib/messages";
+
+export const metadata = { title: `Fiscal y certificado · ${messages.app.nombre}` };
 
 /** Días entre hoy (Lima) y una fecha `YYYY-MM-DD`; negativo si ya pasó. */
 function diasHasta(iso: string): number {
@@ -45,11 +48,12 @@ function Punto({ tono }: { tono: "ok" | "aviso" | "error" | "neutro" }) {
 
 function Dato({ etiqueta, children, pendiente }: { etiqueta: string; children?: React.ReactNode; pendiente?: string }) {
   return (
-    <div className="min-w-0" title={pendiente}>
+    <div className="min-w-0">
       <span className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</span>
       {pendiente ? (
-        <span className="inline-flex h-9 w-full cursor-not-allowed items-center rounded-lg border border-border/60 bg-muted px-3 text-[13px] text-muted-foreground/60">
-          —
+        // Lo que falta se dice a la vista, no con un «—» y la explicación escondida en un tooltip (C6).
+        <span className="inline-flex h-9 w-full items-center rounded-lg border border-dashed border-border bg-muted/50 px-3 text-[13px] text-muted-foreground">
+          {pendiente}
         </span>
       ) : (
         <span className="inline-flex h-9 w-full items-center rounded-lg border border-border bg-muted px-3 font-mono text-[13px] font-medium text-foreground">
@@ -87,12 +91,14 @@ export default async function EmpresaPage() {
   const domicilio = empresa.domicilio ?? null;
   const vigencia = empresa.certificado_vigencia_hasta;
   const dias = vigencia ? diasHasta(vigencia) : null;
+  // Si hay certificado lo dice `tiene_certificado`, no la fecha: uno sin fecha de vigencia está cargado y firma.
   const estadoCert: {
     tono: "ok" | "aviso" | "error" | "neutro";
     texto: string;
-  } =
-    dias === null
-      ? { tono: "neutro", texto: "Sin certificado" }
+  } = !empresa.tiene_certificado
+    ? { tono: "neutro", texto: "Sin certificado" }
+    : dias === null
+      ? { tono: "ok", texto: "Cargado" }
       : dias < 0
         ? { tono: "error", texto: "Vencido" }
         : dias <= 30
@@ -113,6 +119,8 @@ export default async function EmpresaPage() {
                   {dias !== null && dias < 0 ? `hace ${Math.abs(dias)} días` : `${dias} días restantes`}
                 </span>
               </>
+            ) : empresa.tiene_certificado ? (
+              "El certificado no trae fecha de vigencia"
             ) : (
               "Carga tu .p12 para poder firmar"
             )
@@ -163,7 +171,8 @@ export default async function EmpresaPage() {
           etiqueta="Empresas en la cuenta"
           ayuda={
             <>
-              <span className="truncate">{empresas.filter((e) => e.tiene_certificado && e.tiene_credenciales_sol).length} listas para emitir</span>
+              {/* «Con certificado y SOL», no «listas para emitir»: el listado no trae la vigencia del certificado, y uno vencido no emite (264-H4). */}
+              <span className="truncate">{empresas.filter((e) => e.tiene_certificado && e.tiene_credenciales_sol).length} con certificado y SOL</span>
             </>
           }
         >
@@ -180,16 +189,14 @@ export default async function EmpresaPage() {
                 <Building2Icon className="size-4" />
                 Datos de la empresa (razón social y domicilio)
               </div>
-              <span title="Estado del contribuyente en SUNAT: próximamente (requiere consulta RUC)">
-                <Pill tono="neutro">Estado SUNAT: —</Pill>
-              </span>
             </div>
             <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
-              <Dato etiqueta="RUC registrado">
-                {empresa.ruc}
-                <BadgeCheckIcon className="ml-auto size-4 text-success-solid" aria-label="RUC validado" />
-              </Dato>
-              <Dato etiqueta="Régimen tributario" pendiente="Régimen tributario: próximamente (requiere consulta RUC)" />
+              <div className="sm:col-span-2">
+                <Dato etiqueta="RUC registrado">
+                  {empresa.ruc}
+                  <BadgeCheckIcon className="ml-auto size-4 text-success-solid" aria-label="RUC validado" />
+                </Dato>
+              </div>
               <div className="sm:col-span-2">
                 <Dato etiqueta="Razón social">{empresa.razon_social}</Dato>
               </div>
@@ -221,9 +228,9 @@ export default async function EmpresaPage() {
               </FormulariosDeEscritura>
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 font-mono text-[11px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5 opacity-60" title="Envío directo a SUNAT; integración con OSE: próximamente">
+              <span className="inline-flex items-center gap-1.5">
                 <CloudIcon className="size-3.5" />
-                OSE asignado: — (envío directo a SUNAT)
+                Envío directo a SUNAT
               </span>
               <span title="Código de establecimiento anexo declarado en el RUC (0000 = domicilio fiscal)">
                 Cód. local domicilio: {domicilio?.codigo_establecimiento ?? "—"}
@@ -324,24 +331,18 @@ export default async function EmpresaPage() {
             <dl className="mt-4 grid grid-cols-1 gap-2 rounded-lg border border-border/80 bg-muted p-3.5 font-mono text-[12px]">
               <div className="flex items-center justify-between gap-3" title="Nombre del archivo: la API no lo conserva (solo el contenido cifrado)">
                 <dt className="text-muted-foreground">Archivo cargado:</dt>
-                <dd className={vigencia ? "text-foreground" : "text-muted-foreground/60"}>{vigencia ? "Sí (cifrado)" : "—"}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-3" title="Huella SHA-256: próximamente (la API no la expone)">
-                <dt className="text-muted-foreground">Huella SHA-256:</dt>
-                <dd className="text-muted-foreground/60">—</dd>
+                <dd className={empresa.tiene_certificado ? "text-foreground" : "text-muted-foreground"}>{empresa.tiene_certificado ? "Sí (cifrado)" : "No"}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-muted-foreground">Fecha expiración:</dt>
-                <dd className={cn("font-medium", dias !== null && dias < 0 ? "text-destructive" : "text-foreground")}>{vigencia ?? "—"}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-3" title="Entidad emisora: próximamente (la API no la expone)">
-                <dt className="text-muted-foreground">Entidad emisora:</dt>
-                <dd className="text-muted-foreground/60">—</dd>
+                <dd className={cn("font-medium", dias !== null && dias < 0 ? "text-destructive" : "text-foreground")}>
+                  {vigencia ? formatearFecha(vigencia) : empresa.tiene_certificado ? "Sin fecha" : "No aplica"}
+                </dd>
               </div>
             </dl>
             <div className="mt-4">
               <FormulariosDeEscritura>
-              <CertificadoForm tieneCertificado={Boolean(vigencia)} />
+              <CertificadoForm tieneCertificado={empresa.tiene_certificado} />
               </FormulariosDeEscritura>
             </div>
           </section>

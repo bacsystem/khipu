@@ -1,6 +1,5 @@
 "use client";
 
-import { DownloadIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { Usuario } from "@/lib/api/auth";
 import type { Empresa, Entorno } from "@/lib/api/empresas";
@@ -27,6 +26,7 @@ const MIGAS: Array<{ prefijo: string; seccion: string; pagina: string }> = [
   { prefijo: "/establecimientos", seccion: "Configuración", pagina: "Establecimientos" },
   { prefijo: "/api-keys", seccion: "Configuración", pagina: "API keys & integración" },
   { prefijo: "/developers", seccion: "Configuración", pagina: "Developers" },
+  { prefijo: "/cuenta/accesos-de-soporte", seccion: "Cuenta", pagina: "Accesos de soporte" },
 ];
 
 export function TopBar({
@@ -65,16 +65,6 @@ export function TopBar({
         <div className="hidden h-4 w-px bg-border sm:block" />
 
         <span
-          title="Monitoreo de conexión con OSE/SUNAT: próximamente"
-          className="hidden items-center gap-2 rounded-full border border-border/80 bg-muted px-2 py-0.5 text-[11px] whitespace-nowrap text-muted-foreground opacity-60 sm:inline-flex"
-        >
-          <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-          <span className="font-medium">OSE</span>
-          <span className="text-muted-foreground/40">·</span>
-          <span className="font-mono text-[10px]">sin monitoreo</span>
-        </span>
-
-        <span
           title={beta ? "Entorno BETA de SUNAT: los comprobantes emitidos aquí no tienen validez tributaria" : "Entorno de producción de SUNAT"}
           className={cn(
             "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium whitespace-nowrap",
@@ -86,27 +76,9 @@ export function TopBar({
         </span>
       </div>
 
+      {/* Solo acciones que funcionan (C6): la búsqueda global, «Exportar», el monitoreo OSE y la prueba de conexión se veían pero no
+          hacían nada. Vuelven cuando existan. */}
       <div className="flex shrink-0 items-center gap-2.5">
-        <div className="relative hidden w-64 lg:block" title="Búsqueda por serie, RUC o cliente: próximamente">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />
-          <input
-            disabled
-            placeholder="Buscar por serie, RUC o cliente..."
-            className="h-9 w-full rounded-lg border border-border bg-muted pr-12 pl-8 text-[12px] text-foreground placeholder:text-muted-foreground/70 disabled:cursor-not-allowed"
-          />
-          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/70 shadow-2xs">
-            ⌘K
-          </kbd>
-        </div>
-        <div className="hidden h-4 w-px bg-border lg:block" />
-        <button
-          disabled
-          title="Exportar reporte: próximamente"
-          className="hidden h-9 items-center gap-1.5 rounded-lg border border-border px-2.5 text-[12px] font-medium text-muted-foreground disabled:cursor-not-allowed sm:flex"
-        >
-          <DownloadIcon className="size-4" />
-          Exportar
-        </button>
         {pathname.startsWith("/series") ? (
           <>
             <ReferenciaSeriesDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
@@ -121,14 +93,6 @@ export function TopBar({
         ) : pathname.startsWith("/empresa") ? (
           <>
             <ReferenciaEmpresaDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
-            <button
-              disabled
-              title="Prueba de conexión con SUNAT: próximamente"
-              className={cn(ACCION_SECUNDARIA, "hidden md:inline-flex")}
-            >
-              <RefreshCwIcon className="size-4" />
-              Probar conexión SUNAT
-            </button>
             <NuevaEmpresaDialog className={ACCION_PRINCIPAL} />
           </>
         ) : (

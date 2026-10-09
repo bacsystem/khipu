@@ -6,6 +6,9 @@ import { formatearFecha } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { Metrica } from "@/components/ui/metrica";
+import { messages } from "@/lib/messages";
+
+export const metadata = { title: `Series correlativas · ${messages.app.nombre}` };
 
 const TIPOS_SOPORTADOS = ["01", "03", "07", "08"] as const;
 

@@ -10,6 +10,9 @@ import { BOTON_SECUNDARIO, TARJETA } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
+import { messages } from "@/lib/messages";
+
+export const metadata = { title: `Nota de crédito o débito · ${messages.app.nombre}` };
 
 export default async function NotaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

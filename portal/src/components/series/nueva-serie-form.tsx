@@ -170,13 +170,8 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
         <span className={AYUDA_CAMPO}>Los comprobantes de la serie salen con la dirección de este punto (AddressTypeCode, regla 3030)</span>
       </div>
 
-      <label
-        className="inline-flex cursor-not-allowed items-center gap-2 self-start select-none"
-        title="Las series nuevas se crean activas; activar/desactivar: próximamente"
-      >
-        <input type="checkbox" checked disabled readOnly className="size-4 rounded border-input" />
-        <span className={ETIQUETA_CAMPO}>Activa</span>
-      </label>
+      {/* Una casilla «Activa» fija y deshabilitada no decidía nada (C6): toda serie nueva nace activa, y se dice así. */}
+      <p className={AYUDA_CAMPO}>La serie se crea activa: se puede emitir con ella apenas se guarde.</p>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

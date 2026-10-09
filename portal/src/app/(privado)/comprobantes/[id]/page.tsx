@@ -14,6 +14,9 @@ import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } f
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, ETIQUETA_DATO, TITULO_SECCION } from "@/lib/estilos";
+import { messages } from "@/lib/messages";
+
+export const metadata = { title: `Comprobante · ${messages.app.nombre}` };
 
 const TIPOS_OPERACION: Record<string, string> = {
   "0101": "Venta interna",
@@ -632,13 +635,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <Tecnico nombre="intentos">
               <span className="font-semibold">{c.intentos}</span>
             </Tecnico>
-            <div
-              title="Clave de idempotencia: no expuesta todavía por la API"
-              className="flex cursor-not-allowed items-center justify-between gap-3 rounded bg-muted px-2.5 py-1.5 opacity-60"
-            >
-              <span className="text-muted-foreground">idempotency_key:</span>
-              <span className="text-[11px] text-muted-foreground">—</span>
-            </div>
+            {/* Sin fila de idempotency_key (264-H2): la API no la expone, y un «—» deshabilitado con la explicación en un tooltip es justo lo que C6 quita. */}
           </div>
         </section>
 

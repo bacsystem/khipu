@@ -1,13 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  CalendarIcon,
-  FileCheck2Icon,
-  InboxIcon,
-  MoreHorizontalIcon,
-  RefreshCwIcon,
-} from "lucide-react";
+import { CalendarIcon, FileCheck2Icon, InboxIcon, RefreshCwIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,7 +26,7 @@ import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "./estado-badge";
-import { CONTROL_FILTRO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
+import { CONTROL_FILTRO } from "@/lib/estilos";
 
 const ESTADOS: EstadoDocumento[] = [
   "RECIBIDO",
@@ -56,7 +50,6 @@ const ITEMS_ESTADO: Record<string, string> = {
   ...Object.fromEntries(ESTADOS.map((e) => [e, ETIQUETAS_ESTADO[e]])),
 };
 
-const TABS_DESHABILITADOS = ["Facturas", "Boletas", "Notas de crédito"];
 
 const TODAS_LAS_SERIES = "todas";
 const ACCION = "flex h-9 items-center justify-center rounded-lg border border-border font-mono text-[10px] font-semibold shadow-2xs transition-colors";
@@ -169,24 +162,9 @@ export function ComprobantesTable({
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className={cn(SEGMENTADO, "shrink-0")}>
-          <span data-active="" className={SEGMENTO}>
-            Todos
-          </span>
-          {TABS_DESHABILITADOS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              disabled
-              title="Filtro por tipo de comprobante: próximamente"
-              className={SEGMENTO}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
+      {/* Solo filtros y acciones que funcionan (C6): las pestañas por tipo, la selección múltiple y «Más acciones» se veían
+          deshabilitados. */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <Select items={ITEMS_ESTADO} value={estado ?? TODOS_LOS_ESTADOS} onValueChange={cambiarEstado}>
             <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-44 pl-3")}>
@@ -259,15 +237,7 @@ export function ComprobantesTable({
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className="h-auto w-8 py-2 pr-2 pl-4">
-                <input
-                  type="checkbox"
-                  disabled
-                  title="Selección múltiple: próximamente"
-                  className="size-3.5 cursor-not-allowed rounded border-input"
-                />
-              </TableHead>
-              <TableHead className="h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Comprobante</TableHead>
+              <TableHead className="h-auto py-2 pr-3 pl-4 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Comprobante</TableHead>
               <TableHead className="h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Cliente / Receptor</TableHead>
               <TableHead className="h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Fecha & Emisión</TableHead>
               <TableHead className="h-auto px-4 py-2 text-right text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Importe Total</TableHead>
@@ -287,15 +257,7 @@ export function ComprobantesTable({
                   }}
                   className="group cursor-pointer border-b border-border/60 hover:bg-muted/80"
                 >
-                  <TableCell className="py-2 pr-2 pl-4" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      disabled
-                      title="Selección múltiple: próximamente"
-                      className="size-3.5 cursor-not-allowed rounded border-input"
-                    />
-                  </TableCell>
-                  <TableCell className="px-3 py-2">
+                  <TableCell className="py-2 pr-3 pl-4">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1.5">
                         <Link
@@ -378,13 +340,6 @@ export function ComprobantesTable({
                           <FileCheck2Icon className="size-3.5" />
                         </a>
                       ) : null}
-                      <button
-                        disabled
-                        title="Más acciones: próximamente"
-                        className="flex size-9 cursor-not-allowed items-center justify-center rounded-lg text-muted-foreground/60"
-                      >
-                        <MoreHorizontalIcon className="size-4" />
-                      </button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -392,7 +347,7 @@ export function ComprobantesTable({
             })}
             {data.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={7} className="py-14 text-center">
+                <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <InboxIcon className="size-6" />
                     <p className="text-sm">

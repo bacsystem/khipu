@@ -33,21 +33,8 @@ export function SidebarContent({
         <SidebarNav />
       </div>
 
+      {/* El bloque «Plan y consumo» mostraba «— / —» fijo (C1/C6): vuelve con datos reales en su propio cambio. */}
       <div className="flex w-full min-w-0 flex-col gap-2.5 border-t border-border/60 p-3">
-        <div
-          title="Plan y consumo mensual: próximamente"
-          aria-disabled="true"
-          className="grid w-full cursor-not-allowed grid-cols-1 gap-1.5 overflow-hidden rounded-lg border border-border/60 bg-muted/90 p-2.5 opacity-60"
-        >
-          <div className="flex items-center justify-between gap-2 text-[11px]">
-            <span className="truncate font-medium text-foreground/80">Plan y consumo</span>
-            <span className="shrink-0 font-mono text-[10px] whitespace-nowrap text-muted-foreground">— / —</span>
-          </div>
-          <div className="h-1 w-full overflow-hidden rounded-full bg-border">
-            <div className="h-full w-0 rounded-full bg-primary" />
-          </div>
-        </div>
-
         {/* El menú de usuario incluye el tema (en móvil el TopBar lo oculta), el cambio de contraseña y el cierre de sesión. */}
         <PerfilUsuario usuario={usuario} />
       </div>

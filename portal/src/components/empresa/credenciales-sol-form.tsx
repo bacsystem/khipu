@@ -1,10 +1,10 @@
 "use client";
 
-import { BadgeCheckIcon, EyeIcon, EyeOffIcon, LockIcon, SaveIcon, UserIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, LockIcon, SaveIcon, UserIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -91,16 +91,8 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {ok ? <p className="text-sm text-success-foreground">Credenciales SOL actualizadas.</p> : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <button type="button" disabled title="Validación de credenciales contra SUNAT: próximamente" className={BOTON_SECUNDARIO}>
-            <BadgeCheckIcon className="size-4" />
-            Verificar credenciales ante SUNAT
-          </button>
-          <span className={cn(AYUDA_CAMPO, "opacity-60")} title="Requiere la validación contra SUNAT">
-            Última validación: —
-          </span>
-        </div>
+      {/* Sin «Verificar credenciales ante SUNAT» ni «Última validación: —» (C6): se veían y no hacían nada. */}
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
           <SaveIcon className="size-4" />
           {enviando ? "Guardando…" : configuradas ? "Reemplazar credenciales" : "Guardar credenciales"}

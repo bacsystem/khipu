@@ -21,7 +21,8 @@ const PREGUNTAS = [
   },
   {
     pregunta: "¿Puedo emitir boletas o notas de crédito?",
-    respuesta: "Por ahora emitimos factura electrónica. El resto del catálogo SUNAT — boletas, notas, guías — está en camino.",
+    respuesta:
+      "Hoy emitimos facturas, notas de crédito y de débito, y comunicaciones de baja. Las boletas (con su resumen diario) y las guías de remisión están en camino.",
   },
 ];
 

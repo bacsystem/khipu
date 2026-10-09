@@ -4,6 +4,9 @@ import { Metrica } from "@/components/ui/metrica";
 import { listarEstablecimientos } from "@/lib/api/establecimientos";
 import { listarSeries } from "@/lib/api/series";
 import { getServerSession } from "@/lib/session-server";
+import { messages } from "@/lib/messages";
+
+export const metadata = { title: `Establecimientos · ${messages.app.nombre}` };
 
 export default async function EstablecimientosPage() {
   const { access, empresaId } = await getServerSession();

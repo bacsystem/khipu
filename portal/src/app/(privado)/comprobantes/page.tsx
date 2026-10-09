@@ -6,6 +6,9 @@ import { filtrosDesdeParams, listarFacturas, periodoDelResumen, resumirFacturas 
 import { hoyLima } from "@/lib/formato";
 import { listarSeries } from "@/lib/api/series";
 import { getServerSession } from "@/lib/session-server";
+import { messages } from "@/lib/messages";
+
+export const metadata = { title: `Comprobantes · ${messages.app.nombre}` };
 
 export default async function ComprobantesPage({
   searchParams,
