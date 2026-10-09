@@ -24,7 +24,9 @@ export function resumenDePlan(cuenta: MiCuenta): ResumenDePlan {
   const porcentaje = maximo === undefined ? null : maximo === 0 ? 100 : Math.min(100, Math.round((documentos / maximo) * 100));
 
   if (cuenta.plan.estado === "VENCIDA") return { ...base, consumo, porcentaje, tono: "error", aviso: "Tu plan venció: escríbenos para renovarlo" };
-  if (maximo !== undefined && documentos >= maximo) return { ...base, consumo, porcentaje, tono: "error", aviso: "Superaste el tope de documentos del mes" };
+  // `>` y no `>=`: el backend rechaza recién el documento que pasa el tope, y el backoffice usa la misma regla (265-H1).
+  if (maximo !== undefined && documentos > maximo) return { ...base, consumo, porcentaje, tono: "error", aviso: "Superaste el tope de documentos del mes" };
+  if (maximo !== undefined && documentos === maximo) return { ...base, consumo, porcentaje, tono: "aviso", aviso: "Llegaste al tope de documentos del mes" };
   if (cuenta.plan.estado === "EN_GRACIA") {
     const hasta = cuenta.plan.hasta_cuando_cubre ? formatearFecha(ultimoDiaCubierto(cuenta.plan.hasta_cuando_cubre)) : null;
     return { ...base, consumo, porcentaje, tono: "aviso", aviso: hasta ? `Pago vencido: se sirve hasta el ${hasta}` : "Pago vencido" };

@@ -48,7 +48,8 @@ export default async function PlanPage() {
 
   const { plan, consumo } = cuenta;
   const r = resumenDePlan(cuenta);
-  const estado = ESTADO[plan.estado] ?? ESTADO.VIGENTE;
+  // Un estado que el portal no conoce se muestra tal cual, en neutro: caer en «Al día» afirmaría lo que no se sabe (265-H4).
+  const estado = ESTADO[plan.estado] ?? { texto: plan.estado, clase: "border-border bg-muted text-muted-foreground" };
   const pagadoHasta = plan.vence_en ? formatearFecha(ultimoDiaCubierto(plan.vence_en)) : null;
   const cubreHasta = plan.hasta_cuando_cubre ? formatearFecha(ultimoDiaCubierto(plan.hasta_cuando_cubre)) : null;
 

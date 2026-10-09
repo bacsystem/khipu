@@ -43,6 +43,12 @@ describe("resumenDePlan", () => {
     expect(r).toMatchObject({ consumo: "320 / 300", porcentaje: 100, tono: "error", aviso: "Superaste el tope de documentos del mes" });
   });
 
+  /** 265-H1: 300 de 300 todavía no es «superaste»: el backend rechaza recién el documento 301, y el backoffice usa `>`. */
+  it("en el tope justo dice que llegó, no que lo superó", () => {
+    expect(resumenDePlan(cuenta({ documentos: 300 }))).toMatchObject({ tono: "aviso", aviso: "Llegaste al tope de documentos del mes" });
+    expect(resumenDePlan(cuenta({ documentos: 301 }))).toMatchObject({ tono: "error", aviso: "Superaste el tope de documentos del mes" });
+  });
+
   it("sin tope de documentos no hay barra", () => {
     expect(resumenDePlan(cuenta({ documentos: 5000, maximo: undefined }))).toMatchObject({ consumo: "5000 documentos", porcentaje: null, tono: "ok", aviso: null });
   });

@@ -932,14 +932,16 @@ export const handlers = [
     const c = claims(request);
     if (!c) return fail(401, "NO_AUTORIZADO", "Petición sin cuenta autenticada por JWT");
     const plan = vistaDePlanDeCuenta(c.cuenta);
-    const tope = plan.plan.limites.documentos_al_mes;
+    // El tope de hoy, como el backend (`Plan.vigenteEn`): si un cambio de límites programado ya entró en vigor, manda ese (265-H2).
+    const planDelMock = db.planesAdmin.find((p) => p.id === plan.plan.id);
+    const maximo = planDelMock ? topeDeHoyMock(planDelMock) : undefined;
     return ok({
       nombre: db.nombresDeCuenta.get(c.cuenta) ?? "Mi cuenta",
       plan,
       consumo: {
         mes: new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7),
         documentos: consumoDelMesMock(c.cuenta),
-        ...(tope.ilimitado ? {} : { maximo: tope.maximo }),
+        ...(maximo === undefined ? {} : { maximo }),
       },
     });
   }),
