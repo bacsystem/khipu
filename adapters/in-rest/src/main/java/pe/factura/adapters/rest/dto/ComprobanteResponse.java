@@ -34,7 +34,7 @@ public record ComprobanteResponse(
         @Schema(example = "125") Long numero,
         @Schema(example = "2026-09-14") LocalDate fechaEmision,
         @Schema(example = "2026-10-14", description = "Fecha de vencimiento informada, o `null`") LocalDate fechaVencimiento,
-        @Schema(example = "2026-09-17", description = "Último día en que SUNAT acepta recibirlo (RS 193-2020: 3 días calendario desde la emisión; una boleta, 7: pasados los 3, khipu la informa en el resumen diario). Pasado ese día, un comprobante FIRMADO o en ERROR_ENVIO pasa a FUERA_DE_PLAZO") LocalDate fechaLimiteEnvio,
+        @Schema(example = "2026-09-17", description = "Último día en que SUNAT acepta recibirlo (RS 193-2020: 3 días calendario desde la emisión; una boleta, 7: va sola hasta el 5.º día y después khipu la informa en el resumen diario). Pasado ese día, un comprobante FIRMADO o en ERROR_ENVIO pasa a FUERA_DE_PLAZO") LocalDate fechaLimiteEnvio,
         @Schema(example = "PEN") String moneda,
         @Schema(example = "0101", description = "Catálogo 51 SUNAT") String tipoOperacion,
         ReceptorDto receptor,

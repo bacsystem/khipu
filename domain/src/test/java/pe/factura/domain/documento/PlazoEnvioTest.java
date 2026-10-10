@@ -25,6 +25,21 @@ class PlazoEnvioTest {
         assertThat(PlazoEnvio.vencido(TipoDocumento.NOTA_CREDITO, emision, LocalDate.of(2026, 9, 13))).isFalse();
     }
 
+    /**
+     * #290: la boleta va sola (sendBill) hasta el 5.º día (RS 097-2012 arts. 7.3, 12 y 21, texto de la RS 114-2019); del 6.º al 7.º solo en un resumen diario.
+     * La factura sigue con 3 días.
+     */
+    @Test void laBoletaVaSolaHastaElQuintoDiaYDelSextoAlSeptimoSoloEnResumen() {
+        LocalDate emision = LocalDate.of(2026, 9, 10);
+        assertThat(PlazoEnvio.diasEnvioIndividual(TipoDocumento.BOLETA)).isEqualTo(5);
+        assertThat(PlazoEnvio.diasEnvioIndividual(TipoDocumento.FACTURA)).isEqualTo(3);
+        assertThat(PlazoEnvio.soloPorResumen(TipoDocumento.BOLETA, emision, LocalDate.of(2026, 9, 15))).as("5.º día: todavía sola").isFalse();
+        assertThat(PlazoEnvio.soloPorResumen(TipoDocumento.BOLETA, emision, LocalDate.of(2026, 9, 16))).as("6.º día: solo en resumen").isTrue();
+        assertThat(PlazoEnvio.soloPorResumen(TipoDocumento.BOLETA, emision, LocalDate.of(2026, 9, 17))).as("7.º día: solo en resumen").isTrue();
+        assertThat(PlazoEnvio.vencido(TipoDocumento.BOLETA, emision, LocalDate.of(2026, 9, 18))).as("8.º día: vencida").isTrue();
+        assertThat(PlazoEnvio.vencido(TipoDocumento.FACTURA, emision, LocalDate.of(2026, 9, 14))).as("la factura no cambia").isTrue();
+    }
+
     /** El corte grueso de ControlarPlazoEnvioService usa este mínimo: debe seguir siendo válido si algún tipo cambia su plazo. */
     @Test void diasMinimoEsElMenorEntreTodosLosTipos() {
         assertThat(PlazoEnvio.diasMinimo()).isEqualTo(3);

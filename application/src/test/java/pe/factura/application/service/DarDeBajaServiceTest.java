@@ -106,7 +106,7 @@ class DarDeBajaServiceTest {
     }
 
     /**
-     * 274-H1: una boleta firmada que nadie envió dentro del envío individual (3 días) no se pierde ni se reemplaza: al enviarla, SUNAT ya no la recibe sola
+     * 274-H1: una boleta firmada que nadie envió dentro del envío individual (5 días, #290) no se pierde ni se reemplaza: al enviarla, SUNAT ya no la recibe sola
      * (1079) y khipu la informa en un resumen diario con su línea en estado 1. Cuando SUNAT acepta el resumen, la boleta queda ACEPTADA.
      */
     @Test void unaBoletaPasadaDelEnvioIndividualSeInformaEnUnResumenDeAltaYQuedaAceptada() {
@@ -114,16 +114,16 @@ class DarDeBajaServiceTest {
         Comprobante boleta = emitir.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
                 new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false));
-        Clock cincoDiasDespues = Clock.fixed(Instant.parse("2026-09-18T15:00:00Z"), ZoneId.of("America/Lima"));
-        DarDeBajaService resumen = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, cincoDiasDespues);
-        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, cincoDiasDespues,
+        Clock seisDiasDespues = Clock.fixed(Instant.parse("2026-09-19T15:00:00Z"), ZoneId.of("America/Lima"));
+        DarDeBajaService resumen = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, seisDiasDespues);
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, seisDiasDespues,
                 RechazoDeSolRepository.NINGUNO, resumen);
         int enviadosSolos = gateway.enviados;
 
         Comprobante resuelta = enviar.enviar(tenantId, boleta.id());
 
         assertThat(gateway.enviados).as("no se intenta sendBill: SUNAT la rechazaría con 1079").isEqualTo(enviadosSolos);
-        assertThat(gateway.ultimoNombre).isEqualTo("20100066603-RC-20260918-1");
+        assertThat(gateway.ultimoNombre).isEqualTo("20100066603-RC-20260919-1");
         assertThat(validado[0]).startsWith("<SummaryDocuments>");
         ComunicacionBaja alta = bajas.deComprobante(tenantId, boleta.id()).get(0);
         assertThat(alta.alta()).isTrue();
