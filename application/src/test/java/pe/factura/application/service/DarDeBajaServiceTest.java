@@ -132,6 +132,27 @@ class DarDeBajaServiceTest {
         assertThat(comprobantes.buscar(tenantId, boleta.id()).orElseThrow().cdrKey()).isEqualTo(alta.cdrKey());
     }
 
+    /**
+     * #290, el borde en hora de Lima: a las 23:30 del 5.º día (04:30Z del 6.º) la boleta todavía va sola con sendBill. Con un reloj en UTC ya sería el 6.º
+     * día y se iría al resumen un día antes.
+     */
+    @Test void aLas2330DeLimaDelQuintoDiaLaBoletaTodaviaVaSola() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Comprobante boleta = emitir.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false));
+        Clock finDelQuintoDiaEnLima = Clock.fixed(Instant.parse("2026-09-19T04:30:00Z"), ZoneId.of("America/Lima"));
+        DarDeBajaService resumen = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, finDelQuintoDiaEnLima);
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, finDelQuintoDiaEnLima,
+                RechazoDeSolRepository.NINGUNO, resumen);
+        int enviadosSolos = gateway.enviados;
+
+        enviar.enviar(tenantId, boleta.id());
+
+        assertThat(gateway.enviados).as("sendBill, no un resumen diario").isEqualTo(enviadosSolos + 1);
+        assertThat(bajas.deComprobante(tenantId, boleta.id())).isEmpty();
+    }
+
     @Test void sunatSigueProcesando_quedaEnviadaYElOutboxLaReconsulta() {
         Comprobante f = facturaAceptada();
         gateway.statusCode = "98";

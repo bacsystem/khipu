@@ -14,7 +14,7 @@ const INDICE = [
 /** Estados del comprobante con su significado y la acción esperada del integrador. */
 const ESTADOS: Array<[string, string, string]> = [
   ["RECIBIDO", "Datos validados y número asignado; el XML aún no está firmado.", "Transitorio, dura milisegundos."],
-  ["FIRMADO", "XML firmado y validado contra los esquemas de SUNAT; no enviado.", "Solo persiste con enviar_automatico: false. Envíelo con POST /v1/facturas/{id}/enviar antes de 3 días."],
+  ["FIRMADO", "XML firmado y validado contra los esquemas de SUNAT; no enviado.", "Solo persiste con enviar_automatico: false. Envíelo con POST /v1/facturas/{id}/enviar antes de fecha_limite_envio: factura y notas, 3 días; boleta, sola hasta el 5.º día y por resumen diario hasta el 7.º."],
   ["ENVIADO", "SUNAT recibió el comprobante y aún no hay respuesta final.", "Consulte más tarde; khipu lo actualiza al recibir el CDR."],
   ["ACEPTADO", "SUNAT aceptó (CDR con código 0). Comprobante válido.", "Descargue el CDR (enlaces.cdr) y entregue la factura a su cliente."],
   ["ACEPTADO_CON_OBS", "Aceptado con observaciones (códigos 4xxx). Es válido.", "Lea cdr.observaciones y corrija la causa en las siguientes emisiones: SUNAT convierte observaciones en rechazos con el tiempo."],
@@ -22,7 +22,7 @@ const ESTADOS: Array<[string, string, string]> = [
   ["ERROR_ENVIO", "SUNAT no estuvo disponible o falló la comunicación.", "No es un rechazo. khipu reintenta solo con espera creciente (hasta 20 intentos); puede forzarlo con POST /v1/facturas/{id}/enviar."],
   ["INVALIDO", "El XML no pasó la validación local (esquema).", "Contacte soporte con el id: no debería ocurrir con datos que la API aceptó."],
   ["ANULADO", "Comunicación de baja aceptada por SUNAT.", "Terminal: el número queda consumido."],
-  ["FUERA_DE_PLAZO", "No llegó a SUNAT dentro del plazo de envío (fecha_limite_envio: 3 días calendario desde la emisión, RS 193-2020). Se marca al intentar enviarlo o en el barrido horario.", "Terminal: emita un comprobante nuevo con fecha vigente; el número queda consumido. Un envío manual responde 409 FUERA_DE_PLAZO."],
+  ["FUERA_DE_PLAZO", "No llegó a SUNAT dentro del plazo de envío (fecha_limite_envio, días calendario desde la emisión: 3 para factura y notas —2108—; 7 para boleta, que va sola hasta el 5.º y después en un resumen diario —1079—). Se marca al intentar enviarlo o en el barrido horario.", "Terminal: emita un comprobante nuevo con fecha vigente; el número queda consumido. Un envío manual responde 409 FUERA_DE_PLAZO."],
   ["DESCARTADO", "El soporte de khipu dejó de intentar enviarlo: estaba en ERROR_ENVIO y no se recuperaba.", "Terminal: emita un comprobante nuevo; el número queda consumido. Un envío manual responde 409 ESTADO_NO_ENVIABLE."],
 ];
 
@@ -45,7 +45,7 @@ const CODIGOS: Array<[string, string, string, string]> = [
   ["DUPLICADO", "409", "Ya existe un comprobante con esa serie y correlativo (o la serie ya existe).", "Reintento seguro: no se emitió nada nuevo."],
   ["IDEMPOTENCIA_INVALIDA", "422", "La Idempotency-Key ya se usó con otro contenido en las últimas 24 horas, o no tiene el formato (8 a 100 letras, dígitos, - o _).", "Use una clave nueva (un UUID) por factura; repita la misma clave solo para reintentar el mismo pedido."],
   ["NUMERO_YA_ASIGNADO", "422", "Se intentó asignar número a un comprobante que ya lo tiene.", "No debería ocurrir vía API; contacte soporte."],
-  ["FECHA_INVALIDA", "422", "fecha_emision futura, con el plazo de envío ya vencido (2108: más de 3 días calendario atrás), o fecha_vencimiento anterior a la emisión.", "Use una fecha de emisión de hoy o de los 3 días anteriores y un vencimiento igual o posterior."],
+  ["FECHA_INVALIDA", "422", "fecha_emision futura, con el plazo de envío ya vencido (factura y notas: más de 3 días calendario atrás, 2108; boleta: más de 7, 1079), o fecha_vencimiento anterior a la emisión.", "Use una fecha de emisión de hoy o de los días anteriores dentro del plazo (3 para factura y notas, 7 para boleta) y un vencimiento igual o posterior."],
   ["MONEDA_INVALIDA", "422", "Moneda distinta de PEN/USD/EUR.", "Vea el catálogo 02."],
   ["TIPO_OPERACION_INVALIDO", "422", "tipo_operacion no existe en el catálogo 51 o no aplica a facturas (regla 3206); o es 0202/0205 (hospedaje y paquete turístico a no domiciliados), que exigen los datos del huésped por línea y aún no se soportan.", "Use un código del catálogo 51 cuya columna de comprobante incluya Factura."],
   ["RECEPTOR_INVALIDO", "422", "En factura el adquirente debe tener RUC válido: tipo_doc 6, 11 dígitos que empiezan por 10/15/16/17/20 y dígito verificador correcto (2017); razón social de 3 a 1500 caracteres sin saltos de línea (2022). En una exportación (0200–0208): documento del catálogo 06 con su formato (2800–2802), `pais` obligatorio (ISO 3166-1) y sin RUC en 0200/0201/0204 (2800).", "Corrija cliente.tipo_doc / num_doc / razon_social; un RUC mal tipeado se detecta antes de consumir número."],
