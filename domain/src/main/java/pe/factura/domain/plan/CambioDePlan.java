@@ -15,4 +15,7 @@ public record CambioDePlan(UUID planId, Instant aplicaDesde, Instant venceEn, in
         if (venceEn != null && !venceEn.isAfter(aplicaDesde)) throw new DomainException("SUSCRIPCION_FECHAS_INVALIDAS", "El vencimiento debe ser posterior al inicio");
         if (diasDeGracia < 0) throw new DomainException("GRACIA_INVALIDA", "Los días de gracia no pueden ser negativos: " + diasDeGracia);
     }
+
+    /** Si ya manda en {@code ahora}: desde {@code aplicaDesde} inclusive, aunque todavía no se haya aplicado a la suscripción. */
+    public boolean mandaEn(Instant ahora) { return !ahora.isBefore(aplicaDesde); }
 }

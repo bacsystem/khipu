@@ -32,7 +32,7 @@ public interface CambiarPlanDeCuentaUseCase {
          * pasado (como {@code PlanesDeCuenta.planVigenteEn}). Para lo que se controla al momento, como el tope de documentos (#18).
          */
         public Plan planQueMandaEn(Instant ahora) {
-            return programado != null && !ahora.isBefore(programado.cambio().aplicaDesde()) ? programado.plan() : plan;
+            return programado != null && programado.cambio().mandaEn(ahora) ? programado.plan() : plan;
         }
     }
 
