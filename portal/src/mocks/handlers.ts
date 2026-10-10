@@ -3,6 +3,7 @@ import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto
 import { esUuid } from "@/lib/uuid";
 import { messages } from "@/lib/messages";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
+import { fechaMinimaDeEmision, PLAZO_ENVIO } from "@/lib/comprobantes/plazo";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
 
@@ -2320,6 +2321,12 @@ export const handlers = [
     if (boleta && tipoDoc === "1" && !/^\d{8}$/.test(numDoc)) return fail(422, "RECEPTOR_INVALIDO", "4207 - El DNI del comprador tiene 8 dígitos");
     if (boleta && tipoDoc === "-" && numDoc !== "-") return fail(422, "RECEPTOR_INVALIDO", "2802 - Sin documento (tipo_doc «-»), el número de documento también es «-»");
     if (!body.items?.length) return fail(422, "ITEMS_REQUERIDOS", "Un comprobante necesita al menos un ítem");
+    // #292: el plazo del backend (`PlazoEnvio`): ni futura ni más atrás que 3 días (factura, 2108) o 7 (boleta, 1079).
+    if (body.fecha_emision > hoyLima()) return fail(422, "FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
+    if (body.fecha_emision < fechaMinimaDeEmision(boleta ? "boleta" : "factura", hoyLima()))
+      return fail(422, "FECHA_INVALIDA", boleta
+        ? `1079 - Pasado el envío individual, SUNAT solo recibe esta boleta en un resumen diario, y el plazo para informarla en él venció el ${sumarDias(body.fecha_emision, PLAZO_ENVIO.boleta.dias)} (${PLAZO_ENVIO.boleta.dias} días calendario) (fecha de emisión ${body.fecha_emision})`
+        : `2108 - Presentación fuera de fecha: el plazo de envío venció el ${sumarDias(body.fecha_emision, PLAZO_ENVIO.factura.dias)} (${PLAZO_ENVIO.factura.dias} días calendario) (fecha de emisión ${body.fecha_emision})`);
 
     // Idempotency-Key (#115), como el backend: la misma clave con el mismo pedido devuelve la factura ya emitida con 200; con otro
     // pedido, 422. La huella es el JSON del cuerpo, que el formulario arma siempre igual.

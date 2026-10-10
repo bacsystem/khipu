@@ -12,9 +12,10 @@ import { StepperNumerico } from "@/components/formularios/stepper-numerico";
 import { BotonAsync } from "@/components/patrones/boton-async";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { Serie } from "@/lib/api/series";
+import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { formatearMonto, hoyLima, sumarDias } from "@/lib/formato";
+import { formatearMonto, hoyLima } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import { mensajeError } from "@/lib/messages";
@@ -50,12 +51,6 @@ type Linea = { descripcion: string; cantidad: number | null; precioUnitario: num
 const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
 
 const LINEA_VACIA: Linea = { descripcion: "", cantidad: 1, precioUnitario: null, unidad: "NIU", tipoAfectacionIgv: "10" };
-
-/**
- * SUNAT recibe la factura hasta el 3.er día calendario contado desde el día siguiente a la emisión; pasado eso
- * rechaza con 2108 y el número queda consumido. Espeja `PlazoEnvio.dias` del dominio (RS 193-2020).
- */
-const PLAZO_ENVIO_DIAS = 3;
 
 export type TipoEmitible = "factura" | "boleta";
 
@@ -293,12 +288,17 @@ export function NuevoComprobanteForm({
           </select>
         </Campo>
 
-        <Campo id="nc-fecha" etiqueta="Fecha de emisión" ayuda="Máx. 3 días">
-          {/* Los dos extremos los rechaza el backend (futura y fuera del plazo de envío, regla 2108), así que el
-              calendario los cierra acá en vez de gastar un viaje para que lo diga SUNAT. */}
+        <Campo id="nc-fecha" etiqueta="Fecha de emisión" ayuda={`Máx. ${PLAZO_ENVIO[tipo].dias} días`}>
+          {/* Los dos extremos los rechaza el backend (futura y fuera del plazo de envío: 3 días la factura, 2108; 7 la boleta, 1079), así que
+              el calendario los cierra acá en vez de gastar un viaje para que lo diga SUNAT (#292). */}
           {/* `||` y no `??`: un input de fecha vaciado emite `""`, no `null`, así que `??` dejaba pasar el vacío
               hasta el `@NotNull LocalDate` del backend y la emisión moría con un error de deserialización. */}
-          <EntradaFecha id="nc-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={sumarDias(hoy, -PLAZO_ENVIO_DIAS)} max={hoy} variante="filtro" />
+          <EntradaFecha id="nc-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={fechaMinimaDeEmision(tipo, hoy)} max={hoy} variante="filtro" />
+          {soloPorResumen(tipo, fecha, hoy) ? (
+            <p className={cn(AYUDA_CAMPO, "mt-1")} data-testid="aviso-resumen-diario" role="status">
+              Pasado el 5.º día SUNAT ya no la recibe sola: khipu la informa en el resumen diario, hasta el 7.º.
+            </p>
+          ) : null}
         </Campo>
 
         <Campo id="nc-moneda" etiqueta="Moneda">

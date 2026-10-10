@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { hoyLima, sumarDias } from "@/lib/formato";
 import { NuevoComprobanteForm } from "./nuevo-comprobante-form";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
@@ -103,6 +104,33 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     expect(enlace).toHaveAttribute("href", "/cuenta/plan");
     fireEvent.click(enlace);
     expect(cancelar).toHaveBeenCalled();
+  });
+
+  /** #292: la boleta admite hasta 7 días atrás (del 6.º al 7.º va en el resumen diario); la factura, 3. */
+  it("la fecha de la boleta llega a 7 días atrás y la de la factura a 3", () => {
+    stubEmision();
+    const hoy = hoyLima();
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    expect(screen.getByLabelText("Fecha de emisión")).toHaveAttribute("min", sumarDias(hoy, -7));
+    expect(screen.getByText("Máx. 7 días")).toBeInTheDocument();
+    cleanup();
+
+    render(<NuevoComprobanteForm tipo="factura" series={SERIES} tasaIgv={18} />);
+    expect(screen.getByLabelText("Fecha de emisión")).toHaveAttribute("min", sumarDias(hoy, -3));
+    expect(screen.getByText("Máx. 3 días")).toBeInTheDocument();
+  });
+
+  it("una boleta de 6 días atrás avisa que va en el resumen diario; una de 5, no", () => {
+    stubEmision();
+    const hoy = hoyLima();
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+
+    fireEvent.change(screen.getByLabelText("Fecha de emisión"), { target: { value: sumarDias(hoy, -5) } });
+    expect(screen.queryByTestId("aviso-resumen-diario")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Fecha de emisión"), { target: { value: sumarDias(hoy, -6) } });
+    // Región viva (336-H2): un lector de pantalla anuncia el aviso al cambiar la fecha.
+    expect(screen.getByTestId("aviso-resumen-diario")).toHaveAttribute("role", "status");
+    expect(screen.getByTestId("aviso-resumen-diario")).toHaveTextContent(/resumen diario/);
   });
 
   it("la factura sigue pidiendo RUC y usa solo series F", () => {

@@ -21,7 +21,7 @@ test("en el tope del plan, «Nuevo comprobante» lo dice y la emisión se rechaz
     const r = await fetch("/api/proxy/facturas", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ serie: "F001", fecha_emision: "2026-10-09", moneda: "PEN", tipo_operacion: "0101",
+      body: JSON.stringify({ serie: "F001", fecha_emision: new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }), moneda: "PEN", tipo_operacion: "0101",
         cliente: { tipo_doc: "6", num_doc: "20601234565", razon_social: "CLIENTE SAC" },
         items: [{ descripcion: "Consultoría", unidad: "ZZ", cantidad: 1, precio_unitario: 100, tipo_afectacion_igv: "10" }] }),
     });
