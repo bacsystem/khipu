@@ -2325,8 +2325,8 @@ export const handlers = [
     if (body.fecha_emision > hoyLima()) return fail(422, "FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
     if (body.fecha_emision < fechaMinimaDeEmision(boleta ? "boleta" : "factura", hoyLima()))
       return fail(422, "FECHA_INVALIDA", boleta
-        ? `1079 - Pasado el envío individual, SUNAT solo recibe esta boleta en un resumen diario, y el plazo para informarla en él venció (${PLAZO_ENVIO.boleta.dias} días calendario)`
-        : `2108 - Presentación fuera de fecha: el plazo de envío venció (${PLAZO_ENVIO.factura.dias} días calendario)`);
+        ? `1079 - Pasado el envío individual, SUNAT solo recibe esta boleta en un resumen diario, y el plazo para informarla en él venció el ${sumarDias(body.fecha_emision, PLAZO_ENVIO.boleta.dias)} (${PLAZO_ENVIO.boleta.dias} días calendario) (fecha de emisión ${body.fecha_emision})`
+        : `2108 - Presentación fuera de fecha: el plazo de envío venció el ${sumarDias(body.fecha_emision, PLAZO_ENVIO.factura.dias)} (${PLAZO_ENVIO.factura.dias} días calendario) (fecha de emisión ${body.fecha_emision})`);
 
     // Idempotency-Key (#115), como el backend: la misma clave con el mismo pedido devuelve la factura ya emitida con 200; con otro
     // pedido, 422. La huella es el JSON del cuerpo, que el formulario arma siempre igual.

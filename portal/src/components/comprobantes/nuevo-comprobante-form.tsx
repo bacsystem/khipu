@@ -295,7 +295,7 @@ export function NuevoComprobanteForm({
               hasta el `@NotNull LocalDate` del backend y la emisión moría con un error de deserialización. */}
           <EntradaFecha id="nc-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={fechaMinimaDeEmision(tipo, hoy)} max={hoy} variante="filtro" />
           {soloPorResumen(tipo, fecha, hoy) ? (
-            <p className={cn(AYUDA_CAMPO, "mt-1")} data-testid="aviso-resumen-diario">
+            <p className={cn(AYUDA_CAMPO, "mt-1")} data-testid="aviso-resumen-diario" role="status">
               Pasado el 5.º día SUNAT ya no la recibe sola: khipu la informa en el resumen diario, hasta el 7.º.
             </p>
           ) : null}

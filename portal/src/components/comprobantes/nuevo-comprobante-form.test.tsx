@@ -128,6 +128,8 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     fireEvent.change(screen.getByLabelText("Fecha de emisión"), { target: { value: sumarDias(hoy, -5) } });
     expect(screen.queryByTestId("aviso-resumen-diario")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Fecha de emisión"), { target: { value: sumarDias(hoy, -6) } });
+    // Región viva (336-H2): un lector de pantalla anuncia el aviso al cambiar la fecha.
+    expect(screen.getByTestId("aviso-resumen-diario")).toHaveAttribute("role", "status");
     expect(screen.getByTestId("aviso-resumen-diario")).toHaveTextContent(/resumen diario/);
   });
 
