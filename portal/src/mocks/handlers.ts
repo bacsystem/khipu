@@ -697,6 +697,7 @@ function vistaDePlanDeCuenta(cuentaId: string) {
 function consumoDelMesMock(cuentaId: string): number {
   if (cuentaId === idCuentaMock(1)) return 312;
   if (cuentaId === idCuentaMock(7)) return 400;
+  if (cuentaId === "c-en-el-tope") return 30;
   return 20;
 }
 
@@ -704,6 +705,19 @@ function consumoDelMesMock(cuentaId: string): number {
 function consumoEnMesMock(cuentaId: string, mes: string): number {
   if (mes !== new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7)) return 5;
   return cuentaId === idCuentaMock(5) ? 25 : consumoDelMesMock(cuentaId);
+}
+
+/**
+ * #18: como el backend, la cuenta en el tope de documentos del mes de su plan no emite (429 LIMITE_PLAN) ni gasta número. `null` si puede emitir: las empresas sin
+ * sesión de cuenta (API key de integración) y los planes sin tope no se controlan.
+ */
+function rechazoPorTopeDelPlanMock(request: Request) {
+  const c = claims(request);
+  if (!c) return null;
+  const plan = db.planesAdmin.find((p) => p.id === planDeCuentaMock(c.cuenta).planId);
+  const tope = plan ? topeDeHoyMock(plan) : undefined;
+  if (tope === undefined || consumoDelMesMock(c.cuenta) < tope) return null;
+  return fail(429, "LIMITE_PLAN", `Llegaste al tope de ${tope} documentos del mes de tu plan ${plan!.nombre}. Se renueva el 1 del mes que viene; para emitir antes, pide un cambio de plan`);
 }
 
 /** El tope de documentos que manda hoy: el del plan, o el de su cambio programado si ya llegó a su fecha (como el backend). */
@@ -2317,6 +2331,8 @@ export const handlers = [
       const emitida = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === previa.id);
       if (emitida) return ok(emitida, 200);
     }
+    const porTope = rechazoPorTopeDelPlanMock(request);
+    if (porTope) return porTope;
 
     serie.ultimo_numero += 1;
     // La tasa sale de la empresa, igual que en el diálogo: si el fixture entra al padrón de tasa especial, mock y
@@ -2602,6 +2618,9 @@ export const handlers = [
         }
       }
     }
+    // #18: una nota consume del plan como una factura.
+    const porTope = rechazoPorTopeDelPlanMock(request);
+    if (porTope) return porTope;
     serie.ultimo_numero += 1;
     const id = nuevoId("n");
     // La nota guarda las líneas con la forma de la respuesta (sin los ajustes en forma de request).

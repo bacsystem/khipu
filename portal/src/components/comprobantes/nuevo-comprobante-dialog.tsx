@@ -10,6 +10,7 @@ import { CabeceraDialogo } from "@/components/patrones/cabecera-dialogo";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { GrupoBotones } from "@/components/ui/grupo-botones";
 import { apiRequest } from "@/lib/api/browser";
+import type { MiCuenta } from "@/lib/api/cuenta";
 import type { EmpresaDetalle } from "@/lib/api/empresas";
 import type { Serie } from "@/lib/api/series";
 import { faltaParaEmitir, type Faltante } from "@/lib/comprobantes/listo-para-emitir";
@@ -83,6 +84,10 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
 
   const series = useRecursoDelDialogo<Serie[]>(abierto, "/api/proxy/series");
   const empresa = useRecursoDelDialogo<EmpresaDetalle>(abierto, "/api/proxy/empresa");
+  // #18: en el tope del plan el backend rechaza la emisión; se dice antes. Si la cuenta no se puede leer no se bloquea: el backend tiene la última palabra.
+  const cuenta = useRecursoDelDialogo<MiCuenta>(abierto, "/api/proxy/cuenta");
+  const consumo = cuenta.dato?.consumo;
+  const enElTope = consumo?.maximo !== undefined && consumo.documentos >= consumo.maximo;
 
   // La tasa de la empresa decide el IGV que se previsualiza, y hasta saberla no se afirma ninguna: `null` mientras
   // carga (el pie muestra "IGV" a secas), la general si la lectura falló (con el aviso de abajo diciéndolo).
@@ -132,9 +137,20 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
               Ir a Fiscal &amp; certificado
             </Link>
           </div>
-        ) : /* El dato primero: así TypeScript sabe que `series.dato` no es null al pasárselo al formulario. Y la empresa ya leída (o su
-               error): si llegara después, una sin certificado desmontaría el formulario con lo que el usuario ya escribió (264-H1). */
-        series.dato && (empresa.dato || empresa.error) ? (
+        ) : enElTope && cuenta.dato ? (
+          <div className="flex flex-col gap-3 px-5 py-4">
+            <Alerta tono="aviso" titulo="Llegaste al tope de documentos del mes">
+              Tu plan {cuenta.dato.plan.plan.nombre} permite {consumo.maximo} documentos al mes y ya los usaste. Vuelves a emitir el mes que viene, o antes si
+              cambias a un plan más grande.
+            </Alerta>
+            <Link href="/cuenta/plan" onClick={() => setAbierto(false)} className={cn(BOTON_PRIMARIO, "self-end")}>
+              Ver plan y consumo
+            </Link>
+          </div>
+        ) : /* El dato primero: así TypeScript sabe que `series.dato` no es null al pasárselo al formulario. Y la empresa y la cuenta ya
+               leídas (o su error): si llegaran después, una sin certificado o en el tope desmontaría el formulario con lo que el usuario ya
+               escribió (264-H1). */
+        series.dato && (empresa.dato || empresa.error) && (cuenta.dato || cuenta.error) ? (
           <>
             {/* La empresa no bloquea la emisión, pero sí decide la tasa: sin ella se previsualiza con la general, y
                 un tenant del padrón vería totales que no son los que va a emitir. Se avisa en vez de callarlo. */}

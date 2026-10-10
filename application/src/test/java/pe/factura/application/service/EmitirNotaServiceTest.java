@@ -42,6 +42,7 @@ class EmitirNotaServiceTest {
     };
     XmlSigner signer = (xml, cert) -> new FirmaResultado(xml, "HASH");
     EmitirComprobanteService service;
+    Fakes.Tope tope = new Fakes.Tope();
 
     @BeforeEach void setUp() {
         tenants.guardar(Fakes.tenantListo(tenantId));
@@ -49,7 +50,16 @@ class EmitirNotaServiceTest {
         series.crear(new Serie(tenantId, TipoDocumento.NOTA_CREDITO, "FC01", 0, true));
         series.crear(new Serie(tenantId, TipoDocumento.NOTA_DEBITO, "FD01", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias());
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), tope);
+    }
+
+    /** #18: una nota consume del plan como una factura, así que en el tope tampoco se emite. Para anular una factura queda la comunicación de baja, que no consume. */
+    @Test void enElTopeDelPlanTampocoSeEmiteUnaNota() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        tope.lleno = true;
+
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null))).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("LIMITE_PLAN");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
     }
 
     /** Factura de 2 laptops (200 + 36) y un libro exonerado (50), descuento global 03 de 10: total 276.00. */
@@ -431,7 +441,7 @@ class EmitirNotaServiceTest {
             public void ejecutar(Runnable w) { w.run(); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService conCarrera = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uowConBaja, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias());
+        EmitirComprobanteService conCarrera = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uowConBaja, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope());
         assertThatThrownBy(() -> conCarrera.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("2120");
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
     }

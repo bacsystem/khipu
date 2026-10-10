@@ -185,6 +185,17 @@ final class Fakes {
         public void ejecutar(Runnable w) { ejecutar(() -> { w.run(); return null; }); }
     }
 
+    /** El tope del plan (#18): sin tope salvo que se marque {@code lleno}. Registra cada control y si corrió dentro de la transacción. */
+    static final class Tope implements pe.factura.application.service.TopeDelPlan {
+        boolean lleno;
+        UowTransaccional uow;
+        final List<Boolean> controladoDentro = new ArrayList<>();
+        public void exigirDisponible(UUID tenantId, LocalDate fechaEmision) {
+            controladoDentro.add(uow != null && uow.dentro);
+            if (lleno) throw new DomainException("LIMITE_PLAN", "Llegaste al tope de documentos del mes de tu plan");
+        }
+    }
+
     /** Claves de idempotencia en memoria (#115). Registra si cada llamada corrió dentro de la transacción. */
     static class Idempotencias implements IdempotenciaRepository {
         final Map<String, Registro> filas = new HashMap<>();

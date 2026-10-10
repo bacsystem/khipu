@@ -49,7 +49,8 @@ public class NotaController {
 
             **Errores**: `422 NOTA_INVALIDA` (factura inexistente, no aceptada o anulada —2119/2120—, fecha anterior a la factura
             —2885—, motivo fuera del catálogo —2172—, importes mayores que la factura o que su saldo tras otras notas —3286/3503—), `422 SERIE_INVALIDA`,
-            `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`.""")
+            `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su plan: una nota
+            consume como una factura; para anular sin consumir está la comunicación de baja).""")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Nota creada; `estado_documento` indica si SUNAT ya la aceptó y `nota` trae la factura modificada y el motivo"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422", description = "Datos inválidos o regla de negocio incumplida; `codigo` y `mensaje` explican cuál")})

@@ -40,6 +40,13 @@ public enum EstadoDocumento {
     public boolean cuentaParaElConsumo() { return this == ACEPTADO || this == ACEPTADO_CON_OBS || this == ANULADO; }
 
     /**
+     * Si el documento ocupa lugar en el tope de documentos del plan al emitir el siguiente (#18): lo que ya consumió y lo que todavía puede llegar a consumir (en
+     * camino o reintentando el envío). Más amplio que {@link #cuentaParaElConsumo()} a propósito: el consumo se cobra sobre lo aceptado, pero el tope se controla
+     * antes de que SUNAT conteste, y sin contar lo que está en camino una ráfaga de emisiones lo pasaría.
+     */
+    public boolean ocupaElTope() { return cuentaParaElConsumo() || estaEnCamino() || this == ERROR_ENVIO; }
+
+    /**
      * Si el documento llegó a emitirse (#15): quedó firmado, con o sin respuesta de SUNAT. No cuentan los que solo se recibieron ni los que no pasaron la validación,
      * que no tienen XML firmado. Sí cuentan los rechazados, los que no llegaron y los dados de baja: se emitieron.
      */

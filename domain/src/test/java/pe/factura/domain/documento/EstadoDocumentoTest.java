@@ -35,6 +35,23 @@ class EstadoDocumentoTest {
             assertThat(e.cuentaParaElConsumo()).as(e.name()).isFalse();
     }
 
+    /**
+     * El tope del plan (#18) se controla al emitir: ocupa lugar lo que ya consumió y lo que está en camino (firmado, enviado, en agrupación o reintentando el
+     * envío), porque cualquiera de ellos puede terminar aceptado y consumir. Si solo contara lo aceptado, una ráfaga de emisiones antes de que SUNAT conteste
+     * pasaría el tope. Lo rechazado, inválido, descartado o fuera de plazo ya no va a consumir.
+     */
+    @Test void ocupaElTopeLoQueConsumioYLoQuePuedeLlegarAConsumir() {
+        assertThat(EnumSet.allOf(EstadoDocumento.class).stream().filter(EstadoDocumento::ocupaElTope).toList())
+                .containsExactlyInAnyOrder(ACEPTADO, ACEPTADO_CON_OBS, ANULADO, FIRMADO, ENVIADO, PENDIENTE_AGRUPACION, ERROR_ENVIO);
+        for (EstadoDocumento e : new EstadoDocumento[]{RECIBIDO, INVALIDO, RECHAZADO, FUERA_DE_PLAZO, DESCARTADO})
+            assertThat(e.ocupaElTope()).as(e.name()).isFalse();
+    }
+
+    /** Lo que consume siempre ocupa el tope: no puede haber un documento cobrado que no se haya contado al emitir. */
+    @Test void loQueConsumeOcupaElTope() {
+        for (EstadoDocumento e : EstadoDocumento.values()) if (e.cuentaParaElConsumo()) assertThat(e.ocupaElTope()).as(e.name()).isTrue();
+    }
+
     /** El resumen del portal (#15): cada estado cae en un lugar y los tres criterios no se pisan por accidente. Si se agrega un estado, este test obliga a decidir dónde cuenta. */
     @Test void soloLosFirmadosEnAdelanteSeEmitieron() {
         assertThat(EnumSet.allOf(EstadoDocumento.class).stream().filter(EstadoDocumento::fueEmitido).toList())
