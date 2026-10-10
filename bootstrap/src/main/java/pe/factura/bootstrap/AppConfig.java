@@ -329,9 +329,11 @@ public class AppConfig {
     @Bean RechazoDeSolRepository rechazoDeSolRepository(JdbcTemplate jdbc) { return new JdbcRechazoDeSolRepository(jdbc); }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
                                                     UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock, EmisorDeSerieRepository emisor,
-                                                    BajaRepository bajas, IdempotenciaRepository idempotencia) {
-        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia);
+                                                    BajaRepository bajas, IdempotenciaRepository idempotencia, TopeDelPlan tope) {
+        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia, tope);
     }
+    @Bean TopeDeDocumentosRepository topeDeDocumentosRepository(JdbcTemplate jdbc) { return new JdbcTopeDeDocumentosRepository(jdbc); }
+    @Bean TopeDelPlan topeDelPlan(TenantRepository t, CambiarPlanDeCuentaUseCase planes, TopeDeDocumentosRepository ocupados) { return new TopeDelPlanService(t, planes, ocupados); }
     @Bean IdempotenciaRepository idempotenciaRepository(JdbcTemplate jdbc) { return new JdbcIdempotenciaRepository(jdbc); }
     @Bean LimpiarIdempotenciaUseCase limpiarIdempotencia(IdempotenciaRepository i, Clock clock) { return new LimpiarIdempotenciaService(i, clock); }
     @Bean LimpiezaIdempotenciaWorker limpiezaIdempotenciaWorker(LimpiarIdempotenciaUseCase l) { return new LimpiezaIdempotenciaWorker(l); }

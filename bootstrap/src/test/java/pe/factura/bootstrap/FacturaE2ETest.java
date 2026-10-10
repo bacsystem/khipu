@@ -285,6 +285,37 @@ class FacturaE2ETest {
         }
     }
 
+    /**
+     * #18: la empresa de una cuenta con el plan Gratis (30 documentos al mes) que ya tiene 29 en el mes emite el número 30 y el 31 se rechaza con 429 LIMITE_PLAN, sin
+     * gastar correlativo ni llamar a SUNAT. Lo que está en camino también ocupa lugar.
+     */
+    @Test void enElTopeDelPlanLaEmisionSeRechazaCon429(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders json = new HttpHeaders(); json.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/auth/registro", new HttpEntity<>(
+                "{\"nombre\":\"Tope SAC\",\"email\":\"tope@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}", json), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        java.util.UUID cuenta = jdbc.queryForObject("SELECT id FROM cuenta WHERE email = 'tope@negocio.pe'", java.util.UUID.class);
+        assertThat(jdbc.queryForObject("SELECT p.nombre FROM suscripcion s JOIN plan p ON p.id = s.plan_id WHERE s.cuenta_id = ? AND s.termina_en IS NULL", String.class, cuenta)).isEqualTo("Gratis");
+        jdbc.update("UPDATE tenant SET cuenta_id = ? WHERE ruc = '20100066603'", cuenta);
+        java.time.LocalDate hoy = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima"));
+        // 28 aceptados y uno en camino, en serie aparte para no tocar la numeración de F001.
+        jdbc.update("""
+                INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo)
+                SELECT gen_random_uuid(), t.id, '01', 'F900', g, ?, CASE WHEN g = 1 THEN 'ENVIADO' ELSE 'ACEPTADO' END, 'archivo'
+                FROM tenant t, generate_series(1, 29) g WHERE t.ruc = '20100066603'""", java.sql.Date.valueOf(hoy));
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+
+        ResponseEntity<Map> trigesima = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(trigesima.getStatusCode()).as("%s", trigesima.getBody()).isEqualTo(HttpStatus.CREATED);
+
+        ResponseEntity<Map> rechazada = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(rechazada.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(rechazada.getBody().toString()).contains("LIMITE_PLAN").contains("30 documentos").contains("Gratis");
+        assertThat(jdbc.queryForObject("SELECT ultimo_numero FROM serie WHERE codigo = 'F001'", Long.class)).as("el rechazo no gastó el número 2").isEqualTo(1L);
+        verify(1, postRequestedFor(urlEqualTo("/billService")));
+    }
+
     @org.junit.jupiter.api.BeforeEach void limpiar() {
         jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, sesion, usuario, cuenta CASCADE");
     }

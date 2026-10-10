@@ -42,6 +42,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     private final EmisorDeSerieRepository emisorDeSerie;
     private final BajaRepository bajas;
     private final IdempotenciaRepository idempotencia;
+    private final TopeDelPlan tope;
 
 
     @Override
@@ -242,6 +243,9 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 Optional<IdempotenciaRepository.Registro> previo = idempotencia.reservar(clave.alcance(), clave.clave().clave(), clave.clave().huella());
                 if (previo.isPresent()) return yaEmitida(tenantId, clave, previo.get());
             }
+            // #18: antes de numerar, para que un rechazo no gaste correlativo; y dentro de la transacción, con la cuenta bloqueada hasta que se guarda el
+            // comprobante, para que dos emisiones simultáneas no tomen las dos el último lugar libre. Un reintento con la misma clave ya volvió arriba.
+            tope.exigirDisponible(tenantId, c.fechaEmision());
             long numero;
             if (correlativo != null) {
                 if (comprobantes.buscarPorNumero(tenantId, c.tipo(), c.serie(), correlativo).isPresent())

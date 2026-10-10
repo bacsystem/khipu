@@ -48,7 +48,7 @@ class EmitirComprobanteServiceTest {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias());
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope());
     }
 
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
@@ -74,6 +74,43 @@ class EmitirComprobanteServiceTest {
         assertThat(recibido[0]).contains("<ds:Signature/>");
     }
 
+    // --- #18: tope de documentos del plan ---------------------------------------------------------------------------------------
+
+    private EmitirComprobanteService conTope(Fakes.Tope tope, Fakes.Idempotencias claves) {
+        Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
+        tope.uow = uow;
+        claves.uow = uow;
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, Fakes.CLOCK);
+        return new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, Fakes.CLOCK, establecimientos, bajas, claves, tope);
+    }
+
+    @Test void enElTopeDelPlanNoEmiteNiGastaNumero() {
+        Fakes.Tope tope = new Fakes.Tope();
+        tope.lleno = true;
+        EmitirComprobanteService s = conTope(tope, new Fakes.Idempotencias());
+
+        assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("LIMITE_PLAN");
+
+        assertThat(comprobantes.datos).isEmpty();
+        assertThat(gateway.enviados).isZero();
+        assertThat(tope.controladoDentro).as("dentro de la transacción: el bloqueo de la cuenta dura hasta que se guarda el comprobante").containsExactly(true);
+        tope.lleno = false;
+        assertThat(s.emitirFactura(tenantId, cmd(null, false)).numero()).as("el rechazo no consumió el número 1").isEqualTo(1L);
+    }
+
+    /** Un reintento con la misma clave devuelve lo ya emitido aunque después la cuenta llegara al tope: no es un documento nuevo. */
+    @Test void elReintentoConLaMismaClavePasaAunqueLaCuentaYaEsteEnElTope() {
+        Fakes.Tope tope = new Fakes.Tope();
+        EmitirComprobanteService s = conTope(tope, new Fakes.Idempotencias());
+        Comprobante primero = s.emitirFactura(tenantId, cmd(null, false), CLAVE).comprobante();
+        tope.lleno = true;
+
+        var otraVez = s.emitirFactura(tenantId, cmd(null, false), CLAVE);
+
+        assertThat(otraVez.repetida()).isTrue();
+        assertThat(otraVez.comprobante().id()).isEqualTo(primero.id());
+    }
+
     // --- #115: idempotencia ------------------------------------------------------------------------------------------------------
 
     /** Servicio con una transacción que se puede observar y las claves a la vista. */
@@ -88,7 +125,7 @@ class EmitirComprobanteServiceTest {
         Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
         claves.uow = uow;
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, reloj);
-        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves), claves);
+        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves, new Fakes.Tope()), claves);
     }
 
     private static final pe.factura.application.port.in.Idempotencia CLAVE = new pe.factura.application.port.in.Idempotencia("c1a7e5b0-0000-4000-8000-000000000001", "huella-1");
@@ -302,7 +339,7 @@ class EmitirComprobanteServiceTest {
             public void validarBaja(String xml, ComunicacionBaja baja) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias());
+        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope());
         assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).extracting("codigo").isEqualTo("XSD_INVALIDO");
         assertThat(comprobantes.datos).isEmpty();
     }

@@ -412,6 +412,14 @@ export function resetDb() {
     },
   ]);
   db.seriesPorEmpresa.set("e-sol-rechazada", [{ tipo: "01", serie: "F001", ultimo_numero: 0, activa: true, establecimiento: "0000" }]);
+  // Un cliente que ya usó los 30 documentos de octubre de su plan Gratis (#18): no emite más hasta el mes siguiente. Cuenta propia: el consumo de la demo no cambia.
+  const enElTope: Usuario = { id: "u-en-el-tope", cuenta_id: "c-en-el-tope", email: "tope@example.com", rol: "ADMIN", correo_verificado: true };
+  db.usuariosPorEmail.set(enElTope.email, { usuario: enElTope, password: "Passw0rd1" });
+  db.nombresDeCuenta.set(enElTope.cuenta_id, "Bodega en el Tope");
+  db.empresasPorCuenta.set(enElTope.cuenta_id, [
+    { id: "e-en-el-tope", ruc: "20600000028", razon_social: "Bodega en el Tope SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true, certificado_vigencia_hasta: "2036-01-01" },
+  ]);
+  db.seriesPorEmpresa.set("e-en-el-tope", [{ tipo: "01", serie: "F001", ultimo_numero: 30, activa: true, establecimiento: "0000" }]);
 
   const empresa: Empresa = {
     id: "e-demo",
