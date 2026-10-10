@@ -21,7 +21,7 @@
   <cbc:IssueDate>${fechaEmision}</cbc:IssueDate>
   <#if horaEmision??><cbc:IssueTime>${horaEmision}</cbc:IssueTime></#if>
   <cbc:Note languageLocaleID="1000">${montoEnLetras}</cbc:Note>
-  <#if tot.tieneGratuitas()>
+  <#if tot.todasGratuitas()><#-- #291: solo si toda la operación es gratuita (guía UBL 2.1, p. 32) -->
   <cbc:Note languageLocaleID="1002">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</cbc:Note>
   </#if>
   <#if tot.tieneIvap()>

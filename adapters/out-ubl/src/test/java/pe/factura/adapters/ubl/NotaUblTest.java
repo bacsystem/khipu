@@ -74,6 +74,21 @@ class NotaUblTest {
         assertThat(valor(d, "/cn:CreditNote/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("118.00");
     }
 
+    /** #291: en la nota, igual que en la factura, la leyenda 1002 va solo si todas las líneas son gratuitas. */
+    @Test void laLeyenda1002VaSoloSiTodasLasLineasSonGratuitas() throws Exception {
+        Item bonificacion = new Item("B", "Bonificación", "NIU", BigDecimal.ONE, new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION);
+        Comprobante mixta = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), NOTA, new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
+                List.of(new Item("A", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO), bonificacion)).crear(FreemarkerUblGeneratorTest.CLOCK);
+        mixta.asignarNumero(9, "20100066603");
+        Comprobante gratuita = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), NOTA, new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
+                List.of(bonificacion)).crear(FreemarkerUblGeneratorTest.CLOCK);
+        gratuita.asignarNumero(10, "20100066603");
+
+        assertThat(valor(parsear(new FreemarkerUblGenerator().generar(mixta, FreemarkerUblGeneratorTest.tenant())), "/cn:CreditNote/cbc:Note[@languageLocaleID='1002']")).isEmpty();
+        assertThat(valor(parsear(new FreemarkerUblGenerator().generar(gratuita, FreemarkerUblGeneratorTest.tenant())), "/cn:CreditNote/cbc:Note[@languageLocaleID='1002']"))
+                .isEqualTo("TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE");
+    }
+
     @Test void notaDeCreditoConCuotasCorregidas_motivo13() throws Exception {
         Nota nota13 = new Nota(TipoDocumento.FACTURA, "F001", 123, "13", "Se reprograman las cuotas");
         FormaPago fp = FormaPago.credito(new BigDecimal("2410.00"), List.of(new FormaPago.Cuota(new BigDecimal("2410.00"), LocalDate.of(2026, 12, 1))));

@@ -205,6 +205,9 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
 
     public boolean tieneGratuitas() { return gratuito.signum() > 0; }
 
+    /** Si la operación es íntegramente gratuita: la leyenda 1002 va solo entonces (guía XML UBL 2.1, p. 32; #291), no con una línea gratuita entre otras vendidas. */
+    public boolean todasGratuitas() { return !items.isEmpty() && items.stream().allMatch(ItemCalculado::gratuita); }
+
     public boolean esExportacion() { return exportacion.signum() > 0; }
 
     /** Comprobante afecto al IVAP: lleva la leyenda 2007 y su total precio de venta no incluye IGV (campo 55). */

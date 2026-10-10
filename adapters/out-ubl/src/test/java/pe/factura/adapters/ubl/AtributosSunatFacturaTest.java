@@ -217,7 +217,24 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
-    /** Línea gratuita: PriceTypeCode 02 con el valor referencial, Price 0, subtotal 9996 fuera de los totales y leyenda 1002. */
+    /**
+     * #291: la leyenda 1002 va solo si **todas** las líneas son gratuitas (guía XML UBL 2.1, p. 32: «aplicable solo en el caso que todas las operaciones…
+     * sean gratuitas»; su ejemplo C la lleva y el B, mixto, no).
+     */
+    @Test void conTodasLasLineasGratuitasVaLaLeyenda1002() throws Exception {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
+                List.of(new Item("B", "Bonificación", "NIU", new BigDecimal("5"), new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION),
+                        new Item("C", "Muestra", "NIU", BigDecimal.ONE, new BigDecimal("20.00"), TipoAfectacionIgv.INAFECTO_RETIRO))).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(12, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='1002']")).isEqualTo("TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE");
+    }
+
+    /** Línea gratuita en una factura con una vendida: PriceTypeCode 02 con el valor referencial, Price 0, subtotal 9996 fuera de los totales, y sin leyenda 1002 (#291). */
     @Test void operacionGratuitaEnElXml() throws Exception {
         Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Vendido", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
                         new Item("B", "Bonificación", "NIU", new BigDecimal("5"), new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION))).crear(FreemarkerUblGeneratorTest.CLOCK);
@@ -227,7 +244,7 @@ class AtributosSunatFacturaTest {
         f.setNamespaceAware(true);
         Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
 
-        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='1002']")).isEqualTo("TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE");
+        assertThat(valor(d, "/inv:Invoice/cbc:Note[@languageLocaleID='1002']")).as("una línea vendida: la operación no es íntegramente gratuita").isEmpty();
         String linea = "/inv:Invoice/cac:InvoiceLine[2]";
         assertThat(valor(d, linea + "/cbc:LineExtensionAmount")).isEqualTo("50.00");
         assertThat(valor(d, linea + "/cac:PricingReference/cac:AlternativeConditionPrice/cbc:PriceTypeCode")).isEqualTo("02");     // 3234
