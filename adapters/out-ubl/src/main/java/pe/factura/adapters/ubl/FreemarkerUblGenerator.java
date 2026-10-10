@@ -12,10 +12,17 @@ import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.Tenant;
 
 import java.io.StringWriter;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
 public class FreemarkerUblGenerator implements UblGenerator {
+    /**
+     * Desde cuándo el resumen diario informa las gratuitas por afectación (catálogo 11: 06, 07, 08; el 05 se desactiva) y su IGV en 9996 «GRA» (Control de Cambios
+     * de SUNAT, filas 516 y 543, postergadas del 2026-08-01 al 2027-01-01; #289). Decide la fecha de generación del resumen, que es la de su envío.
+     */
+    static final LocalDate GRATUITAS_POR_AFECTACION_DESDE = LocalDate.of(2027, 1, 1);
+
     private final Configuration cfg;
 
     public FreemarkerUblGenerator() {
@@ -35,6 +42,7 @@ public class FreemarkerUblGenerator implements UblGenerator {
             modelo.put("c", c);
             modelo.put("tot", c.totales());
             modelo.put("t", t);
+            modelo.put("gratuitasPorAfectacion", !b.fechaGeneracion().isBefore(GRATUITAS_POR_AFECTACION_DESDE));
             StringWriter out = new StringWriter();
             cfg.getTemplate(plantilla).process(modelo, out);
             return out.toString();

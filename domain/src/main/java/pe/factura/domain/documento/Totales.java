@@ -205,6 +205,14 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
 
     public boolean tieneGratuitas() { return gratuito.signum() > 0; }
 
+    /**
+     * El valor de las gratuitas separado por su afectación (gravadas 11–16, exoneradas 21, inafectas 31–37), que pide el resumen diario desde 2027 (catálogo 11:
+     * 06, 07 y 08; #289). Suman {@link #gratuito()}.
+     */
+    public BigDecimal gratuitoGravado() { return sumaSi(items, i -> i.gratuita() && i.item().afectacion().gravado(), ItemCalculado::valorVenta); }
+    public BigDecimal gratuitoExonerado() { return sumaSi(items, i -> i.item().afectacion() == TipoAfectacionIgv.EXONERADO_GRATUITO, ItemCalculado::valorVenta); }
+    public BigDecimal gratuitoInafecto() { return sumaSi(items, i -> i.gratuita() && !i.item().afectacion().gravado() && i.item().afectacion() != TipoAfectacionIgv.EXONERADO_GRATUITO, ItemCalculado::valorVenta); }
+
     /** Si la operación es íntegramente gratuita: la leyenda 1002 va solo entonces (guía XML UBL 2.1, p. 32; #291), no con una línea gratuita entre otras vendidas. */
     public boolean todasGratuitas() { return !items.isEmpty() && items.stream().allMatch(ItemCalculado::gratuita); }
 

@@ -65,6 +65,98 @@ class SummaryDocumentsUblTest {
         return xml.replace("<ext:ExtensionContent/>", "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>");
     }
 
+    // --- #289: gratuitas y percepción en la línea del resumen -----------------------------------------------------------------------------------------------
+
+    static final Clock ENERO_2027 = Clock.fixed(Instant.parse("2027-01-02T15:00:00Z"), ZoneId.of("America/Lima"));
+    static final Item VENDIDO = new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO);
+    static final Item BONIFICACION = new Item("B", "Bonificación", "NIU", new BigDecimal("5"), new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION);
+
+    static String instruccion(Document d, String codigo) throws Exception {
+        return xpath().evaluate("/rc:SummaryDocuments/sac:SummaryDocumentsLine/sac:BillingPayment[cbc:InstructionID='" + codigo + "']/cbc:PaidAmount", d);
+    }
+
+    /**
+     * Hasta el 2026-12-31 el catálogo 11 tiene un solo código de gratuitas, el 05 (guía del resumen diario, p. 14), y el resumen no lleva el IGV de las gratuitas:
+     * los 06–09 y el bloque 9996 «GRA» entran el 2027-01-01 (Control de Cambios, filas 516 y 543). Sin el 05 la boleta llegaba sin sus gratuitas.
+     */
+    @Test void antesDe2027LasGratuitasVanConElCodigo05YSinIgv9996() throws Exception {
+        Comprobante c = boleta(new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(VENDIDO, BONIFICACION));
+        ComunicacionBaja b = ComunicacionBaja.crear(c, 5, "Error en el monto", HOY);
+
+        String xml = new FreemarkerUblGenerator().generarBaja(b, c, FreemarkerUblGeneratorTest.tenant());
+        Document d = parsear(xml);
+
+        assertThat(instruccion(d, "05")).isEqualTo("50.00");
+        assertThat(instruccion(d, "06")).isEmpty();
+        assertThat(xpath().evaluate("count(//cac:TaxScheme[cbc:ID='9996'])", d)).isEqualTo("0");
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/sac:SummaryDocumentsLine/sac:TotalAmount", d)).as("las gratuitas no se cobran").isEqualTo("118.00");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), b);
+    }
+
+    /** Desde el 2027-01-01: gratuitas por afectación (06 gravadas, 07 exoneradas, 08 inafectas; el 05 se desactiva) y el IGV de las gravadas en 9996 «GRA». */
+    @Test void desde2027LasGratuitasVanPorAfectacionYConSuIgv9996() throws Exception {
+        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 12, 30), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(VENDIDO, BONIFICACION,
+                new Item("C", "Muestra", "NIU", BigDecimal.ONE, new BigDecimal("20.00"), TipoAfectacionIgv.INAFECTO_RETIRO),
+                new Item("D", "Libro de regalo", "NIU", BigDecimal.ONE, new BigDecimal("30.00"), TipoAfectacionIgv.EXONERADO_GRATUITO))).crear(ENERO_2027);
+        c.asignarNumero(47, "20100066603"); c.firmar("H", "k"); c.marcarEnviado(); c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
+        ComunicacionBaja b = ComunicacionBaja.crear(c, 1, "Error en el monto", ENERO_2027);
+
+        String xml = new FreemarkerUblGenerator().generarBaja(b, c, FreemarkerUblGeneratorTest.tenant());
+        Document d = parsear(xml);
+
+        assertThat(instruccion(d, "05")).as("desactivado desde 2027").isEmpty();
+        assertThat(instruccion(d, "06")).isEqualTo("50.00");
+        assertThat(instruccion(d, "07")).isEqualTo("30.00");
+        assertThat(instruccion(d, "08")).isEqualTo("20.00");
+        String gra = "/rc:SummaryDocuments/sac:SummaryDocumentsLine/cac:TaxTotal[cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID='9996']";
+        assertThat(xpath().evaluate(gra + "/cbc:TaxAmount", d)).isEqualTo("9.00");
+        assertThat(xpath().evaluate(gra + "/cac:TaxSubtotal/cbc:TaxAmount", d)).isEqualTo("9.00");             // 2344
+        assertThat(xpath().evaluate(gra + "/cac:TaxSubtotal/cac:TaxCategory/cbc:Percent", d)).isEqualTo("18");     // 2992, 3504
+        assertThat(xpath().evaluate(gra + "/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:Name", d)).isEqualTo("GRA");   // 3051
+        assertThat(xpath().evaluate(gra + "/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode", d)).isEqualTo("FRE");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), b);
+    }
+
+    /** Sin gratuitas gravadas no hay IGV de gratuitas: el bloque 9996 no va en cero (2048). */
+    @Test void desde2027SinGratuitasGravadasNoVaElBloque9996() throws Exception {
+        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 12, 30), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(VENDIDO,
+                new Item("C", "Muestra", "NIU", BigDecimal.ONE, new BigDecimal("20.00"), TipoAfectacionIgv.INAFECTO_RETIRO))).crear(ENERO_2027);
+        c.asignarNumero(48, "20100066603"); c.firmar("H", "k"); c.marcarEnviado(); c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
+        Document d = parsear(new FreemarkerUblGenerator().generarBaja(ComunicacionBaja.crear(c, 1, "Error", ENERO_2027), c, FreemarkerUblGeneratorTest.tenant()));
+
+        assertThat(instruccion(d, "08")).isEqualTo("20.00");
+        assertThat(xpath().evaluate("count(//cac:TaxScheme[cbc:ID='9996'])", d)).isEqualTo("0");
+    }
+
+    /**
+     * La percepción de una boleta 2001 va en el resumen solo en el alta (estado 1): en una baja o una modificación SUNAT rechaza todo el resumen (2986). Régimen
+     * del catálogo 22 (no el 51–53 del catálogo 53 de la boleta), la tasa, el monto, el total cobrado (total + percepción, 2608) y la base, en soles (2685/2690).
+     */
+    @Test void laPercepcionVaSoloEnElAltaDeUnaBoleta2001() throws Exception {
+        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 12), "PEN", "2001", new Receptor("1", "12345678", "JUAN PEREZ", null),
+                List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).percepcion(new Percepcion("51", null, null, null)).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(49, "20100066603"); c.firmar("H", "k");
+        ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(c, 6, HOY);
+
+        String xml = new FreemarkerUblGenerator().generarBaja(alta, c, FreemarkerUblGeneratorTest.tenant());
+        Document d = parsear(xml);
+
+        String p = "/rc:SummaryDocuments/sac:SummaryDocumentsLine/sac:SUNATPerceptionSummaryDocumentReference";
+        assertThat(xpath().evaluate(p + "/sac:SUNATPerceptionSystemCode", d)).isEqualTo("01");
+        assertThat(xpath().evaluate(p + "/sac:SUNATPerceptionPercent", d)).isEqualTo("2.00");
+        assertThat(xpath().evaluate(p + "/cbc:TotalInvoiceAmount", d)).isEqualTo("23.60");
+        assertThat(xpath().evaluate(p + "/cbc:TotalInvoiceAmount/@currencyID", d)).isEqualTo("PEN");
+        assertThat(xpath().evaluate(p + "/sac:SUNATTotalCashed", d)).isEqualTo("1203.60");
+        assertThat(xpath().evaluate(p + "/cbc:TaxableAmount", d)).isEqualTo("1180.00");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), alta);
+
+        Comprobante aceptada = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 13), "PEN", "2001", new Receptor("1", "12345678", "JUAN PEREZ", null),
+                List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).percepcion(new Percepcion("51", null, null, null)).crear(FreemarkerUblGeneratorTest.CLOCK);
+        aceptada.asignarNumero(50, "20100066603"); aceptada.firmar("H", "k"); aceptada.marcarEnviado(); aceptada.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
+        Document baja = parsear(new FreemarkerUblGenerator().generarBaja(ComunicacionBaja.crear(aceptada, 7, "Error", HOY), aceptada, FreemarkerUblGeneratorTest.tenant()));
+        assertThat(xpath().evaluate("count(" + p + ")", baja)).as("en la baja (estado 3) no va: 2986").isEqualTo("0");
+    }
+
     @Test void laBajaDeUnaBoletaEsUnaLineaEnEstadoTresDelResumenDiario() throws Exception {
         Comprobante c = boleta(new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(
                 new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),

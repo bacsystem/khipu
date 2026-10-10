@@ -53,6 +53,9 @@ public record Percepcion(String regimen, BigDecimal porcentaje, BigDecimal base,
         return new Percepcion(regimen, porcentaje, baseFinal, monto == null ? esperado : monto);
     }
 
+    /** El régimen como lo pide el resumen diario: código del catálogo 22 (01, 02, 03), no el 51–53 del catálogo 53 que lleva la boleta (#289). */
+    public String codigoCatalogo22() { return TASA_POR_REGIMEN.get(regimen); }
+
     public BigDecimal factor() { return porcentaje.divide(new BigDecimal("100"), 5, RoundingMode.HALF_UP); }
     /** Importe total más la percepción: lo que el cliente paga (PaymentTerms 'Percepcion', regla 3310). */
     public BigDecimal totalConPercepcion(BigDecimal importeTotal) { return importeTotal.add(monto); }
