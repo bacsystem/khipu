@@ -22,7 +22,7 @@ const ESTADOS: Array<[string, string, string]> = [
   ["ERROR_ENVIO", "SUNAT no estuvo disponible o falló la comunicación.", "No es un rechazo. khipu reintenta solo con espera creciente (hasta 20 intentos); puede forzarlo con POST /v1/facturas/{id}/enviar."],
   ["INVALIDO", "El XML no pasó la validación local (esquema).", "Contacte soporte con el id: no debería ocurrir con datos que la API aceptó."],
   ["ANULADO", "Comunicación de baja aceptada por SUNAT.", "Terminal: el número queda consumido."],
-  ["FUERA_DE_PLAZO", "No llegó a SUNAT dentro del plazo de envío (fecha_limite_envio, días calendario desde la emisión: 3 para factura y notas —2108—; 7 para boleta, que va sola hasta el 5.º y después en un resumen diario —1079—). Se marca al intentar enviarlo o en el barrido horario.", "Terminal: emita un comprobante nuevo con fecha vigente; el número queda consumido. Un envío manual responde 409 FUERA_DE_PLAZO."],
+  ["FUERA_DE_PLAZO", "No llegó a SUNAT dentro del plazo de envío (fecha_limite_envio, días calendario desde la emisión: 3 para factura y notas —2108—; 7 para boleta, que va sola hasta el 5.º y después en un resumen diario —1079—). Se marca al intentar enviarlo o en el barrido horario.", "Terminal; el número queda consumido. Factura y notas: emita un comprobante nuevo con fecha vigente. Boleta: no la reemplace, contacte a soporte. Un envío manual responde 409 FUERA_DE_PLAZO."],
   ["DESCARTADO", "El soporte de khipu dejó de intentar enviarlo: estaba en ERROR_ENVIO y no se recuperaba.", "Terminal: emita un comprobante nuevo; el número queda consumido. Un envío manual responde 409 ESTADO_NO_ENVIABLE."],
 ];
 
