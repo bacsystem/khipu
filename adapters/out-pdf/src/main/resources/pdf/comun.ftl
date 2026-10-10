@@ -44,7 +44,7 @@
     .hash { font-family: Courier, monospace; font-size: 7.5pt; word-break: break-all; }
     .leyenda { color: #444; font-size: 8pt; margin: 0.5mm 0; }
     .leyendas-declaradas { margin: 2mm 0 1mm; padding-top: 1.5mm; border-top: 0.3mm solid #ddd; }
-    .leyenda-declarada { color: #222; font-size: 8.5pt; font-weight: bold; }
+    .leyenda-declarada, .leyenda-gratuita { color: #222; font-size: 8.5pt; font-weight: bold; }
     .obs { color: #444; font-size: 8pt; }
     .logo { margin-bottom: 1.5mm; }
     .observaciones p { margin: 0; white-space: pre-line; }
@@ -195,6 +195,8 @@
     <tr class="total"><td class="k">Total a pagar</td><td class="n">${c.moneda()} ${m(c.percepcion().totalConPercepcion(tot.total()))}</td></tr></#if>
   </table>
   <div class="letras">SON: ${montoEnLetras}</div>
+  <#-- Leyenda 1002, la misma condición que el XML (#291): solo si toda la operación es gratuita. -->
+  <#if tot.todasGratuitas()><p class="leyenda-gratuita">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</p></#if>
 </#macro>
 
 <#-- Cuotas, detracción, retención y anticipos: solo cuando aplican. -->

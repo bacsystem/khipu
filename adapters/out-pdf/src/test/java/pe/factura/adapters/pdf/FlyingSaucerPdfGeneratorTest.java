@@ -80,6 +80,26 @@ class FlyingSaucerPdfGeneratorTest {
                 .doesNotContain("Leyenda “BIENES", "Leyenda: “VENTA");
     }
 
+    /**
+     * #291: la frase de la leyenda 1002 va impresa cuando el XML la lleva, es decir, solo si toda la operación es gratuita. En una factura mixta cada línea gratuita
+     * ya dice «Transferencia gratuita» y el total de operaciones gratuitas, pero no la leyenda.
+     */
+    @Test void laLeyenda1002SeImprimeSoloSiTodaLaOperacionEsGratuita() {
+        Item bonificacion = new Item("B", "Bonificación", "NIU", BigDecimal.ONE, new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION);
+        Comprobante gratuita = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", RECEPTOR, List.of(bonificacion))
+                .referencias(Referencias.ninguna()).crear(CLOCK);
+        gratuita.asignarNumero(301, "20100066603");
+        gratuita.firmar("hashgratuita==", "k");
+        Comprobante mixta = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", RECEPTOR,
+                        List.of(new Item("A", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO), bonificacion))
+                .referencias(Referencias.ninguna()).crear(CLOCK);
+        mixta.asignarNumero(302, "20100066603");
+        mixta.firmar("hashmixta==", "k");
+
+        assertThat(generador.xhtml(gratuita, TENANT, "qr", null)).contains("TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE");
+        assertThat(generador.xhtml(mixta, TENANT, "qr", null)).contains("Op. gratuitas").doesNotContain("TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE");
+    }
+
     /** Sin leyendas declaradas no aparece el bloque: una factura común no gana ruido. */
     @Test void sinLeyendasDeclaradasNoHayBloque() {
         assertThat(generador.xhtml(factura(), TENANT, "qr", null)).doesNotContain("class=\"leyenda leyenda-declarada\"");
