@@ -49,7 +49,7 @@ public record PlanesDeCuenta(UUID cuentaId, List<Suscripcion> suscripciones, Cam
 
     /** El plan que manda en {@code ahora}: el de la suscripción activa, o el programado si su fecha ya llegó (en el instante exacto ya manda). */
     public UUID planVigenteEn(Instant ahora) {
-        return programado != null && !ahora.isBefore(programado.aplicaDesde()) ? programado.planId() : activa().planId();
+        return programado != null && programado.mandaEn(ahora) ? programado.planId() : activa().planId();
     }
 
     /**
@@ -57,7 +57,7 @@ public record PlanesDeCuenta(UUID cuentaId, List<Suscripcion> suscripciones, Cam
      * gracia; así el historial dice cuándo cambió el plan de verdad, no cuándo se aplicó. Antes de la fecha, o sin nada programado, no cambia nada.
      */
     public PlanesDeCuenta aplicarProgramadoEn(Instant ahora, UUID idNueva) {
-        if (programado == null || ahora.isBefore(programado.aplicaDesde())) return this;
+        if (programado == null || !programado.mandaEn(ahora)) return this;
         return cambiarA(idNueva, programado.planId(), programado.aplicaDesde(), programado.venceEn(), programado.diasDeGracia());
     }
 }

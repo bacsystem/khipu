@@ -54,7 +54,7 @@ public class CambiarPlanDeCuentaService implements CambiarPlanDeCuentaUseCase, A
         Limite limite = nuevo.vigenteEn(ahora).limites().documentosAlMes();
         Efecto efecto = direccion.esInmediata() ? Efecto.INMEDIATO : Efecto.CICLO_SIGUIENTE;
         // La bajada que espera y todavía no llegó: cualquier cambio la deja sin efecto (el inmediato la cancela, otra bajada la reemplaza), y hay que decirlo.
-        Programado descartado = p.programado() == null || !ahora.isBefore(p.programado().aplicaDesde()) ? null
+        Programado descartado = p.programado() == null || p.programado().mandaEn(ahora) ? null
                 : new Programado(planDe(p.programado().planId()).vigenteEn(ahora), p.programado());
         return new Previsualizacion(cuentaId, actual, nuevo, direccion, efecto, direccion.esInmediata() ? ahora : CicloMensual.inicioDelSiguiente(ahora),
                 consumo.mes(), consumo.documentos(), limite, !limite.ilimitado() && consumo.documentos() > limite.maximo(), descartado);
@@ -104,13 +104,13 @@ public class CambiarPlanDeCuentaService implements CambiarPlanDeCuentaUseCase, A
     /** Sin bitácora: aplicar lo que ya se había decidido no es una acción de nadie, y el registro de cuando se programó ya dice quién. */
     private boolean aplicar(UUID cuentaId, Instant ahora) {
         PlanesDeCuenta p = suscripciones.deLaCuenta(cuentaId).orElse(null);
-        if (p == null || p.programado() == null || ahora.isBefore(p.programado().aplicaDesde())) return false;
+        if (p == null || p.programado() == null || !p.programado().mandaEn(ahora)) return false;
         PlanesDeCuenta aplicada = p.aplicarProgramadoEn(ahora, UUID.randomUUID());
         return suscripciones.cambiar(p.activa(), aplicada.activa());
     }
 
     private PlanesDeCuenta aplicandoLoVencido(PlanesDeCuenta p, Instant ahora) {
-        if (p.programado() == null || ahora.isBefore(p.programado().aplicaDesde())) return p;
+        if (p.programado() == null || !p.programado().mandaEn(ahora)) return p;
         PlanesDeCuenta aplicada = p.aplicarProgramadoEn(ahora, UUID.randomUUID());
         if (!suscripciones.cambiar(p.activa(), aplicada.activa()))
             throw new DomainException("CAMBIO_CONCURRENTE", "Otro administrador cambió el plan de la cuenta mientras tanto: vuelve a mirarlo");
