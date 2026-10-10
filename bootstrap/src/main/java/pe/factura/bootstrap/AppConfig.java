@@ -333,7 +333,7 @@ public class AppConfig {
         return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia, tope);
     }
     @Bean TopeDeDocumentosRepository topeDeDocumentosRepository(JdbcTemplate jdbc) { return new JdbcTopeDeDocumentosRepository(jdbc); }
-    @Bean TopeDelPlan topeDelPlan(TenantRepository t, CambiarPlanDeCuentaUseCase planes, TopeDeDocumentosRepository ocupados) { return new TopeDelPlanService(t, planes, ocupados); }
+    @Bean TopeDelPlan topeDelPlan(TenantRepository t, CambiarPlanDeCuentaUseCase planes, TopeDeDocumentosRepository ocupados, Clock clock) { return new TopeDelPlanService(t, planes, ocupados, clock); }
     @Bean IdempotenciaRepository idempotenciaRepository(JdbcTemplate jdbc) { return new JdbcIdempotenciaRepository(jdbc); }
     @Bean LimpiarIdempotenciaUseCase limpiarIdempotencia(IdempotenciaRepository i, Clock clock) { return new LimpiarIdempotenciaService(i, clock); }
     @Bean LimpiezaIdempotenciaWorker limpiezaIdempotenciaWorker(LimpiarIdempotenciaUseCase l) { return new LimpiezaIdempotenciaWorker(l); }
