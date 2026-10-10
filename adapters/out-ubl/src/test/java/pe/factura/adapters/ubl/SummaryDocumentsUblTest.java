@@ -112,9 +112,12 @@ class SummaryDocumentsUblTest {
         new JaxpXsdValidator().validarBaja(conFirma(xml), b);
     }
 
-    /** 274-H1: la boleta que pasó el envío individual va en el mismo resumen, con su línea en estado 1 (catálogo 19: adicionar). */
+    /**
+     * 274-H1: la boleta que pasó el envío individual va en el mismo resumen, con su línea en estado 1 (catálogo 19: adicionar). Del 12, el 18 es su 6.º día: el
+     * envío individual llega hasta el 5.º (#290).
+     */
     @Test void unaBoletaInformadaPorPrimeraVezVaEnEstadoUno() throws Exception {
-        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null),
+        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 12), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null),
                 List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(46, "20100066603"); c.firmar("H", "k");
         ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(c, 4, HOY);

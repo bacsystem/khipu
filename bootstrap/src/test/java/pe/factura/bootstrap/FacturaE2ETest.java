@@ -142,7 +142,7 @@ class FacturaE2ETest {
     }
 
     /**
-     * 274-H1: una boleta firmada hace 5 días y nunca enviada ya no va sola con sendBill (1079): al enviarla, khipu la informa en un resumen diario con su
+     * 274-H1: una boleta firmada hace 6 días (el envío individual llega al 5.º, #290) y nunca enviada ya no va sola con sendBill (1079): al enviarla, khipu la informa en un resumen diario con su
      * línea en estado 1, firmado de verdad y validado contra el XSD, y al aceptarse la boleta queda ACEPTADO.
      */
     @Test void boletaPasadaDelEnvioIndividualSeInformaEnElResumenDiario(WireMockRuntimeInfo wm) throws Exception {
@@ -154,12 +154,12 @@ class FacturaE2ETest {
         String apiKey = provisionarTenant();
         HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
         assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"03\",\"serie\":\"B001\",\"correlativo_inicial\":0}", h), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        String haceCinco = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).minusDays(5).toString();
+        String haceSeis = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).minusDays(6).toString();
         ResponseEntity<Map> emitida = http.postForEntity("/v1/facturas", new HttpEntity<>("""
             {"serie":"B001","fecha_emision":"%s","moneda":"PEN","enviar_automatico":false,
              "cliente":{"tipo_doc":"1","num_doc":"12345678","razon_social":"JUAN PEREZ"},
              "items":[{"codigo":"P001","descripcion":"Pan","unidad":"NIU","cantidad":10,"precio_unitario":0.50,"tipo_afectacion_igv":"10"}]}
-            """.formatted(haceCinco), h), Map.class);
+            """.formatted(haceSeis), h), Map.class);
         assertThat(emitida.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         String id = (String) ((Map<?, ?>) emitida.getBody().get("datos")).get("id");
 
