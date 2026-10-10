@@ -8,6 +8,7 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.plan.Limite;
 import pe.factura.domain.plan.Plan;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -29,12 +30,13 @@ public class TopeDelPlanService implements TopeDelPlan {
     private final TenantRepository tenants;
     private final CambiarPlanDeCuentaUseCase planes;
     private final TopeDeDocumentosRepository ocupados;
+    private final Clock clock;
 
     @Override
     public void exigirDisponible(UUID tenantId, LocalDate fechaEmision) {
         Optional<UUID> cuenta = tenants.cuentaDe(tenantId);
         if (cuenta.isEmpty()) return;
-        Plan plan = planes.plan(cuenta.get()).plan();
+        Plan plan = planes.plan(cuenta.get()).planQueMandaEn(clock.instant());
         Limite tope = plan.limites().documentosAlMes();
         if (tope.ilimitado()) return;
         YearMonth mes = YearMonth.from(fechaEmision);

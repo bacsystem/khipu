@@ -1,6 +1,7 @@
 "use client";
 
 import { PlusIcon, Settings2Icon, Trash2Icon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, type FormEvent, useEffect, useRef, useState } from "react";
 import { Alerta } from "@/components/feedback/alerta";
@@ -117,6 +118,8 @@ export function NuevoComprobanteForm({
   const [unidades, setUnidades] = useState<EntradaCatalogo[] | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 328-H2: el diálogo avisa del tope con lo aceptado, pero el backend cuenta también lo que está en camino; si igual responde LIMITE_PLAN, se lleva al plan.
+  const [enElTope, setEnElTope] = useState(false);
   // Clave de idempotencia (#115): la misma mientras se reintente el mismo contenido, otra si el contenido cambia.
   const intento = useRef<Intento | null>(null);
 
@@ -193,6 +196,7 @@ export function NuevoComprobanteForm({
     // verlo, así que solo importa si la emisión falla y el formulario sigue en pantalla. Cosmético, no de datos.
     (document.activeElement as HTMLElement | null)?.blur();
     setError(null);
+    setEnElTope(false);
     const items = lineasCompletas.map((l) => ({
       descripcion: l.descripcion.trim(),
       unidad: l.unidad,
@@ -252,6 +256,7 @@ export function NuevoComprobanteForm({
     if (res.estado !== "exito" || !res.datos) {
       // El backend devuelve el detalle de SUNAT en `mensaje`; el código genérico solo dice la familia del error.
       setError(res.mensaje ?? mensajeError(res.codigo));
+      setEnElTope(res.codigo === "LIMITE_PLAN");
       return;
     }
     onEmitido?.();
@@ -503,7 +508,18 @@ export function NuevoComprobanteForm({
 
         {error ? (
           <div ref={alertaRef} tabIndex={-1} className="outline-none">
-            <Alerta tono="error">{error}</Alerta>
+            <Alerta
+              tono="error"
+              accion={
+                enElTope ? (
+                  <Link href="/cuenta/plan" onClick={onCancelar} className={ACCION_SECUNDARIA}>
+                    Ver plan y consumo
+                  </Link>
+                ) : undefined
+              }
+            >
+              {error}
+            </Alerta>
           </div>
         ) : null}
       </div>

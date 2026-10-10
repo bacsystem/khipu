@@ -26,7 +26,15 @@ public interface CambiarPlanDeCuentaUseCase {
     record Programado(Plan plan, CambioDePlan cambio) {}
 
     /** El plan de una cuenta hoy: cuál, en qué estado de pago está y si hay una bajada esperando. {@code plan} lleva los límites que mandan hoy. */
-    record PlanDeCuenta(UUID cuentaId, Plan plan, Suscripcion suscripcion, EstadoSuscripcion estado, Instant hastaCuandoCubre, Programado programado) {}
+    record PlanDeCuenta(UUID cuentaId, Plan plan, Suscripcion suscripcion, EstadoSuscripcion estado, Instant hastaCuandoCubre, Programado programado) {
+        /**
+         * El plan que manda en {@code ahora}: el de la suscripción, o la bajada programada si ya llegó su fecha aunque el worker que la aplica todavía no haya
+         * pasado (como {@code PlanesDeCuenta.planVigenteEn}). Para lo que se controla al momento, como el tope de documentos (#18).
+         */
+        public Plan planQueMandaEn(Instant ahora) {
+            return programado != null && !ahora.isBefore(programado.cambio().aplicaDesde()) ? programado.plan() : plan;
+        }
+    }
 
     /**
      * Lo que pasaría con un cambio, para mostrarlo antes de confirmar: cuándo entra y qué pasa con el consumo del mes en curso. {@code superaElLimite}: el consumo de

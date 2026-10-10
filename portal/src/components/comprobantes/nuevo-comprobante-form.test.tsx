@@ -75,6 +75,36 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     expect(emisiones(fetch)[0].cliente).toMatchObject({ tipo_doc: "1", num_doc: "12345678", razon_social: "Juan Pérez" });
   });
 
+  /**
+   * 328-H2: el diálogo avisa del tope con lo aceptado, pero el backend también cuenta lo que está en camino. Si la emisión llega igual al tope (429
+   * LIMITE_PLAN), el error lleva a Plan y consumo en vez de dejar solo el texto.
+   */
+  it("si el backend responde LIMITE_PLAN muestra su mensaje y el enlace a Plan y consumo", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ estado: "error", datos: null, codigo: "LIMITE_PLAN", mensaje: "Llegaste al tope de 30 documentos de octubre de 2026 de tu plan Gratis", errores: null }),
+            { status: 429 },
+          ),
+        ),
+      ),
+    );
+    const cancelar = vi.fn();
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} onCancelar={cancelar} />);
+
+    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    linea("Pan", "5");
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/Llegaste al tope de 30 documentos/));
+    const enlace = screen.getByRole("link", { name: "Ver plan y consumo" });
+    expect(enlace).toHaveAttribute("href", "/cuenta/plan");
+    fireEvent.click(enlace);
+    expect(cancelar).toHaveBeenCalled();
+  });
+
   it("la factura sigue pidiendo RUC y usa solo series F", () => {
     stubEmision();
     render(<NuevoComprobanteForm tipo="factura" series={SERIES} tasaIgv={18} />);
