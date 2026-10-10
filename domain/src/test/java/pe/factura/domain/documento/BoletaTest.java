@@ -124,16 +124,16 @@ class BoletaTest {
     }
 
     /**
-     * 274-H1, segunda parte: pasado el envío individual (3 días) SUNAT todavía recibe la boleta, pero solo en un resumen diario, hasta el séptimo día
+     * 274-H1, segunda parte: pasado el envío individual (5 días, #290) SUNAT todavía recibe la boleta, pero solo en un resumen diario, hasta el séptimo día
      * (guía del resumen diario). En esa ventana no está fuera de plazo: se informa en un resumen de alta.
      */
-    @Test void entreElCuartoYElSeptimoDiaSoloVaEnUnResumenDiario() {
-        Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(5), "PEN", "0101", dni, items("10")).crear(clock);
-        assertThat(c.soloPorResumen(hoy.minusDays(2))).as("dentro del envío individual").isFalse();
+    @Test void entreElSextoYElSeptimoDiaSoloVaEnUnResumenDiario() {
+        Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(6), "PEN", "0101", dni, items("10")).crear(clock);
+        assertThat(c.soloPorResumen(hoy.minusDays(1))).as("5.º día: dentro del envío individual").isFalse();
         assertThat(c.soloPorResumen(hoy)).isTrue();
         assertThat(c.fueraDePlazo(hoy)).isFalse();
-        assertThat(c.fueraDePlazo(hoy.plusDays(3))).as("pasado el séptimo día").isTrue();
-        assertThat(c.soloPorResumen(hoy.plusDays(3))).isFalse();
+        assertThat(c.fueraDePlazo(hoy.plusDays(2))).as("pasado el séptimo día").isTrue();
+        assertThat(c.soloPorResumen(hoy.plusDays(2))).isFalse();
 
         Comprobante factura = Comprobante.factura(tenant, "F001", hoy, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), items("10")).crear(clock);
         assertThat(factura.soloPorResumen(hoy.plusDays(5))).as("una factura nunca va en un resumen").isFalse();

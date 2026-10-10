@@ -54,7 +54,7 @@ class ComunicacionBajaTest {
      * mismo resumen que la baja (RC, ticket, CDR), con otra condición.
      */
     @Test void unaBoletaPasadaDelEnvioIndividualSeInformaEnUnResumenDeAlta() {
-        Comprobante boleta = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 4L, LocalDate.of(2026, 9, 15), EstadoDocumento.ERROR_ENVIO,
+        Comprobante boleta = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 4L, LocalDate.of(2026, 9, 14), EstadoDocumento.ERROR_ENVIO,
                 RECEPTOR, List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).rehidratar();
 
         ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(boleta, 2, CLOCK);
@@ -62,7 +62,7 @@ class ComunicacionBajaTest {
         assertThat(alta.condicion()).isEqualTo(ComunicacionBaja.Condicion.ALTA);
         assertThat(alta.condicion().codigo()).isEqualTo("1");
         assertThat(alta.identificador()).isEqualTo("RC-20260920-2");
-        assertThat(alta.fechaReferencia()).isEqualTo(LocalDate.of(2026, 9, 15));
+        assertThat(alta.fechaReferencia()).isEqualTo(LocalDate.of(2026, 9, 14));
         assertThat(ComunicacionBaja.crear(aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 18)), 1, "Error", CLOCK).condicion())
                 .isEqualTo(ComunicacionBaja.Condicion.BAJA);
     }
@@ -71,6 +71,9 @@ class ComunicacionBajaTest {
         Comprobante delDia = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 4L, LocalDate.of(2026, 9, 19), EstadoDocumento.FIRMADO,
                 RECEPTOR, List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).rehidratar();
         assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(delDia, 1, CLOCK)).as("todavía va sola con sendBill").extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
+        Comprobante quintoDia = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 5L, LocalDate.of(2026, 9, 15), EstadoDocumento.FIRMADO,
+                RECEPTOR, List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).rehidratar();
+        assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(quintoDia, 1, CLOCK)).as("5.º día: todavía va sola (#290)").extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
         Comprobante aceptada = aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 15));
         assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(aceptada, 1, CLOCK)).as("ya la tiene SUNAT").extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
         Comprobante factura = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 4L, LocalDate.of(2026, 9, 15), EstadoDocumento.FIRMADO,
