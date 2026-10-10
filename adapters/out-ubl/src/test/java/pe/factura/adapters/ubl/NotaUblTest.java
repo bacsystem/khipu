@@ -115,6 +115,35 @@ class NotaUblTest {
         new JaxpXsdValidator().validar(firmaFalsa(xmlNd), TipoDocumento.NOTA_DEBITO);
     }
 
+    /**
+     * #306: en DebitNote el XSD UBL 2.1 pone PrepaidPayment y AllowanceCharge **antes** que Delivery, DeliveryTerms, PaymentMeans y PaymentTerms (al revés que en
+     * Invoice). Una ND sobre una exportación (DeliveryTerms con el Incoterm, o Delivery con el país de uso; la nota los hereda de la factura) con un cargo o descuento global fallaba el XSD. La NC tiene
+     * el orden de Invoice y nunca lleva PrepaidPayment: la nota no copia anticipos.
+     */
+    @Test void unaNotaSobreUnaExportacionConCargoYDescuentoGlobalCumpleElXsd() throws Exception {
+        Receptor exterior = new Receptor("0", "US123456789", "ACME IMPORTS LLC", "1200 Main St, Miami", "US");
+        List<Item> items = List.of(new Item("CAF", "Café verde en grano", "KGM", new BigDecimal("100"), new BigDecimal("4.50"), TipoAfectacionIgv.EXPORTACION));
+        Comprobante nd = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_DEBITO, "FD01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.FACTURA, "F001", 13, "11", "Ajuste de exportación"), exterior, items)
+                .moneda("USD").tipoOperacion("0200").exportacion(new Exportacion("FOB", null))
+                .cargos(List.of(Cargo.monto("50", new BigDecimal("30.00")))).descuentoGlobal(Descuento.monto(new BigDecimal("10.00"), false))
+                .crear(FreemarkerUblGeneratorTest.CLOCK);
+        nd.asignarNumero(13, "20100066603");
+        Comprobante nc = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.FACTURA, "F001", 13, "07", "Devolución parcial"), exterior, items)
+                .moneda("USD").tipoOperacion("0200").exportacion(new Exportacion("FOB", null))
+                .cargos(List.of(Cargo.monto("50", new BigDecimal("30.00")))).descuentoGlobal(Descuento.monto(new BigDecimal("10.00"), false))
+                .crear(FreemarkerUblGeneratorTest.CLOCK);
+        nc.asignarNumero(14, "20100066603");
+
+        String xmlNd = new FreemarkerUblGenerator().generar(nd, FreemarkerUblGeneratorTest.tenant());
+        String xmlNc = new FreemarkerUblGenerator().generar(nc, FreemarkerUblGeneratorTest.tenant());
+
+        assertThat(valor(parsear(xmlNd), "count(/dn:DebitNote/cac:AllowanceCharge)")).isEqualTo("2");
+        assertThat(valor(parsear(xmlNd), "count(/dn:DebitNote/cac:DeliveryTerms)")).isEqualTo("1");
+        assertThat(valor(parsear(xmlNc), "count(/cn:CreditNote/cac:PrepaidPayment)")).isEqualTo("0");
+        new JaxpXsdValidator().validar(firmaFalsa(xmlNd), TipoDocumento.NOTA_DEBITO);
+        new JaxpXsdValidator().validar(firmaFalsa(xmlNc), TipoDocumento.NOTA_CREDITO);
+    }
+
     @Test void notaDeCreditoConCuotasCorregidas_motivo13() throws Exception {
         Nota nota13 = new Nota(TipoDocumento.FACTURA, "F001", 123, "13", "Se reprograman las cuotas");
         FormaPago fp = FormaPago.credito(new BigDecimal("2410.00"), List.of(new FormaPago.Cuota(new BigDecimal("2410.00"), LocalDate.of(2026, 12, 1))));

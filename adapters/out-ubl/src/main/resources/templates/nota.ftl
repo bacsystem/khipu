@@ -43,9 +43,17 @@
   </cac:BillingReference>
 <@u.guiasYOtrosDocumentos/>
 <@u.firmaYPartes/>
+<#-- #306: DebitNote pone los cargos y descuentos globales (AllowanceCharge) antes que Delivery/DeliveryTerms y PaymentMeans/PaymentTerms; CreditNote, después
+     (orden del XSD UBL 2.1). Ninguna nota lleva PrepaidPayment: no copian anticipos de la factura. -->
+<#if n.raiz == "DebitNote">
+<@u.cargosYDescuentosGlobales/>
+<@u.exportacion/>
+<@u.pagos contado=false/>
+<#else>
 <@u.exportacion/>
 <@u.pagos contado=false/>
 <@u.cargosYDescuentosGlobales/>
+</#if>
 <@u.impuestos/>
 <@u.totalMonetario elemento=n.total/>
 <@u.lineas elemento=n.linea cantidad=n.cantidad/>
