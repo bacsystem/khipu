@@ -316,25 +316,8 @@
       </#if>
     </cac:Delivery>
     </#if>
-    <#if it.item().tieneDescuento()>
-    <cac:AllowanceCharge>
-      <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
-      <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${it.item().descuento().codigoSunat(false)}</cbc:AllowanceChargeReasonCode>
-      <#if it.descuentoFactor().isPresent()><cbc:MultiplierFactorNumeric>${it.descuentoFactor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
-      <cbc:Amount currencyID="${c.moneda()}">${it.descuento()}</cbc:Amount>
-      <cbc:BaseAmount currencyID="${c.moneda()}">${it.baseBruta()}</cbc:BaseAmount>
-    </cac:AllowanceCharge>
-    </#if>
-    <#-- Cargos de línea (catálogo 53: 47 afecta la base del IGV, 48 no). Reglas 3114, 3073, 3052, 2955, 3053, 3290. -->
-    <#list it.cargos() as cg>
-    <cac:AllowanceCharge>
-      <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
-      <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${cg.codigo()}</cbc:AllowanceChargeReasonCode>
-      <#if cg.factor().isPresent()><cbc:MultiplierFactorNumeric>${cg.factor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
-      <cbc:Amount currencyID="${c.moneda()}">${cg.monto()}</cbc:Amount>
-      <cbc:BaseAmount currencyID="${c.moneda()}">${cg.base()}</cbc:BaseAmount>
-    </cac:AllowanceCharge>
-    </#list>
+    <#-- #305: InvoiceLine lleva los descuentos y cargos de línea antes del TaxTotal; CreditNoteLine y DebitNoteLine, después (orden del XSD UBL 2.1). -->
+    <#if elemento == "InvoiceLine"><@cargosDeLinea it/></#if>
     <cac:TaxTotal>
       <cbc:TaxAmount currencyID="${c.moneda()}">${it.totalTributos()}</cbc:TaxAmount>
       <#-- ISC (2000): base = valor de venta (01/02) o PVP sugerido × cantidad (03), TierRange = sistema (catálogo 08); reglas 3108, 2373. -->
@@ -373,6 +356,7 @@
         </cac:TaxCategory>
       </cac:TaxSubtotal>
     </cac:TaxTotal>
+    <#if elemento != "InvoiceLine"><@cargosDeLinea it/></#if>
     <cac:Item>
       <cbc:Description>${it.item().descripcion()}</cbc:Description>
       <#if it.item().codigo()??><cac:SellersItemIdentification><cbc:ID>${it.item().codigo()}</cbc:ID></cac:SellersItemIdentification></#if>
@@ -401,4 +385,27 @@
     <cac:Price><cbc:PriceAmount currencyID="${c.moneda()}">${it.valorUnitario()?string["0.0000000000"]}</cbc:PriceAmount></cac:Price>
   </cac:${elemento}>
   </#list>
+</#macro>
+
+<#-- Descuento (00/01) y cargos (47/48) de una línea. -->
+<#macro cargosDeLinea it>
+    <#if it.item().tieneDescuento()>
+    <cac:AllowanceCharge>
+      <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
+      <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${it.item().descuento().codigoSunat(false)}</cbc:AllowanceChargeReasonCode>
+      <#if it.descuentoFactor().isPresent()><cbc:MultiplierFactorNumeric>${it.descuentoFactor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
+      <cbc:Amount currencyID="${c.moneda()}">${it.descuento()}</cbc:Amount>
+      <cbc:BaseAmount currencyID="${c.moneda()}">${it.baseBruta()}</cbc:BaseAmount>
+    </cac:AllowanceCharge>
+    </#if>
+    <#-- Cargos de línea (catálogo 53: 47 afecta la base del IGV, 48 no). Reglas 3114, 3073, 3052, 2955, 3053, 3290. -->
+    <#list it.cargos() as cg>
+    <cac:AllowanceCharge>
+      <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
+      <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${cg.codigo()}</cbc:AllowanceChargeReasonCode>
+      <#if cg.factor().isPresent()><cbc:MultiplierFactorNumeric>${cg.factor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
+      <cbc:Amount currencyID="${c.moneda()}">${cg.monto()}</cbc:Amount>
+      <cbc:BaseAmount currencyID="${c.moneda()}">${cg.base()}</cbc:BaseAmount>
+    </cac:AllowanceCharge>
+    </#list>
 </#macro>

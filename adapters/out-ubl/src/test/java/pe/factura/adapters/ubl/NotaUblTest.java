@@ -89,6 +89,32 @@ class NotaUblTest {
                 .isEqualTo("TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE");
     }
 
+    /**
+     * #305: en CreditNoteLine y DebitNoteLine el XSD UBL 2.1 pide TaxTotal **antes** que AllowanceCharge (al revés que InvoiceLine). Una nota con descuento o cargo
+     * por ítem fallaba la validación XSD después de haber tomado número.
+     */
+    @Test void unaNotaConDescuentoYCargoPorItemCumpleElXsd() throws Exception {
+        List<Item> items = List.of(
+                new Item("A", "Con descuento", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, Descuento.porcentaje(new BigDecimal("10"), true)),
+                new Item("B", "Con flete", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(Cargo.porcentaje("47", new BigDecimal("10")))));
+        Nota devolucion = new Nota(TipoDocumento.FACTURA, "F001", 123, "07", "Devolución por ítem");
+        Comprobante nc = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), devolucion, new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), items)
+                .crear(FreemarkerUblGeneratorTest.CLOCK);
+        nc.asignarNumero(11, "20100066603");
+        Nota aumento = new Nota(TipoDocumento.FACTURA, "F001", 123, "02", "Aumento en el valor");
+        Comprobante nd = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_DEBITO, "FD01", LocalDate.of(2026, 9, 13), aumento, new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), items)
+                .crear(FreemarkerUblGeneratorTest.CLOCK);
+        nd.asignarNumero(12, "20100066603");
+
+        String xmlNc = new FreemarkerUblGenerator().generar(nc, FreemarkerUblGeneratorTest.tenant());
+        String xmlNd = new FreemarkerUblGenerator().generar(nd, FreemarkerUblGeneratorTest.tenant());
+
+        assertThat(valor(parsear(xmlNc), "/cn:CreditNote/cac:CreditNoteLine[1]/cac:AllowanceCharge/cbc:AllowanceChargeReasonCode")).isEqualTo("00");
+        assertThat(valor(parsear(xmlNd), "/dn:DebitNote/cac:DebitNoteLine[2]/cac:AllowanceCharge/cbc:AllowanceChargeReasonCode")).isEqualTo("47");
+        new JaxpXsdValidator().validar(firmaFalsa(xmlNc), TipoDocumento.NOTA_CREDITO);
+        new JaxpXsdValidator().validar(firmaFalsa(xmlNd), TipoDocumento.NOTA_DEBITO);
+    }
+
     @Test void notaDeCreditoConCuotasCorregidas_motivo13() throws Exception {
         Nota nota13 = new Nota(TipoDocumento.FACTURA, "F001", 123, "13", "Se reprograman las cuotas");
         FormaPago fp = FormaPago.credito(new BigDecimal("2410.00"), List.of(new FormaPago.Cuota(new BigDecimal("2410.00"), LocalDate.of(2026, 12, 1))));
