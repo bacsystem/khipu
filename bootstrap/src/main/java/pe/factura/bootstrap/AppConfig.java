@@ -161,7 +161,7 @@ public class AppConfig {
                         ## Estados del comprobante
                         `RECIBIDO` (validado y numerado) → `FIRMADO` (XML firmado; se envía en la misma llamada salvo `enviar_automatico: false`) →
                         `ENVIADO` → `ACEPTADO` (CDR con código 0) · `ACEPTADO_CON_OBS` (aceptado, observaciones 4xxx: revíselas) ·
-                        `RECHAZADO` (SUNAT lo rechazó: corrija y vuelva a emitir; el número puede reutilizarse).
+                        `RECHAZADO` (SUNAT lo rechazó: corrija y emita un comprobante nuevo, con otro número; el rechazado conserva el suyo).
                         `ERROR_ENVIO`: SUNAT no estuvo disponible; khipu reintenta con espera creciente hasta %d veces (~6 h entre intentos al final)
                         y puede forzarse con `POST /v1/facturas/{id}/enviar`. `INVALIDO`: el XML no pasó la validación local. `ANULADO`: baja aceptada.
 
@@ -171,8 +171,9 @@ public class AppConfig {
                         `422` datos inválidos o regla de negocio · `500` error interno (incluye `trace_id`).
 
                         ## Plazos SUNAT
-                        Una factura debe llegar a SUNAT dentro de los **3 días calendario** siguientes a su emisión. Emita el mismo día y vigile
-                        los `ERROR_ENVIO`.
+                        Una factura debe llegar a SUNAT dentro de los **3 días calendario** siguientes a su emisión (2108). Una boleta va sola
+                        hasta el **5.º día**; el 6.º y el 7.º khipu la informa en un resumen diario, y pasado el 7.º también, fuera de plazo
+                        (SUNAT la acepta con la observación 4443). Emita el mismo día y vigile los `ERROR_ENVIO`.
 
                         ## Códigos y catálogos
                         Los valores de `tipo_afectacion_igv`, `unidad`, `tipo_operacion`, `tipo_doc`, etc. son códigos oficiales de SUNAT:

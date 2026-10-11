@@ -83,3 +83,31 @@ test("la guía y la tabla de errores cuentan el plazo de la baja desde la emisi�
   await page.goto("/developers/errores");
   await expect(page.getByText(/pasaron más de 7 días calendario desde su emisión, en hora de Lima \(2957; no se cuentan desde la aceptación de SUNAT\)/)).toBeVisible();
 });
+
+/**
+ * #304: la guía era solo de facturas. Ahora trae los casos de boleta (con DNI, sin documento hasta S/ 700, alta tardía y baja en el resumen
+ * diario), los errores de plazo y de receptor por tipo de comprobante, y ya no dice que un RECHAZADO puede reutilizar su número: el índice
+ * único (tenant, tipo, serie, número) lo impide y SUNAT da por utilizado el número de un rechazo 2000–3999.
+ */
+test("la guía documenta la boleta y los errores distinguen el tipo de comprobante", async ({ page }) => {
+  await page.goto("/developers/guia");
+  await expect(page.getByRole("heading", { name: "Guía de emisión de facturas y boletas" })).toBeVisible();
+  const conDni = page.locator("#boleta-dni");
+  await expect(conDni.getByRole("heading", { name: "Boleta a un comprador con DNI" })).toBeVisible();
+  await expect(conDni.getByText(/"tipo_doc": "1", "num_doc": "45678912"/)).toBeVisible();
+  const sinDocumento = page.locator("#boleta-sin-documento");
+  await expect(sinDocumento.getByText(/"razon_social": "CLIENTES VARIOS"/)).toBeVisible();
+  await expect(sinDocumento.getByText(/S\/ 700\.00/).first()).toBeVisible();
+  const altaTardia = page.locator("#boleta-alta-tardia");
+  await expect(altaTardia.getByText(/"condicion": "ALTA"/)).toBeVisible();
+  await expect(altaTardia.getByText(/SUNAT no la rechaza: la observa con/)).toBeVisible();
+  const baja = page.locator("#boleta-baja");
+  await expect(baja.getByText(/"identificador": "RC-20260918-1"/)).toBeVisible();
+  await expect(page.getByText(/puede reutilizar el número/)).toHaveCount(0);
+
+  await page.goto("/developers/errores");
+  await expect(page.getByText(/Boleta: cualquier documento del catálogo 06/)).toBeVisible();
+  await expect(page.getByText(/NC 10 y ND 03 de boleta: más de 5, 1079/)).toBeVisible();
+  await expect(page.getByText(/factura o nota de factura pasado el 3\.er día \(2108\)/)).toBeVisible();
+  await expect(page.getByText(/puede reutilizar el número/)).toHaveCount(0);
+});
