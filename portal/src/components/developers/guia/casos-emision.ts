@@ -558,10 +558,10 @@ X-Api-Key: fk_TU_API_KEY`,
   ]
 }`,
     notas: [
-      "La serie `B###` se registra con el tipo **03** (`POST /v1/series` o la página Series; registrarla con otro tipo responde `422 SERIE_INVALIDA`, y emitir con una serie no registrada, `422 SERIE_NO_CONFIGURADA`). Ítems, precios con IGV, afectaciones, descuentos, cargos, gratuitas, ISC/ICBPER e IVAP funcionan igual que en la factura; la respuesta es el mismo comprobante con `tipo: \"03\"`.",
+      "La serie `B###` se registra con el tipo **03** (`POST /v1/series` o la página Series; registrarla como factura, `01`, responde `422 SERIE_INVALIDA`, y emitir con una serie `B` que no está registrada como boleta —sin registrar, o registrada como nota `07`/`08`— responde `422 SERIE_NO_CONFIGURADA`). Ítems, precios con IGV, afectaciones, descuentos, cargos, gratuitas, ISC/ICBPER e IVAP funcionan igual que en la factura; la respuesta es el mismo comprobante con `tipo: \"03\"`.",
       "`cliente`: cualquier documento del catálogo 06. DNI (`1`) de **8 dígitos** (4207), RUC (`6`) con dígito verificador (2017), carné de extranjería (`4`), pasaporte (`7`) y los demás hasta 15 caracteres sin espacios (4208). SUNAT solo observa 4207/4208; khipu los rechaza (`422 RECEPTOR_INVALIDO`) para no emitir un comprador mal identificado. `razon_social` es el nombre del comprador: de 3 a 1500 caracteres sin contar los espacios de los extremos (2022).",
       "Lo que la boleta no admite: venta al crédito (`FORMA_PAGO_INVALIDA`), retención del IGV (`RETENCION_INVALIDA`), anticipos (`ANTICIPO_INVALIDO`) ni exportación: `tipo_operacion` solo `0101` (por defecto), `0113` (NRUS), `1001`–`1004` (detracción) o `2001` (percepción); otro responde `422 TIPO_OPERACION_INVALIDO` (3206). Todo se rechaza antes de consumir número.",
-      "**Plazos** (días calendario desde `fecha_emision`): khipu la envía **sola** (`sendBill`, con CDR propio) en la misma llamada, como una factura, hasta el **5.º día**; el 6.º y el 7.º la informa en un resumen diario (ver el caso siguiente). Una `fecha_emision` de más de 7 días atrás responde `422 FECHA_INVALIDA` (1079).",
+      "**Plazos** (días calendario desde `fecha_emision`): khipu la envía **sola** (`sendBill`, con CDR propio) en la misma llamada, como una factura, hasta el **5.º día**; el 6.º y el 7.º la informa en un resumen diario (ver «Boleta enviada después del 5.º día»). Una `fecha_emision` de más de 7 días atrás responde `422 FECHA_INVALIDA` (1079).",
       "Se anula con `POST /v1/facturas/{id}/baja` (ver «Anular una boleta») y se corrige con una nota `BC##`/`BD##` (ver «Notas de crédito y débito sobre una boleta»).",
     ],
     disponible: true,
@@ -708,12 +708,15 @@ X-Api-Key: fk_TU_API_KEY
 
 // respuesta 201 (extracto)
 {
-  "identificador": "RC-20260918-1",
-  "comprobante": "B001-87",
-  "tipo_comprobante": "03",
-  "fecha_referencia": "2026-09-17",
-  "condicion": "BAJA",
-  "estado": "ACEPTADA"
+  "estado": "exito",
+  "datos": {
+    "identificador": "RC-20260918-1",
+    "comprobante": "B001-87",
+    "tipo_comprobante": "03",
+    "fecha_referencia": "2026-09-17",
+    "condicion": "BAJA",
+    "estado": "ACEPTADA"
+  }
 }`,
     notas: [
       "Mismo endpoint, mismas reglas y mismo ciclo que la baja de una factura: **ACEPTADO** o **ACEPTADO_CON_OBS** (si no, `422 BAJA_INVALIDA` con 2663), emitida hace **7 días calendario o menos** contados en hora de Lima desde `fecha_emision` (2957), `motivo` de 3 a 100 caracteres (2315) y una sola baja en curso.",
