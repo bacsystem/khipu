@@ -26,6 +26,12 @@ public record Receptor(String tipoDoc, String numDoc, String razonSocial, String
     /** Tipo y número de documento de un comprador sin identificar en una boleta de hasta S/ 700 (guía del resumen diario, campos 12 y 13). */
     public static final String SIN_DOCUMENTO = "-";
 
+    /**
+     * Nombre convenido para el comprador {@link #SIN_DOCUMENTO} (#303): el nodo del adquirente va siempre (2014/2015) y su nombre tiene al
+     * menos 3 caracteres (2022, error desde 2027-01-01 en Boleta2_0 y en el resumen diario). El portal lo propone al elegir «sin documento».
+     */
+    public static final String NOMBRE_SIN_DOCUMENTO = "CLIENTES VARIOS";
+
     /** Catálogo 06 completo: lo que admite el receptor de una boleta además de {@link #SIN_DOCUMENTO}. */
     static final Set<String> DOCUMENTOS_BOLETA = Set.of("0", "1", "4", "6", "7", "A", "B", "C", "D", "E", "F", "G", "H");
 
@@ -44,7 +50,7 @@ public record Receptor(String tipoDoc, String numDoc, String razonSocial, String
             if (!esRuc()) throw new DomainException("RECEPTOR_INVALIDO", "2017 - La factura requiere un receptor con RUC (tipo_doc 6, 11 dígitos)");
             Ruc.exigirValido(numDoc, "RECEPTOR_INVALIDO", "2017 - Receptor");
         }
-        exigirPaisYNombre();
+        exigirPaisYNombre("La razón social del receptor");
     }
 
     /**
@@ -65,14 +71,18 @@ public record Receptor(String tipoDoc, String numDoc, String razonSocial, String
         } else if (numDoc == null || !numDoc.matches("\\S{1,15}")) {
             throw new DomainException("RECEPTOR_INVALIDO", "4208 - El número de documento del comprador tiene hasta 15 caracteres sin espacios");
         }
-        exigirPaisYNombre();
+        exigirPaisYNombre("El nombre del comprador");
     }
 
-    private void exigirPaisYNombre() {
+    /**
+     * 2021/2022 se cuentan sin los espacios de los extremos: «  JP  » es un nombre de 2 caracteres aunque SUNAT llegara a contar los espacios,
+     * así que nunca se queda corto frente a ella. Solo al emitir: lo ya guardado se rehidrata tal cual (#303).
+     */
+    private void exigirPaisYNombre(String queNombre) {
         if (pais != null && !Exportacion.paisValido(pais))
             throw new DomainException("RECEPTOR_INVALIDO", "El país del receptor debe ser un código ISO 3166-1 de dos letras (catálogo 04): " + pais);
         if (razonSocial == null || razonSocial.strip().length() < 3 || razonSocial.strip().length() > 1500 || razonSocial.chars().anyMatch(Character::isISOControl))
-            throw new DomainException("RECEPTOR_INVALIDO", "2022 - La razón social del receptor tiene de 3 a 1500 caracteres, sin saltos de línea");
+            throw new DomainException("RECEPTOR_INVALIDO", "2022 - " + queNombre + " tiene de 3 a 1500 caracteres, sin saltos de línea");
     }
 
     private void exigirValidoParaExportacion(String tipoOperacion) {

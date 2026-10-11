@@ -2327,7 +2327,15 @@ export const handlers = [
     const { tipo_doc: tipoDoc, num_doc: numDoc } = body.cliente ?? { tipo_doc: "", num_doc: "" };
     if (!boleta && !/^\d{11}$/.test(numDoc ?? "")) return fail(422, "RECEPTOR_INVALIDO", "2017 - El RUC del adquirente debe tener 11 dígitos");
     if (boleta && tipoDoc === "1" && !/^\d{8}$/.test(numDoc)) return fail(422, "RECEPTOR_INVALIDO", "4207 - El DNI del comprador tiene 8 dígitos");
-    if (boleta && tipoDoc === "-" && numDoc !== "-") return fail(422, "RECEPTOR_INVALIDO", "2802 - Sin documento (tipo_doc «-»), el número de documento también es «-»");
+    // Sin código, como `Receptor` (274-H3): Boleta2_0 no tiene regla propia para el comprador sin documento.
+    if (boleta && tipoDoc === "-" && numDoc !== "-") return fail(422, "RECEPTOR_INVALIDO", "Sin documento (tipo_doc «-»), el número de documento también es «-»");
+    // #303: la 2022 de `Receptor`, contada sin los espacios de los extremos; en boleta rige igual sin documento.
+    // En blanco ni llega al dominio: lo frena el `@NotBlank` de `ClienteDto`.
+    const nombreCliente = (body.cliente?.razon_social ?? "").trim();
+    if (!nombreCliente)
+      return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: { "cliente.razonSocial": ["no debe estar vacío"] } }, { status: 422 });
+    if (nombreCliente.length < 3 || nombreCliente.length > 1500 || /[\x00-\x1F\x7F-\x9F]/.test(body.cliente?.razon_social ?? ""))
+      return fail(422, "RECEPTOR_INVALIDO", `2022 - ${boleta ? "El nombre del comprador" : "La razón social del receptor"} tiene de 3 a 1500 caracteres, sin saltos de línea`);
     if (!body.items?.length) return fail(422, "ITEMS_REQUERIDOS", "Un comprobante necesita al menos un ítem");
     // #292: el plazo del backend (`PlazoEnvio`): ni futura ni más atrás que 3 días (factura, 2108) o 7 (boleta, 1079).
     if (body.fecha_emision > hoyLima()) return fail(422, "FECHA_INVALIDA", "La fecha de emisión no puede ser futura");

@@ -70,7 +70,14 @@ const DOCUMENTOS_BOLETA = [
 ] as const;
 
 const SIN_DOCUMENTO = "-";
+/** Espeja `Receptor.NOMBRE_SIN_DOCUMENTO`: cumple la regla 2022 (al menos 3 caracteres), error en SUNAT desde 2027-01-01. */
 const COMPRADOR_SIN_DOCUMENTO = "CLIENTES VARIOS";
+/**
+ * Regla 2022 tal como la cuenta `Receptor`: al menos 3 caracteres sin los espacios de los extremos (#303). `minLength`
+ * cuenta los espacios, así que «  JP  » pasaba el formulario para volver como 422; el tope de 1500 lo pone `maxLength`.
+ */
+const PATRON_NOMBRE = "\\s*\\S.+\\S\\s*";
+const TITULO_NOMBRE = "Al menos 3 caracteres, sin contar los espacios de los extremos";
 /** Espeja `Comprobante.TOPE_BOLETA_SIN_DOCUMENTO`: hasta este total (en soles) la boleta puede no identificar al comprador. */
 const TOPE_SIN_DOCUMENTO = 700;
 
@@ -352,8 +359,11 @@ export function NuevoComprobanteForm({
                 onChange={(e) => setRazonSocial(e.target.value)}
                 placeholder="Juan Pérez"
                 required
+                // `Receptor` exige de 3 a 1500 caracteres también en boleta, incluso sin documento (regla 2022).
                 minLength={3}
                 maxLength={1500}
+                pattern={PATRON_NOMBRE}
+                title={TITULO_NOMBRE}
                 className={CAMPO_DENSO}
               />
             </Campo>
@@ -391,6 +401,8 @@ export function NuevoComprobanteForm({
               // `Receptor` exige de 3 a 1500 caracteres (regla 2022).
               minLength={3}
               maxLength={1500}
+              pattern={PATRON_NOMBRE}
+              title={TITULO_NOMBRE}
               className={CAMPO_DENSO}
             />
           </Campo>
