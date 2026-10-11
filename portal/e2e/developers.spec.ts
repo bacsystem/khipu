@@ -44,4 +44,7 @@ test("la guía, los catálogos y los errores se navegan desde la cabecera", asyn
   await page.getByRole("link", { name: "Errores y estados" }).first().click();
   await expect(page.getByRole("heading", { name: "Errores y estados" })).toBeVisible();
   await expect(page.getByText("FORMA_PAGO_INVALIDA", { exact: true })).toBeVisible();
+  // #293: los plazos y las reglas de las notas sobre una boleta también están en la tabla de errores.
+  await expect(page.getByText(/nota de boleta, como la boleta/).first()).toBeVisible();
+  await expect(page.getByText(/NC 04, 05 u 08 sobre una boleta \(4367/)).toBeVisible();
 });

@@ -151,8 +151,8 @@ class EmitirNotaServiceTest {
     }
 
     /**
-     * La NC 10 de una boleta no va en el resumen diario (guía, p. 19): emitida el 13 sin enviar, el 19 (6.º día) ya no tiene canal y se cierra con el 1079, sin
-     * el «emita otro comprobante» de la factura (#290: lo de boleta no se reemplaza emitiendo de nuevo).
+     * La NC 10 de una boleta no va en el resumen diario (guía, p. 19): emitida el 13 sin enviar, el 19 (6.º día) ya no tiene canal y se cierra con el 1079.
+     * A diferencia de la boleta (#290: su fecha es la de la venta y no se reemplaza), una nota sí se vuelve a emitir con fecha vigente: el mensaje lo dice.
      */
     @Test void laNotaDeCredito10DeUnaBoletaVenceAlQuintoDia() {
         Comprobante b = boletaAceptada();
@@ -162,7 +162,7 @@ class EmitirNotaServiceTest {
         java.time.Clock dia19 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-19T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
         EnviarDocumentoService tarde = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, dia19);
         assertThatThrownBy(() -> tarde.enviar(tenantId, nc.id())).extracting("codigo", "message")
-                .satisfies(t -> assertThat(t.get(0)).isEqualTo("FUERA_DE_PLAZO"), t -> assertThat((String) t.get(1)).contains("1079").doesNotContain("Emita"));
+                .satisfies(t -> assertThat(t.get(0)).isEqualTo("FUERA_DE_PLAZO"), t -> assertThat((String) t.get(1)).contains("1079").contains("Emita"));
         assertThat(comprobantes.buscar(tenantId, nc.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
     }
 
