@@ -913,6 +913,15 @@ function anularMock(f: Comprobante) {
   f.estado_documento = "ANULADO";
 }
 
+/**
+ * El CDR de una baja aceptada, como lo redacta SUNAT: el resumen diario (RC) «ha sido aceptado», la comunicación de baja (RA) «ha sido aceptada». Uno solo
+ * para la aceptada en el acto y la que llega al consultar el ticket: eran dos copias y la del POST decía «La Comunicacion de baja …, ha sido aceptado» (352-H2).
+ */
+function cdrBajaAceptada(identificador: string): NonNullable<Baja["cdr"]> {
+  const descripcion = identificador.startsWith("RC") ? `El Resumen diario ${identificador}, ha sido aceptado` : `La Comunicacion de baja ${identificador}, ha sido aceptada`;
+  return { codigo: "0", descripcion, observaciones: [] };
+}
+
 export const handlers = [
   // Solo bajo API_MOCKING: `globalSetup` de Playwright lo llama al empezar cada corrida. Sin esto la suite no era
   // idempotente contra un dev server reutilizado (`reuseExistingServer` en local): cada corrida gastaba el tope 3286
@@ -2760,7 +2769,7 @@ export const handlers = [
     const baja: Baja = {
       id: nuevoId("b"), identificador, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
       motivo, condicion: "BAJA", fuera_de_plazo: false, estado: simulada, ticket: "1758200000123",
-      cdr: simulada === "ACEPTADA" ? { codigo: "0", descripcion: `${deBoleta ? "El Resumen diario" : "La Comunicacion de baja"} ${identificador}, ha sido aceptado`, observaciones: [] }
+      cdr: simulada === "ACEPTADA" ? cdrBajaAceptada(identificador)
         : simulada === "RECHAZADA" ? { codigo: "2323", descripcion: "Existe documento ya informado anteriormente en una comunicacion de baja", observaciones: [] } : null,
       intentos: 1, ultimo_error: simulada === "ENVIADA" ? "98 - SUNAT sigue procesando el ticket 1758200000123" : null,
     };
@@ -2775,7 +2784,7 @@ export const handlers = [
     if (!baja) return fail(404, "NO_ENCONTRADO", "Comunicación de baja no encontrada");
     if (baja.estado === "ENVIADA") {
       baja.estado = "ACEPTADA";
-      baja.cdr = { codigo: "0", descripcion: baja.identificador.startsWith("RC") ? `El Resumen diario ${baja.identificador}, ha sido aceptado` : `La Comunicacion de baja ${baja.identificador}, ha sido aceptada`, observaciones: [] };
+      baja.cdr = cdrBajaAceptada(baja.identificador);
       baja.ultimo_error = null;
       baja.intentos += 1;
       for (const lista of db.facturasPorEmpresa.values()) for (const f of lista) if (f.baja?.id === baja.id) anularMock(f);

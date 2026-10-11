@@ -88,9 +88,16 @@ test("emite una boleta a un comprador sin documento y no deja pasar una de más 
   await page.getByTestId("dar-de-baja").click();
   const confirmacion = page.getByTestId("baja-confirmacion");
   await expect(confirmacion).toContainText("Resumen diario ante SUNAT");
-  await confirmacion.getByLabel("Motivo").fill("Se cobró dos veces");
+  // «[ENVIADA]»: SUNAT responde con ticket y la anulación llega al consultarlo (`GET /v1/bajas/{id}`). La aceptada en el acto ya la cubren la NC sobre
+  // boleta y la factura (comprobantes.spec.ts); este camino no tenía test (352-H1).
+  await confirmacion.getByLabel("Motivo").fill("[ENVIADA] Se cobró dos veces");
   await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
-  await expect(page.getByTestId("baja")).toContainText(/Resumen diario RC-\d{8}-1/);
+  const panel = page.getByTestId("baja");
+  await expect(panel).toContainText(/Resumen diario RC-\d{8}-1/);
+  await expect(panel).toContainText("Enviada: SUNAT la está procesando");
+  await panel.getByRole("button", { name: "Actualizar estado" }).click();
+  await expect(panel).toContainText("Aceptada: comprobante anulado");
+  await expect(panel).toContainText(/El Resumen diario RC-\d{8}-1, ha sido aceptado/);
   // #286: el historial también nombra el resumen diario, no una comunicación de baja.
   const historial = page.getByTestId("historial");
   await expect(historial).toContainText("Anulación aceptada por SUNAT en el resumen diario");
