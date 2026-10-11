@@ -2743,7 +2743,7 @@ export const handlers = [
     const identificador = `${deBoleta ? "RC" : "RA"}-${hoy}-1`;
     const baja: Baja = {
       id: nuevoId("b"), identificador, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
-      motivo, condicion: "BAJA", estado: simulada, ticket: "1758200000123",
+      motivo, condicion: "BAJA", fuera_de_plazo: false, estado: simulada, ticket: "1758200000123",
       cdr: simulada === "ACEPTADA" ? { codigo: "0", descripcion: `${deBoleta ? "El Resumen diario" : "La Comunicacion de baja"} ${identificador}, ha sido aceptado`, observaciones: [] }
         : simulada === "RECHAZADA" ? { codigo: "2323", descripcion: "Existe documento ya informado anteriormente en una comunicacion de baja", observaciones: [] } : null,
       intentos: 1, ultimo_error: simulada === "ENVIADA" ? "98 - SUNAT sigue procesando el ticket 1758200000123" : null,
@@ -2771,6 +2771,29 @@ export const handlers = [
     const empresaId = request.headers.get("x-empresa") ?? "";
     const factura = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === params.id);
     if (!factura) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
+    const dias = diasEntre(factura.fecha_emision, hoyLima());
+    const deBoleta = factura.tipo === "03" || factura.nota?.tipo_afectado === "03";
+    const sinResumen = (factura.tipo === "07" && factura.nota?.motivo === "10") || (factura.tipo === "08" && factura.nota?.motivo === "03");
+    if (deBoleta && !sinResumen && dias > PLAZO_ENVIO.boleta.envioIndividual) {
+      // Como `EnviarDocumentoService` → `DarDeBajaService.informar`: pasado el envío individual la boleta va en su propio resumen de alta (RC); pasado el
+      // 7.º día, fuera de plazo (#331), y SUNAT la acepta con la observación 4443. La respuesta trae ese resumen en `baja`.
+      const fueraDePlazo = dias > PLAZO_ENVIO.boleta.dias;
+      const identificador = `RC-${hoyLima().replace(/-/g, "")}-1`;
+      const observaciones = fueraDePlazo ? ["4443 - El comprobante fue informado fuera del plazo establecido"] : [];
+      const cdr = { codigo: "0", descripcion: `El Resumen diario ${identificador}, ha sido aceptado`, observaciones };
+      const alta: Baja = {
+        id: nuevoId("b"), identificador, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
+        motivo: fueraDePlazo ? "Pasó el 7.º día: se informa en el resumen diario fuera de plazo (SUNAT la observa con 4443)" : "Pasó el envío individual: se informa en el resumen diario",
+        condicion: "ALTA", fuera_de_plazo: fueraDePlazo, estado: "ACEPTADA", ticket: "1758200000124", cdr, intentos: 1, ultimo_error: null,
+      };
+      db.bajas.set(alta.id, alta);
+      factura.baja = alta;
+      factura.estado_documento = fueraDePlazo ? "ACEPTADO_CON_OBS" : "ACEPTADO";
+      factura.cdr = cdr;
+      factura.ultimo_error = null;
+      factura.enlaces = { ...factura.enlaces, cdr: `/v1/facturas/${factura.id}/cdr` };
+      return ok(factura);
+    }
     factura.estado_documento = "ACEPTADO";
     factura.cdr = { codigo: "0", descripcion: "Aceptado", observaciones: [] };
     factura.enlaces = { ...factura.enlaces, cdr: `/v1/facturas/${factura.id}/cdr` };

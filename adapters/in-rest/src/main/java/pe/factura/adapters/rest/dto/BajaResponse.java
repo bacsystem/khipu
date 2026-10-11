@@ -16,6 +16,7 @@ public record BajaResponse(
         @Schema(example = "2026-09-15", description = "Fecha de emisión del comprobante tal como se comunicó a SUNAT (cbc:ReferenceDate, reglas 2375/2671)") LocalDate fechaReferencia,
         @Schema(example = "Error en el RUC del cliente") String motivo,
         @Schema(example = "BAJA", description = "`BAJA`: anula el comprobante. `ALTA`: informa en el resumen diario una boleta que pasó el envío individual (SUNAT ya no la recibe sola, 1079); al aceptarse, la boleta queda `ACEPTADO`") String condicion,
+        @Schema(example = "false", description = "Solo en un `ALTA`: `true` si la boleta se informó pasado el 7.º día desde su emisión. SUNAT no la rechaza: la acepta con la observación 4443 «El comprobante fue informado fuera del plazo establecido» y la boleta queda `ACEPTADO_CON_OBS`. Una `BAJA` nunca sale fuera de plazo (2957)") boolean fueraDePlazo,
         @Schema(example = "ACEPTADA", description = "`GENERADA` (firmada, sin enviar) → `ENVIADA` (SUNAT devolvió ticket, en proceso) → `ACEPTADA` / `RECHAZADA`; `ERROR_ENVIO` cuando SUNAT no respondió y khipu reintentará") String estado,
         @Schema(example = "1789768174685", description = "Ticket del proceso en SUNAT (sendSummary), o `null`") String ticket,
         @Schema(description = "Constancia de SUNAT: `0` aceptada, 2000–3999 rechazada") ComprobanteResponse.CdrDto cdr,
@@ -23,7 +24,7 @@ public record BajaResponse(
         @Schema(example = "null") String ultimoError) {
 
     public static BajaResponse de(ComunicacionBaja b) {
-        return new BajaResponse(b.id(), b.identificador(), b.serie() + "-" + b.numero(), b.tipoComprobante().codigo(), b.fechaGeneracion(), b.fechaReferencia(), b.motivo(), b.condicion().name(), b.estado().name(), b.ticket(),
+        return new BajaResponse(b.id(), b.identificador(), b.serie() + "-" + b.numero(), b.tipoComprobante().codigo(), b.fechaGeneracion(), b.fechaReferencia(), b.motivo(), b.condicion().name(), b.fueraDePlazo(), b.estado().name(), b.ticket(),
                 b.cdr() == null ? null : new ComprobanteResponse.CdrDto(b.cdr().codigo(), b.cdr().descripcion(), b.cdr().observaciones()), b.intentos(), b.ultimoError());
     }
 }

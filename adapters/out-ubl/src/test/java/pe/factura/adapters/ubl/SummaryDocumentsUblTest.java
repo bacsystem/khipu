@@ -221,6 +221,29 @@ class SummaryDocumentsUblTest {
     }
 
     /**
+     * #331: pasado el 7.º día la boleta se informa igual (del 10, el 18 es su 8.º día). Mismo XML que en plazo: el ReferenceDate es su emisión, y es ese «más de
+     * 7 días antes de la recepción» lo que SUNAT observa con 4443 (RC fila 14), sin rechazar. Es un RC propio, con esta sola línea: no arrastra boletas en plazo.
+     */
+    @Test void unaBoletaFueraDePlazoVaSolaEnSuResumenConSuFechaDeEmision() throws Exception {
+        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 10), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null),
+                List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(51, "20100066603"); c.firmar("H", "k");
+        ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(c, 5, HOY);
+
+        String xml = new FreemarkerUblGenerator().generarBaja(alta, c, FreemarkerUblGeneratorTest.tenant());
+
+        Document d = parsear(xml);
+        assertThat(alta.fueraDePlazo()).isTrue();
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/cbc:ID", d)).isEqualTo("RC-20260918-5");
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/cbc:ReferenceDate", d)).isEqualTo("2026-09-10");
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/cbc:IssueDate", d)).isEqualTo("2026-09-18");
+        assertThat(xpath().evaluate("count(/rc:SummaryDocuments/sac:SummaryDocumentsLine)", d)).isEqualTo("1");
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/sac:SummaryDocumentsLine/cbc:ID", d)).isEqualTo("B001-51");
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/sac:SummaryDocumentsLine/cac:Status/cbc:ConditionCode", d)).isEqualTo("1");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), alta);
+    }
+
+    /**
      * 275-H3: una boleta toda exonerada va sin valor de venta gravado (2254 lo prohíbe en cero) pero con el nodo del IGV en 0.00, que 2278 exige. SUNAT lo
      * acepta en la práctica; que lo acepte en beta se confirma en la homologación (#32).
      */

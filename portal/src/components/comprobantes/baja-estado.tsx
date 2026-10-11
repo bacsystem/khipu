@@ -100,6 +100,12 @@ export function BajaEstado({ baja }: { baja: Baja }) {
           <span className="font-mono text-foreground/80">{baja.cdr ? `${baja.cdr.codigo} · ${baja.cdr.descripcion}` : (baja.ultimo_error ?? "—")}{!baja.cdr && baja.intentos > 1 ? ` (${baja.intentos} intentos)` : ""}</span>
         </div>
       </div>
+      {alta && baja.fuera_de_plazo ? (
+        <p className="mt-3 text-[12px] text-warning-foreground" data-testid="aviso-fuera-de-plazo">
+          Informada fuera de plazo: pasó el 7.º día desde la emisión. SUNAT no la rechaza, la acepta con la observación 4443 «El comprobante fue informado fuera del plazo
+          establecido».
+        </p>
+      ) : null}
       {pendiente ? (
         <p className="mt-3 text-[12px] text-muted-foreground">
           {alta

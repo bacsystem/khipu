@@ -140,9 +140,15 @@ public class FacturaController {
     @PostMapping("/{id}/enviar")
     @Operation(summary = "Enviar (o reintentar) a SUNAT", description = """
             Envía un comprobante `FIRMADO` (emitido con `enviar_automatico: false`) o reintenta uno en `ERROR_ENVIO` sin
-            esperar al reintento automático. Un comprobante `ACEPTADO`, `RECHAZADO` o `ANULADO` responde `409 ESTADO_NO_ENVIABLE`.""")
+            esperar al reintento automático. Un comprobante `ACEPTADO`, `RECHAZADO` o `ANULADO` responde `409 ESTADO_NO_ENVIABLE`.
+            Una boleta (o nota sobre boleta) que pasó el envío individual se informa en un resumen diario: la respuesta lo trae en `baja`
+            (`condicion: ALTA`). Pasado el 7.º día va igual, con `baja.fuera_de_plazo: true`, y SUNAT la acepta con la observación 4443
+            (`ACEPTADO_CON_OBS`). Una factura o nota de factura fuera de plazo responde `409 FUERA_DE_PLAZO`.""")
     public ApiResponse<ComprobanteResponse> enviar(HttpServletRequest req, @PathVariable UUID id) {
-        return ApiResponse.ok(ComprobanteResponse.de(enviar.enviar(TenantActual.id(req), id), BASE));
+        UUID t = TenantActual.id(req);
+        Comprobante c = enviar.enviar(t, id);
+        // #331: el resumen en que se informó (si fue por uno) viaja con el envío, con su `fuera_de_plazo`: es lo que explica un ACEPTADO_CON_OBS por 4443.
+        return ApiResponse.ok(ComprobanteResponse.de(c, BASE, null, bajas.deComprobante(t, id).stream().findFirst().orElse(null)));
     }
 
     @GetMapping("/{id}/xml")

@@ -505,4 +505,20 @@ class EmitirComprobanteServiceTest {
         assertThat(new ControlarPlazoEnvioService(comprobantes, Fakes.UOW, dia16).marcarVencidos()).isEmpty();
         assertThat(comprobantes.buscar(tenantId, otra.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FIRMADO);
     }
+
+    /**
+     * #331: el barrido ya no cierra una boleta pasado el 7.º día. SUNAT recibe el alta tardía en un resumen diario (la observa con 4443), así que sigue
+     * enviable y se informa al enviarla; FUERA_DE_PLAZO queda para la factura y sus notas.
+     */
+    @Test void elBarridoNoCierraUnaBoletaPasadoElSeptimoDia() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Comprobante boleta = service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false));
+        Comprobante factura = service.emitirFactura(tenantId, cmd(null, false));
+        java.time.Clock dia30 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-30T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+
+        assertThat(new ControlarPlazoEnvioService(comprobantes, Fakes.UOW, dia30).marcarVencidos()).extracting(Comprobante::id).containsExactly(factura.id());
+        assertThat(comprobantes.buscar(tenantId, boleta.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FIRMADO);
+    }
 }

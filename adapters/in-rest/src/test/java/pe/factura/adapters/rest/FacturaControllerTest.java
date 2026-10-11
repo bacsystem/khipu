@@ -276,6 +276,29 @@ class FacturaControllerTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.datos.estado_documento").value("ACEPTADO"));
     }
 
+    /**
+     * #331: una boleta enviada pasado el 7.º día se informa en un resumen diario fuera de plazo. La respuesta del envío trae ese resumen (`baja`, condición ALTA)
+     * con `fuera_de_plazo: true`, para que el integrador sepa por qué queda ACEPTADO_CON_OBS (4443) sin consultar aparte.
+     */
+    @Test void enviarUnaBoletaFueraDePlazoAvisaQueSeInformoFueraDePlazo() throws Exception {
+        Clock dia10 = Clock.fixed(Instant.parse("2026-09-20T15:00:00Z"), ZoneId.of("America/Lima"));
+        Comprobante b = Comprobante.persistido(UUID.randomUUID(), tenant, TipoDocumento.BOLETA, "B001", 7L, LocalDate.of(2026, 9, 10), EstadoDocumento.FIRMADO,
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)))
+                .firma("H", "20100066603-03-B001-7", "k.xml").rehidratar();
+        ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(b, 1, dia10);
+        b.informarEnResumen(alta.identificador(), alta.fueraDePlazo());
+        b.aplicarCdr(new Cdr("0", "El Resumen diario RC-20260920-1, ha sido aceptado", List.of("4443 - El comprobante fue informado fuera del plazo establecido")), "r.zip");
+        when(enviar.enviar(tenant, b.id())).thenReturn(b);
+        when(bajas.deComprobante(tenant, b.id())).thenReturn(List.of(alta));
+        mvc.perform(post("/v1/facturas/{id}/enviar", b.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.estado_documento").value("ACEPTADO_CON_OBS"))
+                .andExpect(jsonPath("$.datos.cdr.observaciones[0]").value("4443 - El comprobante fue informado fuera del plazo establecido"))
+                .andExpect(jsonPath("$.datos.baja.identificador").value("RC-20260920-1"))
+                .andExpect(jsonPath("$.datos.baja.condicion").value("ALTA"))
+                .andExpect(jsonPath("$.datos.baja.fuera_de_plazo").value(true));
+    }
+
     @Test void listarDevuelveListaYTotalEnHeader() throws Exception {
         when(consultar.listar(eq(tenant), eq(ConsultarComprobanteUseCase.Filtro.NINGUNO), eq(1), eq(20))).thenReturn(List.of(aceptado(tenant)));
         when(consultar.contar(tenant, ConsultarComprobanteUseCase.Filtro.NINGUNO)).thenReturn(126L);

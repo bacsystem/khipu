@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { admiteBaja, admiteNotas, esDeBoleta, normalizarComprobante, totalDesdeHeaders, type Baja, type Comprobante } from "./facturas";
+import { admiteBaja, admiteNotas, esDeBoleta, normalizarComprobante, seInformaFueraDePlazo, totalDesdeHeaders, type Baja, type Comprobante } from "./facturas";
 
 /**
  * `admiteNotas` es la única puerta al flujo irreversible de notas (la ficha ofrece «Emitir nota» y `/nota` deja
@@ -52,6 +52,34 @@ describe("esDeBoleta", () => {
     expect(esDeBoleta({ tipo: "01", nota: null })).toBe(false);
     expect(esDeBoleta({ tipo: "07", nota: { tipo_afectado: "01" } })).toBe(false);
     expect(esDeBoleta({ tipo: "07" })).toBe(false);
+  });
+});
+
+/**
+ * #331: pasado el 7.º día una boleta firmada o con el envío fallido no vence: al enviarla khipu la informa en un resumen diario fuera de plazo y SUNAT la
+ * observa (4443). La ficha lo avisa antes de enviar. Espeja `Comprobante.informaFueraDePlazo` del backend.
+ */
+describe("seInformaFueraDePlazo", () => {
+  type C = Parameters<typeof seInformaFueraDePlazo>[0];
+  const c = (tipo: string, estado_documento: string, nota: C["nota"] = null): C => ({ tipo, estado_documento: estado_documento as C["estado_documento"], fecha_limite_envio: "2026-10-07", nota });
+  const HOY = "2026-10-08";
+
+  it("una boleta o una nota B pendiente de envío, pasado su plazo", () => {
+    expect(seInformaFueraDePlazo(c("03", "FIRMADO"), HOY)).toBe(true);
+    expect(seInformaFueraDePlazo(c("03", "ERROR_ENVIO"), HOY)).toBe(true);
+    expect(seInformaFueraDePlazo(c("07", "FIRMADO", { tipo_afectado: "03", motivo: "07" }), HOY)).toBe(true);
+  });
+
+  it("no el último día del plazo, ni lo que SUNAT ya tiene", () => {
+    expect(seInformaFueraDePlazo(c("03", "FIRMADO"), "2026-10-07")).toBe(false);
+    for (const estado of ["ENVIADO", "ACEPTADO", "ACEPTADO_CON_OBS", "RECHAZADO", "FUERA_DE_PLAZO"]) expect(seInformaFueraDePlazo(c("03", estado), HOY), estado).toBe(false);
+  });
+
+  it("no una factura, su nota, ni la NC 10 / ND 03 de boleta: esas no van en el resumen y vencen", () => {
+    expect(seInformaFueraDePlazo(c("01", "FIRMADO"), HOY)).toBe(false);
+    expect(seInformaFueraDePlazo(c("07", "FIRMADO", { tipo_afectado: "01", motivo: "01" }), HOY)).toBe(false);
+    expect(seInformaFueraDePlazo(c("07", "FIRMADO", { tipo_afectado: "03", motivo: "10" }), HOY)).toBe(false);
+    expect(seInformaFueraDePlazo(c("08", "FIRMADO", { tipo_afectado: "03", motivo: "03" }), HOY)).toBe(false);
   });
 });
 

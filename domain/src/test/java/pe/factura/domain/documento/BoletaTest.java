@@ -163,8 +163,10 @@ class BoletaTest {
         Comprobante c = Comprobante.boleta(tenant, "B001", hoy, "PEN", "0101", dni, items("10")).crear(clock);
         c.asignarNumero(1, "20100066603");
         c.firmar("h", "k");
-        c.marcarFueraDePlazo(hoy.plusDays(8));
-        assertThat(c.ultimoError()).startsWith("1079").contains("resumen diario").doesNotContain("Presentación fuera de fecha");
+        // #331: una boleta firmada nunca queda FUERA_DE_PLAZO: pasado el 7.º día se informa igual en el resumen diario (4443, observación).
+        assertThat(c.fueraDePlazo(hoy.plusDays(30))).isFalse();
+        assertThatThrownBy(() -> c.marcarFueraDePlazo(hoy.plusDays(8))).extracting("codigo").isEqualTo("TRANSICION_INVALIDA");
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.FIRMADO);
     }
 
     /**
@@ -176,8 +178,11 @@ class BoletaTest {
         assertThat(c.soloPorResumen(hoy.minusDays(1))).as("5.º día: dentro del envío individual").isFalse();
         assertThat(c.soloPorResumen(hoy)).isTrue();
         assertThat(c.fueraDePlazo(hoy)).isFalse();
-        assertThat(c.fueraDePlazo(hoy.plusDays(2))).as("pasado el séptimo día").isTrue();
-        assertThat(c.soloPorResumen(hoy.plusDays(2))).isFalse();
+        assertThat(c.informaFueraDePlazo(hoy.plusDays(1))).as("7.º día: en plazo").isFalse();
+        // #331: pasado el séptimo día sigue yendo en el resumen, fuera de plazo (4443), no queda sin canal.
+        assertThat(c.fueraDePlazo(hoy.plusDays(2))).as("pasado el séptimo día").isFalse();
+        assertThat(c.soloPorResumen(hoy.plusDays(2))).isTrue();
+        assertThat(c.informaFueraDePlazo(hoy.plusDays(2))).isTrue();
 
         Comprobante factura = Comprobante.factura(tenant, "F001", hoy, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), items("10")).crear(clock);
         assertThat(factura.soloPorResumen(hoy.plusDays(5))).as("una factura nunca va en un resumen").isFalse();
@@ -189,9 +194,31 @@ class BoletaTest {
         Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(5), "PEN", "0101", dni, items("10")).crear(clock);
         c.asignarNumero(1, "20100066603");
         c.firmar("h", "k");
-        c.informarEnResumen("RC-20260913-1");
+        c.informarEnResumen("RC-20260913-1", false);
         assertThat(c.estado()).isEqualTo(EstadoDocumento.ENVIADO);
+        assertThat(c.eventosPendientes().get(c.eventosPendientes().size() - 1).detalle()).doesNotContain("fuera de plazo");
         c.aplicarCdr(new Cdr("0", "El Resumen diario RC-20260913-1 ha sido aceptado", List.of()), "R.zip");
         assertThat(c.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+    }
+
+    /** #331: pasado el 7.º día va igual en el resumen. El historial lo dice, y SUNAT la acepta con la observación 4443 en vez de rechazarla. */
+    @Test void informadaFueraDePlazoQuedaAceptadaConLaObservacion4443() {
+        Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(7), "PEN", "0101", dni, items("10")).crear(clock);
+        c.asignarNumero(1, "20100066603");
+        c.firmar("h", "k");
+        c.informarEnResumen("RC-20260913-1", true);
+        assertThat(c.eventosPendientes().get(c.eventosPendientes().size() - 1).detalle()).contains("RC-20260913-1").contains("fuera de plazo").contains("4443");
+        c.aplicarCdr(new Cdr("0", "El Resumen diario RC-20260913-1 ha sido aceptado", List.of("4443 - El comprobante fue informado fuera del plazo establecido")), "R.zip");
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.ACEPTADO_CON_OBS);
+    }
+
+    /** Un CDR con ResponseCode 4000+ es una observación aunque no traiga notas (CdrDto: «4000+ aceptado con observaciones»): no se pierde como ACEPTADO a secas. */
+    @Test void unCdrConCodigoDeObservacionSinNotasQuedaAceptadoConObservaciones() {
+        Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(7), "PEN", "0101", dni, items("10")).crear(clock);
+        c.asignarNumero(1, "20100066603");
+        c.firmar("h", "k");
+        c.informarEnResumen("RC-20260913-1", true);
+        c.aplicarCdr(new Cdr("4443", "El comprobante fue informado fuera del plazo establecido", List.of()), "R.zip");
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.ACEPTADO_CON_OBS);
     }
 }

@@ -60,8 +60,13 @@ public class ComunicacionBaja {
     }
 
     /**
-     * Una boleta que ya no se puede enviar sola (pasó el envío individual, 1079) y todavía está dentro de los 7 días del resumen diario: se informa en
-     * uno, con su línea en estado 1 (alta). Solo si SUNAT todavía no la tiene: firmada o con el envío fallido.
+     * Una boleta que ya no se puede enviar sola (pasó el envío individual, 1079): se informa en un resumen diario, con su línea en estado 1 (alta). Solo si
+     * SUNAT todavía no la tiene: firmada o con el envío fallido. Hasta el 7.º día en plazo; después, fuera de plazo (#331): SUNAT no rechaza el alta tardía,
+     * la observa (4443), y la boleta queda ACEPTADO_CON_OBS. La NC 10 y la ND 03 de boleta no van en el resumen nunca.
+     * <p>
+     * Cada alta es un RC propio, con la línea de este solo comprobante (como cada baja): una boleta tardía nunca comparte resumen con una en plazo. Es lo que
+     * pide #331 mientras la observación 4443 no esté validada en e-beta: si SUNAT rechazara el resumen entero, solo cae la boleta tardía, que antes de #331
+     * nunca se informaba. Agruparlas en un mismo RC por fecha de emisión queda para después, separando siempre las tardías.
      */
     public static ComunicacionBaja altaEnResumen(Comprobante c, int correlativoDelDia, Clock clock) {
         LocalDate hoy = LocalDate.now(clock);
@@ -70,10 +75,13 @@ public class ComunicacionBaja {
         if (!c.estado().esEnviable())
             throw new DomainException("RESUMEN_INVALIDO", c.serie() + "-" + c.numero() + " está " + c.estado() + ": solo se informa en el resumen una boleta que SUNAT todavía no tiene");
         if (!c.soloPorResumen(hoy))
-            throw new DomainException("RESUMEN_INVALIDO", c.serie() + "-" + c.numero() + " no está entre el fin del envío individual y el séptimo día: va sola o ya venció");
+            throw new DomainException("RESUMEN_INVALIDO", c.serie() + "-" + c.numero() + " no va en el resumen diario: todavía va sola, o es una nota de crédito 10 o de débito 03");
         if (correlativoDelDia < 1) throw new DomainException("RESUMEN_INVALIDO", "El correlativo del día debe ser mayor que cero");
+        String motivo = c.informaFueraDePlazo(hoy)
+                ? "Pasó el 7.º día: se informa en el resumen diario fuera de plazo (SUNAT la observa con 4443)"
+                : "Pasó el envío individual: se informa en el resumen diario";
         return new ComunicacionBaja(UUID.randomUUID(), c.tenantId(), hoy, correlativoDelDia, c.id(), c.tipo(), true, c.serie(), c.numero(), c.fechaEmision(),
-                "Pasó el envío individual: se informa en el resumen diario", Condicion.ALTA, EstadoBaja.GENERADA);
+                motivo, Condicion.ALTA, EstadoBaja.GENERADA);
     }
 
     /**
@@ -111,6 +119,12 @@ public class ComunicacionBaja {
 
     /** Una boleta, o una nota que la modifica, se anula en el resumen diario (SummaryDocuments), no en una comunicación de baja (VoidedDocuments: 2308/2310). */
     public boolean resumenDiario() { return deBoleta; }
+
+    /**
+     * Un alta informada pasado el 7.º día desde la emisión (#331): SUNAT la acepta con la observación 4443 en vez de rechazarla. Sale de las fechas que ya
+     * guarda (la del RC y el cbc:ReferenceDate), así que vale también para las altas ya persistidas.
+     */
+    public boolean fueraDePlazo() { return alta() && ChronoUnit.DAYS.between(fechaReferencia, fechaGeneracion) > PlazoEnvio.DIAS_RESUMEN_DIARIO; }
 
     /** Si informa una boleta (alta) en vez de anularla. */
     public boolean alta() { return condicion == Condicion.ALTA; }
