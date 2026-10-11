@@ -8,7 +8,6 @@ import pe.factura.domain.plan.Plan;
 import pe.factura.domain.plan.Suscripcion;
 import pe.factura.domain.plataforma.ActorAdmin;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.UUID;
@@ -48,10 +47,8 @@ public interface CambiarPlanDeCuentaUseCase {
 
         /** Hasta cuándo se sirve en {@code ahora}, gracia incluida, con la misma regla que {@link #estadoEn}; nulo si no vence. */
         public Instant hastaCuandoCubreEn(Instant ahora) {
-            if (programado != null && programado.cambio().mandaEn(ahora)) {
-                CambioDePlan c = programado.cambio();
-                return c.venceEn() == null ? null : c.venceEn().plus(Duration.ofDays(c.diasDeGracia()));
-            }
+            if (programado != null && programado.cambio().mandaEn(ahora))
+                return Suscripcion.hastaCuandoCubre(programado.cambio().venceEn(), programado.cambio().diasDeGracia());
             return suscripcion.hastaCuandoCubre();
         }
     }

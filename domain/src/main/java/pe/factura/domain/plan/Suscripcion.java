@@ -24,7 +24,10 @@ public record Suscripcion(UUID id, UUID cuentaId, UUID planId, Instant iniciaEn,
     public boolean activa() { return terminaEn == null; }
 
     /** Hasta cuándo se sirve con este plan, gracia incluida; nulo si no vence. */
-    public Instant hastaCuandoCubre() { return venceEn == null ? null : venceEn.plus(Duration.ofDays(diasDeGracia)); }
+    public Instant hastaCuandoCubre() { return hastaCuandoCubre(venceEn, diasDeGracia); }
+
+    /** Hasta cuándo se sirve una suscripción con ese vencimiento y esa gracia (exclusivo); nulo si no vence. La única definición, como {@link #estadoDeLaVigente}. */
+    public static Instant hastaCuandoCubre(Instant venceEn, int diasDeGracia) { return venceEn == null ? null : venceEn.plus(Duration.ofDays(diasDeGracia)); }
 
     public EstadoSuscripcion estadoEn(Instant ahora) {
         if (!activa()) return EstadoSuscripcion.REEMPLAZADA;

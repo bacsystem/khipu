@@ -29,6 +29,14 @@ test("con el plan vencido, «Nuevo comprobante» lo dice y la emisión se rechaz
   });
   expect(respuesta.status).toBe(402);
   expect(respuesta.cuerpo.codigo).toBe("PLAN_VENCIDO");
+  // 345-H4: el mensaje, como el del backend, dice el último día servido (el anterior a `hasta_cuando_cubre`, exclusivo, en hora de Lima).
+  const ultimoDia = await page.evaluate(async () => {
+    const cubre: string = (await (await fetch("/api/proxy/cuenta")).json()).datos.plan.hasta_cuando_cubre;
+    return new Date(Date.parse(cubre) - 1).toLocaleDateString("es-PE", { timeZone: "America/Lima", day: "numeric", month: "long" });
+  });
+  expect(respuesta.cuerpo.mensaje).toBe(
+    `Tu plan Emprende venció y su gracia terminó el ${ultimoDia}: renuévalo para volver a emitir. Lo ya emitido se puede seguir consultando y dar de baja`,
+  );
 
   const series = await page.evaluate(async () => (await (await fetch("/api/proxy/series")).json()).datos);
   expect(series.find((s: { serie: string }) => s.serie === "F001").ultimo_numero).toBe(4);

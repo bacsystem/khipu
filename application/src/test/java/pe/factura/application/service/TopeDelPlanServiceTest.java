@@ -136,12 +136,43 @@ class TopeDelPlanServiceTest {
                 .hasMessageContaining("8 de octubre");
     }
 
-    /** Vencido no se emite aunque quede lugar en el tope ni aunque el plan no tenga tope; y no hace falta contar ni bloquear la cuenta para decirlo. */
-    @Test void vencidoNoEmiteAunqueQuedeLugarNiCuentaLoOcupado() {
+    /** Vencido no se emite aunque el plan no tenga tope. */
+    @Test void vencidoNoEmiteAunqueElPlanNoTengaTope() {
         tope = Limite.sinLimite();
         venceEn = Instant.parse("2026-10-01T05:00:00Z");
         assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE)).hasFieldOrPropertyWithValue("codigo", "PLAN_VENCIDO");
-        assertThat(bloqueadas).isEmpty();
+    }
+
+    /**
+     * 345-H1: el vencimiento se mira antes que el tope. Con lugar o en el tope, un plan vencido responde PLAN_VENCIDO (no LIMITE_PLAN, que le diría que vuelve a
+     * emitir el mes que viene) y no cuenta lo ocupado: no toma el bloqueo de la cuenta para un rechazo que no depende de él.
+     */
+    @Test void vencidoConLugarOEnElTopeDiceQueVencioSinContarLoOcupado() {
+        venceEn = Instant.parse("2026-10-01T05:00:00Z");
+
+        ocupados.put(cuentaId + "/2026-10", 3L);
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE)).as("con lugar").hasFieldOrPropertyWithValue("codigo", "PLAN_VENCIDO");
+
+        ocupados.put(cuentaId + "/2026-10", 30L);
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE)).as("en el tope").hasFieldOrPropertyWithValue("codigo", "PLAN_VENCIDO");
+
+        assertThat(bloqueadas).as("no se contó ni se bloqueó la cuenta").isEmpty();
+    }
+
+    /**
+     * 345-H3: si la bajada que ya manda también venció (el worker no la aplicó a tiempo), el mensaje dice cuándo terminó la gracia de esa suscripción nueva, no la de
+     * la vieja: pagada hasta el 10 de noviembre (00:00 de Lima) con 2 días de gracia, se sirvió hasta el 11.
+     */
+    @Test void unaBajadaQueYaMandaYVencioDiceSuPropioUltimoDia() {
+        venceEn = Instant.parse("2026-10-20T05:00:00Z");
+        Plan mini = new Plan(UUID.randomUUID(), "Mini", BigDecimal.TEN, new Limites(Limite.de(30), 1, Limite.de(1), Limite.de(1), 1), EstadoPlan.ACTIVO, false);
+        programado = new CambiarPlanDeCuentaUseCase.Programado(mini, new CambioDePlan(mini.id(), Instant.parse("2026-11-01T05:00:00Z"), Instant.parse("2026-11-10T05:00:00Z"), 2));
+
+        reloj = Clock.fixed(Instant.parse("2026-11-15T15:00:00Z"), ZoneId.of("America/Lima"));
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, LocalDate.of(2026, 11, 15)))
+                .hasFieldOrPropertyWithValue("codigo", "PLAN_VENCIDO")
+                .hasMessageContaining("Mini")
+                .hasMessageContaining("11 de noviembre");
     }
 
     /** Si ya llegó la fecha de una bajada programada, el estado de pago es el de esa suscripción nueva (aunque el worker todavía no la haya aplicado). */

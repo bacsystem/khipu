@@ -718,8 +718,12 @@ function rechazoPorTopeDelPlanMock(request: Request) {
   if (!c) return null;
   const suscripcion = planDeCuentaMock(c.cuenta);
   const plan = db.planesAdmin.find((p) => p.id === suscripcion.planId);
-  if (estadoDeSuscripcion(suscripcion) === "VENCIDA")
-    return fail(402, "PLAN_VENCIDO", `Tu plan ${plan?.nombre ?? ""} venció y su gracia terminó: renuévalo para volver a emitir. Lo ya emitido se puede seguir consultando y dar de baja`);
+  if (estadoDeSuscripcion(suscripcion) === "VENCIDA") {
+    // Como el backend: el último día servido es el anterior a «hasta cuándo cubre» (exclusivo), en hora de Lima.
+    const cubre = Date.parse(suscripcion.venceEn!) + suscripcion.diasDeGracia * 86_400_000;
+    const ultimoDia = new Date(cubre - 1).toLocaleDateString("es-PE", { timeZone: "America/Lima", day: "numeric", month: "long" });
+    return fail(402, "PLAN_VENCIDO", `Tu plan ${plan?.nombre ?? ""} venció y su gracia terminó el ${ultimoDia}: renuévalo para volver a emitir. Lo ya emitido se puede seguir consultando y dar de baja`);
+  }
   const tope = plan ? topeDeHoyMock(plan) : undefined;
   if (tope === undefined || consumoDelMesMock(c.cuenta) < tope) return null;
   return fail(429, "LIMITE_PLAN", `Llegaste al tope de ${tope} documentos del mes de tu plan ${plan!.nombre}. Se renueva el 1 del mes que viene; para emitir antes, pide un cambio de plan`);
