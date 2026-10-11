@@ -42,6 +42,9 @@ export function BajaEstado({ baja }: { baja: Baja }) {
   // identificador lo dice para las dos: una nota sobre boleta es 07/08, no 03.
   const resumenDiario = baja.identificador.startsWith("RC-");
   const que = baja.tipo_comprobante === "03" ? "boleta" : "nota";
+  // #338: una baja cuyo RC caducó con los 7 días ya vencidos no se envía; khipu la cierra RECHAZADA con 2957. No hay CDR de SUNAT detrás.
+  const vencida = !alta && baja.estado === "RECHAZADA" && baja.cdr?.codigo === "2957";
+  const etiqueta = vencida ? "Vencida: pasaron los 7 días para anularla" : (alta ? etiquetasAlta(que) : ETIQUETAS)[baja.estado];
 
   const actualizar = useCallback(async () => {
     setConsultando(true);
@@ -87,7 +90,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-4">
         <div className="flex flex-col gap-1">
           <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Estado</span>
-          <span className="font-semibold text-foreground" role="status">{(alta ? etiquetasAlta(que) : ETIQUETAS)[baja.estado]}</span>
+          <span className="font-semibold text-foreground" role="status">{etiqueta}</span>
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Motivo</span>
@@ -98,7 +101,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
           <span className="font-mono text-foreground/80">{baja.ticket ?? "—"}</span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{baja.cdr ? "CDR" : "Último intento"}</span>
+          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{vencida ? "Detalle" : baja.cdr ? "CDR" : "Último intento"}</span>
           <span className="font-mono text-foreground/80">{baja.cdr ? `${baja.cdr.codigo} · ${baja.cdr.descripcion}` : (baja.ultimo_error ?? "—")}{!baja.cdr && baja.intentos > 1 ? ` (${baja.intentos} intentos)` : ""}</span>
         </div>
       </div>

@@ -54,6 +54,19 @@ describe("BajaEstado", () => {
     expect(screen.queryByRole("button", { name: /actualizar estado/i })).toBeNull();
   });
 
+  /**
+   * #353-H4: una baja cuyo RC caducó (#338) cuando ya habían pasado los 7 días no se envía: khipu la cierra RECHAZADA con 2957. No la rechazó SUNAT ni hay CDR:
+   * decirlo así contradecía el detalle («no se envió»).
+   */
+  it("una baja vencida por plazo no dice que la rechazó SUNAT ni muestra un CDR", () => {
+    const cdr = { codigo: "2957", descripcion: "El plazo para dar de baja venció: el comprobante se emitió el 2026-12-24 (…) RC-20261231-1 no se envió", observaciones: [] };
+    render(<BajaEstado baja={{ ...BASE, identificador: "RC-20261231-1", comprobante: "B001-7", tipo_comprobante: "03", condicion: "BAJA", estado: "RECHAZADA", ticket: null, cdr }} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Vencida: pasaron los 7 días para anularla");
+    expect(screen.getByTestId("baja")).not.toHaveTextContent("Rechazada por SUNAT");
+    expect(screen.getByTestId("baja")).not.toHaveTextContent("CDR");
+    expect(screen.getByTestId("baja")).toHaveTextContent("no se envió");
+  });
+
   it("el alta de una nota sobre boleta dice que la nota quedó informada, no la boleta", () => {
     render(<BajaEstado baja={{ ...BASE, identificador: "RC-20260918-4", comprobante: "BC01-2", tipo_comprobante: "07", condicion: "ALTA", estado: "ENVIADA", cdr: null }} />);
     expect(screen.getByTestId("baja")).toHaveTextContent("Resumen diario RC-20260918-4 (alta)");

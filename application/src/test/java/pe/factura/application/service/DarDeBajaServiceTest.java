@@ -514,6 +514,84 @@ class DarDeBajaServiceTest {
         assertThat(outbox.filas).singleElement().extracting(Fakes.Outbox.Fila::agregadoId).isEqualTo(primera.id());
     }
 
+    private DarDeBajaService alReloj(Clock clock, pe.factura.application.port.out.BajaRepository repo) {
+        return new DarDeBajaService(repo, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, clock);
+    }
+
+    /** Como la base: cada proceso lee y guarda su propia copia de la fila, no la instancia que tiene el otro. */
+    static final class BajasPorCopia implements pe.factura.application.port.out.BajaRepository {
+        final Fakes.Bajas datos;
+        BajasPorCopia(Fakes.Bajas datos) { this.datos = datos; }
+        static ComunicacionBaja copia(ComunicacionBaja b) {
+            return ComunicacionBaja.rehidratar(b.id(), b.tenantId(), b.fechaGeneracion(), b.correlativo(), b.comprobanteId(), b.tipoComprobante(), b.deBoleta(), b.serie(),
+                    b.numero(), b.fechaReferencia(), b.motivo(), b.condicion(), b.estado(), b.ticket(), b.xmlKey(), b.cdrKey(), b.cdr(), b.intentos(), b.ultimoError());
+        }
+        public void guardar(ComunicacionBaja b) { datos.guardar(copia(b)); }
+        public java.util.Optional<ComunicacionBaja> buscar(UUID t, UUID id) { return datos.buscar(t, id).map(BajasPorCopia::copia); }
+        public List<ComunicacionBaja> deComprobante(UUID t, UUID c) { return datos.deComprobante(t, c).stream().map(BajasPorCopia::copia).toList(); }
+        public int siguienteCorrelativo(UUID t, LocalDate f) { return datos.siguienteCorrelativo(t, f); }
+    }
+
+    /**
+     * #353-H2: el envío del RC viejo arranca el 31-12 a las 23:59:59 (todavía no caducó) y, mientras SUNAT contesta, otro proceso lo descarta y lo reemplaza
+     * el 01-01. Al volver, ese envío no puede pisar el DESCARTADA ni volver a programar la fila del viejo: quedarían dos RC vivos. El ticket que SUNAT le dio
+     * queda anotado en el descartado, y lo que sigue es el reemplazo.
+     */
+    @Test void unEnvioDelRcViejoQueTerminaDespuesDelReemplazoNoLoResucita() {
+        BajasPorCopia db = new BajasPorCopia(bajas);
+        Comprobante boleta = boletaConGratuitas(14, LocalDate.of(2026, 12, 28), EstadoDocumento.ACEPTADO);
+        gateway.fallaResumen = new SunatTransientException("0109", "SUNAT no disponible");
+        ComunicacionBaja vieja = alReloj(FIN_DE_ANIO, db).solicitar(tenantId, boleta.id(), "Se cobró dos veces");
+        gateway.fallaResumen = null;
+        gateway.statusCode = "98";
+        ComunicacionBaja[] reemplazo = new ComunicacionBaja[1];
+        gateway.duranteElEnvio = () -> reemplazo[0] = alReloj(ANIO_NUEVO, db).continuar(tenantId, vieja.id());
+
+        ComunicacionBaja enVuelo = alReloj(ULTIMO_SEGUNDO, db).continuar(tenantId, vieja.id());
+
+        assertThat(reemplazo[0].identificador()).isEqualTo("RC-20270101-1");
+        ComunicacionBaja guardada = bajas.buscar(tenantId, vieja.id()).orElseThrow();
+        assertThat(guardada.estado()).as("el envío en vuelo no pisa el descarte").isEqualTo(EstadoBaja.DESCARTADA);
+        assertThat(guardada.ticket()).isEqualTo("T-1");
+        assertThat(guardada.ultimoError()).contains("RC-20270101-1").contains("T-1");
+        assertThat(bajas.deComprobante(tenantId, boleta.id()).stream().filter(ComunicacionBaja::pendiente)).as("nunca dos RC vivos").singleElement()
+                .extracting(ComunicacionBaja::id).isEqualTo(reemplazo[0].id());
+        assertThat(outbox.filas).singleElement().extracting(Fakes.Outbox.Fila::agregadoId).isEqualTo(reemplazo[0].id());
+        assertThat(enVuelo.id()).as("devuelve lo que sigue").isEqualTo(reemplazo[0].id());
+    }
+
+    /**
+     * #353-H3: un RC GENERADA sin fila de outbox (pedido el 31 a las 23:59:59 y continuado ya el 1, o un proceso caído entre las dos transacciones) que
+     * caduca y cuya regeneración falla (storage, firma, XSD): la excepción salía de `continuar` sin dejar nada en la cola, y la baja quedaba «en curso» para
+     * siempre (bloquea otra baja y las notas). Queda en ERROR_ENVIO con el motivo y con su fila de outbox; el reintento la regenera.
+     */
+    @Test void siLaRegeneracionFallaElRcViejoQuedaEnLaColaParaReintentarse() {
+        Comprobante boleta = boletaConGratuitas(15, LocalDate.of(2026, 12, 28), EstadoDocumento.ACEPTADO);
+        ComunicacionBaja vieja = ComunicacionBaja.crear(boleta, 1, "Se cobró dos veces", FIN_DE_ANIO);
+        vieja.firmar(tenantId + "/2026/12/20100066603-RC-20261231-1.xml");
+        storage.guardar(vieja.xmlKey(), "<SummaryDocuments/>".getBytes());
+        bajas.guardar(vieja);
+        Fakes.Storage caido = new Fakes.Storage() {
+            public void guardar(String k, byte[] c) { if (k.contains("RC-2027")) throw new IllegalStateException("S3 no responde"); storage.guardar(k, c); }
+            public byte[] leer(String k) { return storage.leer(k); }
+        };
+        DarDeBajaService conStorageCaido = new DarDeBajaService(bajas, comprobantes, tenants, caido, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, ANIO_NUEVO);
+
+        ComunicacionBaja resultado = conStorageCaido.continuar(tenantId, vieja.id());
+
+        assertThat(resultado.id()).isEqualTo(vieja.id());
+        assertThat(resultado.estado()).isEqualTo(EstadoBaja.ERROR_ENVIO);
+        assertThat(resultado.ultimoError()).contains("S3 no responde");
+        assertThat(gateway.resumenes).as("no se envía el RC con el 05").isZero();
+        assertThat(bajas.deComprobante(tenantId, boleta.id())).hasSize(1);
+        assertThat(outbox.filas).singleElement().extracting(Fakes.Outbox.Fila::agregadoId).isEqualTo(vieja.id());
+
+        // Con el storage de vuelta, el reintento la reemplaza.
+        ComunicacionBaja nueva = alReloj(ANIO_NUEVO).continuar(tenantId, vieja.id());
+        assertThat(nueva.identificador()).isEqualTo("RC-20270101-1");
+        assertThat(bajas.buscar(tenantId, vieja.id()).orElseThrow().estado()).isEqualTo(EstadoBaja.DESCARTADA);
+    }
+
     @Test void fueraDePlazoNoAceptadoOBoleta() {
         Comprobante f = facturaAceptada();
         Clock tarde = Clock.fixed(Instant.parse("2026-09-21T15:00:00Z"), ZoneId.of("America/Lima"));   // 8 días después

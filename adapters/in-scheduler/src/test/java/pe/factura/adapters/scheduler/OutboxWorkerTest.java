@@ -119,6 +119,19 @@ class OutboxWorkerTest {
         verify(outbox).reprogramar(fila, Backoff.siguiente(11, clock.instant()), "timeout");
     }
 
+    /**
+     * #353-H1: el worker tomó la fila de un RC que, mientras tanto, otro proceso (la ficha del portal reconsulta cada 30 s) descartó y reemplazó (#338). Esa
+     * fila ya apunta al reemplazo (`reasignar`): borrarla dejaba al RC nuevo sin nadie que lo reintentara. Se reprograma pronto, sin el backoff de la fila
+     * del viejo, y la toma el reemplazo.
+     */
+    @Test void unaBajaDescartadaNoBorraLaFilaQueYaEsDelReemplazo() {
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "BAJA", 6)));
+        when(bajas.continuar(tenant, doc)).thenReturn(baja(ComunicacionBaja.EstadoBaja.DESCARTADA));
+        worker.procesar();
+        verify(outbox, never()).completar(any());
+        verify(outbox).reprogramar(eq(fila), eq(clock.instant().plus(DarDeBajaService.REINTENTO_CONSULTA)), anyString());
+    }
+
     @Test void bajaAceptadaCompletaYEnviadaSeReconsultaPronto() {
         when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "BAJA", 0)));
         when(bajas.continuar(tenant, doc)).thenReturn(baja(ComunicacionBaja.EstadoBaja.ACEPTADA));

@@ -185,6 +185,16 @@ public class ComunicacionBaja {
     }
 
     /**
+     * #338: un envío de este resumen que ya estaba en vuelo cuando otro proceso lo descartó llegó igual a SUNAT. No revive (sigue DESCARTADO: lo que sigue es el
+     * que lo reemplazó), pero el ticket queda anotado para poder revisarlo en SUNAT.
+     */
+    public void registrarEnvioTardio(String ticket) {
+        if (estado != EstadoBaja.DESCARTADA) throw new DomainException("TRANSICION_INVALIDA", "Solo un resumen descartado registra un envío tardío; " + identificador() + " está " + estado);
+        this.ticket = ticket;
+        this.ultimoError = ultimoError + ". Un envío que ya estaba en curso llegó igual a SUNAT (ticket " + ticket + "): khipu no lo sigue, sigue con el que lo reemplazó";
+    }
+
+    /**
      * #338: la baja caducó y ya no se puede regenerar en plazo ({@link #plazoVencido}). No se envía: SUNAT la rechazaría con 2957. Queda RECHAZADA con ese código,
      * como si SUNAT lo hubiera dicho, y el comprobante sigue vigente (se corrige con una nota de crédito).
      */

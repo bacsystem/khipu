@@ -109,11 +109,36 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
     private ComunicacionBaja continuar(Tenant tenant, ComunicacionBaja b) {
         if (!b.pendiente()) return b;
         if (puedeHaberCaducado(b)) {
-            Renovacion r = renovarSiCaduco(tenant, b);
+            Renovacion r;
+            try {
+                r = renovarSiCaduco(tenant, b);
+            } catch (RuntimeException e) {
+                return dejarParaReintento(b, e);
+            }
             if (!r.seguir()) return r.baja();
             b = r.baja();
         }
         return enviarYConsultar(tenant, b);
+    }
+
+    /**
+     * #338: regenerar el RC caducado falló (firma, XSD, storage) y su transacción se deshizo. El viejo no se envía (lleva el 05), pero tampoco puede quedar sin
+     * fila de outbox: uno GENERADA no la tiene, y quedaba «en curso» para siempre, sin nadie que lo reintentara (el mismo caso que #151 en el envío). Queda en
+     * ERROR_ENVIO con el motivo y vuelve a la cola con backoff; el reintento lo regenera. Releído bajo el lock, por si otro proceso ya lo resolvió.
+     */
+    private ComunicacionBaja dejarParaReintento(ComunicacionBaja leida, RuntimeException e) {
+        String motivo = "INFRA - No se pudo generar el resumen que reemplaza a " + leida.identificador() + ": " + e.getClass().getSimpleName()
+                + (e.getMessage() == null ? "" : ": " + e.getMessage());
+        return uow.ejecutar(() -> {
+            comprobantes.bloquear(leida.tenantId(), leida.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
+            ComunicacionBaja b = obtener(leida.tenantId(), leida.id());
+            if (b.estado() == EstadoBaja.DESCARTADA) return reemplazoDe(b);
+            if (b.estado() != EstadoBaja.GENERADA && b.estado() != EstadoBaja.ERROR_ENVIO) return b;
+            b.marcarErrorEnvio(motivo);
+            bajas.guardar(b);
+            outbox.programar(b.tenantId(), ACCION_BAJA, b.id(), Backoff.siguiente(b.intentos(), clock.instant()));
+            return b;
+        });
     }
 
     /** Lo que sigue tras mirar si el resumen caducó: con qué baja, y si hay que enviarla/consultarla o devolverla tal cual. */
@@ -144,12 +169,7 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
         return uow.ejecutar(() -> {
             Comprobante c = comprobantes.bloquear(leida.tenantId(), leida.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
             ComunicacionBaja b = obtener(leida.tenantId(), leida.id());
-            if (b.estado() == EstadoBaja.DESCARTADA) {
-                // Otro ya la reemplazó: la última del comprobante es la que la reemplazó (o una posterior).
-                ComunicacionBaja ultima = bajas.deComprobante(b.tenantId(), b.comprobanteId()).stream()
-                        .max(Comparator.comparing(ComunicacionBaja::fechaGeneracion).thenComparingInt(ComunicacionBaja::correlativo)).orElse(b);
-                return new Renovacion(ultima, false);
-            }
+            if (b.estado() == EstadoBaja.DESCARTADA) return new Renovacion(reemplazoDe(b), false);   // otro ya la reemplazó
             if (!b.formatoCaducado(c, hoy)) return new Renovacion(b, b.pendiente());
             if (b.plazoVencido(hoy)) {
                 b.rechazarPorPlazo(hoy);
@@ -196,27 +216,40 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
             if (b.estado() == EstadoBaja.ENVIADA) b.registrarConsultaPendiente(motivo); else b.marcarErrorEnvio(motivo);
         }
         // Estado de la baja, anulación del comprobante y reprogramación en una sola transacción (mismo criterio que EnviarDocumentoService).
-        uow.ejecutar(() -> {
+        return uow.ejecutar(() -> {
+            // Con el comprobante bloqueado: el GET del usuario y el outbox pueden recoger el mismo CDR a la vez, y el segundo se encuentra el comprobante ya
+            // resuelto. Es también el lock con que renovarSiCaduco descarta un RC (#338): releída bajo él, una baja que otro proceso descartó y reemplazó
+            // mientras este envío estaba en vuelo no se pisa ni vuelve a la cola (quedarían dos RC vivos); sigue el reemplazo.
+            Comprobante c = comprobantes.bloquear(b.tenantId(), b.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
+            ComunicacionBaja actual = obtener(b.tenantId(), b.id());
+            if (actual.estado() == EstadoBaja.DESCARTADA) {
+                if (b.ticket() != null) {
+                    actual.registrarEnvioTardio(b.ticket());
+                    bajas.guardar(actual);
+                }
+                return reemplazoDe(actual);
+            }
             bajas.guardar(b);
             if (b.alta() && !b.pendiente()) {
-                // Un resumen de alta resuelto resuelve la boleta: su CDR la acepta o la rechaza, como un envío más. Con lock, por la misma carrera de abajo.
-                Comprobante c = comprobantes.bloquear(b.tenantId(), b.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
+                // Un resumen de alta resuelto resuelve la boleta: su CDR la acepta o la rechaza, como un envío más.
                 if (c.estado() == EstadoDocumento.ENVIADO) {
                     if (b.cdrKey() != null) c.aplicarCdr(b.cdr(), b.cdrKey()); else c.rechazarPorFault(b.cdr().codigo(), b.cdr().descripcion());
                     comprobantes.guardar(c);
                 }
-            } else if (b.estado() == EstadoBaja.ACEPTADA) {
-                // Con lock de fila: el GET del usuario y el outbox pueden recoger el mismo CDR a la vez, y el segundo se encuentra el comprobante ya ANULADO.
-                Comprobante c = comprobantes.bloquear(b.tenantId(), b.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
-                if (c.estado() != EstadoDocumento.ANULADO) {
-                    c.anular();
-                    comprobantes.guardar(c);
-                }
+            } else if (b.estado() == EstadoBaja.ACEPTADA && c.estado() != EstadoDocumento.ANULADO) {
+                c.anular();
+                comprobantes.guardar(c);
             }
             if (b.estado() == EstadoBaja.ENVIADA) outbox.programar(b.tenantId(), ACCION_BAJA, b.id(), clock.instant().plus(REINTENTO_CONSULTA));
             if (b.estado() == EstadoBaja.ERROR_ENVIO) outbox.programar(b.tenantId(), ACCION_BAJA, b.id(), Backoff.siguiente(b.intentos(), clock.instant()));
+            return b;
         });
-        return b;
+    }
+
+    /** El que reemplazó a un resumen descartado: el último del comprobante (o uno posterior, si el reemplazo ya se resolvió y se pidió otro). */
+    private ComunicacionBaja reemplazoDe(ComunicacionBaja descartada) {
+        return bajas.deComprobante(descartada.tenantId(), descartada.comprobanteId()).stream()
+                .max(Comparator.comparing(ComunicacionBaja::fechaGeneracion).thenComparingInt(ComunicacionBaja::correlativo)).orElse(descartada);
     }
 
     @Override public ComunicacionBaja obtener(UUID tenantId, UUID bajaId) {

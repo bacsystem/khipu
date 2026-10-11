@@ -147,8 +147,14 @@ final class Fakes {
         RuntimeException falla; byte[] respuesta = "cdr".getBytes(); String ultimoNombre; int enviados;
         /** sendSummary/getStatus: ticket fijo y estado configurable (por defecto procesado con el mismo ZIP de respuesta). */
         RuntimeException fallaResumen; RuntimeException fallaStatus; String ticket = "T-1"; String statusCode = "0"; int consultas; int resumenes;
+        /** Corre una vez, en medio del próximo sendSummary: lo que hace otro proceso mientras este envío está en vuelo. */
+        Runnable duranteElEnvio;
         public byte[] sendBill(Tenant t, String nombre, byte[] xml) { enviados++; ultimoNombre = nombre; if (falla != null) throw falla; return respuesta; }
-        public String sendSummary(Tenant t, String nombre, byte[] xml) { resumenes++; ultimoNombre = nombre; if (fallaResumen != null) throw fallaResumen; return ticket; }
+        public String sendSummary(Tenant t, String nombre, byte[] xml) {
+            resumenes++;
+            if (duranteElEnvio != null) { Runnable r = duranteElEnvio; duranteElEnvio = null; r.run(); }
+            ultimoNombre = nombre; if (fallaResumen != null) throw fallaResumen; return ticket;
+        }
         public EstadoTicket getStatus(Tenant t, String tk) { consultas++; if (fallaStatus != null) throw fallaStatus; return new EstadoTicket(statusCode, "98".equals(statusCode) ? null : respuesta); }
     }
     static final class Bajas implements BajaRepository {
