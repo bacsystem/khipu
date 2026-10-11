@@ -16,6 +16,8 @@ const ETIQUETAS: Record<Baja["estado"], string> = {
   ERROR_ENVIO: "Error de envío: se reintentará",
   ACEPTADA: "Aceptada: comprobante anulado",
   RECHAZADA: "Rechazada por SUNAT",
+  // #338: el RC caducó sin enviarse (código 05 de las gratuitas) y lo reemplazó otro; `ultimo_error` dice cuál.
+  DESCARTADA: "Reemplazada por un resumen nuevo",
 };
 
 /** Un resumen de alta informa la boleta (o su nota, #294) en vez de anularla: lo que cambia es qué significa que SUNAT lo acepte (274-H1). */

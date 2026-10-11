@@ -45,6 +45,15 @@ describe("BajaEstado", () => {
     expect(screen.queryByTestId("aviso-fuera-de-plazo")).toBeNull();
   });
 
+  /** #338: un RC con el código 05 de las gratuitas que caducó sin enviarse queda descartado: no se reconsulta y dice qué resumen lo reemplazó. */
+  it("un resumen descartado dice que lo reemplazó otro y no ofrece reconsultar", () => {
+    const ultimo = "Reemplazado por RC-20270101-1: generado con el código 05 de las gratuitas, que SUNAT desactivó el 2027-01-01, y todavía sin enviar";
+    render(<BajaEstado baja={{ ...BASE, identificador: "RC-20261231-1", comprobante: "B001-7", tipo_comprobante: "03", condicion: "BAJA", estado: "DESCARTADA", ticket: null, cdr: null, ultimo_error: ultimo }} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Reemplazada por un resumen nuevo");
+    expect(screen.getByTestId("baja")).toHaveTextContent("RC-20270101-1");
+    expect(screen.queryByRole("button", { name: /actualizar estado/i })).toBeNull();
+  });
+
   it("el alta de una nota sobre boleta dice que la nota quedó informada, no la boleta", () => {
     render(<BajaEstado baja={{ ...BASE, identificador: "RC-20260918-4", comprobante: "BC01-2", tipo_comprobante: "07", condicion: "ALTA", estado: "ENVIADA", cdr: null }} />);
     expect(screen.getByTestId("baja")).toHaveTextContent("Resumen diario RC-20260918-4 (alta)");

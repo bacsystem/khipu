@@ -357,6 +357,163 @@ class DarDeBajaServiceTest {
         assertThatThrownBy(() -> alDia8.solicitar(tenantId, f.id(), "Error en el RUC")).hasMessageContaining("2957");
     }
 
+    static final ZoneId LIMA = ZoneId.of("America/Lima");
+    /** 2026-12-31 23:50 en Lima (en UTC ya es 2027). */
+    static final Clock FIN_DE_ANIO = Clock.fixed(Instant.parse("2027-01-01T04:50:00Z"), LIMA);
+    /** 2026-12-31 23:59:59 en Lima: todavía 2026, aunque en UTC sea 2027-01-01 04:59. */
+    static final Clock ULTIMO_SEGUNDO = Clock.fixed(Instant.parse("2027-01-01T04:59:59Z"), LIMA);
+    /** 2027-01-01 00:10 en Lima: el código 05 de las gratuitas ya no vale. */
+    static final Clock ANIO_NUEVO = Clock.fixed(Instant.parse("2027-01-01T05:10:00Z"), LIMA);
+
+    private DarDeBajaService alReloj(Clock clock) {
+        return new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, clock);
+    }
+
+    private Comprobante boletaConGratuitas(long numero, LocalDate emision, EstadoDocumento estado) {
+        Comprobante c = Comprobante.persistido(UUID.randomUUID(), tenantId, TipoDocumento.BOLETA, "B001", numero, emision, estado, new Receptor("1", "12345678", "JUAN PEREZ", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("M1", "Muestra", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO_BONIFICACION)))
+                .firma("h", "20100066603-03-B001-" + numero, tenantId + "/2026/12/20100066603-03-B001-" + numero + ".xml").rehidratar();
+        comprobantes.guardar(c);
+        return c;
+    }
+
+    /**
+     * #338: un RC con gratuitas generado el 31-12 (con el código 05) cuyo envío falla y se reintenta el 01-01 ya no se reenvía: SUNAT lo rechazaría por el 05.
+     * Se descarta y se genera otro con la fecha y el formato del día (nuevo correlativo); la fila de outbox pasa a apuntar al nuevo. Hasta las 23:59 de Lima
+     * todavía es 2026, aunque en UTC ya sea el 1: ahí se reenvía el mismo.
+     */
+    @Test void unaBajaConGratuitasGeneradaEl31QueSeReintentaEl1DeEneroSeRegeneraConFormatoNuevo() {
+        Comprobante boleta = boletaConGratuitas(10, LocalDate.of(2026, 12, 28), EstadoDocumento.ACEPTADO);
+        gateway.fallaResumen = new SunatTransientException("0109", "SUNAT no disponible");
+        ComunicacionBaja vieja = alReloj(FIN_DE_ANIO).solicitar(tenantId, boleta.id(), "Se cobró dos veces");
+        assertThat(vieja.identificador()).isEqualTo("RC-20261231-1");
+        assertThat(vieja.estado()).isEqualTo(EstadoBaja.ERROR_ENVIO);
+
+        alReloj(ULTIMO_SEGUNDO).continuar(tenantId, vieja.id());
+        assertThat(gateway.ultimoNombre).as("31-12 en Lima: el mismo RC").isEqualTo("20100066603-RC-20261231-1");
+        assertThat(bajas.deComprobante(tenantId, boleta.id())).hasSize(1);
+
+        gateway.fallaResumen = null;
+        ComunicacionBaja nueva = alReloj(ANIO_NUEVO).continuar(tenantId, vieja.id());
+
+        assertThat(nueva.id()).isNotEqualTo(vieja.id());
+        assertThat(nueva.identificador()).isEqualTo("RC-20270101-1");
+        assertThat(nueva.gratuitasPorAfectacion()).isTrue();
+        assertThat(nueva.estado()).isEqualTo(EstadoBaja.ACEPTADA);
+        assertThat(gateway.ultimoNombre).isEqualTo("20100066603-RC-20270101-1");
+        assertThat(validado[0]).isEqualTo("<SummaryDocuments>RC-20270101-1</SummaryDocuments>");
+        assertThat(nueva.xmlKey()).isEqualTo(tenantId + "/2027/01/20100066603-RC-20270101-1.xml");
+        ComunicacionBaja descartada = bajas.buscar(tenantId, vieja.id()).orElseThrow();
+        assertThat(descartada.estado()).isEqualTo(EstadoBaja.DESCARTADA);
+        assertThat(descartada.ultimoError()).contains("RC-20270101-1");
+        assertThat(bajas.deComprobante(tenantId, boleta.id()).stream().filter(ComunicacionBaja::pendiente)).as("nunca dos RC vivos").isEmpty();
+        assertThat(comprobantes.buscar(tenantId, boleta.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ANULADO);
+        assertThat(outbox.filas).singleElement().satisfies(f -> {
+            assertThat(f.agregadoId()).as("la fila sigue al RC nuevo").isEqualTo(nueva.id());
+            assertThat(f.accion()).isEqualTo(DarDeBajaService.ACCION_BAJA);
+        });
+        // Consultar después el RC viejo ya no lo reintenta ni genera otro.
+        int resumenes = gateway.resumenes;
+        assertThat(alReloj(ANIO_NUEVO).continuar(tenantId, vieja.id()).estado()).isEqualTo(EstadoBaja.DESCARTADA);
+        assertThat(gateway.resumenes).isEqualTo(resumenes);
+        assertThat(bajas.deComprobante(tenantId, boleta.id())).hasSize(2);
+    }
+
+    /**
+     * #338 con #331: una boleta que se informa en un alta el 7.º día (31-12), con el envío fallido, se regenera el 8.º (01-01) y ese RC nuevo sale fuera de
+     * plazo: SUNAT la acepta con la 4443 en vez de rechazar el RC viejo por el 05.
+     */
+    @Test void unAltaConGratuitasRegeneradaEl1DeEneroSaleFueraDePlazoYLaBoletaQuedaAceptadaConObservaciones() {
+        Comprobante boleta = boletaConGratuitas(11, LocalDate.of(2026, 12, 24), EstadoDocumento.ERROR_ENVIO);
+        gateway.fallaResumen = new SunatTransientException("0109", "SUNAT no disponible");
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, FIN_DE_ANIO,
+                RechazoDeSolRepository.NINGUNO, alReloj(FIN_DE_ANIO));
+        assertThat(enviar.enviar(tenantId, boleta.id()).estado()).isEqualTo(EstadoDocumento.ENVIADO);
+        ComunicacionBaja vieja = bajas.deComprobante(tenantId, boleta.id()).get(0);
+        assertThat(vieja.identificador()).isEqualTo("RC-20261231-1");
+        assertThat(vieja.fueraDePlazo()).isFalse();
+
+        gateway.fallaResumen = null;
+        cdrs.cdr = new Cdr("0", "El Resumen diario RC-20270101-1, ha sido aceptado", List.of("4443 - El comprobante fue informado fuera del plazo establecido"));
+        ComunicacionBaja nueva = alReloj(ANIO_NUEVO).continuar(tenantId, vieja.id());
+
+        assertThat(nueva.identificador()).isEqualTo("RC-20270101-1");
+        assertThat(nueva.alta()).isTrue();
+        assertThat(nueva.fueraDePlazo()).isTrue();
+        assertThat(nueva.motivo()).contains("4443");
+        assertThat(nueva.estado()).isEqualTo(EstadoBaja.ACEPTADA);
+        assertThat(bajas.buscar(tenantId, vieja.id()).orElseThrow().estado()).isEqualTo(EstadoBaja.DESCARTADA);
+        Comprobante resuelta = comprobantes.buscar(tenantId, boleta.id()).orElseThrow();
+        assertThat(resuelta.estado()).isEqualTo(EstadoDocumento.ACEPTADO_CON_OBS);
+        assertThat(resuelta.cdrKey()).isEqualTo(nueva.cdrKey());
+        assertThat(outbox.filas).singleElement().extracting(Fakes.Outbox.Fila::agregadoId).isEqualTo(nueva.id());
+    }
+
+    /**
+     * #338 con #302: la baja admitida el 7.º día (31-12) que caduca el 8.º (01-01) ya no se puede regenerar en plazo: SUNAT la rechazaría con 2957. Queda
+     * RECHAZADA con ese código, sin enviar nada; la boleta sigue vigente y la fila de outbox se va.
+     */
+    @Test void unaBajaConGratuitasQueCaducaConElPlazoVencidoQuedaRechazadaPor2957SinEnviarse() {
+        Comprobante boleta = boletaConGratuitas(12, LocalDate.of(2026, 12, 24), EstadoDocumento.ACEPTADO);
+        gateway.fallaResumen = new SunatTransientException("0109", "SUNAT no disponible");
+        ComunicacionBaja baja = alReloj(FIN_DE_ANIO).solicitar(tenantId, boleta.id(), "Se cobró dos veces");
+        assertThat(outbox.filas).hasSize(1);
+        gateway.fallaResumen = null;
+        int resumenes = gateway.resumenes;
+
+        ComunicacionBaja resuelta = alReloj(ANIO_NUEVO).continuar(tenantId, baja.id());
+
+        assertThat(resuelta.id()).isEqualTo(baja.id());
+        assertThat(resuelta.estado()).isEqualTo(EstadoBaja.RECHAZADA);
+        assertThat(resuelta.cdr().codigo()).isEqualTo("2957");
+        assertThat(gateway.resumenes).as("no se envía nada").isEqualTo(resumenes);
+        assertThat(bajas.deComprobante(tenantId, boleta.id())).hasSize(1);
+        assertThat(bajas.buscar(tenantId, baja.id()).orElseThrow().estado()).isEqualTo(EstadoBaja.RECHAZADA);
+        assertThat(comprobantes.buscar(tenantId, boleta.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(outbox.filas).isEmpty();
+    }
+
+    /**
+     * #338, concurrencia: el worker y un reintento manual leen el mismo RC caducado. El primero lo reemplaza; el segundo, al releerlo con el comprobante
+     * bloqueado, lo encuentra descartado y devuelve el que lo reemplazó, sin generar un tercero ni volver a enviar.
+     */
+    @Test void dosReintentosDelMismoResumenCaducadoGeneranUnSoloReemplazo() {
+        Comprobante boleta = boletaConGratuitas(13, LocalDate.of(2026, 12, 28), EstadoDocumento.ACEPTADO);
+        gateway.fallaResumen = new SunatTransientException("0109", "SUNAT no disponible");
+        ComunicacionBaja vieja = alReloj(FIN_DE_ANIO).solicitar(tenantId, boleta.id(), "Se cobró dos veces");
+        gateway.fallaResumen = null;
+        gateway.statusCode = "98";   // SUNAT todavía procesa el RC nuevo
+        // La lectura del worker, antes de que nadie la toque (una copia: el repositorio en memoria comparte la instancia).
+        ComunicacionBaja copiaDelWorker = ComunicacionBaja.rehidratar(vieja.id(), tenantId, vieja.fechaGeneracion(), vieja.correlativo(), vieja.comprobanteId(), vieja.tipoComprobante(),
+                vieja.deBoleta(), vieja.serie(), vieja.numero(), vieja.fechaReferencia(), vieja.motivo(), vieja.condicion(), vieja.estado(), vieja.ticket(), vieja.xmlKey(), null, null,
+                vieja.intentos(), vieja.ultimoError());
+        ComunicacionBaja primera = alReloj(ANIO_NUEVO).continuar(tenantId, vieja.id());
+        assertThat(primera.estado()).isEqualTo(EstadoBaja.ENVIADA);
+        int resumenes = gateway.resumenes;
+
+        // El worker sigue con la copia que leyó: el repositorio se la devuelve una vez (la lectura previa) y después lo que hay.
+        var conLecturaVieja = new pe.factura.application.port.out.BajaRepository() {
+            boolean primeraLectura = true;
+            public void guardar(ComunicacionBaja b) { bajas.guardar(b); }
+            public java.util.Optional<ComunicacionBaja> buscar(UUID t, UUID id) {
+                if (primeraLectura && id.equals(vieja.id())) { primeraLectura = false; return java.util.Optional.of(copiaDelWorker); }
+                return bajas.buscar(t, id);
+            }
+            public List<ComunicacionBaja> deComprobante(UUID t, UUID c) { return bajas.deComprobante(t, c); }
+            public int siguienteCorrelativo(UUID t, LocalDate f) { return bajas.siguienteCorrelativo(t, f); }
+        };
+        DarDeBajaService worker = new DarDeBajaService(conLecturaVieja, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, ANIO_NUEVO);
+        ComunicacionBaja segunda = worker.continuar(tenantId, vieja.id());
+
+        assertThat(segunda.id()).isEqualTo(primera.id());
+        assertThat(gateway.resumenes).as("no reenvía").isEqualTo(resumenes);
+        assertThat(bajas.deComprobante(tenantId, boleta.id())).hasSize(2);
+        assertThat(bajas.deComprobante(tenantId, boleta.id()).stream().filter(ComunicacionBaja::pendiente)).singleElement()
+                .extracting(ComunicacionBaja::id).isEqualTo(primera.id());
+        assertThat(outbox.filas).singleElement().extracting(Fakes.Outbox.Fila::agregadoId).isEqualTo(primera.id());
+    }
+
     @Test void fueraDePlazoNoAceptadoOBoleta() {
         Comprobante f = facturaAceptada();
         Clock tarde = Clock.fixed(Instant.parse("2026-09-21T15:00:00Z"), ZoneId.of("America/Lima"));   // 8 días después

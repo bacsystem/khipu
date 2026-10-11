@@ -116,7 +116,11 @@ export type NotaResumen = {
   total: number;
 };
 
-export type EstadoBaja = "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA";
+/**
+ * `DESCARTADA` (#338): un resumen diario con gratuitas generado hasta el 2026-12-31 (código 05) que no llegó a SUNAT antes del 2027-01-01; lo reemplaza otro
+ * RC, que es el que la ficha muestra como `baja` (el más reciente). Terminal, como `ACEPTADA` y `RECHAZADA`.
+ */
+export type EstadoBaja = "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA" | "DESCARTADA";
 
 /** Comunicación de baja (RA-yyyymmdd-N) de un comprobante. */
 export type Baja = {

@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -107,6 +108,66 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
 
     private ComunicacionBaja continuar(Tenant tenant, ComunicacionBaja b) {
         if (!b.pendiente()) return b;
+        if (puedeHaberCaducado(b)) {
+            Renovacion r = renovarSiCaduco(tenant, b);
+            if (!r.seguir()) return r.baja();
+            b = r.baja();
+        }
+        return enviarYConsultar(tenant, b);
+    }
+
+    /** Lo que sigue tras mirar si el resumen caducó: con qué baja, y si hay que enviarla/consultarla o devolverla tal cual. */
+    private record Renovacion(ComunicacionBaja baja, boolean seguir) {}
+
+    /**
+     * El filtro barato de {@link ComunicacionBaja#formatoCaducado} (sin leer el comprobante ni bloquear nada): un RC sin ticket generado antes del cambio de
+     * formato de las gratuitas, intentado desde ese día. «Hoy» es la fecha de Lima, la del {@code clock}.
+     */
+    private boolean puedeHaberCaducado(ComunicacionBaja b) {
+        return b.resumenDiario() && b.estado() != EstadoBaja.ENVIADA && !b.gratuitasPorAfectacion()
+                && !LocalDate.now(clock).isBefore(ComunicacionBaja.GRATUITAS_POR_AFECTACION_DESDE);
+    }
+
+    /**
+     * #338: un RC con gratuitas generado hasta el 2026-12-31 que no llegó a SUNAT (caída y reintento por ERROR_ENVIO) lleva el código 05, que SUNAT desactivó el
+     * 2027-01-01: reenviarlo es un rechazo seguro, y su fecha no se puede cambiar (la del ID es la de generación, 2346). Se descarta y se genera otro con la
+     * fecha, el correlativo y el formato de hoy; la fila del outbox pasa a apuntar al nuevo (el worker que la tiene tomada la reprograma o la completa por su id).
+     * <p>
+     * Una baja que ya no está en plazo (admitida el 7.º día, regenerada el 8.º) no se regenera: SUNAT la rechazaría con 2957, que mide al recibirla. Queda
+     * RECHAZADA con ese código sin enviarse, y sale de la cola. Un alta no vence: regenerada pasado el 7.º día sale fuera de plazo (4443, #331).
+     * <p>
+     * Todo con el comprobante bloqueado y la baja releída bajo ese lock: el worker y un reintento manual pueden llegar a la vez con la misma copia; el segundo
+     * la encuentra descartada y devuelve, sin enviarla, la que la reemplazó. Nunca quedan dos RC vivos para el mismo comprobante.
+     */
+    private Renovacion renovarSiCaduco(Tenant tenant, ComunicacionBaja leida) {
+        LocalDate hoy = LocalDate.now(clock);
+        return uow.ejecutar(() -> {
+            Comprobante c = comprobantes.bloquear(leida.tenantId(), leida.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
+            ComunicacionBaja b = obtener(leida.tenantId(), leida.id());
+            if (b.estado() == EstadoBaja.DESCARTADA) {
+                // Otro ya la reemplazó: la última del comprobante es la que la reemplazó (o una posterior).
+                ComunicacionBaja ultima = bajas.deComprobante(b.tenantId(), b.comprobanteId()).stream()
+                        .max(Comparator.comparing(ComunicacionBaja::fechaGeneracion).thenComparingInt(ComunicacionBaja::correlativo)).orElse(b);
+                return new Renovacion(ultima, false);
+            }
+            if (!b.formatoCaducado(c, hoy)) return new Renovacion(b, b.pendiente());
+            if (b.plazoVencido(hoy)) {
+                b.rechazarPorPlazo(hoy);
+                bajas.guardar(b);
+                outbox.completarPorAgregado(b.id(), ACCION_BAJA);
+                return new Renovacion(b, false);
+            }
+            ComunicacionBaja nueva = b.regenerar(bajas.siguienteCorrelativo(b.tenantId(), hoy), clock);
+            firmarYGuardar(tenant, c, nueva);
+            b.reemplazarPor(nueva);
+            bajas.guardar(b);
+            bajas.guardar(nueva);
+            outbox.reasignar(b.id(), ACCION_BAJA, nueva.id());
+            return new Renovacion(nueva, true);
+        });
+    }
+
+    private ComunicacionBaja enviarYConsultar(Tenant tenant, ComunicacionBaja b) {
         try {
             if (b.estado() != EstadoBaja.ENVIADA) {
                 String ticket = gateway.sendSummary(tenant, b.nombreArchivo(tenant.ruc()), storage.leer(b.xmlKey()));
