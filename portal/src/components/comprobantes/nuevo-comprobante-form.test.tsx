@@ -70,8 +70,11 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
       fireEvent.change(nombre, { target: { value: corto } });
       expect(nombre, corto).toBeInvalid();
     }
-    fireEvent.change(nombre, { target: { value: " Ana " } });
-    expect(nombre).toBeValid();
+    // 347-H3: el patrón no rechaza nombres que el dominio admite: 3 exactos, puntos, acentos y ñ, espacios internos, hasta 1500.
+    for (const valido of [" Ana ", "ANA", "A.B", "Ñoño Peña", "José  Pérez", "Á".repeat(1500)]) {
+      fireEvent.change(nombre, { target: { value: valido } });
+      expect(nombre, valido.slice(0, 20)).toBeValid();
+    }
 
     // Sin documento el nombre propuesto cumple la regla.
     fireEvent.change(nombre, { target: { value: "" } });

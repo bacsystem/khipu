@@ -373,6 +373,25 @@ test("el nombre corto del comprador de una boleta se frena en el cliente y, si l
   expect(posts).toHaveLength(1);
 });
 
+/**
+ * #347-H2: el `@NotBlank` de `ClienteDto` corre antes que el servicio y que el dominio, así que un nombre en blanco gana a un RUC corto:
+ * el backend responde VALIDACION y no 2017. El mock lo comprobaba después del RUC.
+ */
+test("sin el freno del navegador, la razón social en blanco vuelve como VALIDACION antes que el RUC corto", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+  await completarMinimo(dialogo);
+  const posts = contarEmisiones(page);
+
+  await dialogo.getByLabel("RUC").fill("2055419821");
+  await dialogo.getByLabel("Razón social").fill("   ");
+  await dialogo.getByLabel("RUC").evaluate((el) => (el as HTMLInputElement).closest("form")?.setAttribute("novalidate", ""));
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(dialogo.getByRole("alert")).toContainText("Validación fallida");
+  expect(posts).toHaveLength(1);
+});
+
 test("el aviso de ítems incompletos es una región viva y el botón de emitir lo referencia", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");

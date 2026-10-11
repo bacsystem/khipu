@@ -81,9 +81,23 @@ public record Receptor(String tipoDoc, String numDoc, String razonSocial, String
     private void exigirPaisYNombre(String queNombre) {
         if (pais != null && !Exportacion.paisValido(pais))
             throw new DomainException("RECEPTOR_INVALIDO", "El país del receptor debe ser un código ISO 3166-1 de dos letras (catálogo 04): " + pais);
-        if (razonSocial == null || razonSocial.strip().length() < 3 || razonSocial.strip().length() > 1500 || razonSocial.chars().anyMatch(Character::isISOControl))
+        int largo = razonSocial == null ? 0 : largoSinExtremos(razonSocial);
+        if (largo < 3 || largo > 1500 || razonSocial.chars().anyMatch(Character::isISOControl))
             throw new DomainException("RECEPTOR_INVALIDO", "2022 - " + queNombre + " tiene de 3 a 1500 caracteres, sin saltos de línea");
     }
+
+    /**
+     * Largo sin los espacios de los extremos, con los mismos espacios que quita el portal (`trim` de JS): además de los de {@link String#strip()},
+     * los de no separación (U+00A0, U+2007, U+202F) y el BOM. Con `strip()` solo, «JP» + U+00A0 —o tres U+00A0— pasaba la 2022 (#347-H1).
+     */
+    private static int largoSinExtremos(String s) {
+        int inicio = 0, fin = s.length();
+        while (inicio < fin && esEspacio(s.charAt(inicio))) inicio++;
+        while (fin > inicio && esEspacio(s.charAt(fin - 1))) fin--;
+        return fin - inicio;
+    }
+
+    private static boolean esEspacio(char c) { return Character.isWhitespace(c) || Character.isSpaceChar(c) || c == '﻿'; }
 
     private void exigirValidoParaExportacion(String tipoOperacion) {
         if (tipoDoc == null || !DOCUMENTOS_EXPORTACION.contains(tipoDoc))

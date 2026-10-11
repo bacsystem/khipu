@@ -2318,6 +2318,12 @@ export const handlers = [
       items: Array<{ descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }>;
     };
 
+    // #303: el `@NotBlank` de `ClienteDto` corre antes que el servicio y que el dominio (347-H2), y en blanco es lo que `String.trim()` de
+    // Java deja vacío: solo los caracteres hasta U+0020, no el espacio de no separación (que llega al dominio y vuelve como 2022).
+    const razonCliente = body.cliente?.razon_social ?? "";
+    if (!razonCliente.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, ""))
+      return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: { "cliente.razonSocial": ["no debe estar vacío"] } }, { status: 422 });
+
     // #20: como el backend, la letra de la serie decide el tipo (F factura, B boleta) y cada uno valida su comprador.
     const boleta = body.serie?.startsWith("B");
     const tipo = boleta ? "03" : "01";
@@ -2329,12 +2335,9 @@ export const handlers = [
     if (boleta && tipoDoc === "1" && !/^\d{8}$/.test(numDoc)) return fail(422, "RECEPTOR_INVALIDO", "4207 - El DNI del comprador tiene 8 dígitos");
     // Sin código, como `Receptor` (274-H3): Boleta2_0 no tiene regla propia para el comprador sin documento.
     if (boleta && tipoDoc === "-" && numDoc !== "-") return fail(422, "RECEPTOR_INVALIDO", "Sin documento (tipo_doc «-»), el número de documento también es «-»");
-    // #303: la 2022 de `Receptor`, contada sin los espacios de los extremos; en boleta rige igual sin documento.
-    // En blanco ni llega al dominio: lo frena el `@NotBlank` de `ClienteDto`.
-    const nombreCliente = (body.cliente?.razon_social ?? "").trim();
-    if (!nombreCliente)
-      return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: { "cliente.razonSocial": ["no debe estar vacío"] } }, { status: 422 });
-    if (nombreCliente.length < 3 || nombreCliente.length > 1500 || /[\x00-\x1F\x7F-\x9F]/.test(body.cliente?.razon_social ?? ""))
+    // #303: la 2022 de `Receptor`, contada sin los espacios de los extremos (los mismos que quita `trim` de JS); en boleta rige igual sin documento.
+    const nombreCliente = razonCliente.trim();
+    if (nombreCliente.length < 3 || nombreCliente.length > 1500 || /[\x00-\x1F\x7F-\x9F]/.test(razonCliente))
       return fail(422, "RECEPTOR_INVALIDO", `2022 - ${boleta ? "El nombre del comprador" : "La razón social del receptor"} tiene de 3 a 1500 caracteres, sin saltos de línea`);
     if (!body.items?.length) return fail(422, "ITEMS_REQUERIDOS", "Un comprobante necesita al menos un ítem");
     // #292: el plazo del backend (`PlazoEnvio`): ni futura ni más atrás que 3 días (factura, 2108) o 7 (boleta, 1079).

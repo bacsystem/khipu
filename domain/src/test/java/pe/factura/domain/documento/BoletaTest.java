@@ -84,6 +84,23 @@ class BoletaTest {
         assertThat(boleta(new Receptor("1", "12345678", " ANA ", null), "10").crear(clock).receptor().razonSocial()).isEqualTo(" ANA ");
     }
 
+    /**
+     * #347-H1: los extremos se cuentan como los cuenta el portal (`trim` y `\s` de JS): `String.strip()` no tiene por espacio el de no separación
+     * (U+00A0, U+2007, U+202F) ni el BOM, así que «JP» pegado con un U+00A0 —o tres U+00A0, un nombre en blanco a la vista— pasaba la 2022.
+     */
+    @Test void losEspaciosDeNoSeparacionDeLosExtremosTampocoCuentan() {
+        for (String corto : List.of("JP ", "   ", " JP ", "﻿JP", "　JP　"))
+            assertThatThrownBy(() -> boleta(new Receptor("1", "12345678", corto, null), "10").crear(clock)).as(corto).hasMessageStartingWith("2022");
+        assertThat(boleta(new Receptor("1", "12345678", " A B ", null), "10").crear(clock).receptor().razonSocial()).isEqualTo(" A B ");
+    }
+
+    /** #347-H3: el tope de la 2022 (1500), contado también sin los extremos. */
+    @Test void elNombreDelCompradorTieneHastaMilQuinientosCaracteres() {
+        assertThat(boleta(new Receptor("1", "12345678", "Ñ".repeat(1500), null), "10").crear(clock).receptor().razonSocial()).hasSize(1500);
+        assertThat(boleta(new Receptor("1", "12345678", " " + "Ñ".repeat(1500) + " ", null), "10").crear(clock).receptor().razonSocial()).hasSize(1502);
+        assertThatThrownBy(() -> boleta(new Receptor("1", "12345678", "Ñ".repeat(1501), null), "10").crear(clock)).hasMessageStartingWith("2022");
+    }
+
     /** #303: el nombre convenido para el comprador sin documento cumple la 2022, y es el que propone el portal. */
     @Test void elNombreDelCompradorSinDocumentoCumpleLaRegla2022() {
         assertThat(Receptor.NOMBRE_SIN_DOCUMENTO).isEqualTo("CLIENTES VARIOS");
