@@ -88,6 +88,17 @@ class NotaControllerTest {
         assertThat(cap.getAllValues().get(1).enviarAutomatico()).as("sin enviar_automatico en el cuerpo se envía por defecto").isTrue();
     }
 
+    /** #293: el mismo cuerpo sirve para una nota sobre una boleta, con serie B en la nota y en el documento que modifica; el caso de uso decide el resto. */
+    @Test void aceptaUnaNotaSobreUnaBoleta() throws Exception {
+        when(emitir.emitirNota(eq(tenant), any())).thenReturn(notaAceptada(tenant));
+        String sobreBoleta = CUERPO.replace("\"serie\":\"FC01\"", "\"serie\":\"BC01\"").replace("{\"serie\":\"F001\"", "{\"serie\":\"B001\"");
+        mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(sobreBoleta)).andExpect(status().isCreated());
+        ArgumentCaptor<EmitirNotaCommand> cap = ArgumentCaptor.forClass(EmitirNotaCommand.class);
+        verify(emitir).emitirNota(eq(tenant), cap.capture());
+        assertThat(cap.getValue().serie()).isEqualTo("BC01");
+        assertThat(cap.getValue().serieAfectada()).isEqualTo("B001");
+    }
+
     @Test void reglaDeNegocioEs422ConCodigoSunat() throws Exception {
         when(emitir.emitirNota(eq(tenant), any())).thenThrow(new DomainException("NOTA_INVALIDA", "2119 - La factura F001-601 no está aceptada por SUNAT (estado RECHAZADO)"));
         mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(CUERPO))
@@ -101,10 +112,14 @@ class NotaControllerTest {
         mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(tipoMal))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.errores['tipo']").exists());
-        String serieBoleta = CUERPO.replace("\"serie\":\"FC01\"", "\"serie\":\"BC01\"");
-        mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(serieBoleta))
+        String serieMal = CUERPO.replace("\"serie\":\"FC01\"", "\"serie\":\"XC01\"");
+        mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(serieMal))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.errores['serie']").exists());
+        String afectadoMal = CUERPO.replace("{\"serie\":\"F001\"", "{\"serie\":\"T001\"");
+        mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(afectadoMal))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errores['documentoAfectado.serie']").exists());
         String sinAfectado = CUERPO.replace("\"documento_afectado\":{\"serie\":\"F001\",\"numero\":601},", "");
         mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(sinAfectado))
                 .andExpect(status().isUnprocessableEntity())

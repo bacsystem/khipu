@@ -49,6 +49,9 @@ class EmitirNotaServiceTest {
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         series.crear(new Serie(tenantId, TipoDocumento.NOTA_CREDITO, "FC01", 0, true));
         series.crear(new Serie(tenantId, TipoDocumento.NOTA_DEBITO, "FD01", 0, true));
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        series.crear(new Serie(tenantId, TipoDocumento.NOTA_CREDITO, "BC01", 0, true));
+        series.crear(new Serie(tenantId, TipoDocumento.NOTA_DEBITO, "BD01", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
         service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), tope);
     }
@@ -73,6 +76,104 @@ class EmitirNotaServiceTest {
 
     private EmitirNotaCommand nc(long numeroFactura, String motivo, List<Item> items) {
         return new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC01", null, LocalDate.of(2026, 9, 13), "F001", numeroFactura, motivo, "Sustento", items, null, List.of(), null, true);
+    }
+
+    static final Receptor SIN_DOCUMENTO = new Receptor("-", "-", "CLIENTES VARIOS", null);
+
+    /** Boleta de 2 laptops (200 + 36) a un comprador sin documento: total 236.00. */
+    private Comprobante boletaAceptada() {
+        return service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101", SIN_DOCUMENTO,
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+    }
+
+    private EmitirNotaCommand notaDeBoleta(TipoDocumento tipo, String serie, long numeroBoleta, String motivo, List<Item> items) {
+        return new EmitirNotaCommand(tipo, serie, null, LocalDate.of(2026, 9, 13), "B001", numeroBoleta, motivo, "Sustento", items, null, List.of(), null, true);
+    }
+
+    private static List<Item> laptops(String cantidad, String precio) {
+        return List.of(new Item("P1", "Laptop", "NIU", new BigDecimal(cantidad), new BigDecimal(precio), TipoAfectacionIgv.GRAVADO));
+    }
+
+    /** #293: la nota total sobre una boleta copia sus ítems y su comprador sin documento, y queda como nota de la boleta. */
+    @Test void notaDeCreditoTotalSobreUnaBoleta() {
+        Comprobante b = boletaAceptada();
+        Comprobante nc = service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "01", null));
+        assertThat(nc.nota().tipoAfectado()).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(nc.nota().documentoAfectado()).isEqualTo("B001-" + b.numero());
+        assertThat(nc.receptor()).isEqualTo(SIN_DOCUMENTO);
+        assertThat(nc.items()).isEqualTo(b.items());
+        assertThat(nc.totales().total()).isEqualByComparingTo("236.00");
+        assertThat(nc.esDeBoleta()).isTrue();
+        assertThat(nc.nombreArchivo()).isEqualTo("20100066603-07-BC01-1");
+        assertThat(comprobantes.notasDe(tenantId, "B001", b.numero())).extracting(Comprobante::id).containsExactly(nc.id());
+    }
+
+    @Test void notaDeDebitoSobreUnaBoleta() {
+        Comprobante b = boletaAceptada();
+        Comprobante nd = service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_DEBITO, "BD01", b.numero(), "01", laptops("1", "11.80")));
+        assertThat(nd.tipo()).isEqualTo(TipoDocumento.NOTA_DEBITO);
+        assertThat(nd.nota().tipoAfectado()).isEqualTo(TipoDocumento.BOLETA);
+    }
+
+    /**
+     * 3286 sobre una boleta admite +1 (NotaCredito2_0 fila 113; desde 2027 es error y khipu lo aplica ya); sobre una factura, 0 (fila 111). El acumulado de NC
+     * vigentes cuenta igual que en la factura (#83).
+     */
+    @Test void laNotaDeCreditoSobreUnaBoletaAdmiteUnSolDeTolerancia() {
+        Comprobante b = boletaAceptada(); // 236.00
+        assertThat(service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "09", laptops("2", "118.50"))).totales().total())
+                .as("237.00: un sol por encima, dentro de la tolerancia").isEqualByComparingTo("237.00");
+        Comprobante otra = boletaAceptada();
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", otra.numero(), "09", laptops("2", "118.60"))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3286").hasMessageContaining("boleta");
+        service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", otra.numero(), "07", laptops("1", "118.00")));
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", otra.numero(), "07", laptops("1", "120.00"))))
+                .as("118 + 120 = 238 > 236 + 1").hasMessageContaining("3286").hasMessageContaining("ya acreditado");
+    }
+
+    /** La letra de la serie de la nota sigue a la del documento que modifica (2399/2400): una nota F no modifica una boleta, ni una B una factura. */
+    @Test void laSerieDeLaNotaTieneLaLetraDelDocumentoQueModifica() {
+        Comprobante b = boletaAceptada();
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "FC01", b.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SERIE_INVALIDA");
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        assertThatThrownBy(() -> service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "BC01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "x", null, null, List.of(), null, true)))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SERIE_INVALIDA");
+    }
+
+    /** Sobre una boleta no hay NC 13 (3259) ni NC por descuento o bonificación (RCP 10.1.4, 4367): se rechazan antes de mirar la forma de pago. */
+    @Test void sobreUnaBoletaNoHayNotaDeCredito13NiDescuentos() {
+        Comprobante b = boletaAceptada();
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "13", null))).hasMessageContaining("3259");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "04", laptops("1", "10.00")))).hasMessageContaining("4367");
+        assertThat(comprobantes.notasDe(tenantId, "B001", b.numero())).isEmpty();
+    }
+
+    /**
+     * La NC 10 de una boleta no va en el resumen diario (guía, p. 19): emitida el 13 sin enviar, el 19 (6.º día) ya no tiene canal y se cierra con el 1079.
+     * A diferencia de la boleta (#290: su fecha es la de la venta y no se reemplaza), una nota sí se vuelve a emitir con fecha vigente: el mensaje lo dice.
+     */
+    @Test void laNotaDeCredito10DeUnaBoletaVenceAlQuintoDia() {
+        Comprobante b = boletaAceptada();
+        Comprobante nc = service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "BC01", null, LocalDate.of(2026, 9, 13), "B001", b.numero(), "10", "Otros",
+                laptops("1", "10.00"), null, List.of(), null, false));
+        assertThat(nc.fechaLimiteEnvio()).isEqualTo(LocalDate.of(2026, 9, 18));
+        java.time.Clock dia19 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-19T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+        EnviarDocumentoService tarde = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, dia19);
+        assertThatThrownBy(() -> tarde.enviar(tenantId, nc.id())).extracting("codigo", "message")
+                .satisfies(t -> assertThat(t.get(0)).isEqualTo("FUERA_DE_PLAZO"), t -> assertThat((String) t.get(1)).contains("1079").contains("Emita"));
+        assertThat(comprobantes.buscar(tenantId, nc.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
+    }
+
+    /** La boleta tiene que existir, estar aceptada y no anulada ni con una baja en curso (2119/2120), como la factura; los mensajes la nombran. */
+    @Test void boletaInexistenteNoAceptadaOAnuladaSeRechaza() {
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", 999, "01", null)))
+                .hasMessageContaining("2119").hasMessageContaining("boleta B001-999");
+        Comprobante b = boletaAceptada();
+        anular(b);
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "01", null)))
+                .hasMessageContaining("2120").hasMessageContaining("boleta");
     }
 
     @Test void notaTotalCopiaItemsDescuentoYCargosDeLaFactura() {

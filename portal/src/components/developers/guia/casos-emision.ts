@@ -557,11 +557,44 @@ X-Api-Key: fk_TU_API_KEY`,
   "descripcion": "Anulación de la operación por error en el pedido"
 }`,
     notas: [
-      "`tipo` **07** nota de crédito / **08** nota de débito; `serie` registrada con ese tipo y que empiece por `F` (p. ej. `FC01`, `FD01`; regla 1001). `documento_afectado` debe ser una factura de la empresa **aceptada** por SUNAT y no anulada (reglas 2119, 2120); la nota toma su cliente, moneda y tipo de operación, y su fecha no puede ser anterior (2885).",
+      "`tipo` **07** nota de crédito / **08** nota de débito; `serie` registrada con ese tipo y que empiece por `F` (p. ej. `FC01`, `FD01`; regla 1001; sobre una boleta, `B`: ver el caso siguiente). `documento_afectado` debe ser una factura de la empresa **aceptada** por SUNAT y no anulada (reglas 2119, 2120); la nota toma su cliente, moneda y tipo de operación, y su fecha no puede ser anterior (2885).",
       "`motivo` del catálogo **09** (NC: `01` anulación, `02` error en el RUC, `04`/`05` descuentos, `06`/`07` devoluciones, `09` disminución, `13` corrección de cuotas…) o **10** (ND: `01` intereses por mora, `02` aumento en el valor, `03` penalidades…); `descripcion` es el sustento (1–500 caracteres, regla 2135).",
       "**Nota total**: sin `items`, khipu copia ítems, descuento global y cargos de la factura (no envíe `descuento_global` ni `cargos` propios: se rechazan). Si la factura regularizó anticipos, envíe `items` por el importe neto: los anticipos no viajan en una nota. **Nota parcial**: envíe `items` con el mismo formato que en la factura (p. ej. una laptop de las dos facturadas). Una nota de crédito nunca supera los importes de la factura, ni en total (3286) ni por tributo (3503), y khipu descuenta lo ya acreditado por las notas de crédito anteriores: varias parciales pueden sumar la factura, pero una segunda nota total se rechaza (SUNAT la aceptaría, porque compara nota por nota). Una nota de débito no tiene tope.",
       "**NC 13** (reprogramar cuotas de una factura al crédito): envíe `forma_pago` al crédito con las cuotas corregidas; la nota sale con importe 0 (regla 3315; `items` se ignora) y las cuotas se validan contra la factura (3320, 3321). En cualquier otra nota `forma_pago` se rechaza.",
       "La respuesta es el mismo comprobante que en facturas más el bloque `nota { tipo_afectado, documento_afectado, motivo, motivo_descripcion, descripcion }`; consulta, XML, CDR y reenvío van por `GET /v1/facturas/{id}`…, y la factura lista sus notas en `notas[]`. En el XML: `CreditNote`/`DebitNote` con `cac:DiscrepancyResponse` y `cac:BillingReference`. Error `NOTA_INVALIDA` (422) con la regla SUNAT en el mensaje. Homologado en e-beta: NC total, parcial, 13 y ND.",
+    ],
+    disponible: true,
+  },
+  {
+    id: "notas-boleta",
+    titulo: "Notas de crédito y débito sobre una boleta",
+    endpoint: "/v1/notas",
+    cuando: "Devolver o corregir una venta a consumidor final ya aceptada: devolución total o de un producto, anulación por error, disminución del valor (nota de crédito); intereses o aumentos de valor (nota de débito).",
+    request: `{
+  "tipo": "07",
+  "serie": "BC01",
+  "fecha_emision": "2026-09-18",
+  "documento_afectado": { "serie": "B001", "numero": 87 },
+  "motivo": "07",
+  "descripcion": "Devolución de un producto",
+  "items": [
+    {
+      "codigo": "P002",
+      "descripcion": "Leche evaporada 400 g",
+      "unidad": "NIU",
+      "cantidad": 1,
+      "precio_unitario": 4.72,
+      "tipo_afectacion_igv": "10"
+    }
+  ]
+}`,
+    notas: [
+      "Mismo endpoint y cuerpo que sobre una factura, con la letra **B**: la `serie` de la nota empieza con `B` (p. ej. `BC01` para crédito, `BD01` para débito, registradas con el tipo 07/08) y `documento_afectado` es una boleta `B…` de la empresa **aceptada** por SUNAT y no anulada (reglas 2399, 2400, 2119, 2120). Una nota `F` sobre una boleta, o `B` sobre una factura, se rechaza con `SERIE_INVALIDA`.",
+      "La nota toma el comprador de la boleta, que puede ser «sin documento» (`-`): no se exige RUC. **Nota total**: omita `items` y khipu copia los de la boleta; **nota parcial**: envíe los ítems que devuelve.",
+      "Motivos no admitidos sobre una boleta: la NC **13** (la boleta no tiene cuotas, regla 3259) y la NC **04**, **05** u **08**: el descuento o la bonificación a un consumidor final se aplica en la misma boleta (RCP art. 10 num. 1.4; SUNAT solo lo observa con 4367, khipu lo rechaza para que no acumule observaciones). Use `01`, `06`, `07` o `09` para devolver o corregir el importe.",
+      "Una nota de crédito no supera la boleta: el total admite **S/ 1** de más (regla 3286, error desde el 2027-01-01 y khipu ya lo aplica) y cada tributo, S/ 1 (3503). Como en la factura, se descuenta lo ya acreditado por notas de crédito anteriores.",
+      "**Plazos** (los de la boleta, días calendario en hora de Lima): sola con `sendBill` hasta el **5.º día**; el 6.º y el 7.º, khipu la informa en un **resumen diario** con su línea en estado 1 y la boleta que modifica (`cac:BillingReference`); pasado el 7.º, `FUERA_DE_PLAZO`. La NC **10** y la ND **03** no van en el resumen diario: vencen el 5.º día.",
+      "Para anularla, `POST /v1/facturas/{id}/baja` sobre la nota: va en un resumen diario (`RC-…`, estado 3), nunca en una comunicación de baja (2310). La boleta lista sus notas en `notas[]` de `GET /v1/facturas/{id}`.",
     ],
     disponible: true,
   },

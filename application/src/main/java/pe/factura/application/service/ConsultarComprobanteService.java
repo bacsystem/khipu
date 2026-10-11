@@ -35,8 +35,10 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
     public Comprobante obtener(UUID tenantId, UUID id) {
         return comprobantes.buscar(tenantId, id).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
     }
-    public List<Comprobante> notasDe(UUID tenantId, Comprobante factura) {
-        return factura.tipo() == TipoDocumento.FACTURA && factura.numero() != null ? comprobantes.notasDe(tenantId, factura.serie(), factura.numero()) : List.of();
+    /** Las notas que modifican una factura o una boleta (#293); un comprobante sin número o una nota no tiene. */
+    public List<Comprobante> notasDe(UUID tenantId, Comprobante c) {
+        boolean modificable = c.tipo() == TipoDocumento.FACTURA || c.tipo() == TipoDocumento.BOLETA;
+        return modificable && c.numero() != null ? comprobantes.notasDe(tenantId, c.serie(), c.numero()) : List.of();
     }
     public List<pe.factura.domain.documento.EventoDocumento> eventos(UUID tenantId, Comprobante c) { return comprobantes.eventosDe(tenantId, c.id()); }
     public List<Comprobante> listar(UUID tenantId, Filtro filtro, int pagina, int porPagina) { return comprobantes.listar(tenantId, filtro == null ? Filtro.NINGUNO : filtro, pagina, porPagina); }

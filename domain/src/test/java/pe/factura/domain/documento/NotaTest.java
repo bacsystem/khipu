@@ -82,6 +82,42 @@ class NotaTest {
         assertThat(c.formaPago().cuotas()).hasSize(1);
     }
 
+    static final Receptor SIN_DOCUMENTO = new Receptor("-", "-", "CLIENTES VARIOS", null);
+
+    static Comprobante sobreBoleta(TipoDocumento tipo, String serie, String motivo, Receptor comprador) {
+        return Comprobante.nota(UUID.randomUUID(), tipo, serie, LocalDate.of(2026, 9, 18), new Nota(TipoDocumento.BOLETA, "B001", 7, motivo, "Devolución"), comprador, ITEMS).crear(CLOCK);
+    }
+
+    /** #293: una nota B modifica una boleta (03), con el comprador de la boleta: sin documento hasta S/ 700, sin exigir RUC (RCP art. 10). */
+    @Test void notaDeCreditoSobreBoletaConCompradorSinDocumento() {
+        Comprobante c = sobreBoleta(TipoDocumento.NOTA_CREDITO, "BC01", "07", SIN_DOCUMENTO);
+        assertThat(c.nota().tipoAfectado()).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(c.nota().documentoAfectado()).isEqualTo("B001-7");
+        assertThat(c.esDeBoleta()).isTrue();
+        assertThat(c.totales().total()).isEqualByComparingTo("118.00");
+    }
+
+    @Test void notaDeDebitoSobreBoletaConDni() {
+        Comprobante c = sobreBoleta(TipoDocumento.NOTA_DEBITO, "BD01", "01", new Receptor("1", "12345678", "JUAN PEREZ", null));
+        assertThat(c.esDeBoleta()).isTrue();
+        assertThat(c.receptor().numDoc()).isEqualTo("12345678");
+    }
+
+    /** Lo «de boleta» decide el canal y el plazo: la boleta y sus notas sí; la factura y sus notas no. */
+    @Test void soloLaBoletaYSusNotasSonDeBoleta() {
+        assertThat(nota(TipoDocumento.NOTA_CREDITO, "FC01", NC_ANULACION, null).esDeBoleta()).isFalse();
+        assertThat(Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 18), "PEN", "0101", RECEPTOR, ITEMS).crear(CLOCK).esDeBoleta()).isFalse();
+        assertThat(Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 18), "PEN", "0101", SIN_DOCUMENTO, ITEMS).crear(CLOCK).esDeBoleta()).isTrue();
+    }
+
+    /** La NC 10 y la ND 03 no se informan en el resumen diario (guía del resumen diario, p. 19); las demás notas de boleta sí. */
+    @Test void laNotaDeCredito10YLaDeDebito03NoVanEnElResumenDiario() {
+        assertThat(new Nota(TipoDocumento.BOLETA, "B001", 1, "10", "x").vaEnResumenDiario(TipoDocumento.NOTA_CREDITO)).isFalse();
+        assertThat(new Nota(TipoDocumento.BOLETA, "B001", 1, "03", "x").vaEnResumenDiario(TipoDocumento.NOTA_DEBITO)).isFalse();
+        assertThat(new Nota(TipoDocumento.BOLETA, "B001", 1, "03", "x").vaEnResumenDiario(TipoDocumento.NOTA_CREDITO)).isTrue();
+        assertThat(new Nota(TipoDocumento.BOLETA, "B001", 1, "07", "x").vaEnResumenDiario(TipoDocumento.NOTA_CREDITO)).isTrue();
+    }
+
     @Test void laFacturaNoEsNota() {
         Comprobante f = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 18), "PEN", "0101", RECEPTOR, ITEMS).crear(CLOCK);
         assertThat(f.esNota()).isFalse();
@@ -97,8 +133,16 @@ class NotaTest {
     static Stream<Arguments> invalidas() {
         FormaPago credito = FormaPago.credito(new BigDecimal("118.00"), List.of(new FormaPago.Cuota(new BigDecimal("118.00"), LocalDate.of(2026, 10, 18))));
         return Stream.of(
-                Arguments.of("nota sobre boleta", "2116", (ThrowingCallable) () -> new Nota(TipoDocumento.BOLETA, "B001", 1, "01", "x")),
+                Arguments.of("nota sobre otra nota", "2116", (ThrowingCallable) () -> new Nota(TipoDocumento.NOTA_CREDITO, "FC01", 1, "01", "x")),
                 Arguments.of("serie afectada que no es de factura", "2117", (ThrowingCallable) () -> new Nota(TipoDocumento.FACTURA, "B001", 1, "01", "x")),
+                Arguments.of("serie afectada que no es de boleta", "2117", (ThrowingCallable) () -> new Nota(TipoDocumento.BOLETA, "F001", 1, "01", "x")),
+                // #293: sobre boleta, la serie de la nota empieza con B (2399/2400), la NC 13 no existe (3259) y el descuento o la bonificación va en la boleta (RCP 10.1.4, 4367).
+                Arguments.of("nota F sobre boleta", "B###", (ThrowingCallable) () -> sobreBoleta(TipoDocumento.NOTA_CREDITO, "FC01", "07", SIN_DOCUMENTO)),
+                Arguments.of("NC 13 sobre boleta", "3259", (ThrowingCallable) () -> sobreBoleta(TipoDocumento.NOTA_CREDITO, "BC01", "13", SIN_DOCUMENTO)),
+                Arguments.of("NC 04 sobre boleta", "4367", (ThrowingCallable) () -> sobreBoleta(TipoDocumento.NOTA_CREDITO, "BC01", "04", SIN_DOCUMENTO)),
+                Arguments.of("NC 05 sobre boleta", "4367", (ThrowingCallable) () -> sobreBoleta(TipoDocumento.NOTA_CREDITO, "BC01", "05", SIN_DOCUMENTO)),
+                Arguments.of("NC 08 sobre boleta", "4367", (ThrowingCallable) () -> sobreBoleta(TipoDocumento.NOTA_CREDITO, "BC01", "08", SIN_DOCUMENTO)),
+                Arguments.of("comprador de boleta con DNI de 7 dígitos", "4207", (ThrowingCallable) () -> sobreBoleta(TipoDocumento.NOTA_CREDITO, "BC01", "07", new Receptor("1", "1234567", "JUAN PEREZ", null))),
                 Arguments.of("número afectado cero", "2117", (ThrowingCallable) () -> new Nota(TipoDocumento.FACTURA, "F001", 0, "01", "x")),
                 Arguments.of("sin motivo", "2128", (ThrowingCallable) () -> new Nota(TipoDocumento.FACTURA, "F001", 1, " ", "x")),
                 Arguments.of("descripción vacía", "2135", (ThrowingCallable) () -> new Nota(TipoDocumento.FACTURA, "F001", 1, "01", "")),

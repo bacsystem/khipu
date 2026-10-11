@@ -3,6 +3,7 @@ package pe.factura.application.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.EmitirFacturaCommand;
+import pe.factura.application.port.in.EmitirNotaCommand;
 import pe.factura.application.port.out.FirmaResultado;
 import pe.factura.application.port.out.RechazoDeSolRepository;
 import pe.factura.application.port.out.SunatRechazoException;
@@ -133,6 +134,33 @@ class DarDeBajaServiceTest {
     }
 
     /**
+     * #293: una nota de boleta sigue a la boleta. Firmada sin enviar, al 6.º día se informa en el resumen diario (estado 1) y queda ACEPTADA; ya aceptada,
+     * se anula en el resumen diario (estado 3), nunca en un RA (2310).
+     */
+    @Test void unaNotaDeBoletaSeInformaYSeAnulaEnElResumenDiario() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        series.crear(new Serie(tenantId, TipoDocumento.NOTA_CREDITO, "BC01", 0, true));
+        Comprobante boleta = emitir.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+        Comprobante nc = emitir.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "BC01", null, LocalDate.of(2026, 9, 13), "B001", boleta.numero(), "07",
+                "Devolución", null, null, List.of(), null, false));
+        Clock seisDiasDespues = Clock.fixed(Instant.parse("2026-09-19T15:00:00Z"), ZoneId.of("America/Lima"));
+        DarDeBajaService resumen = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, seisDiasDespues);
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, seisDiasDespues,
+                RechazoDeSolRepository.NINGUNO, resumen);
+
+        assertThat(enviar.enviar(tenantId, nc.id()).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(gateway.ultimoNombre).isEqualTo("20100066603-RC-20260919-1");
+        assertThat(bajas.deComprobante(tenantId, nc.id()).get(0).alta()).isTrue();
+
+        ComunicacionBaja baja = resumen.solicitar(tenantId, nc.id(), "Devolución registrada por error");
+        assertThat(baja.identificador()).isEqualTo("RC-20260919-2");
+        assertThat(validado[0]).startsWith("<SummaryDocuments>");
+        assertThat(comprobantes.buscar(tenantId, nc.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ANULADO);
+    }
+
+    /**
      * #290, el borde en hora de Lima: a las 23:30 del 5.º día (04:30Z del 6.º) la boleta todavía va sola con sendBill. Con un reloj en UTC ya sería el 6.º
      * día y se iría al resumen un día antes.
      */
@@ -214,7 +242,7 @@ class DarDeBajaServiceTest {
         assertThat(enviada.estado()).isEqualTo(EstadoBaja.ENVIADA);
         // Dos copias de la misma baja ENVIADA (el GET del usuario y el outbox) obtienen el CDR 0 a la vez: la segunda no debe
         // romper con TRANSICION_INVALIDA porque el comprobante ya quedó ANULADO por la primera.
-        ComunicacionBaja copiaDelWorker = ComunicacionBaja.rehidratar(enviada.id(), tenantId, enviada.fechaGeneracion(), enviada.correlativo(), enviada.comprobanteId(), enviada.tipoComprobante(),
+        ComunicacionBaja copiaDelWorker = ComunicacionBaja.rehidratar(enviada.id(), tenantId, enviada.fechaGeneracion(), enviada.correlativo(), enviada.comprobanteId(), enviada.tipoComprobante(), enviada.deBoleta(),
                 enviada.serie(), enviada.numero(), enviada.fechaReferencia(), enviada.motivo(), enviada.condicion(), EstadoBaja.ENVIADA, enviada.ticket(), enviada.xmlKey(), null, null, enviada.intentos(), enviada.ultimoError());
         gateway.statusCode = "0";
         ComunicacionBaja primera = service.continuar(tenantId, enviada.id());

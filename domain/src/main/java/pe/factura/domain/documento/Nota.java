@@ -6,18 +6,21 @@ import pe.factura.domain.catalogo.CatalogoSunat;
 /**
  * Lo que distingue una nota de crédito (07) o de débito (08) de una factura: el comprobante que modifica
  * (cac:BillingReference) y el motivo del catálogo 09 (NC) o 10 (ND) con su sustento (cac:DiscrepancyResponse).
- * Solo se modifican facturas (01); las notas sobre boletas viajan en el resumen diario (#20).
+ * Se modifican facturas (01, serie F) y boletas (03, serie B, #293).
  */
 public record Nota(TipoDocumento tipoAfectado, String serieAfectada, long numeroAfectado, String motivo, String descripcion) {
 
     /** Motivo 13 de la NC: corrige el monto neto pendiente o las cuotas de una factura al crédito (reglas 3257, 3259, 3260). */
     public static final String MOTIVO_NC_CUOTAS = "13";
 
+    /** NC por descuento global (04), descuento por ítem (05) o bonificación (08): con un consumidor final van en la misma boleta (RCP art. 10 num. 1.4). */
+    private static final java.util.Set<String> DESCUENTOS_Y_BONIFICACIONES = java.util.Set.of("04", "05", "08");
+
     public Nota {
-        if (tipoAfectado != TipoDocumento.FACTURA)
-            throw new DomainException("NOTA_INVALIDA", "2116 - Solo se emiten notas sobre facturas (01); las de boletas van en el resumen diario");
-        if (!TipoDocumento.FACTURA.serieValida(serieAfectada))
-            throw new DomainException("NOTA_INVALIDA", "2117 - La serie del documento que modifica no es de factura: " + serieAfectada);
+        if (tipoAfectado != TipoDocumento.FACTURA && tipoAfectado != TipoDocumento.BOLETA)
+            throw new DomainException("NOTA_INVALIDA", "2116 - Una nota modifica una factura (01) o una boleta (03); recibido " + tipoAfectado);
+        if (!tipoAfectado.serieValida(serieAfectada))
+            throw new DomainException("NOTA_INVALIDA", "2117 - La serie del documento que modifica no es de " + (tipoAfectado == TipoDocumento.BOLETA ? "boleta (B###)" : "factura (F###)") + ": " + serieAfectada);
         if (numeroAfectado <= 0)
             throw new DomainException("NOTA_INVALIDA", "2117 - El número del documento que modifica debe ser mayor que cero");
         if (motivo == null || motivo.isBlank())
@@ -32,11 +35,28 @@ public record Nota(TipoDocumento tipoAfectado, String serieAfectada, long numero
     /** Catálogo SUNAT del motivo según el tipo de nota: 09 para la nota de crédito, 10 para la de débito. */
     public static String catalogoMotivo(TipoDocumento tipoNota) { return tipoNota == TipoDocumento.NOTA_CREDITO ? "09" : "10"; }
 
-    /** Regla 2172: el motivo debe existir en el catálogo 09 (NC) o 10 (ND) según el tipo de nota. */
-    void validarMotivoPara(TipoDocumento tipoNota) {
+    /** Si modifica una boleta: su canal y su plazo son los de la boleta (#293). */
+    public boolean deBoleta() { return tipoAfectado == TipoDocumento.BOLETA; }
+
+    /** La NC 10 y la ND 03 de una boleta no se informan en el resumen diario (guía del resumen diario, p. 19): solo van solas. */
+    public boolean vaEnResumenDiario(TipoDocumento tipoNota) {
+        return !(tipoNota == TipoDocumento.NOTA_CREDITO && "10".equals(motivo)) && !(tipoNota == TipoDocumento.NOTA_DEBITO && "03".equals(motivo));
+    }
+
+    /**
+     * Regla 2172: el motivo debe existir en el catálogo 09 (NC) o 10 (ND) según el tipo de nota. Sobre una boleta, además, no hay NC 13 (3259: la boleta
+     * no tiene cuotas) ni NC por descuento o bonificación (4367: SUNAT solo observa, pero el RCP art. 10 num. 1.4 los quiere en la misma boleta).
+     */
+    public void validarMotivoPara(TipoDocumento tipoNota) {
         String catalogo = catalogoMotivo(tipoNota);
         if (CatalogoSunat.porId(catalogo).flatMap(c -> c.entrada(motivo)).isEmpty())
             throw new DomainException("NOTA_INVALIDA", "2172 - El motivo " + motivo + " no existe en el catálogo " + catalogo + " (" + tipoNota + ")");
+        if (!deBoleta() || tipoNota != TipoDocumento.NOTA_CREDITO) return;
+        if (MOTIVO_NC_CUOTAS.equals(motivo))
+            throw new DomainException("NOTA_INVALIDA", "3259 - Una boleta no tiene cuotas que corregir: la nota de crédito 13 solo modifica facturas al crédito");
+        if (DESCUENTOS_Y_BONIFICACIONES.contains(motivo))
+            throw new DomainException("NOTA_INVALIDA", "4367 - Un descuento o una bonificación a un consumidor final se aplica en la misma boleta (RCP art. 10 num. 1.4),"
+                    + " no en una nota de crédito 04, 05 u 08; para devolver o corregir el importe use el motivo 01, 06, 07 o 09");
     }
 
     /**

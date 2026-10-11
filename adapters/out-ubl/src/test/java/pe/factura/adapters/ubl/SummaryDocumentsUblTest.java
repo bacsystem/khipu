@@ -236,6 +236,49 @@ class SummaryDocumentsUblTest {
         new JaxpXsdValidator().validarBaja(conFirma(xml), b);
     }
 
+    // --- #293: notas de crédito y débito sobre boletas ---------------------------------------------------------------------------------------------------------
+
+    static Comprobante notaDeBoleta(TipoDocumento tipo, String serie, LocalDate emision) {
+        Comprobante c = Comprobante.nota(UUID.randomUUID(), tipo, serie, emision, new Nota(TipoDocumento.BOLETA, "B001", 45, "01", "Anulación de la operación"),
+                new Receptor("-", "-", "CLIENTES VARIOS", null), List.of(VENDIDO)).crear(HOY);
+        c.asignarNumero(3, "20100066603"); c.firmar("H", "k");
+        return c;
+    }
+
+    /**
+     * Una nota de boleta informada en el resumen (estado 1) lleva su tipo (07/08) y el documento que modifica en cac:BillingReference (2524: serie-número,
+     * 2583: tipo 03), entre el comprador y cac:Status como pide el XSD.
+     */
+    @Test void unaNotaDeBoletaInformadaLlevaLaBoletaQueModifica() throws Exception {
+        for (TipoDocumento tipo : List.of(TipoDocumento.NOTA_CREDITO, TipoDocumento.NOTA_DEBITO)) {
+            Comprobante nota = notaDeBoleta(tipo, tipo == TipoDocumento.NOTA_CREDITO ? "BC01" : "BD01", LocalDate.of(2026, 9, 12));
+            ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(nota, 4, HOY);
+
+            String xml = new FreemarkerUblGenerator().generarBaja(alta, nota, FreemarkerUblGeneratorTest.tenant());
+            Document d = parsear(xml);
+            String l = "/rc:SummaryDocuments/sac:SummaryDocumentsLine";
+            assertThat(xpath().evaluate(l + "/cbc:DocumentTypeCode", d)).isEqualTo(tipo.codigo());
+            assertThat(xpath().evaluate(l + "/cbc:ID", d)).isEqualTo(nota.serie() + "-3");
+            assertThat(xpath().evaluate(l + "/cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID", d)).isEqualTo("B001-45");
+            assertThat(xpath().evaluate(l + "/cac:BillingReference/cac:InvoiceDocumentReference/cbc:DocumentTypeCode", d)).isEqualTo("03");
+            assertThat(xpath().evaluate(l + "/cac:Status/cbc:ConditionCode", d)).isEqualTo("1");
+            new JaxpXsdValidator().validarBaja(conFirma(xml), alta);
+        }
+    }
+
+    /** La baja (estado 3) de una nota de boleta no lleva cac:BillingReference: SUNAT no lo exige fuera del alta (2524/2583), y así no rebota por la boleta (2990). */
+    @Test void laBajaDeUnaNotaDeBoletaNoRepiteLaReferencia() throws Exception {
+        Comprobante nota = notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 16));
+        nota.marcarEnviado(); nota.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
+        ComunicacionBaja baja = ComunicacionBaja.crear(nota, 2, "Error en el monto", HOY);
+
+        String xml = new FreemarkerUblGenerator().generarBaja(baja, nota, FreemarkerUblGeneratorTest.tenant());
+        Document d = parsear(xml);
+        assertThat(xpath().evaluate("count(/rc:SummaryDocuments/sac:SummaryDocumentsLine/cac:BillingReference)", d)).isEqualTo("0");
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/sac:SummaryDocumentsLine/cac:Status/cbc:ConditionCode", d)).isEqualTo("3");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), baja);
+    }
+
     /** El esquema se elige por la baja: un RC no pasa como RA ni al revés. */
     @Test void cadaBajaSeValidaContraSuEsquema() {
         Comprobante c = boleta(new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)));

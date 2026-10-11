@@ -21,17 +21,24 @@ import pe.factura.domain.documento.Comprobante;
 @RequestMapping("/v1/notas")
 @RequiredArgsConstructor
 @Tag(name = "Notas de crédito y débito", description = """
-        Notas de crédito (07) y de débito (08) sobre facturas de la empresa. Una nota se emite como una factura: khipu la
+        Notas de crédito (07) y de débito (08) sobre facturas y boletas de la empresa. Una nota se emite como una factura: khipu la
         numera en su serie, genera el `CreditNote`/`DebitNote` UBL 2.1, lo firma, lo valida y lo envía a SUNAT en la misma
         llamada. Consulta, XML, CDR y reenvío usan los mismos endpoints que las facturas (`GET /v1/facturas/{id}` etc.), y la
-        factura modificada lista sus notas en `notas`.""")
+        factura o boleta modificada lista sus notas en `notas`.""")
 public class NotaController {
     private final EmitirComprobanteUseCase emitir;
 
     @PostMapping
     @Operation(summary = "Emitir una nota de crédito o débito", description = """
-            Sobre una factura **aceptada** por SUNAT de la misma empresa. La nota toma el receptor, la moneda y el tipo de
-            operación de la factura; la serie debe existir con el tipo 07/08 y empezar por `F` (p. ej. `FC01`, `FD01`).
+            Sobre una factura o una boleta **aceptada** por SUNAT de la misma empresa. La nota toma el receptor, la moneda y el tipo de
+            operación del documento; la serie debe existir con el tipo 07/08 y empezar con la letra del documento que modifica:
+            `F` sobre una factura (p. ej. `FC01`, `FD01`), `B` sobre una boleta (p. ej. `BC01`, `BD01`; reglas 2399, 2400).
+
+            **Sobre una boleta**: el comprador es el de la boleta (puede no tener documento). No se admiten la NC `13` (la boleta no
+            tiene cuotas, regla 3259) ni la NC `04`, `05` u `08`: el descuento o la bonificación a un consumidor final va en la misma
+            boleta (RCP art. 10 num. 1.4). La nota se envía sola hasta el 5.º día; el 6.º y el 7.º va en el resumen diario (como la boleta),
+            salvo la NC `10` y la ND `03`, que no van en él y vencen el 5.º. Se anula con `POST /v1/facturas/{id}/baja`, que la informa en un
+            resumen diario.
 
             **Nota total** (anulación `01`, devolución total `06`): omita `items` y khipu copia los ítems, el descuento global y
             los cargos de la factura (no envíe `descuento_global` ni `cargos` propios: se rechazan). Si la factura regularizó
@@ -42,13 +49,14 @@ public class NotaController {
             neto pendiente y las cuotas corregidas (reglas 3257, 3260, 3320, 3321); la nota sale con importe 0 (regla 3315). En cualquier
             otra nota `forma_pago` se rechaza.
 
-            **Límites** (notas de crédito): el total y las bases por tributo no pueden superar los de la factura (reglas 3286, 3503).
-            khipu descuenta además lo ya acreditado por las notas de crédito anteriores sobre la misma factura (las rechazadas no
-            cuentan): varias notas parciales pueden sumar la factura, pero una segunda nota total —o cualquiera que exceda el saldo—
-            se rechaza aunque SUNAT, que compara nota por nota, la aceptaría.
+            **Límites** (notas de crédito): el total y las bases por tributo no pueden superar los del documento (reglas 3286, 3503;
+            sobre una boleta el total admite S/ 1 de más). khipu descuenta además lo ya acreditado por las notas de crédito anteriores
+            sobre el mismo documento (las rechazadas no cuentan): varias notas parciales pueden sumar el documento, pero una segunda nota
+            total —o cualquiera que exceda el saldo— se rechaza aunque SUNAT, que compara nota por nota, la aceptaría.
 
-            **Errores**: `422 NOTA_INVALIDA` (factura inexistente, no aceptada o anulada —2119/2120—, fecha anterior a la factura
-            —2885—, motivo fuera del catálogo —2172—, importes mayores que la factura o que su saldo tras otras notas —3286/3503—), `422 SERIE_INVALIDA`,
+            **Errores**: `422 NOTA_INVALIDA` (factura o boleta inexistente, no aceptada o anulada —2119/2120—, fecha anterior al documento
+            —2885—, motivo fuera del catálogo —2172— o no admitido sobre una boleta —3259/4367—, importes mayores que el documento o que su
+            saldo tras otras notas —3286/3503—), `422 FECHA_INVALIDA` (plazo de envío vencido —2108/1079—), `422 SERIE_INVALIDA`,
             `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su plan: una nota
             consume como una factura; para anular sin consumir está la comunicación de baja).""")
     @ApiResponses({

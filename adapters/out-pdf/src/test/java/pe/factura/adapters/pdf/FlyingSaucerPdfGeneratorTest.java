@@ -128,6 +128,16 @@ class FlyingSaucerPdfGeneratorTest {
         assertThat(html).contains("NOTA DE CRÉDITO ELECTRÓNICA", "FC01-7", "Documento que modifica", "Factura F001-125", "07 - Devolución por ítem", "Devolución de una laptop", "hashnota==");
     }
 
+    /** #293: la nota B nombra la boleta que modifica (catálogo 01: «Boleta de venta») y su comprador sin documento. */
+    @Test void laNotaSobreUnaBoletaIndicaLaBoletaQueModifica() {
+        Comprobante c = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.BOLETA, "B001", 45, "07", "Devolución de un libro"),
+                new Receptor("-", "-", "CLIENTES VARIOS", null), List.of(new Item("L", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).crear(CLOCK);
+        c.asignarNumero(2, "20100066603");
+        c.firmar("hashnotab==", "k");
+        String html = generador.xhtml(c, TENANT, "qr", null);
+        assertThat(html).contains("NOTA DE CRÉDITO ELECTRÓNICA", "BC01-2", "Documento que modifica", "Boleta de venta B001-45", "CLIENTES VARIOS");
+    }
+
     @Test void generaUnPdfConElQrLegible() throws Exception {
         String contenido = "20100066603|01|F001|125|360.00|2410.00|2026-09-13|6|20601234565|y4M8+jW8Xp278K1aM02q19KjvO3k=|";
         byte[] pdf = generador.generar(factura(), TENANT, contenido, null);

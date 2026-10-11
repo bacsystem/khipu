@@ -173,6 +173,71 @@ class FacturaE2ETest {
         assertThat(resumen).containsEntry("condicion", "ALTA").containsEntry("estado", "ACEPTADA");
     }
 
+    /**
+     * #293: notas sobre una boleta de extremo a extremo. Sobre una boleta aceptada: NC total (copia la boleta), NC parcial y ND, cada una firmada, validada
+     * contra su XSD y enviada sola con sendBill; la boleta las lista. Una NC por descuento (04) se rechaza sin consumir número, y la NC total se anula en un
+     * resumen diario (RC), nunca en un RA.
+     */
+    @Test void notasSobreUnaBoletaDeExtremoAExtremo(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").withRequestBody(containing("sendBill")).willReturn(okXml(soapOk("20100066603-03-B001-1"))));
+        stubFor(post("/billService").withRequestBody(containing("sendSummary")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:sendSummaryResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><ticket>1789768174687</ticket></ns2:sendSummaryResponse></soap-env:Body></soap-env:Envelope>")));
+        stubFor(post("/billService").withRequestBody(containing("getStatus")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>0</statusCode><content>"
+                        + Base64.getEncoder().encodeToString(ZipUtil.comprimir("R-20100066603-RC.xml", CDR_OK.getBytes())) + "</content></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        for (String serie : new String[]{"{\"tipo\":\"03\",\"serie\":\"B001\"", "{\"tipo\":\"07\",\"serie\":\"BC01\"", "{\"tipo\":\"08\",\"serie\":\"BD01\""})
+            assertThat(http.postForEntity("/v1/series", new HttpEntity<>(serie + ",\"correlativo_inicial\":0}", h), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String hoy = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).toString();
+        ResponseEntity<Map> boleta = http.postForEntity("/v1/facturas", new HttpEntity<>("""
+            {"serie":"B001","fecha_emision":"%s","moneda":"PEN",
+             "cliente":{"tipo_doc":"-","num_doc":"-","razon_social":"CLIENTES VARIOS"},
+             "items":[{"codigo":"P001","descripcion":"Pan","unidad":"NIU","cantidad":10,"precio_unitario":0.50,"tipo_afectacion_igv":"10"},
+                      {"codigo":"P002","descripcion":"Leche","unidad":"NIU","cantidad":2,"precio_unitario":4.72,"tipo_afectacion_igv":"10"}]}
+            """.formatted(hoy), h), Map.class);
+        assertThat(boleta.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        Map<?, ?> b = (Map<?, ?>) boleta.getBody().get("datos");
+        assertThat(b.get("estado_documento")).isEqualTo("ACEPTADO");
+        String nota = """
+            {"tipo":"%s","serie":"%s","fecha_emision":"%s","documento_afectado":{"serie":"B001","numero":1},"motivo":"%s","descripcion":"Sustento"%s}
+            """;
+        String unaLeche = ",\"items\":[{\"codigo\":\"P002\",\"descripcion\":\"Leche\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":4.72,\"tipo_afectacion_igv\":\"10\"}]";
+
+        ResponseEntity<Map> descuento = http.postForEntity("/v1/notas", new HttpEntity<>(nota.formatted("07", "BC01", hoy, "04", unaLeche), h), Map.class);
+        assertThat(descuento.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat((String) descuento.getBody().get("mensaje")).startsWith("4367");
+
+        Map<?, ?> total = (Map<?, ?>) http.postForEntity("/v1/notas", new HttpEntity<>(nota.formatted("07", "BC01", hoy, "01", ""), h), Map.class).getBody().get("datos");
+        assertThat(total.get("estado_documento")).isEqualTo("ACEPTADO");
+        assertThat(total.get("numero")).as("el 04 rechazado no consumió número").isEqualTo(1);
+        assertThat(((Map<?, ?>) total.get("nota")).get("tipo_afectado")).isEqualTo("03");
+        verify(postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("<fileName>20100066603-07-BC01-1.zip</fileName>")));
+        String xml = new String(http.exchange("/v1/facturas/" + total.get("id") + "/xml", HttpMethod.GET, new HttpEntity<>(h), byte[].class).getBody());
+        assertThat(xml).contains("<ds:Signature", "<cbc:ID>BC01-1</cbc:ID>", "<cbc:ID>B001-1</cbc:ID>", ">03</cbc:DocumentTypeCode>", "schemeID=\"-\"");
+
+        ResponseEntity<Map> excede = http.postForEntity("/v1/notas", new HttpEntity<>(nota.formatted("07", "BC01", hoy, "07", unaLeche), h), Map.class);
+        assertThat(excede.getStatusCode()).as("la NC total ya acreditó la boleta").isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat((String) excede.getBody().get("mensaje")).startsWith("3286");
+
+        Map<?, ?> debito = (Map<?, ?>) http.postForEntity("/v1/notas", new HttpEntity<>(nota.formatted("08", "BD01", hoy, "01", unaLeche), h), Map.class).getBody().get("datos");
+        assertThat(debito.get("estado_documento")).isEqualTo("ACEPTADO");
+        verify(postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("<fileName>20100066603-08-BD01-1.zip</fileName>")));
+
+        // Anular la NC total devuelve el saldo: entonces cabe una NC parcial.
+        ResponseEntity<Map> baja = http.postForEntity("/v1/facturas/" + total.get("id") + "/baja", new HttpEntity<>("{\"motivo\":\"Nota emitida por error\"}", h), Map.class);
+        assertThat(baja.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        Map<?, ?> rc = (Map<?, ?>) baja.getBody().get("datos");
+        assertThat((String) rc.get("identificador")).matches("RC-\\d{8}-1");
+        assertThat(rc.get("estado")).isEqualTo("ACEPTADA");
+        verify(0, postRequestedFor(urlEqualTo("/billService")).withRequestBody(matching("(?s).*<fileName>20100066603-RA-.*")));
+        Map<?, ?> parcial = (Map<?, ?>) http.postForEntity("/v1/notas", new HttpEntity<>(nota.formatted("07", "BC01", hoy, "07", unaLeche), h), Map.class).getBody().get("datos");
+        assertThat(parcial.get("estado_documento")).isEqualTo("ACEPTADO");
+
+        java.util.List<?> notas = (java.util.List<?>) ((Map<?, ?>) http.exchange("/v1/facturas/" + b.get("id"), HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos")).get("notas");
+        assertThat(notas).hasSize(3);
+    }
+
     @Autowired OutboxWorker worker;
 
     @Test void sunatCaidoDejaErrorEnvioYElOutboxReintenta() throws Exception {

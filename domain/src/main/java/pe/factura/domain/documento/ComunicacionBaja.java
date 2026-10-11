@@ -35,6 +35,8 @@ public class ComunicacionBaja {
     private final int correlativo;
     private final UUID comprobanteId;
     private final TipoDocumento tipoComprobante;
+    /** Una boleta o una nota que la modifica ({@link Comprobante#esDeBoleta()}): va en un resumen diario, nunca en un RA (2308/2310). */
+    private final boolean deBoleta;
     private final String serie;
     private final long numero;
     /** Fecha de emisión del comprobante dado de baja: cbc:ReferenceDate. */
@@ -50,10 +52,10 @@ public class ComunicacionBaja {
     private int intentos;
     private String ultimoError;
 
-    private ComunicacionBaja(UUID id, UUID tenantId, LocalDate fechaGeneracion, int correlativo, UUID comprobanteId, TipoDocumento tipoComprobante,
+    private ComunicacionBaja(UUID id, UUID tenantId, LocalDate fechaGeneracion, int correlativo, UUID comprobanteId, TipoDocumento tipoComprobante, boolean deBoleta,
                              String serie, long numero, LocalDate fechaReferencia, String motivo, Condicion condicion, EstadoBaja estado) {
         this.id = id; this.tenantId = tenantId; this.fechaGeneracion = fechaGeneracion; this.correlativo = correlativo;
-        this.comprobanteId = comprobanteId; this.tipoComprobante = tipoComprobante; this.serie = serie; this.numero = numero;
+        this.comprobanteId = comprobanteId; this.tipoComprobante = tipoComprobante; this.deBoleta = deBoleta; this.serie = serie; this.numero = numero;
         this.fechaReferencia = fechaReferencia; this.motivo = motivo; this.condicion = condicion; this.estado = estado;
     }
 
@@ -63,13 +65,14 @@ public class ComunicacionBaja {
      */
     public static ComunicacionBaja altaEnResumen(Comprobante c, int correlativoDelDia, Clock clock) {
         LocalDate hoy = LocalDate.now(clock);
-        if (c.tipo() != TipoDocumento.BOLETA) throw new DomainException("RESUMEN_INVALIDO", "Solo una boleta se informa en un resumen diario; " + c.serie() + "-" + c.numero() + " no lo es");
+        if (!c.esDeBoleta())
+            throw new DomainException("RESUMEN_INVALIDO", "Solo una boleta o una nota que la modifica se informa en un resumen diario; " + c.serie() + "-" + c.numero() + " no lo es");
         if (!c.estado().esEnviable())
             throw new DomainException("RESUMEN_INVALIDO", c.serie() + "-" + c.numero() + " está " + c.estado() + ": solo se informa en el resumen una boleta que SUNAT todavía no tiene");
         if (!c.soloPorResumen(hoy))
             throw new DomainException("RESUMEN_INVALIDO", c.serie() + "-" + c.numero() + " no está entre el fin del envío individual y el séptimo día: va sola o ya venció");
         if (correlativoDelDia < 1) throw new DomainException("RESUMEN_INVALIDO", "El correlativo del día debe ser mayor que cero");
-        return new ComunicacionBaja(UUID.randomUUID(), c.tenantId(), hoy, correlativoDelDia, c.id(), c.tipo(), c.serie(), c.numero(), c.fechaEmision(),
+        return new ComunicacionBaja(UUID.randomUUID(), c.tenantId(), hoy, correlativoDelDia, c.id(), c.tipo(), true, c.serie(), c.numero(), c.fechaEmision(),
                 "Pasó el envío individual: se informa en el resumen diario", Condicion.ALTA, EstadoBaja.GENERADA);
     }
 
@@ -80,7 +83,7 @@ public class ComunicacionBaja {
     public static ComunicacionBaja crear(Comprobante c, int correlativoDelDia, String motivo, Clock clock) {
         LocalDate hoy = LocalDate.now(clock);
         if (!c.estado().esFinalAceptado())
-            throw new DomainException("BAJA_INVALIDA", (c.tipo() == TipoDocumento.BOLETA ? "2663" : "2105/2398") + " - Solo se puede dar de baja un comprobante aceptado por SUNAT; "
+            throw new DomainException("BAJA_INVALIDA", (c.esDeBoleta() ? "2663" : "2105/2398") + " - Solo se puede dar de baja un comprobante aceptado por SUNAT; "
                     + c.serie() + "-" + c.numero() + " está " + c.estado());
         if (ChronoUnit.DAYS.between(c.fechaEmision(), hoy) > PLAZO_DIAS)
             throw new DomainException("BAJA_INVALIDA", "2957 - El plazo para dar de baja " + c.serie() + "-" + c.numero() + " venció: se emitió el " + c.fechaEmision()
@@ -89,25 +92,26 @@ public class ComunicacionBaja {
         if (m.length() < 3 || m.length() > 100 || m.chars().anyMatch(Character::isISOControl))
             throw new DomainException("BAJA_INVALIDA", "2315 - El motivo de la baja debe tener de 3 a 100 caracteres, sin saltos de línea");
         if (correlativoDelDia < 1) throw new DomainException("BAJA_INVALIDA", "El correlativo del día debe ser mayor que cero");
-        return new ComunicacionBaja(UUID.randomUUID(), c.tenantId(), hoy, correlativoDelDia, c.id(), c.tipo(), c.serie(), c.numero(), c.fechaEmision(), m, Condicion.BAJA, EstadoBaja.GENERADA);
+        return new ComunicacionBaja(UUID.randomUUID(), c.tenantId(), hoy, correlativoDelDia, c.id(), c.tipo(), c.esDeBoleta(), c.serie(), c.numero(), c.fechaEmision(), m,
+                Condicion.BAJA, EstadoBaja.GENERADA);
     }
 
     /** Solo para persistencia. */
-    public static ComunicacionBaja rehidratar(UUID id, UUID tenantId, LocalDate fechaGeneracion, int correlativo, UUID comprobanteId, TipoDocumento tipoComprobante,
+    public static ComunicacionBaja rehidratar(UUID id, UUID tenantId, LocalDate fechaGeneracion, int correlativo, UUID comprobanteId, TipoDocumento tipoComprobante, boolean deBoleta,
                                               String serie, long numero, LocalDate fechaReferencia, String motivo, Condicion condicion, EstadoBaja estado, String ticket,
                                               String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
-        ComunicacionBaja b = new ComunicacionBaja(id, tenantId, fechaGeneracion, correlativo, comprobanteId, tipoComprobante, serie, numero, fechaReferencia, motivo, condicion, estado);
+        ComunicacionBaja b = new ComunicacionBaja(id, tenantId, fechaGeneracion, correlativo, comprobanteId, tipoComprobante, deBoleta, serie, numero, fechaReferencia, motivo, condicion, estado);
         b.ticket = ticket; b.xmlKey = xmlKey; b.cdrKey = cdrKey; b.cdr = cdr; b.intentos = intentos; b.ultimoError = ultimoError;
         return b;
     }
 
-    /** Una boleta se anula en el resumen diario (SummaryDocuments), no en una comunicación de baja (VoidedDocuments). */
-    public boolean resumenDiario() { return tipoComprobante == TipoDocumento.BOLETA; }
+    /** Una boleta, o una nota que la modifica, se anula en el resumen diario (SummaryDocuments), no en una comunicación de baja (VoidedDocuments: 2308/2310). */
+    public boolean resumenDiario() { return deBoleta; }
 
     /** Si informa una boleta (alta) en vez de anularla. */
     public boolean alta() { return condicion == Condicion.ALTA; }
 
-    /** {@code RA-20260918-1} (o {@code RC-…} para una boleta): cbc:ID y parte del nombre de archivo (reglas 2220, 2346). */
+    /** {@code RA-20260918-1} (o {@code RC-…} para una boleta o una nota que la modifica): cbc:ID y parte del nombre de archivo (reglas 2220, 2346). */
     public String identificador() { return (resumenDiario() ? "RC-" : "RA-") + fechaGeneracion.format(FECHA_ID) + "-" + correlativo; }
     /** {@code RUC-RA-20260918-1} o {@code RUC-RC-…}, sin extensión. */
     public String nombreArchivo(String rucEmisor) { return rucEmisor + "-" + identificador(); }
