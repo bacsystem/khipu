@@ -75,6 +75,10 @@ test("la guía y la tabla de errores cuentan el plazo de la baja desde la emisi�
   await expect(baja.getByText(/desde la fecha de emisión, no desde la aceptación de SUNAT/)).toBeVisible();
   await expect(baja.getByText(/hora de Lima/)).toBeVisible();
   await expect(baja.getByText(/2027-01-01/)).toBeVisible();
+  // Lo que decide SUNAT es el día en que recibe la comunicación (RA fila 44, RC fila 37): una baja admitida el día 7 cuyo envío falla y se reintenta
+  // el 8 vuelve RECHAZADA (2957), y el reintento reenvía el mismo RA/RC con su fecha de generación (2346), así que no hay forma de salvarla.
+  await expect(baja.getByText(/SUNAT mide el plazo con el día en que recibe la comunicación/)).toBeVisible();
+  await expect(baja.getByText(/boletas y a sus notas desde el 2027-01-01/)).toBeVisible();
 
   await page.goto("/developers/errores");
   await expect(page.getByText(/pasaron más de 7 días calendario desde su emisión, en hora de Lima \(2957; no se cuentan desde la aceptación de SUNAT\)/)).toBeVisible();
