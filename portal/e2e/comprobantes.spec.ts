@@ -1273,7 +1273,9 @@ test("#294: NC total sobre una boleta con serie B, y su baja va en el resumen di
   // La nota B se anula como la boleta: en un resumen diario con estado 3 (RS 097-2012 art. 14.2; RA respondería 2310).
   await page.getByTestId("dar-de-baja").click();
   const confirmacion = page.getByTestId("baja-confirmacion");
-  await expect(confirmacion).toContainText("Resumen diario ante SUNAT");
+  await expect(confirmacion).toContainText("Resumen diario ante SUNAT con el comprobante anulado");
+  // 344-H1: lo que se anula es la nota, no la boleta; decir «la boleta anulada» en un diálogo irreversible confunde.
+  await expect(confirmacion).not.toContainText("la boleta anulada");
   await confirmacion.getByLabel(/Motivo/).fill("Nota emitida por error");
   await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
   await expect(page.getByTestId("baja")).toContainText(/Resumen diario RC-\d{8}-\d+/);
@@ -1318,4 +1320,12 @@ test("#294: el mock de POST /v1/notas sobre boletas rechaza lo que el backend re
   r = await post({ serie: "FC01", motivo: "07", items: [{ ...linea[0], cantidad: 1, precio_unitario: 0.59 }] });
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("1001");
+
+  // 344-H3: el 3286 tolera +1 sobre una boleta (fila 113), no sobre una factura. La boleta suma 29.50: 31.00 lo supera por
+  // 1.50 y se rechaza nombrando a la boleta (344-H2, como `nombre(afectado.tipo())`); 30.00 lo supera por 0.50 y pasa.
+  r = await post({ serie: "BC01", motivo: "07", items: [{ ...linea[0], precio_unitario: 31 }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3286 - El importe total de la nota (31) supera el de la boleta B001-22");
+  r = await post({ serie: "BC01", motivo: "07", items: [{ ...linea[0], precio_unitario: 30 }] });
+  expect(r.status, r.texto).toBe(201);
 });
