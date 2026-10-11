@@ -57,6 +57,12 @@ test("emite una boleta a un comprador sin documento y no deja pasar una de más 
   await dialogo.getByRole("button", { name: "Boleta" }).click();
 
   await expect(dialogo.getByLabel("Serie")).toContainText(/B001 · siguiente N\.º \d+/);
+  // #286: la ayuda de la fecha dice el plazo de la boleta (7 días, el del resumen diario: `PlazoEnvio`), no el de la factura, y el calendario llega hasta ahí.
+  await expect(dialogo.getByText("Máx. 7 días")).toBeVisible();
+  await expect(dialogo.getByText("Máx. 3 días")).toHaveCount(0);
+  const fecha = dialogo.getByLabel("Fecha de emisión");
+  const hoy = await fecha.getAttribute("max");
+  expect(await fecha.getAttribute("min")).toBe(new Date(Date.parse(`${hoy}T00:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10));
   await dialogo.getByLabel("Documento del comprador").selectOption("-");
   await expect(dialogo.getByLabel("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
 
@@ -85,6 +91,10 @@ test("emite una boleta a un comprador sin documento y no deja pasar una de más 
   await confirmacion.getByLabel("Motivo").fill("Se cobró dos veces");
   await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
   await expect(page.getByTestId("baja")).toContainText(/Resumen diario RC-\d{8}-1/);
+  // #286: el historial también nombra el resumen diario, no una comunicación de baja.
+  const historial = page.getByTestId("historial");
+  await expect(historial).toContainText("Anulación aceptada por SUNAT en el resumen diario");
+  await expect(historial).not.toContainText("Comunicación de baja");
 });
 
 test("tras emitir, el diálogo anuncia el correlativo siguiente, no el que acaba de usar (#17)", async ({ page }) => {

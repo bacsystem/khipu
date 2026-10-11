@@ -450,8 +450,13 @@ public class Comprobante {
         transitar(EstadoDocumento.DESCARTADO, "Descartado por un administrador: " + motivo);
     }
 
-    /** SUNAT aceptó la comunicación de baja que lo incluye: el número queda consumido y el comprobante deja de ser válido. */
-    public void anular() { transitar(EstadoDocumento.ANULADO, "Comunicación de baja aceptada por SUNAT"); }
+    /**
+     * SUNAT aceptó la baja que lo incluye: el número queda consumido y el comprobante deja de ser válido. Lo de boleta se anula en un resumen diario, no en una
+     * comunicación de baja ({@link ComunicacionBaja}): el historial nombra el canal que de verdad se usó (#286).
+     */
+    public void anular() {
+        transitar(EstadoDocumento.ANULADO, esDeBoleta() ? "Anulación aceptada por SUNAT en el resumen diario" : "Comunicación de baja aceptada por SUNAT");
+    }
 
     /** Último día en que SUNAT acepta recibirlo ({@link PlazoEnvio}). */
     public LocalDate fechaLimiteEnvio() { return plazoEnvio().fechaLimite(fechaEmision); }

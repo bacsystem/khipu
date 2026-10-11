@@ -897,6 +897,22 @@ function registrarPagoMock(cuentaId: string, c: Record<string, unknown>): { pago
   return { pago };
 }
 
+/** Lo de boleta (la boleta y sus notas, `Comprobante.esDeBoleta()`): se informa y se anula en el resumen diario (RC), no en una comunicación de baja (RA). */
+function deBoletaMock(f: Comprobante): boolean {
+  return f.tipo === "03" || f.nota?.tipo_afectado === "03";
+}
+
+/**
+ * Como `Comprobante.anular()`: la baja aceptada deja el comprobante ANULADO y su evento en el historial, que nombra el canal que de verdad se usó (#286):
+ * lo de boleta, el resumen diario.
+ */
+function anularMock(f: Comprobante) {
+  if (f.estado_documento === "ANULADO") return;
+  const mensaje = deBoletaMock(f) ? "Anulación aceptada por SUNAT en el resumen diario" : "Comunicación de baja aceptada por SUNAT";
+  f.eventos = [...(f.eventos ?? []), { fecha: new Date().toISOString(), estado_anterior: f.estado_documento, estado_resultante: "ANULADO", mensaje }];
+  f.estado_documento = "ANULADO";
+}
+
 export const handlers = [
   // Solo bajo API_MOCKING: `globalSetup` de Playwright lo llama al empezar cada corrida. Sin esto la suite no era
   // idempotente contra un dev server reutilizado (`reuseExistingServer` en local): cada corrida gastaba el tope 3286
@@ -2739,7 +2755,7 @@ export const handlers = [
     const hoy = hoyLima().replace(/-/g, "");
     const simulada = motivo.startsWith("[ENVIADA]") ? "ENVIADA" : motivo.startsWith("[RECHAZADA]") ? "RECHAZADA" : "ACEPTADA";
     // #20/#293: la boleta y sus notas se anulan en el resumen diario (RC), las demás en una comunicación de baja (RA), como en el backend.
-    const deBoleta = factura.tipo === "03" || factura.nota?.tipo_afectado === "03";
+    const deBoleta = deBoletaMock(factura);
     const identificador = `${deBoleta ? "RC" : "RA"}-${hoy}-1`;
     const baja: Baja = {
       id: nuevoId("b"), identificador, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
@@ -2749,7 +2765,7 @@ export const handlers = [
       intentos: 1, ultimo_error: simulada === "ENVIADA" ? "98 - SUNAT sigue procesando el ticket 1758200000123" : null,
     };
     factura.baja = baja;
-    if (simulada === "ACEPTADA") factura.estado_documento = "ANULADO";
+    if (simulada === "ACEPTADA") anularMock(factura);
     db.bajas.set(baja.id, baja);
     return ok(baja, 201);
   }),
@@ -2759,10 +2775,10 @@ export const handlers = [
     if (!baja) return fail(404, "NO_ENCONTRADO", "Comunicación de baja no encontrada");
     if (baja.estado === "ENVIADA") {
       baja.estado = "ACEPTADA";
-      baja.cdr = { codigo: "0", descripcion: `La Comunicacion de baja ${baja.identificador}, ha sido aceptada`, observaciones: [] };
+      baja.cdr = { codigo: "0", descripcion: baja.identificador.startsWith("RC") ? `El Resumen diario ${baja.identificador}, ha sido aceptado` : `La Comunicacion de baja ${baja.identificador}, ha sido aceptada`, observaciones: [] };
       baja.ultimo_error = null;
       baja.intentos += 1;
-      for (const lista of db.facturasPorEmpresa.values()) for (const f of lista) if (f.baja?.id === baja.id) f.estado_documento = "ANULADO";
+      for (const lista of db.facturasPorEmpresa.values()) for (const f of lista) if (f.baja?.id === baja.id) anularMock(f);
     }
     return ok(baja);
   }),
@@ -2772,7 +2788,7 @@ export const handlers = [
     const factura = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === params.id);
     if (!factura) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
     const dias = diasEntre(factura.fecha_emision, hoyLima());
-    const deBoleta = factura.tipo === "03" || factura.nota?.tipo_afectado === "03";
+    const deBoleta = deBoletaMock(factura);
     const sinResumen = (factura.tipo === "07" && factura.nota?.motivo === "10") || (factura.tipo === "08" && factura.nota?.motivo === "03");
     if (deBoleta && !sinResumen && dias > PLAZO_ENVIO.boleta.envioIndividual) {
       // Como `EnviarDocumentoService` → `DarDeBajaService.informar`: pasado el envío individual la boleta va en su propio resumen de alta (RC); pasado el

@@ -110,6 +110,26 @@ class NotaTest {
         assertThat(Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 18), "PEN", "0101", SIN_DOCUMENTO, ITEMS).crear(CLOCK).esDeBoleta()).isTrue();
     }
 
+    /** Lo aceptado por SUNAT y anulado: la anulación de lo de boleta llega en un resumen diario, no en una comunicación de baja (#286). */
+    static String detalleAlAnular(Comprobante c) {
+        c.asignarNumero(1, "20100066603"); c.firmar("H", "k.xml"); c.marcarEnviado();
+        c.aplicarCdr(new Cdr("0", "Aceptado", List.of()), "R.zip");
+        c.eventosGuardados();
+        c.anular();
+        assertThat(c.eventosPendientes()).singleElement().extracting(EventoDocumento::estadoNuevo).isEqualTo(EstadoDocumento.ANULADO);
+        return c.eventosPendientes().get(0).detalle();
+    }
+
+    /** #286: el historial de una boleta anulada (y de una nota B) nombra el resumen diario; la factura y sus notas, la comunicación de baja. */
+    @Test void elHistorialDeLaAnulacionNombraElCanalDeSunat() {
+        assertThat(detalleAlAnular(Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 18), "PEN", "0101", SIN_DOCUMENTO, ITEMS).crear(CLOCK)))
+                .isEqualTo("Anulación aceptada por SUNAT en el resumen diario");
+        assertThat(detalleAlAnular(sobreBoleta(TipoDocumento.NOTA_CREDITO, "BC01", "07", SIN_DOCUMENTO))).isEqualTo("Anulación aceptada por SUNAT en el resumen diario");
+        assertThat(detalleAlAnular(Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 18), "PEN", "0101", RECEPTOR, ITEMS).crear(CLOCK)))
+                .isEqualTo("Comunicación de baja aceptada por SUNAT");
+        assertThat(detalleAlAnular(nota(TipoDocumento.NOTA_CREDITO, "FC01", NC_ANULACION, null))).isEqualTo("Comunicación de baja aceptada por SUNAT");
+    }
+
     /** La NC 10 y la ND 03 no se informan en el resumen diario (guía del resumen diario, p. 19); las demás notas de boleta sí. */
     @Test void laNotaDeCredito10YLaDeDebito03NoVanEnElResumenDiario() {
         assertThat(new Nota(TipoDocumento.BOLETA, "B001", 1, "10", "x").vaEnResumenDiario(TipoDocumento.NOTA_CREDITO)).isFalse();

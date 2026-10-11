@@ -640,6 +640,8 @@ test("da de baja una factura aceptada tras confirmar el motivo y queda anulada",
   await expect(confirmacion).toHaveCount(0);
   await expect(page.getByTestId("baja")).toContainText("Aceptada: comprobante anulado");
   await expect(page.getByTestId("baja")).toContainText("Error en el RUC del cliente");
+  // #286: la factura sí se anula con una comunicación de baja, y su historial lo dice.
+  await expect(page.getByTestId("historial")).toContainText("Comunicación de baja aceptada por SUNAT");
   await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("dar-de-baja")).toHaveCount(0);
 });
@@ -1308,6 +1310,8 @@ test("#294: NC total sobre una boleta con serie B, y su baja va en el resumen di
   await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
   await expect(page.getByTestId("baja")).toContainText(/Resumen diario RC-\d{8}-\d+/);
   await expect(page.getByTestId("baja")).toContainText("Aceptada: comprobante anulado");
+  // #286: la nota B también: su historial nombra el resumen diario.
+  await expect(page.getByTestId("historial")).toContainText("Anulación aceptada por SUNAT en el resumen diario");
 
   // Y la boleta lista la nota.
   await page.goto("/comprobantes/b-aceptada");
