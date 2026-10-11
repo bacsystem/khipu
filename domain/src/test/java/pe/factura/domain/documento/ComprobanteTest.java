@@ -233,18 +233,28 @@ class ComprobanteTest {
     }
 
     /**
-     * #308: la nota total copia las líneas del documento que modifica, que ya se emitió con esa unidad (y SUNAT la aceptó, o la boleta fue
-     * en un resumen diario, que no lleva líneas). Rechazarla dejaría sin anular un documento vigente por una regla posterior a él, igual
-     * que {@link #rehidratarNoValidaLosItems}: la copia no se vuelve a cruzar con el catálogo, el resto de la línea sí.
+     * #348-H1: SUNAT cruza con el catálogo 03 la unidad de la nota igual que la del documento (2936 en NotaCredito2_0 fila 164 y NotaDebito2_0
+     * fila 141), y la nota sale sola por sendBill. Una boleta informada en un resumen diario (que no lleva líneas) pudo quedar aceptada con
+     * una unidad inexistente: copiarla sin validar emitía una nota que SUNAT rechaza después de consumir número, el defecto de #308. Se
+     * rechaza antes, diciendo cómo emitirla; y la línea copiada pasa por las mismas reglas que una propia.
      */
-    @Test void laNotaTotalCopiaLaUnidadDelDocumentoSinRevalidarlaContraElCatalogo() {
-        List<Item> delDocumento = List.of(new Item("P1", "Prod", "XYZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
-        Nota anulacion = new Nota(TipoDocumento.FACTURA, "F001", 1L, "01", "Anulación de la operación");
-        Comprobante nc = Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), anulacion, empresa, delDocumento).copiaDelDocumento().crear(clock);
-        assertThat(nc.totales().items()).extracting(i -> i.item().unidad()).containsExactly("XYZ");
-        List<Item> sinDescripcion = List.of(new Item("P1", " ", "XYZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
-        assertThatThrownBy(() -> Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), anulacion, empresa, sinDescripcion).copiaDelDocumento().crear(clock))
-                .hasMessageContaining("2026");
+    @Test void laNotaTotalNoCopiaUnaUnidadFueraDelCatalogo() {
+        Receptor comprador = new Receptor("1", "12345678", "JUAN PEREZ", null);
+        Nota anulacion = new Nota(TipoDocumento.BOLETA, "B001", 7L, "01", "Anulación de la operación");
+        List<Item> conUnidadRara = List.of(new Item("P1", "Cable", "ROL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        assertThatThrownBy(() -> Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), anulacion, comprador, conUnidadRara).copiaDelDocumento().crear(clock))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("ITEM_INVALIDO");
+        assertThatThrownBy(() -> Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), anulacion, comprador, conUnidadRara).copiaDelDocumento().crear(clock))
+                .hasMessage("2936 - La boleta B001-7 lleva la unidad ROL, que no existe en el catálogo 03, y SUNAT rechazaría la nota que la copia: "
+                        + "indique los items de la nota con una unidad del catálogo (GET /v1/catalogos/03)");
+
+        List<Item> sinCantidad = List.of(new Item("P1", "Cable", "RO", BigDecimal.ZERO, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        assertThatThrownBy(() -> Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), anulacion, comprador, sinCantidad).copiaDelDocumento().crear(clock))
+                .as("el resto de la línea copiada se valida igual").hasMessageStartingWith("2024");
+
+        List<Item> valida = List.of(new Item("P1", "Cable", "RO", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        Comprobante nc = Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), anulacion, comprador, valida).copiaDelDocumento().crear(clock);
+        assertThat(nc.totales().items()).extracting(i -> i.item().unidad()).containsExactly("RO");
     }
 
     /** Como con el receptor: un ítem ya emitido con un valor que una regla añadida después rechazaría se sigue leyendo tal cual. */

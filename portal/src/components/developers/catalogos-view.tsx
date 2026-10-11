@@ -11,7 +11,7 @@ import { Rico } from "./guia/rico";
 const USO: Record<string, string> = {
   "01": "Tipo de comprobante (`tipo` en las respuestas) y `guias[].tipo` (solo `09` y `31`).",
   "02": "`moneda` del comprobante.",
-  "03": "`items[].unidad`. Lista de las unidades más usadas (UN/ECE rec 20); la API acepta cualquier código de la lista completa de la UNECE y SUNAT rechaza los inexistentes.",
+  "03": "`items[].unidad`. La UN/ECE rec 20 completa, con las unidades más usadas primero (columna «Más usada»); un código fuera del catálogo responde `422` (2936) antes de consumir numeración.",
   "05": "Tributos que khipu escribe en el XML según la afectación de cada ítem; no se envía en la API.",
   "06": "`cliente.tipo_doc`. En factura solo `6` (RUC).",
   "07": "`items[].tipo_afectacion_igv`. Onerosas 10/20/30; gratuitas 11–16, 21, 31–37 (precio = valor referencial, no se cobran). 17 IVAP (arroz pilado, 4 % en vez del IGV; comprobante entero); 40 exportación (sin IGV, solo con tipo de operación 0200–0208). Columna adicional: código de tributo que genera.",

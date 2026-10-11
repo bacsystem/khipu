@@ -404,6 +404,29 @@ test("la unidad sale de las más usadas del catálogo 03 y una inexistente vuelv
 });
 
 /**
+ * #348-H2: la unidad en blanco no llega al dominio: el `@NotBlank` de `ItemDto` responde 422 VALIDACION con el campo, junto con los demás
+ * campos en blanco (como `cliente.razonSocial`). El mock respondía 2936 con «La unidad de medida  no existe».
+ */
+test("la unidad en blanco vuelve como VALIDACION de items[n].unidad, como el @NotBlank del backend", async ({ page }) => {
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const emitir = (cliente: string, unidades: Array<string | undefined>) =>
+    page.evaluate(async ([b]) => {
+      const res = await fetch("/api/proxy/facturas", { method: "POST", headers: { "content-type": "application/json" }, body: b });
+      return { status: res.status, cuerpo: await res.json() };
+    }, [JSON.stringify({ serie: "F001", fecha_emision: hoy, moneda: "PEN", cliente: { tipo_doc: "6", num_doc: "20554198211", razon_social: cliente },
+      items: unidades.map((unidad) => ({ descripcion: "Cable", unidad, cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10" })) })]);
+
+  let r = await emitir("CORPORACION GRAFICA ANDINA S.A.C.", ["NIU", " \t", undefined]);
+  expect(r.status).toBe(422);
+  expect(r.cuerpo).toMatchObject({ codigo: "VALIDACION", errores: { "items[1].unidad": ["no debe estar vacío"], "items[2].unidad": ["no debe estar vacío"] } });
+  expect(Object.keys(r.cuerpo.errores)).toEqual(["items[1].unidad", "items[2].unidad"]);
+
+  r = await emitir(" ", [""]);
+  expect(r.status).toBe(422);
+  expect(r.cuerpo).toMatchObject({ codigo: "VALIDACION", errores: { "cliente.razonSocial": ["no debe estar vacío"], "items[0].unidad": ["no debe estar vacío"] } });
+});
+
+/**
  * #347-H2: el `@NotBlank` de `ClienteDto` corre antes que el servicio y que el dominio, así que un nombre en blanco gana a un RUC corto:
  * el backend responde VALIDACION y no 2017. El mock lo comprobaba después del RUC.
  */

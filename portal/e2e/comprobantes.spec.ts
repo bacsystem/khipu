@@ -995,6 +995,11 @@ test("el mock de POST /v1/notas rechaza la descripción de ítem que el backend 
   r = await post({ motivo: "01", items: [{ descripcion: "Intereses", unidad: "XYZ", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10" }] });
   expect(r.status, r.texto).toBe(422);
   expect(JSON.parse(r.texto)).toMatchObject({ codigo: "ITEM_INVALIDO", mensaje: expect.stringMatching(/^2936 - La unidad de medida XYZ no existe en el catálogo 03/) });
+
+  // #348-H2: en blanco no llega al dominio: el `@NotBlank` de `ItemDto` (que `NotaRequest` valida con @Valid) responde VALIDACION.
+  r = await post({ motivo: "01", items: [{ descripcion: "Intereses", unidad: " ", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10" }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(JSON.parse(r.texto)).toMatchObject({ codigo: "VALIDACION", errores: { "items[0].unidad": ["no debe estar vacío"] } });
 });
 
 test("NC por importe (09 disminución en el valor): una sola línea por el monto, gravada como la factura, y con tope", async ({ page }) => {

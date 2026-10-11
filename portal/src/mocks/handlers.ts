@@ -606,6 +606,28 @@ const CATALOGOS = [
     entradas: [...UNIDADES_MAS_USADAS.map((u) => ({ ...u, extra: { "Más usada": "Sí" } })), { codigo: "E48", descripcion: "service unit", extra: {} }] },
 ];
 
+/** En blanco para el `@NotBlank` de Bean Validation: lo que `String.trim()` de Java deja vacío (hasta U+0020; el espacio de no separación no). */
+function enBlancoParaJava(s: string | null | undefined): boolean {
+  return !(s ?? "").replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, "");
+}
+
+/**
+ * #348-H2: el `@NotBlank` de `ItemDto.unidad` corre antes que el servicio y que el dominio, en la factura y en la nota (`@Valid`), y
+ * `GlobalExceptionHandler` junta los campos en un 422 VALIDACION ordenado por nombre (TreeMap).
+ */
+function erroresDeUnidadEnBlanco(items: Array<{ unidad?: string }> | undefined): Record<string, string[]> {
+  const errores: Record<string, string[]> = {};
+  (items ?? []).forEach((i, n) => {
+    if (enBlancoParaJava(i.unidad)) errores[`items[${n}].unidad`] = ["no debe estar vacío"];
+  });
+  return errores;
+}
+
+function validacionFallida(errores: Record<string, string[]>): Response {
+  const ordenados = Object.fromEntries(Object.entries(errores).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: ordenados }, { status: 422 });
+}
+
 /** `Item.exigirValidoParaFactura` (#308): la unidad de cada ítem existe en el catálogo 03 (2936), con el mensaje del backend. */
 function rechazoPorUnidadMock(items: Array<{ unidad: string }>): Response | null {
   const rara = items.find((i) => !CODIGOS_UNIDAD.has(i.unidad));
@@ -2332,8 +2354,9 @@ export const handlers = [
     // #303: el `@NotBlank` de `ClienteDto` corre antes que el servicio y que el dominio (347-H2), y en blanco es lo que `String.trim()` de
     // Java deja vacío: solo los caracteres hasta U+0020, no el espacio de no separación (que llega al dominio y vuelve como 2022).
     const razonCliente = body.cliente?.razon_social ?? "";
-    if (!razonCliente.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, ""))
-      return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: { "cliente.razonSocial": ["no debe estar vacío"] } }, { status: 422 });
+    const enBlanco = erroresDeUnidadEnBlanco(body.items);
+    if (enBlancoParaJava(razonCliente)) enBlanco["cliente.razonSocial"] = ["no debe estar vacío"];
+    if (Object.keys(enBlanco).length) return validacionFallida(enBlanco);
 
     // #20: como el backend, la letra de la serie decide el tipo (F factura, B boleta) y cada uno valida su comprador.
     const boleta = body.serie?.startsWith("B");
@@ -2502,6 +2525,8 @@ export const handlers = [
     } catch {
       return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
     }
+    const unidadesEnBlanco = erroresDeUnidadEnBlanco(body.items);
+    if (Object.keys(unidadesEnBlanco).length) return validacionFallida(unidadesEnBlanco);
     const lista = db.facturasPorEmpresa.get(empresaId) ?? [];
     // #293, como `EmitirComprobanteService.emitirNota`: la letra de la serie afectada dice qué se modifica (B una boleta, F una
     // factura), y el motivo se valida antes de buscar el documento.
@@ -2569,7 +2594,8 @@ export const handlers = [
       // `Item`: descripción obligatoria y hasta 500 (2026/2027). El «Concepto» de la ND llegaba con 501 y el mock daba 201.
       if (!i.descripcion?.trim()) return fail(422, "ITEM_INVALIDO", "2026 - Cada ítem necesita una descripción");
       if (i.descripcion.length > 500) return fail(422, "ITEM_INVALIDO", "2027 - La descripción del ítem admite hasta 500 caracteres");
-      // #308: solo los ítems propios; la nota total copia los de la factura y no los vuelve a cruzar con el catálogo (`copiaDelDocumento`).
+      // #308: los ítems propios. La nota total también cruza las unidades que copia (`copiaDelDocumento`, #348-H1), pero el mock no tiene
+      // documentos con una unidad fuera del catálogo (los rechaza al emitirlos y los datos sembrados usan NIU y ZZ).
       const porUnidad = rechazoPorUnidadMock([i]);
       if (porUnidad) return porUnidad;
     }

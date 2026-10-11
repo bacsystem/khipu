@@ -48,3 +48,19 @@ test("la guía, los catálogos y los errores se navegan desde la cabecera", asyn
   await expect(page.getByText(/nota de boleta, como la boleta/).first()).toBeVisible();
   await expect(page.getByText(/NC 04, 05 u 08 sobre una boleta \(4367/)).toBeVisible();
 });
+
+/**
+ * #348-H3/H4: desde #308 la unidad se valida contra el catálogo 03 antes de numerar (2936), y en blanco la frena el `@NotBlank` de `ItemDto`
+ * (VALIDACION), no el dominio: la 2883 no llega por la API. El catálogo seguía diciendo que la API acepta cualquier código y que SUNAT
+ * rechaza los inexistentes.
+ */
+test("el catálogo 03 y la tabla de errores describen la validación de la unidad", async ({ page }) => {
+  await page.goto("/developers/catalogos");
+  const unidades = page.locator("#cat-03");
+  await expect(unidades.getByText(/fuera del catálogo responde/)).toBeVisible();
+  await expect(unidades.getByText(/SUNAT rechaza los inexistentes/)).toHaveCount(0);
+
+  await page.goto("/developers/errores");
+  await expect(page.getByText(/unidad de medida que no existe en el catálogo 03 \(2936; en blanco responde VALIDACION\)/)).toBeVisible();
+  await expect(page.getByText(/unidad de medida ausente \(2883\)/)).toHaveCount(0);
+});
