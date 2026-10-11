@@ -26,4 +26,17 @@ describe("BajaEstado", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Aceptado: boleta informada a SUNAT");
     expect(screen.getByTestId("baja")).not.toHaveTextContent("anulado");
   });
+
+  /** #294: la nota sobre una boleta sigue su régimen: se anula y se informa en el resumen diario (RC), no en una comunicación de baja (RA). */
+  it("la baja de una nota sobre boleta es un resumen diario, aunque el comprobante sea 07", () => {
+    render(<BajaEstado baja={{ ...BASE, identificador: "RC-20260918-3", comprobante: "BC01-2", tipo_comprobante: "07", condicion: "BAJA" }} />);
+    expect(screen.getByTestId("baja")).toHaveTextContent("Resumen diario RC-20260918-3");
+    expect(screen.getByRole("status")).toHaveTextContent("Aceptada: comprobante anulado");
+  });
+
+  it("el alta de una nota sobre boleta dice que la nota quedó informada, no la boleta", () => {
+    render(<BajaEstado baja={{ ...BASE, identificador: "RC-20260918-4", comprobante: "BC01-2", tipo_comprobante: "07", condicion: "ALTA", estado: "ENVIADA", cdr: null }} />);
+    expect(screen.getByTestId("baja")).toHaveTextContent("Resumen diario RC-20260918-4 (alta)");
+    expect(screen.getByTestId("baja")).toHaveTextContent("Mientras no responda, la nota queda enviada");
+  });
 });

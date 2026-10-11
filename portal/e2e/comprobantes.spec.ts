@@ -1251,3 +1251,71 @@ test("el mock rechaza la NC sin importe (2062) y limita las gratuitas por su cub
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("3503 - El IGV de las operaciones gratuitas");
 });
+
+test("#294: NC total sobre una boleta con serie B, y su baja va en el resumen diario (RC), no en una comunicación de baja", async ({ page }) => {
+  await page.goto("/comprobantes/b-aceptada");
+  await page.getByTestId("emitir-nota").click();
+  await expect(page).toHaveURL(/\/comprobantes\/b-aceptada\/nota/);
+  await expect(page.getByRole("link", { name: "Volver a la boleta" })).toBeVisible();
+  const form = page.getByTestId("nota-form");
+  await expect(form.getByLabel("Serie")).toHaveValue("BC01");
+  await form.getByLabel(/Motivo/).selectOption("01");
+  await form.getByLabel("Sustento").fill("Anulación de la venta");
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  expect((await peticion).postDataJSON()).toMatchObject({ tipo: "07", serie: "BC01", motivo: "01", documento_afectado: { serie: "B001", numero: 21 } });
+
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+  const nota = page.getByTestId("nota");
+  await expect(nota.getByText("Boleta modificada")).toBeVisible();
+  await expect(nota.getByText("B001-21")).toBeVisible();
+
+  // La nota B se anula como la boleta: en un resumen diario con estado 3 (RS 097-2012 art. 14.2; RA respondería 2310).
+  await page.getByTestId("dar-de-baja").click();
+  const confirmacion = page.getByTestId("baja-confirmacion");
+  await expect(confirmacion).toContainText("Resumen diario ante SUNAT");
+  await confirmacion.getByLabel(/Motivo/).fill("Nota emitida por error");
+  await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
+  await expect(page.getByTestId("baja")).toContainText(/Resumen diario RC-\d{8}-\d+/);
+  await expect(page.getByTestId("baja")).toContainText("Aceptada: comprobante anulado");
+
+  // Y la boleta lista la nota.
+  await page.goto("/comprobantes/b-aceptada");
+  await expect(page.getByTestId("notas")).toContainText("Notas emitidas sobre esta boleta");
+});
+
+test("#294: sobre una boleta «sin documento» la nota toma ese comprador y no ofrece NC 04, 05, 08 ni 13", async ({ page }) => {
+  await page.goto("/comprobantes/b-sin-documento/nota");
+  await expect(page.getByTestId("nota-comprador")).toContainText("CLIENTES VARIOS (sin documento)");
+  const form = page.getByTestId("nota-form");
+  const motivo = form.getByLabel(/Motivo/);
+  await expect(motivo).toBeEnabled();
+  const codigos = await motivo.locator("option").evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
+  for (const c of ["04", "05", "08", "13"]) expect(codigos, c).not.toContain(c);
+  expect(codigos).toEqual(expect.arrayContaining(["01", "06", "07", "09"]));
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  await expect(form.getByLabel("Serie")).toHaveValue("BD01");
+});
+
+test("#294: el mock de POST /v1/notas sobre boletas rechaza lo que el backend rechaza: 3259, 4367 y serie F (1001)", async ({ page }) => {
+  await page.goto("/comprobantes/b-sin-documento");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const post = (body: Record<string, unknown>) =>
+    page.evaluate(async ([b]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, texto: await r.text() };
+    }, [JSON.stringify({ tipo: "07", fecha_emision: hoy, descripcion: "Prueba de contrato", documento_afectado: { serie: "B001", numero: 22 }, ...body })]);
+  const linea = [{ descripcion: "Descuento", unidad: "ZZ", cantidad: 1, precio_unitario: 1, tipo_afectacion_igv: "10" }];
+
+  let r = await post({ serie: "BC01", motivo: "13" });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3259");
+  for (const m of ["04", "05", "08"]) {
+    r = await post({ serie: "BC01", motivo: m, items: linea });
+    expect(r.status, r.texto).toBe(422);
+    expect(r.texto).toContain("4367");
+  }
+  r = await post({ serie: "FC01", motivo: "07", items: [{ ...linea[0], cantidad: 1, precio_unitario: 0.59 }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("1001");
+});

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { admiteBaja, admiteNotas, normalizarComprobante, totalDesdeHeaders, type Baja, type Comprobante } from "./facturas";
+import { admiteBaja, admiteNotas, esDeBoleta, normalizarComprobante, totalDesdeHeaders, type Baja, type Comprobante } from "./facturas";
 
 /**
  * `admiteNotas` es la única puerta al flujo irreversible de notas (la ficha ofrece «Emitir nota» y `/nota` deja
@@ -8,13 +8,20 @@ import { admiteBaja, admiteNotas, normalizarComprobante, totalDesdeHeaders, type
 describe("admiteNotas", () => {
   const f = (tipo: string, estado_documento: string) => ({ tipo, estado_documento }) as Pick<Comprobante, "tipo" | "estado_documento">;
 
-  it("solo una factura aceptada por SUNAT, con o sin observaciones", () => {
+  it("una factura o una boleta aceptada por SUNAT, con o sin observaciones (#293: la boleta informada en el resumen también)", () => {
     expect(admiteNotas(f("01", "ACEPTADO"))).toBe(true);
     expect(admiteNotas(f("01", "ACEPTADO_CON_OBS"))).toBe(true);
+    expect(admiteNotas(f("03", "ACEPTADO"))).toBe(true);
+    expect(admiteNotas(f("03", "ACEPTADO_CON_OBS"))).toBe(true);
   });
 
-  it("no sobre boletas ni sobre otras notas: las boletas van en el resumen diario (#20) y el backend responde 2116", () => {
-    expect(admiteNotas(f("03", "ACEPTADO"))).toBe(false);
+  it("una boleta sin respuesta de SUNAT, pendiente del resumen o anulada no admite notas (2119/2120)", () => {
+    for (const estado of ["FIRMADO", "PENDIENTE_AGRUPACION", "ENVIADO", "ANULADO", "FUERA_DE_PLAZO"]) {
+      expect(admiteNotas(f("03", estado)), estado).toBe(false);
+    }
+  });
+
+  it("no sobre otras notas: el backend responde 2116", () => {
     expect(admiteNotas(f("07", "ACEPTADO"))).toBe(false);
     expect(admiteNotas(f("08", "ACEPTADO"))).toBe(false);
   });
@@ -30,6 +37,21 @@ describe("admiteNotas", () => {
     for (const estado of ["GENERADA", "ENVIADA", "ERROR_ENVIO"]) expect(admiteNotas(conBaja(estado)), estado).toBe(false);
     // Una baja rechazada por SUNAT no cambia nada: la factura sigue aceptada.
     expect(admiteNotas(conBaja("RECHAZADA"))).toBe(true);
+  });
+});
+
+/** #293: la boleta y sus notas se anulan en el resumen diario (RC), no en una comunicación de baja (RA). */
+describe("esDeBoleta", () => {
+  it("una boleta, o una nota cuyo documento afectado es una boleta", () => {
+    expect(esDeBoleta({ tipo: "03", nota: null })).toBe(true);
+    expect(esDeBoleta({ tipo: "07", nota: { tipo_afectado: "03" } })).toBe(true);
+    expect(esDeBoleta({ tipo: "08", nota: { tipo_afectado: "03" } })).toBe(true);
+  });
+
+  it("no una factura ni una nota sobre factura", () => {
+    expect(esDeBoleta({ tipo: "01", nota: null })).toBe(false);
+    expect(esDeBoleta({ tipo: "07", nota: { tipo_afectado: "01" } })).toBe(false);
+    expect(esDeBoleta({ tipo: "07" })).toBe(false);
   });
 });
 

@@ -440,6 +440,9 @@ export function resetDb() {
     { tipo: "08", serie: "FD01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
     // #20: la boleta se emite desde el mismo diálogo, con su propia serie.
     { tipo: "03", serie: "B001", ultimo_numero: 0, activa: true, establecimiento: "0000" },
+    // #294: las notas sobre boletas van en series B.
+    { tipo: "07", serie: "BC01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
+    { tipo: "08", serie: "BD01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
   ]);
   db.establecimientosPorEmpresa.set(empresa.id, [
     { codigo: "0002", nombre: "Tienda Miraflores", domicilio: { ubigeo: "150122", direccion: "Av. Larco 345", urbanizacion: null, distrito: "MIRAFLORES", provincia: "LIMA", departamento: "LIMA", codigo_establecimiento: "0002" }, activo: true },
@@ -984,6 +987,49 @@ export function resetDb() {
       totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-baja-doble/xml" },
+    },
+    {
+      // #294: boleta aceptada con DNI, para la NC total sobre boleta y la baja de esa nota por resumen diario (RC). Fecha que
+      // ningún e2e del resumen usa (comprobantes-resumen.spec afirma lo exacto sobre el 20 y el 31 de agosto).
+      id: "b-aceptada",
+      tipo: "03",
+      serie: "B001",
+      numero: 21,
+      fecha_emision: "2026-09-03",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "1", num_doc: "44781209", razon_social: "MIGUEL ANGEL VALENCIA RAMOS", direccion: null },
+      items: [{ codigo: null, descripcion: "Zapatillas urbanas", unidad: "NIU", cantidad: 2, precio_unitario: 59, tipo_afectacion_igv: "10", valor_venta: 100, igv: 18, precio_venta: 118 }],
+      estado_documento: "ACEPTADO",
+      hash: "b-aceptada==",
+      nombre_archivo: "20123456786-03-B001-00000021",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Boleta numero B001-21, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/b-aceptada/xml", pdf: "/v1/facturas/b-aceptada/pdf", cdr: "/v1/facturas/b-aceptada/cdr" },
+    },
+    {
+      // #294: boleta «sin documento» (hasta S/ 700): la nota toma ese mismo comprador, sin pedir otro.
+      id: "b-sin-documento",
+      tipo: "03",
+      serie: "B001",
+      numero: 22,
+      fecha_emision: "2026-09-03",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "-", num_doc: "-", razon_social: "CLIENTES VARIOS", direccion: null },
+      items: [{ codigo: null, descripcion: "Pan francés", unidad: "NIU", cantidad: 50, precio_unitario: 0.59, tipo_afectacion_igv: "10", valor_venta: 25, igv: 4.5, precio_venta: 29.5 }],
+      estado_documento: "ACEPTADO",
+      hash: "b-sin-documento==",
+      nombre_archivo: "20123456786-03-B001-00000022",
+      intentos: 1,
+      ultimo_error: null,
+      cdr: { codigo: "0", descripcion: "La Boleta numero B001-22, ha sido aceptada", observaciones: [] },
+      totales: { gravado: 25, exonerado: 0, inafecto: 0, igv: 4.5, total: 29.5 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/b-sin-documento/xml", pdf: "/v1/facturas/b-sin-documento/pdf", cdr: "/v1/facturas/b-sin-documento/cdr" },
     },
   ]);
 }

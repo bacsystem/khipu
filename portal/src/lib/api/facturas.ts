@@ -162,11 +162,20 @@ export function admiteCorreo(c: Pick<Comprobante, "estado_documento">): boolean 
 }
 
 /**
- * Una factura aceptada por SUNAT (con o sin observaciones) admite notas de crédito/débito, salvo que tenga una baja en
- * curso: si SUNAT la acepta, la factura queda anulada y la nota, sobre un documento anulado (2120).
+ * Una factura o una boleta aceptada por SUNAT (con o sin observaciones; la boleta, también la informada en el resumen diario)
+ * admite notas de crédito/débito (#293), salvo que tenga una baja en curso: si SUNAT la acepta, el documento queda anulado y
+ * la nota, sobre un documento anulado (2120).
  */
 export function admiteNotas(c: Pick<Comprobante, "tipo" | "estado_documento" | "baja">): boolean {
-  return c.tipo === "01" && (c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS") && !bajaEnCurso(c);
+  return (c.tipo === "01" || c.tipo === "03") && (c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS") && !bajaEnCurso(c);
+}
+
+/**
+ * Una boleta o una nota sobre boleta (#293): sigue el régimen de la boleta, así que su baja va en el resumen diario (RC), nunca en
+ * una comunicación de baja (RA, 2310). Es el `Comprobante.esDeBoleta()` del backend.
+ */
+export function esDeBoleta(c: { tipo: string; nota?: { tipo_afectado: string } | null }): boolean {
+  return c.tipo === "03" || c.nota?.tipo_afectado === "03";
 }
 
 export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
