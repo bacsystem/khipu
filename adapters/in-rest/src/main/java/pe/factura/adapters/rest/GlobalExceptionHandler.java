@@ -52,6 +52,8 @@ public class GlobalExceptionHandler {
             case "AVISO_SIN_MOTIVO", "EMPRESA_SIN_CUENTA", "AVISO_RECIENTE" -> HttpStatus.CONFLICT;
             // LIMITE_PLAN (#18): la cuenta llegó al tope de documentos del mes de su plan; se puede volver a emitir el mes siguiente o con otro plan.
             case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES", "DEMASIADOS_INTENTOS_LOGIN", "LIMITE_PLAN" -> HttpStatus.TOO_MANY_REQUESTS;
+            // PLAN_VENCIDO (#285): el plan de la cuenta venció y pasó su gracia; se vuelve a emitir al renovarlo (pagarlo).
+            case "PLAN_VENCIDO" -> HttpStatus.PAYMENT_REQUIRED;
             // La cuenta está suspendida (#182): el cliente se identificó bien, pero no tiene permiso hasta que la reactiven.
             case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO", "CUENTA_SUSPENDIDA", "REQUIERE_ADMINISTRADOR" -> HttpStatus.FORBIDDEN;
             case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;

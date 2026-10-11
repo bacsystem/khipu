@@ -420,6 +420,15 @@ export function resetDb() {
     { id: "e-en-el-tope", ruc: "20600000028", razon_social: "Bodega en el Tope SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true, certificado_vigencia_hasta: "2036-01-01" },
   ]);
   db.seriesPorEmpresa.set("e-en-el-tope", [{ tipo: "01", serie: "F001", ultimo_numero: 30, activa: true, establecimiento: "0000" }]);
+  // Un cliente con el plan Emprende vencido hace 10 días y 3 de gracia ya pasados (#285): no emite hasta renovarlo, aunque le sobre tope. Cuenta propia.
+  const conPlanVencido: Usuario = { id: "u-plan-vencido", cuenta_id: "c-plan-vencido", email: "vencido@example.com", rol: "ADMIN", correo_verificado: true };
+  db.usuariosPorEmail.set(conPlanVencido.email, { usuario: conPlanVencido, password: "Passw0rd1" });
+  db.nombresDeCuenta.set(conPlanVencido.cuenta_id, "Bodega Vencida");
+  db.empresasPorCuenta.set(conPlanVencido.cuenta_id, [
+    { id: "e-plan-vencido", ruc: "20600000036", razon_social: "Bodega Vencida SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true, certificado_vigencia_hasta: "2036-01-01" },
+  ]);
+  db.seriesPorEmpresa.set("e-plan-vencido", [{ tipo: "01", serie: "F001", ultimo_numero: 4, activa: true, establecimiento: "0000" }]);
+  db.planesDeCuenta.set(conPlanVencido.cuenta_id, { planId: idPlanMock(2), iniciaEn: enDias(-40), venceEn: enDias(-10), diasDeGracia: 3 });
 
   const empresa: Empresa = {
     id: "e-demo",

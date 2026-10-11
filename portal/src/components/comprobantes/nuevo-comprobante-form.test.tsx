@@ -106,6 +106,29 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     expect(cancelar).toHaveBeenCalled();
   });
 
+  /** #285: si el plan vence con el diálogo abierto (402 PLAN_VENCIDO), el error también lleva a Plan y consumo. */
+  it("si el backend responde PLAN_VENCIDO muestra su mensaje y el enlace a Plan y consumo", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ estado: "error", datos: null, codigo: "PLAN_VENCIDO", mensaje: "Tu plan Emprende venció y su gracia terminó el 8 de octubre", errores: null }),
+            { status: 402 },
+          ),
+        ),
+      ),
+    );
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} onCancelar={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    linea("Pan", "5");
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/Tu plan Emprende venció/));
+    expect(screen.getByRole("link", { name: "Ver plan y consumo" })).toHaveAttribute("href", "/cuenta/plan");
+  });
+
   /** #292: la boleta admite hasta 7 días atrás (del 6.º al 7.º va en el resumen diario); la factura, 3. */
   it("la fecha de la boleta llega a 7 días atrás y la de la factura a 3", () => {
     stubEmision();

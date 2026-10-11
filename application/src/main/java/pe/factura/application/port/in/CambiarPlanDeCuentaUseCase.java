@@ -8,6 +8,7 @@ import pe.factura.domain.plan.Plan;
 import pe.factura.domain.plan.Suscripcion;
 import pe.factura.domain.plataforma.ActorAdmin;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.UUID;
@@ -33,6 +34,25 @@ public interface CambiarPlanDeCuentaUseCase {
          */
         public Plan planQueMandaEn(Instant ahora) {
             return programado != null && programado.cambio().mandaEn(ahora) ? programado.plan() : plan;
+        }
+
+        /**
+         * El estado de pago en {@code ahora}, con la misma regla que {@link #planQueMandaEn}: si ya llegó la fecha de la bajada programada, el de la suscripción que
+         * empieza con ella (su vencimiento y su gracia). Para lo que se controla al momento, como bloquear la emisión de un plan vencido (#285).
+         */
+        public EstadoSuscripcion estadoEn(Instant ahora) {
+            if (programado != null && programado.cambio().mandaEn(ahora))
+                return Suscripcion.estadoDeLaVigente(programado.cambio().venceEn(), programado.cambio().diasDeGracia(), ahora);
+            return suscripcion.estadoEn(ahora);
+        }
+
+        /** Hasta cuándo se sirve en {@code ahora}, gracia incluida, con la misma regla que {@link #estadoEn}; nulo si no vence. */
+        public Instant hastaCuandoCubreEn(Instant ahora) {
+            if (programado != null && programado.cambio().mandaEn(ahora)) {
+                CambioDePlan c = programado.cambio();
+                return c.venceEn() == null ? null : c.venceEn().plus(Duration.ofDays(c.diasDeGracia()));
+            }
+            return suscripcion.hastaCuandoCubre();
         }
     }
 

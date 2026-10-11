@@ -381,6 +381,45 @@ class FacturaE2ETest {
         verify(1, postRequestedFor(urlEqualTo("/billService")));
     }
 
+    /**
+     * #285: con el plan en gracia la cuenta sigue emitiendo; pasada la gracia, la emisión se rechaza con 402 PLAN_VENCIDO sin gastar correlativo ni llamar a SUNAT, y
+     * lo ya emitido se sigue consultando y dando de baja.
+     */
+    @Test void conElPlanVencidoLaEmisionSeRechazaCon402(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders json = new HttpHeaders(); json.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/auth/registro", new HttpEntity<>(
+                "{\"nombre\":\"Vencida SAC\",\"email\":\"vencida@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}", json), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        java.util.UUID cuenta = jdbc.queryForObject("SELECT id FROM cuenta WHERE email = 'vencida@negocio.pe'", java.util.UUID.class);
+        jdbc.update("UPDATE tenant SET cuenta_id = ? WHERE ruc = '20100066603'", cuenta);
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+
+        // Venció hace un día con 3 de gracia: en gracia.
+        jdbc.update("UPDATE suscripcion SET inicia_en = now() - interval '40 days', vence_en = now() - interval '1 day', dias_de_gracia = 3 WHERE cuenta_id = ? AND termina_en IS NULL", cuenta);
+        ResponseEntity<Map> enGracia = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(enGracia.getStatusCode()).as("%s", enGracia.getBody()).isEqualTo(HttpStatus.CREATED);
+
+        // Venció hace cuatro días con 3 de gracia: vencida.
+        jdbc.update("UPDATE suscripcion SET vence_en = now() - interval '4 days' WHERE cuenta_id = ? AND termina_en IS NULL", cuenta);
+        ResponseEntity<Map> rechazada = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(rechazada.getStatusCode()).isEqualTo(HttpStatus.PAYMENT_REQUIRED);
+        assertThat(rechazada.getBody().toString()).contains("PLAN_VENCIDO").contains("Gratis");
+        assertThat(jdbc.queryForObject("SELECT ultimo_numero FROM serie WHERE codigo = 'F001'", Long.class)).as("el rechazo no gastó el número 2").isEqualTo(1L);
+        verify(1, postRequestedFor(urlEqualTo("/billService")));
+
+        String id = (String) ((Map<?, ?>) enGracia.getBody().get("datos")).get("id");
+        assertThat(http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(h), Map.class).getStatusCode()).as("lo ya emitido se consulta").isEqualTo(HttpStatus.OK);
+        stubFor(post("/billService").withRequestBody(containing("sendSummary")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:sendSummaryResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><ticket>1789768174685</ticket></ns2:sendSummaryResponse></soap-env:Body></soap-env:Envelope>")));
+        byte[] cdrRa = ZipUtil.comprimir("R-20100066603-RA.xml", CDR_OK.getBytes());
+        stubFor(post("/billService").withRequestBody(containing("getStatus")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>0</statusCode><content>"
+                        + Base64.getEncoder().encodeToString(cdrRa) + "</content></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")));
+        ResponseEntity<Map> baja = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Se cobró dos veces\"}", h), Map.class);
+        assertThat(baja.getStatusCode()).as("la comunicación de baja sigue funcionando: %s", baja.getBody()).isEqualTo(HttpStatus.CREATED);
+    }
+
     @org.junit.jupiter.api.BeforeEach void limpiar() {
         jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, sesion, usuario, cuenta CASCADE");
     }

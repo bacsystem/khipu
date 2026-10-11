@@ -187,6 +187,42 @@ describe("NuevoComprobanteDialog", () => {
     expect(screen.getByRole("link", { name: "Ver plan y consumo" })).toHaveAttribute("href", "/cuenta/plan");
   });
 
+  /** #285: con el plan vencido (pasada la gracia) el backend rechaza la emisión (402 PLAN_VENCIDO); el diálogo lo dice antes, aunque quede lugar en el tope. */
+  it("con el plan vencido no muestra el formulario y lleva a Plan y consumo", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre({ nombre: "Mi negocio", plan: { plan: { nombre: "Emprende" }, estado: "VENCIDA" }, consumo: { mes: "2026-10", documentos: 3, maximo: 300 } })
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByText("Tu plan venció")).toBeInTheDocument());
+    expect(screen.getByText(/Tu plan Emprende venció y terminaron sus días de gracia/)).toBeInTheDocument();
+    expect(screen.queryByText("Llegaste al tope de documentos del mes")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver plan y consumo" })).toHaveAttribute("href", "/cuenta/plan");
+  });
+
+  /** #285: en gracia se sigue emitiendo. */
+  it("con el plan en gracia deja emitir", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre({ nombre: "Mi negocio", plan: { plan: { nombre: "Emprende" }, estado: "EN_GRACIA" }, consumo: { mes: "2026-10", documentos: 3, maximo: 300 } })
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.queryByText("Tu plan venció")).not.toBeInTheDocument();
+  });
+
   it("con lugar en el plan, o sin poder leer la cuenta, deja emitir: el backend tiene la última palabra", async () => {
     stubFetch((url) =>
       url.includes("/series")

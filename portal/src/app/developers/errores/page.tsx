@@ -70,6 +70,7 @@ const CODIGOS: Array<[string, string, string, string]> = [
   ["CREDENCIALES_SOL_NO_CARGADAS", "422", "La empresa no tiene usuario/clave SOL y se pidió enviar a SUNAT.", "Cárguelas en el portal o emita con enviar_automatico: false."],
   ["CERTIFICADO_NO_CARGADO / CERTIFICADO_VENCIDO / CERTIFICADO_INVALIDO", "422", "Sin certificado, vencido, o su OU no contiene el RUC.", "Cargue un certificado vigente de la empresa."],
   ["LIMITE_PLAN", "429", "La cuenta llegó al tope de documentos del mes de su plan (facturas, boletas y notas de todas sus empresas). No se emite ni se gasta número.", "Vuelva a emitir el mes siguiente o pida un cambio de plan; la comunicación de baja no consume."],
+  ["PLAN_VENCIDO", "402", "El plan de la cuenta venció y pasaron sus días de gracia (en gracia se sigue emitiendo). Aplica a facturas, boletas y notas; no se emite ni se gasta número.", "Renueve el plan para volver a emitir; consultar lo ya emitido y la comunicación de baja siguen funcionando."],
   ["XSD_INVALIDO / FIRMA_FALLIDA", "422", "El XML generado no validó o no pudo firmarse.", "Contacte soporte con el id; suele ser un dato fuera de catálogo."],
   ["NO_ACEPTADO", "409", "Se pidió enviar por correo un comprobante que SUNAT aún no aceptó (FIRMADO, ERROR_ENVIO, RECHAZADO o ANULADO).", "Espere la aceptación; el PDF sí se puede descargar desde FIRMADO."],
   ["CORREO_NO_ENVIADO", "502", "El servidor de correo rechazó o no aceptó el envío al adquirente (SMTP caído, buzón inválido).", "Reintente más tarde; el comprobante no cambia de estado."],
