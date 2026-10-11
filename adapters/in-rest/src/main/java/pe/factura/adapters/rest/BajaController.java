@@ -30,7 +30,9 @@ public class BajaController {
 
     @PostMapping("/v1/facturas/{id}/baja")
     @Operation(summary = "Dar de baja un comprobante", description = """
-            Solo comprobantes `ACEPTADO` o `ACEPTADO_CON_OBS` (facturas, boletas y notas) emitidos hace 7 días o menos. Una baja
+            Solo comprobantes `ACEPTADO` o `ACEPTADO_CON_OBS` (facturas, boletas y notas) emitidos hace 7 días calendario o menos,
+            contados en hora de Lima desde la fecha de emisión y no desde la aceptación de SUNAT (la regla que SUNAT aplica a
+            boletas y notas desde 2027-01-01, RS 000048-2026; ya vale para la de 2026): el día 7 se admite, el 8 no. Una baja
             en curso bloquea otra sobre el mismo comprobante. El motivo es obligatorio; en una boleta queda en khipu (el resumen
             diario no lo lleva).
 
