@@ -14,6 +14,22 @@ class CatalogoSunatTest {
         assertThat(CatalogoSunat.porId("25").orElseThrow().entrada("50161509").orElseThrow().extra().get("Listado")).contains("25.1").contains("25.2");
     }
 
+    /**
+     * #308: el 03 es la rec 20 completa (lo que SUNAT llama catálogo 03, hoja «Catálogos» del Anexo 8), incluidos los códigos que la UN/ECE
+     * dio de baja y SUNAT sigue aceptando (BX, PK, CS: el propio ejemplo de la guía XML usa CS). Las más usadas van primero y marcadas.
+     */
+    @Test void elCatalogo03EsLaRec20CompletaConLasMasUsadasPrimero() {
+        CatalogoSunat.Catalogo unidades = CatalogoSunat.porId("03").orElseThrow();
+        assertThat(unidades.entradas().size()).isGreaterThan(2000);
+        assertThat(unidades.entradas()).extracting(CatalogoSunat.Entrada::codigo).doesNotHaveDuplicates()
+                .contains("NIU", "ZZ", "BX", "PK", "CS", "RO", "4A", "E48", "MNJ").doesNotContain("ROL");
+        assertThat(unidades.entradas().get(0).codigo()).isEqualTo("NIU");
+        assertThat(unidades.entrada("BX").orElseThrow().descripcion()).isEqualTo("Caja");
+        assertThat(unidades.entrada("BX").orElseThrow().extra()).containsEntry("Más usada", "Sí");
+        assertThat(unidades.entrada("E48").orElseThrow().extra()).doesNotContainKey("Más usada");
+        assertThat(unidades.entradas().stream().filter(e -> e.extra().containsKey("Más usada")).count()).isEqualTo(48);
+    }
+
     @Test void descripcionYColumnasAdicionales() {
         assertThat(CatalogoSunat.descripcion("07", "10")).contains("Gravado - Operación Onerosa");
         assertThat(CatalogoSunat.descripcion("06", "6")).hasValueSatisfying(d -> assertThat(d).containsIgnoringCase("registro unico"));

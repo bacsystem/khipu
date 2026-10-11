@@ -122,7 +122,10 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         }
         // La nota hereda la tasa de IGV del documento: si el emisor entró o salió del padrón después, el documento no cambia de tasa. El receptor es el
         // del documento (RCP art. 10 num. 1.3): en una boleta puede no tener documento.
-        Comprobante c = Comprobante.nota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), nota, afectado.receptor(), copia ? afectado.items() : cmd.items())
+        Comprobante.NotaBuilder builder = Comprobante.nota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), nota, afectado.receptor(), copia ? afectado.items() : cmd.items());
+        // #308: las líneas copiadas llevan la unidad con la que el documento ya se emitió; no se vuelven a cruzar con el catálogo 03.
+        if (copia) builder.copiaDelDocumento();
+        Comprobante c = builder
                 .moneda(afectado.moneda())
                 .tipoOperacion(afectado.tipoOperacion())
                 .formaPago(cmd.formaPago())

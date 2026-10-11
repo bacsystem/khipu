@@ -89,6 +89,22 @@ class FacturaE2ETest {
         assertThat(new String(ZipUtil.extraerPrimero(cdr.getBody(), ".xml"))).contains("ha sido aceptada");
     }
 
+    /** #308: una unidad que no existe en el catálogo 03 vuelve 422 (2936) con el código recibido, antes de numerar: la siguiente factura es la 1. */
+    @Test void unaUnidadFueraDelCatalogo03SeRechazaSinConsumirNumero(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+
+        ResponseEntity<Map> rara = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replace("\"unidad\":\"NIU\"", "\"unidad\":\"XYZ\""), h), Map.class);
+        assertThat(rara.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(rara.getBody().get("codigo")).isEqualTo("ITEM_INVALIDO");
+        assertThat((String) rara.getBody().get("mensaje")).startsWith("2936 - ").contains("XYZ").contains("catálogo 03");
+
+        ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(((Map<?, ?>) r.getBody().get("datos")).get("numero")).isEqualTo(1);
+    }
+
     /**
      * #20: una boleta pasa por el mismo camino que la factura (numeración de su serie B, UBL, firma real, XSD, sendBill) y se envía sola. Un comprador sin
      * documento por encima de S/ 700 no se emite ni consume número.

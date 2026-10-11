@@ -33,6 +33,27 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("NuevoComprobanteForm — unidad de medida (#308)", () => {
+  /** El catálogo 03 es la rec 20 completa (más de 2000 códigos): el selector ofrece las marcadas «Más usada», no la lista entera. */
+  it("ofrece las unidades más usadas del catálogo 03, no las 2000 de la rec 20", async () => {
+    const catalogo = {
+      id: "03", nombre: "Unidades", columnas: ["Código", "Descripción", "Más usada"],
+      entradas: [
+        { codigo: "NIU", descripcion: "Unidad (bienes)", extra: { "Más usada": "Sí" } },
+        { codigo: "ZZ", descripcion: "Unidad (servicios)", extra: { "Más usada": "Sí" } },
+        { codigo: "E48", descripcion: "service unit", extra: {} },
+      ],
+    };
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos: catalogo, mensaje: null, codigo: null, errores: null })))));
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
+    const unidad = screen.getByLabelText("Unidad de medida");
+    await waitFor(() => expect(unidad.querySelectorAll("option")).toHaveLength(2));
+    expect([...unidad.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["NIU", "ZZ"]);
+  });
+});
+
 describe("NuevoComprobanteForm — boleta (#20)", () => {
   it("sin documento manda «-» como tipo y número, con el nombre por defecto", async () => {
     const fetch = stubEmision();

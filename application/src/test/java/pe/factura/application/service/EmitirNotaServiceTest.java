@@ -197,6 +197,25 @@ class EmitirNotaServiceTest {
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).extracting(Comprobante::id).containsExactly(nc.id());
     }
 
+    /**
+     * #308: una boleta emitida antes de validar el catálogo 03 con «ROL» (no existe en la rec 20) se informó en un resumen diario, que no
+     * lleva líneas, y quedó aceptada. Su nota total copia la línea tal cual y se emite; una nota con ítems propios y esa unidad, no, y sin consumir número.
+     */
+    @Test void laNotaTotalCopiaLaUnidadDelDocumentoYLaParcialLaValidaContraElCatalogo03() {
+        Comprobante vieja = Comprobante.persistido(UUID.randomUUID(), tenantId, TipoDocumento.BOLETA, "B001", 7L, LocalDate.of(2026, 9, 10), EstadoDocumento.ACEPTADO, SIN_DOCUMENTO,
+                List.of(new Item("P1", "Cable", "ROL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).firma("h", "20100066603-03-B001-7", "k").rehidratar();
+        comprobantes.guardar(vieja);
+
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", 7L, "07",
+                List.of(new Item("P1", "Cable", "ROL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)))))
+                .isInstanceOf(DomainException.class).hasMessageStartingWith("2936").hasMessageContaining("ROL");
+        assertThat(series.ultimo).as("la parcial rechazada no consume número").containsEntry(tenantId + "07BC01", 0L);
+
+        Comprobante nc = service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", 7L, "01", null));
+        assertThat(nc.items()).extracting(Item::unidad).containsExactly("ROL");
+        assertThat(nc.numero()).isEqualTo(1L);
+    }
+
     @Test void notaParcialSoloConLosItemsIndicados() {
         Comprobante f = facturaAceptada(FormaPago.contado());
         Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "07",

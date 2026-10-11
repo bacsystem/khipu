@@ -215,7 +215,7 @@ public class Comprobante {
         private final UUID tenantId; private final TipoDocumento tipo; private final String serie; private final LocalDate fechaEmision; private final Nota nota;
         private final Receptor receptor; private final List<Item> items;
         private String moneda = "PEN"; private String tipoOperacion = "0101"; private FormaPago formaPago; private Descuento descuentoGlobal; private List<Cargo> cargos = List.of();
-        private BigDecimal tasaIgv = TasaIgv.GENERAL; private Exportacion exportacion; private BigDecimal redondeo;
+        private BigDecimal tasaIgv = TasaIgv.GENERAL; private Exportacion exportacion; private BigDecimal redondeo; private boolean copiaDelDocumento;
 
         private NotaBuilder(UUID tenantId, TipoDocumento tipo, String serie, LocalDate fechaEmision, Nota nota, Receptor receptor, List<Item> items) {
             this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.fechaEmision = fechaEmision; this.nota = nota; this.receptor = receptor; this.items = items;
@@ -236,6 +236,11 @@ public class Comprobante {
          * PayableRoundingAmount con |x| ≤ 1 (NotaCredito2_0 fila 406, regla 3303).
          */
         public NotaBuilder redondeo(BigDecimal r) { this.redondeo = r; return this; }
+        /**
+         * Nota total (#308): los ítems son los del documento que modifica, ya emitido con esas unidades. No se vuelven a cruzar con el
+         * catálogo 03: la nota debe repetirlos tal cual (3286) y una regla posterior al documento no puede impedir anularlo.
+         */
+        public NotaBuilder copiaDelDocumento() { this.copiaDelDocumento = true; return this; }
 
         public Comprobante crear(Clock clock) {
             if (tipo != TipoDocumento.NOTA_CREDITO && tipo != TipoDocumento.NOTA_DEBITO)
@@ -250,7 +255,7 @@ public class Comprobante {
             exigirDentroDelPlazoDeEnvio(PlazoEnvio.de(tipo, nota), fechaEmision, clock);
             boolean nc13 = nota.corrigeCuotas(tipo);
             if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
-            if (items != null) items.forEach(Item::exigirValidoParaFactura);
+            if (items != null) items.forEach(i -> i.exigirValidoParaFactura(!copiaDelDocumento));
             if (nota.deBoleta()) {
                 // El comprador de la boleta (RCP art. 10 num. 1.3), que puede no tener documento ni RUC.
                 if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "La nota sobre una boleta lleva el comprador de la boleta");
