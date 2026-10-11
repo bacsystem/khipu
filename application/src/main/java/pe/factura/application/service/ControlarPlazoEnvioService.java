@@ -33,7 +33,7 @@ public class ControlarPlazoEnvioService implements ControlarPlazoEnvioUseCase {
         // Corte grueso en SQL con el plazo más corto entre todos los tipos; la regla exacta por tipo la decide el dominio.
         LocalDate corte = hoy.minusDays(PlazoEnvio.diasMinimo() + 1);
         List<Comprobante> vencidos = new ArrayList<>();
-        for (Comprobante c : comprobantes.pendientesDeEnvioEmitidosHasta(corte)) {
+        for (Comprobante c : comprobantes.pendientesQueVencenEmitidosHasta(corte)) {
             if (!c.fueraDePlazo(hoy)) continue;
             c.marcarFueraDePlazo(hoy);
             uow.ejecutar(() -> comprobantes.guardar(c));

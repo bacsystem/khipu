@@ -143,7 +143,8 @@ public class FacturaController {
             esperar al reintento automático. Un comprobante `ACEPTADO`, `RECHAZADO` o `ANULADO` responde `409 ESTADO_NO_ENVIABLE`.
             Una boleta (o nota sobre boleta) que pasó el envío individual se informa en un resumen diario: la respuesta lo trae en `baja`
             (`condicion: ALTA`). Pasado el 7.º día va igual, con `baja.fuera_de_plazo: true`, y SUNAT la acepta con la observación 4443
-            (`ACEPTADO_CON_OBS`). Una factura o nota de factura fuera de plazo responde `409 FUERA_DE_PLAZO`.""")
+            (`ACEPTADO_CON_OBS`). Una factura, una nota de factura o una nota de crédito 10 / de débito 03 de boleta (que no van en el resumen)
+            fuera de plazo responde `409 FUERA_DE_PLAZO`.""")
     public ApiResponse<ComprobanteResponse> enviar(HttpServletRequest req, @PathVariable UUID id) {
         UUID t = TenantActual.id(req);
         Comprobante c = enviar.enviar(t, id);

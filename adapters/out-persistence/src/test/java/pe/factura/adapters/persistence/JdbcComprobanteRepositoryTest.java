@@ -215,13 +215,33 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         Comprobante ajena = factura(otra, 1); ajena.firmar("H", "k4.xml"); repo.guardar(ajena);
         Comprobante recibida = factura(t, 4); repo.guardar(recibida);   // RECIBIDO: sin firmar, no entra
 
-        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id)
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id)
                 .containsExactlyInAnyOrder(firmada.id(), enError.id(), ajena.id());
-        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 12))).isEmpty();
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 12))).isEmpty();
         firmada.marcarFueraDePlazo(LocalDate.of(2026, 9, 17));
         repo.guardar(firmada);
         assertThat(repo.buscar(t, firmada.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
-        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactlyInAnyOrder(enError.id(), ajena.id());
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactlyInAnyOrder(enError.id(), ajena.id());
+    }
+
+    /**
+     * #331: lo que va en el resumen diario (la boleta y la nota B, salvo la NC 10 y la ND 03) nunca vence, así que el barrido del plazo no lo trae. Si lo trajera,
+     * una boleta firmada que nadie envía entraría en cada barrido para siempre, con sus consultas de ítems, cargos y anticipos, solo para descartarla.
+     */
+    @Test void elControlDelPlazoNoTraeLoQueVaEnElResumenDiario() {
+        UUID t = tenantDePrueba();
+        Receptor varios = new Receptor("-", "-", "CLIENTES VARIOS", null);
+        List<Item> items = List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO));
+        Comprobante factura = factura(t, 1); factura.firmar("H", "f.xml"); repo.guardar(factura);
+        Comprobante boleta = Comprobante.boleta(t, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", varios, items).crear(clock);
+        boleta.asignarNumero(9, "20100066603"); boleta.firmar("H", "b.xml"); repo.guardar(boleta);
+        Comprobante notaB = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.BOLETA, "B001", 9, "07", "Devolución"), varios, items).crear(clock);
+        notaB.asignarNumero(1, "20100066603"); notaB.firmar("H", "nb.xml"); repo.guardar(notaB);
+        Comprobante nc10 = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.BOLETA, "B001", 9, "10", "Otros conceptos"), varios, items).crear(clock);
+        nc10.asignarNumero(2, "20100066603"); nc10.firmar("H", "nc10.xml"); repo.guardar(nc10);
+
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id)
+                .as("la factura (2108) y la NC 10 de boleta (1079) vencen; la boleta y la NC 07 de boleta van en el resumen").containsExactlyInAnyOrder(factura.id(), nc10.id());
     }
 
     /** Recuperación de CDR (#36): firmados sin cdr_key en estados donde SUNAT pudo haberlo recibido. */

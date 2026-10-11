@@ -190,6 +190,9 @@ class DarDeBajaServiceTest {
         assertThat(alta.fueraDePlazo()).isTrue();
         assertThat(alta.identificador()).isEqualTo("RC-20260921-1");
         assertThat(validado[0]).startsWith("<SummaryDocuments>");
+        // El historial de la boleta dice que se informó fuera de plazo: el servicio le pasa a la boleta lo que sabe el resumen.
+        assertThat(comprobantes.eventosDe(tenantId, tardia.id())).filteredOn(e -> e.estadoNuevo() == EstadoDocumento.ENVIADO).singleElement()
+                .satisfies(e -> assertThat(e.detalle()).contains("RC-20260921-1 fuera de plazo").contains("4443"));
 
         // La boleta en plazo del mismo día va en otro RC (correlativo siguiente): nunca comparten resumen.
         cdrs.cdr = new Cdr("0", "El Resumen diario RC-20260921-2, ha sido aceptado", List.of());
@@ -197,6 +200,8 @@ class DarDeBajaServiceTest {
         ComunicacionBaja otra = bajas.deComprobante(tenantId, enPlazo.id()).get(0);
         assertThat(otra.identificador()).isEqualTo("RC-20260921-2");
         assertThat(otra.fueraDePlazo()).isFalse();
+        assertThat(comprobantes.eventosDe(tenantId, enPlazo.id())).filteredOn(e -> e.estadoNuevo() == EstadoDocumento.ENVIADO).singleElement()
+                .satisfies(e -> assertThat(e.detalle()).doesNotContain("fuera de plazo"));
         // Y la boleta tardía, ya aceptada, no se puede anular: la baja sí tiene tope (2957).
         assertThatThrownBy(() -> resumen.solicitar(tenantId, tardia.id(), "Se cobró dos veces")).hasMessageContaining("2957");
     }

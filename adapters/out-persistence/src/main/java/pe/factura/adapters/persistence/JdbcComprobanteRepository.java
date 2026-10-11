@@ -147,8 +147,14 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public List<Comprobante> notasDe(UUID tenantId, String serie, long numero) {
         return jdbc.query(SELECT + " WHERE d.tenant_id = ? AND c.nota_serie_afectada = ? AND c.nota_numero_afectado = ? ORDER BY d.created_at", this::mapear, tenantId, serie, numero);
     }
-    @Override public List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fechaEmisionMaxima) {
-        return jdbc.query(SELECT + " WHERE d.estado IN ('FIRMADO', 'ERROR_ENVIO') AND d.fecha_emision <= ? ORDER BY d.fecha_emision", this::mapear, Date.valueOf(fechaEmisionMaxima));
+    /**
+     * Fuera queda lo que va en el resumen diario ({@code Nota.vaEnResumenDiario}): la boleta y la nota B, salvo la NC 10 y la ND 03 (#331). Nunca vence, y sin este
+     * filtro una boleta firmada que nadie envía entraría en cada barrido para siempre.
+     */
+    @Override public List<Comprobante> pendientesQueVencenEmitidosHasta(java.time.LocalDate fechaEmisionMaxima) {
+        return jdbc.query(SELECT + " WHERE d.estado IN ('FIRMADO', 'ERROR_ENVIO') AND d.fecha_emision <= ?"
+                + " AND d.tipo <> '03' AND (c.nota_tipo_afectado IS DISTINCT FROM '03' OR (d.tipo = '07' AND c.nota_motivo = '10') OR (d.tipo = '08' AND c.nota_motivo = '03'))"
+                + " ORDER BY d.fecha_emision", this::mapear, Date.valueOf(fechaEmisionMaxima));
     }
     @Override public List<Comprobante> pendientesDeCdr() {
         return jdbc.query(SELECT + " WHERE d.xml_key IS NOT NULL AND d.cdr_key IS NULL AND d.estado IN ('ENVIADO', 'ERROR_ENVIO', 'ACEPTADO', 'ACEPTADO_CON_OBS', 'RECHAZADO') ORDER BY d.fecha_emision", this::mapear);

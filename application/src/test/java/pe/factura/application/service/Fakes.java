@@ -68,8 +68,9 @@ final class Fakes {
         public List<Comprobante> notasDe(UUID t, String serie, long numero) {
             return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.esNota() && c.nota().serieAfectada().equals(serie) && c.nota().numeroAfectado() == numero).toList();
         }
-        public List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fecha) {
-            return datos.values().stream().filter(c -> c.estado().esEnviable() && !c.fechaEmision().isAfter(fecha)).toList();
+        public List<Comprobante> pendientesQueVencenEmitidosHasta(java.time.LocalDate fecha) {
+            return datos.values().stream().filter(c -> c.estado().esEnviable() && !c.fechaEmision().isAfter(fecha)
+                    && c.tipo() != TipoDocumento.BOLETA && !(c.esNota() && c.nota().deBoleta() && c.nota().vaEnResumenDiario(c.tipo()))).toList();
         }
         final Map<UUID, List<EventoDocumento>> eventos = new HashMap<>();
         public List<EventoDocumento> eventosDe(UUID t, UUID id) { return eventos.getOrDefault(id, List.of()); }

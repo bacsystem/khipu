@@ -131,8 +131,9 @@ export type Baja = {
   /** `BAJA` anula el comprobante; `ALTA` informa en el resumen diario una boleta que pasó el envío individual (274-H1). Ausente en respuestas viejas: baja. */
   condicion?: "ALTA" | "BAJA";
   /**
-   * #331: un `ALTA` informada pasado el 7.º día desde la emisión. SUNAT no la rechaza: la acepta con la observación 4443 y la boleta queda `ACEPTADO_CON_OBS`.
-   * Ausente en respuestas viejas: en plazo.
+   * #331: un `ALTA` generada pasado el 7.º día desde la emisión. SUNAT no la rechaza: la acepta con la observación 4443 y la boleta queda `ACEPTADO_CON_OBS`.
+   * Es la previsión de khipu: si el envío del resumen se reintentó otro día, SUNAT puede observarla aunque diga `false` (manda el CDR). Ausente en respuestas
+   * viejas: en plazo.
    */
   fuera_de_plazo?: boolean;
   estado: EstadoBaja;

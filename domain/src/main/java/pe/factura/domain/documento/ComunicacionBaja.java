@@ -123,6 +123,9 @@ public class ComunicacionBaja {
     /**
      * Un alta informada pasado el 7.º día desde la emisión (#331): SUNAT la acepta con la observación 4443 en vez de rechazarla. Sale de las fechas que ya
      * guarda (la del RC y el cbc:ReferenceDate), así que vale también para las altas ya persistidas.
+     * <p>
+     * Es una previsión, no la respuesta de SUNAT: SUNAT cuenta hasta la recepción del resumen (RC fila 14), y un alta generada el 7.º día cuyo envío falla y se
+     * reintenta al día siguiente llega fuera de plazo aunque esto diga que no. La 4443 que de verdad aplicó está en el CDR del comprobante.
      */
     public boolean fueraDePlazo() { return alta() && ChronoUnit.DAYS.between(fechaReferencia, fechaGeneracion) > PlazoEnvio.DIAS_RESUMEN_DIARIO; }
 
