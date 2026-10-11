@@ -7,7 +7,6 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Cdr;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
-import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.Tenant;
 
 import java.time.Clock;
@@ -70,7 +69,7 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
             c.marcarFueraDePlazo(LocalDate.now(clock));
             uow.ejecutar(() -> comprobantes.guardar(c));
             // «Emita uno nuevo» solo para la factura: una boleta no se reemplaza, SUNAT la sigue recibiendo en un resumen diario (274-H1).
-            throw new DomainException("FUERA_DE_PLAZO", c.nombreArchivo() + ": " + c.ultimoError() + (c.tipo() == TipoDocumento.BOLETA ? "" : ". Emita un comprobante nuevo"));
+            throw new DomainException("FUERA_DE_PLAZO", c.nombreArchivo() + ": " + c.ultimoError() + (c.esDeBoleta() ? "" : ". Emita un comprobante nuevo"));
         }
         Tenant tenant = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
         tenant.exigirCredencialesSol();

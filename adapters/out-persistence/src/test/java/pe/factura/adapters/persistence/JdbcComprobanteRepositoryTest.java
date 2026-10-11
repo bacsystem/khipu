@@ -325,6 +325,31 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscarPorNumero(t, TipoDocumento.FACTURA, "FC01", 1)).isEmpty();
     }
 
+    /** #293: una nota B sobre una boleta se rehidrata (antes `Nota` rechazaba la boleta) y su baja vuelve de la base como resumen diario (RC), no como RA. */
+    @Test void notaDeBoleta_seRehidrataYSuBajaVuelveComoResumenDiario() {
+        UUID t = tenantDePrueba();
+        Nota nota = new Nota(TipoDocumento.BOLETA, "B001", 9, "07", "Devolución de un libro");
+        Comprobante nc = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), nota, new Receptor("-", "-", "CLIENTES VARIOS", null),
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).crear(clock);
+        nc.asignarNumero(1, "20100066603");
+        nc.firmar("H", "nc.xml"); nc.marcarEnviado(); nc.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr.zip");
+        repo.guardar(nc);
+
+        Comprobante leida = repo.buscar(t, nc.id()).orElseThrow();
+        assertThat(leida.nota()).isEqualTo(nota);
+        assertThat(leida.esDeBoleta()).isTrue();
+        assertThat(repo.notasDe(t, "B001", 9)).extracting(Comprobante::id).containsExactly(nc.id());
+
+        JdbcBajaRepository bajas = new JdbcBajaRepository(jdbc);
+        ComunicacionBaja b = ComunicacionBaja.crear(leida, 1, "Error en el monto", Clock.fixed(Instant.parse("2026-09-15T15:00:00Z"), ZoneId.of("America/Lima")));
+        b.firmar("rc.xml");
+        bajas.guardar(b);
+        ComunicacionBaja releida = bajas.buscar(t, b.id()).orElseThrow();
+        assertThat(releida.resumenDiario()).isTrue();
+        assertThat(releida.identificador()).isEqualTo("RC-20260915-1");
+        assertThat(releida.tipoComprobante()).isEqualTo(TipoDocumento.NOTA_CREDITO);
+    }
+
     @Test void comunicacionDeBaja_guardaRehidrataYNumeraPorDia() {
         UUID t = tenantDePrueba();
         Comprobante f = factura(t, 30);

@@ -89,54 +89,62 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     @Override
     public Comprobante emitirNota(UUID tenantId, EmitirNotaCommand cmd) {
         Tenant tenant = tenantListo(tenantId, cmd.enviarAutomatico());
-        Comprobante factura = exigirModificable(comprobantes.buscarPorNumero(tenantId, TipoDocumento.FACTURA, cmd.serieAfectada(), cmd.numeroAfectado()), cmd.serieAfectada(), cmd.numeroAfectado());
-        if (cmd.fechaEmision().isBefore(factura.fechaEmision()))
-            throw new DomainException("NOTA_INVALIDA", "2885 - La fecha de la nota no puede ser anterior a la de la factura que modifica (" + factura.fechaEmision() + ")");
+        // #293: como al emitir (#20), la letra de la serie dice qué se modifica: B una boleta, F una factura. La nota se valida antes de buscar el documento,
+        // así un motivo que no corresponde (2172, 3259, 4367) se rechaza por lo que es y no por el estado del documento.
+        TipoDocumento tipoAfectado = cmd.serieAfectada() != null && cmd.serieAfectada().startsWith("B") ? TipoDocumento.BOLETA : TipoDocumento.FACTURA;
+        Nota nota = new Nota(tipoAfectado, cmd.serieAfectada(), cmd.numeroAfectado(), cmd.motivo(), cmd.descripcion());
+        nota.validarMotivoPara(cmd.tipo());
+        Comprobante afectado = exigirModificable(comprobantes.buscarPorNumero(tenantId, tipoAfectado, cmd.serieAfectada(), cmd.numeroAfectado()), tipoAfectado, cmd.serieAfectada(), cmd.numeroAfectado());
+        if (cmd.fechaEmision().isBefore(afectado.fechaEmision()))
+            throw new DomainException("NOTA_INVALIDA", "2885 - La fecha de la nota no puede ser anterior a la de la " + nombre(tipoAfectado) + " que modifica (" + afectado.fechaEmision() + ")");
 
-        exigirSinBajaEnCurso(tenantId, factura);
-        Nota nota = new Nota(TipoDocumento.FACTURA, factura.serie(), factura.numero(), cmd.motivo(), cmd.descripcion());
+        exigirSinBajaEnCurso(tenantId, afectado);
         boolean nc13 = nota.corrigeCuotas(cmd.tipo());
         if (nc13) {
-            if (!factura.formaPago().esCredito())
+            if (!afectado.formaPago().esCredito())
                 throw new DomainException("NOTA_INVALIDA", "3260 - El motivo 13 solo aplica a facturas al crédito y " + nota.documentoAfectado() + " es al contado");
-            if (cmd.formaPago() != null) cmd.formaPago().validarComoCorreccionDe(factura.totales().total(), factura.fechaEmision());
+            if (cmd.formaPago() != null) cmd.formaPago().validarComoCorreccionDe(afectado.totales().total(), afectado.fechaEmision());
         } else if (cmd.formaPago() != null) {
             // Fuera de la NC 13 nada valida la forma de pago contra la factura (3320/3321): aceptarla sacaría PaymentTerms sin control.
             throw new DomainException("NOTA_INVALIDA", "forma_pago solo se admite en una nota de crédito con motivo 13 (corrección de cuotas)");
         }
-        // Nota total: los mismos ítems, descuento y cargos de la factura; así SUNAT ve exactamente los importes que anula (3286 y afines).
+        // Nota total: los mismos ítems, descuento y cargos del documento; así SUNAT ve exactamente los importes que anula (3286 y afines).
         boolean copia = cmd.copiaLaFactura() && !nc13;
         if (copia) {
             // Los anticipos no viajan en una nota (el CreditNote UBL no tiene PrepaidPayment): copiar los ítems daría el bruto y
             // SUNAT compara contra el neto de la factura (3286). El emisor debe indicar los ítems por el importe que anula.
-            if (!factura.anticipos().isEmpty())
+            if (!afectado.anticipos().isEmpty())
                 throw new DomainException("NOTA_INVALIDA", "La factura " + nota.documentoAfectado() + " regularizó anticipos: indique los items de la nota por el importe neto ("
-                        + factura.totales().total() + ") en vez de omitirlos");
-            // Sin ítems se copian descuento y cargos de la factura; aceptar otros en silencio daría una nota distinta de la pedida.
+                        + afectado.totales().total() + ") en vez de omitirlos");
+            // Sin ítems se copian descuento y cargos del documento; aceptar otros en silencio daría una nota distinta de la pedida.
             if (cmd.descuentoGlobal() != null || (cmd.cargos() != null && !cmd.cargos().isEmpty()))
-                throw new DomainException("NOTA_INVALIDA", "descuento_global y cargos solo se admiten junto con items; sin items la nota copia los de la factura");
+                throw new DomainException("NOTA_INVALIDA", "descuento_global y cargos solo se admiten junto con items; sin items la nota copia los de la " + nombre(tipoAfectado));
         }
-        // La nota hereda la tasa de IGV de la factura: si el emisor entró o salió del padrón después, la factura no cambia de tasa.
-        Comprobante c = Comprobante.nota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), nota, factura.receptor(), copia ? factura.items() : cmd.items())
-                .moneda(factura.moneda())
-                .tipoOperacion(factura.tipoOperacion())
+        // La nota hereda la tasa de IGV del documento: si el emisor entró o salió del padrón después, el documento no cambia de tasa. El receptor es el
+        // del documento (RCP art. 10 num. 1.3): en una boleta puede no tener documento.
+        Comprobante c = Comprobante.nota(tenantId, cmd.tipo(), cmd.serie(), cmd.fechaEmision(), nota, afectado.receptor(), copia ? afectado.items() : cmd.items())
+                .moneda(afectado.moneda())
+                .tipoOperacion(afectado.tipoOperacion())
                 .formaPago(cmd.formaPago())
-                .descuentoGlobal(copia ? factura.descuentoGlobal() : cmd.descuentoGlobal())
-                .cargos(copia ? factura.cargos() : cmd.cargos())
-                .tasaIgv(factura.tasaIgv())
-                .exportacion(factura.exportacion())
-                // Con el redondeo de la factura la nota total sale exactamente por su PayableAmount (3286 sin tolerancia en facturas).
-                .redondeo(copia ? factura.totales().redondeo() : null)
+                .descuentoGlobal(copia ? afectado.descuentoGlobal() : cmd.descuentoGlobal())
+                .cargos(copia ? afectado.cargos() : cmd.cargos())
+                .tasaIgv(afectado.tasaIgv())
+                .exportacion(afectado.exportacion())
+                // Con el redondeo del documento la nota total sale exactamente por su PayableAmount (3286 sin tolerancia en facturas).
+                .redondeo(copia ? afectado.totales().redondeo() : null)
                 .crear(clock);
         c.anotar(cmd.observaciones());
-        // Releída con lock de fila dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota,
-        // y el acumulado de NC se lee con la factura bloqueada, así que dos NC concurrentes no pueden acreditarla dos veces.
+        // Releído con lock de fila dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota,
+        // y el acumulado de NC se lee con el documento bloqueado, así que dos NC concurrentes no pueden acreditarlo dos veces.
         return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> {
-            Comprobante bloqueada = exigirModificable(comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, factura.serie(), factura.numero()), factura.serie(), factura.numero());
-            exigirSinBajaEnCurso(tenantId, bloqueada);
-            if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereALaFactura(c.totales(), nota.motivo(), bloqueada, acreditadoPorNotas(tenantId, bloqueada));
+            Comprobante bloqueado = exigirModificable(comprobantes.bloquearPorNumero(tenantId, tipoAfectado, afectado.serie(), afectado.numero()), tipoAfectado, afectado.serie(), afectado.numero());
+            exigirSinBajaEnCurso(tenantId, bloqueado);
+            if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereAlDocumento(c.totales(), nota.motivo(), bloqueado, acreditadoPorNotas(tenantId, bloqueado));
         }, null).comprobante();
     }
+
+    /** «factura» o «boleta»: cómo nombran los mensajes al documento que modifica una nota. */
+    private static String nombre(TipoDocumento tipo) { return tipo == TipoDocumento.BOLETA ? "boleta" : "factura"; }
 
     /**
      * Suma de las notas de crédito ya emitidas sobre la factura que siguen vigentes: SUNAT no cruza una NC con las anteriores
@@ -166,21 +174,22 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
      * anulado (2120). El estado del documento sigue ACEPTADO mientras tanto, así que `exigirModificable` no lo ve; el portal
      * ya lo bloqueaba (`admiteNotas`) pero la API quedaba abierta.
      */
-    private void exigirSinBajaEnCurso(UUID tenantId, Comprobante factura) {
-        bajas.deComprobante(tenantId, factura.id()).stream().filter(ComunicacionBaja::pendiente).findFirst().ifPresent(b -> {
-            throw new DomainException("NOTA_INVALIDA", "2120 - La factura " + factura.serie() + "-" + factura.numero() + " tiene una comunicación de baja en curso (" + b.identificador()
+    private void exigirSinBajaEnCurso(UUID tenantId, Comprobante afectado) {
+        bajas.deComprobante(tenantId, afectado.id()).stream().filter(ComunicacionBaja::pendiente).findFirst().ifPresent(b -> {
+            throw new DomainException("NOTA_INVALIDA", "2120 - La " + nombre(afectado.tipo()) + " " + afectado.serie() + "-" + afectado.numero() + " tiene una baja en curso (" + b.identificador()
                     + ", " + b.estado() + "): si SUNAT la acepta, la nota caería sobre un documento anulado");
         });
     }
 
-    /** La factura serie-número debe existir en la empresa, estar aceptada por SUNAT y no anulada (2119/2120). */
-    private static Comprobante exigirModificable(Optional<Comprobante> buscada, String serie, long numero) {
-        Comprobante factura = buscada.orElseThrow(() -> new DomainException("NOTA_INVALIDA", "2119 - La factura " + serie + "-" + numero + " no existe en esta empresa"));
-        if (factura.estado() == EstadoDocumento.ANULADO)
-            throw new DomainException("NOTA_INVALIDA", "2120 - La factura " + serie + "-" + numero + " está anulada");
-        if (factura.estado() != EstadoDocumento.ACEPTADO && factura.estado() != EstadoDocumento.ACEPTADO_CON_OBS)
-            throw new DomainException("NOTA_INVALIDA", "2119 - La factura " + serie + "-" + numero + " no está aceptada por SUNAT (estado " + factura.estado() + ")");
-        return factura;
+    /** La factura o boleta serie-número debe existir en la empresa, estar aceptada por SUNAT y no anulada (2119/2120; en la boleta, 2989/2990). */
+    private static Comprobante exigirModificable(Optional<Comprobante> buscado, TipoDocumento tipo, String serie, long numero) {
+        String documento = "La " + nombre(tipo) + " " + serie + "-" + numero;
+        Comprobante afectado = buscado.orElseThrow(() -> new DomainException("NOTA_INVALIDA", "2119 - " + documento + " no existe en esta empresa"));
+        if (afectado.estado() == EstadoDocumento.ANULADO)
+            throw new DomainException("NOTA_INVALIDA", "2120 - " + documento + " está anulada");
+        if (afectado.estado() != EstadoDocumento.ACEPTADO && afectado.estado() != EstadoDocumento.ACEPTADO_CON_OBS)
+            throw new DomainException("NOTA_INVALIDA", "2119 - " + documento + " no está aceptada por SUNAT (estado " + afectado.estado() + ")");
+        return afectado;
     }
 
     private Tenant tenantListo(UUID tenantId, boolean enviarAutomatico) {
@@ -194,19 +203,19 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
 
     /**
      * Reglas 3286 (importe total) y 3503 (base e impuesto por tributo) de la hoja NotaCredito2_0: la NC no puede superar
-     * los importes de la factura que modifica. Sobre facturas (F/E) el 3286 es estricto (fila 111: «mayor a la sumatoria»,
-     * sin tolerancia; la +1 de la fila 113 es solo para boletas); el 3503 sí admite +1 en cada concepto (filas 114–122).
-     * Las ocho reglas eximen al motivo 10 «Otros conceptos». SUNAT lo comprueba nota por nota; khipu descuenta además lo ya acreditado por
-     * las NC anteriores, para que varias notas no sumen más que la factura (#83).
+     * los importes del documento que modifica. Sobre facturas (F/E) el 3286 es estricto (fila 111: «mayor a la sumatoria»,
+     * sin tolerancia); sobre boletas admite +1 (fila 113, #293: SUNAT lo vuelve error desde el 2027-01-01 y khipu lo aplica ya); el 3503
+     * admite +1 en cada concepto en los dos (filas 114–122). Las reglas eximen al motivo 10 «Otros conceptos». SUNAT lo comprueba nota por nota;
+     * khipu descuenta además lo ya acreditado por las NC anteriores, para que varias notas no sumen más que el documento (#83).
      */
-    private static void exigirQueNoSupereALaFactura(Totales nc, String motivo, Comprobante factura, Acreditado previo) {
-        Totales f = factura.totales();
+    private static void exigirQueNoSupereAlDocumento(Totales nc, String motivo, Comprobante afectado, Acreditado previo) {
+        Totales f = afectado.totales();
         record Limite(String concepto, String regla, BigDecimal nota, BigDecimal factura, BigDecimal acreditado, BigDecimal tolerancia) {}
-        // El motivo 10 «Otros conceptos» está exento de los nueve límites: las filas 111 (3286) y 114–122 (3503) empiezan
+        // El motivo 10 «Otros conceptos» está exento de los nueve límites: las filas 111/113 (3286) y 114–122 (3503) empiezan
         // todas con «diferente de '10'». La primera corrección eximió solo el 3286 y una NC 10 legal caía en 3503.
         if ("10".equals(motivo)) return;
         List<Limite> limites = new java.util.ArrayList<>();
-        limites.add(new Limite("importe total", "3286", nc.total(), f.total(), previo.total(), BigDecimal.ZERO));
+        limites.add(new Limite("importe total", "3286", nc.total(), f.total(), previo.total(), afectado.tipo() == TipoDocumento.BOLETA ? BigDecimal.ONE : BigDecimal.ZERO));
         BigDecimal tol = BigDecimal.ONE;
         limites.addAll(List.of(
                 new Limite("valor de venta gravado", "3503", nc.gravado(), f.gravado(), previo.gravado(), tol),
@@ -222,8 +231,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 new Limite("valor de venta de exportación", "3503", nc.exportacion(), f.exportacion(), previo.exportacion(), tol)));
         for (Limite l : limites) {
             if (l.nota().add(l.acreditado()).subtract(l.factura()).compareTo(l.tolerancia()) > 0)
-                throw new DomainException("NOTA_INVALIDA", l.regla() + " - El " + l.concepto() + " de la nota (" + l.nota() + ") supera el de la factura "
-                        + factura.serie() + "-" + factura.numero() + " (" + l.factura() + ")"
+                throw new DomainException("NOTA_INVALIDA", l.regla() + " - El " + l.concepto() + " de la nota (" + l.nota() + ") supera el de la " + nombre(afectado.tipo()) + " "
+                        + afectado.serie() + "-" + afectado.numero() + " (" + l.factura() + ")"
                         + (l.acreditado().signum() > 0 ? ": ya acreditado " + l.acreditado() + " en otras notas de crédito" : ""));
         }
     }

@@ -29,6 +29,10 @@ test("la guía, los catálogos y los errores se navegan desde la cabecera", asyn
   await page.goto("/developers/guia");
   await expect(page.getByRole("heading", { name: "Guía de emisión de facturas" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Venta gravada al contado (el caso base)" })).toBeVisible();
+  // #293: el caso de las notas sobre una boleta, con sus motivos no admitidos.
+  const notasDeBoleta = page.locator("#notas-boleta");
+  await expect(notasDeBoleta.getByRole("heading", { name: "Notas de crédito y débito sobre una boleta" })).toBeVisible();
+  await expect(notasDeBoleta.getByText(/RCP art\. 10 num\. 1\.4/)).toBeVisible();
 
   await page.getByRole("link", { name: "Catálogos SUNAT" }).first().click();
   await expect(page).toHaveURL(/\/developers\/catalogos/);

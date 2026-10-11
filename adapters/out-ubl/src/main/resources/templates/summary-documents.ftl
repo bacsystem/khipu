@@ -2,7 +2,7 @@
 <#setting number_format="0.00">
 <#setting locale="en_US">
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<#-- Baja de una boleta (#20): resumen diario (hoja "Resumen Diario1_1"), UBL 2.0, CustomizationID 1.1, una línea por resumen con la boleta en estado 3
+<#-- Baja o alta de una boleta (#20), o de una nota que la modifica (#293): resumen diario (hoja "Resumen Diario1_1"), UBL 2.0, CustomizationID 1.1, una línea por resumen con la boleta en estado 3
      (catálogo 19: anulado). La línea repite comprador, valores de venta y tributos de la boleta; un valor en cero no se informa (2254). El orden de los
      elementos es el del XSD (SummaryDocumentsLineType). -->
 <SummaryDocuments xmlns="urn:sunat:names:specification:ubl:peru:schema:xsd:SummaryDocuments-1"
@@ -50,6 +50,16 @@
       <cbc:CustomerAssignedAccountID>${c.receptor().numDoc()}</cbc:CustomerAssignedAccountID>
       <cbc:AdditionalAccountID>${c.receptor().tipoDoc()}</cbc:AdditionalAccountID>
     </cac:AccountingCustomerParty>
+    <#-- #293: una nota de boleta informada (estado 1) lleva la boleta que modifica (2524 serie-número, 2583 tipo 03); fuera de una nota se prohíbe (2582). En la
+         baja no se exige y se omite: así el resumen no rebota por el estado de la boleta (2990). -->
+    <#if b.alta() && c.nota()??>
+    <cac:BillingReference>
+      <cac:InvoiceDocumentReference>
+        <cbc:ID>${c.nota().documentoAfectado()}</cbc:ID>
+        <cbc:DocumentTypeCode>${c.nota().tipoAfectado().codigo()}</cbc:DocumentTypeCode>
+      </cac:InvoiceDocumentReference>
+    </cac:BillingReference>
+    </#if>
     <#-- #289: la percepción de una boleta 2001 solo en el alta (estado 1); en una baja o modificación SUNAT rechaza todo el resumen (2986). Régimen del catálogo
          22, montos en soles (2685/2690) y total cobrado = total + percepción (2608). -->
     <#if b.alta() && c.percepcion()??>

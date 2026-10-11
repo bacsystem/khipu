@@ -144,7 +144,7 @@ public class Comprobante {
             String nombre = boleta ? "boleta" : "factura";
             if (!tipo.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "Serie de " + nombre + " inválida (" + (boleta ? "B" : "F") + "###): " + serie);
             if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
-            exigirDentroDelPlazoDeEnvio(tipo, fechaEmision, clock);
+            exigirDentroDelPlazoDeEnvio(PlazoEnvio.de(tipo, null), fechaEmision, clock);
             if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
                 throw new DomainException("FECHA_INVALIDA", "La fecha de vencimiento no puede ser anterior a la de emisión");
             if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La " + nombre + " debe tener al menos un ítem");
@@ -247,12 +247,18 @@ public class Comprobante {
             if (!tipo.serieValida(serie) || serie.charAt(0) != nota.serieAfectada().charAt(0))
                 throw new DomainException("SERIE_INVALIDA", "1001/2116 - La serie de una nota sobre " + nota.documentoAfectado() + " debe ser " + nota.serieAfectada().charAt(0) + "### : " + serie);
             if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
-            exigirDentroDelPlazoDeEnvio(tipo, fechaEmision, clock);
+            exigirDentroDelPlazoDeEnvio(PlazoEnvio.de(tipo, nota), fechaEmision, clock);
             boolean nc13 = nota.corrigeCuotas(tipo);
             if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
             if (items != null) items.forEach(Item::exigirValidoParaFactura);
-            if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La nota sobre una factura requiere un receptor" + (Exportacion.es(tipoOperacion) ? "" : " con RUC"));
-            receptor.exigirValidoParaFactura(tipoOperacion);
+            if (nota.deBoleta()) {
+                // El comprador de la boleta (RCP art. 10 num. 1.3), que puede no tener documento ni RUC.
+                if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "La nota sobre una boleta lleva el comprador de la boleta");
+                receptor.exigirValidoParaBoleta();
+            } else {
+                if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La nota sobre una factura requiere un receptor" + (Exportacion.es(tipoOperacion) ? "" : " con RUC"));
+                receptor.exigirValidoParaFactura(tipoOperacion);
+            }
             if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
             Exportacion.validar(exportacion, tipoOperacion);
             nota.validarMotivoPara(tipo);
@@ -285,11 +291,17 @@ public class Comprobante {
         this.observaciones = s;
     }
 
-    /** Una fecha de emisión cuyo plazo de envío ya venció daría un comprobante que SUNAT rechaza (2108, o 1079 en boletas) con el número consumido. */
-    private static void exigirDentroDelPlazoDeEnvio(TipoDocumento tipo, LocalDate fechaEmision, Clock clock) {
-        if (PlazoEnvio.vencido(tipo, fechaEmision, LocalDate.now(clock)))
-            throw new DomainException("FECHA_INVALIDA", PlazoEnvio.motivoDeRechazo(tipo, fechaEmision) + " (fecha de emisión " + fechaEmision + ")");
+    /** Una fecha de emisión cuyo plazo de envío ya venció daría un comprobante que SUNAT rechaza (2108, o 1079 en lo de boleta) con el número consumido. */
+    private static void exigirDentroDelPlazoDeEnvio(PlazoEnvio plazo, LocalDate fechaEmision, Clock clock) {
+        if (plazo.vencido(fechaEmision, LocalDate.now(clock)))
+            throw new DomainException("FECHA_INVALIDA", plazo.motivoDeRechazo(fechaEmision) + " (fecha de emisión " + fechaEmision + ")");
     }
+
+    /** Su plazo de envío: el de la boleta si es una boleta o una nota que la modifica, el de la factura si no (#293). */
+    private PlazoEnvio plazoEnvio() { return PlazoEnvio.de(tipo, nota); }
+
+    /** Una boleta o una nota que modifica una boleta: va sola hasta el 5.º día, en el resumen diario hasta el 7.º y se anula solo en él (#293). */
+    public boolean esDeBoleta() { return tipo == TipoDocumento.BOLETA || (nota != null && nota.deBoleta()); }
 
     /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar al tipo de comprobante (columna "Tipo de Comprobante asociado": "Factura", "Boleta"…). */
     private static void validarTipoOperacion(String operacion, TipoDocumento tipo) {
@@ -378,12 +390,12 @@ public class Comprobante {
      * el CDR del resumen la acepta o la rechaza ({@link #aplicarCdr}).
      */
     public void informarEnResumen(String identificador) {
-        if (tipo != TipoDocumento.BOLETA) throw new DomainException("RESUMEN_INVALIDO", "Solo una boleta se informa en un resumen diario");
+        if (!esDeBoleta()) throw new DomainException("RESUMEN_INVALIDO", "Solo una boleta o una nota que la modifica se informa en un resumen diario");
         transitar(EstadoDocumento.ENVIADO, "Informada a SUNAT en el resumen diario " + identificador + ": pasó el envío individual (1079)");
     }
 
-    /** Una boleta que ya no se puede enviar sola, pero todavía se puede informar en un resumen diario ({@link PlazoEnvio#soloPorResumen}). */
-    public boolean soloPorResumen(LocalDate hoy) { return PlazoEnvio.soloPorResumen(tipo, fechaEmision, hoy); }
+    /** Una boleta, o una nota que la modifica, que ya no se puede enviar sola, pero todavía se puede informar en un resumen diario ({@link PlazoEnvio#soloPorResumen}). */
+    public boolean soloPorResumen(LocalDate hoy) { return plazoEnvio().soloPorResumen(fechaEmision, hoy); }
 
     public void aplicarCdr(Cdr cdr, String cdrKey) {
         EstadoDocumento destino = cdr.esRechazo() ? EstadoDocumento.RECHAZADO
@@ -418,14 +430,14 @@ public class Comprobante {
     public void anular() { transitar(EstadoDocumento.ANULADO, "Comunicación de baja aceptada por SUNAT"); }
 
     /** Último día en que SUNAT acepta recibirlo ({@link PlazoEnvio}). */
-    public LocalDate fechaLimiteEnvio() { return PlazoEnvio.fechaLimite(tipo, fechaEmision); }
+    public LocalDate fechaLimiteEnvio() { return plazoEnvio().fechaLimite(fechaEmision); }
 
-    public boolean fueraDePlazo(LocalDate hoy) { return PlazoEnvio.vencido(tipo, fechaEmision, hoy); }
+    public boolean fueraDePlazo(LocalDate hoy) { return plazoEnvio().vencido(fechaEmision, hoy); }
 
     /** Venció el plazo sin llegar a SUNAT: terminal para el envío individual, con el motivo de SUNAT ({@link PlazoEnvio#motivoDeRechazo}). */
     public void marcarFueraDePlazo(LocalDate hoy) {
         if (!fueraDePlazo(hoy)) throw new DomainException("TRANSICION_INVALIDA", "El plazo de envío vence el " + fechaLimiteEnvio() + ": todavía se puede enviar");
-        this.ultimoError = PlazoEnvio.motivoDeRechazo(tipo, fechaEmision);
+        this.ultimoError = plazoEnvio().motivoDeRechazo(fechaEmision);
         transitar(EstadoDocumento.FUERA_DE_PLAZO, this.ultimoError);
     }
 

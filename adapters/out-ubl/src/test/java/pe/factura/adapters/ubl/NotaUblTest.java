@@ -64,6 +64,28 @@ class NotaUblTest {
         new JaxpXsdValidator().validar(firmaFalsa(xml), TipoDocumento.NOTA_CREDITO);
     }
 
+    /**
+     * #293: una nota B sobre una boleta se envía sola con el tipo 03 en BillingReference (2524, 2583) y el comprador de la boleta, que puede ir sin documento
+     * («-», como en la boleta y en el resumen: 2016). Cumple el XSD de CreditNote y DebitNote.
+     */
+    @Test void notaSobreUnaBoletaConCompradorSinDocumento() throws Exception {
+        Nota sobreBoleta = new Nota(TipoDocumento.BOLETA, "B001", 45, "01", "Anulación de la operación");
+        for (TipoDocumento tipo : List.of(TipoDocumento.NOTA_CREDITO, TipoDocumento.NOTA_DEBITO)) {
+            String raiz = tipo == TipoDocumento.NOTA_CREDITO ? "/cn:CreditNote" : "/dn:DebitNote";
+            Comprobante c = Comprobante.nota(UUID.randomUUID(), tipo, tipo == TipoDocumento.NOTA_CREDITO ? "BC01" : "BD01", LocalDate.of(2026, 9, 13), sobreBoleta,
+                    new Receptor("-", "-", "CLIENTES VARIOS", null), List.of(new Item("A", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)))
+                    .crear(FreemarkerUblGeneratorTest.CLOCK);
+            c.asignarNumero(2, "20100066603");
+            String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+            Document d = parsear(xml);
+            assertThat(valor(d, raiz + "/cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID")).isEqualTo("B001-45");
+            assertThat(valor(d, raiz + "/cac:BillingReference/cac:InvoiceDocumentReference/cbc:DocumentTypeCode")).isEqualTo("03");
+            assertThat(valor(d, raiz + "/cac:AccountingCustomerParty/cac:Party/cac:PartyIdentification/cbc:ID")).isEqualTo("-");
+            assertThat(valor(d, raiz + "/cac:AccountingCustomerParty/cac:Party/cac:PartyIdentification/cbc:ID/@schemeID")).isEqualTo("-");
+            new JaxpXsdValidator().validar(firmaFalsa(xml), tipo);
+        }
+    }
+
     /** La nota total copia el redondeo de la factura (#123): el XML lo lleva en LegalMonetaryTotal (NC f406, 3303) y la mutación sin él no tenía test. */
     @Test void notaConRedondeoLoLlevaEnElTotal() throws Exception {
         Comprobante c = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), NOTA, new Receptor("6", "20601234565", "CLIENTE S.A.C.", "AV. LIMA 1"),

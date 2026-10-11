@@ -81,6 +81,35 @@ class ComunicacionBajaTest {
         assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(factura, 1, CLOCK)).as("una factura no va en un resumen").extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
     }
 
+    static Comprobante notaDe(TipoDocumento tipo, String serie, Nota nota, LocalDate emision, EstadoDocumento estado) {
+        return Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), tipo, serie, 1L, emision, estado, new Receptor("-", "-", "CLIENTES VARIOS", null),
+                List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).nota(nota).firma("h", "n", "k").rehidratar();
+    }
+
+    /** #293: una nota de boleta se anula como la boleta, en el resumen diario (nunca en un RA: 2310); la de factura sigue en el RA. */
+    @Test void unaNotaDeBoletaSeDaDeBajaEnElResumenDiario() {
+        Comprobante ncB = notaDe(TipoDocumento.NOTA_CREDITO, "BC01", new Nota(TipoDocumento.BOLETA, "B001", 4, "07", "x"), LocalDate.of(2026, 9, 18), EstadoDocumento.ACEPTADO);
+        ComunicacionBaja rc = ComunicacionBaja.crear(ncB, 2, "Error en el monto", CLOCK);
+        assertThat(rc.resumenDiario()).isTrue();
+        assertThat(rc.identificador()).isEqualTo("RC-20260920-2");
+        assertThat(rc.tipoComprobante()).isEqualTo(TipoDocumento.NOTA_CREDITO);
+        Comprobante ncF = notaDe(TipoDocumento.NOTA_CREDITO, "FC01", new Nota(TipoDocumento.FACTURA, "F001", 4, "07", "x"), LocalDate.of(2026, 9, 18), EstadoDocumento.ACEPTADO);
+        assertThat(ComunicacionBaja.crear(ncF, 1, "Error en el monto", CLOCK).resumenDiario()).isFalse();
+    }
+
+    /** #293: una nota de boleta que pasó el envío individual se informa en el resumen (estado 1), salvo la NC 10 y la ND 03, que no van en él (guía, p. 19). */
+    @Test void unaNotaDeBoletaPasadaDelEnvioIndividualSeInformaEnElResumen() {
+        LocalDate sextoDia = LocalDate.of(2026, 9, 14);
+        Comprobante nc07 = notaDe(TipoDocumento.NOTA_CREDITO, "BC01", new Nota(TipoDocumento.BOLETA, "B001", 4, "07", "x"), sextoDia, EstadoDocumento.ERROR_ENVIO);
+        ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(nc07, 1, CLOCK);
+        assertThat(alta.alta()).isTrue();
+        assertThat(alta.resumenDiario()).isTrue();
+        Comprobante nc10 = notaDe(TipoDocumento.NOTA_CREDITO, "BC01", new Nota(TipoDocumento.BOLETA, "B001", 4, "10", "x"), sextoDia, EstadoDocumento.ERROR_ENVIO);
+        assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(nc10, 1, CLOCK)).extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
+        Comprobante ncF = notaDe(TipoDocumento.NOTA_CREDITO, "FC01", new Nota(TipoDocumento.FACTURA, "F001", 4, "07", "x"), LocalDate.of(2026, 9, 18), EstadoDocumento.FIRMADO);
+        assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(ncF, 1, CLOCK)).as("una nota de factura no va en un resumen").extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
+    }
+
     @Test void elMotivoVaDe3A100SinCaracteresDeControl() {
         Comprobante c = aceptado(TipoDocumento.FACTURA, "F001", LocalDate.of(2026, 9, 20));
         assertThatThrownBy(() -> ComunicacionBaja.crear(c, 1, "a".repeat(101), CLOCK)).hasMessageContaining("2315");

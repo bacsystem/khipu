@@ -16,13 +16,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** RS 193-2020: hasta el 3.er día calendario desde el día siguiente a la emisión; feriados y fines de semana cuentan. */
 class PlazoEnvioTest {
+    static final PlazoEnvio FACTURA = PlazoEnvio.de(TipoDocumento.FACTURA, null);
+    static final PlazoEnvio BOLETA = PlazoEnvio.de(TipoDocumento.BOLETA, null);
+
+    static PlazoEnvio deNota(TipoDocumento tipo, TipoDocumento afectado, String motivo) {
+        return PlazoEnvio.de(tipo, new Nota(afectado, afectado == TipoDocumento.BOLETA ? "B001" : "F001", 1, motivo, "x"));
+    }
 
     @Test void tresDiasCalendarioInclusive() {
         LocalDate emision = LocalDate.of(2026, 9, 10);   // jueves
-        assertThat(PlazoEnvio.fechaLimite(TipoDocumento.FACTURA, emision)).isEqualTo(LocalDate.of(2026, 9, 13));   // domingo, cuenta igual
-        assertThat(PlazoEnvio.vencido(TipoDocumento.FACTURA, emision, LocalDate.of(2026, 9, 13))).isFalse();
-        assertThat(PlazoEnvio.vencido(TipoDocumento.FACTURA, emision, LocalDate.of(2026, 9, 14))).isTrue();
-        assertThat(PlazoEnvio.vencido(TipoDocumento.NOTA_CREDITO, emision, LocalDate.of(2026, 9, 13))).isFalse();
+        assertThat(FACTURA.fechaLimite(emision)).isEqualTo(LocalDate.of(2026, 9, 13));   // domingo, cuenta igual
+        assertThat(FACTURA.vencido(emision, LocalDate.of(2026, 9, 13))).isFalse();
+        assertThat(FACTURA.vencido(emision, LocalDate.of(2026, 9, 14))).isTrue();
+        assertThat(deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.FACTURA, "01").vencido(emision, LocalDate.of(2026, 9, 13))).isFalse();
+        assertThat(deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.FACTURA, "01").vencido(emision, LocalDate.of(2026, 9, 14))).isTrue();
     }
 
     /**
@@ -31,25 +38,50 @@ class PlazoEnvioTest {
      */
     @Test void laBoletaVaSolaHastaElQuintoDiaYDelSextoAlSeptimoSoloEnResumen() {
         LocalDate emision = LocalDate.of(2026, 9, 10);
-        assertThat(PlazoEnvio.diasEnvioIndividual(TipoDocumento.BOLETA)).isEqualTo(5);
-        assertThat(PlazoEnvio.diasEnvioIndividual(TipoDocumento.FACTURA)).isEqualTo(3);
-        assertThat(PlazoEnvio.soloPorResumen(TipoDocumento.BOLETA, emision, LocalDate.of(2026, 9, 15))).as("5.º día: todavía sola").isFalse();
-        assertThat(PlazoEnvio.soloPorResumen(TipoDocumento.BOLETA, emision, LocalDate.of(2026, 9, 16))).as("6.º día: solo en resumen").isTrue();
-        assertThat(PlazoEnvio.soloPorResumen(TipoDocumento.BOLETA, emision, LocalDate.of(2026, 9, 17))).as("7.º día: solo en resumen").isTrue();
-        assertThat(PlazoEnvio.vencido(TipoDocumento.BOLETA, emision, LocalDate.of(2026, 9, 18))).as("8.º día: vencida").isTrue();
-        assertThat(PlazoEnvio.vencido(TipoDocumento.FACTURA, emision, LocalDate.of(2026, 9, 14))).as("la factura no cambia").isTrue();
+        assertThat(BOLETA.diasEnvioIndividual()).isEqualTo(5);
+        assertThat(FACTURA.diasEnvioIndividual()).isEqualTo(3);
+        assertThat(BOLETA.soloPorResumen(emision, LocalDate.of(2026, 9, 15))).as("5.º día: todavía sola").isFalse();
+        assertThat(BOLETA.soloPorResumen(emision, LocalDate.of(2026, 9, 16))).as("6.º día: solo en resumen").isTrue();
+        assertThat(BOLETA.soloPorResumen(emision, LocalDate.of(2026, 9, 17))).as("7.º día: solo en resumen").isTrue();
+        assertThat(BOLETA.vencido(emision, LocalDate.of(2026, 9, 18))).as("8.º día: vencida").isTrue();
+        assertThat(FACTURA.vencido(emision, LocalDate.of(2026, 9, 14))).as("la factura no cambia").isTrue();
+    }
+
+    /** #293: una nota B sigue a la boleta (NotaCredito2_0 filas 18–19: 1079 pasado el 5.º día); una nota F, a la factura (2108 al 4.º). */
+    @Test void laNotaDeBoletaTieneElPlazoDeLaBoleta() {
+        LocalDate emision = LocalDate.of(2026, 9, 10);
+        PlazoEnvio nc = deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "07");
+        assertThat(nc.soloPorResumen(emision, LocalDate.of(2026, 9, 15))).as("5.º día: todavía sola").isFalse();
+        assertThat(nc.soloPorResumen(emision, LocalDate.of(2026, 9, 16))).as("6.º día: solo en resumen").isTrue();
+        assertThat(nc.vencido(emision, LocalDate.of(2026, 9, 17))).as("7.º día: en plazo").isFalse();
+        assertThat(nc.vencido(emision, LocalDate.of(2026, 9, 18))).as("8.º día: vencida").isTrue();
+        assertThat(nc.motivoDeRechazo(emision)).startsWith("1079").contains("nota").contains("2026-09-17");
+        assertThat(deNota(TipoDocumento.NOTA_DEBITO, TipoDocumento.BOLETA, "01").fechaLimite(emision)).isEqualTo(LocalDate.of(2026, 9, 17));
+        assertThat(deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.FACTURA, "01").motivoDeRechazo(emision)).startsWith("2108");
+    }
+
+    /** La NC 10 y la ND 03 no van en el resumen diario (guía, p. 19): pasado el envío individual no les queda canal, así que su plazo final es el 5.º día. */
+    @Test void laNotaDeBoletaQueNoVaEnResumenVenceAlQuintoDia() {
+        LocalDate emision = LocalDate.of(2026, 9, 10);
+        for (PlazoEnvio p : List.of(deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "10"), deNota(TipoDocumento.NOTA_DEBITO, TipoDocumento.BOLETA, "03"))) {
+            assertThat(p.vencido(emision, LocalDate.of(2026, 9, 15))).as("5.º día: en plazo").isFalse();
+            assertThat(p.vencido(emision, LocalDate.of(2026, 9, 16))).as("6.º día: vencida").isTrue();
+            assertThat(p.soloPorResumen(emision, LocalDate.of(2026, 9, 16))).isFalse();
+            assertThat(p.motivoDeRechazo(emision)).startsWith("1079").contains("no se informa en el resumen diario").contains("2026-09-15");
+        }
     }
 
     /** El corte grueso de ControlarPlazoEnvioService usa este mínimo: debe seguir siendo válido si algún tipo cambia su plazo. */
-    @Test void diasMinimoEsElMenorEntreTodosLosTipos() {
+    @Test void diasMinimoEsElMenorEntreTodosLosPlazos() {
         assertThat(PlazoEnvio.diasMinimo()).isEqualTo(3);
-        for (TipoDocumento t : TipoDocumento.values()) assertThat(PlazoEnvio.diasMinimo()).isLessThanOrEqualTo(PlazoEnvio.dias(t));
+        for (PlazoEnvio p : List.of(FACTURA, BOLETA, deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "07"), deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "10")))
+            assertThat(PlazoEnvio.diasMinimo()).isLessThanOrEqualTo(p.dias());
     }
 
     @Test void finDeMesYAnioBisiesto() {
-        assertThat(PlazoEnvio.fechaLimite(TipoDocumento.FACTURA, LocalDate.of(2026, 1, 30))).isEqualTo(LocalDate.of(2026, 2, 2));
-        assertThat(PlazoEnvio.fechaLimite(TipoDocumento.FACTURA, LocalDate.of(2028, 2, 27))).isEqualTo(LocalDate.of(2028, 3, 1));   // 29 de febrero cuenta
-        assertThat(PlazoEnvio.fechaLimite(TipoDocumento.NOTA_DEBITO, LocalDate.of(2026, 12, 30))).isEqualTo(LocalDate.of(2027, 1, 2));
+        assertThat(FACTURA.fechaLimite(LocalDate.of(2026, 1, 30))).isEqualTo(LocalDate.of(2026, 2, 2));
+        assertThat(FACTURA.fechaLimite(LocalDate.of(2028, 2, 27))).isEqualTo(LocalDate.of(2028, 3, 1));   // 29 de febrero cuenta
+        assertThat(deNota(TipoDocumento.NOTA_DEBITO, TipoDocumento.FACTURA, "01").fechaLimite(LocalDate.of(2026, 12, 30))).isEqualTo(LocalDate.of(2027, 1, 2));
     }
 
     @Test void elComprobanteConoceSuLimiteYSoloSeMarcaVencidoCuandoLoEsta() {
@@ -74,5 +106,17 @@ class PlazoEnvioTest {
         assertThat(Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 10), "PEN", "0101", r, items).crear(reloj).fechaEmision()).isEqualTo(LocalDate.of(2026, 9, 10));
         assertThatThrownBy(() -> Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 9), "PEN", "0101", r, items).crear(reloj))
                 .isInstanceOf(DomainException.class).hasMessageContaining("2108").hasMessageContaining("2026-09-12");
+    }
+
+    /** #293: una nota de boleta del 6.º día se emite (irá en el resumen diario), salvo la NC 10 o la ND 03, que no tienen canal. */
+    @Test void laNotaDeBoletaDelSextoDiaSoloSeEmiteSiPuedeIrEnElResumen() {
+        Clock reloj = Clock.fixed(Instant.parse("2026-09-16T15:00:00Z"), ZoneId.of("America/Lima"));
+        Receptor r = new Receptor("-", "-", "CLIENTES VARIOS", null);
+        List<Item> items = List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        LocalDate emision = LocalDate.of(2026, 9, 10);
+        Comprobante nc07 = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "BC01", emision, new Nota(TipoDocumento.BOLETA, "B001", 1, "07", "x"), r, items).crear(reloj);
+        assertThat(nc07.soloPorResumen(LocalDate.of(2026, 9, 16))).isTrue();
+        assertThatThrownBy(() -> Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "BC01", emision, new Nota(TipoDocumento.BOLETA, "B001", 1, "10", "x"), r, items).crear(reloj))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("FECHA_INVALIDA");
     }
 }
