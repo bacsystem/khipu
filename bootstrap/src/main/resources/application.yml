@@ -97,6 +97,10 @@ app:
     habilitado: ${MAIL_HABILITADO:false}
     remitente: ${MAIL_REMITENTE:no-responder@khipu.pe}
   zona-horaria: America/Lima
+  # SOLO PARA PRUEBAS (#363). Duración ISO-8601 que se suma al reloj del backend para reproducir plazos que dependen de la fecha (-P8D = ocho días
+  # antes). Vacío = hora real. Con valor la app no arranca si hay empresas en PRODUCCION, no emite ni envía para ellas y deja un WARN al arrancar.
+  # Qué se mueve y qué no: deploy/README.md §10.
+  reloj-desplazamiento: ${RELOJ_DESPLAZAMIENTO:}
 spring.mail:
   host: ${MAIL_HOST:}
   port: ${MAIL_PORT:587}

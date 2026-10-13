@@ -282,3 +282,167 @@ comprometidas es aparte.
 
 `JWT_SECRET` no necesita este procedimiento: cambiarlo cierra todas las sesiones del portal y del backoffice, y la gente vuelve a entrar.
 
+
+## 10. Mover el reloj del backend para probar plazos (#363) — solo en el ambiente de pruebas
+
+Algunas reglas de SUNAT dependen de la fecha y no se pueden reproducir con el reloj real: la boleta informada pasado el 7.º día (observación **4443**, #331) y el
+resumen diario con gratuitas que cruza al **2027-01-01** (se descarta y se regenera con otro formato, #338). `RELOJ_DESPLAZAMIENTO` suma una duración al reloj del
+backend para probarlas hoy. **Nunca va en producción** (Railway): no se define allí.
+
+| Variable | Valor | Notas |
+|---|---|---|
+| `RELOJ_DESPLAZAMIENTO` | Duración ISO-8601: `-P8D` (8 días antes), `P79DT3H`, `PT6912345S` (esos segundos después) | Vacía o ausente = hora real, comportamiento idéntico al de siempre. Con un valor que no es una duración (`8 dias`, `-8`, `P1Y`) el backend **no arranca** y dice cuál |
+
+### Qué hace el backend para que no pase inadvertido en producción
+
+- **No arranca** con el reloj movido si hay empresas con `entorno = PRODUCCION` en la base (el mensaje dice cuántas). En producción siempre las hay.
+- Aunque arranque (base sin empresas todavía, o una empresa pasada a PRODUCCION después): **no emite** (`422 RELOJ_DESPLAZADO`, sin gastar número) ni **envía nada a SUNAT**
+  para una empresa en PRODUCCION. Lo que distingue pruebas de producción no es la URL (la configuración lleva siempre las dos) sino el entorno de cada empresa, que es lo que elige
+  la URL a la que se envía.
+- Cada arranque deja un `WARN` de cinco líneas con `!!! RELOJ DESPLAZADO (RELOJ_DESPLAZAMIENTO=…)`, el desplazamiento legible y la hora que el backend cree que es. Búscalo con
+  `docker compose … logs backend | grep -A3 "RELOJ DESPLAZADO"`. El reloj movido también se ve en el campo `generado_en` del monitor del backoffice y en la fecha de generación de cada RC/RA (`fecha_generacion`).
+
+### Qué se mueve y qué no
+
+| Sigue al reloj movido (usa el `Clock` de la aplicación) | NO lo sigue |
+|---|---|
+| La fecha y hora de emisión, y la validación «no futura» de `fecha_emision` | `now()` de PostgreSQL: `created_at`, `updated_at` y la **cola de envíos** (`outbox.siguiente_intento <= now()`) |
+| Los plazos de envío (factura 3 días; boleta 5 individual y 7 en resumen) y el cierre `FUERA_DE_PLAZO` | Los `iat`/`exp` de los JWT del portal y del backoffice, y las cookies del navegador (hora real) |
+| La fecha de generación, el correlativo del día y el formato (05 o 06–08/9996) de los RC y RA | La hora de SUNAT: valida lo que recibe contra **su** fecha real |
+| La comprobación de vigencia del certificado en el backend (`CERTIFICADO_VENCIDO`), el plan de la cuenta (`PLAN_VENCIDO`), el tope y el consumo del mes | La caducidad real del certificado dentro de la firma XML-DSig, que SUNAT mira con su fecha |
+| El vencimiento de enlaces de verificación y recuperación, y de las sesiones de refresh del portal | La fecha de modificación de los archivos del storage |
+
+Consecuencias que conviene tener presentes:
+
+- **El reintento automático no es fiable con el reloj movido.** El backoff se calcula con el reloj movido y se compara con `now()` de PostgreSQL: con el reloj atrasado el reintento
+  ya «venció» y el worker lo repite cada 10 s hasta agotar los intentos; con el reloj adelantado no vence hasta que llegue esa fecha. Por eso los procedimientos de abajo emiten con
+  `enviar_automatico: false` y provocan los fallos de forma controlada en vez de esperar al worker.
+- Con el reloj adelantado, usa una empresa **sin cuenta** (la que crea `POST /v1/admin/tenants`) o una cuenta con plan sin vencimiento: un plan con fecha de fin se vence y emitir
+  responde `402 PLAN_VENCIDO`. También las sesiones de refresh del portal creadas antes pueden figurar vencidas: vuelve a iniciar sesión (con una API key no pasa).
+- Usa una empresa de pruebas dedicada (`BETA`): lo que se emite con fechas movidas no es un dato que quieras conservar.
+
+### Cómo usarlo en develop (Docker)
+
+`RELOJ_DESPLAZAMIENTO` ya se pasa al contenedor `backend` desde el `docker-compose.yml` (vacío por defecto). Para cambiarlo cómodamente sin tocar el repo, el archivo local
+`../khipu-develop.override.yml` (fuera del repo) lleva, además de lo que ya tenga:
+
+```yaml
+services:
+  backend:
+    environment:
+      RELOJ_DESPLAZAMIENTO: "${RELOJ_DESPLAZAMIENTO:-}"
+      # Solo para el procedimiento B (hace fallar el envío a SUNAT). El valor por defecto debe ser el `app.sunat.beta-url` de application.yml.
+      APP_SUNAT_BETAURL: "${SUNAT_BETA_URL_PRUEBA:-https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService}"
+```
+
+Funciones de ayuda (Git Bash, desde la raíz del checkout de khipu; `dev` son los parámetros de `COMPOSE_DEVELOP` del Makefile más el override):
+
+```bash
+dev() { POSTGRES_PORT=5433 BACKEND_PORT=18001 PORTAL_PORT=13000 MAILPIT_UI_PORT=8026 \
+        PORTAL_API_BASE_URL=http://backend:8001 PORTAL_API_PUBLIC_URL=http://localhost:18001 \
+        PORTAL_URL=http://localhost:13000 PORTAL_COOKIE_SECURE=false \
+        docker compose -p khipu-develop --project-directory ../khipu-wt-develop -f ../khipu-wt-develop/docker-compose.yml \
+        -f ../khipu-develop.override.yml --env-file ../khipu-develop.env "$@"; }
+
+# reloj <desplazamiento>: recrea solo el backend con ese reloj ("" = hora real), espera a que responda y muestra el WARN.
+reloj() { RELOJ_DESPLAZAMIENTO="$1" dev --profile app up -d --no-deps --force-recreate backend
+          until curl -sf http://localhost:18001/health >/dev/null; do sleep 2; done
+          dev --profile app logs backend 2>&1 | grep -A3 "RELOJ DESPLAZADO" | tail -4; }
+
+# hasta <instante ISO con zona>: el desplazamiento que deja al backend en ese instante (ahora), p. ej. hasta 2026-12-31T23:45:00-05:00
+hasta() { echo "PT$(( $(date -d "$1" +%s) - $(date +%s) ))S"; }
+```
+
+El reloj movido sigue andando desde que arranca el backend: el desplazamiento es fijo, no congela la hora. Puesto a las 23:45 del 31-12, llega al 01-01 a los 15 minutos.
+
+Datos comunes (una vez): una empresa `BETA` de pruebas con certificado y credenciales SOL de beta, y su API key.
+
+```bash
+BASE=http://localhost:18001
+API_KEY=fk_…     # la de la empresa de pruebas
+H=(-H "X-Api-Key: $API_KEY" -H "Content-Type: application/json")
+# campo <ruta>: lee un campo del JSON que llega por stdin, p. ej. … | campo datos.0.estado
+campo() { node -pe "const r=JSON.parse(require('fs').readFileSync(0)); '$1'.split('.').reduce((o,k)=>o?.[k], r)"; }
+curl -s -X POST "$BASE/v1/series" "${H[@]}" -d '{"tipo":"03","serie":"B001","correlativo_inicial":0}'
+```
+
+### A. Observación 4443: boleta informada pasado el 7.º día (#331)
+
+Se emite con el reloj 8 días atrás (con el reloj real no se puede emitir una fecha así: la boleta queda `FIRMADO` con fecha de hace 8 días) y se envía con la hora real.
+
+```bash
+# 1. Reloj 8 días atrás
+reloj -P8D
+FECHA=$(TZ=UTC+5 date -d '8 days ago' +%F)        # el «hoy» del backend, en hora de Lima
+
+# 2. Emitir la boleta sin enviarla
+ID=$(curl -s -X POST "$BASE/v1/facturas" "${H[@]}" -d '{
+  "serie":"B001","fecha_emision":"'$FECHA'","moneda":"PEN","enviar_automatico":false,
+  "cliente":{"tipo_doc":"1","num_doc":"12345678","razon_social":"CLIENTE DE PRUEBA"},
+  "items":[{"descripcion":"Producto de prueba","unidad":"NIU","cantidad":1,"precio_unitario":118.00,"tipo_afectacion_igv":"10"}]}' | campo datos.id)
+curl -s "$BASE/v1/facturas/$ID" "${H[@]}" | campo datos.estado_documento       # FIRMADO
+curl -s "$BASE/v1/facturas/$ID" "${H[@]}" | campo datos.fecha_emision          # = $FECHA
+
+# 3. Hora real
+reloj ""
+
+# 4. Enviarla: pasó el 7.º día, va en un resumen diario fuera de plazo
+curl -s -X POST "$BASE/v1/facturas/$ID/enviar" "${H[@]}" | campo datos.baja.fuera_de_plazo   # true
+curl -s "$BASE/v1/facturas/$ID" "${H[@]}" | campo datos.estado_documento       # ACEPTADO_CON_OBS
+curl -s "$BASE/v1/facturas/$ID" "${H[@]}" | node -pe "JSON.stringify(JSON.parse(require('fs').readFileSync(0)).datos.cdr, null, 1)"
+```
+
+Resultado esperado: `ACEPTADO_CON_OBS` y `cdr.observaciones` con `4443 - El comprobante fue informado fuera del plazo establecido`. Si SUNAT beta **rechaza** el resumen, la 4443 no
+se comporta como se supone: se anota en #331 con el código y el mensaje que devolvió. En el portal, el detalle del comprobante muestra el aviso de informado fuera de plazo.
+
+### B. Resumen diario con gratuitas que cruza al 2027-01-01 (#338)
+
+Hace falta un RC con gratuitas **generado el 2026-12-31 que no llegó a SUNAT** y que se reintenta el 2027-01-01. Se provoca el fallo apuntando el envío a un puerto cerrado (error de
+red = `ERROR_ENVIO`), sin esperar a que SUNAT se caiga. La boleta es del 25-12: el 31-12 ya solo va en resumen.
+
+```bash
+# 1. Reloj en 2026-12-31 23:45 (hora de Lima) y envíos a SUNAT que fallan
+export SUNAT_BETA_URL_PRUEBA=http://127.0.0.1:9/billService
+reloj "$(hasta 2026-12-31T23:45:00-05:00)"
+
+# 2. Boleta del 25-12 con una gratuita (afectación 11), sin enviar
+ID=$(curl -s -X POST "$BASE/v1/facturas" "${H[@]}" -d '{
+  "serie":"B001","fecha_emision":"2026-12-25","moneda":"PEN","enviar_automatico":false,
+  "cliente":{"tipo_doc":"1","num_doc":"12345678","razon_social":"CLIENTE DE PRUEBA"},
+  "items":[{"descripcion":"Producto vendido","unidad":"NIU","cantidad":1,"precio_unitario":118.00,"tipo_afectacion_igv":"10"},
+           {"descripcion":"Muestra gratuita","unidad":"NIU","cantidad":1,"precio_unitario":50.00,"tipo_afectacion_igv":"11"}]}' | campo datos.id)
+
+# 3. Enviarla: ya solo va en resumen (RC-20261231-1, con el código 05) y el envío falla
+curl -s -X POST "$BASE/v1/facturas/$ID/enviar" "${H[@]}" > /dev/null
+curl -s "$BASE/v1/facturas/$ID/bajas" "${H[@]}" | campo datos.0.estado          # ERROR_ENVIO
+curl -s "$BASE/v1/facturas/$ID/bajas" "${H[@]}" | campo datos.0.identificador   # RC-20261231-1
+BAJA=$(curl -s "$BASE/v1/facturas/$ID/bajas" "${H[@]}" | campo datos.0.id)
+XML=$(dev exec -T postgres psql -U factura -d factura -tAc "select xml_key from comunicacion_baja where id = '$BAJA'")
+dev exec -T backend grep -oE "<cbc:InstructionID>[0-9]*</cbc:InstructionID>|<cbc:ID>9996</cbc:ID>" "/app/storage/$XML"   # 01 y 05; sin 9996
+
+# 4. Reloj en 2027-01-01 00:05 (el desplazamiento se recalcula con la hora de ahora)
+reloj "$(hasta 2027-01-01T00:05:00-05:00)"
+
+# 5. Consultar el RC viejo lo reenvía: ya no se manda con el 05, se descarta y se regenera
+curl -s "$BASE/v1/bajas/$BAJA" "${H[@]}" | campo datos.identificador            # RC-20270101-1 (el nuevo, con otro id)
+curl -s "$BASE/v1/facturas/$ID/bajas" "${H[@]}" | node -pe "JSON.parse(require('fs').readFileSync(0)).datos.map(b => b.identificador+' '+b.estado).join('\n')"
+#   → RC-20270101-1 ERROR_ENVIO   y   RC-20261231-1 DESCARTADA
+NUEVA=$(curl -s "$BASE/v1/facturas/$ID/bajas" "${H[@]}" | campo datos.0.id)
+XML=$(dev exec -T postgres psql -U factura -d factura -tAc "select xml_key from comunicacion_baja where id = '$NUEVA'")
+dev exec -T backend grep -oE "<cbc:InstructionID>[0-9]*</cbc:InstructionID>|<cbc:ID>9996</cbc:ID>" "/app/storage/$XML"   # 01 y 06, y el 9996; sin 05
+```
+
+Resultado esperado: el RC del 31-12 queda `DESCARTADA` (su `ultimo_error` dice por qué), hay un RC nuevo con fecha 2027-01-01 y nuevo correlativo, y su XML trae `InstructionID` **06**
+(gratuitas gravadas) y el tributo **9996**, no el 05. Que SUNAT acepte después ese RC no se prueba aquí (a la fecha real lo vería con fecha futura): se comprueba la decisión de khipu de
+no reenviar el formato caducado.
+
+### Al terminar
+
+```bash
+unset SUNAT_BETA_URL_PRUEBA
+reloj ""                                  # hora real; el WARN no vuelve a aparecer
+dev exec -T postgres psql -U factura -d factura -c "delete from outbox where tenant_id = (select id from tenant where ruc = '<RUC de la empresa de pruebas>')"
+```
+
+El `delete` quita los reintentos que quedaron programados con fecha del reloj movido (en el procedimiento B quedan para el 31-12 real): sin él, ese día el worker enviaría a SUNAT beta
+resúmenes de pruebas. Los comprobantes de pruebas se dejan como están.

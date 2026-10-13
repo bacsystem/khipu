@@ -75,6 +75,8 @@ services:
       REGISTRO_ABIERTO: ${REGISTRO_ABIERTO:-true}
       # IP real del administrador (#208): vacío = no se confía en X-Forwarded-For. Ver deploy/README.md.
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      # SOLO PARA PRUEBAS (#363): mueve el reloj del backend (p. ej. `-P8D`). Vacío = hora real. Ver deploy/README.md §10.
+      RELOJ_DESPLAZAMIENTO: ${RELOJ_DESPLAZAMIENTO:-}
       # Correo habilitado hacia Mailpit (sin credenciales, de ahí MAIL_SMTP_AUTH=false): la recuperación de contraseña y el envío
       # de comprobantes se ven en la interfaz de Mailpit en vez de perderse.
       MAIL_HABILITADO: "true"

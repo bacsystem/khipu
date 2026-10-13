@@ -218,7 +218,16 @@ public class AppConfig {
         return f;
     }
 
-    @Bean Clock clock(AppProperties p) { return Clock.system(ZoneId.of(p.zonaHoraria())); }
+    /** El único reloj de la aplicación. Con RELOJ_DESPLAZAMIENTO (#363, solo pruebas) va corrido; sin él es el del sistema, como siempre. */
+    @Bean Clock clock(AppProperties p) {
+        return RelojDeLaAplicacion.crear(ZoneId.of(p.zonaHoraria()), RelojDeLaAplicacion.desplazamiento(p.relojDesplazamiento()));
+    }
+    /** #363: con el reloj corrido no se arranca si hay empresas en PRODUCCION, y se avisa en el log con letras grandes. Sin desplazamiento no hace nada. */
+    @Bean org.springframework.boot.ApplicationRunner relojDesplazadoAlArrancar(AppProperties p, Clock clock, JdbcTemplate jdbc) {
+        return args -> RelojDeLaAplicacion.alArrancar(RelojDeLaAplicacion.desplazamiento(p.relojDesplazamiento()), clock,
+                () -> jdbc.queryForObject("SELECT count(*) FROM tenant WHERE entorno = 'PRODUCCION'", Long.class),
+                aviso -> org.slf4j.LoggerFactory.getLogger(RelojDeLaAplicacion.class).warn(aviso));
+    }
     @Bean SecretCipher secretCipher(AppProperties p, @Value("${app.master-key-anterior:}") String anterior) {
         exigirSecretosDePlataforma(p);
         return new AesGcmSecretCipher(p.masterKey(), anterior);
@@ -275,7 +284,8 @@ public class AppConfig {
     @Bean XmlSigner xmlSigner() { return new XmlDsigSigner(); }
     @Bean CdrParser cdrParser() { return new XmlCdrParser(); }
     @Bean SunatBillingGateway sunatBillingGateway(AppProperties p) {
-        return new SoapBillingGateway(new SunatUrls(p.sunat().betaUrl(), p.sunat().prodUrl()), Duration.ofSeconds(p.sunat().timeoutSeconds()));
+        return RelojDeLaAplicacion.proteger(new SoapBillingGateway(new SunatUrls(p.sunat().betaUrl(), p.sunat().prodUrl()), Duration.ofSeconds(p.sunat().timeoutSeconds())),
+                RelojDeLaAplicacion.desplazamiento(p.relojDesplazamiento()));
     }
     @Bean SunatConsultaGateway sunatConsultaGateway(AppProperties p) {
         return new SoapConsultaGateway(p.sunat().consultaUrl(), p.sunat().consultaBetaUrl(), p.sunat().validezUrl(), p.sunat().validezBetaUrl(), Duration.ofSeconds(p.sunat().timeoutSeconds()));
@@ -330,8 +340,9 @@ public class AppConfig {
     @Bean RechazoDeSolRepository rechazoDeSolRepository(JdbcTemplate jdbc) { return new JdbcRechazoDeSolRepository(jdbc); }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
                                                     UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock, EmisorDeSerieRepository emisor,
-                                                    BajaRepository bajas, IdempotenciaRepository idempotencia, TopeDelPlan tope) {
-        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia, tope);
+                                                    BajaRepository bajas, IdempotenciaRepository idempotencia, TopeDelPlan tope, AppProperties p) {
+        return RelojDeLaAplicacion.proteger(new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia, tope), t,
+                RelojDeLaAplicacion.desplazamiento(p.relojDesplazamiento()));
     }
     @Bean TopeDeDocumentosRepository topeDeDocumentosRepository(JdbcTemplate jdbc) { return new JdbcTopeDeDocumentosRepository(jdbc); }
     @Bean TopeDelPlan topeDelPlan(TenantRepository t, CambiarPlanDeCuentaUseCase planes, TopeDeDocumentosRepository ocupados, Clock clock) { return new TopeDelPlanService(t, planes, ocupados, clock); }

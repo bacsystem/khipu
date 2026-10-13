@@ -26,7 +26,7 @@ class AppConfigCorreoTest {
 
     private static AppProperties con(boolean mailHabilitado) {
         return new AppProperties("multi", "clave", "pepper", "plataforma", "jwt-secret", "http://localhost:3000",
-                null, null, null, new AppProperties.Mail(mailHabilitado, "no-responder@khipu.pe"), null, "America/Lima");
+                null, null, null, new AppProperties.Mail(mailHabilitado, "no-responder@khipu.pe"), null, "America/Lima", null);
     }
 
     private static ObjectProvider<JavaMailSender> proveedor(JavaMailSender sender) {
