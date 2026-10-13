@@ -1,5 +1,5 @@
 /**
- * Casos de emisión de factura documentados en la guía. Cada uno lleva el JSON exacto que acepta `POST /v1/facturas`,
+ * Casos de emisión de factura y boleta documentados en la guía. Cada uno lleva el JSON exacto que acepta `POST /v1/facturas`,
  * qué calcula khipu y las reglas SUNAT que aplican. `disponible: false` marca los casos cuyo soporte está en desarrollo
  * (se muestran para que el integrador planifique, con la advertencia correspondiente).
  */
@@ -154,7 +154,7 @@ POST /v1/facturas/{id}/enviar
 X-Api-Key: fk_TU_API_KEY`,
     notas: [
       "El comprobante queda `FIRMADO` con su número asignado y su XML descargable (`GET /v1/facturas/{id}/xml`).",
-      "Recuerde el plazo: SUNAT debe recibirlo dentro de los **3 días calendario** siguientes a `fecha_emision`.",
+      "Recuerde el plazo (`fecha_limite_envio` en la respuesta): una factura debe llegar a SUNAT dentro de los **3 días calendario** siguientes a `fecha_emision`; una boleta va sola hasta el **5.º día** y después khipu la informa en un resumen diario (ver «Boleta enviada después del 5.º día»).",
       "`POST /v1/facturas/{id}/enviar` también sirve para reintentar un `ERROR_ENVIO` sin esperar al reintento automático.",
     ],
     disponible: true,
@@ -544,6 +544,88 @@ X-Api-Key: fk_TU_API_KEY`,
     disponible: true,
   },
   {
+    id: "boleta-dni",
+    titulo: "Boleta a un comprador con DNI",
+    cuando: "Venta a un consumidor final (una persona, o una empresa que no pide factura). Se emite por el mismo endpoint que la factura: la letra `B` de la serie decide que es una boleta (tipo 03).",
+    request: `{
+  "serie": "B001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  "cliente": { "tipo_doc": "1", "num_doc": "45678912", "razon_social": "MARÍA LÓPEZ QUISPE" },
+  "items": [
+    { "codigo": "P001", "descripcion": "Arroz extra 5 kg", "unidad": "NIU", "cantidad": 2, "precio_unitario": 23.60, "tipo_afectacion_igv": "10" },
+    { "codigo": "P002", "descripcion": "Leche evaporada 400 g", "unidad": "NIU", "cantidad": 6, "precio_unitario": 4.72, "tipo_afectacion_igv": "10" }
+  ]
+}`,
+    notas: [
+      "La serie `B###` se registra con el tipo **03** (`POST /v1/series` o la página Series; registrarla como factura, `01`, responde `422 SERIE_INVALIDA`, y emitir con una serie `B` que no está registrada como boleta —sin registrar, o registrada como nota `07`/`08`— responde `422 SERIE_NO_CONFIGURADA`). Ítems, precios con IGV, afectaciones, descuentos, cargos, gratuitas, ISC/ICBPER e IVAP funcionan igual que en la factura; la respuesta es el mismo comprobante con `tipo: \"03\"`.",
+      "`cliente`: cualquier documento del catálogo 06. DNI (`1`) de **8 dígitos** (4207), RUC (`6`) con dígito verificador (2017), carné de extranjería (`4`), pasaporte (`7`) y los demás hasta 15 caracteres sin espacios (4208). SUNAT solo observa 4207/4208; khipu los rechaza (`422 RECEPTOR_INVALIDO`) para no emitir un comprador mal identificado. `razon_social` es el nombre del comprador: de 3 a 1500 caracteres sin contar los espacios de los extremos (2022).",
+      "Lo que la boleta no admite: venta al crédito (`FORMA_PAGO_INVALIDA`), retención del IGV (`RETENCION_INVALIDA`), anticipos (`ANTICIPO_INVALIDO`) ni exportación: `tipo_operacion` solo `0101` (por defecto), `0113` (NRUS), `1001`–`1004` (detracción) o `2001` (percepción); otro responde `422 TIPO_OPERACION_INVALIDO` (3206). Todo se rechaza antes de consumir número.",
+      "**Plazos** (días calendario desde `fecha_emision`): khipu la envía **sola** (`sendBill`, con CDR propio) en la misma llamada, como una factura, hasta el **5.º día**; el 6.º y el 7.º la informa en un resumen diario (ver «Boleta enviada después del 5.º día»). Una `fecha_emision` de más de 7 días atrás responde `422 FECHA_INVALIDA` (1079).",
+      "Se anula con `POST /v1/facturas/{id}/baja` (ver «Anular una boleta») y se corrige con una nota `BC##`/`BD##` (ver «Notas de crédito y débito sobre una boleta»).",
+    ],
+    disponible: true,
+  },
+  {
+    id: "boleta-sin-documento",
+    titulo: "Boleta sin documento del comprador (hasta S/ 700)",
+    cuando: "Venta menor a un consumidor que no da su documento: bodegas, restaurantes, ventas al paso. SUNAT lo permite solo hasta S/ 700.00 de importe total.",
+    request: `{
+  "serie": "B001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  "cliente": { "tipo_doc": "-", "num_doc": "-", "razon_social": "CLIENTES VARIOS" },
+  "items": [
+    { "descripcion": "Menú ejecutivo", "unidad": "NIU", "cantidad": 2, "precio_unitario": 18.00, "tipo_afectacion_igv": "10" },
+    { "descripcion": "Chicha morada 1 L", "unidad": "NIU", "cantidad": 1, "precio_unitario": 9.50, "tipo_afectacion_igv": "10" }
+  ]
+}`,
+    notas: [
+      "`tipo_doc` y `num_doc` van los dos en `-` (sin documento, catálogo 06); un `tipo_doc` `-` con número responde `422 RECEPTOR_INVALIDO`.",
+      "Solo en **soles** y con un importe total (`totales.total`, con IGV) de hasta **S/ 700.00**. Por encima, o en `USD`/`EUR` (sin tipo de cambio no hay cómo compararla con el tope), `422 RECEPTOR_INVALIDO`: identifique al comprador con su documento, como en el caso anterior. Se valida antes de consumir número.",
+      "El nombre también es obligatorio sin documento y tiene al menos 3 caracteres (2022, error en SUNAT desde 2027-01-01): use `CLIENTES VARIOS`. Un nombre más corto (`-`, `CV`) responde `422 RECEPTOR_INVALIDO`.",
+      "En lo demás es una boleta como la anterior: mismos plazos, misma anulación. Sus notas toman este mismo comprador sin documento.",
+    ],
+    disponible: true,
+  },
+  {
+    id: "boleta-alta-tardia",
+    titulo: "Boleta enviada después del 5.º día (alta en el resumen diario)",
+    endpoint: "/v1/facturas/{id}/enviar",
+    cuando: "Una boleta emitida con `enviar_automatico: false` que se envía tarde, o que estuvo en `ERROR_ENVIO` hasta pasado el 5.º día. SUNAT ya no la recibe sola (1079): khipu la informa en un resumen diario con su línea en estado 1 (alta).",
+    request: `// B001-88, emitida el 2026-09-17 con "enviar_automatico": false
+POST /v1/facturas/{id}/enviar
+X-Api-Key: fk_TU_API_KEY
+
+// respuesta (extracto), el 2026-09-23 (6.º día)
+{
+  "estado": "exito",
+  "datos": {
+    "serie": "B001",
+    "numero": 88,
+    "estado_documento": "ACEPTADO",
+    "fecha_limite_envio": "2026-09-24",
+    "baja": {
+      "identificador": "RC-20260923-1",
+      "comprobante": "B001-88",
+      "tipo_comprobante": "03",
+      "fecha_referencia": "2026-09-17",
+      "condicion": "ALTA",
+      "fuera_de_plazo": false,
+      "estado": "ACEPTADA"
+    }
+  }
+}`,
+    notas: [
+      "No hay que hacer nada distinto: el mismo `POST /v1/facturas/{id}/enviar`, el reintento automático de un `ERROR_ENVIO` o la emisión con una `fecha_emision` de 6 o 7 días atrás deciden solos el canal. El resumen (`SummaryDocuments`, `RC-yyyymmdd-N`) viaja por `sendSummary`: si SUNAT ya respondió el ticket, la boleta vuelve `ACEPTADO`; si no, queda `ENVIADO` y khipu lo reconsulta.",
+      "El resumen viene en `baja` de la respuesta y en `GET /v1/facturas/{id}/bajas`, con `condicion: \"ALTA\"` (en una anulación es `BAJA`). Cada boleta tardía va en su propio resumen.",
+      "**Hasta el 7.º día** (`fecha_limite_envio`) va en plazo. **Pasado el 7.º día** no se pierde: va igual, en un resumen propio con `fuera_de_plazo: true`, y SUNAT no la rechaza: la observa con **4443** («El comprobante fue informado fuera del plazo establecido») y la boleta queda `ACEPTADO_CON_OBS`. La venta queda informada, pero tarde: envíe las boletas a tiempo. SUNAT cuenta el plazo hasta el día en que recibe el resumen: lo que manda es `cdr.observaciones` del comprobante.",
+      "Una boleta informada fuera de plazo ya pasó los 7 días de la anulación (2957): no se anula, se corrige con una nota de crédito.",
+      "Lo mismo vale para una nota sobre una boleta, salvo la NC **10** y la ND **03**, que no van en el resumen diario: pasado el 5.º día quedan `FUERA_DE_PLAZO` (1079) y el envío responde `409 FUERA_DE_PLAZO`.",
+    ],
+    disponible: true,
+  },
+  {
     id: "notas",
     titulo: "Notas de crédito y débito",
     endpoint: "/v1/notas",
@@ -611,8 +693,36 @@ X-Api-Key: fk_TU_API_KEY`,
       "SUNAT procesa las bajas de forma asíncrona: khipu envía el resumen (`sendSummary`), recibe un **ticket** y lo consulta (`getStatus`). Si SUNAT ya respondió, la baja vuelve `ACEPTADA` (o `RECHAZADA`) en la misma llamada; si sigue en proceso queda `ENVIADA` y el worker la reconsulta a los 30 s. Consulte `GET /v1/bajas/{id}` (también reconsulta el ticket) o `GET /v1/facturas/{id}`, que trae la última baja en `baja`.",
       "Cuando SUNAT acepta la comunicación, el comprobante pasa a **ANULADO** y ya no admite notas ni reenvíos. Solo puede haber una baja en curso por comprobante; si SUNAT la rechaza, se puede volver a solicitar. Error `BAJA_INVALIDA` (422) con la regla SUNAT en el mensaje.",
       "En el XML: `VoidedDocuments` (UBL 2.0, `RA-yyyymmdd-N`) firmado como los comprobantes; se guarda junto con su CDR. Homologado en e-beta.",
-      "Una **boleta** no va en una comunicación de baja (regla 2308): khipu la anula en un **resumen diario** (`SummaryDocuments` UBL 2.0, `RC-yyyymmdd-N`) con la boleta en estado 3, por el mismo endpoint y con el mismo ciclo y plazo. El `identificador` de la respuesta empieza con `RC`. El motivo queda en khipu: el resumen no lo lleva. La respuesta trae `condicion: \"BAJA\"`.",
-      "Una boleta que no llegó a SUNAT dentro de los 5 días del envío individual no se pierde: SUNAT ya no la recibe sola (1079), y al enviarla (`POST /v1/facturas/{id}/enviar`, o el reintento automático) khipu la informa en un resumen diario con su línea en estado 1. La ves en `baja` de la respuesta del envío y en `GET /v1/facturas/{id}/bajas`, con `condicion: \"ALTA\"`; al aceptarse, la boleta queda `ACEPTADO`. Hasta el séptimo día va en plazo; **pasado el séptimo día** va igual, en un resumen propio, con `fuera_de_plazo: true`: SUNAT no la rechaza, la observa con **4443** («El comprobante fue informado fuera del plazo establecido») y la boleta queda `ACEPTADO_CON_OBS`. La venta queda informada, pero tarde: envíe las boletas a tiempo. Esa boleta ya no se puede anular (2957): corríjala con una nota de crédito.",
+      "Una **boleta**, o una nota sobre una boleta, no va en una comunicación de baja (2308/2310): se anula por este mismo endpoint en un resumen diario; ver el caso siguiente.",
+    ],
+    disponible: true,
+  },
+  {
+    id: "boleta-baja",
+    titulo: "Anular una boleta (baja en el resumen diario)",
+    endpoint: "/v1/facturas/{id}/baja",
+    cuando: "Anular ante SUNAT una boleta, o una nota sobre una boleta, ya aceptada que se emitió por error, dentro de los 7 días calendario siguientes a su emisión. Pasado el plazo, o si ya se entregó, corresponde una nota de crédito.",
+    request: `{
+  "motivo": "Venta anulada: error en el importe"
+}
+
+// respuesta 201 (extracto)
+{
+  "estado": "exito",
+  "datos": {
+    "identificador": "RC-20260918-1",
+    "comprobante": "B001-87",
+    "tipo_comprobante": "03",
+    "fecha_referencia": "2026-09-17",
+    "condicion": "BAJA",
+    "estado": "ACEPTADA"
+  }
+}`,
+    notas: [
+      "Mismo endpoint, mismas reglas y mismo ciclo que la baja de una factura: **ACEPTADO** o **ACEPTADO_CON_OBS** (si no, `422 BAJA_INVALIDA` con 2663), emitida hace **7 días calendario o menos** contados en hora de Lima desde `fecha_emision` (2957), `motivo` de 3 a 100 caracteres (2315) y una sola baja en curso.",
+      "Lo que cambia es el documento: SUNAT no admite boletas en una comunicación de baja (2308), así que khipu la anula en un **resumen diario** (`SummaryDocuments` UBL 2.0, `RC-yyyymmdd-N`) con la línea de la boleta en estado 3. El `identificador` empieza con `RC` y la respuesta trae `condicion: \"BAJA\"`. El motivo queda en khipu: el resumen no lo lleva.",
+      "Si SUNAT ya respondió el ticket la baja vuelve `ACEPTADA` y la boleta pasa a **ANULADO**; si no, queda `ENVIADA` y khipu la reconsulta (`GET /v1/bajas/{id}`). El número queda consumido: la venta corregida es una boleta nueva.",
+      "Una boleta informada en un resumen fuera de plazo (4443, ver «Boleta enviada después del 5.º día») ya pasó los 7 días: no se anula, se corrige con una nota de crédito `BC##`.",
     ],
     disponible: true,
   },

@@ -11,7 +11,7 @@ export const metadata = { title: `Guía de emisión · ${messages.app.nombre}` }
 
 const INDICE = [
   { id: "inicio-rapido", label: "Inicio rápido" },
-  { id: "anatomia", label: "Anatomía de una factura" },
+  { id: "anatomia", label: "Anatomía de un comprobante" },
   { id: "casos", label: "Casos de emisión" },
   ...CASOS.map((c) => ({ id: c.id, label: `· ${c.titulo}` })),
   { id: "respuesta", label: "Cómo leer la respuesta" },
@@ -23,8 +23,8 @@ export default function GuiaPage() {
   const base = apiPublicUrl();
   return (
     <PaginaGuia
-      titulo="Guía de emisión de facturas"
-      resumen="Todo lo necesario para emitir facturas electrónicas válidas ante SUNAT con una sola llamada: qué enviar en cada caso, qué calcula khipu por usted, qué devuelve y cómo actuar ante cada estado o error."
+      titulo="Guía de emisión de facturas y boletas"
+      resumen="Todo lo necesario para emitir facturas y boletas electrónicas válidas ante SUNAT con una sola llamada: qué enviar en cada caso, qué calcula khipu por usted, qué devuelve y cómo actuar ante cada estado o error."
       indice={INDICE}
     >
       <Seccion id="inicio-rapido" titulo="Inicio rápido">
@@ -44,7 +44,8 @@ export default function GuiaPage() {
             sujetas a SPOT.
           </li>
           <li>
-            <strong className="text-foreground">Cree una serie</strong> de factura (<Codigo>F001</Codigo>) en <em>Series</em>.
+            <strong className="text-foreground">Cree una serie</strong> en <em>Series</em>: de factura (tipo 01, <Codigo>F001</Codigo>) o de boleta (tipo 03,{" "}
+            <Codigo>B001</Codigo>).
           </li>
           <li>
             <strong className="text-foreground">Genere una API key</strong> en <em>API keys</em>. Se muestra una sola vez: guárdela como secreto.
@@ -75,22 +76,23 @@ export default function GuiaPage() {
         />
       </Seccion>
 
-      <Seccion id="anatomia" titulo="Anatomía de una factura">
+      <Seccion id="anatomia" titulo="Anatomía de un comprobante">
         <P>
-          Una factura electrónica es un XML UBL 2.1 firmado. Usted envía los datos comerciales; khipu resuelve el resto: numeración correlativa,
+          Una factura o una boleta electrónica es un XML UBL 2.1 firmado, y las dos se emiten con <Codigo>POST /v1/facturas</Codigo>: la letra de
+          la serie decide cuál. Usted envía los datos comerciales; khipu resuelve el resto: numeración correlativa,
           cálculo de IGV y totales, monto en letras, catálogos, firma XML-DSig, validación contra los esquemas oficiales, envío SOAP a SUNAT,
           lectura del CDR y reintentos.
         </P>
         <Tabla
           cabeceras={["Campo", "Qué es", "Valores / catálogo"]}
           filas={[
-            ["serie", "Serie de numeración registrada en la empresa.", <>Formato <Codigo>F</Codigo> + 3 alfanuméricos (<Codigo>F001</Codigo>).</>],
+            ["serie", "Serie de numeración registrada en la empresa.", <><Codigo>F</Codigo> + 3 alfanuméricos emite una factura (<Codigo>F001</Codigo>); <Codigo>B</Codigo> + 3, una boleta (<Codigo>B001</Codigo>).</>],
             ["correlativo", "Número dentro de la serie. Opcional.", "Omítalo para que khipu asigne el siguiente; envíelo si su sistema lleva la numeración."],
-            ["fecha_emision", "Fecha del comprobante.", <><Codigo>YYYY-MM-DD</Codigo>, no futura. SUNAT debe recibirla en 3 días calendario.</>],
+            ["fecha_emision", "Fecha del comprobante.", <><Codigo>YYYY-MM-DD</Codigo>, no futura. SUNAT debe recibir la factura en 3 días calendario; la boleta, sola hasta el 5.º día y en el resumen diario hasta el 7.º.</>],
             ["moneda", "Moneda de todo el comprobante.", <><Codigo>PEN</Codigo>, <Codigo>USD</Codigo>, <Codigo>EUR</Codigo> — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-02">catálogo 02</Link>.</>],
             ["tipo_operacion", "Naturaleza de la operación.", <><Codigo>0101</Codigo> venta interna (por defecto), <Codigo>1001</Codigo> sujeta a detracción, <Codigo>0200</Codigo>–<Codigo>0208</Codigo> exportación (ítems <Codigo>40</Codigo>, cliente del exterior con <Codigo>pais</Codigo>) — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-51">catálogo 51</Link>.</>],
-            ["cliente.tipo_doc", "Tipo de documento del adquirente.", <>En factura siempre <Codigo>6</Codigo> (RUC) — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-06">catálogo 06</Link>.</>],
-            ["cliente.num_doc", "RUC del adquirente.", "11 dígitos."],
+            ["cliente.tipo_doc", "Tipo de documento del adquirente.", <>En factura de venta interna, <Codigo>6</Codigo> (RUC); en exportación, el documento del cliente del exterior; en boleta, cualquiera del catálogo, o <Codigo>-</Codigo> sin documento (solo en soles y hasta S/ 700) —<Link className="text-primary hover:underline" href="/developers/catalogos#cat-06">catálogo 06</Link>.</>],
+            ["cliente.num_doc", "Número del documento.", <>RUC de 11 dígitos; en boleta, DNI de 8 dígitos, los demás hasta 15 caracteres, o <Codigo>-</Codigo>.</>],
             ["items[].unidad", "Unidad de medida.", <><Codigo>NIU</Codigo> unidad (bienes), <Codigo>ZZ</Codigo> unidad (servicios), <Codigo>KGM</Codigo>, <Codigo>HUR</Codigo>… — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-03">catálogo 03</Link>.</>],
             ["items[].precio_unitario", "Precio de venta unitario.", "Con IGV incluido para gravados; khipu obtiene el valor unitario y el IGV."],
             ["items[].tipo_afectacion_igv", "Cómo tributa el ítem.", <><Codigo>10</Codigo> gravado, <Codigo>20</Codigo> exonerado, <Codigo>30</Codigo> inafecto; gratuitas 11–17/21/31–37 — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-07">catálogo 07</Link>.</>],
@@ -111,7 +113,8 @@ export default function GuiaPage() {
 
       <Seccion id="casos" titulo="Casos de emisión">
         <P>
-          Cada caso muestra el JSON exacto para <Codigo>POST /v1/facturas</Codigo> y las reglas que aplican.
+          Cada caso muestra el JSON exacto para <Codigo>POST /v1/facturas</Codigo> (o el endpoint que indica) y las reglas que aplican. Los de factura
+          valen también para la boleta salvo lo que dicen sus casos propios: comprador, operaciones admitidas, plazos y anulación.
           {CASOS.some((c) => !c.disponible) ? (
             <>
               {" "}
@@ -198,11 +201,14 @@ export default function GuiaPage() {
           </li>
           <li>
             <strong className="text-foreground">No trate <Codigo>ERROR_ENVIO</Codigo> como fallo definitivo:</strong> es SUNAT no disponible; consulte el estado más
-            tarde o fuerce el reenvío. Sí es definitivo <Codigo>RECHAZADO</Codigo>: corrija y vuelva a emitir (puede reutilizar el número).
+            tarde o fuerce el reenvío. Sí es definitivo <Codigo>RECHAZADO</Codigo>: corrija y emita un comprobante nuevo, con otro número. El rechazado
+            conserva el suyo: en un rechazo 2000–3999 SUNAT da el número por utilizado, y khipu nunca reasigna un número (un{" "}
+            <Codigo>correlativo</Codigo> repetido responde <Codigo>409 DUPLICADO</Codigo>).
           </li>
           <li>
-            <strong className="text-foreground">Plazo:</strong> emita el mismo día de la operación; SUNAT rechaza facturas recibidas más de 3 días calendario después
-            de la fecha de emisión.
+            <strong className="text-foreground">Plazo:</strong> emita el mismo día de la operación. SUNAT rechaza facturas recibidas más de 3 días calendario después
+            de la fecha de emisión (2108); una boleta va sola hasta el 5.º día, en el resumen diario hasta el 7.º y después se informa fuera de plazo, con la
+            observación 4443.
           </li>
           <li>
             <strong className="text-foreground">Entornos:</strong> integre y pruebe todo en <Codigo>BETA</Codigo>; lo que SUNAT acepta en BETA lo acepta en producción

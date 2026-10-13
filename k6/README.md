@@ -6,7 +6,7 @@ Cubre el ítem #15 de `docs/spec/spec.md`: "Pruebas de carga k6 con umbrales en 
 |---|---|---|
 | `emision.js` | p95 < 500 ms sin SUNAT, 50 doc/s | ✅ **p95 = 29 ms**, 50 doc/s sostenidos sin iteraciones descartadas (2026-09-22, con caché de certificado; ver hallazgo abajo). Antes: ❌ p95 = 3.6–4.3 s a ~40 doc/s |
 | `descargas.js` | p95 < 300 ms | ✅ p95 = 17.7 ms (2026-09-14) |
-| RC de 10 000 boletas < 5 min | — | ⏸️ No se puede probar: boletas y resumen diario (RC) no están implementados todavía (backlog 1B) |
+| RC de 10 000 boletas < 5 min | — | ⏸️ No aplica hoy: las boletas están implementadas, pero khipu las envía **una por una** (`sendBill`, como las facturas: `emision.js` con `SERIE=B001` las mide, porque el cliente con RUC también vale en una boleta). El resumen diario (RC) solo lleva **una** boleta: la que se anula o la que se informa pasado el 5.º día. Agrupar boletas en un RC está pendiente |
 
 ## Preparar un tenant de carga
 
@@ -82,7 +82,9 @@ Opciones descartadas por ahora (solo si el margen anterior no alcanza):
 
 ## Pendiente
 
-- Escenario de RC (resumen diario de boletas) — bloqueado hasta que exista boletas
-  + agrupación (backlog 1B).
+- Escenario de RC de 10 000 boletas: bloqueado hasta que khipu agrupe boletas en
+  un mismo resumen diario (hoy cada RC lleva una sola, ver `ComunicacionBaja.altaEnResumen`).
+- Emisión de boletas: `preparar-tenant.sh` solo crea la serie `F001`; para correr
+  `emision.js` con `SERIE=B001` hay que registrar antes la serie con el tipo `03`.
 - Umbrales en CI (el ítem del spec pide "con umbrales en CI"): falta wiring en
   GitHub Actions; hoy son scripts para correr a mano.
