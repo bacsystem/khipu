@@ -1,6 +1,7 @@
 package pe.factura.domain.documento;
 
 import pe.factura.domain.DomainException;
+import pe.factura.domain.catalogo.CatalogoSunat;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -46,7 +47,7 @@ public record Item(String codigo, String descripcion, String unidad, BigDecimal 
     }
 
     /**
-     * Reglas de la línea que SUNAT rechaza (2024–2027, 2883) — antes de numerar (#35). No se llama al rehidratar: un
+     * Reglas de la línea que SUNAT rechaza (2024–2027, 2883, 2936) — antes de numerar (#35, #308). No se llama al rehidratar: un
      * ítem ya emitido, aunque no cumpla una regla añadida después, se sigue leyendo tal cual.
      */
     void exigirValidoParaFactura() {
@@ -54,8 +55,12 @@ public record Item(String codigo, String descripcion, String unidad, BigDecimal 
             throw new DomainException("ITEM_INVALIDO", "2026 - Cada ítem necesita una descripción");
         if (descripcion.length() > 500 || descripcion.chars().anyMatch(ch -> Character.isISOControl(ch) && ch != '\n' && ch != '\r' && ch != '\t'))
             throw new DomainException("ITEM_INVALIDO", "2027 - La descripción del ítem admite hasta 500 caracteres");
-        if (unidad == null || !unidad.matches("[A-Z0-9]{2,3}"))
-            throw new DomainException("ITEM_INVALIDO", "2883 - La unidad de medida es un código del catálogo 03 (UN/ECE rec 20: NIU, ZZ, KGM, HUR…): " + unidad);
+        if (unidad == null || unidad.isBlank())
+            throw new DomainException("ITEM_INVALIDO", "2883 - Es obligatorio indicar la unidad de medida del ítem (catálogo 03)");
+        // 2936: SUNAT la cruza con la rec 20 completa; antes solo se miraba el formato y «XYZ» consumía número para volver rechazada.
+        if (!unidadEnCatalogo())
+            throw new DomainException("ITEM_INVALIDO", "2936 - La unidad de medida " + unidad + " no existe en el catálogo 03 (UN/ECE rec 20; "
+                    + "GET /v1/catalogos/03): NIU unidad (bienes), ZZ unidad (servicios), KGM, HUR…");
         if (cantidad == null || cantidad.signum() <= 0)
             throw new DomainException("ITEM_INVALIDO", "2024 - La cantidad del ítem debe ser mayor que cero");
         exigirFormatoNumerico(cantidad, "2025 - La cantidad admite hasta 12 enteros y 10 decimales");
@@ -64,6 +69,11 @@ public record Item(String codigo, String descripcion, String unidad, BigDecimal 
         exigirFormatoNumerico(precioUnitario, "El precio unitario admite hasta 12 enteros y 10 decimales");
         if (codigo != null && (codigo.length() > 30 || codigo.chars().anyMatch(Character::isISOControl)))
             throw new DomainException("ITEM_INVALIDO", "El código interno del ítem admite hasta 30 caracteres (an..30 de la hoja Factura2_0)");
+    }
+
+    /** La unidad existe en el catálogo 03 (UN/ECE rec 20), contra el que SUNAT la cruza en la factura, la boleta y las notas (2936). */
+    boolean unidadEnCatalogo() {
+        return unidad != null && CatalogoSunat.porId("03").orElseThrow().contiene(unidad);
     }
 
     /** An..12,10 (hasta 12 enteros y 10 decimales): mismo formato numérico que SUNAT exige tanto a la cantidad como al precio. */

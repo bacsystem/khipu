@@ -104,8 +104,8 @@ export default function GuiaPage() {
             Catálogos SUNAT
           </Link>{" "}
           o por API (<Codigo>GET /v1/catalogos/07</Codigo>, sin credenciales). Un <Codigo>tipo_operacion</Codigo>, <Codigo>tipo_afectacion_igv</Codigo>,{" "}
-          <Codigo>tipo_doc</Codigo> o <Codigo>moneda</Codigo> fuera de catálogo responde <Codigo>422</Codigo> antes de consumir numeración; la{" "}
-          <Codigo>unidad</Codigo> no se valida localmente (la lista UN/ECE completa excede el catálogo) y un código inexistente lo rechaza SUNAT.
+          <Codigo>tipo_doc</Codigo>, <Codigo>moneda</Codigo> o <Codigo>unidad</Codigo> fuera de catálogo responde <Codigo>422</Codigo> antes de consumir
+          numeración. El catálogo 03 trae la lista UN/ECE completa, con las unidades más usadas primero.
         </NotaProsa>
       </Seccion>
 

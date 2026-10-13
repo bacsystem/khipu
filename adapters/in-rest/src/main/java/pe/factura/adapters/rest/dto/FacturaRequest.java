@@ -70,7 +70,7 @@ public record FacturaRequest(
     public record ItemDto(
             @Schema(example = "SKU-001", description = "Código interno del producto o servicio (opcional)") String codigo,
             @NotBlank @Schema(example = "Servicio de consultoría", description = "Descripción detallada del bien o servicio") String descripcion,
-            @NotBlank @Schema(example = "NIU", description = "Unidad de medida UN/ECE rec 20 (catálogo 03, `GET /v1/catalogos/03`, lista las más usadas): `NIU` unidad (bienes), `ZZ` unidad (servicios), `KGM` kilogramo, `HUR` hora… khipu no la valida contra el catálogo: un código inexistente lo rechaza SUNAT") String unidad,
+            @NotBlank @Schema(example = "NIU", description = "Unidad de medida UN/ECE rec 20 (catálogo 03, `GET /v1/catalogos/03`, las más usadas primero): `NIU` unidad (bienes), `ZZ` unidad (servicios), `KGM` kilogramo, `HUR` hora… Un código que no está en el catálogo responde `422 ITEM_INVALIDO` (2936) sin consumir numeración") String unidad,
             @NotNull @Positive @Schema(example = "2", description = "Cantidad, hasta 10 decimales") BigDecimal cantidad,
             @NotNull @PositiveOrZero @Schema(example = "1000.00", description = "Precio de venta unitario **con IGV incluido** (gravados); khipu calcula el valor unitario sin IGV") BigDecimal precioUnitario,
             @NotBlank @Pattern(regexp = "1[0-7]|2[01]|3[0-7]|40", message = "afectación IGV no soportada: use 10–17, 20, 21, 30–37 o 40 (catálogo 07)")

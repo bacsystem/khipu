@@ -5,7 +5,7 @@ import { messages } from "@/lib/messages";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { fechaMinimaDeEmision, PLAZO_ENVIO } from "@/lib/comprobantes/plazo";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
-import { db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
+import { CODIGOS_UNIDAD, UNIDADES_MAS_USADAS, db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -601,7 +601,40 @@ const CATALOGOS = [
   { id: "13", nombre: "Código de ubicación geográfica (UBIGEO, INEI)", columnas: ["Código", "Descripción", "Departamento", "Provincia", "Distrito"], entradas: UBIGEOS },
   { id: "25", nombre: "Código de producto SUNAT (UNSPSC; listados 25.1–25.3)", columnas: ["Código", "Descripción", "Listado", "Partidas arancelarias"],
     entradas: [{ codigo: "15101505", descripcion: "Combustible diésel", extra: { Listado: "25.1 Padrón obligado: Combustible" } }] },
+  // #308: las más usadas, marcadas como en el backend, y una de las otras 2000 de la rec 20 para que el selector tenga algo que descartar.
+  { id: "03", nombre: "Código de tipo de unidad de medida comercial (UN/ECE rec 20 completa)", columnas: ["Código", "Descripción", "Más usada"],
+    entradas: [...UNIDADES_MAS_USADAS.map((u) => ({ ...u, extra: { "Más usada": "Sí" } })), { codigo: "E48", descripcion: "service unit", extra: {} }] },
 ];
+
+/** En blanco para el `@NotBlank` de Bean Validation: lo que `String.trim()` de Java deja vacío (hasta U+0020; el espacio de no separación no). */
+function enBlancoParaJava(s: string | null | undefined): boolean {
+  return !(s ?? "").replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, "");
+}
+
+/**
+ * #348-H2: el `@NotBlank` de `ItemDto.unidad` corre antes que el servicio y que el dominio, en la factura y en la nota (`@Valid`), y
+ * `GlobalExceptionHandler` junta los campos en un 422 VALIDACION ordenado por nombre (TreeMap).
+ */
+function erroresDeUnidadEnBlanco(items: Array<{ unidad?: string }> | undefined): Record<string, string[]> {
+  const errores: Record<string, string[]> = {};
+  (items ?? []).forEach((i, n) => {
+    if (enBlancoParaJava(i.unidad)) errores[`items[${n}].unidad`] = ["no debe estar vacío"];
+  });
+  return errores;
+}
+
+function validacionFallida(errores: Record<string, string[]>): Response {
+  const ordenados = Object.fromEntries(Object.entries(errores).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: ordenados }, { status: 422 });
+}
+
+/** `Item.exigirValidoParaFactura` (#308): la unidad de cada ítem existe en el catálogo 03 (2936), con el mensaje del backend. */
+function rechazoPorUnidadMock(items: Array<{ unidad: string }>): Response | null {
+  const rara = items.find((i) => !CODIGOS_UNIDAD.has(i.unidad));
+  return rara
+    ? fail(422, "ITEM_INVALIDO", `2936 - La unidad de medida ${rara.unidad} no existe en el catálogo 03 (UN/ECE rec 20; GET /v1/catalogos/03): NIU unidad (bienes), ZZ unidad (servicios), KGM, HUR…`)
+    : null;
+}
 
 
 /**
@@ -2321,8 +2354,9 @@ export const handlers = [
     // #303: el `@NotBlank` de `ClienteDto` corre antes que el servicio y que el dominio (347-H2), y en blanco es lo que `String.trim()` de
     // Java deja vacío: solo los caracteres hasta U+0020, no el espacio de no separación (que llega al dominio y vuelve como 2022).
     const razonCliente = body.cliente?.razon_social ?? "";
-    if (!razonCliente.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, ""))
-      return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: { "cliente.razonSocial": ["no debe estar vacío"] } }, { status: 422 });
+    const enBlanco = erroresDeUnidadEnBlanco(body.items);
+    if (enBlancoParaJava(razonCliente)) enBlanco["cliente.razonSocial"] = ["no debe estar vacío"];
+    if (Object.keys(enBlanco).length) return validacionFallida(enBlanco);
 
     // #20: como el backend, la letra de la serie decide el tipo (F factura, B boleta) y cada uno valida su comprador.
     const boleta = body.serie?.startsWith("B");
@@ -2346,6 +2380,9 @@ export const handlers = [
       return fail(422, "FECHA_INVALIDA", boleta
         ? `1079 - Pasado el envío individual, SUNAT solo recibe esta boleta en un resumen diario, y el plazo para informarla en él venció el ${sumarDias(body.fecha_emision, PLAZO_ENVIO.boleta.dias)} (${PLAZO_ENVIO.boleta.dias} días calendario) (fecha de emisión ${body.fecha_emision})`
         : `2108 - Presentación fuera de fecha: el plazo de envío venció el ${sumarDias(body.fecha_emision, PLAZO_ENVIO.factura.dias)} (${PLAZO_ENVIO.factura.dias} días calendario) (fecha de emisión ${body.fecha_emision})`);
+    // #308: antes de numerar, como el backend.
+    const porUnidad = rechazoPorUnidadMock(body.items);
+    if (porUnidad) return porUnidad;
 
     // Idempotency-Key (#115), como el backend: la misma clave con el mismo pedido devuelve la factura ya emitida con 200; con otro
     // pedido, 422. La huella es el JSON del cuerpo, que el formulario arma siempre igual.
@@ -2488,6 +2525,8 @@ export const handlers = [
     } catch {
       return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
     }
+    const unidadesEnBlanco = erroresDeUnidadEnBlanco(body.items);
+    if (Object.keys(unidadesEnBlanco).length) return validacionFallida(unidadesEnBlanco);
     const lista = db.facturasPorEmpresa.get(empresaId) ?? [];
     // #293, como `EmitirComprobanteService.emitirNota`: la letra de la serie afectada dice qué se modifica (B una boleta, F una
     // factura), y el motivo se valida antes de buscar el documento.
@@ -2555,6 +2594,10 @@ export const handlers = [
       // `Item`: descripción obligatoria y hasta 500 (2026/2027). El «Concepto» de la ND llegaba con 501 y el mock daba 201.
       if (!i.descripcion?.trim()) return fail(422, "ITEM_INVALIDO", "2026 - Cada ítem necesita una descripción");
       if (i.descripcion.length > 500) return fail(422, "ITEM_INVALIDO", "2027 - La descripción del ítem admite hasta 500 caracteres");
+      // #308: los ítems propios. La nota total también cruza las unidades que copia (`copiaDelDocumento`, #348-H1), pero el mock no tiene
+      // documentos con una unidad fuera del catálogo (los rechaza al emitirlos y los datos sembrados usan NIU y ZZ).
+      const porUnidad = rechazoPorUnidadMock([i]);
+      if (porUnidad) return porUnidad;
     }
     if (nc13) {
       // A paridad con `FormaPago.validarComoCorreccionDe`: escala ≤ 2 en pendiente (3250) y cuotas (3253), y la

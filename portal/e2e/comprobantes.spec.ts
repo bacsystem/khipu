@@ -973,7 +973,7 @@ test("ND: el concepto se corta a 500 caracteres en el cliente (2027)", async ({ 
   await expect(form.getByLabel("Concepto")).toHaveValue("x".repeat(500));
 });
 
-test("el mock de POST /v1/notas rechaza la descripción de ítem que el backend rechaza (2027) y la ND 13 sin ítems (3507)", async ({ page }) => {
+test("el mock de POST /v1/notas rechaza la descripción de ítem que el backend rechaza (2027), la ND 13 sin ítems (3507) y la unidad fuera del catálogo 03 (2936)", async ({ page }) => {
   await page.goto("/comprobantes/f-cargos");
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
   const post = (body: Record<string, unknown>) =>
@@ -990,6 +990,16 @@ test("el mock de POST /v1/notas rechaza la descripción de ítem que el backend 
   r = await post({ motivo: "13" });
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("3507");
+
+  // #308: como `Item`, la unidad de un ítem propio de la nota existe en el catálogo 03 (2936).
+  r = await post({ motivo: "01", items: [{ descripcion: "Intereses", unidad: "XYZ", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10" }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(JSON.parse(r.texto)).toMatchObject({ codigo: "ITEM_INVALIDO", mensaje: expect.stringMatching(/^2936 - La unidad de medida XYZ no existe en el catálogo 03/) });
+
+  // #348-H2: en blanco no llega al dominio: el `@NotBlank` de `ItemDto` (que `NotaRequest` valida con @Valid) responde VALIDACION.
+  r = await post({ motivo: "01", items: [{ descripcion: "Intereses", unidad: " ", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10" }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(JSON.parse(r.texto)).toMatchObject({ codigo: "VALIDACION", errores: { "items[0].unidad": ["no debe estar vacío"] } });
 });
 
 test("NC por importe (09 disminución en el valor): una sola línea por el monto, gravada como la factura, y con tope", async ({ page }) => {

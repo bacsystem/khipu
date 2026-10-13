@@ -374,6 +374,59 @@ test("el nombre corto del comprador de una boleta se frena en el cliente y, si l
 });
 
 /**
+ * #308: el selector ofrece las unidades más usadas del catálogo 03 (no las 2000 de la rec 20) y la elegida viaja; una unidad que no
+ * está en el catálogo vuelve 422 ITEM_INVALIDO (2936) con el mismo mensaje del backend.
+ */
+test("la unidad sale de las más usadas del catálogo 03 y una inexistente vuelve como 2936", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+  await completarMinimo(dialogo);
+  await dialogo.getByRole("button", { name: "Más opciones del ítem 1" }).click();
+  const unidad = dialogo.getByLabel("Unidad de medida");
+  await expect(unidad.locator("option[value='BX']")).toHaveText("BX · Caja");
+  await expect(unidad.locator("option[value='E48']")).toHaveCount(0);
+  await unidad.selectOption("KGM");
+  const emision = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/facturas"));
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  expect((await emision).postDataJSON().items[0].unidad).toBe("KGM");
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const r = await page.evaluate(async ([b]) => {
+    const res = await fetch("/api/proxy/facturas", { method: "POST", headers: { "content-type": "application/json" }, body: b });
+    return { status: res.status, cuerpo: await res.json() };
+  }, [JSON.stringify({ serie: "F001", fecha_emision: hoy, moneda: "PEN", cliente: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C." },
+    items: [{ descripcion: "Cable", unidad: "ROL", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10" }] })]);
+  expect(r.status).toBe(422);
+  expect(r.cuerpo.codigo).toBe("ITEM_INVALIDO");
+  expect(r.cuerpo.mensaje).toBe("2936 - La unidad de medida ROL no existe en el catálogo 03 (UN/ECE rec 20; GET /v1/catalogos/03): NIU unidad (bienes), ZZ unidad (servicios), KGM, HUR…");
+});
+
+/**
+ * #348-H2: la unidad en blanco no llega al dominio: el `@NotBlank` de `ItemDto` responde 422 VALIDACION con el campo, junto con los demás
+ * campos en blanco (como `cliente.razonSocial`). El mock respondía 2936 con «La unidad de medida  no existe».
+ */
+test("la unidad en blanco vuelve como VALIDACION de items[n].unidad, como el @NotBlank del backend", async ({ page }) => {
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const emitir = (cliente: string, unidades: Array<string | undefined>) =>
+    page.evaluate(async ([b]) => {
+      const res = await fetch("/api/proxy/facturas", { method: "POST", headers: { "content-type": "application/json" }, body: b });
+      return { status: res.status, cuerpo: await res.json() };
+    }, [JSON.stringify({ serie: "F001", fecha_emision: hoy, moneda: "PEN", cliente: { tipo_doc: "6", num_doc: "20554198211", razon_social: cliente },
+      items: unidades.map((unidad) => ({ descripcion: "Cable", unidad, cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10" })) })]);
+
+  let r = await emitir("CORPORACION GRAFICA ANDINA S.A.C.", ["NIU", " \t", undefined]);
+  expect(r.status).toBe(422);
+  expect(r.cuerpo).toMatchObject({ codigo: "VALIDACION", errores: { "items[1].unidad": ["no debe estar vacío"], "items[2].unidad": ["no debe estar vacío"] } });
+  expect(Object.keys(r.cuerpo.errores)).toEqual(["items[1].unidad", "items[2].unidad"]);
+
+  r = await emitir(" ", [""]);
+  expect(r.status).toBe(422);
+  expect(r.cuerpo).toMatchObject({ codigo: "VALIDACION", errores: { "cliente.razonSocial": ["no debe estar vacío"], "items[0].unidad": ["no debe estar vacío"] } });
+});
+
+/**
  * #347-H2: el `@NotBlank` de `ClienteDto` corre antes que el servicio y que el dominio, así que un nombre en blanco gana a un RUC corto:
  * el backend responde VALIDACION y no 2017. El mock lo comprobaba después del RUC.
  */

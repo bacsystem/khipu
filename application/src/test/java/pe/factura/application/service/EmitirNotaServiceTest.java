@@ -197,6 +197,29 @@ class EmitirNotaServiceTest {
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).extracting(Comprobante::id).containsExactly(nc.id());
     }
 
+    /**
+     * #308: una boleta emitida antes de validar el catálogo 03 con «ROL» (no existe en la rec 20) se informó en un resumen diario, que no
+     * lleva líneas, y quedó aceptada. Ni la nota con esa unidad en sus ítems ni la nota total que la copia se emiten, porque SUNAT cruza la
+     * unidad de la nota con el catálogo (2936) y la nota sale sola (#348-H1); ninguna consume número. Con ítems propios en «RO», sí.
+     */
+    @Test void unaUnidadFueraDelCatalogo03NoSeEmiteEnLaNotaNiCopiadaDelDocumento() {
+        Comprobante vieja = Comprobante.persistido(UUID.randomUUID(), tenantId, TipoDocumento.BOLETA, "B001", 7L, LocalDate.of(2026, 9, 10), EstadoDocumento.ACEPTADO, SIN_DOCUMENTO,
+                List.of(new Item("P1", "Cable", "ROL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).firma("h", "20100066603-03-B001-7", "k").rehidratar();
+        comprobantes.guardar(vieja);
+
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", 7L, "07",
+                List.of(new Item("P1", "Cable", "ROL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)))))
+                .isInstanceOf(DomainException.class).hasMessageStartingWith("2936").hasMessageContaining("ROL");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", 7L, "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageStartingWith("2936 - La boleta B001-7 lleva la unidad ROL").hasMessageContaining("indique los items");
+        assertThat(series.ultimo).as("las notas rechazadas no consumen número").containsEntry(tenantId + "07BC01", 0L);
+
+        Comprobante nc = service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", 7L, "01",
+                List.of(new Item("P1", "Cable", "RO", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))));
+        assertThat(nc.items()).extracting(Item::unidad).containsExactly("RO");
+        assertThat(nc.numero()).isEqualTo(1L);
+    }
+
     @Test void notaParcialSoloConLosItemsIndicados() {
         Comprobante f = facturaAceptada(FormaPago.contado());
         Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "07",
