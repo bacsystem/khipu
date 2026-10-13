@@ -64,3 +64,22 @@ test("el catálogo 03 y la tabla de errores describen la validación de la unida
   await expect(page.getByText(/unidad de medida que no existe en el catálogo 03 \(2936; en blanco responde VALIDACION\)/)).toBeVisible();
   await expect(page.getByText(/unidad de medida ausente \(2883\)/)).toHaveCount(0);
 });
+
+/**
+ * #302: el plazo de la baja (2957) se cuenta desde la emisión, también en la boleta (la regla de SUNAT desde 2027-01-01, más estricta que la de
+ * 2026, que lo cuenta desde la CDR). La guía y la tabla de errores lo dicen así, con la hora de Lima que decide el día.
+ */
+test("la guía y la tabla de errores cuentan el plazo de la baja desde la emisión, en hora de Lima", async ({ page }) => {
+  await page.goto("/developers/guia");
+  const baja = page.locator("#baja");
+  await expect(baja.getByText(/desde la fecha de emisión, no desde la aceptación de SUNAT/)).toBeVisible();
+  await expect(baja.getByText(/hora de Lima/)).toBeVisible();
+  await expect(baja.getByText(/2027-01-01/)).toBeVisible();
+  // Lo que decide SUNAT es el día en que recibe la comunicación (RA fila 44, RC fila 37): una baja admitida el día 7 cuyo envío falla y se reintenta
+  // el 8 vuelve RECHAZADA (2957), y el reintento reenvía el mismo RA/RC con su fecha de generación (2346), así que no hay forma de salvarla.
+  await expect(baja.getByText(/SUNAT mide el plazo con el día en que recibe la comunicación/)).toBeVisible();
+  await expect(baja.getByText(/boletas y a sus notas desde el 2027-01-01/)).toBeVisible();
+
+  await page.goto("/developers/errores");
+  await expect(page.getByText(/pasaron más de 7 días calendario desde su emisión, en hora de Lima \(2957; no se cuentan desde la aceptación de SUNAT\)/)).toBeVisible();
+});

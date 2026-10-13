@@ -137,7 +137,10 @@ export type Baja = {
   ultimo_error: string | null;
 };
 
-/** Plazo legal para la comunicación de baja: 7 días calendario desde la emisión (regla 2957). */
+/**
+ * Plazo legal para la comunicación de baja: 7 días calendario desde la emisión (regla 2957), también para la boleta y sus notas. Es la regla de SUNAT
+ * desde 2027-01-01 (RS 000048-2026); hasta 2026-12-31 la boleta lo cuenta desde la CDR, que nunca es anterior: contar desde la emisión cumple las dos (#302).
+ */
 export const PLAZO_BAJA_DIAS = 7;
 
 /**

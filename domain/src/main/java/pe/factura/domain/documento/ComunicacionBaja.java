@@ -79,6 +79,10 @@ public class ComunicacionBaja {
     /**
      * Solo un comprobante aceptado por SUNAT (2398/2323; en el RC, 2663) y emitido hace como máximo 7 días (2957) puede darse de baja. El motivo
      * va en la línea del RA (3–100 caracteres: 2315, 4203); el RC no lo lleva, pero se pide igual: es lo que explica la anulación en khipu.
+     * <p>
+     * El plazo se cuenta desde la fecha de emisión, en hora de Lima (la zona del {@code clock}), para todo comprobante, boletas y notas de boleta
+     * incluidas: es la regla de la RS 000048-2026, vigente desde 2027-01-01 (RS 000143-2026). Hasta 2026-12-31 la boleta lo cuenta desde su CDR
+     * aceptada, que nunca es anterior a la emisión: la regla de 2027 es la más estricta y cumple las dos (#302).
      */
     public static ComunicacionBaja crear(Comprobante c, int correlativoDelDia, String motivo, Clock clock) {
         LocalDate hoy = LocalDate.now(clock);
@@ -87,7 +91,7 @@ public class ComunicacionBaja {
                     + c.serie() + "-" + c.numero() + " está " + c.estado());
         if (ChronoUnit.DAYS.between(c.fechaEmision(), hoy) > PLAZO_DIAS)
             throw new DomainException("BAJA_INVALIDA", "2957 - El plazo para dar de baja " + c.serie() + "-" + c.numero() + " venció: se emitió el " + c.fechaEmision()
-                    + " y la comunicación debe presentarse dentro de los " + PLAZO_DIAS + " días calendario");
+                    + " y la comunicación debe presentarse dentro de los " + PLAZO_DIAS + " días calendario siguientes a su emisión");
         String m = motivo == null ? "" : motivo.strip();
         if (m.length() < 3 || m.length() > 100 || m.chars().anyMatch(Character::isISOControl))
             throw new DomainException("BAJA_INVALIDA", "2315 - El motivo de la baja debe tener de 3 a 100 caracteres, sin saltos de línea");

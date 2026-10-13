@@ -2732,7 +2732,7 @@ export const handlers = [
       return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
     }
     if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(422, "BAJA_INVALIDA", `2105/2398 - Solo se puede dar de baja un comprobante aceptado por SUNAT; ${factura.serie}-${factura.numero} está ${factura.estado_documento}`);
-    if (diasEntre(factura.fecha_emision, hoyLima()) > 7) return fail(422, "BAJA_INVALIDA", `2957 - El plazo para dar de baja ${factura.serie}-${factura.numero} venció: se emitió el ${factura.fecha_emision} y la comunicación debe presentarse dentro de los 7 días calendario`);
+    if (diasEntre(factura.fecha_emision, hoyLima()) > 7) return fail(422, "BAJA_INVALIDA", `2957 - El plazo para dar de baja ${factura.serie}-${factura.numero} venció: se emitió el ${factura.fecha_emision} y la comunicación debe presentarse dentro de los 7 días calendario siguientes a su emisión`);
     const motivo = (body.motivo ?? "").trim();
     if (motivo.length < 3 || motivo.length > 100 || /[\x00-\x1F\x7F]/.test(motivo)) return fail(422, "BAJA_INVALIDA", "2315 - El motivo de la baja debe tener de 3 a 100 caracteres, sin saltos de línea");
     if (factura.baja && factura.baja.estado !== "RECHAZADA") return fail(422, "BAJA_INVALIDA", `Ya hay una comunicación de baja en curso para ${factura.serie}-${factura.numero}`);

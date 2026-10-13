@@ -283,6 +283,34 @@ class DarDeBajaServiceTest {
         assertThat(comprobantes.buscar(tenantId, f.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ANULADO);
     }
 
+    /**
+     * #302: khipu admite la baja el día 7, pero SUNAT mide el plazo con el día en que la recibe (2957: RA fila 44, RC fila 37). Si el envío falla y el
+     * reintento llega el día 8, se reenvía el mismo archivo, con la fecha de generación original (2346: la del nombre y la del IssueDate deben coincidir),
+     * y el 2957 de SUNAT la deja RECHAZADA con el comprobante vigente; khipu tampoco admite una nueva. Es lo que la guía y la OpenAPI avisan.
+     */
+    @Test void unaBajaAdmitidaElDia7QueSeReintentaElDia8ReenviaElMismoArchivoYSunatDecide() {
+        Comprobante f = facturaAceptada();   // emitida el 2026-09-13
+        Clock dia7 = Clock.fixed(Instant.parse("2026-09-21T04:00:00Z"), ZoneId.of("America/Lima"));   // 2026-09-20 23:00 en Lima
+        Clock dia8 = Clock.fixed(Instant.parse("2026-09-21T15:00:00Z"), ZoneId.of("America/Lima"));
+        DarDeBajaService alDia7 = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, dia7);
+        DarDeBajaService alDia8 = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, dia8);
+        gateway.fallaResumen = new SunatTransientException("0109", "timeout");
+        ComunicacionBaja b = alDia7.solicitar(tenantId, f.id(), "Error en el RUC");
+        assertThat(b.estado()).isEqualTo(EstadoBaja.ERROR_ENVIO);
+        assertThat(b.identificador()).isEqualTo("RA-20260920-1");
+
+        gateway.fallaResumen = null;
+        gateway.statusCode = "99";
+        cdrs.cdr = new Cdr("2957", "El comprobante no puede ser dado de baja por exceder el plazo desde su fecha de emision", List.of());
+        ComunicacionBaja reintento = alDia8.continuar(tenantId, b.id());
+
+        assertThat(gateway.ultimoNombre).as("el mismo archivo, con la fecha del día 7").isEqualTo("20100066603-RA-20260920-1");
+        assertThat(reintento.estado()).isEqualTo(EstadoBaja.RECHAZADA);
+        assertThat(reintento.cdr().codigo()).isEqualTo("2957");
+        assertThat(comprobantes.buscar(tenantId, f.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThatThrownBy(() -> alDia8.solicitar(tenantId, f.id(), "Error en el RUC")).hasMessageContaining("2957");
+    }
+
     @Test void fueraDePlazoNoAceptadoOBoleta() {
         Comprobante f = facturaAceptada();
         Clock tarde = Clock.fixed(Instant.parse("2026-09-21T15:00:00Z"), ZoneId.of("America/Lima"));   // 8 días después

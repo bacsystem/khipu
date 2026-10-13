@@ -33,6 +33,29 @@ class ComunicacionBajaTest {
         assertThatThrownBy(() -> ComunicacionBaja.crear(aceptado(TipoDocumento.FACTURA, "F001", LocalDate.of(2026, 9, 12)), 1, "Error", CLOCK)).hasMessageContaining("2957");
     }
 
+    /**
+     * #302: el plazo de 2957 se cuenta desde la fecha de emisión del comprobante, también para la boleta y la nota de boleta. Es la regla de la
+     * RS 000048-2026, vigente desde 2027-01-01 (RS 000143-2026); hasta 2026-12-31 la boleta lo cuenta desde su CDR aceptada, que nunca es anterior a
+     * la emisión, así que la regla de 2027 es la más estricta y cumple las dos. «Hoy» es la fecha en Lima: el día 7 se admite hasta las 23:59, aunque
+     * en UTC ya sea el día 8, y el día 8 empieza a las 00:00 de Lima.
+     */
+    @Test void elPlazoSeCuentaDesdeLaEmisionEnHoraDeLima() {
+        LocalDate emision = LocalDate.of(2026, 9, 13);
+        Clock dia7UltimoMinuto = Clock.fixed(Instant.parse("2026-09-21T04:59:59Z"), ZoneId.of("America/Lima")); // 2026-09-20 23:59:59 en Lima, ya el 21 en UTC
+        Clock dia8PrimerMinuto = Clock.fixed(Instant.parse("2026-09-21T05:00:00Z"), ZoneId.of("America/Lima")); // 2026-09-21 00:00 en Lima
+        Comprobante boleta = aceptado(TipoDocumento.BOLETA, "B001", emision);
+        Comprobante notaDeBoleta = notaDe(TipoDocumento.NOTA_CREDITO, "BC01", new Nota(TipoDocumento.BOLETA, "B001", 4, "07", "x"), emision, EstadoDocumento.ACEPTADO);
+        Comprobante factura = aceptado(TipoDocumento.FACTURA, "F001", emision);
+        for (Comprobante c : List.of(boleta, notaDeBoleta, factura)) {
+            assertThat(ComunicacionBaja.crear(c, 1, "Error", dia7UltimoMinuto).fechaGeneracion()).as(c.serie() + ": día 7, 23:59 en Lima").isEqualTo(LocalDate.of(2026, 9, 20));
+            assertThatThrownBy(() -> ComunicacionBaja.crear(c, 1, "Error", dia8PrimerMinuto)).as(c.serie() + ": día 8, 00:00 en Lima")
+                    .hasMessageContaining("2957").hasMessageContaining("se emitió el 2026-09-13").hasMessageContaining("7 días calendario siguientes a su emisión");
+        }
+        // El mismo día de la emisión, a las 00:00 de Lima (05:00 UTC), también vale: el plazo no empieza a contar antes de emitir.
+        assertThat(ComunicacionBaja.crear(boleta, 1, "Error", Clock.fixed(Instant.parse("2026-09-13T05:00:00Z"), ZoneId.of("America/Lima"))).fechaGeneracion())
+                .isEqualTo(emision);
+    }
+
     /** #20: una boleta no va en una comunicación de baja (2308): se anula en el resumen diario, con su propio identificador RC y las mismas guardas. */
     @Test void unaBoletaSeDaDeBajaEnElResumenDiario() {
         ComunicacionBaja rc = ComunicacionBaja.crear(aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 18)), 3, "Error en el monto", CLOCK);

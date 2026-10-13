@@ -717,6 +717,7 @@ test("el mock de POST /v1/facturas/:id/baja rechaza lo que el backend rechaza: p
   let r = await post("f-aceptada", { motivo: "Fuera de plazo" }); // emitida el 2026-09-01: antes el mock daba 201
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("2957");
+  expect(r.texto).toContain("dentro de los 7 días calendario siguientes a su emisión"); // #302: el mismo mensaje que ComunicacionBaja.crear
   // Sobre f-baja-red (nadie la anula): f-obs la anula el test principal en paralelo y respondía 2105/2398.
   for (const motivo of ["ab", "Error\tRUC", "x".repeat(101), ""]) {
     r = await post("f-baja-red", { motivo });

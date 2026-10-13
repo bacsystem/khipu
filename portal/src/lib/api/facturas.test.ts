@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { admiteBaja, admiteNotas, esDeBoleta, normalizarComprobante, totalDesdeHeaders, type Baja, type Comprobante } from "./facturas";
 
 /**
@@ -122,6 +122,30 @@ describe("admiteBaja", () => {
     expect(admiteBaja({ ...aceptada, baja: bajaEn("ERROR_ENVIO") }, hoy)).toBe(false);
     // Una baja rechazada por SUNAT no bloquea un nuevo intento.
     expect(admiteBaja({ ...aceptada, baja: bajaEn("RECHAZADA") }, hoy)).toBe(true);
+  });
+
+  /**
+   * #302: el plazo se cuenta desde la emisión (regla de SUNAT desde 2027-01-01, la más estricta) y «hoy» es la fecha de Lima, no la UTC: el día 7
+   * se admite hasta las 23:59 de Lima aunque en UTC ya sea el 8, y el día 8 empieza a las 00:00 de Lima. Sin `hoy` explícito, como en la ficha.
+   */
+  describe("en el borde del día 7, en hora de Lima", () => {
+    afterEach(() => vi.useRealTimers());
+    const boleta: Parameters<typeof admiteBaja>[0] = { tipo: "03", estado_documento: "ACEPTADO", fecha_emision: "2026-09-13", baja: null };
+    const notaDeBoleta: Parameters<typeof admiteBaja>[0] = { ...boleta, tipo: "07" };
+
+    it("el día 7 a las 23:59 de Lima (ya el 8 en UTC) todavía admite la baja", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-21T04:59:59Z"));
+      expect(admiteBaja(boleta)).toBe(true);
+      expect(admiteBaja(notaDeBoleta)).toBe(true);
+    });
+
+    it("el día 8 a las 00:00 de Lima ya no la admite", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-21T05:00:00Z"));
+      expect(admiteBaja(boleta)).toBe(false);
+      expect(admiteBaja(notaDeBoleta)).toBe(false);
+    });
   });
 });
 
