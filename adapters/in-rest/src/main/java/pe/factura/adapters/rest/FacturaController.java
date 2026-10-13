@@ -79,7 +79,8 @@ public class FacturaController {
             `422 FORMA_PAGO_INVALIDA` / `SERIE_INVALIDA` / `RECEPTOR_INVALIDO` (regla de negocio, el mensaje lleva el código
             SUNAT cuando aplica), `409 DUPLICADO` (ya existe ese `correlativo` en la serie), `422 CREDENCIALES_SOL_FALTAN`
             (la empresa aún no cargó usuario/clave SOL), `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su
-            plan, sumando todas sus empresas: se vuelve a emitir el mes siguiente o con otro plan; no gasta número).
+            plan, sumando todas sus empresas: se vuelve a emitir el mes siguiente o con otro plan; no gasta número), `402 PLAN_VENCIDO`
+            (el plan de la cuenta venció y pasó su gracia: se vuelve a emitir al renovarlo; no gasta número, y la consulta y la baja siguen).
 
             **Reintentos seguros** (`Idempotency-Key`): si la red se corta después de enviar el pedido, no se sabe si la factura
             se emitió. Mande una clave única por factura (un UUID) en la cabecera `Idempotency-Key` y repita el mismo pedido con la

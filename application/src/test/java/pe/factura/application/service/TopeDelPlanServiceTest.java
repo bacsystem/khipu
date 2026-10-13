@@ -28,11 +28,14 @@ class TopeDelPlanServiceTest {
     Limite tope = Limite.de(30);
     /** La bajada que espera su fecha, si hay (#18-H1). */
     CambiarPlanDeCuentaUseCase.Programado programado;
+    /** Hasta cuándo está pagada la suscripción y su gracia (#285); sin vencimiento, como el plan gratis. */
+    Instant venceEn;
+    int diasDeGracia;
     final CambiarPlanDeCuentaUseCase planes = new CambiarPlanDeCuentaUseCase() {
         public PlanDeCuenta plan(UUID id) {
             Plan gratis = new Plan(UUID.randomUUID(), "Gratis", BigDecimal.ZERO, new Limites(tope, 1, Limite.de(1), Limite.de(1), 1), EstadoPlan.ACTIVO, true);
-            Suscripcion s = new Suscripcion(UUID.randomUUID(), id, gratis.id(), Instant.parse("2026-10-01T05:00:00Z"), null, 0, null);
-            return new PlanDeCuenta(id, gratis, s, EstadoSuscripcion.VIGENTE, null, programado);
+            Suscripcion s = new Suscripcion(UUID.randomUUID(), id, gratis.id(), Instant.parse("2026-09-01T05:00:00Z"), venceEn, diasDeGracia, null);
+            return new PlanDeCuenta(id, gratis, s, s.estadoEn(reloj.instant()), s.hastaCuandoCubre(), programado);
         }
         public Previsualizacion previsualizar(UUID c, UUID p) { throw new AssertionError("solo se lee el plan"); }
         public PlanDeCuenta cambiar(ActorAdmin a, UUID c, UUID p, Instant v, Integer g) { throw new AssertionError("solo se lee el plan"); }
@@ -112,5 +115,77 @@ class TopeDelPlanServiceTest {
 
         reloj = Clock.fixed(Instant.parse("2026-11-01T05:05:00Z"), ZoneId.of("America/Lima"));
         assertThatThrownBy(() -> service().exigirDisponible(empresa, noviembre)).hasFieldOrPropertyWithValue("codigo", "LIMITE_PLAN").hasMessageContaining("Mini");
+    }
+
+    /**
+     * #285: pagado hasta el 6 de octubre a las 00:00 de Lima, con 3 días de gracia, se sirve hasta el 9 a las 00:00 de Lima (05:00 UTC). Un segundo antes todavía
+     * está en gracia y emite; en el instante exacto ya está vencido y no emite.
+     */
+    @Test void enGraciaEmiteHastaElUltimoSegundoYEnElBordeExactoYaNo() {
+        venceEn = Instant.parse("2026-10-06T05:00:00Z");
+        diasDeGracia = 3;
+
+        reloj = Clock.fixed(Instant.parse("2026-10-09T04:59:59Z"), ZoneId.of("America/Lima"));
+        assertThatCode(() -> service().exigirDisponible(empresa, OCTUBRE)).as("en gracia se sigue emitiendo").doesNotThrowAnyException();
+
+        reloj = Clock.fixed(Instant.parse("2026-10-09T05:00:00Z"), ZoneId.of("America/Lima"));
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE))
+                .isInstanceOf(DomainException.class)
+                .hasFieldOrPropertyWithValue("codigo", "PLAN_VENCIDO")
+                .hasMessageContaining("Gratis")
+                .hasMessageContaining("8 de octubre");
+    }
+
+    /** Vencido no se emite aunque el plan no tenga tope. */
+    @Test void vencidoNoEmiteAunqueElPlanNoTengaTope() {
+        tope = Limite.sinLimite();
+        venceEn = Instant.parse("2026-10-01T05:00:00Z");
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE)).hasFieldOrPropertyWithValue("codigo", "PLAN_VENCIDO");
+    }
+
+    /**
+     * 345-H1: el vencimiento se mira antes que el tope. Con lugar o en el tope, un plan vencido responde PLAN_VENCIDO (no LIMITE_PLAN, que le diría que vuelve a
+     * emitir el mes que viene) y no cuenta lo ocupado: no toma el bloqueo de la cuenta para un rechazo que no depende de él.
+     */
+    @Test void vencidoConLugarOEnElTopeDiceQueVencioSinContarLoOcupado() {
+        venceEn = Instant.parse("2026-10-01T05:00:00Z");
+
+        ocupados.put(cuentaId + "/2026-10", 3L);
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE)).as("con lugar").hasFieldOrPropertyWithValue("codigo", "PLAN_VENCIDO");
+
+        ocupados.put(cuentaId + "/2026-10", 30L);
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE)).as("en el tope").hasFieldOrPropertyWithValue("codigo", "PLAN_VENCIDO");
+
+        assertThat(bloqueadas).as("no se contó ni se bloqueó la cuenta").isEmpty();
+    }
+
+    /**
+     * 345-H3: si la bajada que ya manda también venció (el worker no la aplicó a tiempo), el mensaje dice cuándo terminó la gracia de esa suscripción nueva, no la de
+     * la vieja: pagada hasta el 10 de noviembre (00:00 de Lima) con 2 días de gracia, se sirvió hasta el 11.
+     */
+    @Test void unaBajadaQueYaMandaYVencioDiceSuPropioUltimoDia() {
+        venceEn = Instant.parse("2026-10-20T05:00:00Z");
+        Plan mini = new Plan(UUID.randomUUID(), "Mini", BigDecimal.TEN, new Limites(Limite.de(30), 1, Limite.de(1), Limite.de(1), 1), EstadoPlan.ACTIVO, false);
+        programado = new CambiarPlanDeCuentaUseCase.Programado(mini, new CambioDePlan(mini.id(), Instant.parse("2026-11-01T05:00:00Z"), Instant.parse("2026-11-10T05:00:00Z"), 2));
+
+        reloj = Clock.fixed(Instant.parse("2026-11-15T15:00:00Z"), ZoneId.of("America/Lima"));
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, LocalDate.of(2026, 11, 15)))
+                .hasFieldOrPropertyWithValue("codigo", "PLAN_VENCIDO")
+                .hasMessageContaining("Mini")
+                .hasMessageContaining("11 de noviembre");
+    }
+
+    /** Si ya llegó la fecha de una bajada programada, el estado de pago es el de esa suscripción nueva (aunque el worker todavía no la haya aplicado). */
+    @Test void unaBajadaQueYaMandaTraeSuPropioVencimiento() {
+        venceEn = Instant.parse("2026-10-20T05:00:00Z");
+        Plan gratis = new Plan(UUID.randomUUID(), "Gratis", BigDecimal.ZERO, new Limites(Limite.de(30), 1, Limite.de(1), Limite.de(1), 1), EstadoPlan.ACTIVO, true);
+        programado = new CambiarPlanDeCuentaUseCase.Programado(gratis, new CambioDePlan(gratis.id(), Instant.parse("2026-11-01T05:00:00Z"), null, 0));
+        LocalDate noviembre = LocalDate.of(2026, 11, 1);
+
+        reloj = Clock.fixed(Instant.parse("2026-10-31T15:00:00Z"), ZoneId.of("America/Lima"));
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE)).as("antes de la bajada manda el plan vencido").hasFieldOrPropertyWithValue("codigo", "PLAN_VENCIDO");
+
+        reloj = Clock.fixed(Instant.parse("2026-11-01T05:05:00Z"), ZoneId.of("America/Lima"));
+        assertThatCode(() -> service().exigirDisponible(empresa, noviembre)).as("el gratis no vence").doesNotThrowAnyException();
     }
 }

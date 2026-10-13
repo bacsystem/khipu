@@ -1420,6 +1420,7 @@
     "CERTIFICADO_INVALIDO": "El certificado digital no es válido.",
     "SERIE_INVALIDA": "La serie indicada no es válida.",
     "LIMITE_PLAN": "Alcanzaste el límite de tu plan.",
+    "PLAN_VENCIDO": "Tu plan venció: renuévalo para volver a emitir.",
     "EMPRESA_AJENA": "Esa empresa no pertenece a tu cuenta.",
     "EMPRESA_REQUERIDA": "Todavía no tienes ninguna empresa configurada. Crea una en Empresa antes de continuar.",
     "EMPRESA_INVALIDA": "La empresa indicada no es válida.",

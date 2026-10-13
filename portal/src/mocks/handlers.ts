@@ -709,13 +709,21 @@ function consumoEnMesMock(cuentaId: string, mes: string): number {
 }
 
 /**
- * #18: como el backend, la cuenta en el tope de documentos del mes de su plan no emite (429 LIMITE_PLAN) ni gasta número. `null` si puede emitir: las empresas sin
- * sesión de cuenta (API key de integración) y los planes sin tope no se controlan.
+ * #18: como el backend, la cuenta en el tope de documentos del mes de su plan no emite (429 LIMITE_PLAN) ni gasta número. #285: con el plan vencido (pasada la
+ * gracia) tampoco (402 PLAN_VENCIDO), quede o no lugar en el tope. `null` si puede emitir: las empresas sin sesión de cuenta (API key de integración) no se
+ * controlan, y los planes sin tope solo por el vencimiento.
  */
 function rechazoPorTopeDelPlanMock(request: Request) {
   const c = claims(request);
   if (!c) return null;
-  const plan = db.planesAdmin.find((p) => p.id === planDeCuentaMock(c.cuenta).planId);
+  const suscripcion = planDeCuentaMock(c.cuenta);
+  const plan = db.planesAdmin.find((p) => p.id === suscripcion.planId);
+  if (estadoDeSuscripcion(suscripcion) === "VENCIDA") {
+    // Como el backend: el último día servido es el anterior a «hasta cuándo cubre» (exclusivo), en hora de Lima.
+    const cubre = Date.parse(suscripcion.venceEn!) + suscripcion.diasDeGracia * 86_400_000;
+    const ultimoDia = new Date(cubre - 1).toLocaleDateString("es-PE", { timeZone: "America/Lima", day: "numeric", month: "long" });
+    return fail(402, "PLAN_VENCIDO", `Tu plan ${plan?.nombre ?? ""} venció y su gracia terminó el ${ultimoDia}: renuévalo para volver a emitir. Lo ya emitido se puede seguir consultando y dar de baja`);
+  }
   const tope = plan ? topeDeHoyMock(plan) : undefined;
   if (tope === undefined || consumoDelMesMock(c.cuenta) < tope) return null;
   return fail(429, "LIMITE_PLAN", `Llegaste al tope de ${tope} documentos del mes de tu plan ${plan!.nombre}. Se renueva el 1 del mes que viene; para emitir antes, pide un cambio de plan`);

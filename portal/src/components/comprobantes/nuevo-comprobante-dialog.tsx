@@ -88,6 +88,8 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   const cuenta = useRecursoDelDialogo<MiCuenta>(abierto, "/api/proxy/cuenta");
   const consumo = cuenta.dato?.consumo;
   const enElTope = consumo?.maximo !== undefined && consumo.documentos >= consumo.maximo;
+  // #285: vencido (pasada la gracia) tampoco emite, quede o no lugar en el tope; en gracia sí.
+  const vencido = cuenta.dato?.plan?.estado === "VENCIDA";
 
   // La tasa de la empresa decide el IGV que se previsualiza, y hasta saberla no se afirma ninguna: `null` mientras
   // carga (el pie muestra "IGV" a secas), la general si la lectura falló (con el aviso de abajo diciéndolo).
@@ -135,6 +137,16 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
               className={cn(BOTON_PRIMARIO, "self-end")}
             >
               Ir a Fiscal &amp; certificado
+            </Link>
+          </div>
+        ) : vencido && cuenta.dato ? (
+          <div className="flex flex-col gap-3 px-5 py-4">
+            <Alerta tono="aviso" titulo="Tu plan venció">
+              Tu plan {cuenta.dato.plan.plan.nombre} venció y terminaron sus días de gracia. Vuelves a emitir cuando lo renueves; lo ya emitido lo sigues
+              viendo y puedes darlo de baja.
+            </Alerta>
+            <Link href="/cuenta/plan" onClick={() => setAbierto(false)} className={cn(BOTON_PRIMARIO, "self-end")}>
+              Ver plan y consumo
             </Link>
           </div>
         ) : enElTope && cuenta.dato ? (

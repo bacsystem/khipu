@@ -58,7 +58,8 @@ public class NotaController {
             —2885—, motivo fuera del catálogo —2172— o no admitido sobre una boleta —3259/4367—, importes mayores que el documento o que su
             saldo tras otras notas —3286/3503—), `422 FECHA_INVALIDA` (plazo de envío vencido —2108/1079—), `422 SERIE_INVALIDA`,
             `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su plan: una nota
-            consume como una factura; para anular sin consumir está la comunicación de baja).""")
+            consume como una factura; para anular sin consumir está la comunicación de baja), `402 PLAN_VENCIDO` (el plan de la cuenta
+            venció y pasó su gracia: se vuelve a emitir al renovarlo; la comunicación de baja sigue).""")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Nota creada; `estado_documento` indica si SUNAT ya la aceptó y `nota` trae la factura modificada y el motivo"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422", description = "Datos inválidos o regla de negocio incumplida; `codigo` y `mensaje` explican cuál")})
