@@ -405,17 +405,25 @@ public class Comprobante {
      * Una boleta que pasó el envío individual va en el resumen diario {@code identificador} (274-H1): queda ENVIADA hasta que SUNAT responda el ticket, y
      * el CDR del resumen la acepta o la rechaza ({@link #aplicarCdr}).
      */
-    public void informarEnResumen(String identificador) {
+    public void informarEnResumen(String identificador, boolean fueraDePlazo) {
         if (!esDeBoleta()) throw new DomainException("RESUMEN_INVALIDO", "Solo una boleta o una nota que la modifica se informa en un resumen diario");
-        transitar(EstadoDocumento.ENVIADO, "Informada a SUNAT en el resumen diario " + identificador + ": pasó el envío individual (1079)");
+        transitar(EstadoDocumento.ENVIADO, "Informada a SUNAT en el resumen diario " + identificador + (fueraDePlazo
+                ? " fuera de plazo: pasó el 7.º día (vencía el " + fechaLimiteEnvio() + "), SUNAT la acepta con la observación 4443"
+                : ": pasó el envío individual (1079)"));
     }
 
-    /** Una boleta, o una nota que la modifica, que ya no se puede enviar sola, pero todavía se puede informar en un resumen diario ({@link PlazoEnvio#soloPorResumen}). */
+    /**
+     * Una boleta, o una nota que la modifica, que ya no se puede enviar sola, pero se puede informar en un resumen diario ({@link PlazoEnvio#soloPorResumen}): en
+     * plazo hasta el 7.º día, fuera de plazo después ({@link #informaFueraDePlazo}).
+     */
     public boolean soloPorResumen(LocalDate hoy) { return plazoEnvio().soloPorResumen(fechaEmision, hoy); }
+
+    /** Si hoy se informaría en el resumen diario pasado el 7.º día: SUNAT la acepta con la observación 4443 (#331). */
+    public boolean informaFueraDePlazo(LocalDate hoy) { return plazoEnvio().informaFueraDePlazo(fechaEmision, hoy); }
 
     public void aplicarCdr(Cdr cdr, String cdrKey) {
         EstadoDocumento destino = cdr.esRechazo() ? EstadoDocumento.RECHAZADO
-                : cdr.tieneObservaciones() ? EstadoDocumento.ACEPTADO_CON_OBS : EstadoDocumento.ACEPTADO;
+                : cdr.esObservado() ? EstadoDocumento.ACEPTADO_CON_OBS : EstadoDocumento.ACEPTADO;
         transitar(destino, cdr.codigo() + " - " + cdr.descripcion() + (cdr.tieneObservaciones() ? " (" + String.join("; ", cdr.observaciones()) + ")" : ""));
         this.cdr = cdr; this.cdrKey = cdrKey; this.ultimoError = null;
     }
@@ -448,10 +456,16 @@ public class Comprobante {
     /** Último día en que SUNAT acepta recibirlo ({@link PlazoEnvio}). */
     public LocalDate fechaLimiteEnvio() { return plazoEnvio().fechaLimite(fechaEmision); }
 
-    public boolean fueraDePlazo(LocalDate hoy) { return plazoEnvio().vencido(fechaEmision, hoy); }
+    /**
+     * Venció el plazo y ya no le queda canal para llegar a SUNAT ({@link PlazoEnvio#sinCanal}): lo que pasa a FUERA_DE_PLAZO. Una boleta, o una nota B que va en el
+     * resumen diario, nunca (#331): pasado el 7.º día se informa igual, fuera de plazo.
+     */
+    public boolean fueraDePlazo(LocalDate hoy) { return plazoEnvio().sinCanal(fechaEmision, hoy); }
 
     /** Venció el plazo sin llegar a SUNAT: terminal para el envío individual, con el motivo de SUNAT ({@link PlazoEnvio#motivoDeRechazo}). */
     public void marcarFueraDePlazo(LocalDate hoy) {
+        if (informaFueraDePlazo(hoy))
+            throw new DomainException("TRANSICION_INVALIDA", "El plazo de envío venció el " + fechaLimiteEnvio() + ", pero todavía se informa en un resumen diario, fuera de plazo (4443)");
         if (!fueraDePlazo(hoy)) throw new DomainException("TRANSICION_INVALIDA", "El plazo de envío vence el " + fechaLimiteEnvio() + ": todavía se puede enviar");
         this.ultimoError = plazoEnvio().motivoDeRechazo(fechaEmision);
         transitar(EstadoDocumento.FUERA_DE_PLAZO, this.ultimoError);

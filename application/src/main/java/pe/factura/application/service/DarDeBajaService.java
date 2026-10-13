@@ -80,7 +80,7 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
                 throw new DomainException("RESUMEN_INVALIDO", "Ya hay un resumen diario en curso para " + c.serie() + "-" + c.numero());
             ComunicacionBaja b = ComunicacionBaja.altaEnResumen(c, bajas.siguienteCorrelativo(tenantId, LocalDate.now(clock)), clock);
             firmarYGuardar(tenant, c, b);
-            c.informarEnResumen(b.identificador());
+            c.informarEnResumen(b.identificador(), b.fueraDePlazo());
             comprobantes.guardar(c);
             bajas.guardar(b);
             return b;

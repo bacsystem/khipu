@@ -15,6 +15,9 @@ import java.util.List;
  * Lo que decide es si el documento es «de boleta», no su tipo (#293): una nota B sigue a la boleta que modifica (NotaCredito2_0 / NotaDebito2_0 filas 18–19:
  * 1079 pasado el 5.º día), y una nota F a la factura (2108). La NC 10 y la ND 03 de boleta no se informan en el resumen diario (guía, p. 19): pasado el envío
  * individual no les queda canal, así que su plazo final es el 5.º día.
+ * <p>
+ * Pasado el 7.º día lo que va en el resumen diario no se queda sin canal (#331): SUNAT no rechaza el alta tardía, la observa (4443). El plazo sigue siendo
+ * el 7.º día ({@link #dias}): pasarlo es informar fuera de plazo, no imposible. La anulación en el resumen sí tiene tope (2957, {@link ComunicacionBaja}).
  *
  * @param documento cómo se nombra en el mensaje de rechazo
  * @param diasEnvioIndividual hasta qué día va sola (sendBill)
@@ -51,16 +54,36 @@ public record PlazoEnvio(String documento, int diasEnvioIndividual, int dias, bo
     /** Último día (inclusive) en que SUNAT acepta el envío (para lo de boleta, en un resumen diario si lo admite). */
     public LocalDate fechaLimite(LocalDate fechaEmision) { return fechaEmision.plusDays(dias); }
 
+    /** Pasó el plazo legal ({@link #fechaLimite}). No dice si todavía hay canal: lo de boleta que va en el resumen se sigue informando ({@link #sinCanal}). */
     public boolean vencido(LocalDate fechaEmision, LocalDate hoy) { return hoy.isAfter(fechaLimite(fechaEmision)); }
 
-    /** Ya no se puede enviar solo pero todavía se puede informar en un resumen diario (274-H1): el 6.º y el 7.º día de lo de boleta. */
+    /** Si va en el resumen diario: lo de boleta salvo la NC 10 y la ND 03, cuyo plazo final es el del envío individual. */
+    private boolean vaEnResumen() { return deBoleta && dias > diasEnvioIndividual; }
+
+    /**
+     * Venció y ya no le queda ningún canal: lo que pasa a FUERA_DE_PLAZO. La factura y sus notas (2108) y la NC 10 / ND 03 de boleta (1079). Lo que va en el
+     * resumen diario nunca (#331): SUNAT observa el alta tardía (4443, Resumen Diario 1_1 fila 14), no la rechaza.
+     */
+    public boolean sinCanal(LocalDate fechaEmision, LocalDate hoy) { return vencido(fechaEmision, hoy) && !vaEnResumen(); }
+
+    /**
+     * Se informa en el resumen diario pasado el 7.º día (#331): SUNAT lo acepta con la observación 4443 «El comprobante fue informado fuera del plazo
+     * establecido» (vigente desde 2024-11-11, Control de Cambios fila 501). Falta validarlo en e-beta.
+     */
+    public boolean informaFueraDePlazo(LocalDate fechaEmision, LocalDate hoy) { return vaEnResumen() && vencido(fechaEmision, hoy); }
+
+    /**
+     * Ya no se puede enviar solo pero todavía se puede informar en un resumen diario (274-H1): desde el 6.º día de lo de boleta. Hasta el 7.º en plazo; después,
+     * fuera de plazo ({@link #informaFueraDePlazo}, #331).
+     */
     public boolean soloPorResumen(LocalDate fechaEmision, LocalDate hoy) {
-        return hoy.isAfter(fechaEmision.plusDays(diasEnvioIndividual)) && !vencido(fechaEmision, hoy);
+        return vaEnResumen() && hoy.isAfter(fechaEmision.plusDays(diasEnvioIndividual));
     }
 
     /**
      * Qué pasa pasado el plazo final, con el código de SUNAT. No es lo mismo en los dos (274-H1): una factura queda fuera de fecha (2108) y hay que emitir
-     * otra; una boleta, pasados también los 7 días del resumen diario, ya no se recibe a tiempo ni en él.
+     * otra; una boleta, pasados también los 7 días del resumen diario, ya no se recibe a tiempo ni en él. Lo de boleta que va en el resumen solo lo usa al
+     * emitir (no se emite con una fecha ya vencida); lo ya firmado se informa igual, fuera de plazo (#331).
      */
     public String motivoDeRechazo(LocalDate fechaEmision) {
         LocalDate limite = fechaLimite(fechaEmision);

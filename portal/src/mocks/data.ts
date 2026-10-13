@@ -126,6 +126,8 @@ export type Comprobante = {
   ultimo_error: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   fecha_vencimiento?: string | null;
+  /** Último día en que SUNAT lo recibe a tiempo (`PlazoEnvio`); solo lo trae el sembrado que lo necesita. */
+  fecha_limite_envio?: string;
   totales: {
     gravado: number; exonerado: number; inafecto: number; igv: number; total: number; ivap?: number; exportacion?: number; gratuito?: number; igv_gratuitas?: number; total_precio_venta?: number; total_anticipos?: number;
     total_cargos?: number; redondeo?: number; cargos?: Array<{ tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string }>;
@@ -151,6 +153,8 @@ export type Baja = {
   fecha_referencia?: string | null;
   motivo: string;
   condicion?: "ALTA" | "BAJA";
+  /** #331: un alta informada pasado el 7.º día (SUNAT la observa con 4443). El backend la manda siempre; una baja, en false. */
+  fuera_de_plazo?: boolean;
   estado: "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA";
   ticket: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
@@ -1152,6 +1156,29 @@ export function resetDb() {
       totales: { gravado: 25, exonerado: 0, inafecto: 0, igv: 4.5, total: 29.5 },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/b-sin-documento/xml", pdf: "/v1/facturas/b-sin-documento/pdf", cdr: "/v1/facturas/b-sin-documento/cdr" },
+    },
+    {
+      // #331: boleta con el envío fallido y el 7.º día ya pasado. No vence: al reenviarla va en un resumen diario fuera de plazo y SUNAT la acepta con
+      // la observación 4443. Solo para ese e2e (lo deja ACEPTADO_CON_OBS).
+      id: "b-fuera-de-plazo",
+      tipo: "03",
+      serie: "B001",
+      numero: 23,
+      fecha_emision: "2026-09-03",
+      fecha_limite_envio: "2026-09-10",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "1", num_doc: "44781209", razon_social: "MIGUEL ANGEL VALENCIA RAMOS", direccion: null },
+      items: [{ codigo: null, descripcion: "Zapatillas urbanas", unidad: "NIU", cantidad: 1, precio_unitario: 59, tipo_afectacion_igv: "10", valor_venta: 50, igv: 9, precio_venta: 59 }],
+      estado_documento: "ERROR_ENVIO",
+      hash: "b-fuera-de-plazo==",
+      nombre_archivo: "20123456786-03-B001-00000023",
+      intentos: 3,
+      ultimo_error: "SUNAT no respondió a tiempo",
+      cdr: null,
+      totales: { gravado: 50, exonerado: 0, inafecto: 0, igv: 9, total: 59 },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: "/v1/facturas/b-fuera-de-plazo/xml", pdf: "/v1/facturas/b-fuera-de-plazo/pdf" },
     },
   ]);
 }

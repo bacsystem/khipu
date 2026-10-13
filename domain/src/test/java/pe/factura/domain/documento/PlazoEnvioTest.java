@@ -71,6 +71,28 @@ class PlazoEnvioTest {
         }
     }
 
+    /**
+     * #331: pasado el 7.º día SUNAT no rechaza el alta en el resumen diario: la observa (4443, Resumen Diario 1_1 fila 14, vigente desde 2024-11-11). La boleta y la
+     * nota B que va en él se siguen informando, fuera de plazo; nunca se quedan sin canal. La factura, sus notas y la NC 10 / ND 03 de boleta sí (2108, 1079).
+     */
+    @Test void pasadoElSeptimoDiaLaBoletaSeSigueInformandoEnElResumenFueraDePlazo() {
+        LocalDate emision = LocalDate.of(2026, 9, 10);
+        for (PlazoEnvio p : List.of(BOLETA, deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "07"), deNota(TipoDocumento.NOTA_DEBITO, TipoDocumento.BOLETA, "01"))) {
+            assertThat(p.soloPorResumen(emision, LocalDate.of(2026, 9, 18))).as("8.º día: en el resumen").isTrue();
+            assertThat(p.soloPorResumen(emision, LocalDate.of(2026, 10, 30))).as("semanas después: en el resumen").isTrue();
+            assertThat(p.informaFueraDePlazo(emision, LocalDate.of(2026, 9, 17))).as("7.º día: en plazo").isFalse();
+            assertThat(p.informaFueraDePlazo(emision, LocalDate.of(2026, 9, 18))).as("8.º día: fuera de plazo, con 4443").isTrue();
+            assertThat(p.sinCanal(emision, LocalDate.of(2026, 10, 30))).isFalse();
+        }
+        assertThat(FACTURA.sinCanal(emision, LocalDate.of(2026, 9, 13))).isFalse();
+        assertThat(FACTURA.sinCanal(emision, LocalDate.of(2026, 9, 14))).as("2108").isTrue();
+        assertThat(FACTURA.informaFueraDePlazo(emision, LocalDate.of(2026, 9, 14))).isFalse();
+        assertThat(FACTURA.soloPorResumen(emision, LocalDate.of(2026, 9, 14))).isFalse();
+        PlazoEnvio nc10 = deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "10");
+        assertThat(nc10.sinCanal(emision, LocalDate.of(2026, 9, 16))).as("la NC 10 no va en el resumen: sin canal al 6.º día").isTrue();
+        assertThat(nc10.informaFueraDePlazo(emision, LocalDate.of(2026, 9, 18))).isFalse();
+    }
+
     /** El corte grueso de ControlarPlazoEnvioService usa este mínimo: debe seguir siendo válido si algún tipo cambia su plazo. */
     @Test void diasMinimoEsElMenorEntreTodosLosPlazos() {
         assertThat(PlazoEnvio.diasMinimo()).isEqualTo(3);

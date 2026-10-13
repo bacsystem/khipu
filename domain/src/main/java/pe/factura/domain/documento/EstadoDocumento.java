@@ -7,7 +7,10 @@ import java.util.Set;
 public enum EstadoDocumento {
     RECIBIDO, INVALIDO, FIRMADO, ERROR_ENVIO, PENDIENTE_AGRUPACION, ENVIADO,
     ACEPTADO, ACEPTADO_CON_OBS, RECHAZADO, ANULADO,
-    /** No llegó a SUNAT dentro del plazo de envío ({@link PlazoEnvio}); terminal: hay que emitir de nuevo. */
+    /**
+     * No llegó a SUNAT dentro del plazo de envío y ya no le queda canal ({@link PlazoEnvio#sinCanal}); terminal: hay que emitir de nuevo. La factura y sus notas, y la
+     * NC 10 / ND 03 de boleta; una boleta ya no llega a este estado (#331), se informa en el resumen diario fuera de plazo.
+     */
     FUERA_DE_PLAZO,
     /**
      * Un administrador dejó de intentar enviarlo (#196): estaba en error de envío y no se recupera. Terminal: hay que emitir de nuevo. No pide atención (ya lo resolvió un

@@ -98,6 +98,23 @@ test("reenvía un comprobante en error y queda aceptado", async ({ page }) => {
 });
 
 /**
+ * #331: una boleta con el envío fallido y el 7.º día pasado no vence. La ficha avisa que al enviarla se informa fuera de plazo; al reenviarla va en un
+ * resumen diario de alta y SUNAT la acepta con la observación 4443, que la ficha muestra.
+ */
+test("reenvía una boleta pasada del 7.º día: se informa en un resumen fuera de plazo y queda aceptada con la 4443", async ({ page }) => {
+  await page.goto("/comprobantes/b-fuera-de-plazo");
+  await expect(page.getByTestId("aviso-envio-fuera-de-plazo")).toContainText("resumen diario fuera de plazo");
+
+  await page.getByRole("button", { name: "Reenviar", exact: true }).click();
+
+  await expect(page.getByText("Aceptado con obs.", { exact: true }).first()).toBeVisible();
+  const baja = page.getByTestId("baja");
+  await expect(baja).toContainText("(alta)");
+  await expect(baja.getByTestId("aviso-fuera-de-plazo")).toContainText("4443");
+  await expect(page.getByTestId("aviso-envio-fuera-de-plazo")).toHaveCount(0);
+});
+
+/**
  * «Reenviar» usaba `fetch` a pelo, sin mirar la respuesta ni capturar el rechazo. Importa más que en otros botones: un
  * comprobante en error de envío puede estar **aceptado** en SUNAT, así que un fallo silencioso es cómo el emisor se queda
  * sin saber el estado real y reintenta a ciegas.

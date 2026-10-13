@@ -130,6 +130,12 @@ export type Baja = {
   motivo: string;
   /** `BAJA` anula el comprobante; `ALTA` informa en el resumen diario una boleta que pasó el envío individual (274-H1). Ausente en respuestas viejas: baja. */
   condicion?: "ALTA" | "BAJA";
+  /**
+   * #331: un `ALTA` generada pasado el 7.º día desde la emisión. SUNAT no la rechaza: la acepta con la observación 4443 y la boleta queda `ACEPTADO_CON_OBS`.
+   * Es la previsión de khipu: si el envío del resumen se reintentó otro día, SUNAT puede observarla aunque diga `false` (manda el CDR). Ausente en respuestas
+   * viejas: en plazo.
+   */
+  fuera_de_plazo?: boolean;
   estado: EstadoBaja;
   ticket: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
@@ -179,6 +185,21 @@ export function admiteNotas(c: Pick<Comprobante, "tipo" | "estado_documento" | "
  */
 export function esDeBoleta(c: { tipo: string; nota?: { tipo_afectado: string } | null }): boolean {
   return c.tipo === "03" || c.nota?.tipo_afectado === "03";
+}
+
+/**
+ * #331: una boleta, o una nota sobre boleta que va en el resumen diario, todavía sin llegar a SUNAT y pasado su plazo (el 7.º día). No vence: al enviarla
+ * khipu la informa en un resumen diario fuera de plazo y SUNAT la acepta con la observación 4443. La NC 10 y la ND 03 de boleta no van en el resumen (guía,
+ * p. 19): esas sí vencen. Es el `Comprobante.informaFueraDePlazo` del backend; `hoy` es la fecha de Lima.
+ */
+export function seInformaFueraDePlazo(
+  c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_limite_envio"> & { nota?: { tipo_afectado: string; motivo: string } | null },
+  hoy: string = hoyLima(),
+): boolean {
+  if (c.estado_documento !== "FIRMADO" && c.estado_documento !== "ERROR_ENVIO") return false;
+  if (!esDeBoleta(c) || !c.fecha_limite_envio) return false;
+  const sinResumen = (c.tipo === "07" && c.nota?.motivo === "10") || (c.tipo === "08" && c.nota?.motivo === "03");
+  return !sinResumen && diasEntre(c.fecha_limite_envio, hoy) > 0;
 }
 
 export const ETIQUETAS_TIPO_DOC: Record<string, string> = {

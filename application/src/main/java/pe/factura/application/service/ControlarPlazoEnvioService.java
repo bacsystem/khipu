@@ -16,6 +16,10 @@ import java.util.List;
  * Barrido periódico del plazo de envío (#37): lo que sigue FIRMADO (emitido con {@code enviar_automatico: false} y nunca
  * enviado) o en ERROR_ENVIO al vencer el plazo pasa a FUERA_DE_PLAZO. Los envíos individuales ya lo comprueban al
  * intentar; este barrido cubre lo que nadie intenta enviar y deja el estado listo para el portal y los webhooks.
+ * <p>
+ * Una boleta, o una nota B que va en el resumen diario, ya no se cierra (#331): pasado el 7.º día SUNAT la recibe igual en un resumen, con la observación 4443,
+ * así que sigue enviable. Las boletas que ya están FUERA_DE_PLAZO (cerradas antes de #331) no se rescatan: el estado es terminal y reabrirlo espera a validar
+ * la 4443 en e-beta.
  */
 @RequiredArgsConstructor
 public class ControlarPlazoEnvioService implements ControlarPlazoEnvioUseCase {
@@ -29,7 +33,7 @@ public class ControlarPlazoEnvioService implements ControlarPlazoEnvioUseCase {
         // Corte grueso en SQL con el plazo más corto entre todos los tipos; la regla exacta por tipo la decide el dominio.
         LocalDate corte = hoy.minusDays(PlazoEnvio.diasMinimo() + 1);
         List<Comprobante> vencidos = new ArrayList<>();
-        for (Comprobante c : comprobantes.pendientesDeEnvioEmitidosHasta(corte)) {
+        for (Comprobante c : comprobantes.pendientesQueVencenEmitidosHasta(corte)) {
             if (!c.fueraDePlazo(hoy)) continue;
             c.marcarFueraDePlazo(hoy);
             uow.ejecutar(() -> comprobantes.guardar(c));

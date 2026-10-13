@@ -8,7 +8,7 @@ import { BajaEstado } from "@/components/comprobantes/baja-estado";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { admiteBaja, admiteCorreo, admiteNotas, esDeBoleta, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { admiteBaja, admiteCorreo, admiteNotas, esDeBoleta, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, seInformaFueraDePlazo, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -315,7 +315,12 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           <Campo etiqueta="Fecha de emisión">
             <span className="font-mono text-xs font-medium text-foreground">{formatearFecha(c.fecha_emision)}</span>
             {c.fecha_vencimiento ? <span className="block text-[11px] text-muted-foreground">Vence {formatearFecha(c.fecha_vencimiento)}</span> : null}
-            {c.fecha_limite_envio && (c.estado_documento === "FIRMADO" || c.estado_documento === "ERROR_ENVIO") ? (
+            {c.fecha_limite_envio && seInformaFueraDePlazo(c) ? (
+              // #331: no vence; al enviarla va en un resumen diario fuera de plazo y SUNAT la observa (4443), no la rechaza.
+              <span className="block text-[11px] text-warning-foreground" data-testid="aviso-envio-fuera-de-plazo">
+                Plazo vencido el {formatearFecha(c.fecha_limite_envio)}: al enviarla se informa en un resumen diario fuera de plazo (SUNAT la acepta con la observación 4443)
+              </span>
+            ) : c.fecha_limite_envio && (c.estado_documento === "FIRMADO" || c.estado_documento === "ERROR_ENVIO") ? (
               <span className="block text-[11px] text-warning-foreground">Enviar a SUNAT hasta el {formatearFecha(c.fecha_limite_envio)}</span>
             ) : null}
             {c.fecha_limite_envio && c.estado_documento === "FUERA_DE_PLAZO" ? (

@@ -23,8 +23,11 @@ public interface ComprobanteRepository {
     BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo);
     /** Notas de crédito/débito emitidas sobre la factura serie-número (cualquier estado), en orden de emisión. */
     List<Comprobante> notasDe(UUID tenantId, String serieFactura, long numeroFactura);
-    /** Comprobantes de cualquier empresa aún no enviados (FIRMADO o ERROR_ENVIO) emitidos hasta {@code fechaEmisionMaxima} inclusive, para el control del plazo. */
-    List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fechaEmisionMaxima);
+    /**
+     * Comprobantes de cualquier empresa aún no enviados (FIRMADO o ERROR_ENVIO) emitidos hasta {@code fechaEmisionMaxima} inclusive, para el control del plazo. Solo
+     * los que pueden vencer: no la boleta ni la nota B que va en el resumen diario, que se informa fuera de plazo (#331).
+     */
+    List<Comprobante> pendientesQueVencenEmitidosHasta(java.time.LocalDate fechaEmisionMaxima);
     /** Comprobantes firmados de cualquier empresa sin CDR en el storage: ENVIADO, ERROR_ENVIO, o aceptados/rechazados que lo perdieron. */
     List<Comprobante> pendientesDeCdr();
     /** Historial de cambios de estado del comprobante (#4), en orden cronológico; vacío si no tiene. */

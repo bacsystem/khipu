@@ -161,6 +161,52 @@ class DarDeBajaServiceTest {
     }
 
     /**
+     * #331: pasado el 7.º día la boleta, firmada o con el envío fallido, ya no se cierra como fuera de plazo: va a un resumen de alta y SUNAT la acepta con la
+     * observación 4443. Va en un RC propio, separado del de una boleta en plazo del mismo día: si SUNAT rechazara el resumen tardío entero, la otra no cae
+     * con él. Falta validarlo en e-beta.
+     */
+    @Test void pasadoElSeptimoDiaLaBoletaSeInformaEnUnResumenPropioYQuedaAceptadaConObservaciones() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Comprobante tardia = emitir.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false));
+        Clock diaOcho = Clock.fixed(Instant.parse("2026-09-21T15:00:00Z"), ZoneId.of("America/Lima"));   // 13 + 8
+        Comprobante enPlazo = Comprobante.persistido(UUID.randomUUID(), tenantId, TipoDocumento.BOLETA, "B001", 99L, LocalDate.of(2026, 9, 15), EstadoDocumento.ERROR_ENVIO,
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)))
+                .firma("h", "20100066603-03-B001-99", tardia.xmlKey()).rehidratar();
+        comprobantes.guardar(enPlazo);
+        DarDeBajaService resumen = new DarDeBajaService(bajas, comprobantes, tenants, storage, new Fakes.Ubl(), xsd, signer, gateway, cdrs, outbox, Fakes.UOW, diaOcho);
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, diaOcho, RechazoDeSolRepository.NINGUNO, resumen);
+        int enviadosSolos = gateway.enviados;
+        cdrs.cdr = new Cdr("0", "El Resumen diario RC-20260921-1, ha sido aceptado", List.of("4443 - El comprobante fue informado fuera del plazo establecido"));
+
+        Comprobante resuelta = enviar.enviar(tenantId, tardia.id());
+
+        assertThat(gateway.enviados).as("ni sendBill (1079) ni FUERA_DE_PLAZO: va al resumen").isEqualTo(enviadosSolos);
+        assertThat(resuelta.estado()).isEqualTo(EstadoDocumento.ACEPTADO_CON_OBS);
+        assertThat(resuelta.cdr().observaciones()).singleElement().asString().startsWith("4443");
+        ComunicacionBaja alta = bajas.deComprobante(tenantId, tardia.id()).get(0);
+        assertThat(alta.alta()).isTrue();
+        assertThat(alta.fueraDePlazo()).isTrue();
+        assertThat(alta.identificador()).isEqualTo("RC-20260921-1");
+        assertThat(validado[0]).startsWith("<SummaryDocuments>");
+        // El historial de la boleta dice que se informó fuera de plazo: el servicio le pasa a la boleta lo que sabe el resumen.
+        assertThat(comprobantes.eventosDe(tenantId, tardia.id())).filteredOn(e -> e.estadoNuevo() == EstadoDocumento.ENVIADO).singleElement()
+                .satisfies(e -> assertThat(e.detalle()).contains("RC-20260921-1 fuera de plazo").contains("4443"));
+
+        // La boleta en plazo del mismo día va en otro RC (correlativo siguiente): nunca comparten resumen.
+        cdrs.cdr = new Cdr("0", "El Resumen diario RC-20260921-2, ha sido aceptado", List.of());
+        assertThat(enviar.enviar(tenantId, enPlazo.id()).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        ComunicacionBaja otra = bajas.deComprobante(tenantId, enPlazo.id()).get(0);
+        assertThat(otra.identificador()).isEqualTo("RC-20260921-2");
+        assertThat(otra.fueraDePlazo()).isFalse();
+        assertThat(comprobantes.eventosDe(tenantId, enPlazo.id())).filteredOn(e -> e.estadoNuevo() == EstadoDocumento.ENVIADO).singleElement()
+                .satisfies(e -> assertThat(e.detalle()).doesNotContain("fuera de plazo"));
+        // Y la boleta tardía, ya aceptada, no se puede anular: la baja sí tiene tope (2957).
+        assertThatThrownBy(() -> resumen.solicitar(tenantId, tardia.id(), "Se cobró dos veces")).hasMessageContaining("2957");
+    }
+
+    /**
      * #290, el borde en hora de Lima: a las 23:30 del 5.º día (04:30Z del 6.º) la boleta todavía va sola con sendBill. Con un reloj en UTC ya sería el 6.º
      * día y se iría al resumen un día antes.
      */

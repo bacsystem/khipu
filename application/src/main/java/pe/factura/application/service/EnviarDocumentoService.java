@@ -6,7 +6,6 @@ import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Cdr;
 import pe.factura.domain.documento.Comprobante;
-import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.tenant.Tenant;
 
@@ -60,18 +59,18 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
                 .orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
         if (!c.estado().esEnviable())
             throw new DomainException("ESTADO_NO_ENVIABLE", "El comprobante está en estado " + c.estado());
-        // Pasado el envío individual una boleta ya no va sola (1079): SUNAT la recibe en un resumen diario hasta el séptimo día (274-H1).
+        // Pasado el envío individual una boleta ya no va sola (1079): SUNAT la recibe en un resumen diario, en plazo hasta el séptimo día (274-H1) y
+        // después fuera de plazo, con la observación 4443 (#331; falta validarlo en e-beta). Cada una en su propio RC (ver ComunicacionBaja.altaEnResumen).
         if (c.soloPorResumen(LocalDate.now(clock))) {
             if (resumen != null) return resumen.informar(tenantId, comprobanteId);
             throw new DomainException("FUERA_DE_PLAZO", c.nombreArchivo() + ": 1079 - Pasado el envío individual, SUNAT solo recibe " + (c.esNota() ? "esta nota" : "esta boleta") + " en un resumen diario");
         }
-        // Pasado el plazo SUNAT rechaza (2108, o 1079 en boletas) y el número ya está consumido: se cierra aquí, sin gastar el envío (#37).
+        // Pasado el plazo sin canal SUNAT rechaza (2108 en facturas y sus notas, 1079 en la NC 10 / ND 03 de boleta) y el número ya está consumido: se cierra
+        // aquí, sin gastar el envío (#37). Una boleta nunca llega acá: va al resumen de arriba (#331). Una nota se vuelve a emitir con fecha vigente.
         if (c.fueraDePlazo(LocalDate.now(clock))) {
             c.marcarFueraDePlazo(LocalDate.now(clock));
             uow.ejecutar(() -> comprobantes.guardar(c));
-            // «Emita uno nuevo» salvo en la boleta: su fecha es la de la venta y no se reemplaza (274-H1, #290). Una nota, también la de una boleta (#293),
-            // se vuelve a emitir con fecha vigente.
-            throw new DomainException("FUERA_DE_PLAZO", c.nombreArchivo() + ": " + c.ultimoError() + (c.tipo() == TipoDocumento.BOLETA ? "" : ". Emita un comprobante nuevo"));
+            throw new DomainException("FUERA_DE_PLAZO", c.nombreArchivo() + ": " + c.ultimoError() + ". Emita un comprobante nuevo");
         }
         Tenant tenant = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
         tenant.exigirCredencialesSol();

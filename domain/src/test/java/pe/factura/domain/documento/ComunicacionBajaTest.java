@@ -104,6 +104,35 @@ class ComunicacionBajaTest {
         assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(factura, 1, CLOCK)).as("una factura no va en un resumen").extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
     }
 
+    /**
+     * #331: pasado el 7.º día SUNAT no rechaza el alta (4443 es OBSERV, RC fila 14): la boleta, firmada o con el envío fallido, va igual a un resumen de alta,
+     * que sabe que sale fuera de plazo. Es un RC propio, con esa sola línea: si SUNAT rechazara el resumen entero no arrastra boletas en plazo (falta validarlo
+     * en e-beta). La baja de esa misma boleta, en cambio, sigue rechazándose pasado el 7.º día (2957, RC fila 37).
+     */
+    @Test void pasadoElSeptimoDiaLaBoletaVaAUnResumenDeAltaFueraDePlazoPeroNoSeDaDeBaja() {
+        LocalDate emision = LocalDate.of(2026, 9, 10);   // CLOCK es 2026-09-20: 10.º día
+        Comprobante firmada = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 4L, emision, EstadoDocumento.FIRMADO,
+                RECEPTOR, List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).rehidratar();
+        Comprobante conError = notaDe(TipoDocumento.NOTA_CREDITO, "BC01", new Nota(TipoDocumento.BOLETA, "B001", 4, "07", "x"), emision, EstadoDocumento.ERROR_ENVIO);
+        for (Comprobante c : List.of(firmada, conError)) {
+            ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(c, 3, CLOCK);
+            assertThat(alta.alta()).isTrue();
+            assertThat(alta.identificador()).isEqualTo("RC-20260920-3");
+            assertThat(alta.fechaReferencia()).isEqualTo(emision);
+            assertThat(alta.fueraDePlazo()).as(c.serie()).isTrue();
+            assertThat(alta.motivo()).contains("fuera de plazo").contains("4443");
+        }
+        Comprobante septimoDia = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 5L, LocalDate.of(2026, 9, 13), EstadoDocumento.FIRMADO,
+                RECEPTOR, List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).rehidratar();
+        assertThat(ComunicacionBaja.altaEnResumen(septimoDia, 1, CLOCK).fueraDePlazo()).as("7.º día: en plazo").isFalse();
+        assertThat(ComunicacionBaja.crear(aceptado(TipoDocumento.BOLETA, "B001", LocalDate.of(2026, 9, 13)), 1, "Error", CLOCK).fueraDePlazo()).as("una baja no es un alta tardía").isFalse();
+        Comprobante tardiaAceptada = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.BOLETA, "B001", 6L, emision, EstadoDocumento.ACEPTADO_CON_OBS,
+                RECEPTOR, List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).firma("h", "n", "k").rehidratar();
+        assertThatThrownBy(() -> ComunicacionBaja.crear(tardiaAceptada, 1, "Error", CLOCK)).hasMessageContaining("2957");
+        Comprobante nc10 = notaDe(TipoDocumento.NOTA_CREDITO, "BC01", new Nota(TipoDocumento.BOLETA, "B001", 4, "10", "x"), emision, EstadoDocumento.ERROR_ENVIO);
+        assertThatThrownBy(() -> ComunicacionBaja.altaEnResumen(nc10, 1, CLOCK)).as("la NC 10 no va en el resumen, ni en plazo ni fuera").extracting("codigo").isEqualTo("RESUMEN_INVALIDO");
+    }
+
     static Comprobante notaDe(TipoDocumento tipo, String serie, Nota nota, LocalDate emision, EstadoDocumento estado) {
         return Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), tipo, serie, 1L, emision, estado, new Receptor("-", "-", "CLIENTES VARIOS", null),
                 List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).nota(nota).firma("h", "n", "k").rehidratar();

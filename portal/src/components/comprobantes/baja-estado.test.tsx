@@ -34,6 +34,17 @@ describe("BajaEstado", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Aceptada: comprobante anulado");
   });
 
+  /** #331: pasado el 7.º día la boleta se informa igual; el resumen avisa que salió fuera de plazo y por qué SUNAT la observa (4443). */
+  it("un resumen de alta fuera de plazo avisa la observación 4443", () => {
+    const alta: Baja = { ...BASE, identificador: "RC-20261008-1", comprobante: "B001-7", tipo_comprobante: "03", condicion: "ALTA", fuera_de_plazo: true };
+    render(<BajaEstado baja={alta} />);
+    expect(screen.getByTestId("aviso-fuera-de-plazo")).toHaveTextContent("Informada fuera de plazo");
+    expect(screen.getByTestId("aviso-fuera-de-plazo")).toHaveTextContent("4443");
+    cleanup();
+    render(<BajaEstado baja={{ ...alta, fuera_de_plazo: false }} />);
+    expect(screen.queryByTestId("aviso-fuera-de-plazo")).toBeNull();
+  });
+
   it("el alta de una nota sobre boleta dice que la nota quedó informada, no la boleta", () => {
     render(<BajaEstado baja={{ ...BASE, identificador: "RC-20260918-4", comprobante: "BC01-2", tipo_comprobante: "07", condicion: "ALTA", estado: "ENVIADA", cdr: null }} />);
     expect(screen.getByTestId("baja")).toHaveTextContent("Resumen diario RC-20260918-4 (alta)");
