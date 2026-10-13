@@ -66,6 +66,23 @@ test("el catálogo 03 y la tabla de errores describen la validación de la unida
 });
 
 /**
+ * #354: la guía y la tabla de errores dicen las reglas de la línea que se rechazan antes de numerar: precio mayor que cero, tope de 999 líneas y las del ICBPER
+ * (cantidad entera de hasta 5 dígitos, NIU, sin NRUS).
+ */
+test("la guía y la tabla de errores describen las reglas de la línea: precio, tope de 999 líneas e ICBPER (#354)", async ({ page }) => {
+  await page.goto("/developers/guia");
+  await expect(page.getByText(/hasta 999 líneas por comprobante/).first()).toBeVisible();
+  const icbper = page.locator("#isc-icbper");
+  await expect(icbper.getByText(/entero de 1 a 99999/)).toBeVisible();
+  await expect(icbper.getByText(/\(NRUS\) no admite icbper \(3240\)/)).toBeVisible();
+
+  await page.goto("/developers/errores");
+  await expect(page.getByText(/precio negativo o en cero \(2369; el valor referencial de una gratuita en cero, 2367\)/)).toBeVisible();
+  await expect(page.getByText(/más de 999 líneas \(2023; 2137 en las notas\)/)).toBeVisible();
+  await expect(page.getByText(/ICBPER en una boleta NRUS \(tipo de operación 0113, 3240\)/)).toBeVisible();
+});
+
+/**
  * #302: el plazo de la baja (2957) se cuenta desde la emisión, también en la boleta (la regla de SUNAT desde 2027-01-01, más estricta que la de
  * 2026, que lo cuenta desde la CDR). La guía y la tabla de errores lo dicen así, con la hora de Lima que decide el día.
  */

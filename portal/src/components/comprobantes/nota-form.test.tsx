@@ -111,3 +111,37 @@ describe("NotaForm sobre una factura", () => {
     expect(codigosDeMotivo()).toEqual(["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "13"]);
   });
 });
+
+describe("NotaForm — bolsas del ICBPER (#354)", () => {
+  /** SUNAT 2892: la cantidad de bolsas es un entero. Una devolución parcial de 2.5 bolsas saldría 422 del backend; el formulario lo frena antes y dice por qué. */
+  it("no deja emitir una devolución parcial de bolsas con cantidad fraccionaria, pero sí enteras", async () => {
+    const fetch = stubApi();
+    const bolsas = { codigo: null, descripcion: "Bolsa", unidad: "NIU", cantidad: 5, precio_unitario: 0.6, tipo_afectacion_igv: "10", precio_venta: 3, icbper: 2.5 };
+    render(<NotaForm factura={documento("03", { items: [bolsas] as unknown as Comprobante["items"] })} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Devolvió bolsas" } });
+    const emitir = screen.getByRole("button", { name: "Emitir nota de crédito" });
+
+    fireEvent.change(screen.getByLabelText("Cantidad de Bolsa en la nota"), { target: { value: "2.5" } });
+    expect(emitir).toBeDisabled();
+    expect(screen.getByText(/bolsas del ICBPER se devuelven por unidades enteras \(SUNAT 2892\)/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Cantidad de Bolsa en la nota"), { target: { value: "2" } });
+    expect(emitir).toBeEnabled();
+    fireEvent.click(emitir);
+    await waitFor(() => expect(notasEnviadas(fetch)).toHaveLength(1));
+    expect(notasEnviadas(fetch)[0].items[0]).toMatchObject({ cantidad: 2, icbper: true });
+  });
+
+  it("el resto de ítems siguen admitiendo cantidades fraccionarias", async () => {
+    stubApi();
+    const kilos = { codigo: null, descripcion: "Arroz", unidad: "KGM", cantidad: 5, precio_unitario: 4.72, tipo_afectacion_igv: "10", precio_venta: 23.6 };
+    render(<NotaForm factura={documento("01", { items: [kilos] as unknown as Comprobante["items"] })} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Devolvió arroz" } });
+    fireEvent.change(screen.getByLabelText("Cantidad de Arroz en la nota"), { target: { value: "2.5" } });
+    expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
+  });
+});

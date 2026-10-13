@@ -333,11 +333,11 @@
         </cac:TaxCategory>
       </cac:TaxSubtotal>
       </#if>
-      <#-- ICBPER (7152): sin base ni tasa; bolsas = cantidad del ítem y monto unitario vigente (reglas 3236–3238). -->
+      <#-- ICBPER (7152): sin base ni tasa; bolsas = cantidad del ítem, entera (2892: icbperBolsas lanza en vez de redondear) y monto unitario vigente (reglas 3236–3238). -->
       <#if it.tieneIcbper()>
       <cac:TaxSubtotal>
         <cbc:TaxAmount currencyID="${c.moneda()}">${it.icbper()}</cbc:TaxAmount>
-        <cbc:BaseUnitMeasure unitCode="NIU">${it.item().cantidad()?string["0"]}</cbc:BaseUnitMeasure>
+        <cbc:BaseUnitMeasure unitCode="NIU">${it.icbperBolsas()?c}</cbc:BaseUnitMeasure>
         <cac:TaxCategory>
           <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].ICBPER>
           <cbc:PerUnitAmount currencyID="${c.moneda()}">${it.icbperUnitario()}</cbc:PerUnitAmount>

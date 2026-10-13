@@ -198,9 +198,11 @@ class ComprobanteTest {
         Item bien = new Item("SKU-1", "  Menú del día  ", "NIU", new BigDecimal("2.5"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO);
         bien.exigirValidoParaFactura();
         assertThat(bien.descripcion()).isEqualTo("Menú del día");
-        Item gratis = new Item(null, "Gratis", "ZZ", BigDecimal.ONE, BigDecimal.ZERO, TipoAfectacionIgv.GRAVADO_BONIFICACION);
+        // #354: una gratuita lleva su valor referencial en el precio y no puede ser 0 (2367); el Price/PriceAmount sale en 0 por construcción (2640).
+        assertThatThrownBy(() -> new Item(null, "Gratis", "ZZ", BigDecimal.ONE, BigDecimal.ZERO, TipoAfectacionIgv.GRAVADO_BONIFICACION).exigirValidoParaFactura()).hasMessageContaining("2367");
+        Item gratis = new Item(null, "Gratis", "ZZ", BigDecimal.ONE, new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION);
         gratis.exigirValidoParaFactura();
-        assertThat(gratis.precioUnitario()).isEqualByComparingTo("0");
+        assertThat(gratis.precioUnitario()).isEqualByComparingTo("10");
     }
 
     /**

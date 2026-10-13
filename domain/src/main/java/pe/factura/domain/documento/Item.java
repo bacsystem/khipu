@@ -64,12 +64,32 @@ public record Item(String codigo, String descripcion, String unidad, BigDecimal 
         if (cantidad == null || cantidad.signum() <= 0)
             throw new DomainException("ITEM_INVALIDO", "2024 - La cantidad del ítem debe ser mayor que cero");
         exigirFormatoNumerico(cantidad, "2025 - La cantidad admite hasta 12 enteros y 10 decimales");
+        if (icbper) exigirBolsasValidas();
         if (precioUnitario == null || precioUnitario.signum() < 0)
             throw new DomainException("ITEM_INVALIDO", "El precio unitario no puede ser negativo");
+        // 2369/2367 (y 2370 en el importe de la línea): el precio de venta o el valor referencial «diferente de cero» en Factura2_0, Boleta2_0 y las notas. Una
+        // gratuita lleva su valor referencial en el precio (Price/PriceAmount sale en 0, 2640), así que en cero tampoco vale.
+        if (precioUnitario.signum() == 0)
+            throw new DomainException("ITEM_INVALIDO", afectacion != null && afectacion.gratuita()
+                    ? "2367 - El valor referencial unitario de una operación gratuita debe ser mayor que cero"
+                    : "2369 - El precio unitario debe ser mayor que cero");
         exigirFormatoNumerico(precioUnitario, "El precio unitario admite hasta 12 enteros y 10 decimales");
         if (codigo != null && (codigo.length() > 30 || codigo.chars().anyMatch(Character::isISOControl)))
             throw new DomainException("ITEM_INVALIDO", "El código interno del ítem admite hasta 30 caracteres (an..30 de la hoja Factura2_0)");
     }
+
+    /**
+     * ICBPER (7152): una bolsa por unidad, así que la cantidad del ítem es la cantidad de bolsas (BaseUnitMeasure, 3236) y esa va en NIU (4320) como entero de hasta
+     * 5 dígitos (2892). Con otra cosa SUNAT rechaza con el número ya consumido; y la plantilla ya no redondea una fracción en silencio.
+     */
+    private void exigirBolsasValidas() {
+        if (!"NIU".equals(unidad))
+            throw new DomainException("ITEM_INVALIDO", "4320 - Un ítem con ICBPER va en unidades (unidad NIU, una bolsa por unidad); recibida " + unidad);
+        if (cantidad.stripTrailingZeros().scale() > 0 || cantidad.compareTo(MAX_BOLSAS) > 0)
+            throw new DomainException("ITEM_INVALIDO", "2892 - La cantidad de bolsas del ICBPER es un entero de hasta 5 dígitos (1 a 99999); recibida " + cantidad.toPlainString());
+    }
+
+    private static final BigDecimal MAX_BOLSAS = new BigDecimal("99999");
 
     /** La unidad existe en el catálogo 03 (UN/ECE rec 20), contra el que SUNAT la cruza en la factura, la boleta y las notas (2936). */
     boolean unidadEnCatalogo() {

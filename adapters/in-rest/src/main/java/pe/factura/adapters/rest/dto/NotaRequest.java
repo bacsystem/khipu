@@ -1,9 +1,11 @@
 package pe.factura.adapters.rest.dto;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import pe.factura.application.port.in.EmitirNotaCommand;
+import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.TipoDocumento;
 
@@ -22,7 +24,7 @@ public record NotaRequest(
         @NotNull @Valid @Schema(description = "Factura o boleta que se modifica; debe estar ACEPTADA por SUNAT y no anulada (reglas 2119, 2120)") DocumentoAfectadoDto documentoAfectado,
         @NotBlank @Pattern(regexp = "\\d{2}") @Schema(example = "01", description = "Motivo: catálogo 09 para notas de crédito (`01` anulación, `06` devolución total, `07` devolución por ítem, `13` corrección de cuotas…), catálogo 10 para débito (`01` intereses por mora, `02` aumento en el valor, `03` penalidades…). `GET /v1/catalogos/09` y `/10`. Sobre una boleta no se admiten la NC `13` (regla 3259) ni la NC `04`, `05` u `08`: el descuento o la bonificación a un consumidor final va en la misma boleta (RCP art. 10 num. 1.4)") String motivo,
         @NotBlank @Size(max = 500) @Schema(example = "El cliente devolvió la mercadería completa", description = "Sustento de la nota (1–500 caracteres, sin saltos de línea; regla 2135)") String descripcion,
-        @Valid @Schema(description = "Ítems que cubre la nota, con el mismo formato que en la factura. **Omítalos** para una nota total: khipu copia los ítems, el descuento global y los cargos de la factura (anulación, devolución total). Obligatorios si la factura regularizó anticipos (la nota va por el importe neto)") List<FacturaRequest.ItemDto> items,
+        @Valid @ArraySchema(maxItems = Comprobante.MAX_LINEAS, arraySchema = @Schema(description = "Ítems que cubre la nota, con el mismo formato (y las mismas reglas de línea: ICBPER, precio mayor que cero) que en la factura, hasta 999 (`422 ITEM_INVALIDO`, regla `2137`). **Omítalos** para una nota total: khipu copia los ítems, el descuento global y los cargos de la factura (anulación, devolución total). Obligatorios si la factura regularizó anticipos (la nota va por el importe neto)")) List<FacturaRequest.ItemDto> items,
         @Valid @Schema(description = "Descuento global de la nota. Solo con `items`: sin ellos se rechaza (`NOTA_INVALIDA`) porque la nota total copia el de la factura") FacturaRequest.DescuentoDto descuentoGlobal,
         @Valid @Schema(description = "Cargos globales de la nota. Solo con `items`: sin ellos se rechaza (`NOTA_INVALIDA`) porque la nota total copia los de la factura") List<FacturaRequest.CargoDto> cargos,
         @Valid @Schema(description = "Solo en una nota de crédito con motivo `13` (en cualquier otra nota se rechaza con `NOTA_INVALIDA`): la forma de pago al crédito con el neto pendiente y las cuotas corregidas de la factura (reglas 3257, 3320, 3321). Esta nota no mueve importes: khipu genera una única línea de valor 0 (regla 3315) e ignora `items`") FacturaRequest.FormaPagoDto formaPago,

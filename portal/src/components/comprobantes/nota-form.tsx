@@ -229,6 +229,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // Por qué el botón está deshabilitado cuando el campo se ve lleno: un importe con 3 decimales no avisaba nada.
   const conDecimalesDeMas = (v: string) => v.trim() !== "" && !DOS_DECIMALES.test(v.trim());
   const lineaEnCero = esParcial && lineasParciales.some(({ item, cantidad }) => lineaRedondeaACero(item, cantidad));
+  // 2892: la cantidad de bolsas del ICBPER es un entero; el backend rechaza una devolución de 2.5 bolsas antes de numerar, así que aquí no se deja emitir.
+  const bolsasFraccionarias = esParcial && lineasParciales.some(({ item, cantidad }) => !!item.icbper && !Number.isInteger(cantidad));
   // Lo que SUNAT prohíbe no es una línea gratuita dentro de la nota, sino que el importe TOTAL sea 0 (f401, 2062): una NC
   // solo de bonificaciones no acredita nada. Una gratuita sí puede acompañar a una onerosa.
   const notaSinImporte = esParcial && itemsParciales.length > 0 && importeNota < 0.01;
@@ -238,6 +240,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       ? "Cada cuota admite hasta 2 decimales."
       : lineaEnCero
         ? "Hay una línea cuyo importe, cargo o impuesto redondea a 0.00: sube la cantidad o ponla en 0."
+        : bolsasFraccionarias
+          ? "Las bolsas del ICBPER se devuelven por unidades enteras (SUNAT 2892)."
         : notaSinImporte
           ? "La nota no acredita ningún importe (SUNAT 2062): las líneas gratuitas no se cobran, así que incluye también la línea que devuelves."
         : ivapEnCero
@@ -252,7 +256,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     serie !== "" &&
     motivo !== "" &&
     descripcion.trim() !== "" &&
-    (!esParcial || (itemsParciales.length > 0 && !superaTope && !lineaEnCero && !notaSinImporte)) &&
+    (!esParcial || (itemsParciales.length > 0 && !superaTope && !lineaEnCero && !bolsasFraccionarias && !notaSinImporte)) &&
     (!esTotal || !superaTope) &&
     (!esImporte || !superaTope) &&
     !ivapEnCero &&

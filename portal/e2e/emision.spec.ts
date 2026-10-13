@@ -421,6 +421,46 @@ test("la unidad sale de las más usadas del catálogo 03 y una inexistente vuelv
 });
 
 /**
+ * #354: las reglas de la línea que SUNAT rechaza con el número ya consumido vuelven 422 ITEM_INVALIDO antes de numerar, con el código SUNAT y el mismo mensaje del backend,
+ * en factura y en boleta: ICBPER (cantidad entera de hasta 5 dígitos 2892, unidad NIU 4320, NRUS 3240), precio en cero (2369/2367), valor de venta en 0.00 (2370) y
+ * más de 999 líneas (2023). Con bolsas válidas, 999 líneas o un NRUS sin ICBPER sí se emite.
+ */
+test("las reglas de la línea vuelven como el backend las rechaza: ICBPER, NRUS, precio 0, valor de venta 0.00 y más de 999 líneas (#354)", async ({ page }) => {
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  type Linea = Record<string, unknown>;
+  const emitir = (serie: string, items: Linea[], tipoOperacion?: string) =>
+    page.evaluate(async ([b]) => {
+      const res = await fetch("/api/proxy/facturas", { method: "POST", headers: { "content-type": "application/json" }, body: b });
+      return { status: res.status, cuerpo: await res.json() };
+    }, [JSON.stringify({ serie, fecha_emision: hoy, moneda: "PEN", ...(tipoOperacion ? { tipo_operacion: tipoOperacion } : {}),
+      cliente: serie.startsWith("B") ? { tipo_doc: "1", num_doc: "12345678", razon_social: "JUAN PEREZ" } : { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C." },
+      items })]);
+  const pan = (precio: number): Linea => ({ descripcion: "Pan", unidad: "NIU", cantidad: 1, precio_unitario: precio, tipo_afectacion_igv: "10" });
+  const bolsas = (extra: Linea): Linea => ({ descripcion: "Bolsa", unidad: "NIU", cantidad: 2, precio_unitario: 0.6, tipo_afectacion_igv: "10", icbper: true, ...extra });
+  const rechazada = async (serie: string, items: Linea[], mensaje: string, tipoOperacion?: string) => {
+    const r = await emitir(serie, items, tipoOperacion);
+    expect(r.status, JSON.stringify(r.cuerpo).slice(0, 300)).toBe(422);
+    expect(r.cuerpo).toMatchObject({ codigo: "ITEM_INVALIDO", mensaje });
+  };
+
+  for (const serie of ["F001", "B001"]) {
+    await rechazada(serie, [bolsas({ cantidad: 1.5 })], "2892 - La cantidad de bolsas del ICBPER es un entero de hasta 5 dígitos (1 a 99999); recibida 1.5");
+    await rechazada(serie, [bolsas({ cantidad: 100000 })], "2892 - La cantidad de bolsas del ICBPER es un entero de hasta 5 dígitos (1 a 99999); recibida 100000");
+    await rechazada(serie, [bolsas({ unidad: "KGM" })], "4320 - Un ítem con ICBPER va en unidades (unidad NIU, una bolsa por unidad); recibida KGM");
+    await rechazada(serie, [pan(0)], "2369 - El precio unitario debe ser mayor que cero");
+    await rechazada(serie, [{ ...pan(0), tipo_afectacion_igv: "15" }], "2367 - El valor referencial unitario de una operación gratuita debe ser mayor que cero");
+    await rechazada(serie, [bolsas({ precio_unitario: 0.5 })], "2370 - El valor de venta de la línea «Bolsa» debe ser mayor que 0.00: el precio_unitario incluye el ICBPER (S/ 0.50 por bolsa) y debe superarlo");
+    await rechazada(serie, Array.from({ length: 1000 }, () => pan(1.18)), `2023 - Una ${serie === "B001" ? "boleta" : "factura"} admite hasta 999 líneas (el número de orden del ítem es de hasta 3 dígitos); recibidas 1000: divida la operación en más de un comprobante`);
+  }
+  // El NRUS no cobra ICBPER (3240) y solo existe en la boleta.
+  await rechazada("B001", [bolsas({})], "3240 - El impuesto ICBPER no aplica para el NRUS (tipo de operación 0113): quite el icbper de las líneas o emita con el tipo de operación 0101", "0113");
+
+  expect((await emitir("B001", [bolsas({})])).status).toBe(201);
+  expect((await emitir("F001", Array.from({ length: 999 }, () => pan(1.18)))).status).toBe(201);
+  expect((await emitir("B001", [pan(10)], "0113")).status).toBe(201);
+});
+
+/**
  * #348-H2: la unidad en blanco no llega al dominio: el `@NotBlank` de `ItemDto` responde 422 VALIDACION con el campo, junto con los demás
  * campos en blanco (como `cliente.razonSocial`). El mock respondía 2936 con «La unidad de medida  no existe».
  */
