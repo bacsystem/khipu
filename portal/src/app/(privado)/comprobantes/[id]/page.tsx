@@ -8,7 +8,7 @@ import { BajaEstado } from "@/components/comprobantes/baja-estado";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { admiteBaja, admiteCorreo, admiteNotas, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { admiteBaja, admiteCorreo, admiteNotas, esDeBoleta, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -266,7 +266,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               Emitir nota
             </Link>
           ) : null}
-          {admiteBaja(c) ? <BajaButton id={c.id} numero={numero} fechaEmision={c.fecha_emision} boleta={c.tipo === "03"} notasVigentes={(c.notas ?? []).filter((n) => n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO").length} /> : null}
+          {admiteBaja(c) ? <BajaButton id={c.id} numero={numero} fechaEmision={c.fecha_emision} boleta={esDeBoleta(c)} notasVigentes={(c.notas ?? []).filter((n) => n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO").length} /> : null}
           <VistaPrevia id={c.id} numero={numero} nombreArchivo={c.nombre_archivo} tieneCdr={tieneConstanciaCdr(c)} />
           {c.enlaces?.pdf ? (
             <a
@@ -415,7 +415,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             {c.tipo === "07" ? "Nota de crédito sobre" : "Nota de débito sobre"}
           </div>
           <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-3">
-            <Campo etiqueta="Factura modificada">
+            <Campo etiqueta={c.nota.tipo_afectado === "03" ? "Boleta modificada" : "Factura modificada"}>
               <span className="font-mono text-sm font-semibold text-foreground">{c.nota.documento_afectado}</span>
             </Campo>
             <Campo etiqueta="Motivo">
@@ -435,7 +435,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="notas">
           <div className={cn(TITULO_SECCION, "mb-3")}>
             <FileMinusIcon className="size-4" />
-            Notas emitidas sobre esta factura
+            Notas emitidas sobre esta {c.tipo === "03" ? "boleta" : "factura"}
           </div>
           <ul className="divide-y divide-border/60 text-xs">
             {c.notas.map((n) => (

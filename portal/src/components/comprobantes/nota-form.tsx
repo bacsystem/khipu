@@ -25,6 +25,8 @@ const MOTIVOS_NC_TOTAL = new Set(["01", "02", "06"]);
  * estructura (solo 4367 observa 04/05/08 sobre boletas) y la compara con la factura por total (3286) y por tributo (3503).
  */
 const MOTIVOS_NC_IMPORTE = new Set(["04", "05", "08", "09", "10"]);
+/** Motivos de NC que no se emiten sobre una boleta (#293): 13 (3259) y descuentos o bonificaciones (4367). */
+const MOTIVOS_NC_NO_EN_BOLETA = new Set(["13", "04", "05", "08"]);
 /** Importes de dinero: hasta 12 enteros y 2 decimales (3250/3253 en cuotas; 2025 en la línea de la ND, «12 enteros y 10 decimales»). */
 const DOS_DECIMALES = /^\d{1,12}(\.\d{1,2})?$/;
 
@@ -74,7 +76,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     };
   }, [intentoCatalogos]);
 
-  const seriesDelTipo = useMemo(() => series.filter((s) => s.tipo === tipo && s.activa && s.serie.startsWith("F")), [series, tipo]);
+  // #294: la nota sobre una boleta sigue su régimen y su serie empieza con B (Anexo 3; el backend responde 1001/SERIE_INVALIDA si no).
+  const sobreBoleta = factura.tipo === "03";
+  const documento = sobreBoleta ? "boleta" : "factura";
+  const letraSerie = sobreBoleta ? "B" : "F";
+  const seriesDelTipo = useMemo(() => series.filter((s) => s.tipo === tipo && s.activa && s.serie.startsWith(letraSerie)), [series, tipo, letraSerie]);
   useEffect(() => {
     setSerie(seriesDelTipo[0]?.serie ?? "");
     setMotivo("");
@@ -126,7 +132,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     if (noSeSabeSiLlego(res)) {
       setEnviando(false);
       setError(
-        `Se cortó la conexión mientras se emitía. La nota pudo haberse emitido igual: revisa las notas de la factura ${factura.serie}-${factura.numero} antes de volver a intentarlo, para no duplicarla.`,
+        `Se cortó la conexión mientras se emitía. La nota pudo haberse emitido igual: revisa las notas de la ${documento} ${factura.serie}-${factura.numero} antes de volver a intentarlo, para no duplicarla.`,
       );
       return;
     }
@@ -165,6 +171,10 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     cuotas.every((q) => Number(q.monto) > 0 && DOS_DECIMALES.test(q.monto.trim()) && q.vencimiento !== "" && q.vencimiento > factura.fecha_emision) &&
     redondear(cuotas.reduce((acc, q) => acc + Number(q.monto), 0), 2) <= factura.totales.total;
   const motivos = (catalogos[tipo]?.entradas ?? []).filter((m) => {
+    // Sobre una boleta: la NC 13 corrige cuotas de una factura al crédito (3259) y la NC por descuento o bonificación (04, 05,
+    // 08) va en la misma boleta cuando el comprador es consumidor final (RCP art. 10 num. 1.4; SUNAT observa 4367). El backend
+    // rechaza las cuatro antes de numerar (`Nota.validarMotivoPara`).
+    if (sobreBoleta && esNc && MOTIVOS_NC_NO_EN_BOLETA.has(m.codigo)) return false;
     if (m.codigo === "11") return esExportacion;
     if (m.codigo === "12") return esIvap;
     // ND 13 sobre una exportación no tiene salida: la penalidad va inafecta (3507) y el dominio exige 40 en toda
@@ -270,7 +280,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             </select>
           ) : (
             <p className="text-[12px] leading-relaxed text-destructive">
-              No hay series de {esNc ? "nota de crédito" : "nota de débito"} sobre facturas. <Link href="/series" className="underline">Cree una</Link> (p. ej. {esNc ? "FC01" : "FD01"}).
+              No hay series de {esNc ? "nota de crédito" : "nota de débito"} sobre {documento}s. <Link href="/series" className="underline">Cree una</Link> (p. ej. {letraSerie}{esNc ? "C01" : "D01"}).
             </p>
           )}
         </div>
@@ -294,7 +304,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       {esTotal ? (
         <div className={cn("rounded-lg border px-3 py-2 text-[12px] leading-relaxed", superaTope ? "border-destructive/50 bg-destructive/5 text-destructive" : "border-border bg-muted text-muted-foreground")} data-testid="nota-total">
           <p>
-            Nota <strong className="text-foreground">total</strong>: khipu copia los ítems, el descuento global y los cargos de la factura {factura.serie}-{factura.numero} ({formatearMonto(factura.moneda, factura.totales.total)}).
+            Nota <strong className="text-foreground">total</strong>: khipu copia los ítems, el descuento global y los cargos de la {documento} {factura.serie}-{factura.numero} ({formatearMonto(factura.moneda, factura.totales.total)}).
           </p>
           {/* Una nota total sobre una factura ya acreditada por otras NC vigentes la supera (3286): es el escenario de
               la doble acreditación (#83), y antes esta pantalla no decía nada y dejaba emitir. */}
@@ -313,7 +323,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-border/70 bg-muted font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
-                <th className="px-3 py-2 font-medium">Ítem de la factura</th>
+                <th className="px-3 py-2 font-medium">Ítem de la {documento}</th>
                 <th className="w-24 px-3 py-2 text-right font-medium">Facturado</th>
                 <th className="w-32 px-3 py-2 text-right font-medium">Cantidad en la nota</th>
               </tr>
@@ -352,7 +362,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             </span>
             <span>
               Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>
-              {acreditado > 0 ? ` (factura ${formatearMonto(factura.moneda, factura.totales.total)} menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}
+              {acreditado > 0 ? ` (${documento} ${formatearMonto(factura.moneda, factura.totales.total)} menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}
             </span>
             {superaTope ? (
               <span role="alert" className="basis-full">
@@ -397,7 +407,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
                 Importe de la nota: <strong className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</strong>
               </span>
               <span>
-                {exentoDeTope ? "Sin tope: SUNAT exime al motivo 10 del 3286 y del 3503 (filas 111 y 114–122)." : <>Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>{limitaTributo ? ` (por tributo, 3503: ${conceptoTributo} de la factura ${formatearMonto(factura.moneda, topeTributo)})` : ""}{acreditado > 0 ? ` (menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}</>}
+                {exentoDeTope ? "Sin tope: SUNAT exime al motivo 10 del 3286 y del 3503 (filas 111 y 114–122)." : <>Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>{limitaTributo ? ` (por tributo, 3503: ${conceptoTributo} de la ${documento} ${formatearMonto(factura.moneda, topeTributo)})` : ""}{acreditado > 0 ? ` (menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}</>}
               </span>
               {superaTope ? <span role="alert" className="basis-full">Supera el tope: SUNAT la rechazaría ({limitaTributo ? "3503, por tributo" : "3286"}). Baja el importe.</span> : null}
             </div>

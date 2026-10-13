@@ -18,12 +18,12 @@ const ETIQUETAS: Record<Baja["estado"], string> = {
   RECHAZADA: "Rechazada por SUNAT",
 };
 
-/** Un resumen de alta informa la boleta en vez de anularla: lo que cambia es qué significa que SUNAT lo acepte (274-H1). */
-const ETIQUETAS_ALTA: Record<Baja["estado"], string> = {
+/** Un resumen de alta informa la boleta (o su nota, #294) en vez de anularla: lo que cambia es qué significa que SUNAT lo acepte (274-H1). */
+const etiquetasAlta = (que: string): Record<Baja["estado"], string> => ({
   ...ETIQUETAS,
-  ACEPTADA: "Aceptado: boleta informada a SUNAT",
-  RECHAZADA: "Rechazado por SUNAT: la boleta no quedó informada",
-};
+  ACEPTADA: `Aceptado: ${que} informada a SUNAT`,
+  RECHAZADA: `Rechazado por SUNAT: la ${que} no quedó informada`,
+});
 
 /**
  * Estado de la comunicación de baja en la ficha. Mientras está en curso (ENVIADA/ERROR_ENVIO/GENERADA) se puede reconsultar
@@ -36,6 +36,10 @@ export function BajaEstado({ baja }: { baja: Baja }) {
   const [error, setError] = useState<string | null>(null);
   const pendiente = baja.estado === "ENVIADA" || baja.estado === "ERROR_ENVIO" || baja.estado === "GENERADA";
   const alta = baja.condicion === "ALTA";
+  // #20/#294: la boleta y sus notas van en un resumen diario (RC-…), lo demás en una comunicación de baja (RA-…). El
+  // identificador lo dice para las dos: una nota sobre boleta es 07/08, no 03.
+  const resumenDiario = baja.identificador.startsWith("RC-");
+  const que = baja.tipo_comprobante === "03" ? "boleta" : "nota";
 
   const actualizar = useCallback(async () => {
     setConsultando(true);
@@ -68,8 +72,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       <div className={cn(TITULO_SECCION, "mb-3 justify-between")}>
         <span className="flex items-center gap-1.5">
           <BanIcon className="size-4" />
-          {/* #20: la baja de una boleta va en un resumen diario (RC-…), la de los demás en una comunicación de baja (RA-…). */}
-          {baja.tipo_comprobante === "03" ? "Resumen diario" : "Comunicación de baja"} {baja.identificador}
+          {resumenDiario ? "Resumen diario" : "Comunicación de baja"} {baja.identificador}
           {alta ? " (alta)" : null}
         </span>
         {pendiente ? (
@@ -82,7 +85,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-4">
         <div className="flex flex-col gap-1">
           <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Estado</span>
-          <span className="font-semibold text-foreground" role="status">{(alta ? ETIQUETAS_ALTA : ETIQUETAS)[baja.estado]}</span>
+          <span className="font-semibold text-foreground" role="status">{(alta ? etiquetasAlta(que) : ETIQUETAS)[baja.estado]}</span>
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Motivo</span>
@@ -100,7 +103,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       {pendiente ? (
         <p className="mt-3 text-[12px] text-muted-foreground">
           {alta
-            ? "Pasó el envío individual: SUNAT la recibe en el resumen diario. Mientras no responda, la boleta queda enviada. Esta ficha se actualiza sola cada 30 s."
+            ? `Pasó el envío individual: SUNAT la recibe en el resumen diario. Mientras no responda, la ${que} queda enviada. Esta ficha se actualiza sola cada 30 s.`
             : "Mientras SUNAT no responda, el comprobante no admite otra baja ni notas. Esta ficha se actualiza sola cada 30 s."}
         </p>
       ) : null}

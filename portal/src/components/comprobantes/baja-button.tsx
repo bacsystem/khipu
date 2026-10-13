@@ -108,7 +108,7 @@ export function BajaButton({
                 Dar de baja <span className="font-mono">{numero}</span>
               </DialogTitle>
               <DialogDescription className="text-[13px]">
-                {boleta ? "Resumen diario ante SUNAT con la boleta anulada" : "Comunicación de baja ante SUNAT"} (regla 2957: hasta {PLAZO_BAJA_DIAS} días desde la emisión).{" "}
+                {boleta ? "Resumen diario ante SUNAT con el comprobante anulado" : "Comunicación de baja ante SUNAT"} (regla 2957: hasta {PLAZO_BAJA_DIAS} días desde la emisión).{" "}
                 {diasRestantes === 0 ? "Hoy es el último día del plazo: si el envío falla y se reintenta mañana, SUNAT la rechazará." : `Quedan ${diasRestantes} ${diasRestantes === 1 ? "día" : "días"} de plazo.`}
               </DialogDescription>
             </div>

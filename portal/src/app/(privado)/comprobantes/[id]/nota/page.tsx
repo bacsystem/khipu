@@ -3,7 +3,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { NotaForm } from "@/components/comprobantes/nota-form";
-import { admiteNotas, obtenerFactura } from "@/lib/api/facturas";
+import { admiteNotas, ETIQUETAS_TIPO_DOC, obtenerFactura } from "@/lib/api/facturas";
 import { listarSeries } from "@/lib/api/series";
 import { ApiError } from "@/lib/api/types";
 import { BOTON_SECUNDARIO, TARJETA } from "@/lib/estilos";
@@ -28,22 +28,28 @@ export default async function NotaPage({ params }: { params: Promise<{ id: strin
     listarSeries(access, empresaId),
   ]);
   if (!factura) notFound();
-  // Solo una factura aceptada admite notas; sobre cualquier otro comprobante se vuelve al detalle.
+  // Solo una factura o boleta aceptada admite notas (#294); sobre cualquier otro comprobante se vuelve al detalle.
   if (!admiteNotas(factura)) redirect(`/comprobantes/${id}`);
+  const documento = factura.tipo === "03" ? "boleta" : "factura";
+  const receptor = factura.receptor;
+  // La nota no pide comprador: el backend copia el de la boleta, también el «sin documento» (tipo y número «-»).
+  const comprador = receptor
+    ? `${receptor.razon_social} (${receptor.tipo_doc === "-" ? ETIQUETAS_TIPO_DOC["-"].toLowerCase() : `${ETIQUETAS_TIPO_DOC[receptor.tipo_doc] ?? "Doc."} ${receptor.num_doc}`})`
+    : null;
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <Link href={`/comprobantes/${id}`} className={cn(BOTON_SECUNDARIO, "h-auto px-2.5 py-1.5 text-xs")}>
           <ArrowLeftIcon className="size-3.5" />
-          Volver a la factura
+          Volver a la {documento}
         </Link>
       </div>
       <section className={cn(TARJETA, "p-6")}>
         {/* El h1 de la página lo pone el top bar (la miga); este es el título de la tarjeta. */}
         <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">Emitir nota sobre {factura.serie}-{factura.numero}</h2>
-        <p className="mt-1 text-[13px] text-muted-foreground">
-          {factura.receptor?.razon_social} · {formatearMonto(factura.moneda, factura.totales.total)} · la nota toma el cliente y la moneda de la factura y se envía a SUNAT al emitirla.
+        <p className="mt-1 text-[13px] text-muted-foreground" data-testid="nota-comprador">
+          {comprador} · {formatearMonto(factura.moneda, factura.totales.total)} · la nota toma el cliente y la moneda de la {documento} y se envía a SUNAT al emitirla.
         </p>
         <div className="mt-6">
           <FormulariosDeEscritura>

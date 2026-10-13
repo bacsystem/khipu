@@ -2443,8 +2443,8 @@ export const handlers = [
     const lista = db.facturasPorEmpresa.get(empresaId) ?? [];
     const factura = lista.find((f) => f.id === params.id);
     if (!factura) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
-    // Como el backend: una factura lista las notas emitidas sobre ella.
-    const notas = factura.tipo === "01"
+    // Como el backend: una factura o una boleta (#293) lista las notas emitidas sobre ella.
+    const notas = factura.tipo === "01" || factura.tipo === "03"
       ? lista.filter((n) => n.nota?.documento_afectado === `${factura.serie}-${factura.numero}`).map((n) => ({
           id: n.id, tipo: n.tipo, comprobante: `${n.serie}-${n.numero}`, fecha_emision: n.fecha_emision, motivo: n.nota!.motivo,
           motivo_descripcion: n.nota!.motivo_descripcion, estado_documento: n.estado_documento, total: n.totales.total,
@@ -2470,21 +2470,30 @@ export const handlers = [
       return fail(400, "JSON_INVALIDO", "El cuerpo de la petición no es JSON válido");
     }
     const lista = db.facturasPorEmpresa.get(empresaId) ?? [];
-    const factura = lista.find((f) => f.tipo === "01" && f.serie === body.documento_afectado.serie && f.numero === body.documento_afectado.numero);
-    if (!factura) return fail(422, "NOTA_INVALIDA", `2119 - La factura ${body.documento_afectado.serie}-${body.documento_afectado.numero} no existe en esta empresa`);
-    if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(422, "NOTA_INVALIDA", `2119 - La factura no está aceptada por SUNAT (estado ${factura.estado_documento})`);
+    // #293, como `EmitirComprobanteService.emitirNota`: la letra de la serie afectada dice qué se modifica (B una boleta, F una
+    // factura), y el motivo se valida antes de buscar el documento.
+    const tipoAfectado = body.documento_afectado.serie.startsWith("B") ? "03" : "01";
+    const nombreAfectado = tipoAfectado === "03" ? "boleta" : "factura";
+    const catalogo = CATALOGOS.find((c) => c.id === (body.tipo === "07" ? "09" : "10"))!;
+    const entradaMotivo = catalogo.entradas.find((e) => e.codigo === body.motivo);
+    if (!entradaMotivo) return fail(422, "NOTA_INVALIDA", `2172 - El motivo ${body.motivo} no existe en el catálogo ${catalogo.id}`);
+    if (tipoAfectado === "03" && body.tipo === "07" && body.motivo === "13") return fail(422, "NOTA_INVALIDA", "3259 - Una boleta no tiene cuotas que corregir: la nota de crédito 13 solo modifica facturas al crédito");
+    if (tipoAfectado === "03" && body.tipo === "07" && ["04", "05", "08"].includes(body.motivo))
+      return fail(422, "NOTA_INVALIDA", "4367 - Un descuento o una bonificación a un consumidor final se aplica en la misma boleta (RCP art. 10 num. 1.4), no en una nota de crédito 04, 05 u 08; para devolver o corregir el importe use el motivo 01, 06, 07 o 09");
+    const factura = lista.find((f) => f.tipo === tipoAfectado && f.serie === body.documento_afectado.serie && f.numero === body.documento_afectado.numero);
+    if (!factura) return fail(422, "NOTA_INVALIDA", `2119 - La ${nombreAfectado} ${body.documento_afectado.serie}-${body.documento_afectado.numero} no existe en esta empresa`);
+    if (factura.estado_documento === "ANULADO") return fail(422, "NOTA_INVALIDA", `2120 - La ${nombreAfectado} ${factura.serie}-${factura.numero} está anulada`);
+    if (factura.estado_documento !== "ACEPTADO" && factura.estado_documento !== "ACEPTADO_CON_OBS") return fail(422, "NOTA_INVALIDA", `2119 - La ${nombreAfectado} ${factura.serie}-${factura.numero} no está aceptada por SUNAT (estado ${factura.estado_documento})`);
     const serie = (db.seriesPorEmpresa.get(empresaId) ?? []).find((s) => s.tipo === body.tipo && s.serie === body.serie);
     if (!serie) return fail(422, "SERIE_NO_CONFIGURADA", `Serie no configurada: ${body.serie}`);
 
     // Lo que el backend real valida ANTES de numerar, con los códigos de la tabla oficial. Sin esto los e2e afirmaban
     // sobre lo que el mock inventaba: una nota con fecha 2020, sin forma de pago en la NC 13 o por 10× la factura
     // pasaba igual, y ocho mutaciones del formulario sobrevivían a la suite.
-    if (!body.serie.startsWith("F")) return fail(422, "SERIE_INVALIDA", `1001 - La serie de una nota sobre ${factura.serie}-${factura.numero} debe ser F###: ${body.serie}`);
-    if (body.fecha_emision < factura.fecha_emision) return fail(422, "NOTA_INVALIDA", `2885 - La fecha de la nota no puede ser anterior a la de la factura que modifica (${factura.fecha_emision})`);
+    const letra = factura.serie.charAt(0);
+    if (!body.serie.startsWith(letra)) return fail(422, "SERIE_INVALIDA", `1001/2116 - La serie de una nota sobre ${factura.serie}-${factura.numero} debe ser ${letra}### : ${body.serie}`);
+    if (body.fecha_emision < factura.fecha_emision) return fail(422, "NOTA_INVALIDA", `2885 - La fecha de la nota no puede ser anterior a la de la ${nombreAfectado} que modifica (${factura.fecha_emision})`);
     if (body.fecha_emision > hoyLima()) return fail(422, "FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
-    const catalogo = CATALOGOS.find((c) => c.id === (body.tipo === "07" ? "09" : "10"))!;
-    const entradaMotivo = catalogo.entradas.find((e) => e.codigo === body.motivo);
-    if (!entradaMotivo) return fail(422, "NOTA_INVALIDA", `2172 - El motivo ${body.motivo} no existe en el catálogo ${catalogo.id}`);
     const desc = body.descripcion ?? "";
     // Incluye el tabulador (\x09): el backend usa `Character::isISOControl` y SUNAT 2135 lo prohíbe explícitamente.
     // La primera versión lo dejaba pasar y una celda pegada de Excel salía en verde acá y en 422 en producción.
@@ -2601,9 +2610,10 @@ export const handlers = [
       const acreditado = lista
         .filter((n) => n.tipo === "07" && n.nota?.documento_afectado === `${factura.serie}-${factura.numero}` && n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO")
         .reduce((acc, n) => acc + n.totales.total, 0);
-      // Sin tolerancia sobre facturas (NotaCredito2_0 fila 111; la +1 de la fila 113 es solo boletas) y exento en el motivo 10,
+      // Sin tolerancia sobre facturas (NotaCredito2_0 fila 111) y +1 sobre boletas (fila 113, #293); exento en el motivo 10,
       // como el backend desde #123. Con margen de flotante (0.005) para que 118.44 − 118.44 no dé 1e-14.
-      if (body.motivo !== "10" && totalNota + acreditado - factura.totales.total > 0.005) return fail(422, "NOTA_INVALIDA", `3286 - El importe total de la nota (${totalNota}) supera el de la factura ${factura.serie}-${factura.numero} (${factura.totales.total})${acreditado > 0 ? `: ya acreditado ${acreditado} en otras notas de crédito` : ""}`);
+      const tolerancia = tipoAfectado === "03" ? 1 : 0;
+      if (body.motivo !== "10" && totalNota + acreditado - factura.totales.total > tolerancia + 0.005) return fail(422, "NOTA_INVALIDA", `3286 - El importe total de la nota (${totalNota}) supera el de la ${nombreAfectado} ${factura.serie}-${factura.numero} (${factura.totales.total})${acreditado > 0 ? `: ya acreditado ${acreditado} en otras notas de crédito` : ""}`);
       // 3503 (filas 114–122, +1 por concepto, exento el motivo 10) con el acumulado por tributo de las NC vigentes, como
       // `exigirQueNoSupereALaFactura`. La NC por importe sobre f-cargos por el total (1353) lo alcanza de frente: gravado
       // 1146.61 vs 1140.32. El mock daba 201 y el backend 422.
@@ -2621,7 +2631,7 @@ export const handlers = [
           ["IGV de las operaciones gratuitas", t.igvGratuitas, factura.totales.igv_gratuitas ?? 0, suma("igv_gratuitas")],
         ];
         for (const [concepto, nota, fact, previo] of limites) {
-          if (nota + previo - fact > 1) return fail(422, "NOTA_INVALIDA", `3503 - El ${concepto} de la nota (${nota.toFixed(2)}) supera el de la factura ${factura.serie}-${factura.numero} (${fact.toFixed(2)})${previo > 0 ? `: ya acreditado ${previo.toFixed(2)} en otras notas de crédito` : ""}`);
+          if (nota + previo - fact > 1) return fail(422, "NOTA_INVALIDA", `3503 - El ${concepto} de la nota (${nota.toFixed(2)}) supera el de la ${nombreAfectado} ${factura.serie}-${factura.numero} (${fact.toFixed(2)})${previo > 0 ? `: ya acreditado ${previo.toFixed(2)} en otras notas de crédito` : ""}`);
         }
       }
     }
@@ -2639,7 +2649,7 @@ export const handlers = [
       cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
       totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, ivap: t.ivap || undefined, exportacion: t.exportacion || undefined, gratuito: t.gratuito || undefined, igv_gratuitas: t.igvGratuitas || undefined, redondeo: redondeo || undefined, total: totalNota },
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
-      nota: { tipo_afectado: "01", documento_afectado: `${factura.serie}-${factura.numero}`, motivo: body.motivo, motivo_descripcion: motivos[body.motivo] ?? "Otros", descripcion: body.descripcion },
+      nota: { tipo_afectado: tipoAfectado, documento_afectado: `${factura.serie}-${factura.numero}`, motivo: body.motivo, motivo_descripcion: motivos[body.motivo] ?? "Otros", descripcion: body.descripcion },
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },
     };
     lista.unshift(nota);
@@ -2666,12 +2676,13 @@ export const handlers = [
     if (factura.baja && factura.baja.estado !== "RECHAZADA") return fail(422, "BAJA_INVALIDA", `Ya hay una comunicación de baja en curso para ${factura.serie}-${factura.numero}`);
     const hoy = hoyLima().replace(/-/g, "");
     const simulada = motivo.startsWith("[ENVIADA]") ? "ENVIADA" : motivo.startsWith("[RECHAZADA]") ? "RECHAZADA" : "ACEPTADA";
-    // #20: la boleta se anula en el resumen diario (RC), las demás en una comunicación de baja (RA), como en el backend.
-    const identificador = `${factura.tipo === "03" ? "RC" : "RA"}-${hoy}-1`;
+    // #20/#293: la boleta y sus notas se anulan en el resumen diario (RC), las demás en una comunicación de baja (RA), como en el backend.
+    const deBoleta = factura.tipo === "03" || factura.nota?.tipo_afectado === "03";
+    const identificador = `${deBoleta ? "RC" : "RA"}-${hoy}-1`;
     const baja: Baja = {
       id: nuevoId("b"), identificador, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
       motivo, condicion: "BAJA", estado: simulada, ticket: "1758200000123",
-      cdr: simulada === "ACEPTADA" ? { codigo: "0", descripcion: `${factura.tipo === "03" ? "El Resumen diario" : "La Comunicacion de baja"} ${identificador}, ha sido aceptado`, observaciones: [] }
+      cdr: simulada === "ACEPTADA" ? { codigo: "0", descripcion: `${deBoleta ? "El Resumen diario" : "La Comunicacion de baja"} ${identificador}, ha sido aceptado`, observaciones: [] }
         : simulada === "RECHAZADA" ? { codigo: "2323", descripcion: "Existe documento ya informado anteriormente en una comunicacion de baja", observaciones: [] } : null,
       intentos: 1, ultimo_error: simulada === "ENVIADA" ? "98 - SUNAT sigue procesando el ticket 1758200000123" : null,
     };
