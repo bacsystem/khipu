@@ -291,14 +291,17 @@ backend para probarlas hoy. **Nunca va en producción** (Railway): no se define 
 
 | Variable | Valor | Notas |
 |---|---|---|
-| `RELOJ_DESPLAZAMIENTO` | Duración ISO-8601: `-P8D` (8 días antes), `P79DT3H`, `PT6912345S` (esos segundos después) | Vacía o ausente = hora real, comportamiento idéntico al de siempre. Con un valor que no es una duración (`8 dias`, `-8`, `P1Y`) el backend **no arranca** y dice cuál |
+| `RELOJ_DESPLAZAMIENTO` | Duración ISO-8601: `-P8D` (8 días antes), `P79DT3H`, `PT6912345S` (esos segundos después) | Vacía o ausente = hora real, comportamiento idéntico al de siempre. Con un valor que no es una duración (`8 dias`, `-8`, `P1Y`) o que mueve el reloj más de 3650 días el backend **no arranca** y dice cuál |
 
 ### Qué hace el backend para que no pase inadvertido en producción
 
 - **No arranca** con el reloj movido si hay empresas con `entorno = PRODUCCION` en la base (el mensaje dice cuántas). En producción siempre las hay.
-- Aunque arranque (base sin empresas todavía, o una empresa pasada a PRODUCCION después): **no emite** (`422 RELOJ_DESPLAZADO`, sin gastar número) ni **envía nada a SUNAT**
-  para una empresa en PRODUCCION. Lo que distingue pruebas de producción no es la URL (la configuración lleva siempre las dos) sino el entorno de cada empresa, que es lo que elige
-  la URL a la que se envía.
+- Aunque arranque (base sin empresas todavía, o una empresa pasada a PRODUCCION después), para una empresa en PRODUCCION responde `422 RELOJ_DESPLAZADO` y **no hace nada con la
+  fecha falsa**: no emite (sin gastar número), no envía (ni la cierra como `FUERA_DE_PLAZO`, que es un estado terminal), no genera comunicaciones de baja ni resúmenes diarios (sin
+  gastar correlativo ni guardar un XML con esa fecha), y no le habla a SUNAT: ni envíos ni consultas (`getStatus`, `getStatusCdr`, validez). El barrido horario que cierra por plazo
+  no corre mientras haya una empresa en PRODUCCION (y lo dice en el log). Lo que distingue pruebas de producción no es la URL (la configuración lleva siempre las dos) sino el entorno
+  de cada empresa, que es lo que elige la URL a la que se habla. Lo único que sigue yendo a las URL de producción es el sondeo anónimo de disponibilidad del monitor del backoffice
+  (una petición HTTP sin comprobantes ni credenciales). Leer (listar, descargar, `GET` de un comprobante) sigue igual.
 - Cada arranque deja un `WARN` de cinco líneas con `!!! RELOJ DESPLAZADO (RELOJ_DESPLAZAMIENTO=…)`, el desplazamiento legible y la hora que el backend cree que es. Búscalo con
   `docker compose … logs backend | grep -A3 "RELOJ DESPLAZADO"`. El reloj movido también se ve en el campo `generado_en` del monitor del backoffice y en la fecha de generación de cada RC/RA (`fecha_generacion`).
 
@@ -307,7 +310,7 @@ backend para probarlas hoy. **Nunca va en producción** (Railway): no se define 
 | Sigue al reloj movido (usa el `Clock` de la aplicación) | NO lo sigue |
 |---|---|
 | La fecha y hora de emisión, y la validación «no futura» de `fecha_emision` | `now()` de PostgreSQL: `created_at`, `updated_at` y la **cola de envíos** (`outbox.siguiente_intento <= now()`) |
-| Los plazos de envío (factura 3 días; boleta 5 individual y 7 en resumen) y el cierre `FUERA_DE_PLAZO` | Los `iat`/`exp` de los JWT del portal y del backoffice, y las cookies del navegador (hora real) |
+| Los plazos de envío (factura 3 días; boleta 5 individual y 7 en resumen) y el cierre `FUERA_DE_PLAZO`, también el del barrido horario (si no hay empresas en PRODUCCION) | Los `iat`/`exp` de los JWT del portal y del backoffice, y las cookies del navegador (hora real) |
 | La fecha de generación, el correlativo del día y el formato (05 o 06–08/9996) de los RC y RA | La hora de SUNAT: valida lo que recibe contra **su** fecha real |
 | La comprobación de vigencia del certificado en el backend (`CERTIFICADO_VENCIDO`), el plan de la cuenta (`PLAN_VENCIDO`), el tope y el consumo del mes | La caducidad real del certificado dentro de la firma XML-DSig, que SUNAT mira con su fecha |
 | El vencimiento de enlaces de verificación y recuperación, y de las sesiones de refresh del portal | La fecha de modificación de los archivos del storage |
@@ -388,7 +391,7 @@ reloj ""
 
 # 4. Enviarla: pasó el 7.º día, va en un resumen diario fuera de plazo
 curl -s -X POST "$BASE/v1/facturas/$ID/enviar" "${H[@]}" | campo datos.baja.fuera_de_plazo   # true
-curl -s "$BASE/v1/facturas/$ID" "${H[@]}" | campo datos.estado_documento       # ACEPTADO_CON_OBS
+curl -s "$BASE/v1/facturas/$ID" "${H[@]}" | campo datos.estado_documento       # ACEPTADO_CON_OBS (si dice ENVIADO, SUNAT aún procesa el ticket: el worker lo consulta cada 30 s; repite el comando)
 curl -s "$BASE/v1/facturas/$ID" "${H[@]}" | node -pe "JSON.stringify(JSON.parse(require('fs').readFileSync(0)).datos.cdr, null, 1)"
 ```
 

@@ -1,20 +1,27 @@
 package pe.factura.bootstrap;
 
+import pe.factura.application.port.in.ControlarPlazoEnvioUseCase;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
+import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.in.EmitirNotaCommand;
 import pe.factura.application.port.in.Idempotencia;
 import pe.factura.application.port.out.SunatBillingGateway;
+import pe.factura.application.port.out.SunatConsultaGateway;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.tenant.Entorno;
 import pe.factura.domain.tenant.Tenant;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.DateTimeException;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
@@ -28,14 +35,19 @@ import java.util.function.LongSupplier;
  * Un reloj movido en producción emitiría comprobantes con fechas falsas y consumiría numeración real, así que la salvaguarda no depende de que alguien se acuerde de
  * quitar la variable. Lo que distingue producción de pruebas no es la URL de SUNAT (la configuración siempre lleva las dos) sino el {@link Entorno} de cada empresa, que
  * decide a cuál se envía ({@code SunatUrls.para}). Con el reloj movido: (1) la aplicación no arranca si ya hay empresas en PRODUCCION
- * ({@link #exigirSinEmpresasEnProduccion}); (2) si una empresa pasa a PRODUCCION después de arrancar, ni emite ({@link #proteger(EmitirComprobanteUseCase, TenantRepository, Duration)})
- * ni se envía nada suyo a SUNAT ({@link #proteger(SunatBillingGateway, Duration)}); y (3) el arranque lo dice con un WARN imposible de pasar por alto
- * ({@link #alArrancar}).
+ * ({@link #exigirSinEmpresasEnProduccion}); (2) si una empresa pasa a PRODUCCION después de arrancar, nada que use el reloj con ella avanza, y se rechaza con
+ * {@value #CODIGO}: ni emite ({@link #proteger(EmitirComprobanteUseCase, TenantRepository, Duration)}), ni envía o cierra por plazo
+ * ({@link #proteger(EnviarDocumentoUseCase, TenantRepository, Duration)}), ni numera y firma bajas o resúmenes ({@link #proteger(TenantRepository, Duration)}), ni corre el barrido
+ * de plazos ({@link #proteger(ControlarPlazoEnvioUseCase, LongSupplier, Consumer, Duration)}); y ninguna llamada suya llega a SUNAT, ni de envío
+ * ({@link #proteger(SunatBillingGateway, Duration)}) ni de consulta ({@link #proteger(SunatConsultaGateway, Duration)}), que son las últimas barreras; y (3) el arranque lo dice
+ * con un WARN imposible de pasar por alto ({@link #alArrancar}). Lo único que sigue yendo a las URL de producción es el sondeo anónimo del monitor del backoffice.
  */
 public final class RelojDeLaAplicacion {
     /** El código con que se rechaza emitir o enviar para una empresa de PRODUCCION mientras el reloj está movido. */
     public static final String CODIGO = "RELOJ_DESPLAZADO";
     static final String VARIABLE = "RELOJ_DESPLAZAMIENTO";
+    /** Hasta dónde se puede mover el reloj, hacia atrás o hacia adelante: más allá no hay prueba de plazos que hacer, solo un valor mal escrito que rompería el reloj en su primer uso. */
+    static final Duration MAXIMO = Duration.ofDays(3650);
 
     private RelojDeLaAplicacion() {}
 
@@ -43,11 +55,15 @@ public final class RelojDeLaAplicacion {
     public static Duration desplazamiento(String configurado) {
         if (configurado == null || configurado.isBlank()) return Duration.ZERO;
         String valor = configurado.strip();
+        Duration d;
         try {
-            return Duration.parse(valor);
+            d = Duration.parse(valor);
         } catch (DateTimeException e) {
             throw new IllegalStateException(VARIABLE + " debe ser una duración ISO-8601 con días, horas, minutos o segundos (p. ej. -P8D o PT90M), no «" + valor + "»", e);
         }
+        if (d.compareTo(MAXIMO) > 0 || d.compareTo(MAXIMO.negated()) < 0)
+            throw new IllegalStateException(VARIABLE + " mueve el reloj más de " + MAXIMO.toDays() + " días (" + valor + "): debe quedar entre -P" + MAXIMO.toDays() + "D y P" + MAXIMO.toDays() + "D");
+        return d;
     }
 
     /** Sin desplazamiento, el reloj del sistema tal cual (el mismo que antes de #363); con él, ese reloj corrido, que sigue andando. */
@@ -102,9 +118,7 @@ public final class RelojDeLaAplicacion {
                 exigirNoProduccion(tenantId);
                 return emision.emitirNota(tenantId, cmd);
             }
-            private void exigirNoProduccion(UUID tenantId) {
-                if (tenants.buscar(tenantId).filter(t -> t.entorno() == Entorno.PRODUCCION).isPresent()) throw rechazo("emitir");
-            }
+            private void exigirNoProduccion(UUID tenantId) { RelojDeLaAplicacion.exigirNoProduccion(tenants, tenantId, "emitir"); }
         };
     }
 
@@ -117,6 +131,71 @@ public final class RelojDeLaAplicacion {
             @Override public EstadoTicket getStatus(Tenant tenant, String ticket) { exigirNoProduccion(tenant); return sunat.getStatus(tenant, ticket); }
             private void exigirNoProduccion(Tenant tenant) { if (tenant.entorno() == Entorno.PRODUCCION) throw rechazo("enviar a SUNAT"); }
         };
+    }
+
+    /**
+     * Sin desplazamiento, el mismo envío. Con él, ni envía ni cierra por plazo lo de una empresa en PRODUCCION: el envío compara la fecha de emisión con el reloj
+     * y cierra como FUERA_DE_PLAZO (estado terminal) antes de llegar a la pasarela, y los resúmenes diarios de las boletas viejas se numeran y firman en el camino.
+     */
+    public static EnviarDocumentoUseCase proteger(EnviarDocumentoUseCase envio, TenantRepository tenants, Duration desplazamiento) {
+        if (!desplazado(desplazamiento)) return envio;
+        return (tenantId, comprobanteId) -> {
+            exigirNoProduccion(tenants, tenantId, "enviar");
+            return envio.enviar(tenantId, comprobanteId);
+        };
+    }
+
+    /**
+     * Sin desplazamiento, el mismo repositorio. Con él, cargar una empresa de PRODUCCION falla: la comunicación de baja y el resumen diario cargan la empresa antes de
+     * numerar, firmar y guardar con la fecha del reloj, así que no empiezan. (Solo lo recibe quien numera con el reloj; el resto de la aplicación ve las empresas tal cual.)
+     */
+    public static TenantRepository proteger(TenantRepository tenants, Duration desplazamiento) {
+        if (!desplazado(desplazamiento)) return tenants;
+        return new TenantRepository() {
+            @Override public Optional<Tenant> buscar(UUID id) {
+                Optional<Tenant> empresa = tenants.buscar(id);
+                if (empresa.filter(t -> t.entorno() == Entorno.PRODUCCION).isPresent()) throw rechazo("emitir ni dar de baja");
+                return empresa;
+            }
+            @Override public void guardar(Tenant t) { tenants.guardar(t); }
+            @Override public Optional<Tenant> buscarPorRuc(String ruc) { return tenants.buscarPorRuc(ruc); }
+            @Override public List<Tenant> listarPorCuenta(UUID cuentaId) { return tenants.listarPorCuenta(cuentaId); }
+            @Override public void asignarCuenta(UUID tenantId, UUID cuentaId) { tenants.asignarCuenta(tenantId, cuentaId); }
+            @Override public Optional<UUID> cuentaDe(UUID tenantId) { return tenants.cuentaDe(tenantId); }
+        };
+    }
+
+    /**
+     * Sin desplazamiento, el mismo barrido. Con él, el barrido (que cierra por plazo lo de TODAS las empresas con el reloj, en un estado terminal) no corre mientras haya
+     * una empresa en PRODUCCION, y lo dice. En una base de pruebas, sin ellas, corre normal: es parte de lo que se quiere probar.
+     */
+    public static ControlarPlazoEnvioUseCase proteger(ControlarPlazoEnvioUseCase plazos, LongSupplier empresasEnProduccion, Consumer<String> warn, Duration desplazamiento) {
+        if (!desplazado(desplazamiento)) return plazos;
+        return () -> {
+            long enProduccion = empresasEnProduccion.getAsLong();
+            if (enProduccion == 0) return plazos.marcarVencidos();
+            warn.accept(VARIABLE + "=" + desplazamiento + " mueve el reloj y hay " + enProduccion + " empresa(s) en PRODUCCION: el barrido de plazos no corre para no cerrar sus "
+                    + "comprobantes con una fecha falsa. Quita la variable y reinicia");
+            return List.of();
+        };
+    }
+
+    /** Sin desplazamiento, la misma pasarela. Con él, ni una consulta de una empresa en PRODUCCION llega a los servicios de consulta de SUNAT (que solo existen en producción). */
+    public static SunatConsultaGateway proteger(SunatConsultaGateway sunat, Duration desplazamiento) {
+        if (!desplazado(desplazamiento)) return sunat;
+        return new SunatConsultaGateway() {
+            @Override public Consulta getStatusCdr(Tenant t, String rucEmisor, String tipo, String serie, long numero) { exigirNoProduccion(t); return sunat.getStatusCdr(t, rucEmisor, tipo, serie, numero); }
+            @Override public Consulta getStatus(Tenant t, String rucEmisor, String tipo, String serie, long numero) { exigirNoProduccion(t); return sunat.getStatus(t, rucEmisor, tipo, serie, numero); }
+            @Override public Consulta validar(Tenant t, String rucEmisor, String tipo, String serie, long numero, String tipoDocReceptor, String numDocReceptor, LocalDate fechaEmision, BigDecimal importeTotal) {
+                exigirNoProduccion(t);
+                return sunat.validar(t, rucEmisor, tipo, serie, numero, tipoDocReceptor, numDocReceptor, fechaEmision, importeTotal);
+            }
+            private void exigirNoProduccion(Tenant t) { if (t.entorno() == Entorno.PRODUCCION) throw rechazo("consultar a SUNAT"); }
+        };
+    }
+
+    private static void exigirNoProduccion(TenantRepository tenants, UUID tenantId, String accion) {
+        if (tenants.buscar(tenantId).filter(t -> t.entorno() == Entorno.PRODUCCION).isPresent()) throw rechazo(accion);
     }
 
     private static DomainException rechazo(String accion) {
