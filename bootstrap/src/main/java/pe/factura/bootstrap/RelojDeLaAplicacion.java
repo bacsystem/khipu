@@ -100,7 +100,7 @@ public final class RelojDeLaAplicacion {
     /** Las líneas del WARN de arranque: la hora que el backend cree que es y qué hacer. */
     static String avisoAlArrancar(Duration desplazamiento, Clock reloj) {
         return "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-                + "!!! RELOJ DESPLAZADO (" + VARIABLE + "=" + desplazamiento + ", " + legible(desplazamiento) + "): el backend cree que es " + reloj.instant() + " (" + reloj.getZone() + ")\n"
+                + "!!! RELOJ DESPLAZADO (" + VARIABLE + "=" + desplazamiento + ", " + legible(desplazamiento) + "): el backend cree que es " + reloj.instant().atZone(reloj.getZone()).toOffsetDateTime() + " (" + reloj.getZone() + ")\n"
                 + "!!! Los comprobantes salen con esa fecha. SOLO PARA PRUEBAS: nunca en producción.\n"
                 + "!!! Para volver a la hora real, quita " + VARIABLE + " y reinicia.\n"
                 + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";

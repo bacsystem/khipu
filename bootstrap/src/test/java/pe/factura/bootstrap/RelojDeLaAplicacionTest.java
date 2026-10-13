@@ -126,6 +126,17 @@ class RelojDeLaAplicacionTest {
                 .contains("-8 d 0 h 0 min 0 s").contains("SOLO PARA PRUEBAS").contains(String.valueOf(reloj.instant().atZone(LIMA).getYear()));
     }
 
+    @Test void elWarnDiceLaHoraEnLaZonaDelBackendConSuDesfaseYNoUnInstanteEnUtcEtiquetadoComoLima() {
+        Duration menosOcho = Duration.ofDays(-8);
+        Clock reloj = RelojDeLaAplicacion.crear(LIMA, menosOcho);
+        List<String> avisos = new ArrayList<>();
+
+        RelojDeLaAplicacion.alArrancar(menosOcho, reloj, () -> 0, avisos::add);
+
+        // Lima es UTC-5 todo el año: la hora local lleva el desfase -05:00 y el instante UTC («…Z») no aparece.
+        assertThat(avisos.get(0)).contains("-05:00").doesNotContainPattern("\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?Z");
+    }
+
     @Test void conDesplazamientoYEmpresasEnProduccionElArranqueAbortaSinAvisarComoSiTodoEstuvieraBien() {
         Duration menosOcho = Duration.ofDays(-8);
         List<String> avisos = new ArrayList<>();

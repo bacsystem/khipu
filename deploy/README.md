@@ -358,9 +358,16 @@ hasta() { echo "PT$(( $(date -d "$1" +%s) - $(date +%s) ))S"; }
 
 El reloj movido sigue andando desde que arranca el backend: el desplazamiento es fijo, no congela la hora. Puesto a las 23:45 del 31-12, llega al 01-01 a los 15 minutos.
 
-Datos comunes (una vez): una empresa `BETA` de pruebas con certificado y credenciales SOL de beta, y su API key.
+Datos comunes (una vez): una empresa `BETA` de pruebas con certificado y credenciales SOL de beta, y su API key. Una empresa sin cuenta no puede crear su API key
+desde el portal (`POST /v1/empresa/api-keys` exige sesión del portal): se da de alta con `POST /v1/admin/tenants` (cabecera `X-Platform-Key`) y esa respuesta devuelve
+`datos.api_key`. Con esa key (`X-Api-Key`) funcionan `POST /v1/empresa/certificado` (multipart `archivo` y `clave`; certificado autofirmado con el RUC en el campo `OU`),
+`PUT /v1/empresa/credenciales-sol` (en beta, `MODDATOS` / `moddatos`) y `POST /v1/series`.
+
+En **Git Bash de Windows**, antes de los `dev exec -T backend …` con rutas del contenedor (`/app/storage/...`) hace falta `export MSYS_NO_PATHCONV=1`: sin él, MSYS
+convierte `/app/...` en `C:/Program Files/Git/app/...` y el comando falla.
 
 ```bash
+export MSYS_NO_PATHCONV=1
 BASE=http://localhost:18001
 API_KEY=fk_…     # la de la empresa de pruebas
 H=(-H "X-Api-Key: $API_KEY" -H "Content-Type: application/json")
@@ -391,12 +398,15 @@ reloj ""
 
 # 4. Enviarla: pasó el 7.º día, va en un resumen diario fuera de plazo
 curl -s -X POST "$BASE/v1/facturas/$ID/enviar" "${H[@]}" | campo datos.baja.fuera_de_plazo   # true
-curl -s "$BASE/v1/facturas/$ID" "${H[@]}" | campo datos.estado_documento       # ACEPTADO_CON_OBS (si dice ENVIADO, SUNAT aún procesa el ticket: el worker lo consulta cada 30 s; repite el comando)
+curl -s "$BASE/v1/facturas/$ID" "${H[@]}" | campo datos.estado_documento       # ACEPTADO en SUNAT beta (si dice ENVIADO, SUNAT aún procesa el ticket: el worker lo consulta cada 30 s; repite el comando)
 curl -s "$BASE/v1/facturas/$ID" "${H[@]}" | node -pe "JSON.stringify(JSON.parse(require('fs').readFileSync(0)).datos.cdr, null, 1)"
 ```
 
-Resultado esperado: `ACEPTADO_CON_OBS` y `cdr.observaciones` con `4443 - El comprobante fue informado fuera del plazo establecido`. Si SUNAT beta **rechaza** el resumen, la 4443 no
-se comporta como se supone: se anota en #331 con el código y el mensaje que devolvió. En el portal, el detalle del comprobante muestra el aviso de informado fuera de plazo.
+Resultado verificado el 2026-10-13 contra SUNAT beta, con 8 y con 30 días de atraso: el RC sale con `ConditionCode` 1, la boleta pasa a `FIRMADO → ENVIADO → ACEPTADO`,
+`cdr.codigo` es `0` y `cdr.observaciones` está **vacía**: **la beta no devuelve la 4443** (la regla está en la hoja Resumen Diario de SUNAT, pero la beta no la aplica). Lo que
+sí comprueba este procedimiento es lo que depende de khipu: que la boleta pasada del 7.º día **va en un resumen diario propio con la fecha de generación de hoy** (`baja.fuera_de_plazo`
+`true`) en vez de quedar cerrada como `FUERA_DE_PLAZO`, y que SUNAT lo acepta. Si algún día la beta empieza a observar, el estado será `ACEPTADO_CON_OBS` y `cdr.observaciones`
+traerá `4443 - …`. En el portal, el detalle del comprobante muestra el aviso de informado fuera de plazo.
 
 ### B. Resumen diario con gratuitas que cruza al 2027-01-01 (#338)
 
