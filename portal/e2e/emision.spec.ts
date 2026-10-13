@@ -335,9 +335,61 @@ test("RUC corto y razón social corta se frenan en el cliente, sin viaje al back
   await expect(dialogo.getByLabel("Razón social")).toHaveJSProperty("validity.valid", false);
   expect(posts).toEqual([]);
 
+  // #303: `Receptor` cuenta sin los espacios de los extremos; `minLength` sola dejaba pasar «  AB  ».
+  await dialogo.getByLabel("Razón social").fill("  AB  ");
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(dialogo.getByLabel("Razón social")).toHaveJSProperty("validity.valid", false);
+  expect(posts).toEqual([]);
+
   // Descripción: `Item` admite hasta 500 (regla 2027); el `maxLength` corta antes de que el backend rechace.
   await dialogo.getByLabel("Descripción").fill("x".repeat(501));
   await expect(dialogo.getByLabel("Descripción")).toHaveValue("x".repeat(500));
+});
+
+/**
+ * #303: la regla 2022 (nombre del adquirente de 3 caracteres o más) es error en Boleta2_0 desde 2027-01-01; khipu ya la exige. El
+ * formulario la frena sin viaje, y si igual llega (otro cliente del API), el backend —y el mock— responden con la 2022 del comprador.
+ */
+test("el nombre corto del comprador de una boleta se frena en el cliente y, si llega, vuelve como 2022", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByRole("button", { name: "Boleta" }).click();
+  await expect(dialogo.getByLabel("Serie")).toContainText(/B001/);
+  await dialogo.getByLabel("Número de documento").fill("12345678");
+  await dialogo.getByLabel("Descripción").fill("Pan");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("5");
+  const posts = contarEmisiones(page);
+
+  const nombre = dialogo.getByLabel("Nombre del comprador");
+  await nombre.fill("  JP  ");
+  await dialogo.getByRole("button", { name: "Emitir boleta" }).click();
+  await expect(nombre).toHaveJSProperty("validity.valid", false);
+  expect(posts).toEqual([]);
+
+  // Sin el freno del navegador, el mensaje del dominio llega tal cual.
+  await nombre.evaluate((el) => (el as HTMLInputElement).closest("form")?.setAttribute("novalidate", ""));
+  await dialogo.getByRole("button", { name: "Emitir boleta" }).click();
+  await expect(dialogo.getByRole("alert")).toContainText("2022 - El nombre del comprador tiene de 3 a 1500 caracteres");
+  expect(posts).toHaveLength(1);
+});
+
+/**
+ * #347-H2: el `@NotBlank` de `ClienteDto` corre antes que el servicio y que el dominio, así que un nombre en blanco gana a un RUC corto:
+ * el backend responde VALIDACION y no 2017. El mock lo comprobaba después del RUC.
+ */
+test("sin el freno del navegador, la razón social en blanco vuelve como VALIDACION antes que el RUC corto", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("Serie")).toBeVisible();
+  await completarMinimo(dialogo);
+  const posts = contarEmisiones(page);
+
+  await dialogo.getByLabel("RUC").fill("2055419821");
+  await dialogo.getByLabel("Razón social").fill("   ");
+  await dialogo.getByLabel("RUC").evaluate((el) => (el as HTMLInputElement).closest("form")?.setAttribute("novalidate", ""));
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(dialogo.getByRole("alert")).toContainText("Validación fallida");
+  expect(posts).toHaveLength(1);
 });
 
 test("el aviso de ítems incompletos es una región viva y el botón de emitir lo referencia", async ({ page }) => {
