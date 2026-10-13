@@ -77,4 +77,7 @@ public class JdbcOutboxRepository implements OutboxRepository {
     }
     @Override public void completar(UUID id) { jdbc.update("DELETE FROM outbox WHERE id = ?", id); }
     @Override public void completarPorAgregado(UUID agregadoId, String accion) { jdbc.update("DELETE FROM outbox WHERE agregado_id = ? AND accion = ?", agregadoId, accion); }
+    @Override public void reasignar(UUID anterior, String accion, UUID nuevo) {
+        jdbc.update("UPDATE outbox SET agregado_id = ? WHERE agregado_id = ? AND accion = ?", nuevo, anterior, accion);
+    }
 }

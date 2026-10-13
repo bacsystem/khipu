@@ -55,7 +55,10 @@ public class BajaController {
     }
 
     @GetMapping("/v1/bajas/{id}")
-    @Operation(summary = "Consultar una comunicación de baja", description = "Si está `ENVIADA`, consulta el ticket en SUNAT en el acto y devuelve el resultado actualizado.")
+    @Operation(summary = "Consultar una comunicación de baja", description = """
+            Si está `ENVIADA`, consulta el ticket en SUNAT en el acto y devuelve el resultado actualizado; si está `GENERADA` o en `ERROR_ENVIO`, la reenvía.
+            Un resumen diario con gratuitas generado hasta el 2026-12-31 que se reenvía desde el 2027-01-01 no se reenvía: queda `DESCARTADA` y la respuesta
+            es el `RC` nuevo que lo reemplaza (otro `id`), con la fecha y el formato del día.""")
     public ApiResponse<BajaResponse> obtener(HttpServletRequest req, @PathVariable UUID id) {
         return ApiResponse.ok(BajaResponse.de(bajas.continuar(TenantActual.id(req), id)));
     }
