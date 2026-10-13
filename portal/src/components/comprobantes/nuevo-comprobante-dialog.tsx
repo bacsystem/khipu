@@ -3,7 +3,7 @@
 import { FileTextIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { NuevoComprobanteForm, type TipoEmitible } from "@/components/comprobantes/nuevo-comprobante-form";
+import { NuevoComprobanteForm, tipoInicial, type TipoEmitible } from "@/components/comprobantes/nuevo-comprobante-form";
 import { Alerta } from "@/components/feedback/alerta";
 import { Spinner } from "@/components/feedback/spinner";
 import { CabeceraDialogo } from "@/components/patrones/cabecera-dialogo";
@@ -80,9 +80,12 @@ function useRecursoDelDialogo<T>(abierto: boolean, ruta: string) {
 export function NuevoComprobanteDialog({ className }: { className?: string }) {
   const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
-  const [tipo, setTipo] = useState<TipoEmitible>("factura");
+  // Mientras el usuario no elige (`null`), el que la empresa puede emitir (#286, `tipoInicial`). Cada apertura vuelve a ese: como las series, que se
+  // recargan, la elección de la vez anterior pudo ser con otra empresa.
+  const [tipoElegido, setTipo] = useState<TipoEmitible | null>(null);
 
   const series = useRecursoDelDialogo<Serie[]>(abierto, "/api/proxy/series");
+  const tipo = tipoElegido ?? tipoInicial(series.dato ?? []);
   const empresa = useRecursoDelDialogo<EmpresaDetalle>(abierto, "/api/proxy/empresa");
   // #18: en el tope del plan el backend rechaza la emisión; se dice antes. Si la cuenta no se puede leer no se bloquea: el backend tiene la última palabra.
   const cuenta = useRecursoDelDialogo<MiCuenta>(abierto, "/api/proxy/cuenta");
@@ -107,7 +110,13 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
           : "Cargando ambiente…";
 
   return (
-    <Dialog open={abierto} onOpenChange={setAbierto}>
+    <Dialog
+      open={abierto}
+      onOpenChange={(a) => {
+        if (a) setTipo(null);
+        setAbierto(a);
+      }}
+    >
       <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={className}>
         <PlusIcon className="size-4" />
         Nuevo comprobante

@@ -67,6 +67,15 @@ export type TipoEmitible = "factura" | "boleta";
 const TIPO_DE_SERIE: Record<TipoEmitible, string> = { factura: "01", boleta: "03" };
 
 /**
+ * Con qué tipo abre la emisión (#286): factura, salvo que la empresa solo tenga series activas de boleta. Con las dos, o con ninguna, factura: con
+ * ninguna, el formulario dice que falta la serie.
+ */
+export function tipoInicial(series: Serie[]): TipoEmitible {
+  const tiene = (t: TipoEmitible) => series.some((s) => s.tipo === TIPO_DE_SERIE[t] && s.activa);
+  return !tiene("factura") && tiene("boleta") ? "boleta" : "factura";
+}
+
+/**
  * Documentos del comprador de una boleta (catálogo 06), con su formato: lo que exige `Receptor.exigirValidoParaBoleta` (4207, 2017, 4208). «-» es el comprador
  * sin identificar, que SUNAT admite solo hasta S/ 700 en soles.
  */

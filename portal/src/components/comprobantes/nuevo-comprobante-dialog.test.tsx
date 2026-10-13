@@ -289,6 +289,69 @@ describe("NuevoComprobanteDialog", () => {
     expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
   });
 
+  /** #286: una empresa que solo emite boletas no tiene que pasar por «No tienes series de factura» cada vez que abre el diálogo. */
+  it("con solo series de boleta abre en Boleta", async () => {
+    const soloBoleta = [{ tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" }];
+    stubFetch((url) => (url.includes("/series") ? sobre(soloBoleta) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("option", { name: /B001 · siguiente N\.º 10/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
+    expect(screen.queryByText("No tienes series de factura")).not.toBeInTheDocument();
+    // La factura sigue a un clic: abrir en Boleta no esconde la otra opción.
+    fireEvent.click(screen.getByRole("button", { name: "Factura" }));
+    await waitFor(() => expect(screen.getByText("No tienes series de factura")).toBeInTheDocument());
+  });
+
+  /** Una serie de factura dada de baja no cuenta: la factura no se puede emitir con ella. */
+  it("con la serie de factura inactiva y una de boleta activa abre en Boleta", async () => {
+    const series = [{ ...SERIES[0], activa: false }, { tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" }];
+    stubFetch((url) => (url.includes("/series") ? sobre(series) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
+  });
+
+  it("con series de los dos tipos sigue abriendo en Factura", async () => {
+    const ambas = [...SERIES, { tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" }];
+    stubFetch((url) => (url.includes("/series") ? sobre(ambas) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.getByRole("button", { name: "Factura" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Emitir factura" })).toBeInTheDocument();
+  });
+
+  /** La elección dura lo que el diálogo: al reabrir vuelve al tipo que la empresa puede emitir, con las series recién leídas (pudo cambiar de empresa). */
+  it("al reabrir vuelve al tipo por defecto de las series recién leídas", async () => {
+    let series: unknown[] = [...SERIES, { tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" }];
+    stubFetch((url) => (url.includes("/series") ? sobre(series) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument());
+
+    await abrir();
+    expect(screen.getByRole("button", { name: "Emitir factura" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Factura" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument());
+
+    // Otra empresa, solo con boletas: lo elegido antes (Factura) no la deja en «No tienes series de factura».
+    series = [{ tipo: "03", serie: "B002", ultimo_numero: 0, activa: true, establecimiento: "0000" }];
+    await abrir();
+    expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
+  });
+
   it("sin series de boleta lo dice con su tipo, sin esconder la opción", async () => {
     stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
 

@@ -640,6 +640,10 @@ test("da de baja una factura aceptada tras confirmar el motivo y queda anulada",
   await expect(confirmacion).toHaveCount(0);
   await expect(page.getByTestId("baja")).toContainText("Aceptada: comprobante anulado");
   await expect(page.getByTestId("baja")).toContainText("Error en el RUC del cliente");
+  // El CDR de un RA, como lo redacta SUNAT (y como lo da la consulta del ticket): «aceptada», no el «aceptado» del resumen diario (352-H2).
+  await expect(page.getByTestId("baja")).toContainText(/La Comunicacion de baja RA-\d{8}-\d+, ha sido aceptada/);
+  // #286: la factura sí se anula con una comunicación de baja, y su historial lo dice.
+  await expect(page.getByTestId("historial")).toContainText("Comunicación de baja aceptada por SUNAT");
   await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("dar-de-baja")).toHaveCount(0);
 });
@@ -701,6 +705,9 @@ test("baja: si SUNAT sigue procesando, la ficha lo muestra en curso y permite re
   await panel.getByRole("button", { name: "Actualizar estado" }).click();
   await expect(panel).toContainText("Aceptada: comprobante anulado");
   await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
+  // #286 (352-H1): la anulación que llega por la consulta del ticket también queda en el historial, con su canal.
+  await expect(panel).toContainText(/La Comunicacion de baja RA-\d{8}-\d+, ha sido aceptada/);
+  await expect(page.getByTestId("historial")).toContainText("Comunicación de baja aceptada por SUNAT");
 });
 
 test("baja: un segundo clic durante el envío no manda otra comunicación", async ({ page }) => {
@@ -1308,6 +1315,8 @@ test("#294: NC total sobre una boleta con serie B, y su baja va en el resumen di
   await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
   await expect(page.getByTestId("baja")).toContainText(/Resumen diario RC-\d{8}-\d+/);
   await expect(page.getByTestId("baja")).toContainText("Aceptada: comprobante anulado");
+  // #286: la nota B también: su historial nombra el resumen diario.
+  await expect(page.getByTestId("historial")).toContainText("Anulación aceptada por SUNAT en el resumen diario");
 
   // Y la boleta lista la nota.
   await page.goto("/comprobantes/b-aceptada");
