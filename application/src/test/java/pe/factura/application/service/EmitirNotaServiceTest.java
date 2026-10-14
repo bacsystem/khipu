@@ -646,6 +646,7 @@ class EmitirNotaServiceTest {
                 .extracting(IdempotenciaRepository.Registro::huella, IdempotenciaRepository.Registro::recursoId)
                 .containsExactly("huella-nota-1", e.comprobante().id());
         assertThat(s.claves().reservadoDentro).as("la reserva va en la transacción de la emisión: si esta se revierte, la clave queda libre").containsExactly(true);
+        assertThat(s.claves().completadoDentro).as("y la clave se completa en la misma transacción: nunca queda una reserva sin nota ni una nota sin clave").containsExactly(true);
     }
 
     /** El reintento tras un corte de red, en una nota de factura: la misma nota, sin otro número ni otro envío a SUNAT. */
@@ -766,8 +767,11 @@ class EmitirNotaServiceTest {
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
     }
 
-    /** Una clave que no se usó antes no sirve de pase: si el documento ya no admite la nota se rechaza como siempre y no deja la clave reservada. */
-    @Test void unaClaveNuevaSobreUnDocumentoAnuladoSeRechazaYNoQuedaReservada() {
+    /**
+     * Una clave que no se usó antes no sirve de pase: si el documento ya no admite la nota se rechaza como siempre, antes de reservar nada. (Que un rechazo
+     * posterior a la reserva, dentro de la transacción, deje la clave libre lo prueba la E2E con Postgres: aquí el fake no revierte.)
+     */
+    @Test void unaClaveNuevaSobreUnDocumentoAnuladoSeRechazaSinReservarLaClave() {
         Comprobante f = facturaAceptada(FormaPago.contado());
         anular(f);
         ConClaves s = conClaves();

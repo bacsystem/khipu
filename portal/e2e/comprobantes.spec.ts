@@ -970,6 +970,18 @@ test("el mock de POST /v1/notas cumple el contrato de Idempotency-Key del backen
   expect(otra.status).toBe(422);
   expect(otra.json.codigo).toBe("IDEMPOTENCIA_INVALIDA");
   expect(otra.json.mensaje).toBe(`La clave de idempotencia ${clave} ya se usó con otro contenido: genere una clave nueva para otra nota`);
+  // La misma cadena en POST /v1/facturas es otra clave (el backend separa los alcances `factura:` y `nota:`): ni se confunde con la de la nota ni la rechaza.
+  const factura = await page.evaluate(async (k) => {
+    const body = { serie: "F001", fecha_emision: new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }), moneda: "PEN", tipo_operacion: "0101",
+      cliente: { tipo_doc: "6", num_doc: "20601234565", razon_social: "CLIENTE SAC", direccion: "AV. LIMA 1" },
+      items: [{ codigo: "P001", descripcion: "Pan", unidad: "NIU", cantidad: 1, precio_unitario: 1, tipo_afectacion_igv: "10" }] };
+    const r = await fetch("/api/proxy/facturas", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": k }, body: JSON.stringify(body) });
+    return { status: r.status, json: await r.json() };
+  }, clave);
+  expect(factura.status, JSON.stringify(factura.json)).toBe(201);
+  const trasLaFactura = await post(cuerpo("Contrato 1"), clave);
+  expect(trasLaFactura.status).toBe(200);
+  expect(trasLaFactura.json.datos.id).toBe(primera.json.datos.id);
   // Una clave mal formada se rechaza sin emitir; sin clave, cada pedido es una nota nueva.
   const mala = await post(cuerpo("Contrato 3"), "corta");
   expect(mala.status).toBe(422);
