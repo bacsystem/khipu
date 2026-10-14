@@ -7,9 +7,11 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
 import { CasillaDeTerminos } from "@/components/legal/casilla-de-terminos";
-import { Button } from "@/components/ui/button";
+import { BotonAsync } from "@/components/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";
+import { cn } from "@/lib/utils";
 import { emailSchema, passwordSchema, soloTelefono, telefonoSchema } from "@/lib/validacion";
 
 const schema = z.object({
@@ -85,9 +87,9 @@ export function RegistroForm() {
       />
       <CasillaDeTerminos id="acepta_terminos" {...register("acepta_terminos")} error={errors.acepta_terminos?.message} />
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? messages.auth.registro.enviando : messages.auth.registro.enviar}
-      </Button>
+      <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.auth.registro.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {messages.auth.registro.enviar}
+      </BotonAsync>
     </form>
   );
 }

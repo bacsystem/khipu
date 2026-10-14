@@ -6,12 +6,14 @@ import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
-import { Button } from "@/components/ui/button";
+import { BotonAsync } from "@/components/patrones/boton-async";
 import type { PasoAdmin } from "@/lib/api/admin-auth";
 import { postJson } from "@/lib/api/browser";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
 import type { ApiEnvelope } from "@/lib/api/types";
 import { mensajeError, messages } from "@/lib/messages";
 import { rutaSegura } from "@/lib/ruta-segura";
+import { cn } from "@/lib/utils";
 import { emailSchema } from "@/lib/validacion";
 import { CodigosRecuperacion, ConfigurarSegundoFactor, VerificarSegundoFactor } from "./segundo-factor";
 
@@ -84,9 +86,9 @@ export function AdminLoginForm() {
           {error}
         </p>
       ) : null}
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? messages.admin.login.enviando : messages.admin.login.enviar}
-      </Button>
+      <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.admin.login.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {messages.admin.login.enviar}
+      </BotonAsync>
     </form>
   );
 }

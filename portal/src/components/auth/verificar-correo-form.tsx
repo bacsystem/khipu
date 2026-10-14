@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { BotonAsync } from "@/components/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -33,8 +34,7 @@ export function VerificarCorreoForm({ token }: { token: string }) {
     return (
       <div className="grid gap-4">
         <p role="status" className="text-sm">{t.exito}</p>
-        {/* La misma altura que el botón de verificar (los formularios de acceso son de h-8, con `ui/Button` e `Input`). */}
-        <Link href="/onboarding" className={cn(buttonVariants(), "w-full")}>
+        <Link href="/onboarding" className={cn(BOTON_PRIMARIO, "w-full")}>
           {t.continuar}
         </Link>
       </div>
@@ -43,9 +43,9 @@ export function VerificarCorreoForm({ token }: { token: string }) {
   return (
     <div className="grid gap-4">
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-      <Button type="button" onClick={verificar} disabled={estado === "enviando"} className="w-full">
-        {estado === "enviando" ? t.enviando : t.enviar}
-      </Button>
+      <BotonAsync pendiente={estado === "enviando"} textoPendiente={t.enviando} onClick={verificar} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {t.enviar}
+      </BotonAsync>
     </div>
   );
 }

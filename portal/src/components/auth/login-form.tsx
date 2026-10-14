@@ -7,10 +7,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
-import { Button } from "@/components/ui/button";
+import { BotonAsync } from "@/components/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";
 import { rutaSegura } from "@/lib/ruta-segura";
+import { cn } from "@/lib/utils";
 import { emailSchema } from "@/lib/validacion";
 
 const schema = z.object({
@@ -59,15 +61,15 @@ export function LoginForm() {
         register={register("password")}
         error={errors.password?.message}
       />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
       <div className="-mt-2 flex justify-end">
-        <Link href="/recuperar" className="text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/recuperar" className="text-[12px] text-muted-foreground hover:text-foreground">
           {messages.auth.login.olvidaste}
         </Link>
       </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? messages.auth.login.enviando : messages.auth.login.enviar}
-      </Button>
+      <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.auth.login.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {messages.auth.login.enviar}
+      </BotonAsync>
     </form>
   );
 }

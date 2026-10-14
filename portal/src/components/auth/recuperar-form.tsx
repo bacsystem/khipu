@@ -5,9 +5,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
-import { Button } from "@/components/ui/button";
+import { BotonAsync } from "@/components/patrones/boton-async";
+import { Alerta } from "@/components/feedback/alerta";
 import { postJson } from "@/lib/api/browser";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";
+import { cn } from "@/lib/utils";
 import { emailSchema } from "@/lib/validacion";
 
 const schema = z.object({ email: emailSchema });
@@ -34,7 +37,7 @@ export function RecuperarForm() {
   }
 
   if (enviado) {
-    return <p className="text-sm text-muted-foreground">{messages.auth.recuperar.confirmacion}</p>;
+    return <Alerta tono="ok">{messages.auth.recuperar.confirmacion}</Alerta>;
   }
 
   return (
@@ -47,10 +50,10 @@ export function RecuperarForm() {
         register={register("email")}
         error={errors.email?.message}
       />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? messages.auth.recuperar.enviando : messages.auth.recuperar.enviar}
-      </Button>
+      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+      <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.auth.recuperar.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {messages.auth.recuperar.enviar}
+      </BotonAsync>
     </form>
   );
 }
