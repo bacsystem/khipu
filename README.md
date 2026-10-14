@@ -111,7 +111,8 @@ los pida. `STORAGE_TYPE` elige dónde viven:
 emitió; cada falta sale en el log como `ERROR Integridad del storage: XML_FALTANTE|XML_CORRUPTO|CDR_FALTANTE|STORAGE_INACCESIBLE …`.
 Para un periodo cualquiera: `POST /v1/admin/integridad?desde=2026-01-01&hasta=2026-01-31` con `X-Platform-Key` devuelve el
 informe. Solo lee: reparar es restaurar la versión/backup del objeto, o `POST /v1/facturas/{id}/cdr/recuperar` si lo que falta es
-el CDR y la empresa está en producción.
+el CDR de una factura o de sus notas (serie F) y la empresa está en producción; SUNAT no consulta boletas ni notas B por
+`getStatusCdr` (`409 CDR_NO_CONSULTABLE`): su constancia es la del envío individual o la del resumen diario.
 
 **Migrar de disco local a S3.** Las claves son las mismas en ambos backends, así que basta copiar el árbol:
 ```bash

@@ -79,12 +79,13 @@ public class ResolverErroresService implements ResolverErroresUseCase {
      * Un error de envío puede ser un corte **después** de que SUNAT recibió el comprobante: descartarlo así haría reemitir la venta y dejaría dos comprobantes válidos en
      * SUNAT. En producción, antes de descartar se le pregunta (getStatusCdr, {@link RecuperarCdrUseCase}): si lo tiene, se aplica su CDR y no se descarta; si no se le
      * puede preguntar, tampoco (no se sabe). En beta no hay consulta ni efecto fiscal, y sin credenciales SOL el envío nunca pudo llegar: ahí no se pregunta. Lo que ya no
-     * está en error de envío no se pregunta: el dominio lo rechaza igual.
+     * está en error de envío no se pregunta: el dominio lo rechaza igual. Tampoco la boleta ni sus notas (#357): SUNAT no les contesta getStatusCdr, así que no hay a
+     * quién preguntar y su CDR llega por el resumen diario.
      */
     private void confirmarQueSunatNoLoTiene(Ubicacion u, UUID comprobanteId) {
         Tenant t = tenants.buscar(u.tenantId()).orElse(null);
         if (t == null || t.entorno() != Entorno.PRODUCCION || t.sol() == null) return;
-        if (comprobantes.buscar(u.tenantId(), comprobanteId).map(c -> c.estado() != EstadoDocumento.ERROR_ENVIO).orElse(true)) return;
+        if (comprobantes.buscar(u.tenantId(), comprobanteId).map(c -> c.estado() != EstadoDocumento.ERROR_ENVIO || !c.consultableEnGetStatusCdr()).orElse(true)) return;
         Comprobante consultado;
         try {
             consultado = cdrs.recuperar(u.tenantId(), comprobanteId);

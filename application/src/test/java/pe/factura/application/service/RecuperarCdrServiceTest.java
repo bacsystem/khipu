@@ -3,8 +3,11 @@ package pe.factura.application.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.ConsultarValidezUseCase;
+import pe.factura.application.port.in.RecuperarCdrUseCase;
 import pe.factura.application.port.out.SunatConsultaGateway.Consulta;
+import pe.factura.application.port.out.SunatRechazoException;
 import pe.factura.application.port.out.SunatTransientException;
+import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Cdr;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
@@ -83,14 +86,98 @@ class RecuperarCdrServiceTest {
         tenants.guardar(Fakes.tenantListo(beta));   // BETA: se salta
         Comprobante cb = Fakes.facturaFirmada(beta, storage);
         cb.marcarEnviado(); comprobantes.guardar(cb);
-        assertThat(service.recuperarPendientes()).extracting(Comprobante::id).containsExactly(c.id());
+        assertThat(service.recuperarPendientes().recuperados()).extracting(Comprobante::id).containsExactly(c.id());
         assertThat(consultas.llamadas).isEqualTo(1);
         // SUNAT caído: no explota, lo intenta la siguiente pasada.
         Comprobante d = Fakes.facturaFirmada(tenantId, storage);
         d.marcarEnviado(); comprobantes.guardar(d);
         consultas.falla = new SunatTransientException("0000", "caído");
-        assertThat(service.recuperarPendientes()).isEmpty();
+        RecuperarCdrUseCase.Barrido sinSunat = service.recuperarPendientes();
+        assertThat(sinSunat.recuperados()).isEmpty();
+        assertThat(sinSunat.fallos()).extracting(f -> f.comprobante().id()).containsExactly(d.id());
         assertThat(comprobantes.buscar(tenantId, d.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ENVIADO);
+    }
+
+    // --- #357: getStatusCdr solo existe para 01/07/08 serie F ------------------------------------------------------------------------------
+
+    /** La boleta y sus notas no se le preguntan a SUNAT por getStatusCdr: ni siquiera ENVIADAS o en error de envío, que son los estados que sí se consultan en una factura. */
+    @Test void laBoletaYSusNotasNoSeConsultanPorGetStatusCdr() {
+        for (Comprobante c : List.of(Fakes.boletaFirmada(tenantId, storage, 1), Fakes.notaDeBoletaFirmada(tenantId, storage, 1))) {
+            c.marcarEnviado();
+            comprobantes.guardar(c);
+            assertThatThrownBy(() -> service.recuperar(tenantId, c.id())).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CDR_NO_CONSULTABLE");
+            assertThatThrownBy(() -> service.recuperar(tenantId, c.id())).hasMessageContaining("resumen diario").hasMessageContaining("ticket");
+        }
+        assertThat(consultas.llamadas).isZero();
+    }
+
+    /**
+     * En e-beta no hay billConsultService (404): la consulta de una factura responde NO_DISPONIBLE_EN_BETA desde el gateway. A una boleta ni se le llega: el 409 de «no se
+     * consulta» va primero y es el mismo en cualquier entorno, así que el integrador no ve un 422 de beta que sugiera que en producción sí funcionaría.
+     */
+    @Test void laBoletaDeUnaEmpresaEnBetaTambienEsConflictoYNoLlegaAlGateway() {
+        UUID beta = UUID.randomUUID();
+        tenants.guardar(Fakes.tenantListo(beta));   // BETA
+        Comprobante b = Fakes.boletaFirmada(beta, storage, 1);
+        b.marcarEnviado(); comprobantes.guardar(b);
+        assertThatThrownBy(() -> service.recuperar(beta, b.id())).extracting("codigo").isEqualTo("CDR_NO_CONSULTABLE");
+        assertThat(consultas.llamadas).isZero();
+    }
+
+    /** Un CDR perdido de una boleta ya aceptada tampoco se pide por esta vía: el 409 es el mismo y no depende del estado. */
+    @Test void laBoletaAceptadaSinCdrTampocoSeConsulta() {
+        Comprobante b = Fakes.boletaFirmada(tenantId, storage, 1);
+        b.marcarEnviado(); b.aplicarCdr(new Cdr("0", "ok", List.of()), null);
+        comprobantes.guardar(b);
+        assertThatThrownBy(() -> service.recuperar(tenantId, b.id())).extracting("codigo").isEqualTo("CDR_NO_CONSULTABLE");
+        assertThat(consultas.llamadas).isZero();
+    }
+
+    /** El barrido ignora lo de boleta aunque la consulta del repositorio se lo entregue: no pregunta a SUNAT ni lo cuenta como fallo. */
+    @Test void elBarridoNoConsultaLoDeBoleta() {
+        Comprobante boleta = Fakes.boletaFirmada(tenantId, storage, 1);
+        Comprobante notaB = Fakes.notaDeBoletaFirmada(tenantId, storage, 1);
+        Comprobante factura = Fakes.facturaFirmada(tenantId, storage, 1);
+        for (Comprobante c : List.of(boleta, notaB, factura)) { c.marcarEnviado(); comprobantes.guardar(c); }
+
+        RecuperarCdrUseCase.Barrido r = service.recuperarPendientes();
+
+        assertThat(r.recuperados()).extracting(Comprobante::id).containsExactly(factura.id());
+        assertThat(r.fallos()).isEmpty();
+        assertThat(consultas.llamadas).isEqualTo(1);
+    }
+
+    /**
+     * Un fault definitivo de SUNAT (o cualquier otra excepción) en un comprobante no corta el barrido: la consulta va por fecha de emisión, así que uno atascado al frente
+     * dejaría sin recuperar a todos los más nuevos, cada hora y para siempre. Cada fallo vuelve con su comprobante para que quien llama lo registre.
+     */
+    @Test void unFaultDefinitivoNoCortaElBarrido() {
+        Comprobante atascada = Fakes.facturaFirmada(tenantId, storage, 1);
+        Comprobante nueva = Fakes.facturaFirmada(tenantId, storage, 2);
+        for (Comprobante c : List.of(atascada, nueva)) { c.marcarEnviado(); comprobantes.guardar(c); }
+        consultas.fallaPorNumero.put(1L, new SunatRechazoException("0151", "El archivo ZIP no contiene el comprobante"));
+
+        RecuperarCdrUseCase.Barrido r = service.recuperarPendientes();
+
+        assertThat(r.recuperados()).extracting(Comprobante::id).containsExactly(nueva.id());
+        assertThat(comprobantes.buscar(tenantId, nueva.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(r.fallos()).hasSize(1);
+        assertThat(r.fallos().get(0).comprobante().id()).isEqualTo(atascada.id());
+        assertThat(r.fallos().get(0).causa()).isInstanceOf(SunatRechazoException.class);
+        assertThat(consultas.llamadas).isEqualTo(2);
+    }
+
+    /** Lo inesperado (un fallo del storage, un CDR ilegible) tampoco: se informa y el barrido sigue con el siguiente. */
+    @Test void unaExcepcionInesperadaNoCortaElBarrido() {
+        Comprobante rota = Fakes.facturaFirmada(tenantId, storage, 1);
+        Comprobante sana = Fakes.facturaFirmada(tenantId, storage, 2);
+        for (Comprobante c : List.of(rota, sana)) { c.marcarEnviado(); comprobantes.guardar(c); }
+        consultas.fallaPorNumero.put(1L, new IllegalStateException("storage caído"));
+
+        RecuperarCdrUseCase.Barrido r = service.recuperarPendientes();
+
+        assertThat(r.recuperados()).extracting(Comprobante::id).containsExactly(sana.id());
+        assertThat(r.fallos()).extracting(f -> f.causa().getMessage()).containsExactly("storage caído");
     }
 
     @Test void consultaLaValidezDeUnComprobanteDeUnTercero() {

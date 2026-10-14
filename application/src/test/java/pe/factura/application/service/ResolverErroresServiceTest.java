@@ -69,7 +69,7 @@ class ResolverErroresServiceTest {
             comprobantes.datos.put(id, c);
             return c;
         }
-        public List<Comprobante> recuperarPendientes() { throw new AssertionError("el descarte consulta un comprobante"); }
+        public Barrido recuperarPendientes() { throw new AssertionError("el descarte consulta un comprobante"); }
     }
 
     Cdrs cdrs = new Cdrs();
@@ -232,6 +232,20 @@ class ResolverErroresServiceTest {
         tenants.guardar(tenantEn(Entorno.PRODUCCION));
         assertThatThrownBy(() -> service.descartar(ACTOR, c.id(), "otra vez")).isInstanceOf(DomainException.class)
                 .extracting(e -> ((DomainException) e).codigo()).isEqualTo("ESTADO_NO_DESCARTABLE");
+        assertThat(cdrs.llamadas).isEmpty();
+    }
+
+    /**
+     * #357: a la boleta y a sus notas SUNAT no les contesta getStatusCdr, así que no hay a quién preguntar. No se la consulta (reventaría con el 409 de la consulta) y el
+     * descarte sigue su camino: lo de boleta se regulariza en el resumen diario, no reemitiendo.
+     */
+    @Test void aLaBoletaYSusNotasEnProduccionNoSePreguntaASunatAlDescartar() {
+        tenants.guardar(tenantEn(Entorno.PRODUCCION));
+        for (Comprobante c : List.of(Fakes.boletaFirmada(empresaId, storage, 1), Fakes.notaDeBoletaFirmada(empresaId, storage, 1))) {
+            c.marcarErrorEnvio("0109 - El sistema no puede responder");
+            comprobantes.datos.put(c.id(), c);
+            assertThat(service.descartar(ACTOR, c.id(), "No sale").estado()).isEqualTo(EstadoDocumento.DESCARTADO);
+        }
         assertThat(cdrs.llamadas).isEmpty();
     }
 

@@ -110,6 +110,19 @@ class NotaTest {
         assertThat(Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 18), "PEN", "0101", SIN_DOCUMENTO, ITEMS).crear(CLOCK).esDeBoleta()).isTrue();
     }
 
+    /**
+     * #357: getStatusCdr solo existe para 01, 07 y 08 de serie F (manual del programador, p. 22 y 24). La boleta y sus notas (serie B) no se consultan por ahí: su
+     * CDR es el del envío individual o el del resumen diario. Es el mismo criterio de «lo de boleta», no una regla aparte.
+     */
+    @Test void soloLaFacturaYSusNotasSeConsultanPorGetStatusCdr() {
+        assertThat(Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 18), "PEN", "0101", RECEPTOR, ITEMS).crear(CLOCK).consultableEnGetStatusCdr()).isTrue();
+        assertThat(nota(TipoDocumento.NOTA_CREDITO, "FC01", NC_ANULACION, null).consultableEnGetStatusCdr()).isTrue();
+        assertThat(nota(TipoDocumento.NOTA_DEBITO, "FD01", new Nota(TipoDocumento.FACTURA, "F001", 12, "01", "Intereses por mora"), null).consultableEnGetStatusCdr()).isTrue();
+        assertThat(Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 18), "PEN", "0101", SIN_DOCUMENTO, ITEMS).crear(CLOCK).consultableEnGetStatusCdr()).isFalse();
+        assertThat(sobreBoleta(TipoDocumento.NOTA_CREDITO, "BC01", "07", SIN_DOCUMENTO).consultableEnGetStatusCdr()).isFalse();
+        assertThat(sobreBoleta(TipoDocumento.NOTA_DEBITO, "BD01", "01", SIN_DOCUMENTO).consultableEnGetStatusCdr()).isFalse();
+    }
+
     /** Lo aceptado por SUNAT y anulado: la anulación de lo de boleta llega en un resumen diario, no en una comunicación de baja (#286). */
     static String detalleAlAnular(Comprobante c) {
         c.asignarNumero(1, "20100066603"); c.firmar("H", "k.xml"); c.marcarEnviado();

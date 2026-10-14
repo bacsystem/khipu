@@ -343,6 +343,14 @@ public class Comprobante {
     /** Una boleta o una nota que modifica una boleta: va sola hasta el 5.º día, en el resumen diario hasta el 7.º y se anula solo en él (#293). */
     public boolean esDeBoleta() { return tipo == TipoDocumento.BOLETA || (nota != null && nota.deBoleta()); }
 
+    /**
+     * Si SUNAT contesta {@code getStatusCdr} para este comprobante (#357). Según el manual del programador (p. 22 y 24) el servicio cubre solo la factura, la nota de crédito y
+     * la nota de débito (01, 07, 08) y, según su Anexo 2, solo de serie F: la boleta y las notas B quedan fuera. Su CDR es el del envío individual o el del resumen diario
+     * (que se consulta con el ticket), el mismo criterio de {@link #esDeBoleta()}. Qué responde SUNAT si igual se le pregunta no está documentado ni se puede comprobar en e-beta (no publica billConsultService: responde 404 y solo existe
+     * en producción): no se le pregunta.
+     */
+    public boolean consultableEnGetStatusCdr() { return !esDeBoleta(); }
+
     /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar al tipo de comprobante (columna "Tipo de Comprobante asociado": "Factura", "Boleta"…). */
     private static void validarTipoOperacion(String operacion, TipoDocumento tipo) {
         CatalogoSunat.Entrada e = CatalogoSunat.porId("51").flatMap(c -> c.entrada(operacion))
