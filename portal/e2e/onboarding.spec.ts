@@ -4,9 +4,12 @@ import { registrarYVerificar } from "./registro-sesion";
 test("el onboarding solo crea la empresa y deja al cliente en el portal para cargar el certificado (#371)", async ({ page }) => {
   await registrarYVerificar(page, { email: `nueva-${Date.now()}@example.com` });
 
-  // El asistente ya no pide certificado, SOL ni serie: eso se configura dentro del portal.
+  // El asistente ya no pide certificado, SOL ni serie: eso se configura dentro del portal. Se mira con el formulario ya
+  // montado: durante «Cargando tu configuración…» tampoco hay ninguno de esos textos y la comprobación pasaría sola.
+  await expect(page.getByLabel("RUC")).toBeVisible();
   await expect(page.getByText("Certificado y SOL")).toHaveCount(0);
   await expect(page.getByText("Primera serie")).toHaveCount(0);
+  await expect(page.getByLabel("Usuario SOL secundario")).toHaveCount(0);
   await page.getByLabel("RUC").fill("20999999990");
   await page.getByLabel("Razón social").fill("Mi Empresa de Prueba SAC");
   await page.getByRole("button", { name: "Continuar" }).click();
@@ -32,7 +35,7 @@ test("registro: el celular no acepta letras, se corta en 12 y avisa al salir del
   await expect(celular).toHaveAttribute("aria-describedby", "telefono-error");
 });
 
-test("onboarding: el RUC se valida con el módulo 11 en el cliente y la serie sigue el patrón de SUNAT", async ({ page }) => {
+test("onboarding: el RUC se valida con el módulo 11 en el cliente y la razón social no admite tabuladores", async ({ page }) => {
   await registrarYVerificar(page, { email: `contrato${Date.now()}@ejemplo.pe`, nombre: "Contrato SAC" });
 
   const ruc = page.getByLabel("RUC");
