@@ -159,6 +159,41 @@ class CambiarPlanDeCuentaServiceTest {
         assertThat(p.programado().cambio().diasDeGracia()).isEqualTo(3);
     }
 
+    /** #333: llegada la fecha de la bajada, el worker puede tardar hasta 10 minutos en aplicarla; la vista ya muestra el plan, el vencimiento y la gracia nuevos. */
+    @Test void siLaBajadaYaLlegoPeroNoSeAplicoLaVistaMuestraElPlanQueMandaYNoLoProgramado() {
+        empezarEn(negocio, VENCE);
+        Instant llego = AHORA.minus(Duration.ofMinutes(5));
+        Instant venceNuevo = AHORA.plus(Duration.ofDays(20));
+        suscripciones.programar(cuentaId, new CambioDePlan(emprende.id(), llego, venceNuevo, 3));
+
+        PlanDeCuenta p = service.plan(cuentaId);
+
+        assertThat(p.plan()).isEqualTo(emprende);
+        assertThat(p.suscripcion().planId()).isEqualTo(emprende.id());
+        assertThat(p.suscripcion().iniciaEn()).isEqualTo(llego);
+        assertThat(p.suscripcion().venceEn()).isEqualTo(venceNuevo);
+        assertThat(p.suscripcion().diasDeGracia()).isEqualTo(3);
+        assertThat(p.hastaCuandoCubre()).isEqualTo(venceNuevo.plus(Duration.ofDays(3)));
+        assertThat(p.estado()).isEqualTo(EstadoSuscripcion.VIGENTE);
+        assertThat(p.programado()).as("ya no espera: ya manda").isNull();
+        assertThat(guardado().programado()).as("leer no aplica nada: eso lo hace el worker").isNotNull();
+        assertThat(guardado().activa().planId()).isEqualTo(negocio.id());
+    }
+
+    @Test void elEstadoDePagoDeLaVistaEsElDelPlanQueManda() {
+        empezarEn(negocio, VENCE);
+        suscripciones.programar(cuentaId, new CambioDePlan(gratis.id(), AHORA.minus(Duration.ofDays(5)), AHORA.minus(Duration.ofDays(1)), 0));
+
+        assertThat(service.plan(cuentaId).estado()).isEqualTo(EstadoSuscripcion.VENCIDA);
+    }
+
+    @Test void laBajadaQueLlegaJustoAhoraYaManda() {
+        empezarEn(negocio, VENCE);
+        suscripciones.programar(cuentaId, new CambioDePlan(emprende.id(), AHORA, VENCE, 0));
+
+        assertThat(service.plan(cuentaId).plan()).isEqualTo(emprende);
+    }
+
     @Test void elPlanDeUnaCuentaQueNoExisteEsNoEncontrado() {
         assertThat(codigo(() -> service.plan(UUID.randomUUID()))).isEqualTo("NO_ENCONTRADO");
         assertThat(codigo(() -> service.plan(null))).isEqualTo("NO_ENCONTRADO");

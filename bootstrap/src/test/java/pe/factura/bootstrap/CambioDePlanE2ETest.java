@@ -266,7 +266,8 @@ class CambioDePlanE2ETest {
         jdbc.update("UPDATE suscripcion SET inicia_en = now() - interval '2 days' WHERE cuenta_id = ? AND termina_en IS NULL", c.cuentaId());
         Instant fecha = Instant.now().minus(Duration.ofHours(1));
         jdbc.update("UPDATE suscripcion_cambio_programado SET aplica_desde = ? WHERE cuenta_id = ?", Timestamp.from(fecha), c.cuentaId());
-        assertThat(nombreDelPlan(c.cuentaId())).as("todavía no se aplicó").isEqualTo("Negocio");
+        assertThat(jdbc.queryForObject("SELECT plan_id FROM suscripcion WHERE cuenta_id = ? AND termina_en IS NULL", UUID.class, c.cuentaId())).as("todavía no se aplicó").isEqualTo(plan("Negocio"));
+        assertThat(nombreDelPlan(c.cuentaId())).as("pero la vista ya muestra el plan que manda (#333)").isEqualTo("Emprende");
 
         AplicarCambiosDePlanUseCase.Resultado r = aplicador.aplicarVencidos();
 

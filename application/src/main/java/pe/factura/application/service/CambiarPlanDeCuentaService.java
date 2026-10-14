@@ -131,7 +131,12 @@ public class CambiarPlanDeCuentaService implements CambiarPlanDeCuentaUseCase, A
         return p;
     }
 
-    private PlanDeCuenta vista(PlanesDeCuenta p, Instant ahora) {
+    /**
+     * Lo que se muestra es el plan que manda en {@code ahora}: si la fecha de una bajada ya llegó y el worker todavía no la aplicó (#333), se muestra como si estuviera aplicada
+     * (plan, vencimiento y gracia nuevos). Solo es una proyección: no se guarda nada, la suscripción de verdad la cambia {@link #aplicarVencidos}.
+     */
+    private PlanDeCuenta vista(PlanesDeCuenta guardado, Instant ahora) {
+        PlanesDeCuenta p = guardado.aplicarProgramadoEn(ahora, UUID.randomUUID());
         Suscripcion activa = p.activa();
         Programado programado = p.programado() == null ? null : new Programado(planDe(p.programado().planId()).vigenteEn(ahora), p.programado());
         return new PlanDeCuenta(p.cuentaId(), planDe(activa.planId()).vigenteEn(ahora), activa, activa.estadoEn(ahora), activa.hastaCuandoCubre(), programado);
