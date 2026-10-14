@@ -30,6 +30,8 @@ public interface CambiarPlanDeCuentaUseCase {
         /**
          * El plan que manda en {@code ahora}: el de la suscripción, o la bajada programada si ya llegó su fecha aunque el worker que la aplica todavía no haya
          * pasado (como {@code PlanesDeCuenta.planVigenteEn}). Para lo que se controla al momento, como el tope de documentos (#18).
+         * Desde #333 el servicio ya devuelve la bajada vencida proyectada (con {@code programado == null}), así que esta rama (y las de {@link #estadoEn} y
+         * {@link #hastaCuandoCubreEn}) solo actúa con un {@code PlanDeCuenta} armado por otro productor; se conserva como defensa.
          */
         public Plan planQueMandaEn(Instant ahora) {
             return programado != null && programado.cambio().mandaEn(ahora) ? programado.plan() : plan;
