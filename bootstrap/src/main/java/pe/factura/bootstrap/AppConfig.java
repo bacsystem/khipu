@@ -8,9 +8,12 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -218,7 +221,14 @@ public class AppConfig {
         return f;
     }
 
-    @Bean Clock clock(AppProperties p) { return Clock.system(ZoneId.of(p.zonaHoraria())); }
+    /** El único reloj de la aplicación. Con RELOJ_DESPLAZAMIENTO (#363, solo pruebas) va corrido; sin él es el del sistema, como siempre. */
+    @Bean Clock clock(AppProperties p) { return RelojDeLaAplicacion.crear(ZoneId.of(p.zonaHoraria()), p.desplazamientoDelReloj()); }
+    /** #363: con el reloj corrido no se arranca si hay empresas en PRODUCCION, y se avisa en el log con letras grandes. Sin desplazamiento no hace nada. */
+    @Bean ApplicationRunner relojDesplazadoAlArrancar(AppProperties p, Clock clock, JdbcTemplate jdbc) {
+        return args -> RelojDeLaAplicacion.alArrancar(p.desplazamientoDelReloj(), clock, () -> empresasEnProduccion(jdbc), RELOJ_LOG::warn);
+    }
+    private static final Logger RELOJ_LOG = LoggerFactory.getLogger(RelojDeLaAplicacion.class);
+    private static long empresasEnProduccion(JdbcTemplate jdbc) { return jdbc.queryForObject("SELECT count(*) FROM tenant WHERE entorno = 'PRODUCCION'", Long.class); }
     @Bean SecretCipher secretCipher(AppProperties p, @Value("${app.master-key-anterior:}") String anterior) {
         exigirSecretosDePlataforma(p);
         return new AesGcmSecretCipher(p.masterKey(), anterior);
@@ -275,10 +285,12 @@ public class AppConfig {
     @Bean XmlSigner xmlSigner() { return new XmlDsigSigner(); }
     @Bean CdrParser cdrParser() { return new XmlCdrParser(); }
     @Bean SunatBillingGateway sunatBillingGateway(AppProperties p) {
-        return new SoapBillingGateway(new SunatUrls(p.sunat().betaUrl(), p.sunat().prodUrl()), Duration.ofSeconds(p.sunat().timeoutSeconds()));
+        return RelojDeLaAplicacion.proteger(new SoapBillingGateway(new SunatUrls(p.sunat().betaUrl(), p.sunat().prodUrl()), Duration.ofSeconds(p.sunat().timeoutSeconds())),
+                p.desplazamientoDelReloj());
     }
     @Bean SunatConsultaGateway sunatConsultaGateway(AppProperties p) {
-        return new SoapConsultaGateway(p.sunat().consultaUrl(), p.sunat().consultaBetaUrl(), p.sunat().validezUrl(), p.sunat().validezBetaUrl(), Duration.ofSeconds(p.sunat().timeoutSeconds()));
+        return RelojDeLaAplicacion.proteger(new SoapConsultaGateway(p.sunat().consultaUrl(), p.sunat().consultaBetaUrl(), p.sunat().validezUrl(), p.sunat().validezBetaUrl(),
+                Duration.ofSeconds(p.sunat().timeoutSeconds())), p.desplazamientoDelReloj());
     }
     /** Sondea el WSDL de cada servicio de SUNAT (sin credenciales ni comprobantes) y guarda la lectura 30 s para que el monitor, que se refresca solo, no la llame cada vez. */
     @Bean SondeoDeSunat sondeoDeSunat(AppProperties p, Clock clock) {
@@ -324,14 +336,14 @@ public class AppConfig {
     @Bean RecuperarCdrWorker recuperarCdrWorker(RecuperarCdrUseCase cdrs) { return new RecuperarCdrWorker(cdrs); }
 
     @Bean EnviarDocumentoUseCase enviarDocumento(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatBillingGateway g, CdrParser p,
-                                                OutboxRepository o, UnitOfWork u, Clock clock, RechazoDeSolRepository rechazos, InformarEnResumenUseCase resumen) {
-        return new EnviarDocumentoService(c, t, s, g, p, o, u, clock, rechazos, resumen);
+                                                OutboxRepository o, UnitOfWork u, Clock clock, RechazoDeSolRepository rechazos, InformarEnResumenUseCase resumen, AppProperties props) {
+        return RelojDeLaAplicacion.proteger(new EnviarDocumentoService(c, t, s, g, p, o, u, clock, rechazos, resumen), t, props.desplazamientoDelReloj());
     }
     @Bean RechazoDeSolRepository rechazoDeSolRepository(JdbcTemplate jdbc) { return new JdbcRechazoDeSolRepository(jdbc); }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
                                                     UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock, EmisorDeSerieRepository emisor,
-                                                    BajaRepository bajas, IdempotenciaRepository idempotencia, TopeDelPlan tope) {
-        return new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia, tope);
+                                                    BajaRepository bajas, IdempotenciaRepository idempotencia, TopeDelPlan tope, AppProperties p) {
+        return RelojDeLaAplicacion.proteger(new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia, tope), t, p.desplazamientoDelReloj());
     }
     @Bean TopeDeDocumentosRepository topeDeDocumentosRepository(JdbcTemplate jdbc) { return new JdbcTopeDeDocumentosRepository(jdbc); }
     @Bean TopeDelPlan topeDelPlan(TenantRepository t, CambiarPlanDeCuentaUseCase planes, TopeDeDocumentosRepository ocupados, Clock clock) { return new TopeDelPlanService(t, planes, ocupados, clock); }
@@ -466,15 +478,18 @@ public class AppConfig {
         return new AltaAsistidaService(cu, us, se, t, s, k, h, co, u, auditoria, p.apiKeyPepper(), clock, idempotencia, cifrador, plantillas);
     }
 
-    // Concreto: es también el InformarEnResumenUseCase (alta de una boleta en el resumen diario) que usa el envío.
+    // Concreto: es también el InformarEnResumenUseCase (alta de una boleta en el resumen diario) que usa el envío. Carga la empresa lo primero en sus tres entradas
+    // (solicitar, informar, continuar), antes de numerar y firmar con la fecha del reloj: con el reloj movido, el repositorio protegido (#363) frena ahí a las de PRODUCCION.
     @Bean DarDeBajaService darDeBaja(BajaRepository b, ComprobanteRepository c, TenantRepository t, DocumentStorage s, UblGenerator ubl, XsdValidator xsd, XmlSigner signer,
-                                     SunatBillingGateway g, CdrParser p, OutboxRepository o, UnitOfWork u, Clock clock) {
-        return new DarDeBajaService(b, c, t, s, ubl, xsd, signer, g, p, o, u, clock);
+                                     SunatBillingGateway g, CdrParser p, OutboxRepository o, UnitOfWork u, Clock clock, AppProperties props) {
+        return new DarDeBajaService(b, c, RelojDeLaAplicacion.proteger(t, props.desplazamientoDelReloj()), s, ubl, xsd, signer, g, p, o, u, clock);
     }
     @Bean OutboxWorker outboxWorker(OutboxRepository o, UnitOfWork u, EnviarDocumentoUseCase e, DarDeBajaUseCase b, Clock clock, AppProperties p) {
         return new OutboxWorker(o, u, e, b, clock, p.outbox().maxIntentos());
     }
-    @Bean ControlarPlazoEnvioUseCase controlarPlazoEnvio(ComprobanteRepository c, UnitOfWork u, Clock clock) { return new ControlarPlazoEnvioService(c, u, clock); }
+    @Bean ControlarPlazoEnvioUseCase controlarPlazoEnvio(ComprobanteRepository c, UnitOfWork u, Clock clock, JdbcTemplate jdbc, AppProperties p) {
+        return RelojDeLaAplicacion.proteger(new ControlarPlazoEnvioService(c, u, clock), () -> empresasEnProduccion(jdbc), RELOJ_LOG::warn, p.desplazamientoDelReloj());
+    }
     @Bean PlazoEnvioWorker plazoEnvioWorker(ControlarPlazoEnvioUseCase plazos) { return new PlazoEnvioWorker(plazos); }
 
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y

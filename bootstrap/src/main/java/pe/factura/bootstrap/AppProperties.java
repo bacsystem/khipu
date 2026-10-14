@@ -5,7 +5,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app")
 public record AppProperties(String mode, String masterKey, String apiKeyPepper, String platformAdminKey,
                             String jwtSecret, String portalUrl,
-                            Storage storage, Sunat sunat, Outbox outbox, Mail mail, Integridad integridad, String zonaHoraria) {
+                            Storage storage, Sunat sunat, Outbox outbox, Mail mail, Integridad integridad, String zonaHoraria,
+                            String relojDesplazamiento) {
+    // relojDesplazamiento (RELOJ_DESPLAZAMIENTO, #363): duración ISO-8601 que se suma al reloj del backend, solo para probar plazos en un ambiente de pruebas
+    // (-P8D = ocho días antes). Vacío = hora real. Con valor, no arranca si hay empresas en PRODUCCION. Ver RelojDeLaAplicacion y deploy/README.md §10.
+
+    /** El desplazamiento del reloj ya leído (cero si no hay): un valor inválido o fuera del tope impide arrancar. */
+    public java.time.Duration desplazamientoDelReloj() { return RelojDeLaAplicacion.desplazamiento(relojDesplazamiento); }
+
     /** {@code type}: {@code fs} (disco local, desarrollo) o {@code s3} (S3/MinIO/B2/R2, producción: #38). */
     public record Storage(String type, String fsRoot, S3 s3) {
         public record S3(String bucket, String region, String endpoint, String accessKey, String secretKey, boolean pathStyle) {}
