@@ -36,7 +36,11 @@ public record Percepcion(String regimen, BigDecimal porcentaje, BigDecimal base,
         return base.multiply(porcentaje).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
     }
 
-    /** Coherencia con el comprobante: operación 2001 al contado en PEN, base ≤ total (2797) y monto = base × % ±1 (2798); completa base y monto. */
+    /**
+     * Coherencia con el comprobante: operación 2001 al contado en PEN, base ≤ total (2797) y monto = base × % ±1 (2798); completa base y monto.
+     * #362 B5, decisión: no se exige que todas las líneas sean afectación 10 (2437 de la hoja CódigosRetorno y de la guía interna): no está en Boleta2_0 ni en Factura2_0 y SUNAT beta
+     * aceptó sin observaciones la boleta con percepción y líneas 10 + 20, 10 + 30, 10 + 11 y solo 20 (B001-39 a B001-44). Si producción la aplicara, sería un 2437 de SUNAT, no un rechazo local.
+     */
     Percepcion completarContra(String tipoOperacion, FormaPago formaPago, String moneda, BigDecimal importeTotal) {
         if (!TIPO_OPERACION.equals(tipoOperacion))
             throw new DomainException("PERCEPCION_INVALIDA", "3308 - Solo se informa percepción con tipo de operación 2001, no " + tipoOperacion);

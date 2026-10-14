@@ -23,8 +23,11 @@ public class JdbcBajaRepository implements BajaRepository {
             + "estado, ticket, xml_key, cdr_key, cdr_codigo, cdr_descripcion, intentos, ultimo_error, condicion, de_boleta";
 
     @Override public void guardar(ComunicacionBaja b) {
-        int filas = jdbc.update("UPDATE comunicacion_baja SET estado = ?, ticket = ?, xml_key = ?, cdr_key = ?, cdr_codigo = ?, cdr_descripcion = ?, intentos = ?, ultimo_error = ?, updated_at = now() WHERE id = ? AND tenant_id = ?",
-                b.estado().name(), b.ticket(), b.xmlKey(), b.cdrKey(), b.cdr() == null ? null : b.cdr().codigo(), b.cdr() == null ? null : b.cdr().descripcion(), b.intentos(), b.ultimoError(), b.id(), b.tenantId());
+        // enviada_en (#362 B14): el instante en que pasó a ENVIADA (SUNAT dio el ticket). Se fija una sola vez: las reconsultas del ticket guardan la fila de nuevo y no lo mueven.
+        int filas = jdbc.update("UPDATE comunicacion_baja SET estado = ?, ticket = ?, xml_key = ?, cdr_key = ?, cdr_codigo = ?, cdr_descripcion = ?, intentos = ?, ultimo_error = ?, "
+                        + "enviada_en = CASE WHEN CAST(? AS VARCHAR) = 'ENVIADA' THEN coalesce(enviada_en, now()) ELSE enviada_en END, updated_at = now() WHERE id = ? AND tenant_id = ?",
+                b.estado().name(), b.ticket(), b.xmlKey(), b.cdrKey(), b.cdr() == null ? null : b.cdr().codigo(), b.cdr() == null ? null : b.cdr().descripcion(), b.intentos(), b.ultimoError(),
+                b.estado().name(), b.id(), b.tenantId());
         if (filas > 0) return;
         jdbc.update("INSERT INTO comunicacion_baja (" + COLS + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 b.id(), b.tenantId(), Date.valueOf(b.fechaGeneracion()), b.correlativo(), b.comprobanteId(), b.tipoComprobante().codigo(), b.serie(), b.numero(),

@@ -42,6 +42,7 @@ function monitor(p: Partial<MonitorDeEmision> = {}): MonitorDeEmision {
     horas: horas({ aceptados: 97, rechazados: 3, con_error: 2, en_camino: 10, otros: 5 }),
     hoy: franja("2026-10-15T05:00:00Z", { aceptados: 400, rechazados: 12, con_error: 4, en_camino: 10, otros: 9, tasa_de_rechazo: 12 / 412 }),
     outbox: { pendientes: 0, vencidos: 0, alerta: false },
+    resumenes_sin_respuesta: { cantidad: 0, umbral_horas: 6, alerta: false },
     sunat: SERVICIOS,
     ...p,
   };
@@ -183,6 +184,41 @@ describe("PanelDelMonitor (#195)", () => {
     render(<PanelDelMonitor inicial={monitor({ outbox: { pendientes: 1, vencidos: 1, vencido_hace_segundos: 400, alerta: true } })} />);
 
     expect(screen.getByTestId("monitor-alerta").textContent).toContain("Hay 1 envío vencido y lleva 6 min esperando.");
+  });
+
+  // --- los resúmenes con ticket sin respuesta (#362 B14) ----------------------------------------------------------------------------------
+
+  it("sin resúmenes pendientes pasado el umbral no hay alerta de resúmenes", () => {
+    render(<PanelDelMonitor inicial={monitor()} />);
+
+    expect(screen.queryByTestId("monitor-alerta-resumenes")).toBeNull();
+  });
+
+  it("con resúmenes o bajas sin respuesta dice cuántos, desde hace cuánto el más antiguo y el límite configurado", () => {
+    render(<PanelDelMonitor inicial={monitor({ resumenes_sin_respuesta: { cantidad: 3, mas_viejo_desde: "2026-10-15T05:00:00Z", mas_viejo_hace_segundos: 37_200, umbral_horas: 6, alerta: true } })} />);
+
+    const alerta = screen.getByTestId("monitor-alerta-resumenes");
+    expect(alerta.getAttribute("role")).toBe("alert");
+    expect(alerta.textContent).toContain("Hay trámites con SUNAT sin respuesta");
+    expect(alerta.textContent).toContain("3 resúmenes diarios o bajas llevan más de 6 h sin respuesta de SUNAT; el más antiguo, 10 h 20 min.");
+    expect(alerta.textContent).toContain("khipu sigue preguntando por su ticket");
+  });
+
+  it("la alerta de un solo trámite está en singular", () => {
+    render(<PanelDelMonitor inicial={monitor({ resumenes_sin_respuesta: { cantidad: 1, mas_viejo_hace_segundos: 25_200, umbral_horas: 6, alerta: true } })} />);
+
+    expect(screen.getByTestId("monitor-alerta-resumenes").textContent).toContain("1 resumen diario o baja lleva 7 h sin respuesta de SUNAT (límite: 6 h).");
+  });
+
+  /** Son dos problemas distintos: el worker del outbox caído y un ticket que SUNAT no resuelve. Cada alerta sale sola. */
+  it("la alerta de resúmenes es independiente de la del outbox", () => {
+    render(<PanelDelMonitor inicial={monitor({ resumenes_sin_respuesta: { cantidad: 1, mas_viejo_hace_segundos: 25_200, umbral_horas: 6, alerta: true } })} />);
+    expect(screen.queryByTestId("monitor-alerta")).toBeNull();
+    cleanup();
+
+    render(<PanelDelMonitor inicial={monitor({ outbox: { pendientes: 1, vencidos: 1, vencido_hace_segundos: 400, alerta: true } })} />);
+    expect(screen.getByTestId("monitor-alerta")).toBeTruthy();
+    expect(screen.queryByTestId("monitor-alerta-resumenes")).toBeNull();
   });
 
   // --- SUNAT ------------------------------------------------------------------------------------------------------------------------------

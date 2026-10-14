@@ -37,6 +37,21 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
                 tenant, UUID.randomUUID(), Timestamp.from(siguiente), bloqueadoHasta == null ? null : Timestamp.from(bloqueadoHasta), Timestamp.from(creado));
     }
 
+    /** Una comunicación de baja (o un resumen diario) de un comprobante nuevo de esa empresa, creada y enviada (con su ticket) en {@code enviada}. */
+    void baja(UUID tenant, String estado, String ticket, Instant enviada) { baja(tenant, estado, ticket, enviada, enviada); }
+
+    /** Lo mismo, creada en {@code creada} y con el ticket dado por SUNAT en {@code enviada} (un resumen que esperó en ERROR_ENVIO se crea mucho antes de enviarse). */
+    void baja(UUID tenant, String estado, String ticket, Instant creada, Instant enviada) {
+        UUID comprobante = UUID.randomUUID();
+        long numero = NUMERO.getAndIncrement();
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, created_at) VALUES (?, ?, '03', 'B001', ?, ?, 'ACEPTADO', 'x', ?)",
+                comprobante, tenant, numero, java.sql.Date.valueOf(LocalDate.of(2026, 10, 15)), Timestamp.from(creada));
+        jdbc.update("INSERT INTO comunicacion_baja (id, tenant_id, fecha_generacion, correlativo, comprobante_id, tipo_comprobante, serie, numero, fecha_referencia, motivo, estado, ticket, "
+                        + "condicion, de_boleta, created_at, enviada_en) VALUES (?, ?, ?, ?, ?, '03', 'B001', ?, ?, 'Error', ?, ?, 'BAJA', true, ?, ?)",
+                UUID.randomUUID(), tenant, java.sql.Date.valueOf(LocalDate.of(2026, 10, 15)), (int) numero, comprobante, numero, java.sql.Date.valueOf(LocalDate.of(2026, 10, 15)),
+                estado, ticket, Timestamp.from(creada), ticket == null ? null : Timestamp.from(enviada));
+    }
+
     Instant hace(Duration d) { return AHORA.minus(d); }
 
     // --- por hora y estado ------------------------------------------------------------------------------------------------------------------
@@ -183,6 +198,71 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
 
         assertThat(repo.cola(AHORA).vencidos()).as("`locked_until < ahora` es estricto: el instante exacto todavía bloquea").isZero();
         assertThat(repo.cola(AHORA.plusSeconds(1)).vencidos()).isEqualTo(1);
+    }
+
+    // --- los resúmenes con ticket sin respuesta (#362 B14) ----------------------------------------------------------------------------------
+
+    @Test void sinResumenesEnviadosNoHayNadaPendiente() {
+        var r = repo.resumenesSinRespuesta(AHORA);
+
+        assertThat(r.cantidad()).isZero();
+        assertThat(r.masViejoDesde()).isNull();
+    }
+
+    @Test void cuentaLosEnviadosConTicketCreadosAntesDelLimiteYDiceElMasViejo() {
+        UUID a = tenantDePrueba();
+        UUID b = tenantDePrueba();
+        baja(a, "ENVIADA", "T-1", hace(Duration.ofHours(9)));
+        baja(b, "ENVIADA", "T-2", hace(Duration.ofHours(7)));
+        baja(a, "ENVIADA", "T-3", hace(Duration.ofHours(1)));
+
+        var r = repo.resumenesSinRespuesta(hace(Duration.ofHours(6)));
+
+        assertThat(r.cantidad()).as("de todas las empresas, y el de hace 1 h todavía no cuenta").isEqualTo(2);
+        assertThat(r.masViejoDesde()).isEqualTo(hace(Duration.ofHours(9)));
+    }
+
+    /** Solo lo que SUNAT recibió y no respondió: lo resuelto, lo rechazado, lo descartado y lo que ni siquiera tiene ticket no son un ticket atascado. */
+    @Test void soloCuentaLoEnviadoQueSunatNoRespondio() {
+        UUID t = tenantDePrueba();
+        Instant vieja = hace(Duration.ofHours(30));
+        baja(t, "ACEPTADA", "T-1", vieja);
+        baja(t, "RECHAZADA", "T-2", vieja);
+        baja(t, "DESCARTADA", null, vieja);
+        baja(t, "GENERADA", null, vieja);
+        baja(t, "ERROR_ENVIO", null, vieja);
+        baja(t, "ENVIADA", null, vieja);
+
+        assertThat(repo.resumenesSinRespuesta(hace(Duration.ofHours(6))).cantidad()).as("el ENVIADA sin ticket no es un ticket sin respuesta").isZero();
+    }
+
+    /**
+     * H1 de #370: se cuenta desde que SUNAT dio el ticket, no desde que se creó la fila. Un resumen creado a las 10:00 que esperó en ERROR_ENVIO hasta que SUNAT volvió y
+     * recién entonces se envió no lleva horas sin respuesta; con {@code created_at} el monitor lo alertaba en el mismo instante en que se enviaba.
+     */
+    @Test void unResumenCreadoHaceHorasPeroEnviadoHaceUnMinutoNoDaAlerta() {
+        UUID t = tenantDePrueba();
+        baja(t, "ENVIADA", "T-1", hace(Duration.ofHours(9)), hace(Duration.ofMinutes(1)));
+        baja(t, "ENVIADA", "T-2", hace(Duration.ofHours(10)), hace(Duration.ofHours(8)));
+
+        var r = repo.resumenesSinRespuesta(hace(Duration.ofHours(6)));
+
+        assertThat(r.cantidad()).as("solo el T-2 lleva más de 6 h con ticket").isEqualTo(1);
+        assertThat(r.masViejoDesde()).as("desde que SUNAT dio el ticket, no desde que se creó").isEqualTo(hace(Duration.ofHours(8)));
+    }
+
+    @Test void elLimiteEsEstricto() {
+        UUID t = tenantDePrueba();
+        baja(t, "ENVIADA", "T-1", hace(Duration.ofHours(6)));
+
+        assertThat(repo.resumenesSinRespuesta(hace(Duration.ofHours(6))).cantidad()).as("creado justo en el límite: todavía no pasó").isZero();
+        assertThat(repo.resumenesSinRespuesta(hace(Duration.ofHours(6)).plusSeconds(1)).cantidad()).isEqualTo(1);
+    }
+
+    @Test void hayUnIndiceParcialDeLosEnviadosParaNoRecorrerTodaLaTabla() {
+        Integer indices = jdbc.queryForObject("SELECT count(*) FROM pg_indexes WHERE tablename = 'comunicacion_baja' AND indexdef LIKE '%(enviada_en)%ENVIADA%'", Integer.class);
+
+        assertThat(indices).isEqualTo(1);
     }
 
     @Test void laColaMezclaTodasLasEmpresas() {

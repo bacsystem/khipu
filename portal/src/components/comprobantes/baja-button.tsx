@@ -124,6 +124,12 @@ export function BajaButton({
               {notasVigentes > 0 ? ` Tiene ${notasVigentes} ${notasVigentes === 1 ? "nota vigente que quedará" : "notas vigentes que quedarán"} sobre un comprobante anulado (SUNAT lo permite).` : ""}
             </p>
           </div>
+          {boleta ? (
+            // #362 H8: la baja de una boleta (o de una nota B) es un RC con la línea en estado 3; SUNAT solo la admite si lo emitido no llegó al adquirente.
+            <p className="text-[12px] leading-relaxed text-muted-foreground" data-testid="baja-boleta-condicion">
+              Solo se anula lo que no se entregó al adquirente (RS 097-2012, art. 14). Si ya se le entregó, no se anula: emita una nota de crédito.
+            </p>
+          ) : null}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="baja-motivo" className={ETIQUETA_CAMPO}>Motivo</label>
             <input
@@ -135,7 +141,11 @@ export function BajaButton({
               className={CAMPO}
               autoFocus
             />
-            <span className={AYUDA_CAMPO}>3–100 caracteres, sin saltos de línea (SUNAT 2315). Va en el XML y lo ve SUNAT.{motivo.length >= 100 ? " Llegaste al máximo de 100." : ""}</span>
+            <span className={AYUDA_CAMPO}>
+              3–100 caracteres, sin saltos de línea (SUNAT 2315).{" "}
+              {boleta ? "Queda solo en khipu: el resumen diario no lo lleva." : "Va en el XML y lo ve SUNAT."}
+              {motivo.length >= 100 ? " Llegaste al máximo de 100." : ""}
+            </span>
           </div>
           {error ? <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">{error}</p> : null}
         </div>

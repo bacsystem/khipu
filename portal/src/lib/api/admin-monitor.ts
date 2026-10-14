@@ -22,6 +22,12 @@ export type Franja = {
 /** La cola de envíos a SUNAT. `alerta`: hay envíos vencidos hace más de 5 minutos. La API omite lo que no aplica (cola vacía, ningún vencido). */
 export type ColaDeEnvios = { pendientes: number; vencidos: number; mas_viejo_desde?: string; vencido_hace_segundos?: number; alerta: boolean };
 
+/**
+ * #362 B14: resúmenes diarios (RC) y bajas (RA) con ticket que SUNAT no ha respondido pasadas `umbral_horas` (`app.monitor.resumen-sin-respuesta-horas`, 6 por defecto).
+ * `alerta`: hay al menos uno. La API omite el más antiguo cuando no hay ninguno.
+ */
+export type ResumenesSinRespuesta = { cantidad: number; mas_viejo_desde?: string; mas_viejo_hace_segundos?: number; umbral_horas: number; alerta: boolean };
+
 /** Si un servicio de SUNAT contesta. La API omite `milisegundos` si no contestó y `detalle` si está disponible. */
 export type EstadoDeServicio = { servicio: ServicioDeSunat; disponible: boolean; milisegundos?: number; detalle?: string };
 
@@ -32,6 +38,7 @@ export type MonitorDeEmision = {
   /** El día de Lima hasta ahora. */
   hoy: Franja;
   outbox: ColaDeEnvios;
+  resumenes_sin_respuesta: ResumenesSinRespuesta;
   sunat: EstadoDeServicio[];
 };
 

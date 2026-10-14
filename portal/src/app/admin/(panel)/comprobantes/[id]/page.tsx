@@ -1,6 +1,7 @@
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { BajasDeComprobante } from "@/components/admin/bajas-de-comprobante";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { esIdDeComprobante, hrefDetalleComprobante, obtenerComprobanteAdmin, type ComprobanteAdmin } from "@/lib/api/admin-comprobante";
@@ -86,6 +87,8 @@ function Ficha({ c }: { c: ComprobanteAdmin }) {
           </Dato>
         </dl>
       </section>
+
+      <BajasDeComprobante bajas={c.bajas} tipo={c.tipo} />
     </div>
   );
 }

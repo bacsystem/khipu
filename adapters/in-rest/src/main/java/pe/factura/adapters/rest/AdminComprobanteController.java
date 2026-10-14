@@ -24,7 +24,8 @@ public class AdminComprobanteController {
     @GetMapping("/comprobantes/{id}")
     @Operation(summary = "La ficha de un comprobante", description = """
             Un comprobante de cualquier empresa: su empresa (y la cuenta, si tiene), su identidad ante SUNAT, fecha de emisión, estado, intentos de envío, el último error,
-            lo que respondió SUNAT y si el XML y el CDR están guardados (sin su contenido). Solo lectura; no se audita. `404 NO_ENCONTRADO` si no existe,
+            lo que respondió SUNAT, si el XML y el CDR están guardados (sin su contenido) y sus bajas (`bajas[]`: la comunicación de baja `RA-…` o el resumen diario `RC-…`
+            con su condición, estado, ticket, motivo, fechas y CDR; #362). Solo lectura; no se audita. `404 NO_ENCONTRADO` si no existe,
             `400 PARAMETRO_INVALIDO` si el id no es un UUID.""")
     public ApiResponse<FichaDeComprobanteResponse> ficha(@Parameter(description = "Id del comprobante") @PathVariable UUID id) {
         return ApiResponse.ok(FichaDeComprobanteResponse.de(consulta.ficha(id)));

@@ -57,7 +57,7 @@ describe("esDeBoleta", () => {
 
 /**
  * #331: pasado el 7.º día una boleta firmada o con el envío fallido no vence: al enviarla khipu la informa en un resumen diario fuera de plazo y SUNAT la
- * observa (4443). La ficha lo avisa antes de enviar. Espeja `Comprobante.informaFueraDePlazo` del backend.
+ * puede observarla (4443). La ficha lo avisa antes de enviar. Espeja `Comprobante.informaFueraDePlazo` del backend.
  */
 describe("seInformaFueraDePlazo", () => {
   type C = Parameters<typeof seInformaFueraDePlazo>[0];

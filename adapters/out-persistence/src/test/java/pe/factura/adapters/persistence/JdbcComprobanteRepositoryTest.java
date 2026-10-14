@@ -394,6 +394,41 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(releida.tipoComprobante()).isEqualTo(TipoDocumento.NOTA_CREDITO);
     }
 
+    private Instant enviadaEn(ComunicacionBaja b) {
+        java.sql.Timestamp ts = jdbc.queryForObject("SELECT enviada_en FROM comunicacion_baja WHERE id = ?", java.sql.Timestamp.class, b.id());
+        return ts == null ? null : ts.toInstant();
+    }
+
+    /**
+     * H1 de #370: la alerta de resúmenes sin respuesta cuenta desde que SUNAT dio el ticket. `enviada_en` se fija al pasar a ENVIADA, no antes (un error de envío no es un
+     * envío) y no se mueve cuando el worker reconsulta el ticket y guarda la fila otra vez.
+     */
+    @Test void laBajaRecuerdaCuandoSunatDioElTicketYUnaReconsultaNoLoMueve() {
+        UUID t = tenantDePrueba();
+        Comprobante f = factura(t, 31);
+        f.firmar("H", "k.xml"); f.marcarEnviado(); f.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr.zip");
+        repo.guardar(f);
+        JdbcBajaRepository bajas = new JdbcBajaRepository(jdbc);
+        ComunicacionBaja b = ComunicacionBaja.crear(f, 1, "Error en el RUC del cliente", clock);
+        b.firmar("ra.xml");
+        bajas.guardar(b);
+        assertThat(enviadaEn(b)).as("recién generada").isNull();
+
+        b.marcarErrorEnvio("SUNAT respondió HTTP 503");
+        bajas.guardar(b);
+        assertThat(enviadaEn(b)).as("un error de envío no es un envío").isNull();
+
+        b.marcarEnviada("1789768174685");
+        bajas.guardar(b);
+        assertThat(enviadaEn(b)).as("SUNAT dio el ticket").isNotNull();
+
+        Instant fijada = Instant.parse("2026-09-15T10:00:00Z");
+        jdbc.update("UPDATE comunicacion_baja SET enviada_en = ? WHERE id = ?", java.sql.Timestamp.from(fijada), b.id());
+        b.registrarConsultaPendiente("98 - SUNAT sigue procesando");
+        bajas.guardar(b);
+        assertThat(enviadaEn(b)).as("reconsultar el ticket no cambia desde cuándo se espera").isEqualTo(fijada);
+    }
+
     @Test void comunicacionDeBaja_guardaRehidrataYNumeraPorDia() {
         UUID t = tenantDePrueba();
         Comprobante f = factura(t, 30);

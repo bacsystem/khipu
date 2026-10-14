@@ -162,6 +162,37 @@ class FacturaE2ETest {
     }
 
     /**
+     * #362 B9: SUNAT beta observó con la 4009 las boletas con un documento relacionado 06 o 07 (la factura sí los admite). Vuelven 422 DOCUMENTO_RELACIONADO_INVALIDO con la
+     * regla al inicio, antes de numerar: la B001-1 sigue libre. 04, 05, 08, 09 y 99 pasan.
+     */
+    @Test void unaBoletaConDocumentoRelacionado06o07SeRechazaSinConsumirNumero(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-03-B001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"03\",\"serie\":\"B001\",\"correlativo_inicial\":0}", h), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String hoy = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).toString();
+        String boleta = """
+            {"serie":"B001","fecha_emision":"%s","moneda":"PEN","tipo_operacion":"0101",
+             "cliente":{"tipo_doc":"1","num_doc":"12345678","razon_social":"JUAN PEREZ"},
+             "documentos_relacionados":[{"tipo":"%s","numero":"F001-123"}],
+             "items":[{"descripcion":"Pan","unidad":"NIU","cantidad":1,"precio_unitario":1.18,"tipo_afectacion_igv":"10"}]}
+            """;
+        for (String tipo : new String[]{"06", "07"}) {
+            ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(boleta.formatted(hoy, tipo), h), Map.class);
+            assertThat(r.getStatusCode()).as(tipo).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+            assertThat(r.getBody().get("codigo")).as(tipo).isEqualTo("DOCUMENTO_RELACIONADO_INVALIDO");
+            assertThat((String) r.getBody().get("mensaje")).as(tipo).startsWith("4009 - ").contains(tipo);
+        }
+        ResponseEntity<Map> ok = http.postForEntity("/v1/facturas", new HttpEntity<>(boleta.formatted(hoy, "05"), h), Map.class);
+        assertThat(ok.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(((Map<?, ?>) ok.getBody().get("datos")).get("numero")).isEqualTo(1);
+        // La factura sigue admitiendo el 06 y el 07.
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        ResponseEntity<Map> f = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"documentos_relacionados\":[{\"tipo\":\"06\",\"numero\":\"F001-123\"}],"), h), Map.class);
+        assertThat(f.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    /**
      * #20: una boleta pasa por el mismo camino que la factura (numeración de su serie B, UBL, firma real, XSD, sendBill) y se envía sola. Un comprador sin
      * documento por encima de S/ 700 no se emite ni consume número.
      */

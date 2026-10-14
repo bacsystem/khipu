@@ -192,6 +192,27 @@ const REINTENTOS_MOCK: Record<string, ReintentoMock> = {
 
 let erroresMock: FilaDeErrorMock[] = erroresIniciales();
 
+/**
+ * Las bajas y resúmenes diarios (#362 H9) de las fichas de integridad, como las arma el backend: de la más reciente a la más antigua, con lo que SUNAT no dio (ticket, CDR,
+ * último error) ausente. Solo lectura. La boleta B001-7 (2) tiene su alta fuera de plazo aceptada; la factura F001-3 (3), una baja rechazada por SUNAT; la F001-1 de la
+ * empresa 2 (4), una baja que SUNAT sigue procesando; la F001-14 (1) no tiene.
+ */
+const BAJAS_DE_INTEGRIDAD: Record<number, object[]> = {
+  2: [{
+    id: "00000000-0000-4000-d000-000000000002", identificador: "RC-20260921-1", condicion: "ALTA", estado: "ACEPTADA", ticket: "1789768174685",
+    motivo: "Pasó el 7.º día: se informa en el resumen diario fuera de plazo", fecha_generacion: "2026-09-21", fecha_referencia: "2026-09-10", fuera_de_plazo: true,
+    cdr: { codigo: "0", descripcion: "El Resumen diario RC-20260921-1, ha sido aceptado" }, intentos: 0,
+  }],
+  3: [{
+    id: "00000000-0000-4000-d000-000000000003", identificador: "RA-20260912-1", condicion: "BAJA", estado: "RECHAZADA", ticket: "1789768174001", motivo: "Error en el RUC del cliente",
+    fecha_generacion: "2026-09-12", fecha_referencia: "2026-09-10", fuera_de_plazo: false, cdr: { codigo: "2323", descripcion: "El comprobante indicado no existe o no está aceptado" }, intentos: 0,
+  }],
+  4: [{
+    id: "00000000-0000-4000-d000-000000000004", identificador: "RA-20260913-1", condicion: "BAJA", estado: "ENVIADA", ticket: "1789768174002", motivo: "Venta duplicada",
+    fecha_generacion: "2026-09-13", fecha_referencia: "2026-09-10", fuera_de_plazo: false, intentos: 2, ultimo_error: "SUNAT respondió HTTP 503",
+  }],
+};
+
 /** Las fichas (#251) de los comprobantes que reporta la verificación de integridad del mock: aceptados, con el archivo que les falta o está dañado. */
 const FICHAS_DE_INTEGRIDAD: Record<string, object> = Object.fromEntries(
   (
@@ -208,7 +229,7 @@ const FICHAS_DE_INTEGRIDAD: Record<string, object> = Object.fromEntries(
       {
         id, empresa_id: idEmpresaMock(empresa), ruc: e.ruc, razon_social: e.razon, cuenta_id: e.cuenta?.id, nombre_archivo: `${e.ruc}-${tipo}-${serie}-${numero}`,
         tipo, serie, numero, fecha_emision: "2026-09-10", estado: "ACEPTADO", intentos: 0,
-        respuesta_sunat: { codigo: "0", descripcion: `El comprobante ${serie}-${numero} ha sido aceptado` }, ...archivos,
+        respuesta_sunat: { codigo: "0", descripcion: `El comprobante ${serie}-${numero} ha sido aceptado` }, ...archivos, bajas: BAJAS_DE_INTEGRIDAD[n] ?? [],
       },
     ];
   }),
@@ -1396,6 +1417,8 @@ export const handlers = [
         ...(resueltosDelDia === 0 ? {} : { tasa_de_rechazo: suma("rechazados") / resueltosDelDia }),
       },
       outbox: { pendientes: 2 + lecturasDelMonitorMock, vencidos: 0, mas_viejo_desde: new Date(ahora - 2 * UNA_HORA).toISOString(), alerta: false },
+      // #362 B14: sin trámites pendientes pasado el umbral (6 h por defecto); como la alerta del outbox, se fuerza en las pruebas interceptando el BFF.
+      resumenes_sin_respuesta: { cantidad: 0, umbral_horas: 6, alerta: false },
       sunat: [
         { servicio: "ENVIO_PRODUCCION", disponible: true, milisegundos: 140 },
         { servicio: "ENVIO_BETA", disponible: true, milisegundos: 90 },
@@ -1447,7 +1470,7 @@ export const handlers = [
         ...(e.clase === "ERROR_DE_FORMATO"
           ? { respuesta_sunat: e.fault?.codigo ? { codigo: e.fault.codigo, descripcion: e.fault.mensaje } : undefined }
           : { ultimo_error: conFault }),
-        tiene_xml: true, tiene_cdr: false,
+        tiene_xml: true, tiene_cdr: false, bajas: [],
       });
     }
     const f = FICHAS_DE_INTEGRIDAD[String(params.id)];
@@ -2840,20 +2863,22 @@ export const handlers = [
     const sinResumen = (factura.tipo === "07" && factura.nota?.motivo === "10") || (factura.tipo === "08" && factura.nota?.motivo === "03");
     if (deBoleta && !sinResumen && dias > PLAZO_ENVIO.boleta.envioIndividual) {
       // Como `EnviarDocumentoService` → `DarDeBajaService.informar`: pasado el envío individual la boleta va en su propio resumen de alta (RC); pasado el
-      // 7.º día, fuera de plazo (#331), y SUNAT la acepta con la observación 4443. La respuesta trae ese resumen en `baja`.
+      // 7.º día, fuera de plazo (#331). SUNAT no la rechaza; el mock simula que la observa con la 4443 (la norma lo prevé; e-beta la aceptó sin observaciones).
+      // La respuesta trae ese resumen en `baja`.
       const fueraDePlazo = dias > PLAZO_ENVIO.boleta.dias;
       const identificador = `RC-${hoyLima().replace(/-/g, "")}-1`;
       const observaciones = fueraDePlazo ? ["4443 - El comprobante fue informado fuera del plazo establecido"] : [];
       const cdr = { codigo: "0", descripcion: `El Resumen diario ${identificador}, ha sido aceptado`, observaciones };
       const alta: Baja = {
         id: nuevoId("b"), identificador, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
-        motivo: fueraDePlazo ? "Pasó el 7.º día: se informa en el resumen diario fuera de plazo (SUNAT la observa con 4443)" : "Pasó el envío individual: se informa en el resumen diario",
+        motivo: fueraDePlazo ? "Pasó el 7.º día: se informa en el resumen diario fuera de plazo (SUNAT puede observarla con 4443)" : "Pasó el envío individual: se informa en el resumen diario",
         condicion: "ALTA", fuera_de_plazo: fueraDePlazo, estado: "ACEPTADA", ticket: "1758200000124", cdr, intentos: 1, ultimo_error: null,
       };
       db.bajas.set(alta.id, alta);
       factura.baja = alta;
       factura.estado_documento = fueraDePlazo ? "ACEPTADO_CON_OBS" : "ACEPTADO";
-      factura.cdr = cdr;
+      // #362 B10: el CDR del comprobante es el del resumen, y la respuesta dice de cuál (`cdr.resumen`); el del resumen mismo (`baja.cdr`) no lo lleva.
+      factura.cdr = { ...cdr, resumen: identificador };
       factura.ultimo_error = null;
       factura.enlaces = { ...factura.enlaces, cdr: `/v1/facturas/${factura.id}/cdr` };
       return ok(factura);
@@ -2896,14 +2921,17 @@ export const handlers = [
         { headers: { "content-type": "application/xml" } },
       ),
   ),
-  http.get(`${BASE}/v1/facturas/:id/cdr`, ({ request }) => {
+  http.get(`${BASE}/v1/facturas/:id/cdr`, ({ params, request }) => {
+    // #362 B10: como el backend, el CDR de una boleta informada por resumen diario trae `X-Cdr-Resumen` con el identificador de ese resumen; el nombre del archivo no cambia.
+    const factura = (db.facturasPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? []).find((f) => f.id === params.id);
+    const resumen = factura?.cdr?.resumen ? { "x-cdr-resumen": factura.cdr.resumen } : undefined;
     if (new URL(request.url).searchParams.get("formato") === "xml") {
       return new HttpResponse(
         `<?xml version="1.0" encoding="UTF-8"?><ar:ApplicationResponse xmlns:ar="urn:oasis:names:specification:ubl:schema:xsd:ApplicationResponse-2"><cbc:ID>0</cbc:ID><cac:DocumentResponse><cac:Response><cbc:ResponseCode>0</cbc:ResponseCode><cbc:Description>La Factura numero F001-1, ha sido aceptada</cbc:Description></cac:Response></cac:DocumentResponse></ar:ApplicationResponse>`,
-        { headers: { "content-type": "application/xml" } },
+        { headers: { "content-type": "application/xml", ...resumen } },
       );
     }
-    return new HttpResponse(new Uint8Array([80, 75]), { headers: { "content-type": "application/zip" } });
+    return new HttpResponse(new Uint8Array([80, 75]), { headers: { "content-type": "application/zip", ...resumen } });
   }),
 
   // Catálogos SUNAT públicos: un subconjunto suficiente para la página /developers/catalogos.

@@ -56,6 +56,42 @@ test("desde la verificación de integridad se abre la ficha del comprobante con 
   await expect(page.getByTestId("comprobante-cdr")).toHaveText("CDR de SUNAT: No está");
 });
 
+const FICHA = (n: number) => `/admin/comprobantes/00000000-0000-4000-c000-${String(n).padStart(12, "0")}`;
+
+/** #362 H9: la boleta del mock fue informada fuera de plazo en un resumen diario; la ficha lo muestra con el mismo criterio que la del cliente. */
+test("la ficha de una boleta muestra su resumen diario de alta: estado, ticket, fechas y respuesta, con el aviso de fuera de plazo", async ({ page }) => {
+  await page.goto(FICHA(2));
+
+  const baja = page.getByTestId("comprobante-baja-RC-20260921-1");
+  await expect(baja).toContainText("Resumen diario RC-20260921-1 (alta)");
+  await expect(baja.getByTestId("baja-estado")).toHaveText("Aceptado: boleta informada a SUNAT");
+  await expect(baja.getByTestId("baja-ticket")).toHaveText("1789768174685");
+  await expect(baja.getByTestId("baja-generada")).toHaveText("21 Set 2026");
+  await expect(baja.getByTestId("baja-emision")).toHaveText("10 Set 2026");
+  await expect(baja.getByTestId("baja-respuesta")).toContainText("El Resumen diario RC-20260921-1, ha sido aceptado");
+  // 4443 es lo que la norma prevé, no lo que e-beta devolvió: el aviso no promete la observación.
+  await expect(baja.getByTestId("baja-fuera-de-plazo")).toContainText("puede observarla con la 4443");
+});
+
+test("la ficha de una factura muestra su comunicación de baja rechazada o en curso, y una sin baja no muestra la sección", async ({ page }) => {
+  await page.goto(FICHA(3));
+  const rechazada = page.getByTestId("comprobante-baja-RA-20260912-1");
+  await expect(rechazada).toContainText("Comunicación de baja RA-20260912-1");
+  await expect(rechazada.getByTestId("baja-estado")).toHaveText("Rechazada por SUNAT");
+  await expect(rechazada.getByTestId("baja-motivo")).toHaveText("Error en el RUC del cliente"); // en un RA el motivo sí viaja a SUNAT
+  await expect(rechazada.getByTestId("baja-respuesta")).toContainText("2323");
+  await expect(rechazada.getByTestId("baja-fuera-de-plazo")).toHaveCount(0);
+
+  await page.goto(FICHA(4));
+  const enCurso = page.getByTestId("comprobante-baja-RA-20260913-1");
+  await expect(enCurso.getByTestId("baja-estado")).toHaveText("Enviada: SUNAT la está procesando");
+  await expect(enCurso.getByTestId("baja-respuesta")).toHaveText("SUNAT respondió HTTP 503 (2 intentos)");
+
+  await page.goto(FICHA(1));
+  await expect(page.getByTestId("comprobante-ficha")).toBeVisible();
+  await expect(page.getByTestId("comprobante-bajas")).toHaveCount(0);
+});
+
 test("un comprobante que no existe es la página de no encontrado", async ({ page }) => {
   const r = await page.goto("/admin/comprobantes/00000000-0000-4000-c000-999999999999");
   expect(r?.status()).toBe(404);

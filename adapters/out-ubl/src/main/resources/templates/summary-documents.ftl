@@ -45,7 +45,9 @@
     <cbc:LineID>1</cbc:LineID>
     <cbc:DocumentTypeCode>${b.tipoComprobante().codigo()}</cbc:DocumentTypeCode>
     <cbc:ID>${b.serie()}-${b.numero()?c}</cbc:ID>
-    <#-- 2514/2016: el comprador va siempre; sin documento (hasta S/ 700) con guion en tipo y número. -->
+    <#-- 2514/2016: el comprador va siempre; sin documento (hasta S/ 700) con guion en tipo y número.
+         #362 B13, decisión: sin cac:PartyLegalEntity/cbc:RegistrationName del comprador (campo 10.3, condicional): SUNAT beta aceptó dos resúmenes así (RC-20261013-3 y -4) y la
+         2022 solo valida el formato si el tag existe. La hoja del RC lo marca vigente desde 2027-01-01 (OBS hasta 2026-12-31, ERROR desde 2027): al llegar esa fecha, revisar. -->
     <cac:AccountingCustomerParty>
       <cbc:CustomerAssignedAccountID>${c.receptor().numDoc()}</cbc:CustomerAssignedAccountID>
       <cbc:AdditionalAccountID>${c.receptor().tipoDoc()}</cbc:AdditionalAccountID>

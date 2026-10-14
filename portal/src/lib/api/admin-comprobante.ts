@@ -1,6 +1,6 @@
 import { esUuid } from "@/lib/uuid";
 import { backendFetch } from "./client";
-import type { EstadoDocumento } from "./facturas";
+import type { EstadoBaja, EstadoDocumento } from "./facturas";
 
 /**
  * La ficha de un comprobante en el backoffice (#251), con la forma real del JSON. La API omite los campos sin valor (`non_null`): por eso son opcionales.
@@ -27,6 +27,32 @@ export type ComprobanteAdmin = {
   respuesta_sunat?: { codigo: string; descripcion?: string };
   tiene_xml: boolean;
   tiene_cdr: boolean;
+  /** #362 H9: sus comunicaciones de baja (RA) y resúmenes diarios (RC), de la más reciente a la más antigua; vacía si no tiene. */
+  bajas: BajaAdmin[];
+};
+
+/**
+ * La baja o el resumen diario de un comprobante en la ficha del backoffice (#362). Lo que SUNAT todavía no dio (ticket, CDR, último error) llega ausente.
+ * El `motivo` lo pidió quien anuló; en un RC (boleta o nota de boleta) no viaja a SUNAT, queda solo en khipu.
+ */
+export type BajaAdmin = {
+  id: string;
+  /** `RA-yyyymmdd-N` (comunicación de baja) o `RC-yyyymmdd-N` (resumen diario). */
+  identificador: string;
+  /** `BAJA` anula; `ALTA` informa en el resumen diario una boleta que pasó el envío individual. */
+  condicion: "ALTA" | "BAJA";
+  estado: EstadoBaja;
+  ticket?: string;
+  motivo: string;
+  /** La fecha del identificador. */
+  fecha_generacion: string;
+  /** La emisión del comprobante tal como se comunicó a SUNAT. */
+  fecha_referencia: string;
+  /** Solo un `ALTA`: generada pasado el 7.º día. Es previsión de khipu; la que cuenta es la respuesta de SUNAT. */
+  fuera_de_plazo: boolean;
+  cdr?: { codigo: string; descripcion?: string };
+  intentos: number;
+  ultimo_error?: string;
 };
 
 /** Lo que llega por la URL no se pega en la llamada al backend sin mirarlo. */

@@ -4,7 +4,7 @@ import { CircleCheckIcon, CircleXIcon, TriangleAlertIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Etiqueta } from "@/components/admin/etiquetas";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { ColaDeEnvios, EstadoDeServicio, Franja, MonitorDeEmision } from "@/lib/api/admin-monitor";
+import type { ColaDeEnvios, EstadoDeServicio, Franja, MonitorDeEmision, ResumenesSinRespuesta } from "@/lib/api/admin-monitor";
 import { apiRequest } from "@/lib/api/browser";
 import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
 import { messages, mensajeError } from "@/lib/messages";
@@ -99,6 +99,7 @@ function Lectura({ monitor }: { monitor: MonitorDeEmision }) {
   return (
     <>
       {monitor.outbox.alerta ? <AlertaDelOutbox outbox={monitor.outbox} /> : null}
+      {monitor.resumenes_sin_respuesta.alerta ? <AlertaDeResumenes resumenes={monitor.resumenes_sin_respuesta} /> : null}
       <Hoy franja={monitor.hoy} />
       <Horas horas={monitor.horas} />
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
@@ -118,6 +119,25 @@ function AlertaDelOutbox({ outbox }: { outbox: ColaDeEnvios }) {
       <div className="grid gap-0.5">
         <p className="font-medium">{t.alerta.titulo}</p>
         <p>{texto}</p>
+      </div>
+    </div>
+  );
+}
+
+/** #362 B14: tono de aviso (no el rojo del outbox caído): el trabajo corre, es SUNAT la que no resuelve un ticket, y pide una revisión, no un reinicio. */
+function AlertaDeResumenes({ resumenes }: { resumenes: ResumenesSinRespuesta }) {
+  const tiempo = duracionEnPalabras(resumenes.mas_viejo_hace_segundos ?? 0);
+  const umbral = String(resumenes.umbral_horas);
+  const texto = resumenes.cantidad === 1
+    ? t.alertaResumenes.uno.replace("{tiempo}", tiempo).replace("{umbral}", umbral)
+    : t.alertaResumenes.varios.replace("{n}", String(resumenes.cantidad)).replace("{umbral}", umbral).replace("{tiempo}", tiempo);
+  return (
+    <div data-testid="monitor-alerta-resumenes" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-sm text-warning-foreground">
+      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+      <div className="grid gap-0.5">
+        <p className="font-medium">{t.alertaResumenes.titulo}</p>
+        <p>{texto}</p>
+        <p className="text-[12px]">{t.alertaResumenes.ayuda}</p>
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ const USO: Record<string, string> = {
   "08": "`items[].isc.sistema`.",
   "09": "`motivo` de una nota de crédito (`POST /v1/notas` con `tipo: 07`); `13` reprograma cuotas con importe 0.",
   "10": "`motivo` de una nota de débito (`POST /v1/notas` con `tipo: 08`).",
-  "12": "`documentos_relacionados[].tipo` (`04`–`09`, `99`); `02` lo escribe khipu para las facturas de anticipo (`anticipos`).",
+  "12": "`documentos_relacionados[].tipo` (`04`–`09`, `99`; en boleta no se admiten `06` ni `07`); `02` lo escribe khipu para las facturas de anticipo (`anticipos`).",
   "16": "Tipo de precio de la línea: `01` precio de venta, `02` valor referencial en gratuitas. Lo asigna khipu.",
   "22": "`percepcion.regimen`.",
   "23": "Régimen de retención.",

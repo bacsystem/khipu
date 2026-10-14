@@ -5,6 +5,7 @@ import pe.factura.application.port.in.MonitorearEmisionUseCase;
 import pe.factura.application.port.out.MonitorDeEmisionRepository;
 import pe.factura.application.port.out.MonitorDeEmisionRepository.Cola;
 import pe.factura.application.port.out.MonitorDeEmisionRepository.Conteo;
+import pe.factura.application.port.out.MonitorDeEmisionRepository.ResumenesPendientes;
 import pe.factura.application.port.out.SondeoDeSunat;
 import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.plan.CicloMensual;
@@ -30,6 +31,8 @@ public class MonitorDeEmisionService implements MonitorearEmisionUseCase {
     private final MonitorDeEmisionRepository monitor;
     private final SondeoDeSunat sondeo;
     private final Clock clock;
+    /** Cuánto puede llevar un ticket de resumen o baja sin respuesta, contado desde que SUNAT lo dio, antes de alertar (`app.monitor.resumen-sin-respuesta-horas`, #362 B14). */
+    private final Duration umbralDeResumenes;
 
     @Override public Monitor monitorear() {
         Instant ahora = clock.instant();
@@ -46,7 +49,13 @@ public class MonitorDeEmisionService implements MonitorearEmisionUseCase {
         Instant medianoche = ahora.atZone(CicloMensual.ZONA).toLocalDate().atStartOfDay(CicloMensual.ZONA).toInstant();
         List<Conteo> deHoy = porHora.entrySet().stream().filter(e -> !e.getKey().isBefore(medianoche) && !e.getKey().isAfter(horaActual)).flatMap(e -> e.getValue().stream()).toList();
 
-        return new Monitor(ahora, List.copyOf(horas), franja(medianoche, deHoy), outbox(monitor.cola(ahora), ahora), sondeo.sondear());
+        return new Monitor(ahora, List.copyOf(horas), franja(medianoche, deHoy), outbox(monitor.cola(ahora), ahora), resumenes(ahora), sondeo.sondear());
+    }
+
+    private ResumenesSinRespuesta resumenes(Instant ahora) {
+        ResumenesPendientes p = monitor.resumenesSinRespuesta(ahora.minus(umbralDeResumenes));
+        Duration masViejoHace = p.masViejoDesde() == null ? null : max(Duration.between(p.masViejoDesde(), ahora), Duration.ZERO);
+        return new ResumenesSinRespuesta(p.cantidad(), p.masViejoDesde(), masViejoHace, umbralDeResumenes, p.cantidad() > 0);
     }
 
     private static Franja franja(Instant desde, List<Conteo> conteos) {

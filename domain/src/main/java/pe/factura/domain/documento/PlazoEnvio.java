@@ -16,7 +16,7 @@ import java.util.List;
  * 1079 pasado el 5.º día), y una nota F a la factura (2108). La NC 10 y la ND 03 de boleta no se informan en el resumen diario (guía, p. 19): pasado el envío
  * individual no les queda canal, así que su plazo final es el 5.º día.
  * <p>
- * Pasado el 7.º día lo que va en el resumen diario no se queda sin canal (#331): SUNAT no rechaza el alta tardía, la observa (4443). El plazo sigue siendo
+ * Pasado el 7.º día lo que va en el resumen diario no se queda sin canal (#331): SUNAT no rechaza el alta tardía (la norma prevé que la observe con la 4443; e-beta no lo hizo). El plazo sigue siendo
  * el 7.º día ({@link #dias}): pasarlo es informar fuera de plazo, no imposible. La anulación en el resumen sí tiene tope (2957, {@link ComunicacionBaja}).
  *
  * @param documento cómo se nombra en el mensaje de rechazo
@@ -62,13 +62,14 @@ public record PlazoEnvio(String documento, int diasEnvioIndividual, int dias, bo
 
     /**
      * Venció y ya no le queda ningún canal: lo que pasa a FUERA_DE_PLAZO. La factura y sus notas (2108) y la NC 10 / ND 03 de boleta (1079). Lo que va en el
-     * resumen diario nunca (#331): SUNAT observa el alta tardía (4443, Resumen Diario 1_1 fila 14), no la rechaza.
+     * resumen diario nunca (#331): SUNAT no rechaza el alta tardía; la observa con la 4443 (Resumen Diario 1_1 fila 14) o, como en e-beta, la acepta sin observaciones.
      */
     public boolean sinCanal(LocalDate fechaEmision, LocalDate hoy) { return vencido(fechaEmision, hoy) && !vaEnResumen(); }
 
     /**
-     * Se informa en el resumen diario pasado el 7.º día (#331): SUNAT lo acepta con la observación 4443 «El comprobante fue informado fuera del plazo
-     * establecido» (vigente desde 2024-11-11, Control de Cambios fila 501). Falta validarlo en e-beta.
+     * Se informa en el resumen diario pasado el 7.º día (#331): SUNAT puede observarlo con la 4443 «El comprobante fue informado fuera del plazo
+     * establecido» (vigente desde 2024-11-11, Control de Cambios fila 501). Verificado en e-beta el 2026-10-13 (8 y 30 días de atraso): no la devolvió, lo aceptó
+     * sin observaciones; la regla está en la hoja oficial y puede aplicarse en producción.
      */
     public boolean informaFueraDePlazo(LocalDate fechaEmision, LocalDate hoy) { return vaEnResumen() && vencido(fechaEmision, hoy); }
 

@@ -422,7 +422,7 @@ class DarDeBajaServiceTest {
 
     /**
      * #338 con #331: una boleta que se informa en un alta el 7.º día (31-12), con el envío fallido, se regenera el 8.º (01-01) y ese RC nuevo sale fuera de
-     * plazo: SUNAT la acepta con la 4443 en vez de rechazar el RC viejo por el 05.
+     * plazo: SUNAT no lo rechaza (puede observarlo con la 4443), a diferencia del RC viejo, que rechazaría por el 05.
      */
     @Test void unAltaConGratuitasRegeneradaEl1DeEneroSaleFueraDePlazoYLaBoletaQuedaAceptadaConObservaciones() {
         Comprobante boleta = boletaConGratuitas(11, LocalDate.of(2026, 12, 24), EstadoDocumento.ERROR_ENVIO);

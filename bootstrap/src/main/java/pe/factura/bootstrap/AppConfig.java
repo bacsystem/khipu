@@ -98,6 +98,18 @@ public class AppConfig {
         return Duration.ofMinutes(minutos);
     }
 
+    /**
+     * #362 B14: cuánto puede llevar un resumen diario o una baja con ticket sin respuesta de SUNAT antes de que el monitor del backoffice alerte
+     * ({@code app.monitor.resumen-sin-respuesta-horas}, 6 por defecto). Entre 1 hora y 7 días: con 0 alertaría de todo lo que está en curso, y con más ya no es una alerta.
+     * Un valor fuera de rango aborta el arranque.
+     */
+    static Duration umbralDeResumenesSinRespuesta(AppProperties.Monitor monitor) {
+        int horas = monitor == null ? AppProperties.Monitor.HORAS_POR_DEFECTO : monitor.resumenSinRespuestaHoras();
+        if (horas < 1 || horas > 168)
+            throw new IllegalStateException("MONITOR_RESUMEN_SIN_RESPUESTA_HORAS debe estar entre 1 y 168 (es " + horas + ")");
+        return Duration.ofHours(horas);
+    }
+
     /** S2: copiar el mismo pepper en las dos variables no rota nada; se dice al arrancar en vez de creer que se está rotando. */
     static void exigirPepperAnteriorDistinto(String pepper, String anterior) {
         if (anterior != null && !anterior.isBlank() && anterior.equals(pepper))
@@ -176,7 +188,7 @@ public class AppConfig {
                         ## Plazos SUNAT
                         Una factura debe llegar a SUNAT dentro de los **3 días calendario** siguientes a su emisión (2108). Una boleta va sola
                         hasta el **5.º día**; el 6.º y el 7.º khipu la informa en un resumen diario, y pasado el 7.º también, fuera de plazo
-                        (SUNAT la acepta con la observación 4443). Emita el mismo día y vigile los `ERROR_ENVIO`.
+                        (SUNAT no la rechaza; puede observarla con la 4443). Emita el mismo día y vigile los `ERROR_ENVIO`.
 
                         ## Códigos y catálogos
                         Los valores de `tipo_afectacion_igv`, `unidad`, `tipo_operacion`, `tipo_doc`, etc. son códigos oficiales de SUNAT:
@@ -307,8 +319,8 @@ public class AppConfig {
         return new ResolverErroresService(cola, enviar, cdrs, comprobantes, outbox, tenants, auditoria, u, clock);
     }
     @Bean ConsultarComprobanteAdminUseCase consultarComprobanteAdmin(ColaDeErroresRepository cola, ComprobanteRepository comprobantes, TenantRepository tenants,
-                                                                     DocumentStorage storage) {
-        return new ConsultarComprobanteAdminService(cola, comprobantes, tenants, storage);
+                                                                     DocumentStorage storage, BajaRepository bajas) {
+        return new ConsultarComprobanteAdminService(cola, comprobantes, tenants, storage, bajas);
     }
     @Bean AvisosRepository avisosRepository(JdbcTemplate jdbc) { return new JdbcAvisosRepository(jdbc); }
     @Bean ConsultarAvisosUseCase consultarAvisos(AvisosRepository avisos, Clock clock) { return new ConsultarAvisosService(avisos, clock); }
@@ -328,7 +340,9 @@ public class AppConfig {
     @Bean ConsultarBannerUseCase consultarBanner(BannerRepository banners, Clock clock) { return new ConsultarBannerService(banners, clock); }
     /** Los planes de la página de precios (H20): público, lo lee la portada. */
     @Bean ConsultarPlanesPublicadosUseCase consultarPlanesPublicados(PlanRepository planes, Clock clock) { return new ConsultarPlanesPublicadosService(planes, clock); }
-    @Bean MonitorearEmisionUseCase monitorearEmision(MonitorDeEmisionRepository m, SondeoDeSunat s, Clock clock) { return new MonitorDeEmisionService(m, s, clock); }
+    @Bean MonitorearEmisionUseCase monitorearEmision(MonitorDeEmisionRepository m, SondeoDeSunat s, Clock clock, AppProperties p) {
+        return new MonitorDeEmisionService(m, s, clock, umbralDeResumenesSinRespuesta(p.monitor()));
+    }
     @Bean RecuperarCdrUseCase recuperarCdr(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatConsultaGateway g, CdrParser cdr, UnitOfWork u) {
         return new RecuperarCdrService(c, t, s, g, cdr, u);
     }

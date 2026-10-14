@@ -46,6 +46,8 @@ import java.util.UUID;
 public class FacturaController {
     private static final String BASE = "/v1/facturas";
     public static final String TOTAL_HEADER = "X-Total-Count";
+    /** #362 B10: en la descarga del CDR de una boleta informada por resumen diario, el identificador del resumen cuyo CDR es. */
+    public static final String CABECERA_CDR_RESUMEN = "X-Cdr-Resumen";
     private final EmitirComprobanteUseCase emitir;
     private final EnviarDocumentoUseCase enviar;
     private final ConsultarComprobanteUseCase consultar;
@@ -142,13 +144,13 @@ public class FacturaController {
             Envía un comprobante `FIRMADO` (emitido con `enviar_automatico: false`) o reintenta uno en `ERROR_ENVIO` sin
             esperar al reintento automático. Un comprobante `ACEPTADO`, `RECHAZADO` o `ANULADO` responde `409 ESTADO_NO_ENVIABLE`.
             Una boleta (o nota sobre boleta) que pasó el envío individual se informa en un resumen diario: la respuesta lo trae en `baja`
-            (`condicion: ALTA`). Pasado el 7.º día va igual, con `baja.fuera_de_plazo: true`, y SUNAT la acepta con la observación 4443
-            (`ACEPTADO_CON_OBS`). Una factura, una nota de factura o una nota de crédito 10 / de débito 03 de boleta (que no van en el resumen)
+            (`condicion: ALTA`). Pasado el 7.º día va igual, con `baja.fuera_de_plazo: true`: SUNAT no la rechaza, pero puede observarla con la
+            4443 (entonces `ACEPTADO_CON_OBS`; en e-beta la aceptó sin observaciones, `ACEPTADO`). Una factura, una nota de factura o una nota de crédito 10 / de débito 03 de boleta (que no van en el resumen)
             fuera de plazo responde `409 FUERA_DE_PLAZO`.""")
     public ApiResponse<ComprobanteResponse> enviar(HttpServletRequest req, @PathVariable UUID id) {
         UUID t = TenantActual.id(req);
         Comprobante c = enviar.enviar(t, id);
-        // #331: el resumen en que se informó (si fue por uno) viaja con el envío, con su `fuera_de_plazo`: es lo que explica un ACEPTADO_CON_OBS por 4443.
+        // #331: el resumen en que se informó (si fue por uno) viaja con el envío, con su `fuera_de_plazo`: es lo que explica un ACEPTADO_CON_OBS por 4443 si SUNAT la observa.
         return ApiResponse.ok(ComprobanteResponse.de(c, BASE, null, bajas.deComprobante(t, id).stream().findFirst().orElse(null)));
     }
 
@@ -191,7 +193,12 @@ public class FacturaController {
     @Operation(summary = "Descargar la constancia de recepción (CDR)", description = """
             El CDR es la prueba de que SUNAT recibió y aceptó (o rechazó) el comprobante. Por defecto se entrega el ZIP tal
             como lo devolvió SUNAT; con `formato=xml` se extrae el `ApplicationResponse`. Responde `404 SIN_CDR` mientras
-            SUNAT no haya respondido.""")
+            SUNAT no haya respondido.
+
+            **Boleta informada en un resumen diario**: SUNAT no emite un CDR por boleta en el resumen; el que se entrega es el del
+            resumen (`El Resumen diario RC-…, ha sido aceptado`). Para no cambiar el contrato, el nombre de archivo sigue siendo
+            `R-<RUC>-03-<serie>-<número>`; lo que lo distingue es la cabecera `X-Cdr-Resumen` con el identificador del resumen
+            (`RC-aaaammdd-n`), que también trae `cdr.resumen` en la consulta del comprobante. Sin la cabecera, el CDR es el del propio comprobante.""")
     public ResponseEntity<byte[]> cdr(HttpServletRequest req, @PathVariable UUID id,
                                       @Parameter(description = "`zip` (por defecto) o `xml`") @RequestParam(required = false) String formato) {
         UUID t = TenantActual.id(req);
@@ -199,12 +206,16 @@ public class FacturaController {
             throw new DomainException("PARAMETRO_INVALIDO", "formato debe ser 'zip' (por defecto) o 'xml'");
         }
         Comprobante c = consultar.obtener(t, id);
+        // #362 B10: el CDR de una boleta informada por resumen diario es el del resumen. El nombre del archivo no cambia (contrato con los integradores);
+        // la cabecera dice de qué resumen es. Se lee del comprobante, que ya lo sabe por la clave con que guardó el CDR.
+        ResponseEntity.BodyBuilder respuesta = ResponseEntity.ok();
+        c.resumenDelCdr().ifPresent(rc -> respuesta.header(CABECERA_CDR_RESUMEN, rc));
         if ("xml".equalsIgnoreCase(formato)) {
-            return ResponseEntity.ok().contentType(MediaType.APPLICATION_XML)
+            return respuesta.contentType(MediaType.APPLICATION_XML)
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"R-" + c.nombreArchivo() + ".xml\"")
                     .body(consultar.cdrXml(t, id));
         }
-        return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip"))
+        return respuesta.contentType(MediaType.parseMediaType("application/zip"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"R-" + c.nombreArchivo() + ".zip\"")
                 .body(consultar.cdr(t, id));
     }

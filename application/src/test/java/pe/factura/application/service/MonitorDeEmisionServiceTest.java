@@ -3,9 +3,11 @@ package pe.factura.application.service;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Franja;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Monitor;
+import pe.factura.application.port.in.MonitorearEmisionUseCase.ResumenesSinRespuesta;
 import pe.factura.application.port.out.MonitorDeEmisionRepository;
 import pe.factura.application.port.out.MonitorDeEmisionRepository.Cola;
 import pe.factura.application.port.out.MonitorDeEmisionRepository.Conteo;
+import pe.factura.application.port.out.MonitorDeEmisionRepository.ResumenesPendientes;
 import pe.factura.application.port.out.SondeoDeSunat;
 import pe.factura.application.port.out.SondeoDeSunat.Resultado;
 import pe.factura.application.port.out.SondeoDeSunat.Servicio;
@@ -31,13 +33,19 @@ class MonitorDeEmisionServiceTest {
     static final Instant HORA_ACTUAL = Instant.parse("2026-10-15T15:00:00Z");
     static final Instant MEDIANOCHE_LIMA = Instant.parse("2026-10-15T05:00:00Z");
 
+    /** El umbral con que se arma el servicio (en producción sale de `app.monitor.resumen-sin-respuesta-horas`). */
+    static final Duration UMBRAL_DE_RESUMENES = Duration.ofHours(6);
+
     static class Monitores implements MonitorDeEmisionRepository {
         final List<Conteo> conteos = new ArrayList<>();
         final List<Instant> desdes = new ArrayList<>();
         final List<Instant> ahoras = new ArrayList<>();
+        final List<Instant> limites = new ArrayList<>();
         Cola cola = new Cola(0, 0, null, null);
+        ResumenesPendientes resumenes = new ResumenesPendientes(0, null);
         public List<Conteo> porHoraYEstado(Instant desde) { desdes.add(desde); return conteos; }
         public Cola cola(Instant ahora) { ahoras.add(ahora); return cola; }
+        public ResumenesPendientes resumenesSinRespuesta(Instant creadosAntesDe) { limites.add(creadosAntesDe); return resumenes; }
     }
 
     static class Sondeo implements SondeoDeSunat {
@@ -48,7 +56,7 @@ class MonitorDeEmisionServiceTest {
 
     Monitores repo = new Monitores();
     Sondeo sondeo = new Sondeo();
-    MonitorDeEmisionService service = new MonitorDeEmisionService(repo, sondeo, Clock.fixed(AHORA, ZoneOffset.UTC));
+    MonitorDeEmisionService service = new MonitorDeEmisionService(repo, sondeo, Clock.fixed(AHORA, ZoneOffset.UTC), UMBRAL_DE_RESUMENES);
 
     MonitorDeEmisionServiceTest en(Instant hora, EstadoDocumento e, long n) { repo.conteos.add(new Conteo(hora, e, n)); return this; }
 
@@ -180,7 +188,7 @@ class MonitorDeEmisionServiceTest {
 
     @Test void justoDespuesDeLaMedianocheDeLimaElDiaYaEsElNuevo() {
         Clock reloj = Clock.fixed(Instant.parse("2026-10-16T05:00:30Z"), ZoneOffset.UTC);
-        MonitorDeEmisionService s = new MonitorDeEmisionService(repo, sondeo, reloj);
+        MonitorDeEmisionService s = new MonitorDeEmisionService(repo, sondeo, reloj, UMBRAL_DE_RESUMENES);
         repo.conteos.add(new Conteo(Instant.parse("2026-10-16T04:00:00Z"), ACEPTADO, 7));
         repo.conteos.add(new Conteo(Instant.parse("2026-10-16T05:00:00Z"), ACEPTADO, 2));
 
@@ -190,7 +198,7 @@ class MonitorDeEmisionServiceTest {
 
     @Test void justoAntesDeLaMedianocheDeLimaElDiaSigueSiendoElAnterior() {
         Clock reloj = Clock.fixed(Instant.parse("2026-10-16T04:59:59Z"), ZoneOffset.UTC);
-        MonitorDeEmisionService s = new MonitorDeEmisionService(repo, sondeo, reloj);
+        MonitorDeEmisionService s = new MonitorDeEmisionService(repo, sondeo, reloj, UMBRAL_DE_RESUMENES);
         repo.conteos.add(new Conteo(Instant.parse("2026-10-15T05:00:00Z"), ACEPTADO, 7));
 
         Monitor m = s.monitorear();
@@ -255,6 +263,52 @@ class MonitorDeEmisionServiceTest {
 
         assertThat(o.vencidoHace()).isEqualTo(Duration.ZERO);
         assertThat(o.alerta()).isFalse();
+    }
+
+    // --- los resúmenes con ticket sin respuesta (#362 B14) ----------------------------------------------------------------------------------
+
+    @Test void sinResumenesPendientesNoHayAlerta() {
+        var r = service.monitorear().resumenes();
+
+        assertThat(r).isEqualTo(new ResumenesSinRespuesta(0, null, null, UMBRAL_DE_RESUMENES, false));
+    }
+
+    /** El repositorio recibe «creados antes de» = ahora − umbral: los más nuevos no son un problema todavía. */
+    @Test void preguntaPorLosResumenesCreadosAntesDeAhoraMenosElUmbral() {
+        service.monitorear();
+
+        assertThat(repo.limites).containsExactly(AHORA.minus(UMBRAL_DE_RESUMENES));
+    }
+
+    @Test void conResumenesPasadosDelUmbralDaAlertaConCuantosYDesdeCuando() {
+        Instant viejo = AHORA.minus(Duration.ofHours(9));
+        repo.resumenes = new ResumenesPendientes(2, viejo);
+
+        var r = service.monitorear().resumenes();
+
+        assertThat(r.cantidad()).isEqualTo(2);
+        assertThat(r.masViejoDesde()).isEqualTo(viejo);
+        assertThat(r.masViejoHace()).isEqualTo(Duration.ofHours(9));
+        assertThat(r.umbral()).isEqualTo(UMBRAL_DE_RESUMENES);
+        assertThat(r.alerta()).isTrue();
+    }
+
+    @Test void unRelojAtrasadoNoDaUnaDuracionNegativa() {
+        repo.resumenes = new ResumenesPendientes(1, AHORA.plusSeconds(30));
+
+        var r = service.monitorear().resumenes();
+
+        assertThat(r.masViejoHace()).isEqualTo(Duration.ZERO);
+        assertThat(r.alerta()).isTrue();
+    }
+
+    @Test void laAlertaDeLosResumenesNoTocaLaDelOutbox() {
+        repo.resumenes = new ResumenesPendientes(1, AHORA.minus(Duration.ofHours(7)));
+
+        var m = service.monitorear();
+
+        assertThat(m.resumenes().alerta()).isTrue();
+        assertThat(m.outbox().alerta()).as("el trabajo del outbox está bien: es SUNAT la que no responde el ticket").isFalse();
     }
 
     // --- SUNAT ------------------------------------------------------------------------------------------------------------------------------

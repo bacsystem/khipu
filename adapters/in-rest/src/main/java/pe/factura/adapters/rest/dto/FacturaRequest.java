@@ -49,7 +49,7 @@ public record FacturaRequest(
         @Valid @Schema(description = "Facturas de anticipo que se regularizan en esta factura. Los ítems describen la operación completa y khipu descuenta cada anticipo de la base (código 04/05/06) y del importe a pagar.") List<AnticipoDto> anticipos,
         @Size(min = 1, max = 20) @Schema(example = "OC-2026-0457", description = "Número de la orden de compra o de servicio del cliente (1–20 caracteres, sin saltos de línea): `cac:OrderReference`. Opcional, informativo (regla 4233)") String ordenCompra,
         @Valid @Schema(description = "Guías de remisión que sustentan el traslado (`cac:DespatchDocumentReference`). Opcional.") List<GuiaDto> guias,
-        @Valid @Schema(description = "Otros documentos relacionados con la operación (`cac:AdditionalDocumentReference`, catálogo 12). Opcional; las facturas de anticipo van en `anticipos`.") List<DocumentoRelacionadoDto> documentosRelacionados,
+        @Valid @Schema(description = "Otros documentos relacionados con la operación (`cac:AdditionalDocumentReference`, catálogo 12). Opcional; las facturas de anticipo van en `anticipos`. En una boleta no se admiten los tipos 06 y 07 (regla 4009 de Boleta2_0).") List<DocumentoRelacionadoDto> documentosRelacionados,
         @Schema(example = "-0.40", description = "Redondeo del importe total (`PayableRoundingAmount`): se suma al total a pagar; entre −1.00 y 1.00 con 2 decimales (regla 3303). Útil para cobrar en efectivo sin céntimos. Opcional") BigDecimal redondeo,
         @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` deja el comprobante `FIRMADO` para enviarlo luego con `POST /v1/facturas/{id}/enviar` (p. ej. para emitir en lote y enviar después)") Boolean enviarAutomatico,
         @Size(max = 1000) @Schema(example = "Entrega en almacén central. Horario: 9 a 18 h.", description = "Texto libre que se imprime en el bloque «Observaciones» del PDF (hasta 1000 caracteres, admite saltos de línea). No va al XML ni a SUNAT. Si se omite, se imprimen las observaciones por defecto de la empresa") String observaciones,
@@ -273,7 +273,7 @@ public record FacturaRequest(
     }
 
     public record DocumentoRelacionadoDto(
-            @NotBlank @Pattern(regexp = "0[4-9]|99", message = "tipo de documento relacionado no válido: 04–09 o 99 (catálogo 12)") @Schema(example = "05", description = "Catálogo 12: `04` ticket de salida ENAPU, `05` código SCOP, `06` factura electrónica remitente, `07` guía de remisión remitente, `08` declaración de salida del depósito franco, `09` declaración simplificada de importación, `99` otros") String tipo,
+            @NotBlank @Pattern(regexp = "0[4-9]|99", message = "tipo de documento relacionado no válido: 04–09 o 99 (catálogo 12)") @Schema(example = "05", description = "Catálogo 12: `04` ticket de salida ENAPU, `05` código SCOP, `06` factura electrónica remitente y `07` guía de remisión remitente (solo en factura: en una boleta SUNAT los observa con la 4009 y khipu los rechaza antes de numerar), `08` declaración de salida del depósito franco, `09` declaración simplificada de importación, `99` otros") String tipo,
             @NotBlank @Size(max = 30) @Schema(example = "SCOP-8841203", description = "Número del documento, hasta 30 caracteres sin espacios (regla 4010)") String numero) {
         DocumentoRelacionado aDominio() { return new DocumentoRelacionado(tipo, numero); }
     }

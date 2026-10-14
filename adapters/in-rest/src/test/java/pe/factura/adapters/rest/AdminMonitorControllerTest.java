@@ -10,6 +10,7 @@ import pe.factura.application.port.in.MonitorearEmisionUseCase;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Franja;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Monitor;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Outbox;
+import pe.factura.application.port.in.MonitorearEmisionUseCase.ResumenesSinRespuesta;
 import pe.factura.application.port.out.SondeoDeSunat.Resultado;
 import pe.factura.application.port.out.SondeoDeSunat.Servicio;
 
@@ -40,11 +41,15 @@ class AdminMonitorControllerTest {
         return r -> { r.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE); return r; };
     }
 
-    static Monitor monitor(Outbox outbox, List<Resultado> sunat) {
+    static Monitor monitor(Outbox outbox, List<Resultado> sunat) { return monitor(outbox, SIN_RESUMENES, sunat); }
+
+    static final ResumenesSinRespuesta SIN_RESUMENES = new ResumenesSinRespuesta(0, null, null, Duration.ofHours(6), false);
+
+    static Monitor monitor(Outbox outbox, ResumenesSinRespuesta resumenes, List<Resultado> sunat) {
         List<Franja> horas = new ArrayList<>();
         for (int i = 0; i < 24; i++) horas.add(new Franja(HORA.minus(Duration.ofHours(23 - i)), 0, 0, 0, 0, 0));
         horas.set(23, new Franja(HORA, 97, 3, 2, 10, 5));
-        return new Monitor(AHORA, horas, new Franja(Instant.parse("2026-10-15T05:00:00Z"), 400, 12, 4, 10, 9), outbox, sunat);
+        return new Monitor(AHORA, horas, new Franja(Instant.parse("2026-10-15T05:00:00Z"), 400, 12, 4, 10, 9), outbox, resumenes, sunat);
     }
 
     @Test void laLecturaTraeLasHorasElDiaLaColaYSunatConSusNombresEnSnakeCase() throws Exception {
@@ -100,6 +105,31 @@ class AdminMonitorControllerTest {
                 .andExpect(jsonPath("$.datos.horas[0].total").value(0))
                 .andExpect(jsonPath("$.datos.horas[0].aceptados").value(0))
                 .andExpect(jsonPath("$.datos.sunat.length()").value(0));
+    }
+
+    /** #362 B14: los resúmenes con ticket sin respuesta viajan en snake_case, con la duración en segundos y lo que no existe ausente. */
+    @Test void losResumenesSinRespuestaViajanConSuAlertaYSuUmbral() throws Exception {
+        when(monitor.monitorear()).thenReturn(monitor(new Outbox(0, 0, null, null, false),
+                new ResumenesSinRespuesta(2, Instant.parse("2026-10-15T05:00:00Z"), Duration.ofHours(10).plusMinutes(20), Duration.ofHours(6), true), List.of()));
+
+        mvc.perform(get("/v1/admin/monitor").with(clave()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.cantidad").value(2))
+                .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.mas_viejo_desde").value("2026-10-15T05:00:00Z"))
+                .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.mas_viejo_hace_segundos").value(37200))
+                .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.umbral_horas").value(6))
+                .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.alerta").value(true));
+    }
+
+    @Test void sinResumenesPendientesNoHayFechaNiDuracionPeroSiElUmbral() throws Exception {
+        when(monitor.monitorear()).thenReturn(monitor(new Outbox(0, 0, null, null, false), List.of()));
+
+        mvc.perform(get("/v1/admin/monitor").with(clave()))
+                .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.cantidad").value(0))
+                .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.mas_viejo_desde").doesNotExist())
+                .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.mas_viejo_hace_segundos").doesNotExist())
+                .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.umbral_horas").value(6))
+                .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.alerta").value(false));
     }
 
     @Test void noTraeMasCamposQueLosQueElPortalConoce() throws Exception {

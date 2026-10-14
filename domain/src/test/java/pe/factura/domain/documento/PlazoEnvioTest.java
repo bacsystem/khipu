@@ -72,7 +72,7 @@ class PlazoEnvioTest {
     }
 
     /**
-     * #331: pasado el 7.º día SUNAT no rechaza el alta en el resumen diario: la observa (4443, Resumen Diario 1_1 fila 14, vigente desde 2024-11-11). La boleta y la
+     * #331: pasado el 7.º día SUNAT no rechaza el alta en el resumen diario: puede observarla con la 4443 (Resumen Diario 1_1 fila 14, vigente desde 2024-11-11; e-beta no la observó). La boleta y la
      * nota B que va en él se siguen informando, fuera de plazo; nunca se quedan sin canal. La factura, sus notas y la NC 10 / ND 03 de boleta sí (2108, 1079).
      */
     @Test void pasadoElSeptimoDiaLaBoletaSeSigueInformandoEnElResumenFueraDePlazo() {

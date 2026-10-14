@@ -213,8 +213,8 @@ export default function GuiaPage() {
           </li>
           <li>
             <strong className="text-foreground">Plazo:</strong> emita el mismo día de la operación. SUNAT rechaza facturas recibidas más de 3 días calendario después
-            de la fecha de emisión (2108); una boleta va sola hasta el 5.º día, en el resumen diario hasta el 7.º y después se informa fuera de plazo, con la
-            observación 4443.
+            de la fecha de emisión (2108); una boleta va sola hasta el 5.º día, en el resumen diario hasta el 7.º y después se informa fuera de plazo: SUNAT
+            no la rechaza y puede observarla con la 4443.
           </li>
           <li>
             <strong className="text-foreground">Entornos:</strong> integre y pruebe todo en <Codigo>BETA</Codigo>; lo que SUNAT acepta en BETA lo acepta en producción
