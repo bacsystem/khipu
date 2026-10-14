@@ -12,6 +12,12 @@ public interface EmitirComprobanteUseCase {
     /** Con {@code idempotencia} nula, igual que sin clave: cada llamada emite una factura nueva. */
     Emision emitirFactura(UUID tenantId, EmitirFacturaCommand cmd, Idempotencia idempotencia);
 
-    /** Nota de crédito o débito sobre una factura aceptada de la empresa; mismo flujo que la factura (numerar, firmar, validar, enviar). */
-    Comprobante emitirNota(UUID tenantId, EmitirNotaCommand cmd);
+    /** Nota de crédito o débito sobre una factura o boleta aceptada de la empresa; mismo flujo que la factura (numerar, firmar, validar, enviar). */
+    default Comprobante emitirNota(UUID tenantId, EmitirNotaCommand cmd) { return emitirNota(tenantId, cmd, null).comprobante(); }
+
+    /**
+     * Con {@code idempotencia} (#355) un reintento de la misma nota devuelve la ya emitida, sin numerar otra; nula, igual que sin clave.
+     * Las claves de las notas son un espacio aparte del de las facturas: la misma cadena en {@code /v1/facturas} y en {@code /v1/notas} no se cruza.
+     */
+    Emision emitirNota(UUID tenantId, EmitirNotaCommand cmd, Idempotencia idempotencia);
 }

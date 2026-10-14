@@ -169,3 +169,78 @@ describe("NotaForm — factura con anticipos que cubren el total (H3, revisión 
     expect(screen.queryByText(/no hay nota posible/)).not.toBeInTheDocument();
   });
 });
+
+describe("NotaForm — Idempotency-Key (#355)", () => {
+  /** Como `stubApi`, pero cada POST a /notas responde lo que diga `respuestas` en orden (un `Error` es un corte de red: `fetch` rechaza). */
+  function stubConCortes(respuestas: Array<Response | Error>) {
+    const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>((url) => {
+      const json = (datos: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }), { status }));
+      if (String(url).includes("/catalogos/09")) return json(CATALOGO_09);
+      if (String(url).includes("/catalogos/10")) return json(CATALOGO_10);
+      const siguiente = respuestas.shift();
+      if (siguiente instanceof Error) return Promise.reject(siguiente);
+      return Promise.resolve(siguiente ?? new Response(JSON.stringify({ estado: "exito", datos: { id: "n-1" }, mensaje: null, codigo: null, errores: null }), { status: 201 }));
+    });
+    vi.stubGlobal("fetch", fetch);
+    return fetch;
+  }
+
+  const clavesEnviadas = (fetch: ReturnType<typeof stubConCortes>) =>
+    fetch.mock.calls.filter(([url]) => String(url).includes("/notas")).map(([, init]) => (init?.headers as Record<string, string> | undefined)?.["Idempotency-Key"]);
+
+  async function completar(tipoDoc: "01" | "03") {
+    render(<NotaForm factura={documento(tipoDoc)} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Anulación de la venta" } });
+  }
+
+  const emitir = () => fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
+
+  it.each(["01", "03"] as const)("la emisión de una nota sobre el documento %s lleva una Idempotency-Key (un UUID)", async (tipoDoc) => {
+    const fetch = stubConCortes([]);
+    await completar(tipoDoc);
+    emitir();
+
+    await waitFor(() => expect(clavesEnviadas(fetch)).toHaveLength(1));
+    expect(clavesEnviadas(fetch)[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+
+  /** El caso del issue: el POST llegó pero la respuesta se cortó. Volver a emitir sin cambiar nada reusa la clave, así el backend devuelve la misma nota. */
+  it("tras un corte, volver a emitir el mismo pedido reusa la clave y el aviso dice que es seguro", async () => {
+    const fetch = stubConCortes([new TypeError("Failed to fetch")]);
+    await completar("01");
+    emitir();
+
+    const aviso = await screen.findByRole("alert");
+    expect(aviso).toHaveTextContent("Se cortó la conexión");
+    expect(aviso).toHaveTextContent("Vuelve a emitir sin cambiar nada");
+    expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
+
+    emitir();
+    await waitFor(() => expect(clavesEnviadas(fetch)).toHaveLength(2));
+    expect(clavesEnviadas(fetch)[1]).toBe(clavesEnviadas(fetch)[0]);
+    expect(notasEnviadas(fetch)[1]).toEqual(notasEnviadas(fetch)[0]);
+  });
+
+  it("si después del corte se cambia la nota, el reintento es otra nota con otra clave", async () => {
+    const fetch = stubConCortes([new TypeError("Failed to fetch")]);
+    await completar("03");
+    emitir();
+    await screen.findByRole("alert");
+
+    fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Otro sustento" } });
+    emitir();
+
+    await waitFor(() => expect(clavesEnviadas(fetch)).toHaveLength(2));
+    expect(clavesEnviadas(fetch)[1]).not.toBe(clavesEnviadas(fetch)[0]);
+  });
+
+  it("una respuesta con el mismo 422 de la clave se muestra tal cual, sin avisar de corte", async () => {
+    stubConCortes([new Response(JSON.stringify({ estado: "error", datos: null, mensaje: "La clave de idempotencia x ya se usó con otro contenido", codigo: "IDEMPOTENCIA_INVALIDA", errores: null }), { status: 422 })]);
+    await completar("01");
+    emitir();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("ya se usó con otro contenido");
+  });
+});

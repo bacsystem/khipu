@@ -52,6 +52,10 @@ tasks.test {
     // Cada E2E de Spring levanta su propio Postgres de Testcontainers, y con él su propio contexto, que Spring deja en caché durante toda la corrida: con
     // los 512 MB que Gradle da por defecto a un worker de pruebas, el decimosexto contexto agotaba el heap («OutOfMemoryError: Java heap space») y la
     // tarea fallaba sin ningún test en rojo.
+    // Lo que más pesaba de cada contexto eran los cinco esquemas XSD UBL que compilaba su JaxpXsdValidator: ahora se compilan una vez por JVM, y con un
+    // solo contexto por clase E2E (sin clases nuevas con contexto propio: las pruebas de una misma área van en la misma clase) la corrida completa llegó a
+    // ~0,7 GB usados de este 1 GB. Cada contexto nuevo suma su propio heap: si vuelve a agotarse, mire primero qué retiene cada contexto
+    // antes de subir esta cifra.
     maxHeapSize = "1g"
 }
 

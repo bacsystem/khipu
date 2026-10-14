@@ -181,6 +181,37 @@ X-Api-Key: fk_TU_API_KEY`,
     disponible: true,
   },
   {
+    id: "idempotency-key",
+    titulo: "Reintento seguro con Idempotency-Key (facturas, boletas y notas)",
+    endpoint: "/v1/notas",
+    cuando: "Su llamada puede cortarse después de que khipu emitió (timeout, red caída) y necesita repetirla sin riesgo de emitir dos veces, aunque khipu numere la serie por usted. Sirve igual en `POST /v1/facturas` (factura y boleta) y en `POST /v1/notas` (nota de crédito o de débito, de factura o de boleta); abajo, una nota.",
+    request: `POST /v1/notas
+X-Api-Key: fk_TU_API_KEY
+Content-Type: application/json
+Idempotency-Key: 5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f
+
+{
+  "tipo": "07",
+  "serie": "FC01",
+  "fecha_emision": "2026-09-18",
+  "documento_afectado": { "serie": "F001", "numero": 125 },
+  "motivo": "01",
+  "descripcion": "Anulación de la operación por error en el pedido"
+}
+
+// 1.ª llamada: 201 Created, nota FC01-1 (si la respuesta se pierde, repita la MISMA llamada con la MISMA clave)
+// reintento:   200 OK, la misma nota FC01-1: mismo id y número, sin emitir otra ni consumir número ni volver a enviarla a SUNAT
+// misma clave con otro cuerpo: 422 IDEMPOTENCIA_INVALIDA`,
+    notas: [
+      "Genere **una clave por comprobante** (un UUID, o cualquier texto de 8 a 100 letras, dígitos, `-` o `_`) y guárdela junto a su documento interno hasta tener la respuesta. Repita la llamada con la misma clave **y el mismo cuerpo**: si ya se había emitido, responde `200` con el comprobante tal como está ahora (por ejemplo `ACEPTADO`), sin emitir otro. Sin la cabecera, cada llamada emite un comprobante nuevo.",
+      "La misma clave con **otro contenido** responde `422 IDEMPOTENCIA_INVALIDA` y no emite nada: para otro comprobante, otra clave. Una clave mal formada responde el mismo código. Dos cuerpos que solo difieren en espacios o saltos de línea son el mismo pedido.",
+      "La clave vale para su empresa durante **24 horas** y es propia de cada endpoint: la misma cadena en `POST /v1/facturas` y en `POST /v1/notas` son claves distintas. Si la llamada falló con un error (`422`, `429`…) la clave queda libre: corrija el cuerpo y reintente, con la misma clave o con otra.",
+      "Khipu contesta el reintento **antes de validar**: aunque entretanto venciera el plazo de envío (2108/1079), el certificado, o la factura que modifica la nota ya tuviera una baja o estuviera anulada, recibe la nota ya emitida. Para la nota de una boleta pasa exactamente igual.",
+      "Cuando numera usted mismo (`correlativo`, ver el caso anterior) el reintento ya es seguro por el `409 DUPLICADO`; la clave es lo que cubre las emisiones en las que khipu asigna el número, que es lo recomendado.",
+    ],
+    disponible: true,
+  },
+  {
     id: "descuentos",
     titulo: "Descuentos por ítem y globales",
     cuando: "Promociones o negociaciones que rebajan una línea o el total sin manipular el precio unitario. Cada descuento es un porcentaje o un monto (sobre el valor sin IGV) y decide si afecta la base del IGV.",
@@ -646,6 +677,7 @@ X-Api-Key: fk_TU_API_KEY
       "`motivo` del catálogo **09** (NC: `01` anulación, `02` error en el RUC, `04`/`05` descuentos, `06`/`07` devoluciones, `09` disminución, `13` corrección de cuotas…) o **10** (ND: `01` intereses por mora, `02` aumento en el valor, `03` penalidades…); `descripcion` es el sustento (1–500 caracteres, regla 2135).",
       "**Nota total**: sin `items`, khipu copia ítems, descuento global y cargos de la factura (no envíe `descuento_global` ni `cargos` propios: se rechazan). Si la factura regularizó anticipos, envíe `items` por el importe neto: los anticipos no viajan en una nota. Si el neto es 0.00 (los anticipos cubren la factura) no hay nota posible, porque SUNAT rechaza las líneas en cero y una nota por más que el total: se anula con la comunicación de baja. **Nota parcial**: envíe `items` con el mismo formato que en la factura (p. ej. una laptop de las dos facturadas). Una nota de crédito nunca supera los importes de la factura, ni en total (3286) ni por tributo (3503), y khipu descuenta lo ya acreditado por las notas de crédito anteriores: varias parciales pueden sumar la factura, pero una segunda nota total se rechaza (SUNAT la aceptaría, porque compara nota por nota). Una nota de débito no tiene tope.",
       "**NC 13** (reprogramar cuotas de una factura al crédito): envíe `forma_pago` al crédito con las cuotas corregidas; la nota sale con importe 0 (regla 3315; `items` se ignora) y las cuotas se validan contra la factura (3320, 3321). En cualquier otra nota `forma_pago` se rechaza.",
+      "**Reintentos**: si la red se corta después del `POST`, repita la misma llamada con la misma `Idempotency-Key` (ver «Reintento seguro con Idempotency-Key»): responde `200` con la misma nota, sin duplicarla ni consumir otro número. Funciona igual sobre una factura y sobre una boleta.",
       "La respuesta es el mismo comprobante que en facturas más el bloque `nota { tipo_afectado, documento_afectado, motivo, motivo_descripcion, descripcion }`; consulta, XML, CDR y reenvío van por `GET /v1/facturas/{id}`…, y la factura lista sus notas en `notas[]`. En el XML: `CreditNote`/`DebitNote` con `cac:DiscrepancyResponse` y `cac:BillingReference`. Error `NOTA_INVALIDA` (422) con la regla SUNAT en el mensaje. Homologado en e-beta: NC total, parcial, 13 y ND.",
     ],
     disponible: true,

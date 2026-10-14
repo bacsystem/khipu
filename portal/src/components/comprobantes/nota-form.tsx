@@ -13,6 +13,7 @@ import { redondear } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
+import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const [catalogos, setCatalogos] = useState<Record<Tipo, CatalogoSunat | null>>({ "07": null, "08": null });
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // Clave de idempotencia (#355), como en la emisión de facturas (#115): la misma mientras se reintente el mismo contenido, otra si el contenido cambia.
+  const intento = useRef<Intento | null>(null);
   // Tras un error el botón se deshabilita y el foco caía a `body`: un lector de pantalla no llegaba al mensaje.
   const alertaRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
@@ -125,14 +128,16 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     // La afectación de la línea propia sigue a la factura, no un «10» fijo: sobre una exportación el dominio
     // exige 40 (2642) —con el 10 fijo no se podía emitir ninguna ND sobre exportaciones— y sobre IVAP, 17.
     if (lineaPropia) body.items = [{ descripcion: nd.descripcion.trim(), unidad: "ZZ", cantidad: 1, precio_unitario: Number(nd.importe), tipo_afectacion_igv: afectacionLinea }];
+    intento.current = intentoPara(intento.current, JSON.stringify(body));
     setEnviando(true);
-    const res = await apiRequest<Comprobante>("/api/proxy/notas", { method: "POST", body });
-    // Un corte de conexión no dice si el POST llegó, y pudo haber consumido correlativo: reintentar a ciegas
-    // duplica la nota. (El cliente ya no lanza: devuelve el sobre de error, así que esto no puede ir en un catch.)
+    const res = await apiRequest<Comprobante>("/api/proxy/notas", { method: "POST", body, headers: { [CABECERA_IDEMPOTENCIA]: intento.current.clave } });
+    // Un corte de conexión no dice si el POST llegó, y pudo haber consumido correlativo. Con la clave de idempotencia (#355) reintentar
+    // sin cambiar nada es seguro: si la nota ya se emitió, el backend devuelve la misma. (El cliente ya no lanza: devuelve el sobre de
+    // error, así que esto no puede ir en un catch.)
     if (noSeSabeSiLlego(res)) {
       setEnviando(false);
       setError(
-        `Se cortó la conexión mientras se emitía. La nota pudo haberse emitido igual: revisa las notas de la ${documento} ${factura.serie}-${factura.numero} antes de volver a intentarlo, para no duplicarla.`,
+        `Se cortó la conexión mientras se emitía. Vuelve a emitir sin cambiar nada: si la nota ya se había emitido, verás la misma, sin duplicarla. Si cambias algo, revisa antes las notas de la ${documento} ${factura.serie}-${factura.numero}.`,
       );
       return;
     }

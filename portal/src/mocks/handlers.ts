@@ -2569,6 +2569,19 @@ export const handlers = [
     const unidadesEnBlanco = erroresDeUnidadEnBlanco(body.items);
     if (Object.keys(unidadesEnBlanco).length) return validacionFallida(unidadesEnBlanco);
     const lista = db.facturasPorEmpresa.get(empresaId) ?? [];
+    // Idempotency-Key (#355), como el backend (`ClaveDeIdempotencia` y `EmitirComprobanteService.emitirNota`): la clave se valida tras el cuerpo, y un
+    // reintento se contesta ANTES de mirar el estado del documento afectado, el plazo y la serie (la nota ya existe: que luego el documento se diera de baja
+    // no es motivo para negarla). La misma clave con el mismo pedido devuelve la nota ya emitida con 200; con otro pedido, 422. Las claves de las notas son un
+    // espacio aparte de las de las facturas (`clavesNota`): la misma cadena en las dos no se cruza. La huella es el JSON del cuerpo, que el formulario arma siempre igual.
+    const clave = request.headers.get("idempotency-key");
+    if (clave !== null && !/^[A-Za-z0-9_-]{8,100}$/.test(clave)) return fail(422, "IDEMPOTENCIA_INVALIDA", "Idempotency-Key debe tener de 8 a 100 letras, dígitos, guiones o guiones bajos (se recomienda un UUID)");
+    const huella = JSON.stringify(body);
+    const previa = clave ? db.clavesNota.get(`${empresaId}|${clave}`) : undefined;
+    if (previa) {
+      if (previa.huella !== huella) return fail(422, "IDEMPOTENCIA_INVALIDA", `La clave de idempotencia ${clave} ya se usó con otro contenido: genere una clave nueva para otra nota`);
+      const emitida = lista.find((f) => f.id === previa.id);
+      if (emitida) return ok(emitida, 200);
+    }
     // #293, como `EmitirComprobanteService.emitirNota`: la letra de la serie afectada dice qué se modifica (B una boleta, F una
     // factura), y el motivo se valida antes de buscar el documento.
     const tipoAfectado = body.documento_afectado.serie.startsWith("B") ? "03" : "01";
@@ -2765,6 +2778,7 @@ export const handlers = [
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },
     };
     lista.unshift(nota);
+    if (clave) db.clavesNota.set(`${empresaId}|${clave}`, { huella, id });
     return ok(nota, 201);
   }),
 

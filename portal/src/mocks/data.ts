@@ -328,6 +328,8 @@ export const db = {
   pagosPorCuenta: new Map<string, PagoMock[]>(),
   /** Idempotency-Key de la emisión (#115): `empresa|clave` → huella del pedido y factura emitida. */
   clavesEmision: new Map<string, { huella: string; id: string }>(),
+  /** Idempotency-Key de las notas (#355): `empresa|clave` → huella del pedido y nota emitida. Aparte de las de las facturas, como en el backend. */
+  clavesNota: new Map<string, { huella: string; id: string }>(),
   /** Idempotency-Key del alta asistida (#219): clave → huella del pedido y respuesta, con la API key. */
   clavesAlta: new Map<string, { huella: string; respuesta: { cuenta_id: string; tenant_id: string; ruc: string; api_key: string; serie: { tipo: string; serie: string }; invitacion_enviada: boolean } }>(),
   /**
@@ -349,6 +351,7 @@ export function resetDb() {
   db.sesionesPorToken.clear();
   db.administradoresPorEmail.clear();
   db.clavesEmision.clear();
+  db.clavesNota.clear();
   db.clavesAlta.clear();
   db.cuentasSuspendidas.clear();
   db.nombresDeCuenta.clear();

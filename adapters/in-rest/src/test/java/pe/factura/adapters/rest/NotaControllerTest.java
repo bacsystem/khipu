@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EmitirNotaCommand;
+import pe.factura.application.port.in.Idempotencia;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
 
@@ -24,7 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -125,6 +128,82 @@ class NotaControllerTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.errores['documentoAfectado']").exists());
         verify(emitir, never()).emitirNota(any(), any());
+    }
+
+    // --- #355: Idempotency-Key ---------------------------------------------------------------------------------------------------
+
+    static final String CLAVE = "5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
+
+    private org.springframework.test.web.servlet.ResultActions emitirConClave(String clave, String cuerpoJson) throws Exception {
+        return mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                .header("Idempotency-Key", clave).content(cuerpoJson));
+    }
+
+    private Idempotencia claveRecibida() {
+        ArgumentCaptor<Idempotencia> cap = ArgumentCaptor.forClass(Idempotencia.class);
+        verify(emitir, org.mockito.Mockito.atLeastOnce()).emitirNota(eq(tenant), any(), cap.capture());
+        return cap.getValue();
+    }
+
+    @Test void conClaveLaNotaNuevaEs201YLlevaLaClaveYUnaHuellaDelPedido() throws Exception {
+        when(emitir.emitirNota(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(notaAceptada(tenant), false));
+
+        emitirConClave(CLAVE, CUERPO).andExpect(status().isCreated()).andExpect(jsonPath("$.datos.numero").value(4));
+
+        Idempotencia idem = claveRecibida();
+        assertThat(idem.clave()).isEqualTo(CLAVE);
+        assertThat(idem.huella()).matches("[0-9a-f]{64}");
+        verify(emitir, never()).emitirNota(any(), any());
+    }
+
+    /** El reintento devuelve la misma nota con 200: no se creó nada nuevo. */
+    @Test void unPedidoRepetidoEs200ConLaMismaNota() throws Exception {
+        when(emitir.emitirNota(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(notaAceptada(tenant), true));
+
+        emitirConClave(CLAVE, CUERPO).andExpect(status().isOk()).andExpect(jsonPath("$.datos.numero").value(4))
+                .andExpect(jsonPath("$.datos.enlaces.xml").value(org.hamcrest.Matchers.startsWith("/v1/facturas/")));
+    }
+
+    /** La huella es del pedido interpretado, no de sus bytes; cambiar un dato (aquí el motivo o la serie afectada) da otra. */
+    @Test void laHuellaNoDependeDelFormatoDelJsonPeroSiDeSusDatos() throws Exception {
+        when(emitir.emitirNota(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(notaAceptada(tenant), false));
+
+        emitirConClave(CLAVE, CUERPO);
+        String original = claveRecibida().huella();
+        reset(emitir);
+        when(emitir.emitirNota(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(notaAceptada(tenant), false));
+        emitirConClave(CLAVE, CUERPO.replace("\n", "\n\n  ").replace(":", " : "));
+        String reformateado = claveRecibida().huella();
+        reset(emitir);
+        when(emitir.emitirNota(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(notaAceptada(tenant), false));
+        emitirConClave(CLAVE, CUERPO.replace("\"numero\":601", "\"numero\":602"));
+        String otroDocumento = claveRecibida().huella();
+        reset(emitir);
+        when(emitir.emitirNota(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(notaAceptada(tenant), false));
+        emitirConClave(CLAVE, CUERPO.replace("\"motivo\":\"01\"", "\"motivo\":\"06\""));
+        String otroMotivo = claveRecibida().huella();
+
+        assertThat(reformateado).isEqualTo(original);
+        assertThat(otroDocumento).isNotEqualTo(original);
+        assertThat(otroMotivo).isNotEqualTo(original).isNotEqualTo(otroDocumento);
+    }
+
+    @Test void unaClaveMalFormadaEs422SinEmitir() throws Exception {
+        for (String mala : List.of("", "corta", "con espacios aquí", "a".repeat(101), "../../x", "<script>"))
+            emitirConClave(mala, CUERPO).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("IDEMPOTENCIA_INVALIDA"));
+        verifyNoInteractions(emitir);
+    }
+
+    @Test void laMismaClaveConOtraNotaEs422() throws Exception {
+        when(emitir.emitirNota(eq(tenant), any(), any())).thenThrow(new DomainException("IDEMPOTENCIA_INVALIDA", "La clave ya se usó con otro contenido"));
+
+        emitirConClave(CLAVE, CUERPO).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("IDEMPOTENCIA_INVALIDA"));
+    }
+
+    /** Un cuerpo inválido es 422 de validación antes de mirar la clave: no se reserva nada. */
+    @Test void unCuerpoInvalidoConClaveEs422DeValidacionSinLlegarAlCasoDeUso() throws Exception {
+        emitirConClave(CLAVE, CUERPO.replace("\"tipo\":\"07\"", "\"tipo\":\"01\"")).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+        verifyNoInteractions(emitir);
     }
 
     /** H5 (revisión de #354): un elemento nulo de `items` es 422 VALIDACION, no un 500 al mapear al dominio. */

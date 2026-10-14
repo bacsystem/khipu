@@ -254,7 +254,8 @@ test("nota: si la red se corta, avisa y no deja el botón muerto", async ({ page
   await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
   const alerta = form.getByRole("alert");
   await expect(alerta).toContainText("Se cortó la conexión");
-  await expect(alerta).toContainText("pudo haberse emitido");
+  // Con la clave de idempotencia (#355) reintentar el mismo contenido es seguro: el mensaje lo dice, como en la factura (#115).
+  await expect(alerta).toContainText("Vuelve a emitir sin cambiar nada");
   await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
 });
 
@@ -893,6 +894,102 @@ test("nota: tras un error el foco va al mensaje", async ({ page }) => {
   const alerta = form.getByRole("alert");
   await expect(alerta).toContainText("Se cortó la conexión");
   await expect(alerta).toBeFocused();
+});
+
+/**
+ * #355, el caso que lo motivó: el POST llegó y la nota se emitió, pero la respuesta se cortó antes de llegar al navegador. Antes, volver a emitir
+ * duplicaba la nota (otro correlativo); ahora el reintento lleva la misma clave y termina en la misma nota.
+ */
+test("nota: tras un corte en que la nota sí se emitió, volver a emitir sin cambiar nada lleva a la misma nota en vez de duplicarla", async ({ page }) => {
+  const { form } = await notaLista(page);
+  const claves: string[] = [];
+  let emitida = "";
+  await page.route("**/api/proxy/notas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    const res = await r.fetch();
+    emitida = (await res.json()).datos.id;
+    await r.abort("connectionreset");
+  });
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  await expect(form.getByRole("alert")).toContainText("Vuelve a emitir sin cambiar nada");
+  expect(emitida).toMatch(/^n-/);
+
+  await page.unroute("**/api/proxy/notas");
+  await page.route("**/api/proxy/notas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    await r.continue();
+  });
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/comprobantes/${emitida}$`));
+  expect(claves).toHaveLength(2);
+  expect(claves[0]).toMatch(/^[0-9a-f-]{36}$/);
+  expect(claves[1]).toBe(claves[0]);
+});
+
+test("nota: si después del corte se cambia el sustento, el reintento es otra nota con otra clave", async ({ page }) => {
+  const { form } = await notaLista(page);
+  const claves: string[] = [];
+  await page.route("**/api/proxy/notas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    await r.abort("connectionreset");
+  });
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  await expect(form.getByRole("alert")).toContainText("Se cortó la conexión");
+  await form.getByLabel("Sustento").fill("Otro sustento");
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  await expect(form.getByRole("alert")).toContainText("Se cortó la conexión");
+
+  expect(claves).toHaveLength(2);
+  expect(claves[1]).not.toBe(claves[0]);
+});
+
+test("el mock de POST /v1/notas cumple el contrato de Idempotency-Key del backend (#355)", async ({ page }) => {
+  // Sobre f-gratuitas (exonerada, 200): nadie más la acredita, y la nota va por poco para no mover los límites de otro test.
+  await page.goto("/comprobantes/f-gratuitas");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const cuerpo = (descripcion: string) =>
+    JSON.stringify({ tipo: "07", serie: "FC01", fecha_emision: hoy, documento_afectado: { serie: "F001", numero: 18 }, motivo: "07", descripcion,
+      items: [{ descripcion: "Libro técnico", unidad: "NIU", cantidad: 1, precio_unitario: 5, tipo_afectacion_igv: "20" }] });
+  const post = (body: string, clave: string | null) =>
+    page.evaluate(async ([b, k]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json", ...(k ? { "idempotency-key": k } : {}) }, body: b as string });
+      return { status: r.status, json: await r.json() };
+    }, [body, clave]);
+  const clave = crypto.randomUUID();
+
+  const primera = await post(cuerpo("Contrato 1"), clave);
+  expect(primera.status, JSON.stringify(primera.json)).toBe(201);
+  // El mismo pedido con la misma clave: la misma nota, con 200 y sin otro correlativo.
+  const reintento = await post(cuerpo("Contrato 1"), clave);
+  expect(reintento.status).toBe(200);
+  expect(reintento.json.datos.id).toBe(primera.json.datos.id);
+  expect(reintento.json.datos.numero).toBe(primera.json.datos.numero);
+  // Otro contenido con la misma clave: 422 con el código y el mensaje del backend.
+  const otra = await post(cuerpo("Contrato 2"), clave);
+  expect(otra.status).toBe(422);
+  expect(otra.json.codigo).toBe("IDEMPOTENCIA_INVALIDA");
+  expect(otra.json.mensaje).toBe(`La clave de idempotencia ${clave} ya se usó con otro contenido: genere una clave nueva para otra nota`);
+  // La misma cadena en POST /v1/facturas es otra clave (el backend separa los alcances `factura:` y `nota:`): ni se confunde con la de la nota ni la rechaza.
+  const factura = await page.evaluate(async (k) => {
+    const body = { serie: "F001", fecha_emision: new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }), moneda: "PEN", tipo_operacion: "0101",
+      cliente: { tipo_doc: "6", num_doc: "20601234565", razon_social: "CLIENTE SAC", direccion: "AV. LIMA 1" },
+      items: [{ codigo: "P001", descripcion: "Pan", unidad: "NIU", cantidad: 1, precio_unitario: 1, tipo_afectacion_igv: "10" }] };
+    const r = await fetch("/api/proxy/facturas", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": k }, body: JSON.stringify(body) });
+    return { status: r.status, json: await r.json() };
+  }, clave);
+  expect(factura.status, JSON.stringify(factura.json)).toBe(201);
+  const trasLaFactura = await post(cuerpo("Contrato 1"), clave);
+  expect(trasLaFactura.status).toBe(200);
+  expect(trasLaFactura.json.datos.id).toBe(primera.json.datos.id);
+  // Una clave mal formada se rechaza sin emitir; sin clave, cada pedido es una nota nueva.
+  const mala = await post(cuerpo("Contrato 3"), "corta");
+  expect(mala.status).toBe(422);
+  expect(mala.json.codigo).toBe("IDEMPOTENCIA_INVALIDA");
+  const sin1 = await post(cuerpo("Contrato 4"), null);
+  const sin2 = await post(cuerpo("Contrato 4"), null);
+  expect([sin1.status, sin2.status]).toEqual([201, 201]);
+  expect(sin2.json.datos.id).not.toBe(sin1.json.datos.id);
 });
 
 test("NC total sobre una factura con redondeo: la nota copia el redondeo y sale por el total exacto; una parcial por encima se bloquea (3286)", async ({ page }) => {

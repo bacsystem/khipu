@@ -175,6 +175,20 @@ class RelojDeLaAplicacionTest {
         assertThat(real.llamadas).containsExactly("emitirFactura", "emitirNota");
     }
 
+    /** #355: la protección del reloj no se traga la clave de idempotencia de la nota, ni la deja pasar en producción. */
+    @Test void conDesplazamientoLaClaveDeLaNotaLlegaAlServicio() {
+        EmisionFalsa real = new EmisionFalsa();
+        Idempotencia clave = new Idempotencia("c1a7e5b0-0000-4000-8000-000000000355", "huella");
+
+        RelojDeLaAplicacion.proteger(real, new TenantsFalsos(Entorno.BETA), Duration.ofDays(-8)).emitirNota(TenantsFalsos.ID, null, clave);
+        assertThat(real.ultimaClaveDeNota).isSameAs(clave);
+
+        EmisionFalsa enProduccion = new EmisionFalsa();
+        assertThatThrownBy(() -> RelojDeLaAplicacion.proteger(enProduccion, new TenantsFalsos(Entorno.PRODUCCION), Duration.ofDays(-8)).emitirNota(TenantsFalsos.ID, null, clave))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.codigo()).isEqualTo("RELOJ_DESPLAZADO"));
+        assertThat(enProduccion.llamadas).isEmpty();
+    }
+
     @Test void conDesplazamientoUnaEmpresaQueNoExisteLaResuelveElServicioNoLaSalvaguarda() {
         EmisionFalsa real = new EmisionFalsa();
         EmitirComprobanteUseCase protegida = RelojDeLaAplicacion.proteger(real, new TenantsFalsos(null), Duration.ofDays(-8));
@@ -317,7 +331,8 @@ class RelojDeLaAplicacionTest {
     static class EmisionFalsa implements EmitirComprobanteUseCase {
         final List<String> llamadas = new ArrayList<>();
         @Override public Emision emitirFactura(UUID tenantId, EmitirFacturaCommand cmd, Idempotencia idempotencia) { llamadas.add("emitirFactura"); return null; }
-        @Override public Comprobante emitirNota(UUID tenantId, EmitirNotaCommand cmd) { llamadas.add("emitirNota"); return null; }
+        Idempotencia ultimaClaveDeNota;
+        @Override public Emision emitirNota(UUID tenantId, EmitirNotaCommand cmd, Idempotencia idempotencia) { llamadas.add("emitirNota"); ultimaClaveDeNota = idempotencia; return new Emision(null, false); }
     }
 
     static class SunatFalsa implements SunatBillingGateway {

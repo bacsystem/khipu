@@ -187,8 +187,14 @@ export default function GuiaPage() {
       <Seccion id="buenas-practicas" titulo="Buenas prácticas">
         <ul className="list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-muted-foreground">
           <li>
-            <strong className="text-foreground">Idempotencia:</strong> si su sistema puede reintentar una llamada (timeouts), envíe <Codigo>correlativo</Codigo>: un
-            duplicado responde <Codigo>409</Codigo> en vez de emitir dos facturas.
+            <strong className="text-foreground">Idempotencia:</strong> si su sistema puede reintentar una llamada (timeouts), envíe una{" "}
+            <Codigo>Idempotency-Key</Codigo> (un UUID por comprobante) en <Codigo>POST /v1/facturas</Codigo> y en <Codigo>POST /v1/notas</Codigo>: repetir el mismo
+            pedido con la misma clave devuelve <Codigo>200</Codigo> con el mismo comprobante, sin emitir otro. Si numera usted mismo, <Codigo>correlativo</Codigo> también
+            lo evita: un duplicado responde <Codigo>409</Codigo>. Vea{" "}
+            <a className="text-primary hover:underline" href="#idempotency-key">
+              Reintento seguro con Idempotency-Key
+            </a>
+            .
           </li>
           <li>
             <strong className="text-foreground">Guarde el <Codigo>id</Codigo></strong> que devuelve khipu junto a su documento interno; con él consulta el estado y

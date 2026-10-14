@@ -1,6 +1,8 @@
 package pe.factura.adapters.rest;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import pe.factura.adapters.rest.dto.ComprobanteResponse;
@@ -27,6 +30,7 @@ import pe.factura.domain.documento.Comprobante;
         factura o boleta modificada lista sus notas en `notas`.""")
 public class NotaController {
     private final EmitirComprobanteUseCase emitir;
+    private final ObjectMapper json;
 
     @PostMapping
     @Operation(summary = "Emitir una nota de crédito o débito", description = """
@@ -60,12 +64,27 @@ public class NotaController {
             saldo tras otras notas —3286/3503—), `422 FECHA_INVALIDA` (plazo de envío vencido —2108/1079—), `422 SERIE_INVALIDA`,
             `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su plan: una nota
             consume como una factura; para anular sin consumir está la comunicación de baja), `402 PLAN_VENCIDO` (el plan de la cuenta
-            venció y pasó su gracia: se vuelve a emitir al renovarlo; la comunicación de baja sigue).""")
+            venció y pasó su gracia: se vuelve a emitir al renovarlo; la comunicación de baja sigue).
+
+            **Reintentos seguros** (`Idempotency-Key`): si la red se corta después de enviar el pedido, no se sabe si la nota se
+            emitió, y repetirlo sin más emitiría otra y consumiría otro número. Mande una clave única por nota (un UUID) en la cabecera
+            `Idempotency-Key` y repita el mismo pedido con la misma clave: si ya se había emitido, responde `200` con **la misma nota**
+            (mismo id y número), sin emitir otra ni consumir número, aunque entretanto el documento haya pasado a tener una baja o vencido
+            el plazo. La misma clave con otro contenido responde `422 IDEMPOTENCIA_INVALIDA`. La clave vale para la empresa durante 24 horas
+            y es propia de las notas: la misma cadena en `POST /v1/facturas` es otra clave. Sin la cabecera, cada pedido es una nota nueva.""")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Nota creada; `estado_documento` indica si SUNAT ya la aceptó y `nota` trae la factura modificada y el motivo"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Pedido repetido con la misma `Idempotency-Key`: la nota ya emitida, en su estado actual"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422", description = "Datos inválidos o regla de negocio incumplida; `codigo` y `mensaje` explican cuál")})
-    public ResponseEntity<ApiResponse<ComprobanteResponse>> crear(HttpServletRequest req, @Valid @RequestBody NotaRequest body) {
-        Comprobante c = emitir.emitirNota(TenantActual.id(req), body.aComando());
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(c, "/v1/facturas")));
+    public ResponseEntity<ApiResponse<ComprobanteResponse>> crear(HttpServletRequest req, @Valid @RequestBody NotaRequest body,
+            @Parameter(description = "Clave única por nota (un UUID), para repetir el pedido sin emitir dos veces", example = "5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f")
+            @RequestHeader(name = ClaveDeIdempotencia.CABECERA, required = false) String clave) {
+        var idempotencia = ClaveDeIdempotencia.de(clave, body, json);
+        if (idempotencia == null) {
+            Comprobante c = emitir.emitirNota(TenantActual.id(req), body.aComando());
+            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(c, "/v1/facturas")));
+        }
+        var emision = emitir.emitirNota(TenantActual.id(req), body.aComando(), idempotencia);
+        return ResponseEntity.status(emision.repetida() ? HttpStatus.OK : HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(emision.comprobante(), "/v1/facturas")));
     }
 }

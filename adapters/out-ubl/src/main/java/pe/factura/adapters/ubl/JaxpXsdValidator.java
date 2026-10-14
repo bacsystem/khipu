@@ -15,11 +15,23 @@ import java.io.StringReader;
 import java.net.URL;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class JaxpXsdValidator implements XsdValidator {
     private final Map<TipoDocumento, Schema> esquemas = new EnumMap<>(TipoDocumento.class);
     private final Schema baja;
     private final Schema resumenDiario;
+    /**
+     * Los esquemas compilados, por JVM y no por validador: un {@code Schema} es inmutable y seguro entre hilos, y compilar los UBL cuesta segundos y
+     * mucha memoria (los tipos, elementos y anotaciones de Xerces de cada esquema). Con uno por contexto de Spring, las pruebas E2E —que dejan sus contextos en caché toda la
+     * corrida— agotaban el heap de 1 GB aunque ningún test fallara.
+     */
+    private static final Map<String, Schema> COMPILADOS = new ConcurrentHashMap<>();
+    private static final AtomicInteger CARGAS = new AtomicInteger();
+
+    /** Cuántos XSD se han compilado en esta JVM (para las pruebas). */
+    static int cargas() { return CARGAS.get(); }
 
     public JaxpXsdValidator() {
         baja = cargar("xsd/2.0/maindoc/UBLPE-VoidedDocuments-1.0.xsd");
@@ -30,12 +42,15 @@ public class JaxpXsdValidator implements XsdValidator {
         esquemas.put(TipoDocumento.NOTA_DEBITO, cargar("xsd/2.1/maindoc/UBL-DebitNote-2.1.xsd"));
     }
 
-    private Schema cargar(String recurso) {
+    private Schema cargar(String recurso) { return COMPILADOS.computeIfAbsent(recurso, this::compilar); }
+
+    private Schema compilar(String recurso) {
         try {
             URL url = getClass().getClassLoader().getResource(recurso);
             if (url == null) throw new IllegalStateException("No se encontró " + recurso);
             SchemaFactory f = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
             f.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            CARGAS.incrementAndGet();
             return f.newSchema(url);   // los imports relativos (../common/*.xsd) se resuelven contra la URL
         } catch (Exception e) { throw new IllegalStateException("No se pudo cargar el XSD " + recurso, e); }
     }
