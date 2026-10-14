@@ -237,14 +237,18 @@ class ResolverErroresServiceTest {
 
     /**
      * #357: a la boleta y a sus notas SUNAT no les contesta getStatusCdr, así que no hay a quién preguntar. No se la consulta (reventaría con el 409 de la consulta) y el
-     * descarte sigue su camino: lo de boleta se regulariza en el resumen diario, no reemitiendo.
+     * descarte sigue su camino. Sin la confirmación que sí tiene una factura, la bitácora lo deja dicho: si SUNAT recibió la boleta antes del corte, el descarte la deja
+     * duplicada, y quien lo revise debe saber que no se pudo comprobar (revisión de #357, H2).
      */
-    @Test void aLaBoletaYSusNotasEnProduccionNoSePreguntaASunatAlDescartar() {
+    @Test void aLaBoletaYSusNotasEnProduccionNoSePreguntaASunatAlDescartarYLaBitacoraLoDice() {
         tenants.guardar(tenantEn(Entorno.PRODUCCION));
         for (Comprobante c : List.of(Fakes.boletaFirmada(empresaId, storage, 1), Fakes.notaDeBoletaFirmada(empresaId, storage, 1))) {
             c.marcarErrorEnvio("0109 - El sistema no puede responder");
             comprobantes.datos.put(c.id(), c);
+            auditoria.registros.clear();
             assertThat(service.descartar(ACTOR, c.id(), "No sale").estado()).isEqualTo(EstadoDocumento.DESCARTADO);
+            assertThat(auditoria.registros.get(0).detalle()).isEqualTo("comprobante=" + c.nombreArchivo() + " motivo=No sale"
+                    + " (no se confirmó con SUNAT que no la recibió: no consulta boletas ni notas de boleta)");
         }
         assertThat(cdrs.llamadas).isEmpty();
     }

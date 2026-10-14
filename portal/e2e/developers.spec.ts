@@ -100,6 +100,7 @@ test("la tabla de errores dice que la boleta y las notas B no se recuperan por g
   await expect(fila.getByText(/resumen diario que la informó/)).toBeVisible();
   await expect(fila.getByText(/en e-beta no se puede comprobar porque no publica el servicio de consulta/)).toBeVisible();
   await expect(fila.getByText(/GET \/v1\/bajas\/\{id\}/)).toBeVisible();
+  await expect(fila.getByText(/si se envió sola y quedó en ERROR_ENVIO, reintente el envío con POST \/v1\/facturas\/\{id\}\/enviar/)).toBeVisible();
 });
 
 /**

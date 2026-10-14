@@ -11,6 +11,12 @@ import { cn } from "@/lib/utils";
 
 const t = messages.admin.errores.descarte;
 
+/**
+ * Una boleta o una nota que la modifica (serie B: la de una nota empieza como la del comprobante que modifica). SUNAT no les contesta getStatusCdr, así que el backend no
+ * les pregunta si ya las recibió antes de descartarlas (#357): el diálogo no puede prometerlo.
+ */
+const esDeBoleta = (c: ErrorDeEmision) => c.serie.startsWith("B");
+
 /** Lo mismo que el tope del backend ({@code ResolverErroresUseCase.MAX_MOTIVO}); el backend lo vuelve a comprobar. */
 const MAX_MOTIVO = 200;
 
@@ -32,7 +38,7 @@ export function DescartarComprobante({ comprobante, alResultado }: { comprobante
       advertencia
       titulo={t.titulo}
       descripcion={t.descripcion.replace("{comprobante}", comprobante.nombre_archivo)}
-      efectos={t.efectos}
+      efectos={[...t.efectos.slice(0, 2), esDeBoleta(comprobante) ? t.efectoSinConsultaSunat : t.efectoConsultaSunat, ...t.efectos.slice(2)]}
       confirmar={t.confirmar}
       enviando={t.enviando}
       cancelar={t.cancelar}

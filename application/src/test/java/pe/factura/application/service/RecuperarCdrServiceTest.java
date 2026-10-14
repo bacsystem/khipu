@@ -180,6 +180,46 @@ class RecuperarCdrServiceTest {
         assertThat(r.fallos()).extracting(f -> f.causa().getMessage()).containsExactly("storage caído");
     }
 
+    /**
+     * Revisión de #357 (H1): buscar la empresa también puede fallar (credenciales cifradas ilegibles de una sola empresa) y estaba fuera del manejo: una empresa rota al
+     * frente cortaba el barrido de todas las demás, el mismo defecto que el issue corrige para la consulta a SUNAT.
+     */
+    @Test void unaEmpresaQueNoSePuedeLeerNoCortaElBarridoDeLasDemas() {
+        UUID ilegible = UUID.randomUUID();
+        Fakes.Tenants conUnaRota = new Fakes.Tenants() {
+            @Override public java.util.Optional<Tenant> buscar(UUID id) {
+                if (id.equals(ilegible)) throw new IllegalStateException("no se pudo descifrar las credenciales");
+                return super.buscar(id);
+            }
+        };
+        conUnaRota.guardar(produccion(Fakes.tenantListo(tenantId)));
+        Comprobante deLaRota = Fakes.facturaFirmada(ilegible, storage, 1);
+        Comprobante sana = Fakes.facturaFirmada(tenantId, storage, 2);
+        for (Comprobante c : List.of(deLaRota, sana)) { c.marcarEnviado(); comprobantes.guardar(c); }
+
+        RecuperarCdrUseCase.Barrido r = new RecuperarCdrService(comprobantes, conUnaRota, storage, consultas, cdrs, Fakes.UOW).recuperarPendientes();
+
+        assertThat(r.recuperados()).extracting(Comprobante::id).containsExactly(sana.id());
+        assertThat(r.fallos()).extracting(f -> f.comprobante().id()).containsExactly(deLaRota.id());
+    }
+
+    /** Revisión de #357 (H3): una boleta que ya tiene su CDR (el del envío individual o el del resumen) no se manda al resumen: se le dice que lo descargue. */
+    @Test void laBoletaQueYaTieneSuCdrDiceQueSeDescarga() {
+        Comprobante b = Fakes.boletaFirmada(tenantId, storage, 1);
+        b.marcarEnviado(); b.aplicarCdr(new Cdr("0", "ok", List.of()), "k/R-" + b.nombreArchivo() + ".zip");
+        comprobantes.guardar(b);
+        assertThatThrownBy(() -> service.recuperar(tenantId, b.id())).extracting("codigo").isEqualTo("CDR_YA_DISPONIBLE");
+        assertThat(consultas.llamadas).isZero();
+    }
+
+    /** Revisión de #357 (H3): una boleta que se envió sola y quedó en ERROR_ENVIO no tiene resumen que consultar; el camino es reintentar el envío. */
+    @Test void laBoletaEnErrorDeEnvioSabeQueSeReintentaElEnvio() {
+        Comprobante b = Fakes.boletaFirmada(tenantId, storage, 1);
+        b.marcarErrorEnvio("0109 - El sistema no puede responder");
+        comprobantes.guardar(b);
+        assertThatThrownBy(() -> service.recuperar(tenantId, b.id())).hasMessageContaining("ERROR_ENVIO").hasMessageContaining("POST /v1/facturas/{id}/enviar");
+    }
+
     @Test void consultaLaValidezDeUnComprobanteDeUnTercero() {
         consultas.respuesta = new Consulta("0003", "El comprobante existe pero está de baja.", null);
         ConsultarValidezUseCase.Validez v = validez.consultar(tenantId, new ConsultarValidezUseCase.Criterios("20100066603", "01", "F001", 12, "6", "20601234565", LocalDate.of(2026, 9, 10), new BigDecimal("118.00")));

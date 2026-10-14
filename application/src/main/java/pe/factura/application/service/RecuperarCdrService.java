@@ -37,15 +37,17 @@ public class RecuperarCdrService implements RecuperarCdrUseCase {
     }
 
     private Comprobante recuperar(Tenant t, Comprobante c) {
-        if (!c.consultableEnGetStatusCdr())
-            throw new DomainException("CDR_NO_CONSULTABLE", "SUNAT no consulta por getStatusCdr las boletas ni las notas de boleta (serie B): su constancia llega en el CDR del envío individual o en el del resumen diario "
-                    + "que las informa: vea el resumen en GET /v1/facturas/{id}/bajas y consulte su ticket con GET /v1/bajas/{id}. Por esta vía solo se recupera el CDR de facturas y sus notas (serie F)");
         if (c.numero() == null || c.xmlKey() == null)
             throw new DomainException("SIN_FIRMA", "El comprobante aún no está firmado ni enviado: no puede tener CDR en SUNAT");
         boolean sinCdr = c.cdrKey() == null;
         boolean enCurso = c.estado() == EstadoDocumento.ENVIADO || c.estado() == EstadoDocumento.ERROR_ENVIO || c.estado() == EstadoDocumento.FIRMADO;
         if (!sinCdr && !enCurso)
             throw new DomainException("CDR_YA_DISPONIBLE", "El comprobante ya tiene su CDR (" + c.estado() + "); descárguelo con GET /v1/facturas/{id}/cdr");
+        // Después de «ya lo tiene» (una boleta aceptada con su CDR se descarga, no se manda a buscar a otro lado) y antes de hablar con SUNAT (#357).
+        if (!c.consultableEnGetStatusCdr())
+            throw new DomainException("CDR_NO_CONSULTABLE", "SUNAT no consulta por getStatusCdr las boletas ni las notas de boleta (serie B): su constancia llega en el CDR del envío individual o en el del resumen diario "
+                    + "que las informa. Si se informó en un resumen, véalo en GET /v1/facturas/{id}/bajas y consulte su ticket con GET /v1/bajas/{id}; si se envió sola y quedó en ERROR_ENVIO, "
+                    + "reintente el envío con POST /v1/facturas/{id}/enviar (reenvía el mismo XML). Por esta vía solo se recupera el CDR de facturas y sus notas (serie F)");
         t.exigirCredencialesSol();
         SunatConsultaGateway.Consulta r = consultas.getStatusCdr(t, t.ruc(), c.tipo().codigo(), c.serie(), c.numero());
         if (!r.conCdr()) return c;   // SUNAT no lo tiene (o solo informa estado): nada que aplicar
@@ -67,10 +69,11 @@ public class RecuperarCdrService implements RecuperarCdrUseCase {
         List<Comprobante> recuperados = new ArrayList<>();
         List<Fallo> fallos = new ArrayList<>();
         for (Comprobante c : comprobantes.pendientesDeCdr()) {
-            Tenant t = tenants.buscar(c.tenantId()).orElse(null);
-            if (t == null || t.entorno() != Entorno.PRODUCCION || t.sol() == null) continue;   // e-beta no publica billConsultService
             if (!c.consultableEnGetStatusCdr()) continue;   // la consulta del repositorio ya lo excluye; esto es por si cambia
             try {
+                // Dentro del manejo: leer la empresa descifra sus credenciales y puede fallar para una sola; no por eso se deja sin recuperar a las demás.
+                Tenant t = tenants.buscar(c.tenantId()).orElse(null);
+                if (t == null || t.entorno() != Entorno.PRODUCCION || t.sol() == null) continue;   // e-beta no publica billConsultService
                 Comprobante r = recuperar(t, c);
                 if (r.cdrKey() != null) recuperados.add(r);
             } catch (RuntimeException e) {

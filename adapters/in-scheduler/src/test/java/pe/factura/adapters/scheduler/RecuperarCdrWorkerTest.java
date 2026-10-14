@@ -9,6 +9,7 @@ import pe.factura.application.port.in.RecuperarCdrUseCase.Barrido;
 import pe.factura.application.port.in.RecuperarCdrUseCase.Fallo;
 import pe.factura.application.port.out.SunatRechazoException;
 import pe.factura.application.port.out.SunatTransientException;
+import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
@@ -60,5 +61,18 @@ class RecuperarCdrWorkerTest {
         new RecuperarCdrWorker(cdrs).tick();
 
         assertThat(log.getAll()).contains("No se recuperó el CDR de " + c.nombreArchivo() + ": El sistema no puede responder").doesNotContain("SunatTransientException");
+    }
+
+    /** Revisión de #357 (H4): lo que el dominio no admite (un estado, un comprobante sin firma) también es lo esperado: una línea, sin traza. */
+    @Test void unaReglaDelDominioEsUnaLineaPorComprobanteSinTraza(CapturedOutput log) {
+        Comprobante c = factura(9);
+        RecuperarCdrUseCase cdrs = new RecuperarCdrUseCase() {
+            public Comprobante recuperar(UUID t, UUID id) { throw new AssertionError(); }
+            public Barrido recuperarPendientes() { return new Barrido(List.of(), List.of(new Fallo(c, new DomainException("SIN_FIRMA", "El comprobante aún no está firmado")))); }
+        };
+
+        new RecuperarCdrWorker(cdrs).tick();
+
+        assertThat(log.getAll()).contains("No se recuperó el CDR de " + c.nombreArchivo() + ": El comprobante aún no está firmado").doesNotContain("DomainException");
     }
 }

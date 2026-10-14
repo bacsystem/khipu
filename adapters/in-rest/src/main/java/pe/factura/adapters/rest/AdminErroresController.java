@@ -66,7 +66,12 @@ public class AdminErroresController {
     @Operation(summary = "Descartar un comprobante en error de envío", description = """
             Deja de intentar un envío que falla: el comprobante pasa a `DESCARTADO` (terminal; hay que emitir de nuevo) y se saca del outbox. Solo desde error de envío
             (`409 ESTADO_NO_DESCARTABLE`; si cambió de estado en el medio, `409 ESTADO_CONFLICTO`). El `motivo` es obligatorio (`422 MOTIVO_REQUERIDO`) y de hasta 200 caracteres
-            (`422 MOTIVO_LARGO`). `404 NO_ENCONTRADO` si no existe. Queda en la bitácora, en la misma transacción, con el motivo.""")
+            (`422 MOTIVO_LARGO`). `404 NO_ENCONTRADO` si no existe. Queda en la bitácora, en la misma transacción, con el motivo.
+
+            En una empresa en producción con credenciales SOL, antes de descartar una factura o una nota de factura se le pregunta a SUNAT si ya la recibió (`getStatusCdr`):
+            si la tiene se aplica su CDR y responde `409 SUNAT_YA_LO_TIENE`; si no se le puede preguntar, `503 SUNAT_NO_DISPONIBLE`. Una boleta o una nota de boleta (serie B)
+            no se consulta, porque SUNAT no contesta `getStatusCdr` para ellas: se descarta sin confirmar y la bitácora lo anota. Si el envío se cortó después de que SUNAT la
+            aceptó, descartarla deja dos boletas por la misma venta; en la duda, reintente el envío antes.""")
     public ApiResponse<DescarteResponse> descartar(@Parameter(description = "Id del comprobante") @PathVariable UUID id, @RequestBody(required = false) DescartarComprobanteRequest body,
                                                    HttpServletRequest req) {
         return ApiResponse.ok(DescarteResponse.de(resolver.descartar(AdministradorActual.actor(req), id, body == null ? null : body.motivo())));
