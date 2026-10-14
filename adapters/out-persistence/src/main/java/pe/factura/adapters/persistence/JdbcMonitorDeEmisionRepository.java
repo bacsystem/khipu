@@ -37,10 +37,13 @@ public class JdbcMonitorDeEmisionRepository implements MonitorDeEmisionRepositor
                 """, (rs, i) -> new Cola(rs.getLong("pendientes"), rs.getLong("vencidos"), instante(rs.getTimestamp("mas_viejo")), instante(rs.getTimestamp("vencido_desde"))), t, t, t, t);
     }
 
-    /** Lo ENVIADO con ticket (el índice parcial `ix_comunicacion_baja_enviada` lo encuentra sin recorrer la tabla) creado antes del límite, estrictamente. */
-    @Override public ResumenesPendientes resumenesSinRespuesta(Instant creadosAntesDe) {
-        return jdbc.queryForObject("SELECT count(*) AS n, min(created_at) AS mas_viejo FROM comunicacion_baja WHERE estado = 'ENVIADA' AND ticket IS NOT NULL AND created_at < ?",
-                (rs, i) -> new ResumenesPendientes(rs.getLong("n"), instante(rs.getTimestamp("mas_viejo"))), Timestamp.from(creadosAntesDe));
+    /**
+     * Lo ENVIADO con ticket (el índice parcial `ix_comunicacion_baja_enviada` lo encuentra sin recorrer la tabla) cuyo ticket se obtuvo antes del límite, estrictamente. Se mide
+     * desde `enviada_en` y no desde `created_at`: un resumen que esperó horas en ERROR_ENVIO no lleva horas esperando respuesta.
+     */
+    @Override public ResumenesPendientes resumenesSinRespuesta(Instant enviadosAntesDe) {
+        return jdbc.queryForObject("SELECT count(*) AS n, min(enviada_en) AS mas_viejo FROM comunicacion_baja WHERE estado = 'ENVIADA' AND ticket IS NOT NULL AND enviada_en < ?",
+                (rs, i) -> new ResumenesPendientes(rs.getLong("n"), instante(rs.getTimestamp("mas_viejo"))), Timestamp.from(enviadosAntesDe));
     }
 
     private static Instant instante(Timestamp t) { return t == null ? null : t.toInstant(); }

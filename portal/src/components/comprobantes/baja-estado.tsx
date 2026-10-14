@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api/browser";
 import type { Baja } from "@/lib/api/facturas";
-import { bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
+import { AVISO_ALTA_FUERA_DE_PLAZO, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
 import { TITULO_SECCION } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -90,8 +90,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       </div>
       {alta && baja.fuera_de_plazo ? (
         <p className="mt-3 text-[12px] text-warning-foreground" data-testid="aviso-fuera-de-plazo">
-          Informada fuera de plazo: pasó el 7.º día desde la emisión. SUNAT no la rechaza, pero puede observarla con la 4443 «El comprobante fue informado fuera del plazo
-          establecido» (en e-beta no la observó). Lo que cuenta es la respuesta de SUNAT del comprobante.
+          {AVISO_ALTA_FUERA_DE_PLAZO}
         </p>
       ) : null}
       {pendiente ? (

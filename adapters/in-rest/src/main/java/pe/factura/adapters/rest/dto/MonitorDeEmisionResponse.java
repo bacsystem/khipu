@@ -50,7 +50,7 @@ public record MonitorDeEmisionResponse(
      */
     public record ResumenesSinRespuestaResponse(
             @Schema(example = "2", description = "Cuántos resúmenes diarios (RC) o comunicaciones de baja (RA) enviados llevan más del umbral sin respuesta") long cantidad,
-            @Schema(example = "2026-10-15T05:00:00Z", description = "Cuándo se creó el más antiguo (el ticket se pide al enviarlo, casi al crearlo); ausente si no hay") Instant masViejoDesde,
+            @Schema(example = "2026-10-15T05:00:00Z", description = "Cuándo SUNAT dio el ticket del más antiguo (no cuándo se creó el resumen); ausente si no hay") Instant masViejoDesde,
             @Schema(example = "37200", description = "Segundos que lleva el más antiguo sin respuesta; ausente si no hay") Long masViejoHaceSegundos,
             @Schema(example = "6", description = "Horas sin respuesta a partir de las cuales se alerta (`app.monitor.resumen-sin-respuesta-horas`)") long umbralHoras,
             @Schema(description = "Hay al menos un resumen o baja con ticket sin respuesta pasado el umbral") boolean alerta) {

@@ -1056,8 +1056,7 @@
         "respuesta": "Respuesta de SUNAT",
         "ultimoIntento": "Último intento",
         "detalle": "Detalle",
-        "sinDato": "—",
-        "fueraDePlazo": "Informada fuera de plazo: pasó el 7.º día desde la emisión. SUNAT no la rechaza, pero puede observarla con la 4443 «El comprobante fue informado fuera del plazo establecido» (en e-beta no la observó). Lo que cuenta es la respuesta de SUNAT del comprobante."
+        "sinDato": "—"
       }
     },
     "empresaDetalle": {

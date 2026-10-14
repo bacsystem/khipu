@@ -20,7 +20,7 @@ public interface MonitorDeEmisionRepository {
      */
     record Cola(long pendientes, long vencidos, Instant masViejoDesde, Instant vencidoDesde) {}
 
-    /** #362 B14: cuántos resúmenes diarios o comunicaciones de baja con ticket siguen sin respuesta de SUNAT, y cuándo se creó el más antiguo; nulo si no hay. */
+    /** #362 B14: cuántos resúmenes diarios o comunicaciones de baja con ticket siguen sin respuesta de SUNAT, y desde cuándo espera el más antiguo (cuando SUNAT dio el ticket); nulo si no hay. */
     record ResumenesPendientes(long cantidad, Instant masViejoDesde) {}
 
     /** Los comprobantes creados desde {@code desde} (inclusive), agrupados por hora y estado. Solo trae las combinaciones que tienen comprobantes. */
@@ -29,8 +29,9 @@ public interface MonitorDeEmisionRepository {
     Cola cola(Instant ahora);
 
     /**
-     * Las comunicaciones de baja (RA) y resúmenes diarios (RC) enviadas a SUNAT (con ticket, estado {@code ENVIADA}) que se crearon antes de {@code creadosAntesDe} y siguen
-     * sin respuesta. Solo cuenta lo que SUNAT recibió: lo que no tiene ticket (generado, con error de envío) lo vigila la cola de envíos.
+     * Las comunicaciones de baja (RA) y resúmenes diarios (RC) enviadas a SUNAT (con ticket, estado {@code ENVIADA}) cuyo ticket se obtuvo antes de {@code enviadosAntesDe} y
+     * siguen sin respuesta. Se mide desde que SUNAT dio el ticket, no desde que se creó la fila: uno que esperó horas en {@code ERROR_ENVIO} no lleva horas sin respuesta. Solo
+     * cuenta lo que SUNAT recibió: lo que no tiene ticket (generado, con error de envío) lo vigila la cola de envíos.
      */
-    ResumenesPendientes resumenesSinRespuesta(Instant creadosAntesDe);
+    ResumenesPendientes resumenesSinRespuesta(Instant enviadosAntesDe);
 }

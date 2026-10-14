@@ -261,8 +261,9 @@ class MonitorDeEmisionE2ETest {
         jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, created_at) VALUES (?, ?, '03', 'B001', ?, current_date, 'ENVIADO', 'x', now())",
                 boleta, c.empresa(), numero);
         jdbc.update("INSERT INTO comunicacion_baja (id, tenant_id, fecha_generacion, correlativo, comprobante_id, tipo_comprobante, serie, numero, fecha_referencia, motivo, estado, ticket, "
-                        + "condicion, de_boleta, created_at) VALUES (?, ?, current_date, ?, ?, '03', 'B001', ?, current_date, 'Pasó el envío individual', ?, ?, 'ALTA', true, ?)",
-                UUID.randomUUID(), c.empresa(), (int) numero, boleta, numero, estado, ticket, Timestamp.from(Instant.now().minus(Duration.ofHours(horas))));
+                        + "condicion, de_boleta, created_at, enviada_en) VALUES (?, ?, current_date, ?, ?, '03', 'B001', ?, current_date, 'Pasó el envío individual', ?, ?, 'ALTA', true, ?, ?)",
+                UUID.randomUUID(), c.empresa(), (int) numero, boleta, numero, estado, ticket, Timestamp.from(Instant.now().minus(Duration.ofHours(horas))),
+                ticket == null ? null : Timestamp.from(Instant.now().minus(Duration.ofHours(horas))));
     }
 
     @Test void sinResumenesPendientesNoHayAlertaYElUmbralEsElPorDefecto() {

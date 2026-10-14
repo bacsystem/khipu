@@ -41,8 +41,8 @@ public interface MonitorearEmisionUseCase {
     /**
      * #362 B14: resúmenes diarios (RC) y comunicaciones de baja (RA) que SUNAT recibió (tienen ticket) y no ha respondido hace más de {@code umbral}. khipu consulta el ticket
      * sin abandonarlo nunca (el worker lo reconsulta con intervalo creciente, hasta cada 5 min, sin tope de tiempo: es deliberado, para no dar por perdido un trámite que SUNAT todavía procesa), así que sin
-     * esta alerta un ticket atascado no lo ve nadie. {@code masViejoDesde} es cuándo se creó el más antiguo de ellos (el ticket se pide al enviarlo, casi al crearlo); nulo
-     * si no hay. {@code alerta}: hay al menos uno.
+     * esta alerta un ticket atascado no lo ve nadie. {@code masViejoDesde} es cuándo SUNAT dio el ticket del más antiguo de ellos (no cuándo se creó el resumen: uno que esperó
+     * en ERROR_ENVIO con SUNAT caída no lleva ese tiempo sin respuesta); nulo si no hay. {@code alerta}: hay al menos uno.
      */
     record ResumenesSinRespuesta(long cantidad, Instant masViejoDesde, Duration masViejoHace, Duration umbral, boolean alerta) {}
 

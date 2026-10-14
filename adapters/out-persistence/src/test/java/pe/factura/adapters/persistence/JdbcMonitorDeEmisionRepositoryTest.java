@@ -37,16 +37,19 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
                 tenant, UUID.randomUUID(), Timestamp.from(siguiente), bloqueadoHasta == null ? null : Timestamp.from(bloqueadoHasta), Timestamp.from(creado));
     }
 
-    /** Una comunicación de baja (o un resumen diario) de un comprobante nuevo de esa empresa, creada en {@code creada}. */
-    void baja(UUID tenant, String estado, String ticket, Instant creada) {
+    /** Una comunicación de baja (o un resumen diario) de un comprobante nuevo de esa empresa, creada y enviada (con su ticket) en {@code enviada}. */
+    void baja(UUID tenant, String estado, String ticket, Instant enviada) { baja(tenant, estado, ticket, enviada, enviada); }
+
+    /** Lo mismo, creada en {@code creada} y con el ticket dado por SUNAT en {@code enviada} (un resumen que esperó en ERROR_ENVIO se crea mucho antes de enviarse). */
+    void baja(UUID tenant, String estado, String ticket, Instant creada, Instant enviada) {
         UUID comprobante = UUID.randomUUID();
         long numero = NUMERO.getAndIncrement();
         jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, created_at) VALUES (?, ?, '03', 'B001', ?, ?, 'ACEPTADO', 'x', ?)",
                 comprobante, tenant, numero, java.sql.Date.valueOf(LocalDate.of(2026, 10, 15)), Timestamp.from(creada));
         jdbc.update("INSERT INTO comunicacion_baja (id, tenant_id, fecha_generacion, correlativo, comprobante_id, tipo_comprobante, serie, numero, fecha_referencia, motivo, estado, ticket, "
-                        + "condicion, de_boleta, created_at) VALUES (?, ?, ?, ?, ?, '03', 'B001', ?, ?, 'Error', ?, ?, 'BAJA', true, ?)",
+                        + "condicion, de_boleta, created_at, enviada_en) VALUES (?, ?, ?, ?, ?, '03', 'B001', ?, ?, 'Error', ?, ?, 'BAJA', true, ?, ?)",
                 UUID.randomUUID(), tenant, java.sql.Date.valueOf(LocalDate.of(2026, 10, 15)), (int) numero, comprobante, numero, java.sql.Date.valueOf(LocalDate.of(2026, 10, 15)),
-                estado, ticket, Timestamp.from(creada));
+                estado, ticket, Timestamp.from(creada), ticket == null ? null : Timestamp.from(enviada));
     }
 
     Instant hace(Duration d) { return AHORA.minus(d); }
@@ -233,6 +236,21 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.resumenesSinRespuesta(hace(Duration.ofHours(6))).cantidad()).as("el ENVIADA sin ticket no es un ticket sin respuesta").isZero();
     }
 
+    /**
+     * H1 de #370: se cuenta desde que SUNAT dio el ticket, no desde que se creó la fila. Un resumen creado a las 10:00 que esperó en ERROR_ENVIO hasta que SUNAT volvió y
+     * recién entonces se envió no lleva horas sin respuesta; con {@code created_at} el monitor lo alertaba en el mismo instante en que se enviaba.
+     */
+    @Test void unResumenCreadoHaceHorasPeroEnviadoHaceUnMinutoNoDaAlerta() {
+        UUID t = tenantDePrueba();
+        baja(t, "ENVIADA", "T-1", hace(Duration.ofHours(9)), hace(Duration.ofMinutes(1)));
+        baja(t, "ENVIADA", "T-2", hace(Duration.ofHours(10)), hace(Duration.ofHours(8)));
+
+        var r = repo.resumenesSinRespuesta(hace(Duration.ofHours(6)));
+
+        assertThat(r.cantidad()).as("solo el T-2 lleva más de 6 h con ticket").isEqualTo(1);
+        assertThat(r.masViejoDesde()).as("desde que SUNAT dio el ticket, no desde que se creó").isEqualTo(hace(Duration.ofHours(8)));
+    }
+
     @Test void elLimiteEsEstricto() {
         UUID t = tenantDePrueba();
         baja(t, "ENVIADA", "T-1", hace(Duration.ofHours(6)));
@@ -242,7 +260,7 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
     }
 
     @Test void hayUnIndiceParcialDeLosEnviadosParaNoRecorrerTodaLaTabla() {
-        Integer indices = jdbc.queryForObject("SELECT count(*) FROM pg_indexes WHERE tablename = 'comunicacion_baja' AND indexdef LIKE '%(created_at)%ENVIADA%'", Integer.class);
+        Integer indices = jdbc.queryForObject("SELECT count(*) FROM pg_indexes WHERE tablename = 'comunicacion_baja' AND indexdef LIKE '%(enviada_en)%ENVIADA%'", Integer.class);
 
         assertThat(indices).isEqualTo(1);
     }

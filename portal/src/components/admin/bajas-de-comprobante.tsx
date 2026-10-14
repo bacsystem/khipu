@@ -1,5 +1,5 @@
 import type { BajaAdmin } from "@/lib/api/admin-comprobante";
-import { bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
+import { AVISO_ALTA_FUERA_DE_PLAZO, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
 import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
 import { messages } from "@/lib/messages";
@@ -76,7 +76,7 @@ export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: 
               </dl>
               {alta && b.fuera_de_plazo ? (
                 <p className="mt-3 text-[12px] text-warning-foreground" data-testid="baja-fuera-de-plazo">
-                  {t.fueraDePlazo}
+                  {AVISO_ALTA_FUERA_DE_PLAZO}
                 </p>
               ) : null}
             </article>

@@ -31,7 +31,7 @@ public class MonitorDeEmisionService implements MonitorearEmisionUseCase {
     private final MonitorDeEmisionRepository monitor;
     private final SondeoDeSunat sondeo;
     private final Clock clock;
-    /** Cuánto puede llevar un ticket de resumen o baja sin respuesta antes de alertar (`app.monitor.resumen-sin-respuesta-horas`, #362 B14). */
+    /** Cuánto puede llevar un ticket de resumen o baja sin respuesta, contado desde que SUNAT lo dio, antes de alertar (`app.monitor.resumen-sin-respuesta-horas`, #362 B14). */
     private final Duration umbralDeResumenes;
 
     @Override public Monitor monitorear() {
