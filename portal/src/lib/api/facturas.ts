@@ -135,7 +135,7 @@ export type Baja = {
   /** `BAJA` anula el comprobante; `ALTA` informa en el resumen diario una boleta que pasó el envío individual (274-H1). Ausente en respuestas viejas: baja. */
   condicion?: "ALTA" | "BAJA";
   /**
-   * #331: un `ALTA` generada pasado el 7.º día desde la emisión. SUNAT no la rechaza: la acepta con la observación 4443 y la boleta queda `ACEPTADO_CON_OBS`.
+   * #331: un `ALTA` generada pasado el 7.º día desde la emisión. SUNAT no la rechaza: la norma prevé que la observe con la 4443 (entonces la boleta queda `ACEPTADO_CON_OBS`); e-beta no lo hizo.
    * Es la previsión de khipu: si el envío del resumen se reintentó otro día, SUNAT puede observarla aunque diga `false` (manda el CDR). Ausente en respuestas
    * viejas: en plazo.
    */
@@ -193,7 +193,7 @@ export function esDeBoleta(c: { tipo: string; nota?: { tipo_afectado: string } |
 
 /**
  * #331: una boleta, o una nota sobre boleta que va en el resumen diario, todavía sin llegar a SUNAT y pasado su plazo (el 7.º día). No vence: al enviarla
- * khipu la informa en un resumen diario fuera de plazo y SUNAT la acepta con la observación 4443. La NC 10 y la ND 03 de boleta no van en el resumen (guía,
+ * khipu la informa en un resumen diario fuera de plazo; SUNAT no la rechaza y puede observarla con la 4443. La NC 10 y la ND 03 de boleta no van en el resumen (guía,
  * p. 19): esas sí vencen. Es el `Comprobante.informaFueraDePlazo` del backend; `hoy` es la fecha de Lima.
  */
 export function seInformaFueraDePlazo(
@@ -304,7 +304,11 @@ export type Comprobante = {
   nombre_archivo: string | null;
   intentos: number;
   ultimo_error: string | null;
-  cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
+  /**
+   * `resumen` (#362 B10): solo en una boleta (o nota de boleta) informada por resumen diario. SUNAT no emite un CDR por boleta en el resumen: el del comprobante es el
+   * del resumen, y esto dice cuál (`RC-aaaammdd-n`). El nombre del archivo descargado no cambia.
+   */
+  cdr: { codigo: string; descripcion: string; observaciones: string[]; resumen?: string } | null;
   totales: {
     gravado: number;
     exonerado: number;

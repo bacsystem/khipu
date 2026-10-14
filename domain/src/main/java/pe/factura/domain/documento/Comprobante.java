@@ -440,7 +440,7 @@ public class Comprobante {
     public void informarEnResumen(String identificador, boolean fueraDePlazo) {
         if (!esDeBoleta()) throw new DomainException("RESUMEN_INVALIDO", "Solo una boleta o una nota que la modifica se informa en un resumen diario");
         transitar(EstadoDocumento.ENVIADO, "Informada a SUNAT en el resumen diario " + identificador + (fueraDePlazo
-                ? " fuera de plazo: pasó el 7.º día (vencía el " + fechaLimiteEnvio() + "), SUNAT la acepta con la observación 4443"
+                ? " fuera de plazo: pasó el 7.º día (vencía el " + fechaLimiteEnvio() + "), SUNAT puede observarla con la 4443"
                 : ": pasó el envío individual (1079)"));
     }
 
@@ -450,7 +450,7 @@ public class Comprobante {
      */
     public boolean soloPorResumen(LocalDate hoy) { return plazoEnvio().soloPorResumen(fechaEmision, hoy); }
 
-    /** Si hoy se informaría en el resumen diario pasado el 7.º día: SUNAT la acepta con la observación 4443 (#331). */
+    /** Si hoy se informaría en el resumen diario pasado el 7.º día: SUNAT no la rechaza, puede observarla con la 4443 (#331; e-beta no la observó). */
     public boolean informaFueraDePlazo(LocalDate hoy) { return plazoEnvio().informaFueraDePlazo(fechaEmision, hoy); }
 
     public void aplicarCdr(Cdr cdr, String cdrKey) {
@@ -459,6 +459,13 @@ public class Comprobante {
         transitar(destino, cdr.codigo() + " - " + cdr.descripcion() + (cdr.tieneObservaciones() ? " (" + String.join("; ", cdr.observaciones()) + ")" : ""));
         this.cdr = cdr; this.cdrKey = cdrKey; this.ultimoError = null;
     }
+
+    /**
+     * #362 B10: el identificador del resumen diario (RC-aaaammdd-n) cuyo CDR es el de este comprobante, si lo es. Una boleta (o una nota de boleta) informada en un resumen no
+     * recibe un CDR propio: SUNAT acepta el resumen y esa constancia es la que la boleta guarda y entrega. Se sabe por la clave con que se guardó
+     * ({@link ComunicacionBaja#identificadorDelResumenDeCdr}), sin la baja.
+     */
+    public java.util.Optional<String> resumenDelCdr() { return ComunicacionBaja.identificadorDelResumenDeCdr(cdrKey); }
 
     /** CDR recuperado de SUNAT para un comprobante que ya tenía estado final pero perdió su constancia en el storage. */
     public void restaurarCdr(Cdr cdr, String cdrKey) {

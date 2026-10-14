@@ -34,12 +34,12 @@ public record ComprobanteResponse(
         @Schema(example = "125") Long numero,
         @Schema(example = "2026-09-14") LocalDate fechaEmision,
         @Schema(example = "2026-10-14", description = "Fecha de vencimiento informada, o `null`") LocalDate fechaVencimiento,
-        @Schema(example = "2026-09-17", description = "Último día en que SUNAT acepta recibirlo (RS 193-2020: 3 días calendario desde la emisión; una boleta, 7: va sola hasta el 5.º día y después khipu la informa en el resumen diario). Pasado ese día, una factura o nota de factura FIRMADO o en ERROR_ENVIO pasa a FUERA_DE_PLAZO; una boleta (o nota sobre boleta que va en el resumen) se sigue informando en un resumen diario, fuera de plazo: SUNAT la acepta con la observación 4443") LocalDate fechaLimiteEnvio,
+        @Schema(example = "2026-09-17", description = "Último día en que SUNAT acepta recibirlo (RS 193-2020: 3 días calendario desde la emisión; una boleta, 7: va sola hasta el 5.º día y después khipu la informa en el resumen diario). Pasado ese día, una factura o nota de factura FIRMADO o en ERROR_ENVIO pasa a FUERA_DE_PLAZO; una boleta (o nota sobre boleta que va en el resumen) se sigue informando en un resumen diario, fuera de plazo: SUNAT no la rechaza y puede observarla con la 4443") LocalDate fechaLimiteEnvio,
         @Schema(example = "PEN") String moneda,
         @Schema(example = "0101", description = "Catálogo 51 SUNAT") String tipoOperacion,
         ReceptorDto receptor,
         List<ItemDto> items,
-        @Schema(example = "ACEPTADO", description = "Estado del comprobante: `RECIBIDO` → `FIRMADO` → `ENVIADO` → `ACEPTADO` / `ACEPTADO_CON_OBS` / `RECHAZADO`; `ERROR_ENVIO` (SUNAT no disponible, se reintenta), `INVALIDO` (XML no válido), `ANULADO` (comunicación de baja aceptada), `FUERA_DE_PLAZO` (factura o nota que no llegó dentro del plazo de envío; terminal. Una boleta no: se informa en el resumen diario fuera de plazo y queda `ACEPTADO_CON_OBS` con la 4443), `DESCARTADO` (un administrador dejó de intentar enviarlo; terminal)") String estadoDocumento,
+        @Schema(example = "ACEPTADO", description = "Estado del comprobante: `RECIBIDO` → `FIRMADO` → `ENVIADO` → `ACEPTADO` / `ACEPTADO_CON_OBS` / `RECHAZADO`; `ERROR_ENVIO` (SUNAT no disponible, se reintenta), `INVALIDO` (XML no válido), `ANULADO` (comunicación de baja aceptada), `FUERA_DE_PLAZO` (factura o nota que no llegó dentro del plazo de envío; terminal. Una boleta no: se informa en el resumen diario fuera de plazo y queda `ACEPTADO_CON_OBS` si SUNAT la observa con la 4443, `ACEPTADO` si no), `DESCARTADO` (un administrador dejó de intentar enviarlo; terminal)") String estadoDocumento,
         @Schema(example = "a1b2c3d4e5f6...", description = "Resumen (digest) de la firma XML-DSig; se imprime en la representación impresa y en el código QR") String hash,
         @Schema(example = "20614798093-01-F001-00000125", description = "Nombre oficial del archivo: `RUC-TIPO-SERIE-NUMERO`") String nombreArchivo,
         @Schema(example = "1", description = "Intentos de envío a SUNAT realizados") Integer intentos,
@@ -224,7 +224,8 @@ public record ComprobanteResponse(
     public record CdrDto(
             @Schema(example = "0", description = "Código de respuesta SUNAT: `0` aceptado; 2000–3999 rechazado (corregir y reemitir); 4000+ aceptado con observaciones; 1000–1999 error del emisor (fault, sin CDR)") String codigo,
             @Schema(example = "La Factura numero F001-125, ha sido aceptada", description = "Descripción oficial de SUNAT") String descripcion,
-            List<String> observaciones) {}
+            List<String> observaciones,
+            @Schema(example = "RC-20260921-1", description = "Solo en una boleta (o nota de boleta) informada en un resumen diario: el identificador de ese resumen. SUNAT no emite un CDR por boleta en el resumen: el CDR del comprobante es el del resumen, y `descripcion` habla del resumen («El Resumen diario RC-…, ha sido aceptado»). Ausente cuando el CDR es el del propio comprobante (factura, nota de factura o boleta enviada sola)") String resumen) {}
 
     public record LeyendaDto(@Schema(example = "2001") String codigo, @Schema(example = "BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA") String texto) {}
 
@@ -271,7 +272,7 @@ public record ComprobanteResponse(
         return new ComprobanteResponse(c.id(), c.tipo().codigo(), c.serie(), c.numero(), c.fechaEmision(), c.fechaVencimiento(), c.fechaLimiteEnvio(), c.moneda(), c.tipoOperacion(),
                 de(c.receptor()), c.totales().items().stream().map(ComprobanteResponse::de).toList(),
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
-                c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones()),
+                c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones(), c.resumenDelCdr().orElse(null)),
                 new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(), c.tasaIgv(),
                         c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().ivap(), c.totales().exportacion(), c.totales().isc(), c.totales().icbper(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().totalCargos(), c.totales().totalAnticipos(), c.totales().redondeo(), c.totales().total(),
                         c.totales().descuentoGlobal() == null ? null : new DescuentoDto(c.totales().descuentoGlobal().descuento().tipo().name(),

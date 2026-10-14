@@ -275,7 +275,7 @@ class ComunicacionBajaTest {
         assertThat(baja.estado()).isEqualTo(ComunicacionBaja.EstadoBaja.RECHAZADA);
         assertThat(baja.cdr().codigo()).isEqualTo("2957");
         assertThat(baja.cdr().descripcion()).contains("2026-12-24").contains("no se envió");
-        // Un alta no vence: SUNAT la observa (4443), no la rechaza.
+        // Un alta no vence: SUNAT no la rechaza (puede observarla con la 4443).
         ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(boletaConGratuitas(LocalDate.of(2026, 12, 20), EstadoDocumento.FIRMADO), 2, FIN_DE_ANIO);
         assertThat(alta.plazoVencido(LocalDate.now(ANIO_NUEVO))).isFalse();
     }

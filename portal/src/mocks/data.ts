@@ -124,7 +124,8 @@ export type Comprobante = {
   nombre_archivo: string;
   intentos: number;
   ultimo_error: string | null;
-  cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
+  /** `resumen` (#362 B10): solo en una boleta informada por resumen diario; el identificador del RC cuyo CDR es. */
+  cdr: { codigo: string; descripcion: string; observaciones: string[]; resumen?: string } | null;
   fecha_vencimiento?: string | null;
   /** Último día en que SUNAT lo recibe a tiempo (`PlazoEnvio`); solo lo trae el sembrado que lo necesita. */
   fecha_limite_envio?: string;
@@ -153,7 +154,7 @@ export type Baja = {
   fecha_referencia?: string | null;
   motivo: string;
   condicion?: "ALTA" | "BAJA";
-  /** #331: un alta informada pasado el 7.º día (SUNAT la observa con 4443). El backend la manda siempre; una baja, en false. */
+  /** #331: un alta informada pasado el 7.º día (SUNAT puede observarla con 4443). El backend la manda siempre; una baja, en false. */
   fuera_de_plazo?: boolean;
   /** `DESCARTADA` (#338): un RC con el código 05 de las gratuitas que caducó sin enviarse; el mock trabaja en 2026 y no lo produce. */
   estado: "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA" | "DESCARTADA";
@@ -1162,8 +1163,9 @@ export function resetDb() {
       enlaces: { xml: "/v1/facturas/b-sin-documento/xml", pdf: "/v1/facturas/b-sin-documento/pdf", cdr: "/v1/facturas/b-sin-documento/cdr" },
     },
     {
-      // #331: boleta con el envío fallido y el 7.º día ya pasado. No vence: al reenviarla va en un resumen diario fuera de plazo y SUNAT la acepta con
-      // la observación 4443. Solo para ese e2e (lo deja ACEPTADO_CON_OBS).
+      // #331: boleta con el envío fallido y el 7.º día ya pasado. No vence: al reenviarla va en un resumen diario fuera de plazo. El mock simula que SUNAT la
+      // observa con la 4443 (lo que la norma prevé y producción puede dar; e-beta la aceptó sin observaciones) para probar cómo la ficha muestra una aceptada con
+      // observaciones. Solo para ese e2e (lo deja ACEPTADO_CON_OBS).
       id: "b-fuera-de-plazo",
       tipo: "03",
       serie: "B001",

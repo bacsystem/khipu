@@ -38,8 +38,16 @@ public interface MonitorearEmisionUseCase {
      */
     record Outbox(long pendientes, long vencidos, Instant masViejoDesde, Duration vencidoHace, boolean alerta) {}
 
+    /**
+     * #362 B14: resúmenes diarios (RC) y comunicaciones de baja (RA) que SUNAT recibió (tienen ticket) y no ha respondido hace más de {@code umbral}. khipu consulta el ticket
+     * sin abandonarlo nunca (el worker lo reconsulta con intervalo creciente, hasta cada 5 min, sin tope de tiempo: es deliberado, para no dar por perdido un trámite que SUNAT todavía procesa), así que sin
+     * esta alerta un ticket atascado no lo ve nadie. {@code masViejoDesde} es cuándo se creó el más antiguo de ellos (el ticket se pide al enviarlo, casi al crearlo); nulo
+     * si no hay. {@code alerta}: hay al menos uno.
+     */
+    record ResumenesSinRespuesta(long cantidad, Instant masViejoDesde, Duration masViejoHace, Duration umbral, boolean alerta) {}
+
     /** {@code horas}: las últimas {@link #HORAS}, de la más vieja a la actual, con las vacías en cero. {@code hoy}: el día de Lima hasta ahora. */
-    record Monitor(Instant generadoEn, List<Franja> horas, Franja hoy, Outbox outbox, List<Resultado> sunat) {}
+    record Monitor(Instant generadoEn, List<Franja> horas, Franja hoy, Outbox outbox, ResumenesSinRespuesta resumenes, List<Resultado> sunat) {}
 
     Monitor monitorear();
 }

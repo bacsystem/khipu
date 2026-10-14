@@ -302,7 +302,13 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <EstadoBadge estado={c.estado_documento} />
             {c.cdr ? (
               <span
-                title={tieneConstanciaCdr(c) ? "Código de la constancia de recepción (CDR)" : "Código de respuesta de SUNAT; no se emitió constancia (CDR)"}
+                data-testid="cdr-codigo"
+                // #362 B10: una boleta informada por resumen diario no tiene CDR propio: guarda y descarga el del resumen (el archivo se sigue llamando R-<boleta>).
+                title={
+                  c.cdr.resumen
+                    ? `Código de la constancia (CDR) del resumen diario ${c.cdr.resumen}, en que se informó este comprobante: SUNAT no emite un CDR por boleta en el resumen`
+                    : tieneConstanciaCdr(c) ? "Código de la constancia de recepción (CDR)" : "Código de respuesta de SUNAT; no se emitió constancia (CDR)"
+                }
                 className="rounded border border-border bg-secondary px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground"
               >
                 {tieneConstanciaCdr(c) ? "CDR" : "Código SUNAT"}: {c.cdr.codigo}
@@ -316,9 +322,9 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <span className="font-mono text-xs font-medium text-foreground">{formatearFecha(c.fecha_emision)}</span>
             {c.fecha_vencimiento ? <span className="block text-[11px] text-muted-foreground">Vence {formatearFecha(c.fecha_vencimiento)}</span> : null}
             {c.fecha_limite_envio && seInformaFueraDePlazo(c) ? (
-              // #331: no vence; al enviarla va en un resumen diario fuera de plazo y SUNAT la observa (4443), no la rechaza.
+              // #331: no vence; al enviarla va en un resumen diario fuera de plazo y SUNAT no la rechaza (puede observarla con la 4443).
               <span className="block text-[11px] text-warning-foreground" data-testid="aviso-envio-fuera-de-plazo">
-                Plazo vencido el {formatearFecha(c.fecha_limite_envio)}: al enviarla se informa en un resumen diario fuera de plazo (SUNAT la acepta con la observación 4443)
+                Plazo vencido el {formatearFecha(c.fecha_limite_envio)}: al enviarla se informa en un resumen diario fuera de plazo (SUNAT no la rechaza; puede observarla con la 4443)
               </span>
             ) : c.fecha_limite_envio && (c.estado_documento === "FIRMADO" || c.estado_documento === "ERROR_ENVIO") ? (
               <span className="block text-[11px] text-warning-foreground">Enviar a SUNAT hasta el {formatearFecha(c.fecha_limite_envio)}</span>

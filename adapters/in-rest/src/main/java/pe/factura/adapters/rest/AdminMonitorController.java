@@ -21,7 +21,9 @@ public class AdminMonitorController {
     @Operation(summary = "Monitor global de emisión", description = """
             Cómo va la emisión de **todas** las empresas: los comprobantes de las últimas 24 horas por hora (aceptados, rechazados, con error de envío, en camino), el total
             del día de Lima con su tasa de rechazo, la cola del outbox (pendientes, vencidos y una **alerta** cuando hay envíos vencidos hace más de 5 minutos, señal de que
-            el trabajo que la vacía no corre) y si los servicios de SUNAT contestan. El estado de SUNAT es una lectura guardada hasta 30 segundos: refrescar el monitor no
+            el trabajo que la vacía no corre), los resúmenes diarios o bajas con ticket que SUNAT no responde pasadas N horas (`resumenes_sin_respuesta`; N =
+            `app.monitor.resumen-sin-respuesta-horas`, 6 por defecto: khipu reconsulta el ticket sin abandonarlo, así que esta alerta es la única señal de uno atascado)
+            y si los servicios de SUNAT contestan. El estado de SUNAT es una lectura guardada hasta 30 segundos: refrescar el monitor no
             llama a SUNAT cada vez ni envía ningún comprobante.""")
     public ApiResponse<MonitorDeEmisionResponse> monitorear() {
         return ApiResponse.ok(MonitorDeEmisionResponse.de(monitor.monitorear()));

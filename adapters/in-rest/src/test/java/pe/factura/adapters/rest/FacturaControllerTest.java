@@ -413,6 +413,59 @@ class FacturaControllerTest {
                 .andExpect(content().bytes(new byte[]{1, 2, 3}));
     }
 
+    /** Una boleta aceptada con el CDR del resumen diario RC-20260920-1 en que se la informó (#362 B10). */
+    private Comprobante boletaInformadaPorResumen() {
+        Clock dia10 = Clock.fixed(Instant.parse("2026-09-20T15:00:00Z"), ZoneId.of("America/Lima"));
+        Comprobante b = Comprobante.persistido(UUID.randomUUID(), tenant, TipoDocumento.BOLETA, "B001", 7L, LocalDate.of(2026, 9, 10), EstadoDocumento.FIRMADO,
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)))
+                .firma("H", "20100066603-03-B001-7", "k.xml").rehidratar();
+        ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(b, 1, dia10);
+        b.informarEnResumen(alta.identificador(), alta.fueraDePlazo());
+        b.aplicarCdr(new Cdr("0", "El Resumen diario RC-20260920-1, ha sido aceptado", List.of()), "t/2026/09/R-20100066603-RC-20260920-1.zip");
+        return b;
+    }
+
+    /**
+     * #362 B10: el CDR de una boleta informada por resumen diario es el del resumen. Contenido y nombre de archivo no cambian (los integradores ya los usan:
+     * `R-<boleta>.zip`), pero la respuesta lo dice con la cabecera `X-Cdr-Resumen` y, en la consulta, con `cdr.resumen`.
+     */
+    @Test void elCdrDeUnaBoletaInformadaPorResumenDiceDeQueResumenEsSinCambiarElNombreDelArchivo() throws Exception {
+        Comprobante b = boletaInformadaPorResumen();
+        when(consultar.obtener(tenant, b.id())).thenReturn(b);
+        when(consultar.cdr(tenant, b.id())).thenReturn(new byte[]{1, 2, 3});
+        when(consultar.cdrXml(tenant, b.id())).thenReturn("<ar/>".getBytes());
+
+        mvc.perform(get("/v1/facturas/{id}/cdr", b.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"R-20100066603-03-B001-7.zip\""))
+                .andExpect(header().string("X-Cdr-Resumen", "RC-20260920-1"))
+                .andExpect(content().bytes(new byte[]{1, 2, 3}));
+        mvc.perform(get("/v1/facturas/{id}/cdr?formato=xml", b.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Cdr-Resumen", "RC-20260920-1"));
+        when(consultar.notasDe(any(), any())).thenReturn(List.of());
+        when(consultar.eventos(any(), any())).thenReturn(List.of());
+        mvc.perform(get("/v1/facturas/{id}", b.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.cdr.codigo").value("0"))
+                .andExpect(jsonPath("$.datos.cdr.resumen").value("RC-20260920-1"));
+    }
+
+    @Test void elCdrPropioDeUnComprobanteNoLlevaCabeceraNiCampoDeResumen() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        when(consultar.cdr(tenant, c.id())).thenReturn(new byte[]{1});
+        when(consultar.notasDe(any(), any())).thenReturn(List.of());
+        when(consultar.eventos(any(), any())).thenReturn(List.of());
+
+        mvc.perform(get("/v1/facturas/{id}/cdr", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("X-Cdr-Resumen"));
+        mvc.perform(get("/v1/facturas/{id}", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.cdr.codigo").value("0"))
+                .andExpect(jsonPath("$.datos.cdr.resumen").doesNotExist());
+    }
+
     @Test void descargaCdrComoXmlExtraido() throws Exception {
         Comprobante c = aceptado(tenant);
         when(consultar.obtener(tenant, c.id())).thenReturn(c);

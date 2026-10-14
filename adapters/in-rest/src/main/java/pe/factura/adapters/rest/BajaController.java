@@ -37,7 +37,8 @@ public class BajaController {
             comunicación: si el envío falla (`ERROR_ENVIO`) y el reintento le llega después del día 7, la rechaza con 2957 aunque
             khipu la haya admitido (el reintento reenvía el mismo `RA`/`RC`, con su fecha de generación original). Una baja
             en curso bloquea otra sobre el mismo comprobante. El motivo es obligatorio; en una boleta queda en khipu (el resumen
-            diario no lo lleva).
+            diario no lo lleva). Una boleta solo se anula si no se entregó al adquirente (RS 097-2012, art. 14): si ya se entregó
+            no corresponde la baja sino una nota de crédito. khipu no puede saberlo, así que no lo valida.
 
             **Errores**: `422 BAJA_INVALIDA` (no aceptado, fuera de plazo —2957—, motivo inválido, baja ya en curso),
             `404 NO_ENCONTRADO`.""")

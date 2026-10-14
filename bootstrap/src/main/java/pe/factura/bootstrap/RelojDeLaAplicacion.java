@@ -27,7 +27,7 @@ import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
 /**
- * El reloj del backend y su desplazamiento (#363). Los plazos de SUNAT dependen de la fecha (la boleta pasada del 7.º día se informa con la observación 4443; el
+ * El reloj del backend y su desplazamiento (#363). Los plazos de SUNAT dependen de la fecha (la boleta pasada del 7.º día se informa en un resumen fuera de plazo, que la norma prevé observar con la 4443; el
  * resumen diario con gratuitas cambia de formato el 2027-01-01) y no hay otra forma de probarlos en un ambiente de pruebas que mover el reloj. {@code RELOJ_DESPLAZAMIENTO}
  * (una {@link Duration} ISO-8601: {@code -P8D} atrasa ocho días, {@code PT6912345S} adelanta esos segundos) se suma al reloj del sistema; vacío, no hay desplazamiento
  * y el reloj es exactamente el de siempre.

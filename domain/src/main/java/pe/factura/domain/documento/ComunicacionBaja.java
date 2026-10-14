@@ -66,12 +66,13 @@ public class ComunicacionBaja {
 
     /**
      * Una boleta que ya no se puede enviar sola (pasó el envío individual, 1079): se informa en un resumen diario, con su línea en estado 1 (alta). Solo si
-     * SUNAT todavía no la tiene: firmada o con el envío fallido. Hasta el 7.º día en plazo; después, fuera de plazo (#331): SUNAT no rechaza el alta tardía,
-     * la observa (4443), y la boleta queda ACEPTADO_CON_OBS. La NC 10 y la ND 03 de boleta no van en el resumen nunca.
+     * SUNAT todavía no la tiene: firmada o con el envío fallido. Hasta el 7.º día en plazo; después, fuera de plazo (#331): SUNAT no rechaza el alta tardía; la norma
+     * prevé que la observe (4443, y entonces la boleta queda ACEPTADO_CON_OBS), pero e-beta, con 8 y 30 días de atraso, la aceptó sin observaciones (ACEPTADO). La NC 10 y
+     * la ND 03 de boleta no van en el resumen nunca.
      * <p>
      * Cada alta es un RC propio, con la línea de este solo comprobante (como cada baja): una boleta tardía nunca comparte resumen con una en plazo. Es lo que
-     * pide #331 mientras la observación 4443 no esté validada en e-beta: si SUNAT rechazara el resumen entero, solo cae la boleta tardía, que antes de #331
-     * nunca se informaba. Agruparlas en un mismo RC por fecha de emisión queda para después, separando siempre las tardías.
+     * pidió #331 mientras la 4443 no estaba validada: si SUNAT rechazara el resumen entero, solo cae la boleta tardía, que antes de #331 nunca se informaba.
+     * Agruparlas en un mismo RC por fecha de emisión queda para después, separando siempre las tardías.
      */
     public static ComunicacionBaja altaEnResumen(Comprobante c, int correlativoDelDia, Clock clock) {
         LocalDate hoy = LocalDate.now(clock);
@@ -88,7 +89,7 @@ public class ComunicacionBaja {
 
     private static String motivoDeAlta(boolean fueraDePlazo) {
         return fueraDePlazo
-                ? "Pasó el 7.º día: se informa en el resumen diario fuera de plazo (SUNAT la observa con 4443)"
+                ? "Pasó el 7.º día: se informa en el resumen diario fuera de plazo (SUNAT puede observarla con 4443)"
                 : "Pasó el envío individual: se informa en el resumen diario";
     }
 
@@ -129,11 +130,11 @@ public class ComunicacionBaja {
     public boolean resumenDiario() { return deBoleta; }
 
     /**
-     * Un alta informada pasado el 7.º día desde la emisión (#331): SUNAT la acepta con la observación 4443 en vez de rechazarla. Sale de las fechas que ya
+     * Un alta informada pasado el 7.º día desde la emisión (#331): SUNAT no la rechaza; puede observarla con la 4443 (e-beta no lo hizo). Sale de las fechas que ya
      * guarda (la del RC y el cbc:ReferenceDate), así que vale también para las altas ya persistidas.
      * <p>
      * Es una previsión, no la respuesta de SUNAT: SUNAT cuenta hasta la recepción del resumen (RC fila 14), y un alta generada el 7.º día cuyo envío falla y se
-     * reintenta al día siguiente llega fuera de plazo aunque esto diga que no. La 4443 que de verdad aplicó está en el CDR del comprobante.
+     * reintenta al día siguiente llega fuera de plazo aunque esto diga que no. Si SUNAT la observó con la 4443, está en el CDR del comprobante (y si no, no hay).
      */
     public boolean fueraDePlazo() { return alta() && ChronoUnit.DAYS.between(fechaReferencia, fechaGeneracion) > PlazoEnvio.DIAS_RESUMEN_DIARIO; }
 
@@ -155,7 +156,7 @@ public class ComunicacionBaja {
 
     /**
      * La baja ya no se puede presentar hoy: pasaron los 7 días desde la emisión (2957, el mismo tope que {@link #crear}). SUNAT lo mide al recibirla, así que una
-     * baja admitida el 7.º día que hay que regenerar al 8.º ya no está en plazo. Un alta no vence: fuera de plazo SUNAT la observa (4443), no la rechaza.
+     * baja admitida el 7.º día que hay que regenerar al 8.º ya no está en plazo. Un alta no vence: fuera de plazo SUNAT no la rechaza (puede observarla con la 4443).
      */
     public boolean plazoVencido(LocalDate hoy) { return !alta() && ChronoUnit.DAYS.between(fechaReferencia, hoy) > PLAZO_DIAS; }
 
@@ -211,6 +212,18 @@ public class ComunicacionBaja {
 
     /** {@code RA-20260918-1} (o {@code RC-…} para una boleta o una nota que la modifica): cbc:ID y parte del nombre de archivo (reglas 2220, 2346). */
     public String identificador() { return (resumenDiario() ? "RC-" : "RA-") + fechaGeneracion.format(FECHA_ID) + "-" + correlativo; }
+    private static final java.util.regex.Pattern CDR_DE_RESUMEN = java.util.regex.Pattern.compile("(?:^|/)R-\\d{11}-(RC-\\d{8}-\\d+)\\.zip$");
+
+    /**
+     * #362 B10: de qué resumen diario es el CDR guardado en esa clave de almacenamiento ({@code …/R-<ruc>-RC-aaaammdd-n.zip}, la que arma el envío del resumen), o vacío si no
+     * es la de un resumen: el CDR propio de un comprobante se guarda como {@code R-<ruc>-<tipo>-<serie>-<n>.zip}. Solo el RC: el de un RA es de la baja, nunca del comprobante.
+     */
+    public static java.util.Optional<String> identificadorDelResumenDeCdr(String cdrKey) {
+        if (cdrKey == null) return java.util.Optional.empty();
+        java.util.regex.Matcher m = CDR_DE_RESUMEN.matcher(cdrKey);
+        return m.find() ? java.util.Optional.of(m.group(1)) : java.util.Optional.empty();
+    }
+
     /** {@code RUC-RA-20260918-1} o {@code RUC-RC-…}, sin extensión. */
     public String nombreArchivo(String rucEmisor) { return rucEmisor + "-" + identificador(); }
 

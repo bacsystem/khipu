@@ -152,6 +152,33 @@ test("con envíos vencidos hace más de cinco minutos muestra la alerta con cuá
   await expect(page.getByTestId("monitor-outbox-vencidos")).toHaveText("3");
 });
 
+/** #362 B14: una lectura real del BFF con los resúmenes sin respuesta cambiados. */
+async function conResumenes(page: Page, resumenes: Record<string, unknown>) {
+  await page.route(BFF, async (route) => {
+    const respuesta = await route.fetch();
+    const json = await respuesta.json();
+    json.datos.resumenes_sin_respuesta = { ...json.datos.resumenes_sin_respuesta, ...resumenes };
+    await route.fulfill({ response: respuesta, json });
+  });
+}
+
+test("con resúmenes o bajas con ticket sin respuesta pasado el umbral muestra su alerta, aparte de la del envío", async ({ page }) => {
+  await abrir(page);
+  await expect(page.getByTestId("monitor-alerta-resumenes")).toHaveCount(0);
+  await conResumenes(page, { cantidad: 2, mas_viejo_hace_segundos: 37_200, alerta: true });
+
+  await page.clock.fastForward(30_000);
+
+  const alerta = page.getByTestId("monitor-alerta-resumenes");
+  await expect(alerta).toContainText("Hay trámites con SUNAT sin respuesta");
+  await expect(alerta).toContainText("2 resúmenes diarios o bajas llevan más de 6 h sin respuesta de SUNAT; el más antiguo, 10 h 20 min.");
+  await expect(page.getByTestId("monitor-alerta")).toHaveCount(0);
+
+  await page.unroute(BFF);
+  await page.clock.fastForward(30_000);
+  await expect(page.getByTestId("monitor-alerta-resumenes")).toHaveCount(0);
+});
+
 test("la alerta se va cuando la cola se normaliza", async ({ page }) => {
   await abrir(page);
   await conCola(page, { vencidos: 1, vencido_hace_segundos: 400, alerta: true });

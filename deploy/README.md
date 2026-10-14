@@ -285,7 +285,7 @@ comprometidas es aparte.
 
 ## 10. Mover el reloj del backend para probar plazos (#363) — solo en el ambiente de pruebas
 
-Algunas reglas de SUNAT dependen de la fecha y no se pueden reproducir con el reloj real: la boleta informada pasado el 7.º día (observación **4443**, #331) y el
+Algunas reglas de SUNAT dependen de la fecha y no se pueden reproducir con el reloj real: la boleta informada pasado el 7.º día (la observación **4443** que prevé la norma y que e-beta no devuelve, #331) y el
 resumen diario con gratuitas que cruza al **2027-01-01** (se descarta y se regenera con otro formato, #338). `RELOJ_DESPLAZAMIENTO` suma una duración al reloj del
 backend para probarlas hoy. **Nunca va en producción** (Railway): no se define allí.
 

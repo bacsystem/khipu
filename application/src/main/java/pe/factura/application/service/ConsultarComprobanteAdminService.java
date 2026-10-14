@@ -2,6 +2,7 @@ package pe.factura.application.service;
 
 import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.ConsultarComprobanteAdminUseCase;
+import pe.factura.application.port.out.BajaRepository;
 import pe.factura.application.port.out.ColaDeErroresRepository;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.application.port.out.DocumentStorage;
@@ -9,6 +10,7 @@ import pe.factura.application.port.out.TenantRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Cdr;
 import pe.factura.domain.documento.Comprobante;
+import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.tenant.Tenant;
 
 import java.util.UUID;
@@ -20,6 +22,7 @@ public class ConsultarComprobanteAdminService implements ConsultarComprobanteAdm
     private final ComprobanteRepository comprobantes;
     private final TenantRepository tenants;
     private final DocumentStorage storage;
+    private final BajaRepository bajas;
 
     @Override public Ficha ficha(UUID comprobanteId) {
         UUID tenantId = cola.ubicar(comprobanteId).map(ColaDeErroresRepository.Ubicacion::tenantId).orElseThrow(ConsultarComprobanteAdminService::noEncontrado);
@@ -28,7 +31,14 @@ public class ConsultarComprobanteAdminService implements ConsultarComprobanteAdm
         Cdr cdr = c.cdr();
         return new Ficha(c.id(), tenantId, t.ruc(), t.razonSocial(), tenants.cuentaDe(tenantId).orElse(null), c.nombreArchivo(), c.tipo().codigo(), c.serie(), c.numero(),
                 c.fechaEmision(), c.estado(), c.intentos(), c.ultimoError(), cdr == null ? null : new RespuestaSunat(cdr.codigo(), cdr.descripcion()),
-                guardado(c.xmlKey()), guardado(c.cdrKey()));
+                guardado(c.xmlKey()), guardado(c.cdrKey()), bajas.deComprobante(tenantId, c.id()).stream().map(ConsultarComprobanteAdminService::deFicha).toList());
+    }
+
+    /** #362 H9: el repositorio las entrega de la más reciente a la más antigua; la ficha conserva ese orden. */
+    private static BajaDeFicha deFicha(ComunicacionBaja b) {
+        Cdr cdr = b.cdr();
+        return new BajaDeFicha(b.id(), b.identificador(), b.condicion().name(), b.estado().name(), b.ticket(), b.motivo(), b.fechaGeneracion(), b.fechaReferencia(),
+                b.fueraDePlazo(), cdr == null ? null : new RespuestaSunat(cdr.codigo(), cdr.descripcion()), b.intentos(), b.ultimoError());
     }
 
     /**

@@ -37,6 +37,18 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
                 tenant, UUID.randomUUID(), Timestamp.from(siguiente), bloqueadoHasta == null ? null : Timestamp.from(bloqueadoHasta), Timestamp.from(creado));
     }
 
+    /** Una comunicación de baja (o un resumen diario) de un comprobante nuevo de esa empresa, creada en {@code creada}. */
+    void baja(UUID tenant, String estado, String ticket, Instant creada) {
+        UUID comprobante = UUID.randomUUID();
+        long numero = NUMERO.getAndIncrement();
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, created_at) VALUES (?, ?, '03', 'B001', ?, ?, 'ACEPTADO', 'x', ?)",
+                comprobante, tenant, numero, java.sql.Date.valueOf(LocalDate.of(2026, 10, 15)), Timestamp.from(creada));
+        jdbc.update("INSERT INTO comunicacion_baja (id, tenant_id, fecha_generacion, correlativo, comprobante_id, tipo_comprobante, serie, numero, fecha_referencia, motivo, estado, ticket, "
+                        + "condicion, de_boleta, created_at) VALUES (?, ?, ?, ?, ?, '03', 'B001', ?, ?, 'Error', ?, ?, 'BAJA', true, ?)",
+                UUID.randomUUID(), tenant, java.sql.Date.valueOf(LocalDate.of(2026, 10, 15)), (int) numero, comprobante, numero, java.sql.Date.valueOf(LocalDate.of(2026, 10, 15)),
+                estado, ticket, Timestamp.from(creada));
+    }
+
     Instant hace(Duration d) { return AHORA.minus(d); }
 
     // --- por hora y estado ------------------------------------------------------------------------------------------------------------------
@@ -183,6 +195,56 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
 
         assertThat(repo.cola(AHORA).vencidos()).as("`locked_until < ahora` es estricto: el instante exacto todavía bloquea").isZero();
         assertThat(repo.cola(AHORA.plusSeconds(1)).vencidos()).isEqualTo(1);
+    }
+
+    // --- los resúmenes con ticket sin respuesta (#362 B14) ----------------------------------------------------------------------------------
+
+    @Test void sinResumenesEnviadosNoHayNadaPendiente() {
+        var r = repo.resumenesSinRespuesta(AHORA);
+
+        assertThat(r.cantidad()).isZero();
+        assertThat(r.masViejoDesde()).isNull();
+    }
+
+    @Test void cuentaLosEnviadosConTicketCreadosAntesDelLimiteYDiceElMasViejo() {
+        UUID a = tenantDePrueba();
+        UUID b = tenantDePrueba();
+        baja(a, "ENVIADA", "T-1", hace(Duration.ofHours(9)));
+        baja(b, "ENVIADA", "T-2", hace(Duration.ofHours(7)));
+        baja(a, "ENVIADA", "T-3", hace(Duration.ofHours(1)));
+
+        var r = repo.resumenesSinRespuesta(hace(Duration.ofHours(6)));
+
+        assertThat(r.cantidad()).as("de todas las empresas, y el de hace 1 h todavía no cuenta").isEqualTo(2);
+        assertThat(r.masViejoDesde()).isEqualTo(hace(Duration.ofHours(9)));
+    }
+
+    /** Solo lo que SUNAT recibió y no respondió: lo resuelto, lo rechazado, lo descartado y lo que ni siquiera tiene ticket no son un ticket atascado. */
+    @Test void soloCuentaLoEnviadoQueSunatNoRespondio() {
+        UUID t = tenantDePrueba();
+        Instant vieja = hace(Duration.ofHours(30));
+        baja(t, "ACEPTADA", "T-1", vieja);
+        baja(t, "RECHAZADA", "T-2", vieja);
+        baja(t, "DESCARTADA", null, vieja);
+        baja(t, "GENERADA", null, vieja);
+        baja(t, "ERROR_ENVIO", null, vieja);
+        baja(t, "ENVIADA", null, vieja);
+
+        assertThat(repo.resumenesSinRespuesta(hace(Duration.ofHours(6))).cantidad()).as("el ENVIADA sin ticket no es un ticket sin respuesta").isZero();
+    }
+
+    @Test void elLimiteEsEstricto() {
+        UUID t = tenantDePrueba();
+        baja(t, "ENVIADA", "T-1", hace(Duration.ofHours(6)));
+
+        assertThat(repo.resumenesSinRespuesta(hace(Duration.ofHours(6))).cantidad()).as("creado justo en el límite: todavía no pasó").isZero();
+        assertThat(repo.resumenesSinRespuesta(hace(Duration.ofHours(6)).plusSeconds(1)).cantidad()).isEqualTo(1);
+    }
+
+    @Test void hayUnIndiceParcialDeLosEnviadosParaNoRecorrerTodaLaTabla() {
+        Integer indices = jdbc.queryForObject("SELECT count(*) FROM pg_indexes WHERE tablename = 'comunicacion_baja' AND indexdef LIKE '%(created_at)%ENVIADA%'", Integer.class);
+
+        assertThat(indices).isEqualTo(1);
     }
 
     @Test void laColaMezclaTodasLasEmpresas() {

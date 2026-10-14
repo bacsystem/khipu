@@ -507,7 +507,7 @@ class EmitirComprobanteServiceTest {
     }
 
     /**
-     * #331: el barrido ya no cierra una boleta pasado el 7.º día. SUNAT recibe el alta tardía en un resumen diario (la observa con 4443), así que sigue
+     * #331: el barrido ya no cierra una boleta pasado el 7.º día. SUNAT recibe el alta tardía en un resumen diario (puede observarla con 4443), así que sigue
      * enviable y se informa al enviarla; FUERA_DE_PLAZO queda para la factura y sus notas.
      */
     @Test void elBarridoNoCierraUnaBoletaPasadoElSeptimoDia() {

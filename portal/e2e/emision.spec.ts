@@ -88,6 +88,11 @@ test("emite una boleta a un comprador sin documento y no deja pasar una de más 
   await page.getByTestId("dar-de-baja").click();
   const confirmacion = page.getByTestId("baja-confirmacion");
   await expect(confirmacion).toContainText("Resumen diario ante SUNAT");
+  // #362 H8: el RC no lleva el motivo (queda en khipu) y solo se anula lo no entregado al adquirente (RS 097-2012 art. 14).
+  await expect(confirmacion).toContainText("Queda solo en khipu");
+  await expect(confirmacion).not.toContainText("lo ve SUNAT");
+  await expect(confirmacion.getByTestId("baja-boleta-condicion")).toContainText("no se entregó al adquirente");
+  await expect(confirmacion.getByTestId("baja-boleta-condicion")).toContainText("nota de crédito");
   // «[ENVIADA]»: SUNAT responde con ticket y la anulación llega al consultarlo (`GET /v1/bajas/{id}`). La aceptada en el acto ya la cubren la NC sobre
   // boleta y la factura (comprobantes.spec.ts); este camino no tenía test (352-H1).
   await confirmacion.getByLabel("Motivo").fill("[ENVIADA] Se cobró dos veces");

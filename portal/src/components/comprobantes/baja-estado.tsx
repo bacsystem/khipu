@@ -6,26 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api/browser";
 import type { Baja } from "@/lib/api/facturas";
+import { bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
 import { TITULO_SECCION } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-
-const ETIQUETAS: Record<Baja["estado"], string> = {
-  GENERADA: "Generada, pendiente de envío",
-  ENVIADA: "Enviada: SUNAT la está procesando",
-  ERROR_ENVIO: "Error de envío: se reintentará",
-  ACEPTADA: "Aceptada: comprobante anulado",
-  RECHAZADA: "Rechazada por SUNAT",
-  // #338: el RC caducó sin enviarse (código 05 de las gratuitas) y lo reemplazó otro; `ultimo_error` dice cuál.
-  DESCARTADA: "Reemplazada por un resumen nuevo",
-};
-
-/** Un resumen de alta informa la boleta (o su nota, #294) en vez de anularla: lo que cambia es qué significa que SUNAT lo acepte (274-H1). */
-const etiquetasAlta = (que: string): Record<Baja["estado"], string> => ({
-  ...ETIQUETAS,
-  ACEPTADA: `Aceptado: ${que} informada a SUNAT`,
-  RECHAZADA: `Rechazado por SUNAT: la ${que} no quedó informada`,
-});
 
 /**
  * Estado de la comunicación de baja en la ficha. Mientras está en curso (ENVIADA/ERROR_ENVIO/GENERADA) se puede reconsultar
@@ -42,9 +26,8 @@ export function BajaEstado({ baja }: { baja: Baja }) {
   // identificador lo dice para las dos: una nota sobre boleta es 07/08, no 03.
   const resumenDiario = baja.identificador.startsWith("RC-");
   const que = baja.tipo_comprobante === "03" ? "boleta" : "nota";
-  // #338: una baja cuyo RC caducó con los 7 días ya vencidos no se envía; khipu la cierra RECHAZADA con 2957. No hay CDR de SUNAT detrás.
-  const vencida = !alta && baja.estado === "RECHAZADA" && baja.cdr?.codigo === "2957";
-  const etiqueta = vencida ? "Vencida: pasaron los 7 días para anularla" : (alta ? etiquetasAlta(que) : ETIQUETAS)[baja.estado];
+  const vencida = bajaVencida(baja);
+  const etiqueta = etiquetaDeBaja(baja, que);
 
   const actualizar = useCallback(async () => {
     setConsultando(true);
@@ -107,8 +90,8 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       </div>
       {alta && baja.fuera_de_plazo ? (
         <p className="mt-3 text-[12px] text-warning-foreground" data-testid="aviso-fuera-de-plazo">
-          Informada fuera de plazo: pasó el 7.º día desde la emisión. SUNAT no la rechaza, la acepta con la observación 4443 «El comprobante fue informado fuera del plazo
-          establecido».
+          Informada fuera de plazo: pasó el 7.º día desde la emisión. SUNAT no la rechaza, pero puede observarla con la 4443 «El comprobante fue informado fuera del plazo
+          establecido» (en e-beta no la observó). Lo que cuenta es la respuesta de SUNAT del comprobante.
         </p>
       ) : null}
       {pendiente ? (

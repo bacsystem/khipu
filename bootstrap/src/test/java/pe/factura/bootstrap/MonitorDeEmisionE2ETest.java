@@ -252,6 +252,47 @@ class MonitorDeEmisionE2ETest {
         assertThat((Map<String, Object>) monitor().get("outbox")).containsEntry("vencidos", 0).containsEntry("alerta", false);
     }
 
+    // --- los resúmenes con ticket sin respuesta (#362 B14) ----------------------------------------------------------------------------------
+
+    /** Un resumen diario de una boleta creado hace {@code horas} horas, en el estado que se diga y con ese ticket. */
+    private void resumen(Cliente c, String estado, String ticket, long horas) {
+        UUID boleta = UUID.randomUUID();
+        long numero = NUMERO.getAndIncrement();
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, created_at) VALUES (?, ?, '03', 'B001', ?, current_date, 'ENVIADO', 'x', now())",
+                boleta, c.empresa(), numero);
+        jdbc.update("INSERT INTO comunicacion_baja (id, tenant_id, fecha_generacion, correlativo, comprobante_id, tipo_comprobante, serie, numero, fecha_referencia, motivo, estado, ticket, "
+                        + "condicion, de_boleta, created_at) VALUES (?, ?, current_date, ?, ?, '03', 'B001', ?, current_date, 'Pasó el envío individual', ?, ?, 'ALTA', true, ?)",
+                UUID.randomUUID(), c.empresa(), (int) numero, boleta, numero, estado, ticket, Timestamp.from(Instant.now().minus(Duration.ofHours(horas))));
+    }
+
+    @Test void sinResumenesPendientesNoHayAlertaYElUmbralEsElPorDefecto() {
+        Map<String, Object> r = (Map<String, Object>) monitor().get("resumenes_sin_respuesta");
+
+        assertThat(r).containsEntry("cantidad", 0).containsEntry("alerta", false).containsEntry("umbral_horas", 6).doesNotContainKeys("mas_viejo_desde", "mas_viejo_hace_segundos");
+    }
+
+    @Test void unResumenEnviadoHaceMasDeSeisHorasSinRespuestaDaAlerta() {
+        Cliente a = cliente("ana@negocio.pe");
+        Cliente b = cliente("beto@negocio.pe");
+        resumen(a, "ENVIADA", "1789768174685", 9);
+        resumen(b, "ENVIADA", "1789768174686", 7);
+        resumen(a, "ENVIADA", "1789768174687", 1);
+
+        Map<String, Object> r = (Map<String, Object>) monitor().get("resumenes_sin_respuesta");
+
+        assertThat(r).containsEntry("cantidad", 2).containsEntry("alerta", true).containsKey("mas_viejo_desde");
+        assertThat(((Number) r.get("mas_viejo_hace_segundos")).longValue()).isBetween(9 * 3600L, 9 * 3600L + 60);
+    }
+
+    @Test void unResumenYaResueltoOSinTicketNoDaAlertaAunqueSeaViejo() {
+        Cliente a = cliente("ana@negocio.pe");
+        resumen(a, "ACEPTADA", "1", 48);
+        resumen(a, "RECHAZADA", "2", 48);
+        resumen(a, "ERROR_ENVIO", null, 48);
+
+        assertThat((Map<String, Object>) monitor().get("resumenes_sin_respuesta")).containsEntry("cantidad", 0).containsEntry("alerta", false);
+    }
+
     // --- SUNAT ------------------------------------------------------------------------------------------------------------------------------
 
     @Test void elEstadoDeSunatDiceQueServiciosContestan() {

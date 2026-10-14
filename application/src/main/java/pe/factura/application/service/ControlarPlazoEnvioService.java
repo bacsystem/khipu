@@ -17,9 +17,9 @@ import java.util.List;
  * enviado) o en ERROR_ENVIO al vencer el plazo pasa a FUERA_DE_PLAZO. Los envíos individuales ya lo comprueban al
  * intentar; este barrido cubre lo que nadie intenta enviar y deja el estado listo para el portal y los webhooks.
  * <p>
- * Una boleta, o una nota B que va en el resumen diario, ya no se cierra (#331): pasado el 7.º día SUNAT la recibe igual en un resumen, con la observación 4443,
- * así que sigue enviable. Las boletas que ya están FUERA_DE_PLAZO (cerradas antes de #331) no se rescatan: el estado es terminal y reabrirlo espera a validar
- * la 4443 en e-beta.
+ * Una boleta, o una nota B que va en el resumen diario, ya no se cierra (#331): pasado el 7.º día SUNAT la recibe igual en un resumen (la norma prevé que la observe
+ * con la 4443; e-beta, con 8 y 30 días de atraso, la aceptó sin observaciones), así que sigue enviable. Las boletas que ya están FUERA_DE_PLAZO (cerradas antes de
+ * #331) no se rescatan: el estado es terminal y reabrirlas no se ha decidido.
  */
 @RequiredArgsConstructor
 public class ControlarPlazoEnvioService implements ControlarPlazoEnvioUseCase {

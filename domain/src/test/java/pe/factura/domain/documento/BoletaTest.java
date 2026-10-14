@@ -201,7 +201,7 @@ class BoletaTest {
         assertThat(c.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
     }
 
-    /** #331: pasado el 7.º día va igual en el resumen. El historial lo dice, y SUNAT la acepta con la observación 4443 en vez de rechazarla. */
+    /** #331: pasado el 7.º día va igual en el resumen. El historial lo dice, y SUNAT no la rechaza: si la observa con la 4443, queda ACEPTADO_CON_OBS. */
     @Test void informadaFueraDePlazoQuedaAceptadaConLaObservacion4443() {
         Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(7), "PEN", "0101", dni, items("10")).crear(clock);
         c.asignarNumero(1, "20100066603");
@@ -210,6 +210,39 @@ class BoletaTest {
         assertThat(c.eventosPendientes().get(c.eventosPendientes().size() - 1).detalle()).contains("RC-20260913-1").contains("fuera de plazo").contains("4443");
         c.aplicarCdr(new Cdr("0", "El Resumen diario RC-20260913-1 ha sido aceptado", List.of("4443 - El comprobante fue informado fuera del plazo establecido")), "R.zip");
         assertThat(c.estado()).isEqualTo(EstadoDocumento.ACEPTADO_CON_OBS);
+    }
+
+    /**
+     * #362 B10: el CDR de una boleta informada en un resumen diario es el del resumen (SUNAT no emite uno por boleta). El comprobante sabe de qué resumen es por la clave
+     * con que se guardó (`R-<ruc>-RC-<fecha>-<n>.zip`), sin consultar la baja: sirve en cualquier respuesta que lleve el comprobante.
+     */
+    @Test void elCdrDeUnaBoletaInformadaPorResumenDiceDeQueResumenEs() {
+        Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(6), "PEN", "0101", dni, items("10")).crear(clock);
+        c.asignarNumero(1, "20100066603");
+        c.firmar("h", "k");
+        assertThat(c.resumenDelCdr()).as("sin CDR").isEmpty();
+        c.informarEnResumen("RC-20260913-1", false);
+        c.aplicarCdr(new Cdr("0", "El Resumen diario RC-20260913-1 ha sido aceptado", List.of()), "t/2026/09/R-20100066603-RC-20260913-1.zip");
+        assertThat(c.resumenDelCdr()).contains("RC-20260913-1");
+    }
+
+    /** El CDR de una comunicación de baja (RA) es de la baja, nunca del comprobante: solo el de un RC puede serlo. */
+    @Test void soloLaClaveDeUnResumenDiarioDiceDeQueResumenEs() {
+        assertThat(ComunicacionBaja.identificadorDelResumenDeCdr("t/2026/09/R-20100066603-RC-20260913-12.zip")).contains("RC-20260913-12");
+        assertThat(ComunicacionBaja.identificadorDelResumenDeCdr("R-20100066603-RC-20260913-1.zip")).as("sin carpeta").contains("RC-20260913-1");
+        assertThat(ComunicacionBaja.identificadorDelResumenDeCdr("t/2026/09/R-20100066603-RA-20260913-1.zip")).as("una baja RA").isEmpty();
+        assertThat(ComunicacionBaja.identificadorDelResumenDeCdr("t/2026/09/R-20100066603-03-B001-1.zip")).as("el CDR propio").isEmpty();
+        assertThat(ComunicacionBaja.identificadorDelResumenDeCdr("t/2026/09/20100066603-RC-20260913-1.xml")).as("el XML del RC, no su CDR").isEmpty();
+        assertThat(ComunicacionBaja.identificadorDelResumenDeCdr(null)).isEmpty();
+    }
+
+    @Test void elCdrDeUnEnvioIndividualNoEsDeUnResumen() {
+        Comprobante c = boleta(dni, "10.00").crear(clock);
+        c.asignarNumero(1, "20100066603");
+        c.firmar("h", "k");
+        c.marcarEnviado();
+        c.aplicarCdr(new Cdr("0", "La Boleta de Venta Electronica B001-1, ha sido aceptada", List.of()), "t/2026/09/R-20100066603-03-B001-1.zip");
+        assertThat(c.resumenDelCdr()).isEmpty();
     }
 
     /** Un CDR con ResponseCode 4000+ es una observación aunque no traiga notas (CdrDto: «4000+ aceptado con observaciones»): no se pierde como ACEPTADO a secas. */

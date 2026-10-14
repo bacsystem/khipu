@@ -99,9 +99,9 @@ test("reenvía un comprobante en error y queda aceptado", async ({ page }) => {
 
 /**
  * #331: una boleta con el envío fallido y el 7.º día pasado no vence. La ficha avisa que al enviarla se informa fuera de plazo; al reenviarla va en un
- * resumen diario de alta y SUNAT la acepta con la observación 4443, que la ficha muestra.
+ * resumen diario de alta. El mock simula que SUNAT la observa con la 4443 (lo que la norma prevé; e-beta la aceptó sin observaciones), y la ficha la muestra.
  */
-test("reenvía una boleta pasada del 7.º día: se informa en un resumen fuera de plazo y queda aceptada con la 4443", async ({ page }) => {
+test("reenvía una boleta pasada del 7.º día: se informa en un resumen fuera de plazo y, si SUNAT la observa con la 4443, queda aceptada con observaciones", async ({ page }) => {
   await page.goto("/comprobantes/b-fuera-de-plazo");
   await expect(page.getByTestId("aviso-envio-fuera-de-plazo")).toContainText("resumen diario fuera de plazo");
 
@@ -112,6 +112,8 @@ test("reenvía una boleta pasada del 7.º día: se informa en un resumen fuera d
   await expect(baja).toContainText("(alta)");
   await expect(baja.getByTestId("aviso-fuera-de-plazo")).toContainText("4443");
   await expect(page.getByTestId("aviso-envio-fuera-de-plazo")).toHaveCount(0);
+  // #362 B10: el CDR de la boleta es el del resumen, y la ficha lo dice (el archivo se sigue llamando R-<boleta>).
+  await expect(page.getByTestId("cdr-codigo")).toHaveAttribute("title", /del resumen diario RC-\d{8}-1/);
 });
 
 /**
@@ -630,6 +632,9 @@ test("da de baja una factura aceptada tras confirmar el motivo y queda anulada",
   await page.getByTestId("dar-de-baja").click();
   const confirmacion = page.getByTestId("baja-confirmacion");
   await expect(confirmacion).toContainText("Quedan 7 días de plazo"); // emitida hoy
+  // #362 H8: en una factura el motivo sí va en el XML de la comunicación de baja, y la condición de la boleta no aplica.
+  await expect(confirmacion).toContainText("Va en el XML y lo ve SUNAT");
+  await expect(confirmacion.getByTestId("baja-boleta-condicion")).toHaveCount(0);
   // Sin motivo (mínimo 3 caracteres) no se puede confirmar: la baja es irreversible ante SUNAT.
   await expect(confirmacion.getByRole("button", { name: "Confirmar la baja" })).toBeDisabled();
   await confirmacion.getByLabel(/Motivo/).fill("  Error en el RUC del cliente  ");
@@ -1438,6 +1443,7 @@ test("#294: NC total sobre una boleta con serie B, y su baja va en el resumen di
   await expect(confirmacion).toContainText("Resumen diario ante SUNAT con el comprobante anulado");
   // 344-H1: lo que se anula es la nota, no la boleta; decir «la boleta anulada» en un diálogo irreversible confunde.
   await expect(confirmacion).not.toContainText("la boleta anulada");
+  await expect(confirmacion).toContainText("Queda solo en khipu"); // #362 H8: la nota B va en el RC, que no lleva el motivo
   await confirmacion.getByLabel(/Motivo/).fill("Nota emitida por error");
   await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
   await expect(page.getByTestId("baja")).toContainText(/Resumen diario RC-\d{8}-\d+/);

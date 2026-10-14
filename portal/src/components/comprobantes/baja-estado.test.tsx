@@ -34,7 +34,7 @@ describe("BajaEstado", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Aceptada: comprobante anulado");
   });
 
-  /** #331: pasado el 7.º día la boleta se informa igual; el resumen avisa que salió fuera de plazo y por qué SUNAT la observa (4443). */
+  /** #331: pasado el 7.º día la boleta se informa igual; el resumen avisa que salió fuera de plazo y por qué SUNAT puede observarla (4443). */
   it("un resumen de alta fuera de plazo avisa la observación 4443", () => {
     const alta: Baja = { ...BASE, identificador: "RC-20261008-1", comprobante: "B001-7", tipo_comprobante: "03", condicion: "ALTA", fuera_de_plazo: true };
     render(<BajaEstado baja={alta} />);

@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Franja;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Monitor;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Outbox;
+import pe.factura.application.port.in.MonitorearEmisionUseCase.ResumenesSinRespuesta;
 import pe.factura.application.port.out.SondeoDeSunat.Resultado;
 
 import java.time.Instant;
@@ -15,6 +16,7 @@ public record MonitorDeEmisionResponse(
         @Schema(description = "Las últimas 24 horas, de la más vieja a la actual; las horas sin comprobantes van en cero") List<FranjaResponse> horas,
         @Schema(description = "El día de Lima (desde su medianoche) hasta ahora") FranjaResponse hoy,
         OutboxResponse outbox,
+        @Schema(description = "Resúmenes diarios y comunicaciones de baja que SUNAT recibió (tienen ticket) y no ha respondido pasado el umbral configurado") ResumenesSinRespuestaResponse resumenesSinRespuesta,
         @Schema(description = "Si cada servicio de SUNAT contesta; un servicio sin URL configurada no aparece. Es una lectura guardada hasta 30 segundos") List<SunatResponse> sunat) {
 
     public record FranjaResponse(
@@ -42,6 +44,21 @@ public record MonitorDeEmisionResponse(
         }
     }
 
+    /**
+     * #362 B14. khipu reconsulta el ticket de un resumen o una baja sin abandonarlo nunca, así que uno que SUNAT no resuelve queda ENVIADO para siempre: esta alerta es la
+     * única señal de que alguien tiene que mirarlo (el resumen sin respuesta deja la boleta ENVIADA y sin poder recibir notas ni baja).
+     */
+    public record ResumenesSinRespuestaResponse(
+            @Schema(example = "2", description = "Cuántos resúmenes diarios (RC) o comunicaciones de baja (RA) enviados llevan más del umbral sin respuesta") long cantidad,
+            @Schema(example = "2026-10-15T05:00:00Z", description = "Cuándo se creó el más antiguo (el ticket se pide al enviarlo, casi al crearlo); ausente si no hay") Instant masViejoDesde,
+            @Schema(example = "37200", description = "Segundos que lleva el más antiguo sin respuesta; ausente si no hay") Long masViejoHaceSegundos,
+            @Schema(example = "6", description = "Horas sin respuesta a partir de las cuales se alerta (`app.monitor.resumen-sin-respuesta-horas`)") long umbralHoras,
+            @Schema(description = "Hay al menos un resumen o baja con ticket sin respuesta pasado el umbral") boolean alerta) {
+        static ResumenesSinRespuestaResponse de(ResumenesSinRespuesta r) {
+            return new ResumenesSinRespuestaResponse(r.cantidad(), r.masViejoDesde(), r.masViejoHace() == null ? null : r.masViejoHace().toSeconds(), r.umbral().toHours(), r.alerta());
+        }
+    }
+
     public record SunatResponse(
             @Schema(example = "ENVIO_PRODUCCION", allowableValues = {"ENVIO_PRODUCCION", "ENVIO_BETA", "CONSULTA_DE_CDR", "CONSULTA_DE_VALIDEZ"}) String servicio,
             @Schema(description = "Contestó con un éxito dentro del plazo") boolean disponible,
@@ -52,6 +69,6 @@ public record MonitorDeEmisionResponse(
 
     public static MonitorDeEmisionResponse de(Monitor m) {
         return new MonitorDeEmisionResponse(m.generadoEn(), m.horas().stream().map(FranjaResponse::de).toList(), FranjaResponse.de(m.hoy()), OutboxResponse.de(m.outbox()),
-                m.sunat().stream().map(SunatResponse::de).toList());
+                ResumenesSinRespuestaResponse.de(m.resumenes()), m.sunat().stream().map(SunatResponse::de).toList());
     }
 }

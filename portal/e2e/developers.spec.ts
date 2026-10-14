@@ -138,7 +138,7 @@ test("la guía documenta la boleta y los errores distinguen el tipo de comproban
   await expect(sinDocumento.getByText(/S\/ 700\.00/).first()).toBeVisible();
   const altaTardia = page.locator("#boleta-alta-tardia");
   await expect(altaTardia.getByText(/"condicion": "ALTA"/)).toBeVisible();
-  await expect(altaTardia.getByText(/SUNAT no la rechaza: la observa con/)).toBeVisible();
+  await expect(altaTardia.getByText(/SUNAT no la rechaza: la norma prevé que la observe con/)).toBeVisible();
   const baja = page.locator("#boleta-baja");
   await expect(baja.getByText(/"identificador": "RC-20260918-1"/)).toBeVisible();
   await expect(page.getByText(/puede reutilizar el número/)).toHaveCount(0);
