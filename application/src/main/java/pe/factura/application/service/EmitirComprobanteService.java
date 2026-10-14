@@ -113,9 +113,14 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         if (copia) {
             // Los anticipos no viajan en una nota (el CreditNote UBL no tiene PrepaidPayment): copiar los ítems daría el bruto y
             // SUNAT compara contra el neto de la factura (3286). El emisor debe indicar los ítems por el importe que anula.
-            if (!afectado.anticipos().isEmpty())
+            if (!afectado.anticipos().isEmpty()) {
+                // Con neto 0.00 no hay nota posible: SUNAT rechaza la línea en cero (2369, 2370) y una nota por más que el total (3286). Pedir «items por el neto» sería un callejón.
+                if (afectado.totales().total().signum() == 0)
+                    throw new DomainException("NOTA_INVALIDA", "La factura " + nota.documentoAfectado() + " regularizó anticipos y su importe neto es " + afectado.totales().total()
+                            + ": no hay importe que acreditar con una nota (SUNAT rechaza las líneas en cero, 2369 y 2370, y una nota por más que el total, 3286); para anularla use la comunicación de baja");
                 throw new DomainException("NOTA_INVALIDA", "La factura " + nota.documentoAfectado() + " regularizó anticipos: indique los items de la nota por el importe neto ("
                         + afectado.totales().total() + ") en vez de omitirlos");
+            }
             // Sin ítems se copian descuento y cargos del documento; aceptar otros en silencio daría una nota distinta de la pedida.
             if (cmd.descuentoGlobal() != null || (cmd.cargos() != null && !cmd.cargos().isEmpty()))
                 throw new DomainException("NOTA_INVALIDA", "descuento_global y cargos solo se admiten junto con items; sin items la nota copia los de la " + nombre(tipoAfectado));

@@ -12,6 +12,7 @@ import { StepperNumerico } from "@/components/formularios/stepper-numerico";
 import { BotonAsync } from "@/components/patrones/boton-async";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { Serie } from "@/lib/api/series";
+import { MAX_LINEAS } from "@/lib/comprobantes/limites";
 import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -438,7 +439,14 @@ export function NuevoComprobanteForm({
           <h3 className={ETIQUETA_CAMPO}>
             Ítems <span className="font-normal text-muted-foreground">· {lineas.length}</span>
           </h3>
-          <button type="button" onClick={() => setLineas((p) => [...p, { ...LINEA_VACIA }])} className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline">
+          {/* El número de orden del ítem es de hasta 3 dígitos: pasado el tope el backend responde 422 (2023). */}
+          <button
+            type="button"
+            onClick={() => setLineas((p) => [...p, { ...LINEA_VACIA }])}
+            disabled={lineas.length >= MAX_LINEAS}
+            title={lineas.length >= MAX_LINEAS ? `Un comprobante admite hasta ${MAX_LINEAS} ítems` : undefined}
+            className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
+          >
             <PlusIcon className="size-3.5" />
             Agregar ítem
           </button>

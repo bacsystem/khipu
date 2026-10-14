@@ -220,6 +220,27 @@ class EmitirNotaServiceTest {
         assertThat(nc.numero()).isEqualTo(1L);
     }
 
+    /**
+     * #354: las reglas de la línea (ICBPER 2892/4320, precio 0 2369, más de 999 líneas 2137) también valen en la nota, sobre factura y sobre boleta, y la rechazan antes de
+     * numerar. La NC 13 y su línea sin importe (3315) no pasan por ellas.
+     */
+    @Test void lasReglasDeLaLineaSeRechazanEnLaNotaSinConsumirNumero() {
+        Comprobante boleta = boletaAceptada();
+        Comprobante factura = facturaAceptada(FormaPago.contado());
+        List<Item> bolsasFraccionarias = List.of(new Item("B", "Bolsa", "NIU", new BigDecimal("1.5"), new BigDecimal("0.60"), TipoAfectacionIgv.GRAVADO, null, null, true));
+        List<Item> bolsasEnKilos = List.of(new Item("B", "Bolsa", "KGM", new BigDecimal("2"), new BigDecimal("0.60"), TipoAfectacionIgv.GRAVADO, null, null, true));
+        List<Item> sinPrecio = laptops("1", "0");
+        List<Item> demasiadas = java.util.Collections.nCopies(1000, new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("1.18"), TipoAfectacionIgv.GRAVADO));
+
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", boleta.numero(), "07", bolsasFraccionarias))).hasMessageStartingWith("2892 - ");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", boleta.numero(), "07", bolsasEnKilos))).hasMessageStartingWith("4320 - ");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", boleta.numero(), "07", sinPrecio))).hasMessageStartingWith("2369 - ");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", boleta.numero(), "07", demasiadas))).hasMessageStartingWith("2137 - ");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(factura.numero(), "07", sinPrecio))).hasMessageStartingWith("2369 - ");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(factura.numero(), "07", demasiadas))).hasMessageStartingWith("2137 - ");
+        assertThat(series.ultimo).as("las notas rechazadas no consumen número").containsEntry(tenantId + "07BC01", 0L).containsEntry(tenantId + "07FC01", 0L);
+    }
+
     @Test void notaParcialSoloConLosItemsIndicados() {
         Comprobante f = facturaAceptada(FormaPago.contado());
         Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "07",
@@ -530,11 +551,23 @@ class EmitirNotaServiceTest {
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", anticipo.numero(), new BigDecimal("200.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1))), null, null, true));
         assertThat(finalConAnticipo.totales().total()).isEqualByComparingTo("0.00");
+        // H3 (revisión de #354): con neto 0.00 «indique los items por el importe neto» era un callejón sin salida (la línea en cero la rechaza 2369/2370 y cualquier
+        // importe supera el total de la factura, 3286): el mensaje manda a la comunicación de baja.
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(finalConAnticipo.numero(), "01", null)))
-                .isInstanceOf(DomainException.class).hasMessageContaining("regularizó anticipos").hasMessageContaining("0.00");
-        // Con ítems por el neto sí procede.
-        Comprobante nc = service.emitirNota(tenantId, nc(finalConAnticipo.numero(), "01", List.of(new Item("A", "Anulación", "ZZ", BigDecimal.ONE, BigDecimal.ZERO.setScale(2), TipoAfectacionIgv.GRAVADO))));
-        assertThat(nc.totales().total()).isEqualByComparingTo("0.00");
+                .isInstanceOf(DomainException.class).hasMessageContaining("regularizó anticipos").hasMessageContaining("0.00").hasMessageContaining("comunicación de baja")
+                .hasMessageNotContaining("indique los items");
+        // Con un neto mayor que cero sí hay nota posible por ese importe: el mensaje pide los items y no manda a la baja.
+        Comprobante anticipoParcial = facturaAceptada(FormaPago.contado());
+        Comprobante conNeto = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", anticipoParcial.numero(), new BigDecimal("100.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1))), null, null, true));
+        assertThat(conNeto.totales().total()).isGreaterThan(BigDecimal.ZERO);
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(conNeto.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("indique los items").hasMessageNotContaining("comunicación de baja");
+        // Con ítems por el neto (0.00) tampoco: SUNAT rechaza la línea en cero (2369/2370, #354) y no hay importe que anular; antes salía y volvía rechazada.
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(finalConAnticipo.numero(), "01", List.of(new Item("A", "Anulación", "ZZ", BigDecimal.ONE, BigDecimal.ZERO.setScale(2), TipoAfectacionIgv.GRAVADO)))))
+                .isInstanceOf(DomainException.class).hasMessageStartingWith("2369 - ");
 
         // Sin ítems, un descuento o cargo propio no se ignora en silencio.
         Comprobante f = facturaAceptada(FormaPago.contado());

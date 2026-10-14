@@ -106,12 +106,28 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
     public boolean gratuita() { return item.afectacion().gratuita(); }
     public boolean tieneIsc() { return isc.signum() > 0; }
     public boolean tieneIcbper() { return icbper.signum() > 0; }
+    /**
+     * Cantidad de bolsas del ICBPER (cbc:BaseUnitMeasure, regla 3236): la cantidad del ítem, que {@link Item#exigirValidoParaFactura} ya exigió entera de hasta 5 dígitos
+     * (2892). {@code intValueExact} lanza si no lo fuera: la plantilla nunca redondea en silencio.
+     */
+    public int icbperBolsas() { return item.cantidad().intValueExact(); }
     /** Base del IGV de la línea: valor de venta más ISC (regla 204). */
     public BigDecimal baseIgv() { return valorVenta.add(isc); }
     /** Suma de tributos de la línea (cac:InvoiceLine/cac:TaxTotal/cbc:TaxAmount, regla 3292). */
     public BigDecimal totalTributos() { return igv.add(isc).add(icbper); }
     /** Código de tipo de precio (catálogo 16): 01 precio de venta, 02 valor referencial en gratuitas. */
     public String tipoPrecio() { return gratuita() ? "02" : "01"; }
+
+    /**
+     * 2370: el valor de venta de la línea (LineExtensionAmount) no puede ser cero, y tampoco negativo. Con un precio positivo pasa si el precio no alcanza ni el
+     * ICBPER que lleva incluido (una bolsa de S/ 0.50 en 2023+ es solo el impuesto) o si redondea a 0.00 (0.004 con IGV). Como {@link #exigirBasePvpValida}, solo al
+     * emitir: no se exige al rehidratar un comprobante ya persistido ni a la línea sin importe de la NC 13 (3315), que el dominio arma a propósito.
+     */
+    public void exigirValorDeVentaPositivo() {
+        if (valorVenta.signum() <= 0)
+            throw new DomainException("ITEM_INVALIDO", "2370 - El valor de venta de la línea «" + item.descripcion() + "» debe ser mayor que 0.00"
+                    + (item.icbper() ? ": el precio_unitario incluye el ICBPER (S/ " + icbperUnitario + " por bolsa) y debe superarlo" : ": suba el precio o la cantidad"));
+    }
 
     /**
      * Sistema 03 (#68, regla 3108): el PVP sugerido no puede ser menor que el valor unitario sin tributos. Se exige

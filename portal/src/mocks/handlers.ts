@@ -5,6 +5,7 @@ import { messages } from "@/lib/messages";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { fechaMinimaDeEmision, PLAZO_ENVIO } from "@/lib/comprobantes/plazo";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
+import { rechazoPorLineaMock, rechazoPorNrusMock, rechazoPorTopeDeLineasMock, rechazoPorValorDeVentaMock, type LineaMock } from "./reglas-linea";
 import { CODIGOS_UNIDAD, UNIDADES_MAS_USADAS, db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
@@ -636,6 +637,17 @@ function rechazoPorUnidadMock(items: Array<{ unidad: string }>): Response | null
     : null;
 }
 
+/**
+ * #354, como `Comprobante.crear` e `Item.exigirValidoParaFactura`: el tope de líneas (2023), el ICBPER (2892, 4320), el precio en cero (2369/2367), el NRUS con ICBPER
+ * (3240, solo en boleta) y el valor de venta en 0.00 (2370), todos 422 ITEM_INVALIDO antes de numerar. Los ítems llegan con la forma del request.
+ */
+function rechazoPorLineasMock(items: LineaMock[], documento: "factura" | "boleta", tipoOperacion: string | undefined, tasaIgv: number, fechaEmision: string): Response | null {
+  const mensaje = rechazoPorTopeDeLineasMock(items, documento)
+    ?? items.map((i) => rechazoPorLineaMock(i)).find((m) => m !== null)
+    ?? (documento === "boleta" ? rechazoPorNrusMock(tipoOperacion, items) : null)
+    ?? items.map((i) => rechazoPorValorDeVentaMock(i, tasaIgv, fechaEmision)).find((m) => m !== null);
+  return mensaje ? fail(422, "ITEM_INVALIDO", mensaje) : null;
+}
 
 /**
  * Valida el cuerpo de crear o editar un plan con las reglas del backend (#190): nombre obligatorio, de hasta 40 caracteres y único sin importar mayúsculas;
@@ -2373,7 +2385,8 @@ export const handlers = [
       fecha_emision: string;
       moneda: string;
       cliente: { tipo_doc: string; num_doc: string; razon_social: string; direccion?: string };
-      items: Array<{ descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }>;
+      tipo_operacion?: string;
+      items: Array<{ descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string; icbper?: boolean }>;
     };
 
     // #303: el `@NotBlank` de `ClienteDto` corre antes que el servicio y que el dominio (347-H2), y en blanco es lo que `String.trim()` de
@@ -2408,6 +2421,9 @@ export const handlers = [
     // #308: antes de numerar, como el backend.
     const porUnidad = rechazoPorUnidadMock(body.items);
     if (porUnidad) return porUnidad;
+    // #354: el tope de líneas, el ICBPER, el precio en cero y el NRUS, también antes de numerar.
+    const porLineas = rechazoPorLineasMock(body.items, boleta ? "boleta" : "factura", body.tipo_operacion, empresaDe(request)?.padron_tasa_especial_igv ? 10.5 : 18, body.fecha_emision);
+    if (porLineas) return porLineas;
 
     // Idempotency-Key (#115), como el backend: la misma clave con el mismo pedido devuelve la factura ya emitida con 200; con otro
     // pedido, 422. La huella es el JSON del cuerpo, que el formulario arma siempre igual.
@@ -2542,7 +2558,7 @@ export const handlers = [
     // cuerpo) hacía que `request.json()` lanzara y MSW respondiera 500 con el stack —el «SyntaxError: Unexpected
     // end of JSON input» de los logs—. El backend real responde 400 JSON_INVALIDO; el mock ahora también.
     type Ajuste = { porcentaje?: number; monto?: number; afecta_base_igv?: boolean };
-    type ItemNota = { descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string; descuento?: Ajuste; cargos?: Ajuste[]; isc?: { sistema: string; tasa?: number; monto_unitario?: number; base_pvp?: number } };
+    type ItemNota = { descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string; icbper?: boolean; descuento?: Ajuste; cargos?: Ajuste[]; isc?: { sistema: string; tasa?: number; monto_unitario?: number; base_pvp?: number } };
     type CuerpoNota = { tipo: "07" | "08"; serie: string; fecha_emision: string; documento_afectado: { serie: string; numero: number }; motivo: string; descripcion: string; items?: ItemNota[] };
     let body: CuerpoNota;
     try {
@@ -2604,10 +2620,16 @@ export const handlers = [
     // una ND 13 con 30 sobre una exportación y a una cantidad con 11 decimales, ambas 422 en el backend.
     const decimales = (n: number) => (String(n).split(".")[1] ?? "").length;
     const exportacion = /^020[0-8]$/.test(factura.tipo_operacion ?? "");
+    // #354: más de 999 líneas (2137 en la nota), antes que las reglas de cada ítem, como `NotaBuilder.crear`.
+    const porTopeDeLineas = body.items ? rechazoPorTopeDeLineasMock(body.items, "nota") : null;
+    if (porTopeDeLineas) return fail(422, "ITEM_INVALIDO", porTopeDeLineas);
     for (const i of nc13 ? [] : (body.items ?? [])) {
       if (exportacion && i.tipo_afectacion_igv !== "40") return fail(422, "AFECTACION_INVALIDA", `2642 - En una exportación (${factura.tipo_operacion}) todos los ítems llevan tipo_afectacion_igv 40`);
       if (!exportacion && i.tipo_afectacion_igv === "40") return fail(422, "AFECTACION_INVALIDA", `3107 - La afectación 40 (exportación) exige un tipo de operación 0200–0208; recibido ${factura.tipo_operacion}`);
       if (!(i.cantidad > 0) || decimales(i.cantidad) > 10) return fail(422, "ITEM_INVALIDO", "2025 - La cantidad debe ser positiva, con hasta 12 enteros y 10 decimales");
+      // #354, `Item`: bolsas del ICBPER (2892, 4320) y precio en cero (2369/2367), antes del formato numérico del precio.
+      const porLinea = rechazoPorLineaMock(i);
+      if (porLinea) return fail(422, "ITEM_INVALIDO", porLinea);
       // `Item.exigirFormatoNumerico`: 12 enteros y 10 decimales también en el precio. El importe de la ND llegaba con 13 enteros.
       if (!(i.precio_unitario >= 0) || decimales(i.precio_unitario) > 10 || Math.trunc(i.precio_unitario) >= 1e12) return fail(422, "ITEM_INVALIDO", "2025 - El precio unitario admite hasta 12 enteros y 10 decimales");
       // `Cargo.montoSobre` (2955): un cargo en porcentaje que redondea a 0.00 sobre la base de la línea. El descuento no
@@ -2623,6 +2645,9 @@ export const handlers = [
       // documentos con una unidad fuera del catálogo (los rechaza al emitirlos y los datos sembrados usan NIU y ZZ).
       const porUnidad = rechazoPorUnidadMock([i]);
       if (porUnidad) return porUnidad;
+      // #354, `ItemCalculado.exigirValorDeVentaPositivo` (2370); la línea de la NC 13 no entra (el dominio la arma con valor 0, 3315).
+      const porValorDeVenta = rechazoPorValorDeVentaMock(i, 18, body.fecha_emision);
+      if (porValorDeVenta) return fail(422, "ITEM_INVALIDO", porValorDeVenta);
     }
     if (nc13) {
       // A paridad con `FormaPago.validarComoCorreccionDe`: escala ≤ 2 en pendiente (3250) y cuotas (3253), y la

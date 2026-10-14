@@ -1,5 +1,6 @@
 package pe.factura.adapters.rest.dto;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -8,6 +9,7 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Anticipo;
 import pe.factura.domain.documento.Cargo;
 import pe.factura.domain.documento.CodigoProductoSunat;
+import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Descuento;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.Percepcion;
@@ -37,7 +39,7 @@ public record FacturaRequest(
         @Pattern(regexp = "\\d{4}") @Schema(example = "0101", description = "Tipo de operación, catálogo 51 (`GET /v1/catalogos/51`); un código fuera del catálogo responde `422 TIPO_OPERACION_INVALIDO` (regla 3206). `0101` venta interna (por defecto), `1001` operación sujeta a detracción, `0200`–`0208` exportación (ítems con afectación `40`, cliente del exterior con `pais`, y `exportacion` con el Incoterm; `0202`/`0205` —hospedaje y paquete turístico a no domiciliados— aún no)") String tipoOperacion,
         @NotBlank @Pattern(regexp = "PEN|USD|EUR") @Schema(example = "PEN", description = "Moneda ISO 4217 de todo el comprobante: `PEN`, `USD` o `EUR` (catálogo 02)") String moneda,
         @NotNull @Valid ClienteDto cliente,
-        @NotEmpty @Valid List<ItemDto> items,
+        @NotEmpty @Valid @ArraySchema(minItems = 1, maxItems = Comprobante.MAX_LINEAS, arraySchema = @Schema(description = "Líneas del comprobante: de 1 a 999 (el número de orden del ítem es de hasta 3 dígitos). Con más, `422 ITEM_INVALIDO` con la regla `2023` (`2137` en las notas) sin consumir numeración")) List<@NotNull @Valid ItemDto> items,
         @Valid @Schema(description = "Forma de pago (RS 193-2020). Si se omite, al contado.") FormaPagoDto formaPago,
         @Valid @Schema(description = "Descuento sobre el total (catálogo 53: `02` si afecta la base del IGV —requiere ítems gravados—, `03` si no). Opcional.") DescuentoDto descuentoGlobal,
         @Valid @Schema(description = "Cargos sobre el total (catálogo 53): `afecta_base_igv: true` → `49` (se suma a la base gravada; requiere ítems gravados), `false` → `50`, `motivo: recargo_consumo` → `46`. Los que no afectan la base suman al importe a pagar (`ChargeTotalAmount`). Opcional.") List<CargoDto> cargos,
@@ -71,8 +73,8 @@ public record FacturaRequest(
             @Schema(example = "SKU-001", description = "Código interno del producto o servicio (opcional)") String codigo,
             @NotBlank @Schema(example = "Servicio de consultoría", description = "Descripción detallada del bien o servicio") String descripcion,
             @NotBlank @Schema(example = "NIU", description = "Unidad de medida UN/ECE rec 20 (catálogo 03, `GET /v1/catalogos/03`, las más usadas primero): `NIU` unidad (bienes), `ZZ` unidad (servicios), `KGM` kilogramo, `HUR` hora… Un código que no está en el catálogo responde `422 ITEM_INVALIDO` (2936) sin consumir numeración") String unidad,
-            @NotNull @Positive @Schema(example = "2", description = "Cantidad, hasta 10 decimales") BigDecimal cantidad,
-            @NotNull @PositiveOrZero @Schema(example = "1000.00", description = "Precio de venta unitario **con IGV incluido** (gravados); khipu calcula el valor unitario sin IGV") BigDecimal precioUnitario,
+            @NotNull @Positive @Schema(example = "2", description = "Cantidad, hasta 10 decimales. En un ítem con `icbper` es el número de bolsas: entero de 1 a 99999 (`422 ITEM_INVALIDO`, regla `2892`)") BigDecimal cantidad,
+            @NotNull @Schema(example = "1000.00", minimum = "0", exclusiveMinimum = true, description = "Precio de venta unitario **con IGV incluido** (gravados); khipu calcula el valor unitario sin IGV. Mayor que cero: SUNAT rechaza el precio negativo o en cero (`2369`, `2367`) y una línea cuyo valor de venta queda en `0.00` (`2370`) — también el de una gratuita, cuyo `precio_unitario` es su valor referencial; responde `422 ITEM_INVALIDO` sin consumir numeración") BigDecimal precioUnitario,
             @NotBlank @Pattern(regexp = "1[0-7]|2[01]|3[0-7]|40", message = "afectación IGV no soportada: use 10–17, 20, 21, 30–37 o 40 (catálogo 07)")
             @Schema(example = "10", description = """
                     Afectación del IGV, catálogo 07 (`GET /v1/catalogos/07`). Onerosas: `10` gravado (IGV 18 %, o la tasa reducida del padrón de restaurantes y hoteles si la empresa la activó; precio con IGV),
@@ -85,7 +87,7 @@ public record FacturaRequest(
             @Valid @Schema(description = "Descuento de la línea (catálogo 53: `00` si afecta la base del IGV, `01` si no). Opcional.") DescuentoDto descuento,
             @Valid @Schema(description = "Cargos de la línea (catálogo 53): `afecta_base_igv: true` → `47` (se suma al valor de venta y paga IGV), `false` → `48` (se cobra sin IGV). No admitidos en gratuitas. Opcional.") List<CargoDto> cargos,
             @Valid @Schema(description = "Impuesto Selectivo al Consumo del ítem (bebidas alcohólicas, combustibles, vehículos…). Opcional; el `precio_unitario` lo incluye.") IscDto isc,
-            @Schema(example = "false", description = "`true` si el ítem son bolsas de plástico afectas al ICBPER: una bolsa por unidad (`unidad` NIU), monto fijo vigente por año incluido en `precio_unitario`") Boolean icbper,
+            @Schema(example = "false", description = "`true` si el ítem son bolsas de plástico afectas al ICBPER: una bolsa por unidad (`unidad` NIU: el ICBPER es el monto por bolsa × `cantidad`, y la regla `4320` de SUNAT solo la observa; khipu la rechaza con `422 ITEM_INVALIDO` en un comprobante nuevo; `cantidad` entera de hasta 5 dígitos, `2892`), monto fijo vigente por año incluido en `precio_unitario`, que debe superarlo (`2370`). No se admite en una boleta con `tipo_operacion` `0113` (NRUS, regla `3240`)") Boolean icbper,
             @Pattern(regexp = "[0-9]{8}", message = "código de producto SUNAT de 8 dígitos (UNSPSC, catálogo 25)") @Schema(example = "15101505", description = "Código de producto SUNAT (catálogo 25, UNSPSC de 8 dígitos; `GET /v1/catalogos/25` lista los que SUNAT exige a los padrones obligados, detracciones y percepciones). Opcional; obligatorio para los emisores del padrón (regla 4331). SUNAT observa los que no llegan al tercer nivel (terminados en 0000, regla 4337)") String codigoSunat,
             @Valid @Schema(description = "Código GTIN (GS1) del producto. Opcional") GtinDto gtin,
             @Valid @Schema(description = "Recursos hidrobiológicos con detracción: obligatorio en cada ítem cuando `tipo_operacion` es `1002` (campos 107–112, catálogo 55) y no admitido en otras operaciones") HidrobiologicoDto hidrobiologico,

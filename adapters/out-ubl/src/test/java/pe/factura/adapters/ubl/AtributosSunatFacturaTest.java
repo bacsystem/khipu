@@ -381,6 +381,36 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /**
+     * #354 (2892, 3236): BaseUnitMeasure es la cantidad de bolsas del ítem, entera y sin formato de miles ni notación científica; con 99999 bolsas el tope de 5 dígitos
+     * sale tal cual.
+     */
+    @Test void lasBolsasDelIcbperSalenConSuCantidadExactaEnElXml() throws Exception {
+        for (String bolsas : List.of("99999", "12345", "100", "2.000")) {
+            Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
+                    List.of(new Item("B", "Bolsa", "NIU", new BigDecimal(bolsas), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true))).crear(FreemarkerUblGeneratorTest.CLOCK);
+            c.asignarNumero(16, "20100066603");
+            String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+            DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+            f.setNamespaceAware(true);
+            Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+            assertThat(valor(d, "/inv:Invoice/cac:InvoiceLine/cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='7152']/cbc:BaseUnitMeasure"))
+                    .as(bolsas).isEqualTo(String.valueOf(new BigDecimal(bolsas).intValue()));
+        }
+    }
+
+    /**
+     * #354: la plantilla nunca redondea en silencio. Un comprobante ya persistido (que no se revalida al leerlo) con 1.5 bolsas saldría con BaseUnitMeasure 2 y
+     * un ICBPER de 0.75 que SUNAT rechaza (3236): mejor que no se genere.
+     */
+    @Test void laPlantillaNoRedondeaUnaCantidadFraccionariaDeBolsas() {
+        Item fraccionaria = new Item("B", "Bolsa", "NIU", new BigDecimal("1.5"), new BigDecimal("0.618"), TipoAfectacionIgv.GRAVADO, null, null, true);
+        Comprobante c = Comprobante.persistido(UUID.randomUUID(), UUID.randomUUID(), TipoDocumento.FACTURA, "F001", 17L, LocalDate.of(2026, 9, 13), EstadoDocumento.RECIBIDO,
+                new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(fraccionaria)).rehidratar();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant()))
+                .isInstanceOf(IllegalStateException.class).hasRootCauseInstanceOf(ArithmeticException.class);
+    }
+
     /** ISC sistema 03 (#68, regla 3108): la base en el XML es el PVP sugerido × cantidad, no el valor de venta. */
     @Test void iscSistema03BaseEsElPvpSugeridoEnElXml() throws Exception {
         Isc isc = new Isc("03", new BigDecimal("30"), null, new BigDecimal("3.50"));

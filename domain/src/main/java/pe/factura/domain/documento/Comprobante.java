@@ -99,6 +99,12 @@ public class Comprobante {
         return new FacturaBuilder(TipoDocumento.BOLETA, tenantId, serie, fechaEmision, moneda, tipoOperacion, receptor, items);
     }
 
+    /**
+     * Tope de líneas de un comprobante: el número de orden de la línea (cbc:ID) es numérico de hasta 3 dígitos y distinto de cero. SUNAT rechaza más con 2023 en
+     * la factura y la boleta (Factura2_0 fila 145, Boleta2_0 fila 145) y con 2137 en las notas (NotaCredito2_0 fila 161, NotaDebito2_0 fila 138).
+     */
+    public static final int MAX_LINEAS = 999;
+
     /** Hasta este importe (en soles) una boleta puede no identificar al comprador (guía del resumen diario, campos 12 y 13). */
     public static final BigDecimal TOPE_BOLETA_SIN_DOCUMENTO = new BigDecimal("700.00");
 
@@ -148,6 +154,7 @@ public class Comprobante {
             if (fechaVencimiento != null && fechaVencimiento.isBefore(fechaEmision))
                 throw new DomainException("FECHA_INVALIDA", "La fecha de vencimiento no puede ser anterior a la de emisión");
             if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La " + nombre + " debe tener al menos un ítem");
+            exigirHastaElTopeDeLineas("2023", nombre, items);
             items.forEach(Item::exigirValidoParaFactura);
             String operacion = tipoOperacion == null ? "0101" : tipoOperacion;
             validarTipoOperacion(operacion, tipo);
@@ -178,6 +185,7 @@ public class Comprobante {
                 throw new DomainException("RECEPTOR_INVALIDO", "Una boleta de más de S/ " + TOPE_BOLETA_SIN_DOCUMENTO + " (o en otra moneda) identifica al comprador con su documento; esta es de "
                         + moneda + " " + c.totales.total());
             c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
+            c.totales.items().forEach(ItemCalculado::exigirValorDeVentaPositivo);
             for (String l : leyendas) {
                 String regla = Leyenda.EXIGEN_EXONERADO.get(l);
                 if (regla != null && c.totales.exonerado().signum() <= 0)
@@ -195,11 +203,17 @@ public class Comprobante {
             // domiciliados, 0302 con medio de pago…) consumían número y SUNAT los rechazaba.
             if (!OPERACIONES_EN_BOLETA.contains(operacion))
                 throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " todavía no se emite en boleta; en boleta: " + String.join(", ", OPERACIONES_EN_BOLETA.stream().sorted().toList()));
+            // 3240 (Boleta2_0 fila 254): un contribuyente del NRUS no cobra el ICBPER. Solo está en la boleta: la factura no admite el 0113 y las notas no heredan la regla.
+            if (OPERACION_NRUS.equals(operacion) && items.stream().anyMatch(Item::icbper))
+                throw new DomainException("ITEM_INVALIDO", "3240 - El impuesto ICBPER no aplica para el NRUS (tipo de operación " + OPERACION_NRUS + "): quite el icbper de las líneas o emita con el tipo de operación 0101");
         }
     }
 
     /** Venta interna, NRUS, detracción (1001–1004) y percepción (2001): lo que khipu sabe armar en una boleta. */
     static final java.util.Set<String> OPERACIONES_EN_BOLETA = java.util.Set.of("0101", "0113", "1001", "1002", "1003", "1004", "2001");
+
+    /** Venta interna - NRUS (catálogo 51): solo en boleta. */
+    static final String OPERACION_NRUS = "0113";
 
     /**
      * Nota de crédito (07) o de débito (08) sobre una factura. Comparte con la factura receptor, ítems, descuentos, cargos y
@@ -255,6 +269,7 @@ public class Comprobante {
             exigirDentroDelPlazoDeEnvio(PlazoEnvio.de(tipo, nota), fechaEmision, clock);
             boolean nc13 = nota.corrigeCuotas(tipo);
             if ((items == null || items.isEmpty()) && !nc13) throw new DomainException("SIN_ITEMS", "La nota debe tener al menos un ítem");
+            if (items != null) exigirHastaElTopeDeLineas("2137", "nota", items);
             if (items != null) items.forEach(this::exigirLineaValida);
             if (nota.deBoleta()) {
                 // El comprador de la boleta (RCP art. 10 num. 1.3), que puede no tener documento ni RUC.
@@ -279,6 +294,7 @@ public class Comprobante {
                     moneda, tipoOperacion, receptor, nc13 ? List.of(nota.lineaSinImporte()) : items, formaPago == null ? FormaPago.contado() : formaPago,
                     nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, nc13 ? null : redondeo, nota, tasaIgv, List.of(), exportacion, EstadoDocumento.RECIBIDO);
             c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
+            if (!nc13) c.totales.items().forEach(ItemCalculado::exigirValorDeVentaPositivo);
             return c;
         }
 
@@ -290,7 +306,8 @@ public class Comprobante {
             if (copiaDelDocumento && item.unidad() != null && !item.unidad().isBlank() && !item.unidadEnCatalogo())
                 throw new DomainException("ITEM_INVALIDO", "2936 - La " + (nota.deBoleta() ? "boleta " : "factura ") + nota.documentoAfectado() + " lleva la unidad " + item.unidad()
                         + ", que no existe en el catálogo 03, y SUNAT rechazaría la nota que la copia: indique los items de la nota con una unidad del catálogo (GET /v1/catalogos/03)");
-            item.exigirValidoParaFactura();
+            if (copiaDelDocumento) item.exigirValidoComoCopia();
+            else item.exigirValidoParaFactura();
         }
     }
 
@@ -305,6 +322,13 @@ public class Comprobante {
         if (s.length() > MAX_OBSERVACIONES || s.chars().anyMatch(ch -> Character.isISOControl(ch) && ch != '\n' && ch != '\r'))
             throw new DomainException("OBSERVACIONES_INVALIDAS", "Las observaciones admiten hasta " + MAX_OBSERVACIONES + " caracteres, solo con saltos de línea como caracteres especiales");
         this.observaciones = s;
+    }
+
+    /** Regla 2023 (factura y boleta) o 2137 (notas): el número de orden de la línea es de hasta 3 dígitos, así que no cabe más de {@link #MAX_LINEAS}. */
+    private static void exigirHastaElTopeDeLineas(String reglaSunat, String documento, List<Item> items) {
+        if (items.size() > MAX_LINEAS)
+            throw new DomainException("ITEM_INVALIDO", reglaSunat + " - Una " + documento + " admite hasta " + MAX_LINEAS + " líneas (el número de orden del ítem es de hasta 3 dígitos); recibidas " + items.size()
+                    + ": divida la operación en más de un comprobante");
     }
 
     /** Una fecha de emisión cuyo plazo de envío ya venció daría un comprobante que SUNAT rechaza (2108, o 1079 en lo de boleta) con el número consumido. */

@@ -106,6 +106,62 @@ class FacturaE2ETest {
     }
 
     /**
+     * #354: las reglas de la línea que SUNAT rechaza con el número ya consumido (ICBPER 2892/4320, NRUS 3240, precio 0 2369/2370, más de 999 líneas 2023) vuelven
+     * 422 ITEM_INVALIDO con el código SUNAT en el mensaje, en boleta y en factura, antes de numerar: la siguiente de cada serie sigue siendo la 1.
+     */
+    @Test void lasReglasDeLaLineaSeRechazanSinConsumirNumero(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-03-B001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"03\",\"serie\":\"B001\",\"correlativo_inicial\":0}", h), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String hoy = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).toString();
+        String boleta = """
+            {"serie":"B001","fecha_emision":"%s","moneda":"PEN","tipo_operacion":"%s",
+             "cliente":{"tipo_doc":"1","num_doc":"12345678","razon_social":"JUAN PEREZ"},"items":[%s]}
+            """;
+        String bolsas = "{\"descripcion\":\"Bolsa\",\"unidad\":\"%s\",\"cantidad\":%s,\"precio_unitario\":%s,\"tipo_afectacion_igv\":\"10\",\"icbper\":true}";
+        String pan = "{\"descripcion\":\"Pan\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":%s,\"tipo_afectacion_igv\":\"10\"}";
+        String mil = String.join(",", java.util.Collections.nCopies(1000, pan.formatted("1.18")));
+
+        Map<String, String> boletas = new java.util.LinkedHashMap<>();
+        boletas.put("2892", boleta.formatted(hoy, "0101", bolsas.formatted("NIU", "1.5", "0.60")));
+        boletas.put("2892 ", boleta.formatted(hoy, "0101", bolsas.formatted("NIU", "100000", "0.60")));
+        boletas.put("4320", boleta.formatted(hoy, "0101", bolsas.formatted("KGM", "2", "0.60")));
+        boletas.put("3240", boleta.formatted(hoy, "0113", bolsas.formatted("NIU", "2", "0.60")));
+        boletas.put("2370", boleta.formatted(hoy, "0101", bolsas.formatted("NIU", "2", "0.50")));
+        boletas.put("2369", boleta.formatted(hoy, "0101", pan.formatted("0")));
+        boletas.put("2023", boleta.formatted(hoy, "0101", mil));
+        boletas.forEach((regla, cuerpo) -> {
+            ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(cuerpo, h), Map.class);
+            assertThat(r.getStatusCode()).as(regla).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+            assertThat(r.getBody().get("codigo")).as(regla).isEqualTo("ITEM_INVALIDO");
+            assertThat((String) r.getBody().get("mensaje")).as(regla).startsWith(regla.strip() + " - ");
+        });
+        String factura = FACTURA.replace("\"precio_unitario\":2360.00", "\"precio_unitario\":0");
+        ResponseEntity<Map> sinPrecio = http.postForEntity("/v1/facturas", new HttpEntity<>(factura, h), Map.class);
+        assertThat(sinPrecio.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat((String) sinPrecio.getBody().get("mensaje")).startsWith("2369 - ");
+        // H4 (revisión de #354): el negativo ya no es un 422 VALIDACION de Bean Validation sino ITEM_INVALIDO del dominio, con la misma regla que el cero.
+        ResponseEntity<Map> negativo = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replace("\"precio_unitario\":2360.00", "\"precio_unitario\":-5"), h), Map.class);
+        assertThat(negativo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(negativo.getBody().get("codigo")).isEqualTo("ITEM_INVALIDO");
+        assertThat((String) negativo.getBody().get("mensaje")).startsWith("2369 - ");
+        ResponseEntity<Map> deMas = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replaceAll("\"items\":\\[.*\\]", "\"items\":[" + String.join(",", java.util.Collections.nCopies(1000,
+                pan.formatted("1.18"))) + "]"), h), Map.class);
+        assertThat(deMas.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat((String) deMas.getBody().get("mensaje")).startsWith("2023 - ");
+
+        // Nada de lo anterior numeró: la primera boleta válida con bolsas es la B001-1, y la primera factura válida la F001-1.
+        ResponseEntity<Map> ok = http.postForEntity("/v1/facturas", new HttpEntity<>(boleta.formatted(hoy, "0101", bolsas.formatted("NIU", "2", "0.60")), h), Map.class);
+        assertThat(ok.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(((Map<?, ?>) ok.getBody().get("datos")).get("numero")).isEqualTo(1);
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        ResponseEntity<Map> f = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(f.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(((Map<?, ?>) f.getBody().get("datos")).get("numero")).isEqualTo(1);
+    }
+
+    /**
      * #20: una boleta pasa por el mismo camino que la factura (numeración de su serie B, UBL, firma real, XSD, sendBill) y se envía sola. Un comprador sin
      * documento por encima de S/ 700 no se emite ni consume número.
      */

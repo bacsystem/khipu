@@ -111,3 +111,61 @@ describe("NotaForm sobre una factura", () => {
     expect(codigosDeMotivo()).toEqual(["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "13"]);
   });
 });
+
+describe("NotaForm — bolsas del ICBPER (#354)", () => {
+  /** SUNAT 2892: la cantidad de bolsas es un entero. Una devolución parcial de 2.5 bolsas saldría 422 del backend; el formulario lo frena antes y dice por qué. */
+  it("no deja emitir una devolución parcial de bolsas con cantidad fraccionaria, pero sí enteras", async () => {
+    const fetch = stubApi();
+    const bolsas = { codigo: null, descripcion: "Bolsa", unidad: "NIU", cantidad: 5, precio_unitario: 0.6, tipo_afectacion_igv: "10", precio_venta: 3, icbper: 2.5 };
+    render(<NotaForm factura={documento("03", { items: [bolsas] as unknown as Comprobante["items"] })} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Devolvió bolsas" } });
+    const emitir = screen.getByRole("button", { name: "Emitir nota de crédito" });
+
+    fireEvent.change(screen.getByLabelText("Cantidad de Bolsa en la nota"), { target: { value: "2.5" } });
+    expect(emitir).toBeDisabled();
+    expect(screen.getByText(/bolsas del ICBPER se devuelven por unidades enteras \(SUNAT 2892\)/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Cantidad de Bolsa en la nota"), { target: { value: "2" } });
+    expect(emitir).toBeEnabled();
+    fireEvent.click(emitir);
+    await waitFor(() => expect(notasEnviadas(fetch)).toHaveLength(1));
+    expect(notasEnviadas(fetch)[0].items[0]).toMatchObject({ cantidad: 2, icbper: true });
+  });
+
+  it("el resto de ítems siguen admitiendo cantidades fraccionarias", async () => {
+    stubApi();
+    const kilos = { codigo: null, descripcion: "Arroz", unidad: "KGM", cantidad: 5, precio_unitario: 4.72, tipo_afectacion_igv: "10", precio_venta: 23.6 };
+    render(<NotaForm factura={documento("01", { items: [kilos] as unknown as Comprobante["items"] })} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Devolvió arroz" } });
+    fireEvent.change(screen.getByLabelText("Cantidad de Arroz en la nota"), { target: { value: "2.5" } });
+    expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
+  });
+});
+
+describe("NotaForm — factura con anticipos que cubren el total (H3, revisión de #354)", () => {
+  const conAnticipos = (total: number) =>
+    documento("01", { anticipos: [{ serie: "F001", numero: 2, monto: 100 }] as unknown as Comprobante["anticipos"], totales: { gravado: 0, exonerado: 0, inafecto: 0, igv: 0, total } });
+
+  /** Con neto 0.00 no hay nota posible (SUNAT rechaza las líneas en cero, 2369/2370, y una nota por más que el total, 3286): el aviso manda a la baja en vez de pedir cantidades. */
+  it("con neto 0.00 dice que no hay nota posible y que se anula con la baja", async () => {
+    stubApi();
+    render(<NotaForm factura={conAnticipos(0)} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    expect(screen.getByText(/no hay nota posible.*baja/)).toBeInTheDocument();
+    expect(screen.queryByText(/ajuste las cantidades para que la nota no supere ese importe/)).not.toBeInTheDocument();
+  });
+
+  it("con un neto mayor que cero sigue pidiendo ajustar las cantidades", async () => {
+    stubApi();
+    render(<NotaForm factura={conAnticipos(5)} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    expect(screen.getByText(/ajuste las cantidades para que la nota no supere ese importe/)).toBeInTheDocument();
+    expect(screen.queryByText(/no hay nota posible/)).not.toBeInTheDocument();
+  });
+});

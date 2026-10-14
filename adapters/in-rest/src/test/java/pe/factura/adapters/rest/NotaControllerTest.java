@@ -126,4 +126,14 @@ class NotaControllerTest {
                 .andExpect(jsonPath("$.errores['documentoAfectado']").exists());
         verify(emitir, never()).emitirNota(any(), any());
     }
+
+    /** H5 (revisión de #354): un elemento nulo de `items` es 422 VALIDACION, no un 500 al mapear al dominio. */
+    @Test void unItemNuloEs422DeValidacionYNoUn500() throws Exception {
+        String conNulo = CUERPO.replace("\"descripcion\":", "\"items\":[null],\"descripcion\":");
+        mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conNulo))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores['items[0]']").exists());
+        verify(emitir, never()).emitirNota(any(), any());
+    }
 }

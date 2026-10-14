@@ -1027,6 +1027,36 @@ test("el mock de POST /v1/notas rechaza la descripción de ítem que el backend 
   expect(JSON.parse(r.texto)).toMatchObject({ codigo: "VALIDACION", errores: { "items[0].unidad": ["no debe estar vacío"] } });
 });
 
+/**
+ * #354: las reglas de la línea valen también en la nota: ICBPER (2892, 4320), precio en cero (2369) y valor de venta en 0.00 (2370) por ítem, y más de 999 líneas
+ * (2137, no 2023). La NC 13 queda fuera: sus ítems se ignoran y su única línea de valor 0 la arma el dominio (3315).
+ */
+test("el mock de POST /v1/notas rechaza las reglas de la línea que el backend rechaza antes de numerar (#354)", async ({ page }) => {
+  await page.goto("/comprobantes/f-cargos");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const post = (items: Array<Record<string, unknown>>) =>
+    page.evaluate(async ([b]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, cuerpo: await r.json() };
+    }, [JSON.stringify({ tipo: "08", serie: "FD01", fecha_emision: hoy, documento_afectado: { serie: "F001", numero: 7 }, descripcion: "Prueba de contrato", motivo: "01", items })]);
+  const item = (extra: Record<string, unknown> = {}) => ({ descripcion: "Intereses", unidad: "NIU", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10", ...extra });
+  const bolsas = (extra: Record<string, unknown>) => item({ descripcion: "Bolsa", cantidad: 2, precio_unitario: 0.6, icbper: true, ...extra });
+
+  const casos: Array<[string, Array<Record<string, unknown>>, string]> = [
+    ["bolsas fraccionarias", [bolsas({ cantidad: 1.5 })], "2892 - La cantidad de bolsas del ICBPER es un entero de hasta 5 dígitos (1 a 99999); recibida 1.5"],
+    ["bolsas en kilos", [bolsas({ unidad: "KGM" })], "4320 - Un ítem con ICBPER va en unidades (unidad NIU, una bolsa por unidad); recibida KGM"],
+    ["precio 0", [item({ precio_unitario: 0 })], "2369 - El precio unitario debe ser mayor que cero"],
+    ["valor de venta 0.00", [bolsas({ precio_unitario: 0.5 })], "2370 - El valor de venta de la línea «Bolsa» debe ser mayor que 0.00: el precio_unitario incluye el ICBPER (S/ 0.50 por bolsa) y debe superarlo"],
+    ["1000 líneas", Array.from({ length: 1000 }, () => item({ precio_unitario: 1.18 })), "2137 - Una nota admite hasta 999 líneas (el número de orden del ítem es de hasta 3 dígitos); recibidas 1000: divida la operación en más de un comprobante"],
+  ];
+  for (const [caso, items, mensaje] of casos) {
+    const r = await post(items);
+    expect(r.status, caso).toBe(422);
+    expect(r.cuerpo, caso).toMatchObject({ codigo: "ITEM_INVALIDO", mensaje });
+  }
+  expect((await post([bolsas({})])).status).toBe(201);
+});
+
 test("NC por importe (09 disminución en el valor): una sola línea por el monto, gravada como la factura, y con tope", async ({ page }) => {
   // Catálogo 09: 04/05/08/09/10 acreditan un importe, no unidades. Antes solo existía la parcial por cantidades.
   await page.goto("/comprobantes/f-cargos/nota");
