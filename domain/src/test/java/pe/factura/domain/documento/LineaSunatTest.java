@@ -66,6 +66,19 @@ class LineaSunatTest {
                     .hasMessageStartingWith("4320 - ").hasMessageContaining("NIU").extracting("codigo").isEqualTo("ITEM_INVALIDO");
     }
 
+    /**
+     * H1 (revisión de #354): la 4320 de SUNAT es OBSERV y mira el unitCode del BaseUnitMeasure, que la plantilla emite siempre en NIU; la unidad de la línea no la
+     * dispara. khipu la exige en los comprobantes nuevos (el ICBPER es el monto por bolsa × cantidad: con docenas o kilos cobraría de menos), pero la nota total
+     * que copia un documento ya emitido y aceptado no puede dejarlo sin poder anularse por esa unidad; el resto de reglas del ICBPER (2892) sí rigen en la copia.
+     */
+    @Test void laNotaTotalNoRechazaLaUnidadDeLasBolsasDeUnDocumentoYaEmitido() {
+        Nota anulacion = new Nota(TipoDocumento.BOLETA, "B001", 7L, "01", "Anulación de la operación");
+        Comprobante nc = Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "BC01", hoy, anulacion, comprador, List.of(bolsas("2", "KGM", "0.60"))).copiaDelDocumento().crear(clock);
+        assertThat(nc.totales().icbper()).isEqualByComparingTo("1.00");
+        // con los items de la nota indicados a mano (sin copiar) la unidad sí se exige
+        rechaza(() -> Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "BC01", hoy, anulacion, comprador, List.of(bolsas("2", "KGM", "0.60"))).crear(clock), "4320");
+    }
+
     /** Las reglas del ICBPER son de la línea con ICBPER: una cantidad fraccionaria en kilos sin ICBPER sigue valiendo. */
     @Test void sinIcbperLaCantidadPuedeSerFraccionariaYDeOtraUnidad() {
         new Item("P", "Arroz", "KGM", new BigDecimal("1.5"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura();
@@ -130,6 +143,17 @@ class LineaSunatTest {
         // con valor referencial positivo la gratuita es válida y su Price/PriceAmount se emite en cero (2640)
         producto("100.00", TipoAfectacionIgv.GRAVADO_BONIFICACION).exigirValidoParaFactura();
         assertThat(ItemCalculado.de(producto("100.00", TipoAfectacionIgv.GRAVADO_BONIFICACION)).valorUnitario()).isEqualByComparingTo("0");
+    }
+
+    /**
+     * H4 (revisión de #354): el precio negativo ya no lo ataja Bean Validation (400/422 VALIDACION) sino el dominio, y SUNAT lo rechaza por la misma regla que el
+     * cero (el formato debe ser decimal positivo: 2369, o 2367 en el valor referencial de una gratuita): el mensaje lleva el código como los demás de la línea.
+     */
+    @Test void unPrecioNegativoSeRechazaConLaMismaReglaQueElCero() {
+        assertThatThrownBy(() -> producto("-5", TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).isInstanceOf(DomainException.class)
+                .hasMessageStartingWith("2369 - ").hasMessageContaining("negativo").extracting("codigo").isEqualTo("ITEM_INVALIDO");
+        assertThatThrownBy(() -> producto("-5", TipoAfectacionIgv.GRAVADO_BONIFICACION).exigirValidoParaFactura()).hasMessageStartingWith("2367 - ").hasMessageContaining("negativo");
+        rechaza(() -> factura(List.of(producto("-5", TipoAfectacionIgv.GRAVADO))), "2369");
     }
 
     @Test void facturaBoletaYNotasRechazanElPrecioEnCeroAntesDeNumerar() {

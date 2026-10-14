@@ -252,6 +252,21 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.errores.items").exists());
     }
 
+    /**
+     * H5 (revisión de #354): un elemento nulo de `items` (`[null]`, o 1000 nulos que ni llegan al tope de líneas) no lo ataja `@Valid` y reventaba al mapear al dominio con 500
+     * INTERNO; es un 422 VALIDACION sin llegar al caso de uso.
+     */
+    @Test void unItemNuloEs422DeValidacionYNoUn500() throws Exception {
+        String cuerpo = "{\"serie\":\"F001\",\"fecha_emision\":\"2026-09-13\",\"moneda\":\"PEN\",\"cliente\":{\"tipo_doc\":\"6\",\"num_doc\":\"20601234565\",\"razon_social\":\"CLIENTE SAC\"},\"items\":[%s]}";
+        for (String items : List.of("null", String.join(",", java.util.Collections.nCopies(1000, "null"))))
+            mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo.formatted(items)))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                    .andExpect(jsonPath("$.errores['items[0]']").exists());
+        verify(emitir, never()).emitirFactura(any(), any());
+        verify(emitir, never()).emitirFactura(any(), any(), any());
+    }
+
     @Test void errorDeDominioSeMapea() throws Exception {
         when(emitir.emitirFactura(eq(tenant), any())).thenThrow(new DomainException("DUPLICADO", "Ya existe F001-1"));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))

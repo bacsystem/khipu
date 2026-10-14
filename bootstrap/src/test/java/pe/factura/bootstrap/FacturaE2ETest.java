@@ -141,6 +141,11 @@ class FacturaE2ETest {
         ResponseEntity<Map> sinPrecio = http.postForEntity("/v1/facturas", new HttpEntity<>(factura, h), Map.class);
         assertThat(sinPrecio.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
         assertThat((String) sinPrecio.getBody().get("mensaje")).startsWith("2369 - ");
+        // H4 (revisión de #354): el negativo ya no es un 422 VALIDACION de Bean Validation sino ITEM_INVALIDO del dominio, con la misma regla que el cero.
+        ResponseEntity<Map> negativo = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replace("\"precio_unitario\":2360.00", "\"precio_unitario\":-5"), h), Map.class);
+        assertThat(negativo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(negativo.getBody().get("codigo")).isEqualTo("ITEM_INVALIDO");
+        assertThat((String) negativo.getBody().get("mensaje")).startsWith("2369 - ");
         ResponseEntity<Map> deMas = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replaceAll("\"items\":\\[.*\\]", "\"items\":[" + String.join(",", java.util.Collections.nCopies(1000,
                 pan.formatted("1.18"))) + "]"), h), Map.class);
         assertThat(deMas.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);

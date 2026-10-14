@@ -551,8 +551,20 @@ class EmitirNotaServiceTest {
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", anticipo.numero(), new BigDecimal("200.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1))), null, null, true));
         assertThat(finalConAnticipo.totales().total()).isEqualByComparingTo("0.00");
+        // H3 (revisión de #354): con neto 0.00 «indique los items por el importe neto» era un callejón sin salida (la línea en cero la rechaza 2369/2370 y cualquier
+        // importe supera el total de la factura, 3286): el mensaje manda a la comunicación de baja.
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(finalConAnticipo.numero(), "01", null)))
-                .isInstanceOf(DomainException.class).hasMessageContaining("regularizó anticipos").hasMessageContaining("0.00");
+                .isInstanceOf(DomainException.class).hasMessageContaining("regularizó anticipos").hasMessageContaining("0.00").hasMessageContaining("comunicación de baja")
+                .hasMessageNotContaining("indique los items");
+        // Con un neto mayor que cero sí hay nota posible por ese importe: el mensaje pide los items y no manda a la baja.
+        Comprobante anticipoParcial = facturaAceptada(FormaPago.contado());
+        Comprobante conNeto = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", anticipoParcial.numero(), new BigDecimal("100.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1))), null, null, true));
+        assertThat(conNeto.totales().total()).isGreaterThan(BigDecimal.ZERO);
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(conNeto.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("indique los items").hasMessageNotContaining("comunicación de baja");
         // Con ítems por el neto (0.00) tampoco: SUNAT rechaza la línea en cero (2369/2370, #354) y no hay importe que anular; antes salía y volvía rechazada.
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(finalConAnticipo.numero(), "01", List.of(new Item("A", "Anulación", "ZZ", BigDecimal.ONE, BigDecimal.ZERO.setScale(2), TipoAfectacionIgv.GRAVADO)))))
                 .isInstanceOf(DomainException.class).hasMessageStartingWith("2369 - ");

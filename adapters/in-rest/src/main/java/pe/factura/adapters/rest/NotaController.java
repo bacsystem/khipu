@@ -42,7 +42,8 @@ public class NotaController {
 
             **Nota total** (anulación `01`, devolución total `06`): omita `items` y khipu copia los ítems, el descuento global y
             los cargos de la factura (no envíe `descuento_global` ni `cargos` propios: se rechazan). Si la factura regularizó
-            anticipos, indique los `items` por el importe neto: los anticipos no viajan en una nota. **Nota parcial** (devolución
+            anticipos, indique los `items` por el importe neto: los anticipos no viajan en una nota (si el neto es 0.00 no hay nota posible:
+            anule la factura con la comunicación de baja). **Nota parcial** (devolución
             por ítem `07`, descuento `04`/`05`, disminución `09`…): envíe los `items` que cubre, con el mismo formato que en la factura.
 
             **Nota de crédito 13** (corrección de cuotas): solo sobre facturas al crédito; envíe `forma_pago` al crédito con el

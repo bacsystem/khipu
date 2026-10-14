@@ -355,7 +355,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             </tbody>
           </table>
           <p className={cn(AYUDA_CAMPO, "border-t border-border/60 px-3 py-2")}>
-            {conAnticipos && MOTIVOS_NC_TOTAL.has(motivo) ? `La factura regularizó anticipos (neto ${formatearMonto(factura.moneda, factura.totales.total)}): ajuste las cantidades para que la nota no supere ese importe. ` : ""}
+            {conAnticipos && MOTIVOS_NC_TOTAL.has(motivo)
+              ? factura.totales.total > 0
+                ? `La factura regularizó anticipos (neto ${formatearMonto(factura.moneda, factura.totales.total)}): ajuste las cantidades para que la nota no supere ese importe. `
+                : `La factura regularizó anticipos y su neto es ${formatearMonto(factura.moneda, factura.totales.total)}: no hay nota posible (SUNAT rechaza las líneas en cero y una nota por más que el total); anúlela con una baja. `
+              : ""}
             Ponga 0 en los ítems que no entran en la nota. Un descuento o cargo de línea en porcentaje acompaña a la cantidad; los de monto fijo solo se conservan con la cantidad facturada.
           </p>
           {/* El importe que va a salir, contra lo que SUNAT compara. Antes el formulario no mostraba ninguna cifra

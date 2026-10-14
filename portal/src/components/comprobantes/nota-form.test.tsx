@@ -145,3 +145,27 @@ describe("NotaForm — bolsas del ICBPER (#354)", () => {
     expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
   });
 });
+
+describe("NotaForm — factura con anticipos que cubren el total (H3, revisión de #354)", () => {
+  const conAnticipos = (total: number) =>
+    documento("01", { anticipos: [{ serie: "F001", numero: 2, monto: 100 }] as unknown as Comprobante["anticipos"], totales: { gravado: 0, exonerado: 0, inafecto: 0, igv: 0, total } });
+
+  /** Con neto 0.00 no hay nota posible (SUNAT rechaza las líneas en cero, 2369/2370, y una nota por más que el total, 3286): el aviso manda a la baja en vez de pedir cantidades. */
+  it("con neto 0.00 dice que no hay nota posible y que se anula con la baja", async () => {
+    stubApi();
+    render(<NotaForm factura={conAnticipos(0)} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    expect(screen.getByText(/no hay nota posible.*baja/)).toBeInTheDocument();
+    expect(screen.queryByText(/ajuste las cantidades para que la nota no supere ese importe/)).not.toBeInTheDocument();
+  });
+
+  it("con un neto mayor que cero sigue pidiendo ajustar las cantidades", async () => {
+    stubApi();
+    render(<NotaForm factura={conAnticipos(5)} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    expect(screen.getByText(/ajuste las cantidades para que la nota no supere ese importe/)).toBeInTheDocument();
+    expect(screen.queryByText(/no hay nota posible/)).not.toBeInTheDocument();
+  });
+});

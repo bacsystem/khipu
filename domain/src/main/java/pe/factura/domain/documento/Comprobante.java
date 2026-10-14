@@ -306,7 +306,8 @@ public class Comprobante {
             if (copiaDelDocumento && item.unidad() != null && !item.unidad().isBlank() && !item.unidadEnCatalogo())
                 throw new DomainException("ITEM_INVALIDO", "2936 - La " + (nota.deBoleta() ? "boleta " : "factura ") + nota.documentoAfectado() + " lleva la unidad " + item.unidad()
                         + ", que no existe en el catálogo 03, y SUNAT rechazaría la nota que la copia: indique los items de la nota con una unidad del catálogo (GET /v1/catalogos/03)");
-            item.exigirValidoParaFactura();
+            if (copiaDelDocumento) item.exigirValidoComoCopia();
+            else item.exigirValidoParaFactura();
         }
     }
 

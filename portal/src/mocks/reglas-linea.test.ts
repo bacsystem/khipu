@@ -50,8 +50,10 @@ describe("precio (2369, 2367)", () => {
     expect(rechazoPorLineaMock(linea({ precio_unitario: 100, tipo_afectacion_igv: "15" }))).toBeNull();
   });
 
-  it("negativo conserva su mensaje", () => {
-    expect(rechazoPorLineaMock(linea({ precio_unitario: -1 }))).toBe("El precio unitario no puede ser negativo");
+  /** H4 (revisión de #354): el negativo ya no es de Bean Validation sino del dominio, con la misma regla que el cero (`Item.exigirValido`). */
+  it("negativo lleva la misma regla que el cero: 2369, o 2367 en una gratuita", () => {
+    expect(rechazoPorLineaMock(linea({ precio_unitario: -1 }))).toBe("2369 - El precio unitario no puede ser negativo");
+    expect(rechazoPorLineaMock(linea({ precio_unitario: -1, tipo_afectacion_igv: "15" }))).toBe("2367 - El precio unitario no puede ser negativo");
   });
 });
 
@@ -77,6 +79,15 @@ describe("valor de venta de la línea (2370)", () => {
         "2370 - El valor de venta de la línea «Pan» debe ser mayor que 0.00: el precio_unitario incluye el ICBPER (S/ 0.50 por bolsa) y debe superarlo");
     }
     expect(rechazoPorValorDeVentaMock(linea({ icbper: true, cantidad: 2, precio_unitario: 0.6 }), 18, "2026-09-13")).toBeNull();
+  });
+
+  /** H6 (revisión de #354): solo un cargo que afecta la base (47) suma al valor de venta; el 48 se cobra aparte y no salva la línea. */
+  it("un cargo con monto que afecta la base salva la línea; uno sin IGV o en porcentaje no", () => {
+    const chica = { precio_unitario: 0.004 };
+    expect(rechazoPorValorDeVentaMock(linea({ ...chica, cargos: [{ monto: 5 }] }), 18, "2026-09-13")).toBeNull();
+    expect(rechazoPorValorDeVentaMock(linea({ ...chica, cargos: [{ monto: 5, afecta_base_igv: true }] }), 18, "2026-09-13")).toBeNull();
+    expect(rechazoPorValorDeVentaMock(linea({ ...chica, cargos: [{ monto: 5, afecta_base_igv: false }] }), 18, "2026-09-13")).toMatch(/^2370 - /);
+    expect(rechazoPorValorDeVentaMock(linea({ ...chica, cargos: [{ porcentaje: 10 }] }), 18, "2026-09-13")).toMatch(/^2370 - /);
   });
 
   it("la tasa del ICBPER sale del año de emisión, con el formato del backend", () => {

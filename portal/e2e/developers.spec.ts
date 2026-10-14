@@ -74,10 +74,15 @@ test("la guía y la tabla de errores describen las reglas de la línea: precio, 
   await expect(page.getByText(/hasta 999 líneas por comprobante/).first()).toBeVisible();
   const icbper = page.locator("#isc-icbper");
   await expect(icbper.getByText(/entero de 1 a 99999/)).toBeVisible();
+  // H1 (revisión de #354): la 4320 la observa SUNAT sobre el BaseUnitMeasure; la unidad NIU en la línea es una exigencia de khipu, y la guía no dice lo contrario.
+  await expect(icbper.getByText(/SUNAT solo observa esa unidad \(4320, sobre el `?BaseUnitMeasure`?/)).toBeVisible();
   await expect(icbper.getByText(/\(NRUS\) no admite icbper \(3240\)/)).toBeVisible();
+  // H3: con anticipos que cubren la factura (neto 0.00) no hay nota posible; la guía manda a la baja en vez de pedir «items por el neto».
+  await expect(page.getByText(/Si el neto es 0\.00 \(los anticipos cubren la factura\) no hay nota posible/)).toBeVisible();
 
   await page.goto("/developers/errores");
-  await expect(page.getByText(/precio negativo o en cero \(2369; el valor referencial de una gratuita en cero, 2367\)/)).toBeVisible();
+  await expect(page.getByText(/precio negativo o en cero \(2369; el valor referencial de una gratuita, 2367\)/)).toBeVisible();
+  await expect(page.getByText(/SUNAT solo observa la 4320; khipu la rechaza porque el ICBPER es por bolsa/)).toBeVisible();
   await expect(page.getByText(/más de 999 líneas \(2023; 2137 en las notas\)/)).toBeVisible();
   await expect(page.getByText(/ICBPER en una boleta NRUS \(tipo de operación 0113, 3240\)/)).toBeVisible();
 });
