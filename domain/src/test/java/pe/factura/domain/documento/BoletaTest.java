@@ -143,6 +143,29 @@ class BoletaTest {
     }
 
     /**
+     * #362 B9: la 4009 de Boleta2_0 (fila 140) lista 02, 03, 04, 05, 08, 09 y 99; la factura admite además 06 (factura del remitente) y 07 (guía del remitente). SUNAT beta
+     * aceptó con la observación 4009 la boleta con un 06 y la con un 07 (B001-34, B001-35), así que se rechazan antes de numerar. El resto pasa, y la factura sigue admitiendo 06 y 07.
+     */
+    @Test void elDocumentoRelacionado06Y07NoSeAdmiteEnBoleta() {
+        for (String tipo : new String[]{"06", "07"}) {
+            Referencias conTipo = new Referencias(null, List.of(), List.of(new DocumentoRelacionado(tipo, "F001-123")));
+            assertThatThrownBy(() -> boleta(dni, "10").referencias(conTipo).crear(clock)).as(tipo)
+                    .isInstanceOf(DomainException.class).hasMessageStartingWith("4009").hasMessageContaining(tipo).extracting("codigo").isEqualTo("DOCUMENTO_RELACIONADO_INVALIDO");
+            assertThat(Comprobante.factura(tenant, "F001", hoy, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), items("10")).referencias(conTipo).crear(clock)
+                    .referencias().otros()).as("factura " + tipo).hasSize(1);
+        }
+    }
+
+    @Test void elRestoDeLosDocumentosRelacionadosSiSeAdmiteEnBoleta() {
+        for (String tipo : new String[]{"04", "05", "08", "09", "99"})
+            assertThat(boleta(dni, "10").referencias(new Referencias("OC-1", List.of(), List.of(new DocumentoRelacionado(tipo, "X-0001")))).crear(clock).referencias().otros())
+                    .as(tipo).extracting(DocumentoRelacionado::tipo).containsExactly(tipo);
+        // Con uno válido y otro no, rechaza igual: basta uno.
+        assertThatThrownBy(() -> boleta(dni, "10").referencias(new Referencias(null, List.of(), List.of(new DocumentoRelacionado("05", "A-1"), new DocumentoRelacionado("06", "A-2")))).crear(clock))
+                .hasMessageStartingWith("4009");
+    }
+
+    /**
      * 274-H2: solo los tipos de operación cuyos datos khipu genera en una boleta. Otros del catálogo 51 que dicen «Boleta» (0401 a no domiciliados, 0302
      * con medio de pago…) pasaban, consumían número y SUNAT los rechazaba.
      */

@@ -160,6 +160,7 @@ public class Comprobante {
             validarTipoOperacion(operacion, tipo);
             if (boleta) {
                 exigirSoloLoQueEmiteUnaBoleta(operacion);
+                exigirDocumentosRelacionadosDeBoleta();
                 if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La boleta requiere el comprador: su documento o, hasta S/ 700, tipo_doc y num_doc «-»");
                 receptor.exigirValidoParaBoleta();
             } else {
@@ -192,6 +193,18 @@ public class Comprobante {
                     throw new DomainException("LEYENDA_INVALIDA", "La leyenda " + l + " exige un total exonerado mayor a 0.00 (regla " + regla + ")");
             }
             return c;
+        }
+
+        /**
+         * #362 B9, regla 4009 de Boleta2_0 (fila 140): el catálogo 12 de otros documentos relacionados de la boleta no incluye 06 ni 07, que la factura sí admite. SUNAT beta aceptó
+         * con la observación 4009 una boleta con cada uno (B001-34 y B001-35); se rechazan antes de numerar. Las notas no llevan documentos relacionados.
+         */
+        private void exigirDocumentosRelacionadosDeBoleta() {
+            if (referencias == null) return;
+            for (DocumentoRelacionado d : referencias.otros())
+                if (DocumentoRelacionado.TIPOS_SOLO_FACTURA.contains(d.tipo()))
+                    throw new DomainException("DOCUMENTO_RELACIONADO_INVALIDO", "4009 - El documento relacionado de tipo " + d.tipo() + " no se admite en una boleta (solo 04, 05, 08, 09 o 99, catálogo 12): "
+                            + "SUNAT la observaría; es válido solo en factura");
         }
 
         /** Lo que la boleta todavía no emite: ninguno tiene reglas en Boleta2_0 que hayamos probado contra SUNAT (y la forma de pago ni existe en la boleta). */

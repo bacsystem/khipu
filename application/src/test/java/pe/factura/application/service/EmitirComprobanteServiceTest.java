@@ -465,6 +465,23 @@ class EmitirComprobanteServiceTest {
         assertThat(gateway.enviados).isZero();
     }
 
+    /** #362 B9: una boleta con un documento relacionado 06 o 07 (4009) se rechaza antes de numerar y de enviar; la factura sí los lleva. */
+    @Test void unaBoletaConDocumentoRelacionado06o07SeRechazaSinConsumirNumero() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 41, true));
+        for (String tipo : List.of("06", "07"))
+            assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                    new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                    FormaPago.contado(), null, List.of(), null, null, null, List.of(), new pe.factura.domain.documento.Referencias(null, List.of(),
+                            List.of(new pe.factura.domain.documento.DocumentoRelacionado(tipo, "F001-123"))), null, true)))
+                    .as(tipo).extracting("codigo").isEqualTo("DOCUMENTO_RELACIONADO_INVALIDO");
+        assertThat(gateway.enviados).isZero();
+        assertThat(comprobantes.listar(tenantId, null, 1, 10)).isEmpty();
+        // Nada consumió número: la siguiente boleta es la 42.
+        assertThat(service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true)).numero()).isEqualTo(42L);
+    }
+
     private EmitirFacturaCommand comando(String serie) {
         return new EmitirFacturaCommand(serie, null, LocalDate.of(2026, 9, 13), null, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),

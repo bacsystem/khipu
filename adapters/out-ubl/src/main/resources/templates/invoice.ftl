@@ -18,6 +18,7 @@
   <cbc:ID>${c.serie()}-${c.numero()?c}</cbc:ID>
   <cbc:IssueDate>${fechaEmision}</cbc:IssueDate>
   <#if horaEmision??><cbc:IssueTime>${horaEmision}</cbc:IssueTime></#if>
+  <#-- #362 B8: también en la boleta; SUNAT beta la aceptó sin observaciones con vencimiento (B001-30 y B001-31) y Boleta2_0 no tiene regla que lo prohíba. -->
   <#if c.fechaVencimiento()??><cbc:DueDate>${c.fechaVencimiento().toString()}</cbc:DueDate></#if>
   <cbc:InvoiceTypeCode listID="${c.tipoOperacion()}" listAgencyName="PE:SUNAT" listName="Tipo de Documento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01">${c.tipo().codigo()}</cbc:InvoiceTypeCode>
   <cbc:Note languageLocaleID="1000">${montoEnLetras}</cbc:Note>
