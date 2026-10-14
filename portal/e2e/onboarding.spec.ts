@@ -74,16 +74,19 @@ test("onboarding: con la empresa ya creada, /onboarding lleva al portal en vez d
   const ruc = `2010006660${(sufijo % 10 === 3 ? 3 : 3)}`; // RUC válido de ejemplo
   await registrarYVerificar(page, { email: `retoma${sufijo}@ejemplo.pe`, nombre: "Retoma SAC", celular: "987654323" });
   // Crea la empresa por HTTP directo (el RUC de ejemplo puede estar tomado por otro worker: lo que importa es retomar).
+  // No fija la empresa activa: es lo que debe hacer `/onboarding`. Con la cookie ya puesta por la prueba, quitar ese POST del
+  // efecto no la haría fallar y el bucle `/empresa` ↔ `/onboarding` quedaría sin cobertura.
   const creada = await page.evaluate(async ([r]) => {
     const res = await fetch("/api/proxy/empresas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ruc: r, razon_social: "Retoma SAC", entorno: "BETA" }) });
-    const cuerpo = await res.json();
-    if (cuerpo?.datos?.id) await fetch("/api/session/empresa", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ empresaId: cuerpo.datos.id }) });
     return res.status;
   }, [ruc]);
   test.skip(creada !== 201, "otro worker ya tomó el RUC de ejemplo");
+  const empresaActiva = async () => (await page.context().cookies()).find((c) => c.name === "factura_empresa");
+  expect(await empresaActiva()).toBeUndefined();
 
   await page.reload();
   // Antes: volvía al paso 1 vacío y reenviar el mismo RUC daba «Ya existe una cuenta con ese correo».
   await expect(page).toHaveURL(/\/empresa\?seccion=certificado/);
-  await expect(page.getByLabel("RUC")).toHaveCount(0);
+  await expect(page.getByText("Sin certificado").first()).toBeVisible();
+  expect(await empresaActiva()).toBeDefined();
 });
