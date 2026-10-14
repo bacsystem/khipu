@@ -256,6 +256,30 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.pendientesDeCdr()).extracting(Comprobante::id).containsExactlyInAnyOrder(enviada.id(), aceptadaSinCdr.id());
     }
 
+    /**
+     * #357: getStatusCdr solo existe para 01/07/08 de serie F. La boleta y las notas B no entran, en ningún estado: un CDR que SUNAT no entrega por ahí se pediría cada
+     * hora para siempre, y su fault cortaba el barrido.
+     */
+    @Test void losPendientesDeCdrNoIncluyenLaBoletaNiLasNotasDeBoleta() {
+        UUID t = tenantDePrueba();
+        Receptor varios = new Receptor("-", "-", "CLIENTES VARIOS", null);
+        List<Item> items = List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO));
+        Comprobante factura = factura(t, 1); factura.firmar("H", "f.xml"); repo.guardar(factura); factura.marcarEnviado(); repo.guardar(factura);
+        Comprobante notaF = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.FACTURA, "F001", 1, "01", "Anulación"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null), items).crear(clock);
+        notaF.asignarNumero(1, "20100066603"); notaF.firmar("H", "nf.xml"); repo.guardar(notaF); notaF.marcarEnviado(); repo.guardar(notaF);
+        Comprobante boleta = Comprobante.boleta(t, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", varios, items).crear(clock);
+        boleta.asignarNumero(9, "20100066603"); boleta.firmar("H", "b.xml"); repo.guardar(boleta); boleta.marcarEnviado(); repo.guardar(boleta);
+        Comprobante boletaError = Comprobante.boleta(t, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", varios, items).crear(clock);
+        boletaError.asignarNumero(10, "20100066603"); boletaError.firmar("H", "b2.xml"); repo.guardar(boletaError); boletaError.marcarErrorEnvio("0109 - x"); repo.guardar(boletaError);
+        Comprobante notaB = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.BOLETA, "B001", 9, "07", "Devolución"), varios, items).crear(clock);
+        notaB.asignarNumero(1, "20100066603"); notaB.firmar("H", "nb.xml"); repo.guardar(notaB); notaB.marcarEnviado(); repo.guardar(notaB);
+        Comprobante nc10B = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.BOLETA, "B001", 9, "10", "Otros conceptos"), varios, items).crear(clock);
+        nc10B.asignarNumero(2, "20100066603"); nc10B.firmar("H", "nc10.xml"); repo.guardar(nc10B); nc10B.marcarEnviado(); repo.guardar(nc10B);
+
+        assertThat(repo.pendientesDeCdr()).extracting(Comprobante::id).containsExactlyInAnyOrder(factura.id(), notaF.id());
+    }
+
     /** Integridad del storage (#38): solo los firmados (con xml_key) del rango, de cualquier empresa. */
     @Test void listaLosFirmadosEmitidosEntreDosFechas() {
         UUID t = tenantDePrueba(), otro = tenantDePrueba();

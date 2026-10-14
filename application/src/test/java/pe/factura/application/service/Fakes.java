@@ -75,7 +75,14 @@ final class Fakes {
         final Map<UUID, List<EventoDocumento>> eventos = new HashMap<>();
         public List<EventoDocumento> eventosDe(UUID t, UUID id) { return eventos.getOrDefault(id, List.of()); }
         public List<Comprobante> firmadosEmitidosEntre(java.time.LocalDate desde, java.time.LocalDate hasta) { return datos.values().stream().filter(c -> c.xmlKey() != null && !c.fechaEmision().isBefore(desde) && !c.fechaEmision().isAfter(hasta)).toList(); }
-        public List<Comprobante> pendientesDeCdr() { return datos.values().stream().filter(c -> c.xmlKey() != null && c.cdrKey() == null && c.estado() != EstadoDocumento.FIRMADO && c.estado() != EstadoDocumento.FUERA_DE_PLAZO && c.estado() != EstadoDocumento.INVALIDO && c.estado() != EstadoDocumento.RECIBIDO).toList(); }
+        /**
+         * Por fecha de emisión y número, como la consulta real. No excluye lo de boleta a propósito: ese filtro es de {@code JdbcComprobanteRepository} (con su prueba) y el
+         * servicio tiene que defenderse solo si algún día le llega (#357).
+         */
+        public List<Comprobante> pendientesDeCdr() {
+            return datos.values().stream().filter(c -> c.xmlKey() != null && c.cdrKey() == null && c.estado() != EstadoDocumento.FIRMADO && c.estado() != EstadoDocumento.FUERA_DE_PLAZO && c.estado() != EstadoDocumento.INVALIDO && c.estado() != EstadoDocumento.RECIBIDO)
+                    .sorted(Comparator.comparing(Comprobante::fechaEmision).thenComparing(Comprobante::numero)).toList();
+        }
         public List<Comprobante> listar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f, int p, int pp) { return datos.values().stream().filter(c -> c.tenantId().equals(t)).toList(); }
         public long contar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f) { return listar(t, f, 1, Integer.MAX_VALUE).size(); }
     }
@@ -174,7 +181,14 @@ final class Fakes {
     static final class Consultas implements pe.factura.application.port.out.SunatConsultaGateway {
         Consulta respuesta = new Consulta("0001", "El comprobante existe y está aceptado.", "cdr".getBytes());
         RuntimeException falla; int llamadas; String ultimaOperacion; Object[] ultimosCriterios;
-        public Consulta getStatusCdr(Tenant t, String ruc, String tipo, String serie, long numero) { llamadas++; ultimaOperacion = "getStatusCdr"; ultimosCriterios = new Object[]{ruc, tipo, serie, numero}; if (falla != null) throw falla; return respuesta; }
+        /** Falla solo la consulta de ese número de comprobante (getStatusCdr): lo que {@code falla} hace con todas. */
+        final Map<Long, RuntimeException> fallaPorNumero = new HashMap<>();
+        public Consulta getStatusCdr(Tenant t, String ruc, String tipo, String serie, long numero) {
+            llamadas++; ultimaOperacion = "getStatusCdr"; ultimosCriterios = new Object[]{ruc, tipo, serie, numero};
+            if (fallaPorNumero.containsKey(numero)) throw fallaPorNumero.get(numero);
+            if (falla != null) throw falla;
+            return respuesta;
+        }
         public Consulta getStatus(Tenant t, String ruc, String tipo, String serie, long numero) { llamadas++; ultimaOperacion = "getStatus"; if (falla != null) throw falla; return respuesta; }
         public Consulta validar(Tenant t, String ruc, String tipo, String serie, long numero, String td, String nd, java.time.LocalDate f, java.math.BigDecimal m) { llamadas++; ultimaOperacion = "validar"; ultimosCriterios = new Object[]{ruc, tipo, serie, numero, td, nd, f, m}; if (falla != null) throw falla; return respuesta; }
     }
@@ -254,9 +268,25 @@ final class Fakes {
         return new Tenant(id, "20100066603", "EMPRESA SAC", Entorno.BETA, new CredencialesSol("MODDATOS", "moddatos"),
                 new CertificadoDigital(new byte[]{1}, "clave", LocalDate.of(2030, 1, 1)));
     }
-    static Comprobante facturaFirmada(UUID tenantId, Storage storage) {
+    static Comprobante facturaFirmada(UUID tenantId, Storage storage) { return facturaFirmada(tenantId, storage, 1); }
+    static Comprobante facturaFirmada(UUID tenantId, Storage storage, long numero) {
         Comprobante c = Comprobante.factura(tenantId, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
-        c.asignarNumero(1, "20100066603");
+        return firmado(c, numero, storage);
+    }
+    /** Una boleta B001 a consumidor final, numerada y firmada. */
+    static Comprobante boletaFirmada(UUID tenantId, Storage storage, long numero) {
+        Comprobante c = Comprobante.boleta(tenantId, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("-", "-", "CLIENTES VARIOS", null),
+                List.of(new Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("50.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
+        return firmado(c, numero, storage);
+    }
+    /** Una nota de crédito BC01 (devolución) sobre la boleta B001-1, numerada y firmada. */
+    static Comprobante notaDeBoletaFirmada(UUID tenantId, Storage storage, long numero) {
+        Comprobante c = Comprobante.nota(tenantId, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.BOLETA, "B001", 1, "07", "Devolución"),
+                new Receptor("-", "-", "CLIENTES VARIOS", null), List.of(new Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("50.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
+        return firmado(c, numero, storage);
+    }
+    private static Comprobante firmado(Comprobante c, long numero, Storage storage) {
+        c.asignarNumero(numero, "20100066603");
         String key = "k/" + c.nombreArchivo() + ".xml";
         storage.guardar(key, "<xml/>".getBytes());
         c.firmar("hash", key);

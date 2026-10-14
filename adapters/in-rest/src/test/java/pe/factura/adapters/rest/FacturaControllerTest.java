@@ -950,4 +950,12 @@ class FacturaControllerTest {
         mvc.perform(post("/v1/facturas/" + UUID.randomUUID() + "/cdr/recuperar").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("CDR_YA_DISPONIBLE"));
     }
+
+    /** #357: la boleta y sus notas no tienen getStatusCdr en SUNAT; el pedido es válido pero el comprobante no lo admite, así que es un 409 con el motivo. */
+    @Test void recuperarCdrDeUnaBoletaEsUnConflictoConSuMotivo() throws Exception {
+        when(cdrs.recuperar(eq(tenant), any())).thenThrow(new DomainException("CDR_NO_CONSULTABLE", "SUNAT no consulta boletas por getStatusCdr"));
+        mvc.perform(post("/v1/facturas/" + UUID.randomUUID() + "/cdr/recuperar").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("CDR_NO_CONSULTABLE"))
+                .andExpect(jsonPath("$.mensaje").value("SUNAT no consulta boletas por getStatusCdr"));
+    }
 }

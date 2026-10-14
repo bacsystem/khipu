@@ -215,7 +215,9 @@ public class FacturaController {
             `ERROR_ENVIO` (por ejemplo, la conexión se cortó después de que SUNAT lo aceptara) o que ya está resuelto pero perdió
             su CDR en el storage. Si SUNAT lo tiene, lo guarda y aplica el resultado (`ACEPTADO`/`RECHAZADO`) sin reenviar;
             si no, devuelve el comprobante sin cambios. Un barrido horario hace lo mismo para todas las empresas en producción.
-            Errores: `404 NO_ENCONTRADO`, `422 SIN_FIRMA`, `409 CDR_YA_DISPONIBLE`, `422 NO_DISPONIBLE_EN_BETA`, `422 CREDENCIALES_SOL_NO_CARGADAS`.""")
+            Solo facturas y sus notas (serie F): SUNAT no expone `getStatusCdr` para boletas ni notas de boleta (serie B), cuya
+            constancia es la del envío individual o la del resumen diario que las informa.
+            Errores: `404 NO_ENCONTRADO`, `422 SIN_FIRMA`, `409 CDR_YA_DISPONIBLE`, `409 CDR_NO_CONSULTABLE`, `422 NO_DISPONIBLE_EN_BETA`, `422 CREDENCIALES_SOL_NO_CARGADAS`.""")
     public ApiResponse<ComprobanteResponse> recuperarCdr(HttpServletRequest req, @PathVariable UUID id) {
         return ApiResponse.ok(ComprobanteResponse.de(cdrs.recuperar(TenantActual.id(req), id), BASE));
     }

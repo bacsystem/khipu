@@ -43,6 +43,9 @@ public class ResolverErroresService implements ResolverErroresUseCase {
     private final UnitOfWork uow;
     private final Clock clock;
 
+    /** Lo que la bitácora agrega al descartar lo que SUNAT no consulta (boleta y notas B): ahí no hubo la confirmación que sí tiene una factura (#357). */
+    private static final String SIN_CONFIRMAR = " (no se confirmó con SUNAT que no la recibió: no consulta boletas ni notas de boleta)";
+
     @Override public Reintento reintentar(ActorAdmin actor, UUID comprobanteId) {
         Ubicacion u = ubicar(comprobanteId);
         Comprobante c;
@@ -70,7 +73,7 @@ public class ResolverErroresService implements ResolverErroresUseCase {
             c.descartar(m);
             comprobantes.guardar(c);
             outbox.completarPorAgregado(comprobanteId, EnviarDocumentoService.ACCION_ENVIAR);
-            auditoria.registrar(registro(actor, AccionAdmin.DESCARTAR_COMPROBANTE, u, "comprobante=" + u.nombreArchivo() + " motivo=" + m));
+            auditoria.registrar(registro(actor, AccionAdmin.DESCARTAR_COMPROBANTE, u, "comprobante=" + u.nombreArchivo() + " motivo=" + m + (c.consultableEnGetStatusCdr() ? "" : SIN_CONFIRMAR)));
         });
         return new Descarte(comprobanteId, EstadoDocumento.DESCARTADO);
     }
@@ -79,12 +82,16 @@ public class ResolverErroresService implements ResolverErroresUseCase {
      * Un error de envío puede ser un corte **después** de que SUNAT recibió el comprobante: descartarlo así haría reemitir la venta y dejaría dos comprobantes válidos en
      * SUNAT. En producción, antes de descartar se le pregunta (getStatusCdr, {@link RecuperarCdrUseCase}): si lo tiene, se aplica su CDR y no se descarta; si no se le
      * puede preguntar, tampoco (no se sabe). En beta no hay consulta ni efecto fiscal, y sin credenciales SOL el envío nunca pudo llegar: ahí no se pregunta. Lo que ya no
-     * está en error de envío no se pregunta: el dominio lo rechaza igual.
+     * está en error de envío no se pregunta: el dominio lo rechaza igual. Tampoco la boleta ni sus notas (#357): SUNAT no les contesta getStatusCdr, así que no hay a
+     * quién preguntar. Se descartan sin confirmar y la bitácora lo deja dicho. Es un riesgo conocido: si el corte fue después de que SUNAT aceptó la boleta, el descarte la
+     * deja duplicada. No hay una forma de comprobarlo sin efectos: el reenvío del mismo XML sí le contesta, pero es un envío (registraría en SUNAT una boleta que quien
+     * descarta quizá quiere dar por perdida), y un resumen diario solo existe para lo que ya pasó el envío individual, que no está en error de envío sino en camino.
+     * La puerta que queda es la del diálogo del backoffice, que avisa antes de descartar.
      */
     private void confirmarQueSunatNoLoTiene(Ubicacion u, UUID comprobanteId) {
         Tenant t = tenants.buscar(u.tenantId()).orElse(null);
         if (t == null || t.entorno() != Entorno.PRODUCCION || t.sol() == null) return;
-        if (comprobantes.buscar(u.tenantId(), comprobanteId).map(c -> c.estado() != EstadoDocumento.ERROR_ENVIO).orElse(true)) return;
+        if (comprobantes.buscar(u.tenantId(), comprobanteId).map(c -> c.estado() != EstadoDocumento.ERROR_ENVIO || !c.consultableEnGetStatusCdr()).orElse(true)) return;
         Comprobante consultado;
         try {
             consultado = cdrs.recuperar(u.tenantId(), comprobanteId);

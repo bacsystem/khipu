@@ -125,6 +125,31 @@ describe("DescartarComprobante (#196)", () => {
     expect(apiRequest).not.toHaveBeenCalled();
   });
 
+  it("de una factura dice que antes se le pregunta a SUNAT si ya lo recibió", () => {
+    render(<DescartarComprobante comprobante={comprobante} alResultado={vi.fn()} />);
+    abrir();
+
+    const texto = screen.getByTestId("errores-descartar-dialogo").textContent ?? "";
+    expect(texto).toContain("antes se le pregunta a SUNAT si ya lo recibió");
+    expect(texto).not.toContain("no consulta boletas");
+  });
+
+  // #357: a la boleta y a sus notas SUNAT no les contesta getStatusCdr; el diálogo no puede prometer una pregunta que el backend no hace.
+  it.each([
+    ["una boleta", { tipo: "03", serie: "B001" }],
+    ["una nota de crédito de boleta", { tipo: "07", serie: "BC01" }],
+    ["una nota de débito de boleta", { tipo: "08", serie: "BD01" }],
+  ])("de %s avisa que no se le pregunta a SUNAT y que puede quedar duplicada, en vez de prometer la consulta", (_nombre, datos) => {
+    render(<DescartarComprobante comprobante={{ ...comprobante, ...datos }} alResultado={vi.fn()} />);
+    abrir();
+
+    const texto = screen.getByTestId("errores-descartar-dialogo").textContent ?? "";
+    expect(texto).not.toContain("antes se le pregunta a SUNAT");
+    expect(texto).toContain("SUNAT no consulta boletas ni notas de boleta por serie y número");
+    expect(texto).toContain("dos boletas por la misma venta");
+    expect(texto).toContain("reintenta el envío");
+  });
+
   it("pide un motivo, de hasta 200 caracteres", () => {
     render(<DescartarComprobante comprobante={comprobante} alResultado={vi.fn()} />);
     abrir();

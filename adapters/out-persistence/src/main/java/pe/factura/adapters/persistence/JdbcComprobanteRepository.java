@@ -156,8 +156,13 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 + " AND d.tipo <> '03' AND (c.nota_tipo_afectado IS DISTINCT FROM '03' OR (d.tipo = '07' AND c.nota_motivo = '10') OR (d.tipo = '08' AND c.nota_motivo = '03'))"
                 + " ORDER BY d.fecha_emision", this::mapear, Date.valueOf(fechaEmisionMaxima));
     }
+    /**
+     * Lo que SUNAT consulta por getStatusCdr: la factura y sus notas (#357). Fuera quedan la boleta y las notas B ({@code Comprobante.esDeBoleta}: tipo 03 o nota que
+     * modifica una boleta), cuya constancia no se pide por serie y número.
+     */
     @Override public List<Comprobante> pendientesDeCdr() {
-        return jdbc.query(SELECT + " WHERE d.xml_key IS NOT NULL AND d.cdr_key IS NULL AND d.estado IN ('ENVIADO', 'ERROR_ENVIO', 'ACEPTADO', 'ACEPTADO_CON_OBS', 'RECHAZADO') ORDER BY d.fecha_emision", this::mapear);
+        return jdbc.query(SELECT + " WHERE d.xml_key IS NOT NULL AND d.cdr_key IS NULL AND d.estado IN ('ENVIADO', 'ERROR_ENVIO', 'ACEPTADO', 'ACEPTADO_CON_OBS', 'RECHAZADO')"
+                + " AND d.tipo <> '03' AND c.nota_tipo_afectado IS DISTINCT FROM '03' ORDER BY d.fecha_emision", this::mapear);
     }
     @Override public List<Comprobante> firmadosEmitidosEntre(LocalDate desde, LocalDate hasta) {
         return jdbc.query(SELECT + " WHERE d.xml_key IS NOT NULL AND d.fecha_emision BETWEEN ? AND ? ORDER BY d.fecha_emision, d.created_at", this::mapear, Date.valueOf(desde), Date.valueOf(hasta));

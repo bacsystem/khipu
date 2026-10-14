@@ -88,6 +88,22 @@ test("la guía y la tabla de errores describen las reglas de la línea: precio, 
 });
 
 /**
+ * #357: recuperar el CDR por getStatusCdr es solo de la factura y sus notas (serie F): la tabla de errores dice el 409 de la boleta y de las notas B y adónde ir, y no
+ * afirma qué responde SUNAT si se le pregunta (no está verificado).
+ */
+test("la tabla de errores dice que la boleta y las notas B no se recuperan por getStatusCdr (#357)", async ({ page }) => {
+  await page.goto("/developers/errores");
+  const fila = page.getByRole("row", { name: /CDR_NO_CONSULTABLE/ });
+  await expect(fila).toBeVisible();
+  await expect(fila.getByText(/409/)).toBeVisible();
+  await expect(fila.getByText(/getStatusCdr cubre solo factura y notas de crédito y débito \(01, 07, 08\) de serie F/)).toBeVisible();
+  await expect(fila.getByText(/resumen diario que la informó/)).toBeVisible();
+  await expect(fila.getByText(/en e-beta no se puede comprobar porque no publica el servicio de consulta/)).toBeVisible();
+  await expect(fila.getByText(/GET \/v1\/bajas\/\{id\}/)).toBeVisible();
+  await expect(fila.getByText(/si se envió sola y quedó en ERROR_ENVIO, reintente el envío con POST \/v1\/facturas\/\{id\}\/enviar/)).toBeVisible();
+});
+
+/**
  * #302: el plazo de la baja (2957) se cuenta desde la emisión, también en la boleta (la regla de SUNAT desde 2027-01-01, más estricta que la de
  * 2026, que lo cuenta desde la CDR). La guía y la tabla de errores lo dicen así, con la hora de Lima que decide el día.
  */

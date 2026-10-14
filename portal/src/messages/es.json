@@ -672,10 +672,11 @@
         "boton": "Descartar",
         "titulo": "Descartar el comprobante",
         "descripcion": "Deja de intentar enviar {comprobante}.",
+        "efectoConsultaSunat": "En producción, antes se le pregunta a SUNAT si ya lo recibió: si lo tiene, se aplica su respuesta y no se descarta.",
+        "efectoSinConsultaSunat": "SUNAT no consulta boletas ni notas de boleta por serie y número: no se le puede preguntar si ya la recibió. Si el envío se cortó después de que la aceptó, descartarla deja dos boletas por la misma venta; en la duda, reintenta el envío.",
         "efectos": [
           "El comprobante queda descartado: no se vuelve a enviar, ni solo ni a mano. No se puede deshacer.",
           "El cliente tiene que emitir uno nuevo; el número de este queda consumido.",
-          "En producción, antes se le pregunta a SUNAT si ya lo recibió: si lo tiene, se aplica su respuesta y no se descarta.",
           "Se saca de la cola de envíos y de esta lista.",
           "Queda en la bitácora con tu motivo."
         ],
