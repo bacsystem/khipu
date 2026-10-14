@@ -114,9 +114,9 @@ public final class RelojDeLaAplicacion {
                 exigirNoProduccion(tenantId);
                 return emision.emitirFactura(tenantId, cmd, idempotencia);
             }
-            @Override public Comprobante emitirNota(UUID tenantId, EmitirNotaCommand cmd) {
+            @Override public Emision emitirNota(UUID tenantId, EmitirNotaCommand cmd, Idempotencia idempotencia) {
                 exigirNoProduccion(tenantId);
-                return emision.emitirNota(tenantId, cmd);
+                return emision.emitirNota(tenantId, cmd, idempotencia);
             }
             private void exigirNoProduccion(UUID tenantId) { RelojDeLaAplicacion.exigirNoProduccion(tenants, tenantId, "emitir"); }
         };

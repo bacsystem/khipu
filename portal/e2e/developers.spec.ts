@@ -133,3 +133,23 @@ test("la guía documenta la boleta y los errores distinguen el tipo de comproban
   await expect(page.getByText(/factura o nota de factura pasado el 3\.er día \(2108\)/)).toBeVisible();
   await expect(page.getByText(/puede reutilizar el número/)).toHaveCount(0);
 });
+
+/**
+ * #355: `POST /v1/notas` acepta `Idempotency-Key` igual que `POST /v1/facturas`. La guía trae el caso con un ejemplo que el backend acepta (la cabecera y
+ * el cuerpo de una nota) y la tabla de errores dice que las claves de facturas y de notas son independientes y que el reintento responde 200.
+ */
+test("la guía y la tabla de errores documentan la Idempotency-Key de las notas (#355)", async ({ page }) => {
+  await page.goto("/developers/guia");
+  const caso = page.locator("#idempotency-key");
+  await expect(caso.getByRole("heading", { name: /Reintento seguro con Idempotency-Key/ })).toBeVisible();
+  await expect(caso.getByText(/Idempotency-Key: 5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f/)).toBeVisible();
+  await expect(caso.getByText(/"documento_afectado": \{ "serie": "F001", "numero": 125 \}/)).toBeVisible();
+  await expect(caso.getByText(/misma clave con otro cuerpo: 422 IDEMPOTENCIA_INVALIDA/)).toBeVisible();
+  await expect(caso.getByText(/es propia de cada endpoint/)).toBeVisible();
+  await expect(page.locator("#notas").getByText(/Reintentos/)).toBeVisible();
+  await expect(page.locator("#buenas-practicas").getByText(/POST \/v1\/notas/)).toBeVisible();
+
+  await page.goto("/developers/errores");
+  await expect(page.getByText(/Las claves de facturas y de notas son independientes/)).toBeVisible();
+  await expect(page.getByText(/200 al repetir un pedido de emisión con la misma Idempotency-Key/)).toBeVisible();
+});

@@ -1,4 +1,4 @@
-/** Cabecera de idempotencia de `POST /v1/facturas` (#115). */
+/** Cabecera de idempotencia de la emisión: `POST /v1/facturas` (#115) y `POST /v1/notas` (#355). */
 export const CABECERA_IDEMPOTENCIA = "Idempotency-Key";
 
 /** Un intento de emisión: el contenido enviado y la clave que lo identifica. */

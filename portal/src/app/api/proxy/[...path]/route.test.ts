@@ -109,6 +109,31 @@ describe("proxy /api/proxy/[...path]: Idempotency-Key (#115)", () => {
     expect((fetchMock.mock.calls[1][1].headers as Headers).get("idempotency-key")).toBe("5f0c1d2e-clave");
   });
 
+  /** #355: la emisión de notas lleva la misma clave; el proxy no distingue por ruta, y este test es lo que impide que alguien lo limite a /facturas. */
+  it("reenvía la clave de idempotencia también en POST /v1/notas, y en el reintento tras renovar el token", async () => {
+    vi.mocked(refrescar).mockResolvedValue({ access: "a2", refresh: "r2", usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 401 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = requestWithSession("http://localhost/api/proxy/notas", {
+      method: "POST",
+      body: "{}",
+      access: "a1",
+      refresh: "r1",
+      headers: { "content-type": "application/json", "idempotency-key": "5f0c1d2e-nota" },
+    });
+
+    await POST(req, ctx(["notas"]));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const llamada of fetchMock.mock.calls) {
+      expect(String(llamada[0])).toMatch(/\/v1\/notas$/);
+      expect((llamada[1].headers as Headers).get("idempotency-key")).toBe("5f0c1d2e-nota");
+    }
+  });
+
   it("sin clave no inventa una", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);

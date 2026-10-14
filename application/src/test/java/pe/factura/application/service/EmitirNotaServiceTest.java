@@ -4,7 +4,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.in.EmitirNotaCommand;
+import pe.factura.application.port.in.Idempotencia;
 import pe.factura.application.port.out.FirmaResultado;
+import pe.factura.application.port.out.IdempotenciaRepository;
 import pe.factura.application.port.out.UnitOfWork;
 import pe.factura.application.port.out.UblGenerator;
 import pe.factura.application.port.out.XmlSigner;
@@ -14,8 +16,11 @@ import pe.factura.domain.documento.*;
 import pe.factura.domain.tenant.Serie;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -611,5 +616,196 @@ class EmitirNotaServiceTest {
         Comprobante f = facturaAceptada(FormaPago.contado());
         assertThatThrownBy(() -> service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC02", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "x", null, null, List.of(), null, false)))
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
+    }
+
+    // --- #355: Idempotency-Key en la nota ----------------------------------------------------------------------------------------
+
+    private static final Idempotencia CLAVE = new Idempotencia("c1a7e5b0-0000-4000-8000-000000000355", "huella-nota-1");
+
+    /** Servicio con las claves a la vista, sobre los mismos datos; con otro reloj es el mismo sistema, más tarde. */
+    private record ConClaves(EmitirComprobanteService service, Fakes.Idempotencias claves) {}
+
+    private ConClaves conClaves() { return conClaves(new Fakes.Idempotencias(), Fakes.CLOCK); }
+
+    private ConClaves conClaves(Fakes.Idempotencias claves, Clock reloj) {
+        Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
+        claves.uow = uow;
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, reloj);
+        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves, tope), claves);
+    }
+
+    @Test void conUnaClaveNuevaEmiteLaNotaYLaAnotaBajoLaClaveDeNotas() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+
+        var e = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThat(e.repetida()).isFalse();
+        assertThat(e.comprobante().tipo()).isEqualTo(TipoDocumento.NOTA_CREDITO);
+        assertThat(s.claves().filas.get("nota:" + tenantId + "|" + CLAVE.clave()))
+                .extracting(IdempotenciaRepository.Registro::huella, IdempotenciaRepository.Registro::recursoId)
+                .containsExactly("huella-nota-1", e.comprobante().id());
+        assertThat(s.claves().reservadoDentro).as("la reserva va en la transacción de la emisión: si esta se revierte, la clave queda libre").containsExactly(true);
+    }
+
+    /** El reintento tras un corte de red, en una nota de factura: la misma nota, sin otro número ni otro envío a SUNAT. */
+    @Test void elReintentoDeUnaNotaDeFacturaDevuelveLaMismaNotaSinEmitirOtra() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        Comprobante primera = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+        int enviosAntes = gateway.enviados;
+
+        var otraVez = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThat(otraVez.repetida()).isTrue();
+        assertThat(otraVez.comprobante().id()).isEqualTo(primera.id());
+        assertThat(otraVez.comprobante().numero()).isEqualTo(1L);
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).hasSize(1);
+        assertThat(gateway.enviados).as("no se reenvía a SUNAT").isEqualTo(enviosAntes);
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "10", laptops("1", "11.80"))).numero()).as("el número 2 de la serie sigue libre").isEqualTo(2L);
+    }
+
+    /** Lo mismo para una nota sobre una boleta: la clave no distingue entre las dos. */
+    @Test void elReintentoDeUnaNotaDeBoletaDevuelveLaMismaNotaSinEmitirOtra() {
+        Comprobante b = boletaAceptada();
+        ConClaves s = conClaves();
+        Comprobante primera = s.service().emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "01", null), CLAVE).comprobante();
+
+        var otraVez = s.service().emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "01", null), CLAVE);
+
+        assertThat(otraVez.repetida()).isTrue();
+        assertThat(otraVez.comprobante().id()).isEqualTo(primera.id());
+        assertThat(otraVez.comprobante().esDeBoleta()).isTrue();
+        assertThat(comprobantes.notasDe(tenantId, "B001", b.numero())).hasSize(1);
+    }
+
+    @Test void laMismaClaveConOtraNotaSeRechazaSinEmitir() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThatThrownBy(() -> s.service().emitirNota(tenantId, nc(f.numero(), "01", null), new Idempotencia(CLAVE.clave(), "otra-huella")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).hasSize(1);
+    }
+
+    /** Las claves de las facturas y las de las notas son espacios distintos: la misma cadena en las dos no se pisa (el pedido sería otro contenido). */
+    @Test void laMismaClaveEnFacturasYEnNotasNoSeCruza() {
+        ConClaves s = conClaves();
+        Comprobante f = s.service().emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), laptops("1", "118.00"), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true), CLAVE).comprobante();
+
+        var nota = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), new Idempotencia(CLAVE.clave(), "huella-de-la-nota"));
+
+        assertThat(nota.repetida()).isFalse();
+        assertThat(nota.comprobante().tipo()).isEqualTo(TipoDocumento.NOTA_CREDITO);
+        assertThat(s.claves().filas).containsOnlyKeys("factura:" + tenantId + "|" + CLAVE.clave(), "nota:" + tenantId + "|" + CLAVE.clave());
+    }
+
+    @Test void laClaveDeLaNotaEsPorEmpresa() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        UUID otra = UUID.randomUUID();
+        tenants.guardar(Fakes.tenantListo(otra));
+        series.crear(new Serie(otra, TipoDocumento.FACTURA, "F001", 0, true));
+        series.crear(new Serie(otra, TipoDocumento.NOTA_CREDITO, "FC01", 0, true));
+        Comprobante deOtra = s.service().emitirFactura(otra, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), laptops("1", "118.00"), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+        Comprobante mia = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+
+        var suya = s.service().emitirNota(otra, nc(deOtra.numero(), "01", null), CLAVE);
+
+        assertThat(suya.repetida()).isFalse();
+        assertThat(suya.comprobante().id()).isNotEqualTo(mia.id());
+        assertThat(suya.comprobante().tenantId()).isEqualTo(otra);
+    }
+
+    /** H1 de la revisión de #225, en la nota: el reintento se contesta antes de mirar el estado del documento, el plazo y el certificado. */
+    @Test void elReintentoSeContestaAunqueElDocumentoYaEstéAnuladoPorUnaBaja() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        Comprobante emitida = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+        anular(f);
+
+        var reintento = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThat(reintento.repetida()).isTrue();
+        assertThat(reintento.comprobante().id()).isEqualTo(emitida.id());
+    }
+
+    @Test void elReintentoSeContestaAunqueElDocumentoYaNoExista() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        Comprobante emitida = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+
+        var reintento = s.service().emitirNota(tenantId, nc(f.numero() + 77, "01", null), CLAVE);
+
+        assertThat(reintento.comprobante().id()).isEqualTo(emitida.id());
+    }
+
+    @Test void elReintentoConElCertificadoYaVencidoDevuelveLaNotaYaEmitida() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves hoy = conClaves();
+        Comprobante emitida = hoy.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+        ConClaves muchoDespues = conClaves(hoy.claves(), Clock.offset(Fakes.CLOCK, Duration.ofDays(2000)));
+
+        var reintento = muchoDespues.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThat(reintento.repetida()).isTrue();
+        assertThat(reintento.comprobante().id()).isEqualTo(emitida.id());
+    }
+
+    /** Contestar antes de validar no abre la puerta a otro contenido: con otra huella se sigue rechazando, aunque el documento ya no admita notas. */
+    @Test void conOtraHuellaSeRechazaAunqueElDocumentoYaNoAdmitaNotas() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+        anular(f);
+
+        assertThatThrownBy(() -> s.service().emitirNota(tenantId, nc(f.numero(), "01", null), new Idempotencia(CLAVE.clave(), "otra-huella")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
+    }
+
+    /** Una clave que no se usó antes no sirve de pase: si el documento ya no admite la nota se rechaza como siempre y no deja la clave reservada. */
+    @Test void unaClaveNuevaSobreUnDocumentoAnuladoSeRechazaYNoQuedaReservada() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        anular(f);
+        ConClaves s = conClaves();
+
+        assertThatThrownBy(() -> s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE)).hasMessageContaining("2120");
+        assertThat(s.claves().filas).isEmpty();
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
+    }
+
+    /**
+     * Dos pedidos simultáneos con la misma clave: los dos pasan la consulta previa (el otro aún no confirmó) y la reserva del segundo espera al
+     * primero. Esa reserva es la que tiene que ver la nota y devolverla, sin tomar la serie ni bloquear el documento: lo que impide la nota doble.
+     */
+    @Test void siLaReservaEncuentraLaNotaQueLaConsultaPreviaNoVioLaDevuelveSinEmitirOtra() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves primero = conClaves();
+        Comprobante emitida = primero.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+        int enviosAntes = gateway.enviados;
+        Fakes.Idempotencias ciegaAlBuscar = new Fakes.Idempotencias() {
+            @Override public Optional<IdempotenciaRepository.Registro> buscar(String alcance, String clave) { return Optional.empty(); }
+        };
+        ciegaAlBuscar.filas.putAll(primero.claves().filas);
+
+        var simultaneo = conClaves(ciegaAlBuscar, Fakes.CLOCK).service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThat(simultaneo.repetida()).isTrue();
+        assertThat(simultaneo.comprobante().id()).isEqualTo(emitida.id());
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).as("no se emitió otra nota").hasSize(1);
+        assertThat(gateway.enviados).as("tampoco se reenvía a SUNAT").isEqualTo(enviosAntes);
+    }
+
+    @Test void sinClaveCadaPedidoEsUnaNotaNueva() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        s.service().emitirNota(tenantId, nc(f.numero(), "07", laptops("1", "11.80")), null);
+        s.service().emitirNota(tenantId, nc(f.numero(), "07", laptops("1", "11.80")), null);
+
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).hasSize(2);
+        assertThat(s.claves().filas).isEmpty();
     }
 }

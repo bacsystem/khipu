@@ -27,7 +27,7 @@ const ESTADOS: Array<[string, string, string]> = [
 ];
 
 const HTTP: Array<[string, string]> = [
-  ["200 / 201 / 204", "Éxito. 201 al crear (factura, serie, API key); 204 sin cuerpo (certificado, credenciales, revocar)."],
+  ["200 / 201 / 204", "Éxito. 201 al crear (factura, nota, serie, API key); 200 al repetir un pedido de emisión con la misma Idempotency-Key (el comprobante ya emitido); 204 sin cuerpo (certificado, credenciales, revocar)."],
   ["400", "Petición mal formada: JSON inválido (JSON_INVALIDO) o parámetro con formato incorrecto (PARAMETRO_INVALIDO)."],
   ["401", "Sin credenciales válidas: falta o es inválida la X-Api-Key (NO_AUTORIZADO), o la sesión del portal expiró."],
   ["403", "Operación reservada al portal (REQUIERE_SESION: gestión de API keys) o empresa de otra cuenta (EMPRESA_AJENA)."],
@@ -43,7 +43,7 @@ const CODIGOS: Array<[string, string, string, string]> = [
   ["SERIE_INVALIDA", "422", "La serie no tiene el formato de su tipo: factura (01) F + 3 alfanuméricos; boleta (03) B + 3; nota (07/08) F o B + 3 (FC01, BC01). Al registrarla en POST /v1/series, el tipo no coincide con la letra. En una nota, la serie no empieza con la letra del documento que modifica (F sobre factura, B sobre boleta: 2399/2400).", "Use F### para facturas y sus notas, B### para boletas y sus notas, registradas con su tipo."],
   ["SERIE_NO_CONFIGURADA", "422", "La serie no está registrada en la empresa.", "Créela en POST /v1/series o en el portal."],
   ["DUPLICADO", "409", "Ya existe un comprobante con esa serie y correlativo (o la serie ya existe).", "Reintento seguro: no se emitió nada nuevo."],
-  ["IDEMPOTENCIA_INVALIDA", "422", "La Idempotency-Key ya se usó con otro contenido en las últimas 24 horas, o no tiene el formato (8 a 100 letras, dígitos, - o _).", "Use una clave nueva (un UUID) por factura; repita la misma clave solo para reintentar el mismo pedido."],
+  ["IDEMPOTENCIA_INVALIDA", "422", "La Idempotency-Key de POST /v1/facturas o de POST /v1/notas ya se usó con otro contenido en las últimas 24 horas, o no tiene el formato (8 a 100 letras, dígitos, - o _). Las claves de facturas y de notas son independientes.", "Use una clave nueva (un UUID) por factura o nota; repita la misma clave solo para reintentar el mismo pedido, que responde 200 con el mismo comprobante."],
   ["NUMERO_YA_ASIGNADO", "422", "Se intentó asignar número a un comprobante que ya lo tiene.", "No debería ocurrir vía API; contacte soporte."],
   ["FECHA_INVALIDA", "422", "fecha_emision futura, con el plazo de envío ya vencido (factura y sus notas: más de 3 días calendario atrás, 2108; boleta y sus notas: más de 7, 1079; NC 10 y ND 03 de boleta: más de 5, 1079), o fecha_vencimiento anterior a la emisión. Solo al emitir: una boleta ya emitida que se envía pasado el 7.º día no da este error, se informa fuera de plazo (4443).", "Use una fecha de emisión de hoy o de los días anteriores dentro del plazo (3 para factura y sus notas, 7 para boleta y sus notas, 5 para la NC 10 y la ND 03 de boleta) y un vencimiento igual o posterior."],
   ["MONEDA_INVALIDA", "422", "Moneda distinta de PEN/USD/EUR.", "Vea el catálogo 02."],

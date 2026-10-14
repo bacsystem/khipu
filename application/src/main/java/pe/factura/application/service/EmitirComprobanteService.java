@@ -47,14 +47,9 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
 
     @Override
     public Emision emitirFactura(UUID tenantId, EmitirFacturaCommand cmd, Idempotencia clave) {
-        ClaveEnAlcance enAlcance = clave == null ? null : new ClaveEnAlcance("factura:" + tenantId, clave);
-        // Un reintento se contesta antes de validar: la factura ya existe, y que después venciera el plazo de envío (2108) o el certificado
-        // no es motivo para negarla, que es justo el caso (un corte de red) para el que existe la clave. Es solo una lectura de lo
-        // confirmado; la exclusión entre pedidos simultáneos sigue en la reserva de `emitir`.
-        if (enAlcance != null) {
-            Optional<IdempotenciaRepository.Registro> previo = idempotencia.buscar(enAlcance.alcance(), clave.clave());
-            if (previo.isPresent()) return yaEmitida(tenantId, enAlcance, previo.get());
-        }
+        ClaveEnAlcance enAlcance = clave == null ? null : new ClaveEnAlcance("factura:" + tenantId, clave, "factura");
+        Emision repetida = yaEmitidaSiLaHay(tenantId, enAlcance);
+        if (repetida != null) return repetida;
         Tenant tenant = tenantListo(tenantId, cmd.enviarAutomatico());
         List<Anticipo> anticipos = cmd.anticipos() == null ? List.of() : cmd.anticipos();
         // La cuenta de detracciones puede omitirse en la factura si la empresa la tiene configurada.
@@ -83,11 +78,27 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a)), enAlcance);
     }
 
-    /** La clave de idempotencia con su alcance: la misma clave en otra empresa es otra clave. */
-    private record ClaveEnAlcance(String alcance, Idempotencia clave) {}
+    /**
+     * La clave de idempotencia con su alcance: la misma clave en otra empresa es otra clave, y la de una factura no es la de una nota ({@code documento}
+     * solo nombra al comprobante en el mensaje de rechazo).
+     */
+    private record ClaveEnAlcance(String alcance, Idempotencia clave, String documento) {}
+
+    /**
+     * Un reintento se contesta antes de validar: el comprobante ya existe, y que después venciera el plazo de envío (2108), el certificado o que el documento
+     * afectado ya no admita notas no es motivo para negarlo, que es justo el caso (un corte de red) para el que existe la clave. Es solo una lectura de lo
+     * confirmado; la exclusión entre pedidos simultáneos sigue en la reserva de `emitir`. {@code null} si no hay clave o no se usó antes.
+     */
+    private Emision yaEmitidaSiLaHay(UUID tenantId, ClaveEnAlcance clave) {
+        if (clave == null) return null;
+        return idempotencia.buscar(clave.alcance(), clave.clave().clave()).map(previo -> yaEmitida(tenantId, clave, previo)).orElse(null);
+    }
 
     @Override
-    public Comprobante emitirNota(UUID tenantId, EmitirNotaCommand cmd) {
+    public Emision emitirNota(UUID tenantId, EmitirNotaCommand cmd, Idempotencia clave) {
+        ClaveEnAlcance enAlcance = clave == null ? null : new ClaveEnAlcance("nota:" + tenantId, clave, "nota");
+        Emision repetida = yaEmitidaSiLaHay(tenantId, enAlcance);
+        if (repetida != null) return repetida;
         Tenant tenant = tenantListo(tenantId, cmd.enviarAutomatico());
         // #293: como al emitir (#20), la letra de la serie dice qué se modifica: B una boleta, F una factura. La nota se valida antes de buscar el documento,
         // así un motivo que no corresponde (2172, 3259, 4367) se rechaza por lo que es y no por el estado del documento.
@@ -148,7 +159,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             Comprobante bloqueado = exigirModificable(comprobantes.bloquearPorNumero(tenantId, tipoAfectado, afectado.serie(), afectado.numero()), tipoAfectado, afectado.serie(), afectado.numero());
             exigirSinBajaEnCurso(tenantId, bloqueado);
             if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereAlDocumento(c.totales(), nota.motivo(), bloqueado, acreditadoPorNotas(tenantId, bloqueado));
-        }, null).comprobante();
+        }, enAlcance);
     }
 
     /** «factura» o «boleta»: cómo nombran los mensajes al documento que modifica una nota. */
@@ -296,11 +307,11 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         return new Emision(enviar.enviar(tenantId, emision.comprobante().id()), false);
     }
 
-    /** La misma clave con otro contenido es un error del cliente: no se reutiliza una clave para otra factura. */
+    /** La misma clave con otro contenido es un error del cliente: no se reutiliza una clave para otra factura (u otra nota). */
     private Emision yaEmitida(UUID tenantId, ClaveEnAlcance clave, IdempotenciaRepository.Registro previo) {
         if (!previo.huella().equals(clave.clave().huella()))
             throw new DomainException("IDEMPOTENCIA_INVALIDA", "La clave de idempotencia " + clave.clave().clave()
-                    + " ya se usó con otro contenido: genere una clave nueva para otra factura");
+                    + " ya se usó con otro contenido: genere una clave nueva para otra " + clave.documento());
         Comprobante emitida = comprobantes.buscar(tenantId, previo.recursoId())
                 .orElseThrow(() -> new IllegalStateException("La clave " + clave.clave().clave() + " apunta a un comprobante que no existe"));
         return new Emision(emitida, true);
