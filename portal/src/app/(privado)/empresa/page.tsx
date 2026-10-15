@@ -15,10 +15,13 @@ import { redirect } from "next/navigation";
 import { CertificadoForm } from "@/components/empresa/certificado-form";
 import { CredencialesSolForm } from "@/components/empresa/credenciales-sol-form";
 import { DatosFiscalesForm } from "@/components/empresa/datos-fiscales-form";
+import { GuiaParaEmitir } from "@/components/empresa/guia-para-emitir";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { PersonalizacionPdfForm } from "@/components/empresa/personalizacion-pdf-form";
 import { SeccionesEmpresa } from "@/components/empresa/secciones-empresa";
 import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf } from "@/lib/api/empresas";
+import { listarSeries } from "@/lib/api/series";
+import { pasosParaEmitir } from "@/lib/empresa/guia-emision";
 import { seccionesPendientes, seccionInicial } from "@/lib/empresa/secciones";
 import { ACCION_SECUNDARIA, ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { Alerta } from "@/components/feedback/alerta";
@@ -89,10 +92,12 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
   if (!access) redirect("/login");
   if (!empresaId) redirect("/onboarding");
 
-  const [empresa, empresas, personalizacion, { seccion }] = await Promise.all([
+  const [empresa, empresas, personalizacion, series, { seccion }] = await Promise.all([
     obtenerEmpresaActual(access, empresaId),
     listarEmpresas(access),
     obtenerPersonalizacionPdf(access, empresaId),
+    // Solo alimenta la guía: si no carga, la página sigue y la guía no afirma nada de las series.
+    listarSeries(access, empresaId).catch(() => null),
     searchParams,
   ]);
   const pendientes = seccionesPendientes(empresa, hoyLima());
@@ -198,6 +203,8 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           <span className="text-[12px] font-normal text-muted-foreground">{empresas.length === 1 ? "registrada" : "registradas"}</span>
         </Metrica>
       </section>
+
+      <GuiaParaEmitir pasos={pasosParaEmitir(empresa, series, hoyLima())} />
 
       {/* #276: una pestaña por tema. La franja de arriba queda siempre a la vista: es el resumen de lo que falta. */}
       <SeccionesEmpresa
