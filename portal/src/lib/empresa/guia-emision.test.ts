@@ -84,6 +84,8 @@ describe("pasosParaEmitir", () => {
     const detalle = (series: Serie[]) => pasosParaEmitir(lista, series, HOY).find((p) => p.id === "series")!.detalle;
     expect(detalle([{ ...factura, activa: false }])).toMatch(/inactiva/);
     expect(detalle([{ ...factura, activa: false }])).not.toMatch(/\(F001\)/);
+    // Con una activa, la inactiva de al lado no cambia el mensaje: el paso está listo.
+    expect(detalle([factura, { ...factura, serie: "F002", activa: false }])).toBe("Hay una serie activa de factura o de boleta.");
     // Sin series de factura ni de boleta (o solo notas) sí se pide crear una.
     expect(detalle([])).toMatch(/Crea al menos una serie/);
     expect(detalle([{ ...factura, tipo: "07", serie: "FC01" }])).toMatch(/Crea al menos una serie/);
