@@ -38,6 +38,7 @@ import pe.factura.adapters.rest.ApiKeyFilter;
 import pe.factura.adapters.rest.JwtFilter;
 import pe.factura.adapters.scheduler.OutboxWorker;
 import pe.factura.adapters.scheduler.AplicarCambiosDePlanWorker;
+import pe.factura.adapters.scheduler.AvisarBoletasSinInformarWorker;
 import pe.factura.adapters.scheduler.LimpiezaIdempotenciaWorker;
 import pe.factura.adapters.scheduler.LimpiezaIntentosDeAccesoWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
@@ -505,6 +506,13 @@ public class AppConfig {
         return RelojDeLaAplicacion.proteger(new ControlarPlazoEnvioService(c, u, clock), () -> empresasEnProduccion(jdbc), RELOJ_LOG::warn, p.desplazamientoDelReloj());
     }
     @Bean PlazoEnvioWorker plazoEnvioWorker(ControlarPlazoEnvioUseCase plazos) { return new PlazoEnvioWorker(plazos); }
+    // #356: el aviso al cliente de las boletas sin informar lo manda el sistema solo; comparte el registro de avisos con el que manda un administrador.
+    @Bean AvisarBoletasSinInformarUseCase avisarBoletasSinInformar(AvisosRepository avisos, CorreoSender correo, UnitOfWork u, Clock clock, PlantillasDeCorreo plantillas) {
+        return new AvisarBoletasSinInformarService(avisos, correo, u, clock, plantillas);
+    }
+    @Bean AvisarBoletasSinInformarWorker avisarBoletasSinInformarWorker(AvisarBoletasSinInformarUseCase avisos, @Value("${app.portal-url}") String portalUrl) {
+        return new AvisarBoletasSinInformarWorker(avisos, portalUrl);
+    }
 
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
     // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.

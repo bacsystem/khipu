@@ -446,4 +446,93 @@ class JdbcAvisosRepositoryTest extends PersistenciaTestBase {
     @Test void sinEmpresasNoHayNadaQueBuscar() {
         assertThat(repo.ultimosAvisos(List.of(), MotivoDeAviso.CERTIFICADO_POR_VENCER)).isEmpty();
     }
+
+    // --- empresas con boletas sin informar (#356) --------------------------------------------------------------------------------------
+
+    /** Una boleta de esa empresa emitida hace {@code dias} días, en ese estado. */
+    void boleta(UUID tenant, String estado, int dias) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo) VALUES (?, ?, '03', 'B001', ?, ?, ?, 'x')",
+                id, tenant, NUMERO.getAndIncrement(), Date.valueOf(HOY.minusDays(dias)), estado);
+        jdbc.update("INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, total_gravado, total_exonerado, total_inafecto, total_igv, total) "
+                + "VALUES (?, '0101', 'PEN', '-', '-', 'CLIENTES VARIOS', 0, 0, 0, 0, 10)", id);
+    }
+
+    @Test void traeLasEmpresasConBoletasSinInformarDesdeElQuintoDiaConSuCuenta() {
+        UUID a = empresa("BODEGA SAN JUAN SAC", null);
+        UUID cuentaA = cuenta(a, "Ana", "ana@negocio.pe");
+        UUID b = empresa("MINIMARKET LUNA SAC", null);
+        cuenta(b, "Luis", "luis@negocio.pe");
+        UUID alDia = empresa("AL DIA SAC", null);
+        boleta(a, "FIRMADO", 5);
+        boleta(a, "ERROR_ENVIO", 8);
+        boleta(a, "FIRMADO", 2);        // todavía no
+        boleta(b, "FIRMADO", 6);
+        boleta(alDia, "FIRMADO", 4);    // todavía no
+        boleta(alDia, "ACEPTADO", 20);  // ya informada
+
+        var filas = repo.boletasSinInformar(HOY);
+
+        assertThat(filas).extracting(f -> f.empresaId()).as("de la que tiene la más antigua a la que menos").containsExactly(a, b);
+        var fa = filas.get(0);
+        assertThat(fa.ruc()).isNotBlank();
+        assertThat(fa.razonSocial()).isEqualTo("BODEGA SAN JUAN SAC");
+        assertThat(fa.cuenta().cuentaId()).isEqualTo(cuentaA);
+        assertThat(fa.cuenta().email()).isEqualTo("ana@negocio.pe");
+        assertThat(fa.pendientes()).isEqualTo(2);
+        assertThat(fa.urgentes()).as("la de hace 8 días ya pasó el 7.º").isEqualTo(1);
+        assertThat(fa.masAntiguaEmitidaEl()).isEqualTo(HOY.minusDays(8));
+        assertThat(filas.get(1).urgentes()).isZero();
+    }
+
+    @Test void laBoletaDelSeptimoDiaCuentaComoUrgente() {
+        UUID a = empresa("BODEGA SAN JUAN SAC", null);
+        cuenta(a, "Ana", "ana@negocio.pe");
+        boleta(a, "FIRMADO", 6);
+        assertThat(repo.boletasSinInformar(HOY).get(0).urgentes()).as("6.º día: todavía no").isZero();
+
+        boleta(a, "FIRMADO", 7);
+
+        assertThat(repo.boletasSinInformar(HOY).get(0).urgentes()).as("7.º día: el último del resumen").isEqualTo(1);
+    }
+
+    @Test void unaEmpresaDeIntegracionSinCuentaVieneConElDestinoVacio() {
+        UUID integracion = empresa("INTEGRACION SAC", null);
+        boleta(integracion, "FIRMADO", 6);
+
+        var f = repo.boletasSinInformar(HOY).get(0);
+
+        assertThat(f.cuenta().cuentaId()).isNull();
+        assertThat(f.cuenta().email()).isNull();
+    }
+
+    @Test void unaCuentaDadaDeBajaNoSeAvisaPorSusBoletas() {
+        UUID deBaja = empresa("DE BAJA SAC", null);
+        cuenta(deBaja, "Se fue", "se.fue@negocio.pe");
+        jdbc.update("UPDATE cuenta SET baja_en = now() WHERE id = (SELECT cuenta_id FROM tenant WHERE id = ?)", deBaja);
+        boleta(deBaja, "FIRMADO", 6);
+
+        assertThat(repo.boletasSinInformar(HOY)).isEmpty();
+    }
+
+    @Test void unaFacturaSinEnviarNoEsUnaBoleta() {
+        UUID a = empresa("BODEGA SAN JUAN SAC", null);
+        cuenta(a, "Ana", "ana@negocio.pe");
+        documentoConError(a, "FIRMADO", null, AHORA);
+        jdbc.update("UPDATE documento SET fecha_emision = ? WHERE tenant_id = ?", Date.valueOf(HOY.minusDays(30)), a);
+
+        assertThat(repo.boletasSinInformar(HOY)).isEmpty();
+    }
+
+    /** Los motivos nuevos caben en la columna y pasan el CHECK de V53: reservar y leer el aviso de boletas funciona como el de un certificado. */
+    @Test void reservaYLeeLosAvisosDeBoletas() {
+        UUID a = empresa("BODEGA SAN JUAN SAC", null);
+        UUID cuentaA = cuenta(a, "Ana", "ana@negocio.pe");
+
+        for (MotivoDeAviso motivo : new MotivoDeAviso[]{MotivoDeAviso.BOLETAS_POR_INFORMAR, MotivoDeAviso.BOLETAS_POR_VENCER_PLAZO}) {
+            AvisoRegistrado nuevo = aviso(a, cuentaA, motivo, AHORA);
+            assertThat(uow.ejecutar(() -> repo.reservar(nuevo, AHORA.minus(MotivoDeAviso.ENFRIAMIENTO)))).as(motivo.name()).isEmpty();
+            assertThat(repo.ultimosAvisos(List.of(a), motivo).get(a).motivo()).isEqualTo(motivo);
+        }
+    }
 }

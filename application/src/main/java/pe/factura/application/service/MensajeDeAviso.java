@@ -24,7 +24,24 @@ final class MensajeDeAviso {
             case CERTIFICADO_POR_VENCER -> PlantillaDeCorreo.AVISO_CERTIFICADO_POR_VENCER;
             case CERTIFICADO_VENCIDO -> PlantillaDeCorreo.AVISO_CERTIFICADO_VENCIDO;
             case CREDENCIALES_SOL_INVALIDAS -> PlantillaDeCorreo.AVISO_CREDENCIALES_SOL;
+            case BOLETAS_POR_INFORMAR -> PlantillaDeCorreo.AVISO_BOLETAS_POR_INFORMAR;
+            case BOLETAS_POR_VENCER_PLAZO -> PlantillaDeCorreo.AVISO_BOLETAS_PLAZO;
         };
+    }
+
+    /**
+     * El aviso de boletas sin informar (#356). {@code cantidad} son las que siguen sin informarse; {@code venceEl} el último día del resumen diario para la más antigua, y
+     * {@code dias} lo que falta para él (0 es «hoy»; negativo, que ya pasó).
+     */
+    static Texto deBoletas(PlantillasDeCorreo plantillas, MotivoDeAviso motivo, String razonSocial, String ruc, long cantidad, LocalDate venceEl, int dias, String urlPortal) {
+        Map<String, String> valores = new HashMap<>();
+        valores.put("razon_social", razonSocial);
+        valores.put("ruc", ruc);
+        valores.put("boletas", cantidad == 1 ? "1 boleta" : cantidad + " boletas");
+        valores.put("fecha", FECHA.format(venceEl));
+        valores.put("cuando", cuando(dias));
+        valores.put("enlace", urlPortal);
+        return plantillas.de(plantilla(motivo), valores);
     }
 
     /**
