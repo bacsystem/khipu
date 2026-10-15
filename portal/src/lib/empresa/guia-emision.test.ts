@@ -80,6 +80,15 @@ describe("pasosParaEmitir", () => {
     expect(serieListo([{ ...factura, tipo: "07", serie: "FC01" }])).toBe(false);
   });
 
+  it("si la serie existe pero está inactiva, no aconseja crear la misma: repetirla da 409", () => {
+    const detalle = (series: Serie[]) => pasosParaEmitir(lista, series, HOY).find((p) => p.id === "series")!.detalle;
+    expect(detalle([{ ...factura, activa: false }])).toMatch(/inactiva/);
+    expect(detalle([{ ...factura, activa: false }])).not.toMatch(/\(F001\)/);
+    // Sin series de factura ni de boleta (o solo notas) sí se pide crear una.
+    expect(detalle([])).toMatch(/Crea al menos una serie/);
+    expect(detalle([{ ...factura, tipo: "07", serie: "FC01" }])).toMatch(/Crea al menos una serie/);
+  });
+
   it("si las series no se pudieron leer, el paso se omite en vez de afirmar que faltan", () => {
     const pasos = pasosParaEmitir(lista, null, HOY);
     expect(pasos.map((p) => p.id)).toEqual(["certificado", "sol", "domicilio"]);

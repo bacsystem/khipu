@@ -79,10 +79,16 @@ export function pasosParaEmitir(empresa: EstadoEmpresa, series: Serie[] | null, 
 
   if (series !== null) {
     const listo = hayCamino(series);
+    // Con una serie de factura o boleta ya creada pero inactiva, repetir su número da 409: se aconseja otro.
+    const hayInactivas = series.some((s) => s.tipo === "01" || s.tipo === "03");
     pasos.push({
       id: "series",
       titulo: "Series de comprobantes",
-      detalle: listo ? "Hay una serie activa de factura o de boleta." : "Crea al menos una serie de factura (F001) o de boleta (B001).",
+      detalle: listo
+        ? "Hay una serie activa de factura o de boleta."
+        : hayInactivas
+          ? "Tus series de factura y boleta están inactivas: crea una con otro número (por ejemplo F002 o B002)."
+          : "Crea al menos una serie de factura (F001) o de boleta (B001).",
       listo,
       recomendado: false,
       enlace: "/series",
