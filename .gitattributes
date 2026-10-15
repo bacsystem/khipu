@@ -6,3 +6,5 @@ gradlew text eol=lf
 # El wrapper de Windows necesita CRLF y así está guardado en el repositorio. `-text` es lo que lo conserva: con `text eol=crlf` git lo
 # trata como texto, lo normaliza a LF al comparar y lo muestra como modificado en cualquier checkout nuevo, aunque nadie lo haya tocado.
 gradlew.bat -text
+# Los hooks de husky son scripts de sh sin extension: con CRLF (core.autocrlf=true en Windows) cada linea termina en retorno de carro y sh falla con "command not found".
+.husky/* text eol=lf

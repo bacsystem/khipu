@@ -36,7 +36,10 @@ npm run e2e                                         # Playwright; auto-starts it
 npx playwright test e2e/login.spec.ts               # single spec
 npm run lint
 npm run generate:api                                # regenerate src/lib/api/openapi.d.ts from a running backend's /openapi.json — NOT currently wired into the app (see below)
+npm run typecheck                                   # tsc --noEmit
 ```
+
+**Git hooks (husky).** `npm install`/`npm ci` in `portal/` runs `prepare` (`cd .. && husky || true`, so an install without devDependencies, e.g. `npm ci --omit=dev`, does not fail), which points `core.hooksPath` at `.husky/_` in the repo root. That setting lives in the shared `.git/config`, so it applies to every worktree that has run an install. `.husky/pre-commit` only acts when the commit includes `portal/**/*.{ts,tsx,js,mjs}`: it runs eslint on those files and `tsc --noEmit` on the project (~10 s). Vitest and e2e are not part of it. `HUSKY=0 git commit …` skips the hooks. Without `.git` (the portal Docker build) `prepare` prints a notice and exits 0.
 
 ### Branching model: GitFlow (simplified)
 
