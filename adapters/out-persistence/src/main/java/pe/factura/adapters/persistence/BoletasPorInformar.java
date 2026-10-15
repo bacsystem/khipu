@@ -28,6 +28,9 @@ final class BoletasPorInformar {
     /** La última fecha de emisión que ya pide atención hoy: la de hace 5 días. */
     static Date corte(LocalDate hoy) { return Date.valueOf(hoy.minusDays(PlazoEnvio.DIAS_ENVIO_INDIVIDUAL_BOLETA)); }
 
+    /** La fecha de emisión más antigua por la que todavía se le escribe al cliente: la de hace 30 días ({@link PlazoEnvio#DIAS_AVISO_BOLETAS}). */
+    static Date desdeParaAvisar(LocalDate hoy) { return Date.valueOf(hoy.minusDays(PlazoEnvio.DIAS_AVISO_BOLETAS)); }
+
     /** La última fecha de emisión a la que hoy le toca el aviso urgente (el último día del resumen diario, o pasado): la de hace 7 días. */
     static Date corteUrgente(LocalDate hoy) { return Date.valueOf(hoy.minusDays(PlazoEnvio.DIAS_RESUMEN_DIARIO)); }
 }

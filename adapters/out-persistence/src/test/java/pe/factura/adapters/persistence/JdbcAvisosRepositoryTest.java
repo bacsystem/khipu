@@ -515,6 +515,33 @@ class JdbcAvisosRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.boletasSinInformar(HOY)).isEmpty();
     }
 
+    /**
+     * Una boleta que el cliente abandonó (una prueba, una venta que no siguió) seguiría generando un correo cada semana para siempre, y nadie puede descartarla. El correo mira solo
+     * lo reciente; el monitor y la cola siguen mostrando todo lo que no se informó.
+     */
+    @Test void elCorreoNoMiraBoletasAbandonadasDeHaceMasDeTreintaDias() {
+        UUID a = empresa("BODEGA SAN JUAN SAC", null);
+        cuenta(a, "Ana", "ana@negocio.pe");
+        boleta(a, "FIRMADO", 30);   // el último día que todavía se avisa
+        boleta(a, "FIRMADO", 31);   // abandonada
+        boleta(a, "ERROR_ENVIO", 90);
+
+        var filas = repo.boletasSinInformar(HOY);
+
+        assertThat(filas).singleElement().satisfies(f -> {
+            assertThat(f.pendientes()).isEqualTo(1);
+            assertThat(f.masAntiguaEmitidaEl()).isEqualTo(HOY.minusDays(30));
+        });
+    }
+
+    @Test void unaEmpresaSoloConBoletasAbandonadasNoApareceEnElCorreo() {
+        UUID a = empresa("BODEGA SAN JUAN SAC", null);
+        cuenta(a, "Ana", "ana@negocio.pe");
+        boleta(a, "FIRMADO", 60);
+
+        assertThat(repo.boletasSinInformar(HOY)).isEmpty();
+    }
+
     @Test void unaFacturaSinEnviarNoEsUnaBoleta() {
         UUID a = empresa("BODEGA SAN JUAN SAC", null);
         cuenta(a, "Ana", "ana@negocio.pe");

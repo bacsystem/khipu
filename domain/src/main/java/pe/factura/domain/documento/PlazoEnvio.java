@@ -32,6 +32,12 @@ public record PlazoEnvio(String documento, int diasEnvioIndividual, int dias, bo
     public static final int DIAS_ENVIO_INDIVIDUAL_BOLETA = 5;
     /** Hasta cuándo una boleta, o una nota que la modifica, se puede informar en un resumen diario. */
     public static final int DIAS_RESUMEN_DIARIO = 7;
+    /**
+     * Hasta cuántos días después de emitida se le sigue escribiendo al cliente por una boleta sin informar (#356). Pasado el 7.º día todavía se puede informar (fuera de plazo), y la cola y el
+     * monitor del backoffice la siguen mostrando, pero un correo cada semana por una boleta que el cliente abandonó (una prueba, una venta que no siguió) sería spam sin fin y sin forma de
+     * descartarla.
+     */
+    public static final int DIAS_AVISO_BOLETAS = 30;
 
     private static final PlazoEnvio FACTURA = new PlazoEnvio("factura", DIAS_ENVIO_INDIVIDUAL, DIAS_ENVIO_INDIVIDUAL, false);
     private static final PlazoEnvio NOTA_DE_FACTURA = new PlazoEnvio("nota", DIAS_ENVIO_INDIVIDUAL, DIAS_ENVIO_INDIVIDUAL, false);
