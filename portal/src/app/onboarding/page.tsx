@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { RevisaTuCorreo } from "@/components/auth/revisa-tu-correo";
-import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { OnboardingEmpresaForm } from "@/components/onboarding/onboarding-empresa-form";
 import { me } from "@/lib/api/auth";
 import { messages } from "@/lib/messages";
 import { getServerSession } from "@/lib/session-server";
@@ -22,7 +22,7 @@ export default async function OnboardingPage() {
         </p>
       </div>
       {/* Sin verificar el correo (#22) el backend rechaza crear la empresa: se explica antes de que llene el formulario. */}
-      {usuario.correo_verificado ? <OnboardingWizard /> : <RevisaTuCorreo email={usuario.email} />}
+      {usuario.correo_verificado ? <OnboardingEmpresaForm /> : <RevisaTuCorreo email={usuario.email} />}
     </div>
   );
 }

@@ -1,31 +1,22 @@
 import { expect, test } from "@playwright/test";
 import { registrarYVerificar } from "./registro-sesion";
 
-test("registro completa el onboarding de 3 pasos y llega a comprobantes", async ({ page }) => {
+test("el onboarding solo crea la empresa y deja al cliente en el portal para cargar el certificado (#371)", async ({ page }) => {
   await registrarYVerificar(page, { email: `nueva-${Date.now()}@example.com` });
 
-  // Paso 1: empresa
+  // El asistente ya no pide certificado, SOL ni serie: eso se configura dentro del portal. Se mira con el formulario ya
+  // montado: durante «Cargando tu configuración…» tampoco hay ninguno de esos textos y la comprobación pasaría sola.
+  await expect(page.getByLabel("RUC")).toBeVisible();
+  await expect(page.getByText("Certificado y SOL")).toHaveCount(0);
+  await expect(page.getByText("Primera serie")).toHaveCount(0);
+  await expect(page.getByLabel("Usuario SOL secundario")).toHaveCount(0);
   await page.getByLabel("RUC").fill("20999999990");
   await page.getByLabel("Razón social").fill("Mi Empresa de Prueba SAC");
   await page.getByRole("button", { name: "Continuar" }).click();
 
-  // Paso 2: certificado y SOL
-  await expect(page.getByText("Certificado y SOL")).toBeVisible();
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "certificado.p12",
-    mimeType: "application/x-pkcs12",
-    buffer: Buffer.from("contenido-de-prueba"),
-  });
-  await page.getByLabel("Clave del certificado").fill("clave123");
-  await page.getByLabel("Usuario SOL secundario").fill("USOL001");
-  await page.getByLabel("Clave SOL").fill("ClaveSol123");
-  await page.getByRole("button", { name: "Continuar" }).click();
-
-  // Paso 3: primera serie
-  await expect(page.getByLabel("Serie")).toHaveValue("F001");
-  await page.getByRole("button", { name: "Terminar" }).click();
-
-  await expect(page).toHaveURL(/\/comprobantes/);
+  // Aterriza en Fiscal y certificado, con el certificado todavía sin cargar.
+  await expect(page).toHaveURL(/\/empresa\?seccion=certificado/);
+  await expect(page.getByText("Sin certificado").first()).toBeVisible();
 });
 
 test("registro: el celular no acepta letras, se corta en 12 y avisa al salir del campo", async ({ page }) => {
@@ -44,7 +35,7 @@ test("registro: el celular no acepta letras, se corta en 12 y avisa al salir del
   await expect(celular).toHaveAttribute("aria-describedby", "telefono-error");
 });
 
-test("onboarding: el RUC se valida con el módulo 11 en el cliente y la serie sigue el patrón de SUNAT", async ({ page }) => {
+test("onboarding: el RUC se valida con el módulo 11 en el cliente y la razón social no admite tabuladores", async ({ page }) => {
   await registrarYVerificar(page, { email: `contrato${Date.now()}@ejemplo.pe`, nombre: "Contrato SAC" });
 
   const ruc = page.getByLabel("RUC");
@@ -78,21 +69,24 @@ test("onboarding: si se corta la conexión al crear la empresa, avisa en vez de 
   await expect(page.getByRole("alert").filter({ hasText: "Se cortó la conexión" })).toBeVisible();
 });
 
-test("onboarding: al recargar retoma el paso que falta en vez de pedir el RUC otra vez", async ({ page }) => {
+test("onboarding: con la empresa ya creada, /onboarding lleva al portal en vez de pedir el RUC otra vez", async ({ page }) => {
   const sufijo = Date.now();
   const ruc = `2010006660${(sufijo % 10 === 3 ? 3 : 3)}`; // RUC válido de ejemplo
   await registrarYVerificar(page, { email: `retoma${sufijo}@ejemplo.pe`, nombre: "Retoma SAC", celular: "987654323" });
   // Crea la empresa por HTTP directo (el RUC de ejemplo puede estar tomado por otro worker: lo que importa es retomar).
+  // No fija la empresa activa: es lo que debe hacer `/onboarding`. Con la cookie ya puesta por la prueba, quitar ese POST del
+  // efecto no la haría fallar y el bucle `/empresa` ↔ `/onboarding` quedaría sin cobertura.
   const creada = await page.evaluate(async ([r]) => {
     const res = await fetch("/api/proxy/empresas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ruc: r, razon_social: "Retoma SAC", entorno: "BETA" }) });
-    const cuerpo = await res.json();
-    if (cuerpo?.datos?.id) await fetch("/api/session/empresa", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ empresaId: cuerpo.datos.id }) });
     return res.status;
   }, [ruc]);
   test.skip(creada !== 201, "otro worker ya tomó el RUC de ejemplo");
+  const empresaActiva = async () => (await page.context().cookies()).find((c) => c.name === "factura_empresa");
+  expect(await empresaActiva()).toBeUndefined();
 
   await page.reload();
   // Antes: volvía al paso 1 vacío y reenviar el mismo RUC daba «Ya existe una cuenta con ese correo».
-  await expect(page.getByText("Certificado y SOL")).toBeVisible();
-  await expect(page.getByLabel("RUC")).toHaveCount(0);
+  await expect(page).toHaveURL(/\/empresa\?seccion=certificado/);
+  await expect(page.getByText("Sin certificado").first()).toBeVisible();
+  expect(await empresaActiva()).toBeDefined();
 });
