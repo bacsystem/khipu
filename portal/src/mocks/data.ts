@@ -1,4 +1,4 @@
-import { hoyLima, inicioDelProximoCiclo } from "@/lib/formato";
+import { hoyLima, inicioDelProximoCiclo, sumarDias } from "@/lib/formato";
 
 function base64url(obj: unknown): string {
   return btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -1186,6 +1186,29 @@ export function resetDb() {
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/b-fuera-de-plazo/xml", pdf: "/v1/facturas/b-fuera-de-plazo/pdf" },
     },
+    // #356: boletas que el cliente dejó FIRMADAS sin enviar (`enviar_automatico: false`), con la fecha relativa a hoy porque el aviso depende del día: a los 4 días todavía no hay aviso,
+    // a los 5 es el último del envío individual, a los 6 ya solo va en el resumen diario.
+    ...[4, 5, 6].map((dias, i) => ({
+      id: `b-sin-enviar-${dias}`,
+      tipo: "03",
+      serie: "B777",
+      numero: 70 + i,
+      fecha_emision: sumarDias(hoyLima(), -dias),
+      fecha_limite_envio: sumarDias(hoyLima(), 7 - dias),
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "1", num_doc: "44781209", razon_social: "MIGUEL ANGEL VALENCIA RAMOS", direccion: null },
+      items: [{ codigo: null, descripcion: "Zapatillas urbanas", unidad: "NIU", cantidad: 1, precio_unitario: 59, tipo_afectacion_igv: "10", valor_venta: 50, igv: 9, precio_venta: 59 }],
+      estado_documento: "FIRMADO" as const,
+      hash: `b-sin-enviar-${dias}==`,
+      nombre_archivo: `20123456786-03-B777-000000${70 + i}`,
+      intentos: 0,
+      ultimo_error: null,
+      cdr: null,
+      totales: { gravado: 50, exonerado: 0, inafecto: 0, igv: 9, total: 59 },
+      forma_pago: { tipo: "contado" as const, monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: `/v1/facturas/b-sin-enviar-${dias}/xml`, pdf: `/v1/facturas/b-sin-enviar-${dias}/pdf` },
+    })),
   ]);
 }
 

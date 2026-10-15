@@ -9,12 +9,14 @@ import { esperarHidratacion } from "./hidratacion";
 //   Cliente 04     (4)  solo lectura: envío 201 y 202 (este con un fallo propio, sin código), formato 203, fuera de plazo 204
 //   Cliente 07     (7)  solo lectura: 12 errores de envío, para paginar
 //   Integrador     (101) solo lectura: envío 401, sin cuenta
+//   Bodega San Juan (8) solo lectura: boleta 601 FIRMADA sin enviar, ya en el 5.º día (#356)
 // Que el backend junte, clasifique, reintente y descarte de verdad lo prueban `ColaDeErroresE2ETest` y los tests de cada capa; acá se prueba la pantalla y su BFF.
 const empresa = (n: number) => `00000000-0000-4000-9000-${String(n).padStart(12, "0")}`;
 const EMPRESA_1 = empresa(1);
 const EMPRESA_2 = empresa(2);
 const EMPRESA_4 = empresa(4);
 const EMPRESA_7 = empresa(7);
+const EMPRESA_8 = empresa(8);
 
 test.beforeEach(async ({ page }) => {
   await entrarComoAdmin(page);
@@ -71,6 +73,34 @@ test("un error de formato y un fuera de plazo son terminales y no ofrecen accion
   await expect(fila(page, 203, "20100000400").getByTestId("errores-fault")).toHaveText("1033 - El comprobante fue registrado previamente con otros datos");
   await expect(fila(page, 201, "20100000400").getByTestId("errores-reintentar")).toBeVisible();
   await expect(fila(page, 201, "20100000400").getByTestId("errores-descartar")).toBeVisible();
+});
+
+/**
+ * #356: una boleta que el cliente dejó FIRMADA sin enviar entra en la cola desde el 5.º día. No falló nada (sin fault ni reintento), así que no ofrece reintentar ni descartar:
+ * enviarla es decisión del cliente, y el texto dice que hay que avisarle.
+ */
+test("una boleta firmada sin enviar está en la cola, dice que enviarla es decisión del cliente y no ofrece acciones", async ({ page }) => {
+  await abrir(page, `/admin/errores?empresa_id=${EMPRESA_8}`);
+
+  const f = page.locator('[data-testid="errores-fila"][data-comprobante="20100000800-03-B001-601"]');
+  await expect(f).toContainText("BODEGA SAN JUAN SAC");
+  await expect(f).toContainText("Boleta sin enviar");
+  await expect(f).toContainText("Firmado");
+  await expect(f.getByTestId("errores-fault")).toHaveText("Sin detalle");
+  await expect(f).toContainText("Enviarla es decisión del cliente: avísale");
+  await expect(f).not.toContainText("Terminal: no se reintenta");
+  await expect(f.getByTestId("errores-reintentar")).toHaveCount(0);
+  await expect(f.getByTestId("errores-descartar")).toHaveCount(0);
+});
+
+test("se puede filtrar solo por boletas sin enviar", async ({ page }) => {
+  await abrir(page, "/admin/errores");
+
+  await page.getByRole("navigation", { name: "Tipo de error" }).getByRole("link", { name: "Boleta sin enviar" }).click();
+
+  await expect(page).toHaveURL(/clase=BOLETA_SIN_ENVIAR/);
+  await esperarFilas(page, ["20100000800-03-B001-601"]);
+  await expect(page.getByText("Boleta que el cliente dejó sin enviar y ya lleva 5 días o más.")).toBeVisible();
 });
 
 // --- los filtros ----------------------------------------------------------------------------------------------------------------------------

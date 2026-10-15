@@ -448,7 +448,11 @@ export type ResumenDeFacturas = {
   emitidos: number;
   /** Aceptados por SUNAT, con o sin observaciones: los que ya tienen su CDR. */
   aceptados_con_cdr: number;
-  atencion_requerida: { total: number; rechazados: number; errores_de_envio: number; fuera_de_plazo: number };
+  /**
+   * Lo que pide que el emisor haga algo. `boletas_sin_enviar` (#356): boletas, o notas que van en el resumen diario, que quedaron FIRMADAS porque se emitieron sin enviarlas y
+   * ya están en el 5.º día o más.
+   */
+  atencion_requerida: { total: number; rechazados: number; errores_de_envio: number; fuera_de_plazo: number; boletas_sin_enviar: number };
   facturado: Array<{ moneda: string; total: number }>;
 };
 

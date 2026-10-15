@@ -7,7 +7,7 @@ afterEach(() => vi.unstubAllGlobals());
 const RESUMEN = {
   emitidos: 12,
   aceptados_con_cdr: 9,
-  atencion_requerida: { total: 3, rechazados: 1, errores_de_envio: 1, fuera_de_plazo: 1 },
+  atencion_requerida: { total: 3, rechazados: 1, errores_de_envio: 1, fuera_de_plazo: 1, boletas_sin_enviar: 0 },
   facturado: [{ moneda: "PEN", total: 1234.5 }],
 };
 

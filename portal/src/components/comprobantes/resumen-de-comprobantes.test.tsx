@@ -9,7 +9,7 @@ const MES: PeriodoDelResumen = { desde: "2026-10-01", hasta: "2026-10-04", esElM
 const resumen = (extra: Partial<ResumenDeFacturas> = {}): ResumenDeFacturas => ({
   emitidos: 40,
   aceptados_con_cdr: 30,
-  atencion_requerida: { total: 0, rechazados: 0, errores_de_envio: 0, fuera_de_plazo: 0 },
+  atencion_requerida: { total: 0, rechazados: 0, errores_de_envio: 0, fuera_de_plazo: 0, boletas_sin_enviar: 0 },
   facturado: [{ moneda: "PEN", total: 12345.6 }],
   ...extra,
 });
@@ -70,14 +70,24 @@ describe("ResumenDeComprobantes (#15)", () => {
   });
 
   it("la atención requerida dice cuántos y de qué clases, y solo las que hay", () => {
-    mostrar(resumen({ atencion_requerida: { total: 6, rechazados: 3, errores_de_envio: 2, fuera_de_plazo: 1 } }));
+    mostrar(resumen({ atencion_requerida: { total: 10, rechazados: 3, errores_de_envio: 2, fuera_de_plazo: 1, boletas_sin_enviar: 4 } }));
 
-    expect(screen.getByTestId("metrica-atencion").textContent).toBe("6");
-    expect(screen.getByTestId("metrica-atencion-detalle").textContent).toBe("3 rechazados · 2 con error de envío · 1 fuera de plazo");
+    expect(screen.getByTestId("metrica-atencion").textContent).toBe("10");
+    expect(screen.getByTestId("metrica-atencion-detalle").textContent).toBe("3 rechazados · 2 con error de envío · 1 fuera de plazo · 4 boletas sin enviar");
+  });
+
+  /** #356: una boleta que quedó FIRMADA sin enviar desde el 5.º día es atención requerida, y se dice con sus palabras, en singular y plural. */
+  it("las boletas sin enviar se dicen aparte, en singular y plural", () => {
+    mostrar(resumen({ atencion_requerida: { total: 1, rechazados: 0, errores_de_envio: 0, fuera_de_plazo: 0, boletas_sin_enviar: 1 } }));
+    expect(screen.getByTestId("metrica-atencion-detalle").textContent).toBe("1 boleta sin enviar");
+    expect(screen.getByTestId("metrica-atencion").className).toContain("text-destructive");
+    cleanup();
+    mostrar(resumen({ atencion_requerida: { total: 2, rechazados: 0, errores_de_envio: 0, fuera_de_plazo: 0, boletas_sin_enviar: 2 } }));
+    expect(screen.getByTestId("metrica-atencion-detalle").textContent).toBe("2 boletas sin enviar");
   });
 
   it("un rechazado se dice en singular y una clase en cero no aparece", () => {
-    mostrar(resumen({ atencion_requerida: { total: 1, rechazados: 1, errores_de_envio: 0, fuera_de_plazo: 0 } }));
+    mostrar(resumen({ atencion_requerida: { total: 1, rechazados: 1, errores_de_envio: 0, fuera_de_plazo: 0, boletas_sin_enviar: 0 } }));
 
     expect(screen.getByTestId("metrica-atencion-detalle").textContent).toBe("1 rechazado");
   });
@@ -91,7 +101,7 @@ describe("ResumenDeComprobantes (#15)", () => {
   });
 
   it("con atención requerida el número se pinta de alerta", () => {
-    mostrar(resumen({ atencion_requerida: { total: 2, rechazados: 0, errores_de_envio: 2, fuera_de_plazo: 0 } }));
+    mostrar(resumen({ atencion_requerida: { total: 2, rechazados: 0, errores_de_envio: 2, fuera_de_plazo: 0, boletas_sin_enviar: 0 } }));
 
     expect(screen.getByTestId("metrica-atencion").className).toContain("text-destructive");
   });

@@ -3,7 +3,7 @@ import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto
 import { esUuid } from "@/lib/uuid";
 import { messages } from "@/lib/messages";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
-import { fechaMinimaDeEmision, PLAZO_ENVIO } from "@/lib/comprobantes/plazo";
+import { avisoDePlazo, fechaMinimaDeEmision, PLAZO_ENVIO } from "@/lib/comprobantes/plazo";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { rechazoPorLineaMock, rechazoPorNrusMock, rechazoPorTopeDeLineasMock, rechazoPorValorDeVentaMock, type LineaMock } from "./reglas-linea";
 import { CODIGOS_UNIDAD, UNIDADES_MAS_USADAS, db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
@@ -114,7 +114,7 @@ type FilaDeErrorMock = {
   numero: number;
   fecha_emision: string;
   estado: string;
-  clase: "ERROR_DE_ENVIO" | "ERROR_DE_FORMATO" | "FUERA_DE_PLAZO";
+  clase: "ERROR_DE_ENVIO" | "ERROR_DE_FORMATO" | "FUERA_DE_PLAZO" | "BOLETA_SIN_ENVIAR";
   intentos: number;
   fault?: { codigo?: string; mensaje?: string };
   proximo_intento?: string;
@@ -140,9 +140,9 @@ function fila(n: number, empresa: number, ruc: string, razon: string, cuenta: { 
     serie: "F001",
     numero: n,
     fecha_emision: fecha,
-    estado: envio ? "ERROR_ENVIO" : clase === "ERROR_DE_FORMATO" ? "RECHAZADO" : "FUERA_DE_PLAZO",
+    estado: envio ? "ERROR_ENVIO" : clase === "ERROR_DE_FORMATO" ? "RECHAZADO" : clase === "BOLETA_SIN_ENVIAR" ? "FIRMADO" : "FUERA_DE_PLAZO",
     clase,
-    intentos: envio ? 2 : 1,
+    intentos: envio ? 2 : clase === "BOLETA_SIN_ENVIAR" ? 0 : 1,
     fault: envio ? { codigo: "0109", mensaje: "El sistema no puede responder su solicitud" } : undefined,
     ...(envio ? { proximo_intento: "2026-10-04T18:30:00Z" } : {}),
     actualizado_en: "2026-10-04T15:00:00Z",
@@ -156,6 +156,7 @@ const FERRETERIA = { ruc: "20100055121", razon: "FERRETERIA LUNA SAC", cuenta: {
 const CLIENTE_4 = { ruc: "20100000400", razon: "CLIENTE 04 SAC", cuenta: { id: idCuentaMock(4), nombre: "Cliente 04" } };
 const CLIENTE_7 = { ruc: "20100000700", razon: "CLIENTE 07 SAC", cuenta: { id: idCuentaMock(7), nombre: "Cliente 07" } };
 const INTEGRADOR = { ruc: "20100066611", razon: "INTEGRADOR SAC", cuenta: null };
+const BODEGA = { ruc: "20100000800", razon: "BODEGA SAN JUAN SAC", cuenta: { id: idCuentaMock(8), nombre: "Bodega San Juan" } };
 
 function erroresIniciales(): FilaDeErrorMock[] {
   const d = (e: { ruc: string; razon: string; cuenta: { id: string; nombre: string } | null }) => [e.ruc, e.razon, e.cuenta] as const;
@@ -179,6 +180,8 @@ function erroresIniciales(): FilaDeErrorMock[] {
     fila(401, 101, ...d(INTEGRADOR), "ERROR_DE_ENVIO", "2026-10-02", { intentos: 1 }),
     fila(501, 2, ...d(FERRETERIA), "ERROR_DE_FORMATO", "2026-10-01", { fault: { codigo: "1001", mensaje: "Serie inválida" } }),
     fila(502, 1, ...d(PANADERIA), "FUERA_DE_PLAZO", "2026-10-01", { fault: { codigo: "2108", mensaje: "Presentación fuera de fecha: el plazo venció el 2026-10-01" } }),
+    // #356: una boleta que el cliente dejó FIRMADA sin enviar, ya en el 5.º día: no falló nada (sin fault ni reintento) y no hay nada que reintentar.
+    fila(601, 8, ...d(BODEGA), "BOLETA_SIN_ENVIAR", "2026-10-03", { tipo: "03", serie: "B001", nombre_archivo: "20100000800-03-B001-601" }),
   ];
 }
 
@@ -1419,6 +1422,8 @@ export const handlers = [
       outbox: { pendientes: 2 + lecturasDelMonitorMock, vencidos: 0, mas_viejo_desde: new Date(ahora - 2 * UNA_HORA).toISOString(), alerta: false },
       // #362 B14: sin trámites pendientes pasado el umbral (6 h por defecto); como la alerta del outbox, se fuerza en las pruebas interceptando el BFF.
       resumenes_sin_respuesta: { cantidad: 0, umbral_horas: 6, alerta: false },
+      // #356: sin boletas sin informar; se fuerza en las pruebas interceptando el BFF, como las otras alertas.
+      boletas_sin_informar: { cantidad: 0, por_vencer_el_plazo: 0, alerta: false },
       sunat: [
         { servicio: "ENVIO_PRODUCCION", disponible: true, milisegundos: 140 },
         { servicio: "ENVIO_BETA", disponible: true, milisegundos: 90 },
@@ -1436,7 +1441,7 @@ export const handlers = [
     if (!claimsAdmin(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     const url = new URL(request.url);
     const clase = url.searchParams.get("clase");
-    if (clase !== null && !["ERROR_DE_ENVIO", "ERROR_DE_FORMATO", "FUERA_DE_PLAZO"].includes(clase)) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'clase' no tiene un formato válido");
+    if (clase !== null && !["ERROR_DE_ENVIO", "ERROR_DE_FORMATO", "FUERA_DE_PLAZO", "BOLETA_SIN_ENVIAR"].includes(clase)) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'clase' no tiene un formato válido");
     const empresa = url.searchParams.get("empresa_id");
     if (empresa !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(empresa)) return fail(400, "PARAMETRO_INVALIDO", "El parámetro 'empresa_id' no tiene un formato válido");
     const q = sinTildes((url.searchParams.get("q") ?? "").trim());
@@ -2548,12 +2553,15 @@ export const handlers = [
     const rechazados = cuenta(["RECHAZADO"]);
     const erroresDeEnvio = cuenta(["ERROR_ENVIO"]);
     const fueraDePlazo = cuenta(["FUERA_DE_PLAZO"]);
+    // #356: una boleta (o nota B que va en el resumen) FIRMADA sin enviar desde el 5.º día; el envío que falla ya se cuenta arriba.
+    const hoy = hoyLima();
+    const boletasSinEnviar = del.filter((f) => f.estado_documento === "FIRMADO" && avisoDePlazo(f, hoy) !== null).length;
     return ok({
       ...(desde ? { desde } : {}),
       ...(hasta ? { hasta } : {}),
       emitidos: del.filter((f) => !["RECIBIDO", "INVALIDO"].includes(f.estado_documento)).length,
       aceptados_con_cdr: cuenta(["ACEPTADO", "ACEPTADO_CON_OBS"]),
-      atencion_requerida: { total: rechazados + erroresDeEnvio + fueraDePlazo, rechazados, errores_de_envio: erroresDeEnvio, fuera_de_plazo: fueraDePlazo },
+      atencion_requerida: { total: rechazados + erroresDeEnvio + fueraDePlazo + boletasSinEnviar, rechazados, errores_de_envio: erroresDeEnvio, fuera_de_plazo: fueraDePlazo, boletas_sin_enviar: boletasSinEnviar },
       facturado: [...porMoneda.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([moneda, total]) => ({ moneda, total })),
     });
   }),

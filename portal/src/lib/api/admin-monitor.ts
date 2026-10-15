@@ -28,6 +28,12 @@ export type ColaDeEnvios = { pendientes: number; vencidos: number; mas_viejo_des
  */
 export type ResumenesSinRespuesta = { cantidad: number; mas_viejo_desde?: string; mas_viejo_hace_segundos?: number; umbral_horas: number; alerta: boolean };
 
+/**
+ * #356: boletas (y notas que van en el resumen diario) que siguen sin informarse a SUNAT y ya están en el 5.º día o más, de todas las empresas. `por_vencer_el_plazo`: las que están en
+ * el 7.º día, el último del resumen diario, o ya lo pasaron. `alerta`: hay al menos una. La API omite la fecha de la más antigua cuando no hay ninguna.
+ */
+export type BoletasSinInformar = { cantidad: number; por_vencer_el_plazo: number; mas_antigua_emitida_el?: string; alerta: boolean };
+
 /** Si un servicio de SUNAT contesta. La API omite `milisegundos` si no contestó y `detalle` si está disponible. */
 export type EstadoDeServicio = { servicio: ServicioDeSunat; disponible: boolean; milisegundos?: number; detalle?: string };
 
@@ -39,6 +45,7 @@ export type MonitorDeEmision = {
   hoy: Franja;
   outbox: ColaDeEnvios;
   resumenes_sin_respuesta: ResumenesSinRespuesta;
+  boletas_sin_informar: BoletasSinInformar;
   sunat: EstadoDeServicio[];
 };
 

@@ -179,6 +179,36 @@ test("con resúmenes o bajas con ticket sin respuesta pasado el umbral muestra s
   await expect(page.getByTestId("monitor-alerta-resumenes")).toHaveCount(0);
 });
 
+/** #356: una lectura real del BFF con las boletas sin informar cambiadas. */
+async function conBoletas(page: Page, boletas: Record<string, unknown>) {
+  await page.route(BFF, async (route) => {
+    const respuesta = await route.fetch();
+    const json = await respuesta.json();
+    json.datos.boletas_sin_informar = { ...json.datos.boletas_sin_informar, ...boletas };
+    await route.fulfill({ response: respuesta, json });
+  });
+}
+
+test("con boletas sin informar desde el 5.º día muestra su alerta, con un enlace a la cola, aparte de las otras", async ({ page }) => {
+  await abrir(page);
+  await expect(page.getByTestId("monitor-alerta-boletas")).toHaveCount(0);
+  await conBoletas(page, { cantidad: 3, por_vencer_el_plazo: 1, mas_antigua_emitida_el: "2026-10-08", alerta: true });
+
+  await page.clock.fastForward(30_000);
+
+  const alerta = page.getByTestId("monitor-alerta-boletas");
+  await expect(alerta).toContainText("Hay boletas sin informar a SUNAT");
+  await expect(alerta).toContainText("3 boletas llevan 5 días o más sin informarse; la más antigua se emitió el 8 Oct 2026.");
+  await expect(alerta).toContainText("1 está en el 7.º día o ya lo pasó.");
+  await expect(alerta.getByRole("link", { name: "Ver en la cola de errores" })).toHaveAttribute("href", "/admin/errores");
+  await expect(page.getByTestId("monitor-alerta")).toHaveCount(0);
+  await expect(page.getByTestId("monitor-alerta-resumenes")).toHaveCount(0);
+
+  await page.unroute(BFF);
+  await page.clock.fastForward(30_000);
+  await expect(page.getByTestId("monitor-alerta-boletas")).toHaveCount(0);
+});
+
 test("la alerta se va cuando la cola se normaliza", async ({ page }) => {
   await abrir(page);
   await conCola(page, { vencidos: 1, vencido_hace_segundos: 400, alerta: true });

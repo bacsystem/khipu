@@ -52,9 +52,36 @@ const formato = (n: number) =>
 const plazo = (n: number) =>
   error(n, { estado: "FUERA_DE_PLAZO", clase: "FUERA_DE_PLAZO", fault: { codigo: "2108", mensaje: "Presentación fuera de fecha" }, proximo_intento: undefined, accionable: false });
 
+/** #356: una boleta que el cliente dejó FIRMADA sin enviar y ya lleva 5 días o más: no falló nada (sin fault, sin intentos, sin reintento). */
+const boletaSinEnviar = (n: number) =>
+  error(n, { tipo: "03", serie: "B001", nombre_archivo: `20100047226-03-B001-${n}`, estado: "FIRMADO", clase: "BOLETA_SIN_ENVIAR", intentos: 0, fault: undefined, proximo_intento: undefined, accionable: false });
+
 const filas = () => screen.getAllByTestId("errores-fila");
 
 describe("ColaDeErroresTabla (#196)", () => {
+  // --- la boleta sin enviar (#356) ----------------------------------------------------------------------------------------------------
+
+  it("una boleta sin enviar dice su clase, que no falló nada y que enviarla es decisión del cliente, sin acciones", () => {
+    render(<ColaDeErroresTabla errores={[boletaSinEnviar(9)]} total={1} params={PARAMS} />);
+
+    const fila = within(filas()[0]);
+    expect(fila.getByText("20100047226-03-B001-9")).toBeTruthy();
+    expect(fila.getByText("Boleta sin enviar")).toBeTruthy();
+    expect(fila.getByText("Firmado")).toBeTruthy();
+    expect(fila.getByTestId("errores-fault").textContent).toBe("Sin detalle");
+    expect(fila.getByText("Enviarla es decisión del cliente: avísale")).toBeTruthy();
+    expect(fila.queryByTestId("errores-reintentar")).toBeNull();
+    expect(fila.queryByTestId("errores-descartar")).toBeNull();
+    expect(fila.queryByText("Sin reintento programado")).toBeNull();
+  });
+
+  it("una boleta sin enviar no dice «terminal»: el cliente todavía puede enviarla", () => {
+    render(<ColaDeErroresTabla errores={[boletaSinEnviar(9), plazo(10)]} total={2} params={PARAMS} />);
+
+    expect(within(filas()[0]).queryByText("Terminal: no se reintenta")).toBeNull();
+    expect(within(filas()[1]).getByText("Terminal: no se reintenta")).toBeTruthy();
+  });
+
   // --- las filas ----------------------------------------------------------------------------------------------------------------------
 
   it("cada fila dice el cliente, el comprobante, el problema, el fault, los intentos y el próximo intento", () => {

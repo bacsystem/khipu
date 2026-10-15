@@ -4,10 +4,11 @@ import { backendFetch, backendFetchConHeaders } from "./client";
 import { totalDesdeHeaders } from "./facturas";
 
 /**
- * Los tres tipos de problema de la cola global de errores (#196). `ERROR_DE_FORMATO` es un rechazo por fault de SUNAT 1000–1999: terminal, no se reintenta. `FUERA_DE_PLAZO`
- * también es terminal. Solo `ERROR_DE_ENVIO` se puede reintentar o descartar.
+ * Los tipos de problema de la cola global de errores (#196). `ERROR_DE_FORMATO` es un rechazo por fault de SUNAT 1000–1999: terminal, no se reintenta. `FUERA_DE_PLAZO`
+ * también es terminal. `BOLETA_SIN_ENVIAR` (#356) es una boleta que el cliente dejó FIRMADA sin enviar y ya está en el 5.º día o más: no falló nada, y enviarla es decisión del
+ * cliente, así que tampoco se reintenta desde acá. Solo `ERROR_DE_ENVIO` se puede reintentar o descartar.
  */
-export const CLASES_DE_ERROR = ["ERROR_DE_ENVIO", "ERROR_DE_FORMATO", "FUERA_DE_PLAZO"] as const;
+export const CLASES_DE_ERROR = ["ERROR_DE_ENVIO", "ERROR_DE_FORMATO", "FUERA_DE_PLAZO", "BOLETA_SIN_ENVIAR"] as const;
 export type ClaseDeError = (typeof CLASES_DE_ERROR)[number];
 
 /** El fault de SUNAT. La API omite el código en un fallo propio (`INFRA - …`) o un texto sin código. */
