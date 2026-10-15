@@ -1,0 +1,14 @@
+# Pre-commit (#373): si el commit toca archivos del portal, eslint sobre ellos y tsc sobre el proyecto.
+# Solo lo rápido: Vitest y e2e quedan para la PR. HUSKY=0 desactiva los hooks (p. ej. en un rebase largo).
+# Los archivos se revisan tal como están en el árbol de trabajo, no solo la parte que está en el índice.
+archivos=$(git diff --cached --name-only --diff-filter=ACMR -- 'portal/*.ts' 'portal/*.tsx' 'portal/*.js' 'portal/*.mjs')
+[ -z "$archivos" ] && exit 0
+
+if [ ! -d portal/node_modules ]; then
+  echo "husky: portal/node_modules no existe, no se revisó el portal. Corre 'npm --prefix portal ci'." >&2
+  exit 0
+fi
+
+# Rutas relativas a portal/ (donde corre eslint) y separadas por NUL: los directorios del App Router llevan (), [] y ...
+printf '%s\n' "$archivos" | sed 's#^portal/##' | tr '\n' '\0' | xargs -0 npm --prefix portal run lint -- --no-warn-ignored || exit 1
+npm --prefix portal run typecheck || exit 1
