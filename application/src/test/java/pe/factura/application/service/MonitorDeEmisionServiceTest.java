@@ -233,6 +233,16 @@ class MonitorDeEmisionServiceTest {
         assertThat(b.alerta()).isTrue();
     }
 
+    /** Una sola boleta alcanza: nadie más la envía y quedan tres días. El umbral no es «varias». */
+    @Test void unaSolaBoletaSinInformarYaDaAlerta() {
+        repo.boletas = new MonitorDeEmisionRepository.BoletasPendientes(1, 0, java.time.LocalDate.of(2026, 10, 10));
+
+        var b = service.monitorear().boletas();
+
+        assertThat(b.cantidad()).isEqualTo(1);
+        assertThat(b.alerta()).isTrue();
+    }
+
     /** La fecha de hoy es la del reloj del servicio (en develop se puede desplazar): de ella depende qué boleta ya pide atención. */
     @Test void elRepositorioRecibeLaFechaDeHoyDelReloj() {
         service.monitorear();
