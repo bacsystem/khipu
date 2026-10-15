@@ -23,8 +23,8 @@ const sobre = (datos: unknown, status = 200, headers: Record<string, string> = {
   new Response(JSON.stringify({ estado: status < 400 ? "exito" : "error", datos, mensaje: null, codigo: null, errores: null }), { status, headers });
 
 describe("CLASES_DE_ERROR", () => {
-  it("son las tres que informa el backend", () => {
-    expect([...CLASES_DE_ERROR]).toEqual(["ERROR_DE_ENVIO", "ERROR_DE_FORMATO", "FUERA_DE_PLAZO"]);
+  it("son las cuatro que informa el backend", () => {
+    expect([...CLASES_DE_ERROR]).toEqual(["ERROR_DE_ENVIO", "ERROR_DE_FORMATO", "FUERA_DE_PLAZO", "BOLETA_SIN_ENVIAR"]);
   });
 });
 

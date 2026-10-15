@@ -28,10 +28,12 @@ public class JdbcColaDeErroresRepository implements ColaDeErroresRepository {
     /** Cuatro dígitos de 1000 a 1999: la misma regla que {@code ClaseDeError.esCodigoDeFormato}. */
     private static final String FORMATO = "(d.estado = '" + EstadoDocumento.RECHAZADO.name() + "' AND d.cdr_codigo ~ '^1[0-9]{3}$')";
 
+    /** El {@code LEFT JOIN} a {@code comprobante} solo lo necesita la nota de boleta (#356): decide si va en el resumen diario. */
     private static final String DESDE = """
             FROM documento d
             JOIN tenant t ON t.id = d.tenant_id
             LEFT JOIN cuenta c ON c.id = t.cuenta_id
+            LEFT JOIN comprobante cp ON cp.documento_id = d.id
             LEFT JOIN outbox o ON o.agregado_id = d.id AND o.accion = 'ENVIAR'
             """;
 
@@ -39,22 +41,35 @@ public class JdbcColaDeErroresRepository implements ColaDeErroresRepository {
 
     @Override public List<Fila> listar(Filtro filtro, int pagina, int porPagina) {
         List<Object> args = new ArrayList<>();
+        // Los «?» van en el orden en que aparecen en el texto: primero el de la columna calculada del SELECT, después los del WHERE.
+        String sinEnviar = sinEnviar(filtro, args);
         String donde = donde(filtro, args);
         args.add(porPagina);
         args.add((long) (pagina - 1) * porPagina);
         return jdbc.query("""
                 SELECT d.id, d.tenant_id, t.ruc, t.razon_social, t.cuenta_id, c.nombre AS cuenta_nombre, d.nombre_archivo, d.tipo, d.serie, d.numero, d.fecha_emision, d.estado,
-                       d.intentos, d.ultimo_error, d.cdr_codigo, d.cdr_descripcion, o.siguiente_intento, d.updated_at
-                """ + DESDE + donde + " ORDER BY d.fecha_emision, d.created_at, d.id LIMIT ? OFFSET ?", (rs, i) -> new Fila(
+                       d.intentos, d.ultimo_error, d.cdr_codigo, d.cdr_descripcion, o.siguiente_intento, d.updated_at, %s AS boleta_sin_enviar
+                """.formatted(sinEnviar) + DESDE + donde + " ORDER BY d.fecha_emision, d.created_at, d.id LIMIT ? OFFSET ?", (rs, i) -> new Fila(
                 rs.getObject("id", UUID.class), rs.getObject("tenant_id", UUID.class), rs.getString("ruc"), rs.getString("razon_social"), rs.getObject("cuenta_id", UUID.class),
                 rs.getString("cuenta_nombre"), rs.getString("nombre_archivo"), rs.getString("tipo"), rs.getString("serie"), rs.getLong("numero"),
                 rs.getObject("fecha_emision", LocalDate.class), EstadoDocumento.valueOf(rs.getString("estado")), rs.getInt("intentos"), rs.getString("ultimo_error"),
-                rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), instante(rs.getTimestamp("siguiente_intento")), instante(rs.getTimestamp("updated_at"))), args.toArray());
+                rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), instante(rs.getTimestamp("siguiente_intento")), instante(rs.getTimestamp("updated_at")),
+                rs.getBoolean("boleta_sin_enviar")), args.toArray());
     }
 
     @Override public long contar(Filtro filtro) {
         List<Object> args = new ArrayList<>();
         return jdbc.queryForObject("SELECT count(*) " + DESDE + donde(filtro, args), Long.class, args.toArray());
+    }
+
+    /**
+     * La condición de una boleta FIRMADA sin enviar desde el 5.º día (#356), con su «?» ya puesto en {@code args}. Sin la fecha de hoy ninguna FIRMADA es de la cola: el filtro
+     * heredado de antes de #356 sigue viendo lo que veía, y la condición es {@code false}.
+     */
+    private static String sinEnviar(Filtro filtro, List<Object> args) {
+        if (filtro.hoy() == null) return "false";
+        args.add(BoletasPorInformar.corte(filtro.hoy()));
+        return BoletasPorInformar.sinEnviar("cp");
     }
 
     @Override public Optional<Ubicacion> ubicar(UUID comprobanteId) {
@@ -64,10 +79,11 @@ public class JdbcColaDeErroresRepository implements ColaDeErroresRepository {
 
     private static String donde(Filtro filtro, List<Object> args) {
         List<String> condiciones = new ArrayList<>();
-        condiciones.add(filtro.clase() == null ? "(" + ENVIO + " OR " + PLAZO + " OR " + FORMATO + ")" : switch (filtro.clase()) {
+        condiciones.add(filtro.clase() == null ? "(" + ENVIO + " OR " + PLAZO + " OR " + FORMATO + " OR " + sinEnviar(filtro, args) + ")" : switch (filtro.clase()) {
             case ERROR_DE_ENVIO -> ENVIO;
             case FUERA_DE_PLAZO -> PLAZO;
             case ERROR_DE_FORMATO -> FORMATO;
+            case BOLETA_SIN_ENVIAR -> sinEnviar(filtro, args);
         });
         if (filtro.empresaId() != null) {
             condiciones.add("d.tenant_id = ?");

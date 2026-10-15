@@ -38,6 +38,7 @@ import pe.factura.adapters.rest.ApiKeyFilter;
 import pe.factura.adapters.rest.JwtFilter;
 import pe.factura.adapters.scheduler.OutboxWorker;
 import pe.factura.adapters.scheduler.AplicarCambiosDePlanWorker;
+import pe.factura.adapters.scheduler.AvisarBoletasSinInformarWorker;
 import pe.factura.adapters.scheduler.LimpiezaIdempotenciaWorker;
 import pe.factura.adapters.scheduler.LimpiezaIntentosDeAccesoWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
@@ -313,7 +314,7 @@ public class AppConfig {
     }
     private static String nulo(String url) { return url == null ? "" : url; }
     @Bean ColaDeErroresRepository colaDeErroresRepository(JdbcTemplate jdbc) { return new JdbcColaDeErroresRepository(jdbc); }
-    @Bean ConsultarColaDeErroresUseCase consultarColaDeErrores(ColaDeErroresRepository cola) { return new ConsultarColaDeErroresService(cola); }
+    @Bean ConsultarColaDeErroresUseCase consultarColaDeErrores(ColaDeErroresRepository cola, Clock clock) { return new ConsultarColaDeErroresService(cola, clock); }
     @Bean ResolverErroresUseCase resolverErrores(ColaDeErroresRepository cola, EnviarDocumentoUseCase enviar, RecuperarCdrUseCase cdrs, ComprobanteRepository comprobantes, OutboxRepository outbox,
                                                  TenantRepository tenants, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new ResolverErroresService(cola, enviar, cdrs, comprobantes, outbox, tenants, auditoria, u, clock);
@@ -454,7 +455,7 @@ public class AppConfig {
     @Bean ConsultarConsumoUseCase consultarConsumo(ConsumoRepository consumos, CuentaRepository cuentas, TenantRepository tenants, Clock clock) {
         return new ConsultarConsumoService(consumos, cuentas, tenants, clock);
     }
-    @Bean ResumirComprobantesUseCase resumirComprobantes(ResumenDeComprobantesRepository resumenes) { return new ResumirComprobantesService(resumenes); }
+    @Bean ResumirComprobantesUseCase resumirComprobantes(ResumenDeComprobantesRepository resumenes, Clock clock) { return new ResumirComprobantesService(resumenes, clock); }
     @Bean ConsultarConsumoDeCuentasUseCase consultarConsumoDeCuentas(ConsumoPorCuentaRepository consumos, Clock clock) { return new ConsultarConsumoDeCuentasService(consumos, clock); }
     /** Un solo servicio para las dos caras del cambio de plan: lo que hacen los administradores y lo que aplica el trabajo programado al llegar la fecha. */
     @Bean CambiarPlanDeCuentaService cambiarPlanDeCuenta(PlanRepository planes, SuscripcionRepository suscripciones, ConsultarConsumoUseCase consumo,
@@ -505,6 +506,13 @@ public class AppConfig {
         return RelojDeLaAplicacion.proteger(new ControlarPlazoEnvioService(c, u, clock), () -> empresasEnProduccion(jdbc), RELOJ_LOG::warn, p.desplazamientoDelReloj());
     }
     @Bean PlazoEnvioWorker plazoEnvioWorker(ControlarPlazoEnvioUseCase plazos) { return new PlazoEnvioWorker(plazos); }
+    // #356: el aviso al cliente de las boletas sin informar lo manda el sistema solo; comparte el registro de avisos con el que manda un administrador.
+    @Bean AvisarBoletasSinInformarUseCase avisarBoletasSinInformar(AvisosRepository avisos, CorreoSender correo, UnitOfWork u, Clock clock, PlantillasDeCorreo plantillas) {
+        return new AvisarBoletasSinInformarService(avisos, correo, u, clock, plantillas);
+    }
+    @Bean AvisarBoletasSinInformarWorker avisarBoletasSinInformarWorker(AvisarBoletasSinInformarUseCase avisos, @Value("${app.portal-url}") String portalUrl) {
+        return new AvisarBoletasSinInformarWorker(avisos, portalUrl);
+    }
 
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
     // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.

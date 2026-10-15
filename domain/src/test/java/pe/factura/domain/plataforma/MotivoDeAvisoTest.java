@@ -21,6 +21,24 @@ class MotivoDeAvisoTest {
         assertThat(MotivoDeAviso.de(TipoDeAviso.CREDENCIALES_SOL)).containsExactly(MotivoDeAviso.CREDENCIALES_SOL_INVALIDAS);
     }
 
+    /**
+     * #356: los avisos de boletas sin informar los manda el sistema solo, no un administrador: no son de un tipo que se pida a mano, así que no aparecen en
+     * {@link MotivoDeAviso#de(TipoDeAviso)}. El del 5.º día y el del 7.º son motivos distintos: pasar de uno al otro habilita un aviso nuevo aunque no haya pasado la semana.
+     */
+    @Test void losAvisosDeBoletasLosMandaElSistemaYSonDosMotivosDistintos() {
+        assertThat(MotivoDeAviso.BOLETAS_POR_INFORMAR.tipo()).isNull();
+        assertThat(MotivoDeAviso.BOLETAS_POR_VENCER_PLAZO.tipo()).isNull();
+        assertThat(MotivoDeAviso.BOLETAS_POR_INFORMAR.automatico()).isTrue();
+        assertThat(MotivoDeAviso.CERTIFICADO_VENCIDO.automatico()).isFalse();
+        for (TipoDeAviso t : TipoDeAviso.values())
+            assertThat(MotivoDeAviso.de(t)).as(t.name()).doesNotContain(MotivoDeAviso.BOLETAS_POR_INFORMAR, MotivoDeAviso.BOLETAS_POR_VENCER_PLAZO);
+    }
+
+    /** La columna {@code aviso_a_cliente.motivo} admite 30 caracteres (V43). */
+    @Test void elNombreDeCadaMotivoCabeEnLaColumna() {
+        for (MotivoDeAviso m : MotivoDeAviso.values()) assertThat(m.name().length()).as(m.name()).isLessThanOrEqualTo(30);
+    }
+
     @Test void elMismoAvisoNoSeRepiteAntesDeUnaSemana() {
         assertThat(MotivoDeAviso.ENFRIAMIENTO).isEqualTo(Duration.ofDays(7));
         Instant aviso = Instant.parse("2026-10-01T15:00:00Z");

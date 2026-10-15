@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 const t = messages.admin.errores;
 
 /** Un error de envío todavía se puede arreglar (aviso); un rechazo de formato y un fuera de plazo ya son terminales (error). */
-const TONO_DE_CLASE: Record<ClaseDeError, Tono> = { ERROR_DE_ENVIO: "aviso", ERROR_DE_FORMATO: "error", FUERA_DE_PLAZO: "error" };
+const TONO_DE_CLASE: Record<ClaseDeError, Tono> = { ERROR_DE_ENVIO: "aviso", ERROR_DE_FORMATO: "error", FUERA_DE_PLAZO: "error", BOLETA_SIN_ENVIAR: "aviso" };
 
 /**
  * La cola global de errores (#196): los comprobantes con problema de todos los clientes, paginados y filtrados en el servidor. Cambiar de tipo, buscar o cambiar de página
@@ -171,7 +171,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                       <DescartarComprobante comprobante={e} alResultado={setResultado} />
                     </div>
                   ) : (
-                    <span className="text-[11px] text-muted-foreground">{t.terminal}</span>
+                    <span className="text-[11px] text-muted-foreground">{e.clase === "BOLETA_SIN_ENVIAR" ? t.decisionDelCliente : t.terminal}</span>
                   )}
                 </TableCell>
               </TableRow>

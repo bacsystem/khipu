@@ -29,11 +29,15 @@ class ResumirComprobantesServiceTest {
         final List<Object[]> consultas = new ArrayList<>();
         Map<EstadoDocumento, Long> porEstado = new EnumMap<>(EstadoDocumento.class);
         List<Facturado> facturado = List.of();
-        public Agregados resumir(UUID t, LocalDate desde, LocalDate hasta) { consultas.add(new Object[]{t, desde, hasta}); return new Agregados(porEstado, facturado); }
+        long boletasSinEnviar;
+        public Agregados resumir(UUID t, LocalDate desde, LocalDate hasta, LocalDate hoy) {
+            consultas.add(new Object[]{t, desde, hasta, hoy});
+            return new Agregados(porEstado, facturado, boletasSinEnviar);
+        }
     }
 
     Resumenes resumenes = new Resumenes();
-    ResumirComprobantesService service = new ResumirComprobantesService(resumenes);
+    ResumirComprobantesService service = new ResumirComprobantesService(resumenes, Fakes.CLOCK);
 
     ResumirComprobantesServiceTest cuenta(EstadoDocumento e, long n) { resumenes.porEstado.put(e, n); return this; }
 
@@ -47,6 +51,7 @@ class ResumirComprobantesServiceTest {
         assertThat(r.rechazados()).isZero();
         assertThat(r.erroresDeEnvio()).isZero();
         assertThat(r.fueraDePlazo()).isZero();
+        assertThat(r.boletasSinEnviar()).isZero();
         assertThat(r.atencionRequerida()).isZero();
         assertThat(r.facturado()).isEmpty();
     }
@@ -73,6 +78,28 @@ class ResumirComprobantesServiceTest {
         assertThat(r.erroresDeEnvio()).isEqualTo(2);
         assertThat(r.fueraDePlazo()).isEqualTo(1);
         assertThat(r.atencionRequerida()).isEqualTo(6);
+    }
+
+    /**
+     * #356: la boleta que el cliente dejó FIRMADA sin enviar y ya pasó el 5.º día es «atención requerida» aunque su estado, solo, no lo diga. Es una cuenta aparte de las
+     * de arriba: el envío que falla ya cuenta como error de envío, y una boleta no se suma dos veces.
+     */
+    @Test void laBoletaSinEnviarSumaALaAtencionRequeridaSinTocarLasOtras() {
+        cuenta(RECHAZADO, 3).cuenta(ERROR_ENVIO, 2).cuenta(FIRMADO, 40);
+        resumenes.boletasSinEnviar = 4;
+
+        Resumen r = resumir();
+
+        assertThat(r.boletasSinEnviar()).as("de las 40 FIRMADAS solo cuentan las que el repositorio dice").isEqualTo(4);
+        assertThat(r.erroresDeEnvio()).isEqualTo(2);
+        assertThat(r.atencionRequerida()).isEqualTo(3 + 2 + 4);
+    }
+
+    /** La fecha de hoy es la del reloj del servicio, no la de la base: de ella depende qué boleta ya pide atención. */
+    @Test void elRepositorioRecibeLaFechaDeHoyDelReloj() {
+        resumir();
+
+        assertThat(resumenes.consultas.get(0)[3]).isEqualTo(LocalDate.of(2026, 9, 13));
     }
 
     /** Si el dominio agrega un estado que pide atención, el desglose tiene que crecer con él: este test lo obliga a decidirlo. */
@@ -109,7 +136,7 @@ class ResumirComprobantesServiceTest {
         Resumen r = service.resumir(EMPRESA, desde, hasta);
 
         assertThat(resumenes.consultas).hasSize(1);
-        assertThat(resumenes.consultas.get(0)).containsExactly(EMPRESA, desde, hasta);
+        assertThat(resumenes.consultas.get(0)).containsExactly(EMPRESA, desde, hasta, LocalDate.of(2026, 9, 13));
         assertThat(r.desde()).isEqualTo(desde);
         assertThat(r.hasta()).isEqualTo(hasta);
     }

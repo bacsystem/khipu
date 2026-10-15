@@ -3,6 +3,7 @@ package pe.factura.application.service;
 import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.MonitorearEmisionUseCase;
 import pe.factura.application.port.out.MonitorDeEmisionRepository;
+import pe.factura.application.port.out.MonitorDeEmisionRepository.BoletasPendientes;
 import pe.factura.application.port.out.MonitorDeEmisionRepository.Cola;
 import pe.factura.application.port.out.MonitorDeEmisionRepository.Conteo;
 import pe.factura.application.port.out.MonitorDeEmisionRepository.ResumenesPendientes;
@@ -13,6 +14,7 @@ import pe.factura.domain.plan.CicloMensual;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,13 +51,18 @@ public class MonitorDeEmisionService implements MonitorearEmisionUseCase {
         Instant medianoche = ahora.atZone(CicloMensual.ZONA).toLocalDate().atStartOfDay(CicloMensual.ZONA).toInstant();
         List<Conteo> deHoy = porHora.entrySet().stream().filter(e -> !e.getKey().isBefore(medianoche) && !e.getKey().isAfter(horaActual)).flatMap(e -> e.getValue().stream()).toList();
 
-        return new Monitor(ahora, List.copyOf(horas), franja(medianoche, deHoy), outbox(monitor.cola(ahora), ahora), resumenes(ahora), sondeo.sondear());
+        return new Monitor(ahora, List.copyOf(horas), franja(medianoche, deHoy), outbox(monitor.cola(ahora), ahora), resumenes(ahora), boletas(), sondeo.sondear());
     }
 
     private ResumenesSinRespuesta resumenes(Instant ahora) {
         ResumenesPendientes p = monitor.resumenesSinRespuesta(ahora.minus(umbralDeResumenes));
         Duration masViejoHace = p.masViejoDesde() == null ? null : max(Duration.between(p.masViejoDesde(), ahora), Duration.ZERO);
         return new ResumenesSinRespuesta(p.cantidad(), p.masViejoDesde(), masViejoHace, umbralDeResumenes, p.cantidad() > 0);
+    }
+
+    private BoletasSinInformar boletas() {
+        BoletasPendientes b = monitor.boletasSinInformar(LocalDate.now(clock));
+        return new BoletasSinInformar(b.desdeElQuintoDia(), b.desdeElSeptimoDia(), b.masAntiguaEmitidaEl(), b.desdeElQuintoDia() > 0);
     }
 
     private static Franja franja(Instant desde, List<Conteo> conteos) {

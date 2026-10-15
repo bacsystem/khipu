@@ -54,6 +54,13 @@ Agregar el plugin **Postgres** de Railway al proyecto. Provee las variables `PGH
 > el destinatario nunca recibe nada. Es la razón por la que `PORTAL_URL` (arriba) importa: sin correo
 > habilitado, ese enlace de recuperación no llega a ninguna parte.
 
+**Avisos automáticos de boletas sin informar (#356).** Una boleta —o una nota que la modifica— que sigue sin informarse a SUNAT (emitida con `enviar_automatico: false`, o con el envío
+fallando) llega al 5.º día con el envío individual por vencer, y el resumen diario cierra el 7.º. Un trabajo (`AvisarBoletasSinInformarWorker`) corre cada hora, a los 2 minutos de arrancar,
+y le escribe a la cuenta dueña de cada empresa: el 5.º día, y otra vez cuando la más antigua llega al 7.º. Solo mira boletas emitidas en los últimos 30 días: lo abandonado no genera un correo cada semana para siempre (la cola y el monitor del backoffice lo siguen mostrando). Como mucho un correo por empresa y por motivo cada 7 días (se registran en
+`aviso_a_cliente`, como los avisos que manda un administrador). Sin `MAIL_HABILITADO=true` no hace nada ni deja rastro: reservar el aviso lo daría por mandado una semana sin que el cliente
+se enterara. Los textos son dos plantillas más, editables en Configuración. Se puede ajustar el ritmo con `app.avisos.boletas.intervalo-ms` y `app.avisos.boletas.inicial-ms`
+(`APP_AVISOS_BOLETAS_INTERVALO_MS` y `APP_AVISOS_BOLETAS_INICIAL_MS`); el default sirve. Lo que no es un correo —la cola de errores y el monitor del backoffice— no depende del correo.
+
 Las demás opcionales (timeouts SUNAT, outbox, integridad): ver `.env.example` en la raíz del repo —
 usan default razonable si se omiten. `PORT` no hace falta: Railway lo inyecta.
 

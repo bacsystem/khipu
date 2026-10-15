@@ -6,11 +6,13 @@ import { EstadoBadge, ETIQUETAS_ESTADO, PUNTOS } from "@/components/comprobantes
 import { BajaButton } from "@/components/comprobantes/baja-button";
 import { BajaEstado } from "@/components/comprobantes/baja-estado";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
+import { AvisoBoletaSinInformar } from "@/components/comprobantes/aviso-boleta-sin-informar";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
 import { admiteBaja, admiteCorreo, admiteNotas, esDeBoleta, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, seInformaFueraDePlazo, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
-import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero } from "@/lib/formato";
+import { avisoDePlazo } from "@/lib/comprobantes/plazo";
+import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, ETIQUETA_DATO, TITULO_SECCION } from "@/lib/estilos";
@@ -242,6 +244,8 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
   const tipoLabel = ETIQUETAS_TIPO[c.tipo] ?? c.tipo;
   const tipoOperacion = c.tipo_operacion ? `${c.tipo_operacion} · ${TIPOS_OPERACION[c.tipo_operacion] ?? "Otra operación"}` : null;
   const tipoDoc = c.receptor ? (ETIQUETAS_TIPO_DOC[c.receptor.tipo_doc] ?? `Tipo ${c.receptor.tipo_doc}`) : null;
+  // #356: una boleta (o nota B) que sigue sin informarse desde el 5.º día se avisa con lo que le queda.
+  const aviso = avisoDePlazo(c, hoyLima());
   const hashCorto = c.hash && c.hash.length > 16 ? `${c.hash.slice(0, 8)}…${c.hash.slice(-5)}` : c.hash;
 
   return (
@@ -260,6 +264,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
         <div className="flex flex-wrap items-center gap-2">
           {c.estado_documento === "ERROR_ENVIO" ? <ReenviarButton id={c.id} /> : null}
+          {c.estado_documento === "FIRMADO" ? <ReenviarButton id={c.id} etiqueta="Enviar a SUNAT" enCurso="Enviando…" /> : null}
           {admiteNotas(c) ? (
             <Link href={`/comprobantes/${c.id}/nota`} className={ACCION_SECUNDARIA} data-testid="emitir-nota">
               <FileMinusIcon className="size-4" />
@@ -284,6 +289,8 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           {admiteCorreo(c) ? <CorreoButton id={c.id} numero={numero} /> : null}
         </div>
       </div>
+
+      {aviso ? <AvisoBoletaSinInformar aviso={aviso} que={c.tipo === "03" ? "boleta" : "nota"} /> : null}
 
       <section className="rounded-xl border border-border bg-card p-6 shadow-2xs">
         <div className="flex flex-col justify-between gap-4 border-b border-border/60 pb-5 md:flex-row md:items-center">

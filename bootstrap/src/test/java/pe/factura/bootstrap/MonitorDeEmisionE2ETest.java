@@ -114,6 +114,12 @@ class MonitorDeEmisionE2ETest {
                 UUID.randomUUID(), c.empresa(), NUMERO.getAndIncrement(), estado, Timestamp.from(Instant.now().minus(Duration.ofMinutes(minutos))));
     }
 
+    /** Una boleta emitida en esa fecha, en ese estado. */
+    private void boleta(Cliente c, String estado, java.time.LocalDate emision) {
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, created_at) VALUES (?, ?, '03', 'B001', ?, ?, ?, 'x', now())",
+                UUID.randomUUID(), c.empresa(), NUMERO.getAndIncrement(), java.sql.Date.valueOf(emision), estado);
+    }
+
     /** Un envío pendiente que le toca reintentarse {@code minutos} minutos atrás (negativo: dentro de tantos minutos). */
     private void envio(Cliente c, long minutos) {
         jdbc.update("INSERT INTO outbox (tenant_id, agregado_id, accion, siguiente_intento) VALUES (?, ?, 'ENVIAR', ?)",
@@ -295,6 +301,23 @@ class MonitorDeEmisionE2ETest {
     }
 
     // --- SUNAT ------------------------------------------------------------------------------------------------------------------------------
+
+    /** #356: una boleta que nadie informó, de cualquier empresa, da la alerta del monitor desde el 5.º día; antes no. */
+    @Test void unaBoletaSinInformarDesdeElQuintoDiaDaAlertaDeCualquierEmpresa() {
+        Cliente a = cliente("ana@negocio.pe");
+        Cliente b = cliente("luis@negocio.pe");
+        java.time.LocalDate hoy = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima"));
+        assertThat((Map<String, Object>) monitor().get("boletas_sin_informar")).containsEntry("cantidad", 0).containsEntry("alerta", false);
+
+        boleta(a, "FIRMADO", hoy.minusDays(4));
+        assertThat((Map<String, Object>) monitor().get("boletas_sin_informar")).as("4.º día: todavía no").containsEntry("cantidad", 0).containsEntry("alerta", false);
+
+        boleta(a, "FIRMADO", hoy.minusDays(5));
+        boleta(b, "ERROR_ENVIO", hoy.minusDays(8));
+        Map<String, Object> r = (Map<String, Object>) monitor().get("boletas_sin_informar");
+        assertThat(r).containsEntry("cantidad", 2).containsEntry("por_vencer_el_plazo", 1).containsEntry("alerta", true);
+        assertThat(r.get("mas_antigua_emitida_el")).isEqualTo(hoy.minusDays(8).toString());
+    }
 
     @Test void elEstadoDeSunatDiceQueServiciosContestan() {
         List<Map<String, Object>> sunat = (List<Map<String, Object>>) monitor().get("sunat");

@@ -16,8 +16,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * El resumen de los comprobantes de una empresa (#15). Dos consultas, las dos acotadas por el índice {@code (tenant_id, fecha_emision)}: cuántos hay por estado, y cuánto
- * suman los que cuentan como facturados, por moneda. Los estados que cuentan salen del enum ({@link EstadoDocumento#cuentaComoFacturado()}), no de un texto copiado acá.
+ * El resumen de los comprobantes de una empresa (#15). Tres consultas, acotadas por el índice {@code (tenant_id, fecha_emision)}: cuántos hay por estado, cuánto suman los que
+ * cuentan como facturados, por moneda, y cuántas boletas siguen FIRMADAS sin enviar desde el 5.º día (#356, {@link BoletasPorInformar}). Los estados que cuentan salen del enum
+ * ({@link EstadoDocumento#cuentaComoFacturado()}), no de un texto copiado acá.
  */
 @RequiredArgsConstructor
 public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobantesRepository {
@@ -30,7 +31,7 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
     /** Notas de crédito: restan de lo facturado. */
     private static final String NOTA_DE_CREDITO = "07";
 
-    @Override public Agregados resumir(UUID tenantId, LocalDate desde, LocalDate hasta) {
+    @Override public Agregados resumir(UUID tenantId, LocalDate desde, LocalDate hasta, LocalDate hoy) {
         List<Object> params = new ArrayList<>();
         params.add(tenantId);
         StringBuilder fechas = new StringBuilder();
@@ -49,6 +50,15 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
                 GROUP BY c.moneda ORDER BY c.moneda
                 """.formatted(NOTA_DE_CREDITO, ESTADOS_FACTURADOS, fechas), (rs, i) -> new Facturado(rs.getString("moneda"), rs.getBigDecimal("total")), args);
 
-        return new Agregados(porEstado, facturado);
+        // #356: la boleta FIRMADA sin enviar desde el 5.º día. El «?» del corte va antes que los de la empresa y las fechas, que están después en el texto.
+        List<Object> conCorte = new ArrayList<>();
+        conCorte.add(BoletasPorInformar.corte(hoy));
+        conCorte.addAll(params);
+        long boletasSinEnviar = jdbc.queryForObject("""
+                SELECT count(*) FROM documento d LEFT JOIN comprobante c ON c.documento_id = d.id
+                WHERE %s AND d.tenant_id = ?%s
+                """.formatted(BoletasPorInformar.sinEnviar("c"), fechas), Long.class, conCorte.toArray());
+
+        return new Agregados(porEstado, facturado, boletasSinEnviar);
     }
 }

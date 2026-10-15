@@ -105,7 +105,27 @@ class ResumenDeComprobantesE2ETest {
         Map<String, Object> d = datos(resumen(c, ""));
 
         assertThat(d).containsEntry("emitidos", 16).containsEntry("aceptados_con_cdr", 8);
-        assertThat((Map<String, Object>) d.get("atencion_requerida")).containsEntry("total", 6).containsEntry("rechazados", 3).containsEntry("errores_de_envio", 2).containsEntry("fuera_de_plazo", 1);
+        assertThat((Map<String, Object>) d.get("atencion_requerida")).containsEntry("total", 6).containsEntry("rechazados", 3).containsEntry("errores_de_envio", 2).containsEntry("fuera_de_plazo", 1).containsEntry("boletas_sin_enviar", 0);
+    }
+
+    /**
+     * #356, de punta a punta: una boleta que el cliente dejó FIRMADA sin enviar es «atención requerida» desde el 5.º día, con la fecha del reloj de la aplicación. Antes de esa
+     * fecha, o si es una factura, no; y solo la ve su dueño.
+     */
+    @Test void laBoletaFirmadaSinEnviarDesdeElQuintoDiaCuentaComoAtencionRequerida() {
+        Cliente c = cliente("ana@negocio.pe");
+        Cliente otro = cliente("luis@negocio.pe");
+        LocalDate hoy = LocalDate.now(java.time.ZoneId.of("America/Lima"));
+        comprobante(c, "03", "FIRMADO", hoy.minusDays(4), "PEN", "10");
+        comprobante(c, "03", "FIRMADO", hoy.minusDays(5), "PEN", "10");
+        comprobante(c, "03", "FIRMADO", hoy.minusDays(7), "PEN", "10");
+        comprobante(c, "01", "FIRMADO", hoy.minusDays(30), "PEN", "10");
+        comprobante(otro, "03", "FIRMADO", hoy.minusDays(6), "PEN", "10");
+
+        Map<String, Object> atencion = (Map<String, Object>) datos(resumen(c, "")).get("atencion_requerida");
+
+        assertThat(atencion).containsEntry("boletas_sin_enviar", 2).containsEntry("total", 2);
+        assertThat((Map<String, Object>) datos(resumen(otro, "")).get("atencion_requerida")).containsEntry("boletas_sin_enviar", 1);
     }
 
     @Test void lasFacturasQueNuncaSeFirmaronNoCuentanComoEmitidas() {

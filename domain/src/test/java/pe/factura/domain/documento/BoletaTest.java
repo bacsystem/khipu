@@ -212,6 +212,41 @@ class BoletaTest {
         assertThat(factura.fueraDePlazo(hoy.plusDays(4))).isTrue();
     }
 
+    /**
+     * #356: una boleta que sigue sin informarse pide atención desde el 5.º día y su plazo se agota el 7.º; en cuanto SUNAT la recibe (o ya la rechazó) deja de pedirla. Una
+     * FIRMADA sin enviar y una en ERROR_ENVIO cuentan igual: son los dos caminos por los que se quedaba sin informar sin que nadie lo viera.
+     */
+    @Test void unaBoletaSinInformarPideAtencionDesdeElQuintoDiaYDejaDePedirlaAlInformarse() {
+        Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(5), "PEN", "0101", dni, items("10")).crear(clock);
+        c.asignarNumero(1, "20100066603");
+        c.firmar("h", "k");
+        assertThat(c.porInformar(hoy.minusDays(1))).as("4.º día").isFalse();
+        assertThat(c.porInformar(hoy)).as("FIRMADA, 5.º día").isTrue();
+        assertThat(c.porVencerElPlazo(hoy)).as("5.º día: todavía no es el urgente").isFalse();
+        assertThat(c.porVencerElPlazo(hoy.plusDays(2))).as("7.º día").isTrue();
+
+        c.marcarErrorEnvio("timeout");
+        assertThat(c.porInformar(hoy)).as("ERROR_ENVIO, 5.º día").isTrue();
+        assertThat(c.noSeAbandonaTodavia(hoy.plusDays(2))).as("el outbox sigue hasta el 7.º día").isTrue();
+        assertThat(c.noSeAbandonaTodavia(hoy.plusDays(3))).as("y después ya puede agotarse").isFalse();
+
+        c.informarEnResumen("RC-20260913-1", false);
+        assertThat(c.porInformar(hoy)).as("ENVIADA: ya está en camino").isFalse();
+        assertThat(c.porVencerElPlazo(hoy.plusDays(5))).isFalse();
+        c.aplicarCdr(new Cdr("0", "aceptado", List.of()), "R.zip");
+        assertThat(c.porInformar(hoy.plusDays(5))).as("ACEPTADA").isFalse();
+    }
+
+    /** #356: lo que no va en un resumen diario no se cuenta (la factura y sus notas vencen a FUERA_DE_PLAZO, que ya pide atención). */
+    @Test void unaFacturaSinEnviarNoEsPorInformar() {
+        Comprobante f = Comprobante.factura(tenant, "F001", hoy.minusDays(3), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), items("10")).crear(clock);
+        f.asignarNumero(1, "20100066603");
+        f.firmar("h", "k");
+        assertThat(f.porInformar(hoy)).isFalse();
+        assertThat(f.porVencerElPlazo(hoy)).isFalse();
+        assertThat(f.noSeAbandonaTodavia(hoy)).isFalse();
+    }
+
     /** Informada en el resumen, la boleta queda ENVIADA hasta que SUNAT responda el ticket, y su CDR la acepta o la rechaza como un envío más. */
     @Test void informadaEnElResumenQuedaEnviadaYElCdrLaResuelve() {
         Comprobante c = Comprobante.boleta(tenant, "B001", hoy.minusDays(5), "PEN", "0101", dni, items("10")).crear(clock);

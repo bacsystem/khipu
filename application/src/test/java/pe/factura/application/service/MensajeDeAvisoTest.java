@@ -62,9 +62,48 @@ class MensajeDeAvisoTest {
 
     @Test void ningunMensajeTraeUnNuloNiUnaPlantillaSinLlenar() {
         for (MotivoDeAviso motivo : MotivoDeAviso.values()) {
-            Texto m = MensajeDeAviso.de(plantillas, motivo, "X SAC", "20100066603", VENCE, 5, "https://app.khipu.pe");
+            Texto m = motivo.automatico() ? MensajeDeAviso.deBoletas(plantillas, motivo, "X SAC", "20100066603", 3, VENCE, 2, "https://app.khipu.pe")
+                    : MensajeDeAviso.de(plantillas, motivo, "X SAC", "20100066603", VENCE, 5, "https://app.khipu.pe");
             assertThat(m.asunto() + m.cuerpo()).as(motivo.name()).doesNotContain("null").doesNotContain("{").doesNotContain("%s");
         }
+    }
+
+    // --- las boletas sin informar (#356) --------------------------------------------------------------------------------------------------
+
+    Texto boletas(MotivoDeAviso m, long cuantas, int dias) {
+        return MensajeDeAviso.deBoletas(plantillas, m, "BODEGA SAN JUAN SAC", "20100066603", cuantas, VENCE, dias, "https://app.khipu.pe");
+    }
+
+    @Test void elAvisoDelQuintoDiaDiceCuantasBoletasHastaCuandoYQueHacer() {
+        Texto m = boletas(MotivoDeAviso.BOLETAS_POR_INFORMAR, 3, 2);
+
+        assertThat(m.asunto()).isEqualTo("3 boletas de BODEGA SAN JUAN SAC sin informar a SUNAT");
+        assertThat(m.cuerpo()).contains("BODEGA SAN JUAN SAC (RUC 20100066603)").contains("3 boletas sin informar").contains("resumen diario").contains("el 15/10/2026 (en 2 días)")
+                .contains("https://app.khipu.pe").contains("Si ya lo enviaste, ignora este mensaje");
+    }
+
+    @Test void unaSolaBoletaVaEnSingular() {
+        assertThat(boletas(MotivoDeAviso.BOLETAS_POR_INFORMAR, 1, 2).asunto()).startsWith("1 boleta de ").doesNotContain("boletas");
+    }
+
+    @Test void elAvisoDelSeptimoDiaDiceQueElPlazoEsHoyYQueSeInformaFueraDePlazo() {
+        Texto m = boletas(MotivoDeAviso.BOLETAS_POR_VENCER_PLAZO, 2, 0);
+
+        assertThat(m.asunto()).isEqualTo("2 boletas de BODEGA SAN JUAN SAC siguen sin informarse a SUNAT");
+        assertThat(m.cuerpo()).contains("es el 15/10/2026 (hoy)").contains("fuera de plazo").contains("SUNAT puede observarlas");
+    }
+
+    @Test void siElPlazoYaPasoDiceHaceCuanto() {
+        assertThat(boletas(MotivoDeAviso.BOLETAS_POR_VENCER_PLAZO, 2, -3).cuerpo()).contains("(hace 3 días)");
+    }
+
+    @Test void elTextoDeUnaBoletaQueUnAdministradorEditoEsElQueSale() {
+        guardadas.filas.put(PlantillaDeCorreo.AVISO_BOLETAS_POR_INFORMAR, new Guardada(new Texto("Faltan {boletas}", "{razon_social}: {boletas} hasta el {fecha} en {enlace}"), Instant.EPOCH));
+
+        Texto m = boletas(MotivoDeAviso.BOLETAS_POR_INFORMAR, 4, 2);
+
+        assertThat(m.asunto()).isEqualTo("Faltan 4 boletas");
+        assertThat(m.cuerpo()).isEqualTo("BODEGA SAN JUAN SAC: 4 boletas hasta el 15/10/2026 en https://app.khipu.pe");
     }
 
     // --- cada motivo, su plantilla; y lo que el administrador editó ---------------------------------------------------------------------
@@ -73,6 +112,8 @@ class MensajeDeAvisoTest {
         assertThat(MensajeDeAviso.plantilla(MotivoDeAviso.CERTIFICADO_POR_VENCER)).isEqualTo(PlantillaDeCorreo.AVISO_CERTIFICADO_POR_VENCER);
         assertThat(MensajeDeAviso.plantilla(MotivoDeAviso.CERTIFICADO_VENCIDO)).isEqualTo(PlantillaDeCorreo.AVISO_CERTIFICADO_VENCIDO);
         assertThat(MensajeDeAviso.plantilla(MotivoDeAviso.CREDENCIALES_SOL_INVALIDAS)).isEqualTo(PlantillaDeCorreo.AVISO_CREDENCIALES_SOL);
+        assertThat(MensajeDeAviso.plantilla(MotivoDeAviso.BOLETAS_POR_INFORMAR)).isEqualTo(PlantillaDeCorreo.AVISO_BOLETAS_POR_INFORMAR);
+        assertThat(MensajeDeAviso.plantilla(MotivoDeAviso.BOLETAS_POR_VENCER_PLAZO)).isEqualTo(PlantillaDeCorreo.AVISO_BOLETAS_PLAZO);
     }
 
     @Test void elTextoQueUnAdministradorEditoEsElQueSale() {

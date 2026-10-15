@@ -7,6 +7,7 @@ import pe.factura.domain.documento.EstadoDocumento;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -44,6 +45,19 @@ public class JdbcMonitorDeEmisionRepository implements MonitorDeEmisionRepositor
     @Override public ResumenesPendientes resumenesSinRespuesta(Instant enviadosAntesDe) {
         return jdbc.queryForObject("SELECT count(*) AS n, min(enviada_en) AS mas_viejo FROM comunicacion_baja WHERE estado = 'ENVIADA' AND ticket IS NOT NULL AND enviada_en < ?",
                 (rs, i) -> new ResumenesPendientes(rs.getLong("n"), instante(rs.getTimestamp("mas_viejo"))), Timestamp.from(enviadosAntesDe));
+    }
+
+    /**
+     * #356: lo de boleta por enviar —FIRMADO o con el envío fallando— que ya está en el 5.º día o más, de todas las empresas. Es la misma regla de {@code Comprobante.porInformar}
+     * ({@link BoletasPorInformar}). El índice parcial de lo FIRMADO y el de lo que está en error encuentran estas filas sin recorrer la tabla.
+     */
+    @Override public BoletasPendientes boletasSinInformar(LocalDate hoy) {
+        return jdbc.queryForObject("""
+                SELECT count(*) AS n, count(*) FILTER (WHERE d.fecha_emision <= ?) AS urgentes, min(d.fecha_emision) AS mas_antigua
+                FROM documento d LEFT JOIN comprobante c ON c.documento_id = d.id
+                WHERE %s
+                """.formatted(BoletasPorInformar.sinInformar("c")), (rs, i) -> new BoletasPendientes(rs.getLong("n"), rs.getLong("urgentes"), rs.getObject("mas_antigua", LocalDate.class)),
+                BoletasPorInformar.corteUrgente(hoy), BoletasPorInformar.corte(hoy));
     }
 
     private static Instant instante(Timestamp t) { return t == null ? null : t.toInstant(); }

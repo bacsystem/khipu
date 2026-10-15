@@ -39,11 +39,17 @@ class ConsultarColaDeErroresServiceTest {
     }
 
     Cola cola = new Cola();
-    ConsultarColaDeErroresService service = new ConsultarColaDeErroresService(cola);
+    ConsultarColaDeErroresService service = new ConsultarColaDeErroresService(cola, Fakes.CLOCK);
 
     static Fila fila(EstadoDocumento estado, String ultimoError, String cdrCodigo, String cdrDescripcion, Instant siguiente) {
         return new Fila(UUID.randomUUID(), EMPRESA, "20100066603", "COMERCIAL ANDINA SAC", CUENTA, "Ana", "20100066603-01-F001-7", "01", "F001", 7, LocalDate.of(2026, 10, 12), estado, 3,
-                ultimoError, cdrCodigo, cdrDescripcion, siguiente, AHORA);
+                ultimoError, cdrCodigo, cdrDescripcion, siguiente, AHORA, false);
+    }
+
+    /** #356: una boleta que el cliente dejó FIRMADA y ya pasó el 5.º día; el repositorio la marca, el dominio le pone la clase. */
+    static Fila boletaSinEnviar() {
+        return new Fila(UUID.randomUUID(), EMPRESA, "20100066603", "COMERCIAL ANDINA SAC", CUENTA, "Ana", "20100066603-03-B001-9", "03", "B001", 9, LocalDate.of(2026, 10, 9),
+                EstadoDocumento.FIRMADO, 0, null, null, null, null, AHORA, true);
     }
 
     ErrorDeEmision unico(Fila f) {
@@ -78,6 +84,25 @@ class ConsultarColaDeErroresServiceTest {
         assertThat(e.clase()).isEqualTo(ClaseDeError.FUERA_DE_PLAZO);
         assertThat(e.fault().codigo()).isEqualTo("2108");
         assertThat(e.accionable()).isFalse();
+    }
+
+    @Test void unaBoletaFirmadaSinEnviarTieneSuPropiaClaseSinFaultYNoSePuedeAccionar() {
+        ErrorDeEmision e = unico(boletaSinEnviar());
+
+        assertThat(e.clase()).isEqualTo(ClaseDeError.BOLETA_SIN_ENVIAR);
+        assertThat(e.estado()).isEqualTo(EstadoDocumento.FIRMADO);
+        assertThat(e.fault()).as("no falló nada: no hay fault que mostrar").isNull();
+        assertThat(e.accionable()).as("enviarla es decisión del cliente").isFalse();
+        assertThat(e.intentos()).isZero();
+    }
+
+    /** El repositorio decide qué boleta ya pide atención con la fecha de hoy: la del servicio, no la del servidor ni la de la base. */
+    @Test void elFiltroLlevaLaFechaDeHoyDelRelojDelServicio() {
+        service.listar(new Filtro(null, null, null), 1, 20);
+
+        LocalDate hoyEnLima = LocalDate.of(2026, 9, 13);
+        assertThat(((Filtro) cola.consultas.get(0)[0]).hoy()).isEqualTo(hoyEnLima);
+        assertThat(((Filtro) cola.conteos.get(0)[0]).hoy()).as("el total cuenta con la misma fecha que la página").isEqualTo(hoyEnLima);
     }
 
     @Test void unFalloNuestroNoTieneCodigoDeSunat() {
@@ -126,9 +151,10 @@ class ConsultarColaDeErroresServiceTest {
     @Test void elFiltroYLaPaginaLlegamAlRepositorioYElTotalCuentaConElMismoFiltro() {
         service.listar(new Filtro(ClaseDeError.ERROR_DE_ENVIO, EMPRESA, "andina"), 3, 50);
 
+        Filtro esperado = new Filtro(ClaseDeError.ERROR_DE_ENVIO, EMPRESA, "andina", LocalDate.of(2026, 9, 13));
         assertThat(cola.consultas).hasSize(1);
-        assertThat(cola.consultas.get(0)).containsExactly(new Filtro(ClaseDeError.ERROR_DE_ENVIO, EMPRESA, "andina"), 3, 50);
-        assertThat(cola.conteos.get(0)).containsExactly(new Filtro(ClaseDeError.ERROR_DE_ENVIO, EMPRESA, "andina"));
+        assertThat(cola.consultas.get(0)).containsExactly(esperado, 3, 50);
+        assertThat(cola.conteos.get(0)).containsExactly(esperado);
     }
 
     @Test void elTextoSeRecortaYUnoEnBlancoNoBusca() {

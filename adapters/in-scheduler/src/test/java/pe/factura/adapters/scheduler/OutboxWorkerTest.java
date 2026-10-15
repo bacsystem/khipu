@@ -59,6 +59,42 @@ class OutboxWorkerTest {
         verify(outbox, never()).reprogramar(any(), any(), any());
     }
 
+    private Comprobante boletaEnError(LocalDate emision, int intentos) {
+        return Comprobante.persistido(doc, tenant, TipoDocumento.BOLETA, "B001", 1L, emision, EstadoDocumento.ERROR_ENVIO, new Receptor("1", "12345678", "JUAN PEREZ", null),
+                List.of(new Item("P", "d", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO))).firma("h", "20100066603-03-B001-1", "k").envio(intentos, "timeout").rehidratar();
+    }
+
+    /**
+     * #356, camino 2: con el backoff, 20 intentos son unas 74 horas. Una boleta que SUNAT no recibe el día de la emisión se rendía al 3.er día, con cuatro todavía por delante en el
+     * resumen diario, y quedaba sin informarse sin que nadie lo viera. Mientras siga en plazo, la fila se reprograma aunque haya agotado los intentos; pasado el 7.º día se agota.
+     */
+    @Test void unaBoletaEnPlazoNoSeAgotaAunqueSuperePorMaximo() {
+        OutboxWorker w = new OutboxWorker(outbox, uow, enviar, bajas, clock, 3);
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 2)));
+        when(enviar.enviar(tenant, doc)).thenReturn(boletaEnError(LocalDate.of(2026, 9, 10), 3));   // día 3 de 7
+        w.procesar();
+        verify(outbox, never()).completar(fila);
+        verify(outbox).reprogramar(fila, Backoff.siguiente(3, clock.instant()), "timeout");
+    }
+
+    @Test void unaBoletaEnElUltimoDiaDelResumenTodaviaNoSeAgota() {
+        OutboxWorker w = new OutboxWorker(outbox, uow, enviar, bajas, clock, 3);
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 30)));
+        when(enviar.enviar(tenant, doc)).thenReturn(boletaEnError(LocalDate.of(2026, 9, 6), 31));   // 7.º día: el último en plazo
+        w.procesar();
+        verify(outbox, never()).completar(fila);
+        verify(outbox).reprogramar(eq(fila), any(), eq("timeout"));
+    }
+
+    @Test void unaBoletaPasadoElSeptimoDiaYaPuedeAgotarse() {
+        OutboxWorker w = new OutboxWorker(outbox, uow, enviar, bajas, clock, 3);
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 30)));
+        when(enviar.enviar(tenant, doc)).thenReturn(boletaEnError(LocalDate.of(2026, 9, 5), 31));   // 8.º día
+        w.procesar();
+        verify(outbox).completar(fila);
+        verify(outbox, never()).reprogramar(any(), any(), any());
+    }
+
     @Test void estadoNoEnviableCompleta() {
         when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 0)));
         when(enviar.enviar(tenant, doc)).thenThrow(new DomainException("ESTADO_NO_ENVIABLE", "ya aceptado"));

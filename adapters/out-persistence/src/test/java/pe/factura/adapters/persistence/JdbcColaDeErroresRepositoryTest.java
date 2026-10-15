@@ -3,10 +3,18 @@ package pe.factura.adapters.persistence;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.ConsultarColaDeErroresUseCase.Filtro;
 import pe.factura.application.port.out.ColaDeErroresRepository.Fila;
+import pe.factura.domain.documento.Cdr;
 import pe.factura.domain.documento.ClaseDeError;
+import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
+import pe.factura.domain.documento.Item;
+import pe.factura.domain.documento.Nota;
+import pe.factura.domain.documento.Receptor;
+import pe.factura.domain.documento.TipoAfectacionIgv;
+import pe.factura.domain.documento.TipoDocumento;
 
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -273,6 +281,131 @@ class JdbcColaDeErroresRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.listar(TODOS, 3, 2).stream().map(Fila::comprobanteId)).containsExactly(creados.get(4));
         assertThat(repo.listar(TODOS, 4, 2)).isEmpty();
         assertThat(repo.contar(TODOS)).isEqualTo(5);
+    }
+
+    // --- la boleta FIRMADA sin enviar (#356) -----------------------------------------------------------------------------------------------
+
+    static final LocalDate HOY = LocalDate.of(2026, 10, 15);
+    static final Filtro DE_HOY = new Filtro(null, null, null, HOY);
+    static final Receptor VARIOS = new Receptor("-", "-", "CLIENTES VARIOS", null);
+    static final List<Item> ITEMS = List.of(new Item("P2", "Libro", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO));
+
+    JdbcComprobanteRepository comprobantes = new JdbcComprobanteRepository(jdbc);
+
+    static final Clock RELOJ = Clock.fixed(HOY.atStartOfDay(java.time.ZoneId.of("America/Lima")).plusHours(10).toInstant(), java.time.ZoneId.of("America/Lima"));
+
+    /** Numera, firma y guarda: queda FIRMADO, como lo deja {@code enviar_automatico: false}. */
+    Comprobante firmado(Comprobante c) {
+        c.asignarNumero(NUMERO.getAndIncrement(), "20100066603");
+        c.firmar("H", "doc-" + c.numero() + ".xml");
+        comprobantes.guardar(c);
+        return c;
+    }
+
+    /** Emitida hace {@code diasAtras} días (hoy es {@link #HOY}). */
+    Comprobante boleta(UUID t, int diasAtras) {
+        return firmado(Comprobante.boleta(t, "B001", HOY.minusDays(diasAtras), "PEN", "0101", VARIOS, ITEMS).crear(RELOJ));
+    }
+
+    Comprobante notaDeBoleta(UUID t, int diasAtras, String motivo, TipoDocumento tipo) {
+        return firmado(Comprobante.nota(t, tipo, "BC01", HOY.minusDays(diasAtras), new Nota(TipoDocumento.BOLETA, "B001", 9, motivo, "x"), VARIOS, ITEMS).crear(RELOJ));
+    }
+
+    /** Desde el 5.º día —el último del envío individual— una boleta que nadie envió entra en la cola; antes no, aunque ya esté firmada. */
+    @Test void unaBoletaFirmadaSinEnviarEntraDesdeElQuintoDia() {
+        UUID t = empresa("BODEGA SAN JUAN SAC");
+        Comprobante cuarto = boleta(t, 4);
+        Comprobante quinto = boleta(t, 5);
+        Comprobante septimo = boleta(t, 7);
+
+        assertThat(ids(DE_HOY)).as("4.º día: todavía no").doesNotContain(cuarto.id());
+        assertThat(ids(DE_HOY)).containsExactlyInAnyOrder(quinto.id(), septimo.id());
+        assertThat(repo.contar(DE_HOY)).isEqualTo(2);
+        Fila f = repo.listar(DE_HOY, 1, 10).get(0);
+        assertThat(f.boletaSinEnviar()).isTrue();
+        assertThat(f.estado()).isEqualTo(EstadoDocumento.FIRMADO);
+        assertThat(f.tipo()).isEqualTo("03");
+        assertThat(f.siguienteIntento()).as("no tiene reintento programado: nadie la va a enviar").isNull();
+    }
+
+    /** Sin la fecha de hoy ninguna FIRMADA entra: el filtro heredado de antes de #356 sigue viendo lo mismo que veía. */
+    @Test void sinLaFechaDeHoyNingunaFirmadaEntra() {
+        UUID t = empresa("BODEGA SAN JUAN SAC");
+        boleta(t, 6);
+
+        assertThat(ids(TODOS)).isEmpty();
+        assertThat(repo.contar(TODOS)).isZero();
+    }
+
+    /** Una boleta con el envío fallando ya es un error de envío: entra una vez, como tal, no también como «sin enviar». */
+    @Test void unaBoletaConErrorDeEnvioEntraComoErrorDeEnvioYNoSeDuplica() {
+        UUID t = empresa("BODEGA SAN JUAN SAC");
+        Comprobante b = boleta(t, 6);
+        b.marcarErrorEnvio("0109 - SUNAT no responde");
+        comprobantes.guardar(b);
+
+        assertThat(repo.listar(DE_HOY, 1, 10)).singleElement().satisfies(f -> {
+            assertThat(f.comprobanteId()).isEqualTo(b.id());
+            assertThat(f.estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+            assertThat(f.boletaSinEnviar()).isFalse();
+        });
+        assertThat(repo.contar(DE_HOY)).isEqualTo(1);
+    }
+
+    @Test void unaBoletaYaEnviadaOAceptadaNoEntra() {
+        UUID t = empresa("BODEGA SAN JUAN SAC");
+        Comprobante enviada = boleta(t, 6);
+        enviada.marcarEnviado();
+        comprobantes.guardar(enviada);
+        Comprobante aceptada = boleta(t, 6);
+        aceptada.marcarEnviado();
+        aceptada.aplicarCdr(new Cdr("0", "ok", List.of()), "R.zip");
+        comprobantes.guardar(aceptada);
+
+        assertThat(repo.contar(DE_HOY)).isZero();
+    }
+
+    /** Una factura que nadie envió vence a FUERA_DE_PLAZO (2108); no es de esta clase aunque lleve mucho tiempo FIRMADA. */
+    @Test void unaFacturaFirmadaSinEnviarNoEntra() {
+        UUID t = empresa("BODEGA SAN JUAN SAC");
+        firmado(Comprobante.factura(t, "F001", HOY.minusDays(2), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), ITEMS).crear(RELOJ));
+        jdbc.update("UPDATE documento SET fecha_emision = ? WHERE tipo = '01'", java.sql.Date.valueOf(HOY.minusDays(30)));
+
+        assertThat(repo.contar(DE_HOY)).isZero();
+    }
+
+    /** La nota que modifica una boleta sigue a la boleta (va en el resumen); la NC 10 y la ND 03 no tienen resumen y vencen a FUERA_DE_PLAZO. */
+    @Test void unaNotaDeBoletaEntraSalvoLaQueNoVaEnElResumen() {
+        UUID t = empresa("BODEGA SAN JUAN SAC");
+        Comprobante nc07 = notaDeBoleta(t, 6, "07", TipoDocumento.NOTA_CREDITO);
+        Comprobante nd01 = notaDeBoleta(t, 6, "01", TipoDocumento.NOTA_DEBITO);
+        // Sin resumen diario su último día es el 5.º: se emiten hasta ahí, y justo ahí un SQL que las confundiera con las otras las dejaría entrar.
+        notaDeBoleta(t, 5, "10", TipoDocumento.NOTA_CREDITO);
+        notaDeBoleta(t, 5, "03", TipoDocumento.NOTA_DEBITO);
+
+        assertThat(ids(DE_HOY)).containsExactlyInAnyOrder(nc07.id(), nd01.id());
+    }
+
+    /** El SQL y {@code Comprobante.porInformar} deciden lo mismo, día por día y tipo por tipo: si uno cambia, este test avisa. */
+    @Test void elSqlDiceLoMismoQueElDominio() {
+        UUID t = empresa("BODEGA SAN JUAN SAC");
+        for (int dias = 0; dias <= 7; dias++) {
+            List<Comprobante> deEseDia = new java.util.ArrayList<>(List.of(boleta(t, dias), notaDeBoleta(t, dias, "07", TipoDocumento.NOTA_CREDITO)));
+            if (dias <= 5) deEseDia.add(notaDeBoleta(t, dias, "10", TipoDocumento.NOTA_CREDITO));   // la NC 10 no se emite pasado el 5.º día
+            for (Comprobante c : deEseDia) {
+                boolean entra = ids(DE_HOY).contains(c.id());
+                assertThat(entra).as("%s a %d días".formatted(c.tipo(), dias)).isEqualTo(c.porInformar(HOY));
+            }
+        }
+    }
+
+    @Test void sePuedeFiltrarSoloPorBoletasSinEnviar() {
+        UUID t = empresa("BODEGA SAN JUAN SAC");
+        Comprobante sinEnviar = boleta(t, 6);
+        documento(t, EstadoDocumento.ERROR_ENVIO, null);
+
+        assertThat(ids(new Filtro(ClaseDeError.BOLETA_SIN_ENVIAR, null, null, HOY))).containsExactly(sinEnviar.id());
+        assertThat(ids(new Filtro(ClaseDeError.ERROR_DE_ENVIO, null, null, HOY))).hasSize(1).doesNotContain(sinEnviar.id());
     }
 
     // --- ubicar -----------------------------------------------------------------------------------------------------------------------------

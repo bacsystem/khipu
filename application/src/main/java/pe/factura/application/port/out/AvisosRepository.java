@@ -29,6 +29,12 @@ public interface AvisosRepository {
     /** Todo lo que hace falta saber de una empresa para decidir si el aviso es cierto. {@code vigenteHasta} y {@code diasRestantes} son nulos si no tiene certificado o fecha. */
     record Situacion(UUID empresaId, String ruc, String razonSocial, Destino cuenta, EstadoCertificado certificado, LocalDate vigenteHasta, Integer diasRestantes, long fallosDeSol) {}
 
+    /**
+     * Una empresa con boletas sin informar a SUNAT desde el 5.º día (#356). {@code pendientes}: cuántas; {@code urgentes}: cuántas están en el 7.º día (el último del resumen diario) o
+     * lo pasaron; {@code masAntiguaEmitidaEl}: la fecha de emisión de la más antigua.
+     */
+    record FilaBoletas(UUID empresaId, String ruc, String razonSocial, Destino cuenta, long pendientes, long urgentes, LocalDate masAntiguaEmitidaEl) {}
+
     /** Un aviso mandado (o reservado, mientras el correo sale). {@code enviadoPor} es el administrador; nulo si lo mandó la clave de la plataforma. */
     record AvisoRegistrado(UUID id, UUID empresaId, UUID cuentaId, MotivoDeAviso motivo, String destinatario, Instant enviadoEn, UUID enviadoPor) {}
 
@@ -41,6 +47,12 @@ public interface AvisosRepository {
     List<FilaSol> credencialesSol(int pagina, int porPagina);
 
     long contarCredencialesSol();
+
+    /**
+     * Las empresas con boletas (o notas que van en el resumen diario) sin informar a SUNAT desde el 5.º día, de la que tiene la más antigua a la que menos (#356). Solo las empresas en
+     * servicio; las de una integración, sin cuenta, vienen con el destino vacío.
+     */
+    List<FilaBoletas> boletasSinInformar(LocalDate hoy);
 
     /** Vacío si la empresa no existe. */
     Optional<Situacion> situacionDe(UUID empresaId, LocalDate hoy);

@@ -69,6 +69,7 @@ class AvisosAClientesE2ETest {
 
     @Autowired TestRestTemplate http;
     @Autowired JdbcTemplate jdbc;
+    @Autowired pe.factura.application.port.in.AvisarBoletasSinInformarUseCase avisarBoletas;
 
     static final LocalDate HOY = LocalDate.now(CicloMensual.ZONA);
     static final String[] RUCS = {"20100066603", "20100066611", "20100066620", "20100066638"};
@@ -417,5 +418,86 @@ class AvisosAClientesE2ETest {
         }
         assertThat(ENVIADOS).isEmpty();
         assertThat(avisos()).isZero();
+    }
+
+    // --- el aviso automático de boletas sin informar (#356) -------------------------------------------------------------------------------
+
+    /** Una boleta de esa empresa emitida hace {@code dias} días, en ese estado. */
+    private void boleta(UUID empresa, String estado, int dias) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo) VALUES (?, ?, '03', 'B001', ?, ?, ?, 'x')",
+                id, empresa, NUMERO.getAndIncrement(), Date.valueOf(HOY.minusDays(dias)), estado);
+        jdbc.update("INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, total_gravado, total_exonerado, total_inafecto, total_igv, total) "
+                + "VALUES (?, '0101', 'PEN', '-', '-', 'CLIENTES VARIOS', 0, 0, 0, 0, 10)", id);
+    }
+
+    /** Del 5.º día en adelante el cliente recibe un correo con lo que le falta; se registra, y la misma semana no se repite. */
+    @Test void elClienteRecibeElAvisoDeSusBoletasSinInformarUnaSolaVezPorSemana() {
+        Cliente c = cliente("ana@negocio.pe", null);
+        boleta(c.empresaId(), "FIRMADO", 4);
+        assertThat(avisarBoletas.avisar("https://app.khipu.pe").enviados()).as("4.º día: todavía no").isZero();
+
+        boleta(c.empresaId(), "FIRMADO", 5);
+        boleta(c.empresaId(), "ERROR_ENVIO", 6);
+        var r = avisarBoletas.avisar("https://app.khipu.pe");
+
+        assertThat(r.enviados()).isEqualTo(1);
+        assertThat(ENVIADOS).singleElement().satisfies(m -> {
+            assertThat(m[0]).isEqualTo("ana@negocio.pe");
+            assertThat(m[1]).isEqualTo("2 boletas de EMPRESA %s sin informar a SUNAT".formatted(c.ruc()));
+            assertThat(m[2]).contains("2 boletas sin informar").contains("https://app.khipu.pe");
+        });
+        assertThat(jdbc.queryForList("SELECT motivo, destinatario FROM aviso_a_cliente WHERE tenant_id = ?", c.empresaId()))
+                .singleElement().satisfies(f -> assertThat(f).containsEntry("motivo", "BOLETAS_POR_INFORMAR").containsEntry("destinatario", "ana@negocio.pe"));
+        assertThat(avisarBoletas.avisar("https://app.khipu.pe").enviados()).as("la misma semana, no se repite").isZero();
+        assertThat(ENVIADOS).hasSize(1);
+    }
+
+    /** Cuando la más antigua llega al 7.º día sale el aviso urgente, aunque el del 5.º se haya mandado hace dos días. */
+    @Test void alSeptimoDiaSaleElAvisoUrgenteAunqueElDelQuintoSeHayaMandado() {
+        Cliente c = cliente("ana@negocio.pe", null);
+        boleta(c.empresaId(), "FIRMADO", 5);
+        avisarBoletas.avisar("https://app.khipu.pe");
+        jdbc.update("UPDATE documento SET fecha_emision = ? WHERE tenant_id = ?", Date.valueOf(HOY.minusDays(7)), c.empresaId());
+
+        assertThat(avisarBoletas.avisar("https://app.khipu.pe").enviados()).isEqualTo(1);
+
+        assertThat(jdbc.queryForList("SELECT motivo FROM aviso_a_cliente ORDER BY enviado_en", String.class)).containsExactly("BOLETAS_POR_INFORMAR", "BOLETAS_POR_VENCER_PLAZO");
+        assertThat(ENVIADOS.get(1)[2]).contains("fuera de plazo").contains("(hoy)");
+    }
+
+    @Test void sinEnvioDeCorreosNoSeRegistraNadaYSeAvisaCuandoHayaCorreo() {
+        Cliente c = cliente("ana@negocio.pe", null);
+        boleta(c.empresaId(), "FIRMADO", 6);
+        ENTREGA.set(false);
+
+        assertThat(avisarBoletas.avisar("https://app.khipu.pe").enviados()).isZero();
+        assertThat(avisos()).isZero();
+
+        ENTREGA.set(true);
+        assertThat(avisarBoletas.avisar("https://app.khipu.pe").enviados()).isEqualTo(1);
+    }
+
+    @Test void siElCorreoFallaNoQuedaUnAvisoFantasmaYSeReintenta() {
+        Cliente c = cliente("ana@negocio.pe", null);
+        boleta(c.empresaId(), "FIRMADO", 6);
+        FALLA.set(true);
+
+        var r = avisarBoletas.avisar("https://app.khipu.pe");
+
+        assertThat(r.enviados()).isZero();
+        assertThat(r.fallos()).singleElement().asString().contains("ana@negocio.pe");
+        assertThat(avisos()).as("la reserva se anuló").isZero();
+
+        FALLA.set(false);
+        assertThat(avisarBoletas.avisar("https://app.khipu.pe").enviados()).isEqualTo(1);
+    }
+
+    @Test void unaEmpresaDeIntegracionSinCuentaNoRecibeCorreo() {
+        UUID integrada = integrada(200);
+        boleta(integrada, "FIRMADO", 6);
+
+        assertThat(avisarBoletas.avisar("https://app.khipu.pe").enviados()).isZero();
+        assertThat(ENVIADOS).isEmpty();
     }
 }

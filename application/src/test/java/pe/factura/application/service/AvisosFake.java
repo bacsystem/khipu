@@ -17,6 +17,7 @@ import java.util.UUID;
 final class AvisosFake implements AvisosRepository {
     List<FilaCertificado> certificados = new ArrayList<>();
     List<FilaSol> sol = new ArrayList<>();
+    List<FilaBoletas> boletas = new ArrayList<>();
     final Map<UUID, Situacion> situaciones = new HashMap<>();
     final List<AvisoRegistrado> avisos = new ArrayList<>();
     final List<Object[]> consultas = new ArrayList<>();
@@ -29,6 +30,7 @@ final class AvisosFake implements AvisosRepository {
     public long contarCertificados(LocalDate hoy) { return certificados.size(); }
     public List<FilaSol> credencialesSol(int pagina, int porPagina) { consultas.add(new Object[]{"sol", pagina, porPagina}); return sol; }
     public long contarCredencialesSol() { return sol.size(); }
+    public List<FilaBoletas> boletasSinInformar(LocalDate hoy) { hoyVisto = hoy; consultas.add(new Object[]{"boletas"}); return boletas; }
     public Optional<Situacion> situacionDe(UUID empresaId, LocalDate hoy) { hoyVisto = hoy; return Optional.ofNullable(situaciones.get(empresaId)); }
 
     public Map<UUID, AvisoRegistrado> ultimosAvisos(Collection<UUID> empresas, MotivoDeAviso motivo) {

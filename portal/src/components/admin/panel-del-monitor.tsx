@@ -1,15 +1,16 @@
 "use client";
 
 import { CircleCheckIcon, CircleXIcon, TriangleAlertIcon } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Etiqueta } from "@/components/admin/etiquetas";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { ColaDeEnvios, EstadoDeServicio, Franja, MonitorDeEmision, ResumenesSinRespuesta } from "@/lib/api/admin-monitor";
+import type { BoletasSinInformar, ColaDeEnvios, EstadoDeServicio, Franja, MonitorDeEmision, ResumenesSinRespuesta } from "@/lib/api/admin-monitor";
 import { apiRequest } from "@/lib/api/browser";
 import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
 import { messages, mensajeError } from "@/lib/messages";
 import { duracionEnPalabras, formatearHoraConSegundos, formatearHoraDeLima, formatearTasa, proporcionDeBarra } from "@/lib/monitor-formato";
-import { formatearFechaHora } from "@/lib/formato";
+import { formatearFecha, formatearFechaHora } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
 const t = messages.admin.monitor;
@@ -100,6 +101,7 @@ function Lectura({ monitor }: { monitor: MonitorDeEmision }) {
     <>
       {monitor.outbox.alerta ? <AlertaDelOutbox outbox={monitor.outbox} /> : null}
       {monitor.resumenes_sin_respuesta.alerta ? <AlertaDeResumenes resumenes={monitor.resumenes_sin_respuesta} /> : null}
+      {monitor.boletas_sin_informar.alerta ? <AlertaDeBoletas boletas={monitor.boletas_sin_informar} /> : null}
       <Hoy franja={monitor.hoy} />
       <Horas horas={monitor.horas} />
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
@@ -138,6 +140,31 @@ function AlertaDeResumenes({ resumenes }: { resumenes: ResumenesSinRespuesta }) 
         <p className="font-medium">{t.alertaResumenes.titulo}</p>
         <p>{texto}</p>
         <p className="text-[12px]">{t.alertaResumenes.ayuda}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * #356: boletas que nadie informó. Tono de aviso: el sistema corre y SUNAT contesta; lo que falta es que el cliente (que las dejó sin enviar, o cuyo envío falla) las envíe antes de
+ * que cierre el resumen diario. El detalle empresa por empresa está en la cola de errores.
+ */
+function AlertaDeBoletas({ boletas }: { boletas: BoletasSinInformar }) {
+  const fecha = formatearFecha(boletas.mas_antigua_emitida_el ?? "");
+  const texto = boletas.cantidad === 1 ? t.alertaBoletas.uno.replace("{fecha}", fecha) : t.alertaBoletas.varios.replace("{n}", String(boletas.cantidad)).replace("{fecha}", fecha);
+  return (
+    <div data-testid="monitor-alerta-boletas" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-sm text-warning-foreground">
+      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+      <div className="grid gap-0.5">
+        <p className="font-medium">{t.alertaBoletas.titulo}</p>
+        <p>
+          {texto}
+          {boletas.por_vencer_el_plazo === 1 ? ` ${t.alertaBoletas.urgente}` : boletas.por_vencer_el_plazo > 1 ? ` ${t.alertaBoletas.urgentes.replace("{n}", String(boletas.por_vencer_el_plazo))}` : ""}
+        </p>
+        <p className="text-[12px]">{t.alertaBoletas.ayuda}</p>
+        <Link href="/admin/errores" className="w-fit text-[12px] font-medium underline underline-offset-2">
+          {t.alertaBoletas.verLista}
+        </Link>
       </div>
     </div>
   );

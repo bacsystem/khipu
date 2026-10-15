@@ -466,6 +466,18 @@ public class Comprobante {
     /** Si hoy se informaría en el resumen diario pasado el 7.º día: SUNAT no la rechaza, puede observarla con la 4443 (#331; e-beta no la observó). */
     public boolean informaFueraDePlazo(LocalDate hoy) { return plazoEnvio().informaFueraDePlazo(fechaEmision, hoy); }
 
+    /**
+     * Una boleta, o una nota que la modifica, que sigue sin informarse (FIRMADA o con el envío fallando) y ya pide atención (#356): desde el 5.º día ({@link PlazoEnvio#porInformar}).
+     * Es el «atención requerida» de lo que no tiene un estado propio para eso: la boleta nunca pasa a FUERA_DE_PLAZO (#331).
+     */
+    public boolean porInformar(LocalDate hoy) { return estado.esEnviable() && plazoEnvio().porInformar(fechaEmision, hoy); }
+
+    /** Lo mismo que {@link #porInformar}, pero ya en el último día del resumen diario o pasado (#356): el segundo aviso, el urgente. */
+    public boolean porVencerElPlazo(LocalDate hoy) { return estado.esEnviable() && plazoEnvio().porVencerElPlazo(fechaEmision, hoy); }
+
+    /** Si el outbox debe seguir reintentando su envío aunque agote los intentos (#356): lo de boleta, mientras siga en plazo del resumen diario. */
+    public boolean noSeAbandonaTodavia(LocalDate hoy) { return plazoEnvio().noSeAbandonaTodavia(fechaEmision, hoy); }
+
     public void aplicarCdr(Cdr cdr, String cdrKey) {
         EstadoDocumento destino = cdr.esRechazo() ? EstadoDocumento.RECHAZADO
                 : cdr.esObservado() ? EstadoDocumento.ACEPTADO_CON_OBS : EstadoDocumento.ACEPTADO;

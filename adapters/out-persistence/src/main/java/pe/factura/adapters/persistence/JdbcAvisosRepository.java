@@ -78,6 +78,22 @@ public class JdbcAvisosRepository implements AvisosRepository {
                 """.formatted(ENVIO_ATASCADO, FALLO_DE_SOL, EN_SERVICIO), Long.class);
     }
 
+    /**
+     * Las empresas en servicio con boletas por enviar —FIRMADAS o con el envío fallando— desde el 5.º día (#356), con la cuenta a quien avisar. La misma regla de
+     * {@code Comprobante.porInformar} ({@link BoletasPorInformar}), acotada a las emitidas en los últimos {@code PlazoEnvio.DIAS_AVISO_BOLETAS} días: lo abandonado no genera un correo cada
+     * semana para siempre. Las de una integración, sin cuenta, vienen con el destino vacío.
+     */
+    @Override public List<FilaBoletas> boletasSinInformar(LocalDate hoy) {
+        return jdbc.query("""
+                SELECT t.id, t.ruc, t.razon_social, %s, count(*) AS pendientes, count(*) FILTER (WHERE d.fecha_emision <= ?) AS urgentes, min(d.fecha_emision) AS mas_antigua
+                FROM documento d JOIN tenant t ON t.id = d.tenant_id LEFT JOIN cuenta c ON c.id = t.cuenta_id LEFT JOIN comprobante cp ON cp.documento_id = d.id
+                WHERE %s AND d.fecha_emision >= ? AND %s
+                GROUP BY t.id, c.id ORDER BY min(d.fecha_emision), t.id
+                """.formatted(CUENTA, BoletasPorInformar.sinInformar("cp"), EN_SERVICIO), (rs, i) -> new FilaBoletas(rs.getObject("id", UUID.class), rs.getString("ruc"),
+                rs.getString("razon_social"), destino(rs), rs.getLong("pendientes"), rs.getLong("urgentes"), rs.getObject("mas_antigua", LocalDate.class)),
+                BoletasPorInformar.corteUrgente(hoy), BoletasPorInformar.corte(hoy), BoletasPorInformar.desdeParaAvisar(hoy));
+    }
+
     @Override public Optional<Situacion> situacionDe(UUID empresaId, LocalDate hoy) {
         return jdbc.query("""
                 SELECT t.id, t.ruc, t.razon_social, %s, %s AS estado,

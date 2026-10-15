@@ -43,6 +43,7 @@ function monitor(p: Partial<MonitorDeEmision> = {}): MonitorDeEmision {
     hoy: franja("2026-10-15T05:00:00Z", { aceptados: 400, rechazados: 12, con_error: 4, en_camino: 10, otros: 9, tasa_de_rechazo: 12 / 412 }),
     outbox: { pendientes: 0, vencidos: 0, alerta: false },
     resumenes_sin_respuesta: { cantidad: 0, umbral_horas: 6, alerta: false },
+    boletas_sin_informar: { cantidad: 0, por_vencer_el_plazo: 0, alerta: false },
     sunat: SERVICIOS,
     ...p,
   };
@@ -218,6 +219,48 @@ describe("PanelDelMonitor (#195)", () => {
 
     render(<PanelDelMonitor inicial={monitor({ outbox: { pendientes: 1, vencidos: 1, vencido_hace_segundos: 400, alerta: true } })} />);
     expect(screen.getByTestId("monitor-alerta")).toBeTruthy();
+    expect(screen.queryByTestId("monitor-alerta-resumenes")).toBeNull();
+  });
+
+  // --- las boletas sin informar (#356) -------------------------------------------------------------------------------------------------
+
+  it("sin boletas sin informar no hay alerta de boletas", () => {
+    render(<PanelDelMonitor inicial={monitor()} />);
+
+    expect(screen.queryByTestId("monitor-alerta-boletas")).toBeNull();
+  });
+
+  it("con boletas sin informar dice cuántas, cuál es la más antigua y cuántas ya están en el último día", () => {
+    render(<PanelDelMonitor inicial={monitor({ boletas_sin_informar: { cantidad: 4, por_vencer_el_plazo: 2, mas_antigua_emitida_el: "2026-10-08", alerta: true } })} />);
+
+    const alerta = screen.getByTestId("monitor-alerta-boletas");
+    expect(alerta.getAttribute("role")).toBe("alert");
+    expect(alerta.textContent).toContain("Hay boletas sin informar a SUNAT");
+    expect(alerta.textContent).toContain("4 boletas llevan 5 días o más sin informarse; la más antigua se emitió el 8 Oct 2026.");
+    expect(alerta.textContent).toContain("2 están en el 7.º día o ya lo pasaron.");
+    expect(alerta.textContent).toContain("Avísale al cliente");
+    expect(within(alerta).getByRole("link", { name: "Ver en la cola de errores" }).getAttribute("href")).toBe("/admin/errores");
+  });
+
+  it("una sola en el último día se dice en singular", () => {
+    render(<PanelDelMonitor inicial={monitor({ boletas_sin_informar: { cantidad: 3, por_vencer_el_plazo: 1, mas_antigua_emitida_el: "2026-10-08", alerta: true } })} />);
+
+    expect(screen.getByTestId("monitor-alerta-boletas").textContent).toContain("1 está en el 7.º día o ya lo pasó.");
+  });
+
+  it("una sola boleta está en singular y, si no hay ninguna en el último día, no habla de él", () => {
+    render(<PanelDelMonitor inicial={monitor({ boletas_sin_informar: { cantidad: 1, por_vencer_el_plazo: 0, mas_antigua_emitida_el: "2026-10-10", alerta: true } })} />);
+
+    const alerta = screen.getByTestId("monitor-alerta-boletas");
+    expect(alerta.textContent).toContain("1 boleta lleva 5 días o más sin informarse; la más antigua se emitió el 10 Oct 2026.");
+    expect(alerta.textContent).not.toContain("están en el 7.º día");
+  });
+
+  /** Son problemas distintos (outbox caído, ticket sin respuesta, boleta que nadie informó): cada alerta sale sola. */
+  it("la alerta de boletas es independiente de las otras", () => {
+    render(<PanelDelMonitor inicial={monitor({ boletas_sin_informar: { cantidad: 1, por_vencer_el_plazo: 0, mas_antigua_emitida_el: "2026-10-10", alerta: true } })} />);
+
+    expect(screen.queryByTestId("monitor-alerta")).toBeNull();
     expect(screen.queryByTestId("monitor-alerta-resumenes")).toBeNull();
   });
 

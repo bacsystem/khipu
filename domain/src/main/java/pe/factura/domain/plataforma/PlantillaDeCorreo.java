@@ -58,7 +58,21 @@ public enum PlantillaDeCorreo {
                     + "\n\nRevísalos y vuelve a guardarlos en el portal:\n{enlace}\n\nSi ya las corregiste, ignora este mensaje.\n\nkhipu",
             List.of(Variable.opcional("razon_social", "La razón social de la empresa.", "PANADERIA SOL SAC"),
                     Variable.opcional("ruc", "El RUC de la empresa.", "20100047226"),
-                    Variable.opcional("enlace", "El portal, donde el cliente corrige sus credenciales.", "https://app.khipu.pe")));
+                    Variable.opcional("enlace", "El portal, donde el cliente corrige sus credenciales.", "https://app.khipu.pe"))),
+
+    AVISO_BOLETAS_POR_INFORMAR("Aviso: boletas sin informar", "Se manda solo, como mucho una vez por semana y por empresa, cuando una boleta lleva 5 días sin informarse a SUNAT.",
+            "{boletas} de {razon_social} sin informar a SUNAT",
+            "Hola,\n\n{razon_social} (RUC {ruc}) tiene {boletas} sin informar a SUNAT. El envío individual vence a los 5 días; pasado ese plazo solo se informan en el resumen diario,"
+                    + " que cierra el 7.º día: el {fecha} ({cuando}) para la más antigua.\n\nEntra al portal y envía lo que falte desde Comprobantes:\n{enlace}"
+                    + "\n\nSi ya lo enviaste, ignora este mensaje.\n\nkhipu",
+            AvisoDeBoletas.VARIABLES),
+
+    AVISO_BOLETAS_PLAZO("Aviso: plazo de boletas por vencer", "Se manda solo, como mucho una vez por semana y por empresa, cuando una boleta llega al 7.º día sin informarse a SUNAT.",
+            "{boletas} de {razon_social} siguen sin informarse a SUNAT",
+            "Hola,\n\n{razon_social} (RUC {ruc}) sigue con {boletas} sin informar a SUNAT. El plazo del resumen diario para la más antigua es el {fecha} ({cuando})."
+                    + " Pasado ese día se informan fuera de plazo y SUNAT puede observarlas.\n\nEntra al portal y envía lo que falte desde Comprobantes:\n{enlace}"
+                    + "\n\nSi ya lo enviaste, ignora este mensaje.\n\nkhipu",
+            AvisoDeBoletas.VARIABLES);
 
     public static final int MAX_ASUNTO = 150;
     public static final int MAX_CUERPO = 5000;
@@ -82,6 +96,16 @@ public enum PlantillaDeCorreo {
                 Variable.opcional("fecha", "El día en que vence o venció el certificado (dd/mm/aaaa).", "25/10/2026"),
                 Variable.opcional("cuando", "Cuándo vence o venció: «hoy», «mañana», «ayer», «en N días» o «hace N días».", "en 10 días"),
                 Variable.opcional("enlace", "El portal, donde el cliente carga su certificado.", "https://app.khipu.pe"));
+    }
+
+    private static final class AvisoDeBoletas {
+        static final List<Variable> VARIABLES = List.of(
+                Variable.opcional("razon_social", "La razón social de la empresa.", "BODEGA SAN JUAN SAC"),
+                Variable.opcional("ruc", "El RUC de la empresa.", "20100047226"),
+                Variable.opcional("boletas", "Cuántas boletas siguen sin informarse: «1 boleta», «3 boletas».", "3 boletas"),
+                Variable.opcional("fecha", "El día en que cierra el resumen diario para la boleta más antigua (dd/mm/aaaa).", "17/10/2026"),
+                Variable.opcional("cuando", "Cuándo cierra: «hoy», «mañana», «en N días» o, si ya pasó, «hace N días».", "en 2 días"),
+                Variable.opcional("enlace", "El portal, donde el cliente envía sus comprobantes.", "https://app.khipu.pe"));
     }
 
     private final String etiqueta;
