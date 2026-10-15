@@ -18,6 +18,7 @@ import pe.factura.domain.documento.EstadoDocumento;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.List;
 
 @Slf4j
@@ -54,7 +55,7 @@ public class OutboxWorker {
             switch (fila.accion()) {
                 case EnviarDocumentoService.ACCION_ENVIAR -> {
                     Comprobante c = enviar.enviar(fila.tenantId(), fila.agregadoId());
-                    if (c.estado() == EstadoDocumento.ERROR_ENVIO) reintentarOAgotar(fila, c.nombreArchivo(), c.ultimoError(), Backoff.siguiente(fila.intentos() + 1, clock.instant()));
+                    if (c.estado() == EstadoDocumento.ERROR_ENVIO) reintentarOAgotar(fila, c, Backoff.siguiente(fila.intentos() + 1, clock.instant()));
                     else outbox.completar(fila.id());
                 }
                 case DarDeBajaService.ACCION_BAJA -> {
@@ -89,13 +90,18 @@ public class OutboxWorker {
         }
     }
 
-    private void reintentarOAgotar(OutboxItem fila, String nombre, String error, java.time.Instant cuando) {
+    /**
+     * #356: una boleta no se agota mientras siga en plazo del resumen diario (hasta el 7.º día): 20 intentos son unas 74 horas y, rendida al 3.er día, quedaba sin informarse con
+     * cuatro por delante. Desde el 6.º día {@code enviar} la manda al resumen diario, así que seguir reintentando es lo que la rescata. Pasado el plazo se agota como el resto:
+     * queda en error de envío, visible en «atención requerida» y con el envío a mano.
+     */
+    private void reintentarOAgotar(OutboxItem fila, Comprobante c, java.time.Instant cuando) {
         int intentos = fila.intentos() + 1;
-        if (intentos >= maxIntentos) {
-            log.error("{} agotó {} intentos: {}", nombre, maxIntentos, error);
+        if (intentos >= maxIntentos && !c.noSeAbandonaTodavia(LocalDate.now(clock))) {
+            log.error("{} agotó {} intentos: {}", c.nombreArchivo(), maxIntentos, c.ultimoError());
             outbox.completar(fila.id());
         } else {
-            outbox.reprogramar(fila.id(), cuando, error);
+            outbox.reprogramar(fila.id(), cuando, c.ultimoError());
         }
     }
 }

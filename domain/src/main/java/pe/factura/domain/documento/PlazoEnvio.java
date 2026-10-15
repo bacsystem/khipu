@@ -82,6 +82,32 @@ public record PlazoEnvio(String documento, int diasEnvioIndividual, int dias, bo
     }
 
     /**
+     * Si lo de boleta que sigue sin informarse ya pide atención (#356): desde el 5.º día, el último del envío individual. Hasta entonces el cliente tiene tiempo de sobra; desde
+     * entonces solo le quedan el último día de {@code sendBill} y los dos del resumen diario. No cuenta lo que no va en el resumen (la factura, la NC 10, la ND 03): vencido pasa
+     * a FUERA_DE_PLAZO, que ya pide atención por sí mismo.
+     */
+    public boolean porInformar(LocalDate fechaEmision, LocalDate hoy) {
+        return vaEnResumen() && !hoy.isBefore(fechaEmision.plusDays(diasEnvioIndividual));
+    }
+
+    /**
+     * Si al plazo del resumen diario le queda hoy el último día o ya lo pasó (#356): el 7.º día en adelante. Es el segundo aviso, el urgente: pasado, se informa fuera de plazo
+     * y SUNAT puede observarlo con la 4443 ({@link #informaFueraDePlazo}).
+     */
+    public boolean porVencerElPlazo(LocalDate fechaEmision, LocalDate hoy) {
+        return vaEnResumen() && !hoy.isBefore(fechaLimite(fechaEmision));
+    }
+
+    /**
+     * Si el outbox debe seguir reintentando aunque agote sus intentos (#356): lo de boleta mientras siga en plazo del resumen diario. Con el backoff, 20 intentos son unas 74 horas:
+     * una boleta que SUNAT no recibe el día de la emisión se rendía al 3.er día, con cuatro por delante en el resumen. Pasado el plazo ya puede agotarse; sigue visible y se
+     * puede enviar a mano.
+     */
+    public boolean noSeAbandonaTodavia(LocalDate fechaEmision, LocalDate hoy) {
+        return vaEnResumen() && !vencido(fechaEmision, hoy);
+    }
+
+    /**
      * Qué pasa pasado el plazo final, con el código de SUNAT. No es lo mismo en los dos (274-H1): una factura queda fuera de fecha (2108) y hay que emitir
      * otra; una boleta, pasados también los 7 días del resumen diario, ya no se recibe a tiempo ni en él. Lo de boleta que va en el resumen solo lo usa al
      * emitir (no se emite con una fecha ya vencida); lo ya firmado se informa igual, fuera de plazo (#331).

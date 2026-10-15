@@ -93,6 +93,42 @@ class PlazoEnvioTest {
         assertThat(nc10.informaFueraDePlazo(emision, LocalDate.of(2026, 9, 18))).isFalse();
     }
 
+    /**
+     * #356: lo de boleta que sigue sin informarse pide atención desde el 5.º día, el último del envío individual: todavía puede ir sola, pero es el último día para eso. La factura
+     * y la NC 10 / ND 03 no entran: no tienen resumen diario y, vencidas, pasan a FUERA_DE_PLAZO, que ya pide atención.
+     */
+    @Test void loDeBoletaPideAtencionDesdeElQuintoDia() {
+        LocalDate emision = LocalDate.of(2026, 9, 10);
+        for (PlazoEnvio p : List.of(BOLETA, deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "07"), deNota(TipoDocumento.NOTA_DEBITO, TipoDocumento.BOLETA, "01"))) {
+            assertThat(p.porInformar(emision, LocalDate.of(2026, 9, 14))).as("4.º día: todavía no").isFalse();
+            assertThat(p.porInformar(emision, LocalDate.of(2026, 9, 15))).as("5.º día: último del envío individual").isTrue();
+            assertThat(p.porInformar(emision, LocalDate.of(2026, 9, 17))).as("7.º día").isTrue();
+            assertThat(p.porInformar(emision, LocalDate.of(2026, 10, 30))).as("semanas después: sigue pidiéndolo").isTrue();
+        }
+        assertThat(FACTURA.porInformar(emision, LocalDate.of(2026, 9, 13))).isFalse();
+        assertThat(FACTURA.porInformar(emision, LocalDate.of(2026, 9, 30))).isFalse();
+        assertThat(deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "10").porInformar(emision, LocalDate.of(2026, 9, 15))).as("sin resumen diario").isFalse();
+    }
+
+    /** #356: el 7.º día es el último en plazo en el resumen diario, y se avisa distinto: «vence hoy», no «ya casi». */
+    @Test void elSeptimoDiaEsElUltimoEnPlazoYSeAvisaComoUrgente() {
+        LocalDate emision = LocalDate.of(2026, 9, 10);
+        assertThat(BOLETA.porVencerElPlazo(emision, LocalDate.of(2026, 9, 16))).as("6.º día").isFalse();
+        assertThat(BOLETA.porVencerElPlazo(emision, LocalDate.of(2026, 9, 17))).as("7.º día: vence hoy").isTrue();
+        assertThat(BOLETA.porVencerElPlazo(emision, LocalDate.of(2026, 9, 18))).as("8.º día: ya venció, sigue siendo urgente").isTrue();
+        assertThat(FACTURA.porVencerElPlazo(emision, LocalDate.of(2026, 9, 13))).isFalse();
+    }
+
+    /** #356: el outbox no abandona lo de boleta mientras siga en plazo del resumen diario (hasta el 7.º día); pasado el plazo, ya puede agotarse. */
+    @Test void elOutboxNoAbandonaLoDeBoletaAntesDelSeptimoDia() {
+        LocalDate emision = LocalDate.of(2026, 9, 10);
+        assertThat(BOLETA.noSeAbandonaTodavia(emision, LocalDate.of(2026, 9, 10))).as("el día de la emisión").isTrue();
+        assertThat(BOLETA.noSeAbandonaTodavia(emision, LocalDate.of(2026, 9, 17))).as("7.º día: último en plazo").isTrue();
+        assertThat(BOLETA.noSeAbandonaTodavia(emision, LocalDate.of(2026, 9, 18))).as("8.º día: ya fuera de plazo").isFalse();
+        assertThat(FACTURA.noSeAbandonaTodavia(emision, LocalDate.of(2026, 9, 11))).as("la factura sigue con su propio plazo").isFalse();
+        assertThat(deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "10").noSeAbandonaTodavia(emision, LocalDate.of(2026, 9, 11))).isFalse();
+    }
+
     /** El corte grueso de ControlarPlazoEnvioService usa este mínimo: debe seguir siendo válido si algún tipo cambia su plazo. */
     @Test void diasMinimoEsElMenorEntreTodosLosPlazos() {
         assertThat(PlazoEnvio.diasMinimo()).isEqualTo(3);
