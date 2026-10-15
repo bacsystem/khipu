@@ -16,9 +16,12 @@ import java.util.UUID;
 public interface ConsultarColaDeErroresUseCase {
     /**
      * {@code clase} y {@code empresaId} acotan por tipo de error y por empresa (nulos = todas). {@code texto} busca en el RUC y la razón social de la empresa, sin distinguir
-     * mayúsculas ni tildes (nulo o en blanco = sin búsqueda).
+     * mayúsculas ni tildes (nulo o en blanco = sin búsqueda). {@code hoy} lo pone el servicio con su reloj (#356): qué boleta sin enviar ya pide atención depende de la fecha; sin
+     * ella (nula) ninguna entra.
      */
-    record Filtro(ClaseDeError clase, UUID empresaId, String texto) {}
+    record Filtro(ClaseDeError clase, UUID empresaId, String texto, LocalDate hoy) {
+        public Filtro(ClaseDeError clase, UUID empresaId, String texto) { this(clase, empresaId, texto, null); }
+    }
 
     /**
      * Un comprobante con problema. {@code fault} es nulo si no hay nada que mostrar. {@code proximoIntento}: cuándo lo reintentará el trabajo del outbox; nulo si no hay un

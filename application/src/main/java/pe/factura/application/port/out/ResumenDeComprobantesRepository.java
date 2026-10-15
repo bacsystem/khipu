@@ -17,9 +17,12 @@ public interface ResumenDeComprobantesRepository {
     /** El total facturado en una moneda: las facturas, boletas y notas de débito suman y las notas de crédito restan. Puede salir negativo si las notas superan lo emitido. */
     record Facturado(String moneda, BigDecimal total) {}
 
-    /** {@code porEstado} solo trae los estados que tienen comprobantes; {@code facturado} va ordenado por moneda y solo trae las monedas que tienen algo. */
-    record Agregados(Map<EstadoDocumento, Long> porEstado, List<Facturado> facturado) {}
+    /**
+     * {@code porEstado} solo trae los estados que tienen comprobantes; {@code facturado} va ordenado por moneda y solo trae las monedas que tienen algo. {@code boletasSinEnviar}:
+     * cuántas boletas (o notas que las modifican) siguen FIRMADAS sin que nadie las envíe y ya están en el 5.º día o más (#356); depende de la fecha, así que el estado solo no lo dice.
+     */
+    record Agregados(Map<EstadoDocumento, Long> porEstado, List<Facturado> facturado, long boletasSinEnviar) {}
 
-    /** {@code desde}/{@code hasta} acotan la fecha de emisión, inclusive; uno nulo deja ese lado abierto. */
-    Agregados resumir(UUID tenantId, LocalDate desde, LocalDate hasta);
+    /** {@code desde}/{@code hasta} acotan la fecha de emisión, inclusive; uno nulo deja ese lado abierto. {@code hoy} fija desde cuándo una boleta sin enviar pide atención. */
+    Agregados resumir(UUID tenantId, LocalDate desde, LocalDate hasta, LocalDate hoy);
 }

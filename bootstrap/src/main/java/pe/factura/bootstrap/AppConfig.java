@@ -313,7 +313,7 @@ public class AppConfig {
     }
     private static String nulo(String url) { return url == null ? "" : url; }
     @Bean ColaDeErroresRepository colaDeErroresRepository(JdbcTemplate jdbc) { return new JdbcColaDeErroresRepository(jdbc); }
-    @Bean ConsultarColaDeErroresUseCase consultarColaDeErrores(ColaDeErroresRepository cola) { return new ConsultarColaDeErroresService(cola); }
+    @Bean ConsultarColaDeErroresUseCase consultarColaDeErrores(ColaDeErroresRepository cola, Clock clock) { return new ConsultarColaDeErroresService(cola, clock); }
     @Bean ResolverErroresUseCase resolverErrores(ColaDeErroresRepository cola, EnviarDocumentoUseCase enviar, RecuperarCdrUseCase cdrs, ComprobanteRepository comprobantes, OutboxRepository outbox,
                                                  TenantRepository tenants, AuditoriaAdminRepository auditoria, UnitOfWork u, Clock clock) {
         return new ResolverErroresService(cola, enviar, cdrs, comprobantes, outbox, tenants, auditoria, u, clock);
@@ -454,7 +454,7 @@ public class AppConfig {
     @Bean ConsultarConsumoUseCase consultarConsumo(ConsumoRepository consumos, CuentaRepository cuentas, TenantRepository tenants, Clock clock) {
         return new ConsultarConsumoService(consumos, cuentas, tenants, clock);
     }
-    @Bean ResumirComprobantesUseCase resumirComprobantes(ResumenDeComprobantesRepository resumenes) { return new ResumirComprobantesService(resumenes); }
+    @Bean ResumirComprobantesUseCase resumirComprobantes(ResumenDeComprobantesRepository resumenes, Clock clock) { return new ResumirComprobantesService(resumenes, clock); }
     @Bean ConsultarConsumoDeCuentasUseCase consultarConsumoDeCuentas(ConsumoPorCuentaRepository consumos, Clock clock) { return new ConsultarConsumoDeCuentasService(consumos, clock); }
     /** Un solo servicio para las dos caras del cambio de plan: lo que hacen los administradores y lo que aplica el trabajo programado al llegar la fecha. */
     @Bean CambiarPlanDeCuentaService cambiarPlanDeCuenta(PlanRepository planes, SuscripcionRepository suscripciones, ConsultarConsumoUseCase consumo,

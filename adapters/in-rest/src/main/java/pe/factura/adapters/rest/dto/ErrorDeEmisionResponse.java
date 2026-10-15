@@ -21,14 +21,15 @@ public record ErrorDeEmisionResponse(
         @Schema(example = "F001") String serie,
         @Schema(example = "7") long numero,
         @Schema(example = "2026-10-12") LocalDate fechaEmision,
-        @Schema(example = "ERROR_ENVIO", description = "El estado del comprobante: `ERROR_ENVIO`, `FUERA_DE_PLAZO` o `RECHAZADO` (con un fault de formato)") String estado,
-        @Schema(example = "ERROR_DE_ENVIO", allowableValues = {"ERROR_DE_ENVIO", "ERROR_DE_FORMATO", "FUERA_DE_PLAZO"},
-                description = "Qué tipo de problema es. `ERROR_DE_FORMATO` es un rechazo por fault de SUNAT 1000–1999: terminal, no se reintenta") String clase,
+        @Schema(example = "ERROR_ENVIO", description = "El estado del comprobante: `ERROR_ENVIO`, `FUERA_DE_PLAZO`, `RECHAZADO` (con un fault de formato) o `FIRMADO` (una boleta sin enviar)") String estado,
+        @Schema(example = "ERROR_DE_ENVIO", allowableValues = {"ERROR_DE_ENVIO", "ERROR_DE_FORMATO", "FUERA_DE_PLAZO", "BOLETA_SIN_ENVIAR"},
+                description = "Qué tipo de problema es. `ERROR_DE_FORMATO` es un rechazo por fault de SUNAT 1000–1999: terminal, no se reintenta. `BOLETA_SIN_ENVIAR` es una boleta (o nota"
+                        + " que la modifica) que el cliente dejó `FIRMADO` con `enviar_automatico: false` y ya está en el 5.º día o más: no falló nada, pero el resumen diario cierra el 7.º día") String clase,
         @Schema(example = "3", description = "Cuántas veces falló el envío") int intentos,
         @Schema(description = "El fault de SUNAT; ausente si no hay nada que mostrar") Fault fault,
         @Schema(example = "2026-10-15T18:30:00Z", description = "Cuándo lo reintentará el trabajo del outbox; ausente si no hay un reintento programado") Instant proximoIntento,
         @Schema(example = "2026-10-15T15:00:00Z", description = "Cuándo cambió por última vez") Instant actualizadoEn,
-        @Schema(description = "Si un administrador puede reintentarlo o descartarlo: solo un error de envío; las otras dos clases ya son terminales") boolean accionable) {
+        @Schema(description = "Si un administrador puede reintentarlo o descartarlo: solo un error de envío; las otras clases ya son terminales, o enviar es decisión del cliente") boolean accionable) {
 
     public record Fault(
             @Schema(example = "0109", description = "El código de SUNAT; ausente en un fallo propio (`INFRA - …`) o un texto sin código") String codigo,

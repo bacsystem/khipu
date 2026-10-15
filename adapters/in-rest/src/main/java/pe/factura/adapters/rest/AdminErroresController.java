@@ -39,8 +39,10 @@ public class AdminErroresController {
     @GetMapping("/errores")
     @Operation(summary = "La cola de errores de todas las empresas", description = """
             Los comprobantes con problema de **todas** las empresas, de la emisión más antigua a la más reciente (la más urgente primero), paginados; el total va en la cabecera
-            `X-Total-Count`. Tres clases: `ERROR_DE_ENVIO` (SUNAT no contestó o falló: se reintenta solo, y un administrador puede reintentar a mano o descartar),
-            `ERROR_DE_FORMATO` (SUNAT lo rechazó con un fault 1000–1999: terminal, no se reintenta) y `FUERA_DE_PLAZO` (terminal: hay que emitir de nuevo). Cada fila trae el fault
+            `X-Total-Count`. Cuatro clases: `ERROR_DE_ENVIO` (SUNAT no contestó o falló: se reintenta solo, y un administrador puede reintentar a mano o descartar),
+            `ERROR_DE_FORMATO` (SUNAT lo rechazó con un fault 1000–1999: terminal, no se reintenta), `FUERA_DE_PLAZO` (terminal: hay que emitir de nuevo) y `BOLETA_SIN_ENVIAR`
+            (una boleta que el cliente dejó `FIRMADA` sin enviar y ya está en el 5.º día o más: no falló, pero el resumen diario cierra el 7.º; enviarla es decisión del cliente, así que
+            el administrador no la reintenta, la avisa). Cada fila trae el fault
             de SUNAT, los intentos y, si hay un reintento programado, cuándo. `q` busca el cliente por RUC (prefijo), razón social, o nombre o correo de su cuenta, sin distinguir
             mayúsculas ni tildes. Solo lectura.""")
     public ResponseEntity<ApiResponse<List<ErrorDeEmisionResponse>>> listar(

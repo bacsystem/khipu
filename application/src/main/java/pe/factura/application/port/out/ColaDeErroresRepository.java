@@ -14,10 +14,13 @@ import java.util.UUID;
  * los deciden {@code ClaseDeError} y {@code FaultSunat}.
  */
 public interface ColaDeErroresRepository {
-    /** Una fila de la cola. {@code siguienteIntento}: el del outbox, nulo si no hay reintento programado. {@code cuentaId} y {@code cuentaNombre} son nulos en una empresa de integración. */
+    /**
+     * Una fila de la cola. {@code siguienteIntento}: el del outbox, nulo si no hay reintento programado. {@code cuentaId} y {@code cuentaNombre} son nulos en una empresa de integración.
+     * {@code boletaSinEnviar}: está FIRMADA, es de boleta y ya pasó el 5.º día (#356); lo único que hace entrar a una FIRMADA.
+     */
     record Fila(UUID comprobanteId, UUID tenantId, String ruc, String razonSocial, UUID cuentaId, String cuentaNombre, String nombreArchivo, String tipo, String serie, long numero,
                 LocalDate fechaEmision, EstadoDocumento estado, int intentos, String ultimoError, String cdrCodigo, String cdrDescripcion, Instant siguienteIntento,
-                Instant actualizadoEn) {}
+                Instant actualizadoEn, boolean boletaSinEnviar) {}
 
     /** De qué empresa es un comprobante, para actuar sobre él sin que el administrador tenga que saberlo. */
     record Ubicacion(UUID tenantId, String nombreArchivo) {}

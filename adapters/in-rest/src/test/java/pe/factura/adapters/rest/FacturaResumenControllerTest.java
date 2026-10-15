@@ -39,7 +39,7 @@ class FacturaResumenControllerTest {
     @MockBean ResumirComprobantesUseCase resumir;
 
     @Test void elResumenDiceLoEmitidoLoAceptadoLaAtencionDesglosadaYLoFacturadoPorMoneda() throws Exception {
-        when(resumir.resumir(EMPRESA, DESDE, HASTA)).thenReturn(new Resumen(DESDE, HASTA, 120, 100, 3, 2, 1, List.of(new Total("PEN", new BigDecimal("12345.67")), new Total("USD", new BigDecimal("500.00")))));
+        when(resumir.resumir(EMPRESA, DESDE, HASTA)).thenReturn(new Resumen(DESDE, HASTA, 120, 100, 3, 2, 1, 4, List.of(new Total("PEN", new BigDecimal("12345.67")), new Total("USD", new BigDecimal("500.00")))));
 
         mvc.perform(get("/v1/facturas/resumen").param("desde", "2026-09-01").param("hasta", "2026-09-30").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
                 .andExpect(status().isOk())
@@ -47,10 +47,11 @@ class FacturaResumenControllerTest {
                 .andExpect(jsonPath("$.datos.hasta").value("2026-09-30"))
                 .andExpect(jsonPath("$.datos.emitidos").value(120))
                 .andExpect(jsonPath("$.datos.aceptados_con_cdr").value(100))
-                .andExpect(jsonPath("$.datos.atencion_requerida.total").value(6))
+                .andExpect(jsonPath("$.datos.atencion_requerida.total").value(10))
                 .andExpect(jsonPath("$.datos.atencion_requerida.rechazados").value(3))
                 .andExpect(jsonPath("$.datos.atencion_requerida.errores_de_envio").value(2))
                 .andExpect(jsonPath("$.datos.atencion_requerida.fuera_de_plazo").value(1))
+                .andExpect(jsonPath("$.datos.atencion_requerida.boletas_sin_enviar").value(4))
                 .andExpect(jsonPath("$.datos.facturado.length()").value(2))
                 .andExpect(jsonPath("$.datos.facturado[0].moneda").value("PEN"))
                 .andExpect(jsonPath("$.datos.facturado[0].total").value(12345.67))
@@ -59,7 +60,7 @@ class FacturaResumenControllerTest {
     }
 
     @Test void sinFacturadoLaListaVaVaciaYNoAusente() throws Exception {
-        when(resumir.resumir(EMPRESA, null, null)).thenReturn(new Resumen(null, null, 0, 0, 0, 0, 0, List.of()));
+        when(resumir.resumir(EMPRESA, null, null)).thenReturn(new Resumen(null, null, 0, 0, 0, 0, 0, 0, List.of()));
 
         mvc.perform(get("/v1/facturas/resumen").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
                 .andExpect(status().isOk())
@@ -69,7 +70,7 @@ class FacturaResumenControllerTest {
     }
 
     @Test void unRangoAbiertoNoMandaFechasNiLasDevuelve() throws Exception {
-        when(resumir.resumir(EMPRESA, null, HASTA)).thenReturn(new Resumen(null, HASTA, 1, 1, 0, 0, 0, List.of()));
+        when(resumir.resumir(EMPRESA, null, HASTA)).thenReturn(new Resumen(null, HASTA, 1, 1, 0, 0, 0, 0, List.of()));
 
         mvc.perform(get("/v1/facturas/resumen").param("hasta", "2026-09-30").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
                 .andExpect(status().isOk())
@@ -80,7 +81,7 @@ class FacturaResumenControllerTest {
     }
 
     @Test void pasaAlCasoDeUsoLaEmpresaAutenticadaYLasFechasTalCual() throws Exception {
-        when(resumir.resumir(any(), any(), any())).thenReturn(new Resumen(DESDE, HASTA, 0, 0, 0, 0, 0, List.of()));
+        when(resumir.resumir(any(), any(), any())).thenReturn(new Resumen(DESDE, HASTA, 0, 0, 0, 0, 0, 0, List.of()));
 
         mvc.perform(get("/v1/facturas/resumen").param("desde", "2026-09-01").param("hasta", "2026-09-30").requestAttr(TenantActual.ATRIBUTO, EMPRESA)).andExpect(status().isOk());
 

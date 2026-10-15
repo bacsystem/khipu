@@ -44,5 +44,23 @@ class ClaseDeErrorTest {
         assertThat(ClaseDeError.ERROR_DE_ENVIO.accionable()).isTrue();
         assertThat(ClaseDeError.ERROR_DE_FORMATO.accionable()).isFalse();
         assertThat(ClaseDeError.FUERA_DE_PLAZO.accionable()).isFalse();
+        assertThat(ClaseDeError.BOLETA_SIN_ENVIAR.accionable()).as("la decisión de no enviar sola es del cliente (#356)").isFalse();
+    }
+
+    /**
+     * #356: una boleta FIRMADA —el cliente eligió {@code enviar_automatico: false}— no tiene error, pero desde el 5.º día entra en la cola: nadie la va a enviar si nadie la ve y
+     * vence el plazo del resumen diario. Antes de esa fecha una FIRMADA no es de la cola; por eso lo decide quien sabe la fecha, no el estado.
+     */
+    @Test void unaBoletaFirmadaSinEnviarEntraSoloDesdeElQuintoDia() {
+        assertThat(ClaseDeError.de(FIRMADO, null, true)).contains(ClaseDeError.BOLETA_SIN_ENVIAR);
+        assertThat(ClaseDeError.de(FIRMADO, null, false)).isEmpty();
+        assertThat(ClaseDeError.de(FIRMADO, null)).as("sin decir que es de boleta, una FIRMADA no es de la cola").isEmpty();
+    }
+
+    @Test void elIndicadorDeBoletaSinEnviarSoloCuentaEnUnaFirmada() {
+        for (EstadoDocumento e : EstadoDocumento.values()) {
+            if (e == FIRMADO) continue;
+            assertThat(ClaseDeError.de(e, null, true)).as(e.name()).isEqualTo(ClaseDeError.de(e, null));
+        }
     }
 }

@@ -19,22 +19,25 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
     static final LocalDate DIA = LocalDate.of(2026, 9, 15);
+    /** Hoy, para decidir qué boleta sin enviar ya pide atención (#356). */
+    static final LocalDate HOY = LocalDate.of(2026, 10, 15);
     static final AtomicLong NUMERO = new AtomicLong(1);
 
     JdbcResumenDeComprobantesRepository repo = new JdbcResumenDeComprobantesRepository(jdbc);
 
     /** Un comprobante con su fila de documento y la de sus totales. */
-    void comprobante(UUID tenant, String tipo, EstadoDocumento estado, LocalDate fecha, String moneda, String total) {
+    UUID comprobante(UUID tenant, String tipo, EstadoDocumento estado, LocalDate fecha, String moneda, String total) {
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo) VALUES (?, ?, ?, 'F001', ?, ?, ?, 'x')",
                 id, tenant, tipo, NUMERO.getAndIncrement(), java.sql.Date.valueOf(fecha), estado.name());
         jdbc.update("INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, total_gravado, total_exonerado, total_inafecto, total_igv, total) "
                 + "VALUES (?, '0101', ?, '6', '20601234565', 'CLIENTE', 0, 0, 0, 0, ?)", id, moneda, new BigDecimal(total));
+        return id;
     }
 
     void factura(UUID t, EstadoDocumento e, String total) { comprobante(t, "01", e, DIA, "PEN", total); }
 
-    Agregados resumir(UUID t) { return repo.resumir(t, null, null); }
+    Agregados resumir(UUID t) { return repo.resumir(t, null, null, HOY); }
 
     // --- por estado -------------------------------------------------------------------------------------------------------------------------
 
@@ -74,7 +77,7 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         UUID t = tenantDePrueba();
         for (int dia : new int[]{9, 10, 15, 20, 21}) comprobante(t, "01", EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, dia), "PEN", String.valueOf(dia));
 
-        Agregados r = repo.resumir(t, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 20));
+        Agregados r = repo.resumir(t, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 20), HOY);
 
         assertThat(r.porEstado().get(EstadoDocumento.ACEPTADO)).isEqualTo(3);
         assertThat(r.facturado()).containsExactly(new Facturado("PEN", new BigDecimal("45.00")));
@@ -84,16 +87,16 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         UUID t = tenantDePrueba();
         for (int dia : new int[]{9, 15, 21}) comprobante(t, "01", EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, dia), "PEN", "1");
 
-        assertThat(repo.resumir(t, LocalDate.of(2026, 9, 15), null).porEstado().get(EstadoDocumento.ACEPTADO)).isEqualTo(2);
-        assertThat(repo.resumir(t, null, LocalDate.of(2026, 9, 15)).porEstado().get(EstadoDocumento.ACEPTADO)).isEqualTo(2);
-        assertThat(repo.resumir(t, null, null).porEstado().get(EstadoDocumento.ACEPTADO)).isEqualTo(3);
+        assertThat(repo.resumir(t, LocalDate.of(2026, 9, 15), null, HOY).porEstado().get(EstadoDocumento.ACEPTADO)).isEqualTo(2);
+        assertThat(repo.resumir(t, null, LocalDate.of(2026, 9, 15), HOY).porEstado().get(EstadoDocumento.ACEPTADO)).isEqualTo(2);
+        assertThat(repo.resumir(t, null, null, HOY).porEstado().get(EstadoDocumento.ACEPTADO)).isEqualTo(3);
     }
 
     @Test void unRangoSinComprobantesTraeTodoVacioAunqueLaEmpresaTengaOtros() {
         UUID t = tenantDePrueba();
         factura(t, EstadoDocumento.ACEPTADO, "100");
 
-        Agregados r = repo.resumir(t, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31));
+        Agregados r = repo.resumir(t, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), HOY);
 
         assertThat(r.porEstado()).isEmpty();
         assertThat(r.facturado()).isEmpty();
@@ -199,12 +202,12 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         jdbc.execute("ANALYZE documento");
         jdbc.execute("ANALYZE comprobante");
 
-        repo.resumir(t, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 9, 30));
+        repo.resumir(t, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 9, 30), HOY);
         long mejor = Long.MAX_VALUE;
         Agregados r = null;
         for (int i = 0; i < 3; i++) {
             long inicio = System.nanoTime();
-            r = repo.resumir(t, null, null);
+            r = repo.resumir(t, null, null, HOY);
             mejor = Math.min(mejor, (System.nanoTime() - inicio) / 1_000_000);
         }
 
@@ -212,5 +215,62 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         assertThat(r.porEstado().values().stream().mapToLong(Long::longValue).sum()).isEqualTo(100_000);
         assertThat(r.facturado()).extracting(Facturado::moneda).containsExactly("PEN", "USD");
         assertThat(mejor).as("ms de la mejor lectura sobre 100 000 comprobantes").isLessThan(300);
+    }
+
+    // --- la boleta FIRMADA sin enviar (#356) ------------------------------------------------------------------------------------------------
+
+    UUID boleta(UUID t, EstadoDocumento e, int diasAtras) { return comprobante(t, "03", e, HOY.minusDays(diasAtras), "PEN", "10"); }
+
+    /** Una nota que modifica una boleta: tipo 07 o 08 y su motivo. */
+    UUID notaDeBoleta(UUID t, String tipo, String motivo, int diasAtras) {
+        UUID id = comprobante(t, tipo, EstadoDocumento.FIRMADO, HOY.minusDays(diasAtras), "PEN", "10");
+        jdbc.update("UPDATE comprobante SET nota_tipo_afectado = '03', nota_serie_afectada = 'B001', nota_numero_afectado = 1, nota_motivo = ? WHERE documento_id = ?", motivo, id);
+        return id;
+    }
+
+    /** Desde el 5.º día una boleta que nadie envió es «atención requerida»; antes no. Solo cuenta la FIRMADA: un envío que falla ya es un error de envío. */
+    @Test void cuentaLasBoletasFirmadasSinEnviarDesdeElQuintoDia() {
+        UUID t = tenantDePrueba();
+        boleta(t, EstadoDocumento.FIRMADO, 4);
+        boleta(t, EstadoDocumento.FIRMADO, 5);
+        boleta(t, EstadoDocumento.FIRMADO, 7);
+        boleta(t, EstadoDocumento.ERROR_ENVIO, 6);
+        boleta(t, EstadoDocumento.ENVIADO, 6);
+        boleta(t, EstadoDocumento.ACEPTADO, 6);
+
+        Agregados r = resumir(t);
+
+        assertThat(r.boletasSinEnviar()).isEqualTo(2);
+        assertThat(r.porEstado().get(EstadoDocumento.FIRMADO)).as("las FIRMADAS siguen contándose por estado: son las 3").isEqualTo(3);
+    }
+
+    @Test void unaFacturaFirmadaSinEnviarNoSeCuentaComoBoleta() {
+        UUID t = tenantDePrueba();
+        comprobante(t, "01", EstadoDocumento.FIRMADO, HOY.minusDays(30), "PEN", "10");
+
+        assertThat(resumir(t).boletasSinEnviar()).isZero();
+    }
+
+    /** La nota que modifica una boleta sigue a la boleta (va en el resumen diario); la NC 10 y la ND 03 no, y vencidas pasan a FUERA_DE_PLAZO. */
+    @Test void cuentaLaNotaDeBoletaQueVaEnElResumenYNoLaNC10NiLaND03() {
+        UUID t = tenantDePrueba();
+        notaDeBoleta(t, "07", "07", 6);
+        notaDeBoleta(t, "08", "01", 6);
+        notaDeBoleta(t, "07", "10", 6);
+        notaDeBoleta(t, "08", "03", 6);
+
+        assertThat(resumir(t).boletasSinEnviar()).isEqualTo(2);
+    }
+
+    /** El rango y la empresa acotan igual que a lo demás, y la fecha de hoy es la que se pasa. */
+    @Test void laCuentaRespetaLaEmpresaElRangoYLaFechaDeHoy() {
+        UUID mia = tenantDePrueba();
+        UUID otra = tenantDePrueba();
+        boleta(mia, EstadoDocumento.FIRMADO, 5);   // emitida el 2026-10-10
+        boleta(otra, EstadoDocumento.FIRMADO, 5);
+
+        assertThat(repo.resumir(mia, null, null, HOY).boletasSinEnviar()).isEqualTo(1);
+        assertThat(repo.resumir(mia, LocalDate.of(2026, 10, 11), null, HOY).boletasSinEnviar()).as("fuera del rango").isZero();
+        assertThat(repo.resumir(mia, null, null, HOY.minusDays(1)).boletasSinEnviar()).as("ayer todavía no cumplía los 5 días").isZero();
     }
 }
