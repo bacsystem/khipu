@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "prepare": "cd .. && husky",
+    "prepare": "cd .. && husky || true",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
