@@ -43,9 +43,12 @@ class MonitorDeEmisionServiceTest {
         final List<Instant> limites = new ArrayList<>();
         Cola cola = new Cola(0, 0, null, null);
         ResumenesPendientes resumenes = new ResumenesPendientes(0, null);
+        BoletasPendientes boletas = new BoletasPendientes(0, 0, null);
+        final List<java.time.LocalDate> hoys = new ArrayList<>();
         public List<Conteo> porHoraYEstado(Instant desde) { desdes.add(desde); return conteos; }
         public Cola cola(Instant ahora) { ahoras.add(ahora); return cola; }
         public ResumenesPendientes resumenesSinRespuesta(Instant creadosAntesDe) { limites.add(creadosAntesDe); return resumenes; }
+        public BoletasPendientes boletasSinInformar(java.time.LocalDate hoy) { hoys.add(hoy); return boletas; }
     }
 
     static class Sondeo implements SondeoDeSunat {
@@ -205,6 +208,36 @@ class MonitorDeEmisionServiceTest {
 
         assertThat(m.hoy().desde()).isEqualTo(Instant.parse("2026-10-15T05:00:00Z"));
         assertThat(m.hoy().aceptados()).as("las 24 horas cubren todo el día de Lima").isEqualTo(7);
+    }
+
+    // --- las boletas que nadie informó (#356) -----------------------------------------------------------------------------------------------
+
+    @Test void sinBoletasPorInformarNoHayAlerta() {
+        var b = service.monitorear().boletas();
+
+        assertThat(b.cantidad()).isZero();
+        assertThat(b.porVencerElPlazo()).isZero();
+        assertThat(b.masAntiguaEmitidaEl()).isNull();
+        assertThat(b.alerta()).isFalse();
+    }
+
+    /** Una sola boleta ya en el 5.º día alcanza: nadie la ha informado y quedan tres días. El monitor dice cuántas están ya en el último día del resumen o lo pasaron. */
+    @Test void unaBoletaSinInformarDaAlertaYDiceCuantasYaVencenElPlazo() {
+        repo.boletas = new MonitorDeEmisionRepository.BoletasPendientes(5, 2, java.time.LocalDate.of(2026, 10, 8));
+
+        var b = service.monitorear().boletas();
+
+        assertThat(b.cantidad()).isEqualTo(5);
+        assertThat(b.porVencerElPlazo()).isEqualTo(2);
+        assertThat(b.masAntiguaEmitidaEl()).isEqualTo(java.time.LocalDate.of(2026, 10, 8));
+        assertThat(b.alerta()).isTrue();
+    }
+
+    /** La fecha de hoy es la del reloj del servicio (en develop se puede desplazar): de ella depende qué boleta ya pide atención. */
+    @Test void elRepositorioRecibeLaFechaDeHoyDelReloj() {
+        service.monitorear();
+
+        assertThat(repo.hoys).containsExactly(java.time.LocalDate.of(2026, 10, 15));
     }
 
     // --- el outbox --------------------------------------------------------------------------------------------------------------------------

@@ -49,7 +49,8 @@ class AdminMonitorControllerTest {
         List<Franja> horas = new ArrayList<>();
         for (int i = 0; i < 24; i++) horas.add(new Franja(HORA.minus(Duration.ofHours(23 - i)), 0, 0, 0, 0, 0));
         horas.set(23, new Franja(HORA, 97, 3, 2, 10, 5));
-        return new Monitor(AHORA, horas, new Franja(Instant.parse("2026-10-15T05:00:00Z"), 400, 12, 4, 10, 9), outbox, resumenes, sunat);
+        return new Monitor(AHORA, horas, new Franja(Instant.parse("2026-10-15T05:00:00Z"), 400, 12, 4, 10, 9), outbox, resumenes,
+                new MonitorearEmisionUseCase.BoletasSinInformar(3, 1, java.time.LocalDate.of(2026, 10, 8), true), sunat);
     }
 
     @Test void laLecturaTraeLasHorasElDiaLaColaYSunatConSusNombresEnSnakeCase() throws Exception {
@@ -130,6 +131,28 @@ class AdminMonitorControllerTest {
                 .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.mas_viejo_hace_segundos").doesNotExist())
                 .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.umbral_horas").value(6))
                 .andExpect(jsonPath("$.datos.resumenes_sin_respuesta.alerta").value(false));
+    }
+
+    /** #356: las boletas sin informar viajan en snake_case y la fecha de la más antigua va ausente cuando no hay ninguna. */
+    @Test void lasBoletasSinInformarViajanConSuAlertaYSuFechaMasAntigua() throws Exception {
+        when(monitor.monitorear()).thenReturn(monitor(new Outbox(0, 0, null, null, false), List.of()));
+
+        mvc.perform(get("/v1/admin/monitor").with(clave()))
+                .andExpect(jsonPath("$.datos.boletas_sin_informar.cantidad").value(3))
+                .andExpect(jsonPath("$.datos.boletas_sin_informar.por_vencer_el_plazo").value(1))
+                .andExpect(jsonPath("$.datos.boletas_sin_informar.mas_antigua_emitida_el").value("2026-10-08"))
+                .andExpect(jsonPath("$.datos.boletas_sin_informar.alerta").value(true));
+    }
+
+    @Test void sinBoletasSinInformarNoHayFechaNiAlerta() throws Exception {
+        Monitor sin = monitor(new Outbox(0, 0, null, null, false), List.of());
+        when(monitor.monitorear()).thenReturn(new Monitor(sin.generadoEn(), sin.horas(), sin.hoy(), sin.outbox(), sin.resumenes(),
+                new MonitorearEmisionUseCase.BoletasSinInformar(0, 0, null, false), sin.sunat()));
+
+        mvc.perform(get("/v1/admin/monitor").with(clave()))
+                .andExpect(jsonPath("$.datos.boletas_sin_informar.cantidad").value(0))
+                .andExpect(jsonPath("$.datos.boletas_sin_informar.mas_antigua_emitida_el").doesNotExist())
+                .andExpect(jsonPath("$.datos.boletas_sin_informar.alerta").value(false));
     }
 
     @Test void noTraeMasCamposQueLosQueElPortalConoce() throws Exception {

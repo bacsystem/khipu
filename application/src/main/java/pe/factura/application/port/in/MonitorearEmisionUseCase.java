@@ -4,6 +4,7 @@ import pe.factura.application.port.out.SondeoDeSunat.Resultado;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -46,8 +47,15 @@ public interface MonitorearEmisionUseCase {
      */
     record ResumenesSinRespuesta(long cantidad, Instant masViejoDesde, Duration masViejoHace, Duration umbral, boolean alerta) {}
 
+    /**
+     * #356: boletas (y notas que van en el resumen diario) que siguen sin informarse a SUNAT y ya están en el 5.º día o más, de todas las empresas. No hay un worker que las envíe
+     * si el cliente eligió no enviarlas solas, ni un error que lo diga: sin esta alerta nadie las ve. {@code cantidad}: desde el 5.º día. {@code porVencerElPlazo}: las que están en
+     * el último día del resumen diario (el 7.º) o ya lo pasaron. {@code alerta}: hay al menos una.
+     */
+    record BoletasSinInformar(long cantidad, long porVencerElPlazo, LocalDate masAntiguaEmitidaEl, boolean alerta) {}
+
     /** {@code horas}: las últimas {@link #HORAS}, de la más vieja a la actual, con las vacías en cero. {@code hoy}: el día de Lima hasta ahora. */
-    record Monitor(Instant generadoEn, List<Franja> horas, Franja hoy, Outbox outbox, ResumenesSinRespuesta resumenes, List<Resultado> sunat) {}
+    record Monitor(Instant generadoEn, List<Franja> horas, Franja hoy, Outbox outbox, ResumenesSinRespuesta resumenes, BoletasSinInformar boletas, List<Resultado> sunat) {}
 
     Monitor monitorear();
 }

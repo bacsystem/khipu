@@ -3,6 +3,7 @@ package pe.factura.application.port.out;
 import pe.factura.domain.documento.EstadoDocumento;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -23,6 +24,12 @@ public interface MonitorDeEmisionRepository {
     /** #362 B14: cuántos resúmenes diarios o comunicaciones de baja con ticket siguen sin respuesta de SUNAT, y desde cuándo espera el más antiguo (cuando SUNAT dio el ticket); nulo si no hay. */
     record ResumenesPendientes(long cantidad, Instant masViejoDesde) {}
 
+    /**
+     * #356: las boletas (y notas que van en el resumen diario) que siguen sin informarse a SUNAT —FIRMADAS o con el envío fallando— y ya están en el 5.º día o más. {@code desdeElQuintoDia}:
+     * todas esas; {@code desdeElSeptimoDia}: las que están en el último día del resumen diario o lo pasaron; {@code masAntiguaEmitidaEl}: la fecha de emisión de la más antigua, nula si no hay.
+     */
+    record BoletasPendientes(long desdeElQuintoDia, long desdeElSeptimoDia, LocalDate masAntiguaEmitidaEl) {}
+
     /** Los comprobantes creados desde {@code desde} (inclusive), agrupados por hora y estado. Solo trae las combinaciones que tienen comprobantes. */
     List<Conteo> porHoraYEstado(Instant desde);
 
@@ -34,4 +41,7 @@ public interface MonitorDeEmisionRepository {
      * cuenta lo que SUNAT recibió: lo que no tiene ticket (generado, con error de envío) lo vigila la cola de envíos.
      */
     ResumenesPendientes resumenesSinRespuesta(Instant enviadosAntesDe);
+
+    /** Las boletas sin informar de todas las empresas, con la fecha de hoy que fija desde cuándo piden atención. */
+    BoletasPendientes boletasSinInformar(LocalDate hoy);
 }

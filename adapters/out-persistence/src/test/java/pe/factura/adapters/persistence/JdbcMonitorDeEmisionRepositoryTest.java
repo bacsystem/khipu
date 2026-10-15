@@ -275,4 +275,69 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
         assertThat(c.vencidos()).isEqualTo(2);
         assertThat(c.vencidoDesde()).isEqualTo(hace(Duration.ofMinutes(9)));
     }
+
+    // --- las boletas que nadie informó (#356) -----------------------------------------------------------------------------------------------
+
+    static final LocalDate HOY = LocalDate.of(2026, 10, 15);
+
+    /** Una boleta de esa empresa emitida hace {@code dias} días, en ese estado. */
+    void boleta(UUID tenant, EstadoDocumento estado, int dias) {
+        long numero = NUMERO.getAndIncrement();
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, created_at) VALUES (?, ?, '03', 'B001', ?, ?, ?, 'x', ?)",
+                id, tenant, numero, java.sql.Date.valueOf(HOY.minusDays(dias)), estado.name(), Timestamp.from(AHORA));
+        jdbc.update("INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, total_gravado, total_exonerado, total_inafecto, total_igv, total) "
+                + "VALUES (?, '0101', 'PEN', '-', '-', 'CLIENTES VARIOS', 0, 0, 0, 0, 10)", id);
+    }
+
+    @Test void sinBoletasPorInformarTodoEsCeroYNoHayFecha() {
+        var r = repo.boletasSinInformar(HOY);
+
+        assertThat(r.desdeElQuintoDia()).isZero();
+        assertThat(r.desdeElSeptimoDia()).isZero();
+        assertThat(r.masAntiguaEmitidaEl()).isNull();
+    }
+
+    /** Cuenta las de todas las empresas, FIRMADAS o con el envío fallando, desde el 5.º día; y aparte las que ya están en el 7.º o lo pasaron. */
+    @Test void cuentaLasBoletasSinInformarDeTodasLasEmpresasDesdeElQuintoYElSeptimoDia() {
+        UUID a = tenantDePrueba();
+        UUID b = tenantDePrueba();
+        boleta(a, EstadoDocumento.FIRMADO, 4);          // todavía no
+        boleta(a, EstadoDocumento.FIRMADO, 5);          // 5.º día
+        boleta(b, EstadoDocumento.ERROR_ENVIO, 6);      // con el envío fallando también cuenta
+        boleta(b, EstadoDocumento.FIRMADO, 7);          // 7.º día: vence hoy
+        boleta(a, EstadoDocumento.ERROR_ENVIO, 9);      // ya pasó el plazo: sigue sin informarse
+
+        var r = repo.boletasSinInformar(HOY);
+
+        assertThat(r.desdeElQuintoDia()).isEqualTo(4);
+        assertThat(r.desdeElSeptimoDia()).isEqualTo(2);
+        assertThat(r.masAntiguaEmitidaEl()).isEqualTo(HOY.minusDays(9));
+    }
+
+    @Test void loQueYaEstaEnCaminoOResueltoNoCuenta() {
+        UUID t = tenantDePrueba();
+        for (EstadoDocumento e : EstadoDocumento.values())
+            if (e != EstadoDocumento.FIRMADO && e != EstadoDocumento.ERROR_ENVIO) boleta(t, e, 6);
+
+        assertThat(repo.boletasSinInformar(HOY).desdeElQuintoDia()).isZero();
+    }
+
+    @Test void unaFacturaSinEnviarNoEsUnaBoleta() {
+        UUID t = tenantDePrueba();
+        long numero = NUMERO.getAndIncrement();
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, created_at) VALUES (?, ?, '01', 'F001', ?, ?, 'FIRMADO', 'x', ?)",
+                UUID.randomUUID(), t, numero, java.sql.Date.valueOf(HOY.minusDays(30)), Timestamp.from(AHORA));
+
+        assertThat(repo.boletasSinInformar(HOY).desdeElQuintoDia()).isZero();
+    }
+
+    @Test void laFechaDeHoyEsLaQueSePasa() {
+        UUID t = tenantDePrueba();
+        boleta(t, EstadoDocumento.FIRMADO, 5);
+
+        assertThat(repo.boletasSinInformar(HOY).desdeElQuintoDia()).isEqualTo(1);
+        assertThat(repo.boletasSinInformar(HOY.minusDays(1)).desdeElQuintoDia()).as("ayer era el 4.º día").isZero();
+        assertThat(repo.boletasSinInformar(HOY.plusDays(2)).desdeElSeptimoDia()).as("dentro de dos días ya está en el 7.º").isEqualTo(1);
+    }
 }

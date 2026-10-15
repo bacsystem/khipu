@@ -1,6 +1,7 @@
 package pe.factura.adapters.rest.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import pe.factura.application.port.in.MonitorearEmisionUseCase.BoletasSinInformar;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Franja;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Monitor;
 import pe.factura.application.port.in.MonitorearEmisionUseCase.Outbox;
@@ -8,6 +9,7 @@ import pe.factura.application.port.in.MonitorearEmisionUseCase.ResumenesSinRespu
 import pe.factura.application.port.out.SondeoDeSunat.Resultado;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 /** El monitor global de emisión del backoffice (#195): lo que ocurre con los comprobantes de todas las empresas, la cola de envíos y si SUNAT contesta. */
@@ -17,6 +19,7 @@ public record MonitorDeEmisionResponse(
         @Schema(description = "El día de Lima (desde su medianoche) hasta ahora") FranjaResponse hoy,
         OutboxResponse outbox,
         @Schema(description = "Resúmenes diarios y comunicaciones de baja que SUNAT recibió (tienen ticket) y no ha respondido pasado el umbral configurado") ResumenesSinRespuestaResponse resumenesSinRespuesta,
+        @Schema(description = "Boletas que siguen sin informarse a SUNAT y ya están en el 5.º día o más, de todas las empresas") BoletasSinInformarResponse boletasSinInformar,
         @Schema(description = "Si cada servicio de SUNAT contesta; un servicio sin URL configurada no aparece. Es una lectura guardada hasta 30 segundos") List<SunatResponse> sunat) {
 
     public record FranjaResponse(
@@ -59,6 +62,18 @@ public record MonitorDeEmisionResponse(
         }
     }
 
+    /**
+     * #356. Una boleta que el cliente dejó FIRMADA sin enviar (o cuyo envío falla) no la envía nadie más, y el resumen diario cierra el 7.º día: esta alerta es la señal de que
+     * alguien tiene que avisar al cliente. El detalle, empresa por empresa, está en la cola de errores (`BOLETA_SIN_ENVIAR` y `ERROR_DE_ENVIO`).
+     */
+    public record BoletasSinInformarResponse(
+            @Schema(example = "3", description = "Cuántas boletas (o notas que van en el resumen diario) siguen sin informarse desde el 5.º día") long cantidad,
+            @Schema(example = "1", description = "De ellas, las que están en el 7.º día (el último del resumen diario) o ya lo pasaron") long porVencerElPlazo,
+            @Schema(example = "2026-10-08", description = "La fecha de emisión de la más antigua; ausente si no hay") LocalDate masAntiguaEmitidaEl,
+            @Schema(description = "Hay al menos una boleta sin informar desde el 5.º día") boolean alerta) {
+        static BoletasSinInformarResponse de(BoletasSinInformar b) { return new BoletasSinInformarResponse(b.cantidad(), b.porVencerElPlazo(), b.masAntiguaEmitidaEl(), b.alerta()); }
+    }
+
     public record SunatResponse(
             @Schema(example = "ENVIO_PRODUCCION", allowableValues = {"ENVIO_PRODUCCION", "ENVIO_BETA", "CONSULTA_DE_CDR", "CONSULTA_DE_VALIDEZ"}) String servicio,
             @Schema(description = "Contestó con un éxito dentro del plazo") boolean disponible,
@@ -69,6 +84,6 @@ public record MonitorDeEmisionResponse(
 
     public static MonitorDeEmisionResponse de(Monitor m) {
         return new MonitorDeEmisionResponse(m.generadoEn(), m.horas().stream().map(FranjaResponse::de).toList(), FranjaResponse.de(m.hoy()), OutboxResponse.de(m.outbox()),
-                ResumenesSinRespuestaResponse.de(m.resumenes()), m.sunat().stream().map(SunatResponse::de).toList());
+                ResumenesSinRespuestaResponse.de(m.resumenes()), BoletasSinInformarResponse.de(m.boletas()), m.sunat().stream().map(SunatResponse::de).toList());
     }
 }
