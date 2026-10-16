@@ -97,6 +97,17 @@ app:
   outbox:
     intervalo-ms: ${OUTBOX_INTERVALO_MS:10000}
     max-intentos: ${OUTBOX_MAX_INTENTOS:20}
+  # Padrón reducido de SUNAT (#361): ~18 millones de contribuyentes (RUC, razón social, estado, condición y domicilio). SUNAT lo renueva cada día; la carga baja ~400 MB y
+  # escribe la base, por eso está apagada por defecto. La consulta GET /v1/consultas/ruc/{ruc} responde 503 PADRON_NO_CARGADO hasta que corra la primera.
+  padron-ruc:
+    habilitado: ${PADRON_RUC_HABILITADO:false}
+    # URL de la descarga pública (.zip) o ruta de un archivo local (.zip o .txt, ISO-8859-1).
+    origen: ${PADRON_RUC_ORIGEN:https://www2.sunat.gob.pe/padron_reducido_ruc.zip}
+    # Cron de Spring, hora de Lima. SUNAT publica de madrugada.
+    cron: ${PADRON_RUC_CRON:0 30 4 * * *}
+    limite-de-descarga-minutos: ${PADRON_RUC_LIMITE_DESCARGA_MINUTOS:30}
+    # Filas mínimas de la PRIMERA carga (después se exige el 90 % de la anterior): un archivo de miles es una descarga equivocada, no el padrón.
+    minimo-primera-carga: ${PADRON_RUC_MINIMO_PRIMERA_CARGA:1000000}
   mail:
     habilitado: ${MAIL_HABILITADO:false}
     remitente: ${MAIL_REMITENTE:no-responder@khipu.pe}

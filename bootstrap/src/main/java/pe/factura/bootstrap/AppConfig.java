@@ -14,6 +14,7 @@ import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -39,6 +40,7 @@ import pe.factura.adapters.rest.JwtFilter;
 import pe.factura.adapters.scheduler.OutboxWorker;
 import pe.factura.adapters.scheduler.AplicarCambiosDePlanWorker;
 import pe.factura.adapters.scheduler.AvisarBoletasSinInformarWorker;
+import pe.factura.adapters.scheduler.CargaDelPadronRucWorker;
 import pe.factura.adapters.scheduler.LimpiezaIdempotenciaWorker;
 import pe.factura.adapters.scheduler.LimpiezaIntentosDeAccesoWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
@@ -46,6 +48,7 @@ import pe.factura.adapters.signing.XmlDsigSigner;
 import pe.factura.adapters.storage.FileSystemDocumentStorage;
 import pe.factura.adapters.storage.S3DocumentStorage;
 import pe.factura.adapters.scheduler.IntegridadWorker;
+import pe.factura.adapters.sunat.ArchivoDelPadronRuc;
 import pe.factura.adapters.sunat.SoapBillingGateway;
 import pe.factura.adapters.sunat.SunatUrls;
 import pe.factura.adapters.sunat.SoapConsultaGateway;
@@ -349,6 +352,20 @@ public class AppConfig {
     }
     @Bean ConsultarValidezUseCase consultarValidez(TenantRepository t, SunatConsultaGateway g) { return new ConsultarValidezService(t, g); }
     @Bean RecuperarCdrWorker recuperarCdrWorker(RecuperarCdrUseCase cdrs) { return new RecuperarCdrWorker(cdrs); }
+
+    // Padrón reducido de SUNAT (#361). La consulta está siempre; la carga diaria solo si app.padron-ruc.habilitado=true (baja ~400 MB y escribe ~18 millones de filas: no es para correrla en cada arranque o prueba).
+    @Bean PadronRucRepository padronRucRepository(JdbcTemplate jdbc) { return new JdbcPadronRucRepository(jdbc); }
+    @Bean ConsultarPadronRucUseCase consultarPadronRuc(PadronRucRepository padron, IntentosDeAccesoRepository cupo, Clock clock) { return new ConsultarPadronRucService(padron, cupo, clock); }
+    @Bean @ConditionalOnProperty(name = "app.padron-ruc.habilitado", havingValue = "true")
+    FuentePadronRuc fuentePadronRuc(@Value("${app.padron-ruc.origen}") String origen, @Value("${app.padron-ruc.limite-de-descarga-minutos}") long minutos) {
+        return new ArchivoDelPadronRuc(origen, java.time.Duration.ofMinutes(minutos));
+    }
+    @Bean @ConditionalOnProperty(name = "app.padron-ruc.habilitado", havingValue = "true")
+    CargarPadronRucUseCase cargarPadronRuc(FuentePadronRuc fuente, PadronRucRepository padron, Clock clock, @Value("${app.padron-ruc.minimo-primera-carga}") long minimoPrimeraCarga) {
+        return new CargarPadronRucService(minimoPrimeraCarga, fuente, padron, clock);
+    }
+    @Bean @ConditionalOnProperty(name = "app.padron-ruc.habilitado", havingValue = "true")
+    CargaDelPadronRucWorker cargaDelPadronRucWorker(CargarPadronRucUseCase carga) { return new CargaDelPadronRucWorker(carga); }
 
     @Bean EnviarDocumentoUseCase enviarDocumento(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatBillingGateway g, CdrParser p,
                                                 OutboxRepository o, UnitOfWork u, Clock clock, RechazoDeSolRepository rechazos, InformarEnResumenUseCase resumen, AppProperties props) {
