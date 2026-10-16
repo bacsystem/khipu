@@ -81,7 +81,7 @@ class ConsultarPadronRucServiceTest {
     @Test void elCupoDelDiaLimitaAunqueCadaMinutoSeaPoco() {
         padron.cargada = Instant.parse("2026-10-15T09:40:00Z");
         padron.contribuyentes.add(new Contribuyente(RUC, "TIENDAS", "ACTIVO", "HABIDO", null, null));
-        for (int i = 0; i < ConsultarPadronRucService.MAX_POR_DIA; i++) {
+        for (int i = 0; i < 5000; i++) {
             servicio.consultar(empresa, RUC);
             ahora.set(ahora.get().plusSeconds(10));
         }
