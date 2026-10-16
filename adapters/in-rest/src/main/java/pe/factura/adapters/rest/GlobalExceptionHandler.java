@@ -47,11 +47,13 @@ public class GlobalExceptionHandler {
             // SUNAT_YA_LO_TIENE: antes de descartar se le preguntó a SUNAT y tenía el comprobante (se aplicó su CDR).
             case "ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "SUNAT_YA_LO_TIENE" -> HttpStatus.CONFLICT;
             // No se pudo preguntarle a SUNAT si ya tiene el comprobante: no es culpa del cliente, y se puede reintentar más tarde.
-            case "SUNAT_NO_DISPONIBLE" -> HttpStatus.SERVICE_UNAVAILABLE;
+            // PADRON_NO_CARGADO (#361): el padrón de RUC todavía no se cargó, así que no se puede decir si un RUC existe; vuelve a estar disponible cuando corra la primera carga.
+            case "SUNAT_NO_DISPONIBLE", "PADRON_NO_CARGADO" -> HttpStatus.SERVICE_UNAVAILABLE;
             // Avisos a los clientes (#197): el pedido es válido pero la situación no lo permite (no hay nada que avisar, no hay a quién escribirle, o se avisó lo mismo hace poco).
             case "AVISO_SIN_MOTIVO", "EMPRESA_SIN_CUENTA", "AVISO_RECIENTE" -> HttpStatus.CONFLICT;
             // LIMITE_PLAN (#18): la cuenta llegó al tope de documentos del mes de su plan; se puede volver a emitir el mes siguiente o con otro plan.
-            case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES", "DEMASIADOS_INTENTOS_LOGIN", "LIMITE_PLAN" -> HttpStatus.TOO_MANY_REQUESTS;
+            // DEMASIADAS_CONSULTAS (#361): la empresa pasó su cupo de consultas de RUC por minuto o por día.
+            case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES", "DEMASIADOS_INTENTOS_LOGIN", "LIMITE_PLAN", "DEMASIADAS_CONSULTAS" -> HttpStatus.TOO_MANY_REQUESTS;
             // PLAN_VENCIDO (#285): el plan de la cuenta venció y pasó su gracia; se vuelve a emitir al renovarlo (pagarlo).
             case "PLAN_VENCIDO" -> HttpStatus.PAYMENT_REQUIRED;
             // La cuenta está suspendida (#182): el cliente se identificó bien, pero no tiene permiso hasta que la reactiven.

@@ -6,10 +6,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pe.factura.adapters.rest.dto.PadronRucResponse;
 import pe.factura.adapters.rest.dto.ValidezResponse;
+import pe.factura.application.port.in.ConsultarPadronRucUseCase;
 import pe.factura.application.port.in.ConsultarValidezUseCase;
 
 import java.math.BigDecimal;
@@ -17,10 +20,21 @@ import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/v1")
-@Tag(name = "Consultas", description = "Consultas a SUNAT con las credenciales SOL de la empresa. Solo en producción: e-beta no publica estos servicios (`422 NO_DISPONIBLE_EN_BETA`).")
+@Tag(name = "Consultas", description = "Consultas a SUNAT. La validez de un comprobante usa las credenciales SOL de la empresa y solo funciona en producción: e-beta no publica ese servicio (`422 NO_DISPONIBLE_EN_BETA`). La de un RUC lee el padrón reducido que la plataforma carga cada día y funciona también en beta.")
 @RequiredArgsConstructor
 public class ConsultaController {
     private final ConsultarValidezUseCase validez;
+    private final ConsultarPadronRucUseCase padron;
+
+    @GetMapping("/consultas/ruc/{ruc}")
+    @Operation(operationId = "consultarRuc", summary = "Consultar un RUC en el padrón de SUNAT", description = """
+            Razón social, estado, condición de domicilio y domicilio fiscal de un contribuyente, del padrón reducido que SUNAT publica cada día (no consulta a SUNAT en cada llamada).
+            `actualizado_al` dice de qué carga viene la respuesta: un RUC creado después no aparece, así que `404 NO_ENCONTRADO` no prueba que no exista. `400 PARAMETRO_INVALIDO` si
+            no es un RUC (11 dígitos, prefijo y dígito verificador), `503 PADRON_NO_CARGADO` si el padrón todavía no se cargó y `429 DEMASIADAS_CONSULTAS` al pasar el cupo
+            (60 por minuto y 5 000 por día, por empresa). No requiere credenciales SOL.""")
+    public ApiResponse<PadronRucResponse> ruc(HttpServletRequest req, @Parameter(example = "20100066603") @PathVariable String ruc) {
+        return ApiResponse.ok(PadronRucResponse.de(padron.consultar(TenantActual.id(req), ruc)));
+    }
 
     @GetMapping("/consultas/validez")
     @Operation(summary = "Consultar la validez de un comprobante", description = """

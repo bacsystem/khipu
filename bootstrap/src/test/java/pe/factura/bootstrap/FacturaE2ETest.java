@@ -523,6 +523,45 @@ class FacturaE2ETest {
         assertThat(baja.getStatusCode()).as("la comunicación de baja sigue funcionando: %s", baja.getBody()).isEqualTo(HttpStatus.CREATED);
     }
 
+    /** #361: el padrón cargado desde un archivo (el formato real de SUNAT, en ISO-8859-1) se consulta por la API con la clave de la empresa. */
+    @Test void consultaDeRucDelPadronDeExtremoAExtremo(@org.junit.jupiter.api.io.TempDir java.nio.file.Path carpeta) throws Exception {
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey);
+        jdbc.update("TRUNCATE padron_ruc, carga_padron_ruc");
+
+        ResponseEntity<Map> sinPadron = http.exchange("/v1/consultas/ruc/20100066603", HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat(sinPadron.getStatusCode()).as("sin carga no se afirma que el RUC no existe").isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(sinPadron.getBody().get("codigo")).isEqualTo("PADRON_NO_CARGADO");
+
+        java.nio.file.Path archivo = carpeta.resolve("padron_reducido_ruc.txt");
+        java.nio.file.Files.writeString(archivo, """
+                RUC|NOMBRE O RAZÓN SOCIAL|ESTADO DEL CONTRIBUYENTE|CONDICIÓN DE DOMICILIO|UBIGEO|TIPO DE VÍA|NOMBRE DE VÍA|CÓDIGO DE ZONA|TIPO DE ZONA|NÚMERO|INTERIOR|LOTE|DEPARTAMENTO|MANZANA|KILÓMETRO|
+                20100066603|MUÑOZ HERMANOS S.A.C.|ACTIVO|HABIDO|150101|AV.|REPUBLICA DE PANAMA|-|-|2457|-|-|-|-|-|
+                20160109441|GARAMENDI ALARCON ANTONIO|BAJA DE OFICIO|NO HABIDO|-|-|-|-|-|-|-|-|-|-|-|
+                """, java.nio.charset.StandardCharsets.ISO_8859_1);
+        var carga = new pe.factura.application.service.CargarPadronRucService(1, new pe.factura.adapters.sunat.ArchivoDelPadronRuc(archivo.toString(), java.time.Duration.ofSeconds(5)), padron, java.time.Clock.systemUTC()).cargar();
+        assertThat(carga.filas()).isEqualTo(2);
+
+        ResponseEntity<Map> r = http.exchange("/v1/consultas/ruc/20100066603", HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<?, ?> d = (Map<?, ?>) r.getBody().get("datos");
+        assertThat(d.get("razon_social")).isEqualTo("MUÑOZ HERMANOS S.A.C.");
+        assertThat(d.get("activo")).isEqualTo(true);
+        assertThat(d.get("direccion")).isEqualTo("AV. REPUBLICA DE PANAMA NRO. 2457");
+        assertThat(d.get("actualizado_al")).isNotNull();
+
+        Map<?, ?> baja = (Map<?, ?>) http.exchange("/v1/consultas/ruc/20160109441", HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos");
+        assertThat(baja.get("estado")).isEqualTo("BAJA DE OFICIO");
+        assertThat(baja.get("activo")).isEqualTo(false);
+        assertThat(baja.get("habido")).isEqualTo(false);
+
+        assertThat(http.exchange("/v1/consultas/ruc/20601234565", HttpMethod.GET, new HttpEntity<>(h), Map.class).getStatusCode()).as("válido pero no está").isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(http.exchange("/v1/consultas/ruc/20601234567", HttpMethod.GET, new HttpEntity<>(h), Map.class).getStatusCode()).as("dígito verificador errado").isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(http.exchange("/v1/consultas/ruc/20100066603", HttpMethod.GET, HttpEntity.EMPTY, Map.class).getStatusCode()).as("sin credenciales").isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Autowired pe.factura.application.port.out.PadronRucRepository padron;
+
     @org.junit.jupiter.api.BeforeEach void limpiar() {
         jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, sesion, usuario, cuenta CASCADE");
     }
