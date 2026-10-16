@@ -55,7 +55,9 @@ public class JdbcPadronRucRepository implements PadronRucRepository {
     }
 
     @Override public ResultadoCarga reemplazar(Stream<Contribuyente> filas, long minimoDeFilas) {
-        ResultadoCarga r = jdbc.execute((ConnectionCallback<ResultadoCarga>) con -> {
+        // Sin ANALYZE a mano: tras la primera carga de millones de filas autovacuum analiza la tabla enseguida, y un ANALYZE que fallara después del COMMIT haría pasar por fallida
+        // una carga que ya está en la base.
+        return jdbc.execute((ConnectionCallback<ResultadoCarga>) con -> {
             boolean autoCommit = con.getAutoCommit();
             con.setAutoCommit(false);
             try {
@@ -69,9 +71,6 @@ public class JdbcPadronRucRepository implements PadronRucRepository {
                 con.setAutoCommit(autoCommit);
             }
         });
-        // Fuera de la transacción: ANALYZE no necesita ir dentro y, tras una primera carga de millones de filas, el planificador no debe seguir creyendo que la tabla está vacía.
-        jdbc.execute("ANALYZE padron_ruc");
-        return r;
     }
 
     private ResultadoCarga cargarYMezclar(Connection con, Stream<Contribuyente> filas, long minimoDeFilas) throws SQLException {

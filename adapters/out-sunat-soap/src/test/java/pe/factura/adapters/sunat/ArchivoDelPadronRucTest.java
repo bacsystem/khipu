@@ -85,6 +85,20 @@ class ArchivoDelPadronRucTest {
         assertThat(temporales(Path.of(System.getProperty("java.io.tmpdir")))).isEqualTo(antes);
     }
 
+    /** H2 de #380: el tope de la descarga cuenta también el cuerpo; las cabeceras llegan enseguida y el cuerpo gota a gota. */
+    @Test void unaDescargaQueSeQuedaAMediasSeCancelaAlVencerElLimiteYNoDejaTemporales(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(get("/lenta.zip").willReturn(aResponse().withStatus(200).withBody(new byte[100_000]).withChunkedDribbleDelay(10, 30_000)));
+        Path tmp = Path.of(System.getProperty("java.io.tmpdir"));
+        long antes = temporales(tmp);
+
+        long t0 = System.nanoTime();
+        assertThatThrownBy(() -> new ArchivoDelPadronRuc(wm.getHttpBaseUrl() + "/lenta.zip", Duration.ofSeconds(1)).abrir())
+                .isInstanceOf(IOException.class).hasMessageContaining("tardó más de 1 s");
+
+        assertThat(Duration.ofNanos(System.nanoTime() - t0)).as("corta al vencer el límite, no espera al servidor").isLessThan(Duration.ofSeconds(10));
+        assertThat(temporales(tmp)).isEqualTo(antes);
+    }
+
     @Test void unZipVacioFalla(WireMockRuntimeInfo wm) throws Exception {
         Path z = carpeta.resolve("vacio.zip");
         ByteArrayOutputStream salida = new ByteArrayOutputStream();

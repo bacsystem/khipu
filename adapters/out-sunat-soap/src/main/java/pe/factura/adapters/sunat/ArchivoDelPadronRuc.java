@@ -13,6 +13,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -42,9 +46,20 @@ public class ArchivoDelPadronRuc implements FuentePadronRuc {
     private Descarga descargar(String url) throws IOException {
         Path temporal = Files.createTempFile("padron_reducido_ruc", ".tmp");
         try {
-            HttpRequest pedido = HttpRequest.newBuilder(URI.create(url)).timeout(limiteDeDescarga).GET().build();
+            // HttpRequest.timeout solo acota hasta recibir las cabeceras: una conexión que se queda a medias con el cuerpo colgaría la carga sin fin. El tope de toda la descarga
+            // se pone esperando el futuro, y se cancela al vencer.
+            HttpRequest pedido = HttpRequest.newBuilder(URI.create(url)).GET().build();
             log.info("Descargando el padrón de RUC desde {}", url);
-            HttpResponse<Path> respuesta = http.send(pedido, HttpResponse.BodyHandlers.ofFile(temporal));
+            CompletableFuture<HttpResponse<Path>> descarga = http.sendAsync(pedido, HttpResponse.BodyHandlers.ofFile(temporal));
+            HttpResponse<Path> respuesta;
+            try {
+                respuesta = descarga.get(limiteDeDescarga.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                descarga.cancel(true);
+                throw new IOException("La descarga del padrón tardó más de " + limiteDeDescarga.toSeconds() + " s y se canceló", e);
+            } catch (ExecutionException e) {
+                throw new IOException("No se pudo descargar el padrón: " + e.getCause(), e.getCause());
+            }
             if (respuesta.statusCode() != 200) throw new IOException("SUNAT respondió HTTP " + respuesta.statusCode() + " al descargar " + url);
             return abrirArchivo(temporal, true, url);
         } catch (InterruptedException e) {

@@ -75,7 +75,8 @@ servicio `backend`, y hasta que corra la primera la consulta responde `503 PADRO
 
 Para la **primera** carga, cambiar `PADRON_RUC_CRON` a un minuto cercano (p. ej. `0 */5 * * * *`), esperar a que el log diga `Padrón de RUC cargado desde …` y volver al valor normal. Cada
 intento, bueno o malo, queda en `carga_padron_ruc` (origen, filas, descartadas, nuevas, cambiadas, borradas y el error si falló); si falla, sigue sirviendo el padrón anterior. La carga necesita
-disco libre para el .zip temporal (~400 MB, se borra al terminar) y para la tabla de paso, que se vacía al terminar. Cuota de consultas: 60 por minuto y 5 000 por día por empresa (`429 DEMASIADAS_CONSULTAS`).
+disco libre para el .zip temporal (~400 MB, se borra al terminar) y para la tabla de paso, que se vacía al terminar. La carga corre en un hilo propio (`padron-ruc`), no en el del planificador, así que no detiene el outbox ni los demás trabajos. Si SUNAT redujera de verdad el padrón más del 10 %, la carga
+falla con `PADRON_INCOMPLETO` en cada intento (el error registrado dice cuántas filas trajo): para aceptar el archivo, bajar a cero las filas que se le exigen: `UPDATE carga_padron_ruc SET filas = 0 WHERE id = (SELECT max(id) FROM carga_padron_ruc WHERE resultado = 'EXITOSA')`. La siguiente carga entra sin mínimo y deja registradas las filas reales, que son las que se exigen después. Mientras tanto la consulta sigue respondiendo con el padrón vigente. Cuota de consultas: 60 por minuto y 5 000 por día por empresa (`429 DEMASIADAS_CONSULTAS`).
 
 Las demás opcionales (timeouts SUNAT, outbox, integridad): ver `.env.example` en la raíz del repo —
 usan default razonable si se omiten. `PORT` no hace falta: Railway lo inyecta.

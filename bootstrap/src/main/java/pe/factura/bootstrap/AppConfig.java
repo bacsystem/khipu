@@ -365,7 +365,14 @@ public class AppConfig {
         return new CargarPadronRucService(minimoPrimeraCarga, fuente, padron, clock);
     }
     @Bean @ConditionalOnProperty(name = "app.padron-ruc.habilitado", havingValue = "true")
-    CargaDelPadronRucWorker cargaDelPadronRucWorker(CargarPadronRucUseCase carga) { return new CargaDelPadronRucWorker(carga); }
+    CargaDelPadronRucWorker cargaDelPadronRucWorker(CargarPadronRucUseCase carga) {
+        // Un hilo propio: el planificador de Spring tiene uno solo y la carga dura minutos (ver el worker). Daemon para que no retenga el apagado.
+        return new CargaDelPadronRucWorker(carga, java.util.concurrent.Executors.newSingleThreadExecutor(tarea -> {
+            Thread hilo = new Thread(tarea, "padron-ruc");
+            hilo.setDaemon(true);
+            return hilo;
+        }));
+    }
 
     @Bean EnviarDocumentoUseCase enviarDocumento(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatBillingGateway g, CdrParser p,
                                                 OutboxRepository o, UnitOfWork u, Clock clock, RechazoDeSolRepository rechazos, InformarEnResumenUseCase resumen, AppProperties props) {
