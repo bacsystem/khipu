@@ -36,7 +36,17 @@ public class ValidarCompradorEnPadron implements ValidarCompradorUseCase {
                     + "Si es un RUC recién inscrito, el padrón se actualiza cada día: reintente más tarde");
     }
 
+    /** Corre con el comprobante ya emitido: un fallo al consultar el padrón no puede convertir una emisión hecha en un error (el cliente reintentaría y duplicaría la factura). */
     @Override public List<Aviso> avisosDe(Receptor receptor) {
+        try {
+            return avisosEnPadron(receptor);
+        } catch (RuntimeException e) {
+            log.warn("No se pudo consultar el padrón de RUC para avisar del comprador; se responde sin avisos", e);
+            return List.of();
+        }
+    }
+
+    private List<Aviso> avisosEnPadron(Receptor receptor) {
         if (!conRuc(receptor) || !padronConfiable(false)) return List.of();
         Optional<Contribuyente> contribuyente = padron.buscar(receptor.numDoc());
         if (contribuyente.isEmpty()) return List.of();

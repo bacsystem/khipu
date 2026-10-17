@@ -3,7 +3,9 @@ package pe.factura.application.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.ValidarCompradorUseCase.Aviso;
+import pe.factura.application.port.out.PadronRucRepository.CargaRegistrada;
 import pe.factura.application.port.out.PadronRucRepository.Contribuyente;
+import pe.factura.application.port.out.PadronRucRepository.ResultadoCarga;
 import pe.factura.application.service.ConsultarPadronRucServiceTest.PadronEnMemoria;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Receptor;
@@ -135,6 +137,18 @@ class ValidarCompradorEnPadronTest {
         Receptor persona = new Receptor("6", "10456789012", "PEREZ JUAN", "AV 3");
 
         assertThatThrownBy(() -> validador.exigirQueExista(persona)).hasMessageContaining("1083");
+    }
+
+    /** Los avisos se piden con el comprobante ya emitido: si la base falla en ese momento, la emisión no se convierte en error (el cliente reintentaría y duplicaría la factura). */
+    @Test void siElPadronFallaAlAvisarSeRespondeSinAvisos() {
+        var caido = new pe.factura.application.port.out.PadronRucRepository() {
+            public java.util.Optional<Contribuyente> buscar(String ruc) { throw new IllegalStateException("se cayó la base"); }
+            public java.util.Optional<CargaRegistrada> ultimaCargaExitosa() { return java.util.Optional.of(new CargaRegistrada(AHORA, AHORA, true, "x", 1, 0, 0, 0, 0, null)); }
+            public ResultadoCarga reemplazar(java.util.stream.Stream<Contribuyente> filas, long minimoDeFilas) { throw new UnsupportedOperationException(); }
+            public void registrar(CargaRegistrada carga) { throw new UnsupportedOperationException(); }
+        };
+
+        assertThat(new ValidarCompradorEnPadron(caido, RELOJ, TOPE).avisosDe(COMPRADOR)).isEmpty();
     }
 
     @Test void sinRucNoSeConsultaElPadron() {
