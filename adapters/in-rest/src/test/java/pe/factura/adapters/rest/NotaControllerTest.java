@@ -38,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class NotaControllerTest {
     @Autowired MockMvc mvc;
     @MockBean EmitirComprobanteUseCase emitir;
+    @MockBean pe.factura.application.port.in.ValidarCompradorUseCase comprador;
     UUID tenant = UUID.randomUUID();
 
     static final String CUERPO = """
@@ -75,6 +76,17 @@ class NotaControllerTest {
         assertThat(cmd.serieAfectada()).isEqualTo("F001");
         assertThat(cmd.numeroAfectado()).isEqualTo(601);
         assertThat(cmd.enviarAutomatico()).isTrue();
+    }
+
+    /** #378: SUNAT aplica a las notas la misma regla del RUC del receptor (anexos de NC y ND): la respuesta avisa 4013 y 4014 igual que la de una factura. */
+    @Test void laNotaAvisaLoQueSunatObservaDelRucDelComprador() throws Exception {
+        Comprobante nota = notaAceptada(tenant);
+        when(emitir.emitirNota(eq(tenant), any())).thenReturn(nota);
+        when(comprador.avisosDe(nota.receptor())).thenReturn(List.of(new pe.factura.application.port.in.ValidarCompradorUseCase.Aviso("4014", "El RUC del comprador figura como no habido en SUNAT")));
+
+        mvc.perform(post("/v1/notas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(CUERPO))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.avisos[0].codigo").value("4014"));
     }
 
     @Test void notaParcialConItemsYNotaDeDebito() throws Exception {

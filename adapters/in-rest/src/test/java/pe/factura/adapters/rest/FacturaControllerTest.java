@@ -29,6 +29,7 @@ class FacturaControllerTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @MockBean EmitirComprobanteUseCase emitir;
+    @MockBean pe.factura.application.port.in.ValidarCompradorUseCase comprador;
     @MockBean EnviarDocumentoUseCase enviar;
     @MockBean ConsultarComprobanteUseCase consultar;
     @MockBean pe.factura.application.port.in.DarDeBajaUseCase bajas;
@@ -126,6 +127,43 @@ class FacturaControllerTest {
         ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
         verify(emitir).emitirFactura(eq(tenant), cap.capture());
         assertThat(cap.getValue().observaciones()).isEqualTo("Entrega en almacén.");
+    }
+
+    /** #378: SUNAT acepta un comprobante a un RUC de baja o no habido con una observación (4013, 4014); la respuesta lo dice sin dejar de ser un 201. */
+    @Test void laRespuestaAvisaLoQueSunatObservaDelRucDelComprador() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(c);
+        when(comprador.avisosDe(c.receptor())).thenReturn(List.of(
+                new pe.factura.application.port.in.ValidarCompradorUseCase.Aviso("4013", "El RUC 20601234565 del comprador no está activo en SUNAT (BAJA DE OFICIO): SUNAT aceptará el comprobante con una observación"),
+                new pe.factura.application.port.in.ValidarCompradorUseCase.Aviso("4014", "El RUC 20601234565 del comprador figura como no habido en SUNAT: SUNAT aceptará el comprobante con una observación")));
+
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.estado").value("exito"))
+                .andExpect(jsonPath("$.datos.numero").value(601))
+                .andExpect(jsonPath("$.avisos.length()").value(2))
+                .andExpect(jsonPath("$.avisos[0].codigo").value("4013"))
+                .andExpect(jsonPath("$.avisos[1].codigo").value("4014"))
+                .andExpect(jsonPath("$.avisos[1].mensaje").value(org.hamcrest.Matchers.containsString("no habido")));
+    }
+
+    @Test void sinNadaQueAvisarLaRespuestaNoTraeElCampo() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(c);
+        when(comprador.avisosDe(c.receptor())).thenReturn(List.of());
+
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.avisos").doesNotExist());
+    }
+
+    /** Con clave de idempotencia es otro camino del controlador: también avisa. */
+    @Test void conClaveDeIdempotenciaLaRespuestaTambienAvisa() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(c, false));
+        when(comprador.avisosDe(c.receptor())).thenReturn(List.of(new pe.factura.application.port.in.ValidarCompradorUseCase.Aviso("4013", "no activo")));
+
+        emitirConClave(CLAVE, cuerpo).andExpect(status().isCreated()).andExpect(jsonPath("$.avisos[0].codigo").value("4013"));
     }
 
     // --- #115: Idempotency-Key ---------------------------------------------------------------------------------------------------

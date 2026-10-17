@@ -13,9 +13,12 @@ public interface PadronRucRepository {
     record Contribuyente(String ruc, String razonSocial, String estado, String condicion, String ubigeo, String direccion) {
         public static final String ACTIVO = "ACTIVO";
         public static final String HABIDO = "HABIDO";
+        public static final String NO_HABIDO = "NO HABIDO";
 
         public boolean activo() { return ACTIVO.equals(estado); }
         public boolean habido() { return HABIDO.equals(condicion); }
+        /** Solo «NO HABIDO» es el código 12 que observa SUNAT (4014): «NO HALLADO …», «PENDIENTE» o «POR VERIFICAR» no son lo mismo y no se observan. */
+        public boolean noHabido() { return NO_HABIDO.equals(condicion); }
     }
 
     /** Lo que cambió una carga. {@code filas}: las que traía el archivo y se aceptaron. */

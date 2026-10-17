@@ -58,7 +58,7 @@ class EmitirNotaServiceTest {
         series.crear(new Serie(tenantId, TipoDocumento.NOTA_CREDITO, "BC01", 0, true));
         series.crear(new Serie(tenantId, TipoDocumento.NOTA_DEBITO, "BD01", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), tope);
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), tope, Fakes.SIN_COMPRADOR);
     }
 
     /** #18: una nota consume del plan como una factura, así que en el tope tampoco se emite. Para anular una factura queda la comunicación de baja, que no consume. */
@@ -67,6 +67,22 @@ class EmitirNotaServiceTest {
         tope.lleno = true;
 
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null))).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("LIMITE_PLAN");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
+    }
+
+    /** #378: SUNAT aplica la regla del RUC del receptor también a las notas (anexos de NC y ND, 1083); la nota lleva el comprador del documento. */
+    @Test void unaNotaSeRechazaSiElRucDelCompradorYaNoFiguraEnElPadron() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        var padron = new ConsultarPadronRucServiceTest.PadronEnMemoria();
+        padron.cargada = Fakes.CLOCK.instant().minus(java.time.Duration.ofHours(6));
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
+        EmitirComprobanteService conPadron = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas,
+                new Fakes.Idempotencias(), new Fakes.Tope(), new ValidarCompradorEnPadron(padron, Fakes.CLOCK, java.time.Duration.ofDays(3)));
+
+        assertThatThrownBy(() -> conPadron.emitirNota(tenantId, nc(f.numero(), "01", null))).isInstanceOf(DomainException.class).hasMessageContaining("1083");
+        assertThatThrownBy(() -> conPadron.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_DEBITO, "FD01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "Intereses",
+                laptops("1", "11.80"), null, List.of(), null, true))).isInstanceOf(DomainException.class).hasMessageContaining("1083");
+
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
     }
 
@@ -603,7 +619,7 @@ class EmitirNotaServiceTest {
             public void ejecutar(Runnable w) { w.run(); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService conCarrera = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uowConBaja, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope());
+        EmitirComprobanteService conCarrera = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uowConBaja, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope(), Fakes.SIN_COMPRADOR);
         assertThatThrownBy(() -> conCarrera.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("2120");
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
     }
@@ -631,7 +647,7 @@ class EmitirNotaServiceTest {
         Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
         claves.uow = uow;
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, reloj);
-        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves, tope), claves);
+        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves, tope, Fakes.SIN_COMPRADOR), claves);
     }
 
     @Test void conUnaClaveNuevaEmiteLaNotaYLaAnotaBajoLaClaveDeNotas() {

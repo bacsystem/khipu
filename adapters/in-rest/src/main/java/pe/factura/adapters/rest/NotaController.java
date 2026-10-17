@@ -18,7 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.factura.adapters.rest.dto.ComprobanteResponse;
 import pe.factura.adapters.rest.dto.NotaRequest;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
+import pe.factura.application.port.in.ValidarCompradorUseCase;
 import pe.factura.domain.documento.Comprobante;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/v1/notas")
@@ -31,12 +34,17 @@ import pe.factura.domain.documento.Comprobante;
 public class NotaController {
     private final EmitirComprobanteUseCase emitir;
     private final ObjectMapper json;
+    private final ValidarCompradorUseCase comprador;
 
     @PostMapping
     @Operation(summary = "Emitir una nota de crédito o débito", description = """
             Sobre una factura o una boleta **aceptada** por SUNAT de la misma empresa. La nota toma el receptor, la moneda y el tipo de
             operación del documento; la serie debe existir con el tipo 07/08 y empezar con la letra del documento que modifica:
             `F` sobre una factura (p. ej. `FC01`, `FD01`), `B` sobre una boleta (p. ej. `BC01`, `BD01`; reglas 2399, 2400).
+
+            **RUC del comprador**: si la nota lleva un RUC (el del documento que modifica), se valida contra el padrón de SUNAT como en la
+            factura: si no figura, `422 RECEPTOR_INVALIDO` (1083) antes de numerar; si está de baja (4013) o no habido (4014), se emite igual
+            y la respuesta trae `avisos`.
 
             **Sobre una boleta**: el comprador es el de la boleta (puede no tener documento). No se admiten la NC `13` (la boleta no
             tiene cuotas, regla 3259) ni la NC `04`, `05` u `08`: el descuento o la bonificación a un consumidor final va en la misma
@@ -82,9 +90,14 @@ public class NotaController {
         var idempotencia = ClaveDeIdempotencia.de(clave, body, json);
         if (idempotencia == null) {
             Comprobante c = emitir.emitirNota(TenantActual.id(req), body.aComando());
-            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(c, "/v1/facturas")));
+            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(c, "/v1/facturas"), avisos(c)));
         }
         var emision = emitir.emitirNota(TenantActual.id(req), body.aComando(), idempotencia);
-        return ResponseEntity.status(emision.repetida() ? HttpStatus.OK : HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(emision.comprobante(), "/v1/facturas")));
+        return ResponseEntity.status(emision.repetida() ? HttpStatus.OK : HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(emision.comprobante(), "/v1/facturas"), avisos(emision.comprobante())));
+    }
+
+    /** #378: la nota lleva el comprador del documento que modifica, y SUNAT le aplica la misma regla del RUC (4013, 4014). */
+    private List<ApiResponse.Aviso> avisos(Comprobante c) {
+        return ApiResponse.Aviso.de(comprador.avisosDe(c.receptor()));
     }
 }

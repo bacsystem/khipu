@@ -560,9 +560,50 @@ class FacturaE2ETest {
         assertThat(http.exchange("/v1/consultas/ruc/20100066603", HttpMethod.GET, HttpEntity.EMPTY, Map.class).getStatusCode()).as("sin credenciales").isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
+    /**
+     * #378: con el padrón al día, un comprador cuyo RUC no existe se rechaza con 422 RECEPTOR_INVALIDO (1083) sin gastar correlativo ni llamar a SUNAT; uno de baja y no
+     * habido se emite (SUNAT lo acepta con observación) y la respuesta trae los avisos 4013 y 4014; y sin padrón cargado la emisión es la de siempre.
+     */
+    @Test void laEmisionValidaElRucDelCompradorContraElPadron(WireMockRuntimeInfo wm, @org.junit.jupiter.api.io.TempDir java.nio.file.Path carpeta) throws Exception {
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        java.nio.file.Path archivo = carpeta.resolve("padron_reducido_ruc.txt");
+        java.nio.file.Files.writeString(archivo, """
+                RUC|NOMBRE O RAZÓN SOCIAL|ESTADO DEL CONTRIBUYENTE|CONDICIÓN DE DOMICILIO|UBIGEO|TIPO DE VÍA|NOMBRE DE VÍA|CÓDIGO DE ZONA|TIPO DE ZONA|NÚMERO|INTERIOR|LOTE|DEPARTAMENTO|MANZANA|KILÓMETRO|
+                20100066603|MUÑOZ HERMANOS S.A.C.|ACTIVO|HABIDO|150101|AV.|REPUBLICA DE PANAMA|-|-|2457|-|-|-|-|-|
+                20160109441|GARAMENDI ALARCON ANTONIO|BAJA DE OFICIO|NO HABIDO|-|-|-|-|-|-|-|-|-|-|-|
+                """, java.nio.charset.StandardCharsets.ISO_8859_1);
+        new pe.factura.application.service.CargarPadronRucService(1, new pe.factura.adapters.sunat.ArchivoDelPadronRuc(archivo.toString(), java.time.Duration.ofSeconds(5)), padron, java.time.Clock.systemUTC()).cargar();
+
+        // 20601234565 es un RUC válido que el padrón no tiene.
+        ResponseEntity<Map> inexistente = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(inexistente.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(inexistente.getBody().get("codigo")).isEqualTo("RECEPTOR_INVALIDO");
+        assertThat((String) inexistente.getBody().get("mensaje")).contains("1083").contains("20601234565");
+        assertThat(jdbc.queryForObject("SELECT ultimo_numero FROM serie WHERE codigo = 'F001'", Long.class)).as("el rechazo no gastó el número 1").isZero();
+        verify(0, postRequestedFor(urlEqualTo("/billService")));
+
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        ResponseEntity<Map> deBaja = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replace("20601234565", "20160109441"), h), Map.class);
+        assertThat(deBaja.getStatusCode()).as("%s", deBaja.getBody()).isEqualTo(HttpStatus.CREATED);
+        assertThat(((Map<?, ?>) deBaja.getBody().get("datos")).get("numero")).isEqualTo(1);
+        assertThat((java.util.List<Map<String, Object>>) deBaja.getBody().get("avisos")).extracting(a -> a.get("codigo")).containsExactly("4013", "4014");
+
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-2"))));
+        ResponseEntity<Map> enRegla = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replace("20601234565", "20100066603"), h), Map.class);
+        assertThat(enRegla.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(enRegla.getBody()).as("sin nada que avisar, la respuesta no trae el campo").doesNotContainKey("avisos");
+
+        jdbc.update("TRUNCATE padron_ruc, carga_padron_ruc");
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-3"))));
+        ResponseEntity<Map> sinPadron = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(sinPadron.getStatusCode()).as("sin padrón cargado no se rechaza nada: %s", sinPadron.getBody()).isEqualTo(HttpStatus.CREATED);
+    }
+
     @Autowired pe.factura.application.port.out.PadronRucRepository padron;
 
     @org.junit.jupiter.api.BeforeEach void limpiar() {
+        jdbc.update("TRUNCATE padron_ruc, carga_padron_ruc");
         jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, sesion, usuario, cuenta CASCADE");
     }
 }

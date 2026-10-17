@@ -373,6 +373,10 @@ public class AppConfig {
             return hilo;
         }));
     }
+    // #378: el RUC del comprador contra el padrón. Con el padrón sin cargar o más atrasado que este tope, no rechaza nada (ver ValidarCompradorEnPadron).
+    @Bean ValidarCompradorUseCase validarComprador(PadronRucRepository padron, Clock clock, @Value("${app.padron-ruc.maximo-dias-de-atraso}") long dias) {
+        return new ValidarCompradorEnPadron(padron, clock, java.time.Duration.ofDays(dias));
+    }
 
     @Bean EnviarDocumentoUseCase enviarDocumento(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatBillingGateway g, CdrParser p,
                                                 OutboxRepository o, UnitOfWork u, Clock clock, RechazoDeSolRepository rechazos, InformarEnResumenUseCase resumen, AppProperties props) {
@@ -381,8 +385,8 @@ public class AppConfig {
     @Bean RechazoDeSolRepository rechazoDeSolRepository(JdbcTemplate jdbc) { return new JdbcRechazoDeSolRepository(jdbc); }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,
                                                     UblGenerator ubl, XsdValidator xsd, XmlSigner signer, EnviarDocumentoUseCase enviar, UnitOfWork u, Clock clock, EmisorDeSerieRepository emisor,
-                                                    BajaRepository bajas, IdempotenciaRepository idempotencia, TopeDelPlan tope, AppProperties p) {
-        return RelojDeLaAplicacion.proteger(new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia, tope), t, p.desplazamientoDelReloj());
+                                                    BajaRepository bajas, IdempotenciaRepository idempotencia, TopeDelPlan tope, ValidarCompradorUseCase comprador, AppProperties p) {
+        return RelojDeLaAplicacion.proteger(new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia, tope, comprador), t, p.desplazamientoDelReloj());
     }
     @Bean TopeDeDocumentosRepository topeDeDocumentosRepository(JdbcTemplate jdbc) { return new JdbcTopeDeDocumentosRepository(jdbc); }
     @Bean TopeDelPlan topeDelPlan(TenantRepository t, CambiarPlanDeCuentaUseCase planes, TopeDeDocumentosRepository ocupados, Clock clock) { return new TopeDelPlanService(t, planes, ocupados, clock); }

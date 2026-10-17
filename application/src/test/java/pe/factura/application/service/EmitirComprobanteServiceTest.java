@@ -48,7 +48,7 @@ class EmitirComprobanteServiceTest {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope());
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope(), Fakes.SIN_COMPRADOR);
     }
 
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
@@ -74,6 +74,58 @@ class EmitirComprobanteServiceTest {
         assertThat(recibido[0]).contains("<ds:Signature/>");
     }
 
+    // --- #378: el RUC del comprador contra el padrón de SUNAT -------------------------------------------------------------------
+
+    private EmitirComprobanteService conPadron(ConsultarPadronRucServiceTest.PadronEnMemoria padron) {
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
+        return new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope(),
+                new ValidarCompradorEnPadron(padron, Fakes.CLOCK, Duration.ofDays(3)));
+    }
+
+    private static ConsultarPadronRucServiceTest.PadronEnMemoria padronAlDiaCon(String... rucs) {
+        var padron = new ConsultarPadronRucServiceTest.PadronEnMemoria();
+        padron.cargada = Fakes.CLOCK.instant().minus(Duration.ofHours(6));
+        for (String ruc : rucs) padron.contribuyentes.add(new PadronRucRepository.Contribuyente(ruc, "CLIENTE SAC", "ACTIVO", "HABIDO", "150101", "AV 1"));
+        return padron;
+    }
+
+    @Test void unCompradorConRucQueElPadronNoTieneSeRechazaAntesDeNumerar() {
+        EmitirComprobanteService s = conPadron(padronAlDiaCon("20100070970"));
+
+        assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("1083").extracting("codigo").isEqualTo("RECEPTOR_INVALIDO");
+
+        assertThat(comprobantes.datos).isEmpty();
+        assertThat(gateway.enviados).isZero();
+        assertThat(conPadron(padronAlDiaCon("20601234565")).emitirFactura(tenantId, cmd(null, false)).numero()).as("el rechazo no consumió el número 1").isEqualTo(1L);
+    }
+
+    @Test void unaBoletaConRucDelCompradorSeValidaComoUnaFactura() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        EmitirFacturaCommand boleta = new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false);
+
+        assertThatThrownBy(() -> conPadron(padronAlDiaCon()).emitirFactura(tenantId, boleta)).hasMessageContaining("1083");
+
+        assertThat(comprobantes.datos).isEmpty();
+        assertThat(conPadron(padronAlDiaCon("20601234565")).emitirFactura(tenantId, boleta).tipo()).isEqualTo(TipoDocumento.BOLETA);
+    }
+
+    @Test void unRucDeBajaSeEmiteIgualPorqueSunatSoloLoObserva() {
+        var padron = padronAlDiaCon();
+        padron.contribuyentes.add(new PadronRucRepository.Contribuyente("20601234565", "CLIENTE SAC", "BAJA DEFINITIVA", "NO HABIDO", "150101", "AV 1"));
+
+        assertThat(conPadron(padron).emitirFactura(tenantId, cmd(null, false)).numero()).isEqualTo(1L);
+    }
+
+    @Test void sinPadronCargadoSeEmiteComoAntes() {
+        var padron = new ConsultarPadronRucServiceTest.PadronEnMemoria();
+
+        assertThat(conPadron(padron).emitirFactura(tenantId, cmd(null, false)).numero()).isEqualTo(1L);
+        assertThat(padron.busquedas).isZero();
+    }
+
     // --- #18: tope de documentos del plan ---------------------------------------------------------------------------------------
 
     private EmitirComprobanteService conTope(Fakes.Tope tope, Fakes.Idempotencias claves) {
@@ -81,7 +133,7 @@ class EmitirComprobanteServiceTest {
         tope.uow = uow;
         claves.uow = uow;
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, Fakes.CLOCK);
-        return new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, Fakes.CLOCK, establecimientos, bajas, claves, tope);
+        return new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, Fakes.CLOCK, establecimientos, bajas, claves, tope, Fakes.SIN_COMPRADOR);
     }
 
     @Test void enElTopeDelPlanNoEmiteNiGastaNumero() {
@@ -125,7 +177,7 @@ class EmitirComprobanteServiceTest {
         Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
         claves.uow = uow;
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, reloj);
-        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves, new Fakes.Tope()), claves);
+        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves, new Fakes.Tope(), Fakes.SIN_COMPRADOR), claves);
     }
 
     private static final pe.factura.application.port.in.Idempotencia CLAVE = new pe.factura.application.port.in.Idempotencia("c1a7e5b0-0000-4000-8000-000000000001", "huella-1");
@@ -339,7 +391,7 @@ class EmitirComprobanteServiceTest {
             public void validarBaja(String xml, ComunicacionBaja baja) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope());
+        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope(), Fakes.SIN_COMPRADOR);
         assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).extracting("codigo").isEqualTo("XSD_INVALIDO");
         assertThat(comprobantes.datos).isEmpty();
     }
