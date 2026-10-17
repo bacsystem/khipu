@@ -77,7 +77,8 @@ servicio `backend`, y hasta que corra la primera la consulta responde `503 PADRO
 **La emisión usa el padrón** (#378): si el comprador tiene RUC, un RUC que el padrón no tiene se rechaza con `422 RECEPTOR_INVALIDO` (1083) antes de numerar, y uno de baja (4013) o no habido
 (4014) se emite con `avisos` en la respuesta, porque SUNAT solo lo observa. Esto vale solo mientras la última carga tenga a lo sumo `PADRON_RUC_MAXIMO_DIAS_DE_ATRASO` días: sin padrón cargado
 (la instalación por defecto, con `PADRON_RUC_HABILITADO=false`) o con la carga atrasada no se rechaza nada y el log avisa `El padrón de RUC …` en cada emisión a un comprador con RUC. Un RUC
-recién inscrito puede tardar un día en figurar en el padrón: la emisión a ese comprador se rechaza hasta la siguiente carga.
+recién inscrito puede tardar un día en figurar en el padrón: la emisión a ese comprador se rechaza hasta la siguiente carga. e-beta no aplica esta regla (el 2026-10-16 aceptó con CDR `0` y sin
+observaciones un RUC inexistente, uno de baja y uno no habido), así que no sirve para probarla; en producción la aplica SUNAT.
 
 Para la **primera** carga, cambiar `PADRON_RUC_CRON` a un minuto cercano (p. ej. `0 */5 * * * *`), esperar a que el log diga `Padrón de RUC cargado desde …` y volver al valor normal. Cada
 intento, bueno o malo, queda en `carga_padron_ruc` (origen, filas, descartadas, nuevas, cambiadas, borradas y el error si falló); si falla, sigue sirviendo el padrón anterior. La carga necesita
