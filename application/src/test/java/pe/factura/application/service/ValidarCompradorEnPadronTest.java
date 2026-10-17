@@ -115,6 +115,29 @@ class ValidarCompradorEnPadronTest {
         assertThat(padron.busquedas).as("ni siquiera lo busca").isZero();
     }
 
+    /** Con el padrón apagado (el default) cada emisión a un comprador con RUC lo notaría: el aviso del log sale una vez por hora, no una vez por factura. */
+    @Test void elAvisoDeQueNoSeValidaSaleUnaVezPorHora() {
+        padron.cargada = null;
+        Instant[] ahora = {AHORA};
+        Clock reloj = new Clock() {
+            public java.time.ZoneId getZone() { return ZoneOffset.UTC; }
+            public Clock withZone(java.time.ZoneId zona) { return this; }
+            public Instant instant() { return ahora[0]; }
+        };
+        var v = new ValidarCompradorEnPadron(padron, reloj, TOPE);
+
+        for (int i = 0; i < 5; i++) v.exigirQueExista(COMPRADOR);
+        assertThat(v.avisosRegistrados).as("cinco emisiones, un solo aviso").hasValue(1);
+
+        ahora[0] = AHORA.plus(Duration.ofMinutes(59));
+        v.exigirQueExista(COMPRADOR);
+        assertThat(v.avisosRegistrados).as("a los 59 minutos todavía no").hasValue(1);
+
+        ahora[0] = AHORA.plus(Duration.ofMinutes(60));
+        v.exigirQueExista(COMPRADOR);
+        assertThat(v.avisosRegistrados).as("a la hora sale otro").hasValue(2);
+    }
+
     @Test void conElPadronMasAtrasadoQueElTopeNoSeRechazaNiSeAvisa() {
         padron.cargada = AHORA.minus(TOPE).minusSeconds(1);
         registrar("BAJA DEFINITIVA", "NO HABIDO");
