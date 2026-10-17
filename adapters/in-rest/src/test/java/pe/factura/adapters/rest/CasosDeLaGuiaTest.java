@@ -48,6 +48,7 @@ class CasosDeLaGuiaTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @MockBean EmitirComprobanteUseCase emitir;
+    @MockBean pe.factura.application.port.in.ValidarCompradorUseCase comprador;
     @MockBean EnviarDocumentoUseCase enviar;
     @MockBean ConsultarComprobanteUseCase consultar;
     @MockBean DarDeBajaUseCase bajas;

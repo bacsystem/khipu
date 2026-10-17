@@ -61,6 +61,7 @@ Content-Type: application/json
       "Unidades: `ZZ` para servicios, `NIU` para bienes contables; otras en el catálogo 03.",
       "Reglas de la línea que se rechazan antes de numerar (`422 ITEM_INVALIDO`, el mensaje empieza por el código SUNAT): `precio_unitario` mayor que cero (2369; en una gratuita, su valor referencial, 2367) y una línea cuyo valor de venta no quede en `0.00` (2370); hasta **999 líneas** por comprobante (2023; `2137` en las notas), porque el número de orden del ítem es de hasta 3 dígitos. Igual en factura, boleta y notas.",
       "Respuesta `201` con `estado_documento` `ACEPTADO` si SUNAT respondió en la misma llamada.",
+      "RUC del comprador, contra el padrón de SUNAT (igual en factura, boleta con RUC y notas): si el RUC **no figura**, `422 RECEPTOR_INVALIDO` (1083) antes de numerar, porque SUNAT rechazaría el comprobante; un RUC recién inscrito puede tardar un día en figurar. Si figura pero está **de baja** (4013) o **no habido** (4014), SUNAT acepta el comprobante con una observación: khipu lo emite igual y la respuesta trae `avisos` (`codigo` y `mensaje`; el campo no aparece si no hay nada que avisar). Si el padrón no está cargado o tiene más de 3 días, no se rechaza nada.",
     ],
     disponible: true,
   },

@@ -72,6 +72,12 @@ servicio `backend`, y hasta que corra la primera la consulta responde `503 PADRO
 | `PADRON_RUC_CRON` | default `0 30 4 * * *` | Cron de Spring, hora de Lima. SUNAT publica el archivo cada día de madrugada |
 | `PADRON_RUC_LIMITE_DESCARGA_MINUTOS` | default `30` | Cuánto puede tardar la descarga |
 | `PADRON_RUC_MINIMO_PRIMERA_CARGA` | default `1000000` | Filas mínimas de la primera carga; después se exige el 90 % de las de la carga anterior, así que un archivo cortado no reemplaza al padrón bueno |
+| `PADRON_RUC_MAXIMO_DIAS_DE_ATRASO` | default `3` | Hasta cuántos días de antigüedad de la última carga se confía en el padrón para rechazar una emisión (#378) |
+
+**La emisión usa el padrón** (#378): si el comprador tiene RUC, un RUC que el padrón no tiene se rechaza con `422 RECEPTOR_INVALIDO` (1083) antes de numerar, y uno de baja (4013) o no habido
+(4014) se emite con `avisos` en la respuesta, porque SUNAT solo lo observa. Esto vale solo mientras la última carga tenga a lo sumo `PADRON_RUC_MAXIMO_DIAS_DE_ATRASO` días: sin padrón cargado
+(la instalación por defecto, con `PADRON_RUC_HABILITADO=false`) o con la carga atrasada no se rechaza nada y el log avisa `El padrón de RUC …` en cada emisión a un comprador con RUC. Un RUC
+recién inscrito puede tardar un día en figurar en el padrón: la emisión a ese comprador se rechaza hasta la siguiente carga.
 
 Para la **primera** carga, cambiar `PADRON_RUC_CRON` a un minuto cercano (p. ej. `0 */5 * * * *`), esperar a que el log diga `Padrón de RUC cargado desde …` y volver al valor normal. Cada
 intento, bueno o malo, queda en `carga_padron_ruc` (origen, filas, descartadas, nuevas, cambiadas, borradas y el error si falló); si falla, sigue sirviendo el padrón anterior. La carga necesita

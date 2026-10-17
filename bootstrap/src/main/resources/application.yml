@@ -108,6 +108,8 @@ app:
     limite-de-descarga-minutos: ${PADRON_RUC_LIMITE_DESCARGA_MINUTOS:30}
     # Filas mínimas de la PRIMERA carga (después se exige el 90 % de la anterior): un archivo de miles es una descarga equivocada, no el padrón.
     minimo-primera-carga: ${PADRON_RUC_MINIMO_PRIMERA_CARGA:1000000}
+    # #378: la emisión rechaza un comprador cuyo RUC no figura en el padrón (1083) solo si la última carga tiene a lo sumo estos días; más atrasado (o sin cargar), deja pasar y avisa en el log.
+    maximo-dias-de-atraso: ${PADRON_RUC_MAXIMO_DIAS_DE_ATRASO:3}
   mail:
     habilitado: ${MAIL_HABILITADO:false}
     remitente: ${MAIL_REMITENTE:no-responder@khipu.pe}

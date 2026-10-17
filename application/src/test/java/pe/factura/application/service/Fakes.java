@@ -202,6 +202,12 @@ final class Fakes {
     };
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
 
+    /** Sin padrón (#378): ni rechaza ni avisa, como una instalación que no cargó el padrón. */
+    static final pe.factura.application.port.in.ValidarCompradorUseCase SIN_COMPRADOR = new pe.factura.application.port.in.ValidarCompradorUseCase() {
+        public void exigirQueExista(pe.factura.domain.documento.Receptor receptor) { }
+        public List<Aviso> avisosDe(pe.factura.domain.documento.Receptor receptor) { return List.of(); }
+    };
+
     /** Sabe si el trabajo corre dentro de {@code ejecutar}: lo que separa «dentro de la transacción» de «después de ella». */
     static final class UowTransaccional implements UnitOfWork {
         boolean dentro;

@@ -23,6 +23,7 @@ import pe.factura.application.port.in.DarDeBajaUseCase;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.in.RecuperarCdrUseCase;
+import pe.factura.application.port.in.ValidarCompradorUseCase;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
@@ -55,6 +56,7 @@ public class FacturaController {
     private final CompartirComprobanteUseCase compartir;
     private final RecuperarCdrUseCase cdrs;
     private final ObjectMapper json;
+    private final ValidarCompradorUseCase comprador;
 
 
     @PostMapping
@@ -76,6 +78,11 @@ public class FacturaController {
 
             **Forma de pago** (obligatoria desde 2022): al contado por defecto; al crédito indique `monto_pendiente` y las
             `cuotas` con fecha posterior a la emisión.
+
+            **RUC del comprador** (factura y boleta con RUC): se valida contra el padrón de SUNAT. Si no figura, `422 RECEPTOR_INVALIDO`
+            (1083) antes de numerar, porque SUNAT rechazaría el comprobante. Si figura pero está de baja (4013) o no habido (4014), SUNAT
+            lo acepta con una observación: se emite igual y la respuesta trae `avisos`. Mientras el padrón no esté cargado o tenga más
+            de 3 días, no se rechaza nada.
 
             **Errores frecuentes**: `422 VALIDACION` (campos con formato inválido, detalle en `errores`),
             `422 FORMA_PAGO_INVALIDA` / `SERIE_INVALIDA` / `RECEPTOR_INVALIDO` (regla de negocio, el mensaje lleva el código
@@ -100,10 +107,15 @@ public class FacturaController {
         var idempotencia = ClaveDeIdempotencia.de(clave, body, json);
         if (idempotencia == null) {
             Comprobante c = emitir.emitirFactura(TenantActual.id(req), body.aComando());
-            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(c, BASE)));
+            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(c, BASE), avisos(c)));
         }
         var emision = emitir.emitirFactura(TenantActual.id(req), body.aComando(), idempotencia);
-        return ResponseEntity.status(emision.repetida() ? HttpStatus.OK : HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(emision.comprobante(), BASE)));
+        return ResponseEntity.status(emision.repetida() ? HttpStatus.OK : HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(emision.comprobante(), BASE), avisos(emision.comprobante())));
+    }
+
+    /** #378: lo que SUNAT observará del comprador (4013, 4014); la factura se emitió igual, SUNAT la acepta con la observación. */
+    private List<ApiResponse.Aviso> avisos(Comprobante c) {
+        return ApiResponse.Aviso.de(comprador.avisosDe(c.receptor()));
     }
 
     @GetMapping

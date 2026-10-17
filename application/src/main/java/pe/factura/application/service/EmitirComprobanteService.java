@@ -6,6 +6,7 @@ import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.in.EmitirNotaCommand;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.in.Idempotencia;
+import pe.factura.application.port.in.ValidarCompradorUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Anticipo;
@@ -43,7 +44,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     private final BajaRepository bajas;
     private final IdempotenciaRepository idempotencia;
     private final TopeDelPlan tope;
-
+    private final ValidarCompradorUseCase comprador;
 
     @Override
     public Emision emitirFactura(UUID tenantId, EmitirFacturaCommand cmd, Idempotencia clave) {
@@ -266,6 +267,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
      */
     private Emision emitir(Tenant tenant, Comprobante c, Long correlativo, boolean enviarAutomatico, Runnable enTransaccion, ClaveEnAlcance clave) {
         UUID tenantId = tenant.id();
+        // #378: antes de numerar y de reservar la clave, así un RUC que SUNAT rechazaría (1083) no gasta correlativo. Un reintento ya emitido volvió antes, en yaEmitidaSiLaHay.
+        comprador.exigirQueExista(c.receptor());
         Emision emision = uow.ejecutar(() -> {
             if (clave != null) {
                 Optional<IdempotenciaRepository.Registro> previo = idempotencia.reservar(clave.alcance(), clave.clave().clave(), clave.clave().huella());
