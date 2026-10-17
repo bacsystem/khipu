@@ -12,6 +12,7 @@ import { StepperNumerico } from "@/components/formularios/stepper-numerico";
 import { BotonAsync } from "@/components/patrones/boton-async";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { Serie } from "@/lib/api/series";
+import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { MAX_LINEAS } from "@/lib/comprobantes/limites";
 import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
@@ -316,6 +317,8 @@ export function NuevoComprobanteForm({
       setLlevaAlPlan(res.codigo === "LIMITE_PLAN" || res.codigo === "PLAN_VENCIDO");
       return;
     }
+    // Los avisos de SUNAT (#378) solo vienen en esta respuesta: la ficha del comprobante los muestra desde aquí.
+    guardarAvisosDeEmision(res.datos.id, res.avisos);
     onEmitido?.();
     router.push(`/comprobantes/${res.datos.id}`);
     router.refresh();

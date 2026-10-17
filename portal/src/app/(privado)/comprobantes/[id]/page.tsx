@@ -7,6 +7,7 @@ import { BajaButton } from "@/components/comprobantes/baja-button";
 import { BajaEstado } from "@/components/comprobantes/baja-estado";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { AvisoBoletaSinInformar } from "@/components/comprobantes/aviso-boleta-sin-informar";
+import { AvisosDeEmision } from "@/components/comprobantes/avisos-de-emision";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
 import { admiteBaja, admiteCorreo, admiteNotas, esDeBoleta, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, seInformaFueraDePlazo, tieneConstanciaCdr } from "@/lib/api/facturas";
@@ -289,6 +290,8 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           {admiteCorreo(c) ? <CorreoButton id={c.id} numero={numero} /> : null}
         </div>
       </div>
+
+      <AvisosDeEmision id={c.id} />
 
       {aviso ? <AvisoBoletaSinInformar aviso={aviso} que={c.tipo === "03" ? "boleta" : "nota"} /> : null}
 
