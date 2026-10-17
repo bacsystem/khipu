@@ -1,5 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { StrictMode } from "react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NuevoComprobanteForm } from "./nuevo-comprobante-form";
 
@@ -78,18 +77,21 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
     await waitFor(() => expect(razon().value).toBe("TIENDAS DEL SUR S.A.C."));
   });
 
-  it("con el doble efecto de StrictMode sigue siendo un solo pedido", async () => {
-    const fetch = stubPadron({ "20100066603": exito(TIENDAS) });
-    render(
-      <StrictMode>
-        <NuevoComprobanteForm series={SERIES} tasaIgv={18} />
-      </StrictMode>,
-    );
+  /** Cada respuesta que llega cambia los resultados guardados y vuelve a correr el efecto: el RUC que sigue en vuelo no se puede pedir otra vez. */
+  it("un pedido en vuelo no se repite cuando llega la respuesta de otro RUC", async () => {
+    const pendientes: Record<string, (r: Response) => void> = {};
+    const fetch = vi.fn<(url: string) => Promise<Response>>((url) => new Promise((resolver) => { pendientes[String(url).split("/").pop() ?? ""] = resolver; }));
+    vi.stubGlobal("fetch", fetch);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
 
     digitar("RUC", "20100066603");
+    fireEvent.change(ruc(), { target: { value: "" } });
+    digitar("RUC", "20601234565");
+    await waitFor(() => expect(Object.keys(pendientes)).toHaveLength(2));
 
-    await waitFor(() => expect(razon().value).toBe("TIENDAS DEL SUR S.A.C."));
-    expect(consultas(fetch)).toHaveLength(1);
+    await act(async () => pendientes["20100066603"](new Response(JSON.stringify(exito(TIENDAS).cuerpo))));
+
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("lo rellenado se puede corregir a mano", async () => {
@@ -114,6 +116,8 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
     digitar("RUC", "20100066603");
 
     await screen.findByText("Usar este nombre");
+    // El nombre se rellena (o no) en el efecto que sigue a la respuesta: se deja correr antes de comprobar que no se tocó.
+    await act(async () => {});
     expect(razon().value).toBe("Mi cliente de siempre");
     expect(direccion().value).toBe("Av. Mía 1");
     fireEvent.click(screen.getByRole("button", { name: "Usar este nombre" }));
@@ -255,6 +259,21 @@ describe("NuevoComprobanteForm — boleta con RUC (#379)", () => {
     await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/facturas"))).toBe(true));
     const envio = fetch.mock.calls.find(([url]) => String(url).endsWith("/facturas"));
     expect(JSON.parse(String(envio?.[1]?.body)).cliente).toEqual({ tipo_doc: "6", num_doc: "20100066603", razon_social: "TIENDAS DEL SUR S.A.C." });
+  });
+
+  /** Un carné de extranjería o un pasaporte admiten hasta 15 caracteres: uno de 11 dígitos con forma de RUC no es un RUC y no debe gastar el cupo de consultas. */
+  it("con carné de extranjería o pasaporte no consulta, aunque el número tenga forma de RUC", async () => {
+    const fetch = stubPadron({ "20100066603": exito(TIENDAS) });
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+
+    for (const documento of ["4", "7"]) {
+      fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: documento } });
+      digitar("Número de documento", "20100066603");
+    }
+    await act(async () => {});
+
+    expect(consultas(fetch)).toEqual([]);
+    expect((screen.getByLabelText("Nombre del comprador") as HTMLInputElement).value).toBe("");
   });
 
   it("al volver a «sin documento» el nombre rellenado se cambia por el habitual", async () => {
