@@ -2379,7 +2379,9 @@ export const handlers = [
     if (ruc === "20888888889") return HttpResponse.error();
     const c = padronMock[ruc];
     if (!c) return fail(404, "NO_ENCONTRADO", "El RUC no figura en el padrón de SUNAT. Puede ser reciente: el padrón se actualiza cada día");
-    return ok({ ruc, ...c, activo: c.estado === "ACTIVO", habido: c.condicion === "HABIDO", ubigeo: "150101", actualizado_al: new Date().toISOString() });
+    // Como el backend (`non_null`): un RUC sin dirección no trae la clave `direccion`, no `direccion: null`.
+    const { direccion, ...resto } = c;
+    return ok({ ruc, ...resto, ...(direccion ? { direccion } : {}), activo: c.estado === "ACTIVO", habido: c.condicion === "HABIDO", ubigeo: "150101", actualizado_al: new Date().toISOString() });
   }),
 
   http.post(`${BASE}/v1/series`, async ({ request }) => {

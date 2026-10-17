@@ -10,9 +10,10 @@ export type ContribuyenteSunat = {
   condicion: string;
   activo: boolean;
   habido: boolean;
-  ubigeo: string | null;
-  /** Falta en casi todos los RUC 10 (personas naturales). */
-  direccion: string | null;
+  /** El backend no serializa los nulos (`non_null`): sin ubigeo la clave no viene. */
+  ubigeo?: string | null;
+  /** Falta en casi todos los RUC 10 (personas naturales); la clave no viene, no es `null`. */
+  direccion?: string | null;
   /** Cuándo terminó la carga del padrón que respondió: un RUC creado después todavía no aparece. */
   actualizado_al: string;
 };

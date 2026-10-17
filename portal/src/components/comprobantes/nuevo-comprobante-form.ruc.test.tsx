@@ -10,7 +10,11 @@ const SERIES = [
 ];
 
 const TIENDAS = { ruc: "20100066603", razon_social: "TIENDAS DEL SUR S.A.C.", estado: "ACTIVO", condicion: "HABIDO", activo: true, habido: true, ubigeo: "150101", direccion: "AV. REPUBLICA DE PANAMA NRO. 2457", actualizado_al: "2026-10-16T09:30:00Z" };
-const DE_BAJA = { ...TIENDAS, ruc: "20160109441", razon_social: "QUISPE MAMANI JOSE", estado: "BAJA DE OFICIO", condicion: "NO HABIDO", activo: false, habido: false, direccion: null };
+// Como lo serializa el backend (`non_null`): sin `direccion` ni `ubigeo`, no con `null`.
+const TIENDAS_SIN_DOMICILIO: Partial<typeof TIENDAS> = { ...TIENDAS };
+delete TIENDAS_SIN_DOMICILIO.direccion;
+delete TIENDAS_SIN_DOMICILIO.ubigeo;
+const DE_BAJA = { ...TIENDAS_SIN_DOMICILIO, ruc: "20160109441", razon_social: "QUISPE MAMANI JOSE", estado: "BAJA DE OFICIO", condicion: "NO HABIDO", activo: false, habido: false };
 const NO_HABIDO = { ...TIENDAS, ruc: "20602160280", razon_social: "COMERCIAL VERDE E.I.R.L.", condicion: "NO HABIDO", habido: false };
 
 type Respuesta = { status: number; cuerpo: unknown };

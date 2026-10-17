@@ -26,6 +26,18 @@ describe("consultarRuc", () => {
     expect(r).toEqual({ tipo: "encontrado", contribuyente: CONTRIBUYENTE });
   });
 
+  it("un RUC sin domicilio llega sin las claves direccion ni ubigeo (el backend no serializa los nulos) y es un contribuyente igual", async () => {
+    const sinDomicilio: Partial<typeof CONTRIBUYENTE> = { ...CONTRIBUYENTE };
+    delete sinDomicilio.direccion;
+    delete sinDomicilio.ubigeo;
+    responde(200, exito(sinDomicilio));
+
+    const r = await consultarRuc("20100066603");
+
+    expect(r).toEqual({ tipo: "encontrado", contribuyente: sinDomicilio });
+    expect(r.tipo === "encontrado" && r.contribuyente.direccion).toBeUndefined();
+  });
+
   it("cada código del backend es un desenlace distinto", async () => {
     responde(404, error("NO_ENCONTRADO"));
     expect(await consultarRuc("20100066603")).toEqual({ tipo: "no-encontrado" });
