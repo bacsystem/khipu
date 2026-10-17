@@ -92,6 +92,11 @@ services:
       API_BASE_URL: ${PORTAL_API_BASE_URL:-http://host.docker.internal:8001}
       # La que ve el navegador (snippets de integración, "Try it" de /developers): desde el host, la API está en localhost.
       API_PUBLIC_URL: ${PORTAL_API_PUBLIC_URL:-http://localhost:8001}
+      # El mismo `REGISTRO_ABIERTO` del backend, a propósito: el portal cierra su ruta (`/registro` 404, `POST /api/auth/registro` 403) y el backend la suya,
+      # y son independientes. Sin la variable, la imagen del portal (NODE_ENV=production) arranca cerrada aunque el backend esté abierto (#385).
+      # `CONTACTO_URL`: a dónde lleva «Solicitar acceso» cuando el registro está cerrado.
+      REGISTRO_ABIERTO: ${REGISTRO_ABIERTO:-true}
+      CONTACTO_URL: ${CONTACTO_URL:-}
       # IP real del administrador (#208): proxies de confianza delante del portal; 0 = no se reenvía ninguna IP. Ver deploy/README.md.
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
       # Vacío = el default del portal: cookie Secure en producción (la imagen corre en producción). `make deploy-develop` lo pone en
