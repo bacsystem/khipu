@@ -21,6 +21,8 @@ import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+import { EstadoConsultaRuc } from "./estado-consulta-ruc";
+import { useConsultaRuc } from "./use-consulta-ruc";
 
 /**
  * Las monedas salen del `@Pattern("PEN|USD|EUR")` de `FacturaRequest`, no del catálogo 02: el catálogo lista todas las
@@ -145,6 +147,36 @@ export function NuevoComprobanteForm({
   // Clave de idempotencia (#115): la misma mientras se reintente el mismo contenido, otra si el contenido cambia.
   const intento = useRef<Intento | null>(null);
 
+  // #379: con un RUC completo (la factura siempre; la boleta solo si el documento elegido es RUC) se consulta el padrón de SUNAT y se rellenan el nombre y la
+  // dirección. `auto` guarda lo que se rellenó: solo eso se quita al cambiar de RUC, nunca lo que el usuario escribió.
+  const conRuc = !boleta || tipoDoc === "6";
+  const { resultado: consultaRuc, consultando: consultandoRuc, reintentar: reintentarConsultaRuc } = useConsultaRuc(numDoc, conRuc);
+  const [auto, setAuto] = useState({ razon: "", direccion: "" });
+  useEffect(() => {
+    if (consultaRuc?.tipo !== "encontrado") return;
+    const c = consultaRuc.contribuyente;
+    // Solo se rellena lo vacío: lo que el usuario ya escribió se respeta (y se le ofrece el nombre de SUNAT aparte). La boleta no tiene campo de dirección.
+    const razon = razonSocial.trim() ? "" : c.razon_social;
+    const dir = !boleta && !direccion.trim() && c.direccion ? c.direccion : "";
+    if (razon) setRazonSocial(razon);
+    if (dir) setDireccion(dir);
+    setAuto({ razon, direccion: dir });
+    // Solo cuando llega el resultado de otro RUC: depender de lo que se escribe volvería a rellenar cada vez que el usuario vacía un campo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consultaRuc]);
+
+  /** Lo rellenado por el padrón deja de valer al cambiar el RUC: el nombre de un cliente no puede quedar bajo el RUC de otro. */
+  function soltarAutocompletado() {
+    if (auto.razon && razonSocial === auto.razon) setRazonSocial("");
+    if (auto.direccion && direccion === auto.direccion) setDireccion("");
+    setAuto({ razon: "", direccion: "" });
+  }
+
+  function cambiarNumDoc(valor: string) {
+    if (valor !== numDoc) soltarAutocompletado();
+    setNumDoc(valor);
+  }
+
   // Tras un error el botón estuvo `disabled` y el navegador soltó el foco a `<body>`: un usuario de teclado perdía
   // su posición. Llevarlo a la alerta lo reubica y, de paso, garantiza que se lea.
   const alertaRef = useRef<HTMLDivElement>(null);
@@ -195,10 +227,13 @@ export function NuevoComprobanteForm({
 
   /** Al pasar a «sin documento» el nombre se completa con el habitual; al volver a un documento, ese nombre de relleno se quita. */
   function cambiarTipoDoc(nuevo: string) {
+    // El nombre que rellenó el padrón ya no es de este comprador: se cuenta como vacío para lo de abajo (el estado todavía no se actualizó).
+    const nombre = auto.razon && razonSocial === auto.razon ? "" : razonSocial;
+    soltarAutocompletado();
     setTipoDoc(nuevo);
     setNumDoc("");
-    if (nuevo === SIN_DOCUMENTO && !razonSocial.trim()) setRazonSocial(COMPRADOR_SIN_DOCUMENTO);
-    if (nuevo !== SIN_DOCUMENTO && razonSocial === COMPRADOR_SIN_DOCUMENTO) setRazonSocial("");
+    if (nuevo === SIN_DOCUMENTO && !nombre.trim()) setRazonSocial(COMPRADOR_SIN_DOCUMENTO);
+    if (nuevo !== SIN_DOCUMENTO && nombre === COMPRADOR_SIN_DOCUMENTO) setRazonSocial("");
   }
 
   /** `detalle` guarda un índice: al borrar una fila hay que reubicarlo o el panel queda abierto sobre otro ítem. */
@@ -361,7 +396,7 @@ export function NuevoComprobanteForm({
                   // `key` por documento: el patrón y el largo cambian con él y el valor anterior ya no aplica.
                   key={tipoDoc}
                   value={numDoc}
-                  onChange={(e) => setNumDoc((documento.codigo === "1" || documento.codigo === "6" ? e.target.value.replace(/\D/g, "") : e.target.value.replace(/\s/g, "")).slice(0, documento.max))}
+                  onChange={(e) => cambiarNumDoc((documento.codigo === "1" || documento.codigo === "6" ? e.target.value.replace(/\D/g, "") : e.target.value.replace(/\s/g, "")).slice(0, documento.max))}
                   inputMode={documento.codigo === "1" || documento.codigo === "6" ? "numeric" : "text"}
                   placeholder={documento.ejemplo}
                   required
@@ -386,6 +421,16 @@ export function NuevoComprobanteForm({
                 className={CAMPO_DENSO}
               />
             </Campo>
+            {conRuc ? (
+              <EstadoConsultaRuc
+                className="sm:col-span-3"
+                consultando={consultandoRuc}
+                resultado={consultaRuc}
+                nombreActual={razonSocial}
+                onReintentar={reintentarConsultaRuc}
+                onUsarNombre={(n) => { setRazonSocial(n); setAuto((a) => ({ ...a, razon: n })); }}
+              />
+            ) : null}
             {superaTopeSinDocumento ? (
               <p data-testid="aviso-sin-documento" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground sm:col-span-3")}>
                 Esta boleta pasa de S/ {TOPE_SIN_DOCUMENTO}.00{moneda !== "PEN" ? " o no es en soles" : ""}: identifica al comprador con su documento.
@@ -398,7 +443,7 @@ export function NuevoComprobanteForm({
             <input
               id="nc-ruc"
               value={numDoc}
-              onChange={(e) => setNumDoc(e.target.value.replace(/\D/g, "").slice(0, 11))}
+              onChange={(e) => cambiarNumDoc(e.target.value.replace(/\D/g, "").slice(0, 11))}
               inputMode="numeric"
               placeholder="20123456786"
               required
@@ -425,6 +470,14 @@ export function NuevoComprobanteForm({
               className={CAMPO_DENSO}
             />
           </Campo>
+          <EstadoConsultaRuc
+            className="sm:col-span-2"
+            consultando={consultandoRuc}
+            resultado={consultaRuc}
+            nombreActual={razonSocial}
+            onReintentar={reintentarConsultaRuc}
+            onUsarNombre={(n) => { setRazonSocial(n); setAuto((a) => ({ ...a, razon: n })); }}
+          />
           <div className="sm:col-span-2">
             <Campo id="nc-direccion" etiqueta="Dirección" opcional>
               <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="Av. Prueba 123" className={CAMPO_DENSO} />

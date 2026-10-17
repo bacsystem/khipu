@@ -476,6 +476,13 @@ function fail(status: number, codigo: string, mensaje: string) {
   return HttpResponse.json({ estado: "error", datos: null, mensaje, codigo, errores: null }, { status });
 }
 
+/** Un trozo del padrón reducido de SUNAT para la consulta de RUC (#379): razón social, estado y condición tal como los publica SUNAT, y el domicilio si lo trae. */
+const padronMock: Record<string, { razon_social: string; estado: string; condicion: string; direccion: string | null }> = {
+  "20100070970": { razon_social: "TIENDAS DEL SUR S.A.C.", estado: "ACTIVO", condicion: "HABIDO", direccion: "AV. REPUBLICA DE PANAMA NRO. 2457" },
+  "20160109441": { razon_social: "QUISPE MAMANI JOSE", estado: "BAJA DE OFICIO", condicion: "NO HABIDO", direccion: null },
+  "20602160280": { razon_social: "COMERCIAL VERDE E.I.R.L.", estado: "ACTIVO", condicion: "NO HABIDO", direccion: null },
+};
+
 /**
  * Los contadores de intentos del backend (#261, `JdbcIntentosDeAccesoRepository`): se reserva antes de comprobar, el que llega al
  * tope todavía se concede y bloquea, y un acierto pone el correo en cero. Sin el límite por IP: los e2e corren todos desde la misma.
@@ -2357,6 +2364,22 @@ export const handlers = [
   http.get(`${BASE}/v1/series`, ({ request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
     return ok(db.seriesPorEmpresa.get(empresaId) ?? []);
+  }),
+
+  /**
+   * Consulta del padrón reducido de SUNAT (#361), con los mismos desenlaces que `ConsultarPadronRucService`. 20100070970 está activo y habido, 20160109441 de baja y
+   * no habido, 20602160280 activo y no habido; 20999999990 agota el cupo (429), 20777777778 dice que el padrón no está cargado (503) y 20888888889 corta la
+   * conexión. Cualquier otro RUC válido no figura (404).
+   */
+  http.get(`${BASE}/v1/consultas/ruc/:ruc`, ({ params }) => {
+    const ruc = String(params.ruc);
+    if (!/^\d{11}$/.test(ruc)) return fail(400, "PARAMETRO_INVALIDO", "Consulta de RUC: el RUC tiene 11 dígitos");
+    if (ruc === "20999999990") return fail(429, "DEMASIADAS_CONSULTAS", "Se superó el máximo de consultas de RUC. Espera un momento antes de volver a consultar");
+    if (ruc === "20777777778") return fail(503, "PADRON_NO_CARGADO", "El padrón de SUNAT todavía no está cargado: no se puede confirmar si el RUC existe");
+    if (ruc === "20888888889") return HttpResponse.error();
+    const c = padronMock[ruc];
+    if (!c) return fail(404, "NO_ENCONTRADO", "El RUC no figura en el padrón de SUNAT. Puede ser reciente: el padrón se actualiza cada día");
+    return ok({ ruc, ...c, activo: c.estado === "ACTIVO", habido: c.condicion === "HABIDO", ubigeo: "150101", actualizado_al: new Date().toISOString() });
   }),
 
   http.post(`${BASE}/v1/series`, async ({ request }) => {
