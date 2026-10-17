@@ -14,6 +14,7 @@ const AVISO_4014 = { codigo: "4014", mensaje: "El RUC 20160109441 del comprador 
 
 const SERIES = [
   { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" },
+  { tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" },
   { tipo: "07", serie: "FC01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
 ];
 
@@ -156,6 +157,23 @@ describe("los formularios de emisión dejan los avisos para la ficha (#382)", ()
 
     expect(push).toHaveBeenCalledWith("/comprobantes/f-9");
     expect(leerAvisosDeEmisionCrudos("f-9")).toBe("");
+  });
+
+  it("la boleta con RUC que devuelve avisos también los deja para su ficha", async () => {
+    stubEmision("b-9", [AVISO_4014]);
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "6" } });
+    fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "20100066603" } });
+    fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "CLIENTE SAC" } });
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Pan" } });
+    fireEvent.change(screen.getByLabelText("Precio unit. (con IGV)"), { target: { value: "5" } });
+    fireEvent.blur(screen.getByLabelText("Precio unit. (con IGV)"));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    await waitFor(() => expect(push).toHaveBeenCalled());
+
+    expect(push).toHaveBeenCalledWith("/comprobantes/b-9");
+    render(<AvisosDeEmision id="b-9" />);
+    expect(screen.getByTestId("aviso-emision-4014")).toBeInTheDocument();
   });
 
   async function emitirNota() {
