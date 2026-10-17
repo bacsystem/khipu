@@ -85,6 +85,24 @@ describe("AvisosDeEmision — la ficha del comprobante recién emitido (#382)", 
   });
 });
 
+describe("AvisosDeEmision — valores guardados que no son avisos", () => {
+  it.each([
+    ["un objeto en vez de una lista", '{"codigo":"4013","mensaje":"x"}'],
+    ["una lista de cosas que no son avisos", '[{"x":1},"4013",null]'],
+  ])("%s no pinta nada", (_caso, guardado) => {
+    window.sessionStorage.setItem("khipu:avisos-de-emision:f-1", guardado);
+    const { container } = render(<AvisosDeEmision id="f-1" />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("de una lista mezclada se muestran solo los avisos válidos", () => {
+    window.sessionStorage.setItem("khipu:avisos-de-emision:f-1", JSON.stringify([{ x: 1 }, AVISO_4014]));
+    render(<AvisosDeEmision id="f-1" />);
+    expect(screen.getAllByTestId(/^aviso-emision-/)).toHaveLength(1);
+    expect(screen.getByTestId("aviso-emision-4014")).toBeInTheDocument();
+  });
+});
+
 describe("guardarAvisosDeEmision", () => {
   it("no guarda nada si no hay avisos: ni ausentes, ni vacíos", () => {
     guardarAvisosDeEmision("f-1", undefined);
