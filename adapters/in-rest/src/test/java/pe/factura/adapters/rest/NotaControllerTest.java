@@ -168,6 +168,15 @@ class NotaControllerTest {
         verify(emitir, never()).emitirNota(any(), any());
     }
 
+    /** Con clave de idempotencia es otro camino del controlador: también avisa (#378). */
+    @Test void conClaveDeIdempotenciaLaNotaTambienAvisa() throws Exception {
+        Comprobante nota = notaAceptada(tenant);
+        when(emitir.emitirNota(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(nota, false));
+        when(comprador.avisosDe(nota.receptor())).thenReturn(List.of(new pe.factura.application.port.in.ValidarCompradorUseCase.Aviso("4013", "no activo")));
+
+        emitirConClave(CLAVE, CUERPO).andExpect(status().isCreated()).andExpect(jsonPath("$.avisos[0].codigo").value("4013"));
+    }
+
     /** El reintento devuelve la misma nota con 200: no se creó nada nuevo. */
     @Test void unPedidoRepetidoEs200ConLaMismaNota() throws Exception {
         when(emitir.emitirNota(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(notaAceptada(tenant), true));
