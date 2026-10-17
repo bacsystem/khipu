@@ -9,8 +9,11 @@ import pe.factura.domain.documento.Receptor;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 /**
@@ -22,6 +25,10 @@ public class ValidarCompradorEnPadron implements ValidarCompradorUseCase {
     private final PadronRucRepository padron;
     private final Clock clock;
     private final Duration maximoDeAtraso;
+    private static final Duration ENTRE_AVISOS = Duration.ofHours(1);
+    private final AtomicReference<Instant> ultimoAviso = new AtomicReference<>();
+    /** Cuántas veces se llegó a registrar el aviso de «padrón no confiable»; solo lo lee la prueba (el módulo no captura logs). */
+    final AtomicInteger avisosRegistrados = new AtomicInteger();
 
     public ValidarCompradorEnPadron(PadronRucRepository padron, Clock clock, Duration maximoDeAtraso) {
         this.padron = padron;
@@ -63,14 +70,28 @@ public class ValidarCompradorEnPadron implements ValidarCompradorUseCase {
     private boolean padronConfiable(boolean registrar) {
         var carga = padron.ultimaCargaExitosa();
         if (carga.isEmpty()) {
-            if (registrar) log.warn("El padrón de RUC no está cargado: no se valida el RUC del comprador (1083). Ver app.padron-ruc.habilitado");
+            if (registrar) avisarQueNoSeValida("El padrón de RUC no está cargado: no se valida el RUC del comprador (1083). Ver app.padron-ruc.habilitado");
             return false;
         }
         Duration atraso = Duration.between(carga.get().terminada(), clock.instant());
         if (atraso.compareTo(maximoDeAtraso) > 0) {
-            if (registrar) log.warn("El padrón de RUC se cargó por última vez hace {} días, más de los {} que se admiten: no se valida el RUC del comprador (1083)", atraso.toDays(), maximoDeAtraso.toDays());
+            if (registrar) avisarQueNoSeValida("El padrón de RUC se cargó por última vez hace " + atraso.toDays() + " días, más de los " + maximoDeAtraso.toDays()
+                    + " que se admiten: no se valida el RUC del comprador (1083)");
             return false;
         }
         return true;
+    }
+
+    /**
+     * Con el padrón apagado (el valor por defecto) esto ocurriría en cada emisión a un comprador con RUC: el mismo {@code WARN} miles de veces al día taparía los avisos reales.
+     * Se registra una vez por hora, que alcanza para enterarse de que el padrón no está sirviendo.
+     */
+    private void avisarQueNoSeValida(String mensaje) {
+        Instant ahora = clock.instant();
+        Instant anterior = ultimoAviso.get();
+        if (anterior != null && Duration.between(anterior, ahora).compareTo(ENTRE_AVISOS) < 0) return;
+        if (!ultimoAviso.compareAndSet(anterior, ahora)) return;   // otro hilo acaba de registrarlo
+        avisosRegistrados.incrementAndGet();
+        log.warn(mensaje);
     }
 }
