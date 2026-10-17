@@ -8,6 +8,7 @@ import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
+import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, topePorTributo } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -148,6 +149,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     }
     // A propósito NO se rehabilita el botón en el camino feliz: se desmonta con la navegación. Rehabilitarlo antes
     // de `router.push` dejaba una ventana en la que un segundo clic emitía otra nota (medido: 3 notas con 3 clics).
+    // Los avisos de SUNAT (#378) solo vienen en esta respuesta: la ficha de la nota los muestra desde aquí.
+    guardarAvisosDeEmision(res.datos.id, res.avisos);
     router.push(`/comprobantes/${res.datos.id}`);
   }
 

@@ -472,6 +472,11 @@ function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
 
+/** `ok` con los avisos de SUNAT (#378): al nivel de `datos`, y ausentes —no `[]`— si no hay nada que avisar, como `ApiResponse.ok(datos, avisos)`. */
+function okConAvisos<T>(datos: T, avisos: Array<{ codigo: string; mensaje: string }>, status = 200) {
+  return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null, ...(avisos.length ? { avisos } : {}) }, { status });
+}
+
 function fail(status: number, codigo: string, mensaje: string) {
   return HttpResponse.json({ estado: "error", datos: null, mensaje, codigo, errores: null }, { status });
 }
@@ -482,6 +487,19 @@ const padronMock: Record<string, { razon_social: string; estado: string; condici
   "20160109441": { razon_social: "QUISPE MAMANI JOSE", estado: "BAJA DE OFICIO", condicion: "NO HABIDO", direccion: null },
   "20602160280": { razon_social: "COMERCIAL VERDE E.I.R.L.", estado: "ACTIVO", condicion: "NO HABIDO", direccion: null },
 };
+
+/**
+ * Lo que SUNAT observa del comprador aunque acepte el comprobante, como `ValidarCompradorEnPadron.avisosDe` (#378): 4013 si el RUC no está activo y 4014 solo con la
+ * condición «NO HABIDO». Un RUC que el padrón no tiene no avisa nada (el mock no rechaza con 1083: el padrón de ejemplo es un trozo).
+ */
+function avisosDelComprador(numDoc: string | undefined): Array<{ codigo: string; mensaje: string }> {
+  const c = numDoc ? padronMock[numDoc] : undefined;
+  if (!c) return [];
+  const avisos: Array<{ codigo: string; mensaje: string }> = [];
+  if (c.estado !== "ACTIVO") avisos.push({ codigo: "4013", mensaje: `El RUC ${numDoc} del comprador no está activo en SUNAT (${c.estado}): SUNAT aceptará el comprobante con una observación` });
+  if (c.condicion === "NO HABIDO") avisos.push({ codigo: "4014", mensaje: `El RUC ${numDoc} del comprador figura como no habido en SUNAT: SUNAT aceptará el comprobante con una observación` });
+  return avisos;
+}
 
 /**
  * Los contadores de intentos del backend (#261, `JdbcIntentosDeAccesoRepository`): se reserva antes de comprobar, el que llega al
@@ -2486,7 +2504,7 @@ export const handlers = [
     if (previa) {
       if (previa.huella !== huella) return fail(422, "IDEMPOTENCIA_INVALIDA", `La clave de idempotencia ${clave} ya se usó con otro contenido`);
       const emitida = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === previa.id);
-      if (emitida) return ok(emitida, 200);
+      if (emitida) return okConAvisos(emitida, avisosDelComprador(emitida.receptor?.num_doc), 200);
     }
     const porTope = rechazoPorTopeDelPlanMock(request);
     if (porTope) return porTope;
@@ -2524,7 +2542,7 @@ export const handlers = [
     };
     db.facturasPorEmpresa.set(empresaId, [comprobante, ...(db.facturasPorEmpresa.get(empresaId) ?? [])]);
     if (clave) db.clavesEmision.set(`${empresaId}|${clave}`, { huella, id });
-    return ok(comprobante, 201);
+    return okConAvisos(comprobante, avisosDelComprador(numDoc), 201);
   }),
 
   http.get(`${BASE}/v1/facturas`, ({ request }) => {
@@ -2636,7 +2654,7 @@ export const handlers = [
     if (previa) {
       if (previa.huella !== huella) return fail(422, "IDEMPOTENCIA_INVALIDA", `La clave de idempotencia ${clave} ya se usó con otro contenido: genere una clave nueva para otra nota`);
       const emitida = lista.find((f) => f.id === previa.id);
-      if (emitida) return ok(emitida, 200);
+      if (emitida) return okConAvisos(emitida, avisosDelComprador(emitida.receptor?.num_doc), 200);
     }
     // #293, como `EmitirComprobanteService.emitirNota`: la letra de la serie afectada dice qué se modifica (B una boleta, F una
     // factura), y el motivo se valida antes de buscar el documento.
@@ -2835,7 +2853,7 @@ export const handlers = [
     };
     lista.unshift(nota);
     if (clave) db.clavesNota.set(`${empresaId}|${clave}`, { huella, id });
-    return ok(nota, 201);
+    return okConAvisos(nota, avisosDelComprador(nota.receptor?.num_doc), 201);
   }),
 
   // Comunicación de baja, a paridad con `ComunicacionBaja.crear` y `DarDeBajaService` (la auditoría midió que el mock daba 201
