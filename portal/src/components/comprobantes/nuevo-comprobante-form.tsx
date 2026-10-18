@@ -88,6 +88,16 @@ const DOCUMENTOS_BOLETA = [
   { codigo: "4", etiqueta: "Carné de extranjería", patron: "\\S{1,15}", max: 15, ejemplo: "001234567", titulo: "Hasta 15 caracteres sin espacios" },
   { codigo: "7", etiqueta: "Pasaporte", patron: "\\S{1,15}", max: 15, ejemplo: "AB1234567", titulo: "Hasta 15 caracteres sin espacios" },
   { codigo: "6", etiqueta: "RUC", patron: "[0-9]{11}", max: 11, ejemplo: "20123456786", titulo: "RUC de 11 dígitos" },
+  // #299: el resto del catálogo 06 que acepta el dominio (`Receptor.DOCUMENTOS_BOLETA`), todos con la regla 4208: hasta 15 caracteres sin espacios.
+  { codigo: "0", etiqueta: "Doc. tributario no domiciliado sin RUC", patron: "\\S{1,15}", max: 15, ejemplo: "US123456789", titulo: "Hasta 15 caracteres sin espacios" },
+  { codigo: "A", etiqueta: "Cédula diplomática de identidad", patron: "\\S{1,15}", max: 15, ejemplo: "CD123456", titulo: "Hasta 15 caracteres sin espacios" },
+  { codigo: "B", etiqueta: "Doc. de identidad del país de residencia (no domiciliado)", patron: "\\S{1,15}", max: 15, ejemplo: "AB1234567", titulo: "Hasta 15 caracteres sin espacios" },
+  { codigo: "C", etiqueta: "TIN — doc. tributario de persona natural no domiciliada", patron: "\\S{1,15}", max: 15, ejemplo: "123456789", titulo: "Hasta 15 caracteres sin espacios" },
+  { codigo: "D", etiqueta: "IN — doc. tributario de persona jurídica no domiciliada", patron: "\\S{1,15}", max: 15, ejemplo: "123456789", titulo: "Hasta 15 caracteres sin espacios" },
+  { codigo: "E", etiqueta: "Tarjeta Andina de Migración (TAM)", patron: "\\S{1,15}", max: 15, ejemplo: "TAM123456", titulo: "Hasta 15 caracteres sin espacios" },
+  { codigo: "F", etiqueta: "Permiso Temporal de Permanencia (PTP)", patron: "\\S{1,15}", max: 15, ejemplo: "PTP123456", titulo: "Hasta 15 caracteres sin espacios" },
+  { codigo: "G", etiqueta: "Salvoconducto", patron: "\\S{1,15}", max: 15, ejemplo: "SV123456", titulo: "Hasta 15 caracteres sin espacios" },
+  { codigo: "H", etiqueta: "Carné de permiso temporal de permanencia (CPP)", patron: "\\S{1,15}", max: 15, ejemplo: "CPP123456", titulo: "Hasta 15 caracteres sin espacios" },
   { codigo: "-", etiqueta: "Sin documento (hasta S/ 700)", patron: "", max: 0, ejemplo: "", titulo: "" },
 ] as const;
 
