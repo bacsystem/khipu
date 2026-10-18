@@ -485,6 +485,19 @@ function formaPagoMock(forma: FormaPagoPedido | undefined, emision: string, tota
   return { formaPago: { tipo: "credito" as const, monto_pendiente: pendiente, cuotas: cuotas.map((q, i) => ({ id: `Cuota${String(i + 1).padStart(3, "0")}`, monto: q.monto, vencimiento: q.vencimiento })) } };
 }
 
+/** Las reglas de dominio de la exportación (#311): afectación 40 en todas las líneas (2642) y fuera de ella ninguna (3107), país del cliente en la factura, país de uso en 0201 y 0208 (3098, 3099) y sin RUC donde lo prohíbe el 2800. */
+function rechazoPorExportacionMock(body: { tipo_operacion?: string; items: Array<{ tipo_afectacion_igv: string }>; cliente: { tipo_doc: string; pais?: string }; exportacion?: { pais_uso?: string } }, boleta: boolean) {
+  const op = body.tipo_operacion ?? "0101";
+  const exporta = /^020[0-8]$/.test(op);
+  if (exporta && body.items.some((i) => i.tipo_afectacion_igv !== "40")) return fail(422, "AFECTACION_INVALIDA", `2642 - En una exportación (${op}) todos los ítems llevan tipo_afectacion_igv 40`);
+  if (!exporta && body.items.some((i) => i.tipo_afectacion_igv === "40")) return fail(422, "AFECTACION_INVALIDA", `3107 - La afectación 40 (exportación) exige un tipo de operación 0200–0208; recibido ${op}`);
+  if (!exporta) return null;
+  if (body.cliente.tipo_doc === "6" && (boleta || ["0200", "0201", "0204"].includes(op))) return fail(422, "RECEPTOR_INVALIDO", `2800 - La exportación ${op} no admite un receptor con RUC (tipo_doc 6)`);
+  if (!boleta && !body.cliente.pais) return fail(422, "RECEPTOR_INVALIDO", "En una exportación el receptor lleva el país (cliente.pais, código ISO 3166-1 del catálogo 04)");
+  if (["0201", "0208"].includes(op) && !body.exportacion?.pais_uso) return fail(422, "EXPORTACION_INVALIDA", `3098 - La exportación de servicios ${op} exige exportacion.pais_uso`);
+  return null;
+}
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -2468,7 +2481,18 @@ export const handlers = [
   // regla del dominio (3303: hasta ±1.00 y sin dejar el total en negativo).
   // Los descuentos y cargos (#310) los recibe pero no los aplica: reproducirlos sería portar `Totales` al mock. El cálculo real se prueba contra el backend.
   http.post(`${BASE}/v1/facturas/calcular`, async ({ request }) => {
-    const body = (await request.json()) as { items: Array<{ cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }>; redondeo?: number; fecha_emision?: string; forma_pago?: FormaPagoPedido };
+    const body = (await request.json()) as {
+      items: Array<{ cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }>;
+      redondeo?: number;
+      fecha_emision?: string;
+      forma_pago?: FormaPagoPedido;
+      tipo_operacion?: string;
+      cliente: { tipo_doc: string; pais?: string };
+      exportacion?: { pais_uso?: string };
+      serie?: string;
+    };
+    const porExportacion = rechazoPorExportacionMock(body, (body.serie ?? "").startsWith("B"));
+    if (porExportacion) return porExportacion;
     const redondeo = body.redondeo ?? 0;
     if (Math.abs(redondeo) > 1) return fail(422, "REDONDEO_INVALIDO", "3303 - El redondeo del importe total admite 2 decimales y no puede superar 1.00 en valor absoluto");
     const t = calcularTotales(
@@ -2509,7 +2533,9 @@ export const handlers = [
     const serie = series.find((s) => s.serie === body.serie && s.tipo === tipo && s.activa);
     if (!serie) return fail(422, "SERIE_NO_CONFIGURADA", `La serie ${body.serie} no está registrada como serie de ${boleta ? "boleta" : "factura"} activa`);
     const { tipo_doc: tipoDoc, num_doc: numDoc } = body.cliente ?? { tipo_doc: "", num_doc: "" };
-    if (!boleta && !/^\d{11}$/.test(numDoc ?? "")) return fail(422, "RECEPTOR_INVALIDO", "2017 - El RUC del adquirente debe tener 11 dígitos");
+    // Una exportación (#311) lleva el documento del exterior, no un RUC; sus reglas del receptor las dice `rechazoPorExportacionMock`.
+    const esExp = /^020[0-8]$/.test((body as { tipo_operacion?: string }).tipo_operacion ?? "");
+    if (!boleta && !esExp && !/^\d{11}$/.test(numDoc ?? "")) return fail(422, "RECEPTOR_INVALIDO", "2017 - El RUC del adquirente debe tener 11 dígitos");
     if (boleta && tipoDoc === "1" && !/^\d{8}$/.test(numDoc)) return fail(422, "RECEPTOR_INVALIDO", "4207 - El DNI del comprador tiene 8 dígitos");
     // Sin código, como `Receptor` (274-H3): Boleta2_0 no tiene regla propia para el comprador sin documento.
     if (boleta && tipoDoc === "-" && numDoc !== "-") return fail(422, "RECEPTOR_INVALIDO", "Sin documento (tipo_doc «-»), el número de documento también es «-»");
@@ -2524,6 +2550,8 @@ export const handlers = [
       return fail(422, "FECHA_INVALIDA", boleta
         ? `1079 - Pasado el envío individual, SUNAT solo recibe esta boleta en un resumen diario, y el plazo para informarla en él venció el ${sumarDias(body.fecha_emision, PLAZO_ENVIO.boleta.dias)} (${PLAZO_ENVIO.boleta.dias} días calendario) (fecha de emisión ${body.fecha_emision})`
         : `2108 - Presentación fuera de fecha: el plazo de envío venció el ${sumarDias(body.fecha_emision, PLAZO_ENVIO.factura.dias)} (${PLAZO_ENVIO.factura.dias} días calendario) (fecha de emisión ${body.fecha_emision})`);
+    const porExportacion = rechazoPorExportacionMock(body as Parameters<typeof rechazoPorExportacionMock>[0], boleta);
+    if (porExportacion) return porExportacion;
     // #308: antes de numerar, como el backend.
     const porUnidad = rechazoPorUnidadMock(body.items);
     if (porUnidad) return porUnidad;
@@ -2564,7 +2592,7 @@ export const handlers = [
       numero: serie.ultimo_numero,
       fecha_emision: body.fecha_emision,
       moneda: body.moneda,
-      tipo_operacion: "0101",
+      tipo_operacion: (body as { tipo_operacion?: string }).tipo_operacion ?? "0101",
       receptor: { ...body.cliente, direccion: body.cliente.direccion ?? null },
       items: body.items.map((i) => ({ codigo: null, ...i })),
       estado_documento: "ACEPTADO",
