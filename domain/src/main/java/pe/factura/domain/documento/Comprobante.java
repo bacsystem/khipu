@@ -160,6 +160,9 @@ public class Comprobante {
             items.forEach(Item::exigirValidoParaFactura);
             String operacion = tipoOperacion == null ? "0101" : tipoOperacion;
             validarTipoOperacion(operacion, tipo);
+            // 0202 y 0205 pasan: Exportacion.validar les da su mensaje propio (falta el huésped).
+            if (!boleta && !OPERACIONES_EN_FACTURA.contains(operacion) && !Exportacion.CON_HUESPED.contains(operacion))
+                throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " todavía no se emite en factura; en factura: " + String.join(", ", OPERACIONES_EN_FACTURA.stream().sorted().toList()));
             if (boleta) {
                 exigirSoloLoQueEmiteUnaBoleta(operacion);
                 exigirDocumentosRelacionadosDeBoleta();
@@ -226,6 +229,13 @@ public class Comprobante {
 
     /** Venta interna, NRUS, detracción (1001–1004) y percepción (2001): lo que khipu sabe armar en una boleta. */
     static final java.util.Set<String> OPERACIONES_EN_BOLETA = java.util.Set.of("0101", "0113", "1001", "1002", "1003", "1004", "2001");
+
+    /**
+     * #394: venta interna, exportación (sin hospedaje ni paquete turístico, que piden el huésped), no domiciliados (0401), detracción, percepción y 2103. e-beta rechazó
+     * con el número ya consumido el 0112, 0301, 0302, 2002, 2100–2102, 2104 y 2106 porque khipu no arma sus datos; aceptó el 0401 y el 2103 tal cual.
+     */
+    static final java.util.Set<String> OPERACIONES_EN_FACTURA = java.util.Set.of("0101", "0200", "0201", "0203", "0204", "0206", "0207", "0208", "0401",
+            "1001", "1002", "1003", "1004", "2001", "2103");
 
     /** Venta interna - NRUS (catálogo 51): solo en boleta. */
     static final String OPERACION_NRUS = "0113";
