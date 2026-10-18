@@ -33,6 +33,7 @@ export function DetraccionEditor({
 }) {
   const [bienes, setBienes] = useState<Entrada[] | null>(null);
   const [medios, setMedios] = useState<Entrada[] | null>(null);
+  const [busqueda, setBusqueda] = useState("");
   useEffect(() => {
     let vigente = true;
     const cargar = (codigo: string, poner: (e: Entrada[]) => void) =>
@@ -46,11 +47,21 @@ export function DetraccionEditor({
     };
   }, []);
   const error = errorDeDetraccion(valor, moneda);
+  // El catálogo 54 tiene unas 40 entradas: se filtra por código o por palabra, y el elegido nunca desaparece de la lista.
+  const texto = busqueda.trim().toLowerCase();
+  const ofrecidos = (bienes ?? []).filter((b) => !CODIGOS_SIN_FORMULARIO.has(b.codigo) && (b.codigo === valor.codigo || `${b.codigo} ${b.descripcion}`.toLowerCase().includes(texto)));
   const set = (cambio: Partial<DetraccionForm>) => onCambio({ ...valor, ...cambio });
   return (
     <div className="grid gap-3 rounded-xl border border-border px-3 py-3" data-testid="detraccion-form">
       <div className="grid items-start gap-4 sm:grid-cols-[1fr_140px]">
         <Campo id="nc-det-codigo" etiqueta="Bien o servicio sujeto" ayuda="Catálogo 54">
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            aria-label="Buscar en el catálogo 54"
+            placeholder="Buscar por código o nombre"
+            className={cn(CAMPO_DENSO, "mb-1.5")}
+          />
           <select
             id="nc-det-codigo"
             value={valor.codigo}
@@ -58,7 +69,7 @@ export function DetraccionEditor({
             className={CAMPO_DENSO}
           >
             <option value="">Seleccione</option>
-            {(bienes ?? []).filter((b) => !CODIGOS_SIN_FORMULARIO.has(b.codigo)).map((b) => (
+            {ofrecidos.map((b) => (
               <option key={b.codigo} value={b.codigo}>
                 {b.codigo} · {b.descripcion}
               </option>
