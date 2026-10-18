@@ -149,6 +149,8 @@ class HomologacionBetaTest {
             if (e.id().startsWith("54-")) numeros.put("BOLETA_ANTICIPO", num.longValue());
             if (e.id().startsWith("55-")) ids.put("BOLETA_CON_ANTICIPO", String.valueOf(datos.get("id")));
             if (e.id().startsWith("56-")) numeros.put("ANTICIPO_PARA_BOLETA", num.longValue());
+            if (e.id().startsWith("59-")) numeros.put("OTROS_TRIBUTOS", num.longValue());
+            if (e.id().startsWith("60-")) ids.put("BOLETA_OTROS_TRIBUTOS", String.valueOf(datos.get("id")));
             if (e.id().startsWith("26-")) numeros.put("EXPORTACION", num.longValue());
             if (e.id().startsWith("40-")) numeros.put("DESC_ITEM", num.longValue());
             if (e.id().startsWith("41-")) numeros.put("DESC_GLOBAL", num.longValue());
@@ -200,6 +202,11 @@ class HomologacionBetaTest {
     /** Baja (RC, estado 3) de la boleta de exportación de servicios del escenario 50 (#296): la línea lleva el valor de venta de exportación (cat. 11, 04). */
     @org.junit.jupiter.api.Test void zzBajaDeBoletaDeExportacion() throws Exception {
         darDeBaja("53-baja-boleta-exportacion", "Baja (RC, estado 3) de la boleta de exportación de servicios", ids.get("BOLETA_EXPORTACION_SERVICIO"), "la boleta de exportación (50)");
+    }
+
+    /** Baja (RC, estado 3) de la boleta con otros tributos del escenario 60 (#317): la línea del RC lleva el TaxTotal «Otros tributos» (9999, campo 23). */
+    @org.junit.jupiter.api.Test void zzBajaDeBoletaConOtrosTributos() throws Exception {
+        darDeBaja("62-baja-boleta-otros-tributos", "Baja (RC, estado 3) de la boleta con otros tributos", ids.get("BOLETA_OTROS_TRIBUTOS"), "la boleta con otros tributos (60)");
     }
 
     /** Baja (RC, estado 3) de la boleta final que regulariza un anticipo (escenario 55, #295): el RC informa el importe de la boleta, no el de sus anticipos. */
