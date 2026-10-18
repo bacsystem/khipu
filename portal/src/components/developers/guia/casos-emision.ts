@@ -533,6 +533,29 @@ Idempotency-Key: 5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f
     disponible: true,
   },
   {
+    id: "otros-tributos-placa",
+    titulo: "Otros tributos (9999) y placa del vehículo",
+    cuando: "Una línea lleva un tributo propio del sector además del IGV (tributo 9999 «OTROS», por ejemplo un cargo por tonelada o un impuesto municipal con tasa porcentual) o la venta es de combustible y se informa la placa del vehículo (propiedad 7000, catálogo 55).",
+    request: `{
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Diésel B5", "unidad": "GLL", "cantidad": 10, "precio_unitario": 17.70, "tipo_afectacion_igv": "10",
+      "otros_tributos": { "tasa": 3.5 }, "placa": "ABC-123" }
+  ]
+}`,
+    notas: [
+      "`otros_tributos.tasa` es un porcentaje (hasta 3 enteros y 5 decimales, regla 3102) sobre el **valor de venta** de la línea (regla 3109). Se informa como `TaxSubtotal` 9999 por línea y global, sin afectación del IGV (3050).",
+      "El `precio_unitario` incluye el IGV (y el ISC, si lo hay) pero **no** los otros tributos: se cobran encima. No entran en la base del IGV; sí suman al `total_precio_venta` y al `total` (regla 3279). En el ejemplo: valor 100.00, IGV 18.00, otros tributos 3.50, total 121.50.",
+      "No se admiten en líneas gratuitas ni de exportación (3223, 3107), y todavía no se combinan con un descuento global (02) o un cargo global (49) que afecta la base: `422 OTROS_TRIBUTOS_INVALIDO`. Funcionan en boletas (el resumen diario los informa) y una nota total los conserva.",
+      "`placa` (hasta 8 caracteres) va como propiedad 7000 del ítem («Gastos Art. 37 Renta: Número de Placa»); una placa vacía o de más de 8 caracteres responde `422 ITEM_INVALIDO` (3064).",
+      "La respuesta trae por ítem `otros_tributos {tasa, monto}` y `placa`, y en `totales` `otros_tributos`.",
+    ],
+    disponible: true,
+  },
+  {
     id: "ivap",
     titulo: "Arroz pilado (IVAP)",
     cuando: "Vende arroz pilado: la primera venta en el país está sujeta al Impuesto a la Venta de Arroz Pilado (Ley 28211), 4 % en lugar del IGV. Molinos, comercializadores y cualquier emisor que venda arroz pilado.",
