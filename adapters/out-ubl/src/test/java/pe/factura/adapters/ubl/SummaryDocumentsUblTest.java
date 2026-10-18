@@ -177,6 +177,25 @@ class SummaryDocumentsUblTest {
         new JaxpXsdValidator().validarBaja(conFirma(xml), b);
     }
 
+    /** #296: la baja de una boleta de exportación informa el valor de venta en el catálogo 11, código 04 (exportación), y ninguno gravado. */
+    @Test void laBajaDeUnaBoletaDeExportacionInformaElImporteDeExportacion() throws Exception {
+        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 13), "USD", "0200", new Receptor("7", "US123456", "JOHN SMITH", null, "US"),
+                List.of(new Item("CAF", "Café", "KGM", new BigDecimal("2"), new BigDecimal("4.50"), TipoAfectacionIgv.EXPORTACION))).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(61, "20100066603"); c.firmar("H", "k"); c.marcarEnviado(); c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
+        ComunicacionBaja b = ComunicacionBaja.crear(c, 8, "Error", HOY);
+
+        String xml = new FreemarkerUblGenerator().generarBaja(b, c, FreemarkerUblGeneratorTest.tenant());
+
+        String l = "/rc:SummaryDocuments/sac:SummaryDocumentsLine";
+        XPath xp = xpath();
+        Document d = parsear(xml);
+        assertThat(xp.evaluate(l + "/sac:BillingPayment[cbc:InstructionID='04']/cbc:PaidAmount", d)).isEqualTo("9.00");
+        assertThat(xp.evaluate("count(" + l + "/sac:BillingPayment[cbc:InstructionID='01'])", d)).isEqualTo("0");
+        assertThat(xp.evaluate(l + "/sac:TotalAmount", d)).isEqualTo("9.00");
+        assertThat(xp.evaluate(l + "/sac:TotalAmount/@currencyID", d)).isEqualTo("USD");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), b);
+    }
+
     // --- #362 B13: nombre del comprador (campo 10.3 del RC, Resumen Diario 2.0 desde 2027-01-01) ----------------------------------------------------------------
 
     private static String nombreDelCompradorEnElResumen(Receptor comprador, boolean alta) throws Exception {

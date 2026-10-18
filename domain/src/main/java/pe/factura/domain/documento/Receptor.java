@@ -75,6 +75,18 @@ public record Receptor(String tipoDoc, String numDoc, String razonSocial, String
     }
 
     /**
+     * Boleta2_0 fila 93 (2800): en exportación (0200–0208) y a no domiciliados (0401) el comprador no lleva RUC. A diferencia de la factura, que en esos tipos acepta cualquier
+     * documento del catálogo 06 y, en 0401, exige RUC. e-beta (2026-10-18): rechazó con 2800 el RUC en 0200 y en 0401 y aceptó el pasaporte, el DNI y «sin documento».
+     */
+    void exigirSinRucEnExportacionOEnNoDomiciliado(String tipoOperacion) {
+        if ("6".equals(tipoDoc) && (Exportacion.es(tipoOperacion) || NO_DOMICILIADO.equals(tipoOperacion)))
+            throw new DomainException("RECEPTOR_INVALIDO", "2800 - En una boleta con tipo de operación " + tipoOperacion + " el comprador no lleva RUC (tipo_doc 6): use su documento del exterior (0, 4, 7…), su DNI o, hasta S/ 700, «sin documento»");
+    }
+
+    /** Ventas a no domiciliados que no califican como exportación (catálogo 51). */
+    static final String NO_DOMICILIADO = "0401";
+
+    /**
      * 2021/2022 se cuentan sin los espacios de los extremos: «  JP  » es un nombre de 2 caracteres aunque SUNAT llegara a contar los espacios,
      * así que nunca se queda corto frente a ella. Solo al emitir: lo ya guardado se rehidrata tal cual (#303).
      */

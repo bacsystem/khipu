@@ -137,7 +137,8 @@ class BoletaTest {
                 .extracting("codigo").isEqualTo("FORMA_PAGO_INVALIDA");
         assertThatThrownBy(() -> boleta(dni, "1000").retencion(new RetencionIgv(null, null)).crear(clock))
                 .extracting("codigo").isEqualTo("RETENCION_INVALIDA");
-        assertThatThrownBy(() -> Comprobante.boleta(tenant, "B001", hoy, "USD", "0200", new Receptor("7", "AB123", "JOHN DOE", null, "US"),
+        // La exportación sí se emite desde #296 (BoletaExportacionTest); sin los datos del huésped, el hospedaje no.
+        assertThatThrownBy(() -> Comprobante.boleta(tenant, "B001", hoy, "USD", "0202", new Receptor("7", "AB123", "JOHN DOE", null, "US"),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.EXPORTACION))).crear(clock))
                 .extracting("codigo").isEqualTo("TIPO_OPERACION_INVALIDO");
     }
@@ -166,11 +167,11 @@ class BoletaTest {
     }
 
     /**
-     * 274-H2: solo los tipos de operación cuyos datos khipu genera en una boleta. Otros del catálogo 51 que dicen «Boleta» (0401 a no domiciliados, 0302
-     * con medio de pago…) pasaban, consumían número y SUNAT los rechazaba.
+     * 274-H2: solo los tipos de operación cuyos datos khipu genera en una boleta. Otros del catálogo 51 que dicen «Boleta» (0302 con medio de pago, 2100–2105…)
+     * pasaban, consumían número y SUNAT los rechazaba. Desde #296 la exportación y el 0401 sí se emiten (BoletaExportacionTest).
      */
     @Test void soloLosTiposDeOperacionQueKhipuArmaEnUnaBoleta() {
-        for (String op : new String[]{"0401", "0302"})
+        for (String op : new String[]{"0301", "0302"})
             assertThatThrownBy(() -> Comprobante.boleta(tenant, "B001", hoy, "PEN", op, dni, items("10")).crear(clock)).as(op)
                     .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("TIPO_OPERACION_INVALIDO");
         assertThat(Comprobante.boleta(tenant, "B001", hoy, "PEN", "0101", dni, items("10")).crear(clock).tipoOperacion()).isEqualTo("0101");
