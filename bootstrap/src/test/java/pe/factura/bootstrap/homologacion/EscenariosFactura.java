@@ -38,7 +38,7 @@ final class EscenariosFactura {
         String cab = "\"serie\":\"" + serie + "\",\"fecha_emision\":\"" + fecha + "\"";
         String cabAnexo = "\"serie\":\"" + serieAnexo + "\",\"fecha_emision\":\"" + fecha + "\"";
         String cabBoleta = "\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\"";
-        return List.of(
+        List<Escenario> base = List.of(
             new Escenario("01-gravada", "Venta interna gravada al contado",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
                 "{\"codigo\":\"SRV-001\",\"descripcion\":\"Servicio de consultoría\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]}"),
@@ -261,6 +261,19 @@ final class EscenariosFactura {
                 "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${OTROS_TRIBUTOS}}," +
                 "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}")
         );
+        List<Escenario> todos = new java.util.ArrayList<>(base);
+        // #316: cada moneda del catálogo 02 que khipu admite emite una factura que SUNAT acepta (3088), con su tipo de cambio.
+        for (String moneda : pe.factura.domain.documento.Monedas.codigos()) {
+            if (List.of("PEN", "USD", "EUR").contains(moneda)) continue;
+            todos.add(new Escenario("65-moneda-" + moneda, "Factura en " + moneda + " con tipo de cambio",
+                "{" + cab + ",\"moneda\":\"" + moneda + "\",\"tipo_cambio\":3.125," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]}"));
+        }
+        // Boleta en dólares a un comprador sin documento: con tipo_cambio el tope de S/ 700 se mide en soles (100 USD × 3.75 = S/ 375).
+        todos.add(new Escenario("66-boleta-usd-sin-documento", "Boleta en USD sin documento, con tipo de cambio (S/ 375 ≤ 700)",
+                "{" + cabBoleta + ",\"moneda\":\"USD\",\"tipo_cambio\":3.75,\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":100.00,\"tipo_afectacion_igv\":\"10\"}]}"));
+        return todos;
     }
 
     /**
