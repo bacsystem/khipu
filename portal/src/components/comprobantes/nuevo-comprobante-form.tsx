@@ -3,7 +3,7 @@
 import { PlusIcon, Settings2Icon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, type FormEvent, useEffect, useRef, useState } from "react";
+import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Alerta } from "@/components/feedback/alerta";
 import { Campo } from "@/components/formularios/campo";
 import { EntradaFecha } from "@/components/formularios/entrada-fecha";
@@ -17,6 +17,8 @@ import { MAX_LINEAS } from "@/lib/comprobantes/limites";
 import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
 import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { CREDITO_VACIO, errorDeCredito, formaPagoAApi, type CreditoForm } from "@/lib/comprobantes/credito";
+import { documentosDeExportacion, errorDeExportacion, esExportacion, EXIGE_PAIS_DE_USO, INCOTERMS, OPERACIONES } from "@/lib/comprobantes/operaciones";
+import { listarPaises } from "@/lib/comprobantes/paises";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
 import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm } from "@/lib/comprobantes/tributos";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
@@ -154,6 +156,12 @@ export function NuevoComprobanteForm({
   const [alCredito, setAlCredito] = useState(false);
   const [credito, setCredito] = useState<CreditoForm>(CREDITO_VACIO);
   const [fechaVencimiento, setFechaVencimiento] = useState("");
+  // #311: tipo de operación (catálogo 51) y, en una exportación, el país del cliente, el Incoterm y el país de uso del servicio.
+  const [operacion, setOperacion] = useState("0101");
+  const [pais, setPais] = useState("");
+  const [incoterm, setIncoterm] = useState("");
+  const [paisDeUso, setPaisDeUso] = useState("");
+  const paises = useMemo(() => listarPaises(), []);
   const [detalle, setDetalle] = useState<number | null>(null);
   const [unidades, setUnidades] = useState<EntradaCatalogo[] | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -166,7 +174,7 @@ export function NuevoComprobanteForm({
 
   // #379: con un RUC completo (la factura siempre; la boleta solo si el documento elegido es RUC) se consulta el padrón de SUNAT y se rellenan el nombre y la
   // dirección. `auto` guarda lo que se rellenó: solo eso se quita al cambiar de RUC, nunca lo que el usuario escribió.
-  const conRuc = !boleta || tipoDoc === "6";
+  const conRuc = tipoDoc === "6";
   const { resultado: consultaRuc, consultando: consultandoRuc, reintentar: reintentarConsultaRuc } = useConsultaRuc(numDoc, conRuc);
   const [auto, setAuto] = useState({ razon: "", direccion: "" });
   useEffect(() => {
@@ -240,13 +248,41 @@ export function NuevoComprobanteForm({
   const sinDocumento = boleta && tipoDoc === SIN_DOCUMENTO;
   const documento = DOCUMENTOS_BOLETA.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_BOLETA[0];
   const redondeo = redondeoDe(redondeoTexto);
+  const exportacion = esExportacion(operacion);
+  const errorExportacion = errorDeExportacion({ operacion, incoterm, paisDeUso, paisDelComprador: pais }, boleta);
+  // En una exportación el comprador es del exterior: se elige su documento (como en la boleta) en vez de pedir un RUC.
+  const usaSelectorDeDocumento = boleta || exportacion;
+  const documentosOfrecidos = exportacion
+    ? [...DOCUMENTOS_BOLETA.filter((d) => documentosDeExportacion(operacion, boleta).includes(d.codigo)), ...(boleta ? DOCUMENTOS_BOLETA.filter((d) => d.codigo === SIN_DOCUMENTO) : [])]
+    : DOCUMENTOS_BOLETA;
+
+  /** Al pasar a una exportación las líneas son de afectación 40, la moneda suele ser extranjera y el comprador no lleva RUC; al volver, todo regresa a la venta interna. */
+  function cambiarOperacion(nueva: string) {
+    const eraExp = esExportacion(operacion);
+    const esExp = esExportacion(nueva);
+    setOperacion(nueva);
+    if (esExp && !eraExp) {
+      setLineas((prev) => prev.map((l) => ({ ...l, tipoAfectacionIgv: "40" })));
+      if (moneda === "PEN") setMoneda("USD");
+      if (!boleta) { setTipoDoc("0"); setNumDoc(""); }
+    }
+    if (!esExp && eraExp) {
+      setLineas((prev) => prev.map((l) => ({ ...l, tipoAfectacionIgv: "10" })));
+      setMoneda((m) => (m === "USD" ? "PEN" : m));
+      setPais(""); setIncoterm(""); setPaisDeUso("");
+      if (!boleta) { setTipoDoc("6"); setNumDoc(""); }
+    }
+    // El RUC deja de valer donde la regla lo prohíbe (2800).
+    if (esExp && tipoDoc === "6" && !documentosDeExportacion(nueva, boleta).includes("6")) { setTipoDoc(boleta ? "1" : "0"); setNumDoc(""); }
+    if (!EXIGE_PAIS_DE_USO.has(nueva)) setPaisDeUso("");
+  }
   // Los ajustes mal escritos no se envían ni se calculan: se muestran en su campo y la emisión no sale.
   // #298: tampoco se envía un ISC mal escrito ni una combinación de tributos que el dominio rechaza (IVAP mezclado, ICBPER fuera de NIU o con cantidad fraccionaria).
   const incompatibilidad = incompatibilidadDeTributos(lineasCompletas);
   const hayAjusteInvalido =
     errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
     lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null || errorDeIsc(l.isc) !== null) ||
-    incompatibilidad !== null;
+    incompatibilidad !== null || errorExportacion !== null;
 
   /**
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
@@ -257,11 +293,15 @@ export function NuevoComprobanteForm({
       serie,
       fecha_emision: fecha,
       moneda,
+      tipo_operacion: operacion === "0101" ? undefined : operacion,
+      exportacion: exportacion && (incoterm || paisDeUso) ? { incoterm: incoterm || undefined, pais_uso: paisDeUso || undefined } : undefined,
       cliente: paraCalcular
-        ? boleta
-          ? { tipo_doc: "1", num_doc: "12345678", razon_social: "Comprador" }
-          : { tipo_doc: "6", num_doc: "20131312955", razon_social: "Cliente" }
-        : { tipo_doc: tipoDoc, num_doc: sinDocumento ? SIN_DOCUMENTO : numDoc.trim(), razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined },
+        ? exportacion
+          ? { tipo_doc: "0", num_doc: "EXT123456", razon_social: "Cliente", pais: pais || "US" }
+          : boleta
+            ? { tipo_doc: "1", num_doc: "12345678", razon_social: "Comprador" }
+            : { tipo_doc: "6", num_doc: "20131312955", razon_social: "Cliente" }
+        : { tipo_doc: tipoDoc, num_doc: sinDocumento ? SIN_DOCUMENTO : numDoc.trim(), razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined, pais: exportacion && pais ? pais : undefined },
       items: lineasCompletas.map((l) => ({
         descripcion: l.descripcion.trim(),
         unidad: l.unidad,
@@ -339,7 +379,7 @@ export function NuevoComprobanteForm({
       return;
     }
     if (hayAjusteInvalido) {
-      setError(incompatibilidad ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
+      setError(incompatibilidad ?? errorExportacion ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
       return;
     }
     if (errorCredito) {
@@ -447,11 +487,11 @@ export function NuevoComprobanteForm({
 
       <section className="grid gap-3">
         <h3 className={ETIQUETA_CAMPO}>{boleta ? "Comprador" : "Cliente"}</h3>
-        {boleta ? (
+        {usaSelectorDeDocumento ? (
           <div className="grid gap-4 sm:grid-cols-[200px_180px_1fr]">
             <Campo id="nc-tipo-doc" etiqueta="Documento del comprador">
               <select id="nc-tipo-doc" value={tipoDoc} onChange={(e) => cambiarTipoDoc(e.target.value)} className={CAMPO_DENSO}>
-                {DOCUMENTOS_BOLETA.map((d) => (
+                {documentosOfrecidos.map((d) => (
                   <option key={d.codigo} value={d.codigo}>
                     {d.etiqueta}
                   </option>
@@ -477,7 +517,7 @@ export function NuevoComprobanteForm({
                 />
               </Campo>
             )}
-            <Campo id="nc-razon" etiqueta="Nombre del comprador">
+            <Campo id="nc-razon" etiqueta={boleta ? "Nombre del comprador" : "Razón social"}>
               <input
                 id="nc-razon"
                 value={razonSocial}
@@ -492,6 +532,27 @@ export function NuevoComprobanteForm({
                 className={CAMPO_DENSO}
               />
             </Campo>
+            {exportacion ? (
+              <>
+                <Campo id="nc-pais" etiqueta="País del cliente" ayuda={boleta ? "Opcional en una boleta" : "Obligatorio en una factura de exportación"}>
+                  <select id="nc-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={CAMPO_DENSO}>
+                    <option value="">Seleccione</option>
+                    {paises.map((p) => (
+                      <option key={p.codigo} value={p.codigo}>
+                        {p.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+                {boleta ? null : (
+                  <div className="sm:col-span-2">
+                    <Campo id="nc-direccion" etiqueta="Dirección" opcional>
+                      <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="1200 Main St, Miami" className={CAMPO_DENSO} />
+                    </Campo>
+                  </div>
+                )}
+              </>
+            ) : null}
             {conRuc ? (
               <EstadoConsultaRuc
                 className="sm:col-span-3"
@@ -559,17 +620,64 @@ export function NuevoComprobanteForm({
       </section>
 
       {/* #309: forma de pago, solo en factura. Al crédito se arman las cuotas; la boleta se emite siempre al contado. */}
-      {boleta ? null : (
-        <section className="grid gap-3">
-          <Campo id="nc-forma-pago" etiqueta="Forma de pago">
-            <select id="nc-forma-pago" value={alCredito ? "credito" : "contado"} onChange={(e) => setAlCredito(e.target.value === "credito")} className={cn(CAMPO_DENSO, "sm:max-w-[220px]")}>
-              <option value="contado">Al contado</option>
-              <option value="credito">Al crédito (cuotas)</option>
+      <section className="grid gap-3">
+        <div className="grid items-start gap-4 sm:grid-cols-2">
+          {/* #311: tipo de operación (catálogo 51): venta interna o exportación. */}
+          <Campo id="nc-operacion" etiqueta="Tipo de operación">
+            <select id="nc-operacion" value={operacion} onChange={(e) => cambiarOperacion(e.target.value)} className={CAMPO_DENSO}>
+              {(["Venta interna", "Exportación"] as const).map((g) => (
+                <optgroup key={g} label={g}>
+                  {OPERACIONES.filter((o) => o.grupo === g).map((o) => (
+                    <option key={o.codigo} value={o.codigo}>
+                      {o.codigo} · {o.etiqueta}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
             </select>
           </Campo>
-          {alCredito ? <CreditoEditor credito={credito} onCambio={setCredito} neto={netoBase} moneda={moneda} emision={fecha} error={credito.cuotas.length === 0 ? null : errorCredito} /> : null}
-        </section>
-      )}
+          {boleta ? null : (
+            <Campo id="nc-forma-pago" etiqueta="Forma de pago">
+              <select id="nc-forma-pago" value={alCredito ? "credito" : "contado"} onChange={(e) => setAlCredito(e.target.value === "credito")} className={CAMPO_DENSO}>
+                <option value="contado">Al contado</option>
+                <option value="credito">Al crédito (cuotas)</option>
+              </select>
+            </Campo>
+          )}
+        </div>
+        {exportacion ? (
+          <div className="grid items-start gap-4 sm:grid-cols-2" data-testid="datos-exportacion">
+            <Campo id="nc-incoterm" etiqueta="Incoterm" opcional ayuda="Incoterms 2020; lo exige Aduanas, SUNAT no lo valida">
+              <select id="nc-incoterm" value={incoterm} onChange={(e) => setIncoterm(e.target.value)} className={CAMPO_DENSO}>
+                <option value="">Sin incoterm</option>
+                {INCOTERMS.map((i) => (
+                  <option key={i} value={i}>
+                    {i}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            {EXIGE_PAIS_DE_USO.has(operacion) ? (
+              <Campo id="nc-pais-uso" etiqueta="País de uso del servicio" ayuda="Donde se usa o aprovecha el servicio (3098); distinto de Perú">
+                <select id="nc-pais-uso" value={paisDeUso} onChange={(e) => setPaisDeUso(e.target.value)} className={CAMPO_DENSO}>
+                  <option value="">Seleccione</option>
+                  {paises.filter((p) => p.codigo !== "PE").map((p) => (
+                    <option key={p.codigo} value={p.codigo}>
+                      {p.nombre}
+                    </option>
+                  ))}
+                </select>
+              </Campo>
+            ) : null}
+          </div>
+        ) : null}
+        {errorExportacion ? (
+          <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="error-exportacion">
+            {errorExportacion}
+          </p>
+        ) : null}
+        {boleta || !alCredito ? null : <CreditoEditor credito={credito} onCambio={setCredito} neto={netoBase} moneda={moneda} emision={fecha} error={credito.cuotas.length === 0 ? null : errorCredito} />}
+      </section>
 
       <section className="flex min-h-[11rem] flex-1 flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3">
@@ -667,7 +775,8 @@ export function NuevoComprobanteForm({
                       onChange={(e) => actualizar(i, { tipoAfectacionIgv: e.target.value })}
                       className={CAMPO_DENSO}
                     >
-                      {GRUPOS_AFECTACION.map((g) => (
+                      {exportacion ? <option value="40">40 · Exportación de bienes o servicios</option> : null}
+                      {(exportacion ? [] : GRUPOS_AFECTACION).map((g) => (
                         <optgroup key={g.grupo} label={g.grupo}>
                           {g.opciones.map((a) => (
                             <option key={a.codigo} value={a.codigo}>

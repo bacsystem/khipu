@@ -672,3 +672,25 @@ test("emite una factura al crédito con sus cuotas y la ficha las muestra (#309)
   await expect(page.getByText("Cuota001").first()).toBeVisible();
   await expect(page.getByText("Cuota002").first()).toBeVisible();
 });
+
+test("emite una factura de exportación: afectación 40, cliente del exterior con país e incoterm (#311)", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("Tipo de operación").selectOption("0200");
+  await expect(dialogo.getByLabel("Moneda")).toHaveValue("USD");
+
+  await dialogo.getByLabel("Número de documento").fill("US123456789");
+  await dialogo.getByLabel("Razón social").fill("ACME IMPORTS LLC");
+  await dialogo.getByLabel("Descripción").fill("Café verde en grano");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("4500");
+  await dialogo.getByLabel("Incoterm").selectOption("FOB");
+
+  // Sin el país del cliente el formulario no deja emitir y lo dice en el momento.
+  await expect(dialogo.getByTestId("error-exportacion")).toContainText("país");
+  await dialogo.getByLabel("País del cliente").selectOption("US");
+  await expect(dialogo.getByTestId("error-exportacion")).toHaveCount(0);
+
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  await expect(page.getByText("0200").first()).toBeVisible();
+});

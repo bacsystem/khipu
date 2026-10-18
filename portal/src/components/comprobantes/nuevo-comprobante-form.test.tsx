@@ -341,6 +341,111 @@ describe("NuevoComprobanteForm — factura al crédito (#309)", () => {
   });
 });
 
+describe("NuevoComprobanteForm — exportación (#311)", () => {
+  const TOTALES = { gravado: 0, exonerado: 0, inafecto: 0, igv: 0, total: 4500 };
+
+  function exportar(operacion = "0200") {
+    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: operacion } });
+    linea("Café verde en grano", "4500");
+  }
+
+  it("al elegir una exportación: afectación 40, moneda en dólares y un comprador del exterior sin RUC", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+
+    expect(screen.getByLabelText("Moneda")).toHaveValue("USD");
+    fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
+    const afectacion = screen.getByLabelText("Afectación del IGV");
+    expect([...afectacion.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["40"]);
+    expect(afectacion).toHaveValue("40");
+    // El cliente se elige por su documento (catálogo 06) y su país; el RUC no vale en 0200 (2800).
+    const documentos = [...screen.getByLabelText("Documento del comprador").querySelectorAll("option")].map((o) => o.getAttribute("value"));
+    expect(documentos).toEqual(["1", "4", "7", "0", "A", "B", "C", "D", "E", "G"]);
+    expect(screen.getByLabelText("País del cliente")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Incoterm/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("País de uso del servicio")).not.toBeInTheDocument();   // solo 0201 y 0208
+  });
+
+  it("emite con el tipo de operación, el país del cliente, el incoterm y las líneas en 40", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    exportar();
+    fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "US123456789" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "ACME IMPORTS LLC" } });
+    fireEvent.change(screen.getByLabelText("País del cliente"), { target: { value: "US" } });
+    fireEvent.change(screen.getByLabelText(/^Incoterm/), { target: { value: "FOB" } });
+
+    await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ tipo_operacion: "0200", moneda: "USD", exportacion: { incoterm: "FOB" }, items: [{ tipo_afectacion_igv: "40" }] }));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({
+      tipo_operacion: "0200",
+      moneda: "USD",
+      cliente: { tipo_doc: "0", num_doc: "US123456789", razon_social: "ACME IMPORTS LLC", pais: "US" },
+      exportacion: { incoterm: "FOB" },
+      items: [{ tipo_afectacion_igv: "40" }],
+    });
+  });
+
+  it("una factura de exportación sin país del cliente no sale", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    exportar();
+    fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "US123456789" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "ACME IMPORTS LLC" } });
+    expect(screen.getByTestId("error-exportacion")).toHaveTextContent(/país/);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/lleva su país/));
+    expect(emisiones(fetch)).toHaveLength(0);
+  });
+
+  it("los servicios 0201 y 0208 piden el país de uso, y lo mandan", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    exportar("0201");
+    fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "US123456789" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "ACME IMPORTS LLC" } });
+    fireEvent.change(screen.getByLabelText("País del cliente"), { target: { value: "US" } });
+    expect(screen.getByTestId("error-exportacion")).toHaveTextContent(/3098/);
+
+    fireEvent.change(screen.getByLabelText("País de uso del servicio"), { target: { value: "CL" } });
+    expect(screen.queryByTestId("error-exportacion")).not.toBeInTheDocument();
+    expect([...screen.getByLabelText("País de uso del servicio").querySelectorAll("option")].some((o) => o.getAttribute("value") === "PE")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ tipo_operacion: "0201", exportacion: { pais_uso: "CL" } });
+  });
+
+  it("volver a la venta interna restablece la afectación, la moneda y el cliente con RUC", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    exportar();
+    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0101" } });
+
+    expect(screen.getByLabelText("Moneda")).toHaveValue("PEN");
+    expect(screen.getByLabelText("RUC")).toBeInTheDocument();
+    expect(screen.queryByTestId("datos-exportacion")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
+    expect(screen.getByLabelText("Afectación del IGV")).toHaveValue("10");
+  });
+
+  it("la boleta también exporta (#296): comprador sin RUC, país opcional", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    exportar();
+    const documentos = [...screen.getByLabelText("Documento del comprador").querySelectorAll("option")].map((o) => o.getAttribute("value"));
+    expect(documentos).not.toContain("6");
+    expect(documentos).toContain("-");
+    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "7" } });
+    fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "US123456" } });
+    fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "John Smith" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ tipo_operacion: "0200", cliente: { tipo_doc: "7", num_doc: "US123456" } });
+  });
+});
+
 describe("NuevoComprobanteForm — boleta (#20)", () => {
   it("sin documento manda «-» como tipo y número, con el nombre por defecto", async () => {
     const fetch = stubEmision();
