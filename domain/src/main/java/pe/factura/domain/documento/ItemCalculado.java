@@ -22,7 +22,7 @@ import java.util.List;
  */
 public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal baseBruta, BigDecimal descuento, boolean descuentoAfectaBase,
                             BigDecimal valorVenta, BigDecimal isc, BigDecimal iscPorcentaje, BigDecimal iscBase, BigDecimal icbper, BigDecimal icbperUnitario,
-                            BigDecimal igv, BigDecimal precioVenta, BigDecimal precioVentaUnitario, BigDecimal porcentajeIgv, List<CargoCalculado> cargos) {
+                            BigDecimal otrosTributos, BigDecimal otrosTributosPorcentaje, BigDecimal igv, BigDecimal precioVenta, BigDecimal precioVentaUnitario, BigDecimal porcentajeIgv, List<CargoCalculado> cargos) {
 
     private static final BigDecimal CIEN = new BigDecimal("100");
 
@@ -44,6 +44,11 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
             throw new DomainException("AFECTACION_INVALIDA", "2650 - Una línea afecta al IVAP (17) no lleva ISC ni ICBPER (combinación de tributos no permitida, 3223)");
         if (af.exportacion() && (item.tieneIsc() || item.icbper()))
             throw new DomainException("AFECTACION_INVALIDA", "3223 - Una línea de exportación (40) no lleva ISC ni ICBPER (combinación de tributos no permitida)");
+        // 3107: ni el ISC ni los otros tributos (2000, 9999) valen a nivel global en una exportación. La gratuita no se cobra: sus otros tributos no tendrían a quién cobrarse.
+        if (item.tieneOtrosTributos() && af.exportacion())
+            throw new DomainException("AFECTACION_INVALIDA", "3107 - Una línea de exportación (40) no lleva otros tributos (9999)");
+        if (item.tieneOtrosTributos() && af.gratuita())
+            throw new DomainException("AFECTACION_INVALIDA", "3223 - Una línea gratuita (afectación " + af.codigo() + ") no lleva otros tributos (9999): no se cobra");
         boolean onerosaGravada = af.gravado() && !af.gratuita();
         BigDecimal cantidad = item.cantidad();
         // ICBPER: monto fijo por unidad, fuera de la base del IGV; el precio enviado lo incluye.
@@ -68,6 +73,9 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         BigDecimal iscBase = item.tieneIsc() && !af.gratuita() ? item.isc().baseSobre(valorVenta, cantidad) : BigDecimal.ZERO.setScale(2);
         BigDecimal iscPorcentaje = item.tieneIsc() && !af.gratuita() ? item.isc().porcentajeSobre(iscBase, isc) : BigDecimal.ZERO;
         BigDecimal igv = af.gravado() ? valorVenta.add(isc).multiply(factorIgv).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
+        // #317: otros tributos (9999) = tasa × valor de venta de la línea (3109); suman al precio de venta (3279) pero no a la base del IGV.
+        BigDecimal otrosTributos = item.tieneOtrosTributos() ? item.otrosTributos().montoSobre(valorVenta) : BigDecimal.ZERO.setScale(2);
+        BigDecimal otrosPorcentaje = item.tieneOtrosTributos() ? item.otrosTributos().tasa() : BigDecimal.ZERO;
         // H9: con el precio con IGV, el cliente paga exactamente precio × cantidad. Base × 18 % sobre la base ya redondeada perdía un céntimo (S/ 10.00 → 8.47 + 1.52 =
         // 9.99): el IGV es lo que falta para llegar al precio (8.47 + 1.53). Difiere de base × tasa en unos milésimos, dentro de la tolerancia de ±1 de SUNAT
         // (3103 por línea; 3291, antes 4290, en la suma: Totales vuelve a base × tasa si la suma de muchas líneas se aleja más de 0.50).
@@ -82,12 +90,12 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         if (onerosaGravada && valorVenta.add(isc).compareTo(new BigDecimal("0.06")) > 0 && igv.signum() == 0)
             throw new DomainException("ITEM_INVALIDO", "3111 - Con base imponible mayor a 0.06 el " + (af.ivap() ? "IVAP" : "IGV") + " de la línea «" + item.descripcion() + "» no puede redondear a 0.00: suba el importe");
         BigDecimal descuentoNoAfecta = item.tieneDescuento() && !afectaBase ? descuento : BigDecimal.ZERO;
-        BigDecimal precioVenta = af.gratuita() ? BigDecimal.ZERO.setScale(2) : valorVenta.add(isc).add(igv).add(icbper).subtract(descuentoNoAfecta).add(sumaCargos(cargos, false));
+        BigDecimal precioVenta = af.gratuita() ? BigDecimal.ZERO.setScale(2) : valorVenta.add(isc).add(igv).add(icbper).add(otrosTributos).subtract(descuentoNoAfecta).add(sumaCargos(cargos, false));
         BigDecimal valorUnitario = af.gratuita() ? BigDecimal.ZERO.setScale(10) : valorReferencial;
         BigDecimal precioVentaUnitario = af.gratuita() ? valorReferencial : precioVenta.divide(cantidad, 10, RoundingMode.HALF_UP);
         BigDecimal pct = af.gravado() ? tasaLinea : new BigDecimal("0.00");
         return new ItemCalculado(item, valorUnitario, baseBruta, descuento, afectaBase, valorVenta, isc, iscPorcentaje, iscBase, icbper, icbperUnitario,
-                igv, precioVenta, precioVentaUnitario, pct, cargos);
+                otrosTributos, otrosPorcentaje, igv, precioVenta, precioVentaUnitario, pct, cargos);
     }
 
     private static BigDecimal sumaCargos(List<CargoCalculado> cargos, boolean afectanBase) {
@@ -107,18 +115,19 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         if (!ajustaLaBase()) return this;
         List<CargoCalculado> restantes = cargos.stream().filter(cg -> !cg.afectaBase()).toList();
         Item sinBase = new Item(item.codigo(), item.descripcion(), item.unidad(), item.cantidad(), item.precioUnitario(), item.afectacion(), descuentoAfectaBase ? null : item.descuento(),
-                item.isc(), item.icbper(), restantes.stream().map(CargoCalculado::cargo).toList(), item.codigoSunat(), item.gtin(), item.hidrobiologico(), item.transporte());
+                item.isc(), item.icbper(), restantes.stream().map(CargoCalculado::cargo).toList(), item.codigoSunat(), item.gtin(), item.hidrobiologico(), item.transporte(),
+                item.otrosTributos(), item.placa());
         boolean quedaAlgo = sinBase.tieneDescuento() || !restantes.isEmpty();
         return new ItemCalculado(sinBase, valorVenta.divide(item.cantidad(), 10, RoundingMode.HALF_UP), quedaAlgo ? baseBruta : valorVenta, descuentoAfectaBase ? BigDecimal.ZERO.setScale(2) : descuento, false,
-                valorVenta, isc, iscPorcentaje, iscBase, icbper, icbperUnitario, igv, precioVenta, precioVentaUnitario, porcentajeIgv, restantes);
+                valorVenta, isc, iscPorcentaje, iscBase, icbper, icbperUnitario, otrosTributos, otrosTributosPorcentaje, igv, precioVenta, precioVentaUnitario, porcentajeIgv, restantes);
     }
 
     /** #388: la misma línea con otro valor de venta e IGV (el reparto de un descuento o cargo global en una nota): el valor unitario y el precio siguen a esos importes. */
     ItemCalculado conImportes(BigDecimal nuevoValorVenta, BigDecimal nuevoIgv) {
-        BigDecimal nuevoPrecioVenta = nuevoValorVenta.add(isc).add(nuevoIgv).add(icbper).subtract(descuentoNoAfectaBase()).add(sumaCargos(cargos, false));
+        BigDecimal nuevoPrecioVenta = nuevoValorVenta.add(isc).add(nuevoIgv).add(icbper).add(otrosTributos).subtract(descuentoNoAfectaBase()).add(sumaCargos(cargos, false));
         boolean quedaAlgo = item.tieneDescuento() || !cargos.isEmpty();
         return new ItemCalculado(item, nuevoValorVenta.divide(item.cantidad(), 10, RoundingMode.HALF_UP), quedaAlgo ? baseBruta : nuevoValorVenta, descuento, descuentoAfectaBase, nuevoValorVenta,
-                isc, iscPorcentaje, iscBase, icbper, icbperUnitario, nuevoIgv, nuevoPrecioVenta, nuevoPrecioVenta.divide(item.cantidad(), 10, RoundingMode.HALF_UP), porcentajeIgv, cargos);
+                isc, iscPorcentaje, iscBase, icbper, icbperUnitario, otrosTributos, otrosTributosPorcentaje, nuevoIgv, nuevoPrecioVenta, nuevoPrecioVenta.divide(item.cantidad(), 10, RoundingMode.HALF_UP), porcentajeIgv, cargos);
     }
 
     /** Factor SUNAT del descuento de línea (MultiplierFactorNumeric): monto / base bruta; vacío si no reproduce el monto (regla 3290). */
@@ -141,7 +150,8 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
     /** Base del IGV de la línea: valor de venta más ISC (regla 204). */
     public BigDecimal baseIgv() { return valorVenta.add(isc); }
     /** Suma de tributos de la línea (cac:InvoiceLine/cac:TaxTotal/cbc:TaxAmount, regla 3292). */
-    public BigDecimal totalTributos() { return igv.add(isc).add(icbper); }
+    public BigDecimal totalTributos() { return igv.add(isc).add(icbper).add(otrosTributos); }
+    public boolean tieneOtrosTributos() { return otrosTributos.signum() > 0; }
     /** Código de tipo de precio (catálogo 16): 01 precio de venta, 02 valor referencial en gratuitas. */
     public String tipoPrecio() { return gratuita() ? "02" : "01"; }
 

@@ -14,13 +14,21 @@ import java.util.List;
  */
 public record Item(String codigo, String descripcion, String unidad, BigDecimal cantidad,
                    BigDecimal precioUnitario, TipoAfectacionIgv afectacion, Descuento descuento, Isc isc, boolean icbper, List<Cargo> cargos,
-                   CodigoProductoSunat codigoSunat, Gtin gtin, Hidrobiologico hidrobiologico, TransporteCarga transporte) {
+                   CodigoProductoSunat codigoSunat, Gtin gtin, Hidrobiologico hidrobiologico, TransporteCarga transporte,
+                   OtrosTributos otrosTributos, String placa) {
 
     public Item {
         cargos = cargos == null ? List.of() : List.copyOf(cargos);
         if (cargos.stream().anyMatch(Cargo::global))
             throw new DomainException("CARGO_INVALIDO", "4268 - Un cargo de línea debe usar los códigos 47 o 48 del catálogo 53");
         descripcion = descripcion == null ? null : descripcion.strip();
+        placa = placa == null ? null : placa.strip();
+    }
+
+    /** Sin otros tributos ni placa (#317): la forma en que se construía una línea antes de ellos. */
+    public Item(String codigo, String descripcion, String unidad, BigDecimal cantidad, BigDecimal precioUnitario, TipoAfectacionIgv afectacion,
+                Descuento descuento, Isc isc, boolean icbper, List<Cargo> cargos, CodigoProductoSunat codigoSunat, Gtin gtin, Hidrobiologico hidrobiologico, TransporteCarga transporte) {
+        this(codigo, descripcion, unidad, cantidad, precioUnitario, afectacion, descuento, isc, icbper, cargos, codigoSunat, gtin, hidrobiologico, transporte, null, null);
     }
 
     public Item(String codigo, String descripcion, String unidad, BigDecimal cantidad, BigDecimal precioUnitario, TipoAfectacionIgv afectacion) {
@@ -86,6 +94,9 @@ public record Item(String codigo, String descripcion, String unidad, BigDecimal 
         exigirFormatoNumerico(precioUnitario, "El precio unitario admite hasta 12 enteros y 10 decimales");
         if (codigo != null && (codigo.length() > 30 || codigo.chars().anyMatch(Character::isISOControl)))
             throw new DomainException("ITEM_INVALIDO", "El código interno del ítem admite hasta 30 caracteres (an..30 de la hoja Factura2_0)");
+        // Propiedad 7000 del catálogo 55: el valor es la placa (an..8, 3064). Sin placa no se escribe la propiedad.
+        if (placa != null && (placa.isEmpty() || placa.length() > 8 || placa.chars().anyMatch(Character::isISOControl)))
+            throw new DomainException("ITEM_INVALIDO", "3064 - La placa del vehículo es de 1 a 8 caracteres, sin saltos de línea");
     }
 
     /**
@@ -119,4 +130,6 @@ public record Item(String codigo, String descripcion, String unidad, BigDecimal 
     public boolean tieneGtin() { return gtin != null; }
     public boolean tieneHidrobiologico() { return hidrobiologico != null; }
     public boolean tieneTransporte() { return transporte != null; }
+    public boolean tieneOtrosTributos() { return otrosTributos != null; }
+    public boolean tienePlaca() { return placa != null; }
 }

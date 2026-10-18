@@ -163,6 +163,8 @@
           <#if l.gratuita()><div class="obs">Transferencia gratuita (valor referencial ${m(l.precioVentaUnitario())})</div></#if>
           <#if l.tieneIsc()><div class="obs">ISC ${m(l.isc())}</div></#if>
           <#if l.tieneIcbper()><div class="obs">ICBPER ${m(l.icbper())}</div></#if>
+          <#if l.tieneOtrosTributos()><div class="obs">Otros tributos (${l.otrosTributosPorcentaje()?string["0.##"]}%) ${m(l.otrosTributos())}</div></#if>
+          <#if l.item().tienePlaca()><div class="obs">Placa ${l.item().placa()}</div></#if>
         </td>
         <td class="n">${m(l.valorUnitario())}</td>
         <td class="n"><#if l.descuento() gt 0>-${m(l.descuento())}<#else>-</#if></td>
@@ -188,6 +190,7 @@
     <#if tot.tieneIvap()><tr><td class="k">IVAP (4%)</td><td class="n">${c.moneda()} ${m(tot.ivap())}</td></tr>
     <#elseif !tot.esExportacion()><tr><td class="k">IGV (${tot.tasaIgv()?string["0.##"]}%)</td><td class="n">${c.moneda()} ${m(tot.igv())}</td></tr></#if>
     <#if tot.icbper() gt 0><tr><td class="k">ICBPER</td><td class="n">${c.moneda()} ${m(tot.icbper())}</td></tr></#if>
+    <#if tot.otrosTributos() gt 0><tr><td class="k">Otros tributos</td><td class="n">${c.moneda()} ${m(tot.otrosTributos())}</td></tr></#if>
     <#if tot.tieneAnticipos()><tr><td class="k">Anticipos</td><td class="n">- ${c.moneda()} ${m(tot.totalAnticipos())}</td></tr></#if>
     <#if tot.tieneRedondeo()><tr><td class="k">Redondeo</td><td class="n">${c.moneda()} ${m(tot.redondeo())}</td></tr></#if>
     <tr class="total"><td class="k">Importe total</td><td class="n">${c.moneda()} ${m(tot.total())}</td></tr>

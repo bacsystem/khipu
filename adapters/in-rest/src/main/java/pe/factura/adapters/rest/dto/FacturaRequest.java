@@ -17,6 +17,7 @@ import pe.factura.domain.documento.RetencionIgv;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Gtin;
 import pe.factura.domain.documento.Isc;
+import pe.factura.domain.documento.OtrosTributos;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.Referencias;
@@ -91,14 +92,22 @@ public record FacturaRequest(
             @Pattern(regexp = "[0-9]{8}", message = "código de producto SUNAT de 8 dígitos (UNSPSC, catálogo 25)") @Schema(example = "15101505", description = "Código de producto SUNAT (catálogo 25, UNSPSC de 8 dígitos; `GET /v1/catalogos/25` lista los que SUNAT exige a los padrones obligados, detracciones y percepciones). Opcional; obligatorio para los emisores del padrón (regla 4331). SUNAT observa los que no llegan al tercer nivel (terminados en 0000, regla 4337)") String codigoSunat,
             @Valid @Schema(description = "Código GTIN (GS1) del producto. Opcional") GtinDto gtin,
             @Valid @Schema(description = "Recursos hidrobiológicos con detracción: obligatorio en cada ítem cuando `tipo_operacion` es `1002` (campos 107–112, catálogo 55) y no admitido en otras operaciones") HidrobiologicoDto hidrobiologico,
-            @Valid @Schema(description = "Servicio de transporte de carga con detracción: obligatorio en cada ítem cuando `tipo_operacion` es `1004` (campos 113–127) y no admitido en otras operaciones") TransporteDto transporte) {
+            @Valid @Schema(description = "Servicio de transporte de carga con detracción: obligatorio en cada ítem cuando `tipo_operacion` es `1004` (campos 113–127) y no admitido en otras operaciones") TransporteDto transporte,
+            @Valid @Schema(description = "Otros tributos de la línea (tributo 9999 «OTROS», #317): una tasa sobre el valor de venta de la línea. Se suman al total y no entran en la base del IGV; el `precio_unitario` **no** los incluye. No admitidos en gratuitas ni en exportación; todavía no se combinan con un `descuento_global` ni un cargo global que afectan la base. Opcional") OtrosTributosDto otrosTributos,
+            @Size(max = 8) @Schema(example = "ABC-123", description = "Placa del vehículo automotor (propiedad 7000 del catálogo 55, hasta 8 caracteres), p. ej. en la venta de combustible. Opcional") String placa) {
 
         Item aDominio() {
             return new Item(codigo, descripcion, unidad, cantidad, precioUnitario, TipoAfectacionIgv.porCodigo(tipoAfectacionIgv),
                     descuento == null ? null : descuento.aDominio(), isc == null ? null : isc.aDominio(), Boolean.TRUE.equals(icbper),
                     FacturaRequest.cargos(this.cargos, false), CodigoProductoSunat.de(codigoSunat), gtin == null ? null : gtin.aDominio(),
-                    hidrobiologico == null ? null : hidrobiologico.aDominio(), transporte == null ? null : transporte.aDominio());
+                    hidrobiologico == null ? null : hidrobiologico.aDominio(), transporte == null ? null : transporte.aDominio(),
+                    otrosTributos == null ? null : otrosTributos.aDominio(), placa);
         }
+    }
+
+    public record OtrosTributosDto(
+            @NotNull @Positive @DecimalMax("999.99999") @Digits(integer = 3, fraction = 5) @Schema(example = "3.5", description = "Tasa en porcentaje sobre el valor de venta de la línea (hasta 3 enteros y 5 decimales, regla 3102)") BigDecimal tasa) {
+        OtrosTributos aDominio() { return new OtrosTributos(tasa); }
     }
 
     /** Campos 107–112 de la hoja Factura2_0: conceptos 3001–3006 del catálogo 55 (reglas 3063, 3130–3135). */

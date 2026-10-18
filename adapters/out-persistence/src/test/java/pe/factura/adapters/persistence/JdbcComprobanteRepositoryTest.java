@@ -499,6 +499,25 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.totales().total()).isEqualByComparingTo(c.totales().total());
     }
 
+    /** #317: la tasa de los otros tributos (9999) y la placa se guardan y vuelven iguales; una línea sin ellos vuelve con nulos. */
+    @Test void guardaYRehidrataOtrosTributosYPlaca() {
+        UUID t = tenantDePrueba();
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("COMB", "Diésel B5", "GLL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, null,
+                                new OtrosTributos(new BigDecimal("3.5")), "ABC-123"),
+                        new Item("P", "Lubricante", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO))).crear(clock);
+        c.asignarNumero(10, "20100066603");
+        c.firmar("H", "k.xml");
+        repo.guardar(c);
+        Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(leido.items().get(0).otrosTributos()).isEqualTo(new OtrosTributos(new BigDecimal("3.5")));
+        assertThat(leido.items().get(0).placa()).isEqualTo("ABC-123");
+        assertThat(leido.items().get(1).otrosTributos()).isNull();
+        assertThat(leido.items().get(1).placa()).isNull();
+        assertThat(leido.totales().otrosTributos()).isEqualByComparingTo("3.50");
+        assertThat(leido.totales().total()).isEqualByComparingTo(c.totales().total());
+    }
+
     @Test void guardaYRehidrataAnticiposYBuscaPorNumero() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("O", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),

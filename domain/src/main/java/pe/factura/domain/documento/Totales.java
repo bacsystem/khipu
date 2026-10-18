@@ -29,7 +29,7 @@ import java.util.function.Function;
  * {@code igv} son netos de anticipos mientras {@code totalValorVenta} y {@code totalPrecioVenta} son brutos.
  */
 public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito, BigDecimal igv, BigDecimal igvGratuitas,
-                      BigDecimal ivap, BigDecimal exportacion, BigDecimal isc, BigDecimal icbper,
+                      BigDecimal ivap, BigDecimal exportacion, BigDecimal isc, BigDecimal icbper, BigDecimal otrosTributos,
                       BigDecimal totalValorVenta, BigDecimal totalPrecioVenta, BigDecimal totalDescuentos, BigDecimal totalCargos, BigDecimal totalAnticipos, BigDecimal redondeo, BigDecimal total,
                       List<ItemCalculado> items, List<SubtotalTributo> subtotales, DescuentoGlobalCalculado descuentoGlobal, List<CargoCalculado> cargosGlobales,
                       List<AnticipoCalculado> anticipos, BigDecimal tasaIgv) {
@@ -96,6 +96,8 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
                 case IGV -> new SubtotalTributo(tr, suma(calculados, tr, ItemCalculado::valorVenta), suma(calculados, tr, ItemCalculado::igv));
                 case ISC -> new SubtotalTributo(tr, sumaSi(calculados, ItemCalculado::tieneIsc, ItemCalculado::iscBase), sumaSi(calculados, ItemCalculado::tieneIsc, ItemCalculado::isc));
                 case ICBPER -> new SubtotalTributo(tr, z(), sumaSi(calculados, ItemCalculado::tieneIcbper, ItemCalculado::icbper));
+                // #317: la base de los otros tributos es el valor de venta de las líneas que los llevan (3297) y el impuesto su suma (3299).
+                case OTROS -> new SubtotalTributo(tr, sumaSi(calculados, ItemCalculado::tieneOtrosTributos, ItemCalculado::valorVenta), sumaSi(calculados, ItemCalculado::tieneOtrosTributos, ItemCalculado::otrosTributos));
                 default -> new SubtotalTributo(tr, suma(calculados, tr, ItemCalculado::valorVenta), suma(calculados, tr, ItemCalculado::igv));
             };
             if (st.base().signum() > 0 || st.impuesto().signum() > 0) brutos.add(st);
@@ -103,6 +105,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
 
         BigDecimal isc = impuesto(brutos, Tributo.ISC);
         BigDecimal icbper = impuesto(brutos, Tributo.ICBPER);
+        BigDecimal otrosTributos = impuesto(brutos, Tributo.OTROS);
         DescuentoGlobalCalculado global = null;
         List<SubtotalTributo> subtotales = new ArrayList<>(brutos);
         BigDecimal baseGravada = base(brutos, gravadoCon);
@@ -130,13 +133,17 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
             cargos.add(calculado);
         }
         if (ajusteBaseGravada.signum() != 0) {
+            // Un descuento 02 o un cargo 49 mueve la base del IGV pero el valor de venta de cada línea sigue igual: no se sabe sobre qué base SUNAT esperaría la tasa de los
+            // otros tributos (3109), y una nota que repartiera ese ajuste entre las líneas dejaría de cuadrar. Hasta tener esa respuesta, no se combinan.
+            if (otrosTributos.signum() > 0)
+                throw new DomainException("OTROS_TRIBUTOS_INVALIDO", "Los otros tributos (9999) todavía no se combinan con un descuento global (02) ni un cargo global (49) que afecta la base: use descuentos o cargos por línea");
             BigDecimal baseNeta = baseGravada.add(ajusteBaseGravada);
             subtotales.replaceAll(st -> st.tributo() == gravadoCon ? new SubtotalTributo(st.tributo(), baseNeta, igvSobre(baseNeta, isc, factorIgv)) : st);
         }
 
         // Totales brutos (reglas 3278, 3279): los anticipos no los reducen, solo a las bases por tributo y al importe a pagar.
         BigDecimal totalValorVenta = base(subtotales, gravadoCon).add(base(subtotales, Tributo.EXO)).add(base(subtotales, Tributo.INA)).add(base(subtotales, Tributo.EXP));
-        BigDecimal totalPrecioVenta = totalValorVenta.add(isc).add(icbper).add(impuesto(subtotales, gravadoCon));   // regla 55 (IGV o IVAP)
+        BigDecimal totalPrecioVenta = totalValorVenta.add(isc).add(icbper).add(otrosTributos).add(impuesto(subtotales, gravadoCon));   // regla 55 (IGV o IVAP) y 3279 (otros tributos)
 
         List<AnticipoCalculado> aplicados = aplicarAnticipos(subtotales, anticipos == null ? List.of() : anticipos, isc, tasaGravado, factorIgv, gravadoCon);
 
@@ -156,7 +163,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         BigDecimal total = totalPrecioVenta.add(totalCargos).subtract(totalDescuentos).subtract(totalAnticipos).add(ajuste);
         if (total.signum() < 0)
             throw new DomainException("REDONDEO_INVALIDO", "3303 - El redondeo deja el importe total en negativo (" + total + ")");
-        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, exportacion, isc, icbper, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, ajuste, total,
+        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, exportacion, isc, icbper, otrosTributos, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, ajuste, total,
                 calculados, List.copyOf(subtotales), global, List.copyOf(cargos), aplicados, tasaIgv);
     }
 
@@ -175,7 +182,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         if (ajuste.signum() != 0) repartirEnLasGravadas(netos, ajuste);
         boolean cambio = descuentoDeBase || !cargosDeBase.isEmpty() || items.stream().anyMatch(ItemCalculado::ajustaLaBase);
         if (!cambio) return this;
-        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, exportacion, isc, icbper, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, redondeo,
+        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, exportacion, isc, icbper, otrosTributos, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, redondeo,
                 total, List.copyOf(netos), subtotales, descuentoDeBase ? null : descuentoGlobal, cargosGlobales.stream().filter(cg -> !cg.afectaBase()).toList(), anticipos, tasaIgv);
     }
 

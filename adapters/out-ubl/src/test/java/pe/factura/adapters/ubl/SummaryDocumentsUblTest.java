@@ -196,6 +196,26 @@ class SummaryDocumentsUblTest {
         new JaxpXsdValidator().validarBaja(conFirma(xml), b);
     }
 
+    /** #317: la baja de una boleta con otros tributos informa «Otros tributos» (9999, campo 23) y su TotalAmount ya los suma (4027). */
+    @Test void laBajaDeUnaBoletaInformaLosOtrosTributos() throws Exception {
+        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null),
+                List.of(new Item("COMB", "Diésel B5", "GLL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, null,
+                        new OtrosTributos(new BigDecimal("3.5")), null))).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(62, "20100066603"); c.firmar("H", "k"); c.marcarEnviado(); c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
+        ComunicacionBaja b = ComunicacionBaja.crear(c, 9, "Error", HOY);
+
+        String xml = new FreemarkerUblGenerator().generarBaja(b, c, FreemarkerUblGeneratorTest.tenant());
+
+        String l = "/rc:SummaryDocuments/sac:SummaryDocumentsLine";
+        XPath xp = xpath();
+        Document d = parsear(xml);
+        assertThat(xp.evaluate(l + "/sac:TotalAmount", d)).isEqualTo("121.50");
+        assertThat(xp.evaluate(l + "/cac:TaxTotal[cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID='9999']/cbc:TaxAmount", d)).isEqualTo("3.50");
+        assertThat(xp.evaluate(l + "/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme[cbc:ID='9999']/cbc:Name", d)).isEqualTo("OTROS");
+        assertThat(xp.evaluate(l + "/cac:TaxTotal[cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID='1000']/cbc:TaxAmount", d)).isEqualTo("18.00");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), b);
+    }
+
     // --- #362 B13: nombre del comprador (campo 10.3 del RC, Resumen Diario 2.0 desde 2027-01-01) ----------------------------------------------------------------
 
     private static String nombreDelCompradorEnElResumen(Receptor comprador, boolean alta) throws Exception {
