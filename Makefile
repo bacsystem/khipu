@@ -163,6 +163,7 @@ develop-datos: comprobar-despliegue ## Muestra qué datos tiene la base del desp
 	@migrada=$$($(SQL_DEVELOP) "select count(*) from information_schema.tables where table_name = 'cuenta'" 2>/dev/null | tr -d '[:space:]'); \
 	if [ "$$migrada" = "1" ]; then \
 		echo "Datos en develop: $$($(SQL_DEVELOP) "select (select count(*) from cuenta) || ' cuentas, ' || (select count(*) from tenant) || ' empresas, ' || (select count(*) from administrador) || ' administradores'")"; \
+		echo "Padrón de RUC: $$($(SQL_DEVELOP) "select coalesce((select filas || ' filas, cargado el ' || (terminada at time zone 'America/Lima')::date from carga_padron_ruc where resultado = 'EXITOSA' order by terminada desc limit 1), 'sin cargar (la búsqueda por RUC no responde; ver README, Padrón de RUC)')")"; \
 	elif [ -n "$$migrada" ]; then \
 		echo "Datos en develop: base nueva, todavía sin migrar (el backend la migra al arrancar)"; \
 	else \
