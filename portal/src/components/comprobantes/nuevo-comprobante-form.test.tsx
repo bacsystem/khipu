@@ -726,6 +726,7 @@ describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
+    await waitFor(() => expect(calculos(fetch)).toHaveLength(1));
     abrir();
     fireEvent.change(screen.getByLabelText(/Orden de compra/), { target: { value: "OC-2026-0457" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
@@ -738,6 +739,9 @@ describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
     fireEvent.change(screen.getByLabelText("Tipo del documento 1"), { target: { value: "05" } });
     fireEvent.change(screen.getByLabelText("Número del documento 1"), { target: { value: "SCOP-8841203" } });
     fireEvent.change(screen.getByLabelText(/Observaciones/), { target: { value: "Entrega en almacén central." } });
+    // Pasado el rebote del cálculo, escribir esto no pidió otro: no cambia importes.
+    await new Promise((r) => setTimeout(r, 700));
+    expect(calculos(fetch)).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
