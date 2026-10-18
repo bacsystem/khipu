@@ -73,6 +73,10 @@ export type ItemComprobante = {
   hidrobiologico?: Hidrobiologico | null;
   /** Detracción 1004: origen, destino, detalle del viaje y valores referenciales del transporte de carga. */
   transporte?: TransporteCarga | null;
+  /** Otros tributos (9999): la tasa pedida y el monto calculado sobre el valor de venta. Suman al precio de la línea y no a la base del IGV. */
+  otros_tributos?: { tasa: number; monto: number } | null;
+  /** Placa del vehículo (propiedad 7000 del catálogo 55). */
+  placa?: string | null;
 };
 
 export type Hidrobiologico = { matricula: string; nombre_embarcacion: string; especie: string; lugar_descarga: string; fecha_descarga: string; cantidad: number };
@@ -329,6 +333,8 @@ export type Comprobante = {
     exportacion?: number;
     isc?: number;
     icbper?: number;
+    /** Total de otros tributos (9999): suma al precio de venta y no entra en la base del IGV. */
+    otros_tributos?: number;
     descuento_global?: DescuentoAplicado | null;
     /** Cargos globales aplicados (49 afecta la base del IGV; 46/50 no). */
     cargos?: CargoAplicado[] | null;
