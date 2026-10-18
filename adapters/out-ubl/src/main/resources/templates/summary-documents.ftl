@@ -48,15 +48,15 @@
     <#-- 2514/2016: el comprador va siempre; sin documento (hasta S/ 700) con guion en tipo y número.
          #362 B13: el campo 10.3 (cac:PartyLegalEntity/cbc:RegistrationName, condicional) entra en el Resumen Diario 2.0 el 2027-01-01 y la 2022 pasa de OBS a ERROR. Antes
          SUNAT beta aceptaba el resumen sin él (RC-20261013-3 y -4); como la 2022 solo valida el formato si el tag existe, se envía ya: de 3 a 250 caracteres (2022) y sin los
-         espacios de los extremos. La boleta exige de 3 a 1500 sin contar los extremos, así que el nombre siempre cabe; solo se recorta el exceso. -->
-    <#assign nombreComprador = (c.receptor().razonSocial()!"")?trim>
+         espacios de los extremos. La boleta exige de 3 a 1500 sin contar los extremos, así que el nombre siempre cabe; solo se recorta el exceso (en Java, sin partir un
+         par de sustitutos: FreeMarker corta por unidades UTF-16 y un emoji en el límite dejaba el XML inválido). -->
     <cac:AccountingCustomerParty>
       <cbc:CustomerAssignedAccountID>${c.receptor().numDoc()}</cbc:CustomerAssignedAccountID>
       <cbc:AdditionalAccountID>${c.receptor().tipoDoc()}</cbc:AdditionalAccountID>
       <#if nombreComprador?length gte 3>
       <cac:Party>
         <cac:PartyLegalEntity>
-          <cbc:RegistrationName>${nombreComprador?truncate_c(250, "")}</cbc:RegistrationName>
+          <cbc:RegistrationName>${nombreComprador}</cbc:RegistrationName>
         </cac:PartyLegalEntity>
       </cac:Party>
       </#if>
