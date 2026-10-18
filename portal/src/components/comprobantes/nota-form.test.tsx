@@ -170,6 +170,38 @@ describe("NotaForm — factura con anticipos que cubren el total (H3, revisión 
   });
 });
 
+describe("NotaForm — factura con un descuento que no afecta la base (#393)", () => {
+  // 10 panes a 1.18 con descuento 01 de 1.00 (no toca el IGV): el cliente pagó 10.80.
+  const conDescuento01 = () => documento("01", {
+    items: [{ codigo: null, descripcion: "Pan", unidad: "NIU", cantidad: 10, precio_unitario: 1.18, tipo_afectacion_igv: "10", valor_venta: 10, igv: 1.8, precio_venta: 10.8,
+      descuento: { tipo: "MONTO", valor: 1, monto: 1, afecta_base_igv: false, codigo: "01" } }] as unknown as Comprobante["items"],
+    totales: { gravado: 10, exonerado: 0, inafecto: 0, igv: 1.8, total: 10.8 },
+  });
+
+  it("la anulación no sale como «nota total»: se pide por ítems y lo explica", async () => {
+    stubApi();
+    render(<NotaForm factura={conDescuento01()} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    expect(screen.getByText(/descuento que no afecta la base del IGV/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Cantidad de Pan en la nota")).toBeInTheDocument();
+  });
+
+  it("la línea viaja por su importe neto y sin descuento: la API no admite un 01 en una nota", async () => {
+    const fetch = stubApi();
+    render(<NotaForm factura={conDescuento01()} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Anulación de la operación" } });
+    fireEvent.change(screen.getByLabelText("Cantidad de Pan en la nota"), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
+    await waitFor(() => expect(notasEnviadas(fetch)).toHaveLength(1));
+    const linea = (notasEnviadas(fetch)[0].items as Array<Record<string, unknown>>)[0];
+    expect(linea.descuento).toBeUndefined();
+    expect(linea.precio_unitario).toBe(1.08);
+  });
+});
+
 describe("NotaForm — Idempotency-Key (#355)", () => {
   /** Como `stubApi`, pero cada POST a /notas responde lo que diga `respuestas` en orden (un `Error` es un corte de red: `fetch` rechaza). */
   function stubConCortes(respuestas: Array<Response | Error>) {

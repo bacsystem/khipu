@@ -9,7 +9,7 @@ import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
-import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, topePorTributo } from "@/lib/comprobantes/notas";
+import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, tieneDescuentoQueNoAfectaLaBase, topePorTributo } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
@@ -93,7 +93,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const esNc = tipo === "07";
   // Con anticipos regularizados la nota "total" no puede copiar la factura (iría por el bruto, SUNAT compara con el neto): se pide por ítems.
   const conAnticipos = (factura.anticipos?.length ?? 0) > 0;
-  const esTotal = esNc && MOTIVOS_NC_TOTAL.has(motivo) && !conAnticipos;
+  // #393: lo mismo con un descuento que no afecta la base (01 de línea, 03 global): la nota no lo admite (3280) y se pide por ítems, por el importe neto.
+  const conDescuentoSinBase = tieneDescuentoQueNoAfectaLaBase(factura);
+  const esTotal = esNc && MOTIVOS_NC_TOTAL.has(motivo) && !conAnticipos && !conDescuentoSinBase;
   const esCuotas = esNc && motivo === "13";
   const esImporte = esNc && MOTIVOS_NC_IMPORTE.has(motivo);
   const esParcial = esNc && motivo !== "" && !esTotal && !esCuotas && !esImporte;
@@ -367,6 +369,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
               ? factura.totales.total > 0
                 ? `La factura regularizó anticipos (neto ${formatearMonto(factura.moneda, factura.totales.total)}): ajuste las cantidades para que la nota no supere ese importe. `
                 : `La factura regularizó anticipos y su neto es ${formatearMonto(factura.moneda, factura.totales.total)}: no hay nota posible (SUNAT rechaza las líneas en cero y una nota por más que el total); anúlela con una baja. `
+              : ""}
+            {conDescuentoSinBase && MOTIVOS_NC_TOTAL.has(motivo)
+              ? "La factura tiene un descuento que no afecta la base del IGV y una nota no puede llevarlo: las líneas con ese descuento van por lo que se pagó (el importe neto) y se muestran sin descuento. "
               : ""}
             Ponga 0 en los ítems que no entran en la nota. Un descuento o cargo de línea en porcentaje acompaña a la cantidad; los de monto fijo solo se conservan con la cantidad facturada.
           </p>
