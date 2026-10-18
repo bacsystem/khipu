@@ -69,6 +69,25 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     expect(emisiones(fetch)[0]).toMatchObject({ serie: "B001", cliente: { tipo_doc: "-", num_doc: "-", razon_social: "CLIENTES VARIOS" } });
   });
 
+  /** #299: el catálogo 06 completo que acepta `Receptor.DOCUMENTOS_BOLETA`: antes el formulario solo ofrecía DNI, carné, pasaporte y RUC. */
+  it("ofrece todos los documentos del catálogo 06 y manda el elegido con su número", async () => {
+    const fetch = stubEmision();
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+
+    const select = screen.getByLabelText("Documento del comprador");
+    expect([...select.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["1", "4", "7", "6", "0", "A", "B", "C", "D", "E", "F", "G", "H", "-"]);
+
+    fireEvent.change(select, { target: { value: "A" } });
+    fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "CD-1234 " } });
+    expect(screen.getByLabelText("Número de documento")).toHaveValue("CD-1234");   // sin espacios (4208)
+    fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "Embajada de Chile" } });
+    linea("Pan", "5");
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ cliente: { tipo_doc: "A", num_doc: "CD-1234", razon_social: "Embajada de Chile" } });
+  });
+
   it("sin documento por más de S/ 700 avisa y no emite: SUNAT exige identificar al comprador", async () => {
     const fetch = stubEmision();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
