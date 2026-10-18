@@ -24,6 +24,12 @@ describe("itemParaNota", () => {
     expect(itemParaNota(conCargoMonto, 3).cargos).toBeUndefined();
   });
 
+  it("reenvía los otros tributos (9999, solo la tasa) y la placa de la línea (#314)", () => {
+    const grifo: ItemComprobante = { ...conCargoPorcentaje, cargos: null, otros_tributos: { tasa: 3.5, monto: 6.2 }, placa: "ABC-123" };
+    expect(itemParaNota(grifo, 2)).toMatchObject({ otros_tributos: { tasa: 3.5 }, placa: "ABC-123" });
+    expect(itemParaNota(conCargoPorcentaje, 2)).toMatchObject({ otros_tributos: undefined, placa: undefined });
+  });
+
   it("aplica la misma regla al descuento de línea", () => {
     const conDescuento = { ...conCargoPorcentaje, cargos: null, descuento: { tipo: "PORCENTAJE" as const, valor: 5, monto: 50, afecta_base_igv: true, codigo: "00" } };
     expect(itemParaNota(conDescuento, 3).descuento).toEqual({ porcentaje: 5, afecta_base_igv: true });

@@ -319,6 +319,14 @@ final class EscenariosFactura {
                 "\"motivo\":\"07\",\"descripcion\":\"Devolución parcial\",\"items\":[" +
                 "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
                 "\"descuento_global\":{\"porcentaje\":2},\"cargos\":[{\"monto\":5.00}],\"observaciones\":\"Devolución recibida en tienda.\"}"));
+        // #314 (seguimiento de #401): la NC parcial desde el portal reenvía el 9999 y la placa de la línea. Va con su propia factura: la NC total del escenario 61 agota la del 59.
+        todos.add(new Escenario("77-factura-para-nc-parcial-otros-tributos", "Factura con otros tributos (9999) y placa, para una NC parcial",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Diésel B5\",\"unidad\":\"GLL\",\"cantidad\":10,\"precio_unitario\":17.70,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":3.5},\"placa\":\"ABC-123\"}]}"));
+        todos.add(new Escenario("78-nc-parcial-otros-tributos", "NC parcial (07) que reenvía otros tributos (9999) y la placa de la línea", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${OTROS_TRIBUTOS_PARCIAL}}," +
+                "\"motivo\":\"07\",\"descripcion\":\"Devolución de combustible\",\"items\":[" +
+                "{\"descripcion\":\"Diésel B5\",\"unidad\":\"GLL\",\"cantidad\":2,\"precio_unitario\":17.70,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":3.5},\"placa\":\"ABC-123\"}]}"));
         return todos;
     }
 

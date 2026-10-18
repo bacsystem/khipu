@@ -66,6 +66,9 @@ export function itemParaNota(item: ItemComprobante, cantidad: number) {
     cargos: cargos.length ? cargos : undefined,
     isc: item.isc ? iscParaNota(item.isc) : undefined,
     icbper: item.icbper ? true : undefined,
+    // #314: los otros tributos (9999) van por su tasa, que el backend aplica a la cantidad de la nota; la placa acompaña a la línea (propiedad 7000).
+    otros_tributos: item.otros_tributos ? { tasa: item.otros_tributos.tasa } : undefined,
+    placa: item.placa ?? undefined,
     codigo_sunat: item.codigo_sunat ?? undefined,
     gtin: item.gtin ?? undefined,
   };
