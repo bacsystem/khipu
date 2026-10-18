@@ -22,6 +22,7 @@ import { listarPaises } from "@/lib/comprobantes/paises";
 import { avisoDeDetraccion, DETRACCION_VACIA, detraccionAApi, errorDeDetraccion, operacionDeDetraccion, type DetraccionForm } from "@/lib/comprobantes/detraccion";
 import { errorDePercepcion, OPERACION_PERCEPCION, PERCEPCION_VACIA, percepcionAApi, type PercepcionForm } from "@/lib/comprobantes/percepcion";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
+import { errorDeReferencias, hayReferencias, REFERENCIAS_VACIAS, referenciasAApi, type ReferenciasForm } from "@/lib/comprobantes/referencias";
 import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm } from "@/lib/comprobantes/tributos";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
@@ -35,6 +36,7 @@ import { AjusteEditor } from "./ajuste-editor";
 import { CreditoEditor } from "./credito-editor";
 import { DetraccionEditor } from "./detraccion-editor";
 import { PercepcionEditor } from "./percepcion-editor";
+import { ReferenciasEditor } from "./referencias-editor";
 import { EstadoConsultaRuc } from "./estado-consulta-ruc";
 import { useConsultaRuc } from "./use-consulta-ruc";
 
@@ -169,6 +171,8 @@ export function NuevoComprobanteForm({
   const [detraccion, setDetraccion] = useState<DetraccionForm>(DETRACCION_VACIA);
   // #297: percepción del IGV (operación 2001), en soles y al contado; es excluyente con la detracción (cada una fija su tipo de operación).
   const [percepcion, setPercepcion] = useState<PercepcionForm>(PERCEPCION_VACIA);
+  // #300: orden de compra, guías, otros documentos relacionados y observaciones; no cambian importes, así que no entran en el cálculo.
+  const [referencias, setReferencias] = useState<ReferenciasForm>(REFERENCIAS_VACIAS);
   const [pais, setPais] = useState("");
   const [incoterm, setIncoterm] = useState("");
   const [paisDeUso, setPaisDeUso] = useState("");
@@ -264,6 +268,7 @@ export function NuevoComprobanteForm({
   const conPercepcion = percepcion.activa && operacion === "0101" && !conDetraccion;
   const operacionEnviada = conDetraccion ? operacionDeDetraccion(detraccion.codigo) : conPercepcion ? OPERACION_PERCEPCION : operacion;
   const errorDetraccion = conDetraccion ? errorDeDetraccion(detraccion, moneda) : null;
+  const errorReferencias = errorDeReferencias(referencias, boleta);
   const errorPercepcion = conPercepcion ? errorDePercepcion(percepcion, { moneda, alCredito: alCredito && !boleta }) : null;
   const errorExportacion = errorDeExportacion({ operacion, incoterm, paisDeUso, paisDelComprador: pais }, boleta);
   // En una exportación el comprador es del exterior: se elige su documento (como en la boleta) en vez de pedir un RUC.
@@ -298,7 +303,7 @@ export function NuevoComprobanteForm({
   const hayAjusteInvalido =
     errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
     lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null || errorDeIsc(l.isc) !== null) ||
-    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null;
+    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null || errorReferencias !== null;
 
   /**
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
@@ -311,6 +316,7 @@ export function NuevoComprobanteForm({
       moneda,
       tipo_operacion: operacionEnviada === "0101" ? undefined : operacionEnviada,
       detraccion: conDetraccion ? detraccionAApi(detraccion, moneda) : undefined,
+      ...(paraCalcular ? {} : referenciasAApi(referencias, boleta)),
       percepcion: conPercepcion ? percepcionAApi(percepcion, { moneda, alCredito: alCredito && !boleta }) : undefined,
       exportacion: exportacion && (incoterm || paisDeUso) ? { incoterm: incoterm || undefined, pais_uso: paisDeUso || undefined } : undefined,
       cliente: paraCalcular
@@ -400,7 +406,7 @@ export function NuevoComprobanteForm({
       return;
     }
     if (hayAjusteInvalido) {
-      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
+      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? errorReferencias ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
       return;
     }
     if (errorCredito) {
@@ -924,6 +930,14 @@ export function NuevoComprobanteForm({
             {/* #310: descuento global (02/03) y cargos globales (46 recargo al consumo, 49, 50). */}
             <AjusteEditor id="nc-desc-global" etiqueta="Descuento global" clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} />
             <AjusteEditor id="nc-cargo-global" etiqueta="Cargo global" clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} ofreceRecargoConsumo />
+          </div>
+        </details>
+
+        {/* #300: datos adicionales, colapsados; se abren solos si ya hay algo escrito. */}
+        <details className="rounded-xl border border-border px-3 py-2" data-testid="datos-adicionales" open={hayReferencias(referencias)}>
+          <summary className="cursor-pointer text-[13px] font-medium">Datos adicionales: guías, documentos relacionados y observaciones</summary>
+          <div className="mt-3">
+            <ReferenciasEditor valor={referencias} onCambio={setReferencias} boleta={boleta} />
           </div>
         </details>
 

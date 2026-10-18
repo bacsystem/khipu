@@ -535,6 +535,31 @@ function percepcionMock(operacion: string | undefined, percepcion: PercepcionPed
   return { percepcion: { regimen: percepcion.regimen, descripcion: r.descripcion, porcentaje: r.tasa, base, monto, total_con_percepcion: Math.round((total + monto) * 100) / 100 } };
 }
 
+/** Las reglas de dominio de las referencias (#300): guía 4005/4006/2364, documento 4009/4010/2365, orden de compra 4233 (solo factura) y observaciones de hasta 1000. */
+type ReferenciasPedido = { orden_compra?: string; guias?: Array<{ tipo: string; numero: string }>; documentos_relacionados?: Array<{ tipo: string; numero: string }>; observaciones?: string };
+const NUMERO_GUIA_MOCK = /^(T[A-Z0-9]{3}|[0-9]{4}|EG0[1-4]|EG07|G[0-9]{3}|V[A-Z0-9]{3})-[0-9]{1,8}$/;
+function referenciasMock(body: ReferenciasPedido, boleta: boolean): { error?: Response; referencias?: NonNullable<Comprobante["referencias"]> | null; observaciones?: string | null } {
+  const invalida = (mensaje: string) => ({ error: fail(422, "DOCUMENTO_RELACIONADO_INVALIDO", mensaje) });
+  const oc = body.orden_compra;
+  if (oc !== undefined && (oc.length < 1 || oc.length > 20 || /[\u0000-\u001f]/.test(oc))) return invalida("4233 - La orden de compra debe tener de 1 a 20 caracteres, sin saltos de línea ni tabuladores");
+  const guias = body.guias ?? [];
+  for (const g of guias) {
+    if (!["09", "31"].includes(g.tipo)) return invalida("4005 - El tipo de guía relacionada debe ser 09 (remitente) o 31 (transportista)");
+    if (!NUMERO_GUIA_MOCK.test(g.numero)) return invalida(`4006 - El número de guía ${g.numero} no tiene el formato serie-número esperado (p. ej. T001-123, EG01-45)`);
+  }
+  if (new Set(guias.map((g) => `${g.tipo}|${g.numero}`)).size < guias.length) return invalida("2364 - La misma guía de remisión aparece más de una vez");
+  const docs = body.documentos_relacionados ?? [];
+  for (const d of docs) {
+    if (!["04", "05", "06", "07", "08", "09", "99"].includes(d.tipo)) return invalida("4009 - El tipo de documento relacionado debe ser 04–09 o 99 (catálogo 12); los anticipos van en `anticipos`");
+    if (d.numero.length < 1 || d.numero.length > 30 || /\s/.test(d.numero)) return invalida("4010 - El número del documento relacionado debe tener de 1 a 30 caracteres sin espacios");
+    if (boleta && ["06", "07"].includes(d.tipo)) return invalida(`4009 - El documento relacionado de tipo ${d.tipo} no se admite en una boleta (solo 04, 05, 08, 09 o 99, catálogo 12): SUNAT la observaría; es válido solo en factura`);
+  }
+  if (new Set(docs.map((d) => `${d.tipo}|${d.numero}`)).size < docs.length) return invalida("2365 - El mismo documento relacionado aparece más de una vez");
+  if ((body.observaciones ?? "").length > 1000) return { error: fail(422, "VALIDACION", "observaciones: tamaño debe estar entre 0 y 1000") };
+  const hay = oc !== undefined || guias.length > 0 || docs.length > 0;
+  return { referencias: hay ? { orden_compra: oc ?? null, guias: guias.length ? guias : null, documentos_relacionados: docs.length ? docs : null } : null, observaciones: body.observaciones ?? null };
+}
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -2644,6 +2669,8 @@ export const handlers = [
     if (det.error) return det.error;
     const per = percepcionMock((body as { tipo_operacion?: string }).tipo_operacion, (body as { percepcion?: PercepcionPedido }).percepcion, body.moneda, (body as { forma_pago?: FormaPagoPedido }).forma_pago?.tipo === "credito", t.total);
     if (per.error) return per.error;
+    const refs = referenciasMock(body as ReferenciasPedido, boleta);
+    if (refs.error) return refs.error;
     const id = nuevoId("f");
     const comprobante: Comprobante = {
       id,
@@ -2665,6 +2692,8 @@ export const handlers = [
       forma_pago: "formaPago" in forma ? forma.formaPago : { tipo: "contado", monto_pendiente: null, cuotas: [] },
       detraccion: det.detraccion ?? null,
       percepcion: per.percepcion ?? null,
+      referencias: refs.referencias,
+      observaciones: refs.observaciones,
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },
     };
     db.facturasPorEmpresa.set(empresaId, [comprobante, ...(db.facturasPorEmpresa.get(empresaId) ?? [])]);
