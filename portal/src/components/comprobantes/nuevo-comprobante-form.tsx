@@ -15,6 +15,7 @@ import type { Serie } from "@/lib/api/series";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { MAX_LINEAS } from "@/lib/comprobantes/limites";
 import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
+import { anticiposAApi, errorDeAnticipos, type AnticipoForm } from "@/lib/comprobantes/anticipos";
 import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { CREDITO_VACIO, errorDeCredito, formaPagoAApi, type CreditoForm } from "@/lib/comprobantes/credito";
 import { documentosDeExportacion, errorDeExportacion, esExportacion, EXIGE_PAIS_DE_USO, INCOTERMS, OPERACIONES } from "@/lib/comprobantes/operaciones";
@@ -33,11 +34,13 @@ import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempote
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { AjusteEditor } from "./ajuste-editor";
+import { AnticiposEditor } from "./anticipos-editor";
 import { CreditoEditor } from "./credito-editor";
 import { DetraccionEditor } from "./detraccion-editor";
 import { PercepcionEditor } from "./percepcion-editor";
 import { ReferenciasEditor } from "./referencias-editor";
 import { EstadoConsultaRuc } from "./estado-consulta-ruc";
+import { useAnticiposDisponibles } from "./use-anticipos-disponibles";
 import { useConsultaRuc } from "./use-consulta-ruc";
 
 /**
@@ -175,6 +178,10 @@ export function NuevoComprobanteForm({
   const [referencias, setReferencias] = useState<ReferenciasForm>(REFERENCIAS_VACIAS);
   // Abierta por quien la abre (no por si hay algo escrito: al borrar lo escrito se cerraba sola mientras se usaba).
   const [datosAbiertos, setDatosAbiertos] = useState(false);
+  // #312: anticipos. `esAnticipo` solo ayuda a describir la línea (SUNAT no marca la factura de anticipo); `anticiposAbierto` activa la búsqueda de los del cliente.
+  const [esAnticipo, setEsAnticipo] = useState(false);
+  const [anticiposAbierto, setAnticiposAbierto] = useState(false);
+  const [anticiposElegidos, setAnticiposElegidos] = useState<AnticipoForm[]>([]);
   const [pais, setPais] = useState("");
   const [incoterm, setIncoterm] = useState("");
   const [paisDeUso, setPaisDeUso] = useState("");
@@ -271,6 +278,11 @@ export function NuevoComprobanteForm({
   const operacionEnviada = conDetraccion ? operacionDeDetraccion(detraccion.codigo) : conPercepcion ? OPERACION_PERCEPCION : operacion;
   const errorDetraccion = conDetraccion ? errorDeDetraccion(detraccion, moneda) : null;
   const errorReferencias = errorDeReferencias(referencias, boleta);
+  const documentoDelCliente = sinDocumento ? "" : numDoc.trim();
+  const disponibles = useAnticiposDisponibles(anticiposAbierto || anticiposElegidos.length > 0, documentoDelCliente, moneda);
+  // Lo elegido para otro cliente u otra moneda ya no está entre los candidatos y no se manda.
+  const anticiposVigentes = disponibles.estado === "listo" ? anticiposElegidos.filter((a) => disponibles.candidatos.some((c) => c.serie === a.serie && c.numero === a.numero)) : [];
+  const errorAnticipos = errorDeAnticipos(anticiposVigentes, disponibles.candidatos);
   const errorPercepcion = conPercepcion ? errorDePercepcion(percepcion, { moneda, alCredito: alCredito && !boleta }) : null;
   const errorExportacion = errorDeExportacion({ operacion, incoterm, paisDeUso, paisDelComprador: pais }, boleta);
   // En una exportación el comprador es del exterior: se elige su documento (como en la boleta) en vez de pedir un RUC.
@@ -305,7 +317,7 @@ export function NuevoComprobanteForm({
   const hayAjusteInvalido =
     errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
     lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null || errorDeIsc(l.isc) !== null) ||
-    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null;
+    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null || errorAnticipos !== null;
 
   /**
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
@@ -319,6 +331,7 @@ export function NuevoComprobanteForm({
       tipo_operacion: operacionEnviada === "0101" ? undefined : operacionEnviada,
       detraccion: conDetraccion ? detraccionAApi(detraccion, moneda) : undefined,
       ...(paraCalcular ? {} : referenciasAApi(referencias, boleta)),
+      anticipos: anticiposAApi(anticiposVigentes, disponibles.candidatos),
       percepcion: conPercepcion ? percepcionAApi(percepcion, { moneda, alCredito: alCredito && !boleta }) : undefined,
       exportacion: exportacion && (incoterm || paisDeUso) ? { incoterm: incoterm || undefined, pais_uso: paisDeUso || undefined } : undefined,
       cliente: paraCalcular
@@ -413,7 +426,7 @@ export function NuevoComprobanteForm({
       return;
     }
     if (hayAjusteInvalido) {
-      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
+      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? errorAnticipos ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
       return;
     }
     if (errorCredito) {
@@ -937,6 +950,38 @@ export function NuevoComprobanteForm({
             {/* #310: descuento global (02/03) y cargos globales (46 recargo al consumo, 49, 50). */}
             <AjusteEditor id="nc-desc-global" etiqueta="Descuento global" clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} />
             <AjusteEditor id="nc-cargo-global" etiqueta="Cargo global" clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} ofreceRecargoConsumo />
+          </div>
+        </details>
+
+        {/* #312: anticipos. Una factura de anticipo es común; la final descuenta los del mismo cliente. */}
+        <details className="rounded-xl border border-border px-3 py-2" data-testid="anticipos" open={anticiposAbierto || anticiposElegidos.length > 0} onToggle={(e) => setAnticiposAbierto((e.currentTarget as HTMLDetailsElement).open)}>
+          <summary className="cursor-pointer text-[13px] font-medium">Anticipos</summary>
+          <div className="mt-3 grid gap-3">
+            <label className="flex items-center gap-2 text-[13px] font-medium">
+              <input
+                type="checkbox"
+                checked={esAnticipo}
+                onChange={(e) => {
+                  setEsAnticipo(e.target.checked);
+                  if (e.target.checked) {
+                    setAnticiposElegidos([]);
+                    setLineas((prev) => prev.map((l, n) => (n === 0 && l.descripcion.trim() === "" ? { ...l, descripcion: "Anticipo por " } : l)));
+                  }
+                }}
+                className="size-3.5 accent-primary"
+              />
+              Esta {nombre} es un anticipo
+            </label>
+            {esAnticipo ? (
+              <p className={AYUDA_CAMPO} data-testid="anticipo-ayuda">
+                Se emite como cualquier {nombre}. Cuando entregue el bien o servicio, en la {nombre} final elija este anticipo en «Descontar anticipos» para regularizarlo.
+              </p>
+            ) : (
+              <div className="grid gap-2">
+                <div className={ETIQUETA_CAMPO}>Descontar anticipos</div>
+                <AnticiposEditor disponibles={disponibles} elegidos={anticiposVigentes} onCambio={setAnticiposElegidos} moneda={moneda} hayCliente={documentoDelCliente !== ""} />
+              </div>
+            )}
           </div>
         </details>
 

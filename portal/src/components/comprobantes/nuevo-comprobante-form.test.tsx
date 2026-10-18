@@ -824,6 +824,109 @@ describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
   });
 });
 
+describe("NuevoComprobanteForm — anticipos (#312)", () => {
+  const TOTALES = { gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 };
+  const receptor = (num: string) => ({ tipo_doc: "6", num_doc: num, razon_social: "Cliente SAC", direccion: null });
+  const anticipo = (n: number, extra: Record<string, unknown> = {}) => ({
+    id: `f-${n}`, tipo: "01", serie: "F001", numero: n, fecha_emision: "2026-09-01", moneda: "PEN", estado_documento: "ACEPTADO", receptor: receptor("20554198211"),
+    totales: { gravado: 500, exonerado: 0, inafecto: 0, igv: 90, total: 590 }, anticipos: null, ...extra,
+  });
+
+  /** El formulario más la lista de comprobantes que ve el editor de anticipos. */
+  function stubConLista(lista: unknown[], extra: Record<string, unknown> = {}) {
+    const base = stubConCalculo(TOTALES, undefined, extra);
+    const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>((url, init) =>
+      String(url).includes("/facturas?por_pagina=100")
+        ? Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos: lista, mensaje: null, codigo: null, errores: null })))
+        : base(url, init));
+    vi.stubGlobal("fetch", fetch);
+    return base;
+  }
+  function conComprador(ruc = "20554198211") {
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: ruc } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    linea("Obra", "1180");
+  }
+  const abrir = () => fireEvent.click(screen.getByText("Anticipos"));
+
+  it("lista los anticipos aceptados del cliente, con lo que queda por descontar, y propone descontarlo todo", async () => {
+    stubConLista([anticipo(1), anticipo(2, { receptor: receptor("20100066603") }), anticipo(3, { estado_documento: "RECHAZADO" })]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    abrir();
+    await waitFor(() => expect(screen.getByLabelText(/F001-1/)).toBeInTheDocument());
+    expect(screen.queryByLabelText(/F001-2/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/F001-3/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/F001-1/));
+    expect(screen.getByLabelText("Valor a descontar de F001-1")).toHaveValue("500.00");
+  });
+
+  it("lo elegido viaja en el cálculo y en la emisión con serie, número, monto y afectación", async () => {
+    const fetch = stubConLista([anticipo(1)], { anticipos: [{ comprobante: "F001-1", serie: "F001", numero: 1, monto: 300, importe_pagado: 354, afectacion: "gravado", codigo_sunat: "04", fecha_pago: null }] });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    abrir();
+    await waitFor(() => expect(screen.getByLabelText(/F001-1/)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(/F001-1/));
+    fireEvent.change(screen.getByLabelText("Valor a descontar de F001-1"), { target: { value: "300" } });
+    await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ anticipos: [{ serie: "F001", numero: 1, monto: 300, afectacion: "gravado" }] }));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ anticipos: [{ serie: "F001", numero: 1, monto: 300, afectacion: "gravado" }] });
+  });
+
+  it("no deja descontar más de lo disponible y descuenta lo ya regularizado por otras facturas", async () => {
+    const final = { id: "f-9", tipo: "01", serie: "F002", numero: 9, estado_documento: "ACEPTADO", moneda: "PEN", receptor: receptor("20554198211"),
+      totales: { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 }, anticipos: [{ comprobante: "F001-1", serie: "F001", numero: 1, monto: 200, importe_pagado: 236, afectacion: "gravado", codigo_sunat: "04", fecha_pago: null }] };
+    const fetch = stubConLista([anticipo(1), final]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    abrir();
+    await waitFor(() => expect(screen.getByLabelText(/F001-1/)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(/F001-1/));
+    expect(screen.getByLabelText("Valor a descontar de F001-1")).toHaveValue("300.00");
+    fireEvent.change(screen.getByLabelText("Valor a descontar de F001-1"), { target: { value: "301" } });
+    expect(screen.getByTestId("anticipos-error")).toHaveTextContent(/solo tiene 300\.00 por descontar en gravado \(ya se regularizaron 200\.00\)/);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    expect(emisiones(fetch)).toHaveLength(0);
+  });
+
+  it("un cliente sin anticipos lo dice, y sin documento pide el documento", async () => {
+    stubConLista([anticipo(1, { receptor: receptor("20100066603") })]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrir();
+    expect(screen.getByText(/Indique el documento del cliente/)).toBeInTheDocument();
+    conComprador();
+    await waitFor(() => expect(screen.getByTestId("anticipos-vacio")).toBeInTheDocument());
+  });
+
+  it("marcar la factura como anticipo no manda nada especial: sugiere la descripción y explica cómo se regulariza", async () => {
+    const fetch = stubConLista([]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "" } });
+    abrir();
+    fireEvent.click(screen.getByLabelText("Esta factura es un anticipo"));
+    expect(screen.getByLabelText("Descripción")).toHaveValue("Anticipo por ");
+    expect(screen.getByTestId("anticipo-ayuda")).toHaveTextContent(/Descontar anticipos/);
+    expect(screen.queryByTestId("anticipos-form")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Anticipo por obra" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).not.toHaveProperty("anticipos");
+  });
+
+  it("la boleta también descuenta anticipos de su comprador", async () => {
+    stubConLista([anticipo(1, { tipo: "03", serie: "B001", receptor: { tipo_doc: "1", num_doc: "12345678", razon_social: "Juan", direccion: null } })]);
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "12345678" } });
+    fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "Juan Pérez" } });
+    linea("Pan", "5");
+    abrir();
+    await waitFor(() => expect(screen.getByLabelText(/B001-1/)).toBeInTheDocument());
+  });
+});
+
 describe("NuevoComprobanteForm — boleta (#20)", () => {
   it("sin documento manda «-» como tipo y número, con el nombre por defecto", async () => {
     const fetch = stubEmision();

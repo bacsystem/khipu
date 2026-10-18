@@ -793,3 +793,38 @@ test("emite con orden de compra, guía, documento relacionado y observaciones, y
   await expect(referencias).toContainText("SCOP-8841203");
   await expect(page.getByTestId("observaciones")).toContainText("Entrega en almacén central.");
 });
+
+test("emite un anticipo y luego la factura final que lo descuenta: el pie y la ficha muestran lo descontado (#312)", async ({ page }) => {
+  const ruc = "20131312955";
+  // 1) La factura de anticipo es una factura común; el formulario ayuda a describirla.
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  let dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("RUC").fill(ruc);
+  await dialogo.getByLabel("Razón social").fill("SUPERINTENDENCIA NACIONAL DE ADUANAS");
+  await dialogo.getByLabel("Descripción").fill("");
+  await dialogo.getByText("Anticipos", { exact: true }).click();
+  await dialogo.getByLabel("Esta factura es un anticipo").check();
+  await expect(dialogo.getByLabel("Descripción")).toHaveValue("Anticipo por ");
+  await dialogo.getByLabel("Descripción").fill("Anticipo por obra");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("590");
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+
+  // 2) La factura final del mismo cliente elige el anticipo y descuenta su valor sin IGV.
+  await page.goto("/comprobantes");
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("RUC").fill(ruc);
+  await dialogo.getByLabel("Razón social").fill("SUPERINTENDENCIA NACIONAL DE ADUANAS");
+  await dialogo.getByLabel("Descripción").fill("Obra completa");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+  await dialogo.getByText("Anticipos", { exact: true }).click();
+  await dialogo.getByRole("checkbox", { name: /F001-\d+ .*por descontar/ }).first().check();
+  await expect(dialogo.getByLabel(/Valor a descontar de F001-/)).toHaveValue("500.00");
+  // Los 590.00 del anticipo (500 + IGV) salen del total: 1,180.00 − 590.00.
+  await expect(dialogo.getByTestId("total-a-pagar")).toContainText("590.00");
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  await expect(page.getByTestId("anticipos")).toContainText("F001-");
+  await expect(page.getByText("Anticipos ya pagados (con IGV)")).toBeVisible();
+});
