@@ -144,6 +144,8 @@ class HomologacionBetaTest {
             if (e.id().startsWith("04-")) numeros.put("MIXTA", num.longValue());
             if (e.id().startsWith("44-")) numeros.put("DESC_MIXTO", num.longValue());
             if (e.id().startsWith("45-")) numeros.put("BOLETA_DESC", num.longValue());
+            if (e.id().startsWith("49-")) numeros.put("BOLETA_EXPORTACION", num.longValue());
+            if (e.id().startsWith("50-")) ids.put("BOLETA_EXPORTACION_SERVICIO", String.valueOf(datos.get("id")));
             if (e.id().startsWith("26-")) numeros.put("EXPORTACION", num.longValue());
             if (e.id().startsWith("40-")) numeros.put("DESC_ITEM", num.longValue());
             if (e.id().startsWith("41-")) numeros.put("DESC_GLOBAL", num.longValue());
@@ -190,6 +192,11 @@ class HomologacionBetaTest {
      */
     @org.junit.jupiter.api.Test void zzBajaDeBoletaConGratuita() throws Exception {
         darDeBaja("33-baja-boleta", "Baja (RC, estado 3) de la boleta con bonificación gratuita", ids.get("BOLETA_GRATUITA"), "la boleta con gratuita (32)");
+    }
+
+    /** Baja (RC, estado 3) de la boleta de exportación de servicios del escenario 50 (#296): la línea lleva el valor de venta de exportación (cat. 11, 04). */
+    @org.junit.jupiter.api.Test void zzBajaDeBoletaDeExportacion() throws Exception {
+        darDeBaja("53-baja-boleta-exportacion", "Baja (RC, estado 3) de la boleta de exportación de servicios", ids.get("BOLETA_EXPORTACION_SERVICIO"), "la boleta de exportación (50)");
     }
 
     /**

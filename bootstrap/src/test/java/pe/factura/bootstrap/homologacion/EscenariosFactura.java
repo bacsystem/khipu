@@ -37,6 +37,7 @@ final class EscenariosFactura {
     static List<Escenario> todos(String serie, String serieAnexo, LocalDate fecha) {
         String cab = "\"serie\":\"" + serie + "\",\"fecha_emision\":\"" + fecha + "\"";
         String cabAnexo = "\"serie\":\"" + serieAnexo + "\",\"fecha_emision\":\"" + fecha + "\"";
+        String cabBoleta = "\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\"";
         return List.of(
             new Escenario("01-gravada", "Venta interna gravada al contado",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
@@ -209,7 +210,25 @@ final class EscenariosFactura {
             // turístico (0202, 0205) nunca llegan a e-beta: se frenan por el huésped.
             new Escenario("47-no-domiciliado", "Venta a no domiciliado que no califica como exportación (0401)",
                 "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"0401\"," + CLIENTE + ",\"items\":[" +
-                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]}")
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            // #296: la exportación y el 0401 en boleta. e-beta acepta al comprador con pasaporte, con DNI y sin documento, y rechaza con 2800 al comprador con RUC (Boleta2_0 fila 93).
+            new Escenario("49-boleta-exportacion", "Boleta de exportación de bienes (0200) a un comprador con pasaporte, afectación 40 e Incoterm FOB",
+                "{" + cabBoleta + ",\"tipo_operacion\":\"0200\",\"moneda\":\"USD\"," +
+                "\"cliente\":{\"tipo_doc\":\"7\",\"num_doc\":\"US123456\",\"razon_social\":\"JOHN SMITH\",\"pais\":\"US\"}," +
+                "\"items\":[{\"codigo\":\"CAF-01\",\"descripcion\":\"Café verde en grano\",\"unidad\":\"KGM\",\"cantidad\":10,\"precio_unitario\":4.50,\"tipo_afectacion_igv\":\"40\"}]," +
+                "\"exportacion\":{\"incoterm\":\"FOB\"}}"),
+            new Escenario("50-boleta-exportacion-servicio", "Boleta de exportación de servicios (0201) con el país de uso",
+                "{" + cabBoleta + ",\"tipo_operacion\":\"0201\",\"moneda\":\"USD\"," +
+                "\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\",\"pais\":\"US\"}," +
+                "\"items\":[{\"descripcion\":\"Servicio de consultoría\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":50.00,\"tipo_afectacion_igv\":\"40\"}]," +
+                "\"exportacion\":{\"pais_uso\":\"US\"}}"),
+            new Escenario("51-boleta-no-domiciliado", "Boleta a no domiciliado sin documento (0401), hasta S/ 700",
+                "{" + cabBoleta + ",\"tipo_operacion\":\"0401\",\"moneda\":\"PEN\"," +
+                "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            new Escenario("52-nc-boleta-exportacion", "NC total (01) sobre la boleta de exportación", NOTAS,
+                "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_EXPORTACION}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}")
         );
     }
 
