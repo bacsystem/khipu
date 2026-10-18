@@ -307,6 +307,12 @@ final class EscenariosFactura {
                 "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
                 "\"guias\":[{\"tipo\":\"09\",\"numero\":\"T001-123\"},{\"tipo\":\"31\",\"numero\":\"V001-45\"}]," +
                 "\"documentos_relacionados\":[{\"tipo\":\"04\",\"numero\":\"ENAPU-0001\"},{\"tipo\":\"99\",\"numero\":\"OTRO-77\"}]}"));
+        // #313: con retención el formulario del portal propone como neto pendiente el total menos la retención (1180.00 − 35.40); SUNAT solo exige que no pase del total (3265) y que las cuotas lo sumen (3319).
+        todos.add(new Escenario("74-retencion-al-credito", "Factura al crédito con retención (62): neto pendiente = total − retención",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"retencion_igv\":{\"porcentaje\":3}," +
+                "\"forma_pago\":{\"tipo\":\"credito\",\"monto_pendiente\":1144.60,\"cuotas\":[{\"monto\":572.30,\"vencimiento\":\"" + fecha.plusDays(30) + "\"},{\"monto\":572.30,\"vencimiento\":\"" + fecha.plusDays(60) + "\"}]}}"));
         return todos;
     }
 
