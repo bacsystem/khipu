@@ -15,6 +15,8 @@ import type { Serie } from "@/lib/api/series";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { MAX_LINEAS } from "@/lib/comprobantes/limites";
 import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
+import { redondeoDe } from "@/lib/comprobantes/redondeo";
+import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, hoyLima } from "@/lib/formato";
@@ -148,6 +150,8 @@ export function NuevoComprobanteForm({
   const [razonSocial, setRazonSocial] = useState("");
   const [direccion, setDireccion] = useState("");
   const [lineas, setLineas] = useState<Linea[]>([{ ...LINEA_VACIA }]);
+  // #358: ajuste del importe total para cobrar en efectivo sin céntimos (`PayableRoundingAmount`). Texto, para poder escribir «-» y «0.» sin que el campo lo reescriba.
+  const [redondeoTexto, setRedondeoTexto] = useState("");
   const [detalle, setDetalle] = useState<number | null>(null);
   const [unidades, setUnidades] = useState<EntradaCatalogo[] | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -233,8 +237,41 @@ export function NuevoComprobanteForm({
 
   const sinDocumento = boleta && tipoDoc === SIN_DOCUMENTO;
   const documento = DOCUMENTOS_BOLETA.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_BOLETA[0];
+  const redondeo = redondeoDe(redondeoTexto);
+
+  /**
+   * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
+   * calcular se manda un comprador de relleno válido, porque los importes no dependen de él y un RUC a medio teclear haría que el dominio rechace todo.
+   */
+  function armarCuerpo(paraCalcular: boolean) {
+    return {
+      serie,
+      fecha_emision: fecha,
+      moneda,
+      cliente: paraCalcular
+        ? boleta
+          ? { tipo_doc: "1", num_doc: "12345678", razon_social: "Comprador" }
+          : { tipo_doc: "6", num_doc: "20131312955", razon_social: "Cliente" }
+        : { tipo_doc: tipoDoc, num_doc: sinDocumento ? SIN_DOCUMENTO : numDoc.trim(), razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined },
+      items: lineasCompletas.map((l) => ({
+        descripcion: l.descripcion.trim(),
+        unidad: l.unidad,
+        cantidad: l.cantidad,
+        precio_unitario: l.precioUnitario ?? 0,
+        tipo_afectacion_igv: l.tipoAfectacionIgv,
+      })),
+      redondeo: redondeo.valor ?? undefined,
+    };
+  }
+  // Con líneas completas y un redondeo legible se le pide el cálculo al backend; sin ellas, o si no responde, el pie usa el cálculo local.
+  const calculo = useCalculo(lineasCompletas.length > 0 && redondeo.error === null && serie ? armarCuerpo(true) : null);
+  // Lo que se muestra en el pie: los importes del backend cuando respondió; si no, la aproximación local (sin descuentos, cargos, ISC ni redondeo).
+  const delServidor = calculo.estado === "listo" ? calculo.totales : null;
+  const mostrados = delServidor
+    ? { gravado: delServidor.gravado, exonerado: delServidor.exonerado, inafecto: delServidor.inafecto, gratuito: delServidor.gratuito ?? 0, igv: delServidor.igv, total: delServidor.total }
+    : { ...totales, total: totales.total + (redondeo.valor ?? 0) };
   // Sin tipo de cambio no hay cómo comparar otra moneda con S/ 700: el backend exige el documento, y aquí se avisa antes.
-  const superaTopeSinDocumento = sinDocumento && (moneda !== "PEN" || totales.total > TOPE_SIN_DOCUMENTO);
+  const superaTopeSinDocumento = sinDocumento && (moneda !== "PEN" || mostrados.total > TOPE_SIN_DOCUMENTO);
 
   /** Al pasar a «sin documento» el nombre se completa con el habitual; al volver a un documento, ese nombre de relleno se quita. */
   function cambiarTipoDoc(nuevo: string) {
@@ -265,14 +302,7 @@ export function NuevoComprobanteForm({
     (document.activeElement as HTMLElement | null)?.blur();
     setError(null);
     setLlevaAlPlan(false);
-    const items = lineasCompletas.map((l) => ({
-      descripcion: l.descripcion.trim(),
-      unidad: l.unidad,
-      cantidad: l.cantidad,
-      precio_unitario: l.precioUnitario ?? 0,
-      tipo_afectacion_igv: l.tipoAfectacionIgv,
-    }));
-    if (items.length === 0) {
+    if (lineasCompletas.length === 0) {
       setError("Agrega al menos un ítem con descripción, cantidad y precio.");
       return;
     }
@@ -281,18 +311,11 @@ export function NuevoComprobanteForm({
       return;
     }
 
-    const factura = {
-      serie,
-      fecha_emision: fecha,
-      moneda,
-      cliente: {
-        tipo_doc: tipoDoc,
-        num_doc: sinDocumento ? SIN_DOCUMENTO : numDoc.trim(),
-        razon_social: razonSocial.trim(),
-        direccion: direccion.trim() || undefined,
-      },
-      items,
-    };
+    if (redondeo.error) {
+      setError(redondeo.error);
+      return;
+    }
+    const factura = armarCuerpo(false);
     intento.current = intentoPara(intento.current, JSON.stringify(factura));
 
     setEnviando(true);
@@ -351,7 +374,7 @@ export function NuevoComprobanteForm({
     <form onSubmit={onSubmit} onKeyDown={sinEnvioImplicito} className="flex min-h-0 flex-1 flex-col" data-testid="form-nuevo-comprobante">
       {/* El scroll vive solo en la lista de ítems: así la serie, la fecha y el cliente quedan siempre a la vista
           por largo que sea el comprobante. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
       <div className="grid items-start gap-4 sm:grid-cols-3">
         <Campo id="nc-serie" etiqueta="Serie" ayuda="Correlativo automático">
           <select id="nc-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(CAMPO_DENSO, "font-mono")}>
@@ -500,7 +523,7 @@ export function NuevoComprobanteForm({
         )}
       </section>
 
-      <section className="flex min-h-0 flex-1 flex-col gap-3">
+      <section className="flex min-h-[11rem] flex-1 flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className={ETIQUETA_CAMPO}>
             Ítems <span className="font-normal text-muted-foreground">· {lineas.length}</span>
@@ -611,6 +634,30 @@ export function NuevoComprobanteForm({
         </div>
       </section>
 
+        {/* #358: ajustes poco frecuentes del comprobante. Cerrado por defecto: la vista básica es la de siempre. Los issues siguientes (#310, #300, #309…) agregan sus campos acá. */}
+        <details className="rounded-xl border border-border px-3 py-2" data-testid="mas-opciones" open={redondeoTexto !== ""}>
+          <summary className="cursor-pointer text-[13px] font-medium">Más opciones del comprobante</summary>
+          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            <Campo id="nc-redondeo" etiqueta="Redondeo" ayuda={redondeo.error ?? "Entre -1.00 y 1.00, p. ej. -0.05 para cobrar en efectivo sin céntimos"}>
+              <input
+                id="nc-redondeo"
+                value={redondeoTexto}
+                onChange={(e) => setRedondeoTexto(e.target.value)}
+                inputMode="decimal"
+                placeholder="0.00"
+                aria-invalid={redondeo.error !== null}
+                className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
+              />
+            </Campo>
+          </div>
+        </details>
+
+        {calculo.estado === "rechazado" ? (
+          <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="calculo-rechazado">
+            {calculo.mensaje}
+          </p>
+        ) : null}
+
         {error ? (
           <div ref={alertaRef} tabIndex={-1} className="outline-none">
             <Alerta
@@ -634,15 +681,17 @@ export function NuevoComprobanteForm({
         <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
           <dl className={cn(AYUDA_CAMPO, "flex flex-wrap items-baseline gap-x-4 gap-y-0.5")}>
             {[
-              { etiqueta: "Gravado", monto: totales.gravado, siempre: true },
-              { etiqueta: "Exonerado", monto: totales.exonerado, siempre: false },
-              { etiqueta: "Inafecto", monto: totales.inafecto, siempre: false },
-              { etiqueta: "Gratuito", monto: totales.gratuito, siempre: false },
+              { etiqueta: "Gravado", monto: mostrados.gravado, siempre: true },
+              { etiqueta: "Exonerado", monto: mostrados.exonerado, siempre: false },
+              { etiqueta: "Inafecto", monto: mostrados.inafecto, siempre: false },
+              { etiqueta: "Gratuito", monto: mostrados.gratuito, siempre: false },
               // Mientras la empresa carga no se sabe si es 18 % o la reducida del padrón: se muestra sin tasa en
               // vez de afirmar una que puede cambiarle los importes bajo los ojos un instante después.
-              { etiqueta: tasaIgv === null ? "IGV" : `IGV (${tasaIgv} %)`, monto: totales.igv, siempre: true },
+              { etiqueta: tasaIgv === null ? "IGV" : `IGV (${tasaIgv} %)`, monto: mostrados.igv, siempre: true },
+              // Solo los conoce el backend (#405): aparecen cuando respondió.
+              { etiqueta: "Redondeo", monto: delServidor?.redondeo ?? 0, siempre: false },
             ]
-              .filter((f) => f.siempre || f.monto > 0)
+              .filter((f) => f.siempre || f.monto !== 0)
               .map((f) => (
                 <Fragment key={f.etiqueta}>
                   <dt className="after:content-[':']">{f.etiqueta}</dt>
@@ -661,7 +710,7 @@ export function NuevoComprobanteForm({
           <div className="flex items-baseline gap-2">
             <span className={cn(ETIQUETA_CAMPO, "text-muted-foreground")}>Total a pagar</span>
             <span className="font-mono text-lg font-semibold tabular-nums" data-testid="total-a-pagar">
-              {formatearMonto(moneda, totales.total)}
+              {formatearMonto(moneda, mostrados.total)}
             </span>
           </div>
         </div>
