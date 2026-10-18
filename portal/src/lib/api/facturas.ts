@@ -325,7 +325,7 @@ export type Comprobante = {
     igv_gratuitas?: number;
     /** IVAP (tributo 1016, 4 % en vez del IGV): solo en comprobantes con afectación 17. */
     ivap?: number;
-    /** Valor de venta de exportación (tributo 9995, sin IGV): solo en facturas 0200–0208. */
+    /** Valor de venta de exportación (tributo 9995, sin IGV): solo en comprobantes 0200–0208 (factura o boleta). */
     exportacion?: number;
     isc?: number;
     icbper?: number;
