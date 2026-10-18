@@ -13,9 +13,4 @@ public interface OutboxRepository {
     void completar(UUID id);
     /** Saca de la cola la tarea {@code accion} de ese agregado, si la hay (p. ej. cuando un administrador descarta un envío, #196). No hace nada si no existe. */
     void completarPorAgregado(UUID agregadoId, String accion);
-    /**
-     * Hace que la tarea {@code accion} de {@code anterior}, si la hay, sea la de {@code nuevo}: la misma fila, con su id, su horario y su lock (#338, un resumen
-     * caducado que otro reemplaza). No hace nada si no existe.
-     */
-    void reasignar(UUID anterior, String accion, UUID nuevo);
 }

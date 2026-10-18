@@ -65,11 +65,7 @@ public class OutboxWorker {
                     // más de 10 min es normal), y borrar la fila al intento 20 dejaba el comprobante «en curso» para siempre —bloqueado
                     // para otra baja y para notas— y, si SUNAT sí lo anuló, ACEPTADO en khipu. ENVIADA: consulta con intervalo
                     // creciente hasta 5 min; ERROR_ENVIO: backoff, hasta que venza el plazo (FUERA_DE_PLAZO descarta arriba).
-                    // #338: otro proceso descartó este RC mientras la fila esperaba y la pasó a su reemplazo (OutboxRepository.reasignar). Borrarla dejaba
-                    // al RC nuevo sin reintento: se reprograma pronto (sin el backoff que arrastra la fila del viejo) y la próxima vuelta sigue con el reemplazo.
-                    if (b.estado() == ComunicacionBaja.EstadoBaja.DESCARTADA)
-                        outbox.reprogramar(fila.id(), clock.instant().plus(DarDeBajaService.REINTENTO_CONSULTA), b.ultimoError());
-                    else if (!b.pendiente()) outbox.completar(fila.id());
+                    if (!b.pendiente()) outbox.completar(fila.id());
                     else outbox.reprogramar(fila.id(),
                             b.estado() == ComunicacionBaja.EstadoBaja.ENVIADA ? clock.instant().plus(DarDeBajaService.consultaTicket(fila.intentos() + 1)) : Backoff.siguiente(fila.intentos() + 1, clock.instant()),
                             b.ultimoError());

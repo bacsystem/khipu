@@ -27,11 +27,6 @@ import java.util.UUID;
 @Getter
 public class ComunicacionBaja {
     public static final int PLAZO_DIAS = 7;
-    /**
-     * Desde cuándo el resumen diario informa las gratuitas por afectación (catálogo 11: 06, 07, 08; el 05 se desactiva) y su IGV en 9996 «GRA» (Control de Cambios
-     * de SUNAT, filas 516 y 543, postergadas del 2026-08-01 al 2027-01-01; #289). Decide la fecha de generación del resumen (#337): ver {@link #formatoCaducado}.
-     */
-    public static final LocalDate GRATUITAS_POR_AFECTACION_DESDE = LocalDate.of(2027, 1, 1);
     private static final DateTimeFormatter FECHA_ID = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final UUID id;
@@ -83,14 +78,11 @@ public class ComunicacionBaja {
         if (!c.soloPorResumen(hoy))
             throw new DomainException("RESUMEN_INVALIDO", c.serie() + "-" + c.numero() + " no va en el resumen diario: todavía va sola, o es una nota de crédito 10 o de débito 03");
         if (correlativoDelDia < 1) throw new DomainException("RESUMEN_INVALIDO", "El correlativo del día debe ser mayor que cero");
-        return new ComunicacionBaja(UUID.randomUUID(), c.tenantId(), hoy, correlativoDelDia, c.id(), c.tipo(), true, c.serie(), c.numero(), c.fechaEmision(),
-                motivoDeAlta(c.informaFueraDePlazo(hoy)), Condicion.ALTA, EstadoBaja.GENERADA);
-    }
-
-    private static String motivoDeAlta(boolean fueraDePlazo) {
-        return fueraDePlazo
+        String motivo = c.informaFueraDePlazo(hoy)
                 ? "Pasó el 7.º día: se informa en el resumen diario fuera de plazo (SUNAT puede observarla con 4443)"
                 : "Pasó el envío individual: se informa en el resumen diario";
+        return new ComunicacionBaja(UUID.randomUUID(), c.tenantId(), hoy, correlativoDelDia, c.id(), c.tipo(), true, c.serie(), c.numero(), c.fechaEmision(),
+                motivo, Condicion.ALTA, EstadoBaja.GENERADA);
     }
 
     /**
@@ -140,75 +132,6 @@ public class ComunicacionBaja {
 
     /** Si informa una boleta (alta) en vez de anularla. */
     public boolean alta() { return condicion == Condicion.ALTA; }
-
-    /** Si este resumen informa las gratuitas por afectación (06–08 y 9996) o con el 05: lo decide su fecha de generación (#337). */
-    public boolean gratuitasPorAfectacion() { return !fechaGeneracion.isBefore(GRATUITAS_POR_AFECTACION_DESDE); }
-
-    /**
-     * #338: un RC con gratuitas generado hasta el 2026-12-31 (con el 05) que SUNAT todavía no recibió (sin ticket) y se intenta desde el 2027-01-01: lleva el 05
-     * ya desactivado y SUNAT lo rechazaría. No se puede corregir su fecha (la del ID es la de generación, 2346): se reemplaza por uno nuevo ({@link #regenerar}).
-     * {@code hoy} es la fecha de Lima, la del {@code clock}: el cruce es a la medianoche de Lima, no de UTC. Un RA no lleva totales y no cambia.
-     */
-    public boolean formatoCaducado(Comprobante c, LocalDate hoy) {
-        return resumenDiario() && sinEnviar() && !gratuitasPorAfectacion() && !hoy.isBefore(GRATUITAS_POR_AFECTACION_DESDE)
-                && c.id().equals(comprobanteId) && c.totales().tieneGratuitas();
-    }
-
-    /**
-     * La baja ya no se puede presentar hoy: pasaron los 7 días desde la emisión (2957, el mismo tope que {@link #crear}). SUNAT lo mide al recibirla, así que una
-     * baja admitida el 7.º día que hay que regenerar al 8.º ya no está en plazo. Un alta no vence: fuera de plazo SUNAT no la rechaza (puede observarla con la 4443).
-     */
-    public boolean plazoVencido(LocalDate hoy) { return !alta() && ChronoUnit.DAYS.between(fechaReferencia, hoy) > PLAZO_DIAS; }
-
-    /**
-     * #338: el mismo resumen, generado de nuevo hoy, para reemplazar a este cuando su formato caducó ({@link #formatoCaducado}): otro correlativo, la fecha y el
-     * formato de hoy, el mismo comprobante, la misma condición y el mismo motivo. Un alta se vuelve a juzgar con la fecha nueva (#331): pasado el 7.º día sale
-     * fuera de plazo. Una baja con el plazo vencido no se regenera (2957: ver {@link #plazoVencido} y {@link #rechazarPorPlazo}).
-     */
-    public ComunicacionBaja regenerar(int correlativoDelDia, Clock clock) {
-        LocalDate hoy = LocalDate.now(clock);
-        if (!resumenDiario() || !sinEnviar())
-            throw new DomainException("RESUMEN_INVALIDO", "Solo se regenera un resumen diario que SUNAT todavía no recibió; " + identificador() + " está " + estado);
-        if (plazoVencido(hoy))
-            throw new DomainException("BAJA_INVALIDA", "2957 - El plazo para dar de baja " + serie + "-" + numero + " venció: se emitió el " + fechaReferencia
-                    + " y la comunicación debe presentarse dentro de los " + PLAZO_DIAS + " días calendario siguientes a su emisión");
-        if (correlativoDelDia < 1) throw new DomainException("RESUMEN_INVALIDO", "El correlativo del día debe ser mayor que cero");
-        boolean fueraDePlazo = alta() && ChronoUnit.DAYS.between(fechaReferencia, hoy) > PlazoEnvio.DIAS_RESUMEN_DIARIO;
-        return new ComunicacionBaja(UUID.randomUUID(), tenantId, hoy, correlativoDelDia, comprobanteId, tipoComprobante, deBoleta, serie, numero, fechaReferencia,
-                alta() ? motivoDeAlta(fueraDePlazo) : motivo, condicion, EstadoBaja.GENERADA);
-    }
-
-    /** #338: este resumen caducó y lo reemplaza {@code nuevo}: queda DESCARTADO, fuera de todo reintento, y dice cuál lo reemplazó. */
-    public void reemplazarPor(ComunicacionBaja nuevo) {
-        transitar(EstadoBaja.DESCARTADA);
-        this.ultimoError = "Reemplazado por " + nuevo.identificador() + ": generado con el código 05 de las gratuitas, que SUNAT desactivó el "
-                + GRATUITAS_POR_AFECTACION_DESDE + ", y todavía sin enviar";
-    }
-
-    /**
-     * #338: un envío de este resumen que ya estaba en vuelo cuando otro proceso lo descartó llegó igual a SUNAT. No revive (sigue DESCARTADO: lo que sigue es el
-     * que lo reemplazó), pero el ticket queda anotado para poder revisarlo en SUNAT.
-     */
-    public void registrarEnvioTardio(String ticket) {
-        if (estado != EstadoBaja.DESCARTADA) throw new DomainException("TRANSICION_INVALIDA", "Solo un resumen descartado registra un envío tardío; " + identificador() + " está " + estado);
-        this.ticket = ticket;
-        this.ultimoError = ultimoError + ". Un envío que ya estaba en curso llegó igual a SUNAT (ticket " + ticket + "): khipu no lo sigue, sigue con el que lo reemplazó";
-    }
-
-    /**
-     * #338: la baja caducó y ya no se puede regenerar en plazo ({@link #plazoVencido}). No se envía: SUNAT la rechazaría con 2957. Queda RECHAZADA con ese código,
-     * como si SUNAT lo hubiera dicho, y el comprobante sigue vigente (se corrige con una nota de crédito).
-     */
-    public void rechazarPorPlazo(LocalDate hoy) {
-        if (!plazoVencido(hoy)) throw new DomainException("TRANSICION_INVALIDA", "La baja " + identificador() + " todavía está en plazo");
-        transitar(EstadoBaja.RECHAZADA);
-        this.cdr = new Cdr("2957", "El plazo para dar de baja venció: el comprobante se emitió el " + fechaReferencia + " y la comunicación debía presentarse dentro de los "
-                + PLAZO_DIAS + " días calendario siguientes. " + identificador() + " no se envió: tenía el código 05 de las gratuitas, que SUNAT desactivó el "
-                + GRATUITAS_POR_AFECTACION_DESDE + ", y uno nuevo llegaría fuera de plazo", java.util.List.of());
-    }
-
-    /** Firmado y guardado, pero sin ticket de SUNAT: generado o con el envío fallido. */
-    private boolean sinEnviar() { return estado == EstadoBaja.GENERADA || estado == EstadoBaja.ERROR_ENVIO; }
 
     /** {@code RA-20260918-1} (o {@code RC-…} para una boleta o una nota que la modifica): cbc:ID y parte del nombre de archivo (reglas 2220, 2346). */
     public String identificador() { return (resumenDiario() ? "RC-" : "RA-") + fechaGeneracion.format(FECHA_ID) + "-" + correlativo; }
@@ -262,14 +185,13 @@ public class ComunicacionBaja {
         /** XML firmado y guardado; aún no enviada. */ GENERADA,
         /** SUNAT devolvió ticket; el CDR se recoge con getStatus. */ ENVIADA,
         /** sendSummary no obtuvo ticket (transitorio); se reintenta el envío. */ ERROR_ENVIO,
-        ACEPTADA, RECHAZADA,
-        /** #338: sin enviar, caducó (su formato ya no vale) y otro resumen lo reemplaza. Terminal: nadie lo reintenta. */ DESCARTADA;
+        ACEPTADA, RECHAZADA;
 
         public boolean puedeTransitarA(EstadoBaja d) {
             return switch (this) {
-                case GENERADA, ERROR_ENVIO -> d == ENVIADA || d == ERROR_ENVIO || d == RECHAZADA || d == DESCARTADA;
+                case GENERADA, ERROR_ENVIO -> d == ENVIADA || d == ERROR_ENVIO || d == RECHAZADA;
                 case ENVIADA -> d == ACEPTADA || d == RECHAZADA;
-                case ACEPTADA, RECHAZADA, DESCARTADA -> false;
+                case ACEPTADA, RECHAZADA -> false;
             };
         }
     }
