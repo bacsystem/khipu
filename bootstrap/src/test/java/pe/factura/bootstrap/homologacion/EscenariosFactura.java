@@ -228,7 +228,22 @@ final class EscenariosFactura {
                 "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}"),
             new Escenario("52-nc-boleta-exportacion", "NC total (01) sobre la boleta de exportación", NOTAS,
                 "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_EXPORTACION}}," +
-                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}")
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"),
+            // #295: anticipos en boleta (Boleta2_0 3211–3220, 3287). El comprobante del anticipo es una boleta (03) o una factura (02) del mismo comprador.
+            new Escenario("54-boleta-anticipo", "Boleta de anticipo (paso 1 de 2)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":[" +
+                "{\"descripcion\":\"Anticipo por obra\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":590.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            new Escenario("55-boleta-anticipo-final", "Boleta final que regulariza el anticipo de una boleta (paso 2 de 2)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":[" +
+                "{\"descripcion\":\"Obra completa\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":2360.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"anticipos\":[{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_ANTICIPO},\"monto\":500.00}]}"),
+            new Escenario("56-factura-anticipo-para-boleta", "Factura de anticipo que regulariza una boleta (paso 1 de 2)",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Anticipo por obra\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            new Escenario("57-boleta-anticipo-de-factura", "Boleta final con RUC que regulariza el anticipo de una factura (paso 2 de 2)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Obra completa\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":3540.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"anticipos\":[{\"serie\":\"" + serie + "\",\"numero\":${ANTICIPO_PARA_BOLETA},\"monto\":1000.00}]}")
         );
     }
 

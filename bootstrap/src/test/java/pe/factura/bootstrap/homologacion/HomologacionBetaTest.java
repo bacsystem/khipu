@@ -146,6 +146,9 @@ class HomologacionBetaTest {
             if (e.id().startsWith("45-")) numeros.put("BOLETA_DESC", num.longValue());
             if (e.id().startsWith("49-")) numeros.put("BOLETA_EXPORTACION", num.longValue());
             if (e.id().startsWith("50-")) ids.put("BOLETA_EXPORTACION_SERVICIO", String.valueOf(datos.get("id")));
+            if (e.id().startsWith("54-")) numeros.put("BOLETA_ANTICIPO", num.longValue());
+            if (e.id().startsWith("55-")) ids.put("BOLETA_CON_ANTICIPO", String.valueOf(datos.get("id")));
+            if (e.id().startsWith("56-")) numeros.put("ANTICIPO_PARA_BOLETA", num.longValue());
             if (e.id().startsWith("26-")) numeros.put("EXPORTACION", num.longValue());
             if (e.id().startsWith("40-")) numeros.put("DESC_ITEM", num.longValue());
             if (e.id().startsWith("41-")) numeros.put("DESC_GLOBAL", num.longValue());
@@ -197,6 +200,11 @@ class HomologacionBetaTest {
     /** Baja (RC, estado 3) de la boleta de exportación de servicios del escenario 50 (#296): la línea lleva el valor de venta de exportación (cat. 11, 04). */
     @org.junit.jupiter.api.Test void zzBajaDeBoletaDeExportacion() throws Exception {
         darDeBaja("53-baja-boleta-exportacion", "Baja (RC, estado 3) de la boleta de exportación de servicios", ids.get("BOLETA_EXPORTACION_SERVICIO"), "la boleta de exportación (50)");
+    }
+
+    /** Baja (RC, estado 3) de la boleta final que regulariza un anticipo (escenario 55, #295): el RC informa el importe de la boleta, no el de sus anticipos. */
+    @org.junit.jupiter.api.Test void zzBajaDeBoletaConAnticipo() throws Exception {
+        darDeBaja("58-baja-boleta-anticipo", "Baja (RC, estado 3) de la boleta que regulariza un anticipo", ids.get("BOLETA_CON_ANTICIPO"), "la boleta con anticipo (55)");
     }
 
     /**
