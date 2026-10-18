@@ -217,7 +217,6 @@ public class Comprobante {
         private void exigirSoloLoQueEmiteUnaBoleta(String operacion) {
             if (formaPago.esCredito()) throw new DomainException("FORMA_PAGO_INVALIDA", "Una boleta se emite al contado: la venta al crédito va en factura");
             if (retencion != null) throw new DomainException("RETENCION_INVALIDA", "La retención del IGV la hace un agente de retención con RUC: va en factura, no en boleta");
-            if (anticipos != null && !anticipos.isEmpty()) throw new DomainException("ANTICIPO_INVALIDO", "Los anticipos todavía no se descuentan en boletas: emítela sin anticipos o como factura");
             // Lista blanca (274-H2): del catálogo 51 que aplica a boletas, solo aquellos cuyos datos khipu arma en el XML. Otros (exportación, 0401 a no
             // domiciliados, 0302 con medio de pago…) consumían número y SUNAT los rechazaba.
             if (!OPERACIONES_EN_BOLETA.contains(operacion))

@@ -40,11 +40,11 @@
   <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">${c.moneda()}</cbc:DocumentCurrencyCode>
 <@u.ordenCompra/>
 <@u.guiasYOtrosDocumentos/>
-  <#-- Facturas de anticipo que se regularizan (reglas 2505, 2520, 2521, 3214–3218): el identificador de pago enlaza con cac:PrepaidPayment. -->
+  <#-- Facturas (02) y boletas (03) de anticipo que se regularizan (reglas 2505, 2520, 2521, 3214–3218): el identificador de pago enlaza con cac:PrepaidPayment. -->
   <#list tot.anticipos() as ac>
   <cac:AdditionalDocumentReference>
     <cbc:ID>${ac.anticipo().comprobante()}</cbc:ID>
-    <cbc:DocumentTypeCode listName="Documento Relacionado" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo12">${statics["pe.factura.domain.documento.Anticipo"].TIPO_COMPROBANTE}</cbc:DocumentTypeCode>
+    <cbc:DocumentTypeCode listName="Documento Relacionado" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo12">${ac.anticipo().tipoComprobante()}</cbc:DocumentTypeCode>
     <cbc:DocumentStatusCode listName="Anticipo" listAgencyName="PE:SUNAT">${(ac?index + 1)?c}</cbc:DocumentStatusCode>
     <cac:IssuerParty>
       <cac:PartyIdentification><cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${t.ruc()}</cbc:ID></cac:PartyIdentification>

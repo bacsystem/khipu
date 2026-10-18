@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Boleta de venta (03, #20): se envía sola con sendBill como una factura. Lo que cambia es el receptor (Boleta2_0: DNI, otros documentos o, hasta S/ 700, sin documento)
- * y que crédito, retención, anticipos y exportación todavía no se emiten en boleta.
+ * y que crédito y retención todavía no se emiten en boleta.
  */
 class BoletaTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));

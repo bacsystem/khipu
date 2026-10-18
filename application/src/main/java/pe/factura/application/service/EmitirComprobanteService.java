@@ -128,9 +128,9 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             if (!afectado.anticipos().isEmpty()) {
                 // Con neto 0.00 no hay nota posible: SUNAT rechaza la línea en cero (2369, 2370) y una nota por más que el total (3286). Pedir «items por el neto» sería un callejón.
                 if (afectado.totales().total().signum() == 0)
-                    throw new DomainException("NOTA_INVALIDA", "La factura " + nota.documentoAfectado() + " regularizó anticipos y su importe neto es " + afectado.totales().total()
+                    throw new DomainException("NOTA_INVALIDA", "La " + nombre(tipoAfectado) + " " + nota.documentoAfectado() + " regularizó anticipos y su importe neto es " + afectado.totales().total()
                             + ": no hay importe que acreditar con una nota (SUNAT rechaza las líneas en cero, 2369 y 2370, y una nota por más que el total, 3286); para anularla use la comunicación de baja");
-                throw new DomainException("NOTA_INVALIDA", "La factura " + nota.documentoAfectado() + " regularizó anticipos: indique los items de la nota por el importe neto ("
+                throw new DomainException("NOTA_INVALIDA", "La " + nombre(tipoAfectado) + " " + nota.documentoAfectado() + " regularizó anticipos: indique los items de la nota por el importe neto ("
                         + afectado.totales().total() + ") en vez de omitirlos");
             }
             // Sin ítems se copian descuento y cargos del documento; aceptar otros en silencio daría una nota distinta de la pedida.
@@ -321,19 +321,20 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     }
 
     /**
-     * La factura de anticipo debe ser de esta empresa y estar aceptada por SUNAT (regla 3218), al mismo cliente y en la misma
-     * moneda (2071), y el monto que se regulariza —sumado a lo ya regularizado en otras facturas finales— no puede superar lo
-     * que aquella facturó en esa afectación: SUNAT no cruza anticipos entre comprobantes, así que un doble descuento pasaría inadvertido.
+     * La factura o boleta de anticipo (la serie F o B decide cuál, #295) debe ser de esta empresa y estar aceptada por SUNAT (regla 3218), al mismo
+     * cliente y en la misma moneda (2071), y el monto que se regulariza —sumado a lo ya regularizado en otros comprobantes finales— no puede superar lo
+     * que aquel facturó en esa afectación: SUNAT no cruza anticipos entre comprobantes, así que un doble descuento pasaría inadvertido.
      */
     private void validarFacturaDeAnticipo(UUID tenantId, EmitirFacturaCommand cmd, Anticipo a) {
-        Comprobante origen = comprobantes.bloquearPorNumero(tenantId, TipoDocumento.FACTURA, a.serie(), a.numero())
-                .orElseThrow(() -> new DomainException("ANTICIPO_INVALIDO", "3218 - La factura de anticipo " + a.comprobante() + " no existe en esta empresa"));
+        String que = a.esDeBoleta() ? "La boleta" : "La factura";
+        Comprobante origen = comprobantes.bloquearPorNumero(tenantId, a.esDeBoleta() ? TipoDocumento.BOLETA : TipoDocumento.FACTURA, a.serie(), a.numero())
+                .orElseThrow(() -> new DomainException("ANTICIPO_INVALIDO", "3218 - " + que + " de anticipo " + a.comprobante() + " no existe en esta empresa"));
         if (origen.estado() != EstadoDocumento.ACEPTADO && origen.estado() != EstadoDocumento.ACEPTADO_CON_OBS)
-            throw new DomainException("ANTICIPO_INVALIDO", "3218 - La factura de anticipo " + a.comprobante() + " no está aceptada por SUNAT (estado " + origen.estado() + ")");
+            throw new DomainException("ANTICIPO_INVALIDO", "3218 - " + que + " de anticipo " + a.comprobante() + " no está aceptada por SUNAT (estado " + origen.estado() + ")");
         if (!origen.moneda().equals(cmd.moneda()))
-            throw new DomainException("ANTICIPO_INVALIDO", "2071 - La factura de anticipo " + a.comprobante() + " es en " + origen.moneda() + " y esta factura en " + cmd.moneda());
+            throw new DomainException("ANTICIPO_INVALIDO", "2071 - " + que + " de anticipo " + a.comprobante() + " es en " + origen.moneda() + " y este comprobante en " + cmd.moneda());
         if (!origen.receptor().numDoc().equals(cmd.receptor().numDoc()))
-            throw new DomainException("ANTICIPO_INVALIDO", "La factura de anticipo " + a.comprobante() + " fue emitida a otro cliente (RUC " + origen.receptor().numDoc() + ")");
+            throw new DomainException("ANTICIPO_INVALIDO", que + " de anticipo " + a.comprobante() + " fue emitida a otro cliente (documento " + origen.receptor().numDoc() + ")");
         BigDecimal facturado = switch (a.afectacion()) {
             case GRAVADO -> origen.totales().gravado();
             case EXONERADO -> origen.totales().exonerado();

@@ -471,6 +471,51 @@ class EmitirComprobanteServiceTest {
                 .hasMessageContaining("otro cliente");
     }
 
+    private EmitirFacturaCommand boleta(String precio, Receptor comprador, boolean enviar, Anticipo... anticipos) {
+        return new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101", comprador,
+                List.of(new Item("P1", "Obra", "NIU", BigDecimal.ONE, new BigDecimal(precio), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(anticipos), null, null, enviar);
+    }
+
+    /** #295: la boleta regulariza el anticipo de otra boleta (serie B, tipo 03) o de una factura (serie F, tipo 02) aceptada, del mismo comprador. */
+    @Test void unaBoletaDescuentaElAnticipoDeUnaBoletaAceptadaDelMismoComprador() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Receptor juan = new Receptor("1", "12345678", "JUAN PEREZ", null);
+        Comprobante anticipo = service.emitirFactura(tenantId, boleta("118.00", juan, true));   // B001-1: 100.00 gravado, ACEPTADO por el gateway fake
+        assertThat(anticipo.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+
+        Comprobante fin = service.emitirFactura(tenantId, boleta("1180.00", juan, true, new Anticipo("B001", anticipo.numero(), new BigDecimal("100.00"), null, null)));
+        assertThat(fin.tipo()).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(fin.totales().totalAnticipos()).isEqualByComparingTo("118.00");
+        assertThat(fin.totales().total()).isEqualByComparingTo("1062.00");
+        assertThat(fin.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        // El mismo anticipo no se regulariza dos veces en boletas: lo ya regularizado cuenta.
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, boleta("1180.00", juan, true, new Anticipo("B001", anticipo.numero(), new BigDecimal("0.01"), null, null))))
+                .hasMessageContaining("ya se regularizaron 100.00");
+    }
+
+    @Test void unaBoletaDescuentaElAnticipoDeUnaFacturaAceptada() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Comprobante anticipo = service.emitirFactura(tenantId, cmd(null, true));   // F001-1 al RUC 20601234565 por 100.00 gravado
+        Receptor mismoRuc = new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1");
+        Comprobante fin = service.emitirFactura(tenantId, boleta("1180.00", mismoRuc, true, new Anticipo("F001", anticipo.numero(), new BigDecimal("100.00"), null, null)));
+        assertThat(fin.tipo()).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(fin.totales().totalAnticipos()).isEqualByComparingTo("118.00");
+    }
+
+    @Test void elAnticipoDeBoletaSeRechazaSiNoExisteNoEstaAceptadoOEsDeOtroComprador() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Receptor juan = new Receptor("1", "12345678", "JUAN PEREZ", null);
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, boleta("1180.00", juan, false, new Anticipo("B001", 99, new BigDecimal("50.00"), null, null))))
+                .hasMessageContaining("3218").hasMessageContaining("La boleta de anticipo B001-99").hasMessageContaining("no existe");
+        Comprobante firmada = service.emitirFactura(tenantId, boleta("118.00", juan, false));   // queda FIRMADO
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, boleta("1180.00", juan, false, new Anticipo("B001", firmada.numero(), new BigDecimal("50.00"), null, null))))
+                .hasMessageContaining("3218").hasMessageContaining("FIRMADO");
+        Comprobante aceptada = service.emitirFactura(tenantId, boleta("118.00", juan, true));
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, boleta("1180.00", new Receptor("1", "87654321", "OTRO", null), false, new Anticipo("B001", aceptada.numero(), new BigDecimal("50.00"), null, null))))
+                .hasMessageContaining("otro cliente");
+    }
+
     /** La serie de un anexo emite con el domicilio del anexo (RegistrationAddress del XML); la del 0000, con el fiscal (#80). */
     @Test void laSerieDeUnEstablecimientoAnexoEmiteConSuDomicilio() {
         pe.factura.domain.tenant.Domicilio fiscal = pe.factura.domain.tenant.Domicilio.de("150101", "Av. Lima 123");

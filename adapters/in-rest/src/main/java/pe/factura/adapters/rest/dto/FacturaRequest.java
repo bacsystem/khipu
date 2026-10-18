@@ -256,8 +256,8 @@ public record FacturaRequest(
      * calcula el importe pagado (con IGV) y lo resta del total.
      */
     public record AnticipoDto(
-            @NotBlank @Pattern(regexp = "F[A-Z0-9]{3}", message = "serie de la factura de anticipo inválida") @Schema(example = "F001", description = "Serie de la factura de anticipo") String serie,
-            @NotNull @Positive @Schema(example = "120", description = "Número de la factura de anticipo, emitida por esta empresa y ACEPTADA por SUNAT") Long numero,
+            @NotBlank @Pattern(regexp = "[FB][A-Z0-9]{3}", message = "serie del comprobante de anticipo inválida") @Schema(example = "F001", description = "Serie del comprobante de anticipo: `F###` si fue una factura (tipo 02) o `B###` si fue una boleta (tipo 03); la serie decide el tipo") String serie,
+            @NotNull @Positive @Schema(example = "120", description = "Número de la factura o boleta de anticipo, emitida por esta empresa y ACEPTADA por SUNAT") Long numero,
             @NotNull @Schema(example = "1000.00", description = "Valor sin IGV que se regulariza; no puede superar lo facturado en el anticipo ni lo facturado en esta factura para la misma afectación") BigDecimal monto,
             @Pattern(regexp = "gravado|exonerado|inafecto") @Schema(example = "gravado", description = "Afectación del anticipo (catálogo 53): `gravado` (04, por defecto), `exonerado` (05) o `inafecto` (06). Decide de qué base se descuenta") String afectacion,
             @Schema(example = "2026-09-01", description = "Fecha en que se pagó el anticipo (opcional, informativa)") LocalDate fechaPago) {
