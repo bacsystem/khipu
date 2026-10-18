@@ -264,7 +264,7 @@ export function NuevoComprobanteForm({
   const conPercepcion = percepcion.activa && operacion === "0101" && !conDetraccion;
   const operacionEnviada = conDetraccion ? operacionDeDetraccion(detraccion.codigo) : conPercepcion ? OPERACION_PERCEPCION : operacion;
   const errorDetraccion = conDetraccion ? errorDeDetraccion(detraccion, moneda) : null;
-  const errorPercepcion = conPercepcion ? errorDePercepcion(percepcion, { moneda, alCredito }) : null;
+  const errorPercepcion = conPercepcion ? errorDePercepcion(percepcion, { moneda, alCredito: alCredito && !boleta }) : null;
   const errorExportacion = errorDeExportacion({ operacion, incoterm, paisDeUso, paisDelComprador: pais }, boleta);
   // En una exportación el comprador es del exterior: se elige su documento (como en la boleta) en vez de pedir un RUC.
   const usaSelectorDeDocumento = boleta || exportacion;
@@ -311,7 +311,7 @@ export function NuevoComprobanteForm({
       moneda,
       tipo_operacion: operacionEnviada === "0101" ? undefined : operacionEnviada,
       detraccion: conDetraccion ? detraccionAApi(detraccion, moneda) : undefined,
-      percepcion: conPercepcion ? percepcionAApi(percepcion, { moneda, alCredito }) : undefined,
+      percepcion: conPercepcion ? percepcionAApi(percepcion, { moneda, alCredito: alCredito && !boleta }) : undefined,
       exportacion: exportacion && (incoterm || paisDeUso) ? { incoterm: incoterm || undefined, pais_uso: paisDeUso || undefined } : undefined,
       cliente: paraCalcular
         ? exportacion
@@ -342,8 +342,8 @@ export function NuevoComprobanteForm({
   const completo = lineasCompletas.length > 0 && redondeo.error === null && !hayAjusteInvalido && serie;
   // Primero los importes sin forma de pago: el neto pendiente por defecto es el total que calcula el backend. Con crédito, un segundo cálculo lleva las cuotas.
   const calculoBase = useCalculo(completo ? armarCuerpo(true) : null);
-  // 3319: con detracción, el neto pendiente por defecto es lo que queda por cobrar (el total menos el depósito en la cuenta de detracciones); solo cuando ambos son en soles.
   const montoPercepcion = calculoBase.estado === "listo" ? (calculoBase.comprobante.percepcion?.monto ?? null) : null;
+  // 3319: con detracción, el neto pendiente por defecto es lo que queda por cobrar (el total menos el depósito en la cuenta de detracciones); solo cuando ambos son en soles.
   const montoDetraccion = calculoBase.estado === "listo" ? (calculoBase.comprobante.detraccion?.monto ?? null) : null;
   const netoBase = calculoBase.estado === "listo" ? calculoBase.totales.total - (moneda === "PEN" ? (montoDetraccion ?? 0) : 0) : totales.total + (redondeo.valor ?? 0);
   const errorCredito = alCredito && !boleta ? errorDeCredito(credito, netoBase, fecha) : null;
