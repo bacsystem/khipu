@@ -143,6 +143,33 @@ test("reenviar: un rechazo del backend se muestra en la ficha", async ({ page })
   await expect(page.getByRole("alert").filter({ hasText: "ya fue aceptado por SUNAT" })).toBeVisible();
 });
 
+test("una nota parcial lleva su fecha, descuento global, cargo y observaciones, y la ficha de la nota muestra las observaciones (#314)", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada");
+  await page.getByTestId("emitir-nota").click();
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución parcial con descuento");
+  // Cantidad chica a propósito: los tests de este archivo comparten la factura y cada NC baja el tope de las siguientes.
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("0.05");
+  await form.getByText("Descuento global y cargo de la nota").click();
+  await form.getByLabel("Descuento global de la nota: valor").fill("2");
+  await form.getByLabel("Cargo global de la nota: tipo").selectOption("monto");
+  await form.getByLabel("Cargo global de la nota: valor").fill("0.5");
+  await form.getByLabel(/Observaciones/).fill("Devolución recibida en tienda.");
+  const fecha = form.getByLabel("Fecha de emisión");
+  await expect(fecha).toHaveAttribute("max", /^\d{4}-\d{2}-\d{2}$/);
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  const cuerpo = (await peticion).postDataJSON();
+  expect(cuerpo).toMatchObject({
+    descuento_global: { porcentaje: 2, afecta_base_igv: true },
+    cargos: [{ monto: 0.5, afecta_base_igv: true }],
+    observaciones: "Devolución recibida en tienda.",
+  });
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+  await expect(page.getByTestId("observaciones")).toContainText("Devolución recibida en tienda.");
+});
+
 test("emite una nota de crédito parcial desde la factura y la factura la lista", async ({ page }) => {
   await page.goto("/comprobantes/f-aceptada");
   await page.getByTestId("emitir-nota").click();

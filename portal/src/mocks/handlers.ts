@@ -2880,7 +2880,7 @@ export const handlers = [
     // end of JSON input» de los logs—. El backend real responde 400 JSON_INVALIDO; el mock ahora también.
     type Ajuste = { porcentaje?: number; monto?: number; afecta_base_igv?: boolean };
     type ItemNota = { descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string; icbper?: boolean; descuento?: Ajuste; cargos?: Ajuste[]; isc?: { sistema: string; tasa?: number; monto_unitario?: number; base_pvp?: number } };
-    type CuerpoNota = { tipo: "07" | "08"; serie: string; fecha_emision: string; documento_afectado: { serie: string; numero: number }; motivo: string; descripcion: string; items?: ItemNota[] };
+    type CuerpoNota = { tipo: "07" | "08"; serie: string; fecha_emision: string; documento_afectado: { serie: string; numero: number }; motivo: string; descripcion: string; items?: ItemNota[]; descuento_global?: Ajuste; cargos?: Ajuste[]; observaciones?: string };
     let body: CuerpoNota;
     try {
       body = (await request.json()) as CuerpoNota;
@@ -3043,6 +3043,17 @@ export const handlers = [
       else t.inafecto += base;
       t.total += conImpuesto;
     }
+    // #314: descuento global y cargos propios de la nota parcial (NotaRequest): solo con ítems, y afectan la base del IGV (SUNAT no admite los otros, 3271/3277).
+    if ((body.descuento_global || body.cargos?.length) && !body.items?.length) return fail(422, "NOTA_INVALIDA", "El descuento global y los cargos solo se indican con `items`: la nota total copia los de la factura");
+    if (body.descuento_global?.afecta_base_igv === false) return fail(422, "DESCUENTO_INVALIDO", "Una nota no admite un descuento que no afecte la base del IGV (3271, 3277)");
+    if ((body.observaciones ?? "").length > 1000) return fail(422, "VALIDACION", "observaciones: tamaño debe estar entre 0 y 1000");
+    const ajusteGlobal = (a: Ajuste | undefined, signo: 1 | -1) => (a ? signo * (a.monto ?? ((t.gravado + t.exonerado + t.inafecto) * (a.porcentaje ?? 0)) / 100) : 0);
+    const delta = ajusteGlobal(body.descuento_global, -1) + (body.cargos ?? []).reduce((s, c) => s + ajusteGlobal(c, 1), 0);
+    if (delta !== 0) {
+      t.gravado += delta;
+      t.igv += delta * 0.18;
+      t.total += delta * 1.18;
+    }
     for (const k of Object.keys(t) as Array<keyof typeof t>) t[k] = Number(t[k].toFixed(2));
     const total = t.total;
     // 2062 (NC f401): el importe total de la nota no puede ser 0 —una NC solo de líneas gratuitas no acredita nada—.
@@ -3089,7 +3100,7 @@ export const handlers = [
     // La nota guarda las líneas con la forma de la respuesta (sin los ajustes en forma de request).
     const itemsNota = items.map((i) => ({ codigo: i.codigo ?? null, descripcion: i.descripcion, unidad: i.unidad, cantidad: i.cantidad, precio_unitario: i.precio_unitario, tipo_afectacion_igv: i.tipo_afectacion_igv }));
     const nota: Comprobante = {
-      id, tipo: body.tipo, serie: body.serie, numero: serie.ultimo_numero, fecha_emision: body.fecha_emision, moneda: factura.moneda,
+      id, tipo: body.tipo, serie: body.serie, numero: serie.ultimo_numero, fecha_emision: body.fecha_emision, observaciones: body.observaciones?.trim() || null, moneda: factura.moneda,
       tipo_operacion: factura.tipo_operacion, receptor: factura.receptor, items: itemsNota, estado_documento: "ACEPTADO", hash: "hashnota==",
       nombre_archivo: `20123456786-${body.tipo}-${body.serie}-${String(serie.ultimo_numero).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La Nota de ${body.tipo === "07" ? "Credito" : "Debito"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },

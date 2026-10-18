@@ -18,6 +18,7 @@ export function AjusteEditor({
   valor,
   onCambio,
   ofreceRecargoConsumo = false,
+  sinOpcionDeBase = false,
 }: {
   /** Prefijo único de los controles (cada ítem tiene los suyos). */
   id: string;
@@ -26,6 +27,8 @@ export function AjusteEditor({
   valor: AjusteForm;
   onCambio: (a: AjusteForm) => void;
   ofreceRecargoConsumo?: boolean;
+  /** Oculta «reduce la base / paga IGV»: en una nota el ajuste siempre afecta la base (SUNAT no admite los otros, 3271/3277). */
+  sinOpcionDeBase?: boolean;
 }) {
   const error = errorDeAjuste(valor, clase);
   const set = (cambio: Partial<AjusteForm>) => onCambio({ ...valor, ...cambio });
@@ -52,7 +55,7 @@ export function AjusteEditor({
           />
         </Campo>
       </div>
-      {valor.valor.trim() !== "" && !valor.recargoConsumo ? (
+      {valor.valor.trim() !== "" && !valor.recargoConsumo && !sinOpcionDeBase ? (
         <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
           <input type="checkbox" checked={valor.afectaBase} onChange={(e) => set({ afectaBase: e.target.checked })} className="size-3.5 accent-primary" />
           {textoAfecta}

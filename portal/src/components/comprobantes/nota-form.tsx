@@ -8,7 +8,10 @@ import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
+import { EntradaFecha } from "@/components/formularios/entrada-fecha";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
+import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
+import { fechaMinimaDeEmision } from "@/lib/comprobantes/plazo";
 import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, tieneDescuentoQueNoAfectaLaBase, topePorTributo } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -17,6 +20,7 @@ import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+import { AjusteEditor } from "./ajuste-editor";
 
 type Tipo = "07" | "08";
 /** Motivos de NC en los que la nota es total y se copian los ítems de la factura; el 13 no mueve importes. */
@@ -43,6 +47,12 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const [serie, setSerie] = useState("");
   const [motivo, setMotivo] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  // #314: fecha de emisión (hoy por defecto; no anterior a la de la factura, 2885), observaciones del PDF y, en una nota parcial, descuento global y cargo propios.
+  const hoy = hoyLima();
+  const [fecha, setFecha] = useState(hoy);
+  const [observaciones, setObservaciones] = useState("");
+  const [descuentoGlobal, setDescuentoGlobal] = useState<AjusteForm>(AJUSTE_VACIO);
+  const [cargoGlobal, setCargoGlobal] = useState<AjusteForm>(AJUSTE_VACIO);
   // En 0, no en lo facturado: con las cantidades precargadas al total, elegir «09 Disminución en el valor», escribir
   // el sustento y un clic emitía una NC por el 100 % de la factura. Y sobre una factura con descuento global,
   // cargos o anticipos, el 100 % de los ítems supera el total (3286): el usuario elige qué acredita.
@@ -110,14 +120,22 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     const body: Record<string, unknown> = {
       tipo,
       serie,
-      fecha_emision: hoyLima(),
+      fecha_emision: fecha || hoy,
       documento_afectado: { serie: factura.serie, numero: factura.numero },
       motivo,
       // Un `<input>` de una línea no admite saltos, pero sí un tabulador pegado (una celda de Excel): el backend lo
       // rechaza (2135, `isISOControl`). Cualquier espacio en blanco se normaliza a un espacio antes de viajar.
       descripcion: descripcion.replace(/\s+/g, " ").trim(),
     };
-    if (esParcial) body.items = itemsParciales;
+    if (esParcial) {
+      body.items = itemsParciales;
+      // En una nota el descuento y el cargo siempre afectan la base del IGV (SUNAT no admite lo contrario, 3271/3277).
+      const descuento = ajusteAApi({ ...descuentoGlobal, afectaBase: true }, "descuento");
+      const cargo = ajusteAApi({ ...cargoGlobal, afectaBase: true }, "cargo");
+      if (descuento) body.descuento_global = descuento;
+      if (cargo) body.cargos = [cargo];
+    }
+    if (observaciones.trim() !== "") body.observaciones = observaciones.trim();
     if (esCuotas) {
       // Redondeado a 2: la suma en punto flotante de 10.10 + 20.20 viaja como 30.299999999999997 y el backend la
       // rechaza (3250: hasta 2 decimales; 3319: la suma de cuotas debe ser el pendiente). Los fixtures (61.5+61.5)
@@ -231,7 +249,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // El motivo 10 «Otros conceptos» está exento de los ocho límites: NotaCredito2_0 fila 111 (3286) y filas 114–122
   // (3503) empiezan todas con «diferente de '10'». El backend lo exime igual desde #141.
   const exentoDeTope = esNc && motivo === "10";
-  const superaTope = (esParcial || esTotal || esImporte) && !exentoDeTope && importeNota > tope;
+  // Con descuento o cargo propios el importe de la nota cambia y lo calcula el backend: aquí no se compara con el tope (lo hace SUNAT, 3286, y el backend responde 422).
+  const conAjustesPropios = esParcial && (descuentoGlobal.valor.trim() !== "" || cargoGlobal.valor.trim() !== "");
+  const superaTope = (esParcial || esTotal || esImporte) && !exentoDeTope && !conAjustesPropios && importeNota > tope;
+  const hayAjusteInvalido = esParcial && (errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null);
+  const fechaValida = (fecha || hoy) >= factura.fecha_emision && (fecha || hoy) <= hoy && (fecha || hoy) >= fechaMinimaDeEmision(sobreBoleta ? "boleta" : "factura", hoy);
   const conceptoTributo = { "10": "gravado + IGV", "20": "exonerado", "30": "inafecto", "40": "exportación", "17": "IVAP" }[afectacionLinea];
   // 3111: en una línea IVAP un importe de 0.07 a 0.12 deja el impuesto en 0.00 y SUNAT rechaza ya numerada.
   const ivapEnCero = lineaPropia && impuestoRedondeaACero(afectacionLinea, Number(nd.importe) || 0);
@@ -272,7 +294,10 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     !ivapEnCero &&
     // Importe de la línea propia con hasta 12 enteros y 2 decimales (2025); concepto de 3 a 500 (4084 observa con menos de 3).
     (!lineaPropia || (nd.descripcion.trim().length >= 3 && Number(nd.importe) > 0 && DOS_DECIMALES.test(nd.importe.trim()))) &&
-    (!esCuotas || cuotasValidas);
+    (!esCuotas || cuotasValidas) &&
+    !hayAjusteInvalido &&
+    fechaValida &&
+    observaciones.length <= 1000;
 
   return (
     <form onSubmit={onSubmit} onKeyDown={sinEnvioImplicito} className="space-y-5" data-testid="nota-form">
@@ -314,6 +339,30 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         <input id="nota-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} placeholder="Ej.: el cliente devolvió la mercadería completa" className={CAMPO} />
         <span className={AYUDA_CAMPO}>Hasta 500 caracteres, sin saltos de línea (SUNAT 2135). Va en el XML y en la representación impresa.</span>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="nota-fecha" className={ETIQUETA_CAMPO}>Fecha de emisión</label>
+          <EntradaFecha id="nota-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={[factura.fecha_emision, fechaMinimaDeEmision(documento, hoy)].sort().at(-1)} max={hoy} variante="filtro" />
+          <span className={AYUDA_CAMPO}>No anterior a la de la {documento} ({factura.fecha_emision}, SUNAT 2885) ni futura.</span>
+        </div>
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <label htmlFor="nota-observaciones" className={ETIQUETA_CAMPO}>Observaciones <span className="font-normal normal-case text-muted-foreground">(opcional)</span></label>
+          <textarea id="nota-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} maxLength={1000} className={CAMPO} />
+          <span className={AYUDA_CAMPO}>Solo en el PDF: no van a SUNAT. {observaciones.length} / 1000</span>
+        </div>
+      </div>
+
+      {esParcial ? (
+        <details className="rounded-lg border border-border px-3 py-2" data-testid="nota-ajustes" open={descuentoGlobal.valor !== "" || cargoGlobal.valor !== ""}>
+          <summary className="cursor-pointer text-[13px] font-medium">Descuento global y cargo de la nota</summary>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <AjusteEditor id="nota-desc-global" etiqueta="Descuento global de la nota" clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} sinOpcionDeBase />
+            <AjusteEditor id="nota-cargo-global" etiqueta="Cargo global de la nota" clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} sinOpcionDeBase />
+          </div>
+          <p className={cn(AYUDA_CAMPO, "mt-2")}>Se aplican sobre las líneas de esta nota (afectan la base del IGV). El importe final lo calcula khipu y SUNAT lo compara con el de la {documento} (3286).</p>
+        </details>
+      ) : null}
 
       {esTotal ? (
         <div className={cn("rounded-lg border px-3 py-2 text-[12px] leading-relaxed", superaTope ? "border-destructive/50 bg-destructive/5 text-destructive" : "border-border bg-muted text-muted-foreground")} data-testid="nota-total">

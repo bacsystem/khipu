@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Comprobante } from "@/lib/api/facturas";
+import { hoyLima, sumarDias } from "@/lib/formato";
 import { NotaForm } from "./nota-form";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
@@ -274,5 +275,76 @@ describe("NotaForm — Idempotency-Key (#355)", () => {
     emitir();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("ya se usó con otro contenido");
+  });
+});
+
+describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", () => {
+  async function parcial(factura = documento("01")) {
+    const fetch = stubApi();
+    render(<NotaForm factura={factura} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Devolución parcial" } });
+    fireEvent.change(screen.getByLabelText("Cantidad de Pan en la nota"), { target: { value: "2" } });
+    return fetch;
+  }
+
+  it("la fecha arranca en hoy, no baja de la de la factura (2885) y viaja la elegida", async () => {
+    const hoy = hoyLima();
+    // Una factura de ayer: el mínimo es su fecha (2885), más estricto que el plazo de envío de la nota.
+    const fetch = await parcial(documento("01", { fecha_emision: sumarDias(hoy, -1) }));
+    const fecha = screen.getByLabelText("Fecha de emisión") as HTMLInputElement;
+    expect(fecha.max).toBe(hoy);
+    expect(fecha.min).toBe(sumarDias(hoy, -1));
+    expect(fecha.value).toBe(hoy);
+    fireEvent.change(fecha, { target: { value: sumarDias(hoy, -1) } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
+    await waitFor(() => expect(notasEnviadas(fetch)).toHaveLength(1));
+    expect(notasEnviadas(fetch)[0].fecha_emision).toBe(sumarDias(hoy, -1));
+  });
+
+  it("las observaciones viajan recortadas y no se mandan vacías", async () => {
+    const fetch = await parcial();
+    fireEvent.change(screen.getByLabelText(/Observaciones/), { target: { value: "  Devolución recibida en tienda.  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
+    await waitFor(() => expect(notasEnviadas(fetch)).toHaveLength(1));
+    expect(notasEnviadas(fetch)[0].observaciones).toBe("Devolución recibida en tienda.");
+  });
+
+  it("sin observaciones, descuento ni cargo no manda nada de eso", async () => {
+    const fetch = await parcial();
+    fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
+    await waitFor(() => expect(notasEnviadas(fetch)).toHaveLength(1));
+    const nota = notasEnviadas(fetch)[0];
+    for (const campo of ["observaciones", "descuento_global", "cargos"]) expect(nota).not.toHaveProperty(campo);
+  });
+
+  it("el descuento global y el cargo de una nota parcial viajan siempre afectando la base del IGV", async () => {
+    const fetch = await parcial();
+    fireEvent.change(screen.getByLabelText("Descuento global de la nota: valor"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Cargo global de la nota: valor"), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText("Cargo global de la nota: tipo"), { target: { value: "monto" } });
+    // No se ofrece «reduce la base / paga IGV»: SUNAT no admite lo contrario en una nota.
+    expect(screen.queryByText("Reduce la base del IGV")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
+    await waitFor(() => expect(notasEnviadas(fetch)).toHaveLength(1));
+    expect(notasEnviadas(fetch)[0]).toMatchObject({ descuento_global: { porcentaje: 2, afecta_base_igv: true }, cargos: [{ monto: 5, afecta_base_igv: true }] });
+  });
+
+  it("un descuento mal escrito no deja emitir", async () => {
+    const fetch = await parcial();
+    fireEvent.change(screen.getByLabelText("Descuento global de la nota: valor"), { target: { value: "abc" } });
+    expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
+    expect(notasEnviadas(fetch)).toHaveLength(0);
+  });
+
+  it("la nota total y la de importe no ofrecen descuento ni cargo propios: copian los de la factura", async () => {
+    stubApi();
+    render(<NotaForm factura={documento("01")} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "06" } });
+    expect(screen.queryByTestId("nota-ajustes")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "09" } });
+    expect(screen.queryByTestId("nota-ajustes")).not.toBeInTheDocument();
   });
 });

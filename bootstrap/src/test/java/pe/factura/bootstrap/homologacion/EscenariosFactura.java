@@ -313,6 +313,12 @@ final class EscenariosFactura {
                 "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
                 "\"retencion_igv\":{\"porcentaje\":3}," +
                 "\"forma_pago\":{\"tipo\":\"credito\",\"monto_pendiente\":1144.60,\"cuotas\":[{\"monto\":572.30,\"vencimiento\":\"" + fecha.plusDays(30) + "\"},{\"monto\":572.30,\"vencimiento\":\"" + fecha.plusDays(60) + "\"}]}}"));
+        // #314: el formulario del portal puede mandar descuento global, cargos y observaciones en una nota parcial (NotaRequest ya los acepta).
+        todos.add(new Escenario("75-nc-parcial-descuento-y-cargo", "NC parcial (07) con descuento global y cargo propios, sobre la factura al crédito", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${CREDITO}}," +
+                "\"motivo\":\"07\",\"descripcion\":\"Devolución parcial\",\"items\":[" +
+                "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"descuento_global\":{\"porcentaje\":2},\"cargos\":[{\"monto\":5.00}],\"observaciones\":\"Devolución recibida en tienda.\"}"));
         return todos;
     }
 
