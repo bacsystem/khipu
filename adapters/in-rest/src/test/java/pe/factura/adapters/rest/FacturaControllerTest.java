@@ -990,7 +990,8 @@ class FacturaControllerTest {
     }
 
     @Test void anticipoConSerieInvalidaEs422DeValidacion() throws Exception {
-        String mal = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"B001\",\"numero\":10,\"monto\":30.00}],");
+        // La B es de una boleta de anticipo y se admite desde #295: la serie inválida es otra letra.
+        String mal = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"X001\",\"numero\":10,\"monto\":30.00}],");
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(mal))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))

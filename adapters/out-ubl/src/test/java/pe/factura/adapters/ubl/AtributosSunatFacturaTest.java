@@ -432,6 +432,31 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /** #295: la boleta final con un anticipo de boleta (B001) o de factura (F001) referencia el documento con el tipo 03 o 02 (2505, 2521), y valida contra el XSD. */
+    @Test void anticipoEnElXmlDeUnaBoleta() throws Exception {
+        for (String[] caso : new String[][]{{"B001", "03"}, {"F001", "02"}}) {
+            Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null),
+                    List.of(new Item("OBRA", "Obra completa", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO)))
+                    .anticipos(List.of(new Anticipo(caso[0], 10, new BigDecimal("300.00"), null, LocalDate.of(2026, 9, 1)))).crear(FreemarkerUblGeneratorTest.CLOCK);
+            c.asignarNumero(12, "20100066603");
+            String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+            DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+            f.setNamespaceAware(true);
+            Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+            String ref = "/inv:Invoice/cac:AdditionalDocumentReference";
+            assertThat(valor(d, ref + "/cbc:ID")).as(caso[0]).isEqualTo(caso[0] + "-10");
+            assertThat(valor(d, ref + "/cbc:DocumentTypeCode")).as(caso[0]).isEqualTo(caso[1]);
+            assertThat(valor(d, ref + "/cbc:DocumentStatusCode")).isEqualTo("1");                                       // 3216
+            assertThat(valor(d, "/inv:Invoice/cac:PrepaidPayment/cbc:PaidAmount")).isEqualTo("354.00");                  // 2503: 300 + IGV
+            assertThat(valor(d, "/inv:Invoice/cac:AllowanceCharge/cbc:AllowanceChargeReasonCode")).isEqualTo("04");
+            assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PrepaidAmount")).isEqualTo("354.00");           // 2509
+            assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("826.00");           // 3280
+            new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                    "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.BOLETA);
+        }
+    }
+
     /**
      * Factura final con anticipo (reglas 65–66): documento referenciado con identificador de pago, PrepaidPayment con el importe
      * pagado (IGV incluido), descuento global 04 por el valor sin IGV que reduce la base del IGV (3277, 3291) y PrepaidAmount
