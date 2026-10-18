@@ -12,6 +12,12 @@ public interface EmitirComprobanteUseCase {
     /** Con {@code idempotencia} nula, igual que sin clave: cada llamada emite una factura nueva. */
     Emision emitirFactura(UUID tenantId, EmitirFacturaCommand cmd, Idempotencia idempotencia);
 
+    /**
+     * #405: el comprobante que {@link #emitirFactura} armaría con este pedido, sin numerarlo, firmarlo, guardarlo ni enviarlo: los mismos importes y los mismos errores de
+     * dominio. No hace lo que depende de datos guardados (que la factura de anticipo exista, el padrón de RUC, el cupo del plan, que haya serie y certificado).
+     */
+    Comprobante calcularFactura(UUID tenantId, EmitirFacturaCommand cmd);
+
     /** Nota de crédito o débito sobre una factura o boleta aceptada de la empresa; mismo flujo que la factura (numerar, firmar, validar, enviar). */
     default Comprobante emitirNota(UUID tenantId, EmitirNotaCommand cmd) { return emitirNota(tenantId, cmd, null).comprobante(); }
 

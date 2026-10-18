@@ -421,6 +421,32 @@ class EmitirComprobanteServiceTest {
         assertThat(service.emitirFactura(tenantId, cmd).detraccion().cuentaBancoNacion()).isEqualTo("00-000-987654");
     }
 
+    /** #405: calcular devuelve los mismos importes que la emisión y no deja rastro: no numera, no guarda ni envía. */
+    @Test void calcularDaLosMismosImportesQueEmitirSinDejarRastro() {
+        EmitirFacturaCommand conTodo = new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Cerveza", "NIU", new BigDecimal("3"), new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("01", new BigDecimal("35"), null), false),
+                        new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)),
+                FormaPago.contado(), pe.factura.domain.documento.Descuento.porcentaje(new BigDecimal("5"), true), List.of(), null, null, null, List.of(), null, new BigDecimal("0.10"), false);
+        int enviadosAntes = gateway.enviados;
+
+        Comprobante calculado = service.calcularFactura(tenantId, conTodo);
+
+        assertThat(calculado.numero()).as("no se numeró").isNull();
+        assertThat(calculado.estado()).isEqualTo(EstadoDocumento.RECIBIDO);
+        assertThat(gateway.enviados).isEqualTo(enviadosAntes);
+        // La emisión posterior arranca el correlativo en 1: calcular no consumió ninguno.
+        Comprobante emitido = service.emitirFactura(tenantId, conTodo);
+        assertThat(emitido.numero()).isEqualTo(1L);
+        assertThat(calculado.totales().total()).isEqualByComparingTo(emitido.totales().total());
+        assertThat(calculado.totales().igv()).isEqualByComparingTo(emitido.totales().igv());
+        assertThat(calculado.totales().isc()).isEqualByComparingTo(emitido.totales().isc());
+        assertThat(calculado.totales().redondeo()).isEqualByComparingTo("0.10");
+        // Y los mismos errores de dominio: lo que la emisión rechazaría, calcular también.
+        assertThatThrownBy(() -> service.calcularFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "XXX", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false))).isInstanceOf(DomainException.class).hasMessageContaining("3088");
+    }
+
     private EmitirFacturaCommand conAnticipo(Anticipo a) {
         return new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
                 new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
