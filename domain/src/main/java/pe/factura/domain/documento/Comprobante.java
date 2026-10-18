@@ -46,6 +46,12 @@ public class Comprobante {
     private final Exportacion exportacion;
     /** Tasa del IGV aplicada a las líneas gravadas, en porcentaje ({@link TasaIgv}); una nota hereda la de la factura que modifica. */
     private final BigDecimal tasaIgv;
+    /**
+     * Soles por unidad de la moneda del comprobante (#316), de hasta 3 enteros y 3 decimales; {@code null} en soles y cuando el emisor no lo informó. El XML de SUNAT no lo
+     * lleva: sirve para el registro de ventas (SIRE), el equivalente en soles del PDF y el tope de S/ 700 de una boleta sin documento en otra moneda. Una nota hereda el
+     * de su documento.
+     */
+    private BigDecimal tipoCambio;
     private final Totales totales;
     private EstadoDocumento estado;
     private String hash;
@@ -117,7 +123,7 @@ public class Comprobante {
         private LocalDate fechaVencimiento; private FormaPago formaPago = FormaPago.contado(); private Descuento descuentoGlobal; private List<Cargo> cargos = List.of();
         private Detraccion detraccion; private RetencionIgv retencion; private Percepcion percepcion; private List<Anticipo> anticipos = List.of();
         private Referencias referencias; private BigDecimal redondeo; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<String> leyendas = List.of();
-        private Exportacion exportacion;
+        private Exportacion exportacion; private BigDecimal tipoCambio;
 
         private FacturaBuilder(TipoDocumento tipo, UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor receptor, List<Item> items) {
             this.tipo = tipo; this.tenantId = tenantId; this.serie = serie; this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion; this.receptor = receptor; this.items = items;
@@ -142,6 +148,8 @@ public class Comprobante {
         public FacturaBuilder leyendas(List<String> l) { this.leyendas = Leyenda.validar(l); return this; }
         /** Incoterm y país de uso ({@link Exportacion}); solo en los tipos de operación 0200–0208. */
         public FacturaBuilder exportacion(Exportacion e) { this.exportacion = e; return this; }
+        /** Soles por unidad de {@code moneda} (#316); solo fuera de soles. Opcional. */
+        public FacturaBuilder tipoCambio(BigDecimal t) { this.tipoCambio = t; return this; }
 
         public Comprobante crear(Clock clock) {
             FormaPago formaPago = this.formaPago;
@@ -173,7 +181,7 @@ public class Comprobante {
                 if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor" + (Exportacion.es(operacion) ? "" : " con RUC"));
                 receptor.exigirValidoParaFactura(operacion);
             }
-            if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
+            exigirMonedaYTipoCambio(moneda, tipoCambio);
             Exportacion.validar(exportacion, operacion);
             exigirAfectacionSegunOperacion(operacion, items);
             if (detraccion == null && Detraccion.TIPOS_OPERACION.contains(operacion))
@@ -186,11 +194,12 @@ public class Comprobante {
                 throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
                     moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, tasaIgv, leyendas, exportacion, EstadoDocumento.RECIBIDO);
+            c.tipoCambio = tipoCambio;
             formaPago.validarContra(c.totales.total(), fechaEmision);
-            // Sin tipo de cambio no hay cómo comparar otra moneda con S/ 700: fuera de soles se identifica siempre al comprador.
-            if (boleta && receptor.sinDocumento() && (!"PEN".equals(moneda) || c.totales.total().compareTo(TOPE_BOLETA_SIN_DOCUMENTO) > 0))
-                throw new DomainException("RECEPTOR_INVALIDO", "Una boleta de más de S/ " + TOPE_BOLETA_SIN_DOCUMENTO + " (o en otra moneda) identifica al comprador con su documento; esta es de "
-                        + moneda + " " + c.totales.total());
+            // Sin tipo de cambio no hay cómo comparar otra moneda con S/ 700: fuera de soles se identifica siempre al comprador. Con él (#316) se mide en soles.
+            if (boleta && receptor.sinDocumento() && c.superaElTopeSinDocumento())
+                throw new DomainException("RECEPTOR_INVALIDO", "Una boleta de más de S/ " + TOPE_BOLETA_SIN_DOCUMENTO + " (o en otra moneda sin tipo_cambio) identifica al comprador con su documento; esta es de "
+                        + moneda + " " + c.totales.total() + c.totalEnSoles().filter(s -> !Monedas.SOLES.equals(moneda)).map(s -> " (S/ " + s + ")").orElse(""));
             c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
             c.totales.items().forEach(ItemCalculado::exigirValorDeVentaPositivo);
             for (String l : leyendas) {
@@ -259,7 +268,7 @@ public class Comprobante {
         private final UUID tenantId; private final TipoDocumento tipo; private final String serie; private final LocalDate fechaEmision; private final Nota nota;
         private final Receptor receptor; private final List<Item> items;
         private String moneda = "PEN"; private String tipoOperacion = "0101"; private FormaPago formaPago; private Descuento descuentoGlobal; private List<Cargo> cargos = List.of();
-        private BigDecimal tasaIgv = TasaIgv.GENERAL; private Exportacion exportacion; private BigDecimal redondeo; private boolean copiaDelDocumento;
+        private BigDecimal tasaIgv = TasaIgv.GENERAL; private Exportacion exportacion; private BigDecimal redondeo; private boolean copiaDelDocumento; private BigDecimal tipoCambio;
 
         private NotaBuilder(UUID tenantId, TipoDocumento tipo, String serie, LocalDate fechaEmision, Nota nota, Receptor receptor, List<Item> items) {
             this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.fechaEmision = fechaEmision; this.nota = nota; this.receptor = receptor; this.items = items;
@@ -274,6 +283,8 @@ public class Comprobante {
         public NotaBuilder tasaIgv(BigDecimal t) { this.tasaIgv = t == null ? TasaIgv.GENERAL : t; return this; }
         /** Los de la factura que modifica; nulo si no es exportación. */
         public NotaBuilder exportacion(Exportacion e) { this.exportacion = e; return this; }
+        /** El de la factura o boleta que la nota modifica (#316): una nota no fija el suyo. */
+        public NotaBuilder tipoCambio(BigDecimal t) { this.tipoCambio = t; return this; }
         /**
          * El de la factura que modifica, en la nota total: sin él la nota salía por el total sin redondear y, con el redondeo
          * habitual (negativo), por encima del PayableAmount de la factura (3286, sin tolerancia). La NC admite
@@ -309,7 +320,7 @@ public class Comprobante {
                 if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La nota sobre una factura requiere un receptor" + (Exportacion.es(tipoOperacion) ? "" : " con RUC"));
                 receptor.exigirValidoParaFactura(tipoOperacion);
             }
-            if (moneda == null || !moneda.matches("PEN|USD|EUR")) throw new DomainException("MONEDA_INVALIDA", "Moneda no soportada: " + moneda);
+            exigirMonedaYTipoCambio(moneda, tipoCambio);
             Exportacion.validar(exportacion, tipoOperacion);
             nota.validarMotivoPara(tipo);
             if (!nc13) {
@@ -324,6 +335,7 @@ public class Comprobante {
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
                     moneda, tipoOperacion, receptor, nc13 ? List.of(nota.lineaSinImporte()) : items, formaPago == null ? FormaPago.contado() : formaPago,
                     nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, nc13 ? null : redondeo, nota, tasaIgv, List.of(), exportacion, EstadoDocumento.RECIBIDO);
+            c.tipoCambio = tipoCambio;
             c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
             if (!nc13) c.totales.items().forEach(ItemCalculado::exigirValorDeVentaPositivo);
             return c;
@@ -406,6 +418,32 @@ public class Comprobante {
             throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " (" + e.descripcion() + ") no aplica a " + nombre + "s: " + aplicaA);
     }
 
+    /**
+     * La moneda debe ser una del catálogo 02 que khipu emite (3088) y el tipo de cambio, si se informa, solo va fuera de soles y es positivo de hasta 3 enteros y 3 decimales
+     * (el formato del campo del registro de ventas). Lo comparten la factura, la boleta y las notas.
+     */
+    private static void exigirMonedaYTipoCambio(String moneda, BigDecimal tipoCambio) {
+        if (!Monedas.admitida(moneda))
+            throw new DomainException("MONEDA_INVALIDA", "3088 - Moneda no soportada: " + moneda + " (catálogo 02; admitidas: " + String.join(", ", Monedas.codigos()) + ")");
+        if (tipoCambio == null) return;
+        if (Monedas.SOLES.equals(moneda))
+            throw new DomainException("TIPO_CAMBIO_INVALIDO", "Un comprobante en soles no lleva tipo de cambio: tipo_cambio solo va fuera de PEN");
+        if (tipoCambio.signum() <= 0 || tipoCambio.scale() > 3 || tipoCambio.precision() - tipoCambio.scale() > 3)
+            throw new DomainException("TIPO_CAMBIO_INVALIDO", "El tipo de cambio es positivo, de hasta 3 enteros y 3 decimales (soles por " + moneda + "); recibido " + tipoCambio.toPlainString());
+    }
+
+    /** Importe total en soles al tipo de cambio del comprobante; vacío en soles o si el emisor no informó el tipo de cambio. */
+    public java.util.Optional<BigDecimal> totalEnSoles() {
+        if (tipoCambio == null || Monedas.SOLES.equals(moneda)) return java.util.Optional.empty();
+        return java.util.Optional.of(totales.total().multiply(tipoCambio).setScale(2, java.math.RoundingMode.HALF_UP));
+    }
+
+    /** Una boleta sin documento pasa de S/ 700: el total en soles, o cualquier total fuera de soles sin tipo de cambio con el que medirlo. */
+    private boolean superaElTopeSinDocumento() {
+        if (Monedas.SOLES.equals(moneda)) return totales.total().compareTo(TOPE_BOLETA_SIN_DOCUMENTO) > 0;
+        return totalEnSoles().map(s -> s.compareTo(TOPE_BOLETA_SIN_DOCUMENTO) > 0).orElse(true);
+    }
+
     /** Regla 2642: una operación de exportación (0200–0208) lleva todas sus líneas con afectación 40; fuera de ella, ninguna (3107). */
     private static void exigirAfectacionSegunOperacion(String operacion, List<Item> items) {
         boolean exportacion = Exportacion.es(operacion);
@@ -429,7 +467,7 @@ public class Comprobante {
         private LocalTime horaEmision; private LocalDate fechaVencimiento; private String moneda = "PEN"; private String tipoOperacion = "0101";
         private FormaPago formaPago = FormaPago.contado(); private Descuento descuentoGlobal; private List<Cargo> cargos = List.of(); private Detraccion detraccion; private RetencionIgv retencion; private Percepcion percepcion;
         private List<Anticipo> anticipos = List.of(); private Referencias referencias; private BigDecimal redondeo; private Nota nota; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<String> leyendas = List.of();
-        private Exportacion exportacion;
+        private Exportacion exportacion; private BigDecimal tipoCambio;
         private String hash, nombreArchivo, xmlKey, cdrKey, ultimoError, observaciones; private Cdr cdr; private int intentos;
 
         private Persistido(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, EstadoDocumento estado, Receptor receptor, List<Item> items) {
@@ -452,6 +490,7 @@ public class Comprobante {
         public Persistido tasaIgv(BigDecimal t) { this.tasaIgv = t; return this; }
         public Persistido leyendas(List<String> l) { this.leyendas = l == null ? List.of() : l; return this; }
         public Persistido exportacion(Exportacion e) { this.exportacion = e; return this; }
+        public Persistido tipoCambio(BigDecimal t) { this.tipoCambio = t; return this; }
         public Persistido firma(String hash, String nombreArchivo, String xmlKey) { this.hash = hash; this.nombreArchivo = nombreArchivo; this.xmlKey = xmlKey; return this; }
         public Persistido cdr(Cdr cdr, String cdrKey) { this.cdr = cdr; this.cdrKey = cdrKey; return this; }
         public Persistido envio(int intentos, String ultimoError) { this.intentos = intentos; this.ultimoError = ultimoError; return this; }
@@ -460,7 +499,7 @@ public class Comprobante {
         public Comprobante rehidratar() {
             Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, tasaIgv, leyendas, exportacion, estado);
             c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
-            c.intentos = intentos; c.ultimoError = ultimoError; c.observaciones = observaciones;
+            c.intentos = intentos; c.ultimoError = ultimoError; c.observaciones = observaciones; c.tipoCambio = tipoCambio;
             return c;
         }
     }

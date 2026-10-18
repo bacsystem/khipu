@@ -123,6 +123,20 @@ class FlyingSaucerPdfGeneratorTest {
                 .doesNotContain("IGV (18%)");
     }
 
+    /** #316: con tipo de cambio el PDF muestra el tipo y el equivalente en soles; sin él, o en soles, no hay nada de eso. */
+    @Test void elTipoDeCambioMuestraElEquivalenteEnSoles() {
+        Comprobante usd = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "0101", RECEPTOR,
+                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).tipoCambio(new BigDecimal("3.756")).crear(CLOCK);
+        usd.asignarNumero(128, "20100066603");
+        usd.firmar("h", "k");
+        assertThat(generador.xhtml(usd, TENANT, "qr", null)).contains("Tipo de cambio (S/ por USD)", "3.756", "Equivalente en soles", "S/ 443.21");
+        Comprobante sinTipo = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "USD", "0101", RECEPTOR,
+                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
+        sinTipo.asignarNumero(129, "20100066603");
+        sinTipo.firmar("h", "k");
+        assertThat(generador.xhtml(sinTipo, TENANT, "qr", null)).doesNotContain("Tipo de cambio", "Equivalente en soles");
+    }
+
     @Test void laNotaDeCreditoIndicaElComprobanteQueModificaYElMotivo() {
         String html = generador.xhtml(notaCredito(), TENANT, "qr", null);
         assertThat(html).contains("NOTA DE CRÉDITO ELECTRÓNICA", "FC01-7", "Documento que modifica", "Factura F001-125", "07 - Devolución por ítem", "Devolución de una laptop", "hashnota==");
