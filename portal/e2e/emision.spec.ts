@@ -851,3 +851,34 @@ test("emite una factura al crédito con retención del IGV: el pie la resta y la
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
   await expect(page.getByText("Retención del IGV (3%)")).toBeVisible();
 });
+
+test("emite una boleta en dólares sin documento con tipo de cambio, y una factura en libras con su equivalente en soles (#316)", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  let dialogo = page.getByRole("dialog");
+  await dialogo.getByRole("button", { name: "Boleta" }).click();
+  await dialogo.getByLabel("Documento del comprador").selectOption("-");
+  await dialogo.getByLabel("Descripción").fill("Servicio");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("118");
+  await dialogo.getByLabel("Moneda").selectOption("USD");
+  // Sin tipo de cambio no hay cómo medir el tope de S/ 700 en otra moneda.
+  await expect(dialogo.getByTestId("aviso-sin-documento")).toContainText("tipo de cambio");
+  await dialogo.getByLabel("Tipo de cambio").fill("3.5");
+  await expect(dialogo.getByTestId("aviso-sin-documento")).toHaveCount(0);
+  await dialogo.getByRole("button", { name: "Emitir boleta" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+
+  await page.goto("/comprobantes");
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  await dialogo.getByLabel("Descripción").fill("Consultoría");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100");
+  await dialogo.getByLabel("Moneda").selectOption("GBP");
+  await dialogo.getByLabel("Tipo de cambio").fill("4.8");
+  await expect(dialogo.getByTestId("total-en-soles")).toContainText("Equivale a S/ 480.00");
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  await expect(page.getByText("GBP").first()).toBeVisible();
+  await expect(page.getByTestId("equivalente-en-soles")).toContainText("Equivale a S/ 480.00 al tipo de cambio 4.8");
+});

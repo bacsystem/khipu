@@ -702,6 +702,80 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
   });
 });
 
+describe("NuevoComprobanteForm — monedas y tipo de cambio (#316)", () => {
+  const TOTALES = { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 };
+
+  function conComprador(precio = "118") {
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    linea("Servicio", precio);
+  }
+
+  it("ofrece las 17 monedas del catálogo 02 que admite el backend", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    expect([...screen.getByLabelText("Moneda").querySelectorAll("option")].map((o) => o.getAttribute("value"))).toHaveLength(17);
+    expect(screen.getByLabelText("Moneda").querySelector('option[value="GBP"]')).not.toBeNull();
+    expect(screen.getByLabelText("Moneda").querySelector('option[value="PYG"]')).not.toBeNull();
+  });
+
+  it("el tipo de cambio solo aparece fuera de soles y viaja como número; en soles no se manda", async () => {
+    const fetch = stubConCalculo(TOTALES, undefined, { total_en_soles: 442.5 });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    expect(screen.queryByLabelText(/Tipo de cambio/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "GBP" } });
+    fireEvent.change(screen.getByLabelText(/Tipo de cambio/), { target: { value: "3.75" } });
+    await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ moneda: "GBP", tipo_cambio: 3.75 }));
+    await waitFor(() => expect(screen.getByTestId("total-en-soles")).toHaveTextContent("Equivale a S/ 442.50 al tipo de cambio 3.75"));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ moneda: "GBP", tipo_cambio: 3.75 });
+
+    // Al volver a soles el campo desaparece y el valor no se manda.
+    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "PEN" } });
+    expect(screen.queryByLabelText(/Tipo de cambio/)).not.toBeInTheDocument();
+    await waitFor(() => expect(calculos(fetch).at(-1)).not.toHaveProperty("tipo_cambio"));
+  });
+
+  it("un tipo de cambio mal escrito lo dice y no deja emitir; vacío vale", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+    fireEvent.change(screen.getByLabelText(/Tipo de cambio/), { target: { value: "3.7567" } });
+    expect(screen.getByText(/soles por 1 USD: un número mayor que cero/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    expect(emisiones(fetch)).toHaveLength(0);
+    fireEvent.change(screen.getByLabelText(/Tipo de cambio/), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).not.toHaveProperty("tipo_cambio");
+  });
+
+  it("una boleta en dólares sin documento: con tipo de cambio el tope de S/ 700 se mide en soles; sin él se pide el documento", async () => {
+    const fetch = stubConCalculo({ gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 });
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    linea("Servicio", "118");
+    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+    await waitFor(() => expect(screen.getByTestId("aviso-sin-documento")).toHaveTextContent(/no indica el tipo de cambio/));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    expect(emisiones(fetch)).toHaveLength(0);
+
+    // 118 USD × 3.5 = S/ 413.00 ≤ 700: pasa.
+    fireEvent.change(screen.getByLabelText(/Tipo de cambio/), { target: { value: "3.5" } });
+    await waitFor(() => expect(screen.queryByTestId("aviso-sin-documento")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ moneda: "USD", tipo_cambio: 3.5, cliente: { tipo_doc: "-" } });
+
+    // 118 USD × 6 = S/ 708.00 > 700: vuelve a pedir el documento.
+    fireEvent.change(screen.getByLabelText(/Tipo de cambio/), { target: { value: "6" } });
+    await waitFor(() => expect(screen.getByTestId("aviso-sin-documento")).toBeInTheDocument());
+  });
+});
+
 describe("NuevoComprobanteForm — retención del IGV (#313)", () => {
   const TOTALES = { gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 };
   const CON_RETENCION = { retencion_igv: { porcentaje: 3, monto: 35.4, neto_cobrar: 1144.6 } };

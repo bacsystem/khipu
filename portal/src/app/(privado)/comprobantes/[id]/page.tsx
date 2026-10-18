@@ -726,6 +726,11 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               </div>
               <span className="font-mono text-xl font-bold tracking-tight text-foreground tabular-nums">{formatearMonto(c.moneda, c.totales.total)}</span>
             </div>
+            {c.tipo_cambio != null && c.total_en_soles != null ? (
+              <p className="mt-1 text-right text-[11px] text-muted-foreground/80" data-testid="equivalente-en-soles">
+                Equivale a {formatearMonto("PEN", c.total_en_soles)} al tipo de cambio {c.tipo_cambio} (solo informativo: SUNAT no lo recibe)
+              </p>
+            ) : null}
           </div>
           <FormaPagoDetalle formaPago={c.forma_pago} moneda={c.moneda} />
           {c.detraccion ? <DetraccionDetalle detraccion={c.detraccion} /> : null}
