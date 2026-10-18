@@ -464,7 +464,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     linea("Servicio", precio);
   }
 
-  it("el control es solo de la factura de venta interna: ni la boleta ni la exportación lo ofrecen", () => {
+  it("el control es de la venta interna (factura o boleta, #297): la exportación no lo ofrece", () => {
     stubConCalculo(TOTALES);
     const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     expect(screen.getByLabelText("Operación sujeta a detracción (SPOT)")).toBeInTheDocument();
@@ -472,7 +472,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     expect(screen.queryByLabelText("Operación sujeta a detracción (SPOT)")).not.toBeInTheDocument();
     unmount();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    expect(screen.queryByLabelText("Operación sujeta a detracción (SPOT)")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Operación sujeta a detracción (SPOT)")).toBeInTheDocument();
   });
 
   it("al activarla pide el bien o servicio, sugiere el porcentaje, precarga la cuenta y fija el tipo de operación 1001", async () => {
@@ -581,6 +581,110 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
     fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
     expect(screen.getByLabelText("Monto a depositar, en soles")).toBeInTheDocument();
+  });
+});
+
+describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y factura (#297)", () => {
+  const TOTALES = { gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 };
+  const CON_PERCEPCION = { percepcion: { regimen: "51", descripcion: "Percepción venta interna - Tasa 2%", porcentaje: 2, base: 1180, monto: 23.6, total_con_percepcion: 1203.6 } };
+
+  function conComprador() {
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    linea("Mercadería", "1180");
+  }
+  const opciones = () => [...screen.getByLabelText("Tipo de operación").querySelectorAll("option")].map((o) => o.getAttribute("value"));
+
+  it("el NRUS (0113) solo se ofrece en la boleta", () => {
+    stubConCalculo(TOTALES);
+    const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    expect(opciones()).not.toContain("0113");
+    unmount();
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    expect(opciones()).toContain("0113");
+  });
+
+  it("una boleta NRUS sale con la operación 0113, y con bolsas de plástico no se emite (3240)", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    linea("Pan", "5");
+    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0113" } });
+    fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
+    fireEvent.click(screen.getByLabelText("Bolsas de plástico (ICBPER)"));
+    await waitFor(() => expect(screen.getByTestId("tributos-incompatibles")).toHaveTextContent(/3240.*NRUS/));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    expect(emisiones(fetch)).toHaveLength(0);
+
+    fireEvent.click(screen.getByLabelText("Bolsas de plástico (ICBPER)"));
+    await waitFor(() => expect(screen.queryByTestId("tributos-incompatibles")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ serie: "B001", tipo_operacion: "0113" });
+  });
+
+  it("la boleta lleva la detracción como la factura: la operación pasa a 1001", async () => {
+    const fetch = stubConCalculo(TOTALES, undefined, { detraccion: { codigo_bien_servicio: "022", porcentaje: 12, monto: 142, cuenta_banco_nacion: "00-000-123456", medio_pago: "001" } });
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
+    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    linea("Servicio", "650");
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ serie: "B001", tipo_operacion: "1001", detraccion: { codigo_bien_servicio: "022" } });
+  });
+
+  it("la percepción pide el régimen, fija la operación 2001 y el pie muestra su monto y el total a cobrar", async () => {
+    const fetch = stubConCalculo(TOTALES, undefined, CON_PERCEPCION);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    expect([...screen.getByLabelText("Régimen de percepción").querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["51", "52", "53"]);
+    await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ tipo_operacion: "2001", percepcion: { regimen: "51" } }));
+    await waitFor(() => expect(screen.getByTestId("percepcion-pie")).toHaveTextContent("Percepción S/ 23.60 · Total a cobrar S/ 1,203.60"));
+
+    fireEvent.change(screen.getByLabelText("Régimen de percepción"), { target: { value: "52" } });
+    fireEvent.change(screen.getByLabelText(/Base de la percepción/), { target: { value: "500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ tipo_operacion: "2001", percepcion: { regimen: "52", base: 500 } });
+  });
+
+  it("la percepción y la detracción se excluyen: activar una apaga la otra", async () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
+    conComprador();
+    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    expect(screen.getByTestId("percepcion-form")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    expect(screen.queryByTestId("percepcion-form")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Operación con percepción del IGV")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    expect(screen.getByLabelText("Operación con percepción del IGV")).not.toBeChecked();
+  });
+
+  it("la percepción en dólares o al crédito lo dice y no deja emitir (2788, 3330)", async () => {
+    const fetch = stubConCalculo(TOTALES, undefined, CON_PERCEPCION);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+    expect(screen.getByTestId("percepcion-resumen")).toHaveTextContent(/2788/);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    expect(emisiones(fetch)).toHaveLength(0);
+    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "PEN" } });
+    fireEvent.change(screen.getByLabelText("Forma de pago"), { target: { value: "credito" } });
+    expect(screen.getByTestId("percepcion-resumen")).toHaveTextContent(/3330/);
+  });
+
+  it("el control de percepción es de la venta interna: la exportación no lo ofrece", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    expect(screen.getByLabelText("Operación con percepción del IGV")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+    expect(screen.queryByLabelText("Operación con percepción del IGV")).not.toBeInTheDocument();
   });
 });
 

@@ -5,8 +5,8 @@ import { CODIGOS_PAIS, listarPaises } from "./paises";
 const datos = (p: Partial<Parameters<typeof errorDeExportacion>[0]>) => ({ operacion: "0200", incoterm: "", paisDeUso: "", paisDelComprador: "US", ...p });
 
 describe("operaciones (#311)", () => {
-  it("ofrece la venta interna y la exportación, sin el hospedaje ni el paquete turístico (0202, 0205)", () => {
-    expect(OPERACIONES.map((o) => o.codigo)).toEqual(["0101", "0200", "0201", "0203", "0204", "0206", "0207", "0208"]);
+  it("ofrece la venta interna (con el NRUS, solo en boleta) y la exportación, sin el hospedaje ni el paquete turístico (0202, 0205)", () => {
+    expect(OPERACIONES.map((o) => o.codigo)).toEqual(["0101", "0113", "0200", "0201", "0203", "0204", "0206", "0207", "0208"]);
     expect(esExportacion("0200")).toBe(true);
     expect(esExportacion("0208")).toBe(true);
     expect(esExportacion("0101")).toBe(false);
