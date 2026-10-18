@@ -153,6 +153,51 @@ final class EscenariosFactura {
                 "\"detalle_viaje\":\"Traslado de 20 t de harina de pescado en camion furgon\",\"valor_referencial\":{\"servicio\":2500,\"carga_efectiva\":2400,\"carga_util_nominal\":2600}," +
                 "\"tramos\":[{\"origen_ubigeo\":\"021801\",\"destino_ubigeo\":\"150101\",\"descripcion\":\"Chimbote - Lima por Panamericana Norte\",\"valor_carga_efectiva\":2400,\"vehiculos\":[{\"configuracion\":\"T3S3\",\"carga_util_tm\":30,\"carga_efectiva_tm\":20}]}]}}]," +
                 "\"detraccion\":{\"codigo_bien_servicio\":\"027\",\"porcentaje\":4,\"cuenta_banco_nacion\":\"00-000-123456\"}}"),
+            // #388: SUNAT no admite descuentos ni cargos en una nota (3271, 3277): la nota total de una factura con ellos sale con las líneas netas, sin AllowanceCharge.
+            new Escenario("44-desc-cargo-mixto", "Factura con descuento (00) y cargo (47) de línea, y descuento (02) y cargo (49) globales",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Con descuento\",\"unidad\":\"NIU\",\"cantidad\":3,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\",\"descuento\":{\"porcentaje\":10}}," +
+                "{\"descripcion\":\"Con flete\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"porcentaje\":10}]}," +
+                "{\"descripcion\":\"Sin ajuste\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"descuento_global\":{\"porcentaje\":2},\"cargos\":[{\"monto\":10.00}]}"),
+            new Escenario("29-nc-total-descuento-item", "Nota de crédito total (01) sobre la factura con descuentos y cargos de línea y globales (44)", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${DESC_MIXTO}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación por error en el pedido\"}"),
+            // #388: el cargo de línea (47) de una nota de débito pasa al valor de la línea.
+            new Escenario("30-nd-cargo-item", "Nota de débito (02) con cargo por ítem sobre la factura gravada", NOTAS,
+                "{\"tipo\":\"08\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${GRAVADA}}," +
+                "\"motivo\":\"02\",\"descripcion\":\"Aumento en el valor por gastos de envío\",\"items\":[" +
+                "{\"descripcion\":\"Aumento de valor\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"," +
+                "\"cargos\":[{\"monto\":10.00}]}]}"),
+            // #306: la nota de débito sobre una exportación hereda Incoterm (DeliveryTerms). El cargo global no afecta la base (la exportación no tiene ítems gravados): queda
+            // como estaba en la nota, que es lo que este escenario comprueba contra SUNAT. Un descuento que no afecta la base no va: la 3280 de la nota no lo resta del total.
+            new Escenario("31-nd-exportacion-cargo-global", "Nota de débito (01) sobre la exportación, con un cargo global que no afecta la base", NOTAS,
+                "{\"tipo\":\"08\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${EXPORTACION}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Intereses por mora de 30 días\",\"items\":[" +
+                "{\"descripcion\":\"Intereses por mora\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":100.00,\"tipo_afectacion_igv\":\"40\"}]," +
+                "\"cargos\":[{\"monto\":50.00,\"afecta_base_igv\":false}]}"),
+            // Un solo descuento, de línea o global: aíslan qué rechazaba e-beta en la nota total (3271 el de línea, 3277 el global).
+            new Escenario("40-desc-item", "Factura con un solo descuento de línea",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Monitor\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\",\"descuento\":{\"porcentaje\":10}}]}"),
+            new Escenario("41-desc-global", "Factura con un solo descuento global",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Monitor\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}],\"descuento_global\":{\"porcentaje\":2}}"),
+            new Escenario("42-nc-desc-item", "NC total sobre la factura con un solo descuento de línea", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${DESC_ITEM}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"),
+            new Escenario("43-nc-desc-global", "NC total sobre la factura con un solo descuento global", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${DESC_GLOBAL}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"),
+            // #388: las reglas 3271/3277 de las hojas de nota dicen «si el documento que modifica es 01»; una nota sobre una boleta (03) se prueba aparte.
+            new Escenario("45-boleta-descuentos", "Boleta con descuento de línea y descuento global",
+                "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"moneda\":\"PEN\"," +
+                "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
+                "{\"descripcion\":\"Monitor\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\",\"descuento\":{\"porcentaje\":10}}," +
+                "{\"descripcion\":\"Cable\",\"unidad\":\"NIU\",\"cantidad\":3,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}],\"descuento_global\":{\"porcentaje\":2}}"),
+            new Escenario("46-nc-boleta-descuentos", "NC total (01) sobre la boleta con descuentos", NOTAS,
+                "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_DESC}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"),
             // #387: boleta con una línea onerosa y una bonificación (15). Su baja (RC en estado 3) NO informa la gratuita: e-beta rechaza el 05 y el 06 (2256).
             new Escenario("32-boleta-gratuita", "Boleta con bonificación gratuita (paso 1 de 2: la baja va al final, en el resumen diario)",
                 "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"moneda\":\"PEN\"," +

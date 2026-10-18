@@ -96,7 +96,8 @@ class HomologacionBetaTest {
                 "{\"domicilio\":{\"ubigeo\":\"150101\",\"direccion\":\"AV. LIMA 123\"},\"cuenta_detracciones\":\"00-000-123456\",\"nombre_comercial\":\"KHIPU PRUEBAS\"}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
         for (String tipo : List.of("01", "07", "08"))   // la misma serie F### vale para factura, NC y ND (regla 1001); cada tipo numera aparte
             assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"" + tipo + "\",\"serie\":\"" + SERIE + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"03\",\"serie\":\"" + EscenariosFactura.serieBoleta(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        for (String tipo : List.of("03", "07"))   // la misma serie B### vale para la boleta y su nota de crédito (la letra B: reglas 2399, 2400)
+            assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"" + tipo + "\",\"serie\":\"" + EscenariosFactura.serieBoleta(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         // Establecimiento anexo 0002 con su propia serie de factura (#80).
         assertThat(http.postForEntity("/v1/empresa/establecimientos", new HttpEntity<>(
                 "{\"codigo\":\"0002\",\"nombre\":\"Tienda Miraflores\",\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"AV. LARCO 345\"}}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -141,6 +142,11 @@ class HomologacionBetaTest {
             if (e.id().startsWith("01-")) numeros.put("GRAVADA", num.longValue());
             if (e.id().startsWith("02-")) ids.put("EXONERADA", String.valueOf(datos.get("id")));
             if (e.id().startsWith("04-")) numeros.put("MIXTA", num.longValue());
+            if (e.id().startsWith("44-")) numeros.put("DESC_MIXTO", num.longValue());
+            if (e.id().startsWith("45-")) numeros.put("BOLETA_DESC", num.longValue());
+            if (e.id().startsWith("26-")) numeros.put("EXPORTACION", num.longValue());
+            if (e.id().startsWith("40-")) numeros.put("DESC_ITEM", num.longValue());
+            if (e.id().startsWith("41-")) numeros.put("DESC_GLOBAL", num.longValue());
             if (e.id().startsWith("32-")) ids.put("BOLETA_GRATUITA", String.valueOf(datos.get("id")));
             if (e.id().startsWith("09-")) numeros.put("CREDITO", num.longValue());
             if (e.id().startsWith("16-")) numeros.put("ANTICIPO", num.longValue());
