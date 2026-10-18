@@ -303,6 +303,19 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
     expect(notasEnviadas(fetch)[0].fecha_emision).toBe(sumarDias(hoy, -1));
   });
 
+  it("una fecha anterior a la de la factura (2885) o futura no deja emitir", async () => {
+    const hoy = hoyLima();
+    const fetch = await parcial(documento("01", { fecha_emision: sumarDias(hoy, -1) }));
+    const emitir = screen.getByRole("button", { name: "Emitir nota de crédito" });
+    expect(emitir).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Fecha de emisión"), { target: { value: sumarDias(hoy, -2) } });
+    expect(emitir).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Fecha de emisión"), { target: { value: sumarDias(hoy, 1) } });
+    expect(emitir).toBeDisabled();
+    fireEvent.click(emitir);
+    expect(notasEnviadas(fetch)).toHaveLength(0);
+  });
+
   it("las observaciones viajan recortadas y no se mandan vacías", async () => {
     const fetch = await parcial();
     fireEvent.change(screen.getByLabelText(/Observaciones/), { target: { value: "  Devolución recibida en tienda.  " } });
