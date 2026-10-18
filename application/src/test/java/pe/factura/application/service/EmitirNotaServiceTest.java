@@ -128,6 +128,19 @@ class EmitirNotaServiceTest {
         return List.of(new Item("P1", "Laptop", "NIU", new BigDecimal(cantidad), new BigDecimal(precio), TipoAfectacionIgv.GRAVADO));
     }
 
+    /** #295: una boleta que regularizó un anticipo no se anula con una nota total (el CreditNote no lleva PrepaidPayment): el mensaje dice «boleta» y pide los ítems por el neto. */
+    @Test void laNotaTotalSobreUnaBoletaConAnticiposPideLosItemsPorElNeto() {
+        Comprobante anticipo = boletaAceptada();   // B001: 200.00 gravado, mismo comprador sin documento
+        Comprobante conAnticipo = service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101", SIN_DOCUMENTO,
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null,
+                List.of(new Anticipo("B001", anticipo.numero(), new BigDecimal("100.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1))), null, null, true));
+        assertThat(conAnticipo.totales().total()).isEqualByComparingTo("118.00");   // 236.00 − 118.00 del anticipo
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", conAnticipo.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("La boleta B001-" + conAnticipo.numero()).hasMessageContaining("regularizó anticipos")
+                .hasMessageContaining("indique los items").hasMessageNotContaining("La factura");
+    }
+
     /** #293: la nota total sobre una boleta copia sus ítems y su comprador sin documento, y queda como nota de la boleta. */
     @Test void notaDeCreditoTotalSobreUnaBoleta() {
         Comprobante b = boletaAceptada();
