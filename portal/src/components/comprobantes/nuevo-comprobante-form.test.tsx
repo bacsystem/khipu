@@ -114,6 +114,68 @@ describe("NuevoComprobanteForm — totales del backend y redondeo (#405, #358)",
   });
 });
 
+describe("NuevoComprobanteForm — descuentos y cargos (#310)", () => {
+  const TOTALES = { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 };
+
+  function conCliente() {
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    linea("Servicio", "118");
+  }
+
+  it("el descuento y el cargo del ítem viajan con el código de afectación que se elige (00/01 y 47/48)", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conCliente();
+    fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
+
+    fireEvent.change(screen.getByLabelText("Descuento del ítem: valor"), { target: { value: "10" } });
+    fireEvent.change(screen.getByLabelText("Cargo del ítem: tipo"), { target: { value: "monto" } });
+    fireEvent.change(screen.getByLabelText("Cargo del ítem: valor"), { target: { value: "25" } });
+    // El descuento reduce la base del IGV por defecto (00); el cargo paga IGV (47). Cada uno se puede cambiar al otro código.
+    const [reduceBase, pagaIgv] = screen.getAllByRole("checkbox");
+    expect(reduceBase).toBeChecked();
+    expect(pagaIgv).toBeChecked();
+    fireEvent.click(reduceBase);   // descuento 01: no toca el IGV
+    fireEvent.click(pagaIgv);      // cargo 48: sin IGV
+
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0].items[0]).toMatchObject({ descuento: { porcentaje: 10, afecta_base_igv: false }, cargos: [{ monto: 25, afecta_base_igv: false }] });
+  });
+
+  it("el descuento global y el recargo al consumo van en el cuerpo (02 y 46), y el cálculo los recibe", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conCliente();
+    fireEvent.click(screen.getByText("Más opciones del comprobante"));
+
+    fireEvent.change(screen.getByLabelText("Descuento global: tipo"), { target: { value: "monto" } });
+    fireEvent.change(screen.getByLabelText("Descuento global: valor"), { target: { value: "5.50" } });
+    fireEvent.change(screen.getByLabelText("Cargo global: valor"), { target: { value: "10" } });
+    fireEvent.click(screen.getByLabelText("Recargo al consumo (restaurantes, sin IGV)"));
+
+    await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ descuento_global: { monto: 5.5, afecta_base_igv: true }, cargos: [{ porcentaje: 10, afecta_base_igv: false, motivo: "recargo_consumo" }] }));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ descuento_global: { monto: 5.5, afecta_base_igv: true }, cargos: [{ porcentaje: 10, afecta_base_igv: false, motivo: "recargo_consumo" }] });
+  });
+
+  it("un valor que el dominio rechazaría se marca en su campo y no deja emitir ni calcular", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conCliente();
+    fireEvent.click(screen.getByText("Más opciones del comprobante"));
+    fireEvent.change(screen.getByLabelText("Descuento global: valor"), { target: { value: "150" } });
+
+    expect(screen.getByText("El porcentaje debe ser menor que 100.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/Corrija los descuentos o cargos/));
+    expect(emisiones(fetch)).toHaveLength(0);
+    expect(calculos(fetch).filter((c) => c.descuento_global)).toHaveLength(0);
+  });
+});
+
 describe("NuevoComprobanteForm — boleta (#20)", () => {
   it("sin documento manda «-» como tipo y número, con el nombre por defecto", async () => {
     const fetch = stubEmision();
