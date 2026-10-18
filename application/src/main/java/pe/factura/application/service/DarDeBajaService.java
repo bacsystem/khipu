@@ -141,7 +141,7 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
                 // Un resumen de alta resuelto resuelve la boleta: su CDR la acepta o la rechaza, como un envío más.
                 // #362 B3, decisión sin cambio de lógica: si SUNAT rechaza el alta de una boleta que ya tenía (2282 «ya informada», o 2987 «informada y anulada o rechazada»), esta línea la deja RECHAZADA
                 // aunque SUNAT ya la tenga. En e-beta no se reproduce (el alta sobre una boleta aceptada por sendBill se aceptó con código 0, y un sendBill repetido con otro contenido tampoco da 1033) y
-                // producción no se pudo verificar; endurecerlo (mapear 2282 en el alta a «ya informada», no a RECHAZADO) sin evidencia sería adivinar. Se revisa con el primer caso real. Con lock, por la misma carrera de abajo.
+                // producción no se pudo verificar; endurecerlo (mapear 2282 en el alta a «ya informada», no a RECHAZADO) sin evidencia sería adivinar. Se revisa con el primer caso real.
                 Comprobante c = comprobantes.bloquear(b.tenantId(), b.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
                 if (c.estado() == EstadoDocumento.ENVIADO) {
                     if (b.cdrKey() != null) c.aplicarCdr(b.cdr(), b.cdrKey()); else c.rechazarPorFault(b.cdr().codigo(), b.cdr().descripcion());
