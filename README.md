@@ -80,7 +80,9 @@ make deploy-develop   # tras cada merge: vuelve a fijar origin/develop y reconst
   tarda ~8 minutos y un cron cada 5 la repetiría apenas termine. Si ya tienes el archivo (`.txt` o `.zip`) en disco, en vez de descargarlo agrega `PADRON_RUC_DIR=<carpeta del host>` (se monta de solo lectura en `/padron`) y
   `PADRON_RUC_ORIGEN=/padron/<archivo>`. Corre `make deploy-develop`, espera a que `make develop-logs` diga `Padrón de RUC cargado desde …` (unos 10 minutos con el archivo local, medidos: 8 min 24 s para 18,5 millones de filas; con la descarga, más), **quita la línea del cron** y
   vuelve a correr `make deploy-develop` (si no, la carga se repetiría cada día a esa hora). `make develop-datos` dice cuántas filas tiene y cuándo se cargó. Los datos quedan en el volumen: mientras
-  `PADRON_RUC_HABILITADO=true` siga en el archivo, el padrón se actualiza cada día a las 04:30; sin esa línea, un deploy deja la carga apagada pero el padrón ya cargado se conserva.
+  `PADRON_RUC_HABILITADO=true` siga en el archivo, a las 04:30 se vuelve a cargar; sin esa línea, un deploy deja la carga apagada pero el padrón ya cargado se conserva. **El archivo local sirve para la primera
+  carga:** con `PADRON_RUC_ORIGEN` apuntando a él, la carga diaria releería ese mismo archivo sin traer cambios. Después de la primera, quita `PADRON_RUC_DIR` y `PADRON_RUC_ORIGEN` para que use la
+  descarga diaria de SUNAT (~394 MB).
 - **Datos aparte**: usa el proyecto `khipu-develop` (volúmenes propios), así que no toca el Postgres ni los datos de tu desarrollo local.
   Un `deploy-develop` **nunca** borra la base: reconstruye y reemplaza contenedores, pero el volumen sigue. `make develop-stop` conserva los
   datos; `make develop-reset CONFIRMAR=si` los borra y el siguiente deploy parte de cero. Sin `CONFIRMAR=si` **en la línea de comandos**
