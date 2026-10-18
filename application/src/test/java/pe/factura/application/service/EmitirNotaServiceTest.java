@@ -86,13 +86,25 @@ class EmitirNotaServiceTest {
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
     }
 
-    /** Factura de 2 laptops (200 + 36) y un libro exonerado (50), descuento global 03 de 10: total 276.00. */
+    /** Factura de 2 laptops (200 + 36) y un libro exonerado (40): total 276.00. Sin descuentos: una nota no admite los que no afectan la base (3280, #388). */
     private Comprobante facturaAceptada(FormaPago fp) {
         return service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
                 new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("40.00"), TipoAfectacionIgv.EXONERADO)),
+                fp, null, List.of(), null, null, null, List.of(), null, null, true));
+    }
+
+    /**
+     * Como {@link #facturaAceptada} pero con un descuento global 02 de 8.48 (afecta la base): gravado 191.52, IGV 34.47, exonerado 50, total 275.99. Es el descuento que la
+     * nota total copia de la factura (#388: pasa al valor de las líneas, la nota no lo lleva).
+     */
+    private Comprobante facturaConDescuentoAceptada() {
+        return service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
                         new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)),
-                fp, Descuento.monto(new BigDecimal("10.00"), false), List.of(), null, null, null, List.of(), null, null, true));
+                FormaPago.contado(), Descuento.monto(new BigDecimal("8.48"), true), List.of(), null, null, null, List.of(), null, null, true));
     }
 
     private EmitirNotaCommand nc(long numeroFactura, String motivo, List<Item> items) {
@@ -198,8 +210,8 @@ class EmitirNotaServiceTest {
     }
 
     @Test void notaTotalCopiaItemsDescuentoYCargosDeLaFactura() {
-        Comprobante f = facturaAceptada(FormaPago.contado());
-        assertThat(f.totales().total()).isEqualByComparingTo("276.00");
+        Comprobante f = facturaConDescuentoAceptada();
+        assertThat(f.totales().total()).isEqualByComparingTo("275.99");
 
         Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "01", null));
         assertThat(nc.tipo()).isEqualTo(TipoDocumento.NOTA_CREDITO);
@@ -208,14 +220,33 @@ class EmitirNotaServiceTest {
         assertThat(nc.nombreArchivo()).isEqualTo("20100066603-07-FC01-1");
         assertThat(nc.items()).isEqualTo(f.items());
         assertThat(nc.descuentoGlobal()).isEqualTo(f.descuentoGlobal());
+        assertThat(nc.totales().descuentoGlobal()).as("#388: la nota no lleva el descuento global, lo reparte en las líneas").isNull();
         assertThat(nc.receptor()).isEqualTo(f.receptor());
         assertThat(nc.moneda()).isEqualTo("PEN");
-        assertThat(nc.totales().total()).isEqualByComparingTo("276.00");
+        assertThat(nc.totales().total()).isEqualByComparingTo("275.99");
+        assertThat(nc.totales().gravado()).isEqualByComparingTo(f.totales().gravado());
+        assertThat(nc.totales().igv()).isEqualByComparingTo(f.totales().igv());
         assertThat(nc.nota().documentoAfectado()).isEqualTo("F001-" + f.numero());
         assertThat(nc.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         assertThat(validado[0]).isEqualTo(TipoDocumento.NOTA_CREDITO);
         assertThat(new String(storage.leer(nc.xmlKey()))).startsWith("<NOTA_CREDITO>");
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).extracting(Comprobante::id).containsExactly(nc.id());
+    }
+
+    /**
+     * #388: una factura con un descuento que no afecta la base (03) no se puede anular con una nota total: el importe total de la nota no resta descuentos (3280, e-beta
+     * 2026-10-18). Se rechaza con el motivo antes de numerar; antes salía con número y SUNAT la devolvía.
+     */
+    @Test void laNotaTotalDeUnaFacturaConDescuentoQueNoAfectaLaBaseSeRechazaAntesDeNumerar() {
+        Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), Descuento.monto(new BigDecimal("10.00"), false), List.of(), null, null, null, List.of(), null, null, true));
+
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3280").hasMessageContaining("F001-" + f.numero())
+                .extracting(e -> ((DomainException) e).codigo()).isEqualTo("DESCUENTO_INVALIDO");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).as("no se emitió ni numeró ninguna nota").isEmpty();
     }
 
     /**
@@ -276,13 +307,13 @@ class EmitirNotaServiceTest {
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09",
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("3"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)))))
                 .isInstanceOf(DomainException.class).hasMessageContaining("3286").hasMessageContaining("importe total");
-        // Total menor pero base exonerada mayor que la de la factura (3503): 60 exonerado vs 50
+        // Total menor pero base exonerada mayor que la de la factura (3503): 50 exonerado vs 40
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09",
-                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("60.00"), TipoAfectacionIgv.EXONERADO)))))
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)))))
                 .hasMessageContaining("3503").hasMessageContaining("exonerado");
-        // Tolerancia +1 del 3503 (filas 114-122): 51 exonerado pasa
+        // Tolerancia +1 del 3503 (filas 114-122): 41 exonerado pasa
         assertThat(service.emitirNota(tenantId, nc(f.numero(), "09",
-                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("51.00"), TipoAfectacionIgv.EXONERADO)))).totales().total()).isEqualByComparingTo("51.00");
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("41.00"), TipoAfectacionIgv.EXONERADO)))).totales().total()).isEqualByComparingTo("41.00");
     }
 
     /**
@@ -310,7 +341,7 @@ class EmitirNotaServiceTest {
     }
 
     /**
-     * 3503 por tributo cuando el total (3286) pasa: la factura tiene gravado 200 + exonerado 50 − 10 = 276; una NC de una sola
+     * 3503 por tributo cuando el total (3286) pasa: la factura tiene gravado 200 + IGV 36 + exonerado 40 = 276; una NC de una sola
      * línea gravada de 237.77 (base 201.50) queda por debajo del total pero supera el gravado (200 + 1). Es el caso de una
      * NC por importe sobre una factura con ISC/anticipos (f-cargos en el portal); la recert #8 midió que quitar el límite
      * del gravado dejaba la suite verde. El límite del IVAP no puede atar solo: en una factura IVAP total = base × 1.04
@@ -410,7 +441,7 @@ class EmitirNotaServiceTest {
      * en e-beta (reproducido el 2026-09-19, #83). khipu sí lleva la cuenta para que el cliente no acredite dos veces.
      */
     @Test void elAcumuladoDeNotasDeCreditoNoPuedeSuperarALaFactura() {
-        Comprobante f = facturaAceptada(FormaPago.contado());   // 276.00: 200 gravado + 36 IGV + 50 exonerado − 10
+        Comprobante f = facturaAceptada(FormaPago.contado());   // 276.00: 200 gravado + 36 IGV + 40 exonerado
         assertThat(service.emitirNota(tenantId, nc(f.numero(), "01", null)).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         // Segunda NC total: la factura ya está acreditada por completo.
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null)))
@@ -429,7 +460,7 @@ class EmitirNotaServiceTest {
         service.emitirNota(tenantId, nc(f.numero(), "07", List.of(unaLaptop)));   // gravado 200 de 200
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "07", List.of(unaLaptop))))
                 .hasMessageContaining("3286").hasMessageContaining("ya acreditado 236.00");
-        // El exonerado sigue disponible (40 de 50 acreditando 236 + 40 = 276), pero 50 ya excede el total.
+        // El exonerado sigue disponible (los 40 acreditando 236 + 40 = 276), pero 5 más ya excede el total.
         assertThat(service.emitirNota(tenantId, nc(f.numero(), "07",
                 List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("40.00"), TipoAfectacionIgv.EXONERADO)))).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "07",

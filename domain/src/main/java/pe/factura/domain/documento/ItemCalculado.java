@@ -94,6 +94,33 @@ public record ItemCalculado(Item item, BigDecimal valorUnitario, BigDecimal base
         return cargos.stream().filter(cg -> cg.afectaBase() == afectanBase).map(CargoCalculado::monto).reduce(BigDecimal.ZERO.setScale(2), BigDecimal::add);
     }
 
+    /** Si la línea lleva un descuento 00 o un cargo 47, los únicos de línea que mueven su valor de venta y la base del IGV. */
+    boolean ajustaLaBase() { return !gratuita() && (descuentoAfectaBase || cargos.stream().anyMatch(CargoCalculado::afectaBase)); }
+
+    /**
+     * #388: la línea como la expresa una nota. SUNAT no admite descuentos ni cargos en las notas (sus hojas de reglas no tienen {@code AllowanceCharge}) y exige que el
+     * valor de venta de la línea sea el valor unitario × la cantidad (3271): el descuento 00 y el cargo 47 pasan al valor de la línea, que ya los lleva, y se quitan del
+     * ítem. Los importes (valor de venta, IGV, precio) son los mismos; solo cambian el valor unitario, que ahora es neto, y lo que se escribe en el XML. Un descuento 01 o
+     * un cargo 48 (no afectan la base) quedan como estaban.
+     */
+    ItemCalculado paraNota() {
+        if (!ajustaLaBase()) return this;
+        List<CargoCalculado> restantes = cargos.stream().filter(cg -> !cg.afectaBase()).toList();
+        Item sinBase = new Item(item.codigo(), item.descripcion(), item.unidad(), item.cantidad(), item.precioUnitario(), item.afectacion(), descuentoAfectaBase ? null : item.descuento(),
+                item.isc(), item.icbper(), restantes.stream().map(CargoCalculado::cargo).toList(), item.codigoSunat(), item.gtin(), item.hidrobiologico(), item.transporte());
+        boolean quedaAlgo = sinBase.tieneDescuento() || !restantes.isEmpty();
+        return new ItemCalculado(sinBase, valorVenta.divide(item.cantidad(), 10, RoundingMode.HALF_UP), quedaAlgo ? baseBruta : valorVenta, descuentoAfectaBase ? BigDecimal.ZERO.setScale(2) : descuento, false,
+                valorVenta, isc, iscPorcentaje, iscBase, icbper, icbperUnitario, igv, precioVenta, precioVentaUnitario, porcentajeIgv, restantes);
+    }
+
+    /** #388: la misma línea con otro valor de venta e IGV (el reparto de un descuento o cargo global en una nota): el valor unitario y el precio siguen a esos importes. */
+    ItemCalculado conImportes(BigDecimal nuevoValorVenta, BigDecimal nuevoIgv) {
+        BigDecimal nuevoPrecioVenta = nuevoValorVenta.add(isc).add(nuevoIgv).add(icbper).subtract(descuentoNoAfectaBase()).add(sumaCargos(cargos, false));
+        boolean quedaAlgo = item.tieneDescuento() || !cargos.isEmpty();
+        return new ItemCalculado(item, nuevoValorVenta.divide(item.cantidad(), 10, RoundingMode.HALF_UP), quedaAlgo ? baseBruta : nuevoValorVenta, descuento, descuentoAfectaBase, nuevoValorVenta,
+                isc, iscPorcentaje, iscBase, icbper, icbperUnitario, nuevoIgv, nuevoPrecioVenta, nuevoPrecioVenta.divide(item.cantidad(), 10, RoundingMode.HALF_UP), porcentajeIgv, cargos);
+    }
+
     /** Factor SUNAT del descuento de línea (MultiplierFactorNumeric): monto / base bruta; vacío si no reproduce el monto (regla 3290). */
     public java.util.Optional<BigDecimal> descuentoFactor() { return FactorSunat.de(descuento, baseBruta); }
 

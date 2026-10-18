@@ -58,6 +58,14 @@ public class NotaController {
             anule la factura con la comunicación de baja). **Nota parcial** (devolución
             por ítem `07`, descuento `04`/`05`, disminución `09`…): envíe los `items` que cubre, con el mismo formato que en la factura.
 
+            **Descuentos y cargos**: SUNAT no admite descuentos ni cargos (`AllowanceCharge`) en una nota y exige que el valor de cada
+            línea sea valor unitario × cantidad (3271) y que la base del IGV sea la suma de las líneas (3277). El descuento (`00`/`02`)
+            y el cargo (`47`/`49`) se aplican al valor de la línea —el global, repartido entre las líneas gravadas— y la nota sale sin
+            ellos: la base, el IGV y el total son los mismos, y el valor unitario de la línea es el neto. Un descuento que no afecta la
+            base (`afecta_base_igv: false`, códigos `01`/`03`) no cabe en una nota (3280: el total de la nota no resta descuentos): se
+            rechaza con `422 DESCUENTO_INVALIDO` antes de numerar; indique los `items` por su importe neto. Los cargos que no afectan la
+            base (`48`, `46`, `50`) sí van.
+
             **Nota de crédito 13** (corrección de cuotas): solo sobre facturas al crédito; envíe `forma_pago` al crédito con el
             neto pendiente y las cuotas corregidas (reglas 3257, 3260, 3320, 3321); la nota sale con importe 0 (regla 3315). En cualquier
             otra nota `forma_pago` se rechaza.
@@ -69,7 +77,8 @@ public class NotaController {
 
             **Errores**: `422 NOTA_INVALIDA` (factura o boleta inexistente, no aceptada o anulada —2119/2120—, fecha anterior al documento
             —2885—, motivo fuera del catálogo —2172— o no admitido sobre una boleta —3259/4367—, importes mayores que el documento o que su
-            saldo tras otras notas —3286/3503—), `422 FECHA_INVALIDA` (plazo de envío vencido —2108/1079—), `422 SERIE_INVALIDA`,
+            saldo tras otras notas —3286/3503—), `422 DESCUENTO_INVALIDO` (un descuento que no afecta la base, código 01 o 03: la
+            nota no lo admite —3280—), `422 FECHA_INVALIDA` (plazo de envío vencido —2108/1079—), `422 SERIE_INVALIDA`,
             `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su plan: una nota
             consume como una factura; para anular sin consumir está la comunicación de baja), `402 PLAN_VENCIDO` (el plan de la cuenta
             venció y pasó su gracia: se vuelve a emitir al renovarlo; la comunicación de baja sigue).
