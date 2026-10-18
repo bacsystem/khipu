@@ -498,6 +498,45 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     expect(emisiones(fetch)[0]).toMatchObject({ tipo_operacion: "1001", detraccion: { codigo_bien_servicio: "022", porcentaje: 12 } });
   });
 
+  it("el buscador del catálogo 54 filtra por código o nombre y no suelta el bien ya elegido", async () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
+    conCliente();
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
+    const valores = () => [...screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option")].map((o) => o.getAttribute("value"));
+    fireEvent.change(screen.getByLabelText("Buscar en el catálogo 54"), { target: { value: "arrend" } });
+    expect(valores()).toEqual(["", "019"]);
+    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "019" } });
+    fireEvent.change(screen.getByLabelText("Buscar en el catálogo 54"), { target: { value: "037" } });
+    expect(valores()).toEqual(["", "019", "037"]);
+  });
+
+  it("al crédito, el neto pendiente por defecto es el total menos la detracción (en soles); en dólares es el total", async () => {
+    const fetch = stubConCalculo(TOTALES, undefined, CON_DETRACCION);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
+    conCliente();
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
+    await waitFor(() => expect(screen.getByTestId("detraccion-pie")).toHaveTextContent("Detracción S/ 142.00"));
+    fireEvent.change(screen.getByLabelText("Forma de pago"), { target: { value: "credito" } });
+    fireEvent.click(screen.getByRole("button", { name: "Repartir" }));
+    // 1180.00 de total menos 142.00 de detracción: lo que queda por cobrar a plazos.
+    await waitFor(() => expect(screen.getByTestId("credito-resumen")).toHaveTextContent("de S/ 1,038.00 pendientes"));
+    await waitFor(() => expect(calculos(fetch).at(-1)?.forma_pago).toMatchObject({ tipo: "credito", monto_pendiente: 1038 }));
+  });
+
+  it("muestra junto al control lo que el backend rechaza de la detracción (DETRACCION_INVALIDA)", async () => {
+    stubConCalculo(TOTALES, { codigo: "DETRACCION_INVALIDA", mensaje: "3129 - El tipo de operación 1003 exige el código de bien/servicio 028" });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
+    conCliente();
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
+    await waitFor(() => expect(screen.getByTestId("calculo-rechazado")).toHaveTextContent(/3129/));
+  });
+
   it("el transporte de pasajeros (028) sale como operación 1003", async () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
