@@ -2447,6 +2447,21 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  // #405: el cálculo sin emitir. El mock usa el mismo helper local que la emisión simulada (sin descuentos, cargos ni ISC) y le suma el redondeo, con la misma
+  // regla del dominio (3303: hasta ±1.00 y sin dejar el total en negativo).
+  http.post(`${BASE}/v1/facturas/calcular`, async ({ request }) => {
+    const body = (await request.json()) as { items: Array<{ cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }>; redondeo?: number };
+    const redondeo = body.redondeo ?? 0;
+    if (Math.abs(redondeo) > 1) return fail(422, "REDONDEO_INVALIDO", "3303 - El redondeo del importe total admite 2 decimales y no puede superar 1.00 en valor absoluto");
+    const t = calcularTotales(
+      body.items.map((i) => ({ cantidad: i.cantidad, precioUnitario: i.precio_unitario, tipoAfectacionIgv: i.tipo_afectacion_igv })),
+      empresaDe(request)?.padron_tasa_especial_igv ? 10.5 : 18,
+    );
+    const total = Math.round((t.total + redondeo) * 100) / 100;
+    if (total < 0) return fail(422, "REDONDEO_INVALIDO", `3303 - El redondeo deja el importe total en negativo (${total.toFixed(2)})`);
+    return ok({ totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, gratuito: t.gratuito, igv: t.igv, redondeo, total } });
+  }),
+
   // Emisión manual desde el portal (#17). Los totales salen del mismo helper que previsualiza el formulario, así el
   // mock no puede "confirmar" un cálculo distinto del que ve el usuario.
   http.post(`${BASE}/v1/facturas`, async ({ request }) => {

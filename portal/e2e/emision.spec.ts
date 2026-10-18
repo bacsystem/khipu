@@ -189,7 +189,7 @@ test("emite con cantidad fraccionaria: el submit no queda bloqueado por la valid
   // submit sin alerta y el botón parecía muerto. Kilos, horas y metros quedaban fuera del portal.
   const posts: string[] = [];
   page.on("request", (r) => {
-    if (r.method() === "POST" && r.url().includes("/api/proxy/facturas")) posts.push(r.url());
+    if (r.method() === "POST" && r.url().endsWith("/api/proxy/facturas")) posts.push(r.url());
   });
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
@@ -305,7 +305,7 @@ async function completarMinimo(dialogo: ReturnType<import("@playwright/test").Pa
 function contarEmisiones(page: import("@playwright/test").Page) {
   const posts: string[] = [];
   page.on("request", (r) => {
-    if (r.method() === "POST" && r.url().includes("/api/proxy/facturas")) posts.push(r.url());
+    if (r.method() === "POST" && r.url().endsWith("/api/proxy/facturas")) posts.push(r.url());
   });
   return posts;
 }
@@ -409,7 +409,7 @@ test("la unidad sale de las más usadas del catálogo 03 y una inexistente vuelv
   await expect(unidad.locator("option[value='BX']")).toHaveText("BX · Caja");
   await expect(unidad.locator("option[value='E48']")).toHaveCount(0);
   await unidad.selectOption("KGM");
-  const emision = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/facturas"));
+  const emision = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/api/proxy/facturas"));
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   expect((await emision).postDataJSON().items[0].unidad).toBe("KGM");
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
@@ -553,7 +553,7 @@ test("la fecha y la moneda elegidas son las que viajan, y la fecha por defecto e
   await dialogo.getByLabel("Cantidad").fill("2.5");
 
   // Ningún test miraba el cuerpo del POST: `fecha_emision: hoy` y `moneda: "PEN"` hardcodeados pasaban igual.
-  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/facturas"));
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/api/proxy/facturas"));
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   const cuerpo = (await peticion).postDataJSON();
   expect(cuerpo).toMatchObject({ fecha_emision: ayer, moneda: "USD" });
@@ -624,4 +624,27 @@ test("una línea sin descripción no entra en el total ni se emite en silencio (
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
   // Lo emitido es lo previsualizado: la línea incompleta quedó fuera de los dos lados.
   await expect(page.getByText("S/ 2,000.00").first()).toBeVisible();
+});
+
+test("el redondeo se calcula en el backend, se ve en el pie y queda en el comprobante (#358)", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  await dialogo.getByLabel("Descripción").fill("Consultoría");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100.07");
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 100.07");
+
+  // Los ajustes poco frecuentes viven en «Más opciones del comprobante», cerrado por defecto.
+  await dialogo.getByText("Más opciones del comprobante").click();
+  await dialogo.getByLabel("Redondeo").fill("-0.07");
+  await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 100.00");
+  await expect(dialogo.getByTestId("totales-previsualizados")).toContainText("Redondeo");
+
+  // Fuera de rango el campo lo dice y no deja emitir.
+  await dialogo.getByLabel("Redondeo").fill("1.5");
+  await expect(dialogo.getByText(/no puede superar 1\.00/).first()).toBeVisible();
+  await dialogo.getByLabel("Redondeo").fill("-0.07");
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
 });

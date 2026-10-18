@@ -19,7 +19,24 @@ function stubEmision() {
 }
 
 function emisiones(fetch: ReturnType<typeof stubEmision>) {
-  return fetch.mock.calls.filter(([url]) => String(url).includes("/facturas")).map(([, init]) => JSON.parse(String(init?.body)));
+  return fetch.mock.calls.filter(([url]) => String(url).includes("/facturas") && !String(url).includes("/calcular")).map(([, init]) => JSON.parse(String(init?.body)));
+}
+
+/** Los pedidos de cálculo (#405): el formulario le pregunta al backend los importes que va a emitir. */
+function calculos(fetch: ReturnType<typeof stubEmision>) {
+  return fetch.mock.calls.filter(([url]) => String(url).includes("/facturas/calcular")).map(([, init]) => JSON.parse(String(init?.body)));
+}
+
+/** Un backend que calcula (200 con totales) y emite (201). `totales` es lo que responde `/calcular`. */
+function stubConCalculo(totales: Record<string, number>, rechazo?: { codigo: string; mensaje: string }) {
+  const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>((url) => {
+    const esCalculo = String(url).includes("/facturas/calcular");
+    if (esCalculo && rechazo) return Promise.resolve(new Response(JSON.stringify({ estado: "error", datos: null, mensaje: rechazo.mensaje, codigo: rechazo.codigo, errores: null }), { status: 422 }));
+    const datos = esCalculo ? { totales, total_en_soles: null } : { id: "c-1" };
+    return Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }), { status: esCalculo ? 200 : 201 }));
+  });
+  vi.stubGlobal("fetch", fetch);
+  return fetch;
 }
 
 function linea(descripcion: string, precio: string) {
@@ -51,6 +68,49 @@ describe("NuevoComprobanteForm — unidad de medida (#308)", () => {
     const unidad = screen.getByLabelText("Unidad de medida");
     await waitFor(() => expect(unidad.querySelectorAll("option")).toHaveLength(2));
     expect([...unidad.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["NIU", "ZZ"]);
+  });
+});
+
+describe("NuevoComprobanteForm — totales del backend y redondeo (#405, #358)", () => {
+  it("el pie muestra los importes que calculó el backend, con el redondeo", async () => {
+    const fetch = stubConCalculo({ gravado: 100, exonerado: 0, inafecto: 0, igv: 18, redondeo: -0.05, total: 117.95 });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    linea("Servicio", "118");
+    fireEvent.change(screen.getByLabelText("Redondeo"), { target: { value: "-0.05" } });
+
+    // La fila «Redondeo» solo la conoce el backend: aparece cuando respondió (el total local ya coincidía, así que se espera por ella).
+    await waitFor(() => expect(screen.getByTestId("totales-previsualizados")).toHaveTextContent(/Redondeo\s*S\/ -0\.05/));
+    expect(screen.getByTestId("total-a-pagar")).toHaveTextContent("S/ 117.95");
+    // Para calcular va un comprador de relleno válido y el redondeo; lo demás es lo mismo que se emitirá.
+    expect(calculos(fetch).at(-1)).toMatchObject({ serie: "F001", moneda: "PEN", redondeo: -0.05, cliente: { tipo_doc: "6", num_doc: "20131312955" }, items: [{ descripcion: "Servicio", precio_unitario: 118 }] });
+  });
+
+  it("si el backend rechaza el cuerpo, el motivo se ve y el pie sigue con el cálculo local", async () => {
+    stubConCalculo({}, { codigo: "REDONDEO_INVALIDO", mensaje: "3303 - El redondeo deja el importe total en negativo (-0.03)" });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    linea("Servicio", "0.01");
+    fireEvent.change(screen.getByLabelText("Redondeo"), { target: { value: "-0.05" } });
+
+    await waitFor(() => expect(screen.getByTestId("calculo-rechazado")).toHaveTextContent("3303 - El redondeo deja el importe total en negativo"));
+  });
+
+  it("el redondeo viaja en la emisión y un valor fuera de rango no se envía", async () => {
+    const fetch = stubConCalculo({ gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 117.95 });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    linea("Servicio", "118");
+
+    fireEvent.change(screen.getByLabelText("Redondeo"), { target: { value: "1.5" } });
+    expect(screen.getByText(/no puede superar 1\.00/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/no puede superar 1\.00/));
+    expect(emisiones(fetch)).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText("Redondeo"), { target: { value: "-0.05" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ redondeo: -0.05, cliente: { tipo_doc: "6", num_doc: "20554198211" } });
   });
 });
 
