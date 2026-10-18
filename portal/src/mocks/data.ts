@@ -136,6 +136,8 @@ export type Comprobante = {
   forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
   detraccion?: { codigo_bien_servicio: string; descripcion: string; porcentaje: number; monto: number; cuenta_banco_nacion: string; medio_pago: string } | null;
   observaciones?: string | null;
+  tipo_cambio?: number | null;
+  total_en_soles?: number | null;
   retencion_igv?: { porcentaje: number; monto: number; neto_cobrar: number } | null;
   percepcion?: { regimen: string; descripcion: string; porcentaje: number; base: number; monto: number; total_con_percepcion: number } | null;
   anticipos?: Array<{ comprobante: string; serie: string; numero: number; monto: number; importe_pagado: number; afectacion: string; codigo_sunat: string; fecha_pago: string | null }>;

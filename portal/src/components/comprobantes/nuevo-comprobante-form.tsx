@@ -22,6 +22,7 @@ import { documentosDeExportacion, errorDeExportacion, esExportacion, EXIGE_PAIS_
 import { listarPaises } from "@/lib/comprobantes/paises";
 import { avisoDeDetraccion, DETRACCION_VACIA, detraccionAApi, errorDeDetraccion, operacionDeDetraccion, type DetraccionForm } from "@/lib/comprobantes/detraccion";
 import { errorDePercepcion, OPERACION_PERCEPCION, PERCEPCION_VACIA, percepcionAApi, type PercepcionForm } from "@/lib/comprobantes/percepcion";
+import { errorDeTipoCambio, MONEDAS, superaElTopeSinDocumento as superaElTope, tipoCambioAApi } from "@/lib/comprobantes/monedas";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
 import { errorDeRetencion, RETENCION_VACIA, retencionAApi, type RetencionForm } from "@/lib/comprobantes/retencion";
 import { errorDeReferencias, REFERENCIAS_VACIAS, referenciasAApi, type ReferenciasForm } from "@/lib/comprobantes/referencias";
@@ -45,15 +46,6 @@ import { EstadoConsultaRuc } from "./estado-consulta-ruc";
 import { useAnticiposDisponibles } from "./use-anticipos-disponibles";
 import { useConsultaRuc } from "./use-consulta-ruc";
 
-/**
- * Las monedas salen del `@Pattern("PEN|USD|EUR")` de `FacturaRequest`, no del catálogo 02: el catálogo lista todas las
- * ISO 4217 y la API rechaza el resto, así que ofrecerlas sería prometer algo que falla al emitir.
- */
-const MONEDAS = [
-  { codigo: "PEN", etiqueta: "S/ Soles (PEN)" },
-  { codigo: "USD", etiqueta: "$ Dólares (USD)" },
-  { codigo: "EUR", etiqueta: "€ Euros (EUR)" },
-];
 
 
 type EntradaCatalogo = { codigo: string; descripcion: string; extra?: Record<string, string> };
@@ -155,6 +147,8 @@ export function NuevoComprobanteForm({
   const hoy = hoyLima();
   const [fecha, setFecha] = useState(hoy);
   const [moneda, setMoneda] = useState("PEN");
+  // #316: soles por unidad de la moneda; opcional, solo fuera de soles. SUNAT no lo recibe: sirve al PDF, al registro de ventas y al tope de la boleta sin documento.
+  const [tipoCambio, setTipoCambio] = useState("");
   // La factura siempre lleva RUC; la boleta, el documento que elija el usuario (DNI por defecto: es la venta más común).
   const [tipoDoc, setTipoDoc] = useState(boleta ? "1" : "6");
   const [numDoc, setNumDoc] = useState("");
@@ -288,6 +282,7 @@ export function NuevoComprobanteForm({
   // Lo elegido para otro cliente u otra moneda ya no está entre los candidatos y no se manda.
   const anticiposVigentes = disponibles.estado === "listo" ? anticiposElegidos.filter((a) => disponibles.candidatos.some((c) => c.serie === a.serie && c.numero === a.numero)) : [];
   const errorAnticipos = errorDeAnticipos(anticiposVigentes, disponibles.candidatos);
+  const errorTipoCambio = errorDeTipoCambio(tipoCambio, moneda);
   const errorRetencion = conRetencion ? errorDeRetencion(retencion) : null;
   const errorPercepcion = conPercepcion ? errorDePercepcion(percepcion, { moneda, alCredito: alCredito && !boleta }) : null;
   const errorExportacion = errorDeExportacion({ operacion, incoterm, paisDeUso, paisDelComprador: pais }, boleta);
@@ -323,7 +318,7 @@ export function NuevoComprobanteForm({
   const hayAjusteInvalido =
     errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
     lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null || errorDeIsc(l.isc) !== null) ||
-    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null || errorAnticipos !== null || errorRetencion !== null;
+    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null || errorAnticipos !== null || errorRetencion !== null || errorTipoCambio !== null;
 
   /**
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
@@ -334,6 +329,7 @@ export function NuevoComprobanteForm({
       serie,
       fecha_emision: fecha,
       moneda,
+      tipo_cambio: tipoCambioAApi(tipoCambio, moneda),
       tipo_operacion: operacionEnviada === "0101" ? undefined : operacionEnviada,
       detraccion: conDetraccion ? detraccionAApi(detraccion, moneda) : undefined,
       ...(paraCalcular ? {} : referenciasAApi(referencias, boleta)),
@@ -384,8 +380,8 @@ export function NuevoComprobanteForm({
   const mostrados = delServidor
     ? { gravado: delServidor.gravado, exonerado: delServidor.exonerado, inafecto: delServidor.inafecto, gratuito: delServidor.gratuito ?? 0, igv: delServidor.igv, total: delServidor.total }
     : { ...totales, total: totales.total + (redondeo.valor ?? 0) };
-  // Sin tipo de cambio no hay cómo comparar otra moneda con S/ 700: el backend exige el documento, y aquí se avisa antes.
-  const superaTopeSinDocumento = sinDocumento && (moneda !== "PEN" || mostrados.total > TOPE_SIN_DOCUMENTO);
+  // Con tipo de cambio el tope de S/ 700 se mide en soles; sin él no hay cómo comparar otra moneda y el backend exige el documento: aquí se avisa antes.
+  const superaTopeSinDocumento = sinDocumento && superaElTope(mostrados.total, moneda, tipoCambioAApi(tipoCambio, moneda));
 
   /** Al pasar a «sin documento» el nombre se completa con el habitual; al volver a un documento, ese nombre de relleno se quita. */
   function cambiarTipoDoc(nuevo: string) {
@@ -435,7 +431,7 @@ export function NuevoComprobanteForm({
       return;
     }
     if (hayAjusteInvalido) {
-      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? errorAnticipos ?? errorRetencion ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
+      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? errorAnticipos ?? errorRetencion ?? errorTipoCambio ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
       return;
     }
     if (errorCredito) {
@@ -539,6 +535,11 @@ export function NuevoComprobanteForm({
             ))}
           </select>
         </Campo>
+        {moneda === "PEN" ? null : (
+          <Campo id="nc-tipo-cambio" etiqueta="Tipo de cambio" opcional ayuda={`Soles por 1 ${moneda}; va al PDF y al registro de ventas, no a SUNAT`} error={errorTipoCambio ?? undefined}>
+            <input id="nc-tipo-cambio" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} inputMode="decimal" placeholder="3.756" aria-invalid={errorTipoCambio !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+          </Campo>
+        )}
       </div>
 
       <section className="grid gap-3">
@@ -555,7 +556,7 @@ export function NuevoComprobanteForm({
               </select>
             </Campo>
             {sinDocumento ? (
-              <p className={cn(AYUDA_CAMPO, "self-center")}>SUNAT lo admite en soles y hasta S/ {TOPE_SIN_DOCUMENTO}.00 de total.</p>
+              <p className={cn(AYUDA_CAMPO, "self-center")}>SUNAT lo admite hasta S/ {TOPE_SIN_DOCUMENTO}.00 de total; en otra moneda, con el tipo de cambio.</p>
             ) : (
               <Campo id="nc-num-doc" etiqueta="Número de documento">
                 <input
@@ -621,7 +622,7 @@ export function NuevoComprobanteForm({
             ) : null}
             {superaTopeSinDocumento ? (
               <p data-testid="aviso-sin-documento" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground sm:col-span-3")}>
-                Esta boleta pasa de S/ {TOPE_SIN_DOCUMENTO}.00{moneda !== "PEN" ? " o no es en soles" : ""}: identifica al comprador con su documento.
+                Esta boleta pasa de S/ {TOPE_SIN_DOCUMENTO}.00{moneda !== "PEN" && tipoCambioAApi(tipoCambio, moneda) === undefined ? " o no es en soles y no indica el tipo de cambio" : ""}: identifica al comprador con su documento.
               </p>
             ) : null}
           </div>
@@ -1081,6 +1082,11 @@ export function NuevoComprobanteForm({
           {conDetraccion && montoDetraccion !== null ? (
             <span className={AYUDA_CAMPO} data-testid="detraccion-pie">
               Detracción {formatearMonto("PEN", montoDetraccion)} · Neto a cobrar {formatearMonto(moneda, mostrados.total - (moneda === "PEN" ? montoDetraccion : 0))}
+            </span>
+          ) : null}
+          {moneda !== "PEN" && calculo.estado === "listo" && calculo.totalEnSoles !== null ? (
+            <span className={AYUDA_CAMPO} data-testid="total-en-soles">
+              Equivale a {formatearMonto("PEN", calculo.totalEnSoles)} al tipo de cambio {tipoCambio.trim()}
             </span>
           ) : null}
           {conRetencion && montoRetencion !== null ? (

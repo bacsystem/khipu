@@ -616,6 +616,18 @@ function retencionMock(retencion: RetencionPedido | undefined, boleta: boolean, 
   return { retencion: { porcentaje, monto, neto_cobrar: Math.round((total - monto) * 100) / 100 } };
 }
 
+/** La moneda y el tipo de cambio (#316), como `Comprobante.exigirMonedaYTipoCambio`: las 17 del catálogo 02 que admite el dominio (3088) y soles por unidad, solo fuera de PEN. */
+const MONEDAS_ADMITIDAS_MOCK = new Set(["ARS", "AUD", "BOB", "BRL", "CAD", "CHF", "CLP", "CNY", "COP", "EUR", "GBP", "JPY", "MXN", "PEN", "PYG", "USD", "UYU"]);
+function monedaMock(moneda: string, tipoCambio: number | undefined, total: number) {
+  if (!MONEDAS_ADMITIDAS_MOCK.has(moneda)) return { error: fail(422, "MONEDA_INVALIDA", `3088 - Moneda no soportada: ${moneda} (catálogo 02; admitidas: ${[...MONEDAS_ADMITIDAS_MOCK].sort().join(", ")})`) };
+  if (tipoCambio === undefined || tipoCambio === null) return { totalEnSoles: null };
+  if (moneda === "PEN") return { error: fail(422, "TIPO_CAMBIO_INVALIDO", "Un comprobante en soles no lleva tipo de cambio: tipo_cambio solo va fuera de PEN") };
+  const [enteros, decimales = ""] = String(tipoCambio).split(".");
+  if (!(tipoCambio > 0) || decimales.length > 3 || enteros.length > 3)
+    return { error: fail(422, "TIPO_CAMBIO_INVALIDO", `El tipo de cambio es positivo, de hasta 3 enteros y 3 decimales (soles por ${moneda}); recibido ${tipoCambio}`) };
+  return { totalEnSoles: Math.round(total * tipoCambio * 100) / 100 };
+}
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -2625,6 +2637,7 @@ export const handlers = [
       percepcion?: PercepcionPedido;
       anticipos?: AnticipoPedido[];
       retencion_igv?: RetencionPedido;
+      tipo_cambio?: number;
     };
     const porExportacion = rechazoPorExportacionMock(body, (body.serie ?? "").startsWith("B"));
     if (porExportacion) return porExportacion;
@@ -2647,7 +2660,9 @@ export const handlers = [
     if (per.error) return per.error;
     const ret = retencionMock(body.retencion_igv, (body.serie ?? "").startsWith("B"), total);
     if (ret.error) return ret.error;
-    return ok({ detraccion: det.detraccion ?? null, percepcion: per.percepcion ?? null, retencion_igv: ret.retencion ?? null, anticipos: ant.anticipos, totales: { gravado: tAnt.gravado, exonerado: tAnt.exonerado, inafecto: tAnt.inafecto, gratuito: t.gratuito, igv: tAnt.igv, total_anticipos: tAnt.total_anticipos, redondeo, total } });
+    const mon = monedaMock(body.moneda ?? "PEN", body.tipo_cambio, total);
+    if (mon.error) return mon.error;
+    return ok({ detraccion: det.detraccion ?? null, percepcion: per.percepcion ?? null, retencion_igv: ret.retencion ?? null, tipo_cambio: body.tipo_cambio ?? null, total_en_soles: mon.totalEnSoles, anticipos: ant.anticipos, totales: { gravado: tAnt.gravado, exonerado: tAnt.exonerado, inafecto: tAnt.inafecto, gratuito: t.gratuito, igv: tAnt.igv, total_anticipos: tAnt.total_anticipos, redondeo, total } });
   }),
 
   // Emisión manual desde el portal (#17). Los totales salen del mismo helper que previsualiza el formulario, así el
@@ -2728,7 +2743,10 @@ export const handlers = [
     const ant = anticiposMock((body as { anticipos?: AnticipoPedido[] }).anticipos, t0, tasaIgv, body.moneda, numDoc, db.facturasPorEmpresa.get(empresaId) ?? []);
     if (ant.error) return ant.error;
     const t = { ...t0, ...ant.totales };
-    if (boleta && tipoDoc === "-" && (body.moneda !== "PEN" || t.total > 700))
+    const mon = monedaMock(body.moneda, (body as { tipo_cambio?: number }).tipo_cambio, t.total);
+    if (mon.error) return mon.error;
+    // Con tipo de cambio (#316) el tope de S/ 700 se mide en soles; sin él, una moneda extranjera siempre pide el documento.
+    if (boleta && tipoDoc === "-" && (body.moneda === "PEN" ? t.total > 700 : mon.totalEnSoles == null || mon.totalEnSoles > 700))
       return fail(422, "RECEPTOR_INVALIDO", `Una boleta de más de S/ 700.00 (o en otra moneda) identifica al comprador con su documento; esta es de ${body.moneda} ${t.total.toFixed(2)}`);
     const forma = formaPagoMock((body as { forma_pago?: FormaPagoPedido }).forma_pago, body.fecha_emision, t.total);
     if ("error" in forma && forma.error) return forma.error;
@@ -2748,6 +2766,8 @@ export const handlers = [
       numero: serie.ultimo_numero,
       fecha_emision: body.fecha_emision,
       moneda: body.moneda,
+      tipo_cambio: (body as { tipo_cambio?: number }).tipo_cambio ?? null,
+      total_en_soles: mon.totalEnSoles,
       tipo_operacion: (body as { tipo_operacion?: string }).tipo_operacion ?? "0101",
       receptor: { ...body.cliente, direccion: body.cliente.direccion ?? null },
       items: body.items.map((i) => ({ codigo: null, ...i })),
