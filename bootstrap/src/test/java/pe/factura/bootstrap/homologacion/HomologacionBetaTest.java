@@ -150,6 +150,7 @@ class HomologacionBetaTest {
             if (e.id().startsWith("55-")) ids.put("BOLETA_CON_ANTICIPO", String.valueOf(datos.get("id")));
             if (e.id().startsWith("56-")) numeros.put("ANTICIPO_PARA_BOLETA", num.longValue());
             if (e.id().startsWith("59-")) numeros.put("OTROS_TRIBUTOS", num.longValue());
+            if (e.id().startsWith("77-")) numeros.put("OTROS_TRIBUTOS_PARCIAL", num.longValue());
             if (e.id().startsWith("60-")) ids.put("BOLETA_OTROS_TRIBUTOS", String.valueOf(datos.get("id")));
             if (e.id().startsWith("26-")) numeros.put("EXPORTACION", num.longValue());
             if (e.id().startsWith("40-")) numeros.put("DESC_ITEM", num.longValue());
