@@ -79,6 +79,11 @@ final class EscenariosFactura {
                 "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1001\"," + CLIENTE + ",\"items\":[" +
                 "{\"descripcion\":\"Servicio de mantenimiento\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
                 "\"detraccion\":{\"codigo_bien_servicio\":\"022\",\"porcentaje\":12,\"cuenta_banco_nacion\":\"00-000-123456\"}}"),
+            // #288: el formulario del portal manda 1003 con el código 028 (transporte de pasajeros, 3129); la detracción 1001 ya estaba probada, esta no.
+            new Escenario("10b-detraccion-pasajeros", "Transporte de pasajeros con detracción (1003, código 028)",
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1003\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio de transporte de pasajeros\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"detraccion\":{\"codigo_bien_servicio\":\"028\",\"porcentaje\":10,\"cuenta_banco_nacion\":\"00-000-123456\"}}"),
             new Escenario("11-retencion", "Con retención del IGV informada (62)",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
                 "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
