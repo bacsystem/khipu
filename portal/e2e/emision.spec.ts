@@ -648,3 +648,27 @@ test("el redondeo se calcula en el backend, se ve en el pie y queda en el compro
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
 });
+
+test("emite una factura al crédito con sus cuotas y la ficha las muestra (#309)", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  await dialogo.getByLabel("Descripción").fill("Proyecto");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+
+  await dialogo.getByLabel("Forma de pago").selectOption("credito");
+  await dialogo.getByRole("button", { name: "Repartir" }).click();
+  await expect(dialogo.getByLabel("Cuota 1: monto")).toHaveValue("590.00");
+  await expect(dialogo.getByTestId("credito-resumen")).toContainText("suman S/ 1,180.00 de S/ 1,180.00");
+
+  // Unas cuotas que no suman el neto pendiente no dejan emitir: el mock responde con las mismas reglas que el backend (3250).
+  await dialogo.getByLabel("Cuota 2: monto").fill("500");
+  await expect(dialogo.getByTestId("credito-resumen")).toContainText(/suman 1090\.00 y el neto pendiente es 1180\.00/);
+  await dialogo.getByLabel("Cuota 2: monto").fill("590");
+
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  await expect(page.getByText("Cuota001").first()).toBeVisible();
+  await expect(page.getByText("Cuota002").first()).toBeVisible();
+});

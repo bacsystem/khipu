@@ -16,6 +16,7 @@ import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { MAX_LINEAS } from "@/lib/comprobantes/limites";
 import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
 import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
+import { CREDITO_VACIO, errorDeCredito, formaPagoAApi, type CreditoForm } from "@/lib/comprobantes/credito";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
 import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm } from "@/lib/comprobantes/tributos";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
@@ -27,6 +28,7 @@ import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempote
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { AjusteEditor } from "./ajuste-editor";
+import { CreditoEditor } from "./credito-editor";
 import { EstadoConsultaRuc } from "./estado-consulta-ruc";
 import { useConsultaRuc } from "./use-consulta-ruc";
 
@@ -148,6 +150,10 @@ export function NuevoComprobanteForm({
   // #310: descuento y cargo globales (02/03 y 46/49/50); los de cada línea viven en la línea.
   const [descuentoGlobal, setDescuentoGlobal] = useState<AjusteForm>(AJUSTE_VACIO);
   const [cargoGlobal, setCargoGlobal] = useState<AjusteForm>(AJUSTE_VACIO);
+  // #309: la factura puede ser al crédito (la boleta es siempre al contado, RS 193-2020); `fechaVencimiento` es el DueDate informativo.
+  const [alCredito, setAlCredito] = useState(false);
+  const [credito, setCredito] = useState<CreditoForm>(CREDITO_VACIO);
+  const [fechaVencimiento, setFechaVencimiento] = useState("");
   const [detalle, setDetalle] = useState<number | null>(null);
   const [unidades, setUnidades] = useState<EntradaCatalogo[] | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -246,7 +252,7 @@ export function NuevoComprobanteForm({
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
    * calcular se manda un comprador de relleno válido, porque los importes no dependen de él y un RUC a medio teclear haría que el dominio rechace todo.
    */
-  function armarCuerpo(paraCalcular: boolean) {
+  function armarCuerpo(paraCalcular: boolean, netoPendiente: number | null = null) {
     return {
       serie,
       fecha_emision: fecha,
@@ -270,10 +276,18 @@ export function NuevoComprobanteForm({
       descuento_global: ajusteAApi(descuentoGlobal, "descuento"),
       cargos: ajusteAApi(cargoGlobal, "cargo") ? [ajusteAApi(cargoGlobal, "cargo")] : undefined,
       redondeo: redondeo.valor ?? undefined,
+      forma_pago: alCredito && !boleta && netoPendiente !== null ? formaPagoAApi(credito, netoPendiente) : undefined,
+      fecha_vencimiento: fechaVencimiento || undefined,
     };
   }
   // Con líneas completas y un redondeo legible se le pide el cálculo al backend; sin ellas, o si no responde, el pie usa el cálculo local.
-  const calculo = useCalculo(lineasCompletas.length > 0 && redondeo.error === null && !hayAjusteInvalido && serie ? armarCuerpo(true) : null);
+  const completo = lineasCompletas.length > 0 && redondeo.error === null && !hayAjusteInvalido && serie;
+  // Primero los importes sin forma de pago: el neto pendiente por defecto es el total que calcula el backend. Con crédito, un segundo cálculo lleva las cuotas.
+  const calculoBase = useCalculo(completo ? armarCuerpo(true) : null);
+  const netoBase = calculoBase.estado === "listo" ? calculoBase.totales.total : totales.total + (redondeo.valor ?? 0);
+  const errorCredito = alCredito && !boleta ? errorDeCredito(credito, netoBase, fecha) : null;
+  const calculoCredito = useCalculo(completo && alCredito && !boleta && errorCredito === null ? armarCuerpo(true, netoBase) : null);
+  const calculo = alCredito && !boleta && calculoCredito.estado !== "inactivo" ? calculoCredito : calculoBase;
   // Lo que se muestra en el pie: los importes del backend cuando respondió; si no, la aproximación local (sin descuentos, cargos, ISC ni redondeo).
   const delServidor = calculo.estado === "listo" ? calculo.totales : null;
   const mostrados = delServidor
@@ -328,7 +342,15 @@ export function NuevoComprobanteForm({
       setError(incompatibilidad ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
       return;
     }
-    const factura = armarCuerpo(false);
+    if (errorCredito) {
+      setError(errorCredito);
+      return;
+    }
+    if (fechaVencimiento && fechaVencimiento < fecha) {
+      setError("La fecha de vencimiento no puede ser anterior a la de emisión.");
+      return;
+    }
+    const factura = armarCuerpo(false, netoBase);
     intento.current = intentoPara(intento.current, JSON.stringify(factura));
 
     setEnviando(true);
@@ -536,6 +558,19 @@ export function NuevoComprobanteForm({
         )}
       </section>
 
+      {/* #309: forma de pago, solo en factura. Al crédito se arman las cuotas; la boleta se emite siempre al contado. */}
+      {boleta ? null : (
+        <section className="grid gap-3">
+          <Campo id="nc-forma-pago" etiqueta="Forma de pago">
+            <select id="nc-forma-pago" value={alCredito ? "credito" : "contado"} onChange={(e) => setAlCredito(e.target.value === "credito")} className={cn(CAMPO_DENSO, "sm:max-w-[220px]")}>
+              <option value="contado">Al contado</option>
+              <option value="credito">Al crédito (cuotas)</option>
+            </select>
+          </Campo>
+          {alCredito ? <CreditoEditor credito={credito} onCambio={setCredito} neto={netoBase} moneda={moneda} emision={fecha} error={credito.cuotas.length === 0 ? null : errorCredito} /> : null}
+        </section>
+      )}
+
       <section className="flex min-h-[11rem] flex-1 flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className={ETIQUETA_CAMPO}>
@@ -698,9 +733,12 @@ export function NuevoComprobanteForm({
       </section>
 
         {/* #358: ajustes poco frecuentes del comprobante. Cerrado por defecto: la vista básica es la de siempre. Los issues siguientes (#310, #300, #309…) agregan sus campos acá. */}
-        <details className="rounded-xl border border-border px-3 py-2" data-testid="mas-opciones" open={redondeoTexto !== "" || descuentoGlobal.valor !== "" || cargoGlobal.valor !== ""}>
+        <details className="rounded-xl border border-border px-3 py-2" data-testid="mas-opciones" open={redondeoTexto !== "" || descuentoGlobal.valor !== "" || cargoGlobal.valor !== "" || fechaVencimiento !== ""}>
           <summary className="cursor-pointer text-[13px] font-medium">Más opciones del comprobante</summary>
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            <Campo id="nc-vencimiento" etiqueta="Fecha de vencimiento" ayuda="Informativa; no anterior a la emisión" opcional>
+              <EntradaFecha id="nc-vencimiento" valor={fechaVencimiento} onCambio={setFechaVencimiento} min={fecha} variante="filtro" />
+            </Campo>
             <Campo id="nc-redondeo" etiqueta="Redondeo" ayuda={redondeo.error ?? "Entre -1.00 y 1.00, p. ej. -0.05 para cobrar en efectivo sin céntimos"}>
               <input
                 id="nc-redondeo"
