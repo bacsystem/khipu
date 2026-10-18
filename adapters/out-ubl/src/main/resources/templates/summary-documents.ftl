@@ -78,14 +78,9 @@
       <cbc:ConditionCode>${b.condicion().codigo()}</cbc:ConditionCode>
     </cac:Status>
     <sac:TotalAmount currencyID="${c.moneda()}">${tot.total()}</sac:TotalAmount>
-    <#-- Catálogo 11: 01 gravadas, 02 exoneradas, 03 inafectas, 04 exportación. Gratuitas (#289): hasta 2026 un solo código, el 05; desde el 2027-01-01 por
-         afectación, 06 gravadas, 07 exoneradas y 08 inafectas (el 09, exportación gratuita, no tiene afectación en el catálogo 07). -->
-    <#if gratuitasPorAfectacion>
-    <#assign gratuitas = [["06", tot.gratuitoGravado()], ["07", tot.gratuitoExonerado()], ["08", tot.gratuitoInafecto()]]>
-    <#else>
-    <#assign gratuitas = [["05", tot.gratuito()]]>
-    </#if>
-    <#list [["01", tot.gravado()], ["02", tot.exonerado()], ["03", tot.inafecto()], ["04", tot.exportacion()]] + gratuitas as v>
+    <#-- Catálogo 11: 01 gravadas, 02 exoneradas, 03 inafectas, 04 exportación. Las gratuitas NO se informan (#387): e-beta rechaza el 05 y el 06 (2256, «no se encuentra
+         en el catálogo 11») y acepta el mismo resumen sin ellas; una línea con error rechaza el resumen entero (2987). Volver a informarlas cuando SUNAT las admita. -->
+    <#list [["01", tot.gravado()], ["02", tot.exonerado()], ["03", tot.inafecto()], ["04", tot.exportacion()]] as v>
     <#if (v[1] > 0)>
     <sac:BillingPayment>
       <cbc:PaidAmount currencyID="${c.moneda()}">${v[1]}</cbc:PaidAmount>
@@ -107,10 +102,6 @@
     <@tributo monto=tot.ivap() codigo="1016" nombre="IVAP" internacional="VAT"/>
     <#else>
     <@tributo monto=tot.igv() codigo="1000" nombre="IGV" internacional="VAT" tasa=c.tasaIgv()/>
-    </#if>
-    <#-- #289: desde el 2027-01-01, el IGV de las gratuitas gravadas en 9996 «GRA» (3051) con su tasa (2992/3504); nunca en cero (2048). -->
-    <#if gratuitasPorAfectacion && (tot.igvGratuitas() > 0)>
-    <@tributo monto=tot.igvGratuitas() codigo="9996" nombre="GRA" internacional="FRE" tasa=c.tasaIgv()/>
     </#if>
     <#if (tot.icbper() > 0)>
     <@tributo monto=tot.icbper() codigo="7152" nombre="ICBPER" internacional="OTH"/>

@@ -87,28 +87,6 @@ class JdbcOutboxRepositoryTest extends PersistenciaTestBase {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox", Integer.class)).isZero();
     }
 
-    /**
-     * #338: un resumen caducado se reemplaza por otro y su fila pasa a apuntar al nuevo: la misma fila (el worker que la tiene tomada la reprograma o la completa
-     * por su id), sin tocar otra acción del agregado viejo ni las de otros.
-     */
-    @Test void reasignarHaceQueLaFilaApunteAlAgregadoNuevo() {
-        UUID t = tenantDePrueba(), viejo = UUID.randomUUID(), nuevo = UUID.randomUUID(), otro = UUID.randomUUID();
-        repo.programar(t, "BAJA", viejo, Instant.now().minusSeconds(5));
-        repo.programar(t, "ENVIAR", viejo, Instant.now().plusSeconds(60));
-        repo.programar(t, "BAJA", otro, Instant.now().plusSeconds(60));
-        OutboxItem tomada = uow.ejecutar(() -> repo.tomarVencidas(10, Duration.ofMinutes(2))).get(0);
-
-        repo.reasignar(viejo, "BAJA", nuevo);
-
-        assertThat(jdbc.queryForList("SELECT agregado_id || ':' || accion FROM outbox", String.class))
-                .containsExactlyInAnyOrder(nuevo + ":BAJA", viejo + ":ENVIAR", otro + ":BAJA");
-        assertThat(jdbc.queryForObject("SELECT id FROM outbox WHERE agregado_id = ? AND accion = 'BAJA'", UUID.class, nuevo)).isEqualTo(tomada.id());
-        repo.programar(t, "BAJA", nuevo, Instant.now());   // no-op: ya tiene su fila
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox WHERE agregado_id = ?", Integer.class, nuevo)).isEqualTo(1);
-        repo.reasignar(UUID.randomUUID(), "BAJA", UUID.randomUUID());   // sin fila: no hace nada
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox", Integer.class)).isEqualTo(3);
-    }
-
     @Test void programarTrasCompletarVuelveACrearLaFila() {
         UUID t = tenantDePrueba(), doc = UUID.randomUUID();
         repo.programar(t, "ENVIAR", doc, Instant.now().minusSeconds(5));

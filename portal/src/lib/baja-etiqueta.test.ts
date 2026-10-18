@@ -20,10 +20,9 @@ describe("etiquetaDeBaja", () => {
       expect(etiquetaDeBaja({ estado: "ERROR_ENVIO", condicion }, "boleta")).toBe("Error de envío: se reintentará");
       expect(etiquetaDeBaja({ estado: "GENERADA", condicion }, "boleta")).toBe("Generada, pendiente de envío");
     }
-    expect(etiquetaDeBaja({ estado: "DESCARTADA", condicion: "BAJA" }, "boleta")).toBe("Reemplazada por un resumen nuevo");
   });
 
-  /** #338: la rechazada con 2957 es la que khipu cerró sin enviar porque la baja se pasó de plazo; un alta con 2957 no existe. */
+  /** La rechazada con 2957 es una baja pedida pasados los 7 días; un alta con 2957 no existe. */
   it("una baja rechazada con 2957 está vencida, y una rechazada por otro código no", () => {
     expect(bajaVencida({ estado: "RECHAZADA", condicion: "BAJA", cdr: { codigo: "2957" } })).toBe(true);
     expect(etiquetaDeBaja({ estado: "RECHAZADA", condicion: "BAJA", cdr: { codigo: "2957" } }, "boleta")).toBe("Vencida: pasaron los 7 días para anularla");

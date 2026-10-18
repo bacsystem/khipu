@@ -6,8 +6,6 @@ const ETIQUETAS: Record<EstadoBaja, string> = {
   ERROR_ENVIO: "Error de envío: se reintentará",
   ACEPTADA: "Aceptada: comprobante anulado",
   RECHAZADA: "Rechazada por SUNAT",
-  // #338: el RC caducó sin enviarse (código 05 de las gratuitas) y lo reemplazó otro; `ultimo_error` dice cuál.
-  DESCARTADA: "Reemplazada por un resumen nuevo",
 };
 
 /** Un resumen de alta informa la boleta (o su nota, #294) en vez de anularla: lo que cambia es qué significa que SUNAT lo acepte (274-H1). */
@@ -24,7 +22,7 @@ const etiquetasAlta = (que: string): Record<EstadoBaja, string> => ({
 export const AVISO_ALTA_FUERA_DE_PLAZO =
   "Informada fuera de plazo: pasó el 7.º día desde la emisión. SUNAT no la rechaza, pero puede observarla con la 4443 «El comprobante fue informado fuera del plazo establecido» (en e-beta no la observó). Lo que cuenta es la respuesta de SUNAT del comprobante.";
 
-/** #338: una baja cuyo RC caducó con los 7 días ya vencidos no se envía; khipu la cierra RECHAZADA con 2957. No hay CDR de SUNAT detrás. */
+/** Una baja rechazada por SUNAT con 2957: pasaron los 7 días desde la emisión, así que ya no se puede anular (se corrige con una nota de crédito). */
 export function bajaVencida(b: { estado: EstadoBaja; condicion?: "ALTA" | "BAJA"; cdr?: { codigo: string } | null }): boolean {
   return b.condicion !== "ALTA" && b.estado === "RECHAZADA" && b.cdr?.codigo === "2957";
 }

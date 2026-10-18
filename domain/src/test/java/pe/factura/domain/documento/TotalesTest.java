@@ -32,21 +32,6 @@ class TotalesTest {
         assertThat(t.total()).isEqualByComparingTo("436.00");
     }
 
-    /** #289: el valor de las gratuitas separado por afectación (gravadas 11–16, exoneradas 21, inafectas 31–37) suma el total de gratuitas, y lo vendido no entra. */
-    @Test void lasGratuitasSeSeparanPorAfectacionYSumanElTotal() {
-        Totales t = Totales.calcular(List.of(
-                item("118.00", "1", TipoAfectacionIgv.GRAVADO),
-                item("10.00", "5", TipoAfectacionIgv.GRAVADO_BONIFICACION),
-                item("12.00", "1", TipoAfectacionIgv.GRAVADO_RETIRO_PREMIO),
-                item("30.00", "1", TipoAfectacionIgv.EXONERADO_GRATUITO),
-                item("20.00", "1", TipoAfectacionIgv.INAFECTO_RETIRO),
-                item("8.00", "1", TipoAfectacionIgv.INAFECTO_TRANSFERENCIA_GRATUITA)));
-        assertThat(t.gratuitoGravado()).isEqualByComparingTo("62.00");
-        assertThat(t.gratuitoExonerado()).isEqualByComparingTo("30.00");
-        assertThat(t.gratuitoInafecto()).isEqualByComparingTo("28.00");
-        assertThat(t.gratuitoGravado().add(t.gratuitoExonerado()).add(t.gratuitoInafecto())).isEqualByComparingTo(t.gratuito());
-    }
-
     /** Los subtotales son la fuente de gravado/exonerado/inafecto/igv: solo aparecen los que tienen base, en orden de catálogo, y suman lo mismo. */
     @Test void subtotalesPorAfectacionSonLaFuenteDeLosTotales() {
         Totales t = Totales.calcular(List.of(

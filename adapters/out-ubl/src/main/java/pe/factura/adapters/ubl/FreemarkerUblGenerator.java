@@ -35,9 +35,6 @@ public class FreemarkerUblGenerator implements UblGenerator {
             modelo.put("c", c);
             modelo.put("tot", c.totales());
             modelo.put("t", t);
-            // Gratuitas con el 05 o por afectación (06–08 y 9996, #289): lo decide la fecha de generación del resumen. Un RC con el 05 que no salió a tiempo
-            // se regenera en vez de reenviarse (#338, ComunicacionBaja.formatoCaducado).
-            modelo.put("gratuitasPorAfectacion", b.gratuitasPorAfectacion());
             StringWriter out = new StringWriter();
             cfg.getTemplate(plantilla).process(modelo, out);
             return out.toString();

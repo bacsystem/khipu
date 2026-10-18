@@ -316,9 +316,8 @@ comprometidas es aparte.
 
 ## 10. Mover el reloj del backend para probar plazos (#363) — solo en el ambiente de pruebas
 
-Algunas reglas de SUNAT dependen de la fecha y no se pueden reproducir con el reloj real: la boleta informada pasado el 7.º día (la observación **4443** que prevé la norma y que e-beta no devuelve, #331) y el
-resumen diario con gratuitas que cruza al **2027-01-01** (se descarta y se regenera con otro formato, #338). `RELOJ_DESPLAZAMIENTO` suma una duración al reloj del
-backend para probarlas hoy. **Nunca va en producción** (Railway): no se define allí.
+Algunas reglas de SUNAT dependen de la fecha y no se pueden reproducir con el reloj real: la boleta informada pasado el 7.º día (la observación **4443** que prevé la norma y que e-beta no devuelve, #331).
+`RELOJ_DESPLAZAMIENTO` suma una duración al reloj del backend para probarla hoy. **Nunca va en producción** (Railway): no se define allí.
 
 | Variable | Valor | Notas |
 |---|---|---|
@@ -438,47 +437,6 @@ Resultado verificado el 2026-10-13 contra SUNAT beta, con 8 y con 30 días de at
 sí comprueba este procedimiento es lo que depende de khipu: que la boleta pasada del 7.º día **va en un resumen diario propio con la fecha de generación de hoy** (`baja.fuera_de_plazo`
 `true`) en vez de quedar cerrada como `FUERA_DE_PLAZO`, y que SUNAT lo acepta. Si algún día la beta empieza a observar, el estado será `ACEPTADO_CON_OBS` y `cdr.observaciones`
 traerá `4443 - …`. En el portal, el detalle del comprobante muestra el aviso de informado fuera de plazo.
-
-### B. Resumen diario con gratuitas que cruza al 2027-01-01 (#338)
-
-Hace falta un RC con gratuitas **generado el 2026-12-31 que no llegó a SUNAT** y que se reintenta el 2027-01-01. Se provoca el fallo apuntando el envío a un puerto cerrado (error de
-red = `ERROR_ENVIO`), sin esperar a que SUNAT se caiga. La boleta es del 25-12: el 31-12 ya solo va en resumen.
-
-```bash
-# 1. Reloj en 2026-12-31 23:45 (hora de Lima) y envíos a SUNAT que fallan
-export SUNAT_BETA_URL_PRUEBA=http://127.0.0.1:9/billService
-reloj "$(hasta 2026-12-31T23:45:00-05:00)"
-
-# 2. Boleta del 25-12 con una gratuita (afectación 11), sin enviar
-ID=$(curl -s -X POST "$BASE/v1/facturas" "${H[@]}" -d '{
-  "serie":"B001","fecha_emision":"2026-12-25","moneda":"PEN","enviar_automatico":false,
-  "cliente":{"tipo_doc":"1","num_doc":"12345678","razon_social":"CLIENTE DE PRUEBA"},
-  "items":[{"descripcion":"Producto vendido","unidad":"NIU","cantidad":1,"precio_unitario":118.00,"tipo_afectacion_igv":"10"},
-           {"descripcion":"Muestra gratuita","unidad":"NIU","cantidad":1,"precio_unitario":50.00,"tipo_afectacion_igv":"11"}]}' | campo datos.id)
-
-# 3. Enviarla: ya solo va en resumen (RC-20261231-1, con el código 05) y el envío falla
-curl -s -X POST "$BASE/v1/facturas/$ID/enviar" "${H[@]}" > /dev/null
-curl -s "$BASE/v1/facturas/$ID/bajas" "${H[@]}" | campo datos.0.estado          # ERROR_ENVIO
-curl -s "$BASE/v1/facturas/$ID/bajas" "${H[@]}" | campo datos.0.identificador   # RC-20261231-1
-BAJA=$(curl -s "$BASE/v1/facturas/$ID/bajas" "${H[@]}" | campo datos.0.id)
-XML=$(dev exec -T postgres psql -U factura -d factura -tAc "select xml_key from comunicacion_baja where id = '$BAJA'")
-dev exec -T backend grep -oE "<cbc:InstructionID>[0-9]*</cbc:InstructionID>|<cbc:ID>9996</cbc:ID>" "/app/storage/$XML"   # 01 y 05; sin 9996
-
-# 4. Reloj en 2027-01-01 00:05 (el desplazamiento se recalcula con la hora de ahora)
-reloj "$(hasta 2027-01-01T00:05:00-05:00)"
-
-# 5. Consultar el RC viejo lo reenvía: ya no se manda con el 05, se descarta y se regenera
-curl -s "$BASE/v1/bajas/$BAJA" "${H[@]}" | campo datos.identificador            # RC-20270101-1 (el nuevo, con otro id)
-curl -s "$BASE/v1/facturas/$ID/bajas" "${H[@]}" | node -pe "JSON.parse(require('fs').readFileSync(0)).datos.map(b => b.identificador+' '+b.estado).join('\n')"
-#   → RC-20270101-1 ERROR_ENVIO   y   RC-20261231-1 DESCARTADA
-NUEVA=$(curl -s "$BASE/v1/facturas/$ID/bajas" "${H[@]}" | campo datos.0.id)
-XML=$(dev exec -T postgres psql -U factura -d factura -tAc "select xml_key from comunicacion_baja where id = '$NUEVA'")
-dev exec -T backend grep -oE "<cbc:InstructionID>[0-9]*</cbc:InstructionID>|<cbc:ID>9996</cbc:ID>" "/app/storage/$XML"   # 01 y 06, y el 9996; sin 05
-```
-
-Resultado esperado: el RC del 31-12 queda `DESCARTADA` (su `ultimo_error` dice por qué), hay un RC nuevo con fecha 2027-01-01 y nuevo correlativo, y su XML trae `InstructionID` **06**
-(gratuitas gravadas) y el tributo **9996**, no el 05. Que SUNAT acepte después ese RC no se prueba aquí (a la fecha real lo vería con fecha futura): se comprueba la decisión de khipu de
-no reenviar el formato caducado.
 
 ### Al terminar
 

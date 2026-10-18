@@ -156,8 +156,7 @@ export type Baja = {
   condicion?: "ALTA" | "BAJA";
   /** #331: un alta informada pasado el 7.º día (SUNAT puede observarla con 4443). El backend la manda siempre; una baja, en false. */
   fuera_de_plazo?: boolean;
-  /** `DESCARTADA` (#338): un RC con el código 05 de las gratuitas que caducó sin enviarse; el mock trabaja en 2026 y no lo produce. */
-  estado: "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA" | "DESCARTADA";
+  estado: "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA";
   ticket: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   intentos: number;

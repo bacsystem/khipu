@@ -38,7 +38,7 @@ public record FichaDeComprobanteResponse(
             UUID id,
             @Schema(example = "RC-20261013-2", description = "`RA-yyyymmdd-N` (comunicación de baja) o `RC-yyyymmdd-N` (resumen diario)") String identificador,
             @Schema(example = "BAJA", description = "`BAJA` anula el comprobante; `ALTA` informa en el resumen diario una boleta que pasó el envío individual") String condicion,
-            @Schema(example = "ACEPTADA", description = "`GENERADA` → `ENVIADA` → `ACEPTADA` / `RECHAZADA`; `ERROR_ENVIO` (se reintenta); `DESCARTADA` (reemplazada por otro resumen)") String estado,
+            @Schema(example = "ACEPTADA", description = "`GENERADA` → `ENVIADA` → `ACEPTADA` / `RECHAZADA`; `ERROR_ENVIO` (se reintenta)") String estado,
             @Schema(example = "1789768174685", description = "Ticket del proceso en SUNAT; ausente si todavía no lo dio") String ticket,
             @Schema(example = "Se cobró dos veces") String motivo,
             @Schema(example = "2026-10-13", description = "Fecha de generación del RA o RC (la del identificador)") LocalDate fechaGeneracion,

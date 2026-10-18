@@ -222,13 +222,12 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
         assertThat(r.masViejoDesde()).isEqualTo(hace(Duration.ofHours(9)));
     }
 
-    /** Solo lo que SUNAT recibió y no respondió: lo resuelto, lo rechazado, lo descartado y lo que ni siquiera tiene ticket no son un ticket atascado. */
+    /** Solo lo que SUNAT recibió y no respondió: lo resuelto, lo rechazado y lo que ni siquiera tiene ticket no son un ticket atascado. */
     @Test void soloCuentaLoEnviadoQueSunatNoRespondio() {
         UUID t = tenantDePrueba();
         Instant vieja = hace(Duration.ofHours(30));
         baja(t, "ACEPTADA", "T-1", vieja);
         baja(t, "RECHAZADA", "T-2", vieja);
-        baja(t, "DESCARTADA", null, vieja);
         baja(t, "GENERADA", null, vieja);
         baja(t, "ERROR_ENVIO", null, vieja);
         baja(t, "ENVIADA", null, vieja);
