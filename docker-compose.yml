@@ -77,6 +77,16 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       # SOLO PARA PRUEBAS (#363): mueve el reloj del backend (p. ej. `-P8D`). Vacío = hora real. Ver deploy/README.md §10.
       RELOJ_DESPLAZAMIENTO: ${RELOJ_DESPLAZAMIENTO:-}
+      # Padrón de RUC de SUNAT (#361), el que responde la búsqueda por RUC del portal (#390). Apagado por defecto: baja ~400 MB y escribe ~18 millones de filas.
+      # Con los mismos defaults de application.yml y no `:-` vacío: una variable vacía no cae al default de Spring y dejaría el cron en blanco.
+      # La primera carga es por cron: ver «Padrón de RUC» en el README de la raíz. Para cargar un archivo que ya tienes en disco en vez de descargarlo:
+      # PADRON_RUC_DIR = la carpeta del host (se monta en /padron, solo lectura) y PADRON_RUC_ORIGEN=/padron/<archivo>.txt.
+      PADRON_RUC_HABILITADO: ${PADRON_RUC_HABILITADO:-false}
+      PADRON_RUC_ORIGEN: ${PADRON_RUC_ORIGEN:-https://www2.sunat.gob.pe/padron_reducido_ruc.zip}
+      PADRON_RUC_CRON: ${PADRON_RUC_CRON:-0 30 4 * * *}
+      PADRON_RUC_LIMITE_DESCARGA_MINUTOS: ${PADRON_RUC_LIMITE_DESCARGA_MINUTOS:-30}
+      PADRON_RUC_MINIMO_PRIMERA_CARGA: ${PADRON_RUC_MINIMO_PRIMERA_CARGA:-1000000}
+      PADRON_RUC_MAXIMO_DIAS_DE_ATRASO: ${PADRON_RUC_MAXIMO_DIAS_DE_ATRASO:-3}
       # Correo habilitado hacia Mailpit (sin credenciales, de ahí MAIL_SMTP_AUTH=false): la recuperación de contraseña y el envío
       # de comprobantes se ven en la interfaz de Mailpit en vez de perderse.
       MAIL_HABILITADO: "true"
@@ -84,7 +94,7 @@ services:
       MAIL_PORT: "1025"
       MAIL_SMTP_AUTH: "false"
       STORAGE_FS_ROOT: /app/storage
-    volumes: ["storagedata:/app/storage"]
+    volumes: ["storagedata:/app/storage", "${PADRON_RUC_DIR:-./deploy/padron}:/padron:ro"]
     ports: ["${BACKEND_PORT:-8001}:8001"]
   portal:
     build: ./portal

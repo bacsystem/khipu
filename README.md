@@ -74,6 +74,12 @@ make deploy-develop   # tras cada merge: vuelve a fijar origin/develop y reconst
   lo bloquea, hay que permitir los puertos `13000` y `18001` en la red privada. Solo para este entorno local, nunca para un HTTPS real.
 - **Correo**: el backend desplegado envía a Mailpit (`MAIL_SMTP_AUTH=false`, sin credenciales); la recuperación de contraseña y el envío de
   comprobantes se ven en su interfaz web.
+- **Padrón de RUC** (#390): la búsqueda por RUC del formulario de comprobantes lee el padrón de SUNAT, que **viene apagado** y por eso dice «La consulta de RUC no está disponible por
+  ahora». Para cargarlo (~400 MB de descarga; el padrón ocupa 2 a 3 GB en la base del despliegue), agrega a `../khipu-develop.env` `PADRON_RUC_HABILITADO=true` y, para no esperar a las
+  04:30, `PADRON_RUC_CRON=0 */5 * * * *`. Si ya tienes el archivo (`.txt` o `.zip`) en disco, en vez de descargarlo agrega `PADRON_RUC_DIR=<carpeta del host>` (se monta de solo lectura en `/padron`) y
+  `PADRON_RUC_ORIGEN=/padron/<archivo>`. Corre `make deploy-develop`, espera a que `make develop-logs` diga `Padrón de RUC cargado desde …` (unos minutos), **quita la línea del cron** y
+  vuelve a correr `make deploy-develop` (si no, descargaría el archivo cada 5 minutos). `make develop-datos` dice cuántas filas tiene y cuándo se cargó. Los datos quedan en el volumen: los
+  siguientes deploys no lo vuelven a cargar hasta las 04:30 siguientes.
 - **Datos aparte**: usa el proyecto `khipu-develop` (volúmenes propios), así que no toca el Postgres ni los datos de tu desarrollo local.
   Un `deploy-develop` **nunca** borra la base: reconstruye y reemplaza contenedores, pero el volumen sigue. `make develop-stop` conserva los
   datos; `make develop-reset CONFIRMAR=si` los borra y el siguiente deploy parte de cero. Sin `CONFIRMAR=si` **en la línea de comandos**
