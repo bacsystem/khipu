@@ -225,6 +225,13 @@ final class EscenariosFactura {
                 "{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}]}";
     }
 
+    /** #289: la boleta tardía del escenario 34 con percepción 2001 (régimen 51) y un comprador con DNI: su alta en el resumen lleva el bloque de percepción. */
+    static String boletaTardiaConPercepcion(String serie, LocalDate fecha) {
+        return "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha.minusDays(DIAS_BOLETA_TARDIA) + "\",\"moneda\":\"PEN\",\"tipo_operacion\":\"2001\"," +
+                "\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":[" +
+                "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":10,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}],\"percepcion\":{\"regimen\":\"51\"}}";
+    }
+
     /** Pasó el envío individual (5 días) y sigue dentro de la ventana de emisión de khipu (7 días, 1079): 8 días la rechaza al emitir. */
     static final int DIAS_BOLETA_TARDIA = 6;
 

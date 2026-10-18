@@ -198,8 +198,19 @@ class HomologacionBetaTest {
      * El resumen queda ENVIADO hasta que SUNAT responde el ticket, y esa respuesta acepta la boleta.
      */
     @org.junit.jupiter.api.Test void zzAltaTardiaDeBoletaConGratuita() throws Exception {
-        String escenario = "34-alta-boleta-tardia";
-        ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(EscenariosFactura.boletaTardiaConGratuita(SERIE, LocalDate.now(ZoneId.of("America/Lima"))), api), Map.class);
+        altaTardia("34-alta-boleta-tardia", "bonificación gratuita", EscenariosFactura.boletaTardiaConGratuita(SERIE, LocalDate.now(ZoneId.of("America/Lima"))));
+    }
+
+    /**
+     * Alta de una boleta con percepción 2001 (#289): la percepción solo va en el estado 1 del resumen (en la baja SUNAT rechaza todo el resumen con 2986), con el
+     * régimen, la tasa, el monto y el total cobrado (2608, 2685, 2690). Es la otra mitad de la plantilla que el escenario 34 no ejercita.
+     */
+    @org.junit.jupiter.api.Test void zzAltaTardiaDeBoletaConPercepcion() throws Exception {
+        altaTardia("35-alta-boleta-percepcion", "percepción 2001", EscenariosFactura.boletaTardiaConPercepcion(SERIE, LocalDate.now(ZoneId.of("America/Lima"))));
+    }
+
+    private void altaTardia(String escenario, String con, String cuerpo) throws Exception {
+        ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(cuerpo, api), Map.class);
         Map<?, ?> boleta = r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of());
         assertThat(r.getStatusCode()).as(escenario + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
         String id = String.valueOf(boleta.get("id"));
@@ -212,7 +223,7 @@ class HomologacionBetaTest {
         String detalle = cdr.get("codigo") + " - " + cdr.get("descripcion") + (datos.get("ultimo_error") == null ? "" : " | " + datos.get("ultimo_error"));
         ResponseEntity<Map> factura = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
         String estadoBoleta = String.valueOf(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento"));
-        resumen.add(new String[]{escenario, "Boleta de hace " + EscenariosFactura.DIAS_BOLETA_TARDIA + " días con bonificación gratuita: va en el resumen diario como alta",
+        resumen.add(new String[]{escenario, "Boleta de hace " + EscenariosFactura.DIAS_BOLETA_TARDIA + " días con " + con + ": va en el resumen diario como alta",
                 estadoBoleta, detalle});
         Path dir = SALIDA.resolve(escenario);
         Files.createDirectories(dir);
