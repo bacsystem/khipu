@@ -702,6 +702,98 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
   });
 });
 
+describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
+  const TOTALES = { gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 };
+
+  function conComprador() {
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    linea("Mercadería", "1180");
+  }
+  const abrir = () => fireEvent.click(screen.getByText(/Datos adicionales: guías/));
+
+  it("está colapsada y, en la factura, ofrece orden de compra, guías, documentos y observaciones", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    expect(screen.getByTestId("datos-adicionales")).not.toHaveAttribute("open");
+    expect(screen.getByLabelText(/Orden de compra/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agregar guía" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agregar documento" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Observaciones/)).toBeInTheDocument();
+  });
+
+  it("lo escrito viaja en la emisión (no en el cálculo) y las guías se pueden agregar y quitar", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    abrir();
+    fireEvent.change(screen.getByLabelText(/Orden de compra/), { target: { value: "OC-2026-0457" } });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
+    fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
+    fireEvent.change(screen.getByLabelText("Número de la guía 1"), { target: { value: "T001-123" } });
+    fireEvent.change(screen.getByLabelText("Tipo de la guía 2"), { target: { value: "31" } });
+    fireEvent.change(screen.getByLabelText("Número de la guía 2"), { target: { value: "V001-45" } });
+    fireEvent.click(screen.getByRole("button", { name: "Quitar la guía 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Agregar documento" }));
+    fireEvent.change(screen.getByLabelText("Tipo del documento 1"), { target: { value: "05" } });
+    fireEvent.change(screen.getByLabelText("Número del documento 1"), { target: { value: "SCOP-8841203" } });
+    fireEvent.change(screen.getByLabelText(/Observaciones/), { target: { value: "Entrega en almacén central." } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({
+      orden_compra: "OC-2026-0457",
+      guias: [{ tipo: "31", numero: "V001-45" }],
+      documentos_relacionados: [{ tipo: "05", numero: "SCOP-8841203" }],
+      observaciones: "Entrega en almacén central.",
+    });
+    // Los datos adicionales no cambian importes: el cálculo no los lleva.
+    for (const c of calculos(fetch)) expect(c).not.toHaveProperty("orden_compra");
+    for (const c of calculos(fetch)) expect(c).not.toHaveProperty("observaciones");
+  });
+
+  it("una guía con un número mal escrito o repetida lo dice y no deja emitir (4006, 2364)", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
+    fireEvent.change(screen.getByLabelText("Número de la guía 1"), { target: { value: "123" } });
+    expect(screen.getByTestId("referencias-error")).toHaveTextContent(/4006/);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    expect(emisiones(fetch)).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText("Número de la guía 1"), { target: { value: "T001-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
+    fireEvent.change(screen.getByLabelText("Número de la guía 2"), { target: { value: "T001-1" } });
+    expect(screen.getByTestId("referencias-error")).toHaveTextContent(/2364/);
+  });
+
+  it("en la boleta no hay orden de compra y los documentos 06 y 07 no se ofrecen (4009)", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    abrir();
+    expect(screen.queryByLabelText(/Orden de compra/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Agregar documento" }));
+    expect([...screen.getByLabelText("Tipo del documento 1").querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["04", "05", "08", "09", "99"]);
+  });
+
+  it("la boleta lleva sus guías y observaciones", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    linea("Pan", "5");
+    abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
+    fireEvent.change(screen.getByLabelText("Número de la guía 1"), { target: { value: "EG01-45" } });
+    fireEvent.change(screen.getByLabelText(/Observaciones/), { target: { value: "Recoger en tienda" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ serie: "B001", guias: [{ tipo: "09", numero: "EG01-45" }], observaciones: "Recoger en tienda" });
+    expect(emisiones(fetch)[0]).not.toHaveProperty("orden_compra");
+  });
+});
+
 describe("NuevoComprobanteForm — boleta (#20)", () => {
   it("sin documento manda «-» como tipo y número, con el nombre por defecto", async () => {
     const fetch = stubEmision();

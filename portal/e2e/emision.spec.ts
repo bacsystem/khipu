@@ -763,3 +763,33 @@ test("emite una boleta NRUS (0113) y no deja agregarle bolsas de plástico (#297
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
   await expect(page.getByText("0113").first()).toBeVisible();
 });
+
+test("emite con orden de compra, guía, documento relacionado y observaciones, y la ficha los muestra (#300)", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  await dialogo.getByLabel("Descripción").fill("Mercadería");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+
+  await dialogo.getByText(/Datos adicionales: guías/).click();
+  await dialogo.getByLabel(/Orden de compra/).fill("OC-2026-0457");
+  await dialogo.getByRole("button", { name: "Agregar guía" }).click();
+  // Una guía mal escrita se dice en el momento (4006) y la emisión no sale.
+  await dialogo.getByLabel("Número de la guía 1").fill("123");
+  await expect(dialogo.getByTestId("referencias-error")).toContainText("4006");
+  await dialogo.getByLabel("Número de la guía 1").fill("T001-123");
+  await expect(dialogo.getByTestId("referencias-error")).toHaveCount(0);
+  await dialogo.getByRole("button", { name: "Agregar documento" }).click();
+  await dialogo.getByLabel("Tipo del documento 1").selectOption("05");
+  await dialogo.getByLabel("Número del documento 1").fill("SCOP-8841203");
+  await dialogo.getByLabel(/Observaciones/).fill("Entrega en almacén central.");
+
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  const referencias = page.getByTestId("referencias");
+  await expect(referencias).toContainText("OC-2026-0457");
+  await expect(referencias).toContainText("T001-123");
+  await expect(referencias).toContainText("SCOP-8841203");
+  await expect(page.getByTestId("observaciones")).toContainText("Entrega en almacén central.");
+});

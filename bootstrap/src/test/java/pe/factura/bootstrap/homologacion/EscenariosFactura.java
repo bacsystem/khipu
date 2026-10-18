@@ -301,6 +301,12 @@ final class EscenariosFactura {
                 "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"2001\"," + sinDocumento + ",\"items\":[" +
                 "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
                 "\"percepcion\":{\"regimen\":\"51\"}}"));
+        // #300: el formulario del portal ofrece guías (09, 31) y documentos relacionados en una boleta; la factura ya lo tenía en el escenario 13.
+        todos.add(new Escenario("73-boleta-guias-y-documentos", "Boleta con dos guías de remisión y dos documentos relacionados (04, 99)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"guias\":[{\"tipo\":\"09\",\"numero\":\"T001-123\"},{\"tipo\":\"31\",\"numero\":\"V001-45\"}]," +
+                "\"documentos_relacionados\":[{\"tipo\":\"04\",\"numero\":\"ENAPU-0001\"},{\"tipo\":\"99\",\"numero\":\"OTRO-77\"}]}"));
         return todos;
     }
 
