@@ -207,6 +207,14 @@ class SummaryDocumentsUblTest {
         assertThat(nombreDelCompradorEnElResumen(new Receptor("1", "12345678", "A".repeat(300), null), false)).hasSize(250);
     }
 
+    /** H1 (#396): el corte a 250 no parte un carácter fuera del plano básico (emoji): un sustituto suelto deja el XML inválido y el resumen no se genera. */
+    @Test void elCorteDelNombreNoPartiUnParDeSustitutos() throws Exception {
+        String nombre = "A".repeat(249) + "😀";
+        String enElResumen = nombreDelCompradorEnElResumen(new Receptor("1", "12345678", nombre, null), false);
+        assertThat(enElResumen).isEqualTo("A".repeat(249));
+        assertThat(nombreDelCompradorEnElResumen(new Receptor("1", "12345678", "A".repeat(248) + "😀", null), false)).hasSize(250);   // cabe entero
+    }
+
     /**
      * 274-H1: la boleta que pasó el envío individual va en el mismo resumen, con su línea en estado 1 (catálogo 19: adicionar). Del 12, el 18 es su 6.º día: el
      * envío individual llega hasta el 5.º (#290).

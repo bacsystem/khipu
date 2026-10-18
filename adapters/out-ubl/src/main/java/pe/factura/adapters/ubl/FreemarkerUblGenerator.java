@@ -35,10 +35,26 @@ public class FreemarkerUblGenerator implements UblGenerator {
             modelo.put("c", c);
             modelo.put("tot", c.totales());
             modelo.put("t", t);
+            if (b.resumenDiario()) modelo.put("nombreComprador", nombreDelCompradorEnElResumen(c.receptor().razonSocial()));
             StringWriter out = new StringWriter();
             cfg.getTemplate(plantilla).process(modelo, out);
             return out.toString();
         } catch (Exception e) { throw new IllegalStateException("Error generando " + (b.resumenDiario() ? "SummaryDocuments" : "VoidedDocuments"), e); }
+    }
+
+    /** Tope del campo 10.3 del resumen (regla 2022): la boleta admite 1500, el resumen 250. */
+    static final int MAX_NOMBRE_COMPRADOR_EN_RESUMEN = 250;
+
+    /**
+     * Nombre del comprador para el resumen diario: sin espacios en los extremos y hasta 250 caracteres (2022). El corte no parte un par de sustitutos (un emoji en el límite):
+     * un sustituto suelto deja el XML inválido y el resumen no se podría generar.
+     */
+    static String nombreDelCompradorEnElResumen(String razonSocial) {
+        String nombre = razonSocial == null ? "" : razonSocial.strip();
+        if (nombre.length() <= MAX_NOMBRE_COMPRADOR_EN_RESUMEN) return nombre;
+        int fin = MAX_NOMBRE_COMPRADOR_EN_RESUMEN;
+        if (Character.isHighSurrogate(nombre.charAt(fin - 1))) fin--;
+        return nombre.substring(0, fin);
     }
 
     @Override public String generar(Comprobante c, Tenant t) {
