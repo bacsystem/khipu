@@ -243,7 +243,18 @@ final class EscenariosFactura {
             new Escenario("57-boleta-anticipo-de-factura", "Boleta final con RUC que regulariza el anticipo de una factura (paso 2 de 2)",
                 "{" + cabBoleta + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
                 "{\"descripcion\":\"Obra completa\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":3540.00,\"tipo_afectacion_igv\":\"10\"}]," +
-                "\"anticipos\":[{\"serie\":\"" + serie + "\",\"numero\":${ANTICIPO_PARA_BOLETA},\"monto\":1000.00}]}")
+                "\"anticipos\":[{\"serie\":\"" + serie + "\",\"numero\":${ANTICIPO_PARA_BOLETA},\"monto\":1000.00}]}"),
+            // #317: otros tributos (9999) por línea y placa del vehículo (propiedad 7000), p. ej. un grifo. Los otros tributos suman al total y no a la base del IGV.
+            new Escenario("59-otros-tributos-y-placa", "Factura con otros tributos (9999, 3.5 %) y placa del vehículo (7000)",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Diésel B5\",\"unidad\":\"GLL\",\"cantidad\":10,\"precio_unitario\":17.70,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":3.5},\"placa\":\"ABC-123\"}," +
+                "{\"descripcion\":\"Lubricante\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            new Escenario("60-boleta-otros-tributos", "Boleta con otros tributos (9999, 2 %)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":[" +
+                "{\"descripcion\":\"Gasolina 90\",\"unidad\":\"GLL\",\"cantidad\":5,\"precio_unitario\":23.60,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":2}}]}"),
+            new Escenario("61-nc-otros-tributos", "NC total (01) sobre la factura con otros tributos", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${OTROS_TRIBUTOS}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}")
         );
     }
 
