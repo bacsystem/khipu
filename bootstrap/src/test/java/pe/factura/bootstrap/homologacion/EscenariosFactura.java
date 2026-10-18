@@ -162,6 +162,21 @@ final class EscenariosFactura {
         );
     }
 
+    /**
+     * #387: la misma boleta del escenario 32 con la fecha de hace {@value #DIAS_BOLETA_TARDIA} días: ya pasó el envío individual (1079), así que khipu la informa en un
+     * resumen diario en estado 1 (alta). Es la otra mitad de la plantilla del RC: la baja (estado 3) la prueba el escenario 33. No va en {@link #todos}: la
+     * respuesta no trae CDR (queda ENVIADO hasta que SUNAT responde el ticket) y {@code HomologacionBetaTest} la espera aparte.
+     */
+    static String boletaTardiaConGratuita(String serie, LocalDate fecha) {
+        return "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha.minusDays(DIAS_BOLETA_TARDIA) + "\",\"moneda\":\"PEN\"," +
+                "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
+                "{\"descripcion\":\"Producto\",\"unidad\":\"NIU\",\"cantidad\":10,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}," +
+                "{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}]}";
+    }
+
+    /** Pasó el envío individual (5 días) y sigue dentro de la ventana de emisión de khipu (7 días, 1079): 8 días la rechaza al emitir. */
+    static final int DIAS_BOLETA_TARDIA = 6;
+
     /** Serie de boleta de la corrida: la misma base que la de factura con la letra B (B### vale para boleta, F### para factura). */
     static String serieBoleta(String serieFactura) { return "B" + serieFactura.substring(1); }
 

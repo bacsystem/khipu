@@ -186,16 +186,41 @@ class HomologacionBetaTest {
         darDeBaja("33-baja-boleta", "Baja (RC, estado 3) de la boleta con bonificación gratuita", ids.get("BOLETA_GRATUITA"), "la boleta con gratuita (32)");
     }
 
+    /**
+     * Alta de una boleta con bonificación gratuita (#387): emitida con fecha de hace {@value EscenariosFactura#DIAS_BOLETA_TARDIA} días, khipu la informa en un resumen
+     * diario en estado 1 sin pasar por sendBill. Es la misma plantilla que la baja del escenario 33 con otro estado; e-beta la acepta si no lleva las gratuitas.
+     * El resumen queda ENVIADO hasta que SUNAT responde el ticket, y esa respuesta acepta la boleta.
+     */
+    @org.junit.jupiter.api.Test void zzAltaTardiaDeBoletaConGratuita() throws Exception {
+        String escenario = "34-alta-boleta-tardia";
+        ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(EscenariosFactura.boletaTardiaConGratuita(SERIE, LocalDate.now(ZoneId.of("America/Lima"))), api), Map.class);
+        Map<?, ?> boleta = r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of());
+        assertThat(r.getStatusCode()).as(escenario + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
+        String id = String.valueOf(boleta.get("id"));
+
+        ResponseEntity<Map> lista = http.exchange("/v1/facturas/" + id + "/bajas", HttpMethod.GET, new HttpEntity<>(api), Map.class);
+        List<?> resumenes = lista.getBody() == null ? List.of() : (List<?>) lista.getBody().getOrDefault("datos", List.of());
+        assertThat(resumenes).as(escenario + ": la boleta tardía debe ir en un resumen diario (alta)").hasSize(1);
+        Map<?, ?> datos = esperarResumen((Map<?, ?>) resumenes.get(0));
+        Map<?, ?> cdr = datos.get("cdr") instanceof Map<?, ?> m ? m : Map.of();
+        String detalle = cdr.get("codigo") + " - " + cdr.get("descripcion") + (datos.get("ultimo_error") == null ? "" : " | " + datos.get("ultimo_error"));
+        ResponseEntity<Map> factura = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
+        String estadoBoleta = String.valueOf(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento"));
+        resumen.add(new String[]{escenario, "Boleta de hace " + EscenariosFactura.DIAS_BOLETA_TARDIA + " días con bonificación gratuita: va en el resumen diario como alta",
+                estadoBoleta, detalle});
+        Path dir = SALIDA.resolve(escenario);
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("resultado.txt"), estadoBoleta + "\n" + detalle + "\n", StandardCharsets.UTF_8);
+
+        assertThat(datos.get("estado")).as(escenario + ": " + detalle).isEqualTo("ACEPTADA");
+        assertThat(String.valueOf(cdr.get("codigo"))).as(escenario + ": código CDR").isEqualTo("0");
+        assertThat(estadoBoleta).as(escenario + ": el CDR del resumen acepta la boleta").isEqualTo("ACEPTADO");
+    }
+
     private void darDeBaja(String escenario, String descripcion, String id, String origen) throws Exception {
         assertThat(id).as(origen + " debe haberse emitido").isNotNull();
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Homologación: baja de prueba\"}", api), Map.class);
-        Map<?, ?> datos = r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of());
-        String bajaId = String.valueOf(datos.get("id"));
-        for (int i = 0; i < 6 && "ENVIADA".equals(datos.get("estado")); i++) {
-            Thread.sleep(5_000);
-            ResponseEntity<Map> again = http.exchange("/v1/bajas/" + bajaId, HttpMethod.GET, new HttpEntity<>(api), Map.class);
-            datos = again.getBody() == null ? Map.of() : (Map<?, ?>) again.getBody().getOrDefault("datos", Map.of());
-        }
+        Map<?, ?> datos = esperarResumen(r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of()));
         Map<?, ?> cdr = datos.get("cdr") instanceof Map<?, ?> m ? m : Map.of();
         String detalle = r.getStatusCode().is2xxSuccessful() ? cdr.get("codigo") + " - " + cdr.get("descripcion") + (datos.get("ultimo_error") == null ? "" : " | " + datos.get("ultimo_error"))
                 : "HTTP " + r.getStatusCode().value() + " " + r.getBody();
@@ -209,6 +234,17 @@ class HomologacionBetaTest {
         assertThat(String.valueOf(cdr.get("codigo"))).isEqualTo("0");
         ResponseEntity<Map> factura = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
         assertThat(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento")).as("el comprobante queda ANULADO").isEqualTo("ANULADO");
+    }
+
+    /** Si SUNAT sigue procesando el ticket (la comunicación queda ENVIADA), lo reconsulta cada 5 s hasta 6 veces: es lo que hace el outbox. */
+    private Map<?, ?> esperarResumen(Map<?, ?> datos) throws InterruptedException {
+        String bajaId = String.valueOf(datos.get("id"));
+        for (int i = 0; i < 6 && "ENVIADA".equals(datos.get("estado")); i++) {
+            Thread.sleep(5_000);
+            ResponseEntity<Map> again = http.exchange("/v1/bajas/" + bajaId, HttpMethod.GET, new HttpEntity<>(api), Map.class);
+            datos = again.getBody() == null ? Map.of() : (Map<?, ?>) again.getBody().getOrDefault("datos", Map.of());
+        }
+        return datos;
     }
 
     @AfterAll void escribirResumen() throws IOException {
