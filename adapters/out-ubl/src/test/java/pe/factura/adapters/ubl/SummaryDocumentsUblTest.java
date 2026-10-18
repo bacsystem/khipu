@@ -177,6 +177,36 @@ class SummaryDocumentsUblTest {
         new JaxpXsdValidator().validarBaja(conFirma(xml), b);
     }
 
+    // --- #362 B13: nombre del comprador (campo 10.3 del RC, Resumen Diario 2.0 desde 2027-01-01) ----------------------------------------------------------------
+
+    private static String nombreDelCompradorEnElResumen(Receptor comprador, boolean alta) throws Exception {
+        List<Item> items = List.of(new Item("A", "Pan", "NIU", BigDecimal.TEN, new BigDecimal("0.50"), TipoAfectacionIgv.GRAVADO));
+        Comprobante c = boleta(comprador, items);
+        if (alta) {   // el alta es de una boleta que SUNAT todavía no tiene: firmada, sin CDR
+            c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 12), "PEN", "0101", comprador, items).crear(FreemarkerUblGeneratorTest.CLOCK);
+            c.asignarNumero(46, "20100066603"); c.firmar("H", "k");
+        }
+        ComunicacionBaja b = alta ? ComunicacionBaja.altaEnResumen(c, 1, HOY) : ComunicacionBaja.crear(c, 1, "Error", HOY);
+        String xml = new FreemarkerUblGenerator().generarBaja(b, c, FreemarkerUblGeneratorTest.tenant());
+        new JaxpXsdValidator().validarBaja(conFirma(xml), b);
+        return xpath().evaluate("/rc:SummaryDocuments/sac:SummaryDocumentsLine/cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity/cbc:RegistrationName", parsear(xml));
+    }
+
+    @Test void elResumenLlevaElNombreDelComprador() throws Exception {
+        assertThat(nombreDelCompradorEnElResumen(new Receptor("1", "12345678", "JUAN PEREZ", null), false)).isEqualTo("JUAN PEREZ");
+        assertThat(nombreDelCompradorEnElResumen(new Receptor("1", "12345678", "JUAN PEREZ", null), true)).isEqualTo("JUAN PEREZ");
+    }
+
+    @Test void elCompradorSinDocumentoVaConSuNombreConvenido() throws Exception {
+        assertThat(nombreDelCompradorEnElResumen(new Receptor("-", "-", "CLIENTES VARIOS", null), false)).isEqualTo("CLIENTES VARIOS");
+    }
+
+    /** 2022: de 3 a 250 caracteres en el resumen (la boleta admite 1500) y sin espacios en los extremos. */
+    @Test void elNombreDelCompradorSeAjustaALoQueAdmiteElResumen() throws Exception {
+        assertThat(nombreDelCompradorEnElResumen(new Receptor("1", "12345678", "  JUAN PEREZ  ", null), false)).isEqualTo("JUAN PEREZ");
+        assertThat(nombreDelCompradorEnElResumen(new Receptor("1", "12345678", "A".repeat(300), null), false)).hasSize(250);
+    }
+
     /**
      * 274-H1: la boleta que pasó el envío individual va en el mismo resumen, con su línea en estado 1 (catálogo 19: adicionar). Del 12, el 18 es su 6.º día: el
      * envío individual llega hasta el 5.º (#290).
