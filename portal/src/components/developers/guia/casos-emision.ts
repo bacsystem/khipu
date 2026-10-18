@@ -139,6 +139,32 @@ Content-Type: application/json
     disponible: true,
   },
   {
+    id: "calcular",
+    titulo: "Calcular los totales sin emitir",
+    cuando: "Quiere mostrar al usuario los importes exactos antes de emitir (descuentos, cargos, ISC, anticipos, redondeo…) sin reimplementar el cálculo en su sistema.",
+    request: `POST /v1/facturas/calcular
+
+{
+  "serie": "F001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  ${CLIENTE},
+  "items": [
+    { "descripcion": "Servicio de consultoría", "unidad": "ZZ", "cantidad": 2, "precio_unitario": 590.00, "tipo_afectacion_igv": "10",
+      "descuento": { "porcentaje": 10, "afecta_base_igv": true } }
+  ],
+  "descuento_global": { "monto": 20.00, "afecta_base_igv": true },
+  "redondeo": 0.05
+}`,
+    notas: [
+      "Recibe **el mismo cuerpo que `POST /v1/facturas`** (factura o boleta, según la serie) y responde `200` con el mismo objeto que la emisión: `items` y `totales` con lo que khipu calcularía. **No numera, firma, guarda ni envía nada** y no consume el cupo del plan.",
+      "Arma el comprobante con las mismas reglas de dominio que la emisión: lo que esta rechazaría por una regla (`ITEM_INVALIDO`, `DESCUENTO_INVALIDO`, `MONEDA_INVALIDA`…) responde aquí el mismo `422` con su `codigo` y `mensaje`.",
+      "No comprueba lo que depende de datos guardados: que la factura de anticipo exista y esté aceptada, el padrón de RUC, el plan, la serie ni el certificado. Eso lo valida la emisión.",
+      "El `id` de la respuesta no existe, `numero` es `null` y no trae `enlaces`: es solo para mostrar importes.",
+    ],
+    disponible: true,
+  },
+  {
     id: "sin-enviar",
     titulo: "Emitir sin enviar y enviar después",
     cuando: "Emisión en lote fuera de horario, o cuando quiere revisar el XML firmado antes de que llegue a SUNAT.",
