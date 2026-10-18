@@ -719,3 +719,47 @@ test("emite una factura con detracción: bien, porcentaje y cuenta; el pie y la 
   await expect(page.getByText("1001").first()).toBeVisible();
   await expect(page.getByText("00-000-123456").first()).toBeVisible();
 });
+
+test("emite una factura con percepción: régimen 51, el pie suma el monto y la ficha lo muestra (#297)", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  await dialogo.getByLabel("Descripción").fill("Mercadería");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+
+  await dialogo.getByLabel("Operación con percepción del IGV").check();
+  await dialogo.getByLabel("Régimen de percepción").selectOption("51");
+  // El monto lo calcula el backend: 2 % de 1,180.00.
+  await expect(dialogo.getByTestId("percepcion-pie")).toContainText("Percepción S/ 23.60");
+  await expect(dialogo.getByTestId("percepcion-pie")).toContainText("Total a cobrar S/ 1,203.60");
+
+  // En dólares la percepción no vale (2788) y el formulario lo dice en el momento.
+  await dialogo.getByLabel("Moneda").selectOption("USD");
+  await expect(dialogo.getByTestId("percepcion-resumen")).toContainText("2788");
+  await dialogo.getByLabel("Moneda").selectOption("PEN");
+
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  await expect(page.getByTestId("percepcion")).toContainText("Percepción 51");
+});
+
+test("emite una boleta NRUS (0113) y no deja agregarle bolsas de plástico (#297)", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByRole("button", { name: "Boleta" }).click();
+  await dialogo.getByLabel("Número de documento").fill("12345678");
+  await dialogo.getByLabel("Nombre del comprador").fill("Juan Pérez");
+  await dialogo.getByLabel("Descripción").fill("Pan");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("5");
+  await dialogo.getByLabel("Tipo de operación").selectOption("0113");
+
+  await dialogo.getByRole("button", { name: "Más opciones del ítem 1" }).click();
+  await dialogo.getByLabel("Bolsas de plástico (ICBPER)").check();
+  await expect(dialogo.getByTestId("tributos-incompatibles")).toContainText("3240");
+  await dialogo.getByLabel("Bolsas de plástico (ICBPER)").uncheck();
+
+  await dialogo.getByRole("button", { name: "Emitir boleta" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  await expect(page.getByText("0113").first()).toBeVisible();
+});

@@ -1,11 +1,14 @@
 /**
  * #311: tipos de operación del catálogo 51 que ofrece «Nuevo comprobante». Hoy la venta interna y la exportación (0200–0208 menos 0202/0205, que piden los datos del
- * huésped); los de detracción y percepción (1001–1004, 2001) los agregan #288 y #297. Lo que el backend no emite no se ofrece: el selector promete lo que se puede cumplir.
+ * huésped) y, en boleta, el NRUS (0113). La detracción (1001–1004) y la percepción (2001) no se eligen aquí: las fija su control (#288, #297). Lo que el backend no emite no se
+ * ofrece: el selector promete lo que se puede cumplir.
  */
-export type Operacion = { codigo: string; etiqueta: string; grupo: "Venta interna" | "Exportación" };
+export type Operacion = { codigo: string; etiqueta: string; grupo: "Venta interna" | "Exportación"; soloBoleta?: boolean };
 
 export const OPERACIONES: Operacion[] = [
   { codigo: "0101", etiqueta: "Venta interna", grupo: "Venta interna" },
+  // #297: el NRUS (nuevo RUS) solo emite boletas; el catálogo 51 lo liga a ese comprobante.
+  { codigo: "0113", etiqueta: "Venta interna - NRUS", grupo: "Venta interna", soloBoleta: true },
   { codigo: "0200", etiqueta: "Exportación de bienes", grupo: "Exportación" },
   { codigo: "0201", etiqueta: "Exportación de servicios realizados íntegramente en el país", grupo: "Exportación" },
   { codigo: "0203", etiqueta: "Exportación de servicios: transporte de navieras", grupo: "Exportación" },

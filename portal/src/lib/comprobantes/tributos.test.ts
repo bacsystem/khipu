@@ -54,3 +54,11 @@ describe("incompatibilidadDeTributos", () => {
     expect(incompatibilidadDeTributos([linea({ icbper: true, cantidad: 100000 })])).toMatch(/entero de 1 a 99999/);
   });
 });
+
+describe("incompatibilidadDeTributos — NRUS (#297)", () => {
+  it("el NRUS (0113) no cobra el ICBPER (3240); la venta interna sí", () => {
+    expect(incompatibilidadDeTributos([linea({ icbper: true })], "0113")).toMatch(/3240.*NRUS/);
+    expect(incompatibilidadDeTributos([linea({ icbper: true })], "0101")).toBeNull();
+    expect(incompatibilidadDeTributos([linea({})], "0113")).toBeNull();
+  });
+});

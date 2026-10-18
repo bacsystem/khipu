@@ -64,9 +64,10 @@ export type LineaTributos = { descripcion: string; cantidad: number | null; unid
 
 /**
  * Las combinaciones que el dominio rechaza antes de numerar, dichas antes de emitir: el IVAP es de todo el comprobante (no se mezcla con otras afectaciones, 2650 no
- * lleva ISC ni ICBPER) y las bolsas del ICBPER son unidades enteras (2892, 4320). Devuelve el primer motivo, o `null`.
+ * lleva ISC ni ICBPER), las bolsas del ICBPER son unidades enteras (2892, 4320) y el NRUS (0113) no cobra el ICBPER (3240). Devuelve el primer motivo, o `null`.
  */
-export function incompatibilidadDeTributos(lineas: LineaTributos[]): string | null {
+export function incompatibilidadDeTributos(lineas: LineaTributos[], operacion = "0101"): string | null {
+  if (operacion === "0113" && lineas.some((l) => l.icbper)) return "3240 - El ICBPER no aplica al NRUS (0113): quite las bolsas de plástico de las líneas o emita con venta interna.";
   const hayIvap = lineas.some((l) => ES_IVAP(l.tipoAfectacionIgv));
   if (hayIvap && lineas.some((l) => !ES_IVAP(l.tipoAfectacionIgv)))
     return "Un comprobante con IVAP (17) lleva todos sus ítems con IVAP: no se mezcla con gravado, exonerado, inafecto ni gratuitas.";

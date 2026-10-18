@@ -278,6 +278,19 @@ final class EscenariosFactura {
         todos.add(new Escenario("66-boleta-usd-sin-documento", "Boleta en USD sin documento, con tipo de cambio (S/ 375 ≤ 700)",
                 "{" + cabBoleta + ",\"moneda\":\"USD\",\"tipo_cambio\":3.75,\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
                 "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":100.00,\"tipo_afectacion_igv\":\"10\"}]}"));
+        // #297: lo que el formulario del portal puede mandar en una boleta y no estaba probado de inmediato: NRUS (0113), detracción (1001) y percepción (2001).
+        String dni = "\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"}";
+        todos.add(new Escenario("70-boleta-nrus", "Boleta de venta interna - NRUS (0113)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"0113\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Pan\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":5.00,\"tipo_afectacion_igv\":\"10\"}]}"));
+        todos.add(new Escenario("71-boleta-detraccion", "Boleta con detracción (1001, código 022)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1001\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio de mantenimiento\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"detraccion\":{\"codigo_bien_servicio\":\"022\",\"porcentaje\":12,\"cuenta_banco_nacion\":\"00-000-123456\"}}"));
+        todos.add(new Escenario("72-boleta-percepcion", "Boleta con percepción (2001, régimen 51), enviada de inmediato",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"2001\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"percepcion\":{\"regimen\":\"51\"}}"));
         return todos;
     }
 

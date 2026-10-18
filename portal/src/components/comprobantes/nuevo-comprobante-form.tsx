@@ -20,6 +20,7 @@ import { CREDITO_VACIO, errorDeCredito, formaPagoAApi, type CreditoForm } from "
 import { documentosDeExportacion, errorDeExportacion, esExportacion, EXIGE_PAIS_DE_USO, INCOTERMS, OPERACIONES } from "@/lib/comprobantes/operaciones";
 import { listarPaises } from "@/lib/comprobantes/paises";
 import { avisoDeDetraccion, DETRACCION_VACIA, detraccionAApi, errorDeDetraccion, operacionDeDetraccion, type DetraccionForm } from "@/lib/comprobantes/detraccion";
+import { errorDePercepcion, OPERACION_PERCEPCION, PERCEPCION_VACIA, percepcionAApi, type PercepcionForm } from "@/lib/comprobantes/percepcion";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
 import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm } from "@/lib/comprobantes/tributos";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
@@ -33,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { AjusteEditor } from "./ajuste-editor";
 import { CreditoEditor } from "./credito-editor";
 import { DetraccionEditor } from "./detraccion-editor";
+import { PercepcionEditor } from "./percepcion-editor";
 import { EstadoConsultaRuc } from "./estado-consulta-ruc";
 import { useConsultaRuc } from "./use-consulta-ruc";
 
@@ -165,6 +167,8 @@ export function NuevoComprobanteForm({
   const [operacion, setOperacion] = useState("0101");
   // #288: detracción (SPOT), solo en una factura de venta interna; fija el tipo de operación 1001 (1003 para el transporte de pasajeros).
   const [detraccion, setDetraccion] = useState<DetraccionForm>(DETRACCION_VACIA);
+  // #297: percepción del IGV (operación 2001), en soles y al contado; es excluyente con la detracción (cada una fija su tipo de operación).
+  const [percepcion, setPercepcion] = useState<PercepcionForm>(PERCEPCION_VACIA);
   const [pais, setPais] = useState("");
   const [incoterm, setIncoterm] = useState("");
   const [paisDeUso, setPaisDeUso] = useState("");
@@ -256,9 +260,11 @@ export function NuevoComprobanteForm({
   const documento = DOCUMENTOS_BOLETA.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_BOLETA[0];
   const redondeo = redondeoDe(redondeoTexto);
   const exportacion = esExportacion(operacion);
-  const conDetraccion = detraccion.activa && !boleta && operacion === "0101";
-  const operacionEnviada = conDetraccion ? operacionDeDetraccion(detraccion.codigo) : operacion;
+  const conDetraccion = detraccion.activa && operacion === "0101";
+  const conPercepcion = percepcion.activa && operacion === "0101" && !conDetraccion;
+  const operacionEnviada = conDetraccion ? operacionDeDetraccion(detraccion.codigo) : conPercepcion ? OPERACION_PERCEPCION : operacion;
   const errorDetraccion = conDetraccion ? errorDeDetraccion(detraccion, moneda) : null;
+  const errorPercepcion = conPercepcion ? errorDePercepcion(percepcion, { moneda, alCredito }) : null;
   const errorExportacion = errorDeExportacion({ operacion, incoterm, paisDeUso, paisDelComprador: pais }, boleta);
   // En una exportación el comprador es del exterior: se elige su documento (como en la boleta) en vez de pedir un RUC.
   const usaSelectorDeDocumento = boleta || exportacion;
@@ -288,11 +294,11 @@ export function NuevoComprobanteForm({
   }
   // Los ajustes mal escritos no se envían ni se calculan: se muestran en su campo y la emisión no sale.
   // #298: tampoco se envía un ISC mal escrito ni una combinación de tributos que el dominio rechaza (IVAP mezclado, ICBPER fuera de NIU o con cantidad fraccionaria).
-  const incompatibilidad = incompatibilidadDeTributos(lineasCompletas);
+  const incompatibilidad = incompatibilidadDeTributos(lineasCompletas, operacion);
   const hayAjusteInvalido =
     errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
     lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null || errorDeIsc(l.isc) !== null) ||
-    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null;
+    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null;
 
   /**
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
@@ -305,6 +311,7 @@ export function NuevoComprobanteForm({
       moneda,
       tipo_operacion: operacionEnviada === "0101" ? undefined : operacionEnviada,
       detraccion: conDetraccion ? detraccionAApi(detraccion, moneda) : undefined,
+      percepcion: conPercepcion ? percepcionAApi(percepcion, { moneda, alCredito }) : undefined,
       exportacion: exportacion && (incoterm || paisDeUso) ? { incoterm: incoterm || undefined, pais_uso: paisDeUso || undefined } : undefined,
       cliente: paraCalcular
         ? exportacion
@@ -336,6 +343,7 @@ export function NuevoComprobanteForm({
   // Primero los importes sin forma de pago: el neto pendiente por defecto es el total que calcula el backend. Con crédito, un segundo cálculo lleva las cuotas.
   const calculoBase = useCalculo(completo ? armarCuerpo(true) : null);
   // 3319: con detracción, el neto pendiente por defecto es lo que queda por cobrar (el total menos el depósito en la cuenta de detracciones); solo cuando ambos son en soles.
+  const montoPercepcion = calculoBase.estado === "listo" ? (calculoBase.comprobante.percepcion?.monto ?? null) : null;
   const montoDetraccion = calculoBase.estado === "listo" ? (calculoBase.comprobante.detraccion?.monto ?? null) : null;
   const netoBase = calculoBase.estado === "listo" ? calculoBase.totales.total - (moneda === "PEN" ? (montoDetraccion ?? 0) : 0) : totales.total + (redondeo.valor ?? 0);
   const errorCredito = alCredito && !boleta ? errorDeCredito(credito, netoBase, fecha) : null;
@@ -392,7 +400,7 @@ export function NuevoComprobanteForm({
       return;
     }
     if (hayAjusteInvalido) {
-      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
+      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
       return;
     }
     if (errorCredito) {
@@ -640,7 +648,7 @@ export function NuevoComprobanteForm({
             <select id="nc-operacion" value={operacion} onChange={(e) => cambiarOperacion(e.target.value)} className={CAMPO_DENSO}>
               {(["Venta interna", "Exportación"] as const).map((g) => (
                 <optgroup key={g} label={g}>
-                  {OPERACIONES.filter((o) => o.grupo === g).map((o) => (
+                  {OPERACIONES.filter((o) => o.grupo === g && (boleta || !o.soloBoleta)).map((o) => (
                     <option key={o.codigo} value={o.codigo}>
                       {o.codigo} · {o.etiqueta}
                     </option>
@@ -684,14 +692,17 @@ export function NuevoComprobanteForm({
             ) : null}
           </div>
         ) : null}
-        {/* #288: detracción, solo en una factura de venta interna. */}
-        {boleta || operacion !== "0101" ? null : (
+        {/* #288: detracción, #297: percepción. Solo en una venta interna (factura o boleta); se excluyen entre sí porque cada una fija su tipo de operación. */}
+        {operacion !== "0101" ? null : (
           <div className="grid gap-3">
             <label className="flex items-center gap-2 text-[13px] font-medium">
               <input
                 type="checkbox"
                 checked={detraccion.activa}
-                onChange={(e) => setDetraccion((d) => ({ ...d, activa: e.target.checked, cuenta: d.cuenta || cuentaDetracciones || "" }))}
+                onChange={(e) => {
+                  setDetraccion((d) => ({ ...d, activa: e.target.checked, cuenta: d.cuenta || cuentaDetracciones || "" }));
+                  if (e.target.checked) setPercepcion((p) => ({ ...p, activa: false }));
+                }}
                 className="size-3.5 accent-primary"
               />
               Operación sujeta a detracción (SPOT)
@@ -703,6 +714,22 @@ export function NuevoComprobanteForm({
                 Esta factura pasa de S/ 700.00. Si es un servicio sujeto al SPOT, marque la detracción.
               </p>
             ) : null}
+            {detraccion.activa ? null : (
+              <>
+                <label className="flex items-center gap-2 text-[13px] font-medium">
+                  <input
+                    type="checkbox"
+                    checked={percepcion.activa}
+                    onChange={(e) => setPercepcion((p) => ({ ...p, activa: e.target.checked }))}
+                    className="size-3.5 accent-primary"
+                  />
+                  Operación con percepción del IGV
+                </label>
+                {percepcion.activa ? (
+                  <PercepcionEditor valor={percepcion} onCambio={setPercepcion} moneda={moneda} alCredito={alCredito && !boleta} montoCalculado={montoPercepcion} />
+                ) : null}
+              </>
+            )}
           </div>
         )}
 
@@ -964,6 +991,11 @@ export function NuevoComprobanteForm({
           {conDetraccion && montoDetraccion !== null ? (
             <span className={AYUDA_CAMPO} data-testid="detraccion-pie">
               Detracción {formatearMonto("PEN", montoDetraccion)} · Neto a cobrar {formatearMonto(moneda, mostrados.total - (moneda === "PEN" ? montoDetraccion : 0))}
+            </span>
+          ) : null}
+          {conPercepcion && montoPercepcion !== null ? (
+            <span className={AYUDA_CAMPO} data-testid="percepcion-pie">
+              Percepción {formatearMonto("PEN", montoPercepcion)} · Total a cobrar {formatearMonto("PEN", mostrados.total + montoPercepcion)}
             </span>
           ) : null}
           <div className="flex items-baseline gap-2">

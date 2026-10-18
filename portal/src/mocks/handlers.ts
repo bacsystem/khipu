@@ -513,6 +513,28 @@ function detraccionMock(operacion: string | undefined, detraccion: DetraccionPed
   return { detraccion: { codigo_bien_servicio: detraccion.codigo_bien_servicio, descripcion: `Bien o servicio ${detraccion.codigo_bien_servicio}`, porcentaje: detraccion.porcentaje, monto, cuenta_banco_nacion: detraccion.cuenta_banco_nacion, medio_pago: detraccion.medio_pago ?? "001" } };
 }
 
+/** Las reglas de dominio de la percepción (#297): régimen 51–53 con su tasa (3071), solo con 2001 (3308), al contado (3330), en soles (2788), base ≤ total (2797) y 2001 sin percepción al contado (3093). */
+const REGIMENES_MOCK: Record<string, { tasa: number; descripcion: string }> = {
+  "51": { tasa: 2, descripcion: "Percepción venta interna - Tasa 2%" },
+  "52": { tasa: 1, descripcion: "Percepción a la adquisición de combustible - Tasa 1%" },
+  "53": { tasa: 0.5, descripcion: "Percepción realizada al agente de percepción con tasa especial - Tasa 0.5%" },
+};
+type PercepcionPedido = { regimen: string; base?: number; monto?: number };
+function percepcionMock(operacion: string | undefined, percepcion: PercepcionPedido | undefined, moneda: string, alCredito: boolean, total: number) {
+  const op = operacion ?? "0101";
+  if (!percepcion) return op === "2001" && !alCredito ? { error: fail(422, "PERCEPCION_INVALIDA", "3093 - Una operación sujeta a percepción (2001) al contado debe informar la percepción") } : {};
+  const r = REGIMENES_MOCK[percepcion.regimen];
+  if (!r) return { error: fail(422, "PERCEPCION_INVALIDA", "3071 - El régimen de percepción debe ser 51, 52 o 53 (catálogo 53)") };
+  if (op !== "2001") return { error: fail(422, "PERCEPCION_INVALIDA", `3308 - Solo se informa percepción con tipo de operación 2001, no ${op}`) };
+  if (alCredito) return { error: fail(422, "PERCEPCION_INVALIDA", "3330 - La percepción solo se informa en facturas al contado") };
+  if (moneda !== "PEN") return { error: fail(422, "PERCEPCION_INVALIDA", "2788 - La percepción solo se informa en facturas en soles") };
+  const base = percepcion.base ?? total;
+  if (base <= 0) return { error: fail(422, "PERCEPCION_INVALIDA", "3233 - La base de la percepción debe ser mayor a 0.00") };
+  if (base > total + 0.005) return { error: fail(422, "PERCEPCION_INVALIDA", `2797 - La base de la percepción (${base.toFixed(2)}) no puede superar el importe total (${total.toFixed(2)})`) };
+  const monto = Math.round(base * r.tasa) / 100;
+  return { percepcion: { regimen: percepcion.regimen, descripcion: r.descripcion, porcentaje: r.tasa, base, monto, total_con_percepcion: Math.round((total + monto) * 100) / 100 } };
+}
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -2519,6 +2541,7 @@ export const handlers = [
       serie?: string;
       moneda?: string;
       detraccion?: DetraccionPedido;
+      percepcion?: PercepcionPedido;
     };
     const porExportacion = rechazoPorExportacionMock(body, (body.serie ?? "").startsWith("B"));
     if (porExportacion) return porExportacion;
@@ -2534,7 +2557,9 @@ export const handlers = [
     if ("error" in forma && forma.error) return forma.error;
     const det = detraccionMock(body.tipo_operacion, body.detraccion, body.moneda ?? "PEN", total);
     if (det.error) return det.error;
-    return ok({ detraccion: det.detraccion ?? null, totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, gratuito: t.gratuito, igv: t.igv, redondeo, total } });
+    const per = percepcionMock(body.tipo_operacion, body.percepcion, body.moneda ?? "PEN", body.forma_pago?.tipo === "credito", total);
+    if (per.error) return per.error;
+    return ok({ detraccion: det.detraccion ?? null, percepcion: per.percepcion ?? null, totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, gratuito: t.gratuito, igv: t.igv, redondeo, total } });
   }),
 
   // Emisión manual desde el portal (#17). Los totales salen del mismo helper que previsualiza el formulario, así el
@@ -2617,6 +2642,8 @@ export const handlers = [
     if ("error" in forma && forma.error) return forma.error;
     const det = detraccionMock((body as { tipo_operacion?: string }).tipo_operacion, (body as { detraccion?: DetraccionPedido }).detraccion, body.moneda, t.total);
     if (det.error) return det.error;
+    const per = percepcionMock((body as { tipo_operacion?: string }).tipo_operacion, (body as { percepcion?: PercepcionPedido }).percepcion, body.moneda, (body as { forma_pago?: FormaPagoPedido }).forma_pago?.tipo === "credito", t.total);
+    if (per.error) return per.error;
     const id = nuevoId("f");
     const comprobante: Comprobante = {
       id,
@@ -2637,6 +2664,7 @@ export const handlers = [
       totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, total: t.total },
       forma_pago: "formaPago" in forma ? forma.formaPago : { tipo: "contado", monto_pendiente: null, cuotas: [] },
       detraccion: det.detraccion ?? null,
+      percepcion: per.percepcion ?? null,
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },
     };
     db.facturasPorEmpresa.set(empresaId, [comprobante, ...(db.facturasPorEmpresa.get(empresaId) ?? [])]);
