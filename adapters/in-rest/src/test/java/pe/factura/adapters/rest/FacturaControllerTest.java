@@ -971,6 +971,31 @@ class FacturaControllerTest {
         }
     }
 
+    /** #316: `tipo_cambio` entra al comando y la respuesta trae el equivalente en soles; una moneda del catálogo 02 distinta de PEN/USD/EUR se acepta. */
+    @Test void tipoDeCambioYOtrasMonedasEntranYSalen() throws Exception {
+        String conTipo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"GBP\",\"tipo_cambio\":4.712,");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "GBP", "0101", c.receptor(), c.items())
+                .tipoCambio(new BigDecimal("4.712")).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conTipo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.moneda").value("GBP"))
+                .andExpect(jsonPath("$.datos.tipo_cambio").value(4.712))
+                .andExpect(jsonPath("$.datos.total_en_soles").isNumber());
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().moneda()).isEqualTo("GBP");
+        assertThat(cap.getValue().tipoCambio()).isEqualByComparingTo("4.712");
+    }
+
+    @Test void tipoDeCambioInvalidoEs422DeValidacion() throws Exception {
+        for (String mal : new String[]{"0", "-1", "1000", "3.7561"}) {
+            String cuerpoMalo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"USD\",\"tipo_cambio\":" + mal + ",");
+            mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpoMalo))
+                    .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+        }
+    }
+
     @Test void anticiposEntranYSalen() throws Exception {
         String conAnticipo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"F001\",\"numero\":10,\"monto\":30.00,\"fecha_pago\":\"2026-09-01\"}],");
         Comprobante c = aceptado(tenant);

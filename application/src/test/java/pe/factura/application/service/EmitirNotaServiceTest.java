@@ -128,6 +128,23 @@ class EmitirNotaServiceTest {
         return List.of(new Item("P1", "Laptop", "NIU", new BigDecimal(cantidad), new BigDecimal(precio), TipoAfectacionIgv.GRAVADO));
     }
 
+    /** #316: una boleta en dólares sin documento se emite con tipo de cambio (S/ 375 ≤ 700) y su nota total hereda moneda y tipo de cambio. */
+    @Test void laNotaHeredaElTipoDeCambioDeLaBoletaEnDolares() {
+        Comprobante b = service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 10), null, "USD", "0101", SIN_DOCUMENTO,
+                List.of(new Item("P1", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true, null, List.of(), null, new BigDecimal("3.750")));
+        assertThat(b.tipoCambio()).isEqualByComparingTo("3.750");
+        assertThat(b.totalEnSoles()).hasValueSatisfying(s -> assertThat(s).isEqualByComparingTo("375.00"));
+        Comprobante nc = service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "01", null));
+        assertThat(nc.moneda()).isEqualTo("USD");
+        assertThat(nc.tipoCambio()).isEqualByComparingTo("3.750");
+        // Sin tipo de cambio la misma boleta sigue pidiendo el documento del comprador.
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 10), null, "USD", "0101", SIN_DOCUMENTO,
+                List.of(new Item("P1", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true)))
+                .hasMessageContaining("identifica al comprador");
+    }
+
     /** #295: una boleta que regularizó un anticipo no se anula con una nota total (el CreditNote no lleva PrepaidPayment): el mensaje dice «boleta» y pide los ítems por el neto. */
     @Test void laNotaTotalSobreUnaBoletaConAnticiposPideLosItemsPorElNeto() {
         Comprobante anticipo = boletaAceptada();   // B001: 200.00 gravado, mismo comprador sin documento

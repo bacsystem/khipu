@@ -194,6 +194,11 @@
     <#if tot.tieneAnticipos()><tr><td class="k">Anticipos</td><td class="n">- ${c.moneda()} ${m(tot.totalAnticipos())}</td></tr></#if>
     <#if tot.tieneRedondeo()><tr><td class="k">Redondeo</td><td class="n">${c.moneda()} ${m(tot.redondeo())}</td></tr></#if>
     <tr class="total"><td class="k">Importe total</td><td class="n">${c.moneda()} ${m(tot.total())}</td></tr>
+    <#-- #316: el tipo de cambio informado y el equivalente en soles; no son parte del XML. -->
+    <#if c.tipoCambio()??>
+    <tr><td class="k">Tipo de cambio (S/ por ${c.moneda()})</td><td class="n">${c.tipoCambio()?string["0.000"]}</td></tr>
+    <tr><td class="k">Equivalente en soles</td><td class="n">S/ ${m(tot.total() * c.tipoCambio())}</td></tr>
+    </#if>
     <#if c.percepcion()??><tr><td class="k">Percepción (${m(c.percepcion().porcentaje())}%)</td><td class="n">${c.moneda()} ${m(c.percepcion().monto())}</td></tr>
     <tr class="total"><td class="k">Total a pagar</td><td class="n">${c.moneda()} ${m(c.percepcion().totalConPercepcion(tot.total()))}</td></tr></#if>
   </table>

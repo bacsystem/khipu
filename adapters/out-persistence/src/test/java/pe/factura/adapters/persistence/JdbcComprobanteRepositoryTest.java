@@ -518,6 +518,26 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.totales().total()).isEqualByComparingTo(c.totales().total());
     }
 
+    /** #316: el tipo de cambio se guarda con el comprobante y vuelve igual; en soles o sin informar vuelve nulo. */
+    @Test void guardaYRehidrataElTipoDeCambio() {
+        UUID t = tenantDePrueba();
+        Comprobante usd = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "USD", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).tipoCambio(new BigDecimal("3.756")).crear(clock);
+        usd.asignarNumero(11, "20100066603");
+        usd.firmar("H", "k.xml");
+        repo.guardar(usd);
+        Comprobante leido = repo.buscar(t, usd.id()).orElseThrow();
+        assertThat(leido.tipoCambio()).isEqualByComparingTo("3.756");
+        assertThat(leido.totalEnSoles()).hasValueSatisfying(s -> assertThat(s).isEqualByComparingTo("443.21"));
+
+        Comprobante soles = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(clock);
+        soles.asignarNumero(12, "20100066603");
+        soles.firmar("H", "k.xml");
+        repo.guardar(soles);
+        assertThat(repo.buscar(t, soles.id()).orElseThrow().tipoCambio()).isNull();
+    }
+
     @Test void guardaYRehidrataAnticiposYBuscaPorNumero() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("O", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),

@@ -73,6 +73,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 .tasaIgv(TasaIgv.vigente(cmd.fechaEmision(), tenant.padronTasaEspecialIgv()))
                 .leyendas(cmd.leyendas())
                 .exportacion(cmd.exportacion())
+                .tipoCambio(cmd.tipoCambio())
                 .crear(clock);
         c.anotar(cmd.observaciones());
         // Dentro de la transacción y con la factura de anticipo bloqueada: dos finales concurrentes no pueden regularizar el mismo anticipo dos veces.
@@ -144,6 +145,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         if (copia) builder.copiaDelDocumento();
         Comprobante c = builder
                 .moneda(afectado.moneda())
+                .tipoCambio(afectado.tipoCambio())
                 .tipoOperacion(afectado.tipoOperacion())
                 .formaPago(cmd.formaPago())
                 .descuentoGlobal(copia ? afectado.descuentoGlobal() : cmd.descuentoGlobal())
