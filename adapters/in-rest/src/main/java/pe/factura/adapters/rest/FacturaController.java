@@ -66,7 +66,7 @@ public class FacturaController {
 
             **Qué validar antes de llamar**: la serie debe existir (ver *Series*); el receptor de una factura siempre lleva
             RUC (`cliente.tipo_doc = "6"`); `tipo_afectacion_igv` de cada ítem viene del catálogo 07; `unidad` del catálogo 03;
-            `tipo_operacion` del catálogo 51 (`0101` venta interna por defecto) y aplicable al tipo de comprobante (`0113` es solo de boletas).
+            `tipo_operacion` del catálogo 51 (`0101` venta interna por defecto) y que khipu emita en ese comprobante (`0113` es solo de boletas; la lista de factura está en `tipo_operacion` del request): si no, `422 TIPO_OPERACION_INVALIDO` antes de consumir número.
 
             **Boleta** (serie `B###`): el comprador se identifica con cualquier documento del catálogo 06 (DNI de 8 dígitos,
             carné de extranjería, pasaporte, RUC…) o, si la boleta es en soles y de hasta S/ 700.00, con `tipo_doc` y `num_doc`
