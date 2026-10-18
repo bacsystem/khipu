@@ -113,6 +113,21 @@ public class FacturaController {
         return ResponseEntity.status(emision.repetida() ? HttpStatus.OK : HttpStatus.CREATED).body(ApiResponse.ok(ComprobanteResponse.de(emision.comprobante(), BASE), avisos(emision.comprobante())));
     }
 
+    @PostMapping("/calcular")
+    @Operation(summary = "Calcular los totales sin emitir", description = """
+            Recibe el mismo cuerpo que `POST /v1/facturas` y responde los importes que khipu calcularía —`items` y `totales`, con descuentos, cargos, ISC, ICBPER, otros
+            tributos, anticipos, redondeo, percepción, retención y tipo de cambio— **sin numerar, firmar, guardar ni enviar nada** y sin consumir cupo del plan. Arma el
+            comprobante con las mismas reglas de dominio que la emisión: lo que devuelve es lo que se emitiría, y lo que la emisión rechazaría por esas reglas responde aquí el
+            mismo `422` con su `codigo` y `mensaje`. No comprueba lo que depende de datos guardados (que la factura de anticipo exista y esté aceptada, el padrón de RUC, el
+            plan, que haya serie y certificado): eso lo valida la emisión. El `id` de la respuesta no existe y no trae enlaces.""")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Importes calculados; no se guardó nada"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422", description = "Datos inválidos o regla de dominio incumplida, igual que en la emisión")})
+    public ResponseEntity<ApiResponse<ComprobanteResponse>> calcular(HttpServletRequest req, @Valid @RequestBody FacturaRequest body) {
+        Comprobante c = emitir.calcularFactura(TenantActual.id(req), body.aComando());
+        return ResponseEntity.ok(ApiResponse.ok(ComprobanteResponse.de(c, null)));
+    }
+
     /** #378: lo que SUNAT observará del comprador (4013, 4014); la factura se emitió igual, SUNAT la acepta con la observación. */
     private List<ApiResponse.Aviso> avisos(Comprobante c) {
         return ApiResponse.Aviso.de(comprador.avisosDe(c.receptor()));

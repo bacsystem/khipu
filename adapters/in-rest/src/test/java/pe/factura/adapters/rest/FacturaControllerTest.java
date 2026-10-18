@@ -996,6 +996,26 @@ class FacturaControllerTest {
         }
     }
 
+    /** #405: `/calcular` recibe el cuerpo de la emisión, responde los importes (200) y no emite nada. */
+    @Test void calcularResponde200ConLosImportesYNoEmite() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(emitir.calcularFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), c.items())
+                .crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas/calcular").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.totales.total").isNumber())
+                .andExpect(jsonPath("$.datos.items[0].valor_venta").isNumber())
+                .andExpect(jsonPath("$.datos.numero").doesNotExist())
+                .andExpect(jsonPath("$.datos.enlaces").isEmpty());
+        verify(emitir, never()).emitirFactura(any(), any(), any());
+        verify(emitir, never()).emitirFactura(any(), any());
+    }
+
+    @Test void calcularConDatosInvalidosEs422DeValidacionComoLaEmision() throws Exception {
+        mvc.perform(post("/v1/facturas/calcular").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo.replace("\"moneda\":\"PEN\"", "\"moneda\":\"pen\"")))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+    }
+
     @Test void anticiposEntranYSalen() throws Exception {
         String conAnticipo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"F001\",\"numero\":10,\"monto\":30.00,\"fecha_pago\":\"2026-09-01\"}],");
         Comprobante c = aceptado(tenant);

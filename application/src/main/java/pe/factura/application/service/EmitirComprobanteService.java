@@ -53,29 +53,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         if (repetida != null) return repetida;
         Tenant tenant = tenantListo(tenantId, cmd.enviarAutomatico());
         List<Anticipo> anticipos = cmd.anticipos() == null ? List.of() : cmd.anticipos();
-        // La cuenta de detracciones puede omitirse en la factura si la empresa la tiene configurada.
-        Detraccion detraccion = cmd.detraccion() != null && cmd.detraccion().sinCuenta() ? cmd.detraccion().conCuenta(tenant.cuentaDetracciones()) : cmd.detraccion();
-
-        // #20: la letra de la serie dice qué se emite (F factura, B boleta), como en SUNAT; los dos se numeran, firman y envían igual.
-        boolean boleta = cmd.serie() != null && cmd.serie().startsWith("B");
-        Comprobante c = (boleta ? Comprobante.boleta(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.receptor(), cmd.items())
-                        : Comprobante.factura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.receptor(), cmd.items()))
-                .fechaVencimiento(cmd.fechaVencimiento())
-                .formaPago(cmd.formaPago())
-                .descuentoGlobal(cmd.descuentoGlobal())
-                .cargos(cmd.cargos())
-                .detraccion(detraccion)
-                .retencion(cmd.retencionIgv())
-                .percepcion(cmd.percepcion())
-                .anticipos(anticipos)
-                .referencias(cmd.referencias())
-                .redondeo(cmd.redondeo())
-                .tasaIgv(TasaIgv.vigente(cmd.fechaEmision(), tenant.padronTasaEspecialIgv()))
-                .leyendas(cmd.leyendas())
-                .exportacion(cmd.exportacion())
-                .tipoCambio(cmd.tipoCambio())
-                .crear(clock);
-        c.anotar(cmd.observaciones());
+        Comprobante c = armarFactura(tenant, tenantId, cmd, anticipos);
         // Dentro de la transacción y con la factura de anticipo bloqueada: dos finales concurrentes no pueden regularizar el mismo anticipo dos veces.
         return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> anticipos.forEach(a -> validarFacturaDeAnticipo(tenantId, cmd, a)), enAlcance);
     }
@@ -212,6 +190,43 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         if (afectado.estado() != EstadoDocumento.ACEPTADO && afectado.estado() != EstadoDocumento.ACEPTADO_CON_OBS)
             throw new DomainException("NOTA_INVALIDA", "2119 - " + documento + " no está aceptada por SUNAT (estado " + afectado.estado() + ")");
         return afectado;
+    }
+
+    /**
+     * #405: arma y valida el comprobante con las reglas de dominio, sin numerarlo, guardarlo ni enviarlo. Lo comparten la emisión y {@link #calcularFactura}: lo que se
+     * calcula es exactamente lo que se emitiría.
+     */
+    private Comprobante armarFactura(Tenant tenant, UUID tenantId, EmitirFacturaCommand cmd, List<Anticipo> anticipos) {
+        // La cuenta de detracciones puede omitirse en la factura si la empresa la tiene configurada.
+        Detraccion detraccion = cmd.detraccion() != null && cmd.detraccion().sinCuenta() ? cmd.detraccion().conCuenta(tenant.cuentaDetracciones()) : cmd.detraccion();
+
+        // #20: la letra de la serie dice qué se emite (F factura, B boleta), como en SUNAT; los dos se numeran, firman y envían igual.
+        boolean boleta = cmd.serie() != null && cmd.serie().startsWith("B");
+        Comprobante c = (boleta ? Comprobante.boleta(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.receptor(), cmd.items())
+                        : Comprobante.factura(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.receptor(), cmd.items()))
+                .fechaVencimiento(cmd.fechaVencimiento())
+                .formaPago(cmd.formaPago())
+                .descuentoGlobal(cmd.descuentoGlobal())
+                .cargos(cmd.cargos())
+                .detraccion(detraccion)
+                .retencion(cmd.retencionIgv())
+                .percepcion(cmd.percepcion())
+                .anticipos(anticipos)
+                .referencias(cmd.referencias())
+                .redondeo(cmd.redondeo())
+                .tasaIgv(TasaIgv.vigente(cmd.fechaEmision(), tenant.padronTasaEspecialIgv()))
+                .leyendas(cmd.leyendas())
+                .exportacion(cmd.exportacion())
+                .tipoCambio(cmd.tipoCambio())
+                .crear(clock);
+        c.anotar(cmd.observaciones());
+        return c;
+    }
+
+    @Override
+    public Comprobante calcularFactura(UUID tenantId, EmitirFacturaCommand cmd) {
+        Tenant tenant = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Empresa no encontrada"));
+        return armarFactura(tenant, tenantId, cmd, cmd.anticipos() == null ? List.of() : cmd.anticipos());
     }
 
     private Tenant tenantListo(UUID tenantId, boolean enviarAutomatico) {

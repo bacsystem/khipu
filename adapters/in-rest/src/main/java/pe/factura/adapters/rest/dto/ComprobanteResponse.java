@@ -276,7 +276,7 @@ public record ComprobanteResponse(
 
     /** Con {@code notas} (las emitidas sobre esta factura) y {@code baja} (la última comunicación de baja) solo al consultar un comprobante concreto. */
     public static ComprobanteResponse de(Comprobante c, String base, List<Comprobante> notas, ComunicacionBaja baja, List<EventoDocumento> eventos) {
-        String p = base + "/" + c.id();
+        String p = base == null ? null : base + "/" + c.id();
         return new ComprobanteResponse(c.id(), c.tipo().codigo(), c.serie(), c.numero(), c.fechaEmision(), c.fechaVencimiento(), c.fechaLimiteEnvio(), c.moneda(), c.tipoOperacion(), c.tipoCambio(), c.totalEnSoles().orElse(null),
                 de(c.receptor()), c.totales().items().stream().map(ComprobanteResponse::de).toList(),
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
@@ -306,6 +306,7 @@ public record ComprobanteResponse(
 
     /** `cdr` solo cuando existe la constancia: un rechazo por SOAPFault trae código y descripción pero SUNAT no emitió CDR. */
     private static Map<String, String> enlaces(Comprobante c, String p) {
+        if (p == null) return Map.of();   // #405: el cálculo no guarda nada, no hay a dónde enlazar
         return c.cdrKey() == null ? Map.of("xml", p + "/xml", "pdf", p + "/pdf") : Map.of("xml", p + "/xml", "pdf", p + "/pdf", "cdr", p + "/cdr");
     }
 

@@ -166,6 +166,15 @@ class RelojDeLaAplicacionTest {
         assertThat(real.llamadas).as("no llegó a numerar ni firmar nada").isEmpty();
     }
 
+    /** #405: calcular no numera ni toca a SUNAT, así que el reloj desplazado no lo frena ni en producción. */
+    @Test void conDesplazamientoCalcularPasaTambienParaUnaEmpresaEnProduccion() {
+        EmisionFalsa real = new EmisionFalsa();
+        EmitirComprobanteUseCase protegida = RelojDeLaAplicacion.proteger(real, new TenantsFalsos(Entorno.PRODUCCION), Duration.ofDays(-8));
+
+        protegida.calcularFactura(TenantsFalsos.ID, (EmitirFacturaCommand) null);
+        assertThat(real.llamadas).containsExactly("calcularFactura");
+    }
+
     @Test void conDesplazamientoEmiteNormalParaUnaEmpresaDeBeta() {
         EmisionFalsa real = new EmisionFalsa();
         EmitirComprobanteUseCase protegida = RelojDeLaAplicacion.proteger(real, new TenantsFalsos(Entorno.BETA), Duration.ofDays(-8));
@@ -331,6 +340,7 @@ class RelojDeLaAplicacionTest {
     static class EmisionFalsa implements EmitirComprobanteUseCase {
         final List<String> llamadas = new ArrayList<>();
         @Override public Emision emitirFactura(UUID tenantId, EmitirFacturaCommand cmd, Idempotencia idempotencia) { llamadas.add("emitirFactura"); return null; }
+        @Override public pe.factura.domain.documento.Comprobante calcularFactura(UUID tenantId, EmitirFacturaCommand cmd) { llamadas.add("calcularFactura"); return null; }
         Idempotencia ultimaClaveDeNota;
         @Override public Emision emitirNota(UUID tenantId, EmitirNotaCommand cmd, Idempotencia idempotencia) { llamadas.add("emitirNota"); ultimaClaveDeNota = idempotencia; return new Emision(null, false); }
     }

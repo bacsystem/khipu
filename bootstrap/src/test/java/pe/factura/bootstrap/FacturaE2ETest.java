@@ -89,6 +89,32 @@ class FacturaE2ETest {
         assertThat(new String(ZipUtil.extraerPrimero(cdr.getBody(), ".xml"))).contains("ha sido aceptada");
     }
 
+    /** #405: `/calcular` con la pila real: los mismos importes que la emisión, sin consumir correlativo ni llamar a SUNAT, y con los mismos errores de dominio. */
+    @Test void calcularDaLosImportesDeLaEmisionSinNumerarNiEnviar(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+
+        ResponseEntity<Map> calculado = http.postForEntity("/v1/facturas/calcular", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(calculado.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<?, ?> datos = (Map<?, ?>) calculado.getBody().get("datos");
+        assertThat(datos.get("numero")).isNull();
+        assertThat(((Map<?, ?>) datos.get("totales")).get("total")).isEqualTo(2360.0);
+        verify(0, postRequestedFor(urlEqualTo("/billService")));
+
+        // El rechazo de dominio es el de la emisión, y la emisión que sigue arranca en el correlativo 1 (calcular no consumió ninguno).
+        ResponseEntity<Map> malo = http.postForEntity("/v1/facturas/calcular", new HttpEntity<>(FACTURA.replace("\"unidad\":\"NIU\"", "\"unidad\":\"XYZ\""), h), Map.class);
+        assertThat(malo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(malo.getBody().get("codigo")).isEqualTo("ITEM_INVALIDO");
+        ResponseEntity<Map> emitida = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(((Map<?, ?>) emitida.getBody().get("datos")).get("numero")).isEqualTo(1);
+        assertThat(((Map<?, ?>) ((Map<?, ?>) emitida.getBody().get("datos")).get("totales")).get("total")).isEqualTo(2360.0);
+
+        // Sin credencial, la misma puerta que la emisión.
+        HttpHeaders sin = new HttpHeaders(); sin.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/facturas/calcular", new HttpEntity<>(FACTURA, sin), Map.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
     /** #308: una unidad que no existe en el catálogo 03 vuelve 422 (2936) con el código recibido, antes de numerar: la siguiente factura es la 1. */
     @Test void unaUnidadFueraDelCatalogo03SeRechazaSinConsumirNumero(WireMockRuntimeInfo wm) throws Exception {
         stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));

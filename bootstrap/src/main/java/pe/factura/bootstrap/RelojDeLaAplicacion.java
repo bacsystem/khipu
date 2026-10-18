@@ -118,6 +118,8 @@ public final class RelojDeLaAplicacion {
                 exigirNoProduccion(tenantId);
                 return emision.emitirNota(tenantId, cmd, idempotencia);
             }
+            /** Calcular no emite nada ni toca a SUNAT: se deja pasar aunque la empresa esté en producción. */
+            @Override public Comprobante calcularFactura(UUID tenantId, EmitirFacturaCommand cmd) { return emision.calcularFactura(tenantId, cmd); }
             private void exigirNoProduccion(UUID tenantId) { RelojDeLaAplicacion.exigirNoProduccion(tenants, tenantId, "emitir"); }
         };
     }
