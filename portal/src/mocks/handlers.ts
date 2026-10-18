@@ -2449,6 +2449,7 @@ export const handlers = [
 
   // #405: el cálculo sin emitir. El mock usa el mismo helper local que la emisión simulada (sin descuentos, cargos ni ISC) y le suma el redondeo, con la misma
   // regla del dominio (3303: hasta ±1.00 y sin dejar el total en negativo).
+  // Los descuentos y cargos (#310) los recibe pero no los aplica: reproducirlos sería portar `Totales` al mock. El cálculo real se prueba contra el backend.
   http.post(`${BASE}/v1/facturas/calcular`, async ({ request }) => {
     const body = (await request.json()) as { items: Array<{ cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }>; redondeo?: number };
     const redondeo = body.redondeo ?? 0;

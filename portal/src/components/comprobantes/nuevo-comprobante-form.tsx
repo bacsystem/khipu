@@ -15,6 +15,7 @@ import type { Serie } from "@/lib/api/series";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { MAX_LINEAS } from "@/lib/comprobantes/limites";
 import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
+import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
@@ -24,6 +25,7 @@ import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+import { AjusteEditor } from "./ajuste-editor";
 import { EstadoConsultaRuc } from "./estado-consulta-ruc";
 import { useConsultaRuc } from "./use-consulta-ruc";
 
@@ -59,13 +61,13 @@ function unidadesDelSelector(entradas: EntradaCatalogo[]): EntradaCatalogo[] {
   return masUsadas.length ? masUsadas : entradas;
 }
 
-type Linea = { descripcion: string; cantidad: number | null; precioUnitario: number | null; unidad: string; tipoAfectacionIgv: string };
+type Linea = { descripcion: string; cantidad: number | null; precioUnitario: number | null; unidad: string; tipoAfectacionIgv: string; descuento: AjusteForm; cargo: AjusteForm };
 
 /** El diálogo usa la escala compacta del design system (h-8, la de la barra de filtros) en vez de la de formulario
  *  (h-10): con cliente, ítems y totales en una sola vista, 8px por control cambian cuántas líneas entran. */
 const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
 
-const LINEA_VACIA: Linea = { descripcion: "", cantidad: 1, precioUnitario: null, unidad: "NIU", tipoAfectacionIgv: "10" };
+const LINEA_VACIA: Linea = { descripcion: "", cantidad: 1, precioUnitario: null, unidad: "NIU", tipoAfectacionIgv: "10", descuento: AJUSTE_VACIO, cargo: AJUSTE_VACIO };
 
 export type TipoEmitible = "factura" | "boleta";
 
@@ -152,6 +154,9 @@ export function NuevoComprobanteForm({
   const [lineas, setLineas] = useState<Linea[]>([{ ...LINEA_VACIA }]);
   // #358: ajuste del importe total para cobrar en efectivo sin céntimos (`PayableRoundingAmount`). Texto, para poder escribir «-» y «0.» sin que el campo lo reescriba.
   const [redondeoTexto, setRedondeoTexto] = useState("");
+  // #310: descuento y cargo globales (02/03 y 46/49/50); los de cada línea viven en la línea.
+  const [descuentoGlobal, setDescuentoGlobal] = useState<AjusteForm>(AJUSTE_VACIO);
+  const [cargoGlobal, setCargoGlobal] = useState<AjusteForm>(AJUSTE_VACIO);
   const [detalle, setDetalle] = useState<number | null>(null);
   const [unidades, setUnidades] = useState<EntradaCatalogo[] | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -238,6 +243,10 @@ export function NuevoComprobanteForm({
   const sinDocumento = boleta && tipoDoc === SIN_DOCUMENTO;
   const documento = DOCUMENTOS_BOLETA.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_BOLETA[0];
   const redondeo = redondeoDe(redondeoTexto);
+  // Los ajustes mal escritos no se envían ni se calculan: se muestran en su campo y la emisión no sale.
+  const hayAjusteInvalido =
+    errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
+    lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null);
 
   /**
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
@@ -259,12 +268,16 @@ export function NuevoComprobanteForm({
         cantidad: l.cantidad,
         precio_unitario: l.precioUnitario ?? 0,
         tipo_afectacion_igv: l.tipoAfectacionIgv,
+        descuento: ajusteAApi(l.descuento, "descuento"),
+        cargos: ajusteAApi(l.cargo, "cargo") ? [ajusteAApi(l.cargo, "cargo")] : undefined,
       })),
+      descuento_global: ajusteAApi(descuentoGlobal, "descuento"),
+      cargos: ajusteAApi(cargoGlobal, "cargo") ? [ajusteAApi(cargoGlobal, "cargo")] : undefined,
       redondeo: redondeo.valor ?? undefined,
     };
   }
   // Con líneas completas y un redondeo legible se le pide el cálculo al backend; sin ellas, o si no responde, el pie usa el cálculo local.
-  const calculo = useCalculo(lineasCompletas.length > 0 && redondeo.error === null && serie ? armarCuerpo(true) : null);
+  const calculo = useCalculo(lineasCompletas.length > 0 && redondeo.error === null && !hayAjusteInvalido && serie ? armarCuerpo(true) : null);
   // Lo que se muestra en el pie: los importes del backend cuando respondió; si no, la aproximación local (sin descuentos, cargos, ISC ni redondeo).
   const delServidor = calculo.estado === "listo" ? calculo.totales : null;
   const mostrados = delServidor
@@ -313,6 +326,10 @@ export function NuevoComprobanteForm({
 
     if (redondeo.error) {
       setError(redondeo.error);
+      return;
+    }
+    if (hayAjusteInvalido) {
+      setError("Corrija los descuentos o cargos marcados antes de emitir.");
       return;
     }
     const factura = armarCuerpo(false);
@@ -626,6 +643,9 @@ export function NuevoComprobanteForm({
                       ))}
                     </select>
                   </Campo>
+                  {/* #310: descuento y cargo de la línea (catálogo 53: 00/01 y 47/48). */}
+                  <AjusteEditor id={`nc-desc-linea-${i}`} etiqueta="Descuento del ítem" clase="descuento" valor={linea.descuento} onCambio={(a) => actualizar(i, { descuento: a })} />
+                  <AjusteEditor id={`nc-cargo-linea-${i}`} etiqueta="Cargo del ítem" clase="cargo" valor={linea.cargo} onCambio={(a) => actualizar(i, { cargo: a })} />
                 </div>
               ) : null}
             </div>
@@ -635,7 +655,7 @@ export function NuevoComprobanteForm({
       </section>
 
         {/* #358: ajustes poco frecuentes del comprobante. Cerrado por defecto: la vista básica es la de siempre. Los issues siguientes (#310, #300, #309…) agregan sus campos acá. */}
-        <details className="rounded-xl border border-border px-3 py-2" data-testid="mas-opciones" open={redondeoTexto !== ""}>
+        <details className="rounded-xl border border-border px-3 py-2" data-testid="mas-opciones" open={redondeoTexto !== "" || descuentoGlobal.valor !== "" || cargoGlobal.valor !== ""}>
           <summary className="cursor-pointer text-[13px] font-medium">Más opciones del comprobante</summary>
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
             <Campo id="nc-redondeo" etiqueta="Redondeo" ayuda={redondeo.error ?? "Entre -1.00 y 1.00, p. ej. -0.05 para cobrar en efectivo sin céntimos"}>
@@ -649,6 +669,9 @@ export function NuevoComprobanteForm({
                 className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
               />
             </Campo>
+            {/* #310: descuento global (02/03) y cargos globales (46 recargo al consumo, 49, 50). */}
+            <AjusteEditor id="nc-desc-global" etiqueta="Descuento global" clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} />
+            <AjusteEditor id="nc-cargo-global" etiqueta="Cargo global" clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} ofreceRecargoConsumo />
           </div>
         </details>
 
