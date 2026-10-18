@@ -560,6 +560,50 @@ function referenciasMock(body: ReferenciasPedido, boleta: boolean): { error?: Re
   return { referencias: hay ? { orden_compra: oc ?? null, guias: guias.length ? guias : null, documentos_relacionados: docs.length ? docs : null } : null, observaciones: body.observaciones ?? null };
 }
 
+/**
+ * Los anticipos (#312), como `Totales.aplicarAnticipos` y `EmitirComprobanteService.validarFacturaDeAnticipo`: cada uno resta su valor de la base de su afectación (y el IGV
+ * sobre la base neta); no puede superar lo pendiente de esta factura ni, en la emisión, lo que el anticipo facturó menos lo ya regularizado. `guardados` solo se pasa al emitir.
+ */
+type AnticipoPedido = { serie: string; numero: number; monto: number; afectacion?: "gravado" | "exonerado" | "inafecto" };
+type TotalesMock = { gravado: number; exonerado: number; inafecto: number; igv: number; total: number };
+type ResultadoAnticipos = { error: Response; totales?: undefined; anticipos?: undefined } | { error?: undefined; totales: TotalesMock & { total_anticipos?: number }; anticipos: Comprobante["anticipos"] | null };
+function anticiposMock(pedidos: AnticipoPedido[] | undefined, t: TotalesMock, tasaIgv: number, moneda: string, numDocCliente: string, guardados?: Comprobante[]): ResultadoAnticipos {
+  const invalido = (mensaje: string): ResultadoAnticipos => ({ error: fail(422, "ANTICIPO_INVALIDO", mensaje) });
+  if (!pedidos?.length) return { totales: t, anticipos: null };
+  const claves = pedidos.map((a) => `${a.serie}-${a.numero}`);
+  if (new Set(claves).size < claves.length) return invalido("3215 - La misma factura de anticipo aparece más de una vez");
+  const totales = { ...t, total_anticipos: 0 };
+  const aplicados: NonNullable<Comprobante["anticipos"]> = [];
+  for (const a of pedidos) {
+    const comprobante = `${a.serie}-${a.numero}`;
+    const afectacion = a.afectacion ?? "gravado";
+    if (!/^[FB][A-Z0-9]{3}$/.test(a.serie)) return invalido("2521 - Indique serie y número del comprobante de anticipo: factura (F###-correlativo) o boleta (B###-correlativo)");
+    if (!(a.monto > 0) || Math.round(a.monto * 100) / 100 !== a.monto) return invalido("2503 - El monto del anticipo debe ser positivo con hasta 2 decimales");
+    const pendiente = totales[afectacion];
+    if (a.monto > pendiente + 0.005) return invalido(`El anticipo ${comprobante} (${a.monto.toFixed(2)}) supera el valor de venta ${afectacion} pendiente de esta factura (${pendiente.toFixed(2)})`);
+    if (guardados) {
+      const que = a.serie.startsWith("B") ? "La boleta" : "La factura";
+      const origen = guardados.find((f) => f.serie === a.serie && f.numero === a.numero && (f.tipo === "01" || f.tipo === "03"));
+      if (!origen) return invalido(`3218 - ${que} de anticipo ${comprobante} no existe en esta empresa`);
+      if (origen.estado_documento !== "ACEPTADO" && origen.estado_documento !== "ACEPTADO_CON_OBS") return invalido(`3218 - ${que} de anticipo ${comprobante} no está aceptada por SUNAT (estado ${origen.estado_documento})`);
+      if (origen.moneda !== moneda) return invalido(`2071 - ${que} de anticipo ${comprobante} es en ${origen.moneda} y este comprobante en ${moneda}`);
+      if (origen.receptor?.num_doc !== numDocCliente) return invalido(`${que} de anticipo ${comprobante} fue emitida a otro cliente (documento ${origen.receptor?.num_doc})`);
+      const facturado = origen.totales[afectacion];
+      const ya = guardados.filter((f) => !["RECHAZADO", "INVALIDO", "DESCARTADO", "ANULADO"].includes(f.estado_documento))
+        .flatMap((f) => f.anticipos ?? []).filter((x) => x.serie === a.serie && x.numero === a.numero && x.afectacion === afectacion).reduce((s, x) => s + x.monto, 0);
+      if (ya + a.monto > facturado + 0.005)
+        return invalido(`El anticipo ${comprobante} (${a.monto.toFixed(2)}) supera el valor de venta ${afectacion} de esa factura (${facturado.toFixed(2)})${ya > 0 ? `: ya se regularizaron ${ya.toFixed(2)} en otras facturas` : ""}`);
+    }
+    const igvDelAnticipo = afectacion === "gravado" ? Math.round(a.monto * tasaIgv) / 100 : 0;
+    totales[afectacion] = Math.round((pendiente - a.monto) * 100) / 100;
+    if (afectacion === "gravado") totales.igv = Math.round((totales.igv - igvDelAnticipo) * 100) / 100;
+    totales.total = Math.round((totales.total - a.monto - igvDelAnticipo) * 100) / 100;
+    totales.total_anticipos = Math.round((totales.total_anticipos + a.monto + igvDelAnticipo) * 100) / 100;
+    aplicados.push({ comprobante, serie: a.serie, numero: a.numero, monto: a.monto, importe_pagado: Math.round((a.monto + igvDelAnticipo) * 100) / 100, afectacion, codigo_sunat: { gravado: "04", exonerado: "05", inafecto: "06" }[afectacion], fecha_pago: null });
+  }
+  return { totales, anticipos: aplicados };
+}
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -2567,6 +2611,7 @@ export const handlers = [
       moneda?: string;
       detraccion?: DetraccionPedido;
       percepcion?: PercepcionPedido;
+      anticipos?: AnticipoPedido[];
     };
     const porExportacion = rechazoPorExportacionMock(body, (body.serie ?? "").startsWith("B"));
     if (porExportacion) return porExportacion;
@@ -2576,7 +2621,10 @@ export const handlers = [
       body.items.map((i) => ({ cantidad: i.cantidad, precioUnitario: i.precio_unitario, tipoAfectacionIgv: i.tipo_afectacion_igv })),
       empresaDe(request)?.padron_tasa_especial_igv ? 10.5 : 18,
     );
-    const total = Math.round((t.total + redondeo) * 100) / 100;
+    const ant = anticiposMock(body.anticipos, t, empresaDe(request)?.padron_tasa_especial_igv ? 10.5 : 18, body.moneda ?? "PEN", "");
+    if (ant.error) return ant.error;
+    const tAnt = ant.totales;
+    const total = Math.round((tAnt.total + redondeo) * 100) / 100;
     if (total < 0) return fail(422, "REDONDEO_INVALIDO", `3303 - El redondeo deja el importe total en negativo (${total.toFixed(2)})`);
     const forma = formaPagoMock(body.forma_pago, body.fecha_emision ?? "0000-00-00", total);
     if ("error" in forma && forma.error) return forma.error;
@@ -2584,7 +2632,7 @@ export const handlers = [
     if (det.error) return det.error;
     const per = percepcionMock(body.tipo_operacion, body.percepcion, body.moneda ?? "PEN", body.forma_pago?.tipo === "credito", total);
     if (per.error) return per.error;
-    return ok({ detraccion: det.detraccion ?? null, percepcion: per.percepcion ?? null, totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, gratuito: t.gratuito, igv: t.igv, redondeo, total } });
+    return ok({ detraccion: det.detraccion ?? null, percepcion: per.percepcion ?? null, anticipos: ant.anticipos, totales: { gravado: tAnt.gravado, exonerado: tAnt.exonerado, inafecto: tAnt.inafecto, gratuito: t.gratuito, igv: tAnt.igv, total_anticipos: tAnt.total_anticipos, redondeo, total } });
   }),
 
   // Emisión manual desde el portal (#17). Los totales salen del mismo helper que previsualiza el formulario, así el
@@ -2657,10 +2705,14 @@ export const handlers = [
     // La tasa sale de la empresa, igual que en el diálogo: si el fixture entra al padrón de tasa especial, mock y
     // formulario siguen de acuerdo en vez de romper el e2e con un descuadre que parecería un bug del helper.
     const tasaIgv = empresaDe(request)?.padron_tasa_especial_igv ? 10.5 : 18;
-    const t = calcularTotales(
+    const t0 = calcularTotales(
       body.items.map((i) => ({ cantidad: i.cantidad, precioUnitario: i.precio_unitario, tipoAfectacionIgv: i.tipo_afectacion_igv })),
       tasaIgv,
     );
+    // #312: los anticipos descuentan de la base de su afectación; el anticipo se busca entre los comprobantes guardados de la empresa.
+    const ant = anticiposMock((body as { anticipos?: AnticipoPedido[] }).anticipos, t0, tasaIgv, body.moneda, numDoc, db.facturasPorEmpresa.get(empresaId) ?? []);
+    if (ant.error) return ant.error;
+    const t = { ...t0, ...ant.totales };
     if (boleta && tipoDoc === "-" && (body.moneda !== "PEN" || t.total > 700))
       return fail(422, "RECEPTOR_INVALIDO", `Una boleta de más de S/ 700.00 (o en otra moneda) identifica al comprador con su documento; esta es de ${body.moneda} ${t.total.toFixed(2)}`);
     const forma = formaPagoMock((body as { forma_pago?: FormaPagoPedido }).forma_pago, body.fecha_emision, t.total);
@@ -2688,7 +2740,8 @@ export const handlers = [
       intentos: 1,
       ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La ${boleta ? "Boleta" : "Factura"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
-      totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, total: t.total },
+      totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, total: t.total, total_anticipos: t.total_anticipos },
+      anticipos: ant.anticipos ?? undefined,
       forma_pago: "formaPago" in forma ? forma.formaPago : { tipo: "contado", monto_pendiente: null, cuotas: [] },
       detraccion: det.detraccion ?? null,
       percepcion: per.percepcion ?? null,
