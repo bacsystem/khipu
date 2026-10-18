@@ -74,7 +74,9 @@ public class Comprobante {
         this.leyendas = leyendas == null ? List.of() : List.copyOf(leyendas);
         this.exportacion = exportacion;
         this.tasaIgv = TasaIgv.normalizar(tasaIgv);
-        this.totales = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision), redondeo, this.tasaIgv);
+        Totales calculados = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision), redondeo, this.tasaIgv);
+        // #388: SUNAT no admite descuentos ni cargos en una nota; sale con las líneas netas. Los ítems y el descuento global guardados son los de siempre.
+        this.totales = nota != null ? calculados.paraNota() : calculados;
         // Detracción, retención y percepción se completan contra el importe total ya calculado (montos por defecto, 3208 y tolerancias SUNAT).
         this.detraccion = detraccion == null ? null : detraccion.completarContra(moneda, this.totales.total());
         this.retencion = retencion == null ? null : retencion.completarContra(this.totales.total());
@@ -298,6 +300,7 @@ public class Comprobante {
             if (!nc13) {
                 exigirAfectacionSegunOperacion(tipoOperacion, items);
                 nota.validarAfectacionesPara(tipo, items);
+                exigirSinDescuentosQueNoAfectenLaBase();
             }
             if (nc13 && (formaPago == null || !formaPago.esCredito()))
                 throw new DomainException("NOTA_INVALIDA", "3257 - Una nota de crédito con motivo 13 debe indicar la forma de pago al crédito con las cuotas corregidas");
@@ -309,6 +312,20 @@ public class Comprobante {
             c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
             if (!nc13) c.totales.items().forEach(ItemCalculado::exigirValorDeVentaPositivo);
             return c;
+        }
+
+        /**
+         * #388: el importe total de una nota es bases + IGV + ISC + otros cargos + redondeo (3280, hojas NotaCredito2_0 y NotaDebito2_0): no resta ningún descuento, y las notas
+         * no tienen AllowanceTotalAmount. Un descuento que no afecta la base (01 de línea, 03 global) bajaría lo que se paga sin tocar el IGV, así que SUNAT rechazaría la nota
+         * con 3280 con el número ya consumido (e-beta, 2026-10-18). Los que afectan la base (00 y 02) y los cargos sí caben: pasan al valor de las líneas ({@link Totales#paraNota}).
+         */
+        private void exigirSinDescuentosQueNoAfectenLaBase() {
+            if (descuentoGlobal != null && !descuentoGlobal.afectaBaseIgv())
+                throw new DomainException("DESCUENTO_INVALIDO", "3280 - Una nota no admite un descuento global que no afecta la base del IGV (código 03): el importe total de la nota no resta descuentos"
+                        + (copiaDelDocumento ? ", y " + nota.documentoAfectado() + " lo lleva. " : ". ") + "Indique los ítems de la nota por su importe neto, sin ese descuento");
+            if (items != null && items.stream().anyMatch(i -> i.tieneDescuento() && !i.descuento().afectaBaseIgv()))
+                throw new DomainException("DESCUENTO_INVALIDO", "3280 - Una nota no admite un descuento de línea que no afecta la base del IGV (código 01): el importe total de la nota no resta descuentos"
+                        + (copiaDelDocumento ? ", y " + nota.documentoAfectado() + " lo lleva. " : ". ") + "Indique los ítems de la nota por su importe neto, sin ese descuento");
         }
 
         /**
