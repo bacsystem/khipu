@@ -168,6 +168,7 @@ public class Comprobante {
                 exigirDocumentosRelacionadosDeBoleta();
                 if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La boleta requiere el comprador: su documento o, hasta S/ 700, tipo_doc y num_doc «-»");
                 receptor.exigirValidoParaBoleta();
+                receptor.exigirSinRucEnExportacionOEnNoDomiciliado(operacion);
             } else {
                 if (receptor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La factura requiere un receptor" + (Exportacion.es(operacion) ? "" : " con RUC"));
                 receptor.exigirValidoParaFactura(operacion);
@@ -227,8 +228,12 @@ public class Comprobante {
         }
     }
 
-    /** Venta interna, NRUS, detracción (1001–1004) y percepción (2001): lo que khipu sabe armar en una boleta. */
-    static final java.util.Set<String> OPERACIONES_EN_BOLETA = java.util.Set.of("0101", "0113", "1001", "1002", "1003", "1004", "2001");
+    /**
+     * Venta interna, NRUS, exportación (sin 0202/0205, que piden el huésped), no domiciliados (0401), detracción (1001–1004) y percepción (2001): lo que khipu sabe armar
+     * en una boleta. #296: e-beta aceptó la exportación y el 0401 con un comprador con pasaporte, con DNI y sin documento, y rechazó con 2800 al comprador con RUC. Quedan
+     * fuera 0301, 0302 y 2100–2105 hasta que tengan sus datos.
+     */
+    static final java.util.Set<String> OPERACIONES_EN_BOLETA = java.util.Set.of("0101", "0113", "0200", "0201", "0203", "0204", "0206", "0207", "0208", "0401", "1001", "1002", "1003", "1004", "2001");
 
     /**
      * #394: venta interna, exportación (sin hospedaje ni paquete turístico, que piden el huésped), no domiciliados (0401), detracción y percepción. e-beta rechazó
