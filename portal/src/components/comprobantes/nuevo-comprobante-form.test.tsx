@@ -771,6 +771,8 @@ describe("NuevoComprobanteForm — retención del IGV (#313)", () => {
     expect(screen.queryByTestId("retencion-form")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    // Apagada la percepción, la retención no reaparece marcada: quedó apagada, no escondida.
+    expect(screen.getByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeChecked();
     marcar();
     fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
     expect(screen.queryByTestId("retencion-form")).not.toBeInTheDocument();
