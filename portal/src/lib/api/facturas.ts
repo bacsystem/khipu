@@ -297,6 +297,10 @@ export type Comprobante = {
   fecha_limite_envio?: string;
   moneda: string;
   tipo_operacion: string | null;
+  /** Soles por unidad de `moneda` si el emisor lo informó (nulo en soles); SUNAT no lo recibe. */
+  tipo_cambio?: number | null;
+  /** Importe total en soles al `tipo_cambio`; nulo si no hay tipo de cambio. */
+  total_en_soles?: number | null;
   receptor: Receptor | null;
   items: ItemComprobante[];
   estado_documento: EstadoDocumento;

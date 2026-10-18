@@ -95,15 +95,17 @@ Content-Type: application/json
   "serie": "F001",
   "fecha_emision": "2026-09-17",
   "moneda": "USD",
+  "tipo_cambio": 3.756,
   ${CLIENTE},
   "items": [
     { "descripcion": "Licencia anual de software", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10" }
   ]
 }`,
     notas: [
-      "Monedas aceptadas: `PEN`, `USD`, `EUR` (catálogo 02). No se mezclan monedas en un comprobante (SUNAT 2071).",
+      "Monedas aceptadas (catálogo 02, ISO 4217): `PEN`, `USD`, `EUR`, `GBP`, `CAD`, `AUD`, `CHF`, `JPY`, `CNY`, `MXN`, `BRL`, `CLP`, `COP`, `ARS`, `BOB`, `UYU` y `PYG`; otra responde `422 MONEDA_INVALIDA` (3088) sin consumir número. No se mezclan monedas en un comprobante (SUNAT 2071).",
       "El monto en letras del XML se genera en la moneda indicada (\"… CON 00/100 DÓLARES AMERICANOS\").",
-      "El tipo de cambio no forma parte de la factura electrónica; llévelo en su sistema contable.",
+      "`tipo_cambio` (opcional, solo fuera de `PEN`): soles por unidad de la moneda, de hasta 3 enteros y 3 decimales. SUNAT no lo recibe en el XML: khipu lo guarda con el comprobante para el registro de ventas (SIRE) y el PDF, que muestra el equivalente en soles. La respuesta trae `tipo_cambio` y `total_en_soles` (443.21 en el ejemplo); una nota hereda el de su documento. En `PEN` responde `422 TIPO_CAMBIO_INVALIDO`.",
+      "Con `tipo_cambio`, una boleta en moneda extranjera puede emitirse sin documento del comprador si su total en soles es de hasta S/ 700.00; sin él se sigue pidiendo el documento.",
     ],
     disponible: true,
   },
