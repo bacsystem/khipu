@@ -221,7 +221,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
               />
             </div>
             {/* `key`: cambiar de tipo es empezar otro comprobante, con su serie y su comprador; lo cargado del otro no aplica. */}
-            <NuevoComprobanteForm key={tipo} tipo={tipo} series={series.dato} tasaIgv={tasaIgv} onEmitido={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
+            <NuevoComprobanteForm key={tipo} tipo={tipo} series={series.dato} tasaIgv={tasaIgv} cuentaDetracciones={empresa.dato?.cuenta_detracciones ?? null} onEmitido={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
           </>
         ) : series.error ? (
           <div className="flex flex-col gap-3 px-5 py-4">

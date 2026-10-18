@@ -19,6 +19,7 @@ import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/
 import { CREDITO_VACIO, errorDeCredito, formaPagoAApi, type CreditoForm } from "@/lib/comprobantes/credito";
 import { documentosDeExportacion, errorDeExportacion, esExportacion, EXIGE_PAIS_DE_USO, INCOTERMS, OPERACIONES } from "@/lib/comprobantes/operaciones";
 import { listarPaises } from "@/lib/comprobantes/paises";
+import { avisoDeDetraccion, DETRACCION_VACIA, detraccionAApi, errorDeDetraccion, operacionDeDetraccion, type DetraccionForm } from "@/lib/comprobantes/detraccion";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
 import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm } from "@/lib/comprobantes/tributos";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
@@ -31,6 +32,7 @@ import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { AjusteEditor } from "./ajuste-editor";
 import { CreditoEditor } from "./credito-editor";
+import { DetraccionEditor } from "./detraccion-editor";
 import { EstadoConsultaRuc } from "./estado-consulta-ruc";
 import { useConsultaRuc } from "./use-consulta-ruc";
 
@@ -116,6 +118,7 @@ export function NuevoComprobanteForm({
   tipo = "factura",
   series,
   tasaIgv,
+  cuentaDetracciones = null,
   onEmitido,
   onCancelar,
 }: {
@@ -128,6 +131,8 @@ export function NuevoComprobanteForm({
    * emitirá, y encima cambian solos cuando llega la respuesta.
    */
   tasaIgv: number | null;
+  /** La cuenta de detracciones de la empresa (datos fiscales), para precargarla en la detracción (#288). */
+  cuentaDetracciones?: string | null;
   onEmitido?: () => void;
   onCancelar?: () => void;
 }) {
@@ -158,6 +163,8 @@ export function NuevoComprobanteForm({
   const [fechaVencimiento, setFechaVencimiento] = useState("");
   // #311: tipo de operación (catálogo 51) y, en una exportación, el país del cliente, el Incoterm y el país de uso del servicio.
   const [operacion, setOperacion] = useState("0101");
+  // #288: detracción (SPOT), solo en una factura de venta interna; fija el tipo de operación 1001 (1003 para el transporte de pasajeros).
+  const [detraccion, setDetraccion] = useState<DetraccionForm>(DETRACCION_VACIA);
   const [pais, setPais] = useState("");
   const [incoterm, setIncoterm] = useState("");
   const [paisDeUso, setPaisDeUso] = useState("");
@@ -249,6 +256,9 @@ export function NuevoComprobanteForm({
   const documento = DOCUMENTOS_BOLETA.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_BOLETA[0];
   const redondeo = redondeoDe(redondeoTexto);
   const exportacion = esExportacion(operacion);
+  const conDetraccion = detraccion.activa && !boleta && operacion === "0101";
+  const operacionEnviada = conDetraccion ? operacionDeDetraccion(detraccion.codigo) : operacion;
+  const errorDetraccion = conDetraccion ? errorDeDetraccion(detraccion, moneda) : null;
   const errorExportacion = errorDeExportacion({ operacion, incoterm, paisDeUso, paisDelComprador: pais }, boleta);
   // En una exportación el comprador es del exterior: se elige su documento (como en la boleta) en vez de pedir un RUC.
   const usaSelectorDeDocumento = boleta || exportacion;
@@ -282,7 +292,7 @@ export function NuevoComprobanteForm({
   const hayAjusteInvalido =
     errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
     lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null || errorDeIsc(l.isc) !== null) ||
-    incompatibilidad !== null || errorExportacion !== null;
+    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null;
 
   /**
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
@@ -293,7 +303,8 @@ export function NuevoComprobanteForm({
       serie,
       fecha_emision: fecha,
       moneda,
-      tipo_operacion: operacion === "0101" ? undefined : operacion,
+      tipo_operacion: operacionEnviada === "0101" ? undefined : operacionEnviada,
+      detraccion: conDetraccion ? detraccionAApi(detraccion, moneda) : undefined,
       exportacion: exportacion && (incoterm || paisDeUso) ? { incoterm: incoterm || undefined, pais_uso: paisDeUso || undefined } : undefined,
       cliente: paraCalcular
         ? exportacion
@@ -324,7 +335,9 @@ export function NuevoComprobanteForm({
   const completo = lineasCompletas.length > 0 && redondeo.error === null && !hayAjusteInvalido && serie;
   // Primero los importes sin forma de pago: el neto pendiente por defecto es el total que calcula el backend. Con crédito, un segundo cálculo lleva las cuotas.
   const calculoBase = useCalculo(completo ? armarCuerpo(true) : null);
-  const netoBase = calculoBase.estado === "listo" ? calculoBase.totales.total : totales.total + (redondeo.valor ?? 0);
+  // 3319: con detracción, el neto pendiente por defecto es lo que queda por cobrar (el total menos el depósito en la cuenta de detracciones); solo cuando ambos son en soles.
+  const montoDetraccion = calculoBase.estado === "listo" ? (calculoBase.comprobante.detraccion?.monto ?? null) : null;
+  const netoBase = calculoBase.estado === "listo" ? calculoBase.totales.total - (moneda === "PEN" ? (montoDetraccion ?? 0) : 0) : totales.total + (redondeo.valor ?? 0);
   const errorCredito = alCredito && !boleta ? errorDeCredito(credito, netoBase, fecha) : null;
   const calculoCredito = useCalculo(completo && alCredito && !boleta && errorCredito === null ? armarCuerpo(true, netoBase) : null);
   const calculo = alCredito && !boleta && calculoCredito.estado !== "inactivo" ? calculoCredito : calculoBase;
@@ -379,7 +392,7 @@ export function NuevoComprobanteForm({
       return;
     }
     if (hayAjusteInvalido) {
-      setError(incompatibilidad ?? errorExportacion ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
+      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
       return;
     }
     if (errorCredito) {
@@ -671,6 +684,28 @@ export function NuevoComprobanteForm({
             ) : null}
           </div>
         ) : null}
+        {/* #288: detracción, solo en una factura de venta interna. */}
+        {boleta || operacion !== "0101" ? null : (
+          <div className="grid gap-3">
+            <label className="flex items-center gap-2 text-[13px] font-medium">
+              <input
+                type="checkbox"
+                checked={detraccion.activa}
+                onChange={(e) => setDetraccion((d) => ({ ...d, activa: e.target.checked, cuenta: d.cuenta || cuentaDetracciones || "" }))}
+                className="size-3.5 accent-primary"
+              />
+              Operación sujeta a detracción (SPOT)
+            </label>
+            {detraccion.activa ? (
+              <DetraccionEditor valor={detraccion} onCambio={setDetraccion} moneda={moneda} montoCalculado={montoDetraccion} cuentaDeLaEmpresa={cuentaDetracciones} />
+            ) : avisoDeDetraccion({ activa: false, moneda, total: mostrados.total, boleta }) ? (
+              <p role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")} data-testid="aviso-detraccion">
+                Esta factura pasa de S/ 700.00. Si es un servicio sujeto al SPOT, marque la detracción.
+              </p>
+            ) : null}
+          </div>
+        )}
+
         {errorExportacion ? (
           <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="error-exportacion">
             {errorExportacion}
@@ -924,6 +959,11 @@ export function NuevoComprobanteForm({
           {lineasIncompletas > 0 ? (
             <span id="nc-aviso-incompletos" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")}>
               {lineasIncompletas === 1 ? "1 ítem incompleto no se emitirá" : `${lineasIncompletas} ítems incompletos no se emitirán`}
+            </span>
+          ) : null}
+          {conDetraccion && montoDetraccion !== null ? (
+            <span className={AYUDA_CAMPO} data-testid="detraccion-pie">
+              Detracción {formatearMonto("PEN", montoDetraccion)} · Neto a cobrar {formatearMonto(moneda, mostrados.total - (moneda === "PEN" ? montoDetraccion : 0))}
             </span>
           ) : null}
           <div className="flex items-baseline gap-2">

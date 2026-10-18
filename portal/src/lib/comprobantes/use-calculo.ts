@@ -16,7 +16,7 @@ import type { Comprobante } from "@/lib/api/facturas";
 export type Calculo =
   | { estado: "inactivo" }
   | { estado: "calculando" }
-  | { estado: "listo"; totales: Comprobante["totales"]; totalEnSoles: number | null }
+  | { estado: "listo"; totales: Comprobante["totales"]; totalEnSoles: number | null; comprobante: Comprobante }
   | { estado: "rechazado"; mensaje: string }
   | { estado: "sin-servicio" };
 
@@ -36,7 +36,7 @@ export function useCalculo(cuerpo: object | null, esperaMs = 350): Calculo {
     const temporizador = setTimeout(() => {
       apiRequest<Comprobante>("/api/proxy/facturas/calcular", { method: "POST", body: JSON.parse(clave) }).then((res) => {
         if (!vigente) return;
-        if (res.estado === "exito" && res.datos?.totales) setResultado({ clave, calculo: { estado: "listo", totales: res.datos.totales, totalEnSoles: res.datos.total_en_soles ?? null } });
+        if (res.estado === "exito" && res.datos?.totales) setResultado({ clave, calculo: { estado: "listo", totales: res.datos.totales, totalEnSoles: res.datos.total_en_soles ?? null, comprobante: res.datos } });
         else if (res.codigo && CODIGOS_SIN_SERVICIO.has(res.codigo)) setResultado({ clave, calculo: { estado: "sin-servicio" } });
         else setResultado({ clave, calculo: res.estado === "error" && res.mensaje ? { estado: "rechazado", mensaje: res.mensaje } : { estado: "sin-servicio" } });
       });
