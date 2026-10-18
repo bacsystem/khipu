@@ -52,7 +52,7 @@ describe("RecuperarCdrButton (#315)", () => {
     expect(screen.getByRole("button", { name: "Recuperar constancia de SUNAT" })).toBeEnabled();
   });
 
-  it("un segundo clic mientras consulta no manda otra petición", async () => {
+  it("mientras consulta el botón se deshabilita y un segundo clic no manda otra petición", async () => {
     let resolver: (r: Response) => void = () => {};
     const fetch = stub(() => new Promise<Response>((r) => (resolver = r)));
     render(<RecuperarCdrButton id="f-1" estado="ENVIADO" />);
