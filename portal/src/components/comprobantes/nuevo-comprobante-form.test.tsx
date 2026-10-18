@@ -741,9 +741,8 @@ describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
     fireEvent.change(screen.getByLabelText("Tipo del documento 1"), { target: { value: "05" } });
     fireEvent.change(screen.getByLabelText("Número del documento 1"), { target: { value: "SCOP-8841203" } });
     fireEvent.change(screen.getByLabelText(/Observaciones/), { target: { value: "Entrega en almacén central." } });
-    // Pasado el rebote del cálculo, escribir esto no pidió otro: no cambia importes.
-    await new Promise((r) => setTimeout(r, 700));
-    expect(calculos(fetch)).toHaveLength(antes);
+    // Mientras una guía está a medias el cálculo se pausa y al completarla se repite: esos pedidos nuevos no llevan los datos adicionales, no cambian importes.
+    await waitFor(() => expect(calculos(fetch).length).toBeGreaterThan(antes));
 
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
