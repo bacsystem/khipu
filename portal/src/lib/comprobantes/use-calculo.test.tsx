@@ -36,7 +36,7 @@ describe("useCalculo (#405)", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(String(fetch.mock.calls[0][0])).toBe("/api/proxy/facturas/calcular");
     expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual({ items: [1, 2] });
-    expect(result.current).toEqual({ estado: "listo", totales: TOTALES, totalEnSoles: 443.21 });
+    expect(result.current).toMatchObject({ estado: "listo", totales: TOTALES, totalEnSoles: 443.21, comprobante: { total_en_soles: 443.21 } });
   });
 
   it("un rechazo de dominio llega con su motivo", async () => {

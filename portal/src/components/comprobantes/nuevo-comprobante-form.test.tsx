@@ -28,11 +28,19 @@ function calculos(fetch: ReturnType<typeof stubEmision>) {
 }
 
 /** Un backend que calcula (200 con totales) y emite (201). `totales` es lo que responde `/calcular`. */
-function stubConCalculo(totales: Record<string, number>, rechazo?: { codigo: string; mensaje: string }) {
+const CATALOGO_54 = { id: "54", nombre: "Detracciones", columnas: ["Código", "Descripción"], entradas: [
+  { codigo: "004", descripcion: "Recursos hidrobiológicos" }, { codigo: "019", descripcion: "Arrendamiento de bienes muebles" }, { codigo: "022", descripcion: "Otros servicios empresariales" },
+  { codigo: "027", descripcion: "Servicio de transporte de carga" }, { codigo: "028", descripcion: "Transporte de pasajeros" }, { codigo: "037", descripcion: "Demás servicios gravados con el IGV" },
+] };
+const CATALOGO_59 = { id: "59", nombre: "Medios de pago", columnas: ["Código", "Descripción"], entradas: [{ codigo: "001", descripcion: "Depósito en cuenta" }, { codigo: "002", descripcion: "Giro" }] };
+
+function stubConCalculo(totales: Record<string, number>, rechazo?: { codigo: string; mensaje: string }, datosExtra: Record<string, unknown> = {}) {
   const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>((url) => {
+    if (String(url).includes("/catalogos/54")) return Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos: CATALOGO_54, mensaje: null, codigo: null, errores: null })));
+    if (String(url).includes("/catalogos/59")) return Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos: CATALOGO_59, mensaje: null, codigo: null, errores: null })));
     const esCalculo = String(url).includes("/facturas/calcular");
     if (esCalculo && rechazo) return Promise.resolve(new Response(JSON.stringify({ estado: "error", datos: null, mensaje: rechazo.mensaje, codigo: rechazo.codigo, errores: null }), { status: 422 }));
-    const datos = esCalculo ? { totales, total_en_soles: null } : { id: "c-1" };
+    const datos = esCalculo ? { totales, total_en_soles: null, ...datosExtra } : { id: "c-1" };
     return Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }), { status: esCalculo ? 200 : 201 }));
   });
   vi.stubGlobal("fetch", fetch);
@@ -443,6 +451,97 @@ describe("NuevoComprobanteForm — exportación (#311)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
     expect(emisiones(fetch)[0]).toMatchObject({ tipo_operacion: "0200", cliente: { tipo_doc: "7", num_doc: "US123456" } });
+  });
+});
+
+describe("NuevoComprobanteForm — detracción (#288)", () => {
+  const TOTALES = { gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 };
+  const CON_DETRACCION = { detraccion: { codigo_bien_servicio: "022", porcentaje: 12, monto: 142, cuenta_banco_nacion: "00-000-123456", medio_pago: "001" } };
+
+  function conCliente(precio = "1180") {
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    linea("Servicio", precio);
+  }
+
+  it("el control es solo de la factura de venta interna: ni la boleta ni la exportación lo ofrecen", () => {
+    stubConCalculo(TOTALES);
+    const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    expect(screen.getByLabelText("Operación sujeta a detracción (SPOT)")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+    expect(screen.queryByLabelText("Operación sujeta a detracción (SPOT)")).not.toBeInTheDocument();
+    unmount();
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    expect(screen.queryByLabelText("Operación sujeta a detracción (SPOT)")).not.toBeInTheDocument();
+  });
+
+  it("al activarla pide el bien o servicio, sugiere el porcentaje, precarga la cuenta y fija el tipo de operación 1001", async () => {
+    const fetch = stubConCalculo(TOTALES, undefined, CON_DETRACCION);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
+    conCliente();
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    expect(screen.getByLabelText("Cuenta del Banco de la Nación")).toHaveValue("00-000-123456");
+    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
+    // 004 y 027 llevan datos por ítem que el formulario no captura: no se ofrecen.
+    expect([...screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["", "019", "022", "028", "037"]);
+
+    expect(screen.getByTestId("detraccion-resumen")).toHaveTextContent(/Elija el bien o servicio/);
+    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
+    expect(screen.getByLabelText("Porcentaje")).toHaveValue("12");
+    await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ tipo_operacion: "1001", detraccion: { codigo_bien_servicio: "022", porcentaje: 12, medio_pago: "001", cuenta_banco_nacion: "00-000-123456" } }));
+    // El monto y el neto a cobrar son los del backend.
+    await waitFor(() => expect(screen.getByTestId("detraccion-pie")).toHaveTextContent("Detracción S/ 142.00 · Neto a cobrar S/ 1,038.00"));
+    expect(screen.getByTestId("detraccion-resumen")).toHaveTextContent("Se depositan S/ 142.00");
+
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ tipo_operacion: "1001", detraccion: { codigo_bien_servicio: "022", porcentaje: 12 } });
+  });
+
+  it("el transporte de pasajeros (028) sale como operación 1003", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
+    conCliente();
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "028" } });
+    fireEvent.change(screen.getByLabelText("Porcentaje"), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ tipo_operacion: "1003", detraccion: { codigo_bien_servicio: "028", porcentaje: 10 } });
+  });
+
+  it("sin cuenta de detracciones lo dice con el enlace a los datos fiscales y no deja emitir", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conCliente();
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
+    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "037" } });
+    expect(screen.getByRole("link", { name: "configurarla" })).toHaveAttribute("href", "/empresa?seccion=datos");
+    expect(screen.getByTestId("detraccion-resumen")).toHaveTextContent(/Falta la cuenta de detracciones/);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/cuenta de detracciones/));
+    expect(emisiones(fetch)).toHaveLength(0);
+  });
+
+  it("avisa, sin bloquear, que una factura de más de S/ 700 puede estar sujeta; con la detracción activa el aviso se va", async () => {
+    stubConCalculo({ ...TOTALES, total: 1180 });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conCliente("1180");
+    await waitFor(() => expect(screen.getByTestId("aviso-detraccion")).toHaveTextContent(/pasa de S\/ 700\.00.*SPOT/));
+    expect(screen.getByRole("button", { name: "Emitir factura" })).toBeEnabled();
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    expect(screen.queryByTestId("aviso-detraccion")).not.toBeInTheDocument();
+  });
+
+  it("en dólares pide el monto a depositar en soles (3208)", async () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
+    conCliente();
+    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    expect(screen.getByLabelText("Monto a depositar, en soles")).toBeInTheDocument();
   });
 });
 

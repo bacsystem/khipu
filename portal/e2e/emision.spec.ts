@@ -694,3 +694,28 @@ test("emite una factura de exportación: afectación 40, cliente del exterior co
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
   await expect(page.getByText("0200").first()).toBeVisible();
 });
+
+test("emite una factura con detracción: bien, porcentaje y cuenta; el pie y la ficha muestran el depósito (#288)", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  await dialogo.getByLabel("Descripción").fill("Consultoría");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+
+  await dialogo.getByLabel("Operación sujeta a detracción (SPOT)").check();
+  await dialogo.getByLabel("Bien o servicio sujeto").selectOption("022");
+  await expect(dialogo.getByLabel("Porcentaje")).toHaveValue("12");
+  // Sin la cuenta del Banco de la Nación no se emite, y lo dice en el momento.
+  await expect(dialogo.getByTestId("detraccion-resumen")).toContainText("cuenta de detracciones");
+  await dialogo.getByLabel("Cuenta del Banco de la Nación").fill("00-000-123456");
+
+  // El monto y el neto a cobrar los calcula el backend.
+  await expect(dialogo.getByTestId("detraccion-pie")).toContainText("Detracción S/ 142.00");
+  await expect(dialogo.getByTestId("detraccion-pie")).toContainText("Neto a cobrar S/ 1,038.00");
+
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  await expect(page.getByText("1001").first()).toBeVisible();
+  await expect(page.getByText("00-000-123456").first()).toBeVisible();
+});

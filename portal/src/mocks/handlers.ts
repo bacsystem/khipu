@@ -498,6 +498,21 @@ function rechazoPorExportacionMock(body: { tipo_operacion?: string; items: Array
   return null;
 }
 
+/** Las reglas de dominio de la detracción (#288, 3127–3129, 3208): obligatoria con 1001–1004, prohibida fuera de ellas, y el monto en soles (total × % redondeado al sol). */
+type DetraccionPedido = { codigo_bien_servicio: string; porcentaje: number; medio_pago?: string; cuenta_banco_nacion?: string; monto?: number };
+function detraccionMock(operacion: string | undefined, detraccion: DetraccionPedido | undefined, moneda: string, total: number) {
+  const op = operacion ?? "0101";
+  const exige = ["1001", "1002", "1003", "1004"].includes(op);
+  if (exige && !detraccion) return { error: fail(422, "DETRACCION_INVALIDA", `3127 - El tipo de operación ${op} exige los datos de la detracción (bien/servicio, porcentaje, monto y cuenta)`) };
+  if (!exige && detraccion) return { error: fail(422, "DETRACCION_INVALIDA", "3128 - Los datos de la detracción solo aplican a los tipos de operación 1001–1004") };
+  if (!detraccion) return {};
+  if (op === "1003" && detraccion.codigo_bien_servicio !== "028") return { error: fail(422, "DETRACCION_INVALIDA", "3129 - Con el tipo de operación 1003 el código de bien o servicio debe ser 028") };
+  if (!detraccion.cuenta_banco_nacion) return { error: fail(422, "DETRACCION_INVALIDA", "3034 - Falta la cuenta de detracciones del Banco de la Nación") };
+  if (moneda !== "PEN" && detraccion.monto == null) return { error: fail(422, "DETRACCION_INVALIDA", `3208 - En facturas en ${moneda} debe indicar el monto de la detracción en soles`) };
+  const monto = moneda === "PEN" ? Math.round((total * detraccion.porcentaje) / 100) : (detraccion.monto ?? 0);
+  return { detraccion: { codigo_bien_servicio: detraccion.codigo_bien_servicio, descripcion: `Bien o servicio ${detraccion.codigo_bien_servicio}`, porcentaje: detraccion.porcentaje, monto, cuenta_banco_nacion: detraccion.cuenta_banco_nacion, medio_pago: detraccion.medio_pago ?? "001" } };
+}
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -681,6 +696,18 @@ const CATALOGOS = [
   { id: "13", nombre: "Código de ubicación geográfica (UBIGEO, INEI)", columnas: ["Código", "Descripción", "Departamento", "Provincia", "Distrito"], entradas: UBIGEOS },
   { id: "25", nombre: "Código de producto SUNAT (UNSPSC; listados 25.1–25.3)", columnas: ["Código", "Descripción", "Listado", "Partidas arancelarias"],
     entradas: [{ codigo: "15101505", descripcion: "Combustible diésel", extra: { Listado: "25.1 Padrón obligado: Combustible" } }] },
+  // #288: bienes y servicios sujetos a detracción y medios de pago, lo que lee el formulario de la factura.
+  { id: "54", nombre: "Códigos de bienes y servicios sujetos a detracciones", columnas: ["Código", "Descripción"],
+    entradas: [
+      { codigo: "004", descripcion: "Recursos hidrobiológicos", extra: {} },
+      { codigo: "019", descripcion: "Arrendamiento de bienes muebles", extra: {} },
+      { codigo: "022", descripcion: "Otros servicios empresariales", extra: {} },
+      { codigo: "027", descripcion: "Servicio de transporte de carga", extra: {} },
+      { codigo: "028", descripcion: "Servicio de transporte de pasajeros", extra: {} },
+      { codigo: "037", descripcion: "Demás servicios gravados con el IGV", extra: {} },
+    ] },
+  { id: "59", nombre: "Medios de pago", columnas: ["Código", "Descripción"],
+    entradas: [{ codigo: "001", descripcion: "Depósito en cuenta", extra: {} }, { codigo: "002", descripcion: "Giro", extra: {} }] },
   // #308: las más usadas, marcadas como en el backend, y una de las otras 2000 de la rec 20 para que el selector tenga algo que descartar.
   { id: "03", nombre: "Código de tipo de unidad de medida comercial (UN/ECE rec 20 completa)", columnas: ["Código", "Descripción", "Más usada"],
     entradas: [...UNIDADES_MAS_USADAS.map((u) => ({ ...u, extra: { "Más usada": "Sí" } })), { codigo: "E48", descripcion: "service unit", extra: {} }] },
@@ -2490,6 +2517,8 @@ export const handlers = [
       cliente: { tipo_doc: string; pais?: string };
       exportacion?: { pais_uso?: string };
       serie?: string;
+      moneda?: string;
+      detraccion?: DetraccionPedido;
     };
     const porExportacion = rechazoPorExportacionMock(body, (body.serie ?? "").startsWith("B"));
     if (porExportacion) return porExportacion;
@@ -2503,7 +2532,9 @@ export const handlers = [
     if (total < 0) return fail(422, "REDONDEO_INVALIDO", `3303 - El redondeo deja el importe total en negativo (${total.toFixed(2)})`);
     const forma = formaPagoMock(body.forma_pago, body.fecha_emision ?? "0000-00-00", total);
     if ("error" in forma && forma.error) return forma.error;
-    return ok({ totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, gratuito: t.gratuito, igv: t.igv, redondeo, total } });
+    const det = detraccionMock(body.tipo_operacion, body.detraccion, body.moneda ?? "PEN", total);
+    if (det.error) return det.error;
+    return ok({ detraccion: det.detraccion ?? null, totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, gratuito: t.gratuito, igv: t.igv, redondeo, total } });
   }),
 
   // Emisión manual desde el portal (#17). Los totales salen del mismo helper que previsualiza el formulario, así el
@@ -2584,6 +2615,8 @@ export const handlers = [
       return fail(422, "RECEPTOR_INVALIDO", `Una boleta de más de S/ 700.00 (o en otra moneda) identifica al comprador con su documento; esta es de ${body.moneda} ${t.total.toFixed(2)}`);
     const forma = formaPagoMock((body as { forma_pago?: FormaPagoPedido }).forma_pago, body.fecha_emision, t.total);
     if ("error" in forma && forma.error) return forma.error;
+    const det = detraccionMock((body as { tipo_operacion?: string }).tipo_operacion, (body as { detraccion?: DetraccionPedido }).detraccion, body.moneda, t.total);
+    if (det.error) return det.error;
     const id = nuevoId("f");
     const comprobante: Comprobante = {
       id,
@@ -2603,6 +2636,7 @@ export const handlers = [
       cdr: { codigo: "0", descripcion: `La ${boleta ? "Boleta" : "Factura"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
       totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, total: t.total },
       forma_pago: "formaPago" in forma ? forma.formaPago : { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      detraccion: det.detraccion ?? null,
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },
     };
     db.facturasPorEmpresa.set(empresaId, [comprobante, ...(db.facturasPorEmpresa.get(empresaId) ?? [])]);
