@@ -252,6 +252,11 @@ final class EscenariosFactura {
             new Escenario("60-boleta-otros-tributos", "Boleta con otros tributos (9999, 2 %)",
                 "{" + cabBoleta + ",\"moneda\":\"PEN\",\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":[" +
                 "{\"descripcion\":\"Gasolina 90\",\"unidad\":\"GLL\",\"cantidad\":5,\"precio_unitario\":23.60,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":2}}]}"),
+            // Combinaciones de 3223 que solo estaban en pruebas unitarias: ISC (al valor) + 9999 sobre una línea gravada y 9999 sobre una exonerada.
+            new Escenario("63-otros-tributos-con-isc-y-exonerada", "Otros tributos junto al ISC y sobre una línea exonerada",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Cerveza 620 ml (caja x 12)\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":129.80,\"tipo_afectacion_igv\":\"10\",\"isc\":{\"sistema\":\"01\",\"tasa\":10},\"otros_tributos\":{\"tasa\":2}}," +
+                "{\"descripcion\":\"Libro impreso\",\"unidad\":\"NIU\",\"cantidad\":3,\"precio_unitario\":50.00,\"tipo_afectacion_igv\":\"20\",\"otros_tributos\":{\"tasa\":5}}]}"),
             new Escenario("61-nc-otros-tributos", "NC total (01) sobre la factura con otros tributos", NOTAS,
                 "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${OTROS_TRIBUTOS}}," +
                 "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}")
