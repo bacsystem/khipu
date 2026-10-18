@@ -512,7 +512,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     expect(valores()).toEqual(["", "019", "037"]);
   });
 
-  it("al crédito, el neto pendiente por defecto es el total menos la detracción (en soles); en dólares es el total", async () => {
+  it("al crédito, el neto pendiente por defecto es el total menos la detracción (en soles)", async () => {
     const fetch = stubConCalculo(TOTALES, undefined, CON_DETRACCION);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
