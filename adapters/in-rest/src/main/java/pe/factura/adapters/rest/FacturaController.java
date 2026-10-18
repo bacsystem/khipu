@@ -70,8 +70,8 @@ public class FacturaController {
 
             **Boleta** (serie `B###`): el comprador se identifica con cualquier documento del catálogo 06 (DNI de 8 dígitos,
             carné de extranjería, pasaporte, RUC…) o, si la boleta es en soles y de hasta S/ 700.00, con `tipo_doc` y `num_doc`
-            `-` (sin documento). Se emite al contado; crédito, retención, anticipos y exportación todavía van en factura
-            (`422` con el motivo). Una boleta aceptada se anula con `POST /v1/facturas/{id}/baja`, que la informa en un resumen diario.
+            `-` (sin documento). Se emite al contado; el crédito y la retención todavía van en factura
+            (`422` con el motivo). Admite anticipos de otra boleta (serie `B###`) o de una factura (serie `F###`) del mismo comprador, y la exportación y el `0401` con un comprador sin RUC. Una boleta aceptada se anula con `POST /v1/facturas/{id}/baja`, que la informa en un resumen diario.
 
             **Precios**: `precio_unitario` es el precio de venta unitario **con IGV incluido** para ítems gravados; khipu
             calcula el valor unitario, el IGV y los totales (tolerancias SUNAT ±1).
