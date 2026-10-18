@@ -152,9 +152,18 @@ final class EscenariosFactura {
                 "\"transporte\":{\"origen\":{\"ubigeo\":\"021801\",\"direccion\":\"Av. Los Pescadores 450, Chimbote\"},\"destino\":{\"ubigeo\":\"150101\",\"direccion\":\"Jr. de la Union 100, Lima\"}," +
                 "\"detalle_viaje\":\"Traslado de 20 t de harina de pescado en camion furgon\",\"valor_referencial\":{\"servicio\":2500,\"carga_efectiva\":2400,\"carga_util_nominal\":2600}," +
                 "\"tramos\":[{\"origen_ubigeo\":\"021801\",\"destino_ubigeo\":\"150101\",\"descripcion\":\"Chimbote - Lima por Panamericana Norte\",\"valor_carga_efectiva\":2400,\"vehiculos\":[{\"configuracion\":\"T3S3\",\"carga_util_tm\":30,\"carga_efectiva_tm\":20}]}]}}]," +
-                "\"detraccion\":{\"codigo_bien_servicio\":\"027\",\"porcentaje\":4,\"cuenta_banco_nacion\":\"00-000-123456\"}}")
+                "\"detraccion\":{\"codigo_bien_servicio\":\"027\",\"porcentaje\":4,\"cuenta_banco_nacion\":\"00-000-123456\"}}"),
+            // #387: boleta con una línea onerosa y una bonificación (15). Su baja (RC en estado 3) NO informa la gratuita: e-beta rechaza el 05 y el 06 (2256).
+            new Escenario("32-boleta-gratuita", "Boleta con bonificación gratuita (paso 1 de 2: la baja va al final, en el resumen diario)",
+                "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"moneda\":\"PEN\"," +
+                "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
+                "{\"descripcion\":\"Producto\",\"unidad\":\"NIU\",\"cantidad\":10,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}," +
+                "{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}]}")
         );
     }
+
+    /** Serie de boleta de la corrida: la misma base que la de factura con la letra B (B### vale para boleta, F### para factura). */
+    static String serieBoleta(String serieFactura) { return "B" + serieFactura.substring(1); }
 
     private static String muchosItems(int n) {
         StringBuilder sb = new StringBuilder();

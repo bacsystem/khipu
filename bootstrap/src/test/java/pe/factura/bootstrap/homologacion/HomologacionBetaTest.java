@@ -96,6 +96,7 @@ class HomologacionBetaTest {
                 "{\"domicilio\":{\"ubigeo\":\"150101\",\"direccion\":\"AV. LIMA 123\"},\"cuenta_detracciones\":\"00-000-123456\",\"nombre_comercial\":\"KHIPU PRUEBAS\"}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
         for (String tipo : List.of("01", "07", "08"))   // la misma serie F### vale para factura, NC y ND (regla 1001); cada tipo numera aparte
             assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"" + tipo + "\",\"serie\":\"" + SERIE + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"03\",\"serie\":\"" + EscenariosFactura.serieBoleta(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         // Establecimiento anexo 0002 con su propia serie de factura (#80).
         assertThat(http.postForEntity("/v1/empresa/establecimientos", new HttpEntity<>(
                 "{\"codigo\":\"0002\",\"nombre\":\"Tienda Miraflores\",\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"AV. LARCO 345\"}}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -140,6 +141,7 @@ class HomologacionBetaTest {
             if (e.id().startsWith("01-")) numeros.put("GRAVADA", num.longValue());
             if (e.id().startsWith("02-")) ids.put("EXONERADA", String.valueOf(datos.get("id")));
             if (e.id().startsWith("04-")) numeros.put("MIXTA", num.longValue());
+            if (e.id().startsWith("32-")) ids.put("BOLETA_GRATUITA", String.valueOf(datos.get("id")));
             if (e.id().startsWith("09-")) numeros.put("CREDITO", num.longValue());
             if (e.id().startsWith("16-")) numeros.put("ANTICIPO", num.longValue());
         }
@@ -173,8 +175,19 @@ class HomologacionBetaTest {
      * porque necesita la factura ya aceptada; si SUNAT sigue procesando (98), se reconsulta unas veces antes de dar por fallido.
      */
     @org.junit.jupiter.api.Test void zzComunicacionDeBaja() throws Exception {
-        String id = ids.get("EXONERADA");
-        assertThat(id).as("la factura exonerada (02) debe haberse emitido").isNotNull();
+        darDeBaja("22-baja", "Comunicación de baja (RA) de la factura exonerada", ids.get("EXONERADA"), "la factura exonerada (02)");
+    }
+
+    /**
+     * Baja de la boleta del escenario 32 (con bonificación gratuita): sendSummary de un resumen diario (RC) en estado 3 (#387). La boleta ya está
+     * aceptada; el RC no informa la gratuita porque e-beta rechaza el 05 y el 06 (2256) y acepta el resumen sin ellas.
+     */
+    @org.junit.jupiter.api.Test void zzBajaDeBoletaConGratuita() throws Exception {
+        darDeBaja("33-baja-boleta", "Baja (RC, estado 3) de la boleta con bonificación gratuita", ids.get("BOLETA_GRATUITA"), "la boleta con gratuita (32)");
+    }
+
+    private void darDeBaja(String escenario, String descripcion, String id, String origen) throws Exception {
+        assertThat(id).as(origen + " debe haberse emitido").isNotNull();
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Homologación: baja de prueba\"}", api), Map.class);
         Map<?, ?> datos = r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of());
         String bajaId = String.valueOf(datos.get("id"));
@@ -186,16 +199,16 @@ class HomologacionBetaTest {
         Map<?, ?> cdr = datos.get("cdr") instanceof Map<?, ?> m ? m : Map.of();
         String detalle = r.getStatusCode().is2xxSuccessful() ? cdr.get("codigo") + " - " + cdr.get("descripcion") + (datos.get("ultimo_error") == null ? "" : " | " + datos.get("ultimo_error"))
                 : "HTTP " + r.getStatusCode().value() + " " + r.getBody();
-        resumen.add(new String[]{"22-baja", "Comunicación de baja (RA) de la factura exonerada", String.valueOf(datos.get("estado")), detalle});
-        Path dir = SALIDA.resolve("22-baja");
+        resumen.add(new String[]{escenario, descripcion, String.valueOf(datos.get("estado")), detalle});
+        Path dir = SALIDA.resolve(escenario);
         Files.createDirectories(dir);
         Files.writeString(dir.resolve("resultado.txt"), datos.get("estado") + "\n" + detalle + "\n", StandardCharsets.UTF_8);
 
-        assertThat(r.getStatusCode()).as("22-baja: " + r.getBody()).isEqualTo(HttpStatus.CREATED);
-        assertThat(datos.get("estado")).as("22-baja: " + detalle).isEqualTo("ACEPTADA");
+        assertThat(r.getStatusCode()).as(escenario + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
+        assertThat(datos.get("estado")).as(escenario + ": " + detalle).isEqualTo("ACEPTADA");
         assertThat(String.valueOf(cdr.get("codigo"))).isEqualTo("0");
         ResponseEntity<Map> factura = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
-        assertThat(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento")).as("la factura queda ANULADA").isEqualTo("ANULADO");
+        assertThat(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento")).as("el comprobante queda ANULADO").isEqualTo("ANULADO");
     }
 
     @AfterAll void escribirResumen() throws IOException {

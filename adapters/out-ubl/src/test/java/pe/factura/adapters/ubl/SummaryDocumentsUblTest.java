@@ -76,56 +76,29 @@ class SummaryDocumentsUblTest {
     }
 
     /**
-     * Hasta el 2026-12-31 el catálogo 11 tiene un solo código de gratuitas, el 05 (guía del resumen diario, p. 14), y el resumen no lleva el IGV de las gratuitas:
-     * los 06–09 y el bloque 9996 «GRA» entran el 2027-01-01 (Control de Cambios, filas 516 y 543). Sin el 05 la boleta llegaba sin sus gratuitas.
+     * #387: las gratuitas no van en el resumen. e-beta rechaza el 05 (2256) y también el 06 (2256, «no se encuentra en el catálogo 11»), y acepta el mismo resumen sin ellas
+     * (RC-20261017-1); un resumen con una línea con error se rechaza entero (2987), y con él la baja de la boleta. Ni el 05, ni el 06–08 del Control de Cambios del 2027, ni el
+     * IGV de las gratuitas en 9996 «GRA»: ni antes ni después del 2027-01-01.
      */
-    @Test void antesDe2027LasGratuitasVanConElCodigo05YSinIgv9996() throws Exception {
-        Comprobante c = boleta(new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(VENDIDO, BONIFICACION));
-        ComunicacionBaja b = ComunicacionBaja.crear(c, 5, "Error en el monto", HOY);
+    @Test void lasGratuitasNoSeInformanEnElResumenAntesNiDespuesDe2027() throws Exception {
+        for (Clock reloj : List.of(HOY, ENERO_2027)) {
+            Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.now(reloj).minusDays(2), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(VENDIDO, BONIFICACION,
+                    new Item("C", "Muestra", "NIU", BigDecimal.ONE, new BigDecimal("20.00"), TipoAfectacionIgv.INAFECTO_RETIRO),
+                    new Item("D", "Libro de regalo", "NIU", BigDecimal.ONE, new BigDecimal("30.00"), TipoAfectacionIgv.EXONERADO_GRATUITO))).crear(reloj);
+            c.asignarNumero(47, "20100066603"); c.firmar("H", "k"); c.marcarEnviado(); c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
+            ComunicacionBaja b = ComunicacionBaja.crear(c, 1, "Error en el monto", reloj);
 
-        String xml = new FreemarkerUblGenerator().generarBaja(b, c, FreemarkerUblGeneratorTest.tenant());
-        Document d = parsear(xml);
+            String xml = new FreemarkerUblGenerator().generarBaja(b, c, FreemarkerUblGeneratorTest.tenant());
+            Document d = parsear(xml);
 
-        assertThat(instruccion(d, "05")).isEqualTo("50.00");
-        assertThat(instruccion(d, "06")).isEmpty();
-        assertThat(xpath().evaluate("count(//cac:TaxScheme[cbc:ID='9996'])", d)).isEqualTo("0");
-        assertThat(xpath().evaluate("/rc:SummaryDocuments/sac:SummaryDocumentsLine/sac:TotalAmount", d)).as("las gratuitas no se cobran").isEqualTo("118.00");
-        new JaxpXsdValidator().validarBaja(conFirma(xml), b);
-    }
-
-    /** Desde el 2027-01-01: gratuitas por afectación (06 gravadas, 07 exoneradas, 08 inafectas; el 05 se desactiva) y el IGV de las gravadas en 9996 «GRA». */
-    @Test void desde2027LasGratuitasVanPorAfectacionYConSuIgv9996() throws Exception {
-        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 12, 30), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(VENDIDO, BONIFICACION,
-                new Item("C", "Muestra", "NIU", BigDecimal.ONE, new BigDecimal("20.00"), TipoAfectacionIgv.INAFECTO_RETIRO),
-                new Item("D", "Libro de regalo", "NIU", BigDecimal.ONE, new BigDecimal("30.00"), TipoAfectacionIgv.EXONERADO_GRATUITO))).crear(ENERO_2027);
-        c.asignarNumero(47, "20100066603"); c.firmar("H", "k"); c.marcarEnviado(); c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
-        ComunicacionBaja b = ComunicacionBaja.crear(c, 1, "Error en el monto", ENERO_2027);
-
-        String xml = new FreemarkerUblGenerator().generarBaja(b, c, FreemarkerUblGeneratorTest.tenant());
-        Document d = parsear(xml);
-
-        assertThat(instruccion(d, "05")).as("desactivado desde 2027").isEmpty();
-        assertThat(instruccion(d, "06")).isEqualTo("50.00");
-        assertThat(instruccion(d, "07")).isEqualTo("30.00");
-        assertThat(instruccion(d, "08")).isEqualTo("20.00");
-        String gra = "/rc:SummaryDocuments/sac:SummaryDocumentsLine/cac:TaxTotal[cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID='9996']";
-        assertThat(xpath().evaluate(gra + "/cbc:TaxAmount", d)).isEqualTo("9.00");
-        assertThat(xpath().evaluate(gra + "/cac:TaxSubtotal/cbc:TaxAmount", d)).isEqualTo("9.00");             // 2344
-        assertThat(xpath().evaluate(gra + "/cac:TaxSubtotal/cac:TaxCategory/cbc:Percent", d)).isEqualTo("18");     // 2992, 3504
-        assertThat(xpath().evaluate(gra + "/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:Name", d)).isEqualTo("GRA");   // 3051
-        assertThat(xpath().evaluate(gra + "/cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode", d)).isEqualTo("FRE");
-        new JaxpXsdValidator().validarBaja(conFirma(xml), b);
-    }
-
-    /** Sin gratuitas gravadas no hay IGV de gratuitas: el bloque 9996 no va en cero (2048). */
-    @Test void desde2027SinGratuitasGravadasNoVaElBloque9996() throws Exception {
-        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 12, 30), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(VENDIDO,
-                new Item("C", "Muestra", "NIU", BigDecimal.ONE, new BigDecimal("20.00"), TipoAfectacionIgv.INAFECTO_RETIRO))).crear(ENERO_2027);
-        c.asignarNumero(48, "20100066603"); c.firmar("H", "k"); c.marcarEnviado(); c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
-        Document d = parsear(new FreemarkerUblGenerator().generarBaja(ComunicacionBaja.crear(c, 1, "Error", ENERO_2027), c, FreemarkerUblGeneratorTest.tenant()));
-
-        assertThat(instruccion(d, "08")).isEqualTo("20.00");
-        assertThat(xpath().evaluate("count(//cac:TaxScheme[cbc:ID='9996'])", d)).isEqualTo("0");
+            String cuando = reloj == HOY ? "antes de 2027" : "desde 2027";
+            for (String codigo : List.of("05", "06", "07", "08", "09"))
+                assertThat(instruccion(d, codigo)).as("gratuitas con el código " + codigo + " " + cuando).isEmpty();
+            assertThat(xpath().evaluate("count(//cac:TaxScheme[cbc:ID='9996'])", d)).as("IGV de gratuitas " + cuando).isEqualTo("0");
+            assertThat(instruccion(d, "01")).as("lo vendido sí va").isEqualTo("100.00");
+            assertThat(xpath().evaluate("/rc:SummaryDocuments/sac:SummaryDocumentsLine/sac:TotalAmount", d)).as("las gratuitas no se cobran").isEqualTo("118.00");
+            new JaxpXsdValidator().validarBaja(conFirma(xml), b);
+        }
     }
 
     /**
