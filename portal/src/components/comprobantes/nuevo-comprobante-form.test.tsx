@@ -272,6 +272,75 @@ describe("NuevoComprobanteForm — afectaciones, ISC, ICBPER e IVAP (#298)", () 
   });
 });
 
+describe("NuevoComprobanteForm — factura al crédito (#309)", () => {
+  const TOTALES = { gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 };
+
+  async function alCredito(fetch: ReturnType<typeof stubConCalculo>) {
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    linea("Proyecto", "1180");
+    fireEvent.change(screen.getByLabelText("Forma de pago"), { target: { value: "credito" } });
+    // El neto pendiente por defecto es el total que calculó el backend: se espera a que llegue.
+    await waitFor(() => expect(screen.getByLabelText("Neto pendiente")).toHaveAttribute("placeholder", "1180.00"));
+    expect(fetch).toBeDefined();
+  }
+
+  it("el selector de forma de pago es solo de la factura: la boleta se emite al contado", () => {
+    stubConCalculo(TOTALES);
+    const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    expect(screen.getByLabelText("Forma de pago")).toHaveValue("contado");
+    unmount();
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    expect(screen.queryByLabelText("Forma de pago")).not.toBeInTheDocument();
+  });
+
+  it("reparte el neto pendiente en cuotas iguales y manda la forma de pago al calcular y al emitir", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    await alCredito(fetch);
+
+    fireEvent.click(screen.getByRole("button", { name: "Repartir" }));   // 2 cuotas iguales por defecto
+    expect(screen.getByLabelText("Cuota 1: monto")).toHaveValue("590.00");
+    expect(screen.getByLabelText("Cuota 2: monto")).toHaveValue("590.00");
+    expect(screen.getByTestId("credito-resumen")).toHaveTextContent("Las 2 cuotas suman S/ 1,180.00 de S/ 1,180.00 pendientes.");
+
+    await waitFor(() => expect(calculos(fetch).at(-1)?.forma_pago).toMatchObject({ tipo: "credito", monto_pendiente: 1180, cuotas: [{ monto: 590 }, { monto: 590 }] }));
+    fireEvent.click(screen.getByText("Más opciones del comprobante"));
+    fireEvent.change(screen.getByLabelText(/^Fecha de vencimiento/), { target: { value: calculos(fetch).at(-1).forma_pago.cuotas[1].vencimiento } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ forma_pago: { tipo: "credito", monto_pendiente: 1180, cuotas: [{ monto: 590 }, { monto: 590 }] } });
+    expect(emisiones(fetch)[0].fecha_vencimiento).toBeTruthy();
+  });
+
+  it("unas cuotas que no suman el neto pendiente se marcan y no dejan emitir", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    await alCredito(fetch);
+    fireEvent.click(screen.getByRole("button", { name: "Repartir" }));
+    fireEvent.change(screen.getByLabelText("Cuota 2: monto"), { target: { value: "500" } });
+
+    expect(screen.getByTestId("credito-resumen")).toHaveTextContent(/suman 1090\.00 y el neto pendiente es 1180\.00/);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/suman 1090\.00/));
+    expect(emisiones(fetch)).toHaveLength(0);
+  });
+
+  it("sin cuotas no se puede emitir al crédito, y volver a contado manda la factura como siempre", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    await alCredito(fetch);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/al menos una cuota/));
+    expect(emisiones(fetch)).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText("Forma de pago"), { target: { value: "contado" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0].forma_pago).toBeUndefined();
+  });
+});
+
 describe("NuevoComprobanteForm — boleta (#20)", () => {
   it("sin documento manda «-» como tipo y número, con el nombre por defecto", async () => {
     const fetch = stubEmision();

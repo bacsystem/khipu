@@ -468,6 +468,23 @@ const bannerVigenteMock = () => {
 /** Cuántas veces se leyó el monitor (#195): la cola de envíos crece una por lectura, y así las pruebas ven que el panel se actualizó. */
 let lecturasDelMonitorMock = 0;
 
+/** La forma de pago de un pedido, con las reglas de dominio del crédito (RS 193-2020, #309): cuotas que suman el neto pendiente, vencimientos posteriores a la emisión y crecientes. */
+type FormaPagoPedido = { tipo: "contado" | "credito"; monto_pendiente?: number; cuotas?: Array<{ monto: number; vencimiento: string }> };
+function formaPagoMock(forma: FormaPagoPedido | undefined, emision: string, total: number) {
+  if (!forma || forma.tipo === "contado") return { formaPago: { tipo: "contado" as const, monto_pendiente: null, cuotas: [] } };
+  const cuotas = forma.cuotas ?? [];
+  const pendiente = forma.monto_pendiente ?? 0;
+  if (cuotas.length === 0) return { error: fail(422, "FORMA_PAGO_INVALIDA", "3259 - Una factura al crédito lleva al menos una cuota") };
+  if (pendiente > total + 0.005) return { error: fail(422, "FORMA_PAGO_INVALIDA", `3319 - El neto pendiente (${pendiente.toFixed(2)}) no puede superar el total (${total.toFixed(2)})`) };
+  const suma = Math.round(cuotas.reduce((s, q) => s + Math.round(q.monto * 100), 0)) / 100;
+  if (Math.abs(suma - pendiente) > 0.005) return { error: fail(422, "FORMA_PAGO_INVALIDA", `3250 - Las cuotas suman ${suma.toFixed(2)} y el neto pendiente es ${pendiente.toFixed(2)}`) };
+  for (const [i, q] of cuotas.entries()) {
+    if (q.vencimiento <= emision) return { error: fail(422, "FORMA_PAGO_INVALIDA", `3256 - El vencimiento de la cuota ${i + 1} debe ser posterior a la fecha de emisión`) };
+    if (i > 0 && q.vencimiento <= cuotas[i - 1].vencimiento) return { error: fail(422, "FORMA_PAGO_INVALIDA", `3267 - El vencimiento de la cuota ${i + 1} debe ser posterior al de la cuota ${i}`) };
+  }
+  return { formaPago: { tipo: "credito" as const, monto_pendiente: pendiente, cuotas: cuotas.map((q, i) => ({ id: `Cuota${String(i + 1).padStart(3, "0")}`, monto: q.monto, vencimiento: q.vencimiento })) } };
+}
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -2451,7 +2468,7 @@ export const handlers = [
   // regla del dominio (3303: hasta ±1.00 y sin dejar el total en negativo).
   // Los descuentos y cargos (#310) los recibe pero no los aplica: reproducirlos sería portar `Totales` al mock. El cálculo real se prueba contra el backend.
   http.post(`${BASE}/v1/facturas/calcular`, async ({ request }) => {
-    const body = (await request.json()) as { items: Array<{ cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }>; redondeo?: number };
+    const body = (await request.json()) as { items: Array<{ cantidad: number; precio_unitario: number; tipo_afectacion_igv: string }>; redondeo?: number; fecha_emision?: string; forma_pago?: FormaPagoPedido };
     const redondeo = body.redondeo ?? 0;
     if (Math.abs(redondeo) > 1) return fail(422, "REDONDEO_INVALIDO", "3303 - El redondeo del importe total admite 2 decimales y no puede superar 1.00 en valor absoluto");
     const t = calcularTotales(
@@ -2460,6 +2477,8 @@ export const handlers = [
     );
     const total = Math.round((t.total + redondeo) * 100) / 100;
     if (total < 0) return fail(422, "REDONDEO_INVALIDO", `3303 - El redondeo deja el importe total en negativo (${total.toFixed(2)})`);
+    const forma = formaPagoMock(body.forma_pago, body.fecha_emision ?? "0000-00-00", total);
+    if ("error" in forma && forma.error) return forma.error;
     return ok({ totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, gratuito: t.gratuito, igv: t.igv, redondeo, total } });
   }),
 
@@ -2535,6 +2554,8 @@ export const handlers = [
     );
     if (boleta && tipoDoc === "-" && (body.moneda !== "PEN" || t.total > 700))
       return fail(422, "RECEPTOR_INVALIDO", `Una boleta de más de S/ 700.00 (o en otra moneda) identifica al comprador con su documento; esta es de ${body.moneda} ${t.total.toFixed(2)}`);
+    const forma = formaPagoMock((body as { forma_pago?: FormaPagoPedido }).forma_pago, body.fecha_emision, t.total);
+    if ("error" in forma && forma.error) return forma.error;
     const id = nuevoId("f");
     const comprobante: Comprobante = {
       id,
@@ -2553,7 +2574,7 @@ export const handlers = [
       ultimo_error: null,
       cdr: { codigo: "0", descripcion: `La ${boleta ? "Boleta" : "Factura"} numero ${body.serie}-${serie.ultimo_numero}, ha sido aceptada`, observaciones: [] },
       totales: { gravado: t.gravado, exonerado: t.exonerado, inafecto: t.inafecto, igv: t.igv, total: t.total },
-      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      forma_pago: "formaPago" in forma ? forma.formaPago : { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },
     };
     db.facturasPorEmpresa.set(empresaId, [comprobante, ...(db.facturasPorEmpresa.get(empresaId) ?? [])]);
