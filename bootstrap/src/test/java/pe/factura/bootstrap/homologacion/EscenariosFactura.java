@@ -203,7 +203,15 @@ final class EscenariosFactura {
                 "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"moneda\":\"PEN\"," +
                 "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
                 "{\"descripcion\":\"Producto\",\"unidad\":\"NIU\",\"cantidad\":10,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}," +
-                "{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}]}")
+                "{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}]}"),
+            // #394: los dos tipos de operación sin datos extra que e-beta acepta además de los de los escenarios anteriores; los demás del catálogo 51 que aplican a factura
+            // los rechazó (0112, 0301, 0302, 2002, 2100–2102, 2104, 2106) y khipu ya no los numera.
+            new Escenario("47-no-domiciliado", "Venta a no domiciliado que no califica como exportación (0401)",
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"0401\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            new Escenario("48-otras-no-gravadas", "Otras operaciones no gravadas de entidades financieras (2103)",
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"2103\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]}")
         );
     }
 
