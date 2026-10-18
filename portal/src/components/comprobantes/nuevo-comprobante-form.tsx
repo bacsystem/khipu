@@ -17,6 +17,7 @@ import { MAX_LINEAS } from "@/lib/comprobantes/limites";
 import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
 import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
+import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm } from "@/lib/comprobantes/tributos";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -39,16 +40,6 @@ const MONEDAS = [
   { codigo: "EUR", etiqueta: "€ Euros (EUR)" },
 ];
 
-/**
- * Afectaciones válidas en una venta interna (`tipo_operacion` 0101). Del catálogo 07 se excluye la 40 (exportación),
- * que exige tipo de operación 0200–0208, y los demás gratuitos que no aplican a una venta corriente.
- */
-const AFECTACIONES = [
-  { codigo: "10", etiqueta: "Gravado" },
-  { codigo: "20", etiqueta: "Exonerado" },
-  { codigo: "30", etiqueta: "Inafecto" },
-  { codigo: "11", etiqueta: "Gratuito (bonificación)" },
-];
 
 type EntradaCatalogo = { codigo: string; descripcion: string; extra?: Record<string, string> };
 
@@ -61,13 +52,13 @@ function unidadesDelSelector(entradas: EntradaCatalogo[]): EntradaCatalogo[] {
   return masUsadas.length ? masUsadas : entradas;
 }
 
-type Linea = { descripcion: string; cantidad: number | null; precioUnitario: number | null; unidad: string; tipoAfectacionIgv: string; descuento: AjusteForm; cargo: AjusteForm };
+type Linea = { descripcion: string; cantidad: number | null; precioUnitario: number | null; unidad: string; tipoAfectacionIgv: string; descuento: AjusteForm; cargo: AjusteForm; isc: IscForm; icbper: boolean };
 
 /** El diálogo usa la escala compacta del design system (h-8, la de la barra de filtros) en vez de la de formulario
  *  (h-10): con cliente, ítems y totales en una sola vista, 8px por control cambian cuántas líneas entran. */
 const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
 
-const LINEA_VACIA: Linea = { descripcion: "", cantidad: 1, precioUnitario: null, unidad: "NIU", tipoAfectacionIgv: "10", descuento: AJUSTE_VACIO, cargo: AJUSTE_VACIO };
+const LINEA_VACIA: Linea = { descripcion: "", cantidad: 1, precioUnitario: null, unidad: "NIU", tipoAfectacionIgv: "10", descuento: AJUSTE_VACIO, cargo: AJUSTE_VACIO, isc: ISC_VACIO, icbper: false };
 
 export type TipoEmitible = "factura" | "boleta";
 
@@ -244,9 +235,12 @@ export function NuevoComprobanteForm({
   const documento = DOCUMENTOS_BOLETA.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_BOLETA[0];
   const redondeo = redondeoDe(redondeoTexto);
   // Los ajustes mal escritos no se envían ni se calculan: se muestran en su campo y la emisión no sale.
+  // #298: tampoco se envía un ISC mal escrito ni una combinación de tributos que el dominio rechaza (IVAP mezclado, ICBPER fuera de NIU o con cantidad fraccionaria).
+  const incompatibilidad = incompatibilidadDeTributos(lineasCompletas);
   const hayAjusteInvalido =
     errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
-    lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null);
+    lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null || errorDeIsc(l.isc) !== null) ||
+    incompatibilidad !== null;
 
   /**
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
@@ -270,6 +264,8 @@ export function NuevoComprobanteForm({
         tipo_afectacion_igv: l.tipoAfectacionIgv,
         descuento: ajusteAApi(l.descuento, "descuento"),
         cargos: ajusteAApi(l.cargo, "cargo") ? [ajusteAApi(l.cargo, "cargo")] : undefined,
+        isc: iscAApi(l.isc),
+        icbper: l.icbper ? true : undefined,
       })),
       descuento_global: ajusteAApi(descuentoGlobal, "descuento"),
       cargos: ajusteAApi(cargoGlobal, "cargo") ? [ajusteAApi(cargoGlobal, "cargo")] : undefined,
@@ -329,7 +325,7 @@ export function NuevoComprobanteForm({
       return;
     }
     if (hayAjusteInvalido) {
-      setError("Corrija los descuentos o cargos marcados antes de emitir.");
+      setError(incompatibilidad ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
       return;
     }
     const factura = armarCuerpo(false);
@@ -636,13 +632,60 @@ export function NuevoComprobanteForm({
                       onChange={(e) => actualizar(i, { tipoAfectacionIgv: e.target.value })}
                       className={CAMPO_DENSO}
                     >
-                      {AFECTACIONES.map((a) => (
-                        <option key={a.codigo} value={a.codigo}>
-                          {a.codigo} · {a.etiqueta}
-                        </option>
+                      {GRUPOS_AFECTACION.map((g) => (
+                        <optgroup key={g.grupo} label={g.grupo}>
+                          {g.opciones.map((a) => (
+                            <option key={a.codigo} value={a.codigo}>
+                              {a.codigo} · {a.etiqueta}
+                            </option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                   </Campo>
+                  {/* #298: ISC (catálogo 08) y bolsas de plástico (ICBPER). El precio que se escribe ya los incluye; el importe de cada tributo lo calcula el backend. */}
+                  <fieldset className="grid content-start gap-1.5">
+                    <legend className="mb-1 text-[12px] font-medium text-foreground">ISC del ítem</legend>
+                    <Campo id={`nc-isc-sistema-${i}`} etiqueta="Sistema del ISC" className="[&>label]:sr-only">
+                      <select
+                        id={`nc-isc-sistema-${i}`}
+                        value={linea.isc.sistema}
+                        onChange={(e) => actualizar(i, { isc: { ...ISC_VACIO, sistema: e.target.value as IscForm["sistema"] } })}
+                        className={CAMPO_DENSO}
+                      >
+                        <option value="">Sin ISC</option>
+                        <option value="01">01 · Al valor (tasa %)</option>
+                        <option value="02">02 · Monto fijo por unidad</option>
+                        <option value="03">03 · Precio de venta al público</option>
+                      </select>
+                    </Campo>
+                    {linea.isc.sistema === "02" ? (
+                      <Campo id={`nc-isc-monto-${i}`} etiqueta="Monto por unidad del ISC" className="[&>label]:sr-only" error={errorDeIsc(linea.isc) ?? undefined}>
+                        <input id={`nc-isc-monto-${i}`} value={linea.isc.montoUnitario} onChange={(e) => actualizar(i, { isc: { ...linea.isc, montoUnitario: e.target.value } })} inputMode="decimal" placeholder="Monto por unidad, ej. 2.25" aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                      </Campo>
+                    ) : linea.isc.sistema !== "" ? (
+                      <>
+                        <Campo id={`nc-isc-tasa-${i}`} etiqueta="Tasa del ISC (%)" className="[&>label]:sr-only" error={linea.isc.sistema === "01" ? (errorDeIsc(linea.isc) ?? undefined) : undefined}>
+                          <input id={`nc-isc-tasa-${i}`} value={linea.isc.tasa} onChange={(e) => actualizar(i, { isc: { ...linea.isc, tasa: e.target.value } })} inputMode="decimal" placeholder="Tasa %, ej. 35" aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                        </Campo>
+                        {linea.isc.sistema === "03" ? (
+                          <Campo id={`nc-isc-pvp-${i}`} etiqueta="Precio de venta al público sugerido" className="[&>label]:sr-only" error={errorDeIsc(linea.isc) ?? undefined}>
+                            <input id={`nc-isc-pvp-${i}`} value={linea.isc.basePvp} onChange={(e) => actualizar(i, { isc: { ...linea.isc, basePvp: e.target.value } })} inputMode="decimal" placeholder="PVP sugerido por unidad, ej. 3.50" aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                          </Campo>
+                        ) : null}
+                      </>
+                    ) : null}
+                    <label className="mt-1 flex items-center gap-2 text-[12px] text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={linea.icbper}
+                        onChange={(e) => actualizar(i, e.target.checked ? { icbper: true, unidad: "NIU" } : { icbper: false })}
+                        className="size-3.5 accent-primary"
+                      />
+                      Bolsas de plástico (ICBPER)
+                    </label>
+                    <p className={AYUDA_CAMPO}>Una bolsa por unidad: se cobra el impuesto por cada una.</p>
+                  </fieldset>
                   {/* #310: descuento y cargo de la línea (catálogo 53: 00/01 y 47/48). */}
                   <AjusteEditor id={`nc-desc-linea-${i}`} etiqueta="Descuento del ítem" clase="descuento" valor={linea.descuento} onCambio={(a) => actualizar(i, { descuento: a })} />
                   <AjusteEditor id={`nc-cargo-linea-${i}`} etiqueta="Cargo del ítem" clase="cargo" valor={linea.cargo} onCambio={(a) => actualizar(i, { cargo: a })} />
@@ -674,6 +717,12 @@ export function NuevoComprobanteForm({
             <AjusteEditor id="nc-cargo-global" etiqueta="Cargo global" clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} ofreceRecargoConsumo />
           </div>
         </details>
+
+        {incompatibilidad ? (
+          <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="tributos-incompatibles">
+            {incompatibilidad}
+          </p>
+        ) : null}
 
         {calculo.estado === "rechazado" ? (
           <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="calculo-rechazado">
