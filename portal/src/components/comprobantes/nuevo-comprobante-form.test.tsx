@@ -133,7 +133,8 @@ describe("NuevoComprobanteForm — descuentos y cargos (#310)", () => {
     fireEvent.change(screen.getByLabelText("Cargo del ítem: tipo"), { target: { value: "monto" } });
     fireEvent.change(screen.getByLabelText("Cargo del ítem: valor"), { target: { value: "25" } });
     // El descuento reduce la base del IGV por defecto (00); el cargo paga IGV (47). Cada uno se puede cambiar al otro código.
-    const [reduceBase, pagaIgv] = screen.getAllByRole("checkbox");
+    const reduceBase = screen.getByLabelText("Reduce la base del IGV");
+    const pagaIgv = screen.getByLabelText("Paga IGV");
     expect(reduceBase).toBeChecked();
     expect(pagaIgv).toBeChecked();
     fireEvent.click(reduceBase);   // descuento 01: no toca el IGV
@@ -170,9 +171,104 @@ describe("NuevoComprobanteForm — descuentos y cargos (#310)", () => {
 
     expect(screen.getByText("El porcentaje debe ser menor que 100.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
-    await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/Corrija los descuentos o cargos/));
+    await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/Corrija los descuentos, cargos o tributos/));
     expect(emisiones(fetch)).toHaveLength(0);
     expect(calculos(fetch).filter((c) => c.descuento_global)).toHaveLength(0);
+  });
+});
+
+describe("NuevoComprobanteForm — afectaciones, ISC, ICBPER e IVAP (#298)", () => {
+  const TOTALES = { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 };
+
+  function conCliente() {
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    linea("Cerveza", "118");
+    fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
+  }
+
+  it("ofrece las afectaciones agrupadas del catálogo 07: onerosas, IVAP y las gratuitas", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
+    const select = screen.getByLabelText("Afectación del IGV");
+    expect([...select.querySelectorAll("optgroup")].map((g) => g.getAttribute("label"))).toEqual(["Onerosas", "Gratuitas gravadas", "Gratuitas exoneradas", "Gratuitas inafectas"]);
+    expect([...select.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["10", "20", "30", "17", "11", "12", "13", "14", "15", "16", "21", "31", "32", "33", "34", "35", "36", "37"]);
+  });
+
+  it("el ISC viaja con los campos de su sistema (01 tasa, 02 monto por unidad, 03 tasa y PVP)", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conCliente();
+
+    fireEvent.change(screen.getByLabelText("Sistema del ISC"), { target: { value: "03" } });
+    fireEvent.change(screen.getByLabelText("Tasa del ISC (%)"), { target: { value: "30" } });
+    fireEvent.change(screen.getByLabelText("Precio de venta al público sugerido"), { target: { value: "3.50" } });
+    await waitFor(() => expect(calculos(fetch).at(-1)?.items[0]).toMatchObject({ isc: { sistema: "03", tasa: 30, base_pvp: 3.5 } }));
+
+    fireEvent.change(screen.getByLabelText("Sistema del ISC"), { target: { value: "02" } });
+    expect(screen.queryByLabelText("Tasa del ISC (%)")).not.toBeInTheDocument();   // cambiar de sistema limpia lo del anterior
+    fireEvent.change(screen.getByLabelText("Monto por unidad del ISC"), { target: { value: "2.25" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0].items[0].isc).toEqual({ sistema: "02", monto_unitario: 2.25 });
+  });
+
+  it("un ISC a medio escribir se marca y no deja emitir", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conCliente();
+    fireEvent.change(screen.getByLabelText("Sistema del ISC"), { target: { value: "01" } });
+    expect(screen.getByText("La tasa es un porcentaje mayor que cero, con hasta 5 decimales.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/Corrija los descuentos, cargos o tributos/));
+    expect(emisiones(fetch)).toHaveLength(0);
+  });
+
+  it("las bolsas del ICBPER llevan NIU y viajan como bandera; con una cantidad fraccionaria avisa y no emite", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conCliente();
+    fireEvent.change(screen.getByLabelText("Unidad de medida"), { target: { value: "ZZ" } });   // una unidad que no es NIU
+    fireEvent.click(screen.getByLabelText("Bolsas de plástico (ICBPER)"));
+    expect(screen.getByLabelText("Unidad de medida")).toHaveValue("NIU");                        // marcarlo la corrige
+
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "2.5" } });
+    expect(screen.getByTestId("tributos-incompatibles")).toHaveTextContent(/entero de 1 a 99999/);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/entero de 1 a 99999/));
+    expect(emisiones(fetch)).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0].items[0]).toMatchObject({ icbper: true, unidad: "NIU", cantidad: 3 });
+  });
+
+  it("el IVAP es de todo el comprobante: mezclado con otra afectación avisa y no emite", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conCliente();
+    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "17" } });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar ítem" }));
+    fireEvent.change(screen.getAllByLabelText("Descripción")[1], { target: { value: "Otro" } });
+    fireEvent.change(screen.getAllByLabelText("Precio unit. (con IGV)")[1], { target: { value: "10" } });
+    fireEvent.blur(screen.getAllByLabelText("Precio unit. (con IGV)")[1]);
+
+    expect(screen.getByTestId("tributos-incompatibles")).toHaveTextContent(/todos sus ítems con IVAP/);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/todos sus ítems con IVAP/));
+    expect(emisiones(fetch)).toHaveLength(0);
+  });
+
+  it("una gratuita de las del catálogo 07 (15 bonificación) viaja con su código", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conCliente();
+    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0].items[0].tipo_afectacion_igv).toBe("15");
   });
 });
 
