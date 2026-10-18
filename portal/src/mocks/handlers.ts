@@ -605,6 +605,17 @@ function anticiposMock(pedidos: AnticipoPedido[] | undefined, t: TotalesMock, ta
   return { totales, anticipos: aplicados };
 }
 
+/** La retención del IGV (#313), como `RetencionIgv`: informativa, solo en factura, porcentaje entre 0 y 100 y monto = total × % a 2 decimales. */
+type RetencionPedido = { porcentaje?: number; monto?: number };
+function retencionMock(retencion: RetencionPedido | undefined, boleta: boolean, total: number) {
+  if (!retencion) return {};
+  if (boleta) return { error: fail(422, "RETENCION_INVALIDA", "La retención del IGV la hace un agente de retención con RUC: va en factura, no en boleta") };
+  const porcentaje = retencion.porcentaje ?? 3;
+  if (!(porcentaje > 0) || porcentaje >= 100) return { error: fail(422, "RETENCION_INVALIDA", "El porcentaje de retención debe ser mayor que 0 y menor que 100 (tasa legal 3 %)") };
+  const monto = Math.round((total * porcentaje) / 100 * 100) / 100;
+  return { retencion: { porcentaje, monto, neto_cobrar: Math.round((total - monto) * 100) / 100 } };
+}
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -2613,6 +2624,7 @@ export const handlers = [
       detraccion?: DetraccionPedido;
       percepcion?: PercepcionPedido;
       anticipos?: AnticipoPedido[];
+      retencion_igv?: RetencionPedido;
     };
     const porExportacion = rechazoPorExportacionMock(body, (body.serie ?? "").startsWith("B"));
     if (porExportacion) return porExportacion;
@@ -2633,7 +2645,9 @@ export const handlers = [
     if (det.error) return det.error;
     const per = percepcionMock(body.tipo_operacion, body.percepcion, body.moneda ?? "PEN", body.forma_pago?.tipo === "credito", total);
     if (per.error) return per.error;
-    return ok({ detraccion: det.detraccion ?? null, percepcion: per.percepcion ?? null, anticipos: ant.anticipos, totales: { gravado: tAnt.gravado, exonerado: tAnt.exonerado, inafecto: tAnt.inafecto, gratuito: t.gratuito, igv: tAnt.igv, total_anticipos: tAnt.total_anticipos, redondeo, total } });
+    const ret = retencionMock(body.retencion_igv, (body.serie ?? "").startsWith("B"), total);
+    if (ret.error) return ret.error;
+    return ok({ detraccion: det.detraccion ?? null, percepcion: per.percepcion ?? null, retencion_igv: ret.retencion ?? null, anticipos: ant.anticipos, totales: { gravado: tAnt.gravado, exonerado: tAnt.exonerado, inafecto: tAnt.inafecto, gratuito: t.gratuito, igv: tAnt.igv, total_anticipos: tAnt.total_anticipos, redondeo, total } });
   }),
 
   // Emisión manual desde el portal (#17). Los totales salen del mismo helper que previsualiza el formulario, así el
@@ -2724,6 +2738,8 @@ export const handlers = [
     if (per.error) return per.error;
     const refs = referenciasMock(body as ReferenciasPedido, boleta);
     if (refs.error) return refs.error;
+    const ret = retencionMock((body as { retencion_igv?: RetencionPedido }).retencion_igv, boleta, t.total);
+    if (ret.error) return ret.error;
     const id = nuevoId("f");
     const comprobante: Comprobante = {
       id,
@@ -2746,6 +2762,7 @@ export const handlers = [
       forma_pago: "formaPago" in forma ? forma.formaPago : { tipo: "contado", monto_pendiente: null, cuotas: [] },
       detraccion: det.detraccion ?? null,
       percepcion: per.percepcion ?? null,
+      retencion_igv: ret.retencion ?? null,
       referencias: refs.referencias,
       observaciones: refs.observaciones,
       enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf`, cdr: `/v1/facturas/${id}/cdr` },

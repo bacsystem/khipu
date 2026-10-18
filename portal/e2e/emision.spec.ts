@@ -828,3 +828,26 @@ test("emite un anticipo y luego la factura final que lo descuenta: el pie y la f
   await expect(page.getByTestId("anticipos")).toContainText("F001-");
   await expect(page.getByText("Anticipos ya pagados (con IGV)")).toBeVisible();
 });
+
+test("emite una factura al crédito con retención del IGV: el pie la resta y la ficha la muestra (#313)", async ({ page }) => {
+  await page.getByRole("button", { name: "Nuevo comprobante" }).click();
+  const dialogo = page.getByRole("dialog");
+  await dialogo.getByLabel("RUC").fill("20554198211");
+  await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+  await dialogo.getByLabel("Descripción").fill("Proyecto");
+  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+
+  await dialogo.getByLabel("El cliente retiene el IGV (agente de retención)").check();
+  await expect(dialogo.getByLabel("Porcentaje de retención")).toHaveValue("3");
+  // El monto lo calcula el backend: 3 % de 1,180.00.
+  await expect(dialogo.getByTestId("retencion-pie")).toContainText("Retención S/ 35.40");
+  await expect(dialogo.getByTestId("retencion-pie")).toContainText("Neto a cobrar S/ 1,144.60");
+
+  // Al crédito el neto pendiente ya descuenta la retención.
+  await dialogo.getByLabel("Forma de pago").selectOption("credito");
+  await dialogo.getByRole("button", { name: "Repartir" }).click();
+  await expect(dialogo.getByTestId("credito-resumen")).toContainText("de S/ 1,144.60");
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  await expect(page.getByText("Retención del IGV (3%)")).toBeVisible();
+});

@@ -23,6 +23,7 @@ import { listarPaises } from "@/lib/comprobantes/paises";
 import { avisoDeDetraccion, DETRACCION_VACIA, detraccionAApi, errorDeDetraccion, operacionDeDetraccion, type DetraccionForm } from "@/lib/comprobantes/detraccion";
 import { errorDePercepcion, OPERACION_PERCEPCION, PERCEPCION_VACIA, percepcionAApi, type PercepcionForm } from "@/lib/comprobantes/percepcion";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
+import { errorDeRetencion, RETENCION_VACIA, retencionAApi, type RetencionForm } from "@/lib/comprobantes/retencion";
 import { errorDeReferencias, REFERENCIAS_VACIAS, referenciasAApi, type ReferenciasForm } from "@/lib/comprobantes/referencias";
 import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm } from "@/lib/comprobantes/tributos";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
@@ -39,6 +40,7 @@ import { CreditoEditor } from "./credito-editor";
 import { DetraccionEditor } from "./detraccion-editor";
 import { PercepcionEditor } from "./percepcion-editor";
 import { ReferenciasEditor } from "./referencias-editor";
+import { RetencionEditor } from "./retencion-editor";
 import { EstadoConsultaRuc } from "./estado-consulta-ruc";
 import { useAnticiposDisponibles } from "./use-anticipos-disponibles";
 import { useConsultaRuc } from "./use-consulta-ruc";
@@ -174,6 +176,8 @@ export function NuevoComprobanteForm({
   const [detraccion, setDetraccion] = useState<DetraccionForm>(DETRACCION_VACIA);
   // #297: percepción del IGV (operación 2001), en soles y al contado; es excluyente con la detracción (cada una fija su tipo de operación).
   const [percepcion, setPercepcion] = useState<PercepcionForm>(PERCEPCION_VACIA);
+  // #313: retención del IGV (el cliente es agente de retención), solo en factura; informativa. Excluye a la detracción y a la percepción.
+  const [retencion, setRetencion] = useState<RetencionForm>(RETENCION_VACIA);
   // #300: orden de compra, guías, otros documentos relacionados y observaciones; no cambian importes, así que no entran en el cálculo.
   const [referencias, setReferencias] = useState<ReferenciasForm>(REFERENCIAS_VACIAS);
   // Abierta por quien la abre (no por si hay algo escrito: al borrar lo escrito se cerraba sola mientras se usaba).
@@ -275,6 +279,7 @@ export function NuevoComprobanteForm({
   const exportacion = esExportacion(operacion);
   const conDetraccion = detraccion.activa && operacion === "0101";
   const conPercepcion = percepcion.activa && operacion === "0101" && !conDetraccion;
+  const conRetencion = retencion.activa && !boleta && operacion === "0101" && !conDetraccion && !conPercepcion;
   const operacionEnviada = conDetraccion ? operacionDeDetraccion(detraccion.codigo) : conPercepcion ? OPERACION_PERCEPCION : operacion;
   const errorDetraccion = conDetraccion ? errorDeDetraccion(detraccion, moneda) : null;
   const errorReferencias = errorDeReferencias(referencias, boleta);
@@ -283,6 +288,7 @@ export function NuevoComprobanteForm({
   // Lo elegido para otro cliente u otra moneda ya no está entre los candidatos y no se manda.
   const anticiposVigentes = disponibles.estado === "listo" ? anticiposElegidos.filter((a) => disponibles.candidatos.some((c) => c.serie === a.serie && c.numero === a.numero)) : [];
   const errorAnticipos = errorDeAnticipos(anticiposVigentes, disponibles.candidatos);
+  const errorRetencion = conRetencion ? errorDeRetencion(retencion) : null;
   const errorPercepcion = conPercepcion ? errorDePercepcion(percepcion, { moneda, alCredito: alCredito && !boleta }) : null;
   const errorExportacion = errorDeExportacion({ operacion, incoterm, paisDeUso, paisDelComprador: pais }, boleta);
   // En una exportación el comprador es del exterior: se elige su documento (como en la boleta) en vez de pedir un RUC.
@@ -317,7 +323,7 @@ export function NuevoComprobanteForm({
   const hayAjusteInvalido =
     errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
     lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null || errorDeIsc(l.isc) !== null) ||
-    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null || errorAnticipos !== null;
+    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null || errorAnticipos !== null || errorRetencion !== null;
 
   /**
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
@@ -332,6 +338,7 @@ export function NuevoComprobanteForm({
       detraccion: conDetraccion ? detraccionAApi(detraccion, moneda) : undefined,
       ...(paraCalcular ? {} : referenciasAApi(referencias, boleta)),
       anticipos: anticiposAApi(anticiposVigentes, disponibles.candidatos),
+      retencion_igv: conRetencion ? retencionAApi(retencion) : undefined,
       percepcion: conPercepcion ? percepcionAApi(percepcion, { moneda, alCredito: alCredito && !boleta }) : undefined,
       exportacion: exportacion && (incoterm || paisDeUso) ? { incoterm: incoterm || undefined, pais_uso: paisDeUso || undefined } : undefined,
       cliente: paraCalcular
@@ -366,7 +373,9 @@ export function NuevoComprobanteForm({
   const montoPercepcion = calculoBase.estado === "listo" ? (calculoBase.comprobante.percepcion?.monto ?? null) : null;
   // 3319: con detracción, el neto pendiente por defecto es lo que queda por cobrar (el total menos el depósito en la cuenta de detracciones); solo cuando ambos son en soles.
   const montoDetraccion = calculoBase.estado === "listo" ? (calculoBase.comprobante.detraccion?.monto ?? null) : null;
-  const netoBase = calculoBase.estado === "listo" ? calculoBase.totales.total - (moneda === "PEN" ? (montoDetraccion ?? 0) : 0) : totales.total + (redondeo.valor ?? 0);
+  const montoRetencion = calculoBase.estado === "listo" ? (calculoBase.comprobante.retencion_igv?.monto ?? null) : null;
+  // La retención se descuenta en la moneda de la factura: el cliente retiene sobre el importe total.
+  const netoBase = calculoBase.estado === "listo" ? calculoBase.totales.total - (moneda === "PEN" ? (montoDetraccion ?? 0) : 0) - (conRetencion ? (montoRetencion ?? 0) : 0) : totales.total + (redondeo.valor ?? 0);
   const errorCredito = alCredito && !boleta ? errorDeCredito(credito, netoBase, fecha) : null;
   const calculoCredito = useCalculo(completo && alCredito && !boleta && errorCredito === null ? armarCuerpo(true, netoBase) : null);
   const calculo = alCredito && !boleta && calculoCredito.estado !== "inactivo" ? calculoCredito : calculoBase;
@@ -426,7 +435,7 @@ export function NuevoComprobanteForm({
       return;
     }
     if (hayAjusteInvalido) {
-      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? errorAnticipos ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
+      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? errorAnticipos ?? errorRetencion ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
       return;
     }
     if (errorCredito) {
@@ -727,7 +736,10 @@ export function NuevoComprobanteForm({
                 checked={detraccion.activa}
                 onChange={(e) => {
                   setDetraccion((d) => ({ ...d, activa: e.target.checked, cuenta: d.cuenta || cuentaDetracciones || "" }));
-                  if (e.target.checked) setPercepcion((p) => ({ ...p, activa: false }));
+                  if (e.target.checked) {
+                    setPercepcion((p) => ({ ...p, activa: false }));
+                    setRetencion((r) => ({ ...r, activa: false }));
+                  }
                 }}
                 className="size-3.5 accent-primary"
               />
@@ -746,7 +758,10 @@ export function NuevoComprobanteForm({
                   <input
                     type="checkbox"
                     checked={percepcion.activa}
-                    onChange={(e) => setPercepcion((p) => ({ ...p, activa: e.target.checked }))}
+                    onChange={(e) => {
+                      setPercepcion((p) => ({ ...p, activa: e.target.checked }));
+                      if (e.target.checked) setRetencion((r) => ({ ...r, activa: false }));
+                    }}
                     className="size-3.5 accent-primary"
                   />
                   Operación con percepción del IGV
@@ -754,6 +769,15 @@ export function NuevoComprobanteForm({
                 {percepcion.activa ? (
                   <PercepcionEditor valor={percepcion} onCambio={setPercepcion} moneda={moneda} alCredito={alCredito && !boleta} montoCalculado={montoPercepcion} />
                 ) : null}
+                {boleta || percepcion.activa ? null : (
+                  <>
+                    <label className="flex items-center gap-2 text-[13px] font-medium">
+                      <input type="checkbox" checked={retencion.activa} onChange={(e) => setRetencion((r) => ({ ...r, activa: e.target.checked }))} className="size-3.5 accent-primary" />
+                      El cliente retiene el IGV (agente de retención)
+                    </label>
+                    {retencion.activa ? <RetencionEditor valor={retencion} onCambio={setRetencion} moneda={moneda} montoCalculado={montoRetencion} /> : null}
+                  </>
+                )}
               </>
             )}
           </div>
@@ -1057,6 +1081,11 @@ export function NuevoComprobanteForm({
           {conDetraccion && montoDetraccion !== null ? (
             <span className={AYUDA_CAMPO} data-testid="detraccion-pie">
               Detracción {formatearMonto("PEN", montoDetraccion)} · Neto a cobrar {formatearMonto(moneda, mostrados.total - (moneda === "PEN" ? montoDetraccion : 0))}
+            </span>
+          ) : null}
+          {conRetencion && montoRetencion !== null ? (
+            <span className={AYUDA_CAMPO} data-testid="retencion-pie">
+              Retención {formatearMonto(moneda, montoRetencion)} · Neto a cobrar {formatearMonto(moneda, mostrados.total - montoRetencion)}
             </span>
           ) : null}
           {conPercepcion && montoPercepcion !== null ? (

@@ -702,6 +702,81 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
   });
 });
 
+describe("NuevoComprobanteForm — retención del IGV (#313)", () => {
+  const TOTALES = { gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 };
+  const CON_RETENCION = { retencion_igv: { porcentaje: 3, monto: 35.4, neto_cobrar: 1144.6 } };
+
+  function conComprador() {
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    linea("Mercadería", "1180");
+  }
+  const marcar = () => fireEvent.click(screen.getByLabelText("El cliente retiene el IGV (agente de retención)"));
+
+  it("es de la factura de venta interna: ni la boleta ni la exportación la ofrecen", () => {
+    stubConCalculo(TOTALES);
+    const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    expect(screen.getByLabelText("El cliente retiene el IGV (agente de retención)")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+    expect(screen.queryByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeInTheDocument();
+    unmount();
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    expect(screen.queryByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeInTheDocument();
+  });
+
+  it("arranca en 3 %, manda el porcentaje y el pie muestra la retención y el neto a cobrar del backend", async () => {
+    const fetch = stubConCalculo(TOTALES, undefined, CON_RETENCION);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    marcar();
+    expect(screen.getByLabelText("Porcentaje de retención")).toHaveValue("3");
+    await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ retencion_igv: { porcentaje: 3 } }));
+    await waitFor(() => expect(screen.getByTestId("retencion-pie")).toHaveTextContent("Retención S/ 35.40 · Neto a cobrar S/ 1,144.60"));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ retencion_igv: { porcentaje: 3 } });
+    expect(emisiones(fetch)[0]).not.toHaveProperty("tipo_operacion");
+  });
+
+  it("un porcentaje fuera de rango lo dice y no deja emitir", async () => {
+    const fetch = stubConCalculo(TOTALES, undefined, CON_RETENCION);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    marcar();
+    fireEvent.change(screen.getByLabelText("Porcentaje de retención"), { target: { value: "100" } });
+    expect(screen.getByTestId("retencion-resumen")).toHaveTextContent(/mayor que 0 y menor que 100/);
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    expect(emisiones(fetch)).toHaveLength(0);
+  });
+
+  it("al crédito, el neto pendiente por defecto es el total menos la retención", async () => {
+    const fetch = stubConCalculo(TOTALES, undefined, CON_RETENCION);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    marcar();
+    await waitFor(() => expect(screen.getByTestId("retencion-pie")).toHaveTextContent("Retención S/ 35.40"));
+    fireEvent.change(screen.getByLabelText("Forma de pago"), { target: { value: "credito" } });
+    fireEvent.click(screen.getByRole("button", { name: "Repartir" }));
+    await waitFor(() => expect(screen.getByTestId("credito-resumen")).toHaveTextContent("de S/ 1,144.60 pendientes"));
+    await waitFor(() => expect(calculos(fetch).at(-1)?.forma_pago).toMatchObject({ tipo: "credito", monto_pendiente: 1144.6 }));
+  });
+
+  it("se excluye con la percepción y con la detracción: activar una apaga la otra", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
+    conComprador();
+    marcar();
+    expect(screen.getByTestId("retencion-form")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    expect(screen.queryByTestId("retencion-form")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    marcar();
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    expect(screen.queryByTestId("retencion-form")).not.toBeInTheDocument();
+  });
+});
+
 describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
   const TOTALES = { gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 };
 
