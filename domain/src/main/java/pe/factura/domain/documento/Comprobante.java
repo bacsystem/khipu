@@ -231,11 +231,12 @@ public class Comprobante {
     static final java.util.Set<String> OPERACIONES_EN_BOLETA = java.util.Set.of("0101", "0113", "1001", "1002", "1003", "1004", "2001");
 
     /**
-     * #394: venta interna, exportación (sin hospedaje ni paquete turístico, que piden el huésped), no domiciliados (0401), detracción, percepción y 2103. e-beta rechazó
-     * con el número ya consumido el 0112, 0301, 0302, 2002, 2100–2102, 2104 y 2106 porque khipu no arma sus datos; aceptó el 0401 y el 2103 tal cual.
+     * #394: venta interna, exportación (sin hospedaje ni paquete turístico, que piden el huésped), no domiciliados (0401), detracción y percepción. e-beta rechazó
+     * con el número ya consumido el 0112, 0301, 0302, 2002, 2100–2102, 2104 y 2106 porque khipu no arma sus datos; aceptó el 0401. El 2103 también lo aceptó, pero
+     * Factura2_0 (fila 437, regla 1080) lo reserva a los RUC afiliados al SEE-Empresas supervisadas, que e-beta no cruza: no se emite.
      */
     static final java.util.Set<String> OPERACIONES_EN_FACTURA = java.util.Set.of("0101", "0200", "0201", "0203", "0204", "0206", "0207", "0208", "0401",
-            "1001", "1002", "1003", "1004", "2001", "2103");
+            "1001", "1002", "1003", "1004", "2001");
 
     /** Venta interna - NRUS (catálogo 51): solo en boleta. */
     static final String OPERACION_NRUS = "0113";
