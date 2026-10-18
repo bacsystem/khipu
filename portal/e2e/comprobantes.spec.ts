@@ -170,6 +170,38 @@ test("una nota parcial lleva su fecha, descuento global, cargo y observaciones, 
   await expect(page.getByTestId("observaciones")).toContainText("Devolución recibida en tienda.");
 });
 
+test("un comprobante enviado sin respuesta recupera su constancia de SUNAT y queda aceptado (#315)", async ({ page }) => {
+  await page.goto("/comprobantes/f-enviada-recuperable");
+  await expect(page.getByText("Enviado", { exact: true }).first()).toBeVisible();
+  await page.getByTestId("recuperar-cdr").click();
+  await expect(page.getByText("Aceptado", { exact: true }).first()).toBeVisible();
+  // Ya tiene su constancia: el botón desaparece.
+  await expect(page.getByTestId("recuperar-cdr")).toHaveCount(0);
+});
+
+test("si SUNAT todavía no tiene la constancia lo dice y el comprobante sigue enviado (#315)", async ({ page }) => {
+  await page.goto("/comprobantes/f-enviada-sin-cdr");
+  await page.getByTestId("recuperar-cdr").click();
+  await expect(page.getByTestId("recuperar-cdr-mensaje")).toContainText("todavía no tiene la constancia");
+  await expect(page.getByText("Enviado", { exact: true }).first()).toBeVisible();
+});
+
+test("una boleta enviada sin respuesta no ofrece recuperar la constancia: SUNAT no la expone para boletas (#315)", async ({ page }) => {
+  await page.goto("/comprobantes/b-enviada");
+  await expect(page.getByText("Enviado", { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId("recuperar-cdr")).toHaveCount(0);
+});
+
+test("la ficha consulta la validez del comprobante en SUNAT (#315)", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada");
+  await page.getByTestId("consultar-validez").click();
+  await expect(page.getByTestId("validez-resultado")).toContainText("Aceptado por SUNAT (0001)");
+  // Uno que SUNAT no recibió (enviado sin respuesta) no existe para SUNAT.
+  await page.goto("/comprobantes/f-enviada-sin-cdr");
+  await page.getByTestId("consultar-validez").click();
+  await expect(page.getByTestId("validez-resultado")).toContainText("SUNAT no tiene este comprobante (0011)");
+});
+
 test("emite una nota de crédito parcial desde la factura y la factura la lista", async ({ page }) => {
   await page.goto("/comprobantes/f-aceptada");
   await page.getByTestId("emitir-nota").click();

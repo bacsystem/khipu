@@ -8,7 +8,9 @@ import { BajaEstado } from "@/components/comprobantes/baja-estado";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { AvisoBoletaSinInformar } from "@/components/comprobantes/aviso-boleta-sin-informar";
 import { AvisosDeEmision } from "@/components/comprobantes/avisos-de-emision";
+import { RecuperarCdrButton } from "@/components/comprobantes/recuperar-cdr-button";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
+import { ValidezButton } from "@/components/comprobantes/validez-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
 import { admiteBaja, admiteCorreo, admiteNotas, esDeBoleta, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, seInformaFueraDePlazo, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
@@ -242,6 +244,8 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
   if (!c) notFound();
 
   const numero = `${c.serie}-${String(c.numero).padStart(8, "0")}`;
+  // El RUC del emisor es el primer tramo del nombre de archivo (`<RUC>-<tipo>-<serie>-<número>`).
+  const rucEmisor = /^\d{11}$/.test(c.nombre_archivo?.split("-")[0] ?? "") ? c.nombre_archivo!.split("-")[0] : null;
   const tipoLabel = ETIQUETAS_TIPO[c.tipo] ?? c.tipo;
   const tipoOperacion = c.tipo_operacion ? `${c.tipo_operacion} · ${TIPOS_OPERACION[c.tipo_operacion] ?? "Otra operación"}` : null;
   const tipoDoc = c.receptor ? (ETIQUETAS_TIPO_DOC[c.receptor.tipo_doc] ?? `Tipo ${c.receptor.tipo_doc}`) : null;
@@ -266,6 +270,22 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         <div className="flex flex-wrap items-center gap-2">
           {c.estado_documento === "ERROR_ENVIO" ? <ReenviarButton id={c.id} /> : null}
           {c.estado_documento === "FIRMADO" ? <ReenviarButton id={c.id} etiqueta="Enviar a SUNAT" enCurso="Enviando…" /> : null}
+          {/* #315: la constancia de un comprobante atascado (solo facturas y sus notas: SUNAT no la expone para boletas) y la consulta de validez. */}
+          {(c.estado_documento === "ENVIADO" || c.estado_documento === "ERROR_ENVIO") && !esDeBoleta(c) ? <RecuperarCdrButton id={c.id} estado={c.estado_documento} /> : null}
+          {rucEmisor && !["RECIBIDO", "FIRMADO", "INVALIDO", "DESCARTADO"].includes(c.estado_documento) ? (
+            <ValidezButton
+              datos={{
+                ruc: rucEmisor,
+                tipo: c.tipo,
+                serie: c.serie,
+                numero: c.numero,
+                tipoDocReceptor: c.receptor && c.receptor.tipo_doc !== "-" ? c.receptor.tipo_doc : undefined,
+                numDocReceptor: c.receptor && c.receptor.tipo_doc !== "-" ? c.receptor.num_doc : undefined,
+                fecha: c.fecha_emision,
+                monto: c.totales.total,
+              }}
+            />
+          ) : null}
           {admiteNotas(c) ? (
             <Link href={`/comprobantes/${c.id}/nota`} className={ACCION_SECUNDARIA} data-testid="emitir-nota">
               <FileMinusIcon className="size-4" />

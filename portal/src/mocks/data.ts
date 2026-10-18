@@ -1123,6 +1123,33 @@ export function resetDb() {
       forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
       enlaces: { xml: "/v1/facturas/f-baja-doble/xml" },
     },
+    ...[
+      // #315: enviados sin respuesta (la conexión se cortó). Uno que SUNAT sí aceptó (la constancia se recupera) y otro que todavía no tiene; fixtures propias para que
+      // ningún e2e dependa del estado que deja otro.
+      { id: "f-enviada-recuperable", tipo: "01", serie: "F001", numero: 80 },
+      { id: "f-enviada-sin-cdr", tipo: "01", serie: "F001", numero: 81 },
+      // Una boleta enviada sin respuesta: SUNAT no expone `getStatusCdr` para boletas, así que la ficha no ofrece recuperar la constancia.
+      { id: "b-enviada", tipo: "03", serie: "B001", numero: 82 },
+    ].map(({ id, tipo, serie, numero }) => ({
+      id,
+      tipo,
+      serie,
+      numero,
+      fecha_emision: "2026-09-02",
+      moneda: "PEN",
+      tipo_operacion: "0101",
+      receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null },
+      items: [{ codigo: null, descripcion: "Soporte mensual", unidad: "ZZ", cantidad: 1, precio_unitario: 59, tipo_afectacion_igv: "10" }],
+      estado_documento: "ENVIADO" as const,
+      hash: `hash-${id}`,
+      nombre_archivo: `20123456786-${tipo}-${serie}-${String(numero).padStart(8, "0")}`,
+      intentos: 1,
+      ultimo_error: null,
+      cdr: null,
+      totales: { gravado: 50, exonerado: 0, inafecto: 0, igv: 9, total: 59 },
+      forma_pago: { tipo: "contado" as const, monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: `/v1/facturas/${id}/xml`, pdf: `/v1/facturas/${id}/pdf` },
+    })),
     {
       // #294: boleta aceptada con DNI, para la NC total sobre boleta y la baja de esa nota por resumen diario (RC). Fecha que
       // ningún e2e del resumen usa (comprobantes-resumen.spec afirma lo exacto sobre el 20 y el 31 de agosto).

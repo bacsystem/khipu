@@ -3165,6 +3165,43 @@ export const handlers = [
     return ok(baja);
   }),
 
+  // #315: `getStatusCdr`. Como el backend: solo facturas y sus notas (serie F), solo si falta la constancia (409 CDR_YA_DISPONIBLE). Si SUNAT la tiene (el mock lo simula salvo en
+  // `f-enviada-sin-cdr`), aplica el resultado; si no, devuelve el comprobante sin cambios.
+  http.post(`${BASE}/v1/facturas/:id/cdr/recuperar`, ({ params, request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const factura = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === params.id);
+    if (!factura) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
+    if (deBoletaMock(factura)) return fail(409, "CDR_NO_CONSULTABLE", "SUNAT no expone getStatusCdr para boletas ni notas de boleta: su constancia es la del envío individual o la del resumen diario");
+    if (factura.cdr) return fail(409, "CDR_YA_DISPONIBLE", "El comprobante ya tiene su constancia de SUNAT");
+    if (params.id === "f-enviada-sin-cdr") return ok(factura);
+    factura.estado_documento = "ACEPTADO";
+    factura.cdr = { codigo: "0", descripcion: `La Factura numero ${factura.serie}-${factura.numero}, ha sido aceptada`, observaciones: [] };
+    factura.ultimo_error = null;
+    factura.enlaces = { ...factura.enlaces, cdr: `/v1/facturas/${factura.id}/cdr` };
+    return ok(factura);
+  }),
+
+  // #315: `validaCDPcriterios` por los datos del comprobante. El mock responde con lo que la empresa tiene guardado: aceptado, rechazado o de baja según su estado,
+  // «no existe» si SUNAT no lo recibió o no está, y «ajeno» si el RUC no es el de la empresa.
+  http.get(`${BASE}/v1/consultas/validez`, ({ request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const q = new URL(request.url).searchParams;
+    const ruc = q.get("ruc") ?? "";
+    const serie = q.get("serie") ?? "";
+    const numero = Number(q.get("numero"));
+    const tipo = q.get("tipo") ?? "";
+    if (!/^\d{11}$/.test(ruc)) return fail(400, "PARAMETRO_INVALIDO", "ruc debe tener 11 dígitos");
+    if (!serie || !(numero > 0) || !tipo) return fail(400, "PARAMETRO_INVALIDO", "Faltan serie, número o tipo");
+    const propio = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.tipo === tipo && f.serie === serie && f.numero === numero);
+    const rucDeLaEmpresa = propio?.nombre_archivo?.split("-")[0];
+    if (propio && rucDeLaEmpresa && rucDeLaEmpresa !== ruc) return ok({ estado: "AJENO", codigo: "0012", mensaje: "El comprobante pertenece a otro emisor" });
+    if (!propio) return ok({ estado: "NO_EXISTE", codigo: "0011", mensaje: "El comprobante no existe" });
+    if (propio.estado_documento === "ACEPTADO" || propio.estado_documento === "ACEPTADO_CON_OBS") return ok({ estado: "ACEPTADO", codigo: "0001", mensaje: "El comprobante existe y está aceptado" });
+    if (propio.estado_documento === "RECHAZADO") return ok({ estado: "RECHAZADO", codigo: "0002", mensaje: "El comprobante fue rechazado" });
+    if (propio.estado_documento === "ANULADO") return ok({ estado: "DE_BAJA", codigo: "0003", mensaje: "El comprobante está dado de baja" });
+    return ok({ estado: "NO_EXISTE", codigo: "0011", mensaje: "El comprobante no existe" });
+  }),
+
   http.post(`${BASE}/v1/facturas/:id/enviar`, ({ params, request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
     const factura = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === params.id);
