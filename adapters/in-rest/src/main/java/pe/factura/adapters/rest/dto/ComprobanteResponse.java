@@ -205,7 +205,12 @@ public record ComprobanteResponse(
             @Schema(example = "15101505", description = "Código de producto SUNAT (catálogo 25), o `null`") String codigoSunat,
             @Schema(description = "GTIN del producto, o `null`") GtinDto gtin,
             @Schema(description = "Datos de recursos hidrobiológicos (solo con tipo de operación 1002), o `null`") Hidrobiologico hidrobiologico,
-            @Schema(description = "Datos del servicio de transporte de carga (solo con tipo de operación 1004), o `null`") TransporteCarga transporte) {}
+            @Schema(description = "Datos del servicio de transporte de carga (solo con tipo de operación 1004), o `null`") TransporteCarga transporte,
+            @Schema(description = "Otros tributos (9999) de la línea, o `null`") OtrosTributosRespuestaDto otrosTributos,
+            @Schema(example = "ABC-123", description = "Placa del vehículo (propiedad 7000), o `null`") String placa) {}
+
+    /** Otros tributos de una línea: la tasa pedida y el monto que khipu calculó sobre el valor de venta. */
+    public record OtrosTributosRespuestaDto(@Schema(example = "3.5") BigDecimal tasa, @Schema(example = "3.50") BigDecimal monto) {}
 
     public record GtinDto(@Schema(example = "GTIN-13") String tipo, @Schema(example = "7750182000123") String codigo) {}
 
@@ -241,6 +246,7 @@ public record ComprobanteResponse(
             @Schema(example = "0.00", description = "Total valor de venta de exportación (tributo 9995, afectación 40, sin IGV)") BigDecimal exportacion,
             @Schema(example = "0.00", description = "Total ISC (se suma al precio de venta y a la base del IGV)") BigDecimal isc,
             @Schema(example = "0.00", description = "Total ICBPER (bolsas de plástico)") BigDecimal icbper,
+            @Schema(example = "0.00", description = "Total de otros tributos (9999): suma al precio de venta y no entra en la base del IGV") BigDecimal otrosTributos,
             @Schema(example = "1000.00", description = "Total valor de venta onerosa (suma de bases, LineExtensionAmount)") BigDecimal totalValorVenta,
             @Schema(example = "1180.00", description = "Total precio de venta = valor de venta + tributos (TaxInclusiveAmount)") BigDecimal totalPrecioVenta,
             @Schema(example = "0.00", description = "Descuentos que no afectan la base (línea 01 + global 03), AllowanceTotalAmount") BigDecimal totalDescuentos,
@@ -274,7 +280,7 @@ public record ComprobanteResponse(
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones(), c.resumenDelCdr().orElse(null)),
                 new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(), c.tasaIgv(),
-                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().ivap(), c.totales().exportacion(), c.totales().isc(), c.totales().icbper(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().totalCargos(), c.totales().totalAnticipos(), c.totales().redondeo(), c.totales().total(),
+                        c.totales().gratuito(), c.totales().igvGratuitas(), c.totales().ivap(), c.totales().exportacion(), c.totales().isc(), c.totales().icbper(), c.totales().otrosTributos(), c.totales().totalValorVenta(), c.totales().totalPrecioVenta(), c.totales().totalDescuentos(), c.totales().totalCargos(), c.totales().totalAnticipos(), c.totales().redondeo(), c.totales().total(),
                         c.totales().descuentoGlobal() == null ? null : new DescuentoDto(c.totales().descuentoGlobal().descuento().tipo().name(),
                                 c.totales().descuentoGlobal().descuento().valor(), c.totales().descuentoGlobal().monto(),
                                 c.totales().descuentoGlobal().afectaBase(), c.totales().descuentoGlobal().codigo()),
@@ -313,6 +319,6 @@ public record ComprobanteResponse(
         IscDto isc = ic.tieneIsc() ? new IscDto(i.isc().sistema(), ic.iscPorcentaje(), ic.isc(), ic.iscBase(), i.isc().basePvp(), i.isc().montoUnitario()) : null;
         return new ItemDto(i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(), ic.valorVenta(), ic.igv(), ic.precioVenta(), ic.gratuita(), d, CargoDto.de(ic.cargos()), isc, ic.icbper(),
                 i.tieneCodigoSunat() ? i.codigoSunat().codigo() : null, i.gtin() == null ? null : new GtinDto(i.gtin().tipo(), i.gtin().codigo()),
-                i.hidrobiologico(), i.transporte());
+                i.hidrobiologico(), i.transporte(), i.tieneOtrosTributos() ? new OtrosTributosRespuestaDto(i.otrosTributos().tasa(), ic.otrosTributos()) : null, i.placa());
     }
 }

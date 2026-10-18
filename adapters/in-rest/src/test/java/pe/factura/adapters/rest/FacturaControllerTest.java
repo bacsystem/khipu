@@ -942,6 +942,35 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.datos.items[0].isc.monto").value(4.50));
     }
 
+    /** #317: `otros_tributos` y `placa` entran al comando y salen en la respuesta con el monto calculado; el total del comprobante los suma. */
+    @Test void otrosTributosYPlacaEntranYSalen() throws Exception {
+        String conOtros = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":3.5},\"placa\":\"ABC-123\"}");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, null,
+                        new OtrosTributos(new BigDecimal("3.5")), "ABC-123")))
+                .crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conOtros))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.items[0].otros_tributos.tasa").value(3.5))
+                .andExpect(jsonPath("$.datos.items[0].otros_tributos.monto").value(3.50))
+                .andExpect(jsonPath("$.datos.items[0].placa").value("ABC-123"))
+                .andExpect(jsonPath("$.datos.totales.otros_tributos").value(3.50))
+                .andExpect(jsonPath("$.datos.totales.total").value(121.50));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().items().get(0).otrosTributos()).isEqualTo(new OtrosTributos(new BigDecimal("3.5")));
+        assertThat(cap.getValue().items().get(0).placa()).isEqualTo("ABC-123");
+    }
+
+    @Test void otrosTributosConTasaInvalidaOPlacaLargaEs422DeValidacion() throws Exception {
+        for (String mal : new String[]{"\"otros_tributos\":{\"tasa\":0}", "\"otros_tributos\":{\"tasa\":1000}", "\"otros_tributos\":{\"tasa\":1.123456}", "\"placa\":\"ABCDEFGHI\""}) {
+            String cuerpoMalo = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\"," + mal + "}");
+            mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpoMalo))
+                    .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+        }
+    }
+
     @Test void anticiposEntranYSalen() throws Exception {
         String conAnticipo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"F001\",\"numero\":10,\"monto\":30.00,\"fecha_pago\":\"2026-09-01\"}],");
         Comprobante c = aceptado(tenant);

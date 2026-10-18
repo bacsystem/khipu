@@ -432,6 +432,45 @@ class AtributosSunatFacturaTest {
                 "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
     }
 
+    /**
+     * #317: otros tributos (9999) y placa. La línea lleva su subtotal 9999 con base = valor de venta, monto y tasa, sin afectación del IGV (3050); suma a los tributos de la línea
+     * y del comprobante (3292, 3294) y al total de precio de venta (3279), y no entra en la base del IGV. La placa es la propiedad 7000 del ítem (3064).
+     */
+    @Test void otrosTributosYPlacaEnElXml() throws Exception {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null),
+                List.of(new Item("COMB", "Diésel B5", "GLL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, null,
+                        new OtrosTributos(new BigDecimal("3.5")), "ABC-123"))).crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(12, "20100066603");
+        String xml = new FreemarkerUblGenerator().generar(c, FreemarkerUblGeneratorTest.tenant());
+        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
+        f.setNamespaceAware(true);
+        Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+
+        String linea = "/inv:Invoice/cac:InvoiceLine/cac:TaxTotal";
+        String otros = linea + "/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='9999']";
+        assertThat(valor(d, linea + "/cbc:TaxAmount")).isEqualTo("21.50");                                              // 3292: 1000 + 9999
+        assertThat(valor(d, otros + "/cbc:TaxableAmount")).isEqualTo("100.00");
+        assertThat(valor(d, otros + "/cbc:TaxAmount")).isEqualTo("3.50");                                               // 3109: 3.5 % × 100
+        assertThat(valor(d, otros + "/cac:TaxCategory/cbc:Percent")).isEqualTo("3.50");
+        assertThat(valor(d, otros + "/cac:TaxCategory/cac:TaxScheme/cbc:Name")).isEqualTo("OTROS");                    // 3051
+        assertThat(valor(d, otros + "/cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode")).isEqualTo("OTH");               // 2377
+        assertThat(valor(d, "count(" + otros + "/cac:TaxCategory/cbc:TaxExemptionReasonCode)")).isEqualTo("0");        // 3050
+        assertThat(valor(d, linea + "/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='1000']/cbc:TaxableAmount")).isEqualTo("100.00");   // la base del IGV no los incluye
+
+        String global = "/inv:Invoice/cac:TaxTotal";
+        assertThat(valor(d, global + "/cbc:TaxAmount")).isEqualTo("21.50");                                             // 3294
+        assertThat(valor(d, global + "/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='9999']/cbc:TaxableAmount")).isEqualTo("100.00");   // 3297
+        assertThat(valor(d, global + "/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID='9999']/cbc:TaxAmount")).isEqualTo("3.50");         // 3299
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount")).isEqualTo("121.50");         // 3279
+        assertThat(valor(d, "/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount")).isEqualTo("121.50");
+
+        String propiedad = "/inv:Invoice/cac:InvoiceLine/cac:Item/cac:AdditionalItemProperty";
+        assertThat(valor(d, propiedad + "/cbc:NameCode")).isEqualTo("7000");
+        assertThat(valor(d, propiedad + "/cbc:Value")).isEqualTo("ABC-123");
+        new JaxpXsdValidator().validar(xml.replace("<ext:ExtensionContent/>",
+                "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), TipoDocumento.FACTURA);
+    }
+
     /** #295: la boleta final con un anticipo de boleta (B001) o de factura (F001) referencia el documento con el tipo 03 o 02 (2505, 2521), y valida contra el XSD. */
     @Test void anticipoEnElXmlDeUnaBoleta() throws Exception {
         for (String[] caso : new String[][]{{"B001", "03"}, {"F001", "02"}}) {

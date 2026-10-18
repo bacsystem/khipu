@@ -115,6 +115,10 @@
     <#if (tot.icbper() > 0)>
     <@tributo monto=tot.icbper() codigo="7152" nombre="ICBPER" internacional="OTH"/>
     </#if>
+    <#-- #317: «Otros tributos» (9999, campo 23 del RC); el TotalAmount de arriba ya los suma (4027). -->
+    <#if (tot.otrosTributos() > 0)>
+    <@tributo monto=tot.otrosTributos() codigo="9999" nombre="OTROS" internacional="OTH"/>
+    </#if>
   </sac:SummaryDocumentsLine>
 </SummaryDocuments>
 <#macro tributo monto codigo nombre internacional tasa="">

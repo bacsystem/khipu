@@ -226,7 +226,7 @@
 <#-- Totales por tributo (TaxTotal global). -->
 <#macro impuestos>
   <cac:TaxTotal>
-    <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv() + tot.ivap() + tot.isc() + tot.icbper()}</cbc:TaxAmount>
+    <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv() + tot.ivap() + tot.isc() + tot.icbper() + tot.otrosTributos()}</cbc:TaxAmount>
     <#list tot.subtotales() as st>
     <cac:TaxSubtotal>
       <#if st.tributo().codigo() != "7152"><cbc:TaxableAmount currencyID="${c.moneda()}">${st.base()}</cbc:TaxableAmount></#if>
@@ -333,6 +333,18 @@
         </cac:TaxCategory>
       </cac:TaxSubtotal>
       </#if>
+      <#-- Otros tributos (9999, #317): base = valor de venta de la línea, tasa y monto (reglas 3109, 3102, 3050: sin afectación del IGV); suman al total y no a la base del IGV. -->
+      <#if it.tieneOtrosTributos()>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="${c.moneda()}">${it.otrosTributos()}</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].OTROS>
+          <cbc:Percent>${it.otrosTributosPorcentaje()?string["0.00###"]}</cbc:Percent>
+          </@categoriaTributo>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+      </#if>
       <#-- ICBPER (7152): sin base ni tasa; bolsas = cantidad del ítem, entera (2892: icbperBolsas lanza en vez de redondear) y monto unitario vigente (reglas 3236–3238). -->
       <#if it.tieneIcbper()>
       <cac:TaxSubtotal>
@@ -380,6 +392,10 @@
         <cbc:NameCode listName="Propiedad del item" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo55">3006</cbc:NameCode>
         <cbc:ValueQuantity unitCode="TNE">${h.cantidad()}</cbc:ValueQuantity>
       </cac:AdditionalItemProperty>
+      </#if>
+      <#-- Placa del vehículo automotor (#317, campo 30): propiedad 7000 del catálogo 55, valor de hasta 8 caracteres (3064). -->
+      <#if it.item().tienePlaca()>
+      <@propiedadItem codigo="7000" nombre="Gastos Art. 37 Renta: Número de Placa" valor=it.item().placa()/>
       </#if>
     </cac:Item>
     <cac:Price><cbc:PriceAmount currencyID="${c.moneda()}">${it.valorUnitario()?string["0.0000000000"]}</cbc:PriceAmount></cac:Price>
