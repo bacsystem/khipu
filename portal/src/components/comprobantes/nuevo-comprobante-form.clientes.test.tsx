@@ -88,6 +88,33 @@ describe("NuevoComprobanteForm — clientes guardados (#319)", () => {
     expect(guardado.cuerpo).toEqual({ razon_social: "Cliente SAC" });
   });
 
+  it("con la casilla desmarcada a mano no guarda", async () => {
+    const fetch = stubBackend([]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    conUnaLinea();
+
+    fireEvent.click(screen.getByLabelText("Guardar en mis clientes al emitir"));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+
+    await waitFor(() => expect(fetch.mock.calls.some(([url, init]) => String(url).includes("/facturas") && !String(url).includes("/calcular") && init?.method === "POST")).toBe(true));
+    expect(guardados(fetch)).toHaveLength(0);
+  });
+
+  it("en una boleta no arrastra la dirección del cliente elegido, que ese formulario no muestra ni deja borrar", async () => {
+    const fetch = stubBackend([{ ...JUAN, direccion: "Jr. Oculto 1" }]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} tipo="boleta" />);
+    await elegir("juan", "JUAN");
+    conUnaLinea();
+
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+
+    await waitFor(() => expect(fetch.mock.calls.some(([url, init]) => String(url).includes("/facturas") && !String(url).includes("/calcular") && init?.method === "POST")).toBe(true));
+    const emision = fetch.mock.calls.filter(([url, init]) => String(url).includes("/facturas") && !String(url).includes("/calcular") && init?.method === "POST").map(([, init]) => JSON.parse(String(init?.body)))[0];
+    expect(emision.cliente.direccion).toBeUndefined();
+  });
+
   it("con la casilla desmarcada, o con un cliente que ya estaba guardado, no vuelve a guardar", async () => {
     const fetch = stubBackend([PACIFICO]);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);

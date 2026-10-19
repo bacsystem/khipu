@@ -160,6 +160,17 @@ describe("proxy /api/proxy/[...path]", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  /** Next entrega los segmentos decodificados: un número de documento con `#`, `?` o `;` (#319) no puede cortar la ruta que llega al backend. */
+  it("vuelve a codificar cada segmento, así un documento con # o ? llega entero", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = requestWithSession("http://localhost/api/proxy/clientes", { method: "GET", access: "a1" });
+
+    await GET(req, ctx(["clientes", "documento", "7", "AB#1?2;3"]));
+
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8001/v1/clientes/documento/7/AB%231%3F2%3B3");
+  });
+
   it("reenvía con Authorization y X-Empresa al backend", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);

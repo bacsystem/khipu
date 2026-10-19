@@ -63,7 +63,12 @@ export function BuscadorDeClientes({ onElegir, deshabilitado }: { onElegir: (c: 
 
   function teclas(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!abierto || !resultados || resultados.length === 0) {
-      if (e.key === "Escape") setAbierto(false);
+      // Con la lista cerrada Escape sigue su camino (cierra el diálogo que contiene al buscador).
+      if (e.key === "Escape" && abierto) {
+        e.preventDefault();
+        e.stopPropagation();
+        setAbierto(false);
+      }
       return;
     }
     if (e.key === "ArrowDown") {
@@ -77,7 +82,9 @@ export function BuscadorDeClientes({ onElegir, deshabilitado }: { onElegir: (c: 
       e.preventDefault();
       elegir(resultados[activo]);
     } else if (e.key === "Escape") {
+      // Cierra la lista, no el diálogo de «Nuevo comprobante» que la contiene (ni borra el texto, que es lo que hace un campo de búsqueda).
       e.preventDefault();
+      e.stopPropagation();
       setAbierto(false);
     }
   }
@@ -94,7 +101,7 @@ export function BuscadorDeClientes({ onElegir, deshabilitado }: { onElegir: (c: 
         type="search"
         role="combobox"
         aria-expanded={abierto}
-        aria-controls={idLista}
+        aria-controls={abierto && hayTexto && resultados ? idLista : undefined}
         aria-activedescendant={abierto && resultados && resultados.length > 0 ? `${idLista}-${activo}` : undefined}
         aria-autocomplete="list"
         autoComplete="off"
@@ -113,6 +120,9 @@ export function BuscadorDeClientes({ onElegir, deshabilitado }: { onElegir: (c: 
         placeholder="Buscar un cliente guardado por documento o nombre"
         className={cn(CAMPO, "pl-9 text-[13px]")}
       />
+      <p role="status" className="sr-only">
+        {abierto && hayTexto && resultados ? (resultados.length === 0 ? "Ningún cliente coincide" : `${resultados.length} ${resultados.length === 1 ? "cliente encontrado" : "clientes encontrados"}`) : ""}
+      </p>
       {error ? (
         <p role="status" className="mt-1 text-[12px] text-muted-foreground">
           {error}

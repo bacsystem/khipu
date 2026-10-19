@@ -55,7 +55,7 @@ public class JdbcClienteRepository implements ClienteRepository {
         List<Object> args = new ArrayList<>();
         String where = where(tenantId, texto, args);
         args.add(porPagina);
-        args.add((pagina - 1) * porPagina);
+        args.add((long) (pagina - 1) * porPagina);
         return jdbc.query("SELECT " + COLUMNAS + " FROM cliente" + where + " ORDER BY razon_social, id LIMIT ? OFFSET ?", FILA, args.toArray());
     }
 

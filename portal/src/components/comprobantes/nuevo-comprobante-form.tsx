@@ -243,8 +243,9 @@ export function NuevoComprobanteForm({
     setTipoDoc(c.tipo_doc);
     setNumDoc(c.num_doc);
     setRazonSocial(c.razon_social);
-    setDireccion(c.direccion ?? "");
-    if (c.pais) setPais(c.pais);
+    // La boleta no muestra la dirección: no se arrastra una que la persona no ve ni puede borrar.
+    setDireccion(boleta ? "" : (c.direccion ?? ""));
+    setPais(c.pais ?? "");
     setGuardarCliente(false);
   }
 

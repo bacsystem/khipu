@@ -5,6 +5,7 @@ import { messages } from "@/lib/messages";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { avisoDePlazo, fechaMinimaDeEmision, PLAZO_ENVIO } from "@/lib/comprobantes/plazo";
 import { errorDeDocumento } from "@/lib/comprobantes/documentos";
+import { CODIGOS_PAIS } from "@/lib/comprobantes/paises";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { rechazoPorLineaMock, rechazoPorNrusMock, rechazoPorTopeDeLineasMock, rechazoPorValorDeVentaMock, type LineaMock } from "./reglas-linea";
 import { CODIGOS_UNIDAD, UNIDADES_MAS_USADAS, db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
@@ -708,10 +709,13 @@ function opcionalesDeCliente(b: { direccion?: string; pais?: string; email?: str
 }
 
 /** Las reglas de `ClienteGuardado.Datos.validar` que el mock reproduce: el documento por su tipo, el nombre de 3 caracteres y un correo con forma de correo. */
-function validarClienteMock(b: { tipo_doc?: string; num_doc?: string; razon_social?: string; email?: string }): string | null {
+function validarClienteMock(b: { tipo_doc?: string; num_doc?: string; razon_social?: string; direccion?: string; pais?: string; email?: string }): string | null {
+  if (b.tipo_doc === "-") return "Un cliente sin documento no se guarda: no identifica a nadie";
   const doc = errorDeDocumento(b.tipo_doc ?? "", b.num_doc ?? "");
   if (doc) return doc;
-  if ((b.razon_social ?? "").trim().length < 3) return "2022 - El nombre del comprador tiene de 3 a 1500 caracteres, sin saltos de línea";
+  if ((b.razon_social ?? "").trim().length < 3 || b.razon_social!.trim().length > 1500) return "2022 - El nombre del comprador tiene de 3 a 1500 caracteres, sin saltos de línea";
+  if ((b.direccion ?? "").trim().length > 300) return "La dirección admite hasta 300 caracteres, sin saltos de línea";
+  if (b.pais?.trim() && !(CODIGOS_PAIS as readonly string[]).includes(b.pais.trim().toUpperCase())) return "El país no es un código ISO 3166-1 alfa-2 válido";
   if (b.email?.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email.trim())) return "El correo del cliente no es válido (hasta 150 caracteres)";
   return null;
 }
@@ -2759,8 +2763,9 @@ export const handlers = [
     const lista = db.clientesPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? [];
     const url = new URL(request.url);
     const q = sinTildes(url.searchParams.get("q") ?? "").trim();
-    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? "1"));
-    const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? "20")));
+    const pagina = Number(url.searchParams.get("pagina") ?? "1");
+    const porPagina = Number(url.searchParams.get("por_pagina") ?? "20");
+    if (!Number.isInteger(pagina) || !Number.isInteger(porPagina) || pagina < 1 || porPagina < 1 || porPagina > 100) return fail(422, "PAGINACION_INVALIDA", "pagina debe ser 1 o más y por_pagina de 1 a 100");
     const filtrados = lista
       .filter((c) => !q || sinTildes(c.razon_social).includes(q) || c.num_doc.toLowerCase().startsWith(q))
       .sort((a, b) => a.razon_social.localeCompare(b.razon_social, "es"));
@@ -2817,7 +2822,11 @@ export const handlers = [
     const malo = validarClienteMock(b);
     if (malo) return fail(422, "RECEPTOR_INVALIDO", malo);
     if (lista.some((x) => x.id !== c.id && x.tipo_doc === b.tipo_doc && x.num_doc === b.num_doc!.trim())) return fail(409, "DUPLICADO", `Ya tiene un cliente con el documento ${b.tipo_doc} ${b.num_doc}`);
-    Object.assign(c, { tipo_doc: b.tipo_doc!, num_doc: b.num_doc!.trim(), razon_social: b.razon_social!.trim(), direccion: null, pais: null, email: null, ...opcionalesDeCliente(b), actualizado_en: new Date().toISOString() });
+    // El PUT reemplaza: lo opcional que no llega se borra, y el JSON no lo trae (el backend omite las claves nulas).
+    delete c.direccion;
+    delete c.pais;
+    delete c.email;
+    Object.assign(c, { tipo_doc: b.tipo_doc!, num_doc: b.num_doc!.trim(), razon_social: b.razon_social!.trim(), ...opcionalesDeCliente(b), actualizado_en: new Date().toISOString() });
     return ok(c);
   }),
 
