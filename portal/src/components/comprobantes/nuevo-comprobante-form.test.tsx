@@ -738,6 +738,20 @@ describe("NuevoComprobanteForm — monedas y tipo de cambio (#316)", () => {
     await waitFor(() => expect(calculos(fetch).at(-1)).not.toHaveProperty("tipo_cambio"));
   });
 
+  it("cambiar de moneda vacía el tipo de cambio: el de 0.025 yenes no se queda para los dólares", async () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "JPY" } });
+    fireEvent.change(screen.getByLabelText(/Tipo de cambio/), { target: { value: "0.025" } });
+    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+    expect(screen.getByLabelText(/Tipo de cambio/)).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ moneda: "USD" });
+    expect(emisiones(fetch)[0]).not.toHaveProperty("tipo_cambio");
+  });
+
   it("un tipo de cambio mal escrito lo dice y no deja emitir; vacío vale", async () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);

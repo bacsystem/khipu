@@ -31,5 +31,8 @@ describe("monedas y tipo de cambio (#316)", () => {
     expect(superaElTopeSinDocumento(1, "USD", undefined)).toBe(true);
     expect(superaElTopeSinDocumento(186.66, "USD", 3.75)).toBe(false); // 699.975 → 699.98
     expect(superaElTopeSinDocumento(186.67, "USD", 3.75)).toBe(true);  // 700.0125 → 700.01
+    // Ni redondear de menos ni de más: 700.004 → 700.00 pasa; 700.005 → 700.01 no (HALF_UP, como `totalEnSoles`). Con `floor` el segundo pasaría; sin redondeo, el primero no.
+    expect(superaElTopeSinDocumento(201.44, "USD", 3.475)).toBe(false);
+    expect(superaElTopeSinDocumento(172.5, "USD", 4.058)).toBe(true);
   });
 });
