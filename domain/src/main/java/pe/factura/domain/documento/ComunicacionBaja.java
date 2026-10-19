@@ -172,7 +172,10 @@ public class ComunicacionBaja {
         estado = destino;
     }
 
-    /** Catálogo 19 (estado del ítem del resumen diario): 1 adicionar, 3 anulado. */
+    /**
+     * Catálogo 19 (estado del ítem del resumen diario): 1 adicionar, 3 anulado. El 2 (modificar) no existe a propósito (#360): SUNAT lo permite, pero una boleta aceptada
+     * con un dato equivocado se corrige con una nota de crédito o de débito, no reescribiendo la línea del resumen; así el comprobante queda como lo vio SUNAT.
+     */
     public enum Condicion {
         ALTA("1"), BAJA("3");
 
