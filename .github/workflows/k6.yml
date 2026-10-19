@@ -1,8 +1,10 @@
 # Pruebas de carga con umbrales (#8, #287): levanta Postgres y el backend real, prepara una empresa aislada y corre los escenarios de k6/.
 # - Descargas (p95 < 300 ms): bloquea. Si un cambio la rompe, el job falla.
-# - Emisión de facturas y de boletas (p95 < 500 ms a 50 doc/s): corren siempre y salen en el resumen, pero NO bloquean (continue-on-error) hasta que haya varias corridas
-#   en el runner compartido que digan cuánto ruido tiene; en una laptop miden ~25 ms (k6/README.md). Cuando se estabilicen, quitar el continue-on-error.
-# - La numeración después de la carga sí bloquea: cada serie tiene que quedar sin huecos ni duplicados (count = max = distinct).
+# - Emisión de facturas y de boletas: bloquea por lo funcional —respuestas que no sean 201 del tipo y estado pedidos, errores, iteraciones descartadas (no se alcanzan los
+#   50 doc/s)— y por una latencia holgada (p95 < 1500 ms: el objetivo es 500 ms, y una laptop mide ~25 ms, pero el runner compartido es mucho más lento y no debe dar falsos rojos).
+#   Cuando haya varias corridas que digan cuánto ruido tiene el runner, bajar UMBRAL_P95_MS a 500.
+# - La numeración después de la carga también bloquea: cada serie tiene que quedar sin huecos ni duplicados (count = max = distinct) y con al menos los documentos que la
+#   carga debía emitir (si no emitió nada, la comprobación no probaba nada).
 name: Carga (k6)
 
 on:
@@ -16,10 +18,15 @@ on:
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "gradle/**"
+      - "gradle.properties"
+      - "gradlew"
       - ".github/workflows/k6.yml"
   schedule:
     - cron: "0 8 * * 1"   # lunes 03:00 Lima
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: k6-${{ github.ref }}
@@ -48,12 +55,15 @@ jobs:
       PGPASSWORD: factura
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
-      - uses: grafana/setup-k6-action@v1
+      # Acción de terceros: fijada por commit (v1) para que una etiqueta movida no cambie lo que corre.
+      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1
         with:
           k6-version: "0.54.0"
 
@@ -70,10 +80,15 @@ jobs:
             echo "JWT_SECRET=$(openssl rand -base64 32)"
           } > "$RUNNER_TEMP/claves.env"
           set -a; . "$RUNNER_TEMP/claves.env"; set +a
+          echo "::add-mask::$PLATFORM_ADMIN_KEY"
           echo "PLATFORM_ADMIN_KEY=$PLATFORM_ADMIN_KEY" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/storage" "$RUNNER_TEMP/logs"
+          # El jar ejecutable, no el «-plain» que genera `assemble`/`build` junto a él.
+          JAR=""
+          for j in bootstrap/build/libs/*.jar; do case "$j" in *-plain.jar) ;; *) JAR="$j"; break ;; esac; done
+          test -n "$JAR"
           DB_URL=jdbc:postgresql://localhost:5432/factura STORAGE_FS_ROOT="$RUNNER_TEMP/storage" LOG_DIR="$RUNNER_TEMP/logs" PORT=8001 \
-            nohup java -jar bootstrap/build/libs/bootstrap-*.jar > "$RUNNER_TEMP/app.log" 2>&1 &
+            nohup java -jar "$JAR" > "$RUNNER_TEMP/app.log" 2>&1 &
           curl -s --retry 60 --retry-delay 2 --retry-connrefused --fail "$API_BASE_URL/health/liveness"
 
       - name: Preparar una empresa aislada (facturas y boletas)
@@ -85,15 +100,18 @@ jobs:
       - name: Descargas (bloquea si p95 > 300 ms)
         run: k6 run --summary-export="$RUNNER_TEMP/k6-descargas.json" k6/descargas.js
 
-      - name: Emisión de facturas (no bloquea)
+      - name: Emisión de facturas (50 doc/s)
         if: ${{ !cancelled() }}
-        continue-on-error: true
+        env:
+          UMBRAL_P95_MS: "1500"
         run: k6 run --summary-export="$RUNNER_TEMP/k6-emision.json" k6/emision.js
 
-      - name: Emisión de boletas (no bloquea)
+      - name: Emisión de boletas (50 doc/s)
         if: ${{ !cancelled() }}
-        continue-on-error: true
-        run: SERIE=B001 k6 run --summary-export="$RUNNER_TEMP/k6-boletas.json" k6/boletas.js
+        env:
+          UMBRAL_P95_MS: "1500"
+          SERIE: B001
+        run: k6 run --summary-export="$RUNNER_TEMP/k6-boletas.json" k6/boletas.js
 
       - name: Numeración sin huecos ni duplicados después de la carga
         if: ${{ !cancelled() }}
@@ -101,7 +119,9 @@ jobs:
           # Por serie: cuántos documentos hay, el número más alto y cuántos números distintos. Los tres tienen que coincidir.
           psql -h localhost -U factura -d factura -At -F ' ' -c "SELECT serie, count(*), max(numero), count(DISTINCT numero) FROM documento GROUP BY serie ORDER BY serie" | tee "$RUNNER_TEMP/numeracion.txt"
           test -s "$RUNNER_TEMP/numeracion.txt"
-          awk '{ if ($2 != $3 || $2 != $4) { print "HUECO O DUPLICADO en " $1 ": " $0; mal = 1 } } END { exit mal }' "$RUNNER_TEMP/numeracion.txt"
+          # La carga emite unas 4 000 por serie (50 doc/s durante ~100 s); la siembra de descargas, 50 más. Con menos de 3 000 la carga no corrió como debía.
+          awk '{ if ($2 != $3 || $2 != $4) { print "HUECO O DUPLICADO en " $1 ": " $0; mal = 1 } if ($2 < 3000) { print "MUY POCOS documentos en " $1 ": " $2 " (se esperaban 3000 o más)"; mal = 1 } seen[$1] = 1 }
+               END { if (!("F001" in seen) || !("B001" in seen)) { print "Falta una serie (F001 y B001 son obligatorias)"; mal = 1 } exit mal }' "$RUNNER_TEMP/numeracion.txt"
 
       - name: Resumen
         if: always()
@@ -109,7 +129,7 @@ jobs:
           {
             echo "### Pruebas de carga (k6)"
             echo
-            echo "| Escenario | p95 (ms) | Umbral | Solicitudes | Fallidas |"
+            echo "| Escenario | p95 (ms) | Objetivo | Solicitudes | Fallidas |"
             echo "|---|---|---|---|---|"
             for f in descargas:300 emision:500 boletas:500; do
               nombre="${f%%:*}"; umbral="${f##*:}"; archivo="$RUNNER_TEMP/k6-$nombre.json"
@@ -130,7 +150,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k6-${{ github.run_id }}
+          name: k6-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/k6-*.json
             ${{ runner.temp }}/numeracion.txt
