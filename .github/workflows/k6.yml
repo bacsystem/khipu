@@ -1,0 +1,138 @@
+# Pruebas de carga con umbrales (#8, #287): levanta Postgres y el backend real, prepara una empresa aislada y corre los escenarios de k6/.
+# - Descargas (p95 < 300 ms): bloquea. Si un cambio la rompe, el job falla.
+# - Emisión de facturas y de boletas (p95 < 500 ms a 50 doc/s): corren siempre y salen en el resumen, pero NO bloquean (continue-on-error) hasta que haya varias corridas
+#   en el runner compartido que digan cuánto ruido tiene; en una laptop miden ~25 ms (k6/README.md). Cuando se estabilicen, quitar el continue-on-error.
+# - La numeración después de la carga sí bloquea: cada serie tiene que quedar sin huecos ni duplicados (count = max = distinct).
+name: Carga (k6)
+
+on:
+  pull_request:
+    paths:
+      - "domain/**"
+      - "application/**"
+      - "adapters/**"
+      - "bootstrap/**"
+      - "k6/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle/**"
+      - ".github/workflows/k6.yml"
+  schedule:
+    - cron: "0 8 * * 1"   # lunes 03:00 Lima
+  workflow_dispatch:
+
+concurrency:
+  group: k6-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  carga:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: factura
+          POSTGRES_PASSWORD: factura
+          POSTGRES_DB: factura
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U factura -d factura"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      API_BASE_URL: http://localhost:8001
+      PGPASSWORD: factura
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: "0.54.0"
+
+      - name: Compilar el backend
+        run: ./gradlew :bootstrap:bootJar --no-daemon
+
+      - name: Levantar el backend
+        run: |
+          # Claves de un solo uso: la base y el storage mueren con el job.
+          {
+            echo "MASTER_KEY=$(openssl rand -base64 32)"
+            echo "API_KEY_PEPPER=$(openssl rand -base64 32)"
+            echo "PLATFORM_ADMIN_KEY=$(openssl rand -base64 32)"
+            echo "JWT_SECRET=$(openssl rand -base64 32)"
+          } > "$RUNNER_TEMP/claves.env"
+          set -a; . "$RUNNER_TEMP/claves.env"; set +a
+          echo "PLATFORM_ADMIN_KEY=$PLATFORM_ADMIN_KEY" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/storage" "$RUNNER_TEMP/logs"
+          DB_URL=jdbc:postgresql://localhost:5432/factura STORAGE_FS_ROOT="$RUNNER_TEMP/storage" LOG_DIR="$RUNNER_TEMP/logs" PORT=8001 \
+            nohup java -jar bootstrap/build/libs/bootstrap-*.jar > "$RUNNER_TEMP/app.log" 2>&1 &
+          curl -s --retry 60 --retry-delay 2 --retry-connrefused --fail "$API_BASE_URL/health/liveness"
+
+      - name: Preparar una empresa aislada (facturas y boletas)
+        run: |
+          API_KEY=$(SERIES="01:F001 03:B001" ./k6/preparar-tenant.sh)
+          echo "::add-mask::$API_KEY"
+          echo "API_KEY=$API_KEY" >> "$GITHUB_ENV"
+
+      - name: Descargas (bloquea si p95 > 300 ms)
+        run: k6 run --summary-export="$RUNNER_TEMP/k6-descargas.json" k6/descargas.js
+
+      - name: Emisión de facturas (no bloquea)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: k6 run --summary-export="$RUNNER_TEMP/k6-emision.json" k6/emision.js
+
+      - name: Emisión de boletas (no bloquea)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: SERIE=B001 k6 run --summary-export="$RUNNER_TEMP/k6-boletas.json" k6/boletas.js
+
+      - name: Numeración sin huecos ni duplicados después de la carga
+        if: ${{ !cancelled() }}
+        run: |
+          # Por serie: cuántos documentos hay, el número más alto y cuántos números distintos. Los tres tienen que coincidir.
+          psql -h localhost -U factura -d factura -At -F ' ' -c "SELECT serie, count(*), max(numero), count(DISTINCT numero) FROM documento GROUP BY serie ORDER BY serie" | tee "$RUNNER_TEMP/numeracion.txt"
+          test -s "$RUNNER_TEMP/numeracion.txt"
+          awk '{ if ($2 != $3 || $2 != $4) { print "HUECO O DUPLICADO en " $1 ": " $0; mal = 1 } } END { exit mal }' "$RUNNER_TEMP/numeracion.txt"
+
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "### Pruebas de carga (k6)"
+            echo
+            echo "| Escenario | p95 (ms) | Umbral | Solicitudes | Fallidas |"
+            echo "|---|---|---|---|---|"
+            for f in descargas:300 emision:500 boletas:500; do
+              nombre="${f%%:*}"; umbral="${f##*:}"; archivo="$RUNNER_TEMP/k6-$nombre.json"
+              if [ -f "$archivo" ]; then
+                jq -r --arg n "$nombre" --arg u "$umbral" '"| \($n) | \(.metrics["http_req_duration{expected_response:true}"]["p(95)"] // .metrics.http_req_duration["p(95)"] | . * 10 | round / 10) | < \($u) | \(.metrics.http_reqs.count) | \((.metrics.http_req_failed.value // 0) * 100 | . * 100 | round / 100)% |"' "$archivo"
+              else
+                echo "| $nombre | — | < $umbral | no corrió | — |"
+              fi
+            done
+            echo
+            echo "Numeración por serie (serie, documentos, máximo, distintos):"
+            echo '```'
+            cat "$RUNNER_TEMP/numeracion.txt" 2>/dev/null || echo "(no se llegó a comprobar)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Evidencia (resúmenes de k6 y log del backend)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/k6-*.json
+            ${{ runner.temp }}/numeracion.txt
+            ${{ runner.temp }}/app.log
+          retention-days: 30
