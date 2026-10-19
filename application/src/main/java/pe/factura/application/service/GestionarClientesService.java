@@ -6,6 +6,7 @@ import pe.factura.application.port.out.ClienteRepository;
 import pe.factura.application.port.out.UnitOfWork;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.ClienteGuardado;
+import pe.factura.domain.documento.ClienteGuardado.Datos;
 
 import java.time.Clock;
 import java.util.UUID;
@@ -29,7 +30,10 @@ public class GestionarClientesService implements GestionarClientesUseCase {
             if (clientes.crear(nuevo)) return new Guardado(nuevo, true);
             ClienteGuardado existente = clientes.buscarPorDocumento(tenantId, nuevo.tipoDoc(), nuevo.numDoc())
                     .orElseThrow(() -> new DomainException("ESTADO_CONFLICTO", "El cliente cambió mientras se guardaba; vuelva a intentar"));
-            ClienteGuardado actualizado = existente.con(datos, clock.instant());
+            // Guardar al emitir manda lo que había en el comprobante, que no siempre trae el correo ni la dirección que la persona ya había guardado: lo que no llega se conserva.
+            Datos mezclados = new Datos(datos.tipoDoc(), datos.numDoc(), datos.razonSocial(), datos.direccion() != null ? datos.direccion() : existente.direccion(),
+                    datos.pais() != null ? datos.pais() : existente.pais(), datos.email() != null ? datos.email() : existente.email());
+            ClienteGuardado actualizado = existente.con(mezclados, clock.instant());
             clientes.actualizar(actualizado);
             return new Guardado(actualizado, false);
         });

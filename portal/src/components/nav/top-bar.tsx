@@ -10,6 +10,7 @@ import { ReferenciaApiKeysDialog } from "@/components/api-keys/referencia-api-ke
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { ReferenciaEmpresaDialog } from "@/components/empresa/referencia-empresa";
 import { NuevoComprobanteDialog } from "@/components/comprobantes/nuevo-comprobante-dialog";
+import { ClienteDialog } from "@/components/clientes/cliente-dialog";
 import { EstablecimientoDialog } from "@/components/establecimientos/establecimiento-dialog";
 import { NuevaSerieDialog } from "@/components/series/nueva-serie-dialog";
 import { ReferenciaSeriesDialog } from "@/components/series/referencia-series";
@@ -20,6 +21,7 @@ import { MobileNav } from "./mobile-nav";
 const MIGAS: Array<{ prefijo: string; seccion: string; pagina: string }> = [
   { prefijo: "/comprobantes", seccion: "Facturación", pagina: "Comprobantes" },
   { prefijo: "/series", seccion: "Emisión", pagina: "Series correlativas" },
+  { prefijo: "/clientes", seccion: "Emisión", pagina: "Clientes" },
   {
     prefijo: "/empresa",
     seccion: "Configuración",
@@ -102,6 +104,8 @@ export function TopBar({
           </>
         ) : pathname.startsWith("/establecimientos") ? (
           <EstablecimientoDialog className={ACCION_PRINCIPAL} />
+        ) : pathname.startsWith("/clientes") ? (
+          <ClienteDialog className={ACCION_PRINCIPAL} />
         ) : pathname.startsWith("/comprobantes") ? (
           <NuevoComprobanteDialog className={ACCION_PRINCIPAL} />
         ) : /* #277: Plan y consumo, Accesos de soporte y Developers no tienen una acción principal; emitir desde ahí no venía al caso. */ null}

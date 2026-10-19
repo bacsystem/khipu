@@ -12,6 +12,9 @@ import { StepperNumerico } from "@/components/formularios/stepper-numerico";
 import { BotonAsync } from "@/components/patrones/boton-async";
 import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser";
 import type { Serie } from "@/lib/api/series";
+import { DOCUMENTOS_BOLETA } from "@/lib/comprobantes/documentos";
+import type { ClienteGuardado } from "@/lib/api/clientes";
+import { BuscadorDeClientes } from "./buscador-de-clientes";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { MAX_LINEAS } from "@/lib/comprobantes/limites";
 import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
@@ -82,27 +85,6 @@ export function tipoInicial(series: Serie[]): TipoEmitible {
   return !tiene("factura") && tiene("boleta") ? "boleta" : "factura";
 }
 
-/**
- * Documentos del comprador de una boleta (catálogo 06), con su formato: lo que exige `Receptor.exigirValidoParaBoleta` (4207, 2017, 4208). «-» es el comprador
- * sin identificar, que SUNAT admite solo hasta S/ 700 en soles.
- */
-const DOCUMENTOS_BOLETA = [
-  { codigo: "1", etiqueta: "DNI", patron: "[0-9]{8}", max: 8, ejemplo: "12345678", titulo: "DNI de 8 dígitos" },
-  { codigo: "4", etiqueta: "Carné de extranjería", patron: "\\S{1,15}", max: 15, ejemplo: "001234567", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "7", etiqueta: "Pasaporte", patron: "\\S{1,15}", max: 15, ejemplo: "AB1234567", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "6", etiqueta: "RUC", patron: "[0-9]{11}", max: 11, ejemplo: "20123456786", titulo: "RUC de 11 dígitos" },
-  // #299: el resto del catálogo 06 que acepta el dominio (`Receptor.DOCUMENTOS_BOLETA`), todos con la regla 4208: hasta 15 caracteres sin espacios.
-  { codigo: "0", etiqueta: "Doc. tributario no domiciliado sin RUC", patron: "\\S{1,15}", max: 15, ejemplo: "US123456789", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "A", etiqueta: "Cédula diplomática de identidad", patron: "\\S{1,15}", max: 15, ejemplo: "CD123456", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "B", etiqueta: "Doc. de identidad del país de residencia (no domiciliado)", patron: "\\S{1,15}", max: 15, ejemplo: "AB1234567", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "C", etiqueta: "TIN — doc. tributario de persona natural no domiciliada", patron: "\\S{1,15}", max: 15, ejemplo: "123456789", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "D", etiqueta: "IN — doc. tributario de persona jurídica no domiciliada", patron: "\\S{1,15}", max: 15, ejemplo: "123456789", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "E", etiqueta: "Tarjeta Andina de Migración (TAM)", patron: "\\S{1,15}", max: 15, ejemplo: "TAM123456", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "F", etiqueta: "Permiso Temporal de Permanencia (PTP)", patron: "\\S{1,15}", max: 15, ejemplo: "PTP123456", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "G", etiqueta: "Salvoconducto", patron: "\\S{1,15}", max: 15, ejemplo: "SV123456", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "H", etiqueta: "Carné de permiso temporal de permanencia (CPP)", patron: "\\S{1,15}", max: 15, ejemplo: "CPP123456", titulo: "Hasta 15 caracteres sin espacios" },
-  { codigo: "-", etiqueta: "Sin documento (hasta S/ 700)", patron: "", max: 0, ejemplo: "", titulo: "" },
-] as const;
 
 const SIN_DOCUMENTO = "-";
 
@@ -172,6 +154,9 @@ export function NuevoComprobanteForm({
   const [numDoc, setNumDoc] = useState(plantilla?.cliente.numDoc ?? "");
   const [razonSocial, setRazonSocial] = useState(plantilla ? (plantilla.cliente.tipoDoc === SIN_DOCUMENTO ? COMPRADOR_SIN_DOCUMENTO : plantilla.cliente.razonSocial) : "");
   const [direccion, setDireccion] = useState(plantilla?.cliente.direccion ?? "");
+  // #319: guardar al comprador en «Clientes» al emitir (el guardado es idempotente y conserva lo que ya estaba guardado), y el aviso de un cliente guardado que no sirve para este comprobante.
+  const [guardarCliente, setGuardarCliente] = useState(true);
+  const [avisoCliente, setAvisoCliente] = useState<string | null>(null);
   const [lineas, setLineas] = useState<Linea[]>(plantilla?.lineas.length ? plantilla.lineas.map((l) => ({ ...l })) : [{ ...LINEA_VACIA }]);
   // #358: ajuste del importe total para cobrar en efectivo sin céntimos (`PayableRoundingAmount`). Texto, para poder escribir «-» y «0.» sin que el campo lo reescriba.
   const [redondeoTexto, setRedondeoTexto] = useState(plantilla?.redondeo ?? "");
@@ -240,6 +225,27 @@ export function NuevoComprobanteForm({
   function cambiarNumDoc(valor: string) {
     if (valor !== numDoc) soltarAutocompletado();
     setNumDoc(valor);
+  }
+
+  /** Rellena al comprador con un cliente guardado. Un documento que este comprobante no admite (un DNI en una factura) no se aplica: se dice por qué. */
+  function elegirClienteGuardado(c: ClienteGuardado) {
+    const documento = DOCUMENTOS_BOLETA.find((d) => d.codigo === c.tipo_doc);
+    // La factura sólo lleva RUC: el selector de documentos (con DNI y otros) es de la boleta y la exportación.
+    const admitido = usaSelectorDeDocumento ? documentosOfrecidos.some((d) => d.codigo === c.tipo_doc) : c.tipo_doc === "6";
+    if (!admitido) {
+      setAvisoCliente(
+        `«${c.razon_social}» tiene ${documento?.etiqueta ?? `el documento ${c.tipo_doc}`}, que ${exportacion ? "esta exportación" : `una ${nombre}`} no admite${!boleta && !exportacion ? ": la factura necesita un cliente con RUC" : ""}.`,
+      );
+      return;
+    }
+    setAvisoCliente(null);
+    soltarAutocompletado();
+    setTipoDoc(c.tipo_doc);
+    setNumDoc(c.num_doc);
+    setRazonSocial(c.razon_social);
+    setDireccion(c.direccion ?? "");
+    if (c.pais) setPais(c.pais);
+    setGuardarCliente(false);
   }
 
   // Tras un error el botón estuvo `disabled` y el navegador soltó el foco a `<body>`: un usuario de teclado perdía
@@ -508,6 +514,13 @@ export function NuevoComprobanteForm({
     }
     // Los avisos de SUNAT (#378) solo vienen en esta respuesta: la ficha del comprobante los muestra desde aquí.
     guardarAvisosDeEmision(res.datos.id, res.avisos);
+    // #319: el guardado del cliente no puede estorbar la emisión ya hecha; si falla, la factura sigue emitida y el cliente se guarda a mano desde «Clientes».
+    if (guardarCliente && !sinDocumento && numDoc.trim() !== "") {
+      void apiRequest(`/api/proxy/clientes/documento/${encodeURIComponent(tipoDoc)}/${encodeURIComponent(numDoc.trim())}`, {
+        method: "PUT",
+        body: { razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined, pais: exportacion && pais ? pais : undefined },
+      }).catch(() => undefined);
+    }
     onEmitido?.();
     router.push(`/comprobantes/${res.datos.id}`);
     router.refresh();
@@ -572,7 +585,21 @@ export function NuevoComprobanteForm({
       </div>
 
       <section className="grid gap-3">
-        <h3 className={ETIQUETA_CAMPO}>{boleta ? "Comprador" : "Cliente"}</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className={ETIQUETA_CAMPO}>{boleta ? "Comprador" : "Cliente"}</h3>
+          {sinDocumento ? null : (
+            <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-muted-foreground">
+              <input type="checkbox" checked={guardarCliente} onChange={(e) => setGuardarCliente(e.target.checked)} className="size-3.5 accent-primary" />
+              Guardar en mis clientes al emitir
+            </label>
+          )}
+        </div>
+        <BuscadorDeClientes onElegir={elegirClienteGuardado} />
+        {avisoCliente ? (
+          <p role="status" className="text-[12px] text-warning-foreground" data-testid="aviso-cliente-guardado">
+            {avisoCliente}
+          </p>
+        ) : null}
         {usaSelectorDeDocumento ? (
           <div className="grid gap-4 sm:grid-cols-[200px_180px_1fr]">
             <Campo id="nc-tipo-doc" etiqueta="Documento del comprador">

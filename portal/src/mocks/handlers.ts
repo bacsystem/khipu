@@ -4,6 +4,7 @@ import { esUuid } from "@/lib/uuid";
 import { messages } from "@/lib/messages";
 import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
 import { avisoDePlazo, fechaMinimaDeEmision, PLAZO_ENVIO } from "@/lib/comprobantes/plazo";
+import { errorDeDocumento } from "@/lib/comprobantes/documentos";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { rechazoPorLineaMock, rechazoPorNrusMock, rechazoPorTopeDeLineasMock, rechazoPorValorDeVentaMock, type LineaMock } from "./reglas-linea";
 import { CODIGOS_UNIDAD, UNIDADES_MAS_USADAS, db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
@@ -696,6 +697,24 @@ function armarZip(entradas: Array<{ nombre: string; contenido: string }>): Uint8
 }
 
 const DESCARGA_MAXIMA = 500;
+
+/** Lo opcional de un cliente, solo si vino con algo (el backend omite lo que no se informó). */
+function opcionalesDeCliente(b: { direccion?: string; pais?: string; email?: string }) {
+  return {
+    ...(b.direccion?.trim() ? { direccion: b.direccion.trim() } : {}),
+    ...(b.pais?.trim() ? { pais: b.pais.trim().toUpperCase() } : {}),
+    ...(b.email?.trim() ? { email: b.email.trim().toLowerCase() } : {}),
+  };
+}
+
+/** Las reglas de `ClienteGuardado.Datos.validar` que el mock reproduce: el documento por su tipo, el nombre de 3 caracteres y un correo con forma de correo. */
+function validarClienteMock(b: { tipo_doc?: string; num_doc?: string; razon_social?: string; email?: string }): string | null {
+  const doc = errorDeDocumento(b.tipo_doc ?? "", b.num_doc ?? "");
+  if (doc) return doc;
+  if ((b.razon_social ?? "").trim().length < 3) return "2022 - El nombre del comprador tiene de 3 a 1500 caracteres, sin saltos de línea";
+  if (b.email?.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email.trim())) return "El correo del cliente no es válido (hasta 150 caracteres)";
+  return null;
+}
 
 /** Los eventos de webhook que acepta el backend (`EventoWebhook`), y las URL que rechaza por apuntar a una red interna. */
 const EVENTOS_WEBHOOK_MOCK = ["comprobante.aceptado", "comprobante.aceptado_con_obs", "comprobante.rechazado", "comprobante.anulado", "comprobante.error_envio", "comprobante.fuera_de_plazo", "comprobante.descartado"];
@@ -2732,6 +2751,82 @@ export const handlers = [
       return new HttpResponse(null, { status: 202 });
     }
     return fail(404, "NO_ENCONTRADO", "Entrega no encontrada");
+  }),
+
+  // --- Clientes guardados (#319): la misma forma que ClientesController; el documento se valida como el comprador de una boleta. ---
+
+  http.get(`${BASE}/v1/clientes`, ({ request }) => {
+    const lista = db.clientesPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? [];
+    const url = new URL(request.url);
+    const q = sinTildes(url.searchParams.get("q") ?? "").trim();
+    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? "1"));
+    const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? "20")));
+    const filtrados = lista
+      .filter((c) => !q || sinTildes(c.razon_social).includes(q) || c.num_doc.toLowerCase().startsWith(q))
+      .sort((a, b) => a.razon_social.localeCompare(b.razon_social, "es"));
+    return HttpResponse.json(
+      { estado: "exito", datos: filtrados.slice((pagina - 1) * porPagina, pagina * porPagina), mensaje: null, codigo: null, errores: null },
+      { headers: { "x-total-count": String(filtrados.length) } },
+    );
+  }),
+
+  http.post(`${BASE}/v1/clientes`, async ({ request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const b = (await request.json()) as { tipo_doc?: string; num_doc?: string; razon_social?: string; direccion?: string; pais?: string; email?: string };
+    const malo = validarClienteMock(b);
+    if (malo) return fail(422, "RECEPTOR_INVALIDO", malo);
+    const lista = db.clientesPorEmpresa.get(empresaId) ?? [];
+    if (lista.some((c) => c.tipo_doc === b.tipo_doc && c.num_doc === b.num_doc!.trim())) return fail(409, "DUPLICADO", `Ya tiene un cliente con el documento ${b.tipo_doc} ${b.num_doc}`);
+    const ahora = new Date().toISOString();
+    const cliente = { id: nuevoId("c"), tipo_doc: b.tipo_doc!, num_doc: b.num_doc!.trim(), razon_social: b.razon_social!.trim(), ...opcionalesDeCliente(b), creado_en: ahora, actualizado_en: ahora };
+    lista.push(cliente);
+    db.clientesPorEmpresa.set(empresaId, lista);
+    return ok(cliente, 201);
+  }),
+
+  http.put(`${BASE}/v1/clientes/documento/:tipo/:num`, async ({ request, params }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const b = (await request.json()) as { razon_social?: string; direccion?: string; pais?: string; email?: string };
+    const datos = { tipo_doc: String(params.tipo), num_doc: String(params.num), razon_social: b.razon_social, direccion: b.direccion, pais: b.pais, email: b.email };
+    const malo = validarClienteMock(datos);
+    if (malo) return fail(422, "RECEPTOR_INVALIDO", malo);
+    const lista = db.clientesPorEmpresa.get(empresaId) ?? [];
+    const ahora = new Date().toISOString();
+    const existente = lista.find((c) => c.tipo_doc === datos.tipo_doc && c.num_doc === datos.num_doc.trim());
+    if (existente) {
+      // Como el backend: lo opcional que no llega se conserva.
+      Object.assign(existente, { razon_social: datos.razon_social!.trim(), ...opcionalesDeCliente(datos), actualizado_en: ahora });
+      return ok(existente, 200);
+    }
+    const cliente = { id: nuevoId("c"), tipo_doc: datos.tipo_doc, num_doc: datos.num_doc.trim(), razon_social: datos.razon_social!.trim(), ...opcionalesDeCliente(datos), creado_en: ahora, actualizado_en: ahora };
+    lista.push(cliente);
+    db.clientesPorEmpresa.set(empresaId, lista);
+    return ok(cliente, 201);
+  }),
+
+  http.get(`${BASE}/v1/clientes/:id`, ({ request, params }) => {
+    const c = (db.clientesPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? []).find((x) => x.id === params.id);
+    return c ? ok(c) : fail(404, "NO_ENCONTRADO", "Cliente no encontrado");
+  }),
+
+  http.put(`${BASE}/v1/clientes/:id`, async ({ request, params }) => {
+    const lista = db.clientesPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? [];
+    const c = lista.find((x) => x.id === params.id);
+    if (!c) return fail(404, "NO_ENCONTRADO", "Cliente no encontrado");
+    const b = (await request.json()) as { tipo_doc?: string; num_doc?: string; razon_social?: string; direccion?: string; pais?: string; email?: string };
+    const malo = validarClienteMock(b);
+    if (malo) return fail(422, "RECEPTOR_INVALIDO", malo);
+    if (lista.some((x) => x.id !== c.id && x.tipo_doc === b.tipo_doc && x.num_doc === b.num_doc!.trim())) return fail(409, "DUPLICADO", `Ya tiene un cliente con el documento ${b.tipo_doc} ${b.num_doc}`);
+    Object.assign(c, { tipo_doc: b.tipo_doc!, num_doc: b.num_doc!.trim(), razon_social: b.razon_social!.trim(), direccion: null, pais: null, email: null, ...opcionalesDeCliente(b), actualizado_en: new Date().toISOString() });
+    return ok(c);
+  }),
+
+  http.delete(`${BASE}/v1/clientes/:id`, ({ request, params }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const lista = db.clientesPorEmpresa.get(empresaId) ?? [];
+    if (!lista.some((x) => x.id === params.id)) return fail(404, "NO_ENCONTRADO", "Cliente no encontrado");
+    db.clientesPorEmpresa.set(empresaId, lista.filter((x) => x.id !== params.id));
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get(`${BASE}/v1/series`, ({ request }) => {
