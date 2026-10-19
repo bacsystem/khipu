@@ -1,4 +1,5 @@
 import type { ClienteGuardado } from "@/lib/api/clientes";
+import type { ProductoGuardado } from "@/lib/api/productos";
 import type { EntregaWebhook, Webhook } from "@/lib/api/webhooks";
 import { hoyLima, inicioDelProximoCiclo, sumarDias } from "@/lib/formato";
 
@@ -316,6 +317,8 @@ export const db = {
   apiKeysPorEmpresa: new Map<string, ApiKey[]>(),
   /** Los clientes guardados de cada empresa (#319). */
   clientesPorEmpresa: new Map<string, ClienteGuardado[]>(),
+  /** Los productos y servicios guardados de cada empresa (#320). */
+  productosPorEmpresa: new Map<string, ProductoGuardado[]>(),
   /** Los endpoints de webhooks de cada empresa (#19) y las entregas de cada uno, por id de endpoint. */
   webhooksPorEmpresa: new Map<string, Webhook[]>(),
   entregasPorWebhook: new Map<string, EntregaWebhook[]>(),
@@ -358,6 +361,7 @@ export function resetDb() {
   db.establecimientosPorEmpresa.clear();
   db.apiKeysPorEmpresa.clear();
   db.clientesPorEmpresa.clear();
+  db.productosPorEmpresa.clear();
   db.webhooksPorEmpresa.clear();
   db.entregasPorWebhook.clear();
   db.facturasPorEmpresa.clear();
@@ -601,6 +605,12 @@ export function resetDb() {
     { id: "c-pacifico", tipo_doc: "6", num_doc: "20601234565", razon_social: "PESQUERA PACÍFICO S.A.C.", direccion: "Av. Argentina 2450, Callao", email: "facturas@pacifico.pe", creado_en: "2026-09-02T15:00:00Z", actualizado_en: "2026-09-02T15:00:00Z" },
     { id: "c-juan", tipo_doc: "1", num_doc: "12345678", razon_social: "JUAN PÉREZ GÓMEZ", creado_en: "2026-09-03T15:00:00Z", actualizado_en: "2026-09-03T15:00:00Z" },
     { id: "c-anna", tipo_doc: "7", num_doc: "AB1234567", razon_social: "ANNA MÜLLER", direccion: "Berlín", pais: "DE", creado_en: "2026-09-04T15:00:00Z", actualizado_en: "2026-09-04T15:00:00Z" },
+  ]);
+  // #320: tres productos guardados (un servicio gravado, un bien exonerado y una exportación) para el autocompletado de los ítems y la lista.
+  db.productosPorEmpresa.set(empresa.id, [
+    { id: "p-consultoria", codigo: "SRV-001", descripcion: "Consultoría tributaria", unidad: "ZZ", tipo_afectacion_igv: "10", precio_unitario: 118, codigo_sunat: "80101500", creado_en: "2026-09-05T15:00:00Z", actualizado_en: "2026-09-05T15:00:00Z" },
+    { id: "p-libro", codigo: "LIB-010", descripcion: "Libro técnico de contabilidad", unidad: "NIU", tipo_afectacion_igv: "20", precio_unitario: 50, creado_en: "2026-09-06T15:00:00Z", actualizado_en: "2026-09-06T15:00:00Z" },
+    { id: "p-exportacion", descripcion: "Licencia de software para el exterior", unidad: "ZZ", tipo_afectacion_igv: "40", precio_unitario: 1200, creado_en: "2026-09-07T15:00:00Z", actualizado_en: "2026-09-07T15:00:00Z" },
   ]);
   // #19: un endpoint activo con entregas en los tres estados y uno que khipu pausó por entregas fallidas seguidas.
   db.webhooksPorEmpresa.set(empresa.id, [

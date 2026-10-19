@@ -82,3 +82,14 @@ export function incompatibilidadDeTributos(lineas: LineaTributos[], operacion = 
   }
   return null;
 }
+
+/**
+ * Lo que es el precio de la línea según su afectación (#117): con IGV en la gravada, con IVAP en la IVAP, y sin impuesto en la exonerada, la inafecta, la gratuita (valor
+ * referencial) y la exportación. «con IGV» en una exonerada inducía a cargar el precio mal. `""`: líneas de afectaciones distintas, el encabezado no afirma una.
+ */
+export function etiquetaDelPrecio(afectacion: string): string {
+  if (afectacion === "") return "Precio unit.";
+  if (afectacion === "10") return "Precio unit. (con IGV)";
+  if (afectacion === "17") return "Precio unit. (con IVAP)";
+  return "Precio unit. (sin IGV)";
+}
