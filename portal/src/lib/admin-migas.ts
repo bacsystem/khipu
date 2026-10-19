@@ -28,6 +28,10 @@ const MIGAS: Array<{ ruta: string; exacta?: boolean } & MigaAdmin> = [
   ),
 ];
 
+// La ficha de un comprobante (#251) no está en el menú: se llega desde la cola de errores, la integridad y la ficha de la empresa, y cuelga de «Operación».
+const SECCION_OPERACION = SECCIONES_ADMIN.find((s) => s.items.some((i) => i.href === "/admin/errores"))?.titulo ?? t.topbar.operacion;
+MIGAS.push({ ruta: "/admin/comprobantes", seccion: SECCION_OPERACION, pagina: t.comprobanteDetalle.titulo });
+
 export function migaAdmin(pathname: string): MigaAdmin | null {
   const miga = MIGAS.find((m) => (m.exacta ? pathname === m.ruta : pathname === m.ruta || pathname.startsWith(`${m.ruta}/`)));
   if (!miga) return null;

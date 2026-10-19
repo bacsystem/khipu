@@ -50,6 +50,11 @@ describe("migaAdmin", () => {
     expect(migaAdmin("/admin/configuracion")).toEqual({ seccion: "Plataforma", pagina: "Configuración" });
   });
 
+  /** #286: la ficha de un comprobante era la única página sin miga en la barra superior. */
+  it("la ficha de un comprobante cuelga de «Operación» y no ofrece acciones", () => {
+    expect(migaAdmin("/admin/comprobantes/6b1d")).toEqual({ seccion: "Operación", pagina: "Comprobante" });
+  });
+
   it("«/admin» solo es el inicio de forma exacta: no engulle las páginas que todavía no tienen miga", () => {
     expect(migaAdmin("/admin/operacion")).toBeNull();
   });

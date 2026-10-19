@@ -21,8 +21,15 @@ test("desde la cola de errores se abre la ficha: intentos, último error, archiv
   await expect(page.getByTestId("comprobante-ultimo-error")).not.toHaveText("Ninguno");
   await expect(page.getByTestId("comprobante-xml")).toHaveText("XML firmado: Guardado");
 
+  // #286: la barra superior ubica la página, el contador se llama «Envíos fallidos» y «Respuesta de SUNAT» no se repite.
+  await expect(page.locator("header").getByText("Operación")).toBeVisible();
+  await expect(page.locator("header").getByText("Comprobante", { exact: true })).toBeVisible();
+  await expect(page.getByText("Envíos fallidos")).toBeVisible();
+  await expect(page.getByText("Respuesta de SUNAT", { exact: true })).toHaveCount(1);
+
   await page.getByRole("link", { name: "Ver la empresa" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/empresas/${empresa(4)}$`));
+
 });
 
 test("un rechazo por formato muestra lo que respondió SUNAT", async ({ page }) => {

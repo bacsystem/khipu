@@ -15,13 +15,14 @@ import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Comprobante · Backoffice" };
 
-function Dato({ etiqueta, children, testId }: { etiqueta: string; children: React.ReactNode; testId?: string }) {
+function Dato({ etiqueta, children, testId, ayuda }: { etiqueta: string; children: React.ReactNode; testId?: string; ayuda?: string }) {
   return (
     <div className="min-w-0">
       <dt className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</dt>
       <dd className="text-[13px] break-words text-foreground" data-testid={testId}>
         {children}
       </dd>
+      {ayuda ? <p className="mt-0.5 text-[11px] text-muted-foreground">{ayuda}</p> : null}
     </div>
   );
 }
@@ -49,7 +50,7 @@ function Ficha({ c }: { c: ComprobanteAdmin }) {
             {ETIQUETAS_TIPO[c.tipo] ?? c.tipo} <span className="font-mono text-muted-foreground">{c.serie}</span>
           </Dato>
           <Dato etiqueta={t.fechaEmision}>{formatearFecha(c.fecha_emision)}</Dato>
-          <Dato etiqueta={t.intentos} testId="comprobante-intentos">
+          <Dato etiqueta={t.intentos} testId="comprobante-intentos" ayuda={t.ayudaIntentos}>
             {c.intentos}
           </Dato>
         </dl>
@@ -57,7 +58,7 @@ function Ficha({ c }: { c: ComprobanteAdmin }) {
 
       <section className={cn(TARJETA, "p-5")} aria-labelledby="titulo-sunat">
         <h2 id="titulo-sunat" className={cn(TITULO_SECCION, "border-b border-border/60 pb-3")}>
-          {t.respuestaSunat}
+          {t.tituloSunatYArchivos}
         </h2>
         <dl className="grid grid-cols-1 gap-4 pt-4">
           <Dato etiqueta={t.respuestaSunat} testId="comprobante-respuesta">
