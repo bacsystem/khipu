@@ -22,7 +22,7 @@ import java.util.UUID;
 @Tag(name = "Webhooks", description = """
         khipu avisa a su sistema, con un `POST` firmado, cada vez que un comprobante cambia de estado (aceptado, rechazado, error de envío…), para que no tenga que consultar
         `GET /v1/facturas/{id}`. Registre hasta 5 endpoints https por empresa. Cada entrega lleva `X-Khipu-Event`, `X-Khipu-Delivery` y `X-Khipu-Signature` (HMAC-SHA256 del
-        cuerpo con el secreto del endpoint); responda 2xx para confirmarla. Una entrega que no se confirma se reintenta con espera creciente hasta 8 veces; tras 10 intentos
+        cuerpo con el secreto del endpoint); responda 2xx para confirmarla. Una entrega que no se confirma se reintenta con espera creciente (8 intentos en total); tras 10 intentos
         fallidos seguidos khipu apaga el endpoint y avisa por correo. Crear, cambiar o borrar endpoints exige la sesión del portal (una API key filtrada no debe poder
         redirigir los eventos); consultarlos y ver el log de entregas funciona también con API key.""")
 @RequiredArgsConstructor

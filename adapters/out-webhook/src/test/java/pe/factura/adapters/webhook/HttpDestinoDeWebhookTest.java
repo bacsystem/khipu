@@ -82,7 +82,7 @@ class HttpDestinoDeWebhookTest {
 
         assertThat(r.exitosa()).isFalse();
         assertThat(r.http()).isZero();
-        assertThat(r.error()).startsWith("No se pudo conectar");
+        assertThat(r.error()).isEqualTo("No se pudo conectar con el servidor");
     }
 
     @Test void conRedesPrivadasRechazadasNoConectaAUnaDireccionInterna() throws IOException {
@@ -91,7 +91,7 @@ class HttpDestinoDeWebhookTest {
         Respuesta r = new HttpDestinoDeWebhook(false).entregar(url, Map.of(), "{}");
 
         assertThat(r.http()).isZero();
-        assertThat(r.error()).contains("dirección interna");
+        assertThat(r.error()).isEqualTo(HttpDestinoDeWebhook.RECHAZO);
         assertThat(cuerpos).as("el servidor interno no recibió nada").isEmpty();
     }
 
@@ -99,12 +99,28 @@ class HttpDestinoDeWebhookTest {
         HttpDestinoDeWebhook destino = new HttpDestinoDeWebhook(false);
         for (String url : List.of("https://127.0.0.1/x", "https://localhost/x", "https://10.0.0.5/x", "https://192.168.1.10/x", "https://172.16.0.1/x",
                 "https://169.254.169.254/latest/meta-data", "https://100.64.0.1/x", "https://0.0.0.0/x", "https://[::1]/x", "https://[fd00::1]/x"))
-            assertThatThrownBy(() -> destino.exigirDestinoPublico(url)).as(url).isInstanceOf(DomainException.class).hasMessageContaining("dirección interna");
+            assertThatThrownBy(() -> destino.exigirDestinoPublico(url)).as(url).isInstanceOf(DomainException.class).hasMessage(HttpDestinoDeWebhook.RECHAZO);
     }
 
-    @Test void unNombreQueNoSeResuelveSeRechaza() {
+    @Test void unNombreQueNoSeResuelveSeRechazaConElMismoMensajeQueUnoInterno() {
         assertThatThrownBy(() -> new HttpDestinoDeWebhook(false).exigirDestinoPublico("https://no-existe.invalid/x")).isInstanceOf(DomainException.class)
-                .hasMessageContaining("No se pudo resolver");
+                .hasMessage(HttpDestinoDeWebhook.RECHAZO);
+    }
+
+    @Test void nuncaUsaUnProxyDelSistema() throws Exception {
+        java.net.ProxySelector anterior = java.net.ProxySelector.getDefault();
+        java.util.concurrent.atomic.AtomicInteger consultas = new java.util.concurrent.atomic.AtomicInteger();
+        java.net.ProxySelector.setDefault(new java.net.ProxySelector() {
+            public List<java.net.Proxy> select(java.net.URI uri) { consultas.incrementAndGet(); return List.of(new java.net.Proxy(java.net.Proxy.Type.HTTP, new InetSocketAddress("127.0.0.1", 1))); }
+            public void connectFailed(java.net.URI uri, java.net.SocketAddress sa, IOException ioe) {}
+        });
+        try {
+            Respuesta r = new HttpDestinoDeWebhook(true).entregar(levantar(), Map.of(), "{}");
+            assertThat(r.exitosa()).as("llegó directo al servidor, sin pasar por el proxy configurado").isTrue();
+            assertThat(consultas).hasValue(0);
+        } finally {
+            java.net.ProxySelector.setDefault(anterior);
+        }
     }
 
     @Test void conRedesPrivadasPermitidasNoSeComprueba() {
@@ -119,5 +135,11 @@ class HttpDestinoDeWebhookTest {
         assertThat(HttpDestinoDeWebhook.esPublica(InetAddress.getByName("100.128.0.1"))).isTrue();
         assertThat(HttpDestinoDeWebhook.esPublica(InetAddress.getByName("::ffff:10.0.0.1"))).isFalse();
         assertThat(HttpDestinoDeWebhook.esPublica(InetAddress.getByName("::10.0.0.1"))).isFalse();
+        // Rangos reservados que InetAddress no marca como internos.
+        for (String reservada : List.of("192.0.0.192", "198.18.0.1", "198.19.255.254", "240.0.0.1", "255.255.255.255", "0.1.2.3", "64:ff9b::a00:1", "64:ff9b::c0a8:1"))
+            assertThat(HttpDestinoDeWebhook.esPublica(InetAddress.getByName(reservada))).as(reservada).isFalse();
+        assertThat(HttpDestinoDeWebhook.esPublica(InetAddress.getByName("198.20.0.1"))).isTrue();
+        assertThat(HttpDestinoDeWebhook.esPublica(InetAddress.getByName("64:ff9b::808:808"))).as("NAT64 hacia 8.8.8.8").isTrue();
+        assertThat(HttpDestinoDeWebhook.esPublica(InetAddress.getByName("223.255.255.255"))).isTrue();
     }
 }

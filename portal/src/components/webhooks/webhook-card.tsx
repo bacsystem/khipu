@@ -69,9 +69,11 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
   async function probar() {
     const res = await llamar("probar", `/api/proxy/webhooks/${webhook.id}/prueba`, "POST");
     if (!res) return;
-    setAviso("Prueba enviada: aparece en las entregas en unos segundos.");
+    setAviso("Prueba en cola: sale en unos segundos y aparece en las entregas.");
     setVerEntregas(true);
     setVersionLog((n) => n + 1);
+    // El trabajo de entrega corre cada pocos segundos: se vuelve a leer el log para ver cómo terminó.
+    window.setTimeout(() => setVersionLog((n) => n + 1), 7000);
   }
 
   async function alternarActivo() {

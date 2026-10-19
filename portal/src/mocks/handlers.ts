@@ -697,6 +697,10 @@ function armarZip(entradas: Array<{ nombre: string; contenido: string }>): Uint8
 
 const DESCARGA_MAXIMA = 500;
 
+/** Los eventos de webhook que acepta el backend (`EventoWebhook`), y las URL que rechaza por apuntar a una red interna. */
+const EVENTOS_WEBHOOK_MOCK = ["comprobante.aceptado", "comprobante.aceptado_con_obs", "comprobante.rechazado", "comprobante.anulado", "comprobante.error_envio", "comprobante.fuera_de_plazo", "comprobante.descartado"];
+const URL_INTERNA_MOCK = /^https:\/\/(localhost|127\.|10\.|192\.168\.|169\.254\.|\[::1\])/;
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -2622,9 +2626,7 @@ export const handlers = [
 
   // --- Webhooks (#19): la misma forma que WebhooksController. Crear, cambiar y borrar exigen la sesión del portal (aquí siempre la hay: el mock no emula API keys). ---
 
-  http.get(`${BASE}/v1/webhooks/eventos`, () =>
-    ok(["comprobante.aceptado", "comprobante.aceptado_con_obs", "comprobante.rechazado", "comprobante.anulado", "comprobante.error_envio", "comprobante.fuera_de_plazo", "comprobante.descartado"]),
-  ),
+  http.get(`${BASE}/v1/webhooks/eventos`, () => ok(EVENTOS_WEBHOOK_MOCK)),
 
   http.get(`${BASE}/v1/webhooks`, ({ request }) => ok(db.webhooksPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? [])),
 
@@ -2634,10 +2636,13 @@ export const handlers = [
     const lista = db.webhooksPorEmpresa.get(empresaId) ?? [];
     const url = (body.url ?? "").trim();
     if (!url.startsWith("https://")) return fail(422, "WEBHOOK_INVALIDO", "La URL del webhook debe empezar con https://");
-    if (/^https:\/\/(localhost|127\.|10\.|192\.168\.|169\.254\.)/.test(url)) return fail(422, "WEBHOOK_INVALIDO", "La URL del webhook apunta a una dirección interna; use un servidor público");
+    if (URL_INTERNA_MOCK.test(url)) return fail(422, "WEBHOOK_INVALIDO", "La URL del webhook debe apuntar a un servidor público de internet");
     if (!body.eventos || body.eventos.length === 0) return fail(422, "WEBHOOK_INVALIDO", "Elija al menos un evento al que suscribirse");
+    const desconocido = body.eventos.find((e) => e !== "*" && !EVENTOS_WEBHOOK_MOCK.includes(e));
+    if (desconocido) return fail(422, "WEBHOOK_INVALIDO", `El evento «${desconocido}» no existe`);
+    if ((body.descripcion ?? "").length > 100) return fail(422, "WEBHOOK_INVALIDO", "La descripción no puede pasar de 100 caracteres");
     if (lista.length >= 5) return fail(409, "WEBHOOK_LIMITE", "Una empresa puede tener hasta 5 webhooks; elimine uno para crear otro");
-    const eventos = body.eventos.length === 1 && body.eventos[0] === "*" ? ["comprobante.aceptado", "comprobante.aceptado_con_obs", "comprobante.rechazado", "comprobante.anulado", "comprobante.error_envio", "comprobante.fuera_de_plazo", "comprobante.descartado"] : body.eventos;
+    const eventos = body.eventos.length === 1 && body.eventos[0] === "*" ? EVENTOS_WEBHOOK_MOCK : body.eventos;
     const webhook = { id: nuevoId("w"), url, descripcion: body.descripcion?.trim() || null, eventos, activo: true, fallos_consecutivos: 0, creado_en: new Date().toISOString() };
     lista.push(webhook);
     db.webhooksPorEmpresa.set(empresaId, lista);
@@ -2651,10 +2656,19 @@ export const handlers = [
     const body = (await request.json()) as { url?: string; descripcion?: string; eventos?: string[]; activo?: boolean };
     if (body.url !== undefined) {
       if (!body.url.trim().startsWith("https://")) return fail(422, "WEBHOOK_INVALIDO", "La URL del webhook debe empezar con https://");
+      if (URL_INTERNA_MOCK.test(body.url.trim())) return fail(422, "WEBHOOK_INVALIDO", "La URL del webhook debe apuntar a un servidor público de internet");
       webhook.url = body.url.trim();
     }
-    if (body.descripcion !== undefined) webhook.descripcion = body.descripcion.trim() || null;
-    if (body.eventos !== undefined) webhook.eventos = body.eventos;
+    if (body.descripcion !== undefined) {
+      if (body.descripcion.length > 100) return fail(422, "WEBHOOK_INVALIDO", "La descripción no puede pasar de 100 caracteres");
+      webhook.descripcion = body.descripcion.trim() || null;
+    }
+    if (body.eventos !== undefined) {
+      if (body.eventos.length === 0) return fail(422, "WEBHOOK_INVALIDO", "Elija al menos un evento al que suscribirse");
+      const raro = body.eventos.find((e) => e !== "*" && !EVENTOS_WEBHOOK_MOCK.includes(e));
+      if (raro) return fail(422, "WEBHOOK_INVALIDO", `El evento «${raro}» no existe`);
+      webhook.eventos = body.eventos.length === 1 && body.eventos[0] === "*" ? EVENTOS_WEBHOOK_MOCK : body.eventos;
+    }
     if (body.activo !== undefined) {
       if (body.activo && !webhook.activo) webhook.fallos_consecutivos = 0;
       webhook.activo = body.activo;
@@ -2684,7 +2698,8 @@ export const handlers = [
     const ahora = new Date().toISOString();
     const id = nuevoId("e");
     const lista = db.entregasPorWebhook.get(webhook.id) ?? [];
-    lista.unshift({ id, evento: "webhook.prueba", estado: "EXITOSA", intentos: 1, ultimo_http: 200, ultimo_intento_en: ahora, entregada_en: ahora, creada_en: ahora });
+    // Como en el backend: la prueba queda en cola hasta que el trabajo de entrega la manda (el mock la cierra solo en la siguiente lectura del log).
+    lista.unshift({ id, evento: "webhook.prueba", estado: "PENDIENTE", intentos: 0, siguiente_intento: ahora, creada_en: ahora });
     db.entregasPorWebhook.set(webhook.id, lista);
     return ok({ entrega_id: id }, 202);
   }),
@@ -2695,6 +2710,9 @@ export const handlers = [
     const estado = url.searchParams.get("estado");
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? "1"));
     const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? "20")));
+    // El «trabajo de entrega» del mock: las pendientes sin intentos (la prueba y el reenvío) se cierran al leer el log, como pasaría segundos después.
+    for (const e of db.entregasPorWebhook.get(String(params.id)) ?? [])
+      if (e.estado === "PENDIENTE" && e.intentos === 0) Object.assign(e, { estado: "EXITOSA", intentos: 1, ultimo_http: 200, ultimo_intento_en: new Date().toISOString(), entregada_en: new Date().toISOString(), siguiente_intento: null });
     const todas = (db.entregasPorWebhook.get(String(params.id)) ?? []).filter((e) => !estado || e.estado === estado);
     return HttpResponse.json(
       { estado: "exito", datos: todas.slice((pagina - 1) * porPagina, pagina * porPagina), mensaje: null, codigo: null, errores: null },
@@ -2709,9 +2727,8 @@ export const handlers = [
       if (!entrega) continue;
       if (entrega.estado === "PENDIENTE") return fail(409, "ENTREGA_NO_REENVIABLE", "La entrega todavía está pendiente; khipu la sigue intentando");
       if (!w.activo) return fail(409, "WEBHOOK_PAUSADO", "El webhook está apagado; actívelo antes de enviar");
-      // El mock entrega al instante: en el backend queda PENDIENTE hasta que el trabajo la manda.
-      const ahora = new Date().toISOString();
-      Object.assign(entrega, { estado: "EXITOSA", intentos: 1, ultimo_http: 200, ultimo_error: null, ultimo_intento_en: ahora, entregada_en: ahora });
+      // Como en el backend: vuelve a la cola con los intentos en cero.
+      Object.assign(entrega, { estado: "PENDIENTE", intentos: 0, siguiente_intento: new Date().toISOString(), ultimo_http: null, ultimo_error: null, entregada_en: null });
       return new HttpResponse(null, { status: 202 });
     }
     return fail(404, "NO_ENCONTRADO", "Entrega no encontrada");

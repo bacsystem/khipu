@@ -82,10 +82,12 @@ test("#19 envía una prueba y la ve en el log de entregas", async ({ page }) => 
 
   await w.getByRole("button", { name: "Enviar prueba" }).click();
 
-  await expect(w.getByRole("status")).toContainText("Prueba enviada");
+  await expect(w.getByRole("status")).toContainText("Prueba en cola");
   const entrega = w.getByTestId("entrega");
   await expect(entrega).toHaveCount(1);
   await expect(entrega.getByText("Prueba", { exact: true })).toBeVisible();
+  // El trabajo de entrega la manda a los pocos segundos: el log se vuelve a leer solo, o a mano con el botón de refrescar.
+  await w.getByRole("button", { name: "Refrescar entregas" }).click();
   await expect(entrega.getByText("Entregada", { exact: true })).toBeVisible();
   await expect(entrega.getByText("HTTP 200")).toBeVisible();
   await eliminar(page, url);
@@ -107,6 +109,9 @@ test("#19 el log filtra por estado y reenvía una entrega fallida", async ({ pag
   await w.getByLabel("Filtrar entregas por estado").selectOption("PENDIENTE");
   await expect(w.getByTestId("entrega").getByText(/reintenta/)).toBeVisible();
   await expect(w.getByTestId("entrega").getByRole("button", { name: "Reenviar" })).toHaveCount(0);
+  // Lo reenviado vuelve a la cola, sale, y se ve entre las entregadas.
+  await w.getByLabel("Filtrar entregas por estado").selectOption("EXITOSA");
+  await expect(w.getByTestId("entrega").filter({ hasText: "HTTP 200" }).first()).toBeVisible();
 });
 
 test("#19 apaga y reactiva un webhook, rota su secreto y lo elimina", async ({ page }) => {
@@ -147,7 +152,7 @@ test("#19 la guía de desarrolladores explica la firma, los eventos y los reinte
   const seccion = page.locator("#webhooks");
   await expect(seccion.getByRole("heading", { name: "Webhooks", exact: true })).toBeVisible();
   await expect(seccion.getByText("comprobante.rechazado", { exact: true })).toBeVisible();
-  await expect(seccion.getByText("t=1760803200,v1=").first()).toBeVisible();
+  await expect(seccion.getByText("t=1792339200,v1=").first()).toBeVisible();
   await expect(seccion.getByText("Node.js", { exact: true })).toBeVisible();
   await expect(seccion.getByText(/10 intentos fallidos seguidos/)).toBeVisible();
 });
