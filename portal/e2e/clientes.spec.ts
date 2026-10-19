@@ -65,6 +65,19 @@ test("#319 crea un cliente, rechaza el mismo documento dos veces, lo edita y lo 
   await expect(fila(page, "MARÍA TORRES DE LA VEGA")).toHaveCount(0);
 });
 
+test("#319 editar un cliente del exterior conserva su país", async ({ page }) => {
+  await page.goto("/clientes");
+  await fila(page, "ANNA MÜLLER").getByTestId("editar-cliente").click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("País")).toHaveValue("DE");
+  await dialogo.getByLabel("Dirección").fill("Berlín, Alemania");
+  await dialogo.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(fila(page, "Berlín, Alemania")).toBeVisible();
+
+  await fila(page, "ANNA MÜLLER").getByTestId("editar-cliente").click();
+  await expect(page.getByRole("dialog").getByLabel("País")).toHaveValue("DE");
+});
+
 test("#319 «Nuevo comprobante» busca entre los clientes guardados y rellena al comprador", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
@@ -98,10 +111,12 @@ test("#319 al emitir guarda al comprador nuevo en «Clientes»", async ({ page }
   await dialogo.getByLabel("Cantidad").fill("1");
   await dialogo.getByLabel(/Precio unit\./).fill("100");
   await expect(dialogo.getByLabel("Guardar en mis clientes al emitir")).toBeChecked();
+  // El guardado es un pedido aparte, después de emitir: se espera su respuesta antes de salir de la página, o la navegación lo abortaría.
+  const guardado = page.waitForResponse((r) => r.url().includes("/api/proxy/clientes/documento/6/20554198211") && r.request().method() === "PUT");
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
+  expect((await guardado).ok()).toBe(true);
 
-  // El guardado es un pedido aparte, después de emitir: se espera a que aparezca.
   await page.goto("/clientes");
   await page.getByRole("searchbox", { name: "Buscar clientes" }).fill("20554198211");
   await expect(fila(page, "20554198211")).toBeVisible();
