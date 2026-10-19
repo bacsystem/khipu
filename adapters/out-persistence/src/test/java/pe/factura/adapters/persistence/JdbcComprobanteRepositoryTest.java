@@ -321,6 +321,49 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.contar(t, new Filtro(null, null, null, "F999"))).isZero();
     }
 
+    /**
+     * Filtros del listado por tipo, número y cliente (#326): el cliente se busca por documento (prefijo) o por nombre (contiene, sin distinguir mayúsculas), los comodines de LIKE
+     * son texto, el conteo usa el mismo filtro y nada cruza de una empresa a otra.
+     */
+    @Test void listaYCuentaPorTipoNumeroYCliente() {
+        UUID t = tenantDePrueba(), otro = tenantDePrueba();
+        var items = List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        java.time.Clock reloj = clock;
+        Comprobante andina = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CORPORACION ANDINA 100% SAC", null), items).crear(reloj);
+        andina.asignarNumero(1, "20100066603"); repo.guardar(andina);
+        Comprobante otraFactura = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20100066603", "Distribuidora Pacífico EIRL", null), items).crear(reloj);
+        otraFactura.asignarNumero(2, "20100066603"); repo.guardar(otraFactura);
+        Comprobante boleta = Comprobante.boleta(t, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "44781209", "JUAN PEREZ", null), items).crear(reloj);
+        boleta.asignarNumero(1, "20100066603"); repo.guardar(boleta);
+        Comprobante deOtraEmpresa = Comprobante.factura(otro, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CORPORACION ANDINA 100% SAC", null), items).crear(reloj);
+        deOtraEmpresa.asignarNumero(1, "20100066603"); repo.guardar(deOtraEmpresa);
+
+        // Tipo
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, "03", null, null), 1, 10)).extracting(Comprobante::id).containsExactly(boleta.id());
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, "01", null, null))).isEqualTo(2);
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, "07", null, null))).isZero();
+        // Número (sin la serie): hay un F001-1 y un B001-1
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, null, null, 2L), 1, 10)).extracting(Comprobante::id).containsExactly(otraFactura.id());
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, null, 1L))).isEqualTo(2);
+        // Cliente por nombre: contiene, sin distinguir mayúsculas ni tildes de caja
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, null, "andina", null), 1, 10)).extracting(Comprobante::id).containsExactly(andina.id());
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, null, "pacífico", null), 1, 10)).extracting(Comprobante::id).containsExactly(otraFactura.id());
+        // Cliente por documento: prefijo, no contiene
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, null, "20601", null), 1, 10)).extracting(Comprobante::id).containsExactly(andina.id());
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "601234", null))).isZero();
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, null, "44781209", null), 1, 10)).extracting(Comprobante::id).containsExactly(boleta.id());
+        // Los comodines de LIKE son texto: «100%» solo encuentra el nombre que lo contiene, y «%» o «_» solos no encuentran todo.
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "100%", null))).isEqualTo(1);
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "%", null))).isEqualTo(1);
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "_", null))).isZero();
+        // Combinados con los de siempre
+        assertThat(repo.contar(t, new Filtro(null, null, null, "F001", "01", "andina", 1L))).isEqualTo(1);
+        assertThat(repo.contar(t, new Filtro(null, null, null, "B001", "01", null, null))).isZero();
+        // Aislamiento: la otra empresa solo ve lo suyo, con el mismo nombre y documento
+        assertThat(repo.listar(otro, new Filtro(null, null, null, null, null, "andina", null), 1, 10)).extracting(Comprobante::id).containsExactly(deOtraEmpresa.id());
+        assertThat(repo.contar(otro, new Filtro(null, null, null, null, "03", null, null))).isZero();
+    }
+
     /** Historial de intentos (#4): los eventos se persisten en cada guardar con hora del servidor y vuelven en orden; sin eventos, lista vacía. */
     @Test void guardaElHistorialDeEventosEnOrden() {
         UUID t = tenantDePrueba();

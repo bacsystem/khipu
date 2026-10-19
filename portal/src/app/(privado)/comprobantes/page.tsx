@@ -16,7 +16,7 @@ export const metadata = { title: `Comprobantes · ${messages.app.nombre}` };
 export default async function ComprobantesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pagina?: string; por_pagina?: string; estado?: string; desde?: string; hasta?: string; serie?: string }>;
+  searchParams: Promise<{ pagina?: string; por_pagina?: string; estado?: string; desde?: string; hasta?: string; serie?: string; tipo?: string; cliente?: string; numero?: string }>;
 }) {
   const { pagina, por_pagina, ...resto } = await searchParams;
   const { access, empresaId } = await getServerSession();

@@ -71,6 +71,38 @@ test("filtra por serie y fechas desde la URL y desde los controles (#6)", async 
   await expect(tabla.getByText("F001-00000001")).toBeVisible();
 });
 
+test("filtra por tipo, cliente y número desde la URL y desde los controles (#326)", async ({ page }) => {
+  const tabla = page.locator("table");
+  // Desde la URL: la boleta del mock y nada más.
+  await page.goto("/comprobantes?tipo=03");
+  await expect(tabla.getByText("B001-00000021")).toBeVisible();
+  await expect(tabla.getByText("F001-00000004")).toHaveCount(0);
+  await expect(page.getByLabel("Tipo")).toContainText("Tipo: Boleta");
+
+  // Cliente por parte del nombre (sin distinguir mayúsculas): escribe, espera la pausa y la URL y la lista cambian.
+  await page.goto("/comprobantes");
+  await esperarHidratacion(page, "#filtro-cliente");
+  await page.getByLabel("Cliente", { exact: true }).fill("corporacion grafica");
+  await expect(page).toHaveURL(/cliente=corporacion\+grafica|cliente=corporacion%20grafica/);
+  await expect(tabla.getByText("F001-00000004")).toBeVisible();
+  await expect(tabla.getByText("F001-00000002")).toHaveCount(0);
+
+  // Por documento (empieza por) y por número, combinados con el tipo elegido en el selector.
+  await page.getByLabel("Cliente", { exact: true }).fill("2055419");
+  await expect(page).toHaveURL(/cliente=2055419/);
+  await page.getByLabel("Número", { exact: true }).fill("4");
+  await expect(page).toHaveURL(/numero=4/);
+  await expect(tabla.getByText("F001-00000004")).toBeVisible();
+  await expect(tabla.getByText("F001-00000001")).toHaveCount(0);
+  await page.getByLabel("Tipo").click();
+  await page.getByRole("option", { name: "Tipo: Boleta" }).click();
+  await expect(page).toHaveURL(/tipo=03/);
+  await expect(page.getByText("No hay comprobantes con esos filtros.")).toBeVisible();
+  await page.getByRole("link", { name: "Quitar filtros" }).click();
+  await expect(page).toHaveURL(/\/comprobantes$/);
+  await expect(page.getByLabel("Cliente", { exact: true })).toHaveValue("");
+});
+
 test("el detalle muestra el historial de intentos en hora de Lima (#7)", async ({ page }) => {
   await page.goto("/comprobantes/f-error");
   const historial = page.getByTestId("historial");

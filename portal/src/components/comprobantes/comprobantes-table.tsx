@@ -17,6 +17,7 @@ import {
   normalizarComprobante,
   paramsDeFiltros,
   tieneConstanciaCdr,
+  TIPOS_FILTRABLES,
   totalDesdeHeaders,
   type Comprobante,
   type EstadoDocumento,
@@ -26,6 +27,7 @@ import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { sePuedeDuplicar } from "@/lib/comprobantes/duplicar";
+import { BusquedaDelListado } from "./busqueda-del-listado";
 import { DuplicarButton } from "./duplicar-button";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "./estado-badge";
 import { CONTROL_FILTRO } from "@/lib/estilos";
@@ -53,6 +55,9 @@ const ITEMS_ESTADO: Record<string, string> = {
 };
 
 
+const TODOS_LOS_TIPOS = "todos";
+const ITEMS_TIPO: Record<string, string> = { [TODOS_LOS_TIPOS]: "Tipo: Todos", ...Object.fromEntries(TIPOS_FILTRABLES.map((tp) => [tp, `Tipo: ${ETIQUETAS_TIPO[tp] ?? tp}`])) };
+
 const TODAS_LAS_SERIES = "todas";
 const ACCION = "flex h-9 items-center justify-center rounded-lg border border-border font-mono text-[10px] font-semibold shadow-2xs transition-colors";
 
@@ -79,7 +84,7 @@ function etiquetaEstado(c: Comprobante): string | undefined {
  * nuevo, y se quedaba así mientras el refetch no respondiera.
  */
 export function claveComprobantes(empresaId: string, filtros: FiltrosComprobantes, pagina: number, porPagina: number) {
-  return ["facturas", empresaId, filtros.estado ?? null, filtros.desde ?? null, filtros.hasta ?? null, filtros.serie ?? null, pagina, porPagina] as const;
+  return ["facturas", empresaId, filtros.estado ?? null, filtros.desde ?? null, filtros.hasta ?? null, filtros.serie ?? null, filtros.tipo ?? null, filtros.cliente ?? null, filtros.numero ?? null, pagina, porPagina] as const;
 }
 
 export function ComprobantesTable({
@@ -106,7 +111,8 @@ export function ComprobantesTable({
 }) {
   const router = useRouter();
   const params = useSearchParams();
-  const { estado, desde, hasta, serie } = filtros;
+  const { estado, desde, hasta, serie, tipo, cliente, numero } = filtros;
+  const hayFiltros = !!(estado || desde || hasta || serie || tipo || cliente || numero);
 
   const { data: paginaActual, isFetching, refetch } = useQuery({
     queryKey: claveComprobantes(empresaId, filtros, pagina, porPagina),
@@ -135,7 +141,7 @@ export function ComprobantesTable({
   }
 
   /** Cambia un filtro en la URL (compartible) y vuelve a la página 1; un valor vacío lo quita. */
-  function cambiarFiltro(nombre: "estado" | "desde" | "hasta" | "serie", valor: string | null | undefined) {
+  function cambiarFiltro(nombre: "estado" | "desde" | "hasta" | "serie" | "tipo" | "cliente" | "numero", valor: string | null | undefined) {
     const next = new URLSearchParams(params.toString());
     if (valor) next.set(nombre, valor);
     else next.delete(nombre);
@@ -182,6 +188,20 @@ export function ComprobantesTable({
             </SelectContent>
           </Select>
 
+          <Select items={ITEMS_TIPO} value={tipo ?? TODOS_LOS_TIPOS} onValueChange={(v) => cambiarFiltro("tipo", !v || v === TODOS_LOS_TIPOS ? null : v)}>
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")} aria-label="Tipo">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS_LOS_TIPOS}>Tipo: Todos</SelectItem>
+              {TIPOS_FILTRABLES.map((tp) => (
+                <SelectItem key={tp} value={tp}>
+                  Tipo: {ETIQUETAS_TIPO[tp] ?? tp}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select items={itemsSerie} value={serie ?? TODAS_LAS_SERIES} onValueChange={(v) => cambiarFiltro("serie", !v || v === TODAS_LAS_SERIES ? null : v)}>
             <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")} aria-label="Serie">
               <SelectValue />
@@ -195,6 +215,9 @@ export function ComprobantesTable({
               ))}
             </SelectContent>
           </Select>
+
+          <BusquedaDelListado id="filtro-cliente" etiqueta="Cliente" ayuda="Documento (empieza por) o parte del nombre" placeholder="Cliente o documento" valor={cliente ?? ""} onCambio={(v) => cambiarFiltro("cliente", v.trim() || null)} ancho="w-48" maxLength={100} />
+          <BusquedaDelListado id="filtro-numero" etiqueta="Número" ayuda="Número del comprobante, sin la serie" placeholder="N.º" valor={numero ? String(numero) : ""} onCambio={(v) => cambiarFiltro("numero", v.replace(/\D/g, "").replace(/^0+/, "") || null)} ancho="w-24" soloDigitos maxLength={12} />
 
           <div className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3")} title="Fecha de emisión (inclusive)">
             <CalendarIcon className="size-4 text-muted-foreground/70" />
@@ -354,11 +377,11 @@ export function ComprobantesTable({
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <InboxIcon className="size-6" />
                     <p className="text-sm">
-                      {estado || desde || hasta || serie
+                      {hayFiltros
                         ? "No hay comprobantes con esos filtros."
                         : "Todavía no emitiste ningún comprobante."}
                     </p>
-                    {estado || desde || hasta || serie ? (
+                    {hayFiltros ? (
                       <Link href="/comprobantes" className="text-xs text-primary hover:underline">
                         Quitar filtros
                       </Link>
