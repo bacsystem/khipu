@@ -29,7 +29,7 @@ async function abrirFactura(page: Page) {
 async function llenarItem(dialogo: ReturnType<Page["getByRole"]>) {
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel("Cantidad").fill("1");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1000");
+  await dialogo.getByLabel(/Precio unit\./).fill("1000");
 }
 
 test("rellena la razón social y la dirección al completar el RUC, con una sola consulta, y se emite", async ({ page }) => {

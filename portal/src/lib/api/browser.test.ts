@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiRequest, postJson } from "./browser";
+import { apiRequest, noSeSabeSiLlego, postJson } from "./browser";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -85,5 +85,41 @@ describe("apiRequest / postJson", () => {
       expect(res.estado).toBe("error");
       expect(res.codigo).toBe("RESPUESTA_INVALIDA");
     });
+  });
+});
+
+describe("tope de espera (#117)", () => {
+  it("cada pedido lleva una señal que vence: 30 s la lectura y 2 min lo que escribe", async () => {
+    const espera = vi.spyOn(AbortSignal, "timeout");
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await apiRequest("/api/proxy/series", { method: "GET" });
+    await apiRequest("/api/proxy/facturas", { method: "POST", body: {} });
+    await apiRequest("/api/proxy/series/F001", { method: "DELETE" });
+
+    expect(espera.mock.calls.map(([ms]) => ms)).toEqual([30_000, 120_000, 120_000]);
+    for (const [, init] of fetch.mock.calls) expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal);
+    espera.mockRestore();
+  });
+
+  it("un pedido que vence cae en el corte de red, con el aviso de que pudo haberse procesado, y no cuelga al llamador", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError")));
+
+    const res = await apiRequest("/api/proxy/facturas", { method: "POST", body: {} });
+
+    expect(res.estado).toBe("error");
+    expect(res.codigo).toBe("RED");
+    expect(noSeSabeSiLlego(res)).toBe(true);
+    expect(res.mensaje).toMatch(/tardó demasiado.*pudo haberse procesado/);
+  });
+
+  it("un corte de red que no es de tiempo conserva su mensaje de conexión", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    const res = await apiRequest("/api/proxy/series", { method: "GET" });
+
+    expect(res.codigo).toBe("RED");
+    expect(res.mensaje).toMatch(/No se pudo conectar/);
   });
 });

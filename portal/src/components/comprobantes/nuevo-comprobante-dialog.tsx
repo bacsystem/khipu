@@ -89,8 +89,16 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   const [plantilla, setPlantilla] = useState<Plantilla | null>(null);
   const [copias, setCopias] = useState(0);
   const [falloLaCopia, setFalloLaCopia] = useState(false);
-  // Cada pedido lleva un número: solo vale la respuesta del último, y abrir el diálogo a mano anula los pendientes (si no, una copia que llega tarde pisaría lo que se está escribiendo).
-  const pedido = useRef(0);
+  // #117: Esc y la X descartaban lo escrito sin preguntar (el clic fuera ya estaba protegido). Con datos en el formulario piden confirmación; «Cancelar» es explícito y cierra.
+  const [hayDatos, setHayDatos] = useState(false);
+  const [confirmandoCierre, setConfirmandoCierre] = useState(false);
+  // Al cerrarse no queda nada escrito que proteger (el formulario se desmonta), ni siquiera si el último estado fue «con datos».
+  useEffect(() => {
+    if (!abierto) {
+      setHayDatos(false);
+      setConfirmandoCierre(false);
+    }
+  }, [abierto]);
   useEffect(
     () =>
       alPedirDuplicado((id) => {
@@ -147,6 +155,10 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
     <Dialog
       open={abierto}
       onOpenChange={(a) => {
+        if (!a && abierto && hayDatos) {
+          setConfirmandoCierre(true);
+          return;
+        }
         // Abrir a mano es empezar de cero: la copia solo vive hasta cerrar.
         if (a && !abierto) {
           pedido.current++;
@@ -154,6 +166,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
           setPlantilla(null);
           setFalloLaCopia(false);
         }
+        setConfirmandoCierre(false);
         setAbierto(a);
       }}
     >
@@ -248,10 +261,30 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                 </Alerta>
               </div>
             ) : null}
-            {plantilla && plantilla.omitidos.length > 0 ? (
-              <div className="shrink-0 px-5 pt-4" data-testid="copia-omitidos">
-                <Alerta tono="aviso" titulo="Se copió el cliente y las líneas, no todo">
-                  No se copió: {plantilla.omitidos.join("; ")}. Si la nueva operación lo necesita, indícalo de nuevo.
+            {confirmandoCierre ? (
+              <div className="shrink-0 px-5 pt-4" data-testid="confirmar-cierre">
+                <Alerta
+                  tono="aviso"
+                  titulo="¿Descartar lo que escribiste?"
+                  accion={
+                    <span className="flex gap-3">
+                      <button type="button" className={ACCION_SECUNDARIA} onClick={() => setConfirmandoCierre(false)} autoFocus>
+                        Seguir editando
+                      </button>
+                      <button
+                        type="button"
+                        className={ACCION_SECUNDARIA}
+                        onClick={() => {
+                          setConfirmandoCierre(false);
+                          setAbierto(false);
+                        }}
+                      >
+                        Descartar
+                      </button>
+                    </span>
+                  }
+                >
+                  El comprobante no se ha emitido: si cierras ahora se pierde el cliente y las líneas que cargaste.
                 </Alerta>
               </div>
             ) : null}
@@ -275,7 +308,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
               />
             </div>
             {/* `key`: cambiar de tipo es empezar otro comprobante, con su serie y su comprador; lo cargado del otro no aplica. */}
-            <NuevoComprobanteForm key={`${tipo}-${copias}`} tipo={tipo} plantilla={plantilla?.tipo === tipo ? plantilla : null} series={series.dato} tasaIgv={tasaIgv} cuentaDetracciones={empresa.dato?.cuenta_detracciones ?? null} onEmitido={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
+            <NuevoComprobanteForm key={`${tipo}-${copias}`} tipo={tipo} plantilla={plantilla?.tipo === tipo ? plantilla : null} series={series.dato} tasaIgv={tasaIgv} cuentaDetracciones={empresa.dato?.cuenta_detracciones ?? null} onEmitido={() => setAbierto(false)} onCancelar={() => setAbierto(false)} onCambioDatos={setHayDatos} />
           </>
         ) : series.error ? (
           <div className="flex flex-col gap-3 px-5 py-4">

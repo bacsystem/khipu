@@ -118,6 +118,11 @@ export type TotalesPrevisualizados = {
   gratuito: number;
   igv: number;
   total: number;
+  /**
+   * Afectaciones que esta previsualización no sabe calcular (IVAP 17, exportación 40…): sus líneas no suman, así que el total que devuelve **no es el del comprobante**. Quien
+   * lo muestre tiene que decirlo en vez de ofrecer S/ 0.00 (#117); el importe real lo calcula el backend (`/v1/facturas/calcular`, #405).
+   */
+  noContempladas: string[];
 };
 
 /**
@@ -146,6 +151,7 @@ const absoluto = (d: Decimal): Decimal => (d.v < 0n ? negar(d) : d);
 const mayorQue = (a: Decimal, b: Decimal): boolean => sumar(a, negar(b)).v > 0n;
 
 export function calcularTotales(items: ItemParaTotales[], tasaIgvPorcentaje: number): TotalesPrevisualizados {
+  const noContempladas = new Set<string>();
   const factor = dividir(aDecimal(tasaIgvPorcentaje), { v: 100n, e: 0 }, 6);
   const unoMasFactor = sumar(UNO, factor);
 
@@ -175,6 +181,7 @@ export function calcularTotales(items: ItemParaTotales[], tasaIgvPorcentaje: num
     }
     if (item.tipoAfectacionIgv === "20") return { ...acc, exonerado: sumar(acc.exonerado, base) };
     if (item.tipoAfectacionIgv === "30") return { ...acc, inafecto: sumar(acc.inafecto, base) };
+    noContempladas.add(item.tipoAfectacionIgv);
     return acc;
   }, VACIO);
 
@@ -187,5 +194,6 @@ export function calcularTotales(items: ItemParaTotales[], tasaIgvPorcentaje: num
     gratuito: aNumero(escalar(t.gratuito, 2)),
     igv: aNumero(escalar(igv, 2)),
     total: aNumero(total),
+    noContempladas: [...noContempladas].sort(),
   };
 }

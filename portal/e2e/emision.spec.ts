@@ -15,7 +15,7 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
 
   // La serie anticipa el correlativo que asignará el backend. El número exacto depende de cuántas emitieron los
   // specs que corren en paralelo sobre el mismo mock, así que se comprueba el formato, no el valor.
-  await expect(dialogo.getByLabel("Serie")).toContainText(/F001 · siguiente N\.º \d+/);
+  await expect(dialogo.getByLabel("Serie")).toContainText(/F001 · (último emitido N\.º \d+|aún sin emitir)/);
   // La factura solo ofrece series F: la B001 de la empresa es de boletas (#20).
   await expect(dialogo.getByLabel("Serie")).not.toContainText("B001");
 
@@ -32,12 +32,12 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
 
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel("Cantidad").fill("2");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1000");
+  await dialogo.getByLabel(/Precio unit\./).fill("1000");
 
   await dialogo.getByRole("button", { name: "Agregar ítem" }).click();
   await dialogo.getByLabel("Descripción").nth(1).fill("Licencia anual");
   await dialogo.getByLabel("Cantidad").nth(1).fill("1");
-  await dialogo.getByLabel("Precio unit. (con IGV)").nth(1).fill("500");
+  await dialogo.getByLabel(/Precio unit\./).nth(1).fill("500");
 
   // H9: un precio con IGV se cobra exacto. 2×1000 + 1×500 da 2500.00, no el 2500.01 de base × tasa por línea.
   await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 2,500.00");
@@ -56,7 +56,7 @@ test("emite una boleta a un comprador sin documento y no deja pasar una de más 
   const dialogo = page.getByRole("dialog");
   await dialogo.getByRole("button", { name: "Boleta" }).click();
 
-  await expect(dialogo.getByLabel("Serie")).toContainText(/B001 · siguiente N\.º \d+/);
+  await expect(dialogo.getByLabel("Serie")).toContainText(/B001 · (último emitido N\.º \d+|aún sin emitir)/);
   // #286: la ayuda de la fecha dice el plazo de la boleta (7 días, el del resumen diario: `PlazoEnvio`), no el de la factura, y el calendario llega hasta ahí.
   await expect(dialogo.getByText("Máx. 7 días")).toBeVisible();
   await expect(dialogo.getByText("Máx. 3 días")).toHaveCount(0);
@@ -67,13 +67,13 @@ test("emite una boleta a un comprador sin documento y no deja pasar una de más 
   await expect(dialogo.getByLabel("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
 
   await dialogo.getByLabel("Descripción").fill("Televisor");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("899");
+  await dialogo.getByLabel(/Precio unit\./).fill("899");
   await expect(dialogo.getByTestId("aviso-sin-documento")).toBeVisible();
   await dialogo.getByRole("button", { name: "Emitir boleta" }).click();
   await expect(dialogo.getByRole("alert")).toContainText("identifica al comprador");
 
   // Reescribir un monto: `fill` sobre `EntradaMonto` sin foco compite con su `onFocus` (que repone el texto) y concatena; como un usuario, se entra, se selecciona y se escribe.
-  const precio = dialogo.getByLabel("Precio unit. (con IGV)");
+  const precio = dialogo.getByLabel(/Precio unit\./);
   await precio.click();
   await precio.press("ControlOrMeta+a");
   await precio.pressSequentially("59");
@@ -109,11 +109,11 @@ test("emite una boleta a un comprador sin documento y no deja pasar una de más 
   await expect(historial).not.toContainText("Comunicación de baja");
 });
 
-test("tras emitir, el diálogo anuncia el correlativo siguiente, no el que acaba de usar (#17)", async ({ page }) => {
+test("tras emitir, el diálogo anuncia como último emitido el que acaba de usar, no el anterior (#17, #117)", async ({ page }) => {
   // La opción SELECCIONADA, no el texto del select entero (que concatena todas las opciones).
   const numeroAnunciado = async () => {
     const texto = await page.getByRole("dialog").getByLabel("Serie").locator("option:checked").innerText();
-    return Number(texto.match(/siguiente N\.º (\d+)/)?.[1]);
+    return Number(texto.match(/último emitido N\.º (\d+)/)?.[1] ?? 0);
   };
 
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
@@ -126,20 +126,20 @@ test("tras emitir, el diálogo anuncia el correlativo siguiente, no el que acaba
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100");
+  await dialogo.getByLabel(/Precio unit\./).fill("100");
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
 
   // El número que se acaba de emitir, leído de la ficha: la fuente de verdad contra la que se compara el anuncio.
   const emitido = Number((await page.getByText(/F002-\d{8}/).first().innerText()).match(/F002-(\d{8})/)?.[1]);
-  expect(emitido).toBe(antes);
+  expect(emitido).toBe(antes + 1);
 
-  // El diálogo vive en el top bar y sobrevive a esta navegación: si cacheara las series, seguiría ofreciendo el
-  // número que la emisión acaba de consumir; y si anunciara `ultimo_numero` sin el `+1`, ofrecería el ya usado.
+  // El diálogo vive en el top bar y sobrevive a esta navegación: si cacheara las series, seguiría anunciando el
+  // último de antes de esta emisión (#117: se anuncia el último emitido, no un «siguiente» que otra pestaña pudo gastar).
   // Con serie propia, el valor es exacto: la recertificación demostró que `>=` no discriminaba bajo `npm run e2e`.
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   await page.getByRole("dialog").getByLabel("Serie").selectOption("F002");
-  expect(await numeroAnunciado()).toBe(emitido + 1);
+  expect(await numeroAnunciado()).toBe(emitido);
 });
 
 test("una línea sin precio no se emite como S/ 0.00, y vaciar la fecha no manda un comprobante sin fecha (#17)", async ({ page }) => {
@@ -156,7 +156,7 @@ test("una línea sin precio no se emite como S/ 0.00, y vaciar la fecha no manda
   await expect(dialogo.getByText("1 ítem incompleto no se emitirá")).toBeVisible();
   await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 0.00");
 
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100");
+  await dialogo.getByLabel(/Precio unit\./).fill("100");
   await expect(dialogo.getByText("1 ítem incompleto no se emitirá")).toBeHidden();
   // H9: 100 / 1.18 = 84.75 y el IGV es lo que falta para 100 (15.25), no 84.75 × 0.18 = 15.26.
   await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 100.00");
@@ -181,7 +181,7 @@ test("emite con cantidad fraccionaria: el submit no queda bloqueado por la valid
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Harina de pescado");
   await dialogo.getByLabel("Cantidad").fill("0.59");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1208.79");
+  await dialogo.getByLabel(/Precio unit\./).fill("1208.79");
   // H9: 0.59 × 1208.79 = 713.1861, cobrado exacto a 2 decimales.
   await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 713.19");
 
@@ -204,7 +204,7 @@ test("si la red se corta durante la emisión, avisa y no deja el botón en «Emi
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100");
+  await dialogo.getByLabel(/Precio unit\./).fill("100");
 
   // `fetch` rechaza (no resuelve) ante un corte: sin `try/catch` el estado `enviando` nunca volvía a false.
   await page.route("**/api/proxy/facturas", (r) => r.abort("connectionreset"));
@@ -266,7 +266,7 @@ test("si después del corte se cambia la factura, el reintento es otra factura c
   });
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(dialogo.getByRole("alert")).toContainText("Se cortó la conexión");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("200");
+  await dialogo.getByLabel(/Precio unit\./).fill("200");
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(dialogo.getByRole("alert")).toContainText("Se cortó la conexión");
 
@@ -299,7 +299,7 @@ async function completarMinimo(dialogo: ReturnType<import("@playwright/test").Pa
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100");
+  await dialogo.getByLabel(/Precio unit\./).fill("100");
 }
 
 function contarEmisiones(page: import("@playwright/test").Page) {
@@ -379,7 +379,7 @@ test("el nombre corto del comprador de una boleta se frena en el cliente y, si l
   await expect(dialogo.getByLabel("Serie")).toContainText(/B001/);
   await dialogo.getByLabel("Número de documento").fill("12345678");
   await dialogo.getByLabel("Descripción").fill("Pan");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("5");
+  await dialogo.getByLabel(/Precio unit\./).fill("5");
   const posts = contarEmisiones(page);
 
   const nombre = dialogo.getByLabel("Nombre del comprador");
@@ -604,12 +604,12 @@ test("una línea sin descripción no entra en el total ni se emite en silencio (
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel("Cantidad").fill("2");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1000");
+  await dialogo.getByLabel(/Precio unit\./).fill("1000");
 
   // Segunda línea con importe pero sin descripción: no debe sumar al total, y el usuario tiene que enterarse.
   await dialogo.getByRole("button", { name: "Agregar ítem" }).click();
   await dialogo.getByLabel("Cantidad").nth(1).fill("2");
-  await dialogo.getByLabel("Precio unit. (con IGV)").nth(1).fill("500");
+  await dialogo.getByLabel(/Precio unit\./).nth(1).fill("500");
 
   await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 2,000.00");
   await expect(dialogo.getByText("1 ítem incompleto no se emitirá")).toBeVisible();
@@ -632,7 +632,7 @@ test("el redondeo se calcula en el backend, se ve en el pie y queda en el compro
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100.07");
+  await dialogo.getByLabel(/Precio unit\./).fill("100.07");
   await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 100.07");
 
   // Los ajustes poco frecuentes viven en «Más opciones del comprobante», cerrado por defecto.
@@ -655,7 +655,7 @@ test("emite una factura al crédito con sus cuotas y la ficha las muestra (#309)
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Proyecto");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+  await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
   await dialogo.getByLabel("Forma de pago").selectOption("credito");
   await dialogo.getByRole("button", { name: "Repartir" }).click();
@@ -682,7 +682,7 @@ test("emite una factura de exportación: afectación 40, cliente del exterior co
   await dialogo.getByLabel("Número de documento").fill("US123456789");
   await dialogo.getByLabel("Razón social").fill("ACME IMPORTS LLC");
   await dialogo.getByLabel("Descripción").fill("Café verde en grano");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("4500");
+  await dialogo.getByLabel(/Precio unit\./).fill("4500");
   await dialogo.getByLabel("Incoterm").selectOption("FOB");
 
   // Sin el país del cliente el formulario no deja emitir y lo dice en el momento.
@@ -701,7 +701,7 @@ test("emite una factura con detracción: bien, porcentaje y cuenta; el pie y la 
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+  await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
   await dialogo.getByLabel("Operación sujeta a detracción (SPOT)").check();
   await dialogo.getByLabel("Bien o servicio sujeto").selectOption("022");
@@ -726,7 +726,7 @@ test("emite una factura con percepción: régimen 51, el pie suma el monto y la 
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Mercadería");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+  await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
   await dialogo.getByLabel("Operación con percepción del IGV").check();
   await dialogo.getByLabel("Régimen de percepción").selectOption("51");
@@ -751,7 +751,7 @@ test("emite una boleta NRUS (0113) y no deja agregarle bolsas de plástico (#297
   await dialogo.getByLabel("Número de documento").fill("12345678");
   await dialogo.getByLabel("Nombre del comprador").fill("Juan Pérez");
   await dialogo.getByLabel("Descripción").fill("Pan");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("5");
+  await dialogo.getByLabel(/Precio unit\./).fill("5");
   await dialogo.getByLabel("Tipo de operación").selectOption("0113");
 
   await dialogo.getByRole("button", { name: "Más opciones del ítem 1" }).click();
@@ -770,7 +770,7 @@ test("emite con orden de compra, guía, documento relacionado y observaciones, y
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Mercadería");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+  await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
   await dialogo.getByText(/Datos adicionales: guías/).click();
   await dialogo.getByLabel(/Orden de compra/).fill("OC-2026-0457");
@@ -806,7 +806,7 @@ test("emite un anticipo y luego la factura final que lo descuenta: el pie y la f
   await dialogo.getByLabel("Esta factura es un anticipo").check();
   await expect(dialogo.getByLabel("Descripción")).toHaveValue("Anticipo por ");
   await dialogo.getByLabel("Descripción").fill("Anticipo por obra");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("590");
+  await dialogo.getByLabel(/Precio unit\./).fill("590");
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
 
@@ -817,7 +817,7 @@ test("emite un anticipo y luego la factura final que lo descuenta: el pie y la f
   await dialogo.getByLabel("RUC").fill(ruc);
   await dialogo.getByLabel("Razón social").fill("SUPERINTENDENCIA NACIONAL DE ADUANAS");
   await dialogo.getByLabel("Descripción").fill("Obra completa");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+  await dialogo.getByLabel(/Precio unit\./).fill("1180");
   await dialogo.getByText("Anticipos", { exact: true }).click();
   await dialogo.getByRole("checkbox", { name: /F001-\d+ .*por descontar/ }).first().check();
   await expect(dialogo.getByLabel(/Valor a descontar de F001-/)).toHaveValue("500.00");
@@ -835,7 +835,7 @@ test("emite una factura al crédito con retención del IGV: el pie la resta y la
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Proyecto");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1180");
+  await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
   await dialogo.getByLabel("El cliente retiene el IGV (agente de retención)").check();
   await expect(dialogo.getByLabel("Porcentaje de retención")).toHaveValue("3");
@@ -858,7 +858,7 @@ test("emite una boleta en dólares sin documento con tipo de cambio, y una factu
   await dialogo.getByRole("button", { name: "Boleta" }).click();
   await dialogo.getByLabel("Documento del comprador").selectOption("-");
   await dialogo.getByLabel("Descripción").fill("Servicio");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("118");
+  await dialogo.getByLabel(/Precio unit\./).fill("118");
   await dialogo.getByLabel("Moneda").selectOption("USD");
   // Sin tipo de cambio no hay cómo medir el tope de S/ 700 en otra moneda.
   await expect(dialogo.getByTestId("aviso-sin-documento")).toContainText("tipo de cambio");
@@ -873,7 +873,7 @@ test("emite una boleta en dólares sin documento con tipo de cambio, y una factu
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("100");
+  await dialogo.getByLabel(/Precio unit\./).fill("100");
   await dialogo.getByLabel("Moneda").selectOption("GBP");
   await dialogo.getByLabel("Tipo de cambio").fill("4.8");
   await expect(dialogo.getByTestId("total-en-soles")).toContainText("Equivale a S/ 480.00");

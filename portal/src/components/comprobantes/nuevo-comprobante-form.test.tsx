@@ -49,8 +49,8 @@ function stubConCalculo(totales: Record<string, number>, rechazo?: { codigo: str
 
 function linea(descripcion: string, precio: string) {
   fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: descripcion } });
-  fireEvent.change(screen.getByLabelText("Precio unit. (con IGV)"), { target: { value: precio } });
-  fireEvent.blur(screen.getByLabelText("Precio unit. (con IGV)"));
+  fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: precio } });
+  fireEvent.blur(screen.getByLabelText(/Precio unit\./));
 }
 
 afterEach(() => {
@@ -260,8 +260,8 @@ describe("NuevoComprobanteForm — afectaciones, ISC, ICBPER e IVAP (#298)", () 
     fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "17" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar ítem" }));
     fireEvent.change(screen.getAllByLabelText("Descripción")[1], { target: { value: "Otro" } });
-    fireEvent.change(screen.getAllByLabelText("Precio unit. (con IGV)")[1], { target: { value: "10" } });
-    fireEvent.blur(screen.getAllByLabelText("Precio unit. (con IGV)")[1]);
+    fireEvent.change(screen.getAllByLabelText(/Precio unit\./)[1], { target: { value: "10" } });
+    fireEvent.blur(screen.getAllByLabelText(/Precio unit\./)[1]);
 
     expect(screen.getByTestId("tributos-incompatibles")).toHaveTextContent(/todos sus ítems con IVAP/);
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
@@ -867,6 +867,82 @@ describe("NuevoComprobanteForm — retención del IGV (#313)", () => {
     // Apagada la detracción, la retención no reaparece marcada: quedó apagada, no escondida.
     fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
     expect(screen.getByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeChecked();
+  });
+});
+
+describe("NuevoComprobanteForm — menores de la certificación (#117)", () => {
+  const TOTALES = { gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 };
+  const abrirLinea = () => fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
+  const conRuc = () => {
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+  };
+
+  it("la etiqueta del precio dice si lleva IGV según la afectación de la línea", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    expect(screen.getByLabelText("Precio unit. (con IGV)")).toBeInTheDocument();
+    abrirLinea();
+    for (const [afectacion, etiqueta] of [["20", "Precio unit. (sin IGV)"], ["30", "Precio unit. (sin IGV)"], ["15", "Precio unit. (sin IGV)"], ["17", "Precio unit. (con IVAP)"], ["10", "Precio unit. (con IGV)"]] as const) {
+      fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: afectacion } });
+      expect(screen.getByLabelText(etiqueta), afectacion).toBeInTheDocument();
+    }
+  });
+
+  it("una factura toda exonerada no muestra «IGV (18 %) S/ 0.00»; con una línea gravada, sí", () => {
+    stubConCalculo({ gravado: 0, exonerado: 100, inafecto: 0, igv: 0, total: 100 });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    const pie = () => screen.getByTestId("totales-previsualizados");
+    expect(pie()).toHaveTextContent("IGV (18 %)"); // vacío: se muestra la tasa de la empresa
+    conRuc();
+    abrirLinea();
+    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "20" } });
+    linea("Libro", "100");
+    expect(pie()).not.toHaveTextContent("IGV");
+    expect(pie()).toHaveTextContent("Exonerado");
+    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "10" } });
+    expect(pie()).toHaveTextContent("IGV (18 %)");
+  });
+
+  it("la serie anuncia el último emitido (no un «siguiente» que otra pestaña pudo gastar) o que aún no emitió", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={[{ tipo: "01", serie: "F001", ultimo_numero: 12, activa: true, establecimiento: "0000" }, { tipo: "01", serie: "F002", ultimo_numero: 0, activa: true, establecimiento: "0000" }]} tasaIgv={18} />);
+    expect(screen.getByRole("option", { name: "F001 · último emitido N.º 12" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "F002 · aún sin emitir" })).toBeInTheDocument();
+    expect(screen.queryByText(/siguiente/i)).not.toBeInTheDocument();
+  });
+
+  it("IVAP o exportación mientras el backend no responde no se muestran como S/ 0.00: el importe dice que lo calcula khipu", async () => {
+    // El cálculo queda pendiente a propósito.
+    vi.stubGlobal("fetch", vi.fn<(url: string) => Promise<Response>>(() => new Promise<Response>(() => {})));
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conRuc();
+    abrirLinea();
+    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "17" } });
+    linea("Arroz", "104");
+    expect(screen.getByTestId("total-a-pagar")).toHaveTextContent("—");
+    expect(screen.getByTestId("importe-por-calcular")).toHaveTextContent("Lo calcula khipu");
+  });
+
+  it("con el importe del backend ya no dice «lo calcula khipu»", async () => {
+    stubConCalculo({ gravado: 100, exonerado: 0, inafecto: 0, igv: 4, total: 104 });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conRuc();
+    abrirLinea();
+    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "17" } });
+    linea("Arroz", "104");
+    await waitFor(() => expect(screen.getByTestId("total-a-pagar")).toHaveTextContent("S/ 104.00"));
+    expect(screen.queryByTestId("importe-por-calcular")).not.toBeInTheDocument();
+  });
+
+  it("Enter en un campo con el formulario incompleto no emite ni queda mudo: muestra qué falta", () => {
+    const fetch = stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    const form = screen.getByTestId("form-nuevo-comprobante") as HTMLFormElement;
+    const reportar = vi.spyOn(form, "reportValidity");
+    fireEvent.keyDown(screen.getByLabelText("RUC"), { key: "Enter" });
+    expect(reportar).toHaveBeenCalledTimes(1);
+    expect(emisiones(fetch)).toHaveLength(0);
   });
 });
 

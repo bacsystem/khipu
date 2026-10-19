@@ -284,7 +284,7 @@ describe("NuevoComprobanteDialog", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
 
-    await waitFor(() => expect(screen.getByRole("option", { name: /B001 · siguiente N\.º 10/ })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("option", { name: /B001 · último emitido N\.º 9/ })).toBeInTheDocument());
     expect(screen.queryByRole("option", { name: /F001/ })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Documento del comprador")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
@@ -299,7 +299,7 @@ describe("NuevoComprobanteDialog", () => {
     await abrir();
 
     expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("option", { name: /B001 · siguiente N\.º 10/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /B001 · último emitido N\.º 9/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
     expect(screen.queryByText("No tienes series de factura")).not.toBeInTheDocument();
     // La factura sigue a un clic: abrir en Boleta no esconde la otra opción.
@@ -414,8 +414,9 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     await waitFor(() => expect(screen.getByLabelText("Número de documento")).toHaveValue("44781209"));
     expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
 
-    // Cerrar y abrir con el botón es un comprobante nuevo, no la copia.
+    // Cerrar y abrir con el botón es un comprobante nuevo, no la copia. La copia tiene datos: Esc pide confirmar antes de descartarla (#117).
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
     await waitFor(() => expect(screen.queryByLabelText("Número de documento")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
     await waitFor(() => expect(screen.getByLabelText("Serie")).toBeInTheDocument());
@@ -508,5 +509,57 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     pedirDuplicado("f-9");
     expect(await screen.findByText("No se pudo copiar el comprobante")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue(""));
+  });
+});
+
+describe("NuevoComprobanteDialog — descartar lo escrito (#117)", () => {
+  const preparar = () => stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+  const esc = () => fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+  it("Esc con datos pide confirmación: seguir editando conserva todo, descartar cierra", async () => {
+    preparar();
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+
+    esc();
+    expect(await screen.findByTestId("confirmar-cierre")).toHaveTextContent("¿Descartar lo que escribiste?");
+    expect(screen.getByLabelText("RUC")).toHaveValue("20554198211");
+
+    fireEvent.click(screen.getByRole("button", { name: "Seguir editando" }));
+    expect(screen.queryByTestId("confirmar-cierre")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("RUC")).toHaveValue("20554198211");
+
+    esc();
+    fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
+    await waitFor(() => expect(screen.queryByLabelText("RUC")).not.toBeInTheDocument());
+
+    // Al volver a abrir es un comprobante nuevo.
+    await abrir();
+    expect(screen.getByLabelText("RUC")).toHaveValue("");
+  });
+
+  it("sin nada escrito Esc cierra directo, y una línea con descripción ya cuenta como escrito", async () => {
+    preparar();
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    esc();
+    await waitFor(() => expect(screen.queryByLabelText("RUC")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("confirmar-cierre")).not.toBeInTheDocument();
+
+    await abrir();
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Servicio" } });
+    esc();
+    expect(await screen.findByTestId("confirmar-cierre")).toBeInTheDocument();
+  });
+
+  it("«Cancelar» es explícito: cierra sin preguntar aunque haya datos", async () => {
+    preparar();
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByLabelText("RUC")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("confirmar-cierre")).not.toBeInTheDocument();
   });
 });

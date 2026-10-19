@@ -241,7 +241,7 @@ test("duplicar desde la tabla abre «Nuevo comprobante» con el cliente, la mone
   await expect(dialogo.getByLabel("RUC")).toHaveValue("20554198211");
   await expect(dialogo.getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
   await expect(dialogo.getByLabel("Descripción")).toHaveValue("Soporte mensual");
-  await expect(dialogo.getByLabel("Precio unit. (con IGV)")).toHaveValue(/236/);
+  await expect(dialogo.getByLabel(/Precio unit\./)).toHaveValue(/236/);
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
   await expect(dialogo.getByLabel("Fecha de emisión")).toHaveValue(hoy);
 
@@ -257,7 +257,9 @@ test("duplicar desde la ficha de una factura abre el mismo diálogo, y una nota 
   await page.goto("/comprobantes/f-firmada");
   await page.getByTestId("duplicar").click();
   await expect(page.getByRole("dialog").getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
+  // La copia tiene datos: Esc pide confirmar antes de descartarla (#117).
   await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Descartar" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 

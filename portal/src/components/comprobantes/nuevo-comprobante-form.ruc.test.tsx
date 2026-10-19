@@ -257,8 +257,8 @@ describe("NuevoComprobanteForm — boleta con RUC (#379)", () => {
 
     // Una dirección que el usuario no ve no viaja: la boleta no tiene ese campo.
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Televisor" } });
-    fireEvent.change(screen.getByLabelText("Precio unit. (con IGV)"), { target: { value: "100" } });
-    fireEvent.blur(screen.getByLabelText("Precio unit. (con IGV)"));
+    fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "100" } });
+    fireEvent.blur(screen.getByLabelText(/Precio unit\./));
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
     await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/facturas"))).toBe(true));
     const envio = fetch.mock.calls.find(([url]) => String(url).endsWith("/facturas"));
