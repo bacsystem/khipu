@@ -736,6 +736,43 @@ class FacturaE2ETest {
         assertThat(http.exchange("/v1/clientes", HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), Map.class).getStatusCode()).as("sin credenciales").isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
+    // --- Productos guardados (#320), por API key y con la pila real ---------------------------------------------------------------------------------------------
+
+    @Test void losProductosGuardadosSeCreanBuscanActualizanYBorranPorApiKey(WireMockRuntimeInfo wm) throws Exception {
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        String consultoria = "{\"codigo\":\"SKU-1\",\"descripcion\":\"Consultoría tributaria\",\"unidad\":\"zz\",\"tipo_afectacion_igv\":\"10\",\"precio_unitario\":118,\"codigo_sunat\":\"80101500\"}";
+
+        ResponseEntity<Map> creado = http.postForEntity("/v1/productos", new HttpEntity<>(consultoria, h), Map.class);
+        assertThat(creado.getStatusCode()).as("%s", creado.getBody()).isEqualTo(HttpStatus.CREATED);
+        Map<?, ?> datos = (Map<?, ?>) creado.getBody().get("datos");
+        String id = (String) datos.get("id");
+        assertThat(datos.get("unidad")).as("la unidad del catálogo 03 se guarda en mayúsculas").isEqualTo("ZZ");
+        assertThat(datos.get("precio_unitario").toString()).isEqualTo("118.0");
+
+        ResponseEntity<Map> repetido = http.postForEntity("/v1/productos", new HttpEntity<>(consultoria, h), Map.class);
+        assertThat(repetido.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(repetido.getBody().get("codigo")).isEqualTo("DUPLICADO");
+        ResponseEntity<Map> invalido = http.postForEntity("/v1/productos", new HttpEntity<>("{\"descripcion\":\"Algo\",\"unidad\":\"XYZ\",\"tipo_afectacion_igv\":\"10\",\"precio_unitario\":10}", h), Map.class);
+        assertThat(invalido.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(invalido.getBody().get("codigo")).isEqualTo("ITEM_INVALIDO");
+        ResponseEntity<Map> enCero = http.postForEntity("/v1/productos", new HttpEntity<>("{\"descripcion\":\"Algo\",\"unidad\":\"ZZ\",\"tipo_afectacion_igv\":\"10\",\"precio_unitario\":0}", h), Map.class);
+        assertThat(enCero.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        ResponseEntity<Map> busqueda = http.exchange("/v1/productos?q=consultoria", HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat(busqueda.getHeaders().getFirst("X-Total-Count")).isEqualTo("1");
+        assertThat(((java.util.List<Map<String, Object>>) busqueda.getBody().get("datos")).get(0).get("codigo_sunat")).isEqualTo("80101500");
+        assertThat(http.exchange("/v1/productos?q=zzz", HttpMethod.GET, new HttpEntity<>(h), Map.class).getHeaders().getFirst("X-Total-Count")).isEqualTo("0");
+
+        ResponseEntity<Map> cambiado = http.exchange("/v1/productos/" + id, HttpMethod.PUT, new HttpEntity<>("{\"codigo\":\"SKU-1\",\"descripcion\":\"Consultoría tributaria mensual\",\"unidad\":\"HUR\",\"tipo_afectacion_igv\":\"10\",\"precio_unitario\":236.5}", h), Map.class);
+        assertThat(cambiado.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(((Map<?, ?>) cambiado.getBody().get("datos")).containsKey("codigo_sunat")).as("lo opcional que no se envía se borra y el JSON no lo trae").isFalse();
+
+        assertThat(http.exchange("/v1/productos/" + id, HttpMethod.DELETE, new HttpEntity<>(h), Void.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(http.exchange("/v1/productos/" + id, HttpMethod.GET, new HttpEntity<>(h), Map.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(http.exchange("/v1/productos", HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), Map.class).getStatusCode()).as("sin credenciales").isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
     @Autowired pe.factura.application.port.out.PadronRucRepository padron;
 
     @org.junit.jupiter.api.BeforeEach void limpiar() {
