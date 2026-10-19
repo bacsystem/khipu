@@ -273,21 +273,8 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           {c.estado_documento === "ERROR_ENVIO" ? <ReenviarButton id={c.id} /> : null}
           {c.estado_documento === "FIRMADO" ? <ReenviarButton id={c.id} etiqueta="Enviar a SUNAT" enCurso="Enviando…" /> : null}
           {/* #315: la constancia de un comprobante atascado (solo facturas y sus notas: SUNAT no la expone para boletas) y la consulta de validez. */}
-          {(c.estado_documento === "ENVIADO" || c.estado_documento === "ERROR_ENVIO") && !esDeBoleta(c) ? <RecuperarCdrButton id={c.id} estado={c.estado_documento} /> : null}
-          {rucEmisor && !["RECIBIDO", "FIRMADO", "INVALIDO", "DESCARTADO"].includes(c.estado_documento) ? (
-            <ValidezButton
-              datos={{
-                ruc: rucEmisor,
-                tipo: c.tipo,
-                serie: c.serie,
-                numero: c.numero,
-                tipoDocReceptor: c.receptor && c.receptor.tipo_doc !== "-" ? c.receptor.tipo_doc : undefined,
-                numDocReceptor: c.receptor && c.receptor.tipo_doc !== "-" ? c.receptor.num_doc : undefined,
-                fecha: c.fecha_emision,
-                monto: c.totales.total,
-              }}
-            />
-          ) : null}
+          {puedeRecuperarCdr(c) ? <RecuperarCdrButton id={c.id} estado={c.estado_documento} /> : null}
+          {datosValidez ? <ValidezButton datos={datosValidez} /> : null}
           {sePuedeDuplicar(c) ? <DuplicarButton id={c.id} numero={numero} /> : null}
           {admiteNotas(c) ? (
             <Link href={`/comprobantes/${c.id}/nota`} className={ACCION_SECUNDARIA} data-testid="emitir-nota">
