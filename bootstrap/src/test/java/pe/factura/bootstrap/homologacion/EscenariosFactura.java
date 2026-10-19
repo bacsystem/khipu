@@ -327,7 +327,7 @@ final class EscenariosFactura {
                 "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${OTROS_TRIBUTOS_PARCIAL}}," +
                 "\"motivo\":\"07\",\"descripcion\":\"Devolución de combustible\",\"items\":[" +
                 "{\"descripcion\":\"Diésel B5\",\"unidad\":\"GLL\",\"cantidad\":2,\"precio_unitario\":17.70,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":3.5},\"placa\":\"ABC-123\"}]}"));
-        // #359: la boleta con DNI e ICBPER (el impuesto por bolsa va en la línea del RC y en el total) y las notas de crédito y débito que cuelgan de ella.
+        // #359: la boleta con DNI e ICBPER (el impuesto por bolsa va en la línea y en el total; viaja sola por sendBill, no por el RC) y las notas de crédito y débito que cuelgan de ella.
         String boletaIcbper = "{" + cabBoleta + ",\"moneda\":\"PEN\"," + dni + ",\"items\":[" +
                 "{\"descripcion\":\"Cuaderno\",\"unidad\":\"NIU\",\"cantidad\":4,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}," +
                 "{\"descripcion\":\"Bolsa plástica\",\"unidad\":\"NIU\",\"cantidad\":3,\"precio_unitario\":0.60,\"tipo_afectacion_igv\":\"10\",\"icbper\":true}]}";
@@ -341,6 +341,14 @@ final class EscenariosFactura {
                 "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_ICBPER}}," +
                 "\"motivo\":\"07\",\"descripcion\":\"Devolución de un cuaderno\",\"items\":[" +
                 "{\"descripcion\":\"Cuaderno\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}]}"));
+        // #359: boleta con cargo de línea (47) y cargo global (49), y su NC total. SUNAT no admite cargos en la nota (3271, 3277): la NC sale con las líneas netas.
+        todos.add(new Escenario("83-boleta-cargos", "Boleta con DNI, cargo de línea y cargo global",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Con flete\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"porcentaje\":10}]}," +
+                "{\"descripcion\":\"Sin ajuste\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":23.60,\"tipo_afectacion_igv\":\"10\"}],\"cargos\":[{\"monto\":5.00}]}"));
+        todos.add(new Escenario("84-nc-boleta-cargos", "NC total (01) sobre la boleta con cargos", NOTAS,
+                "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_CARGOS}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"));
         return todos;
     }
 

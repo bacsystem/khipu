@@ -145,6 +145,7 @@ class HomologacionBetaTest {
             if (e.id().startsWith("44-")) numeros.put("DESC_MIXTO", num.longValue());
             if (e.id().startsWith("45-")) numeros.put("BOLETA_DESC", num.longValue());
             if (e.id().startsWith("80-")) numeros.put("BOLETA_ICBPER", num.longValue());
+            if (e.id().startsWith("83-")) numeros.put("BOLETA_CARGOS", num.longValue());
             if (e.id().startsWith("49-")) numeros.put("BOLETA_EXPORTACION", num.longValue());
             if (e.id().startsWith("50-")) ids.put("BOLETA_EXPORTACION_SERVICIO", String.valueOf(datos.get("id")));
             if (e.id().startsWith("54-")) numeros.put("BOLETA_ANTICIPO", num.longValue());
