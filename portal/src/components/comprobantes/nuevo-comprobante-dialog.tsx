@@ -2,7 +2,7 @@
 
 import { FileTextIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NuevoComprobanteForm, tipoInicial, type TipoEmitible } from "@/components/comprobantes/nuevo-comprobante-form";
 import { Alerta } from "@/components/feedback/alerta";
 import { Spinner } from "@/components/feedback/spinner";
@@ -89,12 +89,16 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   const [plantilla, setPlantilla] = useState<Plantilla | null>(null);
   const [copias, setCopias] = useState(0);
   const [falloLaCopia, setFalloLaCopia] = useState(false);
+  // Cada pedido lleva un número: solo vale la respuesta del último, y abrir el diálogo a mano anula los pendientes (si no, una copia que llega tarde pisaría lo que se está escribiendo).
+  const pedido = useRef(0);
   useEffect(
     () =>
       alPedirDuplicado((id) => {
+        const mio = ++pedido.current;
         setFalloLaCopia(false);
         apiRequest<Comprobante>(`/api/proxy/facturas/${id}`, { method: "GET" })
           .then((res) => {
+            if (mio !== pedido.current) return;
             const copia = res.estado === "exito" && res.datos ? plantillaDesde(res.datos) : null;
             setFalloLaCopia(copia === null);
             setPlantilla(copia);
@@ -103,8 +107,11 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
             setAbierto(true);
           })
           .catch(() => {
+            if (mio !== pedido.current) return;
             setFalloLaCopia(true);
             setPlantilla(null);
+            setTipo(null);
+            setCopias((n) => n + 1);
             setAbierto(true);
           });
       }),
@@ -142,6 +149,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
       onOpenChange={(a) => {
         // Abrir a mano es empezar de cero: la copia solo vive hasta cerrar.
         if (a && !abierto) {
+          pedido.current++;
           setTipo(null);
           setPlantilla(null);
           setFalloLaCopia(false);
@@ -237,6 +245,13 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                   }
                 >
                   El comprobante se firma y queda guardado, pero SUNAT no lo va a recibir hasta que las corrijas: entonces sale solo.
+                </Alerta>
+              </div>
+            ) : null}
+            {plantilla && plantilla.omitidos.length > 0 ? (
+              <div className="shrink-0 px-5 pt-4" data-testid="copia-omitidos">
+                <Alerta tono="aviso" titulo="Se copió el cliente y las líneas, no todo">
+                  No se copió: {plantilla.omitidos.join("; ")}. Si la nueva operación lo necesita, indícalo de nuevo.
                 </Alerta>
               </div>
             ) : null}
