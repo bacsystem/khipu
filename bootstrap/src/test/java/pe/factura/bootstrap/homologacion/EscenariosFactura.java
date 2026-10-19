@@ -327,6 +327,20 @@ final class EscenariosFactura {
                 "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${OTROS_TRIBUTOS_PARCIAL}}," +
                 "\"motivo\":\"07\",\"descripcion\":\"Devolución de combustible\",\"items\":[" +
                 "{\"descripcion\":\"Diésel B5\",\"unidad\":\"GLL\",\"cantidad\":2,\"precio_unitario\":17.70,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":3.5},\"placa\":\"ABC-123\"}]}"));
+        // #359: la boleta con DNI e ICBPER (el impuesto por bolsa va en la línea del RC y en el total) y las notas de crédito y débito que cuelgan de ella.
+        String boletaIcbper = "{" + cabBoleta + ",\"moneda\":\"PEN\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Cuaderno\",\"unidad\":\"NIU\",\"cantidad\":4,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}," +
+                "{\"descripcion\":\"Bolsa plástica\",\"unidad\":\"NIU\",\"cantidad\":3,\"precio_unitario\":0.60,\"tipo_afectacion_igv\":\"10\",\"icbper\":true}]}";
+        todos.add(new Escenario("80-boleta-dni-icbper", "Boleta con DNI y bolsas plásticas (ICBPER)", boletaIcbper));
+        // #306 sobre la boleta: la nota de débito con cargo por ítem (el 47 pasa al valor de la línea) y la nota de crédito parcial por devolución.
+        todos.add(new Escenario("81-nd-boleta-cargo-item", "Nota de débito (02) con cargo por ítem sobre la boleta con ICBPER", NOTAS,
+                "{\"tipo\":\"08\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_ICBPER}}," +
+                "\"motivo\":\"02\",\"descripcion\":\"Aumento en el valor por gastos de envío\",\"items\":[" +
+                "{\"descripcion\":\"Aumento de valor\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":23.60,\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"monto\":3.00}]}]}"));
+        todos.add(new Escenario("82-nc-parcial-boleta", "Nota de crédito parcial (07) por devolución de un cuaderno de la boleta con ICBPER", NOTAS,
+                "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_ICBPER}}," +
+                "\"motivo\":\"07\",\"descripcion\":\"Devolución de un cuaderno\",\"items\":[" +
+                "{\"descripcion\":\"Cuaderno\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}]}"));
         return todos;
     }
 
