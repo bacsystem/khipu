@@ -776,6 +776,9 @@ describe("NuevoComprobanteForm — retención del IGV (#313)", () => {
     marcar();
     fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
     expect(screen.queryByTestId("retencion-form")).not.toBeInTheDocument();
+    // Apagada la detracción, la retención no reaparece marcada: quedó apagada, no escondida.
+    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    expect(screen.getByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeChecked();
   });
 });
 
