@@ -31,6 +31,11 @@ export function RecuperarCdrButton({ id, estado }: { id: string; estado: string 
       setMensaje({ tono: "error", texto: "Se cortó la conexión mientras se consultaba a SUNAT. Reintente: consultar no cambia nada si SUNAT no tiene la constancia." });
       return;
     }
+    // Otro proceso (el envío, el barrido horario) resolvió el comprobante mientras la ficha estaba abierta: no es un error, es que la ficha quedó vieja.
+    if (res.codigo === "CDR_YA_DISPONIBLE") {
+      router.refresh();
+      return;
+    }
     if (res.estado !== "exito" || !res.datos) {
       setMensaje({ tono: "error", texto: res.mensaje ?? mensajeError(res.codigo) });
       return;

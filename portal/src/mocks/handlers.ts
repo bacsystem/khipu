@@ -3171,8 +3171,9 @@ export const handlers = [
     const empresaId = request.headers.get("x-empresa") ?? "";
     const factura = (db.facturasPorEmpresa.get(empresaId) ?? []).find((f) => f.id === params.id);
     if (!factura) return fail(404, "NO_ENCONTRADO", "Comprobante no encontrado");
+    // En el orden del backend (`RecuperarCdrService`): primero «ya tiene su CDR» y después «no es consultable».
+    if (factura.cdr) return fail(409, "CDR_YA_DISPONIBLE", `El comprobante ya tiene su CDR (${factura.estado_documento}); descárguelo con GET /v1/facturas/${factura.id}/cdr`);
     if (deBoletaMock(factura)) return fail(409, "CDR_NO_CONSULTABLE", "SUNAT no expone getStatusCdr para boletas ni notas de boleta: su constancia es la del envío individual o la del resumen diario");
-    if (factura.cdr) return fail(409, "CDR_YA_DISPONIBLE", "El comprobante ya tiene su constancia de SUNAT");
     if (params.id === "f-enviada-sin-cdr") return ok(factura);
     factura.estado_documento = "ACEPTADO";
     factura.cdr = { codigo: "0", descripcion: `La Factura numero ${factura.serie}-${factura.numero}, ha sido aceptada`, observaciones: [] };

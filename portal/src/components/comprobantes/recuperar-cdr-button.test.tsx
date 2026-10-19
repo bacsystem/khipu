@@ -36,12 +36,20 @@ describe("RecuperarCdrButton (#315)", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("un rechazo del backend (409 CDR_YA_DISPONIBLE) se muestra tal cual", async () => {
-    stub(() => sobre({ estado: "error", datos: null, mensaje: "El comprobante ya tiene su constancia de SUNAT", codigo: "CDR_YA_DISPONIBLE", errores: null }, 409));
+  it("un rechazo del backend (409 CDR_NO_CONSULTABLE) se muestra tal cual", async () => {
+    stub(() => sobre({ estado: "error", datos: null, mensaje: "SUNAT no expone getStatusCdr para boletas", codigo: "CDR_NO_CONSULTABLE", errores: null }, 409));
     render(<RecuperarCdrButton id="f-1" estado="ENVIADO" />);
     fireEvent.click(screen.getByRole("button", { name: "Recuperar constancia de SUNAT" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("ya tiene su constancia");
+    expect(await screen.findByRole("alert")).toHaveTextContent("no expone getStatusCdr");
     expect(screen.getByRole("button", { name: "Recuperar constancia de SUNAT" })).toBeEnabled();
+  });
+
+  it("un 409 CDR_YA_DISPONIBLE (otro proceso lo resolvió) no es un error: refresca la ficha vieja", async () => {
+    stub(() => sobre({ estado: "error", datos: null, mensaje: "El comprobante ya tiene su CDR (ACEPTADO); descárguelo con GET /v1/facturas/{id}/cdr", codigo: "CDR_YA_DISPONIBLE", errores: null }, 409));
+    render(<RecuperarCdrButton id="f-1" estado="ENVIADO" />);
+    fireEvent.click(screen.getByRole("button", { name: "Recuperar constancia de SUNAT" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("con la red cortada avisa y deja reintentar", async () => {
