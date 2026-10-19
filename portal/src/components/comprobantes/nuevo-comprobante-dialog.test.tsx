@@ -492,6 +492,7 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     await waitFor(() => expect(screen.getByLabelText("Número de documento")).toHaveValue("44781209"));
     expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
     await waitFor(() => expect(screen.queryByLabelText("Número de documento")).not.toBeInTheDocument());
     fallar = true;
     pedirDuplicado("b-1");

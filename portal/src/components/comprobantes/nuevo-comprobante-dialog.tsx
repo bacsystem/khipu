@@ -100,6 +100,8 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
       setConfirmandoCierre(false);
     }
   }, [abierto]);
+  // Cada pedido de duplicar lleva un número: solo vale la respuesta del último, y abrir el diálogo a mano anula los pendientes (si no, una copia que llega tarde pisaría lo que se está escribiendo).
+  const pedido = useRef(0);
   useEffect(
     () =>
       alPedirDuplicado((id) => {
@@ -293,6 +295,13 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                   }
                 >
                   El comprobante no se ha emitido: si cierras ahora se pierde el cliente y las líneas que cargaste.
+                </Alerta>
+              </div>
+            ) : null}
+            {plantilla && plantilla.omitidos.length > 0 ? (
+              <div className="shrink-0 px-5 pt-4" data-testid="copia-omitidos">
+                <Alerta tono="aviso" titulo="Se copió el cliente y las líneas, no todo">
+                  No se copió: {plantilla.omitidos.join("; ")}. Si la nueva operación lo necesita, indícalo de nuevo.
                 </Alerta>
               </div>
             ) : null}
