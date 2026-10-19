@@ -419,6 +419,84 @@ class FacturaControllerTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
     }
 
+    /** Lee un ZIP en memoria: nombre de entrada → bytes. */
+    private static java.util.Map<String, byte[]> entradas(byte[] zip) throws java.io.IOException {
+        var resultado = new java.util.LinkedHashMap<String, byte[]>();
+        try (var in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip))) {
+            for (var e = in.getNextEntry(); e != null; e = in.getNextEntry()) resultado.put(e.getName(), in.readAllBytes());
+        }
+        return resultado;
+    }
+
+    /** Descarga masiva (#324): XML, PDF y CDR de lo que cumple el filtro, con los nombres del comprobante; un comprobante sin firma se omite y uno ilegible se anota. */
+    @Test void descargaEnZipLosArchivosDeLosComprobantesDelFiltro() throws Exception {
+        Comprobante a = aceptado(tenant);
+        Comprobante sinFirma = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        sinFirma.asignarNumero(603, "20100066603");
+        var filtro = new ConsultarComprobanteUseCase.Filtro(null, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, "01", null, null);
+        when(consultar.contar(tenant, filtro)).thenReturn(2L);
+        when(consultar.listar(eq(tenant), eq(filtro), eq(1), anyInt())).thenReturn(List.of(a, sinFirma));
+        when(consultar.xml(tenant, a.id())).thenReturn("<xml/>".getBytes());
+        when(consultar.pdf(tenant, a.id())).thenThrow(new DomainException("SIN_FIRMA", "no hay PDF"));
+        when(consultar.cdr(tenant, a.id())).thenReturn(new byte[]{1, 2, 3});
+
+        var inicio = mvc.perform(get("/v1/facturas/descarga?desde=2026-09-01&hasta=2026-09-30&tipo=01").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
+        var respuesta = mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/zip"))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment; filename=\"comprobantes-")))
+                .andReturn().getResponse();
+
+        var zip = entradas(respuesta.getContentAsByteArray());
+        assertThat(zip.keySet()).containsExactly(a.nombreArchivo() + ".xml", "R-" + a.nombreArchivo() + ".zip", "LEEME.txt");
+        assertThat(zip.get(a.nombreArchivo() + ".xml")).isEqualTo("<xml/>".getBytes());
+        assertThat(zip.get("R-" + a.nombreArchivo() + ".zip")).containsExactly(1, 2, 3);
+        assertThat(new String(zip.get("LEEME.txt"))).contains(a.nombreArchivo() + ".pdf").contains("no hay PDF");
+        verify(consultar, never()).xml(tenant, sinFirma.id());
+    }
+
+    @Test void descargaSoloLoQueSePideEnTipos() throws Exception {
+        Comprobante a = aceptado(tenant);
+        var filtro = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(tenant, filtro)).thenReturn(1L);
+        when(consultar.listar(eq(tenant), eq(filtro), eq(1), anyInt())).thenReturn(List.of(a));
+        when(consultar.xml(tenant, a.id())).thenReturn("<xml/>".getBytes());
+        var inicio = mvc.perform(get("/v1/facturas/descarga?tipos=xml").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
+        var zip = entradas(mvc.perform(asyncDispatch(inicio)).andReturn().getResponse().getContentAsByteArray());
+        assertThat(zip.keySet()).containsExactly(a.nombreArchivo() + ".xml");
+        verify(consultar, never()).pdf(any(), any());
+        verify(consultar, never()).cdr(any(), any());
+    }
+
+    /** El tope se comprueba antes de empezar: el cliente recibe un 422 con el número, no un ZIP cortado; sin resultados, 404; un tipo desconocido, 400. */
+    @Test void descargaRespetaElTopeYValidaLosParametros() throws Exception {
+        var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(tenant, todos)).thenReturn(501L);
+        mvc.perform(get("/v1/facturas/descarga").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("DESCARGA_EXCEDE_EL_TOPE"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("501")));
+        verify(consultar, never()).listar(any(), any(), anyInt(), anyInt());
+
+        when(consultar.contar(tenant, todos)).thenReturn(500L);
+        when(consultar.listar(eq(tenant), eq(todos), eq(1), anyInt())).thenReturn(List.of());
+        mvc.perform(get("/v1/facturas/descarga").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted());
+
+        when(consultar.contar(tenant, todos)).thenReturn(0L);
+        mvc.perform(get("/v1/facturas/descarga").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+
+        mvc.perform(get("/v1/facturas/descarga?tipos=xml,exe").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+    }
+
+    /** Aislamiento: el tenant del request es el único que llega a las consultas; un id ajeno no existe para él. */
+    @Test void descargaSoloLeeLoDeSuEmpresa() throws Exception {
+        UUID otro = UUID.randomUUID();
+        var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(otro, todos)).thenReturn(0L);
+        mvc.perform(get("/v1/facturas/descarga").requestAttr(TenantActual.ATRIBUTO, otro)).andExpect(status().isNotFound());
+        verify(consultar, never()).contar(eq(tenant), any());
+    }
+
     @Test void obtenerPorId() throws Exception {
         Comprobante c = aceptado(tenant);
         when(consultar.obtener(tenant, c.id())).thenReturn(c);

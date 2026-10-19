@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import pe.factura.adapters.rest.dto.ComprobanteResponse;
 import pe.factura.adapters.rest.dto.CorreoRequest;
 import pe.factura.adapters.rest.dto.FacturaRequest;
@@ -156,6 +157,30 @@ public class FacturaController {
         List<ComprobanteResponse> datos = consultar.listar(t, filtro, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
                 .stream().map(c -> ComprobanteResponse.de(c, BASE)).toList();
         return ResponseEntity.ok().header(TOTAL_HEADER, String.valueOf(consultar.contar(t, filtro))).body(ApiResponse.ok(datos));
+    }
+
+    @GetMapping("/descarga")
+    @Operation(summary = "Descargar comprobantes en un ZIP", description = """
+            Los archivos de los comprobantes que cumplen los filtros —los mismos del listado— en un ZIP que se va escribiendo mientras se leen: `<RUC>-<tipo>-<serie>-<número>.xml` (XML firmado),
+            `.pdf` (representación impresa) y `R-<RUC>-….zip` (CDR, solo los que ya lo tienen). `tipos` elige cuáles (`xml,pdf,cdr`, por defecto los tres). Un comprobante todavía sin firmar no tiene archivos y se
+            omite; si un archivo no se puede leer, el ZIP lo anota en `LEEME.txt` en vez de fallar entero. **Tope: 500 comprobantes por descarga**; con más responde `422 DESCARGA_EXCEDE_EL_TOPE`
+            con cuántos hay (acote las fechas y descargue por tramos), y sin resultados `404 NO_ENCONTRADO`. Un `tipos` con otro valor es `400 PARAMETRO_INVALIDO`.""")
+    public ResponseEntity<StreamingResponseBody> descargar(HttpServletRequest req,
+                                                          @Parameter(description = "Estado del comprobante") @RequestParam(required = false) EstadoDocumento estado,
+                                                          @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-09-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+                                                          @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)", example = "2026-09-30") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+                                                          @Parameter(description = "Serie exacta", example = "F001") @RequestParam(required = false) String serie,
+                                                          @Parameter(description = "Tipo: `01`, `03`, `07` u `08`", example = "01") @RequestParam(required = false) String tipo,
+                                                          @Parameter(description = "Cliente: documento (prefijo) o parte de la razón social", example = "andina") @RequestParam(required = false) String cliente,
+                                                          @Parameter(description = "Número del comprobante (sin la serie)", example = "125") @RequestParam(required = false) Long numero,
+                                                          @Parameter(description = "Qué archivos incluir: `xml`, `pdf`, `cdr` separados por coma", example = "xml,pdf") @RequestParam(required = false) String tipos) {
+        UUID t = TenantActual.id(req);
+        var filtro = new ConsultarComprobanteUseCase.Filtro(estado, desde, hasta, serie, tipo, cliente, numero);
+        var contenido = DescargaEnZip.Contenido.de(tipos);
+        long total = DescargaEnZip.verificar(consultar, t, filtro);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"comprobantes-" + LocalDate.now(java.time.ZoneId.of("America/Lima")) + ".zip\"")
+                .body(salida -> DescargaEnZip.escribir(salida, consultar, t, filtro, contenido, total));
     }
 
     @GetMapping("/{id}")

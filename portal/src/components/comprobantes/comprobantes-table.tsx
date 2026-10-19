@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { sePuedeDuplicar } from "@/lib/comprobantes/duplicar";
 import { BusquedaDelListado } from "./busqueda-del-listado";
+import { DescargaMasiva } from "./descarga-masiva";
 import { DuplicarButton } from "./duplicar-button";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "./estado-badge";
 import { CONTROL_FILTRO } from "@/lib/estilos";
@@ -241,6 +242,8 @@ export function ComprobantesTable({
               className="bg-transparent text-[12px] text-foreground outline-none"
             />
           </div>
+
+          <DescargaMasiva filtros={filtros} total={total} />
 
           <button
             type="button"

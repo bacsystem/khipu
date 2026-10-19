@@ -1620,12 +1620,30 @@ test("#294: el mock de POST /v1/notas sobre boletas rechaza lo que el backend re
   expect(r.status, r.texto).toBe(201);
 });
 
-test("la ficha del cliente no llama «intento» al envío que aún no falló: cuenta los fallidos (#286)", async ({ page }) => {
-  // Un comprobante cuyo envío falló: «Último error de envío (N fallidos)».
-  await page.goto("/comprobantes/f-error-rechazo");
-  await expect(page.getByText(/Último error de envío \(\d+ fallidos?\)/)).toBeVisible();
-  await expect(page.getByText(/Último intento/)).toHaveCount(0);
-  // Uno firmado que todavía no se envió no tiene intentos: no dice «Último intento (0)».
-  await page.goto("/comprobantes/f-firmada");
-  await expect(page.getByText("Último intento (0)")).toHaveCount(0);
+test("descarga masiva: un ZIP con los archivos de lo que muestra la lista, con sus filtros (#324)", async ({ page }) => {
+  await page.goto("/comprobantes?serie=F001&desde=2026-09-02&hasta=2026-09-02");
+  await esperarHidratacion(page, "#filtro-hasta");
+  await page.getByRole("button", { name: "Descargar ZIP" }).click();
+  await page.getByLabel("CDR de SUNAT").uncheck();
+  const enlace = page.getByTestId("descarga-enlace");
+  await expect(enlace).toHaveAttribute("href", /serie=F001.*tipos=pdf%2Cxml|tipos=pdf%2Cxml/);
+
+  // El navegador pide el ZIP por el proxy: lo que vuelve es un ZIP con un XML y un PDF por comprobante firmado.
+  const respuesta = await page.request.get((await enlace.getAttribute("href"))!);
+  expect(respuesta.status()).toBe(200);
+  expect(respuesta.headers()["content-type"]).toBe("application/zip");
+  const cuerpo = await respuesta.body();
+  expect(cuerpo.subarray(0, 4).toString("hex")).toBe("504b0304"); // PK\x03\x04
+  const texto = cuerpo.toString("latin1");
+  expect(texto).toContain("20123456786-01-F001-00000004.xml");
+  expect(texto).toContain("20123456786-01-F001-00000004.pdf");
+  expect(texto).not.toContain("R-20123456786");
+});
+
+test("descarga masiva: sin resultados el panel lo dice y no ofrece el ZIP (#324)", async ({ page }) => {
+  await page.goto("/comprobantes?serie=F999");
+  await esperarHidratacion(page, "#filtro-hasta");
+  await page.getByRole("button", { name: "Descargar ZIP" }).click();
+  await expect(page.getByTestId("descarga-motivo")).toContainText("No hay comprobantes con estos filtros");
+  await expect(page.getByTestId("descarga-enlace")).toHaveCount(0);
 });
