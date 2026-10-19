@@ -66,7 +66,7 @@ test("#19 valida la URL antes de llamar a la API y muestra el rechazo del backen
 
   await page.getByLabel("URL del endpoint").fill("https://localhost/h");
   await page.getByRole("button", { name: "Registrar webhook" }).click();
-  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("dirección interna");
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("servidor público");
 
   await page.getByLabel("URL del endpoint").fill("https://ok.demo.pe/h");
   for (const caja of await page.getByRole("dialog").getByRole("checkbox").all()) await caja.uncheck();
