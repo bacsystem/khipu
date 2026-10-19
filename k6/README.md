@@ -37,6 +37,21 @@ Sin k6 instalado: `docker run --rm -i -e API_BASE_URL=http://host.docker.interna
 La fecha de emisión de los scripts es la de **Lima** (UTC-5): con la fecha UTC, entre las 19:00 y las 24:00 de Lima la API respondía `422 FECHA_INVALIDA` (fecha futura) y la siembra de
 `descargas.js` fallaba.
 
+## En CI (`.github/workflows/k6.yml`, #8)
+
+En cada PR que toca el backend (y cada lunes, y a pedido) levanta Postgres y el backend real, prepara una empresa con `F001` y `B001` y corre:
+
+| Paso | Bloquea | Umbral |
+|---|---|---|
+| `descargas.js` | **Sí** | p95 < 300 ms, errores < 1 % |
+| `emision.js` (facturas) y `boletas.js` | No (`continue-on-error`) | p95 < 500 ms a 50 doc/s |
+| Numeración después de la carga | **Sí** | por serie: documentos = número más alto = números distintos |
+
+Los resúmenes de k6 (JSON), el resultado de la numeración y el log del backend quedan como artifact, y una tabla con los p95 en el resumen del job. Las dos emisiones no bloquean
+mientras no haya varias corridas que digan cuánto ruido tiene el runner compartido (en una laptop miden ~25 ms contra un umbral de 500); cuando se estabilicen, se quita el
+`continue-on-error`. Para correr lo mismo a mano: los comandos de arriba contra un backend local.
+
+
 ## Hallazgo: la emisión no llega a 50 doc/s en una sola serie
 
 `EmitirComprobanteService.emitirFactura` hace `SELECT ... FOR UPDATE` sobre la fila
