@@ -817,11 +817,13 @@ X-Api-Key: fk_TU_API_KEY
   },
   {
     id: "boleta-alcance",
-    titulo: "Boleta: lo que SUNAT permite y khipu decidió no hacer",
+    titulo: "Boleta: el alcance de khipu frente a lo que SUNAT permite",
     cuando: "Antes de integrar la boleta, para saber qué casos del resumen diario y de la identificación del comprador cubre khipu y cuáles se resuelven de otra forma.",
     request: `// Boleta sin documento por más de S/ 700.00: se rechaza antes de consumir número
 {
   "serie": "B001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
   "cliente": { "tipo_doc": "-", "num_doc": "-", "razon_social": "CLIENTES VARIOS" },
   "items": [
     { "descripcion": "Televisor 43 pulgadas", "unidad": "NIU", "cantidad": 1, "precio_unitario": 1500.00, "tipo_afectacion_igv": "10" }
@@ -838,9 +840,9 @@ X-Api-Key: fk_TU_API_KEY
 }`,
     notas: [
       "**Resumen diario en estado 2 (modificar): no se implementa.** SUNAT lo permite, pero khipu solo informa altas (estado 1) y bajas (estado 3). Una boleta aceptada que salió con un dato equivocado se corrige con una nota de crédito o de débito `BC##`/`BD##`, que es lo que la normativa interna recomienda; así el comprobante original queda como lo vio SUNAT y la corrección deja rastro.",
-      "**NRUS (`tipo_operacion` `0113`): sí se emite.** La línea lleva la afectación y el IGV que piden las reglas 3111, 2993, 4290 y 4310, y e-beta acepta la boleta. Un `icbper` en una línea con `0113` responde `422 ITEM_INVALIDO` (3240) porque el contribuyente del NRUS no cobra ese impuesto. La factura no admite el `0113`.",
+      "**NRUS (`tipo_operacion` `0113`): sí se emite.** La línea lleva la afectación y el IGV que piden las reglas 3111, 2993, 4290 y 4310, y e-beta acepta la boleta. Un `icbper` en alguna línea de una boleta con `tipo_operacion` `0113` responde `422 ITEM_INVALIDO` (3240) porque el contribuyente del NRUS no cobra ese impuesto. La factura no admite el `0113`.",
       "**Identificar al comprador: khipu valida el tope de S/ 700.00.** Una boleta sin documento (`tipo_doc` y `num_doc` en `-`) pasa solo hasta ese importe total, en soles o convertido con `tipo_cambio`. SUNAT también exige identificar al comprador cuando la boleta acompaña una guía de remisión, en la Selva (desde S/ 350.00) y en Tacna (desde US$ 25.00). Esos casos **no se validan**: khipu no conoce el destino físico de la venta ni la guía que la acompaña. Si su operación cae en alguno, envíe siempre el documento del comprador.",
-      "**Boleta consolidada de hasta S/ 5.00: no se ofrece.** La norma permite no emitir una boleta por cada venta menor y resumirlas en una sola al día, pero es una decisión de su operación, no un dato que khipu pueda deducir. Cada venta se emite como su propia boleta; si necesita una consolidada, emítala usted como una boleta con un solo ítem por el total del día y comprador sin documento.",
+      "**Boleta consolidada de hasta S/ 5.00: no se ofrece.** La norma permite no emitir una boleta por cada venta menor y resumirlas en una sola al día, pero es una decisión de su operación, no un dato que khipu pueda deducir. Cada venta se emite como su propia boleta; si necesita una consolidada, emítala usted como una boleta con un ítem por cada afectación (gravado, exonerado, inafecto) y comprador sin documento, y recuerde que el total no puede pasar de S/ 700.00 (`422 RECEPTOR_INVALIDO`).",
     ],
     disponible: true,
   },
