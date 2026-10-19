@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiRequest, noSeSabeSiLlego, postJson } from "./browser";
+import { apiRequest, MENSAJE_ESPERA_VENCIDA, noSeSabeSiLlego, postJson, seVencioLaEspera } from "./browser";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -121,5 +121,20 @@ describe("tope de espera (#117)", () => {
 
     expect(res.codigo).toBe("RED");
     expect(res.mensaje).toMatch(/No se pudo conectar/);
+  });
+
+  it("una llamada puede pedir su propia espera (el barrido de integridad), y un tiempo vencido se distingue de un corte", async () => {
+    const espera = vi.spyOn(AbortSignal, "timeout");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+    await apiRequest("/api/admin/integridad", { method: "POST", body: {}, esperaMaximaMs: 300_000 });
+    expect(espera).toHaveBeenLastCalledWith(300_000);
+    espera.mockRestore();
+
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("timed out", "TimeoutError")));
+    const vencido = await apiRequest("/api/proxy/facturas", { method: "POST", body: {} });
+    expect(seVencioLaEspera(vencido)).toBe(true);
+    expect(vencido.mensaje).toBe(MENSAJE_ESPERA_VENCIDA);
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    expect(seVencioLaEspera(await apiRequest("/api/proxy/facturas", { method: "POST", body: {} }))).toBe(false);
   });
 });

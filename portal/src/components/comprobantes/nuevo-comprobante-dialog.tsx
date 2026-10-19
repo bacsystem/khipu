@@ -92,6 +92,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   // #117: Esc y la X descartaban lo escrito sin preguntar (el clic fuera ya estaba protegido). Con datos en el formulario piden confirmación; «Cancelar» es explícito y cierra.
   const [hayDatos, setHayDatos] = useState(false);
   const [confirmandoCierre, setConfirmandoCierre] = useState(false);
+  const focoAntesDeConfirmar = useRef<HTMLElement | null>(null);
   // Al cerrarse no queda nada escrito que proteger (el formulario se desmonta), ni siquiera si el último estado fue «con datos».
   useEffect(() => {
     if (!abierto) {
@@ -156,6 +157,8 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
       open={abierto}
       onOpenChange={(a) => {
         if (!a && abierto && hayDatos) {
+          // Dónde estaba el foco, para devolvérselo si el usuario sigue editando (la alerta de confirmación toma el foco y, al irse, lo dejaría en el cuerpo).
+          focoAntesDeConfirmar.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           setConfirmandoCierre(true);
           return;
         }
@@ -268,7 +271,12 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                   titulo="¿Descartar lo que escribiste?"
                   accion={
                     <span className="flex gap-3">
-                      <button type="button" className={ACCION_SECUNDARIA} onClick={() => setConfirmandoCierre(false)} autoFocus>
+                      <button type="button" className={ACCION_SECUNDARIA} onClick={() => {
+                          setConfirmandoCierre(false);
+                          focoAntesDeConfirmar.current?.focus();
+                        }}
+                        autoFocus
+                      >
                         Seguir editando
                       </button>
                       <button

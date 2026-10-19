@@ -51,14 +51,21 @@ async function toEnvelope<T>(res: Response): Promise<ApiEnvelope<T>> {
 export const ESPERA_MAXIMA_LECTURA_MS = 30_000;
 export const ESPERA_MAXIMA_ESCRITURA_MS = 120_000;
 
-async function pedir<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
+/** El texto de un pedido que venció; los formularios que emiten lo reconocen para decir «tardó» y no «se cortó». */
+export const MENSAJE_ESPERA_VENCIDA = "El servidor tardó demasiado en responder. Verifica el estado antes de reintentar: lo que enviaste pudo haberse procesado.";
+
+/** ¿El pedido falló porque venció la espera (y no porque se cortó la conexión)? Igual que un corte, no se sabe si llegó. */
+export function seVencioLaEspera(res: ApiEnvelope<unknown>): boolean {
+  return res.codigo === "RED" && res.mensaje === MENSAJE_ESPERA_VENCIDA;
+}
+
+async function pedir<T>(path: string, init: RequestInit, esperaMs?: number): Promise<ApiEnvelope<T>> {
   let res: Response;
-  const espera = init.method === undefined || init.method === "GET" ? ESPERA_MAXIMA_LECTURA_MS : ESPERA_MAXIMA_ESCRITURA_MS;
+  const espera = esperaMs ?? (init.method === undefined || init.method === "GET" ? ESPERA_MAXIMA_LECTURA_MS : ESPERA_MAXIMA_ESCRITURA_MS);
   try {
     res = await fetch(path, { signal: AbortSignal.timeout(espera), ...init });
   } catch (error) {
-    if (error instanceof DOMException && error.name === "TimeoutError")
-      return sobre("RED", "El servidor tardó demasiado en responder. Verifica el estado antes de reintentar: lo que enviaste pudo haberse procesado.");
+    if (error instanceof DOMException && error.name === "TimeoutError") return sobre("RED", MENSAJE_ESPERA_VENCIDA);
     return sobre("RED", "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.");
   }
   return toEnvelope<T>(res);
@@ -75,14 +82,18 @@ export async function postJson<T>(path: string, body: unknown): Promise<ApiEnvel
 /** `headers`: cabeceras propias del pedido, como la clave de idempotencia de la emisión (#115). */
 export async function apiRequest<T>(
   path: string,
-  init: { method: string; body?: unknown; headers?: Record<string, string> },
+  init: { method: string; body?: unknown; headers?: Record<string, string>; /** Espera propia, en ms, para lo que tarda más que lo normal (p. ej. un barrido de integridad). */ esperaMaximaMs?: number },
 ): Promise<ApiEnvelope<T>> {
   const isFormData = init.body instanceof FormData;
   const tipo: Record<string, string> = isFormData || init.body === undefined ? {} : { "content-type": "application/json" };
   const headers: Record<string, string> = { ...tipo, ...init.headers };
-  return pedir<T>(path, {
-    method: init.method,
-    headers: Object.keys(headers).length === 0 ? undefined : headers,
-    body: isFormData ? (init.body as FormData) : init.body !== undefined ? JSON.stringify(init.body) : undefined,
-  });
+  return pedir<T>(
+    path,
+    {
+      method: init.method,
+      headers: Object.keys(headers).length === 0 ? undefined : headers,
+      body: isFormData ? (init.body as FormData) : init.body !== undefined ? JSON.stringify(init.body) : undefined,
+    },
+    init.esperaMaximaMs,
+  );
 }
