@@ -48,6 +48,7 @@ export const config = {
     "/onboarding/:path*",
     "/comprobantes/:path*",
     "/clientes/:path*",
+    "/productos/:path*",
     "/empresa/:path*",
     "/establecimientos/:path*",
     "/series/:path*",

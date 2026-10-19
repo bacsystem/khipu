@@ -708,6 +708,33 @@ function opcionalesDeCliente(b: { direccion?: string; pais?: string; email?: str
   };
 }
 
+type DatosDeProductoMock = { codigo?: string; descripcion?: string; unidad?: string; tipo_afectacion_igv?: string; precio_unitario?: number; codigo_sunat?: string };
+
+/** Lo que se guarda de un producto: la unidad en mayúsculas y lo opcional solo si vino con algo (el backend omite lo que no se informó). */
+function camposDeProducto(b: DatosDeProductoMock) {
+  return {
+    ...(b.codigo?.trim() ? { codigo: b.codigo.trim() } : {}),
+    descripcion: b.descripcion!.trim(),
+    unidad: b.unidad!.trim().toUpperCase(),
+    tipo_afectacion_igv: b.tipo_afectacion_igv!,
+    precio_unitario: b.precio_unitario!,
+    ...(b.codigo_sunat?.trim() ? { codigo_sunat: b.codigo_sunat.trim() } : {}),
+  };
+}
+
+/** Las reglas de `ProductoGuardado.Datos.validar` (las de la línea de un comprobante) que el mock reproduce, con los mensajes del backend. */
+function validarProductoMock(b: DatosDeProductoMock): string | null {
+  if (!/^(1[0-7]|2[01]|3[0-7]|40)$/.test(b.tipo_afectacion_igv ?? "")) return "La afectación del IGV debe ser 10–17, 20, 21, 30–37 o 40 (catálogo 07)";
+  if (!(b.descripcion ?? "").trim()) return "2026 - Cada ítem necesita una descripción";
+  if (b.descripcion!.trim().length > 500) return "2027 - La descripción del ítem admite hasta 500 caracteres";
+  if (!(b.unidad ?? "").trim()) return "2883 - Es obligatorio indicar la unidad de medida del ítem (catálogo 03)";
+  if (!CODIGOS_UNIDAD.has(b.unidad!.trim().toUpperCase())) return `2936 - La unidad de medida ${b.unidad!.trim().toUpperCase()} no existe en el catálogo 03 (UN/ECE rec 20; GET /v1/catalogos/03): NIU unidad (bienes), ZZ unidad (servicios), KGM, HUR…`;
+  if (typeof b.precio_unitario !== "number" || !(b.precio_unitario > 0)) return "2369 - El precio unitario debe ser mayor que cero";
+  if ((b.codigo ?? "").trim().length > 30) return "El código interno del ítem admite hasta 30 caracteres (an..30 de la hoja Factura2_0)";
+  if (b.codigo_sunat?.trim() && (!/^\d{8}$/.test(b.codigo_sunat.trim()) || ["00000000", "99999999"].includes(b.codigo_sunat.trim()))) return `3496 - El código de producto SUNAT debe tener 8 dígitos (UNSPSC, catálogo 25): ${b.codigo_sunat.trim()}`;
+  return null;
+}
+
 /** Las reglas de `ClienteGuardado.Datos.validar` que el mock reproduce: el documento por su tipo, el nombre de 3 caracteres y un correo con forma de correo. */
 function validarClienteMock(b: { tipo_doc?: string; num_doc?: string; razon_social?: string; direccion?: string; pais?: string; email?: string }): string | null {
   if (b.tipo_doc === "-") return "Un cliente sin documento no se guarda: no identifica a nadie";
@@ -2835,6 +2862,68 @@ export const handlers = [
     const lista = db.clientesPorEmpresa.get(empresaId) ?? [];
     if (!lista.some((x) => x.id === params.id)) return fail(404, "NO_ENCONTRADO", "Cliente no encontrado");
     db.clientesPorEmpresa.set(empresaId, lista.filter((x) => x.id !== params.id));
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // --- Productos guardados (#320): la misma forma que ProductosController; se validan como la línea de un comprobante. ---
+
+  http.get(`${BASE}/v1/productos`, ({ request }) => {
+    const lista = db.productosPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? [];
+    const url = new URL(request.url);
+    const q = sinTildes(url.searchParams.get("q") ?? "").trim();
+    const pagina = Number(url.searchParams.get("pagina") ?? "1");
+    const porPagina = Number(url.searchParams.get("por_pagina") ?? "20");
+    if (!Number.isInteger(pagina) || !Number.isInteger(porPagina) || pagina < 1 || porPagina < 1 || porPagina > 100) return fail(422, "PAGINACION_INVALIDA", "pagina debe ser 1 o más y por_pagina de 1 a 100");
+    const filtrados = lista
+      .filter((p) => !q || sinTildes(p.descripcion).includes(q) || (p.codigo ?? "").toLowerCase().startsWith(q))
+      .sort((a, b) => a.descripcion.localeCompare(b.descripcion, "es"));
+    return HttpResponse.json(
+      { estado: "exito", datos: filtrados.slice((pagina - 1) * porPagina, pagina * porPagina), mensaje: null, codigo: null, errores: null },
+      { headers: { "x-total-count": String(filtrados.length) } },
+    );
+  }),
+
+  http.post(`${BASE}/v1/productos`, async ({ request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const b = (await request.json()) as DatosDeProductoMock;
+    const malo = validarProductoMock(b);
+    if (malo) return fail(422, "ITEM_INVALIDO", malo);
+    const lista = db.productosPorEmpresa.get(empresaId) ?? [];
+    const codigo = b.codigo?.trim() || undefined;
+    if (codigo && lista.some((p) => p.codigo === codigo)) return fail(409, "DUPLICADO", `Ya tiene un producto con el código ${codigo}`);
+    const ahora = new Date().toISOString();
+    const producto = { id: nuevoId("p"), ...camposDeProducto(b), creado_en: ahora, actualizado_en: ahora };
+    lista.push(producto);
+    db.productosPorEmpresa.set(empresaId, lista);
+    return ok(producto, 201);
+  }),
+
+  http.get(`${BASE}/v1/productos/:id`, ({ request, params }) => {
+    const p = (db.productosPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? []).find((x) => x.id === params.id);
+    return p ? ok(p) : fail(404, "NO_ENCONTRADO", "Producto no encontrado");
+  }),
+
+  http.put(`${BASE}/v1/productos/:id`, async ({ request, params }) => {
+    const lista = db.productosPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? [];
+    const p = lista.find((x) => x.id === params.id);
+    if (!p) return fail(404, "NO_ENCONTRADO", "Producto no encontrado");
+    const b = (await request.json()) as DatosDeProductoMock;
+    const malo = validarProductoMock(b);
+    if (malo) return fail(422, "ITEM_INVALIDO", malo);
+    const codigo = b.codigo?.trim() || undefined;
+    if (codigo && lista.some((x) => x.id !== p.id && x.codigo === codigo)) return fail(409, "DUPLICADO", `Ya tiene un producto con el código ${codigo}`);
+    // El PUT reemplaza: lo opcional que no llega se borra, y el JSON no lo trae (el backend omite las claves nulas).
+    delete p.codigo;
+    delete p.codigo_sunat;
+    Object.assign(p, { ...camposDeProducto(b), actualizado_en: new Date().toISOString() });
+    return ok(p);
+  }),
+
+  http.delete(`${BASE}/v1/productos/:id`, ({ request, params }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const lista = db.productosPorEmpresa.get(empresaId) ?? [];
+    if (!lista.some((x) => x.id === params.id)) return fail(404, "NO_ENCONTRADO", "Producto no encontrado");
+    db.productosPorEmpresa.set(empresaId, lista.filter((x) => x.id !== params.id));
     return new HttpResponse(null, { status: 204 });
   }),
 

@@ -14,7 +14,9 @@ import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser
 import type { Serie } from "@/lib/api/series";
 import { DOCUMENTOS_BOLETA } from "@/lib/comprobantes/documentos";
 import type { ClienteGuardado } from "@/lib/api/clientes";
+import type { ProductoGuardado } from "@/lib/api/productos";
 import { BuscadorDeClientes } from "./buscador-de-clientes";
+import { BuscadorDeProductos } from "./buscador-de-productos";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { MAX_LINEAS } from "@/lib/comprobantes/limites";
 import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprobantes/plazo";
@@ -30,7 +32,8 @@ import type { Plantilla } from "@/lib/comprobantes/duplicar";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
 import { errorDeRetencion, RETENCION_VACIA, retencionAApi, type RetencionForm } from "@/lib/comprobantes/retencion";
 import { errorDeReferencias, REFERENCIAS_VACIAS, referenciasAApi, type ReferenciasForm } from "@/lib/comprobantes/referencias";
-import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm } from "@/lib/comprobantes/tributos";
+import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm, etiquetaDelPrecio } from "@/lib/comprobantes/tributos";
+import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -52,18 +55,9 @@ import { useConsultaRuc } from "./use-consulta-ruc";
 
 
 
-type EntradaCatalogo = { codigo: string; descripcion: string; extra?: Record<string, string> };
 
-/**
- * #308: el catálogo 03 es la rec 20 completa (más de 2000 códigos, contra los que el backend valida); el selector ofrece las
- * que el backend marca «Más usada». Si ninguna viene marcada, la lista tal cual.
- */
-function unidadesDelSelector(entradas: EntradaCatalogo[]): EntradaCatalogo[] {
-  const masUsadas = entradas.filter((e) => e.extra?.["Más usada"]);
-  return masUsadas.length ? masUsadas : entradas;
-}
 
-type Linea = { descripcion: string; cantidad: number | null; precioUnitario: number | null; unidad: string; tipoAfectacionIgv: string; descuento: AjusteForm; cargo: AjusteForm; isc: IscForm; icbper: boolean };
+type Linea = { codigo?: string; codigoSunat?: string; descripcion: string; cantidad: number | null; precioUnitario: number | null; unidad: string; tipoAfectacionIgv: string; descuento: AjusteForm; cargo: AjusteForm; isc: IscForm; icbper: boolean };
 
 /** El diálogo usa la escala compacta del design system (h-8, la de la barra de filtros) en vez de la de formulario
  *  (h-10): con cliente, ítems y totales en una sola vista, 8px por control cambian cuántas líneas entran. */
@@ -88,16 +82,6 @@ export function tipoInicial(series: Serie[]): TipoEmitible {
 
 const SIN_DOCUMENTO = "-";
 
-/**
- * Lo que es el precio de la línea según su afectación (#117): con IGV en la gravada, con IVAP en la IVAP, y sin impuesto en la exonerada, la inafecta, la gratuita (valor
- * referencial) y la exportación. «con IGV» en una exonerada inducía a cargar el precio mal. `""`: líneas de afectaciones distintas, el encabezado no afirma una.
- */
-export function etiquetaDelPrecio(afectacion: string): string {
-  if (afectacion === "") return "Precio unit.";
-  if (afectacion === "10") return "Precio unit. (con IGV)";
-  if (afectacion === "17") return "Precio unit. (con IVAP)";
-  return "Precio unit. (sin IGV)";
-}
 /** Espeja `Receptor.NOMBRE_SIN_DOCUMENTO`: cumple la regla 2022 (al menos 3 caracteres), error en SUNAT desde 2027-01-01. */
 const COMPRADOR_SIN_DOCUMENTO = "CLIENTES VARIOS";
 /**
@@ -157,6 +141,7 @@ export function NuevoComprobanteForm({
   // #319: guardar al comprador en «Clientes» al emitir (el guardado es idempotente y conserva lo que ya estaba guardado), y el aviso de un cliente guardado que no sirve para este comprobante.
   const [guardarCliente, setGuardarCliente] = useState(true);
   const [avisoCliente, setAvisoCliente] = useState<string | null>(null);
+  const [avisoProducto, setAvisoProducto] = useState<string | null>(null);
   const [lineas, setLineas] = useState<Linea[]>(plantilla?.lineas.length ? plantilla.lineas.map((l) => ({ ...l })) : [{ ...LINEA_VACIA }]);
   // #358: ajuste del importe total para cobrar en efectivo sin céntimos (`PayableRoundingAmount`). Texto, para poder escribir «-» y «0.» sin que el campo lo reescriba.
   const [redondeoTexto, setRedondeoTexto] = useState(plantilla?.redondeo ?? "");
@@ -370,6 +355,8 @@ export function NuevoComprobanteForm({
             : { tipo_doc: "6", num_doc: "20131312955", razon_social: "Cliente" }
         : { tipo_doc: tipoDoc, num_doc: sinDocumento ? SIN_DOCUMENTO : numDoc.trim(), razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined, pais: exportacion && pais ? pais : undefined },
       items: lineasCompletas.map((l) => ({
+        codigo: l.codigo,
+        codigo_sunat: l.codigoSunat,
         descripcion: l.descripcion.trim(),
         unidad: l.unidad,
         cantidad: l.cantidad,
@@ -434,6 +421,33 @@ export function NuevoComprobanteForm({
   function quitarLinea(i: number) {
     setLineas((p) => (p.length === 1 ? p : p.filter((_, n) => n !== i)));
     setDetalle((abierto) => (abierto === null || abierto === i ? null : abierto > i ? abierto - 1 : abierto));
+  }
+
+  /**
+   * #320: una línea con los datos de un producto guardado. Si la única línea está vacía se llena; si no, se agrega una. Una exportación lleva todas sus líneas en afectación 40, y un
+   * producto de exportación no sirve en una venta interna: se dice por qué en vez de agregarlo.
+   */
+  function agregarProducto(p: ProductoGuardado) {
+    if (p.tipo_afectacion_igv === "40" && !exportacion) {
+      setAvisoProducto(`«${p.descripcion}» es de exportación (afectación 40): elige una operación de exportación para usarlo.`);
+      return;
+    }
+    const vacia = lineas.length === 1 && lineas[0].descripcion.trim() === "" && lineas[0].precioUnitario === null;
+    if (!vacia && lineas.length >= MAX_LINEAS) {
+      setAvisoProducto(`Un comprobante admite hasta ${MAX_LINEAS} ítems.`);
+      return;
+    }
+    setAvisoProducto(null);
+    const nueva: Linea = {
+      ...LINEA_VACIA,
+      descripcion: p.descripcion,
+      unidad: p.unidad,
+      tipoAfectacionIgv: exportacion ? "40" : p.tipo_afectacion_igv,
+      precioUnitario: p.precio_unitario,
+      codigo: p.codigo ?? undefined,
+      codigoSunat: p.codigo_sunat ?? undefined,
+    };
+    setLineas((prev) => (vacia ? [nueva] : [...prev, nueva]));
   }
 
   function actualizar(i: number, cambio: Partial<Linea>) {
@@ -866,6 +880,12 @@ export function NuevoComprobanteForm({
             Agregar ítem
           </button>
         </div>
+        <BuscadorDeProductos onElegir={agregarProducto} />
+        {avisoProducto ? (
+          <p role="status" className="text-[12px] text-warning-foreground" data-testid="aviso-producto-guardado">
+            {avisoProducto}
+          </p>
+        ) : null}
 
         {/* Tabla compacta: encabezados una sola vez y filas de alto reducido; las etiquetas por fila quedan
             solo para lectores de pantalla. */}

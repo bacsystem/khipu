@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, GaugeIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon, UsersIcon } from "lucide-react";
+import { EyeIcon, GaugeIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon, UsersIcon, PackageIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,7 @@ const GRUPOS: Grupo[] = [
       { href: "/comprobantes", label: "Comprobantes", icon: ReceiptTextIcon },
       { href: "/series", label: "Series correlativas", icon: ListOrderedIcon },
       { href: "/clientes", label: "Clientes", icon: UsersIcon },
+      { href: "/productos", label: "Productos", icon: PackageIcon },
     ],
   },
   {
