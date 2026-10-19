@@ -9,6 +9,9 @@ import { esIdDeComprobante, hrefDetalleComprobante } from "@/lib/api/admin-compr
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import type { InformeDeIntegridad, TipoDeProblema } from "@/lib/api/admin-integridad";
 import { apiRequest } from "@/lib/api/browser";
+
+/** El barrido lee cada XML y CDR del rango de todas las empresas (hasta 92 días): puede tardar bastante más que cualquier otra llamada; el límite del proxy es de 5 minutos. */
+const ESPERA_DE_LA_VERIFICACION_MS = 300_000;
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CABECERA_TABLA, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFecha, sumarDias } from "@/lib/formato";
 import { MAX_DIAS_DE_INTEGRIDAD, validarRango, type ErroresDeRango } from "@/lib/integridad-formulario";
@@ -68,7 +71,7 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
     }
     enviandoRef.current = true;
     setFase({ estado: "verificando" });
-    const res = await apiRequest<InformeDeIntegridad>("/api/admin/integridad", { method: "POST", body: { desde: rango.desde, hasta: rango.hasta } });
+    const res = await apiRequest<InformeDeIntegridad>("/api/admin/integridad", { method: "POST", body: { desde: rango.desde, hasta: rango.hasta }, esperaMaximaMs: ESPERA_DE_LA_VERIFICACION_MS });
     enviandoRef.current = false;
     if (res.estado === "exito" && res.datos) setFase({ estado: "listo", informe: res.datos });
     else setFase({ estado: "error", mensaje: res.mensaje ?? mensajeError(res.codigo) });

@@ -539,6 +539,18 @@ describe("NuevoComprobanteDialog — descartar lo escrito (#117)", () => {
     expect(screen.getByLabelText("RUC")).toHaveValue("");
   });
 
+  it("«Seguir editando» devuelve el foco al campo donde estaba el usuario", async () => {
+    preparar();
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    const ruc = screen.getByLabelText("RUC");
+    fireEvent.change(ruc, { target: { value: "20554198211" } });
+    ruc.focus();
+    esc();
+    fireEvent.click(await screen.findByRole("button", { name: "Seguir editando" }));
+    expect(ruc).toHaveFocus();
+  });
+
   it("sin nada escrito Esc cierra directo, y una línea con descripción ya cuenta como escrito", async () => {
     preparar();
     render(<NuevoComprobanteDialog />);

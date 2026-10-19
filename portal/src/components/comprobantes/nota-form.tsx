@@ -4,7 +4,7 @@ import { FileMinusIcon, SendIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
+import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
@@ -158,7 +158,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     if (noSeSabeSiLlego(res)) {
       setEnviando(false);
       setError(
-        `Se cortó la conexión mientras se emitía. Vuelve a emitir sin cambiar nada: si la nota ya se había emitido, verás la misma, sin duplicarla. Si cambias algo, revisa antes las notas de la ${documento} ${factura.serie}-${factura.numero}.`,
+        `${seVencioLaEspera(res) ? "El servidor tardó demasiado en responder mientras se emitía" : "Se cortó la conexión mientras se emitía"}. Vuelve a emitir sin cambiar nada: si la nota ya se había emitido, verás la misma, sin duplicarla. Si cambias algo, revisa antes las notas de la ${documento} ${factura.serie}-${factura.numero}.`,
       );
       return;
     }

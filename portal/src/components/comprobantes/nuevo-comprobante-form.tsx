@@ -10,7 +10,7 @@ import { EntradaFecha } from "@/components/formularios/entrada-fecha";
 import { EntradaMonto } from "@/components/formularios/entrada-monto";
 import { StepperNumerico } from "@/components/formularios/stepper-numerico";
 import { BotonAsync } from "@/components/patrones/boton-async";
-import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
+import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser";
 import type { Serie } from "@/lib/api/series";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { MAX_LINEAS } from "@/lib/comprobantes/limites";
@@ -493,7 +493,7 @@ export function NuevoComprobanteForm({
     // devuelve el sobre de error, así que esto no puede ir en un catch.)
     if (noSeSabeSiLlego(res)) {
       setError(
-        `Se cortó la conexión mientras se emitía. Vuelve a emitir sin cambiar nada: si la ${nombre} ya se había emitido, verás la misma, sin duplicarla.`,
+        `${seVencioLaEspera(res) ? "El servidor tardó demasiado en responder mientras se emitía" : "Se cortó la conexión mientras se emitía"}. Vuelve a emitir sin cambiar nada: si la ${nombre} ya se había emitido, verás la misma, sin duplicarla.`,
       );
       // El listado de fondo puede tener ya la factura nueva: que se vea sin recargar la página.
       router.refresh();
@@ -845,7 +845,7 @@ export function NuevoComprobanteForm({
           <div className="hidden grid-cols-[minmax(0,1fr)_124px_188px_72px] gap-3 border-b border-border/60 bg-muted/40 px-3 py-2 sm:grid">
             <span className={AYUDA_CAMPO}>Descripción</span>
             <span className={AYUDA_CAMPO}>Cantidad</span>
-            <span className={AYUDA_CAMPO}>{etiquetaDelPrecio(lineas.every((l) => l.tipoAfectacionIgv === lineas[0].tipoAfectacionIgv) ? lineas[0].tipoAfectacionIgv : "")}</span>
+            <span className={AYUDA_CAMPO} data-testid="encabezado-precio">{etiquetaDelPrecio(lineas.every((l) => l.tipoAfectacionIgv === lineas[0].tipoAfectacionIgv) ? lineas[0].tipoAfectacionIgv : "")}</span>
             <span className="sr-only">Acciones</span>
           </div>
 
@@ -1081,7 +1081,7 @@ export function NuevoComprobanteForm({
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-border/60 bg-muted/40 px-5 py-3" data-testid="totales-previsualizados">
         <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
           <dl className={cn(AYUDA_CAMPO, "flex flex-wrap items-baseline gap-x-4 gap-y-0.5")}>
-            {[
+            {(sinImporteLocal ? [] : [
               { etiqueta: "Gravado", monto: mostrados.gravado, siempre: true },
               { etiqueta: "Exonerado", monto: mostrados.exonerado, siempre: false },
               { etiqueta: "Inafecto", monto: mostrados.inafecto, siempre: false },
@@ -1091,7 +1091,8 @@ export function NuevoComprobanteForm({
               { etiqueta: tasaIgv === null ? "IGV" : `IGV (${tasaIgv} %)`, monto: mostrados.igv, siempre: true },
               // Solo los conoce el backend (#405): aparecen cuando respondió.
               { etiqueta: "Redondeo", monto: delServidor?.redondeo ?? 0, siempre: false },
-            ]
+            ])
+              // Sin importe local (IVAP o exportación mientras el backend no responde) no hay filas que mostrar: todas dirían 0.00.
               // El IGV no se muestra en 0.00 cuando no hay operaciones gravadas (una factura toda exonerada no tiene «IGV (18 %)»).
               .filter((f) => f.monto !== 0 || (f.siempre && (f.etiqueta.startsWith("IGV") ? lineasCompletas.length === 0 || mostrados.gravado !== 0 || totales.noContempladas.length > 0 : true)))
               .map((f) => (

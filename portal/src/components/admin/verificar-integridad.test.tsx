@@ -52,7 +52,8 @@ describe("VerificarIntegridad (#198)", () => {
     fireEvent.click(boton());
 
     await screen.findByTestId("integridad-resultado");
-    expect(apiRequest).toHaveBeenCalledWith("/api/admin/integridad", { method: "POST", body: { desde: "2026-09-01", hasta: "2026-09-30" } });
+    // El barrido puede tardar mucho más que cualquier otra llamada (lee cada XML y CDR del rango): pide su propia espera de 5 minutos, no los 2 de las escrituras (#117).
+    expect(apiRequest).toHaveBeenCalledWith("/api/admin/integridad", { method: "POST", body: { desde: "2026-09-01", hasta: "2026-09-30" }, esperaMaximaMs: 300_000 });
   });
 
   // --- el resumen -------------------------------------------------------------------------------------------------------------------------

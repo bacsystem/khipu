@@ -935,6 +935,42 @@ describe("NuevoComprobanteForm — menores de la certificación (#117)", () => {
     expect(screen.queryByTestId("importe-por-calcular")).not.toBeInTheDocument();
   });
 
+  it("el encabezado de la columna de precio sigue a las líneas: igual afectación lo dice, mezcladas no afirma ninguna", () => {
+    stubConCalculo(TOTALES);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    const encabezado = () => screen.getByTestId("encabezado-precio");
+    expect(encabezado()).toHaveTextContent("Precio unit. (con IGV)");
+    abrirLinea();
+    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "20" } });
+    expect(encabezado()).toHaveTextContent("Precio unit. (sin IGV)");
+    fireEvent.click(screen.getByRole("button", { name: "Agregar ítem" }));
+    expect(encabezado().textContent).toBe("Precio unit.");
+  });
+
+  it("una exportación mientras el backend no responde no muestra filas de 0.00 ni «IGV (18 %)»: solo que lo calcula khipu", () => {
+    vi.stubGlobal("fetch", vi.fn<(url: string) => Promise<Response>>(() => new Promise<Response>(() => {})));
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conRuc();
+    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+    linea("Café", "100");
+    const pie = screen.getByTestId("totales-previsualizados");
+    expect(pie).not.toHaveTextContent("IGV (18 %)");
+    expect(pie).not.toHaveTextContent("Gravado");
+    expect(screen.getByTestId("total-a-pagar")).toHaveTextContent("—");
+    expect(screen.getByTestId("importe-por-calcular")).toBeInTheDocument();
+  });
+
+  it("si la emisión vence la espera dice que el servidor tardó, no que se cortó la conexión, y sigue recomendando reemitir igual", async () => {
+    const base = stubConCalculo(TOTALES);
+    vi.stubGlobal("fetch", vi.fn<(url: string, init?: RequestInit) => Promise<Response>>((url, init) =>
+      !String(url).includes("/calcular") && String(url).includes("/facturas") ? Promise.reject(new DOMException("timed out", "TimeoutError")) : base(url, init)));
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conRuc();
+    linea("Servicio", "118");
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/El servidor tardó demasiado en responder mientras se emitía\. Vuelve a emitir sin cambiar nada/);
+  });
+
   it("Enter en un campo con el formulario incompleto no emite ni queda mudo: muestra qué falta", () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
