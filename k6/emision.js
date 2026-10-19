@@ -40,6 +40,10 @@ export const options = {
   thresholds: {
     "http_req_duration{expected_response:true}": ["p(95)<500"],
     http_req_failed: ["rate<0.01"],
+    // Una respuesta 201 que no es lo que se pidió (otro tipo, otro estado) no puede pasar como éxito, y un servidor lento que no alcanza los 50 doc/s descarta iteraciones
+    // mientras el p95 de las que sí corren sigue bien: sin estos dos umbrales «50 doc/s» no se exigiría.
+    checks: ["rate>0.99"],
+    dropped_iterations: ["count<20"],
   },
 };
 
