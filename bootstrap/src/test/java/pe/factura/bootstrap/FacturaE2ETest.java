@@ -699,6 +699,43 @@ class FacturaE2ETest {
         assertThat(((Map<?, ?>) siguiente.getBody().get("datos")).get("numero")).as("el número del intento fallido se reutiliza: sin hueco").isEqualTo(2);
     }
 
+    // --- Clientes guardados (#319), por API key y con la pila real ---------------------------------------------------------------------------------------------
+
+    @Test void losClientesGuardadosSeCreanBuscanActualizanYBorranPorApiKey(WireMockRuntimeInfo wm) throws Exception {
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        String andina = "{\"tipo_doc\":\"6\",\"num_doc\":\"20601234565\",\"razon_social\":\"PESQUERA PACÍFICO S.A.C.\",\"direccion\":\"Av. Lima 1\",\"email\":\"Facturas@Andina.PE\"}";
+
+        ResponseEntity<Map> creado = http.postForEntity("/v1/clientes", new HttpEntity<>(andina, h), Map.class);
+        assertThat(creado.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        Map<?, ?> datos = (Map<?, ?>) creado.getBody().get("datos");
+        String id = (String) datos.get("id");
+        assertThat(datos.get("email")).as("el correo se guarda en minúsculas").isEqualTo("facturas@andina.pe");
+
+        ResponseEntity<Map> repetido = http.postForEntity("/v1/clientes", new HttpEntity<>(andina, h), Map.class);
+        assertThat(repetido.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(repetido.getBody().get("codigo")).isEqualTo("DUPLICADO");
+        ResponseEntity<Map> invalido = http.postForEntity("/v1/clientes", new HttpEntity<>("{\"tipo_doc\":\"1\",\"num_doc\":\"123\",\"razon_social\":\"JUAN PEREZ\"}", h), Map.class);
+        assertThat(invalido.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(invalido.getBody().get("codigo")).isEqualTo("RECEPTOR_INVALIDO");
+
+        ResponseEntity<Map> busqueda = http.exchange("/v1/clientes?q=pacifico", HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat(busqueda.getHeaders().getFirst("X-Total-Count")).isEqualTo("1");
+        assertThat(((java.util.List<Map<String, Object>>) busqueda.getBody().get("datos")).get(0).get("razon_social")).isEqualTo("PESQUERA PACÍFICO S.A.C.");
+        assertThat(http.exchange("/v1/clientes?q=zzz", HttpMethod.GET, new HttpEntity<>(h), Map.class).getHeaders().getFirst("X-Total-Count")).isEqualTo("0");
+
+        ResponseEntity<Map> guardado = http.exchange("/v1/clientes/documento/6/20601234565", HttpMethod.PUT, new HttpEntity<>("{\"razon_social\":\"PESQUERA PACIFICO SUR S.A.C.\"}", h), Map.class);
+        assertThat(guardado.getStatusCode()).as("ya existía: se actualiza").isEqualTo(HttpStatus.OK);
+        assertThat(((Map<?, ?>) guardado.getBody().get("datos")).get("id")).isEqualTo(id);
+        ResponseEntity<Map> nuevo = http.exchange("/v1/clientes/documento/1/12345678", HttpMethod.PUT, new HttpEntity<>("{\"razon_social\":\"JUAN PEREZ\"}", h), Map.class);
+        assertThat(nuevo.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(http.exchange("/v1/clientes", HttpMethod.GET, new HttpEntity<>(h), Map.class).getHeaders().getFirst("X-Total-Count")).isEqualTo("2");
+
+        assertThat(http.exchange("/v1/clientes/" + id, HttpMethod.DELETE, new HttpEntity<>(h), Void.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(http.exchange("/v1/clientes/" + id, HttpMethod.GET, new HttpEntity<>(h), Map.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(http.exchange("/v1/clientes", HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), Map.class).getStatusCode()).as("sin credenciales").isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
     @Autowired pe.factura.application.port.out.PadronRucRepository padron;
 
     @org.junit.jupiter.api.BeforeEach void limpiar() {

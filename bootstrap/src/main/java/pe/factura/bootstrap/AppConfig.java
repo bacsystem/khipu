@@ -576,6 +576,10 @@ public class AppConfig {
         return new VigilarOperacionService(monitor, avisos, vigilado, correo, canales, clock, umbrales);
     }
     @Bean VigilarOperacionWorker vigilarOperacionWorker(VigilarOperacionUseCase vigilante) { return new VigilarOperacionWorker(vigilante); }
+    // #319: clientes guardados por empresa.
+    @Bean ClienteRepository clienteRepository(JdbcTemplate jdbc) { return new JdbcClienteRepository(jdbc); }
+    @Bean GestionarClientesUseCase gestionarClientes(ClienteRepository clientes, UnitOfWork uow, Clock clock) { return new GestionarClientesService(clientes, uow, clock); }
+
     // #19: webhooks de cambio de estado. WEBHOOKS_PERMITIR_HTTP y WEBHOOKS_PERMITIR_REDES_PRIVADAS son solo para desarrollo y pruebas (un receptor en localhost): en producción
     // quedan en falso y los destinos tienen que ser https y públicos.
     @Bean WebhookRepository webhookRepository(JdbcTemplate jdbc) { return new JdbcWebhookRepository(jdbc); }
