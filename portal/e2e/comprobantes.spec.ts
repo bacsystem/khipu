@@ -1617,3 +1617,13 @@ test("#294: el mock de POST /v1/notas sobre boletas rechaza lo que el backend re
   r = await post({ serie: "BC01", motivo: "07", items: [{ ...linea[0], precio_unitario: 30 }] });
   expect(r.status, r.texto).toBe(201);
 });
+
+test("la ficha del cliente no llama «intento» al envío que aún no falló: cuenta los fallidos (#286)", async ({ page }) => {
+  // Un comprobante cuyo envío falló: «Último error de envío (N fallidos)».
+  await page.goto("/comprobantes/f-error-rechazo");
+  await expect(page.getByText(/Último error de envío \(\d+ fallidos?\)/)).toBeVisible();
+  await expect(page.getByText(/Último intento/)).toHaveCount(0);
+  // Uno firmado que todavía no se envió no tiene intentos: no dice «Último intento (0)».
+  await page.goto("/comprobantes/f-firmada");
+  await expect(page.getByText("Último intento (0)")).toHaveCount(0);
+});

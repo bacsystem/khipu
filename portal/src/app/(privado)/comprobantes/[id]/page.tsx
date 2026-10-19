@@ -197,7 +197,7 @@ function CajaRespuesta({ comprobante }: { comprobante: Comprobante }) {
           tono === "error" && "text-destructive",
         )}
       >
-        {comprobante.cdr ? "Respuesta CDR SUNAT" : `Último intento (${comprobante.intentos})`}
+        {comprobante.cdr ? "Respuesta CDR SUNAT" : comprobante.intentos > 0 ? `Último error de envío (${comprobante.intentos} ${comprobante.intentos === 1 ? "fallido" : "fallidos"})` : "Último estado"}
       </span>
       <p className={cn("font-mono text-xs font-medium", tono === "error" ? "text-destructive" : "text-foreground/90")}>&ldquo;{texto}&rdquo;</p>
     </div>

@@ -655,7 +655,7 @@
         "comprobante": "Comprobante",
         "problema": "Problema",
         "fault": "Fault de SUNAT",
-        "intentos": "Intentos",
+        "intentos": "Envíos fallidos",
         "acciones": "Acciones"
       },
       "sinFault": "Sin detalle",
