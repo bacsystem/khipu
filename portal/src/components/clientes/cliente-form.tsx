@@ -1,11 +1,12 @@
 "use client";
 
 import { SaveIcon } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import { Campo } from "@/components/formularios/campo";
 import { apiRequest } from "@/lib/api/browser";
 import type { ClienteGuardado, DatosDeCliente } from "@/lib/api/clientes";
 import { DOCUMENTOS_DE_CLIENTE, errorDeDocumento } from "@/lib/comprobantes/documentos";
+import { listarPaises } from "@/lib/comprobantes/paises";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,8 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
   const [numDoc, setNumDoc] = useState(existente?.num_doc ?? "");
   const [razon, setRazon] = useState(existente?.razon_social ?? "");
   const [direccion, setDireccion] = useState(existente?.direccion ?? "");
+  const [pais, setPais] = useState(existente?.pais ?? "");
+  const paises = useMemo(() => listarPaises(), []);
   const [email, setEmail] = useState(existente?.email ?? "");
   const [intento, setIntento] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -40,6 +43,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
       num_doc: numDoc.trim(),
       razon_social: razon.trim(),
       direccion: direccion.trim() || undefined,
+      pais: pais || undefined,
       email: email.trim() || undefined,
     };
     const res = await apiRequest<ClienteGuardado>(existente ? `/api/proxy/clientes/${existente.id}` : "/api/proxy/clientes", { method: existente ? "PUT" : "POST", body });
@@ -90,6 +94,16 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
       </Campo>
       <Campo id="cli-direccion" etiqueta="Dirección" opcional>
         <input id="cli-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={300} className={CAMPO_DENSO} />
+      </Campo>
+      <Campo id="cli-pais" etiqueta="País" opcional ayuda="Para sus exportaciones">
+        <select id="cli-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={CAMPO_DENSO}>
+          <option value="">Sin país</option>
+          {paises.map((p) => (
+            <option key={p.codigo} value={p.codigo}>
+              {p.nombre}
+            </option>
+          ))}
+        </select>
       </Campo>
       <Campo id="cli-email" etiqueta="Correo" opcional error={intento ? errorCorreo : null} ayuda="Para enviarle sus comprobantes">
         <input id="cli-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={150} className={CAMPO_DENSO} />

@@ -50,6 +50,12 @@ export function ClientesTable() {
     const res = await buscarClientes({ q, pagina, porPagina });
     if (mia !== ultimaLectura.current) return;
     if (res.estado === "exito") {
+      // Borrar la única fila de la última página deja esa página vacía: se vuelve a la última que tiene clientes.
+      const ultima = Math.max(1, Math.ceil(res.datos.total / porPagina));
+      if (pagina > ultima) {
+        setPagina(ultima);
+        return;
+      }
       setClientes(res.datos.clientes);
       setTotal(res.datos.total);
       setError(null);

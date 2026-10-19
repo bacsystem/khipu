@@ -108,6 +108,21 @@ class GestionarClientesServiceTest {
         assertThat(conOtraDireccion.cliente().email()).isEqualTo("j@p.pe");
     }
 
+    /** Un repositorio al que otra sesión le borra el cliente justo antes de actualizarlo. */
+    static class RepoConBajaConcurrente extends Repo {
+        @Override public boolean actualizar(ClienteGuardado c) { filas.remove(c.id()); return super.actualizar(c); }
+    }
+
+    @Test void siElClienteSeBorraMientrasSeGuardaNoSeResponde200ConUnClienteInexistente() {
+        RepoConBajaConcurrente repoConBaja = new RepoConBajaConcurrente();
+        GestionarClientesService s = new GestionarClientesService(repoConBaja, new Directo(), Clock.fixed(AHORA, ZoneOffset.UTC));
+        s.crear(T, datos("12345678", "JUAN PEREZ"));
+
+        assertThatThrownBy(() -> s.guardarPorDocumento(T, datos("12345678", "JUAN PEREZ GOMEZ"))).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        ClienteGuardado otro = s.crear(T, datos("87654321", "MARIA LOPEZ"));
+        assertThatThrownBy(() -> s.actualizar(T, otro.id(), datos("87654321", "MARIA LOPEZ DIAZ"))).as("la fila ya no está: no es un duplicado").extracting("codigo").isEqualTo("NO_ENCONTRADO");
+    }
+
     @Test void obtenerYEliminarSoloDeLaPropiaEmpresa() {
         ClienteGuardado c = servicio.crear(T, datos("12345678", "JUAN PEREZ"));
 

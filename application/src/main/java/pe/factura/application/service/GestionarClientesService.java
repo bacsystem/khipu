@@ -34,7 +34,8 @@ public class GestionarClientesService implements GestionarClientesUseCase {
             Datos mezclados = new Datos(datos.tipoDoc(), datos.numDoc(), datos.razonSocial(), datos.direccion() != null ? datos.direccion() : existente.direccion(),
                     datos.pais() != null ? datos.pais() : existente.pais(), datos.email() != null ? datos.email() : existente.email());
             ClienteGuardado actualizado = existente.con(mezclados, clock.instant());
-            clientes.actualizar(actualizado);
+            // Si el cliente se borró entre leerlo y actualizarlo no hay nada que devolver: que lo vuelva a intentar en vez de responder con un cliente que ya no existe.
+            if (!clientes.actualizar(actualizado)) throw new DomainException("ESTADO_CONFLICTO", "El cliente cambió mientras se guardaba; vuelva a intentar");
             return new Guardado(actualizado, false);
         });
     }
@@ -51,7 +52,11 @@ public class GestionarClientesService implements GestionarClientesUseCase {
 
     @Override public ClienteGuardado actualizar(UUID tenantId, UUID id, ClienteGuardado.Datos datos) {
         ClienteGuardado actualizado = obtener(tenantId, id).con(datos, clock.instant());
-        if (!uow.ejecutar(() -> clientes.actualizar(actualizado))) throw duplicado(actualizado.tipoDoc(), actualizado.numDoc());
+        if (!uow.ejecutar(() -> clientes.actualizar(actualizado))) {
+            // `false` es «el documento ya es de otro» o «la fila ya no está» (otra sesión lo borró entre leerlo y guardarlo): cada uno tiene su respuesta.
+            if (clientes.buscar(tenantId, id).isEmpty()) throw noEncontrado();
+            throw duplicado(actualizado.tipoDoc(), actualizado.numDoc());
+        }
         return actualizado;
     }
 

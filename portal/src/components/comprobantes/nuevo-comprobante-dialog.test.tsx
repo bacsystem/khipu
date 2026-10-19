@@ -423,6 +423,26 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     expect(screen.getByLabelText("RUC")).toHaveValue("");
   });
 
+  /** #319: Escape en la lista del buscador de clientes cierra la lista, no el diálogo que la contiene. */
+  it("Escape en la lista de clientes guardados la cierra y deja abierto «Nuevo comprobante»", async () => {
+    const cliente = { id: "c-1", tipo_doc: "6", num_doc: "20601234565", razon_social: "PESQUERA PACÍFICO S.A.C.", creado_en: "2026-09-02T15:00:00Z", actualizado_en: "2026-09-02T15:00:00Z" };
+    stubFetch((url) => {
+      if (url.includes("/api/proxy/clientes?")) return sobre([cliente]);
+      if (url.includes("/series")) return sobre(SERIES);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    const buscador = screen.getByLabelText("Buscar un cliente guardado");
+    fireEvent.change(buscador, { target: { value: "pacif" } });
+    await screen.findByRole("option", { name: /PESQUERA/ });
+    fireEvent.keyDown(buscador, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByRole("option", { name: /PESQUERA/ })).toBeNull());
+    expect(screen.getByLabelText("Serie")).toBeInTheDocument();
+  });
+
   it("una boleta sin documento se copia sin documento y con el nombre habitual del comprador", async () => {
     stubFetch((url) => {
       if (url.includes("/facturas/b-2")) return sobre({ ...FACTURA, id: "b-2", tipo: "03", serie: "B001", moneda: "PEN", receptor: { tipo_doc: "-", num_doc: "-", razon_social: "CLIENTES VARIOS", direccion: null } });

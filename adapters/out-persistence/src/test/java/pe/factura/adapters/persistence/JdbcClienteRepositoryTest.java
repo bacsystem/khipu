@@ -67,6 +67,8 @@ class JdbcClienteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.actualizar(ajeno)).as("con el tenant equivocado no toca nada").isFalse();
         assertThat(repo.eliminar(otra, c.id())).isFalse();
         assertThat(repo.listar(otra, null, 1, 20)).isEmpty();
+        assertThat(repo.contar(otra, null)).isZero();
+        assertThat(repo.buscarPorDocumento(otra, "1", "12345678")).as("el mismo documento en otra empresa no es este cliente").isEmpty();
         assertThat(repo.buscar(t, c.id()).orElseThrow().razonSocial()).isEqualTo("HACKEADO");
         assertThat(repo.eliminar(t, c.id())).isTrue();
         assertThat(repo.eliminar(t, c.id())).isFalse();
@@ -79,6 +81,13 @@ class JdbcClienteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.listar(t, null, 1, 3)).extracting(ClienteGuardado::razonSocial).containsExactly("ALFA SAC", "BETA SAC", "GAMA SAC");
         assertThat(repo.listar(t, null, 2, 3)).extracting(ClienteGuardado::razonSocial).containsExactly("ZETA SAC");
         assertThat(repo.contar(t, null)).isEqualTo(4);
+    }
+
+    @Test void unaPaginaMuyLejanaDevuelveVaciaEnVezDeFallarPorDesbordarElOffset() {
+        UUID t = tenantDePrueba();
+        cliente(t, "1", "12345678", "JUAN PEREZ");
+
+        assertThat(repo.listar(t, null, Integer.MAX_VALUE, 100)).isEmpty();
     }
 
     @Test void buscaPorElComienzoDelDocumentoYPorCualquierParteDelNombreSinMayusculasNiTildes() {

@@ -73,7 +73,8 @@ async function forward(
   access: string | undefined,
   empresa: string | undefined,
 ): Promise<Response> {
-  const url = `${apiBaseUrl()}/v1/${path.join("/")}${req.nextUrl.search}`;
+  // Next entrega los segmentos ya decodificados: un `#`, un `?` o un `;` de un número de documento (`/clientes/documento/7/AB#12`) cortaría la ruta si no se vuelven a codificar.
+  const url = `${apiBaseUrl()}/v1/${path.map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
   const headers = new Headers();
   const contentType = req.headers.get("content-type");
   if (contentType) headers.set("content-type", contentType);
