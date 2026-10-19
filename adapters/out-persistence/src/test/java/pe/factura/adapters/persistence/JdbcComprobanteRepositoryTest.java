@@ -331,7 +331,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         java.time.Clock reloj = clock;
         Comprobante andina = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CORPORACION ANDINA 100% SAC", null), items).crear(reloj);
         andina.asignarNumero(1, "20100066603"); repo.guardar(andina);
-        Comprobante otraFactura = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20100066603", "Distribuidora Pacífico EIRL", null), items).crear(reloj);
+        Comprobante otraFactura = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20100066603", "DISTRIBUIDORA PACÍFICO EIRL", null), items).crear(reloj);
         otraFactura.asignarNumero(2, "20100066603"); repo.guardar(otraFactura);
         Comprobante boleta = Comprobante.boleta(t, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "44781209", "JUAN PEREZ", null), items).crear(reloj);
         boleta.asignarNumero(1, "20100066603"); repo.guardar(boleta);
@@ -347,7 +347,12 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.contar(t, new Filtro(null, null, null, null, null, null, 1L))).isEqualTo(2);
         // Cliente por nombre: contiene, sin distinguir mayúsculas ni tildes de caja
         assertThat(repo.listar(t, new Filtro(null, null, null, null, null, "andina", null), 1, 10)).extracting(Comprobante::id).containsExactly(andina.id());
-        assertThat(repo.listar(t, new Filtro(null, null, null, null, null, "pacífico", null), 1, 10)).extracting(Comprobante::id).containsExactly(otraFactura.id());
+        // Razón social en mayúsculas con tilde (como la manda SUNAT): se encuentra con minúsculas, mayúsculas y sin tilde, sin depender del LC_CTYPE de la base.
+        for (String buscado : List.of("pacífico", "PACÍFICO", "pacifico", "Pacífico", "distribuidora pac")) {
+            assertThat(repo.listar(t, new Filtro(null, null, null, null, null, buscado, null), 1, 10)).as(buscado).extracting(Comprobante::id).containsExactly(otraFactura.id());
+        }
+        // También con la tilde descompuesta («i» + acento combinado), como la pega un teclado o una página.
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "pacífico", null))).isEqualTo(1);
         // Cliente por documento: prefijo, no contiene
         assertThat(repo.listar(t, new Filtro(null, null, null, null, null, "20601", null), 1, 10)).extracting(Comprobante::id).containsExactly(andina.id());
         assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "601234", null))).isZero();
