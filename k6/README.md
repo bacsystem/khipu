@@ -44,13 +44,15 @@ En cada PR que toca el backend (y cada lunes, y a pedido) levanta Postgres y el 
 | Paso | Bloquea | Umbral |
 |---|---|---|
 | `descargas.js` | **Sí** | p95 < 300 ms, errores < 1 % |
-| `emision.js` (facturas) y `boletas.js` | No (`continue-on-error`) | p95 < 500 ms a 50 doc/s |
-| Numeración después de la carga | **Sí** | por serie: documentos = número más alto = números distintos |
+| `emision.js` (facturas) y `boletas.js` | **Sí** | todos los `check` (201 del tipo y estado pedidos) > 99 %, errores < 1 %, menos de 20 iteraciones descartadas (o sea, se sostienen los 50 doc/s) y p95 < **1 500 ms** en CI (`UMBRAL_P95_MS`; el objetivo es 500 ms) |
+| Numeración después de la carga | **Sí** | por serie: documentos = número más alto = números distintos, y al menos 3 000 documentos en F001 y en B001 (si la carga no emitió, la comprobación no probaba nada) |
 
-Los resúmenes de k6 (JSON), el resultado de la numeración y el log del backend quedan como artifact, y una tabla con los p95 en el resumen del job. Las dos emisiones no bloquean
-mientras no haya varias corridas que digan cuánto ruido tiene el runner compartido (en una laptop miden ~25 ms contra un umbral de 500); cuando se estabilicen, se quita el
-`continue-on-error`. Para correr lo mismo a mano: los comandos de arriba contra un backend local.
+Los resúmenes de k6 (JSON), el resultado de la numeración y el log del backend quedan como artifact, y una tabla con los p95 contra su objetivo en el resumen del job. El p95 de CI es más
+holgado que el objetivo porque el runner compartido es mucho más lento que una laptop (donde miden ~25 ms): ahí solo debe saltar una regresión grande. Cuando haya varias corridas que digan
+cuánto ruido tiene, bajar `UMBRAL_P95_MS` a 500. Para correr lo mismo a mano: los comandos de arriba contra un backend local.
 
+El token del workflow es de solo lectura (`permissions: contents: read`), la acción de terceros (`grafana/setup-k6-action`) está fijada por commit y el job usa el jar ejecutable aunque
+`build` deje también un `-plain`.
 
 ## Hallazgo: la emisión no llega a 50 doc/s en una sola serie
 
