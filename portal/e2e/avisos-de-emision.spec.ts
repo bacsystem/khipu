@@ -21,7 +21,7 @@ async function emitirFactura(page: Page, ruc: string) {
   await expect(dialogo.getByLabel("Razón social")).not.toHaveValue("");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel("Cantidad").fill("1");
-  await dialogo.getByLabel("Precio unit. (con IGV)").fill("1000");
+  await dialogo.getByLabel(/Precio unit\./).fill("1000");
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
 }

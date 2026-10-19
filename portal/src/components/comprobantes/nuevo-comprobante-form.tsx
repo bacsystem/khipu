@@ -105,6 +105,17 @@ const DOCUMENTOS_BOLETA = [
 ] as const;
 
 const SIN_DOCUMENTO = "-";
+
+/**
+ * Lo que es el precio de la línea según su afectación (#117): con IGV en la gravada, con IVAP en la IVAP, y sin impuesto en la exonerada, la inafecta, la gratuita (valor
+ * referencial) y la exportación. «con IGV» en una exonerada inducía a cargar el precio mal. `""`: líneas de afectaciones distintas, el encabezado no afirma una.
+ */
+export function etiquetaDelPrecio(afectacion: string): string {
+  if (afectacion === "") return "Precio unit.";
+  if (afectacion === "10") return "Precio unit. (con IGV)";
+  if (afectacion === "17") return "Precio unit. (con IVAP)";
+  return "Precio unit. (sin IGV)";
+}
 /** Espeja `Receptor.NOMBRE_SIN_DOCUMENTO`: cumple la regla 2022 (al menos 3 caracteres), error en SUNAT desde 2027-01-01. */
 const COMPRADOR_SIN_DOCUMENTO = "CLIENTES VARIOS";
 /**
@@ -124,6 +135,7 @@ export function NuevoComprobanteForm({
   plantilla = null,
   onEmitido,
   onCancelar,
+  onCambioDatos,
 }: {
   /** Factura (series F###, comprador con RUC) o boleta (series B###, comprador con cualquier documento o, hasta S/ 700, sin documento). */
   tipo?: TipoEmitible;
@@ -140,6 +152,8 @@ export function NuevoComprobanteForm({
   plantilla?: Plantilla | null;
   onEmitido?: () => void;
   onCancelar?: () => void;
+  /** Avisa si el formulario tiene algo escrito, para que quien lo contiene confirme antes de descartarlo (#117). */
+  onCambioDatos?: (hayDatos: boolean) => void;
 }) {
   const router = useRouter();
   const boleta = tipo === "boleta";
@@ -384,6 +398,17 @@ export function NuevoComprobanteForm({
   const mostrados = delServidor
     ? { gravado: delServidor.gravado, exonerado: delServidor.exonerado, inafecto: delServidor.inafecto, gratuito: delServidor.gratuito ?? 0, igv: delServidor.igv, total: delServidor.total }
     : { ...totales, total: totales.total + (redondeo.valor ?? 0) };
+  // Algo del cliente o de las líneas está escrito: cerrar el diálogo (Esc, la X) lo perdería, y el diálogo pide confirmación (#117).
+  const hayDatos =
+    numDoc.trim() !== "" ||
+    (razonSocial.trim() !== "" && razonSocial !== COMPRADOR_SIN_DOCUMENTO) ||
+    direccion.trim() !== "" ||
+    lineas.some((l) => l.descripcion.trim() !== "" || l.precioUnitario !== null);
+  useEffect(() => {
+    onCambioDatos?.(hayDatos);
+  }, [hayDatos, onCambioDatos]);
+  // IVAP o exportación mientras el backend no responde: la previsualización local no las suma y mostraría S/ 0.00 (#117).
+  const sinImporteLocal = !delServidor && totales.noContempladas.length > 0;
   // Con tipo de cambio el tope de S/ 700 se mide en soles; sin él no hay cómo comparar otra moneda y el backend exige el documento: aquí se avisa antes.
   const superaTopeSinDocumento = sinDocumento && superaElTope(mostrados.total, moneda, tipoCambioAApi(tipoCambio, moneda));
 
@@ -507,11 +532,11 @@ export function NuevoComprobanteForm({
           por largo que sea el comprobante. */}
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
       <div className="grid items-start gap-4 sm:grid-cols-3">
-        <Campo id="nc-serie" etiqueta="Serie" ayuda="Correlativo automático">
+        <Campo id="nc-serie" etiqueta="Serie" ayuda="El correlativo lo asigna khipu al emitir">
           <select id="nc-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(CAMPO_DENSO, "font-mono")}>
             {seriesDelTipo.map((s) => (
               <option key={s.serie} value={s.serie}>
-                {s.serie} · siguiente N.º {s.ultimo_numero + 1}
+                {s.serie} · {s.ultimo_numero > 0 ? `último emitido N.º ${s.ultimo_numero}` : "aún sin emitir"}
               </option>
             ))}
           </select>
@@ -820,7 +845,7 @@ export function NuevoComprobanteForm({
           <div className="hidden grid-cols-[minmax(0,1fr)_124px_188px_72px] gap-3 border-b border-border/60 bg-muted/40 px-3 py-2 sm:grid">
             <span className={AYUDA_CAMPO}>Descripción</span>
             <span className={AYUDA_CAMPO}>Cantidad</span>
-            <span className={AYUDA_CAMPO}>Precio unit. (con IGV)</span>
+            <span className={AYUDA_CAMPO}>{etiquetaDelPrecio(lineas.every((l) => l.tipoAfectacionIgv === lineas[0].tipoAfectacionIgv) ? lineas[0].tipoAfectacionIgv : "")}</span>
             <span className="sr-only">Acciones</span>
           </div>
 
@@ -843,7 +868,7 @@ export function NuevoComprobanteForm({
                       entera y el navegador aborta el submit sin decir nada. Kilos, horas y metros son medio SUNAT. */}
                   <StepperNumerico id={`nc-cant-${i}`} valor={linea.cantidad} onCambio={(v) => actualizar(i, { cantidad: v })} min={0} paso="any" variante="filtro" />
                 </Campo>
-                <Campo id={`nc-precio-${i}`} etiqueta="Precio unit. (con IGV)" className="[&>label]:sr-only">
+                <Campo id={`nc-precio-${i}`} etiqueta={etiquetaDelPrecio(linea.tipoAfectacionIgv)} className="[&>label]:sr-only">
                   <EntradaMonto id={`nc-precio-${i}`} valor={linea.precioUnitario} onCambio={(v) => actualizar(i, { precioUnitario: v })} moneda={moneda} variante="filtro" />
                 </Campo>
                 <div className="flex items-center justify-end gap-0.5">
@@ -1067,7 +1092,8 @@ export function NuevoComprobanteForm({
               // Solo los conoce el backend (#405): aparecen cuando respondió.
               { etiqueta: "Redondeo", monto: delServidor?.redondeo ?? 0, siempre: false },
             ]
-              .filter((f) => f.siempre || f.monto !== 0)
+              // El IGV no se muestra en 0.00 cuando no hay operaciones gravadas (una factura toda exonerada no tiene «IGV (18 %)»).
+              .filter((f) => f.monto !== 0 || (f.siempre && (f.etiqueta.startsWith("IGV") ? lineasCompletas.length === 0 || mostrados.gravado !== 0 || totales.noContempladas.length > 0 : true)))
               .map((f) => (
                 <Fragment key={f.etiqueta}>
                   <dt className="after:content-[':']">{f.etiqueta}</dt>
@@ -1106,8 +1132,13 @@ export function NuevoComprobanteForm({
           <div className="flex items-baseline gap-2">
             <span className={cn(ETIQUETA_CAMPO, "text-muted-foreground")}>Total a pagar</span>
             <span className="font-mono text-lg font-semibold tabular-nums" data-testid="total-a-pagar">
-              {formatearMonto(moneda, mostrados.total)}
+              {sinImporteLocal ? "—" : formatearMonto(moneda, mostrados.total)}
             </span>
+            {sinImporteLocal ? (
+              <span className={AYUDA_CAMPO} data-testid="importe-por-calcular">
+                Lo calcula khipu
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-2">

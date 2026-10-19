@@ -43,11 +43,22 @@ async function toEnvelope<T>(res: Response): Promise<ApiEnvelope<T>> {
   }
 }
 
+/**
+ * Cuánto se espera una respuesta antes de rendirse (#117). Sin tope, un POST que nunca responde dejaba «Emitiendo…» para siempre. La lectura es rápida; lo que escribe puede
+ * esperar a SUNAT dentro de la misma llamada (la emisión envía y espera el CDR), así que tiene un margen mucho mayor. Al vencer cae en la rama de corte de red, que ya avisa
+ * que el comprobante pudo haberse emitido.
+ */
+export const ESPERA_MAXIMA_LECTURA_MS = 30_000;
+export const ESPERA_MAXIMA_ESCRITURA_MS = 120_000;
+
 async function pedir<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
   let res: Response;
+  const espera = init.method === undefined || init.method === "GET" ? ESPERA_MAXIMA_LECTURA_MS : ESPERA_MAXIMA_ESCRITURA_MS;
   try {
-    res = await fetch(path, init);
-  } catch {
+    res = await fetch(path, { signal: AbortSignal.timeout(espera), ...init });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError")
+      return sobre("RED", "El servidor tardó demasiado en responder. Verifica el estado antes de reintentar: lo que enviaste pudo haberse procesado.");
     return sobre("RED", "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.");
   }
   return toEnvelope<T>(res);

@@ -135,8 +135,8 @@ describe("los formularios de emisión dejan los avisos para la ficha (#382)", ()
     fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20100066603" } });
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "CLIENTE SAC" } });
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Pan" } });
-    fireEvent.change(screen.getByLabelText("Precio unit. (con IGV)"), { target: { value: "5" } });
-    fireEvent.blur(screen.getByLabelText("Precio unit. (con IGV)"));
+    fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "5" } });
+    fireEvent.blur(screen.getByLabelText(/Precio unit\./));
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(push).toHaveBeenCalled());
   }
@@ -166,8 +166,8 @@ describe("los formularios de emisión dejan los avisos para la ficha (#382)", ()
     fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "20100066603" } });
     fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "CLIENTE SAC" } });
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Pan" } });
-    fireEvent.change(screen.getByLabelText("Precio unit. (con IGV)"), { target: { value: "5" } });
-    fireEvent.blur(screen.getByLabelText("Precio unit. (con IGV)"));
+    fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "5" } });
+    fireEvent.blur(screen.getByLabelText(/Precio unit\./));
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
     await waitFor(() => expect(push).toHaveBeenCalled());
 

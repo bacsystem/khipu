@@ -4,6 +4,14 @@ import { calcularTotales, esGratuita, factorIgv, redondear } from "./totales";
 const gravado = (cantidad: number, precioUnitario: number) => ({ cantidad, precioUnitario, tipoAfectacionIgv: "10" });
 
 describe("calcularTotales", () => {
+  /** #117: IVAP y exportación no se previsualizan; antes devolvían S/ 0.00 en silencio. Ahora lo dicen, para que la pantalla no lo muestre como importe. */
+  it("dice qué afectaciones no sabe calcular en vez de sumarlas como cero", () => {
+    const r = calcularTotales([gravado(1, 118), { cantidad: 1, precioUnitario: 50, tipoAfectacionIgv: "17" }, { cantidad: 1, precioUnitario: 30, tipoAfectacionIgv: "40" }, { cantidad: 1, precioUnitario: 7, tipoAfectacionIgv: "40" }], 18);
+    expect(r.noContempladas).toEqual(["17", "40"]);
+    expect(r.total).toBe(118);
+    expect(calcularTotales([gravado(1, 118)], 18).noContempladas).toEqual([]);
+  });
+
   it("separa el IGV del precio por línea, como el dominio", () => {
     // 1000 / 1.18 = 847.4576271186 (10 dec) → × 2 = 1694.92 → IGV lo que falta para 2000.00: 305.08.
     expect(calcularTotales([gravado(2, 1000)], 18)).toEqual({
@@ -13,6 +21,7 @@ describe("calcularTotales", () => {
       gratuito: 0,
       igv: 305.08,
       total: 2000,
+      noContempladas: [],
     });
   });
 
@@ -34,6 +43,7 @@ describe("calcularTotales", () => {
       gravado: 2118.65,
       igv: 381.35,
       total: 2500,
+      noContempladas: [],
     });
   });
 
@@ -59,6 +69,7 @@ describe("calcularTotales", () => {
       gratuito: 100,
       igv: 15.51,
       total: 551.7,
+      noContempladas: [],
     });
   });
 
@@ -83,6 +94,7 @@ describe("calcularTotales", () => {
       gravado: 604.39,
       igv: 108.8,
       total: 713.19,
+      noContempladas: [],
     });
   });
 

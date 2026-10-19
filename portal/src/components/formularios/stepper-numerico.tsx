@@ -14,6 +14,11 @@ const TAMANOS = {
  * Cantidad numérica con +/− (ítems de una línea, plazos en días, cupos). El valor se escribe directo o se pisa
  * con las flechas; `min`/`max` deshabilitan el botón correspondiente al llegar al límite (los pinta base-ui solo).
  * Mide h-9 como cualquier otro control; `variante` ya no cambia la altura.
+ *
+ * **Los botones ± no están en el orden de Tab (decisión, #117).** base-ui los saca (`tabindex="-1"`) y se acepta: es el patrón de un campo numérico con botones (WAI-ARIA APG, «spinbutton»), donde
+ * el campo es lo único enfocable y los botones son la ayuda del puntero. El teclado cambia la cantidad tecleándola o con las flechas ↑/↓ y RePág/AvPág sobre el campo; los
+ * botones conservan su nombre accesible («Aumentar», «Disminuir») para un lector de pantalla y para quien llegue con el puntero. Hacerlos tabulables añadiría dos paradas
+ * por línea de comprobante a quien llena veinte líneas con el teclado. La prueba `stepper-numerico.test.tsx` fija esa ruta de teclado.
  */
 export function StepperNumerico({
   id,
