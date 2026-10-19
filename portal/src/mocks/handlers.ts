@@ -589,8 +589,9 @@ function anticiposMock(pedidos: AnticipoPedido[] | undefined, t: TotalesMock, ta
       if (origen.moneda !== moneda) return invalido(`2071 - ${que} de anticipo ${comprobante} es en ${origen.moneda} y este comprobante en ${moneda}`);
       if (origen.receptor?.num_doc !== numDocCliente) return invalido(`${que} de anticipo ${comprobante} fue emitida a otro cliente (documento ${origen.receptor?.num_doc})`);
       const facturado = origen.totales[afectacion];
-      const ya = guardados.filter((f) => !["RECHAZADO", "INVALIDO", "DESCARTADO", "ANULADO"].includes(f.estado_documento))
-        .flatMap((f) => f.anticipos ?? []).filter((x) => x.serie === a.serie && x.numero === a.numero && x.afectacion === afectacion).reduce((s, x) => s + x.monto, 0);
+      // `montoRegularizado`: lo regularizado de todas las afectaciones, sin las finales rechazadas o inválidas.
+      const ya = guardados.filter((f) => !["RECHAZADO", "INVALIDO"].includes(f.estado_documento))
+        .flatMap((f) => f.anticipos ?? []).filter((x) => x.serie === a.serie && x.numero === a.numero).reduce((s, x) => s + x.monto, 0);
       if (ya + a.monto > facturado + 0.005)
         return invalido(`El anticipo ${comprobante} (${a.monto.toFixed(2)}) supera el valor de venta ${afectacion} de esa factura (${facturado.toFixed(2)})${ya > 0 ? `: ya se regularizaron ${ya.toFixed(2)} en otras facturas` : ""}`);
     }

@@ -36,6 +36,19 @@ describe("anticipos (#312)", () => {
     expect(candidatosDeAnticipo([base, final(10, "ACEPTADO", 1000)], CLIENTE, "PEN").map((x) => x.etiqueta)).not.toContain("F001-1");
   });
 
+  /** Revisión de #312 (H1): `montoRegularizado` del backend suma todas las afectaciones y solo deja fuera las finales rechazadas o inválidas. */
+  it("espeja al backend: una final dada de baja sigue contando, y lo regularizado en una afectación resta en las demás", () => {
+    const final = (n: number, estado: Comprobante["estado_documento"], afectacion: "gravado" | "exonerado", monto: number) =>
+      comp({ serie: "F002", numero: n, estado_documento: estado, anticipos: [{ comprobante: "F001-1", serie: "F001", numero: 1, monto, importe_pagado: monto, afectacion, codigo_sunat: "04", fecha_pago: null }] });
+    const mixto = comp({ serie: "F001", numero: 1, totales: { gravado: 1000, exonerado: 400, inafecto: 0, igv: 180, total: 1580 } });
+    const [c] = candidatosDeAnticipo([mixto, final(10, "ANULADO", "gravado", 300), final(11, "INVALIDO", "gravado", 500)], CLIENTE, "PEN");
+    expect(c.disponible.gravado).toBe(700); // la anulada cuenta (300), la inválida no
+    const [d] = candidatosDeAnticipo([mixto, final(12, "ACEPTADO", "exonerado", 400)], CLIENTE, "PEN");
+    expect(d.disponible.gravado).toBe(600); // 1000 − los 400 regularizados en exonerado: lo que el backend compararía
+    expect(d.disponible.exonerado).toBe(0);
+    expect(errorDeAnticipos([{ serie: "F001", numero: 1, monto: "601", afectacion: "gravado" }], [d])).toMatch(/solo tiene 600\.00 por descontar en gravado \(ya se regularizaron 400\.00\)/);
+  });
+
   it("elige la afectación con algo disponible y propone descontarlo todo", () => {
     const [c] = candidatosDeAnticipo([comp({ serie: "F001", numero: 1, totales: { gravado: 0, exonerado: 400, inafecto: 0, igv: 0, total: 400 } })], CLIENTE, "PEN");
     expect(afectacionPorDefecto(c)).toBe("exonerado");
