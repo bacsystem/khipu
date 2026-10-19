@@ -11,7 +11,7 @@ import type { Serie } from "@/lib/api/series";
 import { EntradaFecha } from "@/components/formularios/entrada-fecha";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
-import { fechaMinimaDeEmision } from "@/lib/comprobantes/plazo";
+import { fechaMinimaDeNota } from "@/lib/comprobantes/plazo";
 import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, tieneDescuentoQueNoAfectaLaBase, topePorTributo } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -250,10 +250,14 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // (3503) empiezan todas con «diferente de '10'». El backend lo exime igual desde #141.
   const exentoDeTope = esNc && motivo === "10";
   // Con descuento o cargo propios el importe de la nota cambia y lo calcula el backend: aquí no se compara con el tope (lo hace SUNAT, 3286, y el backend responde 422).
-  const conAjustesPropios = esParcial && (descuentoGlobal.valor.trim() !== "" || cargoGlobal.valor.trim() !== "");
-  const superaTope = (esParcial || esTotal || esImporte) && !exentoDeTope && !conAjustesPropios && importeNota > tope;
+  // Un cargo solo puede subir el importe: si ya pasa el tope sin él, pasa con él, y se sigue bloqueando. Un descuento sí lo baja, y entonces lo calcula el backend.
+  const conDescuentoPropio = esParcial && descuentoGlobal.valor.trim() !== "";
+  const conAjustesPropios = conDescuentoPropio || (esParcial && cargoGlobal.valor.trim() !== "");
+  const superaTope = (esParcial || esTotal || esImporte) && !exentoDeTope && !conDescuentoPropio && importeNota > tope;
+  // Descuento y cargo globales solo caben donde el backend los acepta (`Totales`): hay líneas gravadas y ninguna lleva otros tributos (9999).
+  const admiteAjustesPropios = factura.items.some((i) => i.tipo_afectacion_igv === "10") && !factura.items.some((i) => !!i.otros_tributos);
   const hayAjusteInvalido = esParcial && (errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null);
-  const fechaValida = (fecha || hoy) >= factura.fecha_emision && (fecha || hoy) <= hoy && (fecha || hoy) >= fechaMinimaDeEmision(sobreBoleta ? "boleta" : "factura", hoy);
+  const fechaValida = (fecha || hoy) >= factura.fecha_emision && (fecha || hoy) <= hoy && (fecha || hoy) >= fechaMinimaDeNota({ tipo, sobreBoleta, motivo }, hoy);
   const conceptoTributo = { "10": "gravado + IGV", "20": "exonerado", "30": "inafecto", "40": "exportación", "17": "IVAP" }[afectacionLinea];
   // 3111: en una línea IVAP un importe de 0.07 a 0.12 deja el impuesto en 0.00 y SUNAT rechaza ya numerada.
   const ivapEnCero = lineaPropia && impuestoRedondeaACero(afectacionLinea, Number(nd.importe) || 0);
@@ -343,7 +347,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="nota-fecha" className={ETIQUETA_CAMPO}>Fecha de emisión</label>
-          <EntradaFecha id="nota-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={[factura.fecha_emision, fechaMinimaDeEmision(documento, hoy)].sort().at(-1)} max={hoy} variante="filtro" />
+          <EntradaFecha id="nota-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={[factura.fecha_emision, fechaMinimaDeNota({ tipo, sobreBoleta, motivo }, hoy)].sort().at(-1)} max={hoy} variante="filtro" />
           <span className={AYUDA_CAMPO}>No anterior a la de la {documento} ({factura.fecha_emision}, SUNAT 2885) ni futura.</span>
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -353,7 +357,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         </div>
       </div>
 
-      {esParcial ? (
+      {esParcial && admiteAjustesPropios ? (
         <details className="rounded-lg border border-border px-3 py-2" data-testid="nota-ajustes" open={descuentoGlobal.valor !== "" || cargoGlobal.valor !== ""}>
           <summary className="cursor-pointer text-[13px] font-medium">Descuento global y cargo de la nota</summary>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -428,7 +432,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
               de la nota y el usuario descubría el 3286 después de emitir. */}
           <div className={cn("flex flex-wrap items-baseline justify-between gap-2 border-t border-border/60 px-3 py-2 text-[12px]", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
             <span>
-              Importe de la nota: <strong className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</strong>
+              Importe de la nota{conAjustesPropios ? " (antes del descuento y el cargo, que khipu aplica al emitir)" : ""}: <strong className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</strong>
             </span>
             <span>
               Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>

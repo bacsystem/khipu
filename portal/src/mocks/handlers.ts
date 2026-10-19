@@ -3047,7 +3047,9 @@ export const handlers = [
     if ((body.descuento_global || body.cargos?.length) && !body.items?.length) return fail(422, "NOTA_INVALIDA", "El descuento global y los cargos solo se indican con `items`: la nota total copia los de la factura");
     if (body.descuento_global?.afecta_base_igv === false) return fail(422, "DESCUENTO_INVALIDO", "Una nota no admite un descuento que no afecte la base del IGV (3271, 3277)");
     if ((body.observaciones ?? "").length > 1000) return fail(422, "VALIDACION", "observaciones: tamaño debe estar entre 0 y 1000");
-    const ajusteGlobal = (a: Ajuste | undefined, signo: 1 | -1) => (a ? signo * (a.monto ?? ((t.gravado + t.exonerado + t.inafecto) * (a.porcentaje ?? 0)) / 100) : 0);
+    // Como `Totales`: el descuento 02 y el cargo 49 se calculan sobre la base gravada y exigen líneas gravadas onerosas, y no se mezclan con otros tributos (9999).
+    if ((body.descuento_global || body.cargos?.length) && t.gravado <= 0) return fail(422, body.descuento_global ? "DESCUENTO_INVALIDO" : "CARGO_INVALIDO", "El descuento global y el cargo exigen líneas gravadas: la nota no tiene ninguna");
+    const ajusteGlobal = (a: Ajuste | undefined, signo: 1 | -1) => (a ? signo * (a.monto ?? (t.gravado * (a.porcentaje ?? 0)) / 100) : 0);
     const delta = ajusteGlobal(body.descuento_global, -1) + (body.cargos ?? []).reduce((s, c) => s + ajusteGlobal(c, 1), 0);
     if (delta !== 0) {
       t.gravado += delta;

@@ -17,6 +17,16 @@ export function fechaMinimaDeEmision(tipo: TipoConPlazo, hoy: string): string {
   return sumarDias(hoy, -PLAZO_ENVIO[tipo].dias);
 }
 
+/**
+ * La fecha de emisión más antigua de una **nota** que todavía se puede enviar (#314): la de una factura, hasta el 3.er día; la de una boleta, hasta el 7.º en el resumen diario,
+ * salvo la NC 10 y la ND 03, que no van en él y por eso tienen el 5.º (`PlazoEnvio.NOTA_DE_BOLETA_FUERA_DEL_RESUMEN`).
+ */
+export function fechaMinimaDeNota(nota: { tipo: "07" | "08"; sobreBoleta: boolean; motivo: string }, hoy: string): string {
+  if (!nota.sobreBoleta) return fechaMinimaDeEmision("factura", hoy);
+  const dias = vaEnResumen({ tipo: nota.tipo, nota: { tipo_afectado: "03", motivo: nota.motivo } }) ? PLAZO_ENVIO.boleta.dias : PLAZO_ENVIO.boleta.envioIndividual;
+  return sumarDias(hoy, -dias);
+}
+
 /** Una boleta que ya no va sola (pasó el 5.º día) pero todavía se informa en el resumen diario (hasta el 7.º). */
 export function soloPorResumen(tipo: TipoConPlazo, fecha: string, hoy: string): boolean {
   const dias = diasEntre(fecha, hoy);

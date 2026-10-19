@@ -351,6 +351,67 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
     expect(notasEnviadas(fetch)).toHaveLength(0);
   });
 
+  /** Revisión de #314 (H1): la NC 10 y la ND 03 sobre boleta no van en el resumen diario; su plazo es el 5.º día, no el 7.º. */
+  it("sobre una boleta de hace 7 días, la NC 10 no admite una fecha pasado el 5.º día y la NC 07 sí hasta el 7.º", async () => {
+    const hoy = hoyLima();
+    stubApi();
+    render(<NotaForm factura={documento("03", { fecha_emision: sumarDias(hoy, -7) })} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    const fecha = () => screen.getByLabelText("Fecha de emisión") as HTMLInputElement;
+
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "10" } });
+    fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Otros conceptos" } });
+    fireEvent.change(screen.getByLabelText("Concepto"), { target: { value: "Ajuste comercial" } });
+    fireEvent.change(screen.getByLabelText(/Importe/), { target: { value: "5" } });
+    expect(fecha().min).toBe(sumarDias(hoy, -5));
+    fireEvent.change(fecha(), { target: { value: sumarDias(hoy, -6) } });
+    expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
+    fireEvent.change(fecha(), { target: { value: sumarDias(hoy, -5) } });
+    expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    expect(fecha().min).toBe(sumarDias(hoy, -7));
+  });
+
+  /** H2: el backend rechaza el descuento y el cargo globales sin líneas gravadas o con otros tributos (9999); no se ofrecen. */
+  it("no ofrece descuento ni cargo propios si la factura no tiene líneas gravadas o lleva otros tributos", async () => {
+    const hoy = hoyLima();
+    const linea = documento("01").items[0];
+    for (const [nombre, items, ofrece] of [
+      ["gravada", [linea], true],
+      ["exonerada", [{ ...linea, tipo_afectacion_igv: "20" }], false],
+      ["exportación", [{ ...linea, tipo_afectacion_igv: "40" }], false],
+      ["con otros tributos", [linea, { ...linea, descripcion: "Gasolina", otros_tributos: { tasa: 2, monto: 0.2 } }], false],
+    ] as const) {
+      stubApi();
+      const { unmount } = render(<NotaForm factura={documento("01", { fecha_emision: sumarDias(hoy, -1), items: [...items] })} series={SERIES} />);
+      await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+      fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+      expect(screen.queryByTestId("nota-ajustes") !== null, nombre).toBe(ofrece);
+      unmount();
+    }
+  });
+
+  /** H3: un cargo solo sube el importe; si ya pasa el tope sin él, se sigue bloqueando. Un descuento sí lo puede bajar. */
+  it("con solo un cargo propio el tope sigue bloqueando; con un descuento lo decide el backend", async () => {
+    const hoy = hoyLima();
+    // Ya acreditado casi todo: el tope queda en 0.80 y devolver 2 unidades (2.36) lo supera.
+    const factura = documento("01", { fecha_emision: sumarDias(hoy, -1), notas: [{ id: "n-0", tipo: "07", serie: "FC01", numero: 1, estado_documento: "ACEPTADO", total: 11 } as never] });
+    stubApi();
+    render(<NotaForm factura={factura} series={SERIES} />);
+    await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Devolución" } });
+    fireEvent.change(screen.getByLabelText("Cantidad de Pan en la nota"), { target: { value: "2" } });
+    const emitir = screen.getByRole("button", { name: "Emitir nota de crédito" });
+    expect(emitir).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Cargo global de la nota: valor"), { target: { value: "5" } });
+    expect(emitir).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Descuento global de la nota: valor"), { target: { value: "50" } });
+    expect(emitir).toBeEnabled();
+    expect(screen.getByTestId("nota-importe")).toHaveTextContent("antes del descuento y el cargo");
+  });
+
   it("la nota total y la de importe no ofrecen descuento ni cargo propios: copian los de la factura", async () => {
     stubApi();
     render(<NotaForm factura={documento("01")} series={SERIES} />);
