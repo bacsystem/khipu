@@ -527,7 +527,7 @@ export function NuevoComprobanteForm({
         </Campo>
 
         <Campo id="nc-moneda" etiqueta="Moneda">
-          <select id="nc-moneda" value={moneda} onChange={(e) => setMoneda(e.target.value)} className={CAMPO_DENSO}>
+          <select id="nc-moneda" value={moneda} onChange={(e) => { setMoneda(e.target.value); setTipoCambio(""); }} className={CAMPO_DENSO}>
             {MONEDAS.map((m) => (
               <option key={m.codigo} value={m.codigo}>
                 {m.etiqueta}
