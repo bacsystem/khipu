@@ -22,7 +22,7 @@ import { listarPaises } from "@/lib/comprobantes/paises";
 import { avisoDeDetraccion, DETRACCION_VACIA, detraccionAApi, errorDeDetraccion, operacionDeDetraccion, type DetraccionForm } from "@/lib/comprobantes/detraccion";
 import { errorDePercepcion, OPERACION_PERCEPCION, PERCEPCION_VACIA, percepcionAApi, type PercepcionForm } from "@/lib/comprobantes/percepcion";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
-import { errorDeReferencias, hayReferencias, REFERENCIAS_VACIAS, referenciasAApi, type ReferenciasForm } from "@/lib/comprobantes/referencias";
+import { errorDeReferencias, REFERENCIAS_VACIAS, referenciasAApi, type ReferenciasForm } from "@/lib/comprobantes/referencias";
 import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm } from "@/lib/comprobantes/tributos";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
@@ -173,6 +173,8 @@ export function NuevoComprobanteForm({
   const [percepcion, setPercepcion] = useState<PercepcionForm>(PERCEPCION_VACIA);
   // #300: orden de compra, guías, otros documentos relacionados y observaciones; no cambian importes, así que no entran en el cálculo.
   const [referencias, setReferencias] = useState<ReferenciasForm>(REFERENCIAS_VACIAS);
+  // Abierta por quien la abre (no por si hay algo escrito: al borrar lo escrito se cerraba sola mientras se usaba).
+  const [datosAbiertos, setDatosAbiertos] = useState(false);
   const [pais, setPais] = useState("");
   const [incoterm, setIncoterm] = useState("");
   const [paisDeUso, setPaisDeUso] = useState("");
@@ -303,7 +305,7 @@ export function NuevoComprobanteForm({
   const hayAjusteInvalido =
     errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
     lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null || errorDeIsc(l.isc) !== null) ||
-    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null || errorReferencias !== null;
+    incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null;
 
   /**
    * El cuerpo de `POST /v1/facturas`, también el de `POST /v1/facturas/calcular` (#405): lo comparten para que el total que se ve sea el de lo que se emite. Para
@@ -405,8 +407,13 @@ export function NuevoComprobanteForm({
       setError(redondeo.error);
       return;
     }
+    // Las referencias no cambian importes: bloquean la emisión pero no el cálculo (si no, el pie saltaba al cálculo local mientras se escribe una guía).
+    if (errorReferencias) {
+      setError(errorReferencias);
+      return;
+    }
     if (hayAjusteInvalido) {
-      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? errorReferencias ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
+      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
       return;
     }
     if (errorCredito) {
@@ -934,7 +941,7 @@ export function NuevoComprobanteForm({
         </details>
 
         {/* #300: datos adicionales, colapsados; se abren solos si ya hay algo escrito. */}
-        <details className="rounded-xl border border-border px-3 py-2" data-testid="datos-adicionales" open={hayReferencias(referencias)}>
+        <details className="rounded-xl border border-border px-3 py-2" data-testid="datos-adicionales" open={datosAbiertos} onToggle={(e) => setDatosAbiertos((e.currentTarget as HTMLDetailsElement).open)}>
           <summary className="cursor-pointer text-[13px] font-medium">Datos adicionales: guías, documentos relacionados y observaciones</summary>
           <div className="mt-3">
             <ReferenciasEditor valor={referencias} onCambio={setReferencias} boleta={boleta} />
