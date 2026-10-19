@@ -5,26 +5,37 @@ Cubre el ítem #15 de `docs/spec/spec.md`: "Pruebas de carga k6 con umbrales en 
 | Script | Umbral del spec | Resultado (laptop local) |
 |---|---|---|
 | `emision.js` | p95 < 500 ms sin SUNAT, 50 doc/s | ✅ **p95 = 29 ms**, 50 doc/s sostenidos sin iteraciones descartadas (2026-09-22, con caché de certificado; ver hallazgo abajo). Antes: ❌ p95 = 3.6–4.3 s a ~40 doc/s |
-| `descargas.js` | p95 < 300 ms | ✅ p95 = 17.7 ms (2026-09-14) |
-| RC de 10 000 boletas < 5 min | — | ⏸️ No aplica hoy: las boletas están implementadas, pero khipu las envía **una por una** (`sendBill`, como las facturas: `emision.js` con `SERIE=B001` las mide, porque el cliente con RUC también vale en una boleta). El resumen diario (RC) solo lleva **una** boleta: la que se anula o la que se informa pasado el 5.º día. Agrupar boletas en un RC está pendiente |
+| `descargas.js` | p95 < 300 ms | ✅ p95 = 31 ms, 20 descargas/s durante un minuto (2026-10-18) |
+| `boletas.js` | p95 < 500 ms sin SUNAT, 50 doc/s (#287) | ✅ **p95 = 20.5 ms**, 4 074 boletas (mitad con DNI, mitad «sin documento»), 0 errores, serie B001 sin huecos ni duplicados (2026-10-18) |
+| `emision.js` (facturas) | idem | ✅ **p95 = 24.5 ms**, 4 074 facturas, 0 errores, serie F001 sin huecos (2026-10-18) |
+| Baja de boleta en el resumen diario (#287) | meta acordada: p95 ≤ 100 ms por resumen, ≥ 50/s | ✅ `RendimientoDeBajasDeBoletaTest`: generar el SummaryDocuments + firmar + validar contra el XSD cuesta **p50 4 ms · p95 6 ms · 237 resúmenes/s** en un hilo; 10 000 bajas, unos 45 s de CPU |
+| RC de 10 000 boletas < 5 min | — | ⏸️ Hoy no existe como tal: las boletas se envían **una por una** (`sendBill`) y cada baja lleva **su propio** resumen de una línea, así que «10 000 bajas» son 10 000 resúmenes (fila de arriba) y SUNAT es lo único que se suma. Agrupar hasta 500 líneas por resumen es #301; cuando exista, esta fila se mide de verdad |
 
 ## Preparar un tenant de carga
 
-No uses un tenant real: `preparar-tenant.sh` crea una cuenta + empresa + certificado
-autofirmado (con el RUC en el `OU`, que es lo único que valida el backend) + serie
-`F001` + API key, todo aislado.
+No uses un tenant real: `preparar-tenant.sh` da de alta una empresa aislada con la clave de la plataforma (`PLATFORM_ADMIN_KEY`), le guarda credenciales SOL de prueba, le sube un
+certificado autofirmado (con el RUC en el `OU`, que es lo único que valida el backend), crea las series que pidas y devuelve su API key. No pasa por el registro de cuentas: está
+cerrado por defecto (`REGISTRO_ABIERTO`) y pide teléfono y correo verificado, y una carga no tiene por qué pasar por el portal.
 
 ```bash
-API_BASE_URL=http://localhost:8001 ./k6/preparar-tenant.sh
-# imprime la API key en stdout (los pasos intermedios van a stderr)
+API_BASE_URL=http://localhost:8001 PLATFORM_ADMIN_KEY=... SERIES="01:F001 03:B001" ./k6/preparar-tenant.sh
+# imprime la API key en stdout (los pasos intermedios van a stderr); SERIES por defecto es solo 01:F001
 ```
+
+En Windows con Git Bash, `openssl` necesita `MSYS_NO_PATHCONV=1` y un `TMPDIR` con ruta de Windows; en Linux y en CI no hace falta nada.
 
 ## Correr los escenarios
 
 ```bash
 API_BASE_URL=http://localhost:8001 API_KEY=fk_... k6 run k6/emision.js
+API_BASE_URL=http://localhost:8001 API_KEY=fk_... k6 run k6/boletas.js      # necesita la serie B001 (tipo 03)
 API_BASE_URL=http://localhost:8001 API_KEY=fk_... k6 run k6/descargas.js
 ```
+
+Sin k6 instalado: `docker run --rm -i -e API_BASE_URL=http://host.docker.internal:8001 -e API_KEY=fk_... grafana/k6:0.54.0 run - < k6/boletas.js`.
+
+La fecha de emisión de los scripts es la de **Lima** (UTC-5): con la fecha UTC, entre las 19:00 y las 24:00 de Lima la API respondía `422 FECHA_INVALIDA` (fecha futura) y la siembra de
+`descargas.js` fallaba.
 
 ## Hallazgo: la emisión no llega a 50 doc/s en una sola serie
 
@@ -100,9 +111,5 @@ lo mide contando las sentencias que llegan a la base: una página de **30 compro
 
 ## Pendiente
 
-- Escenario de RC de 10 000 boletas: bloqueado hasta que khipu agrupe boletas en
-  un mismo resumen diario (hoy cada RC lleva una sola, ver `ComunicacionBaja.altaEnResumen`).
-- Emisión de boletas: `preparar-tenant.sh` solo crea la serie `F001`; para correr
-  `emision.js` con `SERIE=B001` hay que registrar antes la serie con el tipo `03`.
-- Umbrales en CI (el ítem del spec pide "con umbrales en CI"): falta wiring en
-  GitHub Actions; hoy son scripts para correr a mano.
+- Resumen diario con muchas bajas **en un mismo envío**: depende de #301 (agrupar hasta 500 líneas). Hasta entonces la medición real es la de arriba (un resumen por baja, sin SUNAT).
+- Medir el envío a SUNAT de las bajas: no se carga contra e-beta (es un servicio ajeno); su latencia no la controla khipu.

@@ -7,6 +7,9 @@
 import http from "k6/http";
 import { check } from "k6";
 
+// La fecha de emisión se compara con la de Lima (UTC-5, sin horario de verano): con la fecha UTC, entre las 19:00 y las 24:00 de Lima la API responde 422 FECHA_INVALIDA (fecha futura).
+const hoyEnLima = () => new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);
+
 const BASE_URL = __ENV.API_BASE_URL || "http://localhost:8001";
 const API_KEY = __ENV.API_KEY;
 const SERIE = __ENV.SERIE || "F001";
@@ -42,7 +45,7 @@ export function setup() {
       `${BASE_URL}/v1/facturas`,
       JSON.stringify({
         serie: SERIE,
-        fecha_emision: new Date().toISOString().slice(0, 10),
+        fecha_emision: hoyEnLima(),
         tipo_operacion: "0101",
         moneda: "PEN",
         cliente: { tipo_doc: "6", num_doc: "20100066603", razon_social: "Cliente de carga k6", direccion: "Av. Prueba 123" },
