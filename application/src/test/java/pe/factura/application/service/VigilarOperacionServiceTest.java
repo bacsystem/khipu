@@ -60,14 +60,29 @@ class VigilarOperacionServiceTest {
 
     static class Vigilado implements VigiladoRepository {
         long enError, fueraDePlazo;
+        boolean fallaLaConsultaDeError;
         Instant antesDeError, desdeFueraDePlazo;
         Optional<Instant> latido = Optional.of(AHORA);
         final Map<String, EstadoAlerta> alertas = new HashMap<>();
-        public long enErrorDeEnvioDesde(Instant antesDe) { antesDeError = antesDe; return enError; }
+        public long enErrorDeEnvioDesde(Instant antesDe) {
+            if (fallaLaConsultaDeError) throw new IllegalStateException("base lenta");
+            antesDeError = antesDe;
+            return enError;
+        }
         public long fueraDePlazoDesde(Instant desde) { desdeFueraDePlazo = desde; return fueraDePlazo; }
         public Optional<Instant> ultimoLatido(String clave) { return latido; }
         public Map<String, EstadoAlerta> alertas() { return Map.copyOf(alertas); }
-        public void guardarAlerta(String clave, EstadoAlerta estado) { alertas.put(clave, estado); }
+        boolean otraInstanciaGana;
+        final List<String> restauradas = new ArrayList<>();
+        public boolean reclamarAlerta(String clave, EstadoAlerta previa, EstadoAlerta nueva) {
+            if (otraInstanciaGana || !java.util.Objects.equals(alertas.get(clave), previa)) return false;
+            alertas.put(clave, nueva);
+            return true;
+        }
+        public void restaurarAlerta(String clave, EstadoAlerta reclamada, EstadoAlerta previa) {
+            restauradas.add(clave);
+            if (java.util.Objects.equals(alertas.get(clave), reclamada)) { if (previa == null) alertas.remove(clave); else alertas.put(clave, previa); }
+        }
     }
 
     static class Correo implements CorreoSender {
@@ -143,7 +158,7 @@ class VigilarOperacionServiceTest {
         assertThat(pasada().avisadas()).isEqualTo(1);
 
         assertThat(canal.asuntos).hasSize(2);
-        assertThat(canal.cuerpos.get(1)).contains("Sigue sin resolverse desde " + AHORA);
+        assertThat(canal.cuerpos.get(1)).contains("Sigue sin resolverse desde 18/10/2026 10:00 (Lima)");
         assertThat(vigilado.alertas.get("OUTBOX_ATASCADO")).isEqualTo(new EstadoAlerta(true, AHORA, reloj));
     }
 
@@ -276,5 +291,70 @@ class VigilarOperacionServiceTest {
         assertThat(pasada().avisadas()).isEqualTo(2);
         assertThat(canal.cuerpos).anyMatch(c -> c.contains("3 empresa(s) tienen el certificado"));
         assertThat(canal.cuerpos).anyMatch(c -> c.contains("2 empresa(s) tienen envíos fallando"));
+    }
+
+    @Test void unChequeoQueFallaNoCallaALosDemas() {
+        vigilado.fallaLaConsultaDeError = true;
+        vigilado.fueraDePlazo = 2;
+
+        Resultado r = pasada();
+
+        assertThat(r.fallos()).containsExactly("ENVIOS_CON_ERROR");
+        assertThat(r.avisadas()).as("FUERA_DE_PLAZO igual se avisa").isEqualTo(1);
+        assertThat(canal.asuntos).singleElement().asString().contains("FUERA_DE_PLAZO");
+    }
+
+    @Test void siOtraInstanciaYaReservoElAvisoEstaNoEnviaNada() {
+        outboxAtascadoDesde(AHORA.minus(Duration.ofMinutes(20)));
+        vigilado.otraInstanciaGana = true;
+
+        Resultado r = pasada();
+
+        assertThat(r).isEqualTo(new Resultado(0, 0, List.of()));
+        assertThat(canal.asuntos).isEmpty();
+    }
+
+    @Test void siElAvisoNoSeEntregaLaReservaSeDeshaceYSeReintenta() {
+        outboxAtascadoDesde(AHORA.minus(Duration.ofMinutes(20)));
+        canal.falla = true;
+
+        pasada();
+
+        assertThat(vigilado.restauradas).containsExactly("OUTBOX_ATASCADO");
+        assertThat(vigilado.alertas).isEmpty();
+    }
+
+    @Test void siFallaLaResolucionSeVuelveAlEstadoActivoParaReintentar() {
+        outboxAtascadoDesde(AHORA.minus(Duration.ofMinutes(20)));
+        pasada();
+        EstadoAlerta activa = vigilado.alertas.get("OUTBOX_ATASCADO");
+        monitor.cola = new MonitorDeEmisionRepository.Cola(0, 0, null, null);
+        canal.falla = true;
+        reloj = AHORA.plus(Duration.ofMinutes(10));
+
+        Resultado r = pasada();
+
+        assertThat(r.fallos()).containsExactly("OUTBOX_ATASCADO");
+        assertThat(vigilado.alertas.get("OUTBOX_ATASCADO")).isEqualTo(activa);
+    }
+
+    @Test void lasFechasDelMensajeSonDeLima() {
+        monitor.resumenes = new MonitorDeEmisionRepository.ResumenesPendientes(1, Instant.parse("2026-10-18T03:30:00Z"));
+
+        pasada();
+
+        assertThat(canal.cuerpos.get(0)).contains("17/10/2026 22:30 (Lima)");
+    }
+
+    @Test void fueraDePlazoDiceAlResolverseQueLosAnterioresSiguenAhi() {
+        vigilado.fueraDePlazo = 1;
+        pasada();
+        vigilado.fueraDePlazo = 0;
+        reloj = AHORA.plus(Duration.ofHours(25));
+
+        pasada();
+
+        assertThat(canal.asuntos.get(1)).startsWith("RESUELTO");
+        assertThat(canal.cuerpos.get(1)).contains("siguen en ese estado");
     }
 }

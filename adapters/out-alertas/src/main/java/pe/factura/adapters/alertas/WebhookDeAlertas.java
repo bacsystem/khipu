@@ -26,7 +26,13 @@ public class WebhookDeAlertas implements CanalDeAlertas {
     }
 
     private static URI validar(String url) {
-        URI uri = URI.create(url);
+        URI uri;
+        try {
+            uri = URI.create(url);
+        } catch (IllegalArgumentException e) {
+            // El mensaje de URI.create trae la URL, y la de un webhook de Slack o Discord es un secreto: no puede ir al log de arranque.
+            throw new IllegalArgumentException("ALERTAS_WEBHOOK_URL no es una URL válida");
+        }
         if (uri.getHost() == null || !("http".equals(uri.getScheme()) || "https".equals(uri.getScheme())))
             throw new IllegalArgumentException("ALERTAS_WEBHOOK_URL debe ser una URL http(s) completa");
         return uri;

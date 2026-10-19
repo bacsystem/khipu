@@ -29,6 +29,10 @@ import java.sql.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -139,10 +143,10 @@ class VigilanteDeLaOperacionE2ETest {
         for (int i = 0; i < 5; i++) documento("ERROR_ENVIO");
         assertThat(vigilante.vigilar().avisadas()).as("recién fallaron: todavía no llevan 30 min").isZero();
 
-        jdbc.update("UPDATE documento SET updated_at = now() - interval '31 minutes' WHERE estado = 'ERROR_ENVIO' AND numero IN (SELECT numero FROM documento WHERE estado = 'ERROR_ENVIO' ORDER BY numero LIMIT 4)");
+        jdbc.update("UPDATE documento SET created_at = now() - interval '31 minutes' WHERE estado = 'ERROR_ENVIO' AND numero IN (SELECT numero FROM documento WHERE estado = 'ERROR_ENVIO' ORDER BY numero LIMIT 4)");
         assertThat(vigilante.vigilar().avisadas()).as("4 de 5 llevan 30 min: bajo el umbral de cantidad").isZero();
 
-        jdbc.update("UPDATE documento SET updated_at = now() - interval '31 minutes' WHERE estado = 'ERROR_ENVIO'");
+        jdbc.update("UPDATE documento SET created_at = now() - interval '31 minutes' WHERE estado = 'ERROR_ENVIO'");
         assertThat(vigilante.vigilar().avisadas()).isEqualTo(1);
         assertThat(WEBHOOK).singleElement().asString().contains("5 comprobante(s)");
     }
@@ -175,5 +179,37 @@ class VigilanteDeLaOperacionE2ETest {
 
         assertThat(vigilante.vigilar().avisadas()).isZero();
         assertThat(CORREOS).hasSize(1);
+    }
+
+    /** Dos réplicas del backend vigilando a la vez: cada aviso lo manda una sola. */
+    @Test void dosInstanciasVigilandoALaVezAvisanUnaSolaVez() throws Exception {
+        documento("FUERA_DE_PLAZO");
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            CountDownLatch salida = new CountDownLatch(1);
+            List<Future<Resultado>> vueltas = List.of(
+                    pool.submit(() -> { salida.await(); return vigilante.vigilar(); }),
+                    pool.submit(() -> { salida.await(); return vigilante.vigilar(); }));
+            salida.countDown();
+            int avisadas = 0;
+            for (Future<Resultado> v : vueltas) avisadas += v.get().avisadas();
+
+            assertThat(avisadas).isEqualTo(1);
+            assertThat(WEBHOOK).hasSize(1);
+            assertThat(CORREOS).hasSize(1);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    /** Una empresa con las credenciales SOL rechazadas deja esperar su envío a propósito: eso es CREDENCIALES_SOL, no un outbox atascado. */
+    @Test void losEnviosEnEsperaPorSolRechazadaNoSonUnOutboxAtascado() {
+        UUID id = documento("ERROR_ENVIO");
+        jdbc.update("UPDATE tenant SET sol_rechazadas_en = now() WHERE id = (SELECT tenant_id FROM documento WHERE id = ?)", id);
+        jdbc.update("INSERT INTO outbox (tenant_id, agregado_id, accion, siguiente_intento) SELECT tenant_id, id, 'ENVIAR', now() - interval '3 hours' FROM documento WHERE id = ?", id);
+
+        vigilante.vigilar();
+
+        assertThat(WEBHOOK).noneMatch(m -> m.contains("outbox"));
     }
 }

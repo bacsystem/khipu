@@ -456,18 +456,18 @@ minutos (2 minutos después de arrancar) y avisa de lo que sigue.
 
 | Alerta (`clave`) | Cuándo salta | Qué hacer |
 |---|---|---|
-| `OUTBOX_ATASCADO` | Hay envíos vencidos en el outbox hace más de 5 min: el trabajo que los vacía no corre | Revisar el log del backend; reiniciar el servicio |
-| `ENVIOS_CON_ERROR` | Al menos `ALERTAS_ERROR_ENVIO_CANTIDAD` (5) comprobantes llevan más de `ALERTAS_ERROR_ENVIO_MINUTOS` (30) en `ERROR_ENVIO` | SUNAT caída o credenciales SOL; el detalle por empresa está en la cola de errores del backoffice |
-| `FUERA_DE_PLAZO` | Algún comprobante pasó a `FUERA_DE_PLAZO` en las últimas `ALERTAS_FUERA_DE_PLAZO_HORAS` (24) | El cliente tiene que volver a emitir: avisarle |
+| `OUTBOX_ATASCADO` | Hay envíos vencidos en el outbox hace más de 5 min: el trabajo que los vacía no corre. No cuenta los de empresas con las credenciales SOL rechazadas (esos esperan a propósito; los cubre `CREDENCIALES_SOL`) | Revisar el log del backend; reiniciar el servicio |
+| `ENVIOS_CON_ERROR` | Al menos `ALERTAS_ERROR_ENVIO_CANTIDAD` (5) comprobantes en `ERROR_ENVIO` se crearon hace más de `ALERTAS_ERROR_ENVIO_MINUTOS` (30): llevan ese tiempo sin poder enviarse | SUNAT caída o credenciales SOL; el detalle por empresa está en la cola de errores del backoffice |
+| `FUERA_DE_PLAZO` | Algún comprobante pasó a `FUERA_DE_PLAZO` en las últimas `ALERTAS_FUERA_DE_PLAZO_HORAS` (24). Avisa por episodio: otros que lleguen mientras sigue activa no avisan hasta la repetición, y `RESUELTO` solo dice que pasaron esas horas sin nuevos | El cliente tiene que volver a emitir: avisarle |
 | `RESUMENES_SIN_RESPUESTA` | Un resumen diario o baja con ticket lleva más de `MONITOR_RESUMEN_SIN_RESPUESTA_HORAS` (6) sin respuesta | Mirar el monitor del backoffice |
 | `BOLETAS_POR_VENCER` | Hay boletas en su 7.º día (o pasado) sin informarse a SUNAT | El aviso al cliente ya salió el 5.º día; revisar si el correo funciona |
 | `RESPALDO_ATRASADO` | Pasaron más de `ALERTAS_RESPALDO_HORAS` sin respaldo bueno (o nunca hubo uno) | Revisar el cron del servicio `respaldo` (§8) |
-| `CORREO_DESHABILITADO` | `MAIL_HABILITADO=false` o sin SMTP | Ver el aviso de §2: los correos se escriben en el log y no salen |
+| `CORREO_DESHABILITADO` | `MAIL_HABILITADO=false` o sin SMTP | Ver el aviso de §2: los correos se escriben en el log y no salen. Un SMTP configurado pero caído **no** dispara esta alerta: se ve en `/health` y, si `ALERTAS_EMAIL` está puesto, en el log (`El canal de alertas correo no pudo entregar`) |
 | `CERTIFICADOS_EN_RIESGO` | Hay empresas con el certificado vencido o por vencer | El portal ya se lo avisa al cliente; la lista está en Avisos del backoffice |
 | `CREDENCIALES_SOL` | Hay empresas con envíos fallando porque SUNAT rechaza su usuario SOL | El cliente tiene que actualizar el usuario SOL |
 
 Cada problema avisa **una vez** cuando aparece, se repite cada `ALERTAS_REPETIR_HORAS` (24) mientras siga, y avisa `RESUELTO` cuando deja de cumplirse. Lo avisado queda en `alerta_operador`:
-si ningún canal pudo entregar el mensaje, no se registra y la siguiente pasada lo reintenta. Siempre sale también por el log del backend (nivel ERROR), con o sin canal configurado.
+si ningún canal pudo entregar el mensaje, no se registra y la siguiente pasada lo reintenta; si un canal falla pero otro entrega, el aviso se da por entregado y el canal caído no lo recibe (queda `WARN`/`ERROR` en el log). Con varias réplicas del backend, una sola reserva y manda cada aviso. Siempre sale también por el log (nivel ERROR), con o sin canal configurado; si no hay ningún canal, el backend lo dice al arrancar. Un canal que se configura después no recibe las alertas que ya estaban activas hasta la siguiente repetición.
 
 ### Variables (servicio `backend`)
 
@@ -479,6 +479,9 @@ si ningún canal pudo entregar el mensaje, no se registra y la siguiente pasada 
 | `ALERTAS_REPETIR_HORAS` | `24` | 1 a 168 |
 | `ALERTAS_ERROR_ENVIO_MINUTOS` / `ALERTAS_ERROR_ENVIO_CANTIDAD` | `30` / `5` | Umbral de `ENVIOS_CON_ERROR` |
 | `ALERTAS_FUERA_DE_PLAZO_HORAS` | `24` | Ventana de `FUERA_DE_PLAZO` (1 a 168) |
+| `ALERTAS_INTERVALO_MS` | `300000` | Cada cuánto corre el vigilante (5 min) |
+| `SCHEDULER_HILOS` | `4` | Hilos de los trabajos programados (envío a SUNAT, avisos, vigilante, webhooks). Antes era 1: una llamada lenta frenaba a todos |
+| `MAIL_TIMEOUT_MS` | `10000` | Tope de conexión, lectura y escritura con el SMTP |
 
 Con `CORREO_DESHABILITADO` el canal de correo no puede avisar de su propio problema: configure también el webhook, o esa alerta solo quedará en el log.
 
@@ -490,6 +493,6 @@ respaldo se sube igual y el script solo escribe una advertencia. Con `ALERTAS_RE
 ### Probar que llega
 
 1. Configure `ALERTAS_WEBHOOK_URL` y/o `ALERTAS_EMAIL` y reinicie el backend.
-2. Para provocar una alerta sin dañar nada, con `ALERTAS_RESPALDO_HORAS=26` borre el latido: `delete from latido_operativo where clave = 'respaldo'`. En la siguiente pasada (máximo 5 minutos) llega `ALERTA · El respaldo diario de Postgres no corrió`.
+2. Para provocar una alerta sin dañar nada, con `ALERTAS_RESPALDO_HORAS=26` borre el latido y el registro de esa alerta: `delete from latido_operativo where clave = 'respaldo'; delete from alerta_operador where clave = 'RESPALDO_ATRASADO'`. En la siguiente pasada (máximo 5 minutos) llega `ALERTA · El respaldo diario de Postgres no corrió`.
 3. Corra el servicio `respaldo` (o inserte el latido a mano) y en la pasada siguiente llega `RESUELTO`.
 4. Si no llega nada, busque en el log `El canal de alertas webhook no pudo entregar` o `correo`: dice por qué falló.
