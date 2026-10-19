@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { EJEMPLO_ENTREGA, VERIFICAR_NODE, VERIFICAR_PHP, VERIFICAR_PYTHON } from "./webhooks";
@@ -33,10 +34,46 @@ describe("ejemplos de webhooks de la guía", () => {
     expect(verificar(cuerpo, firma.replace(/v1=.*/, "v1=zz"), "whsec_ejemplo", tolerante)).toBe(false);
   });
 
-  it("los verificadores de Python y PHP usan el mismo algoritmo y comparan en tiempo constante", () => {
+  /** Los mismos seis casos para cada lenguaje: el de la guía acepta el ejemplo y rechaza lo alterado, lo de otro secreto, lo viejo, lo basura y un v1 no ASCII (que no debe lanzar). */
+  const casos = () => {
+    const tolerante = 10 * 365 * 24 * 3600;
+    return [
+      { cuerpo, firma, secreto: "whsec_ejemplo", tol: tolerante },
+      { cuerpo: cuerpo.replace("125", "126"), firma, secreto: "whsec_ejemplo", tol: tolerante },
+      { cuerpo, firma, secreto: "whsec_otro", tol: tolerante },
+      { cuerpo, firma, secreto: "whsec_ejemplo", tol: 300 },
+      { cuerpo, firma: "basura", secreto: "whsec_ejemplo", tol: tolerante },
+      { cuerpo, firma: firma.replace(/v1=.*/, "v1=ñandú"), secreto: "whsec_ejemplo", tol: tolerante },
+    ];
+  };
+  const esperado = [true, false, false, false, false, false];
+  const tiene = (cmd: string, args: string[]) => spawnSync(cmd, args, { encoding: "utf8" }).status === 0;
+  const python = ["python3", "python"].find((c) => tiene(c, ["--version"]));
+  const php = tiene("php", ["--version"]) ? "php" : undefined;
+
+  it.skipIf(!python)("el verificador de Python de la guía, ejecutado de verdad, da lo esperado en los seis casos", () => {
+    const programa = `${VERIFICAR_PYTHON}
+import json, sys
+print(json.dumps([verificar_khipu(c["cuerpo"].encode(), c["firma"], c["secreto"], c["tol"]) for c in json.load(sys.stdin)]))
+`;
+    const r = spawnSync(python!, ["-I", "-c", programa], { input: JSON.stringify(casos()), encoding: "utf8" });
+    expect(r.stderr).toBe("");
+    expect(JSON.parse(r.stdout)).toEqual(esperado);
+  });
+
+  it.skipIf(!php)("el verificador de PHP de la guía, ejecutado de verdad, da lo esperado en los seis casos", () => {
+    const programa = `${VERIFICAR_PHP}
+$casos = json_decode(stream_get_contents(STDIN), true);
+echo json_encode(array_map(fn($c) => verificarKhipu($c["cuerpo"], $c["firma"], $c["secreto"], $c["tol"]), $casos));
+`;
+    const r = spawnSync(php!, ["-r", programa.replace(/^<\?php\s*/, "")], { input: JSON.stringify(casos()), encoding: "utf8" });
+    expect(r.stderr).toBe("");
+    expect(JSON.parse(r.stdout)).toEqual(esperado);
+  });
+
+  it("los tres usan el mismo algoritmo y comparan en tiempo constante", () => {
+    expect(VERIFICAR_NODE).toContain("crypto.timingSafeEqual");
     expect(VERIFICAR_PYTHON).toContain("hmac.compare_digest");
-    expect(VERIFICAR_PYTHON).toContain('f"{t}.".encode() + cuerpo_crudo');
     expect(VERIFICAR_PHP).toContain("hash_equals");
-    expect(VERIFICAR_PHP).toContain("$t . '.' . $cuerpoCrudo");
   });
 });

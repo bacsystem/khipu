@@ -1,7 +1,7 @@
 "use client";
 
 import { RefreshCwIcon, RotateCwIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PieTabla } from "@/components/ui/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiRequest } from "@/lib/api/browser";
@@ -39,9 +39,16 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [reenviando, setReenviando] = useState<string | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
+  // Solo vale la respuesta de la última lectura: cambiar de filtro o de página rápido no debe mostrar lo de una anterior que llegó tarde.
+  const ultimaLectura = useRef(0);
 
   const cargar = useCallback(async () => {
+    const mia = ++ultimaLectura.current;
+    setLeyendo(true);
     const res = await listarEntregas(webhookId, { estado: estado || undefined, pagina, porPagina });
+    if (mia !== ultimaLectura.current) return;
+    setLeyendo(false);
     if (res.estado === "exito") {
       setEntregas(res.datos.entregas);
       setTotal(res.datos.total);
@@ -92,8 +99,8 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
             <option value="EXITOSA">Entregadas</option>
             <option value="FALLIDA">Fallidas</option>
           </select>
-          <button type="button" title="Refrescar entregas" onClick={() => setLectura((n) => n + 1)} className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground hover:text-foreground")}>
-            <RefreshCwIcon className="size-4" />
+          <button type="button" title="Refrescar entregas" aria-label="Refrescar entregas" onClick={() => setLectura((n) => n + 1)} className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground hover:text-foreground")}>
+            <RefreshCwIcon className={cn("size-4", leyendo && "animate-spin")} />
           </button>
         </div>
       </div>
@@ -123,7 +130,9 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
                 <TableCell className="px-3 py-2">{etiquetaDeEvento(e.evento)}</TableCell>
                 <TableCell className="px-3 py-2 whitespace-nowrap">
                   <EstadoEntregaBadge estado={e.estado} />
-                  {e.estado === "PENDIENTE" && e.siguiente_intento ? <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">reintenta {formatearFechaHora(e.siguiente_intento)}</div> : null}
+                  {e.estado === "PENDIENTE" && e.siguiente_intento ? (
+                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{e.intentos > 0 ? `reintenta ${formatearFechaHora(e.siguiente_intento)}` : "en cola"}</div>
+                  ) : null}
                 </TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{e.intentos}</TableCell>
                 <TableCell className="max-w-72 px-3 py-2 font-mono text-[12px] break-words text-muted-foreground">{resultadoDelIntento(e.ultimo_http, e.ultimo_error)}</TableCell>

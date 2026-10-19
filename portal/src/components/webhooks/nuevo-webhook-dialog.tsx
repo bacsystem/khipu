@@ -2,7 +2,7 @@
 
 import { PlusIcon, WebhookIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Campo } from "@/components/formularios/campo";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
@@ -28,13 +28,17 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
   const [creando, setCreando] = useState(false);
   const [secreto, setSecreto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Cada apertura del diálogo es una «sesión»: la respuesta de un registro que llega después de cerrarlo ya no es de este diálogo.
+  const sesion = useRef(0);
 
   const errorUrl = errorDeUrlWebhook(url);
   const sinEventos = eventos.length === 0;
 
   function cambiarAbierto(valor: boolean) {
     setAbierto(valor);
+    sesion.current += 1;
     if (!valor) {
+      setCreando(false);
       if (secreto) router.refresh();
       setSecreto(null);
       setError(null);
@@ -54,10 +58,16 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
     setError(null);
     if (errorUrl || sinEventos) return;
     setCreando(true);
+    const mia = sesion.current;
     const res = await apiRequest<WebhookCreado>("/api/proxy/webhooks", {
       method: "POST",
       body: { url: url.trim(), descripcion: descripcion.trim() || undefined, eventos },
     });
+    if (mia !== sesion.current) {
+      // Se cerró mientras se registraba: el webhook ya existe, así que se refresca la lista; su secreto no se puede mostrar y se rota desde la tarjeta.
+      if (res.estado === "exito") router.refresh();
+      return;
+    }
     setCreando(false);
     if (res.estado !== "exito" || !res.datos) {
       setError(res.mensaje ?? mensajeError(res.codigo));

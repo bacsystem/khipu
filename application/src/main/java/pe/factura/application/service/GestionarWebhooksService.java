@@ -39,11 +39,8 @@ public class GestionarWebhooksService implements GestionarWebhooksUseCase {
         destino.exigirDestinoPublico(limpia);
         String secreto = generarSecreto();
         EndpointWebhook e = new EndpointWebhook(UUID.randomUUID(), tenantId, limpia, texto, suscritos, true, null, 0, clock.instant());
-        uow.ejecutar(() -> {
-            if (webhooks.listar(tenantId).size() >= MAXIMO_POR_EMPRESA)
-                throw new DomainException("WEBHOOK_LIMITE", "Una empresa puede tener hasta " + MAXIMO_POR_EMPRESA + " webhooks; elimine uno para crear otro");
-            webhooks.crear(e, cifrador.cifrar(secreto.getBytes(StandardCharsets.UTF_8)));
-        });
+        boolean creado = uow.ejecutar(() -> webhooks.crearSiHayCupo(e, cifrador.cifrar(secreto.getBytes(StandardCharsets.UTF_8)), MAXIMO_POR_EMPRESA));
+        if (!creado) throw new DomainException("WEBHOOK_LIMITE", "Una empresa puede tener hasta " + MAXIMO_POR_EMPRESA + " webhooks; elimine uno para crear otro");
         return new Creado(e, secreto);
     }
 
@@ -53,14 +50,14 @@ public class GestionarWebhooksService implements GestionarWebhooksUseCase {
         EndpointWebhook actual = obtener(tenantId, id);
         String nuevaUrl = url == null ? actual.url() : UrlDeWebhook.validar(url, permitirHttp);
         if (url != null && !nuevaUrl.equals(actual.url())) destino.exigirDestinoPublico(nuevaUrl);
-        boolean reactiva = Boolean.TRUE.equals(activo) && !actual.activo();
-        // Activarlo (también desde una pausa por fallos) arranca limpio; apagarlo a mano borra el motivo de pausa: lo apagó el integrador, no khipu.
-        boolean nuevoActivo = activo == null ? actual.activo() : activo;
-        EndpointWebhook nuevo = new EndpointWebhook(actual.id(), tenantId, nuevaUrl, descripcion == null ? actual.descripcion() : descripcionValida(descripcion),
-                eventos == null ? actual.eventos() : EventoWebhook.normalizar(eventos), nuevoActivo,
-                activo == null ? actual.pausadoMotivo() : null, reactiva ? 0 : actual.fallosConsecutivos(), actual.creadoEn());
-        uow.ejecutar(() -> webhooks.actualizar(nuevo));
-        return nuevo;
+        String nuevaDescripcion = descripcion == null ? actual.descripcion() : descripcionValida(descripcion);
+        List<String> nuevosEventos = eventos == null ? actual.eventos() : EventoWebhook.normalizar(eventos);
+        // Cada cosa se escribe por separado y solo si se pidió: un cambio de descripción no puede pisar una pausa que el trabajo de entrega acaba de aplicar.
+        uow.ejecutar(() -> {
+            if (url != null || descripcion != null || eventos != null) webhooks.actualizarDatos(tenantId, id, nuevaUrl, nuevaDescripcion, nuevosEventos);
+            if (activo != null && activo != actual.activo()) webhooks.fijarActivo(tenantId, id, activo);
+        });
+        return obtener(tenantId, id);
     }
 
     @Override public String rotarSecreto(UUID tenantId, UUID id) {

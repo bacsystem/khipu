@@ -90,6 +90,8 @@ app:
     permitir-http: ${WEBHOOKS_PERMITIR_HTTP:false}
     permitir-redes-privadas: ${WEBHOOKS_PERMITIR_REDES_PRIVADAS:false}
     intervalo-ms: ${WEBHOOKS_INTERVALO_MS:5000}
+    # Hilos que entregan en paralelo (un endpoint por hilo, en orden). 1 a 64.
+    hilos: ${WEBHOOKS_HILOS:8}
   # #341: alertas al operador de la plataforma cuando algo falla en silencio (envíos a SUNAT, FUERA_DE_PLAZO, resúmenes sin respuesta, respaldo, correo, certificados). Siempre
   # salen por el log (ERROR); con ALERTAS_EMAIL y/o ALERTAS_WEBHOOK_URL también llegan a ese canal. Detalle y cómo probarlo: deploy/README.md §11.
   alertas:

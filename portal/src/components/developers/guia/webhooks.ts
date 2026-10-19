@@ -8,9 +8,9 @@ Content-Type: application/json; charset=utf-8
 User-Agent: khipu-webhooks/1
 X-Khipu-Event: comprobante.aceptado
 X-Khipu-Delivery: 0b9a7c1e-5f43-4f0e-9d63-2f3e6b6f8f10
-X-Khipu-Signature: t=1760803200,v1=c2f96b3c787baab3aab2e9a20a005c480473028647739299e1d0b4b5132a0643
+X-Khipu-Signature: t=1792339200,v1=031e06e16dee2de83f1074a4f61cc270225c618400e33347cc1db206d9bc7108
 
-{"evento":"comprobante.aceptado","creado_en":"2026-10-18T16:00:00.512Z","datos":{"id":"5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f","tipo":"01","serie":"F001","numero":125,"fecha_emision":"2026-10-18","estado":"ACEPTADO","estado_anterior":"ENVIADO","detalle":"Aceptado por SUNAT","cdr":{"codigo":"0","descripcion":"La Factura numero F001-125, ha sido aceptada","observaciones":[]},"ultimo_error":null}}`;
+{"evento":"comprobante.aceptado","creado_en":"2026-10-18T16:00:00.512Z","datos":{"id":"5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f","tipo":"01","serie":"F001","numero":125,"fecha_emision":"2026-10-18","estado":"ACEPTADO","estado_anterior":"ENVIADO","detalle":"0 - La Factura numero F001-125, ha sido aceptada","cdr":{"codigo":"0","descripcion":"La Factura numero F001-125, ha sido aceptada","observaciones":[]},"ultimo_error":null}}`;
 
 export const VERIFICAR_NODE = `import crypto from "node:crypto";
 
@@ -37,7 +37,7 @@ def verificar_khipu(cuerpo_crudo: bytes, cabecera_firma: str, secreto: str, tole
     if abs(time.time() - t) > tolerancia_segundos:
         return False  # entrega vieja: posible repetición
     esperada = hmac.new(secreto.encode(), f"{t}.".encode() + cuerpo_crudo, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(esperada, partes.get("v1", ""))`;
+    return hmac.compare_digest(esperada.encode(), partes.get("v1", "").encode())  # en bytes: un v1 no ASCII no debe lanzar`;
 
 export const VERIFICAR_PHP = `<?php
 function verificarKhipu(string $cuerpoCrudo, string $cabeceraFirma, string $secreto, int $toleranciaSegundos = 300): bool {

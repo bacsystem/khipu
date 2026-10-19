@@ -5,7 +5,7 @@ CREATE TABLE webhook_endpoint (
     tenant_id           UUID         NOT NULL REFERENCES tenant (id),
     url                 VARCHAR(500) NOT NULL,
     descripcion         VARCHAR(100),
-    -- Nombres de evento separados por coma («comprobante.aceptado,comprobante.rechazado»); se compara con LIKE al encolar.
+    -- Nombres de evento separados por coma («comprobante.aceptado,comprobante.rechazado»); se busca con position() al encolar.
     eventos             VARCHAR(400) NOT NULL,
     secreto_enc         BYTEA        NOT NULL,
     activo              BOOLEAN      NOT NULL DEFAULT TRUE,

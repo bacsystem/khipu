@@ -218,8 +218,8 @@ export default function GuiaPage() {
           ]}
         />
         <NotaProsa>
-          Los estados de paso (<Codigo>RECIBIDO</Codigo>, <Codigo>FIRMADO</Codigo>, <Codigo>ENVIADO</Codigo>) no se publican. Un endpoint apagado no acumula eventos mientras
-          está apagado. <Codigo>GET /v1/webhooks/eventos</Codigo> lista los nombres; <Codigo>{`["*"]`}</Codigo> suscribe a todos.
+          Los estados de paso (<Codigo>RECIBIDO</Codigo>, <Codigo>FIRMADO</Codigo>, <Codigo>ENVIADO</Codigo>) no se publican. Un endpoint que usted apaga no recibe los eventos que ocurran mientras está apagado; uno que khipu pausa por fallos sigue guardándolos
+          (hasta 30 días) y los manda al reactivarlo. <Codigo>GET /v1/webhooks/eventos</Codigo> lista los nombres; <Codigo>{`["*"]`}</Codigo> suscribe a todos.
         </NotaProsa>
 
         <h3 className="mt-2 text-[14px] font-semibold text-foreground">Qué recibe su servidor</h3>
@@ -261,7 +261,8 @@ export default function GuiaPage() {
           </li>
           <li>
             <Codigo>GET /v1/webhooks/{"{id}"}/entregas</Codigo> es el log (30 días): estado, intentos, último código HTTP o error. <Codigo>POST /v1/webhooks/{"{id}"}/prueba</Codigo>{" "}
-            envía un evento <Codigo>webhook.prueba</Codigo> firmado, y <Codigo>POST /v1/webhooks/entregas/{"{id}"}/reenviar</Codigo> repite una entrega cerrada.
+            envía un evento <Codigo>webhook.prueba</Codigo> firmado, y <Codigo>POST /v1/webhooks/entregas/{"{id}"}/reenviar</Codigo> repite una entrega cerrada; ambos, como todo lo que
+            escribe, piden la sesión del portal.
           </li>
         </ul>
       </Seccion>

@@ -121,7 +121,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     }
 
     /**
-     * Webhooks (#19): en la misma transacción que el cambio de estado, una entrega por cada endpoint activo de la empresa suscrito al evento (outbox transaccional: si el estado
+     * Webhooks (#19): en la misma transacción que el cambio de estado, una entrega por cada endpoint de la empresa suscrito al evento, activo o pausado por khipu (el pausado
+     * guarda en cola lo nuevo y lo manda al reactivarse; el que apagó una persona no recibe nada) (outbox transaccional: si el estado
      * no se guarda, tampoco el aviso). Un reintento que deja el mismo estado (ERROR_ENVIO tras ERROR_ENVIO) no es un cambio y no avisa. Sin endpoints es una consulta indexada por empresa.
      */
     private void encolarWebhooks(Comprobante c, EventoDocumento e) {
@@ -129,7 +130,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         EventoWebhook.deEstado(e.estadoNuevo()).ifPresent(evento -> jdbc.update("""
                 INSERT INTO webhook_entrega (id, endpoint_id, tenant_id, evento, documento_id, payload)
                 SELECT gen_random_uuid(), w.id, w.tenant_id, ?, ?, ? FROM webhook_endpoint w
-                WHERE w.tenant_id = ? AND w.activo AND position(',' || ? || ',' IN ',' || w.eventos || ',') > 0
+                WHERE w.tenant_id = ? AND (w.activo OR w.pausado_motivo IS NOT NULL) AND position(',' || ? || ',' IN ',' || w.eventos || ',') > 0
                 """, evento, c.id(), PayloadDeWebhook.de(evento, c, e, Instant.now()), c.tenantId(), evento));
     }
 

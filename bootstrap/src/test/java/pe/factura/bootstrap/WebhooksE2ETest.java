@@ -241,7 +241,7 @@ class WebhooksE2ETest {
 
         RESPUESTA.set(200);
         webhooks.actualizar(tenant, creado.endpoint().id(), null, null, null, true);
-        jdbc.update("UPDATE webhook_entrega SET siguiente_intento = now()");
+        // Sin tocar siguiente_intento a mano: reactivar saca las pendientes ya, aunque su reintento estuviera a minutos u horas.
         esperar("la entrega pendiente al reactivar", () -> jdbc.queryForObject("SELECT count(*) FROM webhook_entrega WHERE estado = 'EXITOSA'", Integer.class) == 1);
         assertThat(jdbc.queryForObject("SELECT fallos_consecutivos FROM webhook_endpoint WHERE id = ?", Integer.class, creado.endpoint().id())).isZero();
     }

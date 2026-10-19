@@ -587,8 +587,15 @@ public class AppConfig {
                                                      @Value("${app.webhooks.permitir-http:false}") boolean permitirHttp) {
         return new GestionarWebhooksService(webhooks, destino, cifrador, uow, clock, permitirHttp);
     }
-    @Bean EntregarWebhooksUseCase entregarWebhooks(WebhookRepository webhooks, DestinoDeWebhook destino, SecretCipher cifrador, UnitOfWork uow, Clock clock, AvisosRepository avisos, CorreoSender correo) {
-        return new EntregarWebhooksService(webhooks, destino, cifrador, uow, clock, avisos, correo);
+    /** Los endpoints se atienden en paralelo (cada uno en orden): un receptor lento no frena a los demás ni ocupa los hilos del scheduler. */
+    @Bean(destroyMethod = "shutdownNow") java.util.concurrent.ExecutorService webhooksPool(@Value("${app.webhooks.hilos:8}") int hilos) {
+        if (hilos < 1 || hilos > 64) throw new IllegalStateException("WEBHOOKS_HILOS debe estar entre 1 y 64 (es " + hilos + ")");
+        java.util.concurrent.atomic.AtomicInteger n = new java.util.concurrent.atomic.AtomicInteger();
+        return java.util.concurrent.Executors.newFixedThreadPool(hilos, r -> { Thread th = new Thread(r, "webhook-" + n.incrementAndGet()); th.setDaemon(true); return th; });
+    }
+    @Bean EntregarWebhooksUseCase entregarWebhooks(WebhookRepository webhooks, DestinoDeWebhook destino, SecretCipher cifrador, UnitOfWork uow, Clock clock, AvisosRepository avisos, CorreoSender correo,
+                                                   @org.springframework.beans.factory.annotation.Qualifier("webhooksPool") java.util.concurrent.ExecutorService pool) {
+        return new EntregarWebhooksService(webhooks, destino, cifrador, uow, clock, avisos, correo, pool);
     }
     @Bean EntregarWebhooksWorker entregarWebhooksWorker(EntregarWebhooksUseCase entregas) { return new EntregarWebhooksWorker(entregas); }
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y

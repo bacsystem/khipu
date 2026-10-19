@@ -500,20 +500,29 @@ respaldo se sube igual y el script solo escribe una advertencia. Con `ALERTAS_RE
 ## 12. Webhooks de cambio de estado (#19)
 
 Los integradores registran URL a las que khipu avisa, con un `POST` firmado, cuando un comprobante cambia de estado (guía de desarrolladores, sección *Webhooks*). Lo mueve el
-trabajo `EntregarWebhooksWorker` (cada 5 s). Las entregas se encolan en `webhook_entrega` **en la misma transacción** que el cambio de estado, y el trabajo las manda con
-`FOR UPDATE SKIP LOCKED`: con varias réplicas del backend, cada entrega la manda una sola.
+trabajo `EntregarWebhooksWorker` (cada 5 s). Las entregas se encolan en `webhook_entrega` **en la misma transacción** que el cambio de estado.
 
-- **El secreto de firma de cada endpoint se guarda cifrado con `MASTER_KEY`** (como las credenciales SOL). Rotar `MASTER_KEY` con el procedimiento de §9 no los invalida; **reemplazarla
-  de golpe sí** deja los secretos ilegibles y las entregas fallan: el síntoma es `No se pudo procesar la entrega de webhook` en el log.
+- **Varias réplicas**: cada entrega se toma con `FOR UPDATE SKIP LOCKED` y una marca de bloqueo de 5 min, y el resultado solo se anota si la entrega sigue tomada con esa marca: si una
+  instancia tarda más que el bloqueo, otra puede volver a mandar la entrega (como mucho una vez más) pero la lenta no pisa el resultado de la otra.
+- **Un receptor lento no frena a los demás**: un lote toma hasta 5 entregas por endpoint y 50 en total; los endpoints se atienden en paralelo (`WEBHOOKS_HILOS`, 8), cada uno en orden, y antes
+  de cada envío se vuelve a mirar que siga encendido. El peor caso de un endpoint es 5 × 15 s. El trabajo usa su propio pool, no los hilos del scheduler.
+- **El secreto de firma de cada endpoint se guarda cifrado con `MASTER_KEY`** (como las credenciales SOL) y entra en la rotación de §9. **Reemplazar la clave de golpe** deja los
+  secretos ilegibles: cada entrega falla con «No se pudo leer el secreto de firma» y, a los 10 intentos seguidos, el endpoint se pausa. Al rotar el secreto de un endpoint (desde el portal),
+  el anterior deja de valer al instante y las entregas en curso se firman con el nuevo: el integrador tiene que actualizar su servidor antes.
 - **Destinos**: solo `https` y solo direcciones públicas. Antes de cada entrega se resuelve el nombre y se rechaza loopback, redes privadas, enlace local (incluida la metadata de la nube,
-  `169.254.169.254`) y CGNAT; no se siguen redirecciones. Un integrador no puede usar los webhooks para que khipu consulte su red interna.
+  `169.254.169.254`), CGNAT, `192.0.0.0/24`, `198.18.0.0/15`, `240.0.0.0/4`, IPv6 ULA y NAT64 hacia una de esas; no se siguen redirecciones y nunca se usa un proxy. Los mensajes de error
+  no revelan la dirección resuelta. **Límite conocido**: el cliente HTTP vuelve a resolver el nombre al conectar, así que un DNS que cambie justo entre la comprobación y la conexión no se
+  detiene; lo acota la caché de DNS de la JVM (`networkaddress.cache.ttl` = 30 s si nadie la fijó) y no hay forma de verlo más que en la red del destino. Cualquier puerto es válido.
 - **Reintentos**: 8 intentos con espera de 1 min, 5 min, 15 min, 1 h, 3 h, 6 h y 12 h; con 10 intentos fallidos seguidos el endpoint se apaga y se avisa por correo a la cuenta (necesita
-  `MAIL_HABILITADO=true`; si no, queda en el log). El log de entregas cerradas se conserva 30 días (limpieza diaria).
+  `MAIL_HABILITADO=true`; si no, queda en el log). Un endpoint **pausado por khipu** sigue guardando en cola los eventos nuevos y los manda al reactivarlo; uno que **apagó una persona** no
+  recibe nada. El log de entregas cerradas y las pendientes de un endpoint apagado se conservan 30 días (limpieza diaria).
 - **Monitoreo**: las entregas fallidas no generan una alerta del operador; el integrador las ve en el portal. Si el trabajo dejara de correr, las entregas pendientes se acumulan en
-  `webhook_entrega` (`select count(*) from webhook_entrega where estado = 'PENDIENTE' and siguiente_intento < now() - interval '10 minutes'`).
+  `webhook_entrega` (`select count(*) from webhook_entrega where estado = 'PENDIENTE' and siguiente_intento < now() - interval '10 minutes'`). En los logs, solo aparece el servidor de la
+  URL (nunca su ruta ni su consulta, que suelen llevar un token del integrador).
 
 | Variable | Valor | Notas |
 |---|---|---|
 | `WEBHOOKS_INTERVALO_MS` | `5000` | Cada cuánto corre el trabajo de entrega |
+| `WEBHOOKS_HILOS` | `8` | Endpoints atendidos a la vez (1 a 64) |
 | `WEBHOOKS_PERMITIR_HTTP` | `false` | **Solo desarrollo y pruebas.** Acepta destinos `http://` |
 | `WEBHOOKS_PERMITIR_REDES_PRIVADAS` | `false` | **Solo desarrollo y pruebas** (un receptor en `localhost`). El backend lo avisa con un WARN al arrancar si está en `true`; en producción, siempre `false` |
