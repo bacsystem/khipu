@@ -93,6 +93,21 @@ class GestionarClientesServiceTest {
         assertThat(guardado.creadoEn()).isEqualTo(AHORA);
     }
 
+    @Test void guardarPorDocumentoConservaLaDireccionElPaisYElCorreoQueNoLlegan() {
+        servicio.crear(T, new Datos("1", "12345678", "JUAN PEREZ", "Av. Lima 1", "PE", "j@p.pe"));
+
+        Guardado g = servicio.guardarPorDocumento(T, datos("12345678", "JUAN PEREZ GOMEZ"));
+
+        assertThat(g.creado()).isFalse();
+        assertThat(g.cliente().razonSocial()).as("el nombre sí se actualiza").isEqualTo("JUAN PEREZ GOMEZ");
+        assertThat(g.cliente().direccion()).isEqualTo("Av. Lima 1");
+        assertThat(g.cliente().pais()).isEqualTo("PE");
+        assertThat(g.cliente().email()).isEqualTo("j@p.pe");
+        Guardado conOtraDireccion = servicio.guardarPorDocumento(T, new Datos("1", "12345678", "JUAN PEREZ GOMEZ", "Av. Arequipa 9", null, null));
+        assertThat(conOtraDireccion.cliente().direccion()).as("lo que sí llega reemplaza").isEqualTo("Av. Arequipa 9");
+        assertThat(conOtraDireccion.cliente().email()).isEqualTo("j@p.pe");
+    }
+
     @Test void obtenerYEliminarSoloDeLaPropiaEmpresa() {
         ClienteGuardado c = servicio.crear(T, datos("12345678", "JUAN PEREZ"));
 

@@ -45,7 +45,7 @@ public class ClientesController {
     }
 
     @PutMapping("/documento/{tipoDoc}/{numDoc}")
-    @Operation(summary = "Guardar o actualizar un cliente por su documento", description = "Crea el cliente (201) o, si ya existe, actualiza sus datos (200). Es idempotente: repetirlo no duplica nada. Es lo que usa el guardado automático al emitir.")
+    @Operation(summary = "Guardar o actualizar un cliente por su documento", description = "Crea el cliente (201) o, si ya existe, actualiza sus datos (200). Es idempotente: repetirlo no duplica nada. Al actualizar, la dirección, el país y el correo que no se envían se conservan. Es lo que usa el guardado automático al emitir.")
     public ResponseEntity<ApiResponse<ClienteDtos.Cliente>> guardarPorDocumento(HttpServletRequest req, @PathVariable String tipoDoc, @PathVariable String numDoc,
                                                                                 @Valid @RequestBody ClienteDtos.Guardar body) {
         GestionarClientesUseCase.Guardado g = clientes.guardarPorDocumento(TenantActual.id(req), body.datos(tipoDoc, numDoc));

@@ -15,7 +15,10 @@ public interface GestionarClientesUseCase {
     /** {@code 409 DUPLICADO} si la empresa ya tiene un cliente con ese documento. */
     ClienteGuardado crear(UUID tenantId, ClienteGuardado.Datos datos);
 
-    /** Crea o actualiza el cliente de ese documento: es lo que usa el guardado automático al emitir, y repetirlo no duplica nada. */
+    /**
+     * Crea o actualiza el cliente de ese documento: es lo que usa el guardado automático al emitir, y repetirlo no duplica nada. Al actualizar, la dirección, el país y el correo que no
+     * vienen se conservan (el comprobante no siempre los trae y no debe borrar lo que la persona ya guardó); el nombre sí se actualiza.
+     */
     Guardado guardarPorDocumento(UUID tenantId, ClienteGuardado.Datos datos);
 
     ClienteGuardado obtener(UUID tenantId, UUID id);

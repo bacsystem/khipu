@@ -47,6 +47,7 @@ export const config = {
   matcher: [
     "/onboarding/:path*",
     "/comprobantes/:path*",
+    "/clientes/:path*",
     "/empresa/:path*",
     "/establecimientos/:path*",
     "/series/:path*",

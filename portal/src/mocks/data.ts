@@ -1,3 +1,4 @@
+import type { ClienteGuardado } from "@/lib/api/clientes";
 import type { EntregaWebhook, Webhook } from "@/lib/api/webhooks";
 import { hoyLima, inicioDelProximoCiclo, sumarDias } from "@/lib/formato";
 
@@ -313,6 +314,8 @@ export const db = {
   seriesPorEmpresa: new Map<string, Serie[]>(),
   establecimientosPorEmpresa: new Map<string, Establecimiento[]>(),
   apiKeysPorEmpresa: new Map<string, ApiKey[]>(),
+  /** Los clientes guardados de cada empresa (#319). */
+  clientesPorEmpresa: new Map<string, ClienteGuardado[]>(),
   /** Los endpoints de webhooks de cada empresa (#19) y las entregas de cada uno, por id de endpoint. */
   webhooksPorEmpresa: new Map<string, Webhook[]>(),
   entregasPorWebhook: new Map<string, EntregaWebhook[]>(),
@@ -354,6 +357,7 @@ export function resetDb() {
   db.seriesPorEmpresa.clear();
   db.establecimientosPorEmpresa.clear();
   db.apiKeysPorEmpresa.clear();
+  db.clientesPorEmpresa.clear();
   db.webhooksPorEmpresa.clear();
   db.entregasPorWebhook.clear();
   db.facturasPorEmpresa.clear();
@@ -591,6 +595,12 @@ export function resetDb() {
   db.apiKeysPorEmpresa.set(empresa.id, [
     { id: "k-activa", prefijo: "fk_demo001", activa: true, creada_en: "2026-09-01T15:00:00Z" },
     { id: "k-revocada", prefijo: "fk_demo000", activa: false, creada_en: "2026-08-01T15:00:00Z", revocada_en: "2026-08-20T12:00:00Z" },
+  ]);
+  // #319: tres clientes guardados (una empresa con RUC, un DNI y un pasaporte) para el autocompletado y la lista.
+  db.clientesPorEmpresa.set(empresa.id, [
+    { id: "c-pacifico", tipo_doc: "6", num_doc: "20601234565", razon_social: "PESQUERA PACÍFICO S.A.C.", direccion: "Av. Argentina 2450, Callao", email: "facturas@pacifico.pe", creado_en: "2026-09-02T15:00:00Z", actualizado_en: "2026-09-02T15:00:00Z" },
+    { id: "c-juan", tipo_doc: "1", num_doc: "12345678", razon_social: "JUAN PÉREZ GÓMEZ", creado_en: "2026-09-03T15:00:00Z", actualizado_en: "2026-09-03T15:00:00Z" },
+    { id: "c-anna", tipo_doc: "7", num_doc: "AB1234567", razon_social: "ANNA MÜLLER", direccion: "Berlín", pais: "DE", creado_en: "2026-09-04T15:00:00Z", actualizado_en: "2026-09-04T15:00:00Z" },
   ]);
   // #19: un endpoint activo con entregas en los tres estados y uno que khipu pausó por entregas fallidas seguidas.
   db.webhooksPorEmpresa.set(empresa.id, [
