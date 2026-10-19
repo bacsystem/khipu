@@ -422,6 +422,18 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     expect(screen.getByLabelText("RUC")).toHaveValue("");
   });
 
+  it("una boleta sin documento se copia sin documento y con el nombre habitual del comprador", async () => {
+    stubFetch((url) => {
+      if (url.includes("/facturas/b-2")) return sobre({ ...FACTURA, id: "b-2", tipo: "03", serie: "B001", moneda: "PEN", receptor: { tipo_doc: "-", num_doc: "-", razon_social: "CLIENTES VARIOS", direccion: null } });
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("b-2");
+    await waitFor(() => expect(screen.getByLabelText("Documento del comprador")).toHaveValue("-"));
+    expect(screen.getByLabelText("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
+  });
+
   it("si no se puede leer el comprobante a copiar, abre el diálogo con un aviso y sin copia", async () => {
     stubFetch((url) => {
       if (url.includes("/facturas/f-9")) return sobre(null, 404);
