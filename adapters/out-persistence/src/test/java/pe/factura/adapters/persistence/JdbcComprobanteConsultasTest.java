@@ -14,13 +14,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Las consultas de varias filas del repositorio de comprobantes (#9): cargan los cargos, ítems, anticipos, documentos relacionados y cuotas de **todas** las filas con una
- * consulta por tabla, no cinco por comprobante. La tabla del portal pedía 1 + 5·N consultas por página; el número ahora no depende de N, y cada comprobante vuelve igual que
- * con {@code buscar}.
+ * Las consultas de varias filas del repositorio de comprobantes (#9): cargan los cargos, ítems, anticipos y documentos relacionados de **todas** las filas con una consulta por
+ * tabla (y las cuotas solo de las que son al crédito), no cinco por comprobante. La tabla del portal pedía 1 + 5·N consultas por página; el número ahora no depende de N. Los datos
+ * varían por comprobante y se comparan con lo que se sembró, no con otra lectura del mismo repositorio: un hijo que se asignara al comprobante equivocado, o fuera de orden, se vería.
  */
 class JdbcComprobanteConsultasTest extends PersistenciaTestBase {
     /** Cuenta cada sentencia que se prepara en una conexión: es lo que de verdad viaja a la base, la haya pedido quien la haya pedido. */
@@ -46,29 +47,44 @@ class JdbcComprobanteConsultasTest extends PersistenciaTestBase {
 
     static ContadorJdbc contador() { return new ContadorJdbc(jdbc.getDataSource(), new AtomicInteger()); }
 
+    static final Filtro TODOS = new Filtro(null, null, null, null, null, null, null);
     final Clock clock = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
     final JdbcComprobanteRepository escritura = new JdbcComprobanteRepository(jdbc);
 
-    /** Una factura con de todo lo que vive en tablas hijas: cargos de línea y globales, cuotas, anticipos, guías y otros documentos. */
-    Comprobante rica(UUID tenant, long numero, boolean alCredito) {
-        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE " + numero + " SAC", "AV 1"),
-                        List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(Cargo.monto("48", new BigDecimal("5.00")))),
-                                new Item("P2", "Mouse", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.GRAVADO)))
-                .cargos(List.of(Cargo.monto("49", new BigDecimal("10.00"))))
-                .anticipos(List.of(new Anticipo("F001", 3, new BigDecimal("30.00"), null, LocalDate.of(2026, 9, 1))))
-                .referencias(new Referencias("OC-" + numero, List.of(new GuiaRelacionada("09", "T001-" + numero)), List.of(new DocumentoRelacionado("05", "SCOP-" + numero))))
-                .formaPago(alCredito ? FormaPago.credito(new BigDecimal("125.00"), List.of(new FormaPago.Cuota(new BigDecimal("60.00"), LocalDate.of(2026, 10, 13)),
-                        new FormaPago.Cuota(new BigDecimal("65.00"), LocalDate.of(2026, 11, 13)))) : FormaPago.contado())
-                .crear(clock);
-        c.asignarNumero(numero, "20100066603");
-        c.firmar("H", "k.xml");
-        return c;
+    static boolean alCredito(long n) { return n % 3 == 0; }
+    static boolean conCargoEnLaPrimeraLinea(long n) { return n % 2 == 1; }
+
+    /**
+     * Una factura distinta por número: tres líneas con descripción propia, un cargo en la primera solo si el número es impar y siempre uno en la tercera, un cargo global, un anticipo,
+     * guía, documento y orden de compra con el número, y dos cuotas si el número es múltiplo de 3.
+     */
+    Comprobante rica(UUID tenant, long n) {
+        Function<FormaPago, Comprobante> armar = forma -> {
+            Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE " + n + " SAC", "AV 1"),
+                            List.of(new Item("P1", "Laptop " + n, "NIU", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.GRAVADO, null, null, false,
+                                            conCargoEnLaPrimeraLinea(n) ? List.of(Cargo.monto("48", new BigDecimal(n + 1))) : List.of()),
+                                    new Item("P2", "Mouse " + n, "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.GRAVADO),
+                                    new Item("P3", "Cable " + n, "NIU", BigDecimal.ONE, new BigDecimal("20.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(Cargo.monto("48", new BigDecimal("3.00"))))))
+                    .cargos(List.of(Cargo.monto("49", new BigDecimal("10.00"))))
+                    .anticipos(List.of(new Anticipo("F001", n, new BigDecimal("30.00"), null, LocalDate.of(2026, 9, 1))))
+                    .referencias(new Referencias("OC-" + n, List.of(new GuiaRelacionada("09", "T001-" + n)), List.of(new DocumentoRelacionado("05", "SCOP-" + n))))
+                    .formaPago(forma)
+                    .crear(clock);
+            c.asignarNumero(n, "20100066603");
+            c.firmar("H", "k.xml");
+            return c;
+        };
+        Comprobante contado = armar.apply(FormaPago.contado());
+        if (!alCredito(n)) return contado;
+        BigDecimal total = contado.totales().total();
+        BigDecimal primera = total.divide(new BigDecimal("2"), 2, java.math.RoundingMode.DOWN);
+        return armar.apply(FormaPago.credito(total, List.of(new FormaPago.Cuota(primera, LocalDate.of(2026, 10, 13)), new FormaPago.Cuota(total.subtract(primera), LocalDate.of(2026, 11, 13)))));
     }
 
     List<Comprobante> sembrar(UUID tenant, int cuantos) {
         List<Comprobante> creados = new ArrayList<>();
         for (int i = 1; i <= cuantos; i++) {
-            Comprobante c = rica(tenant, i, i % 2 == 0);
+            Comprobante c = rica(tenant, i);
             escritura.guardar(c);
             creados.add(c);
         }
@@ -81,61 +97,87 @@ class JdbcComprobanteConsultasTest extends PersistenciaTestBase {
         return contador.sentencias.get();
     }
 
+    void verificar(Comprobante leido, Comprobante sembrado) {
+        long n = sembrado.numero();
+        assertThat(leido.numero()).isEqualTo(n);
+        assertThat(leido.items()).as("F001-%d: ítems en su orden", n).extracting(Item::descripcion).containsExactly("Laptop " + n, "Mouse " + n, "Cable " + n);
+        assertThat(leido.items().get(0).cargos()).as("F001-%d: cargo de la primera línea", n).isEqualTo(conCargoEnLaPrimeraLinea(n) ? List.of(Cargo.monto("48", new BigDecimal(n + 1))) : List.of());
+        assertThat(leido.items().get(1).cargos()).isEmpty();
+        assertThat(leido.items().get(2).cargos()).containsExactly(Cargo.monto("48", new BigDecimal("3")));
+        assertThat(leido.cargos()).as("cargo global").containsExactly(Cargo.monto("49", new BigDecimal("10")));
+        assertThat(leido.anticipos()).extracting(Anticipo::comprobante).containsExactly("F001-" + n);
+        assertThat(leido.referencias().ordenCompra()).isEqualTo("OC-" + n);
+        assertThat(leido.referencias().guias()).extracting(GuiaRelacionada::numero).containsExactly("T001-" + n);
+        assertThat(leido.referencias().otros()).extracting(DocumentoRelacionado::numero).containsExactly("SCOP-" + n);
+        assertThat(leido.formaPago().esCredito()).isEqualTo(alCredito(n));
+        if (alCredito(n)) {
+            assertThat(leido.formaPago().cuotas()).as("cuotas en su orden").extracting(FormaPago.Cuota::vencimiento).containsExactly(LocalDate.of(2026, 10, 13), LocalDate.of(2026, 11, 13));
+            assertThat(leido.formaPago().cuotas().stream().map(FormaPago.Cuota::monto).reduce(BigDecimal.ZERO, BigDecimal::add)).isEqualByComparingTo(sembrado.totales().total());
+        } else {
+            assertThat(leido.formaPago().cuotas()).isEmpty();
+        }
+        assertThat(leido.totales().total()).isEqualByComparingTo(sembrado.totales().total());
+        assertThat(leido.receptor().razonSocial()).isEqualTo("CLIENTE " + n + " SAC");
+    }
+
     @Test void elNumeroDeConsultasDeUnaPaginaNoDependeDeCuantosComprobantesTrae() {
         UUID t3 = tenantDePrueba(), t30 = tenantDePrueba();
         sembrar(t3, 3);
         sembrar(t30, 30);
         ContadorJdbc contador = contador();
         JdbcComprobanteRepository repo = new JdbcComprobanteRepository(contador);
-        Filtro todos = new Filtro(null, null, null, null, null, null, null);
 
-        int con3 = sentencias(contador, () -> assertThat(repo.listar(t3, todos, 1, 100)).hasSize(3));
-        int con30 = sentencias(contador, () -> assertThat(repo.listar(t30, todos, 1, 100)).hasSize(30));
+        int con3 = sentencias(contador, () -> assertThat(repo.listar(t3, TODOS, 1, 100)).hasSize(3));
+        int con30 = sentencias(contador, () -> assertThat(repo.listar(t30, TODOS, 1, 100)).hasSize(30));
 
         assertThat(con30).as("30 comprobantes cuestan lo mismo que 3").isEqualTo(con3);
-        assertThat(con30).as("ids + cinco tablas hijas + filas").isEqualTo(7);
+        assertThat(con30).as("ids + cargos + ítems + anticipos + relacionados + cuotas + filas").isEqualTo(7);
     }
 
-    @Test void cadaComprobanteDelListadoVuelveIgualQueConBuscar() {
+    @Test void unaPaginaSinNingunoAlCreditoNoPideLasCuotas() {
         UUID t = tenantDePrueba();
-        sembrar(t, 6);
+        List<Comprobante> contado = sembrar(t, 2).stream().filter(c -> !alCredito(c.numero())).toList();
+        assertThat(contado).hasSize(2);
+        ContadorJdbc contador = contador();
+        JdbcComprobanteRepository repo = new JdbcComprobanteRepository(contador);
 
-        List<Comprobante> listados = escritura.listar(t, new Filtro(null, null, null, null, null, null, null), 1, 100);
+        int n = sentencias(contador, () -> assertThat(repo.listar(t, TODOS, 1, 100)).hasSize(2));
 
-        assertThat(listados).hasSize(6);
-        for (Comprobante l : listados) {
-            Comprobante uno = escritura.buscar(t, l.id()).orElseThrow();
-            assertThat(l.items()).isEqualTo(uno.items());
-            assertThat(l.cargos()).isEqualTo(uno.cargos());
-            assertThat(l.anticipos()).isEqualTo(uno.anticipos());
-            assertThat(l.referencias()).isEqualTo(uno.referencias());
-            assertThat(l.formaPago().cuotas()).isEqualTo(uno.formaPago().cuotas());
-            assertThat(l.formaPago().esCredito()).isEqualTo(uno.formaPago().esCredito());
-            assertThat(l.totales().total()).isEqualByComparingTo(uno.totales().total());
-            assertThat(l.receptor()).isEqualTo(uno.receptor());
-        }
-        Comprobante credito = listados.stream().filter(c -> c.numero() == 2).findFirst().orElseThrow();
-        assertThat(credito.formaPago().cuotas()).hasSize(2);
-        assertThat(credito.items().get(0).cargos()).containsExactly(Cargo.monto("48", new BigDecimal("5")));
-        assertThat(credito.items().get(1).cargos()).isEmpty();
-        assertThat(credito.cargos()).containsExactly(Cargo.monto("49", new BigDecimal("10")));
-        assertThat(credito.referencias().guias()).extracting(GuiaRelacionada::numero).containsExactly("T001-2");
-        assertThat(credito.referencias().otros()).extracting(DocumentoRelacionado::numero).containsExactly("SCOP-2");
+        assertThat(n).as("ids + cuatro tablas + filas").isEqualTo(6);
     }
 
-    @Test void losHijosNoSeMezclanEntreComprobantesDeLaMismaPagina() {
+    @Test void leerUnComprobanteAlContadoNoPideLasCuotasYUnoAlCreditoSi() {
         UUID t = tenantDePrueba();
-        sembrar(t, 5);
+        List<Comprobante> sembrados = sembrar(t, 3);
+        ContadorJdbc contador = contador();
+        JdbcComprobanteRepository repo = new JdbcComprobanteRepository(contador);
+        UUID contado = sembrados.get(0).id(), credito = sembrados.get(2).id();
 
-        List<Comprobante> listados = escritura.listar(t, new Filtro(null, null, null, null, null, null, null), 1, 100);
+        int alContado = sentencias(contador, () -> assertThat(repo.buscar(t, contado)).isPresent());
+        int alCredito = sentencias(contador, () -> assertThat(repo.buscar(t, credito)).isPresent());
 
-        for (Comprobante c : listados) {
-            assertThat(c.items()).as("F001-%d", c.numero()).hasSize(2);
-            assertThat(c.anticipos()).hasSize(1);
-            assertThat(c.referencias().ordenCompra()).isEqualTo("OC-" + c.numero());
-            assertThat(c.referencias().guias()).extracting(GuiaRelacionada::numero).containsExactly("T001-" + c.numero());
-            assertThat(c.formaPago().cuotas()).hasSize(c.numero() % 2 == 0 ? 2 : 0);
-        }
+        assertThat(alContado).as("la fila + cuatro tablas, las mismas que antes de este cambio").isEqualTo(5);
+        assertThat(alCredito).isEqualTo(6);
+    }
+
+    @Test void cadaComprobanteDelListadoTraeSusPropiosHijosEnSuOrden() {
+        UUID t = tenantDePrueba();
+        List<Comprobante> sembrados = sembrar(t, 9);
+
+        List<Comprobante> listados = escritura.listar(t, TODOS, 1, 100);
+
+        assertThat(listados).hasSize(9);
+        for (Comprobante l : listados) verificar(l, sembrados.get(l.numero().intValue() - 1));
+    }
+
+    @Test void lasOtrasConsultasDeVariasFilasTambienTraenLoSuyo() {
+        UUID t = tenantDePrueba();
+        List<Comprobante> sembrados = sembrar(t, 6);
+
+        List<Comprobante> firmados = escritura.firmadosEmitidosEntre(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30));
+
+        assertThat(firmados).hasSize(6);
+        for (Comprobante c : firmados) verificar(c, sembrados.get(c.numero().intValue() - 1));
     }
 
     @Test void unaListaVaciaNoCargaHijosNiFalla() {
@@ -143,25 +185,29 @@ class JdbcComprobanteConsultasTest extends PersistenciaTestBase {
         ContadorJdbc contador = contador();
         JdbcComprobanteRepository repo = new JdbcComprobanteRepository(contador);
 
-        int n = sentencias(contador, () -> assertThat(repo.listar(t, new Filtro(null, null, null, null, null, null, null), 1, 20)).isEmpty());
+        int n = sentencias(contador, () -> assertThat(repo.listar(t, TODOS, 1, 20)).isEmpty());
 
         assertThat(n).as("solo la consulta de ids y la de filas").isEqualTo(2);
     }
 
-    @Test void masDeUnLoteDeHijosSeCargaEnVariasTandas() {
+    @Test void masDeUnLoteDeHijosSeCargaEnDosTandasCompletas() {
         UUID t = tenantDePrueba();
-        // Con 520 comprobantes (más que el lote de 500) los hijos se leen en dos tandas y ninguno queda sin sus ítems.
+        // Con 520 comprobantes (más que el lote de 500) los hijos se leen en dos tandas; todos llegan con su ítem sin que ninguno se lea por demanda.
         for (int i = 1; i <= 520; i++) {
             Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
-                    List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(clock);
+                    List.of(new Item("P1", "Laptop " + i, "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(clock);
             c.asignarNumero(i, "20100066603");
             c.firmar("H", "k.xml");
             escritura.guardar(c);
         }
+        ContadorJdbc contador = contador();
+        JdbcComprobanteRepository repo = new JdbcComprobanteRepository(contador);
+        List<Comprobante>[] todos = new List[1];
 
-        List<Comprobante> todos = escritura.firmadosEmitidosEntre(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30));
+        int n = sentencias(contador, () -> todos[0] = repo.firmadosEmitidosEntre(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30)));
 
-        assertThat(todos).hasSize(520);
-        assertThat(todos).allSatisfy(c -> assertThat(c.items()).hasSize(1));
+        assertThat(todos[0]).hasSize(520);
+        assertThat(todos[0]).allSatisfy(c -> assertThat(c.items()).extracting(Item::descripcion).containsExactly("Laptop " + c.numero()));
+        assertThat(n).as("ids + 2 tandas × 4 tablas + filas; ninguna se leyó por demanda").isEqualTo(1 + 2 * 4 + 1);
     }
 }
