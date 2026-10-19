@@ -80,6 +80,24 @@ Opciones descartadas por ahora (solo si el margen anterior no alcanza):
 - Medir cuánto del tiempo dentro del lock es firma+XSD vs. overhead de
   Hikari/conexión, con el pool dimensionado para el caso de carga.
 
+### Garantías que se verifican con pruebas (issue #9)
+
+La decisión de arriba (acortar la sección crítica, no cambiar la numeración) mantiene el bloqueo de la serie durante todo el trabajo, y eso es lo que da la numeración sin
+huecos. Esas garantías ya no dependen de leer el código:
+
+- `JdbcSerieRepositoryTest.concurrenciaNoDuplicaNumeros`: ocho hilos sobre una serie, sin duplicados.
+- `NumeracionDeLaEmisionE2ETest` (pila real, Postgres y HTTP): **16 emisiones a la vez** sobre `F001` devuelven exactamente los números 1 a 16 y la serie queda en 16; y si guardar el
+  XML falla **después** de asignar el número, la serie no avanza, no queda un documento a medias y la siguiente emisión recibe ese mismo número.
+- `emision.js` pasa el umbral (p95 29 ms a 50 doc/s; tabla de arriba).
+
+### El listado ya no hace una consulta por comprobante
+
+El comentario de la revisión de #71 pedía resolver junto con el cuello de la emisión que `JdbcComprobanteRepository.mapear` hiciera 5 consultas **por comprobante** (cargos, ítems,
+anticipos, documentos relacionados y cuotas), y que la tabla del portal pagara 1 + 5·N. Las consultas de varias filas (`listar`, `notasDe`, `pendientesQueVencenEmitidosHasta`,
+`pendientesDeCdr`, `firmadosEmitidosEntre`) ahora leen primero los ids, después los hijos de todos juntos con `IN (...)` de a 500 y por último las filas. `JdbcComprobanteConsultasTest`
+lo mide contando las sentencias que llegan a la base: una página de **30 comprobantes pasaba de 136 sentencias a 7**, el mismo número que con 3, y cada comprobante vuelve igual que con
+`buscar`. Las lecturas de una sola fila (`buscar`, `bloquear`) no cambian.
+
 ## Pendiente
 
 - Escenario de RC de 10 000 boletas: bloqueado hasta que khipu agrupe boletas en
