@@ -448,3 +448,48 @@ dev exec -T postgres psql -U factura -d factura -c "delete from outbox where ten
 
 El `delete` quita los reintentos que quedaron programados con fecha del reloj movido (en el procedimiento B quedan para el 31-12 real): sin él, ese día el worker enviaría a SUNAT beta
 resúmenes de pruebas. Los comprobantes de pruebas se dejan como están.
+
+## 11. Alertas al operador (#341)
+
+Hasta ahora producción solo tenía el healthcheck de Railway: si algo fallaba sin tumbar el proceso, nadie se enteraba hasta que un cliente reclamaba. `VigilarOperacionWorker` corre cada 5
+minutos (2 minutos después de arrancar) y avisa de lo que sigue.
+
+| Alerta (`clave`) | Cuándo salta | Qué hacer |
+|---|---|---|
+| `OUTBOX_ATASCADO` | Hay envíos vencidos en el outbox hace más de 5 min: el trabajo que los vacía no corre | Revisar el log del backend; reiniciar el servicio |
+| `ENVIOS_CON_ERROR` | Al menos `ALERTAS_ERROR_ENVIO_CANTIDAD` (5) comprobantes llevan más de `ALERTAS_ERROR_ENVIO_MINUTOS` (30) en `ERROR_ENVIO` | SUNAT caída o credenciales SOL; el detalle por empresa está en la cola de errores del backoffice |
+| `FUERA_DE_PLAZO` | Algún comprobante pasó a `FUERA_DE_PLAZO` en las últimas `ALERTAS_FUERA_DE_PLAZO_HORAS` (24) | El cliente tiene que volver a emitir: avisarle |
+| `RESUMENES_SIN_RESPUESTA` | Un resumen diario o baja con ticket lleva más de `MONITOR_RESUMEN_SIN_RESPUESTA_HORAS` (6) sin respuesta | Mirar el monitor del backoffice |
+| `BOLETAS_POR_VENCER` | Hay boletas en su 7.º día (o pasado) sin informarse a SUNAT | El aviso al cliente ya salió el 5.º día; revisar si el correo funciona |
+| `RESPALDO_ATRASADO` | Pasaron más de `ALERTAS_RESPALDO_HORAS` sin respaldo bueno (o nunca hubo uno) | Revisar el cron del servicio `respaldo` (§8) |
+| `CORREO_DESHABILITADO` | `MAIL_HABILITADO=false` o sin SMTP | Ver el aviso de §2: los correos se escriben en el log y no salen |
+| `CERTIFICADOS_EN_RIESGO` | Hay empresas con el certificado vencido o por vencer | El portal ya se lo avisa al cliente; la lista está en Avisos del backoffice |
+| `CREDENCIALES_SOL` | Hay empresas con envíos fallando porque SUNAT rechaza su usuario SOL | El cliente tiene que actualizar el usuario SOL |
+
+Cada problema avisa **una vez** cuando aparece, se repite cada `ALERTAS_REPETIR_HORAS` (24) mientras siga, y avisa `RESUELTO` cuando deja de cumplirse. Lo avisado queda en `alerta_operador`:
+si ningún canal pudo entregar el mensaje, no se registra y la siguiente pasada lo reintenta. Siempre sale también por el log del backend (nivel ERROR), con o sin canal configurado.
+
+### Variables (servicio `backend`)
+
+| Variable | Ejemplo | Notas |
+|---|---|---|
+| `ALERTAS_EMAIL` | `ops@tu-dominio.pe,guardia@tu-dominio.pe` | Direcciones separadas por coma. Solo cuenta si el correo entrega de verdad (`MAIL_HABILITADO=true`) |
+| `ALERTAS_WEBHOOK_URL` | `https://hooks.slack.com/services/...` | Un `POST` JSON con `text` (Slack, Mattermost, Teams), `content` (Discord), `asunto` y `cuerpo`. Una URL que no sea http(s) impide arrancar |
+| `ALERTAS_RESPALDO_HORAS` | `26` | **Recomendado en producción** (el cron es diario). `0` (default) apaga la alerta del respaldo |
+| `ALERTAS_REPETIR_HORAS` | `24` | 1 a 168 |
+| `ALERTAS_ERROR_ENVIO_MINUTOS` / `ALERTAS_ERROR_ENVIO_CANTIDAD` | `30` / `5` | Umbral de `ENVIOS_CON_ERROR` |
+| `ALERTAS_FUERA_DE_PLAZO_HORAS` | `24` | Ventana de `FUERA_DE_PLAZO` (1 a 168) |
+
+Con `CORREO_DESHABILITADO` el canal de correo no puede avisar de su propio problema: configure también el webhook, o esa alerta solo quedará en el log.
+
+### El respaldo avisa que corrió
+
+`respaldar.sh` anota al terminar bien un latido (`INSERT` en `latido_operativo`, clave `respaldo`) con el mismo `DATABASE_URL` con que hizo el volcado. Si la base todavía no tiene la migración V57, el
+respaldo se sube igual y el script solo escribe una advertencia. Con `ALERTAS_RESPALDO_HORAS=26`, un día sin respaldo bueno dispara `RESPALDO_ATRASADO`.
+
+### Probar que llega
+
+1. Configure `ALERTAS_WEBHOOK_URL` y/o `ALERTAS_EMAIL` y reinicie el backend.
+2. Para provocar una alerta sin dañar nada, con `ALERTAS_RESPALDO_HORAS=26` borre el latido: `delete from latido_operativo where clave = 'respaldo'`. En la siguiente pasada (máximo 5 minutos) llega `ALERTA · El respaldo diario de Postgres no corrió`.
+3. Corra el servicio `respaldo` (o inserte el latido a mano) y en la pasada siguiente llega `RESUELTO`.
+4. Si no llega nada, busque en el log `El canal de alertas webhook no pudo entregar` o `correo`: dice por qué falló.

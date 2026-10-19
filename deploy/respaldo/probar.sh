@@ -65,6 +65,8 @@ falla_con 1 "ninguna cuenta ni administrador" correr -e DATABASE_URL=postgres://
 
 echo "1) respaldar"
 correr -e DATABASE_URL=postgres://khipu:khipu@khipu-pr-origen:5432/khipu "$imagen" respaldar.sh
+# El latido que lee el vigilante de la operación (#341) queda anotado en la base de origen; no viaja en el volcado (se anota después), por eso `conteos` no lo cuenta.
+[ "$(docker exec khipu-pr-origen psql -At -U khipu -d khipu -c "SELECT count(*) FROM latido_operativo WHERE clave = 'respaldo' AND ultimo > now() - interval '5 minutes'")" = "1" ]   || { echo "FALLO: el respaldo no anotó su latido en latido_operativo"; exit 1; }
 
 echo "2) una clave equivocada no descifra"
 falla_con 1 "no se pudo descifrar" docker run --rm --network "$red" $env_s3 -e BACKUP_PASSPHRASE=otra-clave-equivocada-larga \
@@ -77,7 +79,7 @@ echo "4) comparar tabla por tabla"
 conteos() {
   docker exec "$1" psql -At -U khipu -d khipu -c "
     SELECT string_agg(t.table_name || '=' || (xpath('/row/n/text()', query_to_xml('SELECT count(*) AS n FROM public.' || quote_ident(t.table_name), false, true, '')))[1]::text, ',' ORDER BY t.table_name)
-    FROM information_schema.tables t WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'"
+    FROM information_schema.tables t WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE' AND t.table_name <> 'latido_operativo'"
 }
 a="$(conteos khipu-pr-origen)"; b="$(conteos khipu-pr-destino)"
 [ "$a" = "$b" ] || { echo "FALLO: las tablas no coinciden"; echo "origen:  $a"; echo "destino: $b"; exit 1; }

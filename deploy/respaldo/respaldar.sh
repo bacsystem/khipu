@@ -48,4 +48,10 @@ local_bytes="$(wc -c < "$tmp/$nombre" | tr -d ' ')"
 remoto_bytes="$(s3 s3api head-object --bucket "$BACKUP_S3_BUCKET" --key "${prefijo}/${nombre}" --query ContentLength --output text)"
 [ "$local_bytes" = "$remoto_bytes" ] || { echo "respaldo: el objeto subido mide $remoto_bytes bytes y el local $local_bytes" >&2; exit 1; }
 
+# Latido para el vigilante de la operación (#341): la aplicación avisa al operador si pasan más de ALERTAS_RESPALDO_HORAS sin que este script lo anote. Va después de verificar
+# el objeto subido y NO hace fallar el respaldo si no se puede anotar (una base sin la migración V57 todavía): el respaldo ya quedó en el bucket.
+if ! psql "$DATABASE_URL" -At -v ON_ERROR_STOP=1 -c "INSERT INTO latido_operativo (clave, ultimo) VALUES ('respaldo', now()) ON CONFLICT (clave) DO UPDATE SET ultimo = EXCLUDED.ultimo" >/dev/null; then
+  echo "respaldo: no se pudo anotar el latido en latido_operativo; el respaldo sí se subió" >&2
+fi
+
 echo "respaldo: ${destino} (${local_bytes} bytes, ${tablas} tablas, ${personas} cuentas y administradores)"

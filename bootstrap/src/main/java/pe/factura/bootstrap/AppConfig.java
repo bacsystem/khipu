@@ -31,6 +31,8 @@ import pe.factura.adapters.crypto.BcryptPasswordHasher;
 import pe.factura.adapters.crypto.JwtAdministradorTokenEmisor;
 import pe.factura.adapters.crypto.JwtTokenEmisor;
 import pe.factura.adapters.crypto.TotpRfc6238;
+import pe.factura.adapters.alertas.CorreoDeAlertas;
+import pe.factura.adapters.alertas.WebhookDeAlertas;
 import pe.factura.adapters.mail.LogCorreoSender;
 import pe.factura.adapters.mail.SmtpCorreoSender;
 import pe.factura.adapters.persistence.*;
@@ -54,6 +56,7 @@ import pe.factura.adapters.sunat.SunatUrls;
 import pe.factura.adapters.sunat.SoapConsultaGateway;
 import pe.factura.adapters.sunat.SondeoDeSunatHttp;
 import pe.factura.adapters.scheduler.RecuperarCdrWorker;
+import pe.factura.adapters.scheduler.VigilarOperacionWorker;
 import pe.factura.adapters.sunat.XmlCdrParser;
 import pe.factura.adapters.pdf.FlyingSaucerPdfGenerator;
 import pe.factura.adapters.pdf.ZxingCodigoQr;
@@ -107,6 +110,23 @@ public class AppConfig {
      * ({@code app.monitor.resumen-sin-respuesta-horas}, 6 por defecto). Entre 1 hora y 7 días: con 0 alertaría de todo lo que está en curso, y con más ya no es una alerta.
      * Un valor fuera de rango aborta el arranque.
      */
+    /**
+     * #341: los umbrales del vigilante de la operación (`app.alertas.*`). Un valor fuera de rango aborta el arranque: con un 0 en los minutos todo comprobante en error alertaría
+     * al instante, y un intervalo de repetición enorme dejaría un problema en silencio. {@code respaldoHoras} 0 apaga la alerta del respaldo.
+     */
+    static VigilarOperacionService.Umbrales umbralesDeAlertas(AppProperties.Alertas a, Duration resumenesSinRespuesta) {
+        int repetir = a == null ? AppProperties.Alertas.REPETIR_HORAS_POR_DEFECTO : a.repetirHoras();
+        int minutos = a == null ? AppProperties.Alertas.ERROR_ENVIO_MINUTOS_POR_DEFECTO : a.errorEnvioMinutos();
+        int cantidad = a == null ? AppProperties.Alertas.ERROR_ENVIO_CANTIDAD_POR_DEFECTO : a.errorEnvioCantidad();
+        int respaldo = a == null ? 0 : a.respaldoHoras();
+        int ventana = a == null ? AppProperties.Alertas.FUERA_DE_PLAZO_HORAS_POR_DEFECTO : a.fueraDePlazoHoras();
+        if (repetir < 1 || repetir > 168) throw new IllegalStateException("ALERTAS_REPETIR_HORAS debe estar entre 1 y 168 (es " + repetir + ")");
+        if (minutos < 1 || minutos > 1440) throw new IllegalStateException("ALERTAS_ERROR_ENVIO_MINUTOS debe estar entre 1 y 1440 (es " + minutos + ")");
+        if (cantidad < 1) throw new IllegalStateException("ALERTAS_ERROR_ENVIO_CANTIDAD debe ser al menos 1 (es " + cantidad + ")");
+        if (respaldo < 0 || respaldo > 720) throw new IllegalStateException("ALERTAS_RESPALDO_HORAS debe estar entre 0 y 720 (es " + respaldo + ")");
+        if (ventana < 1 || ventana > 168) throw new IllegalStateException("ALERTAS_FUERA_DE_PLAZO_HORAS debe estar entre 1 y 168 (es " + ventana + ")");
+        return new VigilarOperacionService.Umbrales(Duration.ofHours(repetir), Duration.ofMinutes(minutos), cantidad, resumenesSinRespuesta, Duration.ofHours(respaldo), Duration.ofHours(ventana));
+    }
     static Duration umbralDeResumenesSinRespuesta(AppProperties.Monitor monitor) {
         int horas = monitor == null ? AppProperties.Monitor.HORAS_POR_DEFECTO : monitor.resumenSinRespuestaHoras();
         if (horas < 1 || horas > 168)
@@ -542,6 +562,16 @@ public class AppConfig {
         return new AvisarBoletasSinInformarWorker(avisos, portalUrl);
     }
 
+    // #341: el vigilante avisa al operador cuando algo falla en silencio. Los canales sin configurar (sin ALERTAS_EMAIL / ALERTAS_WEBHOOK_URL) no se usan: queda el log.
+    @Bean VigiladoRepository vigiladoRepository(JdbcTemplate jdbc) { return new JdbcVigiladoRepository(jdbc); }
+    @Bean VigilarOperacionUseCase vigilarOperacion(MonitorDeEmisionRepository monitor, AvisosRepository avisos, VigiladoRepository vigilado, CorreoSender correo, Clock clock, AppProperties p) {
+        AppProperties.Alertas a = p.alertas();
+        // El monitor y el vigilante miden los resúmenes sin respuesta con el mismo umbral.
+        VigilarOperacionService.Umbrales umbrales = umbralesDeAlertas(a, umbralDeResumenesSinRespuesta(p.monitor()));
+        List<CanalDeAlertas> canales = List.of(new CorreoDeAlertas(correo, a == null ? null : a.email()), new WebhookDeAlertas(a == null ? null : a.webhookUrl()));
+        return new VigilarOperacionService(monitor, avisos, vigilado, correo, canales, clock, umbrales);
+    }
+    @Bean VigilarOperacionWorker vigilarOperacionWorker(VigilarOperacionUseCase vigilante) { return new VigilarOperacionWorker(vigilante); }
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
     // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.
     @Bean FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(JdbcApiKeyRepository k, AppProperties p, SuspensionRepository suspensiones,

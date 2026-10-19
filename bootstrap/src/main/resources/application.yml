@@ -85,6 +85,20 @@ app:
     # #362 B14: horas que un resumen diario o una baja con ticket puede llevar sin respuesta de SUNAT antes de que el monitor del backoffice lo marque (1 a 168). El worker no
     # se rinde nunca con un ticket (lo reconsulta con intervalo creciente, hasta cada 5 min): esto solo avisa, no cambia lo que hace.
     resumen-sin-respuesta-horas: ${MONITOR_RESUMEN_SIN_RESPUESTA_HORAS:6}
+  # #341: alertas al operador de la plataforma cuando algo falla en silencio (envíos a SUNAT, FUERA_DE_PLAZO, resúmenes sin respuesta, respaldo, correo, certificados). Siempre
+  # salen por el log (ERROR); con ALERTAS_EMAIL y/o ALERTAS_WEBHOOK_URL también llegan a ese canal. Detalle y cómo probarlo: deploy/README.md §11.
+  alertas:
+    email: ${ALERTAS_EMAIL:}
+    webhook-url: ${ALERTAS_WEBHOOK_URL:}
+    # Cada cuántas horas se repite un problema que sigue sin resolverse (1 a 168).
+    repetir-horas: ${ALERTAS_REPETIR_HORAS:24}
+    # Alerta si hay al menos esta cantidad de comprobantes con al menos esos minutos en ERROR_ENVIO.
+    error-envio-minutos: ${ALERTAS_ERROR_ENVIO_MINUTOS:30}
+    error-envio-cantidad: ${ALERTAS_ERROR_ENVIO_CANTIDAD:5}
+    # Horas máximas sin un respaldo bueno (deploy/respaldo lo anota al terminar). 0 = sin alerta; en producción, 26 (el cron es diario).
+    respaldo-horas: ${ALERTAS_RESPALDO_HORAS:0}
+    fuera-de-plazo-horas: ${ALERTAS_FUERA_DE_PLAZO_HORAS:24}
+    intervalo-ms: ${ALERTAS_INTERVALO_MS:300000}
   sunat:
     timeout-seconds: ${SUNAT_TIMEOUT_SECONDS:15}
     beta-url: https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService
