@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avisoDePlazo, fechaMinimaDeEmision, soloPorResumen } from "./plazo";
+import { avisoDePlazo, fechaMinimaDeEmision, fechaMinimaDeNota, soloPorResumen } from "./plazo";
 
 /** #292: espeja `PlazoEnvio` del backend. Factura: 3 días. Boleta: sola hasta el 5.º día y por resumen diario hasta el 7.º. */
 describe("plazo de envío", () => {
@@ -60,5 +60,20 @@ describe("avisoDePlazo", () => {
   it("una factura, o una nota sobre factura, nunca", () => {
     expect(avisoDePlazo({ tipo: "01", estado_documento: "FIRMADO", fecha_emision: "2026-10-01", nota: null }, "2026-10-20")).toBeNull();
     expect(avisoDePlazo({ tipo: "07", estado_documento: "FIRMADO", fecha_emision: "2026-10-01", nota: { tipo_afectado: "01", motivo: "01" } }, "2026-10-20")).toBeNull();
+  });
+});
+
+describe("fechaMinimaDeNota (#314)", () => {
+  const hoy = "2026-10-18";
+  it("la nota de una factura hasta el 3.er día; la de una boleta hasta el 7.º en el resumen diario", () => {
+    expect(fechaMinimaDeNota({ tipo: "07", sobreBoleta: false, motivo: "01" }, hoy)).toBe("2026-10-15");
+    expect(fechaMinimaDeNota({ tipo: "07", sobreBoleta: true, motivo: "01" }, hoy)).toBe("2026-10-11");
+    expect(fechaMinimaDeNota({ tipo: "08", sobreBoleta: true, motivo: "01" }, hoy)).toBe("2026-10-11");
+  });
+  it("la NC 10 y la ND 03 sobre boleta no van en el resumen: hasta el 5.º día", () => {
+    expect(fechaMinimaDeNota({ tipo: "07", sobreBoleta: true, motivo: "10" }, hoy)).toBe("2026-10-13");
+    expect(fechaMinimaDeNota({ tipo: "08", sobreBoleta: true, motivo: "03" }, hoy)).toBe("2026-10-13");
+    // El mismo motivo en una nota de factura no cambia: el 3.º.
+    expect(fechaMinimaDeNota({ tipo: "07", sobreBoleta: false, motivo: "10" }, hoy)).toBe("2026-10-15");
   });
 });
