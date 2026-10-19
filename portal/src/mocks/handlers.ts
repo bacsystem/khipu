@@ -628,6 +628,75 @@ function monedaMock(moneda: string, tipoCambio: number | undefined, total: numbe
   return { totalEnSoles: Math.round(total * tipoCambio * 100) / 100 };
 }
 
+/** Los filtros del listado, compartidos con la descarga masiva (#324): devuelve la lista filtrada o la respuesta de error del backend. */
+function filtrarComprobantes(empresaId: string, url: URL): Comprobante[] | Response {
+  const estado = url.searchParams.get("estado");
+  const desde = url.searchParams.get("desde");
+  const hasta = url.searchParams.get("hasta");
+  const serie = url.searchParams.get("serie")?.toUpperCase();
+  if (desde && hasta && desde > hasta) return fail(400, "RANGO_INVALIDO", `desde (${desde}) no puede ser posterior a hasta (${hasta})`);
+  let lista = db.facturasPorEmpresa.get(empresaId) ?? [];
+  if (estado) lista = lista.filter((f) => f.estado_documento === estado);
+  if (desde) lista = lista.filter((f) => f.fecha_emision >= desde);
+  if (hasta) lista = lista.filter((f) => f.fecha_emision <= hasta);
+  if (serie) lista = lista.filter((f) => f.serie === serie);
+  // #326, como `Filtro` y el WHERE de `JdbcComprobanteRepository`: tipo exacto, número sin la serie y cliente por documento (empieza por, solo si son dígitos) o por nombre (contiene).
+  const tipo = url.searchParams.get("tipo")?.trim();
+  if (tipo && !["01", "03", "07", "08"].includes(tipo)) return fail(400, "PARAMETRO_INVALIDO", `tipo debe ser 01 (factura), 03 (boleta), 07 (nota de crédito) u 08 (nota de débito): ${tipo}`);
+  if (tipo) lista = lista.filter((f) => f.tipo === tipo);
+  const numeroParam = url.searchParams.get("numero")?.trim();
+  if (numeroParam && !(Number(numeroParam) >= 1 && Number.isInteger(Number(numeroParam)))) return fail(400, "PARAMETRO_INVALIDO", "numero debe ser un entero positivo");
+  if (numeroParam) lista = lista.filter((f) => f.numero === Number(numeroParam));
+  const cliente = url.searchParams.get("cliente")?.trim();
+  if (cliente && cliente.length > 100) return fail(400, "PARAMETRO_INVALIDO", "cliente admite hasta 100 caracteres");
+  if (cliente)
+    lista = lista.filter((f) => (f.receptor?.razon_social ?? "").toLowerCase().includes(cliente.toLowerCase()) || (/^\d+$/.test(cliente) && (f.receptor?.num_doc ?? "").startsWith(cliente)));
+  return lista;
+}
+
+/** CRC-32 (IEEE), para armar un ZIP sin dependencias: el mock solo necesita un archivo válido, no comprimido. */
+function crc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (const b of bytes) {
+    crc ^= b;
+    for (let k = 0; k < 8; k++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** Un ZIP con las entradas «almacenadas» (sin comprimir): cabecera local, directorio central y fin de directorio. */
+function armarZip(entradas: Array<{ nombre: string; contenido: string }>): Uint8Array {
+  const texto = new TextEncoder();
+  const locales: Uint8Array[] = [];
+  const centrales: Uint8Array[] = [];
+  let posicion = 0;
+  for (const e of entradas) {
+    const nombre = texto.encode(e.nombre);
+    const datos = texto.encode(e.contenido);
+    const crc = crc32(datos);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true); local.setUint16(6, 0x0800, true); local.setUint16(8, 0, true);
+    local.setUint32(14, crc, true); local.setUint32(18, datos.length, true); local.setUint32(22, datos.length, true); local.setUint16(26, nombre.length, true);
+    const central = new DataView(new ArrayBuffer(46));
+    central.setUint32(0, 0x02014b50, true); central.setUint16(4, 20, true); central.setUint16(6, 20, true); central.setUint16(8, 0x0800, true);
+    central.setUint32(16, crc, true); central.setUint32(20, datos.length, true); central.setUint32(24, datos.length, true); central.setUint16(28, nombre.length, true);
+    central.setUint32(42, posicion, true);
+    locales.push(new Uint8Array(local.buffer), nombre, datos);
+    centrales.push(new Uint8Array(central.buffer), nombre);
+    posicion += 30 + nombre.length + datos.length;
+  }
+  const tamanoCentral = centrales.reduce((s, c) => s + c.length, 0);
+  const fin = new DataView(new ArrayBuffer(22));
+  fin.setUint32(0, 0x06054b50, true); fin.setUint16(8, entradas.length, true); fin.setUint16(10, entradas.length, true); fin.setUint32(12, tamanoCentral, true); fin.setUint32(16, posicion, true);
+  const partes = [...locales, ...centrales, new Uint8Array(fin.buffer)];
+  const salida = new Uint8Array(partes.reduce((s, c) => s + c.length, 0));
+  let o = 0;
+  for (const parte of partes) { salida.set(parte, o); o += parte.length; }
+  return salida;
+}
+
+const DESCARGA_MAXIMA = 500;
+
 function ok<T>(datos: T, status = 200) {
   return HttpResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { status });
 }
@@ -2795,27 +2864,9 @@ export const handlers = [
   http.get(`${BASE}/v1/facturas`, ({ request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
     const url = new URL(request.url);
-    const estado = url.searchParams.get("estado");
-    const desde = url.searchParams.get("desde");
-    const hasta = url.searchParams.get("hasta");
-    const serie = url.searchParams.get("serie")?.toUpperCase();
-    if (desde && hasta && desde > hasta) return fail(400, "RANGO_INVALIDO", `desde (${desde}) no puede ser posterior a hasta (${hasta})`);
-    let lista = db.facturasPorEmpresa.get(empresaId) ?? [];
-    if (estado) lista = lista.filter((f) => f.estado_documento === estado);
-    if (desde) lista = lista.filter((f) => f.fecha_emision >= desde);
-    if (hasta) lista = lista.filter((f) => f.fecha_emision <= hasta);
-    if (serie) lista = lista.filter((f) => f.serie === serie);
-    // #326, como `Filtro` y el WHERE de `JdbcComprobanteRepository`: tipo exacto, número sin la serie y cliente por documento (empieza por, solo si son dígitos) o por nombre (contiene).
-    const tipo = url.searchParams.get("tipo")?.trim();
-    if (tipo && !["01", "03", "07", "08"].includes(tipo)) return fail(400, "PARAMETRO_INVALIDO", `tipo debe ser 01 (factura), 03 (boleta), 07 (nota de crédito) u 08 (nota de débito): ${tipo}`);
-    if (tipo) lista = lista.filter((f) => f.tipo === tipo);
-    const numeroParam = url.searchParams.get("numero")?.trim();
-    if (numeroParam && !(Number(numeroParam) >= 1 && Number.isInteger(Number(numeroParam)))) return fail(400, "PARAMETRO_INVALIDO", "numero debe ser un entero positivo");
-    if (numeroParam) lista = lista.filter((f) => f.numero === Number(numeroParam));
-    const cliente = url.searchParams.get("cliente")?.trim();
-    if (cliente && cliente.length > 100) return fail(400, "PARAMETRO_INVALIDO", "cliente admite hasta 100 caracteres");
-    if (cliente)
-      lista = lista.filter((f) => (f.receptor?.razon_social ?? "").toLowerCase().includes(cliente.toLowerCase()) || (/^\d+$/.test(cliente) && (f.receptor?.num_doc ?? "").startsWith(cliente)));
+    const filtrada = filtrarComprobantes(empresaId, url);
+    if (filtrada instanceof Response) return filtrada;
+    const lista = filtrada;
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1));
     const porPagina = Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20));
     const total = lista.length;
@@ -2836,6 +2887,28 @@ export const handlers = [
    * que nunca se firmó; aceptados: con o sin observaciones; atención requerida: rechazados, error de envío y fuera de plazo, cada uno aparte; facturado por moneda con lo
    * aceptado y lo que está en camino, las notas de crédito restando. **Va antes de `/v1/facturas/:id`**: si no, «resumen» se tomaría por un id.
    */
+  // #324, como `FacturaController.descargar`: los mismos filtros del listado, `tipos` (xml, pdf, cdr), 404 sin resultados, 422 por encima del tope y un ZIP con un archivo por
+  // comprobante firmado y tipo pedido (el mock escribe un texto de relleno: lo que importa es el contrato). Va antes de `/:id`, que de otro modo la tomaría por un id.
+  http.get(`${BASE}/v1/facturas/descarga`, ({ request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const url = new URL(request.url);
+    const tipos = (url.searchParams.get("tipos") ?? "xml,pdf,cdr").split(",").map((x) => x.trim().toLowerCase());
+    if (tipos.some((x) => !["xml", "pdf", "cdr"].includes(x))) return fail(400, "PARAMETRO_INVALIDO", `tipos admite xml, pdf y cdr separados por coma: ${tipos.find((x) => !["xml", "pdf", "cdr"].includes(x))}`);
+    const lista = filtrarComprobantes(empresaId, url);
+    if (lista instanceof Response) return lista;
+    if (lista.length === 0) return fail(404, "NO_ENCONTRADO", "No hay comprobantes con esos filtros");
+    if (lista.length > DESCARGA_MAXIMA) return fail(422, "DESCARGA_EXCEDE_EL_TOPE", `Hay ${lista.length} comprobantes con esos filtros y una descarga admite hasta ${DESCARGA_MAXIMA}: acote las fechas y descargue por tramos`);
+    const entradas: Array<{ nombre: string; contenido: string }> = [];
+    for (const f of lista) {
+      const nombre = f.nombre_archivo ?? `${f.serie}-${f.numero}`;
+      if (f.estado_documento === "RECIBIDO") continue;
+      if (tipos.includes("xml")) entradas.push({ nombre: `${nombre}.xml`, contenido: `<Invoice>${nombre}</Invoice>` });
+      if (tipos.includes("pdf")) entradas.push({ nombre: `${nombre}.pdf`, contenido: `%PDF ${nombre}` });
+      if (tipos.includes("cdr") && f.cdr) entradas.push({ nombre: `R-${nombre}.zip`, contenido: `CDR ${nombre}` });
+    }
+    return new HttpResponse(armarZip(entradas), { headers: { "content-type": "application/zip", "content-disposition": 'attachment; filename="comprobantes-mock.zip"' } });
+  }),
+
   http.get(`${BASE}/v1/facturas/resumen`, ({ request }) => {
     if (!claims(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     const empresaId = request.headers.get("x-empresa") ?? "";
