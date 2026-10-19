@@ -163,7 +163,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         return jdbc.query(SELECT + " WHERE d.tenant_id = ? AND d.tipo = ? AND d.serie = ? AND d.numero = ? FOR UPDATE OF d", this::mapear, tenantId, tipo.codigo(), serie, numero).stream().findFirst();
     }
     @Override public List<Comprobante> notasDe(UUID tenantId, String serie, long numero) {
-        return consultar(" WHERE d.tenant_id = ? AND c.nota_serie_afectada = ? AND c.nota_numero_afectado = ? ORDER BY d.created_at", tenantId, serie, numero);
+        return consultar(" WHERE d.tenant_id = ? AND c.nota_serie_afectada = ? AND c.nota_numero_afectado = ?", " ORDER BY d.created_at", tenantId, serie, numero);
     }
     /**
      * Fuera queda lo que va en el resumen diario ({@code Nota.vaEnResumenDiario}): la boleta y la nota B, salvo la NC 10 y la ND 03 (#331). Nunca vence, y sin este
@@ -172,7 +172,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public List<Comprobante> pendientesQueVencenEmitidosHasta(java.time.LocalDate fechaEmisionMaxima) {
         return consultar(" WHERE d.estado IN ('FIRMADO', 'ERROR_ENVIO') AND d.fecha_emision <= ?"
                 + " AND d.tipo <> '03' AND (c.nota_tipo_afectado IS DISTINCT FROM '03' OR (d.tipo = '07' AND c.nota_motivo = '10') OR (d.tipo = '08' AND c.nota_motivo = '03'))"
-                + " ORDER BY d.fecha_emision", Date.valueOf(fechaEmisionMaxima));
+                , " ORDER BY d.fecha_emision", Date.valueOf(fechaEmisionMaxima));
     }
     /**
      * Lo que SUNAT consulta por getStatusCdr: la factura y sus notas (#357). Fuera quedan la boleta y las notas B ({@code Comprobante.esDeBoleta}: tipo 03 o nota que
@@ -180,16 +180,16 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
      */
     @Override public List<Comprobante> pendientesDeCdr() {
         return consultar(" WHERE d.xml_key IS NOT NULL AND d.cdr_key IS NULL AND d.estado IN ('ENVIADO', 'ERROR_ENVIO', 'ACEPTADO', 'ACEPTADO_CON_OBS', 'RECHAZADO')"
-                + " AND d.tipo <> '03' AND c.nota_tipo_afectado IS DISTINCT FROM '03' ORDER BY d.fecha_emision");
+                + " AND d.tipo <> '03' AND c.nota_tipo_afectado IS DISTINCT FROM '03'", " ORDER BY d.fecha_emision");
     }
     @Override public List<Comprobante> firmadosEmitidosEntre(LocalDate desde, LocalDate hasta) {
-        return consultar(" WHERE d.xml_key IS NOT NULL AND d.fecha_emision BETWEEN ? AND ? ORDER BY d.fecha_emision, d.created_at", Date.valueOf(desde), Date.valueOf(hasta));
+        return consultar(" WHERE d.xml_key IS NOT NULL AND d.fecha_emision BETWEEN ? AND ?", " ORDER BY d.fecha_emision, d.created_at", Date.valueOf(desde), Date.valueOf(hasta));
     }
     @Override public List<Comprobante> listar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, int pagina, int porPagina) {
         List<Object> args = new ArrayList<>();
         String where = where(tenantId, filtro, args);
         args.add(porPagina); args.add((pagina - 1) * porPagina);
-        return consultar(where + " ORDER BY d.created_at DESC LIMIT ? OFFSET ?", args.toArray());
+        return consultar(where, " ORDER BY d.created_at DESC LIMIT ? OFFSET ?", args.toArray());
     }
 
     @Override public long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro) {
@@ -236,20 +236,31 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         FROM documento d JOIN comprobante c ON c.documento_id = d.id
         """;
 
-    /** Las consultas de más de una fila: primero los ids (una consulta), luego los hijos de todos juntos (cinco consultas), luego las filas. Antes eran cinco consultas por comprobante. */
-    private List<Comprobante> consultar(String cola, Object... args) {
-        List<UUID> ids = jdbc.query("SELECT d.id " + DESDE + cola, (rs, i) -> rs.getObject("id", UUID.class), args);
+    /**
+     * Las consultas de varias filas: primero los ids (una consulta), luego los hijos de todos juntos (una consulta por tabla y tanda) y por último las filas. Antes eran cinco
+     * consultas por comprobante. {@code filtro} es el WHERE; {@code orden}, el ORDER BY (con LIMIT y OFFSET si los hay): la consulta de ids solo lo repite cuando lleva LIMIT,
+     * porque ahí decide qué filas entran; sin LIMIT ordenar los ids sería trabajo perdido.
+     */
+    private List<Comprobante> consultar(String filtro, String orden, Object... args) {
+        boolean acotada = orden.contains("LIMIT");
+        List<IdFila> ids = jdbc.query("SELECT d.id, c.forma_pago " + DESDE + filtro + (acotada ? orden : ""),
+                (rs, i) -> new IdFila(rs.getObject("id", UUID.class), "CREDITO".equals(rs.getString("forma_pago"))), args);
         Hijos hijos = new Hijos();
-        hijos.cargar(ids);
-        return jdbc.query(SELECT + cola, (rs, i) -> mapear(rs, hijos), args);
+        hijos.cargar(ids.stream().map(IdFila::id).toList());
+        hijos.cargarCuotas(ids.stream().filter(IdFila::alCredito).map(IdFila::id).toList());
+        return jdbc.query(SELECT + filtro + orden, (rs, i) -> mapear(rs, hijos), args);
     }
 
+    private record IdFila(UUID id, boolean alCredito) {}
+
     /**
-     * Cargos, ítems, anticipos, documentos relacionados y cuotas de un conjunto de comprobantes, leídos con {@code IN (...)} de a {@value #LOTE_DE_HIJOS}. Un comprobante que no se
-     * cargó de antemano (nació entre la consulta de ids y la de filas, o es la fila única de {@code buscar}) se lee por demanda.
+     * Cargos, ítems, anticipos y documentos relacionados de un conjunto de comprobantes, y por separado las cuotas de los que son al crédito, leídos con {@code = ANY(?)} (un solo
+     * texto de SQL para cualquier tamaño) de a {@value #LOTE_DE_HIJOS}. Un comprobante que no se cargó de antemano (nació entre la consulta de ids y la de filas, o es la fila única de
+     * {@code buscar}) se lee por demanda.
      */
     private final class Hijos {
         private final Set<UUID> cargados = new HashSet<>();
+        private final Set<UUID> conCuotas = new HashSet<>();
         private final Map<UUID, Map<Integer, List<Cargo>>> cargos = new HashMap<>();
         private final Map<UUID, List<Item>> items = new HashMap<>();
         private final Map<UUID, List<Anticipo>> anticipos = new HashMap<>();
@@ -262,7 +273,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         List<Anticipo> anticipos(UUID id) { asegurar(id); return anticipos.getOrDefault(id, List.of()); }
         List<GuiaRelacionada> guias(UUID id) { asegurar(id); return guias.getOrDefault(id, List.of()); }
         List<DocumentoRelacionado> otros(UUID id) { asegurar(id); return otros.getOrDefault(id, List.of()); }
-        List<FormaPago.Cuota> cuotas(UUID id) { asegurar(id); return cuotas.getOrDefault(id, List.of()); }
+        /** Solo se pide para un comprobante al crédito: uno al contado no cuesta la consulta. */
+        List<FormaPago.Cuota> cuotas(UUID id) { if (!conCuotas.contains(id)) cargarCuotas(List.of(id)); return cuotas.getOrDefault(id, List.of()); }
 
         private void asegurar(UUID id) { if (!cargados.contains(id)) cargar(List.of(id)); }
 
@@ -272,13 +284,22 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 cargarLote(pendientes.subList(desde, Math.min(pendientes.size(), desde + LOTE_DE_HIJOS)));
         }
 
+        void cargarCuotas(Collection<UUID> ids) {
+            List<UUID> pendientes = ids.stream().filter(i -> !conCuotas.contains(i)).distinct().toList();
+            for (int desde = 0; desde < pendientes.size(); desde += LOTE_DE_HIJOS) {
+                List<UUID> lote = pendientes.subList(desde, Math.min(pendientes.size(), desde + LOTE_DE_HIJOS));
+                consultarHijos("SELECT comprobante_id, monto, vencimiento FROM comprobante_cuota WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden", lote,
+                        r -> cuotas.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new ArrayList<>())
+                                .add(new FormaPago.Cuota(r.getBigDecimal("monto"), r.getDate("vencimiento").toLocalDate())));
+                conCuotas.addAll(lote);
+            }
+        }
+
         private void cargarLote(List<UUID> lote) {
-            String marcas = String.join(",", Collections.nCopies(lote.size(), "?"));
-            Object[] args = lote.toArray();
-            jdbc.query("SELECT comprobante_id, item_orden, codigo, tipo, valor FROM comprobante_cargo WHERE comprobante_id IN (" + marcas + ") ORDER BY comprobante_id, orden",
-                    (RowCallbackHandler) r -> { cargos.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new HashMap<>()).computeIfAbsent(r.getObject("item_orden", Integer.class), k -> new ArrayList<>())
-                            .add(new Cargo(r.getString("codigo"), Cargo.Tipo.valueOf(r.getString("tipo")), sinCeros(r.getBigDecimal("valor")))); }, args);
-            jdbc.query(ITEMS_SQL.formatted(marcas), (RowCallbackHandler) r -> {
+            consultarHijos("SELECT comprobante_id, item_orden, codigo, tipo, valor FROM comprobante_cargo WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden", lote,
+                    r -> cargos.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new HashMap<>()).computeIfAbsent(r.getObject("item_orden", Integer.class), k -> new ArrayList<>())
+                            .add(new Cargo(r.getString("codigo"), Cargo.Tipo.valueOf(r.getString("tipo")), sinCeros(r.getBigDecimal("valor")))));
+            consultarHijos(ITEMS_SQL, lote, r -> {
                 UUID cid = r.getObject("comprobante_id", UUID.class);
                 Map<Integer, List<Cargo>> cargosDe = cargos.getOrDefault(cid, Collections.emptyMap());
                 items.computeIfAbsent(cid, k -> new ArrayList<>()).add(new Item(r.getString("codigo"), r.getString("descripcion"), r.getString("unidad"), r.getBigDecimal("cantidad"),
@@ -291,29 +312,30 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                         CodigoProductoSunat.de(r.getString("codigo_sunat")), r.getString("gtin_tipo") == null ? null : new Gtin(r.getString("gtin_tipo"), r.getString("gtin")),
                         DatosSectorialesJson.deJson(r.getString("hidrobiologico"), Hidrobiologico.class), DatosSectorialesJson.deJson(r.getString("transporte"), TransporteCarga.class),
                         r.getBigDecimal("otros_tributos_tasa") == null ? null : new OtrosTributos(sinCeros(r.getBigDecimal("otros_tributos_tasa"))), r.getString("placa")));
-            }, args);
-            jdbc.query("SELECT comprobante_id, serie, numero, monto, afectacion, fecha_pago FROM comprobante_anticipo WHERE comprobante_id IN (" + marcas + ") ORDER BY comprobante_id, orden",
-                    (RowCallbackHandler) r -> anticipos.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new ArrayList<>())
+            });
+            consultarHijos("SELECT comprobante_id, serie, numero, monto, afectacion, fecha_pago FROM comprobante_anticipo WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden", lote,
+                    r -> anticipos.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new ArrayList<>())
                             .add(new Anticipo(r.getString("serie"), r.getLong("numero"), r.getBigDecimal("monto"), Anticipo.Afectacion.valueOf(r.getString("afectacion")),
-                                    r.getDate("fecha_pago") == null ? null : r.getDate("fecha_pago").toLocalDate())), args);
-            jdbc.query("SELECT comprobante_id, clase, tipo, numero FROM comprobante_documento_relacionado WHERE comprobante_id IN (" + marcas + ") ORDER BY comprobante_id, orden", (RowCallbackHandler) r -> {
+                                    r.getDate("fecha_pago") == null ? null : r.getDate("fecha_pago").toLocalDate())));
+            consultarHijos("SELECT comprobante_id, clase, tipo, numero FROM comprobante_documento_relacionado WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden", lote, r -> {
                 UUID cid = r.getObject("comprobante_id", UUID.class);
                 switch (r.getString("clase")) {
                     case "GUIA" -> guias.computeIfAbsent(cid, k -> new ArrayList<>()).add(new GuiaRelacionada(r.getString("tipo"), r.getString("numero")));
                     case "OTRO" -> otros.computeIfAbsent(cid, k -> new ArrayList<>()).add(new DocumentoRelacionado(r.getString("tipo"), r.getString("numero")));
                     default -> throw new IllegalStateException("Clase de documento relacionado desconocida en comprobante " + cid + ": " + r.getString("clase"));
                 }
-            }, args);
-            jdbc.query("SELECT comprobante_id, monto, vencimiento FROM comprobante_cuota WHERE comprobante_id IN (" + marcas + ") ORDER BY comprobante_id, orden",
-                    (RowCallbackHandler) r -> cuotas.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new ArrayList<>())
-                            .add(new FormaPago.Cuota(r.getBigDecimal("monto"), r.getDate("vencimiento").toLocalDate())), args);
+            });
             cargados.addAll(lote);
+        }
+
+        private void consultarHijos(String sql, List<UUID> lote, RowCallbackHandler fila) {
+            jdbc.query(sql, ps -> ps.setArray(1, ps.getConnection().createArrayOf("uuid", lote.toArray())), fila);
         }
     }
 
     private static final int LOTE_DE_HIJOS = 500;
     private static final String DESDE = "FROM documento d JOIN comprobante c ON c.documento_id = d.id";
-    private static final String ITEMS_SQL = "SELECT comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, isc_base_pvp, icbper, codigo_sunat, gtin_tipo, gtin, hidrobiologico::text AS hidrobiologico, transporte::text AS transporte, otros_tributos_tasa, placa FROM comprobante_item WHERE comprobante_id IN (%s) ORDER BY comprobante_id, orden";
+    private static final String ITEMS_SQL = "SELECT comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, isc_base_pvp, icbper, codigo_sunat, gtin_tipo, gtin, hidrobiologico::text AS hidrobiologico, transporte::text AS transporte, otros_tributos_tasa, placa FROM comprobante_item WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden";
 
     /** Una sola fila (buscar, bloquear): sus hijos se leen aquí mismo, por demanda. */
     private Comprobante mapear(ResultSet rs, int i) throws SQLException { return mapear(rs, new Hijos()); }
@@ -333,7 +355,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 .fechaVencimiento(rs.getDate("fecha_vencimiento") == null ? null : rs.getDate("fecha_vencimiento").toLocalDate())
                 .moneda(rs.getString("moneda"))
                 .tipoOperacion(rs.getString("tipo_operacion"))
-                .formaPago(formaPago(rs, hijos.cuotas(id)))
+                .formaPago(formaPago(rs, () -> hijos.cuotas(id)))
                 .descuentoGlobal(descuento(rs.getString("descuento_global_tipo"), rs.getBigDecimal("descuento_global_valor"), rs.getObject("descuento_global_afecta_base", Boolean.class)))
                 .cargos(cargos.getOrDefault(null, List.of()))
                 .detraccion(detraccion(rs))
@@ -390,10 +412,10 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 rs.getBigDecimal("detraccion_monto"), rs.getString("detraccion_cuenta"), rs.getString("detraccion_medio_pago"));
     }
 
-    private static FormaPago formaPago(ResultSet rs, List<FormaPago.Cuota> cuotas) throws SQLException {
+    private static FormaPago formaPago(ResultSet rs, java.util.function.Supplier<List<FormaPago.Cuota>> cuotas) throws SQLException {
         FormaPago.Tipo tipo = FormaPago.Tipo.valueOf(rs.getString("forma_pago"));
         if (tipo == FormaPago.Tipo.CONTADO) return FormaPago.contado();
-        return FormaPago.credito(rs.getBigDecimal("monto_pendiente"), cuotas);
+        return FormaPago.credito(rs.getBigDecimal("monto_pendiente"), cuotas.get());
     }
 
     /** JSON mínimo para una lista de strings (sin dependencia de Jackson en este módulo). */

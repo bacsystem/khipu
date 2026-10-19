@@ -22,7 +22,9 @@ import pe.factura.adapters.sunat.ZipUtil;
 
 import java.net.URI;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -624,6 +626,74 @@ class FacturaE2ETest {
         stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-3"))));
         ResponseEntity<Map> sinPadron = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
         assertThat(sinPadron.getStatusCode()).as("sin padrón cargado no se rechaza nada: %s", sinPadron.getBody()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    // --- Numeración de la emisión (#9) ----------------------------------------------------------------------------------------------------------------------
+    // SUNAT exige números correlativos: varias emisiones a la vez sobre la misma serie no pueden repetir ni saltarse uno, y un fallo después de asignar el número (aquí, el
+    // almacenamiento) no puede dejar un hueco. El bloqueo de la serie se mantiene a propósito durante todo el trabajo (ver k6/README.md); esto es lo que ese bloqueo garantiza.
+
+    private static final String FACTURA_SIN_ENVIO = FACTURA.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"enviar_automatico\":false,");
+
+    @org.springframework.beans.factory.annotation.Value("${app.storage.fs-root}") String raizDelAlmacenamiento;
+
+    @Test void dieciseisEmisionesALaVezSobreLaMismaSerieNoRepitenNiSaltanUnNumero(WireMockRuntimeInfo wm) throws Exception {
+        String apiKey = provisionarTenant();
+        int n = 16;
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(n);
+        try {
+            java.util.concurrent.CountDownLatch salida = new java.util.concurrent.CountDownLatch(1);
+            List<java.util.concurrent.Future<ResponseEntity<Map>>> pedidos = new java.util.ArrayList<>();
+            for (int i = 0; i < n; i++) pedidos.add(pool.submit(() -> {
+                salida.await();
+                HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+                return http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA_SIN_ENVIO, h), Map.class);
+            }));
+            salida.countDown();
+
+            java.util.TreeSet<Integer> numeros = new java.util.TreeSet<>();
+            for (java.util.concurrent.Future<ResponseEntity<Map>> f : pedidos) {
+                ResponseEntity<Map> r = f.get(120, java.util.concurrent.TimeUnit.SECONDS);
+                assertThat(r.getStatusCode()).as("%s", r.getBody()).isEqualTo(HttpStatus.CREATED);
+                numeros.add((Integer) ((Map<?, ?>) r.getBody().get("datos")).get("numero"));
+            }
+
+            assertThat(numeros).as("16 números distintos y correlativos").hasSize(n).first().isEqualTo(1);
+            assertThat(numeros.last()).isEqualTo(n);
+            assertThat(jdbc.queryForObject("SELECT ultimo_numero FROM serie WHERE codigo = 'F001'", Long.class)).isEqualTo(n);
+            assertThat(jdbc.queryForObject("SELECT count(DISTINCT numero) FROM documento WHERE serie = 'F001'", Integer.class)).isEqualTo(n);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    /**
+     * Si guardar el XML falla después de asignar el número, todo se deshace: la serie no avanza y la siguiente emisión recibe ese mismo número, sin hueco. El fallo se provoca
+     * poniendo un archivo donde el almacenamiento necesita la carpeta de la empresa; el orden de {@code EmitirComprobanteService} (numerar, firmar, guardar) hace que sea después.
+     */
+    @Test void siElAlmacenamientoFallaDespuesDeNumerarElNumeroNoSePierde(WireMockRuntimeInfo wm) throws Exception {
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA_SIN_ENVIO, h), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);   // F001-1
+        UUID tenant = jdbc.queryForObject("SELECT id FROM tenant WHERE ruc = '20100066603'", UUID.class);
+        java.nio.file.Path carpeta = java.nio.file.Path.of(raizDelAlmacenamiento).resolve(tenant.toString());
+        java.nio.file.Path aparte = java.nio.file.Path.of(raizDelAlmacenamiento).resolve(tenant + ".aparte");
+        java.nio.file.Files.move(carpeta, aparte);
+        java.nio.file.Files.writeString(carpeta, "no es una carpeta");
+        try {
+            ResponseEntity<Map> fallida = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA_SIN_ENVIO, h), Map.class);
+
+            assertThat(fallida.getStatusCode().is5xxServerError()).as("%s", fallida.getBody()).isTrue();
+            assertThat(jdbc.queryForObject("SELECT ultimo_numero FROM serie WHERE codigo = 'F001'", Long.class)).as("la serie no avanzó").isEqualTo(1L);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM documento WHERE serie = 'F001'", Integer.class)).as("no quedó un documento a medias").isEqualTo(1);
+        } finally {
+            java.nio.file.Files.delete(carpeta);
+            java.nio.file.Files.move(aparte, carpeta);
+        }
+
+        ResponseEntity<Map> siguiente = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA_SIN_ENVIO, h), Map.class);
+
+        assertThat(siguiente.getStatusCode()).as("%s", siguiente.getBody()).isEqualTo(HttpStatus.CREATED);
+        assertThat(((Map<?, ?>) siguiente.getBody().get("datos")).get("numero")).as("el número del intento fallido se reutiliza: sin hueco").isEqualTo(2);
     }
 
     @Autowired pe.factura.application.port.out.PadronRucRepository padron;
