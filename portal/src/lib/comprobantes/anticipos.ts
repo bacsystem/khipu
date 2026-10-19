@@ -25,8 +25,8 @@ export type Candidato = {
 export type AnticipoForm = { serie: string; numero: number; monto: string; afectacion: Afectacion };
 
 const ACEPTADOS = new Set(["ACEPTADO", "ACEPTADO_CON_OBS"]);
-/** Comprobantes cuyo anticipo todavía cuenta como regularizado: si la final se rechazó, no descontó nada. */
-const NO_CUENTAN = new Set(["RECHAZADO", "INVALIDO", "DESCARTADO", "ANULADO"]);
+/** Las finales que no regularizaron nada: como `JdbcComprobanteRepository.montoRegularizado`, solo las rechazadas o inválidas. Una final aceptada y luego dada de baja sigue contando. */
+const NO_CUENTAN = new Set(["RECHAZADO", "INVALIDO"]);
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
 
@@ -51,10 +51,13 @@ export function candidatosDeAnticipo(lista: Comprobante[], cliente: { numDoc: st
     if (!cliente.numDoc || c.receptor?.num_doc !== cliente.numDoc) continue;
     const facturado = { gravado: c.totales.gravado, exonerado: c.totales.exonerado, inafecto: c.totales.inafecto };
     const ya = regularizado.get(`${c.serie}-${c.numero}`) ?? { gravado: 0, exonerado: 0, inafecto: 0 };
+    // El backend suma lo regularizado de **todas** las afectaciones y lo compara con lo facturado en la que se descuenta (`validarFacturaDeAnticipo`): se espeja esa regla, aunque sea
+    // más estricta que restar por afectación, para no ofrecer un monto que la emisión rechazaría.
+    const yaTotal = ya.gravado + ya.exonerado + ya.inafecto;
     const disponible = {
-      gravado: redondear(Math.max(0, facturado.gravado - ya.gravado)),
-      exonerado: redondear(Math.max(0, facturado.exonerado - ya.exonerado)),
-      inafecto: redondear(Math.max(0, facturado.inafecto - ya.inafecto)),
+      gravado: redondear(Math.max(0, facturado.gravado - yaTotal)),
+      exonerado: redondear(Math.max(0, facturado.exonerado - yaTotal)),
+      inafecto: redondear(Math.max(0, facturado.inafecto - yaTotal)),
     };
     if (disponible.gravado + disponible.exonerado + disponible.inafecto <= 0) continue;
     candidatos.push({ etiqueta: `${c.serie}-${c.numero}`, serie: c.serie, numero: c.numero, fecha: c.fecha_emision, moneda: c.moneda, facturado, regularizado: ya, disponible });
@@ -80,8 +83,9 @@ export function errorDeAnticipos(elegidos: AnticipoForm[], candidatos: Candidato
     const monto = a.monto.trim();
     if (!/^\d+(\.\d{1,2})?$/.test(monto) || Number(monto) <= 0) return `El monto a descontar del anticipo ${etiqueta} es un valor sin IGV mayor que cero, con hasta 2 decimales.`;
     const c = candidatos.find((x) => x.serie === a.serie && x.numero === a.numero);
+    const yaTotal = c ? c.regularizado.gravado + c.regularizado.exonerado + c.regularizado.inafecto : 0;
     if (c && Number(monto) > c.disponible[a.afectacion] + 0.005)
-      return `El anticipo ${etiqueta} solo tiene ${c.disponible[a.afectacion].toFixed(2)} por descontar en ${a.afectacion}${c.regularizado[a.afectacion] > 0 ? ` (ya se regularizaron ${c.regularizado[a.afectacion].toFixed(2)})` : ""}.`;
+      return `El anticipo ${etiqueta} solo tiene ${c.disponible[a.afectacion].toFixed(2)} por descontar en ${a.afectacion}${yaTotal > 0 ? ` (ya se regularizaron ${yaTotal.toFixed(2)})` : ""}.`;
   }
   const claves = elegidos.map((a) => `${a.serie}-${a.numero}`);
   if (new Set(claves).size < claves.length) return "El mismo anticipo aparece más de una vez (3215).";
