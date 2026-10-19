@@ -32,7 +32,9 @@ class JdbcVigiladoRepositoryTest extends PersistenciaTestBase {
         UUID a = tenantDePrueba(), b = tenantDePrueba();
         documento(a, "ERROR_ENVIO", AHORA.minusSeconds(31 * 60));
         documento(b, "ERROR_ENVIO", AHORA.minusSeconds(3 * 3600));
-        documento(a, "ERROR_ENVIO", AHORA.minusSeconds(29 * 60));
+        // Creado hace 29 minutos: todavía no lleva 30 sin poder enviarse.
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, created_at, updated_at) VALUES (?, ?, '01', 'F001', ?, ?, 'ERROR_ENVIO', 'x', ?, ?)",
+                UUID.randomUUID(), a, NUMERO.getAndIncrement(), java.sql.Date.valueOf(LocalDate.of(2026, 10, 15)), Timestamp.from(AHORA.minusSeconds(29 * 60)), Timestamp.from(AHORA.minusSeconds(29 * 60)));
         documento(a, "FIRMADO", AHORA.minusSeconds(3 * 3600));
         documento(b, "ACEPTADO", AHORA.minusSeconds(3 * 3600));
         // Un comprobante viejo cuyo último reintento fue hace un minuto sigue llevando horas fallando: lo que cuenta es cuándo se creó.

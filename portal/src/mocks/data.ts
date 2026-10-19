@@ -1,3 +1,4 @@
+import type { EntregaWebhook, Webhook } from "@/lib/api/webhooks";
 import { hoyLima, inicioDelProximoCiclo, sumarDias } from "@/lib/formato";
 
 function base64url(obj: unknown): string {
@@ -312,6 +313,9 @@ export const db = {
   seriesPorEmpresa: new Map<string, Serie[]>(),
   establecimientosPorEmpresa: new Map<string, Establecimiento[]>(),
   apiKeysPorEmpresa: new Map<string, ApiKey[]>(),
+  /** Los endpoints de webhooks de cada empresa (#19) y las entregas de cada uno, por id de endpoint. */
+  webhooksPorEmpresa: new Map<string, Webhook[]>(),
+  entregasPorWebhook: new Map<string, EntregaWebhook[]>(),
   facturasPorEmpresa: new Map<string, Comprobante[]>(),
   bajas: new Map<string, Baja>(),
   correos: [] as Array<{ comprobante: string; email: string; mensaje: string | null }>,
@@ -350,6 +354,8 @@ export function resetDb() {
   db.seriesPorEmpresa.clear();
   db.establecimientosPorEmpresa.clear();
   db.apiKeysPorEmpresa.clear();
+  db.webhooksPorEmpresa.clear();
+  db.entregasPorWebhook.clear();
   db.facturasPorEmpresa.clear();
   db.bajas.clear();
   db.correos.length = 0;
@@ -585,6 +591,18 @@ export function resetDb() {
   db.apiKeysPorEmpresa.set(empresa.id, [
     { id: "k-activa", prefijo: "fk_demo001", activa: true, creada_en: "2026-09-01T15:00:00Z" },
     { id: "k-revocada", prefijo: "fk_demo000", activa: false, creada_en: "2026-08-01T15:00:00Z", revocada_en: "2026-08-20T12:00:00Z" },
+  ]);
+  // #19: un endpoint activo con entregas en los tres estados y uno que khipu pausó por entregas fallidas seguidas.
+  db.webhooksPorEmpresa.set(empresa.id, [
+    { id: "w-erp", url: "https://erp.demo.pe/khipu/webhook", descripcion: "ERP producción", eventos: ["comprobante.aceptado", "comprobante.rechazado", "comprobante.aceptado_con_obs", "comprobante.error_envio", "comprobante.fuera_de_plazo", "comprobante.anulado", "comprobante.descartado"], activo: true, fallos_consecutivos: 0, creado_en: "2026-09-10T15:00:00Z" },
+    { id: "w-viejo", url: "https://viejo.demo.pe/hook", descripcion: null, eventos: ["comprobante.aceptado"], activo: false, pausado_motivo: "Se apagó solo tras 10 entregas fallidas seguidas; la última: El servidor respondió HTTP 502", fallos_consecutivos: 10, creado_en: "2026-08-15T15:00:00Z" },
+    // El de la prueba que lo reactiva: ninguna otra lo toca, porque las specs comparten este mock en paralelo.
+    { id: "w-viejo-2", url: "https://viejo2.demo.pe/hook", descripcion: "Sistema anterior", eventos: ["comprobante.aceptado"], activo: false, pausado_motivo: "Se apagó solo tras 10 entregas fallidas seguidas; la última: No se pudo conectar: Connection refused", fallos_consecutivos: 10, creado_en: "2026-08-16T15:00:00Z" },
+  ]);
+  db.entregasPorWebhook.set("w-erp", [
+    { id: "e-1", evento: "comprobante.aceptado", comprobante_id: "f-aceptada", estado: "EXITOSA", intentos: 1, ultimo_http: 200, ultimo_intento_en: "2026-09-12T16:00:05Z", entregada_en: "2026-09-12T16:00:05Z", creada_en: "2026-09-12T16:00:03Z" },
+    { id: "e-2", evento: "comprobante.rechazado", comprobante_id: "f-rechazada", estado: "FALLIDA", intentos: 8, ultimo_http: 503, ultimo_error: "El servidor respondió HTTP 503", ultimo_intento_en: "2026-09-13T14:00:00Z", creada_en: "2026-09-12T16:10:00Z" },
+    { id: "e-3", evento: "comprobante.aceptado", comprobante_id: "f-aceptada", estado: "PENDIENTE", intentos: 2, siguiente_intento: "2026-09-14T10:15:00Z", ultimo_http: 500, ultimo_error: "El servidor respondió HTTP 500", ultimo_intento_en: "2026-09-14T10:00:00Z", creada_en: "2026-09-14T09:58:00Z" },
   ]);
   db.facturasPorEmpresa.set(empresa.id, [
     {

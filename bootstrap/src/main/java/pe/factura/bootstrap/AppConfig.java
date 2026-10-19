@@ -33,6 +33,7 @@ import pe.factura.adapters.crypto.JwtTokenEmisor;
 import pe.factura.adapters.crypto.TotpRfc6238;
 import pe.factura.adapters.alertas.CorreoDeAlertas;
 import pe.factura.adapters.alertas.WebhookDeAlertas;
+import pe.factura.adapters.webhook.HttpDestinoDeWebhook;
 import pe.factura.adapters.mail.LogCorreoSender;
 import pe.factura.adapters.mail.SmtpCorreoSender;
 import pe.factura.adapters.persistence.*;
@@ -56,6 +57,7 @@ import pe.factura.adapters.sunat.SunatUrls;
 import pe.factura.adapters.sunat.SoapConsultaGateway;
 import pe.factura.adapters.sunat.SondeoDeSunatHttp;
 import pe.factura.adapters.scheduler.RecuperarCdrWorker;
+import pe.factura.adapters.scheduler.EntregarWebhooksWorker;
 import pe.factura.adapters.scheduler.VigilarOperacionWorker;
 import pe.factura.adapters.sunat.XmlCdrParser;
 import pe.factura.adapters.pdf.FlyingSaucerPdfGenerator;
@@ -574,6 +576,21 @@ public class AppConfig {
         return new VigilarOperacionService(monitor, avisos, vigilado, correo, canales, clock, umbrales);
     }
     @Bean VigilarOperacionWorker vigilarOperacionWorker(VigilarOperacionUseCase vigilante) { return new VigilarOperacionWorker(vigilante); }
+    // #19: webhooks de cambio de estado. WEBHOOKS_PERMITIR_HTTP y WEBHOOKS_PERMITIR_REDES_PRIVADAS son solo para desarrollo y pruebas (un receptor en localhost): en producción
+    // quedan en falso y los destinos tienen que ser https y públicos.
+    @Bean WebhookRepository webhookRepository(JdbcTemplate jdbc) { return new JdbcWebhookRepository(jdbc); }
+    @Bean DestinoDeWebhook destinoDeWebhook(@Value("${app.webhooks.permitir-redes-privadas:false}") boolean permitirRedesPrivadas) {
+        if (permitirRedesPrivadas) LoggerFactory.getLogger(AppConfig.class).warn("WEBHOOKS_PERMITIR_REDES_PRIVADAS=true: los webhooks pueden apuntar a la red interna. Solo para desarrollo.");
+        return new HttpDestinoDeWebhook(permitirRedesPrivadas);
+    }
+    @Bean GestionarWebhooksUseCase gestionarWebhooks(WebhookRepository webhooks, DestinoDeWebhook destino, SecretCipher cifrador, UnitOfWork uow, Clock clock,
+                                                     @Value("${app.webhooks.permitir-http:false}") boolean permitirHttp) {
+        return new GestionarWebhooksService(webhooks, destino, cifrador, uow, clock, permitirHttp);
+    }
+    @Bean EntregarWebhooksUseCase entregarWebhooks(WebhookRepository webhooks, DestinoDeWebhook destino, SecretCipher cifrador, UnitOfWork uow, Clock clock, AvisosRepository avisos, CorreoSender correo) {
+        return new EntregarWebhooksService(webhooks, destino, cifrador, uow, clock, avisos, correo);
+    }
+    @Bean EntregarWebhooksWorker entregarWebhooksWorker(EntregarWebhooksUseCase entregas) { return new EntregarWebhooksWorker(entregas); }
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
     // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.
     @Bean FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(JdbcApiKeyRepository k, AppProperties p, SuspensionRepository suspensiones,

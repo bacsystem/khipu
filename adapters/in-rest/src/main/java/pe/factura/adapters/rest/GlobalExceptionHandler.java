@@ -46,6 +46,8 @@ public class GlobalExceptionHandler {
             // Cola de errores (#196): el pedido es válido pero el estado del comprobante no lo permite, o cambió en el medio (la guía de errores ya documentaba ESTADO_CONFLICTO como 409).
             // SUNAT_YA_LO_TIENE: antes de descartar se le preguntó a SUNAT y tenía el comprobante (se aplicó su CDR).
             case "ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "SUNAT_YA_LO_TIENE" -> HttpStatus.CONFLICT;
+            // Webhooks (#19): el pedido es válido pero el estado no lo permite (tope de endpoints, endpoint apagado, entrega todavía pendiente).
+            case "WEBHOOK_LIMITE", "WEBHOOK_PAUSADO", "ENTREGA_NO_REENVIABLE" -> HttpStatus.CONFLICT;
             // No se pudo preguntarle a SUNAT si ya tiene el comprobante: no es culpa del cliente, y se puede reintentar más tarde.
             // PADRON_NO_CARGADO (#361): el padrón de RUC todavía no se cargó, así que no se puede decir si un RUC existe; vuelve a estar disponible cuando corra la primera carga.
             case "SUNAT_NO_DISPONIBLE", "PADRON_NO_CARGADO" -> HttpStatus.SERVICE_UNAVAILABLE;
