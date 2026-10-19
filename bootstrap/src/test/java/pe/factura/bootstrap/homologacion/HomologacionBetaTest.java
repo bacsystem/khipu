@@ -59,7 +59,7 @@ class HomologacionBetaTest {
     static final String RUC = env("HOMOLOGACION_RUC", "20100066603");
     static final String SERIE = env("HOMOLOGACION_SERIE", serieUnica());
     /** Serie del anexo 0002 (escenario 24): misma base que SERIE con la segunda letra cambiada, única por ejecución. */
-    static final String SERIE_ANEXO = "FA" + SERIE.substring(2);
+    static final String SERIE_ANEXO = (SERIE.charAt(1) == 'A' ? "FB" : "FA") + SERIE.substring(2);
     static final Path SALIDA = Path.of(System.getProperty("homologacion.salida", "build/homologacion"));
 
     @Autowired TestRestTemplate http;

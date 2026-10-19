@@ -636,6 +636,20 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
     expect(emisiones(fetch)[0]).toMatchObject({ serie: "B001", tipo_operacion: "1001", detraccion: { codigo_bien_servicio: "022" } });
   });
 
+  it("la boleta también lleva percepción: 2001 con el régimen, sin forma de pago, y el pie suma el monto", async () => {
+    const fetch = stubConCalculo({ gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 }, undefined, { percepcion: { regimen: "51", descripcion: "Percepción venta interna - Tasa 2%", porcentaje: 2, base: 118, monto: 2.36, total_con_percepcion: 120.36 } });
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    linea("Mercadería", "118");
+    expect(screen.queryByLabelText("Forma de pago")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    await waitFor(() => expect(screen.getByTestId("percepcion-pie")).toHaveTextContent("Percepción S/ 2.36 · Total a cobrar S/ 120.36"));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0]).toMatchObject({ serie: "B001", tipo_operacion: "2001", percepcion: { regimen: "51" } });
+    expect(emisiones(fetch)[0]).not.toHaveProperty("forma_pago");
+  });
+
   it("la percepción pide el régimen, fija la operación 2001 y el pie muestra su monto y el total a cobrar", async () => {
     const fetch = stubConCalculo(TOTALES, undefined, CON_PERCEPCION);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
