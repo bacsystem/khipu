@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * El monitor global de emisión (#195): lo reciente de todas las empresas, por el índice de `created_at`. Las horas se agrupan en UTC de forma explícita (no según la zona
  * de la sesión de la base): Lima va 5 horas atrás sin horario de verano, así que sus horas caen en las mismas fronteras. La cola del outbox usa la misma condición de
- * «vencido» que el trabajo que la vacía ({@code JdbcOutboxRepository.tomarVencidas}): ya tocaba y nadie la tiene tomada.
+ * «vencido» que el trabajo que la vacía ({@code JdbcOutboxRepository.tomarVencidas}): ya tocaba y nadie la tiene tomada; las filas de una empresa con las credenciales SOL rechazadas no cuentan como vencidas porque ese trabajo las deja esperar a propósito (lo avisa CREDENCIALES_SOL).
  */
 @RequiredArgsConstructor
 public class JdbcMonitorDeEmisionRepository implements MonitorDeEmisionRepository {
@@ -31,10 +31,10 @@ public class JdbcMonitorDeEmisionRepository implements MonitorDeEmisionRepositor
         Timestamp t = Timestamp.from(ahora);
         return jdbc.queryForObject("""
                 SELECT count(*) AS pendientes,
-                       count(*) FILTER (WHERE siguiente_intento <= ? AND (locked_until IS NULL OR locked_until < ?)) AS vencidos,
-                       min(created_at) AS mas_viejo,
-                       min(siguiente_intento) FILTER (WHERE siguiente_intento <= ? AND (locked_until IS NULL OR locked_until < ?)) AS vencido_desde
-                FROM outbox
+                       count(*) FILTER (WHERE o.siguiente_intento <= ? AND (o.locked_until IS NULL OR o.locked_until < ?) AND t.sol_rechazadas_en IS NULL) AS vencidos,
+                       min(o.created_at) AS mas_viejo,
+                       min(o.siguiente_intento) FILTER (WHERE o.siguiente_intento <= ? AND (o.locked_until IS NULL OR o.locked_until < ?) AND t.sol_rechazadas_en IS NULL) AS vencido_desde
+                FROM outbox o LEFT JOIN tenant t ON t.id = o.tenant_id
                 """, (rs, i) -> new Cola(rs.getLong("pendientes"), rs.getLong("vencidos"), instante(rs.getTimestamp("mas_viejo")), instante(rs.getTimestamp("vencido_desde"))), t, t, t, t);
     }
 

@@ -132,6 +132,9 @@ app:
   # antes). Vacío = hora real. Con valor la app no arranca si hay empresas en PRODUCCION, no opera con las que pasen a serlo y deja un WARN al arrancar.
   # Qué se mueve y qué no: deploy/README.md §10.
   reloj-desplazamiento: ${RELOJ_DESPLAZAMIENTO:}
+# Los trabajos programados (envío a SUNAT, avisos, vigilante, webhooks) comparten estos hilos. Con uno solo (el valor por defecto de Spring), una llamada lenta
+# —un webhook o un SMTP que no responden, la descarga del padrón— frenaba el resto, incluido el envío a SUNAT. Cada trabajo sigue sin solaparse consigo mismo.
+spring.task.scheduling.pool.size: ${SCHEDULER_HILOS:4}
 spring.mail:
   host: ${MAIL_HOST:}
   port: ${MAIL_PORT:587}
@@ -141,3 +144,7 @@ spring.mail:
   # MAIL_SMTP_AUTH=false. Por defecto sigue siendo true, como en producción.
   properties.mail.smtp.auth: ${MAIL_SMTP_AUTH:true}
   properties.mail.smtp.starttls.enable: true
+  # Sin estos tiempos un SMTP que no responde cuelga al hilo que manda el correo indefinidamente (JavaMail no trae tope).
+  properties.mail.smtp.connectiontimeout: ${MAIL_TIMEOUT_MS:10000}
+  properties.mail.smtp.timeout: ${MAIL_TIMEOUT_MS:10000}
+  properties.mail.smtp.writetimeout: ${MAIL_TIMEOUT_MS:10000}

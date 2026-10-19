@@ -106,11 +106,6 @@ public class AppConfig {
     }
 
     /**
-     * #362 B14: cuánto puede llevar un resumen diario o una baja con ticket sin respuesta de SUNAT antes de que el monitor del backoffice alerte
-     * ({@code app.monitor.resumen-sin-respuesta-horas}, 6 por defecto). Entre 1 hora y 7 días: con 0 alertaría de todo lo que está en curso, y con más ya no es una alerta.
-     * Un valor fuera de rango aborta el arranque.
-     */
-    /**
      * #341: los umbrales del vigilante de la operación (`app.alertas.*`). Un valor fuera de rango aborta el arranque: con un 0 en los minutos todo comprobante en error alertaría
      * al instante, y un intervalo de repetición enorme dejaría un problema en silencio. {@code respaldoHoras} 0 apaga la alerta del respaldo.
      */
@@ -127,6 +122,11 @@ public class AppConfig {
         if (ventana < 1 || ventana > 168) throw new IllegalStateException("ALERTAS_FUERA_DE_PLAZO_HORAS debe estar entre 1 y 168 (es " + ventana + ")");
         return new VigilarOperacionService.Umbrales(Duration.ofHours(repetir), Duration.ofMinutes(minutos), cantidad, resumenesSinRespuesta, Duration.ofHours(respaldo), Duration.ofHours(ventana));
     }
+    /**
+     * #362 B14: cuánto puede llevar un resumen diario o una baja con ticket sin respuesta de SUNAT antes de que el monitor del backoffice alerte
+     * ({@code app.monitor.resumen-sin-respuesta-horas}, 6 por defecto). Entre 1 hora y 7 días: con 0 alertaría de todo lo que está en curso, y con más ya no es una alerta.
+     * Un valor fuera de rango aborta el arranque.
+     */
     static Duration umbralDeResumenesSinRespuesta(AppProperties.Monitor monitor) {
         int horas = monitor == null ? AppProperties.Monitor.HORAS_POR_DEFECTO : monitor.resumenSinRespuestaHoras();
         if (horas < 1 || horas > 168)
@@ -569,6 +569,8 @@ public class AppConfig {
         // El monitor y el vigilante miden los resúmenes sin respuesta con el mismo umbral.
         VigilarOperacionService.Umbrales umbrales = umbralesDeAlertas(a, umbralDeResumenesSinRespuesta(p.monitor()));
         List<CanalDeAlertas> canales = List.of(new CorreoDeAlertas(correo, a == null ? null : a.email()), new WebhookDeAlertas(a == null ? null : a.webhookUrl()));
+        if (canales.stream().noneMatch(CanalDeAlertas::configurado))
+            LoggerFactory.getLogger(AppConfig.class).warn("Alertas al operador sin canal (ALERTAS_EMAIL / ALERTAS_WEBHOOK_URL sin configurar): solo saldrán por el log. Ver deploy/README.md §11.");
         return new VigilarOperacionService(monitor, avisos, vigilado, correo, canales, clock, umbrales);
     }
     @Bean VigilarOperacionWorker vigilarOperacionWorker(VigilarOperacionUseCase vigilante) { return new VigilarOperacionWorker(vigilante); }

@@ -23,5 +23,12 @@ public interface VigiladoRepository {
 
     Map<String, EstadoAlerta> alertas();
 
-    void guardarAlerta(String clave, EstadoAlerta estado);
+    /**
+     * Pasa la alerta de {@code previa} (nulo si no estaba registrada) a {@code nueva} solo si sigue en ese estado: con varias instancias del backend vigilando, una sola gana
+     * y es la que avisa. {@code false}: otra instancia ya la cambió.
+     */
+    boolean reclamarAlerta(String clave, EstadoAlerta previa, EstadoAlerta nueva);
+
+    /** Deshace {@link #reclamarAlerta} cuando el aviso no se pudo entregar: vuelve de {@code reclamada} a {@code previa} (nulo: la borra), si nadie más la tocó. */
+    void restaurarAlerta(String clave, EstadoAlerta reclamada, EstadoAlerta previa);
 }

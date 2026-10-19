@@ -172,6 +172,20 @@ class JdbcMonitorDeEmisionRepositoryTest extends PersistenciaTestBase {
         assertThat(c.vencidoDesde()).isEqualTo(hace(Duration.ofMinutes(30)));
     }
 
+    /** El trabajo que vacía la cola deja esperar a propósito los envíos de una empresa con las credenciales SOL rechazadas (JdbcOutboxRepository.tomarVencidas): no son «el outbox no avanza». */
+    @Test void losEnviosDeUnaEmpresaConSolRechazadaSiguenPendientesPeroNoVencidos() {
+        UUID sana = tenantDePrueba(), conSolMala = tenantDePrueba();
+        jdbc.update("UPDATE tenant SET sol_rechazadas_en = now() WHERE id = ?", conSolMala);
+        outbox(conSolMala, hace(Duration.ofHours(5)), hace(Duration.ofHours(4)), null);
+        outbox(sana, hace(Duration.ofHours(1)), hace(Duration.ofMinutes(20)), null);
+
+        Cola c = repo.cola(AHORA);
+
+        assertThat(c.pendientes()).isEqualTo(2);
+        assertThat(c.vencidos()).isEqualTo(1);
+        assertThat(c.vencidoDesde()).isEqualTo(hace(Duration.ofMinutes(20)));
+    }
+
     @Test void loQueEstaEnProcesoOEsperaSuReintentoNoEstaVencido() {
         UUID t = tenantDePrueba();
         outbox(t, hace(Duration.ofHours(1)), hace(Duration.ofMinutes(5)), AHORA.plus(Duration.ofMinutes(2)));

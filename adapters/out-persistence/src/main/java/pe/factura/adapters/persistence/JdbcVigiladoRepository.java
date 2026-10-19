@@ -11,15 +11,16 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Lo que lee el vigilante de la operación (#341): comprobantes con el envío fallando o fuera de plazo (por el índice parcial de estado y {@code updated_at}), los latidos que
+ * Lo que lee el vigilante de la operación (#341): comprobantes con el envío fallando o fuera de plazo (por el índice parcial de los estados con problema), los latidos que
  * anotan los procesos externos y el registro de las alertas activas.
  */
 @RequiredArgsConstructor
 public class JdbcVigiladoRepository implements VigiladoRepository {
     private final JdbcTemplate jdbc;
 
+    /** Se mide desde que se creó el comprobante y no desde su último cambio: cada reintento fallido vuelve a guardarlo y movería {@code updated_at}, así que la cuenta parpadearía. */
     @Override public long enErrorDeEnvioDesde(Instant antesDe) {
-        return jdbc.queryForObject("SELECT count(*) FROM documento WHERE estado = 'ERROR_ENVIO' AND updated_at < ?", Long.class, Timestamp.from(antesDe));
+        return jdbc.queryForObject("SELECT count(*) FROM documento WHERE estado = 'ERROR_ENVIO' AND created_at < ?", Long.class, Timestamp.from(antesDe));
     }
 
     @Override public long fueraDePlazoDesde(Instant desde) {
@@ -37,10 +38,20 @@ public class JdbcVigiladoRepository implements VigiladoRepository {
         return alertas;
     }
 
-    @Override public void guardarAlerta(String clave, EstadoAlerta estado) {
-        jdbc.update("""
-                INSERT INTO alerta_operador (clave, activa, desde, ultimo_envio) VALUES (?, ?, ?, ?)
-                ON CONFLICT (clave) DO UPDATE SET activa = EXCLUDED.activa, desde = EXCLUDED.desde, ultimo_envio = EXCLUDED.ultimo_envio
-                """, clave, estado.activa(), Timestamp.from(estado.desde()), Timestamp.from(estado.ultimoEnvio()));
+    @Override public boolean reclamarAlerta(String clave, EstadoAlerta previa, EstadoAlerta nueva) {
+        if (previa == null)
+            return jdbc.update("INSERT INTO alerta_operador (clave, activa, desde, ultimo_envio) VALUES (?, ?, ?, ?) ON CONFLICT (clave) DO NOTHING",
+                    clave, nueva.activa(), Timestamp.from(nueva.desde()), Timestamp.from(nueva.ultimoEnvio())) == 1;
+        return jdbc.update("UPDATE alerta_operador SET activa = ?, desde = ?, ultimo_envio = ? WHERE clave = ? AND activa = ? AND ultimo_envio = ?",
+                nueva.activa(), Timestamp.from(nueva.desde()), Timestamp.from(nueva.ultimoEnvio()), clave, previa.activa(), Timestamp.from(previa.ultimoEnvio())) == 1;
+    }
+
+    @Override public void restaurarAlerta(String clave, EstadoAlerta reclamada, EstadoAlerta previa) {
+        if (previa == null) {
+            jdbc.update("DELETE FROM alerta_operador WHERE clave = ? AND ultimo_envio = ?", clave, Timestamp.from(reclamada.ultimoEnvio()));
+            return;
+        }
+        jdbc.update("UPDATE alerta_operador SET activa = ?, desde = ?, ultimo_envio = ? WHERE clave = ? AND ultimo_envio = ?",
+                previa.activa(), Timestamp.from(previa.desde()), Timestamp.from(previa.ultimoEnvio()), clave, Timestamp.from(reclamada.ultimoEnvio()));
     }
 }
