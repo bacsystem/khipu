@@ -25,6 +25,8 @@ import {
 import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
+import { sePuedeDuplicar } from "@/lib/comprobantes/duplicar";
+import { DuplicarButton } from "./duplicar-button";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "./estado-badge";
 import { CONTROL_FILTRO } from "@/lib/estilos";
 
@@ -340,6 +342,7 @@ export function ComprobantesTable({
                           <FileCheck2Icon className="size-3.5" />
                         </a>
                       ) : null}
+                      {sePuedeDuplicar(c) ? <DuplicarButton id={c.id} numero={numeroCompleto} compacto /> : null}
                     </div>
                   </TableCell>
                 </TableRow>

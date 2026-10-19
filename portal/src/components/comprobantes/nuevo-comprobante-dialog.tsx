@@ -12,7 +12,9 @@ import { GrupoBotones } from "@/components/ui/grupo-botones";
 import { apiRequest } from "@/lib/api/browser";
 import type { MiCuenta } from "@/lib/api/cuenta";
 import type { EmpresaDetalle } from "@/lib/api/empresas";
+import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
+import { alPedirDuplicado, type Plantilla, plantillaDesde } from "@/lib/comprobantes/duplicar";
 import { faltaParaEmitir, type Faltante } from "@/lib/comprobantes/listo-para-emitir";
 import { TASA_GENERAL, TASA_PADRON } from "@/lib/comprobantes/totales";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
@@ -83,6 +85,31 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   // Mientras el usuario no elige (`null`), el que la empresa puede emitir (#286, `tipoInicial`). Cada apertura vuelve a ese: como las series, que se
   // recargan, la elección de la vez anterior pudo ser con otra empresa.
   const [tipoElegido, setTipo] = useState<TipoEmitible | null>(null);
+  // #323: «Duplicar» (en la tabla y en la ficha) pide abrir este diálogo con la copia de un comprobante. `copias` cambia la `key` del formulario en cada copia.
+  const [plantilla, setPlantilla] = useState<Plantilla | null>(null);
+  const [copias, setCopias] = useState(0);
+  const [falloLaCopia, setFalloLaCopia] = useState(false);
+  useEffect(
+    () =>
+      alPedirDuplicado((id) => {
+        setFalloLaCopia(false);
+        apiRequest<Comprobante>(`/api/proxy/facturas/${id}`, { method: "GET" })
+          .then((res) => {
+            const copia = res.estado === "exito" && res.datos ? plantillaDesde(res.datos) : null;
+            setFalloLaCopia(copia === null);
+            setPlantilla(copia);
+            setTipo(copia?.tipo ?? null);
+            setCopias((n) => n + 1);
+            setAbierto(true);
+          })
+          .catch(() => {
+            setFalloLaCopia(true);
+            setPlantilla(null);
+            setAbierto(true);
+          });
+      }),
+    [],
+  );
 
   const series = useRecursoDelDialogo<Serie[]>(abierto, "/api/proxy/series");
   const tipo = tipoElegido ?? tipoInicial(series.dato ?? []);
@@ -113,7 +140,12 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
     <Dialog
       open={abierto}
       onOpenChange={(a) => {
-        if (a) setTipo(null);
+        // Abrir a mano es empezar de cero: la copia solo vive hasta cerrar.
+        if (a && !abierto) {
+          setTipo(null);
+          setPlantilla(null);
+          setFalloLaCopia(false);
+        }
         setAbierto(a);
       }}
     >
@@ -208,6 +240,13 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                 </Alerta>
               </div>
             ) : null}
+            {falloLaCopia ? (
+              <div className="shrink-0 px-5 pt-4">
+                <Alerta tono="aviso" titulo="No se pudo copiar el comprobante">
+                  Puede ser un problema pasajero de conexión, o el comprobante no se puede duplicar (una nota no se copia). Puedes emitir uno nuevo desde cero.
+                </Alerta>
+              </div>
+            ) : null}
             {/* #20: factura o boleta. Las dos se emiten igual; cambian las series que se ofrecen y lo que se pide del comprador. */}
             <div className="shrink-0 px-5 pt-4">
               <GrupoBotones
@@ -221,7 +260,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
               />
             </div>
             {/* `key`: cambiar de tipo es empezar otro comprobante, con su serie y su comprador; lo cargado del otro no aplica. */}
-            <NuevoComprobanteForm key={tipo} tipo={tipo} series={series.dato} tasaIgv={tasaIgv} cuentaDetracciones={empresa.dato?.cuenta_detracciones ?? null} onEmitido={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
+            <NuevoComprobanteForm key={`${tipo}-${copias}`} tipo={tipo} plantilla={plantilla?.tipo === tipo ? plantilla : null} series={series.dato} tasaIgv={tasaIgv} cuentaDetracciones={empresa.dato?.cuenta_detracciones ?? null} onEmitido={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
           </>
         ) : series.error ? (
           <div className="flex flex-col gap-3 px-5 py-4">

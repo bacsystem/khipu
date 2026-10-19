@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { pedirDuplicado } from "@/lib/comprobantes/duplicar";
 import { NuevoComprobanteDialog } from "./nuevo-comprobante-dialog";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
@@ -371,5 +372,65 @@ describe("NuevoComprobanteDialog", () => {
     await waitFor(() => expect(screen.getByText(/Homologación/)).toBeInTheDocument());
 
     expect(screen.queryByText("SUNAT rechazó las credenciales SOL de esta empresa")).not.toBeInTheDocument();
+  });
+});
+
+describe("NuevoComprobanteDialog — duplicar (#323)", () => {
+  const FACTURA = {
+    id: "f-1", tipo: "01", serie: "F001", numero: 7, fecha_emision: "2026-09-02", moneda: "USD", tipo_operacion: "0101",
+    receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CLIENTE SAC", direccion: "Av. Prueba 123" },
+    items: [{ codigo: null, descripcion: "Soporte mensual", unidad: "ZZ", cantidad: 3, precio_unitario: 59, tipo_afectacion_igv: "10" }],
+    estado_documento: "ACEPTADO",
+  };
+  const SERIES_FB = [
+    { tipo: "01", serie: "F001", ultimo_numero: 7, activa: true, establecimiento: "0000" },
+    { tipo: "03", serie: "B001", ultimo_numero: 2, activa: true, establecimiento: "0000" },
+  ];
+
+  it("el pedido de duplicar abre el diálogo con el cliente, la moneda y las líneas de la copia", async () => {
+    stubFetch((url) => {
+      if (url.includes("/facturas/f-1")) return sobre(FACTURA);
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("f-1");
+
+    await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue("20554198211"));
+    expect(screen.getByLabelText("Razón social")).toHaveValue("CLIENTE SAC");
+    expect(screen.getByLabelText("Moneda")).toHaveValue("USD");
+    expect(screen.getByLabelText("Descripción")).toHaveValue("Soporte mensual");
+    expect(screen.getByLabelText("Fecha de emisión")).toHaveValue(new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }));
+  });
+
+  it("duplicar una boleta abre la pestaña Boleta, y abrir a mano después empieza de cero", async () => {
+    stubFetch((url) => {
+      if (url.includes("/facturas/b-1")) return sobre({ ...FACTURA, id: "b-1", tipo: "03", serie: "B001", receptor: { tipo_doc: "1", num_doc: "44781209", razon_social: "MIGUEL", direccion: null } });
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("b-1");
+    await waitFor(() => expect(screen.getByLabelText("Número de documento")).toHaveValue("44781209"));
+    expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
+
+    // Cerrar y abrir con el botón es un comprobante nuevo, no la copia.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByLabelText("Número de documento")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+    await waitFor(() => expect(screen.getByLabelText("Serie")).toBeInTheDocument());
+    expect(screen.getByLabelText("RUC")).toHaveValue("");
+  });
+
+  it("si no se puede leer el comprobante a copiar, abre el diálogo con un aviso y sin copia", async () => {
+    stubFetch((url) => {
+      if (url.includes("/facturas/f-9")) return sobre(null, 404);
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("f-9");
+    expect(await screen.findByText("No se pudo copiar el comprobante")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue(""));
   });
 });

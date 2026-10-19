@@ -202,6 +202,33 @@ test("la ficha consulta la validez del comprobante en SUNAT (#315)", async ({ pa
   await expect(page.getByTestId("validez-resultado")).toContainText("SUNAT no tiene este comprobante (0011)");
 });
 
+test("duplicar desde la tabla abre «Nuevo comprobante» con el cliente, la moneda y las líneas, y se emite con la fecha de hoy (#323)", async ({ page }) => {
+  await page.goto("/comprobantes");
+  await page.getByRole("button", { name: "Duplicar F001-00000004" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("RUC")).toHaveValue("20554198211");
+  await expect(dialogo.getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
+  await expect(dialogo.getByLabel("Descripción")).toHaveValue("Soporte mensual");
+  await expect(dialogo.getByLabel("Precio unit. (con IGV)")).toHaveValue(/236/);
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  await expect(dialogo.getByLabel("Fecha de emisión")).toHaveValue(hoy);
+
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/api/proxy/facturas"));
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  const cuerpo = (await peticion).postDataJSON();
+  expect(cuerpo).toMatchObject({ fecha_emision: hoy, moneda: "PEN", cliente: { tipo_doc: "6", num_doc: "20554198211" } });
+  expect(cuerpo.items[0]).toMatchObject({ descripcion: "Soporte mensual", cantidad: 1, precio_unitario: 236 });
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+});
+
+test("duplicar desde la ficha de una factura abre el mismo diálogo, y una nota no lo ofrece (#323)", async ({ page }) => {
+  await page.goto("/comprobantes/f-firmada");
+  await page.getByTestId("duplicar").click();
+  await expect(page.getByRole("dialog").getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
 test("emite una nota de crédito parcial desde la factura y la factura la lista", async ({ page }) => {
   await page.goto("/comprobantes/f-aceptada");
   await page.getByTestId("emitir-nota").click();
