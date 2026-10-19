@@ -579,6 +579,9 @@ public class AppConfig {
     // #319: clientes guardados por empresa.
     @Bean ClienteRepository clienteRepository(JdbcTemplate jdbc) { return new JdbcClienteRepository(jdbc); }
     @Bean GestionarClientesUseCase gestionarClientes(ClienteRepository clientes, UnitOfWork uow, Clock clock) { return new GestionarClientesService(clientes, uow, clock); }
+    // #320: productos y servicios guardados por empresa.
+    @Bean ProductoRepository productoRepository(JdbcTemplate jdbc) { return new JdbcProductoRepository(jdbc); }
+    @Bean GestionarProductosUseCase gestionarProductos(ProductoRepository productos, UnitOfWork uow, Clock clock) { return new GestionarProductosService(productos, uow, clock); }
 
     // #19: webhooks de cambio de estado. WEBHOOKS_PERMITIR_HTTP y WEBHOOKS_PERMITIR_REDES_PRIVADAS son solo para desarrollo y pruebas (un receptor en localhost): en producción
     // quedan en falso y los destinos tienen que ser https y públicos.
