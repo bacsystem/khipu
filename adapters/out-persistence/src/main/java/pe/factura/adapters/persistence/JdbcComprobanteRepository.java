@@ -177,11 +177,15 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
 
     @Override public long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro) {
         List<Object> args = new ArrayList<>();
-        Long total = jdbc.queryForObject("SELECT count(*) FROM documento d" + where(tenantId, filtro, args), Long.class, args.toArray());
+        Long total = jdbc.queryForObject("SELECT count(*) FROM documento d JOIN comprobante c ON c.documento_id = d.id" + where(tenantId, filtro, args), Long.class, args.toArray());
         return total == null ? 0 : total;
     }
 
-    /** Filtros del listado (#2, #3): estado, rango de fecha de emisión (inclusive) y serie; el WHERE y sus argumentos se comparten con el conteo. */
+    /**
+     * Filtros del listado (#2, #3, #326): estado, rango de fecha de emisión (inclusive), serie, tipo, número y cliente; el WHERE y sus argumentos se comparten con el conteo.
+     * El cliente se busca por documento (empieza por lo escrito) cuando son dígitos y por nombre (contiene, sin distinguir mayúsculas) en cualquier caso: un DNI de 8 dígitos
+     * puede ser también parte de un nombre, así que las dos formas van con OR.
+     */
     private static String where(UUID tenantId, ConsultarComprobanteUseCase.Filtro f, List<Object> args) {
         StringBuilder w = new StringBuilder(" WHERE d.tenant_id = ?");
         args.add(tenantId);
@@ -189,6 +193,15 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         if (f.desde() != null) { w.append(" AND d.fecha_emision >= ?"); args.add(Date.valueOf(f.desde())); }
         if (f.hasta() != null) { w.append(" AND d.fecha_emision <= ?"); args.add(Date.valueOf(f.hasta())); }
         if (f.serie() != null) { w.append(" AND d.serie = ?"); args.add(f.serie()); }
+        if (f.tipo() != null) { w.append(" AND d.tipo = ?"); args.add(f.tipo()); }
+        if (f.numero() != null) { w.append(" AND d.numero = ?"); args.add(f.numero()); }
+        if (f.cliente() != null) {
+            String literal = f.cliente().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+            w.append(" AND (lower(c.receptor_nombre) LIKE ? ESCAPE '\\'");
+            args.add("%" + literal.toLowerCase(java.util.Locale.ROOT) + "%");
+            if (f.cliente().chars().allMatch(Character::isDigit)) { w.append(" OR c.receptor_num_doc LIKE ? ESCAPE '\\'"); args.add(literal + "%"); }
+            w.append(")");
+        }
         return w.toString();
     }
 

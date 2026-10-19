@@ -400,6 +400,25 @@ class FacturaControllerTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
     }
 
+    /** Filtros por tipo, cliente y número (#326): llegan al caso de uso normalizados, se combinan con los demás y los inválidos responden 400. */
+    @Test void listarFiltraPorTipoClienteYNumero() throws Exception {
+        var filtro = new ConsultarComprobanteUseCase.Filtro(null, null, null, "F001", "01", "andina sac", 125L);
+        when(consultar.listar(eq(tenant), eq(filtro), eq(1), eq(20))).thenReturn(List.of(aceptado(tenant)));
+        when(consultar.contar(tenant, filtro)).thenReturn(1L);
+        mvc.perform(get("/v1/facturas?serie=f001&tipo=01&numero=125").param("cliente", " andina sac ").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string(FacturaController.TOTAL_HEADER, "1"))
+                .andExpect(jsonPath("$.datos[0].serie").value("F001"));
+        mvc.perform(get("/v1/facturas?tipo=09").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(get("/v1/facturas?numero=0").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(get("/v1/facturas?numero=abc").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/v1/facturas?cliente=" + "x".repeat(101)).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+    }
+
     @Test void obtenerPorId() throws Exception {
         Comprobante c = aceptado(tenant);
         when(consultar.obtener(tenant, c.id())).thenReturn(c);

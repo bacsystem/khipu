@@ -19,15 +19,25 @@ public interface ConsultarComprobanteUseCase {
      * Filtros del listado (#2, #3): todos opcionales y combinables; {@code desde}/{@code hasta} acotan la fecha de emisión,
      * inclusive; {@code serie} es la serie exacta (F001, FC01…), en mayúsculas.
      */
-    record Filtro(EstadoDocumento estado, java.time.LocalDate desde, java.time.LocalDate hasta, String serie) {
+    record Filtro(EstadoDocumento estado, java.time.LocalDate desde, java.time.LocalDate hasta, String serie, String tipo, String cliente, Long numero) {
         public static final Filtro NINGUNO = new Filtro(null, null, null, null);
+        public static final java.util.Set<String> TIPOS = java.util.Set.of("01", "03", "07", "08");
         public Filtro(EstadoDocumento estado, java.time.LocalDate desde, java.time.LocalDate hasta) { this(estado, desde, hasta, null); }
+        public Filtro(EstadoDocumento estado, java.time.LocalDate desde, java.time.LocalDate hasta, String serie) { this(estado, desde, hasta, serie, null, null, null); }
         public Filtro {
             if (desde != null && hasta != null && desde.isAfter(hasta))
                 throw new pe.factura.domain.DomainException("RANGO_INVALIDO", "desde (" + desde + ") no puede ser posterior a hasta (" + hasta + ")");
             serie = serie == null || serie.isBlank() ? null : serie.strip().toUpperCase(java.util.Locale.ROOT);
             if (serie != null && !serie.matches("[A-Z][A-Z0-9]{3}"))
                 throw new pe.factura.domain.DomainException("PARAMETRO_INVALIDO", "La serie tiene 4 caracteres: una letra y tres alfanuméricos (F001, FC01, B001…): " + serie);
+            tipo = tipo == null || tipo.isBlank() ? null : tipo.strip();
+            if (tipo != null && !TIPOS.contains(tipo))
+                throw new pe.factura.domain.DomainException("PARAMETRO_INVALIDO", "tipo debe ser 01 (factura), 03 (boleta), 07 (nota de crédito) u 08 (nota de débito): " + tipo);
+            cliente = cliente == null || cliente.isBlank() ? null : cliente.strip();
+            if (cliente != null && cliente.length() > 100)
+                throw new pe.factura.domain.DomainException("PARAMETRO_INVALIDO", "cliente admite hasta 100 caracteres");
+            if (numero != null && numero < 1)
+                throw new pe.factura.domain.DomainException("PARAMETRO_INVALIDO", "numero debe ser un entero positivo");
         }
     }
     byte[] xml(UUID tenantId, UUID id);                                // bytes del XML firmado

@@ -2805,6 +2805,17 @@ export const handlers = [
     if (desde) lista = lista.filter((f) => f.fecha_emision >= desde);
     if (hasta) lista = lista.filter((f) => f.fecha_emision <= hasta);
     if (serie) lista = lista.filter((f) => f.serie === serie);
+    // #326, como `Filtro` y el WHERE de `JdbcComprobanteRepository`: tipo exacto, número sin la serie y cliente por documento (empieza por, solo si son dígitos) o por nombre (contiene).
+    const tipo = url.searchParams.get("tipo")?.trim();
+    if (tipo && !["01", "03", "07", "08"].includes(tipo)) return fail(400, "PARAMETRO_INVALIDO", `tipo debe ser 01 (factura), 03 (boleta), 07 (nota de crédito) u 08 (nota de débito): ${tipo}`);
+    if (tipo) lista = lista.filter((f) => f.tipo === tipo);
+    const numeroParam = url.searchParams.get("numero")?.trim();
+    if (numeroParam && !(Number(numeroParam) >= 1 && Number.isInteger(Number(numeroParam)))) return fail(400, "PARAMETRO_INVALIDO", "numero debe ser un entero positivo");
+    if (numeroParam) lista = lista.filter((f) => f.numero === Number(numeroParam));
+    const cliente = url.searchParams.get("cliente")?.trim();
+    if (cliente && cliente.length > 100) return fail(400, "PARAMETRO_INVALIDO", "cliente admite hasta 100 caracteres");
+    if (cliente)
+      lista = lista.filter((f) => (f.receptor?.razon_social ?? "").toLowerCase().includes(cliente.toLowerCase()) || (/^\d+$/.test(cliente) && (f.receptor?.num_doc ?? "").startsWith(cliente)));
     const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? 1));
     const porPagina = Math.max(1, Number(url.searchParams.get("por_pagina") ?? 20));
     const total = lista.length;

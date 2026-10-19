@@ -139,16 +139,20 @@ public class FacturaController {
             `X-Total-Count` y refleja los filtros. Filtre por `estado` para trabajar una cola (p. ej. `ERROR_ENVIO` para reintentar,
             `RECHAZADO` para corregir y reemitir) y por fecha de emisión con `desde`/`hasta` (inclusive, rango abierto si falta uno;
             `desde > hasta` responde `400 RANGO_INVALIDO`, una fecha mal formada `400 PARAMETRO_INVALIDO`) y por `serie` exacta
-            (F001, FC01…; con formato inválido `400 PARAMETRO_INVALIDO`, inexistente → lista vacía).""")
+            (F001, FC01…; con formato inválido `400 PARAMETRO_INVALIDO`, inexistente → lista vacía), por `tipo` (`01` factura, `03` boleta, `07` nota de crédito, `08` nota de débito),
+            por `numero` (sin la serie) y por `cliente`: el documento (empieza por lo escrito) o parte de la razón social, sin distinguir mayúsculas. Los filtros se combinan.""")
     public ResponseEntity<ApiResponse<List<ComprobanteResponse>>> listar(HttpServletRequest req,
                                                                         @Parameter(description = "Estado del comprobante (ver *Estados del comprobante*)") @RequestParam(required = false) EstadoDocumento estado,
                                                                         @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-09-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
                                                                         @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)", example = "2026-09-30") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
                                                                         @Parameter(description = "Serie exacta del comprobante (4 caracteres: F001, FC01, FD01…)", example = "F001") @RequestParam(required = false) String serie,
+                                                                        @Parameter(description = "Tipo de comprobante: `01` factura, `03` boleta, `07` nota de crédito, `08` nota de débito", example = "01") @RequestParam(required = false) String tipo,
+                                                                        @Parameter(description = "Cliente: el documento (empieza por lo escrito, si son solo dígitos) o parte de la razón social, sin distinguir mayúsculas; hasta 100 caracteres", example = "andina") @RequestParam(required = false) String cliente,
+                                                                        @Parameter(description = "Número del comprobante (sin la serie)", example = "125") @RequestParam(required = false) Long numero,
                                                                         @Parameter(description = "Página, desde 1") @RequestParam(defaultValue = "1") int pagina,
                                                                         @Parameter(description = "Resultados por página, 1–100") @RequestParam(name = "por_pagina", defaultValue = "20") int porPagina) {
         UUID t = TenantActual.id(req);
-        var filtro = new ConsultarComprobanteUseCase.Filtro(estado, desde, hasta, serie);
+        var filtro = new ConsultarComprobanteUseCase.Filtro(estado, desde, hasta, serie, tipo, cliente, numero);
         List<ComprobanteResponse> datos = consultar.listar(t, filtro, Math.max(1, pagina), Math.min(100, Math.max(1, porPagina)))
                 .stream().map(c -> ComprobanteResponse.de(c, BASE)).toList();
         return ResponseEntity.ok().header(TOTAL_HEADER, String.valueOf(consultar.contar(t, filtro))).body(ApiResponse.ok(datos));

@@ -402,14 +402,20 @@ export function totalDesdeHeaders(headers: Headers, fallback: number): number {
   return Number.isFinite(total) && headers.has(TOTAL_HEADER) ? total : fallback;
 }
 
-/** Filtros del listado (#6): estado SUNAT, rango de fecha de emisión (inclusive) y serie exacta; todos opcionales y viajan en la URL. */
-export type FiltrosComprobantes = { estado?: EstadoDocumento; desde?: string; hasta?: string; serie?: string };
+/**
+ * Filtros del listado (#6, #326): estado SUNAT, rango de fecha de emisión (inclusive), serie exacta, tipo (01 factura, 03 boleta, 07 y 08 notas), número y cliente (documento o
+ * parte del nombre); todos opcionales y viajan en la URL.
+ */
+export type FiltrosComprobantes = { estado?: EstadoDocumento; desde?: string; hasta?: string; serie?: string; tipo?: string; cliente?: string; numero?: number };
+
+export const TIPOS_FILTRABLES = ["01", "03", "07", "08"] as const;
+const MAX_CLIENTE = 100;
 
 const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 const SERIE = /^[A-Z][A-Z0-9]{3}$/;
 
 /** Sanea los filtros que llegan por query string: descarta lo que el backend rechazaría (400) y normaliza la serie. */
-export function filtrosDesdeParams(p: { estado?: string; desde?: string; hasta?: string; serie?: string }): FiltrosComprobantes {
+export function filtrosDesdeParams(p: { estado?: string; desde?: string; hasta?: string; serie?: string; tipo?: string; cliente?: string; numero?: string }): FiltrosComprobantes {
   const f: FiltrosComprobantes = {};
   if (p.estado && (ESTADOS_DOCUMENTO as readonly string[]).includes(p.estado)) f.estado = p.estado as EstadoDocumento;
   if (p.desde && FECHA_ISO.test(p.desde)) f.desde = p.desde;
@@ -417,6 +423,10 @@ export function filtrosDesdeParams(p: { estado?: string; desde?: string; hasta?:
   if (f.desde && f.hasta && f.desde > f.hasta) delete f.hasta;
   const serie = p.serie?.trim().toUpperCase();
   if (serie && SERIE.test(serie)) f.serie = serie;
+  if (p.tipo && (TIPOS_FILTRABLES as readonly string[]).includes(p.tipo)) f.tipo = p.tipo;
+  const cliente = p.cliente?.trim();
+  if (cliente && cliente.length <= MAX_CLIENTE) f.cliente = cliente;
+  if (p.numero && /^\d{1,12}$/.test(p.numero.trim()) && Number(p.numero) >= 1) f.numero = Number(p.numero);
   return f;
 }
 
@@ -426,6 +436,9 @@ export function paramsDeFiltros(f: FiltrosComprobantes, qs = new URLSearchParams
   if (f.desde) qs.set("desde", f.desde);
   if (f.hasta) qs.set("hasta", f.hasta);
   if (f.serie) qs.set("serie", f.serie);
+  if (f.tipo) qs.set("tipo", f.tipo);
+  if (f.cliente) qs.set("cliente", f.cliente);
+  if (f.numero) qs.set("numero", String(f.numero));
   return qs;
 }
 

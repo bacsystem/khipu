@@ -199,4 +199,17 @@ describe("filtros del listado (#6)", async () => {
     expect(paramsDeFiltros({ estado: "ERROR_ENVIO", serie: "F001" }).toString()).toBe("estado=ERROR_ENVIO&serie=F001");
     expect(paramsDeFiltros({}).toString()).toBe("");
   });
+
+  it("tipo, cliente y número (#326): solo lo que la API aceptaría, y el cliente recortado", () => {
+    expect(filtrosDesdeParams({ tipo: "03", cliente: "  andina  ", numero: "125" })).toEqual({ tipo: "03", cliente: "andina", numero: 125 });
+    for (const malo of ["", "02", "09", "factura"]) expect(filtrosDesdeParams({ tipo: malo }), malo).toEqual({});
+    expect(filtrosDesdeParams({ cliente: "   " })).toEqual({});
+    expect(filtrosDesdeParams({ cliente: "x".repeat(101) })).toEqual({});
+    expect(filtrosDesdeParams({ cliente: "x".repeat(100) })).toEqual({ cliente: "x".repeat(100) });
+    for (const malo of ["0", "-3", "abc", "1.5", "1234567890123"]) expect(filtrosDesdeParams({ numero: malo }), malo).toEqual({});
+  });
+
+  it("serializa tipo, cliente y número en el orden de la API, con el cliente codificado", () => {
+    expect(paramsDeFiltros({ estado: "ACEPTADO", serie: "F001", tipo: "01", cliente: "ñandú & cía", numero: 7 }).toString()).toBe("estado=ACEPTADO&serie=F001&tipo=01&cliente=%C3%B1and%C3%BA+%26+c%C3%ADa&numero=7");
+  });
 });
