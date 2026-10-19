@@ -741,8 +741,9 @@ describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
     fireEvent.change(screen.getByLabelText("Tipo del documento 1"), { target: { value: "05" } });
     fireEvent.change(screen.getByLabelText("Número del documento 1"), { target: { value: "SCOP-8841203" } });
     fireEvent.change(screen.getByLabelText(/Observaciones/), { target: { value: "Entrega en almacén central." } });
-    // Mientras una guía está a medias el cálculo se pausa y al completarla se repite: esos pedidos nuevos no llevan los datos adicionales, no cambian importes.
-    await waitFor(() => expect(calculos(fetch).length).toBeGreaterThan(antes));
+    // Escribir esto no cambia importes: ni pausa el cálculo ni pide otro. Pasado el rebote, el pie sigue siendo el del servidor y los pedidos no llevan los datos adicionales.
+    await new Promise((r) => setTimeout(r, 700));
+    expect(calculos(fetch)).toHaveLength(antes);
 
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
@@ -755,6 +756,30 @@ describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
     // Los datos adicionales no cambian importes: el cálculo no los lleva.
     for (const c of calculos(fetch)) expect(c).not.toHaveProperty("orden_compra");
     for (const c of calculos(fetch)) expect(c).not.toHaveProperty("observaciones");
+  });
+
+  it("una guía a medias no apaga el cálculo: con un descuento global el total del servidor sigue en pantalla", async () => {
+    stubConCalculo({ gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    conComprador();
+    await waitFor(() => expect(screen.getByTestId("total-a-pagar")).toHaveTextContent("S/ 1,180.00"));
+    abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
+    await new Promise((r) => setTimeout(r, 500));
+    expect(screen.getByTestId("total-a-pagar")).toHaveTextContent("S/ 1,180.00");
+    expect(screen.getByTestId("referencias-error")).toBeInTheDocument();
+  });
+
+  it("la sección no se cierra sola al borrar lo escrito mientras se usa", () => {
+    stubConCalculo({ gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrir();
+    expect(screen.getByTestId("datos-adicionales")).toHaveAttribute("open");
+    fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
+    fireEvent.click(screen.getByRole("button", { name: "Quitar la guía 1" }));
+    fireEvent.change(screen.getByLabelText(/Observaciones/), { target: { value: "x" } });
+    fireEvent.change(screen.getByLabelText(/Observaciones/), { target: { value: "" } });
+    expect(screen.getByTestId("datos-adicionales")).toHaveAttribute("open");
   });
 
   it("una guía con un número mal escrito o repetida lo dice y no deja emitir (4006, 2364)", async () => {
