@@ -23,6 +23,7 @@ import { listarPaises } from "@/lib/comprobantes/paises";
 import { avisoDeDetraccion, DETRACCION_VACIA, detraccionAApi, errorDeDetraccion, operacionDeDetraccion, type DetraccionForm } from "@/lib/comprobantes/detraccion";
 import { errorDePercepcion, OPERACION_PERCEPCION, PERCEPCION_VACIA, percepcionAApi, type PercepcionForm } from "@/lib/comprobantes/percepcion";
 import { errorDeTipoCambio, MONEDAS, superaElTopeSinDocumento as superaElTope, tipoCambioAApi } from "@/lib/comprobantes/monedas";
+import type { Plantilla } from "@/lib/comprobantes/duplicar";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
 import { errorDeRetencion, RETENCION_VACIA, retencionAApi, type RetencionForm } from "@/lib/comprobantes/retencion";
 import { errorDeReferencias, REFERENCIAS_VACIAS, referenciasAApi, type ReferenciasForm } from "@/lib/comprobantes/referencias";
@@ -120,6 +121,7 @@ export function NuevoComprobanteForm({
   series,
   tasaIgv,
   cuentaDetracciones = null,
+  plantilla = null,
   onEmitido,
   onCancelar,
 }: {
@@ -134,6 +136,8 @@ export function NuevoComprobanteForm({
   tasaIgv: number | null;
   /** La cuenta de detracciones de la empresa (datos fiscales), para precargarla en la detracción (#288). */
   cuentaDetracciones?: string | null;
+  /** #323: lo que se copia de otro comprobante (cliente, moneda, operación y líneas); fecha de hoy y sin número. Solo cuenta al montarse: el diálogo cambia la `key`. */
+  plantilla?: Plantilla | null;
   onEmitido?: () => void;
   onCancelar?: () => void;
 }) {
@@ -146,15 +150,15 @@ export function NuevoComprobanteForm({
   // Por render, no a nivel de módulo: el diálogo puede quedar abierto cruzando la medianoche de Lima.
   const hoy = hoyLima();
   const [fecha, setFecha] = useState(hoy);
-  const [moneda, setMoneda] = useState("PEN");
+  const [moneda, setMoneda] = useState(plantilla?.moneda ?? "PEN");
   // #316: soles por unidad de la moneda; opcional, solo fuera de soles. SUNAT no lo recibe: sirve al PDF, al registro de ventas y al tope de la boleta sin documento.
   const [tipoCambio, setTipoCambio] = useState("");
   // La factura siempre lleva RUC; la boleta, el documento que elija el usuario (DNI por defecto: es la venta más común).
-  const [tipoDoc, setTipoDoc] = useState(boleta ? "1" : "6");
-  const [numDoc, setNumDoc] = useState("");
-  const [razonSocial, setRazonSocial] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [lineas, setLineas] = useState<Linea[]>([{ ...LINEA_VACIA }]);
+  const [tipoDoc, setTipoDoc] = useState(plantilla?.cliente.tipoDoc ?? (boleta ? "1" : "6"));
+  const [numDoc, setNumDoc] = useState(plantilla?.cliente.numDoc ?? "");
+  const [razonSocial, setRazonSocial] = useState(plantilla ? (plantilla.cliente.tipoDoc === SIN_DOCUMENTO ? COMPRADOR_SIN_DOCUMENTO : plantilla.cliente.razonSocial) : "");
+  const [direccion, setDireccion] = useState(plantilla?.cliente.direccion ?? "");
+  const [lineas, setLineas] = useState<Linea[]>(plantilla?.lineas.length ? plantilla.lineas.map((l) => ({ ...l })) : [{ ...LINEA_VACIA }]);
   // #358: ajuste del importe total para cobrar en efectivo sin céntimos (`PayableRoundingAmount`). Texto, para poder escribir «-» y «0.» sin que el campo lo reescriba.
   const [redondeoTexto, setRedondeoTexto] = useState("");
   // #310: descuento y cargo globales (02/03 y 46/49/50); los de cada línea viven en la línea.
@@ -165,8 +169,8 @@ export function NuevoComprobanteForm({
   const [credito, setCredito] = useState<CreditoForm>(CREDITO_VACIO);
   const [fechaVencimiento, setFechaVencimiento] = useState("");
   // #311: tipo de operación (catálogo 51) y, en una exportación, el país del cliente, el Incoterm y el país de uso del servicio.
-  const [operacion, setOperacion] = useState("0101");
-  // #288, #297: detracción (SPOT), en una factura o una boleta de venta interna; fija el tipo de operación 1001 (1003 para el transporte de pasajeros).
+  const [operacion, setOperacion] = useState(plantilla?.operacion ?? "0101");
+  // #288: detracción (SPOT), solo en una factura de venta interna; fija el tipo de operación 1001 (1003 para el transporte de pasajeros).
   const [detraccion, setDetraccion] = useState<DetraccionForm>(DETRACCION_VACIA);
   // #297: percepción del IGV (operación 2001), en soles y al contado; es excluyente con la detracción (cada una fija su tipo de operación).
   const [percepcion, setPercepcion] = useState<PercepcionForm>(PERCEPCION_VACIA);
@@ -180,7 +184,7 @@ export function NuevoComprobanteForm({
   const [esAnticipo, setEsAnticipo] = useState(false);
   const [anticiposAbierto, setAnticiposAbierto] = useState(false);
   const [anticiposElegidos, setAnticiposElegidos] = useState<AnticipoForm[]>([]);
-  const [pais, setPais] = useState("");
+  const [pais, setPais] = useState(plantilla?.cliente.pais ?? "");
   const [incoterm, setIncoterm] = useState("");
   const [paisDeUso, setPaisDeUso] = useState("");
   const paises = useMemo(() => listarPaises(), []);

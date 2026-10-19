@@ -8,12 +8,14 @@ import { BajaEstado } from "@/components/comprobantes/baja-estado";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { AvisoBoletaSinInformar } from "@/components/comprobantes/aviso-boleta-sin-informar";
 import { AvisosDeEmision } from "@/components/comprobantes/avisos-de-emision";
+import { DuplicarButton } from "@/components/comprobantes/duplicar-button";
 import { RecuperarCdrButton } from "@/components/comprobantes/recuperar-cdr-button";
 import { datosDeValidez, puedeRecuperarCdr } from "@/lib/comprobantes/consultas-sunat";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { ValidezButton } from "@/components/comprobantes/validez-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
 import { admiteBaja, admiteCorreo, admiteNotas, esDeBoleta, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, seInformaFueraDePlazo, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { sePuedeDuplicar } from "@/lib/comprobantes/duplicar";
 import { ApiError } from "@/lib/api/types";
 import { avisoDePlazo } from "@/lib/comprobantes/plazo";
 import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero, hoyLima } from "@/lib/formato";
@@ -271,8 +273,22 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           {c.estado_documento === "ERROR_ENVIO" ? <ReenviarButton id={c.id} /> : null}
           {c.estado_documento === "FIRMADO" ? <ReenviarButton id={c.id} etiqueta="Enviar a SUNAT" enCurso="Enviando…" /> : null}
           {/* #315: la constancia de un comprobante atascado (solo facturas y sus notas: SUNAT no la expone para boletas) y la consulta de validez. */}
-          {puedeRecuperarCdr(c) ? <RecuperarCdrButton id={c.id} estado={c.estado_documento} /> : null}
-          {datosValidez ? <ValidezButton datos={datosValidez} /> : null}
+          {(c.estado_documento === "ENVIADO" || c.estado_documento === "ERROR_ENVIO") && !esDeBoleta(c) ? <RecuperarCdrButton id={c.id} estado={c.estado_documento} /> : null}
+          {rucEmisor && !["RECIBIDO", "FIRMADO", "INVALIDO", "DESCARTADO"].includes(c.estado_documento) ? (
+            <ValidezButton
+              datos={{
+                ruc: rucEmisor,
+                tipo: c.tipo,
+                serie: c.serie,
+                numero: c.numero,
+                tipoDocReceptor: c.receptor && c.receptor.tipo_doc !== "-" ? c.receptor.tipo_doc : undefined,
+                numDocReceptor: c.receptor && c.receptor.tipo_doc !== "-" ? c.receptor.num_doc : undefined,
+                fecha: c.fecha_emision,
+                monto: c.totales.total,
+              }}
+            />
+          ) : null}
+          {sePuedeDuplicar(c) ? <DuplicarButton id={c.id} numero={numero} /> : null}
           {admiteNotas(c) ? (
             <Link href={`/comprobantes/${c.id}/nota`} className={ACCION_SECUNDARIA} data-testid="emitir-nota">
               <FileMinusIcon className="size-4" />
