@@ -3,6 +3,7 @@ import { BloqueCodigo } from "@/components/developers/guia/bloque-codigo";
 import { CASOS, ERROR_EJEMPLO, RESPUESTA_EJEMPLO } from "@/components/developers/guia/casos-emision";
 import { Codigo, NotaProsa, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
 import { Rico } from "@/components/developers/guia/rico";
+import { EJEMPLO_ENTREGA, RESPUESTA_CREAR_WEBHOOK, VERIFICAR_NODE, VERIFICAR_PHP, VERIFICAR_PYTHON } from "@/components/developers/guia/webhooks";
 import { apiPublicUrl } from "@/lib/api/client";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ const INDICE = [
   ...CASOS.map((c) => ({ id: c.id, label: `· ${c.titulo}` })),
   { id: "respuesta", label: "Cómo leer la respuesta" },
   { id: "errores", label: "Errores" },
+  { id: "webhooks", label: "Webhooks" },
   { id: "buenas-practicas", label: "Buenas prácticas" },
 ];
 
@@ -184,6 +186,86 @@ export default function GuiaPage() {
         </P>
       </Seccion>
 
+      <Seccion id="webhooks" titulo="Webhooks">
+        <P>
+          En vez de consultar <Codigo>GET /v1/facturas/{"{id}"}</Codigo> hasta que SUNAT conteste, registre una URL y khipu le avisa con un <Codigo>POST</Codigo> firmado cada
+          vez que un comprobante cambia de estado. Se registran desde el portal (<em>API keys y webhooks</em>) o por API; hasta 5 por empresa.
+        </P>
+        <BloqueCodigo titulo="POST /v1/webhooks · 201 Created" codigo={RESPUESTA_CREAR_WEBHOOK} />
+        <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-muted-foreground">
+          <li>
+            La URL debe ser <Codigo>https</Codigo> y apuntar a un servidor público: una dirección interna (localhost, redes privadas, <Codigo>169.254.x.x</Codigo>) responde{" "}
+            <Codigo>422 WEBHOOK_INVALIDO</Codigo>. khipu no sigue redirecciones.
+          </li>
+          <li>
+            <strong className="text-foreground">El secreto de firma</strong> (<Codigo>whsec_…</Codigo>) se muestra <strong className="text-foreground">una sola vez</strong>, al
+            crear el endpoint o al rotarlo (<Codigo>POST /v1/webhooks/{"{id}"}/secreto</Codigo>, el anterior deja de valer al instante). Crear, cambiar, rotar y borrar exige la
+            sesión del portal, no una API key: una llave filtrada no debe poder redirigir los eventos. Listar y ver el log funciona con API key.
+          </li>
+        </ul>
+
+        <h3 className="mt-2 text-[14px] font-semibold text-foreground">Eventos</h3>
+        <Tabla
+          cabeceras={["Evento", "Cuándo"]}
+          filas={[
+            [<Codigo key="a">comprobante.aceptado</Codigo>, "SUNAT aceptó el comprobante (con CDR 0)."],
+            [<Codigo key="b">comprobante.aceptado_con_obs</Codigo>, "SUNAT lo aceptó y dejó observaciones (CDR 4000+); la factura es válida."],
+            [<Codigo key="c">comprobante.rechazado</Codigo>, "SUNAT lo rechazó (2000–3999): corrija y emita uno nuevo."],
+            [<Codigo key="d">comprobante.error_envio</Codigo>, <>No se pudo enviar a SUNAT; khipu reintenta. Llega al empezar a fallar, no en cada reintento.</>],
+            [<Codigo key="e">comprobante.fuera_de_plazo</Codigo>, "Pasó el plazo de envío: hay que emitir de nuevo."],
+            [<Codigo key="f">comprobante.anulado</Codigo>, "Se dio de baja ante SUNAT."],
+            [<Codigo key="g">comprobante.descartado</Codigo>, "Un administrador dejó de intentar el envío."],
+          ]}
+        />
+        <NotaProsa>
+          Los estados de paso (<Codigo>RECIBIDO</Codigo>, <Codigo>FIRMADO</Codigo>, <Codigo>ENVIADO</Codigo>) no se publican. Un endpoint apagado no acumula eventos mientras
+          está apagado. <Codigo>GET /v1/webhooks/eventos</Codigo> lista los nombres; <Codigo>{`["*"]`}</Codigo> suscribe a todos.
+        </NotaProsa>
+
+        <h3 className="mt-2 text-[14px] font-semibold text-foreground">Qué recibe su servidor</h3>
+        <BloqueCodigo titulo="Una entrega (el cuerpo va en una línea, tal como se firma)" codigo={EJEMPLO_ENTREGA} lenguaje="http" />
+        <Tabla
+          cabeceras={["Cabecera", "Para qué"]}
+          filas={[
+            [<Codigo key="1">X-Khipu-Event</Codigo>, "El evento, igual que el campo evento del cuerpo."],
+            [<Codigo key="2">X-Khipu-Delivery</Codigo>, <>El id de la entrega. <strong>No cambia entre reintentos</strong>: úselo para no procesar dos veces el mismo evento.</>],
+            [<Codigo key="3">X-Khipu-Signature</Codigo>, <><Codigo>t=&lt;segundos Unix&gt;,v1=&lt;hex&gt;</Codigo>: HMAC-SHA256 del secreto sobre <Codigo>t.cuerpo</Codigo>.</>],
+          ]}
+        />
+
+        <h3 className="mt-2 text-[14px] font-semibold text-foreground">Verifique la firma</h3>
+        <P>
+          Calcule <Codigo>HMAC-SHA256(secreto, t + &quot;.&quot; + cuerpo)</Codigo> con el <strong>cuerpo crudo</strong> —los bytes tal como llegaron, sin volver a escribir el
+          JSON— y compárelo en tiempo constante con <Codigo>v1</Codigo>. Descarte la entrega si <Codigo>t</Codigo> es de hace más de unos minutos: sin ese límite, quien capture
+          una entrega podría repetirla. Responda <Codigo>2xx</Codigo> en menos de 10 segundos y procese el evento después.
+        </P>
+        <BloqueCodigo titulo="Node.js" codigo={VERIFICAR_NODE} lenguaje="javascript" />
+        <BloqueCodigo titulo="Python" codigo={VERIFICAR_PYTHON} lenguaje="python" />
+        <BloqueCodigo titulo="PHP" codigo={VERIFICAR_PHP} lenguaje="php" />
+
+        <h3 className="mt-2 text-[14px] font-semibold text-foreground">Reintentos, pausa y log</h3>
+        <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-muted-foreground">
+          <li>
+            Es <strong className="text-foreground">al menos una vez</strong>: un reintento (o un reenvío manual) llega con el mismo cuerpo y el mismo{" "}
+            <Codigo>X-Khipu-Delivery</Codigo>. El orden entre eventos distintos no está garantizado; si importa, compare con el <Codigo>estado</Codigo> actual con{" "}
+            <Codigo>GET /v1/facturas/{"{id}"}</Codigo>.
+          </li>
+          <li>
+            Cualquier respuesta que no sea <Codigo>2xx</Codigo> (o un tiempo agotado, o un fallo de red) cuenta como fallo y se reintenta con espera creciente: 1 min, 5 min,
+            15 min, 1 h, 3 h, 6 h y 12 h; tras el octavo intento la entrega queda <Codigo>FALLIDA</Codigo> y se puede reenviar a mano.
+          </li>
+          <li>
+            Con <strong className="text-foreground">10 intentos fallidos seguidos</strong> khipu apaga el endpoint (<Codigo>pausado_motivo</Codigo> dice por qué) y avisa por correo
+            a la cuenta. Active el endpoint de nuevo con <Codigo>PATCH /v1/webhooks/{"{id}"}</Codigo> <Codigo>{"{ \"activo\": true }"}</Codigo> o desde el portal; las entregas
+            pendientes salen enseguida.
+          </li>
+          <li>
+            <Codigo>GET /v1/webhooks/{"{id}"}/entregas</Codigo> es el log (30 días): estado, intentos, último código HTTP o error. <Codigo>POST /v1/webhooks/{"{id}"}/prueba</Codigo>{" "}
+            envía un evento <Codigo>webhook.prueba</Codigo> firmado, y <Codigo>POST /v1/webhooks/entregas/{"{id}"}/reenviar</Codigo> repite una entrega cerrada.
+          </li>
+        </ul>
+      </Seccion>
+
       <Seccion id="buenas-practicas" titulo="Buenas prácticas">
         <ul className="list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-muted-foreground">
           <li>
@@ -204,6 +286,13 @@ export default function GuiaPage() {
             <strong className="text-foreground">Entregue el comprobante al cliente</strong> con <Codigo>POST /v1/facturas/{"{id}"}/correo</Codigo>{" "}
             <Codigo>{"{ email, mensaje? }"}</Codigo>: khipu adjunta PDF, XML y CDR. Solo comprobantes aceptados (<Codigo>409 NO_ACEPTADO</Codigo>); el
             QR del PDF codifica <Codigo>RUC|tipo|serie|número|IGV|total|fecha|tipo y nº de documento del cliente|hash</Codigo>.
+          </li>
+          <li>
+            <strong className="text-foreground">No consulte en bucle:</strong> registre un{" "}
+            <a className="text-primary hover:underline" href="#webhooks">
+              webhook
+            </a>{" "}
+            y khipu le avisa cuando SUNAT contesta.
           </li>
           <li>
             <strong className="text-foreground">No trate <Codigo>ERROR_ENVIO</Codigo> como fallo definitivo:</strong> es SUNAT no disponible; consulte el estado más

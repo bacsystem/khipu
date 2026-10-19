@@ -7,9 +7,11 @@ import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
+import pe.factura.domain.webhook.EventoWebhook;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -113,8 +115,22 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         for (EventoDocumento e : c.eventosPendientes()) {
             jdbc.update("INSERT INTO evento_documento (documento_id, estado_anterior, estado_nuevo, detalle, ocurrido_en) VALUES (?, ?, ?, ?, clock_timestamp())",
                     c.id(), e.estadoAnterior() == null ? null : e.estadoAnterior().name(), e.estadoNuevo().name(), e.detalle());
+            encolarWebhooks(c, e);
         }
         c.eventosGuardados();
+    }
+
+    /**
+     * Webhooks (#19): en la misma transacción que el cambio de estado, una entrega por cada endpoint activo de la empresa suscrito al evento (outbox transaccional: si el estado
+     * no se guarda, tampoco el aviso). Un reintento que deja el mismo estado (ERROR_ENVIO tras ERROR_ENVIO) no es un cambio y no avisa. Sin endpoints es una consulta indexada por empresa.
+     */
+    private void encolarWebhooks(Comprobante c, EventoDocumento e) {
+        if (e.estadoAnterior() == e.estadoNuevo()) return;
+        EventoWebhook.deEstado(e.estadoNuevo()).ifPresent(evento -> jdbc.update("""
+                INSERT INTO webhook_entrega (id, endpoint_id, tenant_id, evento, documento_id, payload)
+                SELECT gen_random_uuid(), w.id, w.tenant_id, ?, ?, ? FROM webhook_endpoint w
+                WHERE w.tenant_id = ? AND w.activo AND position(',' || ? || ',' IN ',' || w.eventos || ',') > 0
+                """, evento, c.id(), PayloadDeWebhook.de(evento, c, e, Instant.now()), c.tenantId(), evento));
     }
 
     @Override public List<EventoDocumento> eventosDe(UUID tenantId, UUID comprobanteId) {

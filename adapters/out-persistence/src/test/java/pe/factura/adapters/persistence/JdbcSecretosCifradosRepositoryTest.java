@@ -49,14 +49,21 @@ class JdbcSecretosCifradosRepositoryTest extends PersistenciaTestBase {
         jdbc.update("INSERT INTO idempotencia (alcance, clave, huella, respuesta_cifrada) VALUES ('alta', ?, ?, ?)", clave, "0".repeat(64), c.cifrar(texto("fk_secreto")));
     }
 
+    UUID webhookConSecreto(UUID tenant, SecretCipher c) {
+        UUID w = UUID.randomUUID();
+        jdbc.update("INSERT INTO webhook_endpoint (id, tenant_id, url, eventos, secreto_enc) VALUES (?, ?, 'https://mi-sistema.pe/h', 'comprobante.aceptado', ?)", w, tenant, c.cifrar(texto("whsec_firma")));
+        return w;
+    }
+
     @Test void recifraTodasLasColumnasYLasDejaLegiblesConLaClaveNueva() {
         UUID t = tenantConSecretos(vieja);
         UUID a = administradorConSegundoFactor(vieja);
         respuestaGuardada(vieja, "k1");
+        UUID w = webhookConSecreto(t, vieja);
         var repo = new JdbcSecretosCifradosRepository(jdbc, rotando);
 
-        assertThat(repo.pendientes()).isEqualTo(6);
-        assertThat(repo.recifrar()).isEqualTo(6);
+        assertThat(repo.pendientes()).isEqualTo(7);
+        assertThat(repo.recifrar()).isEqualTo(7);
         assertThat(repo.pendientes()).isZero();
 
         // Sin la anterior, la clave nueva sola ya lee todo.
@@ -67,6 +74,8 @@ class JdbcSecretosCifradosRepositoryTest extends PersistenciaTestBase {
                 .isEqualTo(texto("TOTP-SECRETO"));
         assertThat(soloNueva.descifrar(jdbc.queryForObject("SELECT respuesta_cifrada FROM idempotencia WHERE clave = 'k1'", byte[].class)))
                 .isEqualTo(texto("fk_secreto"));
+        // El secreto de firma de un webhook rotado con la MASTER_KEY: sin esto, al quitar MASTER_KEY_ANTERIOR las entregas dejarían de firmarse (#19).
+        assertThat(soloNueva.descifrar(jdbc.queryForObject("SELECT secreto_enc FROM webhook_endpoint WHERE id = ?", byte[].class, w))).isEqualTo(texto("whsec_firma"));
     }
 
     @Test void esIdempotenteYNoTocaLoQueYaEstaConLaVigente() {

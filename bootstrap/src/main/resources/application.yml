@@ -85,6 +85,11 @@ app:
     # #362 B14: horas que un resumen diario o una baja con ticket puede llevar sin respuesta de SUNAT antes de que el monitor del backoffice lo marque (1 a 168). El worker no
     # se rinde nunca con un ticket (lo reconsulta con intervalo creciente, hasta cada 5 min): esto solo avisa, no cambia lo que hace.
     resumen-sin-respuesta-horas: ${MONITOR_RESUMEN_SIN_RESPUESTA_HORAS:6}
+  # #19: webhooks de cambio de estado de comprobante. Solo para desarrollo y pruebas: aceptar destinos http y direcciones internas (un receptor en localhost). En producción, en falso.
+  webhooks:
+    permitir-http: ${WEBHOOKS_PERMITIR_HTTP:false}
+    permitir-redes-privadas: ${WEBHOOKS_PERMITIR_REDES_PRIVADAS:false}
+    intervalo-ms: ${WEBHOOKS_INTERVALO_MS:5000}
   # #341: alertas al operador de la plataforma cuando algo falla en silencio (envíos a SUNAT, FUERA_DE_PLAZO, resúmenes sin respuesta, respaldo, correo, certificados). Siempre
   # salen por el log (ERROR); con ALERTAS_EMAIL y/o ALERTAS_WEBHOOK_URL también llegan a ese canal. Detalle y cómo probarlo: deploy/README.md §11.
   alertas:

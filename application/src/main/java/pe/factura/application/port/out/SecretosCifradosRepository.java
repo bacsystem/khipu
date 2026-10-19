@@ -2,7 +2,7 @@ package pe.factura.application.port.out;
 
 /**
  * Todo lo que la plataforma guarda cifrado con la MASTER_KEY (S2): certificados y su clave, credenciales SOL, secretos del segundo factor de los
- * administradores y las respuestas guardadas del alta asistida. Sirve para rotar la clave: con MASTER_KEY_ANTERIOR configurada, lo que sigue con
+ * administradores, las respuestas guardadas del alta asistida y los secretos de firma de los webhooks (#19). Sirve para rotar la clave: con MASTER_KEY_ANTERIOR configurada, lo que sigue con
  * ella se vuelve a cifrar con la vigente.
  */
 public interface SecretosCifradosRepository {

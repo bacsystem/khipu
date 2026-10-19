@@ -2620,6 +2620,103 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  // --- Webhooks (#19): la misma forma que WebhooksController. Crear, cambiar y borrar exigen la sesión del portal (aquí siempre la hay: el mock no emula API keys). ---
+
+  http.get(`${BASE}/v1/webhooks/eventos`, () =>
+    ok(["comprobante.aceptado", "comprobante.aceptado_con_obs", "comprobante.rechazado", "comprobante.anulado", "comprobante.error_envio", "comprobante.fuera_de_plazo", "comprobante.descartado"]),
+  ),
+
+  http.get(`${BASE}/v1/webhooks`, ({ request }) => ok(db.webhooksPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? [])),
+
+  http.post(`${BASE}/v1/webhooks`, async ({ request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const body = (await request.json()) as { url?: string; descripcion?: string; eventos?: string[] };
+    const lista = db.webhooksPorEmpresa.get(empresaId) ?? [];
+    const url = (body.url ?? "").trim();
+    if (!url.startsWith("https://")) return fail(422, "WEBHOOK_INVALIDO", "La URL del webhook debe empezar con https://");
+    if (/^https:\/\/(localhost|127\.|10\.|192\.168\.|169\.254\.)/.test(url)) return fail(422, "WEBHOOK_INVALIDO", "La URL del webhook apunta a una dirección interna; use un servidor público");
+    if (!body.eventos || body.eventos.length === 0) return fail(422, "WEBHOOK_INVALIDO", "Elija al menos un evento al que suscribirse");
+    if (lista.length >= 5) return fail(409, "WEBHOOK_LIMITE", "Una empresa puede tener hasta 5 webhooks; elimine uno para crear otro");
+    const eventos = body.eventos.length === 1 && body.eventos[0] === "*" ? ["comprobante.aceptado", "comprobante.aceptado_con_obs", "comprobante.rechazado", "comprobante.anulado", "comprobante.error_envio", "comprobante.fuera_de_plazo", "comprobante.descartado"] : body.eventos;
+    const webhook = { id: nuevoId("w"), url, descripcion: body.descripcion?.trim() || null, eventos, activo: true, fallos_consecutivos: 0, creado_en: new Date().toISOString() };
+    lista.push(webhook);
+    db.webhooksPorEmpresa.set(empresaId, lista);
+    db.entregasPorWebhook.set(webhook.id, []);
+    return ok({ webhook, secreto: `whsec_${nuevoId("mock")}` }, 201);
+  }),
+
+  http.patch(`${BASE}/v1/webhooks/:id`, async ({ request, params }) => {
+    const webhook = (db.webhooksPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? []).find((w) => w.id === params.id);
+    if (!webhook) return fail(404, "NO_ENCONTRADO", "Webhook no encontrado");
+    const body = (await request.json()) as { url?: string; descripcion?: string; eventos?: string[]; activo?: boolean };
+    if (body.url !== undefined) {
+      if (!body.url.trim().startsWith("https://")) return fail(422, "WEBHOOK_INVALIDO", "La URL del webhook debe empezar con https://");
+      webhook.url = body.url.trim();
+    }
+    if (body.descripcion !== undefined) webhook.descripcion = body.descripcion.trim() || null;
+    if (body.eventos !== undefined) webhook.eventos = body.eventos;
+    if (body.activo !== undefined) {
+      if (body.activo && !webhook.activo) webhook.fallos_consecutivos = 0;
+      webhook.activo = body.activo;
+      webhook.pausado_motivo = null;
+    }
+    return ok(webhook);
+  }),
+
+  http.delete(`${BASE}/v1/webhooks/:id`, ({ request, params }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const lista = db.webhooksPorEmpresa.get(empresaId) ?? [];
+    if (!lista.some((w) => w.id === params.id)) return fail(404, "NO_ENCONTRADO", "Webhook no encontrado");
+    db.webhooksPorEmpresa.set(empresaId, lista.filter((w) => w.id !== params.id));
+    db.entregasPorWebhook.delete(String(params.id));
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post(`${BASE}/v1/webhooks/:id/secreto`, ({ request, params }) => {
+    if (!(db.webhooksPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? []).some((w) => w.id === params.id)) return fail(404, "NO_ENCONTRADO", "Webhook no encontrado");
+    return ok({ secreto: `whsec_${nuevoId("rot")}` });
+  }),
+
+  http.post(`${BASE}/v1/webhooks/:id/prueba`, ({ request, params }) => {
+    const webhook = (db.webhooksPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? []).find((w) => w.id === params.id);
+    if (!webhook) return fail(404, "NO_ENCONTRADO", "Webhook no encontrado");
+    if (!webhook.activo) return fail(409, "WEBHOOK_PAUSADO", "El webhook está apagado; actívelo antes de enviar");
+    const ahora = new Date().toISOString();
+    const id = nuevoId("e");
+    const lista = db.entregasPorWebhook.get(webhook.id) ?? [];
+    lista.unshift({ id, evento: "webhook.prueba", estado: "EXITOSA", intentos: 1, ultimo_http: 200, ultimo_intento_en: ahora, entregada_en: ahora, creada_en: ahora });
+    db.entregasPorWebhook.set(webhook.id, lista);
+    return ok({ entrega_id: id }, 202);
+  }),
+
+  http.get(`${BASE}/v1/webhooks/:id/entregas`, ({ request, params }) => {
+    if (!(db.webhooksPorEmpresa.get(request.headers.get("x-empresa") ?? "") ?? []).some((w) => w.id === params.id)) return fail(404, "NO_ENCONTRADO", "Webhook no encontrado");
+    const url = new URL(request.url);
+    const estado = url.searchParams.get("estado");
+    const pagina = Math.max(1, Number(url.searchParams.get("pagina") ?? "1"));
+    const porPagina = Math.min(100, Math.max(1, Number(url.searchParams.get("por_pagina") ?? "20")));
+    const todas = (db.entregasPorWebhook.get(String(params.id)) ?? []).filter((e) => !estado || e.estado === estado);
+    return HttpResponse.json(
+      { estado: "exito", datos: todas.slice((pagina - 1) * porPagina, pagina * porPagina), mensaje: null, codigo: null, errores: null },
+      { headers: { "x-total-count": String(todas.length) } },
+    );
+  }),
+
+  http.post(`${BASE}/v1/webhooks/entregas/:entregaId/reenviar`, ({ request, params }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    for (const w of db.webhooksPorEmpresa.get(empresaId) ?? []) {
+      const entrega = (db.entregasPorWebhook.get(w.id) ?? []).find((e) => e.id === params.entregaId);
+      if (!entrega) continue;
+      if (entrega.estado === "PENDIENTE") return fail(409, "ENTREGA_NO_REENVIABLE", "La entrega todavía está pendiente; khipu la sigue intentando");
+      if (!w.activo) return fail(409, "WEBHOOK_PAUSADO", "El webhook está apagado; actívelo antes de enviar");
+      // El mock entrega al instante: en el backend queda PENDIENTE hasta que el trabajo la manda.
+      const ahora = new Date().toISOString();
+      Object.assign(entrega, { estado: "EXITOSA", intentos: 1, ultimo_http: 200, ultimo_error: null, ultimo_intento_en: ahora, entregada_en: ahora });
+      return new HttpResponse(null, { status: 202 });
+    }
+    return fail(404, "NO_ENCONTRADO", "Entrega no encontrada");
+  }),
+
   http.get(`${BASE}/v1/series`, ({ request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
     return ok(db.seriesPorEmpresa.get(empresaId) ?? []);

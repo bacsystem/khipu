@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { ApiKeysTable } from "@/components/api-keys/api-keys-table";
+import { WebhooksSection } from "@/components/webhooks/webhooks-section";
 import { listarApiKeys } from "@/lib/api/api-keys";
 import { obtenerEmpresaActual } from "@/lib/api/empresas";
+import { listarWebhooks } from "@/lib/api/webhooks";
 import { faltaParaEmitir } from "@/lib/comprobantes/listo-para-emitir";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
 import { formatearFechaHora, hoyLima } from "@/lib/formato";
@@ -27,7 +29,12 @@ export default async function ApiKeysPage() {
   }
 
   // La empresa solo decide un texto de ayuda: si no se puede leer, la página de llaves sigue (264-H3), y no se afirma nada sobre la emisión.
-  const [apiKeys, empresa] = await Promise.all([listarApiKeys(access, empresaId), obtenerEmpresaActual(access, empresaId).catch(() => null)]);
+  // Los webhooks tampoco bloquean la página: si no se leen, su sección lo dice (#19).
+  const [apiKeys, empresa, webhooks] = await Promise.all([
+    listarApiKeys(access, empresaId),
+    obtenerEmpresaActual(access, empresaId).catch(() => null),
+    listarWebhooks(access, empresaId).catch(() => null),
+  ]);
   const activas = apiKeys.filter((k) => k.activa);
   // C4: una llave activa autentica, pero sin certificado vigente el backend no firma. Sin credenciales SOL sí firma (con `enviar_automatico: false`
   // queda FIRMADO), solo que no envía a SUNAT: son dos avisos distintos.
@@ -98,6 +105,8 @@ export default async function ApiKeysPage() {
       </section>
 
       <ApiKeysTable apiKeys={apiKeys} />
+
+      <WebhooksSection webhooks={webhooks} />
     </div>
   );
 }

@@ -274,7 +274,7 @@ reemplaza a esta, porque queda dentro del mismo proyecto de Railway.
 ## 9. Rotar `MASTER_KEY` y `API_KEY_PEPPER`
 
 Hace falta si una de las dos pudo filtrarse, o por política. Ninguna se reemplaza a secas: `MASTER_KEY` cifra lo guardado (certificados y su clave,
-credenciales SOL, secretos del segundo factor de los administradores, respuestas guardadas del alta asistida) y `API_KEY_PEPPER` es parte del hash
+credenciales SOL, secretos del segundo factor de los administradores, respuestas guardadas del alta asistida, secretos de firma de los webhooks) y `API_KEY_PEPPER` es parte del hash
 de cada API key. El backend admite **la de antes junto con la nueva** mientras dura la rotación. **Antes de empezar, un respaldo de la base (§8).**
 
 ### `MASTER_KEY`
@@ -496,3 +496,24 @@ respaldo se sube igual y el script solo escribe una advertencia. Con `ALERTAS_RE
 2. Para provocar una alerta sin dañar nada, con `ALERTAS_RESPALDO_HORAS=26` borre el latido y el registro de esa alerta: `delete from latido_operativo where clave = 'respaldo'; delete from alerta_operador where clave = 'RESPALDO_ATRASADO'`. En la siguiente pasada (máximo 5 minutos) llega `ALERTA · El respaldo diario de Postgres no corrió`.
 3. Corra el servicio `respaldo` (o inserte el latido a mano) y en la pasada siguiente llega `RESUELTO`.
 4. Si no llega nada, busque en el log `El canal de alertas webhook no pudo entregar` o `correo`: dice por qué falló.
+
+## 12. Webhooks de cambio de estado (#19)
+
+Los integradores registran URL a las que khipu avisa, con un `POST` firmado, cuando un comprobante cambia de estado (guía de desarrolladores, sección *Webhooks*). Lo mueve el
+trabajo `EntregarWebhooksWorker` (cada 5 s). Las entregas se encolan en `webhook_entrega` **en la misma transacción** que el cambio de estado, y el trabajo las manda con
+`FOR UPDATE SKIP LOCKED`: con varias réplicas del backend, cada entrega la manda una sola.
+
+- **El secreto de firma de cada endpoint se guarda cifrado con `MASTER_KEY`** (como las credenciales SOL). Rotar `MASTER_KEY` con el procedimiento de §9 no los invalida; **reemplazarla
+  de golpe sí** deja los secretos ilegibles y las entregas fallan: el síntoma es `No se pudo procesar la entrega de webhook` en el log.
+- **Destinos**: solo `https` y solo direcciones públicas. Antes de cada entrega se resuelve el nombre y se rechaza loopback, redes privadas, enlace local (incluida la metadata de la nube,
+  `169.254.169.254`) y CGNAT; no se siguen redirecciones. Un integrador no puede usar los webhooks para que khipu consulte su red interna.
+- **Reintentos**: 8 intentos con espera de 1 min, 5 min, 15 min, 1 h, 3 h, 6 h y 12 h; con 10 intentos fallidos seguidos el endpoint se apaga y se avisa por correo a la cuenta (necesita
+  `MAIL_HABILITADO=true`; si no, queda en el log). El log de entregas cerradas se conserva 30 días (limpieza diaria).
+- **Monitoreo**: las entregas fallidas no generan una alerta del operador; el integrador las ve en el portal. Si el trabajo dejara de correr, las entregas pendientes se acumulan en
+  `webhook_entrega` (`select count(*) from webhook_entrega where estado = 'PENDIENTE' and siguiente_intento < now() - interval '10 minutes'`).
+
+| Variable | Valor | Notas |
+|---|---|---|
+| `WEBHOOKS_INTERVALO_MS` | `5000` | Cada cuánto corre el trabajo de entrega |
+| `WEBHOOKS_PERMITIR_HTTP` | `false` | **Solo desarrollo y pruebas.** Acepta destinos `http://` |
+| `WEBHOOKS_PERMITIR_REDES_PRIVADAS` | `false` | **Solo desarrollo y pruebas** (un receptor en `localhost`). El backend lo avisa con un WARN al arrancar si está en `true`; en producción, siempre `false` |
