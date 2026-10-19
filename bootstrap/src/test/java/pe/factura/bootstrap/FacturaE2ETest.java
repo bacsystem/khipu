@@ -635,6 +635,7 @@ class FacturaE2ETest {
     private static final String FACTURA_SIN_ENVIO = FACTURA.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"enviar_automatico\":false,");
 
     @org.springframework.beans.factory.annotation.Value("${app.storage.fs-root}") String raizDelAlmacenamiento;
+    @org.springframework.beans.factory.annotation.Value("${app.storage.type:fs}") String tipoDeAlmacenamiento;
 
     @Test void dieciseisEmisionesALaVezSobreLaMismaSerieNoRepitenNiSaltanUnNumero(WireMockRuntimeInfo wm) throws Exception {
         String apiKey = provisionarTenant();
@@ -671,6 +672,8 @@ class FacturaE2ETest {
      * poniendo un archivo donde el almacenamiento necesita la carpeta de la empresa; el orden de {@code EmitirComprobanteService} (numerar, firmar, guardar) hace que sea después.
      */
     @Test void siElAlmacenamientoFallaDespuesDeNumerarElNumeroNoSePierde(WireMockRuntimeInfo wm) throws Exception {
+        // FacturaS3E2ETest hereda esta clase con el almacenamiento en S3: el fallo se provoca sobre carpetas de disco.
+        org.junit.jupiter.api.Assumptions.assumeTrue("fs".equals(tipoDeAlmacenamiento), "solo con el almacenamiento en disco");
         String apiKey = provisionarTenant();
         HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
         assertThat(http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA_SIN_ENVIO, h), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);   // F001-1
