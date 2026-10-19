@@ -112,6 +112,19 @@ describe("EmpresaDetalle (#186)", () => {
     expect(within(filas[2]).getByText("Sin respuesta de SUNAT")).toBeTruthy();
   });
 
+  /** #286: el número del comprobante no enlazaba a su ficha. */
+  it("el número de cada comprobante enlaza a su ficha en el backoffice", () => {
+    const comprobante = { tipo: "01", serie: "F001", fecha_emision: "2026-09-30", moneda: "PEN", total: 118, intentos: 0, estado: "ACEPTADO" } as const;
+    render(<EmpresaDetalle empresa={{ ...BASE, comprobantes: [{ ...comprobante, id: "c1", numero: 1 }, { ...comprobante, id: "c2", numero: 2 }] }} />);
+    pestana("Comprobantes");
+
+    const enlaces = screen.getAllByTestId("comprobante-enlace");
+    expect(enlaces.map((e) => e.getAttribute("href"))).toEqual(["/admin/comprobantes/c1", "/admin/comprobantes/c2"]);
+    expect(enlaces[0].textContent).toBe("F001-00000001");
+    // La columna se llama «Envíos fallidos»: el contador no cuenta el envío que salió bien.
+    expect(screen.getByText("Envíos fallidos")).toBeTruthy();
+  });
+
   it("el prefijo de una API key lleva puntos suspensivos: no es la key entera", () => {
     render(<EmpresaDetalle empresa={{ ...BASE, api_keys: [{ id: "k1", prefijo: "fk_demo001", activa: true, creada_en: "2026-09-01T15:00:00Z" }] }} />);
     pestana("API keys");

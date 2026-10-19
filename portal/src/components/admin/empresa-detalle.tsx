@@ -6,6 +6,7 @@ import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { Tabs } from "@/components/navegacion/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import type { DomicilioEmpresa, EmpresaDetalleAdmin } from "@/lib/api/admin-empresa-detalle";
 import { estadoCertificadoDeEmpresa } from "@/lib/api/admin-empresas";
@@ -235,7 +236,11 @@ function Comprobantes({ comprobantes }: { comprobantes: EmpresaDetalleAdmin["com
         <TableBody className="text-[13px]">
           {comprobantes.map((x) => (
             <TableRow key={x.id} className="border-b border-border/60 align-top">
-              <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">{numero(x.serie, x.numero)}</TableCell>
+              <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">
+                <Link href={hrefDetalleComprobante(x.id)} className="text-primary hover:underline" data-testid="comprobante-enlace">
+                  {numero(x.serie, x.numero)}
+                </Link>
+              </TableCell>
               <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFecha(x.fecha_emision)}</TableCell>
               <TableCell className="px-3 py-2">
                 <EstadoBadge estado={x.estado} />

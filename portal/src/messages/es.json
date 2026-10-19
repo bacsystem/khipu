@@ -1042,10 +1042,12 @@
       "verEmpresa": "Ver la empresa",
       "tipo": "Tipo",
       "fechaEmision": "Fecha de emisión",
-      "intentos": "Intentos de envío",
+      "intentos": "Envíos fallidos",
+      "ayudaIntentos": "Cuenta los envíos que fallaron: uno que SUNAT recibió a la primera muestra 0.",
       "ultimoError": "Último error de envío",
       "sinError": "Ninguno",
       "respuestaSunat": "Respuesta de SUNAT",
+      "tituloSunatYArchivos": "SUNAT y archivos",
       "sinRespuesta": "Todavía no respondió",
       "noLlego": "No llegó a SUNAT",
       "archivos": "Archivos guardados",
@@ -1143,7 +1145,7 @@
       "comprobantes": {
         "titulo": "Comprobantes recientes",
         "vacio": "Todavía no emitió comprobantes.",
-        "columnas": { "comprobante": "Comprobante", "fecha": "Emisión", "estado": "Estado", "total": "Total", "intentos": "Intentos", "cdr": "CDR de SUNAT" },
+        "columnas": { "comprobante": "Comprobante", "fecha": "Emisión", "estado": "Estado", "total": "Total", "intentos": "Envíos fallidos", "cdr": "CDR de SUNAT" },
         "sinCdr": "Sin respuesta de SUNAT",
         "sinObservaciones": "Sin observaciones",
         "ultimoError": "Último error"

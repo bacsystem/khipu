@@ -90,6 +90,8 @@ test("los comprobantes recientes traen su estado y el detalle del CDR de SUNAT",
   await expect(aceptado).toContainText("Aceptado con obs.");
   await expect(aceptado.getByTestId("cdr")).toContainText("La Factura numero F001-12, ha sido aceptada");
   await expect(aceptado.getByTestId("cdr")).toContainText("4287 - El dato ingresado como parte de la dirección");
+  // #286: el número lleva a la ficha del comprobante en el backoffice (el mock no sirve esa ficha para ids que no son UUID: se afirma el destino).
+  await expect(aceptado.getByTestId("comprobante-enlace")).toHaveAttribute("href", "/admin/comprobantes/f-sol-12");
   const rechazado = comprobantes.locator("tbody tr", { hasText: "F001-00000011" });
   await expect(rechazado).toContainText("Rechazado");
   await expect(rechazado.getByTestId("cdr")).toContainText("2017");

@@ -75,6 +75,20 @@ describe("AdminComprobantePage (#251)", () => {
     expect(screen.getByRole("link", { name: "Ver la empresa" }).getAttribute("href")).toBe(`/admin/empresas/${EMPRESA}`);
   });
 
+  /** #286: «Intentos de envío: 0» en un comprobante enviado una vez; el contador cuenta los envíos fallidos. Y «Respuesta de SUNAT» era el título de la tarjeta y la etiqueta del dato. */
+  it("el contador se llama «Envíos fallidos» y lo explica, y «Respuesta de SUNAT» aparece una sola vez", async () => {
+    sesion();
+    vi.mocked(obtenerComprobanteAdmin).mockResolvedValue({ ...EN_ERROR, estado: "ACEPTADO", intentos: 0, ultimo_error: undefined });
+
+    render(await AdminComprobantePage(params()));
+
+    expect(screen.getByText("Envíos fallidos")).toBeInTheDocument();
+    expect(screen.queryByText("Intentos de envío")).toBeNull();
+    expect(screen.getByText(/uno que SUNAT recibió a la primera muestra 0/)).toBeInTheDocument();
+    expect(screen.getAllByText("Respuesta de SUNAT")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "SUNAT y archivos" })).toBeInTheDocument();
+  });
+
   it("con respuesta de SUNAT la muestra con su código", async () => {
     sesion();
     vi.mocked(obtenerComprobanteAdmin).mockResolvedValue({
