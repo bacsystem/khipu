@@ -165,7 +165,7 @@ export function NuevoComprobanteForm({
   const [fechaVencimiento, setFechaVencimiento] = useState("");
   // #311: tipo de operación (catálogo 51) y, en una exportación, el país del cliente, el Incoterm y el país de uso del servicio.
   const [operacion, setOperacion] = useState("0101");
-  // #288: detracción (SPOT), solo en una factura de venta interna; fija el tipo de operación 1001 (1003 para el transporte de pasajeros).
+  // #288, #297: detracción (SPOT), en una factura o una boleta de venta interna; fija el tipo de operación 1001 (1003 para el transporte de pasajeros).
   const [detraccion, setDetraccion] = useState<DetraccionForm>(DETRACCION_VACIA);
   // #297: percepción del IGV (operación 2001), en soles y al contado; es excluyente con la detracción (cada una fija su tipo de operación).
   const [percepcion, setPercepcion] = useState<PercepcionForm>(PERCEPCION_VACIA);

@@ -291,6 +291,16 @@ final class EscenariosFactura {
                 "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"2001\"," + dni + ",\"items\":[" +
                 "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
                 "\"percepcion\":{\"regimen\":\"51\"}}"));
+        // El formulario también permite estas dos combinaciones con el comprador sin documento («-»): totales de hasta S/ 700, el tope de esa identificación.
+        String sinDocumento = "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"}";
+        todos.add(new Escenario("71b-boleta-detraccion-sin-documento", "Boleta sin documento con detracción (1001, código 022)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1001\"," + sinDocumento + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio de mantenimiento\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":590.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"detraccion\":{\"codigo_bien_servicio\":\"022\",\"porcentaje\":12,\"cuenta_banco_nacion\":\"00-000-123456\"}}"));
+        todos.add(new Escenario("72b-boleta-percepcion-sin-documento", "Boleta sin documento con percepción (2001, régimen 51)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"2001\"," + sinDocumento + ",\"items\":[" +
+                "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"percepcion\":{\"regimen\":\"51\"}}"));
         return todos;
     }
 

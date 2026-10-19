@@ -1,5 +1,5 @@
 /**
- * #288: detracción (SPOT) de una factura. El portal pregunta y avisa; decidir si el servicio está sujeto es del emisor y su contador. El monto lo calcula el backend (en
+ * #288, #297: detracción (SPOT) de una factura o de una boleta. El portal pregunta y avisa; decidir si el servicio está sujeto es del emisor y su contador. El monto lo calcula el backend (en
  * soles: total × porcentaje, redondeado al sol); aquí solo se arman los datos que pide `FacturaRequest.DetraccionDto` (códigos 3127–3129, 3208).
  */
 export type DetraccionForm = {
