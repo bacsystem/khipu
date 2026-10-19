@@ -17,6 +17,7 @@ dependencies {
     implementation(project(":adapters:out-persistence"))
     implementation(project(":adapters:out-crypto"))
     implementation(project(":adapters:out-mail"))
+    implementation(project(":adapters:out-alertas"))
     implementation(libs.springdoc.openapi)
     implementation(libs.spring.boot.starter.mail)
     implementation(libs.spring.boot.starter.web)

@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record AppProperties(String mode, String masterKey, String apiKeyPepper, String platformAdminKey,
                             String jwtSecret, String portalUrl,
                             Storage storage, Sunat sunat, Outbox outbox, Mail mail, Integridad integridad, Monitor monitor, String zonaHoraria,
-                            String relojDesplazamiento) {
+                            String relojDesplazamiento, Alertas alertas) {
     // relojDesplazamiento (RELOJ_DESPLAZAMIENTO, #363): duración ISO-8601 que se suma al reloj del backend, solo para probar plazos en un ambiente de pruebas
     // (-P8D = ocho días antes). Vacío = hora real. Con valor, no arranca si hay empresas en PRODUCCION. Ver RelojDeLaAplicacion y deploy/README.md §10.
 
@@ -27,6 +27,18 @@ public record AppProperties(String mode, String masterKey, String apiKeyPepper, 
      */
     public record Monitor(int resumenSinRespuestaHoras) {
         public static final int HORAS_POR_DEFECTO = 6;
+    }
+    /**
+     * Alertas al operador (#341). {@code email}: direcciones separadas por coma; {@code webhookUrl}: un webhook de Slack, Discord o similar; sin ninguno solo se escribe en el log.
+     * {@code repetirHoras}: cada cuánto se repite un problema que sigue. {@code errorEnvioMinutos} y {@code errorEnvioCantidad}: cuántos comprobantes llevan ese tiempo en
+     * ERROR_ENVIO para alertar. {@code respaldoHoras}: lo más que puede pasar sin un respaldo bueno (0 apaga la alerta). {@code fueraDePlazoHoras}: ventana en que se cuentan los
+     * comprobantes que pasaron a FUERA_DE_PLAZO. Rangos validados en {@link AppConfig#umbralesDeAlertas}.
+     */
+    public record Alertas(String email, String webhookUrl, int repetirHoras, int errorEnvioMinutos, int errorEnvioCantidad, int respaldoHoras, int fueraDePlazoHoras) {
+        public static final int REPETIR_HORAS_POR_DEFECTO = 24;
+        public static final int ERROR_ENVIO_MINUTOS_POR_DEFECTO = 30;
+        public static final int ERROR_ENVIO_CANTIDAD_POR_DEFECTO = 5;
+        public static final int FUERA_DE_PLAZO_HORAS_POR_DEFECTO = 24;
     }
     public record Outbox(long intervaloMs, int maxIntentos) {}
     /** Sin SMTP habilitado, los correos (recuperación de contraseña) se escriben en el log. */
