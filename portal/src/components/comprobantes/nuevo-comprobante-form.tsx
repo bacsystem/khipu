@@ -160,10 +160,10 @@ export function NuevoComprobanteForm({
   const [direccion, setDireccion] = useState(plantilla?.cliente.direccion ?? "");
   const [lineas, setLineas] = useState<Linea[]>(plantilla?.lineas.length ? plantilla.lineas.map((l) => ({ ...l })) : [{ ...LINEA_VACIA }]);
   // #358: ajuste del importe total para cobrar en efectivo sin céntimos (`PayableRoundingAmount`). Texto, para poder escribir «-» y «0.» sin que el campo lo reescriba.
-  const [redondeoTexto, setRedondeoTexto] = useState("");
+  const [redondeoTexto, setRedondeoTexto] = useState(plantilla?.redondeo ?? "");
   // #310: descuento y cargo globales (02/03 y 46/49/50); los de cada línea viven en la línea.
-  const [descuentoGlobal, setDescuentoGlobal] = useState<AjusteForm>(AJUSTE_VACIO);
-  const [cargoGlobal, setCargoGlobal] = useState<AjusteForm>(AJUSTE_VACIO);
+  const [descuentoGlobal, setDescuentoGlobal] = useState<AjusteForm>(plantilla?.descuentoGlobal ?? AJUSTE_VACIO);
+  const [cargoGlobal, setCargoGlobal] = useState<AjusteForm>(plantilla?.cargoGlobal ?? AJUSTE_VACIO);
   // #309: la factura puede ser al crédito (la boleta es siempre al contado, RS 193-2020); `fechaVencimiento` es el DueDate informativo.
   const [alCredito, setAlCredito] = useState(false);
   const [credito, setCredito] = useState<CreditoForm>(CREDITO_VACIO);

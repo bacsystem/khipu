@@ -434,6 +434,70 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     expect(screen.getByLabelText("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
   });
 
+  /** Revisión de #323 (H1): dos pedidos seguidos o un diálogo abierto a mano mientras tanto no se pisan con una copia que llega tarde. */
+  it("solo vale la respuesta del último pedido, aunque la anterior llegue después", async () => {
+    let resolverA: (r: Response) => void = () => {};
+    stubFetch((url) => {
+      if (url.includes("/facturas/f-a")) return new Promise<Response>((r) => (resolverA = r)) as never;
+      if (url.includes("/facturas/f-b")) return sobre({ ...FACTURA, id: "f-b", receptor: { ...FACTURA.receptor, num_doc: "20100066603", razon_social: "OTRO SAC" } });
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("f-a");
+    pedirDuplicado("f-b");
+    await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue("20100066603"));
+    resolverA(sobre(FACTURA));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByLabelText("RUC")).toHaveValue("20100066603");
+  });
+
+  it("abrir «Nuevo comprobante» a mano mientras la copia viaja la anula: lo escrito no se pierde", async () => {
+    let resolver: (r: Response) => void = () => {};
+    stubFetch((url) => {
+      if (url.includes("/facturas/f-1")) return new Promise<Response>((r) => (resolver = r)) as never;
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("f-1");
+    await abrir();
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20131312955" } });
+    resolver(sobre(FACTURA));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByLabelText("RUC")).toHaveValue("20131312955");
+  });
+
+  it("avisa lo que no se copió del comprobante original", async () => {
+    stubFetch((url) => {
+      if (url.includes("/facturas/f-1")) return sobre({ ...FACTURA, observaciones: "Entrega en almacén", detraccion: { codigo_bien_servicio: "022" } });
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("f-1");
+    expect(await screen.findByTestId("copia-omitidos")).toHaveTextContent("No se copió: la detracción; las observaciones.");
+  });
+
+  it("una copia que falla tras duplicar una boleta abre en la pestaña inicial, no en Boleta", async () => {
+    let fallar = false;
+    stubFetch((url) => {
+      if (url.includes("/facturas/b-1")) return fallar ? (Promise.reject(new TypeError("Failed to fetch")) as never) : sobre({ ...FACTURA, id: "b-1", tipo: "03", serie: "B001", receptor: { tipo_doc: "1", num_doc: "44781209", razon_social: "MIGUEL", direccion: null } });
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("b-1");
+    await waitFor(() => expect(screen.getByLabelText("Número de documento")).toHaveValue("44781209"));
+    expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByLabelText("Número de documento")).not.toBeInTheDocument());
+    fallar = true;
+    pedirDuplicado("b-1");
+    expect(await screen.findByText("No se pudo copiar el comprobante")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Factura" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("si no se puede leer el comprobante a copiar, abre el diálogo con un aviso y sin copia", async () => {
     stubFetch((url) => {
       if (url.includes("/facturas/f-9")) return sobre(null, 404);

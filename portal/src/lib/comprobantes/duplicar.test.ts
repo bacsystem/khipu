@@ -56,6 +56,41 @@ describe("duplicar (#323)", () => {
     expect(lineaDesde({ ...base.items[0], isc: { sistema: "03", tasa: 30, monto: 3, base_pvp: 3.5 } }).isc).toEqual({ sistema: "03", tasa: "30", montoUnitario: "", basePvp: "3.5" });
   });
 
+  /** Revisión de #323 (H2): lo que cambia el importe se copia; lo demás se lista para que el diálogo lo diga. */
+  it("copia el descuento y el cargo globales y el redondeo, y lista lo que no copia", () => {
+    const c = {
+      ...base,
+      totales: { ...base.totales, descuento_global: { tipo: "PORCENTAJE" as const, valor: 10, monto: 10, afecta_base_igv: true, codigo: "02" }, cargos: [{ tipo: "MONTO" as const, valor: 5, monto: 5, afecta_base_igv: false, codigo: "50" }, { tipo: "MONTO" as const, valor: 1, monto: 1, afecta_base_igv: false, codigo: "50" }], redondeo: -0.05 },
+      tipo_operacion: "1001", detraccion: { codigo_bien_servicio: "022" }, anticipos: [{ comprobante: "F001-1" }], forma_pago: { tipo: "credito", monto_pendiente: 1, cuotas: [] },
+      referencias: { orden_compra: "OC" }, observaciones: "x", tipo_cambio: 3.7,
+      items: [{ ...base.items[0], otros_tributos: { tasa: 2, monto: 1 }, placa: "ABC-123", cargos: [{ tipo: "MONTO", valor: 1, monto: 1, afecta_base_igv: true, codigo: "47" }, { tipo: "MONTO", valor: 2, monto: 2, afecta_base_igv: true, codigo: "47" }] }],
+    } as unknown as Comprobante;
+    const p = plantillaDesde(c)!;
+    expect(p.descuentoGlobal).toEqual({ modo: "porcentaje", valor: "10", afectaBase: true });
+    expect(p.cargoGlobal).toEqual({ modo: "monto", valor: "5", afectaBase: false });
+    expect(p.redondeo).toBe("-0.05");
+    expect(p.operacion).toBe("0101");
+    expect(p.omitidos).toEqual([
+      "el tipo de operación 1001 (se emite como venta interna)", "la detracción", "los anticipos descontados", "la forma de pago al crédito y sus cuotas", "el tipo de cambio",
+      "la orden de compra, las guías y los documentos relacionados", "las observaciones", "los cargos globales además del primero", "los cargos de línea además del primero",
+      "los otros tributos (9999) de las líneas", "los datos propios de las líneas (placa, hidrobiológicos, transporte)",
+    ]);
+    expect(plantillaDesde(base)!.omitidos).toEqual([]);
+    expect(plantillaDesde(base)!.redondeo).toBe("");
+  });
+
+  it("una exportación que el formulario no ofrece (0202) vuelve a venta interna con las líneas gravadas y el comprador sin datos del exterior", () => {
+    const c = { ...base, tipo_operacion: "0202", receptor: { tipo_doc: "0", num_doc: "US1", razon_social: "ACME", direccion: null, pais: "US" }, items: [{ ...base.items[0], tipo_afectacion_igv: "40" }] } as unknown as Comprobante;
+    const p = plantillaDesde(c)!;
+    expect(p.operacion).toBe("0101");
+    expect(p.lineas[0].tipoAfectacionIgv).toBe("10");
+    expect(p.cliente).toEqual({ tipoDoc: "6", numDoc: "", razonSocial: "", direccion: "", pais: "" });
+    // Una exportación que sí se ofrece (0200) conserva las 40 y el comprador del exterior.
+    const e = plantillaDesde({ ...c, tipo_operacion: "0200" } as Comprobante)!;
+    expect(e.lineas[0].tipoAfectacionIgv).toBe("40");
+    expect(e.cliente).toMatchObject({ tipoDoc: "0", pais: "US" });
+  });
+
   it("el pedido llega a quien escucha y se puede dejar de escuchar", () => {
     const escuchar = vi.fn();
     const baja = alPedirDuplicado(escuchar);
