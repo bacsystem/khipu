@@ -196,9 +196,11 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         if (f.tipo() != null) { w.append(" AND d.tipo = ?"); args.add(f.tipo()); }
         if (f.numero() != null) { w.append(" AND d.numero = ?"); args.add(f.numero()); }
         if (f.cliente() != null) {
-            String literal = f.cliente().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-            w.append(" AND (lower(c.receptor_nombre) LIKE ? ESCAPE '\\'");
-            args.add("%" + literal.toLowerCase(java.util.Locale.ROOT) + "%");
+            // Como la búsqueda del backoffice: sin distinguir mayúsculas ni tildes con `translate` (del núcleo de Postgres, sin la extensión `unaccent`) aplicado a la columna y al texto,
+            // lo que además no depende del LC_CTYPE de la base (con «C», `lower('PACÍFICO')` deja la Í), y con los comodines de LIKE tomados literalmente.
+            String literal = JdbcCuentasAdminRepository.escaparComodines(java.text.Normalizer.normalize(f.cliente(), java.text.Normalizer.Form.NFC));
+            w.append(" AND (" + JdbcCuentasAdminRepository.SIN_TILDES.formatted("c.receptor_nombre") + " ILIKE " + JdbcCuentasAdminRepository.SIN_TILDES.formatted("?") + " ESCAPE '\\'");
+            args.add("%" + literal + "%");
             if (f.cliente().chars().allMatch(Character::isDigit)) { w.append(" OR c.receptor_num_doc LIKE ? ESCAPE '\\'"); args.add(literal + "%"); }
             w.append(")");
         }

@@ -414,7 +414,7 @@ class FacturaControllerTest {
         mvc.perform(get("/v1/facturas?numero=0").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
         mvc.perform(get("/v1/facturas?numero=abc").requestAttr(TenantActual.ATRIBUTO, tenant))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
         mvc.perform(get("/v1/facturas?cliente=" + "x".repeat(101)).requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
     }
