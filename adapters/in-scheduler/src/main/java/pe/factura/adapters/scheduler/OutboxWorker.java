@@ -1,20 +1,23 @@
 package pe.factura.adapters.scheduler;
 
 import lombok.extern.slf4j.Slf4j;
-import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import pe.factura.application.port.in.DarDeBajaUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
+import pe.factura.application.port.in.EnviarGuiaRemisionUseCase;
 import pe.factura.application.port.out.OutboxItem;
 import pe.factura.application.port.out.OutboxRepository;
 import pe.factura.application.port.out.UnitOfWork;
 import pe.factura.application.service.Backoff;
 import pe.factura.application.service.DarDeBajaService;
 import pe.factura.application.service.EnviarDocumentoService;
+import pe.factura.application.service.EnviarGuiaRemisionService;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
+import pe.factura.domain.documento.EstadoGuia;
+import pe.factura.domain.documento.GuiaRemision;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -22,7 +25,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Slf4j
-@RequiredArgsConstructor
 public class OutboxWorker {
     private static final int LOTE = 50;
     /**
@@ -37,7 +39,16 @@ public class OutboxWorker {
     private final DarDeBajaUseCase bajas;
     private final Clock clock;
     private final int maxIntentos;
+    /** #39: el envío de las guías de remisión y la consulta de su ticket; {@code null} donde no se emiten guías (pruebas del resto). */
+    private final EnviarGuiaRemisionUseCase guias;
 
+    public OutboxWorker(OutboxRepository outbox, UnitOfWork uow, EnviarDocumentoUseCase enviar, DarDeBajaUseCase bajas, Clock clock, int maxIntentos, EnviarGuiaRemisionUseCase guias) {
+        this.outbox = outbox; this.uow = uow; this.enviar = enviar; this.bajas = bajas; this.clock = clock; this.maxIntentos = maxIntentos; this.guias = guias;
+    }
+
+    public OutboxWorker(OutboxRepository outbox, UnitOfWork uow, EnviarDocumentoUseCase enviar, DarDeBajaUseCase bajas, Clock clock, int maxIntentos) {
+        this(outbox, uow, enviar, bajas, clock, maxIntentos, null);
+    }
 
     @Scheduled(fixedDelayString = "${app.outbox.intervalo-ms:10000}")
     public void tick() {
@@ -70,10 +81,28 @@ public class OutboxWorker {
                             b.estado() == ComunicacionBaja.EstadoBaja.ENVIADA ? clock.instant().plus(DarDeBajaService.consultaTicket(fila.intentos() + 1)) : Backoff.siguiente(fila.intentos() + 1, clock.instant()),
                             b.ultimoError());
                 }
+                // #39: una guía en error de envío se reintenta con el backoff de los envíos mientras khipu pueda reintentarla sola (SUNAT no respondió) y hasta
+                // agotar los intentos; si SUNAT dio el ticket, la consulta la programa el servicio (acción GRE_TICKET).
+                case EnviarGuiaRemisionService.ACCION_ENVIAR -> {
+                    if (guias == null) { log.warn("Outbox {}: {} sin servicio de guías", fila.id(), fila.accion()); outbox.completar(fila.id()); break; }
+                    GuiaRemision g = guias.enviar(fila.tenantId(), fila.agregadoId());
+                    if (g.estado() == EstadoGuia.ERROR_ENVIO && g.reintentoAutomatico()) {
+                        if (fila.intentos() + 1 >= maxIntentos) { log.error("{} agotó {} intentos: {}", g.nombreArchivo(), maxIntentos, g.ultimoError()); outbox.completar(fila.id()); }
+                        else outbox.reprogramar(fila.id(), Backoff.siguiente(fila.intentos() + 1, clock.instant()), g.ultimoError());
+                    } else outbox.completar(fila.id());
+                }
+                // #39: el ticket se consulta mientras SUNAT diga «en proceso», cada vez más espaciado; el tope de consultas lo aplica el servicio (deja reintento_automatico en false).
+                case EnviarGuiaRemisionService.ACCION_TICKET -> {
+                    if (guias == null) { log.warn("Outbox {}: {} sin servicio de guías", fila.id(), fila.accion()); outbox.completar(fila.id()); break; }
+                    GuiaRemision g = guias.consultarTicket(fila.tenantId(), fila.agregadoId());
+                    if (g.estado().esperaTicket() && g.reintentoAutomatico())
+                        outbox.reprogramar(fila.id(), clock.instant().plus(EnviarGuiaRemisionService.intervaloDeConsulta(fila.intentos() + 1)), g.ultimoError());
+                    else outbox.completar(fila.id());
+                }
                 default -> { log.warn("Acción desconocida {} en outbox {}", fila.accion(), fila.id()); outbox.completar(fila.id()); }
             }
         } catch (DomainException e) {
-            if ("ESTADO_NO_ENVIABLE".equals(e.codigo()) || "NO_ENCONTRADO".equals(e.codigo()) || "FUERA_DE_PLAZO".equals(e.codigo())) {
+            if ("ESTADO_NO_ENVIABLE".equals(e.codigo()) || "NO_ENCONTRADO".equals(e.codigo()) || "FUERA_DE_PLAZO".equals(e.codigo()) || "TICKET_NO_PENDIENTE".equals(e.codigo())) {
                 log.info("Outbox {} descartada: {} {}", fila.id(), e.codigo(), e.getMessage());
                 outbox.completar(fila.id());
             } else {

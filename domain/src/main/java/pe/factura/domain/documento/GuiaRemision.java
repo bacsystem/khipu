@@ -238,6 +238,12 @@ public class GuiaRemision {
         this.consultasTicket++; this.ultimoError = motivo; this.reintentoAutomatico = seguirConsultando;
     }
 
+    /** Se llegó al tope de consultas automáticas del ticket: la guía lo sigue esperando, pero khipu deja de consultarlo solo (la consulta ya se contó). */
+    public void dejarDeConsultar(String motivo) {
+        exigirEsperandoTicket();
+        this.ultimoError = motivo; this.reintentoAutomatico = false;
+    }
+
     /** Vuelve a consultar sola un ticket que había dejado de consultar (se pidió a mano y SUNAT sigue en 98). */
     public void reanudarConsultas() { exigirEsperandoTicket(); this.reintentoAutomatico = true; this.consultasTicket = 0; }
 
