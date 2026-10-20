@@ -151,6 +151,7 @@ class RegistroDeVentasSireE2ETest {
         assertThat(r.getHeaders().getFirst("X-Rvie-Registros")).isEqualTo("6");
         assertThat(r.getHeaders().getFirst("X-Rvie-Pendientes-Sunat")).isEqualTo("2");
         assertThat(r.getHeaders().getFirst("X-Rvie-Sin-Tipo-Cambio")).isEqualTo("0");
+        assertThat(r.getHeaders().getFirst("X-Rvie-Alcance")).isEqualTo("solo-khipu");
 
         String texto = texto(r.getBody(), nombre + ".txt");
         List<String[]> f = filas(texto);
@@ -162,7 +163,7 @@ class RegistroDeVentasSireE2ETest {
         String[] gravada = f.get(0);
         assertThat(gravada[3]).isEqualTo(c.ruc() + "01F0010000000051");
         assertThat(gravada[4]).isEqualTo("01/09/2026");
-        assertThat(new String[]{gravada[14], gravada[16], gravada[25], gravada[26], gravada[27], gravada[34]}).containsExactly("100.00", "18.00", "118.00", "PEN", "1.000", "1");
+        assertThat(new String[]{gravada[14], gravada[16], gravada[25], gravada[26], gravada[27], gravada[34]}).containsExactly("100.00", "18.00", "118.00", "PEN", "0.000", "1");
 
         String[] anulada = f.get(2);
         assertThat(anulada[34]).isEqualTo("2");

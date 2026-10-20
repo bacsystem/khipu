@@ -15,10 +15,6 @@
       "description": "Los productos y servicios que la empresa factura seguido, guardados para no teclearlos en cada emisión: el portal los ofrece en el autocompletado de los ítems de «Nuevo comprobante».\nCada uno lleva lo que repite una línea: descripción, unidad (catálogo 03), afectación del IGV (catálogo 07), precio unitario, código interno y código de producto SUNAT (catálogo 25).\nSe validan como la línea de un comprobante, así que lo guardado siempre se puede emitir. Funciona con API key o con la sesión del portal."
     },
     {
-      "name": "SIRE",
-      "description": "Registro de Ventas e Ingresos Electrónico (RVIE) del SIRE: el archivo de reemplazo de la propuesta, armado con los comprobantes que khipu emitió y SUNAT tiene, y la\nconciliación de esos comprobantes con la propuesta que usted descarga del SIRE. khipu no se conecta al SIRE: el archivo lo sube usted (o su contador) en SUNAT Operaciones\nen Línea. **El formato sigue la estructura de 40 campos de la propuesta del RVIE y todavía no se validó contra el Anexo 3 vigente ni contra el SIRE**: revise el archivo antes\nde reemplazar una propuesta. Autenticación: `X-Api-Key` o sesión del portal."
-    },
-    {
       "name": "Facturas",
       "description": "Emisión y consulta de facturas (tipo 01) y boletas de venta (tipo 03) electrónicas: la letra de la serie decide cuál\n(`F###` factura, `B###` boleta). Las dos se emiten igual, en una sola llamada y una por una: khipu asigna el\nnúmero correlativo de la serie, genera el XML UBL 2.1, lo firma con el certificado de la empresa, lo valida y lo\nenvía a SUNAT; la respuesta trae el estado y, si SUNAT respondió, el CDR. Si SUNAT no está disponible, el\ncomprobante queda en `ERROR_ENVIO` y khipu lo reintenta solo (ver *Estados del comprobante* en la introducción).\n\nAutenticación: `X-Api-Key` de la empresa (integradores) o sesión del portal. Todos los importes van con hasta\n2 decimales y en la moneda del comprobante; las fechas en `YYYY-MM-DD`."
     },
@@ -89,6 +85,10 @@
     {
       "name": "Personalización del PDF",
       "description": "Diseño de la representación impresa de la empresa: plantilla, color primario, logo, pie de página y observaciones por\ndefecto. No afecta al XML ni a lo que se envía a SUNAT; al cambiarlo, los PDF se regeneran con el nuevo diseño la\npróxima vez que se piden (los ya enviados por correo no cambian)."
+    },
+    {
+      "name": "SIRE",
+      "description": "**EXPERIMENTAL.** Registro de Ventas e Ingresos Electrónico (RVIE) del SIRE: el archivo de reemplazo de la propuesta, armado con los comprobantes que khipu emitió y\nSUNAT tiene, y la conciliación de esos comprobantes con la propuesta que usted descarga del SIRE. khipu no se conecta al SIRE: el archivo lo sube usted (o su contador)\nen SUNAT Operaciones en Línea. **El formato está reconstruido** del Anexo III de la RS 000138-2023 (que cubre solo una parte de los campos) y del control de cambios\ndel Aplicativo Cliente SIRE: **no lo use para reemplazar una propuesta real antes de validarlo con el Programa Validador SIRE (PVSIRE)**. **Cubre solo lo emitido en\nkhipu**: reemplazar la propuesta con él saca las ventas emitidas por otros medios (SEE-SOL, comprobantes físicos, otro proveedor); antes de reemplazar, concilie y\nexija `solo_en_sunat` vacío. Autenticación: `X-Api-Key` o sesión del portal."
     },
     {
       "name": "Comunicación de baja",
@@ -1239,8 +1239,8 @@
         "tags": [
           "SIRE"
         ],
-        "summary": "Conciliar el registro de ventas con la propuesta de SUNAT",
-        "description": "Compare lo que khipu emitió con la propuesta del RVIE que descarga del SIRE: envíe el archivo tal como lo descargó, `.txt` o `.zip` con un `.txt`, como cuerpo\nde la petición (no multipart), hasta 20 MB (64 MB descomprimido). La respuesta dice qué comprobantes están solo en SUNAT, solo en khipu, y cuáles están en los\ndos con algún dato distinto (fecha, moneda, estado, base gravada, IGV, exonerado, inafecto o total), comparados por tipo, serie y número. No guarda nada.\n\nLa propuesta se lee con la misma estructura de 40 campos que el archivo de `GET /v1/sire/rvie` (una fila de títulos al principio se ignora): **supuesto sin\nverificar contra el SIRE**. Errores: `400 PARAMETRO_INVALIDO` (periodo, o la propuesta enviada como formulario), `422 RVIE_ARCHIVO_INVALIDO` (cuerpo vacío, una fila que no se puede leer, de otro RUC o de otro\nperiodo, o un comprobante repetido; el mensaje dice la línea y el campo), `422 RVIE_PROPUESTA_DEMASIADO_GRANDE` y `422 RVIE_EXCEDE_EL_TOPE` (más de 100 000 filas).",
+        "summary": "Conciliar el registro de ventas con la propuesta de SUNAT (experimental)",
+        "description": "**EXPERIMENTAL: formato reconstruido, no validado con el PVSIRE.** Es el paso obligado antes de reemplazar una propuesta con el archivo de `GET /v1/sire/rvie`, que\n**cubre solo lo emitido en khipu**: `solo_en_sunat` debe estar vacío, o el reemplazo sacaría esas ventas del registro.\n\nCompare lo que khipu emitió con la propuesta del RVIE que descarga del SIRE: envíe el archivo tal como lo descargó, `.txt` o `.zip` con un `.txt`, como cuerpo\nde la petición (no multipart), hasta 20 MB (64 MB descomprimido). La respuesta dice qué comprobantes están solo en SUNAT, solo en khipu, y cuáles están en los\ndos con algún dato distinto (fecha, moneda, estado, base gravada, IGV, exonerado, inafecto o total), comparados por tipo, serie y número. No guarda nada.\n\nLa propuesta se lee con la misma estructura de 40 campos que el archivo de `GET /v1/sire/rvie` (una fila de títulos al principio se ignora; una fila con el campo 10, un rango\nconsolidado, no se concilia y se cuenta en `filas_consolidadas_no_conciliadas`): **supuesto sin verificar contra el SIRE**. Errores: `400 PARAMETRO_INVALIDO` (periodo, o la propuesta enviada como formulario), `422 RVIE_ARCHIVO_INVALIDO` (cuerpo vacío o sin filas de datos, ZIP dañado, una línea de más de 16 KB, una fila que no se puede leer, de otro RUC o de otro\nperiodo, o un comprobante repetido; el mensaje dice la línea y el campo), `422 RVIE_PROPUESTA_DEMASIADO_GRANDE` y `422 RVIE_EXCEDE_EL_TOPE` (más de 100 000 filas).",
         "operationId": "conciliarRvie",
         "parameters": [
           {
@@ -4760,8 +4760,8 @@
         "tags": [
           "SIRE"
         ],
-        "summary": "Descargar el registro de ventas (RVIE) de un periodo",
-        "description": "Un ZIP `LE<RUC><AAAAMM>00140400021112.zip` con el `.txt` del mismo nombre: una fila por comprobante emitido en el periodo que SUNAT tiene —aceptado, con o sin\nobservaciones, o anulado después—, en el orden fecha, tipo, serie y número. 40 campos separados por `|` (también al final de la fila), fin de línea CRLF, UTF-8,\nfechas `dd/mm/aaaa`, importes con 2 decimales en la moneda del comprobante y tipo de cambio con 3 (`1.000` en soles). Cada boleta va en su propia fila; la\nnota de crédito va en negativo y lleva en los campos 29–32 el comprobante que modifica y en el 34 su motivo; un anulado va con estado `2` e importes en cero.\n\nLo que todavía va en camino a SUNAT (firmado, enviado o con error de envío) no entra: cuántos son lo dice la cabecera `X-Rvie-Pendientes-Sunat`, y\n`X-Rvie-Registros` cuántas filas trae el archivo. Errores, siempre antes de empezar a escribir el archivo: `400 PARAMETRO_INVALIDO` (periodo que no es `AAAAMM`\no que todavía no empieza), `404 NO_ENCONTRADO` (nada en el periodo), `422 RVIE_EXCEDE_EL_TOPE` (más de 100 000 comprobantes) y `422 RVIE_SIN_TIPO_CAMBIO`\n(comprobantes en otra moneda sin tipo de cambio, que el campo 28 pide: con `permitir_sin_tipo_cambio=true` salen con el campo vacío y la cuenta va en\n`X-Rvie-Sin-Tipo-Cambio`). Si la lectura falla a mitad de camino, la descarga se corta con un ZIP inválido, nunca con un archivo que parezca completo.",
+        "summary": "Descargar el registro de ventas (RVIE) de un periodo (experimental)",
+        "description": "**EXPERIMENTAL: formato reconstruido; no lo use para reemplazar una propuesta real antes de validarlo con el PVSIRE.** **Cubre solo lo emitido en khipu**\n(cabecera `X-Rvie-Alcance: solo-khipu`): antes de reemplazar la propuesta, concilie con `POST /v1/sire/rvie/conciliacion` y exija `solo_en_sunat` vacío.\n\nUn ZIP `LE<RUC><AAAAMM>00140400021112.zip` con el `.txt` del mismo nombre: una fila por comprobante emitido en el periodo que SUNAT tiene —aceptado, con o sin\nobservaciones, o anulado después—, en el orden fecha, tipo, serie y número. 40 campos separados por `|` (también al final de la fila), fin de línea CRLF, UTF-8,\nfechas `dd/mm/aaaa`, importes con 2 decimales en la moneda del comprobante y tipo de cambio con 3 (`0.000` en soles). Cada boleta va en su propia fila; la\nnota de crédito va en negativo y lleva en los campos 29–32 el comprobante que modifica y en el 34 su motivo; un anulado va con estado `2` e importes en cero.\n\nLo que todavía va en camino a SUNAT (firmado, enviado o con error de envío) no entra: cuántos son lo dice la cabecera `X-Rvie-Pendientes-Sunat`, y\n`X-Rvie-Registros` cuántas filas trae el archivo (contadas al prepararlo: si un comprobante cambia de estado durante la descarga puede ir uno más o menos). Errores, siempre antes de empezar a escribir el archivo: `400 PARAMETRO_INVALIDO` (periodo que no es `AAAAMM`\no que todavía no empieza), `404 NO_ENCONTRADO` (nada en el periodo), `422 RVIE_EXCEDE_EL_TOPE` (más de 100 000 comprobantes) y `422 RVIE_SIN_TIPO_CAMBIO`\n(comprobantes en otra moneda sin tipo de cambio, que el campo 28 pide: con `permitir_sin_tipo_cambio=true` salen con el campo vacío y la cuenta va en\n`X-Rvie-Sin-Tipo-Cambio`). Si la lectura falla a mitad de camino, la descarga se corta con un ZIP inválido, nunca con un archivo que parezca completo.",
         "operationId": "exportarRvie",
         "parameters": [
           {
@@ -4789,6 +4789,13 @@
           "200": {
             "description": "El ZIP del registro de ventas",
             "headers": {
+              "X-Rvie-Alcance": {
+                "description": "`solo-khipu`: el archivo trae solo lo emitido en khipu",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              },
               "X-Rvie-Pendientes-Sunat": {
                 "description": "Comprobantes del periodo que todavía no resolvió SUNAT y no entran",
                 "style": "simple",
@@ -4797,7 +4804,7 @@
                 }
               },
               "X-Rvie-Registros": {
-                "description": "Filas del archivo",
+                "description": "Filas del archivo, contadas al prepararlo (aproximado si un comprobante cambia de estado durante la descarga)",
                 "style": "simple",
                 "schema": {
                   "type": "integer"
@@ -8605,6 +8612,12 @@
             "format": "int64",
             "example": 1
           },
+          "filas_consolidadas_no_conciliadas": {
+            "type": "integer",
+            "description": "Filas de la propuesta con el campo 10 (un rango de boletas o tickets del día consolidados): no se concilian una por una, y sus boletas pueden aparecer en `solo_en_khipu`",
+            "format": "int64",
+            "example": 0
+          },
           "total_solo_en_sunat": {
             "type": "integer",
             "description": "Cuántos están en la propuesta de SUNAT y no en el registro de khipu",
@@ -8657,7 +8670,7 @@
             }
           }
         },
-        "description": "Resultado de conciliar el registro de ventas de khipu con la propuesta del RVIE de SUNAT, comprobante por comprobante (tipo-serie-número)"
+        "description": "EXPERIMENTAL. Resultado de conciliar el registro de ventas de khipu con la propuesta del RVIE de SUNAT, comprobante por comprobante (tipo-serie-número)"
       },
       "DiferenciaRvie": {
         "type": "object",

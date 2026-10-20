@@ -51,6 +51,7 @@ class SireControllerTest {
                 .andExpect(header().string(SireController.CABECERA_REGISTROS, "3"))
                 .andExpect(header().string(SireController.CABECERA_PENDIENTES, "2"))
                 .andExpect(header().string(SireController.CABECERA_SIN_TIPO_CAMBIO, "1"))
+                .andExpect(header().string("X-Rvie-Alcance", "solo-khipu"))
                 .andExpect(content().bytes("PK-zip".getBytes(StandardCharsets.UTF_8)));
     }
 
@@ -86,7 +87,7 @@ class SireControllerTest {
                 List.of(new ConciliacionRvie.Diferencia("01-F001-1", "total", "118.00", "120.00")));
         when(registro.conciliar(eq(tenant), eq("202610"), any())).thenAnswer(inv -> {
             recibido.set(new String(inv.<InputStream>getArgument(2).readAllBytes(), StandardCharsets.UTF_8));
-            return new Conciliacion(PeriodoSire.de("202610"), 5, r);
+            return new Conciliacion(PeriodoSire.de("202610"), 5, 2, r);
         });
 
         mvc.perform(post("/v1/sire/rvie/conciliacion?periodo=202610").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("text/plain").content("20100066603|fila"))
@@ -95,6 +96,7 @@ class SireControllerTest {
                 .andExpect(jsonPath("$.datos.cuadra").value(false))
                 .andExpect(jsonPath("$.datos.registros_khipu").value(2))
                 .andExpect(jsonPath("$.datos.pendientes_de_sunat").value(5))
+                .andExpect(jsonPath("$.datos.filas_consolidadas_no_conciliadas").value(2))
                 .andExpect(jsonPath("$.datos.total_solo_en_sunat").value(1))
                 .andExpect(jsonPath("$.datos.total_diferencias").value(2))
                 .andExpect(jsonPath("$.datos.solo_en_sunat[0]").value("01-F001-9"))
