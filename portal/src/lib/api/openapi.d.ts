@@ -2533,6 +2533,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/facturas/resumen/por-dia": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Emisión por día de un período
+         * @description La emisión de la empresa día por día en un rango de fecha de emisión (`desde`/`hasta`, inclusive, **los dos obligatorios**, hasta 62 días): por cada día con
+         *     comprobantes, cuántos se **emitieron** y cuánto se **facturó por moneda**, con los mismos criterios que `GET /v1/facturas/resumen`. Los días sin comprobantes no
+         *     vienen. Falta una fecha o está mal formada: `400 PARAMETRO_INVALIDO`; `desde > hasta` o más de 62 días: `400 RANGO_INVALIDO`.
+         */
+        get: operations["porDia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/facturas/exportacion": {
         parameters: {
             query?: never;
@@ -8777,9 +8799,75 @@ export interface components {
              * @example 100
              */
             aceptados_con_cdr?: number;
+            /**
+             * Format: int64
+             * @description En camino a SUNAT, sin nada que corregir: firmados que aún no se envían, enviados que esperan su CDR y boletas que esperan su resumen diario. Las boletas sin enviar desde el 5.º día cuentan acá y también en `atencion_requerida.boletas_sin_enviar`
+             * @example 8
+             */
+            en_camino?: number;
             atencion_requerida?: components["schemas"]["AtencionRequerida"];
             /** @description Lo facturado por moneda, ordenado por moneda; vacío si no hay nada. Cuentan los aceptados y los que están en camino; no los rechazados, fuera de plazo ni dados de baja */
             facturado?: components["schemas"]["Facturado"][];
+        };
+        ApiResponseEmisionPorDiaResponse: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["EmisionPorDiaResponse"];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
+        };
+        /** @description Solo los días con algo emitido o facturado, ordenados por fecha; un día sin comprobantes no viene. Vacío si no hay nada en el rango */
+        DiaDeEmision: {
+            /**
+             * Format: date
+             * @description Fecha de emisión
+             * @example 2026-10-05
+             */
+            fecha?: string;
+            /**
+             * Format: int64
+             * @description Comprobantes firmados ese día, en cualquier estado, como `emitidos` del resumen
+             * @example 12
+             */
+            emitidos?: number;
+            /** @description Lo facturado ese día por moneda, ordenado por moneda, como `facturado` del resumen; vacío si no hay nada */
+            facturado?: components["schemas"]["Facturado"][];
+        };
+        EmisionPorDiaResponse: {
+            /**
+             * Format: date
+             * @description El `desde` pedido
+             * @example 2026-10-01
+             */
+            desde?: string;
+            /**
+             * Format: date
+             * @description El `hasta` pedido
+             * @example 2026-10-31
+             */
+            hasta?: string;
+            /** @description Solo los días con algo emitido o facturado, ordenados por fecha; un día sin comprobantes no viene. Vacío si no hay nada en el rango */
+            dias?: components["schemas"]["DiaDeEmision"][];
         };
         ApiResponseListEmpresaVistaResponse: {
             /**
@@ -14334,6 +14422,37 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseResumenDeComprobantesResponse"];
+                };
+            };
+        };
+    };
+    porDia: {
+        parameters: {
+            query: {
+                /**
+                 * @description Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)
+                 * @example 2026-10-01
+                 */
+                desde: string;
+                /**
+                 * @description Fecha de emisión máxima, `YYYY-MM-DD` (inclusive); a lo más 61 días después de `desde`
+                 * @example 2026-10-31
+                 */
+                hasta: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseEmisionPorDiaResponse"];
                 };
             };
         };
