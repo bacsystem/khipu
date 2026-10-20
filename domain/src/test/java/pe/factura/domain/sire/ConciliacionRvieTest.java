@@ -16,7 +16,7 @@ class ConciliacionRvieTest {
 
     static ImportesRvie i(String serie, long numero, String total, String estado) {
         BigDecimal t = new BigDecimal(total);
-        return new ImportesRvie("01", serie, numero, DIA, "PEN", estado, t, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, t);
+        return new ImportesRvie("01", serie, String.valueOf(numero), DIA, "PEN", estado, t, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, t);
     }
 
     @Test void dosRegistrosIgualesCuadranAunqueLaEscalaDeLosImportesCambie() {
@@ -81,7 +81,7 @@ class ConciliacionRvieTest {
     @Test void elMismoNumeroEnOtroTipoUOtraSerieEsOtroComprobante() {
         ConciliacionRvie c = new ConciliacionRvie();
         c.deKhipu(i("F001", 1, "100"));
-        c.deSunat(new ImportesRvie("07", "F001", 1, DIA, "PEN", "1", BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.TEN));
+        c.deSunat(new ImportesRvie("07", "F001", "1", DIA, "PEN", "1", BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.TEN));
         assertThat(c.resultado().soloEnSunat()).containsExactly("07-F001-1");
         assertThat(c.resultado().soloEnKhipu()).containsExactly("01-F001-1");
     }

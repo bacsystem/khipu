@@ -18,16 +18,19 @@ public final class PropuestaRvie {
     static final int CAMPOS_MINIMOS = 27;
     private static final Pattern RUC = Pattern.compile("\\d{11}");
     private static final Pattern IMPORTE = Pattern.compile("-?\\d{1,12}(\\.\\d{1,2})?");
-    private static final Pattern NUMERO = Pattern.compile("\\d{1,10}");
-    private static final Pattern SERIE = Pattern.compile("[A-Z0-9]{4}");
+    /** Serie (campo 8) y número (campo 9): «Hasta 20, Alfanumérico» en el Anexo III de la RS 000138-2023. */
+    private static final Pattern SERIE_O_NUMERO = Pattern.compile("[A-Z0-9-]{1,20}");
 
     private final String rucEmpresa;
     private final PeriodoSire periodo;
+    private long consolidadas;
 
     public PropuestaRvie(String rucEmpresa, PeriodoSire periodo) { this.rucEmpresa = rucEmpresa; this.periodo = periodo; }
 
     /**
-     * La fila {@code linea} (numerada desde 1, para los mensajes), o nula si es una línea en blanco o la fila de títulos de la línea 1 (la que no empieza con un RUC).
+     * La fila {@code linea} (numerada desde 1, para los mensajes), o nula si es una línea en blanco, la fila de títulos de la línea 1 (la que no empieza con un RUC) o
+     * una fila consolidada: con el campo 10 (número final de un rango de boletas o tickets del día, Anexo III) no es un comprobante que se pueda comparar con uno de
+     * khipu; se cuenta en {@link #consolidadas()} en vez de leerla como si fuera la boleta del número inicial.
      */
     public ImportesRvie leer(String linea, long numeroDeLinea) {
         String l = linea.endsWith("\r") ? linea.substring(0, linea.length() - 1) : linea;
@@ -46,13 +49,23 @@ public final class PropuestaRvie {
         String tipo = f[6].strip();
         if (!tipo.matches("\\d{2}")) throw error(numeroDeLinea, campo(7, "tipo de comprobante") + "no es un código de 2 dígitos: «" + corto(tipo) + "»");
         String serie = f[7].strip().toUpperCase(java.util.Locale.ROOT);
-        if (!SERIE.matcher(serie).matches()) throw error(numeroDeLinea, campo(8, "serie") + "no es una serie de 4 caracteres: «" + corto(serie) + "»");
-        String num = f[8].strip();
-        if (!NUMERO.matcher(num).matches()) throw error(numeroDeLinea, campo(9, "número") + "no es un número: «" + corto(num) + "»");
+        if (!SERIE_O_NUMERO.matcher(serie).matches()) throw error(numeroDeLinea, campo(8, "serie") + "no es una serie de hasta 20 letras o dígitos: «" + corto(serie) + "»");
+        String num = f[8].strip().toUpperCase(java.util.Locale.ROOT);
+        if (!SERIE_O_NUMERO.matcher(num).matches()) throw error(numeroDeLinea, campo(9, "número") + "no es un número de hasta 20 letras o dígitos: «" + corto(num) + "»");
+        if (!f[9].isBlank()) { consolidadas++; return null; }
         String estado = f.length > 34 ? f[34].strip() : "";
-        return new ImportesRvie(tipo, serie, Long.parseLong(num), fecha(f[4], 5, numeroDeLinea), f[26].strip(), estado,
+        return new ImportesRvie(tipo, serie, sinCerosALaIzquierda(num), fecha(f[4], 5, numeroDeLinea), f[26].strip(), estado,
                 importe(f[14], 15, "base gravada", numeroDeLinea), importe(f[16], 17, "IGV", numeroDeLinea), importe(f[18], 19, "exonerado", numeroDeLinea),
                 importe(f[19], 20, "inafecto", numeroDeLinea), importe(f[25], 26, "importe total", numeroDeLinea));
+    }
+
+    /** Filas consolidadas (con el campo 10) que se saltaron. */
+    public long consolidadas() { return consolidadas; }
+
+    static String sinCerosALaIzquierda(String numero) {
+        if (!numero.chars().allMatch(Character::isDigit)) return numero;
+        String r = numero.replaceFirst("^0+", "");
+        return r.isEmpty() ? "0" : r;
     }
 
     private static LocalDate fecha(String s, int n, long linea) {

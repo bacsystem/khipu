@@ -43,9 +43,9 @@ class PropuestaRvieTest {
         String buena = FormatoRvie.linea(FilaRvieTest.fila()).replace("\r\n", "");
         assertError(buena.replace("|118.00|PEN|", "|118,00|PEN|"), "línea 4", "campo 26");
         assertError(buena.replace("14/10/2026", "2026-10-14"), "línea 4", "campo 5");
-        assertError(buena.replace("|125||", "|12a||"), "línea 4", "campo 9");
+        assertError(buena.replace("|125||", "|12.5||"), "línea 4", "campo 9");
         assertError(buena.replace("|01|F001|", "|1|F001|"), "línea 4", "campo 7");
-        assertError(buena.replace("|01|F001|", "|01|F0011|"), "línea 4", "campo 8");
+        assertError(buena.replace("|01|F001|", "|01|" + "F".repeat(21) + "|"), "línea 4", "campo 8");
         assertError("20100066603|A|202610|x", "línea 4", "4 campos");
     }
 
@@ -53,6 +53,23 @@ class PropuestaRvieTest {
         String buena = FormatoRvie.linea(FilaRvieTest.fila()).replace("\r\n", "");
         assertError(buena.replaceFirst("20100066603", "20999999995"), "RUC 20999999995");
         assertError(buena.replace("|202610|", "|202609|"), "202609");
+    }
+
+    /** H10: el anexo admite serie y número alfanuméricos de hasta 20 (campos 8 y 9); un número de dígitos se compara sin ceros a la izquierda. */
+    @Test void serieYNumeroAdmitenHastaVeinteYElNumeroSeComparaSinCeros() {
+        String buena = FormatoRvie.linea(FilaRvieTest.fila()).replace("\r\n", "");
+        assertThat(LECTOR.leer(buena.replace("|125||", "|00000125||"), 3).clave()).isEqualTo("01-F001-125");
+        assertThat(LECTOR.leer(buena.replace("|01|F001|125||", "|12|" + "A".repeat(20) + "|AB-" + "9".repeat(17) + "||"), 3).clave()).isEqualTo("12-" + "A".repeat(20) + "-AB-" + "9".repeat(17));
+    }
+
+    /** H10: una fila con el campo 10 es un rango consolidado (boletas o tickets del día): no se lee como la boleta del número inicial, se cuenta aparte. */
+    @Test void unaFilaConsolidadaNoSeLeeComoUnaBoletaYSeCuenta() {
+        PropuestaRvie lector = new PropuestaRvie("20100066603", PeriodoSire.de("202610"));
+        String buena = FormatoRvie.linea(FilaRvieTest.fila()).replace("\r\n", "");
+        assertThat(lector.leer(buena.replace("|01|F001|125||", "|03|B001|1|40|"), 3)).isNull();
+        assertThat(lector.consolidadas()).isEqualTo(1);
+        assertThat(lector.leer(buena, 4)).isNotNull();
+        assertThat(lector.consolidadas()).isEqualTo(1);
     }
 
     @Test void laFechaSeLeeDiaMesAnio() {

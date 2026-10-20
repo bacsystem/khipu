@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import pe.factura.domain.documento.Comprobante;
+import pe.factura.domain.documento.Descuento;
 import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.documento.Isc;
 import pe.factura.domain.documento.Item;
@@ -47,12 +48,12 @@ class FilaRvieTest {
 
     @Test void unaFacturaGravadaEnSolesSaleConSusCuarentaCamposEnOrden() {
         Comprobante c = comprobante(TipoDocumento.FACTURA, "F001", 125, EstadoDocumento.ACEPTADO, CLIENTE, List.of(item("118.00", TipoAfectacionIgv.GRAVADO)))
-                .fechaVencimiento(LocalDate.of(2026, 11, 13)).rehidratar();
+                .fechaVencimiento(LocalDate.of(2026, 10, 30)).rehidratar();
 
         String linea = FormatoRvie.linea(FilaRvie.de(RUC, "MI EMPRESA S.A.C.", OCTUBRE, c, null));
 
-        assertThat(linea).isEqualTo("20100066603|MI EMPRESA S.A.C.|202610|2010006660301F0010000000125|14/10/2026|13/11/2026|01|F001|125||6|20601234565|COMERCIAL ANDINA S.A.C."
-                + "|0.00|100.00|0.00|18.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|118.00|PEN|1.000|||||||1||0.00|0101|||\r\n");
+        assertThat(linea).isEqualTo("20100066603|MI EMPRESA S.A.C.|202610|2010006660301F0010000000125|14/10/2026|30/10/2026|01|F001|125||6|20601234565|COMERCIAL ANDINA S.A.C."
+                + "|0.00|100.00|0.00|18.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|118.00|PEN|0.000|||||||1||0.00|0101|||\r\n");
         assertThat(linea.split("\\|", -1)).hasSize(FormatoRvie.CAMPOS + 1);
     }
 
@@ -161,7 +162,8 @@ class FilaRvieTest {
     }
 
     @Test void enSolesElTipoDeCambioEsUnoYFueraDeSolesElDelComprobanteOVacio() {
-        assertThat(campo(factura(EstadoDocumento.ACEPTADO, item("118", TipoAfectacionIgv.GRAVADO)), 28)).isEqualTo("1.000");
+        // H1: en soles, 0.000 (Aplicativo Cliente SIRE 3.17.0: «se homologa con valor de 0.000 utilizado en el Portal»).
+        assertThat(campo(factura(EstadoDocumento.ACEPTADO, item("118", TipoAfectacionIgv.GRAVADO)), 28)).isEqualTo("0.000");
         Comprobante usd = comprobante(TipoDocumento.FACTURA, "F001", 1, EstadoDocumento.ACEPTADO, CLIENTE, List.of(item("118", TipoAfectacionIgv.GRAVADO))).moneda("USD").tipoCambio(new BigDecimal("3.745")).rehidratar();
         assertThat(campo(usd, 27)).isEqualTo("USD");
         assertThat(campo(usd, 28)).isEqualTo("3.745");
@@ -209,6 +211,64 @@ class FilaRvieTest {
         assertThat(campo(c, 5)).isEqualTo("14/10/2026");
         assertThat(campo(c, 6)).isEmpty();
         assertThat(campo(c, 3)).isEqualTo("202610");
+    }
+
+    /** H7: la validación 210 del SIRE rechaza un vencimiento fuera del periodo (salvo el tipo 14): una venta al crédito que vence otro mes sale sin él. */
+    @Test void elVencimientoSoloVaSiCaeEnElPeriodo() {
+        Comprobante dentro = comprobante(TipoDocumento.FACTURA, "F001", 1, EstadoDocumento.ACEPTADO, CLIENTE, List.of(item("118", TipoAfectacionIgv.GRAVADO))).fechaVencimiento(LocalDate.of(2026, 10, 31)).rehidratar();
+        Comprobante despues = comprobante(TipoDocumento.FACTURA, "F001", 2, EstadoDocumento.ACEPTADO, CLIENTE, List.of(item("118", TipoAfectacionIgv.GRAVADO))).fechaVencimiento(LocalDate.of(2026, 11, 1)).rehidratar();
+        assertThat(campo(dentro, 6)).isEqualTo("31/10/2026");
+        assertThat(campo(despues, 6)).isEmpty();
+    }
+
+    /** H4: los campos 14–25 suman el 26, también con descuentos que no afectan la base, cargos y redondeo; el 25 lleva la diferencia, con su signo. */
+    static void sumanElTotal(Comprobante c) {
+        List<String> f = campos(c);
+        BigDecimal suma = BigDecimal.ZERO;
+        for (int n = 14; n <= 25; n++) suma = suma.add(new BigDecimal(f.get(n - 1)));
+        assertThat(suma).as("campos 14–25 de %s", f).isEqualByComparingTo(new BigDecimal(f.get(25)));
+    }
+
+    @Test void conUnDescuentoGlobalQueNoAfectaLaBaseElCampoVeinticincoLoResta() {
+        Comprobante c = comprobante(TipoDocumento.FACTURA, "F001", 1, EstadoDocumento.ACEPTADO, CLIENTE, List.of(item("118", TipoAfectacionIgv.GRAVADO)))
+                .descuentoGlobal(Descuento.monto(new BigDecimal("10"), false)).rehidratar();
+        assertThat(campo(c, 26)).isEqualTo("108.00");
+        assertThat(campo(c, 15)).isEqualTo("100.00");
+        assertThat(campo(c, 25)).isEqualTo("-10.00");
+        sumanElTotal(c);
+    }
+
+    @Test void conUnDescuentoDeLineaQueNoAfectaLaBaseYConRedondeoTambienSuman() {
+        Item conDescuento = new Item("P1", "Producto", "NIU", BigDecimal.ONE, new BigDecimal("118"), TipoAfectacionIgv.GRAVADO, Descuento.monto(new BigDecimal("5"), false));
+        Comprobante linea = factura(EstadoDocumento.ACEPTADO, conDescuento);
+        sumanElTotal(linea);
+        assertThat(new BigDecimal(campo(linea, 25))).isNegative();
+        Comprobante redondeo = comprobante(TipoDocumento.FACTURA, "F001", 3, EstadoDocumento.ACEPTADO, CLIENTE, List.of(item("118.30", TipoAfectacionIgv.GRAVADO)))
+                .redondeo(new BigDecimal("-0.30")).rehidratar();
+        assertThat(campo(redondeo, 26)).isEqualTo("118.00");
+        assertThat(campo(redondeo, 25)).isEqualTo("-0.30");
+        sumanElTotal(redondeo);
+    }
+
+    @Test void losCamposSumanElTotalEnCadaAfectacionYEnLaNotaDeCredito() {
+        sumanElTotal(factura(EstadoDocumento.ACEPTADO, item("118", TipoAfectacionIgv.GRAVADO), item("50", TipoAfectacionIgv.EXONERADO), item("30", TipoAfectacionIgv.INAFECTO),
+                new Item("P2", "Bolsa", "NIU", BigDecimal.ONE, new BigDecimal("0.10"), TipoAfectacionIgv.GRAVADO, null, null, true)));
+        sumanElTotal(factura(EstadoDocumento.ACEPTADO, item("104", TipoAfectacionIgv.IVAP)));
+        sumanElTotal(comprobante(TipoDocumento.NOTA_CREDITO, "F001", 9, EstadoDocumento.ACEPTADO, CLIENTE, List.of(item("118", TipoAfectacionIgv.GRAVADO)))
+                .nota(new Nota(TipoDocumento.FACTURA, "F001", 125, "01", "x")).rehidratar());
+        sumanElTotal(factura(EstadoDocumento.ANULADO, item("118", TipoAfectacionIgv.GRAVADO)));
+    }
+
+    /**
+     * H2, no aplicado a propósito: el Anexo III vuelve opcionales los campos 11–13 en la exportación (campo 14 > 0) y en la boleta de menos de S/ 700, pero su nota 5
+     * dice que esas excepciones «solo serán aplicables cuando los comprobantes de pago y las notas vinculadas sean emitidos de manera física». khipu emite
+     * electrónicos: el cliente va siempre, como está en el comprobante.
+     */
+    @Test void enLaExportacionYEnLaBoletaSinDocumentoElClienteVaComoEnElComprobante() {
+        Receptor exterior = new Receptor("0", "X123", "BUYER INC", null, "US");
+        Comprobante exp = comprobante(TipoDocumento.FACTURA, "F001", 7, EstadoDocumento.ACEPTADO, exterior, List.of(item("500", TipoAfectacionIgv.EXPORTACION)))
+                .moneda("USD").tipoOperacion("0200").tipoCambio(new BigDecimal("3.745")).rehidratar();
+        assertThat(campos(exp).subList(10, 13)).containsExactly("0", "X123", "BUYER INC");
     }
 
     @ParameterizedTest

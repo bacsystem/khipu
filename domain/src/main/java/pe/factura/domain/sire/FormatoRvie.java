@@ -13,12 +13,15 @@ import java.util.List;
  * el fin de línea, la codificación, el nombre del archivo y cómo se escribe cada tipo de dato. Lo que lee la conciliación ({@link PropuestaRvie}) usa las mismas
  * constantes.
  *
- * <p><b>Supuesto, no verificado contra SUNAT.</b> El repositorio no tiene el Anexo 3 de la RS 112-2021/SUNAT (con sus modificatorias RS 040-2022 y 138-2023) ni el
- * manual de la API SIRE: el issue #322 deja pendiente obtenerlo, porque cpe.sunat.gob.pe bloquea la descarga automática. Lo de abajo sale de lo que el issue sí
- * dice (archivo {@code LE…140400…} en un zip, notas en los campos 29–33, tipo de cambio en el campo 28) y de la estructura de 40 campos de la propuesta del RVIE,
- * la misma que se descarga del SIRE. Cada decisión de formato está aquí para cambiarla en un solo sitio cuando se tenga el anexo: ver {@code deploy/README.md} §15.
+ * <p><b>EXPERIMENTAL: formato reconstruido, no validado con el PVSIRE ni con el SIRE.</b> Fuentes: el Anexo III de la RS 000138-2023/SUNAT («Estructura y reglas
+ * para elaborar el archivo plano que permita la comparación con la propuesta RVIE o reemplazar esa última»), que fija los campos 2, 3, 7–13 y 29–32 y las notas 1,
+ * 3–6, y el «Control de cambios del Aplicativo Cliente SIRE» (separador «palotes "|"» y cantidad de campos, validaciones 246 y 453; tipo de cambio en soles
+ * {@code 0.000}, versión 3.17.0; campo 25 con signo libre, 3.38.0; vencimiento dentro del periodo, validación 210). Los campos 1, 4–6, 14–28 y 33–40, el nombre del
+ * archivo, la codificación y el fin de línea no tienen fuente en el repositorio: son supuestos, y cada uno está aquí para corregirlo en un solo sitio
+ * ({@code deploy/README.md} §15).
  * <ul>
- *   <li>Campos separados por {@value #SEPARADOR}, con un {@value #SEPARADOR} también al final de la línea, como en el PLE; fin de línea CRLF.</li>
+ *   <li>Campos separados por {@value #SEPARADOR} (control de cambios, validación 246); también al final de la línea, como en el PLE (supuesto); fin de línea
+ *       CRLF (supuesto).</li>
  *   <li>Sin fila de títulos.</li>
  *   <li>UTF-8 sin BOM.</li>
  *   <li>Fechas {@code dd/MM/yyyy}; importes con punto decimal, 2 decimales, sin separador de miles, negativos con {@code -}; tipo de cambio con 3 decimales.</li>

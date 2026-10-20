@@ -8,9 +8,10 @@ import java.util.Objects;
 
 /**
  * Lo que la conciliación del RVIE (#322) compara de un comprobante, venga de khipu ({@link FilaRvie#importes()}) o de la propuesta de SUNAT
- * ({@link PropuestaRvie}): su identidad (tipo, serie, número) y los campos que deciden si las dos versiones dicen lo mismo.
+ * ({@link PropuestaRvie}): su identidad (tipo, serie, número) y los campos que deciden si las dos versiones dicen lo mismo. El número es texto porque el anexo lo
+ * admite alfanumérico de hasta 20 (campo 9); uno solo de dígitos va sin ceros a la izquierda, para que {@code 00000125} y {@code 125} sean el mismo comprobante.
  */
-public record ImportesRvie(String tipo, String serie, long numero, LocalDate fechaEmision, String moneda, String estado,
+public record ImportesRvie(String tipo, String serie, String numero, LocalDate fechaEmision, String moneda, String estado,
                            BigDecimal baseGravada, BigDecimal igv, BigDecimal exonerado, BigDecimal inafecto, BigDecimal total) {
 
     /** {@code 01-F001-125}: la clave del comprobante en el registro. */
