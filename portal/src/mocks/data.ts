@@ -363,6 +363,24 @@ export const db = {
    * vence). El e2e arma el enlace con `verif-<correo>`.
    */
   verificaciones: new Map<string, { email: string; usado: boolean; enviados: number }>(),
+  /**
+   * Invitaciones al equipo de una cuenta (#21), por token. El e2e arma el enlace con `inv-<correo>` (y `inv-<correo>-<n>` tras el n-ésimo reenvío), como hace con
+   * `verif-<correo>`: el mock no manda correos.
+   */
+  invitaciones: new Map<string, InvitacionMock>(),
+  /** Usuarios desactivados por un administrador de su cuenta (#21), por id: no entran. */
+  usuariosDesactivados: new Set<string>(),
+};
+
+export type InvitacionMock = {
+  id: string;
+  cuenta_id: string;
+  email: string;
+  rol: string;
+  estado: "PENDIENTE" | "ACEPTADA" | "REVOCADA";
+  envios: number;
+  creada_en: string;
+  expira_en: string;
 };
 
 export function resetDb() {
@@ -388,6 +406,8 @@ export function resetDb() {
   db.cuentasSuspendidas.clear();
   db.nombresDeCuenta.clear();
   db.verificaciones.clear();
+  db.invitaciones.clear();
+  db.usuariosDesactivados.clear();
   db.empresasAdmin = [];
   db.planesAdmin = [];
   db.planesDeCuenta.clear();

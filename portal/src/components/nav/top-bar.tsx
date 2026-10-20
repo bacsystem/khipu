@@ -8,6 +8,7 @@ import { EjemploIntegracionDialog } from "@/components/api-keys/ejemplo-integrac
 import { NuevaApiKeyDialog } from "@/components/api-keys/nueva-api-key-dialog";
 import { ReferenciaApiKeysDialog } from "@/components/api-keys/referencia-api-keys";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
+import { InvitarDialog } from "@/components/equipo/invitar-dialog";
 import { ReferenciaEmpresaDialog } from "@/components/empresa/referencia-empresa";
 import { NuevoComprobanteDialog } from "@/components/comprobantes/nuevo-comprobante-dialog";
 import { ClienteDialog } from "@/components/clientes/cliente-dialog";
@@ -34,6 +35,7 @@ const MIGAS: Array<{ prefijo: string; seccion: string; pagina: string }> = [
   { prefijo: "/developers", seccion: "Configuración", pagina: "Developers" },
   { prefijo: "/cuenta/accesos-de-soporte", seccion: "Cuenta", pagina: "Accesos de soporte" },
   { prefijo: "/cuenta/plan", seccion: "Cuenta", pagina: "Plan y consumo" },
+  { prefijo: "/cuenta/equipo", seccion: "Cuenta", pagina: "Equipo" },
 ];
 
 export function TopBar({
@@ -112,6 +114,8 @@ export function TopBar({
           <ProductoDialog className={ACCION_PRINCIPAL} />
         ) : pathname.startsWith("/comprobantes") ? (
           <NuevoComprobanteDialog className={ACCION_PRINCIPAL} />
+        ) : pathname.startsWith("/cuenta/equipo") && usuario.rol === "ADMIN" ? (
+          <InvitarDialog className={ACCION_PRINCIPAL} />
         ) : /* #277: Plan y consumo, Accesos de soporte y Developers no tienen una acción principal; emitir desde ahí no venía al caso. */ null}
       </div>
     </header>

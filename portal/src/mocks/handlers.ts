@@ -9,7 +9,7 @@ import { errorDeDocumento } from "@/lib/comprobantes/documentos";
 import { CODIGOS_PAIS } from "@/lib/comprobantes/paises";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { rechazoPorLineaMock, rechazoPorNrusMock, rechazoPorTopeDeLineasMock, rechazoPorValorDeVentaMock, type LineaMock } from "./reglas-linea";
-import { CODIGOS_UNIDAD, UNIDADES_MAS_USADAS, db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario } from "./data";
+import { CODIGOS_UNIDAD, UNIDADES_MAS_USADAS, db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario, type InvitacionMock } from "./data";
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -1301,7 +1301,185 @@ function cdrBajaAceptada(identificador: string): NonNullable<Baja["cdr"]> {
   return { codigo: "0", descripcion, observaciones: [] };
 }
 
+// --- #21: roles y equipo --------------------------------------------------------------------------------------------------------------
+
+/** Lo que pide cada ruta, como `PermisoDeRuta` del backend: cerrado por defecto (una escritura no clasificada es de administrador). */
+function permisoMock(metodo: string, ruta: string): "LEER" | "EMITIR" | "CONFIGURAR" | "GESTIONAR_EQUIPO" {
+  if (/^\/v1\/cuenta\/(usuarios|invitaciones)(\/.*)?$/.test(ruta)) return "GESTIONAR_EQUIPO";
+  if (["GET", "HEAD", "OPTIONS"].includes(metodo)) return /^\/v1\/empresa\/api-keys(\/.*)?$/.test(ruta) ? "CONFIGURAR" : "LEER";
+  const emision = [/^\/v1\/facturas$/, /^\/v1\/facturas\/calcular$/, /^\/v1\/facturas\/[^/]+\/(enviar|correo|baja|cdr\/recuperar)$/, /^\/v1\/notas$/, /^\/v1\/clientes(\/.*)?$/, /^\/v1\/productos(\/.*)?$/];
+  return emision.some((p) => p.test(ruta)) ? "EMITIR" : "CONFIGURAR";
+}
+
+function rolPuede(rol: string, permiso: ReturnType<typeof permisoMock>): boolean {
+  if (rol === "ADMIN") return true;
+  if (rol === "EMISOR") return permiso === "LEER" || permiso === "EMITIR";
+  return permiso === "LEER";
+}
+
+function registroDeLaSesion(request: Request) {
+  const c = claims(request);
+  if (!c) return null;
+  return [...db.usuariosPorEmail.values()].find((r) => r.usuario.id === c.sub) ?? null;
+}
+
+const etiquetaDeRolMock: Record<string, string> = messages.roles.etiquetas;
+
+function invitacionVista(i: InvitacionMock) {
+  return { id: i.id, email: i.email, rol: i.rol, expira_en: i.expira_en, vencida: new Date(i.expira_en).getTime() <= Date.now(), envios: i.envios, creada_en: i.creada_en };
+}
+
+function miembroVista(u: Usuario, yo: string) {
+  return { id: u.id, email: u.email, rol: u.rol, activo: !db.usuariosDesactivados.has(u.id), correo_verificado: u.correo_verificado, es_usted: u.id === yo };
+}
+
+/** El administrador activo de la cuenta de la sesión, o la respuesta de error. */
+function administradorDeLaSesion(request: Request) {
+  const registro = registroDeLaSesion(request);
+  if (!registro) return { error: fail(401, "NO_AUTORIZADO", "Token inválido") };
+  if (registro.usuario.rol !== "ADMIN") return { error: fail(403, "ROL_INSUFICIENTE", "Solo un administrador de la cuenta puede gestionar su equipo") };
+  return { usuario: registro.usuario };
+}
+
+function equipoDe(cuenta: string): Usuario[] {
+  return [...db.usuariosPorEmail.values()].map((r) => r.usuario).filter((u) => u.cuenta_id === cuenta);
+}
+
+function adminsActivos(cuenta: string, sinContar: string): number {
+  return equipoDe(cuenta).filter((u) => u.id !== sinContar && u.rol === "ADMIN" && !db.usuariosDesactivados.has(u.id)).length;
+}
+
+const handlersDeEquipo = [
+  /**
+   * Como `JwtFilter` (#21): con sesión de cliente, un usuario desactivado no pasa y el rol de hoy decide qué puede hacer. No responde nada cuando la petición pasa:
+   * MSW sigue con el handler de la ruta. Fuera de lo de la propia sesión (/v1/auth/**) y del backoffice.
+   */
+  http.all(`${BASE}/v1/*`, ({ request }) => {
+    const ruta = new URL(request.url).pathname;
+    if (ruta.startsWith("/v1/auth/") || ruta.startsWith("/v1/admin") || ruta.startsWith("/v1/__test") || request.headers.get("x-api-key")) return undefined;
+    const c = claims(request);
+    if (!c || c.imp) return undefined;
+    const registro = registroDeLaSesion(request);
+    if (!registro) return undefined;
+    if (db.usuariosDesactivados.has(registro.usuario.id)) return fail(401, "NO_AUTORIZADO", "Token inválido o expirado");
+    const permiso = permisoMock(request.method, ruta);
+    if (!rolPuede(registro.usuario.rol, permiso))
+      return fail(403, "ROL_INSUFICIENTE", `Tu rol (${etiquetaDeRolMock[registro.usuario.rol] ?? registro.usuario.rol}) no permite esta operación. Pídeselo a un administrador de la cuenta`);
+    return undefined;
+  }),
+
+  http.get(`${BASE}/v1/cuenta/usuarios`, ({ request }) => {
+    const a = administradorDeLaSesion(request);
+    if (a.error) return a.error;
+    return ok(equipoDe(a.usuario.cuenta_id).map((u) => miembroVista(u, a.usuario.id)));
+  }),
+
+  http.put(`${BASE}/v1/cuenta/usuarios/:id/rol`, async ({ request, params }) => {
+    const a = administradorDeLaSesion(request);
+    if (a.error) return a.error;
+    const { rol } = (await request.json()) as { rol: string };
+    if (!["ADMIN", "EMISOR", "LECTURA"].includes(rol)) return fail(422, "VALIDACION", "Validación fallida");
+    const u = equipoDe(a.usuario.cuenta_id).find((x) => x.id === params.id);
+    if (!u) return fail(404, "NO_ENCONTRADO", "Usuario no encontrado en tu cuenta");
+    if (u.rol === "ADMIN" && rol !== "ADMIN" && !db.usuariosDesactivados.has(u.id) && adminsActivos(u.cuenta_id, u.id) === 0)
+      return fail(409, "ULTIMO_ADMINISTRADOR", "No puedes quitarle el rol de administrador: es el único administrador activo de la cuenta");
+    u.rol = rol;
+    return ok(miembroVista(u, a.usuario.id));
+  }),
+
+  http.post(`${BASE}/v1/cuenta/usuarios/:id/desactivar`, ({ request, params }) => {
+    const a = administradorDeLaSesion(request);
+    if (a.error) return a.error;
+    if (params.id === a.usuario.id) return fail(422, "NO_PUEDES_DESACTIVARTE", "No puedes desactivar tu propio usuario: pídeselo a otro administrador");
+    const u = equipoDe(a.usuario.cuenta_id).find((x) => x.id === params.id);
+    if (!u) return fail(404, "NO_ENCONTRADO", "Usuario no encontrado en tu cuenta");
+    db.usuariosDesactivados.add(u.id);
+    return ok(miembroVista(u, a.usuario.id));
+  }),
+
+  http.post(`${BASE}/v1/cuenta/usuarios/:id/reactivar`, ({ request, params }) => {
+    const a = administradorDeLaSesion(request);
+    if (a.error) return a.error;
+    const u = equipoDe(a.usuario.cuenta_id).find((x) => x.id === params.id);
+    if (!u) return fail(404, "NO_ENCONTRADO", "Usuario no encontrado en tu cuenta");
+    db.usuariosDesactivados.delete(u.id);
+    return ok(miembroVista(u, a.usuario.id));
+  }),
+
+  http.get(`${BASE}/v1/cuenta/invitaciones`, ({ request }) => {
+    const a = administradorDeLaSesion(request);
+    if (a.error) return a.error;
+    const pendientes = [...db.invitaciones.values()].filter((i) => i.cuenta_id === a.usuario.cuenta_id && i.estado === "PENDIENTE");
+    return ok([...new Map(pendientes.map((i) => [i.id, i])).values()].map(invitacionVista));
+  }),
+
+  http.post(`${BASE}/v1/cuenta/invitaciones`, async ({ request }) => {
+    const a = administradorDeLaSesion(request);
+    if (a.error) return a.error;
+    const body = (await request.json()) as { email: string; rol: string };
+    const email = (body.email ?? "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !["ADMIN", "EMISOR", "LECTURA"].includes(body.rol)) return fail(422, "VALIDACION", "Validación fallida");
+    if (equipoDe(a.usuario.cuenta_id).some((u) => u.email === email)) return fail(409, "YA_ES_MIEMBRO", "Ese correo ya es un usuario de tu cuenta");
+    if (db.usuariosPorEmail.has(email)) return fail(409, "USUARIO_EXISTENTE", "Ese correo ya tiene un usuario en khipu y no se puede sumar a otra cuenta");
+    if ([...db.invitaciones.values()].some((i) => i.cuenta_id === a.usuario.cuenta_id && i.email === email && i.estado === "PENDIENTE"))
+      return fail(409, "INVITACION_PENDIENTE", "Ya hay una invitación pendiente para ese correo: reenvíala en vez de crear otra");
+    const ahora = new Date();
+    const i: InvitacionMock = { id: nuevoId("inv"), cuenta_id: a.usuario.cuenta_id, email, rol: body.rol, estado: "PENDIENTE", envios: 1, creada_en: ahora.toISOString(), expira_en: new Date(ahora.getTime() + 7 * 86_400_000).toISOString() };
+    db.invitaciones.set(`inv-${email}`, i);
+    return ok({ invitacion: invitacionVista(i), correo_enviado: true }, 201);
+  }),
+
+  http.post(`${BASE}/v1/cuenta/invitaciones/:id/reenviar`, ({ request, params }) => {
+    const a = administradorDeLaSesion(request);
+    if (a.error) return a.error;
+    const entrada = [...db.invitaciones.entries()].find(([, i]) => i.id === params.id && i.cuenta_id === a.usuario.cuenta_id);
+    if (!entrada) return fail(404, "NO_ENCONTRADO", "Invitación no encontrada");
+    const [tokenViejo, i] = entrada;
+    if (i.estado !== "PENDIENTE") return fail(409, "INVITACION_NO_PENDIENTE", "La invitación ya no está pendiente");
+    if (i.envios >= 5) return fail(429, "DEMASIADOS_ENVIOS", "Ya enviamos esta invitación 5 veces");
+    // El enlace anterior deja de servir; el nuevo es `inv-<correo>-<envíos>`.
+    db.invitaciones.delete(tokenViejo);
+    i.envios += 1;
+    i.expira_en = new Date(Date.now() + 7 * 86_400_000).toISOString();
+    db.invitaciones.set(`inv-${i.email}-${i.envios}`, i);
+    return ok({ invitacion: invitacionVista(i), correo_enviado: true });
+  }),
+
+  http.delete(`${BASE}/v1/cuenta/invitaciones/:id`, ({ request, params }) => {
+    const a = administradorDeLaSesion(request);
+    if (a.error) return a.error;
+    const i = [...db.invitaciones.values()].find((x) => x.id === params.id && x.cuenta_id === a.usuario.cuenta_id);
+    if (!i) return fail(404, "NO_ENCONTRADO", "Invitación no encontrada");
+    if (i.estado !== "PENDIENTE") return fail(409, "INVITACION_NO_PENDIENTE", "La invitación ya no está pendiente");
+    i.estado = "REVOCADA";
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post(`${BASE}/v1/auth/invitacion`, async ({ request }) => {
+    const { token } = (await request.json()) as { token: string };
+    const i = db.invitaciones.get(token);
+    if (!i || i.estado !== "PENDIENTE" || new Date(i.expira_en).getTime() <= Date.now())
+      return fail(422, "TOKEN_INVALIDO", "El enlace de la invitación es inválido, venció o ya se usó");
+    return ok({ email: i.email, cuenta: db.nombresDeCuenta.get(i.cuenta_id) ?? "Mi cuenta", rol: i.rol, expira_en: i.expira_en });
+  }),
+
+  http.post(`${BASE}/v1/auth/invitacion/aceptar`, async ({ request }) => {
+    const { token, password } = (await request.json()) as { token: string; password: string };
+    const i = db.invitaciones.get(token);
+    if (!i || i.estado !== "PENDIENTE" || new Date(i.expira_en).getTime() <= Date.now())
+      return fail(422, "TOKEN_INVALIDO", "El enlace de la invitación es inválido, venció o ya se usó");
+    if (!password || password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password))
+      return fail(422, "PASSWORD_DEBIL", "La contraseña debe tener al menos 8 caracteres, una letra y un dígito");
+    if (db.usuariosPorEmail.has(i.email)) return fail(409, "USUARIO_EXISTENTE", "Ese correo ya tiene un usuario en khipu");
+    i.estado = "ACEPTADA";
+    const usuario: Usuario = { id: nuevoId("u"), cuenta_id: i.cuenta_id, email: i.email, rol: i.rol, correo_verificado: true };
+    db.usuariosPorEmail.set(i.email, { usuario, password });
+    return new HttpResponse(null, { status: 204 });
+  }),
+];
+
 export const handlers = [
+  ...handlersDeEquipo,
   // Solo bajo API_MOCKING: `globalSetup` de Playwright lo llama al empezar cada corrida. Sin esto la suite no era
   // idempotente contra un dev server reutilizado (`reuseExistingServer` en local): cada corrida gastaba el tope 3286
   // de f-aceptada y dejaba f-obs anulada para siempre —corrida 2: 6 rojos; corrida 3: 10—, y un rojo que «a veces
@@ -1375,7 +1553,8 @@ export const handlers = [
     const intento = reservarIntentoDeLogin(`cliente:${body.email}`);
     if (!intento) return fail(429, "DEMASIADOS_INTENTOS_LOGIN", "Demasiados intentos fallidos. Espera 15 minutos antes de volver a intentarlo");
     const registro = db.usuariosPorEmail.get(body.email);
-    if (!registro || registro.password !== body.password) {
+    // Un usuario desactivado por su administrador (#21) no entra, como en el backend: con las mismas palabras que una contraseña errónea.
+    if (!registro || registro.password !== body.password || db.usuariosDesactivados.has(registro.usuario.id)) {
       return fail(401, "CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos");
     }
     intento.acerto();
