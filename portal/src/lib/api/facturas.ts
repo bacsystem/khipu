@@ -10,7 +10,10 @@ export const ETIQUETAS_TIPO: Record<string, string> = {
   "04": "Liquidación de compra",
   "07": "Nota de crédito",
   "08": "Nota de débito",
+  // #39: las guías de remisión se emiten por la API (/v1/guias-remision); el portal solo las nombra donde muestra tipos (series).
+  "09": "Guía de remisión remitente",
   "20": "Retención",
+  "31": "Guía de remisión transportista",
   "40": "Percepción",
 };
 

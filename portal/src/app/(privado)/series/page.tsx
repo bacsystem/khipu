@@ -12,7 +12,7 @@ export const metadata = { title: `Series correlativas · ${messages.app.nombre}`
 
 const TIPOS_SOPORTADOS = ["01", "03", "07", "08"] as const;
 
-const ABREV_TIPO: Record<string, string> = { "01": "FAC", "03": "BOL", "07": "NC", "08": "ND" };
+const ABREV_TIPO: Record<string, string> = { "01": "FAC", "03": "BOL", "07": "NC", "08": "ND", "09": "GRR", "31": "GRT" };
 
 function numero(n: number): string {
   return String(n).padStart(8, "0");

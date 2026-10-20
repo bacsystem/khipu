@@ -21,7 +21,7 @@ const ITEMS_ESTADO: Record<string, string> = {
   inactiva: "Inactivas",
 };
 
-const TIPOS_FILTRO = ["01", "03", "04", "07", "08", "20", "40"] as const;
+const TIPOS_FILTRO = ["01", "03", "04", "07", "08", "09", "20", "31", "40"] as const;
 const ITEMS_TIPO: Record<string, string> = {
   [TODOS]: "Tipo: Todos",
   ...Object.fromEntries(TIPOS_FILTRO.map((t) => [t, `${t} · ${ETIQUETAS_TIPO[t] ?? t}`])),
@@ -32,6 +32,8 @@ const SUBTITULO_TIPO: Record<string, string> = {
   "03": "Consumidor final",
   "07": "Afecta facturas o boletas",
   "08": "Penalidades / ajustes",
+  "09": "Traslado de bienes · API REST",
+  "31": "Transportista · API REST",
 };
 
 function mascara(serie: string): string {
