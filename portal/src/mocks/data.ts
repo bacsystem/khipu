@@ -370,6 +370,8 @@ export const db = {
   invitaciones: new Map<string, InvitacionMock>(),
   /** Usuarios desactivados por un administrador de su cuenta (#21), por id: no entran. */
   usuariosDesactivados: new Set<string>(),
+  /** Cada correo de invitación que «salió» (al invitar y al reenviar), aunque la invitación se revoque: los topes de 24 horas se cuentan aquí (H1). */
+  enviosDeInvitacion: [] as Array<{ cuenta_id: string; email: string; en: number }>,
 };
 
 export type InvitacionMock = {
@@ -381,6 +383,8 @@ export type InvitacionMock = {
   envios: number;
   creada_en: string;
   expira_en: string;
+  /** Quien invitó: la invitación vale mientras siga siendo administrador activo (H3). */
+  invitado_por: string;
 };
 
 export function resetDb() {
@@ -408,6 +412,7 @@ export function resetDb() {
   db.verificaciones.clear();
   db.invitaciones.clear();
   db.usuariosDesactivados.clear();
+  db.enviosDeInvitacion.length = 0;
   db.empresasAdmin = [];
   db.planesAdmin = [];
   db.planesDeCuenta.clear();

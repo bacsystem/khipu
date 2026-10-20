@@ -31,6 +31,10 @@ export function motivosDeRestriccion(soporte: boolean, rol: string): Motivos {
  * La sesión de soporte (#184) solo mira y el backend rechaza cualquier escritura; el rol del usuario (#21) también acota lo que puede hacer. Sin esto el portal dejaba
  * abrir y llenar un comprobante entero y el rechazo llegaba recién al enviar (H10). El layout privado envuelve el portal con el modo soporte y el rol, y cada acción
  * que escribe se deshabilita con el hook de su nivel. Fuera del proveedor (pruebas, otras áreas) no hay restricción: el backend sigue decidiendo.
+ *
+ * Decisión de #21 (H5): lo que el rol no permite se **deshabilita con el motivo en el `title`**, no se oculta, igual que en modo soporte: así el emisor ve que la
+ * acción existe y a quién pedírsela, y la página no cambia de forma según quién entra. Solo se ocultan las secciones que el backend ni siquiera deja leer (API keys
+ * y Equipo, en el menú lateral) y la acción de invitar, que vive en la página del equipo.
  */
 export function SoloLectura({ activa, rol = "ADMIN", children }: { activa: boolean; rol?: string; children: ReactNode }) {
   return <Contexto.Provider value={motivosDeRestriccion(activa, rol)}>{children}</Contexto.Provider>;
