@@ -33,6 +33,10 @@ public record Usuario(UUID id, UUID cuentaId, String email, String passwordHash,
     }
 
     public Usuario desactivar() { return new Usuario(id, cuentaId, email, passwordHash, rol, false, correoVerificadoEn); }
+    public Usuario reactivar() { return new Usuario(id, cuentaId, email, passwordHash, rol, true, correoVerificadoEn); }
+    public Usuario conRol(Rol nuevo) { return new Usuario(id, cuentaId, email, passwordHash, nuevo, activo, correoVerificadoEn); }
+    /** Un administrador que puede entrar: los que cuentan para no dejar la cuenta sin quien la gestione (#21). */
+    public boolean esAdminActivo() { return activo && esAdmin(); }
     public Usuario conPasswordHash(String hash) { return new Usuario(id, cuentaId, email, hash, rol, activo, correoVerificadoEn); }
     public boolean esAdmin() { return rol == Rol.ADMIN; }
 
