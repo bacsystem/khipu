@@ -20,7 +20,7 @@ import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/v1")
-@Tag(name = "Consultas", description = "Consultas a SUNAT. La validez de un comprobante usa las credenciales SOL de la empresa y solo funciona en producción: e-beta no publica ese servicio (`422 NO_DISPONIBLE_EN_BETA`). La de un RUC lee el padrón reducido que la plataforma carga cada día y funciona también en beta.")
+@Tag(name = "Consultas", description = "Consultas a SUNAT. La validez de un comprobante usa la API REST de SUNAT si la empresa cargó sus credenciales API SUNAT (funciona también en beta), o `billValidService` con la clave SOL, que solo existe en producción (`422 NO_DISPONIBLE_EN_BETA`). La de un RUC lee el padrón reducido que la plataforma carga cada día y funciona también en beta.")
 @RequiredArgsConstructor
 public class ConsultaController {
     private final ConsultarValidezUseCase validez;
@@ -38,10 +38,15 @@ public class ConsultaController {
 
     @GetMapping("/consultas/validez")
     @Operation(summary = "Consultar la validez de un comprobante", description = """
-            `billValidService` (`validaCDPcriterios`) de SUNAT: estado de un comprobante electrónico de cualquier emisor —el propio
-            o un proveedor— por sus datos. `estado`: `ACEPTADO` (0001), `RECHAZADO` (0002), `DE_BAJA` (0003), `NO_EXISTE` (0011),
-            `AJENO` (0012) o `ERROR_CONSULTA` (otros códigos, con `mensaje`). Los criterios opcionales afinan la búsqueda: si se
-            envían y no coinciden con lo que SUNAT registró, la respuesta lo indica. Requiere credenciales SOL cargadas.""")
+            Estado de un comprobante de cualquier emisor —el propio o un proveedor— por sus datos. Con credenciales API SUNAT
+            (`PUT /v1/empresa/credenciales-api-sunat`) se consulta la API REST de SUNAT («consulta integrada», `fuente: API_REST`):
+            `estado` `NO_EXISTE` (0), `ACEPTADO` (1), `DE_BAJA` (2, anulado), `AUTORIZADO` (3) o `NO_AUTORIZADO` (4, comprobantes
+            físicos), más `estado_ruc`, `condicion_domicilio` y `observaciones` (p. ej. si la fecha o el monto no coinciden); ahí
+            `fecha` es obligatoria y `monto` lo es para comprobantes electrónicos. Sin ellas, o si la API no responde y hay clave SOL,
+            se usa `billValidService` (`fuente: SOAP`, solo producción): `ACEPTADO` (0001), `RECHAZADO` (0002), `DE_BAJA` (0003),
+            `NO_EXISTE` (0011), `AJENO` (0012) o `ERROR_CONSULTA`; `aviso` dice por qué. Errores: `422 CREDENCIALES_SUNAT_NO_CARGADAS`,
+            `422 CREDENCIALES_API_SUNAT_RECHAZADAS`, `422 CREDENCIALES_SOL_RECHAZADAS`, `422 CONSULTA_RECHAZADA` (SUNAT rechazó los
+            datos de la consulta), `503 SUNAT_NO_DISPONIBLE`.""")
     public ApiResponse<ValidezResponse> validez(HttpServletRequest req,
                                                 @Parameter(example = "20100066603", description = "RUC del emisor del comprobante") @RequestParam String ruc,
                                                 @Parameter(example = "01", description = "01 factura, 03 boleta, 07 nota de crédito, 08 nota de débito") @RequestParam String tipo,
@@ -49,10 +54,10 @@ public class ConsultaController {
                                                 @Parameter(example = "125") @RequestParam long numero,
                                                 @Parameter(example = "6", description = "Tipo de documento del receptor (catálogo 06); opcional") @RequestParam(name = "tipo_doc_receptor", required = false) String tipoDocReceptor,
                                                 @Parameter(example = "20601234565", description = "Número de documento del receptor; opcional") @RequestParam(name = "num_doc_receptor", required = false) String numDocReceptor,
-                                                @Parameter(example = "2026-09-14", description = "Fecha de emisión (`YYYY-MM-DD`); opcional") @RequestParam(required = false) LocalDate fecha,
-                                                @Parameter(example = "1180.00", description = "Importe total; opcional") @RequestParam(required = false) BigDecimal monto) {
+                                                @Parameter(example = "2026-09-14", description = "Fecha de emisión (`YYYY-MM-DD`); obligatoria por la API REST, opcional por SOAP") @RequestParam(required = false) LocalDate fecha,
+                                                @Parameter(example = "1180.00", description = "Importe total; por la API REST, obligatorio para comprobantes electrónicos") @RequestParam(required = false) BigDecimal monto) {
         ConsultarValidezUseCase.Validez v = validez.consultar(TenantActual.id(req),
                 new ConsultarValidezUseCase.Criterios(ruc, tipo, serie, numero, tipoDocReceptor, numDocReceptor, fecha, monto));
-        return ApiResponse.ok(new ValidezResponse(v.estado(), v.codigo(), v.mensaje()));
+        return ApiResponse.ok(ValidezResponse.de(v));
     }
 }

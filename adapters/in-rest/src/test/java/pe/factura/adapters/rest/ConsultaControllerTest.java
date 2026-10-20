@@ -63,6 +63,40 @@ class ConsultaControllerTest {
         }
     }
 
+    /** #318: por la API REST la respuesta trae la fuente, el estado del RUC, la condición de domicilio y las observaciones; por SOAP, sin ellos. */
+    @Test void laValidezPorLaApiRestTraeLoQueSoloElla() throws Exception {
+        when(validez.consultar(eq(tenant), any())).thenReturn(new ConsultarValidezUseCase.Validez("ACEPTADO", "1", "Aceptado", ConsultarValidezUseCase.Fuente.API_REST,
+                "00", "12", java.util.List.of("- Fecha de emisión ingresada no coincide con la registrada en la SUNAT."), null));
+        mvc.perform(get("/v1/consultas/validez").requestAttr(TenantActual.ATRIBUTO, tenant)
+                        .param("ruc", "20100066603").param("tipo", "01").param("serie", "F001").param("numero", "12").param("fecha", "2026-09-10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.fuente").value("API_REST"))
+                .andExpect(jsonPath("$.datos.codigo").value("1"))
+                .andExpect(jsonPath("$.datos.estado_ruc").value("00"))
+                .andExpect(jsonPath("$.datos.condicion_domicilio").value("12"))
+                .andExpect(jsonPath("$.datos.observaciones[0]").value(org.hamcrest.Matchers.startsWith("- Fecha")))
+                .andExpect(jsonPath("$.datos.aviso").doesNotExist());
+
+        when(validez.consultar(eq(tenant), any())).thenReturn(new ConsultarValidezUseCase.Validez("ACEPTADO", "0001", "ok", ConsultarValidezUseCase.Fuente.SOAP,
+                null, null, java.util.List.of(), "La API de SUNAT no respondió (HTTP 503): se usó billValidService con la clave SOL"));
+        mvc.perform(get("/v1/consultas/validez").requestAttr(TenantActual.ATRIBUTO, tenant).param("ruc", "20100066603").param("tipo", "01").param("serie", "F001").param("numero", "12"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.fuente").value("SOAP"))
+                .andExpect(jsonPath("$.datos.aviso").value(org.hamcrest.Matchers.containsString("503")))
+                .andExpect(jsonPath("$.datos.observaciones").doesNotExist())
+                .andExpect(jsonPath("$.datos.estado_ruc").doesNotExist());
+    }
+
+    @Test void losErroresDeLaValidezTienenSuCodigoHttp() throws Exception {
+        record Caso(String codigo, int http) { }
+        for (Caso c : new Caso[]{new Caso("SUNAT_NO_DISPONIBLE", 503), new Caso("CREDENCIALES_SUNAT_NO_CARGADAS", 422), new Caso("CREDENCIALES_API_SUNAT_RECHAZADAS", 422),
+                new Caso("CONSULTA_RECHAZADA", 422), new Caso("PARAMETRO_INVALIDO", 400)}) {
+            doThrow(new DomainException(c.codigo(), "x")).when(validez).consultar(any(), any());
+            mvc.perform(get("/v1/consultas/validez").requestAttr(TenantActual.ATRIBUTO, tenant).param("ruc", "20100066603").param("tipo", "01").param("serie", "F001").param("numero", "12"))
+                    .andExpect(status().is(c.http())).andExpect(jsonPath("$.codigo").value(c.codigo()));
+        }
+    }
+
     @Test void consultaValidezConCriterios() throws Exception {
         when(validez.consultar(eq(tenant), any())).thenReturn(new ConsultarValidezUseCase.Validez("ACEPTADO", "0001", "El comprobante existe y está aceptado."));
         mvc.perform(get("/v1/consultas/validez").requestAttr(TenantActual.ATRIBUTO, tenant)

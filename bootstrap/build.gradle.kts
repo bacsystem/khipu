@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":adapters:out-pdf"))
     implementation(project(":adapters:out-signing"))
     implementation(project(":adapters:out-sunat-soap"))
+    implementation(project(":adapters:out-sunat-rest"))
     implementation(project(":adapters:out-storage"))
     implementation(project(":adapters:out-persistence"))
     implementation(project(":adapters:out-crypto"))

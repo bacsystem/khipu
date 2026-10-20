@@ -320,6 +320,22 @@ class RelojDeLaAplicacionTest {
 
     // --- el tope del desplazamiento ---
 
+    /** #318: la validez por la API REST de SUNAT tampoco sale para una empresa en PRODUCCION con el reloj movido; sin desplazamiento, la misma pasarela. */
+    @Test void laValidezPorLaApiRestTambienSeProtege() {
+        List<String> llamadas = new ArrayList<>();
+        pe.factura.application.port.out.SunatApiValidezGateway real = (t, ruc, tipo, serie, numero, fecha, monto) -> {
+            llamadas.add("validar"); return new pe.factura.application.port.out.SunatApiValidezGateway.Validez("1", null, null, List.of());
+        };
+        assertThat(RelojDeLaAplicacion.proteger(real, Duration.ZERO)).isSameAs(real);
+        var protegida = RelojDeLaAplicacion.proteger(real, Duration.ofDays(-8));
+
+        assertThatThrownBy(() -> protegida.validar(tenant(Entorno.PRODUCCION), "20123456786", "01", "F001", 1, java.time.LocalDate.of(2026, 10, 1), null))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.codigo()).isEqualTo("RELOJ_DESPLAZADO"));
+        assertThat(llamadas).isEmpty();
+        protegida.validar(tenant(Entorno.BETA), "20123456786", "01", "F001", 1, java.time.LocalDate.of(2026, 10, 1), null);
+        assertThat(llamadas).containsExactly("validar");
+    }
+
     /** Una duración ISO-8601 válida puede ser absurda (P999999999D): el reloj se rompería en el primer uso, lejos de la variable. Se acota al configurar. */
     @Test void unDesplazamientoDemasiadoGrandeImpideArrancarYDiceElTope() {
         for (String absurdo : new String[]{"P999999999D", "-P40000D", "PT999999999999S"})

@@ -56,6 +56,9 @@ import pe.factura.adapters.sunat.SoapBillingGateway;
 import pe.factura.adapters.sunat.SunatUrls;
 import pe.factura.adapters.sunat.SoapConsultaGateway;
 import pe.factura.adapters.sunat.SondeoDeSunatHttp;
+import pe.factura.adapters.sunatrest.ClienteApiSunat;
+import pe.factura.adapters.sunatrest.RestValidezGateway;
+import pe.factura.adapters.sunatrest.UrlPorEntorno;
 import pe.factura.adapters.scheduler.RecuperarCdrWorker;
 import pe.factura.adapters.scheduler.EntregarWebhooksWorker;
 import pe.factura.adapters.scheduler.VigilarOperacionWorker;
@@ -331,6 +334,21 @@ public class AppConfig {
         return RelojDeLaAplicacion.proteger(new SoapConsultaGateway(p.sunat().consultaUrl(), p.sunat().consultaBetaUrl(), p.sunat().validezUrl(), p.sunat().validezBetaUrl(),
                 Duration.ofSeconds(p.sunat().timeoutSeconds())), p.desplazamientoDelReloj());
     }
+    /**
+     * #318: la consulta integrada de validez por la API REST de SUNAT (OAuth2). Un solo cliente para todas las empresas: la caché de tokens es por credencial.
+     * SUNAT no publica una instancia de pruebas de esta API, así que por defecto beta usa las URLs de producción (la consulta solo lee). Los tiempos: conectar
+     * en a lo sumo 5 s, y cada llamada (token o consulta) en {@code app.sunat-api.timeout-seconds}.
+     */
+    @Bean SunatApiValidezGateway sunatApiValidezGateway(AppProperties p, Clock clock,
+                                                        @Value("${app.sunat-api.seguridad-url}") String seguridad, @Value("${app.sunat-api.seguridad-beta-url}") String seguridadBeta,
+                                                        @Value("${app.sunat-api.consulta-url}") String consulta, @Value("${app.sunat-api.consulta-beta-url}") String consultaBeta,
+                                                        @Value("${app.sunat-api.timeout-seconds:10}") int segundos) {
+        if (segundos < 1 || segundos > 120) throw new IllegalStateException("SUNAT_API_TIMEOUT_SECONDS debe estar entre 1 y 120 (es " + segundos + ")");
+        Duration espera = Duration.ofSeconds(segundos);
+        ClienteApiSunat cliente = new ClienteApiSunat(espera.compareTo(Duration.ofSeconds(5)) < 0 ? espera : Duration.ofSeconds(5), espera, clock);
+        return RelojDeLaAplicacion.proteger(new RestValidezGateway(new UrlPorEntorno(seguridadBeta, seguridad), new UrlPorEntorno(consultaBeta, consulta), cliente),
+                p.desplazamientoDelReloj());
+    }
     /** Sondea el WSDL de cada servicio de SUNAT (sin credenciales ni comprobantes) y guarda la lectura 30 s para que el monitor, que se refresca solo, no la llame cada vez. */
     @Bean SondeoDeSunat sondeoDeSunat(AppProperties p, Clock clock) {
         AppProperties.Sunat s = p.sunat();
@@ -373,7 +391,7 @@ public class AppConfig {
     @Bean RecuperarCdrUseCase recuperarCdr(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatConsultaGateway g, CdrParser cdr, UnitOfWork u) {
         return new RecuperarCdrService(c, t, s, g, cdr, u);
     }
-    @Bean ConsultarValidezUseCase consultarValidez(TenantRepository t, SunatConsultaGateway g) { return new ConsultarValidezService(t, g); }
+    @Bean ConsultarValidezUseCase consultarValidez(TenantRepository t, SunatConsultaGateway g, SunatApiValidezGateway api) { return new ConsultarValidezService(t, g, api); }
     @Bean RecuperarCdrWorker recuperarCdrWorker(RecuperarCdrUseCase cdrs) { return new RecuperarCdrWorker(cdrs); }
 
     // Padrón reducido de SUNAT (#361). La consulta está siempre; la carga diaria solo si app.padron-ruc.habilitado=true (baja ~400 MB y escribe ~18 millones de filas: no es para correrla en cada arranque o prueba).

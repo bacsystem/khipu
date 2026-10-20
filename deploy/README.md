@@ -30,7 +30,7 @@ Agregar el plugin **Postgres** de Railway al proyecto. Provee las variables `PGH
 | `DB_URL` | `jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` | Reference variable al plugin de Postgres |
 | `DB_USER` | `${{Postgres.PGUSER}}` | |
 | `DB_PASSWORD` | `${{Postgres.PGPASSWORD}}` | |
-| `MASTER_KEY` | `openssl rand -base64 32` | **No reemplazar a secas**: descifra certificados, credenciales SOL y secretos del 2FA guardados. Para rotarla, §9 |
+| `MASTER_KEY` | `openssl rand -base64 32` | **No reemplazar a secas**: descifra certificados, credenciales SOL y API SUNAT y secretos del 2FA guardados. Para rotarla, §9 |
 | `API_KEY_PEPPER` | `openssl rand -base64 32` | **No reemplazar a secas**: es parte del hash de cada API key. Para rotarlo, §9 |
 | `MASTER_KEY_ANTERIOR`, `API_KEY_PEPPER_ANTERIOR` | el valor de antes | **Solo durante una rotación** (§9); vacías el resto del tiempo |
 | `PLATFORM_ADMIN_KEY` | `openssl rand -base64 32` | |
@@ -274,7 +274,7 @@ reemplaza a esta, porque queda dentro del mismo proyecto de Railway.
 ## 9. Rotar `MASTER_KEY` y `API_KEY_PEPPER`
 
 Hace falta si una de las dos pudo filtrarse, o por política. Ninguna se reemplaza a secas: `MASTER_KEY` cifra lo guardado (certificados y su clave,
-credenciales SOL, secretos del segundo factor de los administradores, respuestas guardadas del alta asistida, secretos de firma de los webhooks) y `API_KEY_PEPPER` es parte del hash
+credenciales SOL, secretos del segundo factor de los administradores, respuestas guardadas del alta asistida, secretos de firma de los webhooks, credenciales API SUNAT de cada empresa —#318—) y `API_KEY_PEPPER` es parte del hash
 de cada API key. El backend admite **la de antes junto con la nueva** mientras dura la rotación. **Antes de empezar, un respaldo de la base (§8).**
 
 ### `MASTER_KEY`
@@ -526,3 +526,28 @@ trabajo `EntregarWebhooksWorker` (cada 5 s). Las entregas se encolan en `webhook
 | `WEBHOOKS_HILOS` | `8` | Endpoints atendidos a la vez (1 a 64) |
 | `WEBHOOKS_PERMITIR_HTTP` | `false` | **Solo desarrollo y pruebas.** Acepta destinos `http://` |
 | `WEBHOOKS_PERMITIR_REDES_PRIVADAS` | `false` | **Solo desarrollo y pruebas** (un receptor en `localhost`). El backend lo avisa con un WARN al arrancar si está en `true`; en producción, siempre `false` |
+
+## 13. Consulta de validez por la API REST de SUNAT (#318)
+
+`GET /v1/consultas/validez` usa la «consulta integrada de comprobante de pago» de SUNAT (API REST con OAuth2) cuando la empresa cargó sus credenciales API SUNAT
+(`PUT /v1/empresa/credenciales-api-sunat`, o la pestaña «Credenciales SOL» del portal). Las genera el contribuyente en SOL: Empresas › Comprobantes de pago ›
+Consulta de Validez de Comprobantes de Pago › Credenciales de API SUNAT (registra una aplicación y copia su «Id» y su «Clave»). Se guardan cifradas con
+`MASTER_KEY` y entran en la rotación de §9. Si la API no responde o rechaza las credenciales y la empresa tiene clave SOL, la consulta cae a `billValidService`
+(SOAP, solo producción) y la respuesta lo dice en `aviso`; un rechazo de los datos de la consulta (400/422) no cae.
+
+| Variable | Por defecto | Para qué |
+|---|---|---|
+| `SUNAT_API_SEGURIDAD_URL` / `SUNAT_API_SEGURIDAD_BETA_URL` | `https://api-seguridad.sunat.gob.pe` | Servicio de token (`/v1/clientesextranet/<client_id>/oauth2/token/`) |
+| `SUNAT_API_CONSULTA_URL` / `SUNAT_API_CONSULTA_BETA_URL` | `https://api.sunat.gob.pe` | Consulta (`/v1/contribuyente/contribuyentes/<ruc>/validarcomprobante`). SUNAT no publica una instancia de pruebas: beta usa la misma |
+| `SUNAT_API_TIMEOUT_SECONDS` | `10` | Tope de cada llamada (1 a 120) |
+
+**Pendiente: prueba controlada con credenciales reales.** Las pruebas automáticas usan un SUNAT simulado con las rutas y campos del manual de SUNAT; el envío
+de `numero` y `monto` como texto sigue el ejemplo del manual y no está confirmado contra SUNAT. Para cerrarlo, con una empresa real que tenga sus credenciales:
+
+1. En SOL, registrar la aplicación en «Credenciales de API SUNAT» y copiar «Id» y «Clave».
+2. Guardarlas: `curl -X PUT $API/v1/empresa/credenciales-api-sunat -H "X-Api-Key: $KEY" -H "Content-Type: application/json" -d '{"client_id":"<Id>","client_secret":"<Clave>"}'`.
+3. Consultar un comprobante conocido (uno propio ya aceptado):
+   `curl "$API/v1/consultas/validez?ruc=<RUC emisor>&tipo=01&serie=F001&numero=<n>&fecha=<AAAA-MM-DD>&monto=<total>" -H "X-Api-Key: $KEY"`.
+   Lo esperado: `fuente: API_REST`, `estado: ACEPTADO`, `estado_ruc` y `condicion_domicilio` con valor. Repetir con un número que no exista (`NO_EXISTE`) y con
+   una fecha equivocada (debe volver una observación).
+4. Si SUNAT responde `CONSULTA_RECHAZADA` por el formato de `numero`/`monto`, ajustar `RestValidezGateway` (mandarlos como número) y su prueba.
