@@ -8,6 +8,9 @@ test("la referencia de API carga sin sesión y muestra un endpoint real", async 
 
   await page.goto("/developers");
 
+  // #13: la cabecera propia de la página (título, intro y las otras secciones) antes de la referencia.
+  await expect(page.getByRole("heading", { level: 1, name: "Referencia de la API" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Más documentación" }).getByRole("link")).toHaveCount(3);
   await expect(page.getByText("/v1/facturas").first()).toBeVisible({ timeout: 10_000 });
   expect(errores).toEqual([]);
 });
