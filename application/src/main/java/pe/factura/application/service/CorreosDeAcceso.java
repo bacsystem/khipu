@@ -1,5 +1,6 @@
 package pe.factura.application.service;
 
+import pe.factura.domain.cuenta.Rol;
 import pe.factura.domain.plataforma.PlantillaDeCorreo;
 import pe.factura.domain.plataforma.PlantillaDeCorreo.Texto;
 
@@ -25,6 +26,12 @@ final class CorreosDeAcceso {
     static Texto bienvenida(PlantillasDeCorreo plantillas, String razonSocial, String ruc, String urlPortal, String token) {
         return plantillas.de(PlantillaDeCorreo.BIENVENIDA, Map.of("enlace", urlPortal + "/restablecer/" + token + "?invitacion=1", "razon_social", razonSocial, "ruc", ruc,
                 "validez", enPalabras(AltaAsistidaService.VIDA_INVITACION)));
+    }
+
+    /** #21: la invitación a sumarse a una cuenta con un rol. */
+    static Texto invitacionAlEquipo(PlantillasDeCorreo plantillas, String cuenta, Rol rol, String urlPortal, String token) {
+        return plantillas.de(PlantillaDeCorreo.INVITACION_AL_EQUIPO, Map.of("enlace", urlPortal + "/invitacion/" + token, "cuenta", cuenta, "rol", rol.etiqueta(),
+                "validez", enPalabras(EquipoService.VIDA_INVITACION)));
     }
 
     /** «1 hora», «24 horas», «7 días»: en días cuando son dos o más días enteros, y en horas si no (un día se dice «24 horas», como siempre). */
