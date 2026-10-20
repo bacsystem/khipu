@@ -643,8 +643,9 @@ public class AppConfig {
         var f = new FilterRegistrationBean<>(new AdminAuthFilter(p.platformAdminKey(), te));
         f.addUrlPatterns("/v1/*"); f.setOrder(5); return f;
     }
-    @Bean FilterRegistrationBean<JwtFilter> jwtFilter(TokenEmisor te, TenantRepository t, UsuarioRepository us, SuspensionRepository suspensiones) {
-        var f = new FilterRegistrationBean<>(new JwtFilter(te, t, us, suspensiones));
+    @Bean FilterRegistrationBean<JwtFilter> jwtFilter(TokenEmisor te, TenantRepository t, UsuarioRepository us, SuspensionRepository suspensiones,
+                                                      AceptarTerminosUseCase terminos) {
+        var f = new FilterRegistrationBean<>(new JwtFilter(te, t, us, suspensiones, terminos));
         f.addUrlPatterns("/v1/*"); f.setOrder(8); return f;
     }
 }

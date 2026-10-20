@@ -26,6 +26,7 @@ test("el registro no se envía sin aceptar los términos, y con ellos crea la cu
 
   const casilla = page.getByRole("checkbox", { name: /Acepto los términos del servicio y la política de privacidad/ });
   await expect(casilla).not.toBeChecked();
+  await expect(page.getByTestId("borrador-legal-casilla")).toContainText("Borrador pendiente de revisión legal");
   await expect(page.getByRole("link", { name: "términos del servicio", exact: true })).toHaveAttribute("href", "/terminos");
   await expect(page.getByRole("link", { name: "política de privacidad", exact: true })).toHaveAttribute("href", "/privacidad");
 
@@ -52,6 +53,7 @@ test("quien no aceptó la versión vigente no ve el panel hasta aceptarla, y lue
   await expect(pantalla).toBeVisible();
   await expect(page.getByRole("heading", { name: "Acepta los términos para continuar" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Cambiar de empresa" })).toHaveCount(0);
+  await expect(pantalla.getByTestId("borrador-legal-casilla")).toBeVisible();
 
   // Ir a otra página del panel no la saltea.
   await page.goto("/comprobantes");

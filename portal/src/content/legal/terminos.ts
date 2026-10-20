@@ -49,7 +49,7 @@ export const TERMINOS: DocumentoLegal = {
     {
       titulo: "5. Lo que nos corresponde",
       lista: [
-        "Prestar el servicio con diligencia: validar los comprobantes contra el estándar de SUNAT antes de enviarlos, reintentar los envíos cuando SUNAT no responde y avisarte de los rechazos.",
+        "Prestar el servicio con diligencia: validar los comprobantes contra el estándar de SUNAT antes de enviarlos, reintentar los envíos cuando SUNAT no responde y mostrarte, en el portal y por la API, el estado de cada envío y los rechazos de SUNAT.",
         "Proteger tu información con las medidas descritas en la política de privacidad, incluido el cifrado de tu certificado digital y de tus credenciales SOL.",
         "Usar tus credenciales y tu certificado solo para lo que nos pidas: firmar y enviar tus comprobantes y consultar su estado ante SUNAT.",
         "Avisarte con anticipación de los mantenimientos programados y de los cambios relevantes del servicio.",
@@ -73,16 +73,16 @@ export const TERMINOS: DocumentoLegal = {
     {
       titulo: "8. Conservación de tus comprobantes",
       parrafos: [
-        "khipu conserva el XML firmado, el CDR y la representación impresa (PDF) de tus comprobantes durante el tiempo que indique tu plan, y puedes descargarlos en cualquier momento mientras tu cuenta esté activa.",
+        "khipu guarda el XML firmado y el CDR de tus comprobantes, y genera a partir de ellos la representación impresa (PDF). Hoy no los borra automáticamente: siguen disponibles mientras tu cuenta exista, y puedes descargarlos en cualquier momento mientras esté activa.",
         "La conservación que ofrece khipu es un servicio adicional y no reemplaza tu obligación de conservar los comprobantes por el plazo que exige la normativa tributaria. Te recomendamos descargar periódicamente tus archivos.",
       ],
     },
     {
       titulo: "9. Suspensión y baja de la cuenta",
       parrafos: [
-        "Puedes pedir la baja de tu cuenta en cualquier momento escribiéndonos. Antes de la baja te daremos la oportunidad de descargar tus comprobantes.",
+        "Puedes pedir la baja de tu cuenta en cualquier momento escribiéndonos. Te recomendamos descargar tus comprobantes antes de pedirla: con la cuenta dada de baja ya no puedes entrar al portal.",
         "Podemos suspender una cuenta, con aviso previo salvo urgencia, si se usa en contra de estos términos o de la ley, si pone en riesgo la seguridad del servicio o de otros clientes, o por falta de pago. Suspender no borra nada: al reactivarla todo vuelve a estar disponible.",
-        "Tras la baja, conservamos los datos que la ley nos obligue a conservar y eliminamos o anonimizamos el resto, como se describe en la política de privacidad.",
+        "La baja no borra tus datos de forma automática: quedan guardados, sin uso, mientras la ley exija conservarlos. Puedes pedirnos que eliminemos los que ya no estemos obligados a conservar, como se describe en la política de privacidad.",
       ],
     },
     {

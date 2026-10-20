@@ -2231,7 +2231,7 @@
           "Autenticación (portal)"
         ],
         "summary": "Aceptar los términos vigentes",
-        "description": "Registra que el usuario de la sesión acepta la versión vigente de los términos del servicio y la política de privacidad, con la\nfecha. Si ya la había aceptado responde igual, con la fecha de entonces. Se usa cuando la versión cambió (`terminos_pendientes`\nen `/me`, el login o el refresh); al registrarse, la aceptación va en el propio registro. Una sesión de soporte recibe\n`403 SOPORTE_SOLO_LECTURA`.",
+        "description": "Registra que el usuario de la sesión acepta la versión vigente de los términos del servicio y la política de privacidad, con la\nfecha. Si ya la había aceptado responde igual, con la fecha de entonces. Se usa cuando la versión cambió (`terminos_pendientes`\nen `/me`, el login o el refresh); al registrarse, la aceptación va en el propio registro. Hasta aceptarla, cualquier escritura con\nla sesión del portal fuera de `/v1/auth/**` responde `403 TERMINOS_PENDIENTES` (con `X-Api-Key` no aplica). Una sesión de soporte\nrecibe `403 SOPORTE_SOLO_LECTURA`.",
         "operationId": "aceptarTerminos",
         "responses": {
           "200": {

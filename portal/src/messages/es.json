@@ -1430,6 +1430,7 @@
     "version": "Versión vigente desde el",
     "borradorTitulo": "Borrador pendiente de revisión legal",
     "borradorDescripcion": "Este texto todavía no fue revisado por un abogado y puede cambiar antes de su versión definitiva.",
+    "borradorBreve": "Borrador pendiente de revisión legal: los textos pueden cambiar antes de su versión definitiva.",
     "volver": "Volver al inicio",
     "verTambien": "Ver también"
   },
@@ -1455,6 +1456,7 @@
     "CREDENCIALES_INVALIDAS": "Correo o contraseña incorrectos.",
     "TELEFONO_INVALIDO": "El celular debe tener 9 dígitos y empezar con 9.",
     "REGISTRO_CERRADO": "El registro está por invitación: escríbenos para pedir acceso.",
+    "TERMINOS_PENDIENTES": "Para seguir tienes que aceptar la versión vigente de los términos del servicio y la política de privacidad. Recarga la página para verlos.",
     "TERMINOS_NO_ACEPTADOS": "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad.",
     "RAZON_SOCIAL_INVALIDA": "La razón social no admite tabuladores ni saltos de línea (SUNAT 4338).",
     "PASSWORD_DEBIL": "La contraseña debe tener al menos 8 caracteres, una letra y un dígito.",

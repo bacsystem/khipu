@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.filter.OncePerRequestFilter;
+import pe.factura.application.port.in.AceptarTerminosUseCase;
 import pe.factura.application.port.out.SuspensionRepository;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.application.port.out.TokenEmisor;
@@ -34,6 +35,7 @@ public class JwtFilter extends OncePerRequestFilter {
     private final TenantRepository tenants;
     private final UsuarioRepository usuarios;
     private final SuspensionRepository suspensiones;
+    private final AceptarTerminosUseCase terminos;
     /** Lo que no escribe: con el correo sin verificar se puede mirar (#22). */
     private static final Set<String> LECTURAS = Set.of("GET", "HEAD", "OPTIONS");
 
@@ -84,6 +86,13 @@ public class JwtFilter extends OncePerRequestFilter {
             }
             if (!usuario.get().correoVerificado()) {
                 escribirError(res, 403, "CORREO_SIN_VERIFICAR", "Verifica tu correo para continuar: te enviamos un enlace");
+                return;
+            }
+            // #342: sin aceptar la versión vigente de los términos tampoco se escribe con la sesión del portal (un usuario anterior a V64, o
+            // uno que aceptó una versión que cambió). Aceptarlos es /v1/auth/terminos, que queda afuera como todo /v1/auth/**. Una API key no
+            // pasa por aquí: los integradores no dependen de esto.
+            if (terminos.pendiente(usuario.get().id())) {
+                escribirError(res, 403, "TERMINOS_PENDIENTES", "Acepta la versión vigente de los términos del servicio y la política de privacidad para continuar");
                 return;
             }
         }

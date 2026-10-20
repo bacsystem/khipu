@@ -90,8 +90,9 @@ public class AuthController {
     @Operation(summary = "Aceptar los términos vigentes", description = """
             Registra que el usuario de la sesión acepta la versión vigente de los términos del servicio y la política de privacidad, con la
             fecha. Si ya la había aceptado responde igual, con la fecha de entonces. Se usa cuando la versión cambió (`terminos_pendientes`
-            en `/me`, el login o el refresh); al registrarse, la aceptación va en el propio registro. Una sesión de soporte recibe
-            `403 SOPORTE_SOLO_LECTURA`.""")
+            en `/me`, el login o el refresh); al registrarse, la aceptación va en el propio registro. Hasta aceptarla, cualquier escritura con
+            la sesión del portal fuera de `/v1/auth/**` responde `403 TERMINOS_PENDIENTES` (con `X-Api-Key` no aplica). Una sesión de soporte
+            recibe `403 SOPORTE_SOLO_LECTURA`.""")
     public ApiResponse<AceptacionDeTerminosResponse> aceptarTerminos(HttpServletRequest req) {
         return ApiResponse.ok(AceptacionDeTerminosResponse.de(terminos.aceptar(UsuarioActual.id(req))));
     }

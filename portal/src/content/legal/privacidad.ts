@@ -14,7 +14,7 @@ export const PRIVACIDAD: DocumentoLegal = {
     {
       titulo: "1. Responsable del tratamiento",
       parrafos: [
-        `El responsable de los datos personales de tu cuenta es ${RESPONSABLE.razonSocial} (RUC ${RESPONSABLE.ruc}), con domicilio en ${RESPONSABLE.domicilio}. Los datos se almacenan en el banco de datos de clientes de khipu, inscrito en el Registro Nacional de Protección de Datos Personales con el código ${RESPONSABLE.inscripcionBancoDeDatos}.`,
+        `El responsable de los datos personales de tu cuenta es ${RESPONSABLE.razonSocial} (RUC ${RESPONSABLE.ruc}), con domicilio en ${RESPONSABLE.domicilio}. Los datos se almacenan en el banco de datos de clientes de khipu. ${RESPONSABLE.inscripcionBancoDeDatos}`,
         `Para cualquier asunto de privacidad puedes escribirnos a ${RESPONSABLE.correo}.`,
       ],
     },
@@ -25,8 +25,8 @@ export const PRIVACIDAD: DocumentoLegal = {
         "Datos de tu cuenta: nombre de la cuenta, correo electrónico, celular de contacto y tu contraseña, que guardamos solo como un hash irreversible.",
         "Datos de tus empresas: RUC, razón social, domicilio fiscal, establecimientos y series.",
         "Credenciales para emitir: tu certificado digital con su contraseña y tu usuario y clave SOL, que guardamos cifrados.",
-        "Comprobantes: los datos que incluyes en cada comprobante, entre ellos los de tus clientes (nombre o razón social, tipo y número de documento de identidad, dirección y correo cuando los registras).",
-        "Datos técnicos: dirección IP, fecha y hora de los accesos, intentos de inicio de sesión y el registro de las acciones relevantes sobre tu cuenta, que usamos para la seguridad del servicio.",
+        "Comprobantes: los datos que incluyes en cada comprobante, entre ellos los de tus clientes (nombre o razón social, tipo y número de documento de identidad y dirección), y los clientes y productos que guardas para no volver a escribirlos, que pueden incluir un correo.",
+        "Datos técnicos: tus sesiones abiertas y cuándo empezaron; los intentos de inicio de sesión fallidos por correo y por dirección IP, que usamos para frenar ataques y borramos periódicamente; y el registro de lo que el personal de khipu hace sobre tu cuenta, con su fecha y la IP desde la que actuó.",
       ],
       cierre: [
         "No tratamos datos sensibles y no pedimos más datos de los que el servicio necesita.",
@@ -59,8 +59,9 @@ export const PRIVACIDAD: DocumentoLegal = {
       lista: [
         "SUNAT, que recibe tus comprobantes y los datos que contienen, por mandato de la normativa tributaria.",
         "Nuestro proveedor de infraestructura en la nube, donde funcionan la aplicación y la base de datos.",
-        "Nuestro proveedor de almacenamiento de archivos, donde se guardan los XML, CDR y PDF, y las copias de respaldo cifradas.",
-        "Nuestro proveedor de correo electrónico, que entrega los correos del servicio (verificación, recuperación de contraseña y avisos).",
+        "Nuestro proveedor de almacenamiento de archivos, donde se guardan los XML y CDR de tus comprobantes, el logo de tu PDF y las copias de respaldo cifradas de la base de datos.",
+        "Nuestro proveedor de correo electrónico, que entrega los correos del servicio (verificación, recuperación de contraseña y avisos) y los comprobantes que tú decides enviar por correo a tus clientes.",
+        "Los sistemas que tú indiques: si configuras webhooks, enviamos los cambios de estado de tus comprobantes a las direcciones que registraste.",
         "Autoridades judiciales o administrativas, cuando una norma o una orden lo exija.",
       ],
       cierre: [
@@ -76,13 +77,16 @@ export const PRIVACIDAD: DocumentoLegal = {
     {
       titulo: "7. Cuánto tiempo los conservamos",
       lista: [
-        "Datos de tu cuenta y de tus empresas: mientras tu cuenta esté vigente.",
-        "Certificado digital y credenciales SOL: mientras los mantengas cargados; al reemplazarlos o al dar de baja la cuenta se eliminan.",
-        "Comprobantes (XML, CDR y PDF): durante el plazo de conservación de tu plan y, como mínimo, mientras no haya prescrito la obligación tributaria vinculada a ellos, que en general es de cinco años contados desde el 1 de enero del año siguiente a su emisión.",
-        "Registros técnicos y de seguridad: hasta doce meses, salvo que hagan falta para investigar un incidente.",
-        "Después de la baja de la cuenta: eliminamos o anonimizamos los datos en un plazo de noventa días, salvo los que debamos conservar por obligación legal, que se guardan bloqueados hasta que venza ese plazo.",
+        "Datos de tu cuenta y de tus empresas: mientras tu cuenta exista. La baja de la cuenta no los borra de forma automática.",
+        "Certificado digital y credenciales SOL: mientras los mantengas cargados. Al cargar unos nuevos, los anteriores se sobrescriben; la baja de la cuenta no los borra de forma automática, pero puedes pedirnos que los eliminemos.",
+        "Comprobantes (XML y CDR): hoy no los borramos de forma automática. Los conservamos mientras la cuenta exista y, en cualquier caso, mientras la normativa tributaria exija conservarlos, que en general es mientras no prescriba la obligación vinculada a ellos (cinco años contados desde el 1 de enero del año siguiente a su emisión).",
+        "Intentos fallidos de inicio de sesión: se borran periódicamente, una vez que ya no sirven para limitar intentos.",
+        "Sesiones y registro de lo que el personal de khipu hace sobre tu cuenta: mientras la cuenta exista.",
       ],
-      parrafos: ["Conservamos cada dato solo el tiempo necesario:"],
+      parrafos: ["Hoy el servicio no borra datos de forma automática salvo donde se indica; conservamos:"],
+      cierre: [
+        "A solicitud tuya eliminamos los datos que ya no estemos obligados a conservar (ver la sección 9).",
+      ],
     },
     {
       titulo: "8. Cómo los protegemos",
@@ -103,7 +107,7 @@ export const PRIVACIDAD: DocumentoLegal = {
       titulo: "9. Tus derechos",
       parrafos: [
         "Como titular de tus datos personales puedes ejercer en cualquier momento tus derechos de información, acceso, rectificación, cancelación y oposición (derechos ARCO), así como revocar un consentimiento que nos hayas dado.",
-        `Para ejercerlos escríbenos a ${RESPONSABLE.correo} indicando tu nombre, el correo de tu cuenta, el derecho que quieres ejercer y, si corresponde, los documentos que lo sustenten. Responderemos dentro de los plazos que establece el reglamento de la Ley N.° 29733. Muchos datos de tu cuenta puedes corregirlos tú mismo desde el portal.`,
+        `Para ejercerlos escríbenos a ${RESPONSABLE.correo} indicando tu nombre, el correo de tu cuenta, el derecho que quieres ejercer y, si corresponde, los documentos que lo sustenten. Responderemos dentro de los plazos que establece el reglamento de la Ley N.° 29733. Los datos de tus empresas puedes corregirlos tú mismo desde el portal.`,
         "La cancelación de datos que debemos conservar por obligación legal (por ejemplo, los comprobantes ya enviados a SUNAT) se hará efectiva cuando venza el plazo de esa obligación.",
         "Si consideras que no atendimos tu solicitud, puedes presentar una reclamación ante la Autoridad Nacional de Protección de Datos Personales del Ministerio de Justicia y Derechos Humanos.",
       ],

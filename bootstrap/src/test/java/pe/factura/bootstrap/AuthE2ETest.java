@@ -280,7 +280,7 @@ class AuthE2ETest {
         Cuenta cuenta = registrar("Mi negocio", "ana@negocio.pe");
 
         Map<String, Object> fila = jdbc.queryForMap("SELECT a.version, a.aceptada_at FROM aceptacion_terminos a JOIN usuario u ON u.id = a.usuario_id WHERE u.email = 'ana@negocio.pe'");
-        assertThat(fila.get("version")).isEqualTo("2026-10-20");
+        assertThat(fila.get("version")).isEqualTo("2026-10-21");
         assertThat(((java.sql.Timestamp) fila.get("aceptada_at")).toInstant()).isBetween(java.time.Instant.now().minusSeconds(60), java.time.Instant.now().plusSeconds(1));
         assertThat(me(cuenta.access()).get("terminos_pendientes")).isEqualTo(false);
     }
@@ -300,10 +300,27 @@ class AuthE2ETest {
 
         assertThat(aceptada.getStatusCode()).isEqualTo(HttpStatus.OK);
         Map<String, Object> datos = (Map<String, Object>) aceptada.getBody().get("datos");
-        assertThat(datos).containsEntry("version", "2026-10-20").containsKey("aceptada_en");
+        assertThat(datos).containsEntry("version", "2026-10-21").containsKey("aceptada_en");
         assertThat(me(access).get("terminos_pendientes")).isEqualTo(false);
         assertThat(jdbc.queryForList("SELECT version FROM aceptacion_terminos ORDER BY version", String.class))
-                .as("la constancia de la anterior queda").containsExactly("2026-01-01", "2026-10-20");
+                .as("la constancia de la anterior queda").containsExactly("2026-01-01", "2026-10-21");
+    }
+
+    /** Con la sesión del portal no se escribe sin aceptar la versión vigente; aceptarla destraba la misma sesión. */
+    @Test void conLosTerminosPendientesLasEscriturasConJwtSon403HastaAceptar() {
+        Cuenta cuenta = registrarVerificado("Mi negocio", "ana@negocio.pe");
+        jdbc.update("DELETE FROM aceptacion_terminos");
+        HttpHeaders h = conJwt(cuenta.access());
+
+        ResponseEntity<Map> bloqueada = crearEmpresa(h);
+        assertThat(bloqueada.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(bloqueada.getBody()).containsEntry("codigo", "TERMINOS_PENDIENTES");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM tenant", Integer.class)).isZero();
+        assertThat(http.exchange("/v1/empresas", HttpMethod.GET, new HttpEntity<>(h), Map.class).getStatusCode()).as("mirar sí").isEqualTo(HttpStatus.OK);
+
+        assertThat(http.postForEntity("/v1/auth/terminos", new HttpEntity<>(h), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        assertThat(crearEmpresa(h).getStatusCode()).isEqualTo(HttpStatus.CREATED);
     }
 
     @Test void aceptarLosTerminosExigeSesion() {
