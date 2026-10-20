@@ -7,6 +7,7 @@ export const ESTADOS_FINALES = ["ACEPTADO", "ACEPTADO_CON_OBS", "RECHAZADO", "AN
 export const ETIQUETAS_TIPO: Record<string, string> = {
   "01": "Factura",
   "03": "Boleta",
+  "04": "Liquidación de compra",
   "07": "Nota de crédito",
   "08": "Nota de débito",
   "20": "Retención",
@@ -463,7 +464,7 @@ export function totalDesdeHeaders(headers: Headers, fallback: number): number {
  */
 export type FiltrosComprobantes = { estado?: EstadoDocumento; desde?: string; hasta?: string; serie?: string; tipo?: string; cliente?: string; numero?: number };
 
-export const TIPOS_FILTRABLES = ["01", "03", "07", "08", "20", "40"] as const;
+export const TIPOS_FILTRABLES = ["01", "03", "04", "07", "08", "20", "40"] as const;
 const MAX_CLIENTE = 100;
 
 const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;

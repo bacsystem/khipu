@@ -35,6 +35,9 @@ class PermisoDeRutaTest {
             // #321: exportar la lista es leerla; #327: la liquidación de compra se emite como una factura.
             entry("GET /v1/facturas/exportacion", LEER),
             entry("POST /v1/liquidaciones-compra", EMITIR), entry("POST /v1/liquidaciones-compra/calcular", EMITIR),
+            // #40: la retención y la percepción se emiten como cualquier comprobante (la designación de agente es del backoffice, /v1/admin/**).
+            entry("POST /v1/retenciones", EMITIR), entry("POST /v1/retenciones/calcular", EMITIR),
+            entry("POST /v1/percepciones", EMITIR), entry("POST /v1/percepciones/calcular", EMITIR),
             // Clientes y productos guardados: con lo que se emite.
             entry("GET /v1/clientes", LEER), entry("GET /v1/clientes/x", LEER), entry("POST /v1/clientes", EMITIR), entry("PUT /v1/clientes/x", EMITIR),
             entry("PUT /v1/clientes/documento/x/x", EMITIR), entry("DELETE /v1/clientes/x", EMITIR),
