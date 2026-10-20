@@ -150,6 +150,17 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         assertThat(resumir(t).porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 3L));
     }
 
+    /** #40: lo que se retiene o percibe es un impuesto, no una venta: la retención y la percepción cuentan en los estados pero no en lo facturado. */
+    @Test void laRetencionYLaPercepcionNoCuentanComoFacturado() {
+        UUID t = tenantDePrueba();
+        comprobante(t, "01", EstadoDocumento.ACEPTADO, DIA, "PEN", "1000");
+        comprobante(t, "20", EstadoDocumento.ACEPTADO, DIA, "PEN", "30");
+        comprobante(t, "40", EstadoDocumento.ACEPTADO, DIA, "PEN", "20");
+
+        assertThat(resumir(t).facturado()).containsExactly(new Facturado("PEN", new BigDecimal("1000.00")));
+        assertThat(resumir(t).porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 3L));
+    }
+
     @Test void unaNotaDeCreditoRechazadaNoRestaNada() {
         UUID t = tenantDePrueba();
         comprobante(t, "01", EstadoDocumento.ACEPTADO, DIA, "PEN", "1000");

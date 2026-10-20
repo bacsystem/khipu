@@ -48,6 +48,10 @@ public class RecuperarCdrService implements RecuperarCdrUseCase {
         if (c.esLiquidacionCompra())
             throw new DomainException("CDR_NO_CONSULTABLE", "SUNAT no consulta por getStatusCdr las liquidaciones de compra (el servicio cubre facturas y sus notas): su constancia llega en el CDR del envío. "
                     + "Si quedó en ERROR_ENVIO, reintente el envío con POST /v1/facturas/{id}/enviar (reenvía el mismo XML)");
+        // #40: tampoco la retención ni la percepción (manual del programador: getStatusCdr cubre 01, 07 y 08); su constancia llega en el CDR del envío al servicio de otros CPE.
+        if (c.esDeAgente())
+            throw new DomainException("CDR_NO_CONSULTABLE", "SUNAT no consulta por getStatusCdr los comprobantes de retención ni de percepción (el servicio cubre facturas y sus notas): su constancia "
+                    + "llega en el CDR del envío. Si quedó en ERROR_ENVIO, reintente el envío con POST /v1/facturas/{id}/enviar (reenvía el mismo XML)");
         if (!c.consultableEnGetStatusCdr())
             throw new DomainException("CDR_NO_CONSULTABLE", "SUNAT no consulta por getStatusCdr las boletas ni las notas de boleta (serie B): su constancia llega en el CDR del envío individual o en el del resumen diario "
                     + "que las informa. Si se informó en un resumen, véalo en GET /v1/facturas/{id}/bajas y consulte su ticket con GET /v1/bajas/{id}; si se envió sola y quedó en ERROR_ENVIO, "

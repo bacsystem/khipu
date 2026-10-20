@@ -54,6 +54,20 @@ class JdbcAccionesDeEmpresaRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.entornoDe(e)).contains(Entorno.BETA);
     }
 
+    /** #40: la designación de agente se lee y se cambia solo si seguía siendo la que se vio; no toca nada más de la empresa. */
+    @Test void laDesignacionDeAgenteSeCambiaSoloSiSeguiaSiendoLaQueSeVio() {
+        UUID e = empresa("20100066603", "BETA");
+        var ninguna = pe.factura.domain.tenant.DesignacionDeAgente.NINGUNA;
+        var retencion = new pe.factura.domain.tenant.DesignacionDeAgente(true, false);
+        assertThat(repo.designacionDe(e)).contains(ninguna);
+        assertThat(repo.designacionDe(UUID.randomUUID())).isEmpty();
+        assertThat(repo.designarAgente(e, ninguna, retencion)).isTrue();
+        assertThat(repo.designacionDe(e)).contains(retencion);
+        assertThat(repo.designarAgente(e, ninguna, new pe.factura.domain.tenant.DesignacionDeAgente(true, true))).as("ya no era ninguna").isFalse();
+        assertThat(repo.designacionDe(e)).contains(retencion);
+        assertThat(repo.entornoDe(e)).contains(Entorno.BETA);
+    }
+
     @Test void cambiarElEntornoDeUnaEmpresaQueNoExisteNoCambiaNada() {
         assertThat(repo.cambiarEntorno(UUID.randomUUID(), Entorno.BETA, Entorno.PRODUCCION)).isFalse();
     }

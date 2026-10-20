@@ -1,6 +1,7 @@
 package pe.factura.application.service;
 
 import lombok.RequiredArgsConstructor;
+import pe.factura.application.port.in.EmitirAgenteCommand;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.in.EmitirLiquidacionCommand;
@@ -176,6 +177,40 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
         return c;
     }
 
+    @Override
+    public Emision emitirDeAgente(UUID tenantId, EmitirAgenteCommand cmd, Idempotencia clave) {
+        TipoDocumento tipo = tipoDeAgente(cmd);
+        boolean ret = tipo == TipoDocumento.RETENCION;
+        ClaveEnAlcance enAlcance = clave == null ? null : new ClaveEnAlcance((ret ? "retencion:" : "percepcion:") + tenantId, clave, ret ? "retención" : "percepción");
+        Emision repetida = yaEmitidaSiLaHay(tenantId, enAlcance);
+        if (repetida != null) return repetida;
+        Tenant tenant = tenantListo(tenantId, cmd.enviarAutomatico());
+        tenant.exigirAgenteDe(tipo);
+        return emitir(tenant, armarDeAgente(tenant, tenantId, cmd), cmd.correlativo(), cmd.enviarAutomatico(), () -> {}, enAlcance);
+    }
+
+    @Override
+    public Comprobante calcularDeAgente(UUID tenantId, EmitirAgenteCommand cmd) {
+        TipoDocumento tipo = tipoDeAgente(cmd);
+        Tenant tenant = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Empresa no encontrada"));
+        tenant.exigirAgenteDe(tipo);
+        return armarDeAgente(tenant, tenantId, cmd);
+    }
+
+    private static TipoDocumento tipoDeAgente(EmitirAgenteCommand cmd) {
+        if (cmd == null || cmd.datos() == null) throw new IllegalArgumentException("Faltan los datos de la retención o la percepción");
+        return cmd.datos().tipo();
+    }
+
+    /** #40: la retención o la percepción con las reglas de dominio, sin numerarla; el RUC de la empresa es el que el proveedor o el cliente no pueden repetir (2620/2604). */
+    private Comprobante armarDeAgente(Tenant tenant, UUID tenantId, EmitirAgenteCommand cmd) {
+        Comprobante c = Comprobante.deAgente(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.contraparte(), cmd.datos())
+                .redondeo(cmd.redondeo())
+                .crear(tenant.ruc(), clock);
+        c.anotar(cmd.observaciones());
+        return c;
+    }
+
     /** «factura» o «boleta»: cómo nombran los mensajes al documento que modifica una nota. */
     private static String nombre(TipoDocumento tipo) { return tipo == TipoDocumento.BOLETA ? "boleta" : "factura"; }
 
@@ -319,7 +354,10 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
     private Emision emitir(Tenant tenant, Comprobante c, Long correlativo, boolean enviarAutomatico, Runnable enTransaccion, ClaveEnAlcance clave) {
         UUID tenantId = tenant.id();
         // #378: antes de numerar y de reservar la clave, así un RUC que SUNAT rechazaría (1083) no gasta correlativo. Un reintento ya emitido volvió antes, en yaEmitidaSiLaHay.
-        comprador.exigirQueExista(c.receptor());
+        // #40: la contraparte de una retención es el proveedor (2621) y la de una percepción, el cliente (2605): misma consulta al padrón, con su regla.
+        if (c.tipo() == TipoDocumento.RETENCION) comprador.exigirQueExista(c.receptor(), "2621", "del proveedor");
+        else if (c.tipo() == TipoDocumento.PERCEPCION) comprador.exigirQueExista(c.receptor(), "2605", "del cliente");
+        else comprador.exigirQueExista(c.receptor());
         Emision emision = uow.ejecutar(() -> {
             if (clave != null) {
                 Optional<IdempotenciaRepository.Registro> previo = idempotencia.reservar(clave.alcance(), clave.clave().clave(), clave.clave().huella());

@@ -35,4 +35,16 @@ public interface EmitirComprobanteUseCase {
 
     /** La liquidación que {@link #emitirLiquidacionCompra} armaría, sin numerarla, firmarla, guardarla ni enviarla (como {@link #calcularFactura}). */
     Comprobante calcularLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd);
+
+    /**
+     * Comprobante de retención (20) o de percepción (40), #40, de una empresa que SUNAT designó agente de ese tipo ({@code AGENTE_NO_DESIGNADO} si no); mismo flujo que la factura
+     * (numerar con la serie R###/P### bloqueada, firmar, validar, guardar y enviar), al servicio de otros CPE de SUNAT.
+     */
+    default Comprobante emitirDeAgente(UUID tenantId, EmitirAgenteCommand cmd) { return emitirDeAgente(tenantId, cmd, null).comprobante(); }
+
+    /** Con {@code idempotencia} un reintento devuelve el comprobante ya emitido; las claves de las retenciones y las de las percepciones son, cada una, un espacio aparte. */
+    Emision emitirDeAgente(UUID tenantId, EmitirAgenteCommand cmd, Idempotencia idempotencia);
+
+    /** El comprobante que {@link #emitirDeAgente} armaría, sin numerarlo, firmarlo, guardarlo ni enviarlo (como {@link #calcularFactura}); también exige la designación. */
+    Comprobante calcularDeAgente(UUID tenantId, EmitirAgenteCommand cmd);
 }

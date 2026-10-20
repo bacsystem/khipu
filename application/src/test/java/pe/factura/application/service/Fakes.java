@@ -190,6 +190,9 @@ final class Fakes {
             consultas++;
             if (alConsultar != null) { Runnable r = alConsultar; alConsultar = null; r.run(); }
             if (fallaStatus != null) throw fallaStatus; return new EstadoTicket(statusCode, "98".equals(statusCode) ? null : respuesta); }
+        /** Con qué nombre de resumen se consultó cada ticket (#40: el adaptador elige el servicio por él). */
+        final List<String> consultadosCon = new ArrayList<>();
+        @Override public EstadoTicket getStatus(Tenant t, String nombreArchivo, String tk) { consultadosCon.add(nombreArchivo + "#" + tk); return getStatus(t, tk); }
     }
     /** Guarda y devuelve copias, como una base de datos: dos procesos que leen la misma fila no comparten el objeto (el avance de uno no cambia lo que el otro ya leyó). */
     static final class Bajas implements BajaRepository {
@@ -339,6 +342,13 @@ final class Fakes {
                 new LiquidacionCompra("060101", "02", new LiquidacionCompra.Ubicacion("Fundo Santa Rosa", "060101", "02"), null),
                 List.of(new Item("C1", "Café", "KGM", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), CodigoProductoSunat.de("50201706"), null)))
                 .crear(CLOCK);
+        return firmado(c, numero, storage);
+    }
+    /** Una retención R001 (#40) a un proveedor con RUC, numerada y firmada. */
+    static Comprobante retencionFirmada(UUID tenantId, Storage storage, long numero) {
+        Comprobante c = Comprobante.deAgente(tenantId, "R001", LocalDate.of(2026, 9, 13), new Receptor("6", "20131312955", "PROVEEDOR SAC", null),
+                new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(new ComprobanteDeAgente.Documento("01", "F001-1", LocalDate.of(2026, 9, 1),
+                        new java.math.BigDecimal("100.00"), "PEN", 1, LocalDate.of(2026, 9, 13), new java.math.BigDecimal("100.00"), null, null)))).crear("20100066603", CLOCK);
         return firmado(c, numero, storage);
     }
     private static Comprobante firmado(Comprobante c, long numero, Storage storage) {

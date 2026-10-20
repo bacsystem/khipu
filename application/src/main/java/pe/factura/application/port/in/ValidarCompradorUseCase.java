@@ -18,6 +18,12 @@ public interface ValidarCompradorUseCase {
      */
     void exigirQueExista(Receptor receptor);
 
+    /**
+     * Lo mismo para la contraparte de otro comprobante, que SUNAT rechaza con su propia regla: {@code regla} es su código (2621 el proveedor de una retención, 2605 el cliente de una
+     * percepción, #40) y {@code quien} cómo se lo nombra («del proveedor»). Por defecto, la del comprador.
+     */
+    default void exigirQueExista(Receptor receptor, String regla, String quien) { exigirQueExista(receptor); }
+
     /** Las observaciones que SUNAT pondrá al comprobante por el estado del RUC; vacío si el comprador no tiene RUC, si está en regla o si el padrón no es confiable. */
     List<Aviso> avisosDe(Receptor receptor);
 }

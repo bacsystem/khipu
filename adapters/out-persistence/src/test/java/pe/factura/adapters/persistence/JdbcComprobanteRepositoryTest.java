@@ -598,6 +598,71 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         return c;
     }
 
+    private Comprobante retencion(UUID t, long numero) {
+        Comprobante c = Comprobante.deAgente(t, "R001", LocalDate.of(2026, 9, 13), new Receptor("6", "20131312955", "PROVEEDOR DEL NORTE SAC", "Av. Grau 123"),
+                        new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(
+                                new ComprobanteDeAgente.Documento("01", "F001-123", LocalDate.of(2026, 9, 1), new BigDecimal("1180.00"), "PEN", 1, LocalDate.of(2026, 9, 10), new BigDecimal("1180.00"), null, null),
+                                new ComprobanteDeAgente.Documento("01", "E001-45", LocalDate.of(2026, 8, 20), new BigDecimal("1000.00"), "USD", 2, LocalDate.of(2026, 9, 12), new BigDecimal("500.00"),
+                                        new BigDecimal("3.756"), LocalDate.of(2026, 9, 11)))))
+                .redondeo(new BigDecimal("-0.32"))
+                .crear("20100066603", clock);
+        c.asignarNumero(numero, "20100066603");
+        return c;
+    }
+
+    /** #40: la retención vuelve con su proveedor, su régimen y tasa, cada documento con su pago y tipo de cambio, y los mismos totales; sin tipo de operación. */
+    @Test void guardaYRehidrataLaRetencion() {
+        UUID t = tenantDePrueba();
+        Comprobante c = retencion(t, 1);
+        c.firmar("H", "r.xml");
+        repo.guardar(c);
+        Comprobante leida = repo.buscarPorNumero(t, TipoDocumento.RETENCION, "R001", 1).orElseThrow();
+        assertThat(leida.tipo()).isEqualTo(TipoDocumento.RETENCION);
+        assertThat(leida.esDeAgente()).isTrue();
+        assertThat(leida.tipoOperacion()).isNull();
+        assertThat(leida.items()).isEmpty();
+        assertThat(leida.receptor()).isEqualTo(c.receptor());
+        assertThat(leida.agente()).isEqualTo(c.agente());
+        assertThat(leida.agente().documentos().get(1).fechaTipoCambio()).isEqualTo(LocalDate.of(2026, 9, 11));
+        assertThat(leida.totales().total()).as("35.40 + 3 % de 1878.00").isEqualByComparingTo("91.74").isEqualByComparingTo(c.totales().total());
+        assertThat(leida.importeNetoDeAgente()).isEqualByComparingTo(c.importeNetoDeAgente());
+        assertThat(leida.totales().redondeo()).isEqualByComparingTo("-0.32");
+        assertThat(jdbc.queryForObject("SELECT total FROM comprobante WHERE documento_id = ?", BigDecimal.class, c.id())).as("lo retenido").isEqualByComparingTo("91.74");
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, "20", null, null), 1, 10)).extracting(Comprobante::id).containsExactly(c.id());
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, "40", null, null), 1, 10)).isEmpty();
+        // Por lotes (el listado) y de a uno leen lo mismo.
+        assertThat(repo.listar(t, Filtro.NINGUNO, 1, 10).get(0).agente()).isEqualTo(c.agente());
+        Comprobante f = factura(t, 1);
+        repo.guardar(f);
+        assertThat(repo.buscar(t, f.id()).orElseThrow().agente()).isNull();
+    }
+
+    /** La base: el régimen va con su tasa, y solo un 20 o un 40 puede no tener tipo de operación. */
+    @Test void laBaseNoAdmiteUnAgenteAMediasNiUnaFacturaSinTipoDeOperacion() {
+        UUID t = tenantDePrueba();
+        Comprobante c = retencion(t, 1);
+        repo.guardar(c);
+        assertThatThrownBy(() -> jdbc.update("UPDATE comprobante SET agente_tasa = NULL WHERE documento_id = ?", c.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        Comprobante f = factura(t, 1);
+        repo.guardar(f);
+        assertThatThrownBy(() -> jdbc.update("UPDATE comprobante SET tipo_operacion = NULL WHERE documento_id = ?", f.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE comprobante_documento_agente SET fecha_tipo_cambio = NULL WHERE comprobante_id = ? AND orden = 2", c.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    /** #40: getStatusCdr no cubre la retención ni la percepción; el control del plazo sí las ve. */
+    @Test void laRetencionNoEsPendienteDeCdrPeroSiDelControlDePlazo() {
+        UUID t = tenantDePrueba();
+        Comprobante enviada = retencion(t, 1);
+        enviada.firmar("H", "r1.xml"); repo.guardar(enviada); enviada.marcarEnviado(); repo.guardar(enviada);
+        Comprobante firmada = retencion(t, 2);
+        firmada.firmar("H", "r2.xml"); repo.guardar(firmada);
+        assertThat(repo.pendientesDeCdr()).isEmpty();
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactly(firmada.id());
+    }
+
     /** #327: la liquidación de compra vuelve con su vendedor, el resto de su domicilio, el lugar de la operación, la tasa de la retención y el mismo neto. */
     @Test void guardaYRehidrataLaLiquidacionDeCompra() {
         UUID t = tenantDePrueba();
