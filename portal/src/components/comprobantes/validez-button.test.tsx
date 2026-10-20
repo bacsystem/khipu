@@ -79,8 +79,8 @@ describe("ValidezButton (#315)", () => {
     expect(r).toHaveTextContent("se usó billValidService");
   });
 
-  it("un error de la consulta (sin credenciales SOL, por ejemplo) se muestra como alerta", async () => {
-    stub({ estado: "error", datos: null, mensaje: "Las credenciales SOL de la empresa no están cargadas", codigo: "CREDENCIALES_SOL_NO_CARGADAS", errores: null }, 422);
+  it("un error de la consulta (sin credenciales API ni SOL, por ejemplo) se muestra como alerta", async () => {
+    stub({ estado: "error", datos: null, mensaje: "Para consultar la validez en SUNAT configure las credenciales API SUNAT o las credenciales SOL de la empresa", codigo: "CREDENCIALES_SUNAT_NO_CARGADAS", errores: null }, 422);
     render(<ValidezButton datos={DATOS} />);
     fireEvent.click(screen.getByRole("button", { name: "Consultar validez en SUNAT" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("credenciales SOL");

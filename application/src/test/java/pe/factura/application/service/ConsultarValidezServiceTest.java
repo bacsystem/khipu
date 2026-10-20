@@ -105,14 +105,36 @@ class ConsultarValidezServiceTest {
         assertThat(v.aviso()).contains("no aceptó las credenciales API SUNAT");
     }
 
-    /** Un rechazo de la consulta es la respuesta de SUNAT sobre esos datos: preguntarla por SOAP no la cambia. */
-    @Test void unRechazoDeLaConsultaNoCaeASoap() {
+    /**
+     * H1: mientras el contrato con la API no se verifique contra SUNAT real (deploy/README.md §13), un rechazo de la consulta también cae a SOAP si hay clave SOL:
+     * si SUNAT no aceptara el formato que se le manda, una empresa que hoy valida por SOAP no pierde la consulta al cargar credenciales API.
+     */
+    @Test void unRechazoDeLaConsultaCaeASoapMientrasElContratoNoEsteVerificado() {
         conApiYSol();
+        api.falla = new SunatRechazoException("422", "El número de serie no tiene un formato válido");
+
+        Validez v = service.consultar(id, Q);
+
+        assertThat(v.fuente()).isEqualTo(Fuente.SOAP);
+        assertThat(v.aviso()).contains("La API de SUNAT rechazó la consulta").contains("formato válido").contains("billValidService");
+        assertThat(soap.llamadas).isEqualTo(1);
+    }
+
+    @Test void sinClaveSolUnRechazoDeLaConsultaSeDevuelveTalCual() {
+        soloApi();
         api.falla = new SunatRechazoException("422", "El número de serie no tiene un formato válido");
 
         assertThatThrownBy(() -> service.consultar(id, Q)).isInstanceOf(DomainException.class)
                 .extracting("codigo").isEqualTo("CONSULTA_RECHAZADA");
         assertThat(soap.llamadas).isZero();
+    }
+
+    @Test void unRechazoQueTampocoPuedeIrPorSoapEnBetaSeDevuelveComoRechazo() {
+        conApiYSol();
+        api.falla = new SunatRechazoException("422", "formato");
+        soap.falla = new DomainException("NO_DISPONIBLE_EN_BETA", "SUNAT no publica la consulta de validez en e-beta");
+
+        assertThatThrownBy(() -> service.consultar(id, Q)).extracting("codigo").isEqualTo("CONSULTA_RECHAZADA");
     }
 
     @Test void sinClaveSolElFalloDeLaApiSeTraduceSinFallback() {
@@ -151,6 +173,16 @@ class ConsultarValidezServiceTest {
 
         assertThat(v.fuente()).isEqualTo(Fuente.SOAP);
         assertThat(v.aviso()).contains("fecha");
+        assertThat(api.llamadas).isZero();
+    }
+
+    /** H3: en BETA sin fecha, ir a SOAP daba «no disponible en beta»; lo que falta es la fecha. */
+    @Test void enBetaSinFechaNiSoapLoQueFaltaEsLaFecha() {
+        conApiYSol();
+        soap.falla = new DomainException("NO_DISPONIBLE_EN_BETA", "SUNAT no publica la consulta de validez en e-beta");
+
+        assertThatThrownBy(() -> service.consultar(id, new Criterios("20100066603", "01", "F001", 125, null, null, null, null)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("fecha").extracting("codigo").isEqualTo("PARAMETRO_INVALIDO");
         assertThat(api.llamadas).isZero();
     }
 

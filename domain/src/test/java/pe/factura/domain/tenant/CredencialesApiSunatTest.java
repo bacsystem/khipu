@@ -26,7 +26,7 @@ class CredencialesApiSunatTest {
 
     /** El client_id va en la ruta de la URL del token: una barra o un «?» la cambiarían de recurso. */
     @Test void elClientIdNoAdmiteNadaQueCambieLaUrlDelToken() {
-        for (String malo : new String[]{"abc def", "abc/../otro", "abc?x=1", "abc#x", "abc%2F"})
+        for (String malo : new String[]{"abc def", "abc/../otro", "abc?x=1", "abc#x", "abc%2F", "..", ".", "-abc", ".abc"})
             assertThatThrownBy(() -> new CredencialesApiSunat(malo, "s")).as(malo).extracting("codigo").isEqualTo("CREDENCIALES_API_SUNAT_INVALIDAS");
     }
 

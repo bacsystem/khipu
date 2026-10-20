@@ -533,7 +533,20 @@ trabajo `EntregarWebhooksWorker` (cada 5 s). Las entregas se encolan en `webhook
 (`PUT /v1/empresa/credenciales-api-sunat`, o la pestaña «Credenciales SOL» del portal). Las genera el contribuyente en SOL: Empresas › Comprobantes de pago ›
 Consulta de Validez de Comprobantes de Pago › Credenciales de API SUNAT (registra una aplicación y copia su «Id» y su «Clave»). Se guardan cifradas con
 `MASTER_KEY` y entran en la rotación de §9. Si la API no responde o rechaza las credenciales y la empresa tiene clave SOL, la consulta cae a `billValidService`
-(SOAP, solo producción) y la respuesta lo dice en `aviso`; un rechazo de los datos de la consulta (400/422) no cae.
+(SOAP, solo producción) y la respuesta lo dice en `aviso`.
+
+**Fallback provisional ante un rechazo de la consulta.** Hoy también cae a SOAP (si hay clave SOL) cuando la API responde que la consulta es inválida (400/422 o
+`success: false`), con el `aviso` «La API de SUNAT rechazó la consulta (…): se usó billValidService con la clave SOL». Existe solo porque el contrato con la
+API (rutas, scope, `numero`/`monto` como texto, la forma de `success`/`data`) sale del manual y no se verificó contra SUNAT real: sin él, una empresa en
+producción que valida por SOAP y carga credenciales API recibiría `422 CONSULTA_RECHAZADA` si SUNAT no aceptara ese formato. **Se quita tras la corrida
+controlada de abajo** (en `ConsultarValidezService`): un rechazo de los datos es la respuesta de SUNAT y preguntarlo por otro canal no la cambia. Sin clave
+SOL, el rechazo ya se devuelve como `422 CONSULTA_RECHAZADA`.
+
+**Cambio de contrato para integradores** en `GET /v1/consultas/validez`: sin ninguna credencial el código pasó de `422 CREDENCIALES_SOL_NO_CARGADAS` a
+`422 CREDENCIALES_SUNAT_NO_CARGADAS` (sirven las API SUNAT o las SOL). Los fallos de SUNAT, que antes salían como `500 INTERNO`, ahora son `503 SUNAT_NO_DISPONIBLE`,
+`422 CREDENCIALES_SOL_RECHAZADAS`, `422 CREDENCIALES_API_SUNAT_RECHAZADAS` o `422 CONSULTA_RECHAZADA`. La respuesta suma `fuente`, `estado_ruc`,
+`condicion_domicilio`, `observaciones`, `aviso` y los estados `AUTORIZADO` / `NO_AUTORIZADO`. `PUT /v1/empresa/credenciales-api-sunat` responde `422 VALIDACION`
+si falta un campo y `422 CREDENCIALES_API_SUNAT_INVALIDAS` si el `client_id` no tiene forma de identificador.
 
 | Variable | Por defecto | Para qué |
 |---|---|---|
@@ -550,4 +563,7 @@ de `numero` y `monto` como texto sigue el ejemplo del manual y no está confirma
    `curl "$API/v1/consultas/validez?ruc=<RUC emisor>&tipo=01&serie=F001&numero=<n>&fecha=<AAAA-MM-DD>&monto=<total>" -H "X-Api-Key: $KEY"`.
    Lo esperado: `fuente: API_REST`, `estado: ACEPTADO`, `estado_ruc` y `condicion_domicilio` con valor. Repetir con un número que no exista (`NO_EXISTE`) y con
    una fecha equivocada (debe volver una observación).
-4. Si SUNAT responde `CONSULTA_RECHAZADA` por el formato de `numero`/`monto`, ajustar `RestValidezGateway` (mandarlos como número) y su prueba.
+   Mientras dure el fallback provisional, un rechazo de la API no se ve como error: hay que mirar que la respuesta diga `fuente: API_REST` y no traiga `aviso`.
+   Para probar sin fallback, hacerlo con una empresa sin clave SOL.
+4. Si SUNAT rechaza la consulta por el formato de `numero`/`monto`, ajustar `RestValidezGateway` (mandarlos como número) y su prueba.
+5. Verificado el contrato, quitar el fallback ante `SunatRechazoException` en `ConsultarValidezService` y volver la prueba de la matriz a «un rechazo no cae a SOAP».

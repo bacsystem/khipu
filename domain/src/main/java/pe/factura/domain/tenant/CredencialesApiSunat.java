@@ -20,9 +20,9 @@ public record CredencialesApiSunat(String clientId, String clientSecret) {
         clientId = clientId.strip();
         if (clientId.chars().anyMatch(Character::isWhitespace))
             throw new DomainException("CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id de la API SUNAT no admite espacios");
-        // El client_id va en la ruta de la URL del token: ni barras ni nada que la cambie de recurso.
-        if (!clientId.matches("[A-Za-z0-9._~-]+"))
-            throw new DomainException("CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id de la API SUNAT solo admite letras, dígitos, guiones, puntos y guiones bajos");
+        // El client_id va en la ruta de la URL del token: ni barras ni nada que la cambie de recurso, y empieza por letra o dígito («.» y «..» son segmentos de ruta).
+        if (!clientId.matches("[A-Za-z0-9][A-Za-z0-9._~-]*"))
+            throw new DomainException("CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id de la API SUNAT empieza por letra o dígito y solo admite letras, dígitos, guiones, puntos y guiones bajos");
         if (clientId.length() > LARGO_MAXIMO || clientSecret.length() > LARGO_MAXIMO)
             throw new DomainException("CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id y el client_secret de la API SUNAT admiten hasta " + LARGO_MAXIMO + " caracteres");
     }

@@ -21,10 +21,15 @@ import java.util.UUID;
  *   <li>Con clave SOL, {@code billValidService} (SOAP), que SUNAT solo publica en producción.</li>
  * </ul>
  * Si la API REST no está disponible (sin respuesta, tiempo agotado, 5xx) o rechaza las credenciales API (401: no cambia nada preguntarle de nuevo, pero la
- * clave SOL sí puede servir) y hay clave SOL, se pregunta por SOAP y la respuesta lo dice en {@code aviso}. NO hay fallback cuando la API responde que el
- * pedido es inválido ({@link SunatRechazoException}: 400/422, {@code success: false}): es una respuesta de SUNAT sobre los datos de la consulta, y
- * preguntarlo por otro canal solo daría la misma respuesta con otro formato (o, peor, una distinta que confunda). Sin fecha de emisión la API no
- * consulta (es obligatoria allí): se va directo a SOAP si hay clave SOL.
+ * clave SOL sí puede servir) y hay clave SOL, se pregunta por SOAP y la respuesta lo dice en {@code aviso}.
+ *
+ * <p>Un rechazo de la consulta ({@link SunatRechazoException}: 400/422, {@code success: false}) TAMBIÉN cae a SOAP cuando hay clave SOL, y solo por ahora:
+ * el contrato con la API (rutas, scope, {@code numero}/{@code monto} como texto, la forma de {@code success}/{@code data}) sale del manual de SUNAT y no se
+ * verificó contra SUNAT real. Sin este fallback, una empresa en producción que hoy valida por SOAP y carga credenciales API pasaría a recibir
+ * {@code CONSULTA_RECHAZADA} si SUNAT no acepta ese formato. Tras la corrida controlada (deploy/README.md §13) se quita: un rechazo de los datos es la
+ * respuesta de SUNAT y preguntarlo por otro canal no la cambia. Sin clave SOL, el rechazo se devuelve tal cual.
+ *
+ * <p>Sin fecha de emisión la API no consulta (es obligatoria allí): se va directo a SOAP si hay clave SOL; si SOAP no existe (BETA), la fecha es obligatoria.
  */
 @Slf4j
 public class ConsultarValidezService implements ConsultarValidezUseCase {
@@ -54,15 +59,20 @@ public class ConsultarValidezService implements ConsultarValidezUseCase {
         if (conApi) {
             if (q.fechaEmision() == null) {
                 if (t.sol() == null) throw new DomainException("PARAMETRO_INVALIDO", "fecha: obligatoria para la consulta por la API de SUNAT (la empresa no tiene clave SOL para consultar sin ella)");
-                return porSoap(t, q, "Sin fecha de emisión la API de SUNAT no consulta: se usó billValidService con la clave SOL");
+                try {
+                    return porSoap(t, q, "Sin fecha de emisión la API de SUNAT no consulta: se usó billValidService con la clave SOL");
+                } catch (DomainException d) {
+                    // En BETA billValidService no existe (salvo que se configure su URL): «no disponible en beta» confundiría, lo que falta es la fecha.
+                    if ("NO_DISPONIBLE_EN_BETA".equals(d.codigo())) throw new DomainException("PARAMETRO_INVALIDO", "fecha: obligatoria para la consulta por la API de SUNAT en BETA");
+                    throw d;
+                }
             }
             try {
                 return porApi(t, q);
-            } catch (SunatRechazoException e) {
-                throw new DomainException("CONSULTA_RECHAZADA", "SUNAT rechazó la consulta: " + e.getMessage());
-            } catch (SunatTransientException e) {
+            } catch (SunatRechazoException | SunatTransientException e) {
                 if (t.sol() == null) throw traducirApi(e);
-                String aviso = (e instanceof SunatCredencialesException ? "SUNAT no aceptó las credenciales API SUNAT" : "La API de SUNAT no respondió")
+                String aviso = (e instanceof SunatRechazoException ? "La API de SUNAT rechazó la consulta"
+                        : e instanceof SunatCredencialesException ? "SUNAT no aceptó las credenciales API SUNAT" : "La API de SUNAT no respondió")
                         + " (" + e.getMessage() + "): se usó billValidService con la clave SOL";
                 log.warn("Validez de comprobante, empresa {}: {}", t.id(), aviso);
                 try {
@@ -96,7 +106,8 @@ public class ConsultarValidezService implements ConsultarValidezUseCase {
         return new Validez(estado(r.statusCode()), r.statusCode(), r.statusMessage(), Fuente.SOAP, null, null, java.util.List.of(), aviso);
     }
 
-    private static DomainException traducirApi(SunatTransientException e) {
+    private static DomainException traducirApi(RuntimeException e) {
+        if (e instanceof SunatRechazoException) return new DomainException("CONSULTA_RECHAZADA", "SUNAT rechazó la consulta: " + e.getMessage());
         if (e instanceof SunatCredencialesException)
             return new DomainException("CREDENCIALES_API_SUNAT_RECHAZADAS", "SUNAT no acepta las credenciales API SUNAT de la empresa (" + e.getMessage()
                     + "): revise el client_id y el client_secret en SOL («Credenciales de API SUNAT») y vuelva a guardarlos");

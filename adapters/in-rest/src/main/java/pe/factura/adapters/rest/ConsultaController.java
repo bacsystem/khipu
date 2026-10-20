@@ -42,7 +42,7 @@ public class ConsultaController {
             (`PUT /v1/empresa/credenciales-api-sunat`) se consulta la API REST de SUNAT («consulta integrada», `fuente: API_REST`):
             `estado` `NO_EXISTE` (0), `ACEPTADO` (1), `DE_BAJA` (2, anulado), `AUTORIZADO` (3) o `NO_AUTORIZADO` (4, comprobantes
             físicos), más `estado_ruc`, `condicion_domicilio` y `observaciones` (p. ej. si la fecha o el monto no coinciden); ahí
-            `fecha` es obligatoria y `monto` lo es para comprobantes electrónicos. Sin ellas, o si la API no responde y hay clave SOL,
+            `fecha` es obligatoria y `monto` lo es para comprobantes electrónicos. Sin ellas, o si la API no responde o rechaza la consulta y hay clave SOL,
             se usa `billValidService` (`fuente: SOAP`, solo producción): `ACEPTADO` (0001), `RECHAZADO` (0002), `DE_BAJA` (0003),
             `NO_EXISTE` (0011), `AJENO` (0012) o `ERROR_CONSULTA`; `aviso` dice por qué. Errores: `422 CREDENCIALES_SUNAT_NO_CARGADAS`,
             `422 CREDENCIALES_API_SUNAT_RECHAZADAS`, `422 CREDENCIALES_SOL_RECHAZADAS`, `422 CONSULTA_RECHAZADA` (SUNAT rechazó los

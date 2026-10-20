@@ -10,11 +10,14 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Tokens OAuth2 de {@code api-seguridad.sunat.gob.pe} (#318), con caché hasta que venzan. SUNAT da hoy una hora ({@code expires_in: 3600}); se renueva
- * {@link #MARGEN} antes para que un token no venza a mitad de una llamada. Una sola petición de token por credencial a la vez: si dos consultas de la misma
- * empresa llegan con el token vencido, la segunda espera y usa el de la primera.
+ * {@link #MARGEN} antes para que un token no venza a mitad de una llamada. Una sola petición de token por credencial a la vez (single-flight): si dos consultas de
+ * la misma empresa llegan con el token vencido, la segunda espera y usa el de la primera. El cerrojo es por credencial: una empresa cuyo token tarda no frena a
+ * las demás (antes el pedido corría dentro de {@code ConcurrentHashMap.compute}, con el cerrojo del bin tomado, y otra credencial del mismo bin esperaba).
+ * Al guardar un token se descartan los vencidos, para que la caché no crezca con empresas que ya no consultan.
  *
  * <p>Errores: 400/401/403 del servicio de token son las credenciales (client_id o client_secret equivocados, aplicación eliminada en SOL, clave SOL incorrecta
  * en el grant password): {@link SunatCredencialesException}, que no cambia por reintentar. Lo demás (5xx, sin respuesta, respuesta sin token) es
@@ -31,6 +34,8 @@ public class ClienteOAuthSunat {
     private final Clock clock;
     private final ObjectMapper json = new ObjectMapper();
     private final ConcurrentHashMap<String, TokenVigente> cache = new ConcurrentHashMap<>();
+    /** Uno por credencial que alguna vez pidió token: un objeto chico por empresa con credenciales API. ReentrantLock y no synchronized: no fija el hilo virtual durante la red. */
+    private final ConcurrentHashMap<String, ReentrantLock> cerrojos = new ConcurrentHashMap<>();
 
     ClienteOAuthSunat(TransporteHttp http, Clock clock) { this.http = http; this.clock = clock; }
 
@@ -38,9 +43,28 @@ public class ClienteOAuthSunat {
 
     /** El token vigente para esas credenciales; pide uno nuevo si no hay o está por vencer. */
     public String token(PedidoDeToken p) {
-        // compute serializa por clave: dos llamadas con el token vencido no piden dos tokens.
-        return cache.compute(p.claveDeCache(), (k, actual) -> actual != null && clock.instant().isBefore(actual.vence()) ? actual : pedir(p)).valor();
+        String clave = p.claveDeCache();
+        TokenVigente actual = cache.get(clave);
+        if (vigente(actual)) return actual.valor();
+        ReentrantLock cerrojo = cerrojos.computeIfAbsent(clave, k -> new ReentrantLock());
+        cerrojo.lock();
+        try {
+            // Quien esperaba el cerrojo encuentra el token que acaba de pedir el otro.
+            actual = cache.get(clave);
+            if (vigente(actual)) return actual.valor();
+            TokenVigente nuevo = pedir(p);
+            cache.values().removeIf(t -> !vigente(t));
+            cache.put(clave, nuevo);
+            return nuevo.valor();
+        } finally {
+            cerrojo.unlock();
+        }
     }
+
+    private boolean vigente(TokenVigente t) { return t != null && clock.instant().isBefore(t.vence()); }
+
+    /** Tokens en caché (vencidos incluidos, hasta la próxima inserción): para las pruebas. */
+    int enCache() { return cache.size(); }
 
     /** Descarta el token en caché: SUNAT lo rechazó (401) antes de lo que decía {@code expires_in}, o se cambió la credencial. */
     public void invalidar(PedidoDeToken p) { cache.remove(p.claveDeCache()); }

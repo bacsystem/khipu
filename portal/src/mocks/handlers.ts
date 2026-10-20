@@ -2636,10 +2636,14 @@ export const handlers = [
     if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
     const body = (await request.json()) as { client_id?: string; client_secret?: string };
     const id = (body.client_id ?? "").trim();
-    if (!id || !(body.client_secret ?? "").trim())
-      return fail(422, "CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id y el client_secret de la API SUNAT son obligatorios");
-    if (!/^[A-Za-z0-9._~-]+$/.test(id))
-      return fail(422, "CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id de la API SUNAT solo admite letras, dígitos, guiones, puntos y guiones bajos");
+    // Como el backend: el @NotBlank del DTO responde 422 VALIDACION por campo; el formato del client_id, la regla de dominio.
+    const errores: Record<string, string[]> = {};
+    if (!id) errores.clientId = ["no debe estar vacío"];
+    if (!(body.client_secret ?? "").trim()) errores.clientSecret = ["no debe estar vacío"];
+    if (Object.keys(errores).length > 0)
+      return HttpResponse.json({ estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores }, { status: 422 });
+    if (!/^[A-Za-z0-9][A-Za-z0-9._~-]*$/.test(id))
+      return fail(422, "CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id de la API SUNAT empieza por letra o dígito y solo admite letras, dígitos, guiones, puntos y guiones bajos");
     empresa.tiene_credenciales_api_sunat = true;
     return new HttpResponse(null, { status: 204 });
   }),

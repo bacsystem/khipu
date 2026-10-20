@@ -12,7 +12,7 @@ import java.util.List;
  *
  * <p>Errores: {@link SunatCredencialesException} si SUNAT no acepta el client_id/client_secret (o el token sigue rechazado tras renovarlo);
  * {@link SunatTransientException} si no responde (red, tiempo agotado, 5xx, respuesta ilegible); {@link SunatRechazoException} si responde que el
- * pedido es inválido (400/422 de la consulta, {@code success: false}): eso no cambia preguntando por otro canal.
+ * pedido es inválido (400/422 de la consulta, {@code success: false}) (qué hacer con él lo decide {@code ConsultarValidezService}: hoy cae a SOAP mientras el contrato no esté verificado).
  */
 public interface SunatApiValidezGateway {
     /** {@code fechaEmision} es obligatoria en la API; {@code importeTotal} lo es para los comprobantes electrónicos (nulo para los físicos). */
