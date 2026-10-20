@@ -203,6 +203,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cuenta/usuarios/{id}/rol": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Cambiar el rol de un usuario
+         * @description Vale desde la siguiente petición del usuario, sin que vuelva a entrar. Quitarle el rol de administrador revoca las invitaciones pendientes que creó. `409 ULTIMO_ADMINISTRADOR` si le quitaría el rol al único `ADMIN` activo (también a uno
+         *     mismo).
+         */
+        put: operations["cambiarRolDeUsuario"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clientes/{id}": {
         parameters: {
             query?: never;
@@ -923,6 +944,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cuenta/usuarios/{id}/reactivar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reactivar un usuario
+         * @description Vuelve a entrar con su contraseña y el rol que tenía.
+         */
+        post: operations["reactivarUsuario"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cuenta/usuarios/{id}/desactivar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Desactivar un usuario
+         * @description Ya no entra y se cierran sus sesiones abiertas. Si era administrador, se revocan las invitaciones pendientes que creó. Las API keys que haya creado
+         *     **siguen vigentes**: son de la empresa, no del usuario; revóquelas en `DELETE /v1/empresa/api-keys/{id}` si hace falta. `422 NO_PUEDES_DESACTIVARTE` con
+         *     el propio usuario. Se puede reactivar.
+         */
+        post: operations["desactivarUsuario"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cuenta/invitaciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invitaciones pendientes
+         * @description Las que no se aceptaron ni revocaron, también las vencidas (`vencida: true`), que se pueden reenviar.
+         */
+        get: operations["invitacionesPendientes"];
+        put?: never;
+        /**
+         * Invitar a alguien a la cuenta
+         * @description Le manda un enlace de un solo uso (7 días) para crear su contraseña y entrar con el rol elegido. `409 YA_ES_MIEMBRO` si ya es usuario de la cuenta,
+         *     `409 USUARIO_EXISTENTE` si el correo ya tiene un usuario en khipu (cada usuario es de una sola cuenta), `409 INVITACION_PENDIENTE` si ya hay una pendiente para
+         *     ese correo (reenvíela). `429 DEMASIADAS_INVITACIONES` con 20 pendientes, o si en las últimas 24 horas la cuenta ya mandó 30 correos de invitación o esa
+         *     dirección ya recibió 3 (de cualquier cuenta); invitar y reenviar cuentan, también las invitaciones que después se revocaron. La invitación vale mientras
+         *     quien la creó siga siendo administrador activo. `correo_enviado: false` si el correo no salió: la invitación queda y se puede reenviar.
+         */
+        post: operations["invitarAlEquipo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cuenta/invitaciones/{id}/reenviar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reenviar una invitación
+         * @description Un enlace nuevo que vuelve a durar 7 días; el anterior deja de servir. Hasta 5 envíos por invitación: después, `429 DEMASIADOS_ENVIOS`. Cuenta para
+         *     los topes de 24 horas de invitar (`429 DEMASIADAS_INVITACIONES`).
+         *     `409 INVITACION_NO_PENDIENTE` si ya se aceptó o se revocó.
+         */
+        post: operations["reenviarInvitacion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clientes": {
         parameters: {
             query?: never;
@@ -1133,6 +1246,48 @@ export interface paths {
          *     aun con la contraseña correcta.
          */
         post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/invitacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ver una invitación
+         * @description A qué cuenta y con qué rol invitaron al dueño del enlace. `422 TOKEN_INVALIDO` si no existe, venció, se revocó, se reenvió (vale el último enlace), ya se usó o
+         *     quien la creó ya no es administrador activo de la cuenta.
+         */
+        post: operations["consultarInvitacion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/invitacion/aceptar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aceptar una invitación
+         * @description Crea el usuario en la cuenta con el rol de la invitación y el correo ya verificado (el enlace llegó ahí), con la contraseña elegida; después entra con
+         *     `POST /v1/auth/login`. `422 TOKEN_INVALIDO` como al verla, `422 PASSWORD_DEBIL` (no consume el enlace), `409 USUARIO_EXISTENTE` si el correo ya tiene un usuario.
+         */
+        post: operations["aceptarInvitacion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2131,6 +2286,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cuenta/usuarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usuarios de la cuenta
+         * @description Activos y desactivados, por fecha de alta.
+         */
+        get: operations["usuariosDeLaCuenta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cuenta/accesos-de-soporte": {
         parameters: {
             query?: never;
@@ -2693,6 +2868,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cuenta/invitaciones/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revocar una invitación
+         * @description El enlace deja de servir. `409 INVITACION_NO_PENDIENTE` si ya se aceptó o se revocó.
+         */
+        delete: operations["revocarInvitacion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3120,6 +3315,67 @@ export interface components {
              * @example HhWwZVo8ZaWm4BZ7n/xEzw==
              */
             client_secret: string;
+        };
+        CambiarRolRequest: {
+            /**
+             * @description `ADMIN` todo; `EMISOR` emite, consulta y anula comprobantes y mantiene clientes y productos, pero no cambia la configuración ni el equipo; `LECTURA` solo consulta.
+             * @example EMISOR
+             * @enum {string}
+             */
+            rol: "ADMIN" | "EMISOR" | "LECTURA";
+        };
+        ApiResponseMiembroDelEquipo: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["MiembroDelEquipo"];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
+        };
+        MiembroDelEquipo: {
+            /**
+             * Format: uuid
+             * @example 9c1f3a2b-4d5e-4a6b-8c7d-1e2f3a4b5c6d
+             */
+            id?: string;
+            /** @example caja@ferreteriatorres.pe */
+            email?: string;
+            /**
+             * @example EMISOR
+             * @enum {string}
+             */
+            rol?: "ADMIN" | "EMISOR" | "LECTURA";
+            /**
+             * @description `false`: desactivado, no puede entrar.
+             * @example true
+             */
+            activo?: boolean;
+            /** @example true */
+            correo_verificado?: boolean;
+            /**
+             * @description `true` en el usuario de la sesión.
+             * @example false
+             */
+            es_usted?: boolean;
         };
         ClienteCrear: {
             /**
@@ -5483,6 +5739,86 @@ export interface components {
             /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
             avisos?: components["schemas"]["Aviso"][];
         };
+        InvitarAlEquipoRequest: {
+            /** @example contador@estudio.pe */
+            email: string;
+            /**
+             * @description `ADMIN` todo; `EMISOR` emite, consulta y anula comprobantes y mantiene clientes y productos, pero no cambia la configuración ni el equipo; `LECTURA` solo consulta.
+             * @example LECTURA
+             * @enum {string}
+             */
+            rol: "ADMIN" | "EMISOR" | "LECTURA";
+        };
+        ApiResponseInvitacionEnviada: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["InvitacionEnviada"];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
+        };
+        InvitacionAlEquipo: {
+            /**
+             * Format: uuid
+             * @example 5e0b7c1a-2d3f-4a5b-8c6d-7e8f9a0b1c2d
+             */
+            id?: string;
+            /** @example contador@estudio.pe */
+            email?: string;
+            /**
+             * @example LECTURA
+             * @enum {string}
+             */
+            rol?: "ADMIN" | "EMISOR" | "LECTURA";
+            /**
+             * Format: date-time
+             * @example 2026-10-27T12:00:00Z
+             */
+            expira_en?: string;
+            /**
+             * @description `true` si el enlace ya venció: se puede reenviar.
+             * @example false
+             */
+            vencida?: boolean;
+            /**
+             * Format: int32
+             * @description Cuántas veces se mandó el enlace, contando el primero (hasta 5).
+             * @example 1
+             */
+            envios?: number;
+            /**
+             * Format: date-time
+             * @example 2026-10-20T12:00:00Z
+             */
+            creada_en?: string;
+        };
+        InvitacionEnviada: {
+            invitacion?: components["schemas"]["InvitacionAlEquipo"];
+            /**
+             * @description `false` si el correo no salió (servidor de correo caído o sin configurar): la invitación queda pendiente y se puede reenviar.
+             * @example true
+             */
+            correo_enviado?: boolean;
+        };
         VerificarRequest: {
             /** @example q8Zf3kV1x... */
             token: string;
@@ -5632,6 +5968,65 @@ export interface components {
             /** @example facturacion@comercialandina.pe */
             email: string;
             /** @example Cambiar123 */
+            password: string;
+        };
+        InvitacionTokenRequest: {
+            /** @example q8Zf3kV1x... */
+            token: string;
+        };
+        ApiResponseInvitacionRecibida: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["InvitacionRecibida"];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
+        };
+        InvitacionRecibida: {
+            /** @example contador@estudio.pe */
+            email?: string;
+            /**
+             * @description El nombre de la cuenta que invita.
+             * @example Ferretería Torres
+             */
+            cuenta?: string;
+            /**
+             * @example LECTURA
+             * @enum {string}
+             */
+            rol?: "ADMIN" | "EMISOR" | "LECTURA";
+            /**
+             * Format: date-time
+             * @example 2026-10-27T12:00:00Z
+             */
+            expira_en?: string;
+        };
+        AceptarInvitacionRequest: {
+            /** @example q8Zf3kV1x... */
+            token: string;
+            /**
+             * @description Al menos 8 caracteres, una letra y un dígito.
+             * @example Segura123
+             */
             password: string;
         };
         CrearTenantRequest: {
@@ -7315,6 +7710,60 @@ export interface components {
             nombre?: string;
             plan?: components["schemas"]["PlanDeCuentaResponse"];
             consumo?: components["schemas"]["ConsumoDelMesResponse"];
+        };
+        ApiResponseListMiembroDelEquipo: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["MiembroDelEquipo"][];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
+        };
+        ApiResponseListInvitacionAlEquipo: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["InvitacionAlEquipo"][];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
         };
         AccesoDeSoporteResponse: {
             /**
@@ -9587,6 +10036,32 @@ export interface operations {
             };
         };
     };
+    cambiarRolDeUsuario: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CambiarRolRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMiembroDelEquipo"];
+                };
+            };
+        };
+    };
     obtener_2: {
         parameters: {
             query?: never;
@@ -10662,6 +11137,116 @@ export interface operations {
             };
         };
     };
+    reactivarUsuario: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMiembroDelEquipo"];
+                };
+            };
+        };
+    };
+    desactivarUsuario: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMiembroDelEquipo"];
+                };
+            };
+        };
+    };
+    invitacionesPendientes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListInvitacionAlEquipo"];
+                };
+            };
+        };
+    };
+    invitarAlEquipo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitarAlEquipoRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInvitacionEnviada"];
+                };
+            };
+        };
+    };
+    reenviarInvitacion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInvitacionEnviada"];
+                };
+            };
+        };
+    };
     listar_4: {
         parameters: {
             query?: {
@@ -10908,6 +11493,52 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ApiResponseTokensResponse"];
                 };
+            };
+        };
+    };
+    consultarInvitacion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitacionTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInvitacionRecibida"];
+                };
+            };
+        };
+    };
+    aceptarInvitacion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AceptarInvitacionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -12160,6 +12791,26 @@ export interface operations {
             };
         };
     };
+    usuariosDeLaCuenta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListMiembroDelEquipo"];
+                };
+            };
+        };
+    };
     accesosDeSoporte: {
         parameters: {
             query?: never;
@@ -12784,6 +13435,26 @@ export interface operations {
         };
     };
     revocarApiKey_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revocarInvitacion: {
         parameters: {
             query?: never;
             header?: never;
