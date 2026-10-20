@@ -37,7 +37,8 @@ const emisiones = (fetch: ReturnType<typeof stubBackend>) =>
 
 async function elegir(texto: string, nombre: string) {
   fireEvent.change(screen.getByLabelText("Buscar un producto guardado"), { target: { value: texto } });
-  fireEvent.mouseDown(await screen.findByRole("option", { name: new RegExp(nombre) }));
+  // La búsqueda espera 250 ms antes de pedir; con todos los archivos corriendo a la vez el 1 s por defecto no alcanza.
+  fireEvent.mouseDown(await screen.findByRole("option", { name: new RegExp(nombre) }, { timeout: 5000 }));
 }
 
 afterEach(() => {
@@ -59,7 +60,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
     expect(screen.getAllByLabelText("Descripción")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
 
-    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1), { timeout: 5000 });
     expect(emisiones(fetch)[0].items).toEqual([expect.objectContaining({ codigo: "SRV-001", codigo_sunat: "80101500", descripcion: "Consultoría tributaria", unidad: "ZZ", tipo_afectacion_igv: "10", precio_unitario: 118 })]);
   });
 
@@ -77,7 +78,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
     fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
-    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1), { timeout: 5000 });
     expect(emisiones(fetch)[0].items).toHaveLength(2);
     expect(emisiones(fetch)[0].items[1]).toMatchObject({ descripcion: "Libro técnico", tipo_afectacion_igv: "20", precio_unitario: 50 });
     expect(emisiones(fetch)[0].items[1].codigo).toBeUndefined();
@@ -106,7 +107,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Otra cosa distinta" } });
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
 
-    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1), { timeout: 5000 });
     const item = emisiones(fetch)[0].items[0];
     expect(item).toMatchObject({ descripcion: "Otra cosa distinta", precio_unitario: 99 });
     expect(item.codigo).toBeUndefined();
@@ -124,7 +125,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
     fireEvent.blur(screen.getByLabelText(/Precio unit\./));
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
 
-    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1), { timeout: 5000 });
     expect(emisiones(fetch)[0].items[0]).toMatchObject({ codigo: "SRV-001", codigo_sunat: "80101500", precio_unitario: 99 });
   });
 
