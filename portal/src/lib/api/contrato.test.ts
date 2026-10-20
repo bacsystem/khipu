@@ -81,4 +81,74 @@ describe("Contrato entre los tipos a mano y el OpenAPI (#5)", () => {
       `),
     ).toBe("");
   });
+
+  it("una clave opcional a mano frente a una del esquema también se compara", () => {
+    expect(errores(`
+      type Esquema = { id?: string; nota?: string };
+      type Mano = { id: string; nota?: string | null };
+      type _Cabe = Verifica<Contrato<Mano, Esquema>>;
+    `)).toBe("");
+    const e = errores(`
+      type Esquema = { id?: string; nota?: number };
+      type Mano = { id: string; nota?: string };
+      type _NoCabe = Verifica<Contrato<Mano, Esquema>>;
+    `);
+    expect(e).toContain("la_api_cambio:nota");
+  });
+
+  it("un valor nuevo en un enum de la API falla: el tipo a mano tiene que cubrirlo", () => {
+    const e = errores(`
+      type Esquema = { estado?: "VIGENTE" | "EN_GRACIA" | "VENCIDA" | "CANCELADA" };
+      type Mano = { estado: "VIGENTE" | "EN_GRACIA" | "VENCIDA" };
+      type _NoCabe = Verifica<Contrato<Mano, Esquema>>;
+    `);
+    expect(e).toContain("la_api_cambio:estado(valor nuevo en la API: CANCELADA)");
+  });
+
+  it("un enum de la API que el tipo a mano cubre, o que cubre de sobra, o un string a mano frente a un enum, pasan", () => {
+    expect(errores(`
+      type Esquema = { estado?: "A" | "B" };
+      type Igual = { estado: "A" | "B" };
+      type DeSobra = { estado: "A" | "B" | "C" };
+      type Ancho = { estado: string };
+      type _1 = Verifica<Contrato<Igual, Esquema>>;
+      type _2 = Verifica<Contrato<DeSobra, Esquema>>;
+      type _3 = Verifica<Contrato<Ancho, Esquema>>;
+    `)).toBe("");
+  });
+
+  it("literales sin ningún valor en común fallan", () => {
+    const e = errores(`
+      type Esquema = { tipo?: "C" | "D" };
+      type Mano = { tipo: "A" | "B" };
+      type _NoCabe = Verifica<Contrato<Mano, Esquema>>;
+    `);
+    expect(e).toContain("la_api_cambio:tipo");
+  });
+
+  it("en una petición, un campo que el esquema marca requerido y el tipo a mano no trae, falla", () => {
+    const e = errores(`
+      type Esquema = { nombre: string; correo: string; telefono?: string };
+      type Mano = { nombre: string; telefono?: string };
+      type _NoCabe = Verifica<ContratoDePeticion<Mano, Esquema>>;
+    `);
+    expect(e).toContain("la_api_exige:correo");
+    expect(e).not.toContain("la_api_exige:nombre");
+    expect(e).not.toContain("la_api_exige:telefono");
+  });
+
+  it("una petición que trae todos los requeridos pasa, y sigue comprobando claves y formas", () => {
+    expect(errores(`
+      type Esquema = { nombre: string; correo?: string };
+      type Mano = { nombre: string; correo?: string };
+      type _Cabe = Verifica<ContratoDePeticion<Mano, Esquema>>;
+    `)).toBe("");
+    const e = errores(`
+      type Esquema = { nombre: string; correo?: string };
+      type Mano = { nombre: number; correo?: string; extra: string };
+      type _NoCabe = Verifica<ContratoDePeticion<Mano, Esquema>>;
+    `);
+    expect(e).toContain("la_api_cambio:nombre");
+    expect(e).toContain("la_api_cambio:extra(ya no existe)");
+  });
 });

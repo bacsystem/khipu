@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "generate:api": "node scripts/generate-api.mjs"
+    "generate:api": "node scripts/generate-api.mjs",
+    "generate:types": "node scripts/generate-api.mjs --solo-tipos"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

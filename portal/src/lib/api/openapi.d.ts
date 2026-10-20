@@ -1,5 +1,5 @@
 /**
- * Generado por `npm run generate:api` desde http://localhost:18101/openapi.json: no se edita a mano.
+ * Generado por `npm run generate:api` (o `generate:types`) desde openapi.json: no se edita a mano.
  * No lo importa ningún componente: lo usa `contrato-openapi.ts` para que `tsc` avise si la API cambia el contrato (#5, ver `contrato.ts`).
  */
 

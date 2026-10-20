@@ -13,7 +13,6 @@ public final class ClienteDtos {
     private ClienteDtos() {}
 
     @Schema(name = "ClienteCrear")
-
     public record Crear(
             @NotBlank @Schema(example = "6", description = "Tipo de documento del catálogo 06: 1 DNI, 4 carné de extranjería, 6 RUC, 7 pasaporte…") String tipoDoc,
             @NotBlank @Size(max = 20) @Schema(example = "20601234565") String numDoc,
