@@ -14,6 +14,12 @@ public enum EstadoGuia {
     FIRMADO,
     /** El envío falló (SUNAT no respondió, rechazó las credenciales o no recibió el archivo); ver {@code ultimo_error} y {@code reintento_automatico}. */
     ERROR_ENVIO,
+    /**
+     * Reservada para un envío en curso: la base la pasa aquí con una actualización condicional antes de llamar a SUNAT, así dos envíos (el outbox y uno a
+     * mano) no mandan el mismo número dos veces. No se reenvía sola: si queda aquí sin respuesta (el proceso murió a mitad), no se sabe si SUNAT la recibió,
+     * y solo se retoma a mano y a sabiendas ({@code forzar}) pasado un rato.
+     */
+    ENVIANDO,
     /** SUNAT recibió la guía y dio un ticket; khipu lo consulta hasta tener el CDR. */
     ENVIADO_PENDIENTE_TICKET,
     ACEPTADO, ACEPTADO_CON_OBS, RECHAZADO;
@@ -22,8 +28,9 @@ public enum EstadoGuia {
 
     static {
         RECIBIDO.siguientes = EnumSet.of(FIRMADO);
-        FIRMADO.siguientes = EnumSet.of(ENVIADO_PENDIENTE_TICKET, ERROR_ENVIO);
-        ERROR_ENVIO.siguientes = EnumSet.of(ENVIADO_PENDIENTE_TICKET, ERROR_ENVIO);
+        FIRMADO.siguientes = EnumSet.of(ENVIANDO, ENVIADO_PENDIENTE_TICKET, ERROR_ENVIO);
+        ERROR_ENVIO.siguientes = EnumSet.of(ENVIANDO, ENVIADO_PENDIENTE_TICKET, ERROR_ENVIO);
+        ENVIANDO.siguientes = EnumSet.of(ENVIANDO, ENVIADO_PENDIENTE_TICKET, ERROR_ENVIO);
         ENVIADO_PENDIENTE_TICKET.siguientes = EnumSet.of(ACEPTADO, ACEPTADO_CON_OBS, RECHAZADO, ERROR_ENVIO);
     }
 

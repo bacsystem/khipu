@@ -360,29 +360,37 @@ public class AppConfig {
                 p.desplazamientoDelReloj());
     }
     /**
-     * #39: la guía de remisión electrónica por la API REST de SUNAT. El token es el de la validez (mismo servicio de seguridad, otro grant); la API GRE de beta va
-     * vacía por defecto: SUNAT no publica una de pruebas y la de producción emite guías reales (ver RestGreGateway y deploy/README.md §14).
+     * #39: la guía de remisión electrónica por la API REST de SUNAT. El envío está apagado por defecto ({@code app.sunat-api.gre-habilitada}, H1): el contrato no
+     * se verificó contra SUNAT. La beta usa su propia API y su propio token (H6), vacíos por defecto: SUNAT no publica una API GRE de pruebas, y una beta que
+     * apunte a la real no deja arrancar (H5). Ver RestGreGateway y deploy/README.md §14.
      */
-    @Bean SunatGreGateway sunatGreGateway(AppProperties p, Clock clock,
-                                          @Value("${app.sunat-api.seguridad-url}") String seguridad, @Value("${app.sunat-api.seguridad-beta-url}") String seguridadBeta,
+    @Bean SunatGreGateway sunatGreGateway(AppProperties p, Clock clock, @Value("${app.sunat-api.gre-habilitada:false}") boolean habilitada,
+                                          @Value("${app.sunat-api.seguridad-url}") String seguridad, @Value("${app.sunat-api.gre-seguridad-beta-url:}") String seguridadBeta,
                                           @Value("${app.sunat-api.gre-url}") String gre, @Value("${app.sunat-api.gre-beta-url:}") String greBeta,
                                           @Value("${app.sunat-api.gre-timeout-seconds:30}") int segundos) {
+        return RelojDeLaAplicacion.proteger(greGateway(habilitada, seguridad, seguridadBeta, gre, greBeta, segundos, clock), p.desplazamientoDelReloj());
+    }
+    static RestGreGateway greGateway(boolean habilitada, String seguridad, String seguridadBeta, String gre, String greBeta, int segundos, Clock clock) {
         if (segundos < 1 || segundos > 120) throw new IllegalStateException("SUNAT_API_GRE_TIMEOUT_SECONDS debe estar entre 1 y 120 (es " + segundos + ")");
         Duration espera = Duration.ofSeconds(segundos);
         ClienteApiSunat cliente = new ClienteApiSunat(espera.compareTo(Duration.ofSeconds(5)) < 0 ? espera : Duration.ofSeconds(5), espera, clock);
-        return RelojDeLaAplicacion.proteger(new RestGreGateway(new UrlPorEntorno(seguridadBeta, seguridad), gre, greBeta, cliente), p.desplazamientoDelReloj());
+        RestGreGateway g = new RestGreGateway(habilitada, seguridad, seguridadBeta, gre, greBeta, cliente);
+        if (!habilitada) LoggerFactory.getLogger(AppConfig.class).info("Envío de guías de remisión a SUNAT apagado (SUNAT_API_GRE_HABILITADA=false): se emiten sin enviar. Ver deploy/README.md §14.");
+        return g;
     }
+    @Bean RechazoDeCredencialesGreRepository rechazoDeCredencialesGreRepository(JdbcTemplate jdbc) { return new JdbcRechazoDeCredencialesGreRepository(jdbc); }
     @Bean GuiaRemisionRepository guiaRemisionRepository(JdbcTemplate jdbc) { return new JdbcGuiaRemisionRepository(jdbc); }
     @Bean GuiaUblGenerator guiaUblGenerator() { return new FreemarkerGuiaUblGenerator(); }
     @Bean GuiaPdfGenerator guiaPdfGenerator() { return new FlyingSaucerGuiaPdfGenerator(); }
-    @Bean EnviarGuiaRemisionUseCase enviarGuiaRemision(GuiaRemisionRepository g, TenantRepository t, DocumentStorage s, SunatGreGateway gre, CdrParser cdr, OutboxRepository o, UnitOfWork u, Clock clock) {
-        return new EnviarGuiaRemisionService(g, t, s, gre, cdr, o, u, clock);
+    @Bean EnviarGuiaRemisionUseCase enviarGuiaRemision(GuiaRemisionRepository g, TenantRepository t, DocumentStorage s, SunatGreGateway gre, CdrParser cdr, OutboxRepository o, UnitOfWork u, Clock clock,
+                                                       RechazoDeCredencialesGreRepository rechazos) {
+        return new EnviarGuiaRemisionService(g, t, s, gre, cdr, o, u, clock, rechazos);
     }
     /** Carga la empresa lo primero, antes de numerar con la fecha del reloj: con el reloj movido (#363), el repositorio protegido frena ahí a las de PRODUCCION. */
     @Bean EmitirGuiaRemisionUseCase emitirGuiaRemision(GuiaRemisionRepository g, SerieRepository se, TenantRepository t, EstablecimientoRepository est, DocumentStorage s, GuiaUblGenerator ubl,
                                                        XsdValidator xsd, XmlSigner signer, SunatGreGateway gre, EnviarGuiaRemisionUseCase enviar, IdempotenciaRepository idempotencia,
-                                                       UnitOfWork u, Clock clock, AppProperties p) {
-        return new EmitirGuiaRemisionService(g, se, RelojDeLaAplicacion.proteger(t, p.desplazamientoDelReloj()), est, s, ubl, xsd, signer, gre, enviar, idempotencia, u, clock);
+                                                       UnitOfWork u, Clock clock, AppProperties p, RechazoDeCredencialesGreRepository rechazos) {
+        return new EmitirGuiaRemisionService(g, se, RelojDeLaAplicacion.proteger(t, p.desplazamientoDelReloj()), est, s, ubl, xsd, signer, gre, enviar, idempotencia, u, clock, rechazos);
     }
     @Bean ConsultarGuiaRemisionUseCase consultarGuiaRemision(GuiaRemisionRepository g, TenantRepository t, DocumentStorage s, GuiaPdfGenerator pdf) {
         return new ConsultarGuiaRemisionService(g, t, s, pdf);

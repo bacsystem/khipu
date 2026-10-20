@@ -144,8 +144,13 @@ app:
     # #39: la guía de remisión electrónica (envío y ticket en <gre>/v1/contribuyente/gem/comprobantes/…; token del grant password en <seguridad>/v1/clientessol/…).
     # SUNAT no publica una API de pruebas para la GRE y la de producción emite guías con validez tributaria: sin SUNAT_API_GRE_BETA_URL, una empresa en BETA no
     # envía guías (se pueden emitir sin enviar). Ver deploy/README.md §14.
+    # H1: apagado por defecto. El contrato con la API GRE no se verificó contra SUNAT: el dueño lo enciende solo tras la corrida controlada de §14.
+    gre-habilitada: ${SUNAT_API_GRE_HABILITADA:false}
     gre-url: ${SUNAT_API_GRE_URL:https://api-cpe.sunat.gob.pe}
+    # La beta (una API de pruebas de terceros) lleva su propio token: el bearer de la empresa no sale del api-seguridad real hacia un tercero. Una beta que apunte a
+    # la API o al token reales de SUNAT no deja arrancar.
     gre-beta-url: ${SUNAT_API_GRE_BETA_URL:}
+    gre-seguridad-beta-url: ${SUNAT_API_GRE_SEGURIDAD_BETA_URL:}
     # La GRE puede tardar más que una consulta: el envío lleva el ZIP del XML firmado.
     gre-timeout-seconds: ${SUNAT_API_GRE_TIMEOUT_SECONDS:30}
   outbox:

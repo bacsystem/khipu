@@ -42,6 +42,8 @@ CREATE TABLE guia_remision (
     xml_key                    VARCHAR(250),
     cdr_key                    VARCHAR(250),
     ticket                     VARCHAR(40),
+    -- Desde cuándo está reservado el envío en curso (ENVIANDO): uno viejo se retoma solo a mano y a sabiendas.
+    enviando_desde             TIMESTAMPTZ,
     fecha_recepcion            TIMESTAMP,
     intentos                   INT NOT NULL DEFAULT 0,
     consultas_ticket           INT NOT NULL DEFAULT 0,
@@ -64,7 +66,8 @@ CREATE TABLE guia_remision (
             AND remitente_tipo_doc IS NOT NULL AND remitente_num_doc IS NOT NULL AND remitente_nombre IS NOT NULL AND registro_mtc IS NOT NULL)),
     -- La empresa de transporte es de la guía remitente en transporte público (2534) y en privado no va (3347).
     CONSTRAINT guia_remision_transportista_publico CHECK ((modalidad = '01') = (transportista_ruc IS NOT NULL) OR tipo = '31'),
-    CONSTRAINT guia_remision_estado CHECK (estado IN ('FIRMADO', 'ERROR_ENVIO', 'ENVIADO_PENDIENTE_TICKET', 'ACEPTADO', 'ACEPTADO_CON_OBS', 'RECHAZADO')),
+    CONSTRAINT guia_remision_estado CHECK (estado IN ('FIRMADO', 'ERROR_ENVIO', 'ENVIANDO', 'ENVIADO_PENDIENTE_TICKET', 'ACEPTADO', 'ACEPTADO_CON_OBS', 'RECHAZADO')),
+    CONSTRAINT guia_remision_enviando CHECK (estado <> 'ENVIANDO' OR enviando_desde IS NOT NULL),
     CONSTRAINT guia_remision_ticket CHECK (estado <> 'ENVIADO_PENDIENTE_TICKET' OR ticket IS NOT NULL),
     CONSTRAINT guia_remision_peso CHECK (peso_bruto > 0 AND unidad_peso IN ('KGM', 'TNE'))
 );
@@ -108,4 +111,13 @@ CREATE TABLE guia_remision_documento (
     numero     VARCHAR(100) NOT NULL,
     ruc_emisor VARCHAR(11),
     PRIMARY KEY (guia_id, orden)
+);
+
+-- SUNAT rechazó las credenciales de la GRE de la empresa (API SUNAT o clave SOL, en el token). Mientras la huella de las credenciales actuales sea la rechazada y no
+-- haya pasado una hora, khipu no pide otro token: golpear el token con una clave SOL equivocada puede bloquearla. Tabla aparte: no toca `tenant`.
+CREATE TABLE gre_rechazo_credenciales (
+    tenant_id     UUID PRIMARY KEY REFERENCES tenant(id) ON DELETE CASCADE,
+    huella        VARCHAR(64) NOT NULL,
+    motivo        TEXT NOT NULL,
+    rechazadas_en TIMESTAMPTZ NOT NULL
 );

@@ -85,8 +85,11 @@ public class JdbcGuiaRemisionRepository implements GuiaRemisionRepository {
         return cargar("SELECT * FROM guia_remision WHERE tenant_id = ? AND id = ?", tenantId, id).stream().findFirst();
     }
 
-    @Override public Optional<GuiaRemision> bloquear(UUID tenantId, UUID id) {
-        return cargar("SELECT * FROM guia_remision WHERE tenant_id = ? AND id = ? FOR UPDATE", tenantId, id).stream().findFirst();
+    @Override public boolean reservarEnvio(UUID tenantId, UUID id, java.time.Instant ahora, boolean forzar, java.time.Instant viejaAntesDe) {
+        return jdbc.update("""
+            UPDATE guia_remision SET estado = 'ENVIANDO', enviando_desde = ?, updated_at = now()
+            WHERE id = ? AND tenant_id = ? AND (estado IN ('FIRMADO', 'ERROR_ENVIO') OR (? AND estado = 'ENVIANDO' AND enviando_desde < ?))""",
+                Timestamp.from(ahora), id, tenantId, forzar, Timestamp.from(viejaAntesDe)) == 1;
     }
 
     @Override public List<GuiaRemision> listar(UUID tenantId, Filtro filtro, int pagina, int porPagina) {

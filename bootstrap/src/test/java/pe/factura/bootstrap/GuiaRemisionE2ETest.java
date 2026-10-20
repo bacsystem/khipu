@@ -50,6 +50,9 @@ class GuiaRemisionE2ETest {
     @DynamicPropertySource static void props(DynamicPropertyRegistry r) {
         r.add("app.sunat-api.seguridad-beta-url", () -> sunat.baseUrl() + "/api-seguridad");
         r.add("app.sunat-api.gre-beta-url", () -> sunat.baseUrl() + "/api-cpe");
+        // H6: la beta de la GRE pide el token a su propio servicio (aquí, el mismo WireMock), no al api-seguridad real. H1: el envío se enciende en esta prueba.
+        r.add("app.sunat-api.gre-seguridad-beta-url", () -> sunat.baseUrl() + "/api-seguridad");
+        r.add("app.sunat-api.gre-habilitada", () -> "true");
         r.add("app.sunat-api.timeout-seconds", () -> "2");
         r.add("app.sunat-api.gre-timeout-seconds", () -> "2");
     }

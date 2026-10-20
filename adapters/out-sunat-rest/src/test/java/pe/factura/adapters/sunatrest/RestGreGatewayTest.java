@@ -59,8 +59,8 @@ class RestGreGatewayTest {
             .conCredencialesApiSunat(new CredencialesApiSunat(ID, SECRETO));
 
     RestGreGateway gateway(WireMockRuntimeInfo wm, String beta) {
-        UrlPorEntorno seguridad = new UrlPorEntorno(wm.getHttpBaseUrl(), wm.getHttpBaseUrl());
-        return new RestGreGateway(seguridad, wm.getHttpBaseUrl(), beta, new ClienteApiSunat(Duration.ofSeconds(1), Duration.ofSeconds(2), reloj));
+        return new RestGreGateway(true, wm.getHttpBaseUrl(), beta == null ? null : wm.getHttpBaseUrl() + "/beta-token", wm.getHttpBaseUrl(), beta,
+                new ClienteApiSunat(Duration.ofSeconds(1), Duration.ofSeconds(2), reloj));
     }
     RestGreGateway gateway(WireMockRuntimeInfo wm) { return gateway(wm, null); }
 
@@ -200,11 +200,39 @@ class RestGreGatewayTest {
         assertThatThrownBy(() -> sinBeta.enviar(beta, ARCHIVO, XML)).isInstanceOf(DomainException.class).hasFieldOrPropertyWithValue("codigo", "GRE_NO_DISPONIBLE");
         verify(0, postRequestedFor(anyUrl()));
 
-        tokenOk();
+        // H6: la beta pide el token a su propio servicio, no al de producción.
+        stubFor(post("/beta-token" + RUTA_TOKEN).willReturn(okJson("{\"access_token\":\"tk-beta\",\"expires_in\":3600}")));
         stubFor(post("/beta" + RUTA_ENVIO).willReturn(okJson("{\"numTicket\":\"" + TICKET + "\"}")));
         RestGreGateway conBeta = gateway(wm, wm.getHttpBaseUrl() + "/beta/");
         assertThat(conBeta.disponible(Entorno.BETA)).isTrue();
         assertThat(conBeta.enviar(beta, ARCHIVO, XML).ticket()).isEqualTo(TICKET);
+        verify(0, postRequestedFor(urlEqualTo(RUTA_TOKEN)));
+        verify(postRequestedFor(urlEqualTo("/beta" + RUTA_ENVIO)).withHeader("Authorization", equalTo("Bearer tk-beta")));
+    }
+
+    /** H1: apagado en el servidor, no se envía nada (ni el token) aunque la empresa esté en PRODUCCION; la consulta de un ticket ya dado sigue. */
+    @Test void apagadoNoEnviaNadaPeroConsultaLosTicketsQueYaHay(WireMockRuntimeInfo wm) {
+        RestGreGateway apagado = new RestGreGateway(false, wm.getHttpBaseUrl(), null, wm.getHttpBaseUrl(), null, new ClienteApiSunat(Duration.ofSeconds(1), Duration.ofSeconds(2), reloj));
+        assertThat(apagado.disponible(Entorno.PRODUCCION)).isFalse();
+        assertThatThrownBy(() -> apagado.enviar(produccion, ARCHIVO, XML)).isInstanceOf(DomainException.class).hasFieldOrPropertyWithValue("codigo", "GRE_NO_DISPONIBLE")
+                .hasMessageContaining("SUNAT_API_GRE_HABILITADA");
+        verify(0, postRequestedFor(anyUrl()));
+        tokenOk();
+        stubFor(get(RUTA_TICKET).willReturn(okJson("{\"codRespuesta\":\"98\"}")));
+        assertThat(apagado.consultar(produccion, TICKET).enProceso()).isTrue();
+    }
+
+    /** H5/H6: una beta que apunte a la API o al token reales de SUNAT no deja arrancar: las empresas en BETA mandarían guías reales o su bearer real a un tercero. */
+    @Test void unaBetaQueApuntaASunatRealNoArranca() {
+        ClienteApiSunat c = new ClienteApiSunat(Duration.ofSeconds(1), Duration.ofSeconds(2), reloj);
+        String prod = "https://api-cpe.sunat.gob.pe", token = "https://api-seguridad.sunat.gob.pe";
+        assertThatThrownBy(() -> new RestGreGateway(true, token, "https://gre-test.ejemplo.pe/token", prod, prod, c)).isInstanceOf(IllegalStateException.class).hasMessageContaining("SUNAT_API_GRE_BETA_URL");
+        assertThatThrownBy(() -> new RestGreGateway(true, token, "https://gre-test.ejemplo.pe/token", prod, "https://api-cpe.sunat.gob.pe/otra", c)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> new RestGreGateway(true, token, null, prod, "https://gre-test.ejemplo.pe", c)).isInstanceOf(IllegalStateException.class).hasMessageContaining("SUNAT_API_GRE_SEGURIDAD_BETA_URL");
+        assertThatThrownBy(() -> new RestGreGateway(true, token, token, prod, "https://gre-test.ejemplo.pe", c)).isInstanceOf(IllegalStateException.class).hasMessageContaining("token real");
+        assertThatThrownBy(() -> new RestGreGateway(true, token, token + "/v2", prod, "https://gre-test.ejemplo.pe", c)).isInstanceOf(IllegalStateException.class);
+        assertThat(new RestGreGateway(true, token, "https://gre-test.ejemplo.pe/token", prod, "https://gre-test.ejemplo.pe", c).disponible(Entorno.BETA)).isTrue();
+        assertThat(new RestGreGateway(true, token, null, prod, "", c).disponible(Entorno.BETA)).isFalse();
     }
 
     @Test void sinCredencialesApiOSolNoSeLlamaASunat(WireMockRuntimeInfo wm) {

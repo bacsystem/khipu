@@ -213,13 +213,16 @@ class GuiaRemisionControllerTest {
 
     @Test void enviarTicketYDescargas() throws Exception {
         GuiaRemision g = aceptada(tenant);
-        when(enviar.enviar(tenant, g.id())).thenReturn(g);
+        when(enviar.enviar(tenant, g.id(), false)).thenReturn(g);
+        when(enviar.enviar(tenant, g.id(), true)).thenThrow(new DomainException("ENVIO_EN_CURSO", "revise en SOL"));
         when(enviar.consultarTicket(tenant, g.id())).thenThrow(new DomainException("TICKET_NO_PENDIENTE", "ya aceptada"));
         when(consultar.obtener(tenant, g.id())).thenReturn(g);
         when(consultar.xml(tenant, g.id())).thenReturn("<DespatchAdvice/>".getBytes());
         when(consultar.cdr(tenant, g.id())).thenReturn(new byte[]{1});
         when(consultar.pdf(tenant, g.id())).thenReturn("%PDF".getBytes());
         mvc.perform(post("/v1/guias-remision/{id}/enviar", g.id()).requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isOk()).andExpect(jsonPath("$.datos.estado").value("ACEPTADO"));
+        mvc.perform(post("/v1/guias-remision/{id}/enviar", g.id()).param("forzar", "true").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("ENVIO_EN_CURSO"));
         mvc.perform(post("/v1/guias-remision/{id}/ticket", g.id()).requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("TICKET_NO_PENDIENTE"));
         mvc.perform(get("/v1/guias-remision/{id}/xml", g.id()).requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", "attachment; filename=\"20100066603-09-T001-15.xml\""));

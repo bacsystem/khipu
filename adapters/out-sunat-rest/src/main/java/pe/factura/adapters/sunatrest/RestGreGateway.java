@@ -42,47 +42,76 @@ import java.util.zip.ZipOutputStream;
  * SHA-256 en hexadecimal minúsculo (el manual dice «SHA-256» y su ejemplo no es un hash real); {@code arcCdr} es un ZIP con el {@code ApplicationResponse},
  * como el CDR del SOAP; la URL del QR está en un {@code cbc:DocumentDescription} del CDR.
  *
- * <p>Beta: SUNAT no publica una API GRE de pruebas, y la de producción emite guías con validez tributaria. Por eso, sin una URL de beta configurada, una
- * empresa en BETA no envía guías ({@link #disponible} falso); la URL del token de beta es la misma que la de la validez.
+ * <p>Encendido: el contrato no se verificó contra SUNAT, así que el envío está apagado salvo que el servidor lo encienda ({@code SUNAT_API_GRE_HABILITADA}); apagado,
+ * {@link #disponible} es falso y {@link #enviar} no llama a nadie. La consulta de un ticket ya dado sigue (solo lee).
+ *
+ * <p>Beta: SUNAT no publica una API GRE de pruebas, y la de producción emite guías con validez tributaria. Sin una URL de beta, una empresa en BETA no envía
+ * guías. Con una (una API de pruebas de terceros), lleva su propia URL de token: el bearer y las credenciales de la empresa van a ese tercero y no al
+ * {@code api-seguridad} real. Al construirse rechaza (es decir, no deja arrancar) una beta que apunte a la API o al token reales de SUNAT.
  */
 public class RestGreGateway implements SunatGreGateway {
     static final String SCOPE = "https://api-cpe.sunat.gob.pe";
     private static final String RUTA = "/v1/contribuyente/gem/comprobantes/";
+    static final String HOST_API_REAL = "api-cpe.sunat.gob.pe", HOST_TOKEN_REAL = "api-seguridad.sunat.gob.pe";
 
-    private final UrlPorEntorno seguridad;
-    private final String apiProduccion;
-    private final String apiBeta;
+    private final boolean habilitada;
+    private final String seguridadProduccion, seguridadBeta;
+    private final String apiProduccion, apiBeta;
     private final ClienteApiSunat cliente;
 
-    /** {@code apiBeta} vacía o nula: las empresas en BETA no envían guías. */
-    public RestGreGateway(UrlPorEntorno seguridad, String apiProduccion, String apiBeta, ClienteApiSunat cliente) {
-        this.seguridad = seguridad;
-        this.apiProduccion = new UrlPorEntorno(apiProduccion, apiProduccion).produccion();
-        this.apiBeta = apiBeta == null || apiBeta.isBlank() ? null : new UrlPorEntorno(apiBeta, apiBeta).beta();
+    /**
+     * {@code apiBeta} vacía o nula: las empresas en BETA no envían guías. Con {@code apiBeta}, {@code seguridadBeta} es obligatoria y ninguna de las dos puede ser
+     * la de producción ni un host real de SUNAT: {@link IllegalStateException}.
+     */
+    public RestGreGateway(boolean habilitada, String seguridadProduccion, String seguridadBeta, String apiProduccion, String apiBeta, ClienteApiSunat cliente) {
+        this.habilitada = habilitada;
+        this.seguridadProduccion = url(seguridadProduccion);
+        this.apiProduccion = url(apiProduccion);
+        this.apiBeta = vacia(apiBeta) ? null : url(apiBeta);
+        if (this.apiBeta != null) {
+            if (vacia(seguridadBeta))
+                throw new IllegalStateException("SUNAT_API_GRE_BETA_URL está configurada pero SUNAT_API_GRE_SEGURIDAD_BETA_URL no: la beta de la GRE necesita su propio servicio de token");
+            this.seguridadBeta = url(seguridadBeta);
+            if (this.apiBeta.equalsIgnoreCase(this.apiProduccion) || host(this.apiBeta).equalsIgnoreCase(HOST_API_REAL))
+                throw new IllegalStateException("SUNAT_API_GRE_BETA_URL apunta a la API GRE de producción (" + this.apiBeta + "): las empresas en BETA enviarían guías con validez tributaria");
+            if (this.seguridadBeta.equalsIgnoreCase(this.seguridadProduccion) || host(this.seguridadBeta).equalsIgnoreCase(HOST_TOKEN_REAL))
+                throw new IllegalStateException("SUNAT_API_GRE_SEGURIDAD_BETA_URL apunta al token real de SUNAT (" + this.seguridadBeta + "): el bearer real de la empresa iría a una API de pruebas");
+        } else {
+            this.seguridadBeta = null;
+        }
         this.cliente = cliente;
     }
 
-    @Override public boolean disponible(Entorno entorno) { return entorno == Entorno.PRODUCCION || apiBeta != null; }
+    private static boolean vacia(String u) { return u == null || u.isBlank(); }
+    private static String url(String u) { return new UrlPorEntorno(u, u).produccion(); }
+    private static String host(String u) { return java.net.URI.create(u).getHost(); }
+
+    @Override public boolean disponible(Entorno entorno) { return habilitada && (entorno == Entorno.PRODUCCION || apiBeta != null); }
 
     private String api(Tenant t) {
-        if (!disponible(t.entorno()))
+        if (t.entorno() == Entorno.PRODUCCION) return apiProduccion;
+        if (apiBeta == null)
             throw new DomainException("GRE_NO_DISPONIBLE", "SUNAT no publica una API de pruebas para la guía de remisión y khipu no manda guías de una empresa en BETA a la de producción: "
-                    + "configure SUNAT_API_GRE_BETA_URL o pase la empresa a PRODUCCION");
-        return t.entorno() == Entorno.PRODUCCION ? apiProduccion : apiBeta;
+                    + "el servidor no configuró SUNAT_API_GRE_BETA_URL");
+        return apiBeta;
     }
+
+    private String seguridad(Tenant t) { return t.entorno() == Entorno.PRODUCCION ? seguridadProduccion : seguridadBeta; }
 
     /** El token del grant password: credenciales API SUNAT más el usuario (RUC + usuario) y la clave SOL. */
     private PedidoDeToken token(Tenant t) {
         CredencialesApiSunat c = t.apiSunat();
         if (c == null) throw new DomainException("CREDENCIALES_API_SUNAT_NO_CARGADAS", "La empresa no tiene credenciales API SUNAT (client_id y client_secret): la guía de remisión las necesita");
         if (t.sol() == null) throw new DomainException("CREDENCIALES_SOL_NO_CARGADAS", "La empresa no tiene credenciales SOL: la guía de remisión las necesita junto con las credenciales API SUNAT");
-        return PedidoDeToken.password(seguridad.para(t.entorno()) + "/v1/clientessol/" + c.clientId() + "/oauth2/token/", SCOPE, c.clientId(), c.clientSecret(),
+        return PedidoDeToken.password(seguridad(t) + "/v1/clientessol/" + c.clientId() + "/oauth2/token/", SCOPE, c.clientId(), c.clientSecret(),
                 t.sol().usernameToken(t.ruc()), t.sol().clave());
     }
 
     @Override public Recepcion enviar(Tenant t, String nombreArchivo, byte[] xmlFirmado) {
         if (nombreArchivo == null || !nombreArchivo.matches("\\d{11}-(09|31)-[TV][A-Z0-9]{3}-\\d{1,8}"))
             throw new IllegalArgumentException("Nombre de archivo de guía inválido: " + nombreArchivo);
+        if (!habilitada) throw new DomainException("GRE_NO_DISPONIBLE", "El envío de guías de remisión a SUNAT está apagado en este servidor (SUNAT_API_GRE_HABILITADA): "
+                + "el contrato con SUNAT aún no se verificó. Emítala con enviar_automatico: false para revisar el XML");
         String url = api(t) + RUTA + nombreArchivo;
         PedidoDeToken p = token(t);
         byte[] zip = zip(nombreArchivo + ".xml", xmlFirmado);

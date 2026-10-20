@@ -87,7 +87,12 @@ public class OutboxWorker {
                     if (guias == null) { log.warn("Outbox {}: {} sin servicio de guías", fila.id(), fila.accion()); outbox.completar(fila.id()); break; }
                     GuiaRemision g = guias.enviar(fila.tenantId(), fila.agregadoId());
                     if (g.estado() == EstadoGuia.ERROR_ENVIO && g.reintentoAutomatico()) {
-                        if (fila.intentos() + 1 >= maxIntentos) { log.error("{} agotó {} intentos: {}", g.nombreArchivo(), maxIntentos, g.ultimoError()); outbox.completar(fila.id()); }
+                        if (fila.intentos() + 1 >= maxIntentos) {
+                            // H4: la guía deja de esperar un reintento que ya no llegará, y lo dice.
+                            log.error("{} agotó {} intentos: {}", g.nombreArchivo(), maxIntentos, g.ultimoError());
+                            guias.agotarReintentos(fila.tenantId(), fila.agregadoId(), maxIntentos);
+                            outbox.completar(fila.id());
+                        }
                         else outbox.reprogramar(fila.id(), Backoff.siguiente(fila.intentos() + 1, clock.instant()), g.ultimoError());
                     } else outbox.completar(fila.id());
                 }

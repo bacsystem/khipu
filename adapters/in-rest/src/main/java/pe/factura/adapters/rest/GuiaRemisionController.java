@@ -33,6 +33,10 @@ import java.util.UUID;
 @RequestMapping("/v1/guias-remision")
 @RequiredArgsConstructor
 @Tag(name = "Guías de remisión", description = """
+        **EXPERIMENTAL.** El contrato con la API REST de SUNAT para la GRE sale de su manual y no se probó contra SUNAT: el envío viene **apagado** en el servidor
+        (`422 GRE_NO_DISPONIBLE`) hasta que el operador lo encienda tras una corrida controlada. Mientras tanto se puede emitir con `enviar_automatico: false` para
+        revisar el XML y el PDF. La guía transportista (31) es la menos respaldada. La forma de la API puede cambiar.
+
         Guías de remisión electrónicas (GRE): la **remitente** (tipo 09, serie `T###`), que emite quien envía los bienes, y la **transportista** (tipo 31,
         serie `V###`), que emite la empresa de transporte. khipu valida el traslado con las reglas de SUNAT, numera, genera el XML UBL 2.1 `DespatchAdvice`, lo
         firma y lo envía por la **API REST de SUNAT** (no por SOAP): SUNAT responde un ticket y la constancia (CDR) llega al consultarlo; khipu lo consulta solo.
@@ -68,8 +72,8 @@ public class GuiaRemisionController {
 
             **Errores** (antes de numerar, el mensaje empieza por el código SUNAT cuando lo hay): `422 VALIDACION`, `422 TRASLADO_INVALIDO`,
             `422 TRANSPORTE_INVALIDO`, `422 DESTINATARIO_INVALIDO`, `422 REMITENTE_INVALIDO`, `422 ITEM_INVALIDO`, `422 DOCUMENTO_RELACIONADO_INVALIDO`,
-            `422 SERIE_INVALIDA` / `SERIE_NO_CONFIGURADA`, `422 CREDENCIALES_API_SUNAT_NO_CARGADAS` / `CREDENCIALES_SOL_NO_CARGADAS` / `GRE_NO_DISPONIBLE` (solo si
-            se envía en el acto).
+            `422 SERIE_INVALIDA` / `SERIE_NO_CONFIGURADA`, `422 CREDENCIALES_API_SUNAT_NO_CARGADAS` / `CREDENCIALES_SOL_NO_CARGADAS` / `GRE_NO_DISPONIBLE` /
+            `CREDENCIALES_GRE_RECHAZADAS` (solo si se envía en el acto; `GRE_NO_DISPONIBLE` también mientras el envío esté apagado en el servidor).
 
             **Reintentos seguros** (`Idempotency-Key`): igual que en las facturas, la misma clave y el mismo cuerpo devuelven `200` con la misma guía, sin
             numerar otra ni volver a enviarla. Las claves de las guías son aparte de las de facturas y notas.""")
@@ -128,9 +132,14 @@ public class GuiaRemisionController {
     @PostMapping("/{id}/enviar")
     @Operation(summary = "Enviar (o reenviar) la guía a SUNAT", description = """
             Envía una guía `FIRMADO` (emitida con `enviar_automatico: false`) o reenvía una en `ERROR_ENVIO` —por ejemplo, después de corregir las credenciales—
-            sin esperar al reintento automático. Otra en cualquier otro estado responde `409 ESTADO_NO_ENVIABLE`.""")
-    public ApiResponse<GuiaRemisionResponse> enviar(HttpServletRequest req, @PathVariable UUID id) {
-        return ApiResponse.ok(GuiaRemisionResponse.de(enviar.enviar(TenantActual.id(req), id), BASE));
+            sin esperar al reintento automático. Otra en cualquier otro estado responde `409 ESTADO_NO_ENVIABLE`. Antes de llamar a SUNAT la guía pasa a `ENVIANDO`:
+            dos envíos a la vez no mandan el mismo número (el segundo responde `409`). Una guía que quedó `ENVIANDO` sin respuesta responde `409 ENVIO_EN_CURSO`;
+            pasados 10 min se retoma con `forzar=true`, después de revisar en SOL que no llegó. Con el envío apagado en el servidor, `422 GRE_NO_DISPONIBLE`; si SUNAT
+            rechazó las credenciales de la empresa hace menos de una hora y no cambiaron, `422 CREDENCIALES_GRE_RECHAZADAS` (sin pedir token).""")
+    public ApiResponse<GuiaRemisionResponse> enviar(HttpServletRequest req, @PathVariable UUID id,
+            @Parameter(description = "Retoma una guía que quedó `ENVIANDO` sin respuesta hace más de 10 min. No se sabe si SUNAT la recibió: úselo solo después de revisar en SOL que no llegó")
+            @RequestParam(defaultValue = "false") boolean forzar) {
+        return ApiResponse.ok(GuiaRemisionResponse.de(enviar.enviar(TenantActual.id(req), id, forzar), BASE));
     }
 
     @PostMapping("/{id}/ticket")

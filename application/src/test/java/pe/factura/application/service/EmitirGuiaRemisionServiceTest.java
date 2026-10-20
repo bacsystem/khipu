@@ -34,6 +34,7 @@ class EmitirGuiaRemisionServiceTest {
     Fakes.Establecimientos establecimientos = new Fakes.Establecimientos(series);
     Fakes.Storage storage = new Fakes.Storage();
     Gre gre = new Gre();
+    Rechazos rechazos = new Rechazos();
     Fakes.Idempotencias claves = new Fakes.Idempotencias();
     final List<String> tiposValidados = new ArrayList<>();
     final List<UUID> enviadas = new ArrayList<>();
@@ -46,6 +47,8 @@ class EmitirGuiaRemisionServiceTest {
     EnviarGuiaRemisionUseCase enviar = new EnviarGuiaRemisionUseCase() {
         public GuiaRemision enviar(UUID t, UUID id) { enviadas.add(id); return guias.buscar(t, id).orElseThrow(); }
         public GuiaRemision consultarTicket(UUID t, UUID id) { throw new UnsupportedOperationException(); }
+        public GuiaRemision enviar(UUID t, UUID id, boolean forzar) { return enviar(t, id); }
+        public GuiaRemision agotarReintentos(UUID t, UUID id, int n) { throw new UnsupportedOperationException(); }
     };
     EmitirGuiaRemisionService service;
 
@@ -53,7 +56,7 @@ class EmitirGuiaRemisionServiceTest {
         tenants.guardar(tenantGre(tenant));
         series.crear(new Serie(tenant, TipoDocumento.GUIA_REMITENTE, "T001", 0, true));
         series.crear(new Serie(tenant, TipoDocumento.GUIA_TRANSPORTISTA, "V001", 0, true));
-        service = new EmitirGuiaRemisionService(guias, series, tenants, establecimientos, storage, ubl, xsd, signer, gre, enviar, claves, Fakes.UOW, Fakes.CLOCK);
+        service = new EmitirGuiaRemisionService(guias, series, tenants, establecimientos, storage, ubl, xsd, signer, gre, enviar, claves, Fakes.UOW, Fakes.CLOCK, rechazos);
     }
 
     static EmitirGuiaRemisionCommand pedido(Traslado t, boolean enviar) {
@@ -158,6 +161,31 @@ class EmitirGuiaRemisionServiceTest {
         // Un reintento no se vuelve a enviar.
         service.emitir(tenant, pedido(privado(), true), clave);
         assertThat(enviadas).isEmpty();
+    }
+
+    /** H1: con el envío apagado en el servidor, una empresa en PRODUCCION no envía: 422 antes de numerar y sin llamar a SUNAT; sin envío se sigue emitiendo. */
+    @Test void conElEnvioApagadoNoSeNumeraNiSeLlamaASunat() {
+        gre.disponible = false;   // lo que responde RestGreGateway con SUNAT_API_GRE_HABILITADA=false
+        assertThat(tenants.buscar(tenant).orElseThrow().entorno()).isEqualTo(pe.factura.domain.tenant.Entorno.PRODUCCION);
+        assertThatThrownBy(() -> service.emitir(tenant, pedido(privado(), true), null)).hasFieldOrPropertyWithValue("codigo", "GRE_NO_DISPONIBLE")
+                .hasMessageContaining("SUNAT_API_GRE_HABILITADA");
+        assertThat(gre.envios).isZero();
+        assertThat(guias.datos).isEmpty();
+        assertThat(series.ultimo.get(tenant + "09T001")).isZero();
+        assertThat(service.emitir(tenant, pedido(privado(), false), null).guia().estado()).isEqualTo(EstadoGuia.FIRMADO);
+    }
+
+    /** H3: con las credenciales que SUNAT rechazó (misma huella, hace menos de una hora) no se emite con envío; cambiarlas o esperar la hora lo libera. */
+    @Test void conLasCredencialesRechazadasNoSeEmiteConEnvio() {
+        Tenant t = tenants.buscar(tenant).orElseThrow();
+        rechazos.marcar(tenant, CredencialesDeGre.huella(t), "401 - invalid_grant", Fakes.CLOCK.instant().minusSeconds(60));
+        assertThatThrownBy(() -> service.emitir(tenant, pedido(privado(), true), null)).hasFieldOrPropertyWithValue("codigo", "CREDENCIALES_GRE_RECHAZADAS");
+        assertThat(guias.datos).isEmpty();
+        tenants.guardar(t.conCredencialesSol(new pe.factura.domain.tenant.CredencialesSol("MODDATOS", "otra-clave")));
+        assertThat(service.emitir(tenant, pedido(privado(), true), null).guia().numero()).as("con otra clave SOL ya no es la rechazada").isEqualTo(1);
+        tenants.guardar(t);
+        rechazos.marcar(tenant, CredencialesDeGre.huella(t), "401", Fakes.CLOCK.instant().minus(java.time.Duration.ofMinutes(61)));
+        assertThat(service.emitir(tenant, pedido(privado(), true), null).guia().numero()).as("pasada la hora se vuelve a probar").isEqualTo(2);
     }
 
     @Test void validarArmaLaGuiaSinNumerarNiGuardar() {

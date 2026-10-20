@@ -17,8 +17,12 @@ public interface GuiaRemisionRepository {
      */
     void guardar(GuiaRemision g);
     Optional<GuiaRemision> buscar(UUID tenantId, UUID id);
-    /** La guía con su fila bloqueada hasta el fin de la transacción: el envío y la consulta del ticket no corren a la vez sobre la misma guía. */
-    Optional<GuiaRemision> bloquear(UUID tenantId, UUID id);
+    /**
+     * Reserva el envío (H2): pasa la guía a ENVIANDO con una actualización condicional, solo si está FIRMADO o ERROR_ENVIO —o, con {@code forzar}, si está
+     * ENVIANDO desde antes de {@code viejaAntesDe}—. {@code false} si otro la reservó o ya no se envía: dos envíos no llaman a SUNAT con el mismo número.
+     * Debe correr en una transacción corta propia, confirmada antes de llamar a SUNAT.
+     */
+    boolean reservarEnvio(UUID tenantId, UUID id, java.time.Instant ahora, boolean forzar, java.time.Instant viejaAntesDe);
     List<GuiaRemision> listar(UUID tenantId, Filtro filtro, int pagina, int porPagina);
     long contar(UUID tenantId, Filtro filtro);
 

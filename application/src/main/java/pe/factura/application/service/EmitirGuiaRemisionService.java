@@ -41,6 +41,7 @@ public class EmitirGuiaRemisionService implements EmitirGuiaRemisionUseCase {
     private final IdempotenciaRepository idempotencia;
     private final UnitOfWork uow;
     private final Clock clock;
+    private final RechazoDeCredencialesGreRepository rechazos;
 
     /** Espacio de claves de idempotencia de las guías: la misma clave en facturas o notas es otra clave. */
     static String alcance(UUID tenantId) { return "guia:" + tenantId; }
@@ -86,9 +87,15 @@ public class EmitirGuiaRemisionService implements EmitirGuiaRemisionUseCase {
             throw new DomainException("CREDENCIALES_API_SUNAT_NO_CARGADAS", "La guía de remisión se envía por la API REST de SUNAT: cargue las credenciales API SUNAT (client_id y client_secret) "
                     + "en PUT /v1/empresa/credenciales-api-sunat, o emítala con enviar_automatico: false");
         t.exigirCredencialesSol();
-        if (!gre.disponible(t.entorno()))
-            throw new DomainException("GRE_NO_DISPONIBLE", "SUNAT no publica una API de pruebas para la guía de remisión: una empresa en BETA no la envía (emítala con enviar_automatico: false "
-                    + "para revisar el XML) salvo que el servidor configure SUNAT_API_GRE_BETA_URL");
+        if (!gre.disponible(t.entorno())) throw noDisponible(t);
+        CredencialesDeGre.exigirNoRechazadas(rechazos, t, clock);
+    }
+
+    /** H1: el envío de la GRE está apagado en el servidor (por defecto) o no hay API para el entorno de la empresa. Lo comparte el reenvío. */
+    static DomainException noDisponible(Tenant t) {
+        return new DomainException("GRE_NO_DISPONIBLE", "El envío de guías de remisión a SUNAT no está disponible en este servidor para una empresa en " + t.entorno()
+                + ": está apagado mientras el contrato con SUNAT no se verifique (SUNAT_API_GRE_HABILITADA), o no hay una API GRE de pruebas para BETA "
+                + "(SUNAT_API_GRE_BETA_URL). Emítala con enviar_automatico: false para revisar el XML");
     }
 
     private Emision yaEmitida(UUID tenantId, Idempotencia clave, IdempotenciaRepository.Registro previo) {

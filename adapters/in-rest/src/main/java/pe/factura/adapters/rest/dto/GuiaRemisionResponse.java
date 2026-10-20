@@ -22,7 +22,7 @@ public record GuiaRemisionResponse(
         @Schema(example = "20100066603-09-T001-15") String nombreArchivo,
         @Schema(example = "2026-10-20") LocalDate fechaEmision,
         @Schema(example = "10:04:05") String horaEmision,
-        @Schema(example = "ACEPTADO", description = "`FIRMADO`, `ERROR_ENVIO`, `ENVIADO_PENDIENTE_TICKET`, `ACEPTADO`, `ACEPTADO_CON_OBS` o `RECHAZADO` (`RECIBIDO` solo en `/validar`)") String estado,
+        @Schema(example = "ACEPTADO", description = "`FIRMADO`, `ERROR_ENVIO`, `ENVIANDO` (envío en curso), `ENVIADO_PENDIENTE_TICKET`, `ACEPTADO`, `ACEPTADO_CON_OBS` o `RECHAZADO` (`RECIBIDO` solo en `/validar`)") String estado,
         Parte destinatario,
         @Schema(example = "01") String motivo,
         @Schema(example = "Venta") String descripcionMotivo,

@@ -353,6 +353,41 @@ class GuiaRemisionTest {
         assertThat(sinCodigo.estado()).isEqualTo(EstadoGuia.ERROR_ENVIO);
     }
 
+    /** H2: el envío se reserva (ENVIANDO) antes de llamar a SUNAT; desde ahí solo sale con la respuesta o el error. Una guía resuelta no se reserva. */
+    @Test void elEnvioSeReservaAntesDeLlamarASunat() {
+        GuiaRemision g = firmada();
+        g.iniciarEnvio();
+        assertThat(g.estado()).isEqualTo(EstadoGuia.ENVIANDO);
+        assertThat(g.estado().esEnviable()).as("no se reenvía sola").isFalse();
+        g.marcarErrorEnvio("0109 - tiempo agotado", true);
+        g.iniciarEnvio();
+        g.marcarEnviada("t", null);
+        assertThat(g.estado()).isEqualTo(EstadoGuia.ENVIADO_PENDIENTE_TICKET);
+        assertThatThrownBy(g::iniciarEnvio).hasFieldOrPropertyWithValue("codigo", "ESTADO_NO_ENVIABLE");
+    }
+
+    /** H4: al agotar los intentos la guía queda en error, sin reintento automático y diciendo por qué. */
+    @Test void agotarLosReintentosApagaElReintentoAutomatico() {
+        GuiaRemision g = firmada();
+        g.marcarErrorEnvio("0000 - caída", true);
+        g.agotarReintentos("agotó 20 intentos");
+        assertThat(g.reintentoAutomatico()).isFalse();
+        assertThat(g.ultimoError()).isEqualTo("agotó 20 intentos");
+        GuiaRemision otra = firmada();
+        assertThatThrownBy(() -> otra.agotarReintentos("x")).hasFieldOrPropertyWithValue("codigo", "TRANSICION_INVALIDA");
+    }
+
+    /** H7: 1032, 1033, 2223 y 4000 dicen que el número ya está en SUNAT: no es un rechazo que se corrige, ni algo que se reenvía. */
+    @ParameterizedTest @ValueSource(strings = {"1032", "1033", "2223", "4000"})
+    void unaGuiaQueYaEstaEnSunatNoInvitaAReenviar(String codigo) {
+        GuiaRemision g = firmada(); g.marcarEnviada("t", null);
+        g.errorDelTicket(codigo, "ya fue presentado");
+        assertThat(g.estado()).isEqualTo(EstadoGuia.ERROR_ENVIO);
+        assertThat(g.reintentoAutomatico()).isFalse();
+        assertThat(g.ultimoError()).contains("ya está registrada en SUNAT").contains("revísela en SOL").doesNotContain("reenvíela");
+        assertThat(GuiaRemision.yaEnSunat(codigo)).isTrue();
+    }
+
     @Test void unErrorDeEnvioDiceSiKhipuReintentaSolo() {
         GuiaRemision g = firmada();
         g.marcarErrorEnvio("0000 - SUNAT no responde", true);

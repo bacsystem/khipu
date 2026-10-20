@@ -68,6 +68,8 @@ class OutboxWorkerGuiasTest {
         when(guias.enviar(tenant, guia)).thenReturn(con(EstadoGuia.ERROR_ENVIO, true));
         worker.procesar();
         verify(outbox).completar(fila);
+        // H4: la guía deja de decir que se reintenta sola.
+        verify(guias).agotarReintentos(tenant, guia, 5);
     }
 
     @Test void elTicketEnProcesoSeVuelveAConsultarCadaVezMasEspaciado() {

@@ -27,11 +27,12 @@ class EnviarGuiaRemisionServiceTest {
     Fakes.Outbox outbox = new Fakes.Outbox();
     Fakes.Cdrs cdrs = new Fakes.Cdrs();
     Gre gre = new Gre();
+    Rechazos rechazos = new Rechazos();
     EnviarGuiaRemisionService service;
 
     @BeforeEach void setUp() {
         tenants.guardar(tenantGre(tenant));
-        service = new EnviarGuiaRemisionService(guias, tenants, storage, gre, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
+        service = new EnviarGuiaRemisionService(guias, tenants, storage, gre, cdrs, outbox, Fakes.UOW, Fakes.CLOCK, rechazos);
     }
 
     List<String> acciones(GuiaRemision g) { return outbox.filas.stream().filter(f -> f.agregadoId().equals(g.id())).map(Fakes.Outbox.Fila::accion).toList(); }
@@ -86,6 +87,7 @@ class EnviarGuiaRemisionServiceTest {
         assertThat(r.ultimoError()).contains("clave SOL").contains("no reintenta");
         assertThat(acciones(g)).isEmpty();
 
+        rechazos.datos.clear();   // H3 frenaría el siguiente envío con las mismas credenciales: aquí se prueba el 504
         gre.fallaEnvio = new SunatRechazoException("504", "El campo nomArchivo no cumple con el formato establecido");
         r = service.enviar(tenant, g.id());
         assertThat(r.reintentoAutomatico()).isFalse();
@@ -103,7 +105,8 @@ class EnviarGuiaRemisionServiceTest {
         GuiaRemision g = firmada(tenant, storage, guias);
         gre.fallaEnvio = new DomainException("TICKET_INVALIDO", "otro");
         assertThatThrownBy(() -> service.enviar(tenant, g.id())).hasFieldOrPropertyWithValue("codigo", "TICKET_INVALIDO");
-        assertThat(guias.buscar(tenant, g.id()).orElseThrow().estado()).isEqualTo(EstadoGuia.FIRMADO);
+        assertThat(guias.buscar(tenant, g.id()).orElseThrow().estado()).as("no queda reservada: no salió nada").isEqualTo(EstadoGuia.ERROR_ENVIO);
+        assertThat(guias.buscar(tenant, g.id()).orElseThrow().reintentoAutomatico()).isFalse();
     }
 
     @Test void soloSeEnviaUnaFirmadaOEnErrorYSoloSeConsultaUnaPendiente() {
@@ -203,5 +206,86 @@ class EnviarGuiaRemisionServiceTest {
         assertThat(EnviarGuiaRemisionService.intervaloDeConsulta(1)).isEqualTo(Duration.ofSeconds(30));
         assertThat(EnviarGuiaRemisionService.intervaloDeConsulta(4)).isEqualTo(Duration.ofMinutes(2));
         assertThat(EnviarGuiaRemisionService.intervaloDeConsulta(50)).isEqualTo(Duration.ofMinutes(5));
+    }
+
+    /** H2: dos envíos a la vez de la misma guía en error (el outbox y uno a mano) llaman a SUNAT una sola vez: el segundo encuentra la reserva. */
+    @Test void dosEnviosALaVezLlamanASunatUnaSolaVez() throws Exception {
+        GuiaRemision g = firmada(tenant, storage, guias);
+        gre.fallaEnvio = new SunatTransientException("0109", "tiempo agotado");
+        service.enviar(tenant, g.id());
+        gre.fallaEnvio = null;
+        int antes = gre.envios;
+        java.util.concurrent.CountDownLatch dentro = new java.util.concurrent.CountDownLatch(1), suelta = new java.util.concurrent.CountDownLatch(1);
+        gre.alEnviar = () -> { dentro.countDown(); try { suelta.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } };
+        java.util.concurrent.ExecutorService hilos = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var primero = hilos.submit(() -> service.enviar(tenant, g.id()));
+            dentro.await();   // el primero ya está hablando con SUNAT
+            var segundo = hilos.submit(() -> service.enviar(tenant, g.id()));
+            Throwable t = org.assertj.core.api.Assertions.catchThrowable(segundo::get);
+            assertThat(t).hasCauseInstanceOf(DomainException.class);
+            assertThat(((DomainException) t.getCause()).codigo()).isIn("ESTADO_NO_ENVIABLE", "ENVIO_EN_CURSO");
+            suelta.countDown();
+            assertThat(primero.get().estado()).isEqualTo(EstadoGuia.ENVIADO_PENDIENTE_TICKET);
+        } finally { suelta.countDown(); hilos.shutdownNow(); }
+        assertThat(gre.envios - antes).isEqualTo(1);
+    }
+
+    /** H2: una guía que quedó ENVIANDO (el proceso murió a mitad) no se reenvía sola ni sin forzar; con forzar, solo pasada la ventana. */
+    @Test void unaGuiaQueQuedoEnviandoSoloSeRetomaAManoYASabiendas() {
+        GuiaRemision g = firmada(tenant, storage, guias);
+        assertThat(guias.reservarEnvio(tenant, g.id(), Fakes.CLOCK.instant().minusSeconds(60), false, Fakes.CLOCK.instant())).isTrue();   // se cayó tras reservar
+        assertThatThrownBy(() -> service.enviar(tenant, g.id())).hasFieldOrPropertyWithValue("codigo", "ENVIO_EN_CURSO").hasMessageContaining("revise en SOL");
+        assertThatThrownBy(() -> service.enviar(tenant, g.id(), true)).as("hace un minuto: todavía no").hasFieldOrPropertyWithValue("codigo", "ENVIO_EN_CURSO");
+        assertThat(gre.envios).isZero();
+        guias.enviandoDesde.put(g.id(), Fakes.CLOCK.instant().minus(Duration.ofMinutes(11)));
+        assertThat(service.enviar(tenant, g.id(), true).estado()).isEqualTo(EstadoGuia.ENVIADO_PENDIENTE_TICKET);
+        assertThat(gre.envios).isEqualTo(1);
+    }
+
+    /** H1: apagado en el servidor, el reenvío a mano responde 422 sin llamar a SUNAT ni tocar la guía. */
+    @Test void conElEnvioApagadoNoSeReenvia() {
+        GuiaRemision g = firmada(tenant, storage, guias);
+        gre.disponible = false;
+        assertThatThrownBy(() -> service.enviar(tenant, g.id())).hasFieldOrPropertyWithValue("codigo", "GRE_NO_DISPONIBLE");
+        assertThat(gre.envios).isZero();
+        assertThat(guias.buscar(tenant, g.id()).orElseThrow().estado()).isEqualTo(EstadoGuia.FIRMADO);
+    }
+
+    /** H3: tras un 401 del token con una guía, la siguiente no pide token hasta que cambien las credenciales; una respuesta de SUNAT levanta la marca. */
+    @Test void unRechazoDeCredencialesFrenaALaEmpresa() {
+        GuiaRemision a = firmada(tenant, storage, guias);
+        gre.fallaEnvio = new SunatCredencialesException("401", "SUNAT no acepta las credenciales API SUNAT (HTTP 401)");
+        service.enviar(tenant, a.id());
+        assertThat(rechazos.datos).containsKey(tenant);
+        gre.fallaEnvio = null;
+        assertThatThrownBy(() -> service.enviar(tenant, a.id())).hasFieldOrPropertyWithValue("codigo", "CREDENCIALES_GRE_RECHAZADAS");
+        assertThat(gre.envios).isEqualTo(1);
+        assertThat(guias.buscar(tenant, a.id()).orElseThrow().estado()).isEqualTo(EstadoGuia.ERROR_ENVIO);
+        tenants.guardar(tenantGre(tenant).conCredencialesApiSunat(new pe.factura.domain.tenant.CredencialesApiSunat("otro-id", "otro-secreto")));
+        assertThat(service.enviar(tenant, a.id()).estado()).isEqualTo(EstadoGuia.ENVIADO_PENDIENTE_TICKET);
+        assertThat(rechazos.datos).as("SUNAT las aceptó").doesNotContainKey(tenant);
+    }
+
+    /** H4: agotar los intentos deja la guía en error sin reintento automático, con el motivo, y saca la tarea del outbox. */
+    @Test void agotarLosIntentosApagaElReintento() {
+        GuiaRemision g = firmada(tenant, storage, guias);
+        gre.fallaEnvio = new SunatTransientException("0109", "tiempo agotado");
+        service.enviar(tenant, g.id());
+        GuiaRemision r = service.agotarReintentos(tenant, g.id(), 20);
+        assertThat(r.reintentoAutomatico()).isFalse();
+        assertThat(r.ultimoError()).contains("agotó 20 intentos").contains("0109");
+        assertThat(acciones(g)).isEmpty();
+    }
+
+    /** H7: un 99 con CDR cuyo código dice que el número ya está en SUNAT no rechaza la guía ni invita a reenviarla. */
+    @Test void unCdrDeYaPresentadoNoRechaza() {
+        GuiaRemision g = pendiente();
+        cdrs.cdr = new Cdr("2223", "El archivo ya fue presentado anteriormente", List.of());
+        gre.respuestas.add(new pe.factura.application.port.out.SunatGreGateway.EstadoDelTicket("99", "cdr".getBytes(), null, null, null));
+        GuiaRemision r = service.consultarTicket(tenant, g.id());
+        assertThat(r.estado()).isEqualTo(EstadoGuia.ERROR_ENVIO);
+        assertThat(r.reintentoAutomatico()).isFalse();
+        assertThat(r.ultimoError()).contains("ya está registrada en SUNAT");
     }
 }

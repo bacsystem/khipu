@@ -219,9 +219,29 @@ public class GuiaRemision {
         this.intentos++; this.consultasTicket = 0; this.ultimoError = null; this.reintentoAutomatico = true;
     }
 
+    /** El envío quedó reservado en la base (estado ENVIANDO): lo que sigue es la respuesta de SUNAT, o el error. */
+    public void iniciarEnvio() {
+        if (!estado.esEnviable() && estado != EstadoGuia.ENVIANDO) throw new DomainException("ESTADO_NO_ENVIABLE", "La guía está " + estado + ": no se envía");
+        transitar(EstadoGuia.ENVIANDO);
+    }
+
+    /** El outbox agotó sus intentos: la guía sigue en error de envío, pero khipu ya no la reintenta sola. */
+    public void agotarReintentos(String motivo) {
+        if (estado != EstadoGuia.ERROR_ENVIO) throw new DomainException("TRANSICION_INVALIDA", "Solo se agotan los reintentos de una guía en ERROR_ENVIO; esta está " + estado);
+        this.ultimoError = motivo; this.reintentoAutomatico = false;
+    }
+
+    /**
+     * Códigos de «CódigosRetorno» que dicen que ese número ya está en SUNAT: 1032 (ya informado, anulado o rechazado), 1033 (registrado con otros datos), 2223
+     * (el archivo ya fue presentado) y 4000 (el documento ya fue presentado). Reenviarlo da el mismo error para siempre.
+     */
+    static final Set<String> YA_EN_SUNAT = Set.of("1032", "1033", "2223", "4000");
+
+    public static boolean yaEnSunat(String codigo) { return codigo != null && YA_EN_SUNAT.contains(codigo.strip()); }
+
     /** El envío falló. {@code reintentoAutomatico}: si khipu lo reintenta solo (SUNAT no respondió) o hace falta corregir algo y reenviar a mano. */
     public void marcarErrorEnvio(String motivo, boolean reintentoAutomatico) {
-        if (!estado.esEnviable()) throw new DomainException("TRANSICION_INVALIDA", "No se registra un error de envío en una guía " + estado);
+        if (!estado.esEnviable() && estado != EstadoGuia.ENVIANDO) throw new DomainException("TRANSICION_INVALIDA", "No se registra un error de envío en una guía " + estado);
         transitar(EstadoGuia.ERROR_ENVIO);
         this.intentos++; this.ultimoError = motivo; this.reintentoAutomatico = reintentoAutomatico;
     }
@@ -258,7 +278,11 @@ public class GuiaRemision {
     public void errorDelTicket(String codigo, String descripcion) {
         exigirEsperandoTicket();
         Cdr r = new Cdr(codigo == null || codigo.isBlank() ? "99" : codigo.strip(), descripcion == null ? "" : descripcion.strip(), List.of());
-        if (r.codigo().matches("\\d+") && r.esRechazo()) {
+        if (yaEnSunat(r.codigo())) {
+            // El número ya está en SUNAT (otro envío llegó antes, o se registró con otros datos): reenviar daría el mismo error para siempre.
+            transitar(EstadoGuia.ERROR_ENVIO);
+            this.ultimoError = "La guía ya está registrada en SUNAT (" + r.codigo() + " - " + r.descripcion() + "): revísela en SOL (consulta de guías de remisión) en vez de reenviarla";
+        } else if (r.codigo().matches("\\d+") && r.esRechazo()) {
             transitar(EstadoGuia.RECHAZADO);
             this.cdr = r; this.ultimoError = null;
         } else {
