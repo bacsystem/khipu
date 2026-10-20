@@ -43,7 +43,7 @@ import java.util.zip.ZipOutputStream;
  * código y no como un archivo a medias.
  */
 public class RegistroDeVentasSireService implements RegistroDeVentasSireUseCase {
-    /** Comprobantes por archivo: acota el tiempo de una descarga. Un mes con más se pide a soporte (el SIRE no admite partir un periodo). */
+    /** Comprobantes por archivo: acota el tiempo de una descarga. Un mes con más se pide a soporte. */
     static final int MAXIMO_REGISTROS = 100_000;
     static final int TRAMO = 500;
     /** Cuántos comprobantes sin tipo de cambio se nombran en el error. */
@@ -154,7 +154,7 @@ public class RegistroDeVentasSireService implements RegistroDeVentasSireUseCase 
     }
 
     /**
-     * El texto de la propuesta: el archivo tal cual si es un {@code .txt}, o el único {@code .txt} de un ZIP (el SIRE entrega la propuesta comprimida). Los dos topes
+     * El texto de la propuesta: el archivo tal cual si es un {@code .txt}, o el primer {@code .txt} de un ZIP. Los dos topes
      * ({@link #MAXIMO_ARCHIVO}, {@link #MAXIMO_DESCOMPRIMIDO}) se cuentan mientras se lee: un ZIP que se infla sin medida corta en el tope, no agota la memoria.
      */
     static InputStream texto(InputStream propuesta) throws IOException {
@@ -177,7 +177,7 @@ public class RegistroDeVentasSireService implements RegistroDeVentasSireUseCase 
         throw new DomainException("RVIE_ARCHIVO_INVALIDO", "El ZIP de la propuesta no trae ningún archivo .txt");
     }
 
-    /** Corta la lectura al pasar {@code maximo} bytes, con un {@code RVIE_ARCHIVO_DEMASIADO_GRANDE}. */
+    /** Corta la lectura al pasar {@code maximo} bytes, con un {@code RVIE_PROPUESTA_DEMASIADO_GRANDE}. */
     static final class Acotado extends FilterInputStream {
         private final long maximo;
         private final String mensaje;
@@ -199,7 +199,7 @@ public class RegistroDeVentasSireService implements RegistroDeVentasSireUseCase 
 
         private void contar(int n) {
             leidos += n;
-            if (leidos > maximo) throw new DomainException("RVIE_ARCHIVO_DEMASIADO_GRANDE", mensaje);
+            if (leidos > maximo) throw new DomainException("RVIE_PROPUESTA_DEMASIADO_GRANDE", mensaje);
         }
 
         @Override public long skip(long n) throws IOException {

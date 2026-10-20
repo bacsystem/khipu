@@ -80,7 +80,7 @@ public class SireController {
 
             La propuesta se lee con la misma estructura de 40 campos que el archivo de `GET /v1/sire/rvie` (una fila de títulos al principio se ignora): **supuesto sin
             verificar contra el SIRE**. Errores: `400 PARAMETRO_INVALIDO` (periodo), `422 RVIE_ARCHIVO_INVALIDO` (una fila que no se puede leer, de otro RUC o de otro
-            periodo, o un comprobante repetido; el mensaje dice la línea y el campo), `422 RVIE_ARCHIVO_DEMASIADO_GRANDE` y `422 RVIE_EXCEDE_EL_TOPE` (más de 100 000 filas).""")
+            periodo, o un comprobante repetido; el mensaje dice la línea y el campo), `422 RVIE_PROPUESTA_DEMASIADO_GRANDE` y `422 RVIE_EXCEDE_EL_TOPE` (más de 100 000 filas).""")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, description = "La propuesta del RVIE descargada del SIRE (.txt o .zip)", content = {
             @Content(mediaType = "application/zip", schema = @Schema(type = "string", format = "binary")),
             @Content(mediaType = "text/plain", schema = @Schema(type = "string", format = "binary")),

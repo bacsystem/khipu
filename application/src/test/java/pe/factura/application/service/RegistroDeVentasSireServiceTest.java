@@ -306,7 +306,7 @@ class RegistroDeVentasSireServiceTest {
         InputStream infinito = new InputStream() {
             @Override public int read() { return 'a'; }
         };
-        assertThatThrownBy(() -> service.conciliar(tenant, "202610", infinito)).extracting("codigo").isEqualTo("RVIE_ARCHIVO_DEMASIADO_GRANDE");
+        assertThatThrownBy(() -> service.conciliar(tenant, "202610", infinito)).extracting("codigo").isEqualTo("RVIE_PROPUESTA_DEMASIADO_GRANDE");
     }
 
     @Test void unZipQueSeInflaSinMedidaSeCortaEnElTopeDescomprimido() throws IOException {
@@ -320,7 +320,7 @@ class RegistroDeVentasSireServiceTest {
             z.closeEntry();
         }
         assertThat((long) bomba.size()).isLessThan(RegistroDeVentasSireService.MAXIMO_ARCHIVO);
-        assertThatThrownBy(() -> service.conciliar(tenant, "202610", new ByteArrayInputStream(bomba.toByteArray()))).extracting("codigo").isEqualTo("RVIE_ARCHIVO_DEMASIADO_GRANDE");
+        assertThatThrownBy(() -> service.conciliar(tenant, "202610", new ByteArrayInputStream(bomba.toByteArray()))).extracting("codigo").isEqualTo("RVIE_PROPUESTA_DEMASIADO_GRANDE");
     }
 
     @Test void laConciliacionInformaLosPendientes() throws IOException {
