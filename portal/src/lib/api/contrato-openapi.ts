@@ -9,7 +9,7 @@
  * `NombresDeEsquemasOpenApiTest` en el backend, y las respuestas de `ComprobanteResponse` llevan nombres `…Respuesta` frente a los de `FacturaRequest`.
  */
 import type { components } from "./openapi";
-import type { Contrato, Verifica } from "./contrato";
+import type { Contrato, ContratoDePeticion, Verifica } from "./contrato";
 import type { Comprobante, ItemComprobante, Receptor, Baja, Anticipo, Detraccion, FormaPago, RetencionIgv, Percepcion, Exportacion, DescuentoAplicado, CargoAplicado, EventoComprobante, NotaResumen, Hidrobiologico, TransporteCarga, ResumenDeFacturas } from "./facturas";
 import type { Empresa, EmpresaDetalle, Domicilio, PersonalizacionPdf } from "./empresas";
 import type { Establecimiento } from "./establecimientos";
@@ -18,26 +18,30 @@ import type { ApiKeyResumen } from "./api-keys";
 import type { Usuario, Tokens } from "./auth";
 import type { MiCuenta } from "./cuenta";
 import type { PlanPublicado } from "./planes-publicados";
-import type { Webhook, EntregaWebhook } from "./webhooks";
+import type { Webhook, EntregaWebhook, WebhookCreado } from "./webhooks";
 import type { ClienteGuardado, DatosDeCliente } from "./clientes";
 import type { ProductoGuardado, DatosDeProducto } from "./productos";
 import type { BannerVigente } from "./banner";
 import type { AccesoDeSoporte } from "./accesos-de-soporte";
-import type { Administrador, AdminDesafio, AdminConfiguracion, AdminSesion } from "./admin-auth";
-import type { AltaAsistidaCreada } from "./admin-alta";
-import type { TextoDeCorreo, BannerConfigurado } from "./admin-configuracion";
+import type { Administrador, AdminDesafio, AdminConfiguracion, AdminSesion, AdminSesionNueva } from "./admin-auth";
+import type { AltaAsistidaCreada, AltaAsistida } from "./admin-alta";
+import type { TextoDeCorreo, BannerConfigurado, PlantillaDeCorreo, RemitenteConfigurado } from "./admin-configuracion";
 import type { CuentaConsumo, ConsumoDeCuentas } from "./admin-consumo";
 import type { CuentaAdmin } from "./admin-cuentas";
 import type { EmpresaAdmin } from "./admin-empresas";
 import type { ErrorDeEmision } from "./admin-errores";
 import type { Franja, ResumenesSinRespuesta, BoletasSinInformar, MonitorDeEmision } from "./admin-monitor";
 import type { ImpersonacionAdmin } from "./admin-impersonacion";
-import type { PagoAdmin } from "./admin-pagos";
-import type { PlanAdmin } from "./admin-planes";
-import type { PlanResumenAdmin } from "./admin-plan-de-cuenta";
-import type { CambioDeEntornoAdmin, ResultadoDeConexionAdmin } from "./admin-acciones-empresa";
+import type { PagoAdmin, CuerpoDePago } from "./admin-pagos";
+import type { PlanAdmin, LimitesAdmin, CuerpoDePlan } from "./admin-planes";
+import type { PlanResumenAdmin, PlanDeCuentaAdmin, CuerpoDeCambioDePlan } from "./admin-plan-de-cuenta";
+import type { CambioDeEntornoAdmin, ResultadoDeConexionAdmin, ApiKeyRevocadaAdmin } from "./admin-acciones-empresa";
 import type { EmpresaDetalleAdmin, DomicilioEmpresa, SerieEmpresa, EstablecimientoEmpresa, ApiKeyEmpresa, ComprobanteEmpresa, EventoEmpresa, TareaEmpresa, OutboxEmpresa, PdfEmpresa, CdrEmpresa } from "./admin-empresa-detalle";
 import type { CuentaDetalleAdmin, UsuarioCuenta, EmpresaCuenta, ComprobanteReciente, EventoReciente } from "./admin-cuenta-detalle";
+import type { InformeDeIntegridad, ProblemaDeIntegridad } from "./admin-integridad";
+import type { ComprobanteAdmin } from "./admin-comprobante";
+import type { CertificadoEnRiesgo, AvisoEnviado, SolFallando, CuentaDelAviso, UltimoAviso } from "./admin-avisos";
+import type { DestinatarioAdmin } from "./admin-acceso";
 
 type S = components["schemas"];
 
@@ -83,10 +87,10 @@ export type ContratoDeLaApi = [
   Verifica<Contrato<EntregaWebhook, S["Entrega"]>>,
   // clientes
   Verifica<Contrato<ClienteGuardado, S["Cliente"]>>,
-  Verifica<Contrato<DatosDeCliente, S["ClienteCrear"]>>,
+  Verifica<ContratoDePeticion<DatosDeCliente, S["ClienteCrear"]>>,
   // productos
   Verifica<Contrato<ProductoGuardado, S["Producto"]>>,
-  Verifica<Contrato<DatosDeProducto, S["ProductoGuardar"]>>,
+  Verifica<ContratoDePeticion<DatosDeProducto, S["ProductoGuardar"]>>,
   // banner
   Verifica<Contrato<BannerVigente, S["BannerPublico"]>>,
   // accesos-de-soporte
@@ -144,4 +148,25 @@ export type ContratoDeLaApi = [
   Verifica<Contrato<EmpresaCuenta, S["EmpresaDeCuenta"]>>,
   Verifica<Contrato<ComprobanteReciente, S["ComprobanteDeCuenta"]>>,
   Verifica<Contrato<EventoReciente, S["EventoDeCuenta"]>>,
+  // #5 revisión: el resto de lo que el portal modela de la API
+  Verifica<Contrato<PlantillaDeCorreo, S["Plantilla"]>>,
+  Verifica<Contrato<RemitenteConfigurado, S["Remitente"]>>,
+  Verifica<Contrato<WebhookCreado, S["Creado"]>>,
+  Verifica<Contrato<InformeDeIntegridad, S["Informe"]>>,
+  Verifica<Contrato<ProblemaDeIntegridad, S["Problema"]>>,
+  Verifica<Contrato<ComprobanteAdmin, S["FichaDeComprobanteResponse"]>>,
+  Verifica<Contrato<LimitesAdmin, S["LimitesDto"]>>,
+  Verifica<ContratoDePeticion<CuerpoDePlan, S["PlanRequest"]>>,
+  Verifica<Contrato<PlanDeCuentaAdmin, S["PlanDeCuentaResponse"]>>,
+  Verifica<ContratoDePeticion<CuerpoDeCambioDePlan, S["CambiarPlanRequest"]>>,
+  Verifica<Contrato<AdminSesionNueva, S["AdminSesionNuevaResponse"]>>,
+  Verifica<Contrato<ApiKeyRevocadaAdmin, S["ApiKeyRevocadaResponse"]>>,
+  Verifica<Contrato<CertificadoEnRiesgo, S["Certificado"]>>,
+  Verifica<Contrato<AvisoEnviado, S["Enviado"]>>,
+  Verifica<Contrato<SolFallando, S["Sol"]>>,
+  Verifica<Contrato<CuentaDelAviso, S["Cuenta"]>>,
+  Verifica<Contrato<UltimoAviso, S["Ultimo"]>>,
+  Verifica<Contrato<DestinatarioAdmin, S["DestinatarioResponse"]>>,
+  Verifica<ContratoDePeticion<AltaAsistida, S["AltaAsistidaRequest"]>>,
+  Verifica<ContratoDePeticion<CuerpoDePago, S["RegistrarPagoRequest"]>>,
 ];

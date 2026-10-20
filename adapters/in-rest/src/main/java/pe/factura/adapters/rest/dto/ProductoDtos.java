@@ -15,7 +15,6 @@ public final class ProductoDtos {
     private ProductoDtos() {}
 
     @Schema(name = "ProductoGuardar")
-
     public record Guardar(
             @Size(max = 30) @Schema(example = "SKU-001", description = "Código interno (opcional); único por empresa cuando se informa") String codigo,
             @NotBlank @Size(max = 500) @Schema(example = "Servicio de consultoría", description = "Descripción de la línea, hasta 500 caracteres") String descripcion,

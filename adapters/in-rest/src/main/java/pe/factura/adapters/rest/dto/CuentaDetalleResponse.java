@@ -27,7 +27,6 @@ public record CuentaDetalleResponse(
         List<EventoResponse> historialEstado) {
 
     @Schema(name = "UsuarioDeCuenta")
-
     public record UsuarioResponse(
             UUID id,
             @Schema(example = "ana@negocio.pe") String email,
@@ -37,7 +36,6 @@ public record CuentaDetalleResponse(
             @Schema(description = "Su sesión más reciente en el portal; el uso por API key no cuenta. Ausente si nunca inició sesión") Instant ultimoAcceso) {}
 
     @Schema(name = "EmpresaDeCuenta")
-
     public record EmpresaResponse(
             UUID id,
             @Schema(example = "20100066603") String ruc,
@@ -48,7 +46,6 @@ public record CuentaDetalleResponse(
             @Schema(description = "Si están cargados el usuario y la clave SOL; nunca se exponen") boolean tieneCredencialesSol) {}
 
     @Schema(name = "ComprobanteDeCuenta")
-
     public record ComprobanteResponse(
             UUID id,
             UUID empresaId,
@@ -62,7 +59,6 @@ public record CuentaDetalleResponse(
             @Schema(example = "118.00") BigDecimal total) {}
 
     @Schema(name = "EventoDeCuenta")
-
     public record EventoResponse(
             @Schema(example = "CREAR_CUENTA") String accion,
             @Schema(example = "ADMINISTRADOR", description = "ADMINISTRADOR o CLAVE_PLATAFORMA") String actor,

@@ -16,7 +16,6 @@ public final class WebhookDtos {
     private WebhookDtos() {}
 
     @Schema(name = "WebhookCrear")
-
     public record Crear(
             @NotBlank @Size(max = 500) @Schema(example = "https://mi-sistema.pe/khipu/webhook", description = "URL https que recibe los eventos") String url,
             @Size(max = 100) @Schema(example = "ERP producción") String descripcion,

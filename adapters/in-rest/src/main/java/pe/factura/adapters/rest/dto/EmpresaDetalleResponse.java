@@ -41,7 +41,6 @@ public record EmpresaDetalleResponse(
         OutboxResponse outbox) {
 
     @Schema(name = "DomicilioDeDetalle")
-
     public record DomicilioResponse(
             @Schema(example = "150122") String ubigeo,
             @Schema(example = "AV. LARCO 345") String direccion,
@@ -63,7 +62,6 @@ public record EmpresaDetalleResponse(
             String observacionesPorDefecto) {}
 
     @Schema(name = "SerieDeDetalle")
-
     public record SerieResponse(
             @Schema(example = "01", description = "Tipo de comprobante (catálogo 01)") String tipo,
             @Schema(example = "F001") String codigo,
@@ -72,7 +70,6 @@ public record EmpresaDetalleResponse(
             @Schema(example = "0000") String establecimiento) {}
 
     @Schema(name = "EstablecimientoDeDetalle")
-
     public record EstablecimientoResponse(
             @Schema(example = "0002") String codigo,
             @Schema(example = "Tienda Surco") String nombre,
@@ -80,7 +77,6 @@ public record EmpresaDetalleResponse(
             boolean activo) {}
 
     @Schema(name = "ApiKeyDeDetalle")
-
     public record ApiKeyResponse(
             UUID id,
             @Schema(example = "fk_demo001") String prefijo,
@@ -94,7 +90,6 @@ public record EmpresaDetalleResponse(
             @Schema(description = "Observaciones de SUNAT; vacía si no hay ninguna") List<String> observaciones) {}
 
     @Schema(name = "ComprobanteDeEmpresa")
-
     public record ComprobanteResponse(
             UUID id,
             @Schema(example = "01", description = "Tipo de comprobante (catálogo 01)") String tipo,
@@ -109,7 +104,6 @@ public record EmpresaDetalleResponse(
             @Schema(description = "CDR de SUNAT; ausente si todavía no respondió") CdrResponse cdr) {}
 
     @Schema(name = "EventoDeEmpresa")
-
     public record EventoResponse(
             @Schema(example = "F001-00000012", description = "Comprobante al que pertenece el cambio") String comprobante,
             @Schema(example = "FIRMADO", description = "Ausente en el primer evento de un comprobante") String estadoAnterior,
@@ -118,7 +112,6 @@ public record EmpresaDetalleResponse(
             @Schema(example = "2026-09-30T15:00:00Z") Instant ocurridoEn) {}
 
     @Schema(name = "OutboxDeEmpresa")
-
     public record OutboxResponse(
             @Schema(example = "12", description = "Tareas pendientes de esta empresa; el outbox se vacía al completar cada una") long total,
             @Schema(description = "Las próximas 10 en intentarse") List<TareaResponse> proximas) {}

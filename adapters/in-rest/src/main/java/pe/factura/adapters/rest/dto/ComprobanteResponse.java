@@ -79,7 +79,6 @@ public record ComprobanteResponse(
     }
 
     @Schema(name = "DetraccionRespuesta")
-
     public record DetraccionDto(
             @Schema(example = "022") String codigoBienServicio,
             @Schema(example = "Otros servicios empresariales", description = "Descripción del catálogo 54") String descripcion,
@@ -93,18 +92,15 @@ public record ComprobanteResponse(
     }
 
     @Schema(name = "RetencionRespuesta")
-
     public record RetencionDto(@Schema(example = "3") BigDecimal porcentaje, @Schema(example = "35.40") BigDecimal monto,
                                @Schema(example = "1144.60", description = "Importe total menos la retención") BigDecimal netoCobrar) {}
 
     @Schema(name = "PercepcionRespuesta")
-
     public record PercepcionDto(@Schema(example = "51") String regimen, @Schema(example = "Percepción venta interna") String descripcion,
                                 @Schema(example = "2") BigDecimal porcentaje, @Schema(example = "1180.00") BigDecimal base, @Schema(example = "23.60") BigDecimal monto,
                                 @Schema(example = "1203.60", description = "Importe total más la percepción: lo que paga el cliente") BigDecimal totalConPercepcion) {}
 
     @Schema(name = "AnticipoRespuesta")
-
     public record AnticipoDto(@Schema(example = "F001-120", description = "Factura de anticipo (serie-número)") String comprobante,
                               @Schema(example = "F001") String serie, @Schema(example = "120") Long numero,
                               @Schema(example = "1000.00", description = "Valor sin IGV que se descuenta de la base") BigDecimal monto,
@@ -171,7 +167,6 @@ public record ComprobanteResponse(
             @Schema(example = "PE", description = "País del adquirente (ISO 3166-1, catálogo 04), o `null`") String pais) {}
 
     @Schema(name = "ExportacionRespuesta")
-
     public record ExportacionDto(
             @Schema(example = "FOB", description = "Incoterm 2020 de la venta, o `null`") String incoterm,
             @Schema(example = "US", description = "País de uso del servicio (solo 0201/0208), o `null`") String paisUso) {
@@ -206,7 +201,6 @@ public record ComprobanteResponse(
     }
 
     @Schema(name = "ItemRespuesta")
-
     public record ItemDto(
             @Schema(example = "SRV-001") String codigo,
             @Schema(example = "Servicio de consultoría") String descripcion,
@@ -233,7 +227,6 @@ public record ComprobanteResponse(
     public record OtrosTributosRespuestaDto(@Schema(example = "3.5") BigDecimal tasa, @Schema(example = "3.50") BigDecimal monto) {}
 
     @Schema(name = "GtinRespuesta")
-
     public record GtinDto(@Schema(example = "GTIN-13") String tipo, @Schema(example = "7750182000123") String codigo) {}
 
     /**

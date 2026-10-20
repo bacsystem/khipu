@@ -8,3 +8,5 @@ gradlew text eol=lf
 gradlew.bat -text
 # Los hooks de husky son scripts de sh sin extension: con CRLF (core.autocrlf=true en Windows) cada linea termina en retorno de carro y sh falla con "command not found".
 .husky/* text eol=lf
+portal/src/lib/api/openapi.d.ts linguist-generated=true
+portal/src/lib/api/openapi.json linguist-generated=true

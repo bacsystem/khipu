@@ -24,10 +24,10 @@ class NombresDeEsquemasOpenApiTest {
         return c.tryGetAnnotationOfType(Schema.class).map(Schema::name).filter(n -> !n.isBlank()).orElse(c.getSimpleName());
     }
 
-    @Test void ningunNombreDeEsquemaSeRepiteEnLosDtosDeLaApi() {
-        List<JavaClass> dtos = new ClassFileImporter().withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("pe.factura.adapters.rest.dto").stream()
+    @Test void ningunNombreDeEsquemaSeRepiteEnLosRegistrosDeLaApi() {
+        List<JavaClass> dtos = new ClassFileImporter().withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS).importPackages("pe.factura.adapters.rest").stream()
                 .filter(c -> !c.isAnonymousClass() && c.isRecord()).toList();
-        assertThat(dtos).as("se importaron los registros de pe.factura.adapters.rest.dto").hasSizeGreaterThan(50);
+        assertThat(dtos).as("se importaron los registros de pe.factura.adapters.rest (los DTO y los que se declaran en controladores)").hasSizeGreaterThan(50);
 
         Map<String, List<String>> repetidos = new TreeMap<>(dtos.stream().collect(Collectors.groupingBy(NombresDeEsquemasOpenApiTest::nombreDelEsquema, Collectors.mapping(JavaClass::getName, Collectors.toList()))));
         repetidos.values().removeIf(clases -> clases.size() < 2);
