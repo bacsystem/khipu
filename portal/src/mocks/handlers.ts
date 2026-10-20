@@ -1303,27 +1303,11 @@ function cdrBajaAceptada(identificador: string): NonNullable<Baja["cdr"]> {
 
 // --- #21: roles y equipo --------------------------------------------------------------------------------------------------------------
 
-/** Lo que pide cada ruta, como `PermisoDeRuta` del backend: cerrado por defecto (una escritura no clasificada es de administrador). */
-function permisoMock(metodo: string, ruta: string): "LEER" | "EMITIR" | "CONFIGURAR" | "GESTIONAR_EQUIPO" {
-  if (/^\/v1\/cuenta\/(usuarios|invitaciones)(\/.*)?$/.test(ruta)) return "GESTIONAR_EQUIPO";
-  if (["GET", "HEAD", "OPTIONS"].includes(metodo)) return /^\/v1\/empresa\/api-keys(\/.*)?$/.test(ruta) ? "CONFIGURAR" : "LEER";
-  const emision = [/^\/v1\/facturas$/, /^\/v1\/facturas\/calcular$/, /^\/v1\/facturas\/[^/]+\/(enviar|correo|baja|cdr\/recuperar)$/, /^\/v1\/notas$/, /^\/v1\/clientes(\/.*)?$/, /^\/v1\/productos(\/.*)?$/];
-  return emision.some((p) => p.test(ruta)) ? "EMITIR" : "CONFIGURAR";
-}
-
-function rolPuede(rol: string, permiso: ReturnType<typeof permisoMock>): boolean {
-  if (rol === "ADMIN") return true;
-  if (rol === "EMISOR") return permiso === "LEER" || permiso === "EMITIR";
-  return permiso === "LEER";
-}
-
 function registroDeLaSesion(request: Request) {
   const c = claims(request);
   if (!c) return null;
   return [...db.usuariosPorEmail.values()].find((r) => r.usuario.id === c.sub) ?? null;
 }
-
-const etiquetaDeRolMock: Record<string, string> = messages.roles.etiquetas;
 
 function invitacionVista(i: InvitacionMock) {
   return { id: i.id, email: i.email, rol: i.rol, expira_en: i.expira_en, vencida: new Date(i.expira_en).getTime() <= Date.now(), envios: i.envios, creada_en: i.creada_en };
@@ -1349,25 +1333,12 @@ function adminsActivos(cuenta: string, sinContar: string): number {
   return equipoDe(cuenta).filter((u) => u.id !== sinContar && u.rol === "ADMIN" && !db.usuariosDesactivados.has(u.id)).length;
 }
 
+/**
+ * El mock aplica el rol (#21) solo en las rutas del equipo, y un usuario desactivado no entra (login). Un handler genérico `http.all("/v1/*")` que dejara pasar
+ * la petición rompía los handlers siguientes que leen el cuerpo (MSW lo daba por consumido: «Unexpected end of JSON input»), así que el resto de las rutas no
+ * mira el rol: el portal ya deshabilita lo que el rol no permite, y quien decide de verdad es el backend (JwtFilter + PermisoDeRuta, probados en Java).
+ */
 const handlersDeEquipo = [
-  /**
-   * Como `JwtFilter` (#21): con sesión de cliente, un usuario desactivado no pasa y el rol de hoy decide qué puede hacer. No responde nada cuando la petición pasa:
-   * MSW sigue con el handler de la ruta. Fuera de lo de la propia sesión (/v1/auth/**) y del backoffice.
-   */
-  http.all(`${BASE}/v1/*`, ({ request }) => {
-    const ruta = new URL(request.url).pathname;
-    if (ruta.startsWith("/v1/auth/") || ruta.startsWith("/v1/admin") || ruta.startsWith("/v1/__test") || request.headers.get("x-api-key")) return undefined;
-    const c = claims(request);
-    if (!c || c.imp) return undefined;
-    const registro = registroDeLaSesion(request);
-    if (!registro) return undefined;
-    if (db.usuariosDesactivados.has(registro.usuario.id)) return fail(401, "NO_AUTORIZADO", "Token inválido o expirado");
-    const permiso = permisoMock(request.method, ruta);
-    if (!rolPuede(registro.usuario.rol, permiso))
-      return fail(403, "ROL_INSUFICIENTE", `Tu rol (${etiquetaDeRolMock[registro.usuario.rol] ?? registro.usuario.rol}) no permite esta operación. Pídeselo a un administrador de la cuenta`);
-    return undefined;
-  }),
-
   http.get(`${BASE}/v1/cuenta/usuarios`, ({ request }) => {
     const a = administradorDeLaSesion(request);
     if (a.error) return a.error;
