@@ -411,6 +411,73 @@ class FacturaE2ETest {
         assertThat(notas).hasSize(3);
     }
 
+    static final String LIQUIDACION = """
+        {"serie":"L001","fecha_emision":"%s","moneda":"PEN",
+         "vendedor":{"tipo_doc":"1","num_doc":"45678912","nombre":"JUAN QUISPE MAMANI","direccion":"Caserío Santa Rosa s/n","ubigeo":"060101","condicion":"02"},
+         "lugar_operacion":{"direccion":"Fundo Santa Rosa, km 12","ubigeo":"060801","condicion":"03"},
+         "items":[{"codigo":"CAF-01","descripcion":"Café pergamino","unidad":"KGM","cantidad":100,"precio_unitario":11.80,"tipo_afectacion_igv":"10","codigo_sunat":"50201706"},
+                  {"descripcion":"Papa blanca","unidad":"KGM","cantidad":3,"precio_unitario":50,"tipo_afectacion_igv":"20","codigo_sunat":"50405700"}]}
+        """.formatted(java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")));
+
+    /**
+     * #327: la liquidación de compra con la pila real: serie 04 L001, SelfBilledInvoice firmado y validado contra su XSD, sendBill con el nombre RUC-04-L001-1, la
+     * respuesta con el vendedor, la retención y el neto, y la consulta, el XML, el PDF y el listado por los endpoints de siempre. Lo que el dominio rechaza no consume
+     * número, `/calcular` tampoco, y no se da de baja ni se consulta por getStatusCdr.
+     */
+    @Test void liquidacionDeCompraDeExtremoAExtremo(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-04-L001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.exchange("/v1/empresa/datos-fiscales", HttpMethod.PUT, new HttpEntity<>("{\"domicilio\":{\"ubigeo\":\"060101\",\"direccion\":\"Jr. Del Comercio 450\"}}", h), Map.class)
+                .getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"04\",\"serie\":\"L001\",\"correlativo_inicial\":0}", h), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"04\",\"serie\":\"F002\",\"correlativo_inicial\":0}", h), Map.class).getStatusCode())
+                .as("la serie de la liquidación empieza con L").isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        // Un vendedor con RUC y el cálculo previo no gastan número: la liquidación emitida después es la 1.
+        ResponseEntity<Map> conRuc = http.postForEntity("/v1/liquidaciones-compra", new HttpEntity<>(LIQUIDACION.replace("\"tipo_doc\":\"1\",\"num_doc\":\"45678912\"", "\"tipo_doc\":\"6\",\"num_doc\":\"20131312955\""), h), Map.class);
+        assertThat(conRuc.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        ResponseEntity<Map> sinUbigeo = http.postForEntity("/v1/liquidaciones-compra", new HttpEntity<>(LIQUIDACION.replace("\"ubigeo\":\"060801\"", "\"ubigeo\":\"999999\""), h), Map.class);
+        assertThat(sinUbigeo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(sinUbigeo.getBody().get("codigo")).isEqualTo("LIQUIDACION_INVALIDA");
+        assertThat((String) sinUbigeo.getBody().get("mensaje")).startsWith("2917 - ");
+        ResponseEntity<Map> calculada = http.postForEntity("/v1/liquidaciones-compra/calcular", new HttpEntity<>(LIQUIDACION, h), Map.class);
+        assertThat(calculada.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(((Map<?, ?>) ((Map<?, ?>) calculada.getBody().get("datos")).get("liquidacion")).get("neto_pagar")).isEqualTo(1132.75);
+        verify(0, postRequestedFor(urlEqualTo("/billService")));
+
+        ResponseEntity<Map> r = http.postForEntity("/v1/liquidaciones-compra", new HttpEntity<>(LIQUIDACION, h), Map.class);
+        assertThat(r.getStatusCode()).as(String.valueOf(r.getBody())).isEqualTo(HttpStatus.CREATED);
+        Map<?, ?> datos = (Map<?, ?>) r.getBody().get("datos");
+        assertThat(datos.get("tipo")).isEqualTo("04");
+        assertThat(datos.get("numero")).isEqualTo(1);
+        assertThat(datos.get("estado_documento")).isEqualTo("ACEPTADO");
+        assertThat(datos.get("nombre_archivo")).isEqualTo("20100066603-04-L001-1");
+        assertThat(((Map<?, ?>) datos.get("totales")).get("total")).isEqualTo(1132.75);
+        Map<?, ?> lc = (Map<?, ?>) datos.get("liquidacion");
+        assertThat(lc.get("igv_retenido")).isEqualTo(180.0);
+        assertThat(((Map<?, ?>) lc.get("retencion_renta")).get("monto")).isEqualTo(17.25);
+        verify(postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("<fileName>20100066603-04-L001-1.zip</fileName>")));
+
+        String id = (String) datos.get("id");
+        String xml = new String(http.exchange("/v1/facturas/" + id + "/xml", HttpMethod.GET, new HttpEntity<>(h), byte[].class).getBody(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(xml).contains("<SelfBilledInvoice", "<ds:Signature", "<cbc:ID>L001-1</cbc:ID>", ">04</cbc:InvoiceTypeCode>", "<cac:AccountingCustomerParty>", "<cbc:AddressTypeCode>02</cbc:AddressTypeCode>");
+        ResponseEntity<Map> consultada = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat(((Map<?, ?>) ((Map<?, ?>) consultada.getBody().get("datos")).get("liquidacion")).get("ubigeo_vendedor")).isEqualTo("060101");
+        ResponseEntity<byte[]> pdf = http.exchange("/v1/facturas/" + id + "/pdf", HttpMethod.GET, new HttpEntity<>(h), byte[].class);
+        assertThat(pdf.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(new String(pdf.getBody(), 0, 5, java.nio.charset.StandardCharsets.ISO_8859_1)).isEqualTo("%PDF-");
+        ResponseEntity<Map> listado = http.exchange("/v1/facturas?tipo=04", HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat((List<?>) listado.getBody().get("datos")).hasSize(1);
+
+        ResponseEntity<Map> baja = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Error en el vendedor\"}", h), Map.class);
+        assertThat(baja.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(baja.getBody().get("codigo")).isEqualTo("BAJA_INVALIDA");
+        assertThat((String) baja.getBody().get("mensaje")).startsWith("2308 - ");
+        ResponseEntity<Map> cdr = http.postForEntity("/v1/facturas/" + id + "/cdr/recuperar", new HttpEntity<>(h), Map.class);
+        assertThat(cdr.getBody().get("codigo")).as("tiene su CDR: se descarga").isEqualTo("CDR_YA_DISPONIBLE");
+    }
+
     @Autowired OutboxWorker worker;
 
     @Test void sunatCaidoDejaErrorEnvioYElOutboxReintenta() throws Exception {

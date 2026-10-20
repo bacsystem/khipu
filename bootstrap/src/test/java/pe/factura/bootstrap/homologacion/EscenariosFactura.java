@@ -349,8 +349,41 @@ final class EscenariosFactura {
         todos.add(new Escenario("84-nc-boleta-cargos", "NC total (01) sobre la boleta con cargos", NOTAS,
                 "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_CARGOS}}," +
                 "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"));
+        todos.addAll(liquidaciones(serieLiquidacion(serie), fecha));
         return todos;
     }
+
+    static final String LIQUIDACIONES = "/v1/liquidaciones-compra";
+
+    /**
+     * #327: liquidaciones de compra (04, SelfBilledInvoice) a un vendedor sin RUC, con la retención de renta (3000) y el importe neto (4312). La hoja dice «NO APLICA PARA
+     * SEE-OSE»: e-beta del SEE-Del Contribuyente es justo el canal que usa khipu. El vendedor lleva un DNI con formato válido: e-beta no cruza el padrón de DNI (2450).
+     */
+    static List<Escenario> liquidaciones(String serieLiquidacion, LocalDate fecha) {
+        String cab = "\"serie\":\"" + serieLiquidacion + "\",\"fecha_emision\":\"" + fecha + "\"";
+        String vendedorDni = "\"vendedor\":{\"tipo_doc\":\"1\",\"num_doc\":\"45678912\",\"nombre\":\"JUAN QUISPE MAMANI\",\"direccion\":\"Caserío Santa Rosa s/n\",\"ubigeo\":\"060101\",\"condicion\":\"02\"}";
+        String lugar = "\"lugar_operacion\":{\"direccion\":\"Fundo Santa Rosa, km 12 carretera a Bambamarca\",\"ubigeo\":\"060101\",\"condicion\":\"02\"}";
+        return List.of(
+            new Escenario("95-liquidacion-gravada", "Liquidación de compra gravada: retiene el IGV y el 1.5 % de renta", LIQUIDACIONES,
+                "{" + cab + ",\"moneda\":\"PEN\"," + vendedorDni + "," + lugar + ",\"items\":[" +
+                "{\"codigo\":\"CAF-01\",\"descripcion\":\"Café pergamino seco\",\"unidad\":\"KGM\",\"cantidad\":100,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\",\"codigo_sunat\":\"50201706\"}]}"),
+            new Escenario("96-liquidacion-exonerada-inafecta", "Liquidación de compra exonerada e inafecta: sin IGV, solo la retención de renta", LIQUIDACIONES,
+                "{" + cab + ",\"moneda\":\"PEN\"," + vendedorDni + "," + lugar + ",\"items\":[" +
+                "{\"descripcion\":\"Papa blanca\",\"unidad\":\"KGM\",\"cantidad\":500,\"precio_unitario\":1.20,\"tipo_afectacion_igv\":\"20\",\"codigo_sunat\":\"50405700\"}," +
+                "{\"descripcion\":\"Leña de eucalipto\",\"unidad\":\"KGM\",\"cantidad\":200,\"precio_unitario\":0.50,\"tipo_afectacion_igv\":\"30\",\"codigo_sunat\":\"15101800\"}]}"),
+            new Escenario("97-liquidacion-usd", "Liquidación de compra en dólares, con tipo de cambio y redondeo", LIQUIDACIONES,
+                "{" + cab + ",\"moneda\":\"USD\",\"tipo_cambio\":3.756," + vendedorDni + "," + lugar + ",\"items\":[" +
+                "{\"descripcion\":\"Cacao en grano\",\"unidad\":\"KGM\",\"cantidad\":300,\"precio_unitario\":2.36,\"tipo_afectacion_igv\":\"10\",\"codigo_sunat\":\"50161509\"}],\"redondeo\":0.50}"),
+            new Escenario("98-liquidacion-carne-guia-0502", "Liquidación de compra por anticipo (0502) a un vendedor con carné de extranjería, con guía y otro documento", LIQUIDACIONES,
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"0502\"," +
+                "\"vendedor\":{\"tipo_doc\":\"4\",\"num_doc\":\"001234567\",\"nombre\":\"MARIA SOUZA\",\"direccion\":\"Muelle artesanal, puesto 14\",\"ubigeo\":\"200501\",\"condicion\":\"03\"}," +
+                "\"lugar_operacion\":{\"direccion\":\"Muelle artesanal de Paita\",\"ubigeo\":\"200501\",\"condicion\":\"03\"},\"items\":[" +
+                "{\"descripcion\":\"Pota fresca\",\"unidad\":\"KGM\",\"cantidad\":250,\"precio_unitario\":3.00,\"tipo_afectacion_igv\":\"20\",\"codigo_sunat\":\"50121500\"}]," +
+                "\"guias\":[{\"tipo\":\"31\",\"numero\":\"V001-45\"}],\"documentos_relacionados\":[{\"tipo\":\"99\",\"numero\":\"ACTA-7\"}]}"));
+    }
+
+    /** Serie de liquidación de compra de la corrida: la misma base que la de factura con la letra L (L###, regla 1001 de LiquidacionCompra2_0). */
+    static String serieLiquidacion(String serieFactura) { return "L" + serieFactura.substring(1); }
 
     /**
      * #387: la misma boleta del escenario 32 con la fecha de hace {@value #DIAS_BOLETA_TARDIA} días: ya pasó el envío individual (1079), así que khipu la informa en un

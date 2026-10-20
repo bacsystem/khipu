@@ -98,6 +98,8 @@ class HomologacionBetaTest {
             assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"" + tipo + "\",\"serie\":\"" + SERIE + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         for (String tipo : List.of("03", "07", "08"))   // la misma serie B### vale para la boleta y sus notas de crédito y débito (la letra B: reglas 2399, 2400)
             assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"" + tipo + "\",\"serie\":\"" + EscenariosFactura.serieBoleta(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        // #327: la serie L### de la liquidación de compra.
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"04\",\"serie\":\"" + EscenariosFactura.serieLiquidacion(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         // Establecimiento anexo 0002 con su propia serie de factura (#80).
         assertThat(http.postForEntity("/v1/empresa/establecimientos", new HttpEntity<>(
                 "{\"codigo\":\"0002\",\"nombre\":\"Tienda Miraflores\",\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"AV. LARCO 345\"}}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -113,8 +115,11 @@ class HomologacionBetaTest {
         assertThat(http.postForEntity("/v1/empresa/certificado", new HttpEntity<>(form, mh), Void.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
     }
 
+    /** {@code HOMOLOGACION_ESCENARIOS}: expresión regular sobre el id del escenario para correr solo esos (p. ej. {@code 9[5-8]-.*}); vacía, todos. */
+    static final java.util.regex.Pattern SOLO = java.util.regex.Pattern.compile(env("HOMOLOGACION_ESCENARIOS", ".*"));
+
     Stream<EscenariosFactura.Escenario> escenarios() {
-        return EscenariosFactura.todos(SERIE, SERIE_ANEXO, LocalDate.now(ZoneId.of("America/Lima"))).stream();
+        return EscenariosFactura.todos(SERIE, SERIE_ANEXO, LocalDate.now(ZoneId.of("America/Lima"))).stream().filter(e -> SOLO.matcher(e.id()).matches());
     }
 
     @ParameterizedTest(name = "{0}")
@@ -239,6 +244,7 @@ class HomologacionBetaTest {
      * identificador, ticket y CDR) y SUNAT acepta el resumen entero: las tres quedan ACEPTADO. Es la prueba de que el XML de varias líneas pasa las reglas de SUNAT, no solo el XSD.
      */
     @org.junit.jupiter.api.Test void zzAltaTardiaDeVariasBoletasEnUnSoloResumen() throws Exception {
+        soloConTodosLosEscenarios();
         String escenario = "36-alta-tres-boletas-un-resumen";
         List<String> boletas = new ArrayList<>();
         for (String cuerpo : EscenariosFactura.boletasTardiasSinEnviar(SERIE, LocalDate.now(ZoneId.of("America/Lima")))) {
@@ -283,6 +289,7 @@ class HomologacionBetaTest {
     }
 
     private void altaTardia(String escenario, String con, String cuerpo) throws Exception {
+        soloConTodosLosEscenarios();
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(cuerpo, api), Map.class);
         Map<?, ?> boleta = r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of());
         assertThat(r.getStatusCode()).as(escenario + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
@@ -308,6 +315,7 @@ class HomologacionBetaTest {
     }
 
     private void darDeBaja(String escenario, String descripcion, String id, String origen) throws Exception {
+        soloConTodosLosEscenarios();
         assertThat(id).as(origen + " debe haberse emitido").isNotNull();
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Homologación: baja de prueba\"}", api), Map.class);
         Map<?, ?> datos = esperarResumen(r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of()));
@@ -324,6 +332,11 @@ class HomologacionBetaTest {
         assertThat(String.valueOf(cdr.get("codigo"))).isEqualTo("0");
         ResponseEntity<Map> factura = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
         assertThat(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento")).as("el comprobante queda ANULADO").isEqualTo("ANULADO");
+    }
+
+    /** Las bajas y altas tardías dependen de escenarios anteriores: con {@code HOMOLOGACION_ESCENARIOS} se saltan. */
+    private static void soloConTodosLosEscenarios() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(".*".equals(SOLO.pattern()), "HOMOLOGACION_ESCENARIOS=" + SOLO.pattern() + ": solo esos escenarios");
     }
 
     /** Si SUNAT sigue procesando el ticket (la comunicación queda ENVIADA), lo reconsulta cada 5 s hasta 6 veces: es lo que hace el outbox. */
