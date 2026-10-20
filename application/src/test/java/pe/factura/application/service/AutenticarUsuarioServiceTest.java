@@ -229,7 +229,7 @@ class AutenticarUsuarioServiceTest {
      * reescribir el usuario leído (lo reactivaba y le devolvía el rol): solo cambia la contraseña.
      */
     @Test void restablecerNoDeshaceUnaDesactivacionHechaEntreLaLecturaYLaEscritura() {
-        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
         UUID id = t.usuario().id();
         service.solicitarRecuperacion("a@b.pe", PORTAL);
         String token = tokenDelCorreo("/restablecer/");
@@ -249,7 +249,7 @@ class AutenticarUsuarioServiceTest {
             }
         };
         AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, conCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones,
-                new PlantillasDeCorreo(plantillasGuardadas), limite);
+                new PlantillasDeCorreo(plantillasGuardadas), limite, terminos);
 
         enCarrera.restablecer(token, "Nueva1234");
 

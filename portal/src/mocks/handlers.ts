@@ -1474,7 +1474,8 @@ const handlersDeEquipo = [
     if (!invitacionAceptableMock(i)) return fail(422, "TOKEN_INVALIDO", "El enlace de la invitación es inválido, venció o ya se usó");
     if (db.usuariosPorEmail.has(i.email)) return fail(409, "USUARIO_EXISTENTE", "Ese correo ya tiene un usuario en khipu");
     i.estado = "ACEPTADA";
-    const usuario: Usuario = { id: nuevoId("u"), cuenta_id: i.cuenta_id, email: i.email, rol: i.rol, correo_verificado: true };
+    // Como el backend (#342): aceptar la invitación no acepta los términos; el panel se los pide al entrar, como a cualquier usuario con la versión pendiente.
+    const usuario: Usuario = { id: nuevoId("u"), cuenta_id: i.cuenta_id, email: i.email, rol: i.rol, correo_verificado: true, terminos_pendientes: true };
     db.usuariosPorEmail.set(i.email, { usuario, password });
     return new HttpResponse(null, { status: 204 });
   }),

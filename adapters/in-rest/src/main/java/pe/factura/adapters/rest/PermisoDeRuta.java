@@ -26,6 +26,8 @@ final class PermisoDeRuta {
             Pattern.compile("/v1/facturas/calcular"),
             Pattern.compile("/v1/facturas/[^/]+/(enviar|correo|baja|cdr/recuperar)"),
             Pattern.compile("/v1/notas"),
+            // #327: la liquidación de compra es un comprobante que emite la empresa (y su cálculo previo, como el de la factura).
+            Pattern.compile("/v1/liquidaciones-compra(/calcular)?"),
             Pattern.compile("/v1/clientes(/.*)?"),
             Pattern.compile("/v1/productos(/.*)?"));
 

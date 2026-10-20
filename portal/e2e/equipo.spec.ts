@@ -14,6 +14,15 @@ async function entrar(page: Page, email: string, password: string) {
   await expect(page).toHaveURL(/\/comprobantes/);
 }
 
+/** El invitado entra por primera vez: aceptar la invitación no acepta los términos (#342), así que el panel se los pide antes de mostrarse. */
+async function entrarComoInvitado(page: Page, email: string) {
+  await entrar(page, email, "Clave1234");
+  await expect(page.getByTestId("aceptar-terminos")).toBeVisible();
+  await page.getByRole("checkbox", { name: /Acepto los términos del servicio/ }).check();
+  await page.getByRole("button", { name: "Aceptar y continuar" }).click();
+  await expect(page.getByTestId("aceptar-terminos")).toHaveCount(0);
+}
+
 async function invitar(page: Page, email: string, rol: string) {
   await page.goto("/cuenta/equipo");
   await page.getByRole("button", { name: "Invitar usuario" }).click();
@@ -48,7 +57,7 @@ test("invitar con solo lectura → aceptar → entra con su rol y no puede escri
   const contexto = await browser.newContext();
   const invitado = await contexto.newPage();
   await aceptar(invitado, `inv-${email}`, /como Solo lectura/);
-  await entrar(invitado, email, "Clave1234");
+  await entrarComoInvitado(invitado, email);
 
   await invitado.getByRole("button", { name: "Menú de usuario" }).click();
   await expect(invitado.getByRole("menu").getByTestId("rol-del-usuario")).toHaveText("Solo lectura");
@@ -93,7 +102,7 @@ test("el emisor emite pero no configura, y el administrador le cambia el rol", a
   const contexto = await browser.newContext();
   const invitado = await contexto.newPage();
   await aceptar(invitado, `inv-${email}`, /como Emisor/);
-  await entrar(invitado, email, "Clave1234");
+  await entrarComoInvitado(invitado, email);
   await expect(invitado.getByRole("button", { name: /Nuevo comprobante/ })).toBeEnabled();
   await invitado.goto("/series");
   await expect(invitado.getByRole("button", { name: /Nueva serie/ })).toBeDisabled();
@@ -151,7 +160,7 @@ test("si quien invitó deja de ser administrador, su invitación ya no sirve", a
   const contexto = await browser.newContext();
   const otro = await contexto.newPage();
   await aceptar(otro, `inv-${segundoAdmin}`, /como Administrador/);
-  await entrar(otro, segundoAdmin, "Clave1234");
+  await entrarComoInvitado(otro, segundoAdmin);
   await invitar(otro, email, "Emisor");
 
   // El primero lo degrada: la invitación que creó el segundo se revoca y su enlace deja de servir.
