@@ -48,6 +48,11 @@ public class GlobalExceptionHandler {
             case "ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "SUNAT_YA_LO_TIENE" -> HttpStatus.CONFLICT;
             // Webhooks (#19): el pedido es válido pero el estado no lo permite (tope de endpoints, endpoint apagado, entrega todavía pendiente).
             case "WEBHOOK_LIMITE", "WEBHOOK_PAUSADO", "ENTREGA_NO_REENVIABLE" -> HttpStatus.CONFLICT;
+            // Equipo de la cuenta (#21): el pedido es válido pero el estado no lo permite (último administrador, ya es usuario, ya hay una invitación, ya no está pendiente).
+            case "ULTIMO_ADMINISTRADOR", "YA_ES_MIEMBRO", "USUARIO_EXISTENTE", "INVITACION_PENDIENTE", "INVITACION_NO_PENDIENTE" -> HttpStatus.CONFLICT;
+            case "DEMASIADAS_INVITACIONES", "DEMASIADOS_ENVIOS" -> HttpStatus.TOO_MANY_REQUESTS;
+            // El rol del usuario no permite la operación (#21): se identificó bien, pero no tiene permiso.
+            case "ROL_INSUFICIENTE" -> HttpStatus.FORBIDDEN;
             // No se pudo preguntarle a SUNAT si ya tiene el comprobante: no es culpa del cliente, y se puede reintentar más tarde.
             // PADRON_NO_CARGADO (#361): el padrón de RUC todavía no se cargó, así que no se puede decir si un RUC existe; vuelve a estar disponible cuando corra la primera carga.
             case "SUNAT_NO_DISPONIBLE", "PADRON_NO_CARGADO" -> HttpStatus.SERVICE_UNAVAILABLE;

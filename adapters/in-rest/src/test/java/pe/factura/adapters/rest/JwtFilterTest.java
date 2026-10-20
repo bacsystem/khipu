@@ -330,8 +330,20 @@ class JwtFilterTest {
     }
 
     @Test void rutasPublicasDeAuthNoInterceptan() throws Exception {
-        for (String uri : new String[]{"/v1/auth/registro", "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/recuperar", "/v1/auth/restablecer", "/v1/auth/verificar"}) {
+        for (String uri : new String[]{"/v1/auth/registro", "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/recuperar", "/v1/auth/restablecer", "/v1/auth/verificar",
+                "/v1/auth/invitacion", "/v1/auth/invitacion/aceptar"}) {
             MockHttpServletRequest req = new MockHttpServletRequest("POST", uri);
+            MockFilterChain chain = new MockFilterChain();
+            filter.doFilter(req, new MockHttpServletResponse(), chain);
+            assertThat(chain.getRequest()).as(uri).isNotNull();
+        }
+    }
+
+    /** #21: el invitado todavía no tiene usuario; aunque el navegador mande una sesión vieja (de otra cuenta, vencida), no se le pide. */
+    @Test void lasRutasDeLaInvitacionSonPublicasAunConUnTokenViejo() throws Exception {
+        for (String uri : new String[]{"/v1/auth/invitacion", "/v1/auth/invitacion/aceptar"}) {
+            MockHttpServletRequest req = new MockHttpServletRequest("POST", uri);
+            req.addHeader("Authorization", "Bearer " + tokenInvalido);
             MockFilterChain chain = new MockFilterChain();
             filter.doFilter(req, new MockHttpServletResponse(), chain);
             assertThat(chain.getRequest()).as(uri).isNotNull();
@@ -431,6 +443,110 @@ class JwtFilterTest {
         propia.addHeader("X-Empresa", empresaPropia.toString());
         filter.doFilter(propia, new MockHttpServletResponse(), new MockFilterChain());
         assertThat(propia.getAttribute(TenantActual.ATRIBUTO)).isEqualTo(empresaPropia);
+    }
+
+    // --- #21: el rol del usuario, el de la base ---------------------------------------------------------------------------------------
+
+    private void conRol(Rol rol) {
+        delToken = new Usuario(usuario, cuenta, "ana@b.pe", "hash", rol, true, java.time.Instant.parse("2026-10-01T00:00:00Z"));
+    }
+
+    private void pasa(String metodo, String uri) throws Exception {
+        MockFilterChain chain = new MockFilterChain();
+        MockHttpServletResponse res = pedir(metodo, uri, chain);
+        assertThat(chain.getRequest()).as("%s %s pasa (%s)", metodo, uri, res.getContentAsString()).isNotNull();
+    }
+
+    private void noPasaPorRol(String metodo, String uri) throws Exception {
+        MockFilterChain chain = new MockFilterChain();
+        MockHttpServletResponse res = pedir(metodo, uri, chain);
+        assertThat(chain.getRequest()).as("%s %s no pasa", metodo, uri).isNull();
+        assertThat(res.getStatus()).as("%s %s", metodo, uri).isEqualTo(403);
+        assertThat(res.getContentAsString()).as("%s %s", metodo, uri).contains("\"codigo\":\"ROL_INSUFICIENTE\"").contains("\"estado\":\"error\"");
+    }
+
+    static final String[][] LECTURAS_DE_TODOS = {{"GET", "/v1/facturas"}, {"GET", "/v1/facturas/1"}, {"GET", "/v1/facturas/1/pdf"}, {"GET", "/v1/series"},
+            {"GET", "/v1/empresa"}, {"GET", "/v1/empresa/establecimientos"}, {"GET", "/v1/empresas"}, {"GET", "/v1/clientes"}, {"GET", "/v1/cuenta"},
+            {"GET", "/v1/webhooks"}, {"HEAD", "/v1/facturas"}, {"OPTIONS", "/v1/series"}};
+    static final String[][] EMISION = {{"POST", "/v1/facturas"}, {"POST", "/v1/facturas/calcular"}, {"POST", "/v1/facturas/1/enviar"}, {"POST", "/v1/facturas/1/correo"},
+            {"POST", "/v1/facturas/1/baja"}, {"POST", "/v1/facturas/1/cdr/recuperar"}, {"POST", "/v1/notas"}, {"POST", "/v1/clientes"},
+            {"PUT", "/v1/clientes/1"}, {"DELETE", "/v1/clientes/1"}, {"PUT", "/v1/clientes/documento/6/20100047226"}, {"POST", "/v1/productos"}, {"DELETE", "/v1/productos/1"}};
+    static final String[][] CONFIGURACION = {{"POST", "/v1/empresas"}, {"PUT", "/v1/empresa/datos-fiscales"}, {"POST", "/v1/empresa/certificado"},
+            {"PUT", "/v1/empresa/credenciales-sol"}, {"POST", "/v1/empresa/api-keys"}, {"GET", "/v1/empresa/api-keys"}, {"DELETE", "/v1/empresa/api-keys/1"},
+            {"POST", "/v1/series"}, {"POST", "/v1/empresa/establecimientos"}, {"PUT", "/v1/empresa/establecimientos/0001"}, {"DELETE", "/v1/empresa/establecimientos/0001"},
+            {"PUT", "/v1/empresa/personalizacion-pdf"}, {"PUT", "/v1/empresa/logo"}, {"DELETE", "/v1/empresa/logo"}, {"POST", "/v1/webhooks"}, {"PATCH", "/v1/webhooks/1"},
+            {"DELETE", "/v1/webhooks/1"}, {"POST", "/v1/webhooks/1/secreto"}, {"POST", "/v1/webhooks/1/prueba"}, {"POST", "/v1/webhooks/entregas/1/reenviar"},
+            // una escritura que nadie clasificó es de administrador
+            {"POST", "/v1/algo-nuevo"}, {"DELETE", "/v1/facturas/1"}};
+    static final String[][] EQUIPO = {{"GET", "/v1/cuenta/usuarios"}, {"PUT", "/v1/cuenta/usuarios/1/rol"}, {"POST", "/v1/cuenta/usuarios/1/desactivar"},
+            {"POST", "/v1/cuenta/usuarios/1/reactivar"}, {"GET", "/v1/cuenta/invitaciones"}, {"POST", "/v1/cuenta/invitaciones"},
+            {"POST", "/v1/cuenta/invitaciones/1/reenviar"}, {"DELETE", "/v1/cuenta/invitaciones/1"}};
+
+    @Test void elAdministradorPasaATodo() throws Exception {
+        conRol(Rol.ADMIN);
+        for (String[][] grupo : new String[][][]{LECTURAS_DE_TODOS, EMISION, CONFIGURACION, EQUIPO})
+            for (String[] m : grupo) pasa(m[0], m[1]);
+    }
+
+    @Test void elEmisorMiraYEmitePeroNoConfiguraNiGestionaElEquipo() throws Exception {
+        conRol(Rol.EMISOR);
+        for (String[] m : LECTURAS_DE_TODOS) pasa(m[0], m[1]);
+        for (String[] m : EMISION) pasa(m[0], m[1]);
+        for (String[] m : CONFIGURACION) noPasaPorRol(m[0], m[1]);
+        for (String[] m : EQUIPO) noPasaPorRol(m[0], m[1]);
+    }
+
+    @Test void elDeSoloLecturaSoloMira() throws Exception {
+        conRol(Rol.LECTURA);
+        for (String[] m : LECTURAS_DE_TODOS) pasa(m[0], m[1]);
+        for (String[] m : EMISION) noPasaPorRol(m[0], m[1]);
+        for (String[] m : CONFIGURACION) noPasaPorRol(m[0], m[1]);
+        for (String[] m : EQUIPO) noPasaPorRol(m[0], m[1]);
+    }
+
+    /** Lo de la propia sesión no depende del rol: cerrar sesión, reenviar el enlace, saber quién es. */
+    @Test void cualquierRolManejaSuPropiaSesion() throws Exception {
+        conRol(Rol.LECTURA);
+        for (String[] m : new String[][]{{"GET", "/v1/auth/me"}, {"POST", "/v1/auth/logout"}, {"POST", "/v1/auth/verificacion"}}) pasa(m[0], m[1]);
+    }
+
+    @Test void elMensajeDiceQueRolTieneYQueNoPuede() throws Exception {
+        conRol(Rol.LECTURA);
+        MockHttpServletResponse res = pedir("POST", "/v1/facturas", new MockFilterChain());
+        assertThat(res.getContentAsString()).contains("Tu rol (Solo lectura) no permite emitir");
+        assertThat(res.getContentType()).startsWith("application/json");
+    }
+
+    /** Manda el rol de la base, no el del token: un administrador degradado deja de configurar con la misma sesión, y uno ascendido ya puede. */
+    @Test void elRolEsElDeLaBaseYNoElDelToken() throws Exception {
+        conRol(Rol.LECTURA);   // el token dice ADMIN
+        noPasaPorRol("POST", "/v1/series");
+
+        conRol(Rol.ADMIN);
+        pasa("POST", "/v1/series");
+    }
+
+    /** Desactivado por un administrador (#21): ni a mirar, con la sesión que ya tenía. */
+    @Test void unUsuarioDesactivadoNoPasaNiParaMirar() throws Exception {
+        delToken = new Usuario(usuario, cuenta, "ana@b.pe", "hash", Rol.ADMIN, false, java.time.Instant.parse("2026-10-01T00:00:00Z"));
+        for (String[] m : new String[][]{{"GET", "/v1/facturas"}, {"GET", "/v1/empresas"}, {"POST", "/v1/facturas"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            assertThat(pedir(m[0], m[1], chain).getStatus()).as("%s %s", m[0], m[1]).isEqualTo(401);
+            assertThat(chain.getRequest()).isNull();
+        }
+    }
+
+    /** Un token cuyo usuario hoy es de otra cuenta no pasa: falla cerrado en vez de mezclar la cuenta del token con el rol de otra. */
+    @Test void unUsuarioQueYaNoEsDeLaCuentaDelTokenNoPasa() throws Exception {
+        delToken = new Usuario(usuario, UUID.randomUUID(), "ana@b.pe", "hash", Rol.ADMIN, true, java.time.Instant.parse("2026-10-01T00:00:00Z"));
+        assertThat(pedir("GET", "/v1/facturas", new MockFilterChain()).getStatus()).isEqualTo(401);
+    }
+
+    /** La ruta se decide normalizada: un {@code ..} o un {@code ;x} no hace pasar una escritura de configuración por una de emisión. */
+    @Test void unaRutaDisfrazadaDeEmisionNoEsquivaElRol() throws Exception {
+        conRol(Rol.EMISOR);
+        for (String uri : new String[]{"/v1/facturas/../series", "/v1/clientes/../empresa/datos-fiscales", "/v1/clientes;x/../series", "/v1/notas/../cuenta/invitaciones"})
+            noPasaPorRol("POST", uri);
     }
 
     @Test void unaCuentaSuspendidaTampocoSeMiraEnSoporte() throws Exception {
