@@ -9,6 +9,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
+import pe.factura.adapters.rest.dto.AgenteRequest;
 import pe.factura.adapters.rest.dto.FacturaRequest;
 import pe.factura.adapters.rest.dto.LiquidacionCompraRequest;
 import pe.factura.application.port.in.*;
@@ -39,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * respuesta de ejemplo debe ser un extracto de lo que serializa el controller (mismas rutas, mismos valores). Un ejemplo que el backend rechazaría, o un
  * campo que la API no devuelve donde el ejemplo lo pone, lo tira.
  */
-@WebMvcTest(controllers = {FacturaController.class, BajaController.class, LiquidacionCompraController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = {FacturaController.class, BajaController.class, LiquidacionCompraController.class, AgenteController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 @Import(GlobalExceptionHandler.class)
 class CasosDeLaGuiaTest {
     private static final Path CASOS = Path.of("../../portal/src/components/developers/guia/casos-emision.ts");
@@ -79,6 +80,28 @@ class CasosDeLaGuiaTest {
         String real = mvc.perform(post("/v1/liquidaciones-compra").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(pedido))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         esExtracto(respuesta("liquidacion-compra"), json.readTree(real), "");
+    }
+
+    /** #40: los casos de la retención y la percepción pasan por Jackson estricto, Bean Validation y el builder real, y su respuesta de ejemplo es un extracto de la real. */
+    @Test void laRetencionYLaPercepcionDeLaGuiaSonLasReales() throws Exception {
+        when(emitir.emitirDeAgente(eq(tenant), any())).thenAnswer(inv -> deAgente(inv.getArgument(1)));
+        for (String[] caso : new String[][]{{"comprobante-retencion", "/v1/retenciones"}, {"comprobante-percepcion", "/v1/percepciones"}}) {
+            String c = request(caso[0]);
+            String pedido = c.substring(0, c.indexOf("// respuesta")).strip();
+            Class<?> cuerpo = "comprobante-retencion".equals(caso[0]) ? AgenteRequest.Retencion.class : AgenteRequest.Percepcion.class;
+            json.copy().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).readValue(pedido, cuerpo);
+            String real = mvc.perform(post(caso[1]).requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(pedido))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+            esExtracto(respuesta(caso[0]), json.readTree(real), "");
+        }
+    }
+
+    /** Lo que hace EmitirComprobanteService con el comando de la retención o la percepción, con el reloj en la fecha de emisión. */
+    private static Comprobante deAgente(EmitirAgenteCommand cmd) {
+        Comprobante c = Comprobante.deAgente(UUID.randomUUID(), cmd.serie(), cmd.fechaEmision(), cmd.contraparte(), cmd.datos()).redondeo(cmd.redondeo())
+                .crear(RUC_EMISOR, Clock.fixed(cmd.fechaEmision().atTime(12, 0).atZone(LIMA).toInstant(), LIMA));
+        c.asignarNumero(1, RUC_EMISOR);
+        return c;
     }
 
     /** Lo que hace EmitirComprobanteService con el comando de la liquidación, con el reloj en la fecha de emisión. */

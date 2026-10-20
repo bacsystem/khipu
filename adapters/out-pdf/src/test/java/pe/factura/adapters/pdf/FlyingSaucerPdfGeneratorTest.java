@@ -84,6 +84,39 @@ class FlyingSaucerPdfGeneratorTest {
         assertThat(new String(pdf, 0, 5, StandardCharsets.ISO_8859_1)).isEqualTo("%PDF-");
     }
 
+    static Comprobante retencion() {
+        Comprobante c = Comprobante.deAgente(UUID.randomUUID(), "R001", LocalDate.of(2026, 9, 13), new Receptor("6", "20131312955", "PROVEEDOR DEL NORTE S.A.C.", "Av. Grau 123"),
+                new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(
+                        new ComprobanteDeAgente.Documento("01", "F001-123", LocalDate.of(2026, 9, 1), new BigDecimal("1180.00"), "PEN", 1, LocalDate.of(2026, 9, 12), new BigDecimal("1180.00"), null, null),
+                        new ComprobanteDeAgente.Documento("01", "E001-45", LocalDate.of(2026, 8, 20), new BigDecimal("1000.00"), "USD", 2, LocalDate.of(2026, 9, 10), new BigDecimal("500.00"),
+                                new BigDecimal("3.756"), null)))).crear("20100066603", CLOCK);
+        c.asignarNumero(7, "20100066603");
+        c.firmar("hashretencion==", "k");
+        return c;
+    }
+
+    /** #40: la retención imprime al proveedor, el régimen, una fila por documento pagado con lo retenido y el neto en soles, y los dos totales. */
+    @Test void laRetencionLlevaProveedorDocumentosRetenidoYPagado() {
+        String html = generador.xhtml(retencion(), TENANT, "qr", null);
+        assertThat(html).contains("COMPROBANTE DE RETENCIÓN ELECTRÓNICO", "R001-7", "Proveedor", "PROVEEDOR DEL NORTE S.A.C.", "20131312955", "01 - Tasa 3%", "3%")
+                .contains("F001-123", "PEN 1,180.00", "35.40", "1,144.60", "E001-45", "USD 500.00", "3.756", "56.34", "1,821.66")
+                .contains("Importe total retenido", "S/ 91.74", "Importe total pagado", "S/ 2,966.26", "IMPORTE RETENIDO: NOVENTA Y UNO CON 74/100 SOLES")
+                .contains("Representación impresa del COMPROBANTE DE RETENCIÓN ELECTRÓNICA", "hashretencion==")
+                .doesNotContain("Señor(es)", "Forma de pago", "Op. gravadas");
+        byte[] pdf = generador.generar(retencion(), TENANT, "20100066603|20|R001|7|0.00|91.74|2026-09-13|6|20131312955|hashretencion==|", null);
+        assertThat(new String(pdf, 0, 5, StandardCharsets.ISO_8859_1)).isEqualTo("%PDF-");
+    }
+
+    @Test void laPercepcionLlevaClienteYCobrado() {
+        Comprobante c = Comprobante.deAgente(UUID.randomUUID(), "P001", LocalDate.of(2026, 9, 13), new Receptor("1", "45678912", "JUAN PEREZ", null),
+                new ComprobanteDeAgente(TipoDocumento.PERCEPCION, "01", null, List.of(new ComprobanteDeAgente.Documento("01", "F001-9", LocalDate.of(2026, 9, 1), new BigDecimal("1000.00"),
+                        "PEN", 1, LocalDate.of(2026, 9, 13), new BigDecimal("1000.00"), null, null)))).crear("20100066603", CLOCK);
+        c.asignarNumero(2, "20100066603");
+        c.firmar("hashpercepcion==", "k");
+        assertThat(generador.xhtml(c, TENANT, "qr", null)).contains("COMPROBANTE DE PERCEPCIÓN ELECTRÓNICO", "Cliente", "JUAN PEREZ", "Percepción Venta Interna", "Percibido (S/)",
+                "Importe total percibido", "S/ 20.00", "Importe total cobrado", "S/ 1,020.00", "Representación impresa del COMPROBANTE DE PERCEPCIÓN ELECTRÓNICA");
+    }
+
     /**
      * Las leyendas del catálogo 52 que declara el emisor tienen que salir impresas: en una factura de la Amazonía o de la zona
      * comercial de Tacna, el texto del catálogo es la frase que sustenta la exoneración. Faltaba justo en esos comprobantes.

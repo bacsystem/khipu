@@ -266,7 +266,8 @@
 </#macro>
 
 <#-- QR, hash y la leyenda de representación impresa (el pie configurado por la empresa reemplaza la primera línea). -->
-<#macro pie tipoNombre>
+<#-- {@code de}: «de la» (factura, boleta, nota, liquidación) o «del» (comprobante de retención o de percepción, #40). -->
+<#macro pie tipoNombre de="de la">
   <table class="pie">
     <tr>
       <td class="qr" style="width: 36mm;"><img src="${qr}" alt="QR" /></td>
@@ -274,7 +275,7 @@
         <#if p.pieDePagina()??>
         <p class="leyenda">${p.pieDePagina()}</p>
         <#else>
-        <p class="leyenda">Representación impresa de la ${tipoNombre?upper_case} ELECTRÓNICA emitida por ${t.razonSocial()} (RUC ${t.ruc()}) a través de khipu.</p>
+        <p class="leyenda">Representación impresa ${de} ${tipoNombre?upper_case} ELECTRÓNICA emitida por ${t.razonSocial()} (RUC ${t.ruc()}) a través de khipu.</p>
         </#if>
         <p class="leyenda">Consulte el documento en el portal de SUNAT (www.sunat.gob.pe) con el RUC del emisor, tipo, serie y número.</p>
         <p class="leyenda">Valor resumen (hash): <span class="hash">${c.hash()}</span></p>

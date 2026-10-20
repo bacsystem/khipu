@@ -141,14 +141,14 @@ public class FacturaController {
             `X-Total-Count` y refleja los filtros. Filtre por `estado` para trabajar una cola (p. ej. `ERROR_ENVIO` para reintentar,
             `RECHAZADO` para corregir y reemitir) y por fecha de emisión con `desde`/`hasta` (inclusive, rango abierto si falta uno;
             `desde > hasta` responde `400 RANGO_INVALIDO`, una fecha mal formada `400 PARAMETRO_INVALIDO`) y por `serie` exacta
-            (F001, FC01…; con formato inválido `400 PARAMETRO_INVALIDO`, inexistente → lista vacía), por `tipo` (`01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito),
+            (F001, FC01…; con formato inválido `400 PARAMETRO_INVALIDO`, inexistente → lista vacía), por `tipo` (`01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito, `20` retención, `40` percepción),
             por `numero` (sin la serie) y por `cliente`: el documento (empieza por lo escrito) o parte de la razón social, sin distinguir mayúsculas. Los filtros se combinan.""")
     public ResponseEntity<ApiResponse<List<ComprobanteResponse>>> listar(HttpServletRequest req,
                                                                         @Parameter(description = "Estado del comprobante (ver *Estados del comprobante*)") @RequestParam(required = false) EstadoDocumento estado,
                                                                         @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-09-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
                                                                         @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)", example = "2026-09-30") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
                                                                         @Parameter(description = "Serie exacta del comprobante (4 caracteres: F001, FC01, FD01…)", example = "F001") @RequestParam(required = false) String serie,
-                                                                        @Parameter(description = "Tipo de comprobante: `01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito", example = "01") @RequestParam(required = false) String tipo,
+                                                                        @Parameter(description = "Tipo de comprobante: `01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito, `20` retención, `40` percepción", example = "01") @RequestParam(required = false) String tipo,
                                                                         @Parameter(description = "Cliente: el documento (empieza por lo escrito, si son solo dígitos) o parte de la razón social, sin distinguir mayúsculas; hasta 100 caracteres", example = "andina") @RequestParam(required = false) String cliente,
                                                                         @Parameter(description = "Número del comprobante (sin la serie)", example = "125") @RequestParam(required = false) Long numero,
                                                                         @Parameter(description = "Página, desde 1") @RequestParam(defaultValue = "1") int pagina,
@@ -171,7 +171,7 @@ public class FacturaController {
                                                           @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-09-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
                                                           @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)", example = "2026-09-30") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
                                                           @Parameter(description = "Serie exacta", example = "F001") @RequestParam(required = false) String serie,
-                                                          @Parameter(description = "Tipo: `01`, `03`, `04`, `07` u `08`", example = "01") @RequestParam(required = false) String tipo,
+                                                          @Parameter(description = "Tipo: `01`, `03`, `04`, `07`, `08`, `20` o `40`", example = "01") @RequestParam(required = false) String tipo,
                                                           @Parameter(description = "Cliente: documento (prefijo) o parte de la razón social", example = "andina") @RequestParam(required = false) String cliente,
                                                           @Parameter(description = "Número del comprobante (sin la serie)", example = "125") @RequestParam(required = false) Long numero,
                                                           @Parameter(description = "Qué archivos incluir: `xml`, `pdf`, `cdr` separados por coma", example = "xml,pdf") @RequestParam(required = false) String tipos) {
@@ -239,7 +239,7 @@ public class FacturaController {
     @Operation(summary = "Consultar un comprobante", description = """
             Estado actual, respuesta de SUNAT (`cdr`), totales, forma de pago y enlaces de descarga. Úselo para hacer seguimiento
             de un comprobante que quedó en `ERROR_ENVIO` o `ENVIADO`. Sirve también para las notas de crédito/débito emitidas con
-            `POST /v1/notas` (traen el bloque `nota`) y las liquidaciones de compra de `POST /v1/liquidaciones-compra` (traen el bloque `liquidacion`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el
+            `POST /v1/notas` (traen el bloque `nota`), las liquidaciones de compra de `POST /v1/liquidaciones-compra` (traen el bloque `liquidacion`) y las retenciones y percepciones de `POST /v1/retenciones` y `POST /v1/percepciones` (traen el bloque `agente`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el
             historial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente. Si la empresa
             tiene activado el envío automático al cliente, `envio_al_cliente` dice si el correo con el PDF, el XML y el CDR salió, sigue pendiente o falló.""")
     public ApiResponse<ComprobanteResponse> obtener(HttpServletRequest req, @PathVariable UUID id) {

@@ -80,6 +80,32 @@ class AdminEmpresaAccionesControllerTest {
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("EMPRESA_CON_ENVIOS_PENDIENTES"));
     }
 
+    // --- designación de agente (#40) ---------------------------------------------------------------------------------------------------
+
+    @Test void designarAgentePasaElActorYDiceDeCualACual() throws Exception {
+        UUID admin = UUID.randomUUID();
+        var hacia = new pe.factura.domain.tenant.DesignacionDeAgente(true, false);
+        when(acciones.designarAgente(ActorAdmin.administrador(admin, "203.0.113.7"), ID, hacia))
+                .thenReturn(new AccionesDeEmpresaUseCase.CambioDeDesignacion(ID, pe.factura.domain.tenant.DesignacionDeAgente.NINGUNA, hacia));
+
+        mvc.perform(post(BASE + "/agente").contentType("application/json").content("{\"retencion\":true,\"percepcion\":false}")
+                        .requestAttr(AdministradorActual.ATRIBUTO, admin).with(r -> { r.setRemoteAddr("203.0.113.7"); return r; }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.empresa_id").value(ID.toString()))
+                .andExpect(jsonPath("$.datos.desde.retencion").value(false))
+                .andExpect(jsonPath("$.datos.hacia.retencion").value(true))
+                .andExpect(jsonPath("$.datos.hacia.percepcion").value(false));
+    }
+
+    @Test void laDesignacionPideLosDosIndicadoresYLaRepetidaEs409() throws Exception {
+        mvc.perform(conClave(post(BASE + "/agente").contentType("application/json").content("{\"retencion\":true}")))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.errores['percepcion']").exists());
+        verifyNoInteractions(acciones);
+        when(acciones.designarAgente(any(), eq(ID), any())).thenThrow(new DomainException("DESIGNACION_SIN_CAMBIOS", "La empresa ya tenía esa designación"));
+        mvc.perform(conClave(post(BASE + "/agente").contentType("application/json").content("{\"retencion\":false,\"percepcion\":false}")))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("DESIGNACION_SIN_CAMBIOS"));
+    }
+
     // --- API keys ---------------------------------------------------------------------------------------------------------------------
 
     @Test void revocarUnaKeyPasaElActorYLosDosIdsYDiceCualYCuando() throws Exception {

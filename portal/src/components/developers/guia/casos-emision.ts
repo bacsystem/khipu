@@ -1,5 +1,5 @@
 /**
- * Casos de emisión de factura, boleta y liquidación de compra documentados en la guía. Cada uno lleva el JSON exacto que acepta su endpoint (`POST /v1/facturas` si no dice otro),
+ * Casos de emisión de factura, boleta, liquidación de compra, retención y percepción documentados en la guía. Cada uno lleva el JSON exacto que acepta su endpoint (`POST /v1/facturas` si no dice otro),
  * qué calcula khipu y las reglas SUNAT que aplican. `disponible: false` marca los casos cuyo soporte está en desarrollo
  * (se muestran para que el integrador planifique, con la advertencia correspondiente).
  */
@@ -828,6 +828,108 @@ X-Api-Key: fk_TU_API_KEY
       "**Plazo**: SUNAT la recibe hasta el **día siguiente** a su emisión (2108); no tiene resumen diario. **Anulación**: SUNAT no la admite en una comunicación de baja (2308) sino en un resumen de reversiones, que khipu todavía no emite: `POST /v1/facturas/{id}/baja` responde `422 BAJA_INVALIDA`.",
       "Que el DNI exista, no sea de un menor ni de un fallecido (2450, 2460–2462) y que el vendedor no pase de **75 UIT** de ventas por liquidación de compra en el año (2451) lo valida SUNAT con datos que khipu no tiene: si falla, la liquidación queda `RECHAZADO` con el número consumido.",
       "Consulta, XML (`SelfBilledInvoice` UBL 2.1), CDR, PDF y reenvío van por `GET /v1/facturas/{id}`…; el listado la filtra con `tipo=04`, y `POST /v1/liquidaciones-compra/calcular` responde los importes sin emitir. Admite `Idempotency-Key`. Homologado en e-beta: gravada, exonerada e inafecta, en dólares y por anticipo (`0502`) con carné de extranjería.",
+    ],
+    disponible: true,
+  },
+  {
+    id: "comprobante-retencion",
+    titulo: "Comprobante de retención (agente de retención)",
+    endpoint: "/v1/retenciones",
+    cuando: "La empresa fue designada por SUNAT agente de retención del IGV: al pagar a un proveedor sus facturas le retiene el 3 % y le emite el comprobante de retención (tipo 20). Solo para empresas que el soporte de khipu habilitó con la resolución de designación.",
+    request: `{
+  "serie": "R001",
+  "fecha_emision": "2026-09-17",
+  "proveedor": {
+    "ruc": "20131312955",
+    "razon_social": "PROVEEDOR DEL NORTE S.A.C.",
+    "direccion": "Av. Grau 123, Piura"
+  },
+  "regimen": "01",
+  "documentos": [
+    {
+      "tipo": "01",
+      "numero": "F001-123",
+      "fecha_emision": "2026-09-10",
+      "importe_total": 1180.00,
+      "moneda": "PEN",
+      "pago": { "numero": 1, "fecha": "2026-09-17", "importe": 1180.00 }
+    }
+  ]
+}
+
+// respuesta 201 (extracto)
+{
+  "estado": "exito",
+  "datos": {
+    "tipo": "20",
+    "serie": "R001",
+    "fecha_limite_envio": "2026-09-26",
+    "receptor": { "tipo_doc": "6", "num_doc": "20131312955", "razon_social": "PROVEEDOR DEL NORTE S.A.C." },
+    "totales": { "total": 35.40 },
+    "agente": {
+      "regimen": "01",
+      "descripcion_regimen": "Tasa 3%",
+      "tasa": 3,
+      "importe_total": 35.40,
+      "importe_neto": 1144.60
+    }
+  }
+}`,
+    notas: [
+      "**Quién puede**: solo una empresa designada agente de retención por SUNAT. khipu no consulta los padrones: el soporte registra la designación después de verificar la resolución; sin ella la serie `R###` (tipo `20` en `POST /v1/series`) y la emisión responden `422 AGENTE_NO_DESIGNADO` (2617). El `proveedor` siempre tiene RUC, distinto del de la empresa (2620).",
+      "**Importes**: por documento, retenido = pago × tasa (y × tipo de cambio fuera de soles) y neto pagado = pago − retenido, **siempre en soles**. `totales.total` es el importe total retenido; `agente.importe_neto`, lo que se paga al proveedor (más el `redondeo`, si lo hay, entre −1.00 y 1.00). En el ejemplo, 3 % de 1 180.00: 35.40 retenido y 1 144.60 pagado. Un documento en dólares lleva `\"tipo_cambio\": { \"factor\": 3.756 }` (y su `fecha`, por defecto la del pago).",
+      "`regimen` del catálogo 23: `01` tasa 3 % (la vigente) o `02` tasa 6 %, que solo vale para comprobantes emitidos hasta el 28/02/2014 (2985). Cada documento es una factura (`01`), nota de débito (`08`) o ticket (`12`) con su pago; un documento pagado en cuotas va una vez por cuota, con otro `pago.numero` (2626). Todos los pagos son del mes del comprobante (2625). **Aún no**: la nota de crédito (`07`) y otra retención como documento relacionado.",
+      "**Plazo**: SUNAT lo recibe hasta **9 días** después de su emisión (2600). Va al servicio de retenciones y percepciones de SUNAT; un rechazo no consume el número para SUNAT, pero khipu lo da por usado: corrija y emita otro. **Reversión**: `POST /v1/facturas/{id}/baja` lo revierte en un resumen de reversiones (`RR-…`), sin plazo.",
+      "Consulta, XML (`Retention` UBL 2.0), CDR, PDF y reenvío van por `GET /v1/facturas/{id}`…; el listado lo filtra con `tipo=20` y no suma a lo facturado. `POST /v1/retenciones/calcular` responde los importes sin emitir. Admite `Idempotency-Key`. Homologado en e-beta en soles y en dólares; e-beta no verifica la designación de agente.",
+    ],
+    disponible: true,
+  },
+  {
+    id: "comprobante-percepcion",
+    titulo: "Comprobante de percepción (agente de percepción)",
+    endpoint: "/v1/percepciones",
+    cuando: "La empresa fue designada por SUNAT agente de percepción del IGV: al cobrar a un cliente sus facturas le percibe un porcentaje adicional y le emite el comprobante de percepción (tipo 40). Solo para empresas habilitadas con la resolución de designación.",
+    request: `{
+  "serie": "P001",
+  "fecha_emision": "2026-09-17",
+  "cliente": {
+    "tipo_doc": "6",
+    "num_doc": "20601234565",
+    "nombre": "CLIENTE MAYORISTA S.A.C."
+  },
+  "regimen": "01",
+  "documentos": [
+    {
+      "tipo": "01",
+      "numero": "F001-9",
+      "fecha_emision": "2026-09-10",
+      "importe_total": 1000.00,
+      "pago": { "fecha": "2026-09-17", "importe": 1000.00 }
+    }
+  ]
+}
+
+// respuesta 201 (extracto)
+{
+  "estado": "exito",
+  "datos": {
+    "tipo": "40",
+    "serie": "P001",
+    "receptor": { "tipo_doc": "6", "num_doc": "20601234565" },
+    "totales": { "total": 20.00 },
+    "agente": {
+      "regimen": "01",
+      "tasa": 2,
+      "importe_total": 20.00,
+      "importe_neto": 1020.00
+    }
+  }
+}`,
+    notas: [
+      "**Quién puede**: solo una empresa designada agente de percepción por SUNAT y habilitada por el soporte (si no, `422 AGENTE_NO_DESIGNADO`, 4285). El `cliente` puede tener RUC, DNI u otro documento del catálogo 06 (2511, 2680).",
+      "`regimen` del catálogo 22: `01` venta interna 2 %, `02` adquisición de combustible 1 %, `03` agente de percepción con tasa especial 0.5 %. Por documento, percibido = cobro × tasa (en soles) y neto cobrado = cobro + percibido; `agente.importe_neto` es lo que paga el cliente. Los documentos cobrados son facturas (`01`), boletas (`03`), notas de débito (`08`) o tickets (`12`) de la empresa, cobrados en el mes del comprobante (2612).",
+      "**Lo que valida SUNAT con datos que khipu no tiene** (e-beta no lo aplica): que la factura cobrada exista en SUNAT (2609) con su fecha (2610), sea **al crédito** (3329) y no haya informado ya la percepción con el tipo de operación 2001 (3312). Si la percepción se cobró al contado en la misma factura (`percepcion` de `POST /v1/facturas`), no se emite este comprobante.",
+      "Plazo, reversión, consulta y descargas como en la retención: 9 días (2600), `RR-…` sin plazo, `tipo=40` en el listado, `POST /v1/percepciones/calcular` y `Idempotency-Key`. **Aún no**: la emisión excepcional (`sac:ExceptionalIndicator`) ni la nota de crédito como documento relacionado.",
     ],
     disponible: true,
   },

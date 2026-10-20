@@ -8,6 +8,7 @@ import pe.factura.domain.documento.Hidrobiologico;
 import pe.factura.domain.documento.TransporteCarga;
 import pe.factura.domain.documento.CargoCalculado;
 import pe.factura.domain.documento.ComunicacionBaja;
+import pe.factura.domain.documento.ComprobanteDeAgente;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Detraccion;
 import pe.factura.domain.documento.EnvioAlCliente;
@@ -33,14 +34,14 @@ import java.util.UUID;
 // y sin esto un solo esquema se queda con el de la petición, y la referencia /developers documenta mal la respuesta (valor_venta, igv… ausentes).
 public record ComprobanteResponse(
         @Schema(example = "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f") UUID id,
-        @Schema(example = "01", description = "Catálogo 01 SUNAT: 01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito") String tipo,
+        @Schema(example = "01", description = "Catálogo 01 SUNAT: 01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito, 20=retención, 40=percepción") String tipo,
         @Schema(example = "F001") String serie,
         @Schema(example = "125") Long numero,
         @Schema(example = "2026-09-14") LocalDate fechaEmision,
         @Schema(example = "2026-10-14", description = "Fecha de vencimiento informada, o `null`") LocalDate fechaVencimiento,
         @Schema(example = "2026-09-17", description = "Último día en que SUNAT acepta recibirlo (RS 193-2020: 3 días calendario desde la emisión; una boleta, 7: va sola hasta el 5.º día y después khipu la informa en el resumen diario). Pasado ese día, una factura o nota de factura FIRMADO o en ERROR_ENVIO pasa a FUERA_DE_PLAZO; una boleta (o nota sobre boleta que va en el resumen) se sigue informando en un resumen diario, fuera de plazo: SUNAT no la rechaza y puede observarla con la 4443") LocalDate fechaLimiteEnvio,
         @Schema(example = "PEN") String moneda,
-        @Schema(example = "0101", description = "Catálogo 51 SUNAT") String tipoOperacion,
+        @Schema(example = "0101", description = "Catálogo 51 SUNAT; `null` en una retención (20) o percepción (40), que no tienen tipo de operación") String tipoOperacion,
         @Schema(example = "3.756", description = "Tipo de cambio informado (soles por unidad de `moneda`), o `null`: siempre `null` en soles") BigDecimal tipoCambio,
         @Schema(example = "443.21", description = "Importe total en soles al `tipo_cambio`, o `null` si no se informó o el comprobante es en soles") BigDecimal totalEnSoles,
         ReceptorDto receptor,
@@ -66,6 +67,7 @@ public record ComprobanteResponse(
         @Schema(description = "Solo en exportaciones (0200–0208): Incoterm y país de uso del servicio; `null` en las demás") ExportacionDto exportacion,
         @Schema(description = "Solo en una liquidación de compra (04): el resto del domicilio del vendedor (que va en `receptor`), el lugar de la operación, lo que el comprador le retiene y el neto que le paga (igual a `totales.total`); `null` en los demás") LiquidacionDto liquidacion,
         @Schema(description = "Solo al consultar: el envío automático del comprobante a su cliente (`PUT /v1/empresa/envio-al-cliente`), o `null` si no se anotó (la empresa no lo tenía activado, el comprobante no traía correo o SUNAT aún no lo aceptó)") EnvioAlClienteDto envioAlCliente,
+        @Schema(description = "Solo en una retención (20) o una percepción (40): régimen, tasa, cada documento pagado o cobrado con lo retenido o percibido y el neto, y los totales en soles (`totales.total` es lo retenido o percibido); `null` en los demás") AgenteDto agente,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"pdf\": \"/v1/facturas/{id}/pdf\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     @Schema(name = "FormaPagoRespuesta")
     public record FormaPagoDto(
@@ -224,6 +226,48 @@ public record ComprobanteResponse(
         }
     }
 
+    /**
+     * #40: lo propio de una retención o una percepción. La contraparte (proveedor o cliente) va en {@code receptor}; aquí el régimen y su tasa, cada documento pagado o cobrado con lo
+     * retenido o percibido y el neto, y los totales, todo en soles salvo el importe y el pago de cada documento, que van en su moneda.
+     */
+    @Schema(name = "ComprobanteDeAgenteRespuesta")
+    public record AgenteDto(
+            @Schema(example = "01", description = "Régimen: catálogo 23 en la retención (01 tasa 3 %, 02 tasa 6 %), catálogo 22 en la percepción (01 venta interna 2 %, 02 combustible 1 %, 03 tasa especial 0.5 %)") String regimen,
+            @Schema(example = "Tasa 3%", description = "Descripción del régimen en su catálogo") String descripcionRegimen,
+            @Schema(example = "3", description = "Tasa en porcentaje") BigDecimal tasa,
+            @Schema(example = "35.40", description = "Importe total retenido o percibido, en soles (`cbc:TotalInvoiceAmount`); el mismo `totales.total`") BigDecimal importeTotal,
+            @Schema(example = "0.00", description = "Redondeo del importe total pagado o cobrado (`PayableRoundingAmount`), entre −1.00 y 1.00") BigDecimal redondeo,
+            @Schema(example = "1144.60", description = "Importe total pagado al proveedor (retención) o cobrado al cliente (percepción), en soles: la suma de los netos más el redondeo") BigDecimal importeNeto,
+            List<DocumentoDto> documentos) {
+        @Schema(name = "DocumentoDeAgenteRespuesta")
+        public record DocumentoDto(
+                @Schema(example = "01", description = "Catálogo 01: 01 factura, 03 boleta (solo en la percepción), 08 nota de débito, 12 ticket") String tipo,
+                @Schema(example = "F001-123") String numero,
+                @Schema(example = "2026-10-05") LocalDate fechaEmision,
+                @Schema(example = "1180.00", description = "Importe total del documento, en su moneda") BigDecimal importeTotal,
+                @Schema(example = "PEN") String moneda,
+                PagoDto pago,
+                @Schema(description = "Solo fuera de soles: soles por unidad de `moneda` con que se convirtió el pago, y su fecha; `null` en soles") TipoCambioDto tipoCambio,
+                @Schema(example = "35.40", description = "Lo retenido o percibido de este pago, en soles") BigDecimal importeAgente,
+                @Schema(example = "1144.60", description = "Neto pagado (pago − retenido) o cobrado (pago + percibido), en soles") BigDecimal neto) {}
+
+        @Schema(name = "PagoDeDocumentoRespuesta")
+        public record PagoDto(@Schema(example = "1") long numero, @Schema(example = "2026-10-20") LocalDate fecha,
+                              @Schema(example = "1180.00", description = "Importe pagado o cobrado sin la retención o la percepción, en la moneda del documento") BigDecimal importe) {}
+
+        @Schema(name = "TipoCambioDeDocumentoRespuesta")
+        public record TipoCambioDto(@Schema(example = "3.756") BigDecimal factor, @Schema(example = "2026-10-20") LocalDate fecha) {}
+
+        static AgenteDto de(Comprobante c) {
+            ComprobanteDeAgente a = c.agente();
+            if (a == null) return null;
+            return new AgenteDto(a.regimen(), a.descripcionRegimen(), a.tasa(), c.totales().total(), c.totales().redondeo(), c.importeNetoDeAgente(),
+                    a.documentos().stream().map(d -> new DocumentoDto(d.tipo(), d.numero(), d.fechaEmision(), d.importeTotal(), d.moneda(),
+                            new PagoDto(d.numeroPago(), d.fechaPago(), d.importePago()), d.enSoles() ? null : new TipoCambioDto(d.tipoCambio(), d.fechaTipoCambio()),
+                            d.importeDelAgente(a.tasa()), d.neto(c.tipo(), a.tasa()))).toList());
+        }
+    }
+
     /** Descuento tal como se aplicó: lo enviado (tipo/valor), el monto resultante y el código SUNAT del catálogo 53. */
     @Schema(name = "DescuentoRespuesta")
     public record DescuentoDto(
@@ -373,6 +417,7 @@ public record ComprobanteResponse(
                 ExportacionDto.de(c.exportacion()),
                 LiquidacionDto.de(c),
                 EnvioAlClienteDto.de(envio),
+                AgenteDto.de(c),
                 enlaces(c, p));
     }
 
