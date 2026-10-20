@@ -391,6 +391,43 @@ class JwtFilterTest {
         }
     }
 
+    /**
+     * H3: un POST que solo lee (la conciliación del SIRE, #322) es una lectura también para los cortes que dejan mirar y no escribir —soporte, correo sin verificar y
+     * términos pendientes—, con la misma definición que el rol ({@link PermisoDeRuta#esLectura}); un POST que escribe sigue cortado. El orden no cambia: lo de soporte va
+     * primero y no consulta nada; la suspensión y el usuario desactivado cortan también la lectura.
+     */
+    @Test void unPostQueSoloLeeEsLecturaParaSoporteCorreoYTerminos() throws Exception {
+        String conciliacion = "/v1/sire/rvie/conciliacion";
+        MockFilterChain soporte = new MockFilterChain();
+        assertThat(pedirConToken(TOKEN_DE_SOPORTE, "POST", conciliacion, soporte).getStatus()).isEqualTo(200);
+        assertThat(soporte.getRequest()).as("soporte puede conciliar: solo mira").isNotNull();
+        assertThat(pedirConToken(TOKEN_DE_SOPORTE, "POST", "/v1/sire/rvie", new MockFilterChain()).getContentAsString()).contains("SOPORTE_SOLO_LECTURA");
+
+        // Sin verificar el correo (el constructor sin fecha de verificación): mira y concilia, no emite.
+        delToken = new Usuario(usuario, cuenta, "ana@b.pe", "hash", Rol.LECTURA, true);
+        pasa("POST", conciliacion);
+        assertThat(pedir("POST", "/v1/facturas", new MockFilterChain()).getContentAsString()).contains("CORREO_SIN_VERIFICAR");
+
+        conRol(Rol.LECTURA);
+        conTerminosPendientes.add(usuario);
+        pasa("POST", conciliacion);
+        assertThat(pedir("POST", "/v1/facturas", new MockFilterChain()).getContentAsString()).contains("TERMINOS_PENDIENTES");
+
+        cuentasSuspendidas.add(cuenta);
+        assertThat(pedir("POST", conciliacion, new MockFilterChain()).getContentAsString()).as("la suspensión corta también lo que solo lee").contains("CUENTA_SUSPENDIDA");
+    }
+
+    /** {@link PermisoDeRuta#esLectura}: los métodos que no escriben y los POST que solo leen; nada más. */
+    @Test void esLecturaEsLaMismaDefinicionQueElRol() {
+        for (String m : new String[]{"GET", "HEAD", "OPTIONS"}) assertThat(PermisoDeRuta.esLectura(m, "/v1/facturas")).as(m).isTrue();
+        assertThat(PermisoDeRuta.esLectura("POST", "/v1/sire/rvie/conciliacion")).isTrue();
+        for (String[] m : new String[][]{{"POST", "/v1/facturas"}, {"PUT", "/v1/sire/rvie/conciliacion"}, {"DELETE", "/v1/sire/rvie/conciliacion"}, {"POST", "/v1/sire/rvie"},
+                {"POST", "/v1/sire/rvie/conciliacion/otra"}, {"PATCH", "/v1/empresa"}})
+            assertThat(PermisoDeRuta.esLectura(m[0], m[1])).as("%s %s", m[0], m[1]).isFalse();
+        // Toda lectura pide a lo más LEER, salvo la lectura reservada (las API keys) y el equipo, que el rol decide aparte.
+        for (String[] m : LECTURAS_DE_TODOS) assertThat(PermisoDeRuta.esLectura(m[0], m[1])).as("%s %s", m[0], m[1]).isTrue();
+    }
+
     /** Se corta antes que todo lo demás: ni se consulta la base para saber si la cuenta está suspendida o el correo verificado. */
     @Test void elCorteDeEscrituraDeSoporteNoConsultaNada() throws Exception {
         pedirConToken(TOKEN_DE_SOPORTE, "POST", "/v1/empresas", new MockFilterChain());

@@ -17,7 +17,6 @@ import pe.factura.domain.cuenta.Usuario;
 
 import java.io.IOException;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -41,8 +40,6 @@ public class JwtFilter extends OncePerRequestFilter {
     private final UsuarioRepository usuarios;
     private final SuspensionRepository suspensiones;
     private final AceptarTerminosUseCase terminos;
-    /** Lo que no escribe: con el correo sin verificar se puede mirar (#22). */
-    private static final Set<String> LECTURAS = Set.of("GET", "HEAD", "OPTIONS");
 
     @Override protected boolean shouldNotFilter(HttpServletRequest req) {
         String ruta = RutaRequest.rutaNormalizada(req);
@@ -62,11 +59,13 @@ public class JwtFilter extends OncePerRequestFilter {
         }
 
         String ruta = RutaRequest.rutaNormalizada(req);
+        // Lo que no escribe, con la misma definición que el rol (PermisoDeRuta.esLectura): GET, HEAD, OPTIONS y los POST que solo leen, como la conciliación del SIRE.
+        boolean lectura = PermisoDeRuta.esLectura(req.getMethod(), ruta);
 
         // Una sesión de soporte (#184: un administrador mirando el portal como un cliente) solo puede mirar: nada que escriba, ni siquiera lo de la propia sesión
         // (/v1/auth/**). Es lo que garantiza que no cambie la contraseña, las credenciales SOL ni nada más del cliente, y que no emita en su nombre. Va antes que
         // todo lo demás: ni se consulta la base.
-        if (claims.get().esSoporte() && !LECTURAS.contains(req.getMethod())) {
+        if (claims.get().esSoporte() && !lectura) {
             escribirError(res, 403, "SOPORTE_SOLO_LECTURA", "Estás viendo el portal en modo soporte: solo se puede mirar, no cambiar nada");
             return;
         }
@@ -91,14 +90,14 @@ public class JwtFilter extends OncePerRequestFilter {
                 return;
             }
             // Sin verificar el correo (#22) se puede entrar y mirar, pero no escribir: ni crear empresas ni emitir.
-            if (!LECTURAS.contains(req.getMethod()) && !usuario.get().correoVerificado()) {
+            if (!lectura && !usuario.get().correoVerificado()) {
                 escribirError(res, 403, "CORREO_SIN_VERIFICAR", "Verifica tu correo para continuar: te enviamos un enlace");
                 return;
             }
             // #342: sin aceptar la versión vigente de los términos tampoco se escribe con la sesión del portal (un usuario anterior a V64, o
             // uno que aceptó una versión que cambió). Aceptarlos es /v1/auth/terminos, que queda afuera como todo /v1/auth/**. Una API key no
             // pasa por aquí: los integradores no dependen de esto.
-            if (!LECTURAS.contains(req.getMethod()) && terminos.pendiente(usuario.get().id())) {
+            if (!lectura && terminos.pendiente(usuario.get().id())) {
                 escribirError(res, 403, "TERMINOS_PENDIENTES", "Acepta la versión vigente de los términos del servicio y la política de privacidad para continuar");
                 return;
             }
