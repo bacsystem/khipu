@@ -64,6 +64,10 @@ class HomologacionBetaTest {
 
     @Autowired TestRestTemplate http;
     HttpHeaders api;
+    /** Para guardar el XML y el CDR de una baja, RC o RR, que la API no descarga: se leen del storage por su clave. */
+    @Autowired pe.factura.application.port.out.BajaRepository bajasGuardadas;
+    @Autowired pe.factura.application.port.out.DocumentStorage storage;
+    java.util.UUID tenantId;
     final List<String[]> resumen = new ArrayList<>();
     /** Números aceptados por SUNAT que reutilizan escenarios posteriores (anticipo → final, facturas → notas). */
     final Map<String, Long> numeros = new HashMap<>();
@@ -89,6 +93,7 @@ class HomologacionBetaTest {
                 new HttpEntity<>("{\"ruc\":\"" + RUC + "\",\"razon_social\":\"EMPRESA DE PRUEBA S.A.C.\",\"entorno\":\"BETA\"}", admin), Map.class);
         assertThat(creado.getStatusCode()).as("alta del tenant").isEqualTo(HttpStatus.CREATED);
         String apiKey = (String) ((Map<?, ?>) creado.getBody().get("datos")).get("api_key");
+        tenantId = java.util.UUID.fromString(String.valueOf(((Map<?, ?>) creado.getBody().get("datos")).get("tenant_id")));
         // #40: la empresa de prueba se designa agente de retención y de percepción (e-beta no lo cruza: aceptó retenciones de un RUC que no es agente, 2026-10-20).
         assertThat(http.postForEntity("/v1/admin/empresas/" + ((Map<?, ?>) creado.getBody().get("datos")).get("tenant_id") + "/agente",
                 new HttpEntity<>("{\"retencion\":true,\"percepcion\":true}", admin), Map.class).getStatusCode()).as("designación de agente").isEqualTo(HttpStatus.OK);
@@ -348,12 +353,23 @@ class HomologacionBetaTest {
         Path dir = SALIDA.resolve(escenario);
         Files.createDirectories(dir);
         Files.writeString(dir.resolve("resultado.txt"), datos.get("estado") + "\n" + detalle + "\n", StandardCharsets.UTF_8);
+        guardarEvidenciaDeBaja(dir, datos.get("id"));
 
         assertThat(r.getStatusCode()).as(escenario + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
         assertThat(datos.get("estado")).as(escenario + ": " + detalle).isEqualTo("ACEPTADA");
         assertThat(String.valueOf(cdr.get("codigo"))).isEqualTo("0");
         ResponseEntity<Map> factura = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
         assertThat(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento")).as("el comprobante queda ANULADO").isEqualTo("ANULADO");
+    }
+
+    /** El XML firmado de la baja (RA, RC o RR) y el CDR de SUNAT, tal como quedaron en el storage. */
+    private void guardarEvidenciaDeBaja(Path dir, Object bajaId) throws IOException {
+        if (bajaId == null) return;
+        var b = bajasGuardadas.buscar(tenantId, java.util.UUID.fromString(String.valueOf(bajaId))).orElse(null);
+        if (b == null) return;
+        String nombre = b.nombreArchivo(RUC);
+        if (b.xmlKey() != null) Files.write(dir.resolve(nombre + ".xml"), storage.leer(b.xmlKey()));
+        if (b.cdrKey() != null) Files.write(dir.resolve("R-" + nombre + ".xml"), ZipUtil.extraerPrimero(storage.leer(b.cdrKey()), ".xml"));
     }
 
     /** Las bajas y altas tardías dependen de escenarios anteriores: con {@code HOMOLOGACION_ESCENARIOS} se saltan. */
@@ -373,8 +389,8 @@ class HomologacionBetaTest {
     }
 
     @AfterAll void escribirResumen() throws IOException {
-        StringBuilder md = new StringBuilder("# Homologación e-beta — factura y notas\n\n")
-                .append("RUC emisor `").append(RUC).append("`, serie `").append(SERIE).append("`, ").append(LocalDate.now(ZoneId.of("America/Lima"))).append("\n\n")
+        StringBuilder md = new StringBuilder("# Homologación e-beta\n\n")
+                .append("RUC emisor `").append(RUC).append("`, base de las series `").append(SERIE.substring(1)).append("` (F/B/L/R/P según el tipo), ").append(LocalDate.now(ZoneId.of("America/Lima"))).append("\n\n")
                 .append("| Escenario | Caso | Estado | CDR |\n|---|---|---|---|\n");
         for (String[] f : resumen) md.append("| ").append(f[0]).append(" | ").append(f[1]).append(" | ").append(f[2]).append(" | ").append(f[3].replace("|", "\\|")).append(" |\n");
         long ok = resumen.stream().filter(f -> ("ACEPTADO".equals(f[2]) || "ACEPTADA".equals(f[2])) && f[3].startsWith("0 -") && !f[3].contains("obs:")).count();

@@ -568,6 +568,37 @@ de `numero` y `monto` como texto sigue el ejemplo del manual y no está confirma
 4. Si SUNAT rechaza la consulta por el formato de `numero`/`monto`, ajustar `RestValidezGateway` (mandarlos como número) y su prueba.
 5. Verificado el contrato, quitar el fallback ante `SunatRechazoException` en `ConsultarValidezService` y volver la prueba de la matriz a «un rechazo no cae a SOAP».
 
+## 16. Retenciones y percepciones (#40)
+
+Los comprobantes de retención (20) y de percepción (40) y sus resúmenes de reversiones (`RR-…`) no van al `billService` de facturas sino al de
+retenciones y percepciones de SUNAT, que rechaza lo demás (y el de facturas rechaza estos: «codigo cpe: 20 no es un cpe valido»):
+
+| Propiedad (variable) | Por defecto |
+|---|---|
+| `app.sunat.otros-beta-url` (`APP_SUNAT_OTROSBETAURL`) | `https://e-beta.sunat.gob.pe/ol-ti-itemision-otroscpe-gem-beta/billService` |
+| `app.sunat.otros-prod-url` (`APP_SUNAT_OTROSPRODURL`) | `https://e-factura.sunat.gob.pe/ol-ti-itemision-otroscpe-gem/billService` |
+
+**Designación.** Solo emite una empresa que SUNAT designó agente de retención o de percepción. khipu no consulta los padrones de agentes: el
+administrador verifica la resolución y la registra con `POST /v1/admin/empresas/{id}/agente` (`{"retencion": true, "percepcion": false}`), que queda en la
+bitácora. Sin ella, crear la serie `R###`/`P###` o emitir responde `422 AGENTE_NO_DESIGNADO`.
+
+**Homologado en e-beta (2026-10-20)**, escenarios 100–107 de `HomologacionBetaTest` (`HOMOLOGACION_ESCENARIOS="10[0-5]-.*"`), todos con CDR `0` y sin
+observaciones: retención en soles; en soles y dólares; nota de débito, ticket y dos cuotas; percepción 2 %, 0.5 % (boleta a DNI) y 1 % en dólares; y la
+reversión RR de una retención y de una percepción.
+
+**Lo que e-beta no valida y producción sí** (khipu no tiene los datos para comprobarlo antes): que la empresa sea agente (2617 en la retención, error; 4285
+en la percepción, observación); que el RUC del proveedor o del cliente exista (2621/2605, salvo que el padrón de RUC esté cargado); que el comprobante cobrado
+en una percepción exista con esa fecha (2609/2610), sea al crédito (3329) y no lleve ya la percepción (3312); y el plazo de envío (2600). khipu aplica 7 días
+calendario desde el día siguiente a la emisión (RS 274-2015; fuentes secundarias, ver `PlazoEnvio`). e-beta tampoco lee el redondeo del total
+(`PayableRoundingAmount`: responde 0306), por eso khipu no lo emite. La reversión no tiene un plazo que SUNAT valide contra la emisión; la norma exige
+presentarla dentro de 7 días calendario desde que se comunicó la reversión al proveedor o al cliente, una fecha que khipu no conoce.
+
+**Hueco de numeración.** Si SUNAT rechaza un 20 o un 40, para SUNAT el número no quedó usado (manual del programador), pero khipu lo da por consumido
+(`RECHAZADO`) y el comprobante corregido sale con el siguiente: la serie queda con un hueco ante SUNAT.
+
+**Pendiente** (no hecho en #40): reutilizar el número de un 20/40 rechazado; sondear el servicio de otros CPE en el monitor del backoffice; la nota de crédito y
+el propio 20/40 como documento relacionado, la emisión excepcional de la percepción y el redondeo del total.
+
 ## 17. Términos y privacidad (#342)
 
 El portal publica los términos del servicio en `/terminos` y la política de privacidad en `/privacidad` (públicas, enlazadas desde el pie del landing,
