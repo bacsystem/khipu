@@ -10,6 +10,7 @@ const OTRAS_SECCIONES = [
   { href: "/developers/guia", etiqueta: "Guía de integración" },
   { href: "/developers/catalogos", etiqueta: "Catálogos SUNAT" },
   { href: "/developers/errores", etiqueta: "Errores y estados" },
+  { href: "/developers/entornos", etiqueta: "Entornos y límites" },
 ];
 
 export function DevelopersView({

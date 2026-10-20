@@ -15,10 +15,11 @@ describe("DevelopersView (#13)", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Referencia de la API" })).toBeInTheDocument();
     expect(screen.getByText("X-Api-Key")).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Más documentación" });
-    expect(nav.querySelectorAll("a")).toHaveLength(3);
+    expect(nav.querySelectorAll("a")).toHaveLength(4);
     expect(screen.getByRole("link", { name: "Guía de integración" })).toHaveAttribute("href", "/developers/guia");
     expect(screen.getByRole("link", { name: "Catálogos SUNAT" })).toHaveAttribute("href", "/developers/catalogos");
     expect(screen.getByRole("link", { name: "Errores y estados" })).toHaveAttribute("href", "/developers/errores");
+    expect(screen.getByRole("link", { name: "Entornos y límites" })).toHaveAttribute("href", "/developers/entornos");
     expect(screen.getByTestId("referencia")).toHaveTextContent("sin key");
   });
 

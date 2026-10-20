@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { LogoMarca } from "@/components/nav/logo";
+import { BuscarEnLaDocumentacion } from "./buscar-en-la-documentacion";
 import { DevelopersNav } from "./developers-nav";
 
-/** Cabecera del developer portal: marca, secciones (referencia, guía, catálogos, errores) y acceso al panel. */
+/** Cabecera del developer portal: marca, secciones (referencia, guía, catálogos, errores, entornos), buscador y acceso al panel. */
 export function DevelopersHeader({ autenticado }: { autenticado: boolean }) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur">
@@ -10,6 +11,9 @@ export function DevelopersHeader({ autenticado }: { autenticado: boolean }) {
         <div className="flex min-w-0 items-center gap-6">
           <LogoMarca />
           <DevelopersNav />
+        </div>
+        <div className="ml-auto hidden w-64 shrink-0 md:block">
+          <BuscarEnLaDocumentacion />
         </div>
         <nav className="flex shrink-0 items-center gap-4 text-[12px] text-muted-foreground">
           <Link href="/#precios" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">

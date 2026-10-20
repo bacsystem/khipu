@@ -10,7 +10,7 @@ test("la referencia de API carga sin sesión y muestra un endpoint real", async 
 
   // #13: la cabecera propia de la página (título, intro y las otras secciones) antes de la referencia.
   await expect(page.getByRole("heading", { level: 1, name: "Referencia de la API" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Más documentación" }).getByRole("link")).toHaveCount(3);
+  await expect(page.getByRole("navigation", { name: "Más documentación" }).getByRole("link")).toHaveCount(4);
   await expect(page.getByText("/v1/facturas").first()).toBeVisible({ timeout: 10_000 });
   expect(errores).toEqual([]);
 });
@@ -171,4 +171,30 @@ test("la guía y la tabla de errores documentan la Idempotency-Key de las notas 
   await page.goto("/developers/errores");
   await expect(page.getByText(/Las claves de facturas y de notas son independientes/)).toBeVisible();
   await expect(page.getByText(/200 al repetir un pedido de emisión con la misma Idempotency-Key/)).toBeVisible();
+});
+
+/** #26: las secciones del developer portal se recorren desde la cabecera, el buscador lleva a un estado y a un código de error, y la guía trae los tres lenguajes. */
+test("la cabecera recorre las secciones y el buscador lleva a un estado y a un código de error", async ({ page }) => {
+  await page.goto("/developers/guia");
+  await expect(page.getByText("Node.js — primera factura")).toBeVisible();
+  await expect(page.getByText("Python — primera factura")).toBeVisible();
+  await expect(page.getByText("cURL — primera factura")).toBeVisible();
+
+  await page.getByRole("navigation", { name: "Secciones del developer portal" }).getByRole("link", { name: "Entornos y límites" }).click();
+  await expect(page).toHaveURL(/\/developers\/entornos/);
+  await expect(page.getByRole("heading", { name: "BETA y producción" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Límites y cuotas" })).toBeVisible();
+  await expect(page.getByText("429 LIMITE_PLAN", { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lo que aún no está publicado" })).toBeVisible();
+
+  const buscador = page.getByLabel("Buscar en la documentación");
+  await buscador.fill("error_envio");
+  await page.getByRole("option", { name: /ERROR_ENVIO/ }).first().click();
+  await expect(page).toHaveURL(/\/developers\/errores#estados/);
+  await expect(page.getByRole("heading", { name: "Estados del comprobante" })).toBeVisible();
+
+  await page.getByLabel("Buscar en la documentación").fill("LIMITE_PLAN");
+  await page.getByRole("option", { name: /LIMITE_PLAN/ }).first().click();
+  await expect(page).toHaveURL(/\/developers\/errores#codigos/);
+  await expect(page.getByRole("heading", { name: "Códigos de error de khipu" })).toBeVisible();
 });

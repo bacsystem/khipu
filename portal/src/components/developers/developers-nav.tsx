@@ -9,6 +9,7 @@ export const SECCIONES = [
   { href: "/developers/guia", label: "Guía de emisión" },
   { href: "/developers/catalogos", label: "Catálogos SUNAT" },
   { href: "/developers/errores", label: "Errores y estados" },
+  { href: "/developers/entornos", label: "Entornos y límites" },
 ] as const;
 
 export function DevelopersNav() {
