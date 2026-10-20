@@ -65,7 +65,7 @@ export function EnvioAlClienteForm({ inicial }: { inicial: PreferenciaDeEnvioAlC
           <span className="font-medium">Enviar automáticamente el comprobante al cliente cuando SUNAT lo acepte</span>
           <span className={AYUDA_CAMPO}>
             Le llegan el PDF, el XML firmado y la constancia de SUNAT (CDR) al correo que indiques al emitir. Una nota de crédito o débito va al correo del comprobante que modifica, y una
-            boleta informada en el resumen diario sale cuando SUNAT acepta el resumen. Vale para lo que se acepte desde ahora.
+            boleta informada en el resumen diario sale cuando SUNAT acepta el resumen. Vale para lo que se acepte desde ahora; al desactivarlo, lo que esperaba salir ya no sale.
           </span>
         </span>
       </label>

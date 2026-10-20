@@ -24,6 +24,12 @@ public interface EnvioAlClienteRepository {
     /** Hasta {@code limite} envíos pendientes cuyo turno llegó, tomados por {@code bloqueo} (otra instancia no los toma mientras tanto). Dentro de una transacción. */
     List<Tomado> tomarVencidos(int limite, Duration bloqueo);
 
+    /**
+     * Justo antes de mandarlo (#325-H1): extiende el bloqueo por {@code bloqueo} desde ahora, solo si el envío sigue pendiente y tomado con la marca de {@code t}. Vacío si otra instancia
+     * lo retomó (venció el bloqueo mientras esta atendía otro): entonces no se manda, para no mandarlo dos veces.
+     */
+    Optional<Tomado> renovar(Tomado t, Duration bloqueo);
+
     /** El servidor de correo lo recibió. {@code false} si ya no estaba tomado con esa marca (otra instancia lo volvió a tomar). */
     boolean registrarEnvio(Tomado t, Instant ahora);
 

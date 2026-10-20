@@ -31,7 +31,8 @@ public class EnvioAlClienteController {
     @PutMapping("/envio-al-cliente")
     @Operation(summary = "Activar o desactivar el envío al cliente", description = """
             Vale para los comprobantes que SUNAT acepte desde ahora; lo ya aceptado no se envía. Activarlo sin correo configurado en el servidor responde
-            `503 CORREO_NO_CONFIGURADO` (los clientes no recibirían nada); desactivarlo siempre se puede.""")
+            `503 CORREO_NO_CONFIGURADO` (los clientes no recibirían nada); desactivarlo siempre se puede, y corta también lo que esperaba salir: esos envíos
+            quedan `OMITIDO` («la empresa desactivó el envío automático»). Tampoco sale un comprobante con una baja en curso.""")
     public ApiResponse<PreferenciaResponse> fijar(HttpServletRequest req, @Valid @RequestBody PreferenciaRequest body) {
         return ApiResponse.ok(PreferenciaResponse.de(envios.fijarPreferencia(TenantActual.id(req), body.enviarAutomaticamente())));
     }

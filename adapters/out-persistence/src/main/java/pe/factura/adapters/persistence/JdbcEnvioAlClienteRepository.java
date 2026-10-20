@@ -50,6 +50,13 @@ public class JdbcEnvioAlClienteRepository implements EnvioAlClienteRepository {
         return conMarca;
     }
 
+    @Override public Optional<Tomado> renovar(Tomado t, Duration bloqueo) {
+        Instant marca = Instant.now().plus(bloqueo).truncatedTo(ChronoUnit.MICROS);
+        int filas = jdbc.update("UPDATE envio_al_cliente SET locked_until = ? WHERE documento_id = ? AND estado = 'PENDIENTE' AND locked_until = ?",
+                Timestamp.from(marca), t.documentoId(), Timestamp.from(t.bloqueo()));
+        return filas == 0 ? Optional.empty() : Optional.of(new Tomado(t.tenantId(), t.documentoId(), t.destinatario(), t.intentos(), marca));
+    }
+
     @Override public boolean registrarEnvio(Tomado t, Instant ahora) {
         Timestamp en = Timestamp.from(ahora);
         return jdbc.update("""

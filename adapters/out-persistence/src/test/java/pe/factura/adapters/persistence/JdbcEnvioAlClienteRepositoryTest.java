@@ -108,15 +108,36 @@ class JdbcEnvioAlClienteRepositoryTest extends PersistenciaTestBase {
     @Test void nuncaHayDosEnviosPorComprobante() {
         UUID t = tenantDePrueba();
         repo.fijarAutomatico(t, true);
-        Comprobante c = aceptar(firmada(t, 1, "compras@cliente.pe"));
-
-        // Una segunda aceptación del mismo comprobante (otra réplica que guardó el mismo paso) choca con la clave primaria y no anota otro.
-        jdbc.update("INSERT INTO envio_al_cliente (documento_id, tenant_id, destinatario) VALUES (?, ?, 'otro@cliente.pe') ON CONFLICT (documento_id) DO NOTHING", c.id(), t);
-        c.anular();
+        Comprobante c = firmada(t, 1, "compras@cliente.pe");
+        c.marcarEnviado();
         uow.ejecutar(() -> comprobantes.guardar(c));
+        // #325-H2: dos instancias (dos réplicas que leyeron el mismo ENVIADO) guardan cada una el paso a ACEPTADO, en su propia transacción. La segunda no anota otro envío ni falla.
+        Comprobante a = comprobantes.buscar(t, c.id()).orElseThrow();
+        Comprobante b = comprobantes.buscar(t, c.id()).orElseThrow();
+        a.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr/a");
+        b.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr/b");
+        uow.ejecutar(() -> comprobantes.guardar(a));
+        uow.ejecutar(() -> comprobantes.guardar(b));
 
         assertThat(filas()).isEqualTo(1);
         assertThat(repo.deComprobante(t, c.id()).orElseThrow().destinatario()).isEqualTo("compras@cliente.pe");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM evento_documento WHERE documento_id = ? AND estado_nuevo = 'ACEPTADO'", Integer.class, c.id())).as("las dos guardaron el paso").isEqualTo(2);
+    }
+
+    /** #325-H1: renovar solo vale con la marca vigente; con la de una toma anterior (otra instancia lo retomó) no renueva y no se manda. */
+    @Test void renovarSoloConLaMarcaVigente() {
+        UUID t = tenantDePrueba();
+        repo.fijarAutomatico(t, true);
+        Comprobante c = aceptar(firmada(t, 1, "compras@cliente.pe"));
+        Tomado tomado = tomar(10).get(0);
+
+        Tomado renovado = uow.ejecutar(() -> repo.renovar(tomado, BLOQUEO)).orElseThrow();
+        assertThat(renovado.bloqueo()).isAfter(tomado.bloqueo());
+        assertThat(uow.ejecutar(() -> repo.renovar(tomado, BLOQUEO))).as("la marca vieja ya no vale").isEmpty();
+        assertThat(uow.ejecutar(() -> repo.registrarEnvio(tomado, AHORA))).isFalse();
+        assertThat(uow.ejecutar(() -> repo.registrarEnvio(renovado, AHORA))).isTrue();
+        assertThat(uow.ejecutar(() -> repo.renovar(renovado, BLOQUEO))).as("lo enviado no se renueva").isEmpty();
+        assertThat(repo.deComprobante(t, c.id()).orElseThrow().estado()).isEqualTo(Estado.ENVIADO);
     }
 
     @Test void siElCambioDeEstadoNoSeGuardaTampocoElEnvio() {

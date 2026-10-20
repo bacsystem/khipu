@@ -3,6 +3,7 @@ package pe.factura.application.service;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.EnviarAlClienteUseCase.Preferencia;
 import pe.factura.application.port.out.Adjunto;
+import pe.factura.application.port.out.CorreoNoEnviadoException;
 import pe.factura.application.port.out.CorreoSender;
 import pe.factura.application.port.out.EnvioAlClienteRepository;
 import pe.factura.domain.DomainException;
@@ -34,32 +35,46 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class EnviarAlClienteServiceTest {
     record Correo(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) {}
 
-    /** El repositorio en memoria, con las mismas reglas que la tabla: una fila por comprobante y el resultado solo si sigue tomado con la misma marca. */
+    /**
+     * El repositorio en memoria, con las mismas reglas que la tabla: una fila por comprobante, y tomar, renovar y anotar solo con la marca vigente. El bloqueo vence según
+     * {@link #reloj}, que la prueba puede adelantar (lo que en la tabla hace {@code now()}).
+     */
     static final class Envios implements EnvioAlClienteRepository {
         final Set<UUID> automaticos = new HashSet<>();
-        final Map<UUID, EnvioAlCliente> filas = new HashMap<>();
+        final Map<UUID, EnvioAlCliente> filas = new java.util.LinkedHashMap<>();
         final Map<UUID, UUID> tenantDe = new HashMap<>();
         final Map<UUID, Instant> bloqueos = new HashMap<>();
+        final java.util.concurrent.atomic.AtomicReference<Instant> reloj = new java.util.concurrent.atomic.AtomicReference<>(Fakes.CLOCK.instant());
+        private long secuencia;
 
         void anotar(UUID tenant, UUID documento, String destinatario) {
             if (filas.containsKey(documento)) return;
             filas.put(documento, new EnvioAlCliente(documento, destinatario, Estado.PENDIENTE, 0, null, Instant.EPOCH, null, Instant.EPOCH));
             tenantDe.put(documento, tenant);
         }
+        /** Una marca distinta cada vez, como la de la tabla (que lleva microsegundos). */
+        private Instant marca(Duration bloqueo) { return reloj.get().plus(bloqueo).plusNanos(++secuencia * 1000); }
+        private boolean bloqueado(UUID d) { return bloqueos.containsKey(d) && bloqueos.get(d).isAfter(reloj.get()); }
         public boolean automatico(UUID t) { return automaticos.contains(t); }
         public void fijarAutomatico(UUID t, boolean a) { if (a) automaticos.add(t); else automaticos.remove(t); }
         public List<Tomado> tomarVencidos(int limite, Duration bloqueo) {
-            Instant marca = Instant.now().plus(bloqueo);
             List<Tomado> r = new ArrayList<>();
             for (EnvioAlCliente e : filas.values()) {
                 if (r.size() >= limite) break;
-                if (e.estado() != Estado.PENDIENTE || bloqueos.containsKey(e.documentoId()) || e.siguienteIntento().isAfter(Fakes.CLOCK.instant())) continue;
-                bloqueos.put(e.documentoId(), marca);
-                r.add(new Tomado(tenantDe.get(e.documentoId()), e.documentoId(), e.destinatario(), e.intentos(), marca));
+                if (e.estado() != Estado.PENDIENTE || bloqueado(e.documentoId()) || e.siguienteIntento().isAfter(reloj.get())) continue;
+                Instant m = marca(bloqueo);
+                bloqueos.put(e.documentoId(), m);
+                r.add(new Tomado(tenantDe.get(e.documentoId()), e.documentoId(), e.destinatario(), e.intentos(), m));
             }
             return r;
         }
         private boolean tomado(Tomado t) { return t.bloqueo().equals(bloqueos.get(t.documentoId())) && filas.get(t.documentoId()).estado() == Estado.PENDIENTE; }
+        public Optional<Tomado> renovar(Tomado t, Duration bloqueo) {
+            if (!tomado(t)) return Optional.empty();
+            Instant m = marca(bloqueo);
+            bloqueos.put(t.documentoId(), m);
+            return Optional.of(new Tomado(t.tenantId(), t.documentoId(), t.destinatario(), t.intentos(), m));
+        }
         public boolean registrarEnvio(Tomado t, Instant ahora) {
             if (!tomado(t)) return false;
             EnvioAlCliente e = filas.get(t.documentoId());
@@ -92,18 +107,25 @@ class EnviarAlClienteServiceTest {
     private final List<Correo> enviados = new ArrayList<>();
     private final AtomicBoolean smtp = new AtomicBoolean(true);
     private final AtomicInteger fallos = new AtomicInteger();
+    private java.util.function.Supplier<RuntimeException> falla = () -> new IllegalStateException("SMTP caído en smtp.interno.khipu:587");
+    /** Lo que hace el correo de mentira antes de entregar (la prueba de dos réplicas lo usa para que el SMTP «tarde»). */
+    private java.util.function.Consumer<String> alEnviar = para -> {};
+    private final Fakes.Bajas bajas = new Fakes.Bajas();
+    /** Lo que pasa mientras se arma el PDF de un comprobante (la prueba de dos réplicas lo usa para que armar los adjuntos «tarde»). */
+    private java.util.function.Consumer<UUID> alGenerarPdf = id -> {};
     private byte[] pdf = "%PDF".getBytes();
     private final CorreoSender correo = new CorreoSender() {
         public void enviar(String para, String asunto, String cuerpo) { enviar(para, asunto, cuerpo, List.of()); }
         public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) {
-            if (fallos.getAndDecrement() > 0) throw new IllegalStateException("SMTP caído");
+            alEnviar.accept(para);
+            if (fallos.getAndDecrement() > 0) throw falla.get();
             enviados.add(new Correo(para, asunto, cuerpo, adjuntos));
         }
         @Override public boolean entregaDeVerdad() { return smtp.get(); }
     };
-    private final ConsultarComprobanteService consultar = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr, logo) -> pdf, new Fakes.Establecimientos(new Fakes.Series()),
+    private final ConsultarComprobanteService consultar = new ConsultarComprobanteService(repo, tenants, storage, (c, t, qr, logo) -> { alGenerarPdf.accept(c.id()); return pdf; }, new Fakes.Establecimientos(new Fakes.Series()),
             xml -> Optional.empty());
-    private final EnviarAlClienteService service = new EnviarAlClienteService(envios, consultar, tenants, correo, Fakes.UOW, Fakes.CLOCK);
+    private final EnviarAlClienteService service = new EnviarAlClienteService(envios, consultar, tenants, correo, Fakes.UOW, Fakes.CLOCK, bajas);
     private final UUID tenant = UUID.randomUUID();
 
     private Comprobante aceptadaConEnvio() {
@@ -113,6 +135,7 @@ class EnviarAlClienteServiceTest {
         storage.guardar("cdr/" + c.id(), new byte[]{0x50, 0x4b});
         c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr/" + c.id());
         repo.guardar(c);
+        envios.fijarAutomatico(tenant, true);
         envios.anotar(tenant, c.id(), "compras@cliente.pe");
         return c;
     }
@@ -151,7 +174,7 @@ class EnviarAlClienteServiceTest {
         EnvioAlCliente e = service.envioDe(tenant, c.id()).orElseThrow();
         assertThat(e.estado()).isEqualTo(Estado.PENDIENTE);
         assertThat(e.intentos()).isEqualTo(1);
-        assertThat(e.ultimoError()).isEqualTo("SMTP caído");
+        assertThat(e.ultimoError()).as("la clase de fallo, no el mensaje crudo con el host").isEqualTo("El servidor de correo no aceptó el mensaje");
         assertThat(e.siguienteIntento()).isEqualTo(Fakes.CLOCK.instant().plus(Duration.ofMinutes(1)));
         assertThat(enviados).isEmpty();
     }
@@ -217,7 +240,76 @@ class EnviarAlClienteServiceTest {
 
         EnvioAlCliente e = service.envioDe(tenant, c.id()).orElseThrow();
         assertThat(e.estado()).isEqualTo(Estado.PENDIENTE);
-        assertThat(e.ultimoError()).startsWith("No se pudieron preparar los adjuntos");
+        assertThat(e.ultimoError()).isEqualTo("No se pudieron leer los archivos del comprobante para adjuntarlos").doesNotContain(c.xmlKey());
+    }
+
+    /** #325-H3: el motivo que ve el cliente es la clase de fallo; el host interno del SMTP de la plataforma queda solo en el log. */
+    @Test void elMotivoGuardadoNoLlevaElHostInternoDelSmtp() {
+        Comprobante c = aceptadaConEnvio();
+        fallos.set(1);
+        falla = () -> new CorreoNoEnviadoException(CorreoNoEnviadoException.Motivo.CONEXION, new RuntimeException("Couldn't connect to host, port: smtp.interno.khipu:587"));
+
+        service.enviarPendientes();
+
+        EnvioAlCliente e = service.envioDe(tenant, c.id()).orElseThrow();
+        assertThat(e.ultimoError()).isEqualTo("No se pudo conectar con el servidor de correo").doesNotContain("smtp.interno");
+    }
+
+    /** #325-H4: desactivar la preferencia corta también lo que ya estaba pendiente. */
+    @Test void alDesactivarLaPreferenciaLoPendienteSeOmite() {
+        Comprobante c = aceptadaConEnvio();
+        service.fijarPreferencia(tenant, false);
+
+        service.enviarPendientes();
+
+        assertThat(enviados).isEmpty();
+        EnvioAlCliente e = service.envioDe(tenant, c.id()).orElseThrow();
+        assertThat(e.estado()).isEqualTo(Estado.OMITIDO);
+        assertThat(e.ultimoError()).contains("desactivó el envío automático");
+    }
+
+    /** Si SUNAT acepta la baja en curso, el cliente habría recibido un comprobante anulado: no se manda. */
+    @Test void unComprobanteConUnaBajaEnCursoSeOmite() {
+        Comprobante c = aceptadaConEnvio();
+        bajas.guardar(pe.factura.domain.documento.ComunicacionBaja.crear(c, 1, "Error en el monto", Fakes.CLOCK));
+
+        service.enviarPendientes();
+
+        assertThat(enviados).isEmpty();
+        assertThat(service.envioDe(tenant, c.id()).orElseThrow().ultimoError()).contains("baja en curso");
+    }
+
+    /**
+     * #325-H1: dos réplicas. Esta toma un lote de dos (bloqueo hasta t0 + 5 min). Armar los adjuntos del primero tarda 3 min y mandarlo, 2 min más (renovó su bloqueo justo antes
+     * de mandar: no vence). A mitad de ese envío venció el bloqueo del segundo y la otra réplica lo retoma y lo manda. Al volver, esta réplica no lo manda otra vez: al renovar ve
+     * que la marca ya no es la suya.
+     */
+    @Test void unEnvioQueOtraReplicaRetomoMientrasElSmtpTardabaNoSeMandaDosVeces() {
+        Comprobante primero = aceptadaConEnvio();
+        Comprobante segundo = Fakes.facturaFirmada(tenant, storage, 2);
+        segundo.marcarEnviado();
+        storage.guardar("cdr/" + segundo.id(), new byte[]{0x50, 0x4b});
+        segundo.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr/" + segundo.id());
+        repo.guardar(segundo);
+        envios.anotar(tenant, segundo.id(), "segundo@cliente.pe");
+        EnviarAlClienteService otraReplica = new EnviarAlClienteService(envios, consultar, tenants, correo, Fakes.UOW, Fakes.CLOCK, bajas);
+        java.util.concurrent.atomic.AtomicBoolean armando = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicBoolean mandando = new java.util.concurrent.atomic.AtomicBoolean();
+        alGenerarPdf = id -> {
+            if (id.equals(primero.id()) && armando.compareAndSet(false, true)) envios.reloj.set(envios.reloj.get().plus(Duration.ofMinutes(3)));
+        };
+        alEnviar = para -> {
+            if (para.equals("compras@cliente.pe") && mandando.compareAndSet(false, true)) {
+                envios.reloj.set(envios.reloj.get().plus(Duration.ofMinutes(2)).plusSeconds(1));
+                assertThat(otraReplica.enviarPendientes()).as("la otra réplica retoma solo el segundo: el primero sigue bloqueado").isEqualTo(1);
+            }
+        };
+
+        service.enviarPendientes();
+
+        assertThat(enviados).extracting(Correo::para).containsExactly("segundo@cliente.pe", "compras@cliente.pe");
+        assertThat(service.envioDe(tenant, primero.id()).orElseThrow().estado()).isEqualTo(Estado.ENVIADO);
+        assertThat(service.envioDe(tenant, segundo.id()).orElseThrow().estado()).isEqualTo(Estado.ENVIADO);
     }
 
     @Test void laPreferenciaSeActivaSoloConCorreoConfiguradoYSiempreSeDesactiva() {
