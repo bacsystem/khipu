@@ -28,7 +28,8 @@ export type Plantilla = {
   moneda: string;
   /** Solo si el formulario la ofrece (venta interna, NRUS en boleta, exportaciones); si no, `0101`. */
   operacion: string;
-  cliente: { tipoDoc: string; numDoc: string; razonSocial: string; direccion: string; pais: string };
+  /** `email` (#325): el correo del cliente del original, para que el duplicado también le llegue; ausente si no tenía. */
+  cliente: { tipoDoc: string; numDoc: string; razonSocial: string; direccion: string; pais: string; email?: string };
   lineas: LineaPlantilla[];
   descuentoGlobal: AjusteForm;
   cargoGlobal: AjusteForm;
@@ -121,6 +122,7 @@ export function plantillaDesde(c: Comprobante): Plantilla | null {
           razonSocial: r?.tipo_doc === "-" ? "" : (r?.razon_social ?? ""),
           direccion: r?.direccion ?? "",
           pais: exportacion ? (r?.pais ?? "") : "",
+          ...(r?.email ? { email: r.email } : {}),
         },
     lineas: c.items.length ? c.items.map((i) => (aInterna && i.tipo_afectacion_igv === "40" ? { ...lineaDesde(i), tipoAfectacionIgv: "10" } : lineaDesde(i))) : [],
     descuentoGlobal: ajusteDesde(c.totales?.descuento_global),

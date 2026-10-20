@@ -2603,6 +2603,23 @@ export const handlers = [
     return ok(empresa);
   }),
 
+  // #325: la preferencia de envío automático al cliente, como `EnvioAlClienteController`. El mock tiene correo configurado (`correo_disponible: true`); sin `enviar_automaticamente`
+  // booleano, 422 VALIDACION.
+  http.get(`${BASE}/v1/empresa/envio-al-cliente`, ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    return ok({ enviar_automaticamente: db.envioAutomaticoPorEmpresa.has(empresa.id), correo_disponible: true });
+  }),
+  http.put(`${BASE}/v1/empresa/envio-al-cliente`, async ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    const body = (await request.json().catch(() => ({}))) as { enviar_automaticamente?: unknown };
+    if (typeof body.enviar_automaticamente !== "boolean") return validacionFallida({ enviarAutomaticamente: ["no debe ser nulo"] });
+    if (body.enviar_automaticamente) db.envioAutomaticoPorEmpresa.add(empresa.id);
+    else db.envioAutomaticoPorEmpresa.delete(empresa.id);
+    return ok({ enviar_automaticamente: body.enviar_automaticamente, correo_disponible: true });
+  }),
+
   // Personalización del PDF: se guarda en la empresa; la vista previa devuelve un PDF mínimo con los parámetros en un comentario.
   http.get(`${BASE}/v1/empresa/personalizacion-pdf`, ({ request }) => {
     const empresa = empresaDe(request);
@@ -3108,10 +3125,14 @@ export const handlers = [
       serie: string;
       fecha_emision: string;
       moneda: string;
-      cliente: { tipo_doc: string; num_doc: string; razon_social: string; direccion?: string };
+      cliente: { tipo_doc: string; num_doc: string; razon_social: string; direccion?: string; email?: string };
       tipo_operacion?: string;
       items: Array<{ descripcion: string; unidad: string; cantidad: number; precio_unitario: number; tipo_afectacion_igv: string; icbper?: boolean }>;
     };
+    // #325: como `CorreoDelCliente`, antes de numerar: en blanco es ausencia, se guarda en minúsculas y uno mal formado es 422 RECEPTOR_INVALIDO.
+    const correoCliente = body.cliente?.email?.trim().toLowerCase() || undefined;
+    if (correoCliente && (correoCliente.length > 150 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correoCliente)))
+      return fail(422, "RECEPTOR_INVALIDO", `El correo del cliente no es válido (hasta 150 caracteres): ${correoCliente}`);
 
     // #303: el `@NotBlank` de `ClienteDto` corre antes que el servicio y que el dominio (347-H2), y en blanco es lo que `String.trim()` de
     // Java deja vacío: solo los caracteres hasta U+0020, no el espacio de no separación (que llega al dominio y vuelve como 2022).
@@ -3204,7 +3225,8 @@ export const handlers = [
       tipo_cambio: (body as { tipo_cambio?: number }).tipo_cambio ?? null,
       total_en_soles: mon.totalEnSoles,
       tipo_operacion: (body as { tipo_operacion?: string }).tipo_operacion ?? "0101",
-      receptor: { ...body.cliente, direccion: body.cliente.direccion ?? null },
+      // `email` normalizado; sin correo queda `undefined` y el JSON omite la clave, como la API.
+      receptor: { ...body.cliente, direccion: body.cliente.direccion ?? null, email: correoCliente },
       items: body.items.map((i) => ({ codigo: null, ...i })),
       estado_documento: "ACEPTADO",
       hash: `hash-${id}`,
@@ -3224,6 +3246,9 @@ export const handlers = [
     };
     db.facturasPorEmpresa.set(empresaId, [comprobante, ...(db.facturasPorEmpresa.get(empresaId) ?? [])]);
     if (clave) db.clavesEmision.set(`${empresaId}|${clave}`, { huella, id });
+    // #325: el mock acepta al instante, así que el envío al cliente (si la empresa lo activó y hay correo) también sale ya; el backend lo manda unos segundos después.
+    if (correoCliente && db.envioAutomaticoPorEmpresa.has(empresaId))
+      db.enviosAlCliente.set(id, { destinatario: correoCliente, estado: "ENVIADO", intentos: 1, enviado_en: new Date().toISOString() });
     return okConAvisos(comprobante, avisosDelComprador(numDoc), 201);
   }),
 
@@ -3318,8 +3343,9 @@ export const handlers = [
           motivo_descripcion: n.nota!.motivo_descripcion, estado_documento: n.estado_documento, total: n.totales.total,
         }))
       : [];
-    // Como el backend (#4): el historial viaja solo al consultar por id; un comprobante sin eventos devuelve [].
-    return ok({ ...factura, notas: notas.length ? notas : null, eventos: factura.eventos ?? [] });
+    // Como el backend (#4): el historial viaja solo al consultar por id; un comprobante sin eventos devuelve []. El envío al cliente (#325), también solo aquí.
+    const envio = db.enviosAlCliente.get(factura.id);
+    return ok({ ...factura, notas: notas.length ? notas : null, eventos: factura.eventos ?? [], ...(envio ? { envio_al_cliente: envio } : {}) });
   }),
 
   // Notas de crédito/débito: la factura debe existir y estar aceptada; la nota copia cliente y moneda y se acepta al instante.

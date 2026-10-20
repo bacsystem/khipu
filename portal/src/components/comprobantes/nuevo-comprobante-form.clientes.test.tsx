@@ -128,6 +128,54 @@ describe("NuevoComprobanteForm — clientes guardados (#319)", () => {
     expect(guardados(fetch)).toHaveLength(0);
   });
 
+  // --- #325: el correo del cliente, para el envío automático al aceptarse ---------------------------------------------------
+
+  const emisiones = (fetch: ReturnType<typeof stubBackend>) =>
+    fetch.mock.calls.filter(([url, init]) => String(url).includes("/facturas") && !String(url).includes("/calcular") && init?.method === "POST").map(([, init]) => JSON.parse(String(init?.body)));
+
+  it("el correo del cliente viaja en la emisión y se guarda con el cliente", async () => {
+    const fetch = stubBackend([]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    fireEvent.change(screen.getByLabelText(/Correo del cliente/), { target: { value: "  compras@cliente.pe " } });
+    conUnaLinea();
+
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0].cliente.email).toBe("compras@cliente.pe");
+    // El cálculo de importes no lleva al comprador de verdad: tampoco su correo.
+    const calculos = fetch.mock.calls.filter(([url]) => String(url).includes("/facturas/calcular")).map(([, init]) => JSON.parse(String(init?.body)));
+    expect(calculos.every((c) => c.cliente.email === undefined)).toBe(true);
+    await waitFor(() => expect(guardados(fetch)).toHaveLength(1));
+    expect(guardados(fetch)[0].cuerpo).toEqual({ razon_social: "Cliente SAC", email: "compras@cliente.pe" });
+  });
+
+  it("sin correo la emisión no lleva la clave", async () => {
+    const fetch = stubBackend([]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    conUnaLinea();
+
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0].cliente).not.toHaveProperty("email");
+  });
+
+  it("elegir un cliente guardado con correo lo propone, y uno sin correo lo deja vacío", async () => {
+    stubBackend([{ ...PACIFICO, email: "pagos@pacifico.pe" }, JUAN]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} tipo="boleta" />);
+
+    await elegir("pacif", "PESQUERA");
+    expect((screen.getByLabelText(/Correo del cliente/) as HTMLInputElement).value).toBe("pagos@pacifico.pe");
+
+    await elegir("juan", "JUAN");
+    expect((screen.getByLabelText(/Correo del cliente/) as HTMLInputElement).value).toBe("");
+  });
+
   it("si falla la búsqueda lo dice y el cliente se puede teclear a mano", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("red"))));
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);

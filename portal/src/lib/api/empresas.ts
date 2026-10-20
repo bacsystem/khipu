@@ -87,3 +87,16 @@ export const PLANTILLAS_PDF: Array<{ id: PlantillaPdf; nombre: string; descripci
 export function obtenerPersonalizacionPdf(access: string, empresaId: string) {
   return backendFetch<PersonalizacionPdf>("/v1/empresa/personalizacion-pdf", { headers: tenantHeaders(access, empresaId) });
 }
+
+/**
+ * #325: si la empresa envía automáticamente el comprobante aceptado a su cliente, y si el servidor tiene correo para hacerlo (`correo_disponible`: sin él no se puede activar
+ * y la API responde 503 `CORREO_NO_CONFIGURADO`).
+ */
+export type PreferenciaDeEnvioAlCliente = { enviar_automaticamente: boolean; correo_disponible: boolean };
+
+/** El cuerpo de `PUT /v1/empresa/envio-al-cliente`. */
+export type CuerpoDeEnvioAlCliente = { enviar_automaticamente: boolean };
+
+export function obtenerPreferenciaDeEnvioAlCliente(access: string, empresaId: string) {
+  return backendFetch<PreferenciaDeEnvioAlCliente>("/v1/empresa/envio-al-cliente", { headers: tenantHeaders(access, empresaId) });
+}

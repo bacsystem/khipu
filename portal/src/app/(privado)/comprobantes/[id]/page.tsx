@@ -6,6 +6,7 @@ import { EstadoBadge, ETIQUETAS_ESTADO, PUNTOS } from "@/components/comprobantes
 import { BajaButton } from "@/components/comprobantes/baja-button";
 import { BajaEstado } from "@/components/comprobantes/baja-estado";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
+import { EnvioAlClienteEstado } from "@/components/comprobantes/envio-al-cliente-estado";
 import { AvisoBoletaSinInformar } from "@/components/comprobantes/aviso-boleta-sin-informar";
 import { AvisosDeEmision } from "@/components/comprobantes/avisos-de-emision";
 import { DuplicarButton } from "@/components/comprobantes/duplicar-button";
@@ -297,7 +298,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               Ver PDF
             </a>
           ) : null}
-          {admiteCorreo(c) ? <CorreoButton id={c.id} numero={numero} /> : null}
+          {admiteCorreo(c) ? <CorreoButton id={c.id} numero={numero} correoDelCliente={c.receptor?.email ?? null} /> : null}
         </div>
       </div>
 
@@ -420,6 +421,11 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 <p className="font-mono text-foreground/80" data-testid="receptor-pais">{c.receptor.pais}</p>
               </Campo>
             ) : null}
+            {c.receptor.email ? (
+              <Campo etiqueta="Correo">
+                <p className="font-mono break-all text-foreground/80" data-testid="receptor-email">{c.receptor.email}</p>
+              </Campo>
+            ) : null}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground/60">Sin datos de receptor.</p>
@@ -428,6 +434,8 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
       {/* Arriba del historial: es lo primero que hay que ver tras confirmar una baja, y antes quedaba fuera de la vista. */}
       {c.baja ? <BajaEstado baja={c.baja} /> : null}
+
+      {c.envio_al_cliente ? <EnvioAlClienteEstado envio={c.envio_al_cliente} /> : null}
 
       <Historial eventos={c.eventos} />
 

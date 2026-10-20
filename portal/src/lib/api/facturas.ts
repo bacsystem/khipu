@@ -35,6 +35,21 @@ export type Receptor = {
   direccion: string | null;
   /** País (ISO 3166-1, catálogo 04): obligatorio en exportaciones, ausente en el resto. */
   pais?: string | null;
+  /** #325: correo del cliente indicado al emitir (una nota hereda el de su comprobante); no va al XML. */
+  email?: string | null;
+};
+
+/**
+ * #325: el envío automático del comprobante a su cliente, si se anotó (la empresa lo tenía activado y el comprobante traía correo cuando SUNAT lo aceptó). `PENDIENTE` en cola o
+ * esperando un reintento; `FALLIDO` agotó los reintentos o los adjuntos pesan demasiado; `OMITIDO` no correspondía mandarlo (sin correo en el servidor, comprobante anulado).
+ */
+export type EnvioAlCliente = {
+  destinatario: string;
+  estado: "PENDIENTE" | "ENVIADO" | "FALLIDO" | "OMITIDO";
+  intentos: number;
+  ultimo_error?: string | null;
+  siguiente_intento?: string | null;
+  enviado_en?: string | null;
 };
 
 /** Datos de una factura de exportación (0200–0208): Incoterm y, en servicios 0201/0208, país de uso. */
@@ -367,6 +382,8 @@ export type Comprobante = {
   baja?: Baja | null;
   /** Observaciones propias del comprobante, impresas en el PDF (no van al XML). */
   observaciones?: string | null;
+  /** Solo al consultar (#325): si el comprobante salió por correo a su cliente al aceptarse; ausente si no se anotó. */
+  envio_al_cliente?: EnvioAlCliente | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; pdf?: string; cdr?: string };
 };

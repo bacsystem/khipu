@@ -1,4 +1,5 @@
 import type { ClienteGuardado } from "@/lib/api/clientes";
+import type { EnvioAlCliente } from "@/lib/api/facturas";
 import type { ProductoGuardado } from "@/lib/api/productos";
 import type { EntregaWebhook, Webhook } from "@/lib/api/webhooks";
 import { hoyLima, inicioDelProximoCiclo, sumarDias } from "@/lib/formato";
@@ -109,7 +110,8 @@ export type Comprobante = {
   fecha_emision: string;
   moneda: string;
   tipo_operacion: string;
-  receptor: { tipo_doc: string; num_doc: string; razon_social: string; direccion: string | null };
+  /** `email` (#325): el correo del cliente con que se emitió; la API omite la clave si no tiene. */
+  receptor: { tipo_doc: string; num_doc: string; razon_social: string; direccion: string | null; email?: string };
   items: Array<{
     codigo: string | null;
     descripcion: string;
@@ -331,6 +333,9 @@ export const db = {
   facturasPorEmpresa: new Map<string, Comprobante[]>(),
   bajas: new Map<string, Baja>(),
   correos: [] as Array<{ comprobante: string; email: string; mensaje: string | null }>,
+  /** #325: las empresas con el envío automático al cliente activado, y el envío de cada comprobante (por id) que salió al aceptarse. */
+  envioAutomaticoPorEmpresa: new Set<string>(),
+  enviosAlCliente: new Map<string, EnvioAlCliente>(),
   sesionesPorToken: new Map<string, Sesion>(),
   /** `segundoFactor`: si ya configuró la app de autenticación (#177). El mock no guarda estado del 2FA: ver los handlers. */
   administradoresPorEmail: new Map<string, { administrador: Administrador; password: string; segundoFactor: boolean }>(),
@@ -373,6 +378,8 @@ export function resetDb() {
   db.facturasPorEmpresa.clear();
   db.bajas.clear();
   db.correos.length = 0;
+  db.envioAutomaticoPorEmpresa.clear();
+  db.enviosAlCliente.clear();
   db.sesionesPorToken.clear();
   db.administradoresPorEmail.clear();
   db.clavesEmision.clear();

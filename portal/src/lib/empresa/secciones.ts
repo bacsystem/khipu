@@ -2,7 +2,7 @@ import type { EmpresaDetalle } from "@/lib/api/empresas";
 import { faltaParaEmitir } from "@/lib/comprobantes/listo-para-emitir";
 
 /** Las pestañas de «Fiscal & certificado» (#276), en el orden en que se muestran. */
-export const SECCIONES = ["datos", "certificado", "sol", "pdf", "empresas"] as const;
+export const SECCIONES = ["datos", "certificado", "sol", "pdf", "correo", "empresas"] as const;
 export type Seccion = (typeof SECCIONES)[number];
 
 type EstadoEmpresa = Pick<EmpresaDetalle, "tiene_certificado" | "certificado_vigencia_hasta" | "tiene_credenciales_sol" | "credenciales_sol_rechazadas">;
