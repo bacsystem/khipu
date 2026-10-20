@@ -1438,6 +1438,7 @@
     "descripcion": "Para seguir usando el portal, lee y acepta la versión vigente de los términos del servicio y de la política de privacidad. Si ya los habías aceptado, te los pedimos de nuevo porque cambiaron.",
     "aceptar": "Aceptar y continuar",
     "aceptando": "Guardando…",
+    "requerido": "Marca la casilla para aceptar los términos del servicio y la política de privacidad.",
     "cerrarSesion": "Cerrar sesión"
   },
   "cuentaSuspendida": {

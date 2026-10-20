@@ -16,7 +16,7 @@ import type { Validez } from "./validez";
 import type { Establecimiento } from "./establecimientos";
 import type { Serie } from "./series";
 import type { ApiKeyResumen } from "./api-keys";
-import type { Usuario, Tokens } from "./auth";
+import type { AceptacionDeTerminos, DatosDeRegistro, Usuario, Tokens } from "./auth";
 import type { MiCuenta } from "./cuenta";
 import type { PlanPublicado } from "./planes-publicados";
 import type { Webhook, EntregaWebhook, WebhookCreado } from "./webhooks";
@@ -82,6 +82,8 @@ export type ContratoDeLaApi = [
   // auth
   Verifica<Contrato<Usuario, S["UsuarioResponse"]>>,
   Verifica<Contrato<Tokens, S["TokensResponse"]>>,
+  Verifica<ContratoDePeticion<DatosDeRegistro, S["RegistroRequest"]>>,
+  Verifica<Contrato<AceptacionDeTerminos, S["AceptacionDeTerminosResponse"]>>,
   // cuenta
   Verifica<Contrato<MiCuenta, S["MiCuentaResponse"]>>,
   // planes-publicados

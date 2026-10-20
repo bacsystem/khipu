@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { RevisaTuCorreo } from "@/components/auth/revisa-tu-correo";
+import { debeAceptarTerminos, PantallaDeTerminos } from "@/components/legal/pantalla-de-terminos";
 import { OnboardingEmpresaForm } from "@/components/onboarding/onboarding-empresa-form";
 import { me } from "@/lib/api/auth";
 import { messages } from "@/lib/messages";
@@ -11,6 +12,8 @@ export default async function OnboardingPage() {
   const { access } = await getServerSession();
   if (!access) redirect("/login");
   const usuario = await me(access);
+  // #342: lo mismo que el panel: sin aceptar la versión vigente de los términos no se configura nada.
+  if (debeAceptarTerminos(usuario)) return <PantallaDeTerminos />;
 
   return (
     <div className="min-h-screen px-6 py-16">

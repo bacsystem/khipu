@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { RevisaTuCorreo } from "@/components/auth/revisa-tu-correo";
 import { BannerDeMantenimiento } from "@/components/banner-de-mantenimiento";
+import { debeAceptarTerminos, PantallaDeTerminos } from "@/components/legal/pantalla-de-terminos";
 import { AvisoDeSoporte } from "@/components/soporte/aviso-de-soporte";
 import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
 import { SidebarContent } from "@/components/nav/sidebar-content";
@@ -35,6 +36,9 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
     throw cargado.error;
   }
   const [usuario, empresas, banner, cuenta] = cargado.datos;
+  // #342: sin la versión vigente de los términos aceptada no se usa el panel. En la misma URL, para que al aceptar siga donde quería ir; antes del
+  // onboarding, que tampoco se hace sin aceptar.
+  if (debeAceptarTerminos(usuario)) return <PantallaDeTerminos />;
   if (empresas.length === 0) redirect("/onboarding");
   const activa = empresas.find((empresa) => empresa.id === empresaId) ?? empresas[0];
 

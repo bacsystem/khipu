@@ -11,7 +11,8 @@ export function fakeJwt(payload: Record<string, unknown>): string {
   return `${base64url({ alg: "none" })}.${base64url(payload)}.firma-de-prueba`;
 }
 
-export type Usuario = { id: string; cuenta_id: string; email: string; rol: string; correo_verificado: boolean };
+/** `terminos_pendientes` (#342): sin el campo, el mock lo responde como `false` (aceptó la versión vigente). */
+export type Usuario = { id: string; cuenta_id: string; email: string; rol: string; correo_verificado: boolean; terminos_pendientes?: boolean };
 export type Administrador = { id: string; email: string };
 /** El id de la cuenta sembrada número `n`: un UUID, porque la página de detalle (#181) descarta todo lo que no lo sea. */
 export function idCuentaMock(n: number): string {
@@ -574,6 +575,22 @@ export function resetDb() {
   ]);
   db.seriesPorEmpresa.set("e-plan-vencido", [{ tipo: "01", serie: "F001", ultimo_numero: 4, activa: true, establecimiento: "0000" }]);
   db.planesDeCuenta.set(conPlanVencido.cuenta_id, { planId: idPlanMock(2), iniciaEn: enDias(-40), venceEn: enDias(-10), diasDeGracia: 3 });
+  // Un cliente que no aceptó la versión vigente de los términos (#342): un usuario de antes, o uno que aceptó una versión que ya cambió. El portal no le deja usar el
+  // panel hasta que acepte. Cuenta propia: aceptar no le cambia nada a los demás specs.
+  const conTerminosPendientes: Usuario = {
+    id: "u-terminos-pendientes",
+    cuenta_id: "c-terminos-pendientes",
+    email: "terminos@example.com",
+    rol: "ADMIN",
+    correo_verificado: true,
+    terminos_pendientes: true,
+  };
+  db.usuariosPorEmail.set(conTerminosPendientes.email, { usuario: conTerminosPendientes, password: "Passw0rd1" });
+  db.nombresDeCuenta.set(conTerminosPendientes.cuenta_id, "Bodega con Términos Pendientes");
+  db.empresasPorCuenta.set(conTerminosPendientes.cuenta_id, [
+    { id: "e-terminos-pendientes", ruc: "20600000044", razon_social: "Bodega Términos SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true, certificado_vigencia_hasta: "2036-01-01" },
+  ]);
+  db.seriesPorEmpresa.set("e-terminos-pendientes", [{ tipo: "01", serie: "F001", ultimo_numero: 0, activa: true, establecimiento: "0000" }]);
 
   const empresa: Empresa = {
     id: "e-demo",

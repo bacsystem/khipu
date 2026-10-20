@@ -2225,6 +2225,28 @@
         }
       }
     },
+    "/v1/auth/terminos": {
+      "post": {
+        "tags": [
+          "Autenticación (portal)"
+        ],
+        "summary": "Aceptar los términos vigentes",
+        "description": "Registra que el usuario de la sesión acepta la versión vigente de los términos del servicio y la política de privacidad, con la\nfecha. Si ya la había aceptado responde igual, con la fecha de entonces. Se usa cuando la versión cambió (`terminos_pendientes`\nen `/me`, el login o el refresh); al registrarse, la aceptación va en el propio registro. Una sesión de soporte recibe\n`403 SOPORTE_SOLO_LECTURA`.",
+        "operationId": "aceptarTerminos",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAceptacionDeTerminosResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/restablecer": {
       "post": {
         "tags": [
@@ -2256,7 +2278,7 @@
           "Autenticación (portal)"
         ],
         "summary": "Registrar una cuenta",
-        "description": "Crea la cuenta del portal y devuelve los tokens de sesión. El correo queda sin verificar y se le manda un enlace (24 h): hasta\nverificarlo puede entrar al portal, pero cualquier escritura con su sesión responde `403 CORREO_SIN_VERIFICAR`.\n`403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`).",
+        "description": "Crea la cuenta del portal y devuelve los tokens de sesión. El correo queda sin verificar y se le manda un enlace (24 h): hasta\nverificarlo puede entrar al portal, pero cualquier escritura con su sesión responde `403 CORREO_SIN_VERIFICAR`.\n`403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`). Exige `acepta_terminos: true` (#342): sin eso,\n`400 TERMINOS_NO_ACEPTADOS` y no se crea nada; con eso queda guardada la versión vigente de los términos y la fecha.",
         "operationId": "registrar",
         "requestBody": {
           "content": {
@@ -4572,7 +4594,7 @@
           "Autenticación (portal)"
         ],
         "summary": "Usuario de la sesión",
-        "description": "Correo, rol y cuenta del usuario autenticado por JWT.",
+        "description": "Correo, rol y cuenta del usuario autenticado por JWT, y si le falta aceptar los términos vigentes.",
         "operationId": "me",
         "responses": {
           "200": {
@@ -9579,6 +9601,67 @@
           }
         }
       },
+      "AceptacionDeTerminosResponse": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "La versión vigente de los términos del servicio y la política de privacidad, la que se aceptó",
+            "example": "2026-10-20"
+          },
+          "aceptada_en": {
+            "type": "string",
+            "description": "Cuándo la aceptó por primera vez",
+            "format": "date-time",
+            "example": "2026-10-20T15:00:00Z"
+          }
+        }
+      },
+      "ApiResponseAceptacionDeTerminosResponse": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "$ref": "#/components/schemas/AceptacionDeTerminosResponse"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              },
+              "example": null
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": null
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
       "RestablecerRequest": {
         "required": [
           "password",
@@ -9598,6 +9681,7 @@
       },
       "RegistroRequest": {
         "required": [
+          "acepta_terminos",
           "email",
           "nombre",
           "password",
@@ -9626,6 +9710,11 @@
             "type": "string",
             "description": "Celular de contacto en Perú (9 dígitos, empieza con 9); admite +51/51, espacios y guiones",
             "example": "987654321"
+          },
+          "acepta_terminos": {
+            "type": "boolean",
+            "description": "Que acepta los términos del servicio y la política de privacidad vigentes (#342). Sin `true`, `400 TERMINOS_NO_ACEPTADOS`.",
+            "example": true
           }
         }
       },
@@ -9715,6 +9804,11 @@
             "type": "boolean",
             "description": "`false` hasta abrir el enlace de verificación (#22): sin verificar no puede crear empresas ni emitir desde el portal.",
             "example": true
+          },
+          "terminos_pendientes": {
+            "type": "boolean",
+            "description": "`true` si no aceptó la versión vigente de los términos del servicio y la política de privacidad (#342): un usuario anterior a ellos, o uno que aceptó una versión que ya cambió. El portal no deja usar el panel hasta que acepte (`POST /v1/auth/terminos`). Ausente donde no aplica (la respuesta de abrir una sesión de soporte).",
+            "example": false
           },
           "soporte_hasta": {
             "type": "string",
