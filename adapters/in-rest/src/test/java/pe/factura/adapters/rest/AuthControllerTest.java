@@ -7,8 +7,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import pe.factura.application.port.in.AceptarTerminosUseCase;
 import pe.factura.application.port.in.AutenticarUsuarioUseCase;
 import pe.factura.domain.DomainException;
+import pe.factura.domain.cuenta.AceptacionDeTerminos;
 import pe.factura.domain.cuenta.Rol;
 import pe.factura.domain.cuenta.Usuario;
 
@@ -27,22 +29,65 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthControllerTest {
     @Autowired MockMvc mvc;
     @MockBean AutenticarUsuarioUseCase auth;
+    @MockBean AceptarTerminosUseCase terminos;
 
     UUID usuarioId = UUID.randomUUID();
     UUID cuentaId = UUID.randomUUID();
     Usuario usuario = new Usuario(usuarioId, cuentaId, "ana@negocio.pe", "hash", Rol.ADMIN, true);
-    AutenticarUsuarioUseCase.Tokens tokens = new AutenticarUsuarioUseCase.Tokens("access-token", "refresh-token", usuario);
+    AutenticarUsuarioUseCase.Tokens tokens = new AutenticarUsuarioUseCase.Tokens("access-token", "refresh-token", usuario, false);
 
     @Test void registroDevuelve201ConTokens() throws Exception {
-        when(auth.registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", "http://localhost:3000")).thenReturn(tokens);
+        when(auth.registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", true, "http://localhost:3000")).thenReturn(tokens);
         mvc.perform(post("/v1/auth/registro").contentType("application/json")
-                        .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}"))
+                        .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.access").value("access-token"))
                 .andExpect(jsonPath("$.datos.refresh").value("refresh-token"))
                 .andExpect(jsonPath("$.datos.usuario.email").value("ana@negocio.pe"))
-                .andExpect(jsonPath("$.datos.usuario.rol").value("ADMIN"));
-        verify(auth).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", "http://localhost:3000");
+                .andExpect(jsonPath("$.datos.usuario.rol").value("ADMIN"))
+                .andExpect(jsonPath("$.datos.usuario.terminos_pendientes").value(false));
+        verify(auth).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", true, "http://localhost:3000");
+    }
+
+    // --- #342: términos del servicio y política de privacidad ------------------------------------------------------------------------
+
+    /** Sin el campo, o con {@code false}, el caso de uso recibe {@code false} y responde TERMINOS_NO_ACEPTADOS: un 400, no un 422 de validación. */
+    @Test void registroSinAceptarLosTerminosEs400() throws Exception {
+        when(auth.registrar(anyString(), anyString(), anyString(), anyString(), eq(false), anyString()))
+                .thenThrow(new DomainException("TERMINOS_NO_ACEPTADOS", "Para crear la cuenta tienes que aceptar los términos"));
+        for (String acepta : new String[]{"", ",\"acepta_terminos\":false", ",\"acepta_terminos\":null"}) {
+            mvc.perform(post("/v1/auth/registro").contentType("application/json")
+                            .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"" + acepta + "}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.codigo").value("TERMINOS_NO_ACEPTADOS"));
+        }
+        verify(auth, org.mockito.Mockito.times(3)).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", false, "http://localhost:3000");
+    }
+
+    @Test void elLoginDiceSiFaltaAceptarLosTerminos() throws Exception {
+        when(auth.login("ana@negocio.pe", "Segura123", null)).thenReturn(new AutenticarUsuarioUseCase.Tokens("a", "r", usuario, true));
+        mvc.perform(post("/v1/auth/login").contentType("application/json").content("{\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.usuario.terminos_pendientes").value(true));
+    }
+
+    @Test void meDiceSiFaltaAceptarLosTerminos() throws Exception {
+        when(auth.me(usuarioId)).thenReturn(usuario);
+        when(terminos.pendiente(usuarioId)).thenReturn(true);
+        mvc.perform(get("/v1/auth/me").requestAttr(UsuarioActual.ATRIBUTO, usuarioId))
+                .andExpect(jsonPath("$.datos.terminos_pendientes").value(true));
+        when(terminos.pendiente(usuarioId)).thenReturn(false);
+        mvc.perform(get("/v1/auth/me").requestAttr(UsuarioActual.ATRIBUTO, usuarioId))
+                .andExpect(jsonPath("$.datos.terminos_pendientes").value(false));
+    }
+
+    @Test void aceptarLosTerminosEsDelUsuarioDeLaSesion() throws Exception {
+        when(terminos.aceptar(usuarioId)).thenReturn(new AceptacionDeTerminos(usuarioId, "2026-10-20", java.time.Instant.parse("2026-10-20T15:00:00Z")));
+        mvc.perform(post("/v1/auth/terminos").requestAttr(UsuarioActual.ATRIBUTO, usuarioId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.version").value("2026-10-20"))
+                .andExpect(jsonPath("$.datos.aceptada_en").value("2026-10-20T15:00:00Z"));
+        verify(terminos).aceptar(usuarioId);
     }
 
     @Test void registroConDatosInvalidosEs422() throws Exception {

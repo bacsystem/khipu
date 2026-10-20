@@ -100,7 +100,7 @@ class AvisosAClientesE2ETest {
     /** Un cliente real con su cuenta y su empresa; el certificado vence {@code dias} días después de hoy ({@code null}: sin certificado). */
     private Cliente cliente(String email, Integer dias) {
         ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro", new HttpEntity<>(
-                "{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}".formatted(email), json()), Map.class);
+                "{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}".formatted(email), json()), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         jdbc.update("UPDATE usuario SET correo_verificado_at = now() WHERE email = ?", email);
         String access = (String) ((Map<?, ?>) r.getBody().get("datos")).get("access");

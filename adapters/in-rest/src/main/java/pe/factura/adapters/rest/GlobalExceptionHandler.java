@@ -60,7 +60,8 @@ public class GlobalExceptionHandler {
             case "PLAN_VENCIDO" -> HttpStatus.PAYMENT_REQUIRED;
             // La cuenta está suspendida (#182): el cliente se identificó bien, pero no tiene permiso hasta que la reactiven.
             case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO", "CUENTA_SUSPENDIDA", "REQUIERE_ADMINISTRADOR" -> HttpStatus.FORBIDDEN;
-            case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;
+            // TERMINOS_NO_ACEPTADOS (#342): el registro llegó sin la aceptación de los términos; no hay nada que validar del resto.
+            case "PARAMETRO_INVALIDO", "RANGO_INVALIDO", "TERMINOS_NO_ACEPTADOS" -> HttpStatus.BAD_REQUEST;
             // El correo saliente es un servicio externo: su fallo no es culpa del cliente ni un bug del servidor.
             case "CORREO_NO_ENVIADO" -> HttpStatus.BAD_GATEWAY;
             // El servidor no tiene SMTP: no es culpa del cliente y reintentar no sirve hasta que el operador lo configure.

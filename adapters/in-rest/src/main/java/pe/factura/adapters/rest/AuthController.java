@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pe.factura.adapters.rest.dto.*;
+import pe.factura.application.port.in.AceptarTerminosUseCase;
 import pe.factura.application.port.in.AutenticarUsuarioUseCase;
 import pe.factura.domain.DomainException;
 
@@ -20,13 +21,15 @@ import pe.factura.domain.DomainException;
         contraseña por correo. **Los integradores no usan estas rutas**: autentican cada petición con `X-Api-Key`.""")
 public class AuthController {
     private final AutenticarUsuarioUseCase auth;
+    private final AceptarTerminosUseCase terminos;
     private final String portalUrl;
     private final boolean registroAbierto;
     private final IpDelCliente ip;
 
-    public AuthController(AutenticarUsuarioUseCase auth, @Value("${app.portal-url}") String portalUrl,
+    public AuthController(AutenticarUsuarioUseCase auth, AceptarTerminosUseCase terminos, @Value("${app.portal-url}") String portalUrl,
                            @Value("${app.registro-abierto:false}") boolean registroAbierto, IpDelCliente ip) {
         this.auth = auth;
+        this.terminos = terminos;
         this.portalUrl = portalUrl;
         this.registroAbierto = registroAbierto;
         this.ip = ip;
@@ -42,10 +45,11 @@ public class AuthController {
     @Operation(summary = "Registrar una cuenta", description = """
             Crea la cuenta del portal y devuelve los tokens de sesión. El correo queda sin verificar y se le manda un enlace (24 h): hasta
             verificarlo puede entrar al portal, pero cualquier escritura con su sesión responde `403 CORREO_SIN_VERIFICAR`.
-            `403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`).""")
+            `403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`). Exige `acepta_terminos: true` (#342): sin eso,
+            `400 TERMINOS_NO_ACEPTADOS` y no se crea nada; con eso queda guardada la versión vigente de los términos y la fecha.""")
     public ResponseEntity<ApiResponse<TokensResponse>> registrar(@Valid @RequestBody RegistroRequest body) {
         if (!registroAbierto) throw new DomainException("REGISTRO_CERRADO", "El registro está por invitación: escríbenos para pedir acceso.");
-        var tokens = auth.registrar(body.nombre(), body.email(), body.password(), body.telefono(), portalUrl);
+        var tokens = auth.registrar(body.nombre(), body.email(), body.password(), body.telefono(), Boolean.TRUE.equals(body.aceptaTerminos()), portalUrl);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(TokensResponse.de(tokens)));
     }
 
@@ -72,9 +76,24 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    @Operation(summary = "Usuario de la sesión", description = "Correo, rol y cuenta del usuario autenticado por JWT.")
+    @Operation(summary = "Usuario de la sesión", description = "Correo, rol y cuenta del usuario autenticado por JWT, y si le falta aceptar los términos vigentes.")
     public ApiResponse<UsuarioResponse> me(HttpServletRequest req) {
-        return ApiResponse.ok(UsuarioResponse.de(auth.me(UsuarioActual.id(req)), SoporteActual.de(req).orElse(null)));
+        var usuario = auth.me(UsuarioActual.id(req));
+        return ApiResponse.ok(UsuarioResponse.de(usuario, terminos.pendiente(usuario.id()), SoporteActual.de(req).orElse(null)));
+    }
+
+    /**
+     * Con la sesión del propio usuario (#342). Una sesión de soporte no llega acá: el filtro le niega toda escritura, y aceptar en nombre del
+     * cliente es justo lo que no puede hacer quien lo está mirando.
+     */
+    @PostMapping("/terminos")
+    @Operation(summary = "Aceptar los términos vigentes", description = """
+            Registra que el usuario de la sesión acepta la versión vigente de los términos del servicio y la política de privacidad, con la
+            fecha. Si ya la había aceptado responde igual, con la fecha de entonces. Se usa cuando la versión cambió (`terminos_pendientes`
+            en `/me`, el login o el refresh); al registrarse, la aceptación va en el propio registro. Una sesión de soporte recibe
+            `403 SOPORTE_SOLO_LECTURA`.""")
+    public ApiResponse<AceptacionDeTerminosResponse> aceptarTerminos(HttpServletRequest req) {
+        return ApiResponse.ok(AceptacionDeTerminosResponse.de(terminos.aceptar(UsuarioActual.id(req))));
     }
 
     /** Siempre 202, exista o no la cuenta: no revela si un correo está registrado. */

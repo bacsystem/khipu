@@ -12,6 +12,16 @@ import java.util.*;
 import java.util.function.Supplier;
 
 final class Fakes {
+    /** Como {@code JdbcAceptacionDeTerminosRepository} (#342): una fila por usuario y versión, y aceptar otra vez conserva la primera fecha. */
+    static final class Aceptaciones implements AceptacionDeTerminosRepository {
+        final Map<String, pe.factura.domain.cuenta.AceptacionDeTerminos> filas = new HashMap<>();
+
+        public synchronized void registrar(pe.factura.domain.cuenta.AceptacionDeTerminos a) { filas.putIfAbsent(a.usuarioId() + "|" + a.version(), a); }
+        public synchronized Optional<pe.factura.domain.cuenta.AceptacionDeTerminos> buscar(UUID usuarioId, String version) {
+            return Optional.ofNullable(filas.get(usuarioId + "|" + version));
+        }
+    }
+
     /** Mismas reglas que la sentencia de {@code JdbcIntentosDeAccesoRepository}, en memoria y sincronizadas (#261). */
     static final class Intentos implements IntentosDeAccesoRepository {
         record Fila(int intentos, Instant ventanaDesde, Instant bloqueadoHasta) {}

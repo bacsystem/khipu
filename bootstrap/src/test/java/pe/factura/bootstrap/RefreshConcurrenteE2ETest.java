@@ -42,7 +42,7 @@ class RefreshConcurrenteE2ETest {
 
     private String registrar() {
         ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro", new HttpEntity<>(
-                "{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}", json()), Map.class);
+                "{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}", json()), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         return (String) ((Map<?, ?>) r.getBody().get("datos")).get("refresh");
     }

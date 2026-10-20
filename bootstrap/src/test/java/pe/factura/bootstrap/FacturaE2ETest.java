@@ -603,7 +603,7 @@ class FacturaE2ETest {
         String apiKey = provisionarTenant();
         HttpHeaders json = new HttpHeaders(); json.setContentType(MediaType.APPLICATION_JSON);
         assertThat(http.postForEntity("/v1/auth/registro", new HttpEntity<>(
-                "{\"nombre\":\"Tope SAC\",\"email\":\"tope@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}", json), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+                "{\"nombre\":\"Tope SAC\",\"email\":\"tope@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}", json), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         java.util.UUID cuenta = jdbc.queryForObject("SELECT id FROM cuenta WHERE email = 'tope@negocio.pe'", java.util.UUID.class);
         assertThat(jdbc.queryForObject("SELECT p.nombre FROM suscripcion s JOIN plan p ON p.id = s.plan_id WHERE s.cuenta_id = ? AND s.termina_en IS NULL", String.class, cuenta)).isEqualTo("Gratis");
         jdbc.update("UPDATE tenant SET cuenta_id = ? WHERE ruc = '20100066603'", cuenta);
@@ -634,7 +634,7 @@ class FacturaE2ETest {
         String apiKey = provisionarTenant();
         HttpHeaders json = new HttpHeaders(); json.setContentType(MediaType.APPLICATION_JSON);
         assertThat(http.postForEntity("/v1/auth/registro", new HttpEntity<>(
-                "{\"nombre\":\"Vencida SAC\",\"email\":\"vencida@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}", json), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+                "{\"nombre\":\"Vencida SAC\",\"email\":\"vencida@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}", json), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         java.util.UUID cuenta = jdbc.queryForObject("SELECT id FROM cuenta WHERE email = 'vencida@negocio.pe'", java.util.UUID.class);
         jdbc.update("UPDATE tenant SET cuenta_id = ? WHERE ruc = '20100066603'", cuenta);
         HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
