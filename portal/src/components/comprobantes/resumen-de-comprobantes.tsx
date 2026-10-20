@@ -20,7 +20,7 @@ export function periodoEnPalabras(p: PeriodoDelResumen): string {
 }
 
 /** Lo que pide atención, con las clases que haya: «3 rechazados · 2 con error de envío · 1 fuera de plazo · 4 boletas sin enviar»; sin nada, «Todo en orden». */
-function atencionEnPalabras(a: ResumenDeFacturas["atencion_requerida"]): string {
+export function atencionEnPalabras(a: ResumenDeFacturas["atencion_requerida"]): string {
   const partes = [
     a.rechazados > 0 ? `${a.rechazados} ${a.rechazados === 1 ? "rechazado" : "rechazados"}` : null,
     a.errores_de_envio > 0 ? `${a.errores_de_envio} con error de envío` : null,

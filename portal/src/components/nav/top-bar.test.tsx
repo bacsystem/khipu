@@ -39,6 +39,12 @@ describe("TopBar: acción principal según la página", () => {
     expect(renderizar(pathname)).toEqual(["Nuevo comprobante"]);
   });
 
+  /** #24: el panel de inicio es adonde se llega al entrar, y emitir es lo que más se hace desde ahí (y lo que su estado vacío invita a hacer). */
+  it("en el panel de inicio también ofrece «Nuevo comprobante», con su miga", () => {
+    expect(renderizar("/inicio")).toEqual(["Nuevo comprobante"]);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Inicio");
+  });
+
   it("en Establecimientos ofrece «Nuevo establecimiento», y solo esa", () => {
     expect(renderizar("/establecimientos")).toEqual(["Nuevo establecimiento"]);
   });

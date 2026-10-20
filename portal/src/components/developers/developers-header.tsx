@@ -20,7 +20,7 @@ export function DevelopersHeader({ autenticado }: { autenticado: boolean }) {
           <Link href="/#precios" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
             Precios
           </Link>
-          <Link href={autenticado ? "/comprobantes" : "/login"} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
+          <Link href={autenticado ? "/inicio" : "/login"} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
             {autenticado ? "Ir al panel" : "Iniciar sesión"}
           </Link>
         </nav>

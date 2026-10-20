@@ -624,6 +624,59 @@ export function resetDb() {
   ]);
   db.seriesPorEmpresa.set("e-terminos-pendientes", [{ tipo: "01", serie: "F001", ultimo_numero: 0, activa: true, establecimiento: "0000" }]);
 
+  // #24: cuentas propias para el panel de inicio, con comprobantes del mes en curso (fechas relativas a hoy, en Lima) para que lo que se afirma no caduque con el calendario.
+  // Ninguna otra spec las toca: las specs comparten este mock en paralelo.
+  const hoyPanel = hoyLima();
+  const primeroDelMes = `${hoyPanel.slice(0, 7)}-01`;
+  const primeroDelMesAnterior = `${sumarDias(primeroDelMes, -1).slice(0, 7)}-01`;
+  const domicilioPanel = { ubigeo: "150101", direccion: "Av. Abancay 123", urbanizacion: null, distrito: "LIMA", provincia: "LIMA", departamento: "LIMA", codigo_establecimiento: "0000" };
+  let numeroPanel = 0;
+  const comprobantePanel = (empresaId: string, tipo: "01" | "03", fecha: string, estado: string, moneda: string, total: number): Comprobante => {
+    numeroPanel++;
+    const serie = tipo === "01" ? "F001" : "B001";
+    return {
+      id: `p-${empresaId}-${numeroPanel}`, tipo, serie, numero: numeroPanel, fecha_emision: fecha, moneda, tipo_operacion: "0101",
+      receptor: tipo === "01" ? { tipo_doc: "6", num_doc: "20554198211", razon_social: "CORPORACION GRAFICA ANDINA S.A.C.", direccion: null } : { tipo_doc: "1", num_doc: "12345678", razon_social: "JUAN PÉREZ GÓMEZ", direccion: null },
+      items: [{ codigo: null, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: total, tipo_afectacion_igv: "10" }],
+      estado_documento: estado, hash: "panel==", nombre_archivo: `20600000044-${tipo}-${serie}-${String(numeroPanel).padStart(8, "0")}`, intentos: 1, ultimo_error: null,
+      cdr: estado.startsWith("ACEPTADO") ? { codigo: "0", descripcion: "Aceptado", observaciones: [] } : null,
+      totales: { gravado: Math.round((total / 1.18) * 100) / 100, exonerado: 0, inafecto: 0, igv: Math.round((total - total / 1.18) * 100) / 100, total },
+      forma_pago: { tipo: "contado", monto_pendiente: null, cuotas: [] },
+      enlaces: { xml: `/v1/facturas/p-${empresaId}-${numeroPanel}/xml` },
+    };
+  };
+  const cuentaPanel = (email: string, cuentaId: string, nombre: string, empresa: Empresa, series: Serie[], comprobantes: Comprobante[]) => {
+    db.usuariosPorEmail.set(email, { usuario: { id: `u-${cuentaId}`, cuenta_id: cuentaId, email, rol: "ADMIN", correo_verificado: true }, password: "Passw0rd1" });
+    db.nombresDeCuenta.set(cuentaId, nombre);
+    db.empresasPorCuenta.set(cuentaId, [empresa]);
+    db.seriesPorEmpresa.set(empresa.id, series);
+    db.facturasPorEmpresa.set(empresa.id, comprobantes);
+  };
+  const seriesPanel: Serie[] = [
+    { tipo: "01", serie: "F001", ultimo_numero: 10, activa: true, establecimiento: "0000" },
+    { tipo: "03", serie: "B001", ultimo_numero: 10, activa: true, establecimiento: "0000" },
+  ];
+  // Con datos: este mes 5 emitidos (3 aceptados, 1 en camino, 1 rechazado), S/ 418.00 y $ 50.00 facturados; el mismo tramo del mes anterior, 1 emitido y S/ 150.00.
+  cuentaPanel("panel@example.com", "c-panel", "Panel Demo", { id: "e-panel", ruc: "20600000044", razon_social: "Panel Demo SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true, certificado_vigencia_hasta: "2036-01-01", domicilio: domicilioPanel }, seriesPanel, [
+    comprobantePanel("e-panel", "01", primeroDelMes, "ACEPTADO", "PEN", 100),
+    comprobantePanel("e-panel", "01", primeroDelMes, "ACEPTADO", "PEN", 200),
+    comprobantePanel("e-panel", "01", primeroDelMes, "ACEPTADO", "USD", 50),
+    comprobantePanel("e-panel", "03", hoyPanel, "ENVIADO", "PEN", 118),
+    comprobantePanel("e-panel", "01", hoyPanel, "RECHAZADO", "PEN", 10),
+    comprobantePanel("e-panel", "01", primeroDelMesAnterior, "ACEPTADO", "PEN", 150),
+  ]);
+  // Con alertas: el certificado vence en 10 días, sin credenciales SOL y un comprobante del mes fuera de plazo.
+  cuentaPanel("panel-alertas@example.com", "c-panel-alertas", "Panel Alertas", { id: "e-panel-alertas", ruc: "20600000052", razon_social: "Panel Alertas SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: false, certificado_vigencia_hasta: sumarDias(hoyPanel, 10), domicilio: domicilioPanel }, seriesPanel, [
+    comprobantePanel("e-panel-alertas", "01", primeroDelMes, "FUERA_DE_PLAZO", "PEN", 59),
+    comprobantePanel("e-panel-alertas", "01", hoyPanel, "ACEPTADO", "PEN", 236),
+  ]);
+  // Recién creada: sin certificado, sin credenciales SOL, sin series y sin comprobantes.
+  cuentaPanel("panel-vacio@example.com", "c-panel-vacio", "Panel Vacío", { id: "e-panel-vacio", ruc: "20600000061", razon_social: "Panel Vacío SAC", entorno: "BETA", tiene_certificado: false, tiene_credenciales_sol: false, certificado_vigencia_hasta: null }, [], []);
+  // Su emisión por día responde 500 (ver el handler de `/v1/facturas/resumen/por-dia`): el resto del panel tiene que seguir.
+  cuentaPanel("panel-falla@example.com", "c-panel-falla", "Panel Falla", { id: "e-panel-falla", ruc: "20600000079", razon_social: "Panel Falla SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true, certificado_vigencia_hasta: "2036-01-01", domicilio: domicilioPanel }, seriesPanel, [
+    comprobantePanel("e-panel-falla", "01", hoyPanel, "ACEPTADO", "PEN", 300),
+  ]);
+
   const empresa: Empresa = {
     id: "e-demo",
     ruc: "20123456786",

@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, GaugeIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon, UsersIcon, PackageIcon, UserCogIcon } from "lucide-react";
+import { EyeIcon, GaugeIcon, LayoutDashboardIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon, UsersIcon, PackageIcon, UserCogIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,11 @@ type Grupo = {
 
 /** Solo páginas que existen (C6): «Catálogo» se veía con «Pronto» y no llevaba a ningún lado. */
 const GRUPOS: Grupo[] = [
+  {
+    // #24: el panel de inicio, adonde se llega al entrar.
+    titulo: "Panel",
+    items: [{ href: "/inicio", label: "Inicio", icon: LayoutDashboardIcon }],
+  },
   {
     titulo: "Emisión & SUNAT",
     items: [
@@ -56,7 +61,7 @@ export function SidebarNav({ rol = "ADMIN" }: { rol?: string }) {
   const pathname = usePathname();
 
   return (
-    <nav className="grid w-full grid-cols-1 gap-3 px-2 pt-2">
+    <nav aria-label="Navegación principal" className="grid w-full grid-cols-1 gap-3 px-2 pt-2">
       {GRUPOS.map((grupo) => (
         <div key={grupo.titulo} className="grid w-full grid-cols-1 gap-0.5">
           <span className="truncate px-2.5 py-1 text-[10px] font-medium tracking-wider text-muted-foreground/80 uppercase">
@@ -69,6 +74,7 @@ export function SidebarNav({ rol = "ADMIN" }: { rol?: string }) {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   ITEM_BASE,
                   "transition-colors",

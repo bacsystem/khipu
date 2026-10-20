@@ -237,7 +237,7 @@ describe("AccionesDeUsuario (#183)", () => {
 
       fireEvent.click(screen.getByTestId("impersonar-usuario-confirmar"));
 
-      await waitFor(() => expect(irA).toHaveBeenCalledWith("/comprobantes"));
+      await waitFor(() => expect(irA).toHaveBeenCalledWith("/inicio"));
       expect(apiRequest).toHaveBeenCalledWith(`/api/admin/cuentas/${CUENTA}/usuarios/${USUARIO}/impersonar`, { method: "POST", body: undefined });
     });
 

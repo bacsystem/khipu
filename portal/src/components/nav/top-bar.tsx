@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { MobileNav } from "./mobile-nav";
 
 const MIGAS: Array<{ prefijo: string; seccion: string; pagina: string }> = [
+  { prefijo: "/inicio", seccion: "Panel", pagina: "Inicio" },
   { prefijo: "/comprobantes", seccion: "Facturación", pagina: "Comprobantes" },
   { prefijo: "/series", seccion: "Emisión", pagina: "Series correlativas" },
   { prefijo: "/clientes", seccion: "Emisión", pagina: "Clientes" },
@@ -112,7 +113,7 @@ export function TopBar({
           <ClienteDialog className={ACCION_PRINCIPAL} />
         ) : pathname.startsWith("/productos") ? (
           <ProductoDialog className={ACCION_PRINCIPAL} />
-        ) : pathname.startsWith("/comprobantes") ? (
+        ) : pathname.startsWith("/comprobantes") || pathname.startsWith("/inicio") ? (
           <NuevoComprobanteDialog className={ACCION_PRINCIPAL} />
         ) : pathname.startsWith("/cuenta/equipo") && usuario.rol === "ADMIN" ? (
           <InvitarDialog className={ACCION_PRINCIPAL} />
