@@ -3,6 +3,7 @@ import { AceptarInvitacionForm } from "@/components/auth/aceptar-invitacion-form
 import { consultarInvitacion, type InvitacionRecibida } from "@/lib/api/equipo";
 import { ApiError } from "@/lib/api/types";
 import { messages } from "@/lib/messages";
+import { tokenDeEnlace } from "@/lib/token-de-enlace";
 
 const t = messages.auth.aceptarInvitacion;
 
@@ -13,16 +14,18 @@ export const metadata = { title: `${t.titulo} · ${messages.app.nombre}` };
  * filtros de correo abren los enlaces); se acepta recién al enviar la contraseña.
  */
 export default async function AceptarInvitacionPage({ params }: { params: Promise<{ token: string }> }) {
-  // El segmento llega codificado tal como vino en el enlace; un cliente de correo puede haberlo reescrito así.
-  const token = decodeURIComponent((await params).token);
+  // El segmento llega codificado tal como vino en el enlace; un cliente de correo puede haberlo reescrito así. Mal codificado, es un enlace inválido.
+  const token = tokenDeEnlace((await params).token);
   let invitacion: InvitacionRecibida | null = null;
-  try {
-    invitacion = await consultarInvitacion(token);
-  } catch (err) {
-    if (!(err instanceof ApiError) || err.codigo !== "TOKEN_INVALIDO") throw err;
+  if (token !== null) {
+    try {
+      invitacion = await consultarInvitacion(token);
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.codigo !== "TOKEN_INVALIDO") throw err;
+    }
   }
 
-  if (!invitacion) {
+  if (!invitacion || token === null) {
     return (
       <AuthShell title={t.titulo} subtitle={t.subtitulo}>
         <p role="alert" className="text-sm text-destructive">{t.enlaceInvalido}</p>
