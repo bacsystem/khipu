@@ -106,6 +106,17 @@ class SireControllerTest {
         assertThat(recibido.get()).isEqualTo("20100066603|fila");
     }
 
+    /** curl --data-binary sin Content-Type manda un formulario: el contenedor se come el cuerpo al leer los parámetros y la conciliación diría que SUNAT no tiene nada. */
+    @Test void unaPropuestaEnviadaComoFormularioOVaciaSeRechazaSinConciliar() throws Exception {
+        mvc.perform(post("/v1/sire/rvie/conciliacion?periodo=202610").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/x-www-form-urlencoded").content("20100066603|x"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(post("/v1/sire/rvie/conciliacion?periodo=202610").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("multipart/form-data; boundary=x").content("--x--"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/v1/sire/rvie/conciliacion?periodo=202610").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/zip").content(new byte[0]))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("RVIE_ARCHIVO_INVALIDO"));
+        verifyNoInteractions(registro);
+    }
+
     @Test void unArchivoQueNoSeLeeEs422ConSuMensaje() throws Exception {
         when(registro.conciliar(any(), any(), any())).thenThrow(new DomainException("RVIE_ARCHIVO_INVALIDO", "La propuesta del RVIE no se puede leer (línea 3): x"));
         mvc.perform(post("/v1/sire/rvie/conciliacion?periodo=202610").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/zip").content(new byte[]{1, 2}))

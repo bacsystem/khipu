@@ -490,7 +490,7 @@ export interface paths {
          *     dos con algún dato distinto (fecha, moneda, estado, base gravada, IGV, exonerado, inafecto o total), comparados por tipo, serie y número. No guarda nada.
          *
          *     La propuesta se lee con la misma estructura de 40 campos que el archivo de `GET /v1/sire/rvie` (una fila de títulos al principio se ignora): **supuesto sin
-         *     verificar contra el SIRE**. Errores: `400 PARAMETRO_INVALIDO` (periodo), `422 RVIE_ARCHIVO_INVALIDO` (una fila que no se puede leer, de otro RUC o de otro
+         *     verificar contra el SIRE**. Errores: `400 PARAMETRO_INVALIDO` (periodo, o la propuesta enviada como formulario), `422 RVIE_ARCHIVO_INVALIDO` (cuerpo vacío, una fila que no se puede leer, de otro RUC o de otro
          *     periodo, o un comprobante repetido; el mensaje dice la línea y el campo), `422 RVIE_PROPUESTA_DEMASIADO_GRANDE` y `422 RVIE_EXCEDE_EL_TOPE` (más de 100 000 filas).
          */
         post: operations["conciliarRvie"];

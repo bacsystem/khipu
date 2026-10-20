@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import pe.factura.adapters.rest.dto.ConciliacionRvieResponse;
 import pe.factura.application.port.in.RegistroDeVentasSireUseCase;
+import pe.factura.domain.DomainException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -79,7 +80,7 @@ public class SireController {
             dos con algún dato distinto (fecha, moneda, estado, base gravada, IGV, exonerado, inafecto o total), comparados por tipo, serie y número. No guarda nada.
 
             La propuesta se lee con la misma estructura de 40 campos que el archivo de `GET /v1/sire/rvie` (una fila de títulos al principio se ignora): **supuesto sin
-            verificar contra el SIRE**. Errores: `400 PARAMETRO_INVALIDO` (periodo), `422 RVIE_ARCHIVO_INVALIDO` (una fila que no se puede leer, de otro RUC o de otro
+            verificar contra el SIRE**. Errores: `400 PARAMETRO_INVALIDO` (periodo, o la propuesta enviada como formulario), `422 RVIE_ARCHIVO_INVALIDO` (cuerpo vacío, una fila que no se puede leer, de otro RUC o de otro
             periodo, o un comprobante repetido; el mensaje dice la línea y el campo), `422 RVIE_PROPUESTA_DEMASIADO_GRANDE` y `422 RVIE_EXCEDE_EL_TOPE` (más de 100 000 filas).""")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, description = "La propuesta del RVIE descargada del SIRE (.txt o .zip)", content = {
             @Content(mediaType = "application/zip", schema = @Schema(type = "string", format = "binary")),
@@ -87,6 +88,14 @@ public class SireController {
             @Content(mediaType = "application/octet-stream", schema = @Schema(type = "string", format = "binary"))})
     public ApiResponse<ConciliacionRvieResponse> conciliar(HttpServletRequest req,
                                                            @Parameter(description = "Periodo tributario, `AAAAMM`", example = "202610") @RequestParam String periodo) throws IOException {
+        // Un formulario (lo que curl manda con --data-binary si no se le da Content-Type) lo lee el contenedor como parámetros al buscar `periodo`: el cuerpo llegaría
+        // vacío y la conciliación diría que SUNAT no tiene nada. Se rechaza en vez de responder un reporte falso.
+        String tipo = req.getContentType() == null ? "" : req.getContentType().toLowerCase(java.util.Locale.ROOT);
+        if (tipo.startsWith(MediaType.APPLICATION_FORM_URLENCODED_VALUE) || tipo.startsWith("multipart/"))
+            throw new DomainException("PARAMETRO_INVALIDO", "Envíe la propuesta como cuerpo de la petición con Content-Type application/zip, text/plain o application/octet-stream, no como formulario"
+                    + " (con curl: -H \"Content-Type: application/zip\" --data-binary @propuesta.zip)");
+        if (req.getContentLengthLong() == 0)
+            throw new DomainException("RVIE_ARCHIVO_INVALIDO", "La propuesta llegó vacía: envíe el archivo descargado del SIRE como cuerpo de la petición");
         try (InputStream cuerpo = req.getInputStream()) {
             return ApiResponse.ok(ConciliacionRvieResponse.de(registro.conciliar(TenantActual.id(req), periodo, cuerpo)));
         }

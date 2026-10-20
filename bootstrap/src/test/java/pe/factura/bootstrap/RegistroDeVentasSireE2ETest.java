@@ -289,6 +289,16 @@ class RegistroDeVentasSireE2ETest {
         assertThat((String) r.getBody().get("mensaje")).contains(otra.ruc());
     }
 
+    /** Con Tomcat de verdad: un formulario pierde el cuerpo al leer `periodo`; se rechaza en vez de conciliar contra nada. */
+    @Test void unaPropuestaEnviadaComoFormularioSeRechaza() {
+        Cliente c = cliente("ana@negocio.pe");
+        factura(c, 1, LocalDate.of(2026, 9, 1), "ACEPTADO");
+        byte[] zip = descargar("?periodo=" + SEPTIEMBRE, conApiKey(c.apiKey())).getBody();
+        ResponseEntity<Map> r = conciliar(c, SEPTIEMBRE, zip, "application/x-www-form-urlencoded");
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat((String) r.getBody().get("mensaje")).contains("Content-Type");
+    }
+
     @Test void exportarYConciliarNoEscribenNada() {
         Cliente c = cliente("ana@negocio.pe");
         factura(c, 1, LocalDate.of(2026, 9, 1), "ACEPTADO");
