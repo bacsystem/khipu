@@ -4,6 +4,7 @@ import { DownloadIcon } from "lucide-react";
 import { useState } from "react";
 import { type FiltrosComprobantes, paramsDeFiltros } from "@/lib/api/facturas";
 import { CONTROL_FILTRO } from "@/lib/estilos";
+import { usePanelDesplegable } from "@/lib/panel-desplegable";
 import { cn } from "@/lib/utils";
 
 /** Lo que admite una descarga por petición (`DescargaEnZip.MAXIMO` en la API). */
@@ -28,16 +29,16 @@ export function hrefDeDescarga(filtros: FiltrosComprobantes, elegidos: string[])
  * de {@link DESCARGA_MAXIMA} no se ofrece y se dice por qué: la API respondería 404 o 422, y mejor saberlo antes del clic.
  */
 export function DescargaMasiva({ filtros, total }: { filtros: FiltrosComprobantes; total: number }) {
-  const [abierto, setAbierto] = useState(false);
+  const { abierto, alternar, cerrar, ref } = usePanelDesplegable("descarga-masiva");
   const [elegidos, setElegidos] = useState<string[]>(["pdf", "xml", "cdr"]);
   const href = hrefDeDescarga(filtros, elegidos);
   const motivo = total === 0 ? "No hay comprobantes con estos filtros" : total > DESCARGA_MAXIMA ? `Hay ${total}: una descarga admite hasta ${DESCARGA_MAXIMA}. Acota las fechas.` : null;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button
         type="button"
-        onClick={() => setAbierto((a) => !a)}
+        onClick={alternar}
         aria-expanded={abierto}
         aria-controls="descarga-masiva-panel"
         className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-[12px] font-medium")}
@@ -68,7 +69,7 @@ export function DescargaMasiva({ filtros, total }: { filtros: FiltrosComprobante
             </p>
           ) : null}
           {href && !motivo ? (
-            <a href={href} download onClick={() => setAbierto(false)} className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground" data-testid="descarga-enlace">
+            <a href={href} download onClick={cerrar} className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground" data-testid="descarga-enlace">
               Descargar
             </a>
           ) : (

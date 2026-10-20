@@ -1,6 +1,36 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DescargaMasiva } from "./descarga-masiva";
 import { EXPORTACION_MAXIMA, ExportarComprobantes, hrefDeExportacion, nombreDelArchivo } from "./exportar-comprobantes";
+
+describe("paneles de Exportar y Descargar ZIP (#321-M7)", () => {
+  afterEach(cleanup);
+
+  it("abrir uno cierra el otro, y se cierran con Esc y con un clic afuera", () => {
+    render(
+      <div>
+        <p>afuera</p>
+        <DescargaMasiva filtros={{}} total={3} />
+        <ExportarComprobantes filtros={{}} total={3} />
+      </div>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Descargar ZIP" }));
+    expect(screen.getByTestId("descarga-masiva")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Exportar" }));
+    expect(screen.getByTestId("exportar-comprobantes")).toBeInTheDocument();
+    expect(screen.queryByTestId("descarga-masiva")).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByTestId("exportar-comprobantes"));
+    expect(screen.getByTestId("exportar-comprobantes")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("exportar-comprobantes")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Descargar ZIP" }));
+    fireEvent.mouseDown(screen.getByText("afuera"));
+    expect(screen.queryByTestId("descarga-masiva")).not.toBeInTheDocument();
+  });
+});
 
 const abrir = () => fireEvent.click(screen.getByRole("button", { name: "Exportar" }));
 
@@ -45,6 +75,8 @@ describe("ExportarComprobantes (#321)", () => {
     render(<ExportarComprobantes filtros={{ desde: "2026-09-01" }} total={12} />);
     abrir();
     expect(screen.getByTestId("exportar-comprobantes")).toHaveTextContent("12 que muestra la lista");
+    expect(screen.getByTestId("exportar-comprobantes")).toHaveTextContent("Las notas de crédito salen en negativo");
+    expect(screen.getByTestId("exportar-comprobantes")).toHaveTextContent("Para abrirlo en Excel");
     fireEvent.click(screen.getByTestId("exportar-descargar"));
 
     expect(await screen.findByRole("button", { name: "Exportando…" })).toBeDisabled();

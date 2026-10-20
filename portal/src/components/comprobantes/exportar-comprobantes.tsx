@@ -5,6 +5,7 @@ import { useState } from "react";
 import { type FiltrosComprobantes, paramsDeFiltros } from "@/lib/api/facturas";
 import { CONTROL_FILTRO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
+import { usePanelDesplegable } from "@/lib/panel-desplegable";
 import { cn } from "@/lib/utils";
 
 /** Lo que admite una exportación por petición (`ExportacionDeComprobantes.MAXIMO` en la API). */
@@ -14,8 +15,8 @@ export type FormatoDeExportacion = "xlsx" | "csv";
 export type SeparadorCsv = "coma" | "punto_y_coma";
 
 const FORMATOS: Array<{ id: FormatoDeExportacion; etiqueta: string; ayuda: string }> = [
-  { id: "xlsx", etiqueta: "Excel (.xlsx)", ayuda: "Los importes llegan como números." },
-  { id: "csv", etiqueta: "CSV", ayuda: "Texto separado, para otros sistemas." },
+  { id: "xlsx", etiqueta: "Excel (.xlsx)", ayuda: "Para abrirlo en Excel: los importes llegan como números." },
+  { id: "csv", etiqueta: "CSV", ayuda: "Texto separado. Los textos que empiezan por = + - @ llevan delante una comilla ('), para que la hoja de cálculo no los tome como fórmula." },
 ];
 
 /** La dirección de la exportación: los filtros activos de la tabla, el formato y, en CSV, el separador (la coma es el valor por defecto de la API). */
@@ -38,7 +39,7 @@ export function nombreDelArchivo(disposicion: string | null, formato: FormatoDeE
  * {@link EXPORTACION_MAXIMA} ni se intenta: la API respondería 422.
  */
 export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosComprobantes; total: number }) {
-  const [abierto, setAbierto] = useState(false);
+  const { abierto, alternar, cerrar, ref } = usePanelDesplegable("exportar-comprobantes");
   const [formato, setFormato] = useState<FormatoDeExportacion>("xlsx");
   const [separador, setSeparador] = useState<SeparadorCsv>("coma");
   const [exportando, setExportando] = useState(false);
@@ -65,7 +66,7 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
       a.remove();
       // El navegador ya tomó el archivo: liberar la URL después del clic, no antes.
       setTimeout(() => URL.revokeObjectURL(url), 0);
-      setAbierto(false);
+      cerrar();
     } catch {
       setError("No se pudo exportar: revisa tu conexión y vuelve a intentarlo.");
     } finally {
@@ -74,10 +75,10 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button
         type="button"
-        onClick={() => setAbierto((a) => !a)}
+        onClick={alternar}
         aria-expanded={abierto}
         aria-controls="exportar-panel"
         className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-[12px] font-medium")}
@@ -88,7 +89,8 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
       {abierto ? (
         <div id="exportar-panel" className="absolute right-0 z-20 mt-2 grid w-72 gap-3 rounded-xl border border-border bg-card p-3 shadow-lg" data-testid="exportar-comprobantes">
           <p className="text-[12px] text-muted-foreground">
-            Una fila por comprobante de los {total.toLocaleString("es-PE")} que muestra la lista con sus filtros: bases, IGV, ICBPER, total, estado y documento modificado.
+            Una fila por comprobante de los {total.toLocaleString("es-PE")} que muestra la lista con sus filtros: bases, IGV, ICBPER, ISC, cargos, descuentos, anticipos, total, estado y
+            documento modificado. Las notas de crédito salen en negativo; sin filtro de estado no entran los rechazados, inválidos ni descartados.
           </p>
           <fieldset className="grid gap-1.5">
             <legend className="mb-1 text-[12px] font-medium">Formato</legend>
