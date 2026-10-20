@@ -16,7 +16,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * El resumen de los comprobantes de una empresa (#15). Tres consultas, acotadas por el índice {@code (tenant_id, fecha_emision)}: cuántos hay por estado, cuánto suman los que
+ * El resumen de los comprobantes de una empresa (#15) y su emisión por día (#24). El resumen son tres consultas, acotadas por el índice {@code (tenant_id, fecha_emision)}: cuántos hay por estado, cuánto suman los que
  * cuentan como facturados, por moneda, y cuántas boletas siguen FIRMADAS sin enviar desde el 5.º día (#356, {@link BoletasPorInformar}). Los estados que cuentan salen del enum
  * ({@link EstadoDocumento#cuentaComoFacturado()}), no de un texto copiado acá.
  */
@@ -62,5 +62,23 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
                 """.formatted(BoletasPorInformar.sinEnviar("c"), fechas), Long.class, conCorte.toArray());
 
         return new Agregados(porEstado, facturado, boletasSinEnviar);
+    }
+
+    /**
+     * #24: un solo recorrido por el índice {@code (tenant_id, fecha_emision)}, agrupado por día, estado y moneda. {@code fecha_emision} es la fecha del comprobante (un DATE,
+     * la de Lima en que se emitió), así que agrupar por ella no depende del huso horario de la sesión. El LEFT JOIN deja también los documentos sin fila de totales.
+     */
+    @Override public List<Celda> porDia(UUID tenantId, LocalDate desde, LocalDate hasta) {
+        return jdbc.query("""
+                SELECT d.fecha_emision, d.estado, c.moneda, count(*) AS n, sum(CASE WHEN d.tipo = '%s' THEN -c.total ELSE c.total END) AS neto
+                FROM documento d LEFT JOIN comprobante c ON c.documento_id = d.id
+                WHERE d.tenant_id = ? AND d.fecha_emision >= ? AND d.fecha_emision <= ?
+                GROUP BY d.fecha_emision, d.estado, c.moneda
+                ORDER BY d.fecha_emision, d.estado, c.moneda
+                """.formatted(NOTA_DE_CREDITO),
+                // Como LocalDate y no como java.sql.Date: ese pasa por medianoche en el huso de la JVM y podría correr el día.
+                (rs, i) -> new Celda(rs.getObject("fecha_emision", LocalDate.class), EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("moneda"), rs.getLong("n"),
+                        rs.getBigDecimal("neto")),
+                tenantId, Date.valueOf(desde), Date.valueOf(hasta));
     }
 }

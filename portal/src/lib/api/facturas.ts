@@ -527,6 +527,11 @@ export type ResumenDeFacturas = {
   /** Aceptados por SUNAT, con o sin observaciones: los que ya tienen su CDR. */
   aceptados_con_cdr: number;
   /**
+   * #24: en camino a SUNAT sin nada que corregir (firmados sin enviar, enviados esperando su CDR, boletas esperando su resumen). Una boleta sin enviar desde el 5.º día
+   * cuenta acá y también en `atencion_requerida.boletas_sin_enviar`.
+   */
+  en_camino: number;
+  /**
    * Lo que pide que el emisor haga algo. `boletas_sin_enviar` (#356): boletas, o notas que van en el resumen diario, que quedaron FIRMADAS porque se emitieron sin enviarlas y
    * ya están en el 5.º día o más.
    */
@@ -553,6 +558,25 @@ export function resumirFacturas(access: string, empresaId: string, periodo: Pick
   if (periodo.hasta) qs.set("hasta", periodo.hasta);
   const consulta = qs.toString();
   return backendFetch<ResumenDeFacturas>(`/v1/facturas/resumen${consulta ? `?${consulta}` : ""}`, { headers: tenantHeaders(access, empresaId) });
+}
+
+/**
+ * La emisión día por día de un rango (#24), con la forma real del JSON: solo los días con algo emitido o facturado, ordenados por fecha (los vacíos no vienen). Cada día
+ * cuenta y factura con las reglas del resumen.
+ */
+export type EmisionPorDia = {
+  desde: string;
+  hasta: string;
+  dias: Array<{ fecha: string; emitidos: number; facturado: Array<{ moneda: string; total: number }> }>;
+};
+
+/** El rango más largo que admite `GET /v1/facturas/resumen/por-dia` (`ResumirComprobantesUseCase.MAXIMO_DIAS_POR_DIA`). */
+export const MAXIMO_DIAS_POR_DIA = 62;
+
+/** Solo desde el servidor, como `resumirFacturas`. Los dos extremos son obligatorios. */
+export function emisionPorDia(access: string, empresaId: string, rango: { desde: string; hasta: string }) {
+  const qs = new URLSearchParams({ desde: rango.desde, hasta: rango.hasta });
+  return backendFetch<EmisionPorDia>(`/v1/facturas/resumen/por-dia?${qs}`, { headers: tenantHeaders(access, empresaId) });
 }
 
 export async function obtenerFactura(access: string, empresaId: string, id: string) {

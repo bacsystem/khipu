@@ -25,4 +25,16 @@ public interface ResumenDeComprobantesRepository {
 
     /** {@code desde}/{@code hasta} acotan la fecha de emisión, inclusive; uno nulo deja ese lado abierto. {@code hoy} fija desde cuándo una boleta sin enviar pide atención. */
     Agregados resumir(UUID tenantId, LocalDate desde, LocalDate hasta, LocalDate hoy);
+
+    /**
+     * Los comprobantes de un día en un estado y una moneda (#24): cuántos son y su neto (las notas de crédito restan). {@code moneda} y {@code neto} son nulos para los
+     * documentos sin fila de totales (los que nunca llegaron a armarse, como un {@code RECIBIDO}).
+     */
+    record Celda(LocalDate fecha, EstadoDocumento estado, String moneda, long cuantos, BigDecimal neto) {}
+
+    /**
+     * Las celdas de {@code desde} a {@code hasta} (fecha de emisión, inclusive, los dos obligatorios), en un solo recorrido agrupado por día, estado y moneda. Qué cuenta como
+     * emitido o facturado no se decide acá: lo decide el dominio sobre el estado de cada celda.
+     */
+    List<Celda> porDia(UUID tenantId, LocalDate desde, LocalDate hasta);
 }

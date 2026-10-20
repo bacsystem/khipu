@@ -104,7 +104,7 @@ class ResumenDeComprobantesE2ETest {
 
         Map<String, Object> d = datos(resumen(c, ""));
 
-        assertThat(d).containsEntry("emitidos", 16).containsEntry("aceptados_con_cdr", 8);
+        assertThat(d).containsEntry("emitidos", 16).containsEntry("aceptados_con_cdr", 8).containsEntry("en_camino", 1);
         assertThat((Map<String, Object>) d.get("atencion_requerida")).containsEntry("total", 6).containsEntry("rechazados", 3).containsEntry("errores_de_envio", 2).containsEntry("fuera_de_plazo", 1).containsEntry("boletas_sin_enviar", 0);
     }
 
@@ -174,7 +174,7 @@ class ResumenDeComprobantesE2ETest {
 
         Map<String, Object> d = datos(resumen(c, ""));
 
-        assertThat(d).containsEntry("emitidos", 0).containsEntry("aceptados_con_cdr", 0);
+        assertThat(d).containsEntry("emitidos", 0).containsEntry("aceptados_con_cdr", 0).containsEntry("en_camino", 0);
         assertThat((Map<String, Object>) d.get("atencion_requerida")).containsEntry("total", 0).containsEntry("rechazados", 0).containsEntry("errores_de_envio", 0).containsEntry("fuera_de_plazo", 0);
         assertThat((List<?>) d.get("facturado")).isEmpty();
         assertThat(d).doesNotContainKeys("desde", "hasta");
@@ -232,6 +232,76 @@ class ResumenDeComprobantesE2ETest {
             assertThat(llamar(HttpMethod.GET, "/v1/facturas/resumen", h, null).getStatusCode()).as("con %s", h).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
         assertThat(c.apiKey()).isNotBlank();
+    }
+
+    // --- la emisión por día (#24) -----------------------------------------------------------------------------------------------------------
+
+    private ResponseEntity<Map> porDia(Cliente c, String query) { return llamar(HttpMethod.GET, "/v1/facturas/resumen/por-dia" + query, conApiKey(c.apiKey()), null); }
+
+    /**
+     * El gráfico del dashboard: por cada día con comprobantes, lo emitido y lo facturado por moneda con las reglas del resumen; los días sin nada no vienen, y la suma de los
+     * días es el resumen del mismo rango. El día de hoy es el de Lima, como la fecha de emisión que pone el backend.
+     */
+    @Test void laEmisionPorDiaDiceCadaDiaConLasReglasDelResumenYSumaLoMismoQueEl() {
+        Cliente c = cliente("ana@negocio.pe");
+        Cliente otro = cliente("luis@negocio.pe");
+        LocalDate hoy = LocalDate.now(java.time.ZoneId.of("America/Lima"));
+        LocalDate primero = hoy.withDayOfMonth(1);
+        comprobante(c, "01", "ACEPTADO", primero, "PEN", "1000");
+        comprobante(c, "07", "ACEPTADO", primero, "PEN", "300");
+        comprobante(c, "01", "ACEPTADO", primero, "USD", "50.50");
+        comprobante(c, "01", "RECHAZADO", primero, "PEN", "99999");
+        comprobante(c, "01", "RECIBIDO", primero, "PEN", "5");
+        comprobante(c, "03", "ENVIADO", hoy, "PEN", "10");
+        comprobante(c, "01", "ACEPTADO", primero.minusDays(1), "PEN", "777");
+        comprobante(otro, "01", "ACEPTADO", hoy, "PEN", "123");
+        String rango = "?desde=" + primero + "&hasta=" + hoy;
+
+        Map<String, Object> d = datos(porDia(c, rango));
+
+        assertThat(d).containsEntry("desde", primero.toString()).containsEntry("hasta", hoy.toString());
+        List<Map<String, Object>> dias = (List<Map<String, Object>>) d.get("dias");
+        if (primero.equals(hoy)) {
+            assertThat(dias).hasSize(1);
+            assertThat(dias.get(0)).containsEntry("emitidos", 5);
+        } else {
+            assertThat(dias).extracting(x -> x.get("fecha")).containsExactly(primero.toString(), hoy.toString());
+            assertThat(dias.get(0)).containsEntry("emitidos", 4);
+            List<Map<String, Object>> facturado = (List<Map<String, Object>>) dias.get(0).get("facturado");
+            assertThat(facturado).extracting(f -> f.get("moneda")).containsExactly("PEN", "USD");
+            assertThat(numero(facturado.get(0).get("total"))).isEqualTo(700.0);
+            assertThat(numero(facturado.get(1).get("total"))).isEqualTo(50.5);
+            assertThat(dias.get(1)).containsEntry("emitidos", 1);
+            assertThat(numero(((List<Map<String, Object>>) dias.get(1).get("facturado")).get(0).get("total"))).isEqualTo(10.0);
+        }
+        Map<String, Object> resumen = datos(resumen(c, rango));
+        assertThat(dias.stream().mapToLong(x -> ((Number) x.get("emitidos")).longValue()).sum()).as("la suma de los días es lo emitido del resumen").isEqualTo(((Number) resumen.get("emitidos")).longValue());
+    }
+
+    @Test void laEmisionPorDiaSinComprobantesTraeLaListaVaciaYSoloLaVeSuDueno() {
+        Cliente a = cliente("ana@negocio.pe");
+        Cliente b = cliente("beto@otro.pe");
+        comprobante(b, "01", "ACEPTADO", DIA, "PEN", "100");
+
+        assertThat((List<?>) datos(porDia(a, "?desde=2026-09-01&hasta=2026-09-30")).get("dias")).isEmpty();
+        assertThat((List<?>) datos(porDia(b, "?desde=2026-09-01&hasta=2026-09-30")).get("dias")).hasSize(1);
+        assertThat(datos(llamar(HttpMethod.GET, "/v1/facturas/resumen/por-dia?desde=2026-09-01&hasta=2026-09-30", conBearer(b), null)))
+                .as("con el JWT del portal, lo mismo que con la API key").isEqualTo(datos(porDia(b, "?desde=2026-09-01&hasta=2026-09-30")));
+        assertThat(llamar(HttpMethod.GET, "/v1/facturas/resumen/por-dia?desde=2026-09-01&hasta=2026-09-30", json(), null).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test void laEmisionPorDiaRechazaUnRangoDeMasDe62DiasAlRevesOIncompleto() {
+        Cliente c = cliente("ana@negocio.pe");
+
+        assertThat(porDia(c, "?desde=2026-08-01&hasta=2026-10-01").getStatusCode()).as("62 días justos").isEqualTo(HttpStatus.OK);
+        ResponseEntity<Map> largo = porDia(c, "?desde=2026-08-01&hasta=2026-10-02");
+        assertThat(largo.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(largo.getBody()).containsEntry("codigo", "RANGO_INVALIDO");
+        assertThat((String) largo.getBody().get("mensaje")).contains("62 días");
+        assertThat(porDia(c, "?desde=2026-09-30&hasta=2026-09-01").getBody()).containsEntry("codigo", "RANGO_INVALIDO");
+        assertThat(porDia(c, "?desde=2026-09-01").getBody()).containsEntry("codigo", "PARAMETRO_INVALIDO");
+        assertThat(porDia(c, "").getBody()).containsEntry("codigo", "PARAMETRO_INVALIDO");
+        assertThat(porDia(c, "?desde=ayer&hasta=2026-09-30").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test void consultarElResumenNoEscribeNada() {
