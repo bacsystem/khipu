@@ -141,6 +141,13 @@ app:
     consulta-beta-url: ${SUNAT_API_CONSULTA_BETA_URL:https://api.sunat.gob.pe}
     # Tope de cada llamada (token o consulta), 1 a 120 s. Corto a propósito: si no responde, se cae a billValidService (SOAP) cuando hay clave SOL.
     timeout-seconds: ${SUNAT_API_TIMEOUT_SECONDS:10}
+    # #39: la guía de remisión electrónica (envío y ticket en <gre>/v1/contribuyente/gem/comprobantes/…; token del grant password en <seguridad>/v1/clientessol/…).
+    # SUNAT no publica una API de pruebas para la GRE y la de producción emite guías con validez tributaria: sin SUNAT_API_GRE_BETA_URL, una empresa en BETA no
+    # envía guías (se pueden emitir sin enviar). Ver deploy/README.md §14.
+    gre-url: ${SUNAT_API_GRE_URL:https://api-cpe.sunat.gob.pe}
+    gre-beta-url: ${SUNAT_API_GRE_BETA_URL:}
+    # La GRE puede tardar más que una consulta: el envío lleva el ZIP del XML firmado.
+    gre-timeout-seconds: ${SUNAT_API_GRE_TIMEOUT_SECONDS:30}
   outbox:
     intervalo-ms: ${OUTBOX_INTERVALO_MS:10000}
     max-intentos: ${OUTBOX_MAX_INTENTOS:20}

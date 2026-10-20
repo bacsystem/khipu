@@ -11,6 +11,7 @@ import pe.factura.application.port.in.Idempotencia;
 import pe.factura.application.port.out.SunatApiValidezGateway;
 import pe.factura.application.port.out.SunatBillingGateway;
 import pe.factura.application.port.out.SunatConsultaGateway;
+import pe.factura.application.port.out.SunatGreGateway;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
@@ -216,6 +217,17 @@ public final class RelojDeLaAplicacion {
         return (t, rucEmisor, tipo, serie, numero, fechaEmision, importeTotal) -> {
             if (t.entorno() == Entorno.PRODUCCION) throw rechazo("consultar a SUNAT");
             return sunat.validar(t, rucEmisor, tipo, serie, numero, fechaEmision, importeTotal);
+        };
+    }
+
+    /** Lo mismo para la guía de remisión por la API REST de SUNAT (#39): con el reloj movido, ninguna guía de una empresa en PRODUCCION llega a SUNAT. */
+    public static SunatGreGateway proteger(SunatGreGateway sunat, Duration desplazamiento) {
+        if (!desplazado(desplazamiento)) return sunat;
+        return new SunatGreGateway() {
+            @Override public boolean disponible(Entorno entorno) { return sunat.disponible(entorno); }
+            @Override public Recepcion enviar(Tenant t, String nombreArchivo, byte[] xmlFirmado) { exigirNoProduccion(t); return sunat.enviar(t, nombreArchivo, xmlFirmado); }
+            @Override public EstadoDelTicket consultar(Tenant t, String ticket) { exigirNoProduccion(t); return sunat.consultar(t, ticket); }
+            private void exigirNoProduccion(Tenant t) { if (t.entorno() == Entorno.PRODUCCION) throw rechazo("enviar a SUNAT"); }
         };
     }
 

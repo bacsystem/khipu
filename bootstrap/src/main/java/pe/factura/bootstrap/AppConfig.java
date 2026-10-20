@@ -57,6 +57,7 @@ import pe.factura.adapters.sunat.SunatUrls;
 import pe.factura.adapters.sunat.SoapConsultaGateway;
 import pe.factura.adapters.sunat.SondeoDeSunatHttp;
 import pe.factura.adapters.sunatrest.ClienteApiSunat;
+import pe.factura.adapters.sunatrest.RestGreGateway;
 import pe.factura.adapters.sunatrest.RestValidezGateway;
 import pe.factura.adapters.sunatrest.UrlPorEntorno;
 import pe.factura.adapters.scheduler.RecuperarCdrWorker;
@@ -64,8 +65,10 @@ import pe.factura.adapters.scheduler.EntregarWebhooksWorker;
 import pe.factura.adapters.scheduler.EnviarAlClienteWorker;
 import pe.factura.adapters.scheduler.VigilarOperacionWorker;
 import pe.factura.adapters.sunat.XmlCdrParser;
+import pe.factura.adapters.pdf.FlyingSaucerGuiaPdfGenerator;
 import pe.factura.adapters.pdf.FlyingSaucerPdfGenerator;
 import pe.factura.adapters.pdf.ZxingCodigoQr;
+import pe.factura.adapters.ubl.FreemarkerGuiaUblGenerator;
 import pe.factura.adapters.ubl.FreemarkerUblGenerator;
 import pe.factura.adapters.ubl.XmlEmisorFirmado;
 import pe.factura.adapters.ubl.JaxpXsdValidator;
@@ -234,7 +237,7 @@ public class AppConfig {
      * scoped a tenant (ApiKeyFilter → TenantActual) aceptan X-Api-Key.
      */
     @Bean GlobalOpenApiCustomizer apiKeySecurityCustomizer() {
-        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas", "/v1/notas", "/v1/liquidaciones-compra", "/v1/retenciones", "/v1/percepciones", "/v1/bajas");
+        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas", "/v1/notas", "/v1/liquidaciones-compra", "/v1/retenciones", "/v1/percepciones", "/v1/bajas", "/v1/guias-remision");
         return openApi -> {
             if (openApi.getComponents() == null) openApi.setComponents(new Components());
             openApi.getComponents().addSecuritySchemes("ApiKey",
@@ -355,6 +358,34 @@ public class AppConfig {
         ClienteApiSunat cliente = new ClienteApiSunat(espera.compareTo(Duration.ofSeconds(5)) < 0 ? espera : Duration.ofSeconds(5), espera, clock);
         return RelojDeLaAplicacion.proteger(new RestValidezGateway(new UrlPorEntorno(seguridadBeta, seguridad), new UrlPorEntorno(consultaBeta, consulta), cliente),
                 p.desplazamientoDelReloj());
+    }
+    /**
+     * #39: la guía de remisión electrónica por la API REST de SUNAT. El token es el de la validez (mismo servicio de seguridad, otro grant); la API GRE de beta va
+     * vacía por defecto: SUNAT no publica una de pruebas y la de producción emite guías reales (ver RestGreGateway y deploy/README.md §14).
+     */
+    @Bean SunatGreGateway sunatGreGateway(AppProperties p, Clock clock,
+                                          @Value("${app.sunat-api.seguridad-url}") String seguridad, @Value("${app.sunat-api.seguridad-beta-url}") String seguridadBeta,
+                                          @Value("${app.sunat-api.gre-url}") String gre, @Value("${app.sunat-api.gre-beta-url:}") String greBeta,
+                                          @Value("${app.sunat-api.gre-timeout-seconds:30}") int segundos) {
+        if (segundos < 1 || segundos > 120) throw new IllegalStateException("SUNAT_API_GRE_TIMEOUT_SECONDS debe estar entre 1 y 120 (es " + segundos + ")");
+        Duration espera = Duration.ofSeconds(segundos);
+        ClienteApiSunat cliente = new ClienteApiSunat(espera.compareTo(Duration.ofSeconds(5)) < 0 ? espera : Duration.ofSeconds(5), espera, clock);
+        return RelojDeLaAplicacion.proteger(new RestGreGateway(new UrlPorEntorno(seguridadBeta, seguridad), gre, greBeta, cliente), p.desplazamientoDelReloj());
+    }
+    @Bean GuiaRemisionRepository guiaRemisionRepository(JdbcTemplate jdbc) { return new JdbcGuiaRemisionRepository(jdbc); }
+    @Bean GuiaUblGenerator guiaUblGenerator() { return new FreemarkerGuiaUblGenerator(); }
+    @Bean GuiaPdfGenerator guiaPdfGenerator() { return new FlyingSaucerGuiaPdfGenerator(); }
+    @Bean EnviarGuiaRemisionUseCase enviarGuiaRemision(GuiaRemisionRepository g, TenantRepository t, DocumentStorage s, SunatGreGateway gre, CdrParser cdr, OutboxRepository o, UnitOfWork u, Clock clock) {
+        return new EnviarGuiaRemisionService(g, t, s, gre, cdr, o, u, clock);
+    }
+    /** Carga la empresa lo primero, antes de numerar con la fecha del reloj: con el reloj movido (#363), el repositorio protegido frena ahí a las de PRODUCCION. */
+    @Bean EmitirGuiaRemisionUseCase emitirGuiaRemision(GuiaRemisionRepository g, SerieRepository se, TenantRepository t, EstablecimientoRepository est, DocumentStorage s, GuiaUblGenerator ubl,
+                                                       XsdValidator xsd, XmlSigner signer, SunatGreGateway gre, EnviarGuiaRemisionUseCase enviar, IdempotenciaRepository idempotencia,
+                                                       UnitOfWork u, Clock clock, AppProperties p) {
+        return new EmitirGuiaRemisionService(g, se, RelojDeLaAplicacion.proteger(t, p.desplazamientoDelReloj()), est, s, ubl, xsd, signer, gre, enviar, idempotencia, u, clock);
+    }
+    @Bean ConsultarGuiaRemisionUseCase consultarGuiaRemision(GuiaRemisionRepository g, TenantRepository t, DocumentStorage s, GuiaPdfGenerator pdf) {
+        return new ConsultarGuiaRemisionService(g, t, s, pdf);
     }
     /** Sondea el WSDL de cada servicio de SUNAT (sin credenciales ni comprobantes) y guarda la lectura 30 s para que el monitor, que se refresca solo, no la llame cada vez. */
     @Bean SondeoDeSunat sondeoDeSunat(AppProperties p, Clock clock) {
@@ -583,8 +614,8 @@ public class AppConfig {
                                      SunatBillingGateway g, CdrParser p, OutboxRepository o, UnitOfWork u, Clock clock, AppProperties props) {
         return new DarDeBajaService(b, c, RelojDeLaAplicacion.proteger(t, props.desplazamientoDelReloj()), s, ubl, xsd, signer, g, p, o, u, clock);
     }
-    @Bean OutboxWorker outboxWorker(OutboxRepository o, UnitOfWork u, EnviarDocumentoUseCase e, DarDeBajaUseCase b, Clock clock, AppProperties p) {
-        return new OutboxWorker(o, u, e, b, clock, p.outbox().maxIntentos());
+    @Bean OutboxWorker outboxWorker(OutboxRepository o, UnitOfWork u, EnviarDocumentoUseCase e, DarDeBajaUseCase b, Clock clock, AppProperties p, EnviarGuiaRemisionUseCase guias) {
+        return new OutboxWorker(o, u, e, b, clock, p.outbox().maxIntentos(), guias);
     }
     @Bean ControlarPlazoEnvioUseCase controlarPlazoEnvio(ComprobanteRepository c, UnitOfWork u, Clock clock, JdbcTemplate jdbc, AppProperties p) {
         return RelojDeLaAplicacion.proteger(new ControlarPlazoEnvioService(c, u, clock), () -> empresasEnProduccion(jdbc), RELOJ_LOG::warn, p.desplazamientoDelReloj());

@@ -341,6 +341,27 @@ class RelojDeLaAplicacionTest {
         assertThat(llamadas).containsExactly("validar");
     }
 
+    /** #39: la guía de remisión tampoco sale para una empresa en PRODUCCION con el reloj movido (ni el envío ni la consulta del ticket); sin desplazamiento, la misma pasarela. */
+    @Test void laGuiaDeRemisionTambienSeProtege() {
+        List<String> llamadas = new ArrayList<>();
+        pe.factura.application.port.out.SunatGreGateway real = new pe.factura.application.port.out.SunatGreGateway() {
+            public boolean disponible(Entorno e) { return true; }
+            public Recepcion enviar(pe.factura.domain.tenant.Tenant t, String n, byte[] x) { llamadas.add("enviar"); return new Recepcion("tk", null); }
+            public EstadoDelTicket consultar(pe.factura.domain.tenant.Tenant t, String tk) { llamadas.add("consultar"); return new EstadoDelTicket("98", null, null, null, null); }
+        };
+        assertThat(RelojDeLaAplicacion.proteger(real, Duration.ZERO)).isSameAs(real);
+        var protegida = RelojDeLaAplicacion.proteger(real, Duration.ofDays(-8));
+        assertThatThrownBy(() -> protegida.enviar(tenant(Entorno.PRODUCCION), "x", new byte[0]))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.codigo()).isEqualTo("RELOJ_DESPLAZADO"));
+        assertThatThrownBy(() -> protegida.consultar(tenant(Entorno.PRODUCCION), "tk"))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.codigo()).isEqualTo("RELOJ_DESPLAZADO"));
+        assertThat(llamadas).isEmpty();
+        protegida.enviar(tenant(Entorno.BETA), "x", new byte[0]);
+        protegida.consultar(tenant(Entorno.BETA), "tk");
+        assertThat(llamadas).containsExactly("enviar", "consultar");
+        assertThat(protegida.disponible(Entorno.BETA)).isTrue();
+    }
+
     /** Una duración ISO-8601 válida puede ser absurda (P999999999D): el reloj se rompería en el primer uso, lejos de la variable. Se acota al configurar. */
     @Test void unDesplazamientoDemasiadoGrandeImpideArrancarYDiceElTope() {
         for (String absurdo : new String[]{"P999999999D", "-P40000D", "PT999999999999S"})
