@@ -16,11 +16,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * El resumen de comprobantes de una empresa (#15) y su emisión día por día (#24). Solo lectura. El repositorio trae cuántos hay por estado; acá se decide qué estados son
@@ -51,7 +49,8 @@ public class ResumirComprobantesService implements ResumirComprobantesUseCase {
 
         Map<LocalDate, Acumulado> porFecha = new TreeMap<>();
         for (Celda c : resumenes.porDia(tenantId, desde, hasta)) {
-            if (!esVenta(c.tipo())) continue;
+            // Solo ventas, con la misma definición con que el resumen cuenta «emitidos» y «facturado» (TiposDeVenta en la persistencia); un tipo nulo o desconocido no lo es.
+            if (!TipoDocumento.esVenta(c.tipo())) continue;
             boolean emitido = c.estado().fueEmitido();
             boolean facturado = c.estado().cuentaComoFacturado() && c.moneda() != null && c.neto() != null;
             if (!emitido && !facturado) continue;
@@ -64,15 +63,6 @@ public class ResumirComprobantesService implements ResumirComprobantesUseCase {
                 a.porMoneda.entrySet().stream().map(e -> new Total(e.getKey(), e.getValue())).toList())));
         return new PorDia(desde, hasta, resultado);
     }
-
-    /**
-     * Los códigos que son ventas y por eso cuentan en la emisión por día: los de {@link TipoDocumento#esVenta()}, la misma definición con que el resumen (#15) cuenta
-     * «emitidos» y «facturado» ({@code TiposDeVenta} en la persistencia), así que 04, 20, 40, 09 y 31 no entran en ninguno de los dos.
-     */
-    static final Set<String> TIPOS_DE_VENTA = TipoDocumento.ventas().stream().map(TipoDocumento::codigo).collect(Collectors.toUnmodifiableSet());
-
-    /** Un tipo nulo o desconocido no es una venta, no un error. */
-    static boolean esVenta(String tipo) { return TipoDocumento.esVenta(tipo); }
 
     /** Lo de un día mientras se recorren sus celdas; {@code porMoneda} ordenado por moneda, como el resumen. */
     private static final class Acumulado {

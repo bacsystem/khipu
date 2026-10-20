@@ -239,10 +239,14 @@ class ResumirComprobantesServiceTest {
         assertThat(porDia().dias()).containsExactly(new Dia(LocalDate.of(2026, 10, 6), 1, List.of(new Total("PEN", new BigDecimal("100")))));
     }
 
-    @Test void losTiposDeVentaSonExactamenteFacturaBoletaYSusNotas() {
-        assertThat(ResumirComprobantesService.TIPOS_DE_VENTA).containsExactlyInAnyOrder("01", "03", "07", "08");
-        // La misma definición que el resumen y el SIRE: la del dominio, código por código.
-        for (TipoDocumento t : TipoDocumento.values()) assertThat(ResumirComprobantesService.esVenta(t.codigo())).as(t.name()).isEqualTo(t.esVenta());
+    /** La misma definición que el resumen y el SIRE: la del dominio ({@link TipoDocumento#esVenta()}), tipo por tipo; cada venta suma un emitido y cada no venta, ninguno. */
+    @Test void cadaTipoCuentaEnLaEmisionPorDiaSegunElDominio() {
+        for (TipoDocumento t : TipoDocumento.values()) {
+            resumenes.celdas.clear();
+            celda(10, t.codigo(), ACEPTADO, "PEN", 1, "10");
+            assertThat(porDia().dias()).as(t.name()).hasSize(t.esVenta() ? 1 : 0);
+        }
+        assertThat(TipoDocumento.ventas()).extracting(TipoDocumento::codigo).containsExactlyInAnyOrder("01", "03", "07", "08");
     }
 
     @Test void sinComprobantesNoHayDiasYElRangoVuelveTalCual() {
