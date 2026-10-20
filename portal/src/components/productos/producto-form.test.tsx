@@ -62,6 +62,32 @@ describe("ProductoForm (#320)", () => {
     expect(guardados(fetch)).toEqual([{ url: "/api/proxy/productos", metodo: "POST", cuerpo: { descripcion: "Consultoría", unidad: "ZZ", tipo_afectacion_igv: "20", precio_unitario: 118.5 } }]);
   });
 
+  it("un precio de más de dos decimales se conserva al editar y al guardar, y no lleva símbolo de moneda", async () => {
+    const fetch = stub(sobre({ id: "p-9" }));
+    render(<ProductoForm existente={{ id: "p-9", descripcion: "Tornillo", unidad: "NIU", tipo_afectacion_igv: "10", precio_unitario: 0.0123, creado_en: "x", actualizado_en: "x" }} />);
+
+    expect((screen.getByLabelText(/Precio unit\./) as HTMLInputElement).value).toBe("0.0123");
+    expect(screen.queryByText("S/")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Tornillo largo" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(guardados(fetch)).toHaveLength(1));
+    expect(guardados(fetch)[0].cuerpo).toMatchObject({ descripcion: "Tornillo largo", precio_unitario: 0.0123 });
+  });
+
+  it("un precio con más de 10 decimales o 12 enteros se rechaza antes de mandarlo", async () => {
+    const fetch = stub();
+    render(<ProductoForm />);
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Servicio" } });
+
+    for (const precio of ["1.12345678901", "1234567890123"]) {
+      fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: precio } });
+      fireEvent.click(screen.getByRole("button", { name: "Guardar producto" }));
+      expect(await screen.findByText("Hasta 12 enteros y 10 decimales")).toBeInTheDocument();
+    }
+    expect(guardados(fetch)).toHaveLength(0);
+  });
+
   it("el motivo del backend se ve en el formulario y no se cierra", async () => {
     stub(sobre(null, 422));
     const alGuardar = vi.fn();

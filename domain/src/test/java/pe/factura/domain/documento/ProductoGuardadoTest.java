@@ -7,11 +7,13 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.ProductoGuardado.Datos;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 /** Productos guardados (#320): se validan como la línea de un comprobante, así que lo guardado siempre se puede emitir. */
 class ProductoGuardadoTest {
@@ -65,6 +67,26 @@ class ProductoGuardadoTest {
     void rechazaLoQueUnaLineaDeComprobanteRechaza(String caso, String codigo, String descripcion, String unidad, String afectacion, String precio, String codigoSunat, String mensaje) {
         assertThatThrownBy(() -> ProductoGuardado.nuevo(T, datos(codigo, descripcion, unidad, afectacion, precio, codigoSunat), AHORA))
                 .as(caso).isInstanceOf(DomainException.class).hasMessageContaining(mensaje);
+    }
+
+    @ParameterizedTest(name = "precio {0}")
+    @CsvSource({"1E+999999999", "1E+1000000000", "1E-999999999", "-1E+999999999", "9999999999999", "0.12345678901"})
+    void unPrecioFueraDeRangoSeRechazaAlInstanteYSinNormalizarlo(String precio) {
+        // setScale con un exponente de 1e9 construye un BigInteger de miles de millones de dígitos: el rechazo debe llegar antes de normalizar.
+        assertTimeoutPreemptively(Duration.ofSeconds(2), () ->
+                assertThatThrownBy(() -> ProductoGuardado.nuevo(T, datos(null, "Servicio", "ZZ", "10", precio, null), AHORA)).isInstanceOf(DomainException.class));
+    }
+
+    @ParameterizedTest(name = "afectación {0}")
+    @CsvSource({"10", "11", "12", "13", "14", "15", "16", "17", "20", "21", "30", "31", "32", "33", "34", "35", "36", "37", "40"})
+    void todasLasAfectacionesDeLaLineaSeGuardan(String afectacion) {
+        assertThat(ProductoGuardado.nuevo(T, datos(null, "Producto", "NIU", afectacion, "5", null), AHORA).tipoAfectacionIgv()).isEqualTo(afectacion);
+    }
+
+    @ParameterizedTest(name = "afectación {0}")
+    @CsvSource({"18", "19", "22", "29", "38", "39", "41", "1", "100"})
+    void lasAfectacionesFueraDelCatalogoSeRechazan(String afectacion) {
+        assertThatThrownBy(() -> ProductoGuardado.nuevo(T, datos(null, "Producto", "NIU", afectacion, "5", null), AHORA)).isInstanceOf(DomainException.class).hasMessageContaining("afectación del IGV");
     }
 
     @Test void sinPrecioEsUnErrorDeLaLineaYNoUnNullPointer() {

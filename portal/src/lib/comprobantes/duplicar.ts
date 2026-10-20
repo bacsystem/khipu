@@ -8,6 +8,9 @@ import { ISC_VACIO, type IscForm } from "./tributos";
  * pago, el tipo de cambio y los datos adicionales son de esa operación y se vuelven a indicar. Lo que no se copia queda en `omitidos`, para que el diálogo lo diga.
  */
 export type LineaPlantilla = {
+  /** El código interno y el de producto SUNAT de la línea (#320): identifican al ítem, así que la copia los conserva. */
+  codigo?: string;
+  codigoSunat?: string;
   descripcion: string;
   cantidad: number | null;
   precioUnitario: number | null;
@@ -58,6 +61,8 @@ function iscDesde(isc: ItemComprobante["isc"]): IscForm {
 
 export function lineaDesde(i: ItemComprobante): LineaPlantilla {
   return {
+    codigo: i.codigo ?? undefined,
+    codigoSunat: i.codigo_sunat ?? undefined,
     descripcion: i.descripcion,
     cantidad: Number(i.cantidad),
     precioUnitario: Number(i.precio_unitario),

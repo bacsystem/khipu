@@ -4,6 +4,8 @@ import type { ProductoGuardado } from "@/lib/api/productos";
 import { NuevoComprobanteForm } from "./nuevo-comprobante-form";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+// Con 999 ítems de tope probar el límite costaría mil clics: aquí es 2.
+vi.mock("@/lib/comprobantes/limites", async (original) => ({ ...(await original<typeof import("@/lib/comprobantes/limites")>()), MAX_LINEAS: 2 }));
 
 const SERIES = [
   { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" },
@@ -89,6 +91,103 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
 
     expect(screen.getByTestId("aviso-producto-guardado")).toHaveTextContent(/es de exportación/);
     expect((screen.getByLabelText("Descripción") as HTMLInputElement).value).toBe("");
+  });
+
+  it("reescribir la descripción de la línea suelta los códigos del producto: ya es otro ítem y no viajan", async () => {
+    const fetch = stubBackend([CONSULTORIA]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    await elegir("consult", "Consultoría");
+
+    // El precio o la unidad no cambian qué producto es: los códigos siguen.
+    fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "99" } });
+    fireEvent.blur(screen.getByLabelText(/Precio unit\./));
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Otra cosa distinta" } });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    const item = emisiones(fetch)[0].items[0];
+    expect(item).toMatchObject({ descripcion: "Otra cosa distinta", precio_unitario: 99 });
+    expect(item.codigo).toBeUndefined();
+    expect(item.codigo_sunat).toBeUndefined();
+  });
+
+  it("cambiar solo el precio conserva los códigos del producto", async () => {
+    const fetch = stubBackend([CONSULTORIA]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    await elegir("consult", "Consultoría");
+
+    fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "99" } });
+    fireEvent.blur(screen.getByLabelText(/Precio unit\./));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+
+    await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
+    expect(emisiones(fetch)[0].items[0]).toMatchObject({ codigo: "SRV-001", codigo_sunat: "80101500", precio_unitario: 99 });
+  });
+
+  describe("en una exportación", () => {
+    it("un producto gravado entra como línea 40 y avisa que su precio trae el IGV adentro", async () => {
+      stubBackend([CONSULTORIA]);
+      render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+      fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+
+      await elegir("consult", "Consultoría");
+
+      expect((screen.getByLabelText("Descripción") as HTMLInputElement).value).toBe("Consultoría tributaria");
+      expect(screen.getByTestId("aviso-producto-guardado")).toHaveTextContent(/IGV dentro de su precio/);
+      fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
+      expect(screen.getByLabelText("Afectación del IGV")).toHaveValue("40");
+    });
+
+    it("un producto gratuito no se agrega: la exportación cobra todas sus líneas", async () => {
+      const GRATIS: ProductoGuardado = { id: "p-4", descripcion: "Muestra sin costo", unidad: "NIU", tipo_afectacion_igv: "21", precio_unitario: 5, creado_en: "2026-09-08T15:00:00Z", actualizado_en: "2026-09-08T15:00:00Z" };
+      stubBackend([GRATIS]);
+      render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+      fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+
+      await elegir("muestra", "Muestra");
+
+      expect(screen.getByTestId("aviso-producto-guardado")).toHaveTextContent(/es gratuito/);
+      expect((screen.getByLabelText("Descripción") as HTMLInputElement).value).toBe("");
+    });
+
+    it("el aviso de un producto que no se pudo agregar se va al cambiar la operación", async () => {
+      stubBackend([LICENCIA]);
+      render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+      await elegir("licencia", "Licencia");
+      expect(screen.getByTestId("aviso-producto-guardado")).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+
+      expect(screen.queryByTestId("aviso-producto-guardado")).not.toBeInTheDocument();
+    });
+  });
+
+  it("un producto gravado en una venta interna conserva su afectación y no avisa nada", async () => {
+    stubBackend([CONSULTORIA]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+
+    await elegir("consult", "Consultoría");
+
+    expect(screen.queryByTestId("aviso-producto-guardado")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
+    expect(screen.getByLabelText("Afectación del IGV")).toHaveValue("10");
+  });
+
+  it("al llegar al tope de ítems no agrega otra línea y lo dice", async () => {
+    stubBackend([LIBRO]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    await elegir("libro", "Libro técnico");
+    await elegir("libro", "Libro técnico");
+    expect(screen.getAllByLabelText("Descripción")).toHaveLength(2);
+
+    await elegir("libro", "Libro técnico");
+
+    expect(screen.getByTestId("aviso-producto-guardado")).toHaveTextContent(/hasta 2 ítems/);
+    expect(screen.getAllByLabelText("Descripción")).toHaveLength(2);
   });
 
   it("si falla la búsqueda lo dice y la línea se puede teclear a mano", async () => {
