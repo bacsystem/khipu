@@ -1,12 +1,14 @@
 "use client";
 
 import { BanIcon, ChevronDownIcon, MailIcon, RefreshCwIcon, RotateCcwIcon, SendIcon, UsersIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useTransition } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import { ROLES, type InvitacionAlEquipo, type InvitacionEnviada, type MiembroDelEquipo, type Rol } from "@/lib/api/equipo";
-import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { mensajeError, messages } from "@/lib/messages";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
@@ -56,10 +58,46 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
   const sinPermiso = useSinPermisoDeConfigurar();
   const { error, pendiente, ejecutar } = useAccion();
   const [confirmando, setConfirmando] = useState(false);
+  // H9: el rol al que un administrador quiere bajarse a sí mismo, mientras confirma que pierde el acceso de administrador.
+  const [degradandome, setDegradandome] = useState<Rol | null>(null);
   const bloqueado = sinPermiso !== null || pendiente;
+
+  function cambiarRol(rol: Rol) {
+    if (m.es_usted && m.rol === "ADMIN" && rol !== "ADMIN") {
+      setDegradandome(rol);
+      return;
+    }
+    ejecutar(`/api/proxy/cuenta/usuarios/${m.id}/rol`, { method: "PUT", body: { rol } });
+  }
 
   return (
     <TableRow className={cn("border-b border-border/60 hover:bg-muted/80", !m.activo && "opacity-80")} data-testid={`miembro-${m.email}`}>
+      <Dialog open={degradandome !== null} onOpenChange={(v) => (v ? null : setDegradandome(null))}>
+        <DialogContent className="gap-0 p-0">
+          <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
+            <DialogTitle className="text-base font-semibold tracking-tight">{t.degradarme.titulo}</DialogTitle>
+            <DialogDescription className="text-[13px]">
+              {t.degradarme.descripcion.replace("{rol}", degradandome ? etiquetas[degradandome] : "")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-end gap-2 px-5 py-3">
+            <button type="button" onClick={() => setDegradandome(null)} className={BOTON_SECUNDARIO}>
+              {t.cancelar}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const rol = degradandome;
+                setDegradandome(null);
+                if (rol) ejecutar(`/api/proxy/cuenta/usuarios/${m.id}/rol`, { method: "PUT", body: { rol } });
+              }}
+              className={BOTON_DESTRUCTIVO}
+            >
+              {t.degradarme.confirmar}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <TableCell className="py-2 pr-3 pl-4">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[12px] text-foreground">{m.email}</span>
@@ -73,7 +111,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
             value={m.rol}
             disabled={bloqueado}
             title={sinPermiso ?? undefined}
-            onChange={(e) => ejecutar(`/api/proxy/cuenta/usuarios/${m.id}/rol`, { method: "PUT", body: { rol: e.target.value as Rol } })}
+            onChange={(e) => cambiarRol(e.target.value as Rol)}
             className={cn(CONTROL_FILTRO, "w-full appearance-none pr-8 pl-3 disabled:cursor-not-allowed disabled:opacity-60")}
           >
             {ROLES.map((r) => (
@@ -99,16 +137,27 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
               {t.reactivar}
             </button>
           ) : confirmando ? (
-            <div className="flex items-center gap-1">
-              <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarDesactivar}</span>
-              <button type="button" disabled={bloqueado} onClick={() => { setConfirmando(false); ejecutar(`/api/proxy/cuenta/usuarios/${m.id}/desactivar`, { method: "POST" }); }}
-                className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-                <BanIcon className="size-3.5" />
-                {t.siDesactivar}
-              </button>
-              <button type="button" onClick={() => setConfirmando(false)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
-                {t.cancelar}
-              </button>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1">
+                <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarDesactivar}</span>
+                <button type="button" disabled={bloqueado} onClick={() => { setConfirmando(false); ejecutar(`/api/proxy/cuenta/usuarios/${m.id}/desactivar`, { method: "POST" }); }}
+                  className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
+                  <BanIcon className="size-3.5" />
+                  {t.siDesactivar}
+                </button>
+                <button type="button" onClick={() => setConfirmando(false)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
+                  {t.cancelar}
+                </button>
+              </div>
+              {/* Las API keys son de la empresa, no de quien las creó: desactivarlo no las revoca. Se dice antes de confirmar, con el camino para hacerlo. */}
+              {m.rol === "ADMIN" ? (
+                <p className="max-w-xs text-right text-[11px] text-muted-foreground" data-testid="aviso-api-keys">
+                  {t.avisoApiKeys}{" "}
+                  <Link href="/api-keys" className="text-primary hover:underline">
+                    {t.irAApiKeys}
+                  </Link>
+                </p>
+              ) : null}
             </div>
           ) : (
             <button type="button" disabled={bloqueado} title={sinPermiso ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
