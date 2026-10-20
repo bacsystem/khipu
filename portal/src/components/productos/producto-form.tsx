@@ -3,7 +3,6 @@
 import { SaveIcon } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { Campo } from "@/components/formularios/campo";
-import { EntradaMonto } from "@/components/formularios/entrada-monto";
 import { apiRequest } from "@/lib/api/browser";
 import type { DatosDeProducto, ProductoGuardado } from "@/lib/api/productos";
 import { etiquetaDelPrecio, GRUPOS_AFECTACION } from "@/lib/comprobantes/tributos";
@@ -21,7 +20,8 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
   const [codigo, setCodigo] = useState(existente?.codigo ?? "");
   const [unidad, setUnidad] = useState(existente?.unidad ?? "NIU");
   const [afectacion, setAfectacion] = useState(existente?.tipo_afectacion_igv ?? "10");
-  const [precio, setPrecio] = useState<number | null>(existente?.precio_unitario ?? null);
+  // El precio se teclea como texto: la API admite hasta 10 decimales (0.0123 es un precio válido) y un campo de importe lo redondearía a 2 al editar.
+  const [precioTexto, setPrecioTexto] = useState(existente ? String(existente.precio_unitario) : "");
   const [codigoSunat, setCodigoSunat] = useState(existente?.codigo_sunat ?? "");
   const [unidades, setUnidades] = useState<EntradaCatalogo[] | null>(null);
   const [intento, setIntento] = useState(false);
@@ -40,7 +40,9 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
   }, []);
 
   const errorDescripcion = descripcion.trim() === "" ? "Escribe la descripción" : descripcion.trim().length > 500 ? "Hasta 500 caracteres" : null;
-  const errorPrecio = precio === null || precio <= 0 ? "El precio debe ser mayor que cero" : null;
+  const precioValido = /^\d{1,12}(\.\d{1,10})?$/.test(precioTexto.trim());
+  const precio = precioValido ? Number(precioTexto.trim()) : null;
+  const errorPrecio = precioTexto.trim() !== "" && !precioValido ? "Hasta 12 enteros y 10 decimales" : precio === null || precio <= 0 ? "El precio debe ser mayor que cero" : null;
   const errorCodigoSunat = codigoSunat.trim() !== "" && !/^\d{8}$/.test(codigoSunat.trim()) ? "Son 8 dígitos (UNSPSC, catálogo 25)" : null;
   const errorCodigo = codigo.trim().length > 30 ? "Hasta 30 caracteres" : null;
 
@@ -98,8 +100,8 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
             <option value="40">40 · Exportación de bienes o servicios</option>
           </select>
         </Campo>
-        <Campo id="prod-precio" etiqueta={etiquetaDelPrecio(afectacion)} error={intento ? errorPrecio : null}>
-          <EntradaMonto id="prod-precio" valor={precio} onCambio={setPrecio} moneda="PEN" monedas={["PEN"]} variante="filtro" />
+        <Campo id="prod-precio" etiqueta={etiquetaDelPrecio(afectacion)} error={intento ? errorPrecio : null} ayuda="Sin moneda: se usa en la del comprobante">
+          <input id="prod-precio" inputMode="decimal" value={precioTexto} onChange={(e) => setPrecioTexto(e.target.value.replace(/[^\d.]/g, ""))} placeholder="0.00" className={cn(CAMPO_DENSO, "text-right font-mono tabular-nums")} />
         </Campo>
         <Campo id="prod-codigo" etiqueta="Código interno" opcional error={intento ? errorCodigo : null} ayuda="Único por empresa">
           <input id="prod-codigo" value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={30} placeholder="SKU-001" className={cn(CAMPO_DENSO, "font-mono")} />

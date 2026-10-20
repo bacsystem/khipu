@@ -19,6 +19,14 @@ describe("duplicar (#323)", () => {
     expect(p).not.toHaveProperty("numero");
   });
 
+  it("la copia conserva el código interno y el de producto SUNAT de cada línea (#320)", () => {
+    const c = { ...base, items: [{ ...base.items[0], codigo: "SRV-001", codigo_sunat: "80101500" }, { ...base.items[0], codigo: null, codigo_sunat: null }] } as unknown as Comprobante;
+    const [con, sin] = plantillaDesde(c)!.lineas;
+    expect(con).toMatchObject({ codigo: "SRV-001", codigoSunat: "80101500" });
+    expect(sin.codigo).toBeUndefined();
+    expect(sin.codigoSunat).toBeUndefined();
+  });
+
   it("solo se duplican facturas y boletas, no las notas", () => {
     expect(sePuedeDuplicar({ tipo: "01" })).toBe(true);
     expect(sePuedeDuplicar({ tipo: "03" })).toBe(true);

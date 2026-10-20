@@ -4,9 +4,11 @@ import pe.factura.domain.DomainException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Un producto o servicio que la empresa guarda para no teclearlo en cada emisión (#320): descripción, unidad (catálogo 03), afectación del IGV (catálogo 07), precio unitario, y de forma opcional el código
@@ -15,8 +17,11 @@ import java.util.regex.Pattern;
  */
 public record ProductoGuardado(UUID id, UUID tenantId, String codigo, String descripcion, String unidad, String tipoAfectacionIgv, BigDecimal precioUnitario, String codigoSunat,
                                Instant creadoEn, Instant actualizadoEn) {
-    /** Las afectaciones que acepta una línea (catálogo 07), como las de {@code FacturaRequest}. */
-    static final Pattern AFECTACION = Pattern.compile("1[0-7]|2[01]|3[0-7]|40");
+    /** Las afectaciones que acepta una línea (catálogo 07): las mismas del enum, sin repetir la lista. */
+    private static final Set<String> AFECTACIONES = Arrays.stream(TipoAfectacionIgv.values()).map(TipoAfectacionIgv::getCodigo).collect(Collectors.toUnmodifiableSet());
+    /** El formato 12,10 del precio de una línea. */
+    private static final int MAX_ENTEROS = 12;
+    private static final int MAX_DECIMALES = 10;
 
     /** Los datos tal como llegan, ya normalizados y validados; sirve igual para crear que para actualizar. */
     public record Datos(String codigo, String descripcion, String unidad, String tipoAfectacionIgv, BigDecimal precioUnitario, String codigoSunat) {
@@ -31,7 +36,7 @@ public record ProductoGuardado(UUID id, UUID tenantId, String codigo, String des
 
         /** Lanza {@code ITEM_INVALIDO} con el mensaje de la regla de la línea que no se cumple. */
         public Datos validar() {
-            if (tipoAfectacionIgv == null || !AFECTACION.matcher(tipoAfectacionIgv).matches())
+            if (tipoAfectacionIgv == null || !AFECTACIONES.contains(tipoAfectacionIgv))
                 throw new DomainException("ITEM_INVALIDO", "La afectación del IGV debe ser 10–17, 20, 21, 30–37 o 40 (catálogo 07)");
             if (precioUnitario == null) throw new DomainException("ITEM_INVALIDO", "2369 - El precio unitario debe ser mayor que cero");
             new Item(codigo, descripcion, unidad, BigDecimal.ONE, precioUnitario, TipoAfectacionIgv.porCodigo(tipoAfectacionIgv), null, null, false, null, CodigoProductoSunat.de(codigoSunat), null).exigirValidoParaFactura();
@@ -54,6 +59,8 @@ public record ProductoGuardado(UUID id, UUID tenantId, String codigo, String des
     public static BigDecimal escala(BigDecimal precio) {
         if (precio == null) return null;
         BigDecimal sinCeros = precio.stripTrailingZeros();
+        // Un exponente enorme (1e999999999 es un JSON válido) haría que setScale construyera un BigInteger de miles de millones de dígitos: lo que no cabe en 12,10 se deja como llegó y lo rechaza validar().
+        if (sinCeros.scale() > MAX_DECIMALES || sinCeros.precision() - sinCeros.scale() > MAX_ENTEROS) return sinCeros;
         return sinCeros.setScale(Math.max(2, sinCeros.scale()));
     }
 

@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { diasEntre, formatearFecha, formatearFechaDeLima, formatearFechaHora, formatearMes, formatearMonto, formatearNumero, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto, venceDesdeFechaDeLima } from "./formato";
+import { diasEntre, formatearFecha, formatearFechaDeLima, formatearFechaHora, formatearMes, formatearMonto, formatearNumero, formatearPrecioUnitario, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto, venceDesdeFechaDeLima } from "./formato";
+
+describe("formatearPrecioUnitario", () => {
+  it("tiene al menos 2 decimales y no redondea los que traiga de más, hasta 10", () => {
+    expect(formatearPrecioUnitario(118)).toBe("118.00");
+    expect(formatearPrecioUnitario(1234.5)).toBe("1,234.50");
+    expect(formatearPrecioUnitario(0.0123)).toBe("0.0123");
+    expect(formatearPrecioUnitario(1.2345678901)).toBe("1.2345678901");
+  });
+});
 
 describe("formatearNumero", () => {
   it("usa separador de miles y siempre 2 decimales", () => {

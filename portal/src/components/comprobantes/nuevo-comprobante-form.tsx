@@ -35,7 +35,7 @@ import { errorDeReferencias, REFERENCIAS_VACIAS, referenciasAApi, type Referenci
 import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm, etiquetaDelPrecio } from "@/lib/comprobantes/tributos";
 import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
-import { calcularTotales, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
+import { calcularTotales, esGratuita, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, hoyLima } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
@@ -307,6 +307,7 @@ export function NuevoComprobanteForm({
     const eraExp = esExportacion(operacion);
     const esExp = esExportacion(nueva);
     setOperacion(nueva);
+    setAvisoProducto(null);
     if (esExp && !eraExp) {
       setLineas((prev) => prev.map((l) => ({ ...l, tipoAfectacionIgv: "40" })));
       if (moneda === "PEN") setMoneda("USD");
@@ -432,12 +433,19 @@ export function NuevoComprobanteForm({
       setAvisoProducto(`«${p.descripcion}» es de exportación (afectación 40): elige una operación de exportación para usarlo.`);
       return;
     }
+    // Una gratuita no se cobra y la exportación sí: forzarla a 40 la convertiría en una línea cobrada.
+    if (exportacion && esGratuita(p.tipo_afectacion_igv)) {
+      setAvisoProducto(`«${p.descripcion}» es gratuito (afectación ${p.tipo_afectacion_igv}) y una exportación cobra todas sus líneas: no se agrega.`);
+      return;
+    }
     const vacia = lineas.length === 1 && lineas[0].descripcion.trim() === "" && lineas[0].precioUnitario === null;
     if (!vacia && lineas.length >= MAX_LINEAS) {
       setAvisoProducto(`Un comprobante admite hasta ${MAX_LINEAS} ítems.`);
       return;
     }
-    setAvisoProducto(null);
+    // En una exportación la línea va sin IGV: un producto gravado conserva su precio tal cual, que ya incluía el impuesto.
+    const conIgv = exportacion && (p.tipo_afectacion_igv === "10" || p.tipo_afectacion_igv === "17");
+    setAvisoProducto(conIgv ? `«${p.descripcion}» tiene el IGV dentro de su precio (${p.precio_unitario}); la exportación va sin IGV: revisa el precio de la línea.` : null);
     const nueva: Linea = {
       ...LINEA_VACIA,
       descripcion: p.descripcion,
@@ -451,7 +459,9 @@ export function NuevoComprobanteForm({
   }
 
   function actualizar(i: number, cambio: Partial<Linea>) {
-    setLineas((prev) => prev.map((l, n) => (n === i ? { ...l, ...cambio } : l)));
+    // Los códigos son los del producto guardado que se eligió: si se reescribe la descripción ya es otro ítem y no deben viajar en el XML.
+    const sinCodigos: Partial<Linea> = "descripcion" in cambio ? { codigo: undefined, codigoSunat: undefined } : {};
+    setLineas((prev) => prev.map((l, n) => (n === i ? { ...l, ...sinCodigos, ...cambio } : l)));
   }
 
   async function onSubmit(e: FormEvent) {

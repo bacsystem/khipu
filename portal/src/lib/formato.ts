@@ -17,6 +17,14 @@ export function formatearNumero(valor: number): string {
   });
 }
 
+/** Un precio unitario: al menos 2 decimales y los que traiga de más (hasta 10), sin redondear: 0.0123 es un precio válido y no debe verse como 0.01. */
+export function formatearPrecioUnitario(valor: number): string {
+  return Number(valor).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 10,
+  });
+}
+
 export function formatearMonto(moneda: string, valor: number): string {
   const simbolo = SIMBOLOS[moneda] ?? moneda;
   return `${simbolo} ${formatearNumero(valor)}`;

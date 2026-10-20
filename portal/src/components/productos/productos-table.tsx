@@ -9,7 +9,7 @@ import type { ProductoGuardado } from "@/lib/api/productos";
 import { buscarProductos } from "@/lib/api/productos-browser";
 import { AFECTACIONES } from "@/lib/comprobantes/tributos";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
-import { formatearNumero } from "@/lib/formato";
+import { formatearPrecioUnitario } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
 import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
 import { useSoloLectura } from "@/lib/solo-lectura";
@@ -139,7 +139,7 @@ export function ProductosTable() {
                   <span className="font-mono">{p.tipo_afectacion_igv}</span>
                   <span className="ml-1.5 text-[11px] text-muted-foreground">{ETIQUETA_AFECTACION.get(p.tipo_afectacion_igv) ?? ""}</span>
                 </TableCell>
-                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearNumero(p.precio_unitario)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearPrecioUnitario(p.precio_unitario)}</TableCell>
                 <TableCell className="py-2 pr-4 pl-2 text-right">
                   <div className="flex items-center justify-end gap-1">
                     {confirmando === p.id ? (
