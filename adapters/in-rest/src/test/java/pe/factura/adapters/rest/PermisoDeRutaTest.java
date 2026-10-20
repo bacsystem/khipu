@@ -32,6 +32,9 @@ class PermisoDeRutaTest {
             entry("POST /v1/facturas", EMITIR), entry("POST /v1/facturas/calcular", EMITIR), entry("POST /v1/facturas/x/enviar", EMITIR),
             entry("POST /v1/facturas/x/correo", EMITIR), entry("POST /v1/facturas/x/cdr/recuperar", EMITIR), entry("POST /v1/facturas/x/baja", EMITIR),
             entry("POST /v1/notas", EMITIR),
+            // #321: exportar la lista es leerla; #327: la liquidación de compra se emite como una factura.
+            entry("GET /v1/facturas/exportacion", LEER),
+            entry("POST /v1/liquidaciones-compra", EMITIR), entry("POST /v1/liquidaciones-compra/calcular", EMITIR),
             // Clientes y productos guardados: con lo que se emite.
             entry("GET /v1/clientes", LEER), entry("GET /v1/clientes/x", LEER), entry("POST /v1/clientes", EMITIR), entry("PUT /v1/clientes/x", EMITIR),
             entry("PUT /v1/clientes/documento/x/x", EMITIR), entry("DELETE /v1/clientes/x", EMITIR),
@@ -47,6 +50,9 @@ class PermisoDeRutaTest {
             entry("PUT /v1/empresa/establecimientos/x", CONFIGURAR), entry("DELETE /v1/empresa/establecimientos/x", CONFIGURAR),
             entry("PUT /v1/empresa/personalizacion-pdf", CONFIGURAR), entry("PUT /v1/empresa/logo", CONFIGURAR), entry("DELETE /v1/empresa/logo", CONFIGURAR),
             entry("GET /v1/empresa/api-keys", CONFIGURAR), entry("POST /v1/empresa/api-keys", CONFIGURAR), entry("DELETE /v1/empresa/api-keys/x", CONFIGURAR),
+            // #318: las credenciales API SUNAT son como las SOL; #325: el envío automático al cliente es una preferencia de la empresa (se mira, la cambia el administrador).
+            entry("PUT /v1/empresa/credenciales-api-sunat", CONFIGURAR), entry("DELETE /v1/empresa/credenciales-api-sunat", CONFIGURAR),
+            entry("GET /v1/empresa/envio-al-cliente", LEER), entry("PUT /v1/empresa/envio-al-cliente", CONFIGURAR),
             // Webhooks: mirarlos es de todos; cambiarlos, configuración.
             entry("GET /v1/webhooks", LEER), entry("GET /v1/webhooks/eventos", LEER), entry("GET /v1/webhooks/x/entregas", LEER),
             entry("POST /v1/webhooks", CONFIGURAR), entry("PATCH /v1/webhooks/x", CONFIGURAR), entry("DELETE /v1/webhooks/x", CONFIGURAR),

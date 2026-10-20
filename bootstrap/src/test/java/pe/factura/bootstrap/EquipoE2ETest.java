@@ -90,7 +90,7 @@ class EquipoE2ETest {
 
     private String registrarVerificado(String email) {
         ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro",
-                new HttpEntity<>("{\"nombre\":\"Ferretería Torres\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}".formatted(email), json()), Map.class);
+                new HttpEntity<>("{\"nombre\":\"Ferretería Torres\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}".formatted(email), json()), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(http.postForEntity("/v1/auth/verificar", new HttpEntity<>("{\"token\":\"%s\"}".formatted(token(email, "/verificar/")), json()), Void.class)
                 .getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
@@ -115,11 +115,19 @@ class EquipoE2ETest {
         return http.postForEntity("/v1/auth/invitacion/aceptar", new HttpEntity<>("{\"token\":\"%s\",\"password\":\"%s\"}".formatted(token, password), json()), Map.class);
     }
 
-    /** Invita, acepta con el enlace del correo y entra: devuelve el access token del invitado. */
+    /**
+     * Invita, acepta con el enlace del correo, entra y acepta los términos (#342: el invitado no los aceptó al registrarse, así que el portal se los pide al
+     * entrar, como a cualquier usuario con {@code terminos_pendientes}): devuelve el access token del invitado.
+     */
     private String sumar(String email, String rol) {
         assertThat(invitar(admin, email, rol).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(aceptar(token(email, "/invitacion/"), "Clave1234").getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        return login(email, "Clave1234");
+        ResponseEntity<Map> entrada = intentarLogin(email, "Clave1234");
+        assertThat(entrada.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(((Map<?, ?>) datos(entrada).get("usuario")).get("terminos_pendientes")).as("el invitado entra con los términos pendientes").isEqualTo(true);
+        String access = (String) datos(entrada).get("access");
+        assertThat(http.postForEntity("/v1/auth/terminos", new HttpEntity<>(jwt(access, null)), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+        return access;
     }
 
     private ResponseEntity<Map> pedir(HttpMethod metodo, String ruta, String access, String cuerpo) {

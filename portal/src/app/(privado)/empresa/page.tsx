@@ -324,7 +324,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               usan para emitir.
             </p>
             <div className="mt-4">
-              <FormulariosDeEscritura>
+              <FormulariosDeEscritura permiso="configurar">
               <CredencialesApiSunatForm configuradas={empresa.tiene_credenciales_api_sunat ?? false} />
               </FormulariosDeEscritura>
             </div>
@@ -479,7 +479,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
             </div>
             <div className="mt-4">
               {envioAlCliente ? (
-                <FormulariosDeEscritura>
+                <FormulariosDeEscritura permiso="configurar">
                   <EnvioAlClienteForm inicial={envioAlCliente} />
                 </FormulariosDeEscritura>
               ) : (

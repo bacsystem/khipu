@@ -7,7 +7,8 @@ import { messages } from "@/lib/messages";
  * Por qué no se puede escribir, en tres niveles:
  * - `sesion`: lo de la propia sesión (cambiar la contraseña, pedir otro enlace de verificación). Solo lo impide el modo soporte.
  * - `emitir`: emitir y lo que se hace con un comprobante, y los clientes y productos guardados. Lo impiden el modo soporte y el rol «Solo lectura».
- * - `configurar`: empresas, datos fiscales, certificado, credenciales SOL, series, establecimientos, API keys y webhooks. Solo un administrador.
+ * - `configurar`: empresas, datos fiscales, certificado, credenciales SOL y API SUNAT, envío automático al cliente, series, establecimientos, API keys y webhooks.
+ *   Solo un administrador.
  */
 type Motivos = { sesion: string | null; emitir: string | null; configurar: string | null };
 

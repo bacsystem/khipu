@@ -467,15 +467,21 @@ class JwtFilterTest {
 
     static final String[][] LECTURAS_DE_TODOS = {{"GET", "/v1/facturas"}, {"GET", "/v1/facturas/1"}, {"GET", "/v1/facturas/1/pdf"}, {"GET", "/v1/series"},
             {"GET", "/v1/empresa"}, {"GET", "/v1/empresa/establecimientos"}, {"GET", "/v1/empresas"}, {"GET", "/v1/clientes"}, {"GET", "/v1/cuenta"},
-            {"GET", "/v1/webhooks"}, {"HEAD", "/v1/facturas"}, {"OPTIONS", "/v1/series"}};
+            {"GET", "/v1/webhooks"}, {"HEAD", "/v1/facturas"}, {"OPTIONS", "/v1/series"},
+            // #321 y #325
+            {"GET", "/v1/facturas/exportacion"}, {"GET", "/v1/empresa/envio-al-cliente"}};
     static final String[][] EMISION = {{"POST", "/v1/facturas"}, {"POST", "/v1/facturas/calcular"}, {"POST", "/v1/facturas/1/enviar"}, {"POST", "/v1/facturas/1/correo"},
             {"POST", "/v1/facturas/1/baja"}, {"POST", "/v1/facturas/1/cdr/recuperar"}, {"POST", "/v1/notas"}, {"POST", "/v1/clientes"},
-            {"PUT", "/v1/clientes/1"}, {"DELETE", "/v1/clientes/1"}, {"PUT", "/v1/clientes/documento/6/20100047226"}, {"POST", "/v1/productos"}, {"DELETE", "/v1/productos/1"}};
+            {"PUT", "/v1/clientes/1"}, {"DELETE", "/v1/clientes/1"}, {"PUT", "/v1/clientes/documento/6/20100047226"}, {"POST", "/v1/productos"}, {"DELETE", "/v1/productos/1"},
+            // #327
+            {"POST", "/v1/liquidaciones-compra"}, {"POST", "/v1/liquidaciones-compra/calcular"}};
     static final String[][] CONFIGURACION = {{"POST", "/v1/empresas"}, {"PUT", "/v1/empresa/datos-fiscales"}, {"POST", "/v1/empresa/certificado"},
             {"PUT", "/v1/empresa/credenciales-sol"}, {"POST", "/v1/empresa/api-keys"}, {"GET", "/v1/empresa/api-keys"}, {"DELETE", "/v1/empresa/api-keys/1"},
             {"POST", "/v1/series"}, {"POST", "/v1/empresa/establecimientos"}, {"PUT", "/v1/empresa/establecimientos/0001"}, {"DELETE", "/v1/empresa/establecimientos/0001"},
             {"PUT", "/v1/empresa/personalizacion-pdf"}, {"PUT", "/v1/empresa/logo"}, {"DELETE", "/v1/empresa/logo"}, {"POST", "/v1/webhooks"}, {"PATCH", "/v1/webhooks/1"},
             {"DELETE", "/v1/webhooks/1"}, {"POST", "/v1/webhooks/1/secreto"}, {"POST", "/v1/webhooks/1/prueba"}, {"POST", "/v1/webhooks/entregas/1/reenviar"},
+            // #318 y #325
+            {"PUT", "/v1/empresa/credenciales-api-sunat"}, {"DELETE", "/v1/empresa/credenciales-api-sunat"}, {"PUT", "/v1/empresa/envio-al-cliente"},
             // una escritura que nadie clasificó es de administrador
             {"POST", "/v1/algo-nuevo"}, {"DELETE", "/v1/facturas/1"}};
     static final String[][] EQUIPO = {{"GET", "/v1/cuenta/usuarios"}, {"PUT", "/v1/cuenta/usuarios/1/rol"}, {"POST", "/v1/cuenta/usuarios/1/desactivar"},
@@ -508,6 +514,19 @@ class JwtFilterTest {
     @Test void cualquierRolManejaSuPropiaSesion() throws Exception {
         conRol(Rol.LECTURA);
         for (String[] m : new String[][]{{"GET", "/v1/auth/me"}, {"POST", "/v1/auth/logout"}, {"POST", "/v1/auth/verificacion"}}) pasa(m[0], m[1]);
+    }
+
+    /** #342 con #21: los términos pendientes se dicen antes que el rol (aceptarlos es lo primero que tiene que hacer), y no cambian lo que el rol deja mirar. */
+    @Test void losTerminosPendientesVanAntesQueElRolYNoTapanLasLecturas() throws Exception {
+        conRol(Rol.LECTURA);
+        conTerminosPendientes.add(usuario);
+        MockFilterChain chain = new MockFilterChain();
+        MockHttpServletResponse res = pedir("POST", "/v1/facturas", chain);
+        assertThat(chain.getRequest()).isNull();
+        assertThat(res.getStatus()).isEqualTo(403);
+        assertThat(res.getContentAsString()).contains("TERMINOS_PENDIENTES").doesNotContain("ROL_INSUFICIENTE");
+        pasa("GET", "/v1/facturas");
+        noPasaPorRol("GET", "/v1/cuenta/usuarios");
     }
 
     @Test void elMensajeDiceQueRolTieneYQueNoPuede() throws Exception {
