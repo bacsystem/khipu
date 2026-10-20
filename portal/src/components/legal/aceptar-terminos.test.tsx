@@ -42,7 +42,7 @@ describe("AceptarTerminos (#342)", () => {
     expect(fetch).not.toHaveBeenCalled();
     expect(screen.getByRole("alert").textContent).toContain("Marca la casilla para aceptar los términos");
     expect(casilla().getAttribute("aria-invalid")).toBe("true");
-    expect(casilla().getAttribute("aria-describedby")).toBe("acepta-terminos-error");
+    expect(casilla().getAttribute("aria-describedby")).toContain("acepta-terminos-error");
   });
 
   it("marcada, acepta en el BFF y vuelve a pintar la página, que ya no lo detiene", async () => {

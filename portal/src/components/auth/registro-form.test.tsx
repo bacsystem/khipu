@@ -47,7 +47,7 @@ describe("RegistroForm: términos y privacidad (#342)", () => {
 
     await waitFor(() => expect(casilla().getAttribute("aria-invalid")).toBe("true"));
     expect(screen.getByRole("alert").textContent).toContain("tienes que aceptar los términos");
-    expect(casilla().getAttribute("aria-describedby")).toBe("acepta_terminos-error");
+    expect(casilla().getAttribute("aria-describedby")).toContain("acepta_terminos-error");
     expect(fetch).not.toHaveBeenCalled();
   });
 

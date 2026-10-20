@@ -59,4 +59,13 @@ class JdbcAceptacionDeTerminosRepositoryTest extends PersistenciaTestBase {
 
         assertThat(repo.buscar(UUID.randomUUID(), "2026-10-20")).isEmpty();
     }
+
+    /** La constancia del consentimiento no se borra en cascada: borrar al usuario con aceptaciones falla por la clave foránea. */
+    @Test void borrarUnUsuarioConAceptacionesFallaPorLaClaveForanea() {
+        repo.registrar(new AceptacionDeTerminos(usuario, "2026-10-20", AHORA));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update("DELETE FROM usuario WHERE id = ?", usuario))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThat(repo.buscar(usuario, "2026-10-20")).isPresent();
+    }
 }

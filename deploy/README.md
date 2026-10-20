@@ -573,7 +573,7 @@ de `numero` y `monto` como texto sigue el ejemplo del manual y no está confirma
 El portal publica los términos del servicio en `/terminos` y la política de privacidad en `/privacidad` (públicas, enlazadas desde el pie del landing,
 el login y el registro). El registro exige aceptarlos (`acepta_terminos: true` en `POST /v1/auth/registro`; sin eso, `400 TERMINOS_NO_ACEPTADOS`), y el
 backend guarda por usuario la versión aceptada y la fecha (tabla `aceptacion_terminos`, migración V64: una fila por usuario y versión, nunca se borra la
-anterior). Los usuarios que existían antes de V64 no tienen ninguna fila: **la primera vez que entren después de este despliegue el portal les pide
+anterior, y la clave foránea a `usuario` no borra en cascada: un `DELETE` de un usuario con aceptaciones falla). Los usuarios que existían antes de V64 no tienen ninguna fila: **la primera vez que entren después de este despliegue el portal les pide
 aceptar** antes de dejarlos usar el panel. Lo mismo pasa con los usuarios que crea el alta asistida: el administrador no acepta por el cliente.
 
 **Los textos actuales son un borrador sin revisión legal.** Mientras `REVISADO_POR_LEGAL` sea `false`, las dos páginas lo dicen arriba de todo. Los datos
@@ -590,8 +590,24 @@ entre corchetes (`[RUC por completar]`, domicilio, correo de contacto, inscripci
    `GET /v1/auth/me` traen `terminos_pendientes`; aceptar es `POST /v1/auth/terminos`). Una errata que no cambia lo que se acepta no sube la versión.
 5. Cuando un abogado revise los textos, `REVISADO_POR_LEGAL = true` en `version.ts` quita el aviso de borrador.
 
-Qué **no** cambia: las API keys de los integradores siguen funcionando con los términos pendientes (el pedido es del portal, no de la API), y una sesión
+Mientras un usuario tenga los términos pendientes, el backend le niega toda escritura con la sesión del portal fuera de `/v1/auth/**`
+(`403 TERMINOS_PENDIENTES`, en `JwtFilter`, igual que `CORREO_SIN_VERIFICAR`): puede mirar y aceptar, no emitir. El portal le muestra la pantalla
+de aceptación en lugar del panel, y si una escritura llega a recibir ese 403 el mensaje le pide recargar, que es lo que muestra esa pantalla.
+
+Qué **no** cambia: las API keys de los integradores siguen funcionando con los términos pendientes (el filtro JWT no las mira), y una sesión
 de soporte del backoffice mira el panel sin la pantalla de aceptación y no puede aceptar por el cliente (`403 SOPORTE_SOLO_LECTURA`).
+
+**Orden de despliegue al subir la versión.** Desplegar **primero el portal y después el backend**. Con el orden inverso, durante el rato
+entre los dos despliegues el backend ya pide aceptar la versión nueva y el portal todavía muestra el texto viejo: se registraría como aceptada
+una versión que el usuario no pudo leer. Con el portal primero, lo único que pasa en ese rato es que el texto nuevo se publica antes de
+pedirlo. El primer despliegue de #342 es la excepción: el portal necesita el backend con `terminos_pendientes` y `POST /v1/auth/terminos`, así
+que va el backend primero (las páginas nuevas del portal no existen hasta entonces, pero tampoco hay usuarios que las hayan aceptado).
+
+**Antes de producción hay que completar** en `version.ts` los datos entre corchetes: RUC y domicilio fiscal del responsable, correo de contacto
+para privacidad y derechos ARCO, y la frase de la inscripción del banco de datos ante la Autoridad Nacional de Protección de Datos Personales
+(con su código, o retirarla si se decide que no corresponde). Y la revisión legal de los dos textos (#283), que es la que permite poner
+`REVISADO_POR_LEGAL = true`. Los textos describen lo que el sistema hace hoy (por ejemplo, que no borra datos de forma automática): si eso
+cambia, el texto tiene que cambiar con él.
 
 La constancia de quién aceptó qué y cuándo se consulta en la base:
 

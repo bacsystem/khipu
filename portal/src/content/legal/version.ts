@@ -14,13 +14,13 @@
 export const REVISADO_POR_LEGAL = false;
 
 /** Fecha (AAAA-MM-DD) de la versión vigente de los términos del servicio. */
-export const VERSION_TERMINOS = "2026-10-20";
+export const VERSION_TERMINOS = "2026-10-21";
 
 /** Fecha (AAAA-MM-DD) de la versión vigente de la política de privacidad. */
-export const VERSION_PRIVACIDAD = "2026-10-20";
+export const VERSION_PRIVACIDAD = "2026-10-21";
 
 /** La que acepta el usuario: los dos textos juntos. Literal a propósito, porque el test del backend la lee del archivo. */
-export const VERSION_TEXTOS_LEGALES = "2026-10-20";
+export const VERSION_TEXTOS_LEGALES = "2026-10-21";
 
 /**
  * Quién es el responsable del servicio y del banco de datos. Los corchetes son datos que el dueño completa: mientras queden, las páginas
@@ -31,6 +31,9 @@ export const RESPONSABLE = {
   ruc: "[RUC por completar]",
   domicilio: "[domicilio fiscal por completar], Lima, Perú",
   correo: "[correo de contacto por completar]",
-  /** Código de inscripción del banco de datos en el Registro Nacional de Protección de Datos Personales, cuando exista. */
-  inscripcionBancoDeDatos: "[código de inscripción ante la ANPD por completar, o retirar si se decide que no corresponde]",
+  /**
+   * La frase sobre la inscripción del banco de datos en el Registro Nacional de Protección de Datos Personales. Por completar con el código
+   * cuando exista, o dejar vacía si se decide que no corresponde inscribirlo (#283).
+   */
+  inscripcionBancoDeDatos: "[Por completar: inscripción del banco de datos ante la Autoridad Nacional de Protección de Datos Personales, con su código, o retirar esta frase si no corresponde.]",
 } as const;

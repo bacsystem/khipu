@@ -66,7 +66,14 @@ class JwtFilterTest {
         public boolean suspender(UUID c, java.time.Instant cuando) { throw new AssertionError("un filtro no suspende"); }
         public boolean reactivar(UUID c) { throw new AssertionError("un filtro no reactiva"); }
     };
-    JwtFilter filter = new JwtFilter(tokenEmisor, tenants, usuarios, suspensiones);
+    /** #342: por defecto el usuario del token aceptó los términos vigentes; los tests de #342 lo cambian. */
+    java.util.Set<UUID> conTerminosPendientes = new java.util.HashSet<>();
+    pe.factura.application.port.in.AceptarTerminosUseCase terminos = new pe.factura.application.port.in.AceptarTerminosUseCase() {
+        public String versionVigente() { return "2026-10-21"; }
+        public boolean pendiente(UUID u) { return conTerminosPendientes.contains(u); }
+        public pe.factura.domain.cuenta.AceptacionDeTerminos aceptar(UUID u) { throw new AssertionError("un filtro no acepta"); }
+    };
+    JwtFilter filter = new JwtFilter(tokenEmisor, tenants, usuarios, suspensiones, terminos);
 
     // --- #22: sin verificar el correo se puede mirar, no escribir ------------------------------------------------------------------
 
@@ -174,6 +181,38 @@ class JwtFilterTest {
             assertThat(res.getStatus()).as("%s %s", m[0], m[1]).isEqualTo(403);
             assertThat(res.getContentAsString()).contains("CORREO_SIN_VERIFICAR");
         }
+    }
+
+    // --- #342: sin aceptar los términos vigentes se puede mirar y aceptarlos, no escribir --------------------------------------------
+
+    @Test void conLosTerminosPendientesNingunaEscrituraPasa() throws Exception {
+        conTerminosPendientes.add(usuario);
+        for (String[] m : new String[][]{{"POST", "/v1/empresas"}, {"POST", "/v1/facturas"}, {"PUT", "/v1/empresa/datos-fiscales"},
+                {"DELETE", "/v1/empresa/api-keys/1"}, {"PATCH", "/v1/series/F001"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            MockHttpServletResponse res = pedir(m[0], m[1], chain);
+            assertThat(chain.getRequest()).as("%s %s", m[0], m[1]).isNull();
+            assertThat(res.getStatus()).as("%s %s", m[0], m[1]).isEqualTo(403);
+            assertThat(res.getContentAsString()).contains("TERMINOS_PENDIENTES");
+        }
+    }
+
+    @Test void conLosTerminosPendientesSePuedeMirarYAceptarlos() throws Exception {
+        conTerminosPendientes.add(usuario);
+        for (String[] m : new String[][]{{"GET", "/v1/empresas"}, {"HEAD", "/v1/facturas"}, {"POST", "/v1/auth/terminos"}, {"POST", "/v1/auth/logout"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            pedir(m[0], m[1], chain);
+            assertThat(chain.getRequest()).as("%s %s", m[0], m[1]).isNotNull();
+        }
+    }
+
+    /** Una API key no pasa por el filtro JWT: un integrador no depende de que alguien acepte en el portal. */
+    @Test void conApiKeyElFiltroNoMiraLosTerminos() throws Exception {
+        conTerminosPendientes.add(usuario);
+        MockHttpServletRequest req = new MockHttpServletRequest("POST", "/v1/facturas");
+        req.addHeader("Authorization", "Bearer " + tokenValido);
+        req.addHeader("X-Api-Key", "fk_live_x");
+        assertThat(filter.shouldNotFilter(req)).isTrue();
     }
 
     @Test void sinVerificarSePuedeMirarYManejarLaSesion() throws Exception {

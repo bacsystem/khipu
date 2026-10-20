@@ -74,6 +74,11 @@ function correoVerificado(usuarioId: string) {
   return [...db.usuariosPorEmail.values()].some((r) => r.usuario.id === usuarioId && r.usuario.correo_verificado);
 }
 
+/** Como el `JwtFilter` del backend (#342): con los términos vigentes sin aceptar tampoco se escribe con la sesión del portal. */
+function terminosPendientes(usuarioId: string) {
+  return [...db.usuariosPorEmail.values()].some((r) => r.usuario.id === usuarioId && r.usuario.terminos_pendientes === true);
+}
+
 /** El desafío del login (#177): solo vale con `tipo=plataforma-desafio`, nunca un token de sesión ni de cliente. */
 function delDesafio(desafio: string) {
   try {
@@ -1301,7 +1306,14 @@ export const handlers = [
 
   http.post(`${BASE}/v1/auth/registro`, async ({ request }) => {
     const body = (await request.json()) as { nombre: string; email: string; password: string; telefono?: string; acepta_terminos?: boolean | null };
-    // Como el backend (#342): antes que nada, y con 400 (no 422): sin aceptar los términos no se crea nada.
+    // Como el backend (#342): primero `@Valid` de `RegistroRequest` (los obligatorios vacíos, 422 VALIDACION) y después el servicio, que antes que
+    // el resto rechaza la falta de aceptación con 400 (no 422): sin aceptar los términos no se crea nada.
+    const vacios = (["nombre", "email", "password", "telefono"] as const).filter((campo) => !body[campo]?.trim());
+    if (vacios.length > 0)
+      return HttpResponse.json(
+        { estado: "error", datos: null, mensaje: "Validación fallida", codigo: "VALIDACION", errores: Object.fromEntries(vacios.map((c) => [c, ["no debe estar vacío"]])) },
+        { status: 422 },
+      );
     if (body.acepta_terminos !== true)
       return fail(400, "TERMINOS_NO_ACEPTADOS", "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad");
     if (!telefonoSchema.safeParse(body.telefono ?? "").success) return fail(422, "TELEFONO_INVALIDO", "El celular debe tener 9 dígitos y empezar con 9 (Perú)");
@@ -2554,6 +2566,8 @@ export const handlers = [
     const c = claims(request);
     if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");
     if (!correoVerificado(c.sub)) return fail(403, "CORREO_SIN_VERIFICAR", "Verifica tu correo para continuar: te enviamos un enlace");
+    if (!c.imp && terminosPendientes(c.sub))
+      return fail(403, "TERMINOS_PENDIENTES", "Acepta la versión vigente de los términos del servicio y la política de privacidad para continuar");
     const body = (await request.json()) as { ruc: string; razon_social: string; entorno: "BETA" | "PRODUCCION" };
     if (!rucValido(body.ruc)) return fail(422, "RUC_INVALIDO", `Empresa: el dígito verificador del RUC ${body.ruc} no es válido; revise el número`);
     // 4338: la razón social del emisor va cruda al XML, sin tabuladores ni saltos de línea, hasta 1500.
