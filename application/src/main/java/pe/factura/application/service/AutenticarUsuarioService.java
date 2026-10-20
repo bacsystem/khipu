@@ -184,9 +184,11 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
                 .filter(x -> !x.usado() && x.expiraEn().isAfter(clock.instant()))
                 .orElseThrow(() -> new DomainException("TOKEN_INVALIDO", "Enlace de recuperación inválido o vencido"));
         Usuario u = usuarios.buscar(t.usuarioId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Usuario no encontrado"));
+        String nuevoHash = hasher.hash(nuevaPassword);
         uow.ejecutar(() -> {
             // El enlace llegó a su correo: abrirlo también lo verifica (#22). Así quien entra por la invitación del alta asistida queda verificado.
-            usuarios.guardar(u.conPasswordHash(hasher.hash(nuevaPassword)).conCorreoVerificado(clock.instant()));
+            // Solo esas columnas (#21, H2): reescribir el usuario leído arriba deshacía un «desactivar» o un cambio de rol que un administrador hizo en el medio.
+            usuarios.cambiarPassword(u.id(), nuevoHash, clock.instant());
             sesiones.marcarRecuperacionUsada(hash);
             sesiones.revocarTodas(u.id());
         });
