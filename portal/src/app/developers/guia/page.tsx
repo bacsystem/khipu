@@ -76,6 +76,54 @@ export default function GuiaPage() {
     ]
   }'`}
         />
+        <BloqueCodigo
+          titulo="Node.js — primera factura"
+          lenguaje="javascript"
+          codigo={`const respuesta = await fetch("${base}/v1/facturas", {
+  method: "POST",
+  headers: {
+    "X-Api-Key": process.env.KHIPU_API_KEY,
+    "Content-Type": "application/json",
+    "Idempotency-Key": crypto.randomUUID(), // un UUID por factura: reintentar con la misma clave no emite otra
+  },
+  body: JSON.stringify({
+    serie: "F001",
+    fecha_emision: "2026-09-17",
+    moneda: "PEN",
+    cliente: { tipo_doc: "6", num_doc: "20601234565", razon_social: "COMERCIAL ANDINA S.A.C." },
+    items: [{ descripcion: "Servicio de consultoría", unidad: "ZZ", cantidad: 1, precio_unitario: 1180.0, tipo_afectacion_igv: "10" }],
+  }),
+});
+const cuerpo = await respuesta.json();
+if (cuerpo.estado !== "exito") throw new Error(cuerpo.codigo + ": " + cuerpo.mensaje);
+console.log(cuerpo.datos.estado_documento, cuerpo.datos.enlaces.pdf);`}
+        />
+        <BloqueCodigo
+          titulo="Python — primera factura"
+          lenguaje="python"
+          codigo={`import os, uuid
+import requests
+
+respuesta = requests.post(
+    "${base}/v1/facturas",
+    headers={
+        "X-Api-Key": os.environ["KHIPU_API_KEY"],
+        "Idempotency-Key": str(uuid.uuid4()),  # un UUID por factura: reintentar con la misma clave no emite otra
+    },
+    json={
+        "serie": "F001",
+        "fecha_emision": "2026-09-17",
+        "moneda": "PEN",
+        "cliente": {"tipo_doc": "6", "num_doc": "20601234565", "razon_social": "COMERCIAL ANDINA S.A.C."},
+        "items": [{"descripcion": "Servicio de consultoría", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10"}],
+    },
+    timeout=30,
+)
+cuerpo = respuesta.json()
+if cuerpo["estado"] != "exito":
+    raise RuntimeError(f"{cuerpo['codigo']}: {cuerpo['mensaje']}")
+print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
+        />
       </Seccion>
 
       <Seccion id="anatomia" titulo="Anatomía de un comprobante">
