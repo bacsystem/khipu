@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
+import { Alerta } from "@/components/feedback/alerta";
 import { BotonAsync } from "@/components/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
@@ -61,7 +62,7 @@ export function LoginForm() {
         register={register("password")}
         error={errors.password?.message}
       />
-      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+      {error ? <Alerta tono="error">{error}</Alerta> : null}
       <div className="-mt-2 flex justify-end">
         <Link href="/recuperar" className="text-[12px] text-muted-foreground hover:text-foreground">
           {messages.auth.login.olvidaste}

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Alerta } from "@/components/feedback/alerta";
 import { FormField } from "@/components/forms/form-field";
 import { BotonAsync } from "@/components/patrones/boton-async";
 import type { PasoAdmin } from "@/lib/api/admin-auth";
@@ -81,11 +82,7 @@ export function AdminLoginForm() {
         register={register("password")}
         error={errors.password?.message}
       />
-      {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+      {error ? <Alerta tono="error">{error}</Alerta> : null}
       <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.admin.login.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
         {messages.admin.login.enviar}
       </BotonAsync>

@@ -64,7 +64,7 @@ export function RestablecerForm({ token, invitacion = false }: { token: string; 
         error={errors.password?.message}
         hint={t.ayudaPassword}
       />
-      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+      {error ? <Alerta tono="error">{error}</Alerta> : null}
       <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={t.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
         {t.enviar}
       </BotonAsync>

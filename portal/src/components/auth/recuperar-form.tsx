@@ -50,7 +50,7 @@ export function RecuperarForm() {
         register={register("email")}
         error={errors.email?.message}
       />
-      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+      {error ? <Alerta tono="error">{error}</Alerta> : null}
       <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.auth.recuperar.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
         {messages.auth.recuperar.enviar}
       </BotonAsync>

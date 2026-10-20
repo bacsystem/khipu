@@ -1,13 +1,14 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Campo, Entrada } from "@/components/formularios/campo";
+import { BotonAsync } from "@/components/patrones/boton-async";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type { AdminConfiguracion } from "@/lib/api/admin-auth";
 import { postJson } from "@/lib/api/browser";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
 import type { ApiEnvelope } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 import { mensajeError, messages } from "@/lib/messages";
 
 const t = messages.admin.login.segundoFactor;
@@ -20,27 +21,33 @@ function enGrupos(secreto: string) {
   return secreto.match(/.{1,4}/g)?.join(" ") ?? secreto;
 }
 
+/** El `Campo` y la `Entrada` del panel (#12), como el resto del login: etiqueta de 12 px, control de h-9 y el error anunciado y atado al input. */
 function CampoCodigo({ id, recuperacion, valor, onChange, error }: { id: string; recuperacion: boolean; valor: string; onChange: (v: string) => void; error: string | null }) {
   return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={id}>{recuperacion ? t.codigoRecuperacion : t.codigo}</Label>
-      <Input
+    <Campo id={id} etiqueta={recuperacion ? t.codigoRecuperacion : t.codigo} error={error}>
+      <Entrada
         id={id}
         value={valor}
         onChange={(e) => onChange(recuperacion ? e.target.value.toUpperCase().slice(0, 11) : e.target.value.replace(/\D/g, "").slice(0, 6))}
         inputMode={recuperacion ? "text" : "numeric"}
         autoComplete="one-time-code"
         placeholder={recuperacion ? "XXXXX-XXXXX" : "123456"}
-        className="font-mono tracking-widest"
-        aria-invalid={!!error}
+        mono
+        className="tracking-widest"
+        invalido={!!error}
         aria-describedby={error ? `${id}-error` : undefined}
         autoFocus
       />
-      {error ? (
-        <p id={`${id}-error`} role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+    </Campo>
+  );
+}
+
+/** Cabecera de cada paso: va debajo del título de `AuthShell`, así que es un escalón más chica. */
+function CabeceraPaso({ titulo, descripcion }: { titulo: string; descripcion: string }) {
+  return (
+    <div className="grid gap-1">
+      <h3 className="text-[15px] font-semibold tracking-tight">{titulo}</h3>
+      <p className="text-[13px] text-muted-foreground">{descripcion}</p>
     </div>
   );
 }
@@ -77,19 +84,16 @@ export function ConfigurarSegundoFactor({ alConfirmar, alFallar }: { alConfirmar
 
   return (
     <form className="grid gap-4" onSubmit={onSubmit} noValidate data-testid="configurar-segundo-factor">
-      <div className="grid gap-1">
-        <h2 className="text-base font-semibold">{t.configurarTitulo}</h2>
-        <p className="text-sm text-muted-foreground">{t.configurarDescripcion}</p>
-      </div>
-      <p className="text-sm">1. {t.configurarPaso1}</p>
+      <CabeceraPaso titulo={t.configurarTitulo} descripcion={t.configurarDescripcion} />
+      <p className="text-[13px]">1. {t.configurarPaso1}</p>
       {configuracion ? (
         <div className="grid justify-items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- PNG en data URI generado por el backend: no hay nada que optimizar */}
-          <img src={`data:image/png;base64,${configuracion.qr_png}`} alt={t.configurarQrAlt} width={220} height={220} className="rounded-md border border-border bg-white" />
-          <div className="grid w-full gap-1 text-sm">
-            <span className="text-muted-foreground">{t.configurarSecreto}</span>
-            <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted px-3 py-2">
-              <code className="font-mono text-xs break-all" data-testid="secreto">
+          <img src={`data:image/png;base64,${configuracion.qr_png}`} alt={t.configurarQrAlt} width={220} height={220} className="rounded-lg border border-border bg-white" />
+          <div className="grid w-full gap-1.5">
+            <span className="text-[12px] font-medium text-foreground">{t.configurarSecreto}</span>
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted px-3 py-2">
+              <code className="font-mono text-[12px] break-all" data-testid="secreto">
                 {enGrupos(configuracion.secreto)}
               </code>
               <BotonCopiar texto={configuracion.secreto} />
@@ -97,15 +101,15 @@ export function ConfigurarSegundoFactor({ alConfirmar, alFallar }: { alConfirmar
           </div>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground" role="status">
+        <p className="text-[13px] text-muted-foreground" role="status">
           {t.cargandoQr}
         </p>
       )}
-      <p className="text-sm">2. {t.configurarPaso2}</p>
+      <p className="text-[13px]">2. {t.configurarPaso2}</p>
       <CampoCodigo id="codigo" recuperacion={false} valor={codigo} onChange={setCodigo} error={error} />
-      <Button type="submit" disabled={!configuracion || codigo.length !== 6 || enviando} className="w-full">
-        {enviando ? t.activando : t.activar}
-      </Button>
+      <BotonAsync type="submit" pendiente={enviando} textoPendiente={t.activando} disabled={!configuracion || codigo.length !== 6} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {t.activar}
+      </BotonAsync>
     </form>
   );
 }
@@ -131,17 +135,14 @@ export function VerificarSegundoFactor({ alEntrar, alFallar }: { alEntrar: () =>
 
   return (
     <form className="grid gap-4" onSubmit={onSubmit} noValidate data-testid="verificar-segundo-factor">
-      <div className="grid gap-1">
-        <h2 className="text-base font-semibold">{t.verificarTitulo}</h2>
-        <p className="text-sm text-muted-foreground">{recuperacion ? t.verificarRecuperacionDescripcion : t.verificarDescripcion}</p>
-      </div>
+      <CabeceraPaso titulo={t.verificarTitulo} descripcion={recuperacion ? t.verificarRecuperacionDescripcion : t.verificarDescripcion} />
       <CampoCodigo key={recuperacion ? "recuperacion" : "app"} id="codigo" recuperacion={recuperacion} valor={codigo} onChange={setCodigo} error={error} />
-      <Button type="submit" disabled={!completo || enviando} className="w-full">
-        {enviando ? t.verificando : t.verificar}
-      </Button>
+      <BotonAsync type="submit" pendiente={enviando} textoPendiente={t.verificando} disabled={!completo} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {t.verificar}
+      </BotonAsync>
       <button
         type="button"
-        className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        className="text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         onClick={() => {
           setRecuperacion(!recuperacion);
           setCodigo("");
@@ -158,19 +159,16 @@ export function VerificarSegundoFactor({ alEntrar, alFallar }: { alEntrar: () =>
 export function CodigosRecuperacion({ codigos, alContinuar }: { codigos: string[]; alContinuar: () => void }) {
   return (
     <div className="grid gap-4" data-testid="codigos-recuperacion">
-      <div className="grid gap-1">
-        <h2 className="text-base font-semibold">{t.codigosTitulo}</h2>
-        <p className="text-sm text-muted-foreground">{t.codigosDescripcion}</p>
-      </div>
-      <ul className="grid grid-cols-2 gap-2 rounded-md border border-border bg-muted p-3 font-mono text-sm" aria-label={t.codigosTitulo}>
+      <CabeceraPaso titulo={t.codigosTitulo} descripcion={t.codigosDescripcion} />
+      <ul className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted p-3 font-mono text-[13px]" aria-label={t.codigosTitulo}>
         {codigos.map((c) => (
           <li key={c}>{c}</li>
         ))}
       </ul>
-      <BotonCopiar texto={codigos.join("\n")} titulo={t.codigosCopiar} etiqueta className="justify-self-start px-2 py-1 text-sm" />
-      <Button type="button" onClick={alContinuar} className="w-full">
+      <BotonCopiar texto={codigos.join("\n")} titulo={t.codigosCopiar} etiqueta className="justify-self-start px-2 py-1 text-[12px]" />
+      <button type="button" onClick={alContinuar} className={cn(BOTON_PRIMARIO, "w-full")}>
         {t.codigosContinuar}
-      </Button>
+      </button>
     </div>
   );
 }

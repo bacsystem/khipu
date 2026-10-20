@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
+import { Alerta } from "@/components/feedback/alerta";
 import { CasillaDeTerminos } from "@/components/legal/casilla-de-terminos";
 import { BotonAsync } from "@/components/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
@@ -86,7 +87,7 @@ export function RegistroForm() {
         hint={messages.auth.registro.ayudaPassword}
       />
       <CasillaDeTerminos id="acepta_terminos" {...register("acepta_terminos")} error={errors.acepta_terminos?.message} />
-      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+      {error ? <Alerta tono="error">{error}</Alerta> : null}
       <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.auth.registro.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
         {messages.auth.registro.enviar}
       </BotonAsync>

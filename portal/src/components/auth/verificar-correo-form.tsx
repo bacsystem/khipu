@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Alerta } from "@/components/feedback/alerta";
 import { BotonAsync } from "@/components/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
@@ -33,7 +34,7 @@ export function VerificarCorreoForm({ token }: { token: string }) {
   if (estado === "listo") {
     return (
       <div className="grid gap-4">
-        <p role="status" className="text-sm">{t.exito}</p>
+        <Alerta tono="ok">{t.exito}</Alerta>
         <Link href="/onboarding" className={cn(BOTON_PRIMARIO, "w-full")}>
           {t.continuar}
         </Link>
@@ -42,7 +43,7 @@ export function VerificarCorreoForm({ token }: { token: string }) {
   }
   return (
     <div className="grid gap-4">
-      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+      {error ? <Alerta tono="error">{error}</Alerta> : null}
       <BotonAsync pendiente={estado === "enviando"} textoPendiente={t.enviando} onClick={verificar} className={cn(BOTON_PRIMARIO, "w-full")}>
         {t.enviar}
       </BotonAsync>
