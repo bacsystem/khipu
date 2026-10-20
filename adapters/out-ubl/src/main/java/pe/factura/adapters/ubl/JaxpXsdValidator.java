@@ -38,6 +38,7 @@ public class JaxpXsdValidator implements XsdValidator {
         resumenDiario = cargar("xsd/2.0/maindoc/UBLPE-SummaryDocuments-1.0.xsd");
         esquemas.put(TipoDocumento.FACTURA, cargar("xsd/2.1/maindoc/UBL-Invoice-2.1.xsd"));
         esquemas.put(TipoDocumento.BOLETA, esquemas.get(TipoDocumento.FACTURA));
+        esquemas.put(TipoDocumento.LIQUIDACION_COMPRA, cargar("xsd/2.1/maindoc/UBL-SelfBilledInvoice-2.1.xsd"));
         esquemas.put(TipoDocumento.NOTA_CREDITO, cargar("xsd/2.1/maindoc/UBL-CreditNote-2.1.xsd"));
         esquemas.put(TipoDocumento.NOTA_DEBITO, cargar("xsd/2.1/maindoc/UBL-DebitNote-2.1.xsd"));
     }

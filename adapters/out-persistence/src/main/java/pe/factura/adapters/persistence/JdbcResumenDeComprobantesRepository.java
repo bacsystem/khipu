@@ -30,6 +30,8 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
 
     /** Notas de crédito: restan de lo facturado. */
     private static final String NOTA_DE_CREDITO = "07";
+    /** Liquidación de compra (#327): es una compra de la empresa, no una venta; no cuenta como facturado. */
+    private static final String LIQUIDACION_DE_COMPRA = "04";
 
     @Override public Agregados resumir(UUID tenantId, LocalDate desde, LocalDate hasta, LocalDate hoy) {
         List<Object> params = new ArrayList<>();
@@ -46,9 +48,9 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
         List<Facturado> facturado = jdbc.query("""
                 SELECT c.moneda, sum(CASE WHEN d.tipo = '%s' THEN -c.total ELSE c.total END) AS total
                 FROM documento d JOIN comprobante c ON c.documento_id = d.id
-                WHERE d.tenant_id = ? AND d.estado IN (%s)%s
+                WHERE d.tenant_id = ? AND d.estado IN (%s) AND d.tipo <> '%s'%s
                 GROUP BY c.moneda ORDER BY c.moneda
-                """.formatted(NOTA_DE_CREDITO, ESTADOS_FACTURADOS, fechas), (rs, i) -> new Facturado(rs.getString("moneda"), rs.getBigDecimal("total")), args);
+                """.formatted(NOTA_DE_CREDITO, ESTADOS_FACTURADOS, LIQUIDACION_DE_COMPRA, fechas), (rs, i) -> new Facturado(rs.getString("moneda"), rs.getBigDecimal("total")), args);
 
         // #356: la boleta FIRMADA sin enviar desde el 5.º día. El «?» del corte va antes que los de la empresa y las fechas, que están después en el texto.
         List<Object> conCorte = new ArrayList<>();
