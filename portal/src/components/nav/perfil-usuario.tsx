@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Menu, MenuContent, MenuItem, MenuLinkItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { ThemeToggle } from "@/components/nav/theme-toggle";
+import { BotonAsync } from "@/components/patrones/boton-async";
 import type { Usuario } from "@/lib/api/auth";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
@@ -24,7 +25,7 @@ function iniciales(nombre: string): string {
 }
 
 /** Pide al backend el enlace de restablecimiento para el correo de la sesión: es el mismo flujo público de "recuperar", sin salir del panel. */
-function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { email: string; abierto: boolean; onOpenChange: (v: boolean) => void }) {
+export function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { email: string; abierto: boolean; onOpenChange: (v: boolean) => void }) {
   const [estado, setEstado] = useState<"idle" | "enviando" | "enviado">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -63,7 +64,7 @@ function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { email: stri
 
         <div className="grid gap-3 px-5 py-4">
           {estado === "enviado" ? (
-            <div className="flex items-start gap-2.5 rounded-lg border border-success-border bg-success px-3 py-2.5 text-[13px] leading-relaxed text-success-foreground">
+            <div role="status" className="flex items-start gap-2.5 rounded-lg border border-success-border bg-success px-3 py-2.5 text-[13px] leading-relaxed text-success-foreground">
               <MailCheckIcon className="mt-0.5 size-4 shrink-0" />
               <p>
                 Enlace enviado a <strong className="font-semibold">{email}</strong>. Ábrelo desde tu correo para elegir la nueva contraseña; tu sesión actual
@@ -76,7 +77,12 @@ function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { email: stri
                 Enviaremos un enlace de un solo uso a <strong className="font-medium text-foreground">{email}</strong>. Al abrirlo podrás escribir la nueva
                 contraseña.
               </p>
-              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              {/* #105: sin `role="alert"` el fallo era mudo: un lector de pantalla no lo anunciaba y el e2e solo veía que «Enlace enviado» no llegaba, sin el motivo. */}
+              {error ? (
+                <p role="alert" className="text-[12px] text-destructive">
+                  {error}
+                </p>
+              ) : null}
             </>
           )}
         </div>
@@ -91,9 +97,9 @@ function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { email: stri
               <button type="button" onClick={cerrar} className={BOTON_SECUNDARIO}>
                 {messages.comun.cancelar}
               </button>
-              <button type="button" disabled={estado === "enviando"} onClick={enviar} className={BOTON_PRIMARIO}>
-                {estado === "enviando" ? messages.auth.recuperar.enviando : messages.auth.recuperar.enviar}
-              </button>
+              <BotonAsync pendiente={estado === "enviando"} textoPendiente={messages.auth.recuperar.enviando} onClick={enviar} className={BOTON_PRIMARIO}>
+                {messages.auth.recuperar.enviar}
+              </BotonAsync>
             </>
           )}
         </div>
