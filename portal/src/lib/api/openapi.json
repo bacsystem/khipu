@@ -4129,6 +4129,141 @@
         ]
       }
     },
+    "/v1/facturas/exportacion": {
+      "get": {
+        "tags": [
+          "Facturas"
+        ],
+        "summary": "Exportar comprobantes a CSV o Excel",
+        "description": "Una fila por comprobante que cumple los filtros —los mismos del listado—, lo más reciente primero, para el registro de ventas o el contador: `tipo` (catálogo 01),\n`serie`, `numero`, `fecha_emision`, `cliente_tipo_doc`, `cliente_num_doc`, `cliente`, `moneda`, las bases `gravado`, `exonerado`, `inafecto`, `gratuito` y\n`exportacion`, `igv`, `icbper`, `total` (con 2 decimales, en la moneda del comprobante y sin signo: una nota de crédito se reconoce por su `tipo` 07), `estado`\n(un comprobante dado de baja sale `ANULADO`) y `documento_modificado` (solo en notas: tipo y serie-número, `01 F001-125`).\n\n`formato=csv` (por defecto) es UTF-8 con BOM, separado por comas —el de Excel con la configuración regional de Perú— o por punto y coma con\n`separador=punto_y_coma`, con punto decimal; los textos que empiezan por `= + - @` llevan delante una comilla simple para que una hoja de cálculo no los ejecute\ncomo fórmula. `formato=xlsx` es un libro de Excel con los importes como números. El archivo se escribe mientras se lee. **Tope: 5000 comprobantes por exportación**;\ncon más responde `422 EXPORTACION_EXCEDE_EL_TOPE` con cuántos hay (acote las fechas y exporte por tramos). Sin resultados sale el archivo con la cabecera sola.\nUn `formato` o `separador` con otro valor es `400 PARAMETRO_INVALIDO`.",
+        "operationId": "exportar",
+        "parameters": [
+          {
+            "name": "estado",
+            "in": "query",
+            "description": "Estado del comprobante",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RECIBIDO",
+                "INVALIDO",
+                "FIRMADO",
+                "ERROR_ENVIO",
+                "PENDIENTE_AGRUPACION",
+                "ENVIADO",
+                "ACEPTADO",
+                "ACEPTADO_CON_OBS",
+                "RECHAZADO",
+                "ANULADO",
+                "FUERA_DE_PLAZO",
+                "DESCARTADO"
+              ]
+            }
+          },
+          {
+            "name": "desde",
+            "in": "query",
+            "description": "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-09-01"
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "description": "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-09-30"
+          },
+          {
+            "name": "serie",
+            "in": "query",
+            "description": "Serie exacta",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "F001"
+          },
+          {
+            "name": "tipo",
+            "in": "query",
+            "description": "Tipo: `01`, `03`, `07` u `08`",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "01"
+          },
+          {
+            "name": "cliente",
+            "in": "query",
+            "description": "Cliente: documento (prefijo) o parte de la razón social",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "andina"
+          },
+          {
+            "name": "numero",
+            "in": "query",
+            "description": "Número del comprobante (sin la serie)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 125
+          },
+          {
+            "name": "formato",
+            "in": "query",
+            "description": "`csv` (por defecto) o `xlsx`",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "separador",
+            "in": "query",
+            "description": "Solo en CSV: `coma` (por defecto) o `punto_y_coma`",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "coma"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamingResponseBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
     "/v1/facturas/descarga": {
       "get": {
         "tags": [
@@ -5189,7 +5324,7 @@
         ],
         "summary": "Exportar el consumo de todas las cuentas",
         "description": "Lo mismo que el listado, completo y sin paginar, como CSV (UTF-8 con marca de orden de bytes, registros separados por CRLF) que se descarga como\n`consumo-AAAA-MM.csv`. Respeta `mes`, `filtro` y `orden`. Un plan sin tope dice `ilimitado` y no tiene porcentaje; las fechas (`pagado_hasta`, `se_sirve_hasta`) son el último día cubierto en hora de Lima (`AAAA-MM-DD`), como en la pantalla. Los textos que empiezan\npor `=`, `+`, `-` o `@` llevan una comilla simple delante para que una hoja de cálculo no los ejecute como fórmula.",
-        "operationId": "exportar",
+        "operationId": "exportar_1",
         "parameters": [
           {
             "name": "mes",

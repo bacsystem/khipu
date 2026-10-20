@@ -2005,6 +2005,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/facturas/exportacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar comprobantes a CSV o Excel
+         * @description Una fila por comprobante que cumple los filtros —los mismos del listado—, lo más reciente primero, para el registro de ventas o el contador: `tipo` (catálogo 01),
+         *     `serie`, `numero`, `fecha_emision`, `cliente_tipo_doc`, `cliente_num_doc`, `cliente`, `moneda`, las bases `gravado`, `exonerado`, `inafecto`, `gratuito` y
+         *     `exportacion`, `igv`, `icbper`, `total` (con 2 decimales, en la moneda del comprobante y sin signo: una nota de crédito se reconoce por su `tipo` 07), `estado`
+         *     (un comprobante dado de baja sale `ANULADO`) y `documento_modificado` (solo en notas: tipo y serie-número, `01 F001-125`).
+         *
+         *     `formato=csv` (por defecto) es UTF-8 con BOM, separado por comas —el de Excel con la configuración regional de Perú— o por punto y coma con
+         *     `separador=punto_y_coma`, con punto decimal; los textos que empiezan por `= + - @` llevan delante una comilla simple para que una hoja de cálculo no los ejecute
+         *     como fórmula. `formato=xlsx` es un libro de Excel con los importes como números. El archivo se escribe mientras se lee. **Tope: 5000 comprobantes por exportación**;
+         *     con más responde `422 EXPORTACION_EXCEDE_EL_TOPE` con cuántos hay (acote las fechas y exporte por tramos). Sin resultados sale el archivo con la cabecera sola.
+         *     Un `formato` o `separador` con otro valor es `400 PARAMETRO_INVALIDO`.
+         */
+        get: operations["exportar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/facturas/descarga": {
         parameters: {
             query?: never;
@@ -2516,7 +2545,7 @@ export interface paths {
          *     `consumo-AAAA-MM.csv`. Respeta `mes`, `filtro` y `orden`. Un plan sin tope dice `ilimitado` y no tiene porcentaje; las fechas (`pagado_hasta`, `se_sirve_hasta`) son el último día cubierto en hora de Lima (`AAAA-MM-DD`), como en la pantalla. Los textos que empiezan
          *     por `=`, `+`, `-` o `@` llevan una comilla simple delante para que una hoja de cálculo no los ejecute como fórmula.
          */
-        get: operations["exportar"];
+        get: operations["exportar_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11913,6 +11942,69 @@ export interface operations {
             };
         };
     };
+    exportar: {
+        parameters: {
+            query?: {
+                /** @description Estado del comprobante */
+                estado?: "RECIBIDO" | "INVALIDO" | "FIRMADO" | "ERROR_ENVIO" | "PENDIENTE_AGRUPACION" | "ENVIADO" | "ACEPTADO" | "ACEPTADO_CON_OBS" | "RECHAZADO" | "ANULADO" | "FUERA_DE_PLAZO" | "DESCARTADO";
+                /**
+                 * @description Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)
+                 * @example 2026-09-01
+                 */
+                desde?: string;
+                /**
+                 * @description Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)
+                 * @example 2026-09-30
+                 */
+                hasta?: string;
+                /**
+                 * @description Serie exacta
+                 * @example F001
+                 */
+                serie?: string;
+                /**
+                 * @description Tipo: `01`, `03`, `07` u `08`
+                 * @example 01
+                 */
+                tipo?: string;
+                /**
+                 * @description Cliente: documento (prefijo) o parte de la razón social
+                 * @example andina
+                 */
+                cliente?: string;
+                /**
+                 * @description Número del comprobante (sin la serie)
+                 * @example 125
+                 */
+                numero?: number;
+                /**
+                 * @description `csv` (por defecto) o `xlsx`
+                 * @example xlsx
+                 */
+                formato?: string;
+                /**
+                 * @description Solo en CSV: `coma` (por defecto) o `punto_y_coma`
+                 * @example coma
+                 */
+                separador?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["StreamingResponseBody"];
+                };
+            };
+        };
+    };
     descargar: {
         parameters: {
             query?: {
@@ -12518,7 +12610,7 @@ export interface operations {
             };
         };
     };
-    exportar: {
+    exportar_1: {
         parameters: {
             query?: {
                 /**

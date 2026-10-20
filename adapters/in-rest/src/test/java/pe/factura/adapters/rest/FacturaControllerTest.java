@@ -565,6 +565,77 @@ class FacturaControllerTest {
         verify(consultar, never()).contar(eq(tenant), any());
     }
 
+    // --- #321: exportación a CSV / XLSX -----------------------------------------------------------------------------------------
+
+    @Test void exportaEnCsvConLosMismosFiltrosDelListado() throws Exception {
+        Comprobante a = aceptado(tenant);
+        var filtro = new ConsultarComprobanteUseCase.Filtro(EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), "F001", "01", "andina", 7L);
+        when(consultar.contar(tenant, filtro)).thenReturn(1L);
+        when(consultar.listar(eq(tenant), eq(filtro), eq(1), anyInt())).thenReturn(List.of(a));
+
+        var inicio = mvc.perform(get("/v1/facturas/exportacion?estado=ACEPTADO&desde=2026-09-01&hasta=2026-09-30&serie=f001&tipo=01&cliente=andina&numero=7")
+                .requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
+        var respuesta = mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"comprobantes-2026-09-01_2026-09-30.csv\""))
+                .andReturn().getResponse();
+
+        String csv = new String(respuesta.getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(csv).startsWith("﻿tipo,serie,numero,fecha_emision,");
+        assertThat(csv).contains("\r\n01,F001,601,2026-09-13,6,20601234565,CLIENTE SAC,PEN,100.00,0.00,0.00,0.00,0.00,18.00,0.00,118.00,ACEPTADO,\r\n");
+    }
+
+    @Test void exportaEnXlsx() throws Exception {
+        Comprobante a = aceptado(tenant);
+        var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(tenant, todos)).thenReturn(1L);
+        when(consultar.listar(eq(tenant), eq(todos), eq(1), anyInt())).thenReturn(List.of(a));
+
+        var inicio = mvc.perform(get("/v1/facturas/exportacion?formato=xlsx").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
+        var respuesta = mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.matchesPattern("attachment; filename=\"comprobantes-\\d{4}-\\d{2}-\\d{2}\\.xlsx\"")))
+                .andReturn().getResponse();
+
+        var libro = ExportacionDeComprobantesTest.libro(respuesta.getContentAsByteArray());
+        assertThat(libro).containsKey("xl/worksheets/sheet1.xml");
+        assertThat(libro.get("xl/sharedStrings.xml")).contains("CLIENTE SAC").contains("documento_modificado");
+    }
+
+    /** El tope se comprueba antes de escribir: un 422 con cuántos hay, no un archivo cortado. Sin resultados sale el archivo con la cabecera sola; los parámetros raros, 400. */
+    @Test void exportacionRespetaElTopeYValidaLosParametros() throws Exception {
+        var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(tenant, todos)).thenReturn(5001L);
+        mvc.perform(get("/v1/facturas/exportacion").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("EXPORTACION_EXCEDE_EL_TOPE"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("5001")));
+        verify(consultar, never()).listar(any(), any(), anyInt(), anyInt());
+
+        when(consultar.contar(tenant, todos)).thenReturn(0L);
+        when(consultar.listar(eq(tenant), eq(todos), eq(1), anyInt())).thenReturn(List.of());
+        var inicio = mvc.perform(get("/v1/facturas/exportacion?separador=punto_y_coma").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
+        String vacio = new String(mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(vacio).isEqualTo("﻿" + String.join(";", ExportacionDeComprobantes.COLUMNAS) + "\r\n");
+
+        mvc.perform(get("/v1/facturas/exportacion?formato=pdf").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(get("/v1/facturas/exportacion?separador=tab").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(get("/v1/facturas/exportacion?desde=2026-10-01&hasta=2026-09-01").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("RANGO_INVALIDO"));
+    }
+
+    /** Aislamiento: solo se exporta lo de la empresa del request. */
+    @Test void exportacionSoloLeeLoDeSuEmpresa() throws Exception {
+        UUID otro = UUID.randomUUID();
+        var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(otro, todos)).thenReturn(0L);
+        var inicio = mvc.perform(get("/v1/facturas/exportacion").requestAttr(TenantActual.ATRIBUTO, otro)).andExpect(request().asyncStarted()).andReturn();
+        mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk());
+        verify(consultar, never()).contar(eq(tenant), any());
+        verify(consultar, never()).listar(eq(tenant), any(), anyInt(), anyInt());
+    }
+
     @Test void obtenerPorId() throws Exception {
         Comprobante c = aceptado(tenant);
         when(consultar.obtener(tenant, c.id())).thenReturn(c);

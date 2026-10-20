@@ -95,6 +95,33 @@ class FacturaE2ETest {
         assertThat(new String(ZipUtil.extraerPrimero(cdr.getBody(), ".xml"))).contains("ha sido aceptada");
     }
 
+    /** #321: la exportación con la pila real: Postgres, filtros del listado, CSV con BOM y XLSX, y la misma puerta de credenciales. */
+    @Test void exportaLosComprobantesEnCsvYXlsx(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String hoy = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).toString();
+
+        ResponseEntity<byte[]> csv = http.exchange("/v1/facturas/exportacion?desde=" + hoy + "&cliente=cliente", HttpMethod.GET, new HttpEntity<>(h), byte[].class);
+        assertThat(csv.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(csv.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).isEqualTo("attachment; filename=\"comprobantes-" + hoy + "_" + hoy + ".csv\"");
+        String texto = new String(csv.getBody(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(texto).startsWith("﻿tipo,serie,numero,fecha_emision,")
+                .contains("\r\n01,F001,1," + hoy + ",6,20601234565,CLIENTE SAC,PEN,2000.00,0.00,0.00,0.00,0.00,360.00,0.00,2360.00,ACEPTADO,\r\n");
+
+        ResponseEntity<byte[]> nadie = http.exchange("/v1/facturas/exportacion?cliente=nadie", HttpMethod.GET, new HttpEntity<>(h), byte[].class);
+        assertThat(new String(nadie.getBody(), java.nio.charset.StandardCharsets.UTF_8).split("\r\n")).as("sin resultados, solo la cabecera").hasSize(1);
+
+        ResponseEntity<byte[]> xlsx = http.exchange("/v1/facturas/exportacion?formato=xlsx", HttpMethod.GET, new HttpEntity<>(h), byte[].class);
+        assertThat(xlsx.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(xlsx.getHeaders().getContentType().toString()).isEqualTo("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        assertThat(xlsx.getBody()).startsWith(new byte[]{'P', 'K'});
+
+        HttpHeaders sin = new HttpHeaders();
+        assertThat(http.exchange("/v1/facturas/exportacion", HttpMethod.GET, new HttpEntity<>(sin), byte[].class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
     /** #405: `/calcular` con la pila real: los mismos importes que la emisión, sin consumir correlativo ni llamar a SUNAT, y con los mismos errores de dominio. */
     @Test void calcularDaLosImportesDeLaEmisionSinNumerarNiEnviar(WireMockRuntimeInfo wm) throws Exception {
         stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
