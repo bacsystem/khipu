@@ -262,6 +262,13 @@ export default async function Home() {
             <Link href="/login" className="hover:text-foreground">
               Iniciar sesión
             </Link>
+            {/* #342: los textos legales, públicos y al alcance de quien todavía no tiene cuenta. */}
+            <Link href="/terminos" className="hover:text-foreground">
+              {messages.legal.terminos}
+            </Link>
+            <Link href="/privacidad" className="hover:text-foreground">
+              {messages.legal.privacidad}
+            </Link>
           </div>
         </div>
       </footer>

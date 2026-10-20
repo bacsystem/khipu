@@ -41,6 +41,15 @@ export function AuthShell({
           {footer ? <div className="mt-6 text-center text-sm text-muted-foreground">{footer}</div> : null}
           {/* #250: quien no puede entrar (o tiene la cuenta suspendida) también necesita saber a quién escribir. */}
           <AyudaDeSoporte className="mt-8 justify-center" />
+          {/* #342: los textos legales a mano desde el login, el registro y la pantalla que pide aceptarlos. */}
+          <p className="mt-6 flex justify-center gap-4 text-xs text-muted-foreground">
+            <Link href="/terminos" className="hover:text-foreground">
+              {messages.legal.terminos}
+            </Link>
+            <Link href="/privacidad" className="hover:text-foreground">
+              {messages.legal.privacidad}
+            </Link>
+          </p>
         </div>
       </div>
     </div>

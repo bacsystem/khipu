@@ -39,7 +39,12 @@
       "enviar": "Crear cuenta",
       "enviando": "Creando…",
       "yaTienesCuenta": "¿Ya tienes cuenta?",
-      "iniciarSesion": "Inicia sesión"
+      "iniciarSesion": "Inicia sesión",
+      "aceptoLos": "Acepto los",
+      "terminos": "términos del servicio",
+      "yLa": "y la",
+      "privacidad": "política de privacidad",
+      "terminosRequeridos": "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad."
     },
     "recuperar": {
       "titulo": "Recupera tu contraseña",
@@ -1419,6 +1424,22 @@
       "sinDetalle": "Sin detalle"
     }
   },
+  "legal": {
+    "terminos": "Términos del servicio",
+    "privacidad": "Política de privacidad",
+    "version": "Versión vigente desde el",
+    "borradorTitulo": "Borrador pendiente de revisión legal",
+    "borradorDescripcion": "Este texto todavía no fue revisado por un abogado y puede cambiar antes de su versión definitiva.",
+    "volver": "Volver al inicio",
+    "verTambien": "Ver también"
+  },
+  "aceptarTerminos": {
+    "titulo": "Acepta los términos para continuar",
+    "descripcion": "Para seguir usando el portal, lee y acepta la versión vigente de los términos del servicio y de la política de privacidad. Si ya los habías aceptado, te los pedimos de nuevo porque cambiaron.",
+    "aceptar": "Aceptar y continuar",
+    "aceptando": "Guardando…",
+    "cerrarSesion": "Cerrar sesión"
+  },
   "cuentaSuspendida": {
     "titulo": "Tu cuenta está suspendida",
     "descripcion": "No puedes usar el portal ni emitir por API mientras la cuenta esté suspendida. No se borró nada: tus empresas, comprobantes y API keys siguen ahí y todo vuelve a funcionar en cuanto la reactiven.",
@@ -1433,6 +1454,7 @@
     "CREDENCIALES_INVALIDAS": "Correo o contraseña incorrectos.",
     "TELEFONO_INVALIDO": "El celular debe tener 9 dígitos y empezar con 9.",
     "REGISTRO_CERRADO": "El registro está por invitación: escríbenos para pedir acceso.",
+    "TERMINOS_NO_ACEPTADOS": "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad.",
     "RAZON_SOCIAL_INVALIDA": "La razón social no admite tabuladores ni saltos de línea (SUNAT 4338).",
     "PASSWORD_DEBIL": "La contraseña debe tener al menos 8 caracteres, una letra y un dígito.",
     "TOKEN_INVALIDO": "El enlace de recuperación es inválido o venció. Solicita uno nuevo.",
