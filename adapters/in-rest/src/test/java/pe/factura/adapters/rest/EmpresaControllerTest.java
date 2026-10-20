@@ -138,7 +138,9 @@ class EmpresaControllerTest {
 
     @Test void credencialesApiSunatIncompletasSonUnErrorDeValidacion() throws Exception {
         mvc.perform(put("/v1/empresa/credenciales-api-sunat").contentType("application/json").content("{\"client_id\":\"abc\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+        mvc.perform(put("/v1/empresa/credenciales-api-sunat").contentType("application/json").content("{\"client_id\":\"  \",\"client_secret\":\"x\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
         verify(admin, never()).cargarCredencialesApiSunat(any(), any(), any());
 
         doThrow(new DomainException("CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id de la API SUNAT no admite espacios")).when(admin).cargarCredencialesApiSunat(any(), any(), any());

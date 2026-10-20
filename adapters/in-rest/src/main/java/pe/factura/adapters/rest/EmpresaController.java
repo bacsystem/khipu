@@ -82,8 +82,9 @@ public class EmpresaController {
             El «Id» (`client_id`) y la «Clave» (`client_secret`) de la aplicación que la empresa registra en SOL, opción
             «Credenciales de API SUNAT». Con ellas khipu consulta la validez de comprobantes por la API REST de SUNAT (también en beta)
             en vez de `billValidService`, que pide la clave SOL y solo existe en producción. Reemplazan las anteriores; se guardan
-            cifradas y nunca vuelven por la API. `422 CREDENCIALES_API_SUNAT_INVALIDAS` si falta alguna o el `client_id` trae espacios
-            o caracteres que no son de un identificador. No se comprueban contra SUNAT al guardarlas: la primera consulta lo hace.""")
+            cifradas y nunca vuelven por la API. `422 VALIDACION` si falta alguna o está en blanco; `422 CREDENCIALES_API_SUNAT_INVALIDAS`
+            si el `client_id` trae espacios o caracteres que no son de un identificador. No se comprueban contra SUNAT al guardarlas: la
+            primera consulta lo hace.""")
     public ResponseEntity<Void> credencialesApiSunat(HttpServletRequest req, @Valid @RequestBody CredencialesApiSunatRequest body) {
         admin.cargarCredencialesApiSunat(TenantActual.id(req), body.clientId(), body.clientSecret());
         return ResponseEntity.noContent().build();

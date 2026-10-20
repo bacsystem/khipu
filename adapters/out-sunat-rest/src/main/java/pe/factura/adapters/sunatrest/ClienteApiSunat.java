@@ -20,7 +20,7 @@ import java.time.Duration;
  *   <li>2xx: el JSON de la respuesta.</li>
  *   <li>401: el token pudo vencer o revocarse antes de tiempo; se descarta, se pide otro y se reintenta UNA vez. Si vuelve a 401, {@link SunatCredencialesException}.</li>
  *   <li>403: la aplicación registrada en SOL no tiene permiso para ese servicio: {@link SunatCredencialesException} (se corrige en SOL, no reintentando).</li>
- *   <li>400 y 422: SUNAT entendió el pedido y lo rechaza por sus datos: {@link SunatRechazoException}. Reintentar o preguntar por otro canal no lo cambia.</li>
+ *   <li>400 y 422: SUNAT entendió el pedido y lo rechaza por sus datos: {@link SunatRechazoException}. Reintentar no lo cambia (que el servicio pregunte igual por SOAP mientras el contrato no esté verificado lo decide {@code ConsultarValidezService}).</li>
  *   <li>Lo demás (404, 405, 429, 5xx…) y sin respuesta: {@link SunatTransientException}. Un 404 de toda la ruta es una URL mal configurada o un servicio
  *       caído, no una respuesta sobre el comprobante.</li>
  * </ul>

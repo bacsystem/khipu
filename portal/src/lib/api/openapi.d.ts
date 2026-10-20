@@ -161,8 +161,9 @@ export interface paths {
          * @description El «Id» (`client_id`) y la «Clave» (`client_secret`) de la aplicación que la empresa registra en SOL, opción
          *     «Credenciales de API SUNAT». Con ellas khipu consulta la validez de comprobantes por la API REST de SUNAT (también en beta)
          *     en vez de `billValidService`, que pide la clave SOL y solo existe en producción. Reemplazan las anteriores; se guardan
-         *     cifradas y nunca vuelven por la API. `422 CREDENCIALES_API_SUNAT_INVALIDAS` si falta alguna o el `client_id` trae espacios
-         *     o caracteres que no son de un identificador. No se comprueban contra SUNAT al guardarlas: la primera consulta lo hace.
+         *     cifradas y nunca vuelven por la API. `422 VALIDACION` si falta alguna o está en blanco; `422 CREDENCIALES_API_SUNAT_INVALIDAS`
+         *     si el `client_id` trae espacios o caracteres que no son de un identificador. No se comprueban contra SUNAT al guardarlas: la
+         *     primera consulta lo hace.
          */
         put: operations["credencialesApiSunat"];
         post?: never;
@@ -2072,7 +2073,7 @@ export interface paths {
          *     (`PUT /v1/empresa/credenciales-api-sunat`) se consulta la API REST de SUNAT («consulta integrada», `fuente: API_REST`):
          *     `estado` `NO_EXISTE` (0), `ACEPTADO` (1), `DE_BAJA` (2, anulado), `AUTORIZADO` (3) o `NO_AUTORIZADO` (4, comprobantes
          *     físicos), más `estado_ruc`, `condicion_domicilio` y `observaciones` (p. ej. si la fecha o el monto no coinciden); ahí
-         *     `fecha` es obligatoria y `monto` lo es para comprobantes electrónicos. Sin ellas, o si la API no responde y hay clave SOL,
+         *     `fecha` es obligatoria y `monto` lo es para comprobantes electrónicos. Sin ellas, o si la API no responde o rechaza la consulta y hay clave SOL,
          *     se usa `billValidService` (`fuente: SOAP`, solo producción): `ACEPTADO` (0001), `RECHAZADO` (0002), `DE_BAJA` (0003),
          *     `NO_EXISTE` (0011), `AJENO` (0012) o `ERROR_CONSULTA`; `aviso` dice por qué. Errores: `422 CREDENCIALES_SUNAT_NO_CARGADAS`,
          *     `422 CREDENCIALES_API_SUNAT_RECHAZADAS`, `422 CREDENCIALES_SOL_RECHAZADAS`, `422 CONSULTA_RECHAZADA` (SUNAT rechazó los
