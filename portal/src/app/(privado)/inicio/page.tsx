@@ -27,6 +27,8 @@ function mesEnPalabras(hoy: string): string {
 }
 
 /**
+ * Medido con 100 000 comprobantes reales, compilado: ~80 ms el HTML del servidor y ~110 ms hasta `load` en el navegador (k6/README.md, «Panel de inicio»).
+ *
  * El panel de inicio (#24): adonde se llega al entrar. Lo del mes en curso (Lima) en una mirada: indicadores, emisión por día y avisos con su enlace. Las lecturas (cinco; seis del 1 al 7, ver `ventanaDeAtencion`) van en
  * paralelo y cada una falla sola: si una no carga, su sección lo dice y el resto se muestra igual.
  */
