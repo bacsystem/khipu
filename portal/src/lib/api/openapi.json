@@ -47,6 +47,10 @@
       "description": "Consultas a SUNAT. La validez de un comprobante usa la API REST de SUNAT si la empresa cargó sus credenciales API SUNAT (funciona también en beta), o `billValidService` con la clave SOL, que solo existe en producción (`422 NO_DISPONIBLE_EN_BETA`). La de un RUC lee el padrón reducido que la plataforma carga cada día y funciona también en beta."
     },
     {
+      "name": "Equipo de la cuenta (portal)",
+      "description": "Usuarios de la cuenta y sus roles: `ADMIN` (todo), `EMISOR` (emite, consulta y anula comprobantes, mantiene clientes y productos; no cambia empresas, series,\ncertificado, credenciales SOL, API keys, webhooks ni el equipo) y `LECTURA` (solo consulta). Solo un `ADMIN` gestiona el equipo, y la cuenta nunca se queda sin un\n`ADMIN` activo. Solo con sesión del portal: con `X-Api-Key` no hay cuenta y responde `401`."
+    },
+    {
       "name": "Autenticación (portal)",
       "description": "Flujo de sesión del portal web: registro, login con tokens JWT (acceso corto + refresh rotativo), recuperación de\ncontraseña por correo. **Los integradores no usan estas rutas**: autentican cada petición con `X-Api-Key`."
     },
@@ -588,6 +592,49 @@
             "ApiKey": []
           }
         ]
+      }
+    },
+    "/v1/cuenta/usuarios/{id}/rol": {
+      "put": {
+        "tags": [
+          "Equipo de la cuenta (portal)"
+        ],
+        "summary": "Cambiar el rol de un usuario",
+        "description": "Vale desde la siguiente petición del usuario, sin que vuelva a entrar. Quitarle el rol de administrador revoca las invitaciones pendientes que creó. `409 ULTIMO_ADMINISTRADOR` si le quitaría el rol al único `ADMIN` activo (también a uno\nmismo).",
+        "operationId": "cambiarRolDeUsuario",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarRolRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMiembroDelEquipo"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/clientes/{id}": {
@@ -2166,6 +2213,157 @@
         ]
       }
     },
+    "/v1/cuenta/usuarios/{id}/reactivar": {
+      "post": {
+        "tags": [
+          "Equipo de la cuenta (portal)"
+        ],
+        "summary": "Reactivar un usuario",
+        "description": "Vuelve a entrar con su contraseña y el rol que tenía.",
+        "operationId": "reactivarUsuario",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMiembroDelEquipo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cuenta/usuarios/{id}/desactivar": {
+      "post": {
+        "tags": [
+          "Equipo de la cuenta (portal)"
+        ],
+        "summary": "Desactivar un usuario",
+        "description": "Ya no entra y se cierran sus sesiones abiertas. Si era administrador, se revocan las invitaciones pendientes que creó. Las API keys que haya creado\n**siguen vigentes**: son de la empresa, no del usuario; revóquelas en `DELETE /v1/empresa/api-keys/{id}` si hace falta. `422 NO_PUEDES_DESACTIVARTE` con\nel propio usuario. Se puede reactivar.",
+        "operationId": "desactivarUsuario",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMiembroDelEquipo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cuenta/invitaciones": {
+      "get": {
+        "tags": [
+          "Equipo de la cuenta (portal)"
+        ],
+        "summary": "Invitaciones pendientes",
+        "description": "Las que no se aceptaron ni revocaron, también las vencidas (`vencida: true`), que se pueden reenviar.",
+        "operationId": "invitacionesPendientes",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListInvitacionAlEquipo"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Equipo de la cuenta (portal)"
+        ],
+        "summary": "Invitar a alguien a la cuenta",
+        "description": "Le manda un enlace de un solo uso (7 días) para crear su contraseña y entrar con el rol elegido. `409 YA_ES_MIEMBRO` si ya es usuario de la cuenta,\n`409 USUARIO_EXISTENTE` si el correo ya tiene un usuario en khipu (cada usuario es de una sola cuenta), `409 INVITACION_PENDIENTE` si ya hay una pendiente para\nese correo (reenvíela). `429 DEMASIADAS_INVITACIONES` con 20 pendientes, o si en las últimas 24 horas la cuenta ya mandó 30 correos de invitación o esa\ndirección ya recibió 3 (de cualquier cuenta); invitar y reenviar cuentan, también las invitaciones que después se revocaron. La invitación vale mientras\nquien la creó siga siendo administrador activo. `correo_enviado: false` si el correo no salió: la invitación queda y se puede reenviar.",
+        "operationId": "invitarAlEquipo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitarAlEquipoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseInvitacionEnviada"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cuenta/invitaciones/{id}/reenviar": {
+      "post": {
+        "tags": [
+          "Equipo de la cuenta (portal)"
+        ],
+        "summary": "Reenviar una invitación",
+        "description": "Un enlace nuevo que vuelve a durar 7 días; el anterior deja de servir. Hasta 5 envíos por invitación: después, `429 DEMASIADOS_ENVIOS`. Cuenta para\nlos topes de 24 horas de invitar (`429 DEMASIADAS_INVITACIONES`).\n`409 INVITACION_NO_PENDIENTE` si ya se aceptó o se revocó.",
+        "operationId": "reenviarInvitacion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseInvitacionEnviada"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/clientes": {
       "get": {
         "tags": [
@@ -2480,6 +2678,63 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/auth/invitacion": {
+      "post": {
+        "tags": [
+          "Autenticación (portal)"
+        ],
+        "summary": "Ver una invitación",
+        "description": "A qué cuenta y con qué rol invitaron al dueño del enlace. `422 TOKEN_INVALIDO` si no existe, venció, se revocó, se reenvió (vale el último enlace), ya se usó o\nquien la creó ya no es administrador activo de la cuenta.",
+        "operationId": "consultarInvitacion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitacionTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseInvitacionRecibida"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/invitacion/aceptar": {
+      "post": {
+        "tags": [
+          "Autenticación (portal)"
+        ],
+        "summary": "Aceptar una invitación",
+        "description": "Crea el usuario en la cuenta con el rol de la invitación y el correo ya verificado (el enlace llegó ahí), con la contraseña elegida; después entra con\n`POST /v1/auth/login`. `422 TOKEN_INVALIDO` como al verla, `422 PASSWORD_DEBIL` (no consume el enlace), `409 USUARIO_EXISTENTE` si el correo ya tiene un usuario.",
+        "operationId": "aceptarInvitacion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AceptarInvitacionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -4528,6 +4783,28 @@
         }
       }
     },
+    "/v1/cuenta/usuarios": {
+      "get": {
+        "tags": [
+          "Equipo de la cuenta (portal)"
+        ],
+        "summary": "Usuarios de la cuenta",
+        "description": "Activos y desactivados, por fecha de alta.",
+        "operationId": "usuariosDeLaCuenta",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListMiembroDelEquipo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/cuenta/accesos-de-soporte": {
       "get": {
         "tags": [
@@ -5604,6 +5881,32 @@
           }
         ]
       }
+    },
+    "/v1/cuenta/invitaciones/{id}": {
+      "delete": {
+        "tags": [
+          "Equipo de la cuenta (portal)"
+        ],
+        "summary": "Revocar una invitación",
+        "description": "El enlace deja de servir. `409 INVITACION_NO_PENDIENTE` si ya se aceptó o se revocó.",
+        "operationId": "revocarInvitacion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6281,6 +6584,107 @@
             "type": "string",
             "description": "«Clave» de esa aplicación (client_secret). Se guarda cifrada y nunca vuelve por la API",
             "example": "HhWwZVo8ZaWm4BZ7n/xEzw=="
+          }
+        }
+      },
+      "CambiarRolRequest": {
+        "required": [
+          "rol"
+        ],
+        "type": "object",
+        "properties": {
+          "rol": {
+            "pattern": "ADMIN|EMISOR|LECTURA",
+            "type": "string",
+            "description": "`ADMIN` todo; `EMISOR` emite, consulta y anula comprobantes y mantiene clientes y productos, pero no cambia la configuración ni el equipo; `LECTURA` solo consulta.",
+            "example": "EMISOR",
+            "enum": [
+              "ADMIN",
+              "EMISOR",
+              "LECTURA"
+            ]
+          }
+        }
+      },
+      "ApiResponseMiembroDelEquipo": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "$ref": "#/components/schemas/MiembroDelEquipo"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              },
+              "example": null
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": null
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
+      "MiembroDelEquipo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9c1f3a2b-4d5e-4a6b-8c7d-1e2f3a4b5c6d"
+          },
+          "email": {
+            "type": "string",
+            "example": "caja@ferreteriatorres.pe"
+          },
+          "rol": {
+            "type": "string",
+            "example": "EMISOR",
+            "enum": [
+              "ADMIN",
+              "EMISOR",
+              "LECTURA"
+            ]
+          },
+          "activo": {
+            "type": "boolean",
+            "description": "`false`: desactivado, no puede entrar.",
+            "example": true
+          },
+          "correo_verificado": {
+            "type": "boolean",
+            "example": true
+          },
+          "es_usted": {
+            "type": "boolean",
+            "description": "`true` en el usuario de la sesión.",
+            "example": false
           }
         }
       },
@@ -9938,6 +10342,134 @@
           }
         }
       },
+      "InvitarAlEquipoRequest": {
+        "required": [
+          "email",
+          "rol"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "minLength": 0,
+            "type": "string",
+            "example": "contador@estudio.pe"
+          },
+          "rol": {
+            "pattern": "ADMIN|EMISOR|LECTURA",
+            "type": "string",
+            "description": "`ADMIN` todo; `EMISOR` emite, consulta y anula comprobantes y mantiene clientes y productos, pero no cambia la configuración ni el equipo; `LECTURA` solo consulta.",
+            "example": "LECTURA",
+            "enum": [
+              "ADMIN",
+              "EMISOR",
+              "LECTURA"
+            ]
+          }
+        }
+      },
+      "ApiResponseInvitacionEnviada": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "$ref": "#/components/schemas/InvitacionEnviada"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              },
+              "example": null
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": null
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
+      "InvitacionAlEquipo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5e0b7c1a-2d3f-4a5b-8c6d-7e8f9a0b1c2d"
+          },
+          "email": {
+            "type": "string",
+            "example": "contador@estudio.pe"
+          },
+          "rol": {
+            "type": "string",
+            "example": "LECTURA",
+            "enum": [
+              "ADMIN",
+              "EMISOR",
+              "LECTURA"
+            ]
+          },
+          "expira_en": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-27T12:00:00Z"
+          },
+          "vencida": {
+            "type": "boolean",
+            "description": "`true` si el enlace ya venció: se puede reenviar.",
+            "example": false
+          },
+          "envios": {
+            "type": "integer",
+            "description": "Cuántas veces se mandó el enlace, contando el primero (hasta 5).",
+            "format": "int32",
+            "example": 1
+          },
+          "creada_en": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-20T12:00:00Z"
+          }
+        }
+      },
+      "InvitacionEnviada": {
+        "type": "object",
+        "properties": {
+          "invitacion": {
+            "$ref": "#/components/schemas/InvitacionAlEquipo"
+          },
+          "correo_enviado": {
+            "type": "boolean",
+            "description": "`false` si el correo no salió (servidor de correo caído o sin configurar): la invitación queda pendiente y se puede reenviar.",
+            "example": true
+          }
+        }
+      },
       "VerificarRequest": {
         "required": [
           "token"
@@ -10207,6 +10739,115 @@
           "password": {
             "type": "string",
             "example": "Cambiar123"
+          }
+        }
+      },
+      "InvitacionTokenRequest": {
+        "required": [
+          "token"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string",
+            "example": "q8Zf3kV1x..."
+          }
+        }
+      },
+      "ApiResponseInvitacionRecibida": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "$ref": "#/components/schemas/InvitacionRecibida"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              },
+              "example": null
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": null
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
+      "InvitacionRecibida": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "contador@estudio.pe"
+          },
+          "cuenta": {
+            "type": "string",
+            "description": "El nombre de la cuenta que invita.",
+            "example": "Ferretería Torres"
+          },
+          "rol": {
+            "type": "string",
+            "example": "LECTURA",
+            "enum": [
+              "ADMIN",
+              "EMISOR",
+              "LECTURA"
+            ]
+          },
+          "expira_en": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-27T12:00:00Z"
+          }
+        }
+      },
+      "AceptarInvitacionRequest": {
+        "required": [
+          "password",
+          "token"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string",
+            "example": "q8Zf3kV1x..."
+          },
+          "password": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string",
+            "description": "Al menos 8 caracteres, una letra y un dígito.",
+            "example": "Segura123"
           }
         }
       },
@@ -13004,6 +13645,102 @@
           },
           "consumo": {
             "$ref": "#/components/schemas/ConsumoDelMesResponse"
+          }
+        }
+      },
+      "ApiResponseListMiembroDelEquipo": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MiembroDelEquipo"
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              },
+              "example": null
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": null
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
+      "ApiResponseListInvitacionAlEquipo": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvitacionAlEquipo"
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              },
+              "example": null
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": null
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
           }
         }
       },
