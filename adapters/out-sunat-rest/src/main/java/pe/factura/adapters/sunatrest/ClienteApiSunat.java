@@ -37,24 +37,43 @@ public class ClienteApiSunat {
 
     private ClienteApiSunat(TransporteHttp http, Clock clock) { this(new ClienteOAuthSunat(http, clock), http); }
 
-    public JsonNode postJson(PedidoDeToken credenciales, String url, Object cuerpo) {
+    /**
+     * Qué código lleva el {@link SunatRechazoException} de un 400/422: el general del cuerpo ({@code errorCode} o {@code cod}, que en un 422 suele ser
+     * «422»), o el del primer error de {@code errors[]} ({@code codError} o {@code cod}: p. ej. el 504 del nombre del archivo de la GRE), que es el que dice qué
+     * corregir. La validez (#318) usa el general; la GRE (#39), el del detalle.
+     */
+    public enum CodigoDeRechazo { GENERAL, DEL_DETALLE }
+
+    public JsonNode postJson(PedidoDeToken credenciales, String url, Object cuerpo) { return postJson(credenciales, url, cuerpo, CodigoDeRechazo.GENERAL); }
+
+    public JsonNode postJson(PedidoDeToken credenciales, String url, Object cuerpo, CodigoDeRechazo codigo) {
         String body;
         try {
             body = json.writeValueAsString(cuerpo);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Cuerpo no serializable para " + url, e);
         }
-        TransporteHttp.Respuesta r = http.post(url, "application/json", body, "Bearer " + oauth.token(credenciales));
+        return llamar(credenciales, token -> http.post(url, "application/json", body, "Bearer " + token), codigo);
+    }
+
+    /** El GET autenticado (#39: la consulta del ticket de la GRE), con el mismo trato de errores que {@link #postJson}. */
+    public JsonNode getJson(PedidoDeToken credenciales, String url, CodigoDeRechazo codigo) {
+        return llamar(credenciales, token -> http.get(url, "Bearer " + token), codigo);
+    }
+
+    private JsonNode llamar(PedidoDeToken credenciales, java.util.function.Function<String, TransporteHttp.Respuesta> llamada, CodigoDeRechazo codigo) {
+        TransporteHttp.Respuesta r = llamada.apply(oauth.token(credenciales));
         if (r.status() == 401) {
             oauth.invalidar(credenciales);
-            r = http.post(url, "application/json", body, "Bearer " + oauth.token(credenciales));
+            r = llamada.apply(oauth.token(credenciales));
             if (r.status() == 401) throw new SunatCredencialesException("401", "SUNAT rechazó el token de la API SUNAT aun recién renovado (HTTP 401)" + motivo(r.cuerpo(), credenciales));
         }
         if (r.status() == 403)
             throw new SunatCredencialesException("403", "La aplicación registrada en «Credenciales de API SUNAT» no tiene permiso para este servicio (HTTP 403)" + motivo(r.cuerpo(), credenciales));
         if (r.status() == 400 || r.status() == 422) {
             JsonNode n = leer(r.cuerpo());
-            String cod = n == null ? "" : texto(n, "errorCode", "cod");
+            String cod = n == null ? "" : codigo == CodigoDeRechazo.DEL_DETALLE ? codigoDelDetalle(n) : "";
+            if (cod.isBlank() && n != null) cod = texto(n, "errorCode", "cod");
             throw new SunatRechazoException(cod.isBlank() ? String.valueOf(r.status()) : cod, "HTTP " + r.status() + motivo(r.cuerpo(), credenciales));
         }
         if (r.status() < 200 || r.status() >= 300) throw new SunatTransientException("0000", "La API de SUNAT respondió HTTP " + r.status() + motivo(r.cuerpo(), credenciales));
@@ -63,13 +82,25 @@ public class ClienteApiSunat {
         return n;
     }
 
-    /** Explicación de SUNAT, acotada y sin secretos: {@code message} o {@code msg}, y el detalle de {@code errors[]} ({@code codError - desError}). */
+    /** El código del primer error de {@code errors[]}: {@code codError} (consulta de validez, ticket de la GRE) o {@code cod} (envío de la GRE). */
+    private static String codigoDelDetalle(JsonNode n) {
+        for (JsonNode e : n.path("errors")) {
+            String c = texto(e, "codError", "cod");
+            if (!c.isBlank()) return c;
+        }
+        return "";
+    }
+
+    /**
+     * Explicación de SUNAT, acotada y sin secretos: {@code message} o {@code msg}, y el detalle de {@code errors[]}: {@code codError - desError} (validez,
+     * ticket de la GRE) o {@code cod - msg} (envío de la GRE, «manual_url_gre_rest»).
+     */
     String motivo(String cuerpo, PedidoDeToken p) {
         JsonNode n = leer(cuerpo);
         if (n == null || !n.isObject()) return "";
         StringBuilder sb = new StringBuilder(texto(n, "message", "msg"));
         for (JsonNode e : n.path("errors")) {
-            String d = (e.path("codError").asText("") + " " + e.path("desError").asText("")).strip();
+            String d = (texto(e, "codError", "cod") + " " + texto(e, "desError", "msg")).strip();
             if (!d.isBlank()) sb.append(sb.isEmpty() ? "" : "; ").append(d);
         }
         String m = p.sinSecretos(sb.toString().strip());

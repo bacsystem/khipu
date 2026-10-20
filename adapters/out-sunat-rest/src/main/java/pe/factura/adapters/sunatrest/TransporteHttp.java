@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 /**
- * El POST HTTP a las APIs de SUNAT, compartido por el token y los servicios. Sin redirecciones: una 302 se llevaría el {@code Authorization} (o el
+ * El POST (y el GET de la consulta de tickets) HTTP a las APIs de SUNAT, compartido por el token y los servicios. Sin redirecciones: una 302 se llevaría el {@code Authorization} (o el
  * formulario con el secreto) a otro servidor. La red caída y el tiempo agotado son {@link SunatTransientException} (los mismos códigos que el cliente SOAP:
  * 0109 tiempo agotado, 0000 lo demás); el código HTTP lo interpreta quien llama, que sabe qué significa en su servicio.
  */
@@ -31,6 +31,15 @@ final class TransporteHttp {
         HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(url)).timeout(espera)
                 .header("Content-Type", contentType).header("Accept", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(cuerpo, StandardCharsets.UTF_8));
+        return enviar(req, autorizacion);
+    }
+
+    /** La consulta del ticket de la GRE (#39) es un GET sin cuerpo. */
+    Respuesta get(String url, String autorizacion) {
+        return enviar(HttpRequest.newBuilder(URI.create(url)).timeout(espera).header("Accept", "application/json").GET(), autorizacion);
+    }
+
+    private Respuesta enviar(HttpRequest.Builder req, String autorizacion) {
         if (autorizacion != null) req.header("Authorization", autorizacion);
         try {
             HttpResponse<String> r = http.send(req.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
