@@ -184,6 +184,40 @@ public class FacturaController {
                 .body(salida -> DescargaEnZip.escribir(salida, consultar, t, filtro, contenido, total));
     }
 
+    @GetMapping("/exportacion")
+    @Operation(summary = "Exportar comprobantes a CSV o Excel", description = """
+            Una fila por comprobante que cumple los filtros —los mismos del listado—, lo más reciente primero, para el registro de ventas o el contador: `tipo` (catálogo 01),
+            `serie`, `numero`, `fecha_emision`, `cliente_tipo_doc`, `cliente_num_doc`, `cliente`, `moneda`, las bases `gravado`, `exonerado`, `inafecto`, `gratuito` y
+            `exportacion`, `igv`, `icbper`, `total` (con 2 decimales, en la moneda del comprobante y sin signo: una nota de crédito se reconoce por su `tipo` 07), `estado`
+            (un comprobante dado de baja sale `ANULADO`) y `documento_modificado` (solo en notas: tipo y serie-número, `01 F001-125`).
+
+            `formato=csv` (por defecto) es UTF-8 con BOM, separado por comas —el de Excel con la configuración regional de Perú— o por punto y coma con
+            `separador=punto_y_coma`, con punto decimal; los textos que empiezan por `= + - @` llevan delante una comilla simple para que una hoja de cálculo no los ejecute
+            como fórmula. `formato=xlsx` es un libro de Excel con los importes como números. El archivo se escribe mientras se lee. **Tope: 5000 comprobantes por exportación**;
+            con más responde `422 EXPORTACION_EXCEDE_EL_TOPE` con cuántos hay (acote las fechas y exporte por tramos). Sin resultados sale el archivo con la cabecera sola.
+            Un `formato` o `separador` con otro valor es `400 PARAMETRO_INVALIDO`.""")
+    public ResponseEntity<StreamingResponseBody> exportar(HttpServletRequest req,
+                                                         @Parameter(description = "Estado del comprobante") @RequestParam(required = false) EstadoDocumento estado,
+                                                         @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-09-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+                                                         @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)", example = "2026-09-30") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+                                                         @Parameter(description = "Serie exacta", example = "F001") @RequestParam(required = false) String serie,
+                                                         @Parameter(description = "Tipo: `01`, `03`, `07` u `08`", example = "01") @RequestParam(required = false) String tipo,
+                                                         @Parameter(description = "Cliente: documento (prefijo) o parte de la razón social", example = "andina") @RequestParam(required = false) String cliente,
+                                                         @Parameter(description = "Número del comprobante (sin la serie)", example = "125") @RequestParam(required = false) Long numero,
+                                                         @Parameter(description = "`csv` (por defecto) o `xlsx`", example = "xlsx") @RequestParam(required = false) String formato,
+                                                         @Parameter(description = "Solo en CSV: `coma` (por defecto) o `punto_y_coma`", example = "coma") @RequestParam(required = false) String separador) {
+        UUID t = TenantActual.id(req);
+        var filtro = new ConsultarComprobanteUseCase.Filtro(estado, desde, hasta, serie, tipo, cliente, numero);
+        var f = ExportacionDeComprobantes.Formato.de(formato);
+        char sep = ExportacionDeComprobantes.separador(separador);
+        ExportacionDeComprobantes.verificar(consultar, t, filtro);
+        String archivo = ExportacionDeComprobantes.nombreDeArchivo(filtro, f, LocalDate.now(java.time.ZoneId.of("America/Lima")));
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(f.tipoDeContenido))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + archivo + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(salida -> ExportacionDeComprobantes.escribir(salida, consultar, t, filtro, f, sep));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Consultar un comprobante", description = """
             Estado actual, respuesta de SUNAT (`cdr`), totales, forma de pago y enlaces de descarga. Úselo para hacer seguimiento
