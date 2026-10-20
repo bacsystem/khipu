@@ -148,6 +148,18 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public Optional<Comprobante> bloquear(UUID tenantId, UUID id) {
         return jdbc.query(SELECT + " WHERE d.id = ? AND d.tenant_id = ? FOR UPDATE OF d", this::mapear, id, tenantId).stream().findFirst();
     }
+    @Override public List<Comprobante> bloquearPorInformarDeLaFecha(UUID tenantId, java.time.LocalDate fechaEmision, UUID excluido, int limite) {
+        if (limite < 1) return List.of();
+        // Primero las filas libres, bloqueadas y sin esperar a las que otro ya tiene (SKIP LOCKED); luego se cargan completas (con sus hijos, de a lote) por id.
+        List<UUID> ids = jdbc.queryForList("SELECT d.id " + DESDE + " WHERE d.tenant_id = ? AND d.id <> ? AND " + BoletasPorInformar.paraAgruparEnResumen("c")
+                + " ORDER BY d.serie, d.numero LIMIT ? FOR UPDATE OF d SKIP LOCKED", UUID.class, tenantId, excluido, java.sql.Date.valueOf(fechaEmision), limite);
+        if (ids.isEmpty()) return List.of();
+        String marcas = String.join(", ", java.util.Collections.nCopies(ids.size(), "?"));
+        Object[] args = new Object[ids.size() + 1];
+        args[0] = tenantId;
+        for (int i = 0; i < ids.size(); i++) args[i + 1] = ids.get(i);
+        return consultar(" WHERE d.tenant_id = ? AND d.id IN (" + marcas + ")", " ORDER BY d.serie, d.numero", args);
+    }
     @Override public BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo) {
         // Un final RECHAZADO o INVALIDO no regularizó nada: su anticipo vuelve a estar disponible.
         BigDecimal suma = jdbc.queryForObject("""

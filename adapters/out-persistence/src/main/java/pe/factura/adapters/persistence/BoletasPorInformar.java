@@ -25,6 +25,15 @@ final class BoletasPorInformar {
     /** Solo lo que nunca se envió: el envío fallando ya es un error de envío y se cuenta como tal. Un parámetro: {@link #corte}. */
     static String sinEnviar(String c) { return "(d.estado = 'FIRMADO' AND d.fecha_emision <= ? AND " + deBoleta(c) + ")"; }
 
+    /**
+     * #301: lo de boleta que SUNAT todavía no tiene (FIRMADO o ERROR_ENVIO), emitido un día dado (un parámetro), sin un resumen diario en curso ni uno de varias líneas rechazado antes
+     * (ese se vuelve a informar de a uno para aislar la línea que lo rompió). Para armar un resumen con todo lo de esa fecha.
+     */
+    static String paraAgruparEnResumen(String c) {
+        return "(d.estado IN ('FIRMADO', 'ERROR_ENVIO') AND d.fecha_emision = ? AND " + deBoleta(c)
+                + " AND NOT EXISTS (SELECT 1 FROM comunicacion_baja b WHERE b.comprobante_id = d.id AND (b.estado IN ('GENERADA', 'ERROR_ENVIO', 'ENVIADA') OR (b.condicion = 'ALTA' AND b.estado = 'RECHAZADA' AND b.lineas > 1))))";
+    }
+
     /** La última fecha de emisión que ya pide atención hoy: la de hace 5 días. */
     static Date corte(LocalDate hoy) { return Date.valueOf(hoy.minusDays(PlazoEnvio.DIAS_ENVIO_INDIVIDUAL_BOLETA)); }
 

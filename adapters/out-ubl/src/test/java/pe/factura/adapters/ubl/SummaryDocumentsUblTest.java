@@ -65,6 +65,71 @@ class SummaryDocumentsUblTest {
         return xml.replace("<ext:ExtensionContent/>", "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>");
     }
 
+    // --- #301: un resumen de varias líneas ----------------------------------------------------------------------------------------------------------------------
+
+    static final Clock DIA_SEIS = Clock.fixed(Instant.parse("2026-09-19T15:00:00Z"), ZoneId.of("America/Lima"));
+
+    /** Una boleta firmada que nadie envió, del 13 de septiembre: el 19 ya solo va en el resumen diario. */
+    static Comprobante firmada(long numero, Item item) {
+        Comprobante c = Comprobante.boleta(UUID.randomUUID(), "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "1234567" + (numero % 10), "COMPRADOR " + numero, null), List.of(item))
+                .crear(FreemarkerUblGeneratorTest.CLOCK);
+        c.asignarNumero(numero, "20100066603"); c.firmar("H", "k");
+        return c;
+    }
+
+    @Test void variasBoletasSonVariasLineasDeUnSoloResumenConSuLineIdYSusPropiosValores() throws Exception {
+        List<Comprobante> boletas = List.of(
+                firmada(1, new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                firmada(2, new Item("B", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)),
+                firmada(3, new Item("C", "Otro", "NIU", new BigDecimal("2"), new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)));
+        List<ComunicacionBaja> filas = ComunicacionBaja.altasEnResumen(boletas, 5, DIA_SEIS);
+
+        String xml = new FreemarkerUblGenerator().generarResumen(filas, boletas, FreemarkerUblGeneratorTest.tenant());
+        Document d = parsear(xml);
+
+        assertThat(xpath().evaluate("count(/rc:SummaryDocuments/cbc:ID)", d)).isEqualTo("1");
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/cbc:ID", d)).isEqualTo("RC-20260919-5");
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/cbc:ReferenceDate", d)).isEqualTo("2026-09-13");
+        String linea = "/rc:SummaryDocuments/sac:SummaryDocumentsLine";
+        assertThat(xpath().evaluate("count(" + linea + ")", d)).isEqualTo("3");
+        for (int n = 1; n <= 3; n++) {
+            assertThat(xpath().evaluate(linea + "[" + n + "]/cbc:LineID", d)).isEqualTo(String.valueOf(n));
+            assertThat(xpath().evaluate(linea + "[" + n + "]/cbc:ID", d)).isEqualTo("B001-" + n);
+            assertThat(xpath().evaluate(linea + "[" + n + "]/cbc:DocumentTypeCode", d)).isEqualTo("03");
+            assertThat(xpath().evaluate(linea + "[" + n + "]/cac:Status/cbc:ConditionCode", d)).as("alta, estado 1").isEqualTo("1");
+            assertThat(xpath().evaluate(linea + "[" + n + "]/cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity/cbc:RegistrationName", d)).isEqualTo("COMPRADOR " + n);
+        }
+        assertThat(xpath().evaluate(linea + "[1]/sac:TotalAmount", d)).isEqualTo("118.00");
+        assertThat(xpath().evaluate(linea + "[2]/sac:TotalAmount", d)).isEqualTo("50.00");
+        assertThat(xpath().evaluate(linea + "[3]/sac:TotalAmount", d)).isEqualTo("118.00");
+        assertThat(xpath().evaluate(linea + "[1]/sac:BillingPayment[cbc:InstructionID='01']/cbc:PaidAmount", d)).isEqualTo("100.00");
+        assertThat(xpath().evaluate(linea + "[2]/sac:BillingPayment[cbc:InstructionID='02']/cbc:PaidAmount", d)).as("la exonerada de la segunda, no la gravada de la primera").isEqualTo("50.00");
+        assertThat(xpath().evaluate("count(" + linea + "[2]/sac:BillingPayment[cbc:InstructionID='01'])", d)).isEqualTo("0");
+        assertThat(xpath().evaluate(linea + "[1]/cac:TaxTotal/cbc:TaxAmount", d)).isEqualTo("18.00");
+        assertThat(xpath().evaluate(linea + "[3]/cac:TaxTotal/cbc:TaxAmount", d)).isEqualTo("18.00");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), filas.get(0));
+    }
+
+    @Test void unResumenDeQuinientasLineasEsValidoContraElEsquema() throws Exception {
+        List<Comprobante> boletas = new java.util.ArrayList<>();
+        for (int n = 1; n <= ComunicacionBaja.MAX_LINEAS_RESUMEN; n++) boletas.add(firmada(n, new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)));
+        List<ComunicacionBaja> filas = ComunicacionBaja.altasEnResumen(boletas, 1, DIA_SEIS);
+
+        String xml = new FreemarkerUblGenerator().generarResumen(filas, boletas, FreemarkerUblGeneratorTest.tenant());
+
+        assertThat(xpath().evaluate("count(/rc:SummaryDocuments/sac:SummaryDocumentsLine)", parsear(xml))).isEqualTo("500");
+        assertThat(xpath().evaluate("/rc:SummaryDocuments/sac:SummaryDocumentsLine[500]/cbc:LineID", parsear(xml))).isEqualTo("500");
+        new JaxpXsdValidator().validarBaja(conFirma(xml), filas.get(0));
+    }
+
+    @Test void generarResumenPideUnaFilaPorComprobante() {
+        Comprobante c = firmada(1, new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        ComunicacionBaja fila = ComunicacionBaja.altaEnResumen(c, 1, DIA_SEIS);
+
+        assertThatThrownBy(() -> new FreemarkerUblGenerator().generarResumen(List.of(fila), List.of(c, c), FreemarkerUblGeneratorTest.tenant())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new FreemarkerUblGenerator().generarResumen(List.of(), List.of(), FreemarkerUblGeneratorTest.tenant())).isInstanceOf(IllegalArgumentException.class);
+    }
+
     // --- #289: gratuitas y percepción en la línea del resumen -----------------------------------------------------------------------------------------------
 
     static final Clock ENERO_2027 = Clock.fixed(Instant.parse("2027-01-02T15:00:00Z"), ZoneId.of("America/Lima"));

@@ -61,6 +61,11 @@ final class Fakes {
                     .flatMap(c -> c.anticipos().stream()).filter(a -> a.serie().equals(serie) && a.numero() == numero)
                     .map(Anticipo::monto).reduce(BigDecimal.ZERO, BigDecimal::add);
         }
+        /** Como la consulta real, salvo lo de las bajas en curso o rechazadas de varias líneas: eso lo prueba {@code JdbcComprobanteRepositoryTest}. */
+        public List<Comprobante> bloquearPorInformarDeLaFecha(UUID t, java.time.LocalDate fecha, UUID excluido, int limite) {
+            return datos.values().stream().filter(c -> c.tenantId().equals(t) && !c.id().equals(excluido) && c.fechaEmision().equals(fecha) && c.estado().esEnviable() && c.esDeBoleta())
+                    .sorted(Comparator.comparing(Comprobante::serie).thenComparing(Comprobante::numero)).limit(limite).toList();
+        }
         public Optional<Comprobante> bloquearPorNumero(UUID t, TipoDocumento tipo, String serie, long numero) { return buscarPorNumero(t, tipo, serie, numero); }
         public Optional<Comprobante> buscarPorNumero(UUID t, TipoDocumento tipo, String serie, long numero) {
             return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.tipo() == tipo && c.serie().equals(serie) && Long.valueOf(numero).equals(c.numero())).findFirst();
@@ -151,8 +156,10 @@ final class Fakes {
         RuntimeException falla; byte[] respuesta = "cdr".getBytes(); String ultimoNombre; int enviados;
         /** sendSummary/getStatus: ticket fijo y estado configurable (por defecto procesado con el mismo ZIP de respuesta). */
         RuntimeException fallaResumen; RuntimeException fallaStatus; String ticket = "T-1"; String statusCode = "0"; int consultas;
+        /** Cuántos sendSummary llegaron a SUNAT (con o sin falla): un resumen de varias líneas es uno solo (#301). */
+        int resumenes;
         public byte[] sendBill(Tenant t, String nombre, byte[] xml) { enviados++; ultimoNombre = nombre; if (falla != null) throw falla; return respuesta; }
-        public String sendSummary(Tenant t, String nombre, byte[] xml) { ultimoNombre = nombre; if (fallaResumen != null) throw fallaResumen; return ticket; }
+        public String sendSummary(Tenant t, String nombre, byte[] xml) { ultimoNombre = nombre; resumenes++; if (fallaResumen != null) throw fallaResumen; return ticket; }
         public EstadoTicket getStatus(Tenant t, String tk) { consultas++; if (fallaStatus != null) throw fallaStatus; return new EstadoTicket(statusCode, "98".equals(statusCode) ? null : respuesta); }
     }
     static final class Bajas implements BajaRepository {
@@ -160,7 +167,11 @@ final class Fakes {
         public void guardar(ComunicacionBaja b) { datos.put(b.id(), b); }
         public Optional<ComunicacionBaja> buscar(UUID t, UUID id) { return Optional.ofNullable(datos.get(id)).filter(b -> b.tenantId().equals(t)); }
         public List<ComunicacionBaja> deComprobante(UUID t, UUID c) { return datos.values().stream().filter(b -> b.tenantId().equals(t) && b.comprobanteId().equals(c)).toList(); }
-        public int siguienteCorrelativo(UUID t, LocalDate f) { return (int) datos.values().stream().filter(b -> b.tenantId().equals(t) && b.fechaGeneracion().equals(f)).count() + 1; }
+        /** El máximo del día más uno, como el adaptador: las filas de un resumen de varias líneas (#301) comparten correlativo. */
+        public int siguienteCorrelativo(UUID t, LocalDate f) { return datos.values().stream().filter(b -> b.tenantId().equals(t) && b.fechaGeneracion().equals(f)).mapToInt(ComunicacionBaja::correlativo).max().orElse(0) + 1; }
+        public List<ComunicacionBaja> delResumen(UUID t, LocalDate f, int correlativo) {
+            return datos.values().stream().filter(b -> b.tenantId().equals(t) && b.fechaGeneracion().equals(f) && b.correlativo() == correlativo).sorted(Comparator.comparingInt(ComunicacionBaja::linea)).toList();
+        }
     }
     /** UblGenerator de prueba: devuelve un XML mínimo con la raíz según el tipo. */
     static final class Ubl implements UblGenerator {
@@ -168,6 +179,12 @@ final class Fakes {
         Tenant ultimoEmisor;
         public String generar(Comprobante c, Tenant t) { ultimoEmisor = t; return "<" + c.tipo() + ">" + c.nombreArchivo() + "</" + c.tipo() + ">"; }
         public String generarBaja(ComunicacionBaja b, Comprobante c, Tenant t) { String raiz = b.resumenDiario() ? "SummaryDocuments" : "VoidedDocuments"; return "<" + raiz + ">" + b.identificador() + "</" + raiz + ">"; }
+        /** Cuántas líneas llevó cada resumen generado, en orden: lo que un test de agrupación (#301) quiere ver. */
+        final List<Integer> lineasPorResumen = new ArrayList<>();
+        public String generarResumen(List<ComunicacionBaja> filas, List<Comprobante> comprobantes, Tenant t) {
+            lineasPorResumen.add(filas.size());
+            return "<SummaryDocuments>" + filas.get(0).identificador() + "</SummaryDocuments>";
+        }
     }
     static final class Consultas implements pe.factura.application.port.out.SunatConsultaGateway {
         Consulta respuesta = new Consulta("0001", "El comprobante existe y está aceptado.", "cdr".getBytes());

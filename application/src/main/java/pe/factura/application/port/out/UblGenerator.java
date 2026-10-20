@@ -12,4 +12,9 @@ public interface UblGenerator {
      * repite el comprador, los valores de venta y los tributos de la boleta, por eso recibe el comprobante dado de baja.
      */
     String generarBaja(ComunicacionBaja baja, Comprobante comprobante, Tenant t);
+    /**
+     * El resumen diario (SummaryDocuments) de varias líneas (#301): {@code filas.get(i)} es la línea {@code i + 1} y {@code comprobantes.get(i)} su comprobante. Todas las
+     * filas son del mismo resumen (mismo identificador) y deben ser de boleta.
+     */
+    String generarResumen(java.util.List<ComunicacionBaja> filas, java.util.List<Comprobante> comprobantes, Tenant t);
 }

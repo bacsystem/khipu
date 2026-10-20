@@ -20,7 +20,7 @@ public class JdbcBajaRepository implements BajaRepository {
     private final JdbcTemplate jdbc;
 
     private static final String COLS = "id, tenant_id, fecha_generacion, correlativo, comprobante_id, tipo_comprobante, serie, numero, fecha_referencia, motivo, "
-            + "estado, ticket, xml_key, cdr_key, cdr_codigo, cdr_descripcion, intentos, ultimo_error, condicion, de_boleta";
+            + "estado, ticket, xml_key, cdr_key, cdr_codigo, cdr_descripcion, intentos, ultimo_error, condicion, de_boleta, linea, lineas";
 
     @Override public void guardar(ComunicacionBaja b) {
         // enviada_en (#362 B14): el instante en que pasó a ENVIADA (SUNAT dio el ticket). Se fija una sola vez: las reconsultas del ticket guardan la fila de nuevo y no lo mueven.
@@ -29,10 +29,15 @@ public class JdbcBajaRepository implements BajaRepository {
                 b.estado().name(), b.ticket(), b.xmlKey(), b.cdrKey(), b.cdr() == null ? null : b.cdr().codigo(), b.cdr() == null ? null : b.cdr().descripcion(), b.intentos(), b.ultimoError(),
                 b.estado().name(), b.id(), b.tenantId());
         if (filas > 0) return;
-        jdbc.update("INSERT INTO comunicacion_baja (" + COLS + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        jdbc.update("INSERT INTO comunicacion_baja (" + COLS + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 b.id(), b.tenantId(), Date.valueOf(b.fechaGeneracion()), b.correlativo(), b.comprobanteId(), b.tipoComprobante().codigo(), b.serie(), b.numero(),
                 Date.valueOf(b.fechaReferencia()), b.motivo(), b.estado().name(), b.ticket(), b.xmlKey(), b.cdrKey(),
-                b.cdr() == null ? null : b.cdr().codigo(), b.cdr() == null ? null : b.cdr().descripcion(), b.intentos(), b.ultimoError(), b.condicion().name(), b.deBoleta());
+                b.cdr() == null ? null : b.cdr().codigo(), b.cdr() == null ? null : b.cdr().descripcion(), b.intentos(), b.ultimoError(), b.condicion().name(), b.deBoleta(), b.linea(), b.lineas());
+    }
+
+    @Override public List<ComunicacionBaja> delResumen(UUID tenantId, LocalDate fechaGeneracion, int correlativo) {
+        return jdbc.query("SELECT " + COLS + " FROM comunicacion_baja WHERE tenant_id = ? AND fecha_generacion = ? AND correlativo = ? ORDER BY linea", this::mapear,
+                tenantId, Date.valueOf(fechaGeneracion), correlativo);
     }
 
     @Override public Optional<ComunicacionBaja> buscar(UUID tenantId, UUID id) {
@@ -56,6 +61,6 @@ public class JdbcBajaRepository implements BajaRepository {
                 rs.getObject("comprobante_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo_comprobante")), rs.getBoolean("de_boleta"), rs.getString("serie"), rs.getLong("numero"),
                 rs.getDate("fecha_referencia").toLocalDate(), rs.getString("motivo"), ComunicacionBaja.Condicion.valueOf(rs.getString("condicion")),
                 ComunicacionBaja.EstadoBaja.valueOf(rs.getString("estado")), rs.getString("ticket"),
-                rs.getString("xml_key"), rs.getString("cdr_key"), cdr, rs.getInt("intentos"), rs.getString("ultimo_error"));
+                rs.getString("xml_key"), rs.getString("cdr_key"), cdr, rs.getInt("intentos"), rs.getString("ultimo_error"), rs.getInt("linea"), rs.getInt("lineas"));
     }
 }

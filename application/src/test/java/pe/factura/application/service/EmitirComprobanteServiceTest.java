@@ -35,6 +35,7 @@ class EmitirComprobanteServiceTest {
     UblGenerator ubl = new UblGenerator() {
         public String generar(Comprobante c, pe.factura.domain.tenant.Tenant t) { emisor[0] = t; return "<Invoice>" + c.nombreArchivo() + "</Invoice>"; }
         public String generarBaja(pe.factura.domain.documento.ComunicacionBaja b, Comprobante c, pe.factura.domain.tenant.Tenant t) { return ""; }
+        public String generarResumen(java.util.List<pe.factura.domain.documento.ComunicacionBaja> filas, java.util.List<Comprobante> comprobantes, pe.factura.domain.tenant.Tenant t) { return ""; }
     };
     String[] recibido = new String[1];
     XsdValidator xsd = new XsdValidator() {

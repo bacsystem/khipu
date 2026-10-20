@@ -12,7 +12,9 @@ import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.tenant.Tenant;
 
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class FreemarkerUblGenerator implements UblGenerator {
@@ -28,18 +30,37 @@ public class FreemarkerUblGenerator implements UblGenerator {
     }
 
     @Override public String generarBaja(ComunicacionBaja b, Comprobante c, Tenant t) {
-        String plantilla = b.resumenDiario() ? "summary-documents.ftl" : "voided-documents.ftl";
+        if (b.resumenDiario()) return generarResumen(List.of(b), List.of(c), t);
         try {
             Map<String, Object> modelo = new HashMap<>();
             modelo.put("b", b);
             modelo.put("c", c);
             modelo.put("tot", c.totales());
             modelo.put("t", t);
-            if (b.resumenDiario()) modelo.put("nombreComprador", nombreDelCompradorEnElResumen(c.receptor().razonSocial()));
             StringWriter out = new StringWriter();
-            cfg.getTemplate(plantilla).process(modelo, out);
+            cfg.getTemplate("voided-documents.ftl").process(modelo, out);
             return out.toString();
-        } catch (Exception e) { throw new IllegalStateException("Error generando " + (b.resumenDiario() ? "SummaryDocuments" : "VoidedDocuments"), e); }
+        } catch (Exception e) { throw new IllegalStateException("Error generando VoidedDocuments", e); }
+    }
+
+    @Override public String generarResumen(List<ComunicacionBaja> filas, List<Comprobante> comprobantes, Tenant t) {
+        if (filas.isEmpty() || filas.size() != comprobantes.size()) throw new IllegalArgumentException("Un resumen diario lleva una fila por comprobante y al menos una");
+        try {
+            List<Map<String, Object>> lineas = new ArrayList<>(filas.size());
+            for (int i = 0; i < filas.size(); i++) {
+                Comprobante c = comprobantes.get(i);
+                lineas.add(Map.of("b", filas.get(i), "c", c, "nombreComprador", nombreDelCompradorEnElResumen(c.receptor().razonSocial())));
+            }
+            Map<String, Object> modelo = new HashMap<>();
+            modelo.put("b", filas.get(0));
+            modelo.put("c", comprobantes.get(0));
+            modelo.put("tot", comprobantes.get(0).totales());
+            modelo.put("t", t);
+            modelo.put("lineas", lineas);
+            StringWriter out = new StringWriter();
+            cfg.getTemplate("summary-documents.ftl").process(modelo, out);
+            return out.toString();
+        } catch (Exception e) { throw new IllegalStateException("Error generando SummaryDocuments", e); }
     }
 
     /** Tope del campo 10.3 del resumen (regla 2022): la boleta admite 1500, el resumen 250. */

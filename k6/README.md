@@ -9,7 +9,7 @@ Cubre el ítem #15 de `docs/spec/spec.md`: "Pruebas de carga k6 con umbrales en 
 | `boletas.js` | p95 < 500 ms sin SUNAT, 50 doc/s (#287) | ✅ **p95 = 20.5 ms**, 4 074 boletas (mitad con DNI, mitad «sin documento»), 0 errores, serie B001 sin huecos ni duplicados (2026-10-18) |
 | `emision.js` (facturas) | idem | ✅ **p95 = 24.5 ms**, 4 074 facturas, 0 errores, serie F001 sin huecos (2026-10-18) |
 | Baja de boleta en el resumen diario (#287) | meta acordada: p95 ≤ 100 ms por resumen, ≥ 50/s | ✅ `RendimientoDeBajasDeBoletaTest`: generar el SummaryDocuments + firmar + validar contra el XSD cuesta **p50 4 ms · p95 6 ms · 237 resúmenes/s** en un hilo; 10 000 bajas, unos 45 s de CPU |
-| RC de 10 000 boletas < 5 min | — | ⏸️ Hoy no existe como tal: las boletas se envían **una por una** (`sendBill`) y cada baja lleva **su propio** resumen de una línea, así que «10 000 bajas» son 10 000 resúmenes (fila de arriba) y SUNAT es lo único que se suma. Agrupar hasta 500 líneas por resumen es #301; cuando exista, esta fila se mide de verdad |
+| RC de 10 000 boletas < 5 min | < 5 min (#301) | ✅ `RendimientoDeBajasDeBoletaTest`: 10 000 boletas de una misma fecha son **20 resúmenes de 500 líneas**; generar + firmar + validar contra el XSD los 20 toma **~1,2 s** en un hilo (p50 58 ms por resumen), sin red. SUNAT es lo único que se suma y no lo controla khipu. Una **anulación** (`BAJA`) sigue siendo un resumen de una línea (fila de arriba); lo que se agrupa son las **altas** de boletas que pasaron el envío individual |
 
 ## Preparar un tenant de carga
 
@@ -128,5 +128,5 @@ lo mide contando las sentencias que llegan a la base: una página de **30 compro
 
 ## Pendiente
 
-- Resumen diario con muchas bajas **en un mismo envío**: depende de #301 (agrupar hasta 500 líneas). Hasta entonces la medición real es la de arriba (un resumen por baja, sin SUNAT).
+- Resumen diario con muchas **altas en un mismo envío**: hecho en #301 (hasta 500 líneas por fecha de emisión; medido en la tabla de arriba). Las **bajas** siguen yendo una por resumen a propósito: se piden de a una y una línea con error rechaza todo el resumen (2987).
 - Medir el envío a SUNAT de las bajas: no se carga contra e-beta (es un servicio ajeno); su latencia no la controla khipu.
