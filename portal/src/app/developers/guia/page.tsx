@@ -333,6 +333,56 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
         </ul>
       </Seccion>
 
+      <Seccion id="sire" titulo="Registro de ventas (SIRE)">
+        <P>
+          SUNAT arma la propuesta del Registro de Ventas e Ingresos Electrónico (RVIE) del SIRE con sus comprobantes electrónicos. khipu le da dos cosas para
+          trabajarla: el archivo de reemplazo del periodo, armado con lo que usted emitió, y la conciliación de ese registro con la propuesta que descarga del SIRE.
+          khipu no se conecta al SIRE: el archivo lo sube usted (o su contador) en SUNAT Operaciones en Línea.
+        </P>
+        <BloqueCodigo
+          titulo="cURL — registro de ventas de octubre de 2026"
+          codigo={`curl -o rvie.zip -D - "${base}/v1/sire/rvie?periodo=202610" \\
+  -H "X-Api-Key: fk_TU_API_KEY"`}
+        />
+        <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-muted-foreground">
+          <li>
+            Un ZIP <Codigo>LE&lt;RUC&gt;&lt;AAAAMM&gt;00140400021112.zip</Codigo> con el <Codigo>.txt</Codigo> del mismo nombre: una fila por comprobante que SUNAT
+            tiene (aceptado, con o sin observaciones, o anulado después), 40 campos separados por <Codigo>|</Codigo>, fechas <Codigo>dd/mm/aaaa</Codigo> e importes
+            con 2 decimales en la moneda del comprobante, con su tipo de cambio en el campo 28 (<Codigo>1.000</Codigo> en soles).
+          </li>
+          <li>
+            La nota de crédito va en negativo y lleva el comprobante que modifica (campos 29–32) y su motivo (34); un anulado va con estado <Codigo>2</Codigo> e
+            importes en cero; cada boleta va en su propia fila.
+          </li>
+          <li>
+            Lo que todavía va en camino a SUNAT no entra: la cabecera <Codigo>X-Rvie-Pendientes-Sunat</Codigo> dice cuántos son. Espere a que SUNAT los resuelva
+            antes de usar el archivo.
+          </li>
+          <li>
+            Los errores llegan antes del archivo, en JSON: <Codigo>404 NO_ENCONTRADO</Codigo> sin comprobantes en el periodo y{" "}
+            <Codigo>422 RVIE_SIN_TIPO_CAMBIO</Codigo> si hay comprobantes en otra moneda sin tipo de cambio (con <Codigo>permitir_sin_tipo_cambio=true</Codigo> salen
+            con el campo vacío, para completarlo a mano).
+          </li>
+        </ul>
+        <BloqueCodigo
+          titulo="cURL — conciliar con la propuesta descargada del SIRE"
+          codigo={`curl -X POST "${base}/v1/sire/rvie/conciliacion?periodo=202610" \\
+  -H "X-Api-Key: fk_TU_API_KEY" \\
+  -H "Content-Type: application/zip" \\
+  --data-binary @propuesta.zip`}
+        />
+        <P>
+          La respuesta dice si el registro <Codigo>cuadra</Codigo> y, si no, qué comprobantes están solo en SUNAT (<Codigo>solo_en_sunat</Codigo>), solo en khipu
+          (<Codigo>solo_en_khipu</Codigo>) o en los dos con un dato distinto (<Codigo>difieren</Codigo>: fecha, moneda, estado, base gravada, IGV, exonerado,
+          inafecto o total). No guarda nada.
+        </P>
+        <NotaProsa>
+          El formato sigue la estructura de 40 campos de la propuesta del RVIE y <strong>todavía no se validó contra el anexo vigente de SUNAT ni contra el SIRE</strong>:
+          revise el archivo con su contador antes de reemplazar una propuesta. Si la conciliación muestra la misma diferencia en todos los comprobantes de un tipo (por
+          ejemplo, todas las notas de crédito), es el formato y no sus ventas: avísenos.
+        </NotaProsa>
+      </Seccion>
+
       <Seccion id="buenas-practicas" titulo="Buenas prácticas">
         <ul className="list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-muted-foreground">
           <li>

@@ -15,6 +15,10 @@
       "description": "Los productos y servicios que la empresa factura seguido, guardados para no teclearlos en cada emisión: el portal los ofrece en el autocompletado de los ítems de «Nuevo comprobante».\nCada uno lleva lo que repite una línea: descripción, unidad (catálogo 03), afectación del IGV (catálogo 07), precio unitario, código interno y código de producto SUNAT (catálogo 25).\nSe validan como la línea de un comprobante, así que lo guardado siempre se puede emitir. Funciona con API key o con la sesión del portal."
     },
     {
+      "name": "SIRE",
+      "description": "Registro de Ventas e Ingresos Electrónico (RVIE) del SIRE: el archivo de reemplazo de la propuesta, armado con los comprobantes que khipu emitió y SUNAT tiene, y la\nconciliación de esos comprobantes con la propuesta que usted descarga del SIRE. khipu no se conecta al SIRE: el archivo lo sube usted (o su contador) en SUNAT Operaciones\nen Línea. **El formato sigue la estructura de 40 campos de la propuesta del RVIE y todavía no se validó contra el Anexo 3 vigente ni contra el SIRE**: revise el archivo antes\nde reemplazar una propuesta. Autenticación: `X-Api-Key` o sesión del portal."
+    },
+    {
       "name": "Facturas",
       "description": "Emisión y consulta de facturas (tipo 01) y boletas de venta (tipo 03) electrónicas: la letra de la serie decide cuál\n(`F###` factura, `B###` boleta). Las dos se emiten igual, en una sola llamada y una por una: khipu asigna el\nnúmero correlativo de la serie, genera el XML UBL 2.1, lo firma con el certificado de la empresa, lo valida y lo\nenvía a SUNAT; la respuesta trae el estado y, si SUNAT respondió, el CDR. Si SUNAT no está disponible, el\ncomprobante queda en `ERROR_ENVIO` y khipu lo reintenta solo (ver *Estados del comprobante* en la introducción).\n\nAutenticación: `X-Api-Key` de la empresa (integradores) o sesión del portal. Todos los importes van con hasta\n2 decimales y en la moneda del comprobante; las fechas en `YYYY-MM-DD`."
     },
@@ -1226,6 +1230,64 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/sire/rvie/conciliacion": {
+      "post": {
+        "tags": [
+          "SIRE"
+        ],
+        "summary": "Conciliar el registro de ventas con la propuesta de SUNAT",
+        "description": "Compare lo que khipu emitió con la propuesta del RVIE que descarga del SIRE: envíe el archivo tal como lo descargó, `.txt` o `.zip` con un `.txt`, como cuerpo\nde la petición (no multipart), hasta 20 MB (64 MB descomprimido). La respuesta dice qué comprobantes están solo en SUNAT, solo en khipu, y cuáles están en los\ndos con algún dato distinto (fecha, moneda, estado, base gravada, IGV, exonerado, inafecto o total), comparados por tipo, serie y número. No guarda nada.\n\nLa propuesta se lee con la misma estructura de 40 campos que el archivo de `GET /v1/sire/rvie` (una fila de títulos al principio se ignora): **supuesto sin\nverificar contra el SIRE**. Errores: `400 PARAMETRO_INVALIDO` (periodo), `422 RVIE_ARCHIVO_INVALIDO` (una fila que no se puede leer, de otro RUC o de otro\nperiodo, o un comprobante repetido; el mensaje dice la línea y el campo), `422 RVIE_PROPUESTA_DEMASIADO_GRANDE` y `422 RVIE_EXCEDE_EL_TOPE` (más de 100 000 filas).",
+        "operationId": "conciliarRvie",
+        "parameters": [
+          {
+            "name": "periodo",
+            "in": "query",
+            "description": "Periodo tributario, `AAAAMM`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 202610
+          }
+        ],
+        "requestBody": {
+          "description": "La propuesta del RVIE descargada del SIRE (.txt o .zip)",
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseConciliacionRvie"
+                }
+              }
+            }
           }
         }
       }
@@ -4686,6 +4748,94 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponseListString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sire/rvie": {
+      "get": {
+        "tags": [
+          "SIRE"
+        ],
+        "summary": "Descargar el registro de ventas (RVIE) de un periodo",
+        "description": "Un ZIP `LE<RUC><AAAAMM>00140400021112.zip` con el `.txt` del mismo nombre: una fila por comprobante emitido en el periodo que SUNAT tiene —aceptado, con o sin\nobservaciones, o anulado después—, en el orden fecha, tipo, serie y número. 40 campos separados por `|` (también al final de la fila), fin de línea CRLF, UTF-8,\nfechas `dd/mm/aaaa`, importes con 2 decimales en la moneda del comprobante y tipo de cambio con 3 (`1.000` en soles). Cada boleta va en su propia fila; la\nnota de crédito va en negativo y lleva en los campos 29–32 el comprobante que modifica y en el 34 su motivo; un anulado va con estado `2` e importes en cero.\n\nLo que todavía va en camino a SUNAT (firmado, enviado o con error de envío) no entra: cuántos son lo dice la cabecera `X-Rvie-Pendientes-Sunat`, y\n`X-Rvie-Registros` cuántas filas trae el archivo. Errores, siempre antes de empezar a escribir el archivo: `400 PARAMETRO_INVALIDO` (periodo que no es `AAAAMM`\no que todavía no empieza), `404 NO_ENCONTRADO` (nada en el periodo), `422 RVIE_EXCEDE_EL_TOPE` (más de 100 000 comprobantes) y `422 RVIE_SIN_TIPO_CAMBIO`\n(comprobantes en otra moneda sin tipo de cambio, que el campo 28 pide: con `permitir_sin_tipo_cambio=true` salen con el campo vacío y la cuenta va en\n`X-Rvie-Sin-Tipo-Cambio`). Si la lectura falla a mitad de camino, la descarga se corta con un ZIP inválido, nunca con un archivo que parezca completo.",
+        "operationId": "exportarRvie",
+        "parameters": [
+          {
+            "name": "periodo",
+            "in": "query",
+            "description": "Periodo tributario, `AAAAMM`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 202610
+          },
+          {
+            "name": "permitir_sin_tipo_cambio",
+            "in": "query",
+            "description": "Escribir aun si hay comprobantes en otra moneda sin tipo de cambio (campo 28 vacío)",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El ZIP del registro de ventas",
+            "headers": {
+              "X-Rvie-Pendientes-Sunat": {
+                "description": "Comprobantes del periodo que todavía no resolvió SUNAT y no entran",
+                "style": "simple",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Rvie-Registros": {
+                "description": "Filas del archivo",
+                "style": "simple",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Rvie-Sin-Tipo-Cambio": {
+                "description": "Filas fuera de soles con el tipo de cambio vacío (solo con permitir_sin_tipo_cambio)",
+                "style": "simple",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No hay comprobantes en el periodo (NO_ENCONTRADO)",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamingResponseBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "RVIE_EXCEDE_EL_TOPE o RVIE_SIN_TIPO_CAMBIO",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamingResponseBody"
                 }
               }
             }
@@ -8372,6 +8522,168 @@
             "format": "uuid"
           }
         }
+      },
+      "ApiResponseConciliacionRvie": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "$ref": "#/components/schemas/ConciliacionRvie"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              },
+              "example": null
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": null
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
+      "ConciliacionRvie": {
+        "type": "object",
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "description": "Periodo conciliado, `AAAAMM`",
+            "example": "202610"
+          },
+          "cuadra": {
+            "type": "boolean",
+            "description": "`true` si nada falta, nada sobra y nada difiere",
+            "example": true
+          },
+          "registros_khipu": {
+            "type": "integer",
+            "description": "Comprobantes de khipu en el registro (aceptados y anulados por SUNAT)",
+            "format": "int64",
+            "example": 120
+          },
+          "registros_sunat": {
+            "type": "integer",
+            "description": "Filas leídas de la propuesta de SUNAT",
+            "format": "int64",
+            "example": 121
+          },
+          "coinciden": {
+            "type": "integer",
+            "description": "Comprobantes que están en los dos con los mismos datos",
+            "format": "int64",
+            "example": 118
+          },
+          "pendientes_de_sunat": {
+            "type": "integer",
+            "description": "Comprobantes que khipu todavía no tiene resueltos por SUNAT (firmados, enviados o con error de envío): no se concilian y pueden explicar parte de `solo_en_sunat`",
+            "format": "int64",
+            "example": 1
+          },
+          "total_solo_en_sunat": {
+            "type": "integer",
+            "description": "Cuántos están en la propuesta de SUNAT y no en el registro de khipu",
+            "format": "int64",
+            "example": 1
+          },
+          "total_solo_en_khipu": {
+            "type": "integer",
+            "description": "Cuántos están en khipu y no en la propuesta de SUNAT",
+            "format": "int64",
+            "example": 0
+          },
+          "total_difieren": {
+            "type": "integer",
+            "description": "Cuántos comprobantes están en los dos con algún dato distinto",
+            "format": "int64",
+            "example": 1
+          },
+          "total_diferencias": {
+            "type": "integer",
+            "description": "Cuántos datos distintos hay en total (un comprobante puede diferir en varios)",
+            "format": "int64",
+            "example": 1
+          },
+          "solo_en_sunat": {
+            "type": "array",
+            "description": "Los que están solo en SUNAT, `tipo-serie-número` (hasta 500)",
+            "example": [
+              "01-F001-130"
+            ],
+            "items": {
+              "type": "string",
+              "description": "Los que están solo en SUNAT, `tipo-serie-número` (hasta 500)",
+              "example": "[\"01-F001-130\"]"
+            }
+          },
+          "solo_en_khipu": {
+            "type": "array",
+            "description": "Los que están solo en khipu, `tipo-serie-número` (hasta 500)",
+            "items": {
+              "type": "string",
+              "description": "Los que están solo en khipu, `tipo-serie-número` (hasta 500)"
+            }
+          },
+          "difieren": {
+            "type": "array",
+            "description": "Cada dato distinto (hasta 500)",
+            "items": {
+              "$ref": "#/components/schemas/DiferenciaRvie"
+            }
+          }
+        },
+        "description": "Resultado de conciliar el registro de ventas de khipu con la propuesta del RVIE de SUNAT, comprobante por comprobante (tipo-serie-número)"
+      },
+      "DiferenciaRvie": {
+        "type": "object",
+        "properties": {
+          "comprobante": {
+            "type": "string",
+            "description": "`tipo-serie-número`",
+            "example": "01-F001-125"
+          },
+          "campo": {
+            "type": "string",
+            "description": "`fecha_emision`, `moneda`, `estado`, `base_gravada`, `igv`, `exonerado`, `inafecto` o `total`",
+            "example": "total"
+          },
+          "khipu": {
+            "type": "string",
+            "description": "Lo que dice khipu, como en el archivo",
+            "example": "118.0"
+          },
+          "sunat": {
+            "type": "string",
+            "description": "Lo que dice la propuesta de SUNAT",
+            "example": "120.0"
+          }
+        },
+        "description": "Un dato que khipu y SUNAT registran distinto para el mismo comprobante"
       },
       "SerieRequest": {
         "required": [
@@ -14937,6 +15249,9 @@
           }
         }
       },
+      "StreamingResponseBody": {
+        "type": "object"
+      },
       "ApiResponseListSerieResponse": {
         "type": "object",
         "properties": {
@@ -15403,9 +15718,6 @@
             }
           }
         }
-      },
-      "StreamingResponseBody": {
-        "type": "object"
       },
       "ApiResponseListEmpresaVistaResponse": {
         "type": "object",

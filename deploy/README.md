@@ -640,6 +640,66 @@ validez tributaria: use un traslado real y documentado), en un servidor con `SUN
   para él; agregarla en esa migración.
 - Webhooks e historial de eventos de las guías, y si cuentan para el tope del plan.
 
+## 15. Registro de ventas del SIRE (RVIE) (#322)
+
+`GET /v1/sire/rvie?periodo=AAAAMM` descarga el archivo de reemplazo de la propuesta del RVIE armado con los comprobantes de la empresa, y
+`POST /v1/sire/rvie/conciliacion?periodo=AAAAMM` (cuerpo: la propuesta descargada del SIRE, `.txt` o `.zip`) lo compara con la propuesta de SUNAT. khipu **no se
+conecta al SIRE**: el archivo lo sube el contribuyente (o su contador) en SOL. No hay variables nuevas ni migración: todo se calcula de las tablas de comprobantes.
+
+**Qué entra.** Una fila por comprobante emitido en el mes que SUNAT tiene: `ACEPTADO`, `ACEPTADO_CON_OBS` y `ANULADO` (estado `2`, importes en cero). Lo que va en camino
+(`FIRMADO`, `ENVIADO`, `ERROR_ENVIO`, `PENDIENTE_AGRUPACION`) no entra y se cuenta en la cabecera `X-Rvie-Pendientes-Sunat`. La lista vive en `FilaRvie.INCLUIDOS` /
+`FilaRvie.PENDIENTES`. Tope: 100 000 comprobantes por periodo (`422 RVIE_EXCEDE_EL_TOPE`); el archivo se escribe por tramos de 500, sin cargar el mes en memoria.
+
+**Supuestos sin verificar.** El repositorio no tiene el Anexo 3 de la RS 112-2021/SUNAT vigente (modificado por las RS 040-2022 y 138-2023) ni el manual de la
+API SIRE: el issue lo deja como tarea previa porque cpe.sunat.gob.pe bloquea la descarga automática. El formato sigue la estructura de 40 campos de la propuesta del
+RVIE y lo poco que el issue fija (archivo `LE…140400…` en zip, notas en los campos 29–33, tipo de cambio en el 28). Cada decisión está en un solo lugar
+(`FormatoRvie` y `FilaRvie`, paquete `pe.factura.domain.sire`) para corregirla cuando llegue el anexo:
+
+| Decisión | Valor actual | Dónde |
+|---|---|---|
+| Nombre | `LE<RUC><AAAAMM>00140400021112.txt` dentro de un `.zip` del mismo nombre | `FormatoRvie.nombreArchivo` |
+| Separador y fin de línea | `\|` entre campos y al final de la fila; CRLF; sin fila de títulos | `FormatoRvie.linea` |
+| Codificación | UTF-8 sin BOM | `FormatoRvie.CODIFICACION` |
+| Texto | el `\|`, los saltos de línea y los caracteres de control pasan a ser un espacio (el formato no tiene escape); razón social hasta 1500 | `FormatoRvie.texto` |
+| Importes y fechas | 2 decimales con punto, sin miles; `dd/mm/aaaa`; tipo de cambio con 3 decimales | `FormatoRvie` |
+| CAR (campo 4) | RUC + tipo + serie + número en 10 dígitos | `FilaRvie.car` |
+| Nota de crédito | importes en negativo; campos 29–32 el comprobante modificado, 34 el motivo (catálogo 09/10) | `FilaRvie.signo`, `FilaRvie.de` |
+| Anulado (campo 35) | `2` e importes en cero; vigente `1` | `FilaRvie.ESTADO_*` |
+| Moneda (27, 28) | importes en la moneda del comprobante; en soles `1.000`; fuera de soles el tipo de cambio del comprobante (#316) | `FilaRvie.de` |
+| Boletas | una fila por boleta, campo 10 vacío (no se agrupan por rango) | `FilaRvie.campos` |
+| Campo 25 | otros tributos + cargos que no afectan la base | `FilaRvie.de` |
+| Vacíos | 10, 33, 36, 39 y 40; 16 y 18 (descuentos) en `0.00` | `FilaRvie.campos` |
+
+Los importes salen del cálculo del dominio sobre los ítems guardados (el mismo que muestran la API y el PDF), no del XML firmado: si una regla de cálculo cambió
+después de emitir, la conciliación lo mostrará como diferencia.
+
+Un comprobante fuera de soles sin tipo de cambio (emitido antes del #316) hace responder `422 RVIE_SIN_TIPO_CAMBIO` con los primeros 10; con
+`permitir_sin_tipo_cambio=true` sale con el campo 28 vacío (cuenta en `X-Rvie-Sin-Tipo-Cambio`) y hay que completarlo a mano antes de subirlo.
+
+**Conciliación.** Compara por tipo, serie y número: fecha, moneda, estado (si la propuesta trae el campo 35), base gravada, IGV, exonerado, inafecto y total. Lee la
+propuesta con el mismo layout (tolera una fila de títulos, el `|` final ausente y LF), rechaza con la línea y el campo lo que no puede leer, y una fila de otro RUC o de otro
+periodo (`422 RVIE_ARCHIVO_INVALIDO`). Tope: 20 MB tal como llega y 64 MB descomprimido (`422 RVIE_PROPUESTA_DEMASIADO_GRANDE`). No guarda nada.
+
+**Fuera de alcance por ahora: la descarga automática de la propuesta por la API SIRE** (token OAuth con grant `password` de `clientessol` + credenciales API +
+clave SOL, solicitud de exportación de la propuesta → ticket → archivo, todo asíncrono). El único manual REST del repositorio es el de GRE (§1.2: el token
+`password` con scope `https://api-cpe.sunat.gob.pe`); el scope del SIRE, sus rutas, el formato del ticket y de la respuesta no están documentados aquí, y no se
+programaron sobre supuestos. `ClienteOAuthSunat` y `PedidoDeToken.password` (#318) ya sirven para el token cuando se tenga el manual. Aceptar la propuesta desde
+khipu queda fuera, como dice el issue.
+
+**Pendiente: verificar contra el SIRE real.** Con una empresa en producción que tenga comprobantes aceptados en un periodo abierto del SIRE:
+
+1. Conseguir el Anexo 3 vigente (manual del RVIE en cpe.sunat.gob.pe › SIRE) y contrastar la tabla de arriba campo por campo: nombre del archivo, fila de títulos,
+   codificación, signo de las notas de crédito, valores del campo 35, CAR y cómo van los anulados y las boletas. Corregir `FormatoRvie` / `FilaRvie` y sus pruebas
+   (`FilaRvieTest` fija la fila completa de una factura).
+2. Descargar el archivo: `curl -o rvie.zip "$API/v1/sire/rvie?periodo=<AAAAMM>" -H "X-Api-Key: $KEY" -D -` y revisar las cabeceras `X-Rvie-*`.
+3. En SOL › SIRE › Registro de Ventas, descargar la propuesta del mismo periodo en `.txt` y conciliar:
+   `curl -X POST "$API/v1/sire/rvie/conciliacion?periodo=<AAAAMM>" -H "X-Api-Key: $KEY" -H "Content-Type: application/zip" --data-binary @propuesta.zip`.
+   Lo esperado: `cuadra: true`. Una diferencia sistemática (todas las notas de crédito con el signo cambiado, todos los totales distintos) es un supuesto del formato
+   que no coincide, no una venta mal emitida.
+4. **No reemplazar la propuesta de un periodo real** hasta haber cerrado el punto 1: probar primero el reemplazo en un periodo sin movimientos o con el contador.
+5. Si se automatiza la descarga de la propuesta por la API SIRE, partir del manual de servicios web del SIRE, con su scope y rutas, y probarlo con WireMock igual que
+   `RestValidezGateway` (#318).
+
 ## 16. Retenciones y percepciones (#40)
 
 Los comprobantes de retención (20) y de percepción (40) y sus resúmenes de reversiones (`RR-…`) no van al `billService` de facturas sino al de
