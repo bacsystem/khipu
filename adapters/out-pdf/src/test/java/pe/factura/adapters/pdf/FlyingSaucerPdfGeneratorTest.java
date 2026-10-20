@@ -59,6 +59,31 @@ class FlyingSaucerPdfGeneratorTest {
                 .doesNotContain("Documento que modifica");
     }
 
+    static Comprobante liquidacionCompra() {
+        Comprobante c = Comprobante.liquidacionCompra(UUID.randomUUID(), "L001", LocalDate.of(2026, 9, 13), "PEN", null, new Receptor("1", "45678912", "JUAN QUISPE MAMANI", "Caserío Santa Rosa s/n"),
+                        new LiquidacionCompra("060101", "02", new LiquidacionCompra.Ubicacion("Fundo Santa Rosa, km 12", "060801", "03"), null),
+                        List.of(new Item("CAF-01", "Café pergamino", "KGM", new BigDecimal("10"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), CodigoProductoSunat.de("50201706"), null),
+                                new Item("PAP-01", "Papa blanca", "KGM", new BigDecimal("3"), new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO, null, null, false, List.of(), CodigoProductoSunat.de("50405700"), null)))
+                .referencias(new Referencias(null, List.of(new GuiaRelacionada("31", "V001-45")), List.of())).crear(CLOCK);
+        c.asignarNumero(15, "20100066603");
+        c.firmar("hashliquidacion==", "k");
+        return c;
+    }
+
+    /** #327: la liquidación de compra imprime al vendedor (con su domicilio y su condición), el lugar de la operación, lo que el comprador retiene y el neto que paga. */
+    @Test void laLiquidacionDeCompraLlevaVendedorLugarRetencionesYNeto() {
+        String html = generador.xhtml(liquidacionCompra(), TENANT, "qr", null);
+        assertThat(html).contains("LIQUIDACIÓN DE COMPRA ELECTRÓNICA", "R.U.C. 20100066603", "L001-15", "EMPRESA DE PRUEBA S.A.C.")
+                .contains("Vendedor", "JUAN QUISPE MAMANI", "45678912", "Caserío Santa Rosa s/n (CAJAMARCA / CAJAMARCA / CAJAMARCA)", "Producción")
+                .contains("Lugar de la operación", "Fundo Santa Rosa, km 12", "Extracción", "Guía V001-45")
+                .contains("Op. gravadas", "PEN 1,000.00", "Op. exoneradas", "PEN 150.00", "IGV (18%)", "PEN 180.00", "Subtotal", "PEN 1,330.00")
+                .contains("IGV retenido", "- PEN 180.00", "Retención Impuesto a la Renta (1.5%)", "- PEN 17.25", "Importe neto a pagar", "PEN 1,132.75")
+                .contains("MIL CIENTO TREINTA Y DOS CON 75/100 SOLES", "Representación impresa de la LIQUIDACIÓN DE COMPRA ELECTRÓNICA", "hashliquidacion==")
+                .doesNotContain("Señor(es)", "Forma de pago");
+        byte[] pdf = generador.generar(liquidacionCompra(), TENANT, "20100066603|04|L001|15|180.00|1132.75|2026-09-13|1|45678912|hashliquidacion==|", null);
+        assertThat(new String(pdf, 0, 5, StandardCharsets.ISO_8859_1)).isEqualTo("%PDF-");
+    }
+
     /**
      * Las leyendas del catálogo 52 que declara el emisor tienen que salir impresas: en una factura de la Amazonía o de la zona
      * comercial de Tacna, el texto del catálogo es la frase que sustenta la exoneración. Faltaba justo en esos comprobantes.

@@ -519,6 +519,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/liquidaciones-compra": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Emitir una liquidación de compra
+         * @description **Quién es quién**: la empresa es la compradora y la emisora; el `vendedor` es una persona sin RUC con DNI (`1`), carné de extranjería (`4`) o
+         *     pasaporte (`7`), y su domicilio completo (dirección, ubigeo y condición del catálogo 60) es obligatorio, igual que el `lugar_operacion`. Un vendedor
+         *     con RUC responde `422 RECEPTOR_INVALIDO` (2800): emite su propia factura o boleta.
+         *
+         *     **Retenciones**: el comprador retiene al vendedor el IGV de las líneas gravadas y el Impuesto a la Renta (1.5 % del valor de venta de cada línea, tributo
+         *     3000), y los declara y paga en su lugar. Por eso `totales.total` es el **importe neto** que se paga al vendedor: subtotal (valor de venta + IGV) − IGV − renta
+         *     + redondeo (regla 4312); el bloque `liquidacion` de la respuesta trae la retención y el subtotal. El `precio_unitario` de una línea gravada incluye el IGV,
+         *     como en la factura.
+         *
+         *     **Plazo**: SUNAT la recibe hasta el día calendario siguiente a su emisión (2108); no tiene resumen diario. **Baja**: SUNAT no la anula con una comunicación
+         *     de baja (2308) sino con un resumen de reversiones, que khipu todavía no emite: `POST /v1/facturas/{id}/baja` responde `422 BAJA_INVALIDA`.
+         *
+         *     **Aún no**: compra de oro (`0503`), compras gratuitas, otros tributos (9999) y anticipos. Cada línea lleva el código de producto SUNAT (obligatorio, 3506).
+         *     Que el DNI exista, no sea de un menor ni de un fallecido (2450, 2460–2462) y que el vendedor no pase de 75 UIT al año (2451) lo valida SUNAT con datos que
+         *     khipu no tiene: si falla, la liquidación queda `RECHAZADO` con el número consumido.
+         *
+         *     **Errores**: `422 VALIDACION`, `422 RECEPTOR_INVALIDO` (vendedor), `422 LIQUIDACION_INVALIDA` (ubigeos, condiciones, lugar, tasa), `422 ITEM_INVALIDO`,
+         *     `422 AFECTACION_INVALIDA`, `422 TIPO_OPERACION_INVALIDO`, `422 FECHA_INVALIDA`, `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`,
+         *     `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las liquidaciones.
+         */
+        post: operations["crear_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/liquidaciones-compra/calcular": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Calcular la liquidación de compra sin emitir
+         * @description Recibe el mismo cuerpo que `POST /v1/liquidaciones-compra` y responde los importes —IGV, retención de renta e importe neto— **sin numerar, firmar, guardar
+         *     ni enviar nada**, con las mismas reglas de dominio: lo que la emisión rechazaría responde aquí el mismo `422`. El `id` de la respuesta no existe y no trae enlaces.
+         */
+        post: operations["calcular"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/facturas": {
         parameters: {
             query?: never;
@@ -532,7 +591,7 @@ export interface paths {
          *     `X-Total-Count` y refleja los filtros. Filtre por `estado` para trabajar una cola (p. ej. `ERROR_ENVIO` para reintentar,
          *     `RECHAZADO` para corregir y reemitir) y por fecha de emisión con `desde`/`hasta` (inclusive, rango abierto si falta uno;
          *     `desde > hasta` responde `400 RANGO_INVALIDO`, una fecha mal formada `400 PARAMETRO_INVALIDO`) y por `serie` exacta
-         *     (F001, FC01…; con formato inválido `400 PARAMETRO_INVALIDO`, inexistente → lista vacía), por `tipo` (`01` factura, `03` boleta, `07` nota de crédito, `08` nota de débito),
+         *     (F001, FC01…; con formato inválido `400 PARAMETRO_INVALIDO`, inexistente → lista vacía), por `tipo` (`01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito),
          *     por `numero` (sin la serie) y por `cliente`: el documento (empieza por lo escrito) o parte de la razón social, sin distinguir mayúsculas. Los filtros se combinan.
          */
         get: operations["listar_2"];
@@ -575,7 +634,7 @@ export interface paths {
          *     consumir número. La misma clave con otro contenido responde `422 IDEMPOTENCIA_INVALIDA`. La clave vale para la empresa
          *     durante 24 horas. Sin la cabecera, cada pedido es una factura nueva.
          */
-        post: operations["crear_3"];
+        post: operations["crear_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -707,7 +766,7 @@ export interface paths {
          *     mismo `422` con su `codigo` y `mensaje`. No comprueba lo que depende de datos guardados (que la factura de anticipo exista y esté aceptada, el padrón de RUC, el
          *     plan, que haya serie y certificado): eso lo valida la emisión. El `id` de la respuesta no existe y no trae enlaces.
          */
-        post: operations["calcular"];
+        post: operations["calcular_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -728,7 +787,7 @@ export interface paths {
          * Registrar una empresa
          * @description Alta de una razón social (RUC único en la plataforma) con su entorno SUNAT. Después hay que cargar certificado, credenciales SOL y al menos una serie antes de emitir.
          */
-        post: operations["crear_4"];
+        post: operations["crear_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -827,7 +886,7 @@ export interface paths {
          * Guardar un cliente
          * @description Crea el cliente. `409 DUPLICADO` si la empresa ya tiene uno con ese documento; `422 RECEPTOR_INVALIDO` si el documento o el nombre no cumplen las reglas del comprador.
          */
-        post: operations["crear_5"];
+        post: operations["crear_6"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1013,7 +1072,7 @@ export interface paths {
          * Crear un tenant (empresa) con su primera API key
          * @description Alta administrativa de una empresa sin pasar por el portal; devuelve la API key inicial, que se muestra una sola vez.
          */
-        post: operations["crear_6"];
+        post: operations["crear_7"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1042,7 +1101,7 @@ export interface paths {
          *     LIMITE_INVALIDO`); retención de al menos un año (`422 RETENCION_INVALIDA`). Un límite que se omite se rechaza: nunca se vuelve «ilimitado» en
          *     silencio. Queda en la bitácora.
          */
-        post: operations["crear_7"];
+        post: operations["crear_8"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1239,7 +1298,7 @@ export interface paths {
          *     reintento responde `409 IDEMPOTENCIA_VENCIDA` (el alta ya está hecha; el cliente crea otra API key desde su portal). La
          *     misma clave con otro contenido responde `422 IDEMPOTENCIA_INVALIDA`.
          */
-        post: operations["crear_8"];
+        post: operations["crear_9"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1636,7 +1695,7 @@ export interface paths {
          * Crear una cuenta de administrador
          * @description Alta de un administrador de la plataforma (email + password); no pertenece a ninguna cuenta de cliente.
          */
-        post: operations["crear_9"];
+        post: operations["crear_10"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1740,7 +1799,7 @@ export interface paths {
          * Consultar un comprobante
          * @description Estado actual, respuesta de SUNAT (`cdr`), totales, forma de pago y enlaces de descarga. Úselo para hacer seguimiento
          *     de un comprobante que quedó en `ERROR_ENVIO` o `ENVIADO`. Sirve también para las notas de crédito/débito emitidas con
-         *     `POST /v1/notas` (traen el bloque `nota`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el
+         *     `POST /v1/notas` (traen el bloque `nota`) y las liquidaciones de compra de `POST /v1/liquidaciones-compra` (traen el bloque `liquidacion`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el
          *     historial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente.
          */
         get: operations["obtener_1"];
@@ -3408,11 +3467,14 @@ export interface components {
         };
         SerieRequest: {
             /**
-             * @description 01=factura, 03=boleta, 07=nota de crédito, 08=nota de débito
+             * @description 01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito
              * @example 01
              */
             tipo: string;
-            /** @example F001 */
+            /**
+             * @description Serie del tipo: `F###` factura, `B###` boleta, `L###` liquidación de compra, `F###` o `B###` las notas
+             * @example F001
+             */
             serie: string;
             /**
              * Format: int64
@@ -3990,7 +4052,7 @@ export interface components {
              */
             id?: string;
             /**
-             * @description Catálogo 01 SUNAT: 01=factura, 03=boleta
+             * @description Catálogo 01 SUNAT: 01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito
              * @example 01
              */
             tipo?: string;
@@ -4086,6 +4148,7 @@ export interface components {
             /** @description Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML */
             leyendas?: components["schemas"]["LeyendaDto"][];
             exportacion?: components["schemas"]["ExportacionRespuesta"];
+            liquidacion?: components["schemas"]["LiquidacionCompraRespuesta"];
             /**
              * @description cdr solo está presente cuando SUNAT emitió la constancia
              * @example {
@@ -4322,6 +4385,47 @@ export interface components {
             /** @example BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA */
             texto?: string;
         };
+        /** @description Solo en una liquidación de compra (04): el resto del domicilio del vendedor (que va en `receptor`), el lugar de la operación, lo que el comprador le retiene y el neto que le paga (igual a `totales.total`); `null` en los demás */
+        LiquidacionCompraRespuesta: {
+            /**
+             * @description Ubigeo del domicilio del vendedor (catálogo 13)
+             * @example 060101
+             */
+            ubigeo_vendedor?: string;
+            /**
+             * @description Condición del domicilio del vendedor (catálogo 60: 01 punto de venta, 02 producción, 03 extracción, 04 explotación, 05 otros)
+             * @example 02
+             */
+            condicion_vendedor?: string;
+            lugar_operacion?: components["schemas"]["LugarDeOperacionRespuesta"];
+            /**
+             * @description Subtotal de la liquidación: valor de venta + IGV (TaxInclusiveAmount)
+             * @example 1180
+             */
+            subtotal?: number;
+            /**
+             * @description IGV que el comprador retiene y paga en lugar del vendedor
+             * @example 180
+             */
+            igv_retenido?: number;
+            retencion_renta?: components["schemas"]["RetencionRentaRespuesta"];
+            /**
+             * @description Importe neto que se paga al vendedor: subtotal − IGV − renta + redondeo (PayableAmount, regla 4312); el mismo `totales.total`
+             * @example 985
+             */
+            neto_pagar?: number;
+        };
+        LugarDeOperacionRespuesta: {
+            /** @example Fundo Santa Rosa, km 12 */
+            direccion?: string;
+            /** @example 060101 */
+            ubigeo?: string;
+            /**
+             * @description Catálogo 60
+             * @example 02
+             */
+            condicion?: string;
+        };
         /** @description Solo en notas de crédito/débito: factura que modifica y motivo */
         NotaDto: {
             /**
@@ -4436,6 +4540,23 @@ export interface components {
             guias?: components["schemas"]["DocumentoDto"][];
             /** @description Otros documentos (catálogo 12: 04–09, 99) */
             documentos_relacionados?: components["schemas"]["DocumentoDto"][];
+        };
+        RetencionRentaRespuesta: {
+            /**
+             * @description Tasa en porcentaje
+             * @example 1.5
+             */
+            tasa?: number;
+            /**
+             * @description Base: el valor de venta de las líneas
+             * @example 1000
+             */
+            base?: number;
+            /**
+             * @description Retención del Impuesto a la Renta (tributo 3000): la suma de la de cada línea
+             * @example 15
+             */
+            monto?: number;
         };
         /** @description Retención del IGV informada (código 62); el cliente paga total − monto */
         RetencionRespuesta: {
@@ -4563,6 +4684,184 @@ export interface components {
             carga_util_tm?: number;
             carga_efectiva_tm?: number;
         };
+        DocumentoRelacionadoDto: {
+            /**
+             * @description Catálogo 12: `04` ticket de salida ENAPU, `05` código SCOP, `06` factura electrónica remitente y `07` guía de remisión remitente (solo en factura: en una boleta SUNAT los observa con la 4009 y khipu los rechaza antes de numerar), `08` declaración de salida del depósito franco, `09` declaración simplificada de importación, `99` otros
+             * @example 05
+             */
+            tipo: string;
+            /**
+             * @description Número del documento, hasta 30 caracteres sin espacios (regla 4010)
+             * @example SCOP-8841203
+             */
+            numero: string;
+        };
+        GuiaDto: {
+            /**
+             * @description `09` guía de remisión remitente, `31` guía de remisión transportista (catálogo 01)
+             * @example 09
+             */
+            tipo: string;
+            /**
+             * @description Serie-número de la guía: electrónica `T001-123`/`V001-45`, física `0001-123` o `EG01-45` (regla 4006)
+             * @example T001-123
+             */
+            numero: string;
+        };
+        ItemLiquidacionCompra: {
+            /**
+             * @description Código interno del producto (opcional, hasta 30 caracteres)
+             * @example CAF-01
+             */
+            codigo?: string;
+            /**
+             * @description Descripción del bien comprado (2026, 2027)
+             * @example Café pergamino seco
+             */
+            descripcion: string;
+            /**
+             * @description Unidad de medida UN/ECE rec 20 (catálogo 03): `KGM` kilogramo, `NIU` unidad, `TNE` tonelada… (2936)
+             * @example KGM
+             */
+            unidad: string;
+            /**
+             * @description Cantidad, hasta 10 decimales
+             * @example 100
+             */
+            cantidad: number;
+            /**
+             * @description Precio unitario: **con IGV incluido** en una línea gravada (`10`), como en la factura; khipu calcula el valor unitario, el IGV y la retención. Mayor que cero (2369)
+             * @example 11.8
+             */
+            precio_unitario: number;
+            /**
+             * @description Afectación del IGV (catálogo 07): `10` gravado, `20` exonerado (p. ej. productos agrícolas del Apéndice I), `30` inafecto. Las gratuitas todavía no se emiten en una liquidación de compra
+             * @example 20
+             */
+            tipo_afectacion_igv: string;
+            /**
+             * @description Código de producto SUNAT (catálogo 25, UNSPSC de 8 dígitos): **obligatorio** en la liquidación de compra (3506) y debe estar en el catálogo de SUNAT (3496)
+             * @example 50201706
+             */
+            codigo_sunat: string;
+        };
+        LiquidacionCompraRequest: {
+            /**
+             * @description Serie registrada en `POST /v1/series` con el tipo `04`: `L` + 3 alfanuméricos (regla 1001)
+             * @example L001
+             */
+            serie: string;
+            /**
+             * Format: int64
+             * @description Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`
+             * @example 15
+             */
+            correlativo?: number;
+            /**
+             * Format: date
+             * @description Fecha de emisión (`YYYY-MM-DD`), no futura. SUNAT recibe la liquidación de compra hasta el día calendario siguiente (2108): con una fecha anterior responde `422 FECHA_INVALIDA` sin consumir número
+             * @example 2026-10-20
+             */
+            fecha_emision: string;
+            /**
+             * @description Tipo de operación, catálogo 51: `0501` compra interna (por defecto) o `0502` anticipos. El `0503` (compra de oro) todavía no: exige los datos del derecho minero (catálogo 55, reglas 2466–2469) y responde `422 TIPO_OPERACION_INVALIDO`
+             * @example 0501
+             */
+            tipo_operacion?: string;
+            /**
+             * @description Moneda ISO 4217 (catálogo 02), las mismas que la factura. Otro código responde `422 MONEDA_INVALIDA` (3088)
+             * @example PEN
+             */
+            moneda: string;
+            vendedor: components["schemas"]["VendedorLiquidacionCompra"];
+            lugar_operacion: components["schemas"]["LugarDeOperacion"];
+            /** @description Lo que se compra: de 1 a 999 líneas (2023) */
+            items: components["schemas"]["ItemLiquidacionCompra"][];
+            retencion_renta?: components["schemas"]["RetencionRentaDto"];
+            /** @description Guías de remisión del traslado (`09` remitente, `31` transportista). Opcional */
+            guias?: components["schemas"]["GuiaDto"][];
+            /** @description Otros documentos relacionados: en una liquidación de compra solo el tipo `99` (otros); otro tipo responde `422 DOCUMENTO_RELACIONADO_INVALIDO` (4009). Opcional */
+            documentos_relacionados?: components["schemas"]["DocumentoRelacionadoDto"][];
+            /**
+             * @description Redondeo del importe neto (`PayableRoundingAmount`): entre −1.00 y 1.00 con 2 decimales (4314, 3303). Opcional
+             * @example 0.25
+             */
+            redondeo?: number;
+            /**
+             * @description Tipo de cambio: soles por unidad de `moneda` (#316). Opcional y solo fuera de `PEN`; no va al XML
+             * @example 3.756
+             */
+            tipo_cambio?: number;
+            /**
+             * @description `true` (por defecto) envía a SUNAT en la misma llamada; `false` la deja `FIRMADO` para enviarla con `POST /v1/facturas/{id}/enviar`
+             * @example true
+             */
+            enviar_automatico?: boolean;
+            /**
+             * @description Texto libre para el bloque «Observaciones» del PDF (hasta 1000 caracteres); no va al XML
+             * @example Compra en chacra; pago en efectivo.
+             */
+            observaciones?: string;
+        };
+        /** @description Lugar donde se realiza la operación (`cac:DeliveryTerms/cac:DeliveryLocation`): obligatorio (2454, 2455, 2458) */
+        LugarDeOperacion: {
+            /**
+             * @description Dirección del lugar y lo que permita ubicarlo, de 3 a 250 caracteres (2454, 2778)
+             * @example Fundo Santa Rosa, km 12 carretera a Bambamarca
+             */
+            direccion: string;
+            /**
+             * @description Ubigeo INEI del lugar (catálogo 13; 2455, 2917)
+             * @example 060101
+             */
+            ubigeo: string;
+            /**
+             * @description Condición del lugar, catálogo 60: `01` punto de venta, `02` producción, `03` extracción, `04` explotación, `05` otros (2458, 2459)
+             * @example 02
+             */
+            condicion: string;
+        };
+        /** @description Retención del Impuesto a la Renta. Si se omite, la tasa vigente (1.5 %) */
+        RetencionRentaDto: {
+            /**
+             * @description Tasa en porcentaje sobre el valor de venta de cada línea; hoy solo la vigente, 1.5 (otra responde `422 LIQUIDACION_INVALIDA`, 4237)
+             * @example 1.5
+             */
+            tasa?: number;
+        };
+        /** @description Quien vende: una persona sin RUC con su domicilio */
+        VendedorLiquidacionCompra: {
+            /**
+             * @description Catálogo 06: `1` DNI, `4` carné de extranjería o `7` pasaporte (2800). Quien tiene RUC (`6`) emite su propia factura o boleta
+             * @example 1
+             */
+            tipo_doc: string;
+            /**
+             * @description DNI de 8 dígitos (2450); carné o pasaporte, hasta 15 caracteres sin espacios (2802)
+             * @example 45678912
+             */
+            num_doc: string;
+            /**
+             * @description Apellidos y nombres, hasta 1500 caracteres sin saltos de línea (2021, 2022)
+             * @example JUAN QUISPE MAMANI
+             */
+            nombre: string;
+            /**
+             * @description Dirección del domicilio del vendedor y lo que permita ubicarlo, de 3 a 250 caracteres (2452, 2593)
+             * @example Caserío Santa Rosa s/n
+             */
+            direccion: string;
+            /**
+             * @description Ubigeo INEI del domicilio (catálogo 13, `GET /v1/catalogos/13`; 2453, 4339)
+             * @example 060101
+             */
+            ubigeo: string;
+            /**
+             * @description Condición del domicilio, catálogo 60: `01` punto de venta, `02` producción, `03` extracción, `04` explotación, `05` otros (2456, 2457)
+             * @example 02
+             */
+            condicion: string;
+        };
         /** @description Facturas de anticipo que se regularizan en esta factura. Los ítems describen la operación completa y khipu descuenta cada anticipo de la base (código 04/05/06) y del importe a pagar. */
         AnticipoDto: {
             /**
@@ -4647,19 +4946,6 @@ export interface components {
              * @example 001
              */
             medio_pago?: string;
-        };
-        /** @description Otros documentos relacionados con la operación (`cac:AdditionalDocumentReference`, catálogo 12). Opcional; las facturas de anticipo van en `anticipos`. En una boleta no se admiten los tipos 06 y 07 (regla 4009 de Boleta2_0). */
-        DocumentoRelacionadoDto: {
-            /**
-             * @description Catálogo 12: `04` ticket de salida ENAPU, `05` código SCOP, `06` factura electrónica remitente y `07` guía de remisión remitente (solo en factura: en una boleta SUNAT los observa con la 4009 y khipu los rechaza antes de numerar), `08` declaración de salida del depósito franco, `09` declaración simplificada de importación, `99` otros
-             * @example 05
-             */
-            tipo: string;
-            /**
-             * @description Número del documento, hasta 30 caracteres sin espacios (regla 4010)
-             * @example SCOP-8841203
-             */
-            numero: string;
         };
         /** @description Datos de una factura de exportación (`tipo_operacion` 0200–0208): Incoterm y, en servicios 0201/0208, país de uso. `422 EXPORTACION_INVALIDA` fuera de esos tipos. Opcional */
         ExportacionDto: {
@@ -4757,19 +5043,6 @@ export interface components {
              * @example 3.756
              */
             tipo_cambio?: number;
-        };
-        /** @description Guías de remisión que sustentan el traslado (`cac:DespatchDocumentReference`). Opcional. */
-        GuiaDto: {
-            /**
-             * @description `09` guía de remisión remitente, `31` guía de remisión transportista (catálogo 01)
-             * @example 09
-             */
-            tipo: string;
-            /**
-             * @description Serie-número de la guía: electrónica `T001-123`/`V001-45`, física `0001-123` o `EG01-45` (regla 4006)
-             * @example T001-123
-             */
-            numero: string;
         };
         /** @description Percepción del IGV que cobra la empresa por ser agente de percepción (catálogo 53: 51/52/53). Solo con `tipo_operacion` 2001, al contado y en PEN. */
         PercepcionDto: {
@@ -9503,6 +9776,96 @@ export interface operations {
             };
         };
     };
+    crear_3: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Clave única por liquidación (un UUID), para repetir el pedido sin emitir dos veces
+                 * @example 5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f
+                 */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiquidacionCompraRequest"];
+            };
+        };
+        responses: {
+            /** @description Pedido repetido con la misma `Idempotency-Key`: la liquidación ya emitida, en su estado actual */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseComprobanteResponse"];
+                };
+            };
+            /** @description Liquidación creada; `estado_documento` indica si SUNAT ya la aceptó */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseComprobanteResponse"];
+                };
+            };
+            /** @description Correlativo repetido en la serie (DUPLICADO) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseComprobanteResponse"];
+                };
+            };
+            /** @description Datos inválidos o regla de negocio incumplida; `codigo` y `mensaje` explican cuál */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseComprobanteResponse"];
+                };
+            };
+        };
+    };
+    calcular: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiquidacionCompraRequest"];
+            };
+        };
+        responses: {
+            /** @description Importes calculados; no se guardó nada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseComprobanteResponse"];
+                };
+            };
+            /** @description Datos inválidos o regla de dominio incumplida, igual que en la emisión */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseComprobanteResponse"];
+                };
+            };
+        };
+    };
     listar_2: {
         parameters: {
             query?: {
@@ -9524,7 +9887,7 @@ export interface operations {
                  */
                 serie?: string;
                 /**
-                 * @description Tipo de comprobante: `01` factura, `03` boleta, `07` nota de crédito, `08` nota de débito
+                 * @description Tipo de comprobante: `01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito
                  * @example 01
                  */
                 tipo?: string;
@@ -9560,7 +9923,7 @@ export interface operations {
             };
         };
     };
-    crear_3: {
+    crear_4: {
         parameters: {
             query?: never;
             header?: {
@@ -9722,7 +10085,7 @@ export interface operations {
             };
         };
     };
-    calcular: {
+    calcular_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -9775,7 +10138,7 @@ export interface operations {
             };
         };
     };
-    crear_4: {
+    crear_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -9937,7 +10300,7 @@ export interface operations {
             };
         };
     };
-    crear_5: {
+    crear_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -10139,7 +10502,7 @@ export interface operations {
             };
         };
     };
-    crear_6: {
+    crear_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -10183,7 +10546,7 @@ export interface operations {
             };
         };
     };
-    crear_7: {
+    crear_8: {
         parameters: {
             query?: never;
             header?: never;
@@ -10412,7 +10775,7 @@ export interface operations {
             };
         };
     };
-    crear_8: {
+    crear_9: {
         parameters: {
             query?: never;
             header?: {
@@ -10898,7 +11261,7 @@ export interface operations {
             };
         };
     };
-    crear_9: {
+    crear_10: {
         parameters: {
             query?: never;
             header?: never;
@@ -11202,7 +11565,7 @@ export interface operations {
                  */
                 serie?: string;
                 /**
-                 * @description Tipo: `01`, `03`, `07` u `08`
+                 * @description Tipo: `01`, `03`, `04`, `07` u `08`
                  * @example 01
                  */
                 tipo?: string;

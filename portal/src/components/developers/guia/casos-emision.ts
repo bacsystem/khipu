@@ -1,5 +1,5 @@
 /**
- * Casos de emisión de factura y boleta documentados en la guía. Cada uno lleva el JSON exacto que acepta `POST /v1/facturas`,
+ * Casos de emisión de factura, boleta y liquidación de compra documentados en la guía. Cada uno lleva el JSON exacto que acepta su endpoint (`POST /v1/facturas` si no dice otro),
  * qué calcula khipu y las reglas SUNAT que aplican. `disponible: false` marca los casos cuyo soporte está en desarrollo
  * (se muestran para que el integrador planifique, con la advertencia correspondiente).
  */
@@ -765,6 +765,69 @@ X-Api-Key: fk_TU_API_KEY
       "Una nota de crédito no supera la boleta: el total admite **S/ 1** de más (regla 3286, error desde el 2027-01-01 y khipu ya lo aplica) y cada tributo, S/ 1 (3503). Como en la factura, se descuenta lo ya acreditado por notas de crédito anteriores.",
       "**Plazos** (los de la boleta, días calendario en hora de Lima): sola con `sendBill` hasta el **5.º día**; el 6.º y el 7.º, khipu la informa en un **resumen diario** con su línea en estado 1 y la boleta que modifica (`cac:BillingReference`); pasado el 7.º, igual en un resumen diario, **fuera de plazo**: SUNAT no la rechaza y puede observarla con la **4443** (entonces queda `ACEPTADO_CON_OBS`; en e-beta la aceptó sin observaciones). La NC **10** y la ND **03** no van en el resumen diario: vencen el 5.º día (`FUERA_DE_PLAZO`).",
       "Para anularla, `POST /v1/facturas/{id}/baja` sobre la nota: va en un resumen diario (`RC-…`, estado 3), nunca en una comunicación de baja (2310). La boleta lista sus notas en `notas[]` de `GET /v1/facturas/{id}`.",
+    ],
+    disponible: true,
+  },
+  {
+    id: "liquidacion-compra",
+    titulo: "Liquidación de compra (comprar a quien no tiene RUC)",
+    endpoint: "/v1/liquidaciones-compra",
+    cuando: "La empresa compra a una persona sin RUC —un agricultor, un pescador artesanal, un recolector— que no puede darle factura ni boleta: la empresa emite la liquidación de compra (tipo 04) y le retiene el IGV y el Impuesto a la Renta.",
+    request: `{
+  "serie": "L001",
+  "fecha_emision": "2026-09-17",
+  "moneda": "PEN",
+  "vendedor": {
+    "tipo_doc": "1",
+    "num_doc": "45678912",
+    "nombre": "JUAN QUISPE MAMANI",
+    "direccion": "Caserío Santa Rosa s/n",
+    "ubigeo": "060101",
+    "condicion": "02"
+  },
+  "lugar_operacion": {
+    "direccion": "Fundo Santa Rosa, km 12 carretera a Bambamarca",
+    "ubigeo": "060101",
+    "condicion": "02"
+  },
+  "items": [
+    {
+      "codigo": "CAF-01",
+      "descripcion": "Café pergamino seco",
+      "unidad": "KGM",
+      "cantidad": 100,
+      "precio_unitario": 11.80,
+      "tipo_afectacion_igv": "10",
+      "codigo_sunat": "50201706"
+    }
+  ]
+}
+
+// respuesta 201 (extracto)
+{
+  "estado": "exito",
+  "datos": {
+    "tipo": "04",
+    "serie": "L001",
+    "tipo_operacion": "0501",
+    "fecha_limite_envio": "2026-09-18",
+    "receptor": { "tipo_doc": "1", "num_doc": "45678912", "razon_social": "JUAN QUISPE MAMANI" },
+    "totales": { "gravado": 1000.00, "igv": 180.00, "total": 985.00 },
+    "liquidacion": {
+      "subtotal": 1180.00,
+      "igv_retenido": 180.00,
+      "retencion_renta": { "tasa": 1.5, "base": 1000.00, "monto": 15.00 },
+      "neto_pagar": 985.00
+    }
+  }
+}`,
+    notas: [
+      "**Quién es quién**: la empresa es la compradora y la emisora; el `vendedor` es una persona sin RUC con DNI (`1`), carné de extranjería (`4`) o pasaporte (`7`). Un vendedor con RUC se rechaza (`422 RECEPTOR_INVALIDO`, 2800): emite su propia factura o boleta. Su domicilio es obligatorio (dirección, ubigeo del catálogo 13 y `condicion` del catálogo 60: `01` punto de venta, `02` producción, `03` extracción, `04` explotación, `05` otros), igual que el `lugar_operacion`. La serie `L###` se registra en `POST /v1/series` con el tipo `04`.",
+      "**Retenciones**: el comprador retiene el IGV de las líneas gravadas y el **1.5 %** del valor de venta de cada línea como pago a cuenta del Impuesto a la Renta del vendedor (tributo 3000), y los declara y paga él. Por eso `totales.total` —y `liquidacion.neto_pagar`— es lo que se paga al vendedor: subtotal − IGV − renta + redondeo (regla 4312). `precio_unitario` de una línea gravada incluye el IGV, como en la factura; en el ejemplo, 100 kg a S/ 11.80: valor 1 000.00, IGV 180.00, renta 15.00, neto 985.00.",
+      "Cada línea lleva el **código de producto SUNAT** (`codigo_sunat`, catálogo 25: obligatorio, 3506) y una afectación `10`, `20` (p. ej. productos agrícolas exonerados del Apéndice I) o `30`. `tipo_operacion` `0501` compra interna (por defecto) o `0502` anticipos. **Aún no**: compra de oro (`0503`, pide los datos del derecho minero), compras gratuitas, otros tributos (9999) y regularizar anticipos.",
+      "**Plazo**: SUNAT la recibe hasta el **día siguiente** a su emisión (2108); no tiene resumen diario. **Anulación**: SUNAT no la admite en una comunicación de baja (2308) sino en un resumen de reversiones, que khipu todavía no emite: `POST /v1/facturas/{id}/baja` responde `422 BAJA_INVALIDA`.",
+      "Que el DNI exista, no sea de un menor ni de un fallecido (2450, 2460–2462) y que el vendedor no pase de **75 UIT** de ventas por liquidación de compra en el año (2451) lo valida SUNAT con datos que khipu no tiene: si falla, la liquidación queda `RECHAZADO` con el número consumido.",
+      "Consulta, XML (`SelfBilledInvoice` UBL 2.1), CDR, PDF y reenvío van por `GET /v1/facturas/{id}`…; el listado la filtra con `tipo=04`, y `POST /v1/liquidaciones-compra/calcular` responde los importes sin emitir. Admite `Idempotency-Key`. Homologado en e-beta: gravada, exonerada e inafecta, en dólares y por anticipo (`0502`) con carné de extranjería.",
     ],
     disponible: true,
   },
