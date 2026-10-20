@@ -27,6 +27,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+// Los registros anidados llevan @Schema(name = "…Respuesta") cuando FacturaRequest tiene uno con el mismo nombre simple (ItemDto, DescuentoDto…): springdoc nombra los esquemas por nombre simple
+// y sin esto un solo esquema se queda con el de la petición, y la referencia /developers documenta mal la respuesta (valor_venta, igv… ausentes).
 public record ComprobanteResponse(
         @Schema(example = "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f") UUID id,
         @Schema(example = "01", description = "Catálogo 01 SUNAT: 01=factura, 03=boleta") String tipo,
@@ -61,10 +63,12 @@ public record ComprobanteResponse(
         @Schema(description = "Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML") List<LeyendaDto> leyendas,
         @Schema(description = "Solo en exportaciones (0200–0208): Incoterm y país de uso del servicio; `null` en las demás") ExportacionDto exportacion,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"pdf\": \"/v1/facturas/{id}/pdf\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
+    @Schema(name = "FormaPagoRespuesta")
     public record FormaPagoDto(
             @Schema(example = "credito", description = "contado | credito") String tipo,
             @Schema(example = "1180.00", description = "Solo al crédito") BigDecimal montoPendiente,
             @Schema(description = "Solo al crédito; el identificador SUNAT es Cuota001, Cuota002…") List<CuotaDto> cuotas) {
+        @Schema(name = "CuotaRespuesta")
         public record CuotaDto(@Schema(example = "Cuota001") String id, @Schema(example = "590.00") BigDecimal monto, @Schema(example = "2026-10-15") LocalDate vencimiento) {}
 
         static FormaPagoDto de(FormaPago f) {
@@ -73,6 +77,8 @@ public record ComprobanteResponse(
             return new FormaPagoDto(f.tipo().name().toLowerCase(Locale.ROOT), f.montoPendiente(), cs);
         }
     }
+
+    @Schema(name = "DetraccionRespuesta")
 
     public record DetraccionDto(
             @Schema(example = "022") String codigoBienServicio,
@@ -86,12 +92,18 @@ public record ComprobanteResponse(
         }
     }
 
+    @Schema(name = "RetencionRespuesta")
+
     public record RetencionDto(@Schema(example = "3") BigDecimal porcentaje, @Schema(example = "35.40") BigDecimal monto,
                                @Schema(example = "1144.60", description = "Importe total menos la retención") BigDecimal netoCobrar) {}
+
+    @Schema(name = "PercepcionRespuesta")
 
     public record PercepcionDto(@Schema(example = "51") String regimen, @Schema(example = "Percepción venta interna") String descripcion,
                                 @Schema(example = "2") BigDecimal porcentaje, @Schema(example = "1180.00") BigDecimal base, @Schema(example = "23.60") BigDecimal monto,
                                 @Schema(example = "1203.60", description = "Importe total más la percepción: lo que paga el cliente") BigDecimal totalConPercepcion) {}
+
+    @Schema(name = "AnticipoRespuesta")
 
     public record AnticipoDto(@Schema(example = "F001-120", description = "Factura de anticipo (serie-número)") String comprobante,
                               @Schema(example = "F001") String serie, @Schema(example = "120") Long numero,
@@ -158,6 +170,8 @@ public record ComprobanteResponse(
             @Schema(example = "Av. Argentina 2450, Lima") String direccion,
             @Schema(example = "PE", description = "País del adquirente (ISO 3166-1, catálogo 04), o `null`") String pais) {}
 
+    @Schema(name = "ExportacionRespuesta")
+
     public record ExportacionDto(
             @Schema(example = "FOB", description = "Incoterm 2020 de la venta, o `null`") String incoterm,
             @Schema(example = "US", description = "País de uso del servicio (solo 0201/0208), o `null`") String paisUso) {
@@ -165,6 +179,7 @@ public record ComprobanteResponse(
     }
 
     /** Descuento tal como se aplicó: lo enviado (tipo/valor), el monto resultante y el código SUNAT del catálogo 53. */
+    @Schema(name = "DescuentoRespuesta")
     public record DescuentoDto(
             @Schema(example = "PORCENTAJE", description = "PORCENTAJE | MONTO") String tipo,
             @Schema(example = "10") BigDecimal valor,
@@ -173,6 +188,7 @@ public record ComprobanteResponse(
             @Schema(example = "00", description = "Catálogo 53: 00/01 por línea, 02/03 global") String codigo) {}
 
     /** Cargo tal como se aplicó: lo enviado (tipo/valor), el monto resultante y el código SUNAT del catálogo 53. */
+    @Schema(name = "CargoRespuesta")
     public record CargoDto(
             @Schema(example = "MONTO", description = "PORCENTAJE | MONTO") String tipo,
             @Schema(example = "25.00") BigDecimal valor,
@@ -188,6 +204,8 @@ public record ComprobanteResponse(
             return cargos.isEmpty() ? null : cargos.stream().map(CargoDto::de).toList();
         }
     }
+
+    @Schema(name = "ItemRespuesta")
 
     public record ItemDto(
             @Schema(example = "SRV-001") String codigo,
@@ -214,6 +232,8 @@ public record ComprobanteResponse(
     /** Otros tributos de una línea: la tasa pedida y el monto que khipu calculó sobre el valor de venta. */
     public record OtrosTributosRespuestaDto(@Schema(example = "3.5") BigDecimal tasa, @Schema(example = "3.50") BigDecimal monto) {}
 
+    @Schema(name = "GtinRespuesta")
+
     public record GtinDto(@Schema(example = "GTIN-13") String tipo, @Schema(example = "7750182000123") String codigo) {}
 
     /**
@@ -221,6 +241,7 @@ public record ComprobanteResponse(
      * tasa es derivada (monto ÷ base) y lo que el dominio exige es el {@code monto_unitario}; sin él, una NC parcial sobre una
      * línea con ISC de monto fijo no se podía construir desde la respuesta.
      */
+    @Schema(name = "IscRespuesta")
     public record IscDto(@Schema(example = "01") String sistema,
                          @Schema(example = "35", description = "Tasa aplicada en %: la enviada en los sistemas 01 y 03, derivada (monto ÷ base) en el 02") BigDecimal tasa,
                          @Schema(example = "350.00") BigDecimal monto,
