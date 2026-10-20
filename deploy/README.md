@@ -567,3 +567,34 @@ de `numero` y `monto` como texto sigue el ejemplo del manual y no está confirma
    Para probar sin fallback, hacerlo con una empresa sin clave SOL.
 4. Si SUNAT rechaza la consulta por el formato de `numero`/`monto`, ajustar `RestValidezGateway` (mandarlos como número) y su prueba.
 5. Verificado el contrato, quitar el fallback ante `SunatRechazoException` en `ConsultarValidezService` y volver la prueba de la matriz a «un rechazo no cae a SOAP».
+
+## 17. Términos y privacidad (#342)
+
+El portal publica los términos del servicio en `/terminos` y la política de privacidad en `/privacidad` (públicas, enlazadas desde el pie del landing,
+el login y el registro). El registro exige aceptarlos (`acepta_terminos: true` en `POST /v1/auth/registro`; sin eso, `400 TERMINOS_NO_ACEPTADOS`), y el
+backend guarda por usuario la versión aceptada y la fecha (tabla `aceptacion_terminos`, migración V64: una fila por usuario y versión, nunca se borra la
+anterior). Los usuarios que existían antes de V64 no tienen ninguna fila: **la primera vez que entren después de este despliegue el portal les pide
+aceptar** antes de dejarlos usar el panel. Lo mismo pasa con los usuarios que crea el alta asistida: el administrador no acepta por el cliente.
+
+**Los textos actuales son un borrador sin revisión legal.** Mientras `REVISADO_POR_LEGAL` sea `false`, las dos páginas lo dicen arriba de todo. Los datos
+entre corchetes (`[RUC por completar]`, domicilio, correo de contacto, inscripción del banco de datos ante la ANPD) también son del dueño.
+
+**Cómo publicar una versión nueva** (todo en el mismo commit, y desplegar los dos servicios):
+
+1. Editar el texto en `portal/src/content/legal/terminos.ts` o `privacidad.ts`. Es el único lugar donde viven.
+2. En `portal/src/content/legal/version.ts`, poner la fecha del cambio (AAAA-MM-DD) en `VERSION_TERMINOS` o `VERSION_PRIVACIDAD`, y en
+   `VERSION_TEXTOS_LEGALES` la más reciente de las dos (`version.test.ts` lo comprueba).
+3. Poner esa misma fecha en `app.terminos-version` de `bootstrap/src/main/resources/application.yml` (`TerminosVersionTest` del backend falla si no
+   coinciden). No es una variable de entorno a propósito: la versión acompaña al texto, que vive en el código.
+4. Al desplegar el backend, **todos los usuarios quedan pendientes** y aceptan la versión nueva la próxima vez que entren (el login, el refresh y
+   `GET /v1/auth/me` traen `terminos_pendientes`; aceptar es `POST /v1/auth/terminos`). Una errata que no cambia lo que se acepta no sube la versión.
+5. Cuando un abogado revise los textos, `REVISADO_POR_LEGAL = true` en `version.ts` quita el aviso de borrador.
+
+Qué **no** cambia: las API keys de los integradores siguen funcionando con los términos pendientes (el pedido es del portal, no de la API), y una sesión
+de soporte del backoffice mira el panel sin la pantalla de aceptación y no puede aceptar por el cliente (`403 SOPORTE_SOLO_LECTURA`).
+
+La constancia de quién aceptó qué y cuándo se consulta en la base:
+
+```sql
+SELECT u.email, a.version, a.aceptada_at FROM aceptacion_terminos a JOIN usuario u ON u.id = a.usuario_id ORDER BY a.aceptada_at DESC;
+```
