@@ -10,6 +10,7 @@ import type { Establecimiento } from "@/lib/api/establecimientos";
 import type { Serie } from "@/lib/api/series";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
 import { mensajeError } from "@/lib/messages";
+import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { EstablecimientoDialog } from "./establecimiento-dialog";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
@@ -41,6 +42,7 @@ function Estado({ activo, principal }: { activo: boolean; principal: boolean }) 
 /** Editar (diálogo) y dar de baja (confirmación en línea). El 0000 se edita en Empresa y no se da de baja. */
 function Acciones({ establecimiento, seriesActivas }: { establecimiento: Establecimiento; seriesActivas: string[] }) {
   const router = useRouter();
+  const sinPermiso = useSinPermisoDeConfigurar();
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bajando, startTransition] = useTransition();
@@ -87,8 +89,9 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
             <button
               type="button"
               onClick={() => setConfirmando(true)}
-              disabled={seriesActivas.length > 0}
-              title={seriesActivas.length > 0 ? `Tiene series activas (${seriesActivas.join(", ")}): reasígnalas antes de darlo de baja` : undefined}
+              // H4 (#21): dar de baja es configuración; sin ese permiso (emisor, solo lectura, modo soporte) se ve deshabilitado, como «Editar».
+              disabled={sinPermiso !== null || seriesActivas.length > 0}
+              title={sinPermiso ?? (seriesActivas.length > 0 ? `Tiene series activas (${seriesActivas.join(", ")}): reasígnalas antes de darlo de baja` : undefined)}
               className={cn(ACCION, "text-destructive hover:bg-destructive/10")}
               data-testid={`baja-establecimiento-${establecimiento.codigo}`}
             >
