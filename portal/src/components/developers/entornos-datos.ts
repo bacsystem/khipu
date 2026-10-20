@@ -17,8 +17,8 @@ export const ENTORNOS: Array<[string, string, string]> = [
   ["Credenciales SOL", "Las de prueba de SUNAT (usuario MODDATOS).", "El usuario secundario de la empresa."],
   [
     "Consultar el CDR o la validez de un comprobante",
-    "No disponible: SUNAT no publica esos servicios en e-beta. Responde 422 NO_DISPONIBLE_EN_BETA.",
-    "Disponible (POST /v1/facturas/{id}/cdr/recuperar y GET /v1/consultas/validez).",
+    "El CDR no: SUNAT no publica ese servicio en e-beta (422 NO_DISPONIBLE_EN_BETA). La validez sí, si la empresa cargó sus credenciales API SUNAT (consulta por la API REST de SUNAT).",
+    "Disponible (POST /v1/facturas/{id}/cdr/recuperar y GET /v1/consultas/validez, por la API REST con credenciales API SUNAT o con la clave SOL).",
   ],
   [
     "Reglas de validación",

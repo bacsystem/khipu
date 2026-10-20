@@ -74,6 +74,7 @@ const EXCEPCIONES: Record<string, string> = {
   "components/landing/planes.tsx": "portada pública: el CTA de cada plan",
   "components/empresa/certificado-form.tsx": "mostrar/ocultar la clave va dentro del input",
   "components/empresa/credenciales-sol-form.tsx": "mostrar/ocultar la clave va dentro del input",
+  "components/empresa/credenciales-api-sunat-form.tsx": "mostrar/ocultar la clave va dentro del input",
   "components/formularios/entrada-monto.tsx": "el selector de moneda va dentro del input",
   "components/nav/theme-toggle.tsx": "segmentos de h-7 dentro de su caja de h-9",
   "components/ui/selector-por-pagina.tsx": "segmentos de h-7 dentro de su caja de h-9",

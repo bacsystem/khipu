@@ -49,6 +49,36 @@ describe("ValidezButton (#315)", () => {
     expect(await screen.findByTestId("validez-resultado")).toHaveTextContent(texto);
   });
 
+  it.each([
+    ["ACEPTADO", "Aceptado por SUNAT."],
+    ["DE_BAJA", "anulado"],
+    ["NO_EXISTE", "no tiene informado"],
+    ["AUTORIZADO", "autorizado por imprenta"],
+    ["NO_AUTORIZADO", "no autorizado por imprenta"],
+  ])("por la API REST (#318) dice el estado %s sin los códigos de SOAP", async (estado, texto) => {
+    stub(exito({ estado, codigo: "1", mensaje: "m", fuente: "API_REST" }));
+    render(<ValidezButton datos={DATOS} />);
+    fireEvent.click(screen.getByRole("button", { name: "Consultar validez en SUNAT" }));
+    const r = await screen.findByTestId("validez-resultado");
+    expect(r).toHaveTextContent(texto);
+    expect(r).not.toHaveTextContent("0001");
+  });
+
+  it("por la API REST muestra las observaciones de SUNAT, y si cayó a SOAP dice por qué (#318)", async () => {
+    stub(exito({ estado: "ACEPTADO", codigo: "1", mensaje: "m", fuente: "API_REST", observaciones: ["- Fecha de emisión ingresada no coincide con la registrada en la SUNAT."] }));
+    render(<ValidezButton datos={DATOS} />);
+    fireEvent.click(screen.getByRole("button", { name: "Consultar validez en SUNAT" }));
+    expect(await screen.findByTestId("validez-resultado")).toHaveTextContent("Observaciones: - Fecha de emisión ingresada no coincide");
+    cleanup();
+
+    stub(exito({ estado: "ACEPTADO", codigo: "0001", mensaje: "m", fuente: "SOAP", aviso: "La API de SUNAT no respondió (HTTP 503): se usó billValidService con la clave SOL" }));
+    render(<ValidezButton datos={DATOS} />);
+    fireEvent.click(screen.getByRole("button", { name: "Consultar validez en SUNAT" }));
+    const r = await screen.findByTestId("validez-resultado");
+    expect(r).toHaveTextContent("Aceptado por SUNAT (0001).");
+    expect(r).toHaveTextContent("se usó billValidService");
+  });
+
   it("un error de la consulta (sin credenciales SOL, por ejemplo) se muestra como alerta", async () => {
     stub({ estado: "error", datos: null, mensaje: "Las credenciales SOL de la empresa no están cargadas", codigo: "CREDENCIALES_SOL_NO_CARGADAS", errores: null }, 422);
     render(<ValidezButton datos={DATOS} />);

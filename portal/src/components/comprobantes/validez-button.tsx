@@ -3,9 +3,8 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
+import type { Validez } from "@/lib/api/validez";
 import { mensajeError } from "@/lib/messages";
-
-type Validez = { estado: string; codigo: string | null; mensaje: string | null };
 
 /** Lo que SUNAT contesta a `validaCDPcriterios`, dicho para el emisor. */
 const ESTADOS: Record<string, string> = {
@@ -15,6 +14,24 @@ const ESTADOS: Record<string, string> = {
   NO_EXISTE: "SUNAT no tiene este comprobante (0011): no llegó o los datos no coinciden.",
   AJENO: "SUNAT lo registra a nombre de otro emisor (0012).",
 };
+
+/** #318: lo que contesta la consulta integrada por la API REST (`estadoCp`), con sus propios códigos. */
+const ESTADOS_API: Record<string, string> = {
+  ACEPTADO: "Aceptado por SUNAT.",
+  DE_BAJA: "SUNAT lo tiene anulado: se comunicó en una baja.",
+  NO_EXISTE: "SUNAT no tiene informado este comprobante: no llegó o los datos no coinciden.",
+  AUTORIZADO: "Comprobante físico autorizado por imprenta.",
+  NO_AUTORIZADO: "Comprobante físico no autorizado por imprenta.",
+};
+
+/** El texto del resultado: el estado en palabras, las observaciones de SUNAT (solo la API REST) y, si se cayó a SOAP, por qué. */
+function textoDeValidez(v: Validez): string {
+  const tabla = v.fuente === "API_REST" ? ESTADOS_API : ESTADOS;
+  const partes = [tabla[v.estado] ?? `SUNAT respondió ${v.codigo ?? ""} ${v.mensaje ?? ""}`.trim()];
+  if (v.observaciones?.length) partes.push(`Observaciones: ${v.observaciones.join(" ")}`);
+  if (v.aviso) partes.push(`(${v.aviso})`);
+  return partes.join(" ");
+}
 
 export type DatosDeValidez = {
   ruc: string;
@@ -27,7 +44,10 @@ export type DatosDeValidez = {
   monto: number;
 };
 
-/** Consultar en SUNAT si el comprobante es válido (#315): `billValidService` por sus datos. Solo lee; no cambia el comprobante. */
+/**
+ * Consultar en SUNAT si el comprobante es válido (#315): por la API REST si la empresa cargó sus credenciales API SUNAT, si no `billValidService` (#318); lo
+ * decide el backend. Solo lee; no cambia el comprobante.
+ */
 export function ValidezButton({ datos }: { datos: DatosDeValidez }) {
   const [consultando, setConsultando] = useState(false);
   const [resultado, setResultado] = useState<{ tono: "ok" | "aviso" | "error"; texto: string } | null>(null);
@@ -55,7 +75,7 @@ export function ValidezButton({ datos }: { datos: DatosDeValidez }) {
       return;
     }
     const v = res.datos;
-    const texto = ESTADOS[v.estado] ?? `SUNAT respondió ${v.codigo ?? ""} ${v.mensaje ?? ""}`.trim();
+    const texto = textoDeValidez(v);
     setResultado({ tono: v.estado === "ACEPTADO" ? "ok" : v.estado === "ERROR_CONSULTA" ? "error" : "aviso", texto });
   }
 
