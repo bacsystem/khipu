@@ -183,6 +183,26 @@ class ExportacionDeComprobantesTest {
         assertThat(ExportacionDeComprobantes.verificar(consultar, tenant, rechazados)).isEqualTo(3);
     }
 
+    /** Sin filtro de tipo, lo que no es una venta (TipoDocumento#esVenta: 04, 20, 40) no sale: sus columnas no cuadran con una venta. Pedir el tipo sí lo trae. */
+    @Test void sinFiltroDeTipoQuedanFueraLosTiposQueNoSonVentasYConElFiltroMandaElFiltro() throws Exception {
+        Comprobante liquidacion = org.mockito.Mockito.mock(Comprobante.class);
+        when(liquidacion.tipo()).thenReturn(TipoDocumento.LIQUIDACION_COMPRA);
+        when(liquidacion.id()).thenReturn(UUID.randomUUID());
+        Comprobante venta = factura(3);
+
+        String[] lineas = csv(',', List.of(liquidacion, venta)).split("\r\n");
+
+        assertThat(lineas).hasSize(2);
+        assertThat(fila(lineas[1]).get("tipo")).isEqualTo("01");
+        for (TipoDocumento noVenta : List.of(TipoDocumento.LIQUIDACION_COMPRA, TipoDocumento.RETENCION, TipoDocumento.PERCEPCION)) {
+            Comprobante c = org.mockito.Mockito.mock(Comprobante.class);
+            when(c.tipo()).thenReturn(noVenta);
+            assertThat(ExportacionDeComprobantes.entra(Filtro.NINGUNO, c)).as(noVenta.name()).isFalse();
+            assertThat(ExportacionDeComprobantes.entra(new Filtro(null, null, null, null, noVenta.codigo(), null, null), c)).as(noVenta.name() + " pedido").isTrue();
+        }
+        assertThat(ExportacionDeComprobantes.entra(Filtro.NINGUNO, venta)).isTrue();
+    }
+
     @Test void losTextosQueEmpiezanComoFormulaSeNeutralizanYLosQueLlevanElSeparadorVanEntreComillas() throws Exception {
         assertThat(CeldaCsv.texto("=HYPERLINK(\"x\")", ',')).isEqualTo("\"'=HYPERLINK(\"\"x\"\")\"");
         assertThat(CeldaCsv.texto("+51 999", ',')).isEqualTo("'+51 999");

@@ -197,8 +197,9 @@ public class FacturaController {
             `otros_tributos` + `total_cargos` − `total_descuentos` + `redondeo`; `gratuito` no se cobra, y las bases y el IGV ya vienen netos de anticipos
             (`total_anticipos` es informativo).
 
-            **Qué entra**: sin el filtro `estado` quedan fuera los que no son ventas (`RECHAZADO`, `INVALIDO`, `DESCARTADO`); con `estado` sale exactamente ese estado. Un
-            comprobante emitido después de empezar la exportación no entra; uno que cambia de estado mientras tanto sale con el estado de ese momento.
+            **Qué entra**: sin el filtro `estado` quedan fuera los que no son ventas (`RECHAZADO`, `INVALIDO`, `DESCARTADO`); con `estado` sale exactamente ese estado. Sin el
+            filtro `tipo` quedan fuera también los tipos que no son ventas (`04` liquidación de compra, `20` retención, `40` percepción), cuyas columnas no son las de una
+            venta; con `tipo` sale ese tipo. Un comprobante emitido después de empezar la exportación no entra; uno que cambia de estado mientras tanto sale con el estado de ese momento.
 
             `formato=csv` (por defecto) es UTF-8 con BOM, separado por comas —el de Excel con la configuración regional de Perú— o por punto y coma con
             `separador=punto_y_coma`, con punto decimal; los textos que empiezan por `= + - @` llevan delante una comilla simple para que una hoja de cálculo no los ejecute
@@ -218,7 +219,7 @@ public class FacturaController {
                                                          @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-09-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
                                                          @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)", example = "2026-09-30") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
                                                          @Parameter(description = "Serie exacta", example = "F001") @RequestParam(required = false) String serie,
-                                                         @Parameter(description = "Tipo: `01`, `03`, `07` u `08`", example = "01") @RequestParam(required = false) String tipo,
+                                                         @Parameter(description = "Tipo: `01`, `03`, `07` u `08` (las ventas, lo que entra sin filtro); `04`, `20` o `40` solo si se piden", example = "01") @RequestParam(required = false) String tipo,
                                                          @Parameter(description = "Cliente: documento (prefijo) o parte de la razón social", example = "andina") @RequestParam(required = false) String cliente,
                                                          @Parameter(description = "Número del comprobante (sin la serie)", example = "125") @RequestParam(required = false) Long numero,
                                                          @Parameter(description = "`csv` (por defecto) o `xlsx`", example = "xlsx") @RequestParam(required = false) String formato,

@@ -471,7 +471,9 @@ class JwtFilterTest {
             // #321 y #325
             {"GET", "/v1/facturas/exportacion"}, {"GET", "/v1/empresa/envio-al-cliente"},
             // #39
-            {"GET", "/v1/guias-remision"}, {"GET", "/v1/guias-remision/1/pdf"}};
+            {"GET", "/v1/guias-remision"}, {"GET", "/v1/guias-remision/1/pdf"},
+            // #322: la conciliación es un POST que no escribe
+            {"GET", "/v1/sire/rvie"}, {"POST", "/v1/sire/rvie/conciliacion"}};
     static final String[][] EMISION = {{"POST", "/v1/facturas"}, {"POST", "/v1/facturas/calcular"}, {"POST", "/v1/facturas/1/enviar"}, {"POST", "/v1/facturas/1/correo"},
             {"POST", "/v1/facturas/1/baja"}, {"POST", "/v1/facturas/1/cdr/recuperar"}, {"POST", "/v1/notas"}, {"POST", "/v1/clientes"},
             {"PUT", "/v1/clientes/1"}, {"DELETE", "/v1/clientes/1"}, {"PUT", "/v1/clientes/documento/6/20100047226"}, {"POST", "/v1/productos"}, {"DELETE", "/v1/productos/1"},

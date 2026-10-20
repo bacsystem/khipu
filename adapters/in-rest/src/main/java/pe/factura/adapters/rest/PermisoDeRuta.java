@@ -41,9 +41,17 @@ final class PermisoDeRuta {
 
     private static final Pattern EQUIPO = Pattern.compile("/v1/cuenta/(usuarios|invitaciones)(/.*)?");
 
+    /**
+     * POST que no escriben nada y por eso son de todos: la conciliación del registro de ventas del SIRE (#322) recibe la propuesta de SUNAT en el cuerpo y solo la compara
+     * con lo emitido, sin guardar nada (es el contador, con solo lectura, quien la hace). Una ruta nueva entra aquí solo si de verdad no escribe.
+     */
+    private static final List<Pattern> LECTURA_POR_POST = List.of(
+            Pattern.compile("/v1/sire/rvie/conciliacion"));
+
     static Permiso requerido(String metodo, String ruta) {
         if (EQUIPO.matcher(ruta).matches()) return Permiso.GESTIONAR_EQUIPO;
         if (LECTURAS.contains(metodo)) return coincide(LECTURA_RESERVADA, ruta) ? Permiso.CONFIGURAR : Permiso.LEER;
+        if ("POST".equals(metodo) && coincide(LECTURA_POR_POST, ruta)) return Permiso.LEER;
         return coincide(EMISION, ruta) ? Permiso.EMITIR : Permiso.CONFIGURAR;
     }
 

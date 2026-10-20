@@ -43,6 +43,8 @@ class PermisoDeRutaTest {
             entry("POST /v1/guias-remision/x/enviar", EMITIR), entry("POST /v1/guias-remision/x/ticket", EMITIR),
             entry("GET /v1/guias-remision", LEER), entry("GET /v1/guias-remision/x", LEER), entry("GET /v1/guias-remision/x/xml", LEER),
             entry("GET /v1/guias-remision/x/pdf", LEER), entry("GET /v1/guias-remision/x/cdr", LEER),
+            // #322: el registro de ventas del SIRE se descarga y se concilia; la conciliación es un POST que solo compara (no guarda nada): lectura.
+            entry("GET /v1/sire/rvie", LEER), entry("POST /v1/sire/rvie/conciliacion", LEER),
             // Clientes y productos guardados: con lo que se emite.
             entry("GET /v1/clientes", LEER), entry("GET /v1/clientes/x", LEER), entry("POST /v1/clientes", EMITIR), entry("PUT /v1/clientes/x", EMITIR),
             entry("PUT /v1/clientes/documento/x/x", EMITIR), entry("DELETE /v1/clientes/x", EMITIR),

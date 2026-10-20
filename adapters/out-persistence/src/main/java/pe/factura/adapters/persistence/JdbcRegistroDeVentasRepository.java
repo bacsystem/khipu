@@ -21,7 +21,8 @@ import java.util.stream.Collectors;
 /**
  * El registro de ventas del SIRE (#322) sobre las tablas de comprobantes. Todo va acotado por el índice {@code (tenant_id, fecha_emision)}; el recorrido es por
  * posición (fecha, tipo, serie, número) y no por OFFSET, así que un comprobante que cambia de estado a mitad de la descarga no hace que otro se salte ni se repita.
- * Los estados salen del dominio ({@link FilaRvie#INCLUIDOS}, {@link FilaRvie#PENDIENTES}): nombres de un enum, sin texto de fuera.
+ * Los estados salen del dominio ({@link FilaRvie#INCLUIDOS}, {@link FilaRvie#PENDIENTES}): nombres de un enum, sin texto de fuera. Solo entran las ventas
+ * ({@link pe.factura.domain.documento.TipoDocumento#esVenta()}): ni la liquidación de compra (04, va al registro de compras), ni la retención o la percepción (20, 40).
  */
 public class JdbcRegistroDeVentasRepository implements RegistroDeVentasRepository {
     static final String INCLUIDOS = lista(FilaRvie.INCLUIDOS);
@@ -40,18 +41,19 @@ public class JdbcRegistroDeVentasRepository implements RegistroDeVentasRepositor
                 SELECT count(*) FILTER (WHERE d.estado IN (%s)) AS incluidos, count(*) FILTER (WHERE d.estado IN (%s)) AS pendientes,
                        count(*) FILTER (WHERE %s) AS sin_tipo_cambio
                 FROM documento d JOIN comprobante c ON c.documento_id = d.id
-                WHERE d.tenant_id = ? AND d.fecha_emision BETWEEN ? AND ?
-                """.formatted(INCLUIDOS, PENDIENTES, sinTipoCambio),
+                WHERE d.tenant_id = ? AND d.fecha_emision BETWEEN ? AND ? AND d.tipo IN (%s)
+                """.formatted(INCLUIDOS, PENDIENTES, sinTipoCambio, TiposDeVenta.SQL),
                 (rs, i) -> new long[]{rs.getLong("incluidos"), rs.getLong("pendientes"), rs.getLong("sin_tipo_cambio")}, args);
         List<String> muestra = n[2] == 0 || ejemplos <= 0 ? List.of() : jdbc.queryForList(
-                "SELECT d.serie || '-' || d.numero FROM documento d JOIN comprobante c ON c.documento_id = d.id WHERE d.tenant_id = ? AND d.fecha_emision BETWEEN ? AND ? AND "
+                "SELECT d.serie || '-' || d.numero FROM documento d JOIN comprobante c ON c.documento_id = d.id WHERE d.tenant_id = ? AND d.fecha_emision BETWEEN ? AND ? AND d.tipo IN (" + TiposDeVenta.SQL + ") AND "
                         + sinTipoCambio + ORDEN + " LIMIT " + ejemplos, String.class, args);
         return new Conteo(n[0], n[1], n[2], muestra);
     }
 
     @Override public List<Comprobante> siguientes(UUID tenantId, LocalDate desde, LocalDate hasta, Posicion despuesDe, int limite) {
         List<Object> args = new ArrayList<>(List.of(tenantId, Date.valueOf(desde), Date.valueOf(hasta)));
-        StringBuilder sql = new StringBuilder("SELECT d.id FROM documento d WHERE d.tenant_id = ? AND d.fecha_emision BETWEEN ? AND ? AND d.estado IN (" + INCLUIDOS + ")");
+        StringBuilder sql = new StringBuilder("SELECT d.id FROM documento d WHERE d.tenant_id = ? AND d.fecha_emision BETWEEN ? AND ? AND d.estado IN (" + INCLUIDOS + ")"
+                + " AND d.tipo IN (" + TiposDeVenta.SQL + ")");
         if (despuesDe != null) {
             sql.append(" AND (d.fecha_emision, d.tipo, d.serie, d.numero) > (?, ?, ?, ?)");
             args.addAll(List.of(Date.valueOf(despuesDe.fechaEmision()), despuesDe.tipo(), despuesDe.serie(), despuesDe.numero()));

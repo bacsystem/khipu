@@ -42,6 +42,14 @@ class TipoDocumentoTest {
         assertThat(TipoDocumento.GUIA_REMITENTE.esGuia()).isTrue();
         assertThat(TipoDocumento.FACTURA.esGuia()).isFalse();
     }
+    /** Una sola definición de venta para el resumen, el panel, la exportación y el SIRE: factura, boleta y sus notas; ni compras, ni impuestos del agente, ni guías. */
+    @Test void soloFacturaBoletaYSusNotasSonVentas() {
+        assertThat(TipoDocumento.ventas()).containsExactlyInAnyOrder(TipoDocumento.FACTURA, TipoDocumento.BOLETA, TipoDocumento.NOTA_CREDITO, TipoDocumento.NOTA_DEBITO);
+        for (String noVenta : new String[]{"04", "09", "20", "31", "40"}) assertThat(TipoDocumento.esVenta(noVenta)).as(noVenta).isFalse();
+        for (String venta : new String[]{"01", "03", "07", "08"}) assertThat(TipoDocumento.esVenta(venta)).as(venta).isTrue();
+        assertThat(TipoDocumento.esVenta((String) null)).isFalse();
+        assertThat(TipoDocumento.esVenta("99")).isFalse();
+    }
     @Test void codigoSunat() {
         assertThat(TipoDocumento.FACTURA.codigo()).isEqualTo("01");
         assertThat(TipoDocumento.porCodigo("01")).isEqualTo(TipoDocumento.FACTURA);

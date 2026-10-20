@@ -60,7 +60,7 @@ class RegistroDeVentasSireE2ETest {
 
     private Cliente cliente(String email) {
         ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro", new HttpEntity<>(
-                "{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}".formatted(email), json()), Map.class);
+                "{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}".formatted(email), json()), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         jdbc.update("UPDATE usuario SET correo_verificado_at = now() WHERE email = ?", email);
         String access = (String) ((Map<?, ?>) r.getBody().get("datos")).get("access");

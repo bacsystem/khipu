@@ -2,6 +2,9 @@ package pe.factura.domain.documento;
 
 import lombok.Getter;
 
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public enum TipoDocumento {
@@ -35,6 +38,25 @@ public enum TipoDocumento {
     public boolean deAgente() { return this == RETENCION || this == PERCEPCION; }
     /** Guía de remisión (09 o 31): no es un comprobante de pago y no pasa por el flujo de {@code Comprobante}. */
     public boolean esGuia() { return this == GUIA_REMITENTE || this == GUIA_TRANSPORTISTA; }
+    /**
+     * Si es una venta de la empresa: factura, boleta y sus notas. La única definición de «venta» (#322, #24, #321, #15): la usan el resumen y la emisión por día del panel
+     * («emitidos», «facturado»), la exportación para el contador y el registro de ventas del SIRE. No lo son la liquidación de compra (04, una compra), la retención y la
+     * percepción (20 y 40, un impuesto que el agente retiene o percibe) ni las guías de remisión (09 y 31, un traslado). Se nombran una por una a propósito: un tipo nuevo
+     * no entra solo.
+     */
+    public boolean esVenta() { return this == FACTURA || this == BOLETA || this == NOTA_CREDITO || this == NOTA_DEBITO; }
+    /** Los tipos que son ventas ({@link #esVenta()}). */
+    public static Set<TipoDocumento> ventas() {
+        Set<TipoDocumento> v = EnumSet.noneOf(TipoDocumento.class);
+        for (TipoDocumento t : values()) if (t.esVenta()) v.add(t);
+        return Collections.unmodifiableSet(v);
+    }
+    /** {@link #esVenta()} sobre el código del catálogo 01 tal como está guardado; un código nulo o que no es de ningún tipo no es una venta. */
+    public static boolean esVenta(String codigo) {
+        if (codigo == null) return false;
+        for (TipoDocumento t : values()) if (t.codigo.equals(codigo)) return t.esVenta();
+        return false;
+    }
     public static TipoDocumento porCodigo(String codigo) {
         for (TipoDocumento t : values()) if (t.codigo.equals(codigo)) return t;
         throw new IllegalArgumentException("Tipo de documento desconocido: " + codigo);
