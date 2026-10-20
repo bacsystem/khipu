@@ -95,14 +95,14 @@ class ComprobanteDeAgenteTest {
         assertThat(c.totales().total()).isEqualByComparingTo(percibido);
     }
 
-    @Test void elRedondeoVaSobreElTotalPagadoYNoPasaDeUnSol() {
+    /** e-beta responde 0306 a toda retención con PayableRoundingAmount (2026-10-20): khipu no lo emite; cero es lo mismo que no informarlo. */
+    @Test void todaviaNoSeEmiteConRedondeo() {
+        rechaza(() -> Comprobante.deAgente(tenant, "R001", hoy, PROVEEDOR, new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(factura("F001-1", "100.10", "100.10"))))
+                .redondeo(new BigDecimal("-0.10")).crear(RUC_AGENTE, clock), "REDONDEO_INVALIDO", "khipu todavía no emite el redondeo");
         Comprobante c = Comprobante.deAgente(tenant, "R001", hoy, PROVEEDOR, new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(factura("F001-1", "100.10", "100.10"))))
-                .redondeo(new BigDecimal("-0.10")).crear(RUC_AGENTE, clock);
-        assertThat(c.totales().total()).as("el retenido no se redondea").isEqualByComparingTo("3.00");
-        assertThat(c.importeNetoDeAgente()).isEqualByComparingTo("97.00");
-        assertThat(c.totales().redondeo()).isEqualByComparingTo("-0.10");
-        rechaza(() -> Comprobante.deAgente(tenant, "R001", hoy, PROVEEDOR, new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(factura("F001-1", "100", "100"))))
-                .redondeo(new BigDecimal("1.01")).crear(RUC_AGENTE, clock), "REDONDEO_INVALIDO", "3303");
+                .redondeo(BigDecimal.ZERO).crear(RUC_AGENTE, clock);
+        assertThat(c.totales().tieneRedondeo()).isFalse();
+        assertThat(c.importeNetoDeAgente()).isEqualByComparingTo("97.10");
     }
 
     @Test void regimenYTasaSonLosDelCatalogo() {

@@ -42,12 +42,12 @@ import pe.factura.domain.documento.Comprobante;
         otro con el siguiente.
 
         **Aún no**: la nota de crédito y el propio 20/40 como documento relacionado (los que la hoja deja sin pago ni totales), la emisión excepcional de la percepción
-        (`sac:ExceptionalIndicator`) y los comprobantes de contingencia.""")
+        (`sac:ExceptionalIndicator`), los comprobantes de contingencia y el redondeo del total (`PayableRoundingAmount`: e-beta responde 0306 a todo XML que lo lleva).""")
 public class AgenteController {
     private static final String BASE = "/v1/facturas";
     private static final String ERRORES = """
             **Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,
-            documentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 REDONDEO_INVALIDO` (3303), `422 FECHA_INVALIDA` (futura o pasados los 9 días, 2600),
+            documentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 9 días, 2600),
             `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`.""";
     private final EmitirComprobanteUseCase emitir;
     private final ObjectMapper json;

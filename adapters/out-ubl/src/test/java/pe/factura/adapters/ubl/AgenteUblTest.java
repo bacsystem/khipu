@@ -61,7 +61,7 @@ class AgenteUblTest {
     }
 
     @Test void laRetencionEsUnRetentionUbl20ValidoContraSuXsd() throws Exception {
-        Document d = NotaUblTest.parsear(xml(retencion(new BigDecimal("0.32"), enSoles("F001-123", "1180.00"), enDolares()), conDomicilio()));
+        Document d = NotaUblTest.parsear(xml(retencion(null, enSoles("F001-123", "1180.00"), enDolares()), conDomicilio()));
         assertThat(valor(d, "/ret:Retention/cbc:UBLVersionID")).isEqualTo("2.0");
         assertThat(valor(d, "/ret:Retention/cbc:CustomizationID")).isEqualTo("1.0");
         assertThat(valor(d, "/ret:Retention/cbc:ID")).isEqualTo("R001-7");
@@ -85,11 +85,11 @@ class AgenteUblTest {
 
         assertThat(valor(d, "/ret:Retention/sac:SUNATRetentionSystemCode")).isEqualTo("01");
         assertThat(valor(d, "/ret:Retention/sac:SUNATRetentionPercent")).isEqualTo("3.00");
-        // 35.40 (3 % de 1180.00) + 56.34 (3 % de 500 × 3.756 = 1878.00): 91.74 retenido; 1144.60 + 1821.66 = 2966.26 pagado, + 0.32 de redondeo.
+        // 35.40 (3 % de 1180.00) + 56.34 (3 % de 500 × 3.756 = 1878.00): 91.74 retenido; 1144.60 + 1821.66 = 2966.26 pagado.
         assertThat(valor(d, "/ret:Retention/cbc:TotalInvoiceAmount")).isEqualTo("91.74");
         assertThat(valor(d, "/ret:Retention/cbc:TotalInvoiceAmount/@currencyID")).isEqualTo("PEN");
-        assertThat(valor(d, "/ret:Retention/cbc:PayableRoundingAmount")).isEqualTo("0.32");
-        assertThat(valor(d, "/ret:Retention/sac:SUNATTotalPaid")).isEqualTo("2966.58");
+        assertThat(valor(d, "count(/ret:Retention/cbc:PayableRoundingAmount)")).as("sin redondeo: e-beta no lee el XML que lo lleva (0306)").isEqualTo("0");
+        assertThat(valor(d, "/ret:Retention/sac:SUNATTotalPaid")).isEqualTo("2966.26");
         assertThat(valor(d, "/ret:Retention/sac:SUNATTotalPaid/@currencyID")).isEqualTo("PEN");
 
         String soles = "/ret:Retention/sac:SUNATRetentionDocumentReference[1]";
@@ -119,9 +119,8 @@ class AgenteUblTest {
         assertThat(valor(d, dolares + "/sac:SUNATRetentionInformation/cac:ExchangeRate/cbc:Date")).isEqualTo("2026-09-09");
     }
 
-    @Test void sinRedondeoNiDomicilioTambienEsValida() throws Exception {
+    @Test void sinDomicilioTambienEsValida() throws Exception {
         Document d = NotaUblTest.parsear(xml(retencion(null, enSoles("F001-1", "100.00")), FreemarkerUblGeneratorTest.tenant()));
-        assertThat(valor(d, "count(/ret:Retention/cbc:PayableRoundingAmount)")).isEqualTo("0");
         assertThat(valor(d, "count(/ret:Retention/cac:AgentParty/cac:PostalAddress)")).isEqualTo("0");
         assertThat(valor(d, "/ret:Retention/sac:SUNATTotalPaid")).isEqualTo("97.00");
     }

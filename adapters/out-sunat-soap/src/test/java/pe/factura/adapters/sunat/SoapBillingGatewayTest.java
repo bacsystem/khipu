@@ -82,6 +82,19 @@ class SoapBillingGatewayTest {
         assertThatThrownBy(() -> new SunatUrls("b", "p").para(Entorno.BETA, "20100066603-40-P001-1")).isInstanceOf(IllegalStateException.class).hasMessageContaining("otros-beta-url");
     }
 
+    /** #40: el servicio de otros CPE manda el código en faultstring y el texto en detail/message (respuesta real de e-beta, 2026-10-20). */
+    @Test void elCodigoEnFaultstringEsElDelRechazo(WireMockRuntimeInfo wm) {
+        stubFor(post("/billService").willReturn(okXml("<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Header/><soap-env:Body>"
+                + "<soap-env:Fault><faultcode>soap-env:Client</faultcode><faultstring>2619</faultstring><detail><message>La tasa de retenci&#243;n enviada no corresponde con el r&#233;gimen de retenci&#243;n.</message></detail>"
+                + "</soap-env:Fault></soap-env:Body></soap-env:Envelope>")));
+        assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))
+                .isInstanceOf(SunatRechazoException.class).hasMessageContaining("La tasa de retención enviada")
+                .extracting("codigo").isEqualTo("2619");
+        stubFor(post("/billService").willReturn(okXml("<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body>"
+                + "<soap-env:Fault><faultcode>soap-env:Client</faultcode><faultstring>0306</faultstring></soap-env:Fault></soap-env:Body></soap-env:Envelope>")));
+        assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0])).isInstanceOf(SunatTransientException.class).extracting("codigo").isEqualTo("0306");
+    }
+
     @Test void faultMenorA2000EsTransitorio(WireMockRuntimeInfo wm) {
         stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault("0109", "El sistema no puede responder en este momento"))));
         assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))

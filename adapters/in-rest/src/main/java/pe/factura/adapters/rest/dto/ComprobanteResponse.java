@@ -236,8 +236,8 @@ public record ComprobanteResponse(
             @Schema(example = "Tasa 3%", description = "Descripción del régimen en su catálogo") String descripcionRegimen,
             @Schema(example = "3", description = "Tasa en porcentaje") BigDecimal tasa,
             @Schema(example = "35.40", description = "Importe total retenido o percibido, en soles (`cbc:TotalInvoiceAmount`); el mismo `totales.total`") BigDecimal importeTotal,
-            @Schema(example = "0.00", description = "Redondeo del importe total pagado o cobrado (`PayableRoundingAmount`), entre −1.00 y 1.00") BigDecimal redondeo,
-            @Schema(example = "1144.60", description = "Importe total pagado al proveedor (retención) o cobrado al cliente (percepción), en soles: la suma de los netos más el redondeo") BigDecimal importeNeto,
+            @Schema(example = "0.00", description = "Redondeo del importe total pagado o cobrado (`PayableRoundingAmount`); hoy siempre 0.00: khipu todavía no lo emite (e-beta no lee el XML que lo lleva)") BigDecimal redondeo,
+            @Schema(example = "1144.60", description = "Importe total pagado al proveedor (retención) o cobrado al cliente (percepción), en soles: la suma de los netos (`sac:SUNATTotalPaid` / `SUNATTotalCashed`)") BigDecimal importeNeto,
             List<DocumentoDto> documentos) {
         @Schema(name = "DocumentoDeAgenteRespuesta")
         public record DocumentoDto(

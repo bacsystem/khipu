@@ -604,7 +604,6 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
                                 new ComprobanteDeAgente.Documento("01", "F001-123", LocalDate.of(2026, 9, 1), new BigDecimal("1180.00"), "PEN", 1, LocalDate.of(2026, 9, 10), new BigDecimal("1180.00"), null, null),
                                 new ComprobanteDeAgente.Documento("01", "E001-45", LocalDate.of(2026, 8, 20), new BigDecimal("1000.00"), "USD", 2, LocalDate.of(2026, 9, 12), new BigDecimal("500.00"),
                                         new BigDecimal("3.756"), LocalDate.of(2026, 9, 11)))))
-                .redondeo(new BigDecimal("-0.32"))
                 .crear("20100066603", clock);
         c.asignarNumero(numero, "20100066603");
         return c;
@@ -626,7 +625,7 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leida.agente().documentos().get(1).fechaTipoCambio()).isEqualTo(LocalDate.of(2026, 9, 11));
         assertThat(leida.totales().total()).as("35.40 + 3 % de 1878.00").isEqualByComparingTo("91.74").isEqualByComparingTo(c.totales().total());
         assertThat(leida.importeNetoDeAgente()).isEqualByComparingTo(c.importeNetoDeAgente());
-        assertThat(leida.totales().redondeo()).isEqualByComparingTo("-0.32");
+        assertThat(leida.totales().tieneRedondeo()).isFalse();
         assertThat(jdbc.queryForObject("SELECT total FROM comprobante WHERE documento_id = ?", BigDecimal.class, c.id())).as("lo retenido").isEqualByComparingTo("91.74");
         assertThat(repo.listar(t, new Filtro(null, null, null, null, "20", null, null), 1, 10)).extracting(Comprobante::id).containsExactly(c.id());
         assertThat(repo.listar(t, new Filtro(null, null, null, null, "40", null, null), 1, 10)).isEmpty();

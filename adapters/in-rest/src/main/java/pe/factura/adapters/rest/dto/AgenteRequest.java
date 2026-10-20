@@ -49,8 +49,9 @@ public final class AgenteRequest {
     static List<ComprobanteDeAgente.Documento> documentos(List<DocumentoDto> docs) { return docs.stream().map(DocumentoDto::aDominio).toList(); }
 
     static EmitirAgenteCommand comando(String serie, Long correlativo, LocalDate fechaEmision, Receptor contraparte, TipoDocumento tipo, String regimen, BigDecimal tasa,
-                                       List<DocumentoDto> documentos, BigDecimal redondeo, Boolean enviarAutomatico, String observaciones) {
-        return new EmitirAgenteCommand(serie, correlativo, fechaEmision, contraparte, new ComprobanteDeAgente(tipo, regimen, tasa, documentos(documentos)), redondeo,
+                                       List<DocumentoDto> documentos, Boolean enviarAutomatico, String observaciones) {
+        // Sin redondeo: e-beta no lee el XML que lo lleva (0306); ver ComprobanteDeAgente.validarRedondeo.
+        return new EmitirAgenteCommand(serie, correlativo, fechaEmision, contraparte, new ComprobanteDeAgente(tipo, regimen, tasa, documentos(documentos)), null,
                 enviarAutomatico == null || enviarAutomatico, observaciones);
     }
 
@@ -64,7 +65,6 @@ public final class AgenteRequest {
             @NotBlank @Pattern(regexp = "\\d{2}") @Schema(example = "01", description = "Régimen de retención, catálogo 23: `01` tasa 3 % (el vigente) o `02` tasa 6 % (solo para comprobantes emitidos hasta el 28/02/2014, 2985)") String regimen,
             @DecimalMin("0.01") @Digits(integer = 1, fraction = 2) @Schema(example = "3", description = "Tasa en porcentaje; si se omite, la del régimen. Otra que no sea la del régimen responde `422` (2619)") BigDecimal tasa,
             @NotEmpty @Valid @ArraySchema(minItems = 1, maxItems = ComprobanteDeAgente.MAX_DOCUMENTOS, arraySchema = @Schema(description = "Los comprobantes del proveedor que se pagan, cada uno con su pago")) List<@NotNull @Valid DocumentoDto> documentos,
-            @Schema(example = "0.00", description = "Redondeo del importe total pagado: entre −1.00 y 1.00 con 2 decimales (3303). Opcional") BigDecimal redondeo,
             @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` lo deja `FIRMADO` para enviarlo con `POST /v1/facturas/{id}/enviar`") Boolean enviarAutomatico,
             @Size(max = 1000) @Schema(example = "Pago de facturas de septiembre.", description = "Texto libre para el bloque «Observaciones» del PDF (hasta 1000 caracteres); no va al XML") String observaciones) {
 
@@ -76,7 +76,7 @@ public final class AgenteRequest {
 
         public EmitirAgenteCommand aComando() {
             return comando(serie, correlativo, fechaEmision, new Receptor("6", proveedor.ruc(), proveedor.razonSocial(), proveedor.direccion()), TipoDocumento.RETENCION, regimen, tasa,
-                    documentos, redondeo, enviarAutomatico, observaciones);
+                    documentos, enviarAutomatico, observaciones);
         }
     }
 
@@ -90,7 +90,6 @@ public final class AgenteRequest {
             @NotBlank @Pattern(regexp = "\\d{2}") @Schema(example = "01", description = "Régimen de percepción, catálogo 22: `01` venta interna 2 %, `02` adquisición de combustible 1 %, `03` agente de percepción con tasa especial 0.5 %") String regimen,
             @DecimalMin("0.01") @Digits(integer = 1, fraction = 2) @Schema(example = "2", description = "Tasa en porcentaje; si se omite, la del régimen. Otra que no sea la del régimen responde `422` (2603)") BigDecimal tasa,
             @NotEmpty @Valid @ArraySchema(minItems = 1, maxItems = ComprobanteDeAgente.MAX_DOCUMENTOS, arraySchema = @Schema(description = "Los comprobantes de la empresa que se cobran, cada uno con su cobro")) List<@NotNull @Valid DocumentoDto> documentos,
-            @Schema(example = "0.00", description = "Redondeo del importe total cobrado: entre −1.00 y 1.00 con 2 decimales (3303). Opcional") BigDecimal redondeo,
             @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` lo deja `FIRMADO` para enviarlo con `POST /v1/facturas/{id}/enviar`") Boolean enviarAutomatico,
             @Size(max = 1000) @Schema(example = "Cobro de la factura F001-9.", description = "Texto libre para el bloque «Observaciones» del PDF (hasta 1000 caracteres); no va al XML") String observaciones) {
 
@@ -103,7 +102,7 @@ public final class AgenteRequest {
 
         public EmitirAgenteCommand aComando() {
             return comando(serie, correlativo, fechaEmision, new Receptor(cliente.tipoDoc(), cliente.numDoc(), cliente.nombre(), cliente.direccion()), TipoDocumento.PERCEPCION, regimen, tasa,
-                    documentos, redondeo, enviarAutomatico, observaciones);
+                    documentos, enviarAutomatico, observaciones);
         }
     }
 }

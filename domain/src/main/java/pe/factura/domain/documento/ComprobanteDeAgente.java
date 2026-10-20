@@ -106,10 +106,14 @@ public record ComprobanteDeAgente(TipoDocumento tipo, String regimen, BigDecimal
             throw new DomainException(codigo(), (ret ? "2730 - El importe total pagado" : "2687 - El importe total cobrado") + " debe ser mayor que cero");
     }
 
-    /** Valida el redondeo del total pagado/cobrado: |x| ≤ 1 con 2 decimales (3303 en las dos hojas, que la llaman igual que la factura). */
+    /**
+     * El redondeo del total pagado/cobrado (PayableRoundingAmount): las hojas lo admiten hasta ±1 (3303) y el XSD lo tiene, pero e-beta (2026-10-20) responde 0306 «No se puede leer
+     * (parsear) el archivo XML» a toda retención que lo lleva, positivo o negativo, en soles o con dólares, y acepta la misma sin él. khipu no lo emite hasta poder probarlo.
+     */
     static void validarRedondeo(BigDecimal redondeo, boolean retencion) {
-        if (redondeo != null && (redondeo.scale() > 2 || redondeo.abs().compareTo(BigDecimal.ONE) > 0))
-            throw new DomainException("REDONDEO_INVALIDO", "3303 - El redondeo del importe total " + (retencion ? "pagado" : "cobrado") + " admite 2 decimales y no puede superar 1.00 en valor absoluto");
+        if (redondeo != null && redondeo.signum() != 0)
+            throw new DomainException("REDONDEO_INVALIDO", "khipu todavía no emite el redondeo del importe total " + (retencion ? "pagado" : "cobrado")
+                    + " en un comprobante de " + (retencion ? "retención" : "percepción") + ": SUNAT (e-beta) no lee el XML que lo lleva (0306), aunque la hoja lo admita hasta ±1.00 (3303)");
     }
 
     String codigo() { return esRetencion() ? "RETENCION_INVALIDA" : "PERCEPCION_INVALIDA"; }
