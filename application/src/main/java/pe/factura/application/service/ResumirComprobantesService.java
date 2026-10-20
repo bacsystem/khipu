@@ -21,7 +21,6 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * El resumen de comprobantes de una empresa (#15) y su emisión día por día (#24). Solo lectura. El repositorio trae cuántos hay por estado; acá se decide qué estados son
@@ -65,15 +64,13 @@ public class ResumirComprobantesService implements ResumirComprobantesUseCase {
     }
 
     /**
-     * Los tipos que son ventas y por eso cuentan en la emisión por día: factura, boleta y sus notas. Es un solo predicado a propósito. Otras ramas agregan tipos que no son
-     * ventas (04 liquidación de compra, 20 retención, 40 percepción) y el resumen (#15) los excluye de «emitidos» y «facturado»: al ensamblarlas, esta regla y la del resumen
-     * tienen que ser la misma. Se nombran las constantes una por una en vez de tomar {@code TipoDocumento.values()}, para que un tipo nuevo no entre solo.
+     * Los códigos que son ventas y por eso cuentan en la emisión por día: los de {@link TipoDocumento#esVenta()}, la misma definición con que el resumen (#15) cuenta
+     * «emitidos» y «facturado» ({@code TiposDeVenta} en la persistencia), así que 04, 20, 40, 09 y 31 no entran en ninguno de los dos.
      */
-    static final Set<String> TIPOS_DE_VENTA = Stream.of(TipoDocumento.FACTURA, TipoDocumento.BOLETA, TipoDocumento.NOTA_CREDITO, TipoDocumento.NOTA_DEBITO)
-            .map(TipoDocumento::codigo).collect(Collectors.toUnmodifiableSet());
+    static final Set<String> TIPOS_DE_VENTA = TipoDocumento.ventas().stream().map(TipoDocumento::codigo).collect(Collectors.toUnmodifiableSet());
 
-    /** Un conjunto inmutable lanza con {@code contains(null)}: un tipo nulo no es una venta, no un error. */
-    static boolean esVenta(String tipo) { return tipo != null && TIPOS_DE_VENTA.contains(tipo); }
+    /** Un tipo nulo o desconocido no es una venta, no un error. */
+    static boolean esVenta(String tipo) { return TipoDocumento.esVenta(tipo); }
 
     /** Lo de un día mientras se recorren sus celdas; {@code porMoneda} ordenado por moneda, como el resumen. */
     private static final class Acumulado {

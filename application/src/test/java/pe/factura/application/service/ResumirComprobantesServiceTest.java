@@ -1,5 +1,6 @@
 package pe.factura.application.service;
 
+import pe.factura.domain.documento.TipoDocumento;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.ResumirComprobantesUseCase;
 import pe.factura.application.port.in.ResumirComprobantesUseCase.Dia;
@@ -208,13 +209,15 @@ class ResumirComprobantesServiceTest {
      */
     @Test void losTiposQueNoSonVentasNoEntranNiEnEmitidosNiEnFacturado() {
         celda(6, "01", ACEPTADO, "PEN", 1, "100");
-        for (String tipo : new String[]{"04", "20", "40", "09", "99", null}) celda(6, tipo, ACEPTADO, "PEN", 10, "5000").celda(8, tipo, ACEPTADO, "PEN", 10, "5000");
+        for (String tipo : new String[]{"04", "20", "40", "09", "31", "99", null}) celda(6, tipo, ACEPTADO, "PEN", 10, "5000").celda(8, tipo, ACEPTADO, "PEN", 10, "5000");
 
         assertThat(porDia().dias()).containsExactly(new Dia(LocalDate.of(2026, 10, 6), 1, List.of(new Total("PEN", new BigDecimal("100")))));
     }
 
     @Test void losTiposDeVentaSonExactamenteFacturaBoletaYSusNotas() {
         assertThat(ResumirComprobantesService.TIPOS_DE_VENTA).containsExactlyInAnyOrder("01", "03", "07", "08");
+        // La misma definición que el resumen y el SIRE: la del dominio, código por código.
+        for (TipoDocumento t : TipoDocumento.values()) assertThat(ResumirComprobantesService.esVenta(t.codigo())).as(t.name()).isEqualTo(t.esVenta());
     }
 
     @Test void sinComprobantesNoHayDiasYElRangoVuelveTalCual() {
