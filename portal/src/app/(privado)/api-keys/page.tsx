@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ApiKeysTable } from "@/components/api-keys/api-keys-table";
+import { esRolInsuficiente, SinPermisoDePagina } from "@/components/sin-permiso";
 import { WebhooksSection } from "@/components/webhooks/webhooks-section";
 import { listarApiKeys } from "@/lib/api/api-keys";
 import { obtenerEmpresaActual } from "@/lib/api/empresas";
@@ -30,8 +31,18 @@ export default async function ApiKeysPage() {
 
   // La empresa solo decide un texto de ayuda: si no se puede leer, la página de llaves sigue (264-H3), y no se afirma nada sobre la emisión.
   // Los webhooks tampoco bloquean la página: si no se leen, su sección lo dice (#19).
+  // #21: las API keys son de administradores; con otro rol el backend responde 403 y la página lo explica.
+  const llaves = await listarApiKeys(access, empresaId).then(
+    (lista) => ({ lista }),
+    (error: unknown) => {
+      if (esRolInsuficiente(error)) return null;
+      throw error;
+    },
+  );
+  if (llaves === null) return <SinPermisoDePagina />;
+
   const [apiKeys, empresa, webhooks] = await Promise.all([
-    listarApiKeys(access, empresaId),
+    llaves.lista,
     obtenerEmpresaActual(access, empresaId).catch(() => null),
     listarWebhooks(access, empresaId).catch(() => null),
   ]);

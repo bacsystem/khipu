@@ -4,7 +4,7 @@ import { DevelopersView } from "./developers-view";
 
 // Scalar es pesado y ya tiene su prueba: aquí solo importa la cabecera propia de la página (#13).
 vi.mock("./api-reference", () => ({ ApiReference: ({ apiKey }: { apiKey?: string }) => <div data-testid="referencia">{apiKey ?? "sin key"}</div> }));
-vi.mock("@/lib/solo-lectura", () => ({ useSoloLectura: () => null }));
+vi.mock("@/lib/solo-lectura", () => ({ useSinPermisoDeConfigurar: () => null }));
 
 afterEach(cleanup);
 

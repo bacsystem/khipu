@@ -5,10 +5,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api/browser";
 import { mensajeError } from "@/lib/messages";
-import { useSoloLectura } from "@/lib/solo-lectura";
+import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 
 export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => void }) {
-  const soloLectura = useSoloLectura();
+  const soloLectura = useSinPermisoDeConfigurar();
   const [generando, setGenerando] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [copiada, setCopiada] = useState(false);

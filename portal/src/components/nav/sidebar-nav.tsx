@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, GaugeIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon, UsersIcon, PackageIcon } from "lucide-react";
+import { EyeIcon, GaugeIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon, UsersIcon, PackageIcon, UserCogIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,8 @@ type Item = {
   href: string;
   label: string;
   icon: typeof ReceiptTextIcon;
+  /** #21: solo para administradores. Los demás roles reciben 403 del backend al leerla, así que ni se muestra. */
+  soloAdmin?: boolean;
 };
 
 type Grupo = {
@@ -32,7 +34,7 @@ const GRUPOS: Grupo[] = [
     items: [
       { href: "/empresa", label: "Fiscal & certificado", icon: ShieldCheckIcon },
       { href: "/establecimientos", label: "Establecimientos", icon: StoreIcon },
-      { href: "/api-keys", label: "API keys", icon: TerminalIcon },
+      { href: "/api-keys", label: "API keys", icon: TerminalIcon, soloAdmin: true },
     ],
   },
   {
@@ -40,6 +42,7 @@ const GRUPOS: Grupo[] = [
     titulo: "Cuenta",
     items: [
       { href: "/cuenta/plan", label: "Plan y consumo", icon: GaugeIcon },
+      { href: "/cuenta/equipo", label: "Equipo", icon: UserCogIcon, soloAdmin: true },
       { href: "/cuenta/accesos-de-soporte", label: "Accesos de soporte", icon: EyeIcon },
     ],
   },
@@ -48,7 +51,8 @@ const GRUPOS: Grupo[] = [
 const ITEM_BASE =
   "flex w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-md border border-transparent px-2.5 py-1.5 text-[13px]";
 
-export function SidebarNav() {
+/** `rol`: el del usuario de la sesión (#21); sin él (pruebas) se muestra todo. */
+export function SidebarNav({ rol = "ADMIN" }: { rol?: string }) {
   const pathname = usePathname();
 
   return (
@@ -58,7 +62,7 @@ export function SidebarNav() {
           <span className="truncate px-2.5 py-1 text-[10px] font-medium tracking-wider text-muted-foreground/80 uppercase">
             {grupo.titulo}
           </span>
-          {grupo.items.map((item) => {
+          {grupo.items.filter((item) => !item.soloAdmin || rol === "ADMIN").map((item) => {
             const Icono = item.icon;
             const active = pathname.startsWith(item.href);
             return (

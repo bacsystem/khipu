@@ -11,7 +11,7 @@ import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
 import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
-import { useSoloLectura } from "@/lib/solo-lectura";
+import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { ETIQUETA_ESTADO_ENTREGA, etiquetaDeEvento, resultadoDelIntento } from "@/lib/webhooks/eventos";
 
@@ -30,7 +30,7 @@ function EstadoEntregaBadge({ estado }: { estado: EstadoEntrega }) {
  * (entregada o fallida) se puede reenviar con el mismo cuerpo. `version` fuerza una lectura nueva (la prueba que se acaba de enviar).
  */
 export function EntregasWebhook({ webhookId, version }: { webhookId: string; version: number }) {
-  const soloLectura = useSoloLectura();
+  const soloLectura = useSinPermisoDeConfigurar();
   const [estado, setEstado] = useState<EstadoEntrega | "">("");
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState<number>(POR_PAGINA_DEFECTO);

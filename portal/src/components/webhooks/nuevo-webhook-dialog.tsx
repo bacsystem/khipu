@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { WebhookCreado } from "@/lib/api/webhooks";
 import { ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
-import { useSoloLectura } from "@/lib/solo-lectura";
+import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { errorDeUrlWebhook, EVENTOS_WEBHOOK } from "@/lib/webhooks/eventos";
 import { cn } from "@/lib/utils";
 import { SecretoWebhookRevelado } from "./secreto-webhook-revelado";
@@ -18,7 +18,7 @@ const TODOS = EVENTOS_WEBHOOK.map((e) => e.evento) as string[];
 
 /** Registra un endpoint de webhooks y muestra su secreto de firma una sola vez; al cerrar, refresca la lista del servidor. */
 export function NuevoWebhookDialog({ className }: { className?: string }) {
-  const soloLectura = useSoloLectura();
+  const soloLectura = useSinPermisoDeConfigurar();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [url, setUrl] = useState("");

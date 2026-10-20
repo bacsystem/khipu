@@ -7,7 +7,7 @@ import { Alerta } from "@/components/feedback/alerta";
 import { Button } from "@/components/ui/button";
 import { postJson } from "@/lib/api/browser";
 import { mensajeError, messages } from "@/lib/messages";
-import { useSoloLectura } from "@/lib/solo-lectura";
+import { useSoloLecturaDeLaSesion } from "@/lib/solo-lectura";
 
 const t = messages.auth.revisaTuCorreo;
 
@@ -16,7 +16,7 @@ const t = messages.auth.revisaTuCorreo;
  * pedir otro enlace. «Ya lo verifiqué» vuelve a leer el estado: el enlace pudo abrirse en el teléfono.
  */
 export function RevisaTuCorreo({ email }: { email: string }) {
-  const soloLectura = useSoloLectura();
+  const soloLectura = useSoloLecturaDeLaSesion();
   const router = useRouter();
   const [estado, setEstado] = useState<"quieto" | "enviando" | "enviado">("quieto");
   const [error, setError] = useState<string | null>(null);
