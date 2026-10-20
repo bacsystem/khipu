@@ -51,4 +51,20 @@ public class JdbcInvitacionRepository implements InvitacionRepository {
         return jdbc.update("UPDATE invitacion SET estado = 'ACEPTADA', aceptada_en = ? WHERE id = ? AND token_hash = ? AND estado = 'PENDIENTE' AND expira_en > ?",
                 Timestamp.from(ahora), id, tokenHash, Timestamp.from(ahora)) == 1;
     }
+
+    @Override public int revocarPendientesDe(UUID invitadoPor) {
+        return jdbc.update("UPDATE invitacion SET estado = 'REVOCADA' WHERE invitado_por = ? AND estado = 'PENDIENTE'", invitadoPor);
+    }
+
+    @Override public void registrarEnvio(UUID cuentaId, String email, Instant cuando) {
+        jdbc.update("INSERT INTO envio_de_invitacion (cuenta_id, email, enviado_en) VALUES (?, ?, ?)", cuentaId, email, Timestamp.from(cuando));
+    }
+
+    @Override public int enviosDeLaCuenta(UUID cuentaId, Instant desde) {
+        return jdbc.queryForObject("SELECT count(*) FROM envio_de_invitacion WHERE cuenta_id = ? AND enviado_en > ?", Integer.class, cuentaId, Timestamp.from(desde));
+    }
+
+    @Override public int enviosAlCorreo(String email, Instant desde) {
+        return jdbc.queryForObject("SELECT count(*) FROM envio_de_invitacion WHERE email = ? AND enviado_en > ?", Integer.class, email, Timestamp.from(desde));
+    }
 }

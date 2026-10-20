@@ -47,6 +47,10 @@ class EquipoServiceTest {
         public Equipo deLaCuentaParaCambiar(UUID c) { bloqueos++; return deLaCuenta(c); }
     };
     Map<UUID, Invitacion> invitacionesMap = new LinkedHashMap<>();
+    record Envio(UUID cuenta, String email, Instant cuando) {}
+    List<Envio> envios = new ArrayList<>();
+    /** H7: como si otra transacción (un revocar o un reenvío) hubiera cambiado la invitación entre la lectura y el UPDATE condicionado. */
+    boolean aceptarPierdeLaCarrera = false;
     InvitacionRepository invitaciones = new InvitacionRepository() {
         public void crear(Invitacion i) { invitacionesMap.put(i.id(), i); }
         public boolean actualizarPendiente(Invitacion i) {
@@ -58,7 +62,17 @@ class EquipoServiceTest {
         public Optional<Invitacion> buscar(UUID id) { return Optional.ofNullable(invitacionesMap.get(id)); }
         public Optional<Invitacion> buscarPorTokenHash(String h) { return invitacionesMap.values().stream().filter(i -> i.tokenHash().equals(h)).findFirst(); }
         public List<Invitacion> pendientes(UUID c) { return invitacionesMap.values().stream().filter(i -> i.cuentaId().equals(c) && i.pendiente()).toList(); }
+        public int revocarPendientesDe(UUID quien) {
+            int n = 0;
+            for (Invitacion i : List.copyOf(invitacionesMap.values()))
+                if (quien.equals(i.invitadoPor()) && i.pendiente()) { invitacionesMap.put(i.id(), i.revocada()); n++; }
+            return n;
+        }
+        public void registrarEnvio(UUID c, String email, Instant cuando) { envios.add(new Envio(c, email, cuando)); }
+        public int enviosDeLaCuenta(UUID c, Instant desde) { return (int) envios.stream().filter(e -> e.cuenta().equals(c) && e.cuando().isAfter(desde)).count(); }
+        public int enviosAlCorreo(String email, Instant desde) { return (int) envios.stream().filter(e -> e.email().equals(email) && e.cuando().isAfter(desde)).count(); }
         public boolean aceptar(UUID id, String h, Instant en) {
+            if (aceptarPierdeLaCarrera) return false;
             Invitacion i = invitacionesMap.get(id);
             if (i == null || !i.tokenHash().equals(h) || !i.aceptable(en)) return false;
             invitacionesMap.put(id, new Invitacion(i.id(), i.cuentaId(), i.email(), i.rol(), i.tokenHash(), i.expiraEn(), Invitacion.Estado.ACEPTADA, i.invitadoPor(), i.envios(), i.creadaEn()));
@@ -333,5 +347,126 @@ class EquipoServiceTest {
     @Test void unTokenInventadoONuloEsInvalido() {
         falla(() -> service.aceptar("inventado", "Segura123"), "TOKEN_INVALIDO");
         falla(() -> service.consultar(null), "TOKEN_INVALIDO");
+    }
+
+    // --- H1: los topes de correos no se reinician revocando -------------------------------------------------------------------------
+
+    private UUID unicaPendiente() {
+        return invitacionesMap.values().stream().filter(Invitacion::pendiente).findFirst().orElseThrow().id();
+    }
+
+    @Test void revocarEInvitarDeNuevoAlMismoCorreoTieneTope() {
+        for (int n = 0; n < EquipoService.MAX_ENVIOS_POR_CORREO; n++) {
+            service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL);
+            service.revocar(cuenta.id(), ana.id(), unicaPendiente());
+        }
+        falla(() -> service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL), "DEMASIADAS_INVITACIONES");
+        assertThat(correos).hasSize(EquipoService.MAX_ENVIOS_POR_CORREO);
+    }
+
+    @Test void reenviarTambienCuentaParaElTopePorCorreo() {
+        service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL);
+        UUID id = unicaPendiente();
+        for (int n = 1; n < EquipoService.MAX_ENVIOS_POR_CORREO; n++) service.reenviar(cuenta.id(), ana.id(), id, PORTAL);
+        falla(() -> service.reenviar(cuenta.id(), ana.id(), id, PORTAL), "DEMASIADAS_INVITACIONES");
+        service.revocar(cuenta.id(), ana.id(), id);
+        falla(() -> service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL), "DEMASIADAS_INVITACIONES");
+    }
+
+    @Test void laCuentaTieneTopeDeEnviosAunqueRevoqueCadaInvitacion() {
+        for (int n = 0; n < EquipoService.MAX_ENVIOS_POR_CUENTA; n++) {
+            service.invitar(cuenta.id(), ana.id(), "p" + n + "@torres.pe", Rol.EMISOR, PORTAL);
+            service.revocar(cuenta.id(), ana.id(), unicaPendiente());
+        }
+        falla(() -> service.invitar(cuenta.id(), ana.id(), "otro@torres.pe", Rol.EMISOR, PORTAL), "DEMASIADAS_INVITACIONES");
+    }
+
+    @Test void pasadaLaVentanaSePuedeVolverAInvitar() {
+        for (int n = 0; n < EquipoService.MAX_ENVIOS_POR_CORREO; n++) {
+            service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL);
+            service.revocar(cuenta.id(), ana.id(), unicaPendiente());
+        }
+        EquipoService manana = servicio(Clock.offset(clock, EquipoService.VENTANA_DE_ENVIOS.plusSeconds(1)));
+        manana.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL);
+    }
+
+    /** El tope por destinatario es de todas las cuentas: varias cuentas no se suman para llenar un buzón. */
+    @Test void elTopePorCorreoCuentaLasInvitacionesDeOtrasCuentas() {
+        for (int n = 0; n < EquipoService.MAX_ENVIOS_POR_CORREO; n++) envios.add(new Envio(UUID.randomUUID(), "caro@torres.pe", ahora));
+        falla(() -> service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL), "DEMASIADAS_INVITACIONES");
+    }
+
+    // --- H3: una invitación vale mientras quien la creó siga siendo administrador -------------------------------------------------------
+
+    private Usuario otroAdmin() {
+        Usuario dani = new Usuario(UUID.randomUUID(), cuenta.id(), "dani@torres.pe", "hash", Rol.ADMIN, true, ahora);
+        usuarios.guardar(dani);
+        return dani;
+    }
+
+    @Test void desactivarAQuienInvitoDejaSuInvitacionSinEfecto() {
+        Usuario dani = otroAdmin();
+        service.invitar(cuenta.id(), dani.id(), "caro@torres.pe", Rol.ADMIN, PORTAL);
+        String token = tokenDelCorreo("caro@torres.pe");
+
+        service.desactivar(cuenta.id(), ana.id(), dani.id());
+
+        falla(() -> service.aceptar(token, "Segura123"), "TOKEN_INVALIDO");
+        assertThat(usuarios.buscarPorEmail("caro@torres.pe")).isEmpty();
+        assertThat(service.invitaciones(cuenta.id(), ana.id())).as("se revocó al desactivarlo").isEmpty();
+    }
+
+    @Test void degradarAQuienInvitoRevocaSusPendientesYNoLasDeOtros() {
+        Usuario dani = otroAdmin();
+        service.invitar(cuenta.id(), dani.id(), "caro@torres.pe", Rol.ADMIN, PORTAL);
+        service.invitar(cuenta.id(), ana.id(), "eva@torres.pe", Rol.EMISOR, PORTAL);
+
+        service.cambiarRol(cuenta.id(), ana.id(), dani.id(), Rol.EMISOR);
+
+        assertThat(service.invitaciones(cuenta.id(), ana.id())).extracting(Invitacion::email).containsExactly("eva@torres.pe");
+    }
+
+    /** Aunque la invitación siguiera pendiente (p. ej. lo degradaron por otra vía), al aceptar se mira que quien invitó siga siendo administrador activo. */
+    @Test void alAceptarSeExigeQueQuienInvitoSigaSiendoAdministrador() {
+        Usuario dani = otroAdmin();
+        service.invitar(cuenta.id(), dani.id(), "caro@torres.pe", Rol.ADMIN, PORTAL);
+        String token = tokenDelCorreo("caro@torres.pe");
+        usuarios.guardar(dani.conRol(Rol.LECTURA));   // sin pasar por el servicio: la invitación queda pendiente
+
+        falla(() -> service.consultar(token), "TOKEN_INVALIDO");
+        falla(() -> service.aceptar(token, "Segura123"), "TOKEN_INVALIDO");
+        assertThat(usuarios.buscarPorEmail("caro@torres.pe")).isEmpty();
+    }
+
+    // --- H7: la carrera aceptar ↔ revocar/reenviar ----------------------------------------------------------------------------------
+
+    @Test void siElUpdateCondicionadoNoAceptaNoSeCreaElUsuario() {
+        service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL);
+        String token = tokenDelCorreo("caro@torres.pe");
+        aceptarPierdeLaCarrera = true;
+
+        falla(() -> service.aceptar(token, "Segura123"), "TOKEN_INVALIDO");
+        assertThat(usuarios.buscarPorEmail("caro@torres.pe")).isEmpty();
+    }
+
+    // --- H2: cambiar el rol o desactivar escribe solo esa columna -----------------------------------------------------------------------
+
+    @Test void cambiarElRolNoPisaLaContrasenaQueCambioEnElMedio() {
+        List<String> escrito = new ArrayList<>();
+        UsuarioRepository soloColumnas = new UsuarioRepository() {
+            public void guardar(Usuario u) { escrito.add("guardar"); usuariosMap.put(u.id(), u); }
+            public Optional<Usuario> buscar(UUID id) { return usuarios.buscar(id); }
+            public Optional<Usuario> buscarPorEmail(String e) { return usuarios.buscarPorEmail(e); }
+            public void marcarCorreoVerificado(UUID id, Instant cuando) {}
+            public void cambiarRol(UUID id, Rol rol) { escrito.add("rol"); }
+            public void cambiarActivo(UUID id, boolean activo) { escrito.add("activo"); }
+        };
+        EquipoService s = new EquipoService(equipos, soloColumnas, cuentas, invitaciones, sesiones, hasher, correo,
+                new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), Fakes.UOW, clock);
+
+        s.cambiarRol(cuenta.id(), ana.id(), beto.id(), Rol.LECTURA);
+        s.desactivar(cuenta.id(), ana.id(), beto.id());
+
+        assertThat(escrito).containsExactly("rol", "activo");
     }
 }
