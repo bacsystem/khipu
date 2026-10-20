@@ -667,7 +667,7 @@ Idempotency-Key: 5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f
 }`,
     notas: [
       "`tipo_doc` y `num_doc` van los dos en `-` (sin documento, catálogo 06); un `tipo_doc` `-` con número responde `422 RECEPTOR_INVALIDO`.",
-      "Solo en **soles** y con un importe total (`totales.total`, con IGV) de hasta **S/ 700.00**. Por encima, o en `USD`/`EUR` (sin tipo de cambio no hay cómo compararla con el tope), `422 RECEPTOR_INVALIDO`: identifique al comprador con su documento, como en el caso anterior. Se valida antes de consumir número.",
+      "En **soles**, o en otra moneda con `tipo_cambio`, y con un importe total (`totales.total`, con IGV, convertido a soles) de hasta **S/ 700.00**. Por encima, o en otra moneda sin `tipo_cambio` (no hay cómo compararla con el tope), `422 RECEPTOR_INVALIDO`: identifique al comprador con su documento, como en el caso anterior. Se valida antes de consumir número.",
       "El nombre también es obligatorio sin documento y tiene al menos 3 caracteres (2022, error en SUNAT desde 2027-01-01): use `CLIENTES VARIOS`. Un nombre más corto (`-`, `CV`) responde `422 RECEPTOR_INVALIDO`.",
       "En lo demás es una boleta como la anterior: mismos plazos, misma anulación. Sus notas toman este mismo comprador sin documento.",
     ],

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BloqueCodigo } from "@/components/developers/guia/bloque-codigo";
+import { INDICE_GUIA } from "@/components/developers/indices";
 import { CASOS, ERROR_EJEMPLO, RESPUESTA_EJEMPLO } from "@/components/developers/guia/casos-emision";
 import { Codigo, NotaProsa, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
 import { Rico } from "@/components/developers/guia/rico";
@@ -10,24 +11,13 @@ import { cn } from "@/lib/utils";
 
 export const metadata = { title: `Guía de emisión · ${messages.app.nombre}` };
 
-const INDICE = [
-  { id: "inicio-rapido", label: "Inicio rápido" },
-  { id: "anatomia", label: "Anatomía de un comprobante" },
-  { id: "casos", label: "Casos de emisión" },
-  ...CASOS.map((c) => ({ id: c.id, label: `· ${c.titulo}` })),
-  { id: "respuesta", label: "Cómo leer la respuesta" },
-  { id: "errores", label: "Errores" },
-  { id: "webhooks", label: "Webhooks" },
-  { id: "buenas-practicas", label: "Buenas prácticas" },
-];
-
 export default function GuiaPage() {
   const base = apiPublicUrl();
   return (
     <PaginaGuia
       titulo="Guía de emisión de facturas y boletas"
       resumen="Todo lo necesario para emitir facturas y boletas electrónicas válidas ante SUNAT con una sola llamada: qué enviar en cada caso, qué calcula khipu por usted, qué devuelve y cómo actuar ante cada estado o error."
-      indice={INDICE}
+      indice={INDICE_GUIA}
     >
       <Seccion id="inicio-rapido" titulo="Inicio rápido">
         <ol className="list-decimal space-y-2 pl-5 text-[13px] leading-relaxed text-muted-foreground">
@@ -57,69 +47,96 @@ export default function GuiaPage() {
             SUNAT y los enlaces al XML y al CDR.
           </li>
           <li>
-            <strong className="text-foreground">Pase a producción</strong>: cuando SUNAT haya aprobado su homologación, cambie el entorno de la empresa a{" "}
-            <Codigo>PRODUCCION</Codigo>. La URL y la API key no cambian.
+            <strong className="text-foreground">Pase a producción</strong>: cuando SUNAT haya aprobado su homologación, pida a soporte que cambie el entorno de la empresa a{" "}
+            <Codigo>PRODUCCION</Codigo> (el entorno se fija al registrar la empresa y el cambio lo hace la plataforma). La URL y la API key no cambian.
           </li>
         </ol>
         <BloqueCodigo
           titulo="cURL — primera factura"
-          codigo={`curl -X POST ${base}/v1/facturas \\
-  -H "X-Api-Key: fk_TU_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "serie": "F001",
-    "fecha_emision": "2026-09-17",
-    "moneda": "PEN",
-    "cliente": { "tipo_doc": "6", "num_doc": "20601234565", "razon_social": "COMERCIAL ANDINA S.A.C." },
-    "items": [
-      { "descripcion": "Servicio de consultoría", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10" }
-    ]
-  }'`}
+          codigo={`curl -X POST ${base}/v1/facturas \
+  -H "X-Api-Key: fk_TU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @- <<EOF
+{
+  "serie": "F001",
+  "fecha_emision": "$(TZ=America/Lima date +%F)",
+  "moneda": "PEN",
+  "cliente": { "tipo_doc": "6", "num_doc": "20601234565", "razon_social": "COMERCIAL ANDINA S.A.C." },
+  "items": [
+    { "descripcion": "Servicio de consultoría", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10" }
+  ]
+}
+EOF`}
         />
         <BloqueCodigo
           titulo="Node.js — primera factura"
           lenguaje="javascript"
-          codigo={`const respuesta = await fetch("${base}/v1/facturas", {
+          codigo={`// Node 18 o superior. Guárdelo como .mjs: usa await en el nivel superior.
+import { randomUUID } from "node:crypto";
+
+const apiKey = process.env.KHIPU_API_KEY;
+if (!apiKey) throw new Error("Defina KHIPU_API_KEY con su API key");
+const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }); // aaaa-mm-dd, en hora de Lima
+
+const respuesta = await fetch("${base}/v1/facturas", {
   method: "POST",
   headers: {
-    "X-Api-Key": process.env.KHIPU_API_KEY,
+    "X-Api-Key": apiKey,
     "Content-Type": "application/json",
-    "Idempotency-Key": crypto.randomUUID(), // un UUID por factura: reintentar con la misma clave no emite otra
+    "Idempotency-Key": randomUUID(), // un UUID por factura: reintentar con la misma clave no emite otra
   },
   body: JSON.stringify({
     serie: "F001",
-    fecha_emision: "2026-09-17",
+    fecha_emision: hoy,
     moneda: "PEN",
     cliente: { tipo_doc: "6", num_doc: "20601234565", razon_social: "COMERCIAL ANDINA S.A.C." },
     items: [{ descripcion: "Servicio de consultoría", unidad: "ZZ", cantidad: 1, precio_unitario: 1180.0, tipo_afectacion_igv: "10" }],
   }),
 });
-const cuerpo = await respuesta.json();
+const texto = await respuesta.text();
+let cuerpo;
+try {
+  cuerpo = JSON.parse(texto);
+} catch {
+  throw new Error("HTTP " + respuesta.status + " sin JSON: " + texto.slice(0, 200)); // por ejemplo, un 502 de un proxy
+}
 if (cuerpo.estado !== "exito") throw new Error(cuerpo.codigo + ": " + cuerpo.mensaje);
 console.log(cuerpo.datos.estado_documento, cuerpo.datos.enlaces.pdf);`}
         />
         <BloqueCodigo
           titulo="Python — primera factura"
           lenguaje="python"
-          codigo={`import os, uuid
+          codigo={`import os
+import uuid
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import requests
+
+api_key = os.environ.get("KHIPU_API_KEY")
+if not api_key:
+    raise SystemExit("Defina KHIPU_API_KEY con su API key")
+hoy = datetime.now(ZoneInfo("America/Lima")).date().isoformat()  # aaaa-mm-dd, en hora de Lima
 
 respuesta = requests.post(
     "${base}/v1/facturas",
     headers={
-        "X-Api-Key": os.environ["KHIPU_API_KEY"],
+        "X-Api-Key": api_key,
         "Idempotency-Key": str(uuid.uuid4()),  # un UUID por factura: reintentar con la misma clave no emite otra
     },
     json={
         "serie": "F001",
-        "fecha_emision": "2026-09-17",
+        "fecha_emision": hoy,
         "moneda": "PEN",
         "cliente": {"tipo_doc": "6", "num_doc": "20601234565", "razon_social": "COMERCIAL ANDINA S.A.C."},
         "items": [{"descripcion": "Servicio de consultoría", "unidad": "ZZ", "cantidad": 1, "precio_unitario": 1180.00, "tipo_afectacion_igv": "10"}],
     },
     timeout=30,
 )
-cuerpo = respuesta.json()
+try:
+    cuerpo = respuesta.json()
+except ValueError:
+    raise RuntimeError(f"HTTP {respuesta.status_code} sin JSON: {respuesta.text[:200]}")  # por ejemplo, un 502 de un proxy
 if cuerpo["estado"] != "exito":
     raise RuntimeError(f"{cuerpo['codigo']}: {cuerpo['mensaje']}")
 print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}

@@ -1,23 +1,17 @@
 import Link from "next/link";
 import { Codigo, NotaProsa, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
 import { CODIGOS, ESTADOS, HTTP } from "@/components/developers/errores-datos";
+import { INDICE_ERRORES } from "@/components/developers/indices";
 import { messages } from "@/lib/messages";
 
 export const metadata = { title: `Errores y estados · ${messages.app.nombre}` };
-
-const INDICE = [
-  { id: "estados", label: "Estados del comprobante" },
-  { id: "http", label: "Códigos HTTP" },
-  { id: "codigos", label: "Códigos de error de khipu" },
-  { id: "sunat", label: "Códigos de SUNAT" },
-];
 
 export default function ErroresPage() {
   return (
     <PaginaGuia
       titulo="Errores y estados"
       resumen="Qué significa cada estado de un comprobante, cada código HTTP y cada código de error de la API, y qué hacer en cada caso. Cuando la regla viene de SUNAT, el mensaje lleva su código oficial."
-      indice={INDICE}
+      indice={INDICE_ERRORES}
     >
       <Seccion id="estados" titulo="Estados del comprobante">
         <P>

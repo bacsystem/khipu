@@ -198,3 +198,20 @@ test("la cabecera recorre las secciones y el buscador lleva a un estado y a un c
   await expect(page).toHaveURL(/\/developers\/errores#codigos/);
   await expect(page.getByRole("heading", { name: "Códigos de error de khipu" })).toBeVisible();
 });
+
+/** #26: en un celular el buscador no desaparece (pasa a una fila propia) y la cabecera no desborda la página. */
+test("el buscador está en el celular y la cabecera no desborda", async ({ page }) => {
+  for (const ancho of [390, 820, 1280]) {
+    await page.setViewportSize({ width: ancho, height: 800 });
+    await page.goto("/developers/entornos");
+    const buscador = page.getByLabel("Buscar en la documentación");
+    await expect(buscador, `buscador a ${ancho}px`).toBeVisible();
+    const desborda = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    expect(desborda, `desborde horizontal a ${ancho}px`).toBe(false);
+  }
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.getByLabel("Buscar en la documentación").fill("DEMASIADAS_CONSULTAS");
+  await page.getByRole("option").first().click();
+  await expect(page).toHaveURL(/\/developers\/entornos#limites/);
+  await expect(page.getByRole("heading", { name: "Límites y cuotas" })).toBeVisible();
+});
