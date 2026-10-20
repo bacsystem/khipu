@@ -5,7 +5,10 @@ import lombok.Getter;
 import java.util.regex.Pattern;
 
 public enum TipoDocumento {
-    FACTURA("01", "F"), BOLETA("03", "B"), NOTA_CREDITO("07", "FB"), NOTA_DEBITO("08", "FB");
+    FACTURA("01", "F"), BOLETA("03", "B"),
+    /** Liquidación de compra (#327): la emite el comprador a quien vende sin RUC; serie {@code [L][A-Z0-9]{3}} (regla 1001 de LiquidacionCompra2_0). */
+    LIQUIDACION_COMPRA("04", "L"),
+    NOTA_CREDITO("07", "FB"), NOTA_DEBITO("08", "FB");
 
     @Getter private final String codigo;
     private final Pattern serie;

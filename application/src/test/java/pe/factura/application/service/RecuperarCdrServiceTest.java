@@ -111,6 +111,16 @@ class RecuperarCdrServiceTest {
         assertThat(consultas.llamadas).isZero();
     }
 
+    /** #327: getStatusCdr tampoco cubre la liquidación de compra (manual: 01, 07 y 08); su constancia llega reenviándola. */
+    @Test void laLiquidacionDeCompraNoSeConsultaPorGetStatusCdr() {
+        Comprobante l = Fakes.liquidacionFirmada(tenantId, storage, 1);
+        l.marcarEnviado();
+        comprobantes.guardar(l);
+        assertThatThrownBy(() -> service.recuperar(tenantId, l.id())).isInstanceOf(DomainException.class).hasMessageContaining("liquidaciones de compra")
+                .extracting("codigo").isEqualTo("CDR_NO_CONSULTABLE");
+        assertThat(consultas.llamadas).isZero();
+    }
+
     /**
      * En e-beta no hay billConsultService (404): la consulta de una factura responde NO_DISPONIBLE_EN_BETA desde el gateway. A una boleta ni se le llega: el 409 de «no se
      * consulta» va primero y es el mismo en cualquier entorno, así que el integrador no ve un 422 de beta que sugiera que en producción sí funcionaría.
