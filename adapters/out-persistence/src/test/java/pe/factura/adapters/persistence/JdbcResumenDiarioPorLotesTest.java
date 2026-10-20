@@ -128,6 +128,52 @@ class JdbcResumenDiarioPorLotesTest extends PersistenciaTestBase {
         assertThat(encontradas.get(0).items()).as("vuelve completa, con sus ítems").hasSize(1);
     }
 
+    /**
+     * Lo que le cuesta a la base un resumen de 500 líneas, que el cálculo de CPU de {@code RendimientoDeBajasDeBoletaTest} no mide: recoger las 499 hermanas con su bloqueo,
+     * marcarlas ENVIADO y guardar sus filas (lo que hace {@code informar}), y luego aplicarles el CDR (lo que hace {@code resolver}): bloquear, cambiar y guardar cada una. Con
+     * Postgres de verdad, un hilo y 500 boletas de dos ítems. Falla si pasa de 60 s, que sería llevarse la transacción (y sus bloqueos) demasiado.
+     */
+    @Test void informarYResolverUnResumenDeQuinientasLineasCuestaPocosSegundosDeBase() {
+        UUID t = tenantDePrueba();
+        Comprobante cabeza = boleta(t, 1, DIA, EstadoDocumento.FIRMADO);
+        for (long n = 2; n <= ComunicacionBaja.MAX_LINEAS_RESUMEN; n++) boleta(t, n, DIA, EstadoDocumento.FIRMADO);
+
+        long t0 = System.nanoTime();
+        uow.ejecutar(() -> {
+            List<Comprobante> lote = new java.util.ArrayList<>(List.of(comprobantes.bloquear(t, cabeza.id()).orElseThrow()));
+            lote.addAll(comprobantes.bloquearPorInformarDeLaFecha(t, DIA, cabeza.id(), ComunicacionBaja.MAX_LINEAS_RESUMEN - 1));
+            assertThat(lote).hasSize(500);
+            List<ComunicacionBaja> filas = ComunicacionBaja.altasEnResumen(lote, bajas.siguienteCorrelativo(t, HOY), SEIS_DIAS_DESPUES);
+            for (int i = 0; i < lote.size(); i++) {
+                filas.get(i).firmar("rc.xml");
+                lote.get(i).informarEnResumen(filas.get(i).identificador(), false);
+                comprobantes.guardar(lote.get(i));
+                bajas.guardar(filas.get(i));
+            }
+            return null;
+        });
+        long informar = System.nanoTime();
+        List<ComunicacionBaja> filas = bajas.delResumen(t, HOY, 1);
+        filas.get(0).marcarEnviada("T-1");
+        filas.get(0).aplicarCdr(new Cdr("0", "aceptado", List.of()), "r.zip");
+        filas.stream().skip(1).forEach(f -> f.copiarCicloDe(filas.get(0)));
+        uow.ejecutar(() -> {
+            filas.forEach(bajas::guardar);
+            for (ComunicacionBaja f : filas) {
+                Comprobante c = comprobantes.bloquear(t, f.comprobanteId()).orElseThrow();
+                c.aplicarCdr(f.cdr(), f.cdrKey());
+                comprobantes.guardar(c);
+            }
+            return null;
+        });
+        long resolver = System.nanoTime();
+
+        double segundosInformar = (informar - t0) / 1e9, segundosResolver = (resolver - informar) / 1e9;
+        System.out.printf("Resumen de 500 líneas con Postgres: informar %.1f s · resolver %.1f s%n", segundosInformar, segundosResolver);
+        assertThat(segundosInformar + segundosResolver).as("segundos de base de un resumen de 500 líneas").isLessThan(60);
+        assertThat(comprobantes.buscar(t, cabeza.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+    }
+
     @Test void elAgrupadorRespetaElLimiteYElOrdenPorNumero() {
         UUID t = tenantDePrueba();
         Comprobante cabeza = boleta(t, 1, DIA, EstadoDocumento.FIRMADO);

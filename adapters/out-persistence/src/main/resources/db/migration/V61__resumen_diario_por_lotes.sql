@@ -8,3 +8,6 @@ ALTER TABLE comunicacion_baja ADD CONSTRAINT comunicacion_baja_linea_valida CHEC
 -- El identificador ya no es único por fila sino por (fecha, correlativo, línea): el índice de la restricción anterior sirve también para leer un resumen entero.
 ALTER TABLE comunicacion_baja DROP CONSTRAINT comunicacion_baja_tenant_id_fecha_generacion_correlativo_key;
 ALTER TABLE comunicacion_baja ADD CONSTRAINT comunicacion_baja_resumen_linea_key UNIQUE (tenant_id, fecha_generacion, correlativo, linea);
+
+-- Un correlativo del día es de un solo resumen o de una sola comunicación de baja, pero la base ya no lo garantiza (un RA en la línea 1 y un RC en las líneas 2 y siguientes cabrían):
+-- lo garantiza `JdbcBajaRepository.siguienteCorrelativo`, que toma el máximo del día bajo el lock de la fila del tenant. No hay otro camino que asigne correlativos.

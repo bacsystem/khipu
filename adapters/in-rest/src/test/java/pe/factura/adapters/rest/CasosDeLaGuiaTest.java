@@ -114,7 +114,7 @@ class CasosDeLaGuiaTest {
 
     private static ComunicacionBaja resumen(Comprobante c, LocalDate generacion, ComunicacionBaja.Condicion condicion, String motivo) {
         return ComunicacionBaja.rehidratar(UUID.randomUUID(), c.tenantId(), generacion, 1, c.id(), c.tipo(), true, c.serie(), c.numero(), c.fechaEmision(), motivo,
-                condicion, ComunicacionBaja.EstadoBaja.ACEPTADA, "1789768174685", "k.xml", "r.zip", new Cdr("0", "aceptado", List.of()), 1, null);
+                condicion, ComunicacionBaja.EstadoBaja.ACEPTADA, "1789768174685", "k.xml", "r.zip", new Cdr("0", "aceptado", List.of()), 1, null, 1, 1);
     }
 
     /** Cada hoja del ejemplo existe en la respuesta real, en la misma ruta y con el mismo valor. */

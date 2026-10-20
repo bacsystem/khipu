@@ -60,7 +60,7 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
         if (!c.estado().esEnviable())
             throw new DomainException("ESTADO_NO_ENVIABLE", "El comprobante está en estado " + c.estado());
         // Pasado el envío individual una boleta ya no va sola (1079): SUNAT la recibe en un resumen diario, en plazo hasta el séptimo día (274-H1) y
-        // después fuera de plazo (#331): SUNAT puede observarla con la 4443, y e-beta la aceptó sin observaciones. Cada una en su propio RC (ver ComunicacionBaja.altaEnResumen).
+        // después fuera de plazo (#331): SUNAT puede observarla con la 4443, y e-beta la aceptó sin observaciones. Las de una misma fecha de emisión viajan juntas en un solo RC de hasta 500 líneas (ver DarDeBajaService.informar, #301).
         if (c.soloPorResumen(LocalDate.now(clock))) {
             if (resumen != null) return resumen.informar(tenantId, comprobanteId);
             throw new DomainException("FUERA_DE_PLAZO", c.nombreArchivo() + ": 1079 - Pasado el envío individual, SUNAT solo recibe " + (c.esNota() ? "esta nota" : "esta boleta") + " en un resumen diario");

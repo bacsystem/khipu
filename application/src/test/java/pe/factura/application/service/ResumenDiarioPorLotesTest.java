@@ -55,6 +55,7 @@ class ResumenDiarioPorLotesTest {
     EmitirComprobanteService emitir;
 
     @BeforeEach void setUp() {
+        comprobantes.bajasParaAgrupar = bajas;
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
         EnviarDocumentoService alEmitir = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
@@ -162,6 +163,72 @@ class ResumenDiarioPorLotesTest {
 
         assertThat(ubl.lineasPorResumen).as("el de tres y luego uno por boleta").containsExactly(3, 1, 1, 1);
         assertThat(bajas.deComprobante(tenantId, a.id()).stream().map(ComunicacionBaja::identificador)).contains("RC-20260919-2");
+    }
+
+    /** Una boleta nueva de la misma fecha no se une a las que ya se aíslan de a una tras un rechazo del resumen entero: va con las que no están aisladas. */
+    @Test void lasBoletasAisladasTrasUnRechazoNoVuelvenAAgruparseConUnaNueva() {
+        Comprobante a = boleta(EMISION), b = boleta(EMISION);
+        cdrs.cdr = new Cdr("2987", "Una línea del resumen tiene errores", List.of());
+        enviar.enviar(tenantId, a.id());
+        cdrs.cdr = new Cdr("0", "aceptado", List.of());
+        Comprobante nueva = boleta(EMISION);
+
+        enviar.enviar(tenantId, nueva.id());
+
+        assertThat(ubl.lineasPorResumen).as("el rechazado de dos líneas y la nueva sola: a y b siguen esperando su turno").containsExactly(2, 1);
+        assertThat(estado(nueva)).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(estado(a)).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(estado(b)).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+    }
+
+    /** El defecto de una hermana (aquí, la plantilla que falla con ella) no puede bloquear a las demás boletas de la fecha. */
+    @Test void unaHermanaQueNoSePuedeProducirNoBloqueaAlasDemas() {
+        Comprobante a = boleta(EMISION), b = boleta(EMISION), mala = boleta(EMISION);
+        pe.factura.application.port.out.UblGenerator conCulpable = new pe.factura.application.port.out.UblGenerator() {
+            public String generar(Comprobante c, pe.factura.domain.tenant.Tenant t) { return ubl.generar(c, t); }
+            public String generarBaja(ComunicacionBaja baja, Comprobante c, pe.factura.domain.tenant.Tenant t) { return ubl.generarBaja(baja, c, t); }
+            public String generarResumen(List<ComunicacionBaja> filas, List<Comprobante> comprobantes, pe.factura.domain.tenant.Tenant t) {
+                if (comprobantes.stream().anyMatch(x -> x.id().equals(mala.id()))) throw new IllegalStateException("la plantilla no puede con " + mala.serie() + "-" + mala.numero());
+                return ubl.generarResumen(filas, comprobantes, t);
+            }
+        };
+        resumen = new DarDeBajaService(bajas, comprobantes, tenants, storage, conCulpable, xsd, signer, gateway, cdrs, outbox, Fakes.UOW, SEIS_DIAS_DESPUES);
+        enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, SEIS_DIAS_DESPUES, RechazoDeSolRepository.NINGUNO, resumen);
+
+        assertThat(enviar.enviar(tenantId, a.id()).estado()).as("a sale sola, no se queda sin informar por culpa de la hermana").isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(enviar.enviar(tenantId, b.id()).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+
+        assertThat(ubl.lineasPorResumen).containsExactly(1, 1);
+        assertThat(estado(mala)).as("la defectuosa sigue esperando").isEqualTo(EstadoDocumento.FIRMADO);
+        assertThatThrownBy(() -> enviar.enviar(tenantId, mala.id())).isInstanceOf(IllegalStateException.class).hasMessageContaining("la plantilla no puede");
+    }
+
+    /**
+     * El worker y un GET de cualquier fila del resumen pueden resolver el mismo CDR a la vez. Si mientras uno espera a SUNAT el otro ya devolvió las boletas al envío y una se
+     * reinformó en un resumen nuevo, el resultado viejo no le toca a esa boleta: lo resuelve el nuevo. Sin esa guarda, el rechazo viejo la devolvía otra vez al envío con su
+     * resumen nuevo en curso, y el CDR aceptado de este se perdía.
+     */
+    @Test void elResultadoViejoDeUnResumenNoTocaALaBoletaYaReinformadaEnUnoNuevo() {
+        Comprobante a = boleta(EMISION), b = boleta(EMISION);
+        gateway.statusCode = "98";
+        enviar.enviar(tenantId, a.id());
+        ComunicacionBaja cabeza = bajas.deComprobante(tenantId, a.id()).get(0);
+        assertThat(cabeza.deVariasLineas()).isTrue();
+        gateway.statusCode = "0";
+        cdrs.cdr = new Cdr("2987", "Una línea del resumen tiene errores", List.of());
+        gateway.alConsultar = () -> {
+            // «El otro proceso»: resuelve el rechazo, y a se reinforma sola en un resumen nuevo que SUNAT todavía procesa.
+            resumen.continuar(tenantId, cabeza.id());
+            gateway.statusCode = "98";
+            enviar.enviar(tenantId, a.id());
+            gateway.statusCode = "0";
+        };
+
+        resumen.continuar(tenantId, cabeza.id());   // este vio el mismo rechazo antes que el otro lo aplicara
+
+        assertThat(estado(a)).as("a está en su resumen nuevo, no devuelta otra vez al envío").isEqualTo(EstadoDocumento.ENVIADO);
+        assertThat(bajas.deComprobante(tenantId, a.id()).stream().filter(x -> x.lineas() == 1).findFirst().orElseThrow().estado()).isEqualTo(EstadoBaja.ENVIADA);
+        assertThat(estado(b)).isEqualTo(EstadoDocumento.ERROR_ENVIO);
     }
 
     @Test void siElEnvioFallaTodasLasFilasQuedanEnErrorYElOutboxLlevaUnaSolaFilaPorResumen() {

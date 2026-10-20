@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * #287: cuánto cuesta preparar la baja de una boleta en el resumen diario —generar el SummaryDocuments, firmarlo con XML-DSig y validarlo contra el XSD—, que es todo lo que hace
- * khipu por cada baja antes de hablar con SUNAT. Hoy cada baja lleva su propio resumen de una línea (el agrupar hasta 500 líneas es #301), así que **10 000 bajas son 10 000
+ * khipu por cada baja antes de hablar con SUNAT. Una baja lleva su propio resumen de una línea (lo que se agrupa hasta 500 líneas, #301, son las altas: ver abajo), así que **10 000 bajas son 10 000
  * resúmenes**: este es el tiempo que el sistema necesita para producirlos, sin red. La meta acordada es p95 ≤ 100 ms por resumen y ≥ 50 resúmenes por segundo en un hilo, o sea
  * 10 000 bajas en menos de 3,5 minutos; en una laptop mide unos 6 ms de p95 y ~240 resúmenes/s (ver `k6/README.md`). La prueba falla si se rompe la meta, no si el equipo es rápido.
  */

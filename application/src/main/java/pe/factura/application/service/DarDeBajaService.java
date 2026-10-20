@@ -86,13 +86,13 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
             if (previas.stream().anyMatch(ComunicacionBaja::pendiente))
                 throw new DomainException("RESUMEN_INVALIDO", "Ya hay un resumen diario en curso para " + c.serie() + "-" + c.numero());
             List<Comprobante> lote = new ArrayList<>(List.of(c));
-            boolean rechazadoEnLote = previas.stream().anyMatch(p -> p.alta() && p.estado() == EstadoBaja.RECHAZADA && p.deVariasLineas());
-            if (!rechazadoEnLote && c.soloPorResumen(hoy))
+            if (previas.stream().noneMatch(ComunicacionBaja::aislaSuComprobante) && c.soloPorResumen(hoy))
                 comprobantes.bloquearPorInformarDeLaFecha(tenantId, c.fechaEmision(), c.id(), ComunicacionBaja.MAX_LINEAS_RESUMEN - 1).stream().filter(o -> o.soloPorResumen(hoy)).forEach(lote::add);
-            List<ComunicacionBaja> filas = ComunicacionBaja.altasEnResumen(lote, bajas.siguienteCorrelativo(tenantId, hoy), clock);
-            firmarYGuardar(tenant, lote, filas);
-            for (int i = 0; i < lote.size(); i++) {
-                Comprobante o = lote.get(i);
+            int correlativo = bajas.siguienteCorrelativo(tenantId, hoy);
+            List<ComunicacionBaja> filas = armarResumen(tenant, lote, correlativo);
+            List<Comprobante> incluidos = lote.subList(0, filas.size());
+            for (int i = 0; i < incluidos.size(); i++) {
+                Comprobante o = incluidos.get(i);
                 o.informarEnResumen(filas.get(i).identificador(), filas.get(i).fueraDePlazo());
                 comprobantes.guardar(o);
                 bajas.guardar(filas.get(i));
@@ -101,6 +101,24 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
         });
         continuar(tenant, cabeza);
         return comprobantes.buscar(tenantId, comprobanteId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
+    }
+
+    /**
+     * Las filas del resumen del {@code lote}, con su XML ya firmado, validado y guardado. Si el resumen de varias líneas no se puede producir (la plantilla o el esquema fallan con
+     * alguna de las líneas) se arma solo con la primera, la que se pidió informar: el defecto de una hermana no puede bloquear a las demás boletas de la fecha, que sin esto
+     * volverían a agruparla en cada intento y fallarían todas para siempre. La hermana defectuosa sigue esperando, y falla sola cuando le toque.
+     */
+    private List<ComunicacionBaja> armarResumen(Tenant tenant, List<Comprobante> lote, int correlativo) {
+        try {
+            List<ComunicacionBaja> filas = ComunicacionBaja.altasEnResumen(lote, correlativo, clock);
+            firmarYGuardar(tenant, lote, filas);
+            return filas;
+        } catch (RuntimeException e) {
+            if (lote.size() == 1) throw e;
+            List<ComunicacionBaja> sola = ComunicacionBaja.altasEnResumen(lote.subList(0, 1), correlativo, clock);
+            firmarYGuardar(tenant, lote.subList(0, 1), sola);
+            return sola;
+        }
     }
 
     /** Una boleta va en un resumen diario (RC) y los demás en una comunicación de baja (RA): mismo ciclo, otro XML (#20). Lo deja firmado y guardado. */
@@ -184,13 +202,16 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
             filas.forEach(bajas::guardar);
             if (b.alta() && !b.pendiente()) {
                 // Un resumen de alta resuelto resuelve la boleta: su CDR la acepta o la rechaza, como un envío más.
-                // #362 B3, decisión sin cambio de lógica: si SUNAT rechaza el alta de una boleta que ya tenía (2282 «ya informada», o 2987 «informada y anulada o rechazada»), esta línea la deja RECHAZADA
+                // #362 B3, decisión sin cambio de lógica: si SUNAT rechaza el alta de una boleta que ya tenía (2282 «ya informada»; el 2987 es el rechazo del resumen por una línea con error), esta línea la deja RECHAZADA
                 // aunque SUNAT ya la tenga. En e-beta no se reproduce (el alta sobre una boleta aceptada por sendBill se aceptó con código 0, y un sendBill repetido con otro contenido tampoco da 1033) y
                 // producción no se pudo verificar; endurecerlo (mapear 2282 en el alta a «ya informada», no a RECHAZADO) sin evidencia sería adivinar. Se revisa con el primer caso real.
                 for (ComunicacionBaja fila : filas) {
                     Comprobante c = comprobantes.bloquear(fila.tenantId(), fila.comprobanteId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Comprobante no encontrado"));
                     if (c.estado() != EstadoDocumento.ENVIADO) continue;
-                    if (b.estado() == EstadoBaja.RECHAZADA && b.deVariasLineas()) devolverAlEnvio(c, b);
+                    // Dos procesos pueden resolver el mismo resumen a la vez (el worker y un GET de cualquiera de sus filas): si el comprobante ya fue reinformado en un resumen más
+                    // nuevo, el resultado de este, viejo, no le toca; lo resolverá el nuevo. Sin esto, un rechazo repetido lo devolvía al envío con su resumen nuevo en curso.
+                    if (!esElUltimoResumenDe(fila)) continue;
+                    if (b.aislaSuComprobante()) devolverAlEnvio(c, b, fila.linea());
                     else {
                         if (b.cdrKey() != null) c.aplicarCdr(b.cdr(), b.cdrKey()); else c.rechazarPorFault(b.cdr().codigo(), b.cdr().descripcion());
                         comprobantes.guardar(c);
@@ -213,12 +234,18 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
      * #301: SUNAT rechaza un resumen entero si una línea falla (2987) y el CDR no dice cuál. Marcar RECHAZADAS a todas castigaría a boletas buenas por una mala: cada una vuelve a
      * su envío y se informa sola ({@link #informar} no agrupa una boleta cuyo resumen de varias líneas ya fue rechazado), así solo la defectuosa termina RECHAZADA.
      */
-    private void devolverAlEnvio(Comprobante c, ComunicacionBaja resumen) {
+    private void devolverAlEnvio(Comprobante c, ComunicacionBaja resumen, int linea) {
         c.marcarErrorEnvio("SUNAT rechazó el resumen diario " + resumen.identificador() + " de " + resumen.lineas() + " líneas (" + resumen.cdr().codigo() + " - " + resumen.cdr().descripcion()
                 + "): se vuelve a informar sola para aislar la línea que lo causó");
         comprobantes.guardar(c);
         outbox.completarPorAgregado(c.id(), EnviarDocumentoService.ACCION_ENVIAR);
-        outbox.programar(c.tenantId(), EnviarDocumentoService.ACCION_ENVIAR, c.id(), clock.instant());
+        // Un milisegundo por línea: el outbox toma lo vencido por orden de programación, y así cada una se informa en el orden del resumen (una nota detrás de la boleta que modifica).
+        outbox.programar(c.tenantId(), EnviarDocumentoService.ACCION_ENVIAR, c.id(), clock.instant().plusMillis(linea));
+    }
+
+    /** Si esta fila es el resumen de alta más reciente de su comprobante: ninguno posterior, ni en curso ni resuelto. */
+    private boolean esElUltimoResumenDe(ComunicacionBaja fila) {
+        return bajas.deComprobante(fila.tenantId(), fila.comprobanteId()).stream().filter(ComunicacionBaja::alta).noneMatch(o -> o.esPosteriorA(fila));
     }
 
     @Override public ComunicacionBaja obtener(UUID tenantId, UUID bajaId) {
