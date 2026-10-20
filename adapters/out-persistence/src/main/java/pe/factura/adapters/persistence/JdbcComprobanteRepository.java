@@ -221,7 +221,42 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         List<Object> args = new ArrayList<>();
         String where = where(tenantId, filtro, args);
         args.add(porPagina); args.add((pagina - 1) * porPagina);
-        return consultar(where, " ORDER BY d.created_at DESC LIMIT ? OFFSET ?", args.toArray());
+        // #321: con desempate por id, dos comprobantes creados en el mismo instante no cambian de lugar entre una página y la siguiente.
+        return consultar(where, " ORDER BY d.created_at DESC, d.id DESC LIMIT ? OFFSET ?", args.toArray());
+    }
+
+    /**
+     * #321: por llave ({@code (created_at, id) < (?, ?)}) en vez de {@code OFFSET}: que entren o salgan filas antes de la llave (un comprobante nuevo, otro que cambió de estado y
+     * dejó de cumplir el filtro) no corre las páginas, así que lo que no cambia mientras se recorre sale exactamente una vez.
+     */
+    @Override public ConsultarComprobanteUseCase.PaginaPorLlave listarPorLlave(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, Set<EstadoDocumento> excluidos,
+                                                                         ConsultarComprobanteUseCase.Llave despues, int limite) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(where(tenantId, filtro, args)).append(sinEstados(excluidos, args));
+        if (despues != null) {
+            where.append(" AND (d.created_at, d.id) < (?, ?)");
+            args.add(java.sql.Timestamp.from(despues.creadoEn()));
+            args.add(despues.id());
+        }
+        args.add(limite);
+        List<Comprobante> filas = consultar(where.toString(), " ORDER BY d.created_at DESC, d.id DESC LIMIT ?", args.toArray());
+        if (filas.isEmpty()) return new ConsultarComprobanteUseCase.PaginaPorLlave(filas, null);
+        UUID ultimo = filas.get(filas.size() - 1).id();
+        Instant creado = jdbc.queryForObject("SELECT created_at FROM documento WHERE id = ?", java.sql.Timestamp.class, ultimo).toInstant();
+        return new ConsultarComprobanteUseCase.PaginaPorLlave(filas, new ConsultarComprobanteUseCase.Llave(creado, ultimo));
+    }
+
+    @Override public long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, Set<EstadoDocumento> excluidos) {
+        List<Object> args = new ArrayList<>();
+        String where = where(tenantId, filtro, args) + sinEstados(excluidos, args);
+        Long total = jdbc.queryForObject("SELECT count(*) FROM documento d JOIN comprobante c ON c.documento_id = d.id" + where, Long.class, args.toArray());
+        return total == null ? 0 : total;
+    }
+
+    private static String sinEstados(Set<EstadoDocumento> excluidos, List<Object> args) {
+        if (excluidos == null || excluidos.isEmpty()) return "";
+        excluidos.forEach(e -> args.add(e.name()));
+        return " AND d.estado NOT IN (" + String.join(", ", java.util.Collections.nCopies(excluidos.size(), "?")) + ")";
     }
 
     @Override public long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro) {

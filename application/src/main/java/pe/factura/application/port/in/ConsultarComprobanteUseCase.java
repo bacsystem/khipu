@@ -16,6 +16,23 @@ public interface ConsultarComprobanteUseCase {
     long contar(UUID tenantId, Filtro filtro);
 
     /**
+     * #321: la posición de un comprobante en el orden del listado (lo más reciente primero, y a igual instante de creación el id mayor primero). Una página que empieza después de
+     * una llave no depende de cuántas filas entraron o salieron antes, como pasa con {@code OFFSET}.
+     */
+    record Llave(java.time.Instant creadoEn, UUID id) {}
+    /** Una página leída por llave y la llave de su última fila, para pedir la siguiente; {@code null} si la página vino vacía. */
+    record PaginaPorLlave(List<Comprobante> filas, Llave ultima) {}
+
+    /**
+     * Hasta {@code limite} comprobantes que cumplen {@code filtro} y no están en {@code excluidos}, en el orden del listado, a partir de la fila siguiente a {@code despues}
+     * ({@code null}: desde el principio). Lo usa la exportación (#321), que recorre todo el resultado.
+     */
+    PaginaPorLlave listarPorLlave(UUID tenantId, Filtro filtro, java.util.Set<EstadoDocumento> excluidos, Llave despues, int limite);
+
+    /** Cuántos comprobantes cumplen {@code filtro} sin contar los de {@code excluidos}. */
+    long contar(UUID tenantId, Filtro filtro, java.util.Set<EstadoDocumento> excluidos);
+
+    /**
      * Filtros del listado (#2, #3): todos opcionales y combinables; {@code desde}/{@code hasta} acotan la fecha de emisión,
      * inclusive; {@code serie} es la serie exacta (F001, FC01…), en mayúsculas.
      */

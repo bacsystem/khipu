@@ -210,4 +210,76 @@ class JdbcComprobanteConsultasTest extends PersistenciaTestBase {
         assertThat(todos[0]).allSatisfy(c -> assertThat(c.items()).extracting(Item::descripcion).containsExactly("Laptop " + c.numero()));
         assertThat(n).as("ids + 2 tandas × 4 tablas + filas; ninguna se leyó por demanda").isEqualTo(1 + 2 * 4 + 1);
     }
+
+    // --- #321: lectura por llave de la exportación -------------------------------------------------------------------------------
+
+    Comprobante simple(UUID tenant, long n) {
+        Comprobante c = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(clock);
+        c.asignarNumero(n, "20100066603");
+        c.firmar("H", "k.xml");
+        escritura.guardar(c);
+        return c;
+    }
+
+    List<Long> recorrerPorLlave(UUID tenant, Filtro f, java.util.Set<EstadoDocumento> excluidos, int pagina, Runnable entrePaginas) {
+        List<Long> numeros = new ArrayList<>();
+        pe.factura.application.port.in.ConsultarComprobanteUseCase.Llave despues = null;
+        boolean primera = true;
+        while (true) {
+            var p = escritura.listarPorLlave(tenant, f, excluidos, despues, pagina);
+            p.filas().forEach(c -> numeros.add(c.numero()));
+            if (p.filas().size() < pagina) return numeros;
+            despues = p.ultima();
+            if (primera) { entrePaginas.run(); primera = false; }
+        }
+    }
+
+    /** Con varios comprobantes creados en el mismo instante, el desempate por id hace que ninguno se repita ni se pierda entre páginas (con OFFSET y sin desempate, sí). */
+    @Test void porLlaveConEmpatesDeCreacionCadaComprobanteSaleUnaVez() {
+        UUID t = tenantDePrueba();
+        for (long n = 1; n <= 7; n++) simple(t, n);
+        jdbc.update("UPDATE documento SET created_at = '2026-09-13 10:00:00+00' WHERE tenant_id = ?", t);
+
+        List<Long> numeros = recorrerPorLlave(t, TODOS, java.util.Set.of(), 2, () -> {});
+
+        assertThat(numeros).containsExactlyInAnyOrder(1L, 2L, 3L, 4L, 5L, 6L, 7L);
+        // El listado por páginas también desempata por id: el mismo orden en las dos lecturas.
+        List<Long> listado = new ArrayList<>();
+        for (int p = 1; p <= 4; p++) escritura.listar(t, TODOS, p, 2).forEach(c -> listado.add(c.numero()));
+        assertThat(listado).containsExactlyElementsOf(numeros);
+    }
+
+    /**
+     * Filtrando por estado, uno de la primera página cambia de estado entre página y página (deja de cumplir el filtro). Con OFFSET la segunda página se correría una fila y uno
+     * que no cambió se perdería; por llave salen todos los que no cambiaron.
+     */
+    @Test void porLlaveUnCambioDeEstadoEntrePaginasNoHacePerderOtrasFilas() {
+        UUID t = tenantDePrueba();
+        List<Comprobante> todos = new ArrayList<>();
+        for (long n = 1; n <= 6; n++) {
+            todos.add(simple(t, n));
+            jdbc.update("UPDATE documento SET created_at = ? WHERE id = ?", java.sql.Timestamp.from(Instant.parse("2026-09-13T10:00:00Z").plusSeconds(n)), todos.get((int) n - 1).id());
+        }
+        Filtro firmados = new Filtro(EstadoDocumento.FIRMADO, null, null);
+
+        // La primera página (lo más reciente primero) trae el 6 y el 5; antes de la segunda, el 6 pasa a ERROR_ENVIO.
+        List<Long> numeros = recorrerPorLlave(t, firmados, java.util.Set.of(), 2,
+                () -> jdbc.update("UPDATE documento SET estado = 'ERROR_ENVIO' WHERE id = ?", todos.get(5).id()));
+
+        assertThat(numeros).containsExactly(6L, 5L, 4L, 3L, 2L, 1L);
+    }
+
+    @Test void porLlaveLosEstadosExcluidosNoSalenNiSeCuentan() {
+        UUID t = tenantDePrueba();
+        Comprobante rechazado = simple(t, 1);
+        simple(t, 2);
+        jdbc.update("UPDATE documento SET estado = 'RECHAZADO' WHERE id = ?", rechazado.id());
+        var excluidos = java.util.Set.of(EstadoDocumento.RECHAZADO, EstadoDocumento.INVALIDO, EstadoDocumento.DESCARTADO);
+
+        assertThat(recorrerPorLlave(t, TODOS, excluidos, 10, () -> {})).containsExactly(2L);
+        assertThat(escritura.contar(t, TODOS, excluidos)).isEqualTo(1);
+        assertThat(escritura.contar(t, TODOS, java.util.Set.of())).isEqualTo(2);
+        assertThat(escritura.listarPorLlave(tenantDePrueba(), TODOS, excluidos, null, 10).filas()).as("otra empresa no ve nada").isEmpty();
+    }
 }

@@ -134,7 +134,7 @@ class AdminConsumoDeCuentasControllerTest {
                 .andReturn().getResponse();
 
         String cuerpo = respuesta.getContentAsString(StandardCharsets.UTF_8);
-        assertThat(cuerpo).startsWith("﻿cuenta_id,cuenta,correo,plan,");
+        assertThat(cuerpo).startsWith("\uFEFFcuenta_id,cuenta,correo,plan,");
         assertThat(cuerpo).contains("Ana,ana@x.pe,Emprende,240,300,80,si,EN_GRACIA,");
     }
 
@@ -160,6 +160,6 @@ class AdminConsumoDeCuentasControllerTest {
 
         String cuerpo = mvc.perform(get("/v1/admin/consumo/exportacion").with(clave())).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
 
-        assertThat(cuerpo).isEqualTo("﻿cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta\r\n");
+        assertThat(cuerpo).isEqualTo("\uFEFFcuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta\r\n");
     }
 }

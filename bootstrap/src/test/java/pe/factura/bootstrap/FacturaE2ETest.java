@@ -95,6 +95,39 @@ class FacturaE2ETest {
         assertThat(new String(ZipUtil.extraerPrimero(cdr.getBody(), ".xml"))).contains("ha sido aceptada");
     }
 
+    /** #321-I2: con ISC, un cargo y un descuento que no afectan la base y redondeo, las columnas del CSV suman el total que devolvió la emisión. */
+    @Test void enLaExportacionElTotalCuadraConLasColumnas(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        String factura = """
+            {"serie":"F001","fecha_emision":"%s","tipo_operacion":"0101","moneda":"PEN",
+             "cliente":{"tipo_doc":"6","num_doc":"20601234565","razon_social":"CLIENTE SAC"},
+             "items":[{"codigo":"P1","descripcion":"Cerveza","unidad":"NIU","cantidad":3,"precio_unitario":159.30,"tipo_afectacion_igv":"10","isc":{"sistema":"01","tasa":35}},
+                      {"codigo":"P2","descripcion":"Libro","unidad":"NIU","cantidad":1,"precio_unitario":50.00,"tipo_afectacion_igv":"20"}],
+             "descuento_global":{"monto":5.00,"afecta_base_igv":false},"cargos":[{"monto":10.00,"afecta_base_igv":false}],"redondeo":-0.05}
+            """.formatted(java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")));
+        ResponseEntity<Map> emitida = http.postForEntity("/v1/facturas", new HttpEntity<>(factura, h), Map.class);
+        assertThat(emitida.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        Object total = ((Map<?, ?>) ((Map<?, ?>) emitida.getBody().get("datos")).get("totales")).get("total");
+
+        String texto = new String(http.exchange("/v1/facturas/exportacion", HttpMethod.GET, new HttpEntity<>(h), byte[].class).getBody(), java.nio.charset.StandardCharsets.UTF_8);
+        String[] lineas = texto.split("\r\n");
+        List<String> columnas = List.of(lineas[0].substring(1).split(","));
+        String[] celdas = lineas[1].split(",", -1);
+        java.util.function.Function<String, java.math.BigDecimal> col = c -> new java.math.BigDecimal(celdas[columnas.indexOf(c)]);
+        java.math.BigDecimal suma = java.math.BigDecimal.ZERO;
+        for (String c : List.of("gravado", "exonerado", "inafecto", "exportacion", "igv", "ivap", "isc", "icbper", "otros_tributos", "total_cargos", "redondeo")) suma = suma.add(col.apply(c));
+        suma = suma.subtract(col.apply("total_descuentos"));
+
+        assertThat(col.apply("isc")).isPositive();
+        assertThat(col.apply("total_cargos")).isEqualByComparingTo("10.00");
+        assertThat(col.apply("total_descuentos")).isEqualByComparingTo("5.00");
+        assertThat(col.apply("redondeo")).isEqualByComparingTo("-0.05");
+        assertThat(col.apply("total")).isEqualByComparingTo(String.valueOf(total));
+        assertThat(suma).isEqualByComparingTo(col.apply("total"));
+    }
+
     /** #321: la exportación con la pila real: Postgres, filtros del listado, CSV con BOM y XLSX, y la misma puerta de credenciales. */
     @Test void exportaLosComprobantesEnCsvYXlsx(WireMockRuntimeInfo wm) throws Exception {
         stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
@@ -107,8 +140,8 @@ class FacturaE2ETest {
         assertThat(csv.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(csv.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).isEqualTo("attachment; filename=\"comprobantes-" + hoy + "_" + hoy + ".csv\"");
         String texto = new String(csv.getBody(), java.nio.charset.StandardCharsets.UTF_8);
-        assertThat(texto).startsWith("﻿tipo,serie,numero,fecha_emision,")
-                .contains("\r\n01,F001,1," + hoy + ",6,20601234565,CLIENTE SAC,PEN,2000.00,0.00,0.00,0.00,0.00,360.00,0.00,2360.00,ACEPTADO,\r\n");
+        assertThat(texto).startsWith("\uFEFFtipo,serie,numero,fecha_emision,")
+                .contains("\r\n01,F001,1," + hoy + ",6,20601234565,CLIENTE SAC,PEN,,2000.00,0.00,0.00,0.00,0.00,360.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,2360.00,ACEPTADO,\r\n");
 
         ResponseEntity<byte[]> nadie = http.exchange("/v1/facturas/exportacion?cliente=nadie", HttpMethod.GET, new HttpEntity<>(h), byte[].class);
         assertThat(new String(nadie.getBody(), java.nio.charset.StandardCharsets.UTF_8).split("\r\n")).as("sin resultados, solo la cabecera").hasSize(1);

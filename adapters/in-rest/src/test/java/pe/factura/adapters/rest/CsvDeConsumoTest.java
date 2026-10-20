@@ -26,7 +26,7 @@ class CsvDeConsumoTest {
     static List<String> lineas(String csv) { return List.of(csv.substring(1).split("\r\n", -1)); }
 
     @Test void empiezaConLaMarcaUtf8ParaQueLaHojaDeCalculoLeaLasTildes() {
-        assertThat(csv()).startsWith("﻿");
+        assertThat(csv()).startsWith("\uFEFF");
         assertThat(csv().getBytes(StandardCharsets.UTF_8)).startsWith(0xEF, 0xBB, 0xBF);
     }
 

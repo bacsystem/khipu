@@ -4,19 +4,26 @@ import org.dhatim.fastexcel.Workbook;
 import org.dhatim.fastexcel.Worksheet;
 import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro;
+import pe.factura.application.port.in.ConsultarComprobanteUseCase.Llave;
+import pe.factura.application.port.in.ConsultarComprobanteUseCase.PaginaPorLlave;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
+import pe.factura.domain.documento.EstadoDocumento;
+import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.documento.Totales;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -26,24 +33,35 @@ import java.util.function.Consumer;
 
 /**
  * Exportación de comprobantes para el contador (#321): una fila por comprobante que cumple los filtros del listado, en CSV o en XLSX, escrita a medida que se lee (una página de
- * {@value #PAGINA} comprobantes a la vez en memoria, nunca el resultado entero). El tope ({@link #MAXIMO}) se comprueba antes de empezar con el mismo conteo que el listado: un 422
- * con cuántos hay, no un archivo truncado.
+ * {@value #PAGINA} comprobantes a la vez en memoria, nunca el resultado entero). El tope ({@link #MAXIMO}) se comprueba antes de empezar con el mismo conteo: un 422 con cuántos hay,
+ * no un archivo truncado.
  *
- * <p>Las páginas se leen con el orden del listado (lo más reciente primero). Si mientras se exporta se emite otro comprobante, entra arriba y corre las páginas una fila: la fila
- * que se repetiría se descarta por id, y como lo nuevo entra antes de lo ya leído, no se pierde ninguna de las que había al empezar.
+ * <p><b>Qué entra.</b> Sin filtro de {@code estado} quedan fuera los que no son ventas ({@link #NO_SON_VENTAS}: los que SUNAT rechazó, los que no pasaron la validación y los que un
+ * administrador descartó); pedir uno de esos estados con {@code estado} sí los trae. Una nota de crédito sale con sus importes en negativo —el archivo es para el contador y así la
+ * columna suma la venta neta—; la de débito, en positivo como la factura.
  *
- * <p>CSV (RFC 4180, registros con CRLF) con la marca UTF-8 al inicio, para que Excel lea las tildes; separador {@code ,} por defecto —el de Excel con la configuración regional de
- * Perú— o {@code ;} (la de España y otras). Los importes van con punto decimal y 2 decimales. Los textos que escribió un cliente (su nombre y documento) se escapan contra la
- * inyección de fórmulas: si empiezan por {@code = + - @}, tabulador o retorno se les antepone una comilla simple. En el XLSX los textos van como celdas de texto, que una hoja de
- * cálculo nunca evalúa, y los importes como números con 2 decimales.
+ * <p><b>Cómo cuadra el total.</b> {@code total} = gravado + exonerado + inafecto + exportacion + igv + ivap + isc + icbper + otros_tributos + total_cargos − total_descuentos +
+ * redondeo. {@code gratuito} no se cobra y no entra. Las bases y el IGV ya vienen netos de los anticipos: {@code total_anticipos} (lo pagado antes, IGV incluido) es informativo.
+ *
+ * <p><b>Lectura por páginas.</b> Por llave ({@code created_at}, {@code id}), no por {@code OFFSET}: lo que entra o sale del resultado mientras se exporta no corre las páginas, así
+ * que un comprobante que no cambia sale exactamente una vez. Uno que cambia de estado durante la exportación sale con el estado de ese momento, o queda fuera si deja de cumplir el
+ * filtro; uno emitido después de empezar no entra (va arriba, antes de la primera llave).
+ *
+ * <p><b>Formato.</b> CSV (RFC 4180, registros con CRLF) con la marca UTF-8 al inicio, para que Excel lea las tildes; separador {@code ,} por defecto —el de Excel con la configuración
+ * regional de Perú— o {@code ;}. Los importes con punto decimal y 2 decimales. Los textos que escribió un cliente se escapan contra la inyección de fórmulas ({@link CeldaCsv}). En
+ * el XLSX los textos van como celdas de texto, que una hoja de cálculo nunca evalúa, y los importes como números con 2 decimales.
  */
 final class ExportacionDeComprobantes {
     /** Cuántos comprobantes admite una exportación: un mes de una empresa grande. Más que eso se pide por tramos de fechas. */
     static final int MAXIMO = 5000;
     static final int PAGINA = 100;
+    static final String BOM = "\uFEFF";
+    /** Lo que no es una venta y no se exporta salvo que el filtro {@code estado} lo pida. */
+    static final Set<EstadoDocumento> NO_SON_VENTAS = EnumSet.of(EstadoDocumento.RECHAZADO, EstadoDocumento.INVALIDO, EstadoDocumento.DESCARTADO);
 
-    static final List<String> COLUMNAS = List.of("tipo", "serie", "numero", "fecha_emision", "cliente_tipo_doc", "cliente_num_doc", "cliente", "moneda",
-            "gravado", "exonerado", "inafecto", "gratuito", "exportacion", "igv", "icbper", "total", "estado", "documento_modificado");
+    static final List<String> COLUMNAS = List.of("tipo", "serie", "numero", "fecha_emision", "cliente_tipo_doc", "cliente_num_doc", "cliente", "moneda", "tipo_cambio",
+            "gravado", "exonerado", "inafecto", "gratuito", "exportacion", "igv", "icbper", "isc", "ivap", "otros_tributos", "total_descuentos", "total_cargos", "total_anticipos",
+            "redondeo", "total", "estado", "documento_modificado");
 
     enum Formato {
         CSV("csv", "text/csv; charset=UTF-8"), XLSX("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -72,31 +90,38 @@ final class ExportacionDeComprobantes {
         };
     }
 
-    /** Una fila de la exportación, ya con los textos y los importes como se escriben. */
-    record Fila(String tipo, String serie, Long numero, LocalDate fechaEmision, String clienteTipoDoc, String clienteNumDoc, String cliente, String moneda,
-                BigDecimal gravado, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito, BigDecimal exportacion, BigDecimal igv, BigDecimal icbper, BigDecimal total,
-                String estado, String documentoModificado) {
-        static Fila de(Comprobante c) {
-            Totales t = c.totales();
-            // El documento modificado de una nota con su tipo: «01 F001-125» (factura) o «03 B001-9» (boleta). Vacío en una factura o una boleta.
-            String modificado = c.nota() == null ? null : c.nota().tipoAfectado().codigo() + " " + c.nota().documentoAfectado();
-            return new Fila(c.tipo().codigo(), c.serie(), c.numero(), c.fechaEmision(),
-                    c.receptor() == null ? null : c.receptor().tipoDoc(), c.receptor() == null ? null : c.receptor().numDoc(), c.receptor() == null ? null : c.receptor().razonSocial(),
-                    c.moneda(), importe(t.gravado()), importe(t.exonerado()), importe(t.inafecto()), importe(t.gratuito()), importe(t.exportacion()), importe(t.igv()),
-                    importe(t.icbper()), importe(t.total()), c.estado().name(), modificado);
-        }
-
-        List<Object> valores() {
-            return java.util.Arrays.asList(tipo, serie, numero, fechaEmision, clienteTipoDoc, clienteNumDoc, cliente, moneda, gravado, exonerado, inafecto, gratuito, exportacion, igv,
-                    icbper, total, estado, documentoModificado);
-        }
-    }
-
     private ExportacionDeComprobantes() {}
+
+    /** Los estados que no entran: los que no son ventas, salvo que el filtro pida un estado concreto (entonces manda el filtro). */
+    static Set<EstadoDocumento> excluidos(Filtro filtro) { return filtro.estado() != null ? Set.of() : NO_SON_VENTAS; }
+
+    /** Los valores de la fila de un comprobante, en el orden de {@link #COLUMNAS}; {@code null} es una celda vacía. */
+    static List<Object> valores(Comprobante c) {
+        Totales t = c.totales();
+        boolean credito = c.tipo() == TipoDocumento.NOTA_CREDITO;
+        // El documento modificado de una nota con su tipo: «01 F001-125» (factura) o «03 B001-9» (boleta). Vacío en una factura o una boleta.
+        String modificado = c.nota() == null ? null : c.nota().tipoAfectado().codigo() + " " + c.nota().documentoAfectado();
+        List<Object> v = new ArrayList<>();
+        v.add(c.tipo().codigo());
+        v.add(c.serie());
+        v.add(c.numero());
+        v.add(c.fechaEmision());
+        v.add(c.receptor() == null ? null : c.receptor().tipoDoc());
+        v.add(c.receptor() == null ? null : c.receptor().numDoc());
+        v.add(c.receptor() == null ? null : c.receptor().razonSocial());
+        v.add(c.moneda());
+        v.add(c.tipoCambio() == null ? null : c.tipoCambio().setScale(3, RoundingMode.HALF_UP));
+        for (BigDecimal monto : List.of(t.gravado(), t.exonerado(), t.inafecto(), t.gratuito(), t.exportacion(), t.igv(), t.icbper(), t.isc(), t.ivap(), t.otrosTributos(),
+                t.totalDescuentos(), t.totalCargos(), t.totalAnticipos(), t.redondeo(), t.total()))
+            v.add(importe(monto, credito));
+        v.add(c.estado().name());
+        v.add(modificado);
+        return v;
+    }
 
     /** Valida el tope; devuelve cuántos comprobantes entran (puede ser cero: un mes sin ventas también es una respuesta, y el archivo sale solo con la cabecera). */
     static long verificar(ConsultarComprobanteUseCase consultar, UUID tenant, Filtro filtro) {
-        long total = consultar.contar(tenant, filtro);
+        long total = consultar.contar(tenant, filtro, excluidos(filtro));
         if (total > MAXIMO)
             throw new DomainException("EXPORTACION_EXCEDE_EL_TOPE", "Hay " + total + " comprobantes con esos filtros y una exportación admite hasta " + MAXIMO + ": acote las fechas y exporte por tramos");
         return total;
@@ -110,21 +135,27 @@ final class ExportacionDeComprobantes {
     }
 
     static void escribir(OutputStream salida, ConsultarComprobanteUseCase consultar, UUID tenant, Filtro filtro, Formato formato, char separador) throws IOException {
-        if (formato == Formato.CSV) escribirCsv(salida, consultar, tenant, filtro, separador);
-        else escribirXlsx(salida, consultar, tenant, filtro);
+        try {
+            if (formato == Formato.CSV) escribirCsv(salida, consultar, tenant, filtro, separador);
+            else escribirXlsx(salida, consultar, tenant, filtro);
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
     }
 
-    /** Recorre los comprobantes de a una página y entrega cada uno una sola vez, hasta {@link #MAXIMO}. */
+    /** Recorre los comprobantes de a una página por llave y entrega cada uno una sola vez, hasta {@link #MAXIMO}. */
     private static void recorrer(ConsultarComprobanteUseCase consultar, UUID tenant, Filtro filtro, Consumer<Comprobante> cada) {
         Set<UUID> vistos = new HashSet<>();
-        for (int pagina = 1; vistos.size() < MAXIMO; pagina++) {
-            List<Comprobante> lote = consultar.listar(tenant, filtro, pagina, PAGINA);
-            if (lote.isEmpty()) return;
-            for (Comprobante c : lote) {
+        Set<EstadoDocumento> excluidos = excluidos(filtro);
+        Llave despues = null;
+        while (vistos.size() < MAXIMO) {
+            PaginaPorLlave pagina = consultar.listarPorLlave(tenant, filtro, excluidos, despues, PAGINA);
+            for (Comprobante c : pagina.filas()) {
                 if (vistos.size() >= MAXIMO) return;
                 if (vistos.add(c.id())) cada.accept(c);
             }
-            if (lote.size() < PAGINA) return;
+            if (pagina.filas().size() < PAGINA || pagina.ultima() == null) return;
+            despues = pagina.ultima();
         }
     }
 
@@ -132,41 +163,28 @@ final class ExportacionDeComprobantes {
 
     private static void escribirCsv(OutputStream salida, ConsultarComprobanteUseCase consultar, UUID tenant, Filtro filtro, char separador) throws IOException {
         Writer w = new BufferedWriter(new OutputStreamWriter(salida, StandardCharsets.UTF_8));
-        w.write('﻿');
+        w.write(BOM);
         w.write(String.join(String.valueOf(separador), COLUMNAS));
         w.write("\r\n");
-        try {
-            recorrer(consultar, tenant, filtro, c -> {
-                try {
-                    w.write(lineaCsv(Fila.de(c), separador));
-                } catch (IOException e) {
-                    throw new java.io.UncheckedIOException(e);
-                }
-            });
-        } catch (java.io.UncheckedIOException e) {
-            throw e.getCause();
-        }
+        recorrer(consultar, tenant, filtro, c -> {
+            try {
+                w.write(lineaCsv(valores(c), separador));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
         w.flush();
     }
 
-    static String lineaCsv(Fila f, char separador) {
+    static String lineaCsv(List<Object> valores, char separador) {
         StringBuilder sb = new StringBuilder();
-        List<Object> valores = f.valores();
         for (int i = 0; i < valores.size(); i++) {
             if (i > 0) sb.append(separador);
             Object v = valores.get(i);
             if (v instanceof BigDecimal b) sb.append(b.toPlainString());
-            else if (v != null) sb.append(textoCsv(v.toString(), separador));
+            else if (v != null) sb.append(CeldaCsv.texto(v.toString(), separador));
         }
         return sb.append("\r\n").toString();
-    }
-
-    /** Un texto en una celda: sin que se lea como fórmula y, si lleva el separador, comillas o saltos, entre comillas. */
-    static String textoCsv(String valor, char separador) {
-        String t = valor;
-        if (!t.isEmpty() && "=+-@\t\r".indexOf(t.charAt(0)) >= 0) t = "'" + t;
-        boolean comillas = t.indexOf(separador) >= 0 || t.indexOf('"') >= 0 || t.indexOf('\n') >= 0 || t.indexOf('\r') >= 0;
-        return comillas ? "\"" + t.replace("\"", "\"\"") + "\"" : t;
     }
 
     // --- XLSX -----------------------------------------------------------------------------------------------------------------------
@@ -178,40 +196,39 @@ final class ExportacionDeComprobantes {
         ws.range(0, 0, 0, COLUMNAS.size() - 1).style().bold().set();
         ws.freezePane(0, 1);
         int[] fila = {1};
-        try {
-            recorrer(consultar, tenant, filtro, comprobante -> {
-                List<Object> valores = Fila.de(comprobante).valores();
-                int r = fila[0]++;
-                for (int c = 0; c < valores.size(); c++) {
-                    Object v = valores.get(c);
-                    if (v == null) continue;
-                    if (v instanceof BigDecimal b) {
-                        ws.value(r, c, b);
-                        ws.style(r, c).format("0.00").set();
-                    } else if (v instanceof Long n) {
-                        ws.value(r, c, n);
-                    } else if (v instanceof LocalDate d) {
-                        ws.value(r, c, d);
-                        ws.style(r, c).format("yyyy-mm-dd").set();
-                    } else {
-                        ws.value(r, c, v.toString());
-                    }
+        recorrer(consultar, tenant, filtro, comprobante -> {
+            List<Object> valores = valores(comprobante);
+            int r = fila[0]++;
+            for (int c = 0; c < valores.size(); c++) {
+                Object v = valores.get(c);
+                if (v == null) continue;
+                if (v instanceof BigDecimal b) {
+                    ws.value(r, c, b);
+                    ws.style(r, c).format(b.scale() == 3 ? "0.000" : "0.00").set();
+                } else if (v instanceof Long n) {
+                    ws.value(r, c, n);
+                } else if (v instanceof LocalDate d) {
+                    ws.value(r, c, d);
+                    ws.style(r, c).format("yyyy-mm-dd").set();
+                } else {
+                    ws.value(r, c, v.toString());
                 }
-                // Cada tanto se vuelca lo escrito: así la hoja no se acumula entera en memoria.
-                if (r % PAGINA == 0) {
-                    try {
-                        ws.flush();
-                    } catch (IOException e) {
-                        throw new java.io.UncheckedIOException(e);
-                    }
+            }
+            // Cada tanto se vuelca lo escrito: así la hoja no se acumula entera en memoria.
+            if (r % PAGINA == 0) {
+                try {
+                    ws.flush();
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
                 }
-            });
-        } catch (java.io.UncheckedIOException e) {
-            throw e.getCause();
-        }
+            }
+        });
         wb.finish();
     }
 
-    /** Un importe con la escala de SUNAT (2 decimales). */
-    private static BigDecimal importe(BigDecimal v) { return v == null ? BigDecimal.ZERO.setScale(2) : v.setScale(2, RoundingMode.HALF_UP); }
+    /** Un importe con la escala de SUNAT (2 decimales); en una nota de crédito, con el signo cambiado. */
+    private static BigDecimal importe(BigDecimal v, boolean negativo) {
+        BigDecimal m = v == null ? BigDecimal.ZERO.setScale(2) : v.setScale(2, RoundingMode.HALF_UP);
+        return negativo && m.signum() != 0 ? m.negate() : m;
+    }
 }

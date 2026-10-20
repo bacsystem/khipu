@@ -364,9 +364,12 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
           </li>
           <li>
             <strong className="text-foreground">Para el contador:</strong> <Codigo>GET /v1/facturas/exportacion?formato=xlsx</Codigo> (o <Codigo>csv</Codigo>) con los mismos
-            filtros del listado da una fila por comprobante —tipo, serie, número, fecha, cliente, moneda, bases, IGV, ICBPER, total, estado y documento modificado—, hasta 5000
-            por exportación (<Codigo>422 EXPORTACION_EXCEDE_EL_TOPE</Codigo>). El CSV va en UTF-8 con BOM, separado por comas (<Codigo>separador=punto_y_coma</Codigo> si su
-            Excel lo pide) y con punto decimal.
+            filtros del listado da una fila por comprobante —tipo, serie, número, fecha, cliente, moneda, tipo de cambio, bases, IGV, ICBPER, ISC, IVAP, otros tributos,
+            descuentos, cargos, anticipos, redondeo, total, estado y documento modificado—, hasta 5000 por exportación (<Codigo>422 EXPORTACION_EXCEDE_EL_TOPE</Codigo>). Las
+            notas de crédito salen <strong className="text-foreground">en negativo</strong> (las de débito, en positivo) y, sin el filtro <Codigo>estado</Codigo>, no entran los{" "}
+            <Codigo>RECHAZADO</Codigo>, <Codigo>INVALIDO</Codigo> ni <Codigo>DESCARTADO</Codigo>. Para Excel use <Codigo>xlsx</Codigo>; el CSV va en UTF-8 con BOM, separado
+            por comas (<Codigo>separador=punto_y_coma</Codigo> si su Excel lo pide), con punto decimal y una comilla delante de los textos que empiezan por{" "}
+            <Codigo>= + - @</Codigo>. Si la conexión se corta, el archivo llega incompleto: vuelva a pedirlo.
           </li>
           <li>
             <strong className="text-foreground">No consulte en bucle:</strong> registre un{" "}
