@@ -23,6 +23,10 @@ public interface AdministrarTenantUseCase {
     Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv);
     void cargarCertificado(UUID tenantId, byte[] pkcs12, String clave);   // valida abriendo el KeyStore (RUC en OU y vigencia)
     void cargarCredencialesSol(UUID tenantId, String usuario, String clave);
+    /** #318: client_id y client_secret de «Credenciales de API SUNAT» (SOL); reemplazan las anteriores. Se guardan cifrados y nunca vuelven por la API. */
+    void cargarCredencialesApiSunat(UUID tenantId, String clientId, String clientSecret);
+    /** #318: idempotente; sin ellas la validez vuelve a consultarse solo con la clave SOL. */
+    void borrarCredencialesApiSunat(UUID tenantId);
     void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial);
     /** {@code establecimiento}: código del anexo desde el que emite la serie (nulo o 0000 = domicilio fiscal); debe existir y estar activo. */
     void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial, String establecimiento);

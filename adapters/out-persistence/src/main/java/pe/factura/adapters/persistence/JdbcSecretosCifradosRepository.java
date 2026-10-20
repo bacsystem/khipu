@@ -23,6 +23,8 @@ public class JdbcSecretosCifradosRepository implements SecretosCifradosRepositor
             new Columna("tenant", List.of("id"), "sol_clave_enc"),
             new Columna("tenant", List.of("id"), "cert_pkcs12_enc"),
             new Columna("tenant", List.of("id"), "cert_clave_enc"),
+            new Columna("tenant", List.of("id"), "api_sunat_client_id_enc"),
+            new Columna("tenant", List.of("id"), "api_sunat_client_secret_enc"),
             new Columna("administrador_segundo_factor", List.of("administrador_id"), "secreto_cifrado"),
             new Columna("idempotencia", List.of("alcance", "clave"), "respuesta_cifrada"),
             new Columna("webhook_endpoint", List.of("id"), "secreto_enc"));

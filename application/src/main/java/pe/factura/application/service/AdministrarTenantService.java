@@ -110,6 +110,19 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         });
     }
 
+    /** La validación y la normalización del client_id viven en {@link CredencialesApiSunat}, como las de SOL. */
+    public void cargarCredencialesApiSunat(UUID tenantId, String clientId, String clientSecret) {
+        Tenant t = obtener(tenantId);
+        CredencialesApiSunat api = new CredencialesApiSunat(clientId, clientSecret);
+        uow.ejecutar(() -> tenants.guardar(t.conCredencialesApiSunat(api)));
+    }
+
+    public void borrarCredencialesApiSunat(UUID tenantId) {
+        Tenant t = obtener(tenantId);
+        if (t.apiSunat() == null) return;
+        uow.ejecutar(() -> tenants.guardar(t.conCredencialesApiSunat(null)));
+    }
+
     public void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial) {
         crearSerie(tenantId, tipo, codigo, correlativoInicial, null);
     }

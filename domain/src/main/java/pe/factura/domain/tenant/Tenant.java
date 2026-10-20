@@ -13,7 +13,13 @@ import java.util.UUID;
  * (MYPE de restaurantes y hoteles, Ley 31556): sus comprobantes gravados llevan la tasa reducida ({@link pe.factura.domain.documento.TasaIgv}).
  */
 public record Tenant(UUID id, String ruc, String razonSocial, Entorno entorno, CredencialesSol sol, CertificadoDigital certificado,
-                     Domicilio domicilio, String cuentaDetracciones, String nombreComercial, PersonalizacionPdf personalizacionPdf, boolean padronTasaEspecialIgv) {
+                     Domicilio domicilio, String cuentaDetracciones, String nombreComercial, PersonalizacionPdf personalizacionPdf, boolean padronTasaEspecialIgv,
+                     CredencialesApiSunat apiSunat) {
+    /** Sin credenciales de la API SUNAT (#318): la forma de antes, que siguen usando el alta y las pruebas. */
+    public Tenant(UUID id, String ruc, String razonSocial, Entorno entorno, CredencialesSol sol, CertificadoDigital certificado,
+                  Domicilio domicilio, String cuentaDetracciones, String nombreComercial, PersonalizacionPdf personalizacionPdf, boolean padronTasaEspecialIgv) {
+        this(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv, null);
+    }
     public Tenant(UUID id, String ruc, String razonSocial, Entorno entorno, CredencialesSol sol, CertificadoDigital certificado,
                   Domicilio domicilio, String cuentaDetracciones, String nombreComercial, PersonalizacionPdf personalizacionPdf) {
         this(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, false);
@@ -54,11 +60,13 @@ public record Tenant(UUID id, String ruc, String razonSocial, Entorno entorno, C
     public void exigirCredencialesSol() {
         if (sol == null) throw new DomainException("CREDENCIALES_SOL_NO_CARGADAS", "El tenant no tiene credenciales SOL");
     }
-    public Tenant conCertificado(CertificadoDigital c) { return new Tenant(id, ruc, razonSocial, entorno, sol, c, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv); }
-    public Tenant conCredencialesSol(CredencialesSol s) { return new Tenant(id, ruc, razonSocial, entorno, s, certificado, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv); }
+    public Tenant conCertificado(CertificadoDigital c) { return new Tenant(id, ruc, razonSocial, entorno, sol, c, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv, apiSunat); }
+    /** {@code null} las borra (#318). */
+    public Tenant conCredencialesApiSunat(CredencialesApiSunat c) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv, c); }
+    public Tenant conCredencialesSol(CredencialesSol s) { return new Tenant(id, ruc, razonSocial, entorno, s, certificado, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv, apiSunat); }
     public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones) { return conDatosFiscales(d, cuentaDetracciones, nombreComercial); }
     public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones, String nombreComercial) { return conDatosFiscales(d, cuentaDetracciones, nombreComercial, padronTasaEspecialIgv); }
-    public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, d, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv); }
+    public Tenant conDatosFiscales(Domicilio d, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, d, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv, apiSunat); }
     /** Vista del emisor con el domicilio de un establecimiento anexo: lo que va en el XML y el PDF de una serie asignada a él. */
     /**
      * Identidad del emisor congelada para imprimir un comprobante ya firmado, conservando el diseño actual del PDF.
@@ -66,9 +74,9 @@ public record Tenant(UUID id, String ruc, String razonSocial, Entorno entorno, C
      * SUNAT recibió.
      */
     public Tenant conIdentidadImpresa(String ruc, String razonSocial, String nombreComercial, Domicilio domicilio) {
-        return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv);
+        return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv, apiSunat);
     }
 
-    public Tenant conDomicilio(Domicilio d) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, d, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv); }
-    public Tenant conPersonalizacionPdf(PersonalizacionPdf p) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, p, padronTasaEspecialIgv); }
+    public Tenant conDomicilio(Domicilio d) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, d, cuentaDetracciones, nombreComercial, personalizacionPdf, padronTasaEspecialIgv, apiSunat); }
+    public Tenant conPersonalizacionPdf(PersonalizacionPdf p) { return new Tenant(id, ruc, razonSocial, entorno, sol, certificado, domicilio, cuentaDetracciones, nombreComercial, p, padronTasaEspecialIgv, apiSunat); }
 }

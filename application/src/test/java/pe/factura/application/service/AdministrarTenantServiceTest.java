@@ -98,6 +98,25 @@ class AdministrarTenantServiceTest {
         assertThat(rechazosDeSol.filas).doesNotContainKey(id);
     }
 
+    /** #318: las credenciales API SUNAT se guardan normalizadas, conviven con las SOL y se pueden borrar sin tocar lo demás. */
+    @Test void credencialesApiSunatSeGuardanYSeBorran() {
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
+        service.cargarCredencialesSol(id, "MODDATOS", "moddatos");
+
+        service.cargarCredencialesApiSunat(id, " d20b421e-4ace-46d8-ac8c-4fbb44cfde17 ", "HhWwZVo8ZaWm4BZ7n/xEzw==");
+
+        assertThat(tenants.buscar(id).get().apiSunat().clientId()).isEqualTo("d20b421e-4ace-46d8-ac8c-4fbb44cfde17");
+        assertThat(tenants.buscar(id).get().apiSunat().clientSecret()).isEqualTo("HhWwZVo8ZaWm4BZ7n/xEzw==");
+        assertThat(tenants.buscar(id).get().sol()).as("no pisa la clave SOL").isNotNull();
+
+        service.borrarCredencialesApiSunat(id);
+        assertThat(tenants.buscar(id).get().apiSunat()).isNull();
+        assertThat(tenants.buscar(id).get().sol()).isNotNull();
+        service.borrarCredencialesApiSunat(id);   // idempotente
+        assertThatThrownBy(() -> service.cargarCredencialesApiSunat(id, "id con espacios", "x")).extracting("codigo").isEqualTo("CREDENCIALES_API_SUNAT_INVALIDAS");
+        assertThatThrownBy(() -> service.borrarCredencialesApiSunat(UUID.randomUUID())).extracting("codigo").isEqualTo("NO_ENCONTRADO");
+    }
+
     @Test void credencialesYSerie() {
         UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
         service.cargarCredencialesSol(id, "MODDATOS", "moddatos");

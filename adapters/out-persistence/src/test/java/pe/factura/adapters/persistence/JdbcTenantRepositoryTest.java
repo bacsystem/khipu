@@ -56,6 +56,38 @@ class JdbcTenantRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscar(t.id()).orElseThrow().personalizacionPdf()).isEqualTo(p);
     }
 
+    /** #318: el client_id y el client_secret se guardan cifrados (nunca en claro en la base), vuelven iguales y se borran sin tocar la clave SOL. */
+    @Test void guardaLasCredencialesApiSunatCifradasYLasBorra() {
+        Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, new CredencialesSol("MODDATOS", "moddatos"), null)
+                .conCredencialesApiSunat(new CredencialesApiSunat("d20b421e-4ace-46d8-ac8c-4fbb44cfde17", "HhWwZVo8ZaWm4BZ7n/xEzw=="));
+        repo.guardar(t);
+
+        byte[] secretoEnBd = jdbc.queryForObject("SELECT api_sunat_client_secret_enc FROM tenant WHERE id = ?", byte[].class, t.id());
+        byte[] idEnBd = jdbc.queryForObject("SELECT api_sunat_client_id_enc FROM tenant WHERE id = ?", byte[].class, t.id());
+        assertThat(new String(secretoEnBd)).doesNotContain("HhWwZVo8");
+        assertThat(new String(idEnBd)).doesNotContain("d20b421e");
+        Tenant r = repo.buscar(t.id()).orElseThrow();
+        assertThat(r.apiSunat()).isEqualTo(t.apiSunat());
+
+        // Cambiar otro dato no las pierde (el upsert escribe todas las columnas).
+        repo.guardar(r.conDatosFiscales(null, "00-000-123456", null, false));
+        assertThat(repo.buscar(t.id()).orElseThrow().apiSunat()).isEqualTo(t.apiSunat());
+
+        repo.guardar(r.conCredencialesApiSunat(null));
+        Tenant sin = repo.buscar(t.id()).orElseThrow();
+        assertThat(sin.apiSunat()).isNull();
+        assertThat(sin.sol().clave()).isEqualTo("moddatos");
+        assertThat(jdbc.queryForObject("SELECT api_sunat_client_secret_enc IS NULL FROM tenant WHERE id = ?", Boolean.class, t.id())).isTrue();
+    }
+
+    /** La base no admite media credencial: un client_id sin secreto sería una empresa que «tiene» credenciales que nunca sirven. */
+    @Test void laBaseNoAdmiteMediaCredencial() {
+        Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, null, null);
+        repo.guardar(t);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update("UPDATE tenant SET api_sunat_client_id_enc = ? WHERE id = ?", new byte[]{1}, t.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
     @Test void actualizaYPermiteNulos() {
         Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, null, null);
         repo.guardar(t);
