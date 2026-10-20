@@ -135,7 +135,7 @@ class ConfiguracionDeLaPlataformaE2ETest {
         ResponseEntity<Map> r = admin(HttpMethod.GET, "/plantillas", null);
 
         List<Map<String, Object>> lista = (List<Map<String, Object>>) r.getBody().get("datos");
-        assertThat(lista).extracting(p -> p.get("tipo")).containsExactly("VERIFICACION_CORREO", "RECUPERACION_CLAVE", "BIENVENIDA", "AVISO_CERTIFICADO_POR_VENCER", "AVISO_CERTIFICADO_VENCIDO", "AVISO_CREDENCIALES_SOL", "AVISO_BOLETAS_POR_INFORMAR", "AVISO_BOLETAS_PLAZO");
+        assertThat(lista).extracting(p -> p.get("tipo")).containsExactly("VERIFICACION_CORREO", "RECUPERACION_CLAVE", "BIENVENIDA", "INVITACION_AL_EQUIPO", "AVISO_CERTIFICADO_POR_VENCER", "AVISO_CERTIFICADO_VENCIDO", "AVISO_CREDENCIALES_SOL", "AVISO_BOLETAS_POR_INFORMAR", "AVISO_BOLETAS_PLAZO");
         assertThat(lista).allSatisfy(p -> {
             assertThat(p.get("personalizada")).isEqualTo(false);
             assertThat(p.get("vigente")).isEqualTo(p.get("defecto"));

@@ -40,6 +40,15 @@ public enum PlantillaDeCorreo {
                     Variable.opcional("ruc", "El RUC de la empresa.", "20100047226"),
                     Variable.opcional("validez", "Cuánto dura el enlace.", "7 días"))),
 
+    INVITACION_AL_EQUIPO("Invitación al equipo de una cuenta", "Se manda cuando un administrador de una cuenta invita a alguien a sumarse con un rol, y cuando le reenvía la invitación.",
+            "Te invitaron a {cuenta} en khipu",
+            "Te invitaron a sumarte a {cuenta} en khipu como {rol}.\nPara aceptar, crea tu contraseña en este enlace (válido {validez}, de un solo uso):\n{enlace}"
+                    + "\n\nSi no esperabas esta invitación, ignora este mensaje.",
+            List.of(Variable.indispensable("enlace", "El enlace de un solo uso para aceptar la invitación y crear la contraseña.", "https://app.khipu.pe/invitacion/0a1b2c3d"),
+                    Variable.opcional("cuenta", "El nombre de la cuenta que invita.", "Ferretería Torres"),
+                    Variable.opcional("rol", "El rol con el que entra: «Administrador», «Emisor» o «Solo lectura».", "Emisor"),
+                    Variable.opcional("validez", "Cuánto dura el enlace.", "7 días"))),
+
     AVISO_CERTIFICADO_POR_VENCER("Aviso: certificado por vencer", "Se manda desde «Avisos» cuando el certificado digital de una empresa vence en menos de 30 días.",
             "Tu certificado digital de {razon_social} vence {cuando}",
             "Hola,\n\nEl certificado digital de {razon_social} (RUC {ruc}) vence el {fecha} ({cuando}). Cuando venza, khipu ya no podrá firmar los comprobantes de esta empresa y no podrás emitir."

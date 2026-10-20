@@ -40,7 +40,8 @@ class PlantillaDeCorreoTest {
     }
 
     @Test void losCorreosDeAccesoNoSirvenSinSuEnlace() {
-        for (PlantillaDeCorreo p : new PlantillaDeCorreo[]{PlantillaDeCorreo.VERIFICACION_CORREO, PlantillaDeCorreo.RECUPERACION_CLAVE, PlantillaDeCorreo.BIENVENIDA})
+        for (PlantillaDeCorreo p : new PlantillaDeCorreo[]{PlantillaDeCorreo.VERIFICACION_CORREO, PlantillaDeCorreo.RECUPERACION_CLAVE, PlantillaDeCorreo.BIENVENIDA,
+                PlantillaDeCorreo.INVITACION_AL_EQUIPO})
             assertThat(p.variables()).filteredOn(Variable::indispensable).extracting(Variable::nombre).containsExactly("enlace");
     }
 
