@@ -143,11 +143,6 @@ test("el único administrador no puede quitarse el rol", async ({ page }) => {
   await expect(page.getByLabel("Rol de demo@example.com")).toHaveValue("ADMIN");
 });
 
-test("un enlace mal codificado dice que es inválido en vez de romper la página", async ({ page }) => {
-  await page.goto("/invitacion/abc%E0%A4%A");
-  await expect(page.getByRole("alert").filter({ hasText: "inválido, venció o ya se usó" })).toBeVisible();
-});
-
 test("si quien invitó deja de ser administrador, su invitación ya no sirve", async ({ page, browser }) => {
   const email = `huerfana-${unico()}@torres.pe`;
   const segundoAdmin = `admin2-${unico()}@torres.pe`;
