@@ -82,13 +82,16 @@ public class FreemarkerUblGenerator implements UblGenerator {
     @Override public String generar(Comprobante c, Tenant t) {
         try {
             // #327: la liquidación de compra es un SelfBilledInvoice, con las partes invertidas; la factura y la boleta, un Invoice.
-            Template tpl = cfg.getTemplate(c.esNota() ? "nota.ftl" : c.esLiquidacionCompra() ? "liquidacion.ftl" : "invoice.ftl");
+            // #40: la retención y la percepción son UBL 2.0 (Retention / Perception), con la misma forma y otros nombres.
+            Template tpl = cfg.getTemplate(c.esNota() ? "nota.ftl" : c.esLiquidacionCompra() ? "liquidacion.ftl" : c.esDeAgente() ? "agente.ftl" : "invoice.ftl");
             Map<String, Object> modelo = new HashMap<>();
             // Lo único que distingue el CreditNote del DebitNote: raíz, catálogo del motivo y los nombres de total, línea y cantidad.
             if (c.tipo() == TipoDocumento.NOTA_CREDITO)
                 modelo.put("n", Map.of("raiz", "CreditNote", "catalogo", Nota.catalogoMotivo(c.tipo()), "listName", "Tipo de nota de credito", "total", "LegalMonetaryTotal", "linea", "CreditNoteLine", "cantidad", "CreditedQuantity"));
             else if (c.tipo() == TipoDocumento.NOTA_DEBITO)
                 modelo.put("n", Map.of("raiz", "DebitNote", "catalogo", Nota.catalogoMotivo(c.tipo()), "listName", "Tipo de nota de debito", "total", "RequestedMonetaryTotal", "linea", "DebitNoteLine", "cantidad", "DebitedQuantity"));
+            if (c.tipo() == TipoDocumento.RETENCION) modelo.put("n", Map.of("raiz", "Retention", "sistema", "Retention", "total", "Paid", "neto", "Paid"));
+            else if (c.tipo() == TipoDocumento.PERCEPCION) modelo.put("n", Map.of("raiz", "Perception", "sistema", "Perception", "total", "Cashed", "neto", "Cashed"));
             modelo.put("c", c);
             modelo.put("t", t);
             modelo.put("tot", c.totales());

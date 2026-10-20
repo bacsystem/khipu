@@ -51,6 +51,37 @@ class SoapBillingGatewayTest {
                 .withRequestBody(matching("(?s).*<contentFile>[A-Za-z0-9+/=]+</contentFile>.*")));
     }
 
+    /**
+     * #40: la retención, la percepción y su resumen de reversiones (RR) van al billService de otros CPE —con el ticket del RR consultado allí mismo—; lo demás, al de facturas, que
+     * los rechaza (e-beta 2026-10-20: «20100066603-20-….zip codigo cpe: 20 no es un cpe valido»).
+     */
+    @Test void laRetencionLaPercepcionYSuReversionVanAlServicioDeOtrosCpe(WireMockRuntimeInfo wm) {
+        SoapBillingGateway g = new SoapBillingGateway(new SunatUrls(wm.getHttpBaseUrl() + "/billService", wm.getHttpBaseUrl() + "/prod",
+                wm.getHttpBaseUrl() + "/otros", wm.getHttpBaseUrl() + "/otros-prod"), Duration.ofSeconds(2));
+        byte[] cdr = ZipUtil.comprimir("R-20100066603-20-R001-1.xml", "<cdr/>".getBytes());
+        stubFor(post("/otros").withRequestBody(containing("sendBill")).willReturn(okXml(respuestaOk(cdr))));
+        stubFor(post("/otros").withRequestBody(containing("sendSummary")).willReturn(okXml("<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body>"
+                + "<ns2:sendSummaryResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><ticket>T-RR</ticket></ns2:sendSummaryResponse></soap-env:Body></soap-env:Envelope>")));
+        stubFor(post("/otros").withRequestBody(containing("getStatus")).willReturn(okXml("<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body>"
+                + "<ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>98</statusCode></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")));
+        stubFor(post("/billService").willReturn(okXml(respuestaOk(cdr))));
+
+        assertThat(g.sendBill(tenant, "20100066603-20-R001-1", "<Retention/>".getBytes())).isEqualTo(cdr);
+        assertThat(g.sendBill(tenant, "20100066603-40-P001-1", "<Perception/>".getBytes())).isEqualTo(cdr);
+        assertThat(g.sendSummary(tenant, "20100066603-RR-20260913-1", "<VoidedDocuments/>".getBytes())).isEqualTo("T-RR");
+        assertThat(g.getStatus(tenant, "20100066603-RR-20260913-1", "T-RR").statusCode()).isEqualTo("98");
+        g.sendBill(tenant, "20100066603-01-F001-1", "<Invoice/>".getBytes());
+        g.sendBill(tenant, "20100066603-04-L001-1", "<SelfBilledInvoice/>".getBytes());
+
+        verify(3, postRequestedFor(urlEqualTo("/otros")).withRequestBody(matching("(?s).*(sendBill|sendSummary)>.*")));
+        verify(1, postRequestedFor(urlEqualTo("/otros")).withRequestBody(containing("<ticket>T-RR</ticket>")));
+        verify(2, postRequestedFor(urlEqualTo("/billService")));
+        // En producción, el de producción; un RA sigue yendo al de facturas.
+        assertThat(new SunatUrls("b", "p", "ob", "op").para(Entorno.PRODUCCION, "20100066603-20-R001-1")).isEqualTo("op");
+        assertThat(new SunatUrls("b", "p", "ob", "op").para(Entorno.BETA, "20100066603-RA-20260913-1")).isEqualTo("b");
+        assertThatThrownBy(() -> new SunatUrls("b", "p").para(Entorno.BETA, "20100066603-40-P001-1")).isInstanceOf(IllegalStateException.class).hasMessageContaining("otros-beta-url");
+    }
+
     @Test void faultMenorA2000EsTransitorio(WireMockRuntimeInfo wm) {
         stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault("0109", "El sistema no puede responder en este momento"))));
         assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))
