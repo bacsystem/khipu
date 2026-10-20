@@ -710,6 +710,8 @@ const COLUMNAS_EXPORTACION = ["tipo", "serie", "numero", "fecha_emision", "clien
   "exportacion", "igv", "icbper", "isc", "ivap", "otros_tributos", "total_descuentos", "total_cargos", "total_anticipos", "redondeo", "total", "estado", "documento_modificado"];
 /** Lo que no es una venta y la exportación deja fuera si no se filtra por estado (`ExportacionDeComprobantes.NO_SON_VENTAS`). */
 const NO_SON_VENTAS = ["RECHAZADO", "INVALIDO", "DESCARTADO"];
+/** Los tipos que son ventas (`TipoDocumento.esVenta`): factura, boleta y sus notas. Ni la liquidación de compra (04) ni la retención (20) ni la percepción (40). */
+const TIPOS_DE_VENTA_MOCK = ["01", "03", "07", "08"];
 
 /** Una celda de texto del CSV como la escribe la API: sin que se lea como fórmula y entre comillas si lleva el separador, comillas o saltos. */
 function textoCsvMock(valor: string, separador: string): string {
@@ -3471,7 +3473,8 @@ export const handlers = [
   /**
    * Como el backend (#15): el resumen de los comprobantes de la empresa en un rango de fecha de emisión (inclusive; un lado ausente lo deja abierto). Emitidos: todo menos lo
    * que nunca se firmó; aceptados: con o sin observaciones; atención requerida: rechazados, error de envío y fuera de plazo, cada uno aparte; facturado por moneda con lo
-   * aceptado y lo que está en camino, las notas de crédito restando. **Va antes de `/v1/facturas/:id`**: si no, «resumen» se tomaría por un id.
+   * aceptado y lo que está en camino, las notas de crédito restando. Emitidos, aceptados y facturado son solo ventas (`TIPOS_DE_VENTA_MOCK`); en camino y la atención
+   * requerida cuentan todos los tipos, como el listado filtrado por estado. **Va antes de `/v1/facturas/:id`**: si no, «resumen» se tomaría por un id.
    */
   // #324, como `FacturaController.descargar`: los mismos filtros del listado, `tipos` (xml, pdf, cdr), 404 sin resultados, 422 por encima del tope y un ZIP con un archivo por
   // comprobante firmado y tipo pedido (el mock escribe un texto de relleno: lo que importa es el contrato). Va antes de `/:id`, que de otro modo la tomaría por un id.
@@ -3510,7 +3513,7 @@ export const handlers = [
     if (filtrados instanceof Response) return filtrados;
     const porEstado = url.searchParams.get("estado") ? filtrados : filtrados.filter((f) => !NO_SON_VENTAS.includes(f.estado_documento));
     // Como el backend: sin filtro de tipo solo salen las ventas (factura, boleta y sus notas; TipoDocumento#esVenta).
-    const lista = url.searchParams.get("tipo") ? porEstado : porEstado.filter((f) => ["01", "03", "07", "08"].includes(f.tipo));
+    const lista = url.searchParams.get("tipo") ? porEstado : porEstado.filter((f) => TIPOS_DE_VENTA_MOCK.includes(f.tipo));
     if (lista.length > EXPORTACION_MAXIMA) return fail(422, "EXPORTACION_EXCEDE_EL_TOPE", `Hay ${lista.length} comprobantes con esos filtros y una exportación admite hasta ${EXPORTACION_MAXIMA}: acote las fechas y exporte por tramos`);
     const desde = url.searchParams.get("desde");
     const hasta = url.searchParams.get("hasta");
@@ -3545,9 +3548,10 @@ export const handlers = [
     if (desde && hasta && desde > hasta) return fail(400, "RANGO_INVALIDO", `desde (${desde}) no puede ser posterior a hasta (${hasta})`);
     const del = (db.facturasPorEmpresa.get(empresaId) ?? []).filter((f) => (!desde || f.fecha_emision >= desde) && (!hasta || f.fecha_emision <= hasta));
     const cuenta = (estados: string[]) => del.filter((f) => estados.includes(f.estado_documento)).length;
+    const ventas = del.filter((f) => TIPOS_DE_VENTA_MOCK.includes(f.tipo));
     const facturables = ["ACEPTADO", "ACEPTADO_CON_OBS", "ENVIADO", "FIRMADO", "ERROR_ENVIO", "PENDIENTE_AGRUPACION"];
     const porMoneda = new Map<string, number>();
-    for (const f of del.filter((x) => facturables.includes(x.estado_documento))) {
+    for (const f of ventas.filter((x) => facturables.includes(x.estado_documento))) {
       porMoneda.set(f.moneda, Math.round(((porMoneda.get(f.moneda) ?? 0) + (f.tipo === "07" ? -f.totales.total : f.totales.total)) * 100) / 100);
     }
     const rechazados = cuenta(["RECHAZADO"]);
@@ -3559,8 +3563,8 @@ export const handlers = [
     return ok({
       ...(desde ? { desde } : {}),
       ...(hasta ? { hasta } : {}),
-      emitidos: del.filter((f) => !["RECIBIDO", "INVALIDO"].includes(f.estado_documento)).length,
-      aceptados_con_cdr: cuenta(["ACEPTADO", "ACEPTADO_CON_OBS"]),
+      emitidos: ventas.filter((f) => !["RECIBIDO", "INVALIDO"].includes(f.estado_documento)).length,
+      aceptados_con_cdr: ventas.filter((f) => ["ACEPTADO", "ACEPTADO_CON_OBS"].includes(f.estado_documento)).length,
       // #24: `EstadoDocumento.estaEnCamino`.
       en_camino: cuenta(["FIRMADO", "ENVIADO", "PENDIENTE_AGRUPACION"]),
       atencion_requerida: { total: rechazados + erroresDeEnvio + fueraDePlazo + boletasSinEnviar, rechazados, errores_de_envio: erroresDeEnvio, fuera_de_plazo: fueraDePlazo, boletas_sin_enviar: boletasSinEnviar },
@@ -3587,7 +3591,7 @@ export const handlers = [
     const facturables = ["ACEPTADO", "ACEPTADO_CON_OBS", "ENVIADO", "FIRMADO", "ERROR_ENVIO", "PENDIENTE_AGRUPACION"];
     const porFecha = new Map<string, { emitidos: number; porMoneda: Map<string, number> }>();
     for (const f of db.facturasPorEmpresa.get(empresaId) ?? []) {
-      if (f.fecha_emision < desde || f.fecha_emision > hasta) continue;
+      if (f.fecha_emision < desde || f.fecha_emision > hasta || !TIPOS_DE_VENTA_MOCK.includes(f.tipo)) continue;
       const emitido = !["RECIBIDO", "INVALIDO"].includes(f.estado_documento);
       const factura = facturables.includes(f.estado_documento);
       if (!emitido && !factura) continue;

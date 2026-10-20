@@ -14,7 +14,9 @@ public interface ResumirComprobantesUseCase {
     record Total(String moneda, BigDecimal total) {}
 
     /**
-     * {@code desde}/{@code hasta}: el rango pedido (nulo = abierto de ese lado). {@code atencionRequerida} es la suma de los cuatro que siguen: rechazados por SUNAT, con
+     * {@code desde}/{@code hasta}: el rango pedido (nulo = abierto de ese lado). {@code emitidos}, {@code aceptadosConCdr} y {@code facturado} cuentan solo ventas (factura,
+     * boleta y sus notas: {@link pe.factura.domain.documento.TipoDocumento#esVenta()}); {@code enCamino} y la atención requerida cuentan todos los tipos —liquidación de compra,
+     * retención y percepción incluidas—, porque también tienen plazo ante SUNAT y el número tiene que cuadrar con el listado filtrado por ese estado. {@code atencionRequerida} es la suma de los cuatro que siguen: rechazados por SUNAT, con
      * error de envío, fuera de plazo y boletas sin enviar (#356: las que el cliente dejó FIRMADAS y ya están en el 5.º día o más). {@code enCamino} (#24): los que todavía
      * esperan la respuesta de SUNAT sin que haya nada que corregir ({@link pe.factura.domain.documento.EstadoDocumento#estaEnCamino()}).
      */

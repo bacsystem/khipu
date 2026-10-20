@@ -16,8 +16,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * El resumen de los comprobantes de una empresa (#15) y su emisión por día (#24). El resumen son tres consultas, acotadas por el índice {@code (tenant_id, fecha_emision)}: cuántos hay por estado, cuánto suman los que
- * cuentan como facturados, por moneda, y cuántas boletas siguen FIRMADAS sin enviar desde el 5.º día (#356, {@link BoletasPorInformar}). Los estados que cuentan salen del enum
+ * El resumen de los comprobantes de una empresa (#15) y su emisión por día (#24). El resumen son tres consultas, acotadas por el índice {@code (tenant_id, fecha_emision)}: cuántos hay por estado (de todos los
+ * tipos y de las ventas), cuánto suman las ventas que cuentan como facturadas, por moneda, y cuántas boletas siguen FIRMADAS sin enviar desde el 5.º día (#356, {@link BoletasPorInformar}). Los estados que cuentan salen del enum
  * ({@link EstadoDocumento#cuentaComoFacturado()}), no de un texto copiado acá.
  */
 @RequiredArgsConstructor
@@ -30,8 +30,9 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
 
     /** Notas de crédito: restan de lo facturado. */
     private static final String NOTA_DE_CREDITO = "07";
-    // Solo las ventas ({@link TiposDeVenta}, de TipoDocumento#esVenta): ni la liquidación de compra (04, #327), que es una compra, ni la retención o la percepción
-    // (20, 40, #40), un impuesto que el agente retiene o percibe, cuentan en «emitidos» ni en «facturado».
+    // Solo las ventas ({@link TiposDeVenta}, de TipoDocumento#esVenta) cuentan en «emitidos», «aceptados» y «facturado»: ni la liquidación de compra (04, #327), que es
+    // una compra, ni la retención o la percepción (20, 40, #40), un impuesto que el agente retiene o percibe. Los estados que piden atención (rechazado, error de envío,
+    // fuera de plazo) y los que están en camino sí cuentan todos los tipos: un 04 rechazado o un 20 con error de envío tienen plazo legal y hay que verlos.
 
     @Override public Agregados resumir(UUID tenantId, LocalDate desde, LocalDate hasta, LocalDate hoy) {
         List<Object> params = new ArrayList<>();
@@ -41,9 +42,16 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
         if (hasta != null) { fechas.append(" AND d.fecha_emision <= ?"); params.add(Date.valueOf(hasta)); }
         Object[] args = params.toArray();
 
+        // Una sola pasada: por estado y si es venta o no; de ahí salen las dos cuentas.
         Map<EstadoDocumento, Long> porEstado = new EnumMap<>(EstadoDocumento.class);
-        jdbc.query("SELECT d.estado, count(*) AS n FROM documento d WHERE d.tenant_id = ? AND d.tipo IN (" + TiposDeVenta.SQL + ")" + fechas + " GROUP BY d.estado",
-                rs -> { porEstado.put(EstadoDocumento.valueOf(rs.getString("estado")), rs.getLong("n")); }, args);
+        Map<EstadoDocumento, Long> ventasPorEstado = new EnumMap<>(EstadoDocumento.class);
+        jdbc.query("SELECT d.estado, d.tipo IN (" + TiposDeVenta.SQL + ") AS venta, count(*) AS n FROM documento d WHERE d.tenant_id = ?" + fechas + " GROUP BY 1, 2",
+                rs -> {
+                    EstadoDocumento estado = EstadoDocumento.valueOf(rs.getString("estado"));
+                    long n = rs.getLong("n");
+                    porEstado.merge(estado, n, Long::sum);
+                    if (rs.getBoolean("venta")) ventasPorEstado.merge(estado, n, Long::sum);
+                }, args);
 
         List<Facturado> facturado = jdbc.query("""
                 SELECT c.moneda, sum(CASE WHEN d.tipo = '%s' THEN -c.total ELSE c.total END) AS total
@@ -61,7 +69,7 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
                 WHERE %s AND d.tenant_id = ?%s
                 """.formatted(BoletasPorInformar.sinEnviar("c"), fechas), Long.class, conCorte.toArray());
 
-        return new Agregados(porEstado, facturado, boletasSinEnviar);
+        return new Agregados(porEstado, ventasPorEstado, facturado, boletasSinEnviar);
     }
 
     /**

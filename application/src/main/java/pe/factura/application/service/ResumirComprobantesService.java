@@ -24,7 +24,8 @@ import java.util.stream.Collectors;
 
 /**
  * El resumen de comprobantes de una empresa (#15) y su emisión día por día (#24). Solo lectura. El repositorio trae cuántos hay por estado; acá se decide qué estados son
- * «emitidos», «aceptados», «facturados» y cada clase de «atención requerida» con las reglas de {@link EstadoDocumento}, una sola vez.
+ * «emitidos», «aceptados», «facturados» y cada clase de «atención requerida» con las reglas de {@link EstadoDocumento}, una sola vez. «Emitidos», «aceptados» y «facturado»
+ * cuentan solo ventas ({@link TipoDocumento#esVenta()}); «en camino» y la atención requerida cuentan todos los tipos, como el listado filtrado por estado.
  */
 @RequiredArgsConstructor
 public class ResumirComprobantesService implements ResumirComprobantesUseCase {
@@ -35,7 +36,8 @@ public class ResumirComprobantesService implements ResumirComprobantesUseCase {
         if (desde != null && hasta != null && desde.isAfter(hasta))
             throw new DomainException("RANGO_INVALIDO", "desde (" + desde + ") no puede ser posterior a hasta (" + hasta + ")");
         Agregados r = resumenes.resumir(tenantId, desde, hasta, LocalDate.now(clock));
-        return new ResumirComprobantesUseCase.Resumen(desde, hasta, cuantos(r.porEstado(), EstadoDocumento::fueEmitido), cuantos(r.porEstado(), EstadoDocumento::esFinalAceptado),
+        // «Emitidos» y «aceptados» son ventas; lo que está en camino o pide atención cuenta todos los tipos (un 04 rechazado o un 20 con error de envío también tienen plazo).
+        return new ResumirComprobantesUseCase.Resumen(desde, hasta, cuantos(r.ventasPorEstado(), EstadoDocumento::fueEmitido), cuantos(r.ventasPorEstado(), EstadoDocumento::esFinalAceptado),
                 cuantos(r.porEstado(), EstadoDocumento::estaEnCamino), cuantos(r.porEstado(), e -> e == EstadoDocumento.RECHAZADO), cuantos(r.porEstado(), e -> e == EstadoDocumento.ERROR_ENVIO),
                 cuantos(r.porEstado(), e -> e == EstadoDocumento.FUERA_DE_PLAZO), r.boletasSinEnviar(), r.facturado().stream().map(f -> new Total(f.moneda(), f.total())).toList());
     }

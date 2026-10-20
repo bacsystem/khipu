@@ -36,7 +36,8 @@ export function ventanaDeAtencion(hoy: string): Rango {
 
 /**
  * Una empresa que nunca emitió: todas sus series siguen en el número 0 (o no tiene ninguna). Solo eso merece el estado vacío con «tu primer comprobante»: una empresa con
- * historia que hoy, día 1, no emitió nada no es nueva. Sin series (no se pudieron leer, `null`) no se afirma que lo sea.
+ * historia que hoy, día 1, no emitió nada no es nueva. Cuentan las series de todos los tipos: una empresa que solo emitió retenciones o percepciones (20/40), que el
+ * resumen no suma a `emitidos` (solo ventas), tampoco es nueva. Sin series (no se pudieron leer, `null`) no se afirma que lo sea.
  */
 export function esEmpresaNueva(series: Array<{ ultimo_numero: number }> | null): boolean {
   return series !== null && series.every((s) => s.ultimo_numero === 0);

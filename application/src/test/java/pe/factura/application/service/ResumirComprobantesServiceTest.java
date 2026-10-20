@@ -33,14 +33,16 @@ class ResumirComprobantesServiceTest {
     static class Resumenes implements ResumenDeComprobantesRepository {
         final List<Object[]> consultas = new ArrayList<>();
         Map<EstadoDocumento, Long> porEstado = new EnumMap<>(EstadoDocumento.class);
+        Map<EstadoDocumento, Long> ventasPorEstado = new EnumMap<>(EstadoDocumento.class);
         List<Facturado> facturado = List.of();
         long boletasSinEnviar;
         final List<Object[]> consultasPorDia = new ArrayList<>();
         final List<Celda> celdas = new ArrayList<>();
         public Agregados resumir(UUID t, LocalDate desde, LocalDate hasta, LocalDate hoy) {
             consultas.add(new Object[]{t, desde, hasta, hoy});
-            return new Agregados(porEstado, facturado, boletasSinEnviar);
+            return new Agregados(porEstado, ventasPorEstado, facturado, boletasSinEnviar);
         }
+        void limpiar() { porEstado.clear(); ventasPorEstado.clear(); }
         public List<Celda> porDia(UUID t, LocalDate desde, LocalDate hasta) {
             consultasPorDia.add(new Object[]{t, desde, hasta});
             return celdas;
@@ -50,7 +52,11 @@ class ResumirComprobantesServiceTest {
     Resumenes resumenes = new Resumenes();
     ResumirComprobantesService service = new ResumirComprobantesService(resumenes, Fakes.CLOCK);
 
-    ResumirComprobantesServiceTest cuenta(EstadoDocumento e, long n) { resumenes.porEstado.put(e, n); return this; }
+    /** {@code n} ventas en el estado {@code e}: cuentan en los dos mapas. */
+    ResumirComprobantesServiceTest cuenta(EstadoDocumento e, long n) { resumenes.porEstado.merge(e, n, Long::sum); resumenes.ventasPorEstado.merge(e, n, Long::sum); return this; }
+
+    /** {@code n} comprobantes que no son ventas (04, 20, 40) en el estado {@code e}: solo cuentan por estado. */
+    ResumirComprobantesServiceTest cuentaNoVenta(EstadoDocumento e, long n) { resumenes.porEstado.merge(e, n, Long::sum); return this; }
 
     Resumen resumir() { return service.resumir(EMPRESA, null, null); }
 
@@ -83,11 +89,11 @@ class ResumirComprobantesServiceTest {
     /** #24: «pendientes» del dashboard. Lo que está en camino lo dice el dominio (`estaEnCamino`): firmado, enviado y la boleta que espera su resumen; no lo que falló. */
     @Test void enCaminoCuentaLosEstadosQueElDominioDiceQueEstanEnCamino() {
         for (EstadoDocumento e : EstadoDocumento.values()) {
-            resumenes.porEstado.clear();
+            resumenes.limpiar();
             cuenta(e, 1);
             assertThat(resumir().enCamino()).as(e.name()).isEqualTo(e.estaEnCamino() ? 1 : 0);
         }
-        resumenes.porEstado.clear();
+        resumenes.limpiar();
         cuenta(FIRMADO, 2).cuenta(ENVIADO, 3).cuenta(PENDIENTE_AGRUPACION, 4).cuenta(ERROR_ENVIO, 50).cuenta(ACEPTADO, 100);
         assertThat(resumir().enCamino()).isEqualTo(9);
     }
@@ -118,6 +124,25 @@ class ResumirComprobantesServiceTest {
         assertThat(r.atencionRequerida()).isEqualTo(3 + 2 + 4);
     }
 
+    /**
+     * Lo que no es una venta (liquidación de compra 04, retención 20, percepción 40) no suma a «emitidos» ni a «aceptados», pero sí a lo que está en camino y a lo que pide
+     * atención: un 04 rechazado o un 20 con error de envío tienen plazo legal (1 y 7 días) y el número tiene que cuadrar con el listado filtrado por ese estado.
+     */
+    @Test void loQueNoEsVentaNoCuentaComoEmitidoPeroSiPideAtencionYEstaEnCamino() {
+        cuenta(ACEPTADO, 5);
+        cuentaNoVenta(ACEPTADO, 100).cuentaNoVenta(RECHAZADO, 1).cuentaNoVenta(ERROR_ENVIO, 2).cuentaNoVenta(FUERA_DE_PLAZO, 3).cuentaNoVenta(ENVIADO, 4);
+
+        Resumen r = resumir();
+
+        assertThat(r.emitidos()).isEqualTo(5);
+        assertThat(r.aceptadosConCdr()).isEqualTo(5);
+        assertThat(r.rechazados()).isEqualTo(1);
+        assertThat(r.erroresDeEnvio()).isEqualTo(2);
+        assertThat(r.fueraDePlazo()).isEqualTo(3);
+        assertThat(r.enCamino()).as("el enviado; el error de envío pide atención, no está en camino").isEqualTo(4);
+        assertThat(r.atencionRequerida()).isEqualTo(1 + 2 + 3);
+    }
+
     /** La fecha de hoy es la del reloj del servicio, no la de la base: de ella depende qué boleta ya pide atención. */
     @Test void elRepositorioRecibeLaFechaDeHoyDelReloj() {
         resumir();
@@ -128,7 +153,7 @@ class ResumirComprobantesServiceTest {
     /** Si el dominio agrega un estado que pide atención, el desglose tiene que crecer con él: este test lo obliga a decidirlo. */
     @Test void lasTresClasesDeAtencionSonExactamenteLosEstadosQueRequierenAtencion() {
         for (EstadoDocumento e : EstadoDocumento.values()) {
-            resumenes.porEstado.clear();
+            resumenes.limpiar();
             cuenta(e, 1);
             Resumen r = resumir();
             assertThat(r.atencionRequerida()).as(e.name()).isEqualTo(e.requiereAtencion() ? 1 : 0);

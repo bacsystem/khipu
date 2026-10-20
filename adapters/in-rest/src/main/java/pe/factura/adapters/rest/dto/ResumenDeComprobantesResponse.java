@@ -11,12 +11,12 @@ import java.util.List;
 public record ResumenDeComprobantesResponse(
         @Schema(example = "2026-09-01", description = "El `desde` pedido; ausente si el rango estaba abierto de ese lado") LocalDate desde,
         @Schema(example = "2026-09-30", description = "El `hasta` pedido; ausente si el rango estaba abierto de ese lado") LocalDate hasta,
-        @Schema(example = "120", description = "Comprobantes firmados del período, en cualquier estado (rechazados y dados de baja incluidos)") long emitidos,
-        @Schema(example = "100", description = "Aceptados por SUNAT, con o sin observaciones: los que ya tienen su CDR") long aceptadosConCdr,
-        @Schema(example = "8", description = "En camino a SUNAT, sin nada que corregir: firmados que aún no se envían, enviados que esperan su CDR y boletas que esperan su resumen diario."
+        @Schema(example = "120", description = "Ventas (factura, boleta y sus notas) firmadas en el período, en cualquier estado (rechazadas y dadas de baja incluidas); no cuenta la liquidación de compra, la retención ni la percepción") long emitidos,
+        @Schema(example = "100", description = "Ventas aceptadas por SUNAT, con o sin observaciones: las que ya tienen su CDR") long aceptadosConCdr,
+        @Schema(example = "8", description = "En camino a SUNAT, sin nada que corregir, de todos los tipos: firmados que aún no se envían, enviados que esperan su CDR y boletas que esperan su resumen diario."
                 + " Las boletas sin enviar desde el 5.º día cuentan acá y también en `atencion_requerida.boletas_sin_enviar`") long enCamino,
-        @Schema(description = "Lo que pide que el emisor haga algo: rechazados, con error de envío, fuera de plazo y boletas sin enviar") AtencionRequerida atencionRequerida,
-        @Schema(description = "Lo facturado por moneda, ordenado por moneda; vacío si no hay nada. Cuentan los aceptados y los que están en camino; no los rechazados, fuera de plazo ni dados de baja") List<Facturado> facturado) {
+        @Schema(description = "Lo que pide que el emisor haga algo, de todos los tipos (liquidación de compra, retención y percepción incluidas): rechazados, con error de envío, fuera de plazo y boletas sin enviar") AtencionRequerida atencionRequerida,
+        @Schema(description = "Lo facturado por moneda (solo ventas), ordenado por moneda; vacío si no hay nada. Cuentan los aceptados y los que están en camino; no los rechazados, fuera de plazo ni dados de baja") List<Facturado> facturado) {
 
     public record AtencionRequerida(
             @Schema(example = "9", description = "La suma de los cuatro") long total,

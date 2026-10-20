@@ -54,6 +54,11 @@ describe("esEmpresaNueva (H4)", () => {
     expect(esEmpresaNueva([{ ultimo_numero: 0 }, { ultimo_numero: 312 }])).toBe(false);
   });
 
+  it("una empresa que solo emitió retenciones o percepciones (20/40) no es nueva, aunque el resumen no cuente ventas", () => {
+    // `emitidos` del resumen solo cuenta ventas; las series sí incluyen las de retención y percepción, así que el estado vacío no aparece.
+    expect(esEmpresaNueva([{ tipo: "01", ultimo_numero: 0 }, { tipo: "20", ultimo_numero: 4 }, { tipo: "40", ultimo_numero: 0 }] as Array<{ ultimo_numero: number }>)).toBe(false);
+  });
+
   it("si las series no se pudieron leer no se afirma que sea nueva", () => {
     expect(esEmpresaNueva(null)).toBe(false);
   });

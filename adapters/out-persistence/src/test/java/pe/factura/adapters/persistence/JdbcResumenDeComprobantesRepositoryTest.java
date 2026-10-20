@@ -50,13 +50,16 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         factura(t, EstadoDocumento.RECHAZADO, "100");
         factura(t, EstadoDocumento.ERROR_ENVIO, "100");
 
-        assertThat(resumir(t).porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 2L), java.util.Map.entry(EstadoDocumento.RECHAZADO, 1L), java.util.Map.entry(EstadoDocumento.ERROR_ENVIO, 1L));
+        Agregados r = resumir(t);
+        assertThat(r.porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 2L), java.util.Map.entry(EstadoDocumento.RECHAZADO, 1L), java.util.Map.entry(EstadoDocumento.ERROR_ENVIO, 1L));
+        assertThat(r.ventasPorEstado()).as("todas son facturas: las mismas cuentas").isEqualTo(r.porEstado());
     }
 
     @Test void unaEmpresaSinComprobantesTrae_todoVacio() {
         Agregados r = resumir(tenantDePrueba());
 
         assertThat(r.porEstado()).isEmpty();
+        assertThat(r.ventasPorEstado()).isEmpty();
         assertThat(r.facturado()).isEmpty();
     }
 
@@ -141,26 +144,70 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         assertThat(resumir(t).facturado()).containsExactly(new Facturado("PEN", new BigDecimal("950.00")));
     }
 
-    /** #327: la liquidación de compra es una compra de la empresa, no una venta (TipoDocumento#esVenta): no cuenta en los estados ni suma a lo facturado (ni en su moneda aparece). */
-    @Test void laLiquidacionDeCompraNoCuentaComoFacturado() {
+    /**
+     * #327: la liquidación de compra es una compra de la empresa, no una venta (TipoDocumento#esVenta): cuenta en los estados, pero no entre las ventas ni suma a lo facturado
+     * (ni en su moneda aparece).
+     */
+    @Test void laLiquidacionDeCompraCuentaEnLosEstadosPeroNoComoVentaNiFacturado() {
         UUID t = tenantDePrueba();
         comprobante(t, "01", EstadoDocumento.ACEPTADO, DIA, "PEN", "1000");
         comprobante(t, "04", EstadoDocumento.ACEPTADO, DIA, "PEN", "985");
         comprobante(t, "04", EstadoDocumento.ACEPTADO, DIA, "USD", "197");
 
-        assertThat(resumir(t).facturado()).containsExactly(new Facturado("PEN", new BigDecimal("1000.00")));
-        assertThat(resumir(t).porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 1L));
+        Agregados r = resumir(t);
+
+        assertThat(r.facturado()).containsExactly(new Facturado("PEN", new BigDecimal("1000.00")));
+        assertThat(r.porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 3L));
+        assertThat(r.ventasPorEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 1L));
     }
 
-    /** #40: lo que se retiene o percibe es un impuesto, no una venta (TipoDocumento#esVenta): la retención y la percepción no cuentan en los estados ni en lo facturado. */
-    @Test void laRetencionYLaPercepcionNoCuentanComoFacturado() {
+    /**
+     * #40: lo que se retiene o percibe es un impuesto, no una venta (TipoDocumento#esVenta): la retención y la percepción cuentan en los estados, pero no entre las ventas ni en
+     * lo facturado.
+     */
+    @Test void laRetencionYLaPercepcionCuentanEnLosEstadosPeroNoComoVentaNiFacturado() {
         UUID t = tenantDePrueba();
         comprobante(t, "01", EstadoDocumento.ACEPTADO, DIA, "PEN", "1000");
         comprobante(t, "20", EstadoDocumento.ACEPTADO, DIA, "PEN", "30");
         comprobante(t, "40", EstadoDocumento.ACEPTADO, DIA, "PEN", "20");
 
-        assertThat(resumir(t).facturado()).containsExactly(new Facturado("PEN", new BigDecimal("1000.00")));
-        assertThat(resumir(t).porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 1L));
+        Agregados r = resumir(t);
+
+        assertThat(r.facturado()).containsExactly(new Facturado("PEN", new BigDecimal("1000.00")));
+        assertThat(r.porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 3L));
+        assertThat(r.ventasPorEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 1L));
+    }
+
+    /**
+     * Un 04 rechazado o un 20/40 con error de envío o fuera de plazo pide atención como cualquier otro (sus plazos legales son de 1 y 7 días): cuenta por estado, aunque no
+     * esté entre las ventas, y así el aviso cuadra con el listado filtrado por ese estado, que trae todos los tipos.
+     */
+    @Test void loQueNoEsVentaYPideAtencionCuentaPorEstado() {
+        UUID t = tenantDePrueba();
+        comprobante(t, "04", EstadoDocumento.RECHAZADO, DIA, "PEN", "985");
+        comprobante(t, "20", EstadoDocumento.ERROR_ENVIO, DIA, "PEN", "30");
+        comprobante(t, "40", EstadoDocumento.FUERA_DE_PLAZO, DIA, "PEN", "20");
+        comprobante(t, "01", EstadoDocumento.RECHAZADO, DIA, "PEN", "100");
+
+        Agregados r = resumir(t);
+
+        assertThat(r.porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.RECHAZADO, 2L), java.util.Map.entry(EstadoDocumento.ERROR_ENVIO, 1L),
+                java.util.Map.entry(EstadoDocumento.FUERA_DE_PLAZO, 1L));
+        assertThat(r.ventasPorEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.RECHAZADO, 1L));
+        assertThat(r.facturado()).isEmpty();
+    }
+
+    /** Una empresa que solo emitió retenciones y percepciones no tiene ventas, pero sí estados: el resumen no la muestra como si no hubiera emitido nada. */
+    @Test void unaEmpresaQueSoloEmitioRetencionesYPercepcionesTieneEstadosPeroNoVentas() {
+        UUID t = tenantDePrueba();
+        comprobante(t, "20", EstadoDocumento.ACEPTADO, DIA, "PEN", "30");
+        comprobante(t, "40", EstadoDocumento.ENVIADO, DIA, "PEN", "20");
+
+        Agregados r = resumir(t);
+
+        assertThat(r.porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 1L), java.util.Map.entry(EstadoDocumento.ENVIADO, 1L));
+        assertThat(r.ventasPorEstado()).isEmpty();
+        assertThat(r.facturado()).isEmpty();
     }
 
     @Test void unaNotaDeCreditoRechazadaNoRestaNada() {
