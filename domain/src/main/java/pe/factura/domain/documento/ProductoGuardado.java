@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 public record ProductoGuardado(UUID id, UUID tenantId, String codigo, String descripcion, String unidad, String tipoAfectacionIgv, BigDecimal precioUnitario, String codigoSunat,
                                Instant creadoEn, Instant actualizadoEn) {
     /** Las afectaciones que acepta una línea (catálogo 07): las mismas del enum, sin repetir la lista. */
-    private static final Set<String> AFECTACIONES = Arrays.stream(TipoAfectacionIgv.values()).map(TipoAfectacionIgv::getCodigo).collect(Collectors.toUnmodifiableSet());
+    private static final Set<String> AFECTACIONES = Arrays.stream(TipoAfectacionIgv.values()).map(TipoAfectacionIgv::codigo).collect(Collectors.toUnmodifiableSet());
     /** El formato 12,10 del precio de una línea. */
     private static final int MAX_ENTEROS = 12;
     private static final int MAX_DECIMALES = 10;
