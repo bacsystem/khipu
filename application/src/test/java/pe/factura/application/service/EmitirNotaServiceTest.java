@@ -86,6 +86,29 @@ class EmitirNotaServiceTest {
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
     }
 
+    /** #325: la factura guarda el correo del cliente normalizado y la nota, que va al mismo cliente, lo hereda para que también le llegue al aceptarse. */
+    @Test void laNotaHeredaElCorreoDelClienteDeLaFactura() {
+        Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true, null, List.of(), null, null, " Compras@Cliente.PE "));
+        assertThat(f.correoCliente()).isEqualTo("compras@cliente.pe");
+
+        Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "01", null));
+
+        assertThat(nc.correoCliente()).isEqualTo("compras@cliente.pe");
+        assertThat(comprobantes.datos.get(nc.id()).correoCliente()).as("se guarda con la nota").isEqualTo("compras@cliente.pe");
+    }
+
+    /** Un correo mal formado se rechaza antes de numerar: el número no se consume. */
+    @Test void unCorreoDelClienteMalFormadoSeRechazaSinConsumirNumero() {
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true, null, List.of(), null, null, "compras@cliente")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("RECEPTOR_INVALIDO");
+        assertThat(comprobantes.datos).isEmpty();
+        assertThat(facturaAceptada(FormaPago.contado()).numero()).isEqualTo(1L);
+    }
+
     /** Factura de 2 laptops (200 + 36) y un libro exonerado (40): total 276.00. Sin descuentos: una nota no admite los que no afectan la base (3280, #388). */
     private Comprobante facturaAceptada(FormaPago fp) {
         return service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",

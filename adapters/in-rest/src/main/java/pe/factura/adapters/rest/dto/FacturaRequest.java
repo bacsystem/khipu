@@ -63,7 +63,8 @@ public record FacturaRequest(
             @NotBlank @Schema(example = "20123456786", description = "RUC de 11 dígitos del adquirente; en exportación y en boleta, el número del documento (DNI de 8 dígitos, los demás hasta 15 caracteres sin espacios: 2801/2802, 4207/4208). Con `tipo_doc` `-`, también `-`") String numDoc,
             @NotBlank @Schema(example = "Comercial Andina SAC", description = "Razón social tal como figura en la ficha RUC del adquirente; en una boleta, el nombre del comprador. De 3 a 1500 caracteres sin contar los espacios de los extremos y sin saltos de línea (regla 2022). Con `tipo_doc` `-`, `CLIENTES VARIOS`") String razonSocial,
             @Schema(example = "Av. Javier Prado Este 123, San Isidro", description = "Dirección del adquirente (opcional; se imprime en el XML)") String direccion,
-            @Pattern(regexp = "[A-Za-z]{2}") @Schema(example = "PE", description = "País del adquirente, código ISO 3166-1 de dos letras (catálogo 04): `cac:Country/cbc:IdentificationCode`. Obligatorio en una exportación; opcional en las demás") String pais) {}
+            @Pattern(regexp = "[A-Za-z]{2}") @Schema(example = "PE", description = "País del adquirente, código ISO 3166-1 de dos letras (catálogo 04): `cac:Country/cbc:IdentificationCode`. Obligatorio en una exportación; opcional en las demás") String pais,
+            @Schema(example = "compras@andina.pe", description = "Correo del adquirente (opcional, hasta 150 caracteres; se guarda en minúsculas). No va al XML ni a SUNAT. Si la empresa activó el envío automático (`PUT /v1/empresa/envio-al-cliente`), cuando SUNAT acepta el comprobante khipu le envía a este correo el PDF, el XML y el CDR; la nota de crédito o débito hereda el correo del comprobante que modifica. Mal formado: `422 RECEPTOR_INVALIDO` antes de consumir número") String email) {}
 
     public record ExportacionDto(
             @Pattern(regexp = "[A-Za-z]{3}") @Schema(example = "FOB", description = "Incoterm 2020 de la venta (EXW, FCA, FAS, FOB, CFR, CIF, CPT, CIP, DAP, DPU, DDP): `cac:DeliveryTerms/cbc:ID`. Sin validación SUNAT; lo exige Aduanas. Opcional") String incoterm,
@@ -303,7 +304,7 @@ public record FacturaRequest(
                         documentosRelacionados == null ? List.of() : documentosRelacionados.stream().map(DocumentoRelacionadoDto::aDominio).toList()),
                 redondeo,
                 enviarAutomatico == null || enviarAutomatico, observaciones, leyendas == null ? List.of() : leyendas,
-                exportacion == null ? null : exportacion.aDominio(), tipoCambio);
+                exportacion == null ? null : exportacion.aDominio(), tipoCambio, cliente.email());
     }
 
     static List<Cargo> cargos(List<CargoDto> dtos, boolean globales) {

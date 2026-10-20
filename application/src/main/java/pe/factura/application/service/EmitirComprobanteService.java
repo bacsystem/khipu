@@ -135,6 +135,8 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 .redondeo(copia ? afectado.totales().redondeo() : null)
                 .crear(clock);
         c.anotar(cmd.observaciones());
+        // #325: la nota va al mismo cliente que el documento que modifica; si este se emitió con su correo, la nota aceptada también le llega.
+        c.dirigirA(afectado.correoCliente());
         // Releído con lock de fila dentro de la transacción: una baja que se cuele entre la lectura de arriba y aquí no deja pasar la nota,
         // y el acumulado de NC se lee con el documento bloqueado, así que dos NC concurrentes no pueden acreditarlo dos veces.
         return emitir(tenant, c, cmd.correlativo(), cmd.enviarAutomatico(), () -> {
@@ -251,6 +253,7 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
                 .tipoCambio(cmd.tipoCambio())
                 .crear(clock);
         c.anotar(cmd.observaciones());
+        c.dirigirA(cmd.correoCliente());
         return c;
     }
 

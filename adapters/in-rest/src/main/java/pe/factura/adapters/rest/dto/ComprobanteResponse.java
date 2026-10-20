@@ -10,6 +10,7 @@ import pe.factura.domain.documento.CargoCalculado;
 import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.Detraccion;
+import pe.factura.domain.documento.EnvioAlCliente;
 import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.ItemCalculado;
@@ -64,6 +65,7 @@ public record ComprobanteResponse(
         @Schema(description = "Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML") List<LeyendaDto> leyendas,
         @Schema(description = "Solo en exportaciones (0200–0208): Incoterm y país de uso del servicio; `null` en las demás") ExportacionDto exportacion,
         @Schema(description = "Solo en una liquidación de compra (04): el resto del domicilio del vendedor (que va en `receptor`), el lugar de la operación, lo que el comprador le retiene y el neto que le paga (igual a `totales.total`); `null` en los demás") LiquidacionDto liquidacion,
+        @Schema(description = "Solo al consultar: el envío automático del comprobante a su cliente (`PUT /v1/empresa/envio-al-cliente`), o `null` si no se anotó (la empresa no lo tenía activado, el comprobante no traía correo o SUNAT aún no lo aceptó)") EnvioAlClienteDto envioAlCliente,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"pdf\": \"/v1/facturas/{id}/pdf\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     @Schema(name = "FormaPagoRespuesta")
     public record FormaPagoDto(
@@ -166,7 +168,24 @@ public record ComprobanteResponse(
             @Schema(example = "20554198211") String numDoc,
             @Schema(example = "CORPORACION GRAFICA ANDINA S.A.C.") String razonSocial,
             @Schema(example = "Av. Argentina 2450, Lima") String direccion,
-            @Schema(example = "PE", description = "País del adquirente (ISO 3166-1, catálogo 04), o `null`") String pais) {}
+            @Schema(example = "PE", description = "País del adquirente (ISO 3166-1, catálogo 04), o `null`") String pais,
+            @Schema(example = "compras@andina.pe", description = "Correo del adquirente indicado al emitir (una nota hereda el de su comprobante), o `null`. No va al XML") String email) {}
+
+    /**
+     * El envío automático del comprobante a su cliente (#325), si se anotó: la empresa lo tenía activado y el comprobante traía correo cuando SUNAT lo aceptó.
+     */
+    public record EnvioAlClienteDto(
+            @Schema(example = "compras@andina.pe") String destinatario,
+            @Schema(example = "ENVIADO", description = "`PENDIENTE` (en cola o esperando un reintento), `ENVIADO` (el servidor de correo lo recibió), `FALLIDO` (agotó los reintentos o los adjuntos superan el tope; `ultimo_error` dice por qué) u `OMITIDO` (no correspondía mandarlo al llegar su turno: el servidor no tiene correo configurado o el comprobante ya no estaba aceptado)") String estado,
+            @Schema(example = "1", description = "Intentos de envío realizados (hasta 5)") int intentos,
+            @Schema(example = "null", description = "Motivo del último fallo o de la omisión, o `null`") String ultimoError,
+            @Schema(example = "2026-09-13T15:01:00Z", description = "Solo si sigue `PENDIENTE`: cuándo se intenta (UTC)") java.time.Instant siguienteIntento,
+            @Schema(example = "2026-09-13T15:00:12Z", description = "Cuándo salió (UTC), o `null`") java.time.Instant enviadoEn) {
+        public static EnvioAlClienteDto de(EnvioAlCliente e) {
+            return e == null ? null : new EnvioAlClienteDto(e.destinatario(), e.estado().name(), e.intentos(), e.ultimoError(),
+                    e.estado() == EnvioAlCliente.Estado.PENDIENTE ? e.siguienteIntento() : null, e.enviadoEn());
+        }
+    }
 
     @Schema(name = "ExportacionRespuesta")
     public record ExportacionDto(
@@ -322,9 +341,14 @@ public record ComprobanteResponse(
 
     /** Con {@code notas} (las emitidas sobre esta factura) y {@code baja} (la última comunicación de baja) solo al consultar un comprobante concreto. */
     public static ComprobanteResponse de(Comprobante c, String base, List<Comprobante> notas, ComunicacionBaja baja, List<EventoDocumento> eventos) {
+        return de(c, base, notas, baja, eventos, null);
+    }
+
+    /** Con {@code envio} (el envío automático al cliente, #325) solo al consultar un comprobante concreto. */
+    public static ComprobanteResponse de(Comprobante c, String base, List<Comprobante> notas, ComunicacionBaja baja, List<EventoDocumento> eventos, EnvioAlCliente envio) {
         String p = base == null ? null : base + "/" + c.id();
         return new ComprobanteResponse(c.id(), c.tipo().codigo(), c.serie(), c.numero(), c.fechaEmision(), c.fechaVencimiento(), c.fechaLimiteEnvio(), c.moneda(), c.tipoOperacion(), c.tipoCambio(), c.totalEnSoles().orElse(null),
-                de(c.receptor()), c.totales().items().stream().map(ComprobanteResponse::de).toList(),
+                de(c.receptor(), c.correoCliente()), c.totales().items().stream().map(ComprobanteResponse::de).toList(),
                 c.estado().name(), c.hash(), c.nombreArchivo(), c.intentos(), c.ultimoError(),
                 c.cdr() == null ? null : new CdrDto(c.cdr().codigo(), c.cdr().descripcion(), c.cdr().observaciones(), c.resumenDelCdr().orElse(null)),
                 new TotalesDto(c.totales().gravado(), c.totales().exonerado(), c.totales().inafecto(), c.totales().igv(), c.tasaIgv(),
@@ -348,6 +372,7 @@ public record ComprobanteResponse(
                 c.leyendas().stream().map(l -> new LeyendaDto(l, Leyenda.texto(l))).toList(),
                 ExportacionDto.de(c.exportacion()),
                 LiquidacionDto.de(c),
+                EnvioAlClienteDto.de(envio),
                 enlaces(c, p));
     }
 
@@ -357,8 +382,8 @@ public record ComprobanteResponse(
         return c.cdrKey() == null ? Map.of("xml", p + "/xml", "pdf", p + "/pdf") : Map.of("xml", p + "/xml", "pdf", p + "/pdf", "cdr", p + "/cdr");
     }
 
-    private static ReceptorDto de(Receptor r) {
-        return r == null ? null : new ReceptorDto(r.tipoDoc(), r.numDoc(), r.razonSocial(), r.direccion(), r.pais());
+    private static ReceptorDto de(Receptor r, String email) {
+        return r == null ? null : new ReceptorDto(r.tipoDoc(), r.numDoc(), r.razonSocial(), r.direccion(), r.pais(), email);
     }
 
     private static ItemDto de(ItemCalculado ic) {

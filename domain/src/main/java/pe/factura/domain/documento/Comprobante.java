@@ -65,6 +65,11 @@ public class Comprobante {
     private String ultimoError;
     /** Texto libre que solo va a la representación impresa (bloque "Observaciones"); no forma parte del XML firmado. */
     private String observaciones;
+    /**
+     * Correo del cliente (#325), normalizado ({@link CorreoDelCliente}), o {@code null}: a dónde se envían el PDF, el XML y el CDR cuando SUNAT lo acepta, si la empresa activó el envío
+     * automático. No va al XML ni a SUNAT. Una nota hereda el de su documento.
+     */
+    private String correoCliente;
     /** Cambios de estado ocurridos en memoria y aún no persistidos (#4); el repositorio los vacía al guardar. */
     private final List<EventoDocumento> eventosPendientes = new ArrayList<>();
 
@@ -499,6 +504,9 @@ public class Comprobante {
         this.observaciones = s;
     }
 
+    /** El correo del cliente (#325); en blanco lo quita. Lanza {@code RECEPTOR_INVALIDO} si no es un correo válido. */
+    public void dirigirA(String email) { this.correoCliente = CorreoDelCliente.normalizar(email); }
+
     /** Regla 2023 (factura y boleta) o 2137 (notas): el número de orden de la línea es de hasta 3 dígitos, así que no cabe más de {@link #MAX_LINEAS}. */
     private static void exigirHastaElTopeDeLineas(String reglaSunat, String documento, List<Item> items) {
         if (items.size() > MAX_LINEAS)
@@ -593,7 +601,7 @@ public class Comprobante {
         private FormaPago formaPago = FormaPago.contado(); private Descuento descuentoGlobal; private List<Cargo> cargos = List.of(); private Detraccion detraccion; private RetencionIgv retencion; private Percepcion percepcion;
         private List<Anticipo> anticipos = List.of(); private Referencias referencias; private BigDecimal redondeo; private Nota nota; private LiquidacionCompra liquidacion; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<String> leyendas = List.of();
         private Exportacion exportacion; private BigDecimal tipoCambio;
-        private String hash, nombreArchivo, xmlKey, cdrKey, ultimoError, observaciones; private Cdr cdr; private int intentos;
+        private String hash, nombreArchivo, xmlKey, cdrKey, ultimoError, observaciones, correoCliente; private Cdr cdr; private int intentos;
 
         private Persistido(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, EstadoDocumento estado, Receptor receptor, List<Item> items) {
             this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero; this.fechaEmision = fechaEmision; this.estado = estado; this.receptor = receptor; this.items = items;
@@ -621,11 +629,13 @@ public class Comprobante {
         public Persistido cdr(Cdr cdr, String cdrKey) { this.cdr = cdr; this.cdrKey = cdrKey; return this; }
         public Persistido envio(int intentos, String ultimoError) { this.intentos = intentos; this.ultimoError = ultimoError; return this; }
         public Persistido observaciones(String o) { this.observaciones = o; return this; }
+        /** Tal como se guardó: lo ya emitido no se vuelve a validar. */
+        public Persistido correoCliente(String e) { this.correoCliente = e; return this; }
 
         public Comprobante rehidratar() {
             Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, liquidacion, tasaIgv, leyendas, exportacion, estado);
             c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
-            c.intentos = intentos; c.ultimoError = ultimoError; c.observaciones = observaciones; c.tipoCambio = tipoCambio;
+            c.intentos = intentos; c.ultimoError = ultimoError; c.observaciones = observaciones; c.tipoCambio = tipoCambio; c.correoCliente = correoCliente;
             return c;
         }
     }

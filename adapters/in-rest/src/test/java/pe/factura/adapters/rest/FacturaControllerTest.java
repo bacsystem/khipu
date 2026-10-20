@@ -23,7 +23,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = FacturaController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = {FacturaController.class, EnvioAlClienteController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 @Import(GlobalExceptionHandler.class)
 class FacturaControllerTest {
     @Autowired MockMvc mvc;
@@ -35,6 +35,7 @@ class FacturaControllerTest {
     @MockBean pe.factura.application.port.in.DarDeBajaUseCase bajas;
     @MockBean CompartirComprobanteUseCase compartir;
     @MockBean pe.factura.application.port.in.RecuperarCdrUseCase cdrs;
+    @MockBean EnviarAlClienteUseCase envioAlCliente;
 
     UUID tenant = UUID.randomUUID();
 
@@ -112,6 +113,73 @@ class FacturaControllerTest {
                 .when(compartir).enviarPorCorreo(eq(tenant), eq(id), eq("w@y.pe"), isNull());
         mvc.perform(post("/v1/facturas/{id}/correo", id).requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
                         .content("{\"email\":\"w@y.pe\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.codigo").value("CORREO_NO_CONFIGURADO"));
+    }
+
+    // --- #325: envío automático al cliente --------------------------------------------------------------------------------------
+
+    @Test void elCorreoDelClienteLlegaAlComandoYVuelveEnElReceptor() throws Exception {
+        Comprobante c = aceptado(tenant);
+        c.dirigirA("compras@cliente.pe");
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(c);
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                        .content(cuerpo.replace("\"direccion\":\"AV 1\"}", "\"direccion\":\"AV 1\",\"email\":\"Compras@Cliente.pe\"}")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.receptor.email").value("compras@cliente.pe"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente").doesNotExist());
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().correoCliente()).as("se normaliza en el dominio").isEqualTo("Compras@Cliente.pe");
+
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo)).andExpect(status().isCreated());
+        verify(emitir, times(2)).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().correoCliente()).as("sin email, sin correo").isNull();
+    }
+
+    @Test void elDetalleDiceSiElComprobanteSalioAlCliente() throws Exception {
+        Comprobante c = aceptado(tenant);
+        c.dirigirA("compras@cliente.pe");
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        Instant enviado = Instant.parse("2026-09-13T15:00:12Z");
+        when(envioAlCliente.envioDe(tenant, c.id())).thenReturn(java.util.Optional.of(new EnvioAlCliente(c.id(), "compras@cliente.pe", EnvioAlCliente.Estado.ENVIADO, 1, null,
+                Instant.parse("2026-09-13T15:00:00Z"), enviado, Instant.parse("2026-09-13T15:00:00Z"))));
+
+        mvc.perform(get("/v1/facturas/{id}", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.receptor.email").value("compras@cliente.pe"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.destinatario").value("compras@cliente.pe"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.estado").value("ENVIADO"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.intentos").value(1))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.enviado_en").value("2026-09-13T15:00:12Z"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.siguiente_intento").doesNotExist());
+
+        when(envioAlCliente.envioDe(tenant, c.id())).thenReturn(java.util.Optional.of(new EnvioAlCliente(c.id(), "compras@cliente.pe", EnvioAlCliente.Estado.PENDIENTE, 1, "SMTP caído",
+                Instant.parse("2026-09-13T15:01:00Z"), null, Instant.parse("2026-09-13T15:00:00Z"))));
+        mvc.perform(get("/v1/facturas/{id}", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.estado").value("PENDIENTE"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.ultimo_error").value("SMTP caído"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.siguiente_intento").value("2026-09-13T15:01:00Z"));
+    }
+
+    @Test void laPreferenciaDeEnvioAlClienteSeVeYSeCambia() throws Exception {
+        when(envioAlCliente.preferencia(tenant)).thenReturn(new EnviarAlClienteUseCase.Preferencia(false, true));
+        mvc.perform(get("/v1/empresa/envio-al-cliente").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.enviar_automaticamente").value(false))
+                .andExpect(jsonPath("$.datos.correo_disponible").value(true));
+
+        when(envioAlCliente.fijarPreferencia(tenant, true)).thenReturn(new EnviarAlClienteUseCase.Preferencia(true, true));
+        mvc.perform(put("/v1/empresa/envio-al-cliente").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"enviar_automaticamente\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.enviar_automaticamente").value(true));
+
+        mvc.perform(put("/v1/empresa/envio-al-cliente").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"));
+
+        when(envioAlCliente.fijarPreferencia(tenant, true)).thenThrow(new DomainException("CORREO_NO_CONFIGURADO", "El envío de correos no está habilitado en el servidor"));
+        mvc.perform(put("/v1/empresa/envio-al-cliente").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"enviar_automaticamente\":true}"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.codigo").value("CORREO_NO_CONFIGURADO"));
     }

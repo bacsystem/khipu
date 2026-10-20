@@ -22,6 +22,7 @@ import pe.factura.application.port.in.CompartirComprobanteUseCase;
 import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.in.DarDeBajaUseCase;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
+import pe.factura.application.port.in.EnviarAlClienteUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.in.RecuperarCdrUseCase;
 import pe.factura.application.port.in.ValidarCompradorUseCase;
@@ -58,7 +59,7 @@ public class FacturaController {
     private final RecuperarCdrUseCase cdrs;
     private final ObjectMapper json;
     private final ValidarCompradorUseCase comprador;
-
+    private final EnviarAlClienteUseCase envioAlCliente;
 
     @PostMapping
     @Operation(summary = "Emitir una factura o una boleta", description = """
@@ -188,11 +189,13 @@ public class FacturaController {
             Estado actual, respuesta de SUNAT (`cdr`), totales, forma de pago y enlaces de descarga. Úselo para hacer seguimiento
             de un comprobante que quedó en `ERROR_ENVIO` o `ENVIADO`. Sirve también para las notas de crédito/débito emitidas con
             `POST /v1/notas` (traen el bloque `nota`) y las liquidaciones de compra de `POST /v1/liquidaciones-compra` (traen el bloque `liquidacion`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el
-            historial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente.""")
+            historial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente. Si la empresa
+            tiene activado el envío automático al cliente, `envio_al_cliente` dice si el correo con el PDF, el XML y el CDR salió, sigue pendiente o falló.""")
     public ApiResponse<ComprobanteResponse> obtener(HttpServletRequest req, @PathVariable UUID id) {
         UUID t = TenantActual.id(req);
         Comprobante c = consultar.obtener(t, id);
-        return ApiResponse.ok(ComprobanteResponse.de(c, BASE, consultar.notasDe(t, c), bajas.deComprobante(t, id).stream().findFirst().orElse(null), consultar.eventos(t, c)));
+        return ApiResponse.ok(ComprobanteResponse.de(c, BASE, consultar.notasDe(t, c), bajas.deComprobante(t, id).stream().findFirst().orElse(null), consultar.eventos(t, c),
+                envioAlCliente.envioDe(t, id).orElse(null)));
     }
 
     @PostMapping("/{id}/enviar")

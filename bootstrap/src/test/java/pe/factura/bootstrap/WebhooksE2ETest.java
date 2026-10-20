@@ -21,6 +21,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.factura.adapters.sunat.ZipUtil;
 import pe.factura.application.port.in.GestionarWebhooksUseCase;
 import pe.factura.application.port.in.GestionarWebhooksUseCase.Creado;
+import pe.factura.application.port.out.Adjunto;
+import pe.factura.application.port.out.CorreoSender;
 import pe.factura.domain.webhook.FirmaWebhook;
 
 import java.io.IOException;
@@ -86,6 +88,26 @@ class WebhooksE2ETest {
         r.add("app.webhooks.permitir-redes-privadas", () -> "true");
         r.add("app.webhooks.intervalo-ms", () -> "200");
         r.add("app.webhooks.inicial-ms", () -> "0");
+        r.add("app.envio-al-cliente.intervalo-ms", () -> "200");
+        r.add("app.envio-al-cliente.inicial-ms", () -> "0");
+    }
+
+    /** #325: el correo de mentira (el SMTP simulado de las demás pruebas E2E): anota lo que sale con sus adjuntos y puede decir que no entrega (sin SMTP). */
+    record CorreoEnviado(String para, String asunto, List<String> adjuntos) {}
+    static final List<CorreoEnviado> CORREOS = new CopyOnWriteArrayList<>();
+    static final java.util.concurrent.atomic.AtomicBoolean SMTP = new java.util.concurrent.atomic.AtomicBoolean(true);
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class CorreoDePrueba {
+        @org.springframework.context.annotation.Bean @org.springframework.context.annotation.Primary CorreoSender correoQueAnota() {
+            return new CorreoSender() {
+                public void enviar(String para, String asunto, String cuerpo) { enviar(para, asunto, cuerpo, List.of()); }
+                public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) {
+                    CORREOS.add(new CorreoEnviado(para, asunto, adjuntos.stream().map(Adjunto::nombre).toList()));
+                }
+                public boolean entregaDeVerdad() { return SMTP.get(); }
+            };
+        }
     }
 
     @AfterAll static void cerrar() { RECEPTOR.stop(0); }
@@ -118,6 +140,8 @@ class WebhooksE2ETest {
     @BeforeEach void limpiar() {
         RECIBIDOS.clear();
         RESPUESTA.set(200);
+        CORREOS.clear();
+        SMTP.set(true);
         jdbc.update("TRUNCATE webhook_entrega, webhook_endpoint, outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant CASCADE");
     }
 
@@ -258,6 +282,77 @@ class WebhooksE2ETest {
         assertThat(lista.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(lista.getBody()).contains(creado.endpoint().id().toString()).doesNotContain("whsec_").doesNotContain("secreto");
         assertThat(http.exchange("/v1/webhooks", HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), Map.class).getStatusCode()).as("sin credenciales").isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    // --- #325: envío automático del comprobante aceptado a su cliente ------------------------------------------------------------
+
+    static final String FACTURA_CON_CORREO = FACTURA.replace("\"direccion\":\"AV. LIMA 1\"}", "\"direccion\":\"AV. LIMA 1\",\"email\":\"Compras@Cliente.pe\"}");
+
+    ResponseEntity<Map> preferencia(String apiKey, boolean activar) {
+        return http.exchange("/v1/empresa/envio-al-cliente", HttpMethod.PUT, new HttpEntity<>("{\"enviar_automaticamente\":" + activar + "}", conApiKey(apiKey)), Map.class);
+    }
+
+    @Test void conElEnvioActivadoLaFacturaAceptadaLlegaAlCorreoDelClienteUnaSolaVez(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        String apiKey = EmpresaDePrueba.provisionar(http);
+        ResponseEntity<Map> activada = preferencia(apiKey, true);
+        assertThat(activada.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat((Map<String, Object>) activada.getBody().get("datos")).containsEntry("enviar_automaticamente", true).containsEntry("correo_disponible", true);
+        assertThat(FACTURA_CON_CORREO).as("el cuerpo de la prueba lleva el correo").contains("\"email\"");
+
+        ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA_CON_CORREO, conApiKey(apiKey)), Map.class);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        Map<String, Object> datos = (Map<String, Object>) r.getBody().get("datos");
+        assertThat((Map<String, Object>) datos.get("receptor")).containsEntry("email", "compras@cliente.pe");
+        String id = (String) datos.get("id");
+
+        esperar("el correo al cliente", () -> CORREOS.size() >= 1);
+        esperar("el envío anotado", () -> "ENVIADO".equals(jdbc.queryForObject("SELECT estado FROM envio_al_cliente WHERE documento_id = ?::uuid", String.class, id)));
+        CorreoEnviado correo = CORREOS.get(0);
+        assertThat(correo.para()).isEqualTo("compras@cliente.pe");
+        assertThat(correo.asunto()).isEqualTo("Factura F001-1 - EMPRESA DE PRUEBA S.A.C.");
+        assertThat(correo.adjuntos()).containsExactly("20100066603-01-F001-1.pdf", "20100066603-01-F001-1.xml", "R-20100066603-01-F001-1.zip");
+
+        ResponseEntity<Map> detalle = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(conApiKey(apiKey)), Map.class);
+        Map<String, Object> envio = (Map<String, Object>) ((Map<String, Object>) detalle.getBody().get("datos")).get("envio_al_cliente");
+        assertThat(envio).containsEntry("destinatario", "compras@cliente.pe").containsEntry("estado", "ENVIADO").containsEntry("intentos", 1);
+        assertThat(envio.get("enviado_en")).isNotNull();
+
+        Thread.sleep(800);
+        assertThat(CORREOS).as("una sola vez, aunque el worker siga pasando").hasSize(1);
+    }
+
+    @Test void sinLaPreferenciaNoSaleNadaYSinSmtpNoSePuedeActivar(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        String apiKey = EmpresaDePrueba.provisionar(http);
+        ResponseEntity<Map> inicial = http.exchange("/v1/empresa/envio-al-cliente", HttpMethod.GET, new HttpEntity<>(conApiKey(apiKey)), Map.class);
+        assertThat((Map<String, Object>) inicial.getBody().get("datos")).as("apagada por defecto").containsEntry("enviar_automaticamente", false);
+
+        ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA_CON_CORREO, conApiKey(apiKey)), Map.class);
+        assertThat(((Map<?, ?>) r.getBody().get("datos")).get("estado_documento")).isEqualTo("ACEPTADO");
+        Thread.sleep(800);
+        assertThat(CORREOS).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM envio_al_cliente", Integer.class)).isZero();
+
+        SMTP.set(false);
+        ResponseEntity<Map> sinSmtp = preferencia(apiKey, true);
+        assertThat(sinSmtp.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(sinSmtp.getBody().get("codigo")).isEqualTo("CORREO_NO_CONFIGURADO");
+        assertThat(preferencia(apiKey, false).getStatusCode()).as("desactivar siempre se puede").isEqualTo(HttpStatus.OK);
+    }
+
+    /** Activado con SMTP, y el SMTP desaparece antes del envío: lo pendiente queda OMITIDO con el motivo, no se da por enviado. */
+    @Test void siElServidorSeQuedaSinSmtpElEnvioPendienteSeOmite(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
+        String apiKey = EmpresaDePrueba.provisionar(http);
+        assertThat(preferencia(apiKey, true).getStatusCode()).isEqualTo(HttpStatus.OK);
+        SMTP.set(false);
+
+        String id = (String) ((Map<?, ?>) http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA_CON_CORREO, conApiKey(apiKey)), Map.class).getBody().get("datos")).get("id");
+
+        esperar("el envío omitido", () -> "OMITIDO".equals(jdbc.query("SELECT estado FROM envio_al_cliente WHERE documento_id = ?::uuid", (rs, i) -> rs.getString(1), id).stream().findFirst().orElse(null)));
+        assertThat(jdbc.queryForObject("SELECT ultimo_error FROM envio_al_cliente WHERE documento_id = ?::uuid", String.class, id)).contains("no tiene correo configurado");
+        assertThat(CORREOS).isEmpty();
     }
 
     @Test void elSecretoQuedaCifradoEnLaBase(WireMockRuntimeInfo wm) throws Exception {
