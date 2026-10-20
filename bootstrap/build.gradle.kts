@@ -51,6 +51,8 @@ tasks.withType<Test>().configureEach {
 
 tasks.test {
     useJUnitPlatform { excludeTags("homologacion") }
+    // DeveloperPortalE2ETest compara el OpenAPI de la API con el que el portal commitea (#5): sin declararlo, Gradle da la prueba por al día aunque ese archivo cambie.
+    inputs.file("../portal/src/lib/api/openapi.json").withPropertyName("openApiDelPortal").withPathSensitivity(PathSensitivity.NONE)
     // Cada E2E de Spring levanta su propio Postgres de Testcontainers, y con él su propio contexto, que Spring deja en caché durante toda la corrida: con
     // los 512 MB que Gradle da por defecto a un worker de pruebas, el decimosexto contexto agotaba el heap («OutOfMemoryError: Java heap space») y la
     // tarea fallaba sin ningún test en rojo.
