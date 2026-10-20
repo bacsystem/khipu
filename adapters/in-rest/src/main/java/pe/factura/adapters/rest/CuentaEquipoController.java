@@ -42,7 +42,7 @@ public class CuentaEquipoController {
 
     @PutMapping("/usuarios/{id}/rol")
     @Operation(summary = "Cambiar el rol de un usuario", description = """
-            Vale desde la siguiente petición del usuario, sin que vuelva a entrar. `409 ULTIMO_ADMINISTRADOR` si le quitaría el rol al único `ADMIN` activo (también a uno
+            Vale desde la siguiente petición del usuario, sin que vuelva a entrar. Quitarle el rol de administrador revoca las invitaciones pendientes que creó. `409 ULTIMO_ADMINISTRADOR` si le quitaría el rol al único `ADMIN` activo (también a uno
             mismo).""")
     public ApiResponse<EquipoDtos.Miembro> cambiarRolDeUsuario(HttpServletRequest req, @PathVariable UUID id, @Valid @RequestBody EquipoDtos.CambiarRol body) {
         UUID yo = UsuarioActual.id(req);
@@ -51,7 +51,9 @@ public class CuentaEquipoController {
 
     @PostMapping("/usuarios/{id}/desactivar")
     @Operation(summary = "Desactivar un usuario", description = """
-            Ya no entra y se cierran sus sesiones abiertas. `422 NO_PUEDES_DESACTIVARTE` con el propio usuario. Se puede reactivar.""")
+            Ya no entra y se cierran sus sesiones abiertas. Si era administrador, se revocan las invitaciones pendientes que creó. Las API keys que haya creado
+            **siguen vigentes**: son de la empresa, no del usuario; revóquelas en `DELETE /v1/empresa/api-keys/{id}` si hace falta. `422 NO_PUEDES_DESACTIVARTE` con
+            el propio usuario. Se puede reactivar.""")
     public ApiResponse<EquipoDtos.Miembro> desactivarUsuario(HttpServletRequest req, @PathVariable UUID id) {
         UUID yo = UsuarioActual.id(req);
         return ApiResponse.ok(EquipoDtos.Miembro.de(equipo.desactivar(CuentaActual.id(req), yo, id), yo));
@@ -74,7 +76,9 @@ public class CuentaEquipoController {
     @Operation(summary = "Invitar a alguien a la cuenta", description = """
             Le manda un enlace de un solo uso (7 días) para crear su contraseña y entrar con el rol elegido. `409 YA_ES_MIEMBRO` si ya es usuario de la cuenta,
             `409 USUARIO_EXISTENTE` si el correo ya tiene un usuario en khipu (cada usuario es de una sola cuenta), `409 INVITACION_PENDIENTE` si ya hay una pendiente para
-            ese correo (reenvíela), `429 DEMASIADAS_INVITACIONES` con 20 pendientes. `correo_enviado: false` si el correo no salió: la invitación queda y se puede reenviar.""")
+            ese correo (reenvíela). `429 DEMASIADAS_INVITACIONES` con 20 pendientes, o si en las últimas 24 horas la cuenta ya mandó 30 correos de invitación o esa
+            dirección ya recibió 3 (de cualquier cuenta); invitar y reenviar cuentan, también las invitaciones que después se revocaron. La invitación vale mientras
+            quien la creó siga siendo administrador activo. `correo_enviado: false` si el correo no salió: la invitación queda y se puede reenviar.""")
     public ResponseEntity<ApiResponse<EquipoDtos.Enviada>> invitarAlEquipo(HttpServletRequest req, @Valid @RequestBody EquipoDtos.Invitar body) {
         var enviada = equipo.invitar(CuentaActual.id(req), UsuarioActual.id(req), body.email(), body.rolElegido(), portalUrl);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(EquipoDtos.Enviada.de(enviada)));
@@ -82,7 +86,8 @@ public class CuentaEquipoController {
 
     @PostMapping("/invitaciones/{id}/reenviar")
     @Operation(summary = "Reenviar una invitación", description = """
-            Un enlace nuevo que vuelve a durar 7 días; el anterior deja de servir. Hasta 5 envíos por invitación: después, `429 DEMASIADOS_ENVIOS`.
+            Un enlace nuevo que vuelve a durar 7 días; el anterior deja de servir. Hasta 5 envíos por invitación: después, `429 DEMASIADOS_ENVIOS`. Cuenta para
+            los topes de 24 horas de invitar (`429 DEMASIADAS_INVITACIONES`).
             `409 INVITACION_NO_PENDIENTE` si ya se aceptó o se revocó.""")
     public ApiResponse<EquipoDtos.Enviada> reenviarInvitacion(HttpServletRequest req, @PathVariable UUID id) {
         return ApiResponse.ok(EquipoDtos.Enviada.de(equipo.reenviar(CuentaActual.id(req), UsuarioActual.id(req), id, portalUrl)));

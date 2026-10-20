@@ -6,6 +6,7 @@ import org.springframework.context.annotation.ClassPathScanningCandidateComponen
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import pe.factura.domain.cuenta.Permiso;
 
@@ -64,20 +65,44 @@ class PermisoDeRutaTest {
         Map<String, Permiso> reales = new TreeMap<>();
         for (BeanDefinition bd : scanner.findCandidateComponents("pe.factura.adapters.rest")) {
             Class<?> c = Class.forName(bd.getBeanClassName());
-            RequestMapping base = AnnotatedElementUtils.findMergedAnnotation(c, RequestMapping.class);
-            String prefijo = base == null || base.value().length == 0 ? "" : base.value()[0];
-            for (Method m : c.getDeclaredMethods()) {
-                RequestMapping rm = AnnotatedElementUtils.findMergedAnnotation(m, RequestMapping.class);
-                if (rm == null) continue;
-                String[] rutas = rm.value().length == 0 ? new String[]{""} : rm.value();
-                for (String r : rutas) {
-                    String ruta = (prefijo + r).replaceAll("\\{[^}]+}", "x");
-                    if (RutaRequest.esAdmin(ruta) || ruta.startsWith("/v1/auth/") || RutaRequest.esPublica(ruta)) continue;
-                    for (var metodo : rm.method()) reales.put(metodo.name() + " " + ruta, PermisoDeRuta.requerido(metodo.name(), ruta));
-                }
-            }
+            // Los controladores de esta misma prueba no son de la API.
+            if (c.getEnclosingClass() == PermisoDeRutaTest.class) continue;
+            reales.putAll(endpointsDe(c));
         }
         return reales;
+    }
+
+    /** Un mapping sin método (`@RequestMapping("/v1/x")`) atiende cualquier método: se cuenta como cada uno, para que una escritura no se esconda detrás de él (H8). */
+    static final RequestMethod[] CUALQUIER_METODO = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.DELETE};
+
+    static Map<String, Permiso> endpointsDe(Class<?> c) {
+        Map<String, Permiso> endpoints = new TreeMap<>();
+        RequestMapping base = AnnotatedElementUtils.findMergedAnnotation(c, RequestMapping.class);
+        String prefijo = base == null || base.value().length == 0 ? "" : base.value()[0];
+        for (Method m : c.getDeclaredMethods()) {
+            RequestMapping rm = AnnotatedElementUtils.findMergedAnnotation(m, RequestMapping.class);
+            if (rm == null) continue;
+            String[] rutas = rm.value().length == 0 ? new String[]{""} : rm.value();
+            RequestMethod[] metodos = rm.method().length == 0 ? CUALQUIER_METODO : rm.method();
+            for (String r : rutas) {
+                String ruta = (prefijo + r).replaceAll("\\{[^}]+}", "x");
+                if (RutaRequest.esAdmin(ruta) || ruta.startsWith("/v1/auth/") || RutaRequest.esPublica(ruta)) continue;
+                for (var metodo : metodos) endpoints.put(metodo.name() + " " + ruta, PermisoDeRuta.requerido(metodo.name(), ruta));
+            }
+        }
+        return endpoints;
+    }
+
+    /** Un endpoint declarado sin método, como lo escribiría alguien con prisa. Sin `@RestController` a propósito: que ningún contexto de prueba lo levante. */
+    static class SinMetodo {
+        @RequestMapping("/v1/algo-sin-metodo")
+        public String cualquiera() { return ""; }
+    }
+
+    @Test void unMappingSinMetodoSeCuentaComoCadaMetodo() {
+        assertThat(endpointsDe(SinMetodo.class)).containsExactlyInAnyOrderEntriesOf(Map.of(
+                "GET /v1/algo-sin-metodo", LEER, "POST /v1/algo-sin-metodo", CONFIGURAR, "PUT /v1/algo-sin-metodo", CONFIGURAR,
+                "PATCH /v1/algo-sin-metodo", CONFIGURAR, "DELETE /v1/algo-sin-metodo", CONFIGURAR));
     }
 
     @Test void cadaEndpointDelPortalTieneSuPermisoDecidido() throws Exception {
