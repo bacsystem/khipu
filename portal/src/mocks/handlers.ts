@@ -1338,6 +1338,29 @@ function adminsActivos(cuenta: string, sinContar: string): number {
  * la petición rompía los handlers siguientes que leen el cuerpo (MSW lo daba por consumido: «Unexpected end of JSON input»), así que el resto de las rutas no
  * mira el rol: el portal ya deshabilita lo que el rol no permite, y quien decide de verdad es el backend (JwtFilter + PermisoDeRuta, probados en Java).
  */
+/** Como `EquipoService` (H1): 30 correos por cuenta y 3 por dirección en 24 horas, contando invitar y reenviar aunque la invitación se revoque después. */
+function topeDeEnviosMock(cuenta: string, email: string) {
+  const desde = Date.now() - 24 * 3_600_000;
+  const recientes = db.enviosDeInvitacion.filter((e) => e.en > desde);
+  if (recientes.filter((e) => e.cuenta_id === cuenta).length >= 30)
+    return fail(429, "DEMASIADAS_INVITACIONES", "Tu cuenta ya mandó 30 invitaciones en las últimas 24 horas. Vuelve a intentarlo mañana");
+  if (recientes.filter((e) => e.email === email).length >= 3)
+    return fail(429, "DEMASIADAS_INVITACIONES", "Ese correo ya recibió 3 invitaciones en las últimas 24 horas. Vuelve a intentarlo mañana");
+  return null;
+}
+
+/** H3: las pendientes de quien deja de ser administrador se revocan. */
+function revocarPendientesDeMock(usuarioId: string) {
+  for (const i of db.invitaciones.values()) if (i.invitado_por === usuarioId && i.estado === "PENDIENTE") i.estado = "REVOCADA";
+}
+
+/** Pendiente, sin vencer y con quien invitó todavía administrador activo de la cuenta (H3). */
+function invitacionAceptableMock(i: InvitacionMock | undefined): i is InvitacionMock {
+  if (!i || i.estado !== "PENDIENTE" || new Date(i.expira_en).getTime() <= Date.now()) return false;
+  const invitante = equipoDe(i.cuenta_id).find((u) => u.id === i.invitado_por);
+  return Boolean(invitante && invitante.rol === "ADMIN" && !db.usuariosDesactivados.has(invitante.id));
+}
+
 const handlersDeEquipo = [
   http.get(`${BASE}/v1/cuenta/usuarios`, ({ request }) => {
     const a = administradorDeLaSesion(request);
@@ -1354,6 +1377,8 @@ const handlersDeEquipo = [
     if (!u) return fail(404, "NO_ENCONTRADO", "Usuario no encontrado en tu cuenta");
     if (u.rol === "ADMIN" && rol !== "ADMIN" && !db.usuariosDesactivados.has(u.id) && adminsActivos(u.cuenta_id, u.id) === 0)
       return fail(409, "ULTIMO_ADMINISTRADOR", "No puedes quitarle el rol de administrador: es el único administrador activo de la cuenta");
+    // Como el backend (H3): quien deja de ser administrador no deja invitaciones vivas.
+    if (u.rol === "ADMIN" && rol !== "ADMIN") revocarPendientesDeMock(u.id);
     u.rol = rol;
     return ok(miembroVista(u, a.usuario.id));
   }),
@@ -1365,6 +1390,7 @@ const handlersDeEquipo = [
     const u = equipoDe(a.usuario.cuenta_id).find((x) => x.id === params.id);
     if (!u) return fail(404, "NO_ENCONTRADO", "Usuario no encontrado en tu cuenta");
     db.usuariosDesactivados.add(u.id);
+    if (u.rol === "ADMIN") revocarPendientesDeMock(u.id);
     return ok(miembroVista(u, a.usuario.id));
   }),
 
@@ -1394,9 +1420,12 @@ const handlersDeEquipo = [
     if (db.usuariosPorEmail.has(email)) return fail(409, "USUARIO_EXISTENTE", "Ese correo ya tiene un usuario en khipu y no se puede sumar a otra cuenta");
     if ([...db.invitaciones.values()].some((i) => i.cuenta_id === a.usuario.cuenta_id && i.email === email && i.estado === "PENDIENTE"))
       return fail(409, "INVITACION_PENDIENTE", "Ya hay una invitación pendiente para ese correo: reenvíala en vez de crear otra");
+    const tope = topeDeEnviosMock(a.usuario.cuenta_id, email);
+    if (tope) return tope;
     const ahora = new Date();
-    const i: InvitacionMock = { id: nuevoId("inv"), cuenta_id: a.usuario.cuenta_id, email, rol: body.rol, estado: "PENDIENTE", envios: 1, creada_en: ahora.toISOString(), expira_en: new Date(ahora.getTime() + 7 * 86_400_000).toISOString() };
+    const i: InvitacionMock = { id: nuevoId("inv"), cuenta_id: a.usuario.cuenta_id, email, rol: body.rol, estado: "PENDIENTE", envios: 1, creada_en: ahora.toISOString(), expira_en: new Date(ahora.getTime() + 7 * 86_400_000).toISOString(), invitado_por: a.usuario.id };
     db.invitaciones.set(`inv-${email}`, i);
+    db.enviosDeInvitacion.push({ cuenta_id: i.cuenta_id, email, en: Date.now() });
     return ok({ invitacion: invitacionVista(i), correo_enviado: true }, 201);
   }),
 
@@ -1408,6 +1437,9 @@ const handlersDeEquipo = [
     const [tokenViejo, i] = entrada;
     if (i.estado !== "PENDIENTE") return fail(409, "INVITACION_NO_PENDIENTE", "La invitación ya no está pendiente");
     if (i.envios >= 5) return fail(429, "DEMASIADOS_ENVIOS", "Ya enviamos esta invitación 5 veces");
+    const tope = topeDeEnviosMock(i.cuenta_id, i.email);
+    if (tope) return tope;
+    db.enviosDeInvitacion.push({ cuenta_id: i.cuenta_id, email: i.email, en: Date.now() });
     // El enlace anterior deja de servir; el nuevo es `inv-<correo>-<envíos>`.
     db.invitaciones.delete(tokenViejo);
     i.envios += 1;
@@ -1429,18 +1461,17 @@ const handlersDeEquipo = [
   http.post(`${BASE}/v1/auth/invitacion`, async ({ request }) => {
     const { token } = (await request.json()) as { token: string };
     const i = db.invitaciones.get(token);
-    if (!i || i.estado !== "PENDIENTE" || new Date(i.expira_en).getTime() <= Date.now())
-      return fail(422, "TOKEN_INVALIDO", "El enlace de la invitación es inválido, venció o ya se usó");
+    if (!invitacionAceptableMock(i)) return fail(422, "TOKEN_INVALIDO", "El enlace de la invitación es inválido, venció o ya se usó");
     return ok({ email: i.email, cuenta: db.nombresDeCuenta.get(i.cuenta_id) ?? "Mi cuenta", rol: i.rol, expira_en: i.expira_en });
   }),
 
   http.post(`${BASE}/v1/auth/invitacion/aceptar`, async ({ request }) => {
     const { token, password } = (await request.json()) as { token: string; password: string };
-    const i = db.invitaciones.get(token);
-    if (!i || i.estado !== "PENDIENTE" || new Date(i.expira_en).getTime() <= Date.now())
-      return fail(422, "TOKEN_INVALIDO", "El enlace de la invitación es inválido, venció o ya se usó");
+    // Como el backend (H6): la contraseña se valida antes de mirar el enlace, así una débil no revela si el enlace sirve.
     if (!password || password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password))
       return fail(422, "PASSWORD_DEBIL", "La contraseña debe tener al menos 8 caracteres, una letra y un dígito");
+    const i = db.invitaciones.get(token);
+    if (!invitacionAceptableMock(i)) return fail(422, "TOKEN_INVALIDO", "El enlace de la invitación es inválido, venció o ya se usó");
     if (db.usuariosPorEmail.has(i.email)) return fail(409, "USUARIO_EXISTENTE", "Ese correo ya tiene un usuario en khipu");
     i.estado = "ACEPTADA";
     const usuario: Usuario = { id: nuevoId("u"), cuenta_id: i.cuenta_id, email: i.email, rol: i.rol, correo_verificado: true };
