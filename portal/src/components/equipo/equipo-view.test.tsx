@@ -42,8 +42,51 @@ describe("EquipoView (#21)", () => {
     render(<EquipoView miembros={[ana]} invitaciones={[]} />);
 
     fireEvent.change(screen.getByLabelText("Rol de ana@torres.pe"), { target: { value: "EMISOR" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Sí, dejar de ser administrador" }));
 
-    expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("al menos un administrador"));
+    expect((await screen.findAllByRole("alert")).map((a) => a.textContent).join(" ")).toContain("al menos un administrador");
+  });
+
+  /** H9: bajarse a uno mismo de administrador pide confirmación; cancelar no llama a la API. */
+  it("degradarse a sí mismo pide confirmación en un diálogo", async () => {
+    apiRequest.mockResolvedValue({ estado: "exito", datos: { ...ana, rol: "LECTURA" } });
+    render(<EquipoView miembros={[ana, beto]} invitaciones={[]} />);
+
+    fireEvent.change(screen.getByLabelText("Rol de ana@torres.pe"), { target: { value: "LECTURA" } });
+    const dialogo = await screen.findByRole("dialog");
+    expect(dialogo.textContent).toContain("perderás el acceso de administrador");
+    expect(dialogo.textContent).toContain("Solo lectura");
+    expect(apiRequest).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(apiRequest).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Rol de ana@torres.pe"), { target: { value: "LECTURA" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Sí, dejar de ser administrador" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("/api/proxy/cuenta/usuarios/u1/rol", { method: "PUT", body: { rol: "LECTURA" } }));
+  });
+
+  it("cambiar el rol de otro no pide confirmación", async () => {
+    apiRequest.mockResolvedValue({ estado: "exito", datos: { ...beto, rol: "ADMIN" } });
+    render(<EquipoView miembros={[ana, beto]} invitaciones={[]} />);
+    fireEvent.change(screen.getByLabelText("Rol de beto@torres.pe"), { target: { value: "ADMIN" } });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(apiRequest).toHaveBeenCalled());
+  });
+
+  it("al desactivar a un administrador avisa que sus API keys siguen vigentes, con el enlace", () => {
+    const dani: MiembroDelEquipo = { ...beto, id: "u3", email: "dani@torres.pe", rol: "ADMIN" };
+    render(<EquipoView miembros={[ana, dani, beto]} invitaciones={[]} />);
+
+    fireEvent.click(within(screen.getByTestId("miembro-dani@torres.pe")).getByRole("button", { name: /Desactivar/ }));
+    const aviso = screen.getByTestId("aviso-api-keys");
+    expect(aviso.textContent).toContain("siguen vigentes");
+    expect(within(aviso).getByRole("link", { name: "API keys" }).getAttribute("href")).toBe("/api-keys");
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(within(screen.getByTestId("miembro-beto@torres.pe")).getByRole("button", { name: /Desactivar/ }));
+    expect(screen.queryByTestId("aviso-api-keys")).toBeNull();
   });
 
   it("desactivar pide confirmación y no se ofrece para uno mismo", async () => {

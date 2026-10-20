@@ -1445,6 +1445,13 @@
     "cambiarRol": "Rol de {email}",
     "desactivar": "Desactivar",
     "confirmarDesactivar": "¿Desactivar? Se cerrarán sus sesiones.",
+    "avisoApiKeys": "Las API keys que haya creado siguen vigentes: son de la empresa, no suyas. Si hace falta, revócalas en",
+    "irAApiKeys": "API keys",
+    "degradarme": {
+      "titulo": "¿Dejar de ser administrador?",
+      "descripcion": "Pasarás a {rol} y perderás el acceso de administrador: ya no podrás gestionar el equipo ni la configuración. Para recuperarlo, otro administrador tendrá que devolvértelo.",
+      "confirmar": "Sí, dejar de ser administrador"
+    },
     "siDesactivar": "Sí, desactivar",
     "reactivar": "Reactivar",
     "reenviar": "Reenviar",
@@ -1598,7 +1605,7 @@
     "USUARIO_EXISTENTE": "Ese correo ya tiene un usuario en khipu y no se puede sumar a otra cuenta.",
     "INVITACION_PENDIENTE": "Ya hay una invitación pendiente para ese correo: reenvíala desde la lista.",
     "INVITACION_NO_PENDIENTE": "La invitación ya no está pendiente: se aceptó o se revocó. Recarga la página.",
-    "DEMASIADAS_INVITACIONES": "Tu cuenta tiene 20 invitaciones pendientes. Revoca las que ya no hagan falta.",
+    "DEMASIADAS_INVITACIONES": "Llegaste al tope de invitaciones: 20 pendientes, o 30 correos de invitación de tu cuenta (o 3 a ese correo) en las últimas 24 horas. Revoca las que sobren o vuelve a intentarlo mañana.",
     "DEMASIADOS_ENVIOS": "Ya enviamos esta invitación 5 veces. Revócala e invita de nuevo si hace falta."
   }
 }
