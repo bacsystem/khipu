@@ -224,6 +224,40 @@ class AutenticarUsuarioServiceTest {
         assertThat(service.me(t.usuario().id()).correoVerificado()).isTrue();
     }
 
+    /**
+     * #21 (H2): restablecer lee al usuario antes de su transacción. Si un administrador lo desactiva y le cambia el rol en ese intervalo, la contraseña nueva no debe
+     * reescribir el usuario leído (lo reactivaba y le devolvía el rol): solo cambia la contraseña.
+     */
+    @Test void restablecerNoDeshaceUnaDesactivacionHechaEntreLaLecturaYLaEscritura() {
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", PORTAL);
+        UUID id = t.usuario().id();
+        service.solicitarRecuperacion("a@b.pe", PORTAL);
+        String token = tokenDelCorreo("/restablecer/");
+        UsuarioRepository conCarrera = new UsuarioRepository() {
+            public void guardar(Usuario u) { usuarios.guardar(u); }
+            public Optional<Usuario> buscar(UUID u) {
+                Optional<Usuario> leido = usuarios.buscar(u);
+                // Lo que hace el administrador justo después de esta lectura.
+                usuariosMap.computeIfPresent(u, (k, x) -> x.desactivar().conRol(Rol.LECTURA));
+                return leido;
+            }
+            public Optional<Usuario> buscarPorEmail(String e) { return usuarios.buscarPorEmail(e); }
+            public void marcarCorreoVerificado(UUID u, java.time.Instant cuando) { usuarios.marcarCorreoVerificado(u, cuando); }
+            /** Como la base: un UPDATE de esas columnas sobre la fila de hoy. */
+            public void cambiarPassword(UUID u, String hash, java.time.Instant cuando) {
+                usuariosMap.computeIfPresent(u, (k, x) -> x.conPasswordHash(hash).conCorreoVerificado(cuando));
+            }
+        };
+        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, conCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones,
+                new PlantillasDeCorreo(plantillasGuardadas), limite);
+
+        enCarrera.restablecer(token, "Nueva1234");
+
+        assertThat(usuariosMap.get(id).activo()).as("sigue desactivado").isFalse();
+        assertThat(usuariosMap.get(id).rol()).isEqualTo(Rol.LECTURA);
+        assertThat(usuariosMap.get(id).passwordHash()).isEqualTo(hasher.hash("Nueva1234"));
+    }
+
     /** Un SMTP caído no impide registrarse: el usuario pide otro enlace desde el portal. */
     @Test void siElCorreoFallaElRegistroQuedaHechoIgual() {
         CorreoSender roto = new CorreoSender() {
