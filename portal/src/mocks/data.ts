@@ -84,6 +84,8 @@ export type Empresa = {
   personalizacion_pdf?: PersonalizacionPdf;
   /** #107: SUNAT rechazó las credenciales SOL; guardar credenciales nuevas lo levanta, como en el backend. */
   credenciales_sol_rechazadas?: { desde: string; motivo: string } | null;
+  /** #318: credenciales API SUNAT cargadas (client_id y client_secret); como en el backend, nunca se devuelven. */
+  tiene_credenciales_api_sunat?: boolean;
 };
 
 export type PersonalizacionPdf = {

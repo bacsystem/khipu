@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { CertificadoForm } from "@/components/empresa/certificado-form";
+import { CredencialesApiSunatForm } from "@/components/empresa/credenciales-api-sunat-form";
 import { CredencialesSolForm } from "@/components/empresa/credenciales-sol-form";
 import { DatosFiscalesForm } from "@/components/empresa/datos-fiscales-form";
 import { GuiaParaEmitir } from "@/components/empresa/guia-para-emitir";
@@ -269,6 +270,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           </section>
           ),
           sol: (
+          <div className="flex flex-col gap-4">
           <section className={cn(TARJETA, "p-5 lg:max-w-4xl")}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
@@ -303,6 +305,27 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               </FormulariosDeEscritura>
             </div>
           </section>
+          {/* #318: opcionales. Sirven para consultar la validez por la API REST de SUNAT (también en beta), no para emitir. */}
+          <section className={cn(TARJETA, "p-5 lg:max-w-4xl")} data-testid="credenciales-api-sunat">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+              <div className={TITULO_SECCION}>
+                <KeyRoundIcon className="size-4" />
+                Credenciales API SUNAT (consultas)
+              </div>
+              <Pill tono={empresa.tiene_credenciales_api_sunat ? "ok" : "neutro"}>{empresa.tiene_credenciales_api_sunat ? "Configuradas" : "Opcionales"}</Pill>
+            </div>
+            <p className="mt-4 text-[12px] leading-relaxed text-muted-foreground">
+              Con el «Id» y la «Clave» de una aplicación registrada en SOL (opción «Credenciales de API SUNAT»), la validez de un comprobante se consulta por
+              la API REST de SUNAT, que funciona también en beta. Sin ellas se usa el servicio con la clave SOL, que SUNAT solo publica en producción. No se
+              usan para emitir.
+            </p>
+            <div className="mt-4">
+              <FormulariosDeEscritura>
+              <CredencialesApiSunatForm configuradas={empresa.tiene_credenciales_api_sunat ?? false} />
+              </FormulariosDeEscritura>
+            </div>
+          </section>
+          </div>
           ),
           empresas: (
           <section className={cn(TARJETA, "p-5 lg:max-w-4xl")}>

@@ -11,7 +11,8 @@
 import type { components } from "./openapi";
 import type { Contrato, ContratoDePeticion, Verifica } from "./contrato";
 import type { Comprobante, ItemComprobante, Receptor, Baja, Anticipo, Detraccion, FormaPago, RetencionIgv, Percepcion, Exportacion, DescuentoAplicado, CargoAplicado, EventoComprobante, NotaResumen, Hidrobiologico, TransporteCarga, ResumenDeFacturas } from "./facturas";
-import type { Empresa, EmpresaDetalle, Domicilio, PersonalizacionPdf } from "./empresas";
+import type { Empresa, EmpresaDetalle, Domicilio, PersonalizacionPdf, CredencialesApiSunat } from "./empresas";
+import type { Validez } from "./validez";
 import type { Establecimiento } from "./establecimientos";
 import type { Serie } from "./series";
 import type { ApiKeyResumen } from "./api-keys";
@@ -69,6 +70,9 @@ export type ContratoDeLaApi = [
   Verifica<Contrato<EmpresaDetalle, S["EmpresaResponse"]>>,
   Verifica<Contrato<Domicilio, S["DomicilioResponse"]>>,
   Verifica<Contrato<PersonalizacionPdf, S["PersonalizacionPdfResponse"]>>,
+  Verifica<ContratoDePeticion<CredencialesApiSunat, S["CredencialesApiSunatRequest"]>>,
+  // consultas
+  Verifica<Contrato<Validez, S["ValidezResponse"]>>,
   // establecimientos
   Verifica<Contrato<Establecimiento, S["EstablecimientoResponse"]>>,
   // series

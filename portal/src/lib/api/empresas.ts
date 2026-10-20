@@ -41,6 +41,8 @@ export type EmpresaDetalle = {
   padron_tasa_especial_igv?: boolean;
   /** #107: SUNAT rechazó las credenciales SOL; mientras esté, los envíos esperan a que se corrijan. Ausente si no. */
   credenciales_sol_rechazadas?: { desde: string; motivo: string } | null;
+  /** #318: si cargó las credenciales API SUNAT (client_id y client_secret); nunca se devuelven. */
+  tiene_credenciales_api_sunat?: boolean;
 };
 
 export function listarEmpresas(access: string) {
@@ -58,6 +60,10 @@ export function crearEmpresa(access: string, body: { ruc: string; razon_social: 
 export function obtenerEmpresaActual(access: string, empresaId: string) {
   return backendFetch<EmpresaDetalle>("/v1/empresa", { headers: tenantHeaders(access, empresaId) });
 }
+
+/** #318: cuerpo de `PUT /v1/empresa/credenciales-api-sunat` (lo manda el navegador por el proxy); `DELETE` en la misma ruta las quita. */
+export type CredencialesApiSunat = { client_id: string; client_secret: string };
+export const RUTA_CREDENCIALES_API_SUNAT = "/api/proxy/empresa/credenciales-api-sunat";
 
 export type PlantillaPdf = "clasico" | "moderno" | "sutil" | "corporativo" | "gris";
 

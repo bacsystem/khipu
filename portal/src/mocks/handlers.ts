@@ -2630,6 +2630,26 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  // #318: credenciales API SUNAT. Mismas reglas que CredencialesApiSunat del backend: obligatorias, y el client_id sin espacios ni nada que cambie la URL del token.
+  http.put(`${BASE}/v1/empresa/credenciales-api-sunat`, async ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    const body = (await request.json()) as { client_id?: string; client_secret?: string };
+    const id = (body.client_id ?? "").trim();
+    if (!id || !(body.client_secret ?? "").trim())
+      return fail(422, "CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id y el client_secret de la API SUNAT son obligatorios");
+    if (!/^[A-Za-z0-9._~-]+$/.test(id))
+      return fail(422, "CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id de la API SUNAT solo admite letras, dígitos, guiones, puntos y guiones bajos");
+    empresa.tiene_credenciales_api_sunat = true;
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.delete(`${BASE}/v1/empresa/credenciales-api-sunat`, ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    empresa.tiene_credenciales_api_sunat = false;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.put(`${BASE}/v1/empresa/datos-fiscales`, async ({ request }) => {
     const empresaId = request.headers.get("x-empresa");
     const empresa = [...db.empresasPorCuenta.values()].flat().find((e) => e.id === empresaId);
