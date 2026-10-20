@@ -155,6 +155,10 @@ class ResumenDiarioPorLotesTest {
             });
         });
 
+        // Se reprograman en el orden del resumen (una nota detrás de la boleta que modifica): el outbox toma lo vencido por orden de programación.
+        assertThat(outbox.filas).filteredOn(f -> f.accion().equals("ENVIAR")).extracting(f -> f.agregadoId()).containsExactly(a.id(), b.id(), mala.id());
+        assertThat(outbox.filas.stream().filter(f -> f.accion().equals("ENVIAR")).map(f -> f.cuando()).toList()).isSorted().doesNotHaveDuplicates();
+
         cdrs.cdr = new Cdr("0", "aceptado", List.of());
         assertThat(enviar.enviar(tenantId, a.id()).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         assertThat(enviar.enviar(tenantId, b.id()).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
@@ -178,6 +182,22 @@ class ResumenDiarioPorLotesTest {
         assertThat(ubl.lineasPorResumen).as("el rechazado de dos líneas y la nueva sola: a y b siguen esperando su turno").containsExactly(2, 1);
         assertThat(estado(nueva)).isEqualTo(EstadoDocumento.ACEPTADO);
         assertThat(estado(a)).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(estado(b)).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+    }
+
+    /** La que se aísla va sola aunque haya otras nuevas esperando: de lo contrario volvería a agruparse con ellas y a rebotar con el mismo rechazo. */
+    @Test void unaBoletaAisladaVaSolaAunqueHayaOtrasNuevasEsperando() {
+        Comprobante a = boleta(EMISION), b = boleta(EMISION);
+        cdrs.cdr = new Cdr("2987", "Una línea del resumen tiene errores", List.of());
+        enviar.enviar(tenantId, a.id());
+        cdrs.cdr = new Cdr("0", "aceptado", List.of());
+        Comprobante nueva = boleta(EMISION);
+
+        enviar.enviar(tenantId, a.id());
+
+        assertThat(ubl.lineasPorResumen).as("el rechazado de dos líneas y luego a sola: la nueva no se le une").containsExactly(2, 1);
+        assertThat(estado(a)).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(estado(nueva)).isEqualTo(EstadoDocumento.FIRMADO);
         assertThat(estado(b)).isEqualTo(EstadoDocumento.ERROR_ENVIO);
     }
 
