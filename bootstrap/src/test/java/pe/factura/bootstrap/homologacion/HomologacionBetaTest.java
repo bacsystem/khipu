@@ -89,6 +89,9 @@ class HomologacionBetaTest {
                 new HttpEntity<>("{\"ruc\":\"" + RUC + "\",\"razon_social\":\"EMPRESA DE PRUEBA S.A.C.\",\"entorno\":\"BETA\"}", admin), Map.class);
         assertThat(creado.getStatusCode()).as("alta del tenant").isEqualTo(HttpStatus.CREATED);
         String apiKey = (String) ((Map<?, ?>) creado.getBody().get("datos")).get("api_key");
+        // #40: la empresa de prueba se designa agente de retención y de percepción (e-beta no lo cruza: aceptó retenciones de un RUC que no es agente, 2026-10-20).
+        assertThat(http.postForEntity("/v1/admin/empresas/" + ((Map<?, ?>) creado.getBody().get("datos")).get("tenant_id") + "/agente",
+                new HttpEntity<>("{\"retencion\":true,\"percepcion\":true}", admin), Map.class).getStatusCode()).as("designación de agente").isEqualTo(HttpStatus.OK);
         api = new HttpHeaders(); api.set("X-Api-Key", apiKey); api.setContentType(MediaType.APPLICATION_JSON);
 
         assertThat(http.exchange("/v1/empresa/credenciales-sol", HttpMethod.PUT, new HttpEntity<>("{\"usuario\":\"MODDATOS\",\"clave\":\"moddatos\"}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
@@ -100,6 +103,9 @@ class HomologacionBetaTest {
             assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"" + tipo + "\",\"serie\":\"" + EscenariosFactura.serieBoleta(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         // #327: la serie L### de la liquidación de compra.
         assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"04\",\"serie\":\"" + EscenariosFactura.serieLiquidacion(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        // #40: las series R### y P### de la retención y la percepción.
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"20\",\"serie\":\"" + EscenariosFactura.serieRetencion(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"40\",\"serie\":\"" + EscenariosFactura.seriePercepcion(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         // Establecimiento anexo 0002 con su propia serie de factura (#80).
         assertThat(http.postForEntity("/v1/empresa/establecimientos", new HttpEntity<>(
                 "{\"codigo\":\"0002\",\"nombre\":\"Tienda Miraflores\",\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"AV. LARCO 345\"}}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -165,6 +171,8 @@ class HomologacionBetaTest {
             if (e.id().startsWith("32-")) ids.put("BOLETA_GRATUITA", String.valueOf(datos.get("id")));
             if (e.id().startsWith("09-")) numeros.put("CREDITO", num.longValue());
             if (e.id().startsWith("16-")) numeros.put("ANTICIPO", num.longValue());
+            if (e.id().startsWith("100-")) ids.put("RETENCION", String.valueOf(datos.get("id")));
+            if (e.id().startsWith("103-")) ids.put("PERCEPCION", String.valueOf(datos.get("id")));
         }
 
         assertThat(r.getStatusCode()).as(e.id() + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
@@ -314,8 +322,22 @@ class HomologacionBetaTest {
         assertThat(estadoBoleta).as(escenario + ": el CDR del resumen acepta la boleta").isEqualTo("ACEPTADO");
     }
 
+    /**
+     * #40: la retención (100) y la percepción (103) se revierten en un resumen de reversiones (RR-…) por sendSummary + getStatus del servicio de otros CPE. Dependen solo de su
+     * escenario: corren también con {@code HOMOLOGACION_ESCENARIOS} si ese escenario está incluido.
+     */
+    @org.junit.jupiter.api.Test void zzReversionDeRetencionYPercepcion() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(ids.containsKey("RETENCION") && ids.containsKey("PERCEPCION"), "la reversión necesita los escenarios 100 y 103");
+        darDeBajaSiempre("106-reversion-retencion", "Resumen de reversiones (RR) de la retención en soles", ids.get("RETENCION"), "la retención (100)");
+        darDeBajaSiempre("107-reversion-percepcion", "Resumen de reversiones (RR) de la percepción", ids.get("PERCEPCION"), "la percepción (103)");
+    }
+
     private void darDeBaja(String escenario, String descripcion, String id, String origen) throws Exception {
         soloConTodosLosEscenarios();
+        darDeBajaSiempre(escenario, descripcion, id, origen);
+    }
+
+    private void darDeBajaSiempre(String escenario, String descripcion, String id, String origen) throws Exception {
         assertThat(id).as(origen + " debe haberse emitido").isNotNull();
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Homologación: baja de prueba\"}", api), Map.class);
         Map<?, ?> datos = esperarResumen(r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of()));

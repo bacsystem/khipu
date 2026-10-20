@@ -39,6 +39,8 @@ class FacturaE2ETest {
 
     @DynamicPropertySource static void props(DynamicPropertyRegistry r) {
         r.add("app.sunat.beta-url", () -> "http://localhost:18089/billService");
+        // #40: el billService de retenciones y percepciones, en el mismo WireMock.
+        r.add("app.sunat.otros-beta-url", () -> "http://localhost:18089/otros");
         r.add("app.sunat.timeout-seconds", () -> "2");
         // #318: la API REST de SUNAT (token y consulta integrada de validez) en el mismo WireMock.
         r.add("app.sunat-api.seguridad-beta-url", () -> "http://localhost:18089/api-seguridad");
@@ -540,6 +542,97 @@ class FacturaE2ETest {
         assertThat((String) baja.getBody().get("mensaje")).startsWith("2308 - ");
         ResponseEntity<Map> cdr = http.postForEntity("/v1/facturas/" + id + "/cdr/recuperar", new HttpEntity<>(h), Map.class);
         assertThat(cdr.getBody().get("codigo")).as("tiene su CDR: se descarga").isEqualTo("CDR_YA_DISPONIBLE");
+    }
+
+    static final String RETENCION = """
+        {"serie":"R001","fecha_emision":"%1$s",
+         "proveedor":{"ruc":"20131312955","razon_social":"PROVEEDOR DEL NORTE S.A.C.","direccion":"Av. Grau 123, Piura"},
+         "regimen":"01",
+         "documentos":[{"tipo":"01","numero":"F001-123","fecha_emision":"%1$s","importe_total":1180.00,"moneda":"PEN","pago":{"numero":1,"fecha":"%1$s","importe":1180.00}},
+                       {"tipo":"01","numero":"E001-45","fecha_emision":"%1$s","importe_total":1000.00,"moneda":"USD","pago":{"fecha":"%1$s","importe":500.00},"tipo_cambio":{"factor":3.756}}]}
+        """.formatted(java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")));
+
+    static final String PERCEPCION = """
+        {"serie":"P001","fecha_emision":"%1$s","cliente":{"tipo_doc":"6","num_doc":"20601234565","nombre":"CLIENTE MAYORISTA S.A.C."},"regimen":"01",
+         "documentos":[{"tipo":"01","numero":"F001-9","fecha_emision":"%1$s","importe_total":1000.00,"pago":{"fecha":"%1$s","importe":1000.00}}]}
+        """.formatted(java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")));
+
+    /**
+     * #40: la retención y la percepción con la pila real. Sin la designación de agente no hay serie ni emisión; el administrador la registra; la retención se numera en R001, se
+     * firma, se valida contra el XSD de Retention y va al billService de otros CPE (nunca al de facturas); se consulta, se descarga y se lista con los endpoints de siempre; lo que
+     * el dominio rechaza no consume número; y se revierte en un resumen de reversiones (RR) por sendSummary/getStatus del mismo servicio, con lo que queda ANULADA.
+     */
+    @Test void retencionYPercepcionDeExtremoAExtremo(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/otros").withRequestBody(containing("20100066603-20-R001-1.zip")).willReturn(okXml(soapOk("20100066603-20-R001-1"))));
+        stubFor(post("/otros").withRequestBody(containing("20100066603-40-P001-1.zip")).willReturn(okXml(soapOk("20100066603-40-P001-1"))));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        Map<?, ?> empresa = (Map<?, ?>) http.exchange("/v1/empresa", HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos");
+        assertThat(empresa.get("agente")).isEqualTo(Map.of("retencion", false, "percepcion", false));
+
+        ResponseEntity<Map> sinDesignacion = http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"20\",\"serie\":\"R001\",\"correlativo_inicial\":0}", h), Map.class);
+        assertThat(sinDesignacion.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(sinDesignacion.getBody().get("codigo")).isEqualTo("AGENTE_NO_DESIGNADO");
+        ResponseEntity<Map> emisionSinDesignacion = http.postForEntity("/v1/retenciones", new HttpEntity<>(RETENCION, h), Map.class);
+        assertThat(emisionSinDesignacion.getBody().get("codigo")).isEqualTo("AGENTE_NO_DESIGNADO");
+        assertThat((String) emisionSinDesignacion.getBody().get("mensaje")).startsWith("2617 - ");
+
+        HttpHeaders admin = new HttpHeaders(); admin.set("X-Platform-Key", "plataforma-test"); admin.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<Map> designada = http.postForEntity("/v1/admin/empresas/" + empresa.get("id") + "/agente", new HttpEntity<>("{\"retencion\":true,\"percepcion\":true}", admin), Map.class);
+        assertThat(designada.getStatusCode()).as(String.valueOf(designada.getBody())).isEqualTo(HttpStatus.OK);
+        for (String serie : List.of("{\"tipo\":\"20\",\"serie\":\"R001\",\"correlativo_inicial\":0}", "{\"tipo\":\"40\",\"serie\":\"P001\",\"correlativo_inicial\":0}"))
+            assertThat(http.postForEntity("/v1/series", new HttpEntity<>(serie, h), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        // Un pago fuera del mes y el cálculo previo no gastan número: la retención emitida después es la 1.
+        String fueraDelMes = RETENCION.replaceFirst("\"pago\":\\{\"numero\":1,\"fecha\":\"[0-9-]+\"", "\"pago\":{\"numero\":1,\"fecha\":\"2020-01-01\"");
+        assertThat(fueraDelMes).isNotEqualTo(RETENCION);
+        ResponseEntity<Map> rechazada = http.postForEntity("/v1/retenciones", new HttpEntity<>(fueraDelMes, h), Map.class);
+        assertThat(rechazada.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(rechazada.getBody().get("codigo")).isEqualTo("RETENCION_INVALIDA");
+        assertThat((String) rechazada.getBody().get("mensaje")).startsWith("2625 - ");
+        ResponseEntity<Map> calculada = http.postForEntity("/v1/retenciones/calcular", new HttpEntity<>(RETENCION, h), Map.class);
+        assertThat(((Map<?, ?>) ((Map<?, ?>) calculada.getBody().get("datos")).get("agente")).get("importe_total")).isEqualTo(91.74);
+
+        ResponseEntity<Map> r = http.postForEntity("/v1/retenciones", new HttpEntity<>(RETENCION, h), Map.class);
+        assertThat(r.getStatusCode()).as(String.valueOf(r.getBody())).isEqualTo(HttpStatus.CREATED);
+        Map<?, ?> datos = (Map<?, ?>) r.getBody().get("datos");
+        assertThat(datos.get("tipo")).isEqualTo("20");
+        assertThat(datos.get("numero")).isEqualTo(1);
+        assertThat(datos.get("estado_documento")).isEqualTo("ACEPTADO");
+        assertThat(datos.get("nombre_archivo")).isEqualTo("20100066603-20-R001-1");
+        assertThat(((Map<?, ?>) datos.get("totales")).get("total")).isEqualTo(91.74);
+        assertThat(((Map<?, ?>) datos.get("agente")).get("importe_neto")).isEqualTo(2966.26);
+        verify(postRequestedFor(urlEqualTo("/otros")).withRequestBody(containing("<fileName>20100066603-20-R001-1.zip</fileName>")));
+        verify(0, postRequestedFor(urlEqualTo("/billService")));
+
+        String id = (String) datos.get("id");
+        String xml = new String(http.exchange("/v1/facturas/" + id + "/xml", HttpMethod.GET, new HttpEntity<>(h), byte[].class).getBody(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(xml).contains("<Retention", "<ds:Signature", "<cbc:ID>R001-1</cbc:ID>", "<sac:SUNATRetentionPercent>3.00</sac:SUNATRetentionPercent>", "<cbc:CalculationRate>3.756</cbc:CalculationRate>");
+        ResponseEntity<byte[]> pdf = http.exchange("/v1/facturas/" + id + "/pdf", HttpMethod.GET, new HttpEntity<>(h), byte[].class);
+        assertThat(new String(pdf.getBody(), 0, 5, java.nio.charset.StandardCharsets.ISO_8859_1)).isEqualTo("%PDF-");
+        assertThat((List<?>) http.exchange("/v1/facturas?tipo=20", HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos")).hasSize(1);
+
+        ResponseEntity<Map> p = http.postForEntity("/v1/percepciones", new HttpEntity<>(PERCEPCION, h), Map.class);
+        assertThat(p.getStatusCode()).as(String.valueOf(p.getBody())).isEqualTo(HttpStatus.CREATED);
+        assertThat(((Map<?, ?>) p.getBody().get("datos")).get("nombre_archivo")).isEqualTo("20100066603-40-P001-1");
+        assertThat(((Map<?, ?>) ((Map<?, ?>) p.getBody().get("datos")).get("agente")).get("importe_neto")).isEqualTo(1020.0);
+
+        // Reversión: un RR por sendSummary y su ticket por getStatus, los dos en el servicio de otros CPE.
+        stubFor(post("/otros").withRequestBody(containing("sendSummary")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:sendSummaryResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><ticket>1789768174699</ticket></ns2:sendSummaryResponse></soap-env:Body></soap-env:Envelope>")));
+        byte[] cdrRr = ZipUtil.comprimir("R-20100066603-RR.xml", CDR_OK.getBytes());
+        stubFor(post("/otros").withRequestBody(containing("getStatus")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>0</statusCode><content>"
+                        + Base64.getEncoder().encodeToString(cdrRr) + "</content></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")));
+        ResponseEntity<Map> rr = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Pago anulado por error\"}", h), Map.class);
+        assertThat(rr.getStatusCode()).as(String.valueOf(rr.getBody())).isEqualTo(HttpStatus.CREATED);
+        Map<?, ?> reversion = (Map<?, ?>) rr.getBody().get("datos");
+        assertThat((String) reversion.get("identificador")).matches("RR-\\d{8}-1");
+        assertThat(reversion.get("estado")).isEqualTo("ACEPTADA");
+        verify(postRequestedFor(urlEqualTo("/otros")).withRequestBody(containing("sendSummary")).withRequestBody(matching("(?s).*<fileName>20100066603-RR-\\d{8}-1\\.zip</fileName>.*")));
+        verify(0, postRequestedFor(urlEqualTo("/billService")));
+        Map<?, ?> anulada = (Map<?, ?>) http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos");
+        assertThat(anulada.get("estado_documento")).isEqualTo("ANULADO");
     }
 
     @Autowired OutboxWorker worker;

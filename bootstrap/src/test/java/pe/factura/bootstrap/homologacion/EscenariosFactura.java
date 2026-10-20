@@ -350,6 +350,7 @@ final class EscenariosFactura {
                 "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_CARGOS}}," +
                 "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"));
         todos.addAll(liquidaciones(serieLiquidacion(serie), fecha));
+        todos.addAll(retencionesYPercepciones(serie, fecha));
         return todos;
     }
 
@@ -381,6 +382,47 @@ final class EscenariosFactura {
                 "{\"descripcion\":\"Pota fresca\",\"unidad\":\"KGM\",\"cantidad\":250,\"precio_unitario\":3.00,\"tipo_afectacion_igv\":\"20\",\"codigo_sunat\":\"50121500\"}]," +
                 "\"guias\":[{\"tipo\":\"31\",\"numero\":\"V001-45\"}],\"documentos_relacionados\":[{\"tipo\":\"99\",\"numero\":\"ACTA-7\"}]}"));
     }
+
+    static final String RETENCIONES = "/v1/retenciones", PERCEPCIONES = "/v1/percepciones";
+
+    /**
+     * #40: comprobantes de retención (20, Retention UBL 2.0) y de percepción (40, Perception) al servicio de otros CPE. e-beta no verifica que la empresa sea agente (2617/4285) ni
+     * que los documentos relacionados existan (2609) o sean al crédito (3329): los números de los documentos son de prueba. Todos los pagos son de la fecha de emisión (2625/2612).
+     */
+    static List<Escenario> retencionesYPercepciones(String serie, LocalDate fecha) {
+        String r = "\"serie\":\"" + serieRetencion(serie) + "\",\"fecha_emision\":\"" + fecha + "\"";
+        String p = "\"serie\":\"" + seriePercepcion(serie) + "\",\"fecha_emision\":\"" + fecha + "\"";
+        String proveedor = "\"proveedor\":{\"ruc\":\"20131312955\",\"razon_social\":\"SUPERINTENDENCIA NACIONAL DE ADUANAS Y DE ADMINISTRACION TRIBUTARIA\",\"direccion\":\"Av. Garcilaso de la Vega 1472\"}";
+        String cliente = "\"cliente\":{\"tipo_doc\":\"6\",\"num_doc\":\"20601234565\",\"nombre\":\"CLIENTE MAYORISTA S.A.C.\"}";
+        String pago = "\"fecha\":\"" + fecha + "\"";
+        return List.of(
+            new Escenario("100-retencion-pen", "Retención del 3 % de una factura en soles", RETENCIONES,
+                "{" + r + "," + proveedor + ",\"regimen\":\"01\",\"documentos\":[{\"tipo\":\"01\",\"numero\":\"F001-123\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":1180.00,"
+                + "\"pago\":{\"numero\":1," + pago + ",\"importe\":1180.00}}]}"),
+            new Escenario("101-retencion-usd", "Retención de una factura en soles y otra en dólares (tipo de cambio)", RETENCIONES,
+                "{" + r + "," + proveedor + ",\"regimen\":\"01\",\"documentos\":[{\"tipo\":\"01\",\"numero\":\"F001-124\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":590.00,"
+                + "\"pago\":{" + pago + ",\"importe\":590.00}},{\"tipo\":\"01\",\"numero\":\"E001-45\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":1000.00,\"moneda\":\"USD\","
+                + "\"pago\":{" + pago + ",\"importe\":1000.00},\"tipo_cambio\":{\"factor\":3.756}}]}"),
+            new Escenario("102-retencion-nd-ticket-cuotas", "Retención de una nota de débito, un ticket y dos cuotas de una misma factura", RETENCIONES,
+                "{" + r + "," + proveedor + ",\"regimen\":\"01\",\"documentos\":["
+                + "{\"tipo\":\"08\",\"numero\":\"F001-7\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":236.00,\"pago\":{" + pago + ",\"importe\":236.00}},"
+                + "{\"tipo\":\"12\",\"numero\":\"FFCF123456-87\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":800.00,\"pago\":{" + pago + ",\"importe\":800.00}},"
+                + "{\"tipo\":\"01\",\"numero\":\"F001-125\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":2000.00,\"pago\":{\"numero\":1," + pago + ",\"importe\":1000.00}},"
+                + "{\"tipo\":\"01\",\"numero\":\"F001-125\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":2000.00,\"pago\":{\"numero\":2," + pago + ",\"importe\":1000.00}}]}"),
+            new Escenario("103-percepcion-venta-interna", "Percepción del 2 % (venta interna) de una factura al crédito", PERCEPCIONES,
+                "{" + p + "," + cliente + ",\"regimen\":\"01\",\"documentos\":[{\"tipo\":\"01\",\"numero\":\"" + serie + "-9\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":1000.00,"
+                + "\"pago\":{" + pago + ",\"importe\":1000.00}}]}"),
+            new Escenario("104-percepcion-boleta-dni-tasa-especial", "Percepción del 0.5 % (tasa especial) de una boleta a un cliente con DNI", PERCEPCIONES,
+                "{" + p + ",\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"45678912\",\"nombre\":\"JUAN PEREZ QUISPE\"},\"regimen\":\"03\",\"documentos\":[{\"tipo\":\"03\",\"numero\":\""
+                + serieBoleta(serie) + "-15\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":590.00,\"pago\":{" + pago + ",\"importe\":590.00}}]}"),
+            new Escenario("105-percepcion-combustible-usd", "Percepción del 1 % (combustible) de una factura en dólares", PERCEPCIONES,
+                "{" + p + "," + cliente + ",\"regimen\":\"02\",\"documentos\":[{\"tipo\":\"01\",\"numero\":\"" + serie + "-10\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":2500.00,"
+                + "\"moneda\":\"USD\",\"pago\":{" + pago + ",\"importe\":2500.00},\"tipo_cambio\":{\"factor\":3.756}}]}"));
+    }
+
+    /** Series de retención (R###) y percepción (P###) de la corrida: la misma base que la de factura (regla 1001 de Retenciones1_0 y Percepciones1_0). */
+    static String serieRetencion(String serieFactura) { return "R" + serieFactura.substring(1); }
+    static String seriePercepcion(String serieFactura) { return "P" + serieFactura.substring(1); }
 
     /** Serie de liquidación de compra de la corrida: la misma base que la de factura con la letra L (L###, regla 1001 de LiquidacionCompra2_0). */
     static String serieLiquidacion(String serieFactura) { return "L" + serieFactura.substring(1); }
