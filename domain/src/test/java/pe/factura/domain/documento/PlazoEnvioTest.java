@@ -131,9 +131,23 @@ class PlazoEnvioTest {
 
     /** El corte grueso de ControlarPlazoEnvioService usa este mínimo: debe seguir siendo válido si algún tipo cambia su plazo. */
     @Test void diasMinimoEsElMenorEntreTodosLosPlazos() {
-        assertThat(PlazoEnvio.diasMinimo()).isEqualTo(3);
-        for (PlazoEnvio p : List.of(FACTURA, BOLETA, deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "07"), deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "10")))
+        // #327: la liquidación de compra (1 día) es hoy el más corto.
+        assertThat(PlazoEnvio.diasMinimo()).isEqualTo(1);
+        for (PlazoEnvio p : List.of(FACTURA, BOLETA, deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "07"), deNota(TipoDocumento.NOTA_CREDITO, TipoDocumento.BOLETA, "10"),
+                PlazoEnvio.de(TipoDocumento.LIQUIDACION_COMPRA, null)))
             assertThat(PlazoEnvio.diasMinimo()).isLessThanOrEqualTo(p.dias());
+    }
+
+    /** #327: la liquidación de compra va sola hasta el día siguiente a su emisión (RS 000003-2023, LiquidacionCompra2_0 fila 4) y no tiene resumen diario: vencida, sin canal (2108). */
+    @Test void laLiquidacionDeCompraVenceAlDiaSiguienteYSinResumen() {
+        PlazoEnvio lc = PlazoEnvio.de(TipoDocumento.LIQUIDACION_COMPRA, null);
+        LocalDate emision = LocalDate.of(2026, 10, 20);
+        assertThat(lc.fechaLimite(emision)).isEqualTo(LocalDate.of(2026, 10, 21));
+        assertThat(lc.deBoleta()).isFalse();
+        assertThat(lc.vencido(emision, LocalDate.of(2026, 10, 21))).isFalse();
+        assertThat(lc.sinCanal(emision, LocalDate.of(2026, 10, 22))).isTrue();
+        assertThat(lc.soloPorResumen(emision, LocalDate.of(2026, 10, 22))).isFalse();
+        assertThat(lc.motivoDeRechazo(emision)).isEqualTo("2108 - Presentación fuera de fecha: el plazo de envío venció el 2026-10-21 (1 día calendario)");
     }
 
     @Test void finDeMesYAnioBisiesto() {

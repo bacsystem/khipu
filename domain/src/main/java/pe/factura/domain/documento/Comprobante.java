@@ -40,6 +40,8 @@ public class Comprobante {
     private final Referencias referencias;
     /** Solo en notas de crédito/débito: comprobante que modifican y motivo; {@code null} en facturas. */
     private final Nota nota;
+    /** Solo en la liquidación de compra (#327): domicilio del vendedor, lugar de la operación y tasa de la retención de renta; {@code null} en los demás. */
+    private final LiquidacionCompra liquidacion;
     /** Leyendas del catálogo 52 declaradas por el emisor (2001–2005, 2008…); nunca nula. Las automáticas las decide la plantilla. */
     private final List<String> leyendas;
     /** Incoterm y país de uso de una factura de exportación (0200–0208); {@code null} en las demás. Una nota hereda los de su factura. */
@@ -69,7 +71,7 @@ public class Comprobante {
     private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
                         Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos,
-                        Referencias referencias, BigDecimal redondeo, Nota nota, BigDecimal tasaIgv, List<String> leyendas, Exportacion exportacion, EstadoDocumento estado) {
+                        Referencias referencias, BigDecimal redondeo, Nota nota, LiquidacionCompra liquidacion, BigDecimal tasaIgv, List<String> leyendas, Exportacion exportacion, EstadoDocumento estado) {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
         this.fechaEmision = fechaEmision; this.horaEmision = horaEmision; this.fechaVencimiento = fechaVencimiento; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
@@ -77,12 +79,14 @@ public class Comprobante {
         this.anticipos = anticipos == null ? List.of() : List.copyOf(anticipos);
         this.referencias = referencias == null ? Referencias.ninguna() : referencias;
         this.nota = nota;
+        this.liquidacion = liquidacion;
         this.leyendas = leyendas == null ? List.of() : List.copyOf(leyendas);
         this.exportacion = exportacion;
         this.tasaIgv = TasaIgv.normalizar(tasaIgv);
         Totales calculados = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision), redondeo, this.tasaIgv);
         // #388: SUNAT no admite descuentos ni cargos en una nota; sale con las líneas netas. Los ítems y el descuento global guardados son los de siempre.
-        this.totales = nota != null ? calculados.paraNota() : calculados;
+        // #327: la liquidación de compra paga al vendedor el neto de lo que el comprador le retiene (IGV y renta, regla 4312).
+        this.totales = nota != null ? calculados.paraNota() : liquidacion != null ? calculados.paraLiquidacion(liquidacion.retencionRenta(calculados)) : calculados;
         // Detracción, retención y percepción se completan contra el importe total ya calculado (montos por defecto, 3208 y tolerancias SUNAT).
         this.detraccion = detraccion == null ? null : detraccion.completarContra(moneda, this.totales.total());
         this.retencion = retencion == null ? null : retencion.completarContra(this.totales.total());
@@ -193,7 +197,7 @@ public class Comprobante {
             if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
                 throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
-                    moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, tasaIgv, leyendas, exportacion, EstadoDocumento.RECIBIDO);
+                    moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, null, tasaIgv, leyendas, exportacion, EstadoDocumento.RECIBIDO);
             c.tipoCambio = tipoCambio;
             formaPago.validarContra(c.totales.total(), fechaEmision);
             // Sin tipo de cambio no hay cómo comparar otra moneda con S/ 700: fuera de soles se identifica siempre al comprador. Con él (#316) se mide en soles.
@@ -253,6 +257,114 @@ public class Comprobante {
 
     /** Venta interna - NRUS (catálogo 51): solo en boleta. */
     static final String OPERACION_NRUS = "0113";
+
+    /**
+     * Liquidación de compra (04, #327): el emisor —el tenant— compra a una persona sin RUC ({@code vendedor}: DNI, carné de extranjería o pasaporte, nombre y la dirección de su
+     * domicilio) y le retiene el IGV y el Impuesto a la Renta. {@code datos} trae el resto del domicilio del vendedor, el lugar de la operación y la tasa de la retención. Único
+     * punto de entrada: obligatorios aquí, opcionales en el {@link LiquidacionBuilder}, y {@link LiquidacionBuilder#crear} aplica las reglas de LiquidacionCompra2_0.
+     */
+    public static LiquidacionBuilder liquidacionCompra(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor vendedor,
+                                                       LiquidacionCompra datos, List<Item> items) {
+        return new LiquidacionBuilder(tenantId, serie, fechaEmision, moneda, tipoOperacion, vendedor, datos, items);
+    }
+
+    public static final class LiquidacionBuilder {
+        private final UUID tenantId; private final String serie; private final LocalDate fechaEmision; private final String moneda; private final String tipoOperacion;
+        private final Receptor vendedor; private final LiquidacionCompra datos; private final List<Item> items;
+        private Referencias referencias; private BigDecimal redondeo; private BigDecimal tipoCambio; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<Anticipo> anticipos = List.of();
+
+        private LiquidacionBuilder(UUID tenantId, String serie, LocalDate fechaEmision, String moneda, String tipoOperacion, Receptor vendedor, LiquidacionCompra datos, List<Item> items) {
+            this.tenantId = tenantId; this.serie = serie; this.fechaEmision = fechaEmision; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
+            this.vendedor = vendedor; this.datos = datos; this.items = items;
+        }
+        /** Guías de remisión (09/31) y otros documentos (solo el 99 «otros»: el 10 es la liquidación de anticipo, que va con los anticipos). Sin orden de compra: la hoja no la tiene. */
+        public LiquidacionBuilder referencias(Referencias r) { this.referencias = r; return this; }
+        /** PayableRoundingAmount, |x| ≤ 1 (4314). */
+        public LiquidacionBuilder redondeo(BigDecimal r) { this.redondeo = r; return this; }
+        /** Soles por unidad de {@code moneda} (#316); solo fuera de soles. Opcional: no va al XML. */
+        public LiquidacionBuilder tipoCambio(BigDecimal t) { this.tipoCambio = t; return this; }
+        /** Porcentaje ({@link TasaIgv}); nulo = general. La tasa vigente la decide el servicio (padrón de tasa especial). */
+        public LiquidacionBuilder tasaIgv(BigDecimal t) { this.tasaIgv = t == null ? TasaIgv.GENERAL : t; return this; }
+        /** Liquidaciones de anticipo que se regularizarían (PrepaidPayment, descuentos 04–06 y 61): todavía no se emiten; con alguna, {@link #crear} rechaza. */
+        public LiquidacionBuilder anticipos(List<Anticipo> a) { this.anticipos = a == null ? List.of() : a; return this; }
+
+        public Comprobante crear(Clock clock) {
+            TipoDocumento tipo = TipoDocumento.LIQUIDACION_COMPRA;
+            if (!tipo.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "1001 - Serie de liquidación de compra inválida (L###): " + serie);
+            if (fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
+            exigirDentroDelPlazoDeEnvio(PlazoEnvio.de(tipo, null), fechaEmision, clock);
+            if (items == null || items.isEmpty()) throw new DomainException("SIN_ITEMS", "La liquidación de compra debe tener al menos un ítem");
+            exigirHastaElTopeDeLineas("2023", "liquidación de compra", items);
+            items.forEach(Item::exigirValidoParaFactura);
+            items.forEach(LiquidacionBuilder::exigirLineaDeLiquidacion);
+            String operacion = tipoOperacion == null ? LiquidacionCompra.OPERACION_POR_DEFECTO : tipoOperacion;
+            validarTipoOperacion(operacion, tipo);
+            if (LiquidacionCompra.OPERACION_ORO.equals(operacion))
+                throw new DomainException("TIPO_OPERACION_INVALIDO", "2466 - La compra de oro (0503) exige en cada línea el código, la ley, la naturaleza y el nombre del derecho minero (propiedades 6000, 6004, 6005 y 6006 del catálogo 55, reglas 2466–2469), que khipu todavía no arma; en liquidación de compra: "
+                        + String.join(", ", LiquidacionCompra.OPERACIONES.stream().sorted().toList()));
+            if (!LiquidacionCompra.OPERACIONES.contains(operacion))
+                throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " todavía no se emite en liquidación de compra; en liquidación de compra: " + String.join(", ", LiquidacionCompra.OPERACIONES.stream().sorted().toList()));
+            if (vendedor == null) throw new DomainException("RECEPTOR_INVALIDO", "2014 - La liquidación de compra requiere el vendedor: su documento (DNI, carné de extranjería o pasaporte), nombre y domicilio");
+            vendedor.exigirValidoComoVendedor();
+            if (datos == null) throw new DomainException("LIQUIDACION_INVALIDA", "2453 - La liquidación de compra lleva el ubigeo y la condición del domicilio del vendedor y el lugar de la operación");
+            datos.validar();
+            exigirMonedaYTipoCambio(moneda, tipoCambio);
+            exigirDocumentosRelacionados();
+            if (!anticipos.isEmpty())
+                throw new DomainException("ANTICIPO_INVALIDO", "khipu todavía no regulariza anticipos en una liquidación de compra (PrepaidPayment, descuentos 04–06 y la retención de renta del anticipo, 61): emítala por el importe total");
+            // Sin espacios en los extremos: la regla 2593 rechaza el domicilio que empieza con espacio, y el nombre se imprime igual en el PDF.
+            Receptor receptor = new Receptor(vendedor.tipoDoc(), vendedor.numDoc(), vendedor.razonSocial().strip(), vendedor.direccion().strip(), vendedor.pais());
+            Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
+                    moneda, operacion, receptor, items, FormaPago.contado(), null, List.of(), null, null, null, List.of(), referencias, redondeo, null, datos, tasaIgv, List.of(), null, EstadoDocumento.RECIBIDO);
+            c.tipoCambio = tipoCambio;
+            c.totales.items().forEach(ItemCalculado::exigirValorDeVentaPositivo);
+            // 2033: el monto de la retención de cada línea es «diferente de cero»; una línea de menos de 0.34 la redondea a 0.00 y SUNAT la rechazaría con el número consumido.
+            for (ItemCalculado l : c.totales.items())
+                if (datos.rentaDe(l).signum() <= 0)
+                    throw new DomainException("ITEM_INVALIDO", "2033 - La retención de renta de la línea «" + l.item().descripcion() + "» (" + datos.tasaRetencionRenta().toPlainString() + " % de "
+                            + l.valorVenta() + ") redondea a 0.00: suba el importe de la línea");
+            return c;
+        }
+
+        /**
+         * Lo que una línea de liquidación de compra lleva según la hoja: afectación 10, 20 o 30 (una línea solo admite 1000, 9996, 9997 o 9998 con la retención 3000 y,
+         * opcionalmente, 9999: 3105, 3223) y el código de producto SUNAT, obligatorio (3506: ERROR en la hoja; e-beta, 2026-10-20, aceptó una línea sin él, pero khipu sigue la
+         * hoja, que es lo que aplicará producción). khipu no arma todavía lo que la hoja deja abierto y nadie probó: gratuitas (9996,
+         * cuya retención la hoja excluye de las sumas, 4345/4346), otros tributos (9999, que el comprador también retendría, 4312), descuentos y cargos (la hoja no tiene
+         * AllowanceCharge de línea), ni lo que no existe en ella: ISC, ICBPER, IVAP, exportación, GTIN, placa y los datos sectoriales de la detracción.
+         */
+        private static void exigirLineaDeLiquidacion(Item i) {
+            String linea = "La línea «" + i.descripcion() + "» de una liquidación de compra";
+            TipoAfectacionIgv af = i.afectacion();
+            if (af.gratuita())
+                throw new DomainException("AFECTACION_INVALIDA", linea + " no admite una afectación gratuita (" + af.codigo() + "): khipu todavía no emite compras gratuitas; use 10, 20 o 30");
+            if (af != TipoAfectacionIgv.GRAVADO && af != TipoAfectacionIgv.EXONERADO && af != TipoAfectacionIgv.INAFECTO)
+                throw new DomainException("AFECTACION_INVALIDA", "3105 - " + linea + " es gravada (10), exonerada (20) o inafecta (30); la afectación " + af.codigo() + " no existe en ella");
+            if (!i.tieneCodigoSunat())
+                throw new DomainException("ITEM_INVALIDO", "3506 - " + linea + " lleva el código de producto SUNAT (catálogo 25, UNSPSC de 8 dígitos)");
+            if (i.tieneIsc() || i.icbper())
+                throw new DomainException("ITEM_INVALIDO", "3223 - " + linea + " no lleva ISC ni ICBPER: solo IGV, la retención de renta y otros tributos");
+            if (i.tieneOtrosTributos())
+                throw new DomainException("ITEM_INVALIDO", linea + " todavía no admite otros tributos (9999) en khipu");
+            if (i.tieneDescuento() || i.tieneCargos())
+                throw new DomainException("ITEM_INVALIDO", linea + " no admite descuentos ni cargos: LiquidacionCompra2_0 no tiene cargos ni descuentos de línea; indique el precio neto");
+            if (i.tieneGtin() || i.tienePlaca() || i.tieneHidrobiologico() || i.tieneTransporte())
+                throw new DomainException("ITEM_INVALIDO", linea + " no lleva GTIN, placa ni datos de detracción: no forman parte de LiquidacionCompra2_0");
+        }
+
+        /**
+         * Guías (09/31, 4005) y otros documentos: la hoja admite el 10 y el 99 (4009). El 10 es la liquidación emitida por anticipos, que se referencia junto con su pago
+         * (DocumentStatusCode, 3214–3216): va con los anticipos, que todavía no se regularizan. La orden de compra no está en la hoja.
+         */
+        private void exigirDocumentosRelacionados() {
+            if (referencias == null) return;
+            if (referencias.ordenCompra() != null)
+                throw new DomainException("DOCUMENTO_RELACIONADO_INVALIDO", "Una liquidación de compra no lleva orden de compra (LiquidacionCompra2_0 no la tiene)");
+            for (DocumentoRelacionado d : referencias.otros())
+                if (!"99".equals(d.tipo()))
+                    throw new DomainException("DOCUMENTO_RELACIONADO_INVALIDO", "4009 - En una liquidación de compra el documento relacionado es del tipo 99 (otros); recibido " + d.tipo());
+        }
+    }
 
     /**
      * Nota de crédito (07) o de débito (08) sobre una factura. Comparte con la factura receptor, ítems, descuentos, cargos y
@@ -334,7 +446,7 @@ public class Comprobante {
             // en la NC 13 y se valida contra la factura modificada (3320/3321), no contra la nota.
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
                     moneda, tipoOperacion, receptor, nc13 ? List.of(nota.lineaSinImporte()) : items, formaPago == null ? FormaPago.contado() : formaPago,
-                    nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, nc13 ? null : redondeo, nota, tasaIgv, List.of(), exportacion, EstadoDocumento.RECIBIDO);
+                    nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, nc13 ? null : redondeo, nota, null, tasaIgv, List.of(), exportacion, EstadoDocumento.RECIBIDO);
             c.tipoCambio = tipoCambio;
             c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
             if (!nc13) c.totales.items().forEach(ItemCalculado::exigirValorDeVentaPositivo);
@@ -406,16 +518,23 @@ public class Comprobante {
      * (que se consulta con el ticket), el mismo criterio de {@link #esDeBoleta()}. Qué responde SUNAT si igual se le pregunta no está documentado ni se puede comprobar en e-beta (no publica billConsultService: responde 404 y solo existe
      * en producción): no se le pregunta.
      */
-    public boolean consultableEnGetStatusCdr() { return !esDeBoleta(); }
+    public boolean consultableEnGetStatusCdr() { return !esDeBoleta() && !esLiquidacionCompra(); }
+
+    /** Una liquidación de compra (#327): el emisor es el comprador y el {@link #receptor()} es el vendedor. Tampoco la cubre {@code getStatusCdr} (manual, p. 22: 01, 07 y 08). */
+    public boolean esLiquidacionCompra() { return liquidacion != null; }
+
+    /** Importe retenido al vendedor por el Impuesto a la Renta (tributo 3000), o cero si no es una liquidación de compra. */
+    public BigDecimal retencionRenta() { return liquidacion == null ? BigDecimal.ZERO.setScale(2) : liquidacion.retencionRenta(totales); }
 
     /** Regla 3206: el tipo de operación debe existir en el catálogo 51 y aplicar al tipo de comprobante (columna "Tipo de Comprobante asociado": "Factura", "Boleta"…). */
     private static void validarTipoOperacion(String operacion, TipoDocumento tipo) {
         CatalogoSunat.Entrada e = CatalogoSunat.porId("51").flatMap(c -> c.entrada(operacion))
                 .orElseThrow(() -> new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " no existe en el catálogo 51"));
         String aplicaA = e.extra().getOrDefault("Tipo de Comprobante asociado", "");
-        String nombre = tipo == TipoDocumento.BOLETA ? "boleta" : "factura";
+        String nombre = switch (tipo) { case BOLETA -> "boleta"; case LIQUIDACION_COMPRA -> "liquidación de compra"; default -> "factura"; };
         if (!aplicaA.toLowerCase().contains(nombre))
-            throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " (" + e.descripcion() + ") no aplica a " + nombre + "s: " + aplicaA);
+            throw new DomainException("TIPO_OPERACION_INVALIDO", "3206 - El tipo de operación " + operacion + " (" + e.descripcion() + ") no aplica a "
+                    + (tipo == TipoDocumento.LIQUIDACION_COMPRA ? "liquidaciones de compra" : nombre + "s") + ": " + aplicaA);
     }
 
     /**
@@ -466,7 +585,7 @@ public class Comprobante {
         private final EstadoDocumento estado; private final Receptor receptor; private final List<Item> items;
         private LocalTime horaEmision; private LocalDate fechaVencimiento; private String moneda = "PEN"; private String tipoOperacion = "0101";
         private FormaPago formaPago = FormaPago.contado(); private Descuento descuentoGlobal; private List<Cargo> cargos = List.of(); private Detraccion detraccion; private RetencionIgv retencion; private Percepcion percepcion;
-        private List<Anticipo> anticipos = List.of(); private Referencias referencias; private BigDecimal redondeo; private Nota nota; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<String> leyendas = List.of();
+        private List<Anticipo> anticipos = List.of(); private Referencias referencias; private BigDecimal redondeo; private Nota nota; private LiquidacionCompra liquidacion; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<String> leyendas = List.of();
         private Exportacion exportacion; private BigDecimal tipoCambio;
         private String hash, nombreArchivo, xmlKey, cdrKey, ultimoError, observaciones; private Cdr cdr; private int intentos;
 
@@ -487,6 +606,7 @@ public class Comprobante {
         public Persistido referencias(Referencias r) { this.referencias = r; return this; }
         public Persistido redondeo(BigDecimal r) { this.redondeo = r; return this; }
         public Persistido nota(Nota n) { this.nota = n; return this; }
+        public Persistido liquidacion(LiquidacionCompra l) { this.liquidacion = l; return this; }
         public Persistido tasaIgv(BigDecimal t) { this.tasaIgv = t; return this; }
         public Persistido leyendas(List<String> l) { this.leyendas = l == null ? List.of() : l; return this; }
         public Persistido exportacion(Exportacion e) { this.exportacion = e; return this; }
@@ -497,7 +617,7 @@ public class Comprobante {
         public Persistido observaciones(String o) { this.observaciones = o; return this; }
 
         public Comprobante rehidratar() {
-            Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, tasaIgv, leyendas, exportacion, estado);
+            Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, liquidacion, tasaIgv, leyendas, exportacion, estado);
             c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
             c.intentos = intentos; c.ultimoError = ultimoError; c.observaciones = observaciones; c.tipoCambio = tipoCambio;
             return c;

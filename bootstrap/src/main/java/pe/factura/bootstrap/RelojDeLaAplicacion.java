@@ -4,6 +4,7 @@ import pe.factura.application.port.in.ControlarPlazoEnvioUseCase;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.in.EmitirFacturaCommand;
+import pe.factura.application.port.in.EmitirLiquidacionCommand;
 import pe.factura.application.port.in.EmitirNotaCommand;
 import pe.factura.application.port.in.Idempotencia;
 import pe.factura.application.port.out.SunatBillingGateway;
@@ -118,8 +119,13 @@ public final class RelojDeLaAplicacion {
                 exigirNoProduccion(tenantId);
                 return emision.emitirNota(tenantId, cmd, idempotencia);
             }
+            @Override public Emision emitirLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd, Idempotencia idempotencia) {
+                exigirNoProduccion(tenantId);
+                return emision.emitirLiquidacionCompra(tenantId, cmd, idempotencia);
+            }
             /** Calcular no emite nada ni toca a SUNAT: se deja pasar aunque la empresa esté en producción. */
             @Override public Comprobante calcularFactura(UUID tenantId, EmitirFacturaCommand cmd) { return emision.calcularFactura(tenantId, cmd); }
+            @Override public Comprobante calcularLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd) { return emision.calcularLiquidacionCompra(tenantId, cmd); }
             private void exigirNoProduccion(UUID tenantId) { RelojDeLaAplicacion.exigirNoProduccion(tenants, tenantId, "emitir"); }
         };
     }

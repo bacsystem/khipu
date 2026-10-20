@@ -26,4 +26,13 @@ public interface EmitirComprobanteUseCase {
      * Las claves de las notas son un espacio aparte del de las facturas: la misma cadena en {@code /v1/facturas} y en {@code /v1/notas} no se cruza.
      */
     Emision emitirNota(UUID tenantId, EmitirNotaCommand cmd, Idempotencia idempotencia);
+
+    /** Liquidación de compra (04, #327) a una persona sin RUC; mismo flujo que la factura (numerar con la serie bloqueada, firmar, validar, guardar y enviar). */
+    default Comprobante emitirLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd) { return emitirLiquidacionCompra(tenantId, cmd, null).comprobante(); }
+
+    /** Con {@code idempotencia} un reintento devuelve la liquidación ya emitida; sus claves son un espacio aparte del de las facturas y las notas. */
+    Emision emitirLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd, Idempotencia idempotencia);
+
+    /** La liquidación que {@link #emitirLiquidacionCompra} armaría, sin numerarla, firmarla, guardarla ni enviarla (como {@link #calcularFactura}). */
+    Comprobante calcularLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd);
 }

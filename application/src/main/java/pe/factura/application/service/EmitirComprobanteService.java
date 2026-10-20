@@ -3,6 +3,7 @@ package pe.factura.application.service;
 import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EmitirFacturaCommand;
+import pe.factura.application.port.in.EmitirLiquidacionCommand;
 import pe.factura.application.port.in.EmitirNotaCommand;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.in.Idempotencia;
@@ -141,6 +142,36 @@ public class EmitirComprobanteService implements EmitirComprobanteUseCase {
             exigirSinBajaEnCurso(tenantId, bloqueado);
             if (cmd.tipo() == TipoDocumento.NOTA_CREDITO) exigirQueNoSupereAlDocumento(c.totales(), nota.motivo(), bloqueado, acreditadoPorNotas(tenantId, bloqueado));
         }, enAlcance);
+    }
+
+    @Override
+    public Emision emitirLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd, Idempotencia clave) {
+        ClaveEnAlcance enAlcance = clave == null ? null : new ClaveEnAlcance("liquidacion:" + tenantId, clave, "liquidación de compra");
+        Emision repetida = yaEmitidaSiLaHay(tenantId, enAlcance);
+        if (repetida != null) return repetida;
+        Tenant tenant = tenantListo(tenantId, cmd.enviarAutomatico());
+        return emitir(tenant, armarLiquidacion(tenantId, cmd), cmd.correlativo(), cmd.enviarAutomatico(), () -> {}, enAlcance);
+    }
+
+    @Override
+    public Comprobante calcularLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd) {
+        tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Empresa no encontrada"));
+        return armarLiquidacion(tenantId, cmd);
+    }
+
+    /**
+     * #327: la liquidación de compra con las reglas de dominio, sin numerarla. La tasa del IGV es la general vigente (4290: «la tasa vigente del IGV a la fecha de emisión»), no la
+     * del padrón de tasa especial de la empresa: esa tasa reducida es de las ventas de restaurantes y hoteles del padrón, y aquí quien vende es la persona sin RUC.
+     */
+    private Comprobante armarLiquidacion(UUID tenantId, EmitirLiquidacionCommand cmd) {
+        Comprobante c = Comprobante.liquidacionCompra(tenantId, cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.vendedor(), cmd.liquidacion(), cmd.items())
+                .referencias(cmd.referencias())
+                .redondeo(cmd.redondeo())
+                .tipoCambio(cmd.tipoCambio())
+                .tasaIgv(TasaIgv.vigente(cmd.fechaEmision(), false))
+                .crear(clock);
+        c.anotar(cmd.observaciones());
+        return c;
     }
 
     /** «factura» o «boleta»: cómo nombran los mensajes al documento que modifica una nota. */

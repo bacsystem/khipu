@@ -21,7 +21,7 @@ public interface ConsultarComprobanteUseCase {
      */
     record Filtro(EstadoDocumento estado, java.time.LocalDate desde, java.time.LocalDate hasta, String serie, String tipo, String cliente, Long numero) {
         public static final Filtro NINGUNO = new Filtro(null, null, null, null);
-        public static final java.util.Set<String> TIPOS = java.util.Set.of("01", "03", "07", "08");
+        public static final java.util.Set<String> TIPOS = java.util.Set.of("01", "03", "04", "07", "08");
         public Filtro(EstadoDocumento estado, java.time.LocalDate desde, java.time.LocalDate hasta) { this(estado, desde, hasta, null); }
         public Filtro(EstadoDocumento estado, java.time.LocalDate desde, java.time.LocalDate hasta, String serie) { this(estado, desde, hasta, serie, null, null, null); }
         public Filtro {
@@ -32,7 +32,7 @@ public interface ConsultarComprobanteUseCase {
                 throw new pe.factura.domain.DomainException("PARAMETRO_INVALIDO", "La serie tiene 4 caracteres: una letra y tres alfanuméricos (F001, FC01, B001…): " + serie);
             tipo = tipo == null || tipo.isBlank() ? null : tipo.strip();
             if (tipo != null && !TIPOS.contains(tipo))
-                throw new pe.factura.domain.DomainException("PARAMETRO_INVALIDO", "tipo debe ser 01 (factura), 03 (boleta), 07 (nota de crédito) u 08 (nota de débito): " + tipo);
+                throw new pe.factura.domain.DomainException("PARAMETRO_INVALIDO", "tipo debe ser 01 (factura), 03 (boleta), 04 (liquidación de compra), 07 (nota de crédito) u 08 (nota de débito): " + tipo);
             cliente = cliente == null || cliente.isBlank() ? null : cliente.strip();
             if (cliente != null && cliente.length() > 100)
                 throw new pe.factura.domain.DomainException("PARAMETRO_INVALIDO", "cliente admite hasta 100 caracteres");

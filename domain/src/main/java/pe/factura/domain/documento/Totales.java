@@ -187,6 +187,19 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     }
 
     /**
+     * #327: los totales como los expresa una liquidación de compra. Todo es igual salvo el importe a pagar: el comprador retiene al vendedor el IGV y el Impuesto a la Renta,
+     * así que lo que le paga (PayableAmount, «importe total neto») es el subtotal (TaxInclusiveAmount) menos el IGV, la retención de renta y los otros tributos de las líneas,
+     * más el redondeo (regla 4312 de LiquidacionCompra2_0). El IGV sigue en {@code igv}: el comprador lo declara y lo paga en lugar del vendedor.
+     */
+    public Totales paraLiquidacion(BigDecimal retencionRenta) {
+        BigDecimal neto = total.subtract(igv).subtract(otrosTributos).subtract(retencionRenta);
+        if (neto.signum() <= 0)
+            throw new DomainException("REDONDEO_INVALIDO", "2062 - El importe neto de la liquidación de compra (subtotal − IGV − retención de renta + redondeo) debe ser mayor que cero; queda en " + neto);
+        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, exportacion, isc, icbper, otrosTributos, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, redondeo,
+                neto, items, subtotales, descuentoGlobal, cargosGlobales, anticipos, tasaIgv);
+    }
+
+    /**
      * Reparte {@code ajuste} (cargos 49 menos descuento 02: lo que movió la base gravada) entre las líneas gravadas, en proporción a su valor, y el IGV del subtotal entre
      * las mismas. Cada reparto suma exactamente su total: los centavos que sobran van a las líneas con mayor resto, y nunca se pierden ni se duplican.
      */

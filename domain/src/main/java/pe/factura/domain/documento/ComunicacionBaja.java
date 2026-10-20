@@ -129,6 +129,11 @@ public class ComunicacionBaja {
      */
     public static ComunicacionBaja crear(Comprobante c, int correlativoDelDia, String motivo, Clock clock) {
         LocalDate hoy = LocalDate.now(clock);
+        // #327: la hoja Comunicación de Baja1_0 no admite el 04 (2308: 01, 07, 08, 25, 28, 30, 34, 42 y 56); la liquidación de compra se anula en un resumen de reversiones
+        // (RR-…, Resumen de reversiones1_0: tipos 20, 40 y 04, dentro de 5 días desde su CDR, 2958), que khipu todavía no emite.
+        if (c.tipo() == TipoDocumento.LIQUIDACION_COMPRA)
+            throw new DomainException("BAJA_INVALIDA", "2308 - Una liquidación de compra no se da de baja con una comunicación de baja: SUNAT la anula en un resumen de reversiones"
+                    + " (hasta 5 días después de su constancia de recepción, regla 2958), que khipu todavía no emite");
         if (!c.estado().esFinalAceptado())
             throw new DomainException("BAJA_INVALIDA", (c.esDeBoleta() ? "2663" : "2105/2398") + " - Solo se puede dar de baja un comprobante aceptado por SUNAT; "
                     + c.serie() + "-" + c.numero() + " está " + c.estado());

@@ -60,6 +60,7 @@ public class CompartirComprobanteService implements CompartirComprobanteUseCase 
         return switch (c.tipo()) {
             case FACTURA -> "Factura";
             case BOLETA -> "Boleta de venta";
+            case LIQUIDACION_COMPRA -> "Liquidación de compra";
             case NOTA_CREDITO -> "Nota de crédito";
             case NOTA_DEBITO -> "Nota de débito";
         };

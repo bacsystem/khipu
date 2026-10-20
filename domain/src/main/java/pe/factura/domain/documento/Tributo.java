@@ -24,7 +24,13 @@ public enum Tributo {
     EXO("9997", "EXO", "VAT", "E"),
     INA("9998", "INA", "FRE", "O"),
     /** Operaciones gratuitas: su IGV se informa pero no se cobra ni entra en los totales a pagar. */
-    GRA("9996", "GRA", "FRE", "Z");
+    GRA("9996", "GRA", "FRE", "Z"),
+    /**
+     * Retención del Impuesto a la Renta de la liquidación de compra (#327): el comprador la retiene al vendedor sobre el valor de venta de cada línea. Nunca es la afectación
+     * de un ítem (ningún {@link TipoAfectacionIgv} lo usa), así que {@link Totales} no le arma subtotal; la plantilla de la liquidación lo escribe aparte. Nombre «IR» y código
+     * internacional «TOX» del catálogo 05 (reglas 3051, 2377 y 2964, 2961); la categoría UN/ECE 5305 no tiene regla SUNAT.
+     */
+    RENTA("3000", "IR", "TOX", "S");
 
     private final String codigo, nombre, tipoInternacional, categoria;
 }

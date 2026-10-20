@@ -314,6 +314,14 @@ final class Fakes {
                 new Receptor("-", "-", "CLIENTES VARIOS", null), List.of(new Item("P1", "Prod", "NIU", java.math.BigDecimal.ONE, new java.math.BigDecimal("50.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
         return firmado(c, numero, storage);
     }
+    /** Una liquidación de compra L001 (#327) a un vendedor con DNI, numerada y firmada. */
+    static Comprobante liquidacionFirmada(UUID tenantId, Storage storage, long numero) {
+        Comprobante c = Comprobante.liquidacionCompra(tenantId, "L001", LocalDate.of(2026, 9, 13), "PEN", null, new Receptor("1", "45678912", "JUAN QUISPE", "Caserío Santa Rosa s/n"),
+                new LiquidacionCompra("060101", "02", new LiquidacionCompra.Ubicacion("Fundo Santa Rosa", "060101", "02"), null),
+                List.of(new Item("C1", "Café", "KGM", java.math.BigDecimal.ONE, new java.math.BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), CodigoProductoSunat.de("50201706"), null)))
+                .crear(CLOCK);
+        return firmado(c, numero, storage);
+    }
     private static Comprobante firmado(Comprobante c, long numero, Storage storage) {
         c.asignarNumero(numero, "20100066603");
         String key = "k/" + c.nombreArchivo() + ".xml";
