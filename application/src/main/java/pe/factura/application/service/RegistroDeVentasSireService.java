@@ -16,7 +16,6 @@ import pe.factura.domain.sire.PropuestaRvie;
 import pe.factura.domain.tenant.Tenant;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedReader;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -103,18 +102,45 @@ public class RegistroDeVentasSireService implements RegistroDeVentasSireUseCase 
         ConciliacionRvie conciliacion = new ConciliacionRvie();
         recorrer(tenantId, p, false, f -> conciliacion.deKhipu(f.importes()), t.ruc(), t.razonSocial());
         PropuestaRvie lector = new PropuestaRvie(t.ruc(), p);
-        try (BufferedReader r = new BufferedReader(new InputStreamReader(texto(propuesta), FormatoRvie.CODIFICACION))) {
+        long filas = 0;
+        // H11: un ZIP cuyos datos comprimidos están dañados falla al leerlo, no al abrirlo: el recorrido entero responde 422, no 500.
+        try (java.io.Reader r = new java.io.BufferedReader(new InputStreamReader(texto(propuesta), FormatoRvie.CODIFICACION))) {
             String linea;
-            long n = 0, filas = 0;
-            while ((linea = r.readLine()) != null) {
+            long n = 0;
+            while ((linea = linea(r, n + 1)) != null) {
                 ImportesRvie fila = lector.leer(linea, ++n);
                 if (fila == null) continue;
                 if (++filas > MAXIMO_REGISTROS)
                     throw new DomainException("RVIE_EXCEDE_EL_TOPE", "La propuesta tiene más de " + MAXIMO_REGISTROS + " comprobantes: pídale la conciliación a soporte");
                 conciliacion.deSunat(fila);
             }
+        } catch (ZipException | java.io.EOFException ex) {
+            throw new DomainException("RVIE_ARCHIVO_INVALIDO", "El ZIP de la propuesta está dañado: " + ex.getMessage());
         }
-        return new Conciliacion(p, pendientes, conciliacion.resultado());
+        // H11: sin ninguna fila de datos (cuerpo vacío, solo títulos) el reporte diría que SUNAT no tiene nada: es un archivo equivocado, no una conciliación.
+        if (filas == 0 && lector.consolidadas() == 0)
+            throw new DomainException("RVIE_ARCHIVO_INVALIDO", "La propuesta no trae ninguna fila de comprobantes: envíe el archivo descargado del SIRE para el periodo " + p);
+        return new Conciliacion(p, pendientes, lector.consolidadas(), conciliacion.resultado());
+    }
+
+    /** Largo máximo de una línea de la propuesta: una fila del RVIE ocupa unos 300 caracteres y su campo más largo admite 1 500. */
+    static final int MAXIMO_LINEA = 16 * 1024;
+
+    /**
+     * H5: la línea siguiente (sin el fin de línea), o nula al terminar. Corta en {@link #MAXIMO_LINEA}: un archivo sin saltos de línea no se acumula entero en
+     * memoria hasta llegar al tope de bytes.
+     */
+    static String linea(java.io.Reader r, long numero) throws IOException {
+        StringBuilder sb = new StringBuilder(512);
+        int c;
+        while ((c = r.read()) != -1) {
+            if (c == 10) return sb.toString();
+            if (sb.length() >= MAXIMO_LINEA)
+                throw new DomainException("RVIE_ARCHIVO_INVALIDO", "La propuesta del RVIE no se puede leer (línea " + numero + "): pasa de " + MAXIMO_LINEA
+                        + " caracteres sin un salto de línea; una fila del registro de ventas ocupa unos cientos");
+            sb.append((char) c);
+        }
+        return sb.isEmpty() ? null : sb.toString();
     }
 
     /**

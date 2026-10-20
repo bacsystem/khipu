@@ -17,7 +17,8 @@ public interface RegistroDeVentasSireUseCase {
     /** Lo que se va a escribir, ya validado: si algo impide el archivo, {@link #preparar} falla antes de que empiece la respuesta. */
     record Exportacion(UUID tenantId, String ruc, String razonSocial, PeriodoSire periodo, String nombreArchivo, long registros, long pendientesDeSunat, long sinTipoCambio) {}
 
-    record Conciliacion(PeriodoSire periodo, long pendientesDeSunat, ConciliacionRvie.Resultado resultado) {}
+    /** {@code filasConsolidadas}: filas de la propuesta con el campo 10 (un rango de boletas o tickets del día), que no se concilian una por una. */
+    record Conciliacion(PeriodoSire periodo, long pendientesDeSunat, long filasConsolidadas, ConciliacionRvie.Resultado resultado) {}
 
     /**
      * Valida el periodo ({@code AAAAMM}) y lo que hay en él: sin comprobantes es {@code NO_ENCONTRADO}, más del tope es {@code RVIE_EXCEDE_EL_TOPE}, y comprobantes

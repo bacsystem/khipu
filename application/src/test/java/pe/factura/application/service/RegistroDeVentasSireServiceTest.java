@@ -304,7 +304,7 @@ class RegistroDeVentasSireServiceTest {
 
     @Test void unArchivoMasGrandeQueElTopeSeCortaAlLeerlo() {
         InputStream infinito = new InputStream() {
-            @Override public int read() { return 'a'; }
+            @Override public int read() { return 10; }   // líneas en blanco: lo único que corta es el tope de bytes
         };
         assertThatThrownBy(() -> service.conciliar(tenant, "202610", infinito)).extracting("codigo").isEqualTo("RVIE_PROPUESTA_DEMASIADO_GRANDE");
     }
@@ -321,6 +321,47 @@ class RegistroDeVentasSireServiceTest {
         }
         assertThat((long) bomba.size()).isLessThan(RegistroDeVentasSireService.MAXIMO_ARCHIVO);
         assertThatThrownBy(() -> service.conciliar(tenant, "202610", new ByteArrayInputStream(bomba.toByteArray()))).extracting("codigo").isEqualTo("RVIE_PROPUESTA_DEMASIADO_GRANDE");
+    }
+
+    /** H5: una línea sin fin no se acumula hasta el tope de bytes: corta en 16 KB con la línea. */
+    @Test void unaLineaSinSaltoDeLineaSeCortaEnSuTope() {
+        factura(1, LocalDate.of(2026, 10, 1));
+        byte[] unMega = new byte[1024 * 1024];
+        java.util.Arrays.fill(unMega, (byte) 'x');
+        byte[] archivo = ("RUC|titulos\n").getBytes(StandardCharsets.UTF_8);
+        byte[] todo = new byte[archivo.length + unMega.length];
+        System.arraycopy(archivo, 0, todo, 0, archivo.length);
+        System.arraycopy(unMega, 0, todo, archivo.length, unMega.length);
+        assertThatThrownBy(() -> service.conciliar(tenant, "202610", new ByteArrayInputStream(todo))).hasMessageContainingAll("línea 2", "16384")
+                .extracting("codigo").isEqualTo("RVIE_ARCHIVO_INVALIDO");
+        assertThat(RegistroDeVentasSireService.MAXIMO_LINEA).isLessThan((int) RegistroDeVentasSireService.MAXIMO_ARCHIVO / 100);
+    }
+
+    /** H11: sin filas de datos la conciliación diría que SUNAT no tiene nada: es un archivo equivocado. */
+    @Test void unaPropuestaSinFilasDeDatosEsArchivoInvalido() {
+        factura(1, LocalDate.of(2026, 10, 1));
+        for (String cuerpo : List.of("", "RUC|Razón social|Periodo\r\n", "\r\n\r\n"))
+            assertThatThrownBy(() -> service.conciliar(tenant, "202610", new ByteArrayInputStream(cuerpo.getBytes(StandardCharsets.UTF_8))))
+                    .as("«%s»", cuerpo).extracting("codigo").isEqualTo("RVIE_ARCHIVO_INVALIDO");
+    }
+
+    /** H11: un ZIP con los datos comprimidos dañados falla al leerlos, y eso también es RVIE_ARCHIVO_INVALIDO, no un error interno. */
+    @Test void unZipConDatosDanadosEsArchivoInvalido() throws IOException {
+        factura(1, LocalDate.of(2026, 10, 1));
+        byte[] zip = propuesta();
+        assertThat(zip.length).isGreaterThan(260);
+        for (int k = 80; k < zip.length - 130; k++) zip[k] = (byte) 0xFF;
+        assertThatThrownBy(() -> service.conciliar(tenant, "202610", new ByteArrayInputStream(zip))).extracting("codigo").isEqualTo("RVIE_ARCHIVO_INVALIDO");
+    }
+
+    /** H10: las filas consolidadas de la propuesta (campo 10) no se concilian y se cuentan. */
+    @Test void lasFilasConsolidadasSeCuentanAparte() throws IOException {
+        factura(1, LocalDate.of(2026, 10, 1));
+        String propia = texto(propuesta());
+        String consolidada = propia.replace("|01|F001|1||", "|03|B001|1|40|");
+        Conciliacion c = service.conciliar(tenant, "202610", new ByteArrayInputStream((propia + consolidada).getBytes(StandardCharsets.UTF_8)));
+        assertThat(c.filasConsolidadas()).isEqualTo(1);
+        assertThat(c.resultado().coinciden()).isEqualTo(1);
     }
 
     @Test void laConciliacionInformaLosPendientes() throws IOException {
