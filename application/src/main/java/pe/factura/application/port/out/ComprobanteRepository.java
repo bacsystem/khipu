@@ -16,6 +16,12 @@ public interface ComprobanteRepository {
     Optional<Comprobante> buscar(UUID tenantId, UUID id);
     /** Como buscar, pero deja la fila bloqueada hasta el fin de la transacción (p. ej. para dar de baja sin carreras). */
     Optional<Comprobante> bloquear(UUID tenantId, UUID id);
+    /**
+     * Hasta {@code limite} boletas (y notas de boleta) de la empresa emitidas el {@code fechaEmision} que SUNAT todavía no tiene (FIRMADO o ERROR_ENVIO), sin un resumen diario en curso y
+     * sin un resumen de varias líneas rechazado antes (#301: ese se aísla de a una), ordenadas por serie y número y con las filas bloqueadas —las que otra transacción ya tiene
+     * bloqueadas se saltan—. Para armar con ellas un solo resumen diario; el llamador filtra las que todavía no van solo en el resumen ({@code soloPorResumen}).
+     */
+    List<Comprobante> bloquearPorInformarDeLaFecha(UUID tenantId, java.time.LocalDate fechaEmision, UUID excluido, int limite);
     Optional<Comprobante> buscarPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero);
     /** Como buscarPorNumero, pero deja la fila bloqueada hasta el fin de la transacción (serializa a quienes dependen de ese comprobante). */
     Optional<Comprobante> bloquearPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero);

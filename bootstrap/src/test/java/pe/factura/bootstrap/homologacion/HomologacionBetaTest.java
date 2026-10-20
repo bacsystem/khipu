@@ -234,6 +234,54 @@ class HomologacionBetaTest {
         altaTardia("35-alta-boleta-percepcion", "percepción 2001", EscenariosFactura.boletaTardiaConPercepcion(SERIE, LocalDate.now(ZoneId.of("America/Lima"))));
     }
 
+    /**
+     * #301: tres boletas de la misma fecha, firmadas sin enviar, se informan en <b>un</b> resumen diario de tres líneas. Se envía una sola; las otras dos viajan con ella (mismo
+     * identificador, ticket y CDR) y SUNAT acepta el resumen entero: las tres quedan ACEPTADO. Es la prueba de que el XML de varias líneas pasa las reglas de SUNAT, no solo el XSD.
+     */
+    @org.junit.jupiter.api.Test void zzAltaTardiaDeVariasBoletasEnUnSoloResumen() throws Exception {
+        String escenario = "36-alta-tres-boletas-un-resumen";
+        List<String> boletas = new ArrayList<>();
+        for (String cuerpo : EscenariosFactura.boletasTardiasSinEnviar(SERIE, LocalDate.now(ZoneId.of("America/Lima")))) {
+            ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(cuerpo, api), Map.class);
+            assertThat(r.getStatusCode()).as(escenario + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
+            Map<?, ?> datos = (Map<?, ?>) r.getBody().get("datos");
+            assertThat(datos.get("estado_documento")).as(escenario + ": firmada, sin enviar").isEqualTo("FIRMADO");
+            boletas.add(String.valueOf(datos.get("id")));
+        }
+
+        ResponseEntity<Map> enviada = http.postForEntity("/v1/facturas/" + boletas.get(0) + "/enviar", new HttpEntity<>(api), Map.class);
+        assertThat(enviada.getStatusCode().is2xxSuccessful()).as(escenario + ": " + enviada.getBody()).isTrue();
+
+        List<Map<?, ?>> filas = new ArrayList<>();
+        for (String id : boletas) {
+            ResponseEntity<Map> lista = http.exchange("/v1/facturas/" + id + "/bajas", HttpMethod.GET, new HttpEntity<>(api), Map.class);
+            List<?> bajas = lista.getBody() == null ? List.of() : (List<?>) lista.getBody().getOrDefault("datos", List.of());
+            assertThat(bajas).as(escenario + ": cada boleta tiene su línea en el resumen").hasSize(1);
+            filas.add((Map<?, ?>) bajas.get(0));
+        }
+        assertThat(filas.stream().map(f -> String.valueOf(f.get("identificador"))).distinct().toList()).as(escenario + ": un solo identificador").hasSize(1);
+        assertThat(filas.stream().map(f -> String.valueOf(f.get("lineas"))).toList()).as(escenario + ": un resumen de tres líneas").containsOnly("3");
+        assertThat(filas.stream().map(f -> String.valueOf(f.get("linea"))).toList()).containsExactly("1", "2", "3");
+
+        Map<?, ?> datos = esperarResumen(filas.get(0));
+        Map<?, ?> cdr = datos.get("cdr") instanceof Map<?, ?> m ? m : Map.of();
+        String detalle = cdr.get("codigo") + " - " + cdr.get("descripcion") + (datos.get("ultimo_error") == null ? "" : " | " + datos.get("ultimo_error"));
+        List<String> estados = new ArrayList<>();
+        for (String id : boletas) {
+            ResponseEntity<Map> f = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
+            estados.add(String.valueOf(((Map<?, ?>) f.getBody().get("datos")).get("estado_documento")));
+        }
+        resumen.add(new String[]{escenario, "Tres boletas de hace " + EscenariosFactura.DIAS_BOLETA_TARDIA + " días en un solo resumen diario (" + filas.get(0).get("identificador") + ")",
+                estados.stream().distinct().count() == 1 ? estados.get(0) : String.join("/", estados), detalle});
+        Path dir = SALIDA.resolve(escenario);
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("resultado.txt"), String.join("/", estados) + "\n" + detalle + "\n", StandardCharsets.UTF_8);
+
+        assertThat(datos.get("estado")).as(escenario + ": " + detalle).isEqualTo("ACEPTADA");
+        assertThat(String.valueOf(cdr.get("codigo"))).as(escenario + ": código CDR").isEqualTo("0");
+        assertThat(estados).as(escenario + ": el CDR del resumen acepta las tres").containsOnly("ACEPTADO");
+    }
+
     private void altaTardia(String escenario, String con, String cuerpo) throws Exception {
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(cuerpo, api), Map.class);
         Map<?, ?> boleta = r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of());

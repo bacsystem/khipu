@@ -7,6 +7,8 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -44,6 +46,10 @@ public class ComunicacionBaja {
     private final String motivo;
     /** Estado de la línea en el resumen diario (catálogo 19): alta o baja. En un RA, siempre baja. */
     private final Condicion condicion;
+    /** El LineID de esta fila en su resumen (1 en un RA y en un RC de una sola línea). */
+    private final int linea;
+    /** Cuántas líneas tiene el resumen al que pertenece (#301): las filas de un mismo RC comparten identificador, XML, ticket y CDR. */
+    private final int lineas;
     private EstadoBaja estado;
     private String ticket;
     private String xmlKey;
@@ -53,10 +59,10 @@ public class ComunicacionBaja {
     private String ultimoError;
 
     private ComunicacionBaja(UUID id, UUID tenantId, LocalDate fechaGeneracion, int correlativo, UUID comprobanteId, TipoDocumento tipoComprobante, boolean deBoleta,
-                             String serie, long numero, LocalDate fechaReferencia, String motivo, Condicion condicion, EstadoBaja estado) {
+                             String serie, long numero, LocalDate fechaReferencia, String motivo, Condicion condicion, EstadoBaja estado, int linea, int lineas) {
         this.id = id; this.tenantId = tenantId; this.fechaGeneracion = fechaGeneracion; this.correlativo = correlativo;
         this.comprobanteId = comprobanteId; this.tipoComprobante = tipoComprobante; this.deBoleta = deBoleta; this.serie = serie; this.numero = numero;
-        this.fechaReferencia = fechaReferencia; this.motivo = motivo; this.condicion = condicion; this.estado = estado;
+        this.fechaReferencia = fechaReferencia; this.motivo = motivo; this.condicion = condicion; this.estado = estado; this.linea = linea; this.lineas = lineas;
     }
 
     /**
@@ -65,24 +71,52 @@ public class ComunicacionBaja {
      * prevé que la observe (4443, y entonces la boleta queda ACEPTADO_CON_OBS), pero e-beta, con 8 y 30 días de atraso, la aceptó sin observaciones (ACEPTADO). La NC 10 y
      * la ND 03 de boleta no van en el resumen nunca.
      * <p>
-     * Cada alta es un RC propio, con la línea de este solo comprobante (como cada baja): una boleta tardía nunca comparte resumen con una en plazo. Es lo que
-     * pidió #331 mientras la 4443 no estaba validada: si SUNAT rechazara el resumen entero, solo cae la boleta tardía, que antes de #331 nunca se informaba.
-     * Agruparlas en un mismo RC por fecha de emisión queda para después, separando siempre las tardías.
+     * Una alta es un RC propio, con la línea de este solo comprobante (como cada baja). Varias de una misma fecha de emisión se agrupan con {@link #altasEnResumen} (#301).
      */
     public static ComunicacionBaja altaEnResumen(Comprobante c, int correlativoDelDia, Clock clock) {
+        return altasEnResumen(List.of(c), correlativoDelDia, clock).get(0);
+    }
+
+    /** SFS 0158: un resumen diario lleva hasta 500 líneas. */
+    public static final int MAX_LINEAS_RESUMEN = 500;
+
+    /**
+     * Las boletas (y notas de boleta) de una misma fecha de emisión que ya solo van en el resumen diario, informadas en <b>un</b> RC (#301): una fila por comprobante, todas con
+     * el mismo identificador (y, por tanto, el mismo XML, ticket y CDR), en el orden dado como LineID 1, 2, … Hasta {@value #MAX_LINEAS_RESUMEN} líneas.
+     * <p>
+     * Una línea con error rechaza el resumen entero (2987), así que aquí solo entran comprobantes que ya pasaron su validación al emitirse y que SUNAT todavía no tiene. SUNAT pide que
+     * todas compartan la fecha de emisión (cbc:ReferenceDate) y, como las tardías (pasado el 7.º día) pueden observarse con la 4443, no se mezclan con las que están en plazo; con la misma
+     * fecha de emisión esto último se cumple solo, porque el plazo se cuenta desde ella. Las altas nunca comparten resumen con una baja (3095/3096): una baja siempre es un RC propio.
+     */
+    public static List<ComunicacionBaja> altasEnResumen(List<Comprobante> comprobantes, int correlativoDelDia, Clock clock) {
         LocalDate hoy = LocalDate.now(clock);
-        if (!c.esDeBoleta())
-            throw new DomainException("RESUMEN_INVALIDO", "Solo una boleta o una nota que la modifica se informa en un resumen diario; " + c.serie() + "-" + c.numero() + " no lo es");
-        if (!c.estado().esEnviable())
-            throw new DomainException("RESUMEN_INVALIDO", c.serie() + "-" + c.numero() + " está " + c.estado() + ": solo se informa en el resumen una boleta que SUNAT todavía no tiene");
-        if (!c.soloPorResumen(hoy))
-            throw new DomainException("RESUMEN_INVALIDO", c.serie() + "-" + c.numero() + " no va en el resumen diario: todavía va sola, o es una nota de crédito 10 o de débito 03");
+        if (comprobantes.isEmpty()) throw new DomainException("RESUMEN_INVALIDO", "Un resumen diario lleva al menos una línea");
+        if (comprobantes.size() > MAX_LINEAS_RESUMEN)
+            throw new DomainException("RESUMEN_INVALIDO", "0158 - Un resumen diario lleva hasta " + MAX_LINEAS_RESUMEN + " líneas; se pidieron " + comprobantes.size());
         if (correlativoDelDia < 1) throw new DomainException("RESUMEN_INVALIDO", "El correlativo del día debe ser mayor que cero");
-        String motivo = c.informaFueraDePlazo(hoy)
+        LocalDate fechaEmision = comprobantes.get(0).fechaEmision();
+        for (Comprobante c : comprobantes) {
+            if (!c.esDeBoleta())
+                throw new DomainException("RESUMEN_INVALIDO", "Solo una boleta o una nota que la modifica se informa en un resumen diario; " + c.serie() + "-" + c.numero() + " no lo es");
+            if (!c.estado().esEnviable())
+                throw new DomainException("RESUMEN_INVALIDO", c.serie() + "-" + c.numero() + " está " + c.estado() + ": solo se informa en el resumen una boleta que SUNAT todavía no tiene");
+            if (!c.soloPorResumen(hoy))
+                throw new DomainException("RESUMEN_INVALIDO", c.serie() + "-" + c.numero() + " no va en el resumen diario: todavía va sola, o es una nota de crédito 10 o de débito 03");
+            if (!c.fechaEmision().equals(fechaEmision))
+                throw new DomainException("RESUMEN_INVALIDO", "2375 - Todas las líneas de un resumen diario son de la misma fecha de emisión; " + c.serie() + "-" + c.numero() + " es del " + c.fechaEmision() + " y el resumen del " + fechaEmision);
+        }
+        long distintos = comprobantes.stream().map(Comprobante::id).distinct().count();
+        if (distintos != comprobantes.size()) throw new DomainException("RESUMEN_INVALIDO", "Un comprobante no puede ir dos veces en el mismo resumen");
+        String motivo = comprobantes.get(0).informaFueraDePlazo(hoy)
                 ? "Pasó el 7.º día: se informa en el resumen diario fuera de plazo (SUNAT puede observarla con 4443)"
                 : "Pasó el envío individual: se informa en el resumen diario";
-        return new ComunicacionBaja(UUID.randomUUID(), c.tenantId(), hoy, correlativoDelDia, c.id(), c.tipo(), true, c.serie(), c.numero(), c.fechaEmision(),
-                motivo, Condicion.ALTA, EstadoBaja.GENERADA);
+        List<ComunicacionBaja> filas = new ArrayList<>(comprobantes.size());
+        for (int i = 0; i < comprobantes.size(); i++) {
+            Comprobante c = comprobantes.get(i);
+            filas.add(new ComunicacionBaja(UUID.randomUUID(), c.tenantId(), hoy, correlativoDelDia, c.id(), c.tipo(), true, c.serie(), c.numero(), c.fechaEmision(),
+                    motivo, Condicion.ALTA, EstadoBaja.GENERADA, i + 1, comprobantes.size()));
+        }
+        return List.copyOf(filas);
     }
 
     /**
@@ -106,16 +140,38 @@ public class ComunicacionBaja {
             throw new DomainException("BAJA_INVALIDA", "2315 - El motivo de la baja debe tener de 3 a 100 caracteres, sin saltos de línea");
         if (correlativoDelDia < 1) throw new DomainException("BAJA_INVALIDA", "El correlativo del día debe ser mayor que cero");
         return new ComunicacionBaja(UUID.randomUUID(), c.tenantId(), hoy, correlativoDelDia, c.id(), c.tipo(), c.esDeBoleta(), c.serie(), c.numero(), c.fechaEmision(), m,
-                Condicion.BAJA, EstadoBaja.GENERADA);
+                Condicion.BAJA, EstadoBaja.GENERADA, 1, 1);
     }
 
     /** Solo para persistencia. */
     public static ComunicacionBaja rehidratar(UUID id, UUID tenantId, LocalDate fechaGeneracion, int correlativo, UUID comprobanteId, TipoDocumento tipoComprobante, boolean deBoleta,
                                               String serie, long numero, LocalDate fechaReferencia, String motivo, Condicion condicion, EstadoBaja estado, String ticket,
                                               String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
-        ComunicacionBaja b = new ComunicacionBaja(id, tenantId, fechaGeneracion, correlativo, comprobanteId, tipoComprobante, deBoleta, serie, numero, fechaReferencia, motivo, condicion, estado);
+        return rehidratar(id, tenantId, fechaGeneracion, correlativo, comprobanteId, tipoComprobante, deBoleta, serie, numero, fechaReferencia, motivo, condicion, estado, ticket, xmlKey,
+                cdrKey, cdr, intentos, ultimoError, 1, 1);
+    }
+
+    /** Solo para persistencia: con la posición de la fila en su resumen diario (#301). */
+    public static ComunicacionBaja rehidratar(UUID id, UUID tenantId, LocalDate fechaGeneracion, int correlativo, UUID comprobanteId, TipoDocumento tipoComprobante, boolean deBoleta,
+                                              String serie, long numero, LocalDate fechaReferencia, String motivo, Condicion condicion, EstadoBaja estado, String ticket,
+                                              String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError, int linea, int lineas) {
+        ComunicacionBaja b = new ComunicacionBaja(id, tenantId, fechaGeneracion, correlativo, comprobanteId, tipoComprobante, deBoleta, serie, numero, fechaReferencia, motivo, condicion, estado, linea, lineas);
         b.ticket = ticket; b.xmlKey = xmlKey; b.cdrKey = cdrKey; b.cdr = cdr; b.intentos = intentos; b.ultimoError = ultimoError;
         return b;
+    }
+
+    /** Si el resumen al que pertenece tiene más de una línea (#301): su rechazo no dice cuál comprobante lo causó. */
+    public boolean deVariasLineas() { return lineas > 1; }
+
+    /**
+     * Las filas de un mismo resumen comparten el ciclo —un envío, un ticket, un CDR—: tras avanzar una (la primera), las demás copian su estado. Solo entre filas del mismo
+     * resumen, y sin pasar por {@link #transitar}: el avance ya fue validado en la fila de origen.
+     */
+    public void copiarCicloDe(ComunicacionBaja otra) {
+        if (!otra.tenantId.equals(tenantId) || !otra.fechaGeneracion.equals(fechaGeneracion) || otra.correlativo != correlativo)
+            throw new DomainException("TRANSICION_INVALIDA", "Solo las filas de un mismo resumen comparten su ciclo");
+        this.estado = otra.estado; this.ticket = otra.ticket; this.xmlKey = otra.xmlKey; this.cdrKey = otra.cdrKey; this.cdr = otra.cdr;
+        this.intentos = otra.intentos; this.ultimoError = otra.ultimoError;
     }
 
     /** Una boleta, o una nota que la modifica, se anula en el resumen diario (SummaryDocuments), no en una comunicación de baja (VoidedDocuments: 2308/2310). */

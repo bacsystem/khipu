@@ -371,6 +371,22 @@ final class EscenariosFactura {
                 "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":10,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}],\"percepcion\":{\"regimen\":\"51\"}}";
     }
 
+    /**
+     * #301: tres boletas de la misma fecha tardía, firmadas sin enviar ({@code enviar_automatico: false}); al enviar una, khipu informa las tres en <b>un</b> resumen diario de tres
+     * líneas (una gravada con DNI, una exonerada sin documento y una con bonificación gratuita) y SUNAT lo acepta con un solo ticket y un solo CDR.
+     */
+    static List<String> boletasTardiasSinEnviar(String serie, LocalDate fecha) {
+        String comun = "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha.minusDays(DIAS_BOLETA_TARDIA) + "\",\"moneda\":\"PEN\",\"enviar_automatico\":false,";
+        return List.of(
+                comun + "\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":["
+                        + "{\"descripcion\":\"Producto\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}",
+                comun + "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":["
+                        + "{\"descripcion\":\"Libro\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":50.00,\"tipo_afectacion_igv\":\"20\"}]}",
+                comun + "\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"87654321\",\"razon_social\":\"MARIA GARCIA\"},\"items\":["
+                        + "{\"descripcion\":\"Producto\",\"unidad\":\"NIU\",\"cantidad\":10,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"},"
+                        + "{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}]}");
+    }
+
     /** Pasó el envío individual (5 días) y sigue dentro de la ventana de emisión de khipu (7 días, 1079): 8 días la rechaza al emitir. */
     static final int DIAS_BOLETA_TARDIA = 6;
 

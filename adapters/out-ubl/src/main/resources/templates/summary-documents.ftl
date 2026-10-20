@@ -41,8 +41,12 @@
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingSupplierParty>
+  <#-- #301: una línea por comprobante, hasta 500 (SFS 0158), todas de la misma fecha de emisión. `b`, `c`, `tot` y `nombreComprador` vuelven a apuntar a los de cada línea; la cabecera de
+       arriba ya se escribió con los de la primera, que comparten identificador y fechas con las demás. -->
+  <#list lineas as l>
+  <#assign b = l.b c = l.c tot = l.c.totales() nombreComprador = l.nombreComprador>
   <sac:SummaryDocumentsLine>
-    <cbc:LineID>1</cbc:LineID>
+    <cbc:LineID>${b.linea()?c}</cbc:LineID>
     <cbc:DocumentTypeCode>${b.tipoComprobante().codigo()}</cbc:DocumentTypeCode>
     <cbc:ID>${b.serie()}-${b.numero()?c}</cbc:ID>
     <#-- 2514/2016: el comprador va siempre; sin documento (hasta S/ 700) con guion en tipo y número.
@@ -120,6 +124,7 @@
     <@tributo monto=tot.otrosTributos() codigo="9999" nombre="OTROS" internacional="OTH"/>
     </#if>
   </sac:SummaryDocumentsLine>
+  </#list>
 </SummaryDocuments>
 <#macro tributo monto codigo nombre internacional tasa="">
     <cac:TaxTotal>

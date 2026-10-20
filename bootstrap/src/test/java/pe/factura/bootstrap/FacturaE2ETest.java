@@ -305,6 +305,48 @@ class FacturaE2ETest {
     }
 
     /**
+     * #301: tres boletas de la misma fecha, firmadas sin enviar, se informan al enviar una en <b>un</b> solo resumen diario de tres líneas: un sendSummary, un getStatus, un CDR para
+     * las tres, que quedan ACEPTADO y cada una lista su línea (misma RC, línea 1, 2 y 3). Con Postgres de verdad: la consulta que las recoge bloquea las filas con SKIP LOCKED.
+     */
+    @Test void tresBoletasDeLaMismaFechaSeInformanEnUnSoloResumenDiario(WireMockRuntimeInfo wm) throws Exception {
+        stubFor(post("/billService").withRequestBody(containing("sendSummary")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:sendSummaryResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><ticket>1789768174688</ticket></ns2:sendSummaryResponse></soap-env:Body></soap-env:Envelope>")));
+        stubFor(post("/billService").withRequestBody(containing("getStatus")).willReturn(okXml(
+                "<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body><ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>0</statusCode><content>"
+                        + Base64.getEncoder().encodeToString(ZipUtil.comprimir("R-20100066603-RC.xml", CDR_OK.getBytes())) + "</content></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")));
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"03\",\"serie\":\"B001\",\"correlativo_inicial\":0}", h), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String haceSeis = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).minusDays(6).toString();
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (String dni : java.util.List.of("12345678", "87654321", "11223344")) {
+            ResponseEntity<Map> emitida = http.postForEntity("/v1/facturas", new HttpEntity<>("""
+                {"serie":"B001","fecha_emision":"%s","moneda":"PEN","enviar_automatico":false,
+                 "cliente":{"tipo_doc":"1","num_doc":"%s","razon_social":"COMPRADOR %s"},
+                 "items":[{"codigo":"P001","descripcion":"Pan","unidad":"NIU","cantidad":10,"precio_unitario":0.50,"tipo_afectacion_igv":"10"}]}
+                """.formatted(haceSeis, dni, dni), h), Map.class);
+            assertThat(emitida.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            ids.add((String) ((Map<?, ?>) emitida.getBody().get("datos")).get("id"));
+        }
+
+        ResponseEntity<Map> enviada = http.postForEntity("/v1/facturas/" + ids.get(0) + "/enviar", new HttpEntity<>(h), Map.class);
+
+        assertThat(enviada.getStatusCode().is2xxSuccessful()).isTrue();
+        verify(0, postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("sendBill")));
+        verify(1, postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("sendSummary")));
+        verify(1, postRequestedFor(urlEqualTo("/billService")).withRequestBody(containing("getStatus")));
+        for (int i = 0; i < ids.size(); i++) {
+            Map<?, ?> boleta = (Map<?, ?>) http.exchange("/v1/facturas/" + ids.get(i), HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos");
+            assertThat(boleta.get("estado_documento")).as("boleta " + (i + 1)).isEqualTo("ACEPTADO");
+            java.util.List<?> bajas = (java.util.List<?>) http.exchange("/v1/facturas/" + ids.get(i) + "/bajas", HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("datos");
+            assertThat(bajas).hasSize(1);
+            assertThat((Map<String, Object>) bajas.get(0)).containsEntry("condicion", "ALTA").containsEntry("estado", "ACEPTADA").containsEntry("ticket", "1789768174688")
+                    .containsEntry("linea", i + 1).containsEntry("lineas", 3);
+            assertThat((String) ((Map<?, ?>) bajas.get(0)).get("identificador")).matches("RC-\\d{8}-1");
+        }
+    }
+
+    /**
      * #293: notas sobre una boleta de extremo a extremo. Sobre una boleta aceptada: NC total (copia la boleta), NC parcial y ND, cada una firmada, validada
      * contra su XSD y enviada sola con sendBill; la boleta las lista. Una NC por descuento (04) se rechaza sin consumir número, y la NC total se anula en un
      * resumen diario (RC), nunca en un RA.

@@ -21,10 +21,12 @@ public record BajaResponse(
         @Schema(example = "1789768174685", description = "Ticket del proceso en SUNAT (sendSummary), o `null`") String ticket,
         @Schema(description = "Constancia de SUNAT: `0` aceptada, 2000–3999 rechazada") ComprobanteResponse.CdrDto cdr,
         @Schema(example = "1") int intentos,
-        @Schema(example = "null") String ultimoError) {
+        @Schema(example = "null") String ultimoError,
+        @Schema(example = "1", description = "Posición (`LineID`) de este comprobante en su resumen diario. Siempre 1 en una comunicación de baja (RA) y en un resumen de una sola línea") int linea,
+        @Schema(example = "1", description = "Cuántas líneas tiene el resumen diario: las boletas de una misma fecha de emisión que se informan juntas viajan en un solo `RC` (hasta 500), con un mismo `identificador`, `ticket` y `cdr`. Si SUNAT lo rechaza entero (2987), cada boleta vuelve a informarse sola para aislar la defectuosa") int lineas) {
 
     public static BajaResponse de(ComunicacionBaja b) {
         return new BajaResponse(b.id(), b.identificador(), b.serie() + "-" + b.numero(), b.tipoComprobante().codigo(), b.fechaGeneracion(), b.fechaReferencia(), b.motivo(), b.condicion().name(), b.fueraDePlazo(), b.estado().name(), b.ticket(),
-                b.cdr() == null ? null : new ComprobanteResponse.CdrDto(b.cdr().codigo(), b.cdr().descripcion(), b.cdr().observaciones(), null), b.intentos(), b.ultimoError());
+                b.cdr() == null ? null : new ComprobanteResponse.CdrDto(b.cdr().codigo(), b.cdr().descripcion(), b.cdr().observaciones(), null), b.intentos(), b.ultimoError(), b.linea(), b.lineas());
     }
 }

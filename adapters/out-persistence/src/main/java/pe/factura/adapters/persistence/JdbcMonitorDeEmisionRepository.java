@@ -40,10 +40,11 @@ public class JdbcMonitorDeEmisionRepository implements MonitorDeEmisionRepositor
 
     /**
      * Lo ENVIADO con ticket (el índice parcial `ix_comunicacion_baja_enviada` lo encuentra sin recorrer la tabla) cuyo ticket se obtuvo antes del límite, estrictamente. Se mide
-     * desde `enviada_en` y no desde `created_at`: un resumen que esperó horas en ERROR_ENVIO no lleva horas esperando respuesta.
+     * desde `enviada_en` y no desde `created_at`: un resumen que esperó horas en ERROR_ENVIO no lleva horas esperando respuesta. Un resumen diario de varias líneas (#301) son
+     * varias filas con el mismo ticket: se cuenta una vez por (empresa, fecha, correlativo).
      */
     @Override public ResumenesPendientes resumenesSinRespuesta(Instant enviadosAntesDe) {
-        return jdbc.queryForObject("SELECT count(*) AS n, min(enviada_en) AS mas_viejo FROM comunicacion_baja WHERE estado = 'ENVIADA' AND ticket IS NOT NULL AND enviada_en < ?",
+        return jdbc.queryForObject("SELECT count(DISTINCT (tenant_id, fecha_generacion, correlativo)) AS n, min(enviada_en) AS mas_viejo FROM comunicacion_baja WHERE estado = 'ENVIADA' AND ticket IS NOT NULL AND enviada_en < ?",
                 (rs, i) -> new ResumenesPendientes(rs.getLong("n"), instante(rs.getTimestamp("mas_viejo"))), Timestamp.from(enviadosAntesDe));
     }
 
