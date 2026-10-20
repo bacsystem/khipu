@@ -107,12 +107,12 @@ final class Fakes {
         public long contar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f) { return listar(t, f, 1, Integer.MAX_VALUE).size(); }
         /** Sin orden por creación: la exportación por llave la prueban el adaptador REST y la persistencia. */
         public pe.factura.application.port.in.ConsultarComprobanteUseCase.PaginaPorLlave listarPorLlave(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f,
-                Set<EstadoDocumento> excluidos, pe.factura.application.port.in.ConsultarComprobanteUseCase.Llave despues, int limite) {
-            List<Comprobante> filas = despues != null ? List.of() : listar(t, f, 1, limite).stream().filter(c -> !excluidos.contains(c.estado())).toList();
+                Set<EstadoDocumento> excluidos, Set<TipoDocumento> tipos, pe.factura.application.port.in.ConsultarComprobanteUseCase.Llave despues, int limite) {
+            List<Comprobante> filas = despues != null ? List.of() : listar(t, f, 1, limite).stream().filter(c -> !excluidos.contains(c.estado()) && (tipos.isEmpty() || tipos.contains(c.tipo()))).toList();
             return new pe.factura.application.port.in.ConsultarComprobanteUseCase.PaginaPorLlave(filas, filas.isEmpty() ? null : new pe.factura.application.port.in.ConsultarComprobanteUseCase.Llave(Instant.EPOCH, filas.get(filas.size() - 1).id()));
         }
-        public long contar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f, Set<EstadoDocumento> excluidos) {
-            return listar(t, f, 1, Integer.MAX_VALUE).stream().filter(c -> !excluidos.contains(c.estado())).count();
+        public long contar(UUID t, pe.factura.application.port.in.ConsultarComprobanteUseCase.Filtro f, Set<EstadoDocumento> excluidos, Set<TipoDocumento> tipos) {
+            return listar(t, f, 1, Integer.MAX_VALUE).stream().filter(c -> !excluidos.contains(c.estado()) && (tipos.isEmpty() || tipos.contains(c.tipo()))).count();
         }
     }
     static class Series implements SerieRepository {

@@ -2,6 +2,7 @@ package pe.factura.application.port.in;
 
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
+import pe.factura.domain.documento.TipoDocumento;
 
 import java.util.List;
 import java.util.UUID;
@@ -24,13 +25,13 @@ public interface ConsultarComprobanteUseCase {
     record PaginaPorLlave(List<Comprobante> filas, Llave ultima) {}
 
     /**
-     * Hasta {@code limite} comprobantes que cumplen {@code filtro} y no están en {@code excluidos}, en el orden del listado, a partir de la fila siguiente a {@code despues}
-     * ({@code null}: desde el principio). Lo usa la exportación (#321), que recorre todo el resultado.
+     * Hasta {@code limite} comprobantes que cumplen {@code filtro}, no están en {@code excluidos} y son de uno de los {@code tipos} (vacío: de cualquier tipo), en el orden del
+     * listado, a partir de la fila siguiente a {@code despues} ({@code null}: desde el principio). Lo usa la exportación (#321), que recorre todo el resultado.
      */
-    PaginaPorLlave listarPorLlave(UUID tenantId, Filtro filtro, java.util.Set<EstadoDocumento> excluidos, Llave despues, int limite);
+    PaginaPorLlave listarPorLlave(UUID tenantId, Filtro filtro, java.util.Set<EstadoDocumento> excluidos, java.util.Set<TipoDocumento> tipos, Llave despues, int limite);
 
-    /** Cuántos comprobantes cumplen {@code filtro} sin contar los de {@code excluidos}. */
-    long contar(UUID tenantId, Filtro filtro, java.util.Set<EstadoDocumento> excluidos);
+    /** Cuántos comprobantes cumplen {@code filtro} sin contar los de {@code excluidos} y, si {@code tipos} no está vacío, solo los de esos tipos: los mismos que {@link #listarPorLlave}. */
+    long contar(UUID tenantId, Filtro filtro, java.util.Set<EstadoDocumento> excluidos, java.util.Set<TipoDocumento> tipos);
 
     /**
      * Filtros del listado (#2, #3): todos opcionales y combinables; {@code desde}/{@code hasta} acotan la fecha de emisión,

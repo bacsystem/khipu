@@ -3512,7 +3512,7 @@ export const handlers = [
     const filtrados = filtrarComprobantes(empresaId, url);
     if (filtrados instanceof Response) return filtrados;
     const porEstado = url.searchParams.get("estado") ? filtrados : filtrados.filter((f) => !NO_SON_VENTAS.includes(f.estado_documento));
-    // Como el backend: sin filtro de tipo solo salen las ventas (factura, boleta y sus notas; TipoDocumento#esVenta).
+    // Como el backend: sin filtro de tipo solo salen las ventas (factura, boleta y sus notas; TipoDocumento#esVenta), y el tope cuenta después de ese filtro, como su SQL.
     const lista = url.searchParams.get("tipo") ? porEstado : porEstado.filter((f) => TIPOS_DE_VENTA_MOCK.includes(f.tipo));
     if (lista.length > EXPORTACION_MAXIMA) return fail(422, "EXPORTACION_EXCEDE_EL_TOPE", `Hay ${lista.length} comprobantes con esos filtros y una exportación admite hasta ${EXPORTACION_MAXIMA}: acote las fechas y exporte por tramos`);
     const desde = url.searchParams.get("desde");
