@@ -42,6 +42,8 @@ public class Comprobante {
     private final Nota nota;
     /** Solo en la liquidación de compra (#327): domicilio del vendedor, lugar de la operación y tasa de la retención de renta; {@code null} en los demás. */
     private final LiquidacionCompra liquidacion;
+    /** Solo en la retención (20) y la percepción (40), #40: régimen, tasa y los documentos que el agente paga o cobra; {@code null} en los demás. */
+    private final ComprobanteDeAgente agente;
     /** Leyendas del catálogo 52 declaradas por el emisor (2001–2005, 2008…); nunca nula. Las automáticas las decide la plantilla. */
     private final List<String> leyendas;
     /** Incoterm y país de uso de una factura de exportación (0200–0208); {@code null} en las demás. Una nota hereda los de su factura. */
@@ -76,7 +78,8 @@ public class Comprobante {
     private Comprobante(UUID id, UUID tenantId, TipoDocumento tipo, String serie, Long numero, LocalDate fechaEmision, LocalTime horaEmision, LocalDate fechaVencimiento,
                         String moneda, String tipoOperacion, Receptor receptor, List<Item> items, FormaPago formaPago,
                         Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencion, Percepcion percepcion, List<Anticipo> anticipos,
-                        Referencias referencias, BigDecimal redondeo, Nota nota, LiquidacionCompra liquidacion, BigDecimal tasaIgv, List<String> leyendas, Exportacion exportacion, EstadoDocumento estado) {
+                        Referencias referencias, BigDecimal redondeo, Nota nota, LiquidacionCompra liquidacion, ComprobanteDeAgente agente, BigDecimal tasaIgv, List<String> leyendas, Exportacion exportacion,
+                        EstadoDocumento estado) {
         this.id = id; this.tenantId = tenantId; this.tipo = tipo; this.serie = serie; this.numero = numero;
         this.fechaEmision = fechaEmision; this.horaEmision = horaEmision; this.fechaVencimiento = fechaVencimiento; this.moneda = moneda; this.tipoOperacion = tipoOperacion;
         this.receptor = receptor; this.items = List.copyOf(items); this.formaPago = formaPago; this.descuentoGlobal = descuentoGlobal;
@@ -88,10 +91,16 @@ public class Comprobante {
         if ((tipo == TipoDocumento.LIQUIDACION_COMPRA) != (liquidacion != null))
             throw new IllegalStateException("Los datos de la liquidación de compra van si y solo si el comprobante es del tipo 04 (tipo " + tipo.codigo() + ")");
         this.liquidacion = liquidacion;
+        // #40: lo mismo con la retención y la percepción, y el tipo de los datos es el del comprobante (un 20 no lleva los datos de un 40).
+        if (tipo.deAgente() != (agente != null) || (agente != null && agente.tipo() != tipo))
+            throw new IllegalStateException("Los datos del agente van si y solo si el comprobante es una retención (20) o una percepción (40), y del mismo tipo (tipo " + tipo.codigo() + ")");
+        this.agente = agente;
         this.leyendas = leyendas == null ? List.of() : List.copyOf(leyendas);
         this.exportacion = exportacion;
         this.tasaIgv = TasaIgv.normalizar(tasaIgv);
-        Totales calculados = Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision), redondeo, this.tasaIgv);
+        // #40: la retención y la percepción no tienen líneas de venta: su importe total es lo retenido o percibido (cbc:TotalInvoiceAmount), en soles.
+        Totales calculados = agente != null ? Totales.deAgente(agente.importeTotal(), redondeo)
+                : Totales.calcular(this.items, descuentoGlobal, this.cargos, this.anticipos, Icbper.tasaVigente(fechaEmision), redondeo, this.tasaIgv);
         // #388: SUNAT no admite descuentos ni cargos en una nota; sale con las líneas netas. Los ítems y el descuento global guardados son los de siempre.
         // #327: la liquidación de compra paga al vendedor el neto de lo que el comprador le retiene (IGV y renta, regla 4312).
         this.totales = nota != null ? calculados.paraNota() : liquidacion != null ? calculados.paraLiquidacion(liquidacion.retencionRenta(calculados)) : calculados;
@@ -205,7 +214,7 @@ public class Comprobante {
             if (anticipos != null && anticipos.stream().map(Anticipo::comprobante).distinct().count() < anticipos.size())
                 throw new DomainException("ANTICIPO_INVALIDO", "3215 - La misma factura de anticipo aparece más de una vez");
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), fechaVencimiento,
-                    moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, null, tasaIgv, leyendas, exportacion, EstadoDocumento.RECIBIDO);
+                    moneda, operacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, null, null, null, tasaIgv, leyendas, exportacion, EstadoDocumento.RECIBIDO);
             c.tipoCambio = tipoCambio;
             formaPago.validarContra(c.totales.total(), fechaEmision);
             // Sin tipo de cambio no hay cómo comparar otra moneda con S/ 700: fuera de soles se identifica siempre al comprador. Con él (#316) se mide en soles.
@@ -326,7 +335,7 @@ public class Comprobante {
             // Sin espacios en los extremos: la regla 2593 rechaza el domicilio que empieza con espacio, y el nombre se imprime igual en el PDF.
             Receptor receptor = new Receptor(vendedor.tipoDoc(), vendedor.numDoc(), vendedor.razonSocial().strip(), vendedor.direccion().strip(), vendedor.pais());
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
-                    moneda, operacion, receptor, items, FormaPago.contado(), null, List.of(), null, null, null, List.of(), referencias, redondeo, null, datos, tasaIgv, List.of(), null, EstadoDocumento.RECIBIDO);
+                    moneda, operacion, receptor, items, FormaPago.contado(), null, List.of(), null, null, null, List.of(), referencias, redondeo, null, datos, null, tasaIgv, List.of(), null, EstadoDocumento.RECIBIDO);
             c.tipoCambio = tipoCambio;
             c.totales.items().forEach(ItemCalculado::exigirValorDeVentaPositivo);
             // 2033: el monto de la retención de cada línea es «diferente de cero»; una línea de menos de 0.34 la redondea a 0.00 y SUNAT la rechazaría con el número consumido.
@@ -374,6 +383,52 @@ public class Comprobante {
             for (DocumentoRelacionado d : referencias.otros())
                 if (!"99".equals(d.tipo()))
                     throw new DomainException("DOCUMENTO_RELACIONADO_INVALIDO", "4009 - En una liquidación de compra el documento relacionado es del tipo 99 (otros); recibido " + d.tipo());
+        }
+    }
+
+    /**
+     * Comprobante de retención (20) o de percepción (40), #40: lo emite la empresa designada por SUNAT como agente al proveedor al que paga (retención: tiene RUC) o al cliente al
+     * que cobra (percepción). {@code contraparte} es ese proveedor o cliente; {@code datos}, el régimen y los documentos pagados o cobrados, y su tipo decide cuál de los dos se
+     * emite. Único punto de entrada: obligatorios aquí, el redondeo en el {@link AgenteBuilder}, y {@link AgenteBuilder#crear} aplica las reglas de Retenciones1_0 / Percepciones1_0.
+     * Que la empresa sea agente lo decide el servicio con la designación que guarda ({@code Tenant#exigirAgenteDe}).
+     */
+    public static AgenteBuilder deAgente(UUID tenantId, String serie, LocalDate fechaEmision, Receptor contraparte, ComprobanteDeAgente datos) {
+        return new AgenteBuilder(tenantId, serie, fechaEmision, contraparte, datos);
+    }
+
+    public static final class AgenteBuilder {
+        private final UUID tenantId; private final String serie; private final LocalDate fechaEmision; private final Receptor contraparte; private final ComprobanteDeAgente datos;
+        private BigDecimal redondeo;
+
+        private AgenteBuilder(UUID tenantId, String serie, LocalDate fechaEmision, Receptor contraparte, ComprobanteDeAgente datos) {
+            this.tenantId = tenantId; this.serie = serie; this.fechaEmision = fechaEmision; this.contraparte = contraparte; this.datos = datos;
+        }
+        /** PayableRoundingAmount del importe total pagado o cobrado, |x| ≤ 1 (3303 en Retenciones1_0 y Percepciones1_0). */
+        public AgenteBuilder redondeo(BigDecimal r) { this.redondeo = r; return this; }
+
+        /** {@code rucAgente}: el RUC de la empresa que emite, que el proveedor o el cliente no pueden repetir (2620, 2604). */
+        public Comprobante crear(String rucAgente, Clock clock) {
+            if (datos == null) throw new IllegalArgumentException("Faltan los datos de la retención o la percepción");
+            TipoDocumento tipo = datos.tipo();
+            boolean ret = datos.esRetencion();
+            String nombre = ret ? "comprobante de retención" : "comprobante de percepción";
+            if (!tipo.serieValida(serie)) throw new DomainException("SERIE_INVALIDA", "1001 - Serie de " + nombre + " inválida (" + (ret ? "R" : "P") + "###): " + serie);
+            if (fechaEmision == null || fechaEmision.isAfter(LocalDate.now(clock))) throw new DomainException("FECHA_INVALIDA", "La fecha de emisión no puede ser futura");
+            exigirDentroDelPlazoDeEnvio(PlazoEnvio.de(tipo, null), fechaEmision, clock);
+            if (contraparte == null)
+                throw new DomainException("RECEPTOR_INVALIDO", ret ? "2723 - El comprobante de retención requiere el proveedor: su RUC y razón social" : "2679 - El comprobante de percepción requiere el cliente: su documento y nombre");
+            if (ret) contraparte.exigirValidoComoProveedor(rucAgente);
+            else contraparte.exigirValidoComoClienteDePercepcion(rucAgente);
+            datos.validar(fechaEmision);
+            ComprobanteDeAgente.validarRedondeo(redondeo, ret);
+            Receptor receptor = new Receptor(contraparte.tipoDoc(), contraparte.numDoc(), contraparte.razonSocial().strip(),
+                    contraparte.direccion() == null || contraparte.direccion().isBlank() ? null : contraparte.direccion().strip(), contraparte.pais());
+            Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
+                    Monedas.SOLES, null, receptor, List.of(), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, redondeo, null, null, datos, TasaIgv.GENERAL,
+                    List.of(), null, EstadoDocumento.RECIBIDO);
+            if (c.importeNetoDeAgente().signum() <= 0)
+                throw new DomainException("REDONDEO_INVALIDO", (ret ? "2730 - El importe total pagado" : "2687 - El importe total cobrado") + " (netos + redondeo) debe ser mayor que cero; queda en " + c.importeNetoDeAgente());
+            return c;
         }
     }
 
@@ -457,7 +512,7 @@ public class Comprobante {
             // en la NC 13 y se valida contra la factura modificada (3320/3321), no contra la nota.
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
                     moneda, tipoOperacion, receptor, nc13 ? List.of(nota.lineaSinImporte()) : items, formaPago == null ? FormaPago.contado() : formaPago,
-                    nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, nc13 ? null : redondeo, nota, null, tasaIgv, List.of(), exportacion, EstadoDocumento.RECIBIDO);
+                    nc13 ? null : descuentoGlobal, nc13 ? List.of() : cargos, null, null, null, List.of(), null, nc13 ? null : redondeo, nota, null, null, tasaIgv, List.of(), exportacion, EstadoDocumento.RECIBIDO);
             c.tipoCambio = tipoCambio;
             c.totales.items().forEach(ItemCalculado::exigirBasePvpValida);
             if (!nc13) c.totales.items().forEach(ItemCalculado::exigirValorDeVentaPositivo);
@@ -532,7 +587,16 @@ public class Comprobante {
      * (que se consulta con el ticket), el mismo criterio de {@link #esDeBoleta()}. Qué responde SUNAT si igual se le pregunta no está documentado ni se puede comprobar en e-beta (no publica billConsultService: responde 404 y solo existe
      * en producción): no se le pregunta.
      */
-    public boolean consultableEnGetStatusCdr() { return !esDeBoleta() && !esLiquidacionCompra(); }
+    public boolean consultableEnGetStatusCdr() { return !esDeBoleta() && !esLiquidacionCompra() && !esDeAgente(); }
+
+    /** Una retención (20) o una percepción (40), #40: tampoco la cubre {@code getStatusCdr} (manual, p. 22: 01, 07 y 08) y se revierte en un resumen de reversiones (RR). */
+    public boolean esDeAgente() { return agente != null; }
+
+    /**
+     * Importe total pagado al proveedor (sac:SUNATTotalPaid) o cobrado al cliente (sac:SUNATTotalCashed): la suma de los netos de cada documento más el redondeo (2629/2668), en soles.
+     * Cero si no es una retención ni una percepción.
+     */
+    public BigDecimal importeNetoDeAgente() { return agente == null ? BigDecimal.ZERO.setScale(2) : agente.netoTotal().add(totales.redondeo()); }
 
     /** Una liquidación de compra (#327): el emisor es el comprador y el {@link #receptor()} es el vendedor. Tampoco la cubre {@code getStatusCdr} (manual, p. 22: 01, 07 y 08). */
     public boolean esLiquidacionCompra() { return tipo == TipoDocumento.LIQUIDACION_COMPRA; }
@@ -599,7 +663,7 @@ public class Comprobante {
         private final EstadoDocumento estado; private final Receptor receptor; private final List<Item> items;
         private LocalTime horaEmision; private LocalDate fechaVencimiento; private String moneda = "PEN"; private String tipoOperacion = "0101";
         private FormaPago formaPago = FormaPago.contado(); private Descuento descuentoGlobal; private List<Cargo> cargos = List.of(); private Detraccion detraccion; private RetencionIgv retencion; private Percepcion percepcion;
-        private List<Anticipo> anticipos = List.of(); private Referencias referencias; private BigDecimal redondeo; private Nota nota; private LiquidacionCompra liquidacion; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<String> leyendas = List.of();
+        private List<Anticipo> anticipos = List.of(); private Referencias referencias; private BigDecimal redondeo; private Nota nota; private LiquidacionCompra liquidacion; private ComprobanteDeAgente agente; private BigDecimal tasaIgv = TasaIgv.GENERAL; private List<String> leyendas = List.of();
         private Exportacion exportacion; private BigDecimal tipoCambio;
         private String hash, nombreArchivo, xmlKey, cdrKey, ultimoError, observaciones, correoCliente; private Cdr cdr; private int intentos;
 
@@ -621,6 +685,7 @@ public class Comprobante {
         public Persistido redondeo(BigDecimal r) { this.redondeo = r; return this; }
         public Persistido nota(Nota n) { this.nota = n; return this; }
         public Persistido liquidacion(LiquidacionCompra l) { this.liquidacion = l; return this; }
+        public Persistido agente(ComprobanteDeAgente a) { this.agente = a; return this; }
         public Persistido tasaIgv(BigDecimal t) { this.tasaIgv = t; return this; }
         public Persistido leyendas(List<String> l) { this.leyendas = l == null ? List.of() : l; return this; }
         public Persistido exportacion(Exportacion e) { this.exportacion = e; return this; }
@@ -633,7 +698,7 @@ public class Comprobante {
         public Persistido correoCliente(String e) { this.correoCliente = e; return this; }
 
         public Comprobante rehidratar() {
-            Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, liquidacion, tasaIgv, leyendas, exportacion, estado);
+            Comprobante c = new Comprobante(id, tenantId, tipo, serie, numero, fechaEmision, horaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencion, percepcion, anticipos, referencias, redondeo, nota, liquidacion, agente, tasaIgv, leyendas, exportacion, estado);
             c.hash = hash; c.nombreArchivo = nombreArchivo; c.xmlKey = xmlKey; c.cdrKey = cdrKey; c.cdr = cdr;
             c.intentos = intentos; c.ultimoError = ultimoError; c.observaciones = observaciones; c.tipoCambio = tipoCambio; c.correoCliente = correoCliente;
             return c;
@@ -726,7 +791,8 @@ public class Comprobante {
      * comunicación de baja ({@link ComunicacionBaja}): el historial nombra el canal que de verdad se usó (#286).
      */
     public void anular() {
-        transitar(EstadoDocumento.ANULADO, esDeBoleta() ? "Anulación aceptada por SUNAT en el resumen diario" : "Comunicación de baja aceptada por SUNAT");
+        transitar(EstadoDocumento.ANULADO, esDeBoleta() ? "Anulación aceptada por SUNAT en el resumen diario"
+                : esDeAgente() ? "Reversión aceptada por SUNAT en el resumen de reversiones" : "Comunicación de baja aceptada por SUNAT");
     }
 
     /** Último día en que SUNAT acepta recibirlo ({@link PlazoEnvio}). */

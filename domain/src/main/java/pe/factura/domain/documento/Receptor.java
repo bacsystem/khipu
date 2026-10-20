@@ -110,6 +110,50 @@ public record Receptor(String tipoDoc, String numDoc, String razonSocial, String
             throw new DomainException("RECEPTOR_INVALIDO", "4041 - El domicilio del vendedor de una liquidación de compra está en el Perú (país PE); recibido " + pais);
     }
 
+    /**
+     * El proveedor de un comprobante de retención (#40, Retenciones1_0 filas 34–51): siempre con RUC (2511: tipo 6; 2724: 11 dígitos; khipu exige además el dígito verificador), distinto
+     * del agente (2620), con su razón social (2134; hasta 1500 caracteres sin saltos de línea, 2133). La dirección, si va, cabe en el StreetName (hasta 100 caracteres en una línea:
+     * 2918 la observaría) y el país, si se informa, es PE (2548). Que el RUC exista (2621) lo valida el padrón al emitir.
+     */
+    void exigirValidoComoProveedor(String rucAgente) {
+        if (!"6".equals(tipoDoc))
+            throw new DomainException("RECEPTOR_INVALIDO", "2511 - El proveedor de un comprobante de retención se identifica con su RUC (tipo_doc 6); recibido " + tipoDoc);
+        if (numDoc == null || !numDoc.matches("\\d{11}"))
+            throw new DomainException("RECEPTOR_INVALIDO", "2724 - El RUC del proveedor tiene 11 dígitos");
+        Ruc.exigirValido(numDoc, "RECEPTOR_INVALIDO", "2724 - Proveedor");
+        if (numDoc.equals(rucAgente))
+            throw new DomainException("RECEPTOR_INVALIDO", "2620 - El proveedor no puede ser la misma empresa que retiene (" + rucAgente + ")");
+        exigirContraparteDeAgente("proveedor", "2918");
+    }
+
+    /**
+     * El cliente de un comprobante de percepción (#40, Percepciones1_0 filas 35–54): documento del catálogo 06 (2511; el RUC con dígito verificador, el DNI de 8 dígitos y los demás hasta
+     * 15 caracteres sin espacios, 2680), distinto del agente (2604), con su nombre (2134/2133). Que el RUC exista (2605) lo valida el padrón al emitir.
+     */
+    void exigirValidoComoClienteDePercepcion(String rucAgente) {
+        if (tipoDoc == null || !DOCUMENTOS_BOLETA.contains(tipoDoc))
+            throw new DomainException("RECEPTOR_INVALIDO", "2511 - El tipo de documento del cliente es del catálogo 06 (1 DNI, 4 carné de extranjería, 6 RUC, 7 pasaporte…); recibido " + tipoDoc);
+        if ("6".equals(tipoDoc)) Ruc.exigirValido(numDoc, "RECEPTOR_INVALIDO", "2680 - Cliente");
+        else if ("1".equals(tipoDoc) && (numDoc == null || !numDoc.matches("\\d{8}")))
+            throw new DomainException("RECEPTOR_INVALIDO", "2680 - El DNI del cliente tiene 8 dígitos");
+        else if (numDoc == null || !numDoc.matches("[A-Za-z0-9]{1,15}"))
+            throw new DomainException("RECEPTOR_INVALIDO", "2680 - El número de documento del cliente es alfanumérico de hasta 15 caracteres");
+        if (numDoc.equals(rucAgente))
+            throw new DomainException("RECEPTOR_INVALIDO", "2604 - El cliente no puede ser la misma empresa que percibe (" + rucAgente + ")");
+        exigirContraparteDeAgente("cliente", "2919");
+    }
+
+    private void exigirContraparteDeAgente(String quien, String reglaDireccion) {
+        if (razonSocial == null || razonSocial.isBlank())
+            throw new DomainException("RECEPTOR_INVALIDO", "2134 - Falta la razón social o el nombre del " + quien);
+        if (razonSocial.strip().length() > 1500 || razonSocial.chars().anyMatch(Character::isISOControl))
+            throw new DomainException("RECEPTOR_INVALIDO", "2133 - La razón social del " + quien + " tiene hasta 1500 caracteres, sin saltos de línea ni tabuladores");
+        if (direccion != null && (direccion.strip().length() > 100 || direccion.chars().anyMatch(Character::isISOControl)))
+            throw new DomainException("RECEPTOR_INVALIDO", reglaDireccion + " - La dirección del " + quien + " tiene hasta 100 caracteres, en una sola línea");
+        if (pais != null && !"PE".equals(pais))
+            throw new DomainException("RECEPTOR_INVALIDO", "2548 - El domicilio del " + quien + " está en el Perú (país PE); recibido " + pais);
+    }
+
     /** Ventas a no domiciliados que no califican como exportación (catálogo 51). */
     static final String NO_DOMICILIADO = "0401";
 

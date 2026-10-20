@@ -21,8 +21,10 @@ record CorreoDeComprobante(String asunto, String cuerpo, List<Adjunto> adjuntos)
         String asunto = nombre(c) + " " + numero + " - " + t.razonSocial();
         StringBuilder cuerpo = new StringBuilder();
         if (mensaje != null && !mensaje.isBlank()) cuerpo.append(mensaje.strip()).append("\n\n");
-        cuerpo.append("Adjuntamos la ").append(nombre(c).toLowerCase()).append(" electrónica ").append(numero)
-                .append(" emitida el ").append(c.fechaEmision()).append(" por ").append(t.razonSocial()).append(" (RUC ").append(t.ruc()).append(")")
+        // «el comprobante de retención … emitido», «la factura … emitida»: la concordancia sigue al nombre (#40).
+        boolean masculino = c.tipo() == pe.factura.domain.documento.TipoDocumento.RETENCION || c.tipo() == pe.factura.domain.documento.TipoDocumento.PERCEPCION;
+        cuerpo.append(masculino ? "Adjuntamos el " : "Adjuntamos la ").append(nombre(c).toLowerCase()).append(masculino ? " electrónico " : " electrónica ").append(numero)
+                .append(masculino ? " emitido el " : " emitida el ").append(c.fechaEmision()).append(" por ").append(t.razonSocial()).append(" (RUC ").append(t.ruc()).append(")")
                 .append(" por ").append(c.moneda()).append(" ").append(c.totales().total().toPlainString()).append(".\n")
                 .append("Incluye la representación impresa (PDF), el XML firmado y la constancia de recepción de SUNAT (CDR).\n");
 
@@ -44,6 +46,8 @@ record CorreoDeComprobante(String asunto, String cuerpo, List<Adjunto> adjuntos)
             case LIQUIDACION_COMPRA -> "Liquidación de compra";
             case NOTA_CREDITO -> "Nota de crédito";
             case NOTA_DEBITO -> "Nota de débito";
+            case RETENCION -> "Comprobante de retención";
+            case PERCEPCION -> "Comprobante de percepción";
         };
     }
 }

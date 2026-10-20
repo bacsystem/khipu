@@ -19,6 +19,11 @@ import java.util.List;
  * La liquidación de compra (#327) va sola hasta el día calendario siguiente a su emisión: un día (RS 000003-2023; LiquidacionCompra2_0 fila 4, 2108 con el «límite del
  * listado (1 día)» para la serie que no empieza con número). No tiene resumen diario, así que vencida queda sin canal, como la factura.
  * <p>
+ * El comprobante de retención y el de percepción (#40) van solos (sendBill al servicio de otros CPE) dentro del «plazo máximo vigente» (Retenciones1_0 y Percepciones1_0 fila 5,
+ * regla 2600, que desde 2024-11-01 se cuenta «según normativa vigente para cada tipo de comprobante»). La hoja no publica el número: khipu usa los 9 días calendario de la RS
+ * 274-2015 para el CRE y el CPE, sin haberlos podido contrastar con la norma vigente; e-beta no aplica la 2600 (2026-10-20 aceptó retenciones emitidas hace 2 a 40 días). Un
+ * rechazo de SUNAT por plazo no consume el número de una retención o percepción (manual del programador, «Errores que generan rechazos»), así que pecar de largo es lo seguro.
+ * <p>
  * Pasado el 7.º día lo que va en el resumen diario no se queda sin canal (#331): SUNAT no rechaza el alta tardía (la norma prevé que la observe con la 4443; e-beta no lo hizo). El plazo sigue siendo
  * el 7.º día ({@link #dias}): pasarlo es informar fuera de plazo, no imposible. La anulación en el resumen sí tiene tope (2957, {@link ComunicacionBaja}).
  *
@@ -26,8 +31,9 @@ import java.util.List;
  * @param diasEnvioIndividual hasta qué día va sola (sendBill)
  * @param dias el plazo final, contando el resumen diario si lo admite
  * @param deBoleta si SUNAT lo trata como boleta (1079) o como factura (2108)
+ * @param reglaFueraDePlazo el código con que SUNAT rechaza lo que no es de boleta pasado el plazo: 2108 la factura, sus notas y la liquidación de compra; 2600 la retención y la percepción
  */
-public record PlazoEnvio(String documento, int diasEnvioIndividual, int dias, boolean deBoleta) {
+public record PlazoEnvio(String documento, int diasEnvioIndividual, int dias, boolean deBoleta, String reglaFueraDePlazo) {
 
     /** El envío individual (sendBill) de facturas y notas. */
     public static final int DIAS_ENVIO_INDIVIDUAL = 3;
@@ -35,6 +41,8 @@ public record PlazoEnvio(String documento, int diasEnvioIndividual, int dias, bo
     public static final int DIAS_ENVIO_INDIVIDUAL_BOLETA = 5;
     /** El envío individual (sendBill) de una liquidación de compra: hasta el día siguiente a la emisión (#327). */
     public static final int DIAS_ENVIO_LIQUIDACION_COMPRA = 1;
+    /** El envío (sendBill) de un comprobante de retención o de percepción (#40): 9 días calendario (RS 274-2015; ver la nota de la clase). */
+    public static final int DIAS_ENVIO_AGENTE = 9;
     /** Hasta cuándo una boleta, o una nota que la modifica, se puede informar en un resumen diario. */
     public static final int DIAS_RESUMEN_DIARIO = 7;
     /**
@@ -44,18 +52,23 @@ public record PlazoEnvio(String documento, int diasEnvioIndividual, int dias, bo
      */
     public static final int DIAS_AVISO_BOLETAS = 30;
 
-    private static final PlazoEnvio FACTURA = new PlazoEnvio("factura", DIAS_ENVIO_INDIVIDUAL, DIAS_ENVIO_INDIVIDUAL, false);
-    private static final PlazoEnvio NOTA_DE_FACTURA = new PlazoEnvio("nota", DIAS_ENVIO_INDIVIDUAL, DIAS_ENVIO_INDIVIDUAL, false);
-    private static final PlazoEnvio BOLETA = new PlazoEnvio("boleta", DIAS_ENVIO_INDIVIDUAL_BOLETA, DIAS_RESUMEN_DIARIO, true);
-    private static final PlazoEnvio NOTA_DE_BOLETA = new PlazoEnvio("nota", DIAS_ENVIO_INDIVIDUAL_BOLETA, DIAS_RESUMEN_DIARIO, true);
-    private static final PlazoEnvio NOTA_DE_BOLETA_FUERA_DEL_RESUMEN = new PlazoEnvio("nota", DIAS_ENVIO_INDIVIDUAL_BOLETA, DIAS_ENVIO_INDIVIDUAL_BOLETA, true);
-    private static final PlazoEnvio LIQUIDACION_COMPRA = new PlazoEnvio("liquidación de compra", DIAS_ENVIO_LIQUIDACION_COMPRA, DIAS_ENVIO_LIQUIDACION_COMPRA, false);
-    private static final List<PlazoEnvio> TODOS = List.of(FACTURA, NOTA_DE_FACTURA, BOLETA, NOTA_DE_BOLETA, NOTA_DE_BOLETA_FUERA_DEL_RESUMEN, LIQUIDACION_COMPRA);
+    private static final String FUERA_DE_FECHA = "2108";
+    private static final PlazoEnvio FACTURA = new PlazoEnvio("factura", DIAS_ENVIO_INDIVIDUAL, DIAS_ENVIO_INDIVIDUAL, false, FUERA_DE_FECHA);
+    private static final PlazoEnvio NOTA_DE_FACTURA = new PlazoEnvio("nota", DIAS_ENVIO_INDIVIDUAL, DIAS_ENVIO_INDIVIDUAL, false, FUERA_DE_FECHA);
+    private static final PlazoEnvio BOLETA = new PlazoEnvio("boleta", DIAS_ENVIO_INDIVIDUAL_BOLETA, DIAS_RESUMEN_DIARIO, true, "1079");
+    private static final PlazoEnvio NOTA_DE_BOLETA = new PlazoEnvio("nota", DIAS_ENVIO_INDIVIDUAL_BOLETA, DIAS_RESUMEN_DIARIO, true, "1079");
+    private static final PlazoEnvio NOTA_DE_BOLETA_FUERA_DEL_RESUMEN = new PlazoEnvio("nota", DIAS_ENVIO_INDIVIDUAL_BOLETA, DIAS_ENVIO_INDIVIDUAL_BOLETA, true, "1079");
+    private static final PlazoEnvio LIQUIDACION_COMPRA = new PlazoEnvio("liquidación de compra", DIAS_ENVIO_LIQUIDACION_COMPRA, DIAS_ENVIO_LIQUIDACION_COMPRA, false, FUERA_DE_FECHA);
+    private static final PlazoEnvio RETENCION = new PlazoEnvio("comprobante de retención", DIAS_ENVIO_AGENTE, DIAS_ENVIO_AGENTE, false, "2600");
+    private static final PlazoEnvio PERCEPCION = new PlazoEnvio("comprobante de percepción", DIAS_ENVIO_AGENTE, DIAS_ENVIO_AGENTE, false, "2600");
+    private static final List<PlazoEnvio> TODOS = List.of(FACTURA, NOTA_DE_FACTURA, BOLETA, NOTA_DE_BOLETA, NOTA_DE_BOLETA_FUERA_DEL_RESUMEN, LIQUIDACION_COMPRA, RETENCION, PERCEPCION);
 
     /** El plazo de un comprobante de este tipo; {@code nota} es la del comprobante, nula si no es una nota. */
     public static PlazoEnvio de(TipoDocumento tipo, Nota nota) {
         if (tipo == TipoDocumento.BOLETA) return BOLETA;
         if (tipo == TipoDocumento.LIQUIDACION_COMPRA) return LIQUIDACION_COMPRA;
+        if (tipo == TipoDocumento.RETENCION) return RETENCION;
+        if (tipo == TipoDocumento.PERCEPCION) return PERCEPCION;
         if (nota == null) return FACTURA;
         if (!nota.deBoleta()) return NOTA_DE_FACTURA;
         return nota.vaEnResumenDiario(tipo) ? NOTA_DE_BOLETA : NOTA_DE_BOLETA_FUERA_DEL_RESUMEN;
@@ -127,7 +140,8 @@ public record PlazoEnvio(String documento, int diasEnvioIndividual, int dias, bo
      */
     public String motivoDeRechazo(LocalDate fechaEmision) {
         LocalDate limite = fechaLimite(fechaEmision);
-        if (!deBoleta) return "2108 - Presentación fuera de fecha: el plazo de envío venció el " + limite + " (" + dias + (dias == 1 ? " día calendario)" : " días calendario)");
+        if (!deBoleta) return reglaFueraDePlazo + (FUERA_DE_FECHA.equals(reglaFueraDePlazo) ? " - Presentación fuera de fecha" : " - El comprobante fue enviado fuera del plazo permitido")
+                + ": el plazo de envío venció el " + limite + " (" + dias + (dias == 1 ? " día calendario)" : " días calendario)");
         if (dias == diasEnvioIndividual)
             return "1079 - El envío individual de esta " + documento + " venció el " + limite + " (" + dias + " días calendario) y una nota de crédito 10 o de débito 03"
                     + " no se informa en el resumen diario: ya no se puede presentar";

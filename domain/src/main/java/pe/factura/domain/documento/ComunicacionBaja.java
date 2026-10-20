@@ -23,6 +23,9 @@ import java.util.UUID;
  * mismo (sendSummary, ticket, getStatus, CDR, ANULADO), igual que el plazo (2957, 7 días) y que SUNAT la tenga (2663: «el documento indicado no existe»), así que es esta misma
  * baja con otro identificador. El correlativo del día se comparte entre RA y RC: SUNAT solo exige que cada identificador no se repita (2223).
  * <p>
+ * La retención (20) y la percepción (40), #40, tampoco van en un RA: se revierten en un resumen de reversiones ({@code RR-yyyymmdd-N}, hoja Resumen de reversiones1_0), que es el
+ * mismo VoidedDocuments con otro identificador, enviado con sendSummary al servicio de otros CPE. Su hoja no tiene plazo para el 20 ni el 40 (la 2958 de 5 días es solo del 04).
+ * <p>
  * El mismo resumen sirve también para informar una boleta que pasó el envío individual sin llegar a SUNAT (1079, 274-H1): su línea va en estado 1 (alta,
  * {@link #altaEnResumen}) y, al aceptarse, la boleta queda ACEPTADA en vez de ANULADA.
  */
@@ -135,9 +138,10 @@ public class ComunicacionBaja {
             throw new DomainException("BAJA_INVALIDA", "2308 - Una liquidación de compra no se da de baja con una comunicación de baja: SUNAT la anula en un resumen de reversiones"
                     + " (hasta 5 días después de su constancia de recepción, regla 2958), que khipu todavía no emite");
         if (!c.estado().esFinalAceptado())
-            throw new DomainException("BAJA_INVALIDA", (c.esDeBoleta() ? "2663" : "2105/2398") + " - Solo se puede dar de baja un comprobante aceptado por SUNAT; "
-                    + c.serie() + "-" + c.numero() + " está " + c.estado());
-        if (ChronoUnit.DAYS.between(c.fechaEmision(), hoy) > PLAZO_DIAS)
+            throw new DomainException("BAJA_INVALIDA", (c.esDeBoleta() ? "2663" : c.esDeAgente() ? "2750" : "2105/2398") + " - Solo se puede " + (c.esDeAgente() ? "revertir" : "dar de baja")
+                    + " un comprobante aceptado por SUNAT; " + c.serie() + "-" + c.numero() + " está " + c.estado());
+        // #40: el resumen de reversiones no tiene plazo para la retención ni la percepción.
+        if (!c.esDeAgente() && ChronoUnit.DAYS.between(c.fechaEmision(), hoy) > PLAZO_DIAS)
             throw new DomainException("BAJA_INVALIDA", "2957 - El plazo para dar de baja " + c.serie() + "-" + c.numero() + " venció: se emitió el " + c.fechaEmision()
                     + " y la comunicación debe presentarse dentro de los " + PLAZO_DIAS + " días calendario siguientes a su emisión");
         String m = motivo == null ? "" : motivo.strip();
@@ -187,6 +191,9 @@ public class ComunicacionBaja {
     /** Una boleta, o una nota que la modifica, se anula en el resumen diario (SummaryDocuments), no en una comunicación de baja (VoidedDocuments: 2308/2310). */
     public boolean resumenDiario() { return deBoleta; }
 
+    /** Una retención o una percepción (#40) se revierte en un resumen de reversiones (RR): VoidedDocuments como el RA, con otro identificador y otro servicio de SUNAT. */
+    public boolean reversion() { return tipoComprobante.deAgente(); }
+
     /**
      * Un alta informada pasado el 7.º día desde la emisión (#331): SUNAT no la rechaza; puede observarla con la 4443 (e-beta no lo hizo). Sale de las fechas que ya
      * guarda (la del RC y el cbc:ReferenceDate), así que vale también para las altas ya persistidas.
@@ -199,8 +206,8 @@ public class ComunicacionBaja {
     /** Si informa una boleta (alta) en vez de anularla. */
     public boolean alta() { return condicion == Condicion.ALTA; }
 
-    /** {@code RA-20260918-1} (o {@code RC-…} para una boleta o una nota que la modifica): cbc:ID y parte del nombre de archivo (reglas 2220, 2346). */
-    public String identificador() { return (resumenDiario() ? "RC-" : "RA-") + fechaGeneracion.format(FECHA_ID) + "-" + correlativo; }
+    /** {@code RA-20260918-1} (o {@code RC-…} para una boleta o una nota que la modifica, {@code RR-…} para una retención o una percepción): cbc:ID y parte del nombre de archivo (2220, 2346). */
+    public String identificador() { return (resumenDiario() ? "RC-" : reversion() ? "RR-" : "RA-") + fechaGeneracion.format(FECHA_ID) + "-" + correlativo; }
     private static final java.util.regex.Pattern CDR_DE_RESUMEN = java.util.regex.Pattern.compile("(?:^|/)R-\\d{11}-(RC-\\d{8}-\\d+)\\.zip$");
 
     /**
