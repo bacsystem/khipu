@@ -103,6 +103,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/empresa/envio-al-cliente": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ver la preferencia de envío al cliente
+         * @description Si la empresa envía automáticamente el comprobante aceptado a su cliente, y si el servidor tiene correo configurado para hacerlo.
+         */
+        get: operations["ver_2"];
+        /**
+         * Activar o desactivar el envío al cliente
+         * @description Vale para los comprobantes que SUNAT acepte desde ahora; lo ya aceptado no se envía. Activarlo sin correo configurado en el servidor responde
+         *     `503 CORREO_NO_CONFIGURADO` (los clientes no recibirían nada); desactivarlo siempre se puede, y corta también lo que esperaba salir: esos envíos
+         *     quedan `OMITIDO` («la empresa desactivó el envío automático»). Tampoco sale un comprobante con una baja en curso.
+         */
+        put: operations["fijar"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/empresa/datos-fiscales": {
         parameters: {
             query?: never;
@@ -1438,7 +1464,7 @@ export interface paths {
          * @description Cuál es el plan de la cuenta hoy, en qué estado de pago está (`VIGENTE`, `EN_GRACIA` si venció pero sigue en sus días de gracia, `VENCIDA`), hasta cuándo
          *     se la sirve (gracia incluida) y, si hay, la bajada de plan que espera el inicio del ciclo siguiente. `404 NO_ENCONTRADO` si la cuenta no existe.
          */
-        get: operations["ver_3"];
+        get: operations["ver_4"];
         put?: never;
         /**
          * Cambiar el plan de una cuenta
@@ -1854,7 +1880,8 @@ export interface paths {
          * @description Estado actual, respuesta de SUNAT (`cdr`), totales, forma de pago y enlaces de descarga. Úselo para hacer seguimiento
          *     de un comprobante que quedó en `ERROR_ENVIO` o `ENVIADO`. Sirve también para las notas de crédito/débito emitidas con
          *     `POST /v1/notas` (traen el bloque `nota`) y las liquidaciones de compra de `POST /v1/liquidaciones-compra` (traen el bloque `liquidacion`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el
-         *     historial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente.
+         *     historial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente. Si la empresa
+         *     tiene activado el envío automático al cliente, `envio_al_cliente` dice si el correo con el PDF, el XML y el CDR salió, sigue pendiente o falló.
          */
         get: operations["obtener_1"];
         put?: never;
@@ -2055,7 +2082,7 @@ export interface paths {
          *     hay, y los documentos consumidos este mes (America/Lima) contra el tope del plan. Solo lectura: el plan lo cambia el equipo de khipu. Solo con sesión de
          *     cuenta (portal), no con API key: `401 NO_AUTORIZADO`.
          */
-        get: operations["ver_2"];
+        get: operations["ver_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2884,6 +2911,52 @@ export interface components {
              * @example false
              */
             principal?: boolean;
+        };
+        PreferenciaDeEnvioAlClienteRequest: {
+            /**
+             * @description `true` envía el comprobante a su cliente cuando SUNAT lo acepta (si se emitió con `cliente.email`); `false` deja de hacerlo
+             * @example true
+             */
+            enviar_automaticamente: boolean;
+        };
+        ApiResponsePreferenciaDeEnvioAlCliente: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["PreferenciaDeEnvioAlCliente"];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
+        };
+        PreferenciaDeEnvioAlCliente: {
+            /**
+             * @description Si la empresa envía automáticamente el comprobante aceptado a su cliente
+             * @example true
+             */
+            enviar_automaticamente?: boolean;
+            /**
+             * @description Si el servidor de khipu tiene correo configurado. Sin él no se puede activar el envío (`503 CORREO_NO_CONFIGURADO`) y lo que quedó pendiente se omite
+             * @example true
+             */
+            correo_disponible?: boolean;
         };
         DatosFiscalesRequest: {
             domicilio?: components["schemas"]["DomicilioDto"];
@@ -4225,6 +4298,7 @@ export interface components {
             leyendas?: components["schemas"]["LeyendaDto"][];
             exportacion?: components["schemas"]["ExportacionRespuesta"];
             liquidacion?: components["schemas"]["LiquidacionCompraRespuesta"];
+            envio_al_cliente?: components["schemas"]["EnvioAlClienteDto"];
             /**
              * @description cdr solo está presente cuando SUNAT emitió la constancia
              * @example {
@@ -4301,6 +4375,39 @@ export interface components {
             tipo?: string;
             /** @example T001-123 */
             numero?: string;
+        };
+        /** @description Solo al consultar: el envío automático del comprobante a su cliente (`PUT /v1/empresa/envio-al-cliente`), o `null` si no se anotó (la empresa no lo tenía activado, el comprobante no traía correo o SUNAT aún no lo aceptó) */
+        EnvioAlClienteDto: {
+            /** @example compras@andina.pe */
+            destinatario?: string;
+            /**
+             * @description `PENDIENTE` (en cola o esperando un reintento), `ENVIADO` (el servidor de correo lo recibió), `FALLIDO` (agotó los reintentos o los adjuntos superan el tope; `ultimo_error` dice por qué) u `OMITIDO` (no correspondía mandarlo al llegar su turno: el servidor no tiene correo configurado o el comprobante ya no estaba aceptado)
+             * @example ENVIADO
+             */
+            estado?: string;
+            /**
+             * Format: int32
+             * @description Intentos de envío realizados (hasta 5)
+             * @example 1
+             */
+            intentos?: number;
+            /**
+             * @description Motivo del último fallo o de la omisión, o `null`
+             * @example null
+             */
+            ultimo_error?: string;
+            /**
+             * Format: date-time
+             * @description Solo si sigue `PENDIENTE`: cuándo se intenta (UTC)
+             * @example 2026-09-13T15:01:00Z
+             */
+            siguiente_intento?: string;
+            /**
+             * Format: date-time
+             * @description Cuándo salió (UTC), o `null`
+             * @example 2026-09-13T15:00:12Z
+             */
+            enviado_en?: string;
         };
         /** @description Solo al consultar: historial de cambios de estado e intentos de envío, del más antiguo al más reciente (vacío si no hay); `null` en listados y en la emisión */
         EventoDto: {
@@ -4607,6 +4714,11 @@ export interface components {
              * @example PE
              */
             pais?: string;
+            /**
+             * @description Correo del adquirente indicado al emitir (una nota hereda el de su comprobante), o `null`. No va al XML
+             * @example compras@andina.pe
+             */
+            email?: string;
         };
         /** @description Orden de compra, guías de remisión y otros documentos relacionados; `null` si no hay ninguno */
         ReferenciasDto: {
@@ -4994,6 +5106,11 @@ export interface components {
              * @example PE
              */
             pais?: string;
+            /**
+             * @description Correo del adquirente (opcional, hasta 150 caracteres; se guarda en minúsculas). No va al XML ni a SUNAT. Si la empresa activó el envío automático (`PUT /v1/empresa/envio-al-cliente`), cuando SUNAT acepta el comprobante khipu le envía a este correo el PDF, el XML y el CDR; la nota de crédito o débito hereda el correo del comprobante que modifica. Mal formado: `422 RECEPTOR_INVALIDO` antes de consumir número
+             * @example compras@andina.pe
+             */
+            email?: string;
         };
         /** @description Detracción (SPOT). Obligatoria cuando `tipo_operacion` es 1001–1004 y prohibida en los demás casos. Con `1002` cada ítem lleva además `hidrobiologico`; con `1004`, `transporte`. */
         DetraccionDto: {
@@ -9300,6 +9417,50 @@ export interface operations {
             };
         };
     };
+    ver_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePreferenciaDeEnvioAlCliente"];
+                };
+            };
+        };
+    };
+    fijar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferenciaDeEnvioAlClienteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePreferenciaDeEnvioAlCliente"];
+                };
+            };
+        };
+    };
     datosFiscales: {
         parameters: {
             query?: never;
@@ -11086,7 +11247,7 @@ export interface operations {
             };
         };
     };
-    ver_3: {
+    ver_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -11857,7 +12018,7 @@ export interface operations {
             };
         };
     };
-    ver_2: {
+    ver_3: {
         parameters: {
             query?: never;
             header?: never;
