@@ -60,7 +60,7 @@ public final class AgenteRequest {
     public record Retencion(
             @NotBlank @Pattern(regexp = "R[A-Z0-9]{3}", message = "serie de retención inválida (R + 3 alfanuméricos, p. ej. R001)") @Schema(example = "R001", description = "Serie registrada con el tipo `20`: `R` + 3 alfanuméricos (regla 1001)") String serie,
             @Positive @Schema(example = "15", description = "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`") Long correlativo,
-            @NotNull @Schema(example = "2026-10-20", description = "Fecha de emisión (`YYYY-MM-DD`), no futura; SUNAT la recibe hasta 9 días calendario después (2600)") LocalDate fechaEmision,
+            @NotNull @Schema(example = "2026-10-20", description = "Fecha de emisión (`YYYY-MM-DD`), no futura; SUNAT la recibe hasta 7 días calendario desde el día siguiente (2600)") LocalDate fechaEmision,
             @NotNull @Valid @Schema(description = "El proveedor al que se retiene: siempre con RUC") ProveedorDto proveedor,
             @NotBlank @Pattern(regexp = "\\d{2}") @Schema(example = "01", description = "Régimen de retención, catálogo 23: `01` tasa 3 % (el vigente) o `02` tasa 6 % (solo para comprobantes emitidos hasta el 28/02/2014, 2985)") String regimen,
             @DecimalMin("0.01") @Digits(integer = 1, fraction = 2) @Schema(example = "3", description = "Tasa en porcentaje; si se omite, la del régimen. Otra que no sea la del régimen responde `422` (2619)") BigDecimal tasa,
@@ -85,7 +85,7 @@ public final class AgenteRequest {
     public record Percepcion(
             @NotBlank @Pattern(regexp = "P[A-Z0-9]{3}", message = "serie de percepción inválida (P + 3 alfanuméricos, p. ej. P001)") @Schema(example = "P001", description = "Serie registrada con el tipo `40`: `P` + 3 alfanuméricos (regla 1001)") String serie,
             @Positive @Schema(example = "15", description = "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`") Long correlativo,
-            @NotNull @Schema(example = "2026-10-20", description = "Fecha de emisión (`YYYY-MM-DD`), no futura; SUNAT la recibe hasta 9 días calendario después (2600)") LocalDate fechaEmision,
+            @NotNull @Schema(example = "2026-10-20", description = "Fecha de emisión (`YYYY-MM-DD`), no futura; SUNAT la recibe hasta 7 días calendario desde el día siguiente (2600)") LocalDate fechaEmision,
             @NotNull @Valid @Schema(description = "El cliente al que se percibe") ClienteDto cliente,
             @NotBlank @Pattern(regexp = "\\d{2}") @Schema(example = "01", description = "Régimen de percepción, catálogo 22: `01` venta interna 2 %, `02` adquisición de combustible 1 %, `03` agente de percepción con tasa especial 0.5 %") String regimen,
             @DecimalMin("0.01") @Digits(integer = 1, fraction = 2) @Schema(example = "2", description = "Tasa en porcentaje; si se omite, la del régimen. Otra que no sea la del régimen responde `422` (2603)") BigDecimal tasa,

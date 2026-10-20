@@ -36,7 +36,7 @@ export function BajaButton({
   notasVigentes?: number;
   /** #20: una boleta no va en una comunicación de baja sino en el resumen diario (RC); el efecto y el plazo son los mismos. */
   boleta?: boolean;
-  /** #40: una retención o una percepción se revierte en un resumen de reversiones (RR), sin plazo. */
+  /** #40: una retención o una percepción se revierte en un resumen de reversiones (RR): SUNAT no valida su plazo contra la emisión. */
   reversion?: boolean;
 }) {
   const soloLectura = useSoloLectura();
@@ -112,7 +112,7 @@ export function BajaButton({
               </DialogTitle>
               <DialogDescription className="text-[13px]">
                 {reversion ? (
-                  "Resumen de reversiones ante SUNAT: la retención o la percepción no tiene plazo para revertirse."
+                  "Resumen de reversiones ante SUNAT. SUNAT no lo valida contra la emisión; la norma exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión."
                 ) : (
                   <>
                     {boleta ? "Resumen diario ante SUNAT con el comprobante anulado" : "Comunicación de baja ante SUNAT"} (regla 2957: hasta {PLAZO_BAJA_DIAS} días desde la emisión).{" "}

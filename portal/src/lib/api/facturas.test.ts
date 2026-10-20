@@ -142,7 +142,7 @@ describe("admiteBaja", () => {
     expect(admiteBaja({ ...aceptada, tipo: "03", fecha_emision: "2026-09-10" }, hoy)).toBe(false);
   });
 
-  it("#40: una retención o una percepción aceptada se revierte sin plazo (resumen de reversiones), salvo con una reversión en curso", () => {
+  it("#40: una retención o una percepción aceptada se revierte en un resumen de reversiones, que SUNAT no limita por la emisión, salvo con una reversión en curso", () => {
     expect(admiteBaja({ ...aceptada, tipo: "20", fecha_emision: "2026-06-01" }, hoy)).toBe(true);
     expect(admiteBaja({ ...aceptada, tipo: "40", fecha_emision: "2026-06-01" }, hoy)).toBe(true);
     expect(admiteBaja({ ...aceptada, tipo: "20", estado_documento: "RECHAZADO" }, hoy)).toBe(false);

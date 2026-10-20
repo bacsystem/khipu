@@ -210,7 +210,7 @@ export const PLAZO_BAJA_DIAS = 7;
 export function admiteBaja(c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_emision" | "baja">, hoy: string = hoyLima()): boolean {
   if (c.estado_documento !== "ACEPTADO" && c.estado_documento !== "ACEPTADO_CON_OBS") return false;
   if (bajaEnCurso(c)) return false;
-  // #40: una retención o una percepción se revierte en un resumen de reversiones (RR), que no tiene plazo.
+  // #40: una retención o una percepción se revierte en un resumen de reversiones (RR); SUNAT no lo valida contra la emisión; la norma exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión (khipu no conoce esa fecha).
   if (esDeAgente(c)) return true;
   return diasEntre(c.fecha_emision, hoy) <= PLAZO_BAJA_DIAS;
 }

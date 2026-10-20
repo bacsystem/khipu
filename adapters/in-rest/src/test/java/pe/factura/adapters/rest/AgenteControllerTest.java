@@ -93,7 +93,7 @@ class AgenteControllerTest {
                 .andExpect(jsonPath("$.datos.agente.documentos[1].importe_agente").value(56.34))
                 .andExpect(jsonPath("$.datos.totales.total").value(91.74))
                 .andExpect(jsonPath("$.datos.liquidacion").doesNotExist())
-                .andExpect(jsonPath("$.datos.fecha_limite_envio").value("2026-09-22"))
+                .andExpect(jsonPath("$.datos.fecha_limite_envio").value("2026-09-20"))
                 .andExpect(jsonPath("$.datos.enlaces.pdf").value(org.hamcrest.Matchers.startsWith("/v1/facturas/")));
         ArgumentCaptor<EmitirAgenteCommand> cap = ArgumentCaptor.forClass(EmitirAgenteCommand.class);
         verify(emitir).emitirDeAgente(eq(tenant), cap.capture());

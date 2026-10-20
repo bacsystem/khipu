@@ -219,7 +219,7 @@ public class AppConfig {
                         Una factura debe llegar a SUNAT dentro de los **3 días calendario** siguientes a su emisión (2108). Una boleta va sola
                         hasta el **5.º día**; el 6.º y el 7.º khipu la informa en un resumen diario, y pasado el 7.º también, fuera de plazo
                         (SUNAT no la rechaza; puede observarla con la 4443). Una liquidación de compra, hasta el **día siguiente** (2108); un comprobante
-                        de retención o de percepción, hasta **9 días** después (2600).
+                        de retención o de percepción, hasta **7 días** desde el día siguiente (2600).
                         Emita el mismo día y vigile los `ERROR_ENVIO`.
 
                         ## Códigos y catálogos

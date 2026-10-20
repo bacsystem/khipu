@@ -863,7 +863,7 @@ X-Api-Key: fk_TU_API_KEY
   "datos": {
     "tipo": "20",
     "serie": "R001",
-    "fecha_limite_envio": "2026-09-26",
+    "fecha_limite_envio": "2026-09-24",
     "receptor": { "tipo_doc": "6", "num_doc": "20131312955", "razon_social": "PROVEEDOR DEL NORTE S.A.C." },
     "totales": { "total": 35.40 },
     "agente": {
@@ -879,7 +879,7 @@ X-Api-Key: fk_TU_API_KEY
       "**Quién puede**: solo una empresa designada agente de retención por SUNAT. khipu no consulta los padrones: el soporte registra la designación después de verificar la resolución; sin ella la serie `R###` (tipo `20` en `POST /v1/series`) y la emisión responden `422 AGENTE_NO_DESIGNADO` (2617). El `proveedor` siempre tiene RUC, distinto del de la empresa (2620).",
       "**Importes**: por documento, retenido = pago × tasa (y × tipo de cambio fuera de soles) y neto pagado = pago − retenido, **siempre en soles**. `totales.total` es el importe total retenido; `agente.importe_neto`, lo que se paga al proveedor. En el ejemplo, 3 % de 1 180.00: 35.40 retenido y 1 144.60 pagado. Un documento en dólares lleva `\"tipo_cambio\": { \"factor\": 3.756 }` (y su `fecha`, por defecto la del pago).",
       "`regimen` del catálogo 23: `01` tasa 3 % (la vigente) o `02` tasa 6 %, que solo vale para comprobantes emitidos hasta el 28/02/2014 (2985). Cada documento es una factura (`01`), nota de débito (`08`) o ticket (`12`) con su pago; un documento pagado en cuotas va una vez por cuota, con otro `pago.numero` (2626). Todos los pagos son del mes del comprobante (2625). **Aún no**: la nota de crédito (`07`) y otra retención como documento relacionado.",
-      "**Plazo**: SUNAT lo recibe hasta **9 días** después de su emisión (2600). Va al servicio de retenciones y percepciones de SUNAT; un rechazo no consume el número para SUNAT, pero khipu lo da por usado: corrija y emita otro. **Reversión**: `POST /v1/facturas/{id}/baja` lo revierte en un resumen de reversiones (`RR-…`), sin plazo.",
+      "**Plazo**: SUNAT lo recibe hasta **7 días** calendario desde el día siguiente a su emisión (2600). Va al servicio de retenciones y percepciones de SUNAT; un rechazo no consume el número para SUNAT, pero khipu lo da por usado: corrija y emita otro. **Reversión**: `POST /v1/facturas/{id}/baja` lo revierte en un resumen de reversiones (`RR-…`): SUNAT no lo valida contra la emisión; la norma exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión.",
       "Consulta, XML (`Retention` UBL 2.0), CDR, PDF y reenvío van por `GET /v1/facturas/{id}`…; el listado lo filtra con `tipo=20` y no suma a lo facturado. `POST /v1/retenciones/calcular` responde los importes sin emitir. Admite `Idempotency-Key`. Homologado en e-beta en soles y en dólares; e-beta no verifica la designación de agente.",
     ],
     disponible: true,
@@ -929,7 +929,7 @@ X-Api-Key: fk_TU_API_KEY
       "**Quién puede**: solo una empresa designada agente de percepción por SUNAT y habilitada por el soporte (si no, `422 AGENTE_NO_DESIGNADO`, 4285). El `cliente` puede tener RUC, DNI u otro documento del catálogo 06 (2511, 2680).",
       "`regimen` del catálogo 22: `01` venta interna 2 %, `02` adquisición de combustible 1 %, `03` agente de percepción con tasa especial 0.5 %. Por documento, percibido = cobro × tasa (en soles) y neto cobrado = cobro + percibido; `agente.importe_neto` es lo que paga el cliente. Los documentos cobrados son facturas (`01`), boletas (`03`), notas de débito (`08`) o tickets (`12`) de la empresa, cobrados en el mes del comprobante (2612).",
       "**Lo que valida SUNAT con datos que khipu no tiene** (e-beta no lo aplica): que la factura cobrada exista en SUNAT (2609) con su fecha (2610), sea **al crédito** (3329) y no haya informado ya la percepción con el tipo de operación 2001 (3312). Si la percepción se cobró al contado en la misma factura (`percepcion` de `POST /v1/facturas`), no se emite este comprobante.",
-      "Plazo, reversión, consulta y descargas como en la retención: 9 días (2600), `RR-…` sin plazo, `tipo=40` en el listado, `POST /v1/percepciones/calcular` y `Idempotency-Key`. **Aún no**: la emisión excepcional (`sac:ExceptionalIndicator`) ni la nota de crédito como documento relacionado.",
+      "Plazo, reversión, consulta y descargas como en la retención: 7 días (2600), `RR-…` (SUNAT no valida su plazo contra la emisión), `tipo=40` en el listado, `POST /v1/percepciones/calcular` y `Idempotency-Key`. **Aún no**: la emisión excepcional (`sac:ExceptionalIndicator`) ni la nota de crédito como documento relacionado.",
     ],
     disponible: true,
   },

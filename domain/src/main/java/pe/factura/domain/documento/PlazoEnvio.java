@@ -20,9 +20,11 @@ import java.util.List;
  * listado (1 día)» para la serie que no empieza con número). No tiene resumen diario, así que vencida queda sin canal, como la factura.
  * <p>
  * El comprobante de retención y el de percepción (#40) van solos (sendBill al servicio de otros CPE) dentro del «plazo máximo vigente» (Retenciones1_0 y Percepciones1_0 fila 5,
- * regla 2600, que desde 2024-11-01 se cuenta «según normativa vigente para cada tipo de comprobante»). La hoja no publica el número: khipu usa los 9 días calendario de la RS
- * 274-2015 para el CRE y el CPE, sin haberlos podido contrastar con la norma vigente; e-beta no aplica la 2600 (2026-10-20 aceptó retenciones emitidas hace 2 a 40 días). Un
- * rechazo de SUNAT por plazo no consume el número de una retención o percepción (manual del programador, «Errores que generan rechazos»), así que pecar de largo es lo seguro.
+ * regla 2600, que desde 2024-11-01 se cuenta «según normativa vigente para cada tipo de comprobante»). La hoja no publica el número. La norma (art. 41 de la RS 097-2012/SUNAT,
+ * incorporado por la RS 274-2015/SUNAT) da «hasta por un plazo máximo de siete (7) días calendario desde el día siguiente de la fecha de emisión del CRE o CPE»: se cuenta como
+ * los demás plazos de esta clase, del día siguiente a la emisión, y el 7.º día es el último ({@link #fechaLimite} = emisión + 7). Fuentes: perucontable.com y bizlinks.com.pe
+ * (secundarias); el PDF de SUNAT de la RS 274-2015 es un escaneo que no se pudo leer aquí. e-beta no aplica la 2600 (2026-10-20 aceptó retenciones emitidas hace 2 a 40 días). khipu
+ * da el número por consumido aunque SUNAT rechace (para SUNAT no lo está): un plazo local más largo que el real dejaría huecos en la serie, uno más corto no daña; por eso el más corto.
  * <p>
  * Pasado el 7.º día lo que va en el resumen diario no se queda sin canal (#331): SUNAT no rechaza el alta tardía (la norma prevé que la observe con la 4443; e-beta no lo hizo). El plazo sigue siendo
  * el 7.º día ({@link #dias}): pasarlo es informar fuera de plazo, no imposible. La anulación en el resumen sí tiene tope (2957, {@link ComunicacionBaja}).
@@ -41,8 +43,8 @@ public record PlazoEnvio(String documento, int diasEnvioIndividual, int dias, bo
     public static final int DIAS_ENVIO_INDIVIDUAL_BOLETA = 5;
     /** El envío individual (sendBill) de una liquidación de compra: hasta el día siguiente a la emisión (#327). */
     public static final int DIAS_ENVIO_LIQUIDACION_COMPRA = 1;
-    /** El envío (sendBill) de un comprobante de retención o de percepción (#40): 9 días calendario (RS 274-2015; ver la nota de la clase). */
-    public static final int DIAS_ENVIO_AGENTE = 9;
+    /** El envío (sendBill) de un comprobante de retención o de percepción (#40): 7 días calendario desde el día siguiente a la emisión (RS 274-2015; ver la nota de la clase). */
+    public static final int DIAS_ENVIO_AGENTE = 7;
     /** Hasta cuándo una boleta, o una nota que la modifica, se puede informar en un resumen diario. */
     public static final int DIAS_RESUMEN_DIARIO = 7;
     /**

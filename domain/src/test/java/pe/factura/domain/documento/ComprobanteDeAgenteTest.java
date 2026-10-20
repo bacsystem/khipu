@@ -225,12 +225,12 @@ class ComprobanteDeAgenteTest {
                 "SERIE_INVALIDA", "1001");
         rechaza(() -> Comprobante.deAgente(tenant, "R001", hoy, CLIENTE, new ComprobanteDeAgente(TipoDocumento.PERCEPCION, "01", null, List.of(factura("F001-1", "100", "100")))).crear(RUC_AGENTE, clock),
                 "SERIE_INVALIDA", "1001");
-        // 9 días calendario (RS 274-2015): el 11 se emite, el 10 ya no (2600).
-        var doc = new ComprobanteDeAgente.Documento("01", "F001-1", LocalDate.of(2026, 10, 1), new BigDecimal("100"), "PEN", 1, LocalDate.of(2026, 10, 10), new BigDecimal("100"), null, null);
-        rechaza(() -> Comprobante.deAgente(tenant, "R001", LocalDate.of(2026, 10, 10), PROVEEDOR, new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(doc))).crear(RUC_AGENTE, clock),
+        // 7 días calendario desde el día siguiente a la emisión (RS 274-2015): hoy, 2026-10-20, el del 13 se emite (último día) y el del 12, de hace 8 días, ya no (2600).
+        var doc = new ComprobanteDeAgente.Documento("01", "F001-1", LocalDate.of(2026, 10, 1), new BigDecimal("100"), "PEN", 1, LocalDate.of(2026, 10, 12), new BigDecimal("100"), null, null);
+        rechaza(() -> Comprobante.deAgente(tenant, "R001", LocalDate.of(2026, 10, 12), PROVEEDOR, new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(doc))).crear(RUC_AGENTE, clock),
                 "FECHA_INVALIDA", "2600");
-        var doc11 = new ComprobanteDeAgente.Documento("01", "F001-1", LocalDate.of(2026, 10, 1), new BigDecimal("100"), "PEN", 1, LocalDate.of(2026, 10, 11), new BigDecimal("100"), null, null);
-        Comprobante c = Comprobante.deAgente(tenant, "R001", LocalDate.of(2026, 10, 11), PROVEEDOR, new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(doc11))).crear(RUC_AGENTE, clock);
+        var doc13 = new ComprobanteDeAgente.Documento("01", "F001-1", LocalDate.of(2026, 10, 1), new BigDecimal("100"), "PEN", 1, LocalDate.of(2026, 10, 13), new BigDecimal("100"), null, null);
+        Comprobante c = Comprobante.deAgente(tenant, "R001", LocalDate.of(2026, 10, 13), PROVEEDOR, new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(doc13))).crear(RUC_AGENTE, clock);
         assertThat(c.fechaLimiteEnvio()).isEqualTo(LocalDate.of(2026, 10, 20));
         assertThat(c.fueraDePlazo(LocalDate.of(2026, 10, 21))).isTrue();
         assertThat(PlazoEnvio.de(TipoDocumento.PERCEPCION, null).motivoDeRechazo(hoy)).startsWith("2600 - El comprobante fue enviado fuera del plazo permitido");

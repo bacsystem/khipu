@@ -25,7 +25,8 @@ const SIN_SALIR = new Set(["RECIBIDO", "FIRMADO", "INVALIDO", "DESCARTADO"]);
  */
 export function datosDeValidez(c: Pick<Comprobante, "tipo" | "serie" | "numero" | "fecha_emision" | "estado_documento" | "nombre_archivo" | "receptor" | "totales">): DatosDeValidez | null {
   const ruc = rucDelEmisor(c.nombre_archivo);
-  if (!ruc || SIN_SALIR.has(c.estado_documento)) return null;
+  // #40: la consulta de validez (validaCDPcriterios) es de comprobantes de pago; una retención o una percepción no se consulta ahí.
+  if (!ruc || SIN_SALIR.has(c.estado_documento) || esDeAgente(c)) return null;
   const identificado = c.receptor !== null && c.receptor.tipo_doc !== "-";
   return {
     ruc,

@@ -24,7 +24,8 @@ import java.util.UUID;
  * baja con otro identificador. El correlativo del día se comparte entre RA y RC: SUNAT solo exige que cada identificador no se repita (2223).
  * <p>
  * La retención (20) y la percepción (40), #40, tampoco van en un RA: se revierten en un resumen de reversiones ({@code RR-yyyymmdd-N}, hoja Resumen de reversiones1_0), que es el
- * mismo VoidedDocuments con otro identificador, enviado con sendSummary al servicio de otros CPE. Su hoja no tiene plazo para el 20 ni el 40 (la 2958 de 5 días es solo del 04).
+ * mismo VoidedDocuments con otro identificador, enviado con sendSummary al servicio de otros CPE. Su hoja no valida un plazo para el 20 ni el 40 (la 2958 de 5 días es solo del 04);
+ * la norma (RS 274-2015) exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión al proveedor o al cliente, una fecha que khipu no conoce.
  * <p>
  * El mismo resumen sirve también para informar una boleta que pasó el envío individual sin llegar a SUNAT (1079, 274-H1): su línea va en estado 1 (alta,
  * {@link #altaEnResumen}) y, al aceptarse, la boleta queda ACEPTADA en vez de ANULADA.
@@ -140,7 +141,7 @@ public class ComunicacionBaja {
         if (!c.estado().esFinalAceptado())
             throw new DomainException("BAJA_INVALIDA", (c.esDeBoleta() ? "2663" : c.esDeAgente() ? "2750" : "2105/2398") + " - Solo se puede " + (c.esDeAgente() ? "revertir" : "dar de baja")
                     + " un comprobante aceptado por SUNAT; " + c.serie() + "-" + c.numero() + " está " + c.estado());
-        // #40: el resumen de reversiones no tiene plazo para la retención ni la percepción.
+        // #40: SUNAT no lo valida contra la emisión; la norma exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión (khipu no conoce esa fecha).
         if (!c.esDeAgente() && ChronoUnit.DAYS.between(c.fechaEmision(), hoy) > PLAZO_DIAS)
             throw new DomainException("BAJA_INVALIDA", "2957 - El plazo para dar de baja " + c.serie() + "-" + c.numero() + " venció: se emitió el " + c.fechaEmision()
                     + " y la comunicación debe presentarse dentro de los " + PLAZO_DIAS + " días calendario siguientes a su emisión");

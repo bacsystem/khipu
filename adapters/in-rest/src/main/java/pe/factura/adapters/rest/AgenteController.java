@@ -31,7 +31,7 @@ import pe.factura.domain.documento.Comprobante;
         después de verificar la resolución de designación (sin ella: `422 AGENTE_NO_DESIGNADO`, también al crear la serie `R###` o `P###`). Se emiten en una sola llamada: khipu los
         numera en su serie, genera el `Retention` o `Perception` UBL 2.0, lo firma, lo valida contra el XSD de SUNAT y lo envía al servicio de retenciones y percepciones de SUNAT.
         Consulta, XML, CDR, PDF y reenvío usan los mismos endpoints que las facturas (`GET /v1/facturas/{id}`, `/xml`, `/cdr`, `/pdf`, `POST /v1/facturas/{id}/enviar`); el listado los
-        filtra con `tipo=20` o `tipo=40` y no suman a lo facturado. **Reversión**: `POST /v1/facturas/{id}/baja` los revierte en un resumen de reversiones (`RR-…`) de SUNAT, sin plazo.
+        filtra con `tipo=20` o `tipo=40` y no suman a lo facturado. **Reversión**: `POST /v1/facturas/{id}/baja` los revierte en un resumen de reversiones (`RR-…`) de SUNAT: SUNAT no lo valida contra la emisión; la norma exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión.
 
         **Importes**: lo retenido o percibido y el neto de cada documento son siempre en **soles**: un documento en otra moneda lleva su `tipo_cambio` y el pago se convierte con él.
         `totales.total` es el importe total retenido o percibido; el bloque `agente` de la respuesta trae además cada documento y el importe total pagado o cobrado.
@@ -47,7 +47,7 @@ public class AgenteController {
     private static final String BASE = "/v1/facturas";
     private static final String ERRORES = """
             **Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,
-            documentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 9 días, 2600),
+            documentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 7 días, 2600),
             `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`.""";
     private final EmitirComprobanteUseCase emitir;
     private final ObjectMapper json;
@@ -56,7 +56,7 @@ public class AgenteController {
     @Operation(summary = "Emitir un comprobante de retención", description = """
             El agente de retención paga al `proveedor` (siempre con RUC) los `documentos` que este le emitió y le retiene el IGV a la tasa del `regimen` (catálogo 23: `01` 3 %, el vigente;
             `02` 6 %, solo para comprobantes emitidos hasta el 28/02/2014). Por documento: retenido = pago × tipo de cambio × tasa, y neto pagado = pago × tipo de cambio − retenido. Todos
-            los pagos son del mes del comprobante (2625). SUNAT lo recibe hasta 9 días calendario después de su emisión (2600).
+            los pagos son del mes del comprobante (2625). SUNAT lo recibe hasta 7 días calendario desde el día siguiente a su emisión (2600).
 
             """ + ERRORES + " Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las retenciones.")
     @ApiResponses({
@@ -82,7 +82,7 @@ public class AgenteController {
     @Operation(summary = "Emitir un comprobante de percepción", description = """
             El agente de percepción cobra al `cliente` los `documentos` que le emitió y le percibe el IGV a la tasa del `regimen` (catálogo 22: `01` venta interna 2 %, `02` combustible 1 %,
             `03` tasa especial 0.5 %). Por documento: percibido = cobro × tipo de cambio × tasa, y neto cobrado = cobro × tipo de cambio + percibido. Todos los cobros son del mes del
-            comprobante (2612). SUNAT lo recibe hasta 9 días calendario después de su emisión (2600). Si la percepción ya se informó en la factura (tipo de operación 2001), no se emite
+            comprobante (2612). SUNAT lo recibe hasta 7 días calendario desde el día siguiente a su emisión (2600). Si la percepción ya se informó en la factura (tipo de operación 2001), no se emite
             además este comprobante: SUNAT lo rechazaría (3312).
 
             """ + ERRORES + " Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las percepciones.")

@@ -204,7 +204,7 @@ public record ComprobanteDeAgente(TipoDocumento tipo, String regimen, BigDecimal
                 if (tipoCambio.signum() <= 0 || tipoCambio.scale() > 6 || tipoCambio.precision() - tipoCambio.scale() > 4)
                     throw new DomainException(cod, "2716 - El tipo de cambio de " + numero + " es positivo, de hasta 4 enteros y 6 decimales; recibido " + tipoCambio.toPlainString());
                 if (fechaTipoCambio.isAfter(fechaEmisionAgente))
-                    throw new DomainException(cod, "2722 - La fecha del tipo de cambio de " + numero + " (" + fechaTipoCambio + ") no puede ser posterior a la emisión del comprobante");
+                    throw new DomainException(cod, "La fecha del tipo de cambio de " + numero + " (" + fechaTipoCambio + ") no puede ser posterior a la emisión del comprobante");
             }
             if (importeDelAgente(c.tasa()).signum() <= 0)
                 throw new DomainException(cod, (ret ? "2740 - El importe retenido" : "2705 - El importe percibido") + " de " + numero + " (" + c.tasaXml() + " % de " + pagoEnSoles()

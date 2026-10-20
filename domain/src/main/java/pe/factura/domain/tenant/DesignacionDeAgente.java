@@ -6,7 +6,7 @@ import pe.factura.domain.documento.TipoDocumento;
 /**
  * Si SUNAT designó a la empresa agente de retención o de percepción del IGV (#40): solo entonces emite comprobantes de retención (20) o de percepción (40). La designación es una
  * resolución de SUNAT que figura en sus padrones de agentes; khipu no la consulta: la registra el administrador de la plataforma después de verificarla
- * ({@code PUT /v1/admin/empresas/{id}/agente}). SUNAT sí la cruza: rechaza la retención de quien no es agente de retención (2617, error) y observa la percepción de quien no es agente
+ * ({@code POST /v1/admin/empresas/{id}/agente}). SUNAT sí la cruza: rechaza la retención de quien no es agente de retención (2617, error) y observa la percepción de quien no es agente
  * de percepción (4285); e-beta no aplica ninguna de las dos (2026-10-20 aceptó retenciones y percepciones de una empresa de prueba que no es agente).
  */
 public record DesignacionDeAgente(boolean retencion, boolean percepcion) {
