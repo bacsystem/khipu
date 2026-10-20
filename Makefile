@@ -29,8 +29,8 @@ instalar: ## Instala las dependencias del portal
 
 test: test-backend test-portal ## Tests de backend y portal (sin e2e)
 
-test-backend: ## Tests del backend que no necesitan Docker (domain, application, in-rest, out-ubl, scheduler, soap)
-	$(GRADLE) :domain:test :application:test :adapters:in-rest:test :adapters:out-ubl:test :adapters:in-scheduler:test :adapters:out-sunat-soap:test
+test-backend: ## Tests del backend que no necesitan Docker (domain, application, in-rest, out-ubl, scheduler, soap, rest de SUNAT)
+	$(GRADLE) :domain:test :application:test :adapters:in-rest:test :adapters:out-ubl:test :adapters:in-scheduler:test :adapters:out-sunat-soap:test :adapters:out-sunat-rest:test
 
 test-backend-todo: ## Todos los tests del backend, incluidos los de Testcontainers (requiere Docker)
 	$(GRADLE) test

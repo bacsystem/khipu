@@ -7,6 +7,7 @@ import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.in.EmitirLiquidacionCommand;
 import pe.factura.application.port.in.EmitirNotaCommand;
 import pe.factura.application.port.in.Idempotencia;
+import pe.factura.application.port.out.SunatApiValidezGateway;
 import pe.factura.application.port.out.SunatBillingGateway;
 import pe.factura.application.port.out.SunatConsultaGateway;
 import pe.factura.application.port.out.TenantRepository;
@@ -199,6 +200,15 @@ public final class RelojDeLaAplicacion {
                 return sunat.validar(t, rucEmisor, tipo, serie, numero, tipoDocReceptor, numDocReceptor, fechaEmision, importeTotal);
             }
             private void exigirNoProduccion(Tenant t) { if (t.entorno() == Entorno.PRODUCCION) throw rechazo("consultar a SUNAT"); }
+        };
+    }
+
+    /** Lo mismo para la consulta de validez por la API REST de SUNAT (#318). */
+    public static SunatApiValidezGateway proteger(SunatApiValidezGateway sunat, Duration desplazamiento) {
+        if (!desplazado(desplazamiento)) return sunat;
+        return (t, rucEmisor, tipo, serie, numero, fechaEmision, importeTotal) -> {
+            if (t.entorno() == Entorno.PRODUCCION) throw rechazo("consultar a SUNAT");
+            return sunat.validar(t, rucEmisor, tipo, serie, numero, fechaEmision, importeTotal);
         };
     }
 

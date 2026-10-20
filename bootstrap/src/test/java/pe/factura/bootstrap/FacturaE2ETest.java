@@ -40,6 +40,10 @@ class FacturaE2ETest {
     @DynamicPropertySource static void props(DynamicPropertyRegistry r) {
         r.add("app.sunat.beta-url", () -> "http://localhost:18089/billService");
         r.add("app.sunat.timeout-seconds", () -> "2");
+        // #318: la API REST de SUNAT (token y consulta integrada de validez) en el mismo WireMock.
+        r.add("app.sunat-api.seguridad-beta-url", () -> "http://localhost:18089/api-seguridad");
+        r.add("app.sunat-api.consulta-beta-url", () -> "http://localhost:18089/api-sunat");
+        r.add("app.sunat-api.timeout-seconds", () -> "2");
     }
 
     @Autowired TestRestTemplate http;
@@ -806,6 +810,49 @@ class FacturaE2ETest {
 
         assertThat(siguiente.getStatusCode()).as("%s", siguiente.getBody()).isEqualTo(HttpStatus.CREATED);
         assertThat(((Map<?, ?>) siguiente.getBody().get("datos")).get("numero")).as("el número del intento fallido se reutiliza: sin hueco").isEqualTo(2);
+    }
+
+    // --- Validez por la API REST de SUNAT (#318), con la pila real y SUNAT simulado ------------------------------------------------------------------------------
+
+    @Test void laValidezSeConsultaPorLaApiRestConLasCredencialesApiSunat(WireMockRuntimeInfo wm) throws Exception {
+        String apiKey = provisionarTenant();
+        HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
+        String consulta = "/v1/consultas/validez?ruc=20100066603&tipo=01&serie=F001&numero=12&fecha=2026-09-10&monto=118";
+
+        // Solo con clave SOL, en BETA no hay billValidService.
+        ResponseEntity<Map> sinApi = http.exchange(consulta, HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat(sinApi.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(sinApi.getBody().get("codigo")).isEqualTo("NO_DISPONIBLE_EN_BETA");
+
+        String id = "d20b421e-4ace-46d8-ac8c-4fbb44cfde17";
+        assertThat(http.exchange("/v1/empresa/credenciales-api-sunat", HttpMethod.PUT,
+                new HttpEntity<>("{\"client_id\":\"" + id + "\",\"client_secret\":\"secreto-e2e\"}", h), Void.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        ResponseEntity<Map> empresa = http.exchange("/v1/empresa", HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat(((Map<?, ?>) empresa.getBody().get("datos")).get("tiene_credenciales_api_sunat")).isEqualTo(true);
+        assertThat(empresa.getBody().toString()).doesNotContain("secreto-e2e");
+
+        stubFor(post("/api-seguridad/v1/clientesextranet/" + id + "/oauth2/token/").willReturn(okJson("{\"access_token\":\"tk-e2e\",\"token_type\":\"JWT\",\"expires_in\":3600}")));
+        stubFor(post(urlMatching("/api-sunat/v1/contribuyente/contribuyentes/\\d{11}/validarcomprobante")).withHeader("Authorization", equalTo("Bearer tk-e2e"))
+                .willReturn(okJson("{\"success\":true,\"message\":\"Operation Success! \",\"data\":{\"estadoCp\":\"1\",\"estadoRuc\":\"00\",\"condDomiRuc\":\"00\",\"observaciones\":[]}}")));
+
+        ResponseEntity<Map> r = http.exchange(consulta, HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat(r.getStatusCode()).as("%s", r.getBody()).isEqualTo(HttpStatus.OK);
+        Map<?, ?> datos = (Map<?, ?>) r.getBody().get("datos");
+        assertThat(datos.get("estado")).isEqualTo("ACEPTADO");
+        assertThat(datos.get("fuente")).isEqualTo("API_REST");
+        assertThat(datos.get("estado_ruc")).isEqualTo("00");
+        verify(postRequestedFor(urlMatching("/api-sunat/.*")).withRequestBody(equalToJson(
+                "{\"numRuc\":\"20100066603\",\"codComp\":\"01\",\"numeroSerie\":\"F001\",\"numero\":\"12\",\"fechaEmision\":\"10/09/2026\",\"monto\":\"118.00\"}")));
+
+        // La API caída y sin SOAP en BETA: un 503 que dice que SUNAT no respondió, no un error interno.
+        stubFor(post(urlMatching("/api-sunat/.*")).willReturn(aResponse().withStatus(503)));
+        ResponseEntity<Map> caida = http.exchange(consulta, HttpMethod.GET, new HttpEntity<>(h), Map.class);
+        assertThat(caida.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(caida.getBody().get("codigo")).isEqualTo("SUNAT_NO_DISPONIBLE");
+        assertThat(caida.getBody().toString()).doesNotContain("secreto-e2e").doesNotContain("tk-e2e");
+
+        assertThat(http.exchange("/v1/empresa/credenciales-api-sunat", HttpMethod.DELETE, new HttpEntity<>(h), Void.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(http.exchange(consulta, HttpMethod.GET, new HttpEntity<>(h), Map.class).getBody().get("codigo")).isEqualTo("NO_DISPONIBLE_EN_BETA");
     }
 
     // --- Clientes guardados (#319), por API key y con la pila real ---------------------------------------------------------------------------------------------

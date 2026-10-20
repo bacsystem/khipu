@@ -148,6 +148,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/empresa/credenciales-api-sunat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Guardar las credenciales API SUNAT
+         * @description El «Id» (`client_id`) y la «Clave» (`client_secret`) de la aplicación que la empresa registra en SOL, opción
+         *     «Credenciales de API SUNAT». Con ellas khipu consulta la validez de comprobantes por la API REST de SUNAT (también en beta)
+         *     en vez de `billValidService`, que pide la clave SOL y solo existe en producción. Reemplazan las anteriores; se guardan
+         *     cifradas y nunca vuelven por la API. `422 CREDENCIALES_API_SUNAT_INVALIDAS` si falta alguna o el `client_id` trae espacios
+         *     o caracteres que no son de un identificador. No se comprueban contra SUNAT al guardarlas: la primera consulta lo hace.
+         */
+        put: operations["credencialesApiSunat"];
+        post?: never;
+        /**
+         * Borrar las credenciales API SUNAT
+         * @description La validez vuelve a consultarse solo con la clave SOL. Idempotente.
+         */
+        delete: operations["borrarCredencialesApiSunat"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clientes/{id}": {
         parameters: {
             query?: never;
@@ -1956,7 +1984,7 @@ export interface paths {
         };
         /**
          * Ver la empresa
-         * @description RUC, razón social, entorno SUNAT (`BETA` u homologación / `PRODUCCION`), si tiene credenciales SOL, la vigencia del certificado, el domicilio fiscal y la cuenta de detracciones. Nunca devuelve secretos.
+         * @description RUC, razón social, entorno SUNAT (`BETA` u homologación / `PRODUCCION`), si tiene credenciales SOL y API SUNAT, la vigencia del certificado, el domicilio fiscal y la cuenta de detracciones. Nunca devuelve secretos.
          */
         get: operations["ver"];
         put?: never;
@@ -2040,10 +2068,15 @@ export interface paths {
         };
         /**
          * Consultar la validez de un comprobante
-         * @description `billValidService` (`validaCDPcriterios`) de SUNAT: estado de un comprobante electrónico de cualquier emisor —el propio
-         *     o un proveedor— por sus datos. `estado`: `ACEPTADO` (0001), `RECHAZADO` (0002), `DE_BAJA` (0003), `NO_EXISTE` (0011),
-         *     `AJENO` (0012) o `ERROR_CONSULTA` (otros códigos, con `mensaje`). Los criterios opcionales afinan la búsqueda: si se
-         *     envían y no coinciden con lo que SUNAT registró, la respuesta lo indica. Requiere credenciales SOL cargadas.
+         * @description Estado de un comprobante de cualquier emisor —el propio o un proveedor— por sus datos. Con credenciales API SUNAT
+         *     (`PUT /v1/empresa/credenciales-api-sunat`) se consulta la API REST de SUNAT («consulta integrada», `fuente: API_REST`):
+         *     `estado` `NO_EXISTE` (0), `ACEPTADO` (1), `DE_BAJA` (2, anulado), `AUTORIZADO` (3) o `NO_AUTORIZADO` (4, comprobantes
+         *     físicos), más `estado_ruc`, `condicion_domicilio` y `observaciones` (p. ej. si la fecha o el monto no coinciden); ahí
+         *     `fecha` es obligatoria y `monto` lo es para comprobantes electrónicos. Sin ellas, o si la API no responde y hay clave SOL,
+         *     se usa `billValidService` (`fuente: SOAP`, solo producción): `ACEPTADO` (0001), `RECHAZADO` (0002), `DE_BAJA` (0003),
+         *     `NO_EXISTE` (0011), `AJENO` (0012) o `ERROR_CONSULTA`; `aviso` dice por qué. Errores: `422 CREDENCIALES_SUNAT_NO_CARGADAS`,
+         *     `422 CREDENCIALES_API_SUNAT_RECHAZADAS`, `422 CREDENCIALES_SOL_RECHAZADAS`, `422 CONSULTA_RECHAZADA` (SUNAT rechazó los
+         *     datos de la consulta), `503 SUNAT_NO_DISPONIBLE`.
          */
         get: operations["validez"];
         put?: never;
@@ -2922,6 +2955,11 @@ export interface components {
              */
             padron_tasa_especial_igv?: boolean;
             credenciales_sol_rechazadas?: components["schemas"]["CredencialesSolRechazadas"];
+            /**
+             * @description #318: si cargó las credenciales API SUNAT (client_id y client_secret de «Credenciales de API SUNAT»). Nunca se devuelven
+             * @example false
+             */
+            tiene_credenciales_api_sunat?: boolean;
         };
         CredencialesSolRequest: {
             /**
@@ -2931,6 +2969,18 @@ export interface components {
             usuario: string;
             /** @example moddatos */
             clave: string;
+        };
+        CredencialesApiSunatRequest: {
+            /**
+             * @description «Id» de la aplicación registrada en SOL, opción «Credenciales de API SUNAT» (client_id)
+             * @example d20b421e-4ace-46d8-ac8c-4fbb44cfde17
+             */
+            client_id: string;
+            /**
+             * @description «Clave» de esa aplicación (client_secret). Se guarda cifrada y nunca vuelve por la API
+             * @example HhWwZVo8ZaWm4BZ7n/xEzw==
+             */
+            client_secret: string;
         };
         ClienteCrear: {
             /**
@@ -7107,17 +7157,39 @@ export interface components {
         };
         ValidezResponse: {
             /**
-             * @description `ACEPTADO`, `RECHAZADO`, `DE_BAJA`, `NO_EXISTE`, `AJENO` o `ERROR_CONSULTA`
+             * @description `ACEPTADO`, `RECHAZADO`, `DE_BAJA`, `NO_EXISTE`, `AJENO`, `AUTORIZADO`, `NO_AUTORIZADO` o `ERROR_CONSULTA`
              * @example ACEPTADO
              */
             estado?: string;
             /**
-             * @description Código de retorno de SUNAT
+             * @description Código de retorno de SUNAT en su fuente: `statusCode` de billValidService (`0001`…) o `estadoCp` de la API REST (`0`…`4`)
              * @example 0001
              */
             codigo?: string;
             /** @example El comprobante existe y está aceptado. */
             mensaje?: string;
+            /**
+             * @description Por dónde respondió SUNAT: `API_REST` (credenciales API SUNAT) o `SOAP` (billValidService, clave SOL)
+             * @example API_REST
+             */
+            fuente?: string;
+            /**
+             * @description Solo por la API REST: estado del RUC del emisor (`00` activo, `01` baja provisional, `02` baja prov. por oficio, `03` suspensión temporal, `10` baja definitiva, `11` baja de oficio, `22` inhabilitado-vent. única)
+             * @example 00
+             */
+            estado_ruc?: string;
+            /**
+             * @description Solo por la API REST: condición de domicilio del emisor (`00` habido, `09` pendiente, `11` por verificar, `12` no habido, `20` no hallado)
+             * @example 00
+             */
+            condicion_domicilio?: string;
+            /** @description Solo por la API REST: observaciones de SUNAT sobre los datos consultados (p. ej. la fecha no coincide); ausente si no hay */
+            observaciones?: string[];
+            /**
+             * @description Por qué se respondió por SOAP teniendo credenciales API SUNAT; ausente si no
+             * @example La API de SUNAT no respondió (HTTP 503): se usó billValidService con la clave SOL
+             */
+            aviso?: string;
         };
         ApiResponsePadronRucResponse: {
             /**
@@ -9188,6 +9260,46 @@ export interface operations {
                 "application/json": components["schemas"]["CredencialesSolRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    credencialesApiSunat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredencialesApiSunatRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    borrarCredencialesApiSunat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -11717,12 +11829,12 @@ export interface operations {
                  */
                 num_doc_receptor?: string;
                 /**
-                 * @description Fecha de emisión (`YYYY-MM-DD`); opcional
+                 * @description Fecha de emisión (`YYYY-MM-DD`); obligatoria por la API REST, opcional por SOAP
                  * @example 2026-09-14
                  */
                 fecha?: string;
                 /**
-                 * @description Importe total; opcional
+                 * @description Importe total; por la API REST, obligatorio para comprobantes electrónicos
                  * @example 1180
                  */
                 monto?: number;

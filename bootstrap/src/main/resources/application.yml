@@ -115,6 +115,16 @@ app:
     consulta-beta-url: ${SUNAT_CONSULTA_BETA_URL:}
     validez-url: https://e-factura.sunat.gob.pe/ol-it-wsconsvalidcpe/billValidService
     validez-beta-url: ${SUNAT_VALIDEZ_BETA_URL:}
+  # #318: APIs REST de SUNAT con OAuth2 (credenciales API SUNAT de cada empresa). Hoy, la consulta integrada de validez («Manual de Consulta Integrada de Comprobante
+  # de Pago por Servicio Web» v2.0): token en <seguridad>/v1/clientesextranet/<client_id>/oauth2/token/ y consulta en <consulta>/v1/contribuyente/contribuyentes/<ruc>/
+  # validarcomprobante. SUNAT no publica una instancia de pruebas de esta consulta (solo lee datos reales), así que beta usa por defecto las mismas URLs.
+  sunat-api:
+    seguridad-url: ${SUNAT_API_SEGURIDAD_URL:https://api-seguridad.sunat.gob.pe}
+    seguridad-beta-url: ${SUNAT_API_SEGURIDAD_BETA_URL:https://api-seguridad.sunat.gob.pe}
+    consulta-url: ${SUNAT_API_CONSULTA_URL:https://api.sunat.gob.pe}
+    consulta-beta-url: ${SUNAT_API_CONSULTA_BETA_URL:https://api.sunat.gob.pe}
+    # Tope de cada llamada (token o consulta), 1 a 120 s. Corto a propósito: si no responde, se cae a billValidService (SOAP) cuando hay clave SOL.
+    timeout-seconds: ${SUNAT_API_TIMEOUT_SECONDS:10}
   outbox:
     intervalo-ms: ${OUTBOX_INTERVALO_MS:10000}
     max-intentos: ${OUTBOX_MAX_INTENTOS:20}
