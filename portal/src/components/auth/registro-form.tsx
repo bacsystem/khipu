@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
+import { CasillaDeTerminos } from "@/components/legal/casilla-de-terminos";
 import { Button } from "@/components/ui/button";
 import { postJson } from "@/lib/api/browser";
 import { mensajeError, messages } from "@/lib/messages";
@@ -16,6 +17,8 @@ const schema = z.object({
   telefono: telefonoSchema,
   email: emailSchema,
   password: passwordSchema,
+  // #342: sin marcarla no se envía nada; el backend igual lo exige (400 TERMINOS_NO_ACEPTADOS).
+  acepta_terminos: z.boolean().refine((v) => v, messages.auth.registro.terminosRequeridos),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -28,7 +31,7 @@ export function RegistroForm() {
     handleSubmit,
     formState: { errors, isSubmitting },
     // `onTouched`: el error aparece al salir del campo y no recién al enviar.
-  } = useForm<FormValues>({ resolver: zodResolver(schema), mode: "onTouched" });
+  } = useForm<FormValues>({ resolver: zodResolver(schema), mode: "onTouched", defaultValues: { acepta_terminos: false } });
 
   async function onSubmit(values: FormValues) {
     setError(null);
@@ -80,6 +83,7 @@ export function RegistroForm() {
         error={errors.password?.message}
         hint={messages.auth.registro.ayudaPassword}
       />
+      <CasillaDeTerminos id="acepta_terminos" {...register("acepta_terminos")} error={errors.acepta_terminos?.message} />
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? messages.auth.registro.enviando : messages.auth.registro.enviar}

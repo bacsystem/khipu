@@ -1,4 +1,5 @@
 import { http, HttpResponse } from "msw";
+import { VERSION_TEXTOS_LEGALES } from "@/content/legal/version";
 import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto, venceDesdeFechaDeLima } from "@/lib/formato";
 import { esUuid } from "@/lib/uuid";
 import { messages } from "@/lib/messages";
@@ -831,11 +832,16 @@ function claims(req: Request): { sub: string; cuenta: string; imp?: string; exp?
   }
 }
 
+/** Como `UsuarioResponse` del backend (#342): `terminos_pendientes` siempre viene en el login, el refresh, el registro y `/me`. */
+function usuarioDeSesion(usuario: Usuario): Usuario {
+  return { ...usuario, terminos_pendientes: usuario.terminos_pendientes ?? false };
+}
+
 function emitirTokens(usuario: Usuario) {
   const access = fakeJwt({ sub: usuario.id, cuenta: usuario.cuenta_id, rol: usuario.rol, exp: Math.floor(Date.now() / 1000) + 900 });
   const refresh = `refresh-${usuario.id}-${Date.now()}`;
   db.sesionesPorToken.set(refresh, { usuario });
-  return { access, refresh, usuario };
+  return { access, refresh, usuario: usuarioDeSesion(usuario) };
 }
 
 let contador = 0;
@@ -1294,7 +1300,10 @@ export const handlers = [
   }),
 
   http.post(`${BASE}/v1/auth/registro`, async ({ request }) => {
-    const body = (await request.json()) as { nombre: string; email: string; password: string; telefono?: string };
+    const body = (await request.json()) as { nombre: string; email: string; password: string; telefono?: string; acepta_terminos?: boolean | null };
+    // Como el backend (#342): antes que nada, y con 400 (no 422): sin aceptar los términos no se crea nada.
+    if (body.acepta_terminos !== true)
+      return fail(400, "TERMINOS_NO_ACEPTADOS", "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad");
     if (!telefonoSchema.safeParse(body.telefono ?? "").success) return fail(422, "TELEFONO_INVALIDO", "El celular debe tener 9 dígitos y empezar con 9 (Perú)");
     // A paridad con `Cuenta`/`Usuario`: nombre obligatorio, correo con formato y en minúsculas (`normalizarEmail`) y
     // contraseña de 8 con letra y dígito. El mock aceptaba todo eso y creaba dos cuentas con el mismo correo en distinta caja.
@@ -1305,7 +1314,7 @@ export const handlers = [
       return fail(422, "PASSWORD_DEBIL", "La contraseña debe tener al menos 8 caracteres, una letra y un dígito");
     if (db.usuariosPorEmail.has(email)) return fail(409, "DUPLICADO", "Ya existe una cuenta con ese correo");
     // Como el backend (#22): el correo queda sin verificar y se «manda» el enlace; el e2e lo arma con `verif-<correo>`.
-    const usuario: Usuario = { id: nuevoId("u"), cuenta_id: nuevoId("c"), email, rol: "ADMIN", correo_verificado: false };
+    const usuario: Usuario = { id: nuevoId("u"), cuenta_id: nuevoId("c"), email, rol: "ADMIN", correo_verificado: false, terminos_pendientes: false };
     db.usuariosPorEmail.set(email, { usuario, password: body.password });
     db.nombresDeCuenta.set(usuario.cuenta_id, body.nombre.trim());
     db.empresasPorCuenta.set(usuario.cuenta_id, []);
@@ -1380,7 +1389,19 @@ export const handlers = [
     // Una sesión de soporte (#184) lo dice en /me, con hasta cuándo vale; nunca qué administrador la abrió.
     // Solo del mock: el mundo de clientes es otro, así que el token de soporte lleva el correo y la cuenta (del backoffice) del usuario al que se mira, para que el
     // aviso diga a quién y el enlace de salida lleve a la cuenta correcta. El backend real devuelve el usuario y la cuenta reales.
-    return ok(c.imp && c.exp ? { ...registro.usuario, email: c.ue ?? registro.usuario.email, cuenta_id: c.cx ?? registro.usuario.cuenta_id, soporte_hasta: new Date(c.exp * 1000).toISOString() } : registro.usuario);
+    const usuario = usuarioDeSesion(registro.usuario);
+    return ok(c.imp && c.exp ? { ...usuario, email: c.ue ?? usuario.email, cuenta_id: c.cx ?? usuario.cuenta_id, soporte_hasta: new Date(c.exp * 1000).toISOString() } : usuario);
+  }),
+
+  // Aceptar la versión vigente de los términos (#342). Como el backend: es de la propia sesión, y una sesión de soporte no escribe nada.
+  http.post(`${BASE}/v1/auth/terminos`, ({ request }) => {
+    const c = claims(request);
+    if (!c) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    if (c.imp) return fail(403, "SOPORTE_SOLO_LECTURA", "Estás viendo el portal en modo soporte: solo se puede mirar, no cambiar nada");
+    const registro = [...db.usuariosPorEmail.values()].find((r) => r.usuario.id === c.sub);
+    if (!registro) return fail(404, "NO_ENCONTRADO", "Usuario no encontrado");
+    registro.usuario.terminos_pendientes = false;
+    return ok({ version: VERSION_TEXTOS_LEGALES, aceptada_en: new Date().toISOString() });
   }),
 
   /**

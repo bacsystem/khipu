@@ -7,7 +7,8 @@ const redirect = vi.hoisted(() =>
     throw new Error(`REDIRECT:${url}`);
   }),
 );
-vi.mock("next/navigation", () => ({ redirect }));
+// `useRouter`: lo usa la pantalla que pide aceptar los términos (#342).
+vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("@/lib/session-server", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/api/auth", () => ({ me: vi.fn() }));
 vi.mock("@/lib/api/empresas", () => ({ listarEmpresas: vi.fn() }));
@@ -221,5 +222,56 @@ describe("PrivadoLayout (sesión vencida)", () => {
       vi.mocked(listarEmpresas).mockRejectedValue(err);
       await expect(PrivadoLayout({ children: null })).rejects.toBe(err);
     }
+  });
+});
+
+/** #342: sin la versión vigente de los términos aceptada no se usa el panel; una sesión de soporte sí mira. */
+describe("PrivadoLayout (#342)", () => {
+  it("con los términos pendientes muestra la pantalla de aceptarlos en lugar del panel", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue({ ...USUARIO, terminos_pendientes: true } as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+
+    render(await PrivadoLayout({ children: <p>contenido</p> }));
+
+    expect(screen.getByTestId("aceptar-terminos")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Acepta los términos para continuar" })).toBeTruthy();
+    expect(screen.queryByText("contenido")).toBeNull();
+  });
+
+  it("los pide antes del onboarding: una cuenta sin empresas tampoco sigue sin aceptar", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue({ ...USUARIO, terminos_pendientes: true } as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([]);
+
+    render(await PrivadoLayout({ children: null }));
+
+    expect(screen.getByTestId("aceptar-terminos")).toBeTruthy();
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("aceptados (o sin el campo, de un backend anterior) muestra el panel", async () => {
+    sesion();
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+    for (const usuario of [{ ...USUARIO, terminos_pendientes: false }, USUARIO]) {
+      vi.mocked(me).mockResolvedValue(usuario as never);
+
+      render(await PrivadoLayout({ children: <p>contenido</p> }));
+
+      expect(screen.queryByTestId("aceptar-terminos")).toBeNull();
+      expect(screen.getByText("contenido")).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("una sesión de soporte mira el panel aunque el cliente tenga los términos pendientes: no los acepta por él", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue({ ...USUARIO, terminos_pendientes: true, soporte_hasta: "2026-10-04T17:15:00Z" } as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+
+    render(await PrivadoLayout({ children: <p>contenido</p> }));
+
+    expect(screen.queryByTestId("aceptar-terminos")).toBeNull();
+    expect(screen.getByText("contenido")).toBeTruthy();
   });
 });

@@ -12,6 +12,26 @@ export type Usuario = {
    * backend en `/me`, que es quien conoce el token: el portal no lee ni confía en lo que el JWT pueda decir.
    */
   soporte_hasta?: string;
+  /**
+   * `true` si no aceptó la versión vigente de los términos y la política de privacidad (#342): el panel le pide aceptarla antes de dejarlo seguir. Viene en el login,
+   * el refresh, el registro y `/me`; opcional porque la respuesta de abrir una sesión de soporte no lo trae.
+   */
+  terminos_pendientes?: boolean;
+};
+
+/** El cuerpo de `POST /v1/auth/registro`. `acepta_terminos` (#342): sin `true`, el backend responde `400 TERMINOS_NO_ACEPTADOS`. */
+export type DatosDeRegistro = {
+  nombre: string;
+  email: string;
+  password: string;
+  telefono: string;
+  acepta_terminos: boolean;
+};
+
+/** Lo que quedó guardado al aceptar los términos vigentes (#342). */
+export type AceptacionDeTerminos = {
+  version: string;
+  aceptada_en: string;
 };
 
 export type Tokens = {
@@ -20,8 +40,13 @@ export type Tokens = {
   usuario: Usuario;
 };
 
-export function registrar(nombre: string, email: string, password: string, telefono: string) {
-  return backendFetch<Tokens>("/v1/auth/registro", { method: "POST", body: { nombre, email, password, telefono } });
+export function registrar(datos: DatosDeRegistro) {
+  return backendFetch<Tokens>("/v1/auth/registro", { method: "POST", body: datos });
+}
+
+/** La versión vigente de los términos, aceptada por el usuario de la sesión (#342). Una sesión de soporte recibe `403 SOPORTE_SOLO_LECTURA`. */
+export function aceptarTerminos(access: string) {
+  return backendFetch<AceptacionDeTerminos>("/v1/auth/terminos", { method: "POST", headers: { Authorization: `Bearer ${access}` } });
 }
 
 /**

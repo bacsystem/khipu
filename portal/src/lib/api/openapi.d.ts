@@ -963,6 +963,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/terminos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aceptar los términos vigentes
+         * @description Registra que el usuario de la sesión acepta la versión vigente de los términos del servicio y la política de privacidad, con la
+         *     fecha. Si ya la había aceptado responde igual, con la fecha de entonces. Se usa cuando la versión cambió (`terminos_pendientes`
+         *     en `/me`, el login o el refresh); al registrarse, la aceptación va en el propio registro. Una sesión de soporte recibe
+         *     `403 SOPORTE_SOLO_LECTURA`.
+         */
+        post: operations["aceptarTerminos"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/restablecer": {
         parameters: {
             query?: never;
@@ -996,7 +1019,8 @@ export interface paths {
          * Registrar una cuenta
          * @description Crea la cuenta del portal y devuelve los tokens de sesión. El correo queda sin verificar y se le manda un enlace (24 h): hasta
          *     verificarlo puede entrar al portal, pero cualquier escritura con su sesión responde `403 CORREO_SIN_VERIFICAR`.
-         *     `403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`).
+         *     `403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`). Exige `acepta_terminos: true` (#342): sin eso,
+         *     `400 TERMINOS_NO_ACEPTADOS` y no se crea nada; con eso queda guardada la versión vigente de los términos y la fecha.
          */
         post: operations["registrar"];
         delete?: never;
@@ -2203,7 +2227,7 @@ export interface paths {
         };
         /**
          * Usuario de la sesión
-         * @description Correo, rol y cuenta del usuario autenticado por JWT.
+         * @description Correo, rol y cuenta del usuario autenticado por JWT, y si le falta aceptar los términos vigentes.
          */
         get: operations["me"];
         put?: never;
@@ -5305,6 +5329,46 @@ export interface components {
             /** @example q8Zf3kV1x... */
             token: string;
         };
+        AceptacionDeTerminosResponse: {
+            /**
+             * @description La versión vigente de los términos del servicio y la política de privacidad, la que se aceptó
+             * @example 2026-10-20
+             */
+            version?: string;
+            /**
+             * Format: date-time
+             * @description Cuándo la aceptó por primera vez
+             * @example 2026-10-20T15:00:00Z
+             */
+            aceptada_en?: string;
+        };
+        ApiResponseAceptacionDeTerminosResponse: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["AceptacionDeTerminosResponse"];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
+        };
         RestablecerRequest: {
             /** @example 3f7a2c9e-1b4d-4e8a-9c2f-6d5e4a3b2c1d */
             token: string;
@@ -5326,6 +5390,11 @@ export interface components {
              * @example 987654321
              */
             telefono: string;
+            /**
+             * @description Que acepta los términos del servicio y la política de privacidad vigentes (#342). Sin `true`, `400 TERMINOS_NO_ACEPTADOS`.
+             * @example true
+             */
+            acepta_terminos: boolean;
         };
         ApiResponseTokensResponse: {
             /**
@@ -5381,6 +5450,11 @@ export interface components {
              * @example true
              */
             correo_verificado?: boolean;
+            /**
+             * @description `true` si no aceptó la versión vigente de los términos del servicio y la política de privacidad (#342): un usuario anterior a ellos, o uno que aceptó una versión que ya cambió. El portal no deja usar el panel hasta que acepte (`POST /v1/auth/terminos`). Ausente donde no aplica (la respuesta de abrir una sesión de soporte).
+             * @example false
+             */
+            terminos_pendientes?: boolean;
             /**
              * Format: date-time
              * @description Solo en una sesión de soporte (#184: un administrador mirando el portal como este usuario): hasta cuándo vale. Ausente en una sesión normal. El portal lo usa para avisar que se está actuando como el cliente
@@ -10474,6 +10548,26 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    aceptarTerminos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAceptacionDeTerminosResponse"];
+                };
             };
         };
     };

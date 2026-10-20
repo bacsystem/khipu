@@ -7,6 +7,8 @@ export async function registrar(page: Page, { email, nombre = "Mi Empresa de Pru
   await page.getByLabel(/Celular/).fill(celular);
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña").fill("Passw0rd1");
+  // #342: sin aceptar los términos y la política de privacidad no se registra.
+  await page.getByRole("checkbox", { name: /Acepto los términos del servicio/ }).check();
   await page.getByRole("button", { name: "Crear cuenta" }).click();
   await expect(page).toHaveURL(/\/onboarding/);
 }
