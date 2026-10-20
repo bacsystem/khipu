@@ -141,6 +141,9 @@ export type Baja = {
    */
   fuera_de_plazo?: boolean;
   estado: EstadoBaja;
+  /** #301: posición de este comprobante en su resumen diario y cuántas líneas tiene. Las boletas de una misma fecha que se informan juntas comparten identificador, ticket y CDR. Ausentes en respuestas viejas: 1 de 1. */
+  linea?: number;
+  lineas?: number;
   ticket: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   intentos: number;

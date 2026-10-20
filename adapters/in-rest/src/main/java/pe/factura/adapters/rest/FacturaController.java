@@ -202,7 +202,10 @@ public class FacturaController {
             Una boleta (o nota sobre boleta) que pasó el envío individual se informa en un resumen diario: la respuesta lo trae en `baja`
             (`condicion: ALTA`). Pasado el 7.º día va igual, con `baja.fuera_de_plazo: true`: SUNAT no la rechaza, pero puede observarla con la
             4443 (entonces `ACEPTADO_CON_OBS`; en e-beta la aceptó sin observaciones, `ACEPTADO`). Una factura, una nota de factura o una nota de crédito 10 / de débito 03 de boleta (que no van en el resumen)
-            fuera de plazo responde `409 FUERA_DE_PLAZO`.""")
+            fuera de plazo responde `409 FUERA_DE_PLAZO`.
+
+            **Efecto sobre otras boletas**: las demás boletas (y notas de boleta) de la misma fecha de emisión que siguen `FIRMADO` o en `ERROR_ENVIO` y también solo van en el resumen diario
+            se informan en el mismo resumen (hasta 500 líneas, con un solo ticket y un solo CDR), también las emitidas con `enviar_automatico: false`. Cada una trae su `linea` y las `lineas` del resumen.""")
     public ApiResponse<ComprobanteResponse> enviar(HttpServletRequest req, @PathVariable UUID id) {
         UUID t = TenantActual.id(req);
         Comprobante c = enviar.enviar(t, id);

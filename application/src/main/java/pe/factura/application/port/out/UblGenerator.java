@@ -4,6 +4,8 @@ import pe.factura.domain.documento.ComunicacionBaja;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.tenant.Tenant;
 
+import java.util.List;
+
 public interface UblGenerator {
     // XML sin firmar, UTF-8
     String generar(Comprobante c, Tenant t);
@@ -16,5 +18,5 @@ public interface UblGenerator {
      * El resumen diario (SummaryDocuments) de varias líneas (#301): {@code filas.get(i)} es la línea {@code i + 1} y {@code comprobantes.get(i)} su comprobante. Todas las
      * filas son del mismo resumen (mismo identificador) y deben ser de boleta.
      */
-    String generarResumen(java.util.List<ComunicacionBaja> filas, java.util.List<Comprobante> comprobantes, Tenant t);
+    String generarResumen(List<ComunicacionBaja> filas, List<Comprobante> comprobantes, Tenant t);
 }

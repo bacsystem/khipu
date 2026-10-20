@@ -143,15 +143,7 @@ public class ComunicacionBaja {
                 Condicion.BAJA, EstadoBaja.GENERADA, 1, 1);
     }
 
-    /** Solo para persistencia. */
-    public static ComunicacionBaja rehidratar(UUID id, UUID tenantId, LocalDate fechaGeneracion, int correlativo, UUID comprobanteId, TipoDocumento tipoComprobante, boolean deBoleta,
-                                              String serie, long numero, LocalDate fechaReferencia, String motivo, Condicion condicion, EstadoBaja estado, String ticket,
-                                              String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError) {
-        return rehidratar(id, tenantId, fechaGeneracion, correlativo, comprobanteId, tipoComprobante, deBoleta, serie, numero, fechaReferencia, motivo, condicion, estado, ticket, xmlKey,
-                cdrKey, cdr, intentos, ultimoError, 1, 1);
-    }
-
-    /** Solo para persistencia: con la posición de la fila en su resumen diario (#301). */
+    /** Solo para persistencia; {@code linea} y {@code lineas} son la posición de la fila en su resumen diario y las líneas que tiene (#301; 1 y 1 en una baja). */
     public static ComunicacionBaja rehidratar(UUID id, UUID tenantId, LocalDate fechaGeneracion, int correlativo, UUID comprobanteId, TipoDocumento tipoComprobante, boolean deBoleta,
                                               String serie, long numero, LocalDate fechaReferencia, String motivo, Condicion condicion, EstadoBaja estado, String ticket,
                                               String xmlKey, String cdrKey, Cdr cdr, int intentos, String ultimoError, int linea, int lineas) {
@@ -162,6 +154,19 @@ public class ComunicacionBaja {
 
     /** Si el resumen al que pertenece tiene más de una línea (#301): su rechazo no dice cuál comprobante lo causó. */
     public boolean deVariasLineas() { return lineas > 1; }
+
+    /**
+     * Un alta de varias líneas que SUNAT rechazó entero (#301): el comprobante de esta fila se vuelve a informar <b>solo</b>, para aislar la línea que lo rompió, y por eso no se
+     * agrupa con otros. Es la regla de la que parte {@code BoletasPorInformar.paraAgruparEnResumen} en SQL ({@code condicion = 'ALTA' AND estado = 'RECHAZADA' AND lineas > 1}):
+     * si cambia aquí, cambia allá.
+     */
+    public boolean aislaSuComprobante() { return alta() && estado == EstadoBaja.RECHAZADA && deVariasLineas(); }
+
+    /** Si esta fila es de un resumen generado después que {@code otra} (por fecha de generación y, el mismo día, por correlativo): sirve para saber cuál es el más reciente de un comprobante. */
+    public boolean esPosteriorA(ComunicacionBaja otra) {
+        int porFecha = fechaGeneracion.compareTo(otra.fechaGeneracion);
+        return porFecha > 0 || (porFecha == 0 && correlativo > otra.correlativo);
+    }
 
     /**
      * Las filas de un mismo resumen comparten el ciclo —un envío, un ticket, un CDR—: tras avanzar una (la primera), las demás copian su estado. Solo entre filas del mismo

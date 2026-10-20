@@ -289,7 +289,7 @@ class DarDeBajaServiceTest {
         // Dos copias de la misma baja ENVIADA (el GET del usuario y el outbox) obtienen el CDR 0 a la vez: la segunda no debe
         // romper con TRANSICION_INVALIDA porque el comprobante ya quedó ANULADO por la primera.
         ComunicacionBaja copiaDelWorker = ComunicacionBaja.rehidratar(enviada.id(), tenantId, enviada.fechaGeneracion(), enviada.correlativo(), enviada.comprobanteId(), enviada.tipoComprobante(), enviada.deBoleta(),
-                enviada.serie(), enviada.numero(), enviada.fechaReferencia(), enviada.motivo(), enviada.condicion(), EstadoBaja.ENVIADA, enviada.ticket(), enviada.xmlKey(), null, null, enviada.intentos(), enviada.ultimoError());
+                enviada.serie(), enviada.numero(), enviada.fechaReferencia(), enviada.motivo(), enviada.condicion(), EstadoBaja.ENVIADA, enviada.ticket(), enviada.xmlKey(), null, null, enviada.intentos(), enviada.ultimoError(), 1, 1);
         gateway.statusCode = "0";
         ComunicacionBaja primera = service.continuar(tenantId, enviada.id());
         assertThat(primera.estado()).isEqualTo(EstadoBaja.ACEPTADA);

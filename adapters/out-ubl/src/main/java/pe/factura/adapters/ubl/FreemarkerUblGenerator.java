@@ -49,6 +49,7 @@ public class FreemarkerUblGenerator implements UblGenerator {
             List<Map<String, Object>> lineas = new ArrayList<>(filas.size());
             for (int i = 0; i < filas.size(); i++) {
                 Comprobante c = comprobantes.get(i);
+                if (filas.get(i).linea() != i + 1) throw new IllegalArgumentException("La fila " + i + " del resumen es la línea " + filas.get(i).linea() + ": el LineID sale de la fila y deben ir en orden");
                 lineas.add(Map.of("b", filas.get(i), "c", c, "nombreComprador", nombreDelCompradorEnElResumen(c.receptor().razonSocial())));
             }
             Map<String, Object> modelo = new HashMap<>();

@@ -7,6 +7,7 @@ import pe.factura.domain.documento.EstadoDocumento;
 import pe.factura.domain.documento.TipoDocumento;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,7 +22,7 @@ public interface ComprobanteRepository {
      * sin un resumen de varias líneas rechazado antes (#301: ese se aísla de a una), ordenadas por serie y número y con las filas bloqueadas —las que otra transacción ya tiene
      * bloqueadas se saltan—. Para armar con ellas un solo resumen diario; el llamador filtra las que todavía no van solo en el resumen ({@code soloPorResumen}).
      */
-    List<Comprobante> bloquearPorInformarDeLaFecha(UUID tenantId, java.time.LocalDate fechaEmision, UUID excluido, int limite);
+    List<Comprobante> bloquearPorInformarDeLaFecha(UUID tenantId, LocalDate fechaEmision, UUID excluido, int limite);
     Optional<Comprobante> buscarPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero);
     /** Como buscarPorNumero, pero deja la fila bloqueada hasta el fin de la transacción (serializa a quienes dependen de ese comprobante). */
     Optional<Comprobante> bloquearPorNumero(UUID tenantId, TipoDocumento tipo, String serie, long numero);
@@ -33,7 +34,7 @@ public interface ComprobanteRepository {
      * Comprobantes de cualquier empresa aún no enviados (FIRMADO o ERROR_ENVIO) emitidos hasta {@code fechaEmisionMaxima} inclusive, para el control del plazo. Solo
      * los que pueden vencer: no la boleta ni la nota B que va en el resumen diario, que se informa fuera de plazo (#331).
      */
-    List<Comprobante> pendientesQueVencenEmitidosHasta(java.time.LocalDate fechaEmisionMaxima);
+    List<Comprobante> pendientesQueVencenEmitidosHasta(LocalDate fechaEmisionMaxima);
     /** Comprobantes firmados de cualquier empresa sin CDR en el storage: ENVIADO, ERROR_ENVIO, o aceptados/rechazados que lo perdieron. */
     List<Comprobante> pendientesDeCdr();
     /** Historial de cambios de estado del comprobante (#4), en orden cronológico; vacío si no tiene. */

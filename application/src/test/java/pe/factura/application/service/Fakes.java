@@ -61,9 +61,14 @@ final class Fakes {
                     .flatMap(c -> c.anticipos().stream()).filter(a -> a.serie().equals(serie) && a.numero() == numero)
                     .map(Anticipo::monto).reduce(BigDecimal.ZERO, BigDecimal::add);
         }
-        /** Como la consulta real, salvo lo de las bajas en curso o rechazadas de varias líneas: eso lo prueba {@code JdbcComprobanteRepositoryTest}. */
+        /**
+         * Las bajas contra las que excluir lo que ya tiene un resumen en curso o que se aísla de a uno ({@code ComunicacionBaja.aislaSuComprobante}), como el NOT EXISTS de la
+         * consulta real (que prueba {@code JdbcResumenDiarioPorLotesTest}). Sin ellas no se excluye nada.
+         */
+        Bajas bajasParaAgrupar;
         public List<Comprobante> bloquearPorInformarDeLaFecha(UUID t, java.time.LocalDate fecha, UUID excluido, int limite) {
             return datos.values().stream().filter(c -> c.tenantId().equals(t) && !c.id().equals(excluido) && c.fechaEmision().equals(fecha) && c.estado().esEnviable() && c.esDeBoleta())
+                    .filter(c -> bajasParaAgrupar == null || bajasParaAgrupar.deComprobante(t, c.id()).stream().noneMatch(b -> b.pendiente() || b.aislaSuComprobante()))
                     .sorted(Comparator.comparing(Comprobante::serie).thenComparing(Comprobante::numero)).limit(limite).toList();
         }
         public Optional<Comprobante> bloquearPorNumero(UUID t, TipoDocumento tipo, String serie, long numero) { return buscarPorNumero(t, tipo, serie, numero); }
@@ -160,17 +165,27 @@ final class Fakes {
         int resumenes;
         public byte[] sendBill(Tenant t, String nombre, byte[] xml) { enviados++; ultimoNombre = nombre; if (falla != null) throw falla; return respuesta; }
         public String sendSummary(Tenant t, String nombre, byte[] xml) { ultimoNombre = nombre; resumenes++; if (fallaResumen != null) throw fallaResumen; return ticket; }
-        public EstadoTicket getStatus(Tenant t, String tk) { consultas++; if (fallaStatus != null) throw fallaStatus; return new EstadoTicket(statusCode, "98".equals(statusCode) ? null : respuesta); }
+        /** Corre una sola vez al empezar la próxima consulta del ticket: sirve para que "otro proceso" avance mientras este espera la respuesta de SUNAT. */
+        Runnable alConsultar;
+        public EstadoTicket getStatus(Tenant t, String tk) {
+            consultas++;
+            if (alConsultar != null) { Runnable r = alConsultar; alConsultar = null; r.run(); }
+            if (fallaStatus != null) throw fallaStatus; return new EstadoTicket(statusCode, "98".equals(statusCode) ? null : respuesta); }
     }
+    /** Guarda y devuelve copias, como una base de datos: dos procesos que leen la misma fila no comparten el objeto (el avance de uno no cambia lo que el otro ya leyó). */
     static final class Bajas implements BajaRepository {
         final Map<UUID, ComunicacionBaja> datos = new LinkedHashMap<>();
-        public void guardar(ComunicacionBaja b) { datos.put(b.id(), b); }
-        public Optional<ComunicacionBaja> buscar(UUID t, UUID id) { return Optional.ofNullable(datos.get(id)).filter(b -> b.tenantId().equals(t)); }
-        public List<ComunicacionBaja> deComprobante(UUID t, UUID c) { return datos.values().stream().filter(b -> b.tenantId().equals(t) && b.comprobanteId().equals(c)).toList(); }
+        static ComunicacionBaja copia(ComunicacionBaja b) {
+            return ComunicacionBaja.rehidratar(b.id(), b.tenantId(), b.fechaGeneracion(), b.correlativo(), b.comprobanteId(), b.tipoComprobante(), b.deBoleta(), b.serie(), b.numero(),
+                    b.fechaReferencia(), b.motivo(), b.condicion(), b.estado(), b.ticket(), b.xmlKey(), b.cdrKey(), b.cdr(), b.intentos(), b.ultimoError(), b.linea(), b.lineas());
+        }
+        public void guardar(ComunicacionBaja b) { datos.put(b.id(), copia(b)); }
+        public Optional<ComunicacionBaja> buscar(UUID t, UUID id) { return Optional.ofNullable(datos.get(id)).filter(b -> b.tenantId().equals(t)).map(Bajas::copia); }
+        public List<ComunicacionBaja> deComprobante(UUID t, UUID c) { return datos.values().stream().filter(b -> b.tenantId().equals(t) && b.comprobanteId().equals(c)).map(Bajas::copia).toList(); }
         /** El máximo del día más uno, como el adaptador: las filas de un resumen de varias líneas (#301) comparten correlativo. */
         public int siguienteCorrelativo(UUID t, LocalDate f) { return datos.values().stream().filter(b -> b.tenantId().equals(t) && b.fechaGeneracion().equals(f)).mapToInt(ComunicacionBaja::correlativo).max().orElse(0) + 1; }
         public List<ComunicacionBaja> delResumen(UUID t, LocalDate f, int correlativo) {
-            return datos.values().stream().filter(b -> b.tenantId().equals(t) && b.fechaGeneracion().equals(f) && b.correlativo() == correlativo).sorted(Comparator.comparingInt(ComunicacionBaja::linea)).toList();
+            return datos.values().stream().filter(b -> b.tenantId().equals(t) && b.fechaGeneracion().equals(f) && b.correlativo() == correlativo).sorted(Comparator.comparingInt(ComunicacionBaja::linea)).map(Bajas::copia).toList();
         }
     }
     /** UblGenerator de prueba: devuelve un XML mínimo con la raíz según el tipo. */

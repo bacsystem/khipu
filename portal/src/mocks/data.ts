@@ -165,6 +165,9 @@ export type Baja = {
   /** #331: un alta informada pasado el 7.º día (SUNAT puede observarla con 4443). El backend la manda siempre; una baja, en false. */
   fuera_de_plazo?: boolean;
   estado: "GENERADA" | "ENVIADA" | "ERROR_ENVIO" | "ACEPTADA" | "RECHAZADA";
+  /** #301: la posición en su resumen diario y cuántas líneas tiene (el backend las manda siempre; el mock no agrupa: 1 de 1). */
+  linea?: number;
+  lineas?: number;
   ticket: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   intentos: number;

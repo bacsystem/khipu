@@ -2,8 +2,8 @@
 <#setting number_format="0.00">
 <#setting locale="en_US">
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<#-- Baja o alta de una boleta (#20), o de una nota que la modifica (#293): resumen diario (hoja "Resumen Diario1_1"), UBL 2.0, CustomizationID 1.1, una línea por resumen con la boleta en estado 3
-     (catálogo 19: anulado). La línea repite comprador, valores de venta y tributos de la boleta; un valor en cero no se informa (2254). El orden de los
+<#-- Baja o alta de una boleta (#20), o de una nota que la modifica (#293): resumen diario (hoja "Resumen Diario1_1"), UBL 2.0, CustomizationID 1.1, una línea por boleta (hasta 500 en un alta, #301; una baja es siempre de una línea) con el estado 3
+     (catálogo 19: anulado) o 1 (alta). La línea repite comprador, valores de venta y tributos de la boleta; un valor en cero no se informa (2254). El orden de los
      elementos es el del XSD (SummaryDocumentsLineType). -->
 <SummaryDocuments xmlns="urn:sunat:names:specification:ubl:peru:schema:xsd:SummaryDocuments-1"
                   xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"

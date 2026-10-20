@@ -3532,7 +3532,7 @@ export const handlers = [
     const identificador = `${deBoleta ? "RC" : "RA"}-${hoy}-1`;
     const baja: Baja = {
       id: nuevoId("b"), identificador, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
-      motivo, condicion: "BAJA", fuera_de_plazo: false, estado: simulada, ticket: "1758200000123",
+      motivo, condicion: "BAJA", fuera_de_plazo: false, estado: simulada, ticket: "1758200000123", linea: 1, lineas: 1,
       cdr: simulada === "ACEPTADA" ? cdrBajaAceptada(identificador)
         : simulada === "RECHAZADA" ? { codigo: "2323", descripcion: "Existe documento ya informado anteriormente en una comunicacion de baja", observaciones: [] } : null,
       intentos: 1, ultimo_error: simulada === "ENVIADA" ? "98 - SUNAT sigue procesando el ticket 1758200000123" : null,
@@ -3602,7 +3602,7 @@ export const handlers = [
     const deBoleta = deBoletaMock(factura);
     const sinResumen = (factura.tipo === "07" && factura.nota?.motivo === "10") || (factura.tipo === "08" && factura.nota?.motivo === "03");
     if (deBoleta && !sinResumen && dias > PLAZO_ENVIO.boleta.envioIndividual) {
-      // Como `EnviarDocumentoService` → `DarDeBajaService.informar`: pasado el envío individual la boleta va en su propio resumen de alta (RC); pasado el
+      // Como `EnviarDocumentoService` → `DarDeBajaService.informar`: pasado el envío individual la boleta va en un resumen de alta (RC; el mock no agrupa las demás de su fecha, como sí hace el backend, #301: cada una es un resumen de una línea); pasado el
       // 7.º día, fuera de plazo (#331). SUNAT no la rechaza; el mock simula que la observa con la 4443 (la norma lo prevé; e-beta la aceptó sin observaciones).
       // La respuesta trae ese resumen en `baja`.
       const fueraDePlazo = dias > PLAZO_ENVIO.boleta.dias;
@@ -3612,7 +3612,7 @@ export const handlers = [
       const alta: Baja = {
         id: nuevoId("b"), identificador, comprobante: `${factura.serie}-${factura.numero}`, tipo_comprobante: factura.tipo, fecha_generacion: hoyLima(), fecha_referencia: factura.fecha_emision,
         motivo: fueraDePlazo ? "Pasó el 7.º día: se informa en el resumen diario fuera de plazo (SUNAT puede observarla con 4443)" : "Pasó el envío individual: se informa en el resumen diario",
-        condicion: "ALTA", fuera_de_plazo: fueraDePlazo, estado: "ACEPTADA", ticket: "1758200000124", cdr, intentos: 1, ultimo_error: null,
+        condicion: "ALTA", fuera_de_plazo: fueraDePlazo, estado: "ACEPTADA", ticket: "1758200000124", cdr, intentos: 1, ultimo_error: null, linea: 1, lineas: 1,
       };
       db.bajas.set(alta.id, alta);
       factura.baja = alta;
