@@ -11,6 +11,8 @@ Id	Nombre	Entradas
 12	Código de documentos relacionados tributarios	11
 13	Código de ubicación geográfica (UBIGEO, INEI): departamento / provincia / distrito	1892
 16	Código de tipo de precio de venta unitario	3
+18	Código de modalidad de transporte (guía de remisión)	2
+20	Código de motivo de traslado (guía de remisión)	13
 22	Código de regimen de percepciones	3
 23	Código de regimen de retenciones	2
 25	Código de producto SUNAT (UNSPSC; solo los listados 25.1 padrón obligado, 25.2 detracciones y 25.3 percepciones — el catálogo completo lo publica SUNAT)	89
@@ -20,3 +22,4 @@ Id	Nombre	Entradas
 54	Códigos de bienes y servicios sujetos a detracciones	44
 59	Medios de Pago	22
 60	Código de tipo de dirección	5
+61	Documentos relacionados al transporte de mercancías (guía de remisión)	26

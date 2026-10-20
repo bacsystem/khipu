@@ -29,6 +29,19 @@ class TipoDocumentoTest {
         assertThat(TipoDocumento.FACTURA.serieValida("L001")).isFalse();
         assertThat(TipoDocumento.NOTA_CREDITO.serieValida("L001")).isFalse();
     }
+    /** #39: la serie de la GRE es T### (remitente) o V### (transportista), alfanumérica como en el ejemplo del manual REST (VA28). */
+    @Test void lasGuiasAceptanSerieTyV() {
+        assertThat(TipoDocumento.GUIA_REMITENTE.serieValida("T001")).isTrue();
+        assertThat(TipoDocumento.GUIA_REMITENTE.serieValida("TA01")).isTrue();
+        assertThat(TipoDocumento.GUIA_REMITENTE.serieValida("V001")).isFalse();
+        assertThat(TipoDocumento.GUIA_REMITENTE.serieValida("EG01")).isFalse();
+        assertThat(TipoDocumento.GUIA_TRANSPORTISTA.serieValida("VA28")).isTrue();
+        assertThat(TipoDocumento.GUIA_TRANSPORTISTA.serieValida("T001")).isFalse();
+        assertThat(TipoDocumento.porCodigo("09")).isEqualTo(TipoDocumento.GUIA_REMITENTE);
+        assertThat(TipoDocumento.porCodigo("31")).isEqualTo(TipoDocumento.GUIA_TRANSPORTISTA);
+        assertThat(TipoDocumento.GUIA_REMITENTE.esGuia()).isTrue();
+        assertThat(TipoDocumento.FACTURA.esGuia()).isFalse();
+    }
     @Test void codigoSunat() {
         assertThat(TipoDocumento.FACTURA.codigo()).isEqualTo("01");
         assertThat(TipoDocumento.porCodigo("01")).isEqualTo(TipoDocumento.FACTURA);

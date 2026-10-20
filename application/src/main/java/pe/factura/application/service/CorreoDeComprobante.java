@@ -48,6 +48,9 @@ record CorreoDeComprobante(String asunto, String cuerpo, List<Adjunto> adjuntos)
             case NOTA_DEBITO -> "Nota de débito";
             case RETENCION -> "Comprobante de retención";
             case PERCEPCION -> "Comprobante de percepción";
+            // #39: la guía de remisión no es un Comprobante; no llega aquí.
+            case GUIA_REMITENTE -> "Guía de remisión remitente";
+            case GUIA_TRANSPORTISTA -> "Guía de remisión transportista";
         };
     }
 }

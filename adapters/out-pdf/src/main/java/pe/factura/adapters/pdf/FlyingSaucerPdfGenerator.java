@@ -88,6 +88,8 @@ public class FlyingSaucerPdfGenerator implements PdfGenerator {
                 case LIQUIDACION_COMPRA -> "liquidacion.ftl";
                 case NOTA_CREDITO, NOTA_DEBITO -> "nota.ftl";
                 case RETENCION, PERCEPCION -> "agente.ftl";
+                // #39: la guía de remisión no es un Comprobante; su PDF lo arma generar(GuiaRemision…).
+                case GUIA_REMITENTE, GUIA_TRANSPORTISTA -> throw new IllegalArgumentException("La guía de remisión no es un comprobante de pago");
             }).process(modelo, out);
             // El parser XML de Flying Saucer exige la declaración <?xml?> en el primer byte.
             return out.toString().strip();

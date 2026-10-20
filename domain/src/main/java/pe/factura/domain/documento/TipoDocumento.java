@@ -12,7 +12,13 @@ public enum TipoDocumento {
     /** Comprobante de retención (#40): lo emite el agente de retención al proveedor al pagarle; serie {@code [R][A-Z0-9]{3}} (regla 1001 de Retenciones1_0). */
     RETENCION("20", "R"),
     /** Comprobante de percepción (#40): lo emite el agente de percepción al cliente al cobrarle; serie {@code [P][A-Z0-9]{3}} (regla 1001 de Percepciones1_0). */
-    PERCEPCION("40", "P");
+    PERCEPCION("40", "P"),
+    /**
+     * Guías de remisión electrónicas (#39): la remitente (09, serie {@code T###}) y la transportista (31, serie {@code V###}), como las piden la ruta y el
+     * nombre del archivo del servicio REST de la GRE (anexo «manual_url_gre_rest», servicio de envío, campo {@code numSerie}: error 502). No son
+     * comprobantes de pago: no se emiten con {@code Comprobante} sino con {@link GuiaRemision}, y se envían por la API REST de SUNAT, no por SOAP.
+     */
+    GUIA_REMITENTE("09", "T"), GUIA_TRANSPORTISTA("31", "V");
 
     @Getter private final String codigo;
     private final Pattern serie;
@@ -27,6 +33,8 @@ public enum TipoDocumento {
      * ({@code ol-ti-itemision-otroscpe-gem}) y se revierte en un resumen de reversiones (RR), no en una comunicación de baja.
      */
     public boolean deAgente() { return this == RETENCION || this == PERCEPCION; }
+    /** Guía de remisión (09 o 31): no es un comprobante de pago y no pasa por el flujo de {@code Comprobante}. */
+    public boolean esGuia() { return this == GUIA_REMITENTE || this == GUIA_TRANSPORTISTA; }
     public static TipoDocumento porCodigo(String codigo) {
         for (TipoDocumento t : values()) if (t.codigo.equals(codigo)) return t;
         throw new IllegalArgumentException("Tipo de documento desconocido: " + codigo);

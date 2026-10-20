@@ -1,0 +1,27 @@
+Código	Descripción	GRE aplicable
+01	Factura	remitente, transportista
+03	Boleta de Venta	remitente, transportista
+04	Liquidación de Compra	remitente, transportista
+09	Guía de Remisión Remitente	remitente, transportista
+12	Ticket o cinta emitido por máquina registradora	remitente, transportista
+31	Guía de Remisión Transportista	solo transportista
+48	Comprobante de Operaciones – Ley N° 29972	remitente, transportista
+49	Constancia de Depósito - IVAP (Ley 28211)	solo remitente
+50	Declaración Aduanera de Mercancías	remitente, transportista
+52	Declaración Simplificada (DS)	remitente, transportista
+65	Autorización de Circulación para transportar MATPEL – Callao	solo transportista
+66	Autorización de Circulación para transporte de carga y mercancías en Lima Metropolitana	solo transportista
+67	Permiso de Operación Especial para el servicio de transporte de MATPEL - MTC	solo transportista
+68	Habilitación Sanitaria de Transporte Terrestre de Productos Pesqueros y Acuícolas	solo transportista
+69	Permiso / Autorización de operación de transporte de mercancías	solo transportista
+71	Resolución de Adjudicación de bienes – SUNAT	solo remitente
+72	Resolución de Comiso de bienes – SUNAT	solo remitente
+73	Guía de Transporte Forestal o de Fauna - SERFOR	solo remitente
+74	Guía de Tránsito – SUCAMEC	solo remitente
+75	Autorización para operar como empresa de Saneamiento Ambiental – MINSA	solo remitente
+76	Autorización para manejo y recojo de residuos sólidos peligrosos y no peligrosos	solo remitente
+77	Certificado fitosanitario la movilización de plantas, productos vegetales, y otros artículos reglamentados	solo remitente
+78	Registro Único de Usuarios y Transportistas de Alcohol Etílico	solo remitente
+80	Constancia de Depósito – Detracción	remitente, transportista
+81	Código de autorización emitida por el SCOP	solo remitente
+82	Declaración jurada de mudanza	solo transportista
