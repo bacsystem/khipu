@@ -38,6 +38,11 @@ class PermisoDeRutaTest {
             // #40: la retención y la percepción se emiten como cualquier comprobante (la designación de agente es del backoffice, /v1/admin/**).
             entry("POST /v1/retenciones", EMITIR), entry("POST /v1/retenciones/calcular", EMITIR),
             entry("POST /v1/percepciones", EMITIR), entry("POST /v1/percepciones/calcular", EMITIR),
+            // #39: la guía de remisión, como un comprobante: emitirla, validarla, enviarla y pedir su ticket es del emisor; mirarla y bajar sus archivos, de todos.
+            entry("POST /v1/guias-remision", EMITIR), entry("POST /v1/guias-remision/validar", EMITIR),
+            entry("POST /v1/guias-remision/x/enviar", EMITIR), entry("POST /v1/guias-remision/x/ticket", EMITIR),
+            entry("GET /v1/guias-remision", LEER), entry("GET /v1/guias-remision/x", LEER), entry("GET /v1/guias-remision/x/xml", LEER),
+            entry("GET /v1/guias-remision/x/pdf", LEER), entry("GET /v1/guias-remision/x/cdr", LEER),
             // Clientes y productos guardados: con lo que se emite.
             entry("GET /v1/clientes", LEER), entry("GET /v1/clientes/x", LEER), entry("POST /v1/clientes", EMITIR), entry("PUT /v1/clientes/x", EMITIR),
             entry("PUT /v1/clientes/documento/x/x", EMITIR), entry("DELETE /v1/clientes/x", EMITIR),
