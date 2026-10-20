@@ -24,6 +24,7 @@ import type { ClienteGuardado, DatosDeCliente } from "./clientes";
 import type { ProductoGuardado, DatosDeProducto } from "./productos";
 import type { BannerVigente } from "./banner";
 import type { AccesoDeSoporte } from "./accesos-de-soporte";
+import type { MiembroDelEquipo, InvitacionAlEquipo, InvitacionEnviada, InvitacionRecibida, CuerpoDeInvitacion, CuerpoDeCambioDeRol, CuerpoDeAceptacion } from "./equipo";
 import type { Administrador, AdminDesafio, AdminConfiguracion, AdminSesion, AdminSesionNueva } from "./admin-auth";
 import type { AltaAsistidaCreada, AltaAsistida } from "./admin-alta";
 import type { TextoDeCorreo, BannerConfigurado, PlantillaDeCorreo, RemitenteConfigurado } from "./admin-configuracion";
@@ -104,6 +105,14 @@ export type ContratoDeLaApi = [
   Verifica<Contrato<BannerVigente, S["BannerPublico"]>>,
   // accesos-de-soporte
   Verifica<Contrato<AccesoDeSoporte, S["AccesoDeSoporteResponse"]>>,
+  // equipo (#21)
+  Verifica<Contrato<MiembroDelEquipo, S["MiembroDelEquipo"]>>,
+  Verifica<Contrato<InvitacionAlEquipo, S["InvitacionAlEquipo"]>>,
+  Verifica<Contrato<InvitacionEnviada, S["InvitacionEnviada"]>>,
+  Verifica<Contrato<InvitacionRecibida, S["InvitacionRecibida"]>>,
+  Verifica<ContratoDePeticion<CuerpoDeInvitacion, S["InvitarAlEquipoRequest"]>>,
+  Verifica<ContratoDePeticion<CuerpoDeCambioDeRol, S["CambiarRolRequest"]>>,
+  Verifica<ContratoDePeticion<CuerpoDeAceptacion, S["AceptarInvitacionRequest"]>>,
   // admin-auth
   Verifica<Contrato<Administrador, S["AdministradorResponse"]>>,
   Verifica<Contrato<AdminDesafio, S["AdminDesafioResponse"]>>,

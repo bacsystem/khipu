@@ -35,7 +35,7 @@ public class CuentaEquipoController {
 
     @GetMapping("/usuarios")
     @Operation(summary = "Usuarios de la cuenta", description = "Activos y desactivados, por fecha de alta.")
-    public ApiResponse<List<EquipoDtos.Miembro>> usuarios(HttpServletRequest req) {
+    public ApiResponse<List<EquipoDtos.Miembro>> usuariosDeLaCuenta(HttpServletRequest req) {
         UUID yo = UsuarioActual.id(req);
         return ApiResponse.ok(equipo.miembros(CuentaActual.id(req), yo).stream().map(u -> EquipoDtos.Miembro.de(u, yo)).toList());
     }
@@ -44,7 +44,7 @@ public class CuentaEquipoController {
     @Operation(summary = "Cambiar el rol de un usuario", description = """
             Vale desde la siguiente petición del usuario, sin que vuelva a entrar. `409 ULTIMO_ADMINISTRADOR` si le quitaría el rol al único `ADMIN` activo (también a uno
             mismo).""")
-    public ApiResponse<EquipoDtos.Miembro> cambiarRol(HttpServletRequest req, @PathVariable UUID id, @Valid @RequestBody EquipoDtos.CambiarRol body) {
+    public ApiResponse<EquipoDtos.Miembro> cambiarRolDeUsuario(HttpServletRequest req, @PathVariable UUID id, @Valid @RequestBody EquipoDtos.CambiarRol body) {
         UUID yo = UsuarioActual.id(req);
         return ApiResponse.ok(EquipoDtos.Miembro.de(equipo.cambiarRol(CuentaActual.id(req), yo, id, body.rolElegido()), yo));
     }
@@ -52,21 +52,21 @@ public class CuentaEquipoController {
     @PostMapping("/usuarios/{id}/desactivar")
     @Operation(summary = "Desactivar un usuario", description = """
             Ya no entra y se cierran sus sesiones abiertas. `422 NO_PUEDES_DESACTIVARTE` con el propio usuario. Se puede reactivar.""")
-    public ApiResponse<EquipoDtos.Miembro> desactivar(HttpServletRequest req, @PathVariable UUID id) {
+    public ApiResponse<EquipoDtos.Miembro> desactivarUsuario(HttpServletRequest req, @PathVariable UUID id) {
         UUID yo = UsuarioActual.id(req);
         return ApiResponse.ok(EquipoDtos.Miembro.de(equipo.desactivar(CuentaActual.id(req), yo, id), yo));
     }
 
     @PostMapping("/usuarios/{id}/reactivar")
     @Operation(summary = "Reactivar un usuario", description = "Vuelve a entrar con su contraseña y el rol que tenía.")
-    public ApiResponse<EquipoDtos.Miembro> reactivar(HttpServletRequest req, @PathVariable UUID id) {
+    public ApiResponse<EquipoDtos.Miembro> reactivarUsuario(HttpServletRequest req, @PathVariable UUID id) {
         UUID yo = UsuarioActual.id(req);
         return ApiResponse.ok(EquipoDtos.Miembro.de(equipo.reactivar(CuentaActual.id(req), yo, id), yo));
     }
 
     @GetMapping("/invitaciones")
     @Operation(summary = "Invitaciones pendientes", description = "Las que no se aceptaron ni revocaron, también las vencidas (`vencida: true`), que se pueden reenviar.")
-    public ApiResponse<List<EquipoDtos.InvitacionPendiente>> invitaciones(HttpServletRequest req) {
+    public ApiResponse<List<EquipoDtos.InvitacionPendiente>> invitacionesPendientes(HttpServletRequest req) {
         return ApiResponse.ok(equipo.invitaciones(CuentaActual.id(req), UsuarioActual.id(req)).stream().map(EquipoDtos.InvitacionPendiente::de).toList());
     }
 
@@ -75,7 +75,7 @@ public class CuentaEquipoController {
             Le manda un enlace de un solo uso (7 días) para crear su contraseña y entrar con el rol elegido. `409 YA_ES_MIEMBRO` si ya es usuario de la cuenta,
             `409 USUARIO_EXISTENTE` si el correo ya tiene un usuario en khipu (cada usuario es de una sola cuenta), `409 INVITACION_PENDIENTE` si ya hay una pendiente para
             ese correo (reenvíela), `429 DEMASIADAS_INVITACIONES` con 20 pendientes. `correo_enviado: false` si el correo no salió: la invitación queda y se puede reenviar.""")
-    public ResponseEntity<ApiResponse<EquipoDtos.Enviada>> invitar(HttpServletRequest req, @Valid @RequestBody EquipoDtos.Invitar body) {
+    public ResponseEntity<ApiResponse<EquipoDtos.Enviada>> invitarAlEquipo(HttpServletRequest req, @Valid @RequestBody EquipoDtos.Invitar body) {
         var enviada = equipo.invitar(CuentaActual.id(req), UsuarioActual.id(req), body.email(), body.rolElegido(), portalUrl);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(EquipoDtos.Enviada.de(enviada)));
     }
@@ -84,13 +84,13 @@ public class CuentaEquipoController {
     @Operation(summary = "Reenviar una invitación", description = """
             Un enlace nuevo que vuelve a durar 7 días; el anterior deja de servir. Hasta 5 envíos por invitación: después, `429 DEMASIADOS_ENVIOS`.
             `409 INVITACION_NO_PENDIENTE` si ya se aceptó o se revocó.""")
-    public ApiResponse<EquipoDtos.Enviada> reenviar(HttpServletRequest req, @PathVariable UUID id) {
+    public ApiResponse<EquipoDtos.Enviada> reenviarInvitacion(HttpServletRequest req, @PathVariable UUID id) {
         return ApiResponse.ok(EquipoDtos.Enviada.de(equipo.reenviar(CuentaActual.id(req), UsuarioActual.id(req), id, portalUrl)));
     }
 
     @DeleteMapping("/invitaciones/{id}")
     @Operation(summary = "Revocar una invitación", description = "El enlace deja de servir. `409 INVITACION_NO_PENDIENTE` si ya se aceptó o se revocó.")
-    public ResponseEntity<Void> revocar(HttpServletRequest req, @PathVariable UUID id) {
+    public ResponseEntity<Void> revocarInvitacion(HttpServletRequest req, @PathVariable UUID id) {
         equipo.revocar(CuentaActual.id(req), UsuarioActual.id(req), id);
         return ResponseEntity.noContent().build();
     }
