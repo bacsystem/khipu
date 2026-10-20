@@ -214,7 +214,8 @@ public class AppConfig {
                         ## Plazos SUNAT
                         Una factura debe llegar a SUNAT dentro de los **3 días calendario** siguientes a su emisión (2108). Una boleta va sola
                         hasta el **5.º día**; el 6.º y el 7.º khipu la informa en un resumen diario, y pasado el 7.º también, fuera de plazo
-                        (SUNAT no la rechaza; puede observarla con la 4443). Emita el mismo día y vigile los `ERROR_ENVIO`.
+                        (SUNAT no la rechaza; puede observarla con la 4443). Una liquidación de compra, hasta el **día siguiente** (2108).
+                        Emita el mismo día y vigile los `ERROR_ENVIO`.
 
                         ## Códigos y catálogos
                         Los valores de `tipo_afectacion_igv`, `unidad`, `tipo_operacion`, `tipo_doc`, etc. son códigos oficiales de SUNAT:
@@ -228,7 +229,7 @@ public class AppConfig {
      * scoped a tenant (ApiKeyFilter → TenantActual) aceptan X-Api-Key.
      */
     @Bean GlobalOpenApiCustomizer apiKeySecurityCustomizer() {
-        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas", "/v1/notas", "/v1/bajas");
+        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas", "/v1/notas", "/v1/liquidaciones-compra", "/v1/bajas");
         return openApi -> {
             if (openApi.getComponents() == null) openApi.setComponents(new Components());
             openApi.getComponents().addSecuritySchemes("ApiKey",

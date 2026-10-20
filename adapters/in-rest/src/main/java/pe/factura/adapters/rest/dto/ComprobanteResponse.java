@@ -14,6 +14,7 @@ import pe.factura.domain.documento.FormaPago;
 import pe.factura.domain.documento.Item;
 import pe.factura.domain.documento.ItemCalculado;
 import pe.factura.domain.documento.Leyenda;
+import pe.factura.domain.documento.LiquidacionCompra;
 import pe.factura.domain.documento.Nota;
 import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.Referencias;
@@ -31,7 +32,7 @@ import java.util.UUID;
 // y sin esto un solo esquema se queda con el de la petición, y la referencia /developers documenta mal la respuesta (valor_venta, igv… ausentes).
 public record ComprobanteResponse(
         @Schema(example = "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f") UUID id,
-        @Schema(example = "01", description = "Catálogo 01 SUNAT: 01=factura, 03=boleta") String tipo,
+        @Schema(example = "01", description = "Catálogo 01 SUNAT: 01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito") String tipo,
         @Schema(example = "F001") String serie,
         @Schema(example = "125") Long numero,
         @Schema(example = "2026-09-14") LocalDate fechaEmision,
@@ -62,6 +63,7 @@ public record ComprobanteResponse(
         @Schema(example = "Entrega en almacén central.", description = "Observaciones impresas en el PDF (solo las propias del comprobante), o `null`") String observaciones,
         @Schema(description = "Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML") List<LeyendaDto> leyendas,
         @Schema(description = "Solo en exportaciones (0200–0208): Incoterm y país de uso del servicio; `null` en las demás") ExportacionDto exportacion,
+        @Schema(description = "Solo en una liquidación de compra (04): el resto del domicilio del vendedor (que va en `receptor`), el lugar de la operación, lo que el comprador le retiene y el neto que le paga (igual a `totales.total`); `null` en los demás") LiquidacionDto liquidacion,
         @Schema(example = "{\"xml\": \"/v1/facturas/{id}/xml\", \"pdf\": \"/v1/facturas/{id}/pdf\", \"cdr\": \"/v1/facturas/{id}/cdr\"}", description = "cdr solo está presente cuando SUNAT emitió la constancia") Map<String, String> enlaces) {
     @Schema(name = "FormaPagoRespuesta")
     public record FormaPagoDto(
@@ -171,6 +173,36 @@ public record ComprobanteResponse(
             @Schema(example = "FOB", description = "Incoterm 2020 de la venta, o `null`") String incoterm,
             @Schema(example = "US", description = "País de uso del servicio (solo 0201/0208), o `null`") String paisUso) {
         static ExportacionDto de(pe.factura.domain.documento.Exportacion e) { return e == null ? null : new ExportacionDto(e.incoterm(), e.paisUso()); }
+    }
+
+    /**
+     * #327: lo propio de una liquidación de compra. El vendedor (documento, nombre y dirección) va en {@code receptor}; aquí el ubigeo y la condición de su domicilio, el lugar de
+     * la operación y las retenciones: el comprador retiene el IGV y la renta, y paga el neto.
+     */
+    @Schema(name = "LiquidacionCompraRespuesta")
+    public record LiquidacionDto(
+            @Schema(example = "060101", description = "Ubigeo del domicilio del vendedor (catálogo 13)") String ubigeoVendedor,
+            @Schema(example = "02", description = "Condición del domicilio del vendedor (catálogo 60: 01 punto de venta, 02 producción, 03 extracción, 04 explotación, 05 otros)") String condicionVendedor,
+            LugarDto lugarOperacion,
+            @Schema(example = "1180.00", description = "Subtotal de la liquidación: valor de venta + IGV (TaxInclusiveAmount)") BigDecimal subtotal,
+            @Schema(example = "180.00", description = "IGV que el comprador retiene y paga en lugar del vendedor") BigDecimal igvRetenido,
+            RetencionRentaDto retencionRenta,
+            @Schema(example = "985.00", description = "Importe neto que se paga al vendedor: subtotal − IGV − renta + redondeo (PayableAmount, regla 4312); el mismo `totales.total`") BigDecimal netoPagar) {
+        @Schema(name = "LugarDeOperacionRespuesta")
+        public record LugarDto(@Schema(example = "Fundo Santa Rosa, km 12") String direccion, @Schema(example = "060101") String ubigeo, @Schema(example = "02", description = "Catálogo 60") String condicion) {}
+
+        @Schema(name = "RetencionRentaRespuesta")
+        public record RetencionRentaDto(@Schema(example = "1.5", description = "Tasa en porcentaje") BigDecimal tasa,
+                                        @Schema(example = "1000.00", description = "Base: el valor de venta de las líneas") BigDecimal base,
+                                        @Schema(example = "15.00", description = "Retención del Impuesto a la Renta (tributo 3000): la suma de la de cada línea") BigDecimal monto) {}
+
+        static LiquidacionDto de(Comprobante c) {
+            LiquidacionCompra lc = c.liquidacion();
+            if (lc == null) return null;
+            return new LiquidacionDto(lc.ubigeoVendedor(), lc.condicionVendedor(),
+                    new LugarDto(lc.lugarOperacion().direccion(), lc.lugarOperacion().ubigeo(), lc.lugarOperacion().condicion()),
+                    c.totales().totalPrecioVenta(), c.totales().igv(), new RetencionRentaDto(lc.tasaRetencionRenta(), lc.baseRetencion(c.totales()), c.retencionRenta()), c.totales().total());
+        }
     }
 
     /** Descuento tal como se aplicó: lo enviado (tipo/valor), el monto resultante y el código SUNAT del catálogo 53. */
@@ -315,6 +347,7 @@ public record ComprobanteResponse(
                 c.observaciones(),
                 c.leyendas().stream().map(l -> new LeyendaDto(l, Leyenda.texto(l))).toList(),
                 ExportacionDto.de(c.exportacion()),
+                LiquidacionDto.de(c),
                 enlaces(c, p));
     }
 

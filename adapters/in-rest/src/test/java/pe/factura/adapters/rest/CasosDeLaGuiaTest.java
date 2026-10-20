@@ -10,6 +10,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.adapters.rest.dto.FacturaRequest;
+import pe.factura.adapters.rest.dto.LiquidacionCompraRequest;
 import pe.factura.application.port.in.*;
 import pe.factura.domain.documento.*;
 
@@ -38,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * respuesta de ejemplo debe ser un extracto de lo que serializa el controller (mismas rutas, mismos valores). Un ejemplo que el backend rechazaría, o un
  * campo que la API no devuelve donde el ejemplo lo pone, lo tira.
  */
-@WebMvcTest(controllers = {FacturaController.class, BajaController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = {FacturaController.class, BajaController.class, LiquidacionCompraController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 @Import(GlobalExceptionHandler.class)
 class CasosDeLaGuiaTest {
     private static final Path CASOS = Path.of("../../portal/src/components/developers/guia/casos-emision.ts");
@@ -66,6 +67,26 @@ class CasosDeLaGuiaTest {
             mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(request))
                     .andExpect(status().isCreated());
         }
+    }
+
+    /** #327: el caso de la liquidación de compra pasa por Jackson estricto, Bean Validation y el builder real, y su respuesta de ejemplo es un extracto de la real. */
+    @Test void laLiquidacionDeCompraDeLaGuiaEsLaReal() throws Exception {
+        String caso = request("liquidacion-compra");
+        String pedido = caso.substring(0, caso.indexOf("// respuesta")).strip();
+        json.copy().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).readValue(pedido, LiquidacionCompraRequest.class);
+        when(emitir.emitirLiquidacionCompra(eq(tenant), any())).thenAnswer(inv -> liquidacionDe(inv.getArgument(1)));
+        String real = mvc.perform(post("/v1/liquidaciones-compra").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(pedido))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        esExtracto(respuesta("liquidacion-compra"), json.readTree(real), "");
+    }
+
+    /** Lo que hace EmitirComprobanteService con el comando de la liquidación, con el reloj en la fecha de emisión. */
+    private static Comprobante liquidacionDe(EmitirLiquidacionCommand cmd) {
+        Comprobante c = Comprobante.liquidacionCompra(UUID.randomUUID(), cmd.serie(), cmd.fechaEmision(), cmd.moneda(), cmd.tipoOperacion(), cmd.vendedor(), cmd.liquidacion(), cmd.items())
+                .referencias(cmd.referencias()).redondeo(cmd.redondeo()).tipoCambio(cmd.tipoCambio())
+                .crear(Clock.fixed(cmd.fechaEmision().atTime(12, 0).atZone(LIMA).toInstant(), LIMA));
+        c.asignarNumero(1, RUC_EMISOR);
+        return c;
     }
 
     @Test void laRespuestaDelAltaTardiaEsUnExtractoDeLaReal() throws Exception {
