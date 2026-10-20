@@ -37,7 +37,7 @@ test("el diálogo dice qué se puede y qué no antes de entrar como el usuario",
 test("al confirmar se abre el portal del cliente con un aviso permanente de que se está actuando como él", async ({ page }) => {
   await abrirComoBeto(page);
 
-  await expect(page).toHaveURL(/\/comprobantes|\/$/);
+  await expect(page).toHaveURL(/\/inicio|\/$/);
   const aviso = page.getByTestId("aviso-de-soporte");
   await expect(aviso).toBeVisible();
   await expect(aviso).toContainText("Modo soporte");
@@ -115,7 +115,7 @@ test("el cliente ve en su portal los accesos de soporte a su cuenta, sin saber q
   await page.getByLabel("Correo electrónico").fill("demo@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  await expect(page).toHaveURL(/\/inicio/);
 
   await page.getByRole("link", { name: "Accesos de soporte" }).first().click();
 

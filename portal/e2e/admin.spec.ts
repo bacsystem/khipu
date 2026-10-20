@@ -111,7 +111,7 @@ test("una sesión de cliente no da acceso al backoffice", async ({ page }) => {
   await page.getByLabel("Correo electrónico").fill("demo@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  await expect(page).toHaveURL(/\/inicio/);
 
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/admin\/login/);
