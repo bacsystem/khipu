@@ -1349,6 +1349,7 @@
           "CAMBIAR_ENTORNO_EMPRESA": "Cambio de entorno de una empresa",
           "REVOCAR_API_KEY_EMPRESA": "Revocación de una API key",
           "PROBAR_CONEXION_EMPRESA": "Prueba de conexión con SUNAT",
+          "DESIGNAR_AGENTE_EMPRESA": "Designación de agente de retención o percepción",
           "IMPERSONAR_USUARIO": "Acceso de soporte como un usuario",
           "CREAR_PLAN": "Alta de un plan",
           "EDITAR_PLAN": "Cambio de un plan",

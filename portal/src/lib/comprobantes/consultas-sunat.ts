@@ -1,4 +1,4 @@
-import { esDeBoleta, type Comprobante } from "@/lib/api/facturas";
+import { esDeAgente, esDeBoleta, type Comprobante } from "@/lib/api/facturas";
 import type { DatosDeValidez } from "@/components/comprobantes/validez-button";
 
 /** Estados desde los que se puede pedir a SUNAT la constancia que falta (#315): `RecuperarCdrService` acepta `ENVIADO` y `ERROR_ENVIO`. */
@@ -6,7 +6,8 @@ const ESTADOS_SIN_CONSTANCIA = new Set(["ENVIADO", "ERROR_ENVIO"]);
 
 /** ¿Se ofrece «Recuperar constancia»? Solo facturas y sus notas: SUNAT no expone `getStatusCdr` para boletas ni notas de boleta (`Comprobante.esDeBoleta`). */
 export function puedeRecuperarCdr(c: Pick<Comprobante, "tipo" | "estado_documento" | "nota">): boolean {
-  return ESTADOS_SIN_CONSTANCIA.has(c.estado_documento) && !esDeBoleta(c);
+  // #40: getStatusCdr tampoco cubre la retención ni la percepción (el backend responde CDR_NO_CONSULTABLE).
+  return ESTADOS_SIN_CONSTANCIA.has(c.estado_documento) && !esDeBoleta(c) && !esDeAgente(c);
 }
 
 /** El RUC del emisor, primer tramo del nombre de archivo (`<RUC>-<tipo>-<serie>-<número>`); `null` si no se puede leer. */
