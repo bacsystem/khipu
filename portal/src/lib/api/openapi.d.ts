@@ -547,7 +547,7 @@ export interface paths {
          *     khipu no tiene: si falla, la liquidación queda `RECHAZADO` con el número consumido.
          *
          *     **Errores**: `422 VALIDACION`, `422 RECEPTOR_INVALIDO` (vendedor), `422 LIQUIDACION_INVALIDA` (ubigeos, condiciones, lugar, tasa), `422 ITEM_INVALIDO`,
-         *     `422 AFECTACION_INVALIDA`, `422 TIPO_OPERACION_INVALIDO`, `422 FECHA_INVALIDA`, `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`,
+         *     `422 AFECTACION_INVALIDA`, `422 TIPO_OPERACION_INVALIDO`, `422 REDONDEO_INVALIDO` (4314: el redondeo pasa de ±1.00, o el neto queda en cero o negativo, 2062), `422 FECHA_INVALIDA`, `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`,
          *     `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las liquidaciones.
          */
         post: operations["crear_3"];
@@ -4783,7 +4783,7 @@ export interface components {
             /** @description Otros documentos relacionados: en una liquidación de compra solo el tipo `99` (otros); otro tipo responde `422 DOCUMENTO_RELACIONADO_INVALIDO` (4009). Opcional */
             documentos_relacionados?: components["schemas"]["DocumentoRelacionadoDto"][];
             /**
-             * @description Redondeo del importe neto (`PayableRoundingAmount`): entre −1.00 y 1.00 con 2 decimales (4314, 3303). Opcional
+             * @description Redondeo del importe neto (`PayableRoundingAmount`): entre −1.00 y 1.00 con 2 decimales (4314). Opcional
              * @example 0.25
              */
             redondeo?: number;

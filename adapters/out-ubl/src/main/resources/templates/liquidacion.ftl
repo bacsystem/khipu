@@ -28,16 +28,7 @@
   <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">${c.moneda()}</cbc:DocumentCurrencyCode>
 <#-- Guías de remisión (09/31: 4005, 4006, 2364) y otros documentos (99: 4009, 4010, 2365). -->
 <@u.guiasYOtrosDocumentos/>
-  <cac:Signature>
-    <cbc:ID>signatureFACTURA</cbc:ID>
-    <cac:SignatoryParty>
-      <cac:PartyIdentification><cbc:ID>${t.ruc()}</cbc:ID></cac:PartyIdentification>
-      <cac:PartyName><cbc:Name>${t.razonSocial()}</cbc:Name></cac:PartyName>
-    </cac:SignatoryParty>
-    <cac:DigitalSignatureAttachment>
-      <cac:ExternalReference><cbc:URI>#signatureFACTURA</cbc:URI></cac:ExternalReference>
-    </cac:DigitalSignatureAttachment>
-  </cac:Signature>
+<@u.firma/>
   <#-- El emisor electrónico, que es el comprador: RUC con schemeID 6 (1007, 1008, 1034, 3089), razón social (1037, 4338), nombre comercial (4092) y domicilio fiscal
        (4093–4098, 4041), todos opcionales salvo el RUC y la razón social. Sin el AddressTypeCode del establecimiento anexo: la hoja no lo tiene en el comprador. -->
   <cac:AccountingCustomerParty>
@@ -46,17 +37,7 @@
       <#if t.nombreComercial()??><cac:PartyName><cbc:Name>${t.nombreComercial()}</cbc:Name></cac:PartyName></#if>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${t.razonSocial()}</cbc:RegistrationName>
-        <#if t.domicilio()??>
-        <cac:RegistrationAddress>
-          <cbc:ID schemeName="Ubigeos" schemeAgencyName="PE:INEI">${t.domicilio().ubigeo()}</cbc:ID>
-          <#if t.domicilio().urbanizacion()??><cbc:CitySubdivisionName>${t.domicilio().urbanizacion()}</cbc:CitySubdivisionName></#if>
-          <#if t.domicilio().provincia()??><cbc:CityName>${t.domicilio().provincia()}</cbc:CityName></#if>
-          <#if t.domicilio().departamento()??><cbc:CountrySubentity>${t.domicilio().departamento()}</cbc:CountrySubentity></#if>
-          <#if t.domicilio().distrito()??><cbc:District>${t.domicilio().distrito()}</cbc:District></#if>
-          <cac:AddressLine><cbc:Line>${t.domicilio().direccion()}</cbc:Line></cac:AddressLine>
-          <cac:Country><cbc:IdentificationCode listID="ISO 3166-1" listAgencyName="United Nations Economic Commission for Europe" listName="Country">${statics["pe.factura.domain.tenant.Domicilio"].PAIS}</cbc:IdentificationCode></cac:Country>
-        </cac:RegistrationAddress>
-        </#if>
+<@u.domicilioDelEmisor false/>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>

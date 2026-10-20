@@ -48,7 +48,7 @@
   </#list>
 </#macro>
 <#-- Firma (el ds:Signature real lo coloca XmlDsigSigner en ExtensionContent), emisor y receptor. -->
-<#macro firmaYPartes>
+<#macro firma>
   <cac:Signature>
     <cbc:ID>signatureFACTURA</cbc:ID>
     <cac:SignatoryParty>
@@ -59,18 +59,14 @@
       <cac:ExternalReference><cbc:URI>#signatureFACTURA</cbc:URI></cac:ExternalReference>
     </cac:DigitalSignatureAttachment>
   </cac:Signature>
-  <cac:AccountingSupplierParty>
-    <cac:Party>
-      <cac:PartyIdentification><cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${t.ruc()}</cbc:ID></cac:PartyIdentification>
-      <#-- Nombre comercial (campo 11, regla 4092): opcional; solo cuando la empresa lo configuró. -->
-      <#if t.nombreComercial()??><cac:PartyName><cbc:Name>${t.nombreComercial()}</cbc:Name></cac:PartyName></#if>
-      <cac:PartyLegalEntity>
-        <cbc:RegistrationName>${t.razonSocial()}</cbc:RegistrationName>
-        <#-- Domicilio fiscal (reglas 4093–4098, 4041; establecimiento anexo 3030): ubigeo del catálogo 13 y dirección en una línea. -->
+</#macro>
+<#-- Domicilio fiscal del emisor (reglas 4093–4098, 4041): ubigeo del catálogo 13 y dirección en una línea. Con {@code conEstablecimiento} lleva además el código del establecimiento anexo (3030) y, sin
+     domicilio, el 0000; la liquidación de compra no lo lleva porque su hoja no lo tiene en el comprador. -->
+<#macro domicilioDelEmisor conEstablecimiento>
         <#if t.domicilio()??>
         <cac:RegistrationAddress>
           <cbc:ID schemeName="Ubigeos" schemeAgencyName="PE:INEI">${t.domicilio().ubigeo()}</cbc:ID>
-          <cbc:AddressTypeCode listAgencyName="PE:SUNAT" listName="Establecimientos anexos">${t.domicilio().codigoEstablecimiento()}</cbc:AddressTypeCode>
+          <#if conEstablecimiento><cbc:AddressTypeCode listAgencyName="PE:SUNAT" listName="Establecimientos anexos">${t.domicilio().codigoEstablecimiento()}</cbc:AddressTypeCode></#if>
           <#if t.domicilio().urbanizacion()??><cbc:CitySubdivisionName>${t.domicilio().urbanizacion()}</cbc:CitySubdivisionName></#if>
           <#if t.domicilio().provincia()??><cbc:CityName>${t.domicilio().provincia()}</cbc:CityName></#if>
           <#if t.domicilio().departamento()??><cbc:CountrySubentity>${t.domicilio().departamento()}</cbc:CountrySubentity></#if>
@@ -78,9 +74,20 @@
           <cac:AddressLine><cbc:Line>${t.domicilio().direccion()}</cbc:Line></cac:AddressLine>
           <cac:Country><cbc:IdentificationCode listID="ISO 3166-1" listAgencyName="United Nations Economic Commission for Europe" listName="Country">${statics["pe.factura.domain.tenant.Domicilio"].PAIS}</cbc:IdentificationCode></cac:Country>
         </cac:RegistrationAddress>
-        <#else>
+        <#elseif conEstablecimiento>
         <cac:RegistrationAddress><cbc:AddressTypeCode listAgencyName="PE:SUNAT" listName="Establecimientos anexos">0000</cbc:AddressTypeCode></cac:RegistrationAddress>
         </#if>
+</#macro>
+<#macro firmaYPartes>
+  <@firma/>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cac:PartyIdentification><cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${t.ruc()}</cbc:ID></cac:PartyIdentification>
+      <#-- Nombre comercial (campo 11, regla 4092): opcional; solo cuando la empresa lo configuró. -->
+      <#if t.nombreComercial()??><cac:PartyName><cbc:Name>${t.nombreComercial()}</cbc:Name></cac:PartyName></#if>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>${t.razonSocial()}</cbc:RegistrationName>
+<@domicilioDelEmisor true/>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingSupplierParty>

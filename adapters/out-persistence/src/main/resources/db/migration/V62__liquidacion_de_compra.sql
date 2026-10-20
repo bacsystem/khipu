@@ -10,6 +10,8 @@ ALTER TABLE comprobante
     ADD COLUMN retencion_renta_tasa NUMERIC(8, 5);
 
 -- Una liquidación de compra trae los seis datos y ningún otro comprobante trae alguno: lo que el dominio exige al emitir, también en la base.
+-- NOT VALID: las columnas acaban de nacer y toda fila existente las tiene nulas (cumple por construcción), así que no hace falta recorrer la tabla bajo bloqueo para validarla;
+-- las filas nuevas y las que se modifiquen sí se comprueban.
 ALTER TABLE comprobante ADD CONSTRAINT comprobante_liquidacion_completa CHECK (
     (vendedor_ubigeo IS NULL AND vendedor_condicion IS NULL AND lugar_direccion IS NULL AND lugar_ubigeo IS NULL AND lugar_condicion IS NULL AND retencion_renta_tasa IS NULL)
-    OR (vendedor_ubigeo IS NOT NULL AND vendedor_condicion IS NOT NULL AND lugar_direccion IS NOT NULL AND lugar_ubigeo IS NOT NULL AND lugar_condicion IS NOT NULL AND retencion_renta_tasa IS NOT NULL));
+    OR (vendedor_ubigeo IS NOT NULL AND vendedor_condicion IS NOT NULL AND lugar_direccion IS NOT NULL AND lugar_ubigeo IS NOT NULL AND lugar_condicion IS NOT NULL AND retencion_renta_tasa IS NOT NULL)) NOT VALID;

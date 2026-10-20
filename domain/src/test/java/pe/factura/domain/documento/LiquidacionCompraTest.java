@@ -83,7 +83,15 @@ class LiquidacionCompraTest {
         Comprobante c = liquidacion(List.of(linea("Papa", "3", "50", TipoAfectacionIgv.EXONERADO))).redondeo(new BigDecimal("0.25")).crear(clock);
         assertThat(c.totales().redondeo()).isEqualByComparingTo("0.25");
         assertThat(c.totales().total()).isEqualByComparingTo("148.00");
-        rechaza(() -> liquidacion(List.of(linea("Papa", "3", "50", TipoAfectacionIgv.EXONERADO))).redondeo(new BigDecimal("1.01")).crear(clock), "REDONDEO_INVALIDO", "3303");
+        rechaza(() -> liquidacion(List.of(linea("Papa", "3", "50", TipoAfectacionIgv.EXONERADO))).redondeo(new BigDecimal("1.01")).crear(clock), "REDONDEO_INVALIDO", "4314");
+    }
+
+    @Test void unTipoLiquidacionSinSusDatosONoLiquidacionConEllosNoSeRehidrata() {
+        Comprobante c = liquidacion(List.of(linea("Café", "10", "118", TipoAfectacionIgv.GRAVADO))).crear(clock);
+        assertThatThrownBy(() -> Comprobante.persistido(c.id(), tenant, TipoDocumento.LIQUIDACION_COMPRA, "L001", 1L, hoy, EstadoDocumento.FIRMADO, c.receptor(), c.items()).rehidratar())
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("tipo 04");
+        assertThatThrownBy(() -> Comprobante.persistido(c.id(), tenant, TipoDocumento.FACTURA, "F001", 1L, hoy, EstadoDocumento.FIRMADO, c.receptor(), c.items()).liquidacion(c.liquidacion()).rehidratar())
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("tipo 01");
     }
 
     @Test void enDolaresConTipoDeCambio() {

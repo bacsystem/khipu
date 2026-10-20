@@ -79,6 +79,9 @@ public class Comprobante {
         this.anticipos = anticipos == null ? List.of() : List.copyOf(anticipos);
         this.referencias = referencias == null ? Referencias.ninguna() : referencias;
         this.nota = nota;
+        // Una sola fuente de verdad: los datos de la liquidación van si y solo si el tipo es 04; si no, el neto, la plantilla y la baja lo leerían distinto.
+        if ((tipo == TipoDocumento.LIQUIDACION_COMPRA) != (liquidacion != null))
+            throw new IllegalStateException("Los datos de la liquidación de compra van si y solo si el comprobante es del tipo 04 (tipo " + tipo.codigo() + ")");
         this.liquidacion = liquidacion;
         this.leyendas = leyendas == null ? List.of() : List.copyOf(leyendas);
         this.exportacion = exportacion;
@@ -283,7 +286,7 @@ public class Comprobante {
         public LiquidacionBuilder redondeo(BigDecimal r) { this.redondeo = r; return this; }
         /** Soles por unidad de {@code moneda} (#316); solo fuera de soles. Opcional: no va al XML. */
         public LiquidacionBuilder tipoCambio(BigDecimal t) { this.tipoCambio = t; return this; }
-        /** Porcentaje ({@link TasaIgv}); nulo = general. La tasa vigente la decide el servicio (padrón de tasa especial). */
+        /** Porcentaje ({@link TasaIgv}); nulo = general. El servicio siempre pasa la vigente a la fecha, sin el padrón de tasa especial: quien vende es el vendedor sin RUC, no el tenant (regla 4310). */
         public LiquidacionBuilder tasaIgv(BigDecimal t) { this.tasaIgv = t == null ? TasaIgv.GENERAL : t; return this; }
         /** Liquidaciones de anticipo que se regularizarían (PrepaidPayment, descuentos 04–06 y 61): todavía no se emiten; con alguna, {@link #crear} rechaza. */
         public LiquidacionBuilder anticipos(List<Anticipo> a) { this.anticipos = a == null ? List.of() : a; return this; }
@@ -312,6 +315,9 @@ public class Comprobante {
             exigirDocumentosRelacionados();
             if (!anticipos.isEmpty())
                 throw new DomainException("ANTICIPO_INVALIDO", "khipu todavía no regulariza anticipos en una liquidación de compra (PrepaidPayment, descuentos 04–06 y la retención de renta del anticipo, 61): emítala por el importe total");
+            // La hoja de la liquidación lo observa con 4314 (no con la 3303 de la factura y las notas): se dice antes de que Totales lo rechace con su código.
+            if (redondeo != null && (redondeo.scale() > 2 || redondeo.abs().compareTo(BigDecimal.ONE) > 0))
+                throw new DomainException("REDONDEO_INVALIDO", "4314 - El redondeo del importe neto admite 2 decimales y no puede superar 1.00 en valor absoluto");
             // Sin espacios en los extremos: la regla 2593 rechaza el domicilio que empieza con espacio, y el nombre se imprime igual en el PDF.
             Receptor receptor = new Receptor(vendedor.tipoDoc(), vendedor.numDoc(), vendedor.razonSocial().strip(), vendedor.direccion().strip(), vendedor.pais());
             Comprobante c = new Comprobante(UUID.randomUUID(), tenantId, tipo, serie, null, fechaEmision, LocalTime.now(clock).truncatedTo(ChronoUnit.SECONDS), null,
@@ -521,7 +527,7 @@ public class Comprobante {
     public boolean consultableEnGetStatusCdr() { return !esDeBoleta() && !esLiquidacionCompra(); }
 
     /** Una liquidación de compra (#327): el emisor es el comprador y el {@link #receptor()} es el vendedor. Tampoco la cubre {@code getStatusCdr} (manual, p. 22: 01, 07 y 08). */
-    public boolean esLiquidacionCompra() { return liquidacion != null; }
+    public boolean esLiquidacionCompra() { return tipo == TipoDocumento.LIQUIDACION_COMPRA; }
 
     /** Importe retenido al vendedor por el Impuesto a la Renta (tributo 3000), o cero si no es una liquidación de compra. */
     public BigDecimal retencionRenta() { return liquidacion == null ? BigDecimal.ZERO.setScale(2) : liquidacion.retencionRenta(totales); }
