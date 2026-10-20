@@ -43,4 +43,8 @@ public interface ComprobanteRepository {
     List<Comprobante> firmadosEmitidosEntre(java.time.LocalDate desde, java.time.LocalDate hasta);
     List<Comprobante> listar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, int pagina, int porPagina);
     long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro);
+    /** #321: ver {@link ConsultarComprobanteUseCase#listarPorLlave}. */
+    ConsultarComprobanteUseCase.PaginaPorLlave listarPorLlave(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, java.util.Set<EstadoDocumento> excluidos,
+                                                              ConsultarComprobanteUseCase.Llave despues, int limite);
+    long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, java.util.Set<EstadoDocumento> excluidos);
 }

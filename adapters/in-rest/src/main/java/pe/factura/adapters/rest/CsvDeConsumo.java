@@ -21,7 +21,7 @@ final class CsvDeConsumo {
     private CsvDeConsumo() {}
 
     static String de(List<Fila> filas) {
-        return "﻿" + Stream.concat(Stream.of(CABECERA), filas.stream().map(CsvDeConsumo::linea)).collect(Collectors.joining(FIN_DE_LINEA, "", FIN_DE_LINEA));
+        return "\uFEFF" + Stream.concat(Stream.of(CABECERA), filas.stream().map(CsvDeConsumo::linea)).collect(Collectors.joining(FIN_DE_LINEA, "", FIN_DE_LINEA));
     }
 
     private static String linea(Fila f) {
@@ -38,10 +38,6 @@ final class CsvDeConsumo {
         return vence == null ? "" : vence.minusSeconds(1).atZone(CicloMensual.ZONA).toLocalDate().toString();
     }
 
-    /** Un texto del cliente: sin que se lea como fórmula y, si hace falta, entre comillas. */
-    private static String texto(String valor) {
-        String t = valor == null ? "" : valor;
-        if (!t.isEmpty() && "=+-@\t\r".indexOf(t.charAt(0)) >= 0) t = "'" + t;
-        return t.matches("(?s).*[\",\r\n].*") ? "\"" + t.replace("\"", "\"\"") + "\"" : t;
-    }
+    /** Un texto del cliente: sin que se lea como fórmula y, si hace falta, entre comillas ({@link CeldaCsv}). */
+    private static String texto(String valor) { return CeldaCsv.texto(valor, ','); }
 }

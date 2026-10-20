@@ -43,6 +43,12 @@ public class ConsultarComprobanteService implements ConsultarComprobanteUseCase 
     public List<pe.factura.domain.documento.EventoDocumento> eventos(UUID tenantId, Comprobante c) { return comprobantes.eventosDe(tenantId, c.id()); }
     public List<Comprobante> listar(UUID tenantId, Filtro filtro, int pagina, int porPagina) { return comprobantes.listar(tenantId, filtro == null ? Filtro.NINGUNO : filtro, pagina, porPagina); }
     public long contar(UUID tenantId, Filtro filtro) { return comprobantes.contar(tenantId, filtro == null ? Filtro.NINGUNO : filtro); }
+    public PaginaPorLlave listarPorLlave(UUID tenantId, Filtro filtro, java.util.Set<pe.factura.domain.documento.EstadoDocumento> excluidos, Llave despues, int limite) {
+        return comprobantes.listarPorLlave(tenantId, filtro == null ? Filtro.NINGUNO : filtro, excluidos == null ? java.util.Set.of() : excluidos, despues, limite);
+    }
+    public long contar(UUID tenantId, Filtro filtro, java.util.Set<pe.factura.domain.documento.EstadoDocumento> excluidos) {
+        return comprobantes.contar(tenantId, filtro == null ? Filtro.NINGUNO : filtro, excluidos == null ? java.util.Set.of() : excluidos);
+    }
     public byte[] xml(UUID tenantId, UUID id) { return storage.leer(obtener(tenantId, id).xmlKey()); }
     public byte[] cdr(UUID tenantId, UUID id) {
         Comprobante c = obtener(tenantId, id);

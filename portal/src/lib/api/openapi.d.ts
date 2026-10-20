@@ -2014,18 +2014,29 @@ export interface paths {
         };
         /**
          * Exportar comprobantes a CSV o Excel
-         * @description Una fila por comprobante que cumple los filtros —los mismos del listado—, lo más reciente primero, para el registro de ventas o el contador: `tipo` (catálogo 01),
-         *     `serie`, `numero`, `fecha_emision`, `cliente_tipo_doc`, `cliente_num_doc`, `cliente`, `moneda`, las bases `gravado`, `exonerado`, `inafecto`, `gratuito` y
-         *     `exportacion`, `igv`, `icbper`, `total` (con 2 decimales, en la moneda del comprobante y sin signo: una nota de crédito se reconoce por su `tipo` 07), `estado`
-         *     (un comprobante dado de baja sale `ANULADO`) y `documento_modificado` (solo en notas: tipo y serie-número, `01 F001-125`).
+         * @description Una fila por comprobante que cumple los filtros —los mismos del listado—, lo más reciente primero, para el registro de ventas o el contador. Columnas (en
+         *     `snake_case`, para programar contra ellas): `tipo` (catálogo 01), `serie`, `numero`, `fecha_emision`, `cliente_tipo_doc`, `cliente_num_doc`, `cliente`, `moneda`,
+         *     `tipo_cambio` (soles por unidad de `moneda` si se informó; vacío si no), las bases `gravado`, `exonerado`, `inafecto`, `gratuito` y `exportacion`, `igv`, `icbper`,
+         *     `isc`, `ivap`, `otros_tributos`, `total_descuentos`, `total_cargos`, `total_anticipos`, `redondeo`, `total`, `estado` (un comprobante dado de baja sale
+         *     `ANULADO`) y `documento_modificado` (solo en notas: tipo y serie-número, `01 F001-125`).
+         *
+         *     **Importes**: con 2 decimales y en la moneda del comprobante. Una **nota de crédito (07) sale en negativo** —todos sus importes— para que la columna sume la
+         *     venta neta; la de débito (08), en positivo. Cuadran así: `total` = `gravado` + `exonerado` + `inafecto` + `exportacion` + `igv` + `ivap` + `isc` + `icbper` +
+         *     `otros_tributos` + `total_cargos` − `total_descuentos` + `redondeo`; `gratuito` no se cobra, y las bases y el IGV ya vienen netos de anticipos
+         *     (`total_anticipos` es informativo).
+         *
+         *     **Qué entra**: sin el filtro `estado` quedan fuera los que no son ventas (`RECHAZADO`, `INVALIDO`, `DESCARTADO`); con `estado` sale exactamente ese estado. Un
+         *     comprobante emitido después de empezar la exportación no entra; uno que cambia de estado mientras tanto sale con el estado de ese momento.
          *
          *     `formato=csv` (por defecto) es UTF-8 con BOM, separado por comas —el de Excel con la configuración regional de Perú— o por punto y coma con
          *     `separador=punto_y_coma`, con punto decimal; los textos que empiezan por `= + - @` llevan delante una comilla simple para que una hoja de cálculo no los ejecute
-         *     como fórmula. `formato=xlsx` es un libro de Excel con los importes como números. El archivo se escribe mientras se lee. **Tope: 5000 comprobantes por exportación**;
-         *     con más responde `422 EXPORTACION_EXCEDE_EL_TOPE` con cuántos hay (acote las fechas y exporte por tramos). Sin resultados sale el archivo con la cabecera sola.
-         *     Un `formato` o `separador` con otro valor es `400 PARAMETRO_INVALIDO`.
+         *     como fórmula. `formato=xlsx` es un libro de Excel con los importes como números (recomendado para abrirlo en Excel). El archivo se escribe mientras se lee: si
+         *     la conexión se corta a la mitad (o pasa el tiempo máximo de la respuesta, 2 minutos), el archivo llega incompleto y se reconoce por el corte —el CSV termina sin
+         *     su última fila y el XLSX no abre—: vuelva a pedirlo. **Tope: 5000 comprobantes por exportación**; con más responde `422 EXPORTACION_EXCEDE_EL_TOPE` con cuántos
+         *     hay (acote las fechas y exporte por tramos). Sin resultados sale el archivo con la cabecera sola. Un `formato` o `separador` con otro valor es
+         *     `400 PARAMETRO_INVALIDO`.
          */
-        get: operations["exportar"];
+        get: operations["exportarComprobantes"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2545,7 +2556,7 @@ export interface paths {
          *     `consumo-AAAA-MM.csv`. Respeta `mes`, `filtro` y `orden`. Un plan sin tope dice `ilimitado` y no tiene porcentaje; las fechas (`pagado_hasta`, `se_sirve_hasta`) son el último día cubierto en hora de Lima (`AAAA-MM-DD`), como en la pantalla. Los textos que empiezan
          *     por `=`, `+`, `-` o `@` llevan una comilla simple delante para que una hoja de cálculo no los ejecute como fórmula.
          */
-        get: operations["exportar_1"];
+        get: operations["exportar"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11942,7 +11953,7 @@ export interface operations {
             };
         };
     };
-    exportar: {
+    exportarComprobantes: {
         parameters: {
             query?: {
                 /** @description Estado del comprobante */
@@ -11994,8 +12005,27 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description El archivo, como adjunto (`Content-Disposition`) */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description `formato`, `separador` o un filtro con formato inválido (`PARAMETRO_INVALIDO`, `RANGO_INVALIDO`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["StreamingResponseBody"];
+                };
+            };
+            /** @description Más de 5000 comprobantes con esos filtros (`EXPORTACION_EXCEDE_EL_TOPE`) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12610,7 +12640,7 @@ export interface operations {
             };
         };
     };
-    exportar_1: {
+    exportar: {
         parameters: {
             query?: {
                 /**

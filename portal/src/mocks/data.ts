@@ -139,7 +139,7 @@ export type Comprobante = {
   fecha_limite_envio?: string;
   totales: {
     gravado: number; exonerado: number; inafecto: number; igv: number; total: number; ivap?: number; exportacion?: number; gratuito?: number; igv_gratuitas?: number; total_precio_venta?: number; total_anticipos?: number;
-    total_cargos?: number; redondeo?: number; cargos?: Array<{ tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string }>;
+    total_cargos?: number; redondeo?: number; icbper?: number; isc?: number; otros_tributos?: number; total_descuentos?: number; cargos?: Array<{ tipo: "PORCENTAJE" | "MONTO"; valor: number; monto: number; afecta_base_igv: boolean; motivo?: string | null; codigo: string }>;
   };
   forma_pago: { tipo: "contado" | "credito"; monto_pendiente: number | null; cuotas: Array<{ id: string; monto: number; vencimiento: string }> };
   detraccion?: { codigo_bien_servicio: string; descripcion: string; porcentaje: number; monto: number; cuenta_banco_nacion: string; medio_pago: string } | null;

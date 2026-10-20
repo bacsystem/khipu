@@ -706,7 +706,10 @@ function armarZip(entradas: Array<{ nombre: string; contenido: string }>): Uint8
 const DESCARGA_MAXIMA = 500;
 /** #321: lo que admite una exportación (`ExportacionDeComprobantes.MAXIMO`). */
 const EXPORTACION_MAXIMA = 5000;
-const COLUMNAS_EXPORTACION = ["tipo", "serie", "numero", "fecha_emision", "cliente_tipo_doc", "cliente_num_doc", "cliente", "moneda", "gravado", "exonerado", "inafecto", "gratuito", "exportacion", "igv", "icbper", "total", "estado", "documento_modificado"];
+const COLUMNAS_EXPORTACION = ["tipo", "serie", "numero", "fecha_emision", "cliente_tipo_doc", "cliente_num_doc", "cliente", "moneda", "tipo_cambio", "gravado", "exonerado", "inafecto", "gratuito",
+  "exportacion", "igv", "icbper", "isc", "ivap", "otros_tributos", "total_descuentos", "total_cargos", "total_anticipos", "redondeo", "total", "estado", "documento_modificado"];
+/** Lo que no es una venta y la exportación deja fuera si no se filtra por estado (`ExportacionDeComprobantes.NO_SON_VENTAS`). */
+const NO_SON_VENTAS = ["RECHAZADO", "INVALIDO", "DESCARTADO"];
 
 /** Una celda de texto del CSV como la escribe la API: sin que se lea como fórmula y entre comillas si lleva el separador, comillas o saltos. */
 function textoCsvMock(valor: string, separador: string): string {
@@ -3309,17 +3312,20 @@ export const handlers = [
     return new HttpResponse(armarZip(entradas), { headers: { "content-type": "application/zip", "content-disposition": 'attachment; filename="comprobantes-mock.zip"' } });
   }),
 
-  // #321, como `FacturaController.exportar`: los mismos filtros del listado, `formato` csv|xlsx, `separador` coma|punto_y_coma, 422 por encima del tope y, sin resultados, el
-  // archivo con la cabecera sola. El CSV es el de la API; el XLSX del mock es un relleno con la firma de un ZIP (lo que importa es el contrato). Va antes de `/:id`.
+  // #321, como `FacturaController.exportarComprobantes`: los mismos filtros del listado, `formato` csv|xlsx (sin distinguir mayúsculas), `separador` coma|punto_y_coma, sin
+  // filtro de estado fuera lo que no es venta (RECHAZADO, INVALIDO, DESCARTADO), la nota de crédito en negativo, 422 por encima del tope y, sin resultados, el archivo con la
+  // cabecera sola. El CSV es el de la API; el XLSX del mock es un relleno con la firma de un ZIP (lo que importa es el contrato). Va antes de `/:id`.
   http.get(`${BASE}/v1/facturas/exportacion`, ({ request }) => {
+    if (!claims(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
     const empresaId = request.headers.get("x-empresa") ?? "";
     const url = new URL(request.url);
-    const formato = url.searchParams.get("formato") ?? "csv";
+    const formato = (url.searchParams.get("formato") ?? "csv").trim().toLowerCase();
     if (formato !== "csv" && formato !== "xlsx") return fail(400, "PARAMETRO_INVALIDO", `formato debe ser csv (por defecto) o xlsx: ${formato}`);
-    const sep = url.searchParams.get("separador") ?? "coma";
+    const sep = (url.searchParams.get("separador") ?? "coma").trim().toLowerCase();
     if (sep !== "coma" && sep !== "punto_y_coma") return fail(400, "PARAMETRO_INVALIDO", `separador debe ser coma (por defecto) o punto_y_coma: ${sep}`);
-    const lista = filtrarComprobantes(empresaId, url);
-    if (lista instanceof Response) return lista;
+    const filtrados = filtrarComprobantes(empresaId, url);
+    if (filtrados instanceof Response) return filtrados;
+    const lista = url.searchParams.get("estado") ? filtrados : filtrados.filter((f) => !NO_SON_VENTAS.includes(f.estado_documento));
     if (lista.length > EXPORTACION_MAXIMA) return fail(422, "EXPORTACION_EXCEDE_EL_TOPE", `Hay ${lista.length} comprobantes con esos filtros y una exportación admite hasta ${EXPORTACION_MAXIMA}: acote las fechas y exporte por tramos`);
     const desde = url.searchParams.get("desde");
     const hasta = url.searchParams.get("hasta");
@@ -3328,12 +3334,18 @@ export const handlers = [
     if (formato === "xlsx")
       return new HttpResponse(new Uint8Array([0x50, 0x4b, 0x03, 0x04]), { headers: { "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "content-disposition": disposicion } });
     const s = sep === "coma" ? "," : ";";
-    const dos = (n: number | undefined) => (n ?? 0).toFixed(2);
-    const filas = lista.map((f) => [
-      f.tipo, f.serie, String(f.numero), f.fecha_emision, textoCsvMock(f.receptor?.tipo_doc ?? "", s), textoCsvMock(f.receptor?.num_doc ?? "", s), textoCsvMock(f.receptor?.razon_social ?? "", s), f.moneda,
-      dos(f.totales.gravado), dos(f.totales.exonerado), dos(f.totales.inafecto), dos(f.totales.gratuito), dos(f.totales.exportacion), dos(f.totales.igv), dos(0), dos(f.totales.total),
-      f.estado_documento, f.nota ? `${f.nota.tipo_afectado} ${f.nota.documento_afectado}` : "",
-    ].join(s));
+    const filas = lista.map((f) => {
+      // La nota de crédito, en negativo; un cero sin signo.
+      const dos = (n: number | undefined) => ((f.tipo === "07" ? -1 : 1) * (n ?? 0) || 0).toFixed(2);
+      const t = f.totales;
+      return [
+        f.tipo, f.serie, String(f.numero), f.fecha_emision, textoCsvMock(f.receptor?.tipo_doc ?? "", s), textoCsvMock(f.receptor?.num_doc ?? "", s), textoCsvMock(f.receptor?.razon_social ?? "", s), f.moneda,
+        f.tipo_cambio == null ? "" : f.tipo_cambio.toFixed(3),
+        dos(t.gravado), dos(t.exonerado), dos(t.inafecto), dos(t.gratuito), dos(t.exportacion), dos(t.igv), dos(t.icbper), dos(t.isc), dos(t.ivap), dos(t.otros_tributos),
+        dos(t.total_descuentos), dos(t.total_cargos), dos(t.total_anticipos), dos(t.redondeo), dos(t.total),
+        f.estado_documento, f.nota ? `${f.nota.tipo_afectado} ${f.nota.documento_afectado}` : "",
+      ].join(s);
+    });
     const csv = "\uFEFF" + [COLUMNAS_EXPORTACION.join(s), ...filas].map((l) => `${l}\r\n`).join("");
     return new HttpResponse(csv, { headers: { "content-type": "text/csv; charset=UTF-8", "content-disposition": disposicion } });
   }),

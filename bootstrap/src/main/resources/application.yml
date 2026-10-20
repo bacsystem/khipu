@@ -19,6 +19,11 @@ spring:
       file-size-threshold: 2MB
       max-file-size: 1MB
       max-request-size: 2MB
+  mvc:
+    async:
+      # Las descargas que se escriben mientras se leen (ZIP de comprobantes #324, exportación #321) corren como respuesta asíncrona. Tiempo máximo explícito (el de Tomcat
+      # por defecto, 30 s, cortaba exportaciones grandes): pasado, la conexión se corta y el cliente recibe un archivo incompleto, que reconoce por el corte.
+      request-timeout: ${DESCARGAS_TIMEOUT:120s}
 server:
   port: ${PORT:8001}
 management:
