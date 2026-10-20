@@ -41,7 +41,9 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
           Ya se cargó en el campo de autenticación de abajo. Guárdala ahora: no volverá a mostrarse completa.
         </p>
         <div className="flex items-center gap-2">
-          <code className="flex h-8 flex-1 items-center truncate rounded-md border border-border bg-muted px-3 font-mono text-[12px]">{apiKey}</code>
+          <code className="flex h-8 min-w-0 flex-1 items-center rounded-md border border-border bg-muted px-3 font-mono text-[12px]">
+            <span className="truncate">{apiKey}</span>
+          </code>
           <Button type="button" variant="outline" size="icon-sm" onClick={copiar}>
             {copiada ? <Check className="size-4" /> : <Copy className="size-4" />}
             <span className="sr-only">Copiar</span>

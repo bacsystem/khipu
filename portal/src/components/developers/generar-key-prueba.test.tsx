@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenerarKeyPrueba } from "./generar-key-prueba";
 
 afterEach(() => {
+  cleanup();
   vi.unstubAllGlobals();
 });
 
@@ -40,5 +41,14 @@ describe("GenerarKeyPrueba", () => {
     fireEvent.click(screen.getByRole("button", { name: /generar/i }));
 
     await waitFor(() => expect(screen.getByText("No autorizado.")).toBeInTheDocument());
+  });
+
+  it("el error se anuncia con rol de alerta", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ estado: "error", datos: null, mensaje: "x", codigo: "NO_AUTORIZADO", errores: null }), { status: 401 })));
+    render(<GenerarKeyPrueba onGenerada={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /generar/i }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
 });
