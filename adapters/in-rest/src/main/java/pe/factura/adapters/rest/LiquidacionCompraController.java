@@ -52,7 +52,7 @@ public class LiquidacionCompraController {
             khipu no tiene: si falla, la liquidación queda `RECHAZADO` con el número consumido.
 
             **Errores**: `422 VALIDACION`, `422 RECEPTOR_INVALIDO` (vendedor), `422 LIQUIDACION_INVALIDA` (ubigeos, condiciones, lugar, tasa), `422 ITEM_INVALIDO`,
-            `422 AFECTACION_INVALIDA`, `422 TIPO_OPERACION_INVALIDO`, `422 FECHA_INVALIDA`, `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`,
+            `422 AFECTACION_INVALIDA`, `422 TIPO_OPERACION_INVALIDO`, `422 REDONDEO_INVALIDO` (4314: el redondeo pasa de ±1.00, o el neto queda en cero o negativo, 2062), `422 FECHA_INVALIDA`, `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`,
             `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las liquidaciones.""")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Liquidación creada; `estado_documento` indica si SUNAT ya la aceptó"),

@@ -33,7 +33,7 @@ public record LiquidacionCompraRequest(
         @Valid @Schema(description = "Retención del Impuesto a la Renta. Si se omite, la tasa vigente (1.5 %)") RetencionRentaDto retencionRenta,
         @Valid @ArraySchema(arraySchema = @Schema(description = "Guías de remisión del traslado (`09` remitente, `31` transportista). Opcional")) List<FacturaRequest.GuiaDto> guias,
         @Valid @ArraySchema(arraySchema = @Schema(description = "Otros documentos relacionados: en una liquidación de compra solo el tipo `99` (otros); otro tipo responde `422 DOCUMENTO_RELACIONADO_INVALIDO` (4009). Opcional")) List<FacturaRequest.DocumentoRelacionadoDto> documentosRelacionados,
-        @Schema(example = "0.25", description = "Redondeo del importe neto (`PayableRoundingAmount`): entre −1.00 y 1.00 con 2 decimales (4314, 3303). Opcional") BigDecimal redondeo,
+        @Schema(example = "0.25", description = "Redondeo del importe neto (`PayableRoundingAmount`): entre −1.00 y 1.00 con 2 decimales (4314). Opcional") BigDecimal redondeo,
         @DecimalMin(value = "0.001") @Digits(integer = 3, fraction = 3) @Schema(example = "3.756", description = "Tipo de cambio: soles por unidad de `moneda` (#316). Opcional y solo fuera de `PEN`; no va al XML") BigDecimal tipoCambio,
         @Schema(example = "true", description = "`true` (por defecto) envía a SUNAT en la misma llamada; `false` la deja `FIRMADO` para enviarla con `POST /v1/facturas/{id}/enviar`") Boolean enviarAutomatico,
         @Size(max = 1000) @Schema(example = "Compra en chacra; pago en efectivo.", description = "Texto libre para el bloque «Observaciones» del PDF (hasta 1000 caracteres); no va al XML") String observaciones) {
