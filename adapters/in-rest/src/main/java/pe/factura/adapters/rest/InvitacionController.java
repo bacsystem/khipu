@@ -22,7 +22,8 @@ public class InvitacionController {
 
     @PostMapping
     @Operation(summary = "Ver una invitación", description = """
-            A qué cuenta y con qué rol invitaron al dueño del enlace. `422 TOKEN_INVALIDO` si no existe, venció, se revocó, se reenvió (vale el último enlace) o ya se usó.""")
+            A qué cuenta y con qué rol invitaron al dueño del enlace. `422 TOKEN_INVALIDO` si no existe, venció, se revocó, se reenvió (vale el último enlace), ya se usó o
+            quien la creó ya no es administrador activo de la cuenta.""")
     public ApiResponse<EquipoDtos.Recibida> consultarInvitacion(@Valid @RequestBody EquipoDtos.Token body) {
         return ApiResponse.ok(EquipoDtos.Recibida.de(invitaciones.consultar(body.token())));
     }
