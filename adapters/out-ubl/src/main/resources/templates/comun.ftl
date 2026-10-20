@@ -223,8 +223,9 @@
   </cac:AllowanceCharge>
   </#list>
 </#macro>
-<#-- Totales por tributo (TaxTotal global). -->
-<#macro impuestos>
+<#-- Totales por tributo (TaxTotal global). renta=true en la liquidación de compra (#327): un TaxSubtotal 3000 más, con la retención del Impuesto a la Renta (base = valor de
+     venta de las líneas, monto = la suma de la retención de cada línea: 4345, 4346), que no suma al TaxAmount del TaxTotal (solo 1000 y 9999: 4301). -->
+<#macro impuestos renta=false>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv() + tot.ivap() + tot.isc() + tot.icbper() + tot.otrosTributos()}</cbc:TaxAmount>
     <#list tot.subtotales() as st>
@@ -236,6 +237,15 @@
       </cac:TaxCategory>
     </cac:TaxSubtotal>
     </#list>
+    <#if renta>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="${c.moneda()}">${c.liquidacion().baseRetencion(tot)}</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="${c.moneda()}">${c.retencionRenta()}</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].RENTA/>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+    </#if>
   </cac:TaxTotal>
 </#macro>
 <#-- Totales monetarios: LegalMonetaryTotal en factura y NC, RequestedMonetaryTotal en ND (UBL 2.1). -->
@@ -258,8 +268,9 @@
     <cbc:PayableAmount currencyID="${c.moneda()}">${tot.total()}</cbc:PayableAmount>
   </cac:${elemento}>
 </#macro>
-<#-- Líneas: InvoiceLine/InvoicedQuantity, CreditNoteLine/CreditedQuantity o DebitNoteLine/DebitedQuantity. -->
-<#macro lineas elemento cantidad>
+<#-- Líneas: InvoiceLine/InvoicedQuantity, CreditNoteLine/CreditedQuantity o DebitNoteLine/DebitedQuantity. renta=true en la liquidación de compra (#327): cada línea lleva
+     además el TaxSubtotal 3000 de la retención de renta. -->
+<#macro lineas elemento cantidad renta=false>
   <#list tot.items() as it>
   <cac:${elemento}>
     <cbc:ID>${(it?index + 1)?c}</cbc:ID>
@@ -367,6 +378,19 @@
           </@categoriaTributo>
         </cac:TaxCategory>
       </cac:TaxSubtotal>
+      <#-- Retención de renta de la línea (#327, LiquidacionCompra2_0 filas 200–217): base = valor de venta (4294), monto = base × tasa (2464), tasa vigente (4237) y sin
+           afectación del IGV (3050). No suma al TaxAmount de la línea, que es solo 1000 + 9999 (4293). -->
+      <#if renta>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="${c.moneda()}">${c.liquidacion().rentaDe(it)}</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].RENTA>
+          <cbc:Percent>${c.liquidacion().tasaRetencionRenta()?string["0.00###"]}</cbc:Percent>
+          </@categoriaTributo>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+      </#if>
     </cac:TaxTotal>
     <#if elemento != "InvoiceLine"><@cargosDeLinea it/></#if>
     <cac:Item>

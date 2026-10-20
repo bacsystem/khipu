@@ -586,6 +586,69 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscar(t, soles.id()).orElseThrow().tipoCambio()).isNull();
     }
 
+    private Comprobante liquidacion(UUID t, long numero) {
+        Comprobante c = Comprobante.liquidacionCompra(t, "L001", LocalDate.of(2026, 9, 13), "PEN", "0502", new Receptor("1", "45678912", "JUAN QUISPE MAMANI", "Caserío Santa Rosa s/n"),
+                        new LiquidacionCompra("060101", "02", new LiquidacionCompra.Ubicacion("Fundo Santa Rosa, km 12 carretera a Bambamarca", "060801", "03"), null),
+                        List.of(new Item("CAF-01", "Café pergamino", "KGM", new BigDecimal("10"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), CodigoProductoSunat.de("50201706"), null),
+                                new Item("PAP-01", "Papa", "KGM", new BigDecimal("3"), new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO, null, null, false, List.of(), CodigoProductoSunat.de("50405700"), null)))
+                .referencias(new Referencias(null, List.of(new GuiaRelacionada("31", "V001-45")), List.of(new DocumentoRelacionado("99", "ACTA-7"))))
+                .redondeo(new BigDecimal("0.25"))
+                .crear(clock);
+        c.asignarNumero(numero, "20100066603");
+        return c;
+    }
+
+    /** #327: la liquidación de compra vuelve con su vendedor, el resto de su domicilio, el lugar de la operación, la tasa de la retención y el mismo neto. */
+    @Test void guardaYRehidrataLaLiquidacionDeCompra() {
+        UUID t = tenantDePrueba();
+        Comprobante c = liquidacion(t, 1);
+        c.firmar("H", "k.xml");
+        repo.guardar(c);
+        Comprobante leida = repo.buscarPorNumero(t, TipoDocumento.LIQUIDACION_COMPRA, "L001", 1).orElseThrow();
+        assertThat(leida.tipo()).isEqualTo(TipoDocumento.LIQUIDACION_COMPRA);
+        assertThat(leida.esLiquidacionCompra()).isTrue();
+        assertThat(leida.tipoOperacion()).isEqualTo("0502");
+        assertThat(leida.receptor()).isEqualTo(new Receptor("1", "45678912", "JUAN QUISPE MAMANI", "Caserío Santa Rosa s/n"));
+        assertThat(leida.liquidacion()).isEqualTo(c.liquidacion());
+        assertThat(leida.liquidacion().tasaRetencionRenta()).isEqualByComparingTo("1.5");
+        assertThat(leida.items()).extracting(i -> i.codigoSunat().codigo()).containsExactly("50201706", "50405700");
+        assertThat(leida.referencias()).isEqualTo(c.referencias());
+        assertThat(leida.retencionRenta()).isEqualByComparingTo("17.25");
+        assertThat(leida.totales().total()).isEqualByComparingTo(c.totales().total()).isEqualByComparingTo("1133.00");
+        assertThat(jdbc.queryForObject("SELECT total FROM comprobante WHERE documento_id = ?", BigDecimal.class, c.id())).as("el neto que se paga").isEqualByComparingTo("1133.00");
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, "04", null, null), 1, 10)).extracting(Comprobante::id).containsExactly(c.id());
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, "01", null, null), 1, 10)).isEmpty();
+
+        // Una factura sigue sin datos de liquidación.
+        Comprobante f = factura(t, 1);
+        repo.guardar(f);
+        assertThat(repo.buscar(t, f.id()).orElseThrow().liquidacion()).isNull();
+    }
+
+    /** La restricción de la base: los seis datos de la liquidación van juntos o ninguno. */
+    @Test void laBaseNoAdmiteUnaLiquidacionAMedias() {
+        UUID t = tenantDePrueba();
+        Comprobante c = liquidacion(t, 1);
+        repo.guardar(c);
+        assertThatThrownBy(() -> jdbc.update("UPDATE comprobante SET lugar_ubigeo = NULL WHERE documento_id = ?", c.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        Comprobante f = factura(t, 1);
+        repo.guardar(f);
+        assertThatThrownBy(() -> jdbc.update("UPDATE comprobante SET retencion_renta_tasa = 1.5 WHERE documento_id = ?", f.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    /** #327: getStatusCdr tampoco cubre la liquidación de compra; el control del plazo sí la ve (vence al día siguiente y queda sin canal). */
+    @Test void laLiquidacionNoEsPendienteDeCdrPeroSiDelControlDePlazo() {
+        UUID t = tenantDePrueba();
+        Comprobante c = liquidacion(t, 1);
+        c.firmar("H", "l.xml"); repo.guardar(c); c.marcarEnviado(); repo.guardar(c);
+        Comprobante firmada = liquidacion(t, 2);
+        firmada.firmar("H", "l2.xml"); repo.guardar(firmada);
+        assertThat(repo.pendientesDeCdr()).isEmpty();
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactly(firmada.id());
+    }
+
     @Test void guardaYRehidrataAnticiposYBuscaPorNumero() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("O", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),

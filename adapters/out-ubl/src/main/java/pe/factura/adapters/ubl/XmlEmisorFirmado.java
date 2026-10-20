@@ -14,7 +14,8 @@ import java.io.ByteArrayInputStream;
 import java.util.Optional;
 
 /**
- * Lee el emisor de {@code cac:AccountingSupplierParty} en el XML ya firmado.
+ * Lee el emisor de {@code cac:AccountingSupplierParty} en el XML ya firmado; en la liquidación de compra ({@code SelfBilledInvoice}, #327) el emisor es el comprador y está en
+ * {@code cac:AccountingCustomerParty}: el proveedor de ese documento es el vendedor sin RUC.
  *
  * <p>Es la fuente correcta por dos razones. Es el documento que SUNAT recibió, así que la representación impresa dice
  * exactamente lo que se declaró; y existe para <em>todos</em> los comprobantes, también los emitidos antes de que esto
@@ -29,7 +30,8 @@ public class XmlEmisorFirmado implements EmisorFirmado {
     public Optional<EmisorImpreso> leer(byte[] xmlFirmado) {
         if (xmlFirmado == null || xmlFirmado.length == 0) return Optional.empty();
         try {
-            Element emisor = primero(parsear(xmlFirmado).getDocumentElement(), CAC, "AccountingSupplierParty");
+            Element raiz = parsear(xmlFirmado).getDocumentElement();
+            Element emisor = primero(raiz, CAC, "SelfBilledInvoice".equals(raiz.getLocalName()) ? "AccountingCustomerParty" : "AccountingSupplierParty");
             if (emisor == null) return Optional.empty();
             Element parte = primero(emisor, CAC, "Party");
             if (parte == null) return Optional.empty();

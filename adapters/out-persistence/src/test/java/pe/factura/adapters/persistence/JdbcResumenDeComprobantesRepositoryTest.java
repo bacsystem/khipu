@@ -139,6 +139,17 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         assertThat(resumir(t).facturado()).containsExactly(new Facturado("PEN", new BigDecimal("950.00")));
     }
 
+    /** #327: la liquidación de compra es una compra de la empresa, no una venta: cuenta en los estados, pero no suma a lo facturado (ni en su moneda aparece). */
+    @Test void laLiquidacionDeCompraNoCuentaComoFacturado() {
+        UUID t = tenantDePrueba();
+        comprobante(t, "01", EstadoDocumento.ACEPTADO, DIA, "PEN", "1000");
+        comprobante(t, "04", EstadoDocumento.ACEPTADO, DIA, "PEN", "985");
+        comprobante(t, "04", EstadoDocumento.ACEPTADO, DIA, "USD", "197");
+
+        assertThat(resumir(t).facturado()).containsExactly(new Facturado("PEN", new BigDecimal("1000.00")));
+        assertThat(resumir(t).porEstado()).containsOnly(java.util.Map.entry(EstadoDocumento.ACEPTADO, 3L));
+    }
+
     @Test void unaNotaDeCreditoRechazadaNoRestaNada() {
         UUID t = tenantDePrueba();
         comprobante(t, "01", EstadoDocumento.ACEPTADO, DIA, "PEN", "1000");

@@ -54,6 +54,7 @@ class AtributosSunatFacturaTest {
                     case "inv" -> "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2";
                     case "cn" -> "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2";
                     case "dn" -> "urn:oasis:names:specification:ubl:schema:xsd:DebitNote-2";
+                    case "lc" -> "urn:oasis:names:specification:ubl:schema:xsd:SelfBilledInvoice-2";
                     default -> XMLConstants.NULL_NS_URI;
                 };
             }

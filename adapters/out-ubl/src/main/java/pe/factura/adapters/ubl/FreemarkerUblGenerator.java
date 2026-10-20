@@ -81,7 +81,8 @@ public class FreemarkerUblGenerator implements UblGenerator {
 
     @Override public String generar(Comprobante c, Tenant t) {
         try {
-            Template tpl = cfg.getTemplate(c.esNota() ? "nota.ftl" : "invoice.ftl");
+            // #327: la liquidación de compra es un SelfBilledInvoice, con las partes invertidas; la factura y la boleta, un Invoice.
+            Template tpl = cfg.getTemplate(c.esNota() ? "nota.ftl" : c.esLiquidacionCompra() ? "liquidacion.ftl" : "invoice.ftl");
             Map<String, Object> modelo = new HashMap<>();
             // Lo único que distingue el CreditNote del DebitNote: raíz, catálogo del motivo y los nombres de total, línea y cantidad.
             if (c.tipo() == TipoDocumento.NOTA_CREDITO)

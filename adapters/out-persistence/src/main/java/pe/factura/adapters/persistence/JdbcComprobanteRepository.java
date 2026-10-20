@@ -50,6 +50,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         RetencionIgv r = c.retencion();
         Percepcion pc = c.percepcion();
         Nota n = c.nota();
+        LiquidacionCompra lc = c.liquidacion();
         jdbc.update("""
             INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, receptor_direccion,
               total_gravado, total_exonerado, total_inafecto, total_igv, total, forma_pago, monto_pendiente,
@@ -57,8 +58,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
               detraccion_codigo, detraccion_porcentaje, detraccion_monto, detraccion_cuenta, detraccion_medio_pago,
               retencion_porcentaje, retencion_monto, percepcion_regimen, percepcion_porcentaje, percepcion_base, percepcion_monto, orden_compra,
               fecha_vencimiento, redondeo, nota_tipo_afectado, nota_serie_afectada, nota_numero_afectado, nota_motivo, nota_descripcion, observaciones, tasa_igv, leyendas,
-              receptor_pais, incoterm, pais_uso, tipo_cambio)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              receptor_pais, incoterm, pais_uso, tipo_cambio, vendedor_ubigeo, vendedor_condicion, lugar_direccion, lugar_ubigeo, lugar_condicion, retencion_renta_tasa)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, c.id(), c.tipoOperacion(), c.moneda(), c.receptor().tipoDoc(), c.receptor().numDoc(), c.receptor().razonSocial(),
                 c.receptor().direccion(), t.gravado(), t.exonerado(), t.inafecto(), t.igv(), t.total(),
                 c.formaPago().tipo().name(), c.formaPago().montoPendiente(),
@@ -70,7 +71,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 c.referencias().ordenCompra(), c.fechaVencimiento() == null ? null : Date.valueOf(c.fechaVencimiento()), t.tieneRedondeo() ? t.redondeo() : null,
                 n == null ? null : n.tipoAfectado().codigo(), n == null ? null : n.serieAfectada(), n == null ? null : n.numeroAfectado(), n == null ? null : n.motivo(), n == null ? null : n.descripcion(),
                 c.observaciones(), c.tasaIgv(), c.leyendas().isEmpty() ? null : String.join(",", c.leyendas()),
-                c.receptor().pais(), c.exportacion() == null ? null : c.exportacion().incoterm(), c.exportacion() == null ? null : c.exportacion().paisUso(), c.tipoCambio());
+                c.receptor().pais(), c.exportacion() == null ? null : c.exportacion().incoterm(), c.exportacion() == null ? null : c.exportacion().paisUso(), c.tipoCambio(),
+                lc == null ? null : lc.ubigeoVendedor(), lc == null ? null : lc.condicionVendedor(), lc == null ? null : lc.lugarOperacion().direccion(),
+                lc == null ? null : lc.lugarOperacion().ubigeo(), lc == null ? null : lc.lugarOperacion().condicion(), lc == null ? null : lc.tasaRetencionRenta());
         int nDoc = 1;
         for (GuiaRelacionada g : c.referencias().guias()) {
             jdbc.update("INSERT INTO comprobante_documento_relacionado (comprobante_id, orden, clase, tipo, numero) VALUES (?, ?, 'GUIA', ?, ?)", c.id(), nDoc++, g.tipo(), g.numero());
@@ -188,11 +191,11 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     }
     /**
      * Lo que SUNAT consulta por getStatusCdr: la factura y sus notas (#357). Fuera quedan la boleta y las notas B ({@code Comprobante.esDeBoleta}: tipo 03 o nota que
-     * modifica una boleta), cuya constancia no se pide por serie y número.
+     * modifica una boleta), cuya constancia no se pide por serie y número, y la liquidación de compra (04, #327), que el servicio tampoco cubre.
      */
     @Override public List<Comprobante> pendientesDeCdr() {
         return consultar(" WHERE d.xml_key IS NOT NULL AND d.cdr_key IS NULL AND d.estado IN ('ENVIADO', 'ERROR_ENVIO', 'ACEPTADO', 'ACEPTADO_CON_OBS', 'RECHAZADO')"
-                + " AND d.tipo <> '03' AND c.nota_tipo_afectado IS DISTINCT FROM '03'", " ORDER BY d.fecha_emision");
+                + " AND d.tipo NOT IN ('03', '04') AND c.nota_tipo_afectado IS DISTINCT FROM '03'", " ORDER BY d.fecha_emision");
     }
     @Override public List<Comprobante> firmadosEmitidosEntre(LocalDate desde, LocalDate hasta) {
         return consultar(" WHERE d.xml_key IS NOT NULL AND d.fecha_emision BETWEEN ? AND ?", " ORDER BY d.fecha_emision, d.created_at", Date.valueOf(desde), Date.valueOf(hasta));
@@ -244,7 +247,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                c.detraccion_codigo, c.detraccion_porcentaje, c.detraccion_monto, c.detraccion_cuenta, c.detraccion_medio_pago,
                c.retencion_porcentaje, c.retencion_monto, c.percepcion_regimen, c.percepcion_porcentaje, c.percepcion_base, c.percepcion_monto, c.orden_compra, c.fecha_vencimiento, c.redondeo,
                c.nota_tipo_afectado, c.nota_serie_afectada, c.nota_numero_afectado, c.nota_motivo, c.nota_descripcion, c.observaciones, c.tasa_igv, c.leyendas,
-               c.receptor_pais, c.incoterm, c.pais_uso, c.tipo_cambio
+               c.receptor_pais, c.incoterm, c.pais_uso, c.tipo_cambio,
+               c.vendedor_ubigeo, c.vendedor_condicion, c.lugar_direccion, c.lugar_ubigeo, c.lugar_condicion, c.retencion_renta_tasa
         FROM documento d JOIN comprobante c ON c.documento_id = d.id
         """;
 
@@ -377,6 +381,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 .referencias(referencias)
                 .redondeo(rs.getBigDecimal("redondeo"))
                 .nota(nota(rs))
+                .liquidacion(liquidacion(rs))
                 .tasaIgv(rs.getBigDecimal("tasa_igv"))
                 .tipoCambio(rs.getBigDecimal("tipo_cambio"))
                 .leyendas(rs.getString("leyendas") == null ? List.of() : List.of(rs.getString("leyendas").split(",")))
@@ -393,6 +398,13 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         return rs.getString("nota_motivo") == null ? null
                 : new Nota(TipoDocumento.porCodigo(rs.getString("nota_tipo_afectado")), rs.getString("nota_serie_afectada"), rs.getLong("nota_numero_afectado"),
                         rs.getString("nota_motivo"), rs.getString("nota_descripcion"));
+    }
+
+    /** #327: la columna de la tasa marca la liquidación de compra (la restricción comprobante_liquidacion_completa asegura que vienen los seis datos juntos). */
+    private static LiquidacionCompra liquidacion(ResultSet rs) throws SQLException {
+        return rs.getBigDecimal("retencion_renta_tasa") == null ? null
+                : new LiquidacionCompra(rs.getString("vendedor_ubigeo"), rs.getString("vendedor_condicion"),
+                        new LiquidacionCompra.Ubicacion(rs.getString("lugar_direccion"), rs.getString("lugar_ubigeo"), rs.getString("lugar_condicion")), sinCeros(rs.getBigDecimal("retencion_renta_tasa")));
     }
 
     private static String tipo(Descuento d) { return d == null ? null : d.tipo().name(); }
