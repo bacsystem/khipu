@@ -26,6 +26,8 @@ public record CuentaDetalleResponse(
         @Schema(description = "Todas las suspensiones, reactivaciones, bajas y reposiciones de la cuenta, de la más reciente a la más antigua, con su motivo en `detalle`")
         List<EventoResponse> historialEstado) {
 
+    @Schema(name = "UsuarioDeCuenta")
+
     public record UsuarioResponse(
             UUID id,
             @Schema(example = "ana@negocio.pe") String email,
@@ -33,6 +35,8 @@ public record CuentaDetalleResponse(
             boolean activo,
             @Schema(description = "Cuándo verificó su correo (#22); ausente si todavía no") Instant correoVerificadoEn,
             @Schema(description = "Su sesión más reciente en el portal; el uso por API key no cuenta. Ausente si nunca inició sesión") Instant ultimoAcceso) {}
+
+    @Schema(name = "EmpresaDeCuenta")
 
     public record EmpresaResponse(
             UUID id,
@@ -42,6 +46,8 @@ public record CuentaDetalleResponse(
             @Schema(description = "Si hay un certificado digital cargado; nunca se expone su contenido ni su clave") boolean tieneCertificado,
             @Schema(example = "2027-03-01", description = "Hasta cuándo vale el certificado; ausente si no hay certificado") LocalDate certificadoVigenteHasta,
             @Schema(description = "Si están cargados el usuario y la clave SOL; nunca se exponen") boolean tieneCredencialesSol) {}
+
+    @Schema(name = "ComprobanteDeCuenta")
 
     public record ComprobanteResponse(
             UUID id,
@@ -54,6 +60,8 @@ public record CuentaDetalleResponse(
             @Schema(example = "ACEPTADO") String estado,
             @Schema(example = "PEN") String moneda,
             @Schema(example = "118.00") BigDecimal total) {}
+
+    @Schema(name = "EventoDeCuenta")
 
     public record EventoResponse(
             @Schema(example = "CREAR_CUENTA") String accion,
