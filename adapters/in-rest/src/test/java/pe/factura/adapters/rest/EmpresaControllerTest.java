@@ -43,7 +43,8 @@ class EmpresaControllerTest {
                 .andExpect(jsonPath("$.datos.certificado_vigencia_hasta").value("2030-01-01"))
                 .andExpect(jsonPath("$.datos.tiene_certificado").value(true))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("moddatos"))))
-                .andExpect(jsonPath("$.datos.credenciales_sol_rechazadas").doesNotExist());
+                .andExpect(jsonPath("$.datos.credenciales_sol_rechazadas").doesNotExist())
+                .andExpect(jsonPath("$.datos.tiene_credenciales_api_sunat").value(false));
     }
 
     /** #107: el portal dice que SUNAT rechazó las credenciales, desde cuándo y por qué. */
@@ -114,6 +115,35 @@ class EmpresaControllerTest {
         mvc.perform(put("/v1/empresa/credenciales-sol").contentType("application/json").content("{\"usuario\":\"MODDATOS\",\"clave\":\"moddatos\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isNoContent());
         verify(admin).cargarCredencialesSol(tenant, "MODDATOS", "moddatos");
+    }
+
+    /** #318: se guardan y se borran como las SOL; la empresa dice si las tiene, nunca cuáles son. */
+    @Test void credencialesApiSunatSeGuardanSeBorranYNuncaVuelven() throws Exception {
+        mvc.perform(put("/v1/empresa/credenciales-api-sunat").contentType("application/json")
+                        .content("{\"client_id\":\"d20b421e-4ace-46d8-ac8c-4fbb44cfde17\",\"client_secret\":\"HhWwZVo8ZaWm4BZ7n/xEzw==\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isNoContent());
+        verify(admin).cargarCredencialesApiSunat(tenant, "d20b421e-4ace-46d8-ac8c-4fbb44cfde17", "HhWwZVo8ZaWm4BZ7n/xEzw==");
+
+        mvc.perform(delete("/v1/empresa/credenciales-api-sunat").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isNoContent());
+        verify(admin).borrarCredencialesApiSunat(tenant);
+
+        when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null)
+                .conCredencialesApiSunat(new CredencialesApiSunat("d20b421e-4ace-46d8-ac8c-4fbb44cfde17", "HhWwZVo8ZaWm4BZ7n/xEzw==")));
+        mvc.perform(get("/v1/empresa").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.tiene_credenciales_api_sunat").value(true))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("HhWwZVo8"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("d20b421e"))));
+    }
+
+    @Test void credencialesApiSunatIncompletasSonUnErrorDeValidacion() throws Exception {
+        mvc.perform(put("/v1/empresa/credenciales-api-sunat").contentType("application/json").content("{\"client_id\":\"abc\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity());
+        verify(admin, never()).cargarCredencialesApiSunat(any(), any(), any());
+
+        doThrow(new DomainException("CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id de la API SUNAT no admite espacios")).when(admin).cargarCredencialesApiSunat(any(), any(), any());
+        mvc.perform(put("/v1/empresa/credenciales-api-sunat").contentType("application/json").content("{\"client_id\":\"a b\",\"client_secret\":\"x\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("CREDENCIALES_API_SUNAT_INVALIDAS"));
     }
 
     @Test void crearSerieYListar() throws Exception {

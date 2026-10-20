@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import pe.factura.adapters.rest.dto.ApiKeyResponse;
 import pe.factura.adapters.rest.dto.ApiKeyResumenResponse;
+import pe.factura.adapters.rest.dto.CredencialesApiSunatRequest;
 import pe.factura.adapters.rest.dto.CredencialesSolRequest;
 import pe.factura.adapters.rest.dto.DatosFiscalesRequest;
 import pe.factura.adapters.rest.dto.EmpresaResponse;
@@ -31,15 +32,15 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/v1")
 @Tag(name = "Empresa", description = """
-        Configuración de la empresa emisora autenticada: datos fiscales, certificado digital, credenciales SOL, series y
-        API keys. `X-Api-Key` identifica a la empresa; desde el portal se usa la sesión más la cabecera `X-Empresa`.
-        Los secretos (clave SOL, contraseña del certificado) se cifran en reposo y nunca vuelven por la API.""")
+        Configuración de la empresa emisora autenticada: datos fiscales, certificado digital, credenciales SOL y API SUNAT,
+        series y API keys. `X-Api-Key` identifica a la empresa; desde el portal se usa la sesión más la cabecera `X-Empresa`.
+        Los secretos (clave SOL, client_secret de la API SUNAT, contraseña del certificado) se cifran en reposo y nunca vuelven por la API.""")
 @RequiredArgsConstructor
 public class EmpresaController {
     private final AdministrarTenantUseCase admin;
 
     @GetMapping("/empresa")
-    @Operation(summary = "Ver la empresa", description = "RUC, razón social, entorno SUNAT (`BETA` u homologación / `PRODUCCION`), si tiene credenciales SOL, la vigencia del certificado, el domicilio fiscal y la cuenta de detracciones. Nunca devuelve secretos.")
+    @Operation(summary = "Ver la empresa", description = "RUC, razón social, entorno SUNAT (`BETA` u homologación / `PRODUCCION`), si tiene credenciales SOL y API SUNAT, la vigencia del certificado, el domicilio fiscal y la cuenta de detracciones. Nunca devuelve secretos.")
     public ApiResponse<EmpresaResponse> ver(HttpServletRequest req) {
         UUID tenant = TenantActual.id(req);
         return ApiResponse.ok(EmpresaResponse.de(admin.obtener(tenant), admin.rechazoDeSol(tenant).orElse(null)));
@@ -72,6 +73,26 @@ public class EmpresaController {
     @Operation(summary = "Guardar las credenciales SOL", description = "Usuario secundario SOL (sin el RUC; khipu antepone `RUC+usuario` al enviar) y su clave. Obligatorias antes de enviar comprobantes a SUNAT.")
     public ResponseEntity<Void> credencialesSol(HttpServletRequest req, @Valid @RequestBody CredencialesSolRequest body) {
         admin.cargarCredencialesSol(TenantActual.id(req), body.usuario(), body.clave());
+        return ResponseEntity.noContent().build();
+    }
+
+    // #318: mismo trato que las credenciales SOL (las puede cargar una integración por API key): reemplazarlas o borrarlas no revela nada, y el secreto nunca vuelve.
+    @PutMapping("/empresa/credenciales-api-sunat")
+    @Operation(summary = "Guardar las credenciales API SUNAT", description = """
+            El «Id» (`client_id`) y la «Clave» (`client_secret`) de la aplicación que la empresa registra en SOL, opción
+            «Credenciales de API SUNAT». Con ellas khipu consulta la validez de comprobantes por la API REST de SUNAT (también en beta)
+            en vez de `billValidService`, que pide la clave SOL y solo existe en producción. Reemplazan las anteriores; se guardan
+            cifradas y nunca vuelven por la API. `422 CREDENCIALES_API_SUNAT_INVALIDAS` si falta alguna o el `client_id` trae espacios
+            o caracteres que no son de un identificador. No se comprueban contra SUNAT al guardarlas: la primera consulta lo hace.""")
+    public ResponseEntity<Void> credencialesApiSunat(HttpServletRequest req, @Valid @RequestBody CredencialesApiSunatRequest body) {
+        admin.cargarCredencialesApiSunat(TenantActual.id(req), body.clientId(), body.clientSecret());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/empresa/credenciales-api-sunat")
+    @Operation(summary = "Borrar las credenciales API SUNAT", description = "La validez vuelve a consultarse solo con la clave SOL. Idempotente.")
+    public ResponseEntity<Void> borrarCredencialesApiSunat(HttpServletRequest req) {
+        admin.borrarCredencialesApiSunat(TenantActual.id(req));
         return ResponseEntity.noContent().build();
     }
 

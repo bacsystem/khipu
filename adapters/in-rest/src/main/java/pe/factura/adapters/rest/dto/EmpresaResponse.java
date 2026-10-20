@@ -21,14 +21,16 @@ public record EmpresaResponse(
         @Schema(example = "Andina Store", description = "Nombre comercial que va en el XML (`cac:PartyName`), o `null`") String nombreComercial,
         @Schema(example = "false", description = "Inscrita en el Padrón de Tasa Especial del IGV (restaurantes y hoteles): emite con la tasa reducida") boolean padronTasaEspecialIgv,
         @Schema(description = "#107: si SUNAT rechazó las credenciales SOL (usuario o clave incorrectos…), cuándo y por qué; ausente si no. Mientras esté, los envíos de la empresa esperan a que se corrijan")
-        CredencialesSolRechazadas credencialesSolRechazadas) {
+        CredencialesSolRechazadas credencialesSolRechazadas,
+        @Schema(example = "false", description = "#318: si cargó las credenciales API SUNAT (client_id y client_secret de «Credenciales de API SUNAT»). Nunca se devuelven")
+        boolean tieneCredencialesApiSunat) {
 
     public record CredencialesSolRechazadas(@Schema(example = "2026-10-09T15:00:00Z") Instant desde, @Schema(example = "0102 - Usuario o contrasena incorrectos") String motivo) {}
 
     public static EmpresaResponse de(Tenant t, RechazoDeSolRepository.Rechazo rechazo) {
         return new EmpresaResponse(t.id(), t.ruc(), t.razonSocial(), t.entorno().name(), t.sol() != null, t.certificado() != null,
                 t.certificado() == null ? null : t.certificado().vigenciaHasta(), DomicilioResponse.de(t.domicilio()), t.cuentaDetracciones(), t.nombreComercial(),
-                t.padronTasaEspecialIgv(), rechazo == null ? null : new CredencialesSolRechazadas(rechazo.en(), rechazo.motivo()));
+                t.padronTasaEspecialIgv(), rechazo == null ? null : new CredencialesSolRechazadas(rechazo.en(), rechazo.motivo()), t.apiSunat() != null);
     }
 
     public static EmpresaResponse de(Tenant t) {

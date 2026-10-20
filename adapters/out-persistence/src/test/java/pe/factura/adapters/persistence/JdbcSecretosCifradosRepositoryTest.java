@@ -33,8 +33,9 @@ class JdbcSecretosCifradosRepositoryTest extends PersistenciaTestBase {
 
     UUID tenantConSecretos(SecretCipher c) {
         UUID t = tenantDePrueba();
-        jdbc.update("UPDATE tenant SET sol_usuario_enc = ?, sol_clave_enc = ?, cert_pkcs12_enc = ?, cert_clave_enc = ? WHERE id = ?",
-                c.cifrar(texto("MODDATOS")), c.cifrar(texto("moddatos")), c.cifrar(new byte[]{9, 9, 9}), c.cifrar(texto("clave-p12")), t);
+        jdbc.update("UPDATE tenant SET sol_usuario_enc = ?, sol_clave_enc = ?, cert_pkcs12_enc = ?, cert_clave_enc = ?, api_sunat_client_id_enc = ?, api_sunat_client_secret_enc = ? WHERE id = ?",
+                c.cifrar(texto("MODDATOS")), c.cifrar(texto("moddatos")), c.cifrar(new byte[]{9, 9, 9}), c.cifrar(texto("clave-p12")),
+                c.cifrar(texto("d20b421e-4ace-46d8-ac8c-4fbb44cfde17")), c.cifrar(texto("secreto-api")), t);
         return t;
     }
 
@@ -62,14 +63,16 @@ class JdbcSecretosCifradosRepositoryTest extends PersistenciaTestBase {
         UUID w = webhookConSecreto(t, vieja);
         var repo = new JdbcSecretosCifradosRepository(jdbc, rotando);
 
-        assertThat(repo.pendientes()).isEqualTo(7);
-        assertThat(repo.recifrar()).isEqualTo(7);
+        assertThat(repo.pendientes()).isEqualTo(9);
+        assertThat(repo.recifrar()).isEqualTo(9);
         assertThat(repo.pendientes()).isZero();
 
         // Sin la anterior, la clave nueva sola ya lee todo.
         Versionado soloNueva = new Versionado(2, false);
         assertThat(soloNueva.descifrar(jdbc.queryForObject("SELECT sol_clave_enc FROM tenant WHERE id = ?", byte[].class, t))).isEqualTo(texto("moddatos"));
         assertThat(soloNueva.descifrar(jdbc.queryForObject("SELECT cert_pkcs12_enc FROM tenant WHERE id = ?", byte[].class, t))).containsExactly(9, 9, 9);
+        // #318: las credenciales API SUNAT rotan con la MASTER_KEY como las SOL; si faltaran en la lista, quitar MASTER_KEY_ANTERIOR las dejaría ilegibles.
+        assertThat(soloNueva.descifrar(jdbc.queryForObject("SELECT api_sunat_client_secret_enc FROM tenant WHERE id = ?", byte[].class, t))).isEqualTo(texto("secreto-api"));
         assertThat(soloNueva.descifrar(jdbc.queryForObject("SELECT secreto_cifrado FROM administrador_segundo_factor WHERE administrador_id = ?", byte[].class, a)))
                 .isEqualTo(texto("TOTP-SECRETO"));
         assertThat(soloNueva.descifrar(jdbc.queryForObject("SELECT respuesta_cifrada FROM idempotencia WHERE clave = 'k1'", byte[].class)))
@@ -83,7 +86,7 @@ class JdbcSecretosCifradosRepositoryTest extends PersistenciaTestBase {
         tenantConSecretos(rotando);
         var repo = new JdbcSecretosCifradosRepository(jdbc, rotando);
 
-        assertThat(repo.recifrar()).as("solo los 4 de la empresa vieja").isEqualTo(4);
+        assertThat(repo.recifrar()).as("solo los 6 de la empresa vieja").isEqualTo(6);
         assertThat(repo.recifrar()).isZero();
     }
 
@@ -130,7 +133,7 @@ class JdbcSecretosCifradosRepositoryTest extends PersistenciaTestBase {
         administradorConSegundoFactor(new Versionado(3, false));
         var repo = new JdbcSecretosCifradosRepository(jdbc, rotando);
 
-        assertThat(repo.recifrar()).isEqualTo(4);
+        assertThat(repo.recifrar()).isEqualTo(6);
         assertThat(repo.pendientes()).isEqualTo(1);
     }
 }
