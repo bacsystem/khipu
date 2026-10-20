@@ -1013,7 +1013,7 @@ X-Api-Key: fk_TU_API_KEY
   },
   {
     id: "guia-remision-remitente",
-    titulo: "Guía de remisión remitente (09) en transporte privado",
+    titulo: "Guía de remisión remitente (09) en transporte privado — EXPERIMENTAL",
     endpoint: "/v1/guias-remision",
     cuando: "Traslada los bienes de una venta en su propio vehículo y con su conductor. Es la guía que emite quien envía la mercadería; la letra `T` de la serie decide que es una remitente.",
     request: `{
@@ -1037,18 +1037,20 @@ X-Api-Key: fk_TU_API_KEY
   "documentos_relacionados": [ { "tipo": "01", "numero": "F001-123", "ruc_emisor": "20100066603" } ]
 }`,
     notas: [
+      "**EXPERIMENTAL.** El contrato con la API REST de SUNAT para la GRE sale de su manual y todavía no se probó contra SUNAT: el **envío viene apagado** en el servidor y responde `422 GRE_NO_DISPONIBLE` antes de numerar hasta que el operador lo encienda tras una corrida controlada. Mientras tanto emita con `enviar_automatico: false` para revisar el XML y el PDF. La forma de la API puede cambiar.",
       "**Requisitos**: la serie `T###` registrada con el tipo **09** (`POST /v1/series`), el certificado, las credenciales SOL **y** las credenciales API SUNAT (`PUT /v1/empresa/credenciales-api-sunat`, el `client_id` y `client_secret` de la aplicación que registra en SOL, opción «Credenciales de API SUNAT»). La GRE va por la **API REST de SUNAT**, no por SOAP: sin las credenciales API, la guía se rechaza antes de numerar (`422 CREDENCIALES_API_SUNAT_NO_CARGADAS`) salvo con `enviar_automatico: false`.",
       "`motivo` del catálogo 20 (`01` venta, `02` compra, `03` venta con entrega a terceros, `04` traslado entre establecimientos de la misma empresa, `05` consignación, `06` devolución, `07` recojo de bienes transformados, `13` otros —con `descripcion_motivo`—, `14` venta sujeta a confirmación, `17` traslado para transformación). Importación (`08`), exportación (`09`) y emisor itinerante (`18`) aún no: `422 TRASLADO_INVALIDO`. En una venta el destinatario no puede ser el propio remitente (2555); en `04` sí debe serlo (2554), y la partida y la llegada son establecimientos de la empresa (3365, 3369).",
       "`modalidad` **02** (privado): `vehiculos` y `conductores`, el primero de cada lista es el principal y hasta dos secundarios (4389, 4376); placa de 6 a 8 letras o dígitos (2567), licencia de 9 a 10 (2573). Con el indicador `vehiculo_m1_o_l` (autos o motos) no hacen falta. **01** (público): `transportista` con su RUC, razón social y, opcional, `registro_mtc`, y sin vehículos ni conductores (2774) salvo con el indicador `vehiculos_conductores_transportista`.",
       "`partida`/`llegada`: ubigeo (catálogo 13) y dirección detallada; un establecimiento de la empresa va solo con su código (`establecimiento`, de `GET /v1/empresa/establecimientos`; `0000` el domicilio fiscal) y khipu completa ubigeo y dirección. Uno que no existe o está de baja responde `422 TRASLADO_INVALIDO` (3366/3370). `fecha_inicio` no puede ser anterior a la emisión (3343) y `peso_bruto` va en `KGM` o `TNE` (2880, 2881).",
       "SUNAT procesa la GRE de forma asíncrona: khipu envía el ZIP, recibe un **ticket** y lo consulta. La respuesta `201` trae `estado` `ACEPTADO` si SUNAT ya la procesó, o `ENVIADO_PENDIENTE_TICKET` y khipu sigue consultando solo (cada vez más espaciado, durante ~24 h; también `POST /v1/guias-remision/{id}/ticket`). Si SUNAT no respondió queda `ERROR_ENVIO` y se reintenta sola; si rechazó las credenciales o el archivo, `reintento_automatico: false`: corrija y reenvíe con `POST /v1/guias-remision/{id}/enviar`.",
+      "Antes de llamar a SUNAT la guía pasa a `ENVIANDO`: dos envíos a la vez no mandan el mismo número. Una que quedó `ENVIANDO` sin respuesta (`409 ENVIO_EN_CURSO`) se retoma con `POST /v1/guias-remision/{id}/enviar?forzar=true` pasados 10 min y solo tras revisar en SOL que no llegó. Si SUNAT rechaza las credenciales, la empresa no vuelve a pedir el token con las mismas durante una hora (`422 CREDENCIALES_GRE_RECHAZADAS`); guardar otras lo libera.",
       "SUNAT no publica una API de pruebas para la GRE: una empresa en `BETA` no envía guías (`422 GRE_NO_DISPONIBLE`), pero puede emitirlas con `enviar_automatico: false` para revisar el XML (`GET /v1/guias-remision/{id}/xml`). El PDF (`/pdf`) lleva el traslado completo y el QR con la URL de consulta que SUNAT pone en el CDR.",
     ],
     disponible: true,
   },
   {
     id: "guia-remision-transportista",
-    titulo: "Guía de remisión transportista (31)",
+    titulo: "Guía de remisión transportista (31) — EXPERIMENTAL",
     endpoint: "/v1/guias-remision",
     cuando: "Es una empresa de transporte y lleva los bienes de un remitente. La letra `V` de la serie decide que es una transportista; normalmente acompaña a la guía remitente del cliente.",
     request: `{
@@ -1073,7 +1075,7 @@ X-Api-Key: fk_TU_API_KEY
     notas: [
       "La serie `V###` se registra con el tipo **31**. Lleva `remitente` (quien envía los bienes, no puede ser usted: 2560) y su `registro_mtc` (obligatorio, 4391), y siempre el vehículo y el conductor principales (2566, 3357). No lleva `motivo`, `modalidad` ni `transportista`: mandarlos responde `422 GUIA_INVALIDA`.",
       "`documentos_relacionados`: la guía remitente que acompaña (`09`), la factura, la DAM o las autorizaciones de transporte del catálogo 61 (`65`–`69`, `82`); los que el catálogo marca «solo remitente» (`49`, `71`–`78`, `81`) se rechazan (3445).",
-      "Envío, ticket, reintentos, PDF y requisitos de credenciales: los mismos que la guía remitente (caso anterior).",
+      "Envío, ticket, reintentos, PDF y requisitos de credenciales: los mismos que la guía remitente (caso anterior). Es la **menos respaldada** de las dos: dónde van el remitente y el registro MTC en el XML no tiene fuente en la documentación de SUNAT a mano.",
     ],
     disponible: true,
   },
