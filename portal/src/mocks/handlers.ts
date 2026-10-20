@@ -704,6 +704,15 @@ function armarZip(entradas: Array<{ nombre: string; contenido: string }>): Uint8
 }
 
 const DESCARGA_MAXIMA = 500;
+/** #321: lo que admite una exportación (`ExportacionDeComprobantes.MAXIMO`). */
+const EXPORTACION_MAXIMA = 5000;
+const COLUMNAS_EXPORTACION = ["tipo", "serie", "numero", "fecha_emision", "cliente_tipo_doc", "cliente_num_doc", "cliente", "moneda", "gravado", "exonerado", "inafecto", "gratuito", "exportacion", "igv", "icbper", "total", "estado", "documento_modificado"];
+
+/** Una celda de texto del CSV como la escribe la API: sin que se lea como fórmula y entre comillas si lleva el separador, comillas o saltos. */
+function textoCsvMock(valor: string, separador: string): string {
+  const t = /^[=+\-@\t\r]/.test(valor) ? `'${valor}` : valor;
+  return t.includes(separador) || /["\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
 
 /** Lo opcional de un cliente, solo si vino con algo (el backend omite lo que no se informó). */
 function opcionalesDeCliente(b: { direccion?: string; pais?: string; email?: string }) {
@@ -3298,6 +3307,35 @@ export const handlers = [
       if (tipos.includes("cdr") && f.cdr) entradas.push({ nombre: `R-${nombre}.zip`, contenido: `CDR ${nombre}` });
     }
     return new HttpResponse(armarZip(entradas), { headers: { "content-type": "application/zip", "content-disposition": 'attachment; filename="comprobantes-mock.zip"' } });
+  }),
+
+  // #321, como `FacturaController.exportar`: los mismos filtros del listado, `formato` csv|xlsx, `separador` coma|punto_y_coma, 422 por encima del tope y, sin resultados, el
+  // archivo con la cabecera sola. El CSV es el de la API; el XLSX del mock es un relleno con la firma de un ZIP (lo que importa es el contrato). Va antes de `/:id`.
+  http.get(`${BASE}/v1/facturas/exportacion`, ({ request }) => {
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    const url = new URL(request.url);
+    const formato = url.searchParams.get("formato") ?? "csv";
+    if (formato !== "csv" && formato !== "xlsx") return fail(400, "PARAMETRO_INVALIDO", `formato debe ser csv (por defecto) o xlsx: ${formato}`);
+    const sep = url.searchParams.get("separador") ?? "coma";
+    if (sep !== "coma" && sep !== "punto_y_coma") return fail(400, "PARAMETRO_INVALIDO", `separador debe ser coma (por defecto) o punto_y_coma: ${sep}`);
+    const lista = filtrarComprobantes(empresaId, url);
+    if (lista instanceof Response) return lista;
+    if (lista.length > EXPORTACION_MAXIMA) return fail(422, "EXPORTACION_EXCEDE_EL_TOPE", `Hay ${lista.length} comprobantes con esos filtros y una exportación admite hasta ${EXPORTACION_MAXIMA}: acote las fechas y exporte por tramos`);
+    const desde = url.searchParams.get("desde");
+    const hasta = url.searchParams.get("hasta");
+    const rango = desde || hasta ? `${desde ?? "inicio"}_${hasta ?? hoyLima()}` : hoyLima();
+    const disposicion = `attachment; filename="comprobantes-${rango}.${formato}"`;
+    if (formato === "xlsx")
+      return new HttpResponse(new Uint8Array([0x50, 0x4b, 0x03, 0x04]), { headers: { "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "content-disposition": disposicion } });
+    const s = sep === "coma" ? "," : ";";
+    const dos = (n: number | undefined) => (n ?? 0).toFixed(2);
+    const filas = lista.map((f) => [
+      f.tipo, f.serie, String(f.numero), f.fecha_emision, textoCsvMock(f.receptor?.tipo_doc ?? "", s), textoCsvMock(f.receptor?.num_doc ?? "", s), textoCsvMock(f.receptor?.razon_social ?? "", s), f.moneda,
+      dos(f.totales.gravado), dos(f.totales.exonerado), dos(f.totales.inafecto), dos(f.totales.gratuito), dos(f.totales.exportacion), dos(f.totales.igv), dos(0), dos(f.totales.total),
+      f.estado_documento, f.nota ? `${f.nota.tipo_afectado} ${f.nota.documento_afectado}` : "",
+    ].join(s));
+    const csv = "\uFEFF" + [COLUMNAS_EXPORTACION.join(s), ...filas].map((l) => `${l}\r\n`).join("");
+    return new HttpResponse(csv, { headers: { "content-type": "text/csv; charset=UTF-8", "content-disposition": disposicion } });
   }),
 
   http.get(`${BASE}/v1/facturas/resumen`, ({ request }) => {
