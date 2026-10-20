@@ -17,3 +17,16 @@ CREATE TABLE invitacion (
 CREATE UNIQUE INDEX invitacion_pendiente_por_correo ON invitacion (cuenta_id, email) WHERE estado = 'PENDIENTE';
 -- La lista de pendientes de la página de equipo.
 CREATE INDEX invitacion_cuenta_estado ON invitacion (cuenta_id, estado, created_at DESC);
+-- Las pendientes de quien invitó, para revocarlas si deja de ser administrador.
+CREATE INDEX invitacion_invitado_por ON invitacion (invitado_por) WHERE estado = 'PENDIENTE';
+
+-- Cada correo de invitación que salió (al invitar y al reenviar), aunque la invitación después se revoque: el tope de envíos por cuenta y por destinatario en
+-- 24 horas se cuenta aquí, así que revocar e invitar de nuevo no lo reinicia.
+CREATE TABLE envio_de_invitacion (
+    id         BIGSERIAL    PRIMARY KEY,
+    cuenta_id  UUID         NOT NULL REFERENCES cuenta (id),
+    email      VARCHAR(254) NOT NULL,
+    enviado_en TIMESTAMPTZ  NOT NULL
+);
+CREATE INDEX envio_de_invitacion_cuenta ON envio_de_invitacion (cuenta_id, enviado_en);
+CREATE INDEX envio_de_invitacion_email ON envio_de_invitacion (email, enviado_en);

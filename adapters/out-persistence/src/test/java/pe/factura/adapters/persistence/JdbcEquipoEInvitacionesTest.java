@@ -141,4 +141,82 @@ class JdbcEquipoEInvitacionesTest extends PersistenciaTestBase {
         assertThatThrownBy(() -> invitaciones.crear(invitacion(c, "a@b.pe", "h2"))).isInstanceOf(DuplicateKeyException.class);
         invitaciones.crear(invitacion(cuenta(), "a@b.pe", "h3"));   // en otra cuenta, sí
     }
+
+    // --- H2: cambios de una sola columna --------------------------------------------------------------------------------------------
+
+    /**
+     * Restablecer la contraseña lee al usuario antes de su transacción. Si entre esa lectura y la escritura un administrador lo desactiva o le cambia el rol, guardar el
+     * usuario leído lo reactivaba en silencio: `cambiarPassword` escribe solo la contraseña y la verificación del correo.
+     */
+    @Test void cambiarLaContrasenaNoDeshaceUnaDesactivacionNiUnCambioDeRolHechosEnElMedio() {
+        Cuenta c = cuenta();
+        Usuario leido = usuario(c, "beto@b.pe", Rol.ADMIN);       // lo que restablecer leyó
+        usuarios.cambiarActivo(leido.id(), false);                // el administrador lo desactiva en el medio
+        usuarios.cambiarRol(leido.id(), Rol.LECTURA);
+
+        usuarios.cambiarPassword(leido.id(), "hash-nuevo", ahora);
+
+        Usuario hoy = usuarios.buscar(leido.id()).orElseThrow();
+        assertThat(hoy.activo()).isFalse();
+        assertThat(hoy.rol()).isEqualTo(Rol.LECTURA);
+        assertThat(hoy.passwordHash()).isEqualTo("hash-nuevo");
+        assertThat(hoy.correoVerificadoEn()).isEqualTo(ahora);
+    }
+
+    @Test void cambiarLaContrasenaConservaLaPrimeraVerificacion() {
+        Cuenta c = cuenta();
+        Usuario u = usuario(c, "beto@b.pe", Rol.EMISOR);
+        usuarios.marcarCorreoVerificado(u.id(), ahora);
+
+        usuarios.cambiarPassword(u.id(), "otro", ahora.plusSeconds(60));
+
+        assertThat(usuarios.buscar(u.id()).orElseThrow().correoVerificadoEn()).isEqualTo(ahora);
+    }
+
+    @Test void cambiarElRolOActivoSoloTocaEsaColumna() {
+        Cuenta c = cuenta();
+        Usuario u = usuario(c, "beto@b.pe", Rol.EMISOR);
+        jdbc.update("UPDATE usuario SET password_hash = 'cambiada-en-el-medio' WHERE id = ?", u.id());
+
+        usuarios.cambiarRol(u.id(), Rol.ADMIN);
+        usuarios.cambiarActivo(u.id(), false);
+
+        Usuario hoy = usuarios.buscar(u.id()).orElseThrow();
+        assertThat(hoy.passwordHash()).isEqualTo("cambiada-en-el-medio");
+        assertThat(hoy.rol()).isEqualTo(Rol.ADMIN);
+        assertThat(hoy.activo()).isFalse();
+    }
+
+    // --- H1 y H3 --------------------------------------------------------------------------------------------------------------------
+
+    @Test void losEnviosSeCuentanPorCuentaYPorCorreoEnLaVentana() {
+        Cuenta c = cuenta();
+        Cuenta otra = cuenta();
+        invitaciones.registrarEnvio(c.id(), "a@b.pe", ahora.minus(Duration.ofHours(25)));   // fuera de la ventana
+        invitaciones.registrarEnvio(c.id(), "a@b.pe", ahora.minus(Duration.ofHours(1)));
+        invitaciones.registrarEnvio(c.id(), "x@b.pe", ahora);
+        invitaciones.registrarEnvio(otra.id(), "a@b.pe", ahora);
+        Instant desde = ahora.minus(Duration.ofHours(24));
+
+        assertThat(invitaciones.enviosDeLaCuenta(c.id(), desde)).isEqualTo(2);
+        assertThat(invitaciones.enviosAlCorreo("a@b.pe", desde)).isEqualTo(2);
+        assertThat(invitaciones.enviosAlCorreo("x@b.pe", desde)).isEqualTo(1);
+    }
+
+    @Test void revocarLasPendientesDeQuienInvitoNoTocaLasDeOtrosNiLasAceptadas() {
+        Cuenta c = cuenta();
+        Usuario ana = usuario(c, "ana@b.pe", Rol.ADMIN);
+        Usuario dani = usuario(c, "dani@b.pe", Rol.ADMIN);
+        Invitacion deDani = Invitacion.nueva(c.id(), "x@b.pe", Rol.ADMIN, "h1", ahora, Duration.ofDays(7), dani.id());
+        Invitacion aceptadaDeDani = Invitacion.nueva(c.id(), "y@b.pe", Rol.ADMIN, "h2", ahora, Duration.ofDays(7), dani.id());
+        Invitacion deAna = Invitacion.nueva(c.id(), "z@b.pe", Rol.EMISOR, "h3", ahora, Duration.ofDays(7), ana.id());
+        for (Invitacion i : new Invitacion[]{deDani, aceptadaDeDani, deAna}) invitaciones.crear(i);
+        invitaciones.aceptar(aceptadaDeDani.id(), "h2", ahora);
+
+        assertThat(invitaciones.revocarPendientesDe(dani.id())).isEqualTo(1);
+
+        assertThat(invitaciones.buscar(deDani.id()).orElseThrow().estado()).isEqualTo(Invitacion.Estado.REVOCADA);
+        assertThat(invitaciones.buscar(aceptadaDeDani.id()).orElseThrow().estado()).isEqualTo(Invitacion.Estado.ACEPTADA);
+        assertThat(invitaciones.buscar(deAna.id()).orElseThrow().estado()).isEqualTo(Invitacion.Estado.PENDIENTE);
+    }
 }

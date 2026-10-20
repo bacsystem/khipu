@@ -29,4 +29,16 @@ public interface InvitacionRepository {
      * mientras la revocan o la reenvían, no la aceptan dos veces ni con un enlace que ya no vale.
      */
     boolean aceptar(UUID id, String tokenHash, Instant ahora);
+
+    /** Revoca las pendientes que creó ese usuario (H3): quien deja de ser administrador no deja invitaciones vivas. Devuelve cuántas. */
+    int revocarPendientesDe(UUID invitadoPor);
+
+    /** Anota que salió un correo de invitación (al invitar o al reenviar). Queda aunque la invitación se revoque después. */
+    void registrarEnvio(UUID cuentaId, String email, Instant cuando);
+
+    /** Correos de invitación que mandó la cuenta desde {@code desde}, a cualquier destinatario y con la invitación en cualquier estado. */
+    int enviosDeLaCuenta(UUID cuentaId, Instant desde);
+
+    /** Correos de invitación que recibió esa dirección desde {@code desde}, de cualquier cuenta. */
+    int enviosAlCorreo(String email, Instant desde);
 }

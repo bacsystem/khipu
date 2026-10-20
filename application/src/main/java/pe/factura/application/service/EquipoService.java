@@ -27,6 +27,15 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
     static final Duration VIDA_INVITACION = Duration.ofDays(7);
     /** Invitaciones pendientes por cuenta: sin tope, invitar serviría para mandar correos sin fin desde nuestro dominio. */
     static final int MAX_PENDIENTES = 20;
+    /**
+     * H1: los topes de correos van en una ventana de 24 horas y cuentan cada envío (al invitar y al reenviar) aunque la invitación se revoque después. Sin esto,
+     * invitar → reenviar → revocar → invitar al mismo correo mandaba correos sin fin desde nuestro dominio, con el nombre de la cuenta (texto libre) en el asunto.
+     */
+    static final Duration VENTANA_DE_ENVIOS = Duration.ofHours(24);
+    /** Correos de invitación que una cuenta puede mandar en la ventana, a cualquier destinatario. */
+    static final int MAX_ENVIOS_POR_CUENTA = 30;
+    /** Correos de invitación que puede recibir una misma dirección en la ventana, de cualquier cuenta. */
+    static final int MAX_ENVIOS_POR_CORREO = 3;
 
     private final EquipoRepository equipos;
     private final UsuarioRepository usuarios;
@@ -72,11 +81,18 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
         return uow.ejecutar(() -> cambiarDentro(cuentaId, cambio));
     }
 
-    /** Con el equipo bloqueado: dos administradores que se quitan el rol a la vez no dejan la cuenta sin ninguno. */
+    /**
+     * Con el equipo bloqueado: dos administradores que se quitan el rol a la vez no dejan la cuenta sin ninguno. Se escribe solo la columna que cambió (H2): reescribir el
+     * usuario entero pisaba, por ejemplo, una contraseña restablecida en el medio.
+     */
     private Usuario cambiarDentro(UUID cuentaId, Function<Equipo, Usuario> cambio) {
         Equipo e = equipos.deLaCuentaParaCambiar(cuentaId);
         Usuario u = cambio.apply(e);
-        if (!u.equals(e.miembro(u.id()))) usuarios.guardar(u);
+        Usuario antes = e.miembro(u.id());
+        if (u.rol() != antes.rol()) usuarios.cambiarRol(u.id(), u.rol());
+        if (u.activo() != antes.activo()) usuarios.cambiarActivo(u.id(), u.activo());
+        // H3: quien deja de ser administrador (degradado o desactivado) no deja invitaciones vivas que podría aceptar él mismo con otro correo.
+        if (antes.esAdminActivo() && !u.esAdminActivo()) invitaciones.revocarPendientesDe(u.id());
         return u;
     }
 
@@ -105,7 +121,9 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
                 throw new DomainException("INVITACION_PENDIENTE", "Ya hay una invitación pendiente para ese correo: reenvíala en vez de crear otra");
             if (pendientes.size() >= MAX_PENDIENTES)
                 throw new DomainException("DEMASIADAS_INVITACIONES", "Tu cuenta tiene " + MAX_PENDIENTES + " invitaciones pendientes. Revoca las que ya no hagan falta antes de invitar a alguien más");
+            limitarEnvios(cuentaId, i.email());
             invitaciones.crear(i);
+            invitaciones.registrarEnvio(cuentaId, i.email(), clock.instant());
             return i;
         });
         return new Enviada(nueva, enviar(nueva, urlPortal, token));
@@ -115,9 +133,12 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
     public Enviada reenviar(UUID cuentaId, UUID actorId, UUID invitacionId, String urlPortal) {
         String token = TokenOpaco.generar();
         Invitacion reenviada = uow.ejecutar(() -> {
-            equipos.deLaCuenta(cuentaId).exigirAdministrador(actorId);
+            // Bloqueado como al invitar: dos reenvíos a la vez no pasan los dos por debajo del tope de envíos.
+            equipos.deLaCuentaParaCambiar(cuentaId).exigirAdministrador(actorId);
             Invitacion r = invitacionDe(cuentaId, invitacionId).reenviada(TokenOpaco.hash(token), clock.instant(), VIDA_INVITACION);
+            limitarEnvios(cuentaId, r.email());
             guardarPendiente(r);
+            invitaciones.registrarEnvio(cuentaId, r.email(), clock.instant());
             return r;
         });
         return new Enviada(reenviada, enviar(reenviada, urlPortal, token));
@@ -135,6 +156,14 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
     private Invitacion invitacionDe(UUID cuentaId, UUID invitacionId) {
         return invitaciones.buscar(invitacionId).filter(i -> i.cuentaId().equals(cuentaId))
                 .orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Invitación no encontrada"));
+    }
+
+    private void limitarEnvios(UUID cuentaId, String email) {
+        Instant desde = clock.instant().minus(VENTANA_DE_ENVIOS);
+        if (invitaciones.enviosDeLaCuenta(cuentaId, desde) >= MAX_ENVIOS_POR_CUENTA)
+            throw new DomainException("DEMASIADAS_INVITACIONES", "Tu cuenta ya mandó " + MAX_ENVIOS_POR_CUENTA + " invitaciones en las últimas 24 horas. Vuelve a intentarlo mañana");
+        if (invitaciones.enviosAlCorreo(email, desde) >= MAX_ENVIOS_POR_CORREO)
+            throw new DomainException("DEMASIADAS_INVITACIONES", "Ese correo ya recibió " + MAX_ENVIOS_POR_CORREO + " invitaciones en las últimas 24 horas. Vuelve a intentarlo mañana");
     }
 
     private void guardarPendiente(Invitacion i) {
@@ -175,6 +204,9 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
         // Antes de la transacción: el hash de la contraseña es lento a propósito y no debe tener la fila tomada mientras tanto.
         String passwordHash = hasher.hash(password);
         uow.ejecutar(() -> {
+            // H3: se vuelve a mirar dentro de la transacción, con el equipo bloqueado: quien invitó pudo dejar de ser administrador mientras tanto.
+            equipos.deLaCuentaParaCambiar(i.cuentaId());
+            if (!invitanteVigente(i)) throw enlaceInvalido();
             if (usuarios.buscarPorEmail(i.email()).isPresent())
                 throw new DomainException("USUARIO_EXISTENTE", "Ese correo ya tiene un usuario en khipu: entra con tu contraseña o pide restablecerla");
             // Marcarla aceptada es la condición: de dos clics a la vez, uno crea el usuario y el otro ve el enlace ya usado.
@@ -185,7 +217,12 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
     }
 
     private Invitacion aceptable(String hash, Instant ahora) {
-        return invitaciones.buscarPorTokenHash(hash).filter(i -> i.aceptable(ahora)).orElseThrow(EquipoService::enlaceInvalido);
+        return invitaciones.buscarPorTokenHash(hash).filter(i -> i.aceptable(ahora)).filter(this::invitanteVigente).orElseThrow(EquipoService::enlaceInvalido);
+    }
+
+    /** H3: la invitación vale mientras quien la creó siga siendo administrador activo de la cuenta. Sin autor (se borró) no vale. */
+    private boolean invitanteVigente(Invitacion i) {
+        return i.invitadoPor() != null && usuarios.buscar(i.invitadoPor()).filter(u -> u.cuentaId().equals(i.cuentaId()) && u.esAdminActivo()).isPresent();
     }
 
     private static DomainException enlaceInvalido() {

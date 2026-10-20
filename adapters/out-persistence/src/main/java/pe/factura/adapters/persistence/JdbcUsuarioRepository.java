@@ -39,4 +39,15 @@ public class JdbcUsuarioRepository implements UsuarioRepository {
     @Override public void marcarCorreoVerificado(UUID id, java.time.Instant cuando) {
         jdbc.update("UPDATE usuario SET correo_verificado_at = ? WHERE id = ? AND correo_verificado_at IS NULL", Timestamp.from(cuando), id);
     }
+    /** H2: solo esas columnas; el rol y si está activo quedan como estén en la base, aunque otro los haya cambiado después de leer al usuario. */
+    @Override public void cambiarPassword(UUID id, String passwordHash, java.time.Instant correoVerificadoEn) {
+        jdbc.update("UPDATE usuario SET password_hash = ?, correo_verificado_at = COALESCE(correo_verificado_at, ?) WHERE id = ?",
+                passwordHash, Timestamp.from(correoVerificadoEn), id);
+    }
+    @Override public void cambiarRol(UUID id, Rol rol) {
+        jdbc.update("UPDATE usuario SET rol = ? WHERE id = ?", rol.name(), id);
+    }
+    @Override public void cambiarActivo(UUID id, boolean activo) {
+        jdbc.update("UPDATE usuario SET activo = ? WHERE id = ?", activo, id);
+    }
 }
