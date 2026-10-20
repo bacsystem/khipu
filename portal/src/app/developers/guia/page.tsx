@@ -334,6 +334,11 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
       </Seccion>
 
       <Seccion id="sire" titulo="Registro de ventas (SIRE)">
+        <NotaProsa>
+          <strong>Experimental: formato reconstruido.</strong> Sigue el Anexo III de la RS 000138-2023 (que fija solo una parte de los campos) y el control de cambios
+          del Aplicativo Cliente SIRE, y todavía no se validó con el Programa Validador SIRE (PVSIRE) ni con el SIRE: no lo use para reemplazar una propuesta real
+          antes de validarlo con el PVSIRE.
+        </NotaProsa>
         <P>
           SUNAT arma la propuesta del Registro de Ventas e Ingresos Electrónico (RVIE) del SIRE con sus comprobantes electrónicos. khipu le da dos cosas para
           trabajarla: el archivo de reemplazo del periodo, armado con lo que usted emitió, y la conciliación de ese registro con la propuesta que descarga del SIRE.
@@ -348,11 +353,16 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
           <li>
             Un ZIP <Codigo>LE&lt;RUC&gt;&lt;AAAAMM&gt;00140400021112.zip</Codigo> con el <Codigo>.txt</Codigo> del mismo nombre: una fila por comprobante que SUNAT
             tiene (aceptado, con o sin observaciones, o anulado después), 40 campos separados por <Codigo>|</Codigo>, fechas <Codigo>dd/mm/aaaa</Codigo> e importes
-            con 2 decimales en la moneda del comprobante, con su tipo de cambio en el campo 28 (<Codigo>1.000</Codigo> en soles).
+            con 2 decimales en la moneda del comprobante, con su tipo de cambio en el campo 28 (<Codigo>0.000</Codigo> en soles).
           </li>
           <li>
             La nota de crédito va en negativo y lleva el comprobante que modifica (campos 29–32) y su motivo (34); un anulado va con estado <Codigo>2</Codigo> e
             importes en cero; cada boleta va en su propia fila.
+          </li>
+          <li>
+            <strong className="text-foreground">Cubre solo lo emitido en khipu</strong> (cabecera <Codigo>X-Rvie-Alcance: solo-khipu</Codigo>): reemplazar la
+            propuesta con él saca las ventas emitidas por otros medios (SEE-SOL, comprobantes físicos, otro proveedor). Antes de reemplazar, concilie y exija{" "}
+            <Codigo>solo_en_sunat</Codigo> vacío.
           </li>
           <li>
             Lo que todavía va en camino a SUNAT no entra: la cabecera <Codigo>X-Rvie-Pendientes-Sunat</Codigo> dice cuántos son. Espere a que SUNAT los resuelva
@@ -377,8 +387,8 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
           inafecto o total). No guarda nada.
         </P>
         <NotaProsa>
-          El formato sigue la estructura de 40 campos de la propuesta del RVIE y <strong>todavía no se validó contra el anexo vigente de SUNAT ni contra el SIRE</strong>:
-          revise el archivo con su contador antes de reemplazar una propuesta. Si la conciliación muestra la misma diferencia en todos los comprobantes de un tipo (por
+          Las filas consolidadas de la propuesta (un rango de boletas del día en una fila) no se concilian una por una: se cuentan en{" "}
+          <Codigo>filas_consolidadas_no_conciliadas</Codigo>. Revise el archivo con su contador antes de reemplazar una propuesta. Si la conciliación muestra la misma diferencia en todos los comprobantes de un tipo (por
           ejemplo, todas las notas de crédito), es el formato y no sus ventas: avísenos.
         </NotaProsa>
       </Seccion>
