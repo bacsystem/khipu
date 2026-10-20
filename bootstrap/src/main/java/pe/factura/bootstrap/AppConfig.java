@@ -508,6 +508,13 @@ public class AppConfig {
                                                     AceptarTerminosUseCase terminos) {
         return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas, limite, terminos);
     }
+    // #21: el equipo de una cuenta (roles e invitaciones). Un solo servicio para lo que hace el administrador y lo que hace el invitado con el enlace.
+    @Bean EquipoRepository equipoRepository(JdbcTemplate jdbc) { return new JdbcEquipoRepository(jdbc); }
+    @Bean InvitacionRepository invitacionRepository(JdbcTemplate jdbc) { return new JdbcInvitacionRepository(jdbc); }
+    @Bean EquipoService equipoService(EquipoRepository e, UsuarioRepository us, CuentaRepository cu, InvitacionRepository i, SesionRepository se, PasswordHasher h,
+                                      CorreoSender co, PlantillasDeCorreo plantillas, UnitOfWork u, Clock clock) {
+        return new EquipoService(e, us, cu, i, se, h, co, plantillas, u, clock);
+    }
     @Bean GestionarEmpresasUseCase gestionarEmpresas(TenantRepository t, CuentaRepository cu, UnitOfWork u) {
         return new GestionarEmpresasService(t, cu, u);
     }
