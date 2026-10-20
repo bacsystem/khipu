@@ -35,7 +35,7 @@ export function SidebarContent({
           </div>
         ) : null}
 
-        <SidebarNav />
+        <SidebarNav rol={usuario.rol} />
       </div>
 
       <div className="flex w-full min-w-0 flex-col gap-2.5 border-t border-border/60 p-3">

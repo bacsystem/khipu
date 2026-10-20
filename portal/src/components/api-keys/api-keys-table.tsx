@@ -14,7 +14,7 @@ import { mensajeError } from "@/lib/messages";
 import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
 import { cn } from "@/lib/utils";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
-import { useSoloLectura } from "@/lib/solo-lectura";
+import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 
 const TODAS = "todas";
 
@@ -43,7 +43,7 @@ function Estado({ activa }: { activa: boolean }) {
 
 /** Acciones de una fila: "Revocar" pide confirmación en línea antes de llamar a la API (es irreversible). */
 function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
-  const soloLectura = useSoloLectura();
+  const soloLectura = useSinPermisoDeConfigurar();
   const router = useRouter();
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);

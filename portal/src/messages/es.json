@@ -85,6 +85,19 @@
       "continuar": "Continuar",
       "enlaceInvalido": "El enlace de verificación es inválido, venció o ya se usó. Inicia sesión y pide otro."
     },
+    "aceptarInvitacion": {
+      "titulo": "Únete a tu equipo",
+      "subtitulo": "Crea tu contraseña para entrar.",
+      "invitado": "Te invitaron a {cuenta} como {rol}.",
+      "email": "Entrarás con {email}.",
+      "password": "Tu contraseña",
+      "ayudaPassword": "Mínimo 8 caracteres, con una letra y un número.",
+      "enviar": "Aceptar y crear contraseña",
+      "enviando": "Guardando…",
+      "exito": "Listo: ya eres parte del equipo. Inicia sesión con tu correo y la contraseña que elegiste.",
+      "irALogin": "Ir a iniciar sesión",
+      "enlaceInvalido": "El enlace de la invitación es inválido, venció o ya se usó. Pídele a quien te invitó que te la reenvíe."
+    },
     "revisaTuCorreo": {
       "titulo": "Revisa tu correo",
       "descripcion": "Te enviamos un enlace a {email} para verificar que es tuyo. Ábrelo para configurar tu empresa y empezar a emitir: hasta entonces puedes mirar el portal, pero no crear ni emitir nada.",
@@ -1403,6 +1416,56 @@
   "banner": {
     "hasta": "Hasta {fecha}"
   },
+  "roles": {
+    "etiquetas": { "ADMIN": "Administrador", "EMISOR": "Emisor", "LECTURA": "Solo lectura" },
+    "descripciones": {
+      "ADMIN": "Todo: emite, configura la empresa, las series, el certificado y las API keys, y gestiona el equipo.",
+      "EMISOR": "Emite, consulta y anula comprobantes, y guarda clientes y productos. No cambia la configuración ni el equipo.",
+      "LECTURA": "Solo consulta: comprobantes, empresa, series, plan y consumo. No emite ni configura nada."
+    },
+    "sinPermiso": {
+      "emitir": "Tu rol (Solo lectura) solo permite consultar: pídele a un administrador de la cuenta lo que necesites cambiar.",
+      "configurar": "Solo un administrador de la cuenta puede cambiar la configuración.",
+      "pagina": "Esta sección es solo para los administradores de la cuenta. Pídele a uno lo que necesites."
+    }
+  },
+  "equipo": {
+    "descripcion": "Las personas que entran al portal de tu cuenta y lo que cada una puede hacer. Invita por correo: el enlace dura 7 días y sirve una sola vez.",
+    "usuarios": "Usuarios",
+    "invitaciones": "Invitaciones pendientes",
+    "sinInvitaciones": "No hay invitaciones pendientes.",
+    "usted": "Tú",
+    "activo": "Activo",
+    "desactivado": "Desactivado",
+    "sinVerificar": "Correo sin verificar",
+    "vencida": "Vencida",
+    "venceEl": "Vence el {fecha}",
+    "envios": "{n} de 5 envíos",
+    "columnas": { "usuario": "Usuario", "rol": "Rol", "estado": "Estado", "acciones": "Acciones", "correo": "Correo" },
+    "cambiarRol": "Rol de {email}",
+    "desactivar": "Desactivar",
+    "confirmarDesactivar": "¿Desactivar? Se cerrarán sus sesiones.",
+    "siDesactivar": "Sí, desactivar",
+    "reactivar": "Reactivar",
+    "reenviar": "Reenviar",
+    "revocar": "Revocar",
+    "confirmarRevocar": "¿Revocar? El enlace dejará de servir.",
+    "siRevocar": "Sí, revocar",
+    "cancelar": "Cancelar",
+    "invitar": {
+      "boton": "Invitar usuario",
+      "titulo": "Invitar a tu equipo",
+      "subtitulo": "Le enviamos un enlace para crear su contraseña y entrar con el rol que elijas.",
+      "email": "Correo",
+      "rol": "Rol",
+      "enviar": "Enviar invitación",
+      "enviando": "Enviando…",
+      "enviada": "Invitación enviada a {email}.",
+      "noSalio": "La invitación quedó guardada, pero el correo no salió. Reenvíala desde la lista en unos minutos."
+    },
+    "reenviada": "Enviamos un enlace nuevo a {email}. El anterior ya no sirve.",
+    "reenviadaSinCorreo": "Generamos un enlace nuevo, pero el correo no salió. Inténtalo de nuevo en unos minutos."
+  },
   "soporte": {
     "soloLectura": "Modo soporte: solo se puede mirar, no cambiar nada.",
     "aviso": {
@@ -1527,6 +1590,15 @@
     "SERIE_AGOTADA": "Esa serie agotó sus 8 dígitos de correlativo. Crea una serie nueva para seguir emitiendo.",
     "CORRELATIVO_INVALIDO": "El correlativo de la serie va de 0 a 99 999 999 (8 dígitos).",
     "ESTABLECIMIENTO_INVALIDO": "Ese establecimiento no existe o está dado de baja.",
-    "ESTABLECIMIENTO_EN_USO": "Ese establecimiento tiene series activas. Reasígnalas antes de darlo de baja."
+    "ESTABLECIMIENTO_EN_USO": "Ese establecimiento tiene series activas. Reasígnalas antes de darlo de baja.",
+    "ROL_INSUFICIENTE": "Tu rol no permite hacer esto. Pídeselo a un administrador de la cuenta.",
+    "ULTIMO_ADMINISTRADOR": "La cuenta necesita al menos un administrador activo: nombra a otro antes de cambiar este.",
+    "NO_PUEDES_DESACTIVARTE": "No puedes desactivar tu propio usuario: pídeselo a otro administrador.",
+    "YA_ES_MIEMBRO": "Ese correo ya es un usuario de tu cuenta.",
+    "USUARIO_EXISTENTE": "Ese correo ya tiene un usuario en khipu y no se puede sumar a otra cuenta.",
+    "INVITACION_PENDIENTE": "Ya hay una invitación pendiente para ese correo: reenvíala desde la lista.",
+    "INVITACION_NO_PENDIENTE": "La invitación ya no está pendiente: se aceptó o se revocó. Recarga la página.",
+    "DEMASIADAS_INVITACIONES": "Tu cuenta tiene 20 invitaciones pendientes. Revoca las que ya no hagan falta.",
+    "DEMASIADOS_ENVIOS": "Ya enviamos esta invitación 5 veces. Revócala e invita de nuevo si hace falta."
   }
 }

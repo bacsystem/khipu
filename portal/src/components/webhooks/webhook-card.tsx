@@ -9,7 +9,7 @@ import type { Webhook } from "@/lib/api/webhooks";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
-import { useSoloLectura } from "@/lib/solo-lectura";
+import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { PAUSA_TRAS_FALLOS, resumenDeEventos } from "@/lib/webhooks/eventos";
 import { EntregasWebhook } from "./entregas-webhook";
@@ -43,7 +43,7 @@ function EstadoBadge({ webhook }: { webhook: Webhook }) {
 
 /** Un endpoint de webhooks (#19): su estado, sus eventos y las acciones (probar, apagar o activar, rotar el secreto, eliminar) más el log de entregas. */
 export function WebhookCard({ webhook }: { webhook: Webhook }) {
-  const soloLectura = useSoloLectura();
+  const soloLectura = useSinPermisoDeConfigurar();
   const router = useRouter();
   const [verEntregas, setVerEntregas] = useState(false);
   const [versionLog, setVersionLog] = useState(0);

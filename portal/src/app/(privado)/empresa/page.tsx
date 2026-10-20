@@ -253,7 +253,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
                 El domicilio fiscal va en cada XML como dirección del emisor (ubigeo del catálogo 13, regla 4093). Sin él SUNAT no observa la factura,
                 pero la representación impresa y los clientes lo necesitan.
               </p>
-              <FormulariosDeEscritura>
+              <FormulariosDeEscritura permiso="configurar">
               <DatosFiscalesForm
                 domicilio={domicilio}
                 cuentaDetracciones={empresa.cuenta_detracciones ?? null}
@@ -304,7 +304,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               </p>
             </div>
             <div className="mt-4">
-              <FormulariosDeEscritura>
+              <FormulariosDeEscritura permiso="configurar">
               <CredencialesSolForm configuradas={empresa.tiene_credenciales_sol} />
               </FormulariosDeEscritura>
             </div>
@@ -413,7 +413,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               </div>
             </dl>
             <div className="mt-4">
-              <FormulariosDeEscritura>
+              <FormulariosDeEscritura permiso="configurar">
               <CertificadoForm tieneCertificado={empresa.tiene_certificado} />
               </FormulariosDeEscritura>
             </div>
@@ -460,7 +460,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           <span className="text-[12px] text-muted-foreground">Solo cambia la representación impresa; no afecta a lo que se envía a SUNAT.</span>
         </div>
         <div className="mt-4">
-          <FormulariosDeEscritura>
+          <FormulariosDeEscritura permiso="configurar">
           <PersonalizacionPdfForm inicial={personalizacion} />
           </FormulariosDeEscritura>
         </div>

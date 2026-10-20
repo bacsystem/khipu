@@ -49,7 +49,8 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
       {/* El aviso de mantenimiento que publica el backoffice (#199): lo ve todo cliente, en cada página, hasta que vence o se retira. */}
       {banner ? <BannerDeMantenimiento texto={banner.texto} hasta={banner.hasta} /> : null}
       {/* H10: en una sesión de soporte cada acción que escribe se ve deshabilitada, en vez de dejar llenar un formulario que el backend va a rechazar. */}
-      <SoloLectura activa={Boolean(usuario.soporte_hasta)}>
+      {/* #21: el rol del usuario también acota lo que puede hacer; el backend lo vuelve a decidir en cada petición. */}
+      <SoloLectura activa={Boolean(usuario.soporte_hasta)} rol={usuario.rol}>
       <div className="flex min-w-0 flex-1">
       <aside className="hidden w-60 shrink-0 overflow-x-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:block md:h-screen md:overflow-y-auto">
         <SidebarContent usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activa?.id} />

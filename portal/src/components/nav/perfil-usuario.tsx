@@ -11,9 +11,10 @@ import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-import { useSoloLectura } from "@/lib/solo-lectura";
+import { useSoloLecturaDeLaSesion } from "@/lib/solo-lectura";
 
-const ETIQUETA_ROL: Record<string, string> = { ADMIN: "Administrador", EMISOR: "Emisor", LECTURA: "Solo lectura" };
+/** El rol real del usuario, tal como lo devuelve `/me` (#21): las mismas etiquetas que la página de equipo. */
+const ETIQUETA_ROL: Record<string, string> = messages.roles.etiquetas;
 
 /** Las dos primeras letras del nombre de la cuenta («FT» de «Ferretería Torres»), o del correo si no se pudo leer la cuenta. */
 function iniciales(nombre: string): string {
@@ -104,7 +105,7 @@ function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { email: stri
 /** Bloque de usuario del sidebar: abre un menú con la cuenta, el tema, el cambio de contraseña y el cierre de sesión. */
 /** `nombreCuenta`: el de la cuenta (C7); `null` si no se pudo leer, y entonces se usa el correo. */
 export function PerfilUsuario({ usuario, nombreCuenta }: { usuario: Usuario; nombreCuenta: string | null }) {
-  const soloLectura = useSoloLectura();
+  const soloLectura = useSoloLecturaDeLaSesion();
   const router = useRouter();
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
@@ -153,7 +154,7 @@ export function PerfilUsuario({ usuario, nombreCuenta }: { usuario: Usuario; nom
             <div className="min-w-0 flex-1">
               <p className="text-[12px] leading-tight font-medium">{nombre}</p>
               <p className="mt-0.5 font-mono text-[10px] leading-snug break-all text-muted-foreground">{usuario.email}</p>
-              <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{rol}</p>
+              <p data-testid="rol-del-usuario" className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{rol}</p>
             </div>
             <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
           </div>

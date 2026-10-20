@@ -9,11 +9,11 @@ import { ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilo
 import { cn } from "@/lib/utils";
 import { mensajeError } from "@/lib/messages";
 import { ApiKeyRevelada } from "./api-key-revelada";
-import { useSoloLectura } from "@/lib/solo-lectura";
+import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 
 /** Crea una API key y la muestra una sola vez; al cerrar, refresca la lista del servidor. */
 export function NuevaApiKeyDialog({ className }: { className?: string }) {
-  const soloLectura = useSoloLectura();
+  const soloLectura = useSinPermisoDeConfigurar();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [creando, setCreando] = useState(false);

@@ -7,11 +7,11 @@ import type { Establecimiento } from "@/lib/api/establecimientos";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 import { EstablecimientoForm } from "./establecimiento-form";
-import { useSoloLectura } from "@/lib/solo-lectura";
+import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 
 /** Alta (sin `existente`) o edición de un anexo en el mismo `Dialog` que series y API keys. */
 export function EstablecimientoDialog({ existente, trigger, className }: { existente?: Establecimiento | null; trigger?: ReactNode; className?: string }) {
-  const soloLectura = useSoloLectura();
+  const soloLectura = useSinPermisoDeConfigurar();
   const [abierto, setAbierto] = useState(false);
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
