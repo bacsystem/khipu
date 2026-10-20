@@ -88,6 +88,24 @@ class AuditoriaAdminE2ETest {
         assertThat(filas.get(2).get("administrador_id").toString()).isEqualTo(administradorId);
     }
 
+    /**
+     * #208: sin {@code TRUSTED_PROXIES} (el default de este test) nadie es proxy de confianza, así que un administrador que llama directo
+     * no puede elegir la IP de su propio registro poniéndola en {@code X-Forwarded-For}. Con proxy de confianza lo cubre {@code OrigenAdminConProxyE2ETest}.
+     */
+    @Test void unXForwardedForFalsoDeUnAdministradorConSesionNoCambiaLaIpRegistrada() {
+        http.postForEntity("/v1/admin/administradores", new HttpEntity<>("{\"email\":\"ana@khipu.pe\",\"password\":\"Segura123\"}", conClaveDePlataforma()), Map.class);
+        String token = (String) SesionAdminDePrueba.entrar(http, "ana@khipu.pe", "Segura123").get("access_token");
+
+        HttpHeaders conCabeceraFalsa = conSesion(token);
+        conCabeceraFalsa.set("X-Forwarded-For", "6.6.6.6");
+        ResponseEntity<Map> r = http.postForEntity("/v1/admin/tenants", new HttpEntity<>(TENANT, conCabeceraFalsa), Map.class);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        Map<String, Object> fila = bitacora().stream().filter(f -> "CREAR_TENANT".equals(f.get("accion"))).findFirst().orElseThrow();
+        assertThat(fila.get("actor_tipo")).isEqualTo("ADMINISTRADOR");
+        assertThat((String) fila.get("ip")).isNotEqualTo("6.6.6.6").isIn("127.0.0.1", "0:0:0:0:0:0:0:1");
+    }
+
     @Test void unaAccionRechazadaONoAutenticadaNoDejaRegistro() {
         http.postForEntity("/v1/admin/tenants", new HttpEntity<>(TENANT, conClaveDePlataforma()), Map.class);
         assertThat(bitacora()).hasSize(1);
