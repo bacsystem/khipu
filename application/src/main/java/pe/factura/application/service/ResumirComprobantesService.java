@@ -7,6 +7,7 @@ import pe.factura.application.port.out.ResumenDeComprobantesRepository.Agregados
 import pe.factura.application.port.out.ResumenDeComprobantesRepository.Celda;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.EstadoDocumento;
+import pe.factura.domain.documento.TipoDocumento;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -15,9 +16,12 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * El resumen de comprobantes de una empresa (#15) y su emisión día por día (#24). Solo lectura. El repositorio trae cuántos hay por estado; acá se decide qué estados son
@@ -46,6 +50,7 @@ public class ResumirComprobantesService implements ResumirComprobantesUseCase {
 
         Map<LocalDate, Acumulado> porFecha = new TreeMap<>();
         for (Celda c : resumenes.porDia(tenantId, desde, hasta)) {
+            if (!esVenta(c.tipo())) continue;
             boolean emitido = c.estado().fueEmitido();
             boolean facturado = c.estado().cuentaComoFacturado() && c.moneda() != null && c.neto() != null;
             if (!emitido && !facturado) continue;
@@ -58,6 +63,17 @@ public class ResumirComprobantesService implements ResumirComprobantesUseCase {
                 a.porMoneda.entrySet().stream().map(e -> new Total(e.getKey(), e.getValue())).toList())));
         return new PorDia(desde, hasta, resultado);
     }
+
+    /**
+     * Los tipos que son ventas y por eso cuentan en la emisión por día: factura, boleta y sus notas. Es un solo predicado a propósito. Otras ramas agregan tipos que no son
+     * ventas (04 liquidación de compra, 20 retención, 40 percepción) y el resumen (#15) los excluye de «emitidos» y «facturado»: al ensamblarlas, esta regla y la del resumen
+     * tienen que ser la misma. Se nombran las constantes una por una en vez de tomar {@code TipoDocumento.values()}, para que un tipo nuevo no entre solo.
+     */
+    static final Set<String> TIPOS_DE_VENTA = Stream.of(TipoDocumento.FACTURA, TipoDocumento.BOLETA, TipoDocumento.NOTA_CREDITO, TipoDocumento.NOTA_DEBITO)
+            .map(TipoDocumento::codigo).collect(Collectors.toUnmodifiableSet());
+
+    /** Un conjunto inmutable lanza con {@code contains(null)}: un tipo nulo no es una venta, no un error. */
+    static boolean esVenta(String tipo) { return tipo != null && TIPOS_DE_VENTA.contains(tipo); }
 
     /** Lo de un día mientras se recorren sus celdas; {@code porMoneda} ordenado por moneda, como el resumen. */
     private static final class Acumulado {

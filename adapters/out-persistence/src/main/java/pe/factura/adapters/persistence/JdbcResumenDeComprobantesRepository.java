@@ -65,19 +65,19 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
     }
 
     /**
-     * #24: un solo recorrido por el índice {@code (tenant_id, fecha_emision)}, agrupado por día, estado y moneda. {@code fecha_emision} es la fecha del comprobante (un DATE,
+     * #24: un solo recorrido por el índice {@code (tenant_id, fecha_emision)}, agrupado por día, tipo, estado y moneda. {@code fecha_emision} es la fecha del comprobante (un DATE,
      * la de Lima en que se emitió), así que agrupar por ella no depende del huso horario de la sesión. El LEFT JOIN deja también los documentos sin fila de totales.
      */
     @Override public List<Celda> porDia(UUID tenantId, LocalDate desde, LocalDate hasta) {
         return jdbc.query("""
-                SELECT d.fecha_emision, d.estado, c.moneda, count(*) AS n, sum(CASE WHEN d.tipo = '%s' THEN -c.total ELSE c.total END) AS neto
+                SELECT d.fecha_emision, d.tipo, d.estado, c.moneda, count(*) AS n, sum(CASE WHEN d.tipo = '%s' THEN -c.total ELSE c.total END) AS neto
                 FROM documento d LEFT JOIN comprobante c ON c.documento_id = d.id
                 WHERE d.tenant_id = ? AND d.fecha_emision >= ? AND d.fecha_emision <= ?
-                GROUP BY d.fecha_emision, d.estado, c.moneda
-                ORDER BY d.fecha_emision, d.estado, c.moneda
+                GROUP BY d.fecha_emision, d.tipo, d.estado, c.moneda
+                ORDER BY d.fecha_emision, d.tipo, d.estado, c.moneda
                 """.formatted(NOTA_DE_CREDITO),
                 // Como LocalDate y no como java.sql.Date: ese pasa por medianoche en el huso de la JVM y podría correr el día.
-                (rs, i) -> new Celda(rs.getObject("fecha_emision", LocalDate.class), EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("moneda"), rs.getLong("n"),
+                (rs, i) -> new Celda(rs.getObject("fecha_emision", LocalDate.class), rs.getString("tipo"), EstadoDocumento.valueOf(rs.getString("estado")), rs.getString("moneda"), rs.getLong("n"),
                         rs.getBigDecimal("neto")),
                 tenantId, Date.valueOf(desde), Date.valueOf(hasta));
     }

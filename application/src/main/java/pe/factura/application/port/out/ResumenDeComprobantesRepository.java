@@ -27,13 +27,14 @@ public interface ResumenDeComprobantesRepository {
     Agregados resumir(UUID tenantId, LocalDate desde, LocalDate hasta, LocalDate hoy);
 
     /**
-     * Los comprobantes de un día en un estado y una moneda (#24): cuántos son y su neto (las notas de crédito restan). {@code moneda} y {@code neto} son nulos para los
-     * documentos sin fila de totales (los que nunca llegaron a armarse, como un {@code RECIBIDO}).
+     * Los comprobantes de un día de un tipo, en un estado y una moneda (#24): cuántos son y su neto (las notas de crédito restan). {@code tipo} es el código del catálogo
+     * 01 tal cual está guardado, para que el servicio decida qué tipos son ventas. {@code moneda} y {@code neto} son nulos para los documentos sin fila de totales (los que
+     * nunca llegaron a armarse, como un {@code RECIBIDO}).
      */
-    record Celda(LocalDate fecha, EstadoDocumento estado, String moneda, long cuantos, BigDecimal neto) {}
+    record Celda(LocalDate fecha, String tipo, EstadoDocumento estado, String moneda, long cuantos, BigDecimal neto) {}
 
     /**
-     * Las celdas de {@code desde} a {@code hasta} (fecha de emisión, inclusive, los dos obligatorios), en un solo recorrido agrupado por día, estado y moneda. Qué cuenta como
+     * Las celdas de {@code desde} a {@code hasta} (fecha de emisión, inclusive, los dos obligatorios), en un solo recorrido agrupado por día, tipo, estado y moneda. Qué cuenta como
      * emitido o facturado no se decide acá: lo decide el dominio sobre el estado de cada celda.
      */
     List<Celda> porDia(UUID tenantId, LocalDate desde, LocalDate hasta);

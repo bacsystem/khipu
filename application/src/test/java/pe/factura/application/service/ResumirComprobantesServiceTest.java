@@ -186,12 +186,36 @@ class ResumirComprobantesServiceTest {
     static final LocalDate PRIMERO = LocalDate.of(2026, 10, 1);
     static final LocalDate TREINTA_Y_UNO = LocalDate.of(2026, 10, 31);
 
-    ResumirComprobantesServiceTest celda(int dia, EstadoDocumento e, String moneda, long n, String neto) {
-        resumenes.celdas.add(new Celda(LocalDate.of(2026, 10, dia), e, moneda, n, neto == null ? null : new BigDecimal(neto)));
+    ResumirComprobantesServiceTest celda(int dia, EstadoDocumento e, String moneda, long n, String neto) { return celda(dia, "01", e, moneda, n, neto); }
+
+    ResumirComprobantesServiceTest celda(int dia, String tipo, EstadoDocumento e, String moneda, long n, String neto) {
+        resumenes.celdas.add(new Celda(LocalDate.of(2026, 10, dia), tipo, e, moneda, n, neto == null ? null : new BigDecimal(neto)));
         return this;
     }
 
     PorDia porDia() { return service.porDia(EMPRESA, PRIMERO, TREINTA_Y_UNO); }
+
+    /** Factura, boleta y sus notas suman; las notas de crédito ya vienen restando del repositorio. */
+    @Test void lasVentasCuentanLasCuatroYLasNotasDeCreditoRestan() {
+        celda(4, "01", ACEPTADO, "PEN", 1, "1000").celda(4, "03", ACEPTADO, "PEN", 1, "200").celda(4, "07", ACEPTADO, "PEN", 1, "-300").celda(4, "08", ACEPTADO, "PEN", 1, "50");
+
+        assertThat(porDia().dias()).containsExactly(new Dia(LocalDate.of(2026, 10, 4), 4, List.of(new Total("PEN", new BigDecimal("950")))));
+    }
+
+    /**
+     * Lo que no es una venta no entra ni en lo emitido ni en lo facturado: los tipos que agregan otras ramas (04 liquidación de compra, 20 retención, 40 percepción) y
+     * cualquier código desconocido. El día que solo tiene esos ni aparece.
+     */
+    @Test void losTiposQueNoSonVentasNoEntranNiEnEmitidosNiEnFacturado() {
+        celda(6, "01", ACEPTADO, "PEN", 1, "100");
+        for (String tipo : new String[]{"04", "20", "40", "09", "99", null}) celda(6, tipo, ACEPTADO, "PEN", 10, "5000").celda(8, tipo, ACEPTADO, "PEN", 10, "5000");
+
+        assertThat(porDia().dias()).containsExactly(new Dia(LocalDate.of(2026, 10, 6), 1, List.of(new Total("PEN", new BigDecimal("100")))));
+    }
+
+    @Test void losTiposDeVentaSonExactamenteFacturaBoletaYSusNotas() {
+        assertThat(ResumirComprobantesService.TIPOS_DE_VENTA).containsExactlyInAnyOrder("01", "03", "07", "08");
+    }
 
     @Test void sinComprobantesNoHayDiasYElRangoVuelveTalCual() {
         PorDia r = porDia();

@@ -327,9 +327,10 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
 
     List<Celda> porDia(UUID t) { return repo.porDia(t, OCT_1, OCT_31); }
 
-    @Test void agrupaPorDiaEstadoYMonedaConLasNotasDeCreditoRestando() {
+    @Test void agrupaPorDiaTipoEstadoYMonedaConLasNotasDeCreditoRestando() {
         UUID t = tenantDePrueba();
         comprobante(t, "01", EstadoDocumento.ACEPTADO, oct(3), "PEN", "1000");
+        comprobante(t, "01", EstadoDocumento.ACEPTADO, oct(3), "PEN", "1");
         comprobante(t, "03", EstadoDocumento.ACEPTADO, oct(3), "PEN", "200");
         comprobante(t, "07", EstadoDocumento.ACEPTADO, oct(3), "PEN", "300");
         comprobante(t, "01", EstadoDocumento.ACEPTADO, oct(3), "USD", "50.50");
@@ -337,10 +338,12 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         comprobante(t, "01", EstadoDocumento.ENVIADO, oct(9), "PEN", "10");
 
         assertThat(porDia(t)).containsExactly(
-                new Celda(oct(3), EstadoDocumento.ACEPTADO, "PEN", 3, new BigDecimal("900.00")),
-                new Celda(oct(3), EstadoDocumento.ACEPTADO, "USD", 1, new BigDecimal("50.50")),
-                new Celda(oct(3), EstadoDocumento.RECHAZADO, "PEN", 1, new BigDecimal("7.00")),
-                new Celda(oct(9), EstadoDocumento.ENVIADO, "PEN", 1, new BigDecimal("10.00")));
+                new Celda(oct(3), "01", EstadoDocumento.ACEPTADO, "PEN", 2, new BigDecimal("1001.00")),
+                new Celda(oct(3), "01", EstadoDocumento.ACEPTADO, "USD", 1, new BigDecimal("50.50")),
+                new Celda(oct(3), "01", EstadoDocumento.RECHAZADO, "PEN", 1, new BigDecimal("7.00")),
+                new Celda(oct(3), "03", EstadoDocumento.ACEPTADO, "PEN", 1, new BigDecimal("200.00")),
+                new Celda(oct(3), "07", EstadoDocumento.ACEPTADO, "PEN", 1, new BigDecimal("-300.00")),
+                new Celda(oct(9), "01", EstadoDocumento.ENVIADO, "PEN", 1, new BigDecimal("10.00")));
     }
 
     @Test void elRangoEsInclusivoYSoloDeLaEmpresa() {
@@ -362,7 +365,7 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo) VALUES (?, ?, '01', 'F001', ?, ?, 'RECIBIDO', 'x')",
                 UUID.randomUUID(), t, NUMERO.getAndIncrement(), java.sql.Date.valueOf(oct(4)));
 
-        assertThat(porDia(t)).containsExactly(new Celda(oct(4), EstadoDocumento.RECIBIDO, null, 1, null));
+        assertThat(porDia(t)).containsExactly(new Celda(oct(4), "01", EstadoDocumento.RECIBIDO, null, 1, null));
     }
 
     /**
