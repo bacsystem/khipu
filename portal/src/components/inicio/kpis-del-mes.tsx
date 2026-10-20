@@ -57,7 +57,7 @@ export function KpisDelMes({ resumen, anterior }: { resumen: ResumenDeFacturas |
           <Metrica etiqueta="Aceptados con CDR" ayuda={resumen.emitidos > 0 ? `${Math.floor((resumen.aceptados_con_cdr * 100) / resumen.emitidos)} % de lo emitido` : "Sin comprobantes"}>
             <span data-testid="kpi-aceptados">{resumen.aceptados_con_cdr}</span>
           </Metrica>
-          <Metrica etiqueta="Pendientes" ayuda="Esperan a SUNAT">
+          <Metrica etiqueta="Pendientes" ayuda="En camino a SUNAT (incluye boletas sin enviar)">
             <span data-testid="kpi-pendientes">{resumen.en_camino}</span>
           </Metrica>
           <Metrica etiqueta="Atención requerida" ayuda={<span data-testid="kpi-atencion-detalle">{atencionEnPalabras(resumen.atencion_requerida)}</span>}>

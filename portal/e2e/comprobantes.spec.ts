@@ -257,6 +257,8 @@ test("duplicar desde la tabla abre «Nuevo comprobante» con el cliente, la mone
 
 test("duplicar desde la ficha de una factura abre el mismo diálogo, y una nota no lo ofrece (#323)", async ({ page }) => {
   await page.goto("/comprobantes/f-firmada");
+  // Un clic antes de hidratar se pierde: el diálogo escucha el pedido de duplicar (`alPedirDuplicado`) desde un useEffect. Corriendo detrás de otras specs fallaba.
+  await esperarHidratacion(page, '[data-testid="duplicar"]');
   await page.getByTestId("duplicar").click();
   await expect(page.getByRole("dialog").getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
   // La copia tiene datos: Esc pide confirmar antes de descartarla (#117).

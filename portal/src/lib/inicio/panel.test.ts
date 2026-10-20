@@ -6,6 +6,7 @@ import {
   alertasDeLaEmpresa,
   alertasDelPanel,
   enlaceAComprobantes,
+  esEmpresaNueva,
   facturadoEn,
   mesEnCurso,
   mismoTramoDelMesAnterior,
@@ -14,7 +15,49 @@ import {
   sinLoQueYaDiceLaGuia,
   variacion,
   variacionEnPalabras,
+  ventanaDeAtencion,
 } from "./panel";
+
+describe("ventanaDeAtencion (H1)", () => {
+  it("del 8 en adelante es el mes en curso", () => {
+    expect(ventanaDeAtencion("2026-10-20")).toEqual({ desde: "2026-10-01", hasta: "2026-10-20" });
+    expect(ventanaDeAtencion("2026-10-08")).toEqual({ desde: "2026-10-01", hasta: "2026-10-08" });
+  });
+
+  it("los primeros días del mes mira también los últimos 7 días del anterior (y del año anterior en enero)", () => {
+    expect(ventanaDeAtencion("2026-10-02")).toEqual({ desde: "2026-09-25", hasta: "2026-10-02" });
+    expect(ventanaDeAtencion("2026-10-07")).toEqual({ desde: "2026-09-30", hasta: "2026-10-07" });
+    expect(ventanaDeAtencion("2027-01-01")).toEqual({ desde: "2026-12-25", hasta: "2027-01-01" });
+  });
+
+  /**
+   * El caso que se escapaba: hoy es 2 de octubre y una boleta FIRMADA del 28 de setiembre (en su 5.º día, con el plazo cerrando el 7.º) sigue sin enviar. Con el resumen de
+   * la ventana el aviso sale, y su enlace lleva al listado con ese mismo rango, hasta la última fecha que ya cuenta (hoy − 5).
+   */
+  it("el 2 del mes, una boleta FIRMADA del 28 del mes anterior avisa y su enlace la incluye", () => {
+    const hoy = "2026-10-02";
+    const ventana = ventanaDeAtencion(hoy);
+    const alertas = alertasDelPanel(EMPRESA_AL_DIA, { atencion_requerida: { ...SIN_ATENCION, total: 1, boletas_sin_enviar: 1 } }, ventana, hoy);
+
+    expect(alertas).toEqual([expect.objectContaining({ id: "boletas-sin-enviar", titulo: "1 boleta sigue sin enviar" })]);
+    expect(alertas[0].enlace).toBe("/comprobantes?estado=FIRMADO&desde=2026-09-25&hasta=2026-09-27&tipo=03");
+  });
+});
+
+describe("esEmpresaNueva (H4)", () => {
+  it("es nueva si todas sus series siguen en 0 o no tiene ninguna", () => {
+    expect(esEmpresaNueva([])).toBe(true);
+    expect(esEmpresaNueva([{ ultimo_numero: 0 }, { ultimo_numero: 0 }])).toBe(true);
+  });
+
+  it("con un solo comprobante emitido en cualquier serie ya no lo es, aunque hoy no haya emitido nada", () => {
+    expect(esEmpresaNueva([{ ultimo_numero: 0 }, { ultimo_numero: 312 }])).toBe(false);
+  });
+
+  it("si las series no se pudieron leer no se afirma que sea nueva", () => {
+    expect(esEmpresaNueva(null)).toBe(false);
+  });
+});
 
 const HOY = "2026-10-20";
 const MES = { desde: "2026-10-01", hasta: "2026-10-20" };
@@ -168,7 +211,7 @@ describe("alertasDeComprobantes (#24)", () => {
     expect(alertas[0]).toMatchObject({ tono: "error", titulo: "1 comprobante quedó fuera de plazo", enlace: "/comprobantes?estado=FUERA_DE_PLAZO&desde=2026-10-01&hasta=2026-10-20" });
     expect(alertas[1]).toMatchObject({ tono: "error", titulo: "SUNAT rechazó 3 comprobantes", enlace: "/comprobantes?estado=RECHAZADO&desde=2026-10-01&hasta=2026-10-20" });
     expect(alertas[2]).toMatchObject({ tono: "aviso", titulo: "2 comprobantes tienen error de envío", enlace: "/comprobantes?estado=ERROR_ENVIO&desde=2026-10-01&hasta=2026-10-20" });
-    expect(alertas[3]).toMatchObject({ tono: "aviso", titulo: "4 boletas siguen sin enviar", enlace: "/comprobantes?estado=FIRMADO&desde=2026-10-01&hasta=2026-10-20&tipo=03" });
+    expect(alertas[3]).toMatchObject({ tono: "aviso", titulo: "4 boletas siguen sin enviar", enlace: "/comprobantes?estado=FIRMADO&desde=2026-10-01&hasta=2026-10-15&tipo=03" });
   });
 
   it("en singular y en plural", () => {

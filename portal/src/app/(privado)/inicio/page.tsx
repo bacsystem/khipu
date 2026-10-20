@@ -11,7 +11,7 @@ import { listarSeries } from "@/lib/api/series";
 import { hayPasosPendientes, pasosParaEmitir } from "@/lib/empresa/guia-emision";
 import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { hoyLima } from "@/lib/formato";
-import { alertasDelPanel, mesEnCurso, mismoTramoDelMesAnterior, serieDiaria, sinLoQueYaDiceLaGuia } from "@/lib/inicio/panel";
+import { alertasDelPanel, esEmpresaNueva, mesEnCurso, mismoTramoDelMesAnterior, serieDiaria, sinLoQueYaDiceLaGuia, ventanaDeAtencion } from "@/lib/inicio/panel";
 import { messages } from "@/lib/messages";
 import { getServerSession } from "@/lib/session-server";
 
@@ -27,7 +27,7 @@ function mesEnPalabras(hoy: string): string {
 }
 
 /**
- * El panel de inicio (#24): adonde se llega al entrar. Lo del mes en curso (Lima) en una mirada: indicadores, emisión por día y avisos con su enlace. Las cinco lecturas van en
+ * El panel de inicio (#24): adonde se llega al entrar. Lo del mes en curso (Lima) en una mirada: indicadores, emisión por día y avisos con su enlace. Las lecturas (cinco; seis del 1 al 7, ver `ventanaDeAtencion`) van en
  * paralelo y cada una falla sola: si una no carga, su sección lo dice y el resto se muestra igual.
  */
 export default async function InicioPage() {
@@ -46,20 +46,25 @@ export default async function InicioPage() {
   const hoy = hoyLima();
   const mes = mesEnCurso(hoy);
   const anterior = mismoTramoDelMesAnterior(hoy);
-  const [resumen, resumenAnterior, emision, empresa, series] = await Promise.all([
+  // Los avisos de comprobantes miran al menos los últimos 7 días (ver `ventanaDeAtencion`); del 8 en adelante es el mes y se reutiliza su resumen.
+  const ventana = ventanaDeAtencion(hoy);
+  const atencionAparte = ventana.desde !== mes.desde;
+  const [resumen, resumenAnterior, emision, empresa, series, resumenDeLaVentana] = await Promise.all([
     resumirFacturas(access, empresaId, mes).catch(() => null),
     resumirFacturas(access, empresaId, anterior).catch(() => null),
     emisionPorDia(access, empresaId, mes).catch(() => null),
     obtenerEmpresaActual(access, empresaId).catch(() => null),
     // `null` = no se pudo leer: la guía no afirma que falten series.
     listarSeries(access, empresaId).catch(() => null),
+    atencionAparte ? resumirFacturas(access, empresaId, ventana).catch(() => null) : null,
   ]);
+  const resumenDeAtencion = atencionAparte ? resumenDeLaVentana : resumen;
 
   const pasos = empresa ? pasosParaEmitir(empresa, series, hoy) : null;
-  const alertas = sinLoQueYaDiceLaGuia(alertasDelPanel(empresa, resumen, mes, hoy), pasos);
+  const alertas = sinLoQueYaDiceLaGuia(alertasDelPanel(empresa, resumenDeAtencion, ventana, hoy), pasos);
   const guiaPendiente = pasos !== null && hayPasosPendientes(pasos);
-  // Una empresa que no emitió nada este mes ni en el mismo tramo del anterior: en vez de indicadores en cero, se la invita a emitir.
-  const sinEmision = resumen !== null && resumen.emitidos === 0 && (resumenAnterior === null || resumenAnterior.emitidos === 0);
+  // Solo una empresa que nunca emitió (series en 0) ve la invitación en vez de indicadores: una con historia que hoy no emitió nada sigue viendo los suyos.
+  const sinEmision = esEmpresaNueva(series) && (resumen === null || resumen.emitidos === 0);
 
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4" data-testid="panel-de-inicio">
@@ -70,12 +75,12 @@ export default async function InicioPage() {
 
       {pasos ? <GuiaParaEmitir pasos={pasos} /> : null}
 
-      <AlertasDelPanel alertas={alertas} incompleto={empresa === null || resumen === null} guiaPendiente={guiaPendiente} />
+      <AlertasDelPanel alertas={alertas} incompleto={empresa === null || resumenDeAtencion === null} guiaPendiente={guiaPendiente} />
 
       {sinEmision ? (
         <EstadoVacio
           icon={ReceiptTextIcon}
-          titulo="Aún no hay comprobantes este mes"
+          titulo="Aún no emites comprobantes"
           accion={
             <Link href="/comprobantes" className={ACCION_SECUNDARIA}>
               Ir a Comprobantes

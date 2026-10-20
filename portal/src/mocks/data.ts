@@ -665,10 +665,12 @@ export function resetDb() {
     comprobantePanel("e-panel", "01", hoyPanel, "RECHAZADO", "PEN", 10),
     comprobantePanel("e-panel", "01", primeroDelMesAnterior, "ACEPTADO", "PEN", 150),
   ]);
-  // Con alertas: el certificado vence en 10 días, sin credenciales SOL y un comprobante del mes fuera de plazo.
+  // Con alertas: el certificado vence en 10 días, sin credenciales SOL, un comprobante del mes fuera de plazo y una boleta FIRMADA de hace 6 días que nadie envió. Esa
+  // boleta cae en el mes anterior los primeros días del mes: el aviso tiene que salir igual (H1, `ventanaDeAtencion`).
   cuentaPanel("panel-alertas@example.com", "c-panel-alertas", "Panel Alertas", { id: "e-panel-alertas", ruc: "20600000052", razon_social: "Panel Alertas SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: false, certificado_vigencia_hasta: sumarDias(hoyPanel, 10), domicilio: domicilioPanel }, seriesPanel, [
     comprobantePanel("e-panel-alertas", "01", primeroDelMes, "FUERA_DE_PLAZO", "PEN", 59),
     comprobantePanel("e-panel-alertas", "01", hoyPanel, "ACEPTADO", "PEN", 236),
+    comprobantePanel("e-panel-alertas", "03", sumarDias(hoyPanel, -6), "FIRMADO", "PEN", 20),
   ]);
   // Recién creada: sin certificado, sin credenciales SOL, sin series y sin comprobantes.
   cuentaPanel("panel-vacio@example.com", "c-panel-vacio", "Panel Vacío", { id: "e-panel-vacio", ruc: "20600000061", razon_social: "Panel Vacío SAC", entorno: "BETA", tiene_certificado: false, tiene_credenciales_sol: false, certificado_vigencia_hasta: null }, [], []);

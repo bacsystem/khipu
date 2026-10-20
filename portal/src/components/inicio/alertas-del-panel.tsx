@@ -37,7 +37,7 @@ export function AlertasDelPanel({ alertas, incompleto, guiaPendiente = false }: 
       ) : alertas.length === 0 && !guiaPendiente ? (
         <p data-testid="alertas-sin-avisos" className="flex items-center gap-1.5 text-[12px] text-success-foreground">
           <CheckCircle2Icon className="size-3.5 shrink-0" aria-hidden />
-          Sin avisos: certificado, credenciales SOL y comprobantes del mes en orden.
+          Sin avisos: certificado, credenciales SOL y comprobantes recientes en orden.
         </p>
       ) : null}
     </section>

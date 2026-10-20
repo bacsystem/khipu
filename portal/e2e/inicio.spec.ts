@@ -64,15 +64,19 @@ test("con datos: los indicadores del mes, la comparación con el mes anterior y 
   await expect(page.getByTestId("grafico-emision-tabla").getByRole("columnheader")).toHaveText(["Día", "Emitidos", "Facturado PEN", "Facturado USD"]);
 });
 
-test("el aviso del rechazado lleva al listado filtrado por su estado y el mes, y ahí está", async ({ page }) => {
+test("el aviso del rechazado lleva al listado filtrado por su estado y el rango del aviso, y ahí está", async ({ page }) => {
   await entrar(page, "panel@example.com");
 
   const aviso = page.locator('[data-alerta="rechazados"]');
   await expect(aviso).toContainText("SUNAT rechazó 1 comprobante");
   await aviso.getByRole("link", { name: "Ver rechazados" }).click();
 
+  // El rango de los avisos: el mes, pero nunca menos de los últimos 7 días (`ventanaDeAtencion`).
   const hoy = hoyLima();
-  await expect(page).toHaveURL(new RegExp(`/comprobantes\\?estado=RECHAZADO&desde=${hoy.slice(0, 7)}-01&hasta=${hoy}$`));
+  const haceUnaSemana = new Date(Date.parse(`${hoy}T00:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10);
+  const primero = `${hoy.slice(0, 7)}-01`;
+  const desde = haceUnaSemana < primero ? haceUnaSemana : primero;
+  await expect(page).toHaveURL(new RegExp(`/comprobantes\\?estado=RECHAZADO&desde=${desde}&hasta=${hoy}$`));
   await expect(page.locator("table").getByText("Rechazado").first()).toBeVisible();
 });
 
@@ -80,13 +84,23 @@ test("con alertas: certificado por vencer, credenciales SOL ausentes y un compro
   await entrar(page, "panel-alertas@example.com");
 
   const avisos = page.getByTestId("alerta-del-panel");
-  await expect(avisos).toHaveCount(2);
+  await expect(avisos).toHaveCount(3);
   // Primero los errores, después los avisos.
   await expect(avisos.nth(0)).toHaveAttribute("data-alerta", "fuera-de-plazo");
   await expect(avisos.nth(0)).toContainText("1 comprobante quedó fuera de plazo");
   await expect(avisos.nth(1)).toHaveAttribute("data-alerta", "certificado-por-vencer");
   await expect(avisos.nth(1)).toContainText("El certificado digital vence en 10 días");
-  await expect(page.getByTestId("kpi-atencion")).toHaveText("1");
+  // H1: la boleta FIRMADA de hace 6 días avisa siempre, también del 1 al 6 del mes, cuando es del mes anterior y el indicador del mes no la cuenta.
+  await expect(avisos.nth(2)).toHaveAttribute("data-alerta", "boletas-sin-enviar");
+  await expect(avisos.nth(2)).toContainText("1 boleta sigue sin enviar");
+  const delMes = Number(hoyLima().slice(8, 10)) >= 7;
+  await expect(page.getByTestId("kpi-atencion")).toHaveText(delMes ? "2" : "1");
+
+  // Su enlace lleva al listado con el rango del aviso, y la boleta está ahí.
+  await avisos.nth(2).getByRole("link", { name: "Ver boletas firmadas" }).click();
+  await expect(page).toHaveURL(/\/comprobantes\?estado=FIRMADO&desde=.*&tipo=03$/);
+  await expect(page.locator("table").getByText("B001-")).toHaveCount(1);
+  await page.goBack();
   // Las credenciales SOL que faltan las dice la guía, que es la que lleva los pasos; no se repiten en una tarjeta aparte.
   const guia = page.getByTestId("guia-emitir");
   await expect(guia.locator('[data-paso="sol"]')).toHaveAttribute("data-listo", "false");
@@ -110,7 +124,7 @@ test("empresa nueva: la guía para emitir con lo que falta y una invitación a e
   // Lo que falta lo dice la guía: ni tarjetas que lo repitan ni un «sin avisos, todo en orden».
   await expect(page.getByTestId("alerta-del-panel")).toHaveCount(0);
   await expect(page.getByTestId("alertas-sin-avisos")).toHaveCount(0);
-  await expect(page.getByText("Aún no hay comprobantes este mes")).toBeVisible();
+  await expect(page.getByText("Aún no emites comprobantes")).toBeVisible();
   await expect(page.getByText(/Completa los pasos de «Para empezar a emitir»/)).toBeVisible();
   await expect(page.getByTestId("kpis-del-mes")).toHaveCount(0);
   await expect(page.getByTestId("grafico-emision")).toHaveCount(0);

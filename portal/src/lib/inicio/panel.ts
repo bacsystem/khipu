@@ -19,6 +19,29 @@ export function mesEnCurso(hoy: string): Rango {
   return { desde: `${hoy.slice(0, 7)}-01`, hasta: hoy };
 }
 
+/** Días que espera una boleta antes de pedir atención si nadie la envió (`PlazoEnvio.DIAS_ENVIO_INDIVIDUAL_BOLETA`, `BoletasPorInformar.corte`). */
+export const DIAS_ENVIO_INDIVIDUAL_BOLETA = 5;
+/** El plazo más largo que todavía se puede salvar: el resumen diario de una boleta cierra al 7.º día (`PlazoEnvio.DIAS_RESUMEN_DIARIO`). */
+export const DIAS_RESUMEN_DIARIO = 7;
+
+/**
+ * El rango del que salen los avisos de comprobantes: el mes en curso, pero nunca menos de los últimos 7 días. Si se mirara solo el mes, del 1 al 6 una boleta FIRMADA del
+ * 28 del mes anterior —en su 5.º o 6.º día, a punto de perder el plazo— o un rechazo de fin de mes no avisarían, y el panel diría «Sin avisos».
+ */
+export function ventanaDeAtencion(hoy: string): Rango {
+  const mes = mesEnCurso(hoy);
+  const semana = sumarDias(hoy, -DIAS_RESUMEN_DIARIO);
+  return { desde: semana < mes.desde ? semana : mes.desde, hasta: hoy };
+}
+
+/**
+ * Una empresa que nunca emitió: todas sus series siguen en el número 0 (o no tiene ninguna). Solo eso merece el estado vacío con «tu primer comprobante»: una empresa con
+ * historia que hoy, día 1, no emitió nada no es nueva. Sin series (no se pudieron leer, `null`) no se afirma que lo sea.
+ */
+export function esEmpresaNueva(series: Array<{ ultimo_numero: number }> | null): boolean {
+  return series !== null && series.every((s) => s.ultimo_numero === 0);
+}
+
 /**
  * El mismo tramo del mes anterior, para comparar parejo: del 1 al mismo día (el 20 de octubre se compara con el 1–20 de setiembre). Si el mes anterior es más corto, hasta su
  * último día (el 31 de marzo contra el 1–28 de febrero).
@@ -185,8 +208,10 @@ export function alertasDeComprobantes(atencion: ResumenDeFacturas["atencion_requ
       id: "boletas-sin-enviar",
       tono: "aviso",
       titulo: `${plural(atencion.boletas_sin_enviar, "boleta sigue", "boletas siguen")} sin enviar`,
-      detalle: "Ya están en el 5.º día o más: envíalas antes del 7.º, cuando cierra su plazo.",
-      enlace: enlaceAComprobantes("FIRMADO", rango, "03"),
+      // El número cuenta también las notas que modifican una boleta (van en el mismo resumen diario); el enlace lista las boletas: el listado no filtra por «nota de boleta».
+      detalle: "Ya pasaron 5 días o más desde su emisión: envíalas antes del 7.º, cuando cierra su plazo. La cuenta incluye las notas de esas boletas, que se ven filtrando por nota.",
+      // Solo las FIRMADAS que ya cuentan (emitidas hasta `BoletasPorInformar.corte`: hoy − 5), no las de esta semana, que todavía no piden nada.
+      enlace: enlaceAComprobantes("FIRMADO", { desde: rango.desde, hasta: sumarDias(rango.hasta, -DIAS_ENVIO_INDIVIDUAL_BOLETA) }, "03"),
       accion: "Ver boletas firmadas",
     });
   return alertas;
