@@ -1,6 +1,7 @@
 package pe.factura.application.service;
 
 import lombok.RequiredArgsConstructor;
+import pe.factura.application.port.in.AceptarTerminosUseCase;
 import pe.factura.application.port.in.AutenticarUsuarioUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.application.port.out.SesionRepository.Sesion;
@@ -40,9 +41,13 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     private final SuspensionRepository suspensiones;
     private final PlantillasDeCorreo plantillas;
     private final LimiteDeIntentos limite;
+    private final AceptarTerminosUseCase terminos;
 
     @Override
-    public Tokens registrar(String nombreCuenta, String email, String password, String telefono, String urlBase) {
+    public Tokens registrar(String nombreCuenta, String email, String password, String telefono, boolean aceptaTerminos, String urlBase) {
+        // Antes que nada (#342): sin la aceptación no hay registro, aunque el resto venga bien.
+        if (!aceptaTerminos)
+            throw new DomainException("TERMINOS_NO_ACEPTADOS", "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad");
         Usuario.validarPassword(password);
         Cuenta cuenta = new Cuenta(UUID.randomUUID(), nombreCuenta, email, telefono);
         if (cuentas.buscarPorEmail(cuenta.email()).isPresent() || usuarios.buscarPorEmail(cuenta.email()).isPresent())
@@ -53,6 +58,8 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
             cuentas.guardar(cuenta);
             usuarios.guardar(usuario);
             verificaciones.crear(new VerificacionCorreoRepository.Token(TokenOpaco.hash(verificacion), usuario.id(), clock.instant().plus(VIDA_VERIFICACION), false));
+            // En la misma transacción que el usuario: no queda una cuenta creada sin la constancia de lo que aceptó.
+            terminos.aceptar(usuario.id());
             return emitirTokens(usuario);
         });
         enviarVerificacion(usuario.email(), urlBase, verificacion);
@@ -198,6 +205,6 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
         UUID id = UUID.randomUUID();
         sesiones.crear(new Sesion(id, u.id(), TokenOpaco.hash(refresh), clock.instant().plus(VIDA_REFRESH), familia == null ? id : familia));
         String access = tokens.emitir(new TokenEmisor.Claims(u.id(), u.cuentaId(), u.rol()));
-        return new SesionEmitida(id, new Tokens(access, refresh, u));
+        return new SesionEmitida(id, new Tokens(access, refresh, u, terminos.pendiente(u.id())));
     }
 }

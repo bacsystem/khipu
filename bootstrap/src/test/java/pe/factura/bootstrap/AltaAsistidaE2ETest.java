@@ -156,7 +156,7 @@ class AltaAsistidaE2ETest {
     /** El alta crea una cuenta con acceso a facturar: solo la clave de plataforma o un administrador, nunca un cliente ni una integración. */
     @Test void soloLaPlataformaOUnAdministradorPuedenDarDeAltaAUnCliente() {
         ResponseEntity<Map> registro = http.postForEntity("/v1/auth/registro", new HttpEntity<>(
-                "{\"nombre\":\"Otro\",\"email\":\"otro@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}", json()), Map.class);
+                "{\"nombre\":\"Otro\",\"email\":\"otro@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}", json()), Map.class);
         // El perfil de prueba abre el registro público (application-test.yml): así hay un JWT de cliente real con el que probar. Si dejara
         // de abrirlo, este assert falla en vez de probar con un token inventado.
         assertThat(registro.getStatusCode()).isEqualTo(HttpStatus.CREATED);

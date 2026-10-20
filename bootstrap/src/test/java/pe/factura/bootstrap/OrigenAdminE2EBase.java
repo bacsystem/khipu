@@ -45,7 +45,7 @@ abstract class OrigenAdminE2EBase {
     /** Aislamiento, como el listado de cuentas (#180): solo la clave de plataforma o un administrador; nadie más, con o sin proxy configurado. */
     @Test void elEndpointDeCalibracionSoloLoLeeQuienEsAdministrador() {
         ResponseEntity<Map> registro = http.postForEntity("/v1/auth/registro", new HttpEntity<>(
-                "{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}", json()), Map.class);
+                "{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}", json()), Map.class);
         assertThat(registro.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         String jwtDeCliente = (String) ((Map<?, ?>) registro.getBody().get("datos")).get("access");
         ResponseEntity<Map> tenant = http.postForEntity("/v1/admin/tenants", new HttpEntity<>(TENANT, conClaveDePlataforma(null)), Map.class);

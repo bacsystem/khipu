@@ -60,6 +60,11 @@ app:
   # Cerrado por defecto (issue #174): el portal ya cerraba su propia ruta de registro, pero el backend la dejaba
   # abierta a quien lo llamara directo. Abrirlo es una decisión explícita de despliegue, no el estado de reposo.
   registro-abierto: ${REGISTRO_ABIERTO:false}
+  # #342: versión vigente de los términos del servicio y la política de privacidad, las dos juntas. Es la misma que
+  # VERSION_TEXTOS_LEGALES en portal/src/content/legal/version.ts (TerminosVersionTest lo comprueba): cambian en el mismo commit
+  # que el texto. Subirla deja pendientes a todos los usuarios, que vuelven a aceptar al entrar. A propósito sin variable de entorno:
+  # la versión acompaña al texto, que vive en el código, no a un despliegue. Ver deploy/README.md, «Términos y privacidad».
+  terminos-version: "2026-10-20"
   # IP del cliente detrás de proxies (#208). Expresión regular de las IPs de los proxies de los que se acepta `X-Forwarded-For`
   # (p. ej. el BFF del portal). Vacío por defecto: no se confía en la cabecera y se registra la IP de la conexión. Se calibra con
   # `GET /v1/admin/origen`; ver deploy/README.md. Ver ProxyDeConfianzaConfig.

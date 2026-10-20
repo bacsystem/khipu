@@ -6,6 +6,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
+import pe.factura.application.port.in.AceptarTerminosUseCase;
 import pe.factura.application.port.in.AutenticarUsuarioUseCase;
 
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -26,10 +27,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthControllerRegistroCerradoTest {
     @Autowired MockMvc mvc;
     @MockBean AutenticarUsuarioUseCase auth;
+    @MockBean AceptarTerminosUseCase terminos;
 
     @Test void conElRegistroCerradoRechazaAntesDeLlamarAlCasoDeUso() throws Exception {
         mvc.perform(post("/v1/auth/registro").contentType("application/json")
-                        .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}"))
+                        .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.estado").value("error"))
                 .andExpect(jsonPath("$.codigo").value("REGISTRO_CERRADO"))

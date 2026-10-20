@@ -66,7 +66,7 @@ class ConsumoPorCuentasE2ETest {
     /** Una cuenta con una empresa; la cuenta nace con el plan por defecto (Gratis). */
     private Cliente cliente(String nombre, String email) {
         ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro", new HttpEntity<>(
-                "{\"nombre\":\"%s\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}".formatted(nombre, email), json()), Map.class);
+                "{\"nombre\":\"%s\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}".formatted(nombre, email), json()), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         jdbc.update("UPDATE usuario SET correo_verificado_at = now() WHERE email = ?", email);
         String access = (String) ((Map<?, ?>) r.getBody().get("datos")).get("access");

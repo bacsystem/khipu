@@ -168,7 +168,7 @@ class AuthE2ETest {
     private Cuenta registrar(String nombre, String email) {
         HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
         ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro",
-                new HttpEntity<>("{\"nombre\":\"%s\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}".formatted(nombre, email), h), Map.class);
+                new HttpEntity<>("{\"nombre\":\"%s\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}".formatted(nombre, email), h), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         Map<?, ?> datos = (Map<?, ?>) r.getBody().get("datos");
         Map<?, ?> usuario = (Map<?, ?>) datos.get("usuario");
@@ -255,6 +255,60 @@ class AuthE2ETest {
         HttpHeaders h = new HttpHeaders(); h.setBearerAuth("token-basura"); h.setContentType(MediaType.APPLICATION_JSON);
         ResponseEntity<Map> r = http.exchange("/v1/empresas", HttpMethod.GET, new HttpEntity<>(h), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    // --- #342: términos del servicio y política de privacidad ---------------------------------------------------------------------
+
+    private Map<?, ?> me(String access) {
+        return (Map<?, ?>) http.exchange("/v1/auth/me", HttpMethod.GET, new HttpEntity<>(conJwt(access)), Map.class).getBody().get("datos");
+    }
+
+    @Test void sinAceptarLosTerminosElRegistroEs400YNoCreaNada() {
+        HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
+        for (String acepta : new String[]{"", ",\"acepta_terminos\":false"}) {
+            ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro", new HttpEntity<>(
+                    "{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\"%s}".formatted(acepta), h), Map.class);
+            assertThat(r.getStatusCode()).as("«%s»", acepta).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(r.getBody()).containsEntry("codigo", "TERMINOS_NO_ACEPTADOS");
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM usuario", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM cuenta", Integer.class)).isZero();
+        assertThat(CORREOS).isEmpty();
+    }
+
+    @Test void elRegistroGuardaLaVersionVigenteYLaFecha() {
+        Cuenta cuenta = registrar("Mi negocio", "ana@negocio.pe");
+
+        Map<String, Object> fila = jdbc.queryForMap("SELECT a.version, a.aceptada_at FROM aceptacion_terminos a JOIN usuario u ON u.id = a.usuario_id WHERE u.email = 'ana@negocio.pe'");
+        assertThat(fila.get("version")).isEqualTo("2026-10-20");
+        assertThat(((java.sql.Timestamp) fila.get("aceptada_at")).toInstant()).isBetween(java.time.Instant.now().minusSeconds(60), java.time.Instant.now().plusSeconds(1));
+        assertThat(me(cuenta.access()).get("terminos_pendientes")).isEqualTo(false);
+    }
+
+    /** Un usuario de antes de V64 (sin fila) o que aceptó una versión vieja: el login y /me lo dicen, y aceptar lo resuelve. */
+    @Test void unUsuarioSinLaVersionVigenteQuedaPendienteHastaAceptar() {
+        registrar("Mi negocio", "ana@negocio.pe");
+        jdbc.update("UPDATE aceptacion_terminos SET version = '2026-01-01'");
+
+        ResponseEntity<Map> entrada = login("ana@negocio.pe", "Segura123");
+        assertThat(((Map<?, ?>) ((Map<?, ?>) entrada.getBody().get("datos")).get("usuario")).get("terminos_pendientes")).isEqualTo(true);
+        String access = (String) ((Map<?, ?>) entrada.getBody().get("datos")).get("access");
+        assertThat(me(access).get("terminos_pendientes")).isEqualTo(true);
+
+        // Con el correo sin verificar también: es de la propia sesión (/v1/auth/**), como reenviar el enlace.
+        ResponseEntity<Map> aceptada = http.postForEntity("/v1/auth/terminos", new HttpEntity<>(conJwt(access)), Map.class);
+
+        assertThat(aceptada.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> datos = (Map<String, Object>) aceptada.getBody().get("datos");
+        assertThat(datos).containsEntry("version", "2026-10-20").containsKey("aceptada_en");
+        assertThat(me(access).get("terminos_pendientes")).isEqualTo(false);
+        assertThat(jdbc.queryForList("SELECT version FROM aceptacion_terminos ORDER BY version", String.class))
+                .as("la constancia de la anterior queda").containsExactly("2026-01-01", "2026-10-20");
+    }
+
+    @Test void aceptarLosTerminosExigeSesion() {
+        HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
+        assertThat(http.postForEntity("/v1/auth/terminos", new HttpEntity<>(h), Map.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     // --- #261: límite de intentos ---------------------------------------------------------------------------------------------------

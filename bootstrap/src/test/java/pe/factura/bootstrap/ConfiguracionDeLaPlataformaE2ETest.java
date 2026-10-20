@@ -83,7 +83,7 @@ class ConfiguracionDeLaPlataformaE2ETest {
     private long bitacora(String accion) { return jdbc.queryForObject("SELECT count(*) FROM auditoria_admin WHERE accion = ?", Long.class, accion); }
 
     private void registrar(String email) {
-        ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro", new HttpEntity<>("{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}".formatted(email), json()), Map.class);
+        ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro", new HttpEntity<>("{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}".formatted(email), json()), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     }
 

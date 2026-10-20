@@ -292,6 +292,11 @@ public class AppConfig {
     @Bean OutboxRepository outboxRepository(JdbcTemplate jdbc) { return new JdbcOutboxRepository(jdbc); }
     @Bean CuentaRepository cuentaRepository(JdbcTemplate jdbc) { return new JdbcCuentaRepository(jdbc); }
     @Bean UsuarioRepository usuarioRepository(JdbcTemplate jdbc) { return new JdbcUsuarioRepository(jdbc); }
+    @Bean AceptacionDeTerminosRepository aceptacionDeTerminosRepository(JdbcTemplate jdbc) { return new JdbcAceptacionDeTerminosRepository(jdbc); }
+    /** #342: la versión vigente de los términos; una mal escrita frena el arranque. Ver deploy/README.md, «Términos y privacidad». */
+    @Bean AceptarTerminosUseCase aceptarTerminos(AceptacionDeTerminosRepository a, UnitOfWork u, Clock clock, @Value("${app.terminos-version}") String version) {
+        return new AceptarTerminosService(a, u, clock, version);
+    }
     @Bean VerificacionCorreoRepository verificacionCorreoRepository(JdbcTemplate jdbc) { return new JdbcVerificacionCorreoRepository(jdbc); }
     @Bean SesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
     @Bean AdministradorRepository administradorRepository(JdbcTemplate jdbc) { return new JdbcAdministradorRepository(jdbc); }
@@ -498,8 +503,9 @@ public class AppConfig {
 
     @Bean AutenticarUsuarioUseCase autenticarUsuario(CuentaRepository cu, UsuarioRepository us, SesionRepository se, PasswordHasher h,
                                                     TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v,
-                                                    SuspensionRepository suspensiones, PlantillasDeCorreo plantillas, LimiteDeIntentos limite) {
-        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas, limite);
+                                                    SuspensionRepository suspensiones, PlantillasDeCorreo plantillas, LimiteDeIntentos limite,
+                                                    AceptarTerminosUseCase terminos) {
+        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas, limite, terminos);
     }
     @Bean GestionarEmpresasUseCase gestionarEmpresas(TenantRepository t, CuentaRepository cu, UnitOfWork u) {
         return new GestionarEmpresasService(t, cu, u);

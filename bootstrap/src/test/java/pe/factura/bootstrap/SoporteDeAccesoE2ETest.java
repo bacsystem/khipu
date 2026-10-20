@@ -81,7 +81,7 @@ class SoporteDeAccesoE2ETest {
     /** Una cuenta real que se acaba de registrar: su correo SIN verificar. */
     private Cliente registrado(String email) {
         ResponseEntity<Map> r = llamar(HttpMethod.POST, "/v1/auth/registro", json(),
-                "{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}".formatted(email));
+                "{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}".formatted(email));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         String access = (String) ((Map<?, ?>) r.getBody().get("datos")).get("access");
         UUID usuario = jdbc.queryForObject("SELECT id FROM usuario WHERE email = ?", UUID.class, email);

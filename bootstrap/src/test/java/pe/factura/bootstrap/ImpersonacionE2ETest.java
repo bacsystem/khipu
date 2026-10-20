@@ -57,7 +57,7 @@ class ImpersonacionE2ETest {
 
     private Cliente cliente(String email, String ruc) {
         ResponseEntity<Map> r = http.postForEntity("/v1/auth/registro", new HttpEntity<>(
-                "{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\"}".formatted(email), json()), Map.class);
+                "{\"nombre\":\"Mi negocio\",\"email\":\"%s\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}".formatted(email), json()), Map.class);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         jdbc.update("UPDATE usuario SET correo_verificado_at = now() WHERE email = ?", email);
         String access = (String) ((Map<?, ?>) r.getBody().get("datos")).get("access");
@@ -150,7 +150,9 @@ class ImpersonacionE2ETest {
                 new Object[]{HttpMethod.POST, "/v1/series", "{\"tipo\":\"01\",\"serie\":\"F001\"}"},
                 new Object[]{HttpMethod.POST, "/v1/facturas", "{}"},
                 new Object[]{HttpMethod.POST, "/v1/auth/logout", "{\"refresh\":\"x\"}"},
-                new Object[]{HttpMethod.POST, "/v1/auth/verificacion", null});
+                new Object[]{HttpMethod.POST, "/v1/auth/verificacion", null},
+                // #342: aceptar los términos es del cliente; quien lo mira desde el backoffice no puede hacerlo por él.
+                new Object[]{HttpMethod.POST, "/v1/auth/terminos", null});
         for (Object[] i : intentos) {
             ResponseEntity<Map> r = llamar((HttpMethod) i[0], (String) i[1], conBearer(soporte, a.empresaId()), (String) i[2]);
             assertThat(r.getStatusCode()).as("%s %s", i[0], i[1]).isEqualTo(HttpStatus.FORBIDDEN);
