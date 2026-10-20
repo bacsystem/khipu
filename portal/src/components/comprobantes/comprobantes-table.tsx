@@ -29,6 +29,7 @@ import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { sePuedeDuplicar } from "@/lib/comprobantes/duplicar";
 import { BusquedaDelListado } from "./busqueda-del-listado";
 import { DescargaMasiva } from "./descarga-masiva";
+import { ExportarComprobantes } from "./exportar-comprobantes";
 import { DuplicarButton } from "./duplicar-button";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "./estado-badge";
 import { CONTROL_FILTRO } from "@/lib/estilos";
@@ -244,6 +245,8 @@ export function ComprobantesTable({
           </div>
 
           <DescargaMasiva filtros={filtros} total={total} />
+
+          <ExportarComprobantes filtros={filtros} total={total} />
 
           <button
             type="button"

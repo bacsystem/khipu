@@ -363,6 +363,12 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
             (<Codigo>503 CORREO_NO_CONFIGURADO</Codigo>).
           </li>
           <li>
+            <strong className="text-foreground">Para el contador:</strong> <Codigo>GET /v1/facturas/exportacion?formato=xlsx</Codigo> (o <Codigo>csv</Codigo>) con los mismos
+            filtros del listado da una fila por comprobante —tipo, serie, número, fecha, cliente, moneda, bases, IGV, ICBPER, total, estado y documento modificado—, hasta 5000
+            por exportación (<Codigo>422 EXPORTACION_EXCEDE_EL_TOPE</Codigo>). El CSV va en UTF-8 con BOM, separado por comas (<Codigo>separador=punto_y_coma</Codigo> si su
+            Excel lo pide) y con punto decimal.
+          </li>
+          <li>
             <strong className="text-foreground">No consulte en bucle:</strong> registre un{" "}
             <a className="text-primary hover:underline" href="#webhooks">
               webhook
