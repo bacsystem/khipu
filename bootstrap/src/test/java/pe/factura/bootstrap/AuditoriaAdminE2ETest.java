@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Verifica que quien actúa queda registrado según cómo entró (clave de plataforma o sesión de administrador).
  */
 @SuppressWarnings("unchecked")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "app.trusted-proxies=")
 @ActiveProfiles("test")
 @Testcontainers
 class AuditoriaAdminE2ETest {
@@ -89,7 +89,7 @@ class AuditoriaAdminE2ETest {
     }
 
     /**
-     * #208: sin {@code TRUSTED_PROXIES} (el default de este test) nadie es proxy de confianza, así que un administrador que llama directo
+     * #208: sin {@code TRUSTED_PROXIES} (la clase lo fija vacío, aunque el entorno de quien corre las pruebas lo tenga) nadie es proxy de confianza, así que un administrador que llama directo
      * no puede elegir la IP de su propio registro poniéndola en {@code X-Forwarded-For}. Con proxy de confianza lo cubre {@code OrigenAdminConProxyE2ETest}.
      */
     @Test void unXForwardedForFalsoDeUnAdministradorConSesionNoCambiaLaIpRegistrada() {

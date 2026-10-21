@@ -6,12 +6,13 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Alerta } from "@/components/feedback/alerta";
+import { BotonAsync } from "@/components/patrones/boton-async";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
-import { SELECT_NATIVO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
+import { cn } from "@/lib/utils";
 import { razonSocialSchema, rucSchema, soloDigitos } from "@/lib/validacion";
 
 const empresaSchema = z.object({
@@ -100,7 +101,7 @@ export function OnboardingEmpresaForm() {
 
   return (
     <div className="mx-auto w-full max-w-lg">
-      {error ? <p role="alert" className="mb-4 text-sm text-destructive">{error}</p> : null}
+      {error ? <div className="mb-4"><Alerta tono="error">{error}</Alerta></div> : null}
 
       <form className="grid gap-4" onSubmit={empresaForm.handleSubmit(onEmpresa)} noValidate>
         <FormField
@@ -126,26 +127,26 @@ export function OnboardingEmpresaForm() {
           error={empresaForm.formState.errors.razon_social?.message}
         />
         <div className="grid gap-1.5">
-          <Label htmlFor="entorno">Entorno SUNAT</Label>
+          <label htmlFor="entorno" className={ETIQUETA_CAMPO}>Entorno SUNAT</label>
           <select
             id="entorno"
             {...empresaForm.register("entorno")}
-            className={SELECT_NATIVO}
+            className={CAMPO}
           >
             <option value="BETA">Beta (pruebas)</option>
             <option value="PRODUCCION">Producción</option>
           </select>
           {/* El entorno no se puede cambiar después (no hay endpoint que lo edite): quien onboardea en Beta por descuido
               necesita intervención manual para emitir de verdad. */}
-          <p className="text-sm text-muted-foreground">
+          <p className="text-[12px] text-muted-foreground">
             En <strong className="font-medium">Beta</strong> los comprobantes no tienen validez tributaria: es para probar.
             El entorno <strong className="font-medium">no se puede cambiar</strong> después de crear la empresa.
           </p>
         </div>
-        <Button type="submit" disabled={empresaForm.formState.isSubmitting} className="w-full">
+        <BotonAsync type="submit" pendiente={empresaForm.formState.isSubmitting} className={cn(BOTON_PRIMARIO, "w-full")}>
           Continuar
-        </Button>
-        <p className="text-center text-sm text-muted-foreground">
+        </BotonAsync>
+        <p className="text-center text-[12px] text-muted-foreground">
           Después cargas el certificado digital y las credenciales SOL desde el portal.
         </p>
       </form>
