@@ -1,6 +1,6 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { VerificarCorreoForm } from "@/components/auth/verificar-correo-form";
-import { Alerta } from "@/components/feedback/alerta";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { messages } from "@/lib/messages";
 import { tokenDeEnlace } from "@/lib/token-de-enlace";
 
