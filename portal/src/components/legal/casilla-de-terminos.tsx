@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
 import { REVISADO_POR_LEGAL } from "@/content/legal/version";
-import { messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
 
 const ENLACE = "font-medium text-foreground underline underline-offset-2 hover:text-primary";
 
@@ -17,6 +17,7 @@ export function CasillaDeTerminos({
   revisado = REVISADO_POR_LEGAL,
   ...input
 }: { id: string; error?: string; revisado?: boolean } & Omit<ComponentProps<"input">, "type" | "id">) {
+  const messages = useMessages();
   const t = messages.auth.registro;
   const describe = [error ? `${id}-error` : null, revisado ? null : `${id}-borrador`].filter(Boolean).join(" ") || undefined;
   return (

@@ -159,11 +159,6 @@
       "count": 3
     }
   },
-  "src/app/login/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
   "src/app/onboarding/page.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 3
@@ -267,16 +262,6 @@
   "src/components/api-keys/referencia-api-keys.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 27
-    }
-  },
-  "src/components/auth/login-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/auth/registro-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
     }
   },
   "src/components/clientes/cliente-dialog.tsx": {
@@ -927,11 +912,6 @@
   "src/lib/inicio/panel.ts": {
     "khipu/no-literal-de-ui": {
       "count": 30
-    }
-  },
-  "src/lib/validacion.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 13
     }
   },
   "src/lib/webhooks/eventos.ts": {

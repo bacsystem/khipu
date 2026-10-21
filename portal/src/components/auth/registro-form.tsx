@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
@@ -11,23 +11,31 @@ import { CasillaDeTerminos } from "@/components/legal/casilla-de-terminos";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
-import { mensajeError, messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
+import type { Mensajes } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-import { emailSchema, passwordSchema, soloTelefono, telefonoSchema } from "@/lib/validacion";
+import { esquemas, soloTelefono } from "@/lib/validacion";
 
-const schema = z.object({
-  nombre: z.string().trim().min(1, "Ingresa el nombre de tu cuenta").max(150, "Hasta 150 caracteres"),
-  telefono: telefonoSchema,
-  email: emailSchema,
-  password: passwordSchema,
-  // #342: sin marcarla no se envía nada; el backend igual lo exige (400 TERMINOS_NO_ACEPTADOS).
-  acepta_terminos: z.boolean().refine((v) => v, messages.auth.registro.terminosRequeridos),
-});
+function esquema(messages: Mensajes) {
+  const v = esquemas(messages);
+  return z.object({
+    nombre: z.string().trim().min(1, messages.auth.registro.nombreRequerido).max(150, messages.auth.registro.nombreLargo),
+    telefono: v.telefono,
+    email: v.email,
+    password: v.password,
+    // #342: sin marcarla no se envía nada; el backend igual lo exige (400 TERMINOS_NO_ACEPTADOS).
+    acepta_terminos: z.boolean().refine((acepta) => acepta, messages.auth.registro.terminosRequeridos),
+  });
+}
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof esquema>>;
 
 export function RegistroForm() {
   const router = useRouter();
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const schema = useMemo(() => esquema(messages), [messages]);
   const [error, setError] = useState<string | null>(null);
   const {
     register,

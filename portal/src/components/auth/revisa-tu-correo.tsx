@@ -6,16 +6,18 @@ import { useState } from "react";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { Button } from "khipu-design-system/ui/button";
 import { postJson } from "@/lib/api/browser";
-import { mensajeError, messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
+import { interpolar } from "@/i18n/mensajes";
 import { useSoloLecturaDeLaSesion } from "@/lib/solo-lectura";
-
-const t = messages.auth.revisaTuCorreo;
 
 /**
  * El correo todavía no está verificado (#22): se puede mirar el portal, pero el backend rechaza crear o emitir. Explica por qué y deja
  * pedir otro enlace. «Ya lo verifiqué» vuelve a leer el estado: el enlace pudo abrirse en el teléfono.
  */
 export function RevisaTuCorreo({ email }: { email: string }) {
+  const t = useMessages().auth.revisaTuCorreo;
+  const mensajeError = useMensajeError();
   const soloLectura = useSoloLecturaDeLaSesion();
   const router = useRouter();
   const [estado, setEstado] = useState<"quieto" | "enviando" | "enviado">("quieto");
@@ -38,7 +40,7 @@ export function RevisaTuCorreo({ email }: { email: string }) {
   return (
     <Alerta tono="aviso" icon={MailCheckIcon} titulo={t.titulo} className="mx-auto max-w-lg">
       <div className="grid gap-3" data-testid="revisa-tu-correo">
-        <p>{t.descripcion.replace("{email}", email)}</p>
+        <p>{interpolar(t.descripcion, { email })}</p>
         {estado === "enviado" ? <p role="status">{t.reenviado}</p> : null}
         {error ? <p role="alert" className="text-destructive">{error}</p> : null}
         <div className="flex flex-wrap gap-2">

@@ -29,7 +29,8 @@
       "enviando": "Signing in…",
       "olvidaste": "Forgot your password?",
       "sinCuenta": "Don’t have an account?",
-      "crearCuenta": "Create one"
+      "crearCuenta": "Create one",
+      "soloPorInvitacion": "Access is by invitation while the beta lasts."
     },
     "registro": {
       "titulo": "Create your account",
@@ -48,7 +49,9 @@
       "terminos": "terms of service",
       "yLa": "and the",
       "privacidad": "privacy policy",
-      "terminosRequeridos": "To create your account you must accept the terms of service and the privacy policy."
+      "terminosRequeridos": "To create your account you must accept the terms of service and the privacy policy.",
+      "nombreRequerido": "Enter your account name",
+      "nombreLargo": "Up to 150 characters"
     },
     "recuperar": {
       "titulo": "Recover your password",
@@ -1688,5 +1691,21 @@
     "INVITACION_NO_PENDIENTE": "The invitation is no longer pending: it was accepted or revoked. Reload the page.",
     "DEMASIADAS_INVITACIONES": "You reached the invitation limit: 20 pending, or 30 invitation emails from your account (or 3 to that email) in the last 24 hours. Revoke the extra ones or try again tomorrow.",
     "DEMASIADOS_ENVIOS": "We already sent this invitation 5 times. Revoke it and invite again if needed."
+  },
+  "validacion": {
+    "correoRequerido": "Enter your email",
+    "correoInvalido": "Invalid email",
+    "passwordRequerida": "Enter your password",
+    "passwordCorta": "At least 8 characters",
+    "passwordSinLetra": "Must include a letter",
+    "passwordSinNumero": "Must include a number",
+    "celularRequerido": "Enter your mobile number",
+    "celularInvalido": "Invalid mobile number: 9 digits, starting with 9 (e.g. 987654321)",
+    "serieNoCoincide": "An invoice series starts with F and a receipt series with B, followed by 3 characters (e.g. F001)",
+    "razonSocialRequerida": "Enter the legal name",
+    "razonSocialLarga": "The legal name can be up to 1500 characters",
+    "razonSocialConSaltos": "The legal name cannot contain tabs or line breaks (SUNAT 4338)",
+    "rucLongitud": "The RUC has 11 digits",
+    "rucInvalido": "The RUC is not valid: check the digits (SUNAT validates the check digit)"
   }
 }

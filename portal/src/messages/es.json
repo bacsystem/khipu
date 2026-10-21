@@ -29,7 +29,8 @@
       "enviando": "Ingresando…",
       "olvidaste": "¿Olvidaste tu contraseña?",
       "sinCuenta": "¿No tienes cuenta?",
-      "crearCuenta": "Crea una"
+      "crearCuenta": "Crea una",
+      "soloPorInvitacion": "Acceso por invitación mientras dura la beta."
     },
     "registro": {
       "titulo": "Crea tu cuenta",
@@ -48,7 +49,9 @@
       "terminos": "términos del servicio",
       "yLa": "y la",
       "privacidad": "política de privacidad",
-      "terminosRequeridos": "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad."
+      "terminosRequeridos": "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad.",
+      "nombreRequerido": "Ingresa el nombre de tu cuenta",
+      "nombreLargo": "Hasta 150 caracteres"
     },
     "recuperar": {
       "titulo": "Recupera tu contraseña",
@@ -1688,5 +1691,21 @@
     "INVITACION_NO_PENDIENTE": "La invitación ya no está pendiente: se aceptó o se revocó. Recarga la página.",
     "DEMASIADAS_INVITACIONES": "Llegaste al tope de invitaciones: 20 pendientes, o 30 correos de invitación de tu cuenta (o 3 a ese correo) en las últimas 24 horas. Revoca las que sobren o vuelve a intentarlo mañana.",
     "DEMASIADOS_ENVIOS": "Ya enviamos esta invitación 5 veces. Revócala e invita de nuevo si hace falta."
+  },
+  "validacion": {
+    "correoRequerido": "Ingresa tu correo",
+    "correoInvalido": "Correo inválido",
+    "passwordRequerida": "Ingresa tu contraseña",
+    "passwordCorta": "Mínimo 8 caracteres",
+    "passwordSinLetra": "Debe incluir una letra",
+    "passwordSinNumero": "Debe incluir un número",
+    "celularRequerido": "Ingresa tu celular",
+    "celularInvalido": "Celular inválido: 9 dígitos, empieza con 9 (ej. 987654321)",
+    "serieNoCoincide": "La serie de una factura empieza con F y la de una boleta con B, más 3 caracteres (p. ej. F001)",
+    "razonSocialRequerida": "Ingresa la razón social",
+    "razonSocialLarga": "La razón social admite hasta 1500 caracteres",
+    "razonSocialConSaltos": "La razón social no admite tabuladores ni saltos de línea (SUNAT 4338)",
+    "rucLongitud": "El RUC tiene 11 dígitos",
+    "rucInvalido": "El RUC no es válido: revisa los dígitos (SUNAT valida el dígito verificador)"
   }
 }

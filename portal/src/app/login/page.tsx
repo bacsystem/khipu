@@ -5,9 +5,13 @@ import { LoginForm } from "@/components/auth/login-form";
 import { BannerDeMantenimiento } from "@/components/banner-de-mantenimiento";
 import { registroAbierto } from "@/lib/acceso";
 import { obtenerBannerVigente } from "@/lib/api/banner";
-import { messages } from "@/lib/messages";
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 
-export const metadata = { title: `${messages.auth.login.titulo} · ${messages.app.nombre}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: `${messages.auth.login.titulo} · ${messages.app.nombre}` };
+}
 
 // Se renderiza en cada request, no en el build: `REGISTRO_ABIERTO` y `CONTACTO_URL` son variables del entorno de despliegue
 // (Railway las inyecta en runtime) y prerenderizar dejaría el flag congelado con lo que hubiera al construir la imagen.
@@ -16,6 +20,7 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage() {
   // El aviso de mantenimiento (#199) se ve también antes de iniciar sesión: es cuando un cliente se entera de que hoy no va a poder emitir.
   const banner = await obtenerBannerVigente();
+  const messages = await getMessages();
   return (
     <>
       {banner ? <BannerDeMantenimiento texto={banner.texto} hasta={banner.hasta} /> : null}
@@ -32,7 +37,7 @@ export default async function LoginPage() {
               </Link>
             </>
           ) : (
-            <>Acceso por invitación mientras dura la beta.</>
+            <>{messages.auth.login.soloPorInvitacion}</>
           )
         }
       >

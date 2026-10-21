@@ -6,14 +6,16 @@ import { useState, type FormEvent } from "react";
 import { CasillaDeTerminos } from "@/components/legal/casilla-de-terminos";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
-import { mensajeError, messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 
 /**
  * Lo único que puede hacer quien no aceptó la versión vigente de los términos (#342): leerlos, aceptarlos o cerrar la sesión. Al aceptar se
  * vuelve a pintar la misma página, que ya no lo detiene: sigue donde quería ir.
  */
 export function AceptarTerminos() {
-  const t = messages.aceptarTerminos;
+  const t = useMessages().aceptarTerminos;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [marcada, setMarcada] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -4,7 +4,7 @@ import { LogoMarca } from "@/components/nav/logo";
 import type { DocumentoLegal } from "@/content/legal/tipos";
 import { REVISADO_POR_LEGAL } from "@/content/legal/version";
 import { formatearFecha } from "@/lib/formato";
-import { messages } from "@/lib/messages";
+import { useLocale, useMessages } from "next-intl";
 
 const ENLACE = "font-medium text-foreground underline underline-offset-2 hover:text-primary";
 
@@ -22,7 +22,8 @@ export function DocumentoLegalVista({
   otro: { href: string; titulo: string };
   revisado?: boolean;
 }) {
-  const t = messages.legal;
+  const t = useMessages().legal;
+  const locale = useLocale();
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
@@ -48,7 +49,7 @@ export function DocumentoLegalVista({
 
         <h1 className="font-heading text-3xl">{documento.titulo}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {t.version} <time dateTime={documento.version}>{formatearFecha(documento.version)}</time>
+          {t.version} <time dateTime={documento.version}>{formatearFecha(documento.version, locale)}</time>
         </p>
         <p className="mt-6 text-base leading-relaxed text-foreground/90">{documento.resumen}</p>
 

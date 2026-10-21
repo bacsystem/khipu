@@ -6,16 +6,17 @@ import { Alerta } from "khipu-design-system/feedback/alerta";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
-import { mensajeError, messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-
-const t = messages.auth.verificar;
 
 /**
  * Página del enlace de verificación (#22). Verifica con un botón y no al abrir la página: los antivirus y los filtros de correo
  * abren los enlaces para revisarlos, y un enlace de un solo uso se gastaría antes de que llegue la persona.
  */
 export function VerificarCorreoForm({ token }: { token: string }) {
+  const t = useMessages().auth.verificar;
+  const mensajeError = useMensajeError();
   const [estado, setEstado] = useState<"quieto" | "enviando" | "listo">("quieto");
   const [error, setError] = useState<string | null>(null);
 

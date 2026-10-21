@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
@@ -11,21 +11,23 @@ import { Alerta } from "khipu-design-system/feedback/alerta";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
-import { mensajeError, messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { rutaSegura } from "@/lib/ruta-segura";
 import { cn } from "@/lib/utils";
-import { emailSchema } from "@/lib/validacion";
+import { esquemas } from "@/lib/validacion";
 
-const schema = z.object({
-  email: emailSchema,
-  password: z.string().min(1, "Ingresa tu contraseña"),
-});
-
-type FormValues = z.infer<typeof schema>;
+type FormValues = { email: string; password: string };
 
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const schema = useMemo(
+    () => z.object({ email: esquemas(messages).email, password: z.string().min(1, messages.validacion.passwordRequerida) }),
+    [messages],
+  );
   const [error, setError] = useState<string | null>(null);
   const {
     register,

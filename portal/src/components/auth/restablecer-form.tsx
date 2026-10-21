@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
@@ -10,19 +10,21 @@ import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
-import { mensajeError, messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-import { passwordSchema } from "@/lib/validacion";
+import { esquemas } from "@/lib/validacion";
 
-const schema = z.object({ password: passwordSchema });
-
-type FormValues = z.infer<typeof schema>;
+type FormValues = { password: string };
 
 /**
  * `invitacion`: el enlace viene del alta asistida (#188), que reutiliza este mismo flujo con `?invitacion=1`. El endpoint es el mismo;
  * cambia el texto, porque el cliente no restablece nada: crea la contraseña con la que entra por primera vez.
  */
 export function RestablecerForm({ token, invitacion = false }: { token: string; invitacion?: boolean }) {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const schema = useMemo(() => z.object({ password: esquemas(messages).password }), [messages]);
   const t = invitacion ? messages.auth.invitacion : messages.auth.restablecer;
   const [error, setError] = useState<string | null>(null);
   const [listo, setListo] = useState(false);

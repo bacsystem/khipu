@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
@@ -10,16 +10,20 @@ import { Alerta } from "khipu-design-system/feedback/alerta";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
-import { mensajeError, messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-import { passwordSchema } from "@/lib/validacion";
+import { esquemas } from "@/lib/validacion";
 
-const t = messages.auth.aceptarInvitacion;
-const schema = z.object({ password: passwordSchema });
-type FormValues = z.infer<typeof schema>;
+type FormValues = { password: string };
 
 /** #21: el invitado crea su contraseña y queda en la cuenta con el rol de la invitación. Después entra por el login de siempre. */
 export function AceptarInvitacionForm({ token, email }: { token: string; email: string }) {
+  const messages = useMessages();
+  const t = messages.auth.aceptarInvitacion;
+  const mensajeError = useMensajeError();
+  const schema = useMemo(() => z.object({ password: esquemas(messages).password }), [messages]);
   const [error, setError] = useState<string | null>(null);
   const [listo, setListo] = useState(false);
   const {
@@ -42,7 +46,7 @@ export function AceptarInvitacionForm({ token, email }: { token: string; email: 
     return (
       <div className="grid gap-4">
         <Alerta tono="ok">{t.exito}</Alerta>
-        <p className="text-[13px] text-muted-foreground">{t.email.replace("{email}", email)}</p>
+        <p className="text-[13px] text-muted-foreground">{interpolar(t.email, { email })}</p>
         <Link href="/login" className={cn(BOTON_PRIMARIO, "w-full")}>
           {t.irALogin}
         </Link>
