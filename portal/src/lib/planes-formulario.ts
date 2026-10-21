@@ -1,7 +1,6 @@
 import type { CuerpoDePlan, LimiteAdmin, PlanAdmin } from "@/lib/api/admin-planes";
-import { messages } from "@/lib/messages";
-
-const t = messages.admin.planes.formulario.errores;
+import type { Mensajes } from "@/i18n/mensajes";
+import es from "@/messages/es.json";
 
 export const NOMBRE_MAX = 40;
 /** El mayor entero que acepta el backend (Java `int`): más allá, la base lo rechazaría con un error poco claro. */
@@ -57,7 +56,8 @@ function limite(texto: string, ilimitado: boolean): LimiteAdmin | null {
  * Valida lo evidente antes de enviar y arma el cuerpo que espera el backend. El backend sigue siendo la autoridad (nombre único, por ejemplo, solo él lo sabe):
  * esto evita ir y volver por un campo vacío y deja todos los errores a la vez. «Ilimitado» manda el límite sin máximo, aunque el campo conserve un número.
  */
-export function validarPlan(v: ValoresDePlan): { errores: ErroresDePlan } | { cuerpo: CuerpoDePlan } {
+export function validarPlan(v: ValoresDePlan, messages: Mensajes = es): { errores: ErroresDePlan } | { cuerpo: CuerpoDePlan } {
+  const t = messages.admin.planes.formulario.errores;
   const errores: ErroresDePlan = {};
 
   const nombre = v.nombre.trim();

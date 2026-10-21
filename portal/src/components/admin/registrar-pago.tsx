@@ -1,6 +1,7 @@
 "use client";
 
 import { BanknoteIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
@@ -10,11 +11,9 @@ import { apiRequest } from "@/lib/api/browser";
 import { fechaValida } from "@/lib/cambio-de-plan";
 import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFecha, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
-import { messages, mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { validarPago, type ErroresDePago } from "@/lib/pago-formulario";
-
-const t = messages.admin.pagos.dialogo;
-const medios = messages.admin.pagos.medios;
 
 type Props = {
   cuentaId: string;
@@ -31,6 +30,11 @@ type Props = {
  * No hay pasarela: esto solo anota. Lo que no se puede saber acá (un pago repetido, otro administrador moviendo el vencimiento) lo contesta el backend.
  */
 export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.pagos.dialogo;
+  const medios = messages.admin.pagos.medios;
   const router = useRouter();
   const pagadoHastaActual = plan?.vence_en ? ultimoDiaCubierto(plan.vence_en) : undefined;
   const planVence = Boolean(plan?.vence_en);
@@ -90,7 +94,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
 
   async function confirmar() {
     if (enviandoRef.current) return;
-    const r = validarPago({ desde, hasta, monto, medio, fecha, referencia, nota, extender }, { hoy, planVence, pagadoHastaActual });
+    const r = validarPago({ desde, hasta, monto, medio, fecha, referencia, nota, extender }, { hoy, planVence, pagadoHastaActual }, messages);
     if ("errores" in r) {
       setErrores(r.errores);
       return;
@@ -103,7 +107,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
     setEnviando(false);
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
       // No se sabe si el pago llegó: se dice, y no se reintenta a ciegas (un reintento podría anotarlo dos veces).
-      setError(`${res.mensaje ?? mensajeError(res.codigo)} Recarga la página para ver si quedó registrado.`);
+      setError(interpolar(messages.admin.recargar.pagoRegistrado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;
     }
     if (res.estado !== "exito") {
@@ -124,8 +128,8 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
       : !hastaValida
         ? t.extenderElegirPeriodo
         : !adelanta
-          ? t.extenderNoAdelanta.replace("{actual}", formatearFecha(pagadoHastaActual as string))
-          : t.extenderHoy.replace("{actual}", formatearFecha(pagadoHastaActual as string)).replace("{nuevo}", formatearFecha(hasta));
+          ? t.extenderNoAdelanta.replace("{actual}", formatearFecha(pagadoHastaActual as string, locale))
+          : t.extenderHoy.replace("{actual}", formatearFecha(pagadoHastaActual as string, locale)).replace("{nuevo}", formatearFecha(hasta, locale));
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>

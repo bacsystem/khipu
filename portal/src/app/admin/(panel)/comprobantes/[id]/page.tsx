@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -6,14 +8,17 @@ import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { esIdDeComprobante, hrefDetalleComprobante, obtenerComprobanteAdmin, type ComprobanteAdmin } from "@/lib/api/admin-comprobante";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
-import { ETIQUETAS_TIPO } from "@/lib/api/facturas";
 import { ApiError } from "@/lib/api/types";
 import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
-import { messages } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useLocale, useMessages } from "next-intl";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Comprobante · Backoffice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: messages.admin.metadatos.comprobante };
+}
 
 function Dato({ etiqueta, children, testId, ayuda }: { etiqueta: string; children: React.ReactNode; testId?: string; ayuda?: string }) {
   return (
@@ -28,7 +33,9 @@ function Dato({ etiqueta, children, testId, ayuda }: { etiqueta: string; childre
 }
 
 function Ficha({ c }: { c: ComprobanteAdmin }) {
+  const messages = useMessages();
   const t = messages.admin.comprobanteDetalle;
+  const locale = useLocale();
   return (
     <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2" data-testid="comprobante-ficha">
       <section className={cn(TARJETA, "p-5")} aria-labelledby="titulo-comprobante">
@@ -40,16 +47,16 @@ function Ficha({ c }: { c: ComprobanteAdmin }) {
         </div>
         <dl className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
           <Dato etiqueta={t.empresa}>
-            {c.razon_social} <span className="font-mono text-muted-foreground">· RUC {c.ruc}</span>
+            {c.razon_social} <span className="font-mono text-muted-foreground">{interpolar(t.rucDe, { ruc: c.ruc })}</span>
             <br />
             <Link href={hrefDetalleEmpresa(c.empresa_id)} className="text-[12px] text-primary hover:underline">
               {t.verEmpresa}
             </Link>
           </Dato>
           <Dato etiqueta={t.tipo}>
-            {ETIQUETAS_TIPO[c.tipo] ?? c.tipo} <span className="font-mono text-muted-foreground">{c.serie}</span>
+            {(messages.documentos.tipos as Record<string, string>)[c.tipo] ?? c.tipo} <span className="font-mono text-muted-foreground">{c.serie}</span>
           </Dato>
-          <Dato etiqueta={t.fechaEmision}>{formatearFecha(c.fecha_emision)}</Dato>
+          <Dato etiqueta={t.fechaEmision}>{formatearFecha(c.fecha_emision, locale)}</Dato>
           <Dato etiqueta={t.intentos} testId="comprobante-intentos" ayuda={t.ayudaIntentos}>
             {c.intentos}
           </Dato>
@@ -99,6 +106,7 @@ function Ficha({ c }: { c: ComprobanteAdmin }) {
  * backend; un 404 del backend es «no existe». Cualquier otro fallo muestra el error con «Reintentar». El 401 lo atiende el layout del panel.
  */
 export default async function AdminComprobantePage({ params }: { params: Promise<{ id: string }> }) {
+  const messages = await getMessages();
   const { id } = await params;
   if (!esIdDeComprobante(id)) notFound();
 

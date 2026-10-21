@@ -1,16 +1,21 @@
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { VerificarIntegridad } from "@/components/admin/verificar-integridad";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hoyLima } from "@/lib/formato";
-import { messages } from "@/lib/messages";
 
-export const metadata = { title: "Integridad · Backoffice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: messages.admin.metadatos.integridad };
+}
 
 /**
  * Verificación de integridad del almacenamiento (#198). La página no carga nada: el barrido lo pide el administrador desde el formulario, por el BFF. No captura el 401 por
  * separado: el layout del panel valida la sesión del administrador (`/me`) en cada render, así que un token vencido ya redirigió a /admin/login antes de llegar aquí.
  */
 export default async function AdminIntegridadPage() {
+  const messages = await getMessages();
   const { access } = await getAdminServerSession();
   if (!access) redirect("/admin/login");
 

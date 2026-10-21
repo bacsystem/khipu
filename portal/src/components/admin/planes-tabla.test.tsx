@@ -1,5 +1,6 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import { PlanesTabla } from "./planes-tabla";
 
@@ -156,5 +157,19 @@ describe("PlanesTabla", () => {
 
     const orden = screen.getAllByTestId(/^plan-fila-/).map((f) => f.getAttribute("data-testid"));
     expect(orden).toEqual(["plan-fila-g", "plan-fila-n", "plan-fila-p"]);
+  });
+
+  /** #25: con la sesión en inglés, la tabla, el precio de un plan gratis, la retención y lo ilimitado salen en inglés. */
+  it("en inglés muestra los encabezados, «Free», «1 year» y «Unlimited»", () => {
+    fijarLocaleDePrueba("en");
+    render(<PlanesTabla planes={[GRATIS, PRO]} />);
+
+    expect(screen.getByText("Monthly price")).toBeTruthy();
+    const g = celdas("g");
+    expect(g[1]).toBe("Free");
+    expect(g[6]).toBe("1 year");
+    const p = celdas("p");
+    expect(p[2]).toBe("Unlimited");
+    expect(p[6]).toBe("5 years");
   });
 });

@@ -1,11 +1,15 @@
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmpresasTabla } from "@/components/admin/empresas-tabla";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hrefEmpresas, hrefEmpresasSiFueraDeRango, listarEmpresasAdmin, paramsEmpresasDesdeUrl } from "@/lib/api/admin-empresas";
-import { messages } from "@/lib/messages";
 
-export const metadata = { title: "Empresas · Backoffice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: messages.admin.metadatos.empresas };
+}
 
 /**
  * Listado de empresas (#185). Los filtros viven en la URL y se aplican ya en el render del servidor. No captura el 401 por separado: el
@@ -16,6 +20,7 @@ export default async function AdminEmpresasPage({
 }: {
   searchParams: Promise<{ q?: string; entorno?: string; certificado?: string; bajas?: string; pagina?: string; por_pagina?: string }>;
 }) {
+  const messages = await getMessages();
   const { access } = await getAdminServerSession();
   if (!access) redirect("/admin/login");
 

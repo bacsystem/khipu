@@ -1,9 +1,12 @@
 "use client";
 
 import { InboxIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { Locale } from "@/i18n/config";
+import type { Mensajes } from "@/i18n/mensajes";
 import { AvisarAlCliente } from "@/components/admin/avisar-al-cliente";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
 import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
@@ -24,9 +27,6 @@ import {
 import { atascadosEnPalabras, certificadoEnPalabras, ultimoAvisoEnPalabras } from "@/lib/avisos-formato";
 import { CABECERA_TABLA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { messages } from "@/lib/messages";
-
-const t = messages.admin.avisos;
 
 /** Lo que las dos listas tienen en común, para dibujarlas con la misma tabla. `situacion` es lo propio de cada una. */
 type Fila = {
@@ -44,7 +44,8 @@ type Fila = {
 
 const TONO_DEL_CERTIFICADO: Record<CertificadoEnRiesgo["motivo"], Tono> = { CERTIFICADO_VENCIDO: "error", CERTIFICADO_POR_VENCER: "aviso" };
 
-function deCertificado(c: CertificadoEnRiesgo): Fila {
+function deCertificado(c: CertificadoEnRiesgo, messages: Mensajes, locale: Locale): Fila {
+  const t = messages.admin.avisos;
   return {
     empresaId: c.empresa_id,
     ruc: c.ruc,
@@ -55,7 +56,7 @@ function deCertificado(c: CertificadoEnRiesgo): Fila {
     situacion: (
       <div className="grid justify-items-start gap-1">
         <Etiqueta tono={TONO_DEL_CERTIFICADO[c.motivo]}>{t.motivos[c.motivo]}</Etiqueta>
-        <span className="text-[12px] text-muted-foreground">{certificadoEnPalabras(c)}</span>
+        <span className="text-[12px] text-muted-foreground">{certificadoEnPalabras(c, messages, locale)}</span>
       </div>
     ),
     ultimoAviso: c.ultimo_aviso,
@@ -64,7 +65,8 @@ function deCertificado(c: CertificadoEnRiesgo): Fila {
   };
 }
 
-function deSol(s: SolFallando): Fila {
+function deSol(s: SolFallando, messages: Mensajes, locale: Locale): Fila {
+  const t = messages.admin.avisos;
   return {
     empresaId: s.empresa_id,
     ruc: s.ruc,
@@ -74,8 +76,8 @@ function deSol(s: SolFallando): Fila {
     motivo: "CREDENCIALES_SOL_INVALIDAS",
     situacion: (
       <div className="grid justify-items-start gap-1">
-        <Etiqueta tono="error">{atascadosEnPalabras(s.comprobantes_afectados)}</Etiqueta>
-        <span className="text-[12px] text-muted-foreground">{t.sol.ultimoFallo.replace("{fecha}", formatearFechaHora(s.ultimo_fallo))}</span>
+        <Etiqueta tono="error">{atascadosEnPalabras(s.comprobantes_afectados, messages)}</Etiqueta>
+        <span className="text-[12px] text-muted-foreground">{t.sol.ultimoFallo.replace("{fecha}", formatearFechaHora(s.ultimo_fallo, locale))}</span>
         <span className="font-mono text-[11px] break-words text-muted-foreground" data-testid="avisos-sunat">
           {t.sol.dijoSunat.replace("{error}", s.ultimo_error)}
         </span>
@@ -93,10 +95,13 @@ function deSol(s: SolFallando): Fila {
  * o nada (no hay cuenta). Lo que pasó con el último aviso queda arriba y sobrevive a la recarga que sigue.
  */
 export function AvisosTabla({ params, certificados, sol }: { params: ParamsAvisos; certificados: PaginaDeAvisos<CertificadoEnRiesgo> | null; sol: PaginaDeAvisos<SolFallando> | null }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.avisos;
   const router = useRouter();
   const [resultado, setResultado] = useState<string | null>(null);
 
-  const filas: Fila[] = params.vista === "CERTIFICADOS" ? (certificados?.filas ?? []).map(deCertificado) : (sol?.filas ?? []).map(deSol);
+  const filas: Fila[] = params.vista === "CERTIFICADOS" ? (certificados?.filas ?? []).map((c) => deCertificado(c, messages, locale)) : (sol?.filas ?? []).map((s) => deSol(s, messages, locale));
   const total = params.vista === "CERTIFICADOS" ? (certificados?.total ?? 0) : (sol?.total ?? 0);
   const ultimaPagina = Math.max(1, Math.ceil(total / params.porPagina));
   const primero = total === 0 ? 0 : (params.pagina - 1) * params.porPagina + 1;
@@ -153,7 +158,7 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
                 </TableCell>
                 <TableCell className="px-3 py-2">{f.situacion}</TableCell>
                 <TableCell className="px-3 py-2 text-[12px] text-muted-foreground" data-testid="avisos-ultimo">
-                  {ultimoAvisoEnPalabras(f.ultimoAviso)}
+                  {ultimoAvisoEnPalabras(f.ultimoAviso, messages, locale)}
                 </TableCell>
                 <TableCell className="py-2 pr-4 pl-3">
                   {!f.cuenta ? (
@@ -164,7 +169,7 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
                     <AvisarAlCliente empresaId={f.empresaId} razonSocial={f.razonSocial} correo={f.cuenta.email} tipo={f.tipo} motivo={f.motivo} alResultado={setResultado} />
                   ) : (
                     <span data-testid="avisos-espera" className="text-[11px] text-muted-foreground">
-                      {f.avisarDesde ? t.puedeRepetirDesde.replace("{fecha}", formatearFechaHora(f.avisarDesde)) : null}
+                      {f.avisarDesde ? t.puedeRepetirDesde.replace("{fecha}", formatearFechaHora(f.avisarDesde, locale)) : null}
                     </span>
                   )}
                 </TableCell>

@@ -1,17 +1,22 @@
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ColaDeErroresTabla } from "@/components/admin/cola-de-errores-tabla";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hrefErrores, hrefSiFueraDeRango, listarErrores, paramsErroresDesdeUrl } from "@/lib/api/admin-errores";
-import { messages } from "@/lib/messages";
 
-export const metadata = { title: "Errores · Backoffice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: messages.admin.metadatos.errores };
+}
 
 /**
  * La cola global de errores (#196). El tipo de error, la empresa, la búsqueda y la página viven en la URL y se aplican ya en el render del servidor. No captura el 401 por
  * separado: el layout del panel valida la sesión del administrador (`/me`) en cada render, así que un token vencido ya redirigió a /admin/login antes de llegar aquí.
  */
 export default async function AdminErroresPage({ searchParams }: { searchParams: Promise<{ clase?: string; empresa_id?: string; q?: string; pagina?: string; por_pagina?: string }> }) {
+  const messages = await getMessages();
   const { access } = await getAdminServerSession();
   if (!access) redirect("/admin/login");
 

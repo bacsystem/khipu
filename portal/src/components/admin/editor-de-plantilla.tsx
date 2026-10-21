@@ -1,6 +1,7 @@
 "use client";
 
 import { EyeIcon, SaveIcon, Undo2Icon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
@@ -9,10 +10,9 @@ import { apiRequest } from "@/lib/api/browser";
 import { insertarEnPosicion } from "@/lib/configuracion-formulario";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { messages, mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.configuracion.plantillas;
 
 type Campo = "asunto" | "cuerpo";
 
@@ -23,6 +23,10 @@ type Campo = "asunto" | "cuerpo";
  * ({@code alResultado}): al guardar, la página se recarga y este editor se vuelve a montar con lo guardado, y el mensaje no puede morir con él.
  */
 export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: PlantillaDeCorreo; alResultado: (mensaje: string | null) => void }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.configuracion.plantillas;
   const router = useRouter();
   const [asunto, setAsunto] = useState(plantilla.vigente.asunto);
   const [cuerpo, setCuerpo] = useState(plantilla.vigente.cuerpo);
@@ -74,7 +78,7 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
     const res = await apiRequest<T>(ruta, { method: metodo, body: { asunto, cuerpo } });
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas.
-      return { mensaje: `${res.mensaje ?? mensajeError(res.codigo)} Recarga la página para ver el estado real.` };
+      return { mensaje: interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }) };
     }
     if (res.estado !== "exito") return { mensaje: res.mensaje ?? mensajeError(res.codigo) };
     return { datos: res.datos as T };
@@ -123,7 +127,7 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
           <span className="font-medium text-foreground">{t.cuandoSeManda}:</span> {plantilla.cuando_se_manda}
         </p>
         <p data-testid="plantilla-origen" className="text-[12px] text-muted-foreground">
-          {plantilla.personalizada && plantilla.actualizada_en ? t.actualizada.replace("{quien}", plantilla.actualizada_por ?? "un administrador").replace("{fecha}", formatearFechaHora(plantilla.actualizada_en)) : t.deFabrica}
+          {plantilla.personalizada && plantilla.actualizada_en ? t.actualizada.replace("{quien}", plantilla.actualizada_por ?? messages.admin.unAdministrador).replace("{fecha}", formatearFechaHora(plantilla.actualizada_en, locale)) : t.deFabrica}
         </p>
       </div>
 

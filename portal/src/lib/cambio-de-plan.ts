@@ -1,8 +1,7 @@
 import { GRACIA_MAX_DIAS, type CuerpoDeCambioDePlan } from "@/lib/api/admin-plan-de-cuenta";
+import type { Mensajes } from "@/i18n/mensajes";
 import { venceDesdeFechaDeLima } from "@/lib/formato";
-import { messages } from "@/lib/messages";
-
-const t = messages.admin.planDeCuenta.dialogo.errores;
+import es from "@/messages/es.json";
 
 /** Lo que el administrador tiene escrito en el formulario de cambio de plan. `precioDelPlan`: el del plan elegido (nulo mientras no haya elegido). */
 export type ValoresDeCambioDePlan = { planId: string; precioDelPlan?: number; pagadoHasta: string; gracia: string };
@@ -23,7 +22,12 @@ export function fechaValida(texto: string): boolean {
  * la medianoche de Lima del día siguiente (el vencimiento es exclusivo). Un plan de pago exige la fecha; uno gratis no, pero si la trae también tiene que ser de
  * hoy en adelante. El backend vuelve a decidir todo: esto evita ir y volver por un campo vacío. `hoy` es la fecha de Lima, `YYYY-MM-DD`.
  */
-export function validarCambioDePlan(v: ValoresDeCambioDePlan, hoy: string): { errores: ErroresDeCambioDePlan } | { cuerpo: CuerpoDeCambioDePlan } {
+export function validarCambioDePlan(
+  v: ValoresDeCambioDePlan,
+  hoy: string,
+  messages: Mensajes = es,
+): { errores: ErroresDeCambioDePlan } | { cuerpo: CuerpoDeCambioDePlan } {
+  const t = messages.admin.planDeCuenta.dialogo.errores;
   const errores: ErroresDeCambioDePlan = {};
   if (!v.planId) errores.planId = t.planRequerido;
 

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { messages } from "@/lib/messages";
+import es from "@/messages/es.json";
 
 /**
  * Cada acción que el backend escribe en la bitácora (`AccionAdmin`) tiene su nombre en el catálogo del portal. Sin esto, la acción nueva de una PR se ve con
@@ -19,7 +19,7 @@ describe("catálogo de acciones de la bitácora", () => {
   });
 
   it("todas tienen nombre en el catálogo del portal", () => {
-    const catalogo = messages.admin.detalle.eventos.acciones as Record<string, string>;
+    const catalogo = es.admin.detalle.eventos.acciones as Record<string, string>;
     expect(acciones.filter((a) => !catalogo[a])).toEqual([]);
   });
 });

@@ -2,7 +2,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useMessages } from "next-intl";
+import { useCallback, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Alerta } from "khipu-design-system/feedback/alerta";
@@ -12,23 +13,29 @@ import type { PasoAdmin } from "@/lib/api/admin-auth";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
 import type { ApiEnvelope } from "@/lib/api/types";
-import { mensajeError, messages } from "@/lib/messages";
+import type { Mensajes } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { rutaSegura } from "@/lib/ruta-segura";
 import { cn } from "@/lib/utils";
-import { emailSchema } from "@/lib/validacion";
+import { esquemas } from "@/lib/validacion";
 import { CodigosRecuperacion, ConfigurarSegundoFactor, VerificarSegundoFactor } from "./segundo-factor";
 
-const schema = z.object({
-  email: emailSchema,
-  password: z.string().min(1, "Ingresa tu contraseña"),
-});
+function esquema(messages: Mensajes) {
+  return z.object({
+    email: esquemas(messages).email,
+    password: z.string().min(1, messages.validacion.passwordRequerida),
+  });
+}
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof esquema>>;
 
 /** Login del backoffice en pasos (#177): contraseña, y después configurar o verificar el segundo factor. */
 type Paso = { tipo: "credenciales" } | { tipo: "configurar" } | { tipo: "verificar" } | { tipo: "codigos"; codigos: string[] };
 
 export function AdminLoginForm() {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const schema = useMemo(() => esquema(messages), [messages]);
   const router = useRouter();
   const params = useSearchParams();
   const [paso, setPaso] = useState<Paso>({ tipo: "credenciales" });
@@ -48,7 +55,7 @@ export function AdminLoginForm() {
   const volverAlInicio = useCallback((res: ApiEnvelope<unknown>) => {
     setError(mensajeError(res.codigo));
     setPaso({ tipo: "credenciales" });
-  }, []);
+  }, [mensajeError]);
 
   async function onSubmit(values: FormValues) {
     setError(null);

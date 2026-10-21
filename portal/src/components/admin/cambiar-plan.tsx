@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRightLeftIcon, TriangleAlertIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
@@ -10,9 +11,8 @@ import { apiRequest } from "@/lib/api/browser";
 import { validarCambioDePlan, type ErroresDeCambioDePlan } from "@/lib/cambio-de-plan";
 import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFechaDeLima, formatearMes } from "@/lib/formato";
-import { messages, mensajeError } from "@/lib/messages";
-
-const t = messages.admin.planDeCuenta.dialogo;
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 
 type Previa = { estado: "ninguna" } | { estado: "calculando" } | { estado: "lista"; datos: PrevisualizacionDePlanAdmin } | { estado: "error"; mensaje: string };
 
@@ -32,6 +32,10 @@ type Props = {
  * siguiente, y el modal lo dice con la fecha. Lo que no se puede saber acá (otro administrador cambió el plan en el medio) lo contesta el backend.
  */
 export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy }: Props) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.planDeCuenta.dialogo;
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [planId, setPlanId] = useState("");
@@ -83,7 +87,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
 
   async function confirmar() {
     if (enviandoRef.current || previa.estado !== "lista") return;
-    const r = validarCambioDePlan({ planId, precioDelPlan: previa.datos.plan_nuevo.precio_mensual, pagadoHasta, gracia }, hoy);
+    const r = validarCambioDePlan({ planId, precioDelPlan: previa.datos.plan_nuevo.precio_mensual, pagadoHasta, gracia }, hoy, messages);
     if ("errores" in r) {
       setErrores(r.errores);
       return;
@@ -96,7 +100,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
     setEnviando(false);
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas (un reintento podría hacer un segundo cambio).
-      setError(`${res.mensaje ?? mensajeError(res.codigo)} Recarga la página para ver el estado real.`);
+      setError(interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;
     }
     if (res.estado !== "exito") {
@@ -144,8 +148,8 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
               <option value="">{t.elegir}</option>
               {planes.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nombre} — {precioEnSoles(p.precio_mensual)}
-                  {p.id === planActualId ? " (plan actual)" : ""}
+                  {p.nombre} — {precioEnSoles(p.precio_mensual, messages, locale)}
+                  {p.id === planActualId ? t.planActual : ""}
                 </option>
               ))}
             </select>
@@ -223,6 +227,9 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
 
 /** Lo que pasaría con el cambio: qué clase de cambio es, cuándo entra y qué pasa con el consumo del mes. */
 function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.planDeCuenta.dialogo;
   if (previa.estado === "calculando")
     return (
       <p data-testid="cambiar-plan-previa" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[12px] text-muted-foreground">
@@ -240,21 +247,21 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
   const inmediato = d.efecto === "INMEDIATO";
   const limite = d.limite_de_documentos;
   const consumo = (limite.ilimitado ? t.consumoSinTope : t.consumo)
-    .replace("{mes}", formatearMes(d.mes))
+    .replace("{mes}", formatearMes(d.mes, locale))
     .replace("{n}", String(d.consumo_del_mes))
     .replace("{plan}", d.plan_nuevo.nombre)
-    .replace("{limite}", limiteEnPalabras(limite));
+    .replace("{limite}", limiteEnPalabras(limite, messages));
   return (
     <div data-testid="cambiar-plan-previa" data-direccion={d.direccion} data-efecto={d.efecto} role="status" className="grid gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[12px] leading-relaxed text-foreground">
       <p className="font-medium">{t.direcciones[d.direccion]}</p>
-      <p>{inmediato ? t.efectoInmediato : t.efectoCicloSiguiente.replace("{fecha}", formatearFechaDeLima(d.aplica_desde)).replace("{actual}", d.plan_actual.nombre)}</p>
+      <p>{inmediato ? t.efectoInmediato : t.efectoCicloSiguiente.replace("{fecha}", formatearFechaDeLima(d.aplica_desde, locale)).replace("{actual}", d.plan_actual.nombre)}</p>
       <p>{consumo}</p>
       {d.programado_que_se_descarta ? (
         <p data-testid="cambiar-plan-descarta" className="flex items-start gap-1.5 text-warning-foreground">
           <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" />
           {(inmediato ? t.descartaInmediato : t.descartaBajada)
             .replace("{plan}", d.programado_que_se_descarta.plan.nombre)
-            .replace("{fecha}", formatearFechaDeLima(d.programado_que_se_descarta.aplica_desde))}
+            .replace("{fecha}", formatearFechaDeLima(d.programado_que_se_descarta.aplica_desde, locale))}
         </p>
       ) : null}
       {d.supera_el_limite ? (

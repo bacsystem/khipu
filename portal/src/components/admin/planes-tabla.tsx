@@ -1,25 +1,25 @@
 import { InboxIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { AccionesDePlan } from "@/components/admin/acciones-de-plan";
 import { Etiqueta } from "@/components/admin/etiquetas";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { cambiosDeLimites, limiteEnPalabras, precioEnSoles, retencionEnPalabras, type PlanAdmin } from "@/lib/api/admin-planes";
 import { CABECERA_TABLA } from "@/lib/estilos";
 import { formatearFechaDeLima } from "@/lib/formato";
-import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.planes;
-const columnas = t.columnas;
 
 /** Lo que va a cambiar en un plan y desde cuándo, para mostrarlo aparte de lo vigente: todavía no manda. */
 function CambioProgramado({ plan }: { plan: PlanAdmin }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.planes;
   const programado = plan.limites_programados;
   if (!programado) return null;
-  const cambios = cambiosDeLimites(plan.limites, programado.limites);
+  const cambios = cambiosDeLimites(plan.limites, programado.limites, messages);
   if (cambios.length === 0) return null;
   return (
     <p data-testid={`plan-programado-${plan.id}`} title={t.programadoAyuda} className="mt-1 text-[11px] leading-relaxed text-warning-foreground">
-      <span className="font-medium">{t.programado.replace("{fecha}", formatearFechaDeLima(programado.aplica_desde))}</span>
+      <span className="font-medium">{t.programado.replace("{fecha}", formatearFechaDeLima(programado.aplica_desde, locale))}</span>
       {": "}
       {cambios.map((c) => `${t.cambiosDe[c.campo]}: ${c.de} → ${c.a}`).join(" · ")}
     </p>
@@ -32,6 +32,10 @@ function CambioProgramado({ plan }: { plan: PlanAdmin }) {
  * es la acción principal de la página y va en la cabecera del backoffice, como «Nueva cuenta».
  */
 export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.planes;
+  const columnas = t.columnas;
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs">
@@ -75,12 +79,12 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
                   </div>
                   <CambioProgramado plan={p} />
                 </TableCell>
-                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{precioEnSoles(p.precio_mensual)}</TableCell>
-                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{limiteEnPalabras(p.limites.documentos_al_mes)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{precioEnSoles(p.precio_mensual, messages, locale)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{limiteEnPalabras(p.limites.documentos_al_mes, messages)}</TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{p.limites.rucs}</TableCell>
-                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{limiteEnPalabras(p.limites.usuarios)}</TableCell>
-                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{limiteEnPalabras(p.limites.api_keys)}</TableCell>
-                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{retencionEnPalabras(p.limites.retencion_anios)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{limiteEnPalabras(p.limites.usuarios, messages)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{limiteEnPalabras(p.limites.api_keys, messages)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{retencionEnPalabras(p.limites.retencion_anios, messages)}</TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{p.cuentas}</TableCell>
                 <TableCell className="py-2 pr-4 pl-3">
                   <AccionesDePlan plan={p} />

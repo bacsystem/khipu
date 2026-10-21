@@ -19,141 +19,6 @@
       "count": 26
     }
   },
-  "src/app/admin/(panel)/avisos/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/admin/(panel)/comprobantes/[id]/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
-  "src/app/admin/(panel)/configuracion/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/admin/(panel)/consumo/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/admin/(panel)/cuentas/[id]/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/app/admin/(panel)/cuentas/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/admin/(panel)/empresas/[id]/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/admin/(panel)/empresas/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/admin/(panel)/errores/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/admin/(panel)/integridad/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/admin/(panel)/monitor/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/admin/(panel)/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/admin/(panel)/planes/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/admin/acciones-de-baja.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
-  "src/components/admin/acciones-de-cuenta.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
-  "src/components/admin/acciones-de-usuario.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/admin/admin-login-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/admin/admin-perfil.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
-  "src/components/admin/admin-sidebar.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/admin/alta-asistida-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/components/admin/cambiar-plan.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
-  "src/components/admin/dialogo-de-accion.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/admin/editor-de-plantilla.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/admin/formulario-de-aviso.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/admin/formulario-de-plan.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/admin/formulario-de-remitente.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/admin/registrar-pago.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
   "src/components/api-keys/api-key-revelada.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 6
@@ -224,16 +89,6 @@
       "count": 5
     }
   },
-  "src/lib/api/admin-consumo.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/lib/api/admin-planes.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
   "src/lib/api/browser.ts": {
     "khipu/no-literal-de-ui": {
       "count": 6
@@ -262,16 +117,6 @@
   "src/lib/api/webhooks-browser.ts": {
     "khipu/no-literal-de-ui": {
       "count": 2
-    }
-  },
-  "src/lib/bitacora.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/lib/configuracion-formulario.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
     }
   },
   "src/lib/webhooks/eventos.ts": {

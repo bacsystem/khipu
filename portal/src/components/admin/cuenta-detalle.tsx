@@ -1,3 +1,4 @@
+import { useLocale, useMessages } from "next-intl";
 import type { ReactNode } from "react";
 import { AccionesDeBaja } from "@/components/admin/acciones-de-baja";
 import { AccionesDeCuenta } from "@/components/admin/acciones-de-cuenta";
@@ -11,11 +12,12 @@ import { estadoCertificado, type CuentaDetalleAdmin, type EmpresaCuenta, type Ev
 import { detalleLegible, motivoDe } from "@/lib/bitacora";
 import { CABECERA_TABLA } from "@/lib/estilos";
 import { formatearFecha, formatearFechaHora, formatearMonto } from "@/lib/formato";
-import { messages } from "@/lib/messages";
-
-const t = messages.admin.detalle;
+import type { Mensajes } from "@/i18n/mensajes";
 
 function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDetalleAdmin["usuarios"] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.detalle;
   const u = t.usuarios;
   return (
     <Seccion titulo={u.titulo} id="detalle-usuarios">
@@ -40,7 +42,7 @@ function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDe
               </TableCell>
               <TableCell className="px-3 py-2">
                 {x.correo_verificado_en ? (
-                  <span title={formatearFechaHora(x.correo_verificado_en)}>
+                  <span title={formatearFechaHora(x.correo_verificado_en, locale)}>
                     <Etiqueta tono="ok">{u.verificado}</Etiqueta>
                   </span>
                 ) : (
@@ -48,7 +50,7 @@ function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDe
                 )}
               </TableCell>
               <TableCell className="px-3 py-2 text-[12px] text-foreground/80">
-                {x.ultimo_acceso ? formatearFechaHora(x.ultimo_acceso) : <span className="text-muted-foreground">{u.nunca}</span>}
+                {x.ultimo_acceso ? formatearFechaHora(x.ultimo_acceso, locale) : <span className="text-muted-foreground">{u.nunca}</span>}
               </TableCell>
               <TableCell className="py-2 pr-4 pl-3">
                 <AccionesDeUsuario cuentaId={cuentaId} usuarioId={x.id} correo={x.email} activo={x.activo} verificado={Boolean(x.correo_verificado_en)} />
@@ -63,6 +65,7 @@ function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDe
 }
 
 function Empresas({ empresas, hoy }: { empresas: EmpresaCuenta[]; hoy: string }) {
+  const t = useMessages().admin.detalle;
   const e = t.empresas;
   return (
     <Seccion titulo={e.titulo} id="detalle-empresas">
@@ -103,6 +106,9 @@ function Empresas({ empresas, hoy }: { empresas: EmpresaCuenta[]; hoy: string })
 }
 
 function Comprobantes({ comprobantes }: { comprobantes: CuentaDetalleAdmin["comprobantes"] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.detalle;
   const c = t.comprobantes;
   return (
     <Seccion titulo={c.titulo} id="detalle-comprobantes">
@@ -123,11 +129,11 @@ function Comprobantes({ comprobantes }: { comprobantes: CuentaDetalleAdmin["comp
                 {x.serie}-{String(x.numero).padStart(8, "0")}
               </TableCell>
               <TableCell className="px-3 py-2 font-mono text-[12px] text-foreground/80">{x.ruc}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFecha(x.fecha_emision)}</TableCell>
+              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFecha(x.fecha_emision, locale)}</TableCell>
               <TableCell className="px-3 py-2">
                 <EstadoBadge estado={x.estado} />
               </TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-right font-mono tabular-nums">{formatearMonto(x.moneda, x.total)}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-right font-mono tabular-nums">{formatearMonto(x.moneda, x.total, locale)}</TableCell>
             </TableRow>
           ))}
           {comprobantes.length === 0 ? <Vacio columnas={5} texto={c.vacio} /> : null}
@@ -137,16 +143,18 @@ function Comprobantes({ comprobantes }: { comprobantes: CuentaDetalleAdmin["comp
   );
 }
 
-const acciones = t.eventos.acciones as Record<string, string>;
-
 /** Quién hizo una acción (H11): el correo del administrador; «Administrador» solo si ya no existe, y «Clave de plataforma» si no fue una persona. */
-function quien(x: EventoReciente): string {
+function quien(x: EventoReciente, t: Mensajes["admin"]["detalle"]): string {
   if (x.actor !== "ADMINISTRADOR") return t.eventos.actorPlataforma;
   return x.administrador ?? t.eventos.actorAdministrador;
 }
 
 function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.detalle;
   const e = t.eventos;
+  const acciones = e.acciones as Record<string, string>;
   return (
     <Seccion titulo={e.titulo} id="detalle-eventos">
       <Table>
@@ -163,9 +171,9 @@ function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
             <TableRow key={`${x.ocurrido_en}-${i}`} className="border-b border-border/60">
               {/* Una acción que este portal todavía no conoce se muestra con su código, no se esconde. */}
               <TableCell className="py-2 pr-3 pl-4">{acciones[x.accion] ?? x.accion}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px]">{quien(x)}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(x.ocurrido_en)}</TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-muted-foreground">{detalleLegible(x.detalle) || "—"}</TableCell>
+              <TableCell className="px-3 py-2 text-[12px]">{quien(x, t)}</TableCell>
+              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-muted-foreground">{detalleLegible(x.detalle, messages, locale) || "—"}</TableCell>
             </TableRow>
           ))}
           {eventos.length === 0 ? <Vacio columnas={4} texto={e.vacio} /> : null}
@@ -177,7 +185,11 @@ function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
 
 /** Todas las suspensiones, reactivaciones, bajas y reposiciones (H15): cuándo, quién y por qué, aparte de la bitácora donde se mezclaban con lo demás. */
 function HistorialEstado({ historial }: { historial: EventoReciente[] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.detalle;
   const h = t.historial;
+  const acciones = t.eventos.acciones as Record<string, string>;
   return (
     <Seccion titulo={h.titulo} id="detalle-historial-estado">
       <Table>
@@ -194,9 +206,9 @@ function HistorialEstado({ historial }: { historial: EventoReciente[] }) {
             const motivo = motivoDe(x.detalle);
             return (
               <TableRow key={`${x.ocurrido_en}-${i}`} className="border-b border-border/60">
-                <TableCell className="py-2 pr-3 pl-4 text-[12px] whitespace-nowrap text-foreground/80">{formatearFechaHora(x.ocurrido_en)}</TableCell>
+                <TableCell className="py-2 pr-3 pl-4 text-[12px] whitespace-nowrap text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
                 <TableCell className="px-3 py-2">{acciones[x.accion] ?? x.accion}</TableCell>
-                <TableCell className="px-3 py-2 text-[12px]">{quien(x)}</TableCell>
+                <TableCell className="px-3 py-2 text-[12px]">{quien(x, t)}</TableCell>
                 <TableCell className="py-2 pr-4 pl-3 text-[12px]">{motivo ?? <span className="text-muted-foreground">{h.sinMotivo}</span>}</TableCell>
               </TableRow>
             );
@@ -222,6 +234,9 @@ type Pestana = "plan" | "estado" | "usuarios" | "empresas" | "comprobantes" | "b
  * calcule igual en el servidor y en las pruebas.
  */
 export function CuentaDetalle({ cuenta, hoy, plan }: { cuenta: CuentaDetalleAdmin; hoy: string; plan?: ReactNode }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.detalle;
   const p = t.pestanas;
   const motivoSuspension = cuenta.suspendida_en ? ultimoMotivo(cuenta.historial_estado, "SUSPENDER_CUENTA") : null;
   const motivoBaja = cuenta.baja_en ? ultimoMotivo(cuenta.historial_estado, "DAR_DE_BAJA_CUENTA") : null;
@@ -243,7 +258,7 @@ export function CuentaDetalle({ cuenta, hoy, plan }: { cuenta: CuentaDetalleAdmi
               <EstadoCuentaEtiqueta estado={cuenta.estado} />
               {cuenta.suspendida_en ? (
                 <span data-testid="suspendida-desde" className="mt-1 block text-[11px] text-muted-foreground">
-                  {t.suspendidaDesde.replace("{fecha}", formatearFechaHora(cuenta.suspendida_en))}
+                  {t.suspendidaDesde.replace("{fecha}", formatearFechaHora(cuenta.suspendida_en, locale))}
                 </span>
               ) : null}
               {motivoSuspension ? (
@@ -253,7 +268,7 @@ export function CuentaDetalle({ cuenta, hoy, plan }: { cuenta: CuentaDetalleAdmi
               ) : null}
               {cuenta.baja_en ? (
                 <span data-testid="baja-desde" className="mt-1 block text-[11px] text-muted-foreground">
-                  {t.bajaDesde.replace("{fecha}", formatearFechaHora(cuenta.baja_en))}
+                  {t.bajaDesde.replace("{fecha}", formatearFechaHora(cuenta.baja_en, locale))}
                 </span>
               ) : null}
               {motivoBaja ? (
@@ -273,7 +288,7 @@ export function CuentaDetalle({ cuenta, hoy, plan }: { cuenta: CuentaDetalleAdmi
           </div>
           <div>
             <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.alta}</dt>
-            <dd className="text-[13px]">{formatearFechaHora(cuenta.creada_en)}</dd>
+            <dd className="text-[13px]">{formatearFechaHora(cuenta.creada_en, locale)}</dd>
           </div>
         </dl>
         <div className="flex flex-wrap items-center gap-2">

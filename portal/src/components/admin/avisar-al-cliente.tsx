@@ -1,12 +1,10 @@
 "use client";
 
 import { BellRingIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { AvisoEnviado, MotivoDeAviso, TipoDeAviso } from "@/lib/api/admin-avisos";
 import { mensajeDeAvisoEnviado } from "@/lib/avisos-formato";
-import { messages } from "@/lib/messages";
-
-const t = messages.admin.avisos.avisar;
 
 /**
  * Mandarle a un cliente el aviso por correo (#197). Es un correo de verdad a una persona, así que pide confirmación y dice a quién le llega, qué le dice, que no se repite en
@@ -28,6 +26,8 @@ export function AvisarAlCliente({
   motivo: MotivoDeAviso;
   alResultado: (mensaje: string) => void;
 }) {
+  const messages = useMessages();
+  const t = messages.admin.avisos.avisar;
   return (
     <DialogoDeAccion
       testId="avisos-avisar"
@@ -44,7 +44,7 @@ export function AvisarAlCliente({
       cuerpo={() => ({ tipo })}
       estadoViejo={["AVISO_RECIENTE", "AVISO_SIN_MOTIVO", "NO_ENCONTRADO"]}
       alEstadoViejo={(mensaje) => alResultado(`${razonSocial}: ${mensaje}`)}
-      alExito={(datos) => alResultado(mensajeDeAvisoEnviado(datos as AvisoEnviado, razonSocial))}
+      alExito={(datos) => alResultado(mensajeDeAvisoEnviado(datos as AvisoEnviado, razonSocial, messages))}
     />
   );
 }

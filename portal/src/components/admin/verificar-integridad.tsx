@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleCheckIcon, ShieldCheckIcon, TriangleAlertIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
@@ -15,10 +16,10 @@ const ESPERA_DE_LA_VERIFICACION_MS = 300_000;
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CABECERA_TABLA, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFecha, sumarDias } from "@/lib/formato";
 import { MAX_DIAS_DE_INTEGRIDAD, validarRango, type ErroresDeRango } from "@/lib/integridad-formulario";
-import { messages, mensajeError } from "@/lib/messages";
+import type { Locale } from "@/i18n/config";
+import type { Mensajes } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.integridad;
 
 /** Un objeto perdido o alterado es grave (rojo); no poder leer el almacenamiento puede ser pasajero y pide repetir (aviso). */
 const TONO: Record<TipoDeProblema, Tono> = { XML_FALTANTE: "error", XML_CORRUPTO: "error", CDR_FALTANTE: "error", STORAGE_INACCESIBLE: "aviso" };
@@ -26,9 +27,9 @@ const TONO: Record<TipoDeProblema, Tono> = { XML_FALTANTE: "error", XML_CORRUPTO
 type Fase = { estado: "inicial" } | { estado: "verificando" } | { estado: "listo"; informe: InformeDeIntegridad } | { estado: "error"; mensaje: string };
 
 /** Las dos frases del resumen: cuántos se verificaron y qué se encontró. */
-function resumen(i: InformeDeIntegridad): { verificados: string; hallazgo: string } {
-  const r = t.resultado;
-  const rango = (texto: string) => texto.replace("{desde}", formatearFecha(i.desde)).replace("{hasta}", formatearFecha(i.hasta));
+function resumen(i: InformeDeIntegridad, messages: Mensajes, locale: Locale): { verificados: string; hallazgo: string } {
+  const r = messages.admin.integridad.resultado;
+  const rango = (texto: string) => texto.replace("{desde}", formatearFecha(i.desde, locale)).replace("{hasta}", formatearFecha(i.hasta, locale));
   const verificados = i.verificados === 0 ? rango(r.verificadosNinguno) : i.verificados === 1 ? rango(r.verificadosUno) : rango(r.verificados).replace("{n}", String(i.verificados));
   const comprobantes = new Set(i.problemas.map((p) => p.comprobante_id)).size;
   const hallazgo =
@@ -48,6 +49,9 @@ function resumen(i: InformeDeIntegridad): { verificados: string; hallazgo: strin
  * Solo lee: no repara nada. No se reintenta sola ni se repite al volver a la página: cada barrido lo pide el administrador.
  */
 export function VerificarIntegridad({ hoy }: { hoy: string }) {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.integridad;
   const [desde, setDesde] = useState(sumarDias(hoy, -6));
   const [hasta, setHasta] = useState(hoy);
   const [errores, setErrores] = useState<ErroresDeRango>({});
@@ -63,7 +67,7 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
   async function verificar(e: React.FormEvent) {
     e.preventDefault();
     if (enviandoRef.current) return;
-    const rango = validarRango(desde, hasta);
+    const rango = validarRango(desde, hasta, messages);
     if ("errores" in rango) {
       olvidarResultado();
       setErrores(rango.errores);
@@ -141,7 +145,10 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
 }
 
 function Resultado({ informe }: { informe: InformeDeIntegridad }) {
-  const { verificados, hallazgo } = resumen(informe);
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.integridad;
+  const { verificados, hallazgo } = resumen(informe, messages, locale);
   const limpio = informe.problemas.length === 0;
   const tipos = [...new Set(informe.problemas.map((p) => p.tipo))];
   return (

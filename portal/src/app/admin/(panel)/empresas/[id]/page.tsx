@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -5,15 +7,18 @@ import { EmpresaDetalle } from "@/components/admin/empresa-detalle";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { esIdDeEmpresa, hrefDetalleEmpresa, obtenerEmpresaAdmin } from "@/lib/api/admin-empresa-detalle";
 import { ApiError } from "@/lib/api/types";
-import { messages } from "@/lib/messages";
 
-export const metadata = { title: "Empresa · Backoffice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: messages.admin.metadatos.empresa };
+}
 
 /**
  * Detalle de una empresa (#186), solo lectura. Un id que no es un UUID ni siquiera llega al backend; un 404 del backend es «no existe».
  * Cualquier otro fallo muestra el error con «Reintentar» (la misma página). El 401 lo atiende el layout del panel, como en el listado.
  */
 export default async function AdminEmpresaPage({ params }: { params: Promise<{ id: string }> }) {
+  const messages = await getMessages();
   const { id } = await params;
   if (!esIdDeEmpresa(id)) notFound();
 

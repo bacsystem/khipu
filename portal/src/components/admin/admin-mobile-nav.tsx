@@ -1,16 +1,17 @@
 "use client";
 
 import { Menu } from "lucide-react";
+import { useMessages } from "next-intl";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "khipu-design-system/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "khipu-design-system/ui/sheet";
 import type { Administrador } from "@/lib/api/admin-auth";
-import { messages } from "@/lib/messages";
 import { AdminSidebar } from "./admin-sidebar";
 
 /** El sidebar del backoffice solo se ve desde `md`; en móvil esta es la única navegación. Se cierra al cambiar de página. */
 export function AdminMobileNav({ administrador }: { administrador: Administrador }) {
+  const messages = useMessages();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 

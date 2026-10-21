@@ -1,8 +1,7 @@
 import { MEDIOS_DE_PAGO, type CuerpoDePago, type MedioDePagoAdmin } from "@/lib/api/admin-pagos";
+import type { Mensajes } from "@/i18n/mensajes";
 import { fechaValida } from "@/lib/cambio-de-plan";
-import { messages } from "@/lib/messages";
-
-const t = messages.admin.pagos.dialogo.errores;
+import es from "@/messages/es.json";
 
 /** Lo que el administrador tiene escrito en el formulario de pago. Las fechas son `YYYY-MM-DD`; el monto, el texto tal cual. */
 export type ValoresDePago = { desde: string; hasta: string; monto: string; medio: string; fecha: string; referencia: string; nota: string; extender: boolean };
@@ -29,9 +28,9 @@ function ultimoDiaAdmitido(desde: string): string {
   return mismoDiaDelAnioSiguiente.toISOString().slice(0, 10);
 }
 
-function validarFecha(texto: string, requerido: string): string | undefined {
+function validarFecha(texto: string, requerido: string, invalida: string): string | undefined {
   if (!texto) return requerido;
-  return fechaValida(texto) ? undefined : t.fechaInvalida;
+  return fechaValida(texto) ? undefined : invalida;
 }
 
 /**
@@ -39,11 +38,12 @@ function validarFecha(texto: string, requerido: string): string | undefined {
  * ir y volver por un campo vacío. El monto admite punto o coma decimal y se manda como número. «Extender» pide que el plan venza y que el periodo adelante el
  * vencimiento: si no, el backend lo rechazaría.
  */
-export function validarPago(v: ValoresDePago, ctx: ContextoDePago): { errores: ErroresDePago } | { cuerpo: CuerpoDePago } {
+export function validarPago(v: ValoresDePago, ctx: ContextoDePago, messages: Mensajes = es): { errores: ErroresDePago } | { cuerpo: CuerpoDePago } {
+  const t = messages.admin.pagos.dialogo.errores;
   const errores: ErroresDePago = {};
 
-  const errDesde = validarFecha(v.desde, t.desdeRequerido);
-  const errHasta = validarFecha(v.hasta, t.hastaRequerido);
+  const errDesde = validarFecha(v.desde, t.desdeRequerido, t.fechaInvalida);
+  const errHasta = validarFecha(v.hasta, t.hastaRequerido, t.fechaInvalida);
   if (errDesde) errores.desde = errDesde;
   if (errHasta) errores.hasta = errHasta;
   if (!errDesde && !errHasta) {
@@ -59,7 +59,7 @@ export function validarPago(v: ValoresDePago, ctx: ContextoDePago): { errores: E
 
   if (!(MEDIOS_DE_PAGO as readonly string[]).includes(v.medio)) errores.medio = t.medioRequerido;
 
-  const errFecha = validarFecha(v.fecha, t.fechaRequerida);
+  const errFecha = validarFecha(v.fecha, t.fechaRequerida, t.fechaInvalida);
   if (errFecha) errores.fecha = errFecha;
   else if (v.fecha > ctx.hoy) errores.fecha = t.fechaFutura;
 

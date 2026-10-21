@@ -175,7 +175,8 @@
       "monitor": "Monitor",
       "errores": "Errores",
       "avisos": "Avisos",
-      "configuracion": "Configuración"
+      "configuracion": "Configuración",
+      "insignia": "ADMIN"
     },
     "topbar": {
       "ubicacion": "Ubicación",
@@ -360,6 +361,31 @@
         "confirmar": "Borrar plan",
         "enviando": "Borrando…",
         "cancelar": "Cancelar"
+      },
+      "palabras": {
+        "ilimitados": "Ilimitados",
+        "gratis": "Gratis",
+        "documentos": {
+          "uno": "{n} documento al mes",
+          "varios": "{n} documentos al mes",
+          "ilimitados": "Documentos ilimitados"
+        },
+        "rucs": {
+          "uno": "{n} RUC",
+          "varios": "{n} RUC",
+          "ilimitados": "RUC ilimitados"
+        },
+        "usuarios": {
+          "uno": "{n} usuario",
+          "varios": "{n} usuarios",
+          "ilimitados": "usuarios ilimitados"
+        },
+        "apiKeys": {
+          "uno": "{n} API key",
+          "varios": "{n} API keys",
+          "ilimitados": "API keys ilimitadas"
+        },
+        "retencion": "{retencion} de retención"
       }
     },
     "consumo": {
@@ -453,7 +479,8 @@
           "vencimientoRequerido": "Un plan de pago necesita la fecha hasta la que está pagado.",
           "vencimientoPasado": "La fecha tiene que ser de hoy en adelante.",
           "graciaInvalida": "Los días de gracia van de 0 a 90."
-        }
+        },
+        "planActual": " (plan actual)"
       }
     },
     "pagos": {
@@ -922,6 +949,11 @@
           "confirmar": "Retirar aviso",
           "enviando": "Retirando…",
           "cancelar": "Cancelar"
+        },
+        "errores": {
+          "textoRequerido": "Escribe el texto del aviso.",
+          "desdeRequerido": "Indica desde cuándo se muestra.",
+          "hastaRequerido": "Indica hasta cuándo se muestra."
         }
       }
     },
@@ -1098,8 +1130,10 @@
         "respuesta": "Respuesta de SUNAT",
         "ultimoIntento": "Último intento",
         "detalle": "Detalle",
-        "sinDato": "—"
-      }
+        "sinDato": "—",
+        "intentos": " ({n} intentos)"
+      },
+      "rucDe": "· RUC {ruc}"
     },
     "empresaDetalle": {
       "volver": "Empresas",
@@ -1437,8 +1471,11 @@
           "RESTAURAR_PLANTILLA_DE_CORREO": "Devolvió un correo a su texto de fábrica",
           "PUBLICAR_BANNER": "Publicó el aviso de mantenimiento",
           "RETIRAR_BANNER": "Retiró el aviso de mantenimiento"
-        }
-      }
+        },
+        "desdeDeUnCambio": "De"
+      },
+      "escribirASoporte": "Escribir a soporte",
+      "asuntoSoporte": "Cuenta {nombre} ({id})"
     },
     "alta": {
       "titulo": "Nueva cuenta",
@@ -1482,8 +1519,42 @@
         "invitacionNoEnviada": "No pudimos enviar la invitación a {email}. El alta quedó hecha: el cliente puede pedir un enlace desde «¿Olvidaste tu contraseña?» en el inicio de sesión.",
         "listo": "Listo",
         "otra": "Dar de alta a otro cliente"
+      },
+      "errores": {
+        "correoRequerido": "Ingresa el correo del cliente",
+        "correoLargo": "El correo admite hasta 254 caracteres",
+        "nombreRequerido": "Ingresa el nombre del cliente",
+        "nombreLargo": "El nombre admite hasta 150 caracteres",
+        "celularRequerido": "Ingresa el celular del cliente"
       }
-    }
+    },
+    "metadatos": {
+      "inicio": "Inicio · Backoffice",
+      "avisos": "Avisos · Backoffice",
+      "comprobante": "Comprobante · Backoffice",
+      "configuracion": "Configuración · Backoffice",
+      "consumo": "Consumo · Backoffice",
+      "cuenta": "Cuenta · Backoffice",
+      "cuentas": "Cuentas · Backoffice",
+      "empresa": "Empresa · Backoffice",
+      "empresas": "Empresas · Backoffice",
+      "errores": "Errores · Backoffice",
+      "integridad": "Integridad · Backoffice",
+      "monitor": "Monitor · Backoffice",
+      "planes": "Planes · Backoffice"
+    },
+    "perfil": {
+      "menu": "Menú de administrador",
+      "tema": "Tema"
+    },
+    "recargar": {
+      "estado": "{error} Recarga la página para ver el estado real.",
+      "estadoDeLaCuenta": "{error} Recarga la página para ver el estado real de la cuenta.",
+      "pagoRegistrado": "{error} Recarga la página para ver si quedó registrado.",
+      "revisarBitacora": "{error} Revisa la bitácora de la cuenta antes de volver a intentarlo."
+    },
+    "motivoAlMaximo": " Llegaste al máximo de {max}.",
+    "unAdministrador": "un administrador"
   },
   "banner": {
     "hasta": "Hasta {fecha}"

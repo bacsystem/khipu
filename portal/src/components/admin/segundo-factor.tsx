@@ -1,5 +1,6 @@
 "use client";
 
+import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useState } from "react";
 import { Campo, Entrada } from "khipu-design-system/formularios/campo";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
@@ -9,9 +10,7 @@ import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
 import type { ApiEnvelope } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import { mensajeError, messages } from "@/lib/messages";
-
-const t = messages.admin.login.segundoFactor;
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 
 /** Qué hace el formulario con un error del segundo factor: un desafío vencido vuelve a pedir la contraseña; el resto se muestra. */
 export type AlFallar = (res: ApiEnvelope<unknown>) => void;
@@ -23,6 +22,7 @@ function enGrupos(secreto: string) {
 
 /** El `Campo` y la `Entrada` del panel (#12), como el resto del login: etiqueta de 12 px, control de h-9 y el error anunciado y atado al input. */
 function CampoCodigo({ id, recuperacion, valor, onChange, error }: { id: string; recuperacion: boolean; valor: string; onChange: (v: string) => void; error: string | null }) {
+  const t = useMessages().admin.login.segundoFactor;
   return (
     <Campo id={id} etiqueta={recuperacion ? t.codigoRecuperacion : t.codigo} error={error}>
       <Entrada
@@ -54,6 +54,8 @@ function CabeceraPaso({ titulo, descripcion }: { titulo: string; descripcion: st
 
 /** Primera vez: QR y secreto de la app, y el primer código confirma y abre la sesión. */
 export function ConfigurarSegundoFactor({ alConfirmar, alFallar }: { alConfirmar: (codigos: string[]) => void; alFallar: AlFallar }) {
+  const t = useMessages().admin.login.segundoFactor;
+  const mensajeError = useMensajeError();
   const [configuracion, setConfiguracion] = useState<AdminConfiguracion | null>(null);
   const [codigo, setCodigo] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +118,8 @@ export function ConfigurarSegundoFactor({ alConfirmar, alFallar }: { alConfirmar
 
 /** Logins siguientes: el código de la app o, si se perdió el teléfono, uno de recuperación. */
 export function VerificarSegundoFactor({ alEntrar, alFallar }: { alEntrar: () => void; alFallar: AlFallar }) {
+  const t = useMessages().admin.login.segundoFactor;
+  const mensajeError = useMensajeError();
   const [recuperacion, setRecuperacion] = useState(false);
   const [codigo, setCodigo] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +161,7 @@ export function VerificarSegundoFactor({ alEntrar, alFallar }: { alEntrar: () =>
 
 /** Se muestran una sola vez, justo después de configurar: el backend solo guarda su hash. */
 export function CodigosRecuperacion({ codigos, alContinuar }: { codigos: string[]; alContinuar: () => void }) {
+  const t = useMessages().admin.login.segundoFactor;
   return (
     <div className="grid gap-4" data-testid="codigos-recuperacion">
       <CabeceraPaso titulo={t.codigosTitulo} descripcion={t.codigosDescripcion} />

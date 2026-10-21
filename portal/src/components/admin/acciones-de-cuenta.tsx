@@ -1,18 +1,18 @@
 "use client";
 
 import { PauseCircleIcon, PlayCircleIcon, TriangleAlertIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { type EstadoDeCuentaAdmin, MOTIVO_MAX } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { messages, mensajeError } from "@/lib/messages";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
-const t = messages.admin.suspension;
-
-function empresasAfectadas(n: number): string {
+function empresasAfectadas(n: number, t: Mensajes["admin"]["suspension"]): string {
   if (n === 0) return t.sinEmpresasAfectadas;
   return n === 1 ? t.unaEmpresaAfectada : t.empresasAfectadas.replace("{n}", String(n));
 }
@@ -24,6 +24,9 @@ function empresasAfectadas(n: number): string {
  * por el estado: una cuenta de baja puede estar suspendida o no, y la baja no corta el acceso, así que suspenderla es justo lo que corta el servicio (H16).
  */
 export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: string; nombre: string; suspendida: boolean; empresas: number }) {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.suspension;
   const router = useRouter();
   const textos = suspendida ? t.reactivar : t.suspender;
   const [abierto, setAbierto] = useState(false);
@@ -59,7 +62,7 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
     setEnviando(false);
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas (el backend responde 409 si ya estaba hecho).
-      setError(`${res.mensaje ?? mensajeError(res.codigo)} Recarga la página para ver el estado real de la cuenta.`);
+      setError(interpolar(messages.admin.recargar.estadoDeLaCuenta, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;
     }
     if (res.estado !== "exito") {
@@ -102,7 +105,7 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
             {suspendida ? null : <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-destructive" />}
             <div className="grid gap-1.5">
               <p className="font-medium" data-testid="suspension-alcance">
-                {empresasAfectadas(empresas)}
+                {empresasAfectadas(empresas, t)}
               </p>
               <ul className="grid list-disc gap-1 pl-4">
                 {textos.efectos.map((efecto) => (
@@ -128,7 +131,7 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
               />
               <span className={AYUDA_CAMPO}>
                 {t.suspender.motivoAyuda}
-                {motivo.length >= MOTIVO_MAX ? ` Llegaste al máximo de ${MOTIVO_MAX}.` : ""}
+                {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
               </span>
             </div>
           )}

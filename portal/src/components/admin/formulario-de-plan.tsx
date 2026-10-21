@@ -1,6 +1,7 @@
 "use client";
 
 import { PencilIcon, PlusIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
@@ -8,13 +9,11 @@ import type { PlanAdmin } from "@/lib/api/admin-planes";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFechaDeLima, inicioDelProximoCiclo } from "@/lib/formato";
-import { messages, mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { NOMBRE_MAX, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ErroresDePlan, type ValoresDePlan } from "@/lib/planes-formulario";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.planes;
-const f = t.formulario;
 
 type CampoDeNumero = "documentos" | "rucs" | "usuarios" | "apiKeys" | "retencion";
 
@@ -26,6 +25,11 @@ type CampoDeNumero = "documentos" | "rucs" | "usuarios" | "apiKeys" | "retencion
  * `claseDelBoton` reemplaza el estilo del botón que lo abre: el de «Nuevo plan» vive en la cabecera del backoffice y lleva el de su acción principal.
  */
 export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; claseDelBoton?: string }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.planes;
+  const f = t.formulario;
   const router = useRouter();
   const edicion = plan !== undefined;
   const inicial = plan ? valoresDePlan(plan) : VALORES_NUEVO_PLAN;
@@ -57,7 +61,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
 
   async function guardar() {
     if (enviandoRef.current) return;
-    const r = validarPlan(valores);
+    const r = validarPlan(valores, messages);
     if ("errores" in r) {
       setErrores(r.errores);
       return;
@@ -70,7 +74,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
     setEnviando(false);
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas (un alta repetida chocaría con el nombre, pero una edición sí se aplicaría dos veces).
-      setError(`${res.mensaje ?? mensajeError(res.codigo)} Recarga la página para ver el estado real.`);
+      setError(interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;
     }
     if (res.estado !== "exito") {
@@ -87,7 +91,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
   }
 
   const Icono = edicion ? PencilIcon : PlusIcon;
-  const fechaProximoCiclo = formatearFechaDeLima(inicioDelProximoCiclo(new Date()));
+  const fechaProximoCiclo = formatearFechaDeLima(inicioDelProximoCiclo(new Date()), locale);
   const programado = plan?.limites_programados;
   const efectos = edicion ? f.efectosEditar.map((e) => e.replace("{fecha}", fechaProximoCiclo)) : f.efectosNuevo;
   const id = plan?.id ?? "nuevo";
@@ -157,7 +161,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
           </div>
           {programado ? (
             <p data-testid="plan-hay-programado" className="rounded-lg border border-warning-border bg-warning px-3 py-2 text-[12px] text-warning-foreground">
-              {f.hayProgramado.replace("{fecha}", formatearFechaDeLima(programado.aplica_desde))}
+              {f.hayProgramado.replace("{fecha}", formatearFechaDeLima(programado.aplica_desde, locale))}
             </p>
           ) : null}
 

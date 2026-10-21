@@ -175,7 +175,8 @@
       "monitor": "Monitor",
       "errores": "Errors",
       "avisos": "Notices",
-      "configuracion": "Settings"
+      "configuracion": "Settings",
+      "insignia": "ADMIN"
     },
     "topbar": {
       "ubicacion": "Location",
@@ -360,6 +361,31 @@
         "confirmar": "Delete plan",
         "enviando": "Deleting…",
         "cancelar": "Cancel"
+      },
+      "palabras": {
+        "ilimitados": "Unlimited",
+        "gratis": "Free",
+        "documentos": {
+          "uno": "{n} document per month",
+          "varios": "{n} documents per month",
+          "ilimitados": "Unlimited documents"
+        },
+        "rucs": {
+          "uno": "{n} RUC",
+          "varios": "{n} RUCs",
+          "ilimitados": "Unlimited RUCs"
+        },
+        "usuarios": {
+          "uno": "{n} user",
+          "varios": "{n} users",
+          "ilimitados": "unlimited users"
+        },
+        "apiKeys": {
+          "uno": "{n} API key",
+          "varios": "{n} API keys",
+          "ilimitados": "unlimited API keys"
+        },
+        "retencion": "{retencion} retention"
       }
     },
     "consumo": {
@@ -453,7 +479,8 @@
           "vencimientoRequerido": "A paid plan needs the date through which it is paid.",
           "vencimientoPasado": "The date must be today or later.",
           "graciaInvalida": "Grace days range from 0 to 90."
-        }
+        },
+        "planActual": " (current plan)"
       }
     },
     "pagos": {
@@ -922,6 +949,11 @@
           "confirmar": "Withdraw notice",
           "enviando": "Withdrawing…",
           "cancelar": "Cancel"
+        },
+        "errores": {
+          "textoRequerido": "Enter the notice text.",
+          "desdeRequerido": "Enter when it starts showing.",
+          "hastaRequerido": "Enter when it stops showing."
         }
       }
     },
@@ -1098,8 +1130,10 @@
         "respuesta": "SUNAT response",
         "ultimoIntento": "Last attempt",
         "detalle": "Details",
-        "sinDato": "—"
-      }
+        "sinDato": "—",
+        "intentos": " ({n} attempts)"
+      },
+      "rucDe": "· RUC {ruc}"
     },
     "empresaDetalle": {
       "volver": "Companies",
@@ -1437,8 +1471,11 @@
           "RESTAURAR_PLANTILLA_DE_CORREO": "Restored an email to its default text",
           "PUBLICAR_BANNER": "Published the maintenance notice",
           "RETIRAR_BANNER": "Removed the maintenance notice"
-        }
-      }
+        },
+        "desdeDeUnCambio": "From"
+      },
+      "escribirASoporte": "Email support",
+      "asuntoSoporte": "Account {nombre} ({id})"
     },
     "alta": {
       "titulo": "New account",
@@ -1482,8 +1519,42 @@
         "invitacionNoEnviada": "We could not send the invitation to {email}. The onboarding is done: the customer can request a link from “Forgot your password?” on the sign-in page.",
         "listo": "Done",
         "otra": "Onboard another customer"
+      },
+      "errores": {
+        "correoRequerido": "Enter the customer’s email",
+        "correoLargo": "The email can be up to 254 characters",
+        "nombreRequerido": "Enter the customer’s name",
+        "nombreLargo": "The name can be up to 150 characters",
+        "celularRequerido": "Enter the customer’s mobile number"
       }
-    }
+    },
+    "metadatos": {
+      "inicio": "Home · Backoffice",
+      "avisos": "Notices · Backoffice",
+      "comprobante": "Document · Backoffice",
+      "configuracion": "Settings · Backoffice",
+      "consumo": "Usage · Backoffice",
+      "cuenta": "Account · Backoffice",
+      "cuentas": "Accounts · Backoffice",
+      "empresa": "Company · Backoffice",
+      "empresas": "Companies · Backoffice",
+      "errores": "Errors · Backoffice",
+      "integridad": "Integrity · Backoffice",
+      "monitor": "Monitor · Backoffice",
+      "planes": "Plans · Backoffice"
+    },
+    "perfil": {
+      "menu": "Administrator menu",
+      "tema": "Theme"
+    },
+    "recargar": {
+      "estado": "{error} Reload the page to see the current state.",
+      "estadoDeLaCuenta": "{error} Reload the page to see the current state of the account.",
+      "pagoRegistrado": "{error} Reload the page to see whether it was recorded.",
+      "revisarBitacora": "{error} Check the account’s audit log before trying again."
+    },
+    "motivoAlMaximo": " You reached the maximum of {max}.",
+    "unAdministrador": "an administrator"
   },
   "banner": {
     "hasta": "Until {fecha}"

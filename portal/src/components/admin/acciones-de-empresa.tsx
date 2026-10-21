@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRightLeftIcon, KeyRoundIcon, PlugZapIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useRef, useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import { Etiqueta } from "@/components/admin/etiquetas";
@@ -8,9 +9,7 @@ import type { ResultadoDeConexionAdmin } from "@/lib/api/admin-acciones-empresa"
 import type { EntornoAdmin } from "@/lib/api/admin-empresas";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_SECUNDARIA } from "@/lib/estilos";
-import { messages, mensajeError } from "@/lib/messages";
-
-const t = messages.admin.accionesEmpresa;
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 
 /**
  * Pasar la empresa al otro entorno (#187). Es la acción con más consecuencias del backoffice: decide contra qué URLs de SUNAT se emite. Por eso el diálogo
@@ -18,6 +17,7 @@ const t = messages.admin.accionesEmpresa;
  * al que la página muestra.
  */
 export function CambiarEntorno({ empresaId, razonSocial, entorno }: { empresaId: string; razonSocial: string; entorno: EntornoAdmin }) {
+  const t = useMessages().admin.accionesEmpresa;
   const hacia: EntornoAdmin = entorno === "BETA" ? "PRODUCCION" : "BETA";
   const textos = hacia === "PRODUCCION" ? t.entorno.aProduccion : t.entorno.aBeta;
   return (
@@ -42,6 +42,7 @@ export function CambiarEntorno({ empresaId, razonSocial, entorno }: { empresaId:
 
 /** Revocar una API key concreta (#187). Deja de autenticar de inmediato y no se deshace: el diálogo lo dice, y dice que las demás keys siguen sirviendo. */
 export function RevocarApiKey({ empresaId, apiKeyId, prefijo, razonSocial }: { empresaId: string; apiKeyId: string; prefijo: string; razonSocial: string }) {
+  const t = useMessages().admin.accionesEmpresa;
   return (
     <DialogoDeAccion
       testId={`revocar-api-key-${apiKeyId}`}
@@ -69,6 +70,9 @@ const TONO_DEL_RESULTADO = { CONECTADO: "ok", RECHAZADO: "aviso", SIN_RESPUESTA:
  * un diálogo. Se dice el código y el mensaje de SUNAT tal cual (la prueba no diagnostica por sí sola), y no se promete nada que el backend no verificó.
  */
 export function ProbarConexion({ empresaId, tieneSol }: { empresaId: string; tieneSol: boolean }) {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.accionesEmpresa;
   const [probando, setProbando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoDeConexionAdmin | null>(null);
   const [error, setError] = useState<string | null>(null);

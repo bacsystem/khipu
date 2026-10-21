@@ -1,8 +1,7 @@
 import { fechaValida } from "@/lib/cambio-de-plan";
+import type { Mensajes } from "@/i18n/mensajes";
 import { diasEntre } from "@/lib/formato";
-import { messages } from "@/lib/messages";
-
-const t = messages.admin.integridad.errores;
+import es from "@/messages/es.json";
 
 /**
  * Cuántos días como mucho se verifican por vez. Cada comprobante firmado del rango se lee del almacenamiento (el XML y, si hay, el CDR): un rango de años por error
@@ -17,7 +16,12 @@ export type ErroresDeRango = Partial<Record<"desde" | "hasta", string>>;
  * Valida el rango antes de pedir la verificación: las dos fechas existen, `desde` ≤ `hasta` y no pasan de {@link MAX_DIAS_DE_INTEGRIDAD} días (los dos extremos cuentan).
  * Lo comparten el formulario y el BFF, que arma con estas fechas la URL del backend: por eso solo salen de acá fechas `YYYY-MM-DD` que existen.
  */
-export function validarRango(desde: string, hasta: string): { errores: ErroresDeRango } | { desde: string; hasta: string } {
+export function validarRango(
+  desde: string,
+  hasta: string,
+  messages: Mensajes = es,
+): { errores: ErroresDeRango } | { desde: string; hasta: string } {
+  const t = messages.admin.integridad.errores;
   const d = desde.trim();
   const h = hasta.trim();
   const errores: ErroresDeRango = {};

@@ -1,15 +1,14 @@
 "use client";
 
 import { PowerIcon, PowerOffIcon, Trash2Icon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import { FormularioDePlan } from "@/components/admin/formulario-de-plan";
+import type { Mensajes } from "@/i18n/mensajes";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
-import { messages } from "@/lib/messages";
-
-const t = messages.admin.planes;
 
 /** Lo que pasa con las cuentas que ya tienen el plan al desactivarlo: nada. El diálogo lo dice con la cifra, porque es lo que el administrador quiere saber. */
-function frasePorCuentas(cuentas: number): string {
+function frasePorCuentas(cuentas: number, t: Mensajes["admin"]["planes"]): string {
   if (cuentas === 0) return t.desactivar.cuentasNinguna;
   if (cuentas === 1) return t.desactivar.cuentasUna;
   return t.desactivar.cuentasVarias.replace("{n}", String(cuentas));
@@ -21,6 +20,7 @@ function frasePorCuentas(cuentas: number): string {
  * plan que tuvo cuentas alguna vez tampoco se borra, aunque hoy no tenga ninguna).
  */
 export function AccionesDePlan({ plan }: { plan: PlanAdmin }) {
+  const t = useMessages().admin.planes;
   const activo = plan.estado === "ACTIVO";
   const id = plan.id;
 
@@ -35,7 +35,7 @@ export function AccionesDePlan({ plan }: { plan: PlanAdmin }) {
           chico
           titulo={t.desactivar.titulo.replace("{nombre}", plan.nombre)}
           descripcion={t.desactivar.descripcion}
-          efectos={[t.desactivar.efectos[0], frasePorCuentas(plan.cuentas), t.desactivar.efectos[1]]}
+          efectos={[t.desactivar.efectos[0], frasePorCuentas(plan.cuentas, t), t.desactivar.efectos[1]]}
           advertencia
           confirmar={t.desactivar.confirmar}
           enviando={t.desactivar.enviando}

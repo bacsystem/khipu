@@ -1,13 +1,17 @@
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AvisosTabla } from "@/components/admin/avisos-tabla";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hrefEmpresas } from "@/lib/api/admin-empresas";
 import { hrefAvisos, hrefSiFueraDeRango, listarCertificadosEnRiesgo, listarCredencialesSolFallando, paramsAvisosDesdeUrl } from "@/lib/api/admin-avisos";
-import { messages } from "@/lib/messages";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 
-export const metadata = { title: "Avisos · Backoffice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: messages.admin.metadatos.avisos };
+}
 
 /**
  * Avisos a clientes (#197): certificados por vencer o vencidos y credenciales SOL que SUNAT no acepta. La lista, la página y el tamaño viven en la URL y se aplican ya en el render
@@ -15,6 +19,7 @@ export const metadata = { title: "Avisos · Backoffice" };
  * vencido ya redirigió a /admin/login antes de llegar aquí.
  */
 export default async function AdminAvisosPage({ searchParams }: { searchParams: Promise<{ vista?: string; pagina?: string; por_pagina?: string }> }) {
+  const messages = await getMessages();
   const { access } = await getAdminServerSession();
   if (!access) redirect("/admin/login");
 
