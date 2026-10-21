@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Permite levantar un segundo dev server (p. ej. con mocks en otro puerto) sin pisar el .next del principal.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
+  // `next build` lintea con la API de ESLint, que no lee la línea base eslint-suppressions.json (solo la CLI la aplica): fallaría
+  // en los literales ya registrados ahí y tumbaría el build de Docker. El lint, con su línea base, es `npm run lint` (make verificar
+  // y el pre-commit).
+  eslint: { ignoreDuringBuilds: true },
   ...(devOrigins.length > 0 ? { allowedDevOrigins: devOrigins } : {}),
 };
 
