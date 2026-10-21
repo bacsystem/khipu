@@ -1,9 +1,9 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
-import { Campo, Entrada } from "@/components/formularios/campo";
-import { BotonAsync } from "@/components/patrones/boton-async";
-import { BotonCopiar } from "@/components/ui/boton-copiar";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import type { AdminConfiguracion } from "@/lib/api/admin-auth";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";

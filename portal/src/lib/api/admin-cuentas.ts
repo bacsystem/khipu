@@ -1,4 +1,4 @@
-import { POR_PAGINA_DEFECTO, porPaginaValido } from "@/lib/paginacion";
+import { POR_PAGINA_DEFECTO, porPaginaValido } from "khipu-design-system/lib/paginacion";
 import { bajasDesdeUrl, type VisibilidadDeBajasAdmin } from "./admin-baja";
 import type { EstadoCuentaAdmin } from "./admin-suspension";
 import { backendFetchConHeaders } from "./client";

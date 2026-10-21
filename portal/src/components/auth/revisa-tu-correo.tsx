@@ -3,8 +3,8 @@
 import { MailCheckIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Alerta } from "@/components/feedback/alerta";
-import { Button } from "@/components/ui/button";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { Button } from "khipu-design-system/ui/button";
 import { postJson } from "@/lib/api/browser";
 import { mensajeError, messages } from "@/lib/messages";
 import { useSoloLecturaDeLaSesion } from "@/lib/solo-lectura";

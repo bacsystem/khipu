@@ -4,7 +4,7 @@ import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { useTransition } from "react";
 import { seleccionarEmpresa } from "@/app/actions";
-import { SelectContent } from "@/components/ui/select";
+import { SelectContent } from "khipu-design-system/ui/select";
 import type { Empresa } from "@/lib/api/empresas";
 import { cn } from "@/lib/utils";
 

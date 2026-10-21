@@ -1,7 +1,7 @@
 "use client";
 
 import { PlusIcon, Trash2Icon } from "lucide-react";
-import { Campo } from "@/components/formularios/campo";
+import { Campo } from "khipu-design-system/formularios/campo";
 import { errorDeReferencias, MAX_DOCUMENTO, MAX_OBSERVACIONES, MAX_ORDEN_COMPRA, TIPOS_DE_DOCUMENTO, TIPOS_DE_GUIA, type ReferenciasForm } from "@/lib/comprobantes/referencias";
 import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";

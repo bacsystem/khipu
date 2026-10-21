@@ -2,7 +2,7 @@
 
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "khipu-design-system/ui/button";
 import { apiRequest } from "@/lib/api/browser";
 import { mensajeError } from "@/lib/messages";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";

@@ -1,6 +1,6 @@
 import { InboxIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { TableCell, TableRow } from "@/components/ui/table";
+import { TableCell, TableRow } from "khipu-design-system/ui/table";
 
 /** Fila de cabecera de las tablas de detalle del backoffice. */
 export const CABECERA_FILA = "border-b border-border/80 bg-muted hover:bg-muted";

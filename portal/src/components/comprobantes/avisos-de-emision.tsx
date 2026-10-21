@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Alerta } from "@/components/feedback/alerta";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { avisosDeEmision, leerAvisosDeEmisionCrudos } from "@/lib/comprobantes/avisos-de-emision";
 
 const sinSuscripcion = () => () => {};

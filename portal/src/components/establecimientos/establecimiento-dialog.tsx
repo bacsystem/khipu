@@ -2,7 +2,7 @@
 
 import { PencilIcon, PlusIcon, StoreIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { cn } from "@/lib/utils";

@@ -3,11 +3,11 @@
 import { InboxIcon, RefreshCwIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PieTabla } from "@/components/ui/pie-tabla";
-import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
+import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { ETIQUETAS_TIPO } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { cn } from "@/lib/utils";

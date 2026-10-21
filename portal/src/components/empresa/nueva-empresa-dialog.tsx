@@ -3,7 +3,7 @@
 import { Building2Icon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { NuevaEmpresaForm } from "@/components/empresa/nueva-empresa-form";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 

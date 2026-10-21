@@ -9,7 +9,7 @@ import {
   ReglaReferencia,
   SeccionReferencia,
   TablaCampos,
-} from "@/components/ui/referencia-tecnica";
+} from "@/components/compartidos/referencia-tecnica";
 
 const CAMPOS: CampoReferencia[] = [
   { campo: "id", tipo: "uuid", descripcion: "Identificador de la llave (el que usa el endpoint de revocación)", clave: true },

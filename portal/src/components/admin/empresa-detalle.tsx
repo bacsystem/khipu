@@ -4,8 +4,8 @@ import { CambiarEntorno, ProbarConexion, RevocarApiKey } from "@/components/admi
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
 import { ETIQUETAS_ESTADO, EstadoBadge } from "@/components/comprobantes/estado-badge";
-import { Tabs } from "@/components/navegacion/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs } from "khipu-design-system/navegacion/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import type { DomicilioEmpresa, EmpresaDetalleAdmin } from "@/lib/api/admin-empresa-detalle";

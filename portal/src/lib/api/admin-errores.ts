@@ -1,4 +1,4 @@
-import { POR_PAGINA_DEFECTO, porPaginaValido } from "@/lib/paginacion";
+import { POR_PAGINA_DEFECTO, porPaginaValido } from "khipu-design-system/lib/paginacion";
 import { esUuid } from "@/lib/uuid";
 import { backendFetch, backendFetchConHeaders } from "./client";
 import { totalDesdeHeaders } from "./facturas";

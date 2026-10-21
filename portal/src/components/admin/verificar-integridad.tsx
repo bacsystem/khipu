@@ -4,7 +4,7 @@ import { CircleCheckIcon, ShieldCheckIcon, TriangleAlertIcon } from "lucide-reac
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { esIdDeComprobante, hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import type { InformeDeIntegridad, TipoDeProblema } from "@/lib/api/admin-integridad";

@@ -1,4 +1,4 @@
-import { Alerta } from "@/components/feedback/alerta";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { observacionesDeSunat, type ResultadoConsultaRuc } from "@/lib/api/consulta-ruc";
 import { AYUDA_CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";

@@ -3,8 +3,8 @@
 import { CheckIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Badge } from "khipu-design-system/ui/badge";
+import { Card } from "khipu-design-system/ui/card";
 import { cn } from "@/lib/utils";
 import type { TarjetaDePlan } from "./planes-datos";
 

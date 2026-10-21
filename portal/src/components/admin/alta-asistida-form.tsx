@@ -7,12 +7,12 @@ import { type ChangeEvent, type ComponentProps, type FormEvent, useEffect, useRe
 import { type FieldErrors, type UseFormRegisterReturn, useForm } from "react-hook-form";
 import { z } from "zod";
 import { ApiKeyRevelada } from "@/components/api-keys/api-key-revelada";
-import { Alerta } from "@/components/feedback/alerta";
-import { Campo, Entrada } from "@/components/formularios/campo";
-import { Pasos } from "@/components/navegacion/pasos";
-import { CabeceraDialogo, PieDialogo } from "@/components/patrones/cabecera-dialogo";
-import { IconoSeccion } from "@/components/patrones/cabecera-seccion";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { Pasos } from "khipu-design-system/navegacion/pasos";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { IconoSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { AltaAsistidaCreada } from "@/lib/api/admin-alta";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { ApiEnvelope } from "@/lib/api/types";

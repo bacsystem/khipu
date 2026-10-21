@@ -1,4 +1,4 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { CABECERA_TABLA, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { monedasDeLaSerie, type PuntoDelDia } from "@/lib/inicio/panel";

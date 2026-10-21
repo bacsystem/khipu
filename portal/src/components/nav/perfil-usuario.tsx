@@ -3,10 +3,10 @@
 import { BookOpenIcon, ChevronsUpDownIcon, KeyRoundIcon, LogOutIcon, MailCheckIcon, ShieldCheckIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Menu, MenuContent, MenuItem, MenuLinkItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
-import { ThemeToggle } from "@/components/nav/theme-toggle";
-import { BotonAsync } from "@/components/patrones/boton-async";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "khipu-design-system/ui/dialog";
+import { Menu, MenuContent, MenuItem, MenuLinkItem, MenuSeparator, MenuTrigger } from "khipu-design-system/ui/menu";
+import { ThemeToggle } from "khipu-design-system/nav/theme-toggle";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import type { Usuario } from "@/lib/api/auth";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";

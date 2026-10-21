@@ -1,6 +1,6 @@
 import { CheckCircle2Icon } from "lucide-react";
 import Link from "next/link";
-import { Alerta } from "@/components/feedback/alerta";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import type { AlertaDelPanel } from "@/lib/inicio/panel";
 

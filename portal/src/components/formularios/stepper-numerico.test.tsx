@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { StepperNumerico } from "./stepper-numerico";
+import { StepperNumerico } from "khipu-design-system/formularios/stepper-numerico";
 
 afterEach(cleanup);
 

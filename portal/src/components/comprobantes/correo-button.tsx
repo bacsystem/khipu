@@ -2,7 +2,7 @@
 
 import { MailIcon, SendIcon, XIcon } from "lucide-react";
 import { useState } from "react";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "khipu-design-system/ui/button";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_SECUNDARIA, CAMPO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";

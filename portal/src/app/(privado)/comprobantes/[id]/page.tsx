@@ -1,7 +1,7 @@
 import { ArrowLeftIcon, FileMinusIcon, FileTextIcon, HistoryIcon, IdCardIcon, LinkIcon, Rows3Icon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BotonCopiar } from "@/components/ui/boton-copiar";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { EstadoBadge, ETIQUETAS_ESTADO, PUNTOS } from "@/components/comprobantes/estado-badge";
 import { BajaButton } from "@/components/comprobantes/baja-button";
 import { BajaEstado } from "@/components/comprobantes/baja-estado";

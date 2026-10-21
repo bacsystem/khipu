@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "khipu-design-system/ui/badge";
 import type { EstadoDocumento } from "@/lib/api/facturas";
 import { cn } from "@/lib/utils";
 

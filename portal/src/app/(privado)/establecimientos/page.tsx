@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { EstablecimientosTable } from "@/components/establecimientos/establecimientos-table";
-import { Metrica } from "@/components/ui/metrica";
+import { Metrica } from "@/components/compartidos/metrica";
 import { listarEstablecimientos } from "@/lib/api/establecimientos";
 import { listarSeries } from "@/lib/api/series";
 import { getServerSession } from "@/lib/session-server";

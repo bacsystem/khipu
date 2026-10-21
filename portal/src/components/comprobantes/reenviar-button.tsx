@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "khipu-design-system/ui/button";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import { mensajeError } from "@/lib/messages";
 import { useSoloLectura } from "@/lib/solo-lectura";

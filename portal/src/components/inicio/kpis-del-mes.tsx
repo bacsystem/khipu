@@ -1,5 +1,5 @@
 import { atencionEnPalabras } from "@/components/comprobantes/resumen-de-comprobantes";
-import { Metrica } from "@/components/ui/metrica";
+import { Metrica } from "@/components/compartidos/metrica";
 import type { ResumenDeFacturas } from "@/lib/api/facturas";
 import { formatearMonto } from "@/lib/formato";
 import { facturadoEn, variacion, variacionEnPalabras } from "@/lib/inicio/panel";

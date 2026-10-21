@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { FiltroDeBajas } from "@/components/admin/filtro-de-bajas";
-import { PieTabla } from "@/components/ui/pie-tabla";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import {

@@ -1,6 +1,6 @@
 import { RegistrarPago } from "@/components/admin/registrar-pago";
 import { Seccion, CABECERA_FILA, Vacio } from "@/components/admin/seccion";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { PaginaPagos } from "@/lib/api/admin-pagos";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { CABECERA_TABLA } from "@/lib/estilos";

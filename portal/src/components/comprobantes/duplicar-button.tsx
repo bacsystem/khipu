@@ -1,7 +1,7 @@
 "use client";
 
 import { CopyPlusIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "khipu-design-system/ui/button";
 import { pedirDuplicado } from "@/lib/comprobantes/duplicar";
 import { useSoloLectura } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";

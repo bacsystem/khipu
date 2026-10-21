@@ -1,6 +1,6 @@
 "use client";
 
-import { Campo } from "@/components/formularios/campo";
+import { Campo } from "khipu-design-system/formularios/campo";
 import { errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";

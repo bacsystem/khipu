@@ -2,7 +2,7 @@
 
 import { SaveIcon } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
-import { Campo } from "@/components/formularios/campo";
+import { Campo } from "khipu-design-system/formularios/campo";
 import { apiRequest } from "@/lib/api/browser";
 import type { DatosDeProducto, ProductoGuardado } from "@/lib/api/productos";
 import { etiquetaDelPrecio, GRUPOS_AFECTACION } from "@/lib/comprobantes/tributos";

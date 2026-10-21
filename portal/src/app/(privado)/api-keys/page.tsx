@@ -10,7 +10,7 @@ import { enlaceASeccion } from "@/lib/empresa/secciones";
 import { formatearFechaHora, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
-import { Metrica } from "@/components/ui/metrica";
+import { Metrica } from "@/components/compartidos/metrica";
 import { messages } from "@/lib/messages";
 
 export const metadata = { title: `API keys e integración · ${messages.app.nombre}` };

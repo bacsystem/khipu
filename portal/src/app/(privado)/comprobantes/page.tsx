@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ComprobantesTable } from "@/components/comprobantes/comprobantes-table";
 import { GuiaParaEmitir } from "@/components/empresa/guia-para-emitir";
 import { ResumenDeComprobantes } from "@/components/comprobantes/resumen-de-comprobantes";
-import { porPaginaValido } from "@/lib/paginacion";
+import { porPaginaValido } from "khipu-design-system/lib/paginacion";
 import { filtrosDesdeParams, listarFacturas, periodoDelResumen, resumirFacturas } from "@/lib/api/facturas";
 import { hoyLima } from "@/lib/formato";
 import { obtenerEmpresaActual } from "@/lib/api/empresas";

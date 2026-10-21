@@ -1,6 +1,6 @@
 "use client";
 
-import { Campo } from "@/components/formularios/campo";
+import { Campo } from "khipu-design-system/formularios/campo";
 import { errorDePercepcion, REGIMENES, type PercepcionForm } from "@/lib/comprobantes/percepcion";
 import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";

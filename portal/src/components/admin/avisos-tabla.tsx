@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AvisarAlCliente } from "@/components/admin/avisar-al-cliente";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
-import { PieTabla } from "@/components/ui/pie-tabla";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import {
   hrefAvisos,

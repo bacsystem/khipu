@@ -1,7 +1,7 @@
 "use client";
 
 import { DatabaseIcon, LockIcon, ShieldCheckIcon } from "lucide-react";
-import { type CampoReferencia, ReferenciaTecnicaDialog, SeccionReferencia, TablaCampos } from "@/components/ui/referencia-tecnica";
+import { type CampoReferencia, ReferenciaTecnicaDialog, SeccionReferencia, TablaCampos } from "@/components/compartidos/referencia-tecnica";
 
 const CAMPOS: CampoReferencia[] = [
   { campo: "id", tipo: "uuid", descripcion: "Identificador del tenant; viaja en la cabecera X-Empresa", clave: true },

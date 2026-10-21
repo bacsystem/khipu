@@ -2,8 +2,8 @@
 
 import { BadgeCheckIcon, DownloadIcon, FileCodeIcon, Loader2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "khipu-design-system/ui/sheet";
 import { formatearXml } from "@/lib/xml";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 

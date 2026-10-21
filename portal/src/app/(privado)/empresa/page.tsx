@@ -27,11 +27,11 @@ import { listarSeries } from "@/lib/api/series";
 import { pasosParaEmitir } from "@/lib/empresa/guia-emision";
 import { seccionesPendientes, seccionInicial } from "@/lib/empresa/secciones";
 import { ACCION_SECUNDARIA, ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
-import { Alerta } from "@/components/feedback/alerta";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { diasEntre, formatearFecha, formatearFechaHora, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
-import { Metrica } from "@/components/ui/metrica";
+import { Metrica } from "@/components/compartidos/metrica";
 import { messages } from "@/lib/messages";
 
 export const metadata = { title: `Fiscal y certificado · ${messages.app.nombre}` };

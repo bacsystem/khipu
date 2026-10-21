@@ -3,7 +3,7 @@
 import { BanIcon, ChevronDownIcon, KeyRoundIcon, PlayIcon, PowerIcon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import type { Webhook } from "@/lib/api/webhooks";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
