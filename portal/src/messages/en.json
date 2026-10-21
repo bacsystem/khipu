@@ -3755,5 +3755,250 @@
       "unidad": "series",
       "nota": "Sequence numbers are assigned atomically and sequentially with each issue"
     }
+  },
+  "landing": {
+    "acciones": {
+      "crearCuentaGratis": "Create a free account",
+      "solicitarAcceso": "Request access",
+      "iniciarSesion": "Sign in",
+      "desarrolladores": "Developers",
+      "precios": "Pricing",
+      "verDocumentacion": "View the API documentation"
+    },
+    "hero": {
+      "etiqueta": "Electronic invoicing for Peru",
+      "titulo": "Documents SUNAT accepts the first time.",
+      "descripcion": "We calculate the totals on the server before signing, so rejections for mismatched totals don’t happen. Start free, forever, with your first RUC.",
+      "notaAbierto": "No card · A permanent free plan, not a trial.",
+      "notaCerrado": "Invitation-only beta: we enable accounts one by one and help with every setup."
+    },
+    "confianza": [
+      "XML-DSig signature (RSA-SHA256)",
+      "UBL 2.1 on the SUNAT standard",
+      "Automatic retries",
+      "Documented REST API"
+    ],
+    "beneficios": {
+      "etiqueta": "Why khipu",
+      "titulo": "Less paperwork, more control",
+      "descripcion": "What changes when calculating, signing and retrying are no longer your problem.",
+      "descuadre": {
+        "titulo": "Zero rejections for mismatched totals",
+        "descripcion": "We calculate and validate the totals on the server before signing: we don’t rely on your system building the XML correctly."
+      },
+      "caida": {
+        "titulo": "Keep invoicing even if SUNAT goes down",
+        "descripcion": "If SUNAT doesn’t respond, we retry automatically with increasing wait times. No document is lost or numbered twice."
+      },
+      "portal": {
+        "titulo": "A portal for you, an API for your team",
+        "descripcion": "Issue and look up documents from the portal, or integrate the same API into your system — documented, with an interactive reference and live testing."
+      },
+      "configuracion": {
+        "titulo": "Certificate and series in minutes",
+        "descripcion": "Upload your digital certificate and SOL credentials once, and set up your series from the dashboard — no support tickets."
+      }
+    },
+    "audiencia": {
+      "titulo": "Built for your type of business",
+      "descripcion": "The same platform, whichever side you look at it from.",
+      "pymes": {
+        "titulo": "Small businesses and shops",
+        "descripcion": "Issue documents, manage your series and keep your company’s history from a simple dashboard."
+      },
+      "contadores": {
+        "titulo": "Accountants and firms",
+        "descripcion": "Manage several companies (RUC) from a single account and download XML and CDR whenever you need them."
+      },
+      "integradores": {
+        "titulo": "Integrators and SaaS",
+        "descripcion": "Add document issuing to your product with a documented REST API, a sandbox and an interactive reference."
+      }
+    },
+    "comprobantes": {
+      "titulo": "Electronic documents",
+      "descripcion": "Invoices, credit and debit notes, and voiding notices, all being issued today. The rest of the SUNAT catalog is on the way, and we label it as such so you know what to count on.",
+      "disponible": "Available",
+      "enConstruccion": "In progress",
+      "tipos": {
+        "factura": "Electronic invoice",
+        "boleta": "Sales receipt (boleta)",
+        "notaCredito": "Credit note",
+        "notaDebito": "Debit note",
+        "resumenDiario": "Daily summary (boleta voiding)",
+        "comunicacionBaja": "Voiding notice",
+        "guiaRemision": "Delivery guide",
+        "retencionPercepcion": "Withholding / perception"
+      }
+    },
+    "cierre": {
+      "tituloAbierto": "Issue your first invoice today",
+      "tituloCerrado": "Request access to the beta",
+      "descripcionAbierto": "Create your account, set up your company and check that SUNAT accepts your documents — without paying a cent.",
+      "descripcionCerrado": "We enable accounts one at a time to help you set up the certificate and SOL credentials."
+    },
+    "comoFunciona": {
+      "etiqueta": "How it works",
+      "titulo": "From your certificate to SUNAT’s receipt",
+      "descripcion": "Setup happens once. After that, issuing is one step and the receipt arrives on its own.",
+      "unaVez": {
+        "cuando": "Just once",
+        "nota": "Initial setup"
+      },
+      "cadaComprobante": {
+        "cuando": "With every document",
+        "nota": "The only thing you repeat"
+      },
+      "pasos": {
+        "certificado": {
+          "titulo": "You upload your certificate and SOL credentials",
+          "detalle": "They’re stored encrypted. khipu uses them to sign every document, and you never touch them again."
+        },
+        "series": {
+          "titulo": "You set up your series",
+          "detalle": "F001, B001… each with its own sequence and, if you have locations, its establishment."
+        },
+        "emision": {
+          "titulo": "You issue from the portal or your own system",
+          "detalle": "khipu calculates the totals, builds the UBL 2.1 XML, signs it and sends it to SUNAT."
+        },
+        "constancia": {
+          "titulo": "You get the receipt",
+          "detalle": "The CDR arrives in seconds. If SUNAT doesn’t respond, khipu retries on its own and nothing is numbered twice."
+        }
+      }
+    },
+    "preview": {
+      "titulo": "Automatic processing with the API",
+      "flujo": "Flow: validates the data, generates the UBL XML, sends it to SUNAT, receives the response, delivers the files",
+      "aceptado": "Accepted",
+      "pasos": {
+        "valida": {
+          "titulo": "Validates the data",
+          "detalle": "business rules"
+        },
+        "genera": {
+          "titulo": "Generates the UBL XML",
+          "detalle": "UBL 2.1"
+        },
+        "envia": {
+          "titulo": "Sends to SUNAT",
+          "detalle": ".zip"
+        },
+        "recibe": {
+          "titulo": "Receives the response"
+        },
+        "entrega": {
+          "titulo": "Delivers the files",
+          "detalle": "XML · CDR · PDF"
+        }
+      }
+    },
+    "faq": {
+      "titulo": "Frequently asked questions",
+      "sunatNoResponde": {
+        "pregunta": "What happens if SUNAT doesn’t respond?",
+        "respuesta": "khipu retries automatically with increasing wait times. The document stays pending; it’s never lost or numbered twice."
+      },
+      "instalar": {
+        "pregunta": "Do I need to install anything on my system?",
+        "respuesta": "No. It’s a REST API: you call it from your system, or you use the portal directly without writing code."
+      },
+      "certificado": {
+        "pregunta": "What happens to my digital certificate?",
+        "respuesta": "You upload it once and it’s stored encrypted. khipu uses it to sign every XML with XML-DSig (RSA-SHA256), as SUNAT requires."
+      },
+      "planGratis": {
+        "pregunta": "Does the free plan expire?",
+        "respuesta": "No. It’s permanent, not a trial — as long as your volume fits within 30 documents a month."
+      },
+      "boletas": {
+        "pregunta": "Can I issue boletas or credit notes?",
+        "respuesta": "Today we issue invoices and boletas, credit and debit notes on invoices, and we void invoices (voiding notice) and boletas (daily summary) with SUNAT. Notes on boletas and delivery guides are on the way."
+      }
+    },
+    "planes": {
+      "titulo": "Clear plans, free to start",
+      "descripcion": "The Gratis plan never expires — it’s not a trial. You move up a plan when your volume calls for it.",
+      "periodo": "Billing period",
+      "mensual": "Monthly",
+      "anual": "Yearly",
+      "ahorroAnual": "−2 months",
+      "masUsado": "Most popular",
+      "paraSiempre": "forever",
+      "porMes": "/month",
+      "alAno": "{monto} per year · 2 months free",
+      "empezarGratis": "Start for free",
+      "elegir": "Choose {plan}",
+      "pedirAcceso": "Request access",
+      "nota": "Documents count once SUNAT accepts them: rejections and retries don’t use up your plan.",
+      "aMedida": "Need on-premise or a custom plan?",
+      "escribenos": "Write to us",
+      "limites": {
+        "documentosIlimitados": "Unlimited documents",
+        "documentosAlMes": "{n} documents/month",
+        "usuariosIlimitados": "unlimited users",
+        "unUsuario": "1 user",
+        "usuarios": "{n} users",
+        "rucs": "{n} RUC · {usuarios}",
+        "apiKeysIlimitadas": "Unlimited API keys",
+        "unaApiKey": "1 API key",
+        "apiKeys": "{n} API keys",
+        "retencion": "XML and CDR stored for {periodo}",
+        "unAno": "1 year",
+        "anos": "{n} years"
+      },
+      "catalogo": {
+        "gratis": {
+          "nombre": "Gratis",
+          "para": "To try out the API",
+          "docs": "30 documents/month",
+          "rucs": "1 RUC · 1 user",
+          "incluye": [
+            "Invoices, credit and debit notes, and voiding",
+            "Web portal and REST API",
+            "SUNAT test environment",
+            "1 API key · A4 PDF",
+            "XML and CDR stored for 1 year"
+          ]
+        },
+        "emprende": {
+          "nombre": "Emprende",
+          "para": "Corner stores, freelancers and shops",
+          "docs": "300 documents/month",
+          "rucs": "1 RUC · 1 user",
+          "incluye": [
+            "Everything in Gratis",
+            "Production as well as testing",
+            "2 API keys",
+            "XML and CDR stored for 5 years",
+            "Email support (48 h)"
+          ]
+        },
+        "negocio": {
+          "nombre": "Negocio",
+          "para": "Small businesses and accounting firms",
+          "docs": "1 500 documents/month",
+          "rucs": "3 RUC · 3 users",
+          "incluye": [
+            "Everything in Emprende",
+            "PDF with your logo and color",
+            "5 API keys",
+            "Email and WhatsApp support (24 h)"
+          ]
+        },
+        "pro": {
+          "nombre": "Pro",
+          "para": "SaaS, ISVs and high volume",
+          "docs": "Unlimited documents",
+          "rucs": "10 RUC · unlimited users",
+          "incluye": [
+            "Everything in Negocio",
+            "Unlimited API keys",
+            "Priority support (8 business hours)"
+          ]
+        }
+      }
+    }
   }
 }

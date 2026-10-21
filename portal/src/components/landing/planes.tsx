@@ -2,9 +2,11 @@
 
 import { CheckIcon } from "lucide-react";
 import Link from "next/link";
+import { useMessages } from "next-intl";
 import { useState } from "react";
 import { Badge } from "khipu-design-system/ui/badge";
 import { Card } from "khipu-design-system/ui/card";
+import { interpolar } from "@/i18n/mensajes";
 import { cn } from "@/lib/utils";
 import type { TarjetaDePlan } from "./planes-datos";
 
@@ -25,6 +27,8 @@ function soles(n: number) {
 }
 
 export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[]; abierto: boolean; contacto: string | null }) {
+  const messages = useMessages();
+  const t = messages.landing.planes;
   const [anual, setAnual] = useState(false);
   const destinoCta = abierto ? "/registro" : contacto;
 
@@ -32,23 +36,19 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
     <section id="precios" className="mx-auto max-w-6xl px-6 py-24">
       <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-[12px] font-medium text-foreground/80">
         <span className="size-1.5 rounded-full bg-acento" aria-hidden />
-        Precios
+        {messages.landing.acciones.precios}
       </p>
       <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">
-            Planes claros, gratis para empezar
-          </h2>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            El plan Gratis no vence — no es un trial. Subes de plan cuando tu volumen lo pida.
-          </p>
+          <h2 className="font-heading text-3xl font-semibold tracking-[-0.015em] text-balance md:text-4xl">{t.titulo}</h2>
+          <p className="mt-2 max-w-2xl text-muted-foreground">{t.descripcion}</p>
         </div>
 
         {/* Segmentado: el ahorro anual se ve antes de elegir, no después. */}
-        <div className="inline-flex shrink-0 rounded-full border border-border bg-card p-1" role="group" aria-label="Periodo de facturación">
+        <div className="inline-flex shrink-0 rounded-full border border-border bg-card p-1" role="group" aria-label={t.periodo}>
           {[
-            { id: "mensual", etiqueta: "Mensual", valor: false },
-            { id: "anual", etiqueta: "Anual", valor: true },
+            { id: "mensual", etiqueta: t.mensual, valor: false },
+            { id: "anual", etiqueta: t.anual, valor: true },
           ].map((op) => (
             <button
               key={op.id}
@@ -61,7 +61,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
               )}
             >
               {op.etiqueta}
-              {op.valor ? <span className={cn("ml-1.5 text-[11px]", anual ? "text-primary-foreground/80" : "text-acento")}>−2 meses</span> : null}
+              {op.valor ? <span className={cn("ml-1.5 text-[11px]", anual ? "text-primary-foreground/80" : "text-acento")}>{t.ahorroAnual}</span> : null}
             </button>
           ))}
         </div>
@@ -86,18 +86,18 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
                   <h3 className="font-heading text-lg font-semibold">{p.nombre}</h3>
                   <p className="mt-0.5 text-[13px] text-muted-foreground">{p.para}</p>
                 </div>
-                {p.destacado ? <Badge className="shrink-0 border-transparent bg-acento text-[#1b1206]">Más usado</Badge> : null}
+                {p.destacado ? <Badge className="shrink-0 border-transparent bg-acento text-[#1b1206]">{t.masUsado}</Badge> : null}
               </div>
 
               <p className="mt-5 flex items-baseline gap-1.5">
                 <span className="font-heading text-[2rem] leading-none font-semibold tracking-[-0.02em] tabular-nums">
                   {p.mensual === 0 ? "S/ 0" : soles(porMes)}
                 </span>
-                <span className="text-sm text-muted-foreground">{p.mensual === 0 ? "para siempre" : "/mes"}</span>
+                <span className="text-sm text-muted-foreground">{p.mensual === 0 ? t.paraSiempre : t.porMes}</span>
               </p>
               {/* Altura reservada: sin esto, las tarjetas saltan al cambiar de periodo. */}
               <p className="mt-1 min-h-[1.25rem] text-[12px] text-acento">
-                {anual && p.mensual > 0 ? `${soles(alAno)} al año · 2 meses libres` : ""}
+                {anual && p.mensual > 0 ? interpolar(t.alAno, { monto: soles(alAno) }) : ""}
               </p>
 
               <div className="mt-4 rounded-lg bg-muted/60 px-3 py-2.5 text-sm">
@@ -115,7 +115,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
                       : "border border-border bg-card text-foreground hover:bg-muted",
                   )}
                 >
-                  {abierto ? (p.mensual === 0 ? "Empezar gratis" : `Elegir ${p.nombre}`) : "Pedir acceso"}
+                  {abierto ? (p.mensual === 0 ? t.empezarGratis : interpolar(t.elegir, { plan: p.nombre })) : t.pedirAcceso}
                 </Link>
               ) : null}
 
@@ -133,12 +133,12 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
       </div>
 
       <p className="mt-8 text-sm text-muted-foreground">
-        Los documentos se cuentan cuando SUNAT los acepta: los rechazos y los reintentos no consumen tu plan.{" "}
+        {t.nota}{" "}
         {contacto ? (
           <>
-            ¿Necesitas on-premise o un plan a medida?{" "}
+            {t.aMedida}{" "}
             <a href={contacto} className="text-primary hover:underline">
-              Escríbenos
+              {t.escribenos}
             </a>
             .
           </>

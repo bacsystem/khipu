@@ -3755,5 +3755,250 @@
       "unidad": "series",
       "nota": "Los correlativos se asignan de forma atómica y secuencial por cada emisión"
     }
+  },
+  "landing": {
+    "acciones": {
+      "crearCuentaGratis": "Crear cuenta gratis",
+      "solicitarAcceso": "Solicitar acceso",
+      "iniciarSesion": "Iniciar sesión",
+      "desarrolladores": "Desarrolladores",
+      "precios": "Precios",
+      "verDocumentacion": "Ver documentación de la API"
+    },
+    "hero": {
+      "etiqueta": "Facturación electrónica para Perú",
+      "titulo": "Comprobantes que SUNAT acepta a la primera.",
+      "descripcion": "Calculamos los totales en el servidor antes de firmar, así que los rechazos por descuadre no existen. Empieza gratis, para siempre, con tu primer RUC.",
+      "notaAbierto": "Sin tarjeta · Plan gratis permanente, no un trial.",
+      "notaCerrado": "Beta por invitación: habilitamos las cuentas una por una y acompañamos cada alta."
+    },
+    "confianza": [
+      "Firma XML-DSig (RSA-SHA256)",
+      "UBL 2.1 sobre el estándar SUNAT",
+      "Reintentos automáticos",
+      "API REST documentada"
+    ],
+    "beneficios": {
+      "etiqueta": "Por qué khipu",
+      "titulo": "Menos trámite, más control",
+      "descripcion": "Lo que cambia cuando el cálculo, la firma y el reintento no son tu problema.",
+      "descuadre": {
+        "titulo": "Cero rechazos por descuadre",
+        "descripcion": "Calculamos y validamos los totales en el servidor antes de firmar: no dependemos de que tu sistema arme bien el XML."
+      },
+      "caida": {
+        "titulo": "Sigue facturando aunque SUNAT se caiga",
+        "descripcion": "Si SUNAT no responde, reintentamos automáticamente con espera creciente. Ningún comprobante se pierde ni se numera dos veces."
+      },
+      "portal": {
+        "titulo": "Portal para ti, API para tu equipo",
+        "descripcion": "Emite y consulta desde el portal, o integra la misma API a tu sistema — documentada, con referencia interactiva y prueba en vivo."
+      },
+      "configuracion": {
+        "titulo": "Certificado y series en minutos",
+        "descripcion": "Sube tu certificado digital y tus credenciales SOL una sola vez, y configura tus series desde el panel — sin tickets de soporte."
+      }
+    },
+    "audiencia": {
+      "titulo": "Hecho para tu tipo de negocio",
+      "descripcion": "La misma plataforma, según de qué lado la mires.",
+      "pymes": {
+        "titulo": "PYMES y comercios",
+        "descripcion": "Emite, controla tus series y lleva el historial de tu empresa desde un panel simple."
+      },
+      "contadores": {
+        "titulo": "Contadores y estudios",
+        "descripcion": "Administra varias empresas (RUC) desde una sola cuenta y descarga XML y CDR cuando los necesites."
+      },
+      "integradores": {
+        "titulo": "Integradores y SaaS",
+        "descripcion": "Suma la emisión a tu producto con una API REST documentada, sandbox y referencia interactiva."
+      }
+    },
+    "comprobantes": {
+      "titulo": "Comprobantes electrónicos",
+      "descripcion": "Factura, notas de crédito y de débito, y comunicación de baja, todas emitiendo hoy. El resto del catálogo de SUNAT está en camino, y lo marcamos tal cual para que sepas con qué contar.",
+      "disponible": "Disponible",
+      "enConstruccion": "En construcción",
+      "tipos": {
+        "factura": "Factura electrónica",
+        "boleta": "Boleta de venta",
+        "notaCredito": "Nota de crédito",
+        "notaDebito": "Nota de débito",
+        "resumenDiario": "Resumen diario (anulación de boletas)",
+        "comunicacionBaja": "Comunicación de baja",
+        "guiaRemision": "Guía de remisión",
+        "retencionPercepcion": "Retención / percepción"
+      }
+    },
+    "cierre": {
+      "tituloAbierto": "Emite tu primera factura hoy",
+      "tituloCerrado": "Pide acceso a la beta",
+      "descripcionAbierto": "Crea tu cuenta, configura tu empresa y verifica que SUNAT acepta tus comprobantes — sin pagar un sol.",
+      "descripcionCerrado": "Habilitamos cuentas de a una para acompañar la configuración del certificado y las credenciales SOL."
+    },
+    "comoFunciona": {
+      "etiqueta": "Cómo funciona",
+      "titulo": "De tu certificado a la constancia de SUNAT",
+      "descripcion": "La configuración se hace una vez. Después, emitir es un paso y la constancia llega sola.",
+      "unaVez": {
+        "cuando": "Una sola vez",
+        "nota": "Configuración inicial"
+      },
+      "cadaComprobante": {
+        "cuando": "En cada comprobante",
+        "nota": "Lo único que repites"
+      },
+      "pasos": {
+        "certificado": {
+          "titulo": "Subes tu certificado y tus credenciales SOL",
+          "detalle": "Se guardan cifrados. khipu los usa para firmar cada comprobante, y no vuelves a tocarlos."
+        },
+        "series": {
+          "titulo": "Configuras tus series",
+          "detalle": "F001, B001… cada una con su correlativo y, si tienes locales, su establecimiento."
+        },
+        "emision": {
+          "titulo": "Emites desde el portal o por tu sistema",
+          "detalle": "khipu calcula los totales, arma el XML UBL 2.1, lo firma y lo envía a SUNAT."
+        },
+        "constancia": {
+          "titulo": "Recibes la constancia",
+          "detalle": "El CDR llega en segundos. Si SUNAT no responde, khipu reintenta solo y nada se numera dos veces."
+        }
+      }
+    },
+    "preview": {
+      "titulo": "Procesamiento automático con la API",
+      "flujo": "Flujo: valida los datos, genera el XML UBL, envía a SUNAT, recibe respuesta, entrega los archivos",
+      "aceptado": "Aceptado",
+      "pasos": {
+        "valida": {
+          "titulo": "Valida los datos",
+          "detalle": "reglas de negocio"
+        },
+        "genera": {
+          "titulo": "Genera el XML UBL",
+          "detalle": "UBL 2.1"
+        },
+        "envia": {
+          "titulo": "Envía a SUNAT",
+          "detalle": ".zip"
+        },
+        "recibe": {
+          "titulo": "Recibe respuesta"
+        },
+        "entrega": {
+          "titulo": "Entrega los archivos",
+          "detalle": "XML · CDR · PDF"
+        }
+      }
+    },
+    "faq": {
+      "titulo": "Preguntas frecuentes",
+      "sunatNoResponde": {
+        "pregunta": "¿Qué pasa si SUNAT no responde?",
+        "respuesta": "khipu reintenta automáticamente con espera creciente. El comprobante queda pendiente, nunca se pierde ni se numera dos veces."
+      },
+      "instalar": {
+        "pregunta": "¿Necesito instalar algo en mi sistema?",
+        "respuesta": "No. Es una API REST: la llamas desde tu sistema, o usas el portal directamente sin escribir código."
+      },
+      "certificado": {
+        "pregunta": "¿Qué pasa con mi certificado digital?",
+        "respuesta": "Se sube una vez y se guarda cifrado. khipu lo usa para firmar cada XML con XML-DSig (RSA-SHA256), como exige SUNAT."
+      },
+      "planGratis": {
+        "pregunta": "¿El plan gratis tiene fecha de vencimiento?",
+        "respuesta": "No. Es permanente, no un trial — mientras tu volumen entre en los 30 documentos mensuales."
+      },
+      "boletas": {
+        "pregunta": "¿Puedo emitir boletas o notas de crédito?",
+        "respuesta": "Hoy emitimos facturas y boletas, notas de crédito y de débito sobre facturas, y anulamos ante SUNAT facturas (comunicación de baja) y boletas (resumen diario). Las notas sobre boletas y las guías de remisión están en camino."
+      }
+    },
+    "planes": {
+      "titulo": "Planes claros, gratis para empezar",
+      "descripcion": "El plan Gratis no vence — no es un trial. Subes de plan cuando tu volumen lo pida.",
+      "periodo": "Periodo de facturación",
+      "mensual": "Mensual",
+      "anual": "Anual",
+      "ahorroAnual": "−2 meses",
+      "masUsado": "Más usado",
+      "paraSiempre": "para siempre",
+      "porMes": "/mes",
+      "alAno": "{monto} al año · 2 meses libres",
+      "empezarGratis": "Empezar gratis",
+      "elegir": "Elegir {plan}",
+      "pedirAcceso": "Pedir acceso",
+      "nota": "Los documentos se cuentan cuando SUNAT los acepta: los rechazos y los reintentos no consumen tu plan.",
+      "aMedida": "¿Necesitas on-premise o un plan a medida?",
+      "escribenos": "Escríbenos",
+      "limites": {
+        "documentosIlimitados": "Documentos ilimitados",
+        "documentosAlMes": "{n} documentos/mes",
+        "usuariosIlimitados": "usuarios ilimitados",
+        "unUsuario": "1 usuario",
+        "usuarios": "{n} usuarios",
+        "rucs": "{n} RUC · {usuarios}",
+        "apiKeysIlimitadas": "API keys ilimitadas",
+        "unaApiKey": "1 API key",
+        "apiKeys": "{n} API keys",
+        "retencion": "XML y CDR guardados {periodo}",
+        "unAno": "1 año",
+        "anos": "{n} años"
+      },
+      "catalogo": {
+        "gratis": {
+          "nombre": "Gratis",
+          "para": "Para probar la API",
+          "docs": "30 documentos/mes",
+          "rucs": "1 RUC · 1 usuario",
+          "incluye": [
+            "Factura, nota de crédito y de débito, y baja",
+            "Portal web y API REST",
+            "Entorno de pruebas de SUNAT",
+            "1 API key · PDF A4",
+            "XML y CDR guardados 1 año"
+          ]
+        },
+        "emprende": {
+          "nombre": "Emprende",
+          "para": "Bodegas, freelancers y tiendas",
+          "docs": "300 documentos/mes",
+          "rucs": "1 RUC · 1 usuario",
+          "incluye": [
+            "Todo lo de Gratis",
+            "Producción además de pruebas",
+            "2 API keys",
+            "XML y CDR guardados 5 años",
+            "Soporte por correo (48 h)"
+          ]
+        },
+        "negocio": {
+          "nombre": "Negocio",
+          "para": "PYMES y estudios contables",
+          "docs": "1 500 documentos/mes",
+          "rucs": "3 RUC · 3 usuarios",
+          "incluye": [
+            "Todo lo de Emprende",
+            "PDF con tu logo y tu color",
+            "5 API keys",
+            "Soporte por correo y WhatsApp (24 h)"
+          ]
+        },
+        "pro": {
+          "nombre": "Pro",
+          "para": "SaaS, ISV y alto volumen",
+          "docs": "Documentos ilimitados",
+          "rucs": "10 RUC · usuarios ilimitados",
+          "incluye": [
+            "Todo lo de Negocio",
+            "API keys ilimitadas",
+            "Soporte prioritario (8 h hábiles)"
+          ]
+        }
+      }
+    }
   }
 }

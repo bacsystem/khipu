@@ -109,11 +109,6 @@
       "count": 8
     }
   },
-  "src/app/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 49
-    }
-  },
   "src/components/admin/acciones-de-baja.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 2
@@ -292,36 +287,6 @@
   "src/components/formularios/stepper-numerico.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 2
-    }
-  },
-  "src/components/landing/como-funciona.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 15
-    }
-  },
-  "src/components/landing/comprobante-preview.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 10
-    }
-  },
-  "src/components/landing/faq.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 11
-    }
-  },
-  "src/components/landing/planes-datos.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 23
-    }
-  },
-  "src/components/landing/planes.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 16
-    }
-  },
-  "src/components/landing/site-header.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
     }
   },
   "src/components/webhooks/entregas-webhook.tsx": {
